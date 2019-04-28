@@ -1,2 +1,2 @@
 # GE
-Generic 3D/2D Game Engine written in C++ and modern OpenGL
+Generic 3D/2D game engine written in C++
