@@ -2,6 +2,9 @@
 # Mempuntu - 19/04/2019
 
 print-%  : ; @echo $* = $($*)
+RED=\033[0;31m
+GREEN=\033[1;32m
+NC=\033[0m
 
 #include directories for header-only dependencies
 INC=-isystem src/headers \
@@ -39,32 +42,34 @@ SOURCES := $(wildcard src/*.cpp)
 SOURCES += $(IMGUI_C)
 
 OBJS := $(SOURCES:.cpp=.o)
-OUTPUT_OBJS := $(addprefix $(BUILD_PATH),$(notdir $(OBJS) $(IMGUI_O))) $(GL3W_O)
+OUTPUT_OBJS := $(addprefix $(BUILD_PATH),$(notdir $(OBJS))) $(GL3W_O)
 
 .PHONY: build rebuild clean
 
 build:
+	@echo "\n Compilation $(GREEN)started$(NC) at $$(date +%T). \n"
 	make $(EXE) -j3
-	@echo "All files up-to-date."
+	@echo "\n Compilation $(GREEN)finished$(NC) at $$(date +%T). \n"
 
 clean:
 	rm -fr $(addprefix $(BUILD_PATH), $(EXE)) $(OUTPUT_OBJS)
-	@echo "Everything clean, please rebuild."
+	@echo "\n Directory $(GREEN)cleaned$(NC) succesfully. \n"
 
 rebuild: clean build
 
 run:
-	@echo "running $(EXE) .."
+	@echo "\n running $(EXE) .. \n"
 	./$(addprefix $(BUILD_PATH), $(EXE))
 
 $(EXE): $(OUTPUT_OBJS)
-	   $(LINK) -o $(addprefix $(BUILD_PATH), $(EXE)) $^ $(LINK_FLAGS)
+	   $(LINK) -o $(addprefix $(BUILD_PATH), $(EXE)) $(OUTPUT_OBJS) $(LINK_FLAGS)
 
-$(OUTPUT_OBJS) : $(OBJS) $(GL3W_O) $(IMGUI_O)
+VPATH= $(sort $(dir $(SOURCES)))
 
-$(GL3W_O): $(GL3W_C) $(GL3W_H)
+$(BUILD_PATH)%.o: %.cpp
+		$(CL) $(CL_FLAGS) $(INC) $< -o $@
+
+$(BUILD_PATH)gl3w.o: $(GL3W_C) $(GL3W_H)
 		$(CL) $(CL_FLAGS) $(INC) $(GL3W_C) -o $(GL3W_O)
 
-%.o : %.cpp $(HEADERS)
-		$(CL) $(CL_FLAGS) $(INC) $*.cpp -o $(addprefix $(BUILD_PATH),$(notdir $*.o))
 
