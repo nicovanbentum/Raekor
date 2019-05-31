@@ -63,7 +63,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\JSON\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm;$(SolutionDir)\dependencies\JSON\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -91,7 +91,7 @@ copy "$(SolutionDir)\config.json" "$(TargetDir)"</Command>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\VS Projects\GE\dependencies\glm;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir)\src\headers;$(SolutionDir);$(SolutionDir)\dependencies\JSON\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\glm;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir)\src\headers;$(SolutionDir);$(SolutionDir)\dependencies\JSON\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>

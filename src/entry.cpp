@@ -6,6 +6,28 @@
 #include "dds.h"
 #include "model.h"
 
+std::string OpenFile() {
+    OPENFILENAMEA ofn;
+    CHAR szFile[260] = {0};
+
+    ZeroMemory(&ofn, sizeof(OPENFILENAME));
+    ofn.lStructSize = sizeof(OPENFILENAME);
+    ofn.hwndOwner = GetActiveWindow();
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = sizeof(szFile);
+    ofn.lpstrFilter = "All\0*.*\0";
+    ofn.nFilterIndex = 1;
+    ofn.lpstrFileTitle = NULL;
+    ofn.nMaxFileTitle = 0;
+    ofn.lpstrInitialDir = NULL;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+    if (GetOpenFileNameA(&ofn) == TRUE) {
+        return ofn.lpstrFile;
+    }
+    return std::string();
+}
+
 int main(int argc, char** argv) {
     json config;
     std::ifstream ifs("config.json");
@@ -45,6 +67,8 @@ int main(int argc, char** argv) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\Rubik-Regular.ttf", 18.0f);
+	io.FontDefault = io.Fonts->Fonts.back();
     ImGui::StyleColorsDark();
 
     auto vendor = glGetString(GL_VENDOR);
@@ -83,6 +107,7 @@ int main(int argc, char** argv) {
 
     //create the model
     GE_model m;
+    GE_model m2;
 
     //ask for and get the model's properties from the config file
     auto models = jfind<json>(config, "objects");
@@ -110,7 +135,7 @@ int main(int argc, char** argv) {
     if (!GE_load_obj(filename.c_str(), m.vertices, m.uvs, m.normals)) {
         trace("Could not load object");
     }
-    
+
     //index the vbo for improved performance
     index_model_vbo(m);
 
@@ -146,30 +171,36 @@ int main(int argc, char** argv) {
         //start drawing a new imgui window. TODO: make this into a reusable component
         ImGui::Begin("Object Properties");
 
-        if(ImGui::BeginCombo("models", current_model)) {
-            for(auto & name : object_names) {
-                bool selected = (name == current_model);
-                if(ImGui::Selectable(name.c_str(), selected)) {
-                    current_model = name.c_str();
+        ImGui::Text("Mesh");
+        ImGui::SameLine();
+		if (ImGui::Button("...##Mesh")) {
+            std::string path = OpenFile();
+			if (path != "") {
+                std::string extension = "";
+                extension.append(path, path.length()-4, 4);
+                if(extension == ".obj") {
                     m = GE_model();
-                    chosen_object = jfind<json>(models, current_model);
-
-                    auto model_path = jfind<std::string>(chosen_object, "model");
-                    auto texture_path = jfind<std::string>(chosen_object, "texture");
-
-                    GE_load_obj(model_path.c_str(), m.vertices, m.uvs, m.normals);
-                    texture  = BMP_to_GL(jfind<std::string>(chosen_object, "texture").c_str());
+                    GE_load_obj(path.c_str(), m.vertices, m.uvs, m.normals);
                     index_model_vbo(m);
-                    
                     vertexbuffer = gen_gl_buffer(m.vertices, GL_ARRAY_BUFFER);
                     uvbuffer = gen_gl_buffer(m.uvs, GL_ARRAY_BUFFER);
                     elementbuffer = gen_gl_buffer(m.indices, GL_ELEMENT_ARRAY_BUFFER);
                 }
-                if(selected) {
-                    ImGui::SetItemDefaultFocus();
+			}
+        }
+        ImGui::Separator();
+
+        ImGui::Text("Texture");
+        ImGui::SameLine();
+		if (ImGui::Button("...##Texture")) {
+            std::string path = OpenFile();
+			if (path != "") {
+                std::string extension = "";
+                extension.append(path, path.length()-4, 4);
+                if(extension == ".bmp") {
+                    texture = BMP_to_GL(path.c_str());
                 }
-            }	
-            ImGui::EndCombo();
+			}
         }
 
         static float last_input_scale = 1.0f;
