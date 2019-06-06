@@ -6,6 +6,11 @@
       "height": 900
     },
 
+    "imgui":
+    {
+      "font": "res/Rubik-Regular.ttf"
+    },
+
     "objects":
     {
           "aminecraft block":

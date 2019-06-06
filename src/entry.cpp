@@ -71,11 +71,16 @@ int main(int argc, char** argv) {
     printf("GL INFO: OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
             glGetString(GL_SHADING_LANGUAGE_VERSION));
 
+
+    auto imgui_properties = jfind<json>(config, "imgui");
+    auto font = jfind<std::string>(imgui_properties, "font");
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImFont* pFont = io.Fonts->AddFontFromFileTTF("res/Rubik-Regular.ttf", 18.0f);
-	io.FontDefault = io.Fonts->Fonts.back();
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 18.0f);
+    if(!io.Fonts->Fonts.empty()) {
+	    io.FontDefault = io.Fonts->Fonts.back();
+    }
     ImGui::StyleColorsDark();
 
     auto vendor = glGetString(GL_VENDOR);
