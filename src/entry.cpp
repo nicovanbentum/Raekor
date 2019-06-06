@@ -74,8 +74,8 @@ int main(int argc, char** argv) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    //ImFont* pFont = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\Rubik-Regular.ttf", 18.0f);
-	//io.FontDefault = io.Fonts->Fonts.back();
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF("res/Rubik-Regular.ttf", 18.0f);
+	io.FontDefault = io.Fonts->Fonts.back();
     ImGui::StyleColorsDark();
 
     auto vendor = glGetString(GL_VENDOR);
