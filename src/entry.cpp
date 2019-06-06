@@ -6,6 +6,8 @@
 #include "dds.h"
 #include "model.h"
 
+
+#ifdef _WIN32
 std::string OpenFile() {
     OPENFILENAMEA ofn;
     CHAR szFile[260] = {0};
@@ -27,6 +29,11 @@ std::string OpenFile() {
     }
     return std::string();
 }
+#else
+std::string OpenFile() {
+    return std::string();
+}
+#endif
 
 int main(int argc, char** argv) {
     json config;
@@ -67,8 +74,8 @@ int main(int argc, char** argv) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImFont* pFont = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\Rubik-Regular.ttf", 18.0f);
-	io.FontDefault = io.Fonts->Fonts.back();
+    //ImFont* pFont = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\Rubik-Regular.ttf", 18.0f);
+	//io.FontDefault = io.Fonts->Fonts.back();
     ImGui::StyleColorsDark();
 
     auto vendor = glGetString(GL_VENDOR);
@@ -171,6 +178,7 @@ int main(int argc, char** argv) {
         //start drawing a new imgui window. TODO: make this into a reusable component
         ImGui::Begin("Object Properties");
 
+        #ifdef _WIN32
         ImGui::Text("Mesh");
         ImGui::SameLine();
 		if (ImGui::Button("...##Mesh")) {
@@ -202,6 +210,34 @@ int main(int argc, char** argv) {
                 }
 			}
         }
+
+        #else
+        if(ImGui::BeginCombo("models", current_model)) {
+            for(auto & name : object_names) {
+                bool selected = (name == current_model);
+                if(ImGui::Selectable(name.c_str(), selected)) {
+                    current_model = name.c_str();
+                    m = GE_model();
+                    chosen_object = jfind<json>(models, current_model);
+
+                    auto model_path = jfind<std::string>(chosen_object, "model");
+                    auto texture_path = jfind<std::string>(chosen_object, "texture");
+
+                    GE_load_obj(model_path.c_str(), m.vertices, m.uvs, m.normals);
+                    texture  = BMP_to_GL(jfind<std::string>(chosen_object, "texture").c_str());
+                    index_model_vbo(m);
+
+                    vertexbuffer = gen_gl_buffer(m.vertices, GL_ARRAY_BUFFER);
+                    uvbuffer = gen_gl_buffer(m.uvs, GL_ARRAY_BUFFER);
+                    elementbuffer = gen_gl_buffer(m.indices, GL_ELEMENT_ARRAY_BUFFER);
+                }
+                if(selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }	
+            ImGui::EndCombo();
+        }
+        #endif // TODO: restructure all code 
 
         static float last_input_scale = 1.0f;
         static float input_scale = 1.0f;
