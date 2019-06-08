@@ -31,18 +31,42 @@ std::string OpenFile() {
 }
 #else
 std::string OpenFile() {
-    std::string file;
+    //init gtk
+	assert(gtk_init_check(NULL, NULL));
+	
+    // get action handle and set a title and ok text
+	const char* title = "Open File";
+	const char* ok_text = "Open";
 
-    GtkWidget* dialog;
-    dialog = gtk_file_chooser_dialog_new("Choose a file", NULL, GTK_FILE_CHOOSER_ACTION_OPEN, GTK_STOCK_OK, GTK_RESPONSE_OK,GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, NULL);
-    gtk_widget_show_all(dialog);
-    gint response = gtk_dialog_run(GTK_DIALOG(dialog));
-    if (response == GTK_RESPONSE_OK) {
-        const char * path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
-        file = std::string(path);
+    // allocate a new dialog window
+	GtkWidget *dialog = gtk_file_chooser_dialog_new(
+		title,
+		NULL,
+		GTK_FILE_CHOOSER_ACTION_OPEN,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		ok_text, GTK_RESPONSE_ACCEPT,
+		NULL);
+
+	char* path = NULL;
+    // if the ok button is pressed (gtk response type ACCEPT) we get the selected filepath
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+		path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+	}
+    // destroy our dialog window
+	gtk_widget_destroy(dialog);
+
+    // if our filepath is not empty we make it the return value
+	std::string file;
+	if(path) {
+		file = std::string(path, strlen(path));
+	}
+
+    // main event loop for our window, this took way too long to fix 
+    // (newer GTK's produce segfaults, something to do with SDL)
+	while(gtk_events_pending()) {
+		gtk_main_iteration();
     }
-    gtk_widget_destroy(dialog);
-    return file;
+	return file;
 }
 #endif
 
@@ -54,6 +78,7 @@ int main(int argc, char** argv) {
     if(SDL_Init(SDL_INIT_VIDEO) != 0) {
         trace("failed to init sdl");
     }
+    
     auto resolution = jfind<json>(config, "resolution");
     const char* glsl_version = "#version 330";
 
@@ -71,7 +96,6 @@ int main(int argc, char** argv) {
                                         jfind<int>(resolution, "width"),
                                         jfind<int>(resolution, "height"),
                                         wflags);
-
     SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
     SDL_GL_MakeCurrent(main_window, gl_context);
 
@@ -181,6 +205,8 @@ int main(int argc, char** argv) {
     glm::mat4 mvp;
     glUseProgram(programID);
 
+
+
     //main application loop
     for(;;) {
         //handle sdl and imgui events
@@ -199,7 +225,6 @@ int main(int argc, char** argv) {
         //start drawing a new imgui window. TODO: make this into a reusable component
         ImGui::Begin("Object Properties");
 
-        #ifdef _WIN32
         ImGui::Text("Mesh");
         ImGui::SameLine();
 		if (ImGui::Button("...##Mesh")) {
@@ -232,7 +257,6 @@ int main(int argc, char** argv) {
 			}
         }
 
-        #else
         if(ImGui::BeginCombo("models", current_model)) {
             for(auto & name : object_names) {
                 bool selected = (name == current_model);
@@ -258,7 +282,6 @@ int main(int argc, char** argv) {
             }	
             ImGui::EndCombo();
         }
-        #endif // TODO: restructure all code 
 
         static float last_input_scale = 1.0f;
         static float input_scale = 1.0f;

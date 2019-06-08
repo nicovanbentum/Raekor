@@ -19,11 +19,11 @@ INC=-isystem src/headers \
 
 # compilation calls and flags
 CL=g++ -c
-CL_FLAGS=-std=c++17
+CL_FLAGS=`pkg-config gtk+-2.0 --cflags --libs` -std=c++17
 
 # linking compiler calls and flags
 LINK=g++
-LINK_FLAGS=-ldl -lm -lSDL2 -lSDL2main
+LINK_FLAGS=-ldl -lm -lSDL2 -lSDL2main `pkg-config gtk+-2.0 --cflags --libs`
 
 #program name and source files
 EXE=GE
