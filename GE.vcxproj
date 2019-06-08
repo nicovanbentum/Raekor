@@ -63,14 +63,14 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm;$(SolutionDir)\dependencies\JSON\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm;$(SolutionDir)\dependencies\JSON\single_include;$(SolutionDir)\src\headers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;SDL2main.lib;OpenGL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>gl3w.lib;SDL2.lib;SDL2main.lib;imgui.lib;OpenGL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
