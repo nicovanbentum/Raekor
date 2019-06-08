@@ -10,6 +10,7 @@
 
 #elif __linux__
     #include <GL/gl.h>
+    #include <gtk/gtk.h>
     
 #endif
 

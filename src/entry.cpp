@@ -31,7 +31,18 @@ std::string OpenFile() {
 }
 #else
 std::string OpenFile() {
-    return std::string();
+    std::string file;
+
+    GtkWidget* dialog;
+    dialog = gtk_file_chooser_dialog_new("Choose a file", NULL, GTK_FILE_CHOOSER_ACTION_OPEN, GTK_STOCK_OK, GTK_RESPONSE_OK,GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, NULL);
+    gtk_widget_show_all(dialog);
+    gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+    if (response == GTK_RESPONSE_OK) {
+        const char * path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+        file = std::string(path);
+    }
+    gtk_widget_destroy(dialog);
+    return file;
 }
 #endif
 
@@ -139,30 +150,36 @@ int main(int argc, char** argv) {
     auto texture  = BMP_to_GL(jfind<std::string>(chosen_object, "texture").c_str());
     auto sampler_id = glGetUniformLocation(programID, "myTextureSampler");
 
-    glm::mat4 mvp = camera.projection * camera.view * m.transformation;
-
     // Read the .obj file
     auto filename = jfind<std::string>(chosen_object, "model");
     std::cout << "loading " << filename << "..." << std::endl;
     if (!GE_load_obj(filename.c_str(), m.vertices, m.uvs, m.normals)) {
         trace("Could not load object");
     }
+    if (!GE_load_obj(filename.c_str(), m2.vertices, m2.uvs, m2.normals)) {
+        trace("Could not load object");
+    }
 
     //index the vbo for improved performance
     index_model_vbo(m);
+    index_model_vbo(m2);
 
     //generate opengl buffers
     auto vertexbuffer = gen_gl_buffer(m.vertices, GL_ARRAY_BUFFER);
     auto uvbuffer = gen_gl_buffer(m.uvs, GL_ARRAY_BUFFER);
     auto elementbuffer = gen_gl_buffer(m.indices, GL_ELEMENT_ARRAY_BUFFER);
+    auto vertexbuffer2 = gen_gl_buffer(m.vertices, GL_ARRAY_BUFFER);
+    auto uvbuffer2 = gen_gl_buffer(m.uvs, GL_ARRAY_BUFFER);
+    auto elementbuffer2 = gen_gl_buffer(m.indices, GL_ELEMENT_ARRAY_BUFFER);
+
 
     //get a rotation matrix
     vec3 euler_rotation(0.0f, 0.0f, 0.0f);
     auto rotation = static_cast<quat>( euler_rotation );
     mat4 rotation_matrix = glm::toMat4(rotation);
 
+    glm::mat4 mvp;
     glUseProgram(programID);
-    unsigned int light_id = glGetUniformLocation(programID, "LightPosition_worldspace");
 
     //main application loop
     for(;;) {
@@ -172,7 +189,6 @@ int main(int argc, char** argv) {
         //if mouse is not active it means we're in free mode
         if (!camera.mouse_active) {
             calculate_view(main_window, camera);
-            mvp = camera.projection * camera.view * m.transformation;
         }
         
         //get new frame for opengl, sdl and imgui
@@ -259,7 +275,7 @@ int main(int argc, char** argv) {
 
         static vec3 model_pos(0.0f);
         static vec3 pos(0.0f);
-        if (ImGui::SliderFloat3("Move", &pos.x, -2.0f, 2.0f, "%.2f")) {
+        if (ImGui::SliderFloat3("Move", &pos.x, -4.0f, 4.0f, "%.2f")) {
             vec3 move = pos - model_pos;
             m.transformation = translate(m.transformation, move);
             model_pos = pos;
@@ -293,11 +309,6 @@ int main(int argc, char** argv) {
         mvp = camera.projection * camera.view * m.transformation;
 
         glUniformMatrix4fv(matrixID, 1, GL_FALSE, &mvp[0][0]);
-        glUniformMatrix4fv(view_matrixID, 1, GL_FALSE, &camera.view[0][0]);
-        glUniformMatrix4fv(model_matrixID, 1, GL_FALSE, &m.transformation[0][0]);
-        
-        auto light_position = vec3(4,4,4);
-        glUniform3f(light_id, light_position.x, light_position.y, light_position.z);
 
         //bind the model texture to be the first
         glActiveTexture(GL_TEXTURE0);
@@ -315,8 +326,23 @@ int main(int argc, char** argv) {
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
         // Draw triangles
-        int size = static_cast<int>(m.indices.size());
-        glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, (void*)0);
+        glDrawElements(GL_TRIANGLES, static_cast<int>(m.indices.size()), GL_UNSIGNED_INT, nullptr);
+
+        mvp = camera.projection * camera.view * m2.transformation;
+        glUniformMatrix4fv(matrixID, 1, GL_FALSE, &mvp[0][0]);
+
+        //set attribute buffer for model vertices
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer2);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0,  (void*)0 );
+
+        //set attribute buffer for uvs
+        glEnableVertexAttribArray(1);
+        glBindBuffer(GL_ARRAY_BUFFER, uvbuffer2);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+        // Draw triangles
+        glDrawElements(GL_TRIANGLES, static_cast<int>(m2.indices.size()), GL_UNSIGNED_INT, nullptr);
 
         glDisableVertexAttribArray(0);
         glDisableVertexAttribArray(1);
