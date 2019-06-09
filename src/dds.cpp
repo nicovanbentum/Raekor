@@ -6,7 +6,7 @@ unsigned int BMP_to_GL(const char * file) {
     unsigned int texture_id = 0;
 
     SDL_Surface* texture = SDL_LoadBMP(file);
-    if(texture == NULL) trace("failed to load BMP, wrong path?");
+    m_assert(texture != NULL, "failed to load BMP, wrong path?");
 
     glGenTextures(1, &texture_id);
     glBindTexture(GL_TEXTURE_2D, texture_id);

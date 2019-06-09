@@ -32,21 +32,15 @@ std::string OpenFile() {
 #else
 std::string OpenFile() {
     //init gtk
-	assert(gtk_init_check(NULL, NULL));
-	
-    // get action handle and set a title and ok text
-	const char* title = "Open File";
-	const char* ok_text = "Open";
-
+	m_assert(gtk_init_check(NULL, NULL), "failed to init gtk");	
     // allocate a new dialog window
 	GtkWidget *dialog = gtk_file_chooser_dialog_new(
-		title,
+		"Open File",
 		NULL,
 		GTK_FILE_CHOOSER_ACTION_OPEN,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
-		ok_text, GTK_RESPONSE_ACCEPT,
+		"Open", GTK_RESPONSE_ACCEPT,
 		NULL);
-
 	char* path = NULL;
     // if the ok button is pressed (gtk response type ACCEPT) we get the selected filepath
 	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
@@ -54,13 +48,11 @@ std::string OpenFile() {
 	}
     // destroy our dialog window
 	gtk_widget_destroy(dialog);
-
     // if our filepath is not empty we make it the return value
 	std::string file;
 	if(path) {
 		file = std::string(path, strlen(path));
 	}
-
     // main event loop for our window, this took way too long to fix 
     // (newer GTK's produce segfaults, something to do with SDL)
 	while(gtk_events_pending()) {
@@ -75,9 +67,7 @@ int main(int argc, char** argv) {
     std::ifstream ifs("config.json");
     ifs >> config;	
 
-    if(SDL_Init(SDL_INIT_VIDEO) != 0) {
-        trace("failed to init sdl");
-    }
+    m_assert(SDL_Init(SDL_INIT_VIDEO) == 0, "failed to init sdl");
     
     auto resolution = jfind<json>(config, "resolution");
     const char* glsl_version = "#version 330";
@@ -99,9 +89,8 @@ int main(int argc, char** argv) {
     SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
     SDL_GL_MakeCurrent(main_window, gl_context);
 
-    if (gl3wInit() != 0) {
-        trace("failed to init gl3w");
-    }
+    m_assert(gl3wInit() == 0, "failed to init gl3w");
+
     std::cout << "GL INFO: OpenGL " << glGetString(GL_VERSION);
     printf("GL INFO: OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
             glGetString(GL_SHADING_LANGUAGE_VERSION));
@@ -177,12 +166,8 @@ int main(int argc, char** argv) {
     // Read the .obj file
     auto filename = jfind<std::string>(chosen_object, "model");
     std::cout << "loading " << filename << "..." << std::endl;
-    if (!GE_load_obj(filename.c_str(), m.vertices, m.uvs, m.normals)) {
-        trace("Could not load object");
-    }
-    if (!GE_load_obj(filename.c_str(), m2.vertices, m2.uvs, m2.normals)) {
-        trace("Could not load object");
-    }
+    m_assert(GE_load_obj(filename.c_str(), m.vertices, m.uvs, m.normals), "failed to load obj");
+    m_assert(GE_load_obj(filename.c_str(), m2.vertices, m2.uvs, m2.normals), "failed to load obj");
 
     //index the vbo for improved performance
     index_model_vbo(m);
