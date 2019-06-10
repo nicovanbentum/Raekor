@@ -5,7 +5,7 @@
 #ifndef NDEBUG
     #define m_assert(expr, msg) assert((msg, expr))
 #else 
-    #define m_assert(expr, msg) expr
+    #define m_assert(expr, msg) (void)(expr)
 #endif
 
 template<typename T>
