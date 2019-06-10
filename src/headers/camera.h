@@ -20,8 +20,8 @@ public:
     void update();
     void add_look(int x, int y);
     void move_on_input(float amount);
-    bool is_mouse_active();
-    void set_mouse_active(bool state);
+    inline bool is_mouse_active() { return mouse_active; }
+    inline void set_mouse_active(bool state) { mouse_active = state; }
     glm::vec3 get_direction();
 
 };

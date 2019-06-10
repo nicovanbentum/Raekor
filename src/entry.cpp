@@ -61,7 +61,20 @@ std::string OpenFile() {
     }
 	return file;
 }
+
+}
 #endif
+
+std::string get_filename(const std::string& path) {
+    std::string filename = "";
+    for(size_t i = path.size()-1; i > 0; i--) {
+        if (path[i] == '\\' || path[i] == '/') {
+            return filename;
+        } 
+        filename.insert(0, std::string(1, path[i]));
+    }
+    return std::string();
+}
 
 int main(int argc, char** argv) {
     json config;
@@ -161,7 +174,8 @@ int main(int argc, char** argv) {
     auto model_it = std::find(object_names.begin(), object_names.end(), object_names.begin()->c_str());
     int model_index = static_cast<int>(std::distance( object_names.begin(), model_it));
 
-    auto texture  = BMP_to_GL(jfind<std::string>(chosen_object, "texture").c_str());
+    auto texture_path = jfind<std::string>(chosen_object, "texture");
+    auto texture_id  = BMP_to_GL(texture_path.c_str());
     auto sampler_id = glGetUniformLocation(programID, "myTextureSampler");
 
     // Read the .obj file
@@ -204,9 +218,13 @@ int main(int argc, char** argv) {
         ImGui::NewFrame();
 
         //start drawing a new imgui window. TODO: make this into a reusable component
+        ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 770, io.DisplaySize.y - 270), ImGuiCond_Once);
         ImGui::Begin("Object Properties");
 
         ImGui::Text("Mesh");
+        static auto mesh_file = get_filename(filename);
+        ImGui::Text(mesh_file.c_str());
         ImGui::SameLine();
 		if (ImGui::Button("...##Mesh")) {
             std::string path = OpenFile();
@@ -220,12 +238,15 @@ int main(int argc, char** argv) {
                     vertexbuffer = gen_gl_buffer(m.vertices, GL_ARRAY_BUFFER);
                     uvbuffer = gen_gl_buffer(m.uvs, GL_ARRAY_BUFFER);
                     elementbuffer = gen_gl_buffer(m.indices, GL_ELEMENT_ARRAY_BUFFER);
+                    mesh_file = get_filename(path);
                 }
 			}
         }
         ImGui::Separator();
 
         ImGui::Text("Texture");
+        static auto texture_file = get_filename(texture_path);
+        ImGui::Text(texture_file.c_str());
         ImGui::SameLine();
 		if (ImGui::Button("...##Texture")) {
             std::string path = OpenFile();
@@ -233,40 +254,15 @@ int main(int argc, char** argv) {
                 std::string extension = "";
                 extension.append(path, path.length()-4, 4);
                 if(extension == ".bmp") {
-                    texture = BMP_to_GL(path.c_str());
+                    texture_id = BMP_to_GL(path.c_str());
+                    texture_file = get_filename(path);
                 }
 			}
         }
 
-        if(ImGui::BeginCombo("models", current_model)) {
-            for(auto & name : object_names) {
-                bool selected = (name == current_model);
-                if(ImGui::Selectable(name.c_str(), selected)) {
-                    current_model = name.c_str();
-                    m = GE_model();
-                    chosen_object = jfind<json>(models, current_model);
-
-                    auto model_path = jfind<std::string>(chosen_object, "model");
-                    auto texture_path = jfind<std::string>(chosen_object, "texture");
-
-                    GE_load_obj(model_path.c_str(), m.vertices, m.uvs, m.normals);
-                    texture  = BMP_to_GL(jfind<std::string>(chosen_object, "texture").c_str());
-                    index_model_vbo(m);
-
-                    vertexbuffer = gen_gl_buffer(m.vertices, GL_ARRAY_BUFFER);
-                    uvbuffer = gen_gl_buffer(m.uvs, GL_ARRAY_BUFFER);
-                    elementbuffer = gen_gl_buffer(m.indices, GL_ELEMENT_ARRAY_BUFFER);
-                }
-                if(selected) {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }	
-            ImGui::EndCombo();
-        }
-
         static float last_input_scale = 1.0f;
         static float input_scale = 1.0f;
-        if (ImGui::SliderFloat("Scale", &input_scale, 0.01f, 2.0f, "%.2f")) {
+        if (ImGui::InputFloat("Scale", &input_scale, 0.05f, 0.1f, "%.2f")) {
             glm::vec3 factor(input_scale / last_input_scale);
             m.transformation = scale(m.transformation, factor);
             last_input_scale = input_scale;
@@ -279,7 +275,7 @@ int main(int argc, char** argv) {
 
         static glm::vec3 model_pos(0.0f);
         static glm::vec3 pos(0.0f);
-        if (ImGui::SliderFloat3("Move", &pos.x, -4.0f, 4.0f, "%.2f")) {
+        if (ImGui::InputFloat3("Move", &pos.x, 2)) {
             glm::vec3 move = pos - model_pos;
             m.transformation = translate(m.transformation, move);
             model_pos = pos;
@@ -316,7 +312,7 @@ int main(int argc, char** argv) {
 
         //bind the model texture to be the first
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
+        glBindTexture(GL_TEXTURE_2D, texture_id);
         glUniform1i(sampler_id, 0);
 
         //set attribute buffer for model vertices
