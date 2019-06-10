@@ -1,2 +1,2 @@
-# GE
-Generic 3D/2D game engine written in C++
+# Raekor Engine
+3D game engine written in C++
