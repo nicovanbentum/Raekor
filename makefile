@@ -27,7 +27,7 @@ LINK_FLAGS=-ldl -lm -lSDL2 -lSDL2main `pkg-config gtk+-2.0 --cflags --libs`
 
 #program name and source files
 EXE=GE
-BUILD_PATH=linux_build/
+BUILD_PATH=x64/Linux/
 
 # Library headers, cpp and o files
 IMGUI_H := $(wildcard dependencies/imgui/*.h)
