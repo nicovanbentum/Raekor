@@ -5,6 +5,7 @@
 #include "util.h"
 #include "dds.h"
 #include "model.h"
+#include "camera.h"
 
 
 #ifdef _WIN32
@@ -29,7 +30,7 @@ std::string OpenFile() {
     }
     return std::string();
 }
-#else
+#elif __linux__
 std::string OpenFile() {
     //init gtk
 	m_assert(gtk_init_check(NULL, NULL), "failed to init gtk");	
@@ -129,7 +130,7 @@ int main(int argc, char** argv) {
     unsigned int view_matrixID = glGetUniformLocation(programID, "V");
     unsigned int model_matrixID = glGetUniformLocation(programID, "M");
 
-    GE_camera camera;
+    Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
 
     // fov , ratio, display range
     camera.projection = glm::perspective(glm::radians(90.0f), 16.0f / 9.0f, 0.1f, 100.0f);
@@ -183,9 +184,9 @@ int main(int argc, char** argv) {
 
 
     //get a rotation matrix
-    vec3 euler_rotation(0.0f, 0.0f, 0.0f);
-    auto rotation = static_cast<quat>( euler_rotation );
-    mat4 rotation_matrix = glm::toMat4(rotation);
+    glm::vec3 euler_rotation(0.0f, 0.0f, 0.0f);
+    auto rotation = static_cast<glm::quat>( euler_rotation );
+    glm::mat4 rotation_matrix = glm::toMat4(rotation);
 
     glm::mat4 mvp;
     glUseProgram(programID);
@@ -195,12 +196,7 @@ int main(int argc, char** argv) {
     //main application loop
     for(;;) {
         //handle sdl and imgui events
-        handle_sdl_gui_events(main_window, camera.mouse_active);
-
-        //if mouse is not active it means we're in free mode
-        if (!camera.mouse_active) {
-            calculate_view(main_window, camera);
-        }
+        handle_sdl_gui_events(main_window, camera);
         
         //get new frame for opengl, sdl and imgui
         ImGui_ImplOpenGL3_NewFrame();
@@ -271,20 +267,20 @@ int main(int argc, char** argv) {
         static float last_input_scale = 1.0f;
         static float input_scale = 1.0f;
         if (ImGui::SliderFloat("Scale", &input_scale, 0.01f, 2.0f, "%.2f")) {
-            vec3 factor(input_scale / last_input_scale);
+            glm::vec3 factor(input_scale / last_input_scale);
             m.transformation = scale(m.transformation, factor);
             last_input_scale = input_scale;
         }
 
         if (ImGui::SliderFloat3("Rotate", &euler_rotation.x, -0.10f, 0.10f, "%.2f")) {
-            rotation = static_cast<quat>(euler_rotation);
+            rotation = static_cast<glm::quat>(euler_rotation);
             rotation_matrix = glm::toMat4(rotation);
         }
 
-        static vec3 model_pos(0.0f);
-        static vec3 pos(0.0f);
+        static glm::vec3 model_pos(0.0f);
+        static glm::vec3 pos(0.0f);
         if (ImGui::SliderFloat3("Move", &pos.x, -4.0f, 4.0f, "%.2f")) {
-            vec3 move = pos - model_pos;
+            glm::vec3 move = pos - model_pos;
             m.transformation = translate(m.transformation, move);
             model_pos = pos;
         }
@@ -292,12 +288,12 @@ int main(int argc, char** argv) {
         if (ImGui::Button("Reset")) {
             last_input_scale = 1.0f;
             input_scale = 1.0f;
-            euler_rotation = vec3(0.0f);
-            rotation = static_cast<quat>(euler_rotation);
+            euler_rotation = glm::vec3(0.0f);
+            rotation = static_cast<glm::quat>(euler_rotation);
             rotation_matrix = glm::toMat4(rotation);
-            model_pos = vec3(0.0f);
-            pos = vec3(0.0f);
-            m.transformation = mat4(1.0f);
+            model_pos = glm::vec3(0.0f);
+            pos = glm::vec3(0.0f);
+            m.transformation = glm::mat4(1.0f);
         }
 
         ImGui::End();

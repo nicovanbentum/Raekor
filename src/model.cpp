@@ -3,12 +3,12 @@
 #include "util.h"
 
 bool GE_load_obj(const char* path,
-                std::vector<vec3>& out_vertices,
-                std::vector<vec2>& out_uvs,
-                std::vector<vec3>& out_normals) {
+                std::vector<glm::vec3>& out_vertices,
+                std::vector<glm::vec2>& out_uvs,
+                std::vector<glm::vec3>& out_normals) {
     std::vector<unsigned int> v_indices, u_indices, n_indices;
-    std::vector<vec3> verts, norms;
-    std::vector<vec2> uvs;
+    std::vector<glm::vec3> verts, norms;
+    std::vector<glm::vec2> uvs;
 
     std::fstream file(path, std::ios::in);
     if (!file.is_open())
@@ -23,17 +23,17 @@ bool GE_load_obj(const char* path,
         line >> token;
 
         if (token == "v") {
-            vec3 vertex;
+            glm::vec3 vertex;
             line >> vertex.x >> vertex.y >> vertex.z;
             verts.push_back(vertex);
         } 
         else if (token == "vt") {
-            vec2 uv;
+            glm::vec2 uv;
             line >> uv.x >> uv.y;
             uvs.push_back(uv);
         } 
         else if (token == "vn") {
-            vec3 norm;
+            glm::vec3 norm;
             line >> norm.x >> norm.y >> norm.z;
             norms.push_back(norm);
         } 
@@ -75,9 +75,9 @@ unsigned int find_index(std::map<packed_vertex, unsigned int>& vi,
 void index_model_vbo(GE_model& m) {
     std::map<packed_vertex, unsigned int> vertex_indices;
 
-    std::vector<vec3> vertices;
-    std::vector<vec2> uvs;
-    std::vector<vec3> normals;
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec2> uvs;
+    std::vector<glm::vec3> normals;
 
     for (unsigned int i = 0; i < m.vertices.size(); i++) {
         packed_vertex pv = {m.vertices[i], m.uvs[i], m.normals[i]};

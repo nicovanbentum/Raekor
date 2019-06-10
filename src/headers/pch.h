@@ -34,7 +34,6 @@ using json = nlohmann::json;
 #include "glm.hpp"
 #include "ext.hpp"
 #include "gtx/quaternion.hpp"
-using namespace glm;
 
 // SDL includes
 #include "SDL.h"

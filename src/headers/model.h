@@ -9,18 +9,18 @@ struct GE_model {
     unsigned int normals_id;
     unsigned int indices_id;
 
-    std::vector<vec3> vertices;
-    std::vector<vec2> uvs;
-    std::vector<vec3> normals;
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec2> uvs;
+    std::vector<glm::vec3> normals;
     std::vector<unsigned int> indices;
 
-    mat4 transformation = mat4(1.0f);
+    glm::mat4 transformation = glm::mat4(1.0f);
 };
 
 struct packed_vertex {
-    vec3 pos;
-    vec2 uv;
-    vec3 normal;
+    glm::vec3 pos;
+    glm::vec2 uv;
+    glm::vec3 normal;
 
     bool operator<(const packed_vertex & rhs) const {
         return memcmp((void*)this, (void*)&rhs, sizeof(packed_vertex)) > 0;
