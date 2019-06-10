@@ -78,15 +78,15 @@ int main(int argc, char** argv) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);	
 
-    Uint32 wflags = SDL_WINDOW_OPENGL | 
-                    SDL_WINDOW_RESIZABLE | 
-                    SDL_WINDOW_ALLOW_HIGHDPI;
+    Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | 
+                    SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
 
     auto main_window = SDL_CreateWindow(jfind<std::string>(config, "name").c_str(),
                                         25, 25,
                                         jfind<int>(resolution, "width"),
                                         jfind<int>(resolution, "height"),
                                         wflags);
+
     SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
     SDL_GL_MakeCurrent(main_window, gl_context);
 

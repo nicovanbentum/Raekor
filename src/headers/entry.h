@@ -5,16 +5,14 @@
 #include "camera.h"
 
 void handle_sdl_gui_events(SDL_Window* window, Raekor::Camera& camera) {
-    int w, h;
-    SDL_GetWindowSize(window, &w, &h);
-
     auto flags = SDL_GetWindowFlags(window);
     bool focus = (flags & SDL_WINDOW_INPUT_FOCUS) ? true : false;
+
     if (!focus && !camera.is_mouse_active()) {
         camera.set_mouse_active(true);
         SDL_SetRelativeMouseMode(static_cast<SDL_bool>(!camera.is_mouse_active()));
     }
-
+    
     if (!camera.is_mouse_active()) {
         camera.move_on_input(0.1f);
         camera.update();
