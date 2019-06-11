@@ -62,7 +62,6 @@ std::string OpenFile() {
 	return file;
 }
 
-}
 #endif
 
 std::string get_filename(const std::string& path) {
