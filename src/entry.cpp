@@ -4,8 +4,8 @@
 #include "gl_shader.h"
 #include "util.h"
 #include "dds.h"
-#include "model.h"
 #include "camera.h"
+#include "mesh.h"
 
 
 #ifdef _WIN32
@@ -62,6 +62,7 @@ std::string OpenFile() {
 	return file;
 }
 
+}
 #endif
 
 std::string get_filename(const std::string& path) {
@@ -131,7 +132,7 @@ int main(int argc, char** argv) {
     glDepthFunc(GL_LESS);
     //glEnable(GL_CULL_FACE); //uncomment this for model geometry culling
 
-    glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     GLuint vertex_array_id;
     glGenVertexArrays(1, &vertex_array_id);
@@ -153,10 +154,6 @@ int main(int argc, char** argv) {
         glm::vec3(0, 0, 0), // camera looks at the origin
         glm::vec3(0, 1, 0)  // Head is up (0,-1,0 to look upside-down)
     );
-
-    //create the model
-    GE_model m;
-    GE_model m2;
 
     //ask for and get the model's properties from the config file
     auto models = jfind<json>(config, "objects");
@@ -180,21 +177,9 @@ int main(int argc, char** argv) {
     // Read the .obj file
     auto filename = jfind<std::string>(chosen_object, "model");
     std::cout << "loading " << filename << "..." << std::endl;
-    m_assert(GE_load_obj(filename.c_str(), m.vertices, m.uvs, m.normals), "failed to load obj");
-    m_assert(GE_load_obj(filename.c_str(), m2.vertices, m2.uvs, m2.normals), "failed to load obj");
-
-    //index the vbo for improved performance
-    index_model_vbo(m);
-    index_model_vbo(m2);
-
-    //generate opengl buffers
-    auto vertexbuffer = gen_gl_buffer(m.vertices, GL_ARRAY_BUFFER);
-    auto uvbuffer = gen_gl_buffer(m.uvs, GL_ARRAY_BUFFER);
-    auto elementbuffer = gen_gl_buffer(m.indices, GL_ELEMENT_ARRAY_BUFFER);
-    auto vertexbuffer2 = gen_gl_buffer(m.vertices, GL_ARRAY_BUFFER);
-    auto uvbuffer2 = gen_gl_buffer(m.uvs, GL_ARRAY_BUFFER);
-    auto elementbuffer2 = gen_gl_buffer(m.indices, GL_ELEMENT_ARRAY_BUFFER);
-
+    std::vector<Raekor::Mesh> scene;
+    scene.push_back(Raekor::Mesh(filename, Raekor::Mesh::file_format::OBJ));
+    int active_model = 0;
 
     //get a rotation matrix
     glm::vec3 euler_rotation(0.0f, 0.0f, 0.0f);
@@ -204,10 +189,10 @@ int main(int argc, char** argv) {
     glm::mat4 mvp;
     glUseProgram(programID);
 
-
+    auto mesh_file = get_filename(scene[active_model].get_file_path());
 
     //main application loop
-    for(;;) {
+    for (;;) {
         //handle sdl and imgui events
         handle_sdl_gui_events(main_window, camera);
         
@@ -216,13 +201,35 @@ int main(int argc, char** argv) {
         ImGui_ImplSDL2_NewFrame(main_window);
         ImGui::NewFrame();
 
+        ImGui::Begin("Scene");
+        if (ImGui::BeginCombo("Object List", scene[active_model].get_file_path().c_str())) {
+            std::cout << active_model << std::endl;
+            for (int i = 0; i < scene.size(); i++) {
+                bool selected = (i == active_model);
+                if (ImGui::Selectable(scene[i].get_file_path().c_str(), selected)) {
+                    active_model = i;
+                    mesh_file = get_filename(scene[active_model].get_file_path());
+
+                }
+
+                if (selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("+")) {
+            std::string path = OpenFile();
+            scene.push_back(Raekor::Mesh(path, Raekor::Mesh::file_format::OBJ));
+        }
+        
         //start drawing a new imgui window. TODO: make this into a reusable component
         ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 770, io.DisplaySize.y - 270), ImGuiCond_Once);
         ImGui::Begin("Object Properties");
 
         ImGui::Text("Mesh");
-        static auto mesh_file = get_filename(filename);
         ImGui::Text(mesh_file.c_str());
         ImGui::SameLine();
 		if (ImGui::Button("...##Mesh")) {
@@ -230,14 +237,8 @@ int main(int argc, char** argv) {
 			if (path != "") {
                 std::string extension = "";
                 extension.append(path, path.length()-4, 4);
-                if(extension == ".obj") {
-                    m = GE_model();
-                    GE_load_obj(path.c_str(), m.vertices, m.uvs, m.normals);
-                    index_model_vbo(m);
-                    vertexbuffer = gen_gl_buffer(m.vertices, GL_ARRAY_BUFFER);
-                    uvbuffer = gen_gl_buffer(m.uvs, GL_ARRAY_BUFFER);
-                    elementbuffer = gen_gl_buffer(m.indices, GL_ELEMENT_ARRAY_BUFFER);
-                    mesh_file = get_filename(path);
+                if (extension == ".obj") {
+                    scene[active_model] = Raekor::Mesh(path, Raekor::Mesh::file_format::OBJ);
                 }
 			}
         }
@@ -263,7 +264,7 @@ int main(int argc, char** argv) {
         static float input_scale = 1.0f;
         if (ImGui::InputFloat("Scale", &input_scale, 0.05f, 0.1f, "%.2f")) {
             glm::vec3 factor(input_scale / last_input_scale);
-            m.transformation = scale(m.transformation, factor);
+            scene[active_model].scale(factor);
             last_input_scale = input_scale;
         }
 
@@ -275,20 +276,18 @@ int main(int argc, char** argv) {
         static glm::vec3 model_pos(0.0f);
         static glm::vec3 pos(0.0f);
         if (ImGui::InputFloat3("Move", &pos.x, 2)) {
-            glm::vec3 move = pos - model_pos;
-            m.transformation = translate(m.transformation, move);
+            glm::vec3 delta = pos - model_pos;
+            scene[active_model].move(delta);
             model_pos = pos;
         }
 
         if (ImGui::Button("Reset")) {
             last_input_scale = 1.0f;
             input_scale = 1.0f;
-            euler_rotation = glm::vec3(0.0f);
-            rotation = static_cast<glm::quat>(euler_rotation);
+            rotation = static_cast<glm::quat>(glm::vec3(0.0f));
             rotation_matrix = glm::toMat4(rotation);
             model_pos = glm::vec3(0.0f);
             pos = glm::vec3(0.0f);
-            m.transformation = glm::mat4(1.0f);
         }
 
         ImGui::End();
@@ -304,47 +303,18 @@ int main(int argc, char** argv) {
         glUseProgram(programID);
         
         //rotate the model and rebuild our mvp
-        m.transformation = m.transformation * rotation_matrix;
-        mvp = camera.projection * camera.view * m.transformation;
-
-        glUniformMatrix4fv(matrixID, 1, GL_FALSE, &mvp[0][0]);
+        //active_model->get()->rotate(rotation_matrix);
 
         //bind the model texture to be the first
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture_id);
         glUniform1i(sampler_id, 0);
 
-        //set attribute buffer for model vertices
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0,  (void*)0 );
-
-        //set attribute buffer for uvs
-        glEnableVertexAttribArray(1);
-        glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-        // Draw triangles
-        glDrawElements(GL_TRIANGLES, static_cast<int>(m.indices.size()), GL_UNSIGNED_INT, nullptr);
-
-        mvp = camera.projection * camera.view * m2.transformation;
-        glUniformMatrix4fv(matrixID, 1, GL_FALSE, &mvp[0][0]);
-
-        //set attribute buffer for model vertices
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer2);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0,  (void*)0 );
-
-        //set attribute buffer for uvs
-        glEnableVertexAttribArray(1);
-        glBindBuffer(GL_ARRAY_BUFFER, uvbuffer2);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-        // Draw triangles
-        glDrawElements(GL_TRIANGLES, static_cast<int>(m2.indices.size()), GL_UNSIGNED_INT, nullptr);
-
-        glDisableVertexAttribArray(0);
-        glDisableVertexAttribArray(1);
+        for(auto m = scene.begin(); m != scene.end(); m++) {
+            mvp = camera.projection * camera.view * m->get_transformation();
+            glUniformMatrix4fv(matrixID, 1, GL_FALSE, &mvp[0][0]);
+            m->render();
+        }
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(main_window);

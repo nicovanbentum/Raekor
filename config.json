@@ -1,14 +1,14 @@
 {
-    "name": "GE Engine (OpenGL 4)",
+    "name": "Raekor Engine",
     "resolution": 
     {
-      "width": 1600,
-      "height": 900
+      "width": 2560,
+      "height": 1440
     },
 
     "imgui":
     {
-      "font": "res/Rubik-Regular.ttf"
+      "font": "res/SourceSansPro-Regular.ttf"
     },
 
     "objects":
