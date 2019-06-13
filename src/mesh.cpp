@@ -15,12 +15,29 @@ file_path(filepath) {
             // TODO: implement different file formats, thus moving it to its own class
         }
     }
+    scale = 1.0f;
+    position = glm::vec3(0.0f);
+    transformation = glm::mat4(1.0f);
+    euler_rotation = glm::vec3(0.0f);
 }
 
 Mesh::Mesh(std::string& filepath) :
 file_path(filepath) {}
 
-void Mesh::scale(const glm::vec3& factor) {
+void Mesh::reset_transformation() {
+    scale = 1.0f;
+    position = glm::vec3(0.0f);
+    transformation = glm::mat4(1.0f);
+    euler_rotation = glm::vec3(0.0f);
+}
+
+glm::mat4 Mesh::get_rotation_matrix() {
+    auto rotation_quat = static_cast<glm::quat>(euler_rotation);
+    glm::mat4 rotation_matrix = glm::toMat4(rotation_quat);
+    return rotation_matrix;
+}
+
+void Mesh::scale_by(const glm::vec3& factor) {
     transformation = glm::scale(transformation, factor);
 }
 

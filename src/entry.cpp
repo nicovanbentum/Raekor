@@ -181,15 +181,13 @@ int main(int argc, char** argv) {
     scene.push_back(Raekor::Mesh(filename, Raekor::Mesh::file_format::OBJ));
     int active_model = 0;
 
-    //get a rotation matrix
-    glm::vec3 euler_rotation(0.0f, 0.0f, 0.0f);
-    auto rotation = static_cast<glm::quat>( euler_rotation );
-    glm::mat4 rotation_matrix = glm::toMat4(rotation);
-
     glm::mat4 mvp;
     glUseProgram(programID);
 
+	// persistent imgui variable values
     auto mesh_file = get_filename(scene[active_model].get_file_path());
+    float last_input_scale = 1.0f;
+    glm::vec3 last_pos(0.0f);
 
     //main application loop
     for (;;) {
@@ -206,10 +204,17 @@ int main(int argc, char** argv) {
             std::cout << active_model << std::endl;
             for (int i = 0; i < scene.size(); i++) {
                 bool selected = (i == active_model);
-                if (ImGui::Selectable(scene[i].get_file_path().c_str(), selected)) {
+                auto name = scene[i].get_file_path();
+                
+				//hacky way to give the selectable a unique ID
+				name.append("##");
+                name.append(std::to_string(i));
+                
+				if (ImGui::Selectable(name.c_str(), selected)) {
                     active_model = i;
                     mesh_file = get_filename(scene[active_model].get_file_path());
-
+                    last_input_scale = scene[active_model].scale;
+                    last_pos = scene[active_model].position;
                 }
 
                 if (selected) {
@@ -260,34 +265,26 @@ int main(int argc, char** argv) {
 			}
         }
 
-        static float last_input_scale = 1.0f;
-        static float input_scale = 1.0f;
-        if (ImGui::InputFloat("Scale", &input_scale, 0.05f, 0.1f, "%.2f")) {
-            glm::vec3 factor(input_scale / last_input_scale);
-            scene[active_model].scale(factor);
-            last_input_scale = input_scale;
+        std::cout << scene[active_model].scale << std::endl;
+        if (ImGui::InputFloat("Scale", &scene[active_model].scale, 0.05f, 0.1f, "%.2f")) {
+            glm::vec3 factor(scene[active_model].scale / last_input_scale);
+            scene[active_model].scale_by(factor);
+            last_input_scale = scene[active_model].scale;
         }
 
-        if (ImGui::SliderFloat3("Rotate", &euler_rotation.x, -0.10f, 0.10f, "%.2f")) {
-            rotation = static_cast<glm::quat>(euler_rotation);
-            rotation_matrix = glm::toMat4(rotation);
-        }
+		// rotation is continuous for now so we have something to animate
+        if (ImGui::SliderFloat3("Rotate", &scene[active_model].euler_rotation.x, -0.10f, 0.10f, "%.3f")) {}
 
-        static glm::vec3 model_pos(0.0f);
-        static glm::vec3 pos(0.0f);
-        if (ImGui::InputFloat3("Move", &pos.x, 2)) {
-            glm::vec3 delta = pos - model_pos;
+        if (ImGui::InputFloat3("Move", &scene[active_model].position.x, 2)) {
+            glm::vec3 delta = scene[active_model].position - last_pos;
             scene[active_model].move(delta);
-            model_pos = pos;
+            last_pos = scene[active_model].position;
         }
 
         if (ImGui::Button("Reset")) {
             last_input_scale = 1.0f;
-            input_scale = 1.0f;
-            rotation = static_cast<glm::quat>(glm::vec3(0.0f));
-            rotation_matrix = glm::toMat4(rotation);
-            model_pos = glm::vec3(0.0f);
-            pos = glm::vec3(0.0f);
+            last_pos = glm::vec3(0.0f);
+            scene[active_model].reset_transformation();
         }
 
         ImGui::End();
@@ -311,6 +308,7 @@ int main(int argc, char** argv) {
         glUniform1i(sampler_id, 0);
 
         for(auto m = scene.begin(); m != scene.end(); m++) {
+            m->rotate(m->get_rotation_matrix());
             mvp = camera.projection * camera.view * m->get_transformation();
             glUniformMatrix4fv(matrixID, 1, GL_FALSE, &mvp[0][0]);
             m->render();
