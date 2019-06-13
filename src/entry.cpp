@@ -7,9 +7,14 @@
 #include "camera.h"
 #include "mesh.h"
 
-
 #ifdef _WIN32
-std::string OpenFile(std::string filter) {
+std::string OpenFile(const std::vector<std::string>& filters) {
+    
+    std::string lpstr_filters;
+    for(auto& f : filters) {
+        lpstr_filters.append(std::string(f + '\0' + '*' + f + '\0'));
+    }
+
     OPENFILENAMEA ofn;
     CHAR szFile[260] = {0};
     ZeroMemory(&ofn, sizeof(OPENFILENAME));
@@ -17,7 +22,7 @@ std::string OpenFile(std::string filter) {
     ofn.hwndOwner = GetActiveWindow();
     ofn.lpstrFile = szFile;
     ofn.nMaxFile = sizeof(szFile);
-    ofn.lpstrFilter = "All\0*.*\0";
+    ofn.lpstrFilter = lpstr_filters.c_str();
     ofn.nFilterIndex = 1;
     ofn.lpstrFileTitle = NULL;
     ofn.nMaxFileTitle = 0;
@@ -30,7 +35,7 @@ std::string OpenFile(std::string filter) {
     return std::string();
 }
 #elif __linux__
-std::string OpenFile(std::string filter) {
+std::string OpenFile(const std::vector<std::string>& filters) {
     //init gtk
 	m_assert(gtk_init_check(NULL, NULL), "failed to init gtk");	
     // allocate a new dialog window
@@ -42,11 +47,12 @@ std::string OpenFile(std::string filter) {
 		"Open", GTK_RESPONSE_ACCEPT,
 		NULL);
 
-    auto gtk_filter = gtk_file_filter_new();
-    auto name = filter.substr(1, filter.size()-1);
-    gtk_file_filter_set_name(gtk_filter, name.c_str());
-    gtk_file_filter_add_pattern (gtk_filter, filter.c_str());
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), gtk_filter);
+    for(auto& filter : filters) {
+        auto gtk_filter = gtk_file_filter_new();
+        gtk_file_filter_set_name(gtk_filter, filter.c_str());
+        gtk_file_filter_add_pattern (gtk_filter, filter.c_str());
+        gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), gtk_filter);
+    }
 
 	char* path = NULL;
     // if the ok button is pressed (gtk response type ACCEPT) we get the selected filepath
@@ -227,7 +233,7 @@ int main(int argc, char** argv) {
         }
         ImGui::SameLine();
         if (ImGui::Button("+")) {
-            std::string path = OpenFile("*.obj");
+            std::string path = OpenFile({".obj"});
             if(!path.empty()) {
                 scene.push_back(Raekor::Mesh(path, Raekor::Mesh::file_format::OBJ));
             }
@@ -243,7 +249,7 @@ int main(int argc, char** argv) {
         ImGui::Text(mesh_file.c_str(), NULL);
         ImGui::SameLine();
 		if (ImGui::Button("...##Mesh")) {
-            std::string path = OpenFile("*.obj");
+            std::string path = OpenFile({".obj"});
 			if (!path.empty()) {
                 scene[active_model] = Raekor::Mesh(path, Raekor::Mesh::file_format::OBJ);
 			}
@@ -255,7 +261,7 @@ int main(int argc, char** argv) {
         ImGui::Text(texture_file.c_str(), NULL);
         ImGui::SameLine();
 		if (ImGui::Button("...##Texture")) {
-            std::string path = OpenFile("*.bmp");
+            std::string path = OpenFile({".bmp"});
 			if (!path.empty()) {
                 texture_id = BMP_to_GL(path.c_str());
                 texture_file = get_filename(path);
