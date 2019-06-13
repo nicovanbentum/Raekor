@@ -27,7 +27,9 @@ LINK_FLAGS=-ldl -lm -lSDL2 -lSDL2main `pkg-config gtk+-2.0 --cflags --libs`
 
 #program name and source files
 EXE=GE
-BUILD_PATH=x64/Linux/
+OUT_DIR=x64/Linux/
+MAKE_DIR= mkdir -p $(OUT_DIR)
+DEL_DIR= rm -r -f $(OUT_DIR)
 
 # Library headers, cpp and o files
 IMGUI_H := $(wildcard dependencies/imgui/*.h)
@@ -36,37 +38,38 @@ IMGUI_O := $(IMGUI_C:.cpp=.o)
 
 GL3W_H := $(wildcard dependencies/gl3w/include/GL/*.h)
 GL3W_C = dependencies/gl3w/src/gl3w.c
-GL3W_O = $(addprefix $(BUILD_PATH),$(notdir $(GL3W_C:.c=.o)))
+GL3W_O = $(addprefix $(OUT_DIR),$(notdir $(GL3W_C:.c=.o)))
 
 SOURCES := $(wildcard src/*.cpp) $(IMGUI_C)
-OBJS := $(addprefix $(BUILD_PATH),$(notdir $(SOURCES:.cpp=.o))) $(GL3W_O)
+OBJS := $(addprefix $(OUT_DIR),$(notdir $(SOURCES:.cpp=.o))) $(GL3W_O)
 
 .PHONY: build rebuild clean
 
 build:
+	$(MAKE_DIR)
 	make $(EXE) -j3
 	@echo "\n Compilation $(GREEN)finished$(NC) at $$(date +%T). \n"
 
 clean:
-	rm -fr $(addprefix $(BUILD_PATH), $(EXE)) $(OBJS)
+	$(DEL_DIR)
 	@echo "\n Directory $(GREEN)cleaned$(NC) succesfully. \n"
 
 rebuild: clean build
 
 run:
 	@echo "\n running $(EXE) .. \n"
-	./$(addprefix $(BUILD_PATH), $(EXE))
+	./$(addprefix $(OUT_DIR), $(EXE))
 
 $(EXE): $(OBJS)
-	   $(LINK) -o $(addprefix $(BUILD_PATH), $(EXE)) $^ $(LINK_FLAGS)
+	   $(LINK) -o $(addprefix $(OUT_DIR), $(EXE)) $^ $(LINK_FLAGS)
 
 #determines the directories to scan for prerequisites
 VPATH= $(sort $(dir $(SOURCES)))
 
-$(BUILD_PATH)%.o: %.cpp
+$(OUT_DIR)%.o: %.cpp
 		$(CL) $(CL_FLAGS) $(INC) $< -o $@
 
-$(BUILD_PATH)gl3w.o: $(GL3W_C) $(GL3W_H)
+$(OUT_DIR)gl3w.o: $(GL3W_C) $(GL3W_H)
 		$(CL) $(CL_FLAGS) $(INC) $(GL3W_C) -o $(GL3W_O)
 
 

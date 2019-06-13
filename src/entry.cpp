@@ -9,10 +9,9 @@
 
 
 #ifdef _WIN32
-std::string OpenFile() {
+std::string OpenFile(std::string filter) {
     OPENFILENAMEA ofn;
     CHAR szFile[260] = {0};
-
     ZeroMemory(&ofn, sizeof(OPENFILENAME));
     ofn.lStructSize = sizeof(OPENFILENAME);
     ofn.hwndOwner = GetActiveWindow();
@@ -31,17 +30,24 @@ std::string OpenFile() {
     return std::string();
 }
 #elif __linux__
-std::string OpenFile() {
+std::string OpenFile(std::string filter) {
     //init gtk
 	m_assert(gtk_init_check(NULL, NULL), "failed to init gtk");	
     // allocate a new dialog window
-	GtkWidget *dialog = gtk_file_chooser_dialog_new(
+	auto dialog = gtk_file_chooser_dialog_new(
 		"Open File",
 		NULL,
 		GTK_FILE_CHOOSER_ACTION_OPEN,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 		"Open", GTK_RESPONSE_ACCEPT,
 		NULL);
+
+    auto gtk_filter = gtk_file_filter_new();
+    auto name = filter.substr(1, filter.size()-1);
+    gtk_file_filter_set_name(gtk_filter, name.c_str());
+    gtk_file_filter_add_pattern (gtk_filter, filter.c_str());
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), gtk_filter);
+
 	char* path = NULL;
     // if the ok button is pressed (gtk response type ACCEPT) we get the selected filepath
 	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
@@ -60,8 +66,6 @@ std::string OpenFile() {
 		gtk_main_iteration();
     }
 	return file;
-}
-
 }
 #endif
 
@@ -201,14 +205,12 @@ int main(int argc, char** argv) {
 
         ImGui::Begin("Scene");
         if (ImGui::BeginCombo("Object List", scene[active_model].get_file_path().c_str())) {
-            std::cout << active_model << std::endl;
             for (int i = 0; i < scene.size(); i++) {
                 bool selected = (i == active_model);
-                auto name = scene[i].get_file_path();
                 
 				//hacky way to give the selectable a unique ID
-				name.append("##");
-                name.append(std::to_string(i));
+                auto name = scene[i].get_file_path();
+                name = name + "##" + std::to_string(i);
                 
 				if (ImGui::Selectable(name.c_str(), selected)) {
                     active_model = i;
@@ -225,9 +227,12 @@ int main(int argc, char** argv) {
         }
         ImGui::SameLine();
         if (ImGui::Button("+")) {
-            std::string path = OpenFile();
-            scene.push_back(Raekor::Mesh(path, Raekor::Mesh::file_format::OBJ));
+            std::string path = OpenFile("*.obj");
+            if(!path.empty()) {
+                scene.push_back(Raekor::Mesh(path, Raekor::Mesh::file_format::OBJ));
+            }
         }
+        ImGui::End();
         
         //start drawing a new imgui window. TODO: make this into a reusable component
         ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
@@ -235,37 +240,28 @@ int main(int argc, char** argv) {
         ImGui::Begin("Object Properties");
 
         ImGui::Text("Mesh");
-        ImGui::Text(mesh_file.c_str());
+        ImGui::Text(mesh_file.c_str(), NULL);
         ImGui::SameLine();
 		if (ImGui::Button("...##Mesh")) {
-            std::string path = OpenFile();
-			if (path != "") {
-                std::string extension = "";
-                extension.append(path, path.length()-4, 4);
-                if (extension == ".obj") {
-                    scene[active_model] = Raekor::Mesh(path, Raekor::Mesh::file_format::OBJ);
-                }
+            std::string path = OpenFile("*.obj");
+			if (!path.empty()) {
+                scene[active_model] = Raekor::Mesh(path, Raekor::Mesh::file_format::OBJ);
 			}
         }
         ImGui::Separator();
 
         ImGui::Text("Texture");
         static auto texture_file = get_filename(texture_path);
-        ImGui::Text(texture_file.c_str());
+        ImGui::Text(texture_file.c_str(), NULL);
         ImGui::SameLine();
 		if (ImGui::Button("...##Texture")) {
-            std::string path = OpenFile();
-			if (path != "") {
-                std::string extension = "";
-                extension.append(path, path.length()-4, 4);
-                if(extension == ".bmp") {
-                    texture_id = BMP_to_GL(path.c_str());
-                    texture_file = get_filename(path);
-                }
+            std::string path = OpenFile("*.bmp");
+			if (!path.empty()) {
+                texture_id = BMP_to_GL(path.c_str());
+                texture_file = get_filename(path);
 			}
         }
 
-        std::cout << scene[active_model].scale << std::endl;
         if (ImGui::InputFloat("Scale", &scene[active_model].scale, 0.05f, 0.1f, "%.2f")) {
             glm::vec3 factor(scene[active_model].scale / last_input_scale);
             scene[active_model].scale_by(factor);
