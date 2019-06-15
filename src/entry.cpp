@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
     glDepthFunc(GL_LESS);
     //glEnable(GL_CULL_FACE); //uncomment this for model geometry culling
 
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.03f, 0.1f, 0.1f, 1.0f);
 
     GLuint vertex_array_id;
     glGenVertexArrays(1, &vertex_array_id);
@@ -165,37 +165,19 @@ int main(int argc, char** argv) {
         glm::vec3(0, 1, 0)  // Head is up (0,-1,0 to look upside-down)
     );
 
-    //ask for and get the model's properties from the config file
-    auto models = jfind<json>(config, "objects");
-
-    std::vector<std::string> object_names;
-    for(auto & model : models.items()) {
-        object_names.push_back(model.key());
-    }
-    const char * current_model = object_names.begin()->c_str();
-
-    // get our json object, get it's iterator in the names vector, then get the index from the iterator. 
-    // We use the index as a handle for the ImGui drop down list
-    auto chosen_object = jfind<json>(models, current_model);
-    auto model_it = std::find(object_names.begin(), object_names.end(), object_names.begin()->c_str());
-    int model_index = static_cast<int>(std::distance( object_names.begin(), model_it));
-
-    auto texture_path = jfind<std::string>(chosen_object, "texture");
-    auto texture_id  = BMP_to_GL(texture_path.c_str());
+    // texture sampler 
     auto sampler_id = glGetUniformLocation(programID, "myTextureSampler");
 
-    // Read the .obj file
-    auto filename = jfind<std::string>(chosen_object, "model");
-    std::cout << "loading " << filename << "..." << std::endl;
-    std::vector<Raekor::Mesh> scene;
-    scene.push_back(Raekor::Mesh(filename, Raekor::Mesh::file_format::OBJ));
+    // Setup our scene
+    std::vector<Raekor::TexturedMesh> scene;
     int active_model = 0;
 
     glm::mat4 mvp;
     glUseProgram(programID);
 
 	// persistent imgui variable values
-    auto mesh_file = get_filename(scene[active_model].get_file_path());
+    std::string mesh_file = "";
+    std::string texture_file = "";
     float last_input_scale = 1.0f;
     glm::vec3 last_pos(0.0f);
 
@@ -210,17 +192,17 @@ int main(int argc, char** argv) {
         ImGui::NewFrame();
 
         ImGui::Begin("Scene");
-        if (ImGui::BeginCombo("Object List", scene[active_model].get_file_path().c_str())) {
+        if (ImGui::BeginCombo("", mesh_file.c_str())) {
             for (int i = 0; i < scene.size(); i++) {
                 bool selected = (i == active_model);
                 
 				//hacky way to give the selectable a unique ID
-                auto name = scene[i].get_file_path();
+                auto name = scene[i].mesh_path;
                 name = name + "##" + std::to_string(i);
                 
 				if (ImGui::Selectable(name.c_str(), selected)) {
                     active_model = i;
-                    mesh_file = get_filename(scene[active_model].get_file_path());
+                    mesh_file = get_filename(scene[active_model].mesh_path);
                     last_input_scale = scene[active_model].scale;
                     last_pos = scene[active_model].position;
                 }
@@ -235,64 +217,71 @@ int main(int argc, char** argv) {
         if (ImGui::Button("+")) {
             std::string path = OpenFile({".obj"});
             if(!path.empty()) {
-                scene.push_back(Raekor::Mesh(path, Raekor::Mesh::file_format::OBJ));
+                scene.push_back(Raekor::TexturedMesh(path, Raekor::Mesh::file_format::OBJ));
             }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("-")) {
+            scene.erase(scene.begin() + active_model);
+            active_model = 0;
         }
         ImGui::End();
         
-        //start drawing a new imgui window. TODO: make this into a reusable component
-        ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 770, io.DisplaySize.y - 270), ImGuiCond_Once);
-        ImGui::Begin("Object Properties");
+        if(!scene.empty()) {
+            //start drawing a new imgui window. TODO: make this into a reusable component
+            ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
+            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 770, io.DisplaySize.y - 270), ImGuiCond_Once);
+            ImGui::Begin("Object Properties");
 
-        ImGui::Text("Mesh");
-        ImGui::Text(mesh_file.c_str(), NULL);
-        ImGui::SameLine();
-		if (ImGui::Button("...##Mesh")) {
-            std::string path = OpenFile({".obj"});
-			if (!path.empty()) {
-                scene[active_model] = Raekor::Mesh(path, Raekor::Mesh::file_format::OBJ);
-			}
-        }
-        ImGui::Separator();
+            ImGui::Text("Mesh");
+            ImGui::Text(mesh_file.c_str(), NULL);
+            ImGui::SameLine();
+            if (ImGui::Button("...##Mesh")) {
+                std::string path = OpenFile({".obj"});
+                if (!path.empty()) {
+                    scene[active_model].parse_OBJ(path);
+                    mesh_file = get_filename(scene[active_model].mesh_path);
 
-        ImGui::Text("Texture");
-        static auto texture_file = get_filename(texture_path);
-        ImGui::Text(texture_file.c_str(), NULL);
-        ImGui::SameLine();
-		if (ImGui::Button("...##Texture")) {
-            std::string path = OpenFile({".bmp"});
-			if (!path.empty()) {
-                texture_id = BMP_to_GL(path.c_str());
-                texture_file = get_filename(path);
-			}
-        }
+                }
+            }
+            ImGui::Separator();
 
-        if (ImGui::InputFloat("Scale", &scene[active_model].scale, 0.05f, 0.1f, "%.2f")) {
-            glm::vec3 factor(scene[active_model].scale / last_input_scale);
-            scene[active_model].scale_by(factor);
-            last_input_scale = scene[active_model].scale;
-        }
+            ImGui::Text("Texture");
+            ImGui::Text(texture_file.c_str(), NULL);
+            ImGui::SameLine();
+            if (ImGui::Button("...##Texture")) {
+                std::string path = OpenFile({".bmp"});
+                if (!path.empty()) {
+                    scene[active_model].load_texture(path);
+                    texture_file = get_filename(scene[active_model].image_path);
+                }
+            }
 
-		// rotation is continuous for now so we have something to animate
-        if (ImGui::SliderFloat3("Rotate", &scene[active_model].euler_rotation.x, -0.10f, 0.10f, "%.3f")) {}
+            if (ImGui::InputFloat("Scale", &scene[active_model].scale, 0.05f, 0.1f, "%.2f")) {
+                glm::vec3 factor(scene[active_model].scale / last_input_scale);
+                scene[active_model].scale_by(factor);
+                last_input_scale = scene[active_model].scale;
+            }
 
-        if (ImGui::InputFloat3("Move", &scene[active_model].position.x, 2)) {
-            glm::vec3 delta = scene[active_model].position - last_pos;
-            scene[active_model].move(delta);
-            last_pos = scene[active_model].position;
-        }
+            // rotation is continuous for now so we have something to animate
+            if (ImGui::SliderFloat3("Rotate", &scene[active_model].euler_rotation.x, -0.10f, 0.10f, "%.3f")) {}
 
-        if (ImGui::Button("Reset")) {
-            last_input_scale = 1.0f;
-            last_pos = glm::vec3(0.0f);
-            scene[active_model].reset_transformation();
+            if (ImGui::InputFloat3("Move", &scene[active_model].position.x, 2)) {
+                glm::vec3 delta = scene[active_model].position - last_pos;
+                scene[active_model].move(delta);
+                last_pos = scene[active_model].position;
+            }
+
+            if (ImGui::Button("Reset")) {
+                last_input_scale = 1.0f;
+                last_pos = glm::vec3(0.0f);
+                scene[active_model].reset_transformation();
+            }
         }
 
         ImGui::End();
         ImGui::Render();
 
-        //set the viewport
         int w, h;
         SDL_GetWindowSize(main_window, &w, &h);
         glViewport(0, 0, w, h);
@@ -300,20 +289,12 @@ int main(int argc, char** argv) {
         //clear frame, use our shaders and perform mvp transformation
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(programID);
-        
-        //rotate the model and rebuild our mvp
-        //active_model->get()->rotate(rotation_matrix);
-
-        //bind the model texture to be the first
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture_id);
-        glUniform1i(sampler_id, 0);
 
         for(auto m = scene.begin(); m != scene.end(); m++) {
             m->rotate(m->get_rotation_matrix());
             mvp = camera.projection * camera.view * m->get_transformation();
             glUniformMatrix4fv(matrixID, 1, GL_FALSE, &mvp[0][0]);
-            m->render();
+            m->render(sampler_id);
         }
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

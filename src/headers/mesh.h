@@ -26,12 +26,12 @@ public:
     };
 
 public:
-    Mesh(std::string& filepath);
-    Mesh() : file_path("None") {}
+    Mesh(const std::string& filepath);
+    Mesh() : mesh_path("None") {}
     Mesh(std::string& filepath, Mesh::file_format format);
     
     glm::mat4 get_rotation_matrix();
-    inline std::string get_file_path() { return file_path; }
+    inline std::string get_mesh_path() { return mesh_path; }
     inline glm::mat4& get_transformation() { return transformation; }
     
     void reset_transformation();
@@ -40,7 +40,7 @@ public:
     void rotate(const glm::mat4& rotation);
     
     bool parse_OBJ(std::string& filepath);    
-    void render();
+    virtual void render();
 
 public:
     std::vector<glm::vec2> uvs;
@@ -50,7 +50,7 @@ public:
 
     glm::mat4 transformation;
 
-    std::string file_path;
+    std::string mesh_path;
 
     unsigned int vertexbuffer;
     unsigned int uvbuffer;
@@ -59,6 +59,18 @@ public:
     float scale;
 	glm::vec3 position;
     glm::vec3 euler_rotation;
+};
+
+class TexturedMesh : public Raekor::Mesh {
+public:
+    TexturedMesh(std::string& obj, const std::string& image, Mesh::file_format format);
+    TexturedMesh(std::string& obj, Mesh::file_format format);
+    void load_texture(const std::string& path);
+    void render(int sampler_id);
+    
+public:   
+    std::string image_path;
+    unsigned int texture_id;
 
 
 };

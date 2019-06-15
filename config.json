@@ -9,38 +9,5 @@
     "imgui":
     {
       "font": "res/SourceSansPro-Regular.ttf"
-    },
-
-    "objects":
-    {
-          "aminecraft block":
-        {
-          "model": "res/models/minecraft_block.obj",
-          "texture": "res/textures/grass block.bmp"
-        },
-
-        "block":
-        {
-          "model": "res/models/testcube.obj",
-          "texture": "res/textures/test.bmp"
-        },
-
-        "ikea box":
-        {
-          "model": "res/models/ikea box.obj",
-          "texture": "res/textures/ikea box.bmp"
-        },
-
-        "plane":
-        {
-          "model": "res/models/uvplane.obj",
-          "texture": "res/textures/plane.bmp"
-        },
-
-        "cabin":
-        {
-          "model": "res/models/cabin.obj",
-          "texture": "res/textures/cabin.bmp"
-        }
     }
 }

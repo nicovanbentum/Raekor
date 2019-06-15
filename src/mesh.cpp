@@ -5,7 +5,7 @@
 namespace Raekor {
 
 Mesh::Mesh(std::string& filepath, Mesh::file_format format) :
-file_path(filepath) {
+mesh_path(filepath) {
 
     switch(format) {
         case Mesh::file_format::OBJ : {
@@ -21,8 +21,8 @@ file_path(filepath) {
     euler_rotation = glm::vec3(0.0f);
 }
 
-Mesh::Mesh(std::string& filepath) :
-file_path(filepath) {}
+Mesh::Mesh(const std::string& filepath) :
+mesh_path(filepath) {}
 
 void Mesh::reset_transformation() {
     scale = 1.0f;
@@ -102,7 +102,7 @@ bool Mesh::parse_OBJ(std::string& filepath) {
         }
     }
 
-
+    // TODO: sort out the mess that follows
     for (auto& vi : v_indices) {
         vertices.push_back(v_verts[vi - 1]);
     }
@@ -158,6 +158,42 @@ void Mesh::render() {
 
     glDisableVertexAttribArray(0);
     glDisableVertexAttribArray(1);
+}
+
+TexturedMesh::TexturedMesh(std::string& obj, const std::string& image, Mesh::file_format format) :
+Raekor::Mesh(obj, format) {
+    load_texture(image);
+}
+
+TexturedMesh::TexturedMesh(std::string& obj, Mesh::file_format format) :
+Raekor::Mesh(obj, format), image_path(""), texture_id(NULL) {}
+
+void TexturedMesh::load_texture(const std::string& path) {
+    image_path = path;
+    SDL_Surface* texture = SDL_LoadBMP(path.c_str());
+    m_assert(texture != NULL, "failed to load BMP, wrong path?");
+
+    glGenTextures(1, &texture_id);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
+
+    int mode = GL_RGB;
+    if(texture->format->BytesPerPixel == 4)  mode = GL_RGBA;
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, mode, texture->w, texture->h, 
+                        0, mode, GL_UNSIGNED_BYTE, texture->pixels);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+}
+
+void TexturedMesh::render(int sampler_id) {
+    if (texture_id != NULL) {    
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture_id);
+        glUniform1i(sampler_id, 0);
+    }
+    Mesh::render();
 }
 
 }
