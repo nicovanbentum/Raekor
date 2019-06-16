@@ -4,7 +4,7 @@
 
 namespace Raekor {
 
-Mesh::Mesh(std::string& filepath, Mesh::file_format format) :
+Mesh::Mesh(const std::string& filepath, Mesh::file_format format) :
 mesh_path(filepath) {
 
     switch(format) {
@@ -49,7 +49,7 @@ void Mesh::rotate(const glm::mat4& rotation) {
     transformation = transformation * rotation;
 }
 
-bool Mesh::parse_OBJ(std::string& filepath) {
+bool Mesh::parse_OBJ(const std::string& filepath) {
     std::vector<unsigned int> v_indices, u_indices, n_indices;
     std::vector<glm::vec3> v_verts, v_norms;
     std::vector<glm::vec2> v_uvs;
@@ -113,27 +113,24 @@ bool Mesh::parse_OBJ(std::string& filepath) {
         normals.push_back(v_norms[ni - 1]);
 }
 
-    std::map<Raekor::Vertex, unsigned int> vi;
+    // indexing algorithm
 
-    std::vector<glm::vec3> i_vertices;
-    std::vector<glm::vec2> i_uvs;
-    std::vector<glm::vec3> i_normals;
-
+    std::map<Raekor::Vertex, unsigned int> seen;
     for (unsigned int i = 0; i < vertices.size(); i++) {
-        
         Raekor::Vertex pv = {vertices[i], uvs[i], normals[i]};
 
-        auto index = vi.find(pv);
-        if (index == vi.end()) {
-            i_vertices.push_back(vertices[i]);
-            i_uvs.push_back(uvs[i]);
-            i_normals.push_back(normals[i]);
-            auto new_index = static_cast<unsigned int>(i_vertices.size() - 1);
-            indices.push_back(new_index);
-        } else
+        // this only works because we added > and < operators to Vertex
+        auto index = seen.find(pv);
+
+        // if we didn't find it, add the vertex to seen and push its index
+        if (index == seen.end()) {
+            indices.push_back(i);
+            seen.insert(std::make_pair(pv, i));
+        } else { // if we did find it, we push the existing index
             indices.push_back(index->second);
+        }
     }
-    
+
     // generate the openGL buffers and get ID's
     vertexbuffer = gen_gl_buffer(vertices, GL_ARRAY_BUFFER);
     uvbuffer = gen_gl_buffer(uvs, GL_ARRAY_BUFFER);
@@ -191,9 +188,9 @@ void TexturedMesh::render(int sampler_id) {
     if (texture_id != NULL) {    
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture_id);
-        glUniform1i(sampler_id, 0);
+        Mesh::render();
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
-    Mesh::render();
 }
 
-}
+} // Namespace Raekor

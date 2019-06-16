@@ -28,7 +28,7 @@ public:
 public:
     Mesh(const std::string& filepath);
     Mesh() : mesh_path("None") {}
-    Mesh(std::string& filepath, Mesh::file_format format);
+    Mesh(const std::string& filepath, Mesh::file_format format);
     
     glm::mat4 get_rotation_matrix();
     inline std::string get_mesh_path() { return mesh_path; }
@@ -39,7 +39,7 @@ public:
     void scale_by(const glm::vec3& factor);
     void rotate(const glm::mat4& rotation);
     
-    bool parse_OBJ(std::string& filepath);    
+    bool parse_OBJ(const std::string& filepath);    
     virtual void render();
 
 public:

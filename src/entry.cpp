@@ -77,7 +77,8 @@ std::string OpenFile(const std::vector<std::string>& filters) {
 
 std::string get_filename(const std::string& path) {
     std::string filename = "";
-    for(size_t i = path.size()-1; i > 0; i--) {
+
+    for(int i = (int)path.size()-1; i > 0; i--) {
         if (path[i] == '\\' || path[i] == '/') {
             return filename;
         } 
@@ -142,7 +143,7 @@ int main(int argc, char** argv) {
     glDepthFunc(GL_LESS);
     //glEnable(GL_CULL_FACE); //uncomment this for model geometry culling
 
-    glClearColor(0.03f, 0.1f, 0.1f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     GLuint vertex_array_id;
     glGenVertexArrays(1, &vertex_array_id);
@@ -203,6 +204,7 @@ int main(int argc, char** argv) {
 				if (ImGui::Selectable(name.c_str(), selected)) {
                     active_model = i;
                     mesh_file = get_filename(scene[active_model].mesh_path);
+                    texture_file = get_filename(scene[active_model].image_path);
                     last_input_scale = scene[active_model].scale;
                     last_pos = scene[active_model].position;
                 }
@@ -218,12 +220,17 @@ int main(int argc, char** argv) {
             std::string path = OpenFile({".obj"});
             if(!path.empty()) {
                 scene.push_back(Raekor::TexturedMesh(path, Raekor::Mesh::file_format::OBJ));
+                active_model = (int)scene.size() - 1;
+                mesh_file = get_filename(scene[active_model].mesh_path);
+                texture_file = get_filename(scene[active_model].image_path);
             }
         }
         ImGui::SameLine();
         if (ImGui::Button("-")) {
             scene.erase(scene.begin() + active_model);
             active_model = 0;
+            mesh_file = get_filename(scene[active_model].mesh_path);
+            texture_file = get_filename(scene[active_model].image_path);
         }
         ImGui::End();
         
