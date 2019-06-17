@@ -10,13 +10,12 @@ class TexturedModel {
 
 public:
     TexturedModel(const std::string& m_file, const std::string& tex_file);
-    ~TexturedModel();
 
     void set_mesh(const std::string& m_file);
     void set_texture(const std::string& tex_file);
 
-    inline const Mesh& get_mesh() const { return *mesh; }
-    inline const Texture& get_texture() const { return *texture; }
+    inline  Mesh* get_mesh() const { return mesh.get(); }
+    inline  Texture* get_texture() const { return texture.get(); }
 
     void render() const;
 

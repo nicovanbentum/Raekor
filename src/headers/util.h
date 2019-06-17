@@ -8,6 +8,8 @@
     #define m_assert(expr, msg) (void)(expr)
 #endif
 
+namespace Raekor {
+
 template<typename T>
 T jfind(json & j, const char * value) {
     m_assert(j.find(value) != j.end(), "value doesn't exist");
@@ -22,3 +24,5 @@ unsigned int gen_gl_buffer(std::vector<T> & v, GLenum target) {
     glBufferData(target, v.size() * sizeof(T), &v[0], GL_STATIC_DRAW);
     return buffer_id;
 }
+
+} // Namespace Raekor

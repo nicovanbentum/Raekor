@@ -61,18 +61,4 @@ public:
     glm::vec3 euler_rotation;
 };
 
-class TexturedMesh : public Raekor::Mesh {
-public:
-    TexturedMesh(std::string& obj, const std::string& image, Mesh::file_format format);
-    TexturedMesh(std::string& obj, Mesh::file_format format);
-    void load_texture(const std::string& path);
-    void render(int sampler_id);
-    
-public:   
-    std::string image_path;
-    unsigned int texture_id;
-
-
-};
-
 }

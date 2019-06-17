@@ -6,6 +6,7 @@
 #include "dds.h"
 #include "camera.h"
 #include "mesh.h"
+#include "model.h"
 
 #ifdef _WIN32
 std::string OpenFile(const std::vector<std::string>& filters) {
@@ -78,12 +79,15 @@ std::string OpenFile(const std::vector<std::string>& filters) {
 std::string get_filename(const std::string& path) {
     std::string filename = "";
 
-    for(int i = (int)path.size()-1; i > 0; i--) {
-        if (path[i] == '\\' || path[i] == '/') {
-            return filename;
-        } 
-        filename.insert(0, std::string(1, path[i]));
-    }
+	if (!path.empty()) {
+		for(int i = (int)path.size()-1; i > 0; i--) {
+			if (path[i] == '\\' || path[i] == '/') {
+				return filename;
+			} 
+			filename.insert(0, std::string(1, path[i]));
+		}
+	}
+
     return std::string();
 }
 
@@ -94,7 +98,7 @@ int main(int argc, char** argv) {
 
     m_assert(SDL_Init(SDL_INIT_VIDEO) == 0, "failed to init sdl");
     
-    auto resolution = jfind<json>(config, "resolution");
+    auto resolution = Raekor::jfind<json>(config, "resolution");
     const char* glsl_version = "#version 330";
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -105,10 +109,13 @@ int main(int argc, char** argv) {
     Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | 
                     SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
 
-    auto main_window = SDL_CreateWindow(jfind<std::string>(config, "name").c_str(),
-                                        25, 25,
-                                        jfind<int>(resolution, "width"),
-                                        jfind<int>(resolution, "height"),
+    auto display = Raekor::jfind<unsigned int>(config, "display");
+
+    auto main_window = SDL_CreateWindow(Raekor::jfind<std::string>(config, "name").c_str(),
+                                        SDL_WINDOWPOS_CENTERED_DISPLAY(display),
+                                        SDL_WINDOWPOS_CENTERED_DISPLAY(display),
+                                        Raekor::jfind<int>(resolution, "width"),
+                                        Raekor::jfind<int>(resolution, "height"),
                                         wflags);
 
     SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
@@ -121,8 +128,8 @@ int main(int argc, char** argv) {
             glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 
-    auto imgui_properties = jfind<json>(config, "imgui");
-    auto font = jfind<std::string>(imgui_properties, "font");
+    auto imgui_properties = Raekor::jfind<json>(config, "imgui");
+    auto font = Raekor::jfind<std::string>(imgui_properties, "font");
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -143,7 +150,7 @@ int main(int argc, char** argv) {
     glDepthFunc(GL_LESS);
     //glEnable(GL_CULL_FACE); //uncomment this for model geometry culling
 
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.15f, 0.25f, 0.35f, 1.0f);
 
     GLuint vertex_array_id;
     glGenVertexArrays(1, &vertex_array_id);
@@ -170,7 +177,7 @@ int main(int argc, char** argv) {
     auto sampler_id = glGetUniformLocation(programID, "myTextureSampler");
 
     // Setup our scene
-    std::vector<Raekor::TexturedMesh> scene;
+    std::vector<Raekor::TexturedModel> scene;
     int active_model = 0;
 
     glm::mat4 mvp;
@@ -198,15 +205,19 @@ int main(int argc, char** argv) {
                 bool selected = (i == active_model);
                 
 				//hacky way to give the selectable a unique ID
-                auto name = scene[i].mesh_path;
+                auto name = scene[i].get_mesh()->mesh_path;
                 name = name + "##" + std::to_string(i);
                 
 				if (ImGui::Selectable(name.c_str(), selected)) {
                     active_model = i;
-                    mesh_file = get_filename(scene[active_model].mesh_path);
-                    texture_file = get_filename(scene[active_model].image_path);
-                    last_input_scale = scene[active_model].scale;
-                    last_pos = scene[active_model].position;
+                    mesh_file = get_filename(scene[active_model].get_mesh()->mesh_path);
+					if (scene[active_model].get_texture() != nullptr) {
+						texture_file = get_filename(scene[active_model].get_texture()->get_path());
+					} else {
+						texture_file = "";
+					}
+                    last_input_scale = scene[active_model].get_mesh()->scale;
+                    last_pos = scene[active_model].get_mesh()->position;
                 }
 
                 if (selected) {
@@ -219,18 +230,25 @@ int main(int argc, char** argv) {
         if (ImGui::Button("+")) {
             std::string path = OpenFile({".obj"});
             if(!path.empty()) {
-                scene.push_back(Raekor::TexturedMesh(path, Raekor::Mesh::file_format::OBJ));
+                scene.push_back(Raekor::TexturedModel(path, ""));
                 active_model = (int)scene.size() - 1;
-                mesh_file = get_filename(scene[active_model].mesh_path);
-                texture_file = get_filename(scene[active_model].image_path);
+                mesh_file = get_filename(scene[active_model].get_mesh()->mesh_path);
+				texture_file = "";
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("-")) {
+        if (ImGui::Button("-") && !scene.empty()) {
             scene.erase(scene.begin() + active_model);
-            active_model = 0;
-            mesh_file = get_filename(scene[active_model].mesh_path);
-            texture_file = get_filename(scene[active_model].image_path);
+			active_model = 0;
+
+            // if we just deleted the last model, empty the strings
+			if (scene.empty()) {
+				mesh_file = "";
+				texture_file = "";
+			} else {
+				mesh_file = get_filename(scene[active_model].get_mesh()->mesh_path);
+				texture_file = get_filename(scene[active_model].get_texture()->get_path());
+			}
         }
         ImGui::End();
         
@@ -246,8 +264,8 @@ int main(int argc, char** argv) {
             if (ImGui::Button("...##Mesh")) {
                 std::string path = OpenFile({".obj"});
                 if (!path.empty()) {
-                    scene[active_model].parse_OBJ(path);
-                    mesh_file = get_filename(scene[active_model].mesh_path);
+                    scene[active_model].set_mesh(path);
+                    mesh_file = get_filename(scene[active_model].get_mesh()->mesh_path);
 
                 }
             }
@@ -259,30 +277,30 @@ int main(int argc, char** argv) {
             if (ImGui::Button("...##Texture")) {
                 std::string path = OpenFile({".bmp"});
                 if (!path.empty()) {
-                    scene[active_model].load_texture(path);
-                    texture_file = get_filename(scene[active_model].image_path);
+                    scene[active_model].set_texture(path);
+                    texture_file = get_filename(scene[active_model].get_mesh()->mesh_path);
                 }
             }
 
-            if (ImGui::InputFloat("Scale", &scene[active_model].scale, 0.05f, 0.1f, "%.2f")) {
-                glm::vec3 factor(scene[active_model].scale / last_input_scale);
-                scene[active_model].scale_by(factor);
-                last_input_scale = scene[active_model].scale;
+            if (ImGui::InputFloat("Scale", &scene[active_model].get_mesh()->scale, 0.05f, 0.1f, "%.2f")) {
+                glm::vec3 factor(scene[active_model].get_mesh()->scale / last_input_scale);
+                scene[active_model].get_mesh()->scale_by(factor);
+                last_input_scale = scene[active_model].get_mesh()->scale;
             }
 
             // rotation is continuous for now so we have something to animate
-            if (ImGui::SliderFloat3("Rotate", &scene[active_model].euler_rotation.x, -0.10f, 0.10f, "%.3f")) {}
+            if (ImGui::SliderFloat3("Rotate", &scene[active_model].get_mesh()->euler_rotation.x, -0.10f, 0.10f, "%.3f")) {}
 
-            if (ImGui::InputFloat3("Move", &scene[active_model].position.x, 2)) {
-                glm::vec3 delta = scene[active_model].position - last_pos;
-                scene[active_model].move(delta);
-                last_pos = scene[active_model].position;
+            if (ImGui::InputFloat3("Move", &scene[active_model].get_mesh()->position.x, 2)) {
+                glm::vec3 delta = scene[active_model].get_mesh()->position - last_pos;
+                scene[active_model].get_mesh()->move(delta);
+                last_pos = scene[active_model].get_mesh()->position;
             }
 
             if (ImGui::Button("Reset")) {
                 last_input_scale = 1.0f;
                 last_pos = glm::vec3(0.0f);
-                scene[active_model].reset_transformation();
+                scene[active_model].get_mesh()->reset_transformation();
             }
         }
 
@@ -297,11 +315,12 @@ int main(int argc, char** argv) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(programID);
 
-        for(auto m = scene.begin(); m != scene.end(); m++) {
-            m->rotate(m->get_rotation_matrix());
-            mvp = camera.projection * camera.view * m->get_transformation();
+
+        for(int i = 0; i < scene.size(); i++) {
+            auto index = scene.size() - 1 - i;
+            mvp = camera.projection * camera.view * scene[index].get_mesh()->get_transformation();
             glUniformMatrix4fv(matrixID, 1, GL_FALSE, &mvp[0][0]);
-            m->render(sampler_id);
+            scene[index].render();
         }
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

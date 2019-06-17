@@ -1,7 +1,9 @@
 {
     "name": "Raekor Engine",
-    "resolution": 
-    {
+    
+    "display": 1,
+
+    "resolution": {
       "width": 2560,
       "height": 1440
     },
