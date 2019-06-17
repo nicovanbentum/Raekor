@@ -150,6 +150,9 @@ void Mesh::render() {
     glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 
+    // bind our index buffer (can't believe I forgot this line for so long lol)
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+
     // Draw triangles
     glDrawElements(GL_TRIANGLES, static_cast<int>(indices.size()), GL_UNSIGNED_INT, nullptr);
 

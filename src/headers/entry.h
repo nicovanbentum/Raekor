@@ -24,7 +24,7 @@ void handle_sdl_gui_events(SDL_Window* window, Raekor::Camera& camera) {
             exit(1);
 
         if (!camera.is_mouse_active() && ev.type == SDL_MOUSEMOTION) {
-            camera.add_look(ev.motion.xrel, ev.motion.yrel);
+            camera.look(ev.motion.xrel, ev.motion.yrel);
         }
 
         // key down and not repeating a hold

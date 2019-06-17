@@ -3,7 +3,6 @@
 #include "math.h"
 #include "gl_shader.h"
 #include "util.h"
-#include "dds.h"
 #include "camera.h"
 #include "mesh.h"
 #include "model.h"
@@ -98,9 +97,7 @@ int main(int argc, char** argv) {
 
     m_assert(SDL_Init(SDL_INIT_VIDEO) == 0, "failed to init sdl");
     
-    auto resolution = Raekor::jfind<json>(config, "resolution");
     const char* glsl_version = "#version 330";
-
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -112,11 +109,10 @@ int main(int argc, char** argv) {
     auto display = Raekor::jfind<unsigned int>(config, "display");
 
     std::vector<SDL_Rect> native_resolutions;
-    for(unsigned int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
+    for(int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
         native_resolutions.push_back(SDL_Rect());
         SDL_GetDisplayBounds(i, &native_resolutions.back());
     }
-
 
     auto main_window = SDL_CreateWindow(Raekor::jfind<std::string>(config, "name").c_str(),
                                         native_resolutions[display].x,
@@ -131,7 +127,6 @@ int main(int argc, char** argv) {
     SDL_GL_MakeCurrent(main_window, gl_context);
 
     SDL_SetWindowResizable(main_window, SDL_FALSE);
-    SDL_SetWindowBordered(main_window, SDL_FALSE);
 
     m_assert(gl3wInit() == 0, "failed to init gl3w");
 
@@ -170,20 +165,8 @@ int main(int argc, char** argv) {
 
     unsigned int programID = load_shaders("shaders/vertex.glsl", "shaders/fragment.glsl");
     unsigned int matrixID = glGetUniformLocation(programID, "MVP");
-    unsigned int view_matrixID = glGetUniformLocation(programID, "V");
-    unsigned int model_matrixID = glGetUniformLocation(programID, "M");
 
     Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
-
-    // fov , ratio, display range
-    camera.projection = glm::perspective(glm::radians(90.0f), 16.0f / 9.0f, 0.1f, 100.0f);
-
-    // Camera matrix
-    camera.view = glm::lookAt(
-        glm::vec3(0, 0, 5), // camera pos in world space
-        glm::vec3(0, 0, 0), // camera looks at the origin
-        glm::vec3(0, 1, 0)  // Head is up (0,-1,0 to look upside-down)
-    );
 
     // texture sampler 
     auto sampler_id = glGetUniformLocation(programID, "myTextureSampler");
@@ -192,9 +175,6 @@ int main(int argc, char** argv) {
     std::vector<Raekor::TexturedModel> scene;
     int active_model = 0;
 
-    glm::mat4 mvp;
-    glUseProgram(programID);
-
 	// persistent imgui variable values
     std::string mesh_file = "";
     std::string texture_file = "";
@@ -202,7 +182,7 @@ int main(int argc, char** argv) {
     glm::vec3 last_pos(0.0f);
 
     //main application loop
-    for (;;) {
+    for(;;) {
         //handle sdl and imgui events
         handle_sdl_gui_events(main_window, camera);
         
@@ -259,7 +239,12 @@ int main(int argc, char** argv) {
 				texture_file = "";
 			} else {
 				mesh_file = get_filename(scene[active_model].get_mesh()->mesh_path);
-				texture_file = get_filename(scene[active_model].get_texture()->get_path());
+                if(scene[active_model].get_texture() != nullptr) {
+				    texture_file = get_filename(scene[active_model].get_texture()->get_path());
+                } else {
+                    texture_file = "";
+                }
+
 			}
         }
         ImGui::End();
@@ -328,11 +313,10 @@ int main(int argc, char** argv) {
         glUseProgram(programID);
 
 
-        for(int i = 0; i < scene.size(); i++) {
-            auto index = scene.size() - 1 - i;
-            mvp = camera.projection * camera.view * scene[index].get_mesh()->get_transformation();
-            glUniformMatrix4fv(matrixID, 1, GL_FALSE, &mvp[0][0]);
-            scene[index].render();
+        for(auto& m : scene) {
+            camera.update(m.get_mesh()->get_transformation());
+            glUniformMatrix4fv(matrixID, 1, GL_FALSE, &camera.get_mvp()[0][0]);
+            m.render();
         }
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
