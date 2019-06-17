@@ -18,7 +18,9 @@ GLTexture::GLTexture(const std::string& path)
     glBindTexture(GL_TEXTURE_2D, id);
 
     int mode = GL_RGB;
-    if(texture->format->BytesPerPixel == 4)  mode = GL_RGBA;
+    if(texture->format->BytesPerPixel == 4) {
+        mode = GL_RGBA;
+    }
     glTexImage2D(GL_TEXTURE_2D, 0, mode, texture->w, texture->h, 
                         0, mode, GL_UNSIGNED_BYTE, texture->pixels);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);

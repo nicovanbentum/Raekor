@@ -25,4 +25,17 @@ unsigned int gen_gl_buffer(std::vector<T> & v, GLenum target) {
     return buffer_id;
 }
 
+static std::string get_extension(const std::string& path) {
+    std::string filename = "";
+
+	if (!path.empty()) {
+		for(int i = (int)path.size()-1; i > 0; i--) {
+			if (path[i] == '\\' || path[i] == '/') {
+				return filename;
+			} filename.insert(0, std::string(1, path[i]));
+		}
+	}
+    return std::string();
+}
+
 } // Namespace Raekor

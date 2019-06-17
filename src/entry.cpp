@@ -75,21 +75,6 @@ std::string OpenFile(const std::vector<std::string>& filters) {
 }
 #endif
 
-std::string get_filename(const std::string& path) {
-    std::string filename = "";
-
-	if (!path.empty()) {
-		for(int i = (int)path.size()-1; i > 0; i--) {
-			if (path[i] == '\\' || path[i] == '/') {
-				return filename;
-			} 
-			filename.insert(0, std::string(1, path[i]));
-		}
-	}
-
-    return std::string();
-}
-
 int main(int argc, char** argv) {
     json config;
     std::ifstream ifs("config.json");
@@ -202,9 +187,9 @@ int main(int argc, char** argv) {
                 
 				if (ImGui::Selectable(name.c_str(), selected)) {
                     active_model = i;
-                    mesh_file = get_filename(scene[active_model].get_mesh()->mesh_path);
+                    mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
 					if (scene[active_model].get_texture() != nullptr) {
-						texture_file = get_filename(scene[active_model].get_texture()->get_path());
+						texture_file = Raekor::get_extension(scene[active_model].get_texture()->get_path());
 					} else {
 						texture_file = "";
 					}
@@ -224,7 +209,7 @@ int main(int argc, char** argv) {
             if(!path.empty()) {
                 scene.push_back(Raekor::TexturedModel(path, ""));
                 active_model = (int)scene.size() - 1;
-                mesh_file = get_filename(scene[active_model].get_mesh()->mesh_path);
+                mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
 				texture_file = "";
             }
         }
@@ -238,9 +223,9 @@ int main(int argc, char** argv) {
 				mesh_file = "";
 				texture_file = "";
 			} else {
-				mesh_file = get_filename(scene[active_model].get_mesh()->mesh_path);
+				mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
                 if(scene[active_model].get_texture() != nullptr) {
-				    texture_file = get_filename(scene[active_model].get_texture()->get_path());
+				    texture_file = Raekor::get_extension(scene[active_model].get_texture()->get_path());
                 } else {
                     texture_file = "";
                 }
@@ -262,7 +247,7 @@ int main(int argc, char** argv) {
                 std::string path = OpenFile({".obj"});
                 if (!path.empty()) {
                     scene[active_model].set_mesh(path);
-                    mesh_file = get_filename(scene[active_model].get_mesh()->mesh_path);
+                    mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
 
                 }
             }
@@ -275,7 +260,7 @@ int main(int argc, char** argv) {
                 std::string path = OpenFile({".bmp"});
                 if (!path.empty()) {
                     scene[active_model].set_texture(path);
-                    texture_file = get_filename(scene[active_model].get_mesh()->mesh_path);
+                    texture_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
                 }
             }
 
