@@ -51,7 +51,7 @@ std::string OpenFile(const std::vector<std::string>& filters) {
     for(auto& filter : filters) {
         auto gtk_filter = gtk_file_filter_new();
         gtk_file_filter_set_name(gtk_filter, filter.c_str());
-        gtk_file_filter_add_pattern (gtk_filter, filter.c_str());
+        gtk_file_filter_add_pattern (gtk_filter, std::string("*" + filter).c_str());
         gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), gtk_filter);
     }
 
@@ -302,9 +302,9 @@ int main(int argc, char** argv) {
                 last_pos = glm::vec3(0.0f);
                 scene[active_model].get_mesh()->reset_transformation();
             }
+            ImGui::End();
         }
 
-        ImGui::End();
         ImGui::Render();
 
         int w, h;
