@@ -111,15 +111,27 @@ int main(int argc, char** argv) {
 
     auto display = Raekor::jfind<unsigned int>(config, "display");
 
+    std::vector<SDL_Rect> native_resolutions;
+    for(unsigned int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
+        native_resolutions.push_back(SDL_Rect());
+        SDL_GetDisplayBounds(i, &native_resolutions.back());
+    }
+
+
     auto main_window = SDL_CreateWindow(Raekor::jfind<std::string>(config, "name").c_str(),
-                                        SDL_WINDOWPOS_CENTERED_DISPLAY(display),
-                                        SDL_WINDOWPOS_CENTERED_DISPLAY(display),
-                                        Raekor::jfind<int>(resolution, "width"),
-                                        Raekor::jfind<int>(resolution, "height"),
+                                        native_resolutions[display].x,
+                                        native_resolutions[display].y,
+                                        native_resolutions[display].w,
+                                        native_resolutions[display].h,
                                         wflags);
+
+
 
     SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
     SDL_GL_MakeCurrent(main_window, gl_context);
+
+    SDL_SetWindowResizable(main_window, SDL_FALSE);
+    SDL_SetWindowBordered(main_window, SDL_FALSE);
 
     m_assert(gl3wInit() == 0, "failed to init gl3w");
 
