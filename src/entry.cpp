@@ -91,22 +91,19 @@ int main(int argc, char** argv) {
     Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | 
                     SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
 
-    auto display = Raekor::jfind<unsigned int>(config, "display");
-
-    std::vector<SDL_Rect> native_resolutions;
+    std::vector<SDL_Rect> screens;
     for(int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
-        native_resolutions.push_back(SDL_Rect());
-        SDL_GetDisplayBounds(i, &native_resolutions.back());
+        screens.push_back(SDL_Rect());
+        SDL_GetDisplayBounds(i, &screens.back());
     }
 
+    auto index = Raekor::jfind<unsigned int>(config, "display");
     auto main_window = SDL_CreateWindow(Raekor::jfind<std::string>(config, "name").c_str(),
-                                        native_resolutions[display].x,
-                                        native_resolutions[display].y,
-                                        native_resolutions[display].w,
-                                        native_resolutions[display].h,
+                                        screens[index].x,
+                                        screens[index].y,
+                                        screens[index].w,
+                                        screens[index].h,
                                         wflags);
-
-
 
     SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
     SDL_GL_MakeCurrent(main_window, gl_context);
@@ -232,6 +229,11 @@ int main(int argc, char** argv) {
 
 			}
         }
+        static bool is_vsync = true;
+        if(ImGui::RadioButton("USE VSYNC", is_vsync)) {
+            is_vsync = !is_vsync;
+            SDL_GL_SetSwapInterval(is_vsync);
+        }
         ImGui::End();
         
         if(!scene.empty()) {
@@ -299,6 +301,7 @@ int main(int argc, char** argv) {
 
 
         for(auto& m : scene) {
+            m.get_mesh()->rotate(m.get_mesh()->get_rotation_matrix());
             camera.update(m.get_mesh()->get_transformation());
             glUniformMatrix4fv(matrixID, 1, GL_FALSE, &camera.get_mvp()[0][0]);
             m.render();
