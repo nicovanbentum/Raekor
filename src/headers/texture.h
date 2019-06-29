@@ -7,7 +7,7 @@ namespace Raekor {
 class Texture {
 
 public:
-    static Texture * construct(const std::string& path);
+    static Texture* construct(const std::string& path);
     virtual void bind() const = 0;
     virtual void unbind() const = 0;
     virtual unsigned int get_id() const = 0;

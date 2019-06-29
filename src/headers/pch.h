@@ -16,9 +16,6 @@
 
 //openGL includes
 
-// single include header only JSON library
-#include "nlohmann/json.hpp" 
-using json = nlohmann::json;
 
 // imgui headers to build once
 #include "imconfig.h"
@@ -40,9 +37,13 @@ using json = nlohmann::json;
 #undef main //stupid sdl_main
 
 // c++ includes
-#include <algorithm>
-#include <iostream>
+#include <map>
 #include <fstream>
 #include <sstream>
+#include <iostream>
+#include <algorithm>
+#include <unordered_map>
 
+// header only Cereal library
+#include "cereal/archives/json.hpp"
 
