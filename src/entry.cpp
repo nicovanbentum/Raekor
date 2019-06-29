@@ -111,17 +111,18 @@ int main(int argc, char** argv) {
     Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | 
                     SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
 
-    std::vector<SDL_Rect> screens;
+    std::vector<SDL_Rect> displays;
     for(int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
-        screens.push_back(SDL_Rect());
-        SDL_GetDisplayBounds(i, &screens.back());
+        displays.push_back(SDL_Rect());
+        SDL_GetDisplayBounds(i, &displays.back());
     }
-
+	// if our display setting is higher than the nr of displays we pick the default display
+	auto index = settings.display > displays.size() - 1 ? 0 : settings.display;
     auto main_window = SDL_CreateWindow(settings.name.c_str(),
-                                        screens[settings.display].x,
-                                        screens[settings.display].y,
-                                        screens[settings.display].w,
-                                        screens[settings.display].h,
+										displays[index].x,
+										displays[index].y,
+										displays[index].w,
+										displays[index].h,
                                         wflags);
 
     SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
