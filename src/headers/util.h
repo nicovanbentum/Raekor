@@ -11,12 +11,6 @@
 namespace Raekor {
 
 template<typename T>
-T jfind(json & j, const char * value) {
-    m_assert(j.find(value) != j.end(), "value doesn't exist");
-    return (*j.find(value)).get<T>();
-}
-
-template<typename T>
 unsigned int gen_gl_buffer(std::vector<T> & v, GLenum target) {
     unsigned int buffer_id;
     glGenBuffers(1, &buffer_id);

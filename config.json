@@ -1,10 +1,5 @@
 {
-    "name": "Raekor Engine",
-    
+    "name": "Raekor",
     "display": 1,
-
-    "imgui":
-    {
-      "font": "res/SourceSansPro-Regular.ttf"
-    }
+    "font": "res/SourceSansPro-Regular.ttf"
 }

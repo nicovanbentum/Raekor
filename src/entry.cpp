@@ -75,10 +75,30 @@ std::string OpenFile(const std::vector<std::string>& filters) {
 }
 #endif
 
+struct settings {
+    std::string name;
+    std::string font;
+    uint8_t display;
+
+    template<class C>
+    void read_or_write(C& archive) {
+        archive(
+            CEREAL_NVP(name), 
+            CEREAL_NVP(display), 
+            CEREAL_NVP(font));
+    }
+
+	void read_from_disk(const std::string& file) {
+		std::ifstream is(file);
+		cereal::JSONInputArchive archive(is);
+		read_or_write(archive);
+	}
+
+} settings;
+
 int main(int argc, char** argv) {
-    json config;
-    std::ifstream ifs("config.json");
-    ifs >> config;	
+
+	settings.read_from_disk("config.json");
 
     m_assert(SDL_Init(SDL_INIT_VIDEO) == 0, "failed to init sdl");
     
@@ -97,12 +117,11 @@ int main(int argc, char** argv) {
         SDL_GetDisplayBounds(i, &screens.back());
     }
 
-    auto index = Raekor::jfind<unsigned int>(config, "display");
-    auto main_window = SDL_CreateWindow(Raekor::jfind<std::string>(config, "name").c_str(),
-                                        screens[index].x,
-                                        screens[index].y,
-                                        screens[index].w,
-                                        screens[index].h,
+    auto main_window = SDL_CreateWindow(settings.name.c_str(),
+                                        screens[settings.display].x,
+                                        screens[settings.display].y,
+                                        screens[settings.display].w,
+                                        screens[settings.display].h,
                                         wflags);
 
     SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
@@ -117,12 +136,10 @@ int main(int argc, char** argv) {
             glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 
-    auto imgui_properties = Raekor::jfind<json>(config, "imgui");
-    auto font = Raekor::jfind<std::string>(imgui_properties, "font");
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 18.0f);
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF(settings.font.c_str(), 18.0f);
     if(!io.Fonts->Fonts.empty()) {
 	    io.FontDefault = io.Fonts->Fonts.back();
     }
