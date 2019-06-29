@@ -98,11 +98,6 @@ int main(int argc, char** argv) {
     }
 
     auto index = Raekor::jfind<unsigned int>(config, "display");
-	// if the config file contains a display nr that doesnt exist default to single monitor
-	if (index > screens.size() - 1) {
-		index = 0;
-	}
-
     auto main_window = SDL_CreateWindow(Raekor::jfind<std::string>(config, "name").c_str(),
                                         screens[index].x,
                                         screens[index].y,
