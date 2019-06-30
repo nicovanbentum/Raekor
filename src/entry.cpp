@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
     glGenVertexArrays(1, &vertex_array_id);
     glBindVertexArray(vertex_array_id);
 
-    unsigned int programID = load_shaders("shaders/vertex.glsl", "shaders/fragment.glsl");
+    unsigned int programID = load_shaders("shaders/simple.vert", "shaders/simple.frag");
     unsigned int matrixID = glGetUniformLocation(programID, "MVP");
 
     Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
@@ -185,6 +185,23 @@ int main(int argc, char** argv) {
     // frame buffer for the renderer
     std::unique_ptr<Raekor::FrameBuffer> frame_buffer;
     frame_buffer.reset(Raekor::FrameBuffer::construct(glm::vec2(1440, 900)));
+
+    std::vector<std::string> faces {
+        "resources/skybox/right.jpg",
+        "resources/skybox/left.jpg",
+        "resources/skybox/top.jpg",
+        "resources/skybox/bottom.jpg",
+        "resources/skybox/front.jpg",
+        "resources/skybox/back.jpg"
+    };
+
+    unsigned int cubemap;
+    glGenTextures(1, &cubemap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap);
+
+    for(const std::string& face : faces) {
+    }
+
     
     glUseProgram(programID);
     //main application loop
