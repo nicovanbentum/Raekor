@@ -7,3 +7,4 @@ Release/
 .vscode/
 x64/Linux/GE
 .clang-format
+imgui.ini
