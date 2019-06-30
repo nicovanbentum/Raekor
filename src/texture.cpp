@@ -4,7 +4,7 @@
 
 namespace Raekor {
 
-Texture * Texture::construct(const std::string& path) {
+Texture* Texture::construct(const std::string& path) {
     return new GLTexture(path);
 }
 

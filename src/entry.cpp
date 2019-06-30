@@ -6,6 +6,7 @@
 #include "camera.h"
 #include "mesh.h"
 #include "model.h"
+#include "framebuffer.h"
 
 #ifdef _WIN32
 std::string OpenFile(const std::vector<std::string>& filters) {
@@ -181,16 +182,66 @@ int main(int argc, char** argv) {
     float last_input_scale = 1.0f;
     glm::vec3 last_pos(0.0f);
 
+    // frame buffer for the renderer
+    std::unique_ptr<Raekor::FrameBuffer> frame_buffer;
+    frame_buffer.reset(Raekor::FrameBuffer::construct(glm::vec2(1440, 900)));
+    
+    glUseProgram(programID);
     //main application loop
     for(;;) {
         //handle sdl and imgui events
         handle_sdl_gui_events(main_window, camera);
+
+        glClearColor(0.22f, 0.32f, 0.42f, 1.0f);        
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        auto fsize = frame_buffer->get_size();
+        glViewport(0, 0, (GLsizei)fsize.x, (GLsizei)fsize.y);
+        frame_buffer->bind();
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        for(auto& m : scene) {
+            m.get_mesh()->rotate(m.get_mesh()->get_rotation_matrix());
+            camera.update(m.get_mesh()->get_transformation());
+            glUniformMatrix4fv(matrixID, 1, GL_FALSE, &camera.get_mvp()[0][0]);
+            m.render();
+        }
+        frame_buffer->unbind();
         
         //get new frame for opengl, sdl and imgui
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame(main_window);
         ImGui::NewFrame();
 
+        if(ImGui::BeginMainMenuBar()) {
+            if(ImGui::BeginMenu("File")) {
+                if(ImGui::MenuItem("Close", "Esc")) {
+                    //clean up imgui
+                    ImGui_ImplOpenGL3_Shutdown();
+                    ImGui_ImplSDL2_Shutdown();
+                    ImGui::DestroyContext();
+
+                    //clean up SDL
+                    SDL_GL_DeleteContext(gl_context);
+                    SDL_DestroyWindow(main_window);
+                    SDL_Quit();
+                    return 0;
+                }
+            }
+        }
+
+        // renderer viewport
+        ImGui::SetNextWindowContentSize(ImVec2(fsize.x, fsize.y));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+        ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::Image((void*)static_cast<size_t>(frame_buffer->get_frame()), ImVec2(fsize.x, fsize.y), {0,1}, {1,0});
+        ImGui::End();
+        ImGui::PopStyleVar();
+        
+        // scene panel
+        ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 770, io.DisplaySize.y - 550), ImGuiCond_Once);
         ImGui::Begin("Scene");
         if (ImGui::BeginCombo("", mesh_file.c_str())) {
             for (int i = 0; i < scene.size(); i++) {
@@ -251,6 +302,7 @@ int main(int argc, char** argv) {
         if(ImGui::RadioButton("USE VSYNC", is_vsync)) {
             is_vsync = !is_vsync;
             SDL_GL_SetSwapInterval(is_vsync);
+            ImGui::SetWindowSize({800,800});
         }
         ImGui::End();
         
@@ -280,7 +332,7 @@ int main(int argc, char** argv) {
                 std::string path = OpenFile({".bmp"});
                 if (!path.empty()) {
                     scene[active_model].set_texture(path);
-                    texture_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
+                    texture_file = Raekor::get_extension(scene[active_model].get_texture()->get_path());
                 }
             }
 
@@ -308,35 +360,13 @@ int main(int argc, char** argv) {
         }
 
         ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         int w, h;
         SDL_GetWindowSize(main_window, &w, &h);
         glViewport(0, 0, w, h);
 
-        //clear frame, use our shaders and perform mvp transformation
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glUseProgram(programID);
-
-
-        for(auto& m : scene) {
-            m.get_mesh()->rotate(m.get_mesh()->get_rotation_matrix());
-            camera.update(m.get_mesh()->get_transformation());
-            glUniformMatrix4fv(matrixID, 1, GL_FALSE, &camera.get_mvp()[0][0]);
-            m.render();
-        }
-
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(main_window);
     }
-
-    //clean up imgui
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-    ImGui::DestroyContext();
-
-    //clean up SDL
-    SDL_GL_DeleteContext(gl_context);
-    SDL_DestroyWindow(main_window);
-    SDL_Quit();
     return 0;
 }
