@@ -15,7 +15,9 @@ INC=-isystem src/headers \
 -isystem dependencies/JSON/include \
 -isystem dependencies/glm \
 -isystem dependencies/imgui \
--isystem dependencies/SDL/include
+-isystem dependencies/SDL/include \
+-isystem dependencies/cereal/include \
+-isystem dependencies/stb
 
 # compilation calls and flags
 CL=g++ -c
