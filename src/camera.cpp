@@ -17,6 +17,17 @@ void Camera::update(const glm::mat4& model) {
     mvp = projection * view * model;
 }
 
+void Camera::update() {
+    auto dir = get_direction();
+    view = glm::lookAt(position, position + dir, {0, 1, 0});
+    view = glm::mat4(glm::mat3(view));
+    mvp = projection * view * glm::mat4(1.0f);
+}
+
+void Camera::remove_translation() {
+    view = glm::mat4(glm::mat3(view));
+}
+
 glm::vec3 Camera::get_direction() {
     return glm::vec3(cos(angle.y) * sin(angle.x), 
     sin(angle.y), cos(angle.y) * cos(angle.x));

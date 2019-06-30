@@ -10,7 +10,9 @@ public:
     Camera(glm::vec3 position, float fov);
     void look(int x, int y);
     void move_on_input(float amount);
-    void update(const glm::mat4& model = glm::mat4(1.0f));
+    void remove_translation();
+    void update(const glm::mat4& model);
+    void update();
     inline glm::mat4& get_mvp() { return mvp; }
     inline bool is_mouse_active() { return mouse_active; }
     inline void set_mouse_active(bool state) { mouse_active = state; }

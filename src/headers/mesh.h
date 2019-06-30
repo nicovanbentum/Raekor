@@ -26,8 +26,6 @@ public:
     };
 
 public:
-    Mesh(const std::string& filepath);
-    Mesh() : mesh_path("None") {}
     Mesh(const std::string& filepath, Mesh::file_format format);
     
     glm::mat4 get_rotation_matrix();

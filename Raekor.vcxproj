@@ -64,7 +64,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm;C:\VS Projects\Raekor\dependencies\cereal\include;$(SolutionDir)\src\headers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm;C:\VS Projects\Raekor\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -147,6 +147,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="dependencies\imgui\imgui_impl_opengl3.h" />
     <ClInclude Include="dependencies\imgui\imgui_impl_sdl.h" />
     <ClInclude Include="dependencies\NVDDS\nv_dds.h" />
+    <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="src\headers\camera.h" />
     <ClInclude Include="src\headers\entry.h" />
     <ClInclude Include="src\headers\framebuffer.h" />

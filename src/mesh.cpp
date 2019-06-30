@@ -21,9 +21,6 @@ mesh_path(filepath) {
     euler_rotation = glm::vec3(0.0f);
 }
 
-Mesh::Mesh(const std::string& filepath) :
-mesh_path(filepath) {}
-
 void Mesh::reset_transformation() {
     scale = 1.0f;
     position = glm::vec3(0.0f);

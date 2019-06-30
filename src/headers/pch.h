@@ -14,8 +14,6 @@
     
 #endif
 
-//openGL includes
-
 
 // imgui headers to build once
 #include "imconfig.h"
