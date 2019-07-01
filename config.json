@@ -1,5 +1,6 @@
 {
     "name": "Raekor",
     "display": 1,
-    "font": "resources/SourceSansPro-Regular.ttf"
+    "font": "resources/SourceSansPro-Regular.ttf",
+    "skybox": "resources/skyboxes/lake"
 }

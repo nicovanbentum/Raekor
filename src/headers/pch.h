@@ -45,3 +45,6 @@
 // header only Cereal library
 #include "cereal/archives/json.hpp"
 
+// include stb
+#include "stb_image.h"
+
