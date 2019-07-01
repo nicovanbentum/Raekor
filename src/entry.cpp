@@ -7,9 +7,7 @@
 #include "mesh.h"
 #include "model.h"
 #include "framebuffer.h"
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "pch.h"
 
 #ifdef _WIN32
 std::string OpenFile(const std::vector<std::string>& filters) {
@@ -83,13 +81,15 @@ struct settings {
     std::string name;
     std::string font;
     uint8_t display;
+	std::string skybox;
 
     template<class C>
     void read_or_write(C& archive) {
         archive(
             CEREAL_NVP(name), 
             CEREAL_NVP(display), 
-            CEREAL_NVP(font));
+            CEREAL_NVP(font),
+			CEREAL_NVP(skybox));
     }
 
     void read_from_disk(const std::string& file) {
@@ -192,12 +192,12 @@ int main(int argc, char** argv) {
     frame_buffer.reset(Raekor::FrameBuffer::construct(glm::vec2(1280, 720)));
 
     std::vector<std::string> faces {
-        "resources/skybox/right.jpg",
-        "resources/skybox/left.jpg",
-        "resources/skybox/top.jpg",
-        "resources/skybox/bottom.jpg",
-        "resources/skybox/front.jpg",
-        "resources/skybox/back.jpg"
+		std::string(settings.skybox + "/right.png"),
+		std::string(settings.skybox + "/left.png"),
+		std::string(settings.skybox + "/top.png"),
+		std::string(settings.skybox + "/bottom.png"),
+		std::string(settings.skybox + "/front.png"),
+		std::string(settings.skybox + "/back.png")
     };
 
     unsigned int cubemap;
