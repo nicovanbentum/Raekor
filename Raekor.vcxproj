@@ -82,6 +82,9 @@
       <Command>copy "$(SolutionDir)\dependencies\SDL\lib\x64\SDL2.dll" "$(TargetDir)"
 copy "$(SolutionDir)\config.json" "$(TargetDir)"</Command>
     </PreBuildEvent>
+    <Manifest>
+      <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
