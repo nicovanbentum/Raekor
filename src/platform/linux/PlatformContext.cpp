@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "util.h"
 #include "PlatformContext.h"
 
 namespace Raekor {

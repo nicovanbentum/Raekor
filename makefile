@@ -17,6 +17,7 @@ INC=-isystem src/headers \
 -isystem dependencies/imgui \
 -isystem dependencies/SDL/include \
 -isystem dependencies/cereal/include \
+-isystem src/platform \
 -isystem dependencies/stb
 
 # compilation calls and flags
@@ -42,7 +43,7 @@ GL3W_H := $(wildcard dependencies/gl3w/include/GL/*.h)
 GL3W_C = dependencies/gl3w/src/gl3w.c
 GL3W_O = $(addprefix $(OUT_DIR),$(notdir $(GL3W_C:.c=.o)))
 
-SOURCES := $(wildcard src/*.cpp) $(IMGUI_C)
+SOURCES := $(wildcard src/*.cpp) $(IMGUI_C) $(wildcard src/platform/linux/*.cpp)
 OBJS := $(addprefix $(OUT_DIR),$(notdir $(SOURCES:.cpp=.o))) $(GL3W_O)
 
 .PHONY: build rebuild clean

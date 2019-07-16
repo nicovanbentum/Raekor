@@ -270,7 +270,6 @@ int main(int argc, char** argv) {
         if(ImGui::RadioButton("USE VSYNC", is_vsync)) {
             is_vsync = !is_vsync;
             SDL_GL_SetSwapInterval(is_vsync);
-            ImGui::SetWindowSize({800,800});
         }
         ImGui::End();
         
