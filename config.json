@@ -2,5 +2,30 @@
     "name": "Raekor",
     "display": 1,
     "font": "resources/SourceSansPro-Regular.ttf",
-    "skybox": "resources/skyboxes/nebula"
+    "skybox": "resources/skyboxes/nebula",
+    "skyboxes": [
+        {
+            "key": "lake",
+            "value": [
+                "resources/skyboxes/lake/right.jpg",
+                "resources/skyboxes/lake/left.jpg",
+                "resources/skyboxes/lake/top.jpg",
+                "resources/skyboxes/lake/bottom.jpg",
+                "resources/skyboxes/lake/front.jpg",
+                "resources/skyboxes/lake/back.jpg"
+            ]
+        },
+        {
+            "key": "nebula",
+            "value": [
+                "resources/skyboxes/nebula/right.png",
+                "resources/skyboxes/nebula/left.png",
+                "resources/skyboxes/nebula/top.png",
+                "resources/skyboxes/nebula/bottom.png",
+                "resources/skyboxes/nebula/front.png",
+                "resources/skyboxes/nebula/back.png"
+            ]
+
+        }
+    ]
 }

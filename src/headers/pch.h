@@ -36,14 +36,21 @@
 
 // c++ includes
 #include <map>
+#include <array>
 #include <fstream>
 #include <sstream>
 #include <iostream>
 #include <algorithm>
 #include <unordered_map>
 
+
 // header only Cereal library
 #include "cereal/archives/json.hpp"
+#include "cereal/types/map.hpp"
+#include "cereal/types/array.hpp"
+#include "cereal/types/string.hpp"
+#include "cereal/types/complex.hpp"
+#include "cereal/types/vector.hpp"
 
 // include stb
 #include "stb_image.h"

@@ -1,87 +1,20 @@
 #include "pch.h"
-#include "entry.h"
-#include "math.h"
-#include "gl_shader.h"
-#include "util.h"
-#include "camera.h"
 #include "mesh.h"
+#include "math.h"
+#include "util.h"
+#include "entry.h"
 #include "model.h"
+#include "camera.h"
+#include "shader.h"
 #include "framebuffer.h"
-#include "pch.h"
-
-#ifdef _WIN32
-std::string OpenFile(const std::vector<std::string>& filters) {
-    
-    std::string lpstr_filters;
-    for(auto& f : filters) {
-        lpstr_filters.append(std::string(f + '\0' + '*' + f + '\0'));
-    }
-
-    OPENFILENAMEA ofn;
-    CHAR szFile[260] = {0};
-    ZeroMemory(&ofn, sizeof(OPENFILENAME));
-    ofn.lStructSize = sizeof(OPENFILENAME);
-    ofn.hwndOwner = GetActiveWindow();
-    ofn.lpstrFile = szFile;
-    ofn.nMaxFile = sizeof(szFile);
-    ofn.lpstrFilter = lpstr_filters.c_str();
-    ofn.nFilterIndex = 1;
-    ofn.lpstrFileTitle = NULL;
-    ofn.nMaxFileTitle = 0;
-    ofn.lpstrInitialDir = NULL;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-
-    if (GetOpenFileNameA(&ofn) == TRUE) {
-        return ofn.lpstrFile;
-    }
-    return std::string();
-}
-#elif __linux__
-std::string OpenFile(const std::vector<std::string>& filters) {
-    //init gtk
-    m_assert(gtk_init_check(NULL, NULL), "failed to init gtk");	
-    // allocate a new dialog window
-    auto dialog = gtk_file_chooser_dialog_new(
-        "Open File",
-        NULL,
-        GTK_FILE_CHOOSER_ACTION_OPEN,
-        GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
-        "Open", GTK_RESPONSE_ACCEPT,
-        NULL);
-
-    for(auto& filter : filters) {
-        auto gtk_filter = gtk_file_filter_new();
-        gtk_file_filter_set_name(gtk_filter, filter.c_str());
-        gtk_file_filter_add_pattern (gtk_filter, std::string("*" + filter).c_str());
-        gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), gtk_filter);
-    }
-
-    char* path = NULL;
-    // if the ok button is pressed (gtk response type ACCEPT) we get the selected filepath
-    if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
-        path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
-    }
-    // destroy our dialog window
-    gtk_widget_destroy(dialog);
-    // if our filepath is not empty we make it the return value
-    std::string file;
-    if(path) {
-        file = std::string(path, strlen(path));
-    }
-    // main event loop for our window, this took way too long to fix 
-    // (newer GTK's produce segfaults, something to do with SDL)
-    while(gtk_events_pending()) {
-        gtk_main_iteration();
-    }
-    return file;
-}
-#endif
+#include "PlatformContext.h"
 
 struct settings {
     std::string name;
     std::string font;
     uint8_t display;
 	std::string skybox;
+	std::map<std::string, std::vector<std::string>> skyboxes;
 
     template<class C>
     void read_or_write(C& archive) {
@@ -89,7 +22,8 @@ struct settings {
             CEREAL_NVP(name), 
             CEREAL_NVP(display), 
             CEREAL_NVP(font),
-			CEREAL_NVP(skybox));
+			CEREAL_NVP(skybox),
+			CEREAL_NVP(skyboxes));
     }
 
     void read_from_disk(const std::string& file) {
@@ -101,6 +35,7 @@ struct settings {
 } settings;
 
 int main(int argc, char** argv) {
+	auto context = Raekor::PlatformContext();
 
     settings.read_from_disk("config.json");
 
@@ -167,15 +102,12 @@ int main(int argc, char** argv) {
     glGenVertexArrays(1, &vertex_array_id);
     glBindVertexArray(vertex_array_id);
 
-    unsigned int simple_shader = load_shaders("shaders/simple.vert", "shaders/simple.frag");
-    unsigned int skybox_shader = load_shaders("shaders/skybox.vert", "shaders/skybox.frag");
-    unsigned int simple_mvp_id = glGetUniformLocation(simple_shader, "MVP");
-    unsigned int skybox_mvp_id = glGetUniformLocation(skybox_shader, "MVP");
+	auto simple_shader = Raekor::GLShader("shaders/simple.vert", "shaders/simple.frag");
+	auto skybox_shader = Raekor::GLShader("shaders/skybox.vert", "shaders/skybox.frag");
+	auto simple_shader_mvp = simple_shader.get_uniform_location("MVP");
+	auto skybox_shader_mvp = skybox_shader.get_uniform_location("MVP");
 
     Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
-
-    // texture sampler 
-    auto sampler_id = glGetUniformLocation(simple_shader, "myTextureSampler");
 
     // Setup our scene
     std::vector<Raekor::TexturedModel> scene;
@@ -186,39 +118,17 @@ int main(int argc, char** argv) {
     std::string texture_file = "";
     float last_input_scale = 1.0f;
     glm::vec3 last_pos(0.0f);
+	auto active_skybox = settings.skyboxes.begin();
 
     // frame buffer for the renderer
     std::unique_ptr<Raekor::FrameBuffer> frame_buffer;
     frame_buffer.reset(Raekor::FrameBuffer::construct(glm::vec2(1280, 720)));
 
-    std::vector<std::string> faces {
-		std::string(settings.skybox + "/right.png"),
-		std::string(settings.skybox + "/left.png"),
-		std::string(settings.skybox + "/top.png"),
-		std::string(settings.skybox + "/bottom.png"),
-		std::string(settings.skybox + "/front.png"),
-		std::string(settings.skybox + "/back.png")
-    };
+	std::unique_ptr<Raekor::GLTextureCube> skybox_texture;
+	skybox_texture.reset(new Raekor::GLTextureCube(active_skybox->second));
+	std::unique_ptr<Raekor::Mesh> skycube;
+	skycube.reset(new Raekor::Mesh("resources/models/testcube.obj", Raekor::Mesh::file_format::OBJ));
 
-    unsigned int cubemap;
-    glGenTextures(1, &cubemap);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap);
-
-    int width, height, n_channels;
-    for(unsigned int i = 0; i < faces.size(); i++) {
-        auto image = stbi_load(faces[i].c_str(), &width, &height, &n_channels, 0);
-        m_assert(image, "failed to load image");
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-        stbi_image_free(image);
-    }
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    auto cube = Raekor::Mesh("resources/models/testcube.obj", Raekor::Mesh::file_format::OBJ);
-    
     //main application loop
     for(;;) {
         //handle sdl and imgui events
@@ -226,8 +136,6 @@ int main(int argc, char** argv) {
 
         glClearColor(0.22f, 0.32f, 0.42f, 1.0f);        
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-
 
         auto fsize = frame_buffer->get_size();
         glViewport(0, 0, (GLsizei)fsize.x, (GLsizei)fsize.y);
@@ -236,22 +144,23 @@ int main(int argc, char** argv) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glDepthMask(GL_FALSE);
-        glUseProgram(skybox_shader);
+		skybox_shader.bind();
         camera.update();
-        glUniformMatrix4fv(skybox_mvp_id, 1, GL_FALSE, &camera.get_mvp()[0][0]);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap);
-        cube.render();
-        glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+		skybox_shader.upload_uniform_matrix4fv(skybox_shader.get_uniform_location("MVP"), &camera.get_mvp()[0][0]);
+		skybox_texture->bind();
+        skycube->render();
+		skybox_texture->unbind();
         glDepthMask(GL_TRUE);
 
-        glUseProgram(simple_shader);
+		simple_shader.bind();
         for(auto& m : scene) {
             m.get_mesh()->rotate(m.get_mesh()->get_rotation_matrix());
             camera.update(m.get_mesh()->get_transformation());
-            glUniformMatrix4fv(simple_mvp_id, 1, GL_FALSE, &camera.get_mvp()[0][0]);
+			simple_shader.upload_uniform_matrix4fv(simple_shader.get_uniform_location("MVP"), &camera.get_mvp()[0][0]);
             m.render();
         }
         frame_buffer->unbind();
+		simple_shader.unbind();
         
         //get new frame for opengl, sdl and imgui
         ImGui_ImplOpenGL3_NewFrame();
@@ -289,6 +198,19 @@ int main(int argc, char** argv) {
         ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 770, io.DisplaySize.y - 550), ImGuiCond_Once);
         ImGui::Begin("Scene");
+		if (ImGui::BeginCombo("Skybox", active_skybox->first.c_str())) {
+			for (auto it = settings.skyboxes.begin(); it != settings.skyboxes.end(); it++) {
+				bool selected = (it == active_skybox);
+				if (ImGui::Selectable(it->first.c_str(), selected)) {
+					active_skybox = it;
+					skybox_texture.reset(new Raekor::GLTextureCube(active_skybox->second));
+				}
+				if (selected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
         if (ImGui::BeginCombo("", mesh_file.c_str())) {
             for (int i = 0; i < scene.size(); i++) {
                 bool selected = (i == active_model);
@@ -317,7 +239,7 @@ int main(int argc, char** argv) {
         }
         ImGui::SameLine();
         if (ImGui::Button("+")) {
-            std::string path = OpenFile({".obj"});
+            std::string path = context.open_file_dialog({".obj"});
             if(!path.empty()) {
                 scene.push_back(Raekor::TexturedModel(path, ""));
                 active_model = (int)scene.size() - 1;
@@ -362,7 +284,7 @@ int main(int argc, char** argv) {
             ImGui::Text(mesh_file.c_str(), NULL);
             ImGui::SameLine();
             if (ImGui::Button("...##Mesh")) {
-                std::string path = OpenFile({".obj"});
+                std::string path = context.open_file_dialog({".obj"});
                 if (!path.empty()) {
                     scene[active_model].set_mesh(path);
                     mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
@@ -375,7 +297,7 @@ int main(int argc, char** argv) {
             ImGui::Text(texture_file.c_str(), NULL);
             ImGui::SameLine();
             if (ImGui::Button("...##Texture")) {
-                std::string path = OpenFile({".bmp"});
+                std::string path = context.open_file_dialog({".png"});
                 if (!path.empty()) {
                     scene[active_model].set_texture(path);
                     texture_file = Raekor::get_extension(scene[active_model].get_texture()->get_path());
