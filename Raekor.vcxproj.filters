@@ -101,5 +101,8 @@
     <ClInclude Include="src\platform\PlatformContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\platform\DirectX11.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
