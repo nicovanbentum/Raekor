@@ -4,10 +4,9 @@
 #include "GL/gl3w.h"
 
 #ifdef _WIN32
-    #include <windows.h>
+	#include <DirectX11.h>
 	#include <commdlg.h>
     #include <GL/GL.h>
-
 #elif __linux__
     #include <GL/gl.h>
     #include <gtk/gtk.h>
