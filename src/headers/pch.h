@@ -7,6 +7,7 @@
 	#include <DirectX11.h>
 	#include <commdlg.h>
     #include <GL/GL.h>
+	#include <SDL_syswm.h>
 #elif __linux__
     #include <GL/gl.h>
     #include <gtk/gtk.h>

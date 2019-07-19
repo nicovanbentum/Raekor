@@ -4,8 +4,8 @@
 #include "util.h"
 #include "camera.h"
 
-void handle_sdl_gui_events(SDL_Window* window, Raekor::Camera& camera) {
-    auto flags = SDL_GetWindowFlags(window);
+void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& camera) {
+    auto flags = SDL_GetWindowFlags(windows[0]);
     bool focus = (flags & SDL_WINDOW_INPUT_FOCUS) ? true : false;
 
     if (!focus && !camera.is_mouse_active()) {
@@ -20,8 +20,13 @@ void handle_sdl_gui_events(SDL_Window* window, Raekor::Camera& camera) {
 
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
-        if (ev.type == SDL_QUIT)
-            exit(1);
+		if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_CLOSE) {
+			for (SDL_Window* window : windows) {
+				if (SDL_GetWindowID(window) == ev.window.windowID) {
+					exit(1);
+				}
+			}
+		}
 
         if (!camera.is_mouse_active() && ev.type == SDL_MOUSEMOTION) {
             camera.look(ev.motion.xrel, ev.motion.yrel);

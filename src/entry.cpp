@@ -39,6 +39,12 @@ int main(int argc, char** argv) {
 
     settings.read_from_disk("config.json");
 
+	IDXGISwapChain* swap_chain;
+	ID3D11Device* d3device;
+	ID3D11DeviceContext* d3context;
+	DXGI_SWAP_CHAIN_DESC sc_desc;
+	memset(&sc_desc, 0, sizeof(DXGI_SWAP_CHAIN_DESC));
+
     m_assert(SDL_Init(SDL_INIT_VIDEO) == 0, "failed to init sdl");
     
     const char* glsl_version = "#version 330";
@@ -49,6 +55,9 @@ int main(int argc, char** argv) {
 
     Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | 
                     SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
+	Uint32 d3wflags = SDL_WINDOW_RESIZABLE |
+		SDL_WINDOW_ALLOW_HIGHDPI;
+
 
     std::vector<SDL_Rect> displays;
     for(int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
@@ -63,6 +72,40 @@ int main(int argc, char** argv) {
                                         displays[index].w,
                                         displays[index].h,
                                         wflags);
+
+	auto directxwindow = SDL_CreateWindow("directx window", 100, 100, 1280, 720, d3wflags);
+
+	// query for the sdl window hardware handle for our directx renderer
+	SDL_SysWMinfo wminfo;
+	SDL_VERSION(&wminfo.version);
+	SDL_GetWindowWMInfo(directxwindow, &wminfo);
+	auto dx_hwnd = wminfo.info.win.window;
+
+	// fill out the swap chain description and create both the device and swap chain
+	sc_desc.BufferCount = 1;
+	sc_desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sc_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	sc_desc.OutputWindow = dx_hwnd;
+	sc_desc.SampleDesc.Count = 4;
+	sc_desc.Windowed = TRUE;
+	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, NULL, NULL, D3D11_SDK_VERSION, &sc_desc, &swap_chain, &d3device, NULL, &d3context);
+	
+	// setup a directx back buffer to draw to
+	ID3D11RenderTargetView* d3_backbuffer;
+	ID3D11Texture2D* backbuffer_addr;
+	swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&backbuffer_addr);
+	d3device->CreateRenderTargetView(backbuffer_addr, NULL, &d3_backbuffer);
+	backbuffer_addr->Release();
+	d3context->OMSetRenderTargets(1, &d3_backbuffer, NULL);
+
+	// set the directx viewport
+	D3D11_VIEWPORT viewport;
+	memset(&viewport, 0, sizeof(D3D11_VIEWPORT));
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = 1280;
+	viewport.Height = 720;
+	d3context->RSSetViewports(1, &viewport);
 
     SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
     SDL_GL_MakeCurrent(main_window, gl_context);
@@ -132,7 +175,11 @@ int main(int argc, char** argv) {
     //main application loop
     for(;;) {
         //handle sdl and imgui events
-        handle_sdl_gui_events(main_window, camera);
+		handle_sdl_gui_events({ main_window, directxwindow }, camera);
+
+		const float clear_color[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
+		d3context->ClearRenderTargetView(d3_backbuffer, clear_color);
+		swap_chain->Present(0, 0);
 
         glClearColor(0.22f, 0.32f, 0.42f, 1.0f);        
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -335,5 +382,9 @@ int main(int argc, char** argv) {
 
         SDL_GL_SwapWindow(main_window);
     }
+	swap_chain->Release();
+	d3device->Release();
+	d3context->Release();
+	d3_backbuffer->Release();
     return 0;
 }
