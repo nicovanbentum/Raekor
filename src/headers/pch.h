@@ -4,7 +4,8 @@
 #include "GL/gl3w.h"
 
 #ifdef _WIN32
-	#include <DirectX11.h>
+	#include <Windows.h>
+	#include <d3d11.h>
 	#include <commdlg.h>
     #include <GL/GL.h>
 	#include <SDL_syswm.h>
