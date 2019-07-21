@@ -1,10 +1,8 @@
-// D3D11-NoRedefs.h
-// Includes D3D11.h without redefinitions from Windows!
+// Includes D3D11.h without redefinition warnings from the windows header 
 #pragma once
 
 #include <Windows.h>
 
-// Only undefine, if DXGIType.h has not been included yet
 #ifndef __dxgitype_h__
 #undef DXGI_STATUS_OCCLUDED
 #undef DXGI_STATUS_CLIPPED

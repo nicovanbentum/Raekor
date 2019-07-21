@@ -118,6 +118,19 @@ int main(int argc, char** argv) {
     printf("GL INFO: OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
             glGetString(GL_SHADING_LANGUAGE_VERSION));
 
+    std::vector<IDXGIAdapter*> GPUs;
+    IDXGIFactory* gpu_factory = NULL;
+    IDXGIAdapter* gpu;
+    CreateDXGIFactory1(__uuidof(IDXGIFactory), (void**)&gpu_factory);
+    for(unsigned int i = 0; gpu_factory->EnumAdapters(i, &gpu) != DXGI_ERROR_NOT_FOUND; i++) {
+        GPUs.push_back(gpu);
+    }
+
+    for(IDXGIAdapter* adapter : GPUs) {
+        DXGI_ADAPTER_DESC description;
+        adapter->GetDesc(&description);
+        std::wcout << description.Description << std::endl;
+    }
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
