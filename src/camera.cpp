@@ -13,7 +13,7 @@ Camera::Camera(glm::vec3 position, float fov) :
 
 void Camera::update(const glm::mat4& model) {
     auto dir = get_direction();
-    view = glm::lookAt(position, position + dir, {0, 1, 0});
+    view = glm::lookAtRH(position, position + dir, {0, 1, 0});
     mvp = projection * view * model;
 }
 

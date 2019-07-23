@@ -64,7 +64,7 @@ void Raekor::Application::run() {
 		displays[index].h,
 		wflags);
 
-	auto directxwindow = SDL_CreateWindow("directx window", 100, 100, 1280, 720, d3wflags);
+	auto directxwindow = SDL_CreateWindow("Raekor (DirectX 11)", 100, 100, 1280, 720, d3wflags);
 
 	// query for the sdl window hardware handle for our directx renderer
 	SDL_SysWMinfo wminfo;
@@ -107,7 +107,20 @@ void Raekor::Application::run() {
 	Microsoft::WRL::ComPtr<ID3D10Blob> pixel_shader_buffer;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> vertex_buffer;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> index_buffer;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> constant_buffer;
 	Microsoft::WRL::ComPtr<ID3D11RasterizerState> rasterize_state;
+
+	struct cb_vs {
+		glm::mat4 model;
+	};
+
+	D3D11_BUFFER_DESC cbdesc;
+	cbdesc.Usage = D3D11_USAGE_DYNAMIC;
+	cbdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	cbdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	cbdesc.MiscFlags = 0;
+	cbdesc.ByteWidth = static_cast<UINT>(sizeof(cb_vs) + (16 - (sizeof(cb_vs) % 16)));
+	cbdesc.StructureByteStride = 0;
 
 	D3D11_RASTERIZER_DESC raster_desc;
 	memset(&raster_desc, 0, sizeof(D3D11_RASTERIZER_DESC));
@@ -154,20 +167,9 @@ void Raekor::Application::run() {
 		std::wcout << description.Description << std::endl;
 	}
 
-	glm::vec3 cube[] = {
-	{-0.5f, -0.5f, 1.0f},
-	{-0.5f, 0.5f, 1.0f},
-	{0.5f, 0.5f, 1.0f},
-	{0.5f, -0.5f, 1.0f}
-	};
-
-	unsigned int indices[] = {
-		0, 1, 2,
-		0, 2, 3
-	};
-
 	std::unique_ptr<Raekor::Mesh> mcube;
 	mcube.reset(new Raekor::Mesh("resources/models/testcube.obj", Raekor::Mesh::file_format::OBJ));
+	mcube->move(glm::vec3(0.0f, -5.0f, 0.0f));
 
 	D3D11_BUFFER_DESC vb_desc = { 0 };
 	vb_desc.Usage = D3D11_USAGE_DEFAULT;
@@ -215,7 +217,7 @@ void Raekor::Application::run() {
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
-	//glEnable(GL_CULL_FACE); //uncomment this for model geometry culling
+	//glEnable(GL_CULL_FACE);
 
 	glClearColor(0.15f, 0.25f, 0.35f, 1.0f);
 
@@ -264,6 +266,37 @@ void Raekor::Application::run() {
 		d3context->PSSetShader(pixel_shader.Get(), NULL, 0);
 		constexpr unsigned int stride = sizeof(glm::vec3);
 		constexpr unsigned int offset = 0;
+		
+		// set our constant buffer data containing the MVP of our mesh/model
+		cb_vs data;
+		static auto model_matrix = DirectX::XMMatrixIdentity();
+		static auto rotation_matrix = DirectX::XMMatrixRotationRollPitchYaw(0.0f, 0.01f, 0.0f);
+		model_matrix = model_matrix * rotation_matrix;
+		
+		auto gl_m = glm::mat4(1.0f);
+		auto gl_v = glm::lookAtRH(glm::vec3(0.0f, 0.0f, -10.f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		auto gl_p = glm::perspectiveFovRH(glm::radians(45.0f), 1280.0f, 720.0f, 0.1f, 10000.0f);
+
+
+		static auto eye_pos = DirectX::XMVectorSet(0.0f, 0.0f, -10.0f, 0.0f); 
+		static auto lookatpos = DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+		static auto up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+		static auto view_matrix = DirectX::XMMatrixLookAtLH(eye_pos, lookatpos, up);
+		static auto proj_matrix = DirectX::XMMatrixPerspectiveFovLH(glm::radians(45.0f), 16.0f / 9.0f, 0.1f, 10000.0f);
+
+		//data.model = model_matrix * view_matrix * proj_matrix;
+		//data.model = DirectX::XMMatrixTranspose(data.model);
+		data.model = gl_m * gl_v * gl_p;
+
+		D3D11_SUBRESOURCE_DATA cbdata;
+		cbdata.pSysMem = &data;
+		cbdata.SysMemPitch = 0;
+		cbdata.SysMemSlicePitch = 0;
+
+		auto r = d3device->CreateBuffer(&cbdesc, &cbdata, constant_buffer.GetAddressOf());
+		if (FAILED(r)) m_assert(false, "failed to create constant buffer");
+
+		d3context->VSSetConstantBuffers(0, 1, constant_buffer.GetAddressOf());
 		d3context->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
 		d3context->IASetIndexBuffer(index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 		d3context->DrawIndexed(mcube->indices.size(), 0, 0);

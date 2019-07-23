@@ -18,7 +18,7 @@ public:
     inline void set_mouse_active(bool state) { mouse_active = state; }
     glm::vec3 get_direction();
 
-protected:
+private:
     glm::vec3 position;
     glm::vec2 angle;
     glm::mat4 view;
