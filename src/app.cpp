@@ -98,8 +98,10 @@ void Raekor::Application::run() {
 	viewport.Height = 720;
 	d3context->RSSetViewports(1, &viewport);
 
+	// error handling result
 	HRESULT hr;
 
+	// com pointers to direct3d11 variables
 	Microsoft::WRL::ComPtr<ID3D11InputLayout> input_layout;
 	Microsoft::WRL::ComPtr<ID3D11VertexShader> vertex_shader;
 	Microsoft::WRL::ComPtr<ID3D11PixelShader> pixel_shader;
@@ -110,10 +112,12 @@ void Raekor::Application::run() {
 	Microsoft::WRL::ComPtr<ID3D11Buffer> constant_buffer;
 	Microsoft::WRL::ComPtr<ID3D11RasterizerState> rasterize_state;
 
+	// struct that describes and matches what the hlsl vertex shader expects
 	struct cb_vs {
-		glm::mat4 model;
+		glm::mat4 MVP;
 	};
 
+	// fill out the constant buffer description for our MVP struct
 	D3D11_BUFFER_DESC cbdesc;
 	cbdesc.Usage = D3D11_USAGE_DYNAMIC;
 	cbdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
@@ -122,6 +126,7 @@ void Raekor::Application::run() {
 	cbdesc.ByteWidth = static_cast<UINT>(sizeof(cb_vs) + (16 - (sizeof(cb_vs) % 16)));
 	cbdesc.StructureByteStride = 0;
 
+	// fill out the raster description struct and create a rasterizer state
 	D3D11_RASTERIZER_DESC raster_desc;
 	memset(&raster_desc, 0, sizeof(D3D11_RASTERIZER_DESC));
 	raster_desc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
@@ -129,6 +134,7 @@ void Raekor::Application::run() {
 	raster_desc.FrontCounterClockwise = false;
 	d3device->CreateRasterizerState(&raster_desc, rasterize_state.GetAddressOf());
 
+	// read our compiled shader files and put them in their respective buffers
 	hr = D3DReadFileToBlob(L"shaders/simple_vertex.cso", vertex_shader_buffer.GetAddressOf());
 	if (FAILED(hr)) m_assert(false, "failed to load d3 shader");
 	hr = D3DReadFileToBlob(L"shaders/simple_pixel.cso", pixel_shader_buffer.GetAddressOf());
@@ -139,21 +145,25 @@ void Raekor::Application::run() {
 	hr = d3device->CreatePixelShader(pixel_shader_buffer.Get()->GetBufferPointer(), pixel_shader_buffer->GetBufferSize(), NULL, pixel_shader.GetAddressOf());
 	if (FAILED(hr)) m_assert(false, "failed to create pixel shader");
 
+	// describe our vertex layout
 	D3D11_INPUT_ELEMENT_DESC layout[] = { "POSITION", 0, DXGI_FORMAT::DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA, 0 };
 	hr = d3device->CreateInputLayout(layout, ARRAYSIZE(layout), vertex_shader_buffer->GetBufferPointer(), vertex_shader_buffer->GetBufferSize(), input_layout.GetAddressOf());
 	if (FAILED(hr)) m_assert(false, "failed to create pinput layout");
 
+	// get our OpenGL context and make it current for every openGL call
 	SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
 	SDL_GL_MakeCurrent(main_window, gl_context);
-
 	SDL_SetWindowResizable(main_window, SDL_FALSE);
 
+	// init gl3w so we can use openGL
 	m_assert(gl3wInit() == 0, "failed to init gl3w");
 
+	// print the initialized openGL specs
 	std::cout << "GL INFO: OpenGL " << glGetString(GL_VERSION);
 	printf("GL INFO: OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
 		glGetString(GL_SHADING_LANGUAGE_VERSION));
 
+	// enumerate all avaiable graphics adapters
 	std::vector<IDXGIAdapter*> GPUs;
 	IDXGIFactory* gpu_factory = NULL;
 	IDXGIAdapter* gpu;
@@ -162,15 +172,18 @@ void Raekor::Application::run() {
 		GPUs.push_back(gpu);
 	}
 
+	// print every graphics adapters description
 	for (IDXGIAdapter* adapter : GPUs) {
 		DXGI_ADAPTER_DESC description;
 		adapter->GetDesc(&description);
 		std::wcout << description.Description << std::endl;
 	}
 
+	// test cube for directx rendering
 	std::unique_ptr<Raekor::Mesh> mcube;
 	mcube.reset(new Raekor::Mesh("resources/models/testcube.obj", Raekor::Mesh::file_format::OBJ));
 
+	// fill out the buffer description struct for our vertex buffer
 	D3D11_BUFFER_DESC vb_desc = { 0 };
 	vb_desc.Usage = D3D11_USAGE_DEFAULT;
 	vb_desc.ByteWidth = static_cast<UINT>(sizeof(glm::vec3) * mcube->vertices.size());
@@ -178,9 +191,9 @@ void Raekor::Application::run() {
 	vb_desc.CPUAccessFlags = 0;
 	vb_desc.MiscFlags = 0;
 
+	// create the buffer that actually holds our vertices
 	D3D11_SUBRESOURCE_DATA vb_data = { 0 };
 	vb_data.pSysMem = &(mcube->vertices[0]);
-
 	hr = d3device->CreateBuffer(&vb_desc, &vb_data, vertex_buffer.GetAddressOf());
 	if (FAILED(hr)) m_assert(false, "failed to create buffer");
 
@@ -199,6 +212,7 @@ void Raekor::Application::run() {
 	hr = d3device->CreateBuffer(&ib_desc, &ib_data, index_buffer.GetAddressOf());
 	if (FAILED(hr)) m_assert(false, "failed to create index buffer");
 
+	// initialize ImGui
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -207,32 +221,34 @@ void Raekor::Application::run() {
 		io.FontDefault = io.Fonts->Fonts.back();
 	}
 	ImGui::StyleColorsDark();
+	ImGui_ImplSDL2_InitForOpenGL(main_window, &gl_context);
+	ImGui_ImplOpenGL3_Init(glsl_version);
 
+	// print GPU information
 	auto vendor = glGetString(GL_VENDOR);
 	auto renderer = glGetString(GL_RENDERER);
 	std::cout << vendor << " : " << renderer << std::endl;
 
-	ImGui_ImplSDL2_InitForOpenGL(main_window, &gl_context);
-	ImGui_ImplOpenGL3_Init(glsl_version);
-
+	// set opengl depth testing and culling
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	//glEnable(GL_CULL_FACE);
 
-	glClearColor(0.15f, 0.25f, 0.35f, 1.0f);
-
+	// one time setup for binding vertey arrays
 	GLuint vertex_array_id;
 	glGenVertexArrays(1, &vertex_array_id);
 	glBindVertexArray(vertex_array_id);
 
+	// load our shaders and get the MVP handles
 	auto simple_shader = Raekor::GLShader("shaders/simple.vert", "shaders/simple.frag");
 	auto skybox_shader = Raekor::GLShader("shaders/skybox.vert", "shaders/skybox.frag");
 	auto simple_shader_mvp = simple_shader.get_uniform_location("MVP");
 	auto skybox_shader_mvp = skybox_shader.get_uniform_location("MVP");
 
+	// create a Camera we can use to move around our scene
 	Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
 
-	// Setup our scene
+	// Setup our scene TODO: create a class for this that's easy to serialize
 	std::vector<Raekor::TexturedModel> scene;
 	int active_model = 0;
 
@@ -247,56 +263,67 @@ void Raekor::Application::run() {
 	std::unique_ptr<Raekor::FrameBuffer> frame_buffer;
 	frame_buffer.reset(Raekor::FrameBuffer::construct(glm::vec2(1280, 720)));
 
+	// loads a cube mesh and a texture image to use as skybox
 	std::unique_ptr<Raekor::GLTextureCube> skybox_texture;
 	skybox_texture.reset(new Raekor::GLTextureCube(active_skybox->second));
 	std::unique_ptr<Raekor::Mesh> skycube;
 	skycube.reset(new Raekor::Mesh("resources/models/ikea box.obj", Raekor::Mesh::file_format::OBJ));
+
+	SDL_SetWindowInputFocus(main_window);
 
 	//main application loop
 	for (;;) {
 		//handle sdl and imgui events
 		handle_sdl_gui_events({ main_window, directxwindow }, camera);
 
+		// clear the render view
 		const float clear_color[4] = { 0.0f, 0.2f, 0.0f, 1.0f };
 		d3context->ClearRenderTargetView(d3_backbuffer, clear_color);
+		// set the input layout, topology, rasterizer state and bind our vertex and pixel shader
 		d3context->IASetInputLayout(input_layout.Get());
 		d3context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		d3context->RSSetState(rasterize_state.Get());
 		d3context->VSSetShader(vertex_shader.Get(), NULL, 0);
 		d3context->PSSetShader(pixel_shader.Get(), NULL, 0);
-		constexpr unsigned int stride = sizeof(glm::vec3);
-		constexpr unsigned int offset = 0;
 		
 		// set our constant buffer data containing the MVP of our mesh/model
 		cb_vs data;
-		
 		mcube->euler_rotation.y = 0.01f;
 		mcube->rotate(mcube->get_rotation_matrix());
-		data.model = camera.get_dx_mvp(mcube->get_transformation());
+		data.MVP = camera.get_dx_mvp(mcube->get_transformation());
 
+		// create a directx resource for our MVP data
 		D3D11_SUBRESOURCE_DATA cbdata;
 		cbdata.pSysMem = &data;
 		cbdata.SysMemPitch = 0;
 		cbdata.SysMemSlicePitch = 0;
+		auto ret = d3device->CreateBuffer(&cbdesc, &cbdata, constant_buffer.GetAddressOf());
+		if (FAILED(ret)) m_assert(false, "failed to create constant buffer");
 
-		auto r = d3device->CreateBuffer(&cbdesc, &cbdata, constant_buffer.GetAddressOf());
-		if (FAILED(r)) m_assert(false, "failed to create constant buffer");
-
+		// bind our constant, vertex and index buffers
+		constexpr unsigned int stride = sizeof(glm::vec3);
+		constexpr unsigned int offset = 0;
 		d3context->VSSetConstantBuffers(0, 1, constant_buffer.GetAddressOf());
 		d3context->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
 		d3context->IASetIndexBuffer(index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-		d3context->DrawIndexed(static_cast<UINT>(mcube->indices.size()), 0, 0);
-		swap_chain->Present(1, NULL);
 
+		// draw the indexed vertices and swap the backbuffer to front
+		d3context->DrawIndexed(static_cast<UINT>(mcube->indices.size()), 0, 0);
+		swap_chain->Present(0, NULL);
+
+		// clear opengl window background (blue)
 		glClearColor(0.22f, 0.32f, 0.42f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		// match our GL viewport with the framebuffer's size and clear it
 		auto fsize = frame_buffer->get_size();
 		glViewport(0, 0, (GLsizei)fsize.x, (GLsizei)fsize.y);
 		frame_buffer->bind();
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		// bind our skybox shader, update our camera WITHOUT translation (important for skybox)
+		// upload our MVP, bind the skybox texture and render the entire thing
 		glDepthMask(GL_FALSE);
 		skybox_shader.bind();
 		camera.update();
@@ -306,6 +333,7 @@ void Raekor::Application::run() {
 		skybox_texture->unbind();
 		glDepthMask(GL_TRUE);
 
+		// bind our simple shader and draw textured model in our scene
 		simple_shader.bind();
 		for (auto& m : scene) {
 			m.get_mesh()->rotate(m.get_mesh()->get_rotation_matrix());
@@ -321,6 +349,7 @@ void Raekor::Application::run() {
 		ImGui_ImplSDL2_NewFrame(main_window);
 		ImGui::NewFrame();
 
+		// draw the top level bar that contains stuff like "File" and "Edit"
 		if (ImGui::BeginMainMenuBar()) {
 			if (ImGui::BeginMenu("File")) {
 				if (ImGui::MenuItem("Close", "CTRL+S")) {
@@ -365,6 +394,8 @@ void Raekor::Application::run() {
 			}
 			ImGui::EndCombo();
 		}
+
+		// combo box used to select the mesh you're trying to edit
 		if (ImGui::BeginCombo("", mesh_file.c_str())) {
 			for (int i = 0; i < scene.size(); i++) {
 				bool selected = (i == active_model);
@@ -392,6 +423,8 @@ void Raekor::Application::run() {
 			}
 			ImGui::EndCombo();
 		}
+
+		// plus button that opens a file dialog window using the platform context to ask what model file you want to load in
 		ImGui::SameLine();
 		if (ImGui::Button("+")) {
 			std::string path = context.open_file_dialog({ ".obj" });
@@ -402,6 +435,8 @@ void Raekor::Application::run() {
 				texture_file = "";
 			}
 		}
+
+		// minus button that removes the active model
 		ImGui::SameLine();
 		if (ImGui::Button("-") && !scene.empty()) {
 			scene.erase(scene.begin() + active_model);
@@ -423,6 +458,8 @@ void Raekor::Application::run() {
 
 			}
 		}
+
+		// toggle button for openGl vsync
 		static bool is_vsync = true;
 		if (ImGui::RadioButton("USE VSYNC", is_vsync)) {
 			is_vsync = !is_vsync;
@@ -430,12 +467,15 @@ void Raekor::Application::run() {
 		}
 		ImGui::End();
 
+
+		// if we have at least 1 model in our scene we draw the panel that controls the models' variables
 		if (!scene.empty()) {
 			//start drawing a new imgui window. TODO: make this into a reusable component
 			ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
 			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 770, io.DisplaySize.y - 270), ImGuiCond_Once);
 			ImGui::Begin("Object Properties");
 
+			// opens a file dialog to select a new mesh for the model
 			ImGui::Text("Mesh");
 			ImGui::Text(mesh_file.c_str(), NULL);
 			ImGui::SameLine();
@@ -449,6 +489,7 @@ void Raekor::Application::run() {
 			}
 			ImGui::Separator();
 
+			// opens a file dialog to select a new texture for the model
 			ImGui::Text("Texture");
 			ImGui::Text(texture_file.c_str(), NULL);
 			ImGui::SameLine();
@@ -460,6 +501,7 @@ void Raekor::Application::run() {
 				}
 			}
 
+			// input float that lets you control the scale of the model
 			if (ImGui::InputFloat("Scale", &scene[active_model].get_mesh()->scale, 0.05f, 0.1f, "%.2f")) {
 				glm::vec3 factor(scene[active_model].get_mesh()->scale / last_input_scale);
 				scene[active_model].get_mesh()->scale_by(factor);
@@ -469,12 +511,14 @@ void Raekor::Application::run() {
 			// rotation is continuous for now so we have something to animate
 			if (ImGui::SliderFloat3("Rotate", &scene[active_model].get_mesh()->euler_rotation.x, -0.10f, 0.10f, "%.3f")) {}
 
+			// input float that controls the placement of the model in the scene
 			if (ImGui::InputFloat3("Move", &scene[active_model].get_mesh()->position.x, 2)) {
 				glm::vec3 delta = scene[active_model].get_mesh()->position - last_pos;
 				scene[active_model].get_mesh()->move(delta);
 				last_pos = scene[active_model].get_mesh()->position;
 			}
 
+			// resets the model's transformation
 			if (ImGui::Button("Reset")) {
 				last_input_scale = 1.0f;
 				last_pos = glm::vec3(0.0f);
@@ -492,6 +536,8 @@ void Raekor::Application::run() {
 
 		SDL_GL_SwapWindow(main_window);
 	}
+
+	// directx cleanup
 	swap_chain->Release();
 	d3device->Release();
 	d3context->Release();
