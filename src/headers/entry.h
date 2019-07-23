@@ -35,9 +35,6 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
         // key down and not repeating a hold
         if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
             switch (ev.key.keysym.sym) {
-                case SDLK_ESCAPE: {
-                    exit(1);
-                } break;
                 case SDLK_LALT: {
                     camera.set_mouse_active(!camera.is_mouse_active());                   
                     SDL_SetRelativeMouseMode((SDL_bool)(!camera.is_mouse_active()));

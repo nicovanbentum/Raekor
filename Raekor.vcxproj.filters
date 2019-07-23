@@ -69,6 +69,9 @@
     <ClCompile Include="dependencies\gl3w\src\gl3w.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\app.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\imgui\imgui_impl_sdl.h">
@@ -116,8 +119,12 @@
     <ClInclude Include="src\platform\PlatformContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\platform\DirectX11.h">
+    <ClInclude Include="src\headers\app.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\simple_vertex.hlsl" />
+    <FxCompile Include="shaders\simple_pixel.hlsl" />
   </ItemGroup>
 </Project>

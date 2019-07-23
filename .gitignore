@@ -8,3 +8,4 @@ Release/
 x64/Linux/GE
 .clang-format
 imgui.ini
+resources/models/nanosuit.obj
