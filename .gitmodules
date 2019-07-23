@@ -10,3 +10,6 @@
 [submodule "dependencies/cereal"]
 	path = dependencies/cereal
 	url = https://github.com/USCiLab/cereal
+[submodule "dependencies/imgui"]
+	path = dependencies/imgui
+	url = https://github.com/ocornut/imgui
