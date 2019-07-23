@@ -50,10 +50,10 @@
 #include "imgui_impl_sdl.h"
 
 // openGL math library
-#define GLM_DEPTH_ZERO_TO_ONE
 #include "glm.hpp"
 #include "ext.hpp"
 #include "gtx/quaternion.hpp"
+#include "gtx/string_cast.hpp"
 
 // SDL includes
 #include "SDL.h"

@@ -125,7 +125,8 @@ void Raekor::Application::run() {
 	D3D11_RASTERIZER_DESC raster_desc;
 	memset(&raster_desc, 0, sizeof(D3D11_RASTERIZER_DESC));
 	raster_desc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
-	raster_desc.CullMode = D3D11_CULL_MODE::D3D11_CULL_BACK;
+	raster_desc.CullMode = D3D11_CULL_MODE::D3D11_CULL_NONE;
+	raster_desc.FrontCounterClockwise = false;
 	d3device->CreateRasterizerState(&raster_desc, rasterize_state.GetAddressOf());
 
 	hr = D3DReadFileToBlob(L"shaders/simple_vertex.cso", vertex_shader_buffer.GetAddressOf());
@@ -250,7 +251,7 @@ void Raekor::Application::run() {
 	std::unique_ptr<Raekor::GLTextureCube> skybox_texture;
 	skybox_texture.reset(new Raekor::GLTextureCube(active_skybox->second));
 	std::unique_ptr<Raekor::Mesh> skycube;
-	skycube.reset(new Raekor::Mesh("resources/models/testcube.obj", Raekor::Mesh::file_format::OBJ));
+	skycube.reset(new Raekor::Mesh("resources/models/ikea box.obj", Raekor::Mesh::file_format::OBJ));
 
 	//main application loop
 	for (;;) {
@@ -269,24 +270,51 @@ void Raekor::Application::run() {
 		
 		// set our constant buffer data containing the MVP of our mesh/model
 		cb_vs data;
+		static auto gl_m = glm::mat4(1.0f);
+		auto euler_rotation = glm::vec3(0.0f, 0.01f, 0.0f);
+		auto rotation_quat = static_cast<glm::quat>(euler_rotation);
+		glm::mat4 rotation_matrix = glm::toMat4(rotation_quat);
+		gl_m = gl_m * rotation_matrix;
+		float z_pos = 12.0f;
+		static auto gl_pos = glm::vec3(0.0f, 0.0f, z_pos);
+		static auto gl_focus = glm::vec3(0.0f, 0.0f, 0.0f);
+		static auto gl_up = glm::vec3(0.0f, 1.0f, 0.0f);
+		auto gl_v = glm::lookAtRH(gl_pos, gl_focus, gl_up);
+		auto gl_p = glm::perspectiveFovRH_ZO(glm::radians(45.0f), 1280.0f, 720.0f, 0.1f, 10000.0f);
+
 		static auto model_matrix = DirectX::XMMatrixIdentity();
-		static auto rotation_matrix = DirectX::XMMatrixRotationRollPitchYaw(0.0f, 0.01f, 0.0f);
-		model_matrix = model_matrix * rotation_matrix;
-		
-		auto gl_m = glm::mat4(1.0f);
-		auto gl_v = glm::lookAtRH(glm::vec3(0.0f, 0.0f, -10.f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		auto gl_p = glm::perspectiveFovRH(glm::radians(45.0f), 1280.0f, 720.0f, 0.1f, 10000.0f);
-
-
-		static auto eye_pos = DirectX::XMVectorSet(0.0f, 0.0f, -10.0f, 0.0f); 
-		static auto lookatpos = DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+		//static auto rotation_matrix = DirectX::XMMatrixRotationRollPitchYaw(0.0f, 0.01f, 0.0f);
+		//model_matrix = model_matrix * rotation_matrix;
+		static auto pos = DirectX::XMVectorSet(0.0f, 0.0f, 3.0f, 0.0f); 
+		static auto focus = DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
 		static auto up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-		static auto view_matrix = DirectX::XMMatrixLookAtLH(eye_pos, lookatpos, up);
+		static auto view_matrix = DirectX::XMMatrixLookAtLH(pos, focus, up);
 		static auto proj_matrix = DirectX::XMMatrixPerspectiveFovLH(glm::radians(45.0f), 16.0f / 9.0f, 0.1f, 10000.0f);
 
-		//data.model = model_matrix * view_matrix * proj_matrix;
-		//data.model = DirectX::XMMatrixTranspose(data.model);
-		data.model = gl_m * gl_v * gl_p;
+		auto dxMVP = model_matrix * view_matrix * proj_matrix;
+		auto t_dxMVP = DirectX::XMMatrixTranspose(dxMVP);
+
+		DirectX::XMFLOAT4X4 xmdump;
+		DirectX::XMStoreFloat4x4(&xmdump, t_dxMVP);
+		std::cout << "xmf4x4" << std::endl
+			<< '(' << xmdump._11 << ", " << xmdump._12 << ", " << xmdump._13 << ", " << xmdump._14 << "), " << std::endl
+			<< '(' << xmdump._21 << ", " << xmdump._22 << ", " << xmdump._23 << ", " << xmdump._24 << "), " << std::endl
+			<< '(' << xmdump._31 << ", " << xmdump._32 << ", " << xmdump._33 << ", " << xmdump._34 << "), " << std::endl
+			<< '(' << xmdump._41 << ", " << xmdump._42 << ", " << xmdump._43 << ", " << xmdump._44 << "))" << std::endl;
+
+
+		glm::mat4 gl_mvp = gl_p * gl_v * gl_m;
+		gl_mvp = glm::transpose(gl_mvp);
+
+		std::cout << "glmmat4" << std::endl
+			<< '(' << gl_mvp[0][0] << ", " << gl_mvp[1][0] << ", " << gl_mvp[2][0] << ", " << gl_mvp[3][0] << "), " << std::endl
+			<< '(' << gl_mvp[0][1] << ", " << gl_mvp[1][1] << ", " << gl_mvp[2][1] << ", " << gl_mvp[3][1] << "), " << std::endl
+			<< '(' << gl_mvp[0][2] << ", " << gl_mvp[1][2] << ", " << gl_mvp[2][2] << ", " << gl_mvp[3][2] << "), " << std::endl
+			<< '(' << gl_mvp[0][3] << ", " << gl_mvp[1][3] << ", " << gl_mvp[2][3] << ", " << gl_mvp[3][3] << "))" << std::endl;
+
+		//system("PAUSE");
+		mcube->reset_transformation();
+		data.model = camera.get_dx_mvp(mcube->get_transformation());
 
 		D3D11_SUBRESOURCE_DATA cbdata;
 		cbdata.pSysMem = &data;

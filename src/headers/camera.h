@@ -17,6 +17,7 @@ public:
     inline bool is_mouse_active() { return mouse_active; }
     inline void set_mouse_active(bool state) { mouse_active = state; }
     glm::vec3 get_direction();
+	glm::mat4 get_dx_mvp(const glm::mat4& model);
 
 private:
     glm::vec3 position;
