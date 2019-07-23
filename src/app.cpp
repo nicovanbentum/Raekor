@@ -275,8 +275,7 @@ void Raekor::Application::run() {
 		auto rotation_quat = static_cast<glm::quat>(euler_rotation);
 		glm::mat4 rotation_matrix = glm::toMat4(rotation_quat);
 		gl_m = gl_m * rotation_matrix;
-		float z_pos = 12.0f;
-		static auto gl_pos = glm::vec3(0.0f, 0.0f, z_pos);
+		static auto gl_pos = glm::vec3(0.0f, 0.0f, 12.0f);
 		static auto gl_focus = glm::vec3(0.0f, 0.0f, 0.0f);
 		static auto gl_up = glm::vec3(0.0f, 1.0f, 0.0f);
 		auto gl_v = glm::lookAtRH(gl_pos, gl_focus, gl_up);
