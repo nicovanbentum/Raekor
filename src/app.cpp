@@ -33,8 +33,7 @@ void Raekor::Application::run() {
 	IDXGISwapChain* swap_chain;
 	ID3D11Device* d3device;
 	ID3D11DeviceContext* d3context;
-	DXGI_SWAP_CHAIN_DESC sc_desc;
-	memset(&sc_desc, 0, sizeof(DXGI_SWAP_CHAIN_DESC));
+	DXGI_SWAP_CHAIN_DESC sc_desc = {0};
 
 	m_assert(SDL_Init(SDL_INIT_VIDEO) == 0, "failed to init sdl");
 
@@ -90,8 +89,7 @@ void Raekor::Application::run() {
 	d3context->OMSetRenderTargets(1, &d3_backbuffer, NULL);
 
 	// set the directx viewport
-	D3D11_VIEWPORT viewport;
-	memset(&viewport, 0, sizeof(D3D11_VIEWPORT));
+	D3D11_VIEWPORT viewport = {0};
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
 	viewport.Width = 1280;
@@ -127,8 +125,7 @@ void Raekor::Application::run() {
 	cbdesc.StructureByteStride = 0;
 
 	// fill out the raster description struct and create a rasterizer state
-	D3D11_RASTERIZER_DESC raster_desc;
-	memset(&raster_desc, 0, sizeof(D3D11_RASTERIZER_DESC));
+	D3D11_RASTERIZER_DESC raster_desc = {0};
 	raster_desc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
 	raster_desc.CullMode = D3D11_CULL_MODE::D3D11_CULL_NONE;
 	raster_desc.FrontCounterClockwise = false;
@@ -288,9 +285,11 @@ void Raekor::Application::run() {
 		
 		// set our constant buffer data containing the MVP of our mesh/model
 		cb_vs data;
-		mcube->euler_rotation.y = 0.01f;
-		mcube->rotate(mcube->get_rotation_matrix());
-		data.MVP = camera.get_dx_mvp(mcube->get_transformation());
+        auto cube_rotation = mcube->rotation_ptr();
+        *cube_rotation += 0.01f;
+        mcube->recalc_transform();
+		data.MVP = camera.get_dx_mvp(mcube->get_transform());
+
 
 		// create a directx resource for our MVP data
 		D3D11_SUBRESOURCE_DATA cbdata;
@@ -336,8 +335,7 @@ void Raekor::Application::run() {
 		// bind our simple shader and draw textured model in our scene
 		simple_shader.bind();
 		for (auto& m : scene) {
-			m.get_mesh()->rotate(m.get_mesh()->get_rotation_matrix());
-			camera.update(m.get_mesh()->get_transformation());
+			camera.update(m.get_mesh()->get_transform());
 			simple_shader.upload_uniform_matrix4fv(simple_shader.get_uniform_location("MVP"), &camera.get_mvp()[0][0]);
 			m.render();
 		}
@@ -394,27 +392,24 @@ void Raekor::Application::run() {
 			}
 			ImGui::EndCombo();
 		}
-
 		// combo box used to select the mesh you're trying to edit
 		if (ImGui::BeginCombo("", mesh_file.c_str())) {
 			for (int i = 0; i < scene.size(); i++) {
 				bool selected = (i == active_model);
 
 				//hacky way to give the selectable a unique ID
-				auto name = scene[i].get_mesh()->mesh_path;
+				auto name = scene[i].get_mesh()->get_mesh_path();
 				name = name + "##" + std::to_string(i);
 
 				if (ImGui::Selectable(name.c_str(), selected)) {
 					active_model = i;
-					mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
+					mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->get_mesh_path());
 					if (scene[active_model].get_texture() != nullptr) {
 						texture_file = Raekor::get_extension(scene[active_model].get_texture()->get_path());
 					}
 					else {
 						texture_file = "";
 					}
-					last_input_scale = scene[active_model].get_mesh()->scale;
-					last_pos = scene[active_model].get_mesh()->position;
 				}
 
 				if (selected) {
@@ -423,7 +418,6 @@ void Raekor::Application::run() {
 			}
 			ImGui::EndCombo();
 		}
-
 		// plus button that opens a file dialog window using the platform context to ask what model file you want to load in
 		ImGui::SameLine();
 		if (ImGui::Button("+")) {
@@ -431,34 +425,30 @@ void Raekor::Application::run() {
 			if (!path.empty()) {
 				scene.push_back(Raekor::TexturedModel(path, ""));
 				active_model = (int)scene.size() - 1;
-				mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
+				mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->get_mesh_path());
 				texture_file = "";
 			}
 		}
-
 		// minus button that removes the active model
 		ImGui::SameLine();
 		if (ImGui::Button("-") && !scene.empty()) {
 			scene.erase(scene.begin() + active_model);
 			active_model = 0;
-
 			// if we just deleted the last model, empty the strings
 			if (scene.empty()) {
 				mesh_file = "";
 				texture_file = "";
 			}
 			else {
-				mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
+				mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->get_mesh_path());
 				if (scene[active_model].get_texture() != nullptr) {
 					texture_file = Raekor::get_extension(scene[active_model].get_texture()->get_path());
 				}
 				else {
 					texture_file = "";
 				}
-
 			}
 		}
-
 		// toggle button for openGl vsync
 		static bool is_vsync = true;
 		if (ImGui::RadioButton("USE VSYNC", is_vsync)) {
@@ -466,7 +456,6 @@ void Raekor::Application::run() {
 			SDL_GL_SetSwapInterval(is_vsync);
 		}
 		ImGui::End();
-
 
 		// if we have at least 1 model in our scene we draw the panel that controls the models' variables
 		if (!scene.empty()) {
@@ -483,12 +472,11 @@ void Raekor::Application::run() {
 				std::string path = context.open_file_dialog({ ".obj" });
 				if (!path.empty()) {
 					scene[active_model].set_mesh(path);
-					mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->mesh_path);
+					mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->get_mesh_path());
 
 				}
 			}
 			ImGui::Separator();
-
 			// opens a file dialog to select a new texture for the model
 			ImGui::Text("Texture");
 			ImGui::Text(texture_file.c_str(), NULL);
@@ -501,28 +489,21 @@ void Raekor::Application::run() {
 				}
 			}
 
-			// input float that lets you control the scale of the model
-			if (ImGui::InputFloat("Scale", &scene[active_model].get_mesh()->scale, 0.05f, 0.1f, "%.2f")) {
-				glm::vec3 factor(scene[active_model].get_mesh()->scale / last_input_scale);
-				scene[active_model].get_mesh()->scale_by(factor);
-				last_input_scale = scene[active_model].get_mesh()->scale;
-			}
-
-			// rotation is continuous for now so we have something to animate
-			if (ImGui::SliderFloat3("Rotate", &scene[active_model].get_mesh()->euler_rotation.x, -0.10f, 0.10f, "%.3f")) {}
-
-			// input float that controls the placement of the model in the scene
-			if (ImGui::InputFloat3("Move", &scene[active_model].get_mesh()->position.x, 2)) {
-				glm::vec3 delta = scene[active_model].get_mesh()->position - last_pos;
-				scene[active_model].get_mesh()->move(delta);
-				last_pos = scene[active_model].get_mesh()->position;
-			}
+            if(ImGui::DragFloat3("Scale", scene[active_model].get_mesh()->scale_ptr(), 0.01f, 0.0f, 10.0f)) {
+                scene[active_model].get_mesh()->recalc_transform();
+            }
+            if(ImGui::DragFloat3("Position", scene[active_model].get_mesh()->pos_ptr(), 0.01f, -100.0f, 100.0f)) {
+                scene[active_model].get_mesh()->recalc_transform();
+            }
+            if(ImGui::DragFloat3("Rotation", scene[active_model].get_mesh()->rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {
+                scene[active_model].get_mesh()->recalc_transform();
+            }
 
 			// resets the model's transformation
 			if (ImGui::Button("Reset")) {
 				last_input_scale = 1.0f;
 				last_pos = glm::vec3(0.0f);
-				scene[active_model].get_mesh()->reset_transformation();
+				scene[active_model].get_mesh()->reset_transform();
 			}
 			ImGui::End();
 		}

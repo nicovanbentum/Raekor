@@ -15,35 +15,25 @@ mesh_path(filepath) {
             // TODO: implement different file formats, thus moving it to its own class
         }
     }
-    scale = 1.0f;
+    transform = glm::mat4(1.0f);
+    scale = glm::vec3(1.0f);
     position = glm::vec3(0.0f);
-    transformation = glm::mat4(1.0f);
-    euler_rotation = glm::vec3(0.0f);
+    rotation = glm::vec3(0.0f);
 }
 
-void Mesh::reset_transformation() {
-    scale = 1.0f;
+void Mesh::reset_transform() {
+    transform = glm::mat4(1.0f);
+    scale = glm::vec3(1.0f);
     position = glm::vec3(0.0f);
-    transformation = glm::mat4(1.0f);
-    euler_rotation = glm::vec3(0.0f);
+    rotation = glm::vec3(0.0f);
 }
 
-glm::mat4 Mesh::get_rotation_matrix() {
-    auto rotation_quat = static_cast<glm::quat>(euler_rotation);
-    glm::mat4 rotation_matrix = glm::toMat4(rotation_quat);
-    return rotation_matrix;
-}
-
-void Mesh::scale_by(const glm::vec3& factor) {
-    transformation = glm::scale(transformation, factor);
-}
-
-void Mesh::move(const glm::vec3& delta) {
-    transformation = glm::translate(transformation, delta);
-}
-
-void Mesh::rotate(const glm::mat4& rotation) {
-    transformation = transformation * rotation;
+void Mesh::recalc_transform() {
+    transform = glm::mat4(1.0f);
+    transform = glm::translate(transform, position);
+    auto rotation_quat = static_cast<glm::quat>(rotation);
+    transform = transform * glm::toMat4(rotation_quat);
+    transform = glm::scale(transform, scale);
 }
 
 bool Mesh::parse_OBJ(const std::string& filepath) {
@@ -111,7 +101,6 @@ bool Mesh::parse_OBJ(const std::string& filepath) {
 }
 
     // indexing algorithm
-
     std::map<Raekor::Vertex, unsigned int> seen;
     for (unsigned int i = 0; i < vertices.size(); i++) {
         Raekor::Vertex pv = {vertices[i], uvs[i], normals[i]};

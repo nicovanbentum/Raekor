@@ -28,35 +28,33 @@ public:
 public:
     Mesh(const std::string& filepath, Mesh::file_format format);
     
-    glm::mat4 get_rotation_matrix();
+    void reset_transform();
+    void recalc_transform();
+    inline float* scale_ptr() { return &scale.x; }
+    inline float* pos_ptr() { return &position.x; }
+    inline float* rotation_ptr() { return &rotation.x; }
+    inline glm::mat4& get_transform() { return transform; }
     inline std::string get_mesh_path() { return mesh_path; }
-    inline glm::mat4& get_transformation() { return transformation; }
     
-    void reset_transformation();
-    void move(const glm::vec3& delta);
-    void scale_by(const glm::vec3& factor);
-    void rotate(const glm::mat4& rotation);
-    
-    bool parse_OBJ(const std::string& filepath);    
+    bool parse_OBJ(const std::string& filepath);
     virtual void render();
 
-public:
     std::vector<glm::vec2> uvs;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec3> vertices;
     std::vector<unsigned int> indices;
 
-    glm::mat4 transformation;
+private:
+    glm::mat4 transform;
+    glm::vec3 position;
+    glm::vec3 rotation;
+    glm::vec3 scale;
 
     std::string mesh_path;
 
     unsigned int vertexbuffer;
     unsigned int uvbuffer;
     unsigned int elementbuffer;
-
-    float scale;
-	glm::vec3 position;
-    glm::vec3 euler_rotation;
 };
 
 }
