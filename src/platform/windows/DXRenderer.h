@@ -20,10 +20,10 @@ class DXRenderer : public Renderer {
 public:
     DXRenderer(SDL_Window* window);
     ~DXRenderer();
-    virtual void ImGui_render()							override;
-    virtual void clear(glm::vec4 color)					override;
-    virtual void draw_indexed(unsigned int size)		override;
-    virtual void ImGui_new_frame(SDL_Window* window)	override;
+    virtual void ImGui_render()                         override;
+    virtual void clear(glm::vec4 color)                 override;
+    virtual void draw_indexed(unsigned int size)        override;
+    virtual void ImGui_new_frame(SDL_Window* window)    override;
 
 };
 
