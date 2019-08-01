@@ -49,6 +49,12 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_sdl.h"
 
+// if we're on windows we also include 
+// the directx11 implementation for ImGui
+#ifdef _WIN32
+	#include "imgui_impl_dx11.h"
+#endif
+
 // openGL math library
 #include "glm.hpp"
 #include "ext.hpp"

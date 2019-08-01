@@ -1,8 +1,26 @@
 #include "pch.h"
 #include "util.h"
 #include "shader.h"
+#include "renderer.h"
+
+#ifdef _WIN32
+#include "platform/windows/DXShader.h"
+#endif
 
 namespace Raekor {
+
+Shader* Shader::construct(std::string fp, std::string vertex) {
+	switch (Renderer::get_activeAPI()) {
+		case RenderAPI::OPENGL: {
+			return new GLShader(fp, vertex);
+		} break;
+#ifdef _WIN32
+		case RenderAPI::DIRECTX11: {
+			return new DXShader(fp, vertex);
+		} break;
+#endif
+	}
+}
 
 std::string read_shader_file(const std::string& fp) {
 	std::string src;
@@ -88,4 +106,3 @@ void GLShader::upload_uniform_matrix4fv(unsigned int var_id, float* start) {
 }
 
 } // Namespace Raekor
-

@@ -8,6 +8,10 @@
     #define m_assert(expr, msg) (void)(expr)
 #endif
 
+
+template<typename T>
+using com_ptr = Microsoft::WRL::ComPtr<T>;
+
 namespace Raekor {
 
 template<typename T>

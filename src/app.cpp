@@ -7,10 +7,11 @@
 #include "shader.h"
 #include "framebuffer.h"
 #include "PlatformContext.h"
+#include "renderer.h"
+#include "DXRenderer.h"
+#include "DXShader.h"
 
 namespace Raekor {
-
-renderAPI Application::active_render_api = renderAPI::OPENGL;
 
 void Application::serialize_settings(const std::string& filepath, bool write) {
 	if (write) {
@@ -30,24 +31,12 @@ void Raekor::Application::run() {
 	// retrieve the application settings from the config file
 	serialize_settings("config.json");
 
-	IDXGISwapChain* swap_chain;
-	ID3D11Device* d3device;
-	ID3D11DeviceContext* d3context;
-	DXGI_SWAP_CHAIN_DESC sc_desc = {0};
-
 	m_assert(SDL_Init(SDL_INIT_VIDEO) == 0, "failed to init sdl");
-
-	const char* glsl_version = "#version 330";
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 
 	Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
 		SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
 	Uint32 d3wflags = SDL_WINDOW_RESIZABLE |
 		SDL_WINDOW_ALLOW_HIGHDPI;
-
 
 	std::vector<SDL_Rect> displays;
 	for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
@@ -64,51 +53,35 @@ void Raekor::Application::run() {
 		wflags);
 
 	auto directxwindow = SDL_CreateWindow("Raekor (DirectX 11)", 100, 100, 1280, 720, d3wflags);
-
-	// query for the sdl window hardware handle for our directx renderer
 	SDL_SysWMinfo wminfo;
 	SDL_VERSION(&wminfo.version);
 	SDL_GetWindowWMInfo(directxwindow, &wminfo);
 	auto dx_hwnd = wminfo.info.win.window;
 
-	// fill out the swap chain description and create both the device and swap chain
-	sc_desc.BufferCount = 1;
-	sc_desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	sc_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	sc_desc.OutputWindow = dx_hwnd;
-	sc_desc.SampleDesc.Count = 4;
-	sc_desc.Windowed = TRUE;
-	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, NULL, NULL, D3D11_SDK_VERSION, &sc_desc, &swap_chain, &d3device, NULL, &d3context);
+	// initialize ImGui
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 18.0f);
+	if (!io.Fonts->Fonts.empty()) {
+		io.FontDefault = io.Fonts->Fonts.back();
+	}
+	ImGui::StyleColorsDark();
 
-	// setup a directx back buffer to draw to
-	ID3D11RenderTargetView* d3_backbuffer;
-	ID3D11Texture2D* backbuffer_addr;
-	swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&backbuffer_addr);
-	d3device->CreateRenderTargetView(backbuffer_addr, NULL, &d3_backbuffer);
-	backbuffer_addr->Release();
-	d3context->OMSetRenderTargets(1, &d3_backbuffer, NULL);
+	// initialize renderer(s)
+	std::unique_ptr<GLRenderer> renderer;
+	renderer.reset(new GLRenderer(main_window));
+	std::unique_ptr<DXRenderer> dxr;
+	dxr.reset(new DXRenderer(directxwindow));
 
-	// set the directx viewport
-	D3D11_VIEWPORT viewport = {0};
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.Width = 1280;
-	viewport.Height = 720;
-	d3context->RSSetViewports(1, &viewport);
-
-	// error handling result
-	HRESULT hr;
-
+	std::unique_ptr<DXShader> dx_shader;
+	dx_shader.reset(new DXShader("shaders/simple_vertex.cso", "shaders/simple_pixel.cso"));
+	
 	// com pointers to direct3d11 variables
 	Microsoft::WRL::ComPtr<ID3D11InputLayout> input_layout;
-	Microsoft::WRL::ComPtr<ID3D11VertexShader> vertex_shader;
-	Microsoft::WRL::ComPtr<ID3D11PixelShader> pixel_shader;
-	Microsoft::WRL::ComPtr<ID3D10Blob> vertex_shader_buffer;
-	Microsoft::WRL::ComPtr<ID3D10Blob> pixel_shader_buffer;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> vertex_buffer;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> index_buffer;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> constant_buffer;
-	Microsoft::WRL::ComPtr<ID3D11RasterizerState> rasterize_state;
 
 	// struct that describes and matches what the hlsl vertex shader expects
 	struct cb_vs {
@@ -124,57 +97,11 @@ void Raekor::Application::run() {
 	cbdesc.ByteWidth = static_cast<UINT>(sizeof(cb_vs) + (16 - (sizeof(cb_vs) % 16)));
 	cbdesc.StructureByteStride = 0;
 
-	// fill out the raster description struct and create a rasterizer state
-	D3D11_RASTERIZER_DESC raster_desc = {0};
-	raster_desc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
-	raster_desc.CullMode = D3D11_CULL_MODE::D3D11_CULL_NONE;
-	raster_desc.FrontCounterClockwise = false;
-	d3device->CreateRasterizerState(&raster_desc, rasterize_state.GetAddressOf());
-
-	// read our compiled shader files and put them in their respective buffers
-	hr = D3DReadFileToBlob(L"shaders/simple_vertex.cso", vertex_shader_buffer.GetAddressOf());
-	if (FAILED(hr)) m_assert(false, "failed to load d3 shader");
-	hr = D3DReadFileToBlob(L"shaders/simple_pixel.cso", pixel_shader_buffer.GetAddressOf());
-	if (FAILED(hr)) m_assert(false, "failed to load d3 shader");
-
-	hr = d3device->CreateVertexShader(vertex_shader_buffer.Get()->GetBufferPointer(), vertex_shader_buffer->GetBufferSize(), NULL, vertex_shader.GetAddressOf());
-	if (FAILED(hr)) m_assert(false, "failed to create vertex shader");
-	hr = d3device->CreatePixelShader(pixel_shader_buffer.Get()->GetBufferPointer(), pixel_shader_buffer->GetBufferSize(), NULL, pixel_shader.GetAddressOf());
-	if (FAILED(hr)) m_assert(false, "failed to create pixel shader");
-
 	// describe our vertex layout
 	D3D11_INPUT_ELEMENT_DESC layout[] = { "POSITION", 0, DXGI_FORMAT::DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA, 0 };
-	hr = d3device->CreateInputLayout(layout, ARRAYSIZE(layout), vertex_shader_buffer->GetBufferPointer(), vertex_shader_buffer->GetBufferSize(), input_layout.GetAddressOf());
+	auto hr = D3D.device->CreateInputLayout(layout, ARRAYSIZE(layout), dx_shader->vertex_shader_buffer->GetBufferPointer(), 
+										dx_shader->vertex_shader_buffer->GetBufferSize(), input_layout.GetAddressOf());
 	if (FAILED(hr)) m_assert(false, "failed to create pinput layout");
-
-	// get our OpenGL context and make it current for every openGL call
-	SDL_GLContext gl_context = SDL_GL_CreateContext(main_window);
-	SDL_GL_MakeCurrent(main_window, gl_context);
-	SDL_SetWindowResizable(main_window, SDL_FALSE);
-
-	// init gl3w so we can use openGL
-	m_assert(gl3wInit() == 0, "failed to init gl3w");
-
-	// print the initialized openGL specs
-	std::cout << "GL INFO: OpenGL " << glGetString(GL_VERSION);
-	printf("GL INFO: OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
-		glGetString(GL_SHADING_LANGUAGE_VERSION));
-
-	// enumerate all avaiable graphics adapters
-	std::vector<IDXGIAdapter*> GPUs;
-	IDXGIFactory* gpu_factory = NULL;
-	IDXGIAdapter* gpu;
-	CreateDXGIFactory1(__uuidof(IDXGIFactory), (void**)&gpu_factory);
-	for (unsigned int i = 0; gpu_factory->EnumAdapters(i, &gpu) != DXGI_ERROR_NOT_FOUND; i++) {
-		GPUs.push_back(gpu);
-	}
-
-	// print every graphics adapters description
-	for (IDXGIAdapter* adapter : GPUs) {
-		DXGI_ADAPTER_DESC description;
-		adapter->GetDesc(&description);
-		std::wcout << description.Description << std::endl;
-	}
 
 	// test cube for directx rendering
 	std::unique_ptr<Raekor::Mesh> mcube;
@@ -191,7 +118,7 @@ void Raekor::Application::run() {
 	// create the buffer that actually holds our vertices
 	D3D11_SUBRESOURCE_DATA vb_data = { 0 };
 	vb_data.pSysMem = &(mcube->vertices[0]);
-	hr = d3device->CreateBuffer(&vb_desc, &vb_data, vertex_buffer.GetAddressOf());
+	hr = D3D.device->CreateBuffer(&vb_desc, &vb_data, vertex_buffer.GetAddressOf());
 	if (FAILED(hr)) m_assert(false, "failed to create buffer");
 
 	// create our index buffer
@@ -206,35 +133,8 @@ void Raekor::Application::run() {
 	// create a data buffer using our mesh's indices vector data
 	D3D11_SUBRESOURCE_DATA ib_data;
 	ib_data.pSysMem = &(mcube->indices[0]);
-	hr = d3device->CreateBuffer(&ib_desc, &ib_data, index_buffer.GetAddressOf());
+	hr = D3D.device->CreateBuffer(&ib_desc, &ib_data, index_buffer.GetAddressOf());
 	if (FAILED(hr)) m_assert(false, "failed to create index buffer");
-
-	// initialize ImGui
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 18.0f);
-	if (!io.Fonts->Fonts.empty()) {
-		io.FontDefault = io.Fonts->Fonts.back();
-	}
-	ImGui::StyleColorsDark();
-	ImGui_ImplSDL2_InitForOpenGL(main_window, &gl_context);
-	ImGui_ImplOpenGL3_Init(glsl_version);
-
-	// print GPU information
-	auto vendor = glGetString(GL_VENDOR);
-	auto renderer = glGetString(GL_RENDERER);
-	std::cout << vendor << " : " << renderer << std::endl;
-
-	// set opengl depth testing and culling
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
-	//glEnable(GL_CULL_FACE);
-
-	// one time setup for binding vertey arrays
-	GLuint vertex_array_id;
-	glGenVertexArrays(1, &vertex_array_id);
-	glBindVertexArray(vertex_array_id);
 
 	// load our shaders and get the MVP handles
 	auto simple_shader = Raekor::GLShader("shaders/simple.vert", "shaders/simple.frag");
@@ -260,7 +160,7 @@ void Raekor::Application::run() {
 	std::unique_ptr<Raekor::FrameBuffer> frame_buffer;
 	frame_buffer.reset(Raekor::FrameBuffer::construct(glm::vec2(1280, 720)));
 
-	// loads a cube mesh and a texture image to use as skybox
+	// load a cube mesh and a texture image to use as skybox
 	std::unique_ptr<Raekor::GLTextureCube> skybox_texture;
 	skybox_texture.reset(new Raekor::GLTextureCube(active_skybox->second));
 	std::unique_ptr<Raekor::Mesh> skycube;
@@ -274,14 +174,12 @@ void Raekor::Application::run() {
 		handle_sdl_gui_events({ main_window, directxwindow }, camera);
 
 		// clear the render view
-		const float clear_color[4] = { 0.0f, 0.2f, 0.0f, 1.0f };
-		d3context->ClearRenderTargetView(d3_backbuffer, clear_color);
+		dxr->clear({ 0.0f, 0.2f, 0.0f, 1.0f });
 		// set the input layout, topology, rasterizer state and bind our vertex and pixel shader
-		d3context->IASetInputLayout(input_layout.Get());
-		d3context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		d3context->RSSetState(rasterize_state.Get());
-		d3context->VSSetShader(vertex_shader.Get(), NULL, 0);
-		d3context->PSSetShader(pixel_shader.Get(), NULL, 0);
+		D3D.context->IASetInputLayout(input_layout.Get());
+		D3D.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		D3D.context->RSSetState(D3D.rasterize_state.Get());
+		dx_shader->bind();
 		
 		// set our constant buffer data containing the MVP of our mesh/model
 		cb_vs data;
@@ -290,36 +188,33 @@ void Raekor::Application::run() {
         mcube->recalc_transform();
 		data.MVP = camera.get_dx_mvp(mcube->get_transform());
 
-
 		// create a directx resource for our MVP data
 		D3D11_SUBRESOURCE_DATA cbdata;
 		cbdata.pSysMem = &data;
 		cbdata.SysMemPitch = 0;
 		cbdata.SysMemSlicePitch = 0;
-		auto ret = d3device->CreateBuffer(&cbdesc, &cbdata, constant_buffer.GetAddressOf());
+		auto ret = D3D.device->CreateBuffer(&cbdesc, &cbdata, constant_buffer.GetAddressOf());
 		if (FAILED(ret)) m_assert(false, "failed to create constant buffer");
 
 		// bind our constant, vertex and index buffers
 		constexpr unsigned int stride = sizeof(glm::vec3);
 		constexpr unsigned int offset = 0;
-		d3context->VSSetConstantBuffers(0, 1, constant_buffer.GetAddressOf());
-		d3context->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
-		d3context->IASetIndexBuffer(index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+		D3D.context->VSSetConstantBuffers(0, 1, constant_buffer.GetAddressOf());
+		D3D.context->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
+		D3D.context->IASetIndexBuffer(index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 
 		// draw the indexed vertices and swap the backbuffer to front
-		d3context->DrawIndexed(static_cast<UINT>(mcube->indices.size()), 0, 0);
-		swap_chain->Present(0, NULL);
+		D3D.context->DrawIndexed(static_cast<UINT>(mcube->indices.size()), 0, 0);
+		D3D.swap_chain->Present(0, NULL);
 
 		// clear opengl window background (blue)
-		glClearColor(0.22f, 0.32f, 0.42f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		renderer->clear(glm::vec4(0.22f, 0.32f, 0.42f, 1.0f));
 
 		// match our GL viewport with the framebuffer's size and clear it
 		auto fsize = frame_buffer->get_size();
 		glViewport(0, 0, (GLsizei)fsize.x, (GLsizei)fsize.y);
 		frame_buffer->bind();
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		renderer->clear(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 
 		// bind our skybox shader, update our camera WITHOUT translation (important for skybox)
 		// upload our MVP, bind the skybox texture and render the entire thing
@@ -342,10 +237,8 @@ void Raekor::Application::run() {
 		frame_buffer->unbind();
 		simple_shader.unbind();
 
-		//get new frame for opengl, sdl and imgui
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplSDL2_NewFrame(main_window);
-		ImGui::NewFrame();
+		//get new frame for render API, sdl and imgui
+		renderer->GUI_new_frame(main_window);
 
 		// draw the top level bar that contains stuff like "File" and "Edit"
 		if (ImGui::BeginMainMenuBar()) {
@@ -357,7 +250,6 @@ void Raekor::Application::run() {
 					ImGui::DestroyContext();
 
 					//clean up SDL
-					SDL_GL_DeleteContext(gl_context);
 					SDL_DestroyWindow(main_window);
 					SDL_Quit();
 					return;
@@ -406,15 +298,9 @@ void Raekor::Application::run() {
 					mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->get_mesh_path());
 					if (scene[active_model].get_texture() != nullptr) {
 						texture_file = Raekor::get_extension(scene[active_model].get_texture()->get_path());
-					}
-					else {
-						texture_file = "";
-					}
+					} else texture_file = "";
 				}
-
-				if (selected) {
-					ImGui::SetItemDefaultFocus();
-				}
+				if (selected) ImGui::SetItemDefaultFocus();
 			}
 			ImGui::EndCombo();
 		}
@@ -438,15 +324,11 @@ void Raekor::Application::run() {
 			if (scene.empty()) {
 				mesh_file = "";
 				texture_file = "";
-			}
-			else {
+			} else {
 				mesh_file = Raekor::get_extension(scene[active_model].get_mesh()->get_mesh_path());
 				if (scene[active_model].get_texture() != nullptr) {
 					texture_file = Raekor::get_extension(scene[active_model].get_texture()->get_path());
-				}
-				else {
-					texture_file = "";
-				}
+				} else texture_file = "";
 			}
 		}
 		// toggle button for openGl vsync
@@ -507,9 +389,7 @@ void Raekor::Application::run() {
 			}
 			ImGui::End();
 		}
-
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		renderer->GUI_render();
 
 		int w, h;
 		SDL_GetWindowSize(main_window, &w, &h);
@@ -517,12 +397,6 @@ void Raekor::Application::run() {
 
 		SDL_GL_SwapWindow(main_window);
 	}
-
-	// directx cleanup
-	swap_chain->Release();
-	d3device->Release();
-	d3context->Release();
-	d3_backbuffer->Release();
 }
  
 } // namespace Raekor
