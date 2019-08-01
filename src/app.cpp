@@ -45,6 +45,7 @@ void Raekor::Application::run() {
 		displays.push_back(SDL_Rect());
 		SDL_GetDisplayBounds(i, &displays.back());
 	}
+
 	// if our display setting is higher than the nr of displays we pick the default display
 	auto index = display > displays.size() - 1 ? 0 : display;
 	auto main_window = SDL_CreateWindow(name.c_str(),
@@ -128,8 +129,6 @@ void Raekor::Application::run() {
 	// persistent imgui variable values
 	std::string mesh_file = "";
 	std::string texture_file = "";
-	float last_input_scale = 1.0f;
-	glm::vec3 last_pos(0.0f);
 	auto active_skybox = skyboxes.begin();
 
 	// frame buffer for the renderer
@@ -357,8 +356,6 @@ void Raekor::Application::run() {
 
 			// resets the model's transformation
 			if (ImGui::Button("Reset")) {
-				last_input_scale = 1.0f;
-				last_pos = glm::vec3(0.0f);
 				scene[active_model].get_mesh()->reset_transform();
 			}
 			ImGui::End();
