@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pch.h"
+#include "buffer.h"
 
 namespace Raekor {
 
@@ -52,9 +53,9 @@ private:
 
     std::string mesh_path;
 
-    unsigned int vertexbuffer;
+	std::unique_ptr<GLVertexBuffer> vb;
+	std::unique_ptr<GLIndexBuffer> ib;
     unsigned int uvbuffer;
-    unsigned int elementbuffer;
 };
 
 }

@@ -21,10 +21,10 @@ public:
 	inline static void set_activeAPI(const RenderAPI new_active) { activeAPI = new_active; }
 
 	// interface functions implemented per API
-	virtual void clear(glm::vec4 color) = 0;
-	virtual void GUI_new_frame(SDL_Window* window) = 0;
-	virtual void GUI_render() = 0;
-	virtual void render(const Raekor::Mesh& m) = 0;
+	virtual void ImGui_render()							= 0;
+	virtual void clear(glm::vec4 color)					= 0;
+	virtual void draw_indexed(unsigned int size)		= 0;
+	virtual void ImGui_new_frame(SDL_Window* window)	= 0;
 
 private:
 	static RenderAPI activeAPI;
@@ -34,10 +34,11 @@ class GLRenderer : public Renderer {
 public:
 	GLRenderer(SDL_Window* window);
 	~GLRenderer();
-	virtual void clear(glm::vec4 color) override;
-	virtual void GUI_new_frame(SDL_Window* window) override;
-	virtual void GUI_render() override;
-	virtual void render(const Raekor::Mesh& m) override;
+
+	virtual void ImGui_render()							override;
+	virtual void clear(glm::vec4 color)					override;
+	virtual void draw_indexed(unsigned int size)		override;
+	virtual void ImGui_new_frame(SDL_Window* window)	override;
 private:
 	SDL_GLContext context;
 };

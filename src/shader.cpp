@@ -20,6 +20,7 @@ Shader* Shader::construct(std::string fp, std::string vertex) {
 		} break;
 #endif
 	}
+	return nullptr;
 }
 
 std::string read_shader_file(const std::string& fp) {

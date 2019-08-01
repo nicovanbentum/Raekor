@@ -10,6 +10,8 @@
 #include "renderer.h"
 #include "DXRenderer.h"
 #include "DXShader.h"
+#include "buffer.h"
+#include "DXBuffer.h"
 
 namespace Raekor {
 
@@ -79,8 +81,6 @@ void Raekor::Application::run() {
 	
 	// com pointers to direct3d11 variables
 	Microsoft::WRL::ComPtr<ID3D11InputLayout> input_layout;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> vertex_buffer;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> index_buffer;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> constant_buffer;
 
 	// struct that describes and matches what the hlsl vertex shader expects
@@ -107,34 +107,10 @@ void Raekor::Application::run() {
 	std::unique_ptr<Raekor::Mesh> mcube;
 	mcube.reset(new Raekor::Mesh("resources/models/testcube.obj", Raekor::Mesh::file_format::OBJ));
 
-	// fill out the buffer description struct for our vertex buffer
-	D3D11_BUFFER_DESC vb_desc = { 0 };
-	vb_desc.Usage = D3D11_USAGE_DEFAULT;
-	vb_desc.ByteWidth = static_cast<UINT>(sizeof(glm::vec3) * mcube->vertices.size());
-	vb_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	vb_desc.CPUAccessFlags = 0;
-	vb_desc.MiscFlags = 0;
-
-	// create the buffer that actually holds our vertices
-	D3D11_SUBRESOURCE_DATA vb_data = { 0 };
-	vb_data.pSysMem = &(mcube->vertices[0]);
-	hr = D3D.device->CreateBuffer(&vb_desc, &vb_data, vertex_buffer.GetAddressOf());
-	if (FAILED(hr)) m_assert(false, "failed to create buffer");
-
-	// create our index buffer
-	// fill out index buffer description
-	D3D11_BUFFER_DESC ib_desc = {0};
-	ib_desc.Usage = D3D11_USAGE_DEFAULT;
-	ib_desc.ByteWidth = static_cast<UINT>(sizeof(unsigned int) * mcube->indices.size());
-	ib_desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	ib_desc.CPUAccessFlags = 0;
-	ib_desc.MiscFlags = 0;
-
-	// create a data buffer using our mesh's indices vector data
-	D3D11_SUBRESOURCE_DATA ib_data;
-	ib_data.pSysMem = &(mcube->indices[0]);
-	hr = D3D.device->CreateBuffer(&ib_desc, &ib_data, index_buffer.GetAddressOf());
-	if (FAILED(hr)) m_assert(false, "failed to create index buffer");
+	std::unique_ptr<DXVertexBuffer> dxvb;
+	dxvb.reset(new DXVertexBuffer(mcube->vertices));
+	std::unique_ptr<DXIndexBuffer> dxib;
+	dxib.reset(new DXIndexBuffer(mcube->indices));
 
 	// load our shaders and get the MVP handles
 	auto simple_shader = Raekor::GLShader("shaders/simple.vert", "shaders/simple.frag");
@@ -197,11 +173,9 @@ void Raekor::Application::run() {
 		if (FAILED(ret)) m_assert(false, "failed to create constant buffer");
 
 		// bind our constant, vertex and index buffers
-		constexpr unsigned int stride = sizeof(glm::vec3);
-		constexpr unsigned int offset = 0;
 		D3D.context->VSSetConstantBuffers(0, 1, constant_buffer.GetAddressOf());
-		D3D.context->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
-		D3D.context->IASetIndexBuffer(index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+		dxvb->bind();
+		dxib->bind();
 
 		// draw the indexed vertices and swap the backbuffer to front
 		D3D.context->DrawIndexed(static_cast<UINT>(mcube->indices.size()), 0, 0);
@@ -238,7 +212,7 @@ void Raekor::Application::run() {
 		simple_shader.unbind();
 
 		//get new frame for render API, sdl and imgui
-		renderer->GUI_new_frame(main_window);
+		renderer->ImGui_new_frame(main_window);
 
 		// draw the top level bar that contains stuff like "File" and "Edit"
 		if (ImGui::BeginMainMenuBar()) {
@@ -389,7 +363,7 @@ void Raekor::Application::run() {
 			}
 			ImGui::End();
 		}
-		renderer->GUI_render();
+		renderer->ImGui_render();
 
 		int w, h;
 		SDL_GetWindowSize(main_window, &w, &h);

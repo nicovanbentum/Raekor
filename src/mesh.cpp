@@ -116,34 +116,29 @@ bool Mesh::parse_OBJ(const std::string& filepath) {
             indices.push_back(index->second);
         }
     }
-
+	vb.reset(new GLVertexBuffer(vertices));
+	ib.reset(new GLIndexBuffer(indices));
     // generate the openGL buffers and get ID's
-    vertexbuffer = gen_gl_buffer(vertices, GL_ARRAY_BUFFER);
     uvbuffer = gen_gl_buffer(uvs, GL_ARRAY_BUFFER);
-    elementbuffer = gen_gl_buffer(indices, GL_ELEMENT_ARRAY_BUFFER);
 
     return true;
 }
 
 void Mesh::render() {
-    //set attribute buffer for model vertices
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-
+	vb->bind();
+	// TODO: either move this into a seperate class or do in-depth vertex
+	// layouts that includes uvs
     //set attribute buffer for uvs
     glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+	ib->bind();
 
-    // bind our index buffer (can't believe I forgot this line for so long lol)
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-
-    // Draw triangles
+    // Draw triangles TODO: the renderer needs an abstracted method for drawing indexed
     glDrawElements(GL_TRIANGLES, static_cast<int>(indices.size()), GL_UNSIGNED_INT, nullptr);
 
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
+	vb->unbind();
+	ib->unbind();
 }
 
 } // Namespace Raekor

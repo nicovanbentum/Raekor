@@ -57,18 +57,19 @@ void DXRenderer::clear(glm::vec4 color) {
 	D3D.context->ClearRenderTargetView(D3D.back_buffer.Get(), clear_color);
 }
 
-void DXRenderer::GUI_new_frame(SDL_Window* window) {
+void DXRenderer::ImGui_new_frame(SDL_Window* window) {
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplSDL2_NewFrame(window);
 	ImGui::NewFrame();
 }
 
-void DXRenderer::GUI_render() {
+void DXRenderer::ImGui_render() {
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
-void DXRenderer::render(const Raekor::Mesh& m) {
+void DXRenderer::draw_indexed(unsigned int size) {
+	D3D.context->DrawIndexed(size, 0, 0);
 }
 
 } // namespace Raekor

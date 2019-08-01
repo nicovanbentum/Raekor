@@ -64,20 +64,19 @@ void GLRenderer::clear(glm::vec4 color) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void GLRenderer::GUI_new_frame(SDL_Window* window) {
+void GLRenderer::ImGui_new_frame(SDL_Window* window) {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame(window);
 	ImGui::NewFrame();
 }
 
-void GLRenderer::GUI_render() {
+void GLRenderer::ImGui_render() {
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void GLRenderer::render(const Raekor::Mesh& m) {
-
+void GLRenderer::draw_indexed(unsigned int size) {
+	glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
 }
-
 
 } // namespace Raekor
