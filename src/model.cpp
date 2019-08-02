@@ -4,7 +4,7 @@
 namespace Raekor {
 
 TexturedModel::TexturedModel(const std::string& m_file, const std::string& tex_file): 
-	mesh(nullptr), texture(nullptr) {
+    mesh(nullptr), texture(nullptr) {
     if(!m_file.empty()) {
         mesh.reset(new Mesh(m_file, Mesh::file_format::OBJ));
     }
@@ -23,13 +23,13 @@ void TexturedModel::set_texture(const std::string& tex_file) {
 
 void TexturedModel::render() const {
 
-	// if we didn't load the texture yet we only render the mesh
-	if(texture == nullptr ? true : false) {
-		mesh->render();
-		return;
-	}
+    // if we didn't load the texture yet we only render the mesh
+    if(texture == nullptr ? true : false) {
+        mesh->render();
+        return;
+    }
 
-	// if we did load the texture we bind it for rendering
+    // if we did load the texture we bind it for rendering
     texture->bind();
     mesh->render();
     texture->unbind();

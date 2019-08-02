@@ -116,8 +116,8 @@ bool Mesh::parse_OBJ(const std::string& filepath) {
             indices.push_back(index->second);
         }
     }
-	vb.reset(new GLVertexBuffer(vertices));
-	ib.reset(new GLIndexBuffer(indices));
+    vb.reset(new GLVertexBuffer(vertices));
+    ib.reset(new GLIndexBuffer(indices));
     // generate the openGL buffers and get ID's
     uvbuffer = gen_gl_buffer(uvs, GL_ARRAY_BUFFER);
 
@@ -125,20 +125,20 @@ bool Mesh::parse_OBJ(const std::string& filepath) {
 }
 
 void Mesh::render() {
-	vb->bind();
-	// TODO: either move this into a seperate class or do in-depth vertex
-	// layouts that includes uvs
+    vb->bind();
+    // TODO: either move this into a seperate class or do in-depth vertex
+    // layouts that includes uvs
     //set attribute buffer for uvs
     glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-	ib->bind();
+    ib->bind();
 
     // Draw triangles TODO: the renderer needs an abstracted method for drawing indexed
     glDrawElements(GL_TRIANGLES, static_cast<int>(indices.size()), GL_UNSIGNED_INT, nullptr);
 
-	vb->unbind();
-	ib->unbind();
+    vb->unbind();
+    ib->unbind();
 }
 
 } // Namespace Raekor

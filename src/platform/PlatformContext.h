@@ -4,11 +4,11 @@
 
 namespace Raekor {
 
-	class PlatformContext {
+    class PlatformContext {
 
-	public:
-		PlatformContext() {}
-		std::string open_file_dialog(const std::vector<std::string>& filters);
-	};
+    public:
+        PlatformContext() {}
+        std::string open_file_dialog(const std::vector<std::string>& filters);
+    };
 
 } // Namespace Raekor
