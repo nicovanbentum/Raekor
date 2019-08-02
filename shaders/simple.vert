@@ -12,9 +12,9 @@ uniform mat4 MVP;
 
 void main()
 {
-	//update the position of the vertex in space
-	gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
+    //update the position of the vertex in space
+    gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
 
-	//set vertex color
-	UV = vertexUV;
+    //set vertex color
+    UV = vertexUV;
 }
