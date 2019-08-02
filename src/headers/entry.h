@@ -20,13 +20,13 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
 
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
-		if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_CLOSE) {
-			for (SDL_Window* window : windows) {
-				if (SDL_GetWindowID(window) == ev.window.windowID) {
-					exit(EXIT_SUCCESS);
-				}
-			}
-		}
+        if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_CLOSE) {
+            for (SDL_Window* window : windows) {
+                if (SDL_GetWindowID(window) == ev.window.windowID) {
+                    exit(EXIT_SUCCESS);
+                }
+            }
+        }
 
         if (!camera.is_mouse_active() && ev.type == SDL_MOUSEMOTION) {
             camera.look(ev.motion.xrel, ev.motion.yrel);

@@ -53,8 +53,8 @@ private:
 
     std::string mesh_path;
 
-	std::unique_ptr<GLVertexBuffer> vb;
-	std::unique_ptr<GLIndexBuffer> ib;
+    std::unique_ptr<GLVertexBuffer> vb;
+    std::unique_ptr<GLIndexBuffer> ib;
     unsigned int uvbuffer;
 };
 
