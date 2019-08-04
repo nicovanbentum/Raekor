@@ -10,8 +10,8 @@ the `assimp-build` folder will be missing, since it's too large for Github. You'
 The assimp folder here should only contain the generated `config.h` from the assimp build.
 
 ### Linux (tested on Ubuntu 19.04) (**ASSIMP BROKE THE LINUX BUILD, CHECK BACK LATER**)
-Use the supplied Makefile. 'cd' to the Raekor directory and perform 'make rebuild' followed by 'make run'.
-Requires **SDL2** to be installed by doing `sudo apt-get install libsdl2-2.0` .
+Use the supplied Makefile. `cd` to the Raekor directory and enter `make rebuild` followed by `make run`.
+Requires **SDL2** to be installed by entering `sudo apt-get install libsdl2-2.0` .
 
 ### Render APIs
 OpenGL in active development. 
