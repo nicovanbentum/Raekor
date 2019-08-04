@@ -7,6 +7,7 @@ namespace Raekor {
     class FrameBuffer {
 
     public:
+        virtual ~FrameBuffer() {}
         static FrameBuffer* construct(const glm::vec2& new_size);
         virtual void bind() const = 0;
         virtual void unbind() const = 0;

@@ -24,7 +24,6 @@ public:
     virtual void clear(glm::vec4 color)                 override;
     virtual void draw_indexed(unsigned int size)        override;
     virtual void ImGui_new_frame(SDL_Window* window)    override;
-
 };
 
 } // namespace Raekor

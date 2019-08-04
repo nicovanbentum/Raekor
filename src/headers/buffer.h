@@ -5,7 +5,7 @@ namespace Raekor {
 class VertexBuffer {
 public:
     virtual ~VertexBuffer() {}
-    VertexBuffer* construct(const std::vector<glm::vec3>& vertices);
+    static VertexBuffer* construct(const std::vector<glm::vec3>& vertices);
     virtual void bind() const = 0;
     virtual void unbind() const = 0;
 };
@@ -13,7 +13,7 @@ public:
 class IndexBuffer {
 public:
     virtual ~IndexBuffer() {}
-    IndexBuffer* construct(const std::vector<unsigned int>& indices);
+    static IndexBuffer* construct(const std::vector<unsigned int>& indices);
     virtual void bind() const = 0;
     virtual void unbind() const = 0;
 };

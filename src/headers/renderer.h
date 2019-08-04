@@ -25,7 +25,6 @@ public:
     virtual void clear(glm::vec4 color)                 = 0;
     virtual void draw_indexed(unsigned int size)        = 0;
     virtual void ImGui_new_frame(SDL_Window* window)    = 0;
-
 private:
     static RenderAPI activeAPI;
 };

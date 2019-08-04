@@ -1,6 +1,12 @@
 #include "pch.h"
 #include "mesh.h"
 #include "util.h"
+#include "renderer.h"
+#include "buffer.h"
+
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
+#include "assimp/Importer.hpp"
 
 namespace Raekor {
 
@@ -34,6 +40,38 @@ void Mesh::recalc_transform() {
     auto rotation_quat = static_cast<glm::quat>(rotation);
     transform = transform * glm::toMat4(rotation_quat);
     transform = glm::scale(transform, scale);
+}
+
+void Mesh::load_data(const std::string& filepath) {
+    const unsigned int flags =
+        aiProcess_CalcTangentSpace |
+        aiProcess_Triangulate |
+        aiProcess_SortByPType |
+        aiProcess_PreTransformVertices |
+        aiProcess_GenNormals |
+        aiProcess_GenUVCoords |
+        aiProcess_OptimizeMeshes |
+        aiProcess_Debone |
+        aiProcess_ValidateDataStructure;
+    
+    Assimp::Importer importer;
+    const auto scene = importer.ReadFile(filepath, flags);
+    m_assert(scene && scene->HasMeshes(), "failed to load mesh");
+    
+    auto mesh = scene->mMeshes[0];
+    m_assert(mesh->HasPositions() && mesh->HasNormals(), "meshes require positions and normals");
+
+    vertexes.reserve(mesh->mNumVertices);
+
+    for (size_t i = 0; i < vertexes.capacity(); i++) {
+        vertexes.push_back(Vertex());
+        vertexes.back().pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
+        if (mesh->HasTextureCoords(0)) {
+            vertexes.back().uv = { mesh->mTextureCoords[0][1].x, mesh->mTextureCoords[0][1].y };
+        }
+    }
+
+
 }
 
 bool Mesh::parse_OBJ(const std::string& filepath) {
@@ -116,29 +154,17 @@ bool Mesh::parse_OBJ(const std::string& filepath) {
             indices.push_back(index->second);
         }
     }
-    vb.reset(new GLVertexBuffer(vertices));
-    ib.reset(new GLIndexBuffer(indices));
+    vb.reset(VertexBuffer::construct(vertices));
+    ib.reset(IndexBuffer::construct(indices));
     // generate the openGL buffers and get ID's
-    uvbuffer = gen_gl_buffer(uvs, GL_ARRAY_BUFFER);
+    //uvbuffer = gen_gl_buffer(uvs, GL_ARRAY_BUFFER);
 
     return true;
 }
 
-void Mesh::render() {
+void Mesh::bind() const {
     vb->bind();
-    // TODO: either move this into a seperate class or do in-depth vertex
-    // layouts that includes uvs
-    //set attribute buffer for uvs
-    glEnableVertexAttribArray(1);
-    glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
     ib->bind();
-
-    // Draw triangles TODO: the renderer needs an abstracted method for drawing indexed
-    glDrawElements(GL_TRIANGLES, static_cast<int>(indices.size()), GL_UNSIGNED_INT, nullptr);
-
-    vb->unbind();
-    ib->unbind();
 }
 
 } // Namespace Raekor

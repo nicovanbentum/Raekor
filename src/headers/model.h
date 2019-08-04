@@ -17,8 +17,7 @@ public:
     inline  Mesh* get_mesh() const { return mesh.get(); }
     inline  Texture* get_texture() const { return texture.get(); }
 
-    void render() const;
-
+    void bind() const;
 protected:
     std::unique_ptr<Mesh> mesh;
     std::unique_ptr<Texture> texture;

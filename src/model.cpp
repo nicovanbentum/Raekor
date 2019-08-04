@@ -21,18 +21,14 @@ void TexturedModel::set_texture(const std::string& tex_file) {
     texture.reset(Texture::construct(tex_file));
 }
 
-void TexturedModel::render() const {
+void TexturedModel::bind() const {
 
-    // if we didn't load the texture yet we only render the mesh
+    // if we didn't load the texture yet we only bind the mesh
     if(texture == nullptr ? true : false) {
-        mesh->render();
+        mesh->bind();
         return;
     }
-
-    // if we did load the texture we bind it for rendering
     texture->bind();
-    mesh->render();
-    texture->unbind();
 }
 
 } // Namespace Raekor

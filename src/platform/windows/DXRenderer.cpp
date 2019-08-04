@@ -45,6 +45,9 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     raster_desc.FrontCounterClockwise = false;
     hr = D3D.device->CreateRasterizerState(&raster_desc, D3D.rasterize_state.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create rasterizer state");
+
+    ImGui_ImplSDL2_InitForD3D(window);
+    ImGui_ImplDX11_Init(D3D.device.Get(), D3D.context.Get());
 }
 
 DXRenderer::~DXRenderer() {
