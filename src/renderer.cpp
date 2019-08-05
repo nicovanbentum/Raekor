@@ -7,6 +7,12 @@
 
 namespace Raekor {
 
+static void log_msg(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
+    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
+        std::cout << message << std::endl;
+    }
+}
+
 // global enum for changing the active render API
 RenderAPI Renderer::activeAPI = RenderAPI::OPENGL;
 
@@ -42,10 +48,16 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     ImGui_ImplSDL2_InitForOpenGL(window, &context);
     ImGui_ImplOpenGL3_Init("#version 330");
 
+    glDebugMessageCallback(log_msg, nullptr);
+
     // set opengl depth testing and culling
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     //glEnable(GL_CULL_FACE);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    glFrontFace(GL_CCW);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // one time setup for binding vertey arrays
     unsigned int vertex_array_id;

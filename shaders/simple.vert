@@ -1,11 +1,11 @@
 #version 330 core
 
 
-layout(location = 0) in vec3 vertexPosition_modelspace;
-layout(location = 1) in vec2 vertexUV;
+layout(location = 0) in vec3 vertex_pos;
+layout(location = 1) in vec2 vertex_uv;
 
-//we send out a rgb color for our fragment shader
-out vec2 UV;
+//we send out a uv coordinate for our frag shader
+out vec2 uv;
 
 //4x4 matrix for our model view camera
 uniform mat4 MVP;
@@ -13,8 +13,8 @@ uniform mat4 MVP;
 void main()
 {
     //update the position of the vertex in space
-    gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
+    gl_Position = MVP * vec4(vertex_pos, 1);
 
-    //set vertex color
-    UV = vertexUV;
+    // set output uv
+    uv = vertex_uv;
 }

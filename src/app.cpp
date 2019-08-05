@@ -74,8 +74,6 @@ void Raekor::Application::run() {
     // load our shaders and get the MVP handles
     auto simple_shader = Raekor::GLShader("shaders/simple.vert", "shaders/simple.frag");
     auto skybox_shader = Raekor::GLShader("shaders/skybox.vert", "shaders/skybox.frag");
-    auto simple_shader_mvp = simple_shader.get_uniform_location("MVP");
-    auto skybox_shader_mvp = skybox_shader.get_uniform_location("MVP");
 
     // create a Camera we can use to move around our scene
     Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
@@ -97,7 +95,7 @@ void Raekor::Application::run() {
     std::unique_ptr<Raekor::GLTextureCube> skybox_texture;
     skybox_texture.reset(new Raekor::GLTextureCube(active_skybox->second));
     std::unique_ptr<Raekor::Mesh> skycube;
-    skycube.reset(new Raekor::Mesh("resources/models/ikea box.obj", Raekor::Mesh::file_format::OBJ));
+    skycube.reset(new Raekor::Mesh("resources/models/testcube.obj"));
 
     SDL_SetWindowInputFocus(main_window);
 
@@ -113,33 +111,45 @@ void Raekor::Application::run() {
         auto fsize = frame_buffer->get_size();
         glViewport(0, 0, (GLsizei)fsize.x, (GLsizei)fsize.y);
         frame_buffer->bind();
-        renderer->clear(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        renderer->clear(glm::vec4(0.0f, 0.22f, 0.22f, 1.0f));
 
         // bind our skybox shader, update our camera WITHOUT translation (important for skybox)
         // upload our MVP, bind the skybox texture and render the entire thing
         glDepthMask(GL_FALSE);
         skybox_shader.bind();
         camera.update();
-        skybox_shader.upload_uniform_matrix4fv(skybox_shader.get_uniform_location("MVP"), &camera.get_mvp()[0][0]);
+        skybox_shader["MVP"] = glm::value_ptr(camera.get_mvpLH());
+        // bind our texture
         skybox_texture->bind();
         skycube->bind();
-        renderer->draw_indexed((unsigned int)skycube->indices.size());
+        // draw indexed
+        renderer->draw_indexed(skycube->get_index_buffer()->get_count());
+        // unbind our texture
         skybox_texture->unbind();
         glDepthMask(GL_TRUE);
+
 
         // bind our simple shader and draw textured model in our scene
         simple_shader.bind();
         for (auto& m : scene) {
             camera.update(m.get_mesh()->get_transform());
-            simple_shader.upload_uniform_matrix4fv(simple_shader.get_uniform_location("MVP"), &camera.get_mvp()[0][0]);
-            m.bind();
-            renderer->draw_indexed((unsigned int)m.get_mesh()->indices.size());
+            simple_shader["MVP"] = glm::value_ptr(camera.get_mvpLH());
+            bool has_texture = m.get_texture() != nullptr;
+            if (has_texture) {
+                m.get_texture()->bind();
+            }
+            m.get_mesh()->bind();
+            renderer->draw_indexed(m.get_mesh()->get_index_buffer()->get_count());
+            if (has_texture) {
+                m.get_texture()->unbind();
+            }
+
         }
-        frame_buffer->unbind();
         simple_shader.unbind();
+        frame_buffer->unbind();
 
         //get new frame for render API, sdl and imgui
-        renderer->ImGui_new_frame(main_window);
+        renderer->ImGui_new_frame(main_window); 
 
         // draw the top level bar that contains stuff like "File" and "Edit"
         if (ImGui::BeginMainMenuBar()) {
@@ -368,19 +378,27 @@ void Application::run_dx() {
     cbdesc.StructureByteStride = 0;
 
     // describe our vertex layout
-    D3D11_INPUT_ELEMENT_DESC layout[] = { "POSITION", 0, DXGI_FORMAT::DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA, 0 };
-    auto hr = D3D.device->CreateInputLayout(layout, ARRAYSIZE(layout), dx_shader->vertex_shader_buffer->GetBufferPointer(),
+    D3D11_INPUT_ELEMENT_DESC layout;
+    layout.SemanticName = "POSITION";
+    layout.SemanticIndex = 0;
+    layout.Format = DXGI_FORMAT::DXGI_FORMAT_R32G32B32_FLOAT;
+    layout.InputSlot = 0;
+    layout.AlignedByteOffset = 0;
+    layout.InputSlotClass = D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA;
+    layout.InstanceDataStepRate = 0;
+    auto hr = D3D.device->CreateInputLayout(&layout, 1, dx_shader->vertex_shader_buffer->GetBufferPointer(),
         dx_shader->vertex_shader_buffer->GetBufferSize(), input_layout.GetAddressOf());
+    
     if (FAILED(hr)) m_assert(false, "failed to create pinput layout");
 
     // test cube for directx rendering
     std::unique_ptr<Raekor::Mesh> mcube;
-    mcube.reset(new Raekor::Mesh("resources/models/testcube.obj", Raekor::Mesh::file_format::OBJ));
+    mcube.reset(new Raekor::Mesh("resources/models/testcube.obj"));
 
     std::unique_ptr<DXVertexBuffer> dxvb;
-    dxvb.reset(new DXVertexBuffer(mcube->vertices));
+    dxvb.reset(new DXVertexBuffer(mcube->vertexes));
     std::unique_ptr<DXIndexBuffer> dxib;
-    dxib.reset(new DXIndexBuffer(mcube->indices));
+    dxib.reset(new DXIndexBuffer(mcube->indexes));
 
     // create a Camera we can use to move around our scene
     Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
@@ -417,7 +435,7 @@ void Application::run_dx() {
         auto cube_rotation = mcube->rotation_ptr();
         *cube_rotation += 0.01f;
         mcube->recalc_transform();
-        data.MVP = camera.get_dx_mvp(mcube->get_transform());
+        data.MVP = camera.get_mvpRH(mcube->get_transform());
 
         // create a directx resource for our MVP data
         D3D11_SUBRESOURCE_DATA cbdata;
@@ -433,7 +451,8 @@ void Application::run_dx() {
         dxib->bind();
 
         // draw the indexed vertices and swap the backbuffer to front
-        D3D.context->DrawIndexed(static_cast<UINT>(mcube->indices.size()), 0, 0);
+        D3D.context->DrawIndexed(dxib->get_count(), 0, 0);
+        std::cout << dxib->get_count() << std::endl;
 
         dxfb->unbind();
 

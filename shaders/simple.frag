@@ -1,15 +1,15 @@
 #version 330 core
 
-//blender uvs
-in vec2 UV;
+// blender uvs
+in vec2 uv;
 
-//output data back to our openGL program
-out vec3 color;
+// output data back to our openGL program
+out vec4 color;
 
-//constant mesh values
-uniform sampler2D myTextureSampler;
+// constant mesh values
+uniform sampler2D sampler;
 
 void main()
 {
-    color = texture(myTextureSampler, UV).rgb;
+    color = texture(sampler, uv);
 }

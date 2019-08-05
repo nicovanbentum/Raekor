@@ -33,6 +33,7 @@ GLTexture::GLTexture(const std::string& path)
     glGenerateMipmap(GL_TEXTURE_2D);
 
     stbi_image_free(image);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 GLTexture::~GLTexture() {

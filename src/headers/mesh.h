@@ -3,32 +3,13 @@
 #include "pch.h"
 #include "buffer.h"
 #include "renderer.h"
+#include "buffer.h"
 
 namespace Raekor {
 
-struct Vertex {
-    glm::vec3 pos;
-    glm::vec2 uv;
-    glm::vec3 normal;
-
-    bool operator<(const Raekor::Vertex & rhs) const {
-        return memcmp((void*)this, (void*)&rhs, sizeof(Raekor::Vertex)) > 0;
-    };
-
-    bool operator>(const Raekor::Vertex & rhs) const {
-        return memcmp((void*)this, (void*)&rhs, sizeof(Raekor::Vertex)) < 0;
-    };
-
-};
-
 class Mesh {
 public:
-    enum class file_format {
-        OBJ, FBX
-    };
-
-public:
-    Mesh(const std::string& filepath, Mesh::file_format format);
+    Mesh(const std::string& filepath);
     
     void reset_transform();
     void recalc_transform();
@@ -44,16 +25,14 @@ public:
     const IndexBuffer* get_index_buffer() const { return ib.get(); }
 
     void bind() const;
-    void load_data(const std::string& filepath);
-    bool parse_OBJ(const std::string& filepath);
+    void unbind() const;
+    void load_data();
 
+    // new for assimp model extraction
     std::vector<Vertex> vertexes;
-    std::vector<glm::vec2> uvs;
-    std::vector<glm::vec3> normals;
-    std::vector<glm::vec3> vertices;
-    std::vector<unsigned int> indices;
-
+    std::vector<Index> indexes;
 private:
+    // TODO: move these into some sort of object class for our scene structure
     glm::mat4 transform;
     glm::vec3 position;
     glm::vec3 rotation;

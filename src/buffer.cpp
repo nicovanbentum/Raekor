@@ -9,7 +9,7 @@
 
 namespace Raekor {
 
-VertexBuffer* VertexBuffer::construct(const std::vector<glm::vec3>& vertices) {
+VertexBuffer* VertexBuffer::construct(const std::vector<Vertex>& vertices) {
     auto active = Renderer::get_activeAPI();
     switch(active) {
         case RenderAPI::OPENGL: {
@@ -24,7 +24,7 @@ VertexBuffer* VertexBuffer::construct(const std::vector<glm::vec3>& vertices) {
     return nullptr;
 }
 
-IndexBuffer* IndexBuffer::construct(const std::vector<unsigned int>& indices) {
+IndexBuffer* IndexBuffer::construct(const std::vector<Index>& indices) {
     auto active = Renderer::get_activeAPI();
     switch (active) {
         case RenderAPI::OPENGL: {
@@ -39,22 +39,27 @@ IndexBuffer* IndexBuffer::construct(const std::vector<unsigned int>& indices) {
     return nullptr;
 }
 
-GLVertexBuffer::GLVertexBuffer(const std::vector<glm::vec3>& vertices) {
+GLVertexBuffer::GLVertexBuffer(const std::vector<Vertex>& vertices) {
     id = gen_gl_buffer(vertices, GL_ARRAY_BUFFER);
 }
 
 void GLVertexBuffer::bind() const {
-    //set attribute buffer for model vertices
-    glEnableVertexAttribArray(0);
+    // bind our vertex buffer and set its layout
     glBindBuffer(GL_ARRAY_BUFFER, id);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, 0);
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (const void*)(3 * sizeof(float)));
 }
 void GLVertexBuffer::unbind() const {
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-GLIndexBuffer::GLIndexBuffer(const std::vector<unsigned int>& indices) {
+GLIndexBuffer::GLIndexBuffer(const std::vector<Index>& indices) {
+    count = indices.size() * 3;
     id = gen_gl_buffer(indices, GL_ELEMENT_ARRAY_BUFFER);
 }
 

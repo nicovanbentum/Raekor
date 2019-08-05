@@ -48,7 +48,7 @@ void Camera::move_on_input(float amount) {
         }
 }
 
-glm::mat4 Camera::get_dx_mvp(const glm::mat4& gl_m) {
+glm::mat4 Camera::get_mvpRH(const glm::mat4& gl_m) {
     auto dir = get_direction();
     auto gl_v = glm::lookAtRH(position, position + dir, {0, 1, 0});
     auto gl_p = glm::perspectiveFovRH_ZO(glm::radians(FOV), 1280.0f, 720.0f, 0.1f, 10000.0f);

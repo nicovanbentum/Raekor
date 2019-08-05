@@ -4,11 +4,11 @@
 
 namespace Raekor {
 
-DXVertexBuffer::DXVertexBuffer(const std::vector<glm::vec3>& vertices) {
+DXVertexBuffer::DXVertexBuffer(const std::vector<Vertex>& vertices) {
     // fill out the buffer description struct for our vertex buffer
     D3D11_BUFFER_DESC vb_desc = { 0 };
     vb_desc.Usage = D3D11_USAGE_DEFAULT;
-    vb_desc.ByteWidth = static_cast<UINT>(sizeof(glm::vec3) * vertices.size());
+    vb_desc.ByteWidth = static_cast<UINT>(sizeof(Vertex) * vertices.size());
     vb_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     vb_desc.CPUAccessFlags = 0;
     vb_desc.MiscFlags = 0;
@@ -32,12 +32,13 @@ void DXVertexBuffer::unbind() const {
     D3D.context->IASetVertexBuffers(0, 1, 0, &stride, &offset);
 }
 
-DXIndexBuffer::DXIndexBuffer(const std::vector<unsigned int>& indices) {
+DXIndexBuffer::DXIndexBuffer(const std::vector<Index>& indices) {
+    count = indices.size() * 3;
     // create our index buffer
-// fill out index buffer description
+    // fill out index buffer description
     D3D11_BUFFER_DESC ib_desc = { 0 };
     ib_desc.Usage = D3D11_USAGE_DEFAULT;
-    ib_desc.ByteWidth = static_cast<UINT>(sizeof(unsigned int) * indices.size());
+    ib_desc.ByteWidth = static_cast<UINT>(sizeof(Index) * indices.size());
     ib_desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
     ib_desc.CPUAccessFlags = 0;
     ib_desc.MiscFlags = 0;

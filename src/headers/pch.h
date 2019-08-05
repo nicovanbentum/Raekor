@@ -60,6 +60,7 @@
 #include "ext.hpp"
 #include "gtx/quaternion.hpp"
 #include "gtx/string_cast.hpp"
+#include "gtc/type_ptr.hpp"
 
 // SDL includes
 #include "SDL.h"

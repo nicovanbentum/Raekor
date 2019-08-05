@@ -4,7 +4,7 @@
 int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
-    app.run_dx();
+    app.run();
 
     return 0;
 }

@@ -7,7 +7,7 @@ namespace Raekor {
 
 class DXVertexBuffer : public VertexBuffer {
 public:
-    DXVertexBuffer(const std::vector<glm::vec3>& vertices);
+    DXVertexBuffer(const std::vector<Vertex>& vertices);
     virtual void bind() const override;
     virtual void unbind() const override;
 
@@ -18,7 +18,7 @@ private:
 
 class DXIndexBuffer : public IndexBuffer {
 public:
-    DXIndexBuffer(const std::vector<unsigned int>& indices);
+    DXIndexBuffer(const std::vector<Index>& indices);
     virtual void bind() const override;
     virtual void unbind() const override;
 

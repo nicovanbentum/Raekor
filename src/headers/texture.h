@@ -37,7 +37,6 @@ public:
     virtual void bind() const override;
     virtual void unbind() const override;
     inline virtual unsigned int get_id() const override { return id; }
-    
 };
 
 } //Namespace Raekor
