@@ -9,6 +9,45 @@
 
 namespace Raekor {
 
+uint32_t size_of(ShaderType type) {
+    switch (type) {
+    case ShaderType::FLOAT1: return sizeof(float);
+    case ShaderType::FLOAT2: return sizeof(float) * 2;
+    case ShaderType::FLOAT3: return sizeof(float) * 3;
+    case ShaderType::FLOAT4: return sizeof(float) * 4;
+    }
+}
+
+GLShaderType::GLShaderType(ShaderType shader_type) {
+    switch (shader_type) {
+        case ShaderType::FLOAT1: {
+            type = GL_FLOAT;
+            count = 1;
+        } break;
+        case ShaderType::FLOAT2: {
+            type = GL_FLOAT;
+            count = 2;
+        } break;
+        case ShaderType::FLOAT3: {
+            type = GL_FLOAT;
+            count = 3;
+        } break;
+        case ShaderType::FLOAT4: {
+            type = GL_FLOAT;
+            count = 4;
+        } break;
+    }
+}
+
+InputLayout::InputLayout(const std::initializer_list<Element> element_list) : layout(element_list), stride(0) {
+    uint32_t offset = 0;
+    for (auto& element : layout) {
+        element.offset = offset;
+        offset += element.size;
+        stride += element.size;
+    }
+}
+
 VertexBuffer* VertexBuffer::construct(const std::vector<Vertex>& vertices) {
     auto active = Renderer::get_activeAPI();
     switch(active) {
@@ -44,22 +83,15 @@ GLVertexBuffer::GLVertexBuffer(const std::vector<Vertex>& vertices) {
 }
 
 void GLVertexBuffer::bind() const {
-    // bind our vertex buffer and set its layout
     glBindBuffer(GL_ARRAY_BUFFER, id);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, 0);
-
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (const void*)(3 * sizeof(float)));
 }
+
 void GLVertexBuffer::unbind() const {
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 GLIndexBuffer::GLIndexBuffer(const std::vector<Index>& indices) {
-    count = indices.size() * 3;
+    count = (unsigned int)(indices.size() * 3);
     id = gen_gl_buffer(indices, GL_ELEMENT_ARRAY_BUFFER);
 }
 

@@ -3,6 +3,7 @@
 #include "pch.h"
 #include "util.h"
 #include "mesh.h"
+#include "model.h"
 
 
 namespace Raekor {
@@ -20,11 +21,15 @@ public:
     inline static RenderAPI get_activeAPI() { return activeAPI; }
     inline static void set_activeAPI(const RenderAPI new_active) { activeAPI = new_active; }
 
-    // interface functions implemented per API
-    virtual void ImGui_render()                         = 0;
-    virtual void clear(glm::vec4 color)                 = 0;
-    virtual void draw_indexed(unsigned int size)        = 0;
-    virtual void ImGui_new_frame(SDL_Window* window)    = 0;
+    // ImGui specific render API methods
+    virtual void ImGui_Render()                                 = 0;
+    virtual void ImGui_NewFrame(SDL_Window* window)             = 0;
+
+    // Render API methods, these should be used in combination with Raekor's vertex and index buffers
+    virtual void Clear(glm::vec4 color)                         = 0;
+    virtual void SetInputLayout(const InputLayout& layout)      = 0;
+    virtual void DrawIndexed(unsigned int size)                 = 0;
+
 private:
     static RenderAPI activeAPI;
 };
@@ -34,10 +39,12 @@ public:
     GLRenderer(SDL_Window* window);
     ~GLRenderer();
 
-    virtual void ImGui_render()	                        override;
-    virtual void clear(glm::vec4 color)	                override;
-    virtual void draw_indexed(unsigned int size)        override;
-    virtual void ImGui_new_frame(SDL_Window* window)    override;
+    virtual void ImGui_Render()                             override;
+    virtual void ImGui_NewFrame(SDL_Window* window)         override;
+
+    virtual void Clear(glm::vec4 color)                     override;
+    virtual void SetInputLayout(const InputLayout& layout)  override;
+    virtual void DrawIndexed(unsigned int size)             override;
 private:
     SDL_GLContext context;
 };

@@ -30,6 +30,7 @@ Renderer* Renderer::construct(SDL_Window* window) {
     return nullptr;
 }
 
+
 GLRenderer::GLRenderer(SDL_Window* window) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
@@ -71,24 +72,36 @@ GLRenderer::~GLRenderer() {
     SDL_GL_DeleteContext(context);
 }
 
-void GLRenderer::clear(glm::vec4 color) {
+void GLRenderer::Clear(glm::vec4 color) {
     glClearColor(color.r, color.g, color.b, color.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void GLRenderer::ImGui_new_frame(SDL_Window* window) {
+void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
 }
 
-void GLRenderer::ImGui_render() {
+void GLRenderer::ImGui_Render() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void GLRenderer::draw_indexed(unsigned int size) {
+void GLRenderer::SetInputLayout(const InputLayout& layout) {
+    uint32_t index = 0;
+    for (auto& element : layout) {
+        auto GLType = GLShaderType(element.type);
+        glEnableVertexAttribArray(index);
+        glVertexAttribPointer(index, GLType.count, GLType.type, GL_FALSE, (GLsizei)layout.get_stride(), (const void *)element.offset);
+        index++;
+    }
+}
+
+void GLRenderer::DrawIndexed(unsigned int size) {
     glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
 }
+
+
 
 } // namespace Raekor

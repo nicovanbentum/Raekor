@@ -105,16 +105,16 @@ void Raekor::Application::run() {
         handle_sdl_gui_events({ main_window }, camera);
 
         // clear opengl window background (blue)
-        renderer->clear(glm::vec4(0.22f, 0.32f, 0.42f, 1.0f));
+        renderer->Clear(glm::vec4(0.22f, 0.32f, 0.42f, 1.0f));
 
         // match our GL viewport with the framebuffer's size and clear it
         auto fsize = frame_buffer->get_size();
         glViewport(0, 0, (GLsizei)fsize.x, (GLsizei)fsize.y);
         frame_buffer->bind();
-        renderer->clear(glm::vec4(0.0f, 0.22f, 0.22f, 1.0f));
+        renderer->Clear(glm::vec4(0.0f, 0.22f, 0.22f, 1.0f));
 
-        // bind our skybox shader, update our camera WITHOUT translation (important for skybox)
-        // upload our MVP, bind the skybox texture and render the entire thing
+        // bind the skybox shader, update the camera WITHOUT translation (important for skybox)
+        // upload the MVP, bind the skybox texture and render the entire thing
         glDepthMask(GL_FALSE);
         skybox_shader.bind();
         camera.update();
@@ -123,33 +123,24 @@ void Raekor::Application::run() {
         skybox_texture->bind();
         skycube->bind();
         // draw indexed
-        renderer->draw_indexed(skycube->get_index_buffer()->get_count());
-        // unbind our texture
+        renderer->DrawIndexed(skycube->get_index_buffer()->get_count());
+        // unbind the texture
         skybox_texture->unbind();
         glDepthMask(GL_TRUE);
 
 
-        // bind our simple shader and draw textured model in our scene
+        // bind the simple shader and draw textured model in our scene
         simple_shader.bind();
         for (auto& m : scene) {
             camera.update(m.get_mesh()->get_transform());
             simple_shader["MVP"] = glm::value_ptr(camera.get_mvpLH());
-            bool has_texture = m.get_texture() != nullptr;
-            if (has_texture) {
-                m.get_texture()->bind();
-            }
-            m.get_mesh()->bind();
-            renderer->draw_indexed(m.get_mesh()->get_index_buffer()->get_count());
-            if (has_texture) {
-                m.get_texture()->unbind();
-            }
 
         }
         simple_shader.unbind();
         frame_buffer->unbind();
 
         //get new frame for render API, sdl and imgui
-        renderer->ImGui_new_frame(main_window); 
+        renderer->ImGui_NewFrame(main_window); 
 
         // draw the top level bar that contains stuff like "File" and "Edit"
         if (ImGui::BeginMainMenuBar()) {
@@ -301,7 +292,7 @@ void Raekor::Application::run() {
             }
             ImGui::End();
         }
-        renderer->ImGui_render();
+        renderer->ImGui_Render();
 
         int w, h;
         SDL_GetWindowSize(main_window, &w, &h);
@@ -378,18 +369,17 @@ void Application::run_dx() {
     cbdesc.StructureByteStride = 0;
 
     // describe our vertex layout
-    D3D11_INPUT_ELEMENT_DESC layout;
-    layout.SemanticName = "POSITION";
-    layout.SemanticIndex = 0;
-    layout.Format = DXGI_FORMAT::DXGI_FORMAT_R32G32B32_FLOAT;
-    layout.InputSlot = 0;
-    layout.AlignedByteOffset = 0;
-    layout.InputSlotClass = D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA;
-    layout.InstanceDataStepRate = 0;
-    auto hr = D3D.device->CreateInputLayout(&layout, 1, dx_shader->vertex_shader_buffer->GetBufferPointer(),
+    D3D11_INPUT_ELEMENT_DESC attribs[] = {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
+    };
+
+
+    auto hr = D3D.device->CreateInputLayout(attribs, 2, dx_shader->vertex_shader_buffer->GetBufferPointer(),
         dx_shader->vertex_shader_buffer->GetBufferSize(), input_layout.GetAddressOf());
     
-    if (FAILED(hr)) m_assert(false, "failed to create pinput layout");
+    m_assert(SUCCEEDED(hr), "failed to create input layout");
+
 
     // test cube for directx rendering
     std::unique_ptr<Raekor::Mesh> mcube;
@@ -423,11 +413,11 @@ void Application::run_dx() {
         dxfb->clear({ 0.0f, 0.32f, 0.42f, 1.0f });
 
         // clear the render view
-        dxr->clear({ 0.22f, 0.32f, 0.42f, 1.0f });
+        dxr->Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
         // set the input layout, topology, rasterizer state and bind our vertex and pixel shader
-        D3D.context->IASetInputLayout(input_layout.Get());
         D3D.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         D3D.context->RSSetState(D3D.rasterize_state.Get());
+        D3D.context->IASetInputLayout(input_layout.Get());
         dx_shader->bind();
 
         // set our constant buffer data containing the MVP of our mesh/model
@@ -448,16 +438,16 @@ void Application::run_dx() {
         // bind our constant, vertex and index buffers
         D3D.context->VSSetConstantBuffers(0, 1, constant_buffer.GetAddressOf());
         dxvb->bind();
+
         dxib->bind();
 
         // draw the indexed vertices and swap the backbuffer to front
         D3D.context->DrawIndexed(dxib->get_count(), 0, 0);
-        std::cout << dxib->get_count() << std::endl;
 
         dxfb->unbind();
 
         //get new frame for render API, sdl and imgui
-        dxr->ImGui_new_frame(directxwindow);
+        dxr->ImGui_NewFrame(directxwindow);
 
         // draw the top level bar that contains stuff like "File" and "Edit"
         if (ImGui::BeginMainMenuBar()) {
@@ -532,7 +522,7 @@ void Application::run_dx() {
                 mcube->reset_transform();
             }
             ImGui::End();
-            dxr->ImGui_render();
+            dxr->ImGui_Render();
             D3D.swap_chain->Present(1, NULL);
         }
     }

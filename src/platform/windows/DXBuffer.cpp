@@ -4,6 +4,15 @@
 
 namespace Raekor {
 
+DXGI_FORMAT get_format(ShaderType type) {
+    switch (type) {
+    case ShaderType::FLOAT1: return DXGI_FORMAT::DXGI_FORMAT_R32_FLOAT;
+    case ShaderType::FLOAT2: return DXGI_FORMAT::DXGI_FORMAT_R32G32_FLOAT;
+    case ShaderType::FLOAT3: return DXGI_FORMAT::DXGI_FORMAT_R32G32B32_FLOAT;
+    case ShaderType::FLOAT4: return DXGI_FORMAT::DXGI_FORMAT_R32G32B32A32_FLOAT;
+    }
+}
+
 DXVertexBuffer::DXVertexBuffer(const std::vector<Vertex>& vertices) {
     // fill out the buffer description struct for our vertex buffer
     D3D11_BUFFER_DESC vb_desc = { 0 };
@@ -21,19 +30,19 @@ DXVertexBuffer::DXVertexBuffer(const std::vector<Vertex>& vertices) {
 }
 
 void DXVertexBuffer::bind() const {
-    constexpr unsigned int stride = sizeof(glm::vec3);
+    constexpr unsigned int stride = sizeof(Vertex);
     constexpr unsigned int offset = 0;
     D3D.context->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
 }
 
 void DXVertexBuffer::unbind() const {
-    constexpr unsigned int stride = sizeof(glm::vec3);
+    constexpr unsigned int stride = sizeof(Vertex);
     constexpr unsigned int offset = 0;
     D3D.context->IASetVertexBuffers(0, 1, 0, &stride, &offset);
 }
 
 DXIndexBuffer::DXIndexBuffer(const std::vector<Index>& indices) {
-    count = indices.size() * 3;
+    count = (unsigned int)(indices.size() * 3);
     // create our index buffer
     // fill out index buffer description
     D3D11_BUFFER_DESC ib_desc = { 0 };

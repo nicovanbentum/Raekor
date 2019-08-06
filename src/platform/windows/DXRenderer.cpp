@@ -55,23 +55,27 @@ DXRenderer::~DXRenderer() {
     ImGui_ImplSDL2_Shutdown();
 }
 
-void DXRenderer::clear(glm::vec4 color) {
+void DXRenderer::Clear(glm::vec4 color) {
     const float clear_color[4] = { color.r, color.g, color.b, color.a };
     D3D.context->ClearRenderTargetView(D3D.back_buffer.Get(), clear_color);
 }
 
-void DXRenderer::ImGui_new_frame(SDL_Window* window) {
+void DXRenderer::ImGui_NewFrame(SDL_Window* window) {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
 }
 
-void DXRenderer::ImGui_render() {
+void DXRenderer::ImGui_Render() {
     ImGui::Render();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
-void DXRenderer::draw_indexed(unsigned int size) {
+void DXRenderer::SetInputLayout(const InputLayout& layout) {
+
+}
+
+void DXRenderer::DrawIndexed(unsigned int size) {
     D3D.context->DrawIndexed(size, 0, 0);
 }
 
