@@ -5,7 +5,9 @@
 namespace Raekor {
 
 DXTexture::DXTexture(const std::string& filepath) {
-    auto hr = DirectX::CreateWICTextureFromFile(D3D.device.Get(), L"resources\\textures\\grass block.png", nullptr, texture.GetAddressOf());
+    auto fp_wstr = std::wstring(filepath.begin(), filepath.end());
+    LPCWSTR fpw = fp_wstr.c_str();
+    auto hr = DirectX::CreateWICTextureFromFile(D3D.device.Get(), fpw, nullptr, texture.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to load texture");
 
     D3D11_SAMPLER_DESC samp_desc;
@@ -18,7 +20,7 @@ DXTexture::DXTexture(const std::string& filepath) {
     samp_desc.MinLOD = 0;
     samp_desc.MaxLOD = D3D11_FLOAT32_MAX;
     hr = D3D.device->CreateSamplerState(&samp_desc, sampler_state.GetAddressOf());
-    m_assert(SUCCEEDED(hr), "failed to crreate sampler state");
+    m_assert(SUCCEEDED(hr), "failed to create sampler state");
 }
 
 void DXTexture::bind() const {

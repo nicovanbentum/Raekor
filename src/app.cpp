@@ -13,6 +13,7 @@
 #include "buffer.h"
 #include "DXBuffer.h"
 #include "DXFrameBuffer.h"
+#include "DXTexture.h"
 
 namespace Raekor {
 
@@ -351,24 +352,6 @@ void Application::run_dx() {
 
     // com pointers to direct3d11 variables
     Microsoft::WRL::ComPtr<ID3D11Buffer> constant_buffer;
-    com_ptr<ID3D11SamplerState> sampler_state;
-    com_ptr<ID3D11ShaderResourceView> texture;
-    
-    auto hr = DirectX::CreateWICTextureFromFile(D3D.device.Get(), L"resources\\textures\\grass block.png", nullptr, texture.GetAddressOf());
-    m_assert(SUCCEEDED(hr), "failed to load texture");
-
-    D3D11_SAMPLER_DESC samp_desc;
-    memset(&samp_desc, 0, sizeof(D3D11_SAMPLER_DESC));
-    samp_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    samp_desc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    samp_desc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    samp_desc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    samp_desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    samp_desc.MinLOD = 0;
-    samp_desc.MaxLOD = D3D11_FLOAT32_MAX;
-    hr = D3D.device->CreateSamplerState(&samp_desc, sampler_state.GetAddressOf());
-    m_assert(SUCCEEDED(hr), "failed to crreate sampler state");
-
 
     // struct that describes and matches what the hlsl vertex shader expects
     struct cb_vs {
@@ -405,6 +388,9 @@ void Application::run_dx() {
     dxfb.reset(new DXFrameBuffer({ 1280, 720 }));
     auto fsize = dxfb->get_size();
 
+    std::unique_ptr<Raekor::DXTexture> dxtex;
+    dxtex.reset(new DXTexture("resources/textures/grass block.png"));
+
     SDL_SetWindowInputFocus(directxwindow);
 
     //main application loop
@@ -434,8 +420,7 @@ void Application::run_dx() {
         auto ret = D3D.device->CreateBuffer(&cbdesc, &cbdata, constant_buffer.GetAddressOf());
         if (FAILED(ret)) m_assert(false, "failed to create constant buffer");
 
-        D3D.context->PSSetShaderResources(0, 1, texture.GetAddressOf());
-        D3D.context->PSSetSamplers(0, 1, sampler_state.GetAddressOf());
+        dxtex->bind();
 
         // bind our constant, vertex and index buffers
         D3D.context->VSSetConstantBuffers(0, 1, constant_buffer.GetAddressOf());
