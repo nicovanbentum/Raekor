@@ -7,6 +7,9 @@ namespace Raekor {
 COM_PTRS D3D;
 
 DXRenderer::DXRenderer(SDL_Window* window) {
+    auto hr = CoInitialize(NULL);
+    m_assert(SUCCEEDED(hr), "failed to initialize microsoft WIC");
+
     SDL_SysWMinfo wminfo;
     SDL_VERSION(&wminfo.version);
     SDL_GetWindowWMInfo(window, &wminfo);
@@ -20,7 +23,7 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     sc_desc.OutputWindow = dx_hwnd;
     sc_desc.SampleDesc.Count = 4;
     sc_desc.Windowed = TRUE;
-    auto hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL,
+    hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL,
         NULL, NULL, D3D11_SDK_VERSION, &sc_desc, D3D.swap_chain.GetAddressOf(), D3D.device.GetAddressOf(), NULL, D3D.context.GetAddressOf());
     m_assert(!FAILED(hr), "failed to init device and swap chain");
 
@@ -36,13 +39,15 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     viewport.TopLeftY = 0;
     viewport.Width = 1280;
     viewport.Height = 720;
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
     D3D.context->RSSetViewports(1, &viewport);
 
     // fill out the raster description struct and create a rasterizer state
     D3D11_RASTERIZER_DESC raster_desc = { 0 };
     raster_desc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
-    raster_desc.CullMode = D3D11_CULL_MODE::D3D11_CULL_NONE;
-    raster_desc.FrontCounterClockwise = false;
+    raster_desc.CullMode = D3D11_CULL_MODE::D3D11_CULL_FRONT;
+
     hr = D3D.device->CreateRasterizerState(&raster_desc, D3D.rasterize_state.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create rasterizer state");
 
@@ -69,10 +74,6 @@ void DXRenderer::ImGui_NewFrame(SDL_Window* window) {
 void DXRenderer::ImGui_Render() {
     ImGui::Render();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-}
-
-void DXRenderer::SetInputLayout(const InputLayout& layout) {
-
 }
 
 void DXRenderer::DrawIndexed(unsigned int size) {

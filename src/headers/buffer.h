@@ -32,6 +32,7 @@ class InputLayout {
 public:
     InputLayout(const std::initializer_list<Element> element_list);
 
+    inline size_t size() const { return layout.size(); }
     inline uint64_t get_stride() const { return stride; }
 
     std::vector<Element>::iterator begin() { return layout.begin(); }
@@ -67,6 +68,7 @@ public:
     virtual ~VertexBuffer() {}
     static VertexBuffer* construct(const std::vector<Vertex>& vertices);
     virtual void bind() const = 0;
+    virtual void set_layout(const InputLayout& layout) const = 0;
     virtual void unbind() const = 0;
 };
 
@@ -86,6 +88,7 @@ class GLVertexBuffer : public VertexBuffer {
 public:
     GLVertexBuffer(const std::vector<Vertex>& vertices);
     virtual void bind() const override;
+    virtual void set_layout(const InputLayout& layout) const override;
     virtual void unbind() const override;
 
 private:

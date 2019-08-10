@@ -29,6 +29,7 @@ void TexturedModel::bind() const {
         return;
     }
     texture->bind();
+    mesh->bind();
 }
 
 void TexturedModel::unbind() const {

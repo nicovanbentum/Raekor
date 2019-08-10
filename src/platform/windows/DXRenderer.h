@@ -23,7 +23,6 @@ public:
     virtual void ImGui_Render()                             override;
     virtual void ImGui_NewFrame(SDL_Window* window)         override;
     virtual void Clear(glm::vec4 color)                     override;
-    virtual void SetInputLayout(const InputLayout& layout)  override;
     virtual void DrawIndexed(unsigned int size)             override;
 };
 

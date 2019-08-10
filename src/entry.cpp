@@ -6,7 +6,7 @@ int main(int argc, char** argv) {
     auto app = Raekor::Application();
     glm::vec2 a;
     std::cout << a.length() << std::endl;
-    app.run();
+    app.run_dx();
 
     return 0;
 }

@@ -27,7 +27,6 @@ public:
 
     // Render API methods, these should be used in combination with Raekor's vertex and index buffers
     virtual void Clear(glm::vec4 color)                         = 0;
-    virtual void SetInputLayout(const InputLayout& layout)      = 0;
     virtual void DrawIndexed(unsigned int size)                 = 0;
 
 private:
@@ -43,7 +42,6 @@ public:
     virtual void ImGui_NewFrame(SDL_Window* window)         override;
 
     virtual void Clear(glm::vec4 color)                     override;
-    virtual void SetInputLayout(const InputLayout& layout)  override;
     virtual void DrawIndexed(unsigned int size)             override;
 private:
     SDL_GLContext context;

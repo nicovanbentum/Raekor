@@ -88,16 +88,6 @@ void GLRenderer::ImGui_Render() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void GLRenderer::SetInputLayout(const InputLayout& layout) {
-    uint32_t index = 0;
-    for (auto& element : layout) {
-        auto GLType = GLShaderType(element.type);
-        glEnableVertexAttribArray(index);
-        glVertexAttribPointer(index, GLType.count, GLType.type, GL_FALSE, (GLsizei)layout.get_stride(), (const void *)element.offset);
-        index++;
-    }
-}
-
 void GLRenderer::DrawIndexed(unsigned int size) {
     glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
 }

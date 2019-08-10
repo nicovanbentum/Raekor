@@ -134,13 +134,15 @@ void Raekor::Application::run() {
         for (auto& m : scene) {
             camera.update(m.get_mesh()->get_transform());
             simple_shader["MVP"] = glm::value_ptr(camera.get_mvpLH());
+            m.bind();
+            renderer->DrawIndexed(m.get_mesh()->get_index_buffer()->get_count());
 
         }
         simple_shader.unbind();
         frame_buffer->unbind();
 
         //get new frame for render API, sdl and imgui
-        renderer->ImGui_NewFrame(main_window); 
+        renderer->ImGui_NewFrame(main_window);
 
         // draw the top level bar that contains stuff like "File" and "Edit"
         if (ImGui::BeginMainMenuBar()) {
@@ -300,7 +302,7 @@ void Raekor::Application::run() {
 
         SDL_GL_SwapWindow(main_window);
     }
-} 
+}
 
 void Application::run_dx() {
     auto context = Raekor::PlatformContext();
@@ -351,8 +353,30 @@ void Application::run_dx() {
     dx_shader.reset(new DXShader("shaders/simple_vertex.cso", "shaders/simple_pixel.cso"));
 
     // com pointers to direct3d11 variables
-    Microsoft::WRL::ComPtr<ID3D11InputLayout> input_layout;
     Microsoft::WRL::ComPtr<ID3D11Buffer> constant_buffer;
+    com_ptr<ID3D11SamplerState> sampler_state;
+    com_ptr<ID3D11ShaderResourceView> texture;
+    com_ptr<ID3D11DepthStencilView> depth_stencil_view;
+    com_ptr<ID3D11Texture2D> depth_stencil_buffer;
+    com_ptr<ID3D11DepthStencilState> depth_stencil_state;
+
+
+    
+    auto hr = DirectX::CreateWICTextureFromFile(D3D.device.Get(), L"resources\\textures\\test.png", nullptr, texture.GetAddressOf());
+    m_assert(SUCCEEDED(hr), "failed to load texture");
+
+    D3D11_SAMPLER_DESC samp_desc;
+    memset(&samp_desc, 0, sizeof(D3D11_SAMPLER_DESC));
+    samp_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    samp_desc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    samp_desc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    samp_desc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    samp_desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    samp_desc.MinLOD = 0;
+    samp_desc.MaxLOD = D3D11_FLOAT32_MAX;
+    hr = D3D.device->CreateSamplerState(&samp_desc, sampler_state.GetAddressOf());
+    m_assert(SUCCEEDED(hr), "failed to crreate sampler state");
+
 
     // struct that describes and matches what the hlsl vertex shader expects
     struct cb_vs {
@@ -367,20 +391,7 @@ void Application::run_dx() {
     cbdesc.MiscFlags = 0;
     cbdesc.ByteWidth = static_cast<UINT>(sizeof(cb_vs) + (16 - (sizeof(cb_vs) % 16)));
     cbdesc.StructureByteStride = 0;
-
-    // describe our vertex layout
-    D3D11_INPUT_ELEMENT_DESC attribs[] = {
-        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        {"UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
-    };
-
-
-    auto hr = D3D.device->CreateInputLayout(attribs, 2, dx_shader->vertex_shader_buffer->GetBufferPointer(),
-        dx_shader->vertex_shader_buffer->GetBufferSize(), input_layout.GetAddressOf());
     
-    m_assert(SUCCEEDED(hr), "failed to create input layout");
-
-
     // test cube for directx rendering
     std::unique_ptr<Raekor::Mesh> mcube;
     mcube.reset(new Raekor::Mesh("resources/models/testcube.obj"));
@@ -409,15 +420,15 @@ void Application::run_dx() {
         //handle sdl and imgui events
         handle_sdl_gui_events({ directxwindow}, camera);
 
+
+
         dxfb->bind();
         dxfb->clear({ 0.0f, 0.32f, 0.42f, 1.0f });
 
         // clear the render view
         dxr->Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
         // set the input layout, topology, rasterizer state and bind our vertex and pixel shader
-        D3D.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        D3D.context->RSSetState(D3D.rasterize_state.Get());
-        D3D.context->IASetInputLayout(input_layout.Get());
+        // TODO: right now it sets all these things in the vertex buffer bind call, this seems like a weird design choice but works for now
         dx_shader->bind();
 
         // set our constant buffer data containing the MVP of our mesh/model
@@ -427,6 +438,7 @@ void Application::run_dx() {
         mcube->recalc_transform();
         data.MVP = camera.get_mvpRH(mcube->get_transform());
 
+
         // create a directx resource for our MVP data
         D3D11_SUBRESOURCE_DATA cbdata;
         cbdata.pSysMem = &data;
@@ -435,14 +447,16 @@ void Application::run_dx() {
         auto ret = D3D.device->CreateBuffer(&cbdesc, &cbdata, constant_buffer.GetAddressOf());
         if (FAILED(ret)) m_assert(false, "failed to create constant buffer");
 
+        D3D.context->PSSetShaderResources(0, 1, texture.GetAddressOf());
+        D3D.context->PSSetSamplers(0, 1, sampler_state.GetAddressOf());
+
         // bind our constant, vertex and index buffers
         D3D.context->VSSetConstantBuffers(0, 1, constant_buffer.GetAddressOf());
         dxvb->bind();
-
         dxib->bind();
 
         // draw the indexed vertices and swap the backbuffer to front
-        D3D.context->DrawIndexed(dxib->get_count(), 0, 0);
+        dxr->DrawIndexed(dxib->get_count());
 
         dxfb->unbind();
 

@@ -15,6 +15,7 @@ uint32_t size_of(ShaderType type) {
     case ShaderType::FLOAT2: return sizeof(float) * 2;
     case ShaderType::FLOAT3: return sizeof(float) * 3;
     case ShaderType::FLOAT4: return sizeof(float) * 4;
+    default: return 0;
     }
 }
 
@@ -84,9 +85,29 @@ GLVertexBuffer::GLVertexBuffer(const std::vector<Vertex>& vertices) {
 
 void GLVertexBuffer::bind() const {
     glBindBuffer(GL_ARRAY_BUFFER, id);
+    set_layout({ {"POSITION", ShaderType::FLOAT3}, {"UV", ShaderType::FLOAT2} });
+}
+
+void GLVertexBuffer::set_layout(const InputLayout& layout) const {
+    GLuint index = 0;
+    for (auto& element : layout) {
+        auto GLType = static_cast<GLShaderType>(element.type);
+        glEnableVertexAttribArray(index);
+        glVertexAttribPointer(
+            index, // hlsl layout index
+            GLType.count, // number of types, e.g 3 floats
+            GLType.type, // type, e.g float
+            GL_FALSE, // normalized?
+            (GLsizei)layout.get_stride(), // stride of the entire layout
+            (const void*)((intptr_t)element.offset) // starting offset, casted up
+        );
+        index++;
+    }
 }
 
 void GLVertexBuffer::unbind() const {
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -94,6 +115,7 @@ GLIndexBuffer::GLIndexBuffer(const std::vector<Index>& indices) {
     count = (unsigned int)(indices.size() * 3);
     id = gen_gl_buffer(indices, GL_ELEMENT_ARRAY_BUFFER);
 }
+
 
 void GLIndexBuffer::bind() const {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);

@@ -1,8 +1,21 @@
+struct VS_INPUT {
+    float3 pos : POSITION;
+    float2 uv : TEXCOORD;
+};
+
+struct VS_OUTPUT {
+    float4 pos : SV_POSITION;
+    float2 uv : TEXCOORD;
+};
+
 cbuffer myCbuffer : register(b0) {
     float4x4 MVP;
 }
 
-float4 main(float3 pos : POSITION) : SV_POSITION
+VS_OUTPUT main(VS_INPUT input)
 {
-    return mul(float4(pos, 1), MVP);
+    VS_OUTPUT output;
+    output.pos = mul(float4(input.pos, 1.0f), MVP);
+    output.uv = input.uv;
+    return output;
 }
