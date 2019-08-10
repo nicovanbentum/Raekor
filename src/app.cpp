@@ -356,13 +356,8 @@ void Application::run_dx() {
     Microsoft::WRL::ComPtr<ID3D11Buffer> constant_buffer;
     com_ptr<ID3D11SamplerState> sampler_state;
     com_ptr<ID3D11ShaderResourceView> texture;
-    com_ptr<ID3D11DepthStencilView> depth_stencil_view;
-    com_ptr<ID3D11Texture2D> depth_stencil_buffer;
-    com_ptr<ID3D11DepthStencilState> depth_stencil_state;
-
-
     
-    auto hr = DirectX::CreateWICTextureFromFile(D3D.device.Get(), L"resources\\textures\\test.png", nullptr, texture.GetAddressOf());
+    auto hr = DirectX::CreateWICTextureFromFile(D3D.device.Get(), L"resources\\textures\\grass block.png", nullptr, texture.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to load texture");
 
     D3D11_SAMPLER_DESC samp_desc;
@@ -394,7 +389,7 @@ void Application::run_dx() {
     
     // test cube for directx rendering
     std::unique_ptr<Raekor::Mesh> mcube;
-    mcube.reset(new Raekor::Mesh("resources/models/testcube.obj"));
+    mcube.reset(new Raekor::Mesh("resources/models/minecraft_block.obj"));
 
     std::unique_ptr<DXVertexBuffer> dxvb;
     dxvb.reset(new DXVertexBuffer(mcube->vertexes));
@@ -420,13 +415,9 @@ void Application::run_dx() {
         //handle sdl and imgui events
         handle_sdl_gui_events({ directxwindow}, camera);
 
-
-
-        dxfb->bind();
-        dxfb->clear({ 0.0f, 0.32f, 0.42f, 1.0f });
-
-        // clear the render view
         dxr->Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
+        dxfb->bind();
+        dxr->Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
         // set the input layout, topology, rasterizer state and bind our vertex and pixel shader
         // TODO: right now it sets all these things in the vertex buffer bind call, this seems like a weird design choice but works for now
         dx_shader->bind();
@@ -437,7 +428,6 @@ void Application::run_dx() {
         *cube_rotation += 0.01f;
         mcube->recalc_transform();
         data.MVP = camera.get_mvpRH(mcube->get_transform());
-
 
         // create a directx resource for our MVP data
         D3D11_SUBRESOURCE_DATA cbdata;

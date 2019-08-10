@@ -52,8 +52,6 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     glDebugMessageCallback(log_msg, nullptr);
 
     // set opengl depth testing and culling
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
     //glEnable(GL_CULL_FACE);
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     glFrontFace(GL_CCW);
@@ -89,7 +87,10 @@ void GLRenderer::ImGui_Render() {
 }
 
 void GLRenderer::DrawIndexed(unsigned int size) {
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
     glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
+    glDisable(GL_DEPTH_TEST);
 }
 
 

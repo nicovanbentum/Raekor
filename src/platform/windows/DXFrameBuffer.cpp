@@ -42,16 +42,13 @@ DXFrameBuffer::DXFrameBuffer(const glm::vec2& size) {
 DXFrameBuffer::~DXFrameBuffer() {}
 
 void DXFrameBuffer::bind() const {
-    D3D.context->OMSetRenderTargets(1, target_view.GetAddressOf(), NULL);
+    D3D.render_target_view = target_view;
+    D3D.context->OMSetRenderTargets(1, target_view.GetAddressOf(), D3D.depth_stencil_view.Get());
 }
 
 void DXFrameBuffer::unbind() const {
+    D3D.render_target_view = D3D.back_buffer;
     D3D.context->OMSetRenderTargets(1, D3D.back_buffer.GetAddressOf(), NULL);
-}
-
-void DXFrameBuffer::clear(const glm::vec4& color) const {
-    const float cc[4] = { color.r, color.g, color.b, color.a };
-    D3D.context->ClearRenderTargetView(target_view.Get(), cc);
 }
 
 void DXFrameBuffer::resize(const glm::vec2& size) {
