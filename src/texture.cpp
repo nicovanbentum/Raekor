@@ -45,10 +45,6 @@ void GLTexture::bind() const {
     glBindTexture(GL_TEXTURE_2D, id);
 }
 
-void GLTexture::unbind() const {
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
-
 GLTextureCube::GLTextureCube(const std::vector<std::string>& face_files) {
     m_assert(face_files.size() == 6, std::string("texture cubes require 6 faces instead of " + face_files.size()));
 
@@ -79,10 +75,6 @@ GLTextureCube::~GLTextureCube() {
 
 void GLTextureCube::bind() const {
     glBindTexture(GL_TEXTURE_CUBE_MAP, id);
-}
-
-void GLTextureCube::unbind() const {
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
 
 } // Namespace Raekor

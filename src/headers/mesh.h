@@ -24,7 +24,6 @@ public:
     const IndexBuffer* get_index_buffer() const { return ib.get(); }
 
     void bind() const;
-    void unbind() const;
     void load_data();
 
     // new for assimp model extraction

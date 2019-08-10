@@ -69,7 +69,6 @@ public:
     static VertexBuffer* construct(const std::vector<Vertex>& vertices);
     virtual void bind() const = 0;
     virtual void set_layout(const InputLayout& layout) const = 0;
-    virtual void unbind() const = 0;
 };
 
 class IndexBuffer {
@@ -77,7 +76,6 @@ public:
     virtual ~IndexBuffer() {}
     static IndexBuffer* construct(const std::vector<Index>& indices);
     virtual void bind() const = 0;
-    virtual void unbind() const = 0;
     inline unsigned int get_count() const { return count; }
 
 protected:
@@ -89,7 +87,6 @@ public:
     GLVertexBuffer(const std::vector<Vertex>& vertices);
     virtual void bind() const override;
     virtual void set_layout(const InputLayout& layout) const override;
-    virtual void unbind() const override;
 
 private:
     unsigned int id = 0;
@@ -99,7 +96,6 @@ class GLIndexBuffer : public IndexBuffer {
 public:
     GLIndexBuffer(const std::vector<Index>& indices);
     virtual void bind() const override;
-    virtual void unbind() const override;
 
 private:
     unsigned int id = 0;

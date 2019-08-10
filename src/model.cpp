@@ -32,11 +32,4 @@ void TexturedModel::bind() const {
     mesh->bind();
 }
 
-void TexturedModel::unbind() const {
-    if (texture == nullptr) {
-        return;
-    }
-    texture->unbind();
-}
-
 } // Namespace Raekor

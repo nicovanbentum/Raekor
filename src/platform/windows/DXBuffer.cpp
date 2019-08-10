@@ -106,12 +106,6 @@ void DXVertexBuffer::set_layout(const InputLayout& layout) const {
 
 }
 
-void DXVertexBuffer::unbind() const {
-    constexpr unsigned int stride = sizeof(Vertex);
-    constexpr unsigned int offset = 0;
-    D3D.context->IASetVertexBuffers(0, 1, 0, &stride, &offset);
-}
-
 DXIndexBuffer::DXIndexBuffer(const std::vector<Index>& indices) {
     count = (unsigned int)(indices.size() * 3);
     // create our index buffer
@@ -132,10 +126,6 @@ DXIndexBuffer::DXIndexBuffer(const std::vector<Index>& indices) {
 
 void DXIndexBuffer::bind() const {
     D3D.context->IASetIndexBuffer(index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-}
-
-void DXIndexBuffer::unbind() const {
-    D3D.context->IASetIndexBuffer(0, DXGI_FORMAT_R32_UINT, 0);
 }
 
 } // namespace Raekor

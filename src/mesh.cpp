@@ -79,9 +79,4 @@ void Mesh::bind() const {
     ib->bind();
 }
 
-void Mesh::unbind() const {
-    vb->unbind();
-    ib->unbind();
-}
-
 } // Namespace Raekor

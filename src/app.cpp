@@ -124,8 +124,6 @@ void Raekor::Application::run() {
         skycube->bind();
         // draw indexed
         renderer->DrawIndexed(skycube->get_index_buffer()->get_count());
-        // unbind the texture
-        skybox_texture->unbind();
         glDepthMask(GL_TRUE);
 
 
@@ -138,7 +136,6 @@ void Raekor::Application::run() {
             renderer->DrawIndexed(m.get_mesh()->get_index_buffer()->get_count());
 
         }
-        simple_shader.unbind();
         frame_buffer->unbind();
 
         //get new frame for render API, sdl and imgui

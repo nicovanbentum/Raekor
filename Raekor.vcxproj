@@ -171,6 +171,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\platform\windows\DXFrameBuffer.cpp" />
     <ClCompile Include="src\platform\windows\DXRenderer.cpp" />
     <ClCompile Include="src\platform\windows\DXShader.cpp" />
+    <ClCompile Include="src\platform\windows\DXTexture.cpp" />
     <ClCompile Include="src\platform\windows\PlatformContext.cpp" />
     <ClCompile Include="src\renderer.cpp" />
     <ClCompile Include="src\shader.cpp" />
@@ -204,6 +205,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\platform\windows\DXFrameBuffer.h" />
     <ClInclude Include="src\platform\windows\DXRenderer.h" />
     <ClInclude Include="src\platform\windows\DXShader.h" />
+    <ClInclude Include="src\platform\windows\DXTexture.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\simple_pixel.hlsl">

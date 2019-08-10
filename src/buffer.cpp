@@ -105,12 +105,6 @@ void GLVertexBuffer::set_layout(const InputLayout& layout) const {
     }
 }
 
-void GLVertexBuffer::unbind() const {
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
 GLIndexBuffer::GLIndexBuffer(const std::vector<Index>& indices) {
     count = (unsigned int)(indices.size() * 3);
     id = gen_gl_buffer(indices, GL_ELEMENT_ARRAY_BUFFER);
@@ -119,10 +113,6 @@ GLIndexBuffer::GLIndexBuffer(const std::vector<Index>& indices) {
 
 void GLIndexBuffer::bind() const {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
-}
-
-void GLIndexBuffer::unbind() const {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 } // namespace Raekor
