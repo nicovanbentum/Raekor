@@ -197,6 +197,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\model.h" />
     <ClInclude Include="src\headers\pch.h" />
     <ClInclude Include="src\headers\renderer.h" />
+    <ClInclude Include="src\headers\resource_buffer.h" />
     <ClInclude Include="src\headers\shader.h" />
     <ClInclude Include="src\headers\texture.h" />
     <ClInclude Include="src\headers\util.h" />
@@ -204,6 +205,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\platform\windows\DXBuffer.h" />
     <ClInclude Include="src\platform\windows\DXFrameBuffer.h" />
     <ClInclude Include="src\platform\windows\DXRenderer.h" />
+    <ClInclude Include="src\platform\windows\DXResourceBuffer.h" />
     <ClInclude Include="src\platform\windows\DXShader.h" />
     <ClInclude Include="src\platform\windows\DXTexture.h" />
   </ItemGroup>

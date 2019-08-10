@@ -14,6 +14,7 @@
 #include "DXBuffer.h"
 #include "DXFrameBuffer.h"
 #include "DXTexture.h"
+#include "DXResourceBuffer.h"
 
 namespace Raekor {
 
@@ -31,7 +32,6 @@ void Application::serialize_settings(const std::string& filepath, bool write) {
 
 void Raekor::Application::run() {
     auto context = Raekor::PlatformContext();
-    std::cout << get_extension("C:\\Users\\LTSC2019\\InstallAnywhere\\myfile.jpg") << std::endl;
 
     // retrieve the application settings from the config file
     serialize_settings("config.json");
@@ -73,11 +73,12 @@ void Raekor::Application::run() {
     renderer.reset(new GLRenderer(main_window));
 
     // load our shaders and get the MVP handles
-    auto simple_shader = Raekor::GLShader("shaders/simple.vert", "shaders/simple.frag");
+    std::unique_ptr<Raekor::Shader> simple_shader;
+    simple_shader.reset(Raekor::Shader::construct("shaders/simple.vert", "shaders/simple.frag"));
+
     auto skybox_shader = Raekor::GLShader("shaders/skybox.vert", "shaders/skybox.frag");
 
     // create a Camera we can use to move around our scene
-    Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
 
     // Setup our scene TODO: create a class for this that's easy to serialize
     std::vector<Raekor::TexturedModel> scene;
@@ -99,6 +100,14 @@ void Raekor::Application::run() {
     skycube.reset(new Raekor::Mesh("resources/models/testcube.obj"));
 
     SDL_SetWindowInputFocus(main_window);
+
+    Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
+    
+    auto shader_buffer = ShaderBuffer<cb_vs>("Camera");
+    shader_buffer.structure.MVP = camera.get_mvpLH();
+    std::unique_ptr<GLResourceBuffer<cb_vs>> glrb;
+    glrb.reset(new GLResourceBuffer<cb_vs>(simple_shader.get(), shader_buffer));
+
 
     //main application loop
     for (;;) {
@@ -129,12 +138,14 @@ void Raekor::Application::run() {
 
 
         // bind the simple shader and draw textured model in our scene
-        simple_shader.bind();
         for (auto& m : scene) {
             camera.update(m.get_mesh()->get_transform());
-            simple_shader["MVP"] = glm::value_ptr(camera.get_mvpLH());
+            glrb->get_data().MVP = camera.get_mvpLH();
+            glrb->bind();
+            simple_shader->bind();
             m.bind();
             renderer->DrawIndexed(m.get_mesh()->get_index_buffer()->get_count());
+            simple_shader->unbind();
 
         }
         frame_buffer->unbind();
@@ -350,23 +361,6 @@ void Application::run_dx() {
     std::unique_ptr<DXShader> dx_shader;
     dx_shader.reset(new DXShader("shaders/simple_vertex.cso", "shaders/simple_pixel.cso"));
 
-    // com pointers to direct3d11 variables
-    Microsoft::WRL::ComPtr<ID3D11Buffer> constant_buffer;
-
-    // struct that describes and matches what the hlsl vertex shader expects
-    struct cb_vs {
-        glm::mat4 MVP;
-    };
-
-    // fill out the constant buffer description for our MVP struct
-    D3D11_BUFFER_DESC cbdesc;
-    cbdesc.Usage = D3D11_USAGE_DYNAMIC;
-    cbdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    cbdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    cbdesc.MiscFlags = 0;
-    cbdesc.ByteWidth = static_cast<UINT>(sizeof(cb_vs) + (16 - (sizeof(cb_vs) % 16)));
-    cbdesc.StructureByteStride = 0;
-    
     // test cube for directx rendering
     std::unique_ptr<Raekor::Mesh> mcube;
     mcube.reset(new Raekor::Mesh("resources/models/minecraft_block.obj"));
@@ -393,6 +387,9 @@ void Application::run_dx() {
 
     SDL_SetWindowInputFocus(directxwindow);
 
+    std::unique_ptr<Raekor::DXResourceBuffer<cb_vs>> dxrb;
+    dxrb.reset(new DXResourceBuffer<cb_vs>());
+
     //main application loop
     for (;;) {
         //handle sdl and imgui events
@@ -405,25 +402,15 @@ void Application::run_dx() {
         // TODO: right now it sets all these things in the vertex buffer bind call, this seems like a weird design choice but works for now
         dx_shader->bind();
 
-        // set our constant buffer data containing the MVP of our mesh/model
-        cb_vs data;
         auto cube_rotation = mcube->rotation_ptr();
         *cube_rotation += 0.01f;
         mcube->recalc_transform();
-        data.MVP = camera.get_mvpRH(mcube->get_transform());
-
-        // create a directx resource for our MVP data
-        D3D11_SUBRESOURCE_DATA cbdata;
-        cbdata.pSysMem = &data;
-        cbdata.SysMemPitch = 0;
-        cbdata.SysMemSlicePitch = 0;
-        auto ret = D3D.device->CreateBuffer(&cbdesc, &cbdata, constant_buffer.GetAddressOf());
-        if (FAILED(ret)) m_assert(false, "failed to create constant buffer");
+        dxrb->get_data().MVP = camera.get_mvpRH(mcube->get_transform());
 
         dxtex->bind();
 
         // bind our constant, vertex and index buffers
-        D3D.context->VSSetConstantBuffers(0, 1, constant_buffer.GetAddressOf());
+        dxrb->bind();
         dxvb->bind();
         dxib->bind();
 

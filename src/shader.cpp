@@ -9,14 +9,14 @@
 
 namespace Raekor {
 
-Shader* Shader::construct(std::string fp, std::string vertex) {
+Shader* Shader::construct(std::string vertex, std::string fp) {
     switch (Renderer::get_activeAPI()) {
         case RenderAPI::OPENGL: {
-            return new GLShader(fp, vertex);
+            return new GLShader(vertex, fp);
         } break;
 #ifdef _WIN32
         case RenderAPI::DIRECTX11: {
-            return new DXShader(fp, vertex);
+            return new DXShader(vertex, fp);
         } break;
 #endif
     }

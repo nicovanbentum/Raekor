@@ -1,9 +1,68 @@
 #pragma once
 
+#include "util.h"
+#include "shader.h"
+
 namespace Raekor {
 
-// directx has it's own mappings for floats an structures like R32G32B32_FLOAT for a 3 floats. 
-// openGL wants seperate components, like count = 3, type = float
+struct cb_vs {
+    glm::mat4 MVP;
+};
+
+template<typename T>
+struct ShaderBuffer {
+    std::string handle;
+    T structure;
+
+    ShaderBuffer(const std::string& handle) : handle(handle) {}
+    ShaderBuffer() {}
+};
+
+class ResourceBuffer {
+public:
+    virtual ~ResourceBuffer() {}
+    virtual void bind() const = 0;
+};
+
+template<typename T>
+class GLResourceBuffer : public ResourceBuffer {
+public:
+    GLResourceBuffer(Raekor::Shader* shader, const ShaderBuffer<T>& shader_buffer) : data(shader_buffer) {
+        GLShader* gl_shader = dynamic_cast<GLShader*>(shader);
+        program_id = gl_shader->get_id();
+        handle = glGetUniformBlockIndex(program_id, shader_buffer.handle.c_str());
+
+        glGenBuffers(1, &id);
+        glBindBuffer(GL_UNIFORM_BUFFER, id);
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(T), NULL, GL_DYNAMIC_DRAW);
+        void* data_ptr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
+        m_assert(data_ptr, "failed to map memory");
+        glUnmapBuffer(GL_UNIFORM_BUFFER);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+
+    virtual void bind() const override {
+        // update the resource data
+        glBindBuffer(GL_UNIFORM_BUFFER, id);
+        void* data_ptr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
+        m_assert(data_ptr, "failed to map memory");
+        memcpy(data_ptr, &data.structure, sizeof(T));
+        glUnmapBuffer(GL_UNIFORM_BUFFER);
+
+        // bind the buffer to a slot
+        glBindBufferBase(GL_UNIFORM_BUFFER, 0, id);
+        glUniformBlockBinding(program_id, handle, 0);
+    }
+
+    T& get_data() {
+        return data.structure;
+    }
+
+    ShaderBuffer<T> data;
+    unsigned int id;
+    unsigned int handle;
+    unsigned int program_id;
+};
 
 enum class ShaderType {
     FLOAT1, FLOAT2, FLOAT3, FLOAT4
@@ -26,6 +85,11 @@ struct Element {
 
     Element(const std::string& p_name, ShaderType type) : 
         name(p_name), type(type), size(size_of(type)), offset(0) {}
+};
+
+struct ShaderResource {
+    const void* data;
+    ShaderType type;
 };
 
 class InputLayout {

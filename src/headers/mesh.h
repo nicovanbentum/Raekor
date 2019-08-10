@@ -2,7 +2,6 @@
 
 #include "pch.h"
 #include "buffer.h"
-#include "buffer.h"
 
 namespace Raekor {
 

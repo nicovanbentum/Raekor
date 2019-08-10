@@ -8,15 +8,15 @@ namespace Raekor {
 struct loc {
     unsigned int id;
 
-    loc& operator=(float* rhs) {
-        glUniformMatrix4fv(id, 1, GL_FALSE, rhs);
+    loc& operator=(const void* rhs) {
+        glUniformMatrix4fv(id, 1, GL_FALSE, (float*)rhs);
         return *this;
     }
 };
 
 class Shader {
 public:
-    static Shader* construct(std::string fp, std::string vertex);
+    static Shader* construct(std::string vertex, std::string fp);
     virtual const void bind() const = 0;
     virtual const void unbind() const = 0;
 
@@ -36,7 +36,7 @@ public:
         return ret;
     }
 
-
+    inline unsigned int get_id() const { return id; }
 
     unsigned int get_uniform_location(const std::string& var);
     void upload_uniform_matrix4fv(unsigned int var_id, float* start);
