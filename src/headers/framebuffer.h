@@ -13,8 +13,7 @@ namespace Raekor {
         virtual void unbind() const = 0;
         virtual void* ImGui_data() const = 0;
         virtual void resize(const glm::vec2& size) = 0;
-        glm::vec2 get_size() const { return size; }
-        unsigned int get_frame() const { return render_texture_id; }
+        inline glm::vec2 get_size() const { return size; }
 
     protected:
         glm::vec2 size;

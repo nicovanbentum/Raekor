@@ -2,18 +2,20 @@
 
 #include "pch.h"
 
+// message assert macro
 #ifndef NDEBUG
     #define m_assert(expr, msg) assert((msg, expr))
 #else 
     #define m_assert(expr, msg) (void)(expr)
 #endif
 
-
+// alias for Microsoft's com pointers
 template<typename T>
 using com_ptr = Microsoft::WRL::ComPtr<T>;
 
 namespace Raekor {
 
+// function to create an OpenGL buffer out of a vector of whatever type
 template<typename T>
 unsigned int gen_gl_buffer(const std::vector<T> & v, GLenum target) {
     unsigned int buffer_id;
@@ -24,6 +26,7 @@ unsigned int gen_gl_buffer(const std::vector<T> & v, GLenum target) {
     return buffer_id;
 }
 
+// TODO: this doesn't actually return the extension, but the name + plus extension
 static std::string get_extension(const std::string& path) {
     std::string filename = "";
 

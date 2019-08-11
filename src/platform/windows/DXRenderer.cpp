@@ -18,6 +18,7 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     auto hr = CoInitialize(NULL);
     m_assert(SUCCEEDED(hr), "failed to initialize microsoft WIC");
 
+    // query SDL's machine info for the window's HWND
     SDL_SysWMinfo wminfo;
     SDL_VERSION(&wminfo.version);
     SDL_GetWindowWMInfo(window, &wminfo);
@@ -35,6 +36,7 @@ DXRenderer::DXRenderer(SDL_Window* window) {
         NULL, NULL, D3D11_SDK_VERSION, &sc_desc, D3D.swap_chain.GetAddressOf(), D3D.device.GetAddressOf(), NULL, D3D.context.GetAddressOf());
     m_assert(!FAILED(hr), "failed to init device and swap chain");
 
+    // setup the backbuffer
     ID3D11Texture2D* backbuffer_addr;
     D3D.swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&backbuffer_addr);
     D3D.device->CreateRenderTargetView(backbuffer_addr, NULL, D3D.back_buffer.GetAddressOf());
@@ -51,6 +53,7 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     viewport.MaxDepth = 1.0f;
     D3D.context->RSSetViewports(1, &viewport);
 
+    // setup the depth stencil buffer for depth testing
     D3D11_TEXTURE2D_DESC dstexdesc;
     dstexdesc.Width = 1280;
     dstexdesc.Height = 720;
@@ -88,6 +91,7 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     hr = D3D.device->CreateRasterizerState(&raster_desc, D3D.rasterize_state.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create rasterizer state");
 
+    // initialize ImGui for DirectX
     ImGui_ImplSDL2_InitForD3D(window);
     ImGui_ImplDX11_Init(D3D.device.Get(), D3D.context.Get());
 

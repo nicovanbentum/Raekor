@@ -12,6 +12,7 @@ public:
     const void bind() const override;
     const void unbind() const override;
 
+private:
     com_ptr<ID3D11VertexShader> vertex_shader;
     com_ptr<ID3D11PixelShader> pixel_shader;
     com_ptr<ID3D10Blob> vertex_shader_buffer;

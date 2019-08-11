@@ -68,7 +68,7 @@ GLFrameBuffer::~GLFrameBuffer() {
 }
 
 void GLFrameBuffer::bind() const {
-    glViewport(0, 0, size.x, size.y);
+    glViewport(0, 0, (GLsizei)size.x, (GLsizei)size.y);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo_id);
 }
 

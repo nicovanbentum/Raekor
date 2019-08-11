@@ -4,6 +4,7 @@
 
 namespace Raekor {
 
+// TODO: Add support for most HLSL types
 std::string to_string(ShaderType type) {
     switch (type) {
     case ShaderType::FLOAT1: return "float";
@@ -14,6 +15,7 @@ std::string to_string(ShaderType type) {
     }
 }
 
+// Filthy hack because I don't feel like implementing an entire pipeline using PSO's right now
 const com_ptr<ID3D10Blob> fake_shader_bytecode(const InputLayout& layout) {
     // open a filestream to a hardcoded named hlsl file 
     // We generate a struct in the shader based on the input layout
@@ -43,6 +45,7 @@ const com_ptr<ID3D10Blob> fake_shader_bytecode(const InputLayout& layout) {
     return shader_buffer;
 }
 
+// TODO: Add support for most HLSL types
 DXGI_FORMAT get_format(ShaderType type) {
     switch (type) {
     case ShaderType::FLOAT1: return DXGI_FORMAT::DXGI_FORMAT_R32_FLOAT;
@@ -69,6 +72,7 @@ DXVertexBuffer::DXVertexBuffer(const std::vector<Vertex>& vertices) {
     m_assert(SUCCEEDED(hr), "failed to create vertex buffer");
 }
 
+// TODO: remove this set_layout call, setting the layout is a user-side operation
 void DXVertexBuffer::bind() const {
     constexpr unsigned int stride = sizeof(Vertex);
     constexpr unsigned int offset = 0;
@@ -103,7 +107,6 @@ void DXVertexBuffer::set_layout(const InputLayout& layout) const {
     D3D.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     D3D.context->RSSetState(D3D.rasterize_state.Get());
     D3D.context->IASetInputLayout(input_layout.Get());
-
 }
 
 DXIndexBuffer::DXIndexBuffer(const std::vector<Index>& indices) {

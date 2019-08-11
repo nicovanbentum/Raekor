@@ -29,6 +29,8 @@ public:
     const void bind() const override { glUseProgram(id); }
     const void unbind() const override { glUseProgram(0); }
 
+    // TODO: decide if this should be deprecated or improved to use
+    // alongside constant buffers
     loc operator[] (const char* data) {
         loc ret;
         ret.id = glGetUniformLocation(id, data);

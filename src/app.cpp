@@ -149,7 +149,6 @@ void Raekor::Application::run() {
         ImGui::SetNextWindowContentSize(ImVec2(fsize.x, fsize.y));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
-        ImGui::Image((void*)static_cast<size_t>(frame_buffer->get_frame()), ImVec2(fsize.x, fsize.y), { 0,1 }, { 1,0 });
         ImGui::End();
         ImGui::PopStyleVar();
 

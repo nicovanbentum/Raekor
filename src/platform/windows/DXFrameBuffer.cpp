@@ -6,10 +6,12 @@ namespace Raekor {
 
 DXFrameBuffer::DXFrameBuffer(const glm::vec2& size) {
     this->size = size;
+
     D3D11_TEXTURE2D_DESC texture_desc = { 0 };
     D3D11_RENDER_TARGET_VIEW_DESC target_desc;
     D3D11_SHADER_RESOURCE_VIEW_DESC res_desc;
 
+    //fill out texture description
     texture_desc.Width = (UINT)size.x;
     texture_desc.Height = (UINT)size.y;
     texture_desc.MipLevels = 1;
@@ -55,6 +57,7 @@ void* DXFrameBuffer::ImGui_data() const {
     return (void*)(shader_view.Get());
 }
 
+// TODO: figure this out
 void DXFrameBuffer::resize(const glm::vec2& size) {
 
 }

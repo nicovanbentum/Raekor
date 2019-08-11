@@ -4,8 +4,7 @@
 #include "renderer.h"
 
 namespace Raekor {
-// TODO: there's gotta be a better way to store these variables in a way thats
-// both platform independent, abstract but still able to get/set by other classes
+// TODO: This should probably be moved to the DXRenderer class as static members
 struct COM_PTRS {
     com_ptr<IDXGISwapChain> swap_chain;
     com_ptr<ID3D11Device> device;
