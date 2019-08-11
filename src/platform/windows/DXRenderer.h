@@ -14,6 +14,16 @@ struct COM_PTRS {
     com_ptr<ID3D11RasterizerState> rasterize_state;
     com_ptr<ID3D11DepthStencilView> depth_stencil_view;
     com_ptr<ID3D11RenderTargetView> render_target_view;
+
+    void Release() {
+        swap_chain->Release();
+        device->Release();
+        context->Release();
+        back_buffer->Release();
+        rasterize_state->Release();
+        depth_stencil_view->Release();
+        render_target_view->Release();
+    }
 };
 
 extern COM_PTRS D3D;
@@ -26,6 +36,7 @@ public:
     virtual void ImGui_NewFrame(SDL_Window* window)         override;
     virtual void Clear(glm::vec4 color)                     override;
     virtual void DrawIndexed(unsigned int size)             override;
+    virtual void SwapBuffers() const                        override;
 
 private:
     com_ptr<ID3D11Texture2D> depth_stencil_buffer;

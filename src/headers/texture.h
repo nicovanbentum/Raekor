@@ -5,8 +5,8 @@
 namespace Raekor {
 
 class Texture {
-
 public:
+    virtual ~Texture() {}
     static Texture* construct(const std::string& path);
     static Texture* construct(const std::vector<std::string>& face_files);
     virtual void bind() const = 0;

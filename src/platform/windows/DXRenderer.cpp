@@ -7,6 +7,14 @@ namespace Raekor {
 COM_PTRS D3D;
 
 DXRenderer::DXRenderer(SDL_Window* window) {
+    std::cout << "Active Rendering API: DirectX11  No device/context information available." << std::endl;
+
+    // initialize ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+
+    render_window = window;
     auto hr = CoInitialize(NULL);
     m_assert(SUCCEEDED(hr), "failed to initialize microsoft WIC");
 
@@ -89,6 +97,8 @@ DXRenderer::DXRenderer(SDL_Window* window) {
 DXRenderer::~DXRenderer() {
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
+    D3D.Release();
 }
 
 void DXRenderer::Clear(glm::vec4 color) {
@@ -111,6 +121,10 @@ void DXRenderer::ImGui_Render() {
 void DXRenderer::DrawIndexed(unsigned int size) {
     D3D.context->OMSetDepthStencilState(depth_stencil_state.Get(), 0);
     D3D.context->DrawIndexed(size, 0, 0);
+}
+
+void DXRenderer::SwapBuffers() const {
+    D3D.swap_chain->Present(1, NULL);
 }
 
 } // namespace Raekor

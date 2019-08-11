@@ -175,7 +175,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="shaders\simple_pixel.hlsl" />
     <FxCompile Include="shaders\simple_vertex.hlsl" />
+    <FxCompile Include="shaders\simple_fp.hlsl" />
   </ItemGroup>
 </Project>

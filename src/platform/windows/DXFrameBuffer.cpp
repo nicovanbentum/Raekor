@@ -51,6 +51,10 @@ void DXFrameBuffer::unbind() const {
     D3D.context->OMSetRenderTargets(1, D3D.back_buffer.GetAddressOf(), NULL);
 }
 
+void* DXFrameBuffer::ImGui_data() const {
+    return (void*)(shader_view.Get());
+}
+
 void DXFrameBuffer::resize(const glm::vec2& size) {
 
 }

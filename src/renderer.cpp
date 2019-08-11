@@ -30,8 +30,14 @@ Renderer* Renderer::construct(SDL_Window* window) {
     return nullptr;
 }
 
-
 GLRenderer::GLRenderer(SDL_Window* window) {
+    // initialize ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+
+    render_window = window;
+    
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -42,7 +48,7 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     m_assert(gl3wInit() == 0, "failed to init gl3w");
     
     // print the initialized openGL specs
-    std::cout << "GL INFO: OpenGL " << glGetString(GL_VERSION);
+    std::cout << "Active Rendering API: OpenGL " << glGetString(GL_VERSION);
     printf("GL INFO: OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
         glGetString(GL_SHADING_LANGUAGE_VERSION));
     
@@ -68,6 +74,7 @@ GLRenderer::~GLRenderer() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     SDL_GL_DeleteContext(context);
+    ImGui::DestroyContext();
 }
 
 void GLRenderer::Clear(glm::vec4 color) {
@@ -86,13 +93,15 @@ void GLRenderer::ImGui_Render() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+void GLRenderer::SwapBuffers() const {
+    SDL_GL_SwapWindow(render_window);
+}
+
 void GLRenderer::DrawIndexed(unsigned int size) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
     glDisable(GL_DEPTH_TEST);
 }
-
-
 
 } // namespace Raekor

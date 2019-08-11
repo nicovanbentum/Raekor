@@ -68,12 +68,19 @@ GLFrameBuffer::~GLFrameBuffer() {
 }
 
 void GLFrameBuffer::bind() const {
+    glViewport(0, 0, size.x, size.y);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo_id);
 }
 
 void GLFrameBuffer::unbind() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, 2560, 1440);
 }
+
+void* GLFrameBuffer::ImGui_data() const {
+    return (void*)static_cast<size_t>(render_texture_id);
+}
+
 
 void GLFrameBuffer::resize(const glm::vec2& new_size) {
     size = new_size;
