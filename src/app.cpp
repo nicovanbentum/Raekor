@@ -352,8 +352,8 @@ void Application::run_dx() {
     }
     ImGui::StyleColorsDark();
 
-    std::unique_ptr<DXRenderer> dxr;
-    dxr.reset(new DXRenderer(directxwindow));
+    std::unique_ptr<Renderer> dxr;
+    dxr.reset(Renderer::construct(directxwindow));
 
         // load our shaders and get the MVP handles
     std::unique_ptr<Raekor::Shader> dx_shader;
@@ -364,10 +364,10 @@ void Application::run_dx() {
     std::unique_ptr<Raekor::Mesh> mcube;
     mcube.reset(new Raekor::Mesh("resources/models/minecraft_block.obj"));
 
-    std::unique_ptr<DXVertexBuffer> dxvb;
-    dxvb.reset(new DXVertexBuffer(mcube->vertexes));
-    std::unique_ptr<DXIndexBuffer> dxib;
-    dxib.reset(new DXIndexBuffer(mcube->indexes));
+    std::unique_ptr<VertexBuffer> dxvb;
+    dxvb.reset(VertexBuffer::construct(mcube->vertexes));
+    std::unique_ptr<IndexBuffer> dxib;
+    dxib.reset(IndexBuffer::construct(mcube->indexes));
 
     // create a Camera we can use to move around our scene
     Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
