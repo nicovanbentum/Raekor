@@ -2,9 +2,6 @@
 
 #include "pch.h"
 #include "util.h"
-#include "mesh.h"
-#include "model.h"
-
 
 namespace Raekor {
 

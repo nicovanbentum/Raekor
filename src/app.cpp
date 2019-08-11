@@ -103,11 +103,8 @@ void Raekor::Application::run() {
 
     Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
     
-    auto shader_buffer = ShaderBuffer<cb_vs>("Camera");
-    shader_buffer.structure.MVP = camera.get_mvpLH();
-    std::unique_ptr<GLResourceBuffer<cb_vs>> glrb;
-    glrb.reset(new GLResourceBuffer<cb_vs>(simple_shader.get(), shader_buffer));
-
+    std::unique_ptr<ResourceBuffer<cb_vs>> glrb;
+    glrb.reset(Raekor::ResourceBuffer<cb_vs>::construct("Camera", simple_shader.get()));
 
     //main application loop
     for (;;) {
@@ -141,7 +138,7 @@ void Raekor::Application::run() {
         for (auto& m : scene) {
             camera.update(m.get_mesh()->get_transform());
             glrb->get_data().MVP = camera.get_mvpLH();
-            glrb->bind();
+            glrb->bind(0);
             simple_shader->bind();
             m.bind();
             renderer->DrawIndexed(m.get_mesh()->get_index_buffer()->get_count());
@@ -358,8 +355,10 @@ void Application::run_dx() {
     std::unique_ptr<DXRenderer> dxr;
     dxr.reset(new DXRenderer(directxwindow));
 
-    std::unique_ptr<DXShader> dx_shader;
-    dx_shader.reset(new DXShader("shaders/simple_vertex.cso", "shaders/simple_pixel.cso"));
+        // load our shaders and get the MVP handles
+    std::unique_ptr<Raekor::Shader> dx_shader;
+    dx_shader.reset(Raekor::Shader::construct("shaders/simple_vertex.cso", "shaders/simple_pixel.cso"));
+
 
     // test cube for directx rendering
     std::unique_ptr<Raekor::Mesh> mcube;
@@ -387,8 +386,8 @@ void Application::run_dx() {
 
     SDL_SetWindowInputFocus(directxwindow);
 
-    std::unique_ptr<Raekor::DXResourceBuffer<cb_vs>> dxrb;
-    dxrb.reset(new DXResourceBuffer<cb_vs>());
+    std::unique_ptr<ResourceBuffer<cb_vs>> dxrb;
+    dxrb.reset(Raekor::ResourceBuffer<cb_vs>::construct("Camera", dx_shader.get()));
 
     //main application loop
     for (;;) {
@@ -410,7 +409,7 @@ void Application::run_dx() {
         dxtex->bind();
 
         // bind our constant, vertex and index buffers
-        dxrb->bind();
+        dxrb->bind(0);
         dxvb->bind();
         dxib->bind();
 

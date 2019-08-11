@@ -2,6 +2,7 @@
 
 #include "util.h"
 #include "shader.h"
+#include "renderer.h"
 
 namespace Raekor {
 
@@ -10,27 +11,44 @@ struct cb_vs {
 };
 
 template<typename T>
-struct ShaderBuffer {
-    std::string handle;
-    T structure;
+class GLResourceBuffer;
 
-    ShaderBuffer(const std::string& handle) : handle(handle) {}
-    ShaderBuffer() {}
-};
+template<typename T>
+class DXResourceBuffer;
 
+template<typename T>
 class ResourceBuffer {
 public:
     virtual ~ResourceBuffer() {}
-    virtual void bind() const = 0;
+
+    static ResourceBuffer* construct(const std::string& name, Raekor::Shader* shader) {
+        auto active_api = Renderer::get_activeAPI();
+        switch (active_api) {
+            case RenderAPI::OPENGL: {
+                return new GLResourceBuffer<T>(name, shader);
+                } break;
+            case RenderAPI::DIRECTX11: {
+                return new DXResourceBuffer<T>();
+            } break;
+        }
+        return nullptr;
+    }
+    virtual void bind(uint8_t slot) const = 0;
+
+    T& get_data() {
+        return data;
+    }
+
+    T data;
 };
 
 template<typename T>
-class GLResourceBuffer : public ResourceBuffer {
+class GLResourceBuffer : public ResourceBuffer<T> {
 public:
-    GLResourceBuffer(Raekor::Shader* shader, const ShaderBuffer<T>& shader_buffer) : data(shader_buffer) {
+    GLResourceBuffer(const std::string& name, Raekor::Shader* shader) {
         GLShader* gl_shader = dynamic_cast<GLShader*>(shader);
         program_id = gl_shader->get_id();
-        handle = glGetUniformBlockIndex(program_id, shader_buffer.handle.c_str());
+        handle = glGetUniformBlockIndex(program_id, name.c_str());
 
         glGenBuffers(1, &id);
         glBindBuffer(GL_UNIFORM_BUFFER, id);
@@ -41,24 +59,19 @@ public:
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
-    virtual void bind() const override {
+    virtual void bind(uint8_t slot) const override {
         // update the resource data
         glBindBuffer(GL_UNIFORM_BUFFER, id);
         void* data_ptr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
         m_assert(data_ptr, "failed to map memory");
-        memcpy(data_ptr, &data.structure, sizeof(T));
+        memcpy(data_ptr, &this->data, sizeof(T));
         glUnmapBuffer(GL_UNIFORM_BUFFER);
 
         // bind the buffer to a slot
-        glBindBufferBase(GL_UNIFORM_BUFFER, 0, id);
-        glUniformBlockBinding(program_id, handle, 0);
+        glBindBufferBase(GL_UNIFORM_BUFFER, slot, id);
+        glUniformBlockBinding(program_id, handle, slot);
     }
 
-    T& get_data() {
-        return data.structure;
-    }
-
-    ShaderBuffer<T> data;
     unsigned int id;
     unsigned int handle;
     unsigned int program_id;

@@ -19,7 +19,6 @@ public:
     static Shader* construct(std::string vertex, std::string fp);
     virtual const void bind() const = 0;
     virtual const void unbind() const = 0;
-
 };
 
 class GLShader : public Shader {

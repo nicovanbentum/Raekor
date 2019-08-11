@@ -170,9 +170,6 @@
     <ClInclude Include="src\platform\windows\DXTexture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\headers\resource_buffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\platform\windows\DXResourceBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>

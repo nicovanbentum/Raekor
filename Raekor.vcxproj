@@ -197,7 +197,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\model.h" />
     <ClInclude Include="src\headers\pch.h" />
     <ClInclude Include="src\headers\renderer.h" />
-    <ClInclude Include="src\headers\resource_buffer.h" />
     <ClInclude Include="src\headers\shader.h" />
     <ClInclude Include="src\headers\texture.h" />
     <ClInclude Include="src\headers\util.h" />
