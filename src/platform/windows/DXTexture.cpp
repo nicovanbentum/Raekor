@@ -5,6 +5,7 @@
 namespace Raekor {
 
 DXTexture::DXTexture(const std::string& filepath) {
+    this->filepath = filepath;
     auto fp_wstr = std::wstring(filepath.begin(), filepath.end());
     LPCWSTR fpw = fp_wstr.c_str();
     auto hr = DirectX::CreateWICTextureFromFile(D3D.device.Get(), fpw, nullptr, texture.GetAddressOf());

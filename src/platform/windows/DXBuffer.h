@@ -17,7 +17,6 @@ private:
     mutable com_ptr<ID3D11InputLayout> input_layout;
 };
 
-
 class DXIndexBuffer : public IndexBuffer {
 public:
     DXIndexBuffer(const std::vector<Index>& indices);

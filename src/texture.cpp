@@ -1,11 +1,27 @@
 #include "pch.h"
 #include "util.h"
 #include "texture.h"
+#include "renderer.h"
+
+#ifdef _WIN32
+#include "DXTexture.h"
+#endif
 
 namespace Raekor {
 
 Texture* Texture::construct(const std::string& path) {
-    return new GLTexture(path);
+    auto active_api = Renderer::get_activeAPI();
+    switch (active_api) {
+        case RenderAPI::OPENGL: {
+            return new GLTexture(path);
+        } break;
+#ifdef _WIN32
+        case RenderAPI::DIRECTX11: {
+            return new DXTexture(path);
+        } break;
+#endif
+    }
+    return nullptr;
 }
 
 Texture* Texture::construct(const std::vector<std::string>& face_files) {
