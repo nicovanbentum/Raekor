@@ -6,16 +6,21 @@
 
 namespace Raekor {
 
+// struct we send to the shaders
+// TODO: figure out a common place for these
 struct cb_vs {
     glm::mat4 MVP;
 };
 
+// forward declarations necessary cause of templates
 template<typename T>
 class GLResourceBuffer;
 
 template<typename T>
 class DXResourceBuffer;
 
+// resource buffer class that takes a struct as template parameter
+// the struct must match the one in shaders
 template<typename T>
 class ResourceBuffer {
 public:
@@ -33,12 +38,14 @@ public:
         }
         return nullptr;
     }
+    // update and bind the resource buffer to one of 15 slots
     virtual void bind(uint8_t slot) const = 0;
-
+    
+    // function to  modify the data we send to the GPU
     T& get_data() {
         return data;
     }
-
+protected:
     T data;
 };
 
@@ -61,9 +68,12 @@ public:
 
     virtual void bind(uint8_t slot) const override {
         // update the resource data
+        // bind the buffer
         glBindBuffer(GL_UNIFORM_BUFFER, id);
+        // retrieve a pointer to the cpu memory that OpenGL reads from
         void* data_ptr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
         m_assert(data_ptr, "failed to map memory");
+        // copy the memory of our struct into the mapped memory
         memcpy(data_ptr, &this->data, sizeof(T));
         glUnmapBuffer(GL_UNIFORM_BUFFER);
 
@@ -72,6 +82,7 @@ public:
         glUniformBlockBinding(program_id, handle, slot);
     }
 
+private:
     unsigned int id;
     unsigned int handle;
     unsigned int program_id;
@@ -121,7 +132,6 @@ private:
     std::vector<Element> layout;
     uint64_t stride;
 };
-
 
 struct Vertex {
     glm::vec3 pos;

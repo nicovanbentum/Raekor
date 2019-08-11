@@ -1,11 +1,25 @@
 #include "pch.h"
 #include "util.h"
 #include "framebuffer.h"
+#include "renderer.h"
+
+#ifdef _WIN32
+#include "DXFrameBuffer.h"
+#endif
 
 namespace Raekor {
 
 FrameBuffer* FrameBuffer::construct(const glm::vec2& new_size) {
-    return new GLFrameBuffer(new_size);
+    auto active_api = Renderer::get_activeAPI();
+    switch (active_api) {
+        case RenderAPI::OPENGL: {
+            return new GLFrameBuffer(new_size);
+        } break;
+        case RenderAPI::DIRECTX11: {
+            return new DXFrameBuffer(new_size);
+        } break;
+    }
+    return nullptr;
 }
 
 GLFrameBuffer::GLFrameBuffer(const glm::vec2& new_size) {
