@@ -10,7 +10,6 @@ public:
     Application() {}
 
     void run();
-    void run_dx();
 
     template<class C>
     void serialize(C& archive) {

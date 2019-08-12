@@ -6,10 +6,10 @@
 
 namespace Raekor {
 
-class TexturedModel {
+class Model {
 
 public:
-    TexturedModel(const std::string& m_file, const std::string& tex_file);
+    Model(const std::string& m_file, const std::string& tex_file);
 
     void set_mesh(const std::string& m_file);
     void set_texture(const std::string& tex_file);
