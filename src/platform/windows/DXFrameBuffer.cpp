@@ -11,6 +11,15 @@ DXFrameBuffer::DXFrameBuffer(const glm::vec2& size) {
     D3D11_RENDER_TARGET_VIEW_DESC target_desc;
     D3D11_SHADER_RESOURCE_VIEW_DESC res_desc;
 
+    // set the directx viewport
+    view_port = { 0 };
+    view_port.TopLeftX = 0;
+    view_port.TopLeftY = 0;
+    view_port.Width = size.x;
+    view_port.Height = size.y;
+    view_port.MinDepth = 0.0f;
+    view_port.MaxDepth = 1.0f;
+
     //fill out texture description
     texture_desc.Width = (UINT)size.x;
     texture_desc.Height = (UINT)size.y;
@@ -44,6 +53,7 @@ DXFrameBuffer::DXFrameBuffer(const glm::vec2& size) {
 DXFrameBuffer::~DXFrameBuffer() {}
 
 void DXFrameBuffer::bind() const {
+    D3D.context->RSSetViewports(1, &view_port);
     D3D.render_target_view = target_view;
     D3D.context->OMSetRenderTargets(1, target_view.GetAddressOf(), D3D.depth_stencil_view.Get());
 }
