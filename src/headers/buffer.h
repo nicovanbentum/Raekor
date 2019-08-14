@@ -53,10 +53,6 @@ template<typename T>
 class GLResourceBuffer : public ResourceBuffer<T> {
 public:
     GLResourceBuffer(const std::string& name, Raekor::Shader* shader) {
-        GLShader* gl_shader = dynamic_cast<GLShader*>(shader);
-        program_id = gl_shader->get_id();
-        handle = glGetUniformBlockIndex(program_id, name.c_str());
-
         glGenBuffers(1, &id);
         glBindBuffer(GL_UNIFORM_BUFFER, id);
         glBufferData(GL_UNIFORM_BUFFER, sizeof(T), NULL, GL_DYNAMIC_DRAW);
@@ -76,16 +72,12 @@ public:
         // copy the memory of our struct into the mapped memory
         memcpy(data_ptr, &this->data, sizeof(T));
         glUnmapBuffer(GL_UNIFORM_BUFFER);
-
         // bind the buffer to a slot
         glBindBufferBase(GL_UNIFORM_BUFFER, slot, id);
-        glUniformBlockBinding(program_id, handle, slot);
     }
 
 private:
     unsigned int id;
-    unsigned int handle;
-    unsigned int program_id;
 };
 
 enum class ShaderType {

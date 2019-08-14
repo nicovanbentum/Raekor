@@ -8,7 +8,7 @@ class Texture {
 public:
     virtual ~Texture() {}
     static Texture* construct(const std::string& path);
-    static Texture* construct(const std::vector<std::string>& face_files);
+    static Texture* construct(const std::array<std::string, 6>& face_files);
     virtual void bind() const = 0;
     std::string get_path() const { return filepath; }
 
@@ -30,7 +30,7 @@ private:
 class GLTextureCube : public Texture {
 
 public:
-    GLTextureCube(const std::vector<std::string>& face_files);
+    GLTextureCube(const std::array<std::string, 6>& face_files);
     ~GLTextureCube();
     virtual void bind() const override;
 

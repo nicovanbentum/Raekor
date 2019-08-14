@@ -14,7 +14,7 @@ static void log_msg(GLenum source, GLenum type, GLuint id, GLenum severity, GLsi
 }
 
 // global enum for changing the active render API
-RenderAPI Renderer::activeAPI = RenderAPI::DIRECTX11;
+RenderAPI Renderer::activeAPI = RenderAPI::OPENGL;
 
 Renderer* Renderer::construct(SDL_Window* window) {
     switch (activeAPI) {
@@ -97,11 +97,13 @@ void GLRenderer::SwapBuffers() const {
     SDL_GL_SwapWindow(render_window);
 }
 
-void GLRenderer::DrawIndexed(unsigned int size) {
+void GLRenderer::DrawIndexed(unsigned int size, bool depth_test) {
+    if (!depth_test) glDepthMask(false);
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    glDepthFunc(GL_LEQUAL);
     glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
     glDisable(GL_DEPTH_TEST);
+    if (!depth_test) glDepthMask(true);
 }
 
 } // namespace Raekor

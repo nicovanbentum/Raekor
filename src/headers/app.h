@@ -26,7 +26,7 @@ private:
     std::string name;
     std::string font;
     uint8_t display;
-    std::map<std::string, std::vector<std::string>> skyboxes;
+    std::map<std::string, std::array<std::string, 6>> skyboxes;
 };
 
 } // Namespace Raekor

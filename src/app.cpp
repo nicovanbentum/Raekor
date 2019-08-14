@@ -56,29 +56,28 @@ void Application::run() {
         displays[index].h,
         wflags);
 
-    // create a Camera we can use to move around our scene
-    Raekor::Camera camera(glm::vec3(0, 0, 5), 45.0f);
-
+    // create the renderer object that does sets up the API and does all the runtime magic
     std::unique_ptr<Renderer> dxr;
+    dxr.reset(Renderer::construct(directxwindow));
+
+    // create a Camera we can use to move around our scene
+    Camera camera(glm::vec3(0, 0, 5), 45.0f);
+
     std::unique_ptr<Model> model;
     std::unique_ptr<Shader> dx_shader;
     std::unique_ptr<FrameBuffer> dxfb;
     std::unique_ptr<ResourceBuffer<cb_vs>> dxrb;
+    std::unique_ptr<Texture> sky_image;
+    std::unique_ptr<Mesh> skycube;
+    std::unique_ptr<Shader> sky_shader;
 
-
-    dxr.reset(Renderer::construct(directxwindow));
     model.reset(new Model("resources/models/testcube.obj", "resources/textures/test.png"));
     dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
     dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
-    dxrb.reset(Raekor::ResourceBuffer<cb_vs>::construct("Camera", dx_shader.get()));
-
-    std::unique_ptr<DXTextureCube> skybox;
-    auto skybox_images = skyboxes["lake"];
-    skybox.reset(new DXTextureCube({ skybox_images[0], skybox_images[1], skybox_images[2], skybox_images[3], skybox_images[4], skybox_images[5] }));
-    std::unique_ptr<Mesh> skycube;
+    dxrb.reset(ResourceBuffer<cb_vs>::construct("Camera", dx_shader.get()));
+    sky_image.reset(Texture::construct(skyboxes["lake"]));
     skycube.reset(new Mesh("resources/models/testcube.obj"));
-    std::unique_ptr<Shader> skybox_shader;
-    skybox_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
+    sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
 
     // persistent imgui variable values
     std::string mesh_file = "";
@@ -107,19 +106,19 @@ void Application::run() {
         dxr->Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
 
         // bind the shader
-        skybox_shader->bind();
+        sky_shader->bind();
         // update the camera without translation/model matrix
         camera.update();
         // upload the camera's mvp matrix
         dxrb->get_data().MVP = camera.get_mvp(transpose);
         // bind the resource buffer containing the mvp
         dxrb->bind(0);
+        // bind the skybox cubemap
+        sky_image->bind();
         // bind the skycube mesh
         skycube->bind();
-        // bind the skybox cubemap
-        skybox->bind();
         // draw the indexed vertices
-        dxr->DrawIndexed(skycube->get_index_buffer()->get_count());
+        dxr->DrawIndexed(skycube->get_index_buffer()->get_count(), false);
         
         // bind the model's shader
         dx_shader->bind();

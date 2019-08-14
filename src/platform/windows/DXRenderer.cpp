@@ -127,7 +127,7 @@ void DXRenderer::ImGui_Render() {
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
-void DXRenderer::DrawIndexed(unsigned int size) {
+void DXRenderer::DrawIndexed(unsigned int size, bool depth_test) {
     D3D.context->OMSetDepthStencilState(depth_stencil_state.Get(), 0);
     D3D.context->DrawIndexed(size, 0, 0);
 }

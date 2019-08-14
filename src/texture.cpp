@@ -24,11 +24,19 @@ Texture* Texture::construct(const std::string& path) {
     return nullptr;
 }
 
-Texture* Texture::construct(const std::vector<std::string>& face_files) {
-    if(face_files.size() != 6) {
-        return nullptr;
+Texture* Texture::construct(const std::array <std::string, 6>& face_files) {
+    auto active_api = Renderer::get_activeAPI();
+    switch (active_api) {
+    case RenderAPI::OPENGL: {
+        return new GLTextureCube(face_files);
+    } break;
+#ifdef _WIN32
+    case RenderAPI::DIRECTX11: {
+        return new DXTextureCube(face_files);
+    } break;
+#endif
     }
-    return new GLTextureCube(face_files);
+    return nullptr;
 }
 
 GLTexture::GLTexture(const std::string& path)
@@ -61,9 +69,7 @@ void GLTexture::bind() const {
     glBindTexture(GL_TEXTURE_2D, id);
 }
 
-GLTextureCube::GLTextureCube(const std::vector<std::string>& face_files) {
-    m_assert(face_files.size() == 6, std::string("texture cubes require 6 faces instead of " + face_files.size()));
-
+GLTextureCube::GLTextureCube(const std::array<std::string, 6>& face_files) {
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_CUBE_MAP, id);
 

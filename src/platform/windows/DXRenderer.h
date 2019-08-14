@@ -31,11 +31,11 @@ class DXRenderer : public Renderer {
 public:
     DXRenderer(SDL_Window* window);
     ~DXRenderer();
-    virtual void ImGui_Render()                             override;
-    virtual void ImGui_NewFrame(SDL_Window* window)         override;
-    virtual void Clear(glm::vec4 color)                     override;
-    virtual void DrawIndexed(unsigned int size)             override;
-    virtual void SwapBuffers() const                        override;
+    virtual void ImGui_Render()                                     override;
+    virtual void ImGui_NewFrame(SDL_Window* window)                 override;
+    virtual void Clear(glm::vec4 color)                             override;
+    virtual void DrawIndexed(unsigned int size, bool depth_test)    override;
+    virtual void SwapBuffers() const                                override;
 
 private:
     com_ptr<ID3D11Texture2D> depth_stencil_buffer;
