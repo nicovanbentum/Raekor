@@ -15,4 +15,14 @@ private:
     com_ptr<ID3D11ShaderResourceView> texture;
 };
 
+class DXTextureCube : public Texture {
+public:
+    DXTextureCube(const std::array<std::string, 6>& face_files);
+    virtual void bind() const override;
+
+private:
+    com_ptr<ID3D11Texture2D> texture;
+    com_ptr<ID3D11ShaderResourceView> texture_resource;
+};
+
 } // namespace Raekor

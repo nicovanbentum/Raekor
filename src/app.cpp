@@ -65,11 +65,20 @@ void Application::run() {
     std::unique_ptr<FrameBuffer> dxfb;
     std::unique_ptr<ResourceBuffer<cb_vs>> dxrb;
 
+
     dxr.reset(Renderer::construct(directxwindow));
     model.reset(new Model("resources/models/testcube.obj", "resources/textures/test.png"));
     dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
     dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
     dxrb.reset(Raekor::ResourceBuffer<cb_vs>::construct("Camera", dx_shader.get()));
+
+    std::unique_ptr<DXTextureCube> skybox;
+    auto skybox_images = skyboxes["lake"];
+    skybox.reset(new DXTextureCube({ skybox_images[0], skybox_images[1], skybox_images[2], skybox_images[3], skybox_images[4], skybox_images[5] }));
+    std::unique_ptr<Mesh> skycube;
+    skycube.reset(new Mesh("resources/models/testcube.obj"));
+    std::unique_ptr<Shader> skybox_shader;
+    skybox_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
 
     // persistent imgui variable values
     std::string mesh_file = "";
@@ -86,6 +95,7 @@ void Application::run() {
     }
 
     bool running = true;
+    bool transpose = Renderer::get_activeAPI() == RenderAPI::DIRECTX11 ? true : false;
 
     //main application loop
     while(running) {
@@ -95,26 +105,41 @@ void Application::run() {
         dxr->Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
         dxfb->bind();
         dxr->Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
-        // set the input layout, topology, rasterizer state and bind our vertex and pixel shader
-        // TODO: right now it sets all these things in the vertex buffer bind call, this seems like a weird design choice but works for now
-        dx_shader->bind();
 
+        // bind the shader
+        skybox_shader->bind();
+        // update the camera without translation/model matrix
+        camera.update();
+        // upload the camera's mvp matrix
+        dxrb->get_data().MVP = camera.get_mvp(transpose);
+        // bind the resource buffer containing the mvp
+        dxrb->bind(0);
+        // bind the skycube mesh
+        skycube->bind();
+        // bind the skybox cubemap
+        skybox->bind();
+        // draw the indexed vertices
+        dxr->DrawIndexed(skycube->get_index_buffer()->get_count());
+        
+        // bind the model's shader
+        dx_shader->bind();
+        // add rotation to the cube so somethings animated
         auto cube_rotation = model->get_mesh()->rotation_ptr();
         *cube_rotation += 0.01f;
+        // recalculate the transformation if anything has changed
         model->get_mesh()->recalc_transform();
+        // update the camera with the model's transform
         camera.update(model->get_mesh()->get_transform());
-
-        bool transpose = Renderer::get_activeAPI() == RenderAPI::DIRECTX11 ? true : false;
+        // update the MVP resource
         dxrb->get_data().MVP = camera.get_mvp(transpose);
-
-
-        // bind our constant, vertex and index buffers
+        // bind the resource buffer to slot 0
         dxrb->bind(0);
+        // bind the model (mesh + texture)
         model->bind();
-
-        // draw the indexed vertices and swap the backbuffer to front
+        // draw the indexed vertices
         dxr->DrawIndexed(model->get_mesh()->get_index_buffer()->get_count());
 
+        // unbind the framebuffer which switches to application's backbuffer
         dxfb->unbind();
 
         //get new frame for render API, sdl and imgui
@@ -201,13 +226,10 @@ void Application::run() {
             ImGui::Begin("Object Properties");
 
             if (ImGui::DragFloat3("Scale", model->get_mesh()->scale_ptr(), 0.01f, 0.0f, 10.0f)) {
-                model->get_mesh()->recalc_transform();
             }
             if (ImGui::DragFloat3("Position", model->get_mesh()->pos_ptr(), 0.01f, -100.0f, 100.0f)) {
-                model->get_mesh()->recalc_transform();
             }
             if (ImGui::DragFloat3("Rotation", model->get_mesh()->rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {
-                model->get_mesh()->recalc_transform();
             }
 
             // resets the model's transformation

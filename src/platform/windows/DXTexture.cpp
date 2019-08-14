@@ -29,4 +29,51 @@ void DXTexture::bind() const {
     D3D.context->PSSetSamplers(0, 1, sampler_state.GetAddressOf());
 }
 
+DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files) {
+
+    D3D11_TEXTURE2D_DESC desc;
+    desc.MipLevels = 1;
+    desc.ArraySize = 6;
+    desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = 0;
+    desc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
+
+    D3D11_SUBRESOURCE_DATA data[6];
+
+    // for every face file we generate an OpenGL texture image
+    int width, height, n_channels;
+    for (unsigned int i = 0; i < face_files.size(); i++) {
+        auto image = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
+        if (!image) std::cout << "failed to load stbi image fifle" << std::endl;
+        data[i].pSysMem = (const void*)image;
+        data[i].SysMemPitch = STBI_rgb_alpha * width;
+    }
+    
+    desc.Width = width;
+    desc.Height = height;
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC resource;
+    resource.Format = desc.Format;
+    resource.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+    resource.TextureCube.MipLevels = desc.MipLevels;
+    resource.TextureCube.MostDetailedMip = 0;
+
+
+    auto hr = D3D.device->CreateTexture2D(&desc, &data[0], texture.GetAddressOf());
+    m_assert(SUCCEEDED(hr), "failed to create 2d texture object for cubemap");
+
+    hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
+    m_assert(SUCCEEDED(hr), "failed to create shader resource view for cubemap");
+}
+
+void DXTextureCube::bind() const {
+    D3D.context->PSSetShaderResources(0, 1, texture_resource.GetAddressOf());
+}
+
+
+
 } // namespace Raekor

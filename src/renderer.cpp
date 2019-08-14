@@ -14,7 +14,7 @@ static void log_msg(GLenum source, GLenum type, GLuint id, GLenum severity, GLsi
 }
 
 // global enum for changing the active render API
-RenderAPI Renderer::activeAPI = RenderAPI::OPENGL;
+RenderAPI Renderer::activeAPI = RenderAPI::DIRECTX11;
 
 Renderer* Renderer::construct(SDL_Window* window) {
     switch (activeAPI) {

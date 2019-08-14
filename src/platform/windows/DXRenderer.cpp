@@ -24,6 +24,11 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     SDL_GetWindowWMInfo(window, &wminfo);
     auto dx_hwnd = wminfo.info.win.window;
 
+    auto device_flags = NULL;
+#ifndef NDBUG
+    //device_flags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
+
     // fill out the swap chain description and create both the device and swap chain
     DXGI_SWAP_CHAIN_DESC sc_desc = { 0 };
     sc_desc.BufferCount = 1;
@@ -32,7 +37,7 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     sc_desc.OutputWindow = dx_hwnd;
     sc_desc.SampleDesc.Count = 4;
     sc_desc.Windowed = TRUE;
-    hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL,
+    hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, device_flags,
         NULL, NULL, D3D11_SDK_VERSION, &sc_desc, D3D.swap_chain.GetAddressOf(), D3D.device.GetAddressOf(), NULL, D3D.context.GetAddressOf());
     m_assert(!FAILED(hr), "failed to init device and swap chain");
 
