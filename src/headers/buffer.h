@@ -26,14 +26,14 @@ class ResourceBuffer {
 public:
     virtual ~ResourceBuffer() {}
 
-    static ResourceBuffer* construct(const std::string& name, Raekor::Shader* shader) {
+    static ResourceBuffer* construct() {
         auto active_api = Renderer::get_activeAPI();
         switch (active_api) {
             case RenderAPI::OPENGL: {
-                return new GLResourceBuffer<T>(name, shader);
+                return new GLResourceBuffer<T>;
                 } break;
             case RenderAPI::DIRECTX11: {
-                return new DXResourceBuffer<T>();
+                return new DXResourceBuffer<T>;
             } break;
         }
         return nullptr;
@@ -52,7 +52,7 @@ protected:
 template<typename T>
 class GLResourceBuffer : public ResourceBuffer<T> {
 public:
-    GLResourceBuffer(const std::string& name, Raekor::Shader* shader) {
+    GLResourceBuffer() {
         glGenBuffers(1, &id);
         glBindBuffer(GL_UNIFORM_BUFFER, id);
         glBufferData(GL_UNIFORM_BUFFER, sizeof(T), NULL, GL_DYNAMIC_DRAW);

@@ -43,11 +43,13 @@ DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files) {
     desc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
 
     D3D11_SUBRESOURCE_DATA data[6];
+    stbi_uc* images[6];
 
     // for every face file we generate an OpenGL texture image
     int width, height, n_channels;
     for (unsigned int i = 0; i < face_files.size(); i++) {
         auto image = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
+        images[i] = image;
         if (!image) std::cout << "failed to load stbi image fifle" << std::endl;
         data[i].pSysMem = (const void*)image;
         data[i].SysMemPitch = STBI_rgb_alpha * width;
@@ -68,6 +70,10 @@ DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files) {
 
     hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
     m_assert(SUCCEEDED(hr), "failed to create shader resource view for cubemap");
+
+    for (unsigned int i = 0; i < ARRAYSIZE(images); i++) {
+        stbi_image_free(images[i]);
+    }
 }
 
 void DXTextureCube::bind() const {

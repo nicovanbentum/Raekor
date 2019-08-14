@@ -74,7 +74,7 @@ void Application::run() {
     model.reset(new Model("resources/models/testcube.obj", "resources/textures/test.png"));
     dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
     dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
-    dxrb.reset(ResourceBuffer<cb_vs>::construct("Camera", dx_shader.get()));
+    dxrb.reset(ResourceBuffer<cb_vs>::construct());
     sky_image.reset(Texture::construct(skyboxes["lake"]));
     skycube.reset(new Mesh("resources/models/testcube.obj"));
     sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
