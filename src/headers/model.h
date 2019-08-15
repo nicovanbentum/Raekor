@@ -18,6 +18,10 @@ public:
     inline  Texture* get_texture() const { return texture.get(); }
 
     void bind() const;
+
+    // explicit to avoid implicit bool conversions
+    explicit operator bool() const;
+
 protected:
     std::unique_ptr<Mesh> mesh;
     std::unique_ptr<Texture> texture;

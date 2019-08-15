@@ -119,23 +119,23 @@ void Application::run() {
         // draw the indexed vertices
         dxr->DrawIndexed(skycube->get_index_buffer()->get_count(), false);
         
+
         // bind the model's shader
         dx_shader->bind();
         // add rotation to the cube so somethings animated
         auto cube_rotation = model->get_mesh()->rotation_ptr();
         *cube_rotation += 0.01f;
-        // recalculate the transformation if anything has changed
-        model->get_mesh()->recalc_transform();
-        // update the camera with the model's transform
-        camera.update(model->get_mesh()->get_transform());
-        // update the MVP resource
-        dxrb->get_data().MVP = camera.get_mvp(transpose);
-        // bind the resource buffer to slot 0
-        dxrb->bind(0);
-        // bind the model (mesh + texture)
-        model->bind();
-        // draw the indexed vertices
-        dxr->DrawIndexed(model->get_mesh()->get_index_buffer()->get_count());
+        for (auto& m : scene) {
+            Model& model = m.second;
+            // if the model does not have a mesh set, continue
+            if (!model) continue;
+            model.get_mesh()->recalc_transform();
+            camera.update(model.get_mesh()->get_transform());
+            dxrb->get_data().MVP = camera.get_mvp(transpose);
+            dxrb->bind(0);
+            model.bind();
+            dxr->DrawIndexed(model.get_mesh()->get_index_buffer()->get_count());
+        }
 
         // unbind the framebuffer which switches to application's backbuffer
         dxfb->unbind();
@@ -266,15 +266,17 @@ void Application::run() {
         }
         ImGui::End();
 
-            //start drawing a new imgui window. TODO: make this into a reusable component
+        // if the scene containt at least one model, AND the active model is pointing at a valid model,
+        // AND the active model has a mesh to modify, the properties window draws
+        if (!scene.empty() && active_model != scene.end() && active_model->second) {
             ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
             ImGui::Begin("Model Properties");
 
-            if (ImGui::DragFloat3("Scale", model->get_mesh()->scale_ptr(), 0.01f, 0.0f, 10.0f)) {
+            if (ImGui::DragFloat3("Scale", active_model->second.get_mesh()->scale_ptr(), 0.01f, 0.0f, 10.0f)) {
             }
-            if (ImGui::DragFloat3("Position", model->get_mesh()->pos_ptr(), 0.01f, -100.0f, 100.0f)) {
+            if (ImGui::DragFloat3("Position", active_model->second.get_mesh()->pos_ptr(), 0.01f, -100.0f, 100.0f)) {
             }
-            if (ImGui::DragFloat3("Rotation", model->get_mesh()->rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {
+            if (ImGui::DragFloat3("Rotation", active_model->second.get_mesh()->rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {
             }
 
             // resets the model's transformation
@@ -282,6 +284,7 @@ void Application::run() {
                 model->get_mesh()->reset_transform();
             }
             ImGui::End();
+        }
             dxr->ImGui_Render();
             dxr->SwapBuffers();
         }

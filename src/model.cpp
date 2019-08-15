@@ -26,4 +26,9 @@ void Model::bind() const {
     if (mesh) mesh->bind();
 }
 
+Model::operator bool() const {
+    return mesh != nullptr;
+}
+
+
 } // Namespace Raekor
