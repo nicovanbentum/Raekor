@@ -22,14 +22,8 @@ void Model::set_texture(const std::string& tex_file) {
 }
 
 void Model::bind() const {
-
-    // if we didn't load the texture yet we only bind the mesh
-    if(texture == nullptr ? true : false) {
-        mesh->bind();
-        return;
-    }
-    texture->bind();
-    mesh->bind();
+    if (texture) texture->bind();
+    if (mesh) mesh->bind();
 }
 
 } // Namespace Raekor

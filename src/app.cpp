@@ -8,13 +8,9 @@
 #include "framebuffer.h"
 #include "PlatformContext.h"
 #include "renderer.h"
-#include "DXRenderer.h"
-#include "DXShader.h"
 #include "buffer.h"
-#include "DXBuffer.h"
-#include "DXFrameBuffer.h"
-#include "DXTexture.h"
 #include "DXResourceBuffer.h"
+#include "scene.h"
 
 namespace Raekor {
 
@@ -78,6 +74,9 @@ void Application::run() {
     sky_image.reset(Texture::construct(skyboxes["lake"]));
     skycube.reset(new Mesh("resources/models/testcube.obj"));
     sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
+
+    Scene scene;
+    Scene::iterator active_model = scene.end();
 
     // persistent imgui variable values
     std::string mesh_file = "";
@@ -148,15 +147,10 @@ void Application::run() {
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("Close", "CTRL+S")) {
-                    //clean up imgui
-                    ImGui_ImplOpenGL3_Shutdown();
-                    ImGui_ImplSDL2_Shutdown();
-                    ImGui::DestroyContext();
-
                     //clean up SDL
                     SDL_DestroyWindow(directxwindow);
                     SDL_Quit();
-                    return;
+                    exit(0);
                 }
                 ImGui::EndMenu();
             }
@@ -179,6 +173,58 @@ void Application::run() {
         ImGui::PopStyleVar();
 
         dxfb->unbind();
+
+        // model panel
+        ImGui::Begin("ECS");
+        auto tree_node_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick 
+            | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
+        if (ImGui::TreeNodeEx("Models", tree_node_flags)) {
+            ImGui::Columns(1, NULL, false);
+            for (Scene::iterator it = scene.begin(); it != scene.end(); it++) {
+                bool selected = it == active_model;
+                std::string label = it->first;
+                if (ImGui::Selectable(label.c_str(), selected)) {
+                    active_model = it;
+                }
+                if (selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::TreePop();
+        }
+
+        static char input_text[120];
+        ImGui::InputText("", input_text, sizeof(input_text));
+        ImGui::SameLine();
+        if (ImGui::Button("Add")) {
+            std::string model_name = std::string(input_text);
+            if (!model_name.empty()) {
+                scene.add(model_name);
+                active_model = scene[model_name.c_str()];
+                memset(input_text, 0, sizeof(input_text));
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Remove")) {
+            if (active_model != scene.end()) {
+                scene.remove(active_model->first);
+                active_model = scene.end();
+            }
+        }
+        if (ImGui::Button("Load Mesh")) {
+            if (active_model != scene.end()) {
+                std::string path = context.open_file_dialog({ ".obj" });
+                active_model->second.set_mesh(path);
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load texture")) {
+            if (active_model != scene.end()) {
+                std::string path = context.open_file_dialog({ ".png", ".jpg", ".bmp" });
+                active_model->second.set_texture(path);
+            }
+        }
+        ImGui::End();
 
         // scene panel
         ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
@@ -222,7 +268,7 @@ void Application::run() {
 
             //start drawing a new imgui window. TODO: make this into a reusable component
             ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
-            ImGui::Begin("Object Properties");
+            ImGui::Begin("Model Properties");
 
             if (ImGui::DragFloat3("Scale", model->get_mesh()->scale_ptr(), 0.01f, 0.0f, 10.0f)) {
             }
