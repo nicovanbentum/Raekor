@@ -5,12 +5,45 @@
 namespace Raekor {
 
 DXTexture::DXTexture(const std::string& filepath) {
-    stbi_set_flip_vertically_on_load(false);
+    stbi_set_flip_vertically_on_load(true);
     this->filepath = filepath;
-    auto fp_wstr = std::wstring(filepath.begin(), filepath.end());
-    LPCWSTR fpw = fp_wstr.c_str();
-    auto hr = DirectX::CreateWICTextureFromFile(D3D.device.Get(), fpw, nullptr, texture.GetAddressOf());
-    m_assert(SUCCEEDED(hr), "failed to load texture");
+
+    //describe our 2d texture
+    D3D11_TEXTURE2D_DESC desc;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = 0;
+    desc.MiscFlags = 0;
+
+    // load the image data using stb image
+    D3D11_SUBRESOURCE_DATA image_data;
+    int width, height, channels;
+    auto image = stbi_load(filepath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    m_assert(image, "failed to load directx texture using stbi");
+
+    // point the directx resource to the stb image data
+    image_data.pSysMem = (const void*)image;
+    image_data.SysMemPitch = STBI_rgb_alpha * width;
+    desc.Width = width;
+    desc.Height = height;
+
+    // describe the shader resource view
+    D3D11_SHADER_RESOURCE_VIEW_DESC resource;
+    resource.Format = desc.Format;
+    resource.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    resource.TextureCube.MipLevels = desc.MipLevels;
+    resource.TextureCube.MostDetailedMip = 0;
+
+    auto hr = D3D.device->CreateTexture2D(&desc, &image_data, texture.GetAddressOf());
+    m_assert(SUCCEEDED(hr), "failed to create 2d texture object");
+
+    hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
+    m_assert(SUCCEEDED(hr), "failed to create shader resource view for dx texture");
 
     D3D11_SAMPLER_DESC samp_desc;
     memset(&samp_desc, 0, sizeof(D3D11_SAMPLER_DESC));
@@ -26,7 +59,7 @@ DXTexture::DXTexture(const std::string& filepath) {
 }
 
 void DXTexture::bind() const {
-    D3D.context->PSSetShaderResources(0, 1, texture.GetAddressOf());
+    D3D.context->PSSetShaderResources(0, 1, texture_resource.GetAddressOf());
     D3D.context->PSSetSamplers(0, 1, sampler_state.GetAddressOf());
 }
 

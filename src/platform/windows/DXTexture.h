@@ -12,7 +12,8 @@ public:
 
 private:
     com_ptr<ID3D11SamplerState> sampler_state;
-    com_ptr<ID3D11ShaderResourceView> texture;
+    com_ptr<ID3D11Texture2D> texture;
+    com_ptr<ID3D11ShaderResourceView> texture_resource;
 };
 
 class DXTextureCube : public Texture {
