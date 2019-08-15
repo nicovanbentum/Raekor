@@ -42,6 +42,8 @@ Texture* Texture::construct(const std::array <std::string, 6>& face_files) {
 GLTexture::GLTexture(const std::string& path)
 {
     filepath = path;
+
+    stbi_set_flip_vertically_on_load(true);
     
     int w, h, ch;
     auto image = stbi_load(path.c_str(), &w, &h, &ch, 3);
@@ -70,6 +72,8 @@ void GLTexture::bind() const {
 }
 
 GLTextureCube::GLTextureCube(const std::array<std::string, 6>& face_files) {
+    stbi_set_flip_vertically_on_load(false);
+
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_CUBE_MAP, id);
 

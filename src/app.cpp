@@ -128,7 +128,7 @@ void Application::run() {
         for (auto& m : scene) {
             Model& model = m.second;
             // if the model does not have a mesh set, continue
-            if (!model) continue;
+            if (!model.get_mesh()) continue;
             model.get_mesh()->recalc_transform();
             camera.update(model.get_mesh()->get_transform());
             dxrb->get_data().MVP = camera.get_mvp(transpose);
@@ -213,15 +213,19 @@ void Application::run() {
         }
         if (ImGui::Button("Load Mesh")) {
             if (active_model != scene.end()) {
-                std::string path = context.open_file_dialog({ ".obj" });
-                active_model->second.set_mesh(path);
+                std::string path = context.open_file_dialog({ ".obj", ".fbx" });
+                if (!path.empty()) {
+                    active_model->second.set_mesh(path);
+                }
             }
         }
         ImGui::SameLine();
         if (ImGui::Button("Load texture")) {
             if (active_model != scene.end()) {
-                std::string path = context.open_file_dialog({ ".png", ".jpg", ".bmp" });
-                active_model->second.set_texture(path);
+                std::string path = context.open_file_dialog({ ".png", ".jpg", ".bmp", ".tga" });
+                if (!path.empty()) {
+                    active_model->second.set_texture(path);
+                }
             }
         }
         ImGui::End();
@@ -234,6 +238,7 @@ void Application::run() {
                 bool selected = (it == active_skybox);
                 if (ImGui::Selectable(it->first.c_str(), selected)) {
                     active_skybox = it;
+                    sky_image.reset(Texture::construct(active_skybox->second));
                 }
                 if (selected) {
                     ImGui::SetItemDefaultFocus();
@@ -281,7 +286,7 @@ void Application::run() {
 
             // resets the model's transformation
             if (ImGui::Button("Reset")) {
-                model->get_mesh()->reset_transform();
+                active_model->second.get_mesh()->reset_transform();
             }
             ImGui::End();
         }

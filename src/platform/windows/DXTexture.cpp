@@ -5,6 +5,7 @@
 namespace Raekor {
 
 DXTexture::DXTexture(const std::string& filepath) {
+    stbi_set_flip_vertically_on_load(false);
     this->filepath = filepath;
     auto fp_wstr = std::wstring(filepath.begin(), filepath.end());
     LPCWSTR fpw = fp_wstr.c_str();
@@ -30,7 +31,7 @@ void DXTexture::bind() const {
 }
 
 DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files) {
-
+    stbi_set_flip_vertically_on_load(false);
     D3D11_TEXTURE2D_DESC desc;
     desc.MipLevels = 1;
     desc.ArraySize = 6;
