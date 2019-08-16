@@ -121,7 +121,6 @@ void Application::run() {
         skycube->bind();
         // draw the indexed vertices
         dxr->DrawIndexed(skycube->get_index_buffer()->get_count(), false);
-        
 
         // bind the model's shader
         dx_shader->bind();
@@ -168,23 +167,15 @@ void Application::run() {
         if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
             window_flags |= ImGuiWindowFlags_NoBackground;
 
-        // Important: note that we proceed even if Begin() returns false (aka window is collapsed).
-        // This is because we want to keep our DockSpace() active. If a DockSpace() is inactive, 
-        // all active windows docked into it will lose their parent and become undocked.
-        // We cannot preserve the docking relationship between an active window and an inactive docking, otherwise 
-        // any change of dockspace/settings would lead to windows being stuck in limbo and never being visible.
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         static bool p_open = true;
         ImGui::Begin("DockSpace Demo", &p_open, window_flags);
         ImGui::PopStyleVar();
-
-        if (opt_fullscreen)
-            ImGui::PopStyleVar(2);
+        if (opt_fullscreen) ImGui::PopStyleVar(2);
 
         // DockSpace
         ImGuiIO& io = ImGui::GetIO();
-        if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
-        {
+        if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
             ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
             ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
         }
