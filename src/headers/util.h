@@ -26,18 +26,44 @@ unsigned int gen_gl_buffer(const std::vector<T> & v, GLenum target) {
     return buffer_id;
 }
 
-// TODO: this doesn't actually return the extension, but the name + plus extension
-static std::string get_extension(const std::string& path) {
-    std::string filename = "";
+enum class PATH_OPTIONS {
+    DIR,
+    FILENAME,
+    EXTENSION,
+    FILENAME_AND_EXTENSION
+};
 
-    if (!path.empty()) {
-        for(int i = (int)path.size()-1; i > 0; i--) {
-            if (path[i] == '\\' || path[i] == '/') {
-                return filename;
-            } filename.insert(0, std::string(1, path[i]));
-        }
+static std::string get_file(const std::string& path, PATH_OPTIONS option) {
+    std::ifstream valid(path);
+    m_assert(valid, "invalid path string passed");
+    // find the last slash character index
+    auto backslash = path.rfind('\\');
+    auto fwdslash = path.rfind('/');
+    size_t last_slash;
+    if (backslash == std::string::npos) last_slash = fwdslash;
+    else if (fwdslash == std::string::npos) last_slash = backslash;
+    else last_slash = std::max(backslash, fwdslash);
+
+    auto dot = path.find('.');
+
+    switch(option) {
+    case PATH_OPTIONS::DIR: {
+        return path.substr(0, last_slash);
+    } break;
+
+    case PATH_OPTIONS::FILENAME: {
+        return path.substr(last_slash+1, (dot - last_slash) - 1);
+    } break;
+
+    case PATH_OPTIONS::EXTENSION: {
+        return path.substr(dot);
+    } break;
+        
+    case PATH_OPTIONS::FILENAME_AND_EXTENSION: {
+        return path.substr(last_slash+1);
     }
-    return std::string();
+    }
 }
+
 
 } // Namespace Raekor
