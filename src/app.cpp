@@ -144,6 +144,7 @@ void Application::run() {
 
         //get new frame for render API, sdl and imgui
         dxr->ImGui_NewFrame(directxwindow);
+
         static bool opt_fullscreen_persistant = true;
         bool opt_fullscreen = opt_fullscreen_persistant;
         static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
@@ -169,7 +170,7 @@ void Application::run() {
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         static bool p_open = true;
-        ImGui::Begin("DockSpace Demo", &p_open, window_flags);
+        ImGui::Begin("DockSpace", &p_open, window_flags);
         ImGui::PopStyleVar();
         if (opt_fullscreen) ImGui::PopStyleVar(2);
 
