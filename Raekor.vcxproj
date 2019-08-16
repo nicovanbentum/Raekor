@@ -188,6 +188,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="dependencies\imgui\examples\imgui_impl_dx11.h" />
     <ClInclude Include="dependencies\imgui\examples\imgui_impl_opengl3.h" />
     <ClInclude Include="dependencies\imgui\examples\imgui_impl_sdl.h" />
+    <ClInclude Include="dependencies\imgui\imgui.h" />
     <ClInclude Include="dependencies\NVDDS\nv_dds.h" />
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="src\headers\app.h" />

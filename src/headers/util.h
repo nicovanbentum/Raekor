@@ -47,21 +47,10 @@ static std::string get_file(const std::string& path, PATH_OPTIONS option) {
     auto dot = path.find('.');
 
     switch(option) {
-    case PATH_OPTIONS::DIR: {
-        return path.substr(0, last_slash);
-    } break;
-
-    case PATH_OPTIONS::FILENAME: {
-        return path.substr(last_slash+1, (dot - last_slash) - 1);
-    } break;
-
-    case PATH_OPTIONS::EXTENSION: {
-        return path.substr(dot);
-    } break;
-        
-    case PATH_OPTIONS::FILENAME_AND_EXTENSION: {
-        return path.substr(last_slash+1);
-    }
+    case PATH_OPTIONS::DIR: return path.substr(0, last_slash);
+    case PATH_OPTIONS::FILENAME: return path.substr(last_slash+1, (dot - last_slash) - 1);
+    case PATH_OPTIONS::EXTENSION: return path.substr(dot);
+    case PATH_OPTIONS::FILENAME_AND_EXTENSION: return path.substr(last_slash+1);
     }
 }
 
