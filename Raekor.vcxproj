@@ -70,7 +70,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;IrrXMLd.lib;zlibstaticd.lib;assimp-vc141-mtd.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SDL2.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mtd.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/NODEFAULTLIB:libcmt.lib;NODEFAULTLIB:libcmtd.lib;/NODEFAULTLIB:msvcrtd.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -79,7 +79,8 @@
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>copy "$(SolutionDir)\dependencies\SDL\lib\x64\SDL2.dll" "$(TargetDir)"
-copy "$(SolutionDir)\config.json" "$(TargetDir)"</Command>
+copy "$(SolutionDir)\config.json" "$(TargetDir)"
+copy "$(SolutionDir)\dependencies\assimp-build\assimp-vc141-mtd.dll" "$(TargetDir)"</Command>
     </PreBuildEvent>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
@@ -104,7 +105,7 @@ copy "$(SolutionDir)\config.json" "$(TargetDir)"</Command>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;IrrXML.lib;zlibstatic.lib;assimp-vc141-mt.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SDL2.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mt.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -113,9 +114,8 @@ copy "$(SolutionDir)\config.json" "$(TargetDir)"</Command>
     <PreBuildEvent>
       <Command>copy "$(SolutionDir)\dependencies\SDL\lib\x64\SDL2.dll" "$(TargetDir)"
 copy "$(SolutionDir)\config.json" "$(TargetDir)"
-copy "$(SolutionDir)\shaders\*.glsl" "$(TargetDir)shaders\"
-copy "$(SolutionDir)\res\*.obj" "$(TargetDir)res\"
-copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
+copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"
+copy "$(SolutionDir)\dependencies\assimp-build\assimp-vc141-mt.dll" "$(TargetDir)"</Command>
     </PreBuildEvent>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
@@ -233,15 +233,15 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <FxCompile Include="shaders\skybox_fp.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">shaders/%(Filename).cso</ObjectFileOutput>
     </FxCompile>
     <FxCompile Include="shaders\skybox_vertex.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">shaders/%(Filename).cso</ObjectFileOutput>
     </FxCompile>
   </ItemGroup>
