@@ -1,6 +1,6 @@
 # Raekor Engine
 
-![image](https://i.imgur.com/NCXMnkFl.png)
+![image](https://i.imgur.com/YaEBUfV.png)
 
 ### Windows
 Use the supplied Visual Studio Project.
