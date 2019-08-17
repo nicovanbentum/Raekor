@@ -68,8 +68,13 @@ void* DXFrameBuffer::ImGui_data() const {
 }
 
 // TODO: figure this out
-void DXFrameBuffer::resize(const glm::vec2& size) {
-
+void DXFrameBuffer::resize(const glm::vec2& new_size) {
+    if (size == new_size) return;
+    size = new_size;
+    D3D11_TEXTURE2D_DESC texture_desc;
+    texture->GetDesc(&texture_desc);
+    texture_desc.Width = (UINT)size.x;
+    texture_desc.Height = (UINT)size.y;
 }
 
 

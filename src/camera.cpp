@@ -8,7 +8,7 @@ Camera::Camera(glm::vec3 position, float fov) :
     angle(static_cast<float>(M_PI), 0.0f), 
     FOV(fov), look_speed(0.0005f),
     mouse_active(true) {
-    projection = glm::perspectiveFovRH_ZO(glm::radians(FOV), 1280.0f, 720.0f, 0.1f, 10000.0f);
+    projection = glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
 }
 
 void Camera::update(const glm::mat4& model) {

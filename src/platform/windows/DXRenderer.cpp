@@ -48,20 +48,23 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     backbuffer_addr->Release();
     D3D.context->OMSetRenderTargets(1, D3D.back_buffer.GetAddressOf(), NULL);
 
+    int ww, wh;
+    SDL_GetWindowSize(window, &ww, &wh);
+
     // set the directx viewport
     D3D11_VIEWPORT viewport = { 0 };
     viewport.TopLeftX = 0;
     viewport.TopLeftY = 0;
-    viewport.Width = 1280;
-    viewport.Height = 720;
+    viewport.Width = ww;
+    viewport.Height = wh;
     viewport.MinDepth = 0.0f;
     viewport.MaxDepth = 1.0f;
     D3D.context->RSSetViewports(1, &viewport);
 
     // setup the depth stencil buffer for depth testing
     D3D11_TEXTURE2D_DESC dstexdesc;
-    dstexdesc.Width = 1280;
-    dstexdesc.Height = 720;
+    dstexdesc.Width = ww;
+    dstexdesc.Height = wh;
     dstexdesc.MipLevels = 1;
     dstexdesc.ArraySize = 1;
     dstexdesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;

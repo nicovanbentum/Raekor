@@ -33,7 +33,7 @@ GLFrameBuffer::GLFrameBuffer(const glm::vec2& new_size) {
     glBindTexture(GL_TEXTURE_2D, render_texture_id);
 
     // create the 2d texture image
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (GLsizei)size.x, (GLsizei)size.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)size.x, (GLsizei)size.y, 0, GL_RGB, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
@@ -46,7 +46,7 @@ GLFrameBuffer::GLFrameBuffer(const glm::vec2& new_size) {
     glBindRenderbuffer(GL_RENDERBUFFER, rbo_id);
 
     // create a buffer storage that describes the render buffer, unbind after
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1280, 720);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, size.x, size.y);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
     // attach the render buffer to the frame buffer
@@ -74,7 +74,6 @@ void GLFrameBuffer::bind() const {
 
 void GLFrameBuffer::unbind() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, 2560, 1440);
 }
 
 void* GLFrameBuffer::ImGui_data() const {
@@ -84,13 +83,22 @@ void* GLFrameBuffer::ImGui_data() const {
 
 void GLFrameBuffer::resize(const glm::vec2& new_size) {
     size = new_size;
-    // bind our texture and resets its attributes
+    // bind the render texture and reset its attributes
     glBindTexture(GL_TEXTURE_2D, render_texture_id);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (GLsizei)new_size.x, (GLsizei)new_size.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
-    // unbind the texture and attach it to the framebuffer
+    // unbind the texture and (re-)attach it to the framebuffer
     glBindTexture(GL_TEXTURE_2D, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_texture_id, 0);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo_id);
+
+    // create a buffer storage that describes the render buffer, unbind after
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, size.x, size.y);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    // attach the render buffer to the frame buffer
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo_id);
 }
 
 } // Raekor
