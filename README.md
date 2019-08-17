@@ -14,7 +14,6 @@ Use the supplied Makefile. `cd` to the Raekor directory and enter `make rebuild`
 Requires **SDL2** to be installed by entering `sudo apt-get install libsdl2-2.0` .
 
 ### Render APIs
-OpenGL in active development. 
-DirectX basics abstracted but not up-to-date with the OpenGL code and main application.
+Supports both OpenGL and DirectX 11. At any point in time, one's development might be behind on the other.
 
 > More to follow.
