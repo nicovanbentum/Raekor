@@ -102,7 +102,7 @@ DXRenderer::DXRenderer(SDL_Window* window) {
 }
 
 DXRenderer::~DXRenderer() {
-    ImGui_ImplDX11_Shutdown();
+    ImGui_ImplDX11_InvalidateDeviceObjects();
     D3D.Release();
 }
 

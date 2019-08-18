@@ -66,7 +66,7 @@ GLRenderer::GLRenderer(SDL_Window* window) {
 }
 
 GLRenderer::~GLRenderer() {
-    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplOpenGL3_DestroyDeviceObjects();
     SDL_GL_DeleteContext(context);
 }
 
