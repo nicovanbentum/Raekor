@@ -82,24 +82,22 @@ void Application::run() {
     std::string mesh_file = "";
     std::string texture_file = "";
     auto active_skybox = skyboxes.begin();
-    auto fsize = dxfb->get_size();
 
     SDL_SetWindowInputFocus(directxwindow);
 
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
     io.ConfigDockingWithShift = true;
     ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 18.0f);
     if (!io.Fonts->Fonts.empty()) {
         io.FontDefault = io.Fonts->Fonts.back();
     }
-
     bool running = true;
     bool transpose = Renderer::get_activeAPI() == RenderAPI::DIRECTX11 ? true : false;
 
     //main application loop
     while(running) {
-
         //handle sdl and imgui events
         handle_sdl_gui_events({ directxwindow }, camera);
 
@@ -163,7 +161,8 @@ void Application::run() {
             window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
         }
 
-        // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background and handle the pass-thru hole, so we ask Begin() to not render a background.
+        // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background and handle the pass-thru hole, 
+        // so we ask Begin() to not render a background.
         if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
             window_flags |= ImGuiWindowFlags_NoBackground;
 
@@ -193,23 +192,6 @@ void Application::run() {
             }
             ImGui::EndMenuBar();
         }
-
-        // renderer viewport
-        ImGui::SetNextWindowContentSize(ImVec2(fsize.x, fsize.y));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
-
-        auto image_data = dxfb->ImGui_data();
-        if (Renderer::get_activeAPI() == RenderAPI::DIRECTX11) {
-            ImGui::Image((ID3D11ShaderResourceView*)image_data, ImVec2(fsize.x, fsize.y));
-        }
-        else if (Renderer::get_activeAPI() == RenderAPI::OPENGL) {
-            ImGui::Image(image_data, ImVec2(fsize.x, fsize.y), { 0,1 }, { 1,0 });
-        }
-        ImGui::End();
-        ImGui::PopStyleVar();
-
-        dxfb->unbind();
 
         // model panel
         ImGui::Begin("ECS");
@@ -329,10 +311,27 @@ void Application::run() {
             }
             ImGui::End();
         }
+        // renderer viewport
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+        auto region_avail = ImGui::GetContentRegionAvail();
+        dxfb->resize({ region_avail.x, region_avail.y });
+        
+        auto image_data = dxfb->ImGui_data();
+        auto fsize = dxfb->get_size();
+        if (Renderer::get_activeAPI() == RenderAPI::DIRECTX11) {
+            ImGui::Image((ID3D11ShaderResourceView*)image_data, ImVec2(fsize.x, fsize.y));
+        }
+        else if (Renderer::get_activeAPI() == RenderAPI::OPENGL) {
+            ImGui::Image(image_data, ImVec2(fsize.x, fsize.y), { 0,1 }, { 1,0 });
+        }
         ImGui::End();
-            dxr->ImGui_Render();
-            dxr->SwapBuffers();
+        ImGui::PopStyleVar();
+
+
+        ImGui::End();
+        dxr->ImGui_Render();
+        dxr->SwapBuffers();
         }
     }
-
 } // namespace Raekor
