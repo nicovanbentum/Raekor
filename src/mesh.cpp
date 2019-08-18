@@ -13,26 +13,6 @@ namespace Raekor {
 Mesh::Mesh(const std::string& filepath) :
 mesh_path(filepath) {
     load_data();
-
-    transform = glm::mat4(1.0f);
-    scale = glm::vec3(1.0f);
-    position = glm::vec3(0.0f);
-    rotation = glm::vec3(0.0f);
-}
-
-void Mesh::reset_transform() {
-    transform = glm::mat4(1.0f);
-    scale = glm::vec3(1.0f);
-    position = glm::vec3(0.0f);
-    rotation = glm::vec3(0.0f);
-}
-
-void Mesh::recalc_transform() {
-    transform = glm::mat4(1.0f);
-    transform = glm::translate(transform, position);
-    auto rotation_quat = static_cast<glm::quat>(rotation);
-    transform = transform * glm::toMat4(rotation_quat);
-    transform = glm::scale(transform, scale);
 }
 
 void Mesh::load_data() {

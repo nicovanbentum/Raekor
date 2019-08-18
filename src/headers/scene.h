@@ -12,6 +12,7 @@ public:
     void set_mesh(const std::string& name, const std::string& path);
     void set_texture(const std::string& name, const std::string& path);
     void remove(const std::string& name);
+    void rebuild();
 
     inline const bool empty() const { return models.empty(); }
     inline void clear() { models.clear(); }

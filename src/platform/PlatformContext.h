@@ -4,12 +4,17 @@
 
 namespace Raekor {
 
+struct Ffilter {
+    std::string name;
+    std::string extensions;
+};
+
 // Interface for OS specific tasks
 // Compile time decides which function definitions to pull in
 class PlatformContext {
 public:
     PlatformContext() {}
-    std::string open_file_dialog(const std::vector<std::string>& filters);
+    std::string open_file_dialog(const std::vector<Ffilter>& filters);
 };
 
 } // Namespace Raekor

@@ -128,8 +128,8 @@ void DXRenderer::DrawIndexed(unsigned int size, bool depth_test) {
     D3D.context->DrawIndexed(size, 0, 0);
 }
 
-void DXRenderer::SwapBuffers() const {
-    D3D.swap_chain->Present(1, NULL);
+void DXRenderer::SwapBuffers(bool vsync) const {
+    D3D.swap_chain->Present(vsync, NULL);
 }
 
 } // namespace Raekor

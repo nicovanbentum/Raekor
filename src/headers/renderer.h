@@ -26,7 +26,7 @@ public:
     // Render API methods, these should be used in combination with Raekor's vertex and index buffers
     virtual void Clear(glm::vec4 color)                                     = 0;
     virtual void DrawIndexed(unsigned int size, bool depth_test = true)     = 0;
-    virtual void SwapBuffers() const                                        = 0;
+    virtual void SwapBuffers(bool vsync) const                              = 0;
 
 protected:
     SDL_Window* render_window;
@@ -43,7 +43,7 @@ public:
 
     virtual void Clear(glm::vec4 color)                                     override;
     virtual void DrawIndexed(unsigned int size, bool depth_test = true)     override;
-    virtual void SwapBuffers() const                                        override;
+    virtual void SwapBuffers(bool vsync) const                              override;
 private:
     SDL_GLContext context;
 

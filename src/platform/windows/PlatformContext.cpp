@@ -3,10 +3,10 @@
 
 namespace Raekor {
 
-std::string PlatformContext::open_file_dialog(const std::vector<std::string>& filters) {
+std::string PlatformContext::open_file_dialog(const std::vector<Ffilter>& filters) {
     std::string lpstr_filters;
-    for (auto& f : filters) {
-        lpstr_filters.append(std::string(f + '\0' + '*' + f + '\0'));
+    for (const Ffilter& filter : filters) {
+        lpstr_filters.append(filter.name + " (" + filter.extensions + ')' + '\0' + filter.extensions + '\0');
     }
 
     OPENFILENAMEA ofn;

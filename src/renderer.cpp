@@ -86,7 +86,8 @@ void GLRenderer::ImGui_Render() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void GLRenderer::SwapBuffers() const {
+void GLRenderer::SwapBuffers(bool vsync) const {
+    SDL_GL_SetSwapInterval(vsync);
     SDL_GL_SwapWindow(render_window);
 }
 

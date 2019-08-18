@@ -73,6 +73,14 @@ void Application::run() {
     std::unique_ptr<Mesh> skycube;
     std::unique_ptr<Shader> sky_shader;
 
+    Ffilter ft_mesh;
+    ft_mesh.name = "Supported Mesh Files";
+    ft_mesh.extensions = "*.obj;*.fbx";
+
+    Ffilter ft_texture;
+    ft_texture.name = "Supported Image Files";
+    ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
+
     model.reset(new Model("resources/models/testcube.obj", "resources/textures/test.png"));
     dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
     dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
@@ -85,8 +93,6 @@ void Application::run() {
     Scene::iterator active_model = scene.end();
 
     // persistent imgui variable values
-    std::string mesh_file = "";
-    std::string texture_file = "";
     auto active_skybox = skyboxes.begin();
 
     SDL_SetWindowInputFocus(directxwindow);
@@ -129,14 +135,14 @@ void Application::run() {
         // bind the model's shader
         dx_shader->bind();
         // add rotation to the cube so somethings animated
-        auto cube_rotation = model->get_mesh()->rotation_ptr();
+        auto cube_rotation = model->rotation_ptr();
         *cube_rotation += 0.01f;
         for (auto& m : scene) {
             Model& model = m.second;
             // if the model does not have a mesh set, continue
             if (!model.get_mesh()) continue;
-            model.get_mesh()->recalc_transform();
-            camera.update(model.get_mesh()->get_transform());
+            model.recalc_transform();
+            camera.update(model.get_transform());
             dxrb->get_data().MVP = camera.get_mvp(transpose);
             dxrb->bind(0);
             model.bind();
@@ -218,12 +224,8 @@ void Application::run() {
             ImGui::TreePop();
         }
 
-        //ImGui::SetKeyboardFocusHere();
         static char input_text[120];
-        if (ImGui::InputText("", input_text, sizeof(input_text))) {
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Add")) {
+        if (ImGui::InputText("", input_text, sizeof(input_text), ImGuiInputTextFlags_EnterReturnsTrue)) {
             std::string model_name = std::string(input_text);
             if (!model_name.empty()) {
                 scene.add(model_name);
@@ -240,7 +242,7 @@ void Application::run() {
         }
         if (ImGui::Button("Load Mesh")) {
             if (active_model != scene.end()) {
-                std::string path = context.open_file_dialog({ ".obj", ".fbx" });
+                std::string path = context.open_file_dialog({ ft_mesh });
                 if (!path.empty()) {
                     active_model->second.set_mesh(path);
                 }
@@ -249,7 +251,7 @@ void Application::run() {
         ImGui::SameLine();
         if (ImGui::Button("Load texture")) {
             if (active_model != scene.end()) {
-                std::string path = context.open_file_dialog({ ".png", ".jpg", ".bmp", ".tga" });
+                std::string path = context.open_file_dialog({ ft_texture });
                 if (!path.empty()) {
                     active_model->second.set_texture(path);
                 }
@@ -258,7 +260,6 @@ void Application::run() {
         ImGui::End();
 
         // scene panel
-        ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
         ImGui::Begin("Scene");
         if (ImGui::BeginCombo("Skybox", active_skybox->first.c_str())) {
             for (auto it = skyboxes.begin(); it != skyboxes.end(); it++) {
@@ -292,29 +293,27 @@ void Application::run() {
         }
 
         // toggle button for openGl vsync
-        static bool is_vsync = true;
-        if (ImGui::RadioButton("USE VSYNC", is_vsync)) {
-            is_vsync = !is_vsync;
-            SDL_GL_SetSwapInterval(is_vsync);
+        static bool use_vsync = true;
+        if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
+            use_vsync = !use_vsync;
         }
         ImGui::End();
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
         if (!scene.empty() && active_model != scene.end() && active_model->second) {
-            ImGui::SetNextWindowSize(ImVec2(760, 260), ImGuiCond_Once);
             ImGui::Begin("Model Properties");
 
-            if (ImGui::DragFloat3("Scale", active_model->second.get_mesh()->scale_ptr(), 0.01f, 0.0f, 10.0f)) {
+            if (ImGui::DragFloat3("Scale", active_model->second.scale_ptr(), 0.01f, 0.0f, 10.0f)) {
             }
-            if (ImGui::DragFloat3("Position", active_model->second.get_mesh()->pos_ptr(), 0.01f, -100.0f, 100.0f)) {
+            if (ImGui::DragFloat3("Position", active_model->second.pos_ptr(), 0.01f, -100.0f, 100.0f)) {
             }
-            if (ImGui::DragFloat3("Rotation", active_model->second.get_mesh()->rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {
+            if (ImGui::DragFloat3("Rotation", active_model->second.rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {
             }
 
             // resets the model's transformation
             if (ImGui::Button("Reset")) {
-                active_model->second.get_mesh()->reset_transform();
+                active_model->second.reset_transform();
             }
             ImGui::End();
         }
@@ -338,7 +337,7 @@ void Application::run() {
 
         ImGui::End();
         dxr->ImGui_Render();
-        dxr->SwapBuffers();
+        dxr->SwapBuffers(use_vsync);
 
         if (reset) {
             reset = false;
@@ -350,7 +349,7 @@ void Application::run() {
             sky_image.reset(Texture::construct(skyboxes["lake"]));
             skycube.reset(new Mesh("resources/models/testcube.obj"));
             sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
-            scene.clear();
+            scene.rebuild();
         }
         }
     }

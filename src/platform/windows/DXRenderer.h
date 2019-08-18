@@ -35,7 +35,7 @@ public:
     virtual void ImGui_NewFrame(SDL_Window* window)                 override;
     virtual void Clear(glm::vec4 color)                             override;
     virtual void DrawIndexed(unsigned int size, bool depth_test)    override;
-    virtual void SwapBuffers() const                                override;
+    virtual void SwapBuffers(bool vsync) const                      override;
 
 private:
     com_ptr<ID3D11Texture2D> depth_stencil_buffer;
