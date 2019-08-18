@@ -9,11 +9,6 @@ COM_PTRS D3D;
 DXRenderer::DXRenderer(SDL_Window* window) {
     std::cout << "Active Rendering API: DirectX11  No device/context information available." << std::endl;
 
-    // initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-
     render_window = window;
     auto hr = CoInitialize(NULL);
     m_assert(SUCCEEDED(hr), "failed to initialize microsoft WIC");
@@ -55,8 +50,8 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     D3D11_VIEWPORT viewport = { 0 };
     viewport.TopLeftX = 0;
     viewport.TopLeftY = 0;
-    viewport.Width = ww;
-    viewport.Height = wh;
+    viewport.Width = (FLOAT)ww;
+    viewport.Height = (FLOAT)wh;
     viewport.MinDepth = 0.0f;
     viewport.MaxDepth = 1.0f;
     D3D.context->RSSetViewports(1, &viewport);
@@ -108,8 +103,6 @@ DXRenderer::DXRenderer(SDL_Window* window) {
 
 DXRenderer::~DXRenderer() {
     ImGui_ImplDX11_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-    ImGui::DestroyContext();
     D3D.Release();
 }
 

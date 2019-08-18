@@ -46,7 +46,7 @@ GLFrameBuffer::GLFrameBuffer(const glm::vec2& new_size) {
     glBindRenderbuffer(GL_RENDERBUFFER, rbo_id);
 
     // create a buffer storage that describes the render buffer, unbind after
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, size.x, size.y);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, (GLsizei)size.x, (GLsizei)size.y);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
     // attach the render buffer to the frame buffer
@@ -94,7 +94,7 @@ void GLFrameBuffer::resize(const glm::vec2& new_size) {
     glBindRenderbuffer(GL_RENDERBUFFER, rbo_id);
 
     // create a buffer storage that describes the render buffer, unbind after
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, size.x, size.y);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, (GLsizei)size.x, (GLsizei)size.y);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
     // attach the render buffer to the frame buffer

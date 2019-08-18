@@ -4,9 +4,7 @@
 int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
-    for (;;) {
-        app.run();
-    }
+    app.run();
 
     return 0;
 }

@@ -14,6 +14,7 @@ public:
     void remove(const std::string& name);
 
     inline const bool empty() const { return models.empty(); }
+    inline void clear() { models.clear(); }
 
     // iterators provided for nice user level code, see app.ccp for examples
     typedef std::unordered_map<std::string, Model>::iterator iterator;

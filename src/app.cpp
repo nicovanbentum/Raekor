@@ -11,6 +11,7 @@
 #include "buffer.h"
 #include "DXResourceBuffer.h"
 #include "scene.h"
+#include "timer.h"
 
 namespace Raekor {
 
@@ -51,6 +52,11 @@ void Application::run() {
         displays[index].w,
         displays[index].h,
         wflags);
+
+    // initialize ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
 
     // create the renderer object that does sets up the API and does all the runtime magic
     std::unique_ptr<Renderer> dxr;
@@ -94,7 +100,6 @@ void Application::run() {
         io.FontDefault = io.Fonts->Fonts.back();
     }
     bool running = true;
-    bool transpose = Renderer::get_activeAPI() == RenderAPI::DIRECTX11 ? true : false;
 
     //main application loop
     while(running) {
@@ -104,6 +109,7 @@ void Application::run() {
         dxr->Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
         dxfb->bind();
         dxr->Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
+        bool transpose = Renderer::get_activeAPI() == RenderAPI::DIRECTX11 ? true : false;
 
         // bind the shader
         sky_shader->bind();
@@ -268,11 +274,12 @@ void Application::run() {
             ImGui::EndCombo();
         }
 
+        static bool reset = false;
         if (ImGui::RadioButton("OpenGL", Renderer::get_activeAPI() == RenderAPI::OPENGL)) {
             // check if the active api is not already openGL
             if (Renderer::get_activeAPI() != RenderAPI::OPENGL) {
                 Renderer::set_activeAPI(RenderAPI::OPENGL);
-                running = false;
+                reset = true;
             }
         }
         ImGui::SameLine();
@@ -280,7 +287,7 @@ void Application::run() {
             // check if the active api is not already directx
             if (Renderer::get_activeAPI() != RenderAPI::DIRECTX11) {
                 Renderer::set_activeAPI(RenderAPI::DIRECTX11);
-                running = false;
+                reset = true;
             }
         }
 
@@ -332,6 +339,19 @@ void Application::run() {
         ImGui::End();
         dxr->ImGui_Render();
         dxr->SwapBuffers();
+
+        if (reset) {
+            reset = false;
+            dxr.reset(Renderer::construct(directxwindow));
+            model.reset(new Model("resources/models/testcube.obj", "resources/textures/test.png"));
+            dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
+            dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
+            dxrb.reset(ResourceBuffer<cb_vs>::construct());
+            sky_image.reset(Texture::construct(skyboxes["lake"]));
+            skycube.reset(new Mesh("resources/models/testcube.obj"));
+            sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
+            scene.clear();
+        }
         }
     }
 } // namespace Raekor

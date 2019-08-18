@@ -31,11 +31,6 @@ Renderer* Renderer::construct(SDL_Window* window) {
 }
 
 GLRenderer::GLRenderer(SDL_Window* window) {
-    // initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-
     render_window = window;
     
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -72,9 +67,7 @@ GLRenderer::GLRenderer(SDL_Window* window) {
 
 GLRenderer::~GLRenderer() {
     ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
     SDL_GL_DeleteContext(context);
-    ImGui::DestroyContext();
 }
 
 void GLRenderer::Clear(glm::vec4 color) {
