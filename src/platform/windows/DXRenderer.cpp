@@ -90,6 +90,7 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     memset(&raster_desc, 0, sizeof(D3D11_RASTERIZER_DESC));
     raster_desc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
     raster_desc.CullMode = D3D11_CULL_MODE::D3D11_CULL_NONE;
+    raster_desc.AntialiasedLineEnable = true;
 
     hr = D3D.device->CreateRasterizerState(&raster_desc, D3D.rasterize_state.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create rasterizer state");

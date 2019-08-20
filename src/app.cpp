@@ -85,7 +85,7 @@ void Application::run() {
     dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
     dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
     dxrb.reset(ResourceBuffer<cb_vs>::construct());
-    sky_image.reset(Texture::construct(skyboxes["lake"]));
+    sky_image.reset(Texture::construct(skyboxes["night"]));
     skycube.reset(new Mesh("resources/models/testcube.obj"));
     sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
 

@@ -128,14 +128,7 @@ private:
 struct Vertex {
     glm::vec3 pos;
     glm::vec2 uv;
-
-    // operators needed for indexing algorithm
-    bool operator<(const Raekor::Vertex & rhs) const {
-        return memcmp((void*)this, (void*)&rhs, sizeof(Raekor::Vertex)) > 0;
-    };
-    bool operator>(const Raekor::Vertex & rhs) const {
-        return memcmp((void*)this, (void*)&rhs, sizeof(Raekor::Vertex)) < 0;
-    };
+    glm::vec3 normal;
 };
 
 struct Index {

@@ -26,6 +26,18 @@
                 "resources/skyboxes/nebula/back.png"
             ]
 
+        },
+        {
+            "key": "night",
+            "value": [
+                "resources/skyboxes/night/right.jpg",
+                "resources/skyboxes/night/left.jpg",
+                "resources/skyboxes/night/top.jpg",
+                "resources/skyboxes/night/bottom.jpg",
+                "resources/skyboxes/night/front.jpg",
+                "resources/skyboxes/night/back.jpg"
+            ]
+
         }
     ]
 }

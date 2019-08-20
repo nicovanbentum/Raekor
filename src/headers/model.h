@@ -13,6 +13,7 @@ public:
 
     void set_mesh(const std::string& m_file);
     void set_texture(const std::string& tex_file);
+    bool has_texture() const { return texture != nullptr; }
 
     void reset_transform();
     void recalc_transform();

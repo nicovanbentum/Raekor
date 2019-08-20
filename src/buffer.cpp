@@ -85,7 +85,7 @@ GLVertexBuffer::GLVertexBuffer(const std::vector<Vertex>& vertices) {
 
 void GLVertexBuffer::bind() const {
     glBindBuffer(GL_ARRAY_BUFFER, id);
-    set_layout({ {"POSITION", ShaderType::FLOAT3}, {"UV", ShaderType::FLOAT2} });
+    set_layout({ {"POSITION", ShaderType::FLOAT3}, {"UV", ShaderType::FLOAT2}, {"NORMAL", ShaderType::FLOAT3} });
 }
 
 void GLVertexBuffer::set_layout(const InputLayout& layout) const {

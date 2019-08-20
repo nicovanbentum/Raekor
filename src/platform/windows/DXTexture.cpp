@@ -45,6 +45,8 @@ DXTexture::DXTexture(const std::string& filepath) {
     hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
     m_assert(SUCCEEDED(hr), "failed to create shader resource view for dx texture");
 
+    D3D.context->GenerateMips(texture_resource.Get());
+
     D3D11_SAMPLER_DESC samp_desc;
     memset(&samp_desc, 0, sizeof(D3D11_SAMPLER_DESC));
     samp_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;

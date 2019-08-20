@@ -17,15 +17,15 @@ mesh_path(filepath) {
 
 void Mesh::load_data() {
     constexpr unsigned int flags =
-        //aiProcess_CalcTangentSpace |
-        aiProcess_Triangulate;
-        //aiProcess_SortByPType |
-        //aiProcess_PreTransformVertices |
-        //aiProcess_GenNormals |
-        //aiProcess_GenUVCoords |
-        //aiProcess_OptimizeMeshes |
-        //aiProcess_Debone |
-        //aiProcess_ValidateDataStructure;
+        aiProcess_CalcTangentSpace |
+        aiProcess_Triangulate |
+        aiProcess_SortByPType |
+        aiProcess_PreTransformVertices |
+        aiProcess_GenNormals |
+        aiProcess_GenUVCoords |
+        aiProcess_OptimizeMeshes |
+        aiProcess_Debone |
+        aiProcess_ValidateDataStructure;
     
     Assimp::Importer importer;
     const auto scene = importer.ReadFile(mesh_path, flags);
@@ -41,6 +41,9 @@ void Mesh::load_data() {
         vertexes.back().pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
         if (mesh->HasTextureCoords(0)) {
             vertexes.back().uv = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
+        }
+        if (mesh->HasNormals()) {
+            vertexes.back().normal = { mesh->mNormals->x, mesh->mNormals->y, mesh->mNormals->z };
         }
     }
     // extract indices
