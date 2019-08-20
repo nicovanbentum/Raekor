@@ -4,21 +4,22 @@
 
 namespace Raekor {
 
+// TODO: right now we always let directx auto generate mip maps, might want to make that optional
 DXTexture::DXTexture(const std::string& filepath) {
     stbi_set_flip_vertically_on_load(true);
     this->filepath = filepath;
 
     //describe our 2d texture
     D3D11_TEXTURE2D_DESC desc;
-    desc.MipLevels = 1;
+    desc.MipLevels = 0;
     desc.ArraySize = 1;
     desc.SampleDesc.Count = 1;
     desc.SampleDesc.Quality = 0;
     desc.Usage = D3D11_USAGE_DEFAULT;
     desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
     desc.CPUAccessFlags = 0;
-    desc.MiscFlags = 0;
+    desc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
     // load the image data using stb image
     D3D11_SUBRESOURCE_DATA image_data;
@@ -32,19 +33,19 @@ DXTexture::DXTexture(const std::string& filepath) {
     desc.Width = width;
     desc.Height = height;
 
+    auto hr = D3D.device->CreateTexture2D(&desc, nullptr, texture.GetAddressOf());
+    m_assert(SUCCEEDED(hr), "failed to create 2d texture object");
+
     // describe the shader resource view
-    D3D11_SHADER_RESOURCE_VIEW_DESC resource;
+    D3D11_SHADER_RESOURCE_VIEW_DESC resource = {};
     resource.Format = desc.Format;
     resource.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    resource.TextureCube.MipLevels = desc.MipLevels;
-    resource.TextureCube.MostDetailedMip = 0;
-
-    auto hr = D3D.device->CreateTexture2D(&desc, &image_data, texture.GetAddressOf());
-    m_assert(SUCCEEDED(hr), "failed to create 2d texture object");
+    resource.TextureCube.MipLevels = -1;
 
     hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
     m_assert(SUCCEEDED(hr), "failed to create shader resource view for dx texture");
 
+    D3D.context->UpdateSubresource(texture.Get(), 0, 0, (const void*)image, image_data.SysMemPitch, 0);
     D3D.context->GenerateMips(texture_resource.Get());
 
     D3D11_SAMPLER_DESC samp_desc;
