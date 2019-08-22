@@ -37,14 +37,15 @@ void Mesh::load_data() {
     // extract vertices
     vertexes.reserve(mesh->mNumVertices);
     for (size_t i = 0; i < vertexes.capacity(); i++) {
-        vertexes.push_back(Vertex());
-        vertexes.back().pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
+        Vertex v;
+        v.pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
         if (mesh->HasTextureCoords(0)) {
-            vertexes.back().uv = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
+            v.uv = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
         }
         if (mesh->HasNormals()) {
-            vertexes.back().normal = { mesh->mNormals->x, mesh->mNormals->y, mesh->mNormals->z };
+            v.normal = { mesh->mNormals->x, mesh->mNormals->y, mesh->mNormals->z };
         }
+        vertexes.push_back(std::move(v));
     }
     // extract indices
     indexes.reserve(mesh->mNumFaces);

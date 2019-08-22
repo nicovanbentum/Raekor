@@ -293,7 +293,7 @@ void Application::run() {
         }
 
         // toggle button for openGl vsync
-        static bool use_vsync = true;
+        static bool use_vsync = false;
         if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
             use_vsync = !use_vsync;
         }
