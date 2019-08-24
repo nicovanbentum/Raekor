@@ -12,6 +12,11 @@
 #include "scene.h"
 #include "timer.h"
 
+// TODO: sort this out, consider changing the entire resource buffer API
+#ifdef _WIN32
+#include "DXResourceBuffer.h"
+#endif
+
 namespace Raekor {
 
 void Application::serialize_settings(const std::string& filepath, bool write) {
