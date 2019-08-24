@@ -5,7 +5,7 @@
 ### Windows
 Use the supplied Visual Studio Project, binaries for SDL2 and Assimp are included.
 
-### Linux (tested on Ubuntu 19.04) (**won't build, blame Assimp**)
+### Linux (tested on Ubuntu 19.04)
 **Install SDL2**
 
 enter `sudo apt-get install libsdl2-2.0` in a terminal.
