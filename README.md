@@ -16,6 +16,8 @@ Open a terminal and `cd` to `Raekor/dependencies/Assimp/`, do `cmake ./` then `m
 
 Run the application using `make run`.
 
+>*Tested on Ubuntu 19.04*
+
 ### Render APIs
 Supports both OpenGL and DirectX 11. At any point in time, one's development might be behind on the other.
 
