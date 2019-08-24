@@ -11,8 +11,8 @@ public:
     double elapsed_ms();
 
 private:
-#ifdef _WIN32
     bool running = false;
+#ifdef _WIN32
     std::chrono::time_point<std::chrono::steady_clock> start_time;
     std::chrono::time_point<std::chrono::steady_clock> stop_time;
 #else 

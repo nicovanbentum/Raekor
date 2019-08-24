@@ -36,8 +36,12 @@
     #include <GL/gl.h>
     #include <gtk/gtk.h>
     
+    
 #endif
 
+// SDL includes
+#include "SDL.h"
+#undef main //stupid sdl_main
 
 // imgui headers to build once
 #include "imconfig.h"
@@ -62,9 +66,6 @@
 #include "gtx/string_cast.hpp"
 #include "gtc/type_ptr.hpp"
 
-// SDL includes
-#include "SDL.h"
-#undef main //stupid sdl_main
 
 // c++ includes
 #include <map>

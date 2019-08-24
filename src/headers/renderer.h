@@ -17,7 +17,7 @@ public:
 
     // functions for getting and setting the active render API
     inline static RenderAPI get_activeAPI() { return activeAPI; }
-    inline static void set_activeAPI(const RenderAPI new_active) { activeAPI = new_active; }
+    static bool set_activeAPI(const RenderAPI new_active);
 
     // ImGui specific render API methods
     virtual void ImGui_Render()                                             = 0;

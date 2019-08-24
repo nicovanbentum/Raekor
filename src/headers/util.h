@@ -9,9 +9,12 @@
     #define m_assert(expr, msg) (void)(expr)
 #endif
 
+
 // alias for Microsoft's com pointers
+#ifdef _WIN32
 template<typename T>
 using com_ptr = Microsoft::WRL::ComPtr<T>;
+#endif
 
 namespace Raekor {
 

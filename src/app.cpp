@@ -9,7 +9,6 @@
 #include "PlatformContext.h"
 #include "renderer.h"
 #include "buffer.h"
-#include "DXResourceBuffer.h"
 #include "scene.h"
 #include "timer.h"
 
@@ -277,17 +276,13 @@ void Application::run() {
 
         static bool reset = false;
         if (ImGui::RadioButton("OpenGL", Renderer::get_activeAPI() == RenderAPI::OPENGL)) {
-            // check if the active api is not already openGL
-            if (Renderer::get_activeAPI() != RenderAPI::OPENGL) {
-                Renderer::set_activeAPI(RenderAPI::OPENGL);
+            if(Renderer::set_activeAPI(RenderAPI::DIRECTX11)) {
                 reset = true;
             }
         }
         ImGui::SameLine();
         if (ImGui::RadioButton("DirectX 11", Renderer::get_activeAPI() == RenderAPI::DIRECTX11)) {
-            // check if the active api is not already directx
-            if (Renderer::get_activeAPI() != RenderAPI::DIRECTX11) {
-                Renderer::set_activeAPI(RenderAPI::DIRECTX11);
+            if(Renderer::set_activeAPI(RenderAPI::DIRECTX11)) {
                 reset = true;
             }
         }
@@ -325,12 +320,14 @@ void Application::run() {
         
         auto image_data = dxfb->ImGui_data();
         auto fsize = dxfb->get_size();
-        if (Renderer::get_activeAPI() == RenderAPI::DIRECTX11) {
-            ImGui::Image((ID3D11ShaderResourceView*)image_data, ImVec2(fsize.x, fsize.y));
-        }
-        else if (Renderer::get_activeAPI() == RenderAPI::OPENGL) {
+        if (Renderer::get_activeAPI() == RenderAPI::OPENGL) {
             ImGui::Image(image_data, ImVec2(fsize.x, fsize.y), { 0,1 }, { 1,0 });
         }
+#ifdef _WIN32
+        else if (Renderer::get_activeAPI() == RenderAPI::DIRECTX11) {
+            ImGui::Image((ID3D11ShaderResourceView*)image_data, ImVec2(fsize.x, fsize.y));
+        }
+#endif
         ImGui::End();
         ImGui::PopStyleVar();
 
@@ -342,7 +339,6 @@ void Application::run() {
         if (reset) {
             reset = false;
             dxr.reset(Renderer::construct(directxwindow));
-            model.reset(new Model("resources/models/testcube.obj", "resources/textures/test.png"));
             dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
             dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
             dxrb.reset(ResourceBuffer<cb_vs>::construct());

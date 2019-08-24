@@ -4,7 +4,7 @@
 
 namespace Raekor {
 
-std::string PlatformContext::open_file_dialog(const std::vector<std::string>& filters) {
+std::string PlatformContext::open_file_dialog(const std::vector<Ffilter>& filters) {
     //init gtk
     m_assert(gtk_init_check(NULL, NULL), "failed to init gtk");
     // allocate a new dialog window
@@ -18,8 +18,17 @@ std::string PlatformContext::open_file_dialog(const std::vector<std::string>& fi
 
     for (auto& filter : filters) {
         auto gtk_filter = gtk_file_filter_new();
-        gtk_file_filter_set_name(gtk_filter, filter.c_str());
-        gtk_file_filter_add_pattern(gtk_filter, std::string("*" + filter).c_str());
+        gtk_file_filter_set_name(gtk_filter, filter.name.c_str());
+
+        std::vector<std::string> patterns;
+        std::string extensions = filter.extensions;
+        for(size_t pos = extensions.find(";"); pos != std::string::npos; pos = extensions.find(";")) {
+            patterns.push_back(extensions.substr(0, pos));
+            extensions.erase(0, pos + 1);
+        }
+        for(auto& pattern : patterns) {
+            gtk_file_filter_add_pattern(gtk_filter, pattern.c_str());
+        }
         gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), gtk_filter);
     }
 

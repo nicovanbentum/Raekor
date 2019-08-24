@@ -32,9 +32,11 @@ public:
             case RenderAPI::OPENGL: {
                 return new GLResourceBuffer<T>;
                 } break;
+#ifdef _WIN32
             case RenderAPI::DIRECTX11: {
                 return new DXResourceBuffer<T>;
             } break;
+#endif
         }
         return nullptr;
     }

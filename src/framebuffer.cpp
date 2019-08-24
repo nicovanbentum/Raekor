@@ -15,9 +15,11 @@ FrameBuffer* FrameBuffer::construct(const glm::vec2& new_size) {
         case RenderAPI::OPENGL: {
             return new GLFrameBuffer(new_size);
         } break;
+#ifdef _WIN32
         case RenderAPI::DIRECTX11: {
             return new DXFrameBuffer(new_size);
         } break;
+#endif
     }
     return nullptr;
 }

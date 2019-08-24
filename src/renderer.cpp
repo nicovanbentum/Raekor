@@ -13,7 +13,19 @@ static void log_msg(GLenum source, GLenum type, GLuint id, GLenum severity, GLsi
     }
 }
 
-// global enum for changing the active render API
+bool Renderer::set_activeAPI(const RenderAPI new_api) {
+#ifdef _WIN32
+    if(activeAPI != new_api) {
+        activeAPI = new_api;
+        return true;
+    }
+#endif
+// if we're not on windows we just never change API
+// TODO: subject to change if Vulkan is ever implemented
+    return false;
+}
+
+// global enum variable for changing the active render API
 RenderAPI Renderer::activeAPI = RenderAPI::OPENGL;
 
 Renderer* Renderer::construct(SDL_Window* window) {

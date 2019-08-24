@@ -13,12 +13,18 @@ NC=\033[0m
 INC=-isystem src/headers \
 -isystem dependencies/gl3w/include \
 -isystem dependencies/JSON/include \
--isystem dependencies/glm \
+-isystem dependencies/glm/glm \
 -isystem dependencies/imgui \
--isystem dependencies/SDL/include \
+-isystem dependencies/imgui/examples \
 -isystem dependencies/cereal/include \
 -isystem src/platform \
 -isystem dependencies/stb
+
+SDL_CFLAGS := $(shell sdl2-config --cflags)
+SDL_LDFLAGS := $(shell sdl2-config --libs)
+
+# this is to locate the assimp lib files
+export LD_LIBRARY_PATH=/usr/local/lib
 
 # compilation calls and flags
 CL=g++ -c
@@ -26,7 +32,7 @@ CL_FLAGS=`pkg-config gtk+-2.0 --cflags --libs` -std=c++17
 
 # linking compiler calls and flags
 LINK=g++
-LINK_FLAGS=-ldl -lm -lSDL2 -lSDL2main `pkg-config gtk+-2.0 --cflags --libs`
+LINK_FLAGS=-ldl -lm -lassimp `pkg-config gtk+-2.0 --cflags --libs`
 
 #program name and source files
 EXE=GE
@@ -35,8 +41,10 @@ MAKE_DIR= mkdir -p $(OUT_DIR)
 DEL_DIR= rm -r -f $(OUT_DIR)
 
 # Library headers, cpp and o files
-IMGUI_H := $(wildcard dependencies/imgui/*.h)
-IMGUI_C := $(wildcard dependencies/imgui/*.cpp)
+IMGUI_H := $(wildcard dependencies/imgui/*.h) dependencies/imgui/examples/imgui_impl_opengl3.h \
+dependencies/imgui/examples/imgui_impl_sdl.h
+IMGUI_C := $(wildcard dependencies/imgui/*.cpp) dependencies/imgui/examples/imgui_impl_opengl3.cpp \
+dependencies/imgui/examples/imgui_impl_sdl.cpp
 IMGUI_O := $(IMGUI_C:.cpp=.o)
 
 GL3W_H := $(wildcard dependencies/gl3w/include/GL/*.h)
@@ -64,13 +72,13 @@ run:
 	./$(addprefix $(OUT_DIR), $(EXE))
 
 $(EXE): $(OBJS)
-	   $(LINK) -o $(addprefix $(OUT_DIR), $(EXE)) $^ $(LINK_FLAGS)
+	   $(LINK) -o $(addprefix $(OUT_DIR), $(EXE)) $^ $(LINK_FLAGS) $(SDL_LDFLAGS)
 
 #determines the directories to scan for prerequisites
 VPATH= $(sort $(dir $(SOURCES)))
 
 $(OUT_DIR)%.o: %.cpp
-		$(CL) $(CL_FLAGS) $(INC) $< -o $@
+		$(CL) $(CL_FLAGS) $(SDL_CFLAGS) $(INC) $< -o $@ 
 
 $(OUT_DIR)gl3w.o: $(GL3W_C) $(GL3W_H)
 		$(CL) $(CL_FLAGS) $(INC) $(GL3W_C) -o $(GL3W_O)
