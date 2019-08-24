@@ -2,12 +2,21 @@
 
 ![image](https://i.imgur.com/nXhVK2H.png)
 
-### Windows
-Use the supplied Visual Studio Project.
+# How to build
 
-### Linux (tested on Ubuntu 19.04) (**won't build, blame Assimp**)
-Use the supplied Makefile. `cd` to the Raekor directory and enter `make rebuild` followed by `make run`.
-Requires **SDL2** to be installed by entering `sudo apt-get install libsdl2-2.0` in a terminal.
+### Windows
+Use the supplied Visual Studio Project, binaries for SDL2 and Assimp are included.
+
+### Linux
+enter `sudo apt-get install libsdl2-2.0` in a terminal.
+
+Open a terminal and `cd` to `Raekor/dependencies/Assimp/`, do `cmake ./` then `make` then `sudo make install`.
+
+`cd` to the Raekor directory and do `make rebuild`.
+
+Run the application using `make run`.
+
+>*Tested on Ubuntu 19.04*
 
 ### Render APIs
 Supports both OpenGL and DirectX 11. At any point in time, one's development might be behind on the other.
