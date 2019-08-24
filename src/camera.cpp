@@ -24,10 +24,6 @@ void Camera::update() {
     mvp = projection * view * glm::mat4(1.0f);
 }
 
-void Camera::remove_translation() {
-    view = glm::mat4(glm::mat3(view));
-}
-
 glm::vec3 Camera::get_direction() {
     return glm::vec3(cos(angle.y) * sin(angle.x), 
     sin(angle.y), cos(angle.y) * cos(angle.x));
@@ -36,6 +32,9 @@ glm::vec3 Camera::get_direction() {
 void Camera::look(int x, int y) {
     angle.x += look_speed * (x * -1);
     angle.y += look_speed * (y * -1);
+    if (angle.y > 1.5f) {
+        angle.y = 1.5f;
+    }
 }
 
 void Camera::move_on_input(float amount) {
@@ -43,9 +42,10 @@ void Camera::move_on_input(float amount) {
     const uint8_t* keyboard = SDL_GetKeyboardState(NULL);
     if (keyboard[SDL_SCANCODE_W]) {
         position += dir * amount;
-        } else if (keyboard[SDL_SCANCODE_S]) {
+    } 
+    else if (keyboard[SDL_SCANCODE_S]) {
             position -= dir * amount;
-        }
+    }
 }
 
 }

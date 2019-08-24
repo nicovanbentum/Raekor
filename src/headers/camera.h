@@ -11,7 +11,6 @@ public:
     void look(int x, int y);
     void update();
     glm::vec3 get_direction();
-    void remove_translation();
     void move_on_input(float amount);
     void update(const glm::mat4& model);
     inline bool is_mouse_active() { return mouse_active; }
