@@ -289,6 +289,11 @@ void Application::run() {
         }
         ImGui::End();
 
+        ImGui::Begin("Camera Properties");
+        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f)) {}
+        if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
+        ImGui::End();
+
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
         if (!scene.empty() && active_model != scene.end() && active_model->second) {
@@ -302,10 +307,6 @@ void Application::run() {
             if (ImGui::Button("Reset")) {
                 active_model->second.reset_transform();
             }
-            
-            ImGui::Text("Camera Properties");
-            if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f)) {}
-            if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
             ImGui::End();
 
         }

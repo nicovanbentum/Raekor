@@ -15,7 +15,6 @@ std::string to_string(ShaderType type) {
     }
 }
 
-
 // Filthy hack because I don't feel like implementing an entire pipeline using PSO's right now
 ID3D10Blob* fake_shader_bytecode(const InputLayout& layout) {
     // open a filestream to a hardcoded named hlsl file 

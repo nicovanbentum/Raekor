@@ -10,3 +10,4 @@ x64/Linux/GE
 imgui.ini
 resources/models/
 resources/textures/
+fake.hlsl

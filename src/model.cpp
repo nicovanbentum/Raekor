@@ -89,7 +89,7 @@ void Model::render() const {
 }
 
 Model::operator bool() const {
-    return !meshes.empty() && !textures.empty();
+    return !meshes.empty();
 }
 
 void Model::reset_transform() {
