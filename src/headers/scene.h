@@ -9,8 +9,6 @@ public:
     Scene() {}
 
     void add(const std::string& name);
-    void set_mesh(const std::string& name, const std::string& path);
-    void set_texture(const std::string& name, const std::string& path);
     void remove(const std::string& name);
     void rebuild();
 

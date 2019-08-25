@@ -33,6 +33,22 @@ protected:
     static RenderAPI activeAPI;
 };
 
+class Render {
+public:
+    inline static void Init(SDL_Window* window) { renderer.reset(Renderer::construct(window)); }
+    inline static void Reset(SDL_Window* window) { renderer.reset(Renderer::construct(window)); }
+    inline static void Clear(glm::vec4 color) { renderer->Clear(color); }
+
+    inline static void ImGui_Render() { renderer->ImGui_Render(); }
+    inline static void ImGui_NewFrame(SDL_Window* window) { renderer->ImGui_NewFrame(window); }
+
+    inline static void DrawIndexed(unsigned int size, bool depth_test = true) { renderer->DrawIndexed(size, depth_test); }
+    inline static void SwapBuffers(bool vsync) { renderer->SwapBuffers(vsync); }
+
+private:
+    static std::unique_ptr<Renderer> renderer;
+};
+
 class GLRenderer : public Renderer {
 public:
     GLRenderer(SDL_Window* window);

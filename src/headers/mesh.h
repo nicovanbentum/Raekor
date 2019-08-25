@@ -7,21 +7,67 @@ namespace Raekor {
 
 class Mesh {
 public:
-    Mesh(const std::string& filepath);
+    Mesh() {}
+    Mesh(Mesh&& rhs);
 
-    inline std::string get_mesh_path() { return mesh_path; }
-    const VertexBuffer* get_vertex_buffer() const { return vb.get(); }
-    const IndexBuffer* get_index_buffer() const { return ib.get(); }
+    Mesh(const Mesh& rhs) = delete;
+
+    void set_vertex_buffer(const std::vector<Vertex>& buffer);
+    void set_index_buffer(const std::vector<Index>& buffer);
+
+    const VertexBuffer* const get_vertex_buffer() const { return vb.get(); }
+    const IndexBuffer* const get_index_buffer() const { return ib.get(); }
+    
+    inline std::string& get_name() { return name; }
 
     void bind() const;
-    void load_data();
 
 private:
-    std::string mesh_path;
-    std::vector<Vertex> vertexes;
-    std::vector<Index> indexes;
+    std::string name;
     std::unique_ptr<VertexBuffer> vb;
     std::unique_ptr<IndexBuffer> ib;
+};
+
+// static basic shape data, very ugly pls look away
+
+// cube without UV's
+static constexpr Vertex cube[] = {
+    {{-1.0f,-1.0f,-1.0f}},
+    {{-1.0f,-1.0f, 1.0f}},
+    {{-1.0f, 1.0f, 1.0f}},
+    {{1.0f, 1.0f,-1.0f}},
+    {{-1.0f,-1.0f,-1.0f}},
+    {{-1.0f, 1.0f,-1.0f}},
+    {{1.0f,-1.0f, 1.0f}},
+    {{-1.0f,-1.0f,-1.0f}},
+    {{1.0f,-1.0f,-1.0f}},
+    {{1.0f, 1.0f,-1.0f}},
+    {{1.0f,-1.0f,-1.0f}},
+    {{-1.0f,-1.0f,-1.0f}},
+    {{-1.0f,-1.0f,-1.0f}},
+    {{-1.0f, 1.0f, 1.0f}},
+    {{-1.0f, 1.0f,-1.0f}},
+    {{1.0f,-1.0f, 1.0f}},
+    {{-1.0f,-1.0f, 1.0f}},
+    {{-1.0f,-1.0f,-1.0f}},
+    {{-1.0f, 1.0f, 1.0f}},
+    {{-1.0f,-1.0f, 1.0f}},
+    {{1.0f,-1.0f, 1.0f}},
+    {{1.0f, 1.0f, 1.0f}},
+    {{1.0f,-1.0f,-1.0f}},
+    {{1.0f, 1.0f,-1.0f}},
+    {{1.0f,-1.0f,-1.0f}},
+    {{1.0f, 1.0f, 1.0f}},
+    {{1.0f,-1.0f, 1.0f}},
+    {{1.0f, 1.0f, 1.0f}},
+    {{1.0f, 1.0f,-1.0f}},
+    {{-1.0f, 1.0f,-1.0f}},
+    {{1.0f, 1.0f, 1.0f}},
+    {{-1.0f, 1.0f,-1.0f}},
+    {{-1.0f, 1.0f, 1.0f}},
+    {{1.0f, 1.0f, 1.0f}},
+    {{-1.0f, 1.0f, 1.0f}},
+    {{1.0f,-1.0f, 1.0f}}
 };
 
 }

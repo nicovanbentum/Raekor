@@ -20,13 +20,14 @@ bool Renderer::set_activeAPI(const RenderAPI new_api) {
         return true;
     }
 #endif
-// if we're not on windows we just never change API
+// if we're not on linux we just never change API
 // TODO: subject to change if Vulkan is ever implemented
     return false;
 }
 
 // global enum variable for changing the active render API
 RenderAPI Renderer::activeAPI = RenderAPI::OPENGL;
+std::unique_ptr<Renderer> Render::renderer;
 
 Renderer* Renderer::construct(SDL_Window* window) {
     switch (activeAPI) {

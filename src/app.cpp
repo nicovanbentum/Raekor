@@ -62,9 +62,9 @@ void Application::run() {
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
+
     // create the renderer object that does sets up the API and does all the runtime magic
-    std::unique_ptr<Renderer> dxr;
-    dxr.reset(Renderer::construct(directxwindow));
+    Render::Init(directxwindow);
 
     // create a Camera we can use to move around our scene
     Camera camera(glm::vec3(0, 0, 5), 45.0f);
@@ -85,12 +85,11 @@ void Application::run() {
     ft_texture.name = "Supported Image Files";
     ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
-    model.reset(new Model("resources/models/testcube.obj", "resources/textures/test.png"));
     dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
     dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
     dxrb.reset(ResourceBuffer<cb_vs>::construct());
     sky_image.reset(Texture::construct(skyboxes["night"]));
-    skycube.reset(new Mesh("resources/models/testcube.obj"));
+    //skycube.reset(new Mesh("resources/models/testcube.obj"));
     sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
 
     Scene scene;
@@ -116,9 +115,9 @@ void Application::run() {
         //handle sdl and imgui events
         handle_sdl_gui_events({ directxwindow }, camera);
 
-        dxr->Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
+        Render::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
         dxfb->bind();
-        dxr->Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
+        Render::Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
         bool transpose = Renderer::get_activeAPI() == RenderAPI::DIRECTX11 ? true : false;
 
         // bind the shader
@@ -132,32 +131,29 @@ void Application::run() {
         // bind the skybox cubemap
         sky_image->bind();
         // bind the skycube mesh
-        skycube->bind();
+        //skycube->bind();
         // draw the indexed vertices
-        dxr->DrawIndexed(skycube->get_index_buffer()->get_count(), false);
+        //dxr->DrawIndexed(skycube->get_index_buffer()->get_count(), false);
 
         // bind the model's shader
         dx_shader->bind();
         // add rotation to the cube so somethings animated
-        auto cube_rotation = model->rotation_ptr();
-        *cube_rotation += 0.01f;
         for (auto& m : scene) {
             Model& model = m.second;
             // if the model does not have a mesh set, continue
-            if (!model.get_mesh()) continue;
+            if (!model) continue;
             model.recalc_transform();
             camera.update(model.get_transform());
             dxrb->get_data().MVP = camera.get_mvp(transpose);
             dxrb->bind(0);
-            model.bind();
-            dxr->DrawIndexed(model.get_mesh()->get_index_buffer()->get_count());
+            model.render();
         }
 
         // unbind the framebuffer which switches to application's backbuffer
         dxfb->unbind();
 
         //get new frame for render API, sdl and imgui
-        dxr->ImGui_NewFrame(directxwindow);
+        Render::ImGui_NewFrame(directxwindow);
 
         static bool opt_fullscreen_persistant = true;
         bool opt_fullscreen = opt_fullscreen_persistant;
@@ -244,20 +240,12 @@ void Application::run() {
                 active_model = scene.end();
             }
         }
-        if (ImGui::Button("Load Mesh")) {
+        if (ImGui::Button("Load Model")) {
             if (active_model != scene.end()) {
                 std::string path = context.open_file_dialog({ ft_mesh });
                 if (!path.empty()) {
-                    active_model->second.set_mesh(path);
-                }
-            }
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Load texture")) {
-            if (active_model != scene.end()) {
-                std::string path = context.open_file_dialog({ ft_texture });
-                if (!path.empty()) {
-                    active_model->second.set_texture(path);
+                    active_model->second.set_path(path);
+                    active_model->second.load_from_disk();
                 }
             }
         }
@@ -281,7 +269,7 @@ void Application::run() {
 
         static bool reset = false;
         if (ImGui::RadioButton("OpenGL", Renderer::get_activeAPI() == RenderAPI::OPENGL)) {
-            if(Renderer::set_activeAPI(RenderAPI::DIRECTX11)) {
+            if(Renderer::set_activeAPI(RenderAPI::OPENGL)) {
                 reset = true;
             }
         }
@@ -338,17 +326,18 @@ void Application::run() {
 
 
         ImGui::End();
-        dxr->ImGui_Render();
-        dxr->SwapBuffers(use_vsync);
+        Render::ImGui_Render();
+        Render::SwapBuffers(use_vsync);
 
         if (reset) {
             reset = false;
-            dxr.reset(Renderer::construct(directxwindow));
+            // TODO: figure this out
+            Render::Reset(directxwindow);
             dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
             dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
             dxrb.reset(ResourceBuffer<cb_vs>::construct());
             sky_image.reset(Texture::construct(skyboxes["lake"]));
-            skycube.reset(new Mesh("resources/models/testcube.obj"));
+            //skycube.reset(new Mesh("resources/models/testcube.obj"));
             sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
             scene.rebuild();
         }

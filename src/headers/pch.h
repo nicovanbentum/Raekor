@@ -11,6 +11,7 @@
     #include <SDL_syswm.h>
     #include <wrl.h>
     #include <d3dcompiler.h>
+    #include <ShObjIdl_core.h>
 
     // include DirectXTK
     #include "CommonStates.h"

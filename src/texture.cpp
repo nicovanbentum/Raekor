@@ -10,6 +10,7 @@
 namespace Raekor {
 
 Texture* Texture::construct(const std::string& path) {
+    if (path.empty()) return nullptr;
     auto active_api = Renderer::get_activeAPI();
     switch (active_api) {
         case RenderAPI::OPENGL: {
@@ -46,14 +47,14 @@ GLTexture::GLTexture(const std::string& path)
     stbi_set_flip_vertically_on_load(true);
     
     int w, h, ch;
-    auto image = stbi_load(path.c_str(), &w, &h, &ch, 3);
+    auto image = stbi_load(path.c_str(), &w, &h, &ch, 4);
     m_assert(image, "failed to load image");
 
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 
-                        0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 
+                        0, GL_RGBA, GL_UNSIGNED_BYTE, image);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glGenerateMipmap(GL_TEXTURE_2D);
