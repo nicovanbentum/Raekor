@@ -62,7 +62,6 @@ void Application::run() {
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
-
     // create the renderer object that does sets up the API and does all the runtime magic
     Render::Init(directxwindow);
 
@@ -110,10 +109,13 @@ void Application::run() {
     }
     bool running = true;
 
+    Timer dt_timer;
+    double dt = 0;
     //main application loop
     while(running) {
+        dt_timer.start();
         //handle sdl and imgui events
-        handle_sdl_gui_events({ directxwindow }, camera);
+        handle_sdl_gui_events({ directxwindow }, camera, dt);
 
         Render::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
         dxfb->bind();
@@ -198,7 +200,7 @@ void Application::run() {
                     //clean up SDL
                     SDL_DestroyWindow(directxwindow);
                     SDL_Quit();
-                    exit(0);
+                    return;
                 }
                 ImGui::EndMenu();
             }
@@ -292,35 +294,29 @@ void Application::run() {
         if (!scene.empty() && active_model != scene.end() && active_model->second) {
             ImGui::Begin("Model Properties");
 
-            if (ImGui::DragFloat3("Scale", active_model->second.scale_ptr(), 0.01f, 0.0f, 10.0f)) {
-            }
-            if (ImGui::DragFloat3("Position", active_model->second.pos_ptr(), 0.01f, -100.0f, 100.0f)) {
-            }
-            if (ImGui::DragFloat3("Rotation", active_model->second.rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {
-            }
-
+            if (ImGui::DragFloat3("Scale", active_model->second.scale_ptr(), 0.01f, 0.0f, 10.0f)) {}
+            if (ImGui::DragFloat3("Position", active_model->second.pos_ptr(), 0.01f, -100.0f, 100.0f)) {}
+            if (ImGui::DragFloat3("Rotation", active_model->second.rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {}
+            
             // resets the model's transformation
             if (ImGui::Button("Reset")) {
                 active_model->second.reset_transform();
             }
+            
+            ImGui::Text("Camera Properties");
+            if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f)) {}
+            if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
             ImGui::End();
+
         }
         // renderer viewport
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+        // resize the frame buffer to the content region available
         auto region_avail = ImGui::GetContentRegionAvail();
         dxfb->resize({ region_avail.x, region_avail.y });
-        
-        auto image_data = dxfb->ImGui_data();
-        auto fsize = dxfb->get_size();
-        if (Renderer::get_activeAPI() == RenderAPI::OPENGL) {
-            ImGui::Image(image_data, ImVec2(fsize.x, fsize.y), { 0,1 }, { 1,0 });
-        }
-#ifdef _WIN32
-        else if (Renderer::get_activeAPI() == RenderAPI::DIRECTX11) {
-            ImGui::Image((ID3D11ShaderResourceView*)image_data, ImVec2(fsize.x, fsize.y));
-        }
-#endif
+        // function that calls an ImGui image with the framebuffer's color stencil data
+        dxfb->ImGui_Image();
         ImGui::End();
         ImGui::PopStyleVar();
 
@@ -328,6 +324,8 @@ void Application::run() {
         ImGui::End();
         Render::ImGui_Render();
         Render::SwapBuffers(use_vsync);
+        dt_timer.stop();
+        dt = dt_timer.elapsed_ms();
 
         if (reset) {
             reset = false;

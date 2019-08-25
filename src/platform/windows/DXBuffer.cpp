@@ -15,32 +15,36 @@ std::string to_string(ShaderType type) {
     }
 }
 
+
 // Filthy hack because I don't feel like implementing an entire pipeline using PSO's right now
-const com_ptr<ID3D10Blob> fake_shader_bytecode(const InputLayout& layout) {
+ID3D10Blob* fake_shader_bytecode(const InputLayout& layout) {
     // open a filestream to a hardcoded named hlsl file 
     // We generate a struct in the shader based on the input layout
-    std::ofstream file;
-    file.open("fake.hlsl");
-    file << "struct VS_INPUT { \n";
-    char var_name = 'a';
-    for (auto& element : layout) {
-        auto line = std::string('\t' + to_string(element.type) + " " + var_name + " : " + element.name + ';');
-        file << line << std::endl;
-        var_name++;
+    {
+        std::ofstream file;
+        file.open("fake.hlsl");
+        file << "struct VS_INPUT { \n";
+        char var_name = 'a';
+        for (auto& element : layout) {
+            auto line = std::string('\t' + to_string(element.type) + " " + var_name + " : " + element.name + ';');
+            file << line << std::endl;
+            var_name++;
+        }
+        file << "};" << std::endl << std::endl;
+        file << "void main(VS_INPUT input) {}" << std::endl;
     }
-    file << "};" << std::endl << std::endl;
-    file << "void main(VS_INPUT input) {}" << std::endl;
-    file.close();
 
     // compile the fake hlsl file we just generated
-    com_ptr<ID3D10Blob> shader_buffer = nullptr;
-    com_ptr<ID3D10Blob> error_buffer = nullptr;
-    auto hr = D3DCompileFromFile(L"fake.hlsl", NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main", "vs_5_0", NULL, 0, shader_buffer.GetAddressOf(), error_buffer.GetAddressOf());
+    ID3D10Blob* shader_buffer = nullptr;
+    ID3D10Blob* error_buffer = nullptr;
+    auto hr = D3DCompileFromFile(L"fake.hlsl", NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main", "vs_5_0", NULL, 0, &shader_buffer, &error_buffer);
     m_assert(SUCCEEDED(hr), "failed to compile fake shader");
-    
-    // cleanup
-    remove("fake.hlsl");
-
+#if 0
+    if (FAILED(hr) && error_buffer) {
+        const char* msg = (const char*)error_buffer->GetBufferPointer();
+        std::cout << msg << std::endl;
+    }
+#endif
     // return the buffer containing the bytecode
     return shader_buffer;
 }
@@ -81,7 +85,7 @@ void DXVertexBuffer::bind() const {
 }
 
 void DXVertexBuffer::set_layout(const InputLayout& layout) const {
-    // if the input layout has been created we can bind it
+    // if the input layout has been created we only have to bind it
     if (input_layout) {
         D3D.context->IASetInputLayout(input_layout.Get());
         return;
@@ -100,13 +104,16 @@ void DXVertexBuffer::set_layout(const InputLayout& layout) const {
          });
     }
 
-    auto shader = fake_shader_bytecode(layout);
+    ID3D10Blob* shader = fake_shader_bytecode(layout);
     auto hr = D3D.device->CreateInputLayout(attributes.data(), (UINT)layout.size(), shader->GetBufferPointer(), shader->GetBufferSize(), input_layout.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create input layout");
     shader->Release();
     D3D.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     D3D.context->RSSetState(D3D.rasterize_state.Get());
     D3D.context->IASetInputLayout(input_layout.Get());
+
+    // cleanup
+    shader->Release();
 }
 
 DXIndexBuffer::DXIndexBuffer(const std::vector<Index>& indices) {

@@ -14,7 +14,9 @@ void Scene::remove(const std::string& name) {
 
 void Scene::rebuild() {
     for (auto& it : models) {
-        it.second.load_from_disk();
+        if (it.second) {
+            it.second.load_from_disk();
+        }
     }
 }
 

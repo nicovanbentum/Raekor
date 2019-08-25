@@ -78,8 +78,8 @@ void GLFrameBuffer::unbind() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void* GLFrameBuffer::ImGui_data() const {
-    return (void*)static_cast<size_t>(render_texture_id);
+void GLFrameBuffer::ImGui_Image() const {
+    ImGui::Image((void*)fbo_id, ImVec2(size.x, size.y), { 0,1 }, { 1,0 });
 }
 
 

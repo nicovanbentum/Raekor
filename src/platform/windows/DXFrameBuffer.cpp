@@ -63,8 +63,8 @@ void DXFrameBuffer::unbind() const {
     D3D.context->OMSetRenderTargets(1, D3D.back_buffer.GetAddressOf(), NULL);
 }
 
-void* DXFrameBuffer::ImGui_data() const {
-    return (void*)(shader_view.Get());
+void DXFrameBuffer::ImGui_Image() const {
+    ImGui::Image(shader_view.Get(), ImVec2(size.x, size.y));
 }
 
 // TODO: figure this out

@@ -11,7 +11,6 @@
 namespace Raekor {
 
 Mesh::Mesh(Mesh&& rhs) {
-    std::cout << "mesh move constructor called" << std::endl;
     name = rhs.name;
     vb = std::move(rhs.vb);
     ib = std::move(rhs.ib);

@@ -6,7 +6,7 @@ namespace Raekor {
 Camera::Camera(glm::vec3 position, float fov) :
     position(position),
     angle(static_cast<float>(M_PI), 0.0f), 
-    FOV(fov), look_speed(0.0005f),
+    FOV(fov), look_speed(0.0005f), move_speed(0.1f),
     mouse_active(true) {
     projection = glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
 }
@@ -37,14 +37,14 @@ void Camera::look(int x, int y) {
     }
 }
 
-void Camera::move_on_input(float amount) {
+void Camera::move_on_input(double dt) {
     auto dir = get_direction();
     const uint8_t* keyboard = SDL_GetKeyboardState(NULL);
     if (keyboard[SDL_SCANCODE_W]) {
-        position += dir * amount;
+        position += dir * (float)(move_speed*dt);
     } 
     else if (keyboard[SDL_SCANCODE_S]) {
-            position -= dir * amount;
+            position -= dir * (float)(move_speed*dt);
     }
 }
 

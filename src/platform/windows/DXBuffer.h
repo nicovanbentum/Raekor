@@ -8,6 +8,7 @@ namespace Raekor {
 class DXVertexBuffer : public VertexBuffer {
 public:
     DXVertexBuffer(const std::vector<Vertex>& vertices);
+    ~DXVertexBuffer() { remove("fake.hlsl"); }
     virtual void bind() const override;
     virtual void set_layout(const InputLayout& layout) const override;
 
