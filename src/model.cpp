@@ -79,7 +79,9 @@ void Model::load_from_disk() {
 void Model::render() const {
     // TODO: right now we use the index to check if a mesh has a texture
     // maybe these two should be combined in a class or at least an std::pair?
-    for (unsigned int i = 0; i < meshes.size(); i++) {
+    // TODO: we draw the model backwards because this works for sponza's transparency
+    // depth order, we will have to do our own depth sorting in the future
+    for (int i = meshes.size()-1; i >= 0; i--) {
             meshes[i].bind();
             if (textures[i] != nullptr) {
                 textures[i]->bind();

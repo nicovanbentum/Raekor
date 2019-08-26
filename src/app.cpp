@@ -87,15 +87,15 @@ void Application::run() {
     dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
     dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
     dxrb.reset(ResourceBuffer<cb_vs>::construct());
-    sky_image.reset(Texture::construct(skyboxes["night"]));
-    //skycube.reset(new Mesh("resources/models/testcube.obj"));
+    sky_image.reset(Texture::construct(skyboxes["lake"]));
+    skycube.reset(new Mesh(Shape::Cube));
     sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
 
     Scene scene;
     Scene::iterator active_model = scene.end();
 
     // persistent imgui variable values
-    auto active_skybox = skyboxes.begin();
+    auto active_skybox = skyboxes.find("lake");
 
     SDL_SetWindowInputFocus(directxwindow);
 
@@ -133,9 +133,9 @@ void Application::run() {
         // bind the skybox cubemap
         sky_image->bind();
         // bind the skycube mesh
-        //skycube->bind();
+        skycube->bind();
         // draw the indexed vertices
-        //dxr->DrawIndexed(skycube->get_index_buffer()->get_count(), false);
+        Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
 
         // bind the model's shader
         dx_shader->bind();
@@ -290,7 +290,7 @@ void Application::run() {
         ImGui::End();
 
         ImGui::Begin("Camera Properties");
-        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f)) {}
+        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f, 0.1f, FLT_MAX, "%.2f")) {}
         if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
         ImGui::End();
 

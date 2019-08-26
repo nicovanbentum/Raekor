@@ -5,9 +5,13 @@
 
 namespace Raekor {
 
+enum class Shape {
+    None, Cube
+};
+
 class Mesh {
 public:
-    Mesh() {}
+    Mesh(Shape basic_shape = Shape::None);
     Mesh(Mesh&& rhs);
 
     Mesh(const Mesh& rhs) = delete;
@@ -26,48 +30,6 @@ private:
     std::string name;
     std::unique_ptr<VertexBuffer> vb;
     std::unique_ptr<IndexBuffer> ib;
-};
-
-// static basic shape data, very ugly pls look away
-
-// cube without UV's
-static constexpr Vertex cube[] = {
-    {{-1.0f,-1.0f,-1.0f}},
-    {{-1.0f,-1.0f, 1.0f}},
-    {{-1.0f, 1.0f, 1.0f}},
-    {{1.0f, 1.0f,-1.0f}},
-    {{-1.0f,-1.0f,-1.0f}},
-    {{-1.0f, 1.0f,-1.0f}},
-    {{1.0f,-1.0f, 1.0f}},
-    {{-1.0f,-1.0f,-1.0f}},
-    {{1.0f,-1.0f,-1.0f}},
-    {{1.0f, 1.0f,-1.0f}},
-    {{1.0f,-1.0f,-1.0f}},
-    {{-1.0f,-1.0f,-1.0f}},
-    {{-1.0f,-1.0f,-1.0f}},
-    {{-1.0f, 1.0f, 1.0f}},
-    {{-1.0f, 1.0f,-1.0f}},
-    {{1.0f,-1.0f, 1.0f}},
-    {{-1.0f,-1.0f, 1.0f}},
-    {{-1.0f,-1.0f,-1.0f}},
-    {{-1.0f, 1.0f, 1.0f}},
-    {{-1.0f,-1.0f, 1.0f}},
-    {{1.0f,-1.0f, 1.0f}},
-    {{1.0f, 1.0f, 1.0f}},
-    {{1.0f,-1.0f,-1.0f}},
-    {{1.0f, 1.0f,-1.0f}},
-    {{1.0f,-1.0f,-1.0f}},
-    {{1.0f, 1.0f, 1.0f}},
-    {{1.0f,-1.0f, 1.0f}},
-    {{1.0f, 1.0f, 1.0f}},
-    {{1.0f, 1.0f,-1.0f}},
-    {{-1.0f, 1.0f,-1.0f}},
-    {{1.0f, 1.0f, 1.0f}},
-    {{-1.0f, 1.0f,-1.0f}},
-    {{-1.0f, 1.0f, 1.0f}},
-    {{1.0f, 1.0f, 1.0f}},
-    {{-1.0f, 1.0f, 1.0f}},
-    {{1.0f,-1.0f, 1.0f}}
 };
 
 }
