@@ -11,7 +11,7 @@
 namespace Raekor {
 
 // cube without UV's
-std::vector<Vertex> v_cube = {
+static std::vector<Vertex> v_cube = {
     {{.5f, .5f, .5f}},  {{-.5f, .5f, .5f}},  {{-.5f,-.5f, .5f}},  {{.5f,-.5f, .5f}},
     {{.5f, .5f, .5f}},   {{.5f,-.5f, .5f}},   {{.5f,-.5f,-.5f}},  {{.5f, .5f,-.5f}},
     {{.5f, .5f, .5f}},   {{.5f, .5f,-.5f}},  {{-.5f, .5f,-.5f}}, {{-.5f, .5f, .5f}},
@@ -20,7 +20,7 @@ std::vector<Vertex> v_cube = {
     {{ .5f,-.5f,-.5f}},  {{-.5f,-.5f,-.5f}},  {{-.5f, .5f,-.5f}},  {{.5f, .5f,-.5f}}
 };
 
-std::vector<Index>  i_cube = {
+static std::vector<Index>  i_cube = {
     {0, 1, 2},   {2, 3, 0},
 {4, 5, 6},   {6, 7, 4},
 {8, 9,10},  {10,11, 8},
