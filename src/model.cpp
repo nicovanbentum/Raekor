@@ -64,7 +64,7 @@ void Model::load_from_disk() {
         // extract indices
         indices.reserve(ai_mesh->mNumFaces);
         for (size_t i = 0; i < indices.capacity(); i++) {
-            m_assert(ai_mesh->mFaces[i].mNumIndices == 3, "faces require 3 indices");
+            m_assert((ai_mesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
             indices.push_back({ ai_mesh->mFaces[i].mIndices[0], ai_mesh->mFaces[i].mIndices[1], ai_mesh->mFaces[i].mIndices[2] });
         }
 
@@ -81,7 +81,7 @@ void Model::render() const {
     // maybe these two should be combined in a class or at least an std::pair?
     // TODO: we draw the model backwards because this works for sponza's transparency
     // depth order, we will have to do our own depth sorting in the future
-    for (int i = meshes.size()-1; i >= 0; i--) {
+    for (int i = (int)meshes.size()-1; i >= 0; i--) {
             meshes[i].bind();
             if (textures[i] != nullptr) {
                 textures[i]->bind();

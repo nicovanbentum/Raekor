@@ -56,7 +56,7 @@ GLFrameBuffer::GLFrameBuffer(const glm::vec2& new_size) {
 
     // check if succesful
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        m_assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "failed to create frame buffer");
+        m_assert((glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE), "failed to create frame buffer");
     }
 
     // unbind the frame buffer for now
@@ -79,7 +79,7 @@ void GLFrameBuffer::unbind() const {
 }
 
 void GLFrameBuffer::ImGui_Image() const {
-    ImGui::Image((void*)fbo_id, ImVec2(size.x, size.y), { 0,1 }, { 1,0 });
+    ImGui::Image((void*)((intptr_t)fbo_id), ImVec2(size.x, size.y), { 0,1 }, { 1,0 });
 }
 
 

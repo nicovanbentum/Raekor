@@ -4,7 +4,7 @@
 
 // message assert macro
 #ifndef NDEBUG
-    #define m_assert(expr, msg) assert((msg, expr))
+    #define m_assert(expr, msg) if(!expr) std::cout << msg << std::endl; assert(expr);
 #else 
     #define m_assert(expr, msg) (void)(expr)
 #endif
