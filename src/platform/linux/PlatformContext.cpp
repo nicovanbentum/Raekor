@@ -22,7 +22,9 @@ std::string PlatformContext::open_file_dialog(const std::vector<Ffilter>& filter
 
         std::vector<std::string> patterns;
         std::string extensions = filter.extensions;
-        for(size_t pos = extensions.find(";"); pos != std::string::npos; pos = extensions.find(";")) {
+        size_t pos;
+        while(pos != std::string::npos) {
+            pos = extensions.find(";");
             patterns.push_back(extensions.substr(0, pos));
             extensions.erase(0, pos + 1);
         }
