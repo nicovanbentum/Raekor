@@ -80,7 +80,8 @@
     <PreBuildEvent>
       <Command>copy "$(SolutionDir)\dependencies\SDL\lib\x64\SDL2.dll" "$(TargetDir)"
 copy "$(SolutionDir)\config.json" "$(TargetDir)"
-copy "$(SolutionDir)\dependencies\assimp-build\assimp-vc141-mtd.dll" "$(TargetDir)"</Command>
+copy "$(SolutionDir)\dependencies\assimp-build\assimp-vc141-mtd.dll" "$(TargetDir)"
+copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\dependencies\assimp\include\assimp"</Command>
     </PreBuildEvent>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
@@ -115,7 +116,8 @@ copy "$(SolutionDir)\dependencies\assimp-build\assimp-vc141-mtd.dll" "$(TargetDi
       <Command>copy "$(SolutionDir)\dependencies\SDL\lib\x64\SDL2.dll" "$(TargetDir)"
 copy "$(SolutionDir)\config.json" "$(TargetDir)"
 copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"
-copy "$(SolutionDir)\dependencies\assimp-build\assimp-vc141-mt.dll" "$(TargetDir)"</Command>
+copy "$(SolutionDir)\dependencies\assimp-build\assimp-vc141-mt.dll" "$(TargetDir)"
+copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\dependencies\assimp\include\assimp"</Command>
     </PreBuildEvent>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
