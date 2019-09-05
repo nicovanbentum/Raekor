@@ -7,7 +7,6 @@ Release/
 .vscode/
 x64/Linux/GE
 .clang-format
-imgui.ini
 resources/models/
 resources/textures/
 fake.hlsl
