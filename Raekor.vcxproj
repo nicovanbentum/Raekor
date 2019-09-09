@@ -63,14 +63,15 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;C:\VulkanSDK\1.1.114.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mtd.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Debug;C:\VulkanSDK\1.1.114.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2.lib;vulkan-1.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mtd.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/NODEFAULTLIB:libcmt.lib;NODEFAULTLIB:libcmtd.lib;/NODEFAULTLIB:msvcrtd.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -97,7 +98,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;C:\VulkanSDK\1.1.114.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -105,8 +106,8 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mt.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Release;C:\VulkanSDK\1.1.114.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2.lib;vulkan-1.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mt.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>

@@ -62,6 +62,10 @@ void Application::run() {
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
+    uint32_t vk_extension_count = 0;
+    vkEnumerateInstanceExtensionProperties(nullptr, &vk_extension_count, nullptr);
+    std::cout << vk_extension_count << '\n';
+
     // create the renderer object that does sets up the API and does all the runtime magic
     Render::Init(directxwindow);
 
@@ -85,11 +89,11 @@ void Application::run() {
     ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
     dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
-    dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
-    dxrb.reset(ResourceBuffer<cb_vs>::construct());
-    sky_image.reset(Texture::construct(skyboxes["lake"]));
-    skycube.reset(new Mesh(Shape::Cube));
     sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
+    skycube.reset(new Mesh(Shape::Cube));
+    sky_image.reset(Texture::construct(skyboxes["lake"]));
+    dxrb.reset(ResourceBuffer<cb_vs>::construct());
+    dxfb.reset(FrameBuffer::construct({ displays[index].w * 0.80, displays[index].h * 0.80 }));
 
     Scene scene;
     Scene::iterator active_model = scene.end();
@@ -313,9 +317,6 @@ void Application::run() {
         // renderer viewport
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
-        // resize the frame buffer to the content region available
-        auto region_avail = ImGui::GetContentRegionAvail();
-        dxfb->resize({ region_avail.x, region_avail.y });
         // function that calls an ImGui image with the framebuffer's color stencil data
         dxfb->ImGui_Image();
         ImGui::End();
@@ -333,10 +334,10 @@ void Application::run() {
             // TODO: figure this out
             Render::Reset(directxwindow);
             dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
-            dxfb.reset(FrameBuffer::construct({ 1280, 720 }));
+            dxfb.reset(FrameBuffer::construct({ displays[index].w * 0.80, displays[index].h * 0.80 }));
             dxrb.reset(ResourceBuffer<cb_vs>::construct());
             sky_image.reset(Texture::construct(skyboxes["lake"]));
-            //skycube.reset(new Mesh("resources/models/testcube.obj"));
+            skycube.reset(new Mesh(Shape::Cube));
             sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
             scene.rebuild();
         }

@@ -71,7 +71,9 @@ void Model::load_from_disk() {
         mesh.set_vertex_buffer(vertices);
         mesh.set_index_buffer(indices);
         meshes.push_back(std::move(mesh));
-        textures.push_back(Texture::construct(texture_path));
+        std::shared_ptr<Texture> texture;
+        texture.reset(Texture::construct(texture_path));
+        textures.push_back(texture);
     }
 
 }

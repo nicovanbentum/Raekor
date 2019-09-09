@@ -40,6 +40,9 @@
     
 #endif
 
+// Vulkan includes
+#include "vulkan/vulkan.h"
+
 // SDL includes
 #include "SDL.h"
 #undef main //stupid sdl_main

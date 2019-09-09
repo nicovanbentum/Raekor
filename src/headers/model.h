@@ -36,7 +36,7 @@ protected:
 
     std::string path;
     std::vector<Mesh> meshes;
-    std::vector<Texture*> textures;
+    std::vector<std::shared_ptr<Texture>> textures;
 };
 
 } // Namespace Raekor

@@ -79,7 +79,7 @@ void GLFrameBuffer::unbind() const {
 }
 
 void GLFrameBuffer::ImGui_Image() const {
-    ImGui::Image((void*)((intptr_t)fbo_id), ImVec2(size.x, size.y), { 0,1 }, { 1,0 });
+    ImGui::Image((void*)((intptr_t)render_texture_id), ImVec2(size.x, size.y), { 0,1 }, { 1,0 });
 }
 
 
@@ -87,7 +87,8 @@ void GLFrameBuffer::resize(const glm::vec2& new_size) {
     size = new_size;
     // bind the render texture and reset its attributes
     glBindTexture(GL_TEXTURE_2D, render_texture_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (GLsizei)new_size.x, (GLsizei)new_size.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)new_size.x, (GLsizei)new_size.y, 0, GL_RGB, GL_FLOAT, NULL);
+
 
     // unbind the texture and (re-)attach it to the framebuffer
     glBindTexture(GL_TEXTURE_2D, 0);
