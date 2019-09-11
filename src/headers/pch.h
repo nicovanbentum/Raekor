@@ -80,6 +80,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <chrono>
+#include <optional>
 
 // header only Cereal library
 #include "cereal/archives/json.hpp"

@@ -70,6 +70,7 @@ void Model::load_from_disk() {
 
         mesh.set_vertex_buffer(vertices);
         mesh.set_index_buffer(indices);
+        mesh.set_name(ai_mesh->mName.C_Str());
         meshes.push_back(std::move(mesh));
         std::shared_ptr<Texture> texture;
         texture.reset(Texture::construct(texture_path));

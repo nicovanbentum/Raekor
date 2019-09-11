@@ -22,12 +22,14 @@ public:
     const VertexBuffer* const get_vertex_buffer() const { return vb.get(); }
     const IndexBuffer* const get_index_buffer() const { return ib.get(); }
     
-    inline std::string& get_name() { return name; }
+    inline const std::string& get_name() const { return name; }
+    inline void set_name(const std::string& new_name) { name = new_name; }
 
     void bind() const;
 
 private:
-    std::string name;
+    // TODO: we allow unnamed meshes, reconsider?
+    std::string name = "";
     std::unique_ptr<VertexBuffer> vb;
     std::unique_ptr<IndexBuffer> ib;
 };

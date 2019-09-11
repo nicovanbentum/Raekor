@@ -112,6 +112,7 @@ void Application::run() {
         io.FontDefault = io.Fonts->Fonts.back();
     }
     bool running = true;
+    static unsigned int selected_mesh = 0;
 
     Timer dt_timer;
     double dt = 0;
@@ -143,7 +144,6 @@ void Application::run() {
 
         // bind the model's shader
         dx_shader->bind();
-        // add rotation to the cube so somethings animated
         for (auto& m : scene) {
             Model& model = m.second;
             // if the model does not have a mesh set, continue
@@ -213,18 +213,29 @@ void Application::run() {
 
         // model panel
         ImGui::Begin("ECS");
-        auto tree_node_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick 
-            | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
+        auto tree_node_flags = ImGuiTreeNodeFlags_DefaultOpen;
         if (ImGui::TreeNodeEx("Models", tree_node_flags)) {
             ImGui::Columns(1, NULL, false);
             for (Scene::iterator it = scene.begin(); it != scene.end(); it++) {
                 bool selected = it == active_model;
                 std::string label = it->first;
-                if (ImGui::Selectable(label.c_str(), selected)) {
-                    active_model = it;
-                }
-                if (selected) {
-                    ImGui::SetItemDefaultFocus();
+                // draw a tree node for every model in the scene
+                if(ImGui::TreeNodeEx(label.c_str())) {
+                    // draw a selectable for every mesh in the scene
+                    for (unsigned int i = 0; i < it->second.mesh_count(); i++) {
+                        ImGui::PushID(i);
+                        if (it->second[i].has_value()) {
+                            bool selected = i == selected_mesh;
+                            if (ImGui::Selectable(it->second[i].value()->get_name().c_str(), selected)) {
+                                selected_mesh = i;
+                            }
+                        }
+                        if (selected) {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                        ImGui::PopID();
+                    }
+                    ImGui::TreePop();
                 }
             }
             ImGui::TreePop();
@@ -240,7 +251,7 @@ void Application::run() {
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Remove")) {
+        if (ImGui::Button("Remove Model")) {
             if (active_model != scene.end()) {
                 scene.remove(active_model->first);
                 active_model = scene.end();

@@ -22,11 +22,19 @@ public:
     inline float* scale_ptr() { return &scale.x; }
     inline float* pos_ptr() { return &position.x; }
     inline float* rotation_ptr() { return &rotation.x; }
+    inline unsigned int mesh_count() { return static_cast<unsigned int>(meshes.size()); }
 
     void render() const;
 
     // explicit to avoid implicit bool conversions
     explicit operator bool() const;
+
+    std::optional<const Mesh*> operator[](unsigned int index) {
+        if (index < meshes.size()) {
+            return &meshes[index];
+        }
+        return {};
+    }
 
 protected:
     glm::mat4 transform;
