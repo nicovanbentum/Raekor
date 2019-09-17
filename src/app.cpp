@@ -374,7 +374,7 @@ void Application::run() {
 
         // if our display setting is higher than the nr of displays we pick the default display
         auto index = display > displays.size() - 1 ? 0 : display;
-        auto directxwindow = SDL_CreateWindow(name.c_str(),
+        auto window = SDL_CreateWindow(name.c_str(),
             displays[index].x,
             displays[index].y,
             displays[index].w,
@@ -390,6 +390,41 @@ void Application::run() {
         vkEnumerateInstanceExtensionProperties(nullptr, &vk_extension_count, nullptr);
         std::cout << vk_extension_count << '\n';
 
+        VkApplicationInfo appInfo = {};
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.pApplicationName = "Hello Triangle";
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.pEngineName = "No Engine";
+        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.apiVersion = VK_API_VERSION_1_0;
+
+        VkInstanceCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createInfo.pApplicationInfo = &appInfo;
+
+        unsigned int count;
+        if (!SDL_Vulkan_GetInstanceExtensions(window, &count, nullptr)) {
+            std::cout << "failed to get instance extensions" << std::endl;
+        }
+
+        std::vector<const char*> extensions = {
+            VK_EXT_DEBUG_REPORT_EXTENSION_NAME // Sample additional extension
+        };
+        size_t additional_extension_count = extensions.size();
+        extensions.resize(additional_extension_count + count);
+
+        m_assert(SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data() + additional_extension_count), 
+            "failed to get vk extensions");
+
+        // Now we can make the Vulkan instance
+        VkInstanceCreateInfo create_info = {};
+        create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+        create_info.ppEnabledExtensionNames = extensions.data();
+
+        VkInstance instance;
+        VkResult result = vkCreateInstance(&create_info, nullptr, &instance);
+
+
         Scene scene;
         Scene::iterator active_model = scene.end();
 
@@ -398,7 +433,7 @@ void Application::run() {
         // persistent imgui variable values
         auto active_skybox = skyboxes.find("lake");
 
-        SDL_SetWindowInputFocus(directxwindow);
+        SDL_SetWindowInputFocus(window);
 
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -417,10 +452,9 @@ void Application::run() {
         while (running) {
             dt_timer.start();
             //handle sdl and imgui events
-            handle_sdl_gui_events({ directxwindow }, camera, dt);
+            handle_sdl_gui_events({ window }, camera, dt);
 
             
-            Render::SwapBuffers(false);
             dt_timer.stop();
             dt = dt_timer.elapsed_ms();
         }

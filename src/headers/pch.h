@@ -45,6 +45,7 @@
 
 // SDL includes
 #include "SDL.h"
+#include "SDL_vulkan.h"
 #undef main //stupid sdl_main
 
 // imgui headers to build once

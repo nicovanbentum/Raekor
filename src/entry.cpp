@@ -4,7 +4,7 @@
 int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
-    app.run();
+    app.vulkan_main();
     system("PAUSE");
     return 0;
 }
