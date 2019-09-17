@@ -354,4 +354,75 @@ void Application::run() {
         }
         }
     }
+
+    void Application::vulkan_main() {
+        auto context = Raekor::PlatformContext();
+
+        // retrieve the application settings from the config file
+        serialize_settings("config.json");
+
+        m_assert(SDL_Init(SDL_INIT_VIDEO) == 0, "failed to init sdl");
+
+        Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN |
+            SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
+
+        std::vector<SDL_Rect> displays;
+        for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
+            displays.push_back(SDL_Rect());
+            SDL_GetDisplayBounds(i, &displays.back());
+        }
+
+        // if our display setting is higher than the nr of displays we pick the default display
+        auto index = display > displays.size() - 1 ? 0 : display;
+        auto directxwindow = SDL_CreateWindow(name.c_str(),
+            displays[index].x,
+            displays[index].y,
+            displays[index].w,
+            displays[index].h,
+            wflags);
+
+        // initialize ImGui
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGui::StyleColorsDark();
+
+        uint32_t vk_extension_count = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr, &vk_extension_count, nullptr);
+        std::cout << vk_extension_count << '\n';
+
+        Scene scene;
+        Scene::iterator active_model = scene.end();
+
+        Camera camera(glm::vec3(0, 0, 5), 45.0f);
+
+        // persistent imgui variable values
+        auto active_skybox = skyboxes.find("lake");
+
+        SDL_SetWindowInputFocus(directxwindow);
+
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        io.ConfigWindowsMoveFromTitleBarOnly = true;
+        io.ConfigDockingWithShift = true;
+        ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 18.0f);
+        if (!io.Fonts->Fonts.empty()) {
+            io.FontDefault = io.Fonts->Fonts.back();
+        }
+        bool running = true;
+        static unsigned int selected_mesh = 0;
+
+        Timer dt_timer;
+        double dt = 0;
+        //main application loop
+        while (running) {
+            dt_timer.start();
+            //handle sdl and imgui events
+            handle_sdl_gui_events({ directxwindow }, camera, dt);
+
+            
+            Render::SwapBuffers(false);
+            dt_timer.stop();
+            dt = dt_timer.elapsed_ms();
+        }
+    }
 } // namespace Raekor

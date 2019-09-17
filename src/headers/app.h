@@ -10,6 +10,7 @@ public:
     Application() {}
 
     void run();
+    void vulkan_main();
 
     template<class C>
     void serialize(C& archive) {
