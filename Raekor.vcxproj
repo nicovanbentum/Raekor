@@ -186,6 +186,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     </ClCompile>
     <ClCompile Include="src\texture.cpp" />
     <ClCompile Include="src\timer.cpp" />
+    <ClCompile Include="src\vulkan.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\glm\glm.hpp" />
