@@ -308,39 +308,68 @@ void Application::vulkan_main() {
         imageCount = details.capabilities.maxImageCount;
     }
 
-    VkSwapchainCreateInfoKHR createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = vk_surface;
+    VkSwapchainCreateInfoKHR sc_info = {};
+    sc_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    sc_info.surface = vk_surface;
 
-    createInfo.minImageCount = imageCount;
-    createInfo.imageFormat = surface_format.format;
-    createInfo.imageColorSpace = surface_format.colorSpace;
-    createInfo.imageExtent = swap_extent;
-    createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    sc_info.minImageCount = imageCount;
+    sc_info.imageFormat = surface_format.format;
+    sc_info.imageColorSpace = surface_format.colorSpace;
+    sc_info.imageExtent = swap_extent;
+    sc_info.imageArrayLayers = 1;
+    sc_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     uint32_t queueFamilyIndices[] = { indices.graphics.value(), indices.present.value() };
 
     if (indices.graphics != indices.present) {
-        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        createInfo.queueFamilyIndexCount = 2;
-        createInfo.pQueueFamilyIndices = queueFamilyIndices;
+        sc_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        sc_info.queueFamilyIndexCount = 2;
+        sc_info.pQueueFamilyIndices = queueFamilyIndices;
     }
     else {
-        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        createInfo.queueFamilyIndexCount = 0; // Optional
-        createInfo.pQueueFamilyIndices = nullptr; // Optional
+        sc_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        sc_info.queueFamilyIndexCount = 0; // Optional
+        sc_info.pQueueFamilyIndices = nullptr; // Optional
     }
 
-    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    createInfo.preTransform = details.capabilities.currentTransform;
-    createInfo.presentMode = present_mode;
-    createInfo.clipped = VK_TRUE;
-    createInfo.oldSwapchain = VK_NULL_HANDLE;
+    sc_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    sc_info.preTransform = details.capabilities.currentTransform;
+    sc_info.presentMode = present_mode;
+    sc_info.clipped = VK_TRUE;
+    sc_info.oldSwapchain = VK_NULL_HANDLE;
 
     VkSwapchainKHR vk_swapchain;
-    result = vkCreateSwapchainKHR(vk_device, &createInfo, nullptr, &vk_swapchain);
+    result = vkCreateSwapchainKHR(vk_device, &sc_info, nullptr, &vk_swapchain);
     m_assert(result == VK_SUCCESS, "failed to create vulkan swap chain");
+
+    std::vector<VkImage> swapChainImages;
+    vkGetSwapchainImagesKHR(vk_device, vk_swapchain, &imageCount, nullptr);
+    swapChainImages.resize(imageCount);
+    vkGetSwapchainImagesKHR(vk_device, vk_swapchain, &imageCount, swapChainImages.data());
+    VkFormat swapChainImageFormat = surface_format.format;
+
+    std::vector<VkImageView> swapChainImageViews;
+    swapChainImageViews.resize(swapChainImages.size());
+
+    for (size_t i = 0; i < swapChainImages.size(); i++) {
+        VkImageViewCreateInfo iv_info = {};
+        iv_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        iv_info.image = swapChainImages[i];
+        iv_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        iv_info.format = swapChainImageFormat;
+        iv_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        iv_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        iv_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        iv_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        iv_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        iv_info.subresourceRange.baseMipLevel = 0;
+        iv_info.subresourceRange.levelCount = 1;
+        iv_info.subresourceRange.baseArrayLayer = 0;
+        iv_info.subresourceRange.layerCount = 1;
+
+        auto result = vkCreateImageView(vk_device, &iv_info, nullptr, &swapChainImageViews[i]);
+        m_assert(result == VK_SUCCESS, "failed to create image view");
+    }
 
     std::puts("job well done.");
 
@@ -366,6 +395,9 @@ void Application::vulkan_main() {
     vkDestroySurfaceKHR(instance, vk_surface, nullptr);
     vkDestroyInstance(instance, nullptr);
     vkDestroySwapchainKHR(vk_device, vk_swapchain, nullptr);
+    for (auto& imageview : swapChainImageViews) {
+        vkDestroyImageView(vk_device, imageview, nullptr);
+    }
 }
 
 } // namespace Raekor
