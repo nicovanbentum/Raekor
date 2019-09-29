@@ -41,6 +41,9 @@
 #endif
 
 // Vulkan includes
+#ifdef _WIN32
+    #define VK_USE_PLATFORM_WIN32_KHR
+#endif
 #include "vulkan/vulkan.h"
 
 // SDL includes
@@ -73,15 +76,16 @@
 
 
 // c++ includes
+#include <set>
 #include <map>
 #include <array>
+#include <chrono>
 #include <fstream>
 #include <sstream>
+#include <optional>
 #include <iostream>
 #include <algorithm>
 #include <unordered_map>
-#include <chrono>
-#include <optional>
 
 // header only Cereal library
 #include "cereal/archives/json.hpp"
