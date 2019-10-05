@@ -4,6 +4,7 @@
 #include "timer.h"
 #include "entry.h"
 #include "camera.h"
+#include "buffer.h"
 #include "PlatformContext.h"
 
 namespace Raekor {
@@ -430,13 +431,86 @@ void Application::vulkan_main() {
     // VULKAN VERTEX INPUT, TOPOLOGY, VIEWPORT, RASTERIZER
     //
 
+    const std::vector<Vertex> triangle = {
+        {{0.0f, -0.5f, 0.0f}, {}, {}},
+        {{0.5f, 0.5f, 0.0f}, {}, {}},
+        {{-0.5f, 0.5f, 0.0f}, {}, {}}
+    };
+
+    VkVertexInputBindingDescription bindingDescription = {};
+    bindingDescription.binding = 0;
+    bindingDescription.stride = sizeof(Vertex);
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription attr_pos = {};
+    attr_pos.binding = 0;
+    attr_pos.location = 0;
+    attr_pos.format = VK_FORMAT_R32G32B32_SFLOAT;
+    attr_pos.offset = offsetof(Vertex, pos);
+
+    VkVertexInputAttributeDescription attr_uv = {};
+    attr_uv.binding = 0;
+    attr_uv.location = 1;
+    attr_uv.format = VK_FORMAT_R32G32_SFLOAT;
+    attr_uv.offset = offsetof(Vertex, uv);
+
+    VkVertexInputAttributeDescription attr_normal = {};
+    attr_normal.binding = 0;
+    attr_normal.location = 2;
+    attr_normal.format = VK_FORMAT_R32G32B32_SFLOAT;
+    attr_normal.offset = offsetof(Vertex, normal);
+
+    std::array<VkVertexInputAttributeDescription, Vertex::attribute_count> attribute_descriptions = {
+        attr_pos, attr_uv, attr_normal
+    };
+
     // describe the vertex buffer, for now nothing
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.pVertexAttributeDescriptions = attribute_descriptions.data();
+
+    VkBuffer vertexBuffer;
+    VkBufferCreateInfo vertex_bufferInfo = {};
+    vertex_bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vertex_bufferInfo.size = sizeof(triangle[0]) * triangle.size();
+    vertex_bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    vertex_bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    auto hr = vkCreateBuffer(vk_device, &vertex_bufferInfo, nullptr, &vertexBuffer);
+    m_assert(hr == VK_SUCCESS, "failed to create vertex buffer");
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(vk_device, vertexBuffer, &memRequirements);
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(vk_gpu, &memProperties);
+
+    auto findMemoryType = [&](uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+            if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+                return i;
+            }
+        }
+    };
+
+    VkMemoryAllocateInfo buffer_allocInfo = {};
+    buffer_allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    buffer_allocInfo.allocationSize = memRequirements.size;
+    buffer_allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    VkDeviceMemory vertexBufferMemory;
+    hr = vkAllocateMemory(vk_device, &buffer_allocInfo, nullptr, &vertexBufferMemory);
+    m_assert(hr == VK_SUCCESS, "failed to allocate vk memory");
+
+    hr = vkBindBufferMemory(vk_device, vertexBuffer, vertexBufferMemory, 0);
+    m_assert(hr == VK_SUCCESS, "failed to VK bind buffer memory");
+
+    void* data;
+    vkMapMemory(vk_device, vertexBufferMemory, 0, vertex_bufferInfo.size, 0, &data);
+    memcpy(data, triangle.data(), (size_t)vertex_bufferInfo.size);
+    vkUnmapMemory(vk_device, vertexBufferMemory);
 
     // describe the topology used, like in directx
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
@@ -517,7 +591,7 @@ void Application::vulkan_main() {
     pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
-    auto hr = vkCreatePipelineLayout(vk_device, &pipelineLayoutInfo, nullptr, &pipelineLayout);
+    hr = vkCreatePipelineLayout(vk_device, &pipelineLayoutInfo, nullptr, &pipelineLayout);
     m_assert(hr == VK_SUCCESS, "failed to create pipeline layout");
 
     VkAttachmentDescription colorAttachment = {};
@@ -601,13 +675,13 @@ void Application::vulkan_main() {
     std::vector<VkCommandBuffer> commandBuffers;
     commandBuffers.resize(swapChainFramebuffers.size());
 
-    VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = commandPool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+    VkCommandBufferAllocateInfo cmd_allocInfo = {};
+    cmd_allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cmd_allocInfo.commandPool = commandPool;
+    cmd_allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cmd_allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
 
-    hr = vkAllocateCommandBuffers(vk_device, &allocInfo, commandBuffers.data());
+    hr = vkAllocateCommandBuffers(vk_device, &cmd_allocInfo, commandBuffers.data());
     m_assert(hr == VK_SUCCESS, "failed to allocate vk command buffers");
 
     for (size_t i = 0; i < commandBuffers.size(); i++) {
@@ -632,7 +706,10 @@ void Application::vulkan_main() {
 
         vkCmdBeginRenderPass(commandBuffers[i], &render_info, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+        VkBuffer vertexBuffers[] = { vertexBuffer };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+        vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(triangle.size()), 1, 0, 0);
         vkCmdEndRenderPass(commandBuffers[i]);
 
         auto r = vkEndCommandBuffer(commandBuffers[i]);
@@ -651,7 +728,7 @@ void Application::vulkan_main() {
 
     VkFenceCreateInfo fenceInfo = {};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    //fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     VkSemaphoreCreateInfo semaphoreInfo = {};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -665,7 +742,6 @@ void Application::vulkan_main() {
         hr = vkCreateFence(vk_device, &fenceInfo, nullptr, &inFlightFences[i]);
         m_assert(hr == VK_SUCCESS, "failed to create vk fence");
     }
-
 
     std::puts("job well done.");
 
@@ -756,6 +832,8 @@ void Application::vulkan_main() {
         vkDestroySemaphore(vk_device, renderFinishedSemaphores[i], nullptr);
         vkDestroyFence(vk_device, inFlightFences[i], nullptr);
     }
+    vkDestroyBuffer(vk_device, vertexBuffer, nullptr);
+    vkFreeMemory(vk_device, vertexBufferMemory, nullptr);
 }
 
 } // namespace Raekor
