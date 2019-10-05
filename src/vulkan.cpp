@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "app.h"
+#include "mesh.h"
 #include "util.h"
 #include "timer.h"
 #include "entry.h"
@@ -69,8 +70,8 @@ void Application::vulkan_main() {
     size_t additional_extension_count = extensions.size();
     extensions.resize(additional_extension_count + count);
 
-    m_assert(SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data() + additional_extension_count),
-        "failed to get vk extensions");
+    auto sdl_bool = SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data() + additional_extension_count);
+    m_assert(sdl_bool, "failed to get instance extensions");
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
@@ -113,8 +114,8 @@ void Application::vulkan_main() {
     }
 
     VkInstance instance;
-    VkResult result = vkCreateInstance(&instance_info, nullptr, &instance);
-    m_assert(result == VK_SUCCESS, "failed to create vulkan instance");
+    VkResult err = vkCreateInstance(&instance_info, nullptr, &instance);
+    m_assert(err == VK_SUCCESS, "failed to create vulkan instance");
 
     // query SDL's machine info for the window's HWND
     SDL_SysWMinfo wminfo;
@@ -243,8 +244,8 @@ void Application::vulkan_main() {
         device_info.enabledLayerCount = 0;
     }
 
-    result = vkCreateDevice(vk_gpu, &device_info, nullptr, &vk_device);
-    m_assert(result == VK_SUCCESS, "failed to create logical device");
+    err = vkCreateDevice(vk_gpu, &device_info, nullptr, &vk_device);
+    m_assert(err == VK_SUCCESS, "failed to create logical device");
 
     VkQueue graphics_queue;
     vkGetDeviceQueue(vk_device, indices.graphics.value(), 0, &graphics_queue);
@@ -348,8 +349,8 @@ void Application::vulkan_main() {
     sc_info.oldSwapchain = VK_NULL_HANDLE;
 
     VkSwapchainKHR vk_swapchain;
-    result = vkCreateSwapchainKHR(vk_device, &sc_info, nullptr, &vk_swapchain);
-    m_assert(result == VK_SUCCESS, "failed to create vulkan swap chain");
+    err = vkCreateSwapchainKHR(vk_device, &sc_info, nullptr, &vk_swapchain);
+    m_assert(err == VK_SUCCESS, "failed to create vulkan swap chain");
 
     // create a set of swap chain images
     std::vector<VkImage> swapChainImages;
@@ -431,12 +432,6 @@ void Application::vulkan_main() {
     // VULKAN VERTEX INPUT, TOPOLOGY, VIEWPORT, RASTERIZER
     //
 
-    const std::vector<Vertex> triangle = {
-        {{0.0f, -0.5f, 0.0f}, {}, {}},
-        {{0.5f, 0.5f, 0.0f}, {}, {}},
-        {{-0.5f, 0.5f, 0.0f}, {}, {}}
-    };
-
     VkVertexInputBindingDescription bindingDescription = {};
     bindingDescription.binding = 0;
     bindingDescription.stride = sizeof(Vertex);
@@ -464,26 +459,14 @@ void Application::vulkan_main() {
         attr_pos, attr_uv, attr_normal
     };
 
-    // describe the vertex buffer, for now nothing
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.pVertexAttributeDescriptions = attribute_descriptions.data();
+    VkCommandPool commandPool;
 
-    VkBuffer vertexBuffer;
-    VkBufferCreateInfo vertex_bufferInfo = {};
-    vertex_bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    vertex_bufferInfo.size = sizeof(triangle[0]) * triangle.size();
-    vertex_bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    vertex_bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkCommandPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex = indices.graphics.value();
+    err = vkCreateCommandPool(vk_device, &poolInfo, nullptr, &commandPool);
+    m_assert(err == VK_SUCCESS, "failed to create vk command pool");
 
-    auto hr = vkCreateBuffer(vk_device, &vertex_bufferInfo, nullptr, &vertexBuffer);
-    m_assert(hr == VK_SUCCESS, "failed to create vertex buffer");
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(vk_device, vertexBuffer, &memRequirements);
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(vk_gpu, &memProperties);
 
@@ -495,22 +478,137 @@ void Application::vulkan_main() {
         }
     };
 
-    VkMemoryAllocateInfo buffer_allocInfo = {};
-    buffer_allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    buffer_allocInfo.allocationSize = memRequirements.size;
-    buffer_allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    auto createBuffer = [&](VkDeviceSize size, VkBufferUsageFlags usage, 
+        VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+        VkBufferCreateInfo bufferInfo = {};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.size = size;
+        bufferInfo.usage = usage;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkDeviceMemory vertexBufferMemory;
-    hr = vkAllocateMemory(vk_device, &buffer_allocInfo, nullptr, &vertexBufferMemory);
-    m_assert(hr == VK_SUCCESS, "failed to allocate vk memory");
+        if (vkCreateBuffer(vk_device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create buffer!");
+        }
 
-    hr = vkBindBufferMemory(vk_device, vertexBuffer, vertexBufferMemory, 0);
-    m_assert(hr == VK_SUCCESS, "failed to VK bind buffer memory");
+        VkMemoryRequirements memRequirements;
+        vkGetBufferMemoryRequirements(vk_device, buffer, &memRequirements);
+
+        VkMemoryAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memRequirements.size;
+        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+        if (vkAllocateMemory(vk_device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate buffer memory!");
+        }
+
+        vkBindBufferMemory(vk_device, buffer, bufferMemory, 0);
+    };
+
+    auto copyBuffer = [&](VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+        VkCommandBufferAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = commandPool;
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer commandBuffer;
+        vkAllocateCommandBuffers(vk_device, &allocInfo, &commandBuffer);
+
+        VkCommandBufferBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        VkBufferCopy copyRegion = {};
+        copyRegion.size = size;
+        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+        vkEndCommandBuffer(commandBuffer);
+
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(graphics_queue);
+
+        vkFreeCommandBuffers(vk_device, commandPool, 1, &commandBuffer);
+    };
+
+    // describe the vertex buffer, for now nothing special
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.pVertexAttributeDescriptions = attribute_descriptions.data();
+
+    VkDeviceSize buffer_size = sizeof(Vertex) * v_cube.size();
+
+    VkBuffer staging_buffer;
+    VkDeviceMemory stage_mem;
+    createBuffer(
+        buffer_size, 
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+        staging_buffer, 
+        stage_mem
+    );
 
     void* data;
-    vkMapMemory(vk_device, vertexBufferMemory, 0, vertex_bufferInfo.size, 0, &data);
-    memcpy(data, triangle.data(), (size_t)vertex_bufferInfo.size);
-    vkUnmapMemory(vk_device, vertexBufferMemory);
+    vkMapMemory(vk_device, stage_mem, 0, buffer_size, 0, &data);
+    memcpy(data, v_cube.data(), (size_t)buffer_size);
+    vkUnmapMemory(vk_device, stage_mem);
+
+    VkBuffer vertex_buffer;
+    VkDeviceMemory vertex_mem;
+    createBuffer(
+        buffer_size,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        vertex_buffer,
+        vertex_mem
+    );
+
+    copyBuffer(staging_buffer, vertex_buffer, buffer_size);
+
+    vkDestroyBuffer(vk_device, staging_buffer, nullptr);
+    vkFreeMemory(vk_device, stage_mem, nullptr);
+
+    VkDeviceSize indices_size = sizeof(uint32_t) * i_cube.size();
+
+    VkBuffer stage_indices_buffer;
+    VkDeviceMemory indices_stage_mem;
+
+    createBuffer(
+        indices_size, 
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+        stage_indices_buffer, 
+        indices_stage_mem
+    );
+
+    void* data1;
+    vkMapMemory(vk_device, indices_stage_mem, 0, indices_size, 0, &data1);
+    memcpy(data1, i_cube.data(), (size_t)indices_size);
+    vkUnmapMemory(vk_device, indices_stage_mem);
+
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferMemory;
+
+    createBuffer(indices_size, 
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+        indexBuffer, 
+        indexBufferMemory);
+
+    copyBuffer(stage_indices_buffer, indexBuffer, indices_size);
+
+    vkDestroyBuffer(vk_device, stage_indices_buffer, nullptr);
+    vkFreeMemory(vk_device, indices_stage_mem, nullptr);
 
     // describe the topology used, like in directx
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
@@ -591,8 +689,8 @@ void Application::vulkan_main() {
     pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
-    hr = vkCreatePipelineLayout(vk_device, &pipelineLayoutInfo, nullptr, &pipelineLayout);
-    m_assert(hr == VK_SUCCESS, "failed to create pipeline layout");
+    err = vkCreatePipelineLayout(vk_device, &pipelineLayoutInfo, nullptr, &pipelineLayout);
+    m_assert(err == VK_SUCCESS, "failed to create pipeline layout");
 
     VkAttachmentDescription colorAttachment = {};
     colorAttachment.format = swapChainImageFormat;
@@ -619,8 +717,8 @@ void Application::vulkan_main() {
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
 
-    hr = vkCreateRenderPass(vk_device, &renderPassInfo, nullptr, &renderPass);
-    m_assert(hr == VK_SUCCESS, "failed to create vk render pass");
+    err = vkCreateRenderPass(vk_device, &renderPassInfo, nullptr, &renderPass);
+    m_assert(err == VK_SUCCESS, "failed to create vk render pass");
 
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -640,8 +738,8 @@ void Application::vulkan_main() {
     pipelineInfo.subpass = 0;
 
     VkPipeline graphicsPipeline;
-    hr = vkCreateGraphicsPipelines(vk_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline);
-    m_assert(hr == VK_SUCCESS, "failed to create vk final graphics pipeline");
+    err = vkCreateGraphicsPipelines(vk_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline);
+    m_assert(err == VK_SUCCESS, "failed to create vk final graphics pipeline");
 
     std::vector<VkFramebuffer> swapChainFramebuffers;
     swapChainFramebuffers.resize(swapChainImageViews.size());
@@ -663,15 +761,6 @@ void Application::vulkan_main() {
         m_assert(r == VK_SUCCESS, "failed to create vk framebuffer");
     }
 
-    VkCommandPool commandPool;
-
-    VkCommandPoolCreateInfo poolInfo = {};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.queueFamilyIndex = indices.graphics.value();
-    poolInfo.flags = 0; // Optional
-    hr = vkCreateCommandPool(vk_device, &poolInfo, nullptr, &commandPool);
-    m_assert(hr == VK_SUCCESS, "failed to create vk command pool");
-
     std::vector<VkCommandBuffer> commandBuffers;
     commandBuffers.resize(swapChainFramebuffers.size());
 
@@ -681,8 +770,8 @@ void Application::vulkan_main() {
     cmd_allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cmd_allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
 
-    hr = vkAllocateCommandBuffers(vk_device, &cmd_allocInfo, commandBuffers.data());
-    m_assert(hr == VK_SUCCESS, "failed to allocate vk command buffers");
+    err = vkAllocateCommandBuffers(vk_device, &cmd_allocInfo, commandBuffers.data());
+    m_assert(err == VK_SUCCESS, "failed to allocate vk command buffers");
 
     for (size_t i = 0; i < commandBuffers.size(); i++) {
         VkCommandBufferBeginInfo beginInfo = {};
@@ -706,14 +795,15 @@ void Application::vulkan_main() {
 
         vkCmdBeginRenderPass(commandBuffers[i], &render_info, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-        VkBuffer vertexBuffers[] = { vertexBuffer };
+        VkBuffer vertexBuffers[] = { vertex_buffer };
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-        vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(triangle.size()), 1, 0, 0);
+        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(i_cube.size()), 1, 0, 0, 0);
         vkCmdEndRenderPass(commandBuffers[i]);
 
-        auto r = vkEndCommandBuffer(commandBuffers[i]);
-        m_assert(r == VK_SUCCESS, "failed to end command buffer");
+        err = vkEndCommandBuffer(commandBuffers[i]);
+        m_assert(err == VK_SUCCESS, "failed to end command buffer");
 
     }
 
@@ -732,7 +822,6 @@ void Application::vulkan_main() {
 
     VkSemaphoreCreateInfo semaphoreInfo = {};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
 
     for (unsigned int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         auto hr = vkCreateSemaphore(vk_device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]);
@@ -777,8 +866,8 @@ void Application::vulkan_main() {
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        hr = vkQueueSubmit(graphics_queue, 1, &submitInfo, inFlightFences[current_frame]);
-        m_assert(hr == VK_SUCCESS, "failed to submit queue");
+        err = vkQueueSubmit(graphics_queue, 1, &submitInfo, inFlightFences[current_frame]);
+        m_assert(err == VK_SUCCESS, "failed to submit queue");
 
         VkSubpassDependency dependency = {};
         dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -815,12 +904,10 @@ void Application::vulkan_main() {
     vkDestroySurfaceKHR(instance, vk_surface, nullptr);
     vkDestroyInstance(instance, nullptr);
     vkDestroySwapchainKHR(vk_device, vk_swapchain, nullptr);
-    for (auto& imageview : swapChainImageViews) {
+    for (auto& imageview : swapChainImageViews) 
         vkDestroyImageView(vk_device, imageview, nullptr);
-    }
-    for (auto& fb : swapChainFramebuffers) {
+    for (auto& fb : swapChainFramebuffers) 
         vkDestroyFramebuffer(vk_device, fb, nullptr);
-    }
     vkDestroyShaderModule(vk_device, vertShaderModule, nullptr);
     vkDestroyShaderModule(vk_device, fragShaderModule, nullptr);
     vkDestroyPipelineLayout(vk_device, pipelineLayout, nullptr);
@@ -832,8 +919,10 @@ void Application::vulkan_main() {
         vkDestroySemaphore(vk_device, renderFinishedSemaphores[i], nullptr);
         vkDestroyFence(vk_device, inFlightFences[i], nullptr);
     }
-    vkDestroyBuffer(vk_device, vertexBuffer, nullptr);
-    vkFreeMemory(vk_device, vertexBufferMemory, nullptr);
+    vkDestroyBuffer(vk_device, vertex_buffer, nullptr);
+    vkFreeMemory(vk_device, vertex_mem, nullptr);
+    vkDestroyBuffer(vk_device, indexBuffer, nullptr);
+    vkFreeMemory(vk_device, indexBufferMemory, nullptr);
 }
 
 } // namespace Raekor

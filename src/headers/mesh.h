@@ -34,4 +34,7 @@ private:
     std::unique_ptr<IndexBuffer> ib;
 };
 
+extern std::vector<Vertex> v_cube;
+extern std::vector<Index> i_cube;
+
 }

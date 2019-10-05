@@ -28,6 +28,10 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
             }
         }
 
+        if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_RESIZED) {
+            std::puts("window resized");
+        }
+
         if (!camera.is_mouse_active() && ev.type == SDL_MOUSEMOTION) {
             camera.look(ev.motion.xrel, ev.motion.yrel);
         }
