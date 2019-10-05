@@ -1,6 +1,7 @@
 .vs/Tine/v15/.suo
 *.db
 *.o
+*.exe
 Debug/
 Release/
 .vs/
