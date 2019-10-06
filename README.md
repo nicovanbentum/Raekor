@@ -20,5 +20,6 @@ Run the application using `make run`.
 
 ### Render APIs
 Supports both OpenGL and DirectX 11. At any point in time, one's development might be behind on the other.
+Vulkan is in the works but will take a significant rewrite of every other API's abstractions.
 
 > More to follow.
