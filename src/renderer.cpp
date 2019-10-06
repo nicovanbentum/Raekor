@@ -53,7 +53,8 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     
     context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, context);
-    m_assert(gl3wInit() == 0, "failed to init gl3w");
+    int gl3w_err = gl3wInit();
+    m_assert(gl3w_err == 0, "failed to init gl3w");
     
     // print the initialized openGL specs
     std::cout << "Active Rendering API: OpenGL " << glGetString(GL_VERSION);

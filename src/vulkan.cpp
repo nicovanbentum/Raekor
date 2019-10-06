@@ -16,7 +16,8 @@ void Application::vulkan_main() {
     // retrieve the application settings from the config file
     serialize_settings("config.json");
 
-    m_assert(SDL_Init(SDL_INIT_VIDEO) == 0, "failed to init sdl");
+    int sdl_err = SDL_Init(SDL_INIT_VIDEO);
+    m_assert(sdl_err == 0, "failed to init SDL for video");
 
     Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN |
         SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
@@ -41,7 +42,7 @@ void Application::vulkan_main() {
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
-    Camera camera = Camera({ 0, 0, 0 }, 45.0f);
+    Camera camera = Camera({ 0, 0, 4.0f }, 45.0f);
 
     uint32_t vk_extension_count = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &vk_extension_count, nullptr);
@@ -610,6 +611,92 @@ void Application::vulkan_main() {
     vkDestroyBuffer(vk_device, stage_indices_buffer, nullptr);
     vkFreeMemory(vk_device, indices_stage_mem, nullptr);
 
+    //
+    //  UNIFORM BUFFERS
+    //
+    VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+
+    VkDescriptorSetLayout descriptorSetLayout;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboLayoutBinding;
+
+    err = vkCreateDescriptorSetLayout(vk_device, &layoutInfo, nullptr, &descriptorSetLayout);
+    m_assert(err == VK_SUCCESS, "failed to create descriptor layout");
+
+    std::vector<VkBuffer> uniformBuffers;
+    std::vector<VkDeviceMemory> uniformBuffersMemory;
+
+    uniformBuffers.resize(swapChainImages.size());
+    uniformBuffersMemory.resize(swapChainImages.size());
+
+    for (size_t i = 0; i < swapChainImages.size(); i++) {
+        createBuffer(
+            sizeof(cb_vs), 
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+            uniformBuffers[i], 
+            uniformBuffersMemory[i]
+        );
+    }
+
+    VkDescriptorPoolSize ubo_pool_size = {};
+    ubo_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    ubo_pool_size.descriptorCount = static_cast<uint32_t>(swapChainImages.size());
+
+    VkDescriptorPoolCreateInfo ubo_pool_info = {};
+    ubo_pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    ubo_pool_info.poolSizeCount = 1;
+    ubo_pool_info.pPoolSizes = &ubo_pool_size;
+    ubo_pool_info.maxSets = static_cast<uint32_t>(swapChainImages.size());
+
+    VkDescriptorPool descriptorPool;
+    err = vkCreateDescriptorPool(vk_device, &ubo_pool_info, nullptr, &descriptorPool);
+    m_assert(err == VK_SUCCESS, "failed to create descriptor pool for UBO");
+
+    std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
+    VkDescriptorSetAllocateInfo desc_info = {};
+    desc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    desc_info.descriptorPool = descriptorPool;
+    desc_info.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+    desc_info.pSetLayouts = layouts.data();
+
+    std::vector<VkDescriptorSet> descriptorSets;
+    descriptorSets.resize(swapChainImages.size());
+    err = vkAllocateDescriptorSets(vk_device, &desc_info, descriptorSets.data());
+    m_assert(err == VK_SUCCESS, "failed to allocate descriptor sets");
+
+    for (size_t i = 0; i < swapChainImages.size(); i++) {
+        VkDescriptorBufferInfo bufferInfo = {};
+        bufferInfo.buffer = uniformBuffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(cb_vs);
+
+        VkWriteDescriptorSet descriptorWrite = {};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = descriptorSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+
+        descriptorWrite.pBufferInfo = &bufferInfo;
+        descriptorWrite.pImageInfo = nullptr;
+        descriptorWrite.pTexelBufferView = nullptr;
+        vkUpdateDescriptorSets(vk_device, 1, &descriptorWrite, 0, nullptr);
+    }
+
+    VkImage depthImage;
+    VkDeviceMemory depthImageMemory;
+    VkImageView depthImageView;
+
     // describe the topology used, like in directx
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -684,8 +771,8 @@ void Application::vulkan_main() {
     VkPipelineLayout pipelineLayout;
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0; // Optional
-    pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
@@ -795,10 +882,15 @@ void Application::vulkan_main() {
 
         vkCmdBeginRenderPass(commandBuffers[i], &render_info, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
         VkBuffer vertexBuffers[] = { vertex_buffer };
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                                pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+
         vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(i_cube.size()), 1, 0, 0, 0);
         vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -837,6 +929,9 @@ void Application::vulkan_main() {
     SDL_SetWindowInputFocus(window);
 
     bool running = true;
+
+    // MVP uniform buffer object
+    cb_vs ubo;
     
     Timer dt_timer;
     double dt = 0;
@@ -851,6 +946,14 @@ void Application::vulkan_main() {
 
         uint32_t imageIndex;
         vkAcquireNextImageKHR(vk_device, vk_swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
+
+        // update uniform buffer data
+        camera.update(glm::mat4(1.0f));
+        ubo.MVP = camera.get_mvp(false);
+        void* data;
+        vkMapMemory(vk_device, uniformBuffersMemory[current_frame], 0, sizeof(ubo), 0, &data);
+        memcpy(data, &ubo, sizeof(ubo));
+        vkUnmapMemory(vk_device, uniformBuffersMemory[current_frame]);
 
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -923,6 +1026,11 @@ void Application::vulkan_main() {
     vkFreeMemory(vk_device, vertex_mem, nullptr);
     vkDestroyBuffer(vk_device, indexBuffer, nullptr);
     vkFreeMemory(vk_device, indexBufferMemory, nullptr);
+    for (size_t i = 0; i < swapChainImages.size(); i++) {
+        vkDestroyBuffer(vk_device, uniformBuffers[i], nullptr);
+        vkFreeMemory(vk_device, uniformBuffersMemory[i], nullptr);
+    }
+    vkDestroyDescriptorPool(vk_device, descriptorPool, nullptr);
 }
 
 } // namespace Raekor

@@ -37,7 +37,8 @@ void Application::run() {
     // retrieve the application settings from the config file
     serialize_settings("config.json");
 
-    m_assert(SDL_Init(SDL_INIT_VIDEO) == 0, "failed to init sdl");
+    int sdl_err = SDL_Init(SDL_INIT_VIDEO);
+    m_assert(sdl_err == 0, "failed to init SDL for video");
 
     Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL |
         SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;

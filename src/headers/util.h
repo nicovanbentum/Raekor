@@ -6,7 +6,7 @@
 #ifndef NDEBUG
     #define m_assert(expr, msg) if(!expr) std::cout << msg << std::endl; assert(expr);
 #else 
-    #define m_assert(expr, msg) (void)(expr)
+    #define m_assert(expr, msg)
 #endif
 
 
