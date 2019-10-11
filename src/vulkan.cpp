@@ -8,6 +8,10 @@
 #include "buffer.h"
 #include "PlatformContext.h"
 
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
+#include "assimp/Importer.hpp"
+
 namespace Raekor {
 
 void Application::vulkan_main() {
@@ -176,7 +180,7 @@ void Application::vulkan_main() {
         }
     };
 
-    queue_indices indices;
+    queue_indices qindices;
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(vk_gpu, &queueFamilyCount, nullptr);
 
@@ -186,22 +190,22 @@ void Application::vulkan_main() {
     int queue_index = 0;
     for (const auto& queueFamily : queueFamilies) {
         if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            indices.graphics = queue_index;
+            qindices.graphics = queue_index;
         } 
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(vk_gpu, queue_index, vk_surface, &presentSupport);
         if (queueFamily.queueCount > 0 && presentSupport) {
-            indices.present = queue_index;
+            qindices.present = queue_index;
         }
         queue_index++;
     }
 
-    m_assert(indices.isComplete(), "device does not support graphics queue family");
+    m_assert(qindices.isComplete(), "device does not support graphics queue family");
     m_assert(requiredExtensions.empty(), "vk extensions not supported");
 
     VkDeviceQueueCreateInfo queueCreateInfo = {};
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = indices.graphics.value();
+    queueCreateInfo.queueFamilyIndex = qindices.graphics.value();
     queueCreateInfo.queueCount = 1;
 
     float queuePriority = 1.0f;
@@ -218,7 +222,7 @@ void Application::vulkan_main() {
     VkQueue present_queue;
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = { indices.graphics.value(), indices.present.value() };
+    std::set<uint32_t> uniqueQueueFamilies = { qindices.graphics.value(), qindices.present.value() };
 
     for (uint32_t queueFamily : uniqueQueueFamilies) {
         VkDeviceQueueCreateInfo queueCreateInfo = {};
@@ -250,8 +254,8 @@ void Application::vulkan_main() {
     m_assert(err == VK_SUCCESS, "failed to create logical device");
 
     VkQueue graphics_queue;
-    vkGetDeviceQueue(vk_device, indices.graphics.value(), 0, &graphics_queue);
-    vkGetDeviceQueue(vk_device, indices.present.value(), 0, &present_queue);
+    vkGetDeviceQueue(vk_device, qindices.graphics.value(), 0, &graphics_queue);
+    vkGetDeviceQueue(vk_device, qindices.present.value(), 0, &present_queue);
 
     //
     // VULKAN SWAP CHAIN STAGE
@@ -331,9 +335,9 @@ void Application::vulkan_main() {
     sc_info.imageArrayLayers = 1;
     sc_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    uint32_t queueFamilyIndices[] = { indices.graphics.value(), indices.present.value() };
+    uint32_t queueFamilyIndices[] = { qindices.graphics.value(), qindices.present.value() };
 
-    if (indices.graphics != indices.present) {
+    if (qindices.graphics != qindices.present) {
         sc_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         sc_info.queueFamilyIndexCount = 2;
         sc_info.pQueueFamilyIndices = queueFamilyIndices;
@@ -434,6 +438,50 @@ void Application::vulkan_main() {
     // VULKAN VERTEX INPUT, TOPOLOGY, VIEWPORT, RASTERIZER
     //
 
+    std::vector<Vertex> vertices;
+    std::vector<Index> indices;
+
+    constexpr unsigned int flags =
+        aiProcess_CalcTangentSpace |
+        aiProcess_Triangulate |
+        aiProcess_SortByPType |
+        aiProcess_PreTransformVertices |
+        
+        aiProcess_GenNormals |
+        aiProcess_GenUVCoords |
+        aiProcess_OptimizeMeshes |
+        aiProcess_Debone |
+        aiProcess_ValidateDataStructure;
+
+    Assimp::Importer importer;
+    const auto scene = importer.ReadFile("resources/models/testcube.obj", flags);
+    m_assert(scene && scene->HasMeshes(), "failed to load mesh");
+
+    auto ai_mesh = scene->mMeshes[0];
+
+    // extract vertices
+    vertices.reserve(ai_mesh->mNumVertices);
+    for (size_t i = 0; i < vertices.capacity(); i++) {
+        Vertex v;
+        v.pos = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z };
+        if (ai_mesh->HasTextureCoords(0)) {
+            v.uv = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
+        }
+        if (ai_mesh->HasNormals()) {
+            v.normal = { ai_mesh->mNormals->x, ai_mesh->mNormals->y, ai_mesh->mNormals->z };
+        }
+        vertices.push_back(std::move(v));
+    }
+    // extract indices
+    indices.reserve(ai_mesh->mNumFaces);
+    for (size_t i = 0; i < indices.capacity(); i++) {
+        m_assert((ai_mesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
+        indices.push_back({ ai_mesh->mFaces[i].mIndices[0], ai_mesh->mFaces[i].mIndices[1], ai_mesh->mFaces[i].mIndices[2] });
+    }
+
+    std::cout << vertices.size() << v_cube.size() << std::endl;
+    std::cout << indices.size() << i_cube.size() << std::endl;
+
     VkVertexInputBindingDescription bindingDescription = {};
     bindingDescription.binding = 0;
     bindingDescription.stride = sizeof(Vertex);
@@ -465,7 +513,7 @@ void Application::vulkan_main() {
 
     VkCommandPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.queueFamilyIndex = indices.graphics.value();
+    poolInfo.queueFamilyIndex = qindices.graphics.value();
     err = vkCreateCommandPool(vk_device, &poolInfo, nullptr, &commandPool);
     m_assert(err == VK_SUCCESS, "failed to create vk command pool");
 
@@ -559,7 +607,7 @@ void Application::vulkan_main() {
     vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
     vertexInputInfo.pVertexAttributeDescriptions = attribute_descriptions.data();
 
-    VkDeviceSize buffer_size = sizeof(Vertex) * v_cube.size();
+    VkDeviceSize buffer_size = sizeof(Vertex) * vertices.size();
 
     VkBuffer staging_buffer;
     VkDeviceMemory stage_mem;
@@ -573,7 +621,7 @@ void Application::vulkan_main() {
 
     void* data;
     vkMapMemory(vk_device, stage_mem, 0, buffer_size, 0, &data);
-    memcpy(data, v_cube.data(), (size_t)buffer_size);
+    memcpy(data, vertices.data(), (size_t)buffer_size);
     vkUnmapMemory(vk_device, stage_mem);
 
     VkBuffer vertex_buffer;
@@ -592,7 +640,7 @@ void Application::vulkan_main() {
     vkFreeMemory(vk_device, stage_mem, nullptr);
 
     // uploading the index buffer is about the same process as vertex
-    VkDeviceSize indices_size = sizeof(uint32_t) * i_cube.size();
+    VkDeviceSize indices_size = sizeof(Index) * indices.size();
 
     VkBuffer stage_indices_buffer;
     VkDeviceMemory indices_stage_mem;
@@ -607,7 +655,7 @@ void Application::vulkan_main() {
 
     void* data1;
     vkMapMemory(vk_device, indices_stage_mem, 0, indices_size, 0, &data1);
-    memcpy(data1, i_cube.data(), (size_t)indices_size);
+    memcpy(data1, indices.data(), (size_t)indices_size);
     vkUnmapMemory(vk_device, indices_stage_mem);
 
     VkBuffer indexBuffer;
@@ -734,6 +782,13 @@ void Application::vulkan_main() {
             sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
             destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
         }
+        else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        }
         else {
             throw std::invalid_argument("unsupported layout transition!");
         }
@@ -778,13 +833,13 @@ void Application::vulkan_main() {
     vkDestroyBuffer(vk_device, stage_pixels, nullptr);
     vkFreeMemory(vk_device, stage_pixels_mem, nullptr);
 
-    auto createImageView = [&](VkImage image, VkFormat format) {
+    auto createImageView = [&](VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
         VkImageViewCreateInfo viewInfo = {};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image = image;
         viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         viewInfo.format = format;
-        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        viewInfo.subresourceRange.aspectMask = aspectFlags;
         viewInfo.subresourceRange.baseMipLevel = 0;
         viewInfo.subresourceRange.levelCount = 1;
         viewInfo.subresourceRange.baseArrayLayer = 0;
@@ -798,7 +853,7 @@ void Application::vulkan_main() {
         return imageView;
     };
 
-    auto texture_image_view = createImageView(texture, VK_FORMAT_R8G8B8A8_UNORM);
+    auto texture_image_view = createImageView(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
 
     VkSamplerCreateInfo samplerInfo = {};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -822,6 +877,45 @@ void Application::vulkan_main() {
     if (vkCreateSampler(vk_device, &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
         throw std::runtime_error("failed to create vk sampler");
     }
+
+    VkImage depth_image;
+    VkDeviceMemory depth_mem;
+    VkImageView depth_view;
+
+    auto findSupportedFormat = [&](const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+        for (VkFormat format : candidates) {
+            VkFormatProperties props;
+            vkGetPhysicalDeviceFormatProperties(vk_gpu, format, &props);
+            if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+                return format;
+            }
+            else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+                return format;
+            }
+        }
+        m_assert(false, "failed to find a supported depth format");
+    };
+
+    auto findDepthFormat = [&]() {
+        return findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+            VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    };
+
+    auto hasStencilComponent = [&](VkFormat format) {
+        return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+    };
+
+    VkFormat depthFormat = findDepthFormat();
+    createImage(swap_extent.width, swap_extent.height, 
+        depthFormat, VK_IMAGE_TILING_OPTIMAL, 
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+        depth_image, depth_mem);
+
+    depth_view = createImageView(depth_image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    transitionImageLayout(depth_image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
 
 
     //
@@ -1026,23 +1120,62 @@ void Application::vulkan_main() {
     colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+    VkAttachmentDescription depthAttachment = {};
+    depthAttachment.format = findDepthFormat();
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkAttachmentReference colorAttachmentRef = {};
     colorAttachmentRef.attachment = 0;
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthAttachmentRef = {};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
+    VkSubpassDependency dependency = {};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
     VkRenderPassCreateInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    renderPassInfo.pAttachments = attachments.data();
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies = &dependency;
 
     err = vkCreateRenderPass(vk_device, &renderPassInfo, nullptr, &renderPass);
     m_assert(err == VK_SUCCESS, "failed to create vk render pass");
+
+    VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.minDepthBounds = 0.0f; // Optional
+    depthStencil.maxDepthBounds = 1.0f; // Optional
+    depthStencil.stencilTestEnable = VK_FALSE;
+    depthStencil.front = {}; // Optional
+    depthStencil.back = {}; // Optional
 
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -1060,6 +1193,7 @@ void Application::vulkan_main() {
     pipelineInfo.layout = pipelineLayout;
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0;
+    pipelineInfo.pDepthStencilState = &depthStencil;
 
     VkPipeline graphicsPipeline;
     err = vkCreateGraphicsPipelines(vk_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline);
@@ -1068,15 +1202,16 @@ void Application::vulkan_main() {
     std::vector<VkFramebuffer> swapChainFramebuffers;
     swapChainFramebuffers.resize(swapChainImageViews.size());
     for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-        VkImageView attachments[] = {
-            swapChainImageViews[i]
+        std::array<VkImageView, 2> attachments = {
+            swapChainImageViews[i],
+            depth_view
         };
 
         VkFramebufferCreateInfo framebufferInfo = {};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = 1;
-        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        framebufferInfo.pAttachments = attachments.data();
         framebufferInfo.width = swap_extent.width;
         framebufferInfo.height = swap_extent.height;
         framebufferInfo.layers = 1;
@@ -1113,9 +1248,12 @@ void Application::vulkan_main() {
         render_info.renderArea.offset = { 0, 0 };
         render_info.renderArea.extent = swap_extent;
 
-        VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-        render_info.clearValueCount = 1;
-        render_info.pClearValues = &clearColor;
+        std::array<VkClearValue, 2> clearValues = {};
+        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        clearValues[1].depthStencil = { 1.0f, 0 };
+
+        render_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
+        render_info.pClearValues = clearValues.data();
 
         vkCmdBeginRenderPass(commandBuffers[i], &render_info, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
@@ -1128,7 +1266,7 @@ void Application::vulkan_main() {
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, 
                                 pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(i_cube.size()), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size() * 3), 1, 0, 0, 0);
         vkCmdEndRenderPass(commandBuffers[i]);
 
         err = vkEndCommandBuffer(commandBuffers[i]);
@@ -1272,6 +1410,9 @@ void Application::vulkan_main() {
     vkFreeMemory(vk_device, texture_mem, nullptr);
     vkDestroyImageView(vk_device, texture_image_view, nullptr);
     vkDestroySampler(vk_device, sampler, nullptr);
+    vkDestroyImageView(vk_device, depth_view, nullptr);
+    vkDestroyImage(vk_device, depth_image, nullptr);
+    vkFreeMemory(vk_device, depth_mem, nullptr);
 }
 
 } // namespace Raekor
