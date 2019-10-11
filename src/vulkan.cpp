@@ -50,7 +50,6 @@ void Application::vulkan_main() {
 
     uint32_t vk_extension_count = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &vk_extension_count, nullptr);
-    std::cout << vk_extension_count << '\n';
 
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -446,7 +445,7 @@ void Application::vulkan_main() {
         aiProcess_Triangulate |
         aiProcess_SortByPType |
         aiProcess_PreTransformVertices |
-        
+        aiProcess_JoinIdenticalVertices |
         aiProcess_GenNormals |
         aiProcess_GenUVCoords |
         aiProcess_OptimizeMeshes |
@@ -478,9 +477,6 @@ void Application::vulkan_main() {
         m_assert((ai_mesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
         indices.push_back({ ai_mesh->mFaces[i].mIndices[0], ai_mesh->mFaces[i].mIndices[1], ai_mesh->mFaces[i].mIndices[2] });
     }
-
-    std::cout << vertices.size() << v_cube.size() << std::endl;
-    std::cout << indices.size() << i_cube.size() << std::endl;
 
     VkVertexInputBindingDescription bindingDescription = {};
     bindingDescription.binding = 0;
@@ -747,6 +743,10 @@ void Application::vulkan_main() {
         texture_mem
     );
 
+    auto hasStencilComponent = [&](VkFormat format) {
+        return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+    };
+
     auto transitionImageLayout = [&](VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
         VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -764,6 +764,17 @@ void Application::vulkan_main() {
         barrier.subresourceRange.layerCount = 1;
         barrier.srcAccessMask = 0; // TODO
         barrier.dstAccessMask = 0; // TODO
+
+        if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+            if (hasStencilComponent(format)) {
+                barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+            }
+        }
+        else {
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        }
 
         VkPipelineStageFlags sourceStage;
         VkPipelineStageFlags destinationStage;
@@ -899,10 +910,6 @@ void Application::vulkan_main() {
     auto findDepthFormat = [&]() {
         return findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
             VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-    };
-
-    auto hasStencilComponent = [&](VkFormat format) {
-        return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
     };
 
     VkFormat depthFormat = findDepthFormat();
