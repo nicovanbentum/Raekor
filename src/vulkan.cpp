@@ -1326,9 +1326,9 @@ void Application::vulkan_main() {
         camera.update(glm::mat4(1.0f));
         ubo.MVP = camera.get_mvp(false);
         void* data;
-        vkMapMemory(vk_device, uniformBuffersMemory[current_frame], 0, sizeof(ubo), 0, &data);
+        vkMapMemory(vk_device, uniformBuffersMemory[imageIndex], 0, sizeof(ubo), 0, &data);
         memcpy(data, &ubo, sizeof(ubo));
-        vkUnmapMemory(vk_device, uniformBuffersMemory[current_frame]);
+        vkUnmapMemory(vk_device, uniformBuffersMemory[imageIndex]);
 
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
