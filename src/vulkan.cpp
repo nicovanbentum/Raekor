@@ -12,6 +12,13 @@
 #include "assimp/postprocess.h"
 #include "assimp/Importer.hpp"
 
+#define _glslc "dependencies\\glslc.exe "
+#define _cl(in, out) system(std::string(_glslc + static_cast<std::string>(in) + static_cast<std::string>(" -o ") + static_cast<std::string>(out)).c_str())
+void compile_shader(const char* in, const char* out) {
+    int err = _cl(in, out);
+    m_assert(err == 0, "failed to compile vulkan shader " + std::string(in));
+}
+
 namespace Raekor {
 
 void Application::vulkan_main() {
@@ -390,7 +397,8 @@ void Application::vulkan_main() {
     //
     // VULKAN SHADER STAGE
     //
-    system("shaders\\compile.bat");
+    compile_shader("shaders/vulkan.vert", "shaders/vert.spv");
+    compile_shader("shaders/vulkan.frag", "shaders/frag.spv");
 
     auto read_shader = [&](const std::string& fp) {
         std::ifstream file(fp, std::ios::ate | std::ios::binary);
