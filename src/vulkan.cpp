@@ -446,7 +446,6 @@ void Application::vulkan_main() {
         aiProcess_SortByPType |
         aiProcess_PreTransformVertices |
         aiProcess_JoinIdenticalVertices |
-        aiProcess_GenNormals |
         aiProcess_GenUVCoords |
         aiProcess_OptimizeMeshes |
         aiProcess_Debone |
@@ -1314,6 +1313,13 @@ void Application::vulkan_main() {
 
     // MVP uniform buffer object
     cb_vs ubo;
+
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::vec3 rotation = { M_PI / 2, 0, 0 };
+    auto rotation_quat = static_cast<glm::quat>(rotation);
+    model = model * glm::toMat4(rotation_quat);
+
+    std::cout << vertices.size() << "\n";
     
     Timer dt_timer;
     double dt = 0;
@@ -1330,7 +1336,7 @@ void Application::vulkan_main() {
         vkAcquireNextImageKHR(vk_device, vk_swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
 
         // update uniform buffer data
-        camera.update(glm::mat4(1.0f));
+        camera.update(model);
         ubo.MVP = camera.get_mvp(false);
         void* data;
         vkMapMemory(vk_device, uniformBuffersMemory[imageIndex], 0, sizeof(ubo), 0, &data);
@@ -1381,6 +1387,7 @@ void Application::vulkan_main() {
 
         dt_timer.stop();
         dt = dt_timer.elapsed_ms();
+        //std::cout << 1000 / dt << std::endl;
     }
     vkDeviceWaitIdle(vk_device);
 
