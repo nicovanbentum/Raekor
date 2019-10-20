@@ -40,6 +40,7 @@ public:
 private:
     com_ptr<ID3D11Texture2D> depth_stencil_buffer;
     com_ptr<ID3D11DepthStencilState> depth_stencil_state;
+    com_ptr<ID3D11BlendState> blend_state;
 };
 
 } // namespace Raekor

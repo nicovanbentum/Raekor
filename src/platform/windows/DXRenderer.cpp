@@ -70,6 +70,18 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     dstexdesc.CPUAccessFlags = 0;
     dstexdesc.MiscFlags = 0;
 
+    D3D11_BLEND_DESC bsd = {};
+    bsd.RenderTarget[0].BlendEnable = TRUE;
+    bsd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    bsd.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+
+    bsd.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    bsd.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_INV_DEST_ALPHA;
+    bsd.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
+    bsd.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    bsd.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    D3D.device->CreateBlendState(&bsd, &blend_state);
+
     hr = D3D.device->CreateTexture2D(&dstexdesc, NULL, depth_stencil_buffer.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create 2d stencil depth texture");
 
@@ -81,6 +93,22 @@ DXRenderer::DXRenderer(SDL_Window* window) {
     dsdesc.DepthEnable = true;
     dsdesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK::D3D11_DEPTH_WRITE_MASK_ALL;
     dsdesc.DepthFunc = D3D11_COMPARISON_FUNC::D3D11_COMPARISON_LESS_EQUAL;
+
+    dsdesc.StencilEnable = true;
+    dsdesc.StencilReadMask = 0xFF;
+    dsdesc.StencilWriteMask = 0xFF;
+
+    // Stencil operations if pixel is front-facing.
+    dsdesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    dsdesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+    dsdesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    dsdesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+    // Stencil operations if pixel is back-facing.
+    dsdesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    dsdesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+    dsdesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    dsdesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 
     hr = D3D.device->CreateDepthStencilState(&dsdesc, depth_stencil_state.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create depth stencil state");
@@ -125,6 +153,9 @@ void DXRenderer::ImGui_Render() {
 
 void DXRenderer::DrawIndexed(unsigned int size, bool depth_test) {
     D3D.context->OMSetDepthStencilState(depth_stencil_state.Get(), 0);
+    float blendFactor[] = { 0, 0, 0, 0 };
+    UINT sampleMask = 0xffffffff;
+    D3D.context->OMSetBlendState(blend_state.Get(), blendFactor, sampleMask);
     D3D.context->DrawIndexed(size, 0, 0);
 }
 

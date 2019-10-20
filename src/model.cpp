@@ -75,7 +75,6 @@ void Model::load_from_disk() {
         aiProcess_SortByPType |
         aiProcess_PreTransformVertices |
         aiProcess_JoinIdenticalVertices |
-        aiProcess_GenNormals |
         aiProcess_GenUVCoords |
         aiProcess_OptimizeMeshes |
         aiProcess_Debone |
@@ -112,7 +111,7 @@ void Model::render() const {
     // TODO: right now we use the index to check if a mesh has a texture
     // maybe these two should be combined in a class or at least an std::pair?
     // TODO: we draw the model backwards because this works for sponza's transparency
-    // depth order (GL only), we will have to do our own depth sorting in the future
+    // depth order, we will have to do our own depth sorting in the future.
     for (int i = (int)meshes.size()-1; i >= 0; i--) {
         meshes[i].bind();
         if (textures[i] != nullptr) textures[i]->bind();
