@@ -39,6 +39,13 @@ Mesh::Mesh(Shape basic_shape) {
     }
 }
 
+Mesh::Mesh(const std::string& fp, const std::vector<Vertex>& vb, const std::vector<Index>& ib) 
+: name(fp) {
+    set_vertex_buffer(vb);
+    set_index_buffer(ib);
+}
+
+
 Mesh::Mesh(Mesh&& rhs) {
     name = rhs.name;
     vb = std::move(rhs.vb);

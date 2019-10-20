@@ -79,6 +79,7 @@
 #include <set>
 #include <map>
 #include <array>
+#include <future>
 #include <chrono>
 #include <fstream>
 #include <sstream>

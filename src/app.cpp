@@ -148,7 +148,7 @@ void Application::run() {
         for (auto& m : scene) {
             Model& model = m.second;
             // if the model does not have a mesh set, continue
-            if (!model) continue;
+            if (!model.complete()) continue;
             model.recalc_transform();
             camera.update(model.get_transform());
             dxrb->get_data().MVP = camera.get_mvp(transpose);
@@ -312,7 +312,7 @@ void Application::run() {
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
-        if (!scene.empty() && active_model != scene.end() && active_model->second) {
+        if (!scene.empty() && active_model != scene.end() && active_model->second.complete()) {
             ImGui::Begin("Model Properties");
 
             if (ImGui::DragFloat3("Scale", active_model->second.scale_ptr(), 0.01f, 0.0f, 10.0f)) {}

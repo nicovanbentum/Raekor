@@ -31,7 +31,7 @@ glm::vec3 Camera::get_direction() {
     
 void Camera::look(int x, int y) {
     angle.x += look_speed * (x * -1);
-    angle.y += look_speed * (y * -1);
+    angle.y += look_speed * (y);
     if (angle.y > 1.5f) {
         angle.y = 1.5f;
     }

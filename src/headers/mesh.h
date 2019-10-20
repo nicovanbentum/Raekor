@@ -12,6 +12,7 @@ enum class Shape {
 class Mesh {
 public:
     Mesh(Shape basic_shape = Shape::None);
+    Mesh(const std::string& fp, const std::vector<Vertex>& vb, const std::vector<Index>& ib);
     Mesh(Mesh&& rhs);
 
     Mesh(const Mesh& rhs) = delete;
