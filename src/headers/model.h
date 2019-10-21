@@ -15,7 +15,6 @@ class Model {
 public:
     Model(const std::string& m_file = "");
 
-    bool complete() const;
     void load_from_disk();
     void load_mesh(uint64_t index);
     void reload();
@@ -35,7 +34,7 @@ public:
     void render() const;
 
     std::optional<const Mesh*> operator[](unsigned int index) {
-        if (index < meshes.size()) {
+        if (index < meshes.size() && index > 0) {
             return &meshes[index];
         }
         return {};

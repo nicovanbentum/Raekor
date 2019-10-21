@@ -10,14 +10,10 @@ Model::Model(const std::string& m_file) : path(m_file) {
     scale = glm::vec3(1.0f);
     position = glm::vec3(0.0f);
     rotation = glm::vec3(0.0f);
-}
 
-bool Model::complete() const {
-    if (meshes.empty()) return false;
-    if (scene)
-        if (meshes.size() == scene->mNumMeshes) 
-            return true;
-    return false;
+    if (!path.empty()) {
+        load_from_disk();
+    }
 }
 
 static std::mutex mutex;
@@ -103,8 +99,11 @@ void Model::reload() {
         if (Renderer::get_activeAPI() == RenderAPI::OPENGL)
             load_mesh(index); // OpenGL needs more work for async support
         else
+            // launch an asynchronous thread to load a the iteration's mesh
             futures.push_back(std::async(std::launch::async, [=]() { load_mesh(index); }));
     }
+    // wait for the async threads to finish before moving on
+    for (auto& future : futures) future.wait();
 }
 
 void Model::render() const {

@@ -147,8 +147,6 @@ void Application::run() {
         dx_shader->bind();
         for (auto& m : scene) {
             Model& model = m.second;
-            // if the model does not have a mesh set, continue
-            if (!model.complete()) continue;
             model.recalc_transform();
             camera.update(model.get_transform());
             dxrb->get_data().MVP = camera.get_mvp(transpose);
@@ -219,15 +217,21 @@ void Application::run() {
             ImGui::Columns(1, NULL, false);
             for (Scene::iterator it = scene.begin(); it != scene.end(); it++) {
                 bool selected = it == active_model;
-                std::string label = it->first;
                 // draw a tree node for every model in the scene
-                if(ImGui::TreeNodeEx(label.c_str())) {
+                ImGuiTreeNodeFlags treeflags = ImGuiTreeNodeFlags_OpenOnDoubleClick;
+                if (it == active_model) {
+                    treeflags |= ImGuiTreeNodeFlags_Selected;
+                }
+                auto open = ImGui::TreeNodeEx(it->first.c_str(), treeflags);
+                if (ImGui::IsItemClicked()) active_model = it;
+                if(open) {
                     // draw a selectable for every mesh in the scene
                     for (unsigned int i = 0; i < it->second.mesh_count(); i++) {
                         ImGui::PushID(i);
                         if (it->second[i].has_value()) {
-                            bool selected = i == selected_mesh;
+                            bool selected = (i == selected_mesh) && (it == active_model);
                             if (ImGui::Selectable(it->second[i].value()->get_name().c_str(), selected)) {
+                                active_model = it;
                                 selected_mesh = i;
                             }
                         }
@@ -245,10 +249,19 @@ void Application::run() {
         static char input_text[120];
         if (ImGui::InputText("", input_text, sizeof(input_text), ImGuiInputTextFlags_EnterReturnsTrue)) {
             std::string model_name = std::string(input_text);
-            if (!model_name.empty()) {
-                scene.add(model_name);
+            if (!model_name.empty() && active_model != scene.end()) {
+                scene.set_key(active_model->first, model_name);
                 active_model = scene[model_name.c_str()];
                 memset(input_text, 0, sizeof(input_text));
+            } else {
+                memset(input_text, 0, sizeof(input_text));
+            }
+        }
+        if (ImGui::Button("Load Model")) {
+            std::string path = context.open_file_dialog({ ft_mesh });
+            if (!path.empty()) {
+                scene.add(path);
+                active_model = scene[path.c_str()];
             }
         }
         ImGui::SameLine();
@@ -256,15 +269,6 @@ void Application::run() {
             if (active_model != scene.end()) {
                 scene.remove(active_model->first);
                 active_model = scene.end();
-            }
-        }
-        if (ImGui::Button("Load Model")) {
-            if (active_model != scene.end()) {
-                std::string path = context.open_file_dialog({ ft_mesh });
-                if (!path.empty()) {
-                    active_model->second.set_path(path);
-                    active_model->second.load_from_disk();
-                }
             }
         }
         ImGui::End();
@@ -312,7 +316,7 @@ void Application::run() {
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
-        if (!scene.empty() && active_model != scene.end() && active_model->second.complete()) {
+        if (!scene.empty() && active_model != scene.end()) {
             ImGui::Begin("Model Properties");
 
             if (ImGui::DragFloat3("Scale", active_model->second.scale_ptr(), 0.01f, 0.0f, 10.0f)) {}

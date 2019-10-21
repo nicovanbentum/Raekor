@@ -15,6 +15,8 @@ public:
     inline const bool empty() const { return models.empty(); }
     inline void clear() { models.clear(); }
 
+    void set_key(const std::string& old_key, const std::string& new_key);
+
     // iterators provided for nice user level code, see app.ccp for examples
     typedef std::unordered_map<std::string, Model>::iterator iterator;
     typedef std::unordered_map<std::string, Model>::const_iterator const_iterator;
