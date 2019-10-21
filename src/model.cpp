@@ -55,8 +55,8 @@ void Model::load_mesh(uint64_t index) {
     }
 
     std::lock_guard<std::mutex> lock(mutex);
-    textures.push_back(std::shared_ptr<Texture>(Texture::construct(texture_path)));
     meshes.push_back(Raekor::Mesh(ai_mesh->mName.C_Str(), vertices, indices));
+    textures.push_back(std::shared_ptr<Texture>(Texture::construct(texture_path)));
 }
 
 static auto importer = std::make_shared<Assimp::Importer>();

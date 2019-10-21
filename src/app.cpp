@@ -9,7 +9,6 @@
 #include "PlatformContext.h"
 #include "renderer.h"
 #include "buffer.h"
-#include "scene.h"
 #include "timer.h"
 
 // TODO: sort this out, consider changing the entire resource buffer API
@@ -96,8 +95,9 @@ void Application::run() {
     dxrb.reset(ResourceBuffer<cb_vs>::construct());
     dxfb.reset(FrameBuffer::construct({ displays[index].w * 0.80, displays[index].h * 0.80 }));
 
-    Scene scene;
-    Scene::iterator active_model = scene.end();
+    using Scene = std::vector<Model>;
+    Scene models;
+    Scene::iterator active_m = models.end();
 
     // persistent imgui variable values
     auto active_skybox = skyboxes.find("lake");
@@ -145,13 +145,12 @@ void Application::run() {
 
         // bind the model's shader
         dx_shader->bind();
-        for (auto& m : scene) {
-            Model& model = m.second;
-            model.recalc_transform();
-            camera.update(model.get_transform());
+        for (auto& m : models) {
+            m.recalc_transform();
+            camera.update(m.get_transform());
             dxrb->get_data().MVP = camera.get_mvp(transpose);
             dxrb->bind(0);
-            model.render();
+            m.render();
         }
 
         // unbind the framebuffer which switches to application's backbuffer
@@ -215,23 +214,23 @@ void Application::run() {
         auto tree_node_flags = ImGuiTreeNodeFlags_DefaultOpen;
         if (ImGui::TreeNodeEx("Models", tree_node_flags)) {
             ImGui::Columns(1, NULL, false);
-            for (Scene::iterator it = scene.begin(); it != scene.end(); it++) {
-                bool selected = it == active_model;
+            for (Scene::iterator it = models.begin(); it != models.end(); it++) {
+                bool selected = it == active_m;
                 // draw a tree node for every model in the scene
                 ImGuiTreeNodeFlags treeflags = ImGuiTreeNodeFlags_OpenOnDoubleClick;
-                if (it == active_model) {
+                if (it == active_m) {
                     treeflags |= ImGuiTreeNodeFlags_Selected;
                 }
-                auto open = ImGui::TreeNodeEx(it->first.c_str(), treeflags);
-                if (ImGui::IsItemClicked()) active_model = it;
+                auto open = ImGui::TreeNodeEx(it->get_path().c_str(), treeflags);
+                if (ImGui::IsItemClicked()) active_m = it;
                 if(open) {
                     // draw a selectable for every mesh in the scene
-                    for (unsigned int i = 0; i < it->second.mesh_count(); i++) {
+                    for (unsigned int i = 0; i < it->mesh_count(); i++) {
                         ImGui::PushID(i);
-                        if (it->second[i].has_value()) {
-                            bool selected = (i == selected_mesh) && (it == active_model);
-                            if (ImGui::Selectable(it->second[i].value()->get_name().c_str(), selected)) {
-                                active_model = it;
+                        if (it->get_mesh(i).has_value()) {
+                            bool selected = (i == selected_mesh) && (it == active_m);
+                            if (ImGui::Selectable(it->get_mesh(i).value()->get_name().c_str(), selected)) {
+                                active_m = it;
                                 selected_mesh = i;
                             }
                         }
@@ -249,9 +248,8 @@ void Application::run() {
         static char input_text[120];
         if (ImGui::InputText("", input_text, sizeof(input_text), ImGuiInputTextFlags_EnterReturnsTrue)) {
             std::string model_name = std::string(input_text);
-            if (!model_name.empty() && active_model != scene.end()) {
-                scene.set_key(active_model->first, model_name);
-                active_model = scene[model_name.c_str()];
+            if (!model_name.empty() && active_m != models.end()) {
+                active_m->set_path(model_name);
                 memset(input_text, 0, sizeof(input_text));
             } else {
                 memset(input_text, 0, sizeof(input_text));
@@ -260,15 +258,15 @@ void Application::run() {
         if (ImGui::Button("Load Model")) {
             std::string path = context.open_file_dialog({ ft_mesh });
             if (!path.empty()) {
-                scene.add(path);
-                active_model = scene[path.c_str()];
+                models.push_back(Model(path));
+                active_m = models.end() - 1;
             }
         }
         ImGui::SameLine();
         if (ImGui::Button("Remove Model")) {
-            if (active_model != scene.end()) {
-                scene.remove(active_model->first);
-                active_model = scene.end();
+            if (active_m != models.end()) {
+                models.erase(active_m);
+                active_m = models.end();
             }
         }
         ImGui::End();
@@ -316,16 +314,16 @@ void Application::run() {
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
-        if (!scene.empty() && active_model != scene.end()) {
+        if (!models.empty() && active_m != models.end()) {
             ImGui::Begin("Model Properties");
 
-            if (ImGui::DragFloat3("Scale", active_model->second.scale_ptr(), 0.01f, 0.0f, 10.0f)) {}
-            if (ImGui::DragFloat3("Position", active_model->second.pos_ptr(), 0.01f, -100.0f, 100.0f)) {}
-            if (ImGui::DragFloat3("Rotation", active_model->second.rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {}
+            if (ImGui::DragFloat3("Scale", active_m->scale_ptr(), 0.01f, 0.0f, 10.0f)) {}
+            if (ImGui::DragFloat3("Position", active_m->pos_ptr(), 0.01f, -100.0f, 100.0f)) {}
+            if (ImGui::DragFloat3("Rotation", active_m->rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {}
             
             // resets the model's transformation
             if (ImGui::Button("Reset")) {
-                active_model->second.reset_transform();
+                active_m->reset_transform();
             }
             ImGui::End();
 
@@ -355,7 +353,7 @@ void Application::run() {
             sky_image.reset(Texture::construct(skyboxes["lake"]));
             skycube.reset(new Mesh(Shape::Cube));
             sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
-            scene.rebuild();
+            for (auto &m : models) m.reload();
         }
         }
     }

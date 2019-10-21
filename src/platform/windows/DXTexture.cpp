@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "DXTexture.h"
 #include "DXRenderer.h"
+#include "timer.h"
 
 namespace Raekor {
 
@@ -24,8 +25,12 @@ DXTexture::DXTexture(const std::string& filepath) {
     // load the image data using stb image
     D3D11_SUBRESOURCE_DATA image_data;
     int width, height, channels;
+    Timer timer;
+    timer.start();
     auto image = stbi_load(filepath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
     m_assert(image, "failed to load directx texture using stbi");
+    timer.stop();
+    std::cout << "DirectX stb texture load time : " << timer.elapsed_ms() << " ms" << '\n';
 
     // point the directx resource to the stb image data
     image_data.pSysMem = (const void*)image;

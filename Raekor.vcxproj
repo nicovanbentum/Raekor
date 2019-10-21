@@ -71,7 +71,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Debug;C:\VulkanSDK\1.1.114.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;vulkan-1.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mtd.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SDL2.lib;vulkan-1.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mt.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/NODEFAULTLIB:libcmt.lib;NODEFAULTLIB:libcmtd.lib;/NODEFAULTLIB:msvcrtd.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -81,7 +81,7 @@
     <PreBuildEvent>
       <Command>copy "$(SolutionDir)\dependencies\SDL\lib\x64\SDL2.dll" "$(TargetDir)"
 copy "$(SolutionDir)\config.json" "$(TargetDir)"
-copy "$(SolutionDir)\dependencies\assimp-build\assimp-vc141-mtd.dll" "$(TargetDir)"
+copy "$(SolutionDir)\dependencies\assimp-build\assimp-vc141-mt.dll" "$(TargetDir)"
 copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\dependencies\assimp\include\assimp"</Command>
     </PreBuildEvent>
     <Manifest>
@@ -178,7 +178,6 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClCompile Include="src\platform\windows\DXTexture.cpp" />
     <ClCompile Include="src\platform\windows\PlatformContext.cpp" />
     <ClCompile Include="src\renderer.cpp" />
-    <ClCompile Include="src\scene.cpp" />
     <ClCompile Include="src\shader.cpp" />
     <ClCompile Include="src\stb_impl.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
@@ -206,7 +205,6 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClInclude Include="src\headers\model.h" />
     <ClInclude Include="src\headers\pch.h" />
     <ClInclude Include="src\headers\renderer.h" />
-    <ClInclude Include="src\headers\scene.h" />
     <ClInclude Include="src\headers\shader.h" />
     <ClInclude Include="src\headers\texture.h" />
     <ClInclude Include="src\headers\timer.h" />

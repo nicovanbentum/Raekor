@@ -33,7 +33,7 @@ public:
 
     void render() const;
 
-    std::optional<const Mesh*> operator[](unsigned int index) {
+    std::optional<const Mesh*> get_mesh(unsigned int index) {
         if (index < meshes.size() && index > 0) {
             return &meshes[index];
         }
