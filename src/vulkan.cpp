@@ -21,6 +21,29 @@ void compile_shader(const char* in, const char* out) {
 
 namespace Raekor {
 
+class VKRenderer {
+public:
+	VKRenderer() {
+		
+	};
+
+	void init(SDL_Window* window) const {
+
+	}
+
+	~VKRenderer() {
+
+	}
+
+
+private:
+	VkInstance instance;
+	VkSurfaceKHR surface;
+	VkPhysicalDevice gpu;
+	VkDevice device;
+
+};
+
 void Application::vulkan_main() {
     auto context = Raekor::PlatformContext();
 

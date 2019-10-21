@@ -54,10 +54,8 @@ void Model::load_mesh(uint64_t index) {
         indices.push_back({ ai_mesh->mFaces[i].mIndices[0], ai_mesh->mFaces[i].mIndices[1], ai_mesh->mFaces[i].mIndices[2] });
     }
 
-    std::shared_ptr<Texture> texture;
-    texture.reset(Texture::construct(texture_path));
     std::lock_guard<std::mutex> lock(mutex);
-    textures.push_back(texture);
+    textures.push_back(std::shared_ptr<Texture>(Texture::construct(texture_path)));
     meshes.push_back(Raekor::Mesh(ai_mesh->mName.C_Str(), vertices, indices));
 }
 
