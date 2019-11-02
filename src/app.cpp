@@ -49,12 +49,12 @@ void Application::run() {
     }
 
     // if our display setting is higher than the nr of displays we pick the default display
-    auto index = display > displays.size() - 1 ? 0 : display;
+    display = display > displays.size() - 1 ? 0 : display;
     auto directxwindow = SDL_CreateWindow(name.c_str(),
-        displays[index].x,
-        displays[index].y,
-        displays[index].w,
-        displays[index].h,
+        displays[display].x,
+        displays[display].y,
+        displays[display].w,
+        displays[display].h,
         wflags);
 
     // initialize ImGui
@@ -93,7 +93,7 @@ void Application::run() {
     skycube.reset(new Mesh(Shape::Cube));
     sky_image.reset(Texture::construct(skyboxes["lake"]));
     dxrb.reset(ResourceBuffer<cb_vs>::construct());
-    dxfb.reset(FrameBuffer::construct({ displays[index].w * 0.80, displays[index].h * 0.80 }));
+    dxfb.reset(FrameBuffer::construct({ displays[display].w * 0.80, displays[display].h * 0.80 }));
 
     using Scene = std::vector<Model>;
     Scene models;
@@ -114,6 +114,7 @@ void Application::run() {
     }
     bool running = true;
     static unsigned int selected_mesh = 0;
+    bool show_settings_window = false;
 
     Timer dt_timer;
     double dt = 0;
@@ -198,11 +199,11 @@ void Application::run() {
         // draw the top level bar that contains stuff like "File" and "Edit"
         if (ImGui::BeginMenuBar()) {
             if (ImGui::BeginMenu("File")) {
-                if (ImGui::MenuItem("Close", "CTRL+S")) {
-                    //clean up SDL
-                    SDL_DestroyWindow(directxwindow);
-                    SDL_Quit();
-                    return;
+                if (ImGui::MenuItem("Settings", "")) {
+                    show_settings_window = true;
+                }
+                if (ImGui::MenuItem("Exit", "CTRL+S")) {
+                    running = false;
                 }
                 ImGui::EndMenu();
             }
@@ -336,7 +337,6 @@ void Application::run() {
         ImGui::End();
         ImGui::PopStyleVar();
 
-
         ImGui::End();
         Render::ImGui_Render();
         Render::SwapBuffers(use_vsync);
@@ -348,13 +348,20 @@ void Application::run() {
             // TODO: figure this out
             Render::Reset(directxwindow);
             dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
-            dxfb.reset(FrameBuffer::construct({ displays[index].w * 0.80, displays[index].h * 0.80 }));
+            dxfb.reset(FrameBuffer::construct({ displays[display].w * 0.80, displays[display].h * 0.80 }));
             dxrb.reset(ResourceBuffer<cb_vs>::construct());
             sky_image.reset(Texture::construct(skyboxes["lake"]));
             skycube.reset(new Mesh(Shape::Cube));
             sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
             for (auto &m : models) m.reload();
         }
-        }
-    }
+
+    } // while true loop
+
+    display = SDL_GetWindowDisplayIndex(directxwindow);
+    serialize_settings("config.json", true);
+    //clean up SDL
+    SDL_DestroyWindow(directxwindow);
+    SDL_Quit();
+} // main
 } // namespace Raekor

@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "app.h"
 #include "camera.h"
+#include "renderer.h"
 
 namespace Raekor {
 
@@ -33,7 +34,7 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
         }
 
         if (!camera.is_mouse_active() && ev.type == SDL_MOUSEMOTION) {
-            camera.look(ev.motion.xrel, ev.motion.yrel * -1);
+            camera.look(ev.motion.xrel, ev.motion.yrel);
         }
 
         // key down and not repeating a hold
@@ -54,7 +55,7 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
 int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
-    app.run();
+    app.vulkan_main();
     system("PAUSE");
     return 0;
 }

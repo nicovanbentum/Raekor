@@ -2,42 +2,39 @@
     "name": "Raekor Render Engine",
     "display": 1,
     "font": "resources/SourceSansPro-Regular.ttf",
-    "skybox": "resources/skyboxes/nebula",
     "skyboxes": [
         {
             "key": "lake",
-            "value": [
-                "resources/skyboxes/lake/right.jpg",
-                "resources/skyboxes/lake/left.jpg",
-                "resources/skyboxes/lake/top.jpg",
-                "resources/skyboxes/lake/bottom.jpg",
-                "resources/skyboxes/lake/front.jpg",
-                "resources/skyboxes/lake/back.jpg"
-            ]
+            "value": {
+                "value0": "resources/skyboxes/lake/right.jpg",
+                "value1": "resources/skyboxes/lake/left.jpg",
+                "value2": "resources/skyboxes/lake/top.jpg",
+                "value3": "resources/skyboxes/lake/bottom.jpg",
+                "value4": "resources/skyboxes/lake/front.jpg",
+                "value5": "resources/skyboxes/lake/back.jpg"
+            }
         },
         {
             "key": "nebula",
-            "value": [
-                "resources/skyboxes/nebula/right.png",
-                "resources/skyboxes/nebula/left.png",
-                "resources/skyboxes/nebula/top.png",
-                "resources/skyboxes/nebula/bottom.png",
-                "resources/skyboxes/nebula/front.png",
-                "resources/skyboxes/nebula/back.png"
-            ]
-
+            "value": {
+                "value0": "resources/skyboxes/nebula/right.png",
+                "value1": "resources/skyboxes/nebula/left.png",
+                "value2": "resources/skyboxes/nebula/top.png",
+                "value3": "resources/skyboxes/nebula/bottom.png",
+                "value4": "resources/skyboxes/nebula/front.png",
+                "value5": "resources/skyboxes/nebula/back.png"
+            }
         },
         {
             "key": "night",
-            "value": [
-                "resources/skyboxes/night/right.jpg",
-                "resources/skyboxes/night/left.jpg",
-                "resources/skyboxes/night/top.jpg",
-                "resources/skyboxes/night/bottom.jpg",
-                "resources/skyboxes/night/front.jpg",
-                "resources/skyboxes/night/back.jpg"
-            ]
-
+            "value": {
+                "value0": "resources/skyboxes/night/right.jpg",
+                "value1": "resources/skyboxes/night/left.jpg",
+                "value2": "resources/skyboxes/night/top.jpg",
+                "value3": "resources/skyboxes/night/bottom.jpg",
+                "value4": "resources/skyboxes/night/front.jpg",
+                "value5": "resources/skyboxes/night/back.jpg"
+            }
         }
     ]
 }

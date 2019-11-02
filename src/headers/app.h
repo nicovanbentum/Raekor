@@ -26,7 +26,7 @@ public:
 private:
     std::string name;
     std::string font;
-    uint8_t display;
+    int display;
     std::map<std::string, std::array<std::string, 6>> skyboxes;
 };
 

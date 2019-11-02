@@ -28,7 +28,37 @@ public:
 	};
 
 	void init(SDL_Window* window) const {
+        VkApplicationInfo appInfo = {};
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.pApplicationName = "Hello Triangle";
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.pEngineName = "No Engine";
+        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.apiVersion = VK_API_VERSION_1_0;
 
+        VkInstanceCreateInfo instance_info = {};
+        instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        instance_info.pApplicationInfo = &appInfo;
+
+        unsigned int count;
+        if (!SDL_Vulkan_GetInstanceExtensions(window, &count, nullptr)) {
+            throw std::runtime_error("failed to get vulkan instance extensions");
+        }
+
+        std::vector<const char*> extensions = {
+        VK_EXT_DEBUG_REPORT_EXTENSION_NAME // Sample additional extension
+        };
+        size_t additional_extension_count = extensions.size();
+        extensions.resize(additional_extension_count + count);
+
+        auto sdl_bool = SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data() + additional_extension_count);
+        m_assert(sdl_bool, "failed to get instance extensions");
+
+#ifdef NDEBUG
+        const bool enableValidationLayers = false;
+#else
+        const bool enableValidationLayers = true;
+#endif
 	}
 
 	~VKRenderer() {
