@@ -74,6 +74,7 @@ VkFormat vk_format(ShaderType type) {
     case ShaderType::FLOAT2: return VK_FORMAT_R32G32_SFLOAT;
     case ShaderType::FLOAT3: return VK_FORMAT_R32G32B32_SFLOAT;
     case ShaderType::FLOAT4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+    default: return VK_FORMAT_END_RANGE;
     }
 }
 
@@ -141,7 +142,7 @@ public:
         }
     }
 
-    VkPipelineShaderStageCreateInfo& getInfo(VkShaderStageFlagBits stage) {
+    VkPipelineShaderStageCreateInfo getInfo(VkShaderStageFlagBits stage) {
         VkPipelineShaderStageCreateInfo stage_info = {};
         stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         stage_info.stage = stage;
@@ -419,7 +420,7 @@ public:
             aiProcess_ValidateDataStructure;
 
         Assimp::Importer importer;
-        const auto scene = importer.ReadFile("resources/models/testcube.obj", flags);
+        const auto scene = importer.ReadFile("resources/models/chalet.obj", flags);
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
         auto ai_mesh = scene->mMeshes[0];
@@ -445,9 +446,14 @@ public:
         }
 
         VKVertexBuffer vertex_buffer = createVertexBuffer(vertices);
+        vertex_buffer.setLayout({
+            { "POSITION", ShaderType::FLOAT3 },
+            { "UV",       ShaderType::FLOAT2 },
+            { "NORMAL",   ShaderType::FLOAT3 }
+            });
         VKBuffer index_buffer = createIndexBuffer(indices);
 
-        VKTexture test_texture = loadTexture("resources/textures/test.png");
+        VKTexture test_texture = loadTexture("resources/textures/chalet.jpg");
         VKTexture depth_texture = createDepthTexture();
 
         //
@@ -914,11 +920,6 @@ public:
         VkDeviceMemory depth_mem;
         VkImageView depth_view;
 
-        auto findDepthFormat = [&]() {
-            return findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
-                VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-        };
-
         VkFormat depthFormat = findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
             VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
@@ -977,11 +978,11 @@ public:
         transitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         copyBufferToImage(stage_pixels, texture, static_cast<uint32_t>(texw), static_cast<uint32_t>(texh));
         transitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
         vkDestroyBuffer(device, stage_pixels, nullptr);
         vkFreeMemory(device, stage_pixels_mem, nullptr);
 
         auto texture_image_view = createImageView(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+        
         VkSamplerCreateInfo samplerInfo = {};
         samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         samplerInfo.magFilter = VK_FILTER_LINEAR;
@@ -1184,17 +1185,10 @@ public:
         );
 
         copyBuffer(staging_buffer, vertex_buffer, buffer_size);
-
         vkDestroyBuffer(device, staging_buffer, nullptr);
         vkFreeMemory(device, stage_mem, nullptr);
 
-        VKVertexBuffer final_buffer = VKVertexBuffer(vertex_buffer, vertex_mem);
-        final_buffer.setLayout({
-            { "POSITION", ShaderType::FLOAT3 },
-            { "UV", ShaderType::FLOAT2 },
-            { "NORMAL", ShaderType::FLOAT3 }});
-
-        return final_buffer;
+        return VKVertexBuffer(vertex_buffer, vertex_mem);
     }
 
     VKBuffer createIndexBuffer(const std::vector<Index>& indices) {
@@ -1519,7 +1513,7 @@ void Application::vulkan_main() {
     cb_vs ubo;
 
     glm::mat4 model = glm::mat4(1.0f);
-    glm::vec3 rotation = { M_PI / 2, 0, 0 };
+    glm::vec3 rotation = { M_PI / 2, 1, 0 };
     auto rotation_quat = static_cast<glm::quat>(rotation);
     model = model * glm::toMat4(rotation_quat);
 
