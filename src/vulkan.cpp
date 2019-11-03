@@ -68,52 +68,48 @@ private:
     VkDeviceMemory memory;
 };
 
+VkFormat vk_format(ShaderType type) {
+    switch (type) {
+    case ShaderType::FLOAT1: return VK_FORMAT_R32_SFLOAT;
+    case ShaderType::FLOAT2: return VK_FORMAT_R32G32_SFLOAT;
+    case ShaderType::FLOAT3: return VK_FORMAT_R32G32B32_SFLOAT;
+    case ShaderType::FLOAT4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+    }
+}
+
 class VKVertexBuffer: public VKBuffer {
 public:
     VKVertexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory) :
-        VKBuffer(p_buffer, p_memory), info({}), bindingDescription({}), attribute_descriptions({}) {
+        VKBuffer(p_buffer, p_memory), info({}), bindingDescription({}), layout({}) {
         bindingDescription.binding = 0;
         bindingDescription.stride = sizeof(Vertex);
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        VkVertexInputAttributeDescription attr_pos = {};
-        attr_pos.binding = 0;
-        attr_pos.location = 0;
-        attr_pos.format = VK_FORMAT_R32G32B32_SFLOAT;
-        attr_pos.offset = offsetof(Vertex, pos);
-
-        VkVertexInputAttributeDescription attr_uv = {};
-        attr_uv.binding = 0;
-        attr_uv.location = 1;
-        attr_uv.format = VK_FORMAT_R32G32_SFLOAT;
-        attr_uv.offset = offsetof(Vertex, uv);
-
-        VkVertexInputAttributeDescription attr_normal = {};
-        attr_normal.binding = 0;
-        attr_normal.location = 2;
-        attr_normal.format = VK_FORMAT_R32G32B32_SFLOAT;
-        attr_normal.offset = offsetof(Vertex, normal);
-
-
-        attribute_descriptions = {
-            attr_pos, attr_uv, attr_normal
-        };
-
-        // describe the vertex buffer
-        info = {};
         info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         info.vertexBindingDescriptionCount = 1;
-        info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
         info.pVertexBindingDescriptions = &bindingDescription;
-        info.pVertexAttributeDescriptions = attribute_descriptions.data();
     }
 
-    inline VkPipelineVertexInputStateCreateInfo& getInfo() { return info; }
+    void setLayout(const InputLayout& new_layout) {
+        layout.clear();
+        uint32_t location = 0;
+        for (auto& element : new_layout) {
+            VkVertexInputAttributeDescription attrib = {};
+            attrib.binding = 0;
+            attrib.location = location++;
+            attrib.format = vk_format(element.type);
+            attrib.offset = element.offset;
+            layout.push_back(attrib);
+        }
+        info.vertexAttributeDescriptionCount = static_cast<uint32_t>(layout.size());
+        info.pVertexAttributeDescriptions = layout.data();
+    }
+
+    inline VkPipelineVertexInputStateCreateInfo& getVertexInputState() { return info; }
 
 private:
+    std::vector<VkVertexInputAttributeDescription> layout;
     VkPipelineVertexInputStateCreateInfo info;
     VkVertexInputBindingDescription bindingDescription;
-    std::array<VkVertexInputAttributeDescription, Vertex::attribute_count> attribute_descriptions;
 };
 
 class VKShader {
@@ -140,7 +136,6 @@ public:
         createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         createInfo.codeSize = buffer.size();
         createInfo.pCode = reinterpret_cast<const uint32_t*>(buffer.data());
-        VkShaderModule module;
         if (vkCreateShaderModule(device, &createInfo, nullptr, &module) != VK_SUCCESS) {
             throw std::runtime_error("failed to create vk shader module");
         }
@@ -289,12 +284,7 @@ public:
             throw std::runtime_error("failed to create surface");
         }
 
-        try {
-            gpu = getGPU();
-        }
-        catch(std::exception e) {
-            std::cout << e.what() << std::endl;
-        }
+        gpu = getGPU();
 
         const std::vector<const char*> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -405,46 +395,14 @@ public:
         SDL_GetWindowSize(window, &w, &h);
         setupSwapchain(w, h, extensions);
 
-        auto read_shader = [&](const std::string& fp) {
-            std::ifstream file(fp, std::ios::ate | std::ios::binary);
-            m_assert(file.is_open(), "failed to open " + fp);
-            size_t filesize = (size_t)file.tellg();
-            std::vector<char> buffer(filesize);
-            file.seekg(0);
-            file.read(buffer.data(), filesize);
-            file.close();
-            return buffer;
-        };
+        VKShader vert = VKShader("shaders/vert.spv");
+        VKShader frag = VKShader("shaders/frag.spv");
+        vert.createModule(device);
+        frag.createModule(device);
 
-        auto create_shader_module = [&](const std::vector<char>& code) {
-            VkShaderModuleCreateInfo createInfo = {};
-            createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-            createInfo.codeSize = code.size();
-            createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
-            VkShaderModule module;
-            auto hr = vkCreateShaderModule(device, &createInfo, nullptr, &module);
-            m_assert(hr == VK_SUCCESS, "failed to create vk shader module");
-            return module;
-        };
-
-        auto vertShaderCode = read_shader("shaders/vert.spv");
-        auto fragShaderCode = read_shader("shaders/frag.spv");
-        auto vertShaderModule = create_shader_module(vertShaderCode);
-        auto fragShaderModule = create_shader_module(fragShaderCode);
-
-        VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
-        vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-        vertShaderStageInfo.module = vertShaderModule;
-        vertShaderStageInfo.pName = "main";
-
-        VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
-        fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        fragShaderStageInfo.module = fragShaderModule;
-        fragShaderStageInfo.pName = "main";
-
-        VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+        VkPipelineShaderStageCreateInfo shaderStages[] = { 
+            vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT), 
+            frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT) };
 
         std::vector<Vertex> vertices;
         std::vector<Index> indices;
@@ -758,7 +716,7 @@ public:
         pipelineInfo.stageCount = 2;
         pipelineInfo.pStages = shaderStages;
 
-        pipelineInfo.pVertexInputState = &vertex_buffer.getInfo();
+        pipelineInfo.pVertexInputState = &vertex_buffer.getVertexInputState();
         pipelineInfo.pInputAssemblyState = &inputAssembly;
         pipelineInfo.pViewportState = &viewportState;
         pipelineInfo.pRasterizationState = &rasterizer;
@@ -1230,7 +1188,13 @@ public:
         vkDestroyBuffer(device, staging_buffer, nullptr);
         vkFreeMemory(device, stage_mem, nullptr);
 
-        return VKVertexBuffer(vertex_buffer, vertex_mem);
+        VKVertexBuffer final_buffer = VKVertexBuffer(vertex_buffer, vertex_mem);
+        final_buffer.setLayout({
+            { "POSITION", ShaderType::FLOAT3 },
+            { "UV", ShaderType::FLOAT2 },
+            { "NORMAL", ShaderType::FLOAT3 }});
+
+        return final_buffer;
     }
 
     VKBuffer createIndexBuffer(const std::vector<Index>& indices) {
@@ -1576,7 +1540,7 @@ void Application::vulkan_main() {
 
         dt_timer.stop();
         dt = dt_timer.elapsed_ms();
-        std::cout << 1000 / dt << std::endl;
+        //std::cout << 1000 / dt << std::endl;
     }
     vk.waitForIdle();
 
