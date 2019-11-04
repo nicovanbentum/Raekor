@@ -171,7 +171,9 @@ private:
     VkCommandPool commandPool;
     VkQueue present_q;
     VkQueue graphics_q;
+    VkRenderPass renderPass;
 	VkDevice device;
+    VkDescriptorPool descriptorPool;
 
     std::vector<VkImage> swapChainImages;
     VkFormat swapChainImageFormat;
@@ -420,7 +422,7 @@ public:
             aiProcess_ValidateDataStructure;
 
         Assimp::Importer importer;
-        const auto scene = importer.ReadFile("resources/models/chalet.obj", flags);
+        const auto scene = importer.ReadFile("resources/models/testcube.obj", flags);
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
         auto ai_mesh = scene->mMeshes[0];
@@ -453,7 +455,7 @@ public:
             });
         VKBuffer index_buffer = createIndexBuffer(indices);
 
-        VKTexture test_texture = loadTexture("resources/textures/chalet.jpg");
+        VKTexture test_texture = loadTexture("resources/textures/test.png");
         VKTexture depth_texture = createDepthTexture();
 
         //
@@ -512,7 +514,6 @@ public:
         pool_info.pPoolSizes = pool_sizes.data();
         pool_info.maxSets = static_cast<uint32_t>(swapChainImages.size());
 
-        VkDescriptorPool descriptorPool;
         if (vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool for UBO");
         }
@@ -635,7 +636,6 @@ public:
         colorBlending.blendConstants[2] = 0.0f; // Optional
         colorBlending.blendConstants[3] = 0.0f; // Optional
 
-        VkRenderPass renderPass;
         VkPipelineLayout pipelineLayout;
         VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1461,6 +1461,39 @@ public:
 
         endSingleTimeCommands(commandBuffer);
     };
+
+    void initImGui(SDL_Window* window) {
+        ImGui_ImplVulkan_InitInfo info;
+        info.Device = device;
+        info.PhysicalDevice = gpu;
+        info.QueueFamily = qindices.graphics.value();
+        info.Queue = graphics_q;
+        info.PipelineCache = VK_NULL_HANDLE;
+        info.DescriptorPool = descriptorPool;
+        info.MinImageCount = 2;
+        info.ImageCount = info.MinImageCount;
+        info.Allocator = nullptr;
+        info.CheckVkResultFn = nullptr;
+        ImGui_ImplSDL2_InitForVulkan(window);
+        ImGui_ImplVulkan_Init(&info, renderPass);
+    }
+
+    void ImGuiCreateFonts() {
+        VkCommandBuffer command_buffer = beginSingleTimeCommands();
+        ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+        endSingleTimeCommands(command_buffer);
+        ImGui_ImplVulkan_DestroyFontUploadObjects();
+    }
+
+    void ImGuiNewFrame(SDL_Window* window) {
+        ImGui_ImplSDL2_NewFrame(window);
+        ImGui_ImplVulkan_NewFrame();
+    }
+
+    void ImGuiRender() {
+        ImGui::Render();
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *commandBuffers.begin());
+    }
 };
 
 void Application::vulkan_main() {
@@ -1502,6 +1535,8 @@ void Application::vulkan_main() {
 
     VKRender vk = VKRender();
     vk.init(window);
+    vk.initImGui(window);
+    //vk.ImGuiCreateFonts();
 
     std::puts("job well done.");
 
@@ -1531,6 +1566,11 @@ void Application::vulkan_main() {
         uint32_t frame = vk.getNextFrame();
         vk.updateUniformBuffer(ubo, frame);
         vk.render(frame);
+
+        vk.ImGuiNewFrame(window);
+        ImGui::Begin("new window");
+        ImGui::End();
+        vk.ImGuiRender();
 
         dt_timer.stop();
         dt = dt_timer.elapsed_ms();

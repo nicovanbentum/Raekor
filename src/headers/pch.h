@@ -60,6 +60,7 @@
 #include "imstb_truetype.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_sdl.h"
+#include "imgui_impl_vulkan.h"
 
 // if we're on windows we also include 
 // the directx11 implementation for ImGui

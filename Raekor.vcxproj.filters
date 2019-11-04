@@ -102,6 +102,9 @@
     <ClCompile Include="src\vulkan.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="dependencies\imgui\examples\imgui_impl_vulkan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\glm\glm.hpp">
@@ -186,6 +189,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="dependencies\imgui\imgui_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\imgui\examples\imgui_impl_vulkan.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
