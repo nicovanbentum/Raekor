@@ -862,12 +862,13 @@ public:
         vkDeviceWaitIdle(device);
     }
 
-    void render(uint32_t imageIndex) {
+    void ImGuiRecord() {
+        // allocate secondary command buffers 
         imguicmdbuffers.resize(swapChainFramebuffers.size());
         VkCommandBufferAllocateInfo cmd_allocInfo = {};
         cmd_allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         cmd_allocInfo.commandPool = commandPool;
-        cmd_allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        cmd_allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;;
         cmd_allocInfo.commandBufferCount = (uint32_t)imguicmdbuffers.size();
 
         if (vkAllocateCommandBuffers(device, &cmd_allocInfo, imguicmdbuffers.data()) != VK_SUCCESS) {
@@ -875,41 +876,34 @@ public:
         }
 
         for (size_t i = 0; i < imguicmdbuffers.size(); i++) {
+        // record secondary command buffer and let it inherit the same render pass and
+        // framebuffers as the main command buffer
+            VkCommandBufferInheritanceInfo inherit_info = {};
+            inherit_info.framebuffer = swapChainFramebuffers[i];
+            inherit_info.renderPass = renderPass;
+            inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+
             VkCommandBufferBeginInfo beginInfo = {};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            beginInfo.flags = 0; // Optional
-            beginInfo.pInheritanceInfo = nullptr; // Optional
+            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT; // Optional
+            beginInfo.pInheritanceInfo = &inherit_info; // Optional
 
             if (vkBeginCommandBuffer(imguicmdbuffers[i], &beginInfo) != VK_SUCCESS) {
                 throw std::runtime_error("failed to record command buffer");
             }
 
-            VkRenderPassBeginInfo render_info = {};
-            render_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            render_info.renderPass = renderPass;
-            render_info.framebuffer = swapChainFramebuffers[i];
-            render_info.renderArea.offset = { 0, 0 };
-            render_info.renderArea.extent = extent;
-
-            std::array<VkClearValue, 2> clearValues = {};
-            clearValues[0].color = { 0.1f, 0.0f, 0.0f, 0.0f };
-            clearValues[1].depthStencil = { 1.0f, 0 };
-
-            render_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
-            render_info.pClearValues = clearValues.data();
-
-            vkCmdBeginRenderPass(imguicmdbuffers[i], &render_info, VK_SUBPASS_CONTENTS_INLINE);
             vkCmdBindPipeline(imguicmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
             // Record Imgui Draw Data and draw funcs into command buffer
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguicmdbuffers[i]);
 
-            vkCmdEndRenderPass(imguicmdbuffers[i]);
             if (vkEndCommandBuffer(imguicmdbuffers[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to end command buffer");
             }
         }
+    }
 
+    void render(uint32_t imageIndex) {
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -920,7 +914,7 @@ public:
         submitInfo.waitSemaphoreCount = 1;
         submitInfo.pWaitSemaphores = waitSemaphores;
         submitInfo.pWaitDstStageMask = waitStages;
-        submitInfo.commandBufferCount = 2;
+        submitInfo.commandBufferCount = static_cast<uint32_t>(cmdbuffers.size());
         submitInfo.pCommandBuffers = cmdbuffers.data();
         VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[current_frame] };
         submitInfo.signalSemaphoreCount = 1;
@@ -1664,12 +1658,18 @@ void Application::vulkan_main() {
         uint32_t frame = vk.getNextFrame();
         vk.updateUniformBuffer(ubo, frame);
 
+        // start a new imgui frame
         vk.ImGuiNewFrame(window);
-        ImGui::Begin("new window");
-        ImGui::End();
-        
+        // immediate demo window
+        ImGui::ShowDemoWindow();
+        // tell imgui to collect render data
         ImGui::Render();
+        // record the collected data to secondary command buffers
+        vk.ImGuiRecord();
+        // start the overall render pass
         vk.render(frame);
+        // tell imgui we're done with the current frame
+        ImGui::EndFrame();
 
         dt_timer.stop();
         dt = dt_timer.elapsed_ms();
