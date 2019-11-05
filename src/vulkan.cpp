@@ -204,16 +204,26 @@ private:
 
 public:
     ~VKRender() {
-        vkDestroyDevice(device, nullptr);
-        vkDestroySurfaceKHR(instance, surface, nullptr);
-        vkDestroyInstance(instance, nullptr);
-
+        vkDestroyRenderPass(device, renderPass, nullptr);
+        vkDestroyCommandPool(device, commandPool, nullptr);
         vkDestroySwapchainKHR(device, swapchain, nullptr);
         for (auto& imageview : swapChainImageViews)
             vkDestroyImageView(device, imageview, nullptr);
         for (auto& fb : swapChainFramebuffers)
             vkDestroyFramebuffer(device, fb, nullptr);
-
+        for (unsigned int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
+            vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
+            vkDestroyFence(device, inFlightFences[i], nullptr);
+        }
+        for (size_t i = 0; i < swapChainImages.size(); i++) {
+            vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+            vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+        }
+        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        vkDestroySurfaceKHR(instance, surface, nullptr);
+        vkDestroyInstance(instance, nullptr);
+        vkDestroyDevice(device, nullptr);
     }
 
 	VKRender() {
@@ -818,6 +828,18 @@ public:
             if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to end command buffer");
             }
+
+            // allocate secondary ImGui command buffers 
+            imguicmdbuffers.resize(swapChainFramebuffers.size());
+            VkCommandBufferAllocateInfo cmd_allocInfo = {};
+            cmd_allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+            cmd_allocInfo.commandPool = commandPool;
+            cmd_allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;;
+            cmd_allocInfo.commandBufferCount = (uint32_t)imguicmdbuffers.size();
+
+            if (vkAllocateCommandBuffers(device, &cmd_allocInfo, imguicmdbuffers.data()) != VK_SUCCESS) {
+                throw std::runtime_error("failed to allocate vk command buffers");
+            }
         }
 
         constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -850,8 +872,6 @@ public:
     }
 
     uint32_t getNextFrame() {
-        vkWaitForFences(device, 1, &inFlightFences[current_frame], VK_TRUE, UINT64_MAX);
-        vkResetFences(device, 1, &inFlightFences[current_frame]);
 
         uint32_t imageIndex;
         vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
@@ -895,6 +915,8 @@ public:
             vkCmdBindPipeline(imguicmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
             // Record Imgui Draw Data and draw funcs into command buffer
+            // TODO: right now this isn't synced properly causing an error in the validation layers saying
+            // imgui attempts to destroy buffers while they are in use.
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguicmdbuffers[i]);
 
             if (vkEndCommandBuffer(imguicmdbuffers[i]) != VK_SUCCESS) {
@@ -904,19 +926,24 @@ public:
     }
 
     void render(uint32_t imageIndex) {
-        VkSubmitInfo submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-        std::array<VkCommandBuffer, 2> cmdbuffers = { commandBuffers[imageIndex], imguicmdbuffers[imageIndex] };
+        // reset command buffer fences 
+        vkResetFences(device, 1, &inFlightFences[current_frame]);
 
         VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[current_frame] };
+        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[current_frame] };
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        
+        // use std array here over cmdbuffers for future reference when 
+        // for implementing automatic command buffer submission TODO
+        std::array<VkCommandBuffer, 2> cmdbuffers = { commandBuffers[imageIndex], imguicmdbuffers[imageIndex] };
+        
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.waitSemaphoreCount = 1;
         submitInfo.pWaitSemaphores = waitSemaphores;
         submitInfo.pWaitDstStageMask = waitStages;
         submitInfo.commandBufferCount = static_cast<uint32_t>(cmdbuffers.size());
         submitInfo.pCommandBuffers = cmdbuffers.data();
-        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[current_frame] };
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -934,7 +961,6 @@ public:
 
         VkPresentInfoKHR presentInfo = {};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = signalSemaphores;
 
@@ -945,9 +971,9 @@ public:
         presentInfo.pResults = nullptr; // Optional
         vkQueuePresentKHR(present_q, &presentInfo);
 
+        vkWaitForFences(device, 1, &inFlightFences[current_frame], VK_TRUE, UINT64_MAX);
         current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
-
 
     VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
         for (VkFormat format : candidates) {
@@ -1514,24 +1540,6 @@ public:
     };
 
     void initImGui(SDL_Window* window) {
-
-        uint32_t g_QueueFamily = 0;
-        // Select graphics queue family
-        {
-            uint32_t count;
-            vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, NULL);
-            VkQueueFamilyProperties* queues = (VkQueueFamilyProperties*)malloc(sizeof(VkQueueFamilyProperties) * count);
-            vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, queues);
-            for (uint32_t i = 0; i < count; i++)
-                if (queues[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-                {
-                    g_QueueFamily = i;
-                    break;
-                }
-            free(queues);
-            IM_ASSERT(g_QueueFamily != (uint32_t)-1);
-        }
-
         // Create Descriptor Pool
         {
             VkDescriptorPoolSize pool_sizes[] =
@@ -1562,7 +1570,7 @@ public:
         ImGui_ImplVulkan_InitInfo info;
         info.Device = device;
         info.PhysicalDevice = gpu;
-        info.QueueFamily = g_QueueFamily;
+        info.QueueFamily = qindices.graphics.value();
         info.Queue = graphics_q;
         info.PipelineCache = VK_NULL_HANDLE;
         info.DescriptorPool = g_DescriptorPool;
@@ -1681,22 +1689,10 @@ void Application::vulkan_main() {
     vkDestroyShaderModule(vk_device, vertShaderModule, nullptr);
     vkDestroyShaderModule(vk_device, fragShaderModule, nullptr);
     vkDestroyPipelineLayout(vk_device, pipelineLayout, nullptr);
-    vkDestroyPipeline(vk_device, graphicsPipeline, nullptr);
-    vkDestroyRenderPass(vk_device, renderPass, nullptr);
-    vkDestroyCommandPool(vk_device, commandPool, nullptr);
-    for (unsigned int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkDestroySemaphore(vk_device, imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(vk_device, renderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(vk_device, inFlightFences[i], nullptr);
-    }
     vkDestroyBuffer(vk_device, vertex_buffer, nullptr);
     vkFreeMemory(vk_device, vertex_mem, nullptr);
     vkDestroyBuffer(vk_device, indexBuffer, nullptr);
     vkFreeMemory(vk_device, indexBufferMemory, nullptr);
-    for (size_t i = 0; i < swapChainImages.size(); i++) {
-        vkDestroyBuffer(vk_device, uniformBuffers[i], nullptr);
-        vkFreeMemory(vk_device, uniformBuffersMemory[i], nullptr);
-    }
     vkDestroyDescriptorPool(vk_device, descriptorPool, nullptr);
     vkDestroyImage(vk_device, texture, nullptr);
     vkFreeMemory(vk_device, texture_mem, nullptr);
