@@ -192,7 +192,8 @@ private:
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
 
-    std::vector<VkCommandBuffer> commandBuffers;
+    std::vector<VkCommandBuffer> maincmdbuffers;
+    std::vector<VkCommandBuffer> meshcmdbuffers;
     std::vector<VkCommandBuffer> imguicmdbuffers;
 
     std::vector<VkBuffer> uniformBuffers;
@@ -264,7 +265,7 @@ public:
         }
 
         const std::vector<const char*> validationLayers = {
-            "VK_LAYER_KHRONOS_validation"
+            "VK_LAYER_LUNARG_standard_validation"
         };
 
         if (enableValidationLayers) {
@@ -406,6 +407,7 @@ public:
 
         VkCommandPoolCreateInfo poolInfo = {};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
         poolInfo.queueFamilyIndex = qindices.graphics.value();
         if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create vk command pool");
@@ -777,68 +779,66 @@ public:
             }
         }
 
-        commandBuffers.resize(swapChainFramebuffers.size());
-        VkCommandBufferAllocateInfo cmd_allocInfo = {};
-        cmd_allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        cmd_allocInfo.commandPool = commandPool;
-        cmd_allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        cmd_allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+        // allocate main dynamic buffers
+        maincmdbuffers.resize(swapChainFramebuffers.size());
+        VkCommandBufferAllocateInfo primaryInfo = {};
+        primaryInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        primaryInfo.commandPool = commandPool;
+        primaryInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        primaryInfo.commandBufferCount = (uint32_t)maincmdbuffers.size();
 
-        if (vkAllocateCommandBuffers(device, &cmd_allocInfo, commandBuffers.data()) != VK_SUCCESS) {
+        if (vkAllocateCommandBuffers(device, &primaryInfo, maincmdbuffers.data()) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate vk command buffers");
         }
 
-        for (size_t i = 0; i < commandBuffers.size(); i++) {
+        // allocate static buffers for meshes
+        VkCommandBufferAllocateInfo secondaryInfo = {};
+        secondaryInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        secondaryInfo.commandPool = commandPool;
+        secondaryInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+        secondaryInfo.commandBufferCount = (uint32_t)swapChainFramebuffers.size();
+
+        meshcmdbuffers.resize(swapChainFramebuffers.size());
+        imguicmdbuffers.resize(swapChainFramebuffers.size());
+
+        if (vkAllocateCommandBuffers(device, &secondaryInfo, meshcmdbuffers.data()) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate vk command buffers");
+        }
+
+        if (vkAllocateCommandBuffers(device, &secondaryInfo, imguicmdbuffers.data()) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate vk command buffers");
+        }
+
+        // record static mesh command buffer
+        for (size_t i = 0; i < meshcmdbuffers.size(); i++) {
+            // allocate static buffers for meshes
+            VkCommandBufferInheritanceInfo inherit_info = {};
+            inherit_info.framebuffer = swapChainFramebuffers[i];
+            inherit_info.renderPass = renderPass;
+            inherit_info.subpass = 0;
+            inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+
             VkCommandBufferBeginInfo beginInfo = {};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            beginInfo.flags = 0; // Optional
-            beginInfo.pInheritanceInfo = nullptr; // Optional
+            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT; // Optional
+            beginInfo.pInheritanceInfo = &inherit_info; // Optional
 
-            auto hr = vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
+            auto hr = vkBeginCommandBuffer(meshcmdbuffers[i], &beginInfo);
             m_assert(hr == VK_SUCCESS, "failed to record command buffer");
-
-            VkRenderPassBeginInfo render_info = {};
-            render_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            render_info.renderPass = renderPass;
-            render_info.framebuffer = swapChainFramebuffers[i];
-            render_info.renderArea.offset = { 0, 0 };
-            render_info.renderArea.extent = extent;
-
-            std::array<VkClearValue, 2> clearValues = {};
-            clearValues[0].color = { 0.0f, 0.0f, 0.0f, 0.0f };
-            clearValues[1].depthStencil = { 1.0f, 0 };
-
-            render_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
-            render_info.pClearValues = clearValues.data();
-
-            vkCmdBeginRenderPass(commandBuffers[i], &render_info, VK_SUBPASS_CONTENTS_INLINE);
-            vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
             VkBuffer vertexBuffers[] = { vertex_buffer.getBuffer() };
             VkDeviceSize offsets[] = { 0 };
-            vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-            vkCmdBindIndexBuffer(commandBuffers[i], index_buffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(meshcmdbuffers[i], 0, 1, vertexBuffers, offsets);
+            vkCmdBindIndexBuffer(meshcmdbuffers[i], index_buffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-            vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+            vkCmdBindPipeline(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+            vkCmdBindDescriptorSets(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
-            vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size() * 3), 1, 0, 0, 0);
-            vkCmdEndRenderPass(commandBuffers[i]);
+            vkCmdDrawIndexed(meshcmdbuffers[i], static_cast<uint32_t>(indices.size() * 3), 1, 0, 0, 0);
 
-            if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
+            if (vkEndCommandBuffer(meshcmdbuffers[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to end command buffer");
-            }
-
-            // allocate secondary ImGui command buffers 
-            imguicmdbuffers.resize(swapChainFramebuffers.size());
-            VkCommandBufferAllocateInfo cmd_allocInfo = {};
-            cmd_allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            cmd_allocInfo.commandPool = commandPool;
-            cmd_allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;;
-            cmd_allocInfo.commandBufferCount = (uint32_t)imguicmdbuffers.size();
-
-            if (vkAllocateCommandBuffers(device, &cmd_allocInfo, imguicmdbuffers.data()) != VK_SUCCESS) {
-                throw std::runtime_error("failed to allocate vk command buffers");
             }
         }
 
@@ -883,24 +883,12 @@ public:
     }
 
     void ImGuiRecord() {
-        // allocate secondary command buffers 
-        imguicmdbuffers.resize(swapChainFramebuffers.size());
-        VkCommandBufferAllocateInfo cmd_allocInfo = {};
-        cmd_allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        cmd_allocInfo.commandPool = commandPool;
-        cmd_allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;;
-        cmd_allocInfo.commandBufferCount = (uint32_t)imguicmdbuffers.size();
-
-        if (vkAllocateCommandBuffers(device, &cmd_allocInfo, imguicmdbuffers.data()) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate vk command buffers");
-        }
-
         for (size_t i = 0; i < imguicmdbuffers.size(); i++) {
-        // record secondary command buffer and let it inherit the same render pass and
-        // framebuffers as the main command buffer
+            // allocate static buffers for meshes
             VkCommandBufferInheritanceInfo inherit_info = {};
             inherit_info.framebuffer = swapChainFramebuffers[i];
             inherit_info.renderPass = renderPass;
+            inherit_info.subpass = 0;
             inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
 
             VkCommandBufferBeginInfo beginInfo = {};
@@ -908,15 +896,9 @@ public:
             beginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT; // Optional
             beginInfo.pInheritanceInfo = &inherit_info; // Optional
 
-            if (vkBeginCommandBuffer(imguicmdbuffers[i], &beginInfo) != VK_SUCCESS) {
-                throw std::runtime_error("failed to record command buffer");
-            }
+            auto hr = vkBeginCommandBuffer(imguicmdbuffers[i], &beginInfo);
+            m_assert(hr == VK_SUCCESS, "failed to record command buffer");
 
-            vkCmdBindPipeline(imguicmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
-            // Record Imgui Draw Data and draw funcs into command buffer
-            // TODO: right now this isn't synced properly causing an error in the validation layers saying
-            // imgui attempts to destroy buffers while they are in use.
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguicmdbuffers[i]);
 
             if (vkEndCommandBuffer(imguicmdbuffers[i]) != VK_SUCCESS) {
@@ -926,6 +908,41 @@ public:
     }
 
     void render(uint32_t imageIndex) {
+        for (size_t i = 0; i < maincmdbuffers.size(); i++) {
+            VkCommandBufferBeginInfo beginInfo = {};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            beginInfo.flags = 0; // Optional
+            beginInfo.pInheritanceInfo = nullptr; // Optional
+
+            VkRenderPassBeginInfo render_info = {};
+            render_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+            render_info.renderPass = renderPass;
+            render_info.framebuffer = swapChainFramebuffers[i];
+            render_info.renderArea.offset = { 0, 0 };
+            render_info.renderArea.extent = extent;
+
+            std::array<VkClearValue, 2> clearValues = {};
+            clearValues[0].color = { 0.0f, 0.0f, 0.0f, 0.0f };
+            clearValues[1].depthStencil = { 1.0f, 0 };
+
+            render_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
+            render_info.pClearValues = clearValues.data();
+
+            if (vkBeginCommandBuffer(maincmdbuffers[i], &beginInfo) != VK_SUCCESS) {
+                throw std::runtime_error("failed to record command buffer");
+            }
+
+            // start the render pass and bind the PSO
+            vkCmdBeginRenderPass(maincmdbuffers[i], &render_info, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+            vkCmdExecuteCommands(maincmdbuffers[i], 1, &meshcmdbuffers[i]);
+            vkCmdExecuteCommands(maincmdbuffers[i], 1, &imguicmdbuffers[i]);
+            vkCmdEndRenderPass(maincmdbuffers[i]);
+
+            if (vkEndCommandBuffer(maincmdbuffers[i]) != VK_SUCCESS) {
+                throw std::runtime_error("failed to end command buffer");
+            }
+        }
+
         // reset command buffer fences 
         vkResetFences(device, 1, &inFlightFences[current_frame]);
 
@@ -935,7 +952,7 @@ public:
         
         // use std array here over cmdbuffers for future reference when 
         // for implementing automatic command buffer submission TODO
-        std::array<VkCommandBuffer, 2> cmdbuffers = { commandBuffers[imageIndex], imguicmdbuffers[imageIndex] };
+        std::array<VkCommandBuffer, 1> cmdbuffers = { maincmdbuffers[imageIndex] };
         
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1630,8 +1647,8 @@ void Application::vulkan_main() {
 
     Camera camera = Camera({ 0, 0, 4.0f }, 45.0f);
 
-    compile_shader("shaders/vulkan.vert", "shaders/vert.spv");
-    compile_shader("shaders/vulkan.frag", "shaders/frag.spv");
+    //compile_shader("shaders/vulkan.vert", "shaders/vert.spv");
+    //compile_shader("shaders/vulkan.frag", "shaders/frag.spv");
 
     VKRender vk = VKRender();
     vk.init(window);
