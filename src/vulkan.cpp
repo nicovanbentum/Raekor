@@ -15,11 +15,13 @@
 #define _glslc "dependencies\\glslc.exe "
 #define _cl(in, out) system(std::string(_glslc + static_cast<std::string>(in) + static_cast<std::string>(" -o ") + static_cast<std::string>(out)).c_str())
 void compile_shader(const char* in, const char* out) {
-    int err = _cl(in, out);
-    m_assert(err == 0, "failed to compile vulkan shader " + std::string(in));
-}
+    if(_cl(in, out) != 0) {
+        std::cout << "failed to compile vulkan shader: " + std::string(in) << '\n';
+    } else {
+        std::cout << "Successfully compiled VK shader: " + std::string(in) << '\n';
 
-#define THROW(x, msg) if(x != VK_SUCCESS) { throw std::runtime_error(msg); }
+    }
+}
 
 namespace Raekor {
 
@@ -40,9 +42,17 @@ public:
     VKTexture(VkImage& p_image, VkDeviceMemory& p_memory, VkImageView& p_view) :
         image(p_image), memory(p_memory), view(p_view), sampler(VK_NULL_HANDLE) {}
 
+    ~VKTexture() {
+        /*vkDestroyImage(device, image, nullptr);
+        vkDestroyImageView(device, view, nullptr);
+        vkDestroySampler(device, sampler, nullptr);
+        vkFreeMemory(device, memory, nullptr);*/
+    }
+
     inline VkImage& getImage() { return image; }
     inline VkSampler& getSampler() { return sampler; }
     inline VkImageView& getView() { return view; }
+    inline VkDeviceMemory& getMemory() { return memory; }
 
 private:
     VkImage image;
@@ -818,28 +828,26 @@ public:
             inherit_info.subpass = 0;
             inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
 
-            VkCommandBufferBeginInfo beginInfo = {};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT; // Optional
-            beginInfo.pInheritanceInfo = &inherit_info; // Optional
+            auto meshCommands = [&]() {
+                VkBuffer vertexBuffers[] = { vertex_buffer.getBuffer() };
+                VkDeviceSize offsets[] = { 0 };
+                vkCmdBindVertexBuffers(meshcmdbuffers[i], 0, 1, vertexBuffers, offsets);
+                vkCmdBindIndexBuffer(meshcmdbuffers[i], index_buffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-            auto hr = vkBeginCommandBuffer(meshcmdbuffers[i], &beginInfo);
-            m_assert(hr == VK_SUCCESS, "failed to record command buffer");
+                vkCmdBindPipeline(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+                vkCmdBindDescriptorSets(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
-            VkBuffer vertexBuffers[] = { vertex_buffer.getBuffer() };
-            VkDeviceSize offsets[] = { 0 };
-            vkCmdBindVertexBuffers(meshcmdbuffers[i], 0, 1, vertexBuffers, offsets);
-            vkCmdBindIndexBuffer(meshcmdbuffers[i], index_buffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+                vkCmdDrawIndexed(meshcmdbuffers[i], static_cast<uint32_t>(indices.size() * 3), 1, 0, 0, 0);
+            };
 
-            vkCmdBindPipeline(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-            vkCmdBindDescriptorSets(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
-                pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+            recordSecondaryCommandBuffer(
+                meshcmdbuffers[i], 
+                meshCommands, 
+                &inherit_info, 
+                VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT
+            );
 
-            vkCmdDrawIndexed(meshcmdbuffers[i], static_cast<uint32_t>(indices.size() * 3), 1, 0, 0, 0);
-
-            if (vkEndCommandBuffer(meshcmdbuffers[i]) != VK_SUCCESS) {
-                throw std::runtime_error("failed to end command buffer");
-            }
         }
 
         constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -864,15 +872,15 @@ public:
         }
 	}
 
-    void updateUniformBuffer(const cb_vs& ubo, uint32_t imageIndex) {
+    template<typename T>
+    void updateUniformBuffer(const T& ubo, uint32_t imageIndex) {
         void* data;
-        vkMapMemory(device, uniformBuffersMemory[imageIndex], 0, sizeof(ubo), 0, &data);
-        memcpy(data, &ubo, sizeof(ubo));
+        vkMapMemory(device, uniformBuffersMemory[imageIndex], 0, sizeof(T), 0, &data);
+        memcpy(data, &ubo, sizeof(T));
         vkUnmapMemory(device, uniformBuffersMemory[imageIndex]);
     }
 
     uint32_t getNextFrame() {
-
         uint32_t imageIndex;
         vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
         return imageIndex;
@@ -882,28 +890,38 @@ public:
         vkDeviceWaitIdle(device);
     }
 
+    void recordSecondaryCommandBuffer(VkCommandBuffer& buffer, std::function<void()> commands, const VkCommandBufferInheritanceInfo* inheritInfo, VkCommandBufferUsageFlags beginFlag) {
+        // create secondary command buffer begin info
+        VkCommandBufferBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = beginFlag; // Optional
+        beginInfo.pInheritanceInfo = inheritInfo; // Optional
+
+        if (vkBeginCommandBuffer(buffer, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("failed to begin command buffer recording");
+        }
+        commands();
+        if (vkEndCommandBuffer(buffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to end command buffer");
+        }
+    }
+
     void ImGuiRecord() {
         for (size_t i = 0; i < imguicmdbuffers.size(); i++) {
-            // allocate static buffers for meshes
             VkCommandBufferInheritanceInfo inherit_info = {};
-            inherit_info.framebuffer = swapChainFramebuffers[i];
             inherit_info.renderPass = renderPass;
-            inherit_info.subpass = 0;
             inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
 
-            VkCommandBufferBeginInfo beginInfo = {};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT; // Optional
-            beginInfo.pInheritanceInfo = &inherit_info; // Optional
+            auto executeCommands = [&]() {
+                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguicmdbuffers[i]);
+            };
 
-            auto hr = vkBeginCommandBuffer(imguicmdbuffers[i], &beginInfo);
-            m_assert(hr == VK_SUCCESS, "failed to record command buffer");
-
-            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguicmdbuffers[i]);
-
-            if (vkEndCommandBuffer(imguicmdbuffers[i]) != VK_SUCCESS) {
-                throw std::runtime_error("failed to end command buffer");
-            }
+            recordSecondaryCommandBuffer(
+                imguicmdbuffers[i], 
+                executeCommands, 
+                &inherit_info, 
+                VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT
+            );
         }
     }
 
@@ -932,7 +950,7 @@ public:
                 throw std::runtime_error("failed to record command buffer");
             }
 
-            // start the render pass and bind the PSO
+            // start the render pass and execute secondary command buffers
             vkCmdBeginRenderPass(maincmdbuffers[i], &render_info, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
             vkCmdExecuteCommands(maincmdbuffers[i], 1, &meshcmdbuffers[i]);
             vkCmdExecuteCommands(maincmdbuffers[i], 1, &imguicmdbuffers[i]);
@@ -1647,8 +1665,9 @@ void Application::vulkan_main() {
 
     Camera camera = Camera({ 0, 0, 4.0f }, 45.0f);
 
-    //compile_shader("shaders/vulkan.vert", "shaders/vert.spv");
-    //compile_shader("shaders/vulkan.frag", "shaders/frag.spv");
+    // optional compilation of shaders at runtime by invoking the shader compiler's executable
+    compile_shader("shaders/vulkan.vert", "shaders/vert.spv");
+    compile_shader("shaders/vulkan.frag", "shaders/frag.spv");
 
     VKRender vk = VKRender();
     vk.init(window);
@@ -1671,6 +1690,7 @@ void Application::vulkan_main() {
 
     Timer dt_timer;
     double dt = 0;
+
     //main application loop
     while (running) {
         dt_timer.start();
