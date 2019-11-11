@@ -88,6 +88,18 @@ VkFormat vk_format(ShaderType type) {
     }
 }
 
+class VKIndexBuffer : public VKBuffer {
+public:
+    VKIndexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory, uint32_t p_count)
+        : VKBuffer(p_buffer, p_memory), count(p_count) {}
+
+    uint32_t getCount() {
+        return count;
+    }
+private:
+    uint32_t count;
+};
+
 class VKVertexBuffer: public VKBuffer {
 public:
     VKVertexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory) :
@@ -434,7 +446,8 @@ public:
 
         VkPipelineShaderStageCreateInfo shaderStages[] = { 
             vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT), 
-            frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT) };
+            frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT) 
+        };
 
         std::vector<Vertex> vertices;
         std::vector<Index> indices;
@@ -482,7 +495,8 @@ public:
             { "UV",       ShaderType::FLOAT2 },
             { "NORMAL",   ShaderType::FLOAT3 }
             });
-        VKBuffer index_buffer = createIndexBuffer(indices);
+
+        VKIndexBuffer index_buffer = createIndexBuffer(indices);
 
         VKTexture test_texture = loadTexture("resources/textures/test.png");
         VKTexture depth_texture = createDepthTexture();
@@ -819,37 +833,6 @@ public:
             throw std::runtime_error("failed to allocate vk command buffers");
         }
 
-        // record static mesh command buffer
-        for (size_t i = 0; i < meshcmdbuffers.size(); i++) {
-            // allocate static buffers for meshes
-            VkCommandBufferInheritanceInfo inherit_info = {};
-            inherit_info.framebuffer = swapChainFramebuffers[i];
-            inherit_info.renderPass = renderPass;
-            inherit_info.subpass = 0;
-            inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-
-            auto meshCommands = [&]() {
-                VkBuffer vertexBuffers[] = { vertex_buffer.getBuffer() };
-                VkDeviceSize offsets[] = { 0 };
-                vkCmdBindVertexBuffers(meshcmdbuffers[i], 0, 1, vertexBuffers, offsets);
-                vkCmdBindIndexBuffer(meshcmdbuffers[i], index_buffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-                vkCmdBindPipeline(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-                vkCmdBindDescriptorSets(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
-
-                vkCmdDrawIndexed(meshcmdbuffers[i], static_cast<uint32_t>(indices.size() * 3), 1, 0, 0, 0);
-            };
-
-            recordSecondaryCommandBuffer(
-                meshcmdbuffers[i], 
-                meshCommands, 
-                &inherit_info, 
-                VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT
-            );
-
-        }
-
         constexpr int MAX_FRAMES_IN_FLIGHT = 2;
         imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -870,6 +853,8 @@ public:
             if (vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
                 throw std::runtime_error("failed to create semaphore");
         }
+
+        recordMeshBuffer(vertex_buffer, index_buffer, pipelineLayout, descriptorSets);
 	}
 
     template<typename T>
@@ -888,6 +873,38 @@ public:
 
     void waitForIdle() {
         vkDeviceWaitIdle(device);
+    }
+
+    void recordMeshBuffer(VKVertexBuffer& meshBuffer, VKIndexBuffer& indexBuffer, VkPipelineLayout& pipelineLayout, std::vector<VkDescriptorSet>& descriptorSets) {
+        // record static mesh command buffer
+        for (size_t i = 0; i < meshcmdbuffers.size(); i++) {
+            // allocate static buffers for meshes
+            VkCommandBufferInheritanceInfo inherit_info = {};
+            inherit_info.framebuffer = swapChainFramebuffers[i];
+            inherit_info.renderPass = renderPass;
+            inherit_info.subpass = 0;
+            inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+
+            auto meshCommands = [&]() {
+                std::vector<VkBuffer> vertexBuffers = { meshBuffer.getBuffer() };
+                VkDeviceSize offsets[] = { 0 };
+                vkCmdBindVertexBuffers(meshcmdbuffers[i], 0, static_cast<uint32_t>(vertexBuffers.size()), vertexBuffers.data(), offsets);
+                vkCmdBindIndexBuffer(meshcmdbuffers[i], indexBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+                vkCmdBindPipeline(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+                vkCmdBindDescriptorSets(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+
+                vkCmdDrawIndexed(meshcmdbuffers[i], indexBuffer.getCount(), 1, 0, 0, 0);
+            };
+
+            recordSecondaryCommandBuffer(
+                meshcmdbuffers[i],
+                meshCommands,
+                &inherit_info,
+                VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT
+            );
+        }
     }
 
     void recordSecondaryCommandBuffer(VkCommandBuffer& buffer, std::function<void()> commands, const VkCommandBufferInheritanceInfo* inheritInfo, VkCommandBufferUsageFlags beginFlag) {
@@ -1301,7 +1318,7 @@ public:
         return VKVertexBuffer(vertex_buffer, vertex_mem);
     }
 
-    VKBuffer createIndexBuffer(const std::vector<Index>& indices) {
+    VKIndexBuffer createIndexBuffer(const std::vector<Index>& indices) {
         VkDeviceSize indices_size = sizeof(Index) * indices.size();
 
         VkBuffer stage_indices_buffer;
@@ -1334,7 +1351,7 @@ public:
         vkDestroyBuffer(device, stage_indices_buffer, nullptr);
         vkFreeMemory(device, indices_stage_mem, nullptr);
         
-        return VKBuffer(indexBuffer, indexBufferMemory);
+        return VKIndexBuffer(indexBuffer, indexBufferMemory, static_cast<uint32_t>(indices.size() * 3));
     }
 
     VkPhysicalDevice getGPU() {
@@ -1574,7 +1591,7 @@ public:
         endSingleTimeCommands(commandBuffer);
     };
 
-    void initImGui(SDL_Window* window) {
+    void ImGuiInit(SDL_Window* window) {
         // Create Descriptor Pool
         {
             VkDescriptorPoolSize pool_sizes[] =
@@ -1671,7 +1688,7 @@ void Application::vulkan_main() {
 
     VKRender vk = VKRender();
     vk.init(window);
-    vk.initImGui(window);
+    vk.ImGuiInit(window);
     vk.ImGuiCreateFonts();
 
     std::puts("job well done.");
