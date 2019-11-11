@@ -30,7 +30,7 @@ struct queue_indices {
     std::optional<uint32_t> present;
 
     bool isComplete() {
-        return graphics.has_value() && present.has_value();
+        return graphics.has_value() and present.has_value();
     }
 };
 
@@ -43,10 +43,7 @@ public:
         image(p_image), memory(p_memory), view(p_view), sampler(VK_NULL_HANDLE) {}
 
     ~VKTexture() {
-        /*vkDestroyImage(device, image, nullptr);
-        vkDestroyImageView(device, view, nullptr);
-        vkDestroySampler(device, sampler, nullptr);
-        vkFreeMemory(device, memory, nullptr);*/
+        
     }
 
     inline VkImage& getImage() { return image; }
@@ -1177,7 +1174,7 @@ public:
         if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
             barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-            if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) {
+            if (format == VK_FORMAT_D32_SFLOAT_S8_UINT or format == VK_FORMAT_D24_UNORM_S8_UINT) {
                 barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
             }
         }
@@ -1680,6 +1677,15 @@ void Application::vulkan_main() {
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
+    io.ConfigDockingWithShift = true;
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 18.0f);
+    if (!io.Fonts->Fonts.empty()) {
+        io.FontDefault = io.Fonts->Fonts.back();
+    }
+
     Camera camera = Camera({ 0, 0, 4.0f }, 45.0f);
 
     // optional compilation of shaders at runtime by invoking the shader compiler's executable
@@ -1695,19 +1701,23 @@ void Application::vulkan_main() {
 
     SDL_SetWindowInputFocus(window);
 
+    Ffilter ft_mesh = {};
+    ft_mesh.name = "Supported Mesh Files";
+    ft_mesh.extensions = "*.obj;*.fbx";
+
     bool running = true;
 
     // MVP uniform buffer object
-    cb_vs ubo;
+    cb_vs ubo = {};
 
     glm::mat4 model = glm::mat4(1.0f);
     glm::vec3 rotation = { M_PI / 2, 1, 0 };
     auto rotation_quat = static_cast<glm::quat>(rotation);
     model = model * glm::toMat4(rotation_quat);
 
-    Timer dt_timer;
+    Timer dt_timer = Timer();
     double dt = 0;
-
+    
     //main application loop
     while (running) {
         dt_timer.start();
@@ -1722,8 +1732,67 @@ void Application::vulkan_main() {
 
         // start a new imgui frame
         vk.ImGuiNewFrame(window);
-        // immediate demo window
-        ImGui::ShowDemoWindow();
+
+        static bool opt_fullscreen_persistant = true;
+        bool opt_fullscreen = opt_fullscreen_persistant;
+        static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
+
+        // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
+        // because it would be confusing to have two docking targets within each others.
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_DockNodeHost;
+        if (opt_fullscreen) {
+            ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowViewport(viewport->ID);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+            window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBackground;
+        }
+
+        // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background and handle the pass-thru hole, 
+        // so we ask Begin() to not render a background.
+        if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
+            window_flags |= ImGuiWindowFlags_NoBackground;
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        static bool p_open = true;
+        ImGui::Begin("DockSpace", &p_open, window_flags);
+        ImGui::PopStyleVar();
+        if (opt_fullscreen) ImGui::PopStyleVar(2);
+
+        // DockSpace
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+            ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+            ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+        }
+
+        ImGui::Begin("ECS");
+        if (ImGui::Button("Add Model")) {
+            std::string path = context.open_file_dialog({ ft_mesh });
+            if (!path.empty()) {
+                // TODO: load sponza
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Remove Model")) {
+            // TODO: remove sponza
+        }
+        ImGui::End();
+
+        ImGui::ShowMetricsWindow();
+
+        // scene panel
+        ImGui::Begin("Scene");
+        // toggle button for openGl vsync
+        static bool use_vsync = false;
+        if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
+            use_vsync = !use_vsync;
+        }
+        ImGui::End();
+
+        ImGui::End();
+
         // tell imgui to collect render data
         ImGui::Render();
         // record the collected data to secondary command buffers
@@ -1735,7 +1804,6 @@ void Application::vulkan_main() {
 
         dt_timer.stop();
         dt = dt_timer.elapsed_ms();
-        //std::cout << 1000 / dt << std::endl;
     }
     vk.waitForIdle();
 
