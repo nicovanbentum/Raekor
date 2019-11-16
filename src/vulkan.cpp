@@ -1108,6 +1108,7 @@ public:
 
     VKTexture loadTexture(const std::string& path) {
         int texw, texh, ch;
+        // we shouldnt have to flip texture for vulkan, TODO: figure out why everything is upside down
         stbi_set_flip_vertically_on_load(true);
         auto pixels = stbi_load(path.c_str(), &texw, &texh, &ch, STBI_rgb_alpha);
         if (!pixels) {
@@ -1905,12 +1906,10 @@ void Application::vulkan_main() {
         if (ImGui::Button("Add Model")) {
             std::string path = context.open_file_dialog({ ft_mesh });
             if (!path.empty()) {
-                // TODO: load sponza
             }
         }
         ImGui::SameLine();
         if (ImGui::Button("Remove Model")) {
-            // TODO: remove sponza
         }
         ImGui::End();
 
