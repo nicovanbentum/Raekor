@@ -195,6 +195,7 @@ private:
 	VkDevice device;
     VkDescriptorPool descriptorPool;
     VkDescriptorPool g_DescriptorPool;
+    VkDescriptorSet descriptorSet;
 
     VkPipeline graphicsPipeline;
 
@@ -210,7 +211,6 @@ private:
     std::vector<VkSemaphore> renderFinishedSemaphores;
 
     VkCommandBuffer maincmdbuffer;
-    VkCommandBuffer meshcmdbuffer;
     VkCommandBuffer imguicmdbuffer;
     std::vector<VkCommandBuffer> secondaryBuffers;
 
@@ -443,8 +443,14 @@ public:
             frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT) 
         };
 
-        std::vector<Vertex> vertices;
-        std::vector<Index> indices;
+
+
+        std::vector < std::vector<Vertex>> meshes;
+        std::vector<std::vector<Index>> indexbuffers;
+
+        std::vector<VKVertexBuffer> vbuffers;
+        std::vector<VKIndexBuffer> ibuffers;
+        std::vector<std::shared_ptr<VKTexture>> textures;
 
         constexpr unsigned int flags =
             aiProcess_CalcTangentSpace |
@@ -458,42 +464,64 @@ public:
             aiProcess_ValidateDataStructure;
 
         Assimp::Importer importer;
-        const auto scene = importer.ReadFile("resources/models/chalet.obj", flags);
+        std::string path = "resources/models/Sponza/Sponza.fbx";
+        const auto scene = importer.ReadFile(path, flags);
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
-        auto ai_mesh = scene->mMeshes[0];
-
-        // extract vertices
-        vertices.reserve(ai_mesh->mNumVertices);
-        for (size_t i = 0; i < vertices.capacity(); i++) {
-            Vertex v;
-            v.pos = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z };
-            if (ai_mesh->HasTextureCoords(0)) {
-                v.uv = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
+        for (unsigned int m = 0; m < scene->mNumMeshes; m++) {
+            auto ai_mesh = scene->mMeshes[m];
+            
+            std::string texture_path;
+            auto material = scene->mMaterials[ai_mesh->mMaterialIndex];
+            if (material->GetTextureCount(aiTextureType_DIFFUSE) != 0) {
+                aiString filename;
+                material->GetTexture(aiTextureType_DIFFUSE, 0, &filename);
+                texture_path = get_file(path, PATH_OPTIONS::DIR) + std::string(filename.C_Str());
             }
-            if (ai_mesh->HasNormals()) {
-                v.normal = { ai_mesh->mNormals->x, ai_mesh->mNormals->y, ai_mesh->mNormals->z };
+
+            meshes.push_back(std::vector<Vertex>());
+            indexbuffers.push_back(std::vector<Index>());
+            auto mesh = meshes.back();
+            auto indices = indexbuffers.back();
+
+            // extract vertices
+            mesh.reserve(ai_mesh->mNumVertices);
+
+            for (size_t i = 0; i < mesh.capacity(); i++) {
+                Vertex v;
+                v.pos = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z };
+                if (ai_mesh->HasTextureCoords(0)) {
+                    v.uv = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
+                }
+                if (ai_mesh->HasNormals()) {
+                    v.normal = { ai_mesh->mNormals->x, ai_mesh->mNormals->y, ai_mesh->mNormals->z };
+                }
+                mesh.push_back(std::move(v));
             }
-            vertices.push_back(std::move(v));
+            // extract indices
+            indices.reserve(ai_mesh->mNumFaces);
+            for (size_t i = 0; i < indices.capacity(); i++) {
+                m_assert((ai_mesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
+                indices.push_back({ ai_mesh->mFaces[i].mIndices[0], ai_mesh->mFaces[i].mIndices[1], ai_mesh->mFaces[i].mIndices[2] });
+            }
+
+            if(!texture_path.empty())
+                textures.push_back(std::make_shared<VKTexture>(loadTexture(texture_path)));
+            else textures.push_back(nullptr);
+
+            vbuffers.push_back(createVertexBuffer(mesh));
+            ibuffers.push_back(createIndexBuffer(indices));
+            vbuffers.back().setLayout( {
+                { "POSITION", ShaderType::FLOAT3 },
+                { "UV",       ShaderType::FLOAT2 },
+                { "NORMAL",   ShaderType::FLOAT3 }
+            } );
+
         }
-        // extract indices
-        indices.reserve(ai_mesh->mNumFaces);
-        for (size_t i = 0; i < indices.capacity(); i++) {
-            m_assert((ai_mesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
-            indices.push_back({ ai_mesh->mFaces[i].mIndices[0], ai_mesh->mFaces[i].mIndices[1], ai_mesh->mFaces[i].mIndices[2] });
-        }
 
-        VKVertexBuffer vertex_buffer = createVertexBuffer(vertices);
-        vertex_buffer.setLayout({
-            { "POSITION", ShaderType::FLOAT3 },
-            { "UV",       ShaderType::FLOAT2 },
-            { "NORMAL",   ShaderType::FLOAT3 }
-            });
-
-        VKIndexBuffer index_buffer = createIndexBuffer(indices);
-
-        VKTexture test_texture = loadTexture("resources/textures/chalet.jpg");
+        VKTexture test_texture = loadTexture("resources/textures/test.png");
         VKTexture depth_texture = createDepthTexture();
+        auto input_state = vbuffers.back().getVertexInputState();
 
         //
     //  UNIFORM BUFFERS
@@ -558,45 +586,42 @@ public:
         desc_info.descriptorSetCount = 1;
         desc_info.pSetLayouts = layouts.data();
 
-        VkDescriptorSet descriptorSet;
         if (vkAllocateDescriptorSets(device, &desc_info, &descriptorSet) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate descriptor sets");
         }
 
-        for (size_t i = 0; i < swapChainImages.size(); i++) {
-            VkDescriptorBufferInfo bufferInfo = {};
-            bufferInfo.buffer = uniformBuffer;
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(cb_vs);
+        VkDescriptorBufferInfo bufferInfo = {};
+        bufferInfo.buffer = uniformBuffer;
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(cb_vs);
 
-            VkDescriptorImageInfo image_info = {};
-            image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            image_info.imageView = test_texture.getView();
-            image_info.sampler = test_texture.getSampler();
+        VkDescriptorImageInfo image_info = {};
+        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        image_info.imageView = test_texture.getView();
+        image_info.sampler = test_texture.getSampler();
 
-            VkWriteDescriptorSet buffer_descriptor = {};
-            buffer_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            buffer_descriptor.dstSet = descriptorSet;
-            buffer_descriptor.dstBinding = 0;
-            buffer_descriptor.dstArrayElement = 0;
-            buffer_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            buffer_descriptor.descriptorCount = 1;
-            buffer_descriptor.pBufferInfo = &bufferInfo;
-            buffer_descriptor.pImageInfo = nullptr;
-            buffer_descriptor.pTexelBufferView = nullptr;
+        VkWriteDescriptorSet buffer_descriptor = {};
+        buffer_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        buffer_descriptor.dstSet = descriptorSet;
+        buffer_descriptor.dstBinding = 0;
+        buffer_descriptor.dstArrayElement = 0;
+        buffer_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        buffer_descriptor.descriptorCount = 1;
+        buffer_descriptor.pBufferInfo = &bufferInfo;
+        buffer_descriptor.pImageInfo = nullptr;
+        buffer_descriptor.pTexelBufferView = nullptr;
 
-            VkWriteDescriptorSet image_descriptor = {};
-            image_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            image_descriptor.dstSet = descriptorSet;
-            image_descriptor.dstBinding = 1;
-            image_descriptor.dstArrayElement = 0;
-            image_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            image_descriptor.descriptorCount = 1;
-            image_descriptor.pImageInfo = &image_info;
+        VkWriteDescriptorSet image_descriptor = {};
+        image_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        image_descriptor.dstSet = descriptorSet;
+        image_descriptor.dstBinding = 1;
+        image_descriptor.dstArrayElement = 0;
+        image_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        image_descriptor.descriptorCount = 1;
+        image_descriptor.pImageInfo = &image_info;
 
-            std::array<VkWriteDescriptorSet, 2> descriptors = { buffer_descriptor, image_descriptor };
-            vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
-        }
+        std::array<VkWriteDescriptorSet, 2> descriptors = { buffer_descriptor, image_descriptor };
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
 
         // describe the topology used, like in directx
         VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
@@ -754,7 +779,7 @@ public:
         pipelineInfo.stageCount = 2;
         pipelineInfo.pStages = shaderStages;
 
-        pipelineInfo.pVertexInputState = &vertex_buffer.getVertexInputState();
+        pipelineInfo.pVertexInputState = &input_state;
         pipelineInfo.pInputAssemblyState = &inputAssembly;
         pipelineInfo.pViewportState = &viewportState;
         pipelineInfo.pRasterizationState = &rasterizer;
@@ -810,8 +835,13 @@ public:
         secondaryInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
         secondaryInfo.commandBufferCount = 1;
 
-        if (vkAllocateCommandBuffers(device, &secondaryInfo, &meshcmdbuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate vk command buffers");
+        for (unsigned int i = 0; i < vbuffers.size(); i++) {
+            secondaryBuffers.push_back(VkCommandBuffer());
+            vkAllocateCommandBuffers(device, &secondaryInfo, &secondaryBuffers.back());
+
+
+
+            recordMeshBuffer(vbuffers[i], ibuffers[i], pipelineLayout, descriptorSet, secondaryBuffers.back());
         }
 
         if (vkAllocateCommandBuffers(device, &secondaryInfo, &imguicmdbuffer) != VK_SUCCESS) {
@@ -839,8 +869,6 @@ public:
             if (vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
                 throw std::runtime_error("failed to create semaphore");
         }
-
-        recordMeshBuffer(vertex_buffer, index_buffer, pipelineLayout, descriptorSet, meshcmdbuffer);
 	}
 
     template<typename T>
@@ -958,13 +986,10 @@ public:
 
         // start the render pass and execute secondary command buffers
         vkCmdBeginRenderPass(maincmdbuffer, &render_info, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
-        vkCmdExecuteCommands(maincmdbuffer, 1, &meshcmdbuffer);
-        vkCmdExecuteCommands(maincmdbuffer, 1, &imguicmdbuffer);
         if (secondaryBuffers.data() != nullptr) {
-            for (const auto& buffer : secondaryBuffers) {
-                vkCmdExecuteCommands(maincmdbuffer, 1, &buffer);
-            }
+            vkCmdExecuteCommands(maincmdbuffer, static_cast<uint32_t>(secondaryBuffers.size()), secondaryBuffers.data());
         }
+        vkCmdExecuteCommands(maincmdbuffer, 1, &imguicmdbuffer);
         vkCmdEndRenderPass(maincmdbuffer);
 
         if (vkEndCommandBuffer(maincmdbuffer) != VK_SUCCESS) {
@@ -1067,7 +1092,10 @@ public:
         int texw, texh, ch;
         auto pixels = stbi_load(path.c_str(), &texw, &texh, &ch, STBI_rgb_alpha);
         if (!pixels) {
+            std::cout << "failed to load \"" << path << "\" \n";
             throw std::runtime_error("failed to laod stb image for texturing");
+        } else {
+            std::cout << "loaded " << path << std::endl;
         }
 
         VkDeviceSize image_size = texw * texh * 4;
@@ -1719,7 +1747,7 @@ void Application::vulkan_main() {
     cb_vs ubo = {};
 
     glm::mat4 model = glm::mat4(1.0f);
-    glm::vec3 rotation = { M_PI / 2, 1, 0 };
+    glm::vec3 rotation = { 3.14, 0, 0 };
     auto rotation_quat = static_cast<glm::quat>(rotation);
     model = model * glm::toMat4(rotation_quat);
 
@@ -1789,6 +1817,12 @@ void Application::vulkan_main() {
         ImGui::End();
 
         ImGui::ShowMetricsWindow();
+
+        ImGui::Begin("Camera Properties");
+        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f, 0.1f, FLT_MAX, "%.2f")) {}
+        if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
+
+        ImGui::End();
 
         // scene panel
         ImGui::Begin("Scene");
