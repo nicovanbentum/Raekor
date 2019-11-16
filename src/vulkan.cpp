@@ -205,6 +205,7 @@ private:
     std::vector<VkFramebuffer> swapChainFramebuffers;
 
     std::vector<VkFence> inFlightFences;
+    std::vector<VkFence> imagesInFlight;
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
 
@@ -821,6 +822,7 @@ public:
         imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+        imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE);
 
         VkFenceCreateInfo fenceInfo = {};
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -969,8 +971,13 @@ public:
             throw std::runtime_error("failed to end command buffer");
         }
 
-        // reset command buffer fences 
-        vkResetFences(device, 1, &inFlightFences[current_frame]);
+        // Check if a previous frame is using this image (i.e. there is its fence to wait on)
+        if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
+            vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+        }
+        // Mark the image as now being in use by this frame
+        imagesInFlight[imageIndex] = inFlightFences[current_frame];
+
 
         VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[current_frame] };
         VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[current_frame] };
@@ -989,6 +996,9 @@ public:
         submitInfo.pCommandBuffers = cmdbuffers.data();
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
+
+        // reset command buffer fences 
+        vkResetFences(device, 1, &inFlightFences[current_frame]);
 
         if (vkQueueSubmit(graphics_q, 1, &submitInfo, inFlightFences[current_frame]) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit queue");
