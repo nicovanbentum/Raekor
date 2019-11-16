@@ -178,6 +178,7 @@ public:
     VkShaderModule module;
 };
 
+
 class VKRender {
 private:
     bool enableValidationLayers;
@@ -197,23 +198,20 @@ private:
 
     VkPipeline graphicsPipeline;
 
-    VkCommandBuffer imguicmdbuffer;
-    VkCommandPool imguicmdpool;
-
     std::vector<VkImage> swapChainImages;
     VkFormat swapChainImageFormat;
     std::vector<VkImageView> swapChainImageViews;
     VkSwapchainKHR swapchain;
     std::vector<VkFramebuffer> swapChainFramebuffers;
 
-
     std::vector<VkFence> inFlightFences;
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
 
-    std::vector<VkCommandBuffer> maincmdbuffers;
-    std::vector<VkCommandBuffer> meshcmdbuffers;
-    std::vector<VkCommandBuffer> imguicmdbuffers;
+    VkCommandBuffer maincmdbuffer;
+    VkCommandBuffer meshcmdbuffer;
+    VkCommandBuffer imguicmdbuffer;
+    std::vector<VkCommandBuffer> secondaryBuffers;
 
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
@@ -461,7 +459,7 @@ public:
             aiProcess_ValidateDataStructure;
 
         Assimp::Importer importer;
-        const auto scene = importer.ReadFile("resources/models/testcube.obj", flags);
+        const auto scene = importer.ReadFile("resources/models/chalet.obj", flags);
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
         auto ai_mesh = scene->mMeshes[0];
@@ -495,7 +493,7 @@ public:
 
         VKIndexBuffer index_buffer = createIndexBuffer(indices);
 
-        VKTexture test_texture = loadTexture("resources/textures/test.png");
+        VKTexture test_texture = loadTexture("resources/textures/chalet.jpg");
         VKTexture depth_texture = createDepthTexture();
 
         //
@@ -801,14 +799,13 @@ public:
         }
 
         // allocate main dynamic buffers
-        maincmdbuffers.resize(swapChainFramebuffers.size());
         VkCommandBufferAllocateInfo primaryInfo = {};
         primaryInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         primaryInfo.commandPool = commandPool;
         primaryInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        primaryInfo.commandBufferCount = (uint32_t)maincmdbuffers.size();
+        primaryInfo.commandBufferCount = 1;
 
-        if (vkAllocateCommandBuffers(device, &primaryInfo, maincmdbuffers.data()) != VK_SUCCESS) {
+        if (vkAllocateCommandBuffers(device, &primaryInfo, &maincmdbuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate vk command buffers");
         }
 
@@ -817,16 +814,13 @@ public:
         secondaryInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         secondaryInfo.commandPool = commandPool;
         secondaryInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
-        secondaryInfo.commandBufferCount = (uint32_t)swapChainFramebuffers.size();
+        secondaryInfo.commandBufferCount = 1;
 
-        meshcmdbuffers.resize(swapChainFramebuffers.size());
-        imguicmdbuffers.resize(swapChainFramebuffers.size());
-
-        if (vkAllocateCommandBuffers(device, &secondaryInfo, meshcmdbuffers.data()) != VK_SUCCESS) {
+        if (vkAllocateCommandBuffers(device, &secondaryInfo, &meshcmdbuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate vk command buffers");
         }
 
-        if (vkAllocateCommandBuffers(device, &secondaryInfo, imguicmdbuffers.data()) != VK_SUCCESS) {
+        if (vkAllocateCommandBuffers(device, &secondaryInfo, &imguicmdbuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate vk command buffers");
         }
 
@@ -851,7 +845,7 @@ public:
                 throw std::runtime_error("failed to create semaphore");
         }
 
-        recordMeshBuffer(vertex_buffer, index_buffer, pipelineLayout, descriptorSets);
+        recordMeshBuffer(vertex_buffer, index_buffer, pipelineLayout, descriptorSets, meshcmdbuffer);
 	}
 
     template<typename T>
@@ -872,12 +866,10 @@ public:
         vkDeviceWaitIdle(device);
     }
 
-    void recordMeshBuffer(VKVertexBuffer& meshBuffer, VKIndexBuffer& indexBuffer, VkPipelineLayout& pipelineLayout, std::vector<VkDescriptorSet>& descriptorSets) {
+    void recordMeshBuffer(VKVertexBuffer& meshBuffer, VKIndexBuffer& indexBuffer, VkPipelineLayout& pipelineLayout, std::vector<VkDescriptorSet>& descriptorSets, VkCommandBuffer& cmdbuffer) {
         // record static mesh command buffer
-        for (size_t i = 0; i < meshcmdbuffers.size(); i++) {
             // allocate static buffers for meshes
             VkCommandBufferInheritanceInfo inherit_info = {};
-            inherit_info.framebuffer = swapChainFramebuffers[i];
             inherit_info.renderPass = renderPass;
             inherit_info.subpass = 0;
             inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
@@ -885,24 +877,32 @@ public:
             auto meshCommands = [&]() {
                 std::vector<VkBuffer> vertexBuffers = { meshBuffer.getBuffer() };
                 VkDeviceSize offsets[] = { 0 };
-                vkCmdBindVertexBuffers(meshcmdbuffers[i], 0, static_cast<uint32_t>(vertexBuffers.size()), vertexBuffers.data(), offsets);
-                vkCmdBindIndexBuffer(meshcmdbuffers[i], indexBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindVertexBuffers(cmdbuffer, 0, static_cast<uint32_t>(vertexBuffers.size()), vertexBuffers.data(), offsets);
+                vkCmdBindIndexBuffer(cmdbuffer, indexBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-                vkCmdBindPipeline(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-                vkCmdBindDescriptorSets(meshcmdbuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+                vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+                vkCmdBindDescriptorSets(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    pipelineLayout, 0, 1, &descriptorSets[0], 0, nullptr);
 
-                vkCmdDrawIndexed(meshcmdbuffers[i], indexBuffer.getCount(), 1, 0, 0, 0);
+                vkCmdDrawIndexed(cmdbuffer, indexBuffer.getCount(), 1, 0, 0, 0);
             };
 
             recordSecondaryCommandBuffer(
-                meshcmdbuffers[i],
+                cmdbuffer,
                 meshCommands,
                 &inherit_info,
                 VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT
             );
-        }
     }
+
+    //for mesh in model:
+    //    load vertices, indices
+    //    create vkbuffers
+
+    //    b = createcommandbuffers()
+    //    func = {bind, draw}
+    //    record(b, func)
+
 
     void recordSecondaryCommandBuffer(VkCommandBuffer& buffer, std::function<void()> commands, const VkCommandBufferInheritanceInfo* inheritInfo, VkCommandBufferUsageFlags beginFlag) {
         // create secondary command buffer begin info
@@ -921,58 +921,59 @@ public:
     }
 
     void ImGuiRecord() {
-        for (size_t i = 0; i < imguicmdbuffers.size(); i++) {
-            VkCommandBufferInheritanceInfo inherit_info = {};
-            inherit_info.renderPass = renderPass;
-            inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+        VkCommandBufferInheritanceInfo inherit_info = {};
+        inherit_info.renderPass = renderPass;
+        inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
 
-            auto executeCommands = [&]() {
-                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguicmdbuffers[i]);
-            };
+        auto executeCommands = [&]() {
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguicmdbuffer);
+        };
 
-            recordSecondaryCommandBuffer(
-                imguicmdbuffers[i], 
-                executeCommands, 
-                &inherit_info, 
-                VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT
-            );
-        }
+        recordSecondaryCommandBuffer(
+            imguicmdbuffer, 
+            executeCommands, 
+            &inherit_info, 
+            VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT
+        );
     }
 
     void render(uint32_t imageIndex) {
-        for (size_t i = 0; i < maincmdbuffers.size(); i++) {
-            VkCommandBufferBeginInfo beginInfo = {};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            beginInfo.flags = 0; // Optional
-            beginInfo.pInheritanceInfo = nullptr; // Optional
+        VkCommandBufferBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = 0; // Optional
+        beginInfo.pInheritanceInfo = nullptr; // Optional
 
-            VkRenderPassBeginInfo render_info = {};
-            render_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            render_info.renderPass = renderPass;
-            render_info.framebuffer = swapChainFramebuffers[i];
-            render_info.renderArea.offset = { 0, 0 };
-            render_info.renderArea.extent = extent;
+        VkRenderPassBeginInfo render_info = {};
+        render_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        render_info.renderPass = renderPass;
+        render_info.framebuffer = swapChainFramebuffers[imageIndex];
+        render_info.renderArea.offset = { 0, 0 };
+        render_info.renderArea.extent = extent;
 
-            std::array<VkClearValue, 2> clearValues = {};
-            clearValues[0].color = { 0.0f, 0.0f, 0.0f, 0.0f };
-            clearValues[1].depthStencil = { 1.0f, 0 };
+        std::array<VkClearValue, 2> clearValues = {};
+        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 0.0f };
+        clearValues[1].depthStencil = { 1.0f, 0 };
 
-            render_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
-            render_info.pClearValues = clearValues.data();
+        render_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
+        render_info.pClearValues = clearValues.data();
 
-            if (vkBeginCommandBuffer(maincmdbuffers[i], &beginInfo) != VK_SUCCESS) {
-                throw std::runtime_error("failed to record command buffer");
+        if (vkBeginCommandBuffer(maincmdbuffer, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("failed to record command buffer");
+        }
+
+        // start the render pass and execute secondary command buffers
+        vkCmdBeginRenderPass(maincmdbuffer, &render_info, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+        vkCmdExecuteCommands(maincmdbuffer, 1, &meshcmdbuffer);
+        vkCmdExecuteCommands(maincmdbuffer, 1, &imguicmdbuffer);
+        if (secondaryBuffers.data() != nullptr) {
+            for (const auto& buffer : secondaryBuffers) {
+                vkCmdExecuteCommands(maincmdbuffer, 1, &buffer);
             }
+        }
+        vkCmdEndRenderPass(maincmdbuffer);
 
-            // start the render pass and execute secondary command buffers
-            vkCmdBeginRenderPass(maincmdbuffers[i], &render_info, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
-            vkCmdExecuteCommands(maincmdbuffers[i], 1, &meshcmdbuffers[i]);
-            vkCmdExecuteCommands(maincmdbuffers[i], 1, &imguicmdbuffers[i]);
-            vkCmdEndRenderPass(maincmdbuffers[i]);
-
-            if (vkEndCommandBuffer(maincmdbuffers[i]) != VK_SUCCESS) {
-                throw std::runtime_error("failed to end command buffer");
-            }
+        if (vkEndCommandBuffer(maincmdbuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to end command buffer");
         }
 
         // reset command buffer fences 
@@ -984,7 +985,7 @@ public:
         
         // use std array here over cmdbuffers for future reference when 
         // for implementing automatic command buffer submission TODO
-        std::array<VkCommandBuffer, 1> cmdbuffers = { maincmdbuffers[imageIndex] };
+        std::array<VkCommandBuffer, 1> cmdbuffers = { maincmdbuffer };
         
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1374,6 +1375,10 @@ public:
         // else we just get the first adapter found
         // TODO: implement actual device picking and scoring
         return *devices.begin();
+    }
+
+    void recreateSwapchain(uint32_t width, uint32_t height) {
+
     }
 
     void setupSwapchain(uint32_t width, uint32_t height, const std::vector<const char*>& extensions) {
