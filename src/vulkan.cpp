@@ -213,8 +213,8 @@ private:
     VkCommandBuffer imguicmdbuffer;
     std::vector<VkCommandBuffer> secondaryBuffers;
 
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    VkBuffer uniformBuffer;
+    VkDeviceMemory uniformBuffersMemory;
 
     uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -234,10 +234,8 @@ public:
             vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
             vkDestroyFence(device, inFlightFences[i], nullptr);
         }
-        for (size_t i = 0; i < swapChainImages.size(); i++) {
-            vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-            vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
-        }
+            vkDestroyBuffer(device, uniformBuffer, nullptr);
+            vkFreeMemory(device, uniformBuffersMemory, nullptr);
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
@@ -525,17 +523,13 @@ public:
             throw std::runtime_error("fialed to create descriptor layout");
         }
 
-        uniformBuffers.resize(swapChainImages.size());
-        uniformBuffersMemory.resize(swapChainImages.size());
-        for (size_t i = 0; i < swapChainImages.size(); i++) {
             createBuffer(
                 sizeof(cb_vs),
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                uniformBuffers[i],
-                uniformBuffersMemory[i]
+                uniformBuffer,
+                uniformBuffersMemory
             );
-        }
 
         VkDescriptorPoolSize ubo_pool_size = {};
         ubo_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -560,18 +554,17 @@ public:
         VkDescriptorSetAllocateInfo desc_info = {};
         desc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         desc_info.descriptorPool = descriptorPool;
-        desc_info.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+        desc_info.descriptorSetCount = 1;
         desc_info.pSetLayouts = layouts.data();
 
-        std::vector<VkDescriptorSet> descriptorSets;
-        descriptorSets.resize(swapChainImages.size());
-        if (vkAllocateDescriptorSets(device, &desc_info, descriptorSets.data()) != VK_SUCCESS) {
+        VkDescriptorSet descriptorSet;
+        if (vkAllocateDescriptorSets(device, &desc_info, &descriptorSet) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate descriptor sets");
         }
 
         for (size_t i = 0; i < swapChainImages.size(); i++) {
             VkDescriptorBufferInfo bufferInfo = {};
-            bufferInfo.buffer = uniformBuffers[i];
+            bufferInfo.buffer = uniformBuffer;
             bufferInfo.offset = 0;
             bufferInfo.range = sizeof(cb_vs);
 
@@ -582,7 +575,7 @@ public:
 
             VkWriteDescriptorSet buffer_descriptor = {};
             buffer_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            buffer_descriptor.dstSet = descriptorSets[i];
+            buffer_descriptor.dstSet = descriptorSet;
             buffer_descriptor.dstBinding = 0;
             buffer_descriptor.dstArrayElement = 0;
             buffer_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -593,7 +586,7 @@ public:
 
             VkWriteDescriptorSet image_descriptor = {};
             image_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            image_descriptor.dstSet = descriptorSets[i];
+            image_descriptor.dstSet = descriptorSet;
             image_descriptor.dstBinding = 1;
             image_descriptor.dstArrayElement = 0;
             image_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -845,15 +838,15 @@ public:
                 throw std::runtime_error("failed to create semaphore");
         }
 
-        recordMeshBuffer(vertex_buffer, index_buffer, pipelineLayout, descriptorSets, meshcmdbuffer);
+        recordMeshBuffer(vertex_buffer, index_buffer, pipelineLayout, descriptorSet, meshcmdbuffer);
 	}
 
     template<typename T>
     void updateUniformBuffer(const T& ubo, uint32_t imageIndex) {
         void* data;
-        vkMapMemory(device, uniformBuffersMemory[imageIndex], 0, sizeof(T), 0, &data);
+        vkMapMemory(device, uniformBuffersMemory, 0, sizeof(T), 0, &data);
         memcpy(data, &ubo, sizeof(T));
-        vkUnmapMemory(device, uniformBuffersMemory[imageIndex]);
+        vkUnmapMemory(device, uniformBuffersMemory);
     }
 
     uint32_t getNextFrame() {
@@ -866,7 +859,7 @@ public:
         vkDeviceWaitIdle(device);
     }
 
-    void recordMeshBuffer(VKVertexBuffer& meshBuffer, VKIndexBuffer& indexBuffer, VkPipelineLayout& pipelineLayout, std::vector<VkDescriptorSet>& descriptorSets, VkCommandBuffer& cmdbuffer) {
+    void recordMeshBuffer(VKVertexBuffer& meshBuffer, VKIndexBuffer& indexBuffer, VkPipelineLayout& pipelineLayout, VkDescriptorSet& descriptorSets, VkCommandBuffer& cmdbuffer) {
         // record static mesh command buffer
             // allocate static buffers for meshes
             VkCommandBufferInheritanceInfo inherit_info = {};
@@ -882,7 +875,7 @@ public:
 
                 vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
                 vkCmdBindDescriptorSets(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    pipelineLayout, 0, 1, &descriptorSets[0], 0, nullptr);
+                    pipelineLayout, 0, 1, &descriptorSets, 0, nullptr);
 
                 vkCmdDrawIndexed(cmdbuffer, indexBuffer.getCount(), 1, 0, 0, 0);
             };
