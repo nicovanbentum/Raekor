@@ -508,7 +508,11 @@ public:
 
             // if the mesh has a texture add it to the texture vector and store it's index
             if (!texture_path.empty()) {
+                Timer timer;
+                timer.start();
                 textures.push_back(loadTexture(texture_path));
+                timer.stop();
+                std::cout << "texture time: " << timer.elapsed_ms() << std::endl;
                 texture_indices.push_back(ti);
                 ti++;
             // if it has an empty texture path it means we need to store the previous one
@@ -647,9 +651,9 @@ public:
         // viewport and scissoring, fairly straight forward
         VkViewport viewport = {};
         viewport.x = 0.0f;
-        viewport.y = 0.0f;
+        viewport.y = extent.height;
         viewport.width = (float)extent.width;
-        viewport.height = (float)extent.height;
+        viewport.height = ((float)extent.height) * -1;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
 
@@ -672,7 +676,7 @@ public:
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
         rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
         rasterizer.depthBiasConstantFactor = 0.0f; // Optional
         rasterizer.depthBiasClamp = 0.0f; // Optional
@@ -855,7 +859,7 @@ public:
         secondaryInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
         secondaryInfo.commandBufferCount = 1;
 
-        for (unsigned int i = 0; i < vbuffers.size(); i++) {
+        for (int i = (int)meshes.size() - 1; i >= 0; i--) {
             secondaryBuffers.push_back(VkCommandBuffer());
             vkAllocateCommandBuffers(device, &secondaryInfo, &secondaryBuffers.back());
             recordMeshBuffer(vbuffers[i], ibuffers[i], texture_indices[i], pipelineLayout, descriptorSet, secondaryBuffers.back());
@@ -992,7 +996,7 @@ public:
         render_info.renderArea.extent = extent;
 
         std::array<VkClearValue, 2> clearValues = {};
-        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 0.0f };
+        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
         clearValues[1].depthStencil = { 1.0f, 0 };
 
         render_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -1107,9 +1111,9 @@ public:
     }
 
     VKTexture loadTexture(const std::string& path) {
+        stbi_set_flip_vertically_on_load(true);
         int texw, texh, ch;
         // we shouldnt have to flip texture for vulkan, TODO: figure out why everything is upside down
-        stbi_set_flip_vertically_on_load(true);
         auto pixels = stbi_load(path.c_str(), &texw, &texh, &ch, STBI_rgb_alpha);
         if (!pixels) {
             std::cout << "failed to load \"" << path << "\" \n";
@@ -1842,7 +1846,7 @@ void Application::vulkan_main() {
     cb_vs ubo = {};
 
     glm::mat4 model = glm::mat4(1.0f);
-    glm::vec3 position = {}, scale = {0.1f, 0.1f, 0.1f}, rotation = {3.14, 0, 0};
+    glm::vec3 position = {}, scale = {0.1f, 0.1f, 0.1f}, rotation = {0, 0, 0};
 
     Timer dt_timer = Timer();
     double dt = 0;
