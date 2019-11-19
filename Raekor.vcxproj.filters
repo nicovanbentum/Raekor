@@ -195,10 +195,4 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="shaders\simple_vertex.hlsl" />
-    <FxCompile Include="shaders\simple_fp.hlsl" />
-    <FxCompile Include="shaders\skybox_vertex.hlsl" />
-    <FxCompile Include="shaders\skybox_fp.hlsl" />
-  </ItemGroup>
 </Project>
