@@ -227,6 +227,8 @@ private:
 
     int current_frame = 0;
 
+    cb_vs uniformBufferObject;
+
     std::array < std::string, 6> face_files;
 
 public:
@@ -675,76 +677,53 @@ public:
             vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
         }
 
-            {
-                VkDescriptorSetLayoutBinding uboLayoutBinding = {};
-                uboLayoutBinding.binding = 0;
-                uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                uboLayoutBinding.descriptorCount = 1;
-                uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
-                uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-                VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
-                samplerLayoutBinding.binding = 1;
-                samplerLayoutBinding.descriptorCount = 1;
-                samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                samplerLayoutBinding.pImmutableSamplers = nullptr;
-                samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        //    
+        // SKYBOX DESCRIPTOR BUFFER
+        //
+        {
+            VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+            uboLayoutBinding.binding = 0;
+            uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            uboLayoutBinding.descriptorCount = 1;
+            uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+            uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-                std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+            VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+            samplerLayoutBinding.binding = 1;
+            samplerLayoutBinding.descriptorCount = 1;
+            samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            samplerLayoutBinding.pImmutableSamplers = nullptr;
+            samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-                VkDescriptorSetLayoutCreateInfo layoutInfo = {};
-                layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-                layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-                layoutInfo.pBindings = bindings.data();
+            std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
 
-                if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout2) != VK_SUCCESS) {
-                    throw std::runtime_error("fialed to create descriptor layout");
-                }
+            VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+            layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+            layoutInfo.pBindings = bindings.data();
 
-                createBuffer(
-                    sizeof(cb_vs),
-                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                    uniformBuffer2,
-                    uniformBuffersMemory2
-                );
+            if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout2) != VK_SUCCESS) {
+                throw std::runtime_error("fialed to create descriptor layout");
+            }
 
-                // Create Descriptor Pool
-                {
-                    VkDescriptorPoolSize pool_sizes[] =
-                    {
-                        { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-                        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-                        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-                        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-                        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-                        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-                        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-                        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-                        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-                        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-                        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-                    };
-                    VkDescriptorPoolCreateInfo pool_info = {};
-                    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-                    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-                    pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
-                    pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
-                    pool_info.pPoolSizes = pool_sizes;
-                    if (vkCreateDescriptorPool(device, &pool_info, nullptr, &g_DescriptorPool) != VK_SUCCESS) {
-                        throw std::runtime_error("failed to create descriptor pool for imgui");
-                    }
-                }
+            createBuffer(
+                sizeof(cb_vs),
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                uniformBuffer2,
+                uniformBuffersMemory2
+            );
 
-                VkDescriptorSetAllocateInfo desc_info = {};
-                desc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-                desc_info.descriptorPool = g_DescriptorPool;
-                desc_info.descriptorSetCount = 1;
-                desc_info.pSetLayouts = &descriptorSetLayout2;
+            VkDescriptorSetAllocateInfo desc_info = {};
+            desc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            desc_info.descriptorPool = g_DescriptorPool;
+            desc_info.descriptorSetCount = 1;
+            desc_info.pSetLayouts = &descriptorSetLayout2;
 
-                if (vkAllocateDescriptorSets(device, &desc_info, &descriptorSet2) != VK_SUCCESS) {
-                    throw std::runtime_error("failed to allocate descriptor sets");
-                }
+            if (vkAllocateDescriptorSets(device, &desc_info, &descriptorSet2) != VK_SUCCESS) {
+                throw std::runtime_error("failed to allocate descriptor sets");
+            }
 
             VkDescriptorBufferInfo bufferInfo = {};
             bufferInfo.buffer = uniformBuffer2;
@@ -869,9 +848,11 @@ public:
 
         VkPipelineLayout pipelineLayout2;
         VkPipelineLayoutCreateInfo pipelineLayoutInfo2 = {};
-        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout2;
+        pipelineLayoutInfo2.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutInfo2.setLayoutCount = 1;
+        pipelineLayoutInfo2.pSetLayouts = &descriptorSetLayout2;
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &pcr;
 
         if (vkCreatePipelineLayout(device, &pipelineLayoutInfo2, nullptr, &pipelineLayout2) != VK_SUCCESS) {
             throw std::runtime_error("failed to create pipeline layout");
@@ -946,32 +927,56 @@ public:
         depthStencil.front = {}; // Optional
         depthStencil.back = {}; // Optional
 
-        VkGraphicsPipelineCreateInfo pipelineInfo = {};
-        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pipelineInfo.stageCount = 2;
-        pipelineInfo.pStages = shaderStages;
-        pipelineInfo.pVertexInputState = &input_state;
-        pipelineInfo.pInputAssemblyState = &inputAssembly;
-        pipelineInfo.pViewportState = &viewportState;
-        pipelineInfo.pRasterizationState = &rasterizer;
-        pipelineInfo.pMultisampleState = &multisampling;
-        pipelineInfo.pDepthStencilState = nullptr; // Optional
-        pipelineInfo.pColorBlendState = &colorBlending;
-        pipelineInfo.pDynamicState = nullptr; // Optional
-        pipelineInfo.layout = pipelineLayout;
-        pipelineInfo.renderPass = renderPass;
-        pipelineInfo.subpass = 0;
-        pipelineInfo.pDepthStencilState = &depthStencil;
+        {
+            VkGraphicsPipelineCreateInfo pipelineInfo = {};
+            pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+            pipelineInfo.stageCount = 2;
+            pipelineInfo.pStages = shaderStages;
+            pipelineInfo.pVertexInputState = &input_state;
+            pipelineInfo.pInputAssemblyState = &inputAssembly;
+            pipelineInfo.pViewportState = &viewportState;
+            pipelineInfo.pRasterizationState = &rasterizer;
+            pipelineInfo.pMultisampleState = &multisampling;
+            pipelineInfo.pDepthStencilState = nullptr; // Optional
+            pipelineInfo.pColorBlendState = &colorBlending;
+            pipelineInfo.pDynamicState = nullptr; // Optional
+            pipelineInfo.layout = pipelineLayout;
+            pipelineInfo.renderPass = renderPass;
+            pipelineInfo.subpass = 0;
+            pipelineInfo.pDepthStencilState = &depthStencil;
 
-        if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create vk final graphics pipeline");
+            if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create vk final graphics pipeline");
+            }
         }
 
-        pipelineInfo.pStages = skyboxShaders;
-        depthStencil.depthTestEnable = false;
-        if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &skyboxPipeline) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create vk final graphics pipeline");
+        {
+            depthStencil.depthTestEnable = VK_FALSE;
+            depthStencil.depthWriteEnable = VK_FALSE;
+            rasterizer.cullMode = VK_CULL_MODE_NONE;
+
+            VkGraphicsPipelineCreateInfo pipelineInfo = {};
+            pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+            pipelineInfo.stageCount = 2;
+            pipelineInfo.pStages = skyboxShaders;
+            pipelineInfo.pVertexInputState = &input_state;
+            pipelineInfo.pInputAssemblyState = &inputAssembly;
+            pipelineInfo.pViewportState = &viewportState;
+            pipelineInfo.pRasterizationState = &rasterizer;
+            pipelineInfo.pMultisampleState = &multisampling;
+            pipelineInfo.pDepthStencilState = nullptr; // Optional
+            pipelineInfo.pColorBlendState = &colorBlending;
+            pipelineInfo.pDynamicState = nullptr; // Optional
+            pipelineInfo.layout = pipelineLayout2;
+            pipelineInfo.renderPass = renderPass;
+            pipelineInfo.subpass = 0;
+            pipelineInfo.pDepthStencilState = &depthStencil;
+
+            if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &skyboxPipeline) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create vk final graphics pipeline");
+            }
         }
+
 
 
         swapChainFramebuffers.resize(swapChainImageViews.size());
@@ -1060,6 +1065,14 @@ public:
         vkUnmapMemory(device, uniformBuffersMemory);
     }
 
+    template<typename T>
+    void updateSkyboxUniformBuffer(const T& ubo, uint32_t imageIndex) {
+        void* data;
+        vkMapMemory(device, uniformBuffersMemory2, 0, sizeof(T), 0, &data);
+        memcpy(data, &ubo, sizeof(T));
+        vkUnmapMemory(device, uniformBuffersMemory2);
+    }
+
     uint32_t getNextFrame() {
         uint32_t imageIndex;
         vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
@@ -1070,7 +1083,7 @@ public:
         vkDeviceWaitIdle(device);
     }
 
-    void recordSkyboxBuffer(VKVertexBuffer& meshBuffer, VKIndexBuffer& indexBuffer, VkPipelineLayout& pLayout, VkDescriptorSet& descriptorSets, VkCommandBuffer& cmdbuffer) {
+    void recordSkyboxBuffer(VKVertexBuffer& meshBuffer, VKIndexBuffer& indexBuffer, VkPipelineLayout& pLayout, VkDescriptorSet& set, VkCommandBuffer& cmdbuffer) {
         VkCommandBufferInheritanceInfo inherit_info = {};
         inherit_info.renderPass = renderPass;
         inherit_info.subpass = 0;
@@ -1083,8 +1096,7 @@ public:
             vkCmdBindIndexBuffer(cmdbuffer, indexBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
             vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline);
-            vkCmdBindDescriptorSets(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                pLayout, 0, 1, &descriptorSets, 0, nullptr);
+            vkCmdBindDescriptorSets(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pLayout, 0, 1, &set, 0, nullptr);
 
             vkCmdDrawIndexed(cmdbuffer, indexBuffer.getCount(), 1, 0, 0, 0);
         };
@@ -1127,15 +1139,6 @@ public:
         );
     }
 
-    //for mesh in model:
-    //    load vertices, indices
-    //    create vkbuffers
-
-    //    b = createcommandbuffers()
-    //    func = {bind, draw}
-    //    record(b, func)
-
-
     void recordSecondaryCommandBuffer(VkCommandBuffer& buffer, std::function<void()> commands, const VkCommandBufferInheritanceInfo* inheritInfo, VkCommandBufferUsageFlags beginFlag) {
         // create secondary command buffer begin info
         VkCommandBufferBeginInfo beginInfo = {};
@@ -1169,7 +1172,7 @@ public:
         );
     }
 
-    void render(uint32_t imageIndex) {
+    void render(uint32_t imageIndex, const glm::mat4& model_transform, const glm::mat4& sky_transform) {
         VkCommandBufferBeginInfo beginInfo = {};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = 0; // Optional
@@ -1183,7 +1186,7 @@ public:
         render_info.renderArea.extent = extent;
 
         std::array<VkClearValue, 2> clearValues = {};
-        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        clearValues[0].color = { 1.0f, 1.0f, 0.0f, 1.0f };
         clearValues[1].depthStencil = { 1.0f, 0 };
 
         render_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -1195,10 +1198,19 @@ public:
 
         // start the render pass and execute secondary command buffers
         vkCmdBeginRenderPass(maincmdbuffer, &render_info, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+
+        // update the mvp without translation and execute the skybox render commands
+        uniformBufferObject.MVP = sky_transform;
+        updateSkyboxUniformBuffer(uniformBufferObject, imageIndex);
         vkCmdExecuteCommands(maincmdbuffer, 1, &skyboxcmdbuffer);
+
+        // update the MVP with the mesh's transformation and execute the mesh render commands
+        uniformBufferObject.MVP = model_transform;
+        updateUniformBuffer(uniformBufferObject, imageIndex);
         if (secondaryBuffers.data() != nullptr) {
             vkCmdExecuteCommands(maincmdbuffer, static_cast<uint32_t>(secondaryBuffers.size()), secondaryBuffers.data());
         }
+
         vkCmdExecuteCommands(maincmdbuffer, 1, &imguicmdbuffer);
         vkCmdEndRenderPass(maincmdbuffer);
 
@@ -1541,7 +1553,7 @@ public:
         endSingleTimeCommands(commandBuffer);
     };
 
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount = 1) {
         VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
         VkBufferImageCopy region = {};
@@ -1552,7 +1564,7 @@ public:
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.mipLevel = 0;
         region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = 1;
+        region.imageSubresource.layerCount = layerCount;
 
         region.imageOffset = { 0, 0, 0 };
         region.imageExtent = { width, height, 1 };
@@ -1563,16 +1575,17 @@ public:
     };
 
     VKTexture load_skybox() {
+        stbi_set_flip_vertically_on_load(false);
         unsigned char* textureData[6];
         int width, height, n_channels;
-        for (unsigned int i = 0; i < face_files.size(); i++) {
-            textureData[i] = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, 0);
+        for (unsigned int i = 0; i < 6; i++) {
+            textureData[i] = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, 4);
             m_assert(textureData[i], "failed to load image");
         }
         std::cout << n_channels << std::endl;
 
         //Calculate the image size and the layer size.
-        const VkDeviceSize imageSize = width * height * n_channels * 6;
+        const VkDeviceSize imageSize = width * height * 4 * 6;
         const VkDeviceSize layerSize = imageSize / 6;
 
         // setup the stage buffer
@@ -1589,15 +1602,15 @@ public:
         // map and copy the memory over
         void* pdata;
         vkMapMemory(device, stage_pixels_mem, 0, imageSize, 0, &pdata);
-        for (unsigned int i = 0; i < ARRAYSIZE(textureData); i++) {
+        for (unsigned int i = 0; i < 6; i++) {
             unsigned char* location = static_cast<unsigned char*>(pdata) + (layerSize * i);
             memcpy(location, textureData[i], layerSize);
         }
         vkUnmapMemory(device, stage_pixels_mem);
 
         // cleanup the loaded image data from RAM
-        for (unsigned int i = 0; i < ARRAYSIZE(textureData); i++) {
-            stbi_image_free(textureData[i]);
+        for (unsigned int i = 0; i < 6; i++) {
+            //stbi_image_free(textureData[i]);
         }
 
         VkImage texture;
@@ -1642,7 +1655,7 @@ public:
         constexpr uint32_t mipLevels = 1;
         constexpr uint32_t layerCount = 6;
         transitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, layerCount, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        copyBufferToImage(stage_pixels, texture, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+        copyBufferToImage(stage_pixels, texture, static_cast<uint32_t>(width), static_cast<uint32_t>(height), 6);
         transitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, layerCount, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         vkDestroyBuffer(device, stage_pixels, nullptr);
         vkFreeMemory(device, stage_pixels_mem, nullptr);
@@ -2153,11 +2166,9 @@ void Application::vulkan_main() {
         model = model * glm::toMat4(rotation_quat);
         model = glm::scale(model, scale);
 
-        camera.update(model);
-        ubo.MVP = camera.get_mvp(false);
-
         uint32_t frame = vk.getNextFrame();
-        vk.updateUniformBuffer(ubo, frame);
+        //vk.updateUniformBuffer(ubo, frame);
+        vk.updateSkyboxUniformBuffer(ubo, frame);
 
         // start a new imgui frame
         vk.ImGuiNewFrame(window);
@@ -2237,7 +2248,11 @@ void Application::vulkan_main() {
         // record the collected data to secondary command buffers
         vk.ImGuiRecord();
         // start the overall render pass
-        vk.render(frame);
+        camera.update();
+        auto sky_tranform = camera.get_mvp(false);
+        camera.update(model);
+        auto m_transform = camera.get_mvp(false);
+        vk.render(frame, m_transform, sky_tranform);
         // tell imgui we're done with the current frame
         ImGui::EndFrame();
 
