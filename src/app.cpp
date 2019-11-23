@@ -72,6 +72,8 @@ void Application::run() {
     // create a Camera we can use to move around our scene
     Camera camera(glm::vec3(0, 0, 5), 45.0f);
 
+    cb_vs ubo;
+
     std::unique_ptr<Model> model;
     std::unique_ptr<Shader> dx_shader;
     std::unique_ptr<FrameBuffer> dxfb;
@@ -88,9 +90,16 @@ void Application::run() {
     ft_texture.name = "Supported Image Files";
     ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
-    dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
-    sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
+    dx_shader.reset(Shader::construct("simple_vertex", "simple_fp"));
+    sky_shader.reset(Shader::construct("skybox_vertex", "skybox_fp"));
+
     skycube.reset(new Mesh(Shape::Cube));
+    skycube->get_vertex_buffer()->set_layout({ 
+        {"POSITION", ShaderType::FLOAT3}, 
+        {"UV", ShaderType::FLOAT2}, 
+        {"NORMAL", ShaderType::FLOAT3} 
+    });
+
     sky_image.reset(Texture::construct(skyboxes["lake"]));
     dxrb.reset(ResourceBuffer<cb_vs>::construct());
     dxfb.reset(FrameBuffer::construct({ displays[display].w * 0.80, displays[display].h * 0.80 }));
@@ -134,8 +143,10 @@ void Application::run() {
         // update the camera without translation/model matrix
         camera.update();
         // upload the camera's mvp matrix
-        dxrb->get_data().MVP = camera.get_mvp(transpose);
-        // bind the resource buffer containing the mvp
+        ubo.MVP = camera.get_mvp(transpose);
+        // update the resource buffer 
+        dxrb->update(ubo);
+        // bind the resource buffer
         dxrb->bind(0);
         // bind the skybox cubemap
         sky_image->bind();
@@ -149,7 +160,8 @@ void Application::run() {
         for (auto& m : models) {
             m.recalc_transform();
             camera.update(m.get_transform());
-            dxrb->get_data().MVP = camera.get_mvp(transpose);
+            ubo.MVP = camera.get_mvp(transpose);
+            dxrb->update(ubo);
             dxrb->bind(0);
             m.render();
         }
@@ -334,6 +346,10 @@ void Application::run() {
         // renderer viewport
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+        static bool resizing = true;
+        auto size = ImGui::GetWindowSize();
+        dxfb->resize({ size.x, size.y-25 });
+        camera.set_aspect_ratio(size.x / size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
         dxfb->ImGui_Image();
         ImGui::End();
@@ -349,12 +365,12 @@ void Application::run() {
             reset = false;
             // TODO: figure this out
             Render::Reset(directxwindow);
-            dx_shader.reset(Shader::construct("shaders/simple_vertex", "shaders/simple_fp"));
+            dx_shader.reset(Shader::construct("simple_vertex", "simple_fp"));
             dxfb.reset(FrameBuffer::construct({ displays[display].w * 0.80, displays[display].h * 0.80 }));
             dxrb.reset(ResourceBuffer<cb_vs>::construct());
             sky_image.reset(Texture::construct(skyboxes["lake"]));
             skycube.reset(new Mesh(Shape::Cube));
-            sky_shader.reset(Shader::construct("shaders/skybox_vertex", "shaders/skybox_fp"));
+            sky_shader.reset(Shader::construct("skybox_vertex", "skybox_fp"));
             for (auto &m : models) m.reload();
         }
 

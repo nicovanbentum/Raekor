@@ -12,11 +12,12 @@ namespace Raekor {
 Shader* Shader::construct(std::string vertex, std::string fp) {
     switch (Renderer::get_activeAPI()) {
         case RenderAPI::OPENGL: {
-            return new GLShader(vertex + ".glsl", fp + ".glsl");
+            LOG_CATCH(return new GLShader("shaders/OpenGL/" + vertex + ".glsl", "shaders/OpenGL/" + fp + ".glsl"));
+
         } break;
 #ifdef _WIN32
         case RenderAPI::DIRECTX11: {
-            return new DXShader(vertex + ".cso", fp + ".cso");
+            LOG_CATCH(return new DXShader("shaders/DirectX/" + vertex + ".cso", "shaders/DirectX/" + fp + ".cso"));
         } break;
 #endif
     }
@@ -45,7 +46,9 @@ GLShader::GLShader(std::string vert, std::string frag) {
     auto v_src = vertex_src.c_str();
     auto f_src = frag_src.c_str();
 
-    m_assert(!vertex_src.empty() && !frag_src.empty(), "failed to load shaders");
+    if (vertex_src.empty() || frag_src.empty()) {
+        throw std::runtime_error("failed to load shaders");
+    }
 
     int result = GL_FALSE;
     int log_n = 0;

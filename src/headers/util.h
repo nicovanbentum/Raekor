@@ -16,6 +16,8 @@ template<typename T>
 using com_ptr = Microsoft::WRL::ComPtr<T>;
 #endif
 
+#define LOG_CATCH(code) try { code; } catch(std::exception e) { std::cout << e.what() << '\n'; }
+
 namespace Raekor {
 
 // function to create an OpenGL buffer out of a vector of whatever type

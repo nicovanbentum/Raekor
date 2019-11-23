@@ -80,16 +80,10 @@ void DXVertexBuffer::bind() const {
     constexpr unsigned int stride = sizeof(Vertex);
     constexpr unsigned int offset = 0;
     D3D.context->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
-    set_layout({ {"POSITION", ShaderType::FLOAT3}, {"TEXCOORD", ShaderType::FLOAT2} });
+    D3D.context->IASetInputLayout(input_layout.Get());
 }
 
 void DXVertexBuffer::set_layout(const InputLayout& layout) const {
-    // if the input layout has been created we only have to bind it
-    if (input_layout) {
-        D3D.context->IASetInputLayout(input_layout.Get());
-        return;
-    }
-
     std::vector<D3D11_INPUT_ELEMENT_DESC> attributes;
     for (auto& element : layout) {
         attributes.push_back({ 
@@ -106,12 +100,6 @@ void DXVertexBuffer::set_layout(const InputLayout& layout) const {
     ID3D10Blob* shader = fake_shader_bytecode(layout);
     auto hr = D3D.device->CreateInputLayout(attributes.data(), (UINT)layout.size(), shader->GetBufferPointer(), shader->GetBufferSize(), input_layout.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create input layout");
-    shader->Release();
-    D3D.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    D3D.context->RSSetState(D3D.rasterize_state.Get());
-    D3D.context->IASetInputLayout(input_layout.Get());
-
-    // cleanup
     shader->Release();
 }
 

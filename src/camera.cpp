@@ -17,6 +17,10 @@ void Camera::update(const glm::mat4& model) {
     mvp = projection * view * model;
 }
 
+void Camera::set_aspect_ratio(float new_ratio) {
+    projection = glm::perspectiveRH_ZO(glm::radians(FOV), new_ratio, 0.1f, 10000.0f);
+}
+
 void Camera::update() {
     auto dir = get_direction();
     view = glm::lookAt(position, position + dir, {0, 1, 0});

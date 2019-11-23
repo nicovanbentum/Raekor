@@ -56,6 +56,11 @@ void Model::load_mesh(uint64_t index) {
 
     std::lock_guard<std::mutex> lock(mutex);
     meshes.push_back(Raekor::Mesh(ai_mesh->mName.C_Str(), vertices, indices));
+    meshes.back().get_vertex_buffer()->set_layout({ 
+        {"POSITION", ShaderType::FLOAT3},
+        {"UV", ShaderType::FLOAT2},
+        {"NORMAL", ShaderType::FLOAT3}
+    });
     textures.push_back(std::shared_ptr<Texture>(Texture::construct(texture_path)));
 }
 

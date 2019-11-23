@@ -10,6 +10,7 @@ public:
     Camera(glm::vec3 position, float fov);
     void look(int x, int y);
     void update();
+    void set_aspect_ratio(float new_ratio);
     glm::vec3 get_direction();
     void move_on_input(double dt);
     void update(const glm::mat4& model);

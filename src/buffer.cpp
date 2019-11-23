@@ -85,12 +85,8 @@ GLVertexBuffer::GLVertexBuffer(const std::vector<Vertex>& vertices) {
 
 void GLVertexBuffer::bind() const {
     glBindBuffer(GL_ARRAY_BUFFER, id);
-    set_layout({ {"POSITION", ShaderType::FLOAT3}, {"UV", ShaderType::FLOAT2}, {"NORMAL", ShaderType::FLOAT3} });
-}
-
-void GLVertexBuffer::set_layout(const InputLayout& layout) const {
     GLuint index = 0;
-    for (auto& element : layout) {
+    for (auto& element : inputLayout) {
         auto GLType = static_cast<GLShaderType>(element.type);
         glEnableVertexAttribArray(index);
         glVertexAttribPointer(
@@ -98,11 +94,15 @@ void GLVertexBuffer::set_layout(const InputLayout& layout) const {
             GLType.count, // number of types, e.g 3 floats
             GLType.type, // type, e.g float
             GL_FALSE, // normalized?
-            (GLsizei)layout.get_stride(), // stride of the entire layout
+            (GLsizei)inputLayout.get_stride(), // stride of the entire layout
             (const void*)((intptr_t)element.offset) // starting offset, casted up
         );
         index++;
     }
+}
+
+void GLVertexBuffer::set_layout(const InputLayout& layout) const {
+    inputLayout = layout;
 }
 
 GLIndexBuffer::GLIndexBuffer(const std::vector<Index>& indices) {

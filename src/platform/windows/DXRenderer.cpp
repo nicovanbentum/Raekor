@@ -121,6 +121,8 @@ DXRenderer::DXRenderer(SDL_Window* window) {
 
     hr = D3D.device->CreateRasterizerState(&raster_desc, D3D.rasterize_state.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create rasterizer state");
+    D3D.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    D3D.context->RSSetState(D3D.rasterize_state.Get());
 
     // initialize ImGui for DirectX
     ImGui_ImplSDL2_InitForD3D(window);

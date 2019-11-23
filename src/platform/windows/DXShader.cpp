@@ -12,13 +12,13 @@ DXShader::DXShader(std::string vertex, std::string pixel) {
 
 
     auto hr = D3DReadFileToBlob(vertex_wstr, vertex_shader_buffer.GetAddressOf());
-    m_assert(!FAILED(hr), "failed to read file to blob");
+    if (FAILED(hr)) throw std::runtime_error("failed to read DirectX file to blob");
     hr = D3DReadFileToBlob(pixel_wstr, pixel_shader_buffer.GetAddressOf());
-    m_assert(!FAILED(hr), "failed to read file to blob");
+    if (FAILED(hr)) throw std::runtime_error("failed to read DirectX file to blob");
     hr = D3D.device->CreateVertexShader(vertex_shader_buffer.Get()->GetBufferPointer(), vertex_shader_buffer->GetBufferSize(), NULL, vertex_shader.GetAddressOf());
-    m_assert(!FAILED(hr), "failed to create vertex shader");
+    if (FAILED(hr)) throw std::runtime_error("failed to create DirectX vertex shader");
     hr = D3D.device->CreatePixelShader(pixel_shader_buffer.Get()->GetBufferPointer(), pixel_shader_buffer->GetBufferSize(), NULL, pixel_shader.GetAddressOf());
-    m_assert(!FAILED(hr), "failed to create pixel shader");
+    if (FAILED(hr)) throw std::runtime_error("failed to create DX pixel shader");
 }
 
 const void DXShader::bind() const {

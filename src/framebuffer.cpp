@@ -84,6 +84,7 @@ void GLFrameBuffer::ImGui_Image() const {
 
 
 void GLFrameBuffer::resize(const glm::vec2& new_size) {
+    if (size == new_size) return;
     size = new_size;
     // bind the render texture and reset its attributes
     glBindTexture(GL_TEXTURE_2D, render_texture_id);

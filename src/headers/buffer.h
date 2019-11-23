@@ -41,14 +41,8 @@ public:
         return nullptr;
     }
     // update and bind the resource buffer to one of 15 slots
+    virtual void update(const T& resource) const = 0;
     virtual void bind(uint8_t slot) const = 0;
-    
-    // function to  modify the data we send to the GPU
-    T& get_data() {
-        return data;
-    }
-protected:
-    T data;
 };
 
 template<typename T>
@@ -58,23 +52,18 @@ public:
         glGenBuffers(1, &id);
         glBindBuffer(GL_UNIFORM_BUFFER, id);
         glBufferData(GL_UNIFORM_BUFFER, sizeof(T), NULL, GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+
+    virtual void update(const T& resource) const override {
+        glBindBuffer(GL_UNIFORM_BUFFER, id);
         void* data_ptr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
-        m_assert(data_ptr, "failed to map memory");
+        memcpy(data_ptr, &resource, sizeof(T));
         glUnmapBuffer(GL_UNIFORM_BUFFER);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
     virtual void bind(uint8_t slot) const override {
-        // update the resource data
-        // bind the buffer
-        glBindBuffer(GL_UNIFORM_BUFFER, id);
-        // retrieve a pointer to the cpu memory that OpenGL reads from
-        void* data_ptr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
-        m_assert(data_ptr, "failed to map memory");
-        // copy the memory of our struct into the mapped memory
-        memcpy(data_ptr, &this->data, sizeof(T));
-        glUnmapBuffer(GL_UNIFORM_BUFFER);
-        // bind the buffer to a slot
         glBindBufferBase(GL_UNIFORM_BUFFER, slot, id);
     }
 
@@ -105,14 +94,10 @@ struct Element {
         name(p_name), type(type), size(size_of(type)), offset(0) {}
 };
 
-struct ShaderResource {
-    const void* data;
-    ShaderType type;
-};
-
 class InputLayout {
 public:
     InputLayout(const std::initializer_list<Element> element_list);
+    InputLayout() {}
 
     inline size_t size() const { return layout.size(); }
     inline uint64_t get_stride() const { return stride; }
@@ -165,6 +150,7 @@ public:
     virtual void set_layout(const InputLayout& layout) const override;
 
 private:
+    mutable InputLayout inputLayout;
     unsigned int id = 0;
 };
 
