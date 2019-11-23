@@ -15,9 +15,10 @@
 #define _glslc "dependencies\\glslc.exe "
 #define _cl(in, out) system(std::string(_glslc + static_cast<std::string>(in) + static_cast<std::string>(" -o ") + static_cast<std::string>(out)).c_str())
 void compile_shader(const char* in, const char* out) {
-    if(_cl(in, out) != 0) {
+    if (_cl(in, out) != 0) {
         std::cout << "failed to compile vulkan shader: " + std::string(in) << '\n';
-    } else {
+    }
+    else {
         std::cout << "Successfully compiled VK shader: " + std::string(in) << '\n';
 
     }
@@ -43,7 +44,7 @@ public:
         image(p_image), memory(p_memory), view(p_view), sampler(VK_NULL_HANDLE) {}
 
     ~VKTexture() {
-        
+
     }
 
     inline const VkImage& getImage() const { return image; }
@@ -60,17 +61,14 @@ private:
 
 class VKBuffer {
 public:
-    VKBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory) 
-    : buffer(p_buffer), memory(p_memory) {}
+    VKBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory)
+        : buffer(p_buffer), memory(p_memory) {}
 
-    VKBuffer(const VKBuffer& rhs) 
-    : buffer(rhs.getBuffer()), memory(rhs.getMemory()) { }
-
-    VkBuffer getBuffer() const {
+    VkBuffer& getBuffer() {
         return buffer;
     }
 
-    VkDeviceMemory getMemory() const {
+    VkDeviceMemory& getMemory() {
         return memory;
     }
 private:
@@ -93,9 +91,6 @@ public:
     VKIndexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory, uint32_t p_count)
         : VKBuffer(p_buffer, p_memory), count(p_count) {}
 
-    VKIndexBuffer(VKBuffer& p_buffer, uint32_t p_count) 
-        : VKBuffer(p_buffer), count(p_count) {}
-
     uint32_t getCount() {
         return count;
     }
@@ -103,19 +98,10 @@ private:
     uint32_t count;
 };
 
-class VKVertexBuffer: public VKBuffer {
+class VKVertexBuffer : public VKBuffer {
 public:
-    VKVertexBuffer(VKBuffer& buffer) :
-        VKBuffer(buffer), info({}), bindingDescription({}), layout({}) {
-        describe();
-    }
-
     VKVertexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory) :
         VKBuffer(p_buffer, p_memory), info({}), bindingDescription({}), layout({}) {
-        describe();
-    }
-
-    void describe() {
         bindingDescription.binding = 0;
         bindingDescription.stride = sizeof(Vertex);
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
@@ -148,8 +134,8 @@ private:
 };
 
 class VKShader {
-public:    
-    VKShader(const std::string& path) 
+public:
+    VKShader(const std::string& path)
         : filepath(path), module(VK_NULL_HANDLE) {}
 
 private:
@@ -199,15 +185,15 @@ private:
     bool enableValidationLayers;
 
     queue_indices qindices;
-	VkInstance instance;
-	VkSurfaceKHR surface;
-	VkPhysicalDevice gpu;
+    VkInstance instance;
+    VkSurfaceKHR surface;
+    VkPhysicalDevice gpu;
     VkExtent2D extent;
     VkCommandPool commandPool;
     VkQueue present_q;
     VkQueue graphics_q;
     VkRenderPass renderPass;
-	VkDevice device;
+    VkDevice device;
 
     VkPipeline graphicsPipeline;
     VkPipeline skyboxPipeline;
@@ -260,15 +246,15 @@ public:
             vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
             vkDestroyFence(device, inFlightFences[i], nullptr);
         }
-            vkDestroyBuffer(device, uniformBuffer, nullptr);
-            vkFreeMemory(device, uniformBuffersMemory, nullptr);
+        vkDestroyBuffer(device, uniformBuffer, nullptr);
+        vkFreeMemory(device, uniformBuffersMemory, nullptr);
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
         vkDestroyDevice(device, nullptr);
     }
 
-	VKRender(const std::array<std::string, 6>& ff) {
+    VKRender(const std::array<std::string, 6>& ff) {
         face_files = ff;
 #ifdef NDEBUG
         enableValidationLayers = false;
@@ -555,13 +541,11 @@ public:
                 texture_indices.push_back(ti);
             }
 
-            uint32_t index_count = static_cast<uint32_t>(indices.size() * 3);
 
-            VKBuffer vbuffer = uploadBuffer<Vertex>(mesh);
-            vbuffers.push_back(VKVertexBuffer(vbuffer));
-            VKBuffer ibuffer = uploadBuffer<Index>(indices);
-            ibuffers.push_back(VKIndexBuffer(ibuffer, index_count));
 
+
+            vbuffers.push_back(createVertexBuffer(mesh));
+            ibuffers.push_back(createIndexBuffer(indices));
             vbuffers.back().setLayout({
                 { "POSITION", ShaderType::FLOAT3 },
                 { "UV",       ShaderType::FLOAT2 },
@@ -570,11 +554,8 @@ public:
 
         }
         VKTexture skybox = load_skybox();
-
-        VKBuffer vbuffercube = uploadBuffer<Vertex>(v_cube);
-        VKBuffer ibuffercube = uploadBuffer<Index>(i_cube);
-        VKVertexBuffer cube_v = VKVertexBuffer(vbuffercube);
-        VKIndexBuffer cube_i = VKIndexBuffer(ibuffercube, i_cube.size()*3);
+        VKVertexBuffer cube_v = createVertexBuffer(v_cube);
+        VKIndexBuffer cube_i = createIndexBuffer(i_cube);
         // create descriptor set with the skybox texture
         // load cube
         // bind all and record to cmd buffer
@@ -778,7 +759,7 @@ public:
             std::array<VkWriteDescriptorSet, 2> descriptors2 = { buffer_descriptor2, image_descriptor2 };
             vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptors2.size()), descriptors2.data(), 0, nullptr);
         }
-        
+
         // describe the topology used, like in directx
         VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1075,7 +1056,7 @@ public:
             if (vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
                 throw std::runtime_error("failed to create semaphore");
         }
-	}
+    }
 
     template<typename T>
     void updateUniformBuffer(const T& ubo, uint32_t imageIndex) {
@@ -1185,9 +1166,9 @@ public:
         };
 
         recordSecondaryCommandBuffer(
-            imguicmdbuffer, 
-            executeCommands, 
-            &inherit_info, 
+            imguicmdbuffer,
+            executeCommands,
+            &inherit_info,
             VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT
         );
     }
@@ -1249,11 +1230,11 @@ public:
         VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[current_frame] };
         VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[current_frame] };
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-        
+
         // use std array here over cmdbuffers for future reference when 
         // for implementing automatic command buffer submission TODO
         std::array<VkCommandBuffer, 1> cmdbuffers = { maincmdbuffer };
-        
+
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.waitSemaphoreCount = 1;
@@ -1338,7 +1319,8 @@ public:
         if (!pixels) {
             std::cout << "failed to load \"" << path << "\" \n";
             throw std::runtime_error("failed to laod stb image for texturing");
-        } else {
+        }
+        else {
             std::cout << "loaded " << path << std::endl;
         }
         uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texw, texh)))) + 1;
@@ -1379,7 +1361,7 @@ public:
         vkFreeMemory(device, stage_pixels_mem, nullptr);
 
         auto texture_image_view = createImageView(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels, 1);
-        
+
         VkSamplerCreateInfo samplerInfo = {};
         samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         samplerInfo.magFilter = VK_FILTER_LINEAR;
@@ -1431,7 +1413,7 @@ public:
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 
             vkCmdPipelineBarrier(
-                cb, VK_PIPELINE_STAGE_TRANSFER_BIT, 
+                cb, VK_PIPELINE_STAGE_TRANSFER_BIT,
                 VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
                 0, nullptr, 0, nullptr, 1, &barrier);
 
@@ -1461,7 +1443,7 @@ public:
             barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
             vkCmdPipelineBarrier(
-                cb, VK_PIPELINE_STAGE_TRANSFER_BIT, 
+                cb, VK_PIPELINE_STAGE_TRANSFER_BIT,
                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
                 0, nullptr, 0, nullptr, 1, &barrier);
 
@@ -1476,7 +1458,7 @@ public:
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
         vkCmdPipelineBarrier(
-            cb, VK_PIPELINE_STAGE_TRANSFER_BIT, 
+            cb, VK_PIPELINE_STAGE_TRANSFER_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
             0, nullptr, 0, nullptr, 1, &barrier);
 
@@ -1758,41 +1740,76 @@ public:
         vkBindImageMemory(device, image, imageMemory, 0);
     };
 
-    template<typename T>
-    VKBuffer uploadBuffer(const std::vector<T>& elements) {
-        VkDeviceSize size = sizeof(T) * elements.size();
+    VKVertexBuffer createVertexBuffer(const std::vector<Vertex>& vertices) {
 
-        VkBuffer stage_buffer;
+        VkDeviceSize buffer_size = sizeof(Vertex) * vertices.size();
+
+        VkBuffer staging_buffer;
         VkDeviceMemory stage_mem;
-
         createBuffer(
-            size,
+            buffer_size,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stage_buffer,
+            staging_buffer,
             stage_mem
         );
 
-        void* data1;
-        vkMapMemory(device, stage_mem, 0, size, 0, &data1);
-        memcpy(data1, elements.data(), (size_t)size);
+        void* data;
+        vkMapMemory(device, stage_mem, 0, buffer_size, 0, &data);
+        memcpy(data, vertices.data(), (size_t)buffer_size);
         vkUnmapMemory(device, stage_mem);
 
-        VkBuffer retBuffer;
-        VkDeviceMemory RetMemory;
-
-        createBuffer(size,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VkBuffer vertex_buffer;
+        VkDeviceMemory vertex_mem;
+        createBuffer(
+            buffer_size,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            retBuffer,
-            RetMemory);
+            vertex_buffer,
+            vertex_mem
+        );
 
-        copyBuffer(stage_buffer, retBuffer, size);
-
-        vkDestroyBuffer(device, stage_buffer, nullptr);
+        copyBuffer(staging_buffer, vertex_buffer, buffer_size);
+        vkDestroyBuffer(device, staging_buffer, nullptr);
         vkFreeMemory(device, stage_mem, nullptr);
 
-        return VKBuffer(retBuffer, RetMemory);
+        return VKVertexBuffer(vertex_buffer, vertex_mem);
+    }
+
+    VKIndexBuffer createIndexBuffer(const std::vector<Index>& indices) {
+        VkDeviceSize indices_size = sizeof(Index) * indices.size();
+
+        VkBuffer stage_indices_buffer;
+        VkDeviceMemory indices_stage_mem;
+
+        createBuffer(
+            indices_size,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            stage_indices_buffer,
+            indices_stage_mem
+        );
+
+        void* data1;
+        vkMapMemory(device, indices_stage_mem, 0, indices_size, 0, &data1);
+        memcpy(data1, indices.data(), (size_t)indices_size);
+        vkUnmapMemory(device, indices_stage_mem);
+
+        VkBuffer indexBuffer;
+        VkDeviceMemory indexBufferMemory;
+
+        createBuffer(indices_size,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            indexBuffer,
+            indexBufferMemory);
+
+        copyBuffer(stage_indices_buffer, indexBuffer, indices_size);
+
+        vkDestroyBuffer(device, stage_indices_buffer, nullptr);
+        vkFreeMemory(device, indices_stage_mem, nullptr);
+
+        return VKIndexBuffer(indexBuffer, indexBufferMemory, static_cast<uint32_t>(indices.size() * 3));
     }
 
     VkPhysicalDevice getGPU() {
@@ -2134,11 +2151,11 @@ void Application::vulkan_main() {
     cb_vs ubo = {};
 
     glm::mat4 model = glm::mat4(1.0f);
-    glm::vec3 position = {}, scale = {0.1f, 0.1f, 0.1f}, rotation = {0, 0, 0};
+    glm::vec3 position = {}, scale = { 0.1f, 0.1f, 0.1f }, rotation = { 0, 0, 0 };
 
     Timer dt_timer = Timer();
     double dt = 0;
-    
+
     //main application loop
     while (running) {
         dt_timer.start();
