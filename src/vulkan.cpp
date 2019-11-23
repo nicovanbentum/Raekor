@@ -61,14 +61,14 @@ private:
 
 class VKBuffer {
 public:
-    VKBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory)
+    VKBuffer(VkBuffer p_buffer, VkDeviceMemory p_memory)
         : buffer(p_buffer), memory(p_memory) {}
 
-    VkBuffer& getBuffer() {
+    VkBuffer getBuffer() const {
         return buffer;
     }
 
-    VkDeviceMemory& getMemory() {
+    VkDeviceMemory getMemory() const {
         return memory;
     }
 private:
@@ -91,6 +91,9 @@ public:
     VKIndexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory, uint32_t p_count)
         : VKBuffer(p_buffer, p_memory), count(p_count) {}
 
+    VKIndexBuffer(const VKBuffer& buffer, uint32_t p_count)
+        : VKBuffer(buffer.getBuffer(), buffer.getMemory()), count(p_count) {}
+
     uint32_t getCount() {
         return count;
     }
@@ -102,12 +105,12 @@ class VKVertexBuffer : public VKBuffer {
 public:
     VKVertexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory) :
         VKBuffer(p_buffer, p_memory), info({}), bindingDescription({}), layout({}) {
-        bindingDescription.binding = 0;
-        bindingDescription.stride = sizeof(Vertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-        info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        info.vertexBindingDescriptionCount = 1;
-        info.pVertexBindingDescriptions = &bindingDescription;
+        describe();
+    }
+
+    VKVertexBuffer(const VKBuffer& buffer) :
+        VKBuffer(buffer.getBuffer(), buffer.getMemory()), info({}), bindingDescription({}), layout({}) {
+            describe();
     }
 
     void setLayout(const InputLayout& new_layout) {
@@ -123,6 +126,15 @@ public:
         }
         info.vertexAttributeDescriptionCount = static_cast<uint32_t>(layout.size());
         info.pVertexAttributeDescriptions = layout.data();
+    }
+
+    void describe() {
+        bindingDescription.binding = 0;
+        bindingDescription.stride = sizeof(Vertex);
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        info.vertexBindingDescriptionCount = 1;
+        info.pVertexBindingDescriptions = &bindingDescription;
     }
 
     inline VkPipelineVertexInputStateCreateInfo& getVertexInputState() { return info; }
@@ -543,9 +555,8 @@ public:
 
 
 
-
-            vbuffers.push_back(createVertexBuffer(mesh));
-            ibuffers.push_back(createIndexBuffer(indices));
+            vbuffers.push_back(VKVertexBuffer(uploadBuffer<Vertex>(mesh, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)));
+            ibuffers.push_back(VKIndexBuffer(uploadBuffer<Index>(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT), static_cast<uint32_t>(indices.size()*3)));
             vbuffers.back().setLayout({
                 { "POSITION", ShaderType::FLOAT3 },
                 { "UV",       ShaderType::FLOAT2 },
@@ -554,8 +565,8 @@ public:
 
         }
         VKTexture skybox = load_skybox();
-        VKVertexBuffer cube_v = createVertexBuffer(v_cube);
-        VKIndexBuffer cube_i = createIndexBuffer(i_cube);
+        VKVertexBuffer cube_v = VKVertexBuffer(uploadBuffer<Vertex>(v_cube, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+        VKIndexBuffer cube_i = VKIndexBuffer(uploadBuffer<Index>(i_cube, VK_BUFFER_USAGE_INDEX_BUFFER_BIT), static_cast<uint32_t>(i_cube.size() * 3));
         // create descriptor set with the skybox texture
         // load cube
         // bind all and record to cmd buffer
@@ -1740,9 +1751,9 @@ public:
         vkBindImageMemory(device, image, imageMemory, 0);
     };
 
-    VKVertexBuffer createVertexBuffer(const std::vector<Vertex>& vertices) {
-
-        VkDeviceSize buffer_size = sizeof(Vertex) * vertices.size();
+    template<typename T>
+    VKBuffer uploadBuffer(const std::vector<T>& v, VkBufferUsageFlagBits usage) {
+        VkDeviceSize buffer_size = sizeof(T) * v.size();
 
         VkBuffer staging_buffer;
         VkDeviceMemory stage_mem;
@@ -1756,60 +1767,24 @@ public:
 
         void* data;
         vkMapMemory(device, stage_mem, 0, buffer_size, 0, &data);
-        memcpy(data, vertices.data(), (size_t)buffer_size);
+        memcpy(data, v.data(), (size_t)buffer_size);
         vkUnmapMemory(device, stage_mem);
 
-        VkBuffer vertex_buffer;
-        VkDeviceMemory vertex_mem;
+        VkBuffer buffer;
+        VkDeviceMemory memory;
         createBuffer(
             buffer_size,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            vertex_buffer,
-            vertex_mem
+            buffer,
+            memory
         );
 
-        copyBuffer(staging_buffer, vertex_buffer, buffer_size);
+        copyBuffer(staging_buffer, buffer, buffer_size);
         vkDestroyBuffer(device, staging_buffer, nullptr);
         vkFreeMemory(device, stage_mem, nullptr);
 
-        return VKVertexBuffer(vertex_buffer, vertex_mem);
-    }
-
-    VKIndexBuffer createIndexBuffer(const std::vector<Index>& indices) {
-        VkDeviceSize indices_size = sizeof(Index) * indices.size();
-
-        VkBuffer stage_indices_buffer;
-        VkDeviceMemory indices_stage_mem;
-
-        createBuffer(
-            indices_size,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stage_indices_buffer,
-            indices_stage_mem
-        );
-
-        void* data1;
-        vkMapMemory(device, indices_stage_mem, 0, indices_size, 0, &data1);
-        memcpy(data1, indices.data(), (size_t)indices_size);
-        vkUnmapMemory(device, indices_stage_mem);
-
-        VkBuffer indexBuffer;
-        VkDeviceMemory indexBufferMemory;
-
-        createBuffer(indices_size,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            indexBuffer,
-            indexBufferMemory);
-
-        copyBuffer(stage_indices_buffer, indexBuffer, indices_size);
-
-        vkDestroyBuffer(device, stage_indices_buffer, nullptr);
-        vkFreeMemory(device, indices_stage_mem, nullptr);
-
-        return VKIndexBuffer(indexBuffer, indexBufferMemory, static_cast<uint32_t>(indices.size() * 3));
+        return VKBuffer(buffer, memory);
     }
 
     VkPhysicalDevice getGPU() {
