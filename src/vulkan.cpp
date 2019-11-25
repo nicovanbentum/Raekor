@@ -259,7 +259,7 @@ private:
     VkDescriptorSetLayout descriptorSetLayout;
     VkDescriptorSetLayout descriptorSetLayout2;
 
-    uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
     int current_frame = 0;
 
@@ -653,19 +653,6 @@ public:
             );
 
             vkMapMemory(device, uniformBuffersMemory, 0, VK_WHOLE_SIZE, 0, &mapped);
-
-
-            *uboDynamic.mvp = glm::mat4(1.0f);
-            for (uint32_t i = 0; i < vbuffers.size(); i++) {
-                glm::mat4* modelMat = (glm::mat4*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
-                *modelMat = glm::mat4(1.0f);
-            }
-
-            for (uint32_t i = 0; i < vbuffers.size(); i++) {
-                glm::mat4* modelMat = (glm::mat4*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
-                std::cout << glm::to_string(*modelMat) << std::endl;
-            }
-            
             memcpy(mapped, uboDynamic.mvp, bufferSize);
 
             VkMappedMemoryRange memoryRange = {};
@@ -1109,7 +1096,6 @@ public:
 
         recordSkyboxBuffer(cube_v, cube_i, pipelineLayout2, descriptorSet2, skyboxcmdbuffer);
 
-        constexpr int MAX_FRAMES_IN_FLIGHT = 2;
         imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1200,11 +1186,7 @@ public:
             vkCmdBindIndexBuffer(cmdbuffer, indexBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
             vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-            for (uint32_t i = 0; i < 25; i++) {
-                glm::mat4* modelMat = (glm::mat4*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
-                std::cout << glm::to_string(*modelMat) << '\n';
-            }
-                uint32_t offset = bufferIndex * dynamicAlignment;
+            uint32_t offset = bufferIndex * dynamicAlignment;
             vkCmdBindDescriptorSets(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipelineLayout, 0, 1, &descriptorSets, 1, &offset);
 
@@ -1252,7 +1234,7 @@ public:
         );
     }
 
-    void render(uint32_t imageIndex, const std::vector<mod>& models, const glm::mat4& sky_transform) {
+    void render(uint32_t imageIndex, const glm::mat4& sky_transform) {
         VkCommandBufferBeginInfo beginInfo = {};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = 0; // Optional
@@ -1283,13 +1265,6 @@ public:
         uniformBufferObject.MVP = sky_transform;
         updateSkyboxUniformBuffer(uniformBufferObject);
         vkCmdExecuteCommands(maincmdbuffer, 1, &skyboxcmdbuffer);
-
-        // update the MVP with the mesh's transformation and execute the mesh render commands
-        *uboDynamic.mvp = glm::mat4(1.0f);
-        for (uint32_t i = 0; i < secondaryBuffers.size(); i++) {
-            glm::mat4* modelMat = (glm::mat4*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
-            *modelMat = models[i].mvp;
-        }
 
         memcpy(mapped, uboDynamic.mvp, bufferSize);
 
@@ -1322,8 +1297,6 @@ public:
         VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[current_frame] };
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
-        // use std array here over cmdbuffers for future reference when 
-        // for implementing automatic command buffer submission TODO
         std::array<VkCommandBuffer, 1> cmdbuffers = { maincmdbuffer };
 
         VkSubmitInfo submitInfo = {};
@@ -2224,6 +2197,12 @@ void Application::vulkan_main() {
         //handle sdl and imgui events
         handle_sdl_gui_events({ window }, camera, dt);
 
+        // update the MVP with the mesh's transformation and execute the mesh render commands
+        for (uint32_t i = 0; i < mods.size(); i++) {
+            glm::mat4* modelMat = (glm::mat4*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
+            *modelMat = mods[i].mvp;
+        }
+
         uint32_t frame = vk.getNextFrame();
         vk.updateSkyboxUniformBuffer(ubo);
 
@@ -2323,7 +2302,7 @@ void Application::vulkan_main() {
         }
 
         auto m_transform = camera.get_mvp(false);
-        vk.render(frame, mods, sky_tranform);
+        vk.render(frame, sky_tranform);
         // tell imgui we're done with the current frame
         ImGui::EndFrame();
 
