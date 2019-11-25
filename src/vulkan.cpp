@@ -26,6 +26,29 @@ void compile_shader(const char* in, const char* out) {
 
 namespace Raekor {
 
+struct cb_vsDynamic {
+    glm::mat4* mvp = nullptr;
+} uboDynamic;
+size_t dynamicAlignment;
+
+struct mod {
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::vec3 position = {}, scale = { 0.1f, 0.1f, 0.1f }, rotation = { 0, 0, 0 };
+    glm::mat4 mvp = {};
+
+    mod() {
+        model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
+    }
+
+    void transform() {
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, position);
+        auto rotation_quat = static_cast<glm::quat>(rotation);
+        model = model * glm::toMat4(rotation_quat);
+        model = glm::scale(model, scale);
+    }
+};
+
 struct queue_indices {
     std::optional<uint32_t> graphics;
     std::optional<uint32_t> present;
@@ -241,6 +264,8 @@ private:
     int current_frame = 0;
 
     cb_vs uniformBufferObject;
+    void* mapped;
+    size_t bufferSize;
 
     std::array < std::string, 6> face_files;
 
@@ -581,7 +606,7 @@ public:
         {
             VkDescriptorSetLayoutBinding uboLayoutBinding = {};
             uboLayoutBinding.binding = 0;
-            uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
             uboLayoutBinding.descriptorCount = 1;
             uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
             uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
@@ -604,13 +629,51 @@ public:
                 throw std::runtime_error("fialed to create descriptor layout");
             }
 
+            VkPhysicalDeviceProperties props;
+            vkGetPhysicalDeviceProperties(gpu, &props);
+            // Calculate required alignment based on minimum device offset alignment
+            size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
+            dynamicAlignment = sizeof(cb_vs);
+            if (minUboAlignment > 0) {
+                dynamicAlignment = (dynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
+            }
+
+            // nr of meshes times the alignment
+            bufferSize = vbuffers.size() * dynamicAlignment;
+            std::cout << "bufferSize = " << bufferSize << '\n';
+            uboDynamic.mvp = (glm::mat4*)malloc(bufferSize);
+            memset(uboDynamic.mvp, 1.0f, bufferSize);
+
             createBuffer(
-                sizeof(cb_vs),
+                bufferSize,
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
                 uniformBuffer,
                 uniformBuffersMemory
             );
+
+            vkMapMemory(device, uniformBuffersMemory, 0, VK_WHOLE_SIZE, 0, &mapped);
+
+
+            *uboDynamic.mvp = glm::mat4(1.0f);
+            for (uint32_t i = 0; i < vbuffers.size(); i++) {
+                glm::mat4* modelMat = (glm::mat4*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
+                *modelMat = glm::mat4(1.0f);
+            }
+
+            for (uint32_t i = 0; i < vbuffers.size(); i++) {
+                glm::mat4* modelMat = (glm::mat4*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
+                std::cout << glm::to_string(*modelMat) << std::endl;
+            }
+            
+            memcpy(mapped, uboDynamic.mvp, bufferSize);
+
+            VkMappedMemoryRange memoryRange = {};
+            memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+            memoryRange.memory = uniformBuffersMemory;
+            memoryRange.size = bufferSize;
+            vkFlushMappedMemoryRanges(device, 1, &memoryRange);
+
 
             // Create Descriptor Pool
             {
@@ -668,7 +731,7 @@ public:
             buffer_descriptor.dstSet = descriptorSet;
             buffer_descriptor.dstBinding = 0;
             buffer_descriptor.dstArrayElement = 0;
-            buffer_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            buffer_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
             buffer_descriptor.descriptorCount = 1;
             buffer_descriptor.pBufferInfo = &bufferInfo;
             buffer_descriptor.pImageInfo = nullptr;
@@ -1033,7 +1096,7 @@ public:
         for (int i = (int)meshes.size() - 1; i >= 0; i--) {
             secondaryBuffers.push_back(VkCommandBuffer());
             vkAllocateCommandBuffers(device, &secondaryInfo, &secondaryBuffers.back());
-            recordMeshBuffer(vbuffers[i], ibuffers[i], texture_indices[i], pipelineLayout, descriptorSet, secondaryBuffers.back());
+            recordMeshBuffer(i, vbuffers[i], ibuffers[i], texture_indices[i], pipelineLayout, descriptorSet, secondaryBuffers.back());
         }
 
         if (vkAllocateCommandBuffers(device, &secondaryInfo, &imguicmdbuffer) != VK_SUCCESS) {
@@ -1070,7 +1133,7 @@ public:
     }
 
     template<typename T>
-    void updateUniformBuffer(const T& ubo, uint32_t imageIndex) {
+    void updateUniformBuffer(const T& ubo) {
         void* data;
         vkMapMemory(device, uniformBuffersMemory, 0, sizeof(T), 0, &data);
         memcpy(data, &ubo, sizeof(T));
@@ -1078,7 +1141,7 @@ public:
     }
 
     template<typename T>
-    void updateSkyboxUniformBuffer(const T& ubo, uint32_t imageIndex) {
+    void updateSkyboxUniformBuffer(const T& ubo) {
         void* data;
         vkMapMemory(device, uniformBuffersMemory2, 0, sizeof(T), 0, &data);
         memcpy(data, &ubo, sizeof(T));
@@ -1121,7 +1184,7 @@ public:
         );
     }
 
-    void recordMeshBuffer(VKVertexBuffer& meshBuffer, VKIndexBuffer& indexBuffer, uint32_t textureIndex, VkPipelineLayout& pipelineLayout, VkDescriptorSet& descriptorSets, VkCommandBuffer& cmdbuffer) {
+    void recordMeshBuffer(uint32_t bufferIndex, VKVertexBuffer& meshBuffer, VKIndexBuffer& indexBuffer, uint32_t textureIndex, VkPipelineLayout& pipelineLayout, VkDescriptorSet& descriptorSets, VkCommandBuffer& cmdbuffer) {
         // record static mesh command buffer
         // allocate static buffers for meshes
         VkCommandBufferInheritanceInfo inherit_info = {};
@@ -1137,8 +1200,13 @@ public:
             vkCmdBindIndexBuffer(cmdbuffer, indexBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
             vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+            for (uint32_t i = 0; i < 25; i++) {
+                glm::mat4* modelMat = (glm::mat4*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
+                std::cout << glm::to_string(*modelMat) << '\n';
+            }
+                uint32_t offset = bufferIndex * dynamicAlignment;
             vkCmdBindDescriptorSets(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                pipelineLayout, 0, 1, &descriptorSets, 0, nullptr);
+                pipelineLayout, 0, 1, &descriptorSets, 1, &offset);
 
             vkCmdDrawIndexed(cmdbuffer, indexBuffer.getCount(), 1, 0, 0, 0);
         };
@@ -1184,7 +1252,7 @@ public:
         );
     }
 
-    void render(uint32_t imageIndex, const glm::mat4& model_transform, const glm::mat4& sky_transform) {
+    void render(uint32_t imageIndex, const std::vector<mod>& models, const glm::mat4& sky_transform) {
         VkCommandBufferBeginInfo beginInfo = {};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = 0; // Optional
@@ -1213,12 +1281,24 @@ public:
 
         // update the mvp without translation and execute the skybox render commands
         uniformBufferObject.MVP = sky_transform;
-        updateSkyboxUniformBuffer(uniformBufferObject, imageIndex);
+        updateSkyboxUniformBuffer(uniformBufferObject);
         vkCmdExecuteCommands(maincmdbuffer, 1, &skyboxcmdbuffer);
 
         // update the MVP with the mesh's transformation and execute the mesh render commands
-        uniformBufferObject.MVP = model_transform;
-        updateUniformBuffer(uniformBufferObject, imageIndex);
+        *uboDynamic.mvp = glm::mat4(1.0f);
+        for (uint32_t i = 0; i < secondaryBuffers.size(); i++) {
+            glm::mat4* modelMat = (glm::mat4*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
+            *modelMat = models[i].mvp;
+        }
+
+        memcpy(mapped, uboDynamic.mvp, bufferSize);
+
+        VkMappedMemoryRange memoryRange = {};
+        memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+        memoryRange.memory = uniformBuffersMemory;
+        memoryRange.size = bufferSize;
+        vkFlushMappedMemoryRanges(device, 1, &memoryRange);
+
         if (secondaryBuffers.data() != nullptr) {
             vkCmdExecuteCommands(maincmdbuffer, static_cast<uint32_t>(secondaryBuffers.size()), secondaryBuffers.data());
         }
@@ -2124,12 +2204,19 @@ void Application::vulkan_main() {
 
     // MVP uniform buffer object
     cb_vs ubo = {};
+    int active = 0;
 
-    glm::mat4 model = glm::mat4(1.0f);
-    glm::vec3 position = {}, scale = { 0.1f, 0.1f, 0.1f }, rotation = { 0, 0, 0 };
+    std::vector<mod> mods = std::vector<mod>(25);
+    camera.update(glm::mat4(1.0f));
+    glm::mat4 default_mvp = camera.get_mvp(false);
+    for (mod& m : mods) {
+        m.mvp = default_mvp;
+    }
 
     Timer dt_timer = Timer();
     double dt = 0;
+
+    Timer timer = Timer();
 
     //main application loop
     while (running) {
@@ -2137,15 +2224,8 @@ void Application::vulkan_main() {
         //handle sdl and imgui events
         handle_sdl_gui_events({ window }, camera, dt);
 
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, position);
-        auto rotation_quat = static_cast<glm::quat>(rotation);
-        model = model * glm::toMat4(rotation_quat);
-        model = glm::scale(model, scale);
-
         uint32_t frame = vk.getNextFrame();
-        //vk.updateUniformBuffer(ubo, frame);
-        vk.updateSkyboxUniformBuffer(ubo, frame);
+        vk.updateSkyboxUniformBuffer(ubo);
 
         // start a new imgui frame
         vk.ImGuiNewFrame(window);
@@ -2198,9 +2278,16 @@ void Application::vulkan_main() {
         ImGui::ShowMetricsWindow();
 
         ImGui::Begin("Mesh Properties");
-        if (ImGui::DragFloat3("Scale", glm::value_ptr(scale), 0.01f, 0.0f, 10.0f)) {}
-        if (ImGui::DragFloat3("Position", glm::value_ptr(position), 0.01f, -100.0f, 100.0f)) {}
-        if (ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.01f, (float)(-M_PI), (float)(M_PI))) {}
+        if (ImGui::SliderInt("Mesh", &active, 0, 24)) {}
+        if (ImGui::DragFloat3("Scale", glm::value_ptr(mods[active].scale), 0.01f, 0.0f, 10.0f)) {
+            mods[active].transform();
+        }
+        if (ImGui::DragFloat3("Position", glm::value_ptr(mods[active].position), 0.01f, -100.0f, 100.0f)) {
+            mods[active].transform();
+        }
+        if (ImGui::DragFloat3("Rotation", glm::value_ptr(mods[active].rotation), 0.01f, (float)(-M_PI), (float)(M_PI))) {
+            mods[active].transform();
+        }
         ImGui::End();
 
         ImGui::Begin("Camera Properties");
@@ -2218,6 +2305,7 @@ void Application::vulkan_main() {
         }
         ImGui::End();
 
+        // End 
         ImGui::End();
 
         // tell imgui to collect render data
@@ -2227,34 +2315,23 @@ void Application::vulkan_main() {
         // start the overall render pass
         camera.update();
         auto sky_tranform = camera.get_mvp(false);
-        camera.update(model);
+
+        // update model mvps
+        for (mod& m : mods) {
+            camera.update(m.model);
+            m.mvp = camera.get_mvp(false);
+        }
+
         auto m_transform = camera.get_mvp(false);
-        vk.render(frame, m_transform, sky_tranform);
+        vk.render(frame, mods, sky_tranform);
         // tell imgui we're done with the current frame
         ImGui::EndFrame();
 
         dt_timer.stop();
         dt = dt_timer.elapsed_ms();
     }
-    vk.waitForIdle();
 
-    /*
-    vkDestroyShaderModule(vk_device, vertShaderModule, nullptr);
-    vkDestroyShaderModule(vk_device, fragShaderModule, nullptr);
-    vkDestroyPipelineLayout(vk_device, pipelineLayout, nullptr);
-    vkDestroyBuffer(vk_device, vertex_buffer, nullptr);
-    vkFreeMemory(vk_device, vertex_mem, nullptr);
-    vkDestroyBuffer(vk_device, indexBuffer, nullptr);
-    vkFreeMemory(vk_device, indexBufferMemory, nullptr);
-    vkDestroyDescriptorPool(vk_device, descriptorPool, nullptr);
-    vkDestroyImage(vk_device, texture, nullptr);
-    vkFreeMemory(vk_device, texture_mem, nullptr);
-    vkDestroyImageView(vk_device, texture_image_view, nullptr);
-    vkDestroySampler(vk_device, sampler, nullptr);
-    vkDestroyImageView(vk_device, depth_view, nullptr);
-    vkDestroyImage(vk_device, depth_image, nullptr);
-    vkFreeMemory(vk_device, depth_mem, nullptr);
-    */
+    vk.waitForIdle();
 }
 
 } // namespace Raekor

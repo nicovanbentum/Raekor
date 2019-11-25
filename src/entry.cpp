@@ -16,7 +16,6 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
 
     if (!camera.is_mouse_active()) {
         camera.move_on_input(dt);
-        camera.update();
     }
 
     SDL_Event ev;
