@@ -642,7 +642,7 @@ public:
             bufferSize = vbuffers.size() * dynamicAlignment;
             std::cout << "bufferSize = " << bufferSize << '\n';
             uboDynamic.mvp = (glm::mat4*)malloc(bufferSize);
-            memset(uboDynamic.mvp, 1.0f, bufferSize);
+            memset(uboDynamic.mvp, 1, bufferSize);
 
             createBuffer(
                 bufferSize,
@@ -1186,7 +1186,7 @@ public:
             vkCmdBindIndexBuffer(cmdbuffer, indexBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
             vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-            uint32_t offset = bufferIndex * dynamicAlignment;
+            uint32_t offset = static_cast<uint32_t>(bufferIndex * dynamicAlignment);
             vkCmdBindDescriptorSets(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipelineLayout, 0, 1, &descriptorSets, 1, &offset);
 
