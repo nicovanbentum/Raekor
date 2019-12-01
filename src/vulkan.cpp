@@ -263,6 +263,7 @@ private:
     size_t bufferSize;
 
     std::array < std::string, 6> face_files;
+    uint32_t meshcount;
 
 public:
     ~VKRender() {
@@ -293,6 +294,10 @@ public:
 #else
         enableValidationLayers = true;
 #endif
+    }
+
+    uint32_t getMeshCount() {
+        return meshcount;
     }
 
     void init(SDL_Window* window) {
@@ -521,6 +526,8 @@ public:
         const auto scene = importer.ReadFile(path, flags);
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
+        std::map<std::string, int> seen;
+
         for (unsigned int m = 0, ti = 0; m < scene->mNumMeshes; m++) {
             auto ai_mesh = scene->mMeshes[m];
 
@@ -560,14 +567,18 @@ public:
 
             // if the mesh has a texture add it to the texture vector and store it's index
             if (!texture_path.empty()) {
-                Timer timer;
-                timer.start();
-                textures.push_back(loadTexture(texture_path));
-                timer.stop();
-                std::cout << "texture time: " << timer.elapsed_ms() << std::endl;
-                texture_indices.push_back(ti);
-                ti++;
-                // if it has an empty texture path it means we need to store the previous one
+                if (seen.find(texture_path) == seen.end()) {
+                    Timer timer;
+                    timer.start();
+                    textures.push_back(loadTexture(texture_path));
+                    timer.stop();
+                    std::cout << "texture time: " << timer.elapsed_ms() << std::endl;
+                    texture_indices.push_back(ti);
+                    seen[texture_path] = ti;
+                    ti++;
+                } else {
+                    texture_indices.push_back(seen[texture_path]);
+                }
             }
             else {
                 texture_indices.push_back(ti);
@@ -594,6 +605,9 @@ public:
         VKTexture test_texture = loadTexture("resources/textures/test.png");
         VKTexture depth_texture = createDepthTexture();
         auto input_state = vbuffers.back().getVertexInputState();
+
+        std::cout << "mesh total = " << vbuffers.size() << "\n";
+        meshcount = vbuffers.size();
 
         //
         //  UNIFORM BUFFERS
@@ -637,7 +651,7 @@ public:
             bufferSize = vbuffers.size() * dynamicAlignment;
             std::cout << "bufferSize = " << bufferSize << '\n';
             uboDynamic.mvp = (MVP*)malloc(bufferSize);
-            memset(uboDynamic.mvp, 1.0f, bufferSize);
+            memset(uboDynamic.mvp, 1, bufferSize);
 
             createBuffer(
                 bufferSize,
@@ -2174,7 +2188,7 @@ void Application::vulkan_main() {
     cb_vs ubo = {};
     int active = 0;
 
-    std::vector<mod> mods = std::vector<mod>(25);
+    std::vector<mod> mods = std::vector<mod>(vk.getMeshCount());
     for (mod& m : mods) {
         m.model = glm::mat4(1.0f);
         m.transform();
@@ -2184,7 +2198,9 @@ void Application::vulkan_main() {
     double dt = 0;
 
     Timer timer = Timer();
-    glm::vec3 lightPos = {};
+    glm::mat4 lightmatrix = glm::mat4(1.0f);
+    float lightPos[3], lightRot[3], lightScale[3];
+    ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
 
     //main application loop
     while (running) {
@@ -2192,14 +2208,15 @@ void Application::vulkan_main() {
         //handle sdl and imgui events
         handle_sdl_gui_events({ window }, camera, dt);
 
+
         // update the mvp structs
         for (uint32_t i = 0; i < mods.size(); i++) {
             MVP* modelMat = (MVP*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
             modelMat->model = mods[i].model;
             modelMat->projection = camera.getProjection();
             modelMat->view = camera.getView();
-            modelMat->lightPos = lightPos;
-
+            ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
+            modelMat->lightPos = glm::make_vec3(lightPos);
         }
 
         uint32_t frame = vk.getNextFrame();
@@ -2207,6 +2224,8 @@ void Application::vulkan_main() {
 
         // start a new imgui frame
         vk.ImGuiNewFrame(window);
+        ImGuizmo::BeginFrame();
+        ImGuizmo::Enable(true);
 
         static bool opt_fullscreen_persistant = true;
         bool opt_fullscreen = opt_fullscreen_persistant;
@@ -2237,6 +2256,7 @@ void Application::vulkan_main() {
 
         // DockSpace
         ImGuiIO& io = ImGui::GetIO();
+        ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
         if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
             ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
             ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
@@ -2256,6 +2276,7 @@ void Application::vulkan_main() {
         ImGui::ShowMetricsWindow();
 
         ImGui::Begin("Mesh Properties");
+        ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
         if (ImGui::SliderInt("Mesh", &active, 0, 24)) {}
         if (ImGui::DragFloat3("Scale", glm::value_ptr(mods[active].scale), 0.01f, 0.0f, 10.0f)) {
             mods[active].transform();
@@ -2278,7 +2299,6 @@ void Application::vulkan_main() {
 
         // scene panel
         ImGui::Begin("Scene");
-        if (ImGui::DragFloat3("Light Position", glm::value_ptr(lightPos), 0.1f, -200.0f, 200.0f)) {}
         // toggle button for openGl vsync
         static bool use_vsync = false;
         if (ImGui::RadioButton("USE VSYNC", use_vsync)) {

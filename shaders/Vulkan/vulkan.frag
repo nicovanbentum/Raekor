@@ -34,4 +34,5 @@ void main() {
     vec4 objectColor = texture(tex_sampler[pc.samplerIndex], uv);
 	vec3 fragColor = (ambient * diffuse) * objectColor.xyz;
 	final_color = vec4(fragColor, objectColor.a);
+	//final_color = texture(tex_sampler[pc.samplerIndex], uv);
 }
