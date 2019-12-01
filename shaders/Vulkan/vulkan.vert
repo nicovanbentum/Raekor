@@ -21,8 +21,10 @@ layout(location = 2) in vec3 normal;
 layout(location = 0) out vec4 out_color;
 layout(location = 1) out vec2 out_uv;
 layout(location = 2) out vec3 out_normal;
-layout(location = 3) out vec3 out_frag_pos;
-layout(location = 4) out vec3 out_light_pos;
+layout(location = 3) out vec3 out_direction;
+layout(location = 4) out vec3 out_light_direction;
+layout(location = 5) out vec3 out_pos;
+layout(location = 6) out vec3 out_light_position;
 
 
 vec3 colors[4] = vec3[](
@@ -33,14 +35,25 @@ vec3 colors[4] = vec3[](
 );
 
 void main() {
-	out_frag_pos = vec3(ubo.mvp.m * vec4(pos, 1.0));
-    gl_Position = ubo.mvp.p * ubo.mvp.v * vec4(out_frag_pos, 1.0);
+    vec3 worldPos = vec3(ubo.mvp.m * vec4(pos, 1.0));
+    gl_Position = ubo.mvp.p * ubo.mvp.v * vec4(worldPos, 1.0);
+
+    // Position of the vertex, in worldspace : M * position
+	out_pos = (ubo.mvp.m * vec4(pos,1)).xyz;
+    vec3 vertexPosition_cameraspace = ( ubo.mvp.v * ubo.mvp.m * vec4(pos,1)).xyz;
+	out_direction = vec3(0,0,0) - vertexPosition_cameraspace;
+
+    // Vector that goes from the vertex to the light, in camera space. M is ommited because it's identity.
+	vec3 LightPosition_cameraspace = ( ubo.mvp.v * vec4(ubo.mvp.lightPos,1)).xyz;
+	out_light_direction = ubo.mvp.lightPos + out_direction;
+	
+	// Normal of the the vertex, in camera space
+	out_normal = ( ubo.mvp.v * ubo.mvp.m * vec4(normal,0)).xyz; // Only correct if ModelMatrix does not scale the model ! Use its inverse transpose if not.
 
     int index = gl_VertexIndex;
     clamp(index, 0, 4);
     out_color = vec4(colors[index], 1.0);
 
 	out_uv = uv;
-	out_normal = mat3(transpose(inverse(ubo.mvp.m))) * normal;
-	out_light_pos = ubo.mvp.lightPos;
+	out_light_position = ubo.mvp.lightPos;
 }
