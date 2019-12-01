@@ -14,7 +14,6 @@ Camera::Camera(glm::vec3 position, float fov) :
 void Camera::update(const glm::mat4& model) {
     auto dir = get_direction();
     view = glm::lookAtRH(position, position + dir, {0, 1, 0});
-    mvp = projection * view * model;
 }
 
 void Camera::set_aspect_ratio(float new_ratio) {
@@ -24,8 +23,6 @@ void Camera::set_aspect_ratio(float new_ratio) {
 void Camera::update() {
     auto dir = get_direction();
     view = glm::lookAt(position, position + dir, {0, 1, 0});
-    view = glm::mat4(glm::mat3(view));
-    mvp = projection * view * glm::mat4(1.0f);
 }
 
 glm::vec3 Camera::get_direction() {

@@ -27,18 +27,13 @@ void compile_shader(const char* in, const char* out) {
 namespace Raekor {
 
 struct cb_vsDynamic {
-    glm::mat4* mvp = nullptr;
+    Raekor::MVP* mvp = nullptr;
 } uboDynamic;
 size_t dynamicAlignment;
 
 struct mod {
     glm::mat4 model = glm::mat4(1.0f);
-    glm::vec3 position = {}, scale = { 0.1f, 0.1f, 0.1f }, rotation = { 0, 0, 0 };
-    glm::mat4 mvp = {};
-
-    mod() {
-        model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
-    }
+    glm::vec3 position = {0.0, 0.0f, 0.0f}, scale = { 0.1f, 0.1f, 0.1f }, rotation = { 0, 0, 0 };
 
     void transform() {
         model = glm::mat4(1.0f);
@@ -633,7 +628,7 @@ public:
             vkGetPhysicalDeviceProperties(gpu, &props);
             // Calculate required alignment based on minimum device offset alignment
             size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
-            dynamicAlignment = sizeof(cb_vs);
+            dynamicAlignment = sizeof(MVP);
             if (minUboAlignment > 0) {
                 dynamicAlignment = (dynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
             }
@@ -641,7 +636,7 @@ public:
             // nr of meshes times the alignment
             bufferSize = vbuffers.size() * dynamicAlignment;
             std::cout << "bufferSize = " << bufferSize << '\n';
-            uboDynamic.mvp = (glm::mat4*)malloc(bufferSize);
+            uboDynamic.mvp = (MVP*)malloc(bufferSize);
             memset(uboDynamic.mvp, 1.0f, bufferSize);
 
             createBuffer(
@@ -2180,16 +2175,16 @@ void Application::vulkan_main() {
     int active = 0;
 
     std::vector<mod> mods = std::vector<mod>(25);
-    camera.update(glm::mat4(1.0f));
-    glm::mat4 default_mvp = camera.get_mvp(false);
     for (mod& m : mods) {
-        m.mvp = default_mvp;
+        m.model = glm::mat4(1.0f);
+        m.transform();
     }
 
     Timer dt_timer = Timer();
     double dt = 0;
 
     Timer timer = Timer();
+    glm::vec3 lightPos = {};
 
     //main application loop
     while (running) {
@@ -2197,10 +2192,14 @@ void Application::vulkan_main() {
         //handle sdl and imgui events
         handle_sdl_gui_events({ window }, camera, dt);
 
-        // update the MVP with the mesh's transformation and execute the mesh render commands
+        // update the mvp structs
         for (uint32_t i = 0; i < mods.size(); i++) {
-            glm::mat4* modelMat = (glm::mat4*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
-            *modelMat = mods[i].mvp;
+            MVP* modelMat = (MVP*)(((uint64_t)uboDynamic.mvp + (i * dynamicAlignment)));
+            modelMat->model = mods[i].model;
+            modelMat->projection = camera.getProjection();
+            modelMat->view = camera.getView();
+            modelMat->lightPos = lightPos;
+
         }
 
         uint32_t frame = vk.getNextFrame();
@@ -2263,9 +2262,11 @@ void Application::vulkan_main() {
         }
         if (ImGui::DragFloat3("Position", glm::value_ptr(mods[active].position), 0.01f, -100.0f, 100.0f)) {
             mods[active].transform();
+
         }
         if (ImGui::DragFloat3("Rotation", glm::value_ptr(mods[active].rotation), 0.01f, (float)(-M_PI), (float)(M_PI))) {
             mods[active].transform();
+
         }
         ImGui::End();
 
@@ -2277,6 +2278,7 @@ void Application::vulkan_main() {
 
         // scene panel
         ImGui::Begin("Scene");
+        if (ImGui::DragFloat3("Light Position", glm::value_ptr(lightPos), 0.1f, -200.0f, 200.0f)) {}
         // toggle button for openGl vsync
         static bool use_vsync = false;
         if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
@@ -2293,16 +2295,10 @@ void Application::vulkan_main() {
         vk.ImGuiRecord();
         // start the overall render pass
         camera.update();
-        auto sky_tranform = camera.get_mvp(false);
+        
+        glm::mat4 sky_matrix = camera.getProjection() * glm::mat4(glm::mat3(camera.getView())) * glm::mat4(1.0f);
 
-        // update model mvps
-        for (mod& m : mods) {
-            camera.update(m.model);
-            m.mvp = camera.get_mvp(false);
-        }
-
-        auto m_transform = camera.get_mvp(false);
-        vk.render(frame, sky_tranform);
+        vk.render(frame, sky_matrix);
         // tell imgui we're done with the current frame
         ImGui::EndFrame();
 

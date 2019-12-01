@@ -4,6 +4,13 @@
 
 namespace Raekor {
 
+struct MVP {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 projection;
+    glm::vec3 lightPos;
+};
+
 class Camera {
     
 public:
@@ -19,6 +26,8 @@ public:
 
     // getters
     inline glm::mat4 get_mvp(bool transpose) { return (transpose ? glm::transpose(mvp) : mvp); }
+    inline const glm::mat4 getView() { return view; }
+    inline const glm::mat4 getProjection() { return projection; }
     inline float* get_move_speed() { return &move_speed; }
     inline float* get_look_speed() { return &look_speed; }
 
