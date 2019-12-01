@@ -2266,6 +2266,7 @@ void Application::vulkan_main() {
 
     Timer timer = Timer();
     glm::mat4 lightmatrix = glm::mat4(1.0f);
+    lightmatrix = glm::translate(lightmatrix, { 0.0, 10.0f, 0.0 });
     float lightPos[3], lightRot[3], lightScale[3];
     ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
 
@@ -2329,6 +2330,15 @@ void Application::vulkan_main() {
             ImGui::DockSpace(dockspace_id, ImVec2(io.DisplaySize.x, io.DisplaySize.y), dockspace_flags);
         }
 
+        // move the light by a fixed amount and let it bounce between -125 and 125 units/pixels on the x axis
+        static double move_amount = 0.03;
+        double light_delta = move_amount * dt;
+        if ((lightPos[0] >= 125.0f && move_amount > 0) || (lightPos[0] <= -125.0f && move_amount < 0)) move_amount *= -1;
+        lightmatrix = glm::translate(lightmatrix, { light_delta, 0.0, 0.0 });
+        // draw the imguizmo at the center of the light
+        ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
+
+
         ImGui::Begin("ECS");
         if (ImGui::Button("Add Model")) {
             std::string path = context.open_file_dialog({ ft_mesh });
@@ -2343,7 +2353,7 @@ void Application::vulkan_main() {
         ImGui::ShowMetricsWindow();
 
         ImGui::Begin("Mesh Properties");
-        ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
+
         if (ImGui::SliderInt("Mesh", &active, 0, 24)) {}
         if (ImGui::DragFloat3("Scale", glm::value_ptr(mods[active].scale), 0.01f, 0.0f, 10.0f)) {
             mods[active].transform();
@@ -2378,7 +2388,7 @@ void Application::vulkan_main() {
 
         ImGui::End();
 
-        // End 
+        // End DOCKSPACE
         ImGui::End();
 
         // tell imgui to collect render data
