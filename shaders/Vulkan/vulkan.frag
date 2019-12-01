@@ -24,44 +24,21 @@ layout(push_constant) uniform pushConstants {
 layout(location = 0) out vec4 final_color;
 
 void main() {
-	vec3 light_color = vec3(1, 1, 1);
+	// make these dynamic
+	float constant = 1.0f;
+	float linear = 0.09f;
+	float quadratic = 0.032f;
+	vec3 light_color = vec3(1.0, 0.7725, 0.56);
 	float light_power = 50.0f;
 
     // Material properties
 	vec3 diffuse_color = texture( tex_sampler[pc.samplerIndex], uv ).rgb;
 	vec3 ambient_color = vec3(0.1, 0.1, 0.1) * diffuse_color;
-	vec3 specular_color = vec3(0.3,0.3,0.3);
 
     // Distance to the light
 	float distance = length(light_pos - position);
+	float attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));
+	ambient_color *= attenuation;
+	final_color = vec4(ambient_color*light_color*light_power , texture(tex_sampler[pc.samplerIndex], uv).a);
 
-	// Normal of the computed fragment, in camera space
-	vec3 n = normalize(normal);
-	// Direction of the light (from the fragment to the light)
-	vec3 l = normalize(light_direction);
-	// Cosine of the angle between the normal and the light direction, 
-	// clamped above 0
-	//  - light is at the vertical of the triangle -> 1
-	//  - light is perpendicular to the triangle -> 0
-	//  - light is behind the triangle -> 0
-	float cosTheta = clamp( dot( n,l ), 0,1 );
-	
-	// Eye vector (towards the camera)
-	vec3 E = normalize(direction);
-	// Direction in which the triangle reflects the light
-	vec3 R = reflect(-l,n);
-	// Cosine of the angle between the Eye vector and the Reflect vector,
-	// clamped to 0
-	//  - Looking into the reflection -> 1
-	//  - Looking elsewhere -> < 1
-	float cosAlpha = clamp( dot( E,R ), 0,1 );
-    vec3 fc = 
-		// Ambient : simulates indirect lighting
-		ambient_color +
-		// Diffuse : "color" of the object
-		diffuse_color * light_color * light_power * cosTheta / (distance*distance) +
-		// Specular : reflective highlight, like a mirror
-		specular_color * light_color * light_power * pow(cosAlpha,5) / (distance*distance);
-	
-	final_color = vec4(fc, texture(tex_sampler[pc.samplerIndex], uv).a);
 }

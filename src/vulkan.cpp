@@ -2300,7 +2300,7 @@ void Application::vulkan_main() {
 
         // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
         // because it would be confusing to have two docking targets within each others.
-        ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_DockNodeHost;
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_DockNodeHost;
         if (opt_fullscreen) {
             ImGuiViewport* viewport = ImGui::GetMainViewport();
             ImGui::SetNextWindowViewport(viewport->ID);
@@ -2326,7 +2326,7 @@ void Application::vulkan_main() {
         ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
         if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
             ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-            ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+            ImGui::DockSpace(dockspace_id, ImVec2(io.DisplaySize.x, io.DisplaySize.y), dockspace_flags);
         }
 
         ImGui::Begin("ECS");
