@@ -26,7 +26,7 @@ void compile_shader(const char* in, const char* out) {
 
 namespace Raekor {
 
-struct stbTexture {
+struct stbData {
     unsigned char* pixels;
     int w, h, ch;
 };
@@ -622,7 +622,6 @@ public:
                 });
         }
 
-
         for (unsigned int m = 0, ti = 0; m < scene->mNumMeshes; m++) {
             auto ai_mesh = scene->mMeshes[m];
 
@@ -654,11 +653,11 @@ public:
             texture_paths[kv.second] = kv.first;
         }
         
-        std::vector<stbTexture> stb_images;
+        std::vector<stbData> stb_images;
         stb_images.resize(seen.size());
         auto load_image = [&](std::pair<std::string, int> kv) {
             stbi_set_flip_vertically_on_load(true);
-            stbTexture stb = {};
+            stbData stb = {};
             // we shouldnt have to flip texture for vulkan, TODO: figure out why everything is upside down
             stb.pixels = stbi_load(kv.first.c_str(), &stb.w, &stb.h, &stb.ch, STBI_rgb_alpha);
             if (!stb.pixels) {
@@ -678,7 +677,7 @@ public:
             future.wait();
         }
 
-        for (const stbTexture& image : stb_images) {
+        for (const stbData& image : stb_images) {
             textures.push_back(loadTexture(image));
         }
 
@@ -693,7 +692,7 @@ public:
         input_state = vbuffers.back().getInfo();
 
         std::cout << "mesh total = " << vbuffers.size() << "\n";
-        meshcount = vbuffers.size();
+        meshcount = static_cast<uint32_t>(vbuffers.size());
 
         //
         //  UNIFORM BUFFERS
@@ -1483,7 +1482,7 @@ public:
         return VKTexture(depth_image, depth_mem, depth_view);
     }
 
-    VKTexture loadTexture(const stbTexture& stb) {
+    VKTexture loadTexture(const stbData& stb) {
         uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(stb.w, stb.h)))) + 1;
 
         VkDeviceSize image_size = stb.w * stb.h * 4;
@@ -1551,7 +1550,7 @@ public:
 
     VKTexture loadTexture(const std::string& path) {
         stbi_set_flip_vertically_on_load(true);
-        stbTexture stb = {};
+        stbData stb = {};
         // we shouldnt have to flip texture for vulkan, TODO: figure out why everything is upside down
         stb.pixels = stbi_load(path.c_str(), &stb.w, &stb.h, &stb.ch, STBI_rgb_alpha);
         if (!stb.pixels) {
@@ -2298,11 +2297,11 @@ void Application::vulkan_main() {
     Timer dt_timer = Timer();
     double dt = 0;
 
-    Timer timer = Timer();
     glm::mat4 lightmatrix = glm::mat4(1.0f);
     lightmatrix = glm::translate(lightmatrix, { 0.0, 10.0f, 0.0 });
     float lightPos[3], lightRot[3], lightScale[3];
     ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
+
 
     //main application loop
     while (running) {
