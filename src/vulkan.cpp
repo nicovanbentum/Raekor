@@ -26,6 +26,11 @@ void compile_shader(const char* in, const char* out) {
 
 namespace Raekor {
 
+struct stbTexture {
+    unsigned char* pixels;
+    int w, h, ch;
+};
+
 struct cb_vsDynamic {
     Raekor::MVP* mvp = nullptr;
 } uboDynamic;
@@ -60,10 +65,6 @@ public:
 
     VKTexture(VkImage& p_image, VkDeviceMemory& p_memory, VkImageView& p_view) :
         image(p_image), memory(p_memory), view(p_view), sampler(VK_NULL_HANDLE) {}
-
-    ~VKTexture() {
-
-    }
 
     inline const VkImage& getImage() const { return image; }
     inline const VkSampler& getSampler() const { return sampler; }
@@ -319,6 +320,7 @@ public:
             skyboxf.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
         };
         // recreate the graphics pipeline and re-record the mesh buffers
+        // TODO: this still uses the depth order hack
         createGraphicsPipeline(shaders, shaders2);
         for (int i = 0; i < meshes.size(); i++) {
             recordMeshBuffer(i, vbuffers[i], ibuffers[i], texture_indices[i], pipelineLayout, descriptorSet, secondaryBuffers[meshes.size() - 1 - i]);
@@ -585,14 +587,6 @@ public:
         for (unsigned int m = 0, ti = 0; m < scene->mNumMeshes; m++) {
             auto ai_mesh = scene->mMeshes[m];
 
-            std::string texture_path;
-            auto material = scene->mMaterials[ai_mesh->mMaterialIndex];
-            if (material->GetTextureCount(aiTextureType_DIFFUSE) != 0) {
-                aiString filename;
-                material->GetTexture(aiTextureType_DIFFUSE, 0, &filename);
-                texture_path = get_file(path, PATH_OPTIONS::DIR) + std::string(filename.C_Str());
-            }
-
             meshes.push_back(std::vector<Vertex>());
             indexbuffers.push_back(std::vector<Index>());
             auto mesh = meshes.back();
@@ -619,25 +613,6 @@ public:
                 indices.push_back({ ai_mesh->mFaces[i].mIndices[0], ai_mesh->mFaces[i].mIndices[1], ai_mesh->mFaces[i].mIndices[2] });
             }
 
-            // if the mesh has a texture add it to the texture vector and store it's index
-            if (!texture_path.empty()) {
-                if (seen.find(texture_path) == seen.end()) {
-                    Timer timer;
-                    timer.start();
-                    textures.push_back(loadTexture(texture_path));
-                    timer.stop();
-                    std::cout << "texture time: " << timer.elapsed_ms() << std::endl;
-                    texture_indices.push_back(ti);
-                    seen[texture_path] = ti;
-                    ti++;
-                } else {
-                    texture_indices.push_back(seen[texture_path]);
-                }
-            }
-            else {
-                texture_indices.push_back(ti);
-            }
-
             vbuffers.push_back(VKVertexBuffer(uploadBuffer<Vertex>(mesh, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)));
             ibuffers.push_back(VKIndexBuffer(uploadBuffer<Index>(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT), static_cast<uint32_t>(indices.size()*3)));
             vbuffers.back().setLayout({
@@ -645,8 +620,71 @@ public:
                 { "UV",       ShaderType::FLOAT2 },
                 { "NORMAL",   ShaderType::FLOAT3 }
                 });
-
         }
+
+
+        for (unsigned int m = 0, ti = 0; m < scene->mNumMeshes; m++) {
+            auto ai_mesh = scene->mMeshes[m];
+
+            std::string texture_path;
+            auto material = scene->mMaterials[ai_mesh->mMaterialIndex];
+            if (material->GetTextureCount(aiTextureType_DIFFUSE) != 0) {
+                aiString filename;
+                material->GetTexture(aiTextureType_DIFFUSE, 0, &filename);
+                texture_path = get_file(path, PATH_OPTIONS::DIR) + std::string(filename.C_Str());
+            }
+
+            if (!texture_path.empty()) {
+                if (seen.find(texture_path) == seen.end()) {
+                    texture_indices.push_back(ti);
+                    seen[texture_path] = ti;
+                    ti++;
+                } else {
+                    texture_indices.push_back(seen[texture_path]);
+                }
+            } else {
+                texture_indices.push_back(ti);
+            }
+        }
+
+        static std::mutex mutex;
+
+        for (auto& kv : seen) {
+            //std::cout << "key = " << kv.first << " value = " << kv.second << '\n';
+        }
+        std::vector<std::string> texture_paths = std::vector<std::string>(seen.size());
+        for (auto& kv : seen) {
+            texture_paths[kv.second] = kv.first;
+        }
+        
+        std::vector<stbTexture> stb_images;
+        stb_images.resize(seen.size());
+        auto load_image = [&](std::pair<std::string, int> kv) {
+            stbi_set_flip_vertically_on_load(true);
+            stbTexture stb = {};
+            // we shouldnt have to flip texture for vulkan, TODO: figure out why everything is upside down
+            stb.pixels = stbi_load(kv.first.c_str(), &stb.w, &stb.h, &stb.ch, STBI_rgb_alpha);
+            if (!stb.pixels) {
+                throw std::runtime_error("failed to load stb image");
+            }
+            std::lock_guard<std::mutex> lock(mutex);
+            stb_images[kv.second] = stb;
+        };
+
+        std::vector<std::future<void>> futures;
+        for (const auto& kv : seen) {
+            //load_image(kv);
+            futures.push_back(std::async(std::launch::async, load_image, kv));
+        }
+
+        for (auto& future : futures) {
+            future.wait();
+        }
+
+        for (const stbTexture& image : stb_images) {
+            textures.push_back(loadTexture(image));
+        }
+
         VKTexture skybox = load_skybox();
         VKVertexBuffer cube_v = VKVertexBuffer(uploadBuffer<Vertex>(v_cube, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
         VKIndexBuffer cube_i = VKIndexBuffer(uploadBuffer<Index>(i_cube, VK_BUFFER_USAGE_INDEX_BUFFER_BIT), static_cast<uint32_t>(i_cube.size() * 3));
@@ -1451,21 +1489,10 @@ public:
         return VKTexture(depth_image, depth_mem, depth_view);
     }
 
-    VKTexture loadTexture(const std::string& path) {
-        stbi_set_flip_vertically_on_load(true);
-        int texw, texh, ch;
-        // we shouldnt have to flip texture for vulkan, TODO: figure out why everything is upside down
-        auto pixels = stbi_load(path.c_str(), &texw, &texh, &ch, STBI_rgb_alpha);
-        if (!pixels) {
-            std::cout << "failed to load \"" << path << "\" \n";
-            throw std::runtime_error("failed to laod stb image for texturing");
-        }
-        else {
-            std::cout << "loaded " << path << std::endl;
-        }
-        uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texw, texh)))) + 1;
+    VKTexture loadTexture(const stbTexture& stb) {
+        uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(stb.w, stb.h)))) + 1;
 
-        VkDeviceSize image_size = texw * texh * 4;
+        VkDeviceSize image_size = stb.w * stb.h * 4;
         VkBuffer stage_pixels;
         VkDeviceMemory stage_pixels_mem;
 
@@ -1479,23 +1506,23 @@ public:
 
         void* pdata;
         vkMapMemory(device, stage_pixels_mem, 0, image_size, 0, &pdata);
-        memcpy(pdata, pixels, static_cast<size_t>(image_size));
+        memcpy(pdata, stb.pixels, static_cast<size_t>(image_size));
         vkUnmapMemory(device, stage_pixels_mem);
 
-        stbi_image_free(pixels);
+        stbi_image_free(stb.pixels);
 
         VkImage texture;
         VkDeviceMemory texture_mem;
 
         createImage(
-            texw, texh, mipLevels, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+            stb.w, stb.h, mipLevels, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture, texture_mem
         );
 
         transitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        copyBufferToImage(stage_pixels, texture, static_cast<uint32_t>(texw), static_cast<uint32_t>(texh));
-        generateMipmaps(texture, texw, texh, mipLevels);
+        copyBufferToImage(stage_pixels, texture, static_cast<uint32_t>(stb.w), static_cast<uint32_t>(stb.h));
+        generateMipmaps(texture, stb.w, stb.h, mipLevels);
         //transitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         vkDestroyBuffer(device, stage_pixels, nullptr);
         vkFreeMemory(device, stage_pixels_mem, nullptr);
@@ -1526,6 +1553,21 @@ public:
         }
 
         return VKTexture(texture, texture_mem, texture_image_view, sampler);
+    }
+
+    VKTexture loadTexture(const std::string& path) {
+        stbi_set_flip_vertically_on_load(true);
+        stbTexture stb = {};
+        // we shouldnt have to flip texture for vulkan, TODO: figure out why everything is upside down
+        stb.pixels = stbi_load(path.c_str(), &stb.w, &stb.h, &stb.ch, STBI_rgb_alpha);
+        if (!stb.pixels) {
+            std::cout << "failed to load \"" << path << "\" \n";
+            throw std::runtime_error("failed to laod stb image for texturing");
+        }
+        else {
+            std::cout << "loaded " << path << std::endl;
+        }
+        return loadTexture(stb);
     }
 
     void generateMipmaps(VkImage image, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) {
@@ -2237,7 +2279,13 @@ void Application::vulkan_main() {
     compile_shader("shaders/Vulkan/skybox.vert", "shaders/Vulkan/v_skybox.spv");
 
     VKRender vk = VKRender(skyboxes["lake"]);
+
+    Timer inittimer;
+    inittimer.start();
     vk.init(window);
+    inittimer.stop();
+    std::cout << "init time = " << inittimer.elapsed_ms() << '\n';
+
     vk.ImGuiInit(window);
     vk.ImGuiCreateFonts();
 
@@ -2275,7 +2323,6 @@ void Application::vulkan_main() {
         dt_timer.start();
         //handle sdl and imgui events
         handle_sdl_gui_events({ window }, camera, dt);
-
 
         // update the mvp structs
         for (uint32_t i = 0; i < mods.size(); i++) {
