@@ -649,9 +649,6 @@ public:
 
         static std::mutex mutex;
 
-        for (auto& kv : seen) {
-            //std::cout << "key = " << kv.first << " value = " << kv.second << '\n';
-        }
         std::vector<std::string> texture_paths = std::vector<std::string>(seen.size());
         for (auto& kv : seen) {
             texture_paths[kv.second] = kv.first;
@@ -692,7 +689,6 @@ public:
         // load cube
         // bind all and record to cmd buffer
 
-        VKTexture test_texture = loadTexture("resources/textures/test.png");
         VKTexture depth_texture = createDepthTexture();
         input_state = vbuffers.back().getInfo();
 
@@ -831,8 +827,6 @@ public:
             image_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             image_descriptor.descriptorCount = static_cast<uint32_t>(images.size());
             image_descriptor.pImageInfo = images.data();
-
-            std::cout << images.size() << std::endl;
 
             std::array<VkWriteDescriptorSet, 2> descriptors = { buffer_descriptor, image_descriptor };
             vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
@@ -1565,7 +1559,7 @@ public:
             throw std::runtime_error("failed to laod stb image for texturing");
         }
         else {
-            std::cout << "loaded " << path << std::endl;
+            std::cout << "loaded " << path << '\n';
         }
         return loadTexture(stb);
     }
@@ -1766,8 +1760,6 @@ public:
             textureData[i] = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, 4);
             m_assert(textureData[i], "failed to load image");
         }
-        std::cout << n_channels << std::endl;
-
         //Calculate the image size and the layer size.
         const VkDeviceSize imageSize = width * height * 4 * 6;
         const VkDeviceSize layerSize = imageSize / 6;
@@ -2271,12 +2263,6 @@ void Application::vulkan_main() {
     }
 
     Camera camera = Camera({ 0, 0, 4.0f }, 45.0f);
-
-    // optional compilation of shaders at runtime by invoking the shader compiler's executable
-    compile_shader("shaders/Vulkan/vulkan.vert", "shaders/Vulkan/vert.spv");
-    compile_shader("shaders/Vulkan/vulkan.frag", "shaders/Vulkan/frag.spv");
-    compile_shader("shaders/Vulkan/skybox.frag", "shaders/Vulkan/f_skybox.spv");
-    compile_shader("shaders/Vulkan/skybox.vert", "shaders/Vulkan/v_skybox.spv");
 
     VKRender vk = VKRender(skyboxes["lake"]);
 
