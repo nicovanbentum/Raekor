@@ -20,7 +20,6 @@ public:
     void set_aspect_ratio(float new_ratio);
     glm::vec3 get_direction();
     void move_on_input(double dt);
-    void update(const glm::mat4& model);
     inline bool is_mouse_active() { return mouse_active; }
     inline void set_mouse_active(bool state) { mouse_active = state; }
 

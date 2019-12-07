@@ -9,13 +9,16 @@ struct VS_OUTPUT {
 };
 
 cbuffer myCbuffer : register(b0) {
-    float4x4 MVP;
+    float4x4 m;
+    float4x4 v;
+    float4x4 p;
 }
 
 VS_OUTPUT main(VS_INPUT input)
 {
     VS_OUTPUT output;
-    output.pos = mul(float4(input.pos, 1.0f), MVP);
+    float4 worldPos = mul(m, float4(input.pos, 1.0));
+    output.pos = mul(mul(p, v), worldPos);
     output.uv = input.uv;
     return output;
 }

@@ -201,4 +201,8 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\DirectX\skybox_vertex.hlsl" />
+    <FxCompile Include="shaders\DirectX\simple_vertex.hlsl" />
+  </ItemGroup>
 </Project>

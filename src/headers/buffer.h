@@ -9,7 +9,9 @@ namespace Raekor {
 // struct we send to the shaders
 // TODO: figure out a common place for these
 struct cb_vs {
-    glm::mat4 MVP;
+    glm::mat4 m;
+    glm::mat4 v;
+    glm::mat4 p;
 };
 
 // forward declarations necessary cause of templates

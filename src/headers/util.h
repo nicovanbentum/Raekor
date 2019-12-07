@@ -60,5 +60,15 @@ static std::string get_file(const std::string& path, PATH_OPTIONS option) {
     }
 }
 
+static void print_progress_bar(int val, int min, int max) {
+    static std::string bar = "----------]";
+    std::string loading = "Loading textures: [";
+    auto index = (val - min) * (10 - 0) / (max - min) + 0;
+    if (index == 0) bar = "----------]";
+    if (bar[index] == '-') bar[index] = '#';
+    std::cout << '\r' << loading << bar;
+    if (val == max) std::cout << std::endl;
+};
+
 
 } // Namespace Raekor

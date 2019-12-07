@@ -11,18 +11,13 @@ Camera::Camera(glm::vec3 position, float fov) :
     projection = glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
 }
 
-void Camera::update(const glm::mat4& model) {
+void Camera::update() {
     auto dir = get_direction();
     view = glm::lookAtRH(position, position + dir, {0, 1, 0});
 }
 
 void Camera::set_aspect_ratio(float new_ratio) {
     projection = glm::perspectiveRH_ZO(glm::radians(FOV), new_ratio, 0.1f, 10000.0f);
-}
-
-void Camera::update() {
-    auto dir = get_direction();
-    view = glm::lookAt(position, position + dir, {0, 1, 0});
 }
 
 glm::vec3 Camera::get_direction() {
@@ -44,6 +39,12 @@ void Camera::move_on_input(double dt) {
     } 
     else if (keyboard[SDL_SCANCODE_S]) {
             position -= dir * (float)(move_speed*dt);
+    }
+    if (keyboard[SDL_SCANCODE_A]) {
+        position -= glm::normalize(glm::cross(dir, { 0,1,0 })) * (float)(move_speed*dt);
+    }
+    else if (keyboard[SDL_SCANCODE_D]) {
+        position += glm::normalize(glm::cross(dir, { 0,1,0 })) * (float)(move_speed*dt);
     }
 }
 

@@ -32,13 +32,14 @@ void main() {
 	float light_power = 50.0f;
 
     // Material properties
-	vec3 diffuse_color = texture( tex_sampler[pc.samplerIndex], uv ).rgb;
-	vec3 ambient_color = vec3(0.1, 0.1, 0.1) * diffuse_color;
+	vec4 diffuse_color = texture( tex_sampler[pc.samplerIndex], uv);
+	vec3 ambient_color = vec3(0.1, 0.1, 0.1) * diffuse_color.xyz;
 
     // Distance to the light
 	float distance = length(light_pos - position);
 	float attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));
 	ambient_color *= attenuation;
 	final_color = vec4(ambient_color*light_color*light_power , texture(tex_sampler[pc.samplerIndex], uv).a);
+	//final_color = diffuse_color;
 
 }

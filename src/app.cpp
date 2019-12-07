@@ -67,6 +67,7 @@ void Application::run() {
     std::cout << vk_extension_count << '\n';
 
     // create the renderer object that does sets up the API and does all the runtime magic
+    Renderer::set_activeAPI(RenderAPI::OPENGL);
     Render::Init(directxwindow);
 
     // create a Camera we can use to move around our scene
@@ -140,10 +141,12 @@ void Application::run() {
 
         // bind the shader
         sky_shader->bind();
-        // update the camera without translation/model matrix
+        // update the camera
         camera.update();
         // upload the camera's mvp matrix
-        ubo.MVP = camera.get_mvp(transpose);
+        ubo.m = glm::mat4(1.0f);
+        ubo.v = camera.getView();
+        ubo.p = camera.getProjection();
         // update the resource buffer 
         dxrb->update(ubo);
         // bind the resource buffer
@@ -159,8 +162,8 @@ void Application::run() {
         dx_shader->bind();
         for (auto& m : models) {
             m.recalc_transform();
-            camera.update(m.get_transform());
-            ubo.MVP = camera.get_mvp(transpose);
+            ubo.m = m.get_transform();
+            ubo.v = camera.getView();
             dxrb->update(ubo);
             dxrb->bind(0);
             m.render();
@@ -273,6 +276,11 @@ void Application::run() {
             if (!path.empty()) {
                 models.push_back(Model(path));
                 active_m = models.end() - 1;
+                auto scale = active_m->scale_ptr();
+                glm::vec3* ptr = (glm::vec3*) active_m->scale_ptr();
+                *ptr = glm::vec3(0.1f, 0.1f, 0.1f);
+                active_m->recalc_transform();
+                
             }
         }
         ImGui::SameLine();
@@ -320,7 +328,7 @@ void Application::run() {
         }
         ImGui::End();
 
-        ImGui::ShowMetricsWindow();
+        //ImGui::ShowMetricsWindow();
 
         ImGui::Begin("Camera Properties");
         if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f, 0.1f, FLT_MAX, "%.2f")) {}
@@ -366,11 +374,16 @@ void Application::run() {
             // TODO: figure this out
             Render::Reset(directxwindow);
             dx_shader.reset(Shader::construct("simple_vertex", "simple_fp"));
+            sky_shader.reset(Shader::construct("skybox_vertex", "skybox_fp"));
+            skycube.reset(new Mesh(Shape::Cube));
+            skycube->get_vertex_buffer()->set_layout({
+                {"POSITION", ShaderType::FLOAT3},
+                {"UV", ShaderType::FLOAT2},
+                {"NORMAL", ShaderType::FLOAT3}
+            });
+            sky_image.reset(Texture::construct(skyboxes["lake"]));
             dxfb.reset(FrameBuffer::construct({ displays[display].w * 0.80, displays[display].h * 0.80 }));
             dxrb.reset(ResourceBuffer<cb_vs>::construct());
-            sky_image.reset(Texture::construct(skyboxes["lake"]));
-            skycube.reset(new Mesh(Shape::Cube));
-            sky_shader.reset(Shader::construct("skybox_vertex", "skybox_fp"));
             for (auto &m : models) m.reload();
         }
 

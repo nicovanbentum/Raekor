@@ -24,6 +24,10 @@ void compile_shader(const char* in, const char* out) {
     }
 }
 
+struct skyboxmvp {
+    glm::mat4 MVP;
+};
+
 namespace Raekor {
 
 struct stbData {
@@ -294,7 +298,7 @@ private:
 
     int current_frame = 0;
 
-    cb_vs uniformBufferObject;
+    skyboxmvp uniformBufferObject;
     void* mapped;
     size_t bufferSize;
 
@@ -805,7 +809,7 @@ public:
             VkDescriptorBufferInfo bufferInfo = {};
             bufferInfo.buffer = uniformBuffer;
             bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(cb_vs);
+            bufferInfo.range = sizeof(skyboxmvp);
 
             VkWriteDescriptorSet buffer_descriptor = {};
             buffer_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -862,7 +866,7 @@ public:
             }
 
             createBuffer(
-                sizeof(cb_vs),
+                sizeof(skyboxmvp),
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                 uniformBuffer2,
@@ -882,7 +886,7 @@ public:
             VkDescriptorBufferInfo bufferInfo = {};
             bufferInfo.buffer = uniformBuffer2;
             bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(cb_vs);
+            bufferInfo.range = sizeof(skyboxmvp);
 
             VkDescriptorImageInfo info = {};
             info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -2285,7 +2289,7 @@ void Application::vulkan_main() {
     bool running = true;
 
     // MVP uniform buffer object
-    cb_vs ubo = {};
+    skyboxmvp ubo = {};
     int active = 0;
 
     std::vector<mod> mods = std::vector<mod>(vk.getMeshCount());
