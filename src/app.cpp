@@ -328,7 +328,7 @@ void Application::run() {
         }
         ImGui::End();
 
-        //ImGui::ShowMetricsWindow();
+        ImGui::ShowMetricsWindow();
 
         ImGui::Begin("Camera Properties");
         if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f, 0.1f, FLT_MAX, "%.2f")) {}
