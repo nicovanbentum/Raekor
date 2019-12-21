@@ -35,17 +35,16 @@ vec3 colors[4] = vec3[](
 );
 
 void main() {
-	// WORLD SPACE : VERTEX POSITION
+	// CAMERA SPACE : VERTEX POSITION
     gl_Position = ubo.mvp.p * ubo.mvp.v * ubo.mvp.m * vec4(pos, 1.0);
 	out_pos = vec3(ubo.mvp.v * ubo.mvp.m * vec4(pos, 1.0));
 	out_normal = mat3(transpose(inverse(ubo.mvp.v * ubo.mvp.m))) * normal;
 	out_light_pos = vec3(ubo.mvp.v * vec4(ubo.mvp.light_position, 1.0));
-
+	out_uv = uv;
 
 	// DEBUG COLOR INDEX
     int index = gl_VertexIndex;
     clamp(index, 0, 4);
 
     out_color = vec4(colors[index], 1.0);
-	out_uv = uv;
 }

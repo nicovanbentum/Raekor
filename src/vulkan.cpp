@@ -602,7 +602,7 @@ public:
                     v.uv = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
                 }
                 if (ai_mesh->HasNormals()) {
-                    v.normal = { ai_mesh->mNormals->x, ai_mesh->mNormals->y, ai_mesh->mNormals->z };
+                    v.normal = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
                 }
                 mesh.push_back(std::move(v));
             }
@@ -968,11 +968,10 @@ public:
         for (int i = (int)meshes.size() - 1; i >= 0; i--) {
             secondaryBuffers.push_back(VkCommandBuffer());
             vkAllocateCommandBuffers(device, &secondaryInfo, &secondaryBuffers.back());
-            //recordMeshBuffer(i, vbuffers[i], ibuffers[i], texture_indices[i], pipelineLayout, descriptorSet, secondaryBuffers.back());
         }
 
         for (int i = 0; i < meshes.size(); i++) {
-            recordMeshBuffer(i, vbuffers[i], ibuffers[i], texture_indices[i], pipelineLayout, descriptorSet, secondaryBuffers[meshes.size() - 1 - i]);
+            recordMeshBuffer(i, vbuffers[i], ibuffers[i], texture_indices[i], pipelineLayout, descriptorSet, secondaryBuffers[meshes.size() - 1 - i]); 
         }
 
         if (vkAllocateCommandBuffers(device, &secondaryInfo, &imguicmdbuffer) != VK_SUCCESS) {
@@ -2369,7 +2368,7 @@ void Application::vulkan_main() {
         if ((lightPos[0] >= bounds && move_amount > 0) || (lightPos[0] <= -bounds && move_amount < 0)) {
             move_amount *= -1;
         }
-        lightmatrix = glm::translate(lightmatrix, { light_delta, 0.0, 0.0 });
+        //lightmatrix = glm::translate(lightmatrix, { light_delta, 0.0, 0.0 });
         // draw the imguizmo at the center of the light
         ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
 
