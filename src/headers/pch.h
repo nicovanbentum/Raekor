@@ -101,3 +101,8 @@
 // include stb
 #include "stb_image.h"
 
+// include asset importer
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
+#include "assimp/Importer.hpp"
+

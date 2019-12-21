@@ -2,6 +2,7 @@
 *.db
 *.o
 *.exe
+*.spv
 Debug/
 Release/
 .vs/

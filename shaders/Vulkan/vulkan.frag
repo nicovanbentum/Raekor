@@ -5,14 +5,9 @@
 // in vars
 layout(location = 0) in vec4 color;
 layout(location = 1) in vec2 uv;
-// normal, direction and light direction in camera space
 layout(location = 2) in vec3 normal;
-layout(location = 3) in vec3 direction;
-layout(location = 4) in vec3 light_direction;
-// gl position in world space
-layout(location = 5) in vec3 position;
-// light position in world space
-layout(location = 6) in vec3 light_pos;
+layout(location = 3) in vec3 pos;
+layout(location = 4) in vec3 light_pos;
 
 // in uniforms
 layout(set = 0, binding = 1) uniform sampler2D tex_sampler[24]; 
@@ -24,22 +19,40 @@ layout(push_constant) uniform pushConstants {
 layout(location = 0) out vec4 final_color;
 
 void main() {
-	// make these dynamic
+	// LIGHT CONSTANTS
 	float constant = 1.0f;
-	float linear = 0.09f;
-	float quadratic = 0.032f;
+	float linear = 0.045;
+	float quadratic = 0.0075;
 	vec3 light_color = vec3(1.0, 0.7725, 0.56);
-	float light_power = 50.0f;
 
-    // Material properties
-	vec4 diffuse_color = texture( tex_sampler[pc.samplerIndex], uv);
-	vec3 ambient_color = vec3(0.1, 0.1, 0.1) * diffuse_color.xyz;
+	vec4 sampled = texture( tex_sampler[pc.samplerIndex], uv);
 
-    // Distance to the light
-	float distance = length(light_pos - position);
+	// ambient
+	float ambient_strength = 0.1f;
+	vec3 ambient = ambient_strength * sampled.xyz;
+
+	// diffuse
+	vec3 norm = normalize(normal);
+	vec3 light_dir = normalize(light_pos - pos);
+	float diff = clamp(dot(norm, light_dir), 0, 1);
+	// TODO: figure out why with diff it looks so weird?
+	vec3 diffuse = light_color * diff * sampled.rgb;
+
+	// specular
+	vec3 view_dir = normalize(-pos);
+	vec3 reflect_dir = reflect(-light_dir, norm);
+	float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0f);
+	vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
+
+	// distance between the light and the vertex
+	float distance = length(light_pos - pos);
 	float attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));
-	ambient_color *= attenuation;
-	final_color = vec4(ambient_color*light_color*light_power , texture(tex_sampler[pc.samplerIndex], uv).a);
-	//final_color = diffuse_color;
+	
+	ambient = ambient * attenuation;
+	diffuse = diffuse * attenuation;
+	specular = specular * attenuation;
 
+	vec3 result = ambient + diffuse + specular;
+	final_color = vec4(result, sampled.a);
+	//final_color = vec4(norm.x, norm.y, norm.z, sampled.a);
 }

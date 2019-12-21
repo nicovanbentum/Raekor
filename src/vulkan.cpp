@@ -8,10 +8,6 @@
 #include "buffer.h"
 #include "PlatformContext.h"
 
-#include "assimp/scene.h"
-#include "assimp/postprocess.h"
-#include "assimp/Importer.hpp"
-
 #define _glslc "dependencies\\glslc.exe "
 #define _cl(in, out) system(std::string(_glslc + static_cast<std::string>(in) + static_cast<std::string>(" -o ") + static_cast<std::string>(out)).c_str())
 void compile_shader(const char* in, const char* out) {
@@ -582,7 +578,7 @@ public:
             aiProcess_ValidateDataStructure;
 
         Assimp::Importer importer;
-        std::string path = "resources/models/Sponza/Sponza.fbx";
+        std::string path = "resources/models/Sponza-master/sponza.obj";
         const auto scene = importer.ReadFile(path, flags);
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
@@ -2321,6 +2317,7 @@ void Application::vulkan_main() {
             modelMat->view = camera.getView();
             ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
             modelMat->lightPos = glm::make_vec3(lightPos);
+            modelMat->viewPos = camera.getPosition();
         }
 
         uint32_t frame = vk.getNextFrame();

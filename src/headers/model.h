@@ -4,10 +4,6 @@
 #include "mesh.h"
 #include "texture.h"
 
-#include "assimp/scene.h"
-#include "assimp/postprocess.h"
-#include "assimp/Importer.hpp"
-
 namespace Raekor {
 
 class Model {

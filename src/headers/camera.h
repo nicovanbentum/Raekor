@@ -9,6 +9,7 @@ struct MVP {
     glm::mat4 view;
     glm::mat4 projection;
     glm::vec3 lightPos;
+    glm::vec3 viewPos;
 };
 
 class Camera {
@@ -29,6 +30,7 @@ public:
     inline const glm::mat4 getProjection() { return projection; }
     inline float* get_move_speed() { return &move_speed; }
     inline float* get_look_speed() { return &look_speed; }
+    inline const glm::vec3& getPosition() { return position; }
 
 private:
     glm::vec3 position;
