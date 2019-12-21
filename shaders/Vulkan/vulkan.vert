@@ -8,7 +8,6 @@ struct MVP {
 	mat4 v;
 	mat4 p;
 	vec3 light_position;
-	vec3 view_position;
 };
 
 // uniform buffer binding

@@ -6,7 +6,7 @@ namespace Raekor {
 Camera::Camera(glm::vec3 position, float fov) :
     position(position),
     angle(static_cast<float>(M_PI), 0.0f), 
-    FOV(fov), look_speed(0.0010f), move_speed(0.05f),
+    FOV(fov), look_speed(0.0010f), move_speed(0.01f),
     mouse_active(true) {
     projection = glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
 }

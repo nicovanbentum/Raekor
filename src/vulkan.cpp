@@ -38,7 +38,7 @@ size_t dynamicAlignment;
 
 struct mod {
     glm::mat4 model = glm::mat4(1.0f);
-    glm::vec3 position = {0.0, 0.0f, 0.0f}, scale = { 0.1f, 0.1f, 0.1f }, rotation = { 0, 0, 0 };
+    glm::vec3 position = {0.0, 0.0f, 0.0f}, scale = { 1.0f, 1.0f, 1.0f }, rotation = { 0, 0, 0 };
 
     void transform() {
         model = glm::mat4(1.0f);
@@ -578,7 +578,7 @@ public:
             aiProcess_ValidateDataStructure;
 
         Assimp::Importer importer;
-        std::string path = "resources/models/Sponza-master/sponza.obj";
+        std::string path = "resources/models/Sponza/Sponza.gltf";
         const auto scene = importer.ReadFile(path, flags);
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
@@ -2261,7 +2261,7 @@ void Application::vulkan_main() {
         io.FontDefault = io.Fonts->Fonts.back();
     }
 
-    Camera camera = Camera({ 0, 0, 4.0f }, 45.0f);
+    Camera camera = Camera({ 0.0f, 1.0f, 0.0f }, 45.0f);
 
     VKRender vk = VKRender(skyboxes["lake"]);
 
@@ -2298,10 +2298,9 @@ void Application::vulkan_main() {
     double dt = 0;
 
     glm::mat4 lightmatrix = glm::mat4(1.0f);
-    lightmatrix = glm::translate(lightmatrix, { 0.0, 10.0f, 0.0 });
+    lightmatrix = glm::translate(lightmatrix, { 0.0, 1.0f, 0.0 });
     float lightPos[3], lightRot[3], lightScale[3];
     ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
-
 
     //main application loop
     while (running) {
@@ -2364,9 +2363,12 @@ void Application::vulkan_main() {
         }
 
         // move the light by a fixed amount and let it bounce between -125 and 125 units/pixels on the x axis
-        static double move_amount = 0.03;
+        static double move_amount = 0.003;
+        static double bounds = 12.0f;
         double light_delta = move_amount * dt;
-        if ((lightPos[0] >= 125.0f && move_amount > 0) || (lightPos[0] <= -125.0f && move_amount < 0)) move_amount *= -1;
+        if ((lightPos[0] >= bounds && move_amount > 0) || (lightPos[0] <= -bounds && move_amount < 0)) {
+            move_amount *= -1;
+        }
         lightmatrix = glm::translate(lightmatrix, { light_delta, 0.0, 0.0 });
         // draw the imguizmo at the center of the light
         ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
@@ -2402,7 +2404,7 @@ void Application::vulkan_main() {
         ImGui::End();
 
         ImGui::Begin("Camera Properties");
-        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f, 0.1f, FLT_MAX, "%.2f")) {}
+        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.01f, FLT_MAX, "%.2f")) {}
         if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
 
         ImGui::End();

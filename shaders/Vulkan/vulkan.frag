@@ -21,8 +21,8 @@ layout(location = 0) out vec4 final_color;
 void main() {
 	// LIGHT CONSTANTS
 	float constant = 1.0f;
-	float linear = 0.045;
-	float quadratic = 0.0075;
+	float linear = 0.7;
+	float quadratic = 1.8;
 	vec3 light_color = vec3(1.0, 0.7725, 0.56);
 
 	vec4 sampled = texture( tex_sampler[pc.samplerIndex], uv);
@@ -36,12 +36,13 @@ void main() {
 	vec3 light_dir = normalize(light_pos - pos);
 	float diff = clamp(dot(norm, light_dir), 0, 1);
 	// TODO: figure out why with diff it looks so weird?
-	vec3 diffuse = light_color * diff * sampled.rgb;
+	vec3 diffuse = light_color * sampled.rgb;
 
 	// specular
 	vec3 view_dir = normalize(-pos);
+	vec3 halfway_dir = normalize(light_dir + view_dir);
 	vec3 reflect_dir = reflect(-light_dir, norm);
-	float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0f);
+	float spec = pow(max(dot(halfway_dir, norm), 0.0), 32.0f);
 	vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
 	// distance between the light and the vertex
