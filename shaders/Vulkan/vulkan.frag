@@ -35,18 +35,14 @@ void main() {
     vec3 norm = normalize(normal);
     vec3 view_dir = normalize(-pos);
 
-	if(dot(view_dir, norm) < 0.0) {
-		norm = norm *-1;
-	}
-
     vec3 light_dir = normalize(light_pos - pos);
-    float diff = clamp(dot(norm, light_dir), -1, 1);
+    float diff = clamp(dot(norm, light_dir), 0, 1);
     vec3 diffuse = light_color * diff * sampled.rgb;
 
     // specular
     vec3 halfway_dir = normalize(light_dir + view_dir);
     vec3 reflect_dir = reflect(-light_dir, norm);
-    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0f);
+    float spec = pow(max(dot(halfway_dir, norm), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
     // distance between the light and the vertex

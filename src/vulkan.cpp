@@ -602,6 +602,7 @@ public:
                     v.uv = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
                 }
                 if (ai_mesh->HasNormals()) {
+                   // v.normal = { ai_mesh->mNormals->x, ai_mesh->mNormals->y, ai_mesh->mNormals->z };
                     v.normal = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
                 }
                 mesh.push_back(std::move(v));
@@ -2363,12 +2364,15 @@ void Application::vulkan_main() {
 
         // move the light by a fixed amount and let it bounce between -125 and 125 units/pixels on the x axis
         static double move_amount = 0.003;
-        static double bounds = 12.0f;
+        static double bounds = 10.0f;
+        static bool move_light = true;
         double light_delta = move_amount * dt;
         if ((lightPos[0] >= bounds && move_amount > 0) || (lightPos[0] <= -bounds && move_amount < 0)) {
             move_amount *= -1;
         }
-        //lightmatrix = glm::translate(lightmatrix, { light_delta, 0.0, 0.0 });
+        if (move_light) {
+            lightmatrix = glm::translate(lightmatrix, { light_delta, 0.0, 0.0 });
+        }
         // draw the imguizmo at the center of the light
         ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
 
@@ -2414,6 +2418,9 @@ void Application::vulkan_main() {
         static bool use_vsync = false;
         if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
             use_vsync = !use_vsync;
+        } 
+        if (ImGui::RadioButton("Auto-move Light", move_light)) {
+            move_light = !move_light;
         }
 
         if (ImGui::Button("Reload shaders")) {
