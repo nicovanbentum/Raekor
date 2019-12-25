@@ -302,6 +302,17 @@ private:
     uint32_t meshcount;
 
 public:
+    void recordModel() {
+        // pre-record the entire model's mesh buffers
+        // hardcoded for correct depth ordering, TODO: implement actual depth ordering for transparency
+        for (int i = 0; i < meshes.size(); i++) {
+            recordMeshBuffer(i, vbuffers[i], ibuffers[i], texture_indices[i], pipelineLayout, descriptorSet, secondaryBuffers[meshes.size() - 1 - i]);
+        }
+        recordMeshBuffer(20, vbuffers[20], ibuffers[20], texture_indices[20], pipelineLayout, descriptorSet, secondaryBuffers[20]);
+        int other_index = (int)meshes.size() - 1 - 20;
+        recordMeshBuffer(other_index, vbuffers[other_index], ibuffers[other_index], texture_indices[other_index], pipelineLayout, descriptorSet, secondaryBuffers[other_index]);
+    }
+
     void reloadShaders() {
         // wait for the device to idle , since it's an engine function we dont care about performance
         vkDeviceWaitIdle(device);
@@ -322,9 +333,7 @@ public:
         // recreate the graphics pipeline and re-record the mesh buffers
         // TODO: this still uses the depth order hack
         createGraphicsPipeline(shaders, shaders2);
-        for (int i = 0; i < meshes.size(); i++) {
-            recordMeshBuffer(i, vbuffers[i], ibuffers[i], texture_indices[i], pipelineLayout, descriptorSet, secondaryBuffers[meshes.size() - 1 - i]);
-        }
+        recordModel();
     }
 
     ~VKRender() {
@@ -971,9 +980,7 @@ public:
             vkAllocateCommandBuffers(device, &secondaryInfo, &secondaryBuffers.back());
         }
 
-        for (int i = 0; i < meshes.size(); i++) {
-            recordMeshBuffer(i, vbuffers[i], ibuffers[i], texture_indices[i], pipelineLayout, descriptorSet, secondaryBuffers[meshes.size() - 1 - i]); 
-        }
+        recordModel();
 
         if (vkAllocateCommandBuffers(device, &secondaryInfo, &imguicmdbuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate vk command buffers");
