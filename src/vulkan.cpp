@@ -60,6 +60,8 @@ struct queue_indices {
 
 class VKTexture {
 public:
+    VKTexture() {}
+
     VKTexture(VkImage& p_image, VkDeviceMemory& p_memory, VkImageView& p_view, VkSampler& p_sampler) :
         image(p_image), memory(p_memory), view(p_view), sampler(p_sampler) {}
 
@@ -80,6 +82,8 @@ private:
 
 class VKBuffer {
 public:
+    VKBuffer() {}
+
     VKBuffer(VkBuffer p_buffer, VkDeviceMemory p_memory)
         : buffer(p_buffer), memory(p_memory) {}
 
@@ -107,6 +111,8 @@ VkFormat vk_format(ShaderType type) {
 
 class VKIndexBuffer : public VKBuffer {
 public:
+    VKIndexBuffer() {}
+
     VKIndexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory, uint32_t p_count)
         : VKBuffer(p_buffer, p_memory), count(p_count) {}
 
@@ -122,6 +128,8 @@ private:
 
 class VKVertexBuffer : public VKBuffer {
 public:
+    VKVertexBuffer() {}
+
     VKVertexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory) :
         VKBuffer(p_buffer, p_memory), info({}), bindingDescription({}), layout({}) {
         describe();
@@ -232,7 +240,9 @@ public:
 
 class VKRender {
 private:
+    SDL_Window* vkWindow;
     bool enableValidationLayers;
+    std::vector<const char*> extensions;
 
     queue_indices qindices;
     VkInstance instance;
@@ -277,7 +287,6 @@ private:
     std::vector<VKVertexBuffer> vbuffers;
     std::vector < std::vector<Vertex>> meshes;
 
-    
     VkPipelineVertexInputStateCreateInfo input_state;
 
     VkDescriptorPool g_DescriptorPool;
@@ -300,6 +309,14 @@ private:
 
     std::array < std::string, 6> face_files;
     uint32_t meshcount;
+
+    // texture handles
+    std::vector<VKTexture> textures;
+
+    // skybox resources
+    VKVertexBuffer cube_v;
+    VKIndexBuffer cube_i;
+    VKTexture skybox;
 
 public:
     void recordModel() {
@@ -371,6 +388,7 @@ public:
     }
 
     void init(SDL_Window* window) {
+        vkWindow = window;
         VkApplicationInfo appInfo = {};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = "Hello Triangle";
@@ -548,10 +566,80 @@ public:
             throw std::runtime_error("failed to create vk command pool");
         }
 
+        // Create Descriptor Pool
+        {
+            VkDescriptorPoolSize pool_sizes[] =
+            {
+                { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+                { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+                { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+                { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+                { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+                { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+                { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+                { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+            };
+            VkDescriptorPoolCreateInfo pool_info = {};
+            pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+            pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+            pool_info.maxSets = 1000 * ARRAYSIZE(pool_sizes);
+            pool_info.poolSizeCount = static_cast<uint32_t>(ARRAYSIZE(pool_sizes));
+            pool_info.pPoolSizes = pool_sizes;
+            if (vkCreateDescriptorPool(device, &pool_info, nullptr, &g_DescriptorPool) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create descriptor pool for imgui");
+            }
+        }
+
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
-        setupSwapchain(w, h, extensions);
+        setupSwapchain(w, h);
+        initResources();
+        setupModelStageUniformBuffers();
+        setupSkyboxStageUniformBuffers();
 
+        std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
+            vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
+            frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
+        };
+
+        std::array<VkPipelineShaderStageCreateInfo, 2> shaders2 = {
+            skyboxv.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
+            skyboxf.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
+        };
+
+        // create the graphics pipeline
+        createGraphicsPipeline(shaders, shaders2);
+        setupFrameBuffers();
+
+        // allocate and record the command buffers for imgui, skybox and scene
+        allocateCommandBuffers();
+        recordModel();
+        recordSkyboxBuffer(cube_v, cube_i, pipelineLayout2, descriptorSet2, skyboxcmdbuffer);
+        
+        // setup sysnc objects for synchronization between cpu and gpu
+        setupSyncObjects();
+    }
+
+    void cleanupSwapChain() {
+        for (size_t i = 0; i < swapChainFramebuffers.size(); i++) {
+            vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
+        }
+
+        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        vkDestroyRenderPass(device, renderPass, nullptr);
+
+        for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+            vkDestroyImageView(device, swapChainImageViews[i], nullptr);
+        }
+
+        vkDestroySwapchainKHR(device, swapchain, nullptr);
+    }
+
+    void initResources() {
         vert = VKShader("shaders/Vulkan/vert.spv");
         frag = VKShader("shaders/Vulkan/frag.spv");
         vert.createModule(device);
@@ -573,7 +661,6 @@ public:
         };
 
         std::vector<std::vector<Index>> indexbuffers;
-        std::vector<VKTexture> textures;
 
         constexpr unsigned int flags =
             aiProcess_CalcTangentSpace |
@@ -611,7 +698,7 @@ public:
                     v.uv = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
                 }
                 if (ai_mesh->HasNormals()) {
-                   // v.normal = { ai_mesh->mNormals->x, ai_mesh->mNormals->y, ai_mesh->mNormals->z };
+                    // v.normal = { ai_mesh->mNormals->x, ai_mesh->mNormals->y, ai_mesh->mNormals->z };
                     v.normal = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
                 }
                 mesh.push_back(std::move(v));
@@ -624,7 +711,7 @@ public:
             }
 
             vbuffers.push_back(VKVertexBuffer(uploadBuffer<Vertex>(mesh, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)));
-            ibuffers.push_back(VKIndexBuffer(uploadBuffer<Index>(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT), static_cast<uint32_t>(indices.size()*3)));
+            ibuffers.push_back(VKIndexBuffer(uploadBuffer<Index>(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT), static_cast<uint32_t>(indices.size() * 3)));
             vbuffers.back().setLayout({
                 { "POSITION", ShaderType::FLOAT3 },
                 { "UV",       ShaderType::FLOAT2 },
@@ -648,10 +735,12 @@ public:
                     texture_indices.push_back(ti);
                     seen[texture_path] = ti;
                     ti++;
-                } else {
+                }
+                else {
                     texture_indices.push_back(seen[texture_path]);
                 }
-            } else {
+            }
+            else {
                 texture_indices.push_back(ti);
             }
         }
@@ -662,7 +751,7 @@ public:
         for (auto& kv : seen) {
             texture_paths[kv.second] = kv.first;
         }
-        
+
         std::vector<stbData> stb_images;
         stb_images.resize(seen.size());
         auto load_image = [&](std::pair<std::string, int> kv) {
@@ -691,251 +780,204 @@ public:
             textures.push_back(loadTexture(image));
         }
 
-        VKTexture skybox = load_skybox();
-        VKVertexBuffer cube_v = VKVertexBuffer(uploadBuffer<Vertex>(v_cube, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
-        VKIndexBuffer cube_i = VKIndexBuffer(uploadBuffer<Index>(i_cube, VK_BUFFER_USAGE_INDEX_BUFFER_BIT), static_cast<uint32_t>(i_cube.size() * 3));
-        // create descriptor set with the skybox texture
-        // load cube
-        // bind all and record to cmd buffer
-
-        VKTexture depth_texture = createDepthTexture();
+        // skybox resources, load_skybox basically uploads a cubemap image
+        // cube v and i are the vertex and index buffer for a cube
+        skybox = load_skybox();
+        cube_v = VKVertexBuffer(uploadBuffer<Vertex>(v_cube, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+        cube_i = VKIndexBuffer(uploadBuffer<Index>(i_cube, VK_BUFFER_USAGE_INDEX_BUFFER_BIT), static_cast<uint32_t>(i_cube.size() * 3));
+        
         input_state = vbuffers.back().getInfo();
 
         std::cout << "mesh total = " << vbuffers.size() << "\n";
         meshcount = static_cast<uint32_t>(vbuffers.size());
+    }
 
-        //
-        //  UNIFORM BUFFERS
-        //
-        {
-            VkDescriptorSetLayoutBinding uboLayoutBinding = {};
-            uboLayoutBinding.binding = 0;
-            uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-            uboLayoutBinding.descriptorCount = 1;
-            uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
-            uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    void setupModelStageUniformBuffers() {
+        VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+        uboLayoutBinding.binding = 0;
+        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+        uboLayoutBinding.descriptorCount = 1;
+        uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-            VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
-            samplerLayoutBinding.binding = 1;
-            samplerLayoutBinding.descriptorCount = static_cast<uint32_t>(textures.size());
-            samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            samplerLayoutBinding.pImmutableSamplers = nullptr;
-            samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+        samplerLayoutBinding.binding = 1;
+        samplerLayoutBinding.descriptorCount = static_cast<uint32_t>(textures.size());
+        samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        samplerLayoutBinding.pImmutableSamplers = nullptr;
+        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-            std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+        std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
 
-            VkDescriptorSetLayoutCreateInfo layoutInfo = {};
-            layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-            layoutInfo.pBindings = bindings.data();
+        VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+        layoutInfo.pBindings = bindings.data();
 
-            if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-                throw std::runtime_error("fialed to create descriptor layout");
-            }
-
-            VkPhysicalDeviceProperties props;
-            vkGetPhysicalDeviceProperties(gpu, &props);
-            // Calculate required alignment based on minimum device offset alignment
-            size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
-            dynamicAlignment = sizeof(MVP);
-            if (minUboAlignment > 0) {
-                dynamicAlignment = (dynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
-            }
-
-            // nr of meshes times the alignment
-            bufferSize = vbuffers.size() * dynamicAlignment;
-            std::cout << "bufferSize = " << bufferSize << '\n';
-            uboDynamic.mvp = (MVP*)malloc(bufferSize);
-            memset(uboDynamic.mvp, 1, bufferSize);
-
-            createBuffer(
-                bufferSize,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-                uniformBuffer,
-                uniformBuffersMemory
-            );
-
-            vkMapMemory(device, uniformBuffersMemory, 0, VK_WHOLE_SIZE, 0, &mapped);
-            memcpy(mapped, uboDynamic.mvp, bufferSize);
-
-            VkMappedMemoryRange memoryRange = {};
-            memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-            memoryRange.memory = uniformBuffersMemory;
-            memoryRange.size = bufferSize;
-            vkFlushMappedMemoryRanges(device, 1, &memoryRange);
-
-
-            // Create Descriptor Pool
-            {
-                VkDescriptorPoolSize pool_sizes[] =
-                {
-                    { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-                    { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-                    { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-                    { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-                    { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-                    { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-                    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-                    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-                    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-                    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-                    { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-                };
-                VkDescriptorPoolCreateInfo pool_info = {};
-                pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-                pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-                pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
-                pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
-                pool_info.pPoolSizes = pool_sizes;
-                if (vkCreateDescriptorPool(device, &pool_info, nullptr, &g_DescriptorPool) != VK_SUCCESS) {
-                    throw std::runtime_error("failed to create descriptor pool for imgui");
-                }
-            }
-
-            VkDescriptorSetAllocateInfo desc_info = {};
-            desc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-            desc_info.descriptorPool = g_DescriptorPool;
-            desc_info.descriptorSetCount = 1;
-            desc_info.pSetLayouts = &descriptorSetLayout;
-
-            if (vkAllocateDescriptorSets(device, &desc_info, &descriptorSet) != VK_SUCCESS) {
-                throw std::runtime_error("failed to allocate descriptor sets");
-            }
-
-            std::vector<VkDescriptorImageInfo> images = {};
-            for (const VKTexture& texture : textures) {
-                VkDescriptorImageInfo info = {};
-                info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                info.imageView = texture.getView();
-                info.sampler = texture.getSampler();
-                images.push_back(info);
-            }
-
-            VkDescriptorBufferInfo bufferInfo = {};
-            bufferInfo.buffer = uniformBuffer;
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(skyboxmvp);
-
-            VkWriteDescriptorSet buffer_descriptor = {};
-            buffer_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            buffer_descriptor.dstSet = descriptorSet;
-            buffer_descriptor.dstBinding = 0;
-            buffer_descriptor.dstArrayElement = 0;
-            buffer_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-            buffer_descriptor.descriptorCount = 1;
-            buffer_descriptor.pBufferInfo = &bufferInfo;
-            buffer_descriptor.pImageInfo = nullptr;
-            buffer_descriptor.pTexelBufferView = nullptr;
-
-            VkWriteDescriptorSet image_descriptor = {};
-            image_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            image_descriptor.dstSet = descriptorSet;
-            image_descriptor.dstBinding = 1;
-            image_descriptor.dstArrayElement = 0;
-            image_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            image_descriptor.descriptorCount = static_cast<uint32_t>(images.size());
-            image_descriptor.pImageInfo = images.data();
-
-            std::array<VkWriteDescriptorSet, 2> descriptors = { buffer_descriptor, image_descriptor };
-            vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
+        if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+            throw std::runtime_error("fialed to create descriptor layout");
         }
 
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(gpu, &props);
+        // Calculate required alignment based on minimum device offset alignment
+        size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
+        dynamicAlignment = sizeof(MVP);
+        if (minUboAlignment > 0) {
+            dynamicAlignment = (dynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
+        }
 
-        //    
-        // SKYBOX DESCRIPTOR BUFFER
-        //
-        {
-            VkDescriptorSetLayoutBinding uboLayoutBinding = {};
-            uboLayoutBinding.binding = 0;
-            uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            uboLayoutBinding.descriptorCount = 1;
-            uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
-            uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        // nr of meshes times the alignment
+        bufferSize = vbuffers.size() * dynamicAlignment;
+        std::cout << "bufferSize = " << bufferSize << '\n';
+        uboDynamic.mvp = (MVP*)malloc(bufferSize);
+        memset(uboDynamic.mvp, 1, bufferSize);
 
-            VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
-            samplerLayoutBinding.binding = 1;
-            samplerLayoutBinding.descriptorCount = 1;
-            samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            samplerLayoutBinding.pImmutableSamplers = nullptr;
-            samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        createBuffer(
+            bufferSize,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+            uniformBuffer,
+            uniformBuffersMemory
+        );
 
-            std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+        vkMapMemory(device, uniformBuffersMemory, 0, VK_WHOLE_SIZE, 0, &mapped);
+        memcpy(mapped, uboDynamic.mvp, bufferSize);
 
-            VkDescriptorSetLayoutCreateInfo layoutInfo = {};
-            layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-            layoutInfo.pBindings = bindings.data();
+        VkMappedMemoryRange memoryRange = {};
+        memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+        memoryRange.memory = uniformBuffersMemory;
+        memoryRange.size = bufferSize;
+        vkFlushMappedMemoryRanges(device, 1, &memoryRange);
 
-            if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout2) != VK_SUCCESS) {
-                throw std::runtime_error("fialed to create descriptor layout");
-            }
+        VkDescriptorSetAllocateInfo desc_info = {};
+        desc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        desc_info.descriptorPool = g_DescriptorPool;
+        desc_info.descriptorSetCount = 1;
+        desc_info.pSetLayouts = &descriptorSetLayout;
 
-            createBuffer(
-                sizeof(skyboxmvp),
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                uniformBuffer2,
-                uniformBuffersMemory2
-            );
+        if (vkAllocateDescriptorSets(device, &desc_info, &descriptorSet) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate descriptor sets");
+        }
 
-            VkDescriptorSetAllocateInfo desc_info = {};
-            desc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-            desc_info.descriptorPool = g_DescriptorPool;
-            desc_info.descriptorSetCount = 1;
-            desc_info.pSetLayouts = &descriptorSetLayout2;
-
-            if (vkAllocateDescriptorSets(device, &desc_info, &descriptorSet2) != VK_SUCCESS) {
-                throw std::runtime_error("failed to allocate descriptor sets");
-            }
-
-            VkDescriptorBufferInfo bufferInfo = {};
-            bufferInfo.buffer = uniformBuffer2;
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(skyboxmvp);
-
+        std::vector<VkDescriptorImageInfo> images = {};
+        for (const VKTexture& texture : textures) {
             VkDescriptorImageInfo info = {};
             info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            info.imageView = skybox.getView();
-            info.sampler = skybox.getSampler();
-
-            VkWriteDescriptorSet buffer_descriptor2 = {};
-            buffer_descriptor2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            buffer_descriptor2.dstSet = descriptorSet2;
-            buffer_descriptor2.dstBinding = 0;
-            buffer_descriptor2.dstArrayElement = 0;
-            buffer_descriptor2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            buffer_descriptor2.descriptorCount = 1;
-            buffer_descriptor2.pBufferInfo = &bufferInfo;
-            buffer_descriptor2.pImageInfo = nullptr;
-            buffer_descriptor2.pTexelBufferView = nullptr;
-
-            VkWriteDescriptorSet image_descriptor2 = {};
-            image_descriptor2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            image_descriptor2.dstSet = descriptorSet2;
-            image_descriptor2.dstBinding = 1;
-            image_descriptor2.dstArrayElement = 0;
-            image_descriptor2.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            image_descriptor2.descriptorCount = 1;
-            image_descriptor2.pImageInfo = &info;
-
-            std::array<VkWriteDescriptorSet, 2> descriptors2 = { buffer_descriptor2, image_descriptor2 };
-            vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptors2.size()), descriptors2.data(), 0, nullptr);
+            info.imageView = texture.getView();
+            info.sampler = texture.getSampler();
+            images.push_back(info);
         }
 
-        std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
-            vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
-            frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
-        };
+        VkDescriptorBufferInfo bufferInfo = {};
+        bufferInfo.buffer = uniformBuffer;
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(skyboxmvp);
 
-        std::array<VkPipelineShaderStageCreateInfo, 2> shaders2 = {
-            skyboxv.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
-            skyboxf.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
-        };
+        VkWriteDescriptorSet buffer_descriptor = {};
+        buffer_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        buffer_descriptor.dstSet = descriptorSet;
+        buffer_descriptor.dstBinding = 0;
+        buffer_descriptor.dstArrayElement = 0;
+        buffer_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+        buffer_descriptor.descriptorCount = 1;
+        buffer_descriptor.pBufferInfo = &bufferInfo;
+        buffer_descriptor.pImageInfo = nullptr;
+        buffer_descriptor.pTexelBufferView = nullptr;
 
-        // create the graphics pipeline
-        createGraphicsPipeline(shaders, shaders2);
+        VkWriteDescriptorSet image_descriptor = {};
+        image_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        image_descriptor.dstSet = descriptorSet;
+        image_descriptor.dstBinding = 1;
+        image_descriptor.dstArrayElement = 0;
+        image_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        image_descriptor.descriptorCount = static_cast<uint32_t>(images.size());
+        image_descriptor.pImageInfo = images.data();
 
+        std::array<VkWriteDescriptorSet, 2> descriptors = { buffer_descriptor, image_descriptor };
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
+    }
+
+    void setupSkyboxStageUniformBuffers() {
+        VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+        uboLayoutBinding.binding = 0;
+        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uboLayoutBinding.descriptorCount = 1;
+        uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+        samplerLayoutBinding.binding = 1;
+        samplerLayoutBinding.descriptorCount = 1;
+        samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        samplerLayoutBinding.pImmutableSamplers = nullptr;
+        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+
+        VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+        layoutInfo.pBindings = bindings.data();
+
+        if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout2) != VK_SUCCESS) {
+            throw std::runtime_error("fialed to create descriptor layout");
+        }
+
+        createBuffer(
+            sizeof(skyboxmvp),
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            uniformBuffer2,
+            uniformBuffersMemory2
+        );
+
+        VkDescriptorSetAllocateInfo desc_info = {};
+        desc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        desc_info.descriptorPool = g_DescriptorPool;
+        desc_info.descriptorSetCount = 1;
+        desc_info.pSetLayouts = &descriptorSetLayout2;
+
+        if (vkAllocateDescriptorSets(device, &desc_info, &descriptorSet2) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate descriptor sets");
+        }
+
+        VkDescriptorBufferInfo bufferInfo = {};
+        bufferInfo.buffer = uniformBuffer2;
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(skyboxmvp);
+
+        VkDescriptorImageInfo info = {};
+        info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        info.imageView = skybox.getView();
+        info.sampler = skybox.getSampler();
+
+        VkWriteDescriptorSet buffer_descriptor2 = {};
+        buffer_descriptor2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        buffer_descriptor2.dstSet = descriptorSet2;
+        buffer_descriptor2.dstBinding = 0;
+        buffer_descriptor2.dstArrayElement = 0;
+        buffer_descriptor2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        buffer_descriptor2.descriptorCount = 1;
+        buffer_descriptor2.pBufferInfo = &bufferInfo;
+        buffer_descriptor2.pImageInfo = nullptr;
+        buffer_descriptor2.pTexelBufferView = nullptr;
+
+        VkWriteDescriptorSet image_descriptor2 = {};
+        image_descriptor2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        image_descriptor2.dstSet = descriptorSet2;
+        image_descriptor2.dstBinding = 1;
+        image_descriptor2.dstArrayElement = 0;
+        image_descriptor2.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        image_descriptor2.descriptorCount = 1;
+        image_descriptor2.pImageInfo = &info;
+
+        std::array<VkWriteDescriptorSet, 2> descriptors2 = { buffer_descriptor2, image_descriptor2 };
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptors2.size()), descriptors2.data(), 0, nullptr);
+    }
+
+    void setupFrameBuffers() {
+        VKTexture depth_texture = createDepthTexture();
         swapChainFramebuffers.resize(swapChainImageViews.size());
         for (size_t i = 0; i < swapChainImageViews.size(); i++) {
             std::array<VkImageView, 2> attachments = {
@@ -956,42 +998,9 @@ public:
                 throw std::runtime_error("failed to create vk framebuffer");
             }
         }
+    }
 
-        // allocate main dynamic buffers
-        VkCommandBufferAllocateInfo primaryInfo = {};
-        primaryInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        primaryInfo.commandPool = commandPool;
-        primaryInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        primaryInfo.commandBufferCount = 1;
-
-        if (vkAllocateCommandBuffers(device, &primaryInfo, &maincmdbuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate vk command buffers");
-        }
-
-        // allocate static buffers for meshes
-        VkCommandBufferAllocateInfo secondaryInfo = {};
-        secondaryInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        secondaryInfo.commandPool = commandPool;
-        secondaryInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
-        secondaryInfo.commandBufferCount = 1;
-
-        for (int i = (int)meshes.size() - 1; i >= 0; i--) {
-            secondaryBuffers.push_back(VkCommandBuffer());
-            vkAllocateCommandBuffers(device, &secondaryInfo, &secondaryBuffers.back());
-        }
-
-        recordModel();
-
-        if (vkAllocateCommandBuffers(device, &secondaryInfo, &imguicmdbuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate vk command buffers");
-        }
-
-        if (vkAllocateCommandBuffers(device, &secondaryInfo, &skyboxcmdbuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate vk command buffers");
-        }
-
-        recordSkyboxBuffer(cube_v, cube_i, pipelineLayout2, descriptorSet2, skyboxcmdbuffer);
-
+    void setupSyncObjects() {
         imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1014,6 +1023,41 @@ public:
         }
     }
 
+    void allocateCommandBuffers() {
+        // allocate main dynamic buffers
+        VkCommandBufferAllocateInfo primaryInfo = {};
+        primaryInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        primaryInfo.commandPool = commandPool;
+        primaryInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        primaryInfo.commandBufferCount = 1;
+
+        if (vkAllocateCommandBuffers(device, &primaryInfo, &maincmdbuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate vk command buffers");
+        }
+
+        // allocate static buffers for meshes
+        VkCommandBufferAllocateInfo secondaryInfo = {};
+        secondaryInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        secondaryInfo.commandPool = commandPool;
+        secondaryInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+        secondaryInfo.commandBufferCount = 1;
+
+        for (int i = 0; i < meshes.size(); i++) {
+            secondaryBuffers.push_back(VkCommandBuffer());
+            vkAllocateCommandBuffers(device, &secondaryInfo, &secondaryBuffers.back());
+        }
+
+        // allocate imgui cmd buffer
+        if (vkAllocateCommandBuffers(device, &secondaryInfo, &imguicmdbuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate vk command buffers");
+        }
+
+        // allocate skybox cmd buffer
+        if (vkAllocateCommandBuffers(device, &secondaryInfo, &skyboxcmdbuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate vk command buffers");
+        }
+    }
+
     template<typename T>
     void updateUniformBuffer(const T& ubo) {
         void* data;
@@ -1032,7 +1076,15 @@ public:
 
     uint32_t getNextFrame() {
         uint32_t imageIndex;
-        vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
+        VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+            recreateSwapchain();
+            return current_frame;
+        }
+        else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+            throw std::runtime_error("failed to acquire swap chain image");
+        }
+        
         return imageIndex;
     }
 
@@ -1448,7 +1500,15 @@ public:
         presentInfo.pSwapchains = swapChains;
         presentInfo.pImageIndices = &imageIndex;
         presentInfo.pResults = nullptr; // Optional
-        vkQueuePresentKHR(present_q, &presentInfo);
+
+        auto result = vkQueuePresentKHR(present_q, &presentInfo);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+            recreateSwapchain();
+        }
+        else if (result != VK_SUCCESS) {
+            throw std::runtime_error("failed to present swap chain image!");
+        }
 
         vkWaitForFences(device, 1, &inFlightFences[current_frame], VK_TRUE, UINT64_MAX);
         current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -1981,11 +2041,44 @@ public:
         return *devices.begin();
     }
 
-    void recreateSwapchain(uint32_t width, uint32_t height) {
+    void recreateSwapchain() {
+        try {
+            waitForIdle();
+            int w, h;
+            SDL_GetWindowSize(vkWindow, &w, &h);
+            uint32_t flags = SDL_GetWindowFlags(vkWindow);
+            while (flags & SDL_WINDOW_MINIMIZED) {
+                flags = SDL_GetWindowFlags(vkWindow);
+                SDL_Event ev;
+                while (SDL_PollEvent(&ev)) {}
+            }
+            // recreate the swapchain
+            cleanupSwapChain();
+            setupSwapchain(w, h);
 
+            std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
+                vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
+            };
+
+            std::array<VkPipelineShaderStageCreateInfo, 2> shaders2 = {
+                skyboxv.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                skyboxf.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
+            };
+
+            // create the graphics pipeline
+            createGraphicsPipeline(shaders, shaders2);
+            setupFrameBuffers();
+            recordModel();
+            recordSkyboxBuffer(cube_v, cube_i, pipelineLayout2, descriptorSet2, skyboxcmdbuffer);
+        }
+        catch (std::exception e) {
+            std::cout << e.what() << '\n';
+            abort();
+        }
     }
 
-    void setupSwapchain(uint32_t width, uint32_t height, const std::vector<const char*>& extensions) {
+    void setupSwapchain(uint32_t width, uint32_t height) {
         struct SwapChainSupportDetails {
             VkSurfaceCapabilitiesKHR capabilities;
             std::vector<VkSurfaceFormatKHR> formats;
