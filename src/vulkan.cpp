@@ -595,7 +595,7 @@ public:
 
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
-        setupSwapchain(w, h);
+        setupSwapchain(w, h, VK_PRESENT_MODE_MAILBOX_KHR);
         initResources();
         setupModelStageUniformBuffers();
         setupSkyboxStageUniformBuffers();
@@ -1078,7 +1078,7 @@ public:
         uint32_t imageIndex;
         VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-            recreateSwapchain();
+            recreateSwapchain(VK_PRESENT_MODE_MAILBOX_KHR);
             return current_frame;
         }
         else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -1504,7 +1504,7 @@ public:
         auto result = vkQueuePresentKHR(present_q, &presentInfo);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            recreateSwapchain();
+            recreateSwapchain(VK_PRESENT_MODE_MAILBOX_KHR);
         }
         else if (result != VK_SUCCESS) {
             throw std::runtime_error("failed to present swap chain image!");
@@ -2041,7 +2041,7 @@ public:
         return *devices.begin();
     }
 
-    void recreateSwapchain() {
+    void recreateSwapchain(VkPresentModeKHR mode) {
         try {
             waitForIdle();
             int w, h;
@@ -2054,7 +2054,7 @@ public:
             }
             // recreate the swapchain
             cleanupSwapChain();
-            setupSwapchain(w, h);
+            setupSwapchain(w, h, mode);
 
             std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
                 vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
@@ -2078,7 +2078,7 @@ public:
         }
     }
 
-    void setupSwapchain(uint32_t width, uint32_t height) {
+    void setupSwapchain(uint32_t width, uint32_t height, VkPresentModeKHR mode) {
         struct SwapChainSupportDetails {
             VkSurfaceCapabilitiesKHR capabilities;
             std::vector<VkSurfaceFormatKHR> formats;
@@ -2123,7 +2123,7 @@ public:
         }
 
         for (const auto& availablePresentMode : availablePresentModes) {
-            if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            if (availablePresentMode == mode) {
                 present_mode = availablePresentMode;
             }
         }
@@ -2518,6 +2518,11 @@ void Application::vulkan_main() {
         static bool use_vsync = false;
         if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
             use_vsync = !use_vsync;
+            if (use_vsync) {
+                vk.recreateSwapchain(VK_PRESENT_MODE_FIFO_KHR);
+            } else {
+                vk.recreateSwapchain(VK_PRESENT_MODE_MAILBOX_KHR);
+            }
         } 
         if (ImGui::RadioButton("Auto-move Light", move_light)) {
             move_light = !move_light;
