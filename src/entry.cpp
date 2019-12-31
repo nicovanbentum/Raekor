@@ -23,7 +23,7 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
         if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_CLOSE) {
             for (SDL_Window* window : windows) {
                 if (SDL_GetWindowID(window) == ev.window.windowID) {
-                    exit(EXIT_SUCCESS);
+                    Application::running = false;
                 }
             }
         }
@@ -55,6 +55,7 @@ int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
     app.vulkan_main();
+    app.serialize_settings("config.json", true);
     system("PAUSE");
     return 0;
 }

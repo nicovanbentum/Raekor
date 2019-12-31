@@ -62,16 +62,16 @@ class VKTexture {
 public:
     VKTexture() {}
 
-    VKTexture(VkImage& p_image, VkDeviceMemory& p_memory, VkImageView& p_view, VkSampler& p_sampler) :
+    VKTexture(VkImage p_image, VkDeviceMemory p_memory, VkImageView p_view, VkSampler p_sampler) :
         image(p_image), memory(p_memory), view(p_view), sampler(p_sampler) {}
 
-    VKTexture(VkImage& p_image, VkDeviceMemory& p_memory, VkImageView& p_view) :
+    VKTexture(VkImage p_image, VkDeviceMemory p_memory, VkImageView p_view) :
         image(p_image), memory(p_memory), view(p_view), sampler(VK_NULL_HANDLE) {}
 
-    inline const VkImage& getImage() const { return image; }
-    inline const VkSampler& getSampler() const { return sampler; }
-    inline const VkImageView& getView() const { return view; }
-    inline const VkDeviceMemory& getMemory() const { return memory; }
+    inline VkImage getImage() const { return image; }
+    inline VkSampler getSampler() const { return sampler; }
+    inline VkImageView getView() const { return view; }
+    inline VkDeviceMemory getMemory() const { return memory; }
 
 private:
     VkImage image;
@@ -113,10 +113,10 @@ class VKIndexBuffer : public VKBuffer {
 public:
     VKIndexBuffer() {}
 
-    VKIndexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory, uint32_t p_count)
+    VKIndexBuffer(VkBuffer p_buffer, VkDeviceMemory p_memory, uint32_t p_count)
         : VKBuffer(p_buffer, p_memory), count(p_count) {}
 
-    VKIndexBuffer(const VKBuffer& buffer, uint32_t p_count)
+    VKIndexBuffer(const VKBuffer buffer, uint32_t p_count)
         : VKBuffer(buffer.getBuffer(), buffer.getMemory()), count(p_count) {}
 
     uint32_t getCount() {
@@ -130,12 +130,12 @@ class VKVertexBuffer : public VKBuffer {
 public:
     VKVertexBuffer() {}
 
-    VKVertexBuffer(VkBuffer& p_buffer, VkDeviceMemory& p_memory) :
+    VKVertexBuffer(VkBuffer p_buffer, VkDeviceMemory p_memory) :
         VKBuffer(p_buffer, p_memory), info({}), bindingDescription({}), layout({}) {
         describe();
     }
 
-    VKVertexBuffer(const VKBuffer& buffer) :
+    VKVertexBuffer(const VKBuffer buffer) :
         VKBuffer(buffer.getBuffer(), buffer.getMemory()), info({}), bindingDescription({}), layout({}) {
             describe();
     }
@@ -263,6 +263,7 @@ private:
     std::vector<VkImageView> swapChainImageViews;
     VkSwapchainKHR swapchain;
     std::vector<VkFramebuffer> swapChainFramebuffers;
+    bool vsync = true;
 
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> imagesInFlight;
@@ -288,6 +289,7 @@ private:
     std::vector < std::vector<Vertex>> meshes;
 
     VkPipelineVertexInputStateCreateInfo input_state;
+    VKTexture depth_texture;
 
     VkDescriptorPool g_DescriptorPool;
     VkBuffer uniformBuffer;
@@ -332,7 +334,9 @@ public:
 
     void reloadShaders() {
         // wait for the device to idle , since it's an engine function we dont care about performance
-        vkDeviceWaitIdle(device);
+        if (vkDeviceWaitIdle(device) != VK_SUCCESS) {
+            throw std::runtime_error("failed to wait for the gpu to idle");
+        }
         // recompile and reload the shaders
         compile_shader("shaders/Vulkan/vulkan.vert", "shaders/Vulkan/vert.spv");
         compile_shader("shaders/Vulkan/vulkan.frag", "shaders/Vulkan/frag.spv");
@@ -354,24 +358,93 @@ public:
     }
 
     ~VKRender() {
-        vkDestroyRenderPass(device, renderPass, nullptr);
-        vkDestroyCommandPool(device, commandPool, nullptr);
-        vkDestroySwapchainKHR(device, swapchain, nullptr);
-        for (auto& imageview : swapChainImageViews)
-            vkDestroyImageView(device, imageview, nullptr);
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplSDL2_Shutdown();
+        ImGui::DestroyContext();
+
+        // destroy/free descriptor stuff
+        vkFreeMemory(device, uniformBuffersMemory, nullptr);
+        vkFreeMemory(device, uniformBuffersMemory2, nullptr);
+        vkDestroyBuffer(device, uniformBuffer, nullptr);
+        vkDestroyBuffer(device, uniformBuffer2, nullptr);
+        vkFreeDescriptorSets(device, g_DescriptorPool, 1, &descriptorSet);
+        vkFreeDescriptorSets(device, g_DescriptorPool, 1, &descriptorSet2);
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayout2, nullptr);
+        vkDestroyDescriptorPool(device, g_DescriptorPool, nullptr);
+
+        // destroy swap chain
         for (auto& fb : swapChainFramebuffers)
             vkDestroyFramebuffer(device, fb, nullptr);
+        for (auto& imageview : swapChainImageViews)
+            vkDestroyImageView(device, imageview, nullptr);
+        vkDestroySwapchainKHR(device, swapchain, nullptr);
+
+
+        // destroy/free pipeline related stuff
+        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        vkDestroyPipeline(device, skyboxPipeline, nullptr);
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        vkDestroyPipelineLayout(device, pipelineLayout2, nullptr);
+
+        // destroy/free texture resources
+        for (VKTexture& texture : textures) {
+            vkDestroyImage(device, texture.getImage(), nullptr);
+            vkDestroyImageView(device, texture.getView(), nullptr);
+            vkDestroySampler(device, texture.getSampler(), nullptr);
+            vkFreeMemory(device, texture.getMemory(), nullptr);
+        }
+        vkDestroyImage(device, skybox.getImage(), nullptr);
+        vkDestroyImageView(device, skybox.getView(), nullptr);
+        vkDestroySampler(device, skybox.getSampler(), nullptr);
+        vkFreeMemory(device, skybox.getMemory(), nullptr);
+
+        vkDestroyImage(device, depth_texture.getImage(), nullptr);
+        vkDestroyImageView(device, depth_texture.getView(), nullptr);
+        vkDestroySampler(device, depth_texture.getSampler(), nullptr);
+        vkFreeMemory(device, depth_texture.getMemory(), nullptr);
+
+        // destroy/free  vertex/index buffers 
+        vkDestroyBuffer(device, cube_v.getBuffer(), nullptr);
+        vkDestroyBuffer(device, cube_i.getBuffer(), nullptr);
+        vkFreeMemory(device, cube_v.getMemory(), nullptr);
+        vkFreeMemory(device, cube_i.getMemory(), nullptr);
+        for (auto& buffer : vbuffers) {
+            vkDestroyBuffer(device, buffer.getBuffer(), nullptr);
+            vkFreeMemory(device, buffer.getMemory(), nullptr);
+        }
+        for (auto& buffer : ibuffers) {
+            vkDestroyBuffer(device, buffer.getBuffer(), nullptr);
+            vkFreeMemory(device, buffer.getMemory(), nullptr);
+        }
+
+        // destroy/free shaders
+        vkDestroyShaderModule(device, vert.getModule(), nullptr);
+        vkDestroyShaderModule(device, frag.getModule(), nullptr);
+        vkDestroyShaderModule(device, skyboxv.getModule(), nullptr);
+        vkDestroyShaderModule(device, skyboxf.getModule(), nullptr);
+
+        // destroy/free command buffer stuff
+        std::array<VkCommandBuffer, 3> buffers = { maincmdbuffer, imguicmdbuffer, skyboxcmdbuffer };
+        vkFreeCommandBuffers(device, commandPool, (uint32_t)buffers.size(), buffers.data());
+        vkFreeCommandBuffers(device, commandPool, (uint32_t)secondaryBuffers.size(), secondaryBuffers.data());
+        vkDestroyCommandPool(device, commandPool, nullptr);
+
+        // destroy/free sync objects
         for (unsigned int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
             vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
             vkDestroyFence(device, inFlightFences[i], nullptr);
         }
-        vkDestroyBuffer(device, uniformBuffer, nullptr);
-        vkFreeMemory(device, uniformBuffersMemory, nullptr);
-        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+
+        // destroy render pass
+        vkDestroyRenderPass(device, renderPass, nullptr);
+
+        // destroy final handles
         vkDestroySurfaceKHR(instance, surface, nullptr);
-        vkDestroyInstance(instance, nullptr);
         vkDestroyDevice(device, nullptr);
+        vkDestroyInstance(instance, nullptr);
+
     }
 
     VKRender(const std::array<std::string, 6>& ff) {
@@ -391,11 +464,11 @@ public:
         vkWindow = window;
         VkApplicationInfo appInfo = {};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        appInfo.pApplicationName = "Hello Triangle";
-        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.pEngineName = "No Engine";
-        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.apiVersion = VK_API_VERSION_1_0;
+        appInfo.pApplicationName = "Render Engine";
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 1, 0);
+        appInfo.pEngineName = "Raekor Engine";
+        appInfo.engineVersion = VK_MAKE_VERSION(1, 1, 0);
+        appInfo.apiVersion = VK_API_VERSION_1_1;
 
         VkInstanceCreateInfo instance_info = {};
         instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -406,9 +479,7 @@ public:
             throw std::runtime_error("failed to get vulkan instance extensions");
         }
 
-        std::vector<const char*> extensions = {
-        VK_EXT_DEBUG_REPORT_EXTENSION_NAME // Sample additional extension
-        };
+        std::vector<const char*> extensions = { VK_EXT_DEBUG_REPORT_EXTENSION_NAME };
         size_t additional_extension_count = extensions.size();
         extensions.resize(additional_extension_count + count);
 
@@ -595,7 +666,8 @@ public:
 
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
-        setupSwapchain(w, h, VK_PRESENT_MODE_MAILBOX_KHR);
+        VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
+        setupSwapchain(w, h, mode);
         initResources();
         setupModelStageUniformBuffers();
         setupSkyboxStageUniformBuffers();
@@ -629,8 +701,15 @@ public:
         }
 
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        vkDestroyPipeline(device, skyboxPipeline, nullptr);
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        vkDestroyPipelineLayout(device, pipelineLayout2, nullptr);
         vkDestroyRenderPass(device, renderPass, nullptr);
+
+        vkDestroyImage(device, depth_texture.getImage(), nullptr);
+        vkDestroyImageView(device, depth_texture.getView(), nullptr);
+        vkDestroySampler(device, depth_texture.getSampler(), nullptr);
+        vkFreeMemory(device, depth_texture.getMemory(), nullptr);
 
         for (size_t i = 0; i < swapChainImageViews.size(); i++) {
             vkDestroyImageView(device, swapChainImageViews[i], nullptr);
@@ -977,7 +1056,7 @@ public:
     }
 
     void setupFrameBuffers() {
-        VKTexture depth_texture = createDepthTexture();
+        depth_texture = createDepthTexture();
         swapChainFramebuffers.resize(swapChainImageViews.size());
         for (size_t i = 0; i < swapChainImageViews.size(); i++) {
             std::array<VkImageView, 2> attachments = {
@@ -1078,7 +1157,7 @@ public:
         uint32_t imageIndex;
         VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-            recreateSwapchain(VK_PRESENT_MODE_MAILBOX_KHR);
+            recreateSwapchain(vsync);
             return current_frame;
         }
         else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -1089,7 +1168,9 @@ public:
     }
 
     void waitForIdle() {
-        vkDeviceWaitIdle(device);
+        if (vkDeviceWaitIdle(device) != VK_SUCCESS) {
+            throw std::runtime_error("failed to wait for the gpu to idle");
+        }
     }
 
     void recordSkyboxBuffer(VKVertexBuffer& meshBuffer, VKIndexBuffer& indexBuffer, VkPipelineLayout& pLayout, VkDescriptorSet& set, VkCommandBuffer& cmdbuffer) {
@@ -1504,7 +1585,7 @@ public:
         auto result = vkQueuePresentKHR(present_q, &presentInfo);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            recreateSwapchain(VK_PRESENT_MODE_MAILBOX_KHR);
+            recreateSwapchain(vsync);
         }
         else if (result != VK_SUCCESS) {
             throw std::runtime_error("failed to present swap chain image!");
@@ -1833,6 +1914,7 @@ public:
         // setup the stage buffer
         VkBuffer stage_pixels;
         VkDeviceMemory stage_pixels_mem;
+
         createBuffer(
             imageSize,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -1852,7 +1934,7 @@ public:
 
         // cleanup the loaded image data from RAM
         for (unsigned int i = 0; i < 6; i++) {
-            //stbi_image_free(textureData[i]);
+            stbi_image_free(textureData[i]);
         }
 
         VkImage texture;
@@ -2041,7 +2123,8 @@ public:
         return *devices.begin();
     }
 
-    void recreateSwapchain(VkPresentModeKHR mode) {
+    void recreateSwapchain(bool useVsync) {
+        vsync = useVsync;
         try {
             waitForIdle();
             int w, h;
@@ -2054,6 +2137,7 @@ public:
             }
             // recreate the swapchain
             cleanupSwapChain();
+            VkPresentModeKHR mode = useVsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
             setupSwapchain(w, h, mode);
 
             std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
@@ -2291,9 +2375,10 @@ public:
     };
 
     void ImGuiInit(SDL_Window* window) {
-        ImGui_ImplVulkan_InitInfo info;
+        ImGui_ImplVulkan_InitInfo info = {};
         info.Device = device;
         info.PhysicalDevice = gpu;
+        info.Instance = instance;
         info.QueueFamily = qindices.graphics.value();
         info.Queue = graphics_q;
         info.PipelineCache = VK_NULL_HANDLE;
@@ -2320,6 +2405,8 @@ public:
     }
 };
 
+bool Application::running = true;
+
 void Application::vulkan_main() {
     auto context = Raekor::PlatformContext();
 
@@ -2343,11 +2430,11 @@ void Application::vulkan_main() {
     auto window = SDL_CreateWindow(name.c_str(),
         displays[index].x,
         displays[index].y,
-        displays[index].w,
-        displays[index].h,
+        1920,
+        1080,
         wflags);
 
-    // initialize ImGui
+     //initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
@@ -2381,8 +2468,6 @@ void Application::vulkan_main() {
     Ffilter ft_mesh = {};
     ft_mesh.name = "Supported Mesh Files";
     ft_mesh.extensions = "*.obj;*.fbx";
-
-    bool running = true;
 
     // MVP uniform buffer object
     skyboxmvp ubo = {};
@@ -2514,15 +2599,12 @@ void Application::vulkan_main() {
 
         // scene panel
         ImGui::Begin("Scene");
-        // toggle button for openGl vsync
-        static bool use_vsync = false;
+        // toggle button for vsync
+        static bool use_vsync = true;
+        static bool update = false;
         if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
             use_vsync = !use_vsync;
-            if (use_vsync) {
-                vk.recreateSwapchain(VK_PRESENT_MODE_FIFO_KHR);
-            } else {
-                vk.recreateSwapchain(VK_PRESENT_MODE_MAILBOX_KHR);
-            }
+            update = true;
         } 
         if (ImGui::RadioButton("Auto-move Light", move_light)) {
             move_light = !move_light;
@@ -2550,11 +2632,19 @@ void Application::vulkan_main() {
         // tell imgui we're done with the current frame
         ImGui::EndFrame();
 
+        if (update) {
+            vk.recreateSwapchain(use_vsync);
+            update = false;
+        }
+
         dt_timer.stop();
         dt = dt_timer.elapsed_ms();
     }
 
     vk.waitForIdle();
+
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 }
 
 } // namespace Raekor
