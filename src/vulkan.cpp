@@ -310,7 +310,6 @@ private:
     size_t bufferSize;
 
     std::array < std::string, 6> face_files;
-    uint32_t meshcount;
 
     // texture handles
     std::vector<VKTexture> textures;
@@ -457,7 +456,7 @@ public:
     }
 
     uint32_t getMeshCount() {
-        return meshcount;
+        return static_cast<uint32_t>(meshes.size());
     }
 
     void init(SDL_Window* window) {
@@ -847,7 +846,6 @@ public:
 
         std::vector<std::future<void>> futures;
         for (const auto& kv : seen) {
-            //load_image(kv);
             futures.push_back(std::async(std::launch::async, load_image, kv));
         }
 
@@ -868,7 +866,6 @@ public:
         input_state = vbuffers.back().getInfo();
 
         std::cout << "mesh total = " << vbuffers.size() << "\n";
-        meshcount = static_cast<uint32_t>(vbuffers.size());
     }
 
     void setupModelStageUniformBuffers() {
@@ -2406,6 +2403,7 @@ public:
 };
 
 bool Application::running = true;
+bool Application::showUI = true;
 
 void Application::vulkan_main() {
     auto context = Raekor::PlatformContext();
@@ -2417,7 +2415,7 @@ void Application::vulkan_main() {
     m_assert(sdl_err == 0, "failed to init SDL for video");
 
     Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN |
-        SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
+        SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN;
 
     std::vector<SDL_Rect> displays;
     for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
@@ -2428,11 +2426,12 @@ void Application::vulkan_main() {
     // if our display setting is higher than the nr of displays we pick the default display
     auto index = display > displays.size() - 1 ? 0 : display;
     auto window = SDL_CreateWindow(name.c_str(),
-        displays[index].x,
-        displays[index].y,
-        1920,
-        1080,
+        0,
+        0,
+        (int)(displays[index].w * 0.9),
+        (int)(displays[index].h * 0.9),
         wflags);
+
 
      //initialize ImGui
     IMGUI_CHECKVERSION();
@@ -2463,6 +2462,8 @@ void Application::vulkan_main() {
 
     std::puts("job well done.");
 
+    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
+    SDL_ShowWindow(window);
     SDL_SetWindowInputFocus(window);
 
     Ffilter ft_mesh = {};
@@ -2486,6 +2487,10 @@ void Application::vulkan_main() {
     lightmatrix = glm::translate(lightmatrix, { 0.0, 1.0f, 0.0 });
     float lightPos[3], lightRot[3], lightScale[3];
     ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
+    glm::vec3 lightAngle = { -0.2f, -1.0f, -0.3f };
+
+    bool use_vsync = true;
+    bool update = false;
 
     //main application loop
     while (running) {
@@ -2501,7 +2506,7 @@ void Application::vulkan_main() {
             modelMat->view = camera.getView();
             ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
             modelMat->lightPos = glm::make_vec3(lightPos);
-            modelMat->viewPos = camera.getPosition();
+            modelMat->lightAngle = lightAngle;
         }
 
         uint32_t frame = vk.getNextFrame();
@@ -2558,63 +2563,68 @@ void Application::vulkan_main() {
         if (move_light) {
             lightmatrix = glm::translate(lightmatrix, { light_delta, 0.0, 0.0 });
         }
-        // draw the imguizmo at the center of the light
-        ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
 
-
-        ImGui::Begin("ECS");
-        if (ImGui::Button("Add Model")) {
-            std::string path = context.open_file_dialog({ ft_mesh });
-            if (!path.empty()) {
+        if (showUI) {
+            // draw the imguizmo at the center of the light
+            ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
+            ImGui::Begin("ECS", (bool*)0, ImGuiWindowFlags_AlwaysAutoResize);
+            if (ImGui::Button("Add Model")) {
+                std::string path = context.open_file_dialog({ ft_mesh });
+                if (!path.empty()) {
+                }
             }
+            ImGui::SameLine();
+            if (ImGui::Button("Remove Model")) {
+            }
+            ImGui::End();
+
+            ImGui::ShowMetricsWindow();
+
+            ImGui::Begin("Mesh Properties");
+
+            if (ImGui::SliderInt("Mesh", &active, 0, 24)) {}
+            if (ImGui::DragFloat3("Scale", glm::value_ptr(mods[active].scale), 0.01f, 0.0f, 10.0f)) {
+                mods[active].transform();
+            }
+            if (ImGui::DragFloat3("Position", glm::value_ptr(mods[active].position), 0.01f, -100.0f, 100.0f)) {
+                mods[active].transform();
+            }
+            if (ImGui::DragFloat3("Rotation", glm::value_ptr(mods[active].rotation), 0.01f, (float)(-M_PI), (float)(M_PI))) {
+                mods[active].transform();
+            }
+            ImGui::End();
+
+            ImGui::Begin("Camera Properties");
+            if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.01f, FLT_MAX, "%.2f")) {}
+            if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
+
+            ImGui::End();
+
+            // scene panel
+            ImGui::Begin("Scene");
+            // toggle button for vsync
+            static bool use_vsync = true;
+            static bool update = false;
+            if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
+                use_vsync = !use_vsync;
+                update = true;
+            } 
+            if (ImGui::RadioButton("Auto-move Light", move_light)) {
+                move_light = !move_light;
+            }
+
+            if (ImGui::Button("Reload shaders")) {
+                vk.reloadShaders();
+            }
+
+            ImGui::NewLine(); ImGui::Separator(); ImGui::NewLine();
+
+            if (ImGui::DragFloat3("Light angle", glm::value_ptr(lightAngle), 0.1f, -1.0f, 1.0f)) {}
+
+
+            ImGui::End();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Remove Model")) {
-        }
-        ImGui::End();
 
-        ImGui::ShowMetricsWindow();
-
-        ImGui::Begin("Mesh Properties");
-
-        if (ImGui::SliderInt("Mesh", &active, 0, 24)) {}
-        if (ImGui::DragFloat3("Scale", glm::value_ptr(mods[active].scale), 0.01f, 0.0f, 10.0f)) {
-            mods[active].transform();
-        }
-        if (ImGui::DragFloat3("Position", glm::value_ptr(mods[active].position), 0.01f, -100.0f, 100.0f)) {
-            mods[active].transform();
-
-        }
-        if (ImGui::DragFloat3("Rotation", glm::value_ptr(mods[active].rotation), 0.01f, (float)(-M_PI), (float)(M_PI))) {
-            mods[active].transform();
-
-        }
-        ImGui::End();
-
-        ImGui::Begin("Camera Properties");
-        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.01f, FLT_MAX, "%.2f")) {}
-        if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
-
-        ImGui::End();
-
-        // scene panel
-        ImGui::Begin("Scene");
-        // toggle button for vsync
-        static bool use_vsync = true;
-        static bool update = false;
-        if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
-            use_vsync = !use_vsync;
-            update = true;
-        } 
-        if (ImGui::RadioButton("Auto-move Light", move_light)) {
-            move_light = !move_light;
-        }
-
-        if (ImGui::Button("Reload shaders")) {
-            vk.reloadShaders();
-        }
-
-        ImGui::End();
 
         // End DOCKSPACE
         ImGui::End();

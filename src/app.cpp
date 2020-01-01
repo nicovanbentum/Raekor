@@ -122,7 +122,6 @@ void Application::run() {
     if (!io.Fonts->Fonts.empty()) {
         io.FontDefault = io.Fonts->Fonts.back();
     }
-    bool running = true;
     static unsigned int selected_mesh = 0;
     bool show_settings_window = false;
 

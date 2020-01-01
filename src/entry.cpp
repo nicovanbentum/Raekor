@@ -27,21 +27,19 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
                 }
             }
         }
-
-        if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_RESIZED) {
-            std::puts("window resized");
-        }
-
         if (!camera.is_mouse_active() && ev.type == SDL_MOUSEMOTION) {
             camera.look(ev.motion.xrel, ev.motion.yrel);
         }
-
         // key down and not repeating a hold
         if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
             switch (ev.key.keysym.sym) {
             case SDLK_LALT: {
                 camera.set_mouse_active(!camera.is_mouse_active());
                 SDL_SetRelativeMouseMode((SDL_bool)(!camera.is_mouse_active()));
+            } break;
+
+            case SDLK_h: {
+                Application::showUI = !Application::showUI;
             } break;
             }
         }
@@ -56,6 +54,5 @@ int main(int argc, char** argv) {
     auto app = Raekor::Application();
     app.vulkan_main();
     app.serialize_settings("config.json", true);
-    system("PAUSE");
     return 0;
 }

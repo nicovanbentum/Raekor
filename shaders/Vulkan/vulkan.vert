@@ -1,18 +1,14 @@
 #version 450
-#extension GL_KHR_vulkan_glsl: enable
 #extension GL_ARB_separate_shader_objects : enable
 
-// shader uniform buffer
-struct MVP {
+// uniform buffer binding
+layout(binding = 0) uniform Camera {
 	mat4 m;
 	mat4 v;
 	mat4 p;
 	vec3 light_position;
-};
-
-// uniform buffer binding
-layout(binding = 0) uniform Camera {
-    MVP mvp;
+	// shader is interpreting the angle's x as y, possible alignment problem?
+	vec3 light_angle;
 } ubo;
 
 // vertex attributes
@@ -25,6 +21,7 @@ layout(location = 1) out vec2 out_uv;
 layout(location = 2) out vec3 out_normal;
 layout(location = 3) out vec3 out_pos;
 layout(location = 4) out vec3 out_light_pos;
+layout(location = 5) out vec3 out_light_angle;
 
 // DEBUG COLORS
 vec3 colors[4] = vec3[](
@@ -36,10 +33,11 @@ vec3 colors[4] = vec3[](
 
 void main() {
 	// CAMERA SPACE : VERTEX POSITION
-    gl_Position = ubo.mvp.p * ubo.mvp.v * ubo.mvp.m * vec4(pos, 1.0);
-	out_pos = vec3(ubo.mvp.v * ubo.mvp.m * vec4(pos, 1.0));
-	out_normal = mat3(transpose(inverse(ubo.mvp.v * ubo.mvp.m))) * normal;
-	out_light_pos = vec3(ubo.mvp.v * vec4(ubo.mvp.light_position, 1.0));
+    gl_Position = ubo.p * ubo.v * ubo.m * vec4(pos, 1.0);
+	out_pos = vec3(ubo.v * ubo.m * vec4(pos, 1.0));
+	out_normal = mat3(transpose(inverse(ubo.v * ubo.m))) * normal;
+	out_light_pos = vec3(ubo.v * vec4(ubo.light_position, 1.0));
+	out_light_angle = vec3(ubo.v * vec4(ubo.light_angle, 0.0));
 	out_uv = uv;
 
 	// DEBUG COLOR INDEX

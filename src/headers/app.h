@@ -23,6 +23,7 @@ public:
     void serialize_settings(const std::string& filepath, bool write = false);
 
     static bool running;
+    static bool showUI;
 
 private:
     std::string name;
