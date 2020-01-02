@@ -8,8 +8,8 @@ struct MVP {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 projection;
-    glm::vec3 lightPos;
-    glm::vec3 lightAngle;
+    glm::vec4 lightPos;
+    glm::vec4 lightAngle;
 };
 
 class Camera {

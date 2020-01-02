@@ -47,8 +47,8 @@ void main() {
 
     vec4 sampled = texture( tex_sampler[pc.samplerIndex], uv);
 
-    vec3 result = doLight(light);
-	//result += doLight(light);
+    vec3 result = doLight(dirlight) * 0.1;
+	result += doLight(light);
     final_color = vec4(result, sampled.a);
 }
 
@@ -96,7 +96,7 @@ vec3 doLight(DirectionalLight light) {
     vec3 norm = normalize(normal);
     vec3 view_dir = normalize(-pos);
 
-    vec3 light_dir = normalize(-light.direction);
+    vec3 light_dir = normalize(light.direction);
     float diff = clamp(dot(norm, light_dir), 0, 1);
     vec3 diffuse = light.color * diff * sampled.rgb;
 

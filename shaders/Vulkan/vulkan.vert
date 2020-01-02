@@ -2,13 +2,13 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 // uniform buffer binding
-layout(binding = 0) uniform Camera {
+layout (binding = 0) uniform Camera {
 	mat4 m;
 	mat4 v;
 	mat4 p;
-	vec3 light_position;
+	vec4 light_position;
 	// shader is interpreting the angle's x as y, possible alignment problem?
-	vec3 light_angle;
+	vec4 light_angle;
 } ubo;
 
 // vertex attributes
@@ -36,8 +36,8 @@ void main() {
     gl_Position = ubo.p * ubo.v * ubo.m * vec4(pos, 1.0);
 	out_pos = vec3(ubo.v * ubo.m * vec4(pos, 1.0));
 	out_normal = mat3(transpose(inverse(ubo.v * ubo.m))) * normal;
-	out_light_pos = vec3(ubo.v * vec4(ubo.light_position, 1.0));
-	out_light_angle = vec3(ubo.v * vec4(ubo.light_angle, 0.0));
+	out_light_pos = vec3(ubo.v * ubo.light_position);
+	out_light_angle = vec3(ubo.v * ubo.light_angle);
 	out_uv = uv;
 
 	// DEBUG COLOR INDEX

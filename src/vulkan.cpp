@@ -899,9 +899,14 @@ public:
         // Calculate required alignment based on minimum device offset alignment
         size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
         dynamicAlignment = sizeof(MVP);
+        
         if (minUboAlignment > 0) {
             dynamicAlignment = (dynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
         }
+
+        std::cout << "dynamic alignment = " << dynamicAlignment << "\n";
+        std::cout << "MVP size = " << sizeof(MVP) << "\n";
+        std::cout << "size should be = " << (sizeof(glm::mat4) * 3) + (sizeof(glm::vec3) * 2) << "\n";
 
         // nr of meshes times the alignment
         bufferSize = vbuffers.size() * dynamicAlignment;
@@ -948,7 +953,7 @@ public:
         VkDescriptorBufferInfo bufferInfo = {};
         bufferInfo.buffer = uniformBuffer;
         bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(skyboxmvp);
+        bufferInfo.range = VK_WHOLE_SIZE;
 
         VkWriteDescriptorSet buffer_descriptor = {};
         buffer_descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -2487,7 +2492,7 @@ void Application::vulkan_main() {
     lightmatrix = glm::translate(lightmatrix, { 0.0, 1.0f, 0.0 });
     float lightPos[3], lightRot[3], lightScale[3];
     ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
-    glm::vec3 lightAngle = { -0.2f, -1.0f, -0.3f };
+    glm::vec4 lightAngle = { 0.0f, 1.0f, 1.0f, 0.0f };
 
     bool use_vsync = true;
     bool update = false;
@@ -2505,7 +2510,7 @@ void Application::vulkan_main() {
             modelMat->projection = camera.getProjection();
             modelMat->view = camera.getView();
             ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
-            modelMat->lightPos = glm::make_vec3(lightPos);
+            modelMat->lightPos = glm::vec4(glm::make_vec3(lightPos), 1.0f);
             modelMat->lightAngle = lightAngle;
         }
 
@@ -2603,8 +2608,6 @@ void Application::vulkan_main() {
             // scene panel
             ImGui::Begin("Scene");
             // toggle button for vsync
-            static bool use_vsync = true;
-            static bool update = false;
             if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
                 use_vsync = !use_vsync;
                 update = true;
@@ -2619,7 +2622,7 @@ void Application::vulkan_main() {
 
             ImGui::NewLine(); ImGui::Separator(); ImGui::NewLine();
 
-            if (ImGui::DragFloat3("Light angle", glm::value_ptr(lightAngle), 0.1f, -1.0f, 1.0f)) {}
+            if (ImGui::DragFloat3("Light angle", glm::value_ptr(lightAngle), 0.01f, -1.0f, 1.0f)) {}
 
 
             ImGui::End();
