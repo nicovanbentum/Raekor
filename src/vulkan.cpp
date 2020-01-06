@@ -2139,7 +2139,7 @@ public:
             }
             // recreate the swapchain
             cleanupSwapChain();
-            VkPresentModeKHR mode = useVsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
+            VkPresentModeKHR mode = useVsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
             setupSwapchain(w, h, mode);
 
             std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
@@ -2218,12 +2218,12 @@ public:
             extent = capabilities.currentExtent;
         }
         else {
-
             VkExtent2D actualExtent = { width, height };
             actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
             actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
             extent = actualExtent;
         }
+
         uint32_t imageCount = details.capabilities.minImageCount + 1;
         if (details.capabilities.maxImageCount > 0 && imageCount > details.capabilities.maxImageCount) {
             imageCount = details.capabilities.maxImageCount;
@@ -2409,6 +2409,7 @@ public:
 
 bool Application::running = true;
 bool Application::showUI = true;
+bool Application::shouldResize = false;
 
 void Application::vulkan_main() {
     auto context = Raekor::PlatformContext();
@@ -2645,9 +2646,10 @@ void Application::vulkan_main() {
         // tell imgui we're done with the current frame
         ImGui::EndFrame();
 
-        if (update) {
+        if (update || shouldResize) {
             vk.recreateSwapchain(use_vsync);
             update = false;
+            shouldResize = false;
         }
 
         dt_timer.stop();
