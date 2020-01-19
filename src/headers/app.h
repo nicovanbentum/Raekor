@@ -24,6 +24,7 @@ public:
 
     static bool running;
     static bool showUI;
+    static bool shouldResize;
 
 private:
     std::string name;
