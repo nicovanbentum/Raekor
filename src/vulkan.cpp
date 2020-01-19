@@ -546,15 +546,6 @@ public:
             requiredExtensions.erase(extension.extensionName);
         }
 
-        struct queue_indices {
-            std::optional<uint32_t> graphics;
-            std::optional<uint32_t> present;
-
-            bool isComplete() {
-                return graphics.has_value() && present.has_value();
-            }
-        };
-
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(gpu, &queueFamilyCount, nullptr);
 
@@ -2432,10 +2423,10 @@ void Application::vulkan_main() {
     // if our display setting is higher than the nr of displays we pick the default display
     auto index = display > displays.size() - 1 ? 0 : display;
     auto window = SDL_CreateWindow(name.c_str(),
-        0,
-        0,
-        (int)(displays[index].w * 0.9),
-        (int)(displays[index].h * 0.9),
+        SDL_WINDOWPOS_CENTERED_DISPLAY(index),
+        SDL_WINDOWPOS_CENTERED_DISPLAY(index),
+        static_cast<int>(displays[index].w * 0.9),
+        static_cast<int>(displays[index].h * 0.9),
         wflags);
 
 
@@ -2468,7 +2459,6 @@ void Application::vulkan_main() {
 
     std::puts("job well done.");
 
-    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
     SDL_ShowWindow(window);
     SDL_SetWindowInputFocus(window);
 
@@ -2613,7 +2603,7 @@ void Application::vulkan_main() {
                 use_vsync = !use_vsync;
                 update = true;
             } 
-            if (ImGui::RadioButton("Auto-move Light", move_light)) {
+            if (ImGui::RadioButton("Animate Light", move_light)) {
                 move_light = !move_light;
             }
 
@@ -2621,9 +2611,10 @@ void Application::vulkan_main() {
                 vk.reloadShaders();
             }
 
-            ImGui::NewLine(); ImGui::Separator(); ImGui::NewLine();
+            ImGui::NewLine(); ImGui::Separator();
 
-            if (ImGui::DragFloat3("Light angle", glm::value_ptr(lightAngle), 0.01f, -1.0f, 1.0f)) {}
+            ImGui::Text("Light Properties");
+            if (ImGui::DragFloat3("Angle", glm::value_ptr(lightAngle), 0.01f, -1.0f, 1.0f)) {}
 
 
             ImGui::End();
