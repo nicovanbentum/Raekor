@@ -7,7 +7,6 @@ layout (binding = 0) uniform Camera {
 	mat4 v;
 	mat4 p;
 	vec4 light_position;
-	// shader is interpreting the angle's x as y, possible alignment problem?
 	vec4 light_angle;
 } ubo;
 

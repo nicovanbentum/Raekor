@@ -195,6 +195,8 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     </ClCompile>
     <ClCompile Include="src\texture.cpp" />
     <ClCompile Include="src\timer.cpp" />
+    <ClCompile Include="src\VK\VKDevice.cpp" />
+    <ClCompile Include="src\VK\VKSwapchain.cpp" />
     <ClCompile Include="src\vulkan.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -228,6 +230,8 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClInclude Include="src\platform\windows\DXResourceBuffer.h" />
     <ClInclude Include="src\platform\windows\DXShader.h" />
     <ClInclude Include="src\platform\windows\DXTexture.h" />
+    <ClInclude Include="src\VK\VKDevice.h" />
+    <ClInclude Include="src\VK\VKSwapchain.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\DirectX\simple_vertex.hlsl">
