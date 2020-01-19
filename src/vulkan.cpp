@@ -2429,7 +2429,6 @@ void Application::vulkan_main() {
         static_cast<int>(displays[index].h * 0.9),
         wflags);
 
-
      //initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

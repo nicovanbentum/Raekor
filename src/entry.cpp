@@ -57,7 +57,8 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
 int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
-    app.vulkan_main();
+    app.doVulkan();
     app.serialize_settings("config.json", true);
+    system("PAUSE");
     return 0;
 }
