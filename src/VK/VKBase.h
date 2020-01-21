@@ -15,7 +15,9 @@ private:
     bool isDebug;
     VkInstance instance;
     VkSurfaceKHR surface;
+
 };
+
 
 class PhysicalDevice {
 public:
@@ -23,7 +25,7 @@ public:
     operator VkPhysicalDevice() { return gpu; }
     operator VkPhysicalDevice() const { return gpu; }
 
-    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
 private:
     VkPhysicalDevice gpu;
 };

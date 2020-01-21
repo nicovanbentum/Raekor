@@ -70,5 +70,26 @@ static void print_progress_bar(int val, int min, int max) {
     if (val == max) std::cout << std::endl;
 };
 
+enum {
+    RGB = 3, RGBA = 4
+};
+
+namespace Stb {
+    struct Image {
+        Image(uint32_t format) : filepath(filepath), format(format) {}
+        ~Image() { stbi_image_free(pixels); }
+
+        void load(const std::string& filepath, bool loadFlipped = false) {
+            stbi_set_flip_vertically_on_load(loadFlipped);
+            pixels = stbi_load(filepath.c_str(), &w, &h, &channels, static_cast<uint32_t>(format));
+        }
+
+        uint32_t format;
+        int w, h, channels;
+        std::string filepath;
+        unsigned char* pixels;
+    };
+}
+
 
 } // Namespace Raekor

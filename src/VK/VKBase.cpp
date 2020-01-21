@@ -120,7 +120,7 @@ PhysicalDevice::PhysicalDevice(const Instance& instance)
 
 //////////////////////////////////////////////////////////////////////////
 
-VkFormat PhysicalDevice::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+VkFormat PhysicalDevice::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const {
     for (VkFormat format : candidates) {
         VkFormatProperties props;
         vkGetPhysicalDeviceFormatProperties(gpu, format, &props);

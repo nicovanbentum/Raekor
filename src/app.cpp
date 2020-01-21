@@ -85,7 +85,7 @@ void Application::run() {
 
     Ffilter ft_mesh;
     ft_mesh.name = "Supported Mesh Files";
-    ft_mesh.extensions = "*.obj;*.fbx";
+    ft_mesh.extensions = "*.obj;*.fbx;*.gltf";
 
     Ffilter ft_texture;
     ft_texture.name = "Supported Image Files";

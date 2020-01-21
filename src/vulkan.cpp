@@ -7,6 +7,7 @@
 #include "camera.h"
 #include "buffer.h"
 #include "PlatformContext.h"
+#include "vulkan/vulkan.hpp"
 
 #define _glslc "dependencies\\glslc.exe "
 #define _cl(in, out) system(std::string(_glslc + static_cast<std::string>(in) + static_cast<std::string>(" -o ") + static_cast<std::string>(out)).c_str())

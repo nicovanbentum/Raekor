@@ -65,12 +65,16 @@ public:
         vkFreeMemory(device, stage_mem, nullptr);
     }
 
+    void allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets) const;
+    void freeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const;
+
 private:
     Queues qindices;
     VkDevice device;
     VkQueue presentQueue;
     VkQueue graphicsQueue;
     VkCommandPool commandPool;
+    VkDescriptorPool descriptorPool;
     VkPhysicalDeviceMemoryProperties memProperties;
 };
 
