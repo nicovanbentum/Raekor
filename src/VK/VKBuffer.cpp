@@ -4,9 +4,7 @@
 namespace Raekor {
 namespace VK {
 
-Buffer::Buffer(VkDevice device) {
-    this->device = device;
-}
+Buffer::Buffer(VkDevice device) : device(device) {}
 
 Buffer::~Buffer() {
     vkDestroyBuffer(device, buffer, nullptr);
@@ -24,13 +22,13 @@ VkFormat Buffer::toVkFormat(ShaderType type) {
 }
 
 IndexBuffer::IndexBuffer(const Context& ctx, const std::vector<Index>& indices) 
-    : Buffer(ctx.device) {
+    : Buffer(ctx.device), count(indices.size() * 3) {
     ctx.device.uploadBuffer<Index>(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, buffer, memory);
 }
 
 VertexBuffer::VertexBuffer(const Context& ctx, std::vector<Vertex>& vertices) 
-    : Buffer(ctx.device) {
-    ctx.device.uploadBuffer<Vertex>(vertices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, buffer, memory);
+    : Buffer(ctx.device), info({}) {
+    ctx.device.uploadBuffer<Vertex>(vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, buffer, memory);
     describe();
 }
 
@@ -59,7 +57,7 @@ void VertexBuffer::describe() {
     info.pVertexBindingDescriptions = &bindingDescription;
 }
 
-VkPipelineVertexInputStateCreateInfo VertexBuffer::getInfo() {
+VkPipelineVertexInputStateCreateInfo VertexBuffer::getState() {
     setLayout(extLayout);
     describe();
     return info;

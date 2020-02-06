@@ -9,7 +9,7 @@ public:
     ~Instance();
     operator VkInstance() { return instance; }
     operator VkInstance() const { return instance; }
-    VkSurfaceKHR getSurface() const { return surface; }
+    inline VkSurfaceKHR getSurface() const { return surface; }
 
 private:
     bool isDebug;

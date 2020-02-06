@@ -486,6 +486,7 @@ namespace VK {
         //////////////////////////////////////////////////////////////////////////////////////////////////
 
         void Device::freeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const {
+            if (count <= 0) return;
             vkFreeDescriptorSets(device, descriptorPool, count, sets);
         }
 

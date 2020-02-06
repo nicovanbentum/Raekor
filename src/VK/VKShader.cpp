@@ -61,5 +61,16 @@ std::vector<char> Shader::readShaderFile(const std::string& path) {
     return buffer;
 }
 
+///////////////////////////////////////////////////////////////////////////
+
+VkPipelineShaderStageCreateInfo Shader::getInfo(VkShaderStageFlagBits stage) const {
+    VkPipelineShaderStageCreateInfo stage_info = {};
+    stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stage_info.stage = stage;
+    stage_info.module = module;
+    stage_info.pName = "main";
+    return stage_info;
+}
+
 } // VK
 } // Raekor

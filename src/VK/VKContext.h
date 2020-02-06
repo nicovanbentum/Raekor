@@ -11,6 +11,7 @@ public:
     Context(SDL_Window* window);
 
 public:
+    SDL_Window* window;
     Instance instance;
     PhysicalDevice PDevice;
     Device device;

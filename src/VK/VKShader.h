@@ -12,6 +12,7 @@ public:
     void reload();
     static void Compile(const char* in, const char* out);
     operator VkShaderModule() { return module; }
+    VkPipelineShaderStageCreateInfo getInfo(VkShaderStageFlagBits stage) const;
 
 private:
     VkDevice device;

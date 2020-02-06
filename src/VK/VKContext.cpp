@@ -6,9 +6,10 @@ namespace Raekor {
 namespace VK {
 
 Context::Context(SDL_Window* window)
-    : instance(window),
-    PDevice(instance),
-    device(instance, PDevice) 
+    :   window(window), 
+        instance(window),
+        PDevice(instance),
+        device(instance, PDevice) 
 {
 
 

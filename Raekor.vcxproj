@@ -101,6 +101,10 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
       <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;C:\VulkanSDK\1.1.130.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

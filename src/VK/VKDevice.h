@@ -71,10 +71,12 @@ public:
 private:
     Queues qindices;
     VkDevice device;
+public:
     VkQueue presentQueue;
     VkQueue graphicsQueue;
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;
+private:
     VkPhysicalDeviceMemoryProperties memProperties;
 };
 

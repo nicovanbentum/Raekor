@@ -4,6 +4,8 @@
 namespace Raekor {
 namespace VK {
 
+Swapchain::Swapchain() : device(VK_NULL_HANDLE), created(false) {}
+
 Swapchain::Swapchain(const Context& context, glm::vec2 resolution, VkPresentModeKHR mode) {
     created = false;
     device = context.device;
@@ -11,18 +13,27 @@ Swapchain::Swapchain(const Context& context, glm::vec2 resolution, VkPresentMode
 }
 
 Swapchain::~Swapchain() {
-    for (auto& framebuffer : swapChainFramebuffers)
+    if (created) {
+        this->destruct();
+    }
+}
+
+void Swapchain::destruct() {
+    for (auto& framebuffer : framebuffers)
         if (framebuffer != VK_NULL_HANDLE)
             vkDestroyFramebuffer(device, framebuffer, nullptr);
-    for (auto& view : swapChainImageViews) {
+    for (auto& view : views) {
         if (view != VK_NULL_HANDLE)
             vkDestroyImageView(device, view, nullptr);
     }
-    if (swapchain != VK_NULL_HANDLE && created)
+    if (swapchain != VK_NULL_HANDLE && created) {
         vkDestroySwapchainKHR(device, swapchain, nullptr);
+    }
 }
 
 void Swapchain::recreate(const Context& context, glm::vec2 resolution, VkPresentModeKHR mode) {
+    if (device == VK_NULL_HANDLE) device = context.device;
+    if (created) this->destruct();
     created = true;
     
     struct SwapChainSupportDetails {
@@ -127,18 +138,17 @@ void Swapchain::recreate(const Context& context, glm::vec2 resolution, VkPresent
     }
 
     vkGetSwapchainImagesKHR(context.device, swapchain, &imageCount, nullptr);
-    swapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(context.device, swapchain, &imageCount, swapChainImages.data());
-    swapChainImageFormat = surface_format.format;
+    images.resize(imageCount);
+    vkGetSwapchainImagesKHR(context.device, swapchain, &imageCount, images.data());
+    imageFormat = surface_format.format;
 
-    swapChainImageViews.resize(swapChainImages.size());
-
-    for (size_t i = 0; i < swapChainImages.size(); i++) {
+    views.resize(images.size());
+        for (size_t i = 0; i < images.size(); i++) {
         VkImageViewCreateInfo iv_info = {};
         iv_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        iv_info.image = swapChainImages[i];
+        iv_info.image = images[i];
         iv_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        iv_info.format = swapChainImageFormat;
+        iv_info.format = imageFormat;
         iv_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
         iv_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
         iv_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -149,16 +159,16 @@ void Swapchain::recreate(const Context& context, glm::vec2 resolution, VkPresent
         iv_info.subresourceRange.baseArrayLayer = 0;
         iv_info.subresourceRange.layerCount = 1;
 
-        if (vkCreateImageView(context.device, &iv_info, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
+        if (vkCreateImageView(context.device, &iv_info, nullptr, &views[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to create image view");
         }
     }
 }
 
 void Swapchain::setupFrameBuffers(const Context& context, VkRenderPass renderPass, const std::vector<VkImageView>& pAttachments) {
-    swapChainFramebuffers.resize(swapChainImageViews.size());
-    for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-        std::vector<VkImageView> attachments = { swapChainImageViews[i] };
+    framebuffers.resize(views.size());
+    for (size_t i = 0; i < views.size(); i++) {
+        std::vector<VkImageView> attachments = { views[i] };
         for (auto& attachment : pAttachments) {
             attachments.push_back(attachment);
         }
@@ -172,7 +182,7 @@ void Swapchain::setupFrameBuffers(const Context& context, VkRenderPass renderPas
         framebufferInfo.height = extent.height;
         framebufferInfo.layers = 1;
 
-        if (vkCreateFramebuffer(context.device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+        if (vkCreateFramebuffer(context.device, &framebufferInfo, nullptr, &framebuffers[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to create vk framebuffer");
         }
     }

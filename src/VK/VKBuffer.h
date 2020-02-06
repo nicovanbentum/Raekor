@@ -19,8 +19,10 @@ public:
 
 protected:
     VkDevice device;
-    VkBuffer buffer;
-    VkDeviceMemory memory;
+
+public:
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
 };
 
 ///////////////////////////////////////////////////////////////////
@@ -41,7 +43,9 @@ public:
     VertexBuffer(const Context& ctx, std::vector<Vertex>& vertices);
     void describe();
     void setLayout(const InputLayout& new_layout);
-    VkPipelineVertexInputStateCreateInfo getInfo();
+    VkPipelineVertexInputStateCreateInfo getState();
+
+    operator const VkBuffer*() const { return &buffer; }
 
     inline VkPipelineVertexInputStateCreateInfo getVertexInputState() { return info; }
 

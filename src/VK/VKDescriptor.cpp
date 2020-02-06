@@ -43,9 +43,9 @@ DescriptorSet::~DescriptorSet() {
 
 ///////////////////////////////////////////////////////////////////////
 
-void DescriptorSet::add(const UniformBuffer& buffer, VkShaderStageFlags stages) {
+void DescriptorSet::bind(uint32_t slot, const UniformBuffer& buffer, VkShaderStageFlags stages) {
     VkDescriptorSetLayoutBinding binding = {};
-    binding.binding = static_cast<uint32_t>(bindings.size());
+    binding.binding = slot;
     binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     binding.descriptorCount = 1;
     binding.pImmutableSamplers = nullptr;
@@ -56,7 +56,7 @@ void DescriptorSet::add(const UniformBuffer& buffer, VkShaderStageFlags stages) 
     VkWriteDescriptorSet descriptor = {};
     descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptor.dstSet = nullptr; // we allocate and reassign later
-    descriptor.dstBinding = binding.binding;
+    descriptor.dstBinding = slot;
     descriptor.dstArrayElement = 0;
     descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptor.descriptorCount = 1;
@@ -68,9 +68,9 @@ void DescriptorSet::add(const UniformBuffer& buffer, VkShaderStageFlags stages) 
 
 ///////////////////////////////////////////////////////////////////////
 
-void DescriptorSet::add(const Texture& texture, VkShaderStageFlags stages) {
+void DescriptorSet::bind(uint32_t slot, const Texture& texture, VkShaderStageFlags stages) {
     VkDescriptorSetLayoutBinding binding = {};
-    binding.binding = static_cast<uint32_t>(bindings.size());
+    binding.binding = slot;
     binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     binding.descriptorCount = 1;
     binding.pImmutableSamplers = nullptr;
@@ -80,7 +80,7 @@ void DescriptorSet::add(const Texture& texture, VkShaderStageFlags stages) {
     VkWriteDescriptorSet descriptor = {};
     descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptor.dstSet = dstSet;
-    descriptor.dstBinding = binding.binding;
+    descriptor.dstBinding = slot;
     descriptor.dstArrayElement = 0;
     descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptor.descriptorCount = 1;
@@ -92,9 +92,9 @@ void DescriptorSet::add(const Texture& texture, VkShaderStageFlags stages) {
 
 ///////////////////////////////////////////////////////////////////////
 
-void DescriptorSet::add(const std::vector<Texture>& textures, VkShaderStageFlags stages) {
+void DescriptorSet::bind(uint32_t slot, const std::vector<Texture>& textures, VkShaderStageFlags stages) {
     VkDescriptorSetLayoutBinding binding = {};
-    binding.binding = static_cast<uint32_t>(bindings.size());
+    binding.binding = slot;
     binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     binding.descriptorCount = static_cast<uint32_t>(textures.size());
     binding.pImmutableSamplers = nullptr;
@@ -109,7 +109,7 @@ void DescriptorSet::add(const std::vector<Texture>& textures, VkShaderStageFlags
     VkWriteDescriptorSet descriptor = {};
     descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptor.dstSet = dstSet;
-    descriptor.dstBinding = binding.binding;
+    descriptor.dstBinding = slot;
     descriptor.dstArrayElement = 0;
     descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptor.descriptorCount = static_cast<uint32_t>(textures.size());
@@ -130,6 +130,10 @@ void DescriptorSet::complete(const Context& ctx) {
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pBindings = bindings.data();
+
+    for (auto& binding : bindings) {
+        std::cout << " completed binding at " << binding.binding << '\n';
+    }
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &layout) != VK_SUCCESS) {
         throw std::runtime_error("fialed to create descriptor layout");

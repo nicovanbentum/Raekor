@@ -26,9 +26,9 @@ public:
     DescriptorSet(const Context& ctx);
     ~DescriptorSet();
 
-    void add(const Texture& texture, VkShaderStageFlags stages);
-    void add(const UniformBuffer& buffer, VkShaderStageFlags stages);
-    void add(const std::vector<Texture>& textures, VkShaderStageFlags stages);
+    void bind(uint32_t slot, const Texture& texture, VkShaderStageFlags stages);
+    void bind(uint32_t slot, const UniformBuffer& buffer, VkShaderStageFlags stages);
+    void bind(uint32_t slot, const std::vector<Texture>& textures, VkShaderStageFlags stages);
     void complete(const Context& ctx);
 
     VkDescriptorSetLayout getLayout();
