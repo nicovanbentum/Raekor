@@ -343,7 +343,7 @@ public:
             auto ai_mesh = scene->mMeshes[m];
 
             VKMesh mm;
-            mm.indexOffset = indices.size() * 3;
+            mm.indexOffset = indices.size();
             mm.indexRange = ai_mesh->mNumFaces * 3;
             mm.vertexOffset = vertices.size();
             meshes.push_back(mm);
@@ -778,6 +778,8 @@ public:
         }
         VkDeviceSize offsets[] = { 0 };
         vkCmdPushConstants(cmdbuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(uint32_t), &m.textureIndex);
+        vkCmdBindVertexBuffers(cmdbuffer, 0, 1, &meshVertexBuffer->buffer, offsets);
+        vkCmdBindIndexBuffer(cmdbuffer, meshIndexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
         uint32_t offset = static_cast<uint32_t>(bufferIndex * dynamicAlignment);
@@ -1056,9 +1058,14 @@ public:
             throw std::runtime_error("failed to record command buffer");
         }
 
-        // update uniform buffers
+        // start the render pass and execute secondary command buffers
+        vkCmdBeginRenderPass(maincmdbuffer, &render_info, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+
+        // update the mvp without translation and execute the skybox render commands
         uniformBufferObject.MVP = sky_transform;
         updateSkyboxUniformBuffer(uniformBufferObject);
+        vkCmdExecuteCommands(maincmdbuffer, 1, &skyboxcmdbuffer);
+
         memcpy(mapped, uboDynamic.mvp, bufferSize);
 
         VkMappedMemoryRange memoryRange = {};
@@ -1067,17 +1074,7 @@ public:
         memoryRange.size = bufferSize;
         vkFlushMappedMemoryRanges(context.device, 1, &memoryRange);
 
-        // start the render pass and execute secondary command buffers
-        vkCmdBeginRenderPass(maincmdbuffer, &render_info, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
-        
-        // execute skybox commands
-        vkCmdExecuteCommands(maincmdbuffer, 1, &skyboxcmdbuffer);
-
-        // execute secondary mesh buffers
         if (secondaryBuffers.data() != nullptr) {
-            VkDeviceSize offsets[] = { 0 };
-            vkCmdBindVertexBuffers(maincmdbuffer, 0, 1, &meshVertexBuffer->buffer, offsets);
-            vkCmdBindIndexBuffer(maincmdbuffer, meshIndexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdExecuteCommands(maincmdbuffer, static_cast<uint32_t>(secondaryBuffers.size()), secondaryBuffers.data());
         }
 
