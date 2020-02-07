@@ -32,27 +32,7 @@ public:
 
     void bind(uint32_t slot, const Texture& texture, VkShaderStageFlags stages);
     void bind(uint32_t slot, const UniformBuffer& buffer, VkShaderStageFlags stages);
-    void bind(uint32_t slot, const Image* image, VkShaderStageFlags stages) {
-        VkDescriptorSetLayoutBinding binding = {};
-        binding.binding = slot;
-        binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        binding.descriptorCount = 1;
-        binding.pImmutableSamplers = nullptr;
-        binding.stageFlags = stages;
-        bindings.push_back(binding);
-
-        VkWriteDescriptorSet descriptor = {};
-        descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptor.dstSet = dstSet;
-        descriptor.dstBinding = slot;
-        descriptor.dstArrayElement = 0;
-        descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptor.descriptorCount = 1;
-        descriptor.pBufferInfo = nullptr;
-        descriptor.pImageInfo = &image->descriptor;
-        descriptor.pTexelBufferView = nullptr;
-        sets.push_back(descriptor);
-    }
+    void bind(uint32_t slot, const Image* image, VkShaderStageFlags stages);
     void bind(uint32_t slot, const std::vector<Texture>& textures, VkShaderStageFlags stages);
     void complete(const Context& ctx);
 
