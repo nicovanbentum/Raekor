@@ -4,18 +4,24 @@
 namespace Raekor {
 namespace VK {
 
-UniformBuffer::UniformBuffer(const Context& ctx, size_t size) 
-    : Buffer(ctx.device), allocatedSize(size) 
+UniformBuffer::UniformBuffer(const Context& ctx, size_t size, bool isDynamic) 
+    : Buffer(ctx.device), dynamic(isDynamic)
 {
     ctx.device.createBuffer(
         size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        isDynamic ? VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT : VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         buffer, memory);
+
     vkMapMemory(ctx.device, memory, 0, size, 0, &mappedMemory);
+
+    memoryRange = {};
+    memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+    memoryRange.memory = memory;
+    memoryRange.size = size;
 
     descriptor.buffer = buffer;
     descriptor.offset = 0;
-    descriptor.range = allocatedSize;
+    descriptor.range = VK_WHOLE_SIZE;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -27,7 +33,11 @@ UniformBuffer::~UniformBuffer() {
 ///////////////////////////////////////////////////////////////////////
 
 void UniformBuffer::update(const void* data, size_t size) const {
+    if (size == VK_WHOLE_SIZE) size = memoryRange.size;
     memcpy(mappedMemory, data, size);
+    if (dynamic) {
+        vkFlushMappedMemoryRanges(device, 1, &memoryRange);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -46,7 +56,7 @@ DescriptorSet::~DescriptorSet() {
 void DescriptorSet::bind(uint32_t slot, const UniformBuffer& buffer, VkShaderStageFlags stages) {
     VkDescriptorSetLayoutBinding binding = {};
     binding.binding = slot;
-    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding.descriptorType = buffer.isDynamic() ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     binding.descriptorCount = 1;
     binding.pImmutableSamplers = nullptr;
     binding.stageFlags = stages;
@@ -58,7 +68,7 @@ void DescriptorSet::bind(uint32_t slot, const UniformBuffer& buffer, VkShaderSta
     descriptor.dstSet = nullptr; // we allocate and reassign later
     descriptor.dstBinding = slot;
     descriptor.dstArrayElement = 0;
-    descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptor.descriptorType = binding.descriptorType;
     descriptor.descriptorCount = 1;
     descriptor.pBufferInfo = buffer.getDescriptor();
     descriptor.pImageInfo = nullptr;
@@ -101,9 +111,10 @@ void DescriptorSet::bind(uint32_t slot, const std::vector<Texture>& textures, Vk
     binding.stageFlags = stages;
     bindings.push_back(binding);
 
-    std::vector<const VkDescriptorImageInfo*> infos;
-    for (auto& texture : textures) {
-        infos.push_back(&texture.descriptor);
+    // TODO: ugly hack to make it so the image infos persist till complete
+    VkDescriptorImageInfo* infos = new VkDescriptorImageInfo[textures.size()];
+    for (size_t i = 0; i < textures.size(); i++) {
+        infos[i] = textures[i].descriptor;
     }
 
     VkWriteDescriptorSet descriptor = {};
@@ -114,7 +125,7 @@ void DescriptorSet::bind(uint32_t slot, const std::vector<Texture>& textures, Vk
     descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptor.descriptorCount = static_cast<uint32_t>(textures.size());
     descriptor.pBufferInfo = nullptr;
-    descriptor.pImageInfo = *infos.data();
+    descriptor.pImageInfo = infos;
     descriptor.pTexelBufferView = nullptr;
     sets.push_back(descriptor);
 }
@@ -143,17 +154,15 @@ void DescriptorSet::complete(const Context& ctx) {
     for (auto& set : sets) {
         set.dstSet = dstSet;
     }
+
     // update the set
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
-}
 
-///////////////////////////////////////////////////////////////////////
-
-VkDescriptorSetLayout DescriptorSet::getLayout() {
-    if (layout == VK_NULL_HANDLE) {
-        throw std::runtime_error("complete() was never called.");
+    for (const VkWriteDescriptorSet& set : sets) {
+        if (set.pImageInfo != nullptr) {
+            //operator delete[]((void*)set.pImageInfo);
+        }
     }
-    return layout;
 }
 
 ///////////////////////////////////////////////////////////////////////

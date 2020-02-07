@@ -178,7 +178,7 @@ Renderer::Renderer(const VK::Context& ctx) {
         });
     auto indexBuffer = VK::IndexBuffer(ctx, i_cube);
 
-    auto uniformBuffer = VK::UniformBuffer(ctx, sizeof(uint32_t));
+    auto uniformBuffer = VK::UniformBuffer(ctx, sizeof(uint32_t), false);
     int x = 5;
     uniformBuffer.update(&x, sizeof(uint32_t));
     
@@ -192,7 +192,6 @@ Renderer::Renderer(const VK::Context& ctx) {
     descSet.bind(1, { texture }, VK_SHADER_STAGE_FRAGMENT_BIT);
     descSet.complete(ctx);
 
-    auto layout = descSet.getLayout();
     auto depthTexture = DepthTexture(ctx, { 1920, 1080 });
 
     VkAttachmentDescription colorAttachment = {};
@@ -265,8 +264,6 @@ Renderer::Renderer(const VK::Context& ctx) {
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
-    VkDescriptorSetLayout descriptorLayouts[] = { descSet.getLayout() };
-    pipelineLayoutInfo.pSetLayouts = descriptorLayouts;
     pipelineLayoutInfo.pushConstantRangeCount = 1;
     pipelineLayoutInfo.pPushConstantRanges = &pcr;
 
