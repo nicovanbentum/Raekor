@@ -177,7 +177,6 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClCompile Include="src\framebuffer.cpp" />
     <ClCompile Include="src\mesh.cpp" />
     <ClCompile Include="src\model.cpp" />
-    <ClCompile Include="src\new_vulkan.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.h</PrecompiledHeaderFile>
@@ -205,7 +204,6 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClCompile Include="src\VK\VKContext.cpp" />
     <ClCompile Include="src\VK\VKDescriptor.cpp" />
     <ClCompile Include="src\VK\VKDevice.cpp" />
-    <ClCompile Include="src\VK\VKRenderer.cpp" />
     <ClCompile Include="src\VK\VKShader.cpp" />
     <ClCompile Include="src\VK\VKSwapchain.cpp" />
     <ClCompile Include="src\VK\VKTexture.cpp" />
@@ -247,7 +245,6 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClInclude Include="src\VK\VKContext.h" />
     <ClInclude Include="src\VK\VKDescriptor.h" />
     <ClInclude Include="src\VK\VKDevice.h" />
-    <ClInclude Include="src\VK\VKRenderer.h" />
     <ClInclude Include="src\VK\VKShader.h" />
     <ClInclude Include="src\VK\VKSwapchain.h" />
     <ClInclude Include="src\VK\VKTexture.h" />

@@ -14,18 +14,6 @@
 #include "VK/VKTexture.h"
 #include "VK/VKDescriptor.h"
 
-#define _glslc "dependencies\\glslc.exe "
-#define _cl(in, out) system(std::string(_glslc + static_cast<std::string>(in) + static_cast<std::string>(" -o ") + static_cast<std::string>(out)).c_str())
-void compile_shader(const char* in, const char* out) {
-    if (_cl(in, out) != 0) {
-        std::cout << "failed to compile vulkan shader: " + std::string(in) << '\n';
-    }
-    else {
-        std::cout << "Successfully compiled VK shader: " + std::string(in) << '\n';
-
-    }
-}
-
 struct skyboxmvp {
     glm::mat4 MVP;
 };
@@ -132,8 +120,8 @@ public:
             throw std::runtime_error("failed to wait for the gpu to idle");
         }
         // recompile and reload the shaders
-        compile_shader("shaders/Vulkan/vulkan.vert", "shaders/Vulkan/vert.spv");
-        compile_shader("shaders/Vulkan/vulkan.frag", "shaders/Vulkan/frag.spv");
+        VK::Shader::Compile("shaders/Vulkan/vulkan.vert", "shaders/Vulkan/vert.spv");
+        VK::Shader::Compile("shaders/Vulkan/vulkan.frag", "shaders/Vulkan/frag.spv");
         vert.reload();
         frag.reload();
         std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
@@ -231,18 +219,6 @@ public:
     }
 
     void initResources() {
-        VkPipelineShaderStageCreateInfo shaderStages[] = {
-            vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
-            frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
-        };
-
-        VkPipelineShaderStageCreateInfo skyboxShaders[]{
-            skyboxv.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
-            skyboxf.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
-        };
-
-        std::vector<std::vector<Index>> indexbuffers;
-
         constexpr unsigned int flags =
             aiProcess_CalcTangentSpace |
             aiProcess_Triangulate |
@@ -648,7 +624,7 @@ public:
         colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
         VkAttachmentDescription depthAttachment = {};
-        depthAttachment.format = findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+        depthAttachment.format = context.PDevice.findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
             VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
         depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
         depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -888,57 +864,6 @@ public:
         current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
-    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
-        for (VkFormat format : candidates) {
-            VkFormatProperties props;
-            vkGetPhysicalDeviceFormatProperties(context.PDevice, format, &props);
-            if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-                return format;
-            }
-            else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-                return format;
-            }
-        }
-        throw std::runtime_error("unable to find a supported format");
-        return {};
-    };
-
-    void createImage(uint32_t w, uint32_t h, uint32_t mipLevels, uint32_t layers, VkFormat format, VkImageTiling tiling,
-        VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
-        VkImageCreateInfo imageInfo = {};
-        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = w;
-        imageInfo.extent.height = h;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = mipLevels;
-        imageInfo.arrayLayers = 1;
-        imageInfo.format = format;
-        imageInfo.tiling = tiling;
-        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageInfo.usage = usage;
-        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        if (vkCreateImage(context.device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create vk image");
-        }
-
-        VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(context.device, image, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-        if (vkAllocateMemory(context.device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate image meory");
-        }
-
-        vkBindImageMemory(context.device, image, imageMemory, 0);
-    };
-
     void recreateSwapchain(bool useVsync) {
         vsync = useVsync;
         try {
@@ -977,54 +902,6 @@ public:
             abort();
         }
     }
-
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-        VkPhysicalDeviceMemoryProperties memProperties;
-        vkGetPhysicalDeviceMemoryProperties(context.PDevice, &memProperties);
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-            if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-                return i;
-            }
-        }
-        return UINT32_MAX;
-    };
-
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-        VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
-        VkBufferCreateInfo bufferInfo = {};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = size;
-        bufferInfo.usage = usage;
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        if (vkCreateBuffer(context.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create buffer!");
-        }
-
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(context.device, buffer, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-        if (vkAllocateMemory(context.device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate buffer memory!");
-        }
-
-        vkBindBufferMemory(context.device, buffer, bufferMemory, 0);
-    };
-
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-        VkCommandBuffer commandBuffer = context.device.beginSingleTimeCommands();
-
-        VkBufferCopy copyRegion = {};
-        copyRegion.size = size;
-        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-        context.device.endSingleTimeCommands(commandBuffer);
-    };
 
     void ImGuiInit(SDL_Window* window) {
         ImGui_ImplVulkan_InitInfo info = {};

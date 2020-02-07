@@ -11,7 +11,6 @@ public:
 
     void run();
     void vulkan_main();
-    void doVulkan();
 
     template<class C>
     void serialize(C& archive) {
