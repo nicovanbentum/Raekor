@@ -85,7 +85,7 @@ void DescriptorSet::bind(uint32_t slot, const Texture& texture, VkShaderStageFla
     descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptor.descriptorCount = 1;
     descriptor.pBufferInfo = nullptr;
-    descriptor.pImageInfo = texture.getDescriptor();
+    descriptor.pImageInfo = &texture.descriptor;
     descriptor.pTexelBufferView = nullptr;
     sets.push_back(descriptor);
 }
@@ -103,7 +103,7 @@ void DescriptorSet::bind(uint32_t slot, const std::vector<Texture>& textures, Vk
 
     std::vector<const VkDescriptorImageInfo*> infos;
     for (auto& texture : textures) {
-        infos.push_back(texture.getDescriptor());
+        infos.push_back(&texture.descriptor);
     }
 
     VkWriteDescriptorSet descriptor = {};

@@ -22,7 +22,7 @@ VkFormat Buffer::toVkFormat(ShaderType type) {
 }
 
 IndexBuffer::IndexBuffer(const Context& ctx, const std::vector<Index>& indices) 
-    : Buffer(ctx.device), count(indices.size() * 3) {
+    : Buffer(ctx.device), count(static_cast<uint32_t>(indices.size() * 3)) {
     ctx.device.uploadBuffer<Index>(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, buffer, memory);
 }
 

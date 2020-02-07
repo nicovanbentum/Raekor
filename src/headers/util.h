@@ -76,7 +76,7 @@ enum {
 
 namespace Stb {
     struct Image {
-        Image(uint32_t format) : filepath(filepath), format(format) {}
+        Image(uint32_t format = RGBA) : filepath(filepath), format(format) {}
         ~Image() { stbi_image_free(pixels); }
 
         void load(const std::string& filepath, bool loadFlipped = false) {

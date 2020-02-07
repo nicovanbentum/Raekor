@@ -12,6 +12,7 @@
 #include "VK/VKSwapchain.h"
 #include "VK/VKShader.h"
 #include "VK/VKBuffer.h"
+#include "VK/VKTexture.h"
 
 #define _glslc "dependencies\\glslc.exe "
 #define _cl(in, out) system(std::string(_glslc + static_cast<std::string>(in) + static_cast<std::string>(" -o ") + static_cast<std::string>(out)).c_str())
@@ -31,11 +32,6 @@ struct skyboxmvp {
 
 namespace Raekor {
 
-struct stbData {
-    unsigned char* pixels;
-    int w, h, ch;
-};
-
 struct cb_vsDynamic {
     Raekor::MVP* mvp = nullptr;
 } uboDynamic;
@@ -43,7 +39,7 @@ size_t dynamicAlignment;
 
 struct mod {
     glm::mat4 model = glm::mat4(1.0f);
-    glm::vec3 position = {0.0, 0.0f, 0.0f}, scale = { 1.0f, 1.0f, 1.0f }, rotation = { 0, 0, 0 };
+    glm::vec3 position = { 0.0, 0.0f, 0.0f }, scale = { 1.0f, 1.0f, 1.0f }, rotation = { 0, 0, 0 };
 
     void transform() {
         model = glm::mat4(1.0f);
@@ -52,37 +48,6 @@ struct mod {
         model = model * glm::toMat4(rotation_quat);
         model = glm::scale(model, scale);
     }
-};
-
-struct queue_indices {
-    std::optional<uint32_t> graphics;
-    std::optional<uint32_t> present;
-
-    bool isComplete() {
-        return graphics.has_value() and present.has_value();
-    }
-};
-
-class VKTexture {
-public:
-    VKTexture() {}
-
-    VKTexture(VkImage p_image, VkDeviceMemory p_memory, VkImageView p_view, VkSampler p_sampler) :
-        image(p_image), memory(p_memory), view(p_view), sampler(p_sampler) {}
-
-    VKTexture(VkImage p_image, VkDeviceMemory p_memory, VkImageView p_view) :
-        image(p_image), memory(p_memory), view(p_view), sampler(VK_NULL_HANDLE) {}
-
-    inline VkImage getImage() const { return image; }
-    inline VkSampler getSampler() const { return sampler; }
-    inline VkImageView getView() const { return view; }
-    inline VkDeviceMemory getMemory() const { return memory; }
-
-private:
-    VkImage image;
-    VkDeviceMemory memory;
-    VkImageView view;
-    VkSampler sampler;
 };
 
 static std::array < std::string, 6> face_files;
@@ -123,10 +88,10 @@ private:
     std::vector<VKMesh> meshes;
     std::unique_ptr<VK::VertexBuffer> meshVertexBuffer;
     std::unique_ptr<VK::IndexBuffer> meshIndexBuffer;
-    
+
 
     VkPipelineVertexInputStateCreateInfo input_state;
-    VKTexture depth_texture;
+    std::unique_ptr<VK::DepthTexture> depth_texture;
 
     VkBuffer uniformBuffer;
     VkBuffer uniformBuffer2;
@@ -146,12 +111,12 @@ private:
     size_t bufferSize;
 
     // texture handles
-    std::vector<VKTexture> textures;
+    std::vector<VK::Texture> textures;
 
     // skybox resources
     std::unique_ptr<VK::VertexBuffer> cube_v;
     std::unique_ptr<VK::IndexBuffer> cube_i;
-    VKTexture skybox;
+    std::unique_ptr<VK::CubeTexture> skybox;
 
     VK::Shader vert;
     VK::Shader frag;
@@ -216,23 +181,6 @@ public:
         vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
         vkDestroyPipelineLayout(context.device, pipelineLayout2, nullptr);
 
-        // destroy/free texture resources
-        for (VKTexture& texture : textures) {
-            vkDestroyImage(context.device, texture.getImage(), nullptr);
-            vkDestroyImageView(context.device, texture.getView(), nullptr);
-            vkDestroySampler(context.device, texture.getSampler(), nullptr);
-            vkFreeMemory(context.device, texture.getMemory(), nullptr);
-        }
-        vkDestroyImage(context.device, skybox.getImage(), nullptr);
-        vkDestroyImageView(context.device, skybox.getView(), nullptr);
-        vkDestroySampler(context.device, skybox.getSampler(), nullptr);
-        vkFreeMemory(context.device, skybox.getMemory(), nullptr);
-
-        vkDestroyImage(context.device, depth_texture.getImage(), nullptr);
-        vkDestroyImageView(context.device, depth_texture.getView(), nullptr);
-        vkDestroySampler(context.device, depth_texture.getSampler(), nullptr);
-        vkFreeMemory(context.device, depth_texture.getMemory(), nullptr);
-
         // destroy/free command buffer stuff
         std::array<VkCommandBuffer, 3> buffers = { maincmdbuffer, imguicmdbuffer, skyboxcmdbuffer };
         vkFreeCommandBuffers(context.device, context.device.commandPool, (uint32_t)buffers.size(), buffers.data());
@@ -253,11 +201,11 @@ public:
     }
 
     VKRender(SDL_Window* window)
-        :   context(window),
-            vert(context, "shaders/Vulkan/vert.spv"),
-            frag(context, "shaders/Vulkan/frag.spv"),
-            skyboxf(context, "shaders/Vulkan/f_skybox.spv"),
-            skyboxv(context, "shaders/Vulkan/v_skybox.spv")
+        : context(window),
+        vert(context, "shaders/Vulkan/vert.spv"),
+        frag(context, "shaders/Vulkan/frag.spv"),
+        skyboxf(context, "shaders/Vulkan/f_skybox.spv"),
+        skyboxv(context, "shaders/Vulkan/v_skybox.spv")
     {
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
@@ -286,7 +234,7 @@ public:
         allocateCommandBuffers();
         recordModel();
         recordSkyboxBuffer(cube_v.get(), cube_i.get(), pipelineLayout2, descriptorSet2, skyboxcmdbuffer);
-        
+
         // setup sysnc objects for synchronization between cpu and gpu
         setupSyncObjects();
     }
@@ -297,11 +245,6 @@ public:
         vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
         vkDestroyPipelineLayout(context.device, pipelineLayout2, nullptr);
         vkDestroyRenderPass(context.device, renderPass, nullptr);
-
-        vkDestroyImage(context.device, depth_texture.getImage(), nullptr);
-        vkDestroyImageView(context.device, depth_texture.getView(), nullptr);
-        vkDestroySampler(context.device, depth_texture.getSampler(), nullptr);
-        vkFreeMemory(context.device, depth_texture.getMemory(), nullptr);
     }
 
     void initResources() {
@@ -343,9 +286,9 @@ public:
             auto ai_mesh = scene->mMeshes[m];
 
             VKMesh mm;
-            mm.indexOffset = indices.size();
+            mm.indexOffset = static_cast<uint32_t>(indices.size() * 3);
             mm.indexRange = ai_mesh->mNumFaces * 3;
-            mm.vertexOffset = vertices.size();
+            mm.vertexOffset = static_cast<uint32_t>(vertices.size());
             meshes.push_back(mm);
 
             for (size_t i = 0; i < ai_mesh->mNumVertices; i++) {
@@ -388,7 +331,7 @@ public:
 
             if (!texture_path.empty()) {
                 if (seen.find(texture_path) == seen.end()) {
-                    meshes[m].textureIndex = ti;;
+                    meshes[m].textureIndex = ti;
                     seen[texture_path] = ti;
                     ti++;
                 }
@@ -397,46 +340,36 @@ public:
             else meshes[m].textureIndex = -1;
         }
 
-        static std::mutex mutex;
 
-        std::vector<std::string> texture_paths = std::vector<std::string>(seen.size());
-        for (auto& kv : seen) {
-            texture_paths[kv.second] = kv.first;
+        std::vector<Stb::Image> images = std::vector<Stb::Image>(seen.size());
+        for (auto& image : images) {
+            image.format = RGBA;
         }
-
-        std::vector<stbData> stb_images;
-        stb_images.resize(seen.size());
-        auto load_image = [&](std::pair<std::string, int> kv) {
-            stbi_set_flip_vertically_on_load(true);
-            stbData stb = {};
-            // we shouldnt have to flip texture for vulkan, TODO: figure out why everything is upside down
-            stb.pixels = stbi_load(kv.first.c_str(), &stb.w, &stb.h, &stb.ch, STBI_rgb_alpha);
-            if (!stb.pixels) {
-                throw std::runtime_error("failed to load stb image");
-            }
-            std::lock_guard<std::mutex> lock(mutex);
-            stb_images[kv.second] = stb;
-        };
 
         std::vector<std::future<void>> futures;
         for (const auto& kv : seen) {
-            futures.push_back(std::async(std::launch::async, load_image, kv));
+            futures.push_back(std::async(std::launch::async, &Stb::Image::load, &images[kv.second], kv.first, true));
         }
 
         for (auto& future : futures) {
             future.wait();
         }
 
-        for (const stbData& image : stb_images) {
-            textures.push_back(loadTexture(image));
+        textures.reserve(images.size());
+        for (const auto& image : images) {
+            textures.emplace_back(context, image);
         }
 
         // skybox resources, load_skybox basically uploads a cubemap image
         // cube v and i are the vertex and index buffer for a cube
-        skybox = load_skybox();
+        std::array<Stb::Image, 6> skyboxFaces;
+        for (uint32_t i = 0; i < 6; i++) {
+            skyboxFaces[i].load(face_files[i]);
+        }
+        skybox.reset(new VK::CubeTexture(context, skyboxFaces));
         cube_v = std::make_unique<VK::VertexBuffer>(context, v_cube);
         cube_i = std::make_unique<VK::IndexBuffer>(context, i_cube);
-        
+
         input_state = meshVertexBuffer->getState();
 
         std::cout << "mesh total = " << meshes.size() << "\n";
@@ -473,7 +406,7 @@ public:
         // Calculate required alignment based on minimum device offset alignment
         size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
         dynamicAlignment = sizeof(MVP);
-        
+
         if (minUboAlignment > 0) {
             dynamicAlignment = (dynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
         }
@@ -516,11 +449,11 @@ public:
         }
 
         std::vector<VkDescriptorImageInfo> images = {};
-        for (const VKTexture& texture : textures) {
+        for (const VK::Texture& texture : textures) {
             VkDescriptorImageInfo info = {};
             info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            info.imageView = texture.getView();
-            info.sampler = texture.getSampler();
+            info.imageView = texture.view;
+            info.sampler = texture.sampler.value();
             images.push_back(info);
         }
 
@@ -604,8 +537,8 @@ public:
 
         VkDescriptorImageInfo info = {};
         info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        info.imageView = skybox.getView();
-        info.sampler = skybox.getSampler();
+        info.imageView = skybox->view;
+        info.sampler = skybox->sampler.value();
 
         VkWriteDescriptorSet buffer_descriptor2 = {};
         buffer_descriptor2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -632,8 +565,8 @@ public:
     }
 
     void setupFrameBuffers() {
-        depth_texture = createDepthTexture();
-        swapchain.setupFrameBuffers(context, renderPass, { depth_texture.getView() });
+        depth_texture.reset(new VK::DepthTexture(context, { swapchain.extent.width, swapchain.extent.height }));
+        swapchain.setupFrameBuffers(context, renderPass, { depth_texture->view });
     }
 
     void setupSyncObjects() {
@@ -720,7 +653,7 @@ public:
         else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
             throw std::runtime_error("failed to acquire swap chain image");
         }
-        
+
         return imageIndex;
     }
 
@@ -752,7 +685,6 @@ public:
         vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline);
         vkCmdBindDescriptorSets(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pLayout, 0, 1, &set, 0, nullptr);
 
-        std::cout << cubeIndices->getCount() << std::endl;
         vkCmdDrawIndexed(cmdbuffer, cubeIndices->getCount(), 1, 0, 0, 0);
         if (vkEndCommandBuffer(cmdbuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to end command buffer");
@@ -1026,7 +958,7 @@ public:
         if (vkBeginCommandBuffer(imguicmdbuffer, &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin command buffer recording");
         }
-        
+
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguicmdbuffer);
 
         if (vkEndCommandBuffer(imguicmdbuffer) != VK_SUCCESS) {
@@ -1162,234 +1094,6 @@ public:
         throw std::runtime_error("unable to find a supported format");
         return {};
     };
-
-    VKTexture createDepthTexture() {
-        VkImage depth_image;
-        VkDeviceMemory depth_mem;
-        VkImageView depth_view;
-
-        VkFormat depthFormat = findSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
-            VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-
-        createImage(swapchain.extent.width, swapchain.extent.height,
-            1, 1, depthFormat, VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            depth_image, depth_mem);
-
-        depth_view = context.device.createImageView(depth_image, depthFormat, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
-
-        context.device.transitionImageLayout(depth_image, depthFormat, 1, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-        return VKTexture(depth_image, depth_mem, depth_view);
-    }
-
-    VKTexture loadTexture(const stbData& stb) {
-        uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(stb.w, stb.h)))) + 1;
-
-        VkDeviceSize image_size = stb.w * stb.h * 4;
-        VkBuffer stage_pixels;
-        VkDeviceMemory stage_pixels_mem;
-
-        createBuffer(
-            image_size,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stage_pixels,
-            stage_pixels_mem
-        );
-
-        void* pdata;
-        vkMapMemory(context.device, stage_pixels_mem, 0, image_size, 0, &pdata);
-        memcpy(pdata, stb.pixels, static_cast<size_t>(image_size));
-        vkUnmapMemory(context.device, stage_pixels_mem);
-
-        stbi_image_free(stb.pixels);
-
-        VkImage texture;
-        VkDeviceMemory texture_mem;
-
-        createImage(
-            stb.w, stb.h, mipLevels, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture, texture_mem
-        );
-
-        context.device.transitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        context.device.copyBufferToImage(stage_pixels, texture, static_cast<uint32_t>(stb.w), static_cast<uint32_t>(stb.h));
-        context.device.generateMipmaps(texture, stb.w, stb.h, mipLevels);
-        //transitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        vkDestroyBuffer(context.device, stage_pixels, nullptr);
-        vkFreeMemory(context.device, stage_pixels_mem, nullptr);
-
-        auto texture_image_view = context.device.createImageView(texture, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels, 1);
-
-        VkSamplerCreateInfo samplerInfo = {};
-        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerInfo.magFilter = VK_FILTER_LINEAR;
-        samplerInfo.minFilter = VK_FILTER_LINEAR;
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.anisotropyEnable = VK_TRUE;
-        samplerInfo.maxAnisotropy = 16;
-        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        samplerInfo.unnormalizedCoordinates = VK_FALSE;
-        samplerInfo.compareEnable = VK_FALSE;
-        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.mipLodBias = 0.0f;
-        samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = static_cast<float>(mipLevels);
-
-        VkSampler sampler;
-        if (vkCreateSampler(context.device, &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create vk sampler");
-        }
-
-        return VKTexture(texture, texture_mem, texture_image_view, sampler);
-    }
-
-    VKTexture loadTexture(const std::string& path) {
-        stbi_set_flip_vertically_on_load(true);
-        stbData stb = {};
-        // we shouldnt have to flip texture for vulkan, TODO: figure out why everything is upside down
-        stb.pixels = stbi_load(path.c_str(), &stb.w, &stb.h, &stb.ch, STBI_rgb_alpha);
-        if (!stb.pixels) {
-            std::cout << "failed to load \"" << path << "\" \n";
-            throw std::runtime_error("failed to laod stb image for texturing");
-        }
-        else {
-            std::cout << "loaded " << path << '\n';
-        }
-        return loadTexture(stb);
-    }
-
-    VKTexture load_skybox() {
-        stbi_set_flip_vertically_on_load(false);
-        unsigned char* textureData[6];
-        int width, height, n_channels;
-        for (unsigned int i = 0; i < 6; i++) {
-            textureData[i] = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, 4);
-            m_assert(textureData[i], "failed to load image");
-        }
-        //Calculate the image size and the layer size.
-        const VkDeviceSize imageSize = width * height * 4 * 6;
-        const VkDeviceSize layerSize = imageSize / 6;
-
-        // setup the stage buffer
-        VkBuffer stage_pixels;
-        VkDeviceMemory stage_pixels_mem;
-
-        createBuffer(
-            imageSize,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stage_pixels,
-            stage_pixels_mem
-        );
-
-        // map and copy the memory over
-        void* pdata;
-        vkMapMemory(context.device, stage_pixels_mem, 0, imageSize, 0, &pdata);
-        for (unsigned int i = 0; i < 6; i++) {
-            unsigned char* location = static_cast<unsigned char*>(pdata) + (layerSize * i);
-            memcpy(location, textureData[i], layerSize);
-        }
-        vkUnmapMemory(context.device, stage_pixels_mem);
-
-        // cleanup the loaded image data from RAM
-        for (unsigned int i = 0; i < 6; i++) {
-            stbi_image_free(textureData[i]);
-        }
-
-        VkImage texture;
-        VkDeviceMemory texture_mem;
-
-        // create the image
-        VkImageCreateInfo imageInfo = {};
-        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = width;
-        imageInfo.extent.height = height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1;
-        imageInfo.arrayLayers = 6;
-        imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-
-        if (vkCreateImage(context.device, &imageInfo, nullptr, &texture) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create vk image");
-        }
-
-        // allocate and bind GPU memory for us to use
-        VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(context.device, texture, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        if (vkAllocateMemory(context.device, &allocInfo, nullptr, &texture_mem) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate image meory");
-        }
-
-        vkBindImageMemory(context.device, texture, texture_mem, 0);
-
-        constexpr uint32_t mipLevels = 1;
-        constexpr uint32_t layerCount = 6;
-        context.device.transitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, layerCount, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        context.device.copyBufferToImage(stage_pixels, texture, static_cast<uint32_t>(width), static_cast<uint32_t>(height), 6);
-        context.device.transitionImageLayout(texture, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, layerCount, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        vkDestroyBuffer(context.device, stage_pixels, nullptr);
-        vkFreeMemory(context.device, stage_pixels_mem, nullptr);
-
-        VkImageViewCreateInfo viewInfo = {};
-        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image = texture;
-        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-        viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 6;
-
-        VkImageView imageView;
-        if (vkCreateImageView(context.device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create texture image view!");
-        }
-
-        VkSamplerCreateInfo samplerInfo = {};
-        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerInfo.magFilter = VK_FILTER_LINEAR;
-        samplerInfo.minFilter = VK_FILTER_LINEAR;
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.anisotropyEnable = VK_TRUE;
-        samplerInfo.maxAnisotropy = 16;
-        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        samplerInfo.unnormalizedCoordinates = VK_FALSE;
-        samplerInfo.compareEnable = VK_FALSE;
-        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.mipLodBias = 0.0f;
-        samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = 1.0f;
-
-        VkSampler sampler;
-        if (vkCreateSampler(context.device, &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create vk sampler");
-        }
-
-        return VKTexture(texture, texture_mem, imageView, sampler);
-    }
 
     void createImage(uint32_t w, uint32_t h, uint32_t mipLevels, uint32_t layers, VkFormat format, VkImageTiling tiling,
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
@@ -1576,7 +1280,7 @@ void Application::vulkan_main() {
         static_cast<int>(displays[index].h * 0.9),
         wflags);
 
-     //initialize ImGui
+    //initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
@@ -1743,7 +1447,7 @@ void Application::vulkan_main() {
             if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
                 use_vsync = !use_vsync;
                 update = true;
-            } 
+            }
             if (ImGui::RadioButton("Animate Light", move_light)) {
                 move_light = !move_light;
             }
@@ -1771,7 +1475,7 @@ void Application::vulkan_main() {
         vk.ImGuiRecord();
         // start the overall render pass
         camera.update();
-        
+
         glm::mat4 sky_matrix = camera.getProjection() * glm::mat4(glm::mat3(camera.getView())) * glm::mat4(1.0f);
 
         vk.render(frame, sky_matrix);

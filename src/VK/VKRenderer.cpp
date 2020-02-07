@@ -185,7 +185,7 @@ Renderer::Renderer(const VK::Context& ctx) {
     auto image = Stb::Image(RGBA);
     image.load("resources/textures/test.png", true);
     auto texture = VK::Texture(ctx, image);
-    auto handle = texture.getImage();
+    auto handle = texture.image;
 
     auto descSet = VK::DescriptorSet(ctx);
     descSet.bind(0, uniformBuffer, VK_SHADER_STAGE_VERTEX_BIT);
@@ -278,7 +278,7 @@ Renderer::Renderer(const VK::Context& ctx) {
 
     PipelineCreateInfo info = {};
     info.layout = pipelineLayout;
-    info.shaderCount = shaderStages.size();
+    info.shaderCount = static_cast<uint32_t>(shaderStages.size());
     info.shaders = shaderStages.data();
     info.inputState = vertexBuffer.getState();
     info.renderPass = renderPass;
