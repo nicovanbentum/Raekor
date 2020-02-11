@@ -40,6 +40,22 @@ Texture* Texture::construct(const std::array <std::string, 6>& face_files) {
     return nullptr;
 }
 
+Texture* Texture::construct(const Stb::Image& image) {
+    auto active_api = Renderer::get_activeAPI();
+    switch (active_api) {
+    case RenderAPI::OPENGL: {
+        return new GLTexture(image);
+    } break;
+#ifdef _WIN32
+    case RenderAPI::DIRECTX11: {
+        return new GLTexture(image);
+    } break;
+#endif
+    }
+    return nullptr;
+}
+
+
 GLTexture::GLTexture(const std::string& path)
 {
     filepath = path;
@@ -60,6 +76,19 @@ GLTexture::GLTexture(const std::string& path)
     glGenerateMipmap(GL_TEXTURE_2D);
 
     stbi_image_free(image);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+GLTexture::GLTexture(const Stb::Image& image) {
+    glGenTextures(1, &id);
+    glBindTexture(GL_TEXTURE_2D, id);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.w, image.h,
+        0, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 

@@ -1,25 +1,34 @@
 #version 330 core
 
-layout(location = 0) in vec3 vertex_pos;
-layout(location = 1) in vec2 vertex_uv;
+layout(location = 0) in vec3 v_pos;
+layout(location = 1) in vec2 v_uv;
+layout(location = 2) in vec3 v_normal;
 
 layout (std140) uniform Camera {
-	mat4 model;
-	mat4 view;
-	mat4 proj;
+    mat4 model;
+    mat4 view;
+    mat4 projection;
+    vec4 lightPos;
+    vec4 lightAngle;
 };
 
 //we send out a uv coordinate for our frag shader
+out vec4 color;
 out vec2 uv;
-
-//4x4 matrix for our model view camera
-uniform mat4 MVP;
+out vec3 normal;
+out vec3 pos;
+out vec3 light_pos;
+out vec3 light_angle;
 
 void main()
 {
-    vec3 worldPos = vec3(model * vec4(vertex_pos, 1.0));
-    gl_Position = proj * view * vec4(worldPos, 1.0);
+	// CAMERA SPACE : VERTEX POSITION
+    gl_Position = projection * view * model * vec4(v_pos, 1.0);
+	pos = vec3(view * model * vec4(v_pos, 1.0));
+	normal = mat3(transpose(inverse(view * model))) * v_normal;
+	light_pos = vec3(view * lightPos);
+	light_angle = vec3(view * lightAngle);
 
     // set output uv
-    uv = vertex_uv;
+    uv = v_uv;
 }

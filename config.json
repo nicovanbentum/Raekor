@@ -36,5 +36,8 @@
                 "value5": "resources/skyboxes/night/back.jpg"
             }
         }
+    ],
+    "project": [
+        "C:\\VS Projects\\Raekor\\resources\\models\\Sponza\\Sponza.gltf"
     ]
 }

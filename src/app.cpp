@@ -62,23 +62,19 @@ void Application::run() {
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
-    uint32_t vk_extension_count = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &vk_extension_count, nullptr);
-    std::cout << vk_extension_count << '\n';
-
     // create the renderer object that does sets up the API and does all the runtime magic
     Renderer::set_activeAPI(RenderAPI::OPENGL);
     Render::Init(directxwindow);
 
     // create a Camera we can use to move around our scene
-    Camera camera(glm::vec3(0, 0, 5), 45.0f);
+    Camera camera(glm::vec3(0, 1.0, 0), 45.0f);
 
-    cb_vs ubo;
+    MVP ubo;
 
     std::unique_ptr<Model> model;
     std::unique_ptr<Shader> dx_shader;
     std::unique_ptr<FrameBuffer> dxfb;
-    std::unique_ptr<ResourceBuffer<cb_vs>> dxrb;
+    std::unique_ptr<ResourceBuffer> dxrb;
     std::unique_ptr<Texture> sky_image;
     std::unique_ptr<Mesh> skycube;
     std::unique_ptr<Shader> sky_shader;
@@ -91,8 +87,25 @@ void Application::run() {
     ft_texture.name = "Supported Image Files";
     ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
-    dx_shader.reset(Shader::construct("simple_vertex", "simple_fp"));
-    sky_shader.reset(Shader::construct("skybox_vertex", "skybox_fp"));
+    std::vector<Shader::Stage> gl_model_shaders;
+    gl_model_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\simple_vertex.glsl");
+    gl_model_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\simple_fp.glsl");
+
+    std::vector<Shader::Stage> gl_skybox_shaders;
+    gl_skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox_vertex.glsl");
+    gl_skybox_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\skybox_fp.glsl");
+
+    std::vector<Shader::Stage> dx_model_shaders;
+    dx_model_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\DirectX\\simple_vertex.cso");
+    dx_model_shaders.emplace_back(Shader::Type::FRAG, "shaders\\DirectX\\simple_fp.cso");
+
+    std::vector<Shader::Stage> dx_skybox_shaders;
+    dx_skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\DirectX\\skybox_vertex.cso");
+    dx_skybox_shaders.emplace_back(Shader::Type::FRAG, "shaders\\DirectX\\skybox_fp.cso");
+
+
+    dx_shader.reset(Shader::construct(gl_model_shaders.data(), gl_model_shaders.size()));
+    sky_shader.reset(Shader::construct(gl_skybox_shaders.data(), gl_skybox_shaders.size()));
 
     skycube.reset(new Mesh(Shape::Cube));
     skycube->get_vertex_buffer()->set_layout({ 
@@ -102,7 +115,7 @@ void Application::run() {
     });
 
     sky_image.reset(Texture::construct(skyboxes["lake"]));
-    dxrb.reset(ResourceBuffer<cb_vs>::construct());
+    dxrb.reset(ResourceBuffer::construct(sizeof(MVP)));
     dxfb.reset(FrameBuffer::construct({ displays[display].w * 0.80, displays[display].h * 0.80 }));
 
     using Scene = std::vector<Model>;
@@ -127,6 +140,19 @@ void Application::run() {
 
     Timer dt_timer;
     double dt = 0;
+
+    for (const std::string& path : project) {
+        models.push_back(Model(path));
+        active_m = models.end() - 1;
+        auto scale = active_m->scale_ptr();
+        active_m->recalc_transform();
+    }
+
+    glm::mat4 lightmatrix = glm::mat4(1.0f);
+    lightmatrix = glm::translate(lightmatrix, { 0.0, 1.0f, 0.0 });
+    float lightPos[3], lightRot[3], lightScale[3];
+    ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
+    glm::vec4 lightAngle = { 0.0f, 1.0f, 1.0f, 0.0f };
     //main application loop
     while(running) {
         dt_timer.start();
@@ -143,11 +169,14 @@ void Application::run() {
         // update the camera
         camera.update();
         // upload the camera's mvp matrix
-        ubo.m = glm::mat4(1.0f);
-        ubo.v = camera.getView();
-        ubo.p = camera.getProjection();
+        ubo.model = glm::mat4(1.0f);
+        ubo.view = camera.getView();
+        ubo.projection = camera.getProjection();
+        ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
+        ubo.lightPos = glm::vec4(glm::make_vec3(lightPos), 1.0f);
+        ubo.lightAngle = lightAngle;
         // update the resource buffer 
-        dxrb->update(ubo);
+        dxrb->update(&ubo, sizeof(ubo));
         // bind the resource buffer
         dxrb->bind(0);
         // bind the skybox cubemap
@@ -161,9 +190,9 @@ void Application::run() {
         dx_shader->bind();
         for (auto& m : models) {
             m.recalc_transform();
-            ubo.m = m.get_transform();
-            ubo.v = camera.getView();
-            dxrb->update(ubo);
+            ubo.model = m.get_transform();
+            ubo.view = camera.getView();
+            dxrb->update(&ubo, sizeof(ubo));
             dxrb->bind(0);
             m.render();
         }
@@ -173,6 +202,8 @@ void Application::run() {
 
         //get new frame for render API, sdl and imgui
         Render::ImGui_NewFrame(directxwindow);
+        ImGuizmo::BeginFrame();
+        ImGuizmo::Enable(true);
 
         static bool opt_fullscreen_persistant = true;
         bool opt_fullscreen = opt_fullscreen_persistant;
@@ -210,19 +241,38 @@ void Application::run() {
             ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
         }
 
+        // move the light by a fixed amount and let it bounce between -125 and 125 units/pixels on the x axis
+        static double move_amount = 0.003;
+        static double bounds = 10.0f;
+        static bool move_light = true;
+        double light_delta = move_amount * dt;
+        if ((lightPos[0] >= bounds && move_amount > 0) || (lightPos[0] <= -bounds && move_amount < 0)) {
+            move_amount *= -1;
+        }
+        if (move_light) {
+            lightmatrix = glm::translate(lightmatrix, { light_delta, 0.0, 0.0 });
+        }
+
         // draw the top level bar that contains stuff like "File" and "Edit"
         if (ImGui::BeginMenuBar()) {
             if (ImGui::BeginMenu("File")) {
+                if (ImGui::MenuItem("Save project", "CTRL + S")) {
+                    serialize_settings("config.json", true);
+                }
                 if (ImGui::MenuItem("Settings", "")) {
                     show_settings_window = true;
                 }
-                if (ImGui::MenuItem("Exit", "CTRL+S")) {
+                if (ImGui::MenuItem("Exit", "Escape")) {
                     running = false;
                 }
+
                 ImGui::EndMenu();
             }
             ImGui::EndMenuBar();
         }
+
+        // draw the imguizmo at the center of the light
+        ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
 
         // model panel
         ImGui::Begin("ECS");
@@ -276,10 +326,8 @@ void Application::run() {
                 models.push_back(Model(path));
                 active_m = models.end() - 1;
                 auto scale = active_m->scale_ptr();
-                glm::vec3* ptr = (glm::vec3*) active_m->scale_ptr();
-                *ptr = glm::vec3(0.1f, 0.1f, 0.1f);
                 active_m->recalc_transform();
-                
+                project.push_back(path);
             }
         }
         ImGui::SameLine();
@@ -287,6 +335,8 @@ void Application::run() {
             if (active_m != models.end()) {
                 models.erase(active_m);
                 active_m = models.end();
+                int index = (int)std::distance(models.begin(), active_m);
+                project.erase(project.begin() + index);
             }
         }
         ImGui::End();
@@ -325,6 +375,30 @@ void Application::run() {
         if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
             use_vsync = !use_vsync;
         }
+
+        if (ImGui::RadioButton("Animate Light", move_light)) {
+            move_light = !move_light;
+        }
+
+        if (ImGui::Button("Reload shaders")) {
+            switch (Renderer::get_activeAPI()) {
+            case RenderAPI::OPENGL: {
+                dx_shader.reset(Shader::construct(gl_model_shaders.data(), gl_model_shaders.size()));
+                sky_shader.reset(Shader::construct(gl_skybox_shaders.data(), gl_skybox_shaders.size()));
+            } break;
+            case RenderAPI::DIRECTX11: {
+                dx_shader.reset(Shader::construct(dx_model_shaders.data(), dx_model_shaders.size()));
+                sky_shader.reset(Shader::construct(dx_skybox_shaders.data(), dx_skybox_shaders.size()));
+            }
+            }
+        }
+
+
+        ImGui::NewLine(); ImGui::Separator();
+
+        ImGui::Text("Light Properties");
+        if (ImGui::DragFloat3("Angle", glm::value_ptr(lightAngle), 0.01f, -1.0f, 1.0f)) {}
+
         ImGui::End();
 
         ImGui::ShowMetricsWindow();
@@ -357,6 +431,7 @@ void Application::run() {
         auto size = ImGui::GetWindowSize();
         dxfb->resize({ size.x, size.y-25 });
         camera.set_aspect_ratio(size.x / size.y);
+        ImGuizmo::SetRect(0, 0, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
         dxfb->ImGui_Image();
         ImGui::End();
@@ -372,8 +447,16 @@ void Application::run() {
             reset = false;
             // TODO: figure this out
             Render::Reset(directxwindow);
-            dx_shader.reset(Shader::construct("simple_vertex", "simple_fp"));
-            sky_shader.reset(Shader::construct("skybox_vertex", "skybox_fp"));
+            switch (Renderer::get_activeAPI()) {
+                case RenderAPI::OPENGL: {
+                    dx_shader.reset(Shader::construct(gl_model_shaders.data(), gl_model_shaders.size()));
+                    sky_shader.reset(Shader::construct(gl_skybox_shaders.data(), gl_skybox_shaders.size()));
+                } break;
+                case RenderAPI::DIRECTX11: {
+                    dx_shader.reset(Shader::construct(dx_model_shaders.data(), dx_model_shaders.size()));
+                    sky_shader.reset(Shader::construct(dx_skybox_shaders.data(), dx_skybox_shaders.size()));
+                    }
+            }
             skycube.reset(new Mesh(Shape::Cube));
             skycube->get_vertex_buffer()->set_layout({
                 {"POSITION", ShaderType::FLOAT3},
@@ -382,14 +465,13 @@ void Application::run() {
             });
             sky_image.reset(Texture::construct(skyboxes["lake"]));
             dxfb.reset(FrameBuffer::construct({ displays[display].w * 0.80, displays[display].h * 0.80 }));
-            dxrb.reset(ResourceBuffer<cb_vs>::construct());
+            dxrb.reset(ResourceBuffer::construct(sizeof(cb_vs)));
             for (auto &m : models) m.reload();
         }
 
     } // while true loop
 
     display = SDL_GetWindowDisplayIndex(directxwindow);
-    serialize_settings("config.json", true);
     //clean up SDL
     SDL_DestroyWindow(directxwindow);
     SDL_Quit();

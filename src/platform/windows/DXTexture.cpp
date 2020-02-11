@@ -66,6 +66,55 @@ DXTexture::DXTexture(const std::string& filepath) {
     m_assert(SUCCEEDED(hr), "failed to create sampler state");
 }
 
+DXTexture::DXTexture(const Stb::Image& image) {
+    //describe our 2d texture
+    D3D11_TEXTURE2D_DESC desc;
+    desc.MipLevels = 0;
+    desc.ArraySize = 1;
+    desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    desc.CPUAccessFlags = 0;
+    desc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
+
+
+    // point the directx resource to the stb image data
+    D3D11_SUBRESOURCE_DATA image_data;
+    image_data.pSysMem = (const void*)image.pixels;
+    image_data.SysMemPitch = STBI_rgb_alpha * image.w;
+    desc.Width = image.w;
+    desc.Height = image.h;
+
+    auto hr = D3D.device->CreateTexture2D(&desc, nullptr, texture.GetAddressOf());
+    m_assert(SUCCEEDED(hr), "failed to create 2d texture object");
+
+    // describe the shader resource view
+    D3D11_SHADER_RESOURCE_VIEW_DESC resource = {};
+    resource.Format = desc.Format;
+    resource.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    resource.TextureCube.MipLevels = -1;
+
+    hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
+    m_assert(SUCCEEDED(hr), "failed to create shader resource view for dx texture");
+
+    D3D.context->UpdateSubresource(texture.Get(), 0, 0, (const void*)image.pixels, image_data.SysMemPitch, 0);
+    D3D.context->GenerateMips(texture_resource.Get());
+
+    D3D11_SAMPLER_DESC samp_desc;
+    memset(&samp_desc, 0, sizeof(D3D11_SAMPLER_DESC));
+    samp_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    samp_desc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    samp_desc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    samp_desc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    samp_desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    samp_desc.MinLOD = 0;
+    samp_desc.MaxLOD = D3D11_FLOAT32_MAX;
+    hr = D3D.device->CreateSamplerState(&samp_desc, sampler_state.GetAddressOf());
+    m_assert(SUCCEEDED(hr), "failed to create sampler state");
+}
+
 void DXTexture::bind() const {
     D3D.context->PSSetShaderResources(0, 1, texture_resource.GetAddressOf());
     D3D.context->PSSetSamplers(0, 1, sampler_state.GetAddressOf());

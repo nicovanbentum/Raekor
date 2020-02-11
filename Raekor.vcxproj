@@ -186,6 +186,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClCompile Include="src\platform\windows\DXBuffer.cpp" />
     <ClCompile Include="src\platform\windows\DXFrameBuffer.cpp" />
     <ClCompile Include="src\platform\windows\DXRenderer.cpp" />
+    <ClCompile Include="src\platform\windows\DXResourceBuffer.cpp" />
     <ClCompile Include="src\platform\windows\DXShader.cpp" />
     <ClCompile Include="src\platform\windows\DXTexture.cpp" />
     <ClCompile Include="src\platform\windows\PlatformContext.cpp" />
@@ -204,6 +205,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClCompile Include="src\VK\VKContext.cpp" />
     <ClCompile Include="src\VK\VKDescriptor.cpp" />
     <ClCompile Include="src\VK\VKDevice.cpp" />
+    <ClCompile Include="src\VK\VKRenderer.cpp" />
     <ClCompile Include="src\VK\VKShader.cpp" />
     <ClCompile Include="src\VK\VKSwapchain.cpp" />
     <ClCompile Include="src\VK\VKTexture.cpp" />
@@ -245,6 +247,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClInclude Include="src\VK\VKContext.h" />
     <ClInclude Include="src\VK\VKDescriptor.h" />
     <ClInclude Include="src\VK\VKDevice.h" />
+    <ClInclude Include="src\VK\VKRenderer.h" />
     <ClInclude Include="src\VK\VKShader.h" />
     <ClInclude Include="src\VK\VKSwapchain.h" />
     <ClInclude Include="src\VK\VKTexture.h" />

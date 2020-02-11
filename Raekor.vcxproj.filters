@@ -135,6 +135,9 @@
     <ClCompile Include="src\VK\VKRenderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\platform\windows\DXResourceBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\glm\glm.hpp">

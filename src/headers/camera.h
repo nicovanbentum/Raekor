@@ -39,9 +39,10 @@ private:
     glm::mat4 projection;
     glm::mat4 mvp;
     float FOV;
+    bool mouse_active;
+public:
     float look_speed;
     float move_speed;
-    bool mouse_active;
 
 };
 

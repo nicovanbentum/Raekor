@@ -45,6 +45,7 @@ protected:
     std::string path;
     std::vector<Mesh> meshes;
     std::vector<std::shared_ptr<Texture>> textures;
+    std::vector<int32_t> textureIndices;
 
 private:
     const aiScene* scene;

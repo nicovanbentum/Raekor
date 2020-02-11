@@ -5,9 +5,43 @@
 
 #ifdef _WIN32
     #include "DXBuffer.h"
+    #include "DXResourceBuffer.h"
 #endif
 
 namespace Raekor {
+    ResourceBuffer* ResourceBuffer::construct(size_t size) {
+        auto active_api = Renderer::get_activeAPI();
+        switch (active_api) {
+        case RenderAPI::OPENGL: {
+            return new GLResourceBuffer(size);
+        } break;
+#ifdef _WIN32
+        case RenderAPI::DIRECTX11: {
+            return new DXResourceBuffer(size);
+        } break;
+#endif
+        }
+        return nullptr;
+    }
+
+    GLResourceBuffer::GLResourceBuffer(size_t size) {
+        glGenBuffers(1, &id);
+        glBindBuffer(GL_UNIFORM_BUFFER, id);
+        glBufferData(GL_UNIFORM_BUFFER, size, NULL, GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+
+    void GLResourceBuffer::update(void* data, const size_t size) const {
+        glBindBuffer(GL_UNIFORM_BUFFER, id);
+        void* data_ptr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
+        memcpy(data_ptr, data, size);
+        glUnmapBuffer(GL_UNIFORM_BUFFER);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+
+    void GLResourceBuffer::bind(uint8_t slot) const {
+        glBindBufferBase(GL_UNIFORM_BUFFER, slot, id);
+    }
 
 uint32_t size_of(ShaderType type) {
     switch (type) {

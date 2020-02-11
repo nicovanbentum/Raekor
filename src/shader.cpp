@@ -9,104 +9,128 @@
 
 namespace Raekor {
 
-Shader* Shader::construct(std::string vertex, std::string fp) {
+Shader* Shader::construct(Stage* stages, size_t stageCount) {
     switch (Renderer::get_activeAPI()) {
         case RenderAPI::OPENGL: {
-            LOG_CATCH(return new GLShader("shaders/OpenGL/" + vertex + ".glsl", "shaders/OpenGL/" + fp + ".glsl"));
+            LOG_CATCH(return new GLShader(stages, stageCount));
 
         } break;
 #ifdef _WIN32
         case RenderAPI::DIRECTX11: {
-            LOG_CATCH(return new DXShader("shaders/DirectX/" + vertex + ".cso", "shaders/DirectX/" + fp + ".cso"));
+            LOG_CATCH(return new DXShader(stages, stageCount));
         } break;
 #endif
     }
     return nullptr;
 }
 
-std::string read_shader_file(const std::string& fp) {
-    std::string src;
-    std::ifstream ifs(fp, std::ios::in | std::ios::binary);
-    if(ifs) {
-        ifs.seekg(0, std::ios::end);
-        src.resize(ifs.tellg());
-        ifs.seekg(0, std::ios::beg);
-        ifs.read(&src[0], src.size());
-        ifs.close();
-    }
-    return src;
+/////////////////////////////////////////////////////////////////////////////////////////
+
+Shader::loc& Shader::loc::operator=(const void* rhs) {
+    glUniformMatrix4fv(id, 1, GL_FALSE, (float*)rhs);
+    return *this;
 }
 
-GLShader::GLShader(std::string vert, std::string frag) {
-    // Create the vert and frag shaders and read the code from file
-    unsigned int vertex_id = glCreateShader(GL_VERTEX_SHADER);
-    unsigned int frag_id = glCreateShader(GL_FRAGMENT_SHADER);
-    std::string vertex_src = read_shader_file(vert);
-    std::string frag_src = read_shader_file(frag);
-    auto v_src = vertex_src.c_str();
-    auto f_src = frag_src.c_str();
+/////////////////////////////////////////////////////////////////////////////////////////
 
-    if (vertex_src.empty() || frag_src.empty()) {
-        throw std::runtime_error("failed to load shaders");
+GLShader::GLShader(Stage* stages, size_t stageCount) {
+    this->reload(stages, stageCount);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+GLShader::~GLShader() { glDeleteProgram(programID); }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+void GLShader::reload(Stage* stages, size_t stageCount) {
+    programID = glCreateProgram();
+    std::vector<unsigned int> shaders;
+
+    for (unsigned int i = 0; i < stageCount; i++) {
+        Stage& stage = stages[i];
+
+        std::string buffer;
+        std::ifstream ifs(stage.filepath, std::ios::in | std::ios::binary);
+        if (ifs) {
+            ifs.seekg(0, std::ios::end);
+            buffer.resize(ifs.tellg());
+            ifs.seekg(0, std::ios::beg);
+            ifs.read(&buffer[0], buffer.size());
+            ifs.close();
+        }
+        const char* src = buffer.c_str();
+
+        GLenum type = NULL;
+
+        switch (stage.type) {
+            case Type::VERTEX: {
+                type = GL_VERTEX_SHADER;
+            } break;
+            case Type::FRAG: {
+                type = GL_FRAGMENT_SHADER;
+            } break;
+            case Type::GEO: {
+                type = GL_GEOMETRY_SHADER;
+            } break;
+            case Type::COMPUTE: {
+                type = GL_COMPUTE_SHADER;
+            } break;
+        }
+
+        unsigned int shaderID = glCreateShader(type);
+        glShaderSource(shaderID, 1, &src, NULL);
+        glCompileShader(shaderID);
+
+        int result = GL_FALSE;
+        int log_n = 0;
+
+        glGetShaderiv(shaderID, GL_COMPILE_STATUS, &result);
+        if (result == GL_FALSE) {
+            glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &log_n);
+            std::vector<char> error_msg(log_n);
+            glGetShaderInfoLog(shaderID, log_n, NULL, error_msg.data());
+            m_assert(!log_n, std::string(std::begin(error_msg), std::end(error_msg)));
+        }
+
+        glAttachShader(programID, shaderID);
+        shaders.push_back(shaderID);
     }
 
-    int result = GL_FALSE;
-    int log_n = 0;
+    // Link and check the program
+    glLinkProgram(programID);
 
-    // compile the vertex shader
-    glShaderSource(vertex_id, 1, &v_src, NULL);
-    glCompileShader(vertex_id);
-
-    // Check compile completion
-    glGetShaderiv(vertex_id, GL_COMPILE_STATUS, &result);
+    int result = 0, log_n = 0;
+    glGetProgramiv(programID, GL_LINK_STATUS, &result);
     if (result == GL_FALSE) {
-        glGetShaderiv(vertex_id, GL_INFO_LOG_LENGTH, &log_n);
+        std::cout << "FAILED TO LINK GL SHADERS" << '\n';
+
+        glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &log_n);
         std::vector<char> error_msg(log_n);
-        glGetShaderInfoLog(vertex_id, log_n, NULL, error_msg.data());
+        glGetProgramInfoLog(programID, log_n, NULL, error_msg.data());
         m_assert(!log_n, std::string(std::begin(error_msg), std::end(error_msg)));
     }
 
-    // compile our fragment shader
-    glShaderSource(frag_id, 1, &f_src, NULL);
-    glCompileShader(frag_id);
-
-    // check compile completion
-    glGetShaderiv(frag_id, GL_COMPILE_STATUS, &result);
-    if (result == GL_FALSE) {
-        glGetShaderiv(frag_id, GL_INFO_LOG_LENGTH, &log_n);
-        std::vector<char> error_msg(log_n);
-        glGetShaderInfoLog(frag_id, log_n, NULL, error_msg.data());
-        m_assert(!log_n, std::string(std::begin(error_msg), std::end(error_msg)));
+    for (unsigned int shader : shaders) {
+        glDetachShader(programID, shader);
+        glDeleteShader(shader);
     }
-
-    // Link the program
-    id = glCreateProgram();
-    glAttachShader(id, vertex_id);
-    glAttachShader(id, frag_id);
-    glLinkProgram(id);
-
-    // Check the program
-    glGetProgramiv(id, GL_LINK_STATUS, &result);
-    if (result == GL_FALSE) {
-        glGetProgramiv(id, GL_INFO_LOG_LENGTH, &log_n);
-        std::vector<char> error_msg(log_n);
-        glGetProgramInfoLog(id, log_n, NULL, error_msg.data());
-        m_assert(!log_n, std::string(std::begin(error_msg), std::end(error_msg)));
-    }
-
-    // clean up shaders
-    glDetachShader(id, vertex_id);
-    glDetachShader(id, frag_id);
-    glDeleteShader(vertex_id);
-    glDeleteShader(frag_id);
 }
 
-unsigned int GLShader::get_uniform_location(const std::string & var) {
-    return glGetUniformLocation(id, var.c_str());
-}
+/////////////////////////////////////////////////////////////////////////////////////////
 
-void GLShader::upload_uniform_matrix4fv(unsigned int var_id, float* start) {
-    glUniformMatrix4fv(var_id, 1, GL_FALSE, start);
+inline const void GLShader::bind() const { glUseProgram(programID); }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+inline const void GLShader::unbind() const { glUseProgram(0); }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+Shader::loc GLShader::operator[] (const char* data) {
+    loc ret;
+    ret.id = glGetUniformLocation(programID, data);
+    return ret;
 }
 
 } // Namespace Raekor

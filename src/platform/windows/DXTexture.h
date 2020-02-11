@@ -8,6 +8,7 @@ namespace Raekor {
 class DXTexture : public Texture {
 public:
     DXTexture(const std::string& filepath);
+    DXTexture(const Stb::Image& image);
     virtual void bind() const override;
 
 private:

@@ -6,7 +6,7 @@
 namespace Raekor {
 
 enum class RenderAPI {
-    OPENGL, DIRECTX11
+    OPENGL, DIRECTX11, VULKAN
 };
 
 class Renderer {

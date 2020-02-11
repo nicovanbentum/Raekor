@@ -18,7 +18,8 @@ public:
             CEREAL_NVP(name),
             CEREAL_NVP(display),
             CEREAL_NVP(font),
-            CEREAL_NVP(skyboxes));
+            CEREAL_NVP(skyboxes),
+            CEREAL_NVP(project));
     }
     void serialize_settings(const std::string& filepath, bool write = false);
 
@@ -31,6 +32,7 @@ private:
     std::string font;
     int display;
     std::map<std::string, std::array<std::string, 6>> skyboxes;
+    std::vector<std::string> project;
 };
 
 } // Namespace Raekor

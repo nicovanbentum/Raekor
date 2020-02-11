@@ -14,60 +14,21 @@ struct cb_vs {
     glm::mat4 p;
 };
 
-// forward declarations necessary cause of templates
-template<typename T>
-class GLResourceBuffer;
-
-template<typename T>
-class DXResourceBuffer;
-
-// resource buffer class that takes a struct as template parameter
-// the struct must match the one in shaders
-template<typename T>
 class ResourceBuffer {
 public:
     virtual ~ResourceBuffer() {}
+    static ResourceBuffer* construct(size_t size);
 
-    static ResourceBuffer* construct() {
-        auto active_api = Renderer::get_activeAPI();
-        switch (active_api) {
-            case RenderAPI::OPENGL: {
-                return new GLResourceBuffer<T>;
-                } break;
-#ifdef _WIN32
-            case RenderAPI::DIRECTX11: {
-                return new DXResourceBuffer<T>;
-            } break;
-#endif
-        }
-        return nullptr;
-    }
     // update and bind the resource buffer to one of 15 slots
-    virtual void update(const T& resource) const = 0;
+    virtual void update(void* data, const size_t size) const = 0;
     virtual void bind(uint8_t slot) const = 0;
 };
 
-template<typename T>
-class GLResourceBuffer : public ResourceBuffer<T> {
+class GLResourceBuffer : public ResourceBuffer {
 public:
-    GLResourceBuffer() {
-        glGenBuffers(1, &id);
-        glBindBuffer(GL_UNIFORM_BUFFER, id);
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(T), NULL, GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    }
-
-    virtual void update(const T& resource) const override {
-        glBindBuffer(GL_UNIFORM_BUFFER, id);
-        void* data_ptr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
-        memcpy(data_ptr, &resource, sizeof(T));
-        glUnmapBuffer(GL_UNIFORM_BUFFER);
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    }
-
-    virtual void bind(uint8_t slot) const override {
-        glBindBufferBase(GL_UNIFORM_BUFFER, slot, id);
-    }
+    GLResourceBuffer(size_t size);
+    virtual void update(void* data, const size_t size) const override;
+    virtual void bind(uint8_t slot) const override;
 
 private:
     unsigned int id;
