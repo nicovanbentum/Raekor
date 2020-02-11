@@ -19,7 +19,7 @@ Run the application using `make run`.
 >*Tested on Ubuntu 19.04*
 
 ### Render APIs
-Most work is being put into abstsracting away OpenGL and DirectX. As of 2020 the project's focus has shifted towards Vulkan and getting more graphics features working using just Vulkan. Some of those features (in no particular order) are:
+Most work is being put into abstsracting away OpenGL and Vulkan. As of 2020 the project's focus has shifted towards Vulkan and getting more graphics features working using just Vulkan. Unfortunately, this means the DirectX shaders will not be kept up to date until cross SPIR-V compilation is added. Some of the features currently being worked on:
 - [X] Shader hotloading
 - [X] Directional & Point lighting
 - [ ] Shadow mapping
