@@ -18,6 +18,11 @@
 
 namespace Raekor {
 
+struct shadowUBO {
+    glm::mat4 cameraMatrix;
+    glm::mat4 model;
+};
+
 void Application::serialize_settings(const std::string& filepath, bool write) {
     if (write) {
         std::ofstream os(filepath);
@@ -70,14 +75,24 @@ void Application::run() {
     Camera camera(glm::vec3(0, 1.0, 0), 45.0f);
 
     MVP ubo;
+    shadowUBO shadowUbo;
 
     std::unique_ptr<Model> model;
+
     std::unique_ptr<Shader> dx_shader;
+    std::unique_ptr<Shader> sky_shader;
+    std::unique_ptr<Shader> depth_shader;
+    std::unique_ptr<Shader> quad_shader;
+
     std::unique_ptr<FrameBuffer> dxfb;
+    std::unique_ptr<FrameBuffer> quadFB;
+
     std::unique_ptr<ResourceBuffer> dxrb;
+    std::unique_ptr<ResourceBuffer> shadowVertUbo;
+
     std::unique_ptr<Texture> sky_image;
     std::unique_ptr<Mesh> skycube;
-    std::unique_ptr<Shader> sky_shader;
+
 
     Ffilter ft_mesh;
     ft_mesh.name = "Supported Mesh Files";
@@ -103,9 +118,18 @@ void Application::run() {
     dx_skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\DirectX\\skybox_vertex.cso");
     dx_skybox_shaders.emplace_back(Shader::Type::FRAG, "shaders\\DirectX\\skybox_fp.cso");
 
+    std::vector<Shader::Stage> gl_depth_shaders;
+    gl_depth_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depth.vert");
+    gl_depth_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depth.frag");
+
+    std::vector<Shader::Stage> gl_quad_shaders;
+    gl_quad_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
+    gl_quad_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\quad.frag");
 
     dx_shader.reset(Shader::construct(gl_model_shaders.data(), gl_model_shaders.size()));
     sky_shader.reset(Shader::construct(gl_skybox_shaders.data(), gl_skybox_shaders.size()));
+    depth_shader.reset(Shader::construct(gl_depth_shaders.data(), gl_depth_shaders.size()));
+    quad_shader.reset(Shader::construct(gl_quad_shaders.data(), gl_quad_shaders.size()));
 
     skycube.reset(new Mesh(Shape::Cube));
     skycube->get_vertex_buffer()->set_layout({ 
@@ -115,8 +139,49 @@ void Application::run() {
     });
 
     sky_image.reset(Texture::construct(skyboxes["lake"]));
+
+    std::unique_ptr<VertexBuffer> quadBuffer;
+    std::unique_ptr<IndexBuffer> quadIndexBuffer;
+    quadBuffer.reset(VertexBuffer::construct(v_quad));
+    quadIndexBuffer.reset(IndexBuffer::construct(i_quad));
+
+    quadBuffer->set_layout({
+        {"POSITION", ShaderType::FLOAT3},
+        {"UV", ShaderType::FLOAT2},
+        {"NORMAL", ShaderType::FLOAT3}
+        });
+    
+    auto drawQuad = [&]() {
+        quad_shader->bind();
+        quadBuffer->bind();
+        quadIndexBuffer->bind();
+        Render::DrawIndexed(quadIndexBuffer->get_count(), false);
+    };
+
     dxrb.reset(ResourceBuffer::construct(sizeof(MVP)));
-    dxfb.reset(FrameBuffer::construct({ displays[display].w * 0.80, displays[display].h * 0.80 }));
+    shadowVertUbo.reset(ResourceBuffer::construct(sizeof(shadowUBO)));
+
+    FrameBuffer::ConstructInfo renderFBinfo = {};
+    renderFBinfo.size.x = displays[display].w * 0.8;
+    renderFBinfo.size.y = displays[display].h * 0.8;
+    renderFBinfo.depthOnly = false;
+
+    dxfb.reset(FrameBuffer::construct(&renderFBinfo));
+
+    FrameBuffer::ConstructInfo quadFBinfo = {};
+    quadFBinfo.size.x = 1024;
+    quadFBinfo.size.y = 1024;
+    quadFBinfo.depthOnly = false;
+    quadFBinfo.writeOnly = false;
+
+    quadFB.reset(FrameBuffer::construct(&quadFBinfo));
+
+    float near_plane = 0.1f, far_plane = 10.0f;
+    glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+    glm::mat4 lightView = glm::lookAt(glm::vec3(-2.0f, 8.0f, -1.0f),
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
     using Scene = std::vector<Model>;
     Scene models;
@@ -141,6 +206,31 @@ void Application::run() {
     Timer dt_timer;
     double dt = 0;
 
+
+    // configure depth map FBO
+    // -----------------------
+    const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+    unsigned int depthMapFBO;
+    glGenFramebuffers(1, &depthMapFBO);
+    // create depth texture
+    unsigned int depthMap;
+    glGenTextures(1, &depthMap);
+    glBindTexture(GL_TEXTURE_2D, depthMap);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    // attach depth texture as FBO's depth buffer
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
     for (const std::string& path : project) {
         models.push_back(Model(path));
         active_m = models.end() - 1;
@@ -153,13 +243,34 @@ void Application::run() {
     float lightPos[3], lightRot[3], lightScale[3];
     ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
     glm::vec4 lightAngle = { 0.0f, 1.0f, 1.0f, 0.0f };
-    //main application loop
+    
+    //////////////////////////////////////////////////////////////
+    //// main application loop //////////////////////////////////
+    ////////////////////////////////////////////////////////////
     while(running) {
         dt_timer.start();
         //handle sdl and imgui events
         handle_sdl_gui_events({ directxwindow }, camera, dt);
-
         Render::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
+
+        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        depth_shader->bind();
+        for (auto& m : models) {
+            m.recalc_transform();
+            shadowUbo.cameraMatrix = lightSpaceMatrix;
+            shadowUbo.model = m.get_transform();
+            shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
+            shadowVertUbo->bind(0);
+            m.render();
+        }
+
+        glBindTexture(GL_TEXTURE_2D, depthMap);
+        quadFB->bind();
+        Render::Clear({ 1,0,0,1 });
+        drawQuad();
+
+
         dxfb->bind();
         Render::Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
         bool transpose = Renderer::get_activeAPI() == RenderAPI::DIRECTX11 ? true : false;
@@ -186,12 +297,15 @@ void Application::run() {
         // draw the indexed vertices
         Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
 
-        // bind the model's shader
+        // bind the model's shader and render the scene using the shadow map
         dx_shader->bind();
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, depthMap);
         for (auto& m : models) {
             m.recalc_transform();
             ubo.model = m.get_transform();
             ubo.view = camera.getView();
+            ubo.lightSpaceMatrix = lightSpaceMatrix;
             dxrb->update(&ubo, sizeof(ubo));
             dxrb->bind(0);
             m.render();
@@ -380,6 +494,11 @@ void Application::run() {
             move_light = !move_light;
         }
 
+        static bool debugShadows = false;
+        if (ImGui::RadioButton("Debug shadows", debugShadows)) {
+            debugShadows = !debugShadows;
+        }
+
         if (ImGui::Button("Reload shaders")) {
             switch (Renderer::get_activeAPI()) {
             case RenderAPI::OPENGL: {
@@ -433,7 +552,12 @@ void Application::run() {
         camera.set_aspect_ratio(size.x / size.y);
         ImGuizmo::SetRect(0, 0, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
-        dxfb->ImGui_Image();
+        if (debugShadows) {
+            quadFB->ImGui_Image();
+        } else {
+            dxfb->ImGui_Image();
+        }
+
         ImGui::End();
         ImGui::PopStyleVar();
 
@@ -464,7 +588,7 @@ void Application::run() {
                 {"NORMAL", ShaderType::FLOAT3}
             });
             sky_image.reset(Texture::construct(skyboxes["lake"]));
-            dxfb.reset(FrameBuffer::construct({ displays[display].w * 0.80, displays[display].h * 0.80 }));
+            dxfb.reset(FrameBuffer::construct(&renderFBinfo));
             dxrb.reset(ResourceBuffer::construct(sizeof(cb_vs)));
             for (auto &m : models) m.reload();
         }

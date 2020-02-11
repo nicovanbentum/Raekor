@@ -29,6 +29,18 @@ std::vector<Index>  i_cube = {
     {20,21,22},  {22,23,20}
 };
 
+std::vector<Vertex> v_quad = {
+    {{-1.0f, 1.0f, 0.0f},   {0.0f, 1.0f}, {}},
+    {{-1.0f, -1.0f, 0.0f},  {0.0f, 0.0f}, {}},
+    {{1.0f, 1.0f, 0.0f},    {1.0f, 1.0f},{}},
+    {{1.0f, -1.0f, 0.0f},   {1.0f, 0.0f}, {}}
+};
+
+std::vector<Index> i_quad = {
+    {0, 1, 2}, {1, 2, 3}
+};
+
+
 Mesh::Mesh(Shape basic_shape) {
     switch (basic_shape) {
     case Shape::None: return;

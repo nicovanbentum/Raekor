@@ -4,13 +4,21 @@
 
 namespace Raekor {
 
+
     class FrameBuffer {
+    public:
+        struct ConstructInfo {
+            glm::vec2 size;
+            bool depthOnly;
+            bool writeOnly;
+        };
 
     public:
         virtual ~FrameBuffer() {}
-        static FrameBuffer* construct(const glm::vec2& new_size);
+        static FrameBuffer* construct(ConstructInfo* info);
         virtual void bind() const = 0;
         virtual void unbind() const = 0;
+        virtual void bindTexture() const = 0;
         virtual void ImGui_Image() const = 0;
         virtual void resize(const glm::vec2& size) = 0;
         inline glm::vec2 get_size() const { return size; }
@@ -25,10 +33,11 @@ namespace Raekor {
     class GLFrameBuffer : public FrameBuffer {
 
     public:
-        GLFrameBuffer(const glm::vec2& size);
+        GLFrameBuffer(FrameBuffer::ConstructInfo* info);
         ~GLFrameBuffer();
         virtual void bind() const override;
         virtual void unbind() const override;
+        virtual void bindTexture() const override;
         virtual void ImGui_Image() const override;
         virtual void resize(const glm::vec2& size) override;
     };

@@ -37,5 +37,7 @@ private:
 
 extern std::vector<Vertex> v_cube;
 extern std::vector<Index> i_cube;
+extern std::vector<Vertex> v_quad;
+extern std::vector<Index> i_quad;
 
 }

@@ -4,8 +4,8 @@
 
 namespace Raekor {
 
-DXFrameBuffer::DXFrameBuffer(const glm::vec2& size) {
-    this->size = size;
+DXFrameBuffer::DXFrameBuffer(FrameBuffer::ConstructInfo* info) {
+    this->size = info->size;
 
     D3D11_TEXTURE2D_DESC texture_desc = { 0 };
     D3D11_RENDER_TARGET_VIEW_DESC target_desc;
@@ -61,6 +61,9 @@ void DXFrameBuffer::bind() const {
 void DXFrameBuffer::unbind() const {
     D3D.render_target_view = D3D.back_buffer;
     D3D.context->OMSetRenderTargets(1, D3D.back_buffer.GetAddressOf(), NULL);
+}
+
+void DXFrameBuffer::bindTexture() const {
 }
 
 void DXFrameBuffer::ImGui_Image() const {

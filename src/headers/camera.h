@@ -10,6 +10,7 @@ struct MVP {
     glm::mat4 projection;
     glm::vec4 lightPos;
     glm::vec4 lightAngle;
+    glm::mat4 lightSpaceMatrix;
 };
 
 class Camera {

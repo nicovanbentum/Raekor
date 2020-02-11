@@ -9,23 +9,23 @@
 
 namespace Raekor {
 
-FrameBuffer* FrameBuffer::construct(const glm::vec2& new_size) {
+FrameBuffer* FrameBuffer::construct(FrameBuffer::ConstructInfo* info) {
     auto active_api = Renderer::get_activeAPI();
     switch (active_api) {
         case RenderAPI::OPENGL: {
-            return new GLFrameBuffer(new_size);
+            return new GLFrameBuffer(info);
         } break;
 #ifdef _WIN32
         case RenderAPI::DIRECTX11: {
-            return new DXFrameBuffer(new_size);
+            return new DXFrameBuffer(info);
         } break;
 #endif
     }
     return nullptr;
 }
 
-GLFrameBuffer::GLFrameBuffer(const glm::vec2& new_size) {
-    size = new_size;
+GLFrameBuffer::GLFrameBuffer(FrameBuffer::ConstructInfo* info) {
+    size = info->size;
     // gen and bind our frame buffer
     glGenFramebuffers(1, &fbo_id);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo_id);
@@ -35,13 +35,22 @@ GLFrameBuffer::GLFrameBuffer(const glm::vec2& new_size) {
     glBindTexture(GL_TEXTURE_2D, render_texture_id);
 
     // create the 2d texture image
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)size.x, (GLsizei)size.y, 0, GL_RGB, GL_FLOAT, NULL);
+    if (info->depthOnly) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, (GLsizei)size.x, (GLsizei)size.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+    } else {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)size.x, (GLsizei)size.y, 0, GL_RGB, GL_FLOAT, NULL);
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
+
+
     // unbind the texture and attach it to the framebuffer
     glBindTexture(GL_TEXTURE_2D, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_texture_id, 0);
+
+    GLenum attachment = info->depthOnly ? GL_DEPTH_COMPONENT : GL_COLOR_ATTACHMENT0;
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, render_texture_id, 0);
 
     // gen and bind render buffer
     glGenRenderbuffers(1, &rbo_id);
@@ -76,6 +85,10 @@ void GLFrameBuffer::bind() const {
 
 void GLFrameBuffer::unbind() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void GLFrameBuffer::bindTexture() const {
+    glBindTexture(GL_TEXTURE_2D, render_texture_id);
 }
 
 void GLFrameBuffer::ImGui_Image() const {
