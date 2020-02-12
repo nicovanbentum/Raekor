@@ -115,7 +115,7 @@ DXTexture::DXTexture(const Stb::Image& image) {
     m_assert(SUCCEEDED(hr), "failed to create sampler state");
 }
 
-void DXTexture::bind() const {
+void DXTexture::bind(uint32_t slot) const {
     D3D.context->PSSetShaderResources(0, 1, texture_resource.GetAddressOf());
     D3D.context->PSSetSamplers(0, 1, sampler_state.GetAddressOf());
 }
@@ -167,7 +167,7 @@ DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files) {
     }
 }
 
-void DXTextureCube::bind() const {
+void DXTextureCube::bind(uint32_t slot) const {
     D3D.context->PSSetShaderResources(0, 1, texture_resource.GetAddressOf());
 }
 

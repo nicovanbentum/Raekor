@@ -12,7 +12,8 @@ layout (std140) uniform stuff {
     vec4 DirLightPos;
 	mat4 lightSpaceMatrix;
     vec4 pointLightPos;
-	float shadowBias;
+	float minBias;
+	float maxBias;
 } ubo;
 
 //we send out a uv coordinate for our frag shader
@@ -27,7 +28,8 @@ out vec3 directionalLightPositionViewSpace;
 out vec3 pointLightPositionViewSpace;
 out vec3 cameraPos;
 
-out float shadowBias;
+out float minBias;
+out float maxBias;
 
 void main()
 {
@@ -45,5 +47,6 @@ void main()
 	pointLightPositionViewSpace = vec3(ubo.view * ubo.pointLightPos);
 	directionalLightPosition = vec3(ubo.DirLightPos);
 	cameraPos = vec3(ubo.cameraPosition);
-	shadowBias = ubo.shadowBias;
+	minBias = ubo.minBias;
+	maxBias = ubo.maxBias;
 }

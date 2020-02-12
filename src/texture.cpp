@@ -96,8 +96,8 @@ GLTexture::~GLTexture() {
     glDeleteTextures(1, &id);
 }
 
-void GLTexture::bind() const {
-    glActiveTexture(GL_TEXTURE0);
+void GLTexture::bind(uint32_t slot) const {
+    glActiveTexture(GL_TEXTURE0 + slot);
     glBindTexture(GL_TEXTURE_2D, id);
 }
 
@@ -129,7 +129,8 @@ GLTextureCube::~GLTextureCube() {
     glDeleteTextures(1, &id);
 }
 
-void GLTextureCube::bind() const {
+void GLTextureCube::bind(uint32_t slot) const {
+    glActiveTexture(GL_TEXTURE0 + slot);
     glBindTexture(GL_TEXTURE_CUBE_MAP, id);
 }
 

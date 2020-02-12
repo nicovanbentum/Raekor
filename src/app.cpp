@@ -31,7 +31,8 @@ namespace Raekor {
         glm::vec4 DirLightPos;
         glm::mat4 lightSpaceMatrix;
         glm::vec4 pointLightPos;
-        float shadowBias = 0.005;
+        float minBias = 0.005;
+        float maxBias = 0.001;
     };
 
     void Application::serialize_settings(const std::string& filepath, bool write) {
@@ -92,19 +93,26 @@ namespace Raekor {
 
         std::unique_ptr<Model> model;
 
-        std::unique_ptr<Shader> dx_shader;
-        std::unique_ptr<Shader> sky_shader;
-        std::unique_ptr<Shader> depth_shader;
-        std::unique_ptr<Shader> quad_shader;
+        std::unique_ptr<GLShader> dx_shader;
+        std::unique_ptr<GLShader> sky_shader;
+        std::unique_ptr<GLShader> depth_shader;
+        std::unique_ptr<GLShader> quad_shader;
 
-        std::unique_ptr<FrameBuffer> dxfb;
-        std::unique_ptr<FrameBuffer> quadFB;
+        std::unique_ptr<GLFrameBuffer> dxfb;
+        std::unique_ptr<GLFrameBuffer> quadFB;
 
-        std::unique_ptr<ResourceBuffer> dxrb;
-        std::unique_ptr<ResourceBuffer> shadowVertUbo;
+        std::unique_ptr<GLResourceBuffer> dxrb;
+        std::unique_ptr<GLResourceBuffer> shadowVertUbo;
 
-        std::unique_ptr<Texture> sky_image;
+        std::unique_ptr<GLTextureCube> sky_image;
+
         std::unique_ptr<Mesh> skycube;
+
+
+        Stb::Image testImage = Stb::Image(RGBA);
+        testImage.load("resources/textures/test.png", true);
+        std::unique_ptr<Texture> testTexture;
+        testTexture.reset(Texture::construct(testImage));
 
 
         Ffilter ft_mesh;
@@ -115,34 +123,26 @@ namespace Raekor {
         ft_texture.name = "Supported Image Files";
         ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
-        std::vector<Shader::Stage> gl_model_shaders;
-        gl_model_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\simple_vertex.glsl");
-        gl_model_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\simple_fp.glsl");
+        std::vector<Shader::Stage> model_shaders;
+        model_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\simple_vertex.glsl");
+        model_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\simple_fp.glsl");
 
-        std::vector<Shader::Stage> gl_skybox_shaders;
-        gl_skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox_vertex.glsl");
-        gl_skybox_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\skybox_fp.glsl");
+        std::vector<Shader::Stage> skybox_shaders;
+        skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox_vertex.glsl");
+        skybox_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\skybox_fp.glsl");
 
-        std::vector<Shader::Stage> dx_model_shaders;
-        dx_model_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\DirectX\\simple_vertex.cso");
-        dx_model_shaders.emplace_back(Shader::Type::FRAG, "shaders\\DirectX\\simple_fp.cso");
+        std::vector<Shader::Stage> depth_shaders;
+        depth_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depth.vert");
+        depth_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depth.frag");
 
-        std::vector<Shader::Stage> dx_skybox_shaders;
-        dx_skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\DirectX\\skybox_vertex.cso");
-        dx_skybox_shaders.emplace_back(Shader::Type::FRAG, "shaders\\DirectX\\skybox_fp.cso");
+        std::vector<Shader::Stage> quad_shaders;
+        quad_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
+        quad_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\quad.frag");
 
-        std::vector<Shader::Stage> gl_depth_shaders;
-        gl_depth_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depth.vert");
-        gl_depth_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depth.frag");
-
-        std::vector<Shader::Stage> gl_quad_shaders;
-        gl_quad_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
-        gl_quad_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\quad.frag");
-
-        dx_shader.reset(Shader::construct(gl_model_shaders.data(), gl_model_shaders.size()));
-        sky_shader.reset(Shader::construct(gl_skybox_shaders.data(), gl_skybox_shaders.size()));
-        depth_shader.reset(Shader::construct(gl_depth_shaders.data(), gl_depth_shaders.size()));
-        quad_shader.reset(Shader::construct(gl_quad_shaders.data(), gl_quad_shaders.size()));
+        dx_shader.reset(new GLShader(model_shaders.data(), model_shaders.size()));
+        sky_shader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
+        depth_shader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
+        quad_shader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
 
         skycube.reset(new Mesh(Shape::Cube));
         skycube->get_vertex_buffer()->set_layout({
@@ -151,7 +151,7 @@ namespace Raekor {
             {"NORMAL", ShaderType::FLOAT3}
             });
 
-        sky_image.reset(Texture::construct(skyboxes["lake"]));
+        sky_image.reset(new GLTextureCube(skyboxes["lake"]));
 
         std::unique_ptr<VertexBuffer> quadBuffer;
         std::unique_ptr<IndexBuffer> quadIndexBuffer;
@@ -169,17 +169,18 @@ namespace Raekor {
             quadBuffer->bind();
             quadIndexBuffer->bind();
             Render::DrawIndexed(quadIndexBuffer->get_count(), false);
+            quad_shader->unbind();
         };
 
-        dxrb.reset(ResourceBuffer::construct(sizeof(MVP)));
-        shadowVertUbo.reset(ResourceBuffer::construct(sizeof(shadowUBO)));
+        dxrb.reset(new GLResourceBuffer(sizeof(MVP)));
+        shadowVertUbo.reset(new GLResourceBuffer(sizeof(shadowUBO)));
 
         FrameBuffer::ConstructInfo renderFBinfo = {};
         renderFBinfo.size.x = displays[display].w * 0.8;
         renderFBinfo.size.y = displays[display].h * 0.8;
         renderFBinfo.depthOnly = false;
 
-        dxfb.reset(FrameBuffer::construct(&renderFBinfo));
+        dxfb.reset(new GLFrameBuffer(&renderFBinfo));
 
         constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 
@@ -189,7 +190,7 @@ namespace Raekor {
         quadFBinfo.depthOnly = false;
         quadFBinfo.writeOnly = false;
 
-        quadFB.reset(FrameBuffer::construct(&quadFBinfo));
+        quadFB.reset(new GLFrameBuffer(&quadFBinfo));
 
         using Scene = std::vector<Model>;
         Scene models;
@@ -213,7 +214,6 @@ namespace Raekor {
 
         Timer dt_timer;
         double dt = 0;
-
 
         // configure depth map FBO
         // -----------------------
@@ -250,8 +250,8 @@ namespace Raekor {
         float lightPos[3], lightRot[3], lightScale[3];
         ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
 
-        glm::vec2 planes = { 1.0, 10.0f };
-        float orthoSize = 10.0f;
+        glm::vec2 planes = { 1.0, 20.0f };
+        float orthoSize = 16.0f;
         Camera sunCamera(glm::vec3(0, 1.0, 0), glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y));
         sunCamera.getView() = glm::lookAtRH(
             glm::vec3(-2.0f, 12.0f, 2.0f),
@@ -298,6 +298,8 @@ namespace Raekor {
             quadFB->bind();
             Render::Clear({ 1,0,0,1 });
             drawQuad();
+            glBindTexture(GL_TEXTURE_2D, 0);
+            quadFB->unbind();
 
             dxfb->bind();
             Render::Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
@@ -311,42 +313,47 @@ namespace Raekor {
             ubo.model = glm::mat4(1.0f);
             ubo.view = camera.getView();
             ubo.projection = camera.getProjection();
-            ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
-
-            // position of the point light
-            ubo.pointLightPos = glm::vec4(glm::make_vec3(lightPos), 1.0f);
-
-            // position of the directional light
-            ubo.DirLightPos = glm::vec4(sunCamera.getPosition(), 1.0);
-
-            // position of the camera, needed for the directional light
-            ubo.DirViewPos = glm::vec4(camera.getPosition(), 1.0);
-
-            // VP to convert stuff to light space
-            ubo.lightSpaceMatrix = sunCamera.getProjection() * sunCamera.getView();
 
             // update the resource buffer 
             dxrb->update(&ubo, sizeof(ubo));
             // bind the resource buffer
             dxrb->bind(0);
             // bind the skybox cubemap
-            sky_image->bind();
+            sky_image->bind(0);
             // bind the skycube mesh
             skycube->bind();
             // draw the indexed vertices
             Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
 
             // bind the model's shader and render the scene using the shadow map
+            auto meshTexture_location = glGetUniformLocation(dx_shader->getID(), "meshTexture");
+            auto depthMap_location = glGetUniformLocation(dx_shader->getID(), "shadowMap");
             dx_shader->bind();
-            glActiveTexture(GL_TEXTURE1);
+            glUniform1i(meshTexture_location, 0);
+            glUniform1i(depthMap_location, 1);
+
+            // bind depth map to 1
+            glActiveTexture(GL_TEXTURE0 + 1);
             glBindTexture(GL_TEXTURE_2D, depthMap);
             for (auto& m : models) {
+                if (!m.hasTexture()) {
+                    // bind texture to 0
+                    testTexture->bind(0);
+                }
                 m.recalc_transform();
+
+                // update all the model UBO attributes
                 ubo.model = m.get_transform();
                 ubo.view = camera.getView();
+                ubo.projection = camera.getProjection();
+                ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
+                ubo.pointLightPos = glm::vec4(glm::make_vec3(lightPos), 1.0f);
+                ubo.DirLightPos = glm::vec4(sunCamera.getPosition(), 1.0);
+                ubo.DirViewPos = glm::vec4(camera.getPosition(), 1.0);
                 ubo.lightSpaceMatrix = sunCamera.getProjection() * sunCamera.getView();
                 dxrb->update(&ubo, sizeof(ubo));
                 dxrb->bind(0);
+                // render the model
                 m.render();
             }
 
@@ -502,26 +509,13 @@ namespace Raekor {
                     bool selected = (it == active_skybox);
                     if (ImGui::Selectable(it->first.c_str(), selected)) {
                         active_skybox = it;
-                        sky_image.reset(Texture::construct(active_skybox->second));
+                        sky_image.reset(new GLTextureCube(active_skybox->second));
                     }
                     if (selected) {
                         ImGui::SetItemDefaultFocus();
                     }
                 }
                 ImGui::EndCombo();
-            }
-
-            static bool reset = false;
-            if (ImGui::RadioButton("OpenGL", Renderer::get_activeAPI() == RenderAPI::OPENGL)) {
-                if (Renderer::set_activeAPI(RenderAPI::OPENGL)) {
-                    reset = true;
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::RadioButton("DirectX 11", Renderer::get_activeAPI() == RenderAPI::DIRECTX11)) {
-                if (Renderer::set_activeAPI(RenderAPI::DIRECTX11)) {
-                    reset = true;
-                }
             }
 
             // toggle button for openGl vsync
@@ -544,16 +538,8 @@ namespace Raekor {
 
 
             if (ImGui::Button("Reload shaders")) {
-                switch (Renderer::get_activeAPI()) {
-                case RenderAPI::OPENGL: {
-                    dx_shader.reset(Shader::construct(gl_model_shaders.data(), gl_model_shaders.size()));
-                    sky_shader.reset(Shader::construct(gl_skybox_shaders.data(), gl_skybox_shaders.size()));
-                } break;
-                case RenderAPI::DIRECTX11: {
-                    dx_shader.reset(Shader::construct(dx_model_shaders.data(), dx_model_shaders.size()));
-                    sky_shader.reset(Shader::construct(dx_skybox_shaders.data(), dx_skybox_shaders.size()));
-                }
-                }
+                    dx_shader.reset(new GLShader(model_shaders.data(), model_shaders.size()));
+                    sky_shader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
             }
 
 
@@ -567,9 +553,9 @@ namespace Raekor {
                 sunCamera.getProjection() = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
             }
 
-            if (ImGui::DragFloat("Shadow bias", &ubo.shadowBias, 0.001f)) {
-
-            }
+            ImGui::Text("Shadow Bias");
+            if (ImGui::DragFloat("min", &ubo.minBias, 0.001f)) {}
+            if (ImGui::DragFloat("max", &ubo.maxBias, 0.001)) {}
 
             ImGui::End();
 
@@ -620,32 +606,6 @@ namespace Raekor {
             Render::SwapBuffers(use_vsync);
             dt_timer.stop();
             dt = dt_timer.elapsed_ms();
-
-            if (reset) {
-                reset = false;
-                // TODO: figure this out
-                Render::Reset(directxwindow);
-                switch (Renderer::get_activeAPI()) {
-                case RenderAPI::OPENGL: {
-                    dx_shader.reset(Shader::construct(gl_model_shaders.data(), gl_model_shaders.size()));
-                    sky_shader.reset(Shader::construct(gl_skybox_shaders.data(), gl_skybox_shaders.size()));
-                } break;
-                case RenderAPI::DIRECTX11: {
-                    dx_shader.reset(Shader::construct(dx_model_shaders.data(), dx_model_shaders.size()));
-                    sky_shader.reset(Shader::construct(dx_skybox_shaders.data(), dx_skybox_shaders.size()));
-                }
-                }
-                skycube.reset(new Mesh(Shape::Cube));
-                skycube->get_vertex_buffer()->set_layout({
-                    {"POSITION", ShaderType::FLOAT3},
-                    {"UV", ShaderType::FLOAT2},
-                    {"NORMAL", ShaderType::FLOAT3}
-                    });
-                sky_image.reset(Texture::construct(skyboxes["lake"]));
-                dxfb.reset(FrameBuffer::construct(&renderFBinfo));
-                dxrb.reset(ResourceBuffer::construct(sizeof(cb_vs)));
-                for (auto& m : models) m.reload();
-            }
 
         } // while true loop
 

@@ -21,6 +21,7 @@ public:
     void recalc_transform();
     
     inline glm::mat4& get_transform() { return transform; }
+    inline bool hasTexture() const { return !textures.empty(); }
 
     inline float* scale_ptr() { return &scale.x; }
     inline float* pos_ptr() { return &position.x; }

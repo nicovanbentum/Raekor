@@ -9,7 +9,7 @@ class DXTexture : public Texture {
 public:
     DXTexture(const std::string& filepath);
     DXTexture(const Stb::Image& image);
-    virtual void bind() const override;
+    virtual void bind(uint32_t slot) const override;
 
 private:
     com_ptr<ID3D11SamplerState> sampler_state;
@@ -20,7 +20,7 @@ private:
 class DXTextureCube : public Texture {
 public:
     DXTextureCube(const std::array<std::string, 6>& face_files);
-    virtual void bind() const override;
+    virtual void bind(uint32_t slot) const override;
 
 private:
     com_ptr<ID3D11Texture2D> texture;

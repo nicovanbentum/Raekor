@@ -42,6 +42,8 @@ public:
     inline const void bind() const;
     inline const void unbind() const;
 
+    inline unsigned int getID() const { return programID; }
+
     loc operator[] (const char* data);
 
 private:

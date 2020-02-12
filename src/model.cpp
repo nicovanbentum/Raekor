@@ -141,7 +141,7 @@ void Model::render() const {
     for (int i = (int)meshes.size()-1; i >= 0; i--) {
         meshes[i].bind();
         if (textureIndices[i] != -1) {
-            textures[textureIndices[i]]->bind();
+            textures[textureIndices[i]]->bind(0);
         }
         Render::DrawIndexed(meshes[i].get_index_buffer()->get_count());
     }
