@@ -72,7 +72,8 @@ void Application::run() {
     Render::Init(directxwindow);
 
     // create a Camera we can use to move around our scene
-    Camera camera(glm::vec3(0, 1.0, 0), 45.0f);
+
+    Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH_ZO(glm::radians(45.0f), 16.0f / 9.0f, 0.1f, 10000.0f));
 
     MVP ubo;
     shadowUBO shadowUbo;
@@ -157,7 +158,7 @@ void Application::run() {
         quadIndexBuffer->bind();
         Render::DrawIndexed(quadIndexBuffer->get_count(), false);
     };
-
+     
     dxrb.reset(ResourceBuffer::construct(sizeof(MVP)));
     shadowVertUbo.reset(ResourceBuffer::construct(sizeof(shadowUBO)));
 
@@ -169,19 +170,12 @@ void Application::run() {
     dxfb.reset(FrameBuffer::construct(&renderFBinfo));
 
     FrameBuffer::ConstructInfo quadFBinfo = {};
-    quadFBinfo.size.x = 1024;
-    quadFBinfo.size.y = 1024;
+    quadFBinfo.size.x = displays[display].w * 0.8;
+    quadFBinfo.size.y = displays[display].h * 0.8;
     quadFBinfo.depthOnly = false;
     quadFBinfo.writeOnly = false;
 
     quadFB.reset(FrameBuffer::construct(&quadFBinfo));
-
-    float near_plane = 0.1f, far_plane = 10.0f;
-    glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-    glm::mat4 lightView = glm::lookAt(glm::vec3(-2.0f, 8.0f, -1.0f),
-        glm::vec3(0.0f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
     using Scene = std::vector<Model>;
     Scene models;
@@ -243,6 +237,24 @@ void Application::run() {
     float lightPos[3], lightRot[3], lightScale[3];
     ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
     glm::vec4 lightAngle = { 0.0f, 1.0f, 1.0f, 0.0f };
+
+    glm::vec2 planes = { 1.0, 10.0f };
+    float orthoSize = 10.0f;
+    Camera sunCamera(glm::vec3(0, 1.0, 0), glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y));
+    sunCamera.getView() = glm::lookAtRH(
+        glm::vec3(-2.0f, 12.0f, 2.0f),
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f));
+
+    //float near_plane = 0.1f, far_plane = 10.0f;
+    //glm::mat4 lightProjection = glm::orthoRH_ZO(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+
+    //glm::mat4 lightView = glm::lookAtRH(glm::vec3(-2.0f, 12.0f, 10.0f),
+    //    glm::vec3(0.0f, 0.0f, 0.0f),
+    //    glm::vec3(0.0f, 1.0f, 0.0f));
+    //glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+    bool debugShadows = true;
     
     //////////////////////////////////////////////////////////////
     //// main application loop //////////////////////////////////
@@ -250,20 +262,24 @@ void Application::run() {
     while(running) {
         dt_timer.start();
         //handle sdl and imgui events
-        handle_sdl_gui_events({ directxwindow }, camera, dt);
+        handle_sdl_gui_events({ directxwindow }, debugShadows? sunCamera : camera, dt);
+        sunCamera.update();
+        
         Render::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
 
         glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
         glClear(GL_DEPTH_BUFFER_BIT);
+        glCullFace(GL_FRONT);
         depth_shader->bind();
         for (auto& m : models) {
             m.recalc_transform();
-            shadowUbo.cameraMatrix = lightSpaceMatrix;
+            shadowUbo.cameraMatrix = sunCamera.getProjection() * sunCamera.getView();
             shadowUbo.model = m.get_transform();
             shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
             shadowVertUbo->bind(0);
             m.render();
         }
+        glCullFace(GL_BACK);
 
         glBindTexture(GL_TEXTURE_2D, depthMap);
         quadFB->bind();
@@ -286,6 +302,7 @@ void Application::run() {
         ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
         ubo.lightPos = glm::vec4(glm::make_vec3(lightPos), 1.0f);
         ubo.lightAngle = lightAngle;
+        ubo.dirLightPosition = sunCamera.getPosition();
         // update the resource buffer 
         dxrb->update(&ubo, sizeof(ubo));
         // bind the resource buffer
@@ -305,7 +322,7 @@ void Application::run() {
             m.recalc_transform();
             ubo.model = m.get_transform();
             ubo.view = camera.getView();
-            ubo.lightSpaceMatrix = lightSpaceMatrix;
+            ubo.lightSpaceMatrix = sunCamera.getProjection() * sunCamera.getView();
             dxrb->update(&ubo, sizeof(ubo));
             dxrb->bind(0);
             m.render();
@@ -494,10 +511,14 @@ void Application::run() {
             move_light = !move_light;
         }
 
-        static bool debugShadows = false;
         if (ImGui::RadioButton("Debug shadows", debugShadows)) {
             debugShadows = !debugShadows;
         }
+
+        static glm::vec3 sunPos = glm::vec3(-2.0f, 12.0f, 2.0f);
+        static glm::vec3 sunLookat = glm::vec3(0.0f, 0.0f, 0.0f);
+
+        
 
         if (ImGui::Button("Reload shaders")) {
             switch (Renderer::get_activeAPI()) {
@@ -517,6 +538,12 @@ void Application::run() {
 
         ImGui::Text("Light Properties");
         if (ImGui::DragFloat3("Angle", glm::value_ptr(lightAngle), 0.01f, -1.0f, 1.0f)) {}
+        if (ImGui::DragFloat2("Planes", glm::value_ptr(planes), 0.1f)) {
+            sunCamera.getProjection() = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
+        }
+        if (ImGui::DragFloat("Size", &orthoSize)) {
+            sunCamera.getProjection() = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
+        }
 
         ImGui::End();
 
@@ -548,8 +575,9 @@ void Application::run() {
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
         static bool resizing = true;
         auto size = ImGui::GetWindowSize();
-        dxfb->resize({ size.x, size.y-25 });
-        camera.set_aspect_ratio(size.x / size.y);
+        dxfb->resize({ size.x, size.y - 25 });
+        quadFB->resize({ size.x, size.y-25 });
+        camera.setProjection(glm::perspectiveRH_ZO(glm::radians(45.0f), size.x / size.y, 0.1f, 10000.0f));
         ImGuizmo::SetRect(0, 0, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
         if (debugShadows) {

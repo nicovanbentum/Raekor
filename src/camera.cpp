@@ -3,12 +3,13 @@
 
 namespace Raekor {
 
-Camera::Camera(glm::vec3 position, float fov) :
+Camera::Camera(glm::vec3 position, glm::mat4 proj) :
     position(position),
     angle(static_cast<float>(M_PI), 0.0f), 
-    FOV(fov), look_speed(0.0010f), move_speed(0.01f),
+    look_speed(0.0010f), move_speed(0.01f),
     mouse_active(true) {
-    projection = glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
+    projection = proj;
+    //glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
 }
 
 void Camera::update() {
@@ -16,8 +17,8 @@ void Camera::update() {
     view = glm::lookAtRH(position, position + dir, {0, 1, 0});
 }
 
-void Camera::set_aspect_ratio(float new_ratio) {
-    projection = glm::perspectiveRH_ZO(glm::radians(FOV), new_ratio, 0.1f, 10000.0f);
+void Camera::setProjection(const glm::mat4& newProj) {
+    projection = newProj;
 }
 
 glm::vec3 Camera::get_direction() {
@@ -29,6 +30,10 @@ void Camera::look(int x, int y) {
     angle.x += look_speed * (x * -1);
     angle.y += look_speed * (y * -1);
     angle.y = std::clamp(angle.y, -1.5f, 1.5f);
+}
+
+void Camera::move(const glm::vec3& amount) {
+
 }
 
 void Camera::move_on_input(double dt) {
