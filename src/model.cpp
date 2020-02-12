@@ -70,11 +70,7 @@ void Model::load_from_disk() {
         aiProcess_Debone |
         aiProcess_ValidateDataStructure;
 
-    Timer scene_timer;
-    scene_timer.start();
     scene = importer->ReadFile(path, flags);
-    scene_timer.stop();
-    std::cout << "ASSIMP TIME: " << scene_timer.elapsed_ms() << std::endl;
     m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
     reload();
