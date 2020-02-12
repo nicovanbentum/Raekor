@@ -4,40 +4,46 @@ layout(location = 0) in vec3 v_pos;
 layout(location = 1) in vec2 v_uv;
 layout(location = 2) in vec3 v_normal;
 
-layout (std140) uniform Camera {
+layout (std140) uniform stuff {
     mat4 model;
     mat4 view;
     mat4 projection;
-    vec4 lightPos;
-    vec4 lightAngle;
+	vec4 cameraPosition;
+    vec4 DirLightPos;
 	mat4 lightSpaceMatrix;
-	vec3 directionalLightPosition;
-};
+    vec4 pointLightPos;
+	float shadowBias;
+} ubo;
 
 //we send out a uv coordinate for our frag shader
+out vec3 pos;
 out vec3 fragPos;
-out vec4 color;
 out vec2 uv;
 out vec3 normal;
-out vec3 pos;
-out vec3 light_pos;
-out vec3 light_angle;
-out vec3 pos_light_space;
-out vec3 dirLightPosition;
+out vec4 FragPosLightSpace;
+
+out vec3 directionalLightPosition;
+out vec3 directionalLightPositionViewSpace;
+out vec3 pointLightPositionViewSpace;
+out vec3 cameraPos;
+
+out float shadowBias;
 
 void main()
 {
-	pos_light_space = vec3(lightSpaceMatrix * model * vec4(v_pos, 1.0));
+	// stuff in view space
+	pos = vec3(ubo.view * ubo.model * vec4(v_pos, 1.0));
+	directionalLightPositionViewSpace = vec3(ubo.view * ubo.DirLightPos);
 
-	// CAMERA SPACE : VERTEX POSITION
-    gl_Position = projection * view * model * vec4(v_pos, 1.0);
-	pos = vec3(view * model * vec4(v_pos, 1.0));
-	normal = mat3(transpose(inverse(view * model))) * v_normal;
-	light_pos = vec3(view * lightPos);
-	light_angle = vec3(view * lightAngle);
-
-    // set output uv
+	fragPos = vec3(ubo.model * vec4(v_pos, 1.0));
+	normal = mat3(transpose(inverse(ubo.view * ubo.model))) * v_normal;
     uv = v_uv;
+	FragPosLightSpace = ubo.lightSpaceMatrix * vec4(fragPos, 1.0);
+    gl_Position = ubo.projection * ubo.view * ubo.model * vec4(v_pos, 1.0);
 
-	dirLightPosition = directionalLightPosition;
+    //////////////////////////
+	pointLightPositionViewSpace = vec3(ubo.view * ubo.pointLightPos);
+	directionalLightPosition = vec3(ubo.DirLightPos);
+	cameraPos = vec3(ubo.cameraPosition);
+	shadowBias = ubo.shadowBias;
 }
