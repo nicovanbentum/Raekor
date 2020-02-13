@@ -26,6 +26,7 @@ struct VertexUBO {
     glm::vec4 DirLightPos;
     glm::mat4 lightSpaceMatrix;
     glm::vec4 pointLightPos;
+    glm::vec4 sunColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     float minBias = 0.005f;
     float maxBias = 0.001f;
 };
@@ -80,8 +81,7 @@ void Application::run() {
     Render::Init(directxwindow);
 
     // create a Camera we can use to move around our scene
-
-    Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH_ZO(glm::radians(45.0f), 16.0f / 9.0f, 0.1f, 10000.0f));
+    Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH_ZO(glm::radians(65.0f), 16.0f / 9.0f, 0.1f, 10000.0f));
 
     VertexUBO ubo;
     shadowUBO shadowUbo;
@@ -253,12 +253,13 @@ void Application::run() {
     // setup the camera that acts as the sun's view (directional light)
     glm::vec2 planes = { 1.0, 20.0f };
     float orthoSize = 16.0f;
-    Camera sunCamera(glm::vec3(0, 1.0, 0), glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y));
+    Camera sunCamera(glm::vec3(0, 15.0, 0), glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y));
     sunCamera.getView() = glm::lookAtRH (
         glm::vec3(-2.0f, 12.0f, 2.0f),
         glm::vec3(0.0f, 0.0f, 0.0f),
         glm::vec3(0.0f, 1.0f, 0.0f)
     );
+    sunCamera.getAngle().y = -1.325f;
 
     // toggle bool for changing the shadow map
     bool debugShadows = true;
@@ -541,22 +542,34 @@ void Application::run() {
         ImGui::NewLine(); ImGui::Separator();
 
         ImGui::Text("Light Properties");
+        if (ImGui::DragFloat2("Angle", glm::value_ptr(sunCamera.getAngle()), 0.001f)) {
+
+        }
+        
         if (ImGui::DragFloat2("Planes", glm::value_ptr(planes), 0.1f)) {
-            sunCamera.getProjection() = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
+            sunCamera.getProjection() = glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
         }
         if (ImGui::DragFloat("Size", &orthoSize)) {
-            sunCamera.getProjection() = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
+            sunCamera.getProjection() = glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
         }
 
         ImGui::Text("Shadow Bias");
-        if (ImGui::DragFloat("min", &ubo.minBias, 0.001f)) {}
-        if (ImGui::DragFloat("max", &ubo.maxBias, 0.001f)) {}
+        if (ImGui::DragFloat("min", &ubo.minBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("max", &ubo.maxBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
+
+
+        if (ImGui::ColorEdit3("Sun color", glm::value_ptr(ubo.sunColor))) {}
+
 
         ImGui::End();
 
         ImGui::ShowMetricsWindow();
 
         ImGui::Begin("Camera Properties");
+        static float fov = 45.0f;
+        if (ImGui::DragFloat("FOV", &fov)) {
+            camera.getProjection() = glm::perspectiveRH_ZO(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
+        }
         if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f, 0.1f, FLT_MAX, "%.2f")) {}
         if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
         ImGui::End();

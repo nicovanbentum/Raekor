@@ -1,5 +1,18 @@
 #version 330 core
 
+layout (std140) uniform stuff {
+    mat4 model;
+    mat4 view;
+    mat4 projection;
+	vec4 cameraPosition;
+    vec4 DirLightPos;
+	mat4 lightSpaceMatrix;
+    vec4 pointLightPos;
+	vec4 sunColor;
+	float minBias;
+	float maxBias;
+} ubo;
+
 // in vars
 in vec3 pos;
 in vec3 fragPos;
@@ -12,50 +25,12 @@ in vec3 directionalLightPositionViewSpace;
 in vec3 pointLightPositionViewSpace;
 in vec3 cameraPos;
 
-in float minBias;
-in float maxBias;
-
 // output data back to our openGL program
 out vec4 final_color;
 
 // constant mesh values
 uniform sampler2D meshTexture;
 uniform sampler2D shadowMap;
-
-
-float ShadowCalculation(vec4 fragPosLightSpace)
-{
-    // perform perspective divide
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    // transform to [0,1] range
-    projCoords = projCoords * 0.5 + 0.5;
-    // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
-    float closestDepth = texture(shadowMap, projCoords.xy).r; 
-    // get depth of current fragment from light's perspective
-    float currentDepth = projCoords.z;
-    // calculate bias (based on depth map resolution and slope)
-    vec3 normal = normalize(normal);
-    vec3 lightDir = normalize(directionalLightPosition - fragPos);
-    float bias = max(maxBias * (1.0 - dot(normal, lightDir)), minBias);
-    // check whether current frag pos is in shadow
-    // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
-    // PCF
-    float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for(int x = -1; x <= 1; ++x) {
-        for(int y = -1; y <= 1; ++y) {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
-        }    
-    }
-    shadow /= 9.0;
-    
-    // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
-    if(projCoords.z > 1.0)
-        shadow = 0.0;
-        
-    return shadow;
-}
 
 struct DirectionalLight {
 	vec3 direction;
@@ -67,6 +42,61 @@ struct PointLight {
 	vec3 color;
 	float constant, linear, quad;
 };
+
+float ShadowCalculation(vec4 fragPosLightSpace);
+vec3 doLight(PointLight light);
+vec3 doLight(DirectionalLight light);
+
+void main()
+{
+	DirectionalLight dirLight;
+	dirLight.color = ubo.sunColor.rgb;
+	dirLight.position = directionalLightPositionViewSpace;
+
+	PointLight light;
+	light.color = vec3(1.0, 0.7725, 0.56);
+    light.constant = 1.0f;
+    light.linear = 0.7;
+    light.quad = 1.8;
+
+	vec4 sampled = texture(meshTexture, uv);
+
+    vec3 result = doLight(dirLight);
+	result += doLight(light);
+
+    final_color = vec4(result, sampled.a);
+}
+
+float ShadowCalculation(vec4 fragPosLightSpace) {
+    // perform perspective divide
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    // transform to [0,1] range
+    projCoords = projCoords * 0.5 + 0.5;
+    // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+    float closestDepth = texture(shadowMap, projCoords.xy).r; 
+    // get depth of current fragment from light's perspective
+    float currentDepth = projCoords.z;
+    // calculate bias (based on depth map resolution and slope)
+    vec3 normal = normalize(normal);
+    vec3 lightDir = normalize(directionalLightPositionViewSpace - pos);
+    float bias = max(ubo.maxBias * (1.0 - dot(normal, lightDir)), ubo.minBias);
+    
+	// simplest PCF algorithm
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    for(int x = -1; x <= 1; ++x) {
+        for(int y = -1; y <= 1; ++y) {
+            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
+        }    
+    }
+    shadow /= 9.0;
+    
+    // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
+    if(projCoords.z > 1.0) shadow = 0.0;
+        
+    return shadow;
+}
 
 vec3 doLight(PointLight light) {
 	vec4 sampled = texture(meshTexture, uv);
@@ -127,24 +157,4 @@ vec3 doLight(DirectionalLight light) {
 	specular *= shadowAmount;
 
     return (ambient + diffuse + specular);
-}
-
-void main()
-{
-	DirectionalLight dirLight;
-	dirLight.color = vec3(1.0, 0.7725, 0.56);
-	dirLight.position = directionalLightPositionViewSpace;
-
-	PointLight light;
-	light.color = vec3(1.0, 0.7725, 0.56);
-    light.constant = 1.0f;
-    light.linear = 0.7;
-    light.quad = 1.8;
-
-	vec4 sampled = texture(meshTexture, uv);
-
-    vec3 result = doLight(dirLight);
-	result += doLight(light);
-
-    final_color = vec4(result, sampled.a);
 }

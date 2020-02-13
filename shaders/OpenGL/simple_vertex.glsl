@@ -12,6 +12,7 @@ layout (std140) uniform stuff {
     vec4 DirLightPos;
 	mat4 lightSpaceMatrix;
     vec4 pointLightPos;
+	vec4 sunColor;
 	float minBias;
 	float maxBias;
 } ubo;
@@ -27,9 +28,6 @@ out vec3 directionalLightPosition;
 out vec3 directionalLightPositionViewSpace;
 out vec3 pointLightPositionViewSpace;
 out vec3 cameraPos;
-
-out float minBias;
-out float maxBias;
 
 void main()
 {
@@ -47,6 +45,4 @@ void main()
 	pointLightPositionViewSpace = vec3(ubo.view * ubo.pointLightPos);
 	directionalLightPosition = vec3(ubo.DirLightPos);
 	cameraPos = vec3(ubo.cameraPosition);
-	minBias = ubo.minBias;
-	maxBias = ubo.maxBias;
 }

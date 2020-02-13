@@ -30,6 +30,7 @@ public:
     // getters
     inline glm::mat4 get_mvp(bool transpose) { return (transpose ? glm::transpose(mvp) : mvp); }
     inline glm::mat4& getView() { return view; }
+    inline glm::vec2& getAngle() { return angle; }
     inline glm::mat4& getProjection() { return projection; }
     inline float* get_move_speed() { return &move_speed; }
     inline float* get_look_speed() { return &look_speed; }
