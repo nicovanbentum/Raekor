@@ -36,7 +36,6 @@ uniform sampler2D shadowMap;
 uniform samplerCube shadowMapOmni;
 
 struct DirectionalLight {
-	vec3 direction;
 	vec3 position;
 	vec3 color;
 };
@@ -47,10 +46,10 @@ struct PointLight {
 	float constant, linear, quad;
 };
 
-float ShadowCalculation(vec4 fragPosLightSpace);
-float getShadow(PointLight light);
 vec3 doLight(PointLight light);
 vec3 doLight(DirectionalLight light);
+float getShadow(PointLight light);
+float getShadow(DirectionalLight light);
 
 void main()
 {
@@ -68,21 +67,20 @@ void main()
 	vec4 sampled = texture(meshTexture, uv);
 
     vec3 result = doLight(light);
-	vec3 anotherresult = doLight(dirLight);
-	//result += doLight(light);
+	result += doLight(dirLight);
 
-    //final_color = vec4(result, sampled.a);
+    final_color = vec4(result, sampled.a);
 }
 
-float ShadowCalculation(vec4 fragPosLightSpace) {
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+float getShadow(DirectionalLight light) {
+    vec3 projCoords = FragPosLightSpace.xyz / FragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
 
     float closestDepth = texture(shadowMap, projCoords.xy).r; 
     float currentDepth = projCoords.z;
 
     vec3 normal = normalize(normal);
-    vec3 lightDir = normalize(directionalLightPositionViewSpace - pos);
+    vec3 lightDir = normalize(light.position - pos);
     float bias = max(maxBias * (1.0 - dot(normal, lightDir)), minBias);
     
 	// simplest PCF algorithm
@@ -91,31 +89,48 @@ float ShadowCalculation(vec4 fragPosLightSpace) {
     for(int x = -1; x <= 1; ++x) {
         for(int y = -1; y <= 1; ++y) {
             float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
+            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;    
         }    
     }
     shadow /= 9.0;
     
-    // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
+    // keep the shadow at 0.0 when outside the far plane region of the light's frustum
     if(projCoords.z > 1.0) shadow = 0.0;
         
     return shadow;
 }
 
+// array of offset direction for sampling
+vec3 gridSamplingDisk[20] = vec3[]
+(
+   vec3(1, 1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1, 1,  1), 
+   vec3(1, 1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1, 1, -1),
+   vec3(1, 1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1, 1,  0),
+   vec3(1, 0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1, 0, -1),
+   vec3(0, 1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0, 1, -1)
+);
+
 float getShadow(PointLight light) {
 	vec3 frag2light = fragPos - light.position;
-	float closestDepth = texture(shadowMapOmni, frag2light).r;
-
-
-	// todo make the far plane an input variable
-	closestDepth *= farPlane;
-	final_color = vec4(vec3(closestDepth / farPlane), 1.0);
-
 	float currentDepth = length(frag2light);
 
-	float bias = 0.05;
-	float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+	float closestDepth = texture(shadowMapOmni, frag2light).r;
+	closestDepth *= farPlane;
+	//final_color = vec4(vec3(closestDepth / farPlane), 1.0);  
 
+	// PCF sampling
+	float shadow = 0.0;
+    float bias = 0.15;
+    int samples = 20;
+    float viewDistance = length(cameraPos - fragPos);
+    float diskRadius = (1.0 + (viewDistance / farPlane)) / 25.0;
+    for(int i = 0; i < samples; ++i) {
+        float closestDepth = texture(shadowMapOmni, frag2light + gridSamplingDisk[i] * diskRadius).r;
+        closestDepth *= farPlane;   // undo mapping [0;1]
+        if(currentDepth - bias > closestDepth)
+            shadow += 1.0;
+    }
+    shadow /= float(samples);
 
 	return shadow;
 }
@@ -178,7 +193,7 @@ vec3 doLight(DirectionalLight light) {
     float spec = pow(max(dot(halfway_dir, norm), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
-	float shadowAmount = 1.0 - ShadowCalculation(FragPosLightSpace);
+	float shadowAmount = 1.0 - getShadow(light);
 	diffuse *= shadowAmount;
 	specular *= shadowAmount;
 
