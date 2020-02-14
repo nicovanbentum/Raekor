@@ -1,17 +1,18 @@
-#version 330 core
+#version 440 core
 
 layout (std140) uniform stuff {
-    mat4 model;
-    mat4 view;
-    mat4 projection;
+    mat4 model, view, projection;
+	mat4 lightSpaceMatrix;
 	vec4 cameraPosition;
     vec4 DirLightPos;
-	mat4 lightSpaceMatrix;
-    vec4 pointLightPos;
-	vec4 sunColor;
-	float minBias;
-	float maxBias;
+	vec4 pointLightPos;
 } ubo;
+
+layout (std140, binding = 0) buffer extra {
+	vec4 sunColor;
+	float minBias, maxBias;
+	float farPlane;
+};
 
 // in vars
 in vec3 pos;
@@ -22,6 +23,7 @@ in vec4 FragPosLightSpace;
 
 in vec3 directionalLightPosition;
 in vec3 directionalLightPositionViewSpace;
+in vec3 pointLightPosition;
 in vec3 pointLightPositionViewSpace;
 in vec3 cameraPos;
 
@@ -31,6 +33,7 @@ out vec4 final_color;
 // constant mesh values
 uniform sampler2D meshTexture;
 uniform sampler2D shadowMap;
+uniform samplerCube shadowMapOmni;
 
 struct DirectionalLight {
 	vec3 direction;
@@ -39,47 +42,48 @@ struct DirectionalLight {
 };
 
 struct PointLight {
+	vec3 position;
 	vec3 color;
 	float constant, linear, quad;
 };
 
 float ShadowCalculation(vec4 fragPosLightSpace);
+float getShadow(PointLight light);
 vec3 doLight(PointLight light);
 vec3 doLight(DirectionalLight light);
 
 void main()
 {
 	DirectionalLight dirLight;
-	dirLight.color = ubo.sunColor.rgb;
+	dirLight.color = sunColor.rgb;
 	dirLight.position = directionalLightPositionViewSpace;
 
 	PointLight light;
-	light.color = vec3(1.0, 0.7725, 0.56);
-    light.constant = 1.0f;
+	light.position = pointLightPosition;
+	light.color = vec3(1.0, 1.0, 1.0);
+    light.constant = 0.0f;
     light.linear = 0.7;
     light.quad = 1.8;
 
 	vec4 sampled = texture(meshTexture, uv);
 
-    vec3 result = doLight(dirLight);
-	result += doLight(light);
+    vec3 result = doLight(light);
+	vec3 anotherresult = doLight(dirLight);
+	//result += doLight(light);
 
-    final_color = vec4(result, sampled.a);
+    //final_color = vec4(result, sampled.a);
 }
 
 float ShadowCalculation(vec4 fragPosLightSpace) {
-    // perform perspective divide
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    // transform to [0,1] range
     projCoords = projCoords * 0.5 + 0.5;
-    // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+
     float closestDepth = texture(shadowMap, projCoords.xy).r; 
-    // get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
-    // calculate bias (based on depth map resolution and slope)
+
     vec3 normal = normalize(normal);
     vec3 lightDir = normalize(directionalLightPositionViewSpace - pos);
-    float bias = max(ubo.maxBias * (1.0 - dot(normal, lightDir)), ubo.minBias);
+    float bias = max(maxBias * (1.0 - dot(normal, lightDir)), minBias);
     
 	// simplest PCF algorithm
     float shadow = 0.0;
@@ -98,11 +102,30 @@ float ShadowCalculation(vec4 fragPosLightSpace) {
     return shadow;
 }
 
+float getShadow(PointLight light) {
+	vec3 frag2light = fragPos - light.position;
+	float closestDepth = texture(shadowMapOmni, frag2light).r;
+
+
+	// todo make the far plane an input variable
+	closestDepth *= farPlane;
+	final_color = vec4(vec3(closestDepth / farPlane), 1.0);
+
+	float currentDepth = length(frag2light);
+
+	float bias = 0.05;
+	float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+
+
+	return shadow;
+}
+
+
 vec3 doLight(PointLight light) {
 	vec4 sampled = texture(meshTexture, uv);
 
     // ambient
-    float ambient_strength = 0.1f;
+    float ambient_strength = 1.0f;
     vec3 ambient = ambient_strength * sampled.xyz;
 
     // diffuse
@@ -127,6 +150,10 @@ vec3 doLight(PointLight light) {
     diffuse = diffuse * attenuation;
     specular = specular * attenuation;
 
+	float shadowAmount = getShadow(light);
+	diffuse *= shadowAmount;
+	specular *= shadowAmount;
+
     return (ambient + diffuse + specular);
 }
 
@@ -134,7 +161,6 @@ vec3 doLight(DirectionalLight light) {
 	vec4 sampled = texture(meshTexture, uv);
     // vec4 sampled = vec4(0.0, 1.0, 0.0, 1.0);
     vec3 normal = normalize(normal);
-    vec3 lightColor = vec3(0.3);
     // ambient
     vec3 ambient = 0.1 * sampled.xyz;
 	

@@ -1,20 +1,15 @@
-#version 330 core
+#version 440 core
 
 layout(location = 0) in vec3 v_pos;
 layout(location = 1) in vec2 v_uv;
 layout(location = 2) in vec3 v_normal;
 
 layout (std140) uniform stuff {
-    mat4 model;
-    mat4 view;
-    mat4 projection;
+    mat4 model, view, projection;
+	mat4 lightSpaceMatrix;
 	vec4 cameraPosition;
     vec4 DirLightPos;
-	mat4 lightSpaceMatrix;
-    vec4 pointLightPos;
-	vec4 sunColor;
-	float minBias;
-	float maxBias;
+	vec4 pointLightPos;
 } ubo;
 
 //we send out a uv coordinate for our frag shader
@@ -26,6 +21,7 @@ out vec4 FragPosLightSpace;
 
 out vec3 directionalLightPosition;
 out vec3 directionalLightPositionViewSpace;
+out vec3 pointLightPosition;
 out vec3 pointLightPositionViewSpace;
 out vec3 cameraPos;
 
@@ -42,6 +38,7 @@ void main()
     gl_Position = ubo.projection * ubo.view * ubo.model * vec4(v_pos, 1.0);
 
     //////////////////////////
+	pointLightPosition = vec3(ubo.pointLightPos);
 	pointLightPositionViewSpace = vec3(ubo.view * ubo.pointLightPos);
 	directionalLightPosition = vec3(ubo.DirLightPos);
 	cameraPos = vec3(ubo.cameraPosition);

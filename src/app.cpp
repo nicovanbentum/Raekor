@@ -19,16 +19,25 @@ struct shadowUBO {
 };
 
 struct VertexUBO {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 projection;
+    glm::mat4 model, view, projection;
+    glm::mat4 lightSpaceMatrix;
     glm::vec4 DirViewPos;
     glm::vec4 DirLightPos;
-    glm::mat4 lightSpaceMatrix;
     glm::vec4 pointLightPos;
+};
+
+struct ExtraUBO {
     glm::vec4 sunColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    float minBias = 0.005f;
-    float maxBias = 0.001f;
+    float minBias = 0.005f, maxBias = 0.05f;
+    float farPlane = 25.0f;
+};
+
+struct shadow3DUBO {
+    glm::mat4 model;
+    glm::mat4 faceMatrices[6];
+    glm::vec4 lightPos;
+    float farPlane;
+    float x, y, z;
 };
 
 void Application::serialize_settings(const std::string& filepath, bool write) {
@@ -85,24 +94,29 @@ void Application::run() {
 
     VertexUBO ubo;
     shadowUBO shadowUbo;
+    ExtraUBO extra;
+    shadow3DUBO ubo3d;
 
     std::unique_ptr<Model> model;
 
     std::unique_ptr<GLShader> dx_shader;
     std::unique_ptr<GLShader> sky_shader;
     std::unique_ptr<GLShader> depth_shader;
+    std::unique_ptr<GLShader> depthCube_shader;
     std::unique_ptr<GLShader> quad_shader;
+
 
     std::unique_ptr<GLFrameBuffer> dxfb;
     std::unique_ptr<GLFrameBuffer> quadFB;
 
     std::unique_ptr<GLResourceBuffer> dxrb;
     std::unique_ptr<GLResourceBuffer> shadowVertUbo;
+    std::unique_ptr<GLResourceBuffer> extraUbo;
+    std::unique_ptr<GLResourceBuffer> Shadow3DUbo;
 
     std::unique_ptr<GLTextureCube> sky_image;
 
     std::unique_ptr<Mesh> skycube;
-
 
     Stb::Image testImage = Stb::Image(RGBA);
     testImage.load("resources/textures/test.png", true);
@@ -130,6 +144,11 @@ void Application::run() {
     depth_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depth.vert");
     depth_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depth.frag");
 
+    std::vector<Shader::Stage> depthCube_shaders;
+    depthCube_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depthCube.vert");
+    depthCube_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depthCube.frag");
+    depthCube_shaders.emplace_back(Shader::Type::GEO, "shaders\\OpenGL\\depthCube.geo");
+
     std::vector<Shader::Stage> quad_shaders;
     quad_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
     quad_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\quad.frag");
@@ -138,6 +157,7 @@ void Application::run() {
     sky_shader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
     depth_shader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
     quad_shader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
+    depthCube_shader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
 
     skycube.reset(new Mesh(Shape::Cube));
     skycube->get_vertex_buffer()->set_layout({
@@ -169,6 +189,8 @@ void Application::run() {
 
     dxrb.reset(new GLResourceBuffer(sizeof(MVP)));
     shadowVertUbo.reset(new GLResourceBuffer(sizeof(shadowUBO)));
+    extraUbo.reset(new GLResourceBuffer(sizeof(ExtraUBO), GL_SHADER_STORAGE_BUFFER));
+    Shadow3DUbo.reset(new GLResourceBuffer(sizeof(shadow3DUBO)));
 
     FrameBuffer::ConstructInfo renderFBinfo = {};
     renderFBinfo.size = {
@@ -212,14 +234,15 @@ void Application::run() {
     Timer dt_timer;
     double dt = 0;
 
+
     // configure depth map FBO
     // -----------------------
     unsigned int depthMapFBO;
     glGenFramebuffers(1, &depthMapFBO);
     // create depth texture
-    unsigned int depthMap;
-    glGenTextures(1, &depthMap);
-    glBindTexture(GL_TEXTURE_2D, depthMap);
+    unsigned int depthTexture;
+    glGenTextures(1, &depthTexture);
+    glBindTexture(GL_TEXTURE_2D, depthTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -229,11 +252,34 @@ void Application::run() {
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     // attach depth texture as FBO's depth buffer
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+
+    // configure 3D depth map FBO
+    // -----------------------
+    unsigned int depthCubeFBO;
+    glGenFramebuffers(1, &depthCubeFBO);
+    // generate depth cube map
+    unsigned int depthCubeTexture;
+    glGenTextures(1, &depthCubeTexture);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeTexture);
+    for (unsigned int i = 0; i < 6; ++i)
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT,
+            SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glBindFramebuffer(GL_FRAMEBUFFER, depthCubeFBO);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubeTexture, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // load the model files listed in the project section of config.json
     // basically acts like a budget project file
@@ -261,8 +307,12 @@ void Application::run() {
     );
     sunCamera.getAngle().y = -1.325f;
 
+    float nearPlane = 1.0f;
+    float farPlane = 25.0f;
+    glm::mat4 shadowProj = glm::perspectiveRH_ZO(glm::radians(90.0f), float(SHADOW_WIDTH / SHADOW_HEIGHT), nearPlane, farPlane);
+
     // toggle bool for changing the shadow map
-    bool debugShadows = true;
+    bool debugShadows = false;
 
     //////////////////////////////////////////////////////////////
     //// main application loop //////////////////////////////////
@@ -281,7 +331,7 @@ void Application::run() {
         glClear(GL_DEPTH_BUFFER_BIT);
         glCullFace(GL_FRONT);
 
-        // render the entire scene to the shadow map
+        // render the entire scene to the directional light shadow map
         depth_shader->bind();
         for (auto& m : models) {
             m.recalc_transform();
@@ -293,19 +343,56 @@ void Application::run() {
         }
         glCullFace(GL_BACK);
 
+        // setup the 3D shadow map 
+        glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+        glBindFramebuffer(GL_FRAMEBUFFER, depthCubeFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glCullFace(GL_FRONT);
+
+        // generate the view matrices for calculating lightspace
+        std::vector<glm::mat4> shadowTransforms;
+        glm::vec3 lightPosition = glm::make_vec3(lightPos);
+        shadowTransforms.push_back(shadowProj *
+            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.push_back(shadowProj *
+            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.push_back(shadowProj *
+            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
+        shadowTransforms.push_back(shadowProj *
+            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
+        shadowTransforms.push_back(shadowProj *
+            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.push_back(shadowProj *
+            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
+
+        // update the cubemap ubo for omnidirectional shadows
+        for (int i = 0; i < 6; i++) ubo3d.faceMatrices[i] = shadowTransforms[i];
+        ubo3d.farPlane = farPlane;
+        ubo3d.lightPos = glm::vec4(lightPosition.x, lightPosition.y, lightPosition.z, 1.0f);
+
+        // render every model using the depth cubemap shader
+        depthCube_shader->bind();
+        Shadow3DUbo->update(&ubo3d, sizeof(shadow3DUBO));
+        Shadow3DUbo->bind(0);
+        for (auto& m : models) {
+            m.recalc_transform();
+            ubo3d.model = m.get_transform();
+            m.render();
+        }
+        glCullFace(GL_BACK);
+
         // bind the generated shadow map and render it to a quad for debugging in-editor
-        glBindTexture(GL_TEXTURE_2D, depthMap);
+        glBindTexture(GL_TEXTURE_2D, depthTexture);
         quadFB->bind();
         Render::Clear({ 1,0,0,1 });
         drawQuad();
         glBindTexture(GL_TEXTURE_2D, 0);
         quadFB->unbind();
 
-
+        // bind the main framebuffer
         dxfb->bind();
         Render::Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
-        bool transpose = Renderer::get_activeAPI() == RenderAPI::DIRECTX11 ? true : false;
-
+        
         // update the shader uniform buffer
         camera.update();
         ubo.model = glm::mat4(1.0f);
@@ -323,13 +410,20 @@ void Application::run() {
         // set the shader locations for the shadow map and a model's texture
         auto meshTexture_location = glGetUniformLocation(dx_shader->getID(), "meshTexture");
         auto depthMap_location = glGetUniformLocation(dx_shader->getID(), "shadowMap");
+        auto depthMapCube_location = glGetUniformLocation(dx_shader->getID(), "shadowMapOmni");
+
         dx_shader->bind();
         glUniform1i(meshTexture_location, 0);
         glUniform1i(depthMap_location, 1);
+        glUniform1i(depthMapCube_location, 2);
 
         // bind depth map to 1
         glActiveTexture(GL_TEXTURE0 + 1);
-        glBindTexture(GL_TEXTURE_2D, depthMap);
+        glBindTexture(GL_TEXTURE_2D, depthTexture);
+        // bind omni depth map to 2
+        glActiveTexture(GL_TEXTURE0 + 2);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeTexture);
+
         for (auto& m : models) {
             // if the mesh doesn't have any textures we bind a default texture
             if (!m.hasTexture()) {
@@ -348,6 +442,9 @@ void Application::run() {
             ubo.lightSpaceMatrix = sunCamera.getProjection() * sunCamera.getView();
             dxrb->update(&ubo, sizeof(ubo));
             dxrb->bind(0);
+
+            extraUbo->update(&extra, sizeof(ExtraUBO));
+            extraUbo->bind(0, GL_SHADER_STORAGE_BUFFER);
 
             // render the mesh
             m.render();
@@ -542,9 +639,7 @@ void Application::run() {
         ImGui::NewLine(); ImGui::Separator();
 
         ImGui::Text("Light Properties");
-        if (ImGui::DragFloat2("Angle", glm::value_ptr(sunCamera.getAngle()), 0.001f)) {
-
-        }
+        if (ImGui::DragFloat2("Angle", glm::value_ptr(sunCamera.getAngle()), 0.001f)) {}
         
         if (ImGui::DragFloat2("Planes", glm::value_ptr(planes), 0.1f)) {
             sunCamera.getProjection() = glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
@@ -554,11 +649,12 @@ void Application::run() {
         }
 
         ImGui::Text("Shadow Bias");
-        if (ImGui::DragFloat("min", &ubo.minBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("max", &ubo.maxBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("min", &extra.minBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("max", &extra.maxBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
 
 
-        if (ImGui::ColorEdit3("Sun color", glm::value_ptr(ubo.sunColor))) {}
+        if (ImGui::ColorEdit3("Sun color", glm::value_ptr(extra.sunColor))) {}
+        if (ImGui::DragFloat("far plane", &farPlane)) {}
 
 
         ImGui::End();
@@ -567,7 +663,7 @@ void Application::run() {
 
         ImGui::Begin("Camera Properties");
         static float fov = 45.0f;
-        if (ImGui::DragFloat("FOV", &fov)) {
+        if (ImGui::DragFloat("FOV", &fov, 1.0f, 35.0f, 120.0f)) {
             camera.getProjection() = glm::perspectiveRH_ZO(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
         }
         if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f, 0.1f, FLT_MAX, "%.2f")) {}
@@ -596,7 +692,7 @@ void Application::run() {
         static bool resizing = true;
         auto size = ImGui::GetWindowSize();
         dxfb->resize({ size.x, size.y - 25 });
-        camera.setProjection(glm::perspectiveRH_ZO(glm::radians(45.0f), size.x / size.y, 0.1f, 10000.0f));
+        camera.getProjection() = glm::perspectiveRH_ZO(glm::radians(fov), size.x / size.y, 0.1f, 10000.0f);
         ImGuizmo::SetRect(0, 0, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
         if (debugShadows) {

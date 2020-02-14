@@ -20,8 +20,6 @@ public:
     Camera(glm::vec3 position, glm::mat4 proj);
     void look(int x, int y);
     void update();
-    void move(const glm::vec3& amount);
-    void setProjection(const glm::mat4& newProj);
     glm::vec3 get_direction();
     void move_on_input(double dt);
     inline bool is_mouse_active() { return mouse_active; }

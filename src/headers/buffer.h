@@ -27,8 +27,10 @@ public:
 class GLResourceBuffer : public ResourceBuffer {
 public:
     GLResourceBuffer(size_t size);
+    GLResourceBuffer(size_t size, GLenum type);
     virtual void update(void* data, const size_t size) const override;
     virtual void bind(uint8_t slot) const override;
+    void bind(uint8_t slot, GLenum type) const;
 
 private:
     unsigned int id;

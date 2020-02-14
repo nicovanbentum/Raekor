@@ -17,10 +17,6 @@ void Camera::update() {
     view = glm::lookAtRH(position, position + dir, {0, 1, 0});
 }
 
-void Camera::setProjection(const glm::mat4& newProj) {
-    projection = newProj;
-}
-
 glm::vec3 Camera::get_direction() {
     return glm::vec3(cos(angle.y) * sin(angle.x), 
     sin(angle.y), cos(angle.y) * cos(angle.x));
@@ -31,10 +27,6 @@ void Camera::look(int x, int y) {
     angle.y += look_speed * (y * -1);
     // clamp to roughly half pi so we dont overshoot
     angle.y = std::clamp(angle.y, -1.57078f, 1.57078f);
-}
-
-void Camera::move(const glm::vec3& amount) {
-
 }
 
 void Camera::move_on_input(double dt) {
