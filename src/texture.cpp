@@ -84,7 +84,9 @@ GLTexture::GLTexture(const Stb::Image& image) {
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB_ALPHA, image.w, image.h,
+    GLenum format = image.isSRGB ? GL_SRGB_ALPHA : GL_RGBA;
+
+    glTexImage2D(GL_TEXTURE_2D, 0, format, image.w, image.h,
         0, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

@@ -139,7 +139,10 @@ void Model::reload() {
 
     std::vector<Stb::Image> images ( seen.size() );
     std::vector<Stb::Image> normalImages ( seen.size() );
-    for (auto& image : images) image.format = RGBA;
+    for (auto& image : images) {
+        image.format = RGBA;
+        image.isSRGB = true;
+    }
     for (auto& image : normalImages) image.format = RGBA;
 
     std::vector<std::future<void>> futures;

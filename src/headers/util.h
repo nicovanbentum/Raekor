@@ -86,6 +86,7 @@ namespace Stb {
 
         uint32_t format;
         int w, h, channels;
+        bool isSRGB = false;
         std::string filepath;
         unsigned char* pixels;
     };
