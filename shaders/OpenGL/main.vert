@@ -51,4 +51,8 @@ void main()
 	vec3 B = normalize(vec3(ubo.view * ubo.model * vec4(v_binormal, 0.0)));
 	vec3 N = normalize(vec3(ubo.view * ubo.model * vec4(v_normal, 0.0)));
 	TBN = transpose(mat3(T, B, N));
+
+	#ifdef NO_NORMAL_MAP
+	TBN = mat3(1.0f);
+	#endif
 }

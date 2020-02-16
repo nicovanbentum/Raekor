@@ -68,6 +68,10 @@ void main()
 	TangentNormal = texture(normalMap, uv).rgb;
 	TangentNormal = normalize(TangentNormal * 2.0 - 1.0);
 
+	#ifdef NO_NORMAL_MAP
+	TangentNormal = normalize(normal);
+	#endif
+
 	DirectionalLight dirLight;
 	dirLight.color = sunColor.rgb;
 	dirLight.position = directionalLightPositionViewSpace;
@@ -94,9 +98,11 @@ float getShadow(DirectionalLight light) {
     float closestDepth = texture(shadowMap, projCoords.xy).r; 
     float currentDepth = projCoords.z;
 
-    vec3 normal = normalize(normal);
+	vec3 n = normalize(normal);
+
     vec3 lightDir = normalize(light.position - pos);
-    float bias = max(maxBias * (1.0 - dot(normal, lightDir)), minBias);
+
+    float bias = max(maxBias * (1.0 - dot(n, lightDir)), minBias);
     
 	// simplest PCF algorithm
     float shadow = 0.0;

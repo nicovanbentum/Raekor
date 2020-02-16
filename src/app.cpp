@@ -142,9 +142,10 @@ void Application::run() {
     ft_texture.name = "Supported Image Files";
     ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
-    std::vector<Shader::Stage> model_shaders;
-    model_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
-    model_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
+    Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
+    Shader::Stage frag(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
+    std::array<Shader::Stage, 2> modelStages = { vertex, frag };
+    dx_shader.reset(new GLShader(modelStages.data(), modelStages.size()));
 
     std::vector<Shader::Stage> skybox_shaders;
     skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert");
@@ -172,7 +173,6 @@ void Application::run() {
     hdr_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDR.frag");
 
 
-    dx_shader.reset(new GLShader(model_shaders.data(), model_shaders.size()));
     sky_shader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
     depth_shader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
     quad_shader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
@@ -651,11 +651,22 @@ void Application::run() {
             debugShadows = !debugShadows;
         }
 
-        if (ImGui::Button("Reload shaders")) {
-                dx_shader.reset(new GLShader(model_shaders.data(), model_shaders.size()));
-                sky_shader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
+        static bool doNormalMapping = true;
+        if (ImGui::RadioButton("Normal mapping", doNormalMapping)) {
+            if (doNormalMapping) {
+                modelStages[0].defines = { "NO_NORMAL_MAP" };
+                modelStages[1].defines = { "NO_NORMAL_MAP" };
+            } else {
+                modelStages[0].defines.clear();
+                modelStages[1].defines.clear();
+            }
+            dx_shader.reset(new GLShader(modelStages.data(), modelStages.size()));
+            doNormalMapping = !doNormalMapping;
         }
 
+        if (ImGui::Button("Reload shaders")) {
+                dx_shader.reset(new GLShader(modelStages.data(), modelStages.size()));
+        }
 
         ImGui::NewLine(); 
 

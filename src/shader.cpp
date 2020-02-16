@@ -52,6 +52,14 @@ void GLShader::reload(Stage* stages, size_t stageCount) {
             ifs.read(&buffer[0], buffer.size());
             ifs.close();
         }
+
+        auto it = buffer.find_first_of('\n') + 1;
+        for (std::string& define : stage.defines) {
+
+            buffer.insert(it, "#define " + define + '\n');
+            it += 9 + define.size();
+        }
+
         const char* src = buffer.c_str();
 
         GLenum type = NULL;

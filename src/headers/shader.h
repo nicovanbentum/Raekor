@@ -14,6 +14,7 @@ public:
     struct Stage {
         Type type;
         const char* filepath;
+        std::vector<std::string> defines;
 
         Stage(Type type, const char* filepath) : type(type), filepath(filepath) {}
     };
