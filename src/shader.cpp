@@ -26,13 +26,6 @@ Shader* Shader::construct(Stage* stages, size_t stageCount) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-Shader::loc& Shader::loc::operator=(const void* rhs) {
-    glUniformMatrix4fv(id, 1, GL_FALSE, (float*)rhs);
-    return *this;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-
 GLShader::GLShader(Stage* stages, size_t stageCount) {
     this->reload(stages, stageCount);
 }

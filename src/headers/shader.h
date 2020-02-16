@@ -26,7 +26,33 @@ public:
 protected:
     struct loc {
         unsigned int id;
-        loc& operator=(const void* rhs);
+
+        template<typename T>
+        loc& operator=(T rhs) {
+            return *this;
+        }
+
+        template<>
+        loc& operator=(const glm::mat4& rhs) {
+            glUniformMatrix4fv(id, 1, GL_FALSE, glm::value_ptr(rhs));
+            return *this;
+        }
+
+        template<>
+        loc& operator=(float rhs) {
+            glUniform1f(id, rhs);
+            return *this;
+        }
+
+        template<>
+        loc& operator=(bool rhs) {
+            glUniform1i(id, rhs);
+        }
+
+        template<>
+        loc& operator=(const glm::vec4& rhs) {
+            glUniform4f(id, rhs.x, rhs.y, rhs.z, rhs.w);
+        }
     };
 };
 

@@ -1,5 +1,7 @@
 #version 440 core
 
+const float PI = 3.14159265359;
+
 layout (std140) uniform stuff {
     mat4 model, view, projection;
 	mat4 lightSpaceMatrix;
@@ -26,14 +28,23 @@ in vec3 directionalLightPositionViewSpace;
 in vec3 pointLightPosition;
 in vec3 pointLightPositionViewSpace;
 in vec3 cameraPos;
+in mat3 TBN;
+
+in VS_OUT {
+	vec3 TangentPointLightPosition;
+    vec3 TangentDirLightPos;
+    vec3 TangentViewPos;
+    vec3 TangentFragPos;
+} fs_in;
 
 // output data back to our openGL program
 out vec4 final_color;
 
 // constant mesh values
-uniform sampler2D meshTexture;
-uniform sampler2D shadowMap;
-uniform samplerCube shadowMapOmni;
+layout(binding = 0) uniform sampler2D meshTexture;
+layout(binding = 1) uniform sampler2D shadowMap;
+layout(binding = 2) uniform samplerCube shadowMapOmni;
+layout(binding = 3) uniform sampler2D normalMap;
 
 struct DirectionalLight {
 	vec3 position;
@@ -51,8 +62,13 @@ vec3 doLight(DirectionalLight light);
 float getShadow(PointLight light);
 float getShadow(DirectionalLight light);
 
+vec3 TangentNormal;
+
 void main()
 {
+	TangentNormal = texture(normalMap, uv).rgb;
+	TangentNormal = normalize(TangentNormal * 2.0 - 1.0);
+
 	DirectionalLight dirLight;
 	dirLight.color = sunColor.rgb;
 	dirLight.position = directionalLightPositionViewSpace;
@@ -116,11 +132,13 @@ float getShadow(PointLight light) {
 
 	float closestDepth = texture(shadowMapOmni, frag2light).r;
 	closestDepth *= farPlane;
+	
+	// DEBUG
 	//final_color = vec4(vec3(closestDepth / farPlane), 1.0);  
 
 	// PCF sampling
 	float shadow = 0.0;
-    float bias = 0.15;
+    float bias = 0.25;
     int samples = 20;
     float viewDistance = length(cameraPos - fragPos);
     float diskRadius = (1.0 + (viewDistance / farPlane)) / 25.0;
@@ -140,21 +158,22 @@ vec3 doLight(PointLight light) {
 	vec4 sampled = texture(meshTexture, uv);
 
     // ambient
-    float ambient_strength = 1.0f;
-    vec3 ambient = ambient_strength * sampled.xyz;
+    vec3 ambient = 0.1 * sampled.xyz;
 
     // diffuse
-    vec3 norm = normalize(normal);
     vec3 view_dir = normalize(-pos);
+	view_dir = TBN * view_dir;
 
     vec3 light_dir = normalize(pointLightPositionViewSpace - pos);
-    float diff = clamp(dot(norm, light_dir), 0, 1);
+	light_dir = TBN * light_dir;
+
+    float diff = clamp(dot(TangentNormal, light_dir), 0, 1);
     vec3 diffuse = light.color * diff * sampled.rgb;
 
     // specular
     vec3 halfway_dir = normalize(light_dir + view_dir);
-    vec3 reflect_dir = reflect(-light_dir, norm);
-    float spec = pow(max(dot(halfway_dir, norm), 0.0), 32.0f);
+    vec3 reflect_dir = reflect(-light_dir, TangentNormal);
+    float spec = pow(max(dot(halfway_dir, TangentNormal), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
     // distance between the light and the vertex
@@ -165,7 +184,7 @@ vec3 doLight(PointLight light) {
     diffuse = diffuse * attenuation;
     specular = specular * attenuation;
 
-	float shadowAmount = getShadow(light);
+	float shadowAmount = 1.0 - getShadow(light);
 	diffuse *= shadowAmount;
 	specular *= shadowAmount;
 
@@ -175,22 +194,23 @@ vec3 doLight(PointLight light) {
 vec3 doLight(DirectionalLight light) {
 	vec4 sampled = texture(meshTexture, uv);
     // vec4 sampled = vec4(0.0, 1.0, 0.0, 1.0);
-    vec3 normal = normalize(normal);
     // ambient
     vec3 ambient = 0.1 * sampled.xyz;
 	
 	// diffuse
-    vec3 norm = normalize(normal);
     vec3 view_dir = normalize(-pos);
+	view_dir = TBN * view_dir;
 
     vec3 light_dir = normalize(light.position - pos);
-    float diff = clamp(dot(norm, light_dir), 0, 1);
+	light_dir = TBN * light_dir;
+
+    float diff = clamp(dot(TangentNormal, light_dir), 0, 1);
     vec3 diffuse = light.color * diff * sampled.rgb;
 
     // specular
     vec3 halfway_dir = normalize(light_dir + view_dir);
-    vec3 reflect_dir = reflect(-light_dir, norm);
-    float spec = pow(max(dot(halfway_dir, norm), 0.0), 32.0f);
+    vec3 reflect_dir = reflect(-light_dir, TangentNormal);
+    float spec = pow(max(dot(halfway_dir, TangentNormal), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
 	float shadowAmount = 1.0 - getShadow(light);

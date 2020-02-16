@@ -34,17 +34,18 @@ GLFrameBuffer::GLFrameBuffer(FrameBuffer::ConstructInfo* info) {
     glGenTextures(1, &render_texture_id);
     glBindTexture(GL_TEXTURE_2D, render_texture_id);
 
+    format = info->HDR ? GL_RGBA16F : GL_RGBA;
+
     // create the 2d texture image
     if (info->depthOnly) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, (GLsizei)size.x, (GLsizei)size.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
         glDrawBuffer(GL_NONE);
         glReadBuffer(GL_NONE);
     } else {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)size.x, (GLsizei)size.y, 0, GL_RGB, GL_FLOAT, NULL);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, (GLsizei)size.x, (GLsizei)size.y, 0, GL_RGB, GL_FLOAT, NULL);
     }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
 
     // unbind the texture and attach it to the framebuffer
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -101,7 +102,7 @@ void GLFrameBuffer::resize(const glm::vec2& new_size) {
     size = new_size;
     // bind the render texture and reset its attributes
     glBindTexture(GL_TEXTURE_2D, render_texture_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)new_size.x, (GLsizei)new_size.y, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, (GLsizei)new_size.x, (GLsizei)new_size.y, 0, GL_RGB, GL_FLOAT, NULL);
 
 
     // unbind the texture and (re-)attach it to the framebuffer

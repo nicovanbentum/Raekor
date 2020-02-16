@@ -15,6 +15,9 @@ public:
 
 protected:
     std::string filepath;
+
+public:
+    bool hasAlpha = false;
 };
 
 class GLTexture : public Texture {

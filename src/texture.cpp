@@ -55,7 +55,6 @@ Texture* Texture::construct(const Stb::Image& image) {
     return nullptr;
 }
 
-
 GLTexture::GLTexture(const std::string& path)
 {
     filepath = path;
@@ -80,10 +79,12 @@ GLTexture::GLTexture(const std::string& path)
 }
 
 GLTexture::GLTexture(const Stb::Image& image) {
+    if (image.channels == 4) hasAlpha = true;
+
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.w, image.h,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB_ALPHA, image.w, image.h,
         0, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -97,8 +98,7 @@ GLTexture::~GLTexture() {
 }
 
 void GLTexture::bind(uint32_t slot) const {
-    glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(GL_TEXTURE_2D, id);
+    glBindTextureUnit(slot, id);
 }
 
 GLTextureCube::GLTextureCube(const std::array<std::string, 6>& face_files) {

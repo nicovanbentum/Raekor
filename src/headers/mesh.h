@@ -6,7 +6,7 @@
 namespace Raekor {
 
 enum class Shape {
-    None, Cube
+    None, Cube, Quad
 };
 
 class Mesh {
@@ -25,6 +25,11 @@ public:
     
     inline const std::string& get_name() const { return name; }
     inline void set_name(const std::string& new_name) { name = new_name; }
+
+    inline void render() {
+        bind();
+        Render::DrawIndexed(ib->get_count());
+    }
 
     void bind() const;
 

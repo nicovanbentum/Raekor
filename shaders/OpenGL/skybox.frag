@@ -1,9 +1,9 @@
-#version 330 core
+#version 440 core
 out vec4 color;
 
 in vec3 texture_pos;
 
-uniform samplerCube skybox;
+layout(binding = 0) uniform samplerCube skybox;
 
 void main()
 {    

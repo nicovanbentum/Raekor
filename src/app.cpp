@@ -40,6 +40,11 @@ struct shadow3DUBO {
     float x, y, z;
 };
 
+struct HDR_UBO {
+    float exposure = 1.0f;
+    float gamma = 2.2f;
+};
+
 void Application::serialize_settings(const std::string& filepath, bool write) {
     if (write) {
         std::ofstream os(filepath);
@@ -96,6 +101,7 @@ void Application::run() {
     shadowUBO shadowUbo;
     ExtraUBO extra;
     shadow3DUBO ubo3d;
+    HDR_UBO hdr_ubo;
 
     std::unique_ptr<Model> model;
 
@@ -104,15 +110,19 @@ void Application::run() {
     std::unique_ptr<GLShader> depth_shader;
     std::unique_ptr<GLShader> depthCube_shader;
     std::unique_ptr<GLShader> quad_shader;
+    std::unique_ptr<GLShader> sphere_shader;
+    std::unique_ptr<GLShader> hdr_shader;
 
-
-    std::unique_ptr<GLFrameBuffer> dxfb;
+    std::unique_ptr<GLFrameBuffer> hdrBuffer;
+    std::unique_ptr<GLFrameBuffer> finalBuffer;
     std::unique_ptr<GLFrameBuffer> quadFB;
 
     std::unique_ptr<GLResourceBuffer> dxrb;
     std::unique_ptr<GLResourceBuffer> shadowVertUbo;
     std::unique_ptr<GLResourceBuffer> extraUbo;
     std::unique_ptr<GLResourceBuffer> Shadow3DUbo;
+    std::unique_ptr<GLResourceBuffer> mat4Ubo;
+    std::unique_ptr<GLResourceBuffer> hdrUbo;
 
     std::unique_ptr<GLTextureCube> sky_image;
 
@@ -133,12 +143,12 @@ void Application::run() {
     ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
     std::vector<Shader::Stage> model_shaders;
-    model_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\simple_vertex.glsl");
-    model_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\simple_fp.glsl");
+    model_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
+    model_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
 
     std::vector<Shader::Stage> skybox_shaders;
-    skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox_vertex.glsl");
-    skybox_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\skybox_fp.glsl");
+    skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert");
+    skybox_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\skybox.frag");
 
     std::vector<Shader::Stage> depth_shaders;
     depth_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depth.vert");
@@ -153,44 +163,59 @@ void Application::run() {
     quad_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
     quad_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\quad.frag");
 
+    std::vector<Shader::Stage> sphere_shaders;
+    sphere_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\lightSphere.vert");
+    sphere_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\lightSphere.frag");
+
+    std::vector<Shader::Stage> hdr_shaders;
+    hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
+    hdr_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDR.frag");
+
+
     dx_shader.reset(new GLShader(model_shaders.data(), model_shaders.size()));
     sky_shader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
     depth_shader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
     quad_shader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
     depthCube_shader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
+    sphere_shader.reset(new GLShader(sphere_shaders.data(), sphere_shaders.size()));
+    hdr_shader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
+
 
     skycube.reset(new Mesh(Shape::Cube));
     skycube->get_vertex_buffer()->set_layout({
-        {"POSITION", ShaderType::FLOAT3},
-        {"UV", ShaderType::FLOAT2},
-        {"NORMAL", ShaderType::FLOAT3}
+        {"POSITION",    ShaderType::FLOAT3},
+        {"UV",          ShaderType::FLOAT2},
+        {"NORMAL",      ShaderType::FLOAT3},
+        {"TANGENT",     ShaderType::FLOAT3},
+        {"BINORMAL",    ShaderType::FLOAT3}
+
         });
 
     sky_image.reset(new GLTextureCube(skyboxes["lake"]));
 
-    std::unique_ptr<VertexBuffer> quadBuffer;
-    std::unique_ptr<IndexBuffer> quadIndexBuffer;
-    quadBuffer.reset(VertexBuffer::construct(v_quad));
-    quadIndexBuffer.reset(IndexBuffer::construct(i_quad));
-
-    quadBuffer->set_layout({
-        {"POSITION", ShaderType::FLOAT3},
-        {"UV", ShaderType::FLOAT2},
-        {"NORMAL", ShaderType::FLOAT3}
+    std::unique_ptr<Mesh> Quad;
+    Quad.reset(new Mesh(Shape::Quad));
+    Quad->get_vertex_buffer()->set_layout({
+        {"POSITION",    ShaderType::FLOAT3},
+        {"UV",          ShaderType::FLOAT2},
+        {"NORMAL",      ShaderType::FLOAT3},
+        {"TANGENT",     ShaderType::FLOAT3},
+        {"BINORMAL",    ShaderType::FLOAT3}
         });
-
-    auto drawQuad = [&]() {
-        quad_shader->bind();
-        quadBuffer->bind();
-        quadIndexBuffer->bind();
-        Render::DrawIndexed(quadIndexBuffer->get_count(), false);
-        quad_shader->unbind();
-    };
 
     dxrb.reset(new GLResourceBuffer(sizeof(MVP)));
     shadowVertUbo.reset(new GLResourceBuffer(sizeof(shadowUBO)));
     extraUbo.reset(new GLResourceBuffer(sizeof(ExtraUBO), GL_SHADER_STORAGE_BUFFER));
     Shadow3DUbo.reset(new GLResourceBuffer(sizeof(shadow3DUBO)));
+    mat4Ubo.reset(new GLResourceBuffer(sizeof(glm::mat4)));
+    hdrUbo.reset(new GLResourceBuffer(sizeof(HDR_UBO)));
+
+    FrameBuffer::ConstructInfo finalInfo = {};
+    finalInfo.size = {
+        displays[display].w * 0.8f,
+        displays[display].w * 0.8f
+    };
+    finalInfo.depthOnly = false;
 
     FrameBuffer::ConstructInfo renderFBinfo = {};
     renderFBinfo.size = {
@@ -198,8 +223,10 @@ void Application::run() {
         displays[display].w * 0.8f
     };
     renderFBinfo.depthOnly = false;
+    renderFBinfo.HDR = true;
 
-    dxfb.reset(new GLFrameBuffer(&renderFBinfo));
+    finalBuffer.reset(new GLFrameBuffer(&finalInfo));
+    hdrBuffer.reset(new GLFrameBuffer(&renderFBinfo));
 
     constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 
@@ -233,7 +260,6 @@ void Application::run() {
 
     Timer dt_timer;
     double dt = 0;
-
 
     // configure depth map FBO
     // -----------------------
@@ -292,7 +318,7 @@ void Application::run() {
 
     // setup  light matrices for a movable point light
     glm::mat4 lightmatrix = glm::mat4(1.0f);
-    lightmatrix = glm::translate(lightmatrix, { 0.0, 1.0f, 0.0 });
+    lightmatrix = glm::translate(lightmatrix, { 0.0f, 0.8f, 3.0f });
     float lightPos[3], lightRot[3], lightScale[3];
     ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
 
@@ -307,7 +333,7 @@ void Application::run() {
     );
     sunCamera.getAngle().y = -1.325f;
 
-    float nearPlane = 1.0f;
+    float nearPlane = 0.1f;
     float farPlane = 25.0f;
     glm::mat4 shadowProj = glm::perspectiveRH_ZO(glm::radians(90.0f), float(SHADOW_WIDTH / SHADOW_HEIGHT), nearPlane, farPlane);
 
@@ -347,7 +373,6 @@ void Application::run() {
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, depthCubeFBO);
         glClear(GL_DEPTH_BUFFER_BIT);
-        glCullFace(GL_FRONT);
 
         // generate the view matrices for calculating lightspace
         std::vector<glm::mat4> shadowTransforms;
@@ -379,18 +404,19 @@ void Application::run() {
             ubo3d.model = m.get_transform();
             m.render();
         }
-        glCullFace(GL_BACK);
 
         // bind the generated shadow map and render it to a quad for debugging in-editor
         glBindTexture(GL_TEXTURE_2D, depthTexture);
         quadFB->bind();
         Render::Clear({ 1,0,0,1 });
-        drawQuad();
+        quad_shader->bind();
+        Quad->render();
+        quad_shader->unbind();
         glBindTexture(GL_TEXTURE_2D, 0);
         quadFB->unbind();
 
         // bind the main framebuffer
-        dxfb->bind();
+        hdrBuffer->bind();
         Render::Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
         
         // update the shader uniform buffer
@@ -408,22 +434,11 @@ void Application::run() {
         Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
 
         // set the shader locations for the shadow map and a model's texture
-        auto meshTexture_location = glGetUniformLocation(dx_shader->getID(), "meshTexture");
-        auto depthMap_location = glGetUniformLocation(dx_shader->getID(), "shadowMap");
-        auto depthMapCube_location = glGetUniformLocation(dx_shader->getID(), "shadowMapOmni");
-
         dx_shader->bind();
-        glUniform1i(meshTexture_location, 0);
-        glUniform1i(depthMap_location, 1);
-        glUniform1i(depthMapCube_location, 2);
-
         // bind depth map to 1
-        glActiveTexture(GL_TEXTURE0 + 1);
-        glBindTexture(GL_TEXTURE_2D, depthTexture);
+        glBindTextureUnit(1, depthTexture);
         // bind omni depth map to 2
-        glActiveTexture(GL_TEXTURE0 + 2);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeTexture);
-
+        glBindTextureUnit(2, depthCubeTexture);
         for (auto& m : models) {
             // if the mesh doesn't have any textures we bind a default texture
             if (!m.hasTexture()) {
@@ -451,7 +466,19 @@ void Application::run() {
         }
 
         // unbind the framebuffer to switch to the application's backbuffer for ImGui
-        dxfb->unbind();
+        hdrBuffer->unbind();
+
+        static bool hdr = false;
+        if (hdr) {
+            hdr_shader->bind();
+            finalBuffer->bind();
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            hdrUbo->update(&hdr_ubo, sizeof(HDR_UBO));
+            hdrUbo->bind(0);
+            hdrBuffer->bindTexture();
+            Quad->render();
+            finalBuffer->unbind();
+        }
 
         //get new frame for ImGui and ImGuizmo
         Render::ImGui_NewFrame(directxwindow);
@@ -496,7 +523,7 @@ void Application::run() {
 
         // move the light by a fixed amount and let it bounce between -125 and 125 units/pixels on the x axis
         static double move_amount = 0.003;
-        static double bounds = 10.0f;
+        static double bounds = 7.5f;
         static bool move_light = true;
         double light_delta = move_amount * dt;
         if ((lightPos[0] >= bounds && move_amount > 0) || (lightPos[0] <= -bounds && move_amount < 0)) {
@@ -655,7 +682,11 @@ void Application::run() {
 
         if (ImGui::ColorEdit3("Sun color", glm::value_ptr(extra.sunColor))) {}
         if (ImGui::DragFloat("far plane", &farPlane)) {}
-
+        if (ImGui::SliderFloat("Exposure", &hdr_ubo.exposure, 0.0f, 1.0f)) {}
+        if (ImGui::SliderFloat("Gamma", &hdr_ubo.gamma, 1.0f, 3.2f)) {}
+        if (ImGui::RadioButton("HDR", hdr)) {
+            hdr = !hdr;
+        }
 
         ImGui::End();
 
@@ -669,6 +700,8 @@ void Application::run() {
         if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f, 0.1f, FLT_MAX, "%.2f")) {}
         if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
         ImGui::End();
+
+
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
@@ -691,7 +724,8 @@ void Application::run() {
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
         static bool resizing = true;
         auto size = ImGui::GetWindowSize();
-        dxfb->resize({ size.x, size.y - 25 });
+        hdrBuffer->resize({ size.x, size.y - 25 });
+        finalBuffer->resize({ size.x, size.y - 25 });
         camera.getProjection() = glm::perspectiveRH_ZO(glm::radians(fov), size.x / size.y, 0.1f, 10000.0f);
         ImGuizmo::SetRect(0, 0, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
@@ -699,7 +733,10 @@ void Application::run() {
             quadFB->ImGui_Image();
         }
         else {
-            dxfb->ImGui_Image();
+            if (hdr) 
+                finalBuffer->ImGui_Image();
+            else 
+                hdrBuffer->ImGui_Image();
         }
 
         ImGui::End();

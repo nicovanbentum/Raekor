@@ -71,7 +71,6 @@ void Application::vulkan_main() {
 
     Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH_ZO(glm::radians(45.0f), 16.0f / 9.0f, 0.1f, 10000.0f));
 
-
     auto face_files = skyboxes["lake"];
     VK::Renderer vk = VK::Renderer(window, face_files);
 

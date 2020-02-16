@@ -9,8 +9,10 @@ namespace Raekor {
     public:
         struct ConstructInfo {
             glm::vec2 size;
-            bool depthOnly;
-            bool writeOnly;
+            // opt
+            bool depthOnly = false;
+            bool writeOnly = false;
+            bool HDR = false;
         };
 
     public:
@@ -31,7 +33,6 @@ namespace Raekor {
     };
 
     class GLFrameBuffer : public FrameBuffer {
-
     public:
         GLFrameBuffer(FrameBuffer::ConstructInfo* info);
         ~GLFrameBuffer();
@@ -40,6 +41,9 @@ namespace Raekor {
         virtual void bindTexture() const override;
         virtual void ImGui_Image() const override;
         virtual void resize(const glm::vec2& size) override;
+
+    private:
+        GLenum format;
     };
 
 } // Raekor

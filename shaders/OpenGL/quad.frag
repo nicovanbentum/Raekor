@@ -1,9 +1,9 @@
-#version 330 core
+#version 440 core
 out vec4 FragColor;
   
 in vec2 TexCoords;
 
-uniform sampler2D depthMap;
+layout(binding = 0) uniform sampler2D depthMap;
 
 float LinearizeDepth(float depth)
 {

@@ -3,6 +3,8 @@
 layout(location = 0) in vec3 v_pos;
 layout(location = 1) in vec2 v_uv;
 layout(location = 2) in vec3 v_normal;
+layout(location = 3) in vec3 v_tangent;
+layout(location = 4) in vec3 v_binormal;
 
 layout (std140) uniform stuff {
     mat4 model, view, projection;
@@ -24,6 +26,7 @@ out vec3 directionalLightPositionViewSpace;
 out vec3 pointLightPosition;
 out vec3 pointLightPositionViewSpace;
 out vec3 cameraPos;
+out mat3 TBN;
 
 void main()
 {
@@ -42,4 +45,10 @@ void main()
 	pointLightPositionViewSpace = vec3(ubo.view * ubo.pointLightPos);
 	directionalLightPosition = vec3(ubo.DirLightPos);
 	cameraPos = vec3(ubo.cameraPosition);
+
+	// calculate tangent space stuff
+	vec3 T = normalize(vec3(ubo.view * ubo.model * vec4(v_tangent, 0.0)));
+	vec3 B = normalize(vec3(ubo.view * ubo.model * vec4(v_binormal, 0.0)));
+	vec3 N = normalize(vec3(ubo.view * ubo.model * vec4(v_normal, 0.0)));
+	TBN = transpose(mat3(T, B, N));
 }

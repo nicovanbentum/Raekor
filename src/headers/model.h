@@ -21,7 +21,7 @@ public:
     void recalc_transform();
     
     inline glm::mat4& get_transform() { return transform; }
-    inline bool hasTexture() const { return !textures.empty(); }
+    inline bool hasTexture() const { return !albedos.empty(); }
 
     inline float* scale_ptr() { return &scale.x; }
     inline float* pos_ptr() { return &position.x; }
@@ -43,10 +43,14 @@ protected:
     glm::vec3 rotation;
     glm::vec3 scale;
 
-    std::string path;
     std::vector<Mesh> meshes;
-    std::vector<std::shared_ptr<Texture>> textures;
+    
+    std::string path;
+    std::vector<std::shared_ptr<Texture>> albedos;
+    std::vector<std::shared_ptr<Texture>> normalMaps;
     std::vector<int32_t> textureIndices;
+    std::vector<int32_t> normalIndices;
+    std::vector<int> ordered;
 
 private:
     const aiScene* scene;
