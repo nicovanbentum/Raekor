@@ -11,7 +11,6 @@ public:
     ~DXFrameBuffer();
     virtual void bind() const override;
     virtual void unbind() const override;
-    virtual void bindTexture() const override;
 
     virtual void ImGui_Image() const override;
     virtual void resize(const glm::vec2& size) override;

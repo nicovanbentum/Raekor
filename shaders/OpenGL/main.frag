@@ -10,11 +10,10 @@ layout (std140) uniform stuff {
 	vec4 pointLightPos;
 } ubo;
 
-layout (std140, binding = 0) buffer extra {
-	vec4 sunColor;
-	float minBias, maxBias;
-	float farPlane;
-};
+uniform vec4 sunColor;
+uniform float minBias;
+uniform float maxBias;
+uniform float farPlane;
 
 // in vars
 in vec3 pos;
@@ -141,7 +140,7 @@ float getShadow(PointLight light) {
     float bias = 0.25;
     int samples = 20;
     float viewDistance = length(cameraPos - fragPos);
-    float diskRadius = (1.0 + (viewDistance / farPlane)) / 25.0;
+    float diskRadius = (1.0 + (viewDistance / farPlane)) / farPlane;
     for(int i = 0; i < samples; ++i) {
         float closestDepth = texture(shadowMapOmni, frag2light + gridSamplingDisk[i] * diskRadius).r;
         closestDepth *= farPlane;   // undo mapping [0;1]

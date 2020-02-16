@@ -3,11 +3,9 @@ layout (location = 0) in vec3 pos;
 
 out vec3 texture_pos;
 
-layout (std140) uniform Camera {
-	mat4 model;
-	mat4 view;
-	mat4 proj;
-};
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 proj;
 
 void main()
 {

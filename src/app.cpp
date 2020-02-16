@@ -26,7 +26,7 @@ struct VertexUBO {
     glm::vec4 pointLightPos;
 };
 
-struct ExtraUBO {
+struct Uniforms {
     glm::vec4 sunColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     float minBias = 0.005f, maxBias = 0.05f;
     float farPlane = 25.0f;
@@ -42,7 +42,7 @@ struct shadow3DUBO {
 
 struct HDR_UBO {
     float exposure = 1.0f;
-    float gamma = 2.2f;
+    float gamma = 1.8f;
 };
 
 void Application::serialize_settings(const std::string& filepath, bool write) {
@@ -97,11 +97,11 @@ void Application::run() {
     // create a Camera we can use to move around our scene
     Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH_ZO(glm::radians(65.0f), 16.0f / 9.0f, 0.1f, 10000.0f));
 
-    VertexUBO ubo;
+    VertexUBO ubo = {};
     shadowUBO shadowUbo;
-    ExtraUBO extra;
     shadow3DUBO ubo3d;
     HDR_UBO hdr_ubo;
+    Uniforms uniforms;
 
     std::unique_ptr<Model> model;
 
@@ -188,8 +188,7 @@ void Application::run() {
         {"NORMAL",      ShaderType::FLOAT3},
         {"TANGENT",     ShaderType::FLOAT3},
         {"BINORMAL",    ShaderType::FLOAT3}
-
-        });
+    });
 
     sky_image.reset(new GLTextureCube(skyboxes["lake"]));
 
@@ -201,11 +200,10 @@ void Application::run() {
         {"NORMAL",      ShaderType::FLOAT3},
         {"TANGENT",     ShaderType::FLOAT3},
         {"BINORMAL",    ShaderType::FLOAT3}
-        });
+    });
 
-    dxrb.reset(new GLResourceBuffer(sizeof(MVP)));
+    dxrb.reset(new GLResourceBuffer(sizeof(VertexUBO)));
     shadowVertUbo.reset(new GLResourceBuffer(sizeof(shadowUBO)));
-    extraUbo.reset(new GLResourceBuffer(sizeof(ExtraUBO), GL_SHADER_STORAGE_BUFFER));
     Shadow3DUbo.reset(new GLResourceBuffer(sizeof(shadow3DUBO)));
     mat4Ubo.reset(new GLResourceBuffer(sizeof(glm::mat4)));
     hdrUbo.reset(new GLResourceBuffer(sizeof(HDR_UBO)));
@@ -347,6 +345,7 @@ void Application::run() {
         dt_timer.start();
         handle_sdl_gui_events({ directxwindow }, debugShadows ? sunCamera : camera, dt); // in shadow debug we're in control of the shadow map camera
         sunCamera.update();
+        camera.update();
 
         // clear the main window
         Render::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
@@ -418,23 +417,26 @@ void Application::run() {
         // bind the main framebuffer
         hdrBuffer->bind();
         Render::Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
-        
-        // update the shader uniform buffer
-        camera.update();
-        ubo.model = glm::mat4(1.0f);
-        ubo.view = camera.getView();
-        ubo.projection = camera.getProjection();
-        dxrb->update(&ubo, sizeof(ubo));
-        dxrb->bind(0);
 
         // render a cubemap with depth testing disabled to generate a skybox
-        sky_shader->bind();
+        // update the camera without translation
+        auto& skyShader = *sky_shader;
+        skyShader.bind();
+        skyShader["model"] = glm::mat4(1.0f);
+        skyShader["view"] = camera.getView();
+        skyShader["proj"] = camera.getProjection();
+
         sky_image->bind(0);
         skycube->bind();
         Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
 
-        // set the shader locations for the shadow map and a model's texture
-        dx_shader->bind();
+        // set uniforms
+        auto& shader = *dx_shader;
+        shader.bind();
+        shader["sunColor"] = uniforms.sunColor;
+        shader["minBias"] = uniforms.minBias;
+        shader["maxBias"] = uniforms.maxBias;
+        shader["farPlane"] = uniforms.farPlane;
         // bind depth map to 1
         glBindTextureUnit(1, depthTexture);
         // bind omni depth map to 2
@@ -444,7 +446,6 @@ void Application::run() {
             if (!m.hasTexture()) {
                 testTexture->bind(0);
             }
-
             // update all the model UBO attributes
             m.recalc_transform();
             ubo.model = m.get_transform();
@@ -455,11 +456,9 @@ void Application::run() {
             ubo.DirLightPos = glm::vec4(sunCamera.getPosition(), 1.0);
             ubo.DirViewPos = glm::vec4(camera.getPosition(), 1.0);
             ubo.lightSpaceMatrix = sunCamera.getProjection() * sunCamera.getView();
-            dxrb->update(&ubo, sizeof(ubo));
-            dxrb->bind(0);
 
-            extraUbo->update(&extra, sizeof(ExtraUBO));
-            extraUbo->bind(0, GL_SHADER_STORAGE_BUFFER);
+            dxrb->update(&ubo, sizeof(VertexUBO));
+            dxrb->bind(0);
 
             // render the mesh
             m.render();
@@ -470,12 +469,12 @@ void Application::run() {
 
         static bool hdr = false;
         if (hdr) {
-            hdr_shader->bind();
             finalBuffer->bind();
+            hdr_shader->bind();
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             hdrUbo->update(&hdr_ubo, sizeof(HDR_UBO));
             hdrUbo->bind(0);
-            hdrBuffer->bindTexture();
+            hdrBuffer->bindTexture(0);
             Quad->render();
             finalBuffer->unbind();
         }
@@ -652,20 +651,16 @@ void Application::run() {
             debugShadows = !debugShadows;
         }
 
-        static glm::vec3 sunPos = glm::vec3(-2.0f, 12.0f, 2.0f);
-        static glm::vec3 sunLookat = glm::vec3(0.0f, 0.0f, 0.0f);
-
-
-
         if (ImGui::Button("Reload shaders")) {
                 dx_shader.reset(new GLShader(model_shaders.data(), model_shaders.size()));
                 sky_shader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
         }
 
 
-        ImGui::NewLine(); ImGui::Separator();
+        ImGui::NewLine(); 
 
-        ImGui::Text("Light Properties");
+        ImGui::Text("Directional Light");
+        ImGui::Separator();
         if (ImGui::DragFloat2("Angle", glm::value_ptr(sunCamera.getAngle()), 0.001f)) {}
         
         if (ImGui::DragFloat2("Planes", glm::value_ptr(planes), 0.1f)) {
@@ -674,19 +669,23 @@ void Application::run() {
         if (ImGui::DragFloat("Size", &orthoSize)) {
             sunCamera.getProjection() = glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
         }
-
-        ImGui::Text("Shadow Bias");
-        if (ImGui::DragFloat("min", &extra.minBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("max", &extra.maxBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
-
-
-        if (ImGui::ColorEdit3("Sun color", glm::value_ptr(extra.sunColor))) {}
+        if (ImGui::DragFloat("Min bias", &uniforms.minBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Max bias", &uniforms.maxBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
+        if (ImGui::ColorEdit3("Color", glm::value_ptr(uniforms.sunColor))) {}
+        
+        ImGui::NewLine();
+        ImGui::Text("Point Light");
+        ImGui::Separator();
         if (ImGui::DragFloat("far plane", &farPlane)) {}
-        if (ImGui::SliderFloat("Exposure", &hdr_ubo.exposure, 0.0f, 1.0f)) {}
-        if (ImGui::SliderFloat("Gamma", &hdr_ubo.gamma, 1.0f, 3.2f)) {}
-        if (ImGui::RadioButton("HDR", hdr)) {
+        
+        ImGui::NewLine();
+        ImGui::Text("HDR");
+        ImGui::Separator();
+        if (ImGui::RadioButton("Enabled", hdr)) {
             hdr = !hdr;
         }
+        if (ImGui::SliderFloat("Exposure", &hdr_ubo.exposure, 0.0f, 1.0f)) {}
+        if (ImGui::SliderFloat("Gamma", &hdr_ubo.gamma, 1.0f, 3.2f)) {}
 
         ImGui::End();
 

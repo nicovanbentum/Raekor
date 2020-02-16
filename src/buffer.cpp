@@ -31,13 +31,6 @@ namespace Raekor {
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
-    GLResourceBuffer::GLResourceBuffer(size_t size, GLenum type) {
-        glGenBuffers(1, &id);
-        glBindBuffer(type, id);
-        glBufferData(type, size, NULL, GL_DYNAMIC_DRAW);
-        glBindBuffer(type, 0);
-    }
-
     void GLResourceBuffer::update(void* data, const size_t size) const {
         glBindBuffer(GL_UNIFORM_BUFFER, id);
         void* data_ptr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
@@ -48,10 +41,6 @@ namespace Raekor {
 
     void GLResourceBuffer::bind(uint8_t slot) const {
         glBindBufferBase(GL_UNIFORM_BUFFER, slot, id);
-    }
-
-    void GLResourceBuffer::bind(uint8_t slot, GLenum type) const {
-        glBindBufferBase(type, slot, id);
     }
 
 uint32_t size_of(ShaderType type) {

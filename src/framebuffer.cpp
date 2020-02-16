@@ -88,8 +88,8 @@ void GLFrameBuffer::unbind() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void GLFrameBuffer::bindTexture() const {
-    glBindTexture(GL_TEXTURE_2D, render_texture_id);
+void GLFrameBuffer::bindTexture(uint32_t slot) const {
+    glBindTextureUnit(slot, render_texture_id);
 }
 
 void GLFrameBuffer::ImGui_Image() const {
