@@ -249,7 +249,7 @@ void Application::run() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigWindowsMoveFromTitleBarOnly = true;
     io.ConfigDockingWithShift = true;
-    ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 18.0f);
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 16.0f);
     if (!io.Fonts->Fonts.empty()) {
         io.FontDefault = io.Fonts->Fonts.back();
     }

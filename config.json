@@ -1,7 +1,7 @@
 {
     "name": "Raekor Render Engine",
     "display": 1,
-    "font": "resources/SourceSansPro-Regular.ttf",
+    "font": "resources/Roboto-Regular.ttf",
     "skyboxes": [
         {
             "key": "lake",
