@@ -18,7 +18,7 @@ Run the application using `make run`.
 
 >*Tested on Ubuntu 19.04*
 
-### Render APIs
+# Features
 Basic framework in place for DX11 and VK. Focus has shifted to getting features in fast in OpenGL so I can use the engine to  research and implement Global Illumination for a research course at the Hogeschool Utrecht. Some of the features currently being worked on:
 - [X] Shader hotloading
 - [X] Directional & Point lighting
