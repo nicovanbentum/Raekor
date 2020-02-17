@@ -333,7 +333,7 @@ void Application::run() {
 
     float nearPlane = 0.1f;
     float farPlane = 25.0f;
-    glm::mat4 shadowProj = glm::perspectiveRH_ZO(glm::radians(90.0f), float(SHADOW_WIDTH / SHADOW_HEIGHT), nearPlane, farPlane);
+    glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), float(SHADOW_WIDTH / SHADOW_HEIGHT), nearPlane, farPlane);
 
     // toggle bool for changing the shadow map
     bool debugShadows = false;
@@ -393,6 +393,7 @@ void Application::run() {
         for (int i = 0; i < 6; i++) ubo3d.faceMatrices[i] = shadowTransforms[i];
         ubo3d.farPlane = farPlane;
         ubo3d.lightPos = glm::vec4(lightPosition.x, lightPosition.y, lightPosition.z, 1.0f);
+
 
         // render every model using the depth cubemap shader
         depthCube_shader->bind();
@@ -642,7 +643,7 @@ void Application::run() {
         if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
             use_vsync = !use_vsync;
         }
-
+        
         if (ImGui::RadioButton("Animate Light", move_light)) {
             move_light = !move_light;
         }
@@ -687,7 +688,9 @@ void Application::run() {
         ImGui::NewLine();
         ImGui::Text("Point Light");
         ImGui::Separator();
-        if (ImGui::DragFloat("far plane", &farPlane)) {}
+        if (ImGui::DragFloat("far plane", &farPlane)) {
+            shadowProj = glm::perspective(glm::radians(90.0f), float(SHADOW_WIDTH / SHADOW_HEIGHT), nearPlane, farPlane);
+        }
         
         ImGui::NewLine();
         ImGui::Text("HDR");

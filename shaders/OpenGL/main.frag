@@ -16,25 +16,22 @@ uniform float maxBias;
 uniform float farPlane;
 
 // in vars
-in vec3 pos;
-in vec3 fragPos;
+in vec3 PosViewspace;
+in vec3 PosWorldspace;
 in vec2 uv;
-in vec3 normal;
+in vec3 normalViewspace;
 in vec4 FragPosLightSpace;
 
 in vec3 directionalLightPosition;
 in vec3 directionalLightPositionViewSpace;
 in vec3 pointLightPosition;
 in vec3 pointLightPositionViewSpace;
-in vec3 cameraPos;
-in mat3 TBN;
 
-in VS_OUT {
-	vec3 TangentPointLightPosition;
-    vec3 TangentDirLightPos;
-    vec3 TangentViewPos;
-    vec3 TangentFragPos;
-} fs_in;
+in vec3 pointLightDirection;
+in vec3 dirLightDirection;
+in vec3 cameraDirection;
+
+in vec3 cameraPos;
 
 // output data back to our openGL program
 out vec4 final_color;
@@ -69,7 +66,7 @@ void main()
 	TangentNormal = normalize(TangentNormal * 2.0 - 1.0);
 
 	#ifdef NO_NORMAL_MAP
-	TangentNormal = normalize(normal);
+	TangentNormal = normalize(normalViewspace);
 	#endif
 
 	DirectionalLight dirLight;
@@ -98,11 +95,7 @@ float getShadow(DirectionalLight light) {
     float closestDepth = texture(shadowMap, projCoords.xy).r; 
     float currentDepth = projCoords.z;
 
-	vec3 n = normalize(normal);
-
-    vec3 lightDir = normalize(light.position - pos);
-
-    float bias = max(maxBias * (1.0 - dot(n, lightDir)), minBias);
+    float bias = max(maxBias * (1.0 - dot(TangentNormal, dirLightDirection)), minBias);
     
 	// simplest PCF algorithm
     float shadow = 0.0;
@@ -132,7 +125,7 @@ vec3 gridSamplingDisk[20] = vec3[]
 );
 
 float getShadow(PointLight light) {
-	vec3 frag2light = fragPos - light.position;
+	vec3 frag2light = PosWorldspace - light.position;
 	float currentDepth = length(frag2light);
 
 	float closestDepth = texture(shadowMapOmni, frag2light).r;
@@ -145,7 +138,7 @@ float getShadow(PointLight light) {
 	float shadow = 0.0;
     float bias = 0.25;
     int samples = 20;
-    float viewDistance = length(cameraPos - fragPos);
+    float viewDistance = length(cameraPos - PosWorldspace);
     float diskRadius = (1.0 + (viewDistance / farPlane)) / farPlane;
     for(int i = 0; i < samples; ++i) {
         float closestDepth = texture(shadowMapOmni, frag2light + gridSamplingDisk[i] * diskRadius).r;
@@ -165,24 +158,17 @@ vec3 doLight(PointLight light) {
     // ambient
     vec3 ambient = 0.1 * sampled.xyz;
 
-    // diffuse
-    vec3 view_dir = normalize(-pos);
-	view_dir = TBN * view_dir;
-
-    vec3 light_dir = normalize(pointLightPositionViewSpace - pos);
-	light_dir = TBN * light_dir;
-
-    float diff = clamp(dot(TangentNormal, light_dir), 0, 1);
+    float diff = clamp(dot(TangentNormal, pointLightDirection), 0, 1);
     vec3 diffuse = light.color * diff * sampled.rgb;
 
     // specular
-    vec3 halfway_dir = normalize(light_dir + view_dir);
-    vec3 reflect_dir = reflect(-light_dir, TangentNormal);
+    vec3 halfway_dir = normalize(pointLightDirection + cameraDirection);
+    vec3 reflect_dir = reflect(-pointLightDirection, TangentNormal);
     float spec = pow(max(dot(halfway_dir, TangentNormal), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
     // distance between the light and the vertex
-    float distance = length(pointLightPositionViewSpace - pos);
+    float distance = length(pointLightPositionViewSpace - PosViewspace);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quad * (distance * distance));
 
     ambient = ambient * attenuation;
@@ -203,18 +189,12 @@ vec3 doLight(DirectionalLight light) {
     vec3 ambient = 0.1 * sampled.xyz;
 	
 	// diffuse
-    vec3 view_dir = normalize(-pos);
-	view_dir = TBN * view_dir;
-
-    vec3 light_dir = normalize(light.position - pos);
-	light_dir = TBN * light_dir;
-
-    float diff = clamp(dot(TangentNormal, light_dir), 0, 1);
+    float diff = clamp(dot(TangentNormal, dirLightDirection), 0, 1);
     vec3 diffuse = light.color * diff * sampled.rgb;
 
     // specular
-    vec3 halfway_dir = normalize(light_dir + view_dir);
-    vec3 reflect_dir = reflect(-light_dir, TangentNormal);
+    vec3 halfway_dir = normalize(dirLightDirection + cameraDirection);
+    vec3 reflect_dir = reflect(-dirLightDirection, TangentNormal);
     float spec = pow(max(dot(halfway_dir, TangentNormal), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 

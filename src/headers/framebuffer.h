@@ -39,6 +39,7 @@ namespace Raekor {
         virtual void unbind() const override;
         virtual void bindTexture(uint32_t slot) const;
         virtual void ImGui_Image() const override;
+        virtual void ImGui_Image(glm::vec2 imgSize) const;
         virtual void resize(const glm::vec2& size) override;
 
     private:

@@ -96,6 +96,11 @@ void GLFrameBuffer::ImGui_Image() const {
     ImGui::Image((void*)((intptr_t)render_texture_id), ImVec2(size.x, size.y), { 0,1 }, { 1,0 });
 }
 
+void GLFrameBuffer::ImGui_Image(glm::vec2 imgSize) const {
+    ImGui::Image((void*)((intptr_t)render_texture_id), ImVec2(imgSize.x, imgSize.y), { 0,1 }, { 1,0 });
+}
+
+
 
 void GLFrameBuffer::resize(const glm::vec2& new_size) {
     if (size == new_size) return;
