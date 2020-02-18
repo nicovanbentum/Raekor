@@ -47,6 +47,11 @@ protected:
             glUniform4f(id, rhs.x, rhs.y, rhs.z, rhs.w);
             return *this;
         }
+
+        loc& operator=(const glm::vec3& rhs) {
+            glUniform3f(id, rhs.x, rhs.y, rhs.z);
+            return *this;
+        }
     };
 };
 

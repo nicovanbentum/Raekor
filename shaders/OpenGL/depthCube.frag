@@ -1,22 +1,16 @@
-#version 440 core
+#version 440
+
 in vec4 FragPos;
 
-layout (std140) uniform stuff {
-    mat4 model;
-	mat4 faceMatrices[6];
-	vec4 lightPos;
-	float farPlane;
-	float x, y, z;
-} ubo;
+uniform float farPlane;
+uniform vec3 lightPos;
 
 void main()
 {
-    // get distance between fragment and light source
-    float lightDistance = length(FragPos.xyz - ubo.lightPos.xyz);
+    float lightDistance = length(FragPos.xyz - lightPos);
     
     // map to [0;1] range by dividing by far_plane
-    lightDistance = lightDistance / ubo.farPlane;
+    lightDistance = lightDistance / farPlane;
     
-    // write this as modified depth
     gl_FragDepth = lightDistance;
 } 

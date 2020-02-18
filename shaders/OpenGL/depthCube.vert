@@ -1,14 +1,11 @@
-#version 440 core
+#version 440
 layout (location = 0) in vec3 pos;
 
-layout (std140) uniform stuff {
-    mat4 model;
-	mat4 faceMatrices[6];
-	vec4 lightPos;
-	float farPlane;
-	float x, y, z;
-} ubo;
+uniform mat4 model, view, projection;
+
+out vec4 FragPos;
 
 void main() {
-    gl_Position = ubo.model * vec4(pos, 1.0);
+	FragPos = model * vec4(pos, 1.0);
+	gl_Position = projection * view * FragPos;
 } 

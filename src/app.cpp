@@ -32,14 +32,6 @@ struct Uniforms {
     float farPlane = 25.0f;
 };
 
-struct shadow3DUBO {
-    glm::mat4 model;
-    glm::mat4 faceMatrices[6];
-    glm::vec4 lightPos;
-    float farPlane;
-    float x, y, z;
-};
-
 struct HDR_UBO {
     float exposure = 1.0f;
     float gamma = 1.8f;
@@ -99,7 +91,6 @@ void Application::run() {
 
     VertexUBO ubo = {};
     shadowUBO shadowUbo;
-    shadow3DUBO ubo3d;
     HDR_UBO hdr_ubo;
     Uniforms uniforms;
 
@@ -158,7 +149,6 @@ void Application::run() {
     std::vector<Shader::Stage> depthCube_shaders;
     depthCube_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depthCube.vert");
     depthCube_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depthCube.frag");
-    depthCube_shaders.emplace_back(Shader::Type::GEO, "shaders\\OpenGL\\depthCube.geo");
 
     std::vector<Shader::Stage> quad_shaders;
     quad_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
@@ -204,7 +194,6 @@ void Application::run() {
 
     dxrb.reset(new GLResourceBuffer(sizeof(VertexUBO)));
     shadowVertUbo.reset(new GLResourceBuffer(sizeof(shadowUBO)));
-    Shadow3DUbo.reset(new GLResourceBuffer(sizeof(shadow3DUBO)));
     mat4Ubo.reset(new GLResourceBuffer(sizeof(glm::mat4)));
     hdrUbo.reset(new GLResourceBuffer(sizeof(HDR_UBO)));
 
@@ -341,16 +330,16 @@ void Application::run() {
     unsigned int depthCubeTexture;
     glGenTextures(1, &depthCubeTexture);
     glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeTexture);
-    for (unsigned int i = 0; i < 6; ++i)
+    for (unsigned int i = 0; i < 6; ++i) {
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT,
             SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    }
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glBindFramebuffer(GL_FRAMEBUFFER, depthCubeFBO);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubeTexture, 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -426,33 +415,29 @@ void Application::run() {
         // generate the view matrices for calculating lightspace
         std::vector<glm::mat4> shadowTransforms;
         glm::vec3 lightPosition = glm::make_vec3(lightPos);
-        shadowTransforms.push_back(shadowProj *
-            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.push_back(shadowProj *
-            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.push_back(shadowProj *
-            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
-        shadowTransforms.push_back(shadowProj *
-            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
-        shadowTransforms.push_back(shadowProj *
-            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.push_back(shadowProj *
-            glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
-
-        // update the cubemap ubo for omnidirectional shadows
-        for (int i = 0; i < 6; i++) ubo3d.faceMatrices[i] = shadowTransforms[i];
-        ubo3d.farPlane = farPlane;
-        ubo3d.lightPos = glm::vec4(lightPosition.x, lightPosition.y, lightPosition.z, 1.0f);
-
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  1.0, 0.0, 0.0),    glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3( -1.0, 0.0, 0.0),    glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  0.0, 1.0, 0.0),    glm::vec3(0.0, 0.0, 1.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  0.0, -1.0, 0.0),   glm::vec3(0.0, 0.0, -1.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  0.0, 0.0, 1.0),    glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  0.0, 0.0, -1.0),   glm::vec3(0.0, -1.0, 0.0)));
 
         // render every model using the depth cubemap shader
-        depthCube_shader->bind();
-        Shadow3DUbo->update(&ubo3d, sizeof(shadow3DUBO));
-        Shadow3DUbo->bind(0);
-        for (auto& m : models) {
-            m.recalc_transform();
-            ubo3d.model = m.get_transform();
-            m.render();
+        auto& depthCubeShader = *depthCube_shader;
+        depthCubeShader.bind();
+        depthCubeShader["farPlane"] = farPlane;
+        for (uint32_t i = 0; i < 6; i++) {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, depthCubeTexture, 0);
+
+            for (auto& m : models) {
+                m.recalc_transform();
+                depthCubeShader["model"] = m.get_transform();
+                depthCubeShader["view"] = shadowTransforms[i];
+                depthCubeShader["projection"] = shadowProj;
+                depthCubeShader["lightPos"] = glm::make_vec3(lightPos);
+                m.render();
+            }
         }
 
         // bind the generated shadow map and render it to a quad for debugging in-editor
@@ -487,7 +472,7 @@ void Application::run() {
         shader["sunColor"] = uniforms.sunColor;
         shader["minBias"] = uniforms.minBias;
         shader["maxBias"] = uniforms.maxBias;
-        shader["farPlane"] = uniforms.farPlane;
+        shader["farPlane"] = farPlane;
         // bind depth map to 1
         glBindTextureUnit(1, depthTexture);
         // bind omni depth map to 2
