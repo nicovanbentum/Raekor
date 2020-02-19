@@ -103,6 +103,7 @@ void Application::run() {
     std::unique_ptr<GLShader> quad_shader;
     std::unique_ptr<GLShader> sphere_shader;
     std::unique_ptr<GLShader> hdr_shader;
+    std::unique_ptr<GLShader> cubeDebug_shader;
 
     std::unique_ptr<GLFrameBuffer> hdrBuffer;
     std::unique_ptr<GLFrameBuffer> finalBuffer;
@@ -162,6 +163,10 @@ void Application::run() {
     hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
     hdr_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDR.frag");
 
+    std::vector<Shader::Stage> cubedebug_shaders;
+    cubedebug_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\simple.vert");
+    cubedebug_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\simple.frag");
+
 
     sky_shader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
     depth_shader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
@@ -169,6 +174,7 @@ void Application::run() {
     depthCube_shader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
     sphere_shader.reset(new GLShader(sphere_shaders.data(), sphere_shaders.size()));
     hdr_shader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
+    cubeDebug_shader.reset(new GLShader(cubedebug_shaders.data(), cubedebug_shaders.size()));
 
 
     skycube.reset(new Mesh(Shape::Cube));
@@ -215,7 +221,7 @@ void Application::run() {
     finalBuffer.reset(new GLFrameBuffer(&finalInfo));
     hdrBuffer.reset(new GLFrameBuffer(&renderFBinfo));
 
-    constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
+    constexpr unsigned int SHADOW_WIDTH = 256, SHADOW_HEIGHT = 256;
 
     FrameBuffer::ConstructInfo quadFBinfo = {};
     quadFBinfo.size.x = SHADOW_WIDTH;
@@ -405,12 +411,11 @@ void Application::run() {
             shadowVertUbo->bind(0);
             m.render();
         }
-        glCullFace(GL_BACK);
 
         // setup the 3D shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, depthCubeFBO);
-        glClear(GL_DEPTH_BUFFER_BIT);
+        glCullFace(GL_FRONT);
 
         // generate the view matrices for calculating lightspace
         std::vector<glm::mat4> shadowTransforms;
@@ -429,16 +434,17 @@ void Application::run() {
         for (uint32_t i = 0; i < 6; i++) {
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                 GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, depthCubeTexture, 0);
+            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
             for (auto& m : models) {
                 m.recalc_transform();
                 depthCubeShader["model"] = m.get_transform();
-                depthCubeShader["view"] = shadowTransforms[i];
-                depthCubeShader["projection"] = shadowProj;
+                depthCubeShader["projView"] = shadowTransforms[i];
                 depthCubeShader["lightPos"] = glm::make_vec3(lightPos);
                 m.render();
             }
         }
+        glCullFace(GL_BACK);
 
         // bind the generated shadow map and render it to a quad for debugging in-editor
         glBindTexture(GL_TEXTURE_2D, depthTexture);
@@ -465,6 +471,17 @@ void Application::run() {
         sky_image->bind(0);
         skycube->bind();
         Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
+
+
+        // debug render the point light shadow map
+        auto& debugShader = *cubeDebug_shader;
+        debugShader.bind();
+        debugShader["model"] = glm::translate(glm::mat4(1.0f), { 0.0f, 1.5f, 0.0f });
+        debugShader["view"] = camera.getView();
+        debugShader["proj"] = camera.getProjection();
+        glBindTextureUnit(0, depthCubeTexture);
+        skycube->bind();
+        Render::DrawIndexed(skycube->get_index_buffer()->get_count());
 
         // set uniforms
         auto& shader = *dx_shader;
@@ -756,7 +773,7 @@ void Application::run() {
         if (ImGui::DragFloat("FOV", &fov, 1.0f, 35.0f, 120.0f)) {
             camera.getProjection() = glm::perspectiveRH_ZO(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
         }
-        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.01f, 0.1f, FLT_MAX, "%.2f")) {}
+        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.1f, FLT_MAX, "%.3f")) {}
         if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
         ImGui::End();
 

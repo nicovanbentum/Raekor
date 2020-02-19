@@ -60,20 +60,6 @@ float getShadow(DirectionalLight light);
 
 vec3 TangentNormal;
 
-float VectorToDepth (vec3 Vec)
-{
-    vec3 AbsVec = abs(Vec);
-    float LocalZcomp = max(AbsVec.x, max(AbsVec.y, AbsVec.z));
-
-    // Replace f and n with the far and near plane values you used when
-    //   you drew your cube map.
-    const float f = 25.0;
-    const float n = 0.1;
-
-    float NormZComp = (f+n) / (f-n) - (2*f*n)/(f-n)/LocalZcomp;
-    return (NormZComp + 1.0) * 0.5;
-}
-
 void main()
 {
 	TangentNormal = texture(normalMap, uv).rgb;
@@ -140,9 +126,10 @@ vec3 gridSamplingDisk[20] = vec3[]
 
 float getShadow(PointLight light) {
 	vec3 frag2light = PosWorldspace - light.position;
-	float currentDepth = VectorToDepth(frag2light);
+	float currentDepth = length(frag2light);
 
 	float closestDepth = texture(shadowMapOmni, frag2light).r;
+	closestDepth *= farPlane;
 	
 	// DEBUG
 	//final_color = vec4(vec3(closestDepth / farPlane), 1.0);  
