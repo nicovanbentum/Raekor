@@ -134,4 +134,8 @@ Shader::loc GLShader::operator[] (const char* data) {
     return ret;
 }
 
+Shader::loc GLShader::getUniform(const char* name) {
+    return { glGetUniformLocation(programID, name) };
+}
+
 } // Namespace Raekor

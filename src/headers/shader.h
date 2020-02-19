@@ -26,7 +26,7 @@ public:
 
 protected:
     struct loc {
-        unsigned int id;
+        int id;
 
         loc& operator=(const glm::mat4& rhs) {
             glUniformMatrix4fv(id, 1, GL_FALSE, glm::value_ptr(rhs));
@@ -70,6 +70,7 @@ public:
     inline unsigned int getID() const { return programID; }
 
     loc operator[] (const char* data);
+    loc getUniform(const char* name);
 
 private:
     unsigned int programID;

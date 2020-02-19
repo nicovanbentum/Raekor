@@ -96,14 +96,14 @@ void Application::run() {
 
     std::unique_ptr<Model> model;
 
-    std::unique_ptr<GLShader> dx_shader;
-    std::unique_ptr<GLShader> sky_shader;
-    std::unique_ptr<GLShader> depth_shader;
-    std::unique_ptr<GLShader> depthCube_shader;
-    std::unique_ptr<GLShader> quad_shader;
-    std::unique_ptr<GLShader> sphere_shader;
-    std::unique_ptr<GLShader> hdr_shader;
-    std::unique_ptr<GLShader> cubeDebug_shader;
+    std::unique_ptr<GLShader> mainShader;
+    std::unique_ptr<GLShader> skyShader;
+    std::unique_ptr<GLShader> depthShader;
+    std::unique_ptr<GLShader> depthCubeShader;
+    std::unique_ptr<GLShader> quadShader;
+    std::unique_ptr<GLShader> sphereShader;
+    std::unique_ptr<GLShader> hdrShader;
+    std::unique_ptr<GLShader> CubemapDebugShader;
 
     std::unique_ptr<GLFrameBuffer> hdrBuffer;
     std::unique_ptr<GLFrameBuffer> finalBuffer;
@@ -137,7 +137,7 @@ void Application::run() {
     Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
     Shader::Stage frag(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
     std::array<Shader::Stage, 2> modelStages = { vertex, frag };
-    dx_shader.reset(new GLShader(modelStages.data(), modelStages.size()));
+    mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
 
     std::vector<Shader::Stage> skybox_shaders;
     skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert");
@@ -168,13 +168,13 @@ void Application::run() {
     cubedebug_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\simple.frag");
 
 
-    sky_shader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
-    depth_shader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
-    quad_shader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
-    depthCube_shader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
-    sphere_shader.reset(new GLShader(sphere_shaders.data(), sphere_shaders.size()));
-    hdr_shader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
-    cubeDebug_shader.reset(new GLShader(cubedebug_shaders.data(), cubedebug_shaders.size()));
+    skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
+    depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
+    quadShader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
+    depthCubeShader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
+    sphereShader.reset(new GLShader(sphere_shaders.data(), sphere_shaders.size()));
+    hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
+    CubemapDebugShader.reset(new GLShader(cubedebug_shaders.data(), cubedebug_shaders.size()));
 
 
     skycube.reset(new Mesh(Shape::Cube));
@@ -402,7 +402,7 @@ void Application::run() {
         glCullFace(GL_FRONT);
 
         // render the entire scene to the directional light shadow map
-        depth_shader->bind();
+        depthShader->bind();
         for (auto& m : models) {
             m.recalc_transform();
             shadowUbo.cameraMatrix = sunCamera.getProjection() * sunCamera.getView();
@@ -428,9 +428,8 @@ void Application::run() {
         shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  0.0, 0.0, -1.0),   glm::vec3(0.0, -1.0, 0.0)));
 
         // render every model using the depth cubemap shader
-        auto& depthCubeShader = *depthCube_shader;
-        depthCubeShader.bind();
-        depthCubeShader["farPlane"] = farPlane;
+        depthCubeShader->bind();
+        depthCubeShader->getUniform("farPlane") = farPlane;
         for (uint32_t i = 0; i < 6; i++) {
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                 GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, depthCubeTexture, 0);
@@ -438,9 +437,9 @@ void Application::run() {
 
             for (auto& m : models) {
                 m.recalc_transform();
-                depthCubeShader["model"] = m.get_transform();
-                depthCubeShader["projView"] = shadowTransforms[i];
-                depthCubeShader["lightPos"] = glm::make_vec3(lightPos);
+                depthCubeShader->getUniform("model") = m.get_transform();
+                depthCubeShader->getUniform("projView") = shadowTransforms[i];
+                depthCubeShader->getUniform("lightPos") = glm::make_vec3(lightPos);
                 m.render();
             }
         }
@@ -450,9 +449,9 @@ void Application::run() {
         glBindTexture(GL_TEXTURE_2D, depthTexture);
         quadFB->bind();
         Render::Clear({ 1,0,0,1 });
-        quad_shader->bind();
+        quadShader->bind();
         Quad->render();
-        quad_shader->unbind();
+        quadShader->unbind();
         glBindTexture(GL_TEXTURE_2D, 0);
         quadFB->unbind();
 
@@ -462,11 +461,10 @@ void Application::run() {
 
         // render a cubemap with depth testing disabled to generate a skybox
         // update the camera without translation
-        auto& skyShader = *sky_shader;
-        skyShader.bind();
-        skyShader["model"] = glm::mat4(1.0f);
-        skyShader["view"] = camera.getView();
-        skyShader["proj"] = camera.getProjection();
+        skyShader->bind();
+        skyShader->getUniform("model") = glm::mat4(1.0f);
+        skyShader->getUniform("view") = camera.getView();
+        skyShader->getUniform("proj") = camera.getProjection();
 
         sky_image->bind(0);
         skycube->bind();
@@ -474,22 +472,20 @@ void Application::run() {
 
 
         // debug render the point light shadow map
-        auto& debugShader = *cubeDebug_shader;
-        debugShader.bind();
-        debugShader["model"] = glm::translate(glm::mat4(1.0f), { 0.0f, 1.5f, 0.0f });
-        debugShader["view"] = camera.getView();
-        debugShader["proj"] = camera.getProjection();
+        CubemapDebugShader->bind();
+        CubemapDebugShader->getUniform("model") = glm::translate(glm::mat4(1.0f), { 0.0f, 1.5f, 0.0f });
+        CubemapDebugShader->getUniform("view") = camera.getView();
+        CubemapDebugShader->getUniform("proj") = camera.getProjection();
         glBindTextureUnit(0, depthCubeTexture);
         skycube->bind();
         Render::DrawIndexed(skycube->get_index_buffer()->get_count());
 
         // set uniforms
-        auto& shader = *dx_shader;
-        shader.bind();
-        shader["sunColor"] = uniforms.sunColor;
-        shader["minBias"] = uniforms.minBias;
-        shader["maxBias"] = uniforms.maxBias;
-        shader["farPlane"] = farPlane;
+        mainShader->bind();
+        mainShader->getUniform("sunColor") = uniforms.sunColor;
+        mainShader->getUniform("minBias") = uniforms.minBias;
+        mainShader->getUniform("maxBias") = uniforms.maxBias;
+        mainShader->getUniform("farPlane") = farPlane;
         // bind depth map to 1
         glBindTextureUnit(1, depthTexture);
         // bind omni depth map to 2
@@ -523,7 +519,7 @@ void Application::run() {
         static bool hdr = true;
         if (hdr) {
             finalBuffer->bind();
-            hdr_shader->bind();
+            hdrShader->bind();
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             hdrUbo->update(&hdr_ubo, sizeof(HDR_UBO));
             hdrUbo->bind(0);
@@ -724,12 +720,12 @@ void Application::run() {
                 modelStages[0].defines.clear();
                 modelStages[1].defines.clear();
             }
-            dx_shader.reset(new GLShader(modelStages.data(), modelStages.size()));
+            mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
             doNormalMapping = !doNormalMapping;
         }
 
         if (ImGui::Button("Reload shaders")) {
-                dx_shader.reset(new GLShader(modelStages.data(), modelStages.size()));
+            mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
         }
 
         ImGui::NewLine(); 
