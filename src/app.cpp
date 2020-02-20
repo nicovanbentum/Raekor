@@ -87,7 +87,7 @@ void Application::run() {
     Render::Init(directxwindow);
 
     // create a Camera we can use to move around our scene
-    Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH_ZO(glm::radians(45.0f), 16.0f / 9.0f, 0.1f, 25.0f));
+    Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH_ZO(glm::radians(65.0f), 16.0f / 9.0f, 0.1f, 10000.0f));
 
     VertexUBO ubo = {};
     shadowUBO shadowUbo;
@@ -96,6 +96,18 @@ void Application::run() {
 
     std::unique_ptr<Model> model;
 
+    std::unique_ptr<GLShader> mainShader;
+    std::unique_ptr<GLShader> skyShader;
+    std::unique_ptr<GLShader> depthShader;
+    std::unique_ptr<GLShader> depthCubeShader;
+    std::unique_ptr<GLShader> quadShader;
+    std::unique_ptr<GLShader> sphereShader;
+    std::unique_ptr<GLShader> hdrShader;
+    std::unique_ptr<GLShader> CubemapDebugShader;
+
+    std::unique_ptr<GLFrameBuffer> hdrBuffer;
+    std::unique_ptr<GLFrameBuffer> finalBuffer;
+    std::unique_ptr<GLFrameBuffer> quadFB;
 
     std::unique_ptr<GLResourceBuffer> dxrb;
     std::unique_ptr<GLResourceBuffer> shadowVertUbo;
@@ -122,69 +134,47 @@ void Application::run() {
     ft_texture.name = "Supported Image Files";
     ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
-
-    std::unique_ptr<GLShader> mainShader;
     Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
     Shader::Stage frag(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
     std::array<Shader::Stage, 2> modelStages = { vertex, frag };
     mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
 
-
-    std::unique_ptr<GLShader> skyShader;
     std::vector<Shader::Stage> skybox_shaders;
     skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert");
     skybox_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\skybox.frag");
-    skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
 
-
-    std::unique_ptr<GLShader> depthShader;
     std::vector<Shader::Stage> depth_shaders;
     depth_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depth.vert");
     depth_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depth.frag");
-    depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
 
-
-    std::unique_ptr<GLShader> depthCubeShader;
     std::vector<Shader::Stage> depthCube_shaders;
     depthCube_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depthCube.vert");
     depthCube_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depthCube.frag");
-    depthCubeShader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
 
-
-    std::unique_ptr<GLShader> quadShader;
     std::vector<Shader::Stage> quad_shaders;
     quad_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
     quad_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\quad.frag");
-    quadShader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
 
-
-    std::unique_ptr<GLShader> sphereShader;
     std::vector<Shader::Stage> sphere_shaders;
     sphere_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\lightSphere.vert");
     sphere_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\lightSphere.frag");
-    sphereShader.reset(new GLShader(sphere_shaders.data(), sphere_shaders.size()));
 
-
-    std::unique_ptr<GLShader> hdrShader;
     std::vector<Shader::Stage> hdr_shaders;
     hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
     hdr_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDR.frag");
-    hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
 
-
-    std::unique_ptr<GLShader> CubemapDebugShader;
     std::vector<Shader::Stage> cubedebug_shaders;
     cubedebug_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\simple.vert");
     cubedebug_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\simple.frag");
+
+
+    skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
+    depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
+    quadShader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
+    depthCubeShader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
+    sphereShader.reset(new GLShader(sphere_shaders.data(), sphere_shaders.size()));
+    hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
     CubemapDebugShader.reset(new GLShader(cubedebug_shaders.data(), cubedebug_shaders.size()));
-
-
-    std::unique_ptr<GLShader> ssaoShader;
-    std::vector < Shader::Stage> SSAO_shaders;
-    SSAO_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\SSAO.vert");
-    SSAO_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\SSAO.frag");
-    ssaoShader.reset(new GLShader(SSAO_shaders.data(), SSAO_shaders.size()));
-
 
 
     skycube.reset(new Mesh(Shape::Cube));
@@ -213,31 +203,25 @@ void Application::run() {
     mat4Ubo.reset(new GLResourceBuffer(sizeof(glm::mat4)));
     hdrUbo.reset(new GLResourceBuffer(sizeof(HDR_UBO)));
 
-
-    std::unique_ptr<GLFrameBuffer> finalBuffer;
     FrameBuffer::ConstructInfo finalInfo = {};
     finalInfo.size = {
         displays[display].w * 0.8f,
-        displays[display].h * 0.8f
+        displays[display].w * 0.8f
     };
     finalInfo.depthOnly = false;
-    finalBuffer.reset(new GLFrameBuffer(&finalInfo));
-
 
     FrameBuffer::ConstructInfo renderFBinfo = {};
     renderFBinfo.size = {
         displays[display].w * 0.8f,
-        displays[display].h * 0.8f
+        displays[display].w * 0.8f
     };
     renderFBinfo.depthOnly = false;
     renderFBinfo.HDR = true;
-    
-    std::unique_ptr<GLFrameBuffer> hdrBuffer;
+
+    finalBuffer.reset(new GLFrameBuffer(&finalInfo));
     hdrBuffer.reset(new GLFrameBuffer(&renderFBinfo));
 
-
     constexpr unsigned int SHADOW_WIDTH = 256, SHADOW_HEIGHT = 256;
-
 
     FrameBuffer::ConstructInfo quadFBinfo = {};
     quadFBinfo.size.x = SHADOW_WIDTH;
@@ -245,20 +229,7 @@ void Application::run() {
     quadFBinfo.depthOnly = false;
     quadFBinfo.writeOnly = false;
 
-    std::unique_ptr<GLFrameBuffer> quadFB;
     quadFB.reset(new GLFrameBuffer(&quadFBinfo));
-
-
-
-    FrameBuffer::ConstructInfo ssaoFBinfo = {};
-    ssaoFBinfo.size.x = displays[display].w * 0.8f;
-    ssaoFBinfo.size.y = displays[display].h * 0.8f;
-    ssaoFBinfo.depthOnly = false;
-    ssaoFBinfo.writeOnly = false;
-
-    std::unique_ptr<GLFrameBuffer> ssaoFB;
-    ssaoFB.reset(new GLFrameBuffer(&ssaoFBinfo));
-
 
     using Scene = std::vector<Model>;
     Scene models;
@@ -277,8 +248,6 @@ void Application::run() {
     if (!io.Fonts->Fonts.empty()) {
         io.FontDefault = io.Fonts->Fonts.back();
     }
-
-    static float fov = 45.0f;
 
     ImVec4* colors = ImGui::GetStyle().Colors;
     colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
@@ -335,33 +304,6 @@ void Application::run() {
     Timer dt_timer;
     double dt = 0;
 
-    float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
-
-    // configure depth pre-pass
-    // -----------------------
-    unsigned int depthPrepass;
-    glGenFramebuffers(1, &depthPrepass);
-    // create depth texture
-    unsigned int depthPrepassTexture;
-    glGenTextures(1, &depthPrepassTexture);
-    glBindTexture(GL_TEXTURE_2D, depthPrepassTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, displays[display].w, displays[display].h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-
-    // attach depth texture as FBO's depth buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, depthPrepass);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthPrepassTexture, 0);
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
     // configure depth map FBO
     // -----------------------
     unsigned int depthMapFBO;
@@ -373,12 +315,10 @@ void Application::run() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-
     // attach depth texture as FBO's depth buffer
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
@@ -443,72 +383,17 @@ void Application::run() {
     // toggle bool for changing the shadow map
     bool debugShadows = false;
 
-    glm::vec3 kernel[64];
-    for (unsigned int i = 0; i < 64; i++) {
-        float scale = (float)i / (float)(64);
-        glm::vec3 v;
-        v.x = 2.0f * (float)rand() / RAND_MAX - 1.0f;
-        v.y = 2.0f * (float)rand() / RAND_MAX - 1.0f;
-        v.z = 2.0f * (float)rand() / RAND_MAX - 1.0f;
-        // Use an acceleration function so more points are
-        // located closer to the origin
-        v *= (0.1f + 0.9f * scale * scale);
-
-        kernel[i] = v;
-    }
-
     //////////////////////////////////////////////////////////////
     //// main application loop //////////////////////////////////
     ////////////////////////////////////////////////////////////
-
     while (running) {
         dt_timer.start();
         handle_sdl_gui_events({ directxwindow }, debugShadows ? sunCamera : camera, dt); // in shadow debug we're in control of the shadow map camera
         sunCamera.update();
         camera.update();
 
-        // recalculate the model positions
-        for (auto& m : models) {
-            m.recalc_transform();
-        }
-
         // clear the main window
         Render::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
-
-        // setup the prepass framebuffer 
-        glViewport(0, 0, displays[display].w, displays[display].h);
-        glBindFramebuffer(GL_FRAMEBUFFER, depthPrepass);
-        glClear(GL_DEPTH_BUFFER_BIT);
-        glCullFace(GL_FRONT);
-
-        // render the entire scene
-        depthShader->bind();
-        for (auto& m : models) {
-            shadowUbo.cameraMatrix = camera.getProjection() * camera.getView();
-            shadowUbo.model = m.get_transform();
-            shadowVertUbo->update(&shadowUbo, sizeof(shadowUBO));
-            shadowVertUbo->bind(0);
-            m.render();
-        }
-
-        // render SSAO to a screen filled quad
-        glBindTextureUnit(1, depthPrepassTexture);
-        ssaoFB->bind();
-        Render::Clear({ 0,0,0,1 });
-        ssaoShader->bind();
-
-        // set uniforms
-        ssaoShader->getUniform("aspectRatio") =  static_cast<float>(displays[display].w / displays[display].h);
-        ssaoShader->getUniform("tanHalfFOV") = tanf(glm::radians(fov / 2.0f));
-        ssaoShader->getUniform("gSampleRad") = 1.5f;
-        ssaoShader->getUniform("gProj") = camera.getProjection();
-
-        glUniform3fv(ssaoShader->getUniform("gKernel").id, 64, (const GLfloat*)&kernel[0]);
-
-        Quad->render();
-        ssaoShader->unbind();
-        glBindTexture(GL_TEXTURE_2D, 0);
-        quadFB->unbind();
 
         // setup the shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -519,9 +404,10 @@ void Application::run() {
         // render the entire scene to the directional light shadow map
         depthShader->bind();
         for (auto& m : models) {
+            m.recalc_transform();
             shadowUbo.cameraMatrix = sunCamera.getProjection() * sunCamera.getView();
             shadowUbo.model = m.get_transform();
-            shadowVertUbo->update(&shadowUbo, sizeof(shadowUBO));
+            shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
             shadowVertUbo->bind(0);
             m.render();
         }
@@ -550,6 +436,7 @@ void Application::run() {
             glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
             for (auto& m : models) {
+                m.recalc_transform();
                 depthCubeShader->getUniform("model") = m.get_transform();
                 depthCubeShader->getUniform("projView") = shadowTransforms[i];
                 depthCubeShader->getUniform("lightPos") = glm::make_vec3(lightPos);
@@ -583,6 +470,16 @@ void Application::run() {
         skycube->bind();
         Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
 
+
+        // debug render the point light shadow map
+        CubemapDebugShader->bind();
+        CubemapDebugShader->getUniform("model") = glm::translate(glm::mat4(1.0f), { 0.0f, 1.5f, 0.0f });
+        CubemapDebugShader->getUniform("view") = camera.getView();
+        CubemapDebugShader->getUniform("proj") = camera.getProjection();
+        glBindTextureUnit(0, depthCubeTexture);
+        skycube->bind();
+        Render::DrawIndexed(skycube->get_index_buffer()->get_count());
+
         // set uniforms
         mainShader->bind();
         mainShader->getUniform("sunColor") = uniforms.sunColor;
@@ -593,14 +490,13 @@ void Application::run() {
         glBindTextureUnit(1, depthTexture);
         // bind omni depth map to 2
         glBindTextureUnit(2, depthCubeTexture);
-        // bind AO map to 4 (3 is reserved for normal map)
-        ssaoFB->bindTexture(4);
         for (auto& m : models) {
             // if the mesh doesn't have any textures we bind a default texture
             if (!m.hasTexture()) {
                 testTexture->bind(0);
             }
             // update all the model UBO attributes
+            m.recalc_transform();
             ubo.model = m.get_transform();
             ubo.view = camera.getView();
             ubo.projection = camera.getProjection();
@@ -869,12 +765,15 @@ void Application::run() {
         ImGui::ShowMetricsWindow();
 
         ImGui::Begin("Camera Properties");
+        static float fov = 45.0f;
         if (ImGui::DragFloat("FOV", &fov, 1.0f, 35.0f, 120.0f)) {
-            camera.getProjection() = glm::perspective(glm::radians(fov), 16.0f / 9.0f, 0.1f, 25.0f);
+            camera.getProjection() = glm::perspectiveRH_ZO(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
         }
         if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.1f, FLT_MAX, "%.3f")) {}
         if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
         ImGui::End();
+
+
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
@@ -899,11 +798,11 @@ void Application::run() {
         auto size = ImGui::GetWindowSize();
         hdrBuffer->resize({ size.x, size.y - 25 });
         finalBuffer->resize({ size.x, size.y - 25 });
-        camera.getProjection() = glm::perspective(glm::radians(fov), size.x / size.y, 0.1f, 25.0f);
+        camera.getProjection() = glm::perspectiveRH_ZO(glm::radians(fov), size.x / size.y, 0.1f, 10000.0f);
         ImGuizmo::SetRect(0, 0, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
         if (debugShadows) {
-            ssaoFB->ImGui_Image();
+            quadFB->ImGui_Image();
         }
         else {
             if (hdr) 

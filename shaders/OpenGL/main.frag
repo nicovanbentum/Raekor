@@ -41,7 +41,6 @@ layout(binding = 0) uniform sampler2D meshTexture;
 layout(binding = 1) uniform sampler2D shadowMap;
 layout(binding = 2) uniform samplerCube shadowMapOmni;
 layout(binding = 3) uniform sampler2D normalMap;
-layout(binding = 4) uniform sampler2D AOmap;
 
 struct DirectionalLight {
 	vec3 position;
@@ -87,8 +86,6 @@ void main()
 	result += doLight(dirLight);
 
     final_color = vec4(result, sampled.a);
-	float AO = texture(AOmap, uv).r;
-	final_color = vec4(AO, AO, AO, 1.0);
 }
 
 float getShadow(DirectionalLight light) {
@@ -158,8 +155,8 @@ float getShadow(PointLight light) {
 vec3 doLight(PointLight light) {
 	vec4 sampled = texture(meshTexture, uv);
 
-	float ambientOcclusion = texture(AOmap, uv).r;
-    vec3 ambient = 0.1 * sampled.xyz * ambientOcclusion;
+    // ambient
+    vec3 ambient = 0.1 * sampled.xyz;
 
     float diff = clamp(dot(TangentNormal, pointLightDirection), 0, 1);
     vec3 diffuse = light.color * diff * sampled.rgb;
@@ -187,10 +184,9 @@ vec3 doLight(PointLight light) {
 
 vec3 doLight(DirectionalLight light) {
 	vec4 sampled = texture(meshTexture, uv);
-
+    // vec4 sampled = vec4(0.0, 1.0, 0.0, 1.0);
     // ambient
-	float ambientOcclusion = texture(AOmap, uv).r;
-    vec3 ambient = 0.1 * sampled.xyz * ambientOcclusion;
+    vec3 ambient = 0.1 * sampled.xyz;
 	
 	// diffuse
     float diff = clamp(dot(TangentNormal, dirLightDirection), 0, 1);
