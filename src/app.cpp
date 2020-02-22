@@ -87,12 +87,26 @@ void Application::run() {
     Render::Init(directxwindow);
 
     // create a Camera we can use to move around our scene
-    Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH_ZO(glm::radians(65.0f), 16.0f / 9.0f, 0.1f, 10000.0f));
+    static float fov = 45.0f;
+    Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 1.0f, 100.0f));
 
     VertexUBO ubo = {};
     shadowUBO shadowUbo;
     HDR_UBO hdr_ubo;
     Uniforms uniforms;
+
+    btBroadphaseInterface* broadphase = new btDbvtBroadphase();
+
+    // Set up the collision configuration and dispatcher
+    btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
+    btCollisionDispatcher* dispatcher = new btCollisionDispatcher(collisionConfiguration);
+
+    // The actual physics solver
+    btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
+
+    // The world.
+    btDiscreteDynamicsWorld* dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
+    dynamicsWorld->setGravity(btVector3(0, -9.81f, 0));
 
     std::unique_ptr<Model> model;
 
@@ -104,10 +118,12 @@ void Application::run() {
     std::unique_ptr<GLShader> sphereShader;
     std::unique_ptr<GLShader> hdrShader;
     std::unique_ptr<GLShader> CubemapDebugShader;
+    std::unique_ptr<GLShader> SSAOshader;
 
     std::unique_ptr<GLFrameBuffer> hdrBuffer;
     std::unique_ptr<GLFrameBuffer> finalBuffer;
     std::unique_ptr<GLFrameBuffer> quadFB;
+    std::unique_ptr<GLFrameBuffer> ssaoFB;
 
     std::unique_ptr<GLResourceBuffer> dxrb;
     std::unique_ptr<GLResourceBuffer> shadowVertUbo;
@@ -167,6 +183,9 @@ void Application::run() {
     cubedebug_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\simple.vert");
     cubedebug_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\simple.frag");
 
+    std::vector<Shader::Stage> SSAO_shaders;
+    SSAO_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\SSAO.vert");
+    SSAO_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\SSAO.frag");
 
     skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
     depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
@@ -175,7 +194,7 @@ void Application::run() {
     sphereShader.reset(new GLShader(sphere_shaders.data(), sphere_shaders.size()));
     hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
     CubemapDebugShader.reset(new GLShader(cubedebug_shaders.data(), cubedebug_shaders.size()));
-
+    SSAOshader.reset(new GLShader(SSAO_shaders.data(), SSAO_shaders.size()));
 
     skycube.reset(new Mesh(Shape::Cube));
     skycube->get_vertex_buffer()->set_layout({
@@ -221,7 +240,7 @@ void Application::run() {
     finalBuffer.reset(new GLFrameBuffer(&finalInfo));
     hdrBuffer.reset(new GLFrameBuffer(&renderFBinfo));
 
-    constexpr unsigned int SHADOW_WIDTH = 256, SHADOW_HEIGHT = 256;
+    constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 
     FrameBuffer::ConstructInfo quadFBinfo = {};
     quadFBinfo.size.x = SHADOW_WIDTH;
@@ -230,6 +249,16 @@ void Application::run() {
     quadFBinfo.writeOnly = false;
 
     quadFB.reset(new GLFrameBuffer(&quadFBinfo));
+
+    FrameBuffer::ConstructInfo ssaoFBinfo = {};
+    ssaoFBinfo.size = {
+        displays[display].w * 0.8f,
+        displays[display].h * 0.8f
+    };
+    ssaoFBinfo.depthOnly = false;
+    ssaoFBinfo.writeOnly = false;
+
+    ssaoFB.reset(new GLFrameBuffer(&ssaoFBinfo));
 
     using Scene = std::vector<Model>;
     Scene models;
@@ -304,6 +333,30 @@ void Application::run() {
     Timer dt_timer;
     double dt = 0;
 
+    float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+
+    // configure depth prepass FBO
+// -----------------------
+    unsigned int depthPrepassFBO;
+    glGenFramebuffers(1, &depthPrepassFBO);
+    // create depth prepass texture
+    unsigned int depthPrepassTexture;
+    glGenTextures(1, &depthPrepassTexture);
+    glBindTexture(GL_TEXTURE_2D, depthPrepassTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, displays[display].w, displays[display].h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    // attach depth prepass texture as FBO's depth buffer
+    glBindFramebuffer(GL_FRAMEBUFFER, depthPrepassFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthPrepassTexture, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
     // configure depth map FBO
     // -----------------------
     unsigned int depthMapFBO;
@@ -317,7 +370,6 @@ void Application::run() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     // attach depth texture as FBO's depth buffer
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
@@ -383,6 +435,30 @@ void Application::run() {
     // toggle bool for changing the shadow map
     bool debugShadows = false;
 
+    std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // random floats between 0.0 - 1.0
+    std::default_random_engine generator;
+    std::vector<glm::vec3> ssaoKernel;
+    for (unsigned int i = 0; i < 64; ++i)
+    {
+        glm::vec3 sample(
+            randomFloats(generator),
+            randomFloats(generator),
+            randomFloats(generator)
+        );
+        sample = glm::normalize(sample);
+        sample *= randomFloats(generator);
+        float scale = static_cast<float>(i / 64.0);
+
+        auto lerp = [](float a, float b, float f) {
+            return a + f * (b - a);
+        };
+
+        scale = lerp(0.1f, 1.0f, scale * scale);
+        sample *= scale;
+        ssaoKernel.push_back(sample);
+        ssaoKernel.push_back(sample);
+    }
+
     //////////////////////////////////////////////////////////////
     //// main application loop //////////////////////////////////
     ////////////////////////////////////////////////////////////
@@ -394,6 +470,41 @@ void Application::run() {
 
         // clear the main window
         Render::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
+
+        // depth pre-pass
+        glViewport(0, 0, displays[display].w, displays[display].h);
+        glBindFramebuffer(GL_FRAMEBUFFER, depthPrepassFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glCullFace(GL_FRONT);
+
+        // render the scene for the depth pre-pass
+        depthShader->bind();
+        for (auto& m : models) {
+            m.recalc_transform();
+            shadowUbo.cameraMatrix = camera.getProjection() * camera.getView();
+            shadowUbo.model = m.get_transform();
+            shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
+            shadowVertUbo->bind(0);
+            m.render();
+        }
+
+        // bind the generated depth pre-pass and perform SSAO 
+        glBindTextureUnit(1, depthPrepassTexture);
+        ssaoFB->bind();
+        Render::Clear({ 0, 0, 0, 1 });
+        SSAOshader->bind();
+
+        // set SSAO uniforms
+        SSAOshader->getUniform("aspectRatio") = static_cast<float>(displays[display].w / displays[display].h);
+        SSAOshader->getUniform("tanHalfFOV") = tanf(glm::radians(fov / 2.0f));
+        SSAOshader->getUniform("gSampleRad") = 1.5f;
+        SSAOshader->getUniform("gProj") = camera.getProjection();
+        glUniform3fv(SSAOshader->getUniform("gKernel").id, 64, (GLfloat*)&ssaoKernel[0]);
+
+        Quad->render();
+        SSAOshader->unbind();
+        glBindTexture(GL_TEXTURE_2D, 0);
+        ssaoFB->unbind();
 
         // setup the shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -462,23 +573,12 @@ void Application::run() {
         // render a cubemap with depth testing disabled to generate a skybox
         // update the camera without translation
         skyShader->bind();
-        skyShader->getUniform("model") = glm::mat4(1.0f);
-        skyShader->getUniform("view") = camera.getView();
+        skyShader->getUniform("view") = glm::mat4(glm::mat3(camera.getView()));
         skyShader->getUniform("proj") = camera.getProjection();
 
         sky_image->bind(0);
         skycube->bind();
         Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
-
-
-        // debug render the point light shadow map
-        CubemapDebugShader->bind();
-        CubemapDebugShader->getUniform("model") = glm::translate(glm::mat4(1.0f), { 0.0f, 1.5f, 0.0f });
-        CubemapDebugShader->getUniform("view") = camera.getView();
-        CubemapDebugShader->getUniform("proj") = camera.getProjection();
-        glBindTextureUnit(0, depthCubeTexture);
-        skycube->bind();
-        Render::DrawIndexed(skycube->get_index_buffer()->get_count());
 
         // set uniforms
         mainShader->bind();
@@ -765,9 +865,8 @@ void Application::run() {
         ImGui::ShowMetricsWindow();
 
         ImGui::Begin("Camera Properties");
-        static float fov = 45.0f;
         if (ImGui::DragFloat("FOV", &fov, 1.0f, 35.0f, 120.0f)) {
-            camera.getProjection() = glm::perspectiveRH_ZO(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
+            camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 1.0f, 100.0f);
         }
         if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.1f, FLT_MAX, "%.3f")) {}
         if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
@@ -798,7 +897,7 @@ void Application::run() {
         auto size = ImGui::GetWindowSize();
         hdrBuffer->resize({ size.x, size.y - 25 });
         finalBuffer->resize({ size.x, size.y - 25 });
-        camera.getProjection() = glm::perspectiveRH_ZO(glm::radians(fov), size.x / size.y, 0.1f, 10000.0f);
+        camera.getProjection() = glm::perspectiveRH(glm::radians(fov), size.x / size.y, 1.0f, 100.0f);
         ImGuizmo::SetRect(0, 0, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
         if (debugShadows) {

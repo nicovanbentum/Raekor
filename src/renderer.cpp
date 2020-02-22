@@ -74,6 +74,9 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
     // one time setup for binding vertey arrays
     unsigned int vertex_array_id;
     glGenVertexArrays(1, &vertex_array_id);
@@ -108,10 +111,7 @@ void GLRenderer::SwapBuffers(bool vsync) const {
 
 void GLRenderer::DrawIndexed(unsigned int size, bool depth_test) {
     if (!depth_test) glDepthMask(false);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
     glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
-    glDisable(GL_DEPTH_TEST);
     if (!depth_test) glDepthMask(true);
 }
 
