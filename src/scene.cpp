@@ -97,26 +97,35 @@ void Scene::add(std::string file) {
             Stb::Image image;
             image.format = RGBA;
             image.isSRGB = true;
+            image.filepath = texture_path;
             albedos.push_back(image);
-            albedos.back().load(texture_path, true);
         }
 
         if (!normal_path.empty()) {
             Stb::Image image;
             image.format = RGBA;
             image.isSRGB = false;
+            image.filepath = normal_path;
             normals.push_back(image);
-            normals.back().load(normal_path, true);
         }
     }
 
-    auto root = scene->mRootNode;
-    std::cout << root->mName.C_Str() << std::endl;
-    std::cout << root->mNumChildren << std::endl;
-    for (int i = 0; i < root->mNumChildren; i++) {
-        std::cout << root->mChildren[i]->mName.C_Str() << '\n';
+    // asyncronously load textures from disk
+    std::vector<std::future<void>> futures;
+    for (auto& img : albedos) {
+        //img.load(img.filepath, true);
+        futures.push_back(std::async(std::launch::async, &Stb::Image::load, &img, img.filepath, true));
     }
 
+    for (auto& img : normals) {
+        //img.load(img.filepath, true);
+        futures.push_back(std::async(std::launch::async, &Stb::Image::load, &img, img.filepath, true));
+    }
+
+    for (auto& future : futures) {
+        future.wait();
+    }    
+    
     // loop over every mesh and add it as a scene object
     for (uint64_t index = 0; index < scene->mNumMeshes; index++) {
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
@@ -166,8 +175,6 @@ void Scene::add(std::string file) {
 
         std::string texture_path = get_file(file, PATH_OPTIONS::DIR) + std::string(albedoFile.C_Str());
         std::string normal_path = get_file(file, PATH_OPTIONS::DIR) + std::string(normalmapFile.C_Str());
-        std::cout << texture_path << std::endl;
-        std::cout << normal_path << std::endl;
 
         auto albedoIter = std::find_if(albedos.begin(), albedos.end(), [&](const Stb::Image& img) {
             return img.filepath == texture_path;
@@ -181,7 +188,6 @@ void Scene::add(std::string file) {
             auto index = albedoIter - albedos.begin();
             objects.back().albedo.reset(new GLTexture(albedos[index]));
             if (albedoIter->channels == 4) {
-                std::cout << albedos[index].filepath << " has alpha channel" << std::endl;
                 objects.back().albedo->hasAlpha = true;
             }
             else {

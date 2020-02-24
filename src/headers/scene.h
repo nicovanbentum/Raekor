@@ -26,7 +26,8 @@ public:
     void render();
 
     std::string name;
-    std::unique_ptr<GLTexture> albedo, normal;
+    std::unique_ptr<GLTexture> albedo;
+    std::unique_ptr<GLTexture> normal;
 };
 
 class Scene {

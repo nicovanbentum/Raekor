@@ -86,6 +86,22 @@ void Application::run() {
     Renderer::set_activeAPI(RenderAPI::OPENGL);
     Render::Init(directxwindow);
 
+    // load the model files listed in the project section of config.json
+// basically acts like a budget project file
+    Scene scene;
+    std::vector<SceneObject>::iterator activeObject = scene.objects.end();
+    Timer timer;
+    timer.start();
+    for (const std::string& path : project) {
+        scene.add(path);
+    }
+    timer.stop();
+    std::cout << "Setup time = " << timer.elapsed_ms() << '\n';
+
+    if (!scene.objects.empty()) {
+        activeObject = scene.objects.begin();
+    }
+
     // create a Camera we can use to move around our scene
     static float fov = 45.0f;
     Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 1.0f, 100.0f));
@@ -94,19 +110,6 @@ void Application::run() {
     shadowUBO shadowUbo;
     HDR_UBO hdr_ubo;
     Uniforms uniforms;
-
-    btBroadphaseInterface* broadphase = new btDbvtBroadphase();
-
-    // Set up the collision configuration and dispatcher
-    btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
-    btCollisionDispatcher* dispatcher = new btCollisionDispatcher(collisionConfiguration);
-
-    // The actual physics solver
-    btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
-
-    //// The world.
-    btDiscreteDynamicsWorld* dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
-    dynamicsWorld->setGravity(btVector3(0, -9.81f, 0));
 
     std::unique_ptr<GLShader> mainShader;
     std::unique_ptr<GLShader> skyShader;
@@ -396,17 +399,6 @@ void Application::run() {
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    // load the model files listed in the project section of config.json
-    // basically acts like a budget project file
-    Scene scene;
-    std::vector<SceneObject>::iterator activeObject = scene.objects.end();
-    for (const std::string& path : project) {
-        scene.add(path);
-    }
-
-    if (!scene.objects.empty()) {
-        activeObject = scene.objects.begin();
-    }
 
     // setup  light matrices for a movable point light
     glm::mat4 lightmatrix = glm::mat4(1.0f);
