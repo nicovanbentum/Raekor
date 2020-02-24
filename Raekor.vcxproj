@@ -63,15 +63,15 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;C:\VulkanSDK\1.1.130.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>C:\VS Projects\Raekor\dependencies\bullet3\src;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;C:\VulkanSDK\1.1.130.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Debug;C:\VulkanSDK\1.1.114.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;vulkan-1.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mt.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\VS Projects\Raekor\dependencies\bullet3\bin;$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Debug;C:\VulkanSDK\1.1.114.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2.lib;vulkan-1.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mt.lib;DirectXTK.lib;LinearMath_vs2010_x64_debug.lib;BulletDynamics_vs2010_x64_debug.lib;BulletCollision_vs2010_x64_debug.lib;Bullet3Common_vs2010_x64_debug.lib;Bullet3Dynamics_vs2010_x64_debug.lib;Bullet3Collision_vs2010_x64_debug.lib;Bullet3Geometry_vs2010_x64_debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/NODEFAULTLIB:libcmt.lib;NODEFAULTLIB:libcmtd.lib;/NODEFAULTLIB:msvcrtd.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -98,21 +98,21 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;C:\VulkanSDK\1.1.130.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>C:\VS Projects\Raekor\dependencies\bullet3\src;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;C:\VulkanSDK\1.1.130.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Release;C:\VulkanSDK\1.1.114.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;vulkan-1.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mt.lib;DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\VS Projects\Raekor\dependencies\bullet3\bin;$(SolutionDir)\dependencies\SDL\lib\x64;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\gl3w;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\DirectXTK\Bin\Desktop_2017\x64\Release;C:\VulkanSDK\1.1.114.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2.lib;vulkan-1.lib;SDL2main.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;assimp-vc141-mt.lib;DirectXTK.lib;BulletDynamics_vs2010_x64_release.lib;BulletCollision_vs2010_x64_release.lib;LinearMath_vs2010_x64_release.lib;Bullet3Common_vs2010_x64_release.lib;Bullet3Dynamics_vs2010_x64_release.lib;Bullet3Collision_vs2010_x64_release.lib;Bullet3Geometry_vs2010_x64_release.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -176,7 +176,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClCompile Include="src\entry.cpp" />
     <ClCompile Include="src\framebuffer.cpp" />
     <ClCompile Include="src\mesh.cpp" />
-    <ClCompile Include="src\model.cpp" />
+    <ClCompile Include="src\scene.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.h</PrecompiledHeaderFile>
@@ -228,7 +228,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClInclude Include="src\headers\entry.h" />
     <ClInclude Include="src\headers\framebuffer.h" />
     <ClInclude Include="src\headers\mesh.h" />
-    <ClInclude Include="src\headers\model.h" />
+    <ClInclude Include="src\headers\scene.h" />
     <ClInclude Include="src\headers\pch.h" />
     <ClInclude Include="src\headers\renderer.h" />
     <ClInclude Include="src\headers\shader.h" />

@@ -1,5 +1,7 @@
 #pragma once
 
+#define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
+
 // platform specific includes
 #include "GL/gl3w.h"
 
@@ -76,6 +78,8 @@
 #include "gtx/string_cast.hpp"
 #include "gtc/type_ptr.hpp"
 
+// Bullet3 Physics library
+#include "btBulletDynamicsCommon.h"
 
 // c++ includes
 #include <set>
@@ -83,6 +87,8 @@
 #include <array>
 #include <future>
 #include <chrono>
+#include <numeric>
+#include <random>
 #include <fstream>
 #include <sstream>
 #include <optional>

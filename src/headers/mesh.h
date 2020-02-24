@@ -13,9 +13,6 @@ class Mesh {
 public:
     Mesh(Shape basic_shape = Shape::None);
     Mesh(const std::string& fp, const std::vector<Vertex>& vb, const std::vector<Index>& ib);
-    Mesh(Mesh&& rhs);
-
-    Mesh(const Mesh& rhs) = delete;
 
     void set_vertex_buffer(const std::vector<Vertex>& buffer);
     void set_index_buffer(const std::vector<Index>& buffer);
@@ -33,7 +30,7 @@ public:
 
     void bind() const;
 
-private:
+protected:
     // TODO: we allow unnamed meshes, reconsider?
     std::string name = "";
     std::unique_ptr<VertexBuffer> vb;

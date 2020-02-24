@@ -16,9 +16,9 @@
 [submodule "dependencies/assimp"]
 	path = dependencies/assimp
 	url = https://github.com/assimp/assimp
-[submodule "dependencies/--force"]
-	path = dependencies/--force
-	url = https://github.com/CedricGuillemet/ImGuizmo
 [submodule "dependencies/ImGuizmo"]
 	path = dependencies/ImGuizmo
 	url = https://github.com/CedricGuillemet/ImGuizmo
+[submodule "dependencies/bullet3"]
+	path = dependencies/bullet3
+	url = https://github.com/bulletphysics/bullet3

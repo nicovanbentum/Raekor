@@ -61,13 +61,6 @@ Mesh::Mesh(const std::string& fp, const std::vector<Vertex>& vb, const std::vect
     set_index_buffer(ib);
 }
 
-
-Mesh::Mesh(Mesh&& rhs) {
-    name = rhs.name;
-    vb = std::move(rhs.vb);
-    ib = std::move(rhs.ib);
-}
-
 void Mesh::set_vertex_buffer(const std::vector<Vertex>& buffer) {
     vb.reset(Raekor::VertexBuffer::construct(buffer));
 }

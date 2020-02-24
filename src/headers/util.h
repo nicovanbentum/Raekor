@@ -76,19 +76,22 @@ enum {
 
 namespace Stb {
     struct Image {
-        Image(uint32_t format = RGBA) : filepath(filepath), format(format) {}
-        ~Image() { stbi_image_free(pixels); }
+        Image(uint32_t format = RGBA) : filepath(""), format(format) {}
+        ~Image() { 
+            //if (pixels != nullptr)  stbi_image_free(pixels);
+        }
 
-        void load(const std::string& filepath, bool loadFlipped = false) {
+        void load(const std::string& fp, bool loadFlipped = false) {
+            this->filepath = fp;
             stbi_set_flip_vertically_on_load(loadFlipped);
-            pixels = stbi_load(filepath.c_str(), &w, &h, &channels, static_cast<uint32_t>(format));
+            pixels = stbi_load(fp.c_str(), &w, &h, &channels, static_cast<uint32_t>(format));
         }
 
         uint32_t format;
         int w, h, channels;
         bool isSRGB = false;
         std::string filepath;
-        unsigned char* pixels;
+        unsigned char* pixels = nullptr;
     };
 }
 

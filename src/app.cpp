@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "app.h"
 #include "util.h"
-#include "model.h"
+#include "scene.h"
 #include "entry.h"
 #include "camera.h"
 #include "shader.h"
@@ -104,11 +104,9 @@ void Application::run() {
     // The actual physics solver
     btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
 
-    // The world.
+    //// The world.
     btDiscreteDynamicsWorld* dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
     dynamicsWorld->setGravity(btVector3(0, -9.81f, 0));
-
-    std::unique_ptr<Model> model;
 
     std::unique_ptr<GLShader> mainShader;
     std::unique_ptr<GLShader> skyShader;
@@ -144,7 +142,7 @@ void Application::run() {
 
     Ffilter ft_mesh;
     ft_mesh.name = "Supported Mesh Files";
-    ft_mesh.extensions = "*.obj;*.fbx;*.gltf";
+    ft_mesh.extensions = "*.obj;*.fbx;*.gltf;*.glb";
 
     Ffilter ft_texture;
     ft_texture.name = "Supported Image Files";
@@ -259,10 +257,6 @@ void Application::run() {
     ssaoFBinfo.writeOnly = false;
 
     ssaoFB.reset(new GLFrameBuffer(&ssaoFBinfo));
-
-    using Scene = std::vector<Model>;
-    Scene models;
-    Scene::iterator active_m = models.end();
 
     // persistent imgui variable values
     auto active_skybox = skyboxes.find("lake");
@@ -404,11 +398,14 @@ void Application::run() {
 
     // load the model files listed in the project section of config.json
     // basically acts like a budget project file
+    Scene scene;
+    std::vector<SceneObject>::iterator activeObject = scene.objects.end();
     for (const std::string& path : project) {
-        models.push_back(Model(path));
-        active_m = models.end() - 1;
-        auto scale = active_m->scale_ptr();
-        active_m->recalc_transform();
+        scene.add(path);
+    }
+
+    if (!scene.objects.empty()) {
+        activeObject = scene.objects.begin();
     }
 
     // setup  light matrices for a movable point light
@@ -479,14 +476,12 @@ void Application::run() {
 
         // render the scene for the depth pre-pass
         depthShader->bind();
-        for (auto& m : models) {
-            m.recalc_transform();
-            shadowUbo.cameraMatrix = camera.getProjection() * camera.getView();
-            shadowUbo.model = m.get_transform();
-            shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
-            shadowVertUbo->bind(0);
-            m.render();
-        }
+        shadowUbo.cameraMatrix = camera.getProjection() * camera.getView();
+        shadowUbo.model = glm::mat4(1.0f);
+        shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
+        shadowVertUbo->bind(0);
+        
+        scene.render();
 
         // bind the generated depth pre-pass and perform SSAO 
         glBindTextureUnit(1, depthPrepassTexture);
@@ -514,14 +509,12 @@ void Application::run() {
 
         // render the entire scene to the directional light shadow map
         depthShader->bind();
-        for (auto& m : models) {
-            m.recalc_transform();
-            shadowUbo.cameraMatrix = sunCamera.getProjection() * sunCamera.getView();
-            shadowUbo.model = m.get_transform();
-            shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
-            shadowVertUbo->bind(0);
-            m.render();
-        }
+        shadowUbo.cameraMatrix = sunCamera.getProjection() * sunCamera.getView();
+        shadowUbo.model = glm::mat4(1.0f);
+        shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
+        shadowVertUbo->bind(0);
+
+        scene.render();
 
         // setup the 3D shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -546,13 +539,11 @@ void Application::run() {
                 GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, depthCubeTexture, 0);
             glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-            for (auto& m : models) {
-                m.recalc_transform();
-                depthCubeShader->getUniform("model") = m.get_transform();
-                depthCubeShader->getUniform("projView") = shadowTransforms[i];
-                depthCubeShader->getUniform("lightPos") = glm::make_vec3(lightPos);
-                m.render();
-            }
+            depthCubeShader->getUniform("model") = glm::mat4(1.0f);
+            depthCubeShader->getUniform("projView") = shadowTransforms[i];
+            depthCubeShader->getUniform("lightPos") = glm::make_vec3(lightPos);
+
+            scene.render();
         }
         glCullFace(GL_BACK);
 
@@ -590,28 +581,20 @@ void Application::run() {
         glBindTextureUnit(1, depthTexture);
         // bind omni depth map to 2
         glBindTextureUnit(2, depthCubeTexture);
-        for (auto& m : models) {
-            // if the mesh doesn't have any textures we bind a default texture
-            if (!m.hasTexture()) {
-                testTexture->bind(0);
-            }
-            // update all the model UBO attributes
-            m.recalc_transform();
-            ubo.model = m.get_transform();
-            ubo.view = camera.getView();
-            ubo.projection = camera.getProjection();
-            ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
-            ubo.pointLightPos = glm::vec4(glm::make_vec3(lightPos), 1.0f);
-            ubo.DirLightPos = glm::vec4(sunCamera.getPosition(), 1.0);
-            ubo.DirViewPos = glm::vec4(camera.getPosition(), 1.0);
-            ubo.lightSpaceMatrix = sunCamera.getProjection() * sunCamera.getView();
 
-            dxrb->update(&ubo, sizeof(VertexUBO));
-            dxrb->bind(0);
+        ubo.model = glm::mat4(1.0f);
+        ubo.view = camera.getView();
+        ubo.projection = camera.getProjection();
+        ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
+        ubo.pointLightPos = glm::vec4(glm::make_vec3(lightPos), 1.0f);
+        ubo.DirLightPos = glm::vec4(sunCamera.getPosition(), 1.0);
+        ubo.DirViewPos = glm::vec4(camera.getPosition(), 1.0);
+        ubo.lightSpaceMatrix = sunCamera.getProjection() * sunCamera.getView();
 
-            // render the mesh
-            m.render();
-        }
+        dxrb->update(&ubo, sizeof(VertexUBO));
+        dxrb->bind(0);
+
+        scene.render();
 
         // unbind the framebuffer to switch to the application's backbuffer for ImGui
         hdrBuffer->unbind();
@@ -684,6 +667,13 @@ void Application::run() {
         // draw the top user bar
         if (ImGui::BeginMenuBar()) {
             if (ImGui::BeginMenu("File")) {
+                if (ImGui::MenuItem("Load model")) {
+                    std::string path = context.open_file_dialog({ ft_mesh });
+                    if (!path.empty()) {
+                        project.push_back(path);
+                        scene.add(path);
+                    }
+                }
                 if (ImGui::MenuItem("Save project", "CTRL + S")) {
                     serialize_settings("config.json", true);
                 }
@@ -697,9 +687,24 @@ void Application::run() {
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Edit")) {
-                if (ImGui::MenuItem("Delete", "DEL")) {}
+                if (ImGui::MenuItem("Delete", "DEL")) {
+                    // on press we remove the scene object
+                    if (activeObject != scene.objects.end()) {
+                        scene.erase(activeObject->name);
+                        activeObject = scene.objects.begin();
+                    }
+                }
                 ImGui::EndMenu();
             }
+
+            if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
+                // on press we remove the scene object
+                if (activeObject != scene.objects.end()) {
+                    scene.erase(activeObject->name);
+                    activeObject = scene.objects.begin();
+                }
+            }
+
             if (ImGui::BeginMenu("Help")) {
                 if (ImGui::MenuItem("About", "")) {}
                 ImGui::EndMenu();
@@ -711,74 +716,33 @@ void Application::run() {
         ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
 
         // model panel
-        ImGui::Begin("ECS");
+        ImGui::Begin("Entities");
         if (ImGui::IsWindowFocused()) {
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), false)) {}
         }
         auto tree_node_flags = ImGuiTreeNodeFlags_DefaultOpen;
-        if (ImGui::TreeNodeEx("Models", tree_node_flags)) {
+        if (ImGui::TreeNodeEx("Objects", tree_node_flags)) {
             ImGui::Columns(1, NULL, false);
-            for (Scene::iterator it = models.begin(); it != models.end(); it++) {
-                bool selected = it == active_m;
-                // draw a tree node for every model in the scene
-                ImGuiTreeNodeFlags treeflags = ImGuiTreeNodeFlags_OpenOnDoubleClick;
-                if (it == active_m) {
-                    treeflags |= ImGuiTreeNodeFlags_Selected;
-                }
-                auto open = ImGui::TreeNodeEx(it->get_path().c_str(), treeflags);
-                if (ImGui::IsItemClicked()) active_m = it;
-                if (open) {
-                    // draw a selectable for every mesh in the scene
-                    for (unsigned int i = 0; i < it->mesh_count(); i++) {
-                        ImGui::PushID(i);
-                        if (it->get_mesh(i).has_value()) {
-                            bool selected = (i == selected_mesh) && (it == active_m);
-                            if (ImGui::Selectable(it->get_mesh(i).value()->get_name().c_str(), selected)) {
-                                active_m = it;
-                                selected_mesh = i;
-                            }
-                        }
-                        if (selected) {
-                            ImGui::SetItemDefaultFocus();
-                        }
-                        ImGui::PopID();
+            // draw a selectable for every object in the scene
+            for (auto& object : scene.objects) {
+                    bool selected = activeObject->name == object.name;
+                    if (ImGui::Selectable(object.name.c_str(), selected)) {
+                        activeObject = scene.at(object.name);
                     }
-                    ImGui::TreePop();
+                if (selected) {
+                    ImGui::SetItemDefaultFocus();
                 }
             }
             ImGui::TreePop();
         }
 
-        static char input_text[120];
-        if (ImGui::InputText("", input_text, sizeof(input_text), ImGuiInputTextFlags_EnterReturnsTrue)) {
-            std::string model_name = std::string(input_text);
-            if (!model_name.empty() && active_m != models.end()) {
-                active_m->set_path(model_name);
-                memset(input_text, 0, sizeof(input_text));
-            }
-            else {
-                memset(input_text, 0, sizeof(input_text));
-            }
-        }
-        if (ImGui::Button("Load Model")) {
-            std::string path = context.open_file_dialog({ ft_mesh });
-            if (!path.empty()) {
-                models.push_back(Model(path));
-                active_m = models.end() - 1;
-                auto scale = active_m->scale_ptr();
-                active_m->recalc_transform();
-                project.push_back(path);
-            }
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Remove Model")) {
-            if (active_m != models.end()) {
-                models.erase(active_m);
-                active_m = models.end();
-                int index = (int)std::distance(models.begin(), active_m);
-                project.erase(project.begin() + index);
-            }
-        }
+        //static char input_text[120];
+        //if (ImGui::InputText("", input_text, sizeof(input_text), ImGuiInputTextFlags_EnterReturnsTrue)) {
+        //    std::string model_name = std::string(input_text);
+        //    activeObject->name = model_name;
+        //    memset(input_text, 0, sizeof(input_text));
+        //}
+
         ImGui::End();
 
         // scene panel
@@ -868,7 +832,7 @@ void Application::run() {
         if (ImGui::DragFloat("FOV", &fov, 1.0f, 35.0f, 120.0f)) {
             camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 1.0f, 100.0f);
         }
-        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.1f, FLT_MAX, "%.3f")) {}
+        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.001f, FLT_MAX, "%.3f")) {}
         if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
         ImGui::End();
 
@@ -876,16 +840,16 @@ void Application::run() {
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
-        if (!models.empty() && active_m != models.end()) {
+        if (!scene.objects.empty() && activeObject != scene.objects.end()) {
             ImGui::Begin("Mesh Properties");
 
-            if (ImGui::DragFloat3("Scale", active_m->scale_ptr(), 0.01f, 0.0f, 10.0f)) {}
-            if (ImGui::DragFloat3("Position", active_m->pos_ptr(), 0.01f, -100.0f, 100.0f)) {}
-            if (ImGui::DragFloat3("Rotation", active_m->rotation_ptr(), 0.01f, (float)(-M_PI), (float)(M_PI))) {}
+            if (ImGui::DragFloat3("Scale", glm::value_ptr(activeObject->scale), 0.01f, 0.0f, 10.0f)) {}
+            if (ImGui::DragFloat3("Position", glm::value_ptr(activeObject->position), 0.01f, -100.0f, 100.0f)) {}
+            if (ImGui::DragFloat3("Rotation", glm::value_ptr(activeObject->rotation), 0.01f, (float)(-M_PI), (float)(M_PI))) {}
 
             // resets the model's transformation
             if (ImGui::Button("Reset")) {
-                active_m->reset_transform();
+                activeObject->reset_transform();
             }
             ImGui::End();
 
@@ -895,10 +859,11 @@ void Application::run() {
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
         static bool resizing = true;
         auto size = ImGui::GetWindowSize();
+        auto pos = ImGui::GetWindowPos();
         hdrBuffer->resize({ size.x, size.y - 25 });
         finalBuffer->resize({ size.x, size.y - 25 });
         camera.getProjection() = glm::perspectiveRH(glm::radians(fov), size.x / size.y, 1.0f, 100.0f);
-        ImGuizmo::SetRect(0, 0, size.x, size.y);
+        ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
         if (debugShadows) {
             quadFB->ImGui_Image();
