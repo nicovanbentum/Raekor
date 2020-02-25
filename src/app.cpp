@@ -15,11 +15,10 @@ namespace Raekor {
 
 struct shadowUBO {
     glm::mat4 cameraMatrix;
-    glm::mat4 model;
 };
 
 struct VertexUBO {
-    glm::mat4 model, view, projection;
+    glm::mat4 view, projection;
     glm::mat4 lightSpaceMatrix;
     glm::vec4 DirViewPos;
     glm::vec4 DirLightPos;
@@ -116,7 +115,6 @@ void Application::run() {
     std::unique_ptr<GLShader> depthShader;
     std::unique_ptr<GLShader> depthCubeShader;
     std::unique_ptr<GLShader> quadShader;
-    std::unique_ptr<GLShader> sphereShader;
     std::unique_ptr<GLShader> hdrShader;
     std::unique_ptr<GLShader> CubemapDebugShader;
     std::unique_ptr<GLShader> SSAOshader;
@@ -172,10 +170,6 @@ void Application::run() {
     quad_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
     quad_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\quad.frag");
 
-    std::vector<Shader::Stage> sphere_shaders;
-    sphere_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\lightSphere.vert");
-    sphere_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\lightSphere.frag");
-
     std::vector<Shader::Stage> hdr_shaders;
     hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
     hdr_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDR.frag");
@@ -192,7 +186,6 @@ void Application::run() {
     depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
     quadShader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
     depthCubeShader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
-    sphereShader.reset(new GLShader(sphere_shaders.data(), sphere_shaders.size()));
     hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
     CubemapDebugShader.reset(new GLShader(cubedebug_shaders.data(), cubedebug_shaders.size()));
     SSAOshader.reset(new GLShader(SSAO_shaders.data(), SSAO_shaders.size()));
@@ -448,6 +441,10 @@ void Application::run() {
         ssaoKernel.push_back(sample);
     }
 
+    GLfloat lineWidthRange[2] = { 0.0f, 0.0f };
+    glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, lineWidthRange);
+    std::cout << lineWidthRange[0] << " : " << lineWidthRange[1] << std::endl;
+
     //////////////////////////////////////////////////////////////
     //// main application loop //////////////////////////////////
     ////////////////////////////////////////////////////////////
@@ -469,11 +466,23 @@ void Application::run() {
         // render the scene for the depth pre-pass
         depthShader->bind();
         shadowUbo.cameraMatrix = camera.getProjection() * camera.getView();
-        shadowUbo.model = glm::mat4(1.0f);
         shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
         shadowVertUbo->bind(0);
         
-        scene.render();
+        // render the scene 
+        for (auto& object : scene.objects) {
+            if (!object.albedo->hasAlpha) {
+                depthShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                object.render();
+            }
+        }
+
+        for (auto& object : scene.objects) {
+            if (object.albedo->hasAlpha) {
+                depthShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                object.render();
+            }
+        }
 
         // bind the generated depth pre-pass and perform SSAO 
         glBindTextureUnit(1, depthPrepassTexture);
@@ -502,11 +511,23 @@ void Application::run() {
         // render the entire scene to the directional light shadow map
         depthShader->bind();
         shadowUbo.cameraMatrix = sunCamera.getProjection() * sunCamera.getView();
-        shadowUbo.model = glm::mat4(1.0f);
         shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
         shadowVertUbo->bind(0);
 
-        scene.render();
+        // render the scene 
+        for (auto& object : scene.objects) {
+            if (!object.albedo->hasAlpha) {
+                depthShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                object.render();
+            }
+        }
+
+        for (auto& object : scene.objects) {
+            if (object.albedo->hasAlpha) {
+                depthShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                object.render();
+            }
+        }
 
         // setup the 3D shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -530,12 +551,23 @@ void Application::run() {
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                 GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, depthCubeTexture, 0);
             glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-
-            depthCubeShader->getUniform("model") = glm::mat4(1.0f);
             depthCubeShader->getUniform("projView") = shadowTransforms[i];
             depthCubeShader->getUniform("lightPos") = glm::make_vec3(lightPos);
 
-            scene.render();
+            // render the scene 
+            for (auto& object : scene.objects) {
+                if (!object.albedo->hasAlpha) {
+                    depthCubeShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                    object.render();
+                }
+            }
+
+            for (auto& object : scene.objects) {
+                if (object.albedo->hasAlpha) {
+                    depthCubeShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                    object.render();
+                }
+            }
         }
         glCullFace(GL_BACK);
 
@@ -574,7 +606,6 @@ void Application::run() {
         // bind omni depth map to 2
         glBindTextureUnit(2, depthCubeTexture);
 
-        ubo.model = glm::mat4(1.0f);
         ubo.view = camera.getView();
         ubo.projection = camera.getProjection();
         ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
@@ -586,8 +617,30 @@ void Application::run() {
         dxrb->update(&ubo, sizeof(VertexUBO));
         dxrb->bind(0);
 
-        scene.render();
+        // render the scene 
+        for (auto& object : scene.objects) {
+            if (!object.albedo->hasAlpha) {
+                mainShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                object.render();
+            }
+        }
 
+        for (auto& object : scene.objects) {
+            if (object.albedo->hasAlpha) {
+                mainShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                object.render();
+            }
+        }
+
+        mainShader->getUniform("model") = glm::translate(glm::mat4(1.0f), { 0, 2.0, 0.0 });
+        dxrb->update(&ubo, sizeof(VertexUBO));
+        dxrb->bind(0);
+        //Turn on wireframe mode
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        skycube->render();
+        //Turn off wireframe mode
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        
         // unbind the framebuffer to switch to the application's backbuffer for ImGui
         hdrBuffer->unbind();
 

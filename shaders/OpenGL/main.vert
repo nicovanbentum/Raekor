@@ -7,12 +7,14 @@ layout(location = 3) in vec3 v_tangent;
 layout(location = 4) in vec3 v_binormal;
 
 layout (std140) uniform stuff {
-    mat4 model, view, projection;
+    mat4 view, projection;
 	mat4 lightSpaceMatrix;
 	vec4 cameraPosition;
     vec4 DirLightPos;
 	vec4 pointLightPos;
 } ubo;
+
+uniform mat4 model;
 
 //we send out a uv coordinate for our frag shader
 out vec3 PosViewspace;
@@ -34,14 +36,14 @@ out vec3 cameraPos;
 void main()
 {
 	// stuff in view space
-	PosViewspace = vec3(ubo.view * ubo.model * vec4(v_pos, 1.0));
+	PosViewspace = vec3(ubo.view * model * vec4(v_pos, 1.0));
 	directionalLightPositionViewSpace = vec3(ubo.view * ubo.DirLightPos);
 
-	PosWorldspace = vec3(ubo.model * vec4(v_pos, 1.0));
-	normalViewspace = mat3(transpose(inverse(ubo.view * ubo.model))) * v_normal;
+	PosWorldspace = vec3(model * vec4(v_pos, 1.0));
+	normalViewspace = mat3(transpose(inverse(ubo.view * model))) * v_normal;
     uv = v_uv;
 	FragPosLightSpace = ubo.lightSpaceMatrix * vec4(PosWorldspace, 1.0);
-    gl_Position = ubo.projection * ubo.view * ubo.model * vec4(v_pos, 1.0);
+    gl_Position = ubo.projection * ubo.view * model * vec4(v_pos, 1.0);
 
     //////////////////////////
 	pointLightPosition = vec3(ubo.pointLightPos);
@@ -50,9 +52,9 @@ void main()
 	cameraPos = vec3(ubo.cameraPosition);
 
 	// calculate tangent space stuff
-	vec3 T = normalize(vec3(ubo.view * ubo.model * vec4(v_tangent, 0.0)));
-	vec3 B = normalize(vec3(ubo.view * ubo.model * vec4(v_binormal, 0.0)));
-	vec3 N = normalize(vec3(ubo.view * ubo.model * vec4(v_normal, 0.0)));
+	vec3 T = normalize(vec3(ubo.view * model * vec4(v_tangent, 0.0)));
+	vec3 B = normalize(vec3(ubo.view * model * vec4(v_binormal, 0.0)));
+	vec3 N = normalize(vec3(ubo.view * model * vec4(v_normal, 0.0)));
 	mat3 TBN = transpose(mat3(T, B, N));
 
 	#ifdef NO_NORMAL_MAP

@@ -257,9 +257,22 @@
     <ClInclude Include="src\headers\scene.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\DirectX\skybox_vertex.hlsl" />
     <FxCompile Include="shaders\DirectX\simple_vertex.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Raekor.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

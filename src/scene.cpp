@@ -18,6 +18,7 @@ Transformable::Transformable() :
         btVector3(position.x, position.y, position.z)
     ));
 
+
     btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(
         0,                  // mass, in kg. 0 -> Static object, will never move.
         motionstate,
@@ -27,7 +28,6 @@ Transformable::Transformable() :
 
     rigidBody = new btRigidBody(rigidBodyCI);
 }
-
 
 void Transformable::reset_transform() {
     transform = glm::mat4(1.0f);
@@ -68,7 +68,7 @@ void Scene::add(std::string file) {
         aiProcess_CalcTangentSpace |
         aiProcess_Triangulate |
         aiProcess_SortByPType |
-        aiProcess_PreTransformVertices |
+        //aiProcess_PreTransformVertices |
         aiProcess_JoinIdenticalVertices |
         aiProcess_GenUVCoords |
         aiProcess_OptimizeMeshes |
@@ -78,6 +78,7 @@ void Scene::add(std::string file) {
     auto scene = importer->ReadFile(file, flags);
     m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
+    // pre-load all the textures asynchronously
     std::vector<Stb::Image> albedos;
     std::vector<Stb::Image> normals;
 
@@ -126,49 +127,54 @@ void Scene::add(std::string file) {
         future.wait();
     }    
     
-    // loop over every mesh and add it as a scene object
-    for (uint64_t index = 0; index < scene->mNumMeshes; index++) {
-        m_assert(scene && scene->HasMeshes(), "failed to load mesh");
-
-
+    auto processMesh = [&](aiMesh * mesh, aiMatrix4x4 localTransform, const aiScene * scene) {
         std::vector<Vertex> vertices;
         std::vector<Index> indices;
 
-        auto ai_mesh = scene->mMeshes[index];
-        m_assert(ai_mesh->HasPositions() && ai_mesh->HasNormals(), "meshes require positions and normals");
-        std::string name = ai_mesh->mName.C_Str();
+        // create a glm mat4 transformation out of the mesh's assimp local transform
+        aiVector3D position, rotation, scale;
+        localTransform.Decompose(scale, rotation, position);
+        glm::mat4 transform = glm::mat4(1.0f);
+        transform = glm::translate(transform, { position.x, position.y, position.y });
+        auto rotation_quat = static_cast<glm::quat>(glm::vec3(0.0f, 0.0f, 0.0f));
+        transform = transform * glm::toMat4(rotation_quat);
+        transform = glm::scale(transform, { scale.x, scale.y, scale.z });
+        transforms.push_back(transform);
 
         // extract vertices
-        vertices.reserve(ai_mesh->mNumVertices);
+        vertices.reserve(mesh->mNumVertices);
         for (size_t i = 0; i < vertices.capacity(); i++) {
             Vertex v = {};
-            v.pos = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z};
-            if (ai_mesh->HasTextureCoords(0)) {
-                v.uv = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
+            v.pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
+
+            if (mesh->HasTextureCoords(0)) {
+                v.uv = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
             }
-            if (ai_mesh->HasNormals()) {
-                v.normal = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
+            if (mesh->HasNormals()) {
+                v.normal = { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z };
             }
 
-            if (ai_mesh->HasTangentsAndBitangents()) {
-                v.tangent = { ai_mesh->mTangents[i].x, ai_mesh->mTangents[i].y, ai_mesh->mTangents[i].z };
-                v.binormal = { ai_mesh->mBitangents[i].x, ai_mesh->mBitangents[i].y, ai_mesh->mBitangents[i].z };
+            if (mesh->HasTangentsAndBitangents()) {
+                v.tangent = { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
+                v.binormal = { mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z };
             }
             vertices.push_back(std::move(v));
         }
         // extract indices
-        indices.reserve(ai_mesh->mNumFaces);
+        indices.reserve(mesh->mNumFaces);
         for (size_t i = 0; i < indices.capacity(); i++) {
             m_assert((ai_mesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
-            indices.push_back({ ai_mesh->mFaces[i].mIndices[0], ai_mesh->mFaces[i].mIndices[1], ai_mesh->mFaces[i].mIndices[2] });
+            indices.emplace_back(mesh->mFaces[i].mIndices[0], mesh->mFaces[i].mIndices[1], mesh->mFaces[i].mIndices[2]);
         }
 
-
+        std::string name = mesh->mName.C_Str();
         objects.push_back(SceneObject(name, vertices, indices));
         objects.back().name = name;
+        auto& object = objects.back();
+        object.transformationIndex = transforms.size() - 1;
 
         aiString albedoFile, normalmapFile;
-        auto material = scene->mMaterials[ai_mesh->mMaterialIndex];
+        auto material = scene->mMaterials[mesh->mMaterialIndex];
         material->GetTextureCount(aiTextureType_DIFFUSE);
         material->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
         material->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
@@ -178,28 +184,42 @@ void Scene::add(std::string file) {
 
         auto albedoIter = std::find_if(albedos.begin(), albedos.end(), [&](const Stb::Image& img) {
             return img.filepath == texture_path;
-        });
+            });
 
         auto normalIter = std::find_if(normals.begin(), normals.end(), [&](const Stb::Image& img) {
             return img.filepath == normal_path;
-        });
+            });
 
         if (albedoIter != albedos.end()) {
             auto index = albedoIter - albedos.begin();
             objects.back().albedo.reset(new GLTexture(albedos[index]));
             if (albedoIter->channels == 4) {
-                objects.back().albedo->hasAlpha = true;
+                object.albedo->hasAlpha = true;
             }
             else {
-                objects.back().albedo->hasAlpha = false;
+                object.albedo->hasAlpha = false;
             }
         }
         if (normalIter != normals.end()) {
             auto index = normalIter - normals.begin();
-            objects.back().normal.reset(new GLTexture(normals[index]));
-            objects.back().normal.reset(new GLTexture(normals[index]));
+            object.normal.reset(new GLTexture(normals[index]));
         }
-    }
+    };
+
+    std::function<void(aiNode*, const aiScene*)> processNode = [&](aiNode* node, const aiScene* scene) {
+        for (uint32_t i = 0; i < node->mNumMeshes; i++) {
+            aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+            processMesh(mesh, node->mTransformation, scene);
+        }
+
+        for (uint32_t i = 0; i < node->mNumChildren; i++) {
+            processNode(node->mChildren[i], scene);
+        }
+    };
+
+    // process the assimp node tree, creating a scene object for every mesh with its textures and transformation
+    processNode(scene->mRootNode, scene);
+
 }
 
 } // Namespace Raekor

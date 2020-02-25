@@ -52,6 +52,11 @@ protected:
             glUniform3f(id, rhs.x, rhs.y, rhs.z);
             return *this;
         }
+
+        loc& operator=(uint32_t rhs) {
+            glUniform1i(id, rhs);
+            return *this;
+        }
     };
 };
 

@@ -26,6 +26,7 @@ public:
     void render();
 
     std::string name;
+    uint32_t transformationIndex;
     std::unique_ptr<GLTexture> albedo;
     std::unique_ptr<GLTexture> normal;
 };
@@ -71,6 +72,7 @@ public:
     }
 
     std::vector<SceneObject> objects;
+    std::vector<glm::mat4> transforms;
 private:
     std::shared_ptr<Assimp::Importer> importer;
 };
