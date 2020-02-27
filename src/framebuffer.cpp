@@ -34,7 +34,7 @@ GLFrameBuffer::GLFrameBuffer(FrameBuffer::ConstructInfo* info) {
     glGenTextures(1, &render_texture_id);
     glBindTexture(GL_TEXTURE_2D, render_texture_id);
 
-    format = info->HDR ? GL_RGBA16F : GL_RGBA;
+    format = info->HDR ? GL_RGB16F : GL_RGB;
 
     // create the 2d texture image
     if (info->depthOnly) {
@@ -99,8 +99,6 @@ void GLFrameBuffer::ImGui_Image() const {
 void GLFrameBuffer::ImGui_Image(glm::vec2 imgSize) const {
     ImGui::Image((void*)((intptr_t)render_texture_id), ImVec2(imgSize.x, imgSize.y), { 0,1 }, { 1,0 });
 }
-
-
 
 void GLFrameBuffer::resize(const glm::vec2& new_size) {
     if (size == new_size) return;

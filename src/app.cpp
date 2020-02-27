@@ -121,8 +121,6 @@ void Application::run() {
 
     std::unique_ptr<GLFrameBuffer> hdrBuffer;
     std::unique_ptr<GLFrameBuffer> finalBuffer;
-    std::unique_ptr<GLFrameBuffer> quadFB;
-    std::unique_ptr<GLFrameBuffer> ssaoFB;
 
     std::unique_ptr<GLResourceBuffer> dxrb;
     std::unique_ptr<GLResourceBuffer> shadowVertUbo;
@@ -139,7 +137,6 @@ void Application::run() {
     testImage.load("resources/textures/test.png", true);
     std::unique_ptr<Texture> testTexture;
     testTexture.reset(Texture::construct(testImage));
-
 
     Ffilter ft_mesh;
     ft_mesh.name = "Supported Mesh Files";
@@ -221,18 +218,14 @@ void Application::run() {
     mat4Ubo.reset(new GLResourceBuffer(sizeof(glm::mat4)));
     hdrUbo.reset(new GLResourceBuffer(sizeof(HDR_UBO)));
 
+    float screenWidth = displays[display].w * .8f, screenHeight = displays[display].h * .8f;
+
     FrameBuffer::ConstructInfo finalInfo = {};
-    finalInfo.size = {
-        displays[display].w * 0.8f,
-        displays[display].w * 0.8f
-    };
+    finalInfo.size = { screenWidth, screenHeight };
     finalInfo.depthOnly = false;
 
     FrameBuffer::ConstructInfo renderFBinfo = {};
-    renderFBinfo.size = {
-        displays[display].w * 0.8f,
-        displays[display].w * 0.8f
-    };
+    renderFBinfo.size = { screenWidth, screenHeight };
     renderFBinfo.depthOnly = false;
     renderFBinfo.HDR = true;
 
@@ -241,23 +234,28 @@ void Application::run() {
 
     constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 
-    FrameBuffer::ConstructInfo quadFBinfo = {};
-    quadFBinfo.size.x = SHADOW_WIDTH;
-    quadFBinfo.size.y = SHADOW_HEIGHT;
-    quadFBinfo.depthOnly = false;
-    quadFBinfo.writeOnly = false;
+    //FrameBuffer::ConstructInfo quadFBinfo = {};
+    //quadFBinfo.size.x = SHADOW_WIDTH;
+    //quadFBinfo.size.y = SHADOW_HEIGHT;
+    //quadFBinfo.depthOnly = false;
+    //quadFBinfo.writeOnly = false;
 
-    quadFB.reset(new GLFrameBuffer(&quadFBinfo));
+    //quadFB.reset(new GLFrameBuffer(&quadFBinfo));
 
-    FrameBuffer::ConstructInfo ssaoFBinfo = {};
-    ssaoFBinfo.size = {
-        displays[display].w * 0.8f,
-        displays[display].h * 0.8f
-    };
-    ssaoFBinfo.depthOnly = false;
-    ssaoFBinfo.writeOnly = false;
+    glTexture2D quadTexture;
+    quadTexture.bind();
+    quadTexture.init(SHADOW_WIDTH, SHADOW_HEIGHT, Format::SDR);
+    quadTexture.setFilter(Sampling::Filter::Bilinear);
+    quadTexture.unbind();
 
-    ssaoFB.reset(new GLFrameBuffer(&ssaoFBinfo));
+    glRenderbuffer quadRenderbuffer;
+    quadRenderbuffer.init(SHADOW_WIDTH, SHADOW_HEIGHT, GL_DEPTH32F_STENCIL8);
+    
+    glFramebuffer quadFramebuffer;
+    quadFramebuffer.bind();
+    quadFramebuffer.attach(quadTexture, GL_COLOR_ATTACHMENT0);
+    quadFramebuffer.attach(quadRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+    quadFramebuffer.unbind();
 
     // persistent imgui variable values
     auto active_skybox = skyboxes.find("lake");
@@ -330,50 +328,16 @@ void Application::run() {
 
     float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
 
-    // configure depth prepass FBO
-// -----------------------
-    unsigned int depthPrepassFBO;
-    glGenFramebuffers(1, &depthPrepassFBO);
-    // create depth prepass texture
-    unsigned int depthPrepassTexture;
-    glGenTextures(1, &depthPrepassTexture);
-    glBindTexture(GL_TEXTURE_2D, depthPrepassTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, displays[display].w, displays[display].h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    // attach depth prepass texture as FBO's depth buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, depthPrepassFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthPrepassTexture, 0);
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glTexture2D shadowTexture;
+    shadowTexture.bind();
+    shadowTexture.init(SHADOW_WIDTH, SHADOW_HEIGHT, Format::Depth);
+    shadowTexture.setFilter(Sampling::Filter::None);
+    shadowTexture.setWrap(Sampling::Wrap::ClampBorder);
 
-    // configure depth map FBO
-    // -----------------------
-    unsigned int depthMapFBO;
-    glGenFramebuffers(1, &depthMapFBO);
-    // create depth texture
-    unsigned int depthTexture;
-    glGenTextures(1, &depthTexture);
-    glBindTexture(GL_TEXTURE_2D, depthTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    // attach depth texture as FBO's depth buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
+    glFramebuffer shadowFramebuffer;
+    shadowFramebuffer.bind();
+    shadowFramebuffer.attach(shadowTexture, GL_DEPTH_ATTACHMENT);
+    shadowFramebuffer.unbind();
 
     // configure 3D depth map FBO
     // -----------------------
@@ -461,54 +425,9 @@ void Application::run() {
         // clear the main window
         Render::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
 
-        // depth pre-pass
-        glViewport(0, 0, displays[display].w, displays[display].h);
-        glBindFramebuffer(GL_FRAMEBUFFER, depthPrepassFBO);
-        glClear(GL_DEPTH_BUFFER_BIT);
-        glCullFace(GL_FRONT);
-
-        // render the scene for the depth pre-pass
-        depthShader->bind();
-        shadowUbo.cameraMatrix = camera.getProjection() * camera.getView();
-        shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
-        shadowVertUbo->bind(0);
-        
-        // render the scene 
-        for (auto& object : scene.objects) {
-            if (!object.albedo->hasAlpha) {
-                depthShader->getUniform("model") = object.transform;
-                object.render();
-            }
-        }
-
-        for (auto& object : scene.objects) {
-            if (object.albedo->hasAlpha) {
-                depthShader->getUniform("model") = object.transform;
-                object.render();
-            }
-        }
-
-        // bind the generated depth pre-pass and perform SSAO 
-        glBindTextureUnit(1, depthPrepassTexture);
-        ssaoFB->bind();
-        Render::Clear({ 0, 0, 0, 1 });
-        SSAOshader->bind();
-
-        // set SSAO uniforms
-        SSAOshader->getUniform("aspectRatio") = static_cast<float>(displays[display].w / displays[display].h);
-        SSAOshader->getUniform("tanHalfFOV") = tanf(glm::radians(fov / 2.0f));
-        SSAOshader->getUniform("gSampleRad") = 1.5f;
-        SSAOshader->getUniform("gProj") = camera.getProjection();
-        glUniform3fv(SSAOshader->getUniform("gKernel").id, 64, (GLfloat*)&ssaoKernel[0]);
-
-        Quad->render();
-        SSAOshader->unbind();
-        glBindTexture(GL_TEXTURE_2D, 0);
-        ssaoFB->unbind();
-
         // setup the shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+        shadowFramebuffer.bind();
         glClear(GL_DEPTH_BUFFER_BIT);
         glCullFace(GL_FRONT);
 
@@ -576,14 +495,14 @@ void Application::run() {
         glCullFace(GL_BACK);
 
         // bind the generated shadow map and render it to a quad for debugging in-editor
-        glBindTexture(GL_TEXTURE_2D, depthTexture);
-        quadFB->bind();
+        shadowTexture.bind();
+        quadFramebuffer.bind();
         Render::Clear({ 1,0,0,1 });
         quadShader->bind();
         Quad->render();
         quadShader->unbind();
-        glBindTexture(GL_TEXTURE_2D, 0);
-        quadFB->unbind();
+        shadowTexture.unbind();
+        quadFramebuffer.unbind();
 
         // bind the main framebuffer
         hdrBuffer->bind();
@@ -606,7 +525,7 @@ void Application::run() {
         mainShader->getUniform("maxBias") = uniforms.maxBias;
         mainShader->getUniform("farPlane") = farPlane;
         // bind depth map to 1
-        glBindTextureUnit(1, depthTexture);
+        shadowTexture.bindToSlot(1);
         // bind omni depth map to 2
         glBindTextureUnit(2, depthCubeTexture);
 
@@ -972,7 +891,7 @@ void Application::run() {
         ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
         if (debugShadows) {
-            quadFB->ImGui_Image();
+            ImGui::Image(quadTexture.ImGuiID(), ImVec2(SHADOW_WIDTH, SHADOW_HEIGHT), { 0,1 }, { 1,0 });
         }
         else {
             if (hdr) 
