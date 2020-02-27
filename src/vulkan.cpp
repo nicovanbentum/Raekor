@@ -248,7 +248,7 @@ void Application::vulkan_main() {
         // record the collected data to secondary command buffers
         vk.ImGuiRecord();
         // start the overall render pass
-        camera.update();
+        camera.update(false);
 
         glm::mat4 sky_matrix = camera.getProjection() * glm::mat4(glm::mat3(camera.getView())) * glm::mat4(1.0f);
 

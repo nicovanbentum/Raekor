@@ -12,9 +12,10 @@ Camera::Camera(glm::vec3 position, glm::mat4 proj) :
     //glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
 }
 
-void Camera::update() {
+void Camera::update(bool normalizePlanes) {
     auto dir = get_direction();
     view = glm::lookAtRH(position, position + dir, {0, 1, 0});
+    updatePlanes(normalizePlanes);
 }
 
 glm::vec3 Camera::get_direction() {
@@ -44,6 +45,75 @@ void Camera::move_on_input(double dt) {
     else if (keyboard[SDL_SCANCODE_D]) {
         position += glm::normalize(glm::cross(dir, { 0,1,0 })) * (float)(move_speed*dt);
     }
+}
+
+/*
+    https://www.gamedevs.org/uploads/fast-extraction-viewing-frustum-planes-from-world-view-projection-matrix.pdf
+*/
+void Camera::updatePlanes(bool normalize) {
+    glm::mat4 comboMatrix = projection * view;
+    frustrumPlanes[0].x = comboMatrix[0][3] + comboMatrix[0][0];
+    frustrumPlanes[0].y = comboMatrix[1][3] + comboMatrix[1][0];
+    frustrumPlanes[0].z = comboMatrix[2][3] + comboMatrix[2][0];
+    frustrumPlanes[0].w = comboMatrix[3][3] + comboMatrix[3][0];
+
+    frustrumPlanes[1].x = comboMatrix[0][3] + comboMatrix[0][0];
+    frustrumPlanes[1].y = comboMatrix[1][3] + comboMatrix[1][0];
+    frustrumPlanes[1].z = comboMatrix[2][3] + comboMatrix[2][0];
+    frustrumPlanes[1].w = comboMatrix[3][3] + comboMatrix[3][0];
+
+    frustrumPlanes[2].x = comboMatrix[0][3] + comboMatrix[0][1];
+    frustrumPlanes[2].y = comboMatrix[1][3] + comboMatrix[1][1];
+    frustrumPlanes[2].z = comboMatrix[2][3] + comboMatrix[2][1];
+    frustrumPlanes[2].w = comboMatrix[3][3] + comboMatrix[3][1];
+
+    frustrumPlanes[3].x = comboMatrix[0][3] + comboMatrix[0][1];
+    frustrumPlanes[3].y = comboMatrix[1][3] + comboMatrix[1][1];
+    frustrumPlanes[3].z = comboMatrix[2][3] + comboMatrix[2][1];
+    frustrumPlanes[3].w = comboMatrix[3][3] + comboMatrix[3][1];
+
+    frustrumPlanes[4].x = comboMatrix[0][3] + comboMatrix[0][2];
+    frustrumPlanes[4].y = comboMatrix[1][3] + comboMatrix[1][2];
+    frustrumPlanes[4].z = comboMatrix[2][3] + comboMatrix[2][2];
+    frustrumPlanes[4].w = comboMatrix[3][3] + comboMatrix[3][2];
+
+    frustrumPlanes[5].x = comboMatrix[0][3] + comboMatrix[0][2];
+    frustrumPlanes[5].y = comboMatrix[1][3] + comboMatrix[1][2];
+    frustrumPlanes[5].z = comboMatrix[2][3] + comboMatrix[2][2];
+    frustrumPlanes[5].w = comboMatrix[3][3] + comboMatrix[3][2];
+
+    if (normalize) {
+        for (auto& plane : frustrumPlanes) {
+            float mag;
+            mag = sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
+            plane.x = plane.x / mag;
+            plane.y = plane.y / mag;
+            plane.z = plane.z / mag;
+            plane.w = plane.w / mag;
+        }
+    }
+}
+
+bool Camera::vertexInPlane(const glm::vec4& plane, const glm::vec3& v) {
+    float d;
+    d = plane.x*v.x + plane.y*v.y + plane.z*v.z + plane.w;
+    if (d >= 0) return true;
+    return false;
+}
+
+bool Camera::isVisible(const SceneObject& object) {
+    int visiblePoints = 6;
+    for (auto& point : object.boundingBox) {
+        for (auto& plane : frustrumPlanes) {
+            if (!vertexInPlane(plane, point)) {
+                visiblePoints -= 1;
+                break;
+            }
+        }
+    }
+
+    if (visiblePoints > 0) return true;
+    return false;
 }
 
 }

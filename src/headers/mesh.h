@@ -5,6 +5,11 @@
 
 namespace Raekor {
 
+extern std::vector<Vertex> v_cube;
+extern std::vector<Index> i_cube;
+extern std::vector<Vertex> v_quad;
+extern std::vector<Index> i_quad;
+
 enum class Shape {
     None, Cube, Quad
 };
@@ -28,6 +33,25 @@ public:
         Render::DrawIndexed(ib->get_count());
     }
 
+    static Mesh* fromBounds(const std::array<glm::vec3, 2>& bounds) {
+        const auto min = bounds[0];
+        const auto max = bounds[1];
+
+        std::vector<Vertex> vertices = {
+            { {min} },
+            { {max[0], min[1], min[2] } } ,
+            { {max[0], max[1], min[2] } } ,
+            { {min[0], max[1], min[2] } } ,
+
+            { {min[0], min[1], max[2] } } ,
+            { {max[0], min[1], max[2] } } ,
+            { {max} },
+            { {min[0], max[1], max[2] } }
+        };
+
+        return new Mesh("", vertices, i_cube);
+    }
+
     void bind() const;
 
 protected:
@@ -36,10 +60,5 @@ protected:
     std::unique_ptr<VertexBuffer> vb;
     std::unique_ptr<IndexBuffer> ib;
 };
-
-extern std::vector<Vertex> v_cube;
-extern std::vector<Index> i_cube;
-extern std::vector<Vertex> v_quad;
-extern std::vector<Index> i_quad;
 
 }

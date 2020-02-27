@@ -12,11 +12,15 @@ public:
     void reset_transform();
     void recalc_transform();
 
-    btRigidBody* rigidBody;
     glm::mat4 transform;
     glm::vec3 position;
     glm::vec3 rotation;
     glm::vec3 scale;
+
+    glm::vec3 minAABB;
+    glm::vec3 maxAABB;
+
+    std::array<glm::vec3, 8> boundingBox;
 };
 
 class SceneObject : public Mesh, public Transformable {
@@ -29,6 +33,9 @@ public:
     uint32_t transformationIndex;
     std::unique_ptr<GLTexture> albedo;
     std::unique_ptr<GLTexture> normal;
+    std::unique_ptr<Mesh> collisionRenderable;
+    std::unique_ptr<btTriangleMesh> triMesh;
+    std::unique_ptr<btBvhTriangleMeshShape> shape;
 };
 
 class Scene {
@@ -72,7 +79,6 @@ public:
     }
 
     std::vector<SceneObject> objects;
-    std::vector<glm::mat4> transforms;
 private:
     std::shared_ptr<Assimp::Importer> importer;
 };

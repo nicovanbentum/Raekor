@@ -171,8 +171,13 @@ void Application::run() {
     quad_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\quad.frag");
 
     std::vector<Shader::Stage> hdr_shaders;
+    std::vector<std::string> tonemappingShaders = {
+       "shaders\\OpenGL\\HDR.frag",
+       "shaders\\OpenGL\\HDRreinhard.frag",
+       "shaders\\OpenGL\\HDRuncharted.frag"
+    };
     hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
-    hdr_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDR.frag");
+    hdr_shaders.emplace_back(Shader::Type::FRAG, tonemappingShaders.begin()->c_str());
 
     std::vector<Shader::Stage> cubedebug_shaders;
     cubedebug_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\simple.vert");
@@ -441,9 +446,8 @@ void Application::run() {
         ssaoKernel.push_back(sample);
     }
 
-    GLfloat lineWidthRange[2] = { 0.0f, 0.0f };
-    glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, lineWidthRange);
-    std::cout << lineWidthRange[0] << " : " << lineWidthRange[1] << std::endl;
+    static bool wireframeOnly = false;
+    static bool frustrumCulling = false;
 
     //////////////////////////////////////////////////////////////
     //// main application loop //////////////////////////////////
@@ -451,8 +455,8 @@ void Application::run() {
     while (running) {
         dt_timer.start();
         handle_sdl_gui_events({ directxwindow }, debugShadows ? sunCamera : camera, dt); // in shadow debug we're in control of the shadow map camera
-        sunCamera.update();
-        camera.update();
+        sunCamera.update(true);
+        camera.update(true);
 
         // clear the main window
         Render::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
@@ -472,14 +476,14 @@ void Application::run() {
         // render the scene 
         for (auto& object : scene.objects) {
             if (!object.albedo->hasAlpha) {
-                depthShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                depthShader->getUniform("model") = object.transform;
                 object.render();
             }
         }
 
         for (auto& object : scene.objects) {
             if (object.albedo->hasAlpha) {
-                depthShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                depthShader->getUniform("model") = object.transform;
                 object.render();
             }
         }
@@ -517,14 +521,14 @@ void Application::run() {
         // render the scene 
         for (auto& object : scene.objects) {
             if (!object.albedo->hasAlpha) {
-                depthShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                depthShader->getUniform("model") = object.transform;
                 object.render();
             }
         }
 
         for (auto& object : scene.objects) {
             if (object.albedo->hasAlpha) {
-                depthShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                depthShader->getUniform("model") = object.transform;
                 object.render();
             }
         }
@@ -550,21 +554,21 @@ void Application::run() {
         for (uint32_t i = 0; i < 6; i++) {
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                 GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, depthCubeTexture, 0);
-            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+            glClear(GL_DEPTH_BUFFER_BIT);
             depthCubeShader->getUniform("projView") = shadowTransforms[i];
             depthCubeShader->getUniform("lightPos") = glm::make_vec3(lightPos);
 
             // render the scene 
             for (auto& object : scene.objects) {
                 if (!object.albedo->hasAlpha) {
-                    depthCubeShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                    depthCubeShader->getUniform("model") = object.transform;
                     object.render();
                 }
             }
 
             for (auto& object : scene.objects) {
                 if (object.albedo->hasAlpha) {
-                    depthCubeShader->getUniform("model") = scene.transforms[object.transformationIndex];
+                    depthCubeShader->getUniform("model") = object.transform;
                     object.render();
                 }
             }
@@ -620,27 +624,45 @@ void Application::run() {
         // render the scene 
         for (auto& object : scene.objects) {
             if (!object.albedo->hasAlpha) {
-                mainShader->getUniform("model") = scene.transforms[object.transformationIndex];
-                object.render();
+                if (frustrumCulling) {
+                    if (camera.isVisible(object)) {
+                        mainShader->getUniform("model") = object.transform;
+                        object.render();
+                    }
+                } else {
+                    mainShader->getUniform("model") = object.transform;
+                    object.render();
+                }
             }
         }
 
         for (auto& object : scene.objects) {
             if (object.albedo->hasAlpha) {
-                mainShader->getUniform("model") = scene.transforms[object.transformationIndex];
-                object.render();
+                if (frustrumCulling) {
+                    if (camera.isVisible(object)) {
+                        mainShader->getUniform("model") = object.transform;
+                        object.render();
+                    }
+                } else {
+                    mainShader->getUniform("model") = object.transform;
+                    object.render();
+                }
             }
         }
 
-        mainShader->getUniform("model") = glm::translate(glm::mat4(1.0f), { 0, 2.0, 0.0 });
-        dxrb->update(&ubo, sizeof(VertexUBO));
-        dxrb->bind(0);
-        //Turn on wireframe mode
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        skycube->render();
-        //Turn off wireframe mode
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        
+        if (wireframeOnly) {
+            // render collision shapes
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            for (auto& object : scene.objects) {
+                //if (object.name == "Mesh.366-1") {
+                mainShader->getUniform("model") = object.transform;
+                object.collisionRenderable->render();
+                //}
+            }
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+
+
         // unbind the framebuffer to switch to the application's backbuffer for ImGui
         hdrBuffer->unbind();
 
@@ -757,9 +779,6 @@ void Application::run() {
             ImGui::EndMenuBar();
         }
 
-        // draw the imguizmo at the center of the light
-        ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
-
         // model panel
         ImGui::Begin("Entities");
         if (ImGui::IsWindowFocused()) {
@@ -780,13 +799,6 @@ void Application::run() {
             }
             ImGui::TreePop();
         }
-
-        //static char input_text[120];
-        //if (ImGui::InputText("", input_text, sizeof(input_text), ImGuiInputTextFlags_EnterReturnsTrue)) {
-        //    std::string model_name = std::string(input_text);
-        //    activeObject->name = model_name;
-        //    memset(input_text, 0, sizeof(input_text));
-        //}
 
         ImGui::End();
 
@@ -810,6 +822,14 @@ void Application::run() {
         static bool use_vsync = false;
         if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
             use_vsync = !use_vsync;
+        }
+
+        if (ImGui::RadioButton("Wireframe", wireframeOnly)) {
+            wireframeOnly = !wireframeOnly;
+        }
+
+        if (ImGui::RadioButton("Frustrum Culling", frustrumCulling)) {
+            frustrumCulling = !frustrumCulling;
         }
         
         if (ImGui::RadioButton("Animate Light", move_light)) {
@@ -866,6 +886,26 @@ void Application::run() {
         if (ImGui::RadioButton("Enabled", hdr)) {
             hdr = !hdr;
         }
+
+        static const char* current = tonemappingShaders.begin()->c_str();
+        if (ImGui::BeginCombo("Tonemapping", current)) {
+            for (auto it = tonemappingShaders.begin(); it != tonemappingShaders.end(); it++) {
+                bool selected = (it->c_str() == current);
+                if (ImGui::Selectable(it->c_str(), selected)) {
+                    current = it->c_str();
+
+                    hdr_shaders.clear();
+                    hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
+                    hdr_shaders.emplace_back(Shader::Type::FRAG, current);
+                    hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
+                }
+                if (selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+
         if (ImGui::SliderFloat("Exposure", &hdr_ubo.exposure, 0.0f, 1.0f)) {}
         if (ImGui::SliderFloat("Gamma", &hdr_ubo.gamma, 1.0f, 3.2f)) {}
 
@@ -885,12 +925,26 @@ void Application::run() {
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
+        static ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
         if (!scene.objects.empty() && activeObject != scene.objects.end()) {
             ImGui::Begin("Mesh Properties");
 
-            if (ImGui::DragFloat3("Scale", glm::value_ptr(activeObject->scale), 0.01f, 0.0f, 10.0f)) {}
-            if (ImGui::DragFloat3("Position", glm::value_ptr(activeObject->position), 0.01f, -100.0f, 100.0f)) {}
-            if (ImGui::DragFloat3("Rotation", glm::value_ptr(activeObject->rotation), 0.01f, (float)(-M_PI), (float)(M_PI))) {}
+            std::array<const char*, 3> previews = {
+                "TRANSLATE", "ROTATE", "SCALE"
+            };
+            static ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
+            if (ImGui::BeginCombo("Gizmo mode", previews[operation])) {
+                for (int i = 0; i < previews.size(); i++) {
+                    bool selected = (i == operation);
+                    if (ImGui::Selectable(previews[i], selected)) {
+                        operation = (ImGuizmo::OPERATION)i;
+                    }
+                    if (selected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
 
             // resets the model's transformation
             if (ImGui::Button("Reset")) {
@@ -898,7 +952,14 @@ void Application::run() {
             }
             ImGui::End();
 
+            // draw the imguizmo at the center of the light
+            if (!move_light)
+                ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), operation, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
+            else
+                ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), operation, ImGuizmo::MODE::WORLD, glm::value_ptr(activeObject->transform));
+
         }
+
         // renderer viewport
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);

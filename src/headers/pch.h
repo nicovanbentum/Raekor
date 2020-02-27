@@ -77,6 +77,7 @@
 #include "gtx/quaternion.hpp"
 #include "gtx/string_cast.hpp"
 #include "gtc/type_ptr.hpp"
+#include "gtx/matrix_decompose.hpp"
 
 // Bullet3 Physics library
 #include "btBulletDynamicsCommon.h"

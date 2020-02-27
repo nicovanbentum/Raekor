@@ -10,24 +10,7 @@ Transformable::Transformable() :
     position(0.0f),
     rotation(0.0f),
     scale(1.0f)
-{
-    btCollisionShape* boxCollisionShape = new btBoxShape(btVector3(1.0f, 1.0f, 1.0f));
-    glm::quat orientation = glm::toQuat(transform);
-    btDefaultMotionState* motionstate = new btDefaultMotionState(btTransform(
-        btQuaternion(orientation.x, orientation.y, orientation.z, orientation.w),
-        btVector3(position.x, position.y, position.z)
-    ));
-
-
-    btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(
-        0,                  // mass, in kg. 0 -> Static object, will never move.
-        motionstate,
-        boxCollisionShape,  // collision shape of body
-        btVector3(0, 0, 0)    // local inertia
-    );
-
-    rigidBody = new btRigidBody(rigidBodyCI);
-}
+{}
 
 void Transformable::reset_transform() {
     transform = glm::mat4(1.0f);
@@ -68,7 +51,7 @@ void Scene::add(std::string file) {
         aiProcess_CalcTangentSpace |
         aiProcess_Triangulate |
         aiProcess_SortByPType |
-        //aiProcess_PreTransformVertices |
+        aiProcess_PreTransformVertices |
         aiProcess_JoinIdenticalVertices |
         aiProcess_GenUVCoords |
         aiProcess_OptimizeMeshes |
@@ -139,7 +122,6 @@ void Scene::add(std::string file) {
         auto rotation_quat = static_cast<glm::quat>(glm::vec3(0.0f, 0.0f, 0.0f));
         transform = transform * glm::toMat4(rotation_quat);
         transform = glm::scale(transform, { scale.x, scale.y, scale.z });
-        transforms.push_back(transform);
 
         // extract vertices
         vertices.reserve(mesh->mNumVertices);
@@ -163,7 +145,7 @@ void Scene::add(std::string file) {
         // extract indices
         indices.reserve(mesh->mNumFaces);
         for (size_t i = 0; i < indices.capacity(); i++) {
-            m_assert((ai_mesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
+            m_assert((mesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
             indices.emplace_back(mesh->mFaces[i].mIndices[0], mesh->mFaces[i].mIndices[1], mesh->mFaces[i].mIndices[2]);
         }
 
@@ -171,7 +153,45 @@ void Scene::add(std::string file) {
         objects.push_back(SceneObject(name, vertices, indices));
         objects.back().name = name;
         auto& object = objects.back();
-        object.transformationIndex = transforms.size() - 1;
+        object.transform = transform;
+        object.position = { position.x, position.y, position.z };
+
+        object.triMesh.reset(new btTriangleMesh());
+        for (unsigned int i = 0; i < vertices.size(); i += 3) {
+            if (i+2 >= vertices.size()) break;
+            object.triMesh->addTriangle(
+                { vertices[i].pos.x,    vertices[i].pos.y,      vertices[i].pos.z   },
+                { vertices[i+1].pos.x,  vertices[i+1].pos.y,    vertices[i+1].pos.z },
+                { vertices[i+2].pos.x,  vertices[i+2].pos.y,    vertices[i+2].pos.z });
+        }
+        object.shape.reset(new btBvhTriangleMeshShape(object.triMesh.get(), false));
+
+        auto minAABB = object.shape->getLocalAabbMin();
+        auto maxAABB = object.shape->getLocalAabbMax();
+
+        object.minAABB = { minAABB.x(), minAABB.y(), minAABB.z() };
+        object.maxAABB = { maxAABB.x(), maxAABB.y(), maxAABB.z() };
+
+        object.boundingBox = {
+            object.minAABB,
+            { object.maxAABB[0], object.minAABB[1], object.minAABB[2] } ,
+            { object.maxAABB[0], object.maxAABB[1], object.minAABB[2] } ,
+            { object.minAABB[0], object.maxAABB[1], object.minAABB[2] } ,
+
+            { object.minAABB[0], object.minAABB[1], object.maxAABB[2] } ,
+            { object.maxAABB[0], object.minAABB[1], object.maxAABB[2] } ,
+            object.maxAABB,
+            { object.minAABB[0], object.maxAABB[1], object.maxAABB[2] }
+        };
+
+        object.collisionRenderable.reset(Mesh::fromBounds({ object.minAABB, object.maxAABB }));
+        object.collisionRenderable->get_vertex_buffer()->set_layout({
+            {"POSITION",    ShaderType::FLOAT3},
+            {"UV",          ShaderType::FLOAT2},
+            {"NORMAL",      ShaderType::FLOAT3},
+            {"TANGENT",     ShaderType::FLOAT3},
+            {"BINORMAL",    ShaderType::FLOAT3}
+        });
 
         aiString albedoFile, normalmapFile;
         auto material = scene->mMaterials[mesh->mMaterialIndex];
@@ -216,7 +236,6 @@ void Scene::add(std::string file) {
             processNode(node->mChildren[i], scene);
         }
     };
-
     // process the assimp node tree, creating a scene object for every mesh with its textures and transformation
     processNode(scene->mRootNode, scene);
 

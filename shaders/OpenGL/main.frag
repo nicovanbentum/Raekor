@@ -92,7 +92,6 @@ float getShadow(DirectionalLight light) {
     vec3 projCoords = FragPosLightSpace.xyz / FragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
 
-    float closestDepth = texture(shadowMap, projCoords.xy).r; 
     float currentDepth = projCoords.z;
 
     float bias = max(maxBias * (1.0 - dot(TangentNormal, dirLightDirection)), minBias);
@@ -156,7 +155,7 @@ vec3 doLight(PointLight light) {
 	vec4 sampled = texture(meshTexture, uv);
 
     // ambient
-    vec3 ambient = 0.1 * sampled.xyz;
+    vec3 ambient = 0.05 * sampled.xyz;
 
     float diff = clamp(dot(TangentNormal, pointLightDirection), 0, 1);
     vec3 diffuse = light.color * diff * sampled.rgb;
@@ -186,7 +185,7 @@ vec3 doLight(DirectionalLight light) {
 	vec4 sampled = texture(meshTexture, uv);
     // vec4 sampled = vec4(0.0, 1.0, 0.0, 1.0);
     // ambient
-    vec3 ambient = 0.1 * sampled.xyz;
+    vec3 ambient = 0.05 * sampled.xyz;
 	
 	// diffuse
     float diff = clamp(dot(TangentNormal, dirLightDirection), 0, 1);
