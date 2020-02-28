@@ -118,6 +118,8 @@ void Application::run() {
     std::unique_ptr<GLShader> hdrShader;
     std::unique_ptr<GLShader> CubemapDebugShader;
     std::unique_ptr<GLShader> SSAOshader;
+    std::unique_ptr<GLShader> blurShader;
+    std::unique_ptr<GLShader> bloomShader;
 
     std::unique_ptr<GLResourceBuffer> dxrb;
     std::unique_ptr<GLResourceBuffer> shadowVertUbo;
@@ -164,6 +166,14 @@ void Application::run() {
     quad_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
     quad_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\quad.frag");
 
+    std::vector<Shader::Stage> blur_shaders;
+    blur_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
+    blur_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gaussian.frag");
+
+    std::vector<Shader::Stage> bloom_shaders;
+    bloom_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
+    bloom_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\bloom.frag");
+
     std::vector<Shader::Stage> hdr_shaders;
     std::vector<std::string> tonemappingShaders = {
        "shaders\\OpenGL\\HDR.frag",
@@ -188,6 +198,8 @@ void Application::run() {
     hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
     CubemapDebugShader.reset(new GLShader(cubedebug_shaders.data(), cubedebug_shaders.size()));
     SSAOshader.reset(new GLShader(SSAO_shaders.data(), SSAO_shaders.size()));
+    blurShader.reset(new GLShader(blur_shaders.data(), blur_shaders.size()));
+    bloomShader.reset(new GLShader(bloom_shaders.data(), bloom_shaders.size()));
 
     skycube.reset(new Mesh(Shape::Cube));
     skycube->get_vertex_buffer()->set_layout({
@@ -218,8 +230,23 @@ void Application::run() {
     uint32_t renderWidth = static_cast<uint32_t>(displays[display].w * .8f); 
     uint32_t renderHeight = static_cast<uint32_t>(displays[display].h * .8f);
 
+    // hardcoded size, TODO: implement framebuffer resizing
+    renderWidth = 2003;
+    renderHeight = 1370;
+
 
     constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
+
+    glTexture2D preprocessTexture;
+    preprocessTexture.bind();
+    preprocessTexture.init(renderWidth, renderHeight, Format::HDR);
+    preprocessTexture.setFilter(Sampling::Filter::Bilinear);
+    preprocessTexture.unbind();
+
+    glFramebuffer preprocessFramebuffer;
+    preprocessFramebuffer.bind();
+    preprocessFramebuffer.attach(preprocessTexture, GL_COLOR_ATTACHMENT0);
+    preprocessFramebuffer.unbind();
 
     glTexture2D hdrTexture;
     hdrTexture.bind();
@@ -227,12 +254,19 @@ void Application::run() {
     hdrTexture.setFilter(Sampling::Filter::Bilinear);
     hdrTexture.unbind();
 
+    glTexture2D bloomTexture;
+    bloomTexture.bind();
+    bloomTexture.init(renderWidth, renderHeight, Format::HDR);
+    bloomTexture.setFilter(Sampling::Filter::Bilinear);
+    bloomTexture.unbind();
+
     glRenderbuffer hdrRenderbuffer;
     hdrRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
 
     glFramebuffer hdrFramebuffer;
     hdrFramebuffer.bind();
     hdrFramebuffer.attach(hdrTexture, GL_COLOR_ATTACHMENT0);
+    hdrFramebuffer.attach(bloomTexture, GL_COLOR_ATTACHMENT1);
     hdrFramebuffer.attach(hdrRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
     hdrFramebuffer.unbind();
 
@@ -243,12 +277,12 @@ void Application::run() {
     finalTexture.unbind();
 
     glRenderbuffer finalRenderbuffer;
-    finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH);
+    finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
 
     glFramebuffer finalFramebuffer;
     finalFramebuffer.bind();
     finalFramebuffer.attach(finalTexture, GL_COLOR_ATTACHMENT0);
-    finalFramebuffer.attach(finalRenderbuffer, GL_DEPTH_ATTACHMENT);
+    finalFramebuffer.attach(finalRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
     finalFramebuffer.unbind();
 
     glTexture2D quadTexture;
@@ -265,6 +299,23 @@ void Application::run() {
     quadFramebuffer.attach(quadTexture, GL_COLOR_ATTACHMENT0);
     quadFramebuffer.attach(quadRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
     quadFramebuffer.unbind();
+
+    glTexture2D pingpongTextures[2];
+    glFramebuffer pingpongFramebuffers[2];
+
+    for (unsigned int i = 0; i < 2; i++) {
+        pingpongTextures[i].bind();
+        pingpongTextures[i].init(renderWidth, renderHeight, Format::HDR);   
+        pingpongTextures[i].setFilter(Sampling::Filter::Bilinear);
+        pingpongTextures[i].setWrap(Sampling::Wrap::ClampEdge);
+        pingpongTextures[i].unbind();
+
+        pingpongFramebuffers[i].bind();
+        pingpongFramebuffers[i].attach(pingpongTextures[i], GL_COLOR_ATTACHMENT0);
+        pingpongFramebuffers[i].unbind();
+    }
+
+
 
     // persistent imgui variable values
     auto active_skybox = skyboxes.find("lake");
@@ -422,6 +473,9 @@ void Application::run() {
     static bool wireframeOnly = false;
     static bool frustrumCulling = false;
 
+    glm::vec3 bloomThreshold { 2.0f, 2.0f, 2.0f };
+    static bool doBloom = true;
+
     //////////////////////////////////////////////////////////////
     //// main application loop //////////////////////////////////
     ////////////////////////////////////////////////////////////
@@ -516,7 +570,6 @@ void Application::run() {
         // bind the main framebuffer
         hdrFramebuffer.bind();
         glViewport(0, 0, renderWidth, renderHeight);
-
         Render::Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
 
         // render a cubemap with depth testing disabled to generate a skybox
@@ -535,6 +588,7 @@ void Application::run() {
         mainShader->getUniform("minBias") = uniforms.minBias;
         mainShader->getUniform("maxBias") = uniforms.maxBias;
         mainShader->getUniform("farPlane") = farPlane;
+        mainShader->getUniform("bloomThreshold") = bloomThreshold;
         // bind depth map to 1
         shadowTexture.bindToSlot(1);
         // bind omni depth map to 2
@@ -592,9 +646,34 @@ void Application::run() {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
-
-        // unbind the framebuffer to switch to the application's backbuffer for ImGui
+        // unbind the main frame buffer
         hdrFramebuffer.unbind();
+
+        // perform gaussian blur on the bloom texture using "ping pong" framebuffers that
+        // take each others color attachments as input
+        bool horizontal = true, firstIteration = true;
+        blurShader->bind();
+        for (unsigned int i = 0; i < 10; i++) {
+            pingpongFramebuffers[horizontal].bind();
+            blurShader->getUniform("horizontal") = horizontal;
+            if (firstIteration) {
+                bloomTexture.bindToSlot(0);
+                firstIteration = false;
+            } else {
+                pingpongTextures[!horizontal].bindToSlot(0);
+            }
+            Quad->render();
+            horizontal = !horizontal;
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // blend the bloom and scene texture together
+        preprocessFramebuffer.bind();
+        bloomShader->bind();
+        hdrTexture.bindToSlot(0);
+        pingpongTextures[!horizontal].bindToSlot(1);
+        Quad->render();
+        preprocessFramebuffer.unbind();
 
         static bool hdr = true;
         if (hdr) {
@@ -604,7 +683,11 @@ void Application::run() {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             hdrUbo->update(&hdr_ubo, sizeof(HDR_UBO));
             hdrUbo->bind(0);
-            hdrTexture.bindToSlot(0);
+            if (doBloom) {
+                preprocessTexture.bindToSlot(0);
+            } else {
+                hdrTexture.bindToSlot(0);
+            }
             Quad->render();
             finalFramebuffer.unbind();
         }
@@ -771,19 +854,6 @@ void Application::run() {
             debugShadows = !debugShadows;
         }
 
-        static bool doNormalMapping = true;
-        if (ImGui::RadioButton("Normal mapping", doNormalMapping)) {
-            if (doNormalMapping) {
-                modelStages[0].defines = { "NO_NORMAL_MAP" };
-                modelStages[1].defines = { "NO_NORMAL_MAP" };
-            } else {
-                modelStages[0].defines.clear();
-                modelStages[1].defines.clear();
-            }
-            mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
-            doNormalMapping = !doNormalMapping;
-        }
-
         if (ImGui::Button("Reload shaders")) {
             mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
         }
@@ -812,11 +882,25 @@ void Application::run() {
         }
         
         ImGui::NewLine();
-        ImGui::Text("HDR");
+        ImGui::Text("Post-processing");
         ImGui::Separator();
-        if (ImGui::RadioButton("Enabled", hdr)) {
-            hdr = !hdr;
+        if (ImGui::Checkbox("HDR", &hdr)) {}
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Bloom", &doBloom)) {}
+        static bool doNormalMapping = true;
+        if (ImGui::Checkbox("Normal mapping", &doNormalMapping)) {
+            if (doNormalMapping) {
+                modelStages[0].defines = { "NO_NORMAL_MAP" };
+                modelStages[1].defines = { "NO_NORMAL_MAP" };
+            }
+            else {
+                modelStages[0].defines.clear();
+                modelStages[1].defines.clear();
+            }
+            mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
         }
+
+        if (ImGui::DragFloat3("Bloom Threshold", glm::value_ptr(bloomThreshold), 0.001f, 0.0f, 10.0f)) {}
 
         static const char* current = tonemappingShaders.begin()->c_str();
         if (ImGui::BeginCombo("Tonemapping", current)) {
@@ -846,7 +930,7 @@ void Application::run() {
 
         ImGui::Begin("Camera Properties");
         if (ImGui::DragFloat("FOV", &fov, 1.0f, 35.0f, 120.0f)) {
-            camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 1.0f, 100.0f);
+            camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 0.1f, 100.0f);
         }
         if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.001f, FLT_MAX, "%.3f")) {}
         if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
@@ -899,31 +983,36 @@ void Application::run() {
         renderWidth = static_cast<uint32_t>(size.x), renderHeight = static_cast<uint32_t>(size.y - 25.0f);
         auto pos = ImGui::GetWindowPos();
 
-        // resizing TODO: simplify this
-        hdrTexture.bind();
-        hdrTexture.init(renderWidth, renderHeight, Format::HDR);
-        hdrTexture.unbind();
+        bloomTexture.bind();
+        bloomTexture.init(renderWidth, renderHeight, Format::HDR);
+        bloomTexture.unbind();
 
-        hdrRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+        //// resizing TODO: simplify this
+        //hdrTexture.bind();
+        //hdrTexture.init(renderWidth, renderHeight, Format::HDR);
+        //hdrTexture.unbind();
 
-        hdrFramebuffer.bind();
-        hdrFramebuffer.attach(hdrTexture, GL_COLOR_ATTACHMENT0);
-        hdrFramebuffer.attach(hdrRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-        hdrFramebuffer.unbind();
+        //hdrRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
 
-        finalTexture.bind();
-        finalTexture.init(renderWidth, renderHeight, Format::SDR);
-        finalTexture.unbind();
+        //hdrFramebuffer.bind();
+        //hdrFramebuffer.attach(hdrTexture, GL_COLOR_ATTACHMENT0);
+        //hdrFramebuffer.attach(hdrRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+        //hdrFramebuffer.attach(bloomTexture, GL_COLOR_ATTACHMENT1);
+        //hdrFramebuffer.unbind();
 
-        finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+        //finalTexture.bind();
+        //finalTexture.init(renderWidth, renderHeight, Format::SDR);
+        //finalTexture.unbind();
 
-        finalFramebuffer.bind();
-        finalFramebuffer.attach(finalTexture, GL_COLOR_ATTACHMENT0);
-        finalFramebuffer.attach(finalRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-        finalFramebuffer.unbind();
+        //finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+
+        //finalFramebuffer.bind();
+        //finalFramebuffer.attach(finalTexture, GL_COLOR_ATTACHMENT0);
+        //finalFramebuffer.attach(finalRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+        //finalFramebuffer.unbind();
 
 
-        camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 1.0f, 100.0f);
+        camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
         ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
         if (debugShadows) {

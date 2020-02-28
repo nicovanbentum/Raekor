@@ -14,6 +14,7 @@ uniform vec4 sunColor;
 uniform float minBias;
 uniform float maxBias;
 uniform float farPlane;
+uniform vec3 bloomThreshold;
 
 // in vars
 in vec3 PosViewspace;
@@ -34,7 +35,9 @@ in vec3 cameraDirection;
 in vec3 cameraPos;
 
 // output data back to our openGL program
-out vec4 final_color;
+layout (location = 0) out vec4 final_color;
+layout (location = 1) out vec4 bloom_color;
+
 
 // constant mesh values
 layout(binding = 0) uniform sampler2D meshTexture;
@@ -86,6 +89,14 @@ void main()
 	result += doLight(dirLight);
 
     final_color = vec4(result, sampled.a);
+
+	float brightness = dot(final_color.rgb, bloomThreshold);
+	if(brightness > 1.0) 
+		bloom_color = vec4(final_color.rgb, 1.0);
+	else 
+		bloom_color = vec4(0.0, 0.0, 0.0, 1.0);
+
+
 }
 
 float getShadow(DirectionalLight light) {

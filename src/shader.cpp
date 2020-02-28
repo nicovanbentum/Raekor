@@ -51,6 +51,8 @@ void GLShader::reload(Stage* stages, size_t stageCount) {
             ifs.seekg(0, std::ios::beg);
             ifs.read(&buffer[0], buffer.size());
             ifs.close();
+        } else {
+            std::cout << stage.filepath << " does not exist on disk." << "\n";
         }
 
         auto it = buffer.find_first_of('\n') + 1;
