@@ -119,9 +119,6 @@ void Application::run() {
     std::unique_ptr<GLShader> CubemapDebugShader;
     std::unique_ptr<GLShader> SSAOshader;
 
-    std::unique_ptr<GLFrameBuffer> hdrBuffer;
-    std::unique_ptr<GLFrameBuffer> finalBuffer;
-
     std::unique_ptr<GLResourceBuffer> dxrb;
     std::unique_ptr<GLResourceBuffer> shadowVertUbo;
     std::unique_ptr<GLResourceBuffer> extraUbo;
@@ -218,29 +215,41 @@ void Application::run() {
     mat4Ubo.reset(new GLResourceBuffer(sizeof(glm::mat4)));
     hdrUbo.reset(new GLResourceBuffer(sizeof(HDR_UBO)));
 
-    float screenWidth = displays[display].w * .8f, screenHeight = displays[display].h * .8f;
+    uint32_t renderWidth = static_cast<uint32_t>(displays[display].w * .8f); 
+    uint32_t renderHeight = static_cast<uint32_t>(displays[display].h * .8f);
 
-    FrameBuffer::ConstructInfo finalInfo = {};
-    finalInfo.size = { screenWidth, screenHeight };
-    finalInfo.depthOnly = false;
-
-    FrameBuffer::ConstructInfo renderFBinfo = {};
-    renderFBinfo.size = { screenWidth, screenHeight };
-    renderFBinfo.depthOnly = false;
-    renderFBinfo.HDR = true;
-
-    finalBuffer.reset(new GLFrameBuffer(&finalInfo));
-    hdrBuffer.reset(new GLFrameBuffer(&renderFBinfo));
 
     constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 
-    //FrameBuffer::ConstructInfo quadFBinfo = {};
-    //quadFBinfo.size.x = SHADOW_WIDTH;
-    //quadFBinfo.size.y = SHADOW_HEIGHT;
-    //quadFBinfo.depthOnly = false;
-    //quadFBinfo.writeOnly = false;
+    glTexture2D hdrTexture;
+    hdrTexture.bind();
+    hdrTexture.init(renderWidth, renderHeight, Format::HDR);
+    hdrTexture.setFilter(Sampling::Filter::Bilinear);
+    hdrTexture.unbind();
 
-    //quadFB.reset(new GLFrameBuffer(&quadFBinfo));
+    glRenderbuffer hdrRenderbuffer;
+    hdrRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+
+    glFramebuffer hdrFramebuffer;
+    hdrFramebuffer.bind();
+    hdrFramebuffer.attach(hdrTexture, GL_COLOR_ATTACHMENT0);
+    hdrFramebuffer.attach(hdrRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+    hdrFramebuffer.unbind();
+
+    glTexture2D finalTexture;
+    finalTexture.bind();
+    finalTexture.init(renderWidth, renderHeight, Format::SDR);
+    finalTexture.setFilter(Sampling::Filter::Bilinear);
+    finalTexture.unbind();
+
+    glRenderbuffer finalRenderbuffer;
+    finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH);
+
+    glFramebuffer finalFramebuffer;
+    finalFramebuffer.bind();
+    finalFramebuffer.attach(finalTexture, GL_COLOR_ATTACHMENT0);
+    finalFramebuffer.attach(finalRenderbuffer, GL_DEPTH_ATTACHMENT);
+    finalFramebuffer.unbind();
 
     glTexture2D quadTexture;
     quadTexture.bind();
@@ -505,7 +514,9 @@ void Application::run() {
         quadFramebuffer.unbind();
 
         // bind the main framebuffer
-        hdrBuffer->bind();
+        hdrFramebuffer.bind();
+        glViewport(0, 0, renderWidth, renderHeight);
+
         Render::Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
 
         // render a cubemap with depth testing disabled to generate a skybox
@@ -583,18 +594,19 @@ void Application::run() {
 
 
         // unbind the framebuffer to switch to the application's backbuffer for ImGui
-        hdrBuffer->unbind();
+        hdrFramebuffer.unbind();
 
         static bool hdr = true;
         if (hdr) {
-            finalBuffer->bind();
+            finalFramebuffer.bind();
+            glViewport(0, 0, renderWidth, renderHeight);
             hdrShader->bind();
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             hdrUbo->update(&hdr_ubo, sizeof(HDR_UBO));
             hdrUbo->bind(0);
-            hdrBuffer->bindTexture(0);
+            hdrTexture.bindToSlot(0);
             Quad->render();
-            finalBuffer->unbind();
+            finalFramebuffer.unbind();
         }
 
         //get new frame for ImGui and ImGuizmo
@@ -884,10 +896,34 @@ void Application::run() {
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
         static bool resizing = true;
         auto size = ImGui::GetWindowSize();
+        renderWidth = static_cast<uint32_t>(size.x), renderHeight = static_cast<uint32_t>(size.y - 25.0f);
         auto pos = ImGui::GetWindowPos();
-        hdrBuffer->resize({ size.x, size.y - 25 });
-        finalBuffer->resize({ size.x, size.y - 25 });
-        camera.getProjection() = glm::perspectiveRH(glm::radians(fov), size.x / size.y, 1.0f, 100.0f);
+
+        // resizing TODO: simplify this
+        hdrTexture.bind();
+        hdrTexture.init(renderWidth, renderHeight, Format::HDR);
+        hdrTexture.unbind();
+
+        hdrRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+
+        hdrFramebuffer.bind();
+        hdrFramebuffer.attach(hdrTexture, GL_COLOR_ATTACHMENT0);
+        hdrFramebuffer.attach(hdrRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+        hdrFramebuffer.unbind();
+
+        finalTexture.bind();
+        finalTexture.init(renderWidth, renderHeight, Format::SDR);
+        finalTexture.unbind();
+
+        finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+
+        finalFramebuffer.bind();
+        finalFramebuffer.attach(finalTexture, GL_COLOR_ATTACHMENT0);
+        finalFramebuffer.attach(finalRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+        finalFramebuffer.unbind();
+
+
+        camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 1.0f, 100.0f);
         ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
         // function that calls an ImGui image with the framebuffer's color stencil data
         if (debugShadows) {
@@ -895,9 +931,9 @@ void Application::run() {
         }
         else {
             if (hdr) 
-                finalBuffer->ImGui_Image();
+                ImGui::Image(finalTexture.ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
             else 
-                hdrBuffer->ImGui_Image();
+                ImGui::Image(hdrTexture.ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
         }
 
         ImGui::End();

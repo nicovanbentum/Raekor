@@ -64,7 +64,7 @@ namespace Format {
     static constexpr Format Depth   { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT };
     static constexpr Format sRGBA   { GL_SRGB_ALPHA, GL_RGBA, GL_UNSIGNED_BYTE };
     static constexpr Format RGBA    { GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE };
-    static constexpr Format HDR     { GL_RGBA16F, GL_RGB, GL_FLOAT };
+    static constexpr Format HDR     { GL_RGB16F, GL_RGB, GL_FLOAT };
     static constexpr Format SDR     { GL_RGB, GL_RGB, GL_FLOAT };
 }
 
