@@ -62,6 +62,7 @@ void main()
 	#endif
 
 	// calculate the light directions for tangent space
+	// convert the point light position to world space, subtract the view space vertex position and multiply it with TBN to get it in bitangent space
 	pointLightDirection = TBN * normalize(vec3(ubo.view * ubo.pointLightPos) - PosViewspace);
 	dirLightDirection = TBN * normalize(vec3(ubo.view * ubo.DirLightPos) - PosViewspace);
 	cameraDirection = TBN * normalize(-PosViewspace);

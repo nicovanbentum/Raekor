@@ -10,11 +10,13 @@ layout (std140) uniform stuff {
 	vec4 pointLightPos;
 } ubo;
 
+
 uniform vec4 sunColor;
 uniform float minBias;
 uniform float maxBias;
 uniform float farPlane;
 uniform vec3 bloomThreshold;
+
 
 // in vars
 in vec3 PosViewspace;
@@ -44,6 +46,11 @@ layout(binding = 0) uniform sampler2D meshTexture;
 layout(binding = 1) uniform sampler2D shadowMap;
 layout(binding = 2) uniform samplerCube shadowMapOmni;
 layout(binding = 3) uniform sampler2D normalMap;
+
+// GBUFFER textures
+layout(binding = 4) uniform sampler2D gPositions;
+layout(binding = 5) uniform sampler2D gColors;
+layout(binding = 6) uniform sampler2D gNormals;
 
 struct DirectionalLight {
 	vec3 position;

@@ -120,6 +120,7 @@ void Application::run() {
     std::unique_ptr<GLShader> SSAOshader;
     std::unique_ptr<GLShader> blurShader;
     std::unique_ptr<GLShader> bloomShader;
+    std::unique_ptr<GLShader> GBufferShader;
 
     std::unique_ptr<GLResourceBuffer> dxrb;
     std::unique_ptr<GLResourceBuffer> shadowVertUbo;
@@ -191,6 +192,10 @@ void Application::run() {
     SSAO_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\SSAO.vert");
     SSAO_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\SSAO.frag");
 
+    std::vector<Shader::Stage> gbuffer_shaders;
+    gbuffer_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\gbuffer.vert");
+    gbuffer_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gbuffer.frag");
+
     skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
     depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
     quadShader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
@@ -200,6 +205,7 @@ void Application::run() {
     SSAOshader.reset(new GLShader(SSAO_shaders.data(), SSAO_shaders.size()));
     blurShader.reset(new GLShader(blur_shaders.data(), blur_shaders.size()));
     bloomShader.reset(new GLShader(bloom_shaders.data(), bloom_shaders.size()));
+    GBufferShader.reset(new GLShader(gbuffer_shaders.data(), gbuffer_shaders.size()));
 
     skycube.reset(new Mesh(Shape::Cube));
     skycube->get_vertex_buffer()->set_layout({
@@ -236,6 +242,35 @@ void Application::run() {
 
 
     constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
+
+    glTexture2D albedoTexture, normalTexture, positionTexture;
+    
+    albedoTexture.bind();
+    albedoTexture.init(renderWidth, renderHeight, Format::HDR);
+    albedoTexture.setFilter(Sampling::Filter::None);
+    albedoTexture.unbind();
+
+    normalTexture.bind();
+    normalTexture.init(renderWidth, renderHeight, Format::HDR);
+    normalTexture.setFilter(Sampling::Filter::None);
+    normalTexture.unbind();
+
+    positionTexture.bind();
+    positionTexture.init(renderWidth, renderHeight, Format::HDR);
+    positionTexture.setFilter(Sampling::Filter::None);
+    positionTexture.unbind();
+
+    glRenderbuffer GDepthBuffer;
+    GDepthBuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+
+    glFramebuffer GBuffer;
+    GBuffer.bind();
+    GBuffer.attach(positionTexture,     GL_COLOR_ATTACHMENT0);
+    GBuffer.attach(normalTexture,       GL_COLOR_ATTACHMENT1);
+    GBuffer.attach(albedoTexture,       GL_COLOR_ATTACHMENT2);
+    GBuffer.attach(GDepthBuffer,        GL_DEPTH_STENCIL_ATTACHMENT);
+    GBuffer.unbind();
+
 
     glTexture2D preprocessTexture;
     preprocessTexture.bind();
@@ -567,20 +602,47 @@ void Application::run() {
         shadowTexture.unbind();
         quadFramebuffer.unbind();
 
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glViewport(0, 0, renderWidth, renderHeight);
+        GBuffer.bind();
+        GBufferShader->bind();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        GBufferShader->getUniform("projection") = camera.getProjection();
+        GBufferShader->getUniform("view") = camera.getView();
+
+        // render the scene 
+        for (auto& object : scene.objects) {
+            if (!object.albedo->hasAlpha) {
+                GBufferShader->getUniform("model") = object.transform;
+                object.render();
+            }
+        }
+
+        for (auto& object : scene.objects) {
+            if (object.albedo->hasAlpha) {
+                GBufferShader->getUniform("model") = object.transform;
+                object.render();
+            }
+        }
+
+        GBuffer.unbind();
+
+
         // bind the main framebuffer
         hdrFramebuffer.bind();
         glViewport(0, 0, renderWidth, renderHeight);
         Render::Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
 
-        // render a cubemap with depth testing disabled to generate a skybox
-        // update the camera without translation
-        skyShader->bind();
-        skyShader->getUniform("view") = glm::mat4(glm::mat3(camera.getView()));
-        skyShader->getUniform("proj") = camera.getProjection();
+        //// render a cubemap with depth testing disabled to generate a skybox
+        //// update the camera without translation
+        //skyShader->bind();
+        //skyShader->getUniform("view") = glm::mat4(glm::mat3(camera.getView()));
+        //skyShader->getUniform("proj") = camera.getProjection();
 
-        sky_image->bind(0);
-        skycube->bind();
-        Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
+        //sky_image->bind(0);
+        //skycube->bind();
+        //Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
 
         // set uniforms
         mainShader->bind();
@@ -862,7 +924,7 @@ void Application::run() {
 
         ImGui::Text("Directional Light");
         ImGui::Separator();
-        if (ImGui::DragFloat2("Angle", glm::value_ptr(sunCamera.getAngle()), 0.001f)) {}
+        if (ImGui::DragFloat2("Angle", glm::value_ptr(sunCamera.getAngle()), 0.01f)) {}
         
         if (ImGui::DragFloat2("Planes", glm::value_ptr(planes), 0.1f)) {
             sunCamera.getProjection() = glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
