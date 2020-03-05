@@ -10,7 +10,7 @@
 namespace Raekor {
 
 Shader* Shader::construct(Stage* stages, size_t stageCount) {
-    switch (Renderer::get_activeAPI()) {
+    switch (Renderer::getActiveAPI()) {
         case RenderAPI::OPENGL: {
             LOG_CATCH(return new GLShader(stages, stageCount));
 

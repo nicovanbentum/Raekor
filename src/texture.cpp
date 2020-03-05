@@ -11,7 +11,7 @@ namespace Raekor {
 
 Texture* Texture::construct(const std::string& path) {
     if (path.empty()) return nullptr;
-    auto active_api = Renderer::get_activeAPI();
+    auto active_api = Renderer::getActiveAPI();
     switch (active_api) {
         case RenderAPI::OPENGL: {
             return new GLTexture(path);
@@ -26,7 +26,7 @@ Texture* Texture::construct(const std::string& path) {
 }
 
 Texture* Texture::construct(const std::array <std::string, 6>& face_files) {
-    auto active_api = Renderer::get_activeAPI();
+    auto active_api = Renderer::getActiveAPI();
     switch (active_api) {
     case RenderAPI::OPENGL: {
         return new GLTextureCube(face_files);
@@ -41,7 +41,7 @@ Texture* Texture::construct(const std::array <std::string, 6>& face_files) {
 }
 
 Texture* Texture::construct(const Stb::Image& image) {
-    auto active_api = Renderer::get_activeAPI();
+    auto active_api = Renderer::getActiveAPI();
     switch (active_api) {
     case RenderAPI::OPENGL: {
         return new GLTexture(image);

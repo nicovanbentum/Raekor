@@ -13,35 +13,9 @@ static void log_msg(GLenum source, GLenum type, GLuint id, GLenum severity, GLsi
     }
 }
 
-bool Renderer::set_activeAPI(const RenderAPI new_api) {
-#ifdef _WIN32
-    if(activeAPI != new_api) {
-        activeAPI = new_api;
-        return true;
-    }
-#endif
-// if we're not on linux we just never change API
-// TODO: subject to change if Vulkan is ever implemented
-    return false;
-}
-
-// global enum variable for changing the active render API
+// globals for the active API and renderer
 RenderAPI Renderer::activeAPI = RenderAPI::OPENGL;
-std::unique_ptr<Renderer> Render::renderer;
-
-Renderer* Renderer::construct(SDL_Window* window) {
-    switch (activeAPI) {
-        case RenderAPI::OPENGL: {
-            return new GLRenderer(window);
-        } break;
-#ifdef _WIN32
-        case RenderAPI::DIRECTX11: {
-            return new DXRenderer(window);
-        } break;
-#endif
-    }
-    return nullptr;
-}
+Renderer* Renderer::instance = nullptr;
 
 GLRenderer::GLRenderer(SDL_Window* window) {
     render_window = window;
@@ -67,13 +41,19 @@ GLRenderer::GLRenderer(SDL_Window* window) {
 
     glDebugMessageCallback(log_msg, nullptr);
 
-    // set opengl depth testing and culling
-    //glEnable(GL_CULL_FACE);
+    // culling
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
+    // winding order and cube maps
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     glFrontFace(GL_CCW);
+
+    // blending
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    // depth testing
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
@@ -88,31 +68,72 @@ GLRenderer::~GLRenderer() {
     SDL_GL_DeleteContext(context);
 }
 
-void GLRenderer::Clear(glm::vec4 color) {
+void GLRenderer::impl_Clear(glm::vec4 color) {
     glClearColor(color.r, color.g, color.b, color.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
+void GLRenderer::impl_ImGui_NewFrame(SDL_Window* window) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
 }
 
-void GLRenderer::ImGui_Render() {
+void GLRenderer::impl_ImGui_Render() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void GLRenderer::SwapBuffers(bool vsync) const {
+void GLRenderer::impl_SwapBuffers(bool vsync) const {
     SDL_GL_SetSwapInterval(vsync);
     SDL_GL_SwapWindow(render_window);
 }
 
-void GLRenderer::DrawIndexed(unsigned int size, bool depth_test) {
+void GLRenderer::impl_DrawIndexed(unsigned int size, bool depth_test) {
     if (!depth_test) glDepthMask(false);
     glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
     if (!depth_test) glDepthMask(true);
+}
+
+void Renderer::Init(SDL_Window * window) {
+    switch (activeAPI) {
+        case RenderAPI::OPENGL: {
+            instance = new GLRenderer(window);
+        } break;
+#ifdef _WIN32
+        case RenderAPI::DIRECTX11: {
+            instance = new DXRenderer(window);
+        } break;
+#endif
+    }
+}
+
+void Renderer::Clear(glm::vec4 color) {
+    instance->impl_Clear(color);
+}
+
+void Renderer::ImGuiRender() {
+    instance->impl_ImGui_Render();
+}
+
+void Renderer::ImGuiNewFrame(SDL_Window* window) {
+    instance->impl_ImGui_NewFrame(window);
+}
+
+void Renderer::DrawIndexed(unsigned int size, bool depth_test) {
+    instance->impl_DrawIndexed(size, depth_test);
+}
+
+void Renderer::SwapBuffers(bool vsync) {
+    instance->impl_SwapBuffers(vsync);
+}
+
+RenderAPI Renderer::getActiveAPI() {
+    return activeAPI;
+}
+
+void Renderer::setAPI(const RenderAPI api) {
+    activeAPI = api;
 }
 
 } // namespace Raekor

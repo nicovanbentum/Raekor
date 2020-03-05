@@ -32,14 +32,14 @@ std::vector<Index>  i_cube = {
 };
 
 std::vector<Vertex> v_quad = {
-    {{-1.0f, 1.0f, 0.0f},   {0.0f, 1.0f},   {}, {}, {}},
     {{-1.0f, -1.0f, 0.0f},  {0.0f, 0.0f},   {}, {}, {}},
+    {{1.0f, -1.0f, 0.0f},   {1.0f, 0.0f},   {}, {}, {}},
     {{1.0f, 1.0f, 0.0f},    {1.0f, 1.0f},   {}, {}, {}},
-    {{1.0f, -1.0f, 0.0f},   {1.0f, 0.0f},   {}, {}, {}}
+    {{-1.0f, 1.0f, 0.0f},   {0.0f, 1.0f},   {}, {}, {}}
 };
 
 std::vector<Index> i_quad = {
-    {0, 1, 2}, {1, 2, 3}
+    {0, 1, 3}, {3, 1, 2}
 };
 
 
@@ -57,8 +57,7 @@ Mesh::Mesh(Shape basic_shape) {
     }
 }
 
-Mesh::Mesh(const std::string& fp, const std::vector<Vertex>& vb, const std::vector<Index>& ib) 
-: name(fp) {
+Mesh::Mesh(const std::vector<Vertex>& vb, const std::vector<Index>& ib) {
     set_vertex_buffer(vb);
     set_index_buffer(ib);
 }

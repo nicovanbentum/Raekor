@@ -17,16 +17,13 @@ layout (std140) uniform stuff {
 uniform mat4 model;
 
 //we send out a uv coordinate for our frag shader
-out vec3 PosViewspace;
 out vec3 PosWorldspace;
 out vec2 uv;
-out vec3 normalViewspace;
 out vec4 FragPosLightSpace;
+out vec3 normal;
 
 out vec3 directionalLightPosition;
-out vec3 directionalLightPositionViewSpace;
 out vec3 pointLightPosition;
-out vec3 pointLightPositionViewSpace;
 
 out vec3 pointLightDirection;
 out vec3 dirLightDirection;
@@ -36,18 +33,15 @@ out vec3 cameraPos;
 void main()
 {
 	// stuff in view space
-	PosViewspace = vec3(ubo.view * model * vec4(v_pos, 1.0));
-	directionalLightPositionViewSpace = vec3(ubo.view * ubo.DirLightPos);
 
 	PosWorldspace = vec3(model * vec4(v_pos, 1.0));
-	normalViewspace = mat3(transpose(inverse(ubo.view * model))) * v_normal;
     uv = v_uv;
+	normal = normalize(v_normal);
 	FragPosLightSpace = ubo.lightSpaceMatrix * vec4(PosWorldspace, 1.0);
-    gl_Position = ubo.projection * ubo.view * model * vec4(v_pos, 1.0);
+    gl_Position = vec4(v_pos.x, v_pos.y, 0.0, 1.0); 
 
     //////////////////////////
 	pointLightPosition = vec3(ubo.pointLightPos);
-	pointLightPositionViewSpace = vec3(ubo.view * ubo.pointLightPos);
 	directionalLightPosition = vec3(ubo.DirLightPos);
 	cameraPos = vec3(ubo.cameraPosition);
 
@@ -60,10 +54,4 @@ void main()
 	#ifdef NO_NORMAL_MAP
 	TBN = mat3(1.0f);
 	#endif
-
-	// calculate the light directions for tangent space
-	// convert the point light position to world space, subtract the view space vertex position and multiply it with TBN to get it in bitangent space
-	pointLightDirection = TBN * normalize(vec3(ubo.view * ubo.pointLightPos) - PosViewspace);
-	dirLightDirection = TBN * normalize(vec3(ubo.view * ubo.DirLightPos) - PosViewspace);
-	cameraDirection = TBN * normalize(-PosViewspace);
 }

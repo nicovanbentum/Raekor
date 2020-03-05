@@ -82,8 +82,8 @@ void Application::run() {
     ImGui::StyleColorsDark();
 
     // create the renderer object that does sets up the API and does all the runtime magic
-    Renderer::set_activeAPI(RenderAPI::OPENGL);
-    Render::Init(directxwindow);
+    Renderer::setAPI(RenderAPI::OPENGL);
+    Renderer::Init(directxwindow);
 
     // load the model files listed in the project section of config.json
 // basically acts like a budget project file
@@ -241,7 +241,7 @@ void Application::run() {
     renderHeight = 1370;
 
 
-    constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
+    constexpr unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
     glTexture2D albedoTexture, normalTexture, positionTexture;
     
@@ -509,7 +509,7 @@ void Application::run() {
     static bool frustrumCulling = false;
 
     glm::vec3 bloomThreshold { 2.0f, 2.0f, 2.0f };
-    static bool doBloom = true;
+    static bool doBloom = false;
 
     //////////////////////////////////////////////////////////////
     //// main application loop //////////////////////////////////
@@ -521,7 +521,7 @@ void Application::run() {
         camera.update(true);
 
         // clear the main window
-        Render::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
+        Renderer::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
 
         // setup the shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -549,6 +549,7 @@ void Application::run() {
                 object.render();
             }
         }
+        
 
         // setup the 3D shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -592,10 +593,11 @@ void Application::run() {
         }
         glCullFace(GL_BACK);
 
+
         // bind the generated shadow map and render it to a quad for debugging in-editor
         shadowTexture.bind();
         quadFramebuffer.bind();
-        Render::Clear({ 1,0,0,1 });
+        Renderer::Clear({ 1,0,0,1 });
         quadShader->bind();
         Quad->render();
         quadShader->unbind();
@@ -628,11 +630,10 @@ void Application::run() {
 
         GBuffer.unbind();
 
-
         // bind the main framebuffer
         hdrFramebuffer.bind();
         glViewport(0, 0, renderWidth, renderHeight);
-        Render::Clear({ 0.0f, 0.32f, 0.42f, 1.0f });
+        Renderer::Clear({ 0.0f, 0.0f, 0.0f, 1.0f });
 
         //// render a cubemap with depth testing disabled to generate a skybox
         //// update the camera without translation
@@ -656,6 +657,10 @@ void Application::run() {
         // bind omni depth map to 2
         glBindTextureUnit(2, depthCubeTexture);
 
+        positionTexture.bindToSlot(4);
+        albedoTexture.bindToSlot(5);
+        normalTexture.bindToSlot(6);
+
         ubo.view = camera.getView();
         ubo.projection = camera.getProjection();
         ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
@@ -667,34 +672,7 @@ void Application::run() {
         dxrb->update(&ubo, sizeof(VertexUBO));
         dxrb->bind(0);
 
-        // render the scene 
-        for (auto& object : scene.objects) {
-            if (!object.albedo->hasAlpha) {
-                if (frustrumCulling) {
-                    if (camera.isVisible(object)) {
-                        mainShader->getUniform("model") = object.transform;
-                        object.render();
-                    }
-                } else {
-                    mainShader->getUniform("model") = object.transform;
-                    object.render();
-                }
-            }
-        }
-
-        for (auto& object : scene.objects) {
-            if (object.albedo->hasAlpha) {
-                if (frustrumCulling) {
-                    if (camera.isVisible(object)) {
-                        mainShader->getUniform("model") = object.transform;
-                        object.render();
-                    }
-                } else {
-                    mainShader->getUniform("model") = object.transform;
-                    object.render();
-                }
-            }
-        }
+        Quad->render();
 
         if (wireframeOnly) {
             // render collision shapes
@@ -737,6 +715,7 @@ void Application::run() {
         Quad->render();
         preprocessFramebuffer.unbind();
 
+        
         static bool hdr = true;
         if (hdr) {
             finalFramebuffer.bind();
@@ -755,7 +734,7 @@ void Application::run() {
         }
 
         //get new frame for ImGui and ImGuizmo
-        Render::ImGui_NewFrame(directxwindow);
+        Renderer::ImGuiNewFrame(directxwindow);
         ImGuizmo::BeginFrame();
         ImGuizmo::Enable(true);
 
@@ -1040,38 +1019,17 @@ void Application::run() {
         // renderer viewport
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
-        static bool resizing = true;
+        static bool resizing = false;
         auto size = ImGui::GetWindowSize();
-        renderWidth = static_cast<uint32_t>(size.x), renderHeight = static_cast<uint32_t>(size.y - 25.0f);
+        if (renderWidth != size.x || renderHeight != size.y - 25) {
+            resizing = true;
+            renderWidth = static_cast<uint32_t>(size.x), renderHeight = static_cast<uint32_t>(size.y - 25.0f);
+        }
         auto pos = ImGui::GetWindowPos();
 
         bloomTexture.bind();
         bloomTexture.init(renderWidth, renderHeight, Format::HDR);
         bloomTexture.unbind();
-
-        //// resizing TODO: simplify this
-        //hdrTexture.bind();
-        //hdrTexture.init(renderWidth, renderHeight, Format::HDR);
-        //hdrTexture.unbind();
-
-        //hdrRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
-
-        //hdrFramebuffer.bind();
-        //hdrFramebuffer.attach(hdrTexture, GL_COLOR_ATTACHMENT0);
-        //hdrFramebuffer.attach(hdrRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-        //hdrFramebuffer.attach(bloomTexture, GL_COLOR_ATTACHMENT1);
-        //hdrFramebuffer.unbind();
-
-        //finalTexture.bind();
-        //finalTexture.init(renderWidth, renderHeight, Format::SDR);
-        //finalTexture.unbind();
-
-        //finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
-
-        //finalFramebuffer.bind();
-        //finalFramebuffer.attach(finalTexture, GL_COLOR_ATTACHMENT0);
-        //finalFramebuffer.attach(finalRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-        //finalFramebuffer.unbind();
 
 
         camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
@@ -1091,8 +1049,25 @@ void Application::run() {
         ImGui::PopStyleVar();
 
         ImGui::End();
-        Render::ImGui_Render();
-        Render::SwapBuffers(use_vsync);
+        Renderer::ImGuiRender();
+        Renderer::SwapBuffers(use_vsync);
+
+        //if (resizing) {
+        //    // resizing
+        //    hdrTexture.bind();
+        //    hdrTexture.init(renderWidth, renderHeight, Format::HDR);
+
+        //    hdrRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+
+        //    finalTexture.bind();
+        //    finalTexture.init(renderWidth, renderHeight, Format::SDR);
+
+        //    finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+
+        //    bloomTexture.bind();
+        //    bloomTexture.init(renderWidth, renderHeight, Format::HDR);
+        //}
+
         dt_timer.stop();
         dt = dt_timer.elapsed_ms();
 

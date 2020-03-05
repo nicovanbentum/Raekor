@@ -28,7 +28,7 @@ void Transformable::recalc_transform() {
 }
 
 SceneObject::SceneObject(const std::string& fp, const std::vector<Vertex>& vbuffer, const std::vector<Index>& ibuffer)
-    : Mesh(fp, vbuffer, ibuffer) {
+    : Mesh(vbuffer, ibuffer) {
     vb->set_layout({
         {"POSITION",    ShaderType::FLOAT3},
         {"UV",          ShaderType::FLOAT2},
@@ -43,7 +43,7 @@ void SceneObject::render() {
     if (normal != nullptr) normal->bind(3);
     bind();
     int drawCount = ib->get_count();
-    Render::DrawIndexed(drawCount);
+    Renderer::DrawIndexed(drawCount);
 }
 
 void Scene::add(std::string file) {

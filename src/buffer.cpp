@@ -10,7 +10,7 @@
 
 namespace Raekor {
     ResourceBuffer* ResourceBuffer::construct(size_t size) {
-        auto active_api = Renderer::get_activeAPI();
+        auto active_api = Renderer::getActiveAPI();
         switch (active_api) {
         case RenderAPI::OPENGL: {
             return new GLResourceBuffer(size);
@@ -84,7 +84,7 @@ InputLayout::InputLayout(const std::initializer_list<Element> element_list) : la
 }
 
 VertexBuffer* VertexBuffer::construct(const std::vector<Vertex>& vertices) {
-    auto active = Renderer::get_activeAPI();
+    auto active = Renderer::getActiveAPI();
     switch(active) {
         case RenderAPI::OPENGL: {
             return new GLVertexBuffer(vertices);
@@ -99,7 +99,7 @@ VertexBuffer* VertexBuffer::construct(const std::vector<Vertex>& vertices) {
 }
 
 IndexBuffer* IndexBuffer::construct(const std::vector<Index>& indices) {
-    auto active = Renderer::get_activeAPI();
+    auto active = Renderer::getActiveAPI();
     switch (active) {
         case RenderAPI::OPENGL: {
             return new GLIndexBuffer(indices);

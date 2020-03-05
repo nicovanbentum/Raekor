@@ -136,24 +136,24 @@ DXRenderer::~DXRenderer() {
     D3D.Release();
 }
 
-void DXRenderer::Clear(glm::vec4 color) {
+void DXRenderer::impl_Clear(glm::vec4 color) {
     const float clear_color[4] = { color.r, color.g, color.b, color.a };
     D3D.context->ClearDepthStencilView(D3D.depth_stencil_view.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
     D3D.context->ClearRenderTargetView(D3D.render_target_view.Get(), clear_color);
 }
 
-void DXRenderer::ImGui_NewFrame(SDL_Window* window) {
+void DXRenderer::impl_ImGui_NewFrame(SDL_Window* window) {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
 }
 
-void DXRenderer::ImGui_Render() {
+void DXRenderer::impl_ImGui_Render() {
     ImGui::Render();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
-void DXRenderer::DrawIndexed(unsigned int size, bool depth_test) {
+void DXRenderer::impl_DrawIndexed(unsigned int size, bool depth_test) {
     D3D.context->OMSetDepthStencilState(depth_stencil_state.Get(), 0);
     float blendFactor[] = { 0, 0, 0, 0 };
     UINT sampleMask = 0xffffffff;
@@ -161,7 +161,7 @@ void DXRenderer::DrawIndexed(unsigned int size, bool depth_test) {
     D3D.context->DrawIndexed(size, 0, 0);
 }
 
-void DXRenderer::SwapBuffers(bool vsync) const {
+void DXRenderer::impl_SwapBuffers(bool vsync) const {
     D3D.swap_chain->Present(vsync, NULL);
 }
 
