@@ -17,31 +17,20 @@ uniform float farPlane;
 uniform vec3 bloomThreshold;
 
 // in vars
-in vec3 PosWorldspace;
 in vec2 uv;
-in vec4 FragPosLightSpace;
-in vec3 normal;
-
-in vec3 directionalLightPosition;
-in vec3 pointLightPosition;
-
-in vec3 pointLightDirection;
-in vec3 dirLightDirection;
-in vec3 cameraDirection;
-in vec3 cameraPos;
 
 // output data back to our openGL program
 layout (location = 0) out vec4 final_color;
 layout (location = 1) out vec4 bloom_color;
 
-// constant mesh values
-layout(binding = 1) uniform sampler2D shadowMap;
-layout(binding = 2) uniform samplerCube shadowMapOmni;
+// shadow maps
+layout(binding = 0) uniform sampler2D shadowMap;
+layout(binding = 1) uniform samplerCube shadowMapOmni;
 
 // GBUFFER textures
-layout(binding = 4) uniform sampler2D gPositions;
-layout(binding = 5) uniform sampler2D gColors;
-layout(binding = 6) uniform sampler2D gNormals;
+layout(binding = 2) uniform sampler2D gPositions;
+layout(binding = 3) uniform sampler2D gColors;
+layout(binding = 4) uniform sampler2D gNormals;
 
 struct DirectionalLight {
 	vec3 position;
@@ -59,23 +48,30 @@ vec3 doLight(DirectionalLight light);
 float getShadow(PointLight light);
 float getShadow(DirectionalLight light);
 
+// vars retrieved from the Gbuffer TODO: make them not global?
+vec3 position;
+vec3 normal;
+vec4 sampled;
+
 void main()
 {
+	sampled = texture(gColors, uv);
+	normal = texture(gNormals, uv).xyz;
+	position = texture(gPositions, uv).xyz;
+
 	DirectionalLight dirLight;
 	dirLight.color = sunColor.rgb;
-	dirLight.position = directionalLightPosition;
+	dirLight.position = ubo.DirLightPos.xyz;
 
 	PointLight light;
-	light.position = pointLightPosition;
+	light.position = ubo.pointLightPos.xyz;
 	light.color = vec3(1.0, 1.0, 1.0);
-    light.constant = 0.0f;
+    light.constant = 0.0;
     light.linear = 0.7;
     light.quad = 1.8;
 
-	vec4 sampled = texture(gColors, uv);
-
-    vec3 result = doLight(light);
-	result += doLight(dirLight);
+    vec3 result = doLight(dirLight);
+	result += doLight(light);
 
     final_color = vec4(result, sampled.a);
 
@@ -87,12 +83,14 @@ void main()
 }
 
 float getShadow(DirectionalLight light) {
+	vec4 FragPosLightSpace = ubo.lightSpaceMatrix * vec4(position, 1.0);
     vec3 projCoords = FragPosLightSpace.xyz / FragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
 
     float currentDepth = projCoords.z;
 
-    float bias = max(maxBias * (1.0 - dot(normal, dirLightDirection)), minBias);
+	vec3 direction = normalize(light.position - position);
+    float bias = max(maxBias * (1.0 - dot(normal, direction)), minBias);
     
 	// simplest PCF algorithm
     float shadow = 0.0;
@@ -122,7 +120,7 @@ vec3 gridSamplingDisk[20] = vec3[]
 );
 
 float getShadow(PointLight light) {
-	vec3 frag2light = PosWorldspace - light.position;
+	vec3 frag2light = position - light.position;
 	float currentDepth = length(frag2light);
 
 	float closestDepth = texture(shadowMapOmni, frag2light).r;
@@ -135,7 +133,7 @@ float getShadow(PointLight light) {
 	float shadow = 0.0;
     float bias = 0.25;
     int samples = 20;
-    float viewDistance = length(cameraPos - PosWorldspace);
+    float viewDistance = length(ubo.cameraPosition.xyz - position);
     float diskRadius = (1.0 + (viewDistance / farPlane)) / farPlane;
     for(int i = 0; i < samples; ++i) {
         float closestDepth = texture(shadowMapOmni, frag2light + gridSamplingDisk[i] * diskRadius).r;
@@ -150,22 +148,22 @@ float getShadow(PointLight light) {
 
 
 vec3 doLight(PointLight light) {
-	vec4 sampled = texture(gColors, uv);
-
     // ambient
     vec3 ambient = 0.05 * sampled.xyz;
 
-    float diff = clamp(dot(normal, pointLightDirection), 0, 1);
+	vec3 direction = normalize(light.position - position);
+	vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
+    
+	float diff = clamp(dot(normal, direction), 0, 1);
     vec3 diffuse = light.color * diff * sampled.rgb;
 
     // specular
-    vec3 halfway_dir = normalize(pointLightDirection + cameraDirection);
-    vec3 reflect_dir = reflect(-pointLightDirection, normal);
-    float spec = pow(max(dot(halfway_dir, normal), 0.0), 32.0f);
+    vec3 halfway_dir = normalize(direction + cameraDirection);
+    float spec = pow(max(dot(normal, halfway_dir), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
     // distance between the light and the vertex
-    float distance = length(light.position - PosWorldspace);
+    float distance = length(light.position - position);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quad * (distance * distance));
 
     ambient = ambient * attenuation;
@@ -173,30 +171,30 @@ vec3 doLight(PointLight light) {
     specular = specular * attenuation;
 
 	float shadowAmount = 1.0 - getShadow(light);
-	//diffuse *= shadowAmount;
-	//specular *= shadowAmount;
+	diffuse *= shadowAmount;
+	specular *= shadowAmount;
 
     return (ambient + diffuse + specular);
 }
 
 vec3 doLight(DirectionalLight light) {
-	vec4 sampled = texture(gColors, uv);
-    // ambient
+	// ambient
     vec3 ambient = 0.05 * sampled.xyz;
-	
-	// diffuse
-    float diff = clamp(dot(normal, dirLightDirection), 0, 1);
+
+	vec3 direction = normalize(light.position - position);
+	vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
+    
+	float diff = clamp(dot(normal, direction), 0, 1);
     vec3 diffuse = light.color * diff * sampled.rgb;
 
     // specular
-    vec3 halfway_dir = normalize(dirLightDirection + cameraDirection);
-    vec3 reflect_dir = reflect(-dirLightDirection, normal);
-    float spec = pow(max(dot(halfway_dir, normal), 0.0), 32.0f);
+    vec3 halfway_dir = normalize(direction + cameraDirection);
+    float spec = pow(max(dot(normal, halfway_dir), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
 	float shadowAmount = 1.0 - getShadow(light);
-	//diffuse *= shadowAmount;
-	//specular *= shadowAmount;
+	diffuse *= shadowAmount;
+	specular *= shadowAmount;
 
     return (ambient + diffuse + specular);
 }

@@ -48,7 +48,6 @@ void SceneObject::render() {
 
 void Scene::add(std::string file) {
     constexpr unsigned int flags =
-        aiProcess_CalcTangentSpace |
         aiProcess_Triangulate |
         aiProcess_SortByPType |
         aiProcess_PreTransformVertices |
@@ -114,15 +113,6 @@ void Scene::add(std::string file) {
         std::vector<Vertex> vertices;
         std::vector<Index> indices;
 
-        // create a glm mat4 transformation out of the mesh's assimp local transform
-        aiVector3D position, rotation, scale;
-        localTransform.Decompose(scale, rotation, position);
-        glm::mat4 transform = glm::mat4(1.0f);
-        transform = glm::translate(transform, { position.x, position.y, position.y });
-        auto rotation_quat = static_cast<glm::quat>(glm::vec3(0.0f, 0.0f, 0.0f));
-        transform = transform * glm::toMat4(rotation_quat);
-        transform = glm::scale(transform, { scale.x, scale.y, scale.z });
-
         // extract vertices
         vertices.reserve(mesh->mNumVertices);
         for (size_t i = 0; i < vertices.capacity(); i++) {
@@ -153,8 +143,8 @@ void Scene::add(std::string file) {
         objects.push_back(SceneObject(name, vertices, indices));
         objects.back().name = name;
         auto& object = objects.back();
-        object.transform = transform;
-        object.position = { position.x, position.y, position.z };
+        object.transform = glm::mat4(1.0f);
+        object.position = { 0.0f, 0.0f, 0.0f };
 
         object.triMesh.reset(new btTriangleMesh());
         for (unsigned int i = 0; i < vertices.size(); i += 3) {

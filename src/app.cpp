@@ -241,7 +241,7 @@ void Application::run() {
     renderHeight = 1370;
 
 
-    constexpr unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+    constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 
     glTexture2D albedoTexture, normalTexture, positionTexture;
     
@@ -349,9 +349,7 @@ void Application::run() {
         pingpongFramebuffers[i].attach(pingpongTextures[i], GL_COLOR_ATTACHMENT0);
         pingpongFramebuffers[i].unbind();
     }
-
-
-
+       
     // persistent imgui variable values
     auto active_skybox = skyboxes.find("lake");
 
@@ -554,7 +552,7 @@ void Application::run() {
         // setup the 3D shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, depthCubeFBO);
-        glCullFace(GL_FRONT);
+        glCullFace(GL_BACK);
 
         // generate the view matrices for calculating lightspace
         std::vector<glm::mat4> shadowTransforms;
@@ -591,8 +589,6 @@ void Application::run() {
                 }
             }
         }
-        glCullFace(GL_BACK);
-
 
         // bind the generated shadow map and render it to a quad for debugging in-editor
         shadowTexture.bind();
@@ -604,9 +600,21 @@ void Application::run() {
         shadowTexture.unbind();
         quadFramebuffer.unbind();
 
+        // start G-Buffer pass
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glViewport(0, 0, renderWidth, renderHeight);
         GBuffer.bind();
+
+        // render a cubemap with depth testing disabled to generate a skybox
+        // update the camera without translation
+        skyShader->bind();
+        skyShader->getUniform("view") = glm::mat4(glm::mat3(camera.getView()));
+        skyShader->getUniform("proj") = camera.getProjection();
+
+        sky_image->bind(0);
+        skycube->bind();
+        Renderer::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
+
         GBufferShader->bind();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -635,16 +643,6 @@ void Application::run() {
         glViewport(0, 0, renderWidth, renderHeight);
         Renderer::Clear({ 0.0f, 0.0f, 0.0f, 1.0f });
 
-        //// render a cubemap with depth testing disabled to generate a skybox
-        //// update the camera without translation
-        //skyShader->bind();
-        //skyShader->getUniform("view") = glm::mat4(glm::mat3(camera.getView()));
-        //skyShader->getUniform("proj") = camera.getProjection();
-
-        //sky_image->bind(0);
-        //skycube->bind();
-        //Render::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
-
         // set uniforms
         mainShader->bind();
         mainShader->getUniform("sunColor") = uniforms.sunColor;
@@ -652,14 +650,13 @@ void Application::run() {
         mainShader->getUniform("maxBias") = uniforms.maxBias;
         mainShader->getUniform("farPlane") = farPlane;
         mainShader->getUniform("bloomThreshold") = bloomThreshold;
-        // bind depth map to 1
-        shadowTexture.bindToSlot(1);
-        // bind omni depth map to 2
-        glBindTextureUnit(2, depthCubeTexture);
-
-        positionTexture.bindToSlot(4);
-        albedoTexture.bindToSlot(5);
-        normalTexture.bindToSlot(6);
+        
+        // bind textures to shader binding slots
+        shadowTexture.bindToSlot(0);
+        glBindTextureUnit(1, depthCubeTexture);
+        positionTexture.bindToSlot(2);
+        albedoTexture.bindToSlot(3);
+        normalTexture.bindToSlot(4);
 
         ubo.view = camera.getView();
         ubo.projection = camera.getProjection();
@@ -690,7 +687,8 @@ void Application::run() {
         hdrFramebuffer.unbind();
 
         // perform gaussian blur on the bloom texture using "ping pong" framebuffers that
-        // take each others color attachments as input
+        // take each others color attachments as input and perform a directional gaussian blur each
+        // iteration
         bool horizontal = true, firstIteration = true;
         blurShader->bind();
         for (unsigned int i = 0; i < 10; i++) {
@@ -1052,21 +1050,23 @@ void Application::run() {
         Renderer::ImGuiRender();
         Renderer::SwapBuffers(use_vsync);
 
-        //if (resizing) {
-        //    // resizing
-        //    hdrTexture.bind();
-        //    hdrTexture.init(renderWidth, renderHeight, Format::HDR);
+        if (resizing) {
+            // resizing
+            hdrTexture.bind();
+            hdrTexture.init(renderWidth, renderHeight, Format::HDR);
 
-        //    hdrRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+            hdrRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
 
-        //    finalTexture.bind();
-        //    finalTexture.init(renderWidth, renderHeight, Format::SDR);
+            finalTexture.bind();
+            finalTexture.init(renderWidth, renderHeight, Format::SDR);
 
-        //    finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+            finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
 
-        //    bloomTexture.bind();
-        //    bloomTexture.init(renderWidth, renderHeight, Format::HDR);
-        //}
+            bloomTexture.bind();
+            bloomTexture.init(renderWidth, renderHeight, Format::HDR);
+
+            resizing = false;
+        }
 
         dt_timer.stop();
         dt = dt_timer.elapsed_ms();
