@@ -236,7 +236,6 @@ void Application::run() {
     uint32_t renderWidth = static_cast<uint32_t>(displays[display].w * .8f); 
     uint32_t renderHeight = static_cast<uint32_t>(displays[display].h * .8f);
 
-    // hardcoded size, TODO: implement framebuffer resizing
     renderWidth = 2003;
     renderHeight = 1370;
 
@@ -926,17 +925,18 @@ void Application::run() {
         if (ImGui::Checkbox("HDR", &hdr)) {}
         ImGui::SameLine();
         if (ImGui::Checkbox("Bloom", &doBloom)) {}
+
         static bool doNormalMapping = true;
         if (ImGui::Checkbox("Normal mapping", &doNormalMapping)) {
-            if (doNormalMapping) {
-                modelStages[0].defines = { "NO_NORMAL_MAP" };
-                modelStages[1].defines = { "NO_NORMAL_MAP" };
+            if (!doNormalMapping) {
+                gbuffer_shaders[0].defines = { "NO_NORMAL_MAP" };
+                gbuffer_shaders[1].defines = { "NO_NORMAL_MAP" };
             }
             else {
-                modelStages[0].defines.clear();
-                modelStages[1].defines.clear();
+                gbuffer_shaders[0].defines.clear();
+                gbuffer_shaders[1].defines.clear();
             }
-            mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
+            GBufferShader.reset(new GLShader(gbuffer_shaders.data(), gbuffer_shaders.size()));
         }
 
         if (ImGui::DragFloat3("Bloom Threshold", glm::value_ptr(bloomThreshold), 0.001f, 0.0f, 10.0f)) {}

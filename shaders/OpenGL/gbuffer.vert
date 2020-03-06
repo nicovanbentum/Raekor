@@ -13,6 +13,7 @@ uniform mat4 model;
 
 out vec3 pos;
 out vec2 uv;
+out vec3 normal;
 out mat3 TBN;
 
 void main() {
@@ -25,4 +26,5 @@ void main() {
 	TBN = mat3(T, B, N);
 	
 	uv = v_uv;
+	normal = v_normal;
 }
