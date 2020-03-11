@@ -14,7 +14,7 @@ Texture* Texture::construct(const std::string& path) {
     auto active_api = Renderer::getActiveAPI();
     switch (active_api) {
         case RenderAPI::OPENGL: {
-            return new GLTexture(path);
+            return nullptr;
         } break;
 #ifdef _WIN32
         case RenderAPI::DIRECTX11: {
@@ -44,65 +44,17 @@ Texture* Texture::construct(const Stb::Image& image) {
     auto active_api = Renderer::getActiveAPI();
     switch (active_api) {
     case RenderAPI::OPENGL: {
-        return new GLTexture(image);
+        return nullptr;
     } break;
 #ifdef _WIN32
     case RenderAPI::DIRECTX11: {
-        return new GLTexture(image);
+        return new DXTexture(image);
     } break;
 #endif
     }
     return nullptr;
 }
 
-GLTexture::GLTexture(const std::string& path)
-{
-    filepath = path;
-
-    stbi_set_flip_vertically_on_load(true);
-    
-    int w, h, ch;
-    auto image = stbi_load(path.c_str(), &w, &h, &ch, 4);
-    m_assert(image, "failed to load image");
-
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_2D, id);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 
-                        0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    stbi_image_free(image);
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-GLTexture::GLTexture(const Stb::Image& image) {
-    if (image.channels == 4) hasAlpha = true;
-
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_2D, id);
-
-    GLenum format = image.isSRGB ? GL_SRGB_ALPHA : GL_RGBA;
-
-    glTexImage2D(GL_TEXTURE_2D, 0, format, image.w, image.h,
-        0, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-GLTexture::~GLTexture() {
-    glDeleteTextures(1, &id);
-}
-
-void GLTexture::bind(uint32_t slot) const {
-    glBindTextureUnit(slot, id);
-}
 
 GLTextureCube::GLTextureCube(const std::array<std::string, 6>& face_files) {
     stbi_set_flip_vertically_on_load(false);

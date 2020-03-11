@@ -54,7 +54,7 @@ void glFramebuffer::unbind() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void glFramebuffer::attach(glTexture& texture, GLenum type) {
+void glFramebuffer::attach(glTexture2D& texture, GLenum type) {
     glFramebufferTexture2D(GL_FRAMEBUFFER, type, texture.mTarget, texture.mID, 0);
 
     // if its a color attachment and we haven't seen it before, store it

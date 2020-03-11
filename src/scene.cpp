@@ -39,8 +39,8 @@ SceneObject::SceneObject(const std::string& fp, const std::vector<Vertex>& vbuff
 }
 
 void SceneObject::render() {
-    if (albedo != nullptr) albedo->bind(0);
-    if (normal != nullptr) normal->bind(3);
+    if (albedo != nullptr) albedo->bindToSlot(0);
+    if (normal != nullptr) normal->bindToSlot(3);
     bind();
     int drawCount = ib->get_count();
     Renderer::DrawIndexed(drawCount);
@@ -48,6 +48,7 @@ void SceneObject::render() {
 
 void Scene::add(std::string file) {
     constexpr unsigned int flags =
+        aiProcess_GenNormals |
         aiProcess_Triangulate |
         aiProcess_SortByPType |
         aiProcess_PreTransformVertices |
@@ -59,6 +60,10 @@ void Scene::add(std::string file) {
 
     auto scene = importer->ReadFile(file, flags);
     m_assert(scene && scene->HasMeshes(), "failed to load mesh");
+
+    if (!scene) {
+        std::cout << importer->GetErrorString() << '\n';
+    }
 
     // pre-load all the textures asynchronously
     std::vector<Stb::Image> albedos;
@@ -72,6 +77,7 @@ void Scene::add(std::string file) {
         auto material = scene->mMaterials[ai_mesh->mMaterialIndex];
         material->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
         material->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
+
 
         std::string texture_path = get_file(file, PATH_OPTIONS::DIR) + std::string(albedoFile.C_Str());
         std::string normal_path = get_file(file, PATH_OPTIONS::DIR) + std::string(normalmapFile.C_Str());
@@ -185,12 +191,18 @@ void Scene::add(std::string file) {
 
         aiString albedoFile, normalmapFile;
         auto material = scene->mMaterials[mesh->mMaterialIndex];
+        
         material->GetTextureCount(aiTextureType_DIFFUSE);
         material->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
         material->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
 
-        std::string texture_path = get_file(file, PATH_OPTIONS::DIR) + std::string(albedoFile.C_Str());
-        std::string normal_path = get_file(file, PATH_OPTIONS::DIR) + std::string(normalmapFile.C_Str());
+        std::string texture_path, normal_path;
+        if (strcmp(albedoFile.C_Str(), "") != 0) {
+            texture_path = get_file(file, PATH_OPTIONS::DIR) + std::string(albedoFile.C_Str());
+        }
+        if (strcmp(normalmapFile.C_Str(), "") != 0) {
+            normal_path = get_file(file, PATH_OPTIONS::DIR) + std::string(normalmapFile.C_Str());
+        }
 
         auto albedoIter = std::find_if(albedos.begin(), albedos.end(), [&](const Stb::Image& img) {
             return img.filepath == texture_path;
@@ -200,19 +212,53 @@ void Scene::add(std::string file) {
             return img.filepath == normal_path;
             });
 
+        // hardcoded, every object has at least a diffuse texture,
+        // even 1x1 just for color
+        objects.back().albedo.reset(new glTexture2D());
+        auto& albedo = *objects.back().albedo;
+
         if (albedoIter != albedos.end()) {
             auto index = albedoIter - albedos.begin();
-            objects.back().albedo.reset(new GLTexture(albedos[index]));
-            if (albedoIter->channels == 4) {
-                object.albedo->hasAlpha = true;
+            auto& image = albedos[index];
+
+            albedo.bind();
+            albedo.init(image.w, image.h, Format::sRGBA, image.pixels);
+            albedo.setFilter(Sampling::Filter::Trilinear);
+            albedo.genMipMaps();
+            albedo.unbind();
+
+            if (image.channels == 4) {
+                object.hasAlpha = true;
             }
             else {
-                object.albedo->hasAlpha = false;
+                object.hasAlpha = false;
             }
+        } else {
+            aiColor4D diffuse;
+            if (AI_SUCCESS == aiGetMaterialColor(material, AI_MATKEY_COLOR_DIFFUSE, &diffuse)) {
+                albedo.bind();
+                Format::Format format = { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT };
+                albedo.init(1, 1, format, &diffuse[0]);
+                albedo.setFilter(Sampling::Filter::None);
+                albedo.setWrap(Sampling::Wrap::Repeat);
+                albedo.unbind();
+            }
+
         }
+
+
         if (normalIter != normals.end()) {
             auto index = normalIter - normals.begin();
-            object.normal.reset(new GLTexture(normals[index]));
+            auto& image = normals[index];
+
+            objects.back().normal.reset(new glTexture2D());
+            auto& normal = *objects.back().normal;
+            
+            normal.bind();
+            normal.init(image.w, image.h, Format::RGBA, image.pixels);
+            normal.setFilter(Sampling::Filter::Trilinear);
+            normal.genMipMaps();
+            normal.unbind();
         }
     };
 

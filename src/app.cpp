@@ -239,7 +239,6 @@ void Application::run() {
     renderWidth = 2003;
     renderHeight = 1370;
 
-
     constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 
     glTexture2D albedoTexture, normalTexture, positionTexture;
@@ -364,53 +363,10 @@ void Application::run() {
     }
 
     ImVec4* colors = ImGui::GetStyle().Colors;
-    colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-    colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-    colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.06f, 0.06f, 0.94f);
-    colors[ImGuiCol_ChildBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.00f);
-    colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
-    colors[ImGuiCol_Border] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
-    colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.21f, 0.22f, 0.54f);
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.40f, 0.40f, 0.40f, 0.40f);
-    colors[ImGuiCol_FrameBgActive] = ImVec4(0.18f, 0.18f, 0.18f, 0.67f);
-    colors[ImGuiCol_TitleBg] = ImVec4(0.04f, 0.04f, 0.04f, 1.00f);
-    colors[ImGuiCol_TitleBgActive] = ImVec4(0.29f, 0.29f, 0.29f, 1.00f);
-    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.00f, 0.00f, 0.00f, 0.51f);
-    colors[ImGuiCol_MenuBarBg] = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
-    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.02f, 0.02f, 0.02f, 0.53f);
-    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.41f, 0.41f, 0.41f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
-    colors[ImGuiCol_CheckMark] = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
-    colors[ImGuiCol_SliderGrab] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
-    colors[ImGuiCol_SliderGrabActive] = ImVec4(0.86f, 0.86f, 0.86f, 1.00f);
-    colors[ImGuiCol_Button] = ImVec4(0.44f, 0.44f, 0.44f, 0.40f);
-    colors[ImGuiCol_ButtonHovered] = ImVec4(0.46f, 0.47f, 0.48f, 1.00f);
-    colors[ImGuiCol_ButtonActive] = ImVec4(0.42f, 0.42f, 0.42f, 1.00f);
-    colors[ImGuiCol_Header] = ImVec4(0.70f, 0.70f, 0.70f, 0.31f);
-    colors[ImGuiCol_HeaderHovered] = ImVec4(0.70f, 0.70f, 0.70f, 0.80f);
-    colors[ImGuiCol_HeaderActive] = ImVec4(0.48f, 0.50f, 0.52f, 1.00f);
-    colors[ImGuiCol_Separator] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
-    colors[ImGuiCol_SeparatorHovered] = ImVec4(0.72f, 0.72f, 0.72f, 0.78f);
-    colors[ImGuiCol_SeparatorActive] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
-    colors[ImGuiCol_ResizeGrip] = ImVec4(0.91f, 0.91f, 0.91f, 0.25f);
-    colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.81f, 0.81f, 0.81f, 0.67f);
-    colors[ImGuiCol_ResizeGripActive] = ImVec4(0.46f, 0.46f, 0.46f, 0.95f);
-    colors[ImGuiCol_PlotLines] = ImVec4(0.61f, 0.61f, 0.61f, 1.00f);
-    colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.00f, 0.43f, 0.35f, 1.00f);
-    colors[ImGuiCol_PlotHistogram] = ImVec4(0.73f, 0.60f, 0.15f, 1.00f);
-    colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.60f, 0.00f, 1.00f);
-    colors[ImGuiCol_TextSelectedBg] = ImVec4(0.87f, 0.87f, 0.87f, 0.35f);
-    colors[ImGuiCol_ModalWindowDarkening] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
-    colors[ImGuiCol_DragDropTarget] = ImVec4(1.00f, 1.00f, 0.00f, 0.90f);
-    colors[ImGuiCol_NavHighlight] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
-    colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
-    colors[ImGuiCol_TabActive] = ImVec4(0.29f, 0.29f, 0.29f, 1.00f);
-    colors[ImGuiCol_Tab] = ImVec4(0.04f, 0.04f, 0.04f, 1.00f);
-    colors[ImGuiCol_TabUnfocused] = ImVec4(0.04f, 0.04f, 0.04f, 1.00f);
-    colors[ImGuiCol_TabHovered] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
-    colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.04f, 0.04f, 0.04f, 1.00f);
+    for (unsigned int i = 0; i < themeColors.size(); i++) {
+        auto& savedColor = themeColors[i];
+        colors[i] = ImVec4(savedColor[0], savedColor[1], savedColor[2], savedColor[3]);
+    }
 
     static unsigned int selected_mesh = 0;
     bool show_settings_window = false;
@@ -431,28 +387,16 @@ void Application::run() {
     shadowFramebuffer.attach(shadowTexture, GL_DEPTH_ATTACHMENT);
     shadowFramebuffer.unbind();
 
-    // configure 3D depth map FBO
-    // -----------------------
-    unsigned int depthCubeFBO;
-    glGenFramebuffers(1, &depthCubeFBO);
-    // generate depth cube map
-    unsigned int depthCubeTexture;
-    glGenTextures(1, &depthCubeTexture);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeTexture);
-    for (unsigned int i = 0; i < 6; ++i) {
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT,
-            SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    }
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glBindFramebuffer(GL_FRAMEBUFFER, depthCubeFBO);
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+    glTextureCube depthCubeTexture;
+    depthCubeTexture.bind();
+    for (unsigned int i = 0; i < 6; ++i) {
+        depthCubeTexture.init(SHADOW_WIDTH, SHADOW_HEIGHT, i, Format::Depth, nullptr);
+    }
+    depthCubeTexture.setFilter(Sampling::Filter::None);
+    depthCubeTexture.setWrap(Sampling::Wrap::ClampEdge);
+
+    glFramebuffer depthCubeFramebuffer;
 
     // setup  light matrices for a movable point light
     glm::mat4 lightmatrix = glm::mat4(1.0f);
@@ -534,23 +478,22 @@ void Application::run() {
 
         // render the scene 
         for (auto& object : scene.objects) {
-            if (!object.albedo->hasAlpha) {
+            if (!object.hasAlpha) {
                 depthShader->getUniform("model") = object.transform;
                 object.render();
             }
         }
 
         for (auto& object : scene.objects) {
-            if (object.albedo->hasAlpha) {
+            if (object.hasAlpha) {
                 depthShader->getUniform("model") = object.transform;
                 object.render();
             }
         }
-        
 
         // setup the 3D shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-        glBindFramebuffer(GL_FRAMEBUFFER, depthCubeFBO);
+        depthCubeFramebuffer.bind();
         glCullFace(GL_BACK);
 
         // generate the view matrices for calculating lightspace
@@ -567,22 +510,21 @@ void Application::run() {
         depthCubeShader->bind();
         depthCubeShader->getUniform("farPlane") = farPlane;
         for (uint32_t i = 0; i < 6; i++) {
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, depthCubeTexture, 0);
+            depthCubeFramebuffer.attach(depthCubeTexture, GL_DEPTH_ATTACHMENT, i);
             glClear(GL_DEPTH_BUFFER_BIT);
             depthCubeShader->getUniform("projView") = shadowTransforms[i];
             depthCubeShader->getUniform("lightPos") = glm::make_vec3(lightPos);
 
             // render the scene 
             for (auto& object : scene.objects) {
-                if (!object.albedo->hasAlpha) {
+                if (!object.hasAlpha) {
                     depthCubeShader->getUniform("model") = object.transform;
                     object.render();
                 }
             }
 
             for (auto& object : scene.objects) {
-                if (object.albedo->hasAlpha) {
+                if (object.hasAlpha) {
                     depthCubeShader->getUniform("model") = object.transform;
                     object.render();
                 }
@@ -604,15 +546,15 @@ void Application::run() {
         glViewport(0, 0, renderWidth, renderHeight);
         GBuffer.bind();
 
-        // render a cubemap with depth testing disabled to generate a skybox
-        // update the camera without translation
-        skyShader->bind();
-        skyShader->getUniform("view") = glm::mat4(glm::mat3(camera.getView()));
-        skyShader->getUniform("proj") = camera.getProjection();
+        //// render a cubemap with depth testing disabled to generate a skybox
+        //// update the camera without translation
+        //skyShader->bind();
+        //skyShader->getUniform("view") = glm::mat4(glm::mat3(camera.getView()));
+        //skyShader->getUniform("proj") = camera.getProjection();
 
-        sky_image->bind(0);
-        skycube->bind();
-        Renderer::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
+        //sky_image->bind(0);
+        //skycube->bind();
+        //Renderer::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
 
         GBufferShader->bind();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -622,14 +564,14 @@ void Application::run() {
 
         // render the scene 
         for (auto& object : scene.objects) {
-            if (!object.albedo->hasAlpha) {
+            if (!object.hasAlpha) {
                 GBufferShader->getUniform("model") = object.transform;
                 object.render();
             }
         }
 
         for (auto& object : scene.objects) {
-            if (object.albedo->hasAlpha) {
+            if (object.hasAlpha) {
                 GBufferShader->getUniform("model") = object.transform;
                 object.render();
             }
@@ -652,7 +594,7 @@ void Application::run() {
         
         // bind textures to shader binding slots
         shadowTexture.bindToSlot(0);
-        glBindTextureUnit(1, depthCubeTexture);
+        depthCubeTexture.bindToSlot(1);
         positionTexture.bindToSlot(2);
         albedoTexture.bindToSlot(3);
         normalTexture.bindToSlot(4);
@@ -840,14 +782,17 @@ void Application::run() {
         if (ImGui::TreeNodeEx("Objects", tree_node_flags)) {
             ImGui::Columns(1, NULL, false);
             // draw a selectable for every object in the scene
+            unsigned int uniqueID = 0;
             for (auto& object : scene.objects) {
                     bool selected = activeObject->name == object.name;
+                    std::string selectableName = object.name + "##" + std::to_string(uniqueID);
                     if (ImGui::Selectable(object.name.c_str(), selected)) {
                         activeObject = scene.at(object.name);
                     }
                 if (selected) {
                     ImGui::SetItemDefaultFocus();
                 }
+                uniqueID = uniqueID + 1;
             }
             ImGui::TreePop();
         }
@@ -1064,6 +1009,12 @@ void Application::run() {
 
             bloomTexture.bind();
             bloomTexture.init(renderWidth, renderHeight, Format::HDR);
+
+            for (unsigned int i = 0; i < 2; i++) {
+                pingpongTextures[i].bind();
+                pingpongTextures[i].init(renderWidth, renderHeight, Format::HDR);
+                pingpongTextures[i].unbind();
+            }
 
             resizing = false;
         }

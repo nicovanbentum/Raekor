@@ -19,7 +19,9 @@ public:
             CEREAL_NVP(display),
             CEREAL_NVP(font),
             CEREAL_NVP(skyboxes),
-            CEREAL_NVP(project));
+            CEREAL_NVP(project),
+            CEREAL_NVP(themeColors)
+        );
     }
     void serialize_settings(const std::string& filepath, bool write = false);
 
@@ -33,6 +35,7 @@ private:
     int display;
     std::map<std::string, std::array<std::string, 6>> skyboxes;
     std::vector<std::string> project;
+    std::array<std::array<float, 4>, ImGuiCol_COUNT> themeColors;
 };
 
 } // Namespace Raekor

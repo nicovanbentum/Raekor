@@ -6,6 +6,7 @@
 
 namespace Raekor {
 
+
 class Transformable {
 public:
     Transformable();
@@ -29,10 +30,11 @@ public:
     SceneObject(const std::string& fp, const std::vector<Vertex>& vb, const std::vector<Index>& ib);
     void render();
 
+    bool hasAlpha = false;
     std::string name;
     uint32_t transformationIndex;
-    std::unique_ptr<GLTexture> albedo;
-    std::unique_ptr<GLTexture> normal;
+    std::unique_ptr<glTexture2D> albedo;
+    std::unique_ptr<glTexture2D> normal;
     std::unique_ptr<Mesh> collisionRenderable;
     std::unique_ptr<btTriangleMesh> triMesh;
     std::unique_ptr<btBvhTriangleMeshShape> shape;
@@ -59,7 +61,7 @@ public:
 
     void renderOpaque() {
         for (auto& object : objects) {
-            if (!object.albedo->hasAlpha) {
+            if (!object.hasAlpha) {
                 object.render();
             }
         }
@@ -67,7 +69,7 @@ public:
 
     void renderTransparent() {
         for (auto& object : objects) {
-            if (object.albedo->hasAlpha) {
+            if (object.hasAlpha) {
                 object.render();
             }
         }

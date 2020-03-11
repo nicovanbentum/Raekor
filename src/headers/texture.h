@@ -20,19 +20,6 @@ public:
     bool hasAlpha = false;
 };
 
-class GLTexture : public Texture {
-
-public:
-    friend class GLShader;
-    GLTexture(const std::string& path);
-    GLTexture(const Stb::Image& image);
-    ~GLTexture();
-    virtual void bind(uint32_t slot) const override;
-
-private:
-    unsigned int id;
-};
-
 class GLTextureCube : public Texture {
 
 public:
@@ -101,9 +88,7 @@ public:
         glBindTextureUnit(slot, mID);
     }
 
-    void genMipMaps(size_t count) {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, GLint(count));
-        setFilter(Sampling::Filter::Trilinear);
+    void genMipMaps() {
         glGenerateMipmap(GL_TEXTURE_2D);
     }
 
@@ -123,8 +108,8 @@ public:
             } break;
         }
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+        glTexParameteri(mTarget, GL_TEXTURE_MIN_FILTER, minFilter);
+        glTexParameteri(mTarget, GL_TEXTURE_MAG_FILTER, magFilter);
     }
 
     void setWrap(Sampling::Wrap mode) {
@@ -142,9 +127,9 @@ public:
             } break;
         }
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapMode);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapMode);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, wrapMode);
+        glTexParameteri(mTarget, GL_TEXTURE_WRAP_S, wrapMode);
+        glTexParameteri(mTarget, GL_TEXTURE_WRAP_T, wrapMode);
+        glTexParameteri(mTarget, GL_TEXTURE_WRAP_R, wrapMode);
     }
 
     ImTextureID ImGuiID() { return (void*)((intptr_t)mID); }
@@ -161,6 +146,17 @@ public:
     void init(uint32_t width, uint32_t height, const Format::Format& format, const void* data = nullptr) {
         glTexImage2D(mTarget, 0, format.intFormat, width, height, 0, format.extFormat, format.type, data);
     }
+};
+
+class glTextureCube : public glTexture {
+public:
+    glTextureCube() : glTexture(GL_TEXTURE_CUBE_MAP) {}
+
+    void init(uint32_t width, uint32_t height, uint8_t face, const Format::Format& format, const void* data = nullptr) {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, 0, format.intFormat, width, height, 0, format.extFormat, format.type, data);
+    }
+
+
 };
 
 
