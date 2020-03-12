@@ -38,7 +38,7 @@
         }
     ],
     "project": [
-        "C:\\VS Projects\\Raekor\\resources\\models\\Sponza\\Sponza.gltf"
+        "C:\\Users\\LTSC2019\\Documents\\CornellBox\\CornellBox-Original.obj"
     ],
     "themeColors": {
         "value0": {
@@ -240,9 +240,9 @@
             "value3": 0.949999988079071
         },
         "value33": {
-            "value0": 0.03999999910593033,
-            "value1": 0.03999999910593033,
-            "value2": 0.03999999910593033,
+            "value0": 0.28999999165534975,
+            "value1": 0.28999999165534975,
+            "value2": 0.28999999165534975,
             "value3": 1.0
         },
         "value34": {
@@ -252,9 +252,9 @@
             "value3": 1.0
         },
         "value35": {
-            "value0": 0.28999999165534975,
-            "value1": 0.28999999165534975,
-            "value2": 0.28999999165534975,
+            "value0": 0.03999999910593033,
+            "value1": 0.03999999910593033,
+            "value2": 0.03999999910593033,
             "value3": 1.0
         },
         "value36": {

@@ -104,6 +104,7 @@ void Application::run() {
     // create a Camera we can use to move around our scene
     static float fov = 45.0f;
     Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 1.0f, 100.0f));
+    camera.zoom(-3.5f, 1.0f);
 
     VertexUBO ubo = {};
     shadowUBO shadowUbo;
@@ -195,6 +196,8 @@ void Application::run() {
     std::vector<Shader::Stage> gbuffer_shaders;
     gbuffer_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\gbuffer.vert");
     gbuffer_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gbuffer.frag");
+    gbuffer_shaders[0].defines = { "NO_NORMAL_MAP" };
+    gbuffer_shaders[1].defines = { "NO_NORMAL_MAP" };
 
     skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
     depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
@@ -397,10 +400,14 @@ void Application::run() {
     depthCubeTexture.setWrap(Sampling::Wrap::ClampEdge);
 
     glFramebuffer depthCubeFramebuffer;
+    depthCubeFramebuffer.bind();
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    depthCubeFramebuffer.unbind();
 
     // setup  light matrices for a movable point light
     glm::mat4 lightmatrix = glm::mat4(1.0f);
-    lightmatrix = glm::translate(lightmatrix, { 0.0f, 0.8f, 3.0f });
+    lightmatrix = glm::translate(lightmatrix, { 0.0f, 1.8f, 0.0f });
     float lightPos[3], lightRot[3], lightScale[3];
     ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
 
@@ -716,7 +723,7 @@ void Application::run() {
         // move the light by a fixed amount and let it bounce between -125 and 125 units/pixels on the x axis
         static double move_amount = 0.003;
         static double bounds = 7.5f;
-        static bool move_light = true;
+        static bool move_light = false;
         double light_delta = move_amount * dt;
         if ((lightPos[0] >= bounds && move_amount > 0) || (lightPos[0] <= -bounds && move_amount < 0)) {
             move_amount *= -1;
@@ -778,6 +785,7 @@ void Application::run() {
         if (ImGui::IsWindowFocused()) {
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), false)) {}
         }
+        
         auto tree_node_flags = ImGuiTreeNodeFlags_DefaultOpen;
         if (ImGui::TreeNodeEx("Objects", tree_node_flags)) {
             ImGui::Columns(1, NULL, false);
@@ -785,7 +793,6 @@ void Application::run() {
             unsigned int uniqueID = 0;
             for (auto& object : scene.objects) {
                     bool selected = activeObject->name == object.name;
-                    std::string selectableName = object.name + "##" + std::to_string(uniqueID);
                     if (ImGui::Selectable(object.name.c_str(), selected)) {
                         activeObject = scene.at(object.name);
                     }
@@ -871,7 +878,7 @@ void Application::run() {
         ImGui::SameLine();
         if (ImGui::Checkbox("Bloom", &doBloom)) {}
 
-        static bool doNormalMapping = true;
+        static bool doNormalMapping = false;
         if (ImGui::Checkbox("Normal mapping", &doNormalMapping)) {
             if (!doNormalMapping) {
                 gbuffer_shaders[0].defines = { "NO_NORMAL_MAP" };
@@ -997,6 +1004,20 @@ void Application::run() {
 
         if (resizing) {
             // resizing
+            albedoTexture.bind();
+            albedoTexture.init(renderWidth, renderHeight, Format::HDR);
+
+            normalTexture.bind();
+            normalTexture.init(renderWidth, renderHeight, Format::HDR);
+
+            positionTexture.bind();
+            positionTexture.init(renderWidth, renderHeight, Format::HDR);
+
+            GDepthBuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
+
+            preprocessTexture.bind();
+            preprocessTexture.init(renderWidth, renderHeight, Format::HDR);
+
             hdrTexture.bind();
             hdrTexture.init(renderWidth, renderHeight, Format::HDR);
 
@@ -1013,7 +1034,6 @@ void Application::run() {
             for (unsigned int i = 0; i < 2; i++) {
                 pingpongTextures[i].bind();
                 pingpongTextures[i].init(renderWidth, renderHeight, Format::HDR);
-                pingpongTextures[i].unbind();
             }
 
             resizing = false;

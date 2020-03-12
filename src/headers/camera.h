@@ -20,8 +20,10 @@ class Camera {
 public:
     Camera(glm::vec3 position, glm::mat4 proj);
     void look(int x, int y);
+    void zoom(float amount, double dt);
     void update(bool normalizePlanes);
     glm::vec3 get_direction();
+    void move(glm::vec2 amount, double dt);
     void move_on_input(double dt);
     inline bool is_mouse_active() { return mouse_active; }
     inline void set_mouse_active(bool state) { mouse_active = state; }

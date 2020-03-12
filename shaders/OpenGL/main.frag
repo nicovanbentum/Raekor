@@ -70,8 +70,8 @@ void main()
     light.linear = 0.7;
     light.quad = 1.8;
 
-    vec3 result = doLight(dirLight);
-	result += doLight(light);
+    vec3 result = doLight(light);
+	//result += doLight(light);
 
     final_color = vec4(result, sampled.a);
 
@@ -131,8 +131,11 @@ float getShadow(PointLight light) {
 
 	// PCF sampling
 	float shadow = 0.0;
-    float bias = 0.25;
+    float bias = 0.05;
     int samples = 20;
+
+	return currentDepth - bias > closestDepth ? 1.0 : 0.0;
+
     float viewDistance = length(ubo.cameraPosition.xyz - position);
     float diskRadius = (1.0 + (viewDistance / farPlane)) / farPlane;
     for(int i = 0; i < samples; ++i) {

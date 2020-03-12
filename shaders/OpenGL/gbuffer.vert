@@ -18,7 +18,7 @@ out mat3 TBN;
 
 void main() {
 	pos = vec3(model * vec4(v_pos, 1.0));
-	gl_Position = projection * view * vec4(v_pos, 1.0);
+	gl_Position = projection * view * vec4(pos, 1.0);
 
 	vec3 T = normalize(vec3(model * vec4(v_tangent,		0.0)));
 	vec3 B = normalize(vec3(model * vec4(v_binormal,	0.0)));

@@ -30,6 +30,20 @@ void Camera::look(int x, int y) {
     angle.y = std::clamp(angle.y, -1.57078f, 1.57078f);
 }
 
+void Camera::zoom(float amount, double dt) {
+    auto dir = get_direction();
+    position += dir * (float)(amount*dt);
+}
+
+void Camera::move(glm::vec2 amount, double dt) {
+    auto dir = get_direction();
+    // sideways
+    position.x += (float)(amount.x * dt);
+
+    // up and down
+    position.y += (float)(amount.y * dt);
+}
+
 void Camera::move_on_input(double dt) {
     auto dir = get_direction();
     const uint8_t* keyboard = SDL_GetKeyboardState(NULL);

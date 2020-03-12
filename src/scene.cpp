@@ -147,7 +147,8 @@ void Scene::add(std::string file) {
 
         std::string name = mesh->mName.C_Str();
         objects.push_back(SceneObject(name, vertices, indices));
-        objects.back().name = name;
+        // give it the array index as unique ID for ImGui
+        objects.back().name = name + "##" + std::to_string(objects.size()-1);
         auto& object = objects.back();
         object.transform = glm::mat4(1.0f);
         object.position = { 0.0f, 0.0f, 0.0f };
