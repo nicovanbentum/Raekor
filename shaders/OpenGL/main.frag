@@ -31,6 +31,7 @@ layout(binding = 1) uniform samplerCube shadowMapOmni;
 layout(binding = 2) uniform sampler2D gPositions;
 layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
+layout(binding = 5) uniform sampler2D SSAO;
 
 struct DirectionalLight {
 	vec3 position;
@@ -52,12 +53,15 @@ float getShadow(DirectionalLight light);
 vec3 position;
 vec3 normal;
 vec4 sampled;
+float AO;
 
 void main()
 {
 	sampled = texture(gColors, uv);
 	normal = texture(gNormals, uv).xyz;
 	position = texture(gPositions, uv).xyz;
+	AO = texture(SSAO, uv).x;
+	AO = clamp(AO, 0.0, 1.0);
 
 	DirectionalLight dirLight;
 	dirLight.color = sunColor.rgb;
@@ -70,10 +74,11 @@ void main()
     light.linear = 0.7;
     light.quad = 1.8;
 
-    vec3 result = doLight(light);
-	//result += doLight(light);
+    vec3 result = doLight(dirLight);
+	//result += doLight(dirLight);
 
     final_color = vec4(result, sampled.a);
+	//final_color = vec4(sampled.xyz * AO, sampled.a);
 
 	float brightness = dot(final_color.rgb, bloomThreshold);
 	if(brightness > 1.0) 
@@ -152,7 +157,7 @@ float getShadow(PointLight light) {
 
 vec3 doLight(PointLight light) {
     // ambient
-    vec3 ambient = 0.05 * sampled.xyz;
+    vec3 ambient = 0.05 * sampled.xyz * AO;
 
 	vec3 direction = normalize(light.position - position);
 	vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
@@ -182,7 +187,7 @@ vec3 doLight(PointLight light) {
 
 vec3 doLight(DirectionalLight light) {
 	// ambient
-    vec3 ambient = 0.05 * sampled.xyz;
+    vec3 ambient = 0.05 * sampled.xyz * AO;
 
 	vec3 direction = normalize(light.position - position);
 	vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);

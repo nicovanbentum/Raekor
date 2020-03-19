@@ -6,6 +6,7 @@
 
 namespace Raekor {
 
+// This is all really ugly and super hacky, should refactor to a pseudo ECS system
 
 class Transformable {
 public:

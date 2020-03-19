@@ -274,8 +274,8 @@ void Scene::add(std::string file) {
         }
     };
     // process the assimp node tree, creating a scene object for every mesh with its textures and transformation
+    
     processNode(scene->mRootNode, scene);
-
 }
 
 } // Namespace Raekor

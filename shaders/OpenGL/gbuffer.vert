@@ -24,7 +24,10 @@ void main() {
 	vec3 B = normalize(vec3(model * vec4(v_binormal,	0.0)));
 	vec3 N = normalize(vec3(model * vec4(v_normal,		0.0)));
 	TBN = mat3(T, B, N);
+
+	mat3 normalMatrix = transpose(inverse(mat3(model)));
+    normal = normalMatrix * v_normal;
 	
 	uv = v_uv;
-	normal = v_normal;
+	//normal = v_normal;
 }

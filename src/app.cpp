@@ -119,6 +119,7 @@ void Application::run() {
     std::unique_ptr<GLShader> hdrShader;
     std::unique_ptr<GLShader> CubemapDebugShader;
     std::unique_ptr<GLShader> SSAOshader;
+    std::unique_ptr<GLShader> SSAOBlurShader;
     std::unique_ptr<GLShader> blurShader;
     std::unique_ptr<GLShader> bloomShader;
     std::unique_ptr<GLShader> GBufferShader;
@@ -130,14 +131,9 @@ void Application::run() {
     std::unique_ptr<GLResourceBuffer> mat4Ubo;
     std::unique_ptr<GLResourceBuffer> hdrUbo;
 
-    std::unique_ptr<GLTextureCube> sky_image;
+    std::unique_ptr<glTextureCube> skyCube;
 
     std::unique_ptr<Mesh> skycube;
-
-    Stb::Image testImage = Stb::Image(RGBA);
-    testImage.load("resources/textures/test.png", true);
-    std::unique_ptr<Texture> testTexture;
-    testTexture.reset(Texture::construct(testImage));
 
     Ffilter ft_mesh;
     ft_mesh.name = "Supported Mesh Files";
@@ -199,6 +195,11 @@ void Application::run() {
     gbuffer_shaders[0].defines = { "NO_NORMAL_MAP" };
     gbuffer_shaders[1].defines = { "NO_NORMAL_MAP" };
 
+    std::vector<Shader::Stage> ssaoBlur_shaders;
+    ssaoBlur_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
+    ssaoBlur_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\SSAOblur.frag");
+
+
     skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
     depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
     quadShader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
@@ -209,6 +210,7 @@ void Application::run() {
     blurShader.reset(new GLShader(blur_shaders.data(), blur_shaders.size()));
     bloomShader.reset(new GLShader(bloom_shaders.data(), bloom_shaders.size()));
     GBufferShader.reset(new GLShader(gbuffer_shaders.data(), gbuffer_shaders.size()));
+    SSAOBlurShader.reset(new GLShader(ssaoBlur_shaders.data(), ssaoBlur_shaders.size()));
 
     skycube.reset(new Mesh(Shape::Cube));
     skycube->get_vertex_buffer()->set_layout({
@@ -218,8 +220,6 @@ void Application::run() {
         {"TANGENT",     ShaderType::FLOAT3},
         {"BINORMAL",    ShaderType::FLOAT3}
     });
-
-    sky_image.reset(new GLTextureCube(skyboxes["lake"]));
 
     std::unique_ptr<Mesh> Quad;
     Quad.reset(new Mesh(Shape::Quad));
@@ -259,6 +259,7 @@ void Application::run() {
     positionTexture.bind();
     positionTexture.init(renderWidth, renderHeight, Format::HDR);
     positionTexture.setFilter(Sampling::Filter::None);
+    positionTexture.setWrap(Sampling::Wrap::ClampEdge);
     positionTexture.unbind();
 
     glRenderbuffer GDepthBuffer;
@@ -429,19 +430,21 @@ void Application::run() {
     // toggle bool for changing the shadow map
     bool debugShadows = false;
 
+
+    // create SSAO kernel hemisphere
     std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // random floats between 0.0 - 1.0
     std::default_random_engine generator;
     std::vector<glm::vec3> ssaoKernel;
     for (unsigned int i = 0; i < 64; ++i)
     {
         glm::vec3 sample(
-            randomFloats(generator),
-            randomFloats(generator),
+            randomFloats(generator) * 2.0 - 1.0,
+            randomFloats(generator) * 2.0 - 1.0,
             randomFloats(generator)
         );
         sample = glm::normalize(sample);
         sample *= randomFloats(generator);
-        float scale = static_cast<float>(i / 64.0);
+        float scale = (float)i / 64.0;
 
         auto lerp = [](float a, float b, float f) {
             return a + f * (b - a);
@@ -450,8 +453,41 @@ void Application::run() {
         scale = lerp(0.1f, 1.0f, scale * scale);
         sample *= scale;
         ssaoKernel.push_back(sample);
-        ssaoKernel.push_back(sample);
     }
+
+    std::vector<glm::vec3> ssaoNoise;
+    for (unsigned int i = 0; i < 16; i++) {
+        glm::vec3 noise(
+            randomFloats(generator) * 2.0 - 1.0,
+            randomFloats(generator) * 2.0 - 1.0,
+            0.0f);
+        ssaoNoise.push_back(noise);
+    }
+
+    glTexture2D ssaoNoiseTexture;
+    ssaoNoiseTexture.bind();
+    ssaoNoiseTexture.init(4, 4, { GL_RGB16F, GL_RGB, GL_FLOAT }, &ssaoNoise[0]);
+    ssaoNoiseTexture.setFilter(Sampling::Filter::None);
+    ssaoNoiseTexture.setWrap(Sampling::Wrap::Repeat);
+
+    glTexture2D ssaoColorTexture;
+    ssaoColorTexture.bind();
+    ssaoColorTexture.init(renderWidth, renderHeight, {GL_RGBA, GL_RGBA, GL_FLOAT}, nullptr);
+    ssaoColorTexture.setFilter(Sampling::Filter::None);
+ 
+    glFramebuffer ssaoFramebuffer;
+    ssaoFramebuffer.bind();
+    ssaoFramebuffer.attach(ssaoColorTexture, GL_COLOR_ATTACHMENT0);
+
+    glTexture2D ssaoBlurTexture;
+    ssaoBlurTexture.bind();
+    ssaoBlurTexture.init(renderWidth, renderHeight, {GL_RGBA, GL_RGBA, GL_FLOAT}, nullptr);
+    ssaoBlurTexture.setFilter(Sampling::Filter::None);
+
+    glFramebuffer ssaoBlurFramebuffer;
+    ssaoBlurFramebuffer.bind();
+    ssaoBlurFramebuffer.attach(ssaoBlurTexture, GL_COLOR_ATTACHMENT0);
+
 
     static bool wireframeOnly = false;
     static bool frustrumCulling = false;
@@ -459,9 +495,6 @@ void Application::run() {
     glm::vec3 bloomThreshold { 2.0f, 2.0f, 2.0f };
     static bool doBloom = false;
 
-    //////////////////////////////////////////////////////////////
-    //// main application loop //////////////////////////////////
-    ////////////////////////////////////////////////////////////
     while (running) {
         dt_timer.start();
         handle_sdl_gui_events({ directxwindow }, debugShadows ? sunCamera : camera, dt); // in shadow debug we're in control of the shadow map camera
@@ -553,16 +586,6 @@ void Application::run() {
         glViewport(0, 0, renderWidth, renderHeight);
         GBuffer.bind();
 
-        //// render a cubemap with depth testing disabled to generate a skybox
-        //// update the camera without translation
-        //skyShader->bind();
-        //skyShader->getUniform("view") = glm::mat4(glm::mat3(camera.getView()));
-        //skyShader->getUniform("proj") = camera.getProjection();
-
-        //sky_image->bind(0);
-        //skycube->bind();
-        //Renderer::DrawIndexed(skycube->get_index_buffer()->get_count(), false);
-
         GBufferShader->bind();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -586,6 +609,28 @@ void Application::run() {
 
         GBuffer.unbind();
 
+        // SSAO PASS
+        ssaoFramebuffer.bind();
+        positionTexture.bindToSlot(0);
+        normalTexture.bindToSlot(1);
+        ssaoNoiseTexture.bindToSlot(2);
+        SSAOshader->bind();
+
+        SSAOshader->getUniform("view") = camera.getView();
+        SSAOshader->getUniform("projection") = camera.getProjection();
+        SSAOshader->getUniform("noiseScale") = { renderWidth / 4.0f, renderHeight / 4.0f };
+        SSAOshader->getUniform("samples") = ssaoKernel;
+
+        Quad->render();
+
+        // now blur the SSAO result
+        ssaoBlurFramebuffer.bind();
+        ssaoColorTexture.bindToSlot(0);
+        SSAOBlurShader->bind();
+
+        Quad->render();
+
+
         // bind the main framebuffer
         hdrFramebuffer.bind();
         glViewport(0, 0, renderWidth, renderHeight);
@@ -605,6 +650,7 @@ void Application::run() {
         positionTexture.bindToSlot(2);
         albedoTexture.bindToSlot(3);
         normalTexture.bindToSlot(4);
+        ssaoBlurTexture.bindToSlot(5);
 
         ubo.view = camera.getView();
         ubo.projection = camera.getProjection();
@@ -808,19 +854,6 @@ void Application::run() {
 
         // scene panel
         ImGui::Begin("Scene");
-        if (ImGui::BeginCombo("Skybox", active_skybox->first.c_str())) {
-            for (auto it = skyboxes.begin(); it != skyboxes.end(); it++) {
-                bool selected = (it == active_skybox);
-                if (ImGui::Selectable(it->first.c_str(), selected)) {
-                    active_skybox = it;
-                    sky_image.reset(new GLTextureCube(active_skybox->second));
-                }
-                if (selected) {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-            ImGui::EndCombo();
-        }
 
         // toggle button for openGl vsync
         static bool use_vsync = false;
@@ -989,10 +1022,8 @@ void Application::run() {
             ImGui::Image(quadTexture.ImGuiID(), ImVec2(SHADOW_WIDTH, SHADOW_HEIGHT), { 0,1 }, { 1,0 });
         }
         else {
-            if (hdr) 
-                ImGui::Image(finalTexture.ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
-            else 
-                ImGui::Image(hdrTexture.ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
+            if (hdr) ImGui::Image(finalTexture.ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
+            else ImGui::Image(ssaoBlurTexture.ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
         }
 
         ImGui::End();
@@ -1026,6 +1057,9 @@ void Application::run() {
             finalTexture.bind();
             finalTexture.init(renderWidth, renderHeight, Format::SDR);
 
+            ssaoColorTexture.bind();
+            ssaoColorTexture.init(renderWidth, renderHeight, Format::SDR);
+
             finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
 
             bloomTexture.bind();
@@ -1035,6 +1069,9 @@ void Application::run() {
                 pingpongTextures[i].bind();
                 pingpongTextures[i].init(renderWidth, renderHeight, Format::HDR);
             }
+
+            ssaoBlurTexture.bind();
+            ssaoBlurTexture.init(renderWidth, renderHeight, Format::SDR);
 
             resizing = false;
         }

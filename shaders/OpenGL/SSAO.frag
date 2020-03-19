@@ -1,52 +1,52 @@
 #version 440 core
 
-in vec2 uv;
-in vec2 ray;
-
 out vec4 FragColor;
 
-layout(binding = 1) uniform sampler2D gDepthMap;
-uniform float gSampleRad;
-uniform mat4 gProj;
-
-const int MAX_KERNEL_SIZE = 64;
-uniform vec3 gKernel[MAX_KERNEL_SIZE];
+in vec2 uv;
 
 
-float CalcViewZ(vec2 Coords) {
-    float Depth = texture(gDepthMap, Coords).x;
-	mat4 proj = transpose(gProj);
-    float ViewZ = proj[3][2] / (2 * Depth -1 - proj[2][2]);
-    return ViewZ;
-}
+layout(binding = 0) uniform sampler2D gPosition;
+layout(binding = 1) uniform sampler2D gNormals;
+layout(binding = 2) uniform sampler2D noiseTexture;
+
+uniform vec3 samples[64];
+uniform mat4 projection;
+uniform mat4 view;
+uniform vec2 noiseScale;
 
 
-void main()
-{
-    float ViewZ = CalcViewZ(uv);
+void main() {
+		
+	// get view space vectors
+	vec3 position = vec3(view * vec4(texture(gPosition, uv).xyz, 1.0));
+	mat3 normalMatrix = transpose(inverse(mat3(view)));
+	vec3 normal = normalMatrix * texture(gNormals, uv).xyz;
 
-    float ViewX = ray.x * ViewZ;
-    float ViewY = ray.y * ViewZ;
+	// create TBN matrix that goes from tangent to view space
+	vec3 random = texture(noiseTexture, uv * noiseScale).xyz;
+	vec3 tangent = normalize(random - normal * dot(random, normal));
+	vec3 bitangent = cross(normal, tangent);
+	mat3 TBN = mat3(tangent, bitangent, normal);
 
-    vec3 Pos = vec3(ViewX, ViewY, ViewZ);
+	float occlusion = 0.0;
+	for(int i = 0; i < 64; i++) {
+	// convert the random vector from tangent to view space
+		vec3 sampled = TBN * samples[i];
+		sampled = position + sampled * 0.5;
 
-    float AO = 0.0;
+		// convert the offset from world to NDC
+		vec4 offset = vec4(sampled, 1.0);
+		offset = projection * offset;
+		offset.xyz /= offset.w;
+		offset.xyz = offset.xyz * 0.5 + 0.5;
 
-    for (int i = 0 ; i < MAX_KERNEL_SIZE ; i++) {
-        vec3 samplePos = Pos + gKernel[i];
-        vec4 offset = vec4(samplePos, 1.0);
-        offset = gProj * offset;
-        offset.xy /= offset.w;
-        offset.xy = offset.xy * 0.5 + vec2(0.5);
+		// get the sampled depth in world space and convert it to view space
+		float sampledDepth = vec3(view * vec4(texture(gPosition, offset.xy).xyz, 1.0)).z;
+		float rangecheck = smoothstep(0.0, 1.0, 0.5 / abs(position.z - sampledDepth));
+		occlusion += (sampledDepth >= sampled.z + 0.025 ? 1.0 : 0.0) * rangecheck;
+	}
 
-        float sampleDepth = CalcViewZ(offset.xy);
-
-        if (abs(Pos.z - sampleDepth) < gSampleRad) {
-            AO += step(sampleDepth,samplePos.z);
-        }
-    }
-
-    AO = 1.0 - AO/64.0;
-
-    FragColor = vec4(pow(AO, 2.0));
+	occlusion = 1.0 - (occlusion / 64);
+	occlusion = pow(occlusion, 2.5);
+	FragColor = vec4(occlusion, occlusion, occlusion, 1.0);
 }

@@ -8,7 +8,6 @@ namespace Raekor {
 // TODO: right now we always let directx auto generate mip maps, might want to make that optional
 DXTexture::DXTexture(const std::string& filepath) {
     stbi_set_flip_vertically_on_load(true);
-    this->filepath = filepath;
 
     //describe our 2d texture
     D3D11_TEXTURE2D_DESC desc;

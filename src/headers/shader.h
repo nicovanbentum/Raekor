@@ -33,6 +33,11 @@ protected:
             return *this;
         }
 
+        loc& operator=(const std::vector<glm::vec3>& rhs) {
+            glUniform3fv(id, static_cast<GLsizei>(rhs.size()), glm::value_ptr(rhs[0]));
+            return *this;
+        }
+
         loc& operator=(float rhs) {
             glUniform1f(id, rhs);
             return *this;
@@ -50,6 +55,11 @@ protected:
 
         loc& operator=(const glm::vec3& rhs) {
             glUniform3f(id, rhs.x, rhs.y, rhs.z);
+            return *this;
+        }
+
+        loc& operator=(const glm::vec2& rhs) {
+            glUniform2f(id, rhs.x, rhs.y);
             return *this;
         }
 

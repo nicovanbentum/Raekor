@@ -9,84 +9,109 @@
 
 namespace Raekor {
 
-Texture* Texture::construct(const std::string& path) {
-    if (path.empty()) return nullptr;
-    auto active_api = Renderer::getActiveAPI();
-    switch (active_api) {
-        case RenderAPI::OPENGL: {
-            return nullptr;
-        } break;
-#ifdef _WIN32
-        case RenderAPI::DIRECTX11: {
-            return new DXTexture(path);
-        } break;
-#endif
-    }
-    return nullptr;
+//////////////////////////////////////////////////////////////////////////////////
+
+glTexture::glTexture(GLenum pTarget) {
+    mTarget = pTarget;
+    glGenTextures(1, &mID);
 }
 
-Texture* Texture::construct(const std::array <std::string, 6>& face_files) {
-    auto active_api = Renderer::getActiveAPI();
-    switch (active_api) {
-    case RenderAPI::OPENGL: {
-        return new GLTextureCube(face_files);
-    } break;
-#ifdef _WIN32
-    case RenderAPI::DIRECTX11: {
-        return new DXTextureCube(face_files);
-    } break;
-#endif
-    }
-    return nullptr;
+//////////////////////////////////////////////////////////////////////////////////
+
+glTexture::~glTexture() {
+    glDeleteTextures(1, &mID);
 }
 
-Texture* Texture::construct(const Stb::Image& image) {
-    auto active_api = Renderer::getActiveAPI();
-    switch (active_api) {
-    case RenderAPI::OPENGL: {
-        return nullptr;
-    } break;
-#ifdef _WIN32
-    case RenderAPI::DIRECTX11: {
-        return new DXTexture(image);
-    } break;
-#endif
-    }
-    return nullptr;
+//////////////////////////////////////////////////////////////////////////////////
+
+void glTexture::bind() {
+    glBindTexture(mTarget, mID);
 }
 
+//////////////////////////////////////////////////////////////////////////////////
 
-GLTextureCube::GLTextureCube(const std::array<std::string, 6>& face_files) {
-    stbi_set_flip_vertically_on_load(false);
+void glTexture::unbind() {
+    glBindTexture(mTarget, 0);
+}
 
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, id);
+//////////////////////////////////////////////////////////////////////////////////
 
-    // for every face file we generate an OpenGL texture image
-    int width, height, n_channels;
-    for(unsigned int i = 0; i < face_files.size(); i++) {
-        auto image = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, 0);
-        m_assert(image, "failed to load image");
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-        stbi_image_free(image);
+void glTexture::bindToSlot(uint8_t slot) {
+    glBindTextureUnit(slot, mID);
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+void glTexture::genMipMaps() {
+    glGenerateMipmap(GL_TEXTURE_2D);
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+void glTexture::setFilter(Sampling::Filter filter) {
+    int minFilter = 0, magFilter = 0;
+
+    switch (filter) {
+    case Sampling::Filter::None: {
+        minFilter = magFilter = GL_NEAREST;
+    } break;
+    case Sampling::Filter::Bilinear: {
+        minFilter = magFilter = GL_LINEAR;
+    } break;
+    case Sampling::Filter::Trilinear: {
+        minFilter = GL_LINEAR_MIPMAP_LINEAR;
+        magFilter = GL_LINEAR;
+    } break;
     }
 
-    // set the text parameters
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    //glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+    glTexParameteri(mTarget, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(mTarget, GL_TEXTURE_MAG_FILTER, magFilter);
 }
 
-GLTextureCube::~GLTextureCube() {
-    glDeleteTextures(1, &id);
+//////////////////////////////////////////////////////////////////////////////////
+
+void glTexture::setWrap(Sampling::Wrap mode) {
+    int wrapMode = 0;
+
+    switch (mode) {
+    case Sampling::Wrap::Repeat: {
+        wrapMode = GL_REPEAT;
+    } break;
+    case Sampling::Wrap::ClampBorder: {
+        wrapMode = GL_CLAMP_TO_BORDER;
+    } break;
+    case Sampling::Wrap::ClampEdge: {
+        wrapMode = GL_CLAMP_TO_EDGE;
+    } break;
+    }
+
+    glTexParameteri(mTarget, GL_TEXTURE_WRAP_S, wrapMode);
+    glTexParameteri(mTarget, GL_TEXTURE_WRAP_T, wrapMode);
+    glTexParameteri(mTarget, GL_TEXTURE_WRAP_R, wrapMode);
 }
 
-void GLTextureCube::bind(uint32_t slot) const {
-    glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, id);
+//////////////////////////////////////////////////////////////////////////////////
+
+ImTextureID glTexture::ImGuiID() { return (void*)((intptr_t)mID); }
+
+//////////////////////////////////////////////////////////////////////////////////
+
+glTexture2D::glTexture2D() : glTexture(GL_TEXTURE_2D) {}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+void glTexture2D::init(uint32_t width, uint32_t height, const Format::Format& format, const void* data) {
+    glTexImage2D(mTarget, 0, format.intFormat, width, height, 0, format.extFormat, format.type, data);
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+glTextureCube::glTextureCube() : glTexture(GL_TEXTURE_CUBE_MAP) {}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+void glTextureCube::init(uint32_t width, uint32_t height, uint8_t face, const Format::Format& format, const void* data) {
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, 0, format.intFormat, width, height, 0, format.extFormat, format.type, data);
 }
 
 } // Namespace Raekor
