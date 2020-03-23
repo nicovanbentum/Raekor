@@ -19,7 +19,7 @@ class Camera {
     
 public:
     Camera(glm::vec3 position, glm::mat4 proj);
-    void look(int x, int y);
+    void look(int x, int y, double dt);
     void zoom(float amount, double dt);
     void update(bool normalizePlanes);
     glm::vec3 get_direction();

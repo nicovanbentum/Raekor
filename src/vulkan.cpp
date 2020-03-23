@@ -107,12 +107,13 @@ void Application::vulkan_main() {
 
     bool use_vsync = true;
     bool update = false;
+    bool mouseInViewport = false;
 
     //main application loop
     while (running) {
         dt_timer.start();
         //handle sdl and imgui events
-        handle_sdl_gui_events({ window }, camera, dt);
+        handle_sdl_gui_events({ window }, camera, mouseInViewport, dt);
 
         // update the mvp structs
         for (uint32_t i = 0; i < mods.size(); i++) {

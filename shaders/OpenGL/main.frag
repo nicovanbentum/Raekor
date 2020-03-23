@@ -2,12 +2,17 @@
 
 const float PI = 3.14159265359;
 
+#define doSSAO		0x01
+#define doBloom		0x02
+#define mapNormals	0x03
+
 layout (std140) uniform stuff {
 	mat4 view, projection;
 	mat4 lightSpaceMatrix;
 	vec4 cameraPosition;
     vec4 DirLightPos;
 	vec4 pointLightPos;
+	unsigned int renderFlags;
 } ubo;
 
 uniform vec4 sunColor;
@@ -53,15 +58,19 @@ float getShadow(DirectionalLight light);
 vec3 position;
 vec3 normal;
 vec4 sampled;
-float AO;
+float AO = 1.0;
 
 void main()
 {
 	sampled = texture(gColors, uv);
 	normal = texture(gNormals, uv).xyz;
 	position = texture(gPositions, uv).xyz;
-	AO = texture(SSAO, uv).x;
-	AO = clamp(AO, 0.0, 1.0);
+
+	if(bool(ubo.renderFlags & doSSAO)) {
+		AO = texture(SSAO, uv).x;
+		AO = clamp(AO, 0.0, 1.0);
+	}
+
 
 	DirectionalLight dirLight;
 	dirLight.color = sunColor.rgb;

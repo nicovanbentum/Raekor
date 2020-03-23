@@ -5,7 +5,7 @@
 
 namespace Raekor {
 
-void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& camera, double dt) {
+void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& camera, bool mouseInViewport, double dt) {
     auto flags = SDL_GetWindowFlags(windows[0]);
     bool focus = (flags & SDL_WINDOW_INPUT_FOCUS) ? true : false;
 
@@ -21,7 +21,6 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
     static bool cameraLooking = false;
     static bool cameraMoving = false;
     
-
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         //handle window events
@@ -46,6 +45,7 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
                 cameraMoving = true;
             }
         }
+
         //handle mouse up events
         else if (ev.type == SDL_MOUSEBUTTONUP) {
             if (ev.button.button == SDL_BUTTON_RIGHT) {
@@ -55,20 +55,22 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
                 cameraMoving = false;
             }
         }
+
         // handle mousewheel events
-        else if (ev.type == SDL_MOUSEWHEEL) {
+        else if (ev.type == SDL_MOUSEWHEEL && mouseInViewport) {
             camera.zoom(static_cast<float>(ev.wheel.y * 0.1f), dt);
         }
+
         // handle mouse motion events
         else if (ev.type == SDL_MOUSEMOTION) {
             if (cameraLooking) {
-                camera.look(ev.motion.xrel, ev.motion.yrel);
+                camera.look(ev.motion.xrel, ev.motion.yrel, dt);
             }
             else if (cameraMoving) {
                 camera.move({ ev.motion.xrel * -0.001f, ev.motion.yrel * 0.001f }, dt);
             }
             else if (!camera.is_mouse_active()) {
-                camera.look(ev.motion.xrel, ev.motion.yrel);
+                camera.look(ev.motion.xrel, ev.motion.yrel, dt);
             }
         }
 
@@ -95,6 +97,6 @@ int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
     app.run();
-    app.serialize_settings("config.json", true);
+    //app.serialize_settings("config.json", true);
     return 0;
 }

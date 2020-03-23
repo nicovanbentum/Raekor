@@ -14,6 +14,8 @@ uniform mat4 projection;
 uniform mat4 view;
 uniform vec2 noiseScale;
 
+uniform float power;
+uniform float bias;
 
 void main() {
 		
@@ -43,10 +45,10 @@ void main() {
 		// get the sampled depth in world space and convert it to view space
 		float sampledDepth = vec3(view * vec4(texture(gPosition, offset.xy).xyz, 1.0)).z;
 		float rangecheck = smoothstep(0.0, 1.0, 0.5 / abs(position.z - sampledDepth));
-		occlusion += (sampledDepth >= sampled.z + 0.025 ? 1.0 : 0.0) * rangecheck;
+		occlusion += (sampledDepth >= sampled.z + bias ? 1.0 : 0.0) * rangecheck;
 	}
 
 	occlusion = 1.0 - (occlusion / 64);
-	occlusion = pow(occlusion, 2.5);
+	occlusion = pow(occlusion, power);
 	FragColor = vec4(occlusion, occlusion, occlusion, 1.0);
 }

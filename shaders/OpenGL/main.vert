@@ -12,6 +12,7 @@ layout (std140) uniform stuff {
 	vec4 cameraPosition;
     vec4 DirLightPos;
 	vec4 pointLightPos;
+	unsigned int renderFlags;
 } ubo;
 
 uniform mat4 model;

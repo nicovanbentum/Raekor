@@ -11,6 +11,8 @@
 #include "buffer.h"
 #include "timer.h"
 
+#define nameof(var) (#var)
+
 namespace Raekor {
 
 struct shadowUBO {
@@ -23,11 +25,12 @@ struct VertexUBO {
     glm::vec4 DirViewPos;
     glm::vec4 DirLightPos;
     glm::vec4 pointLightPos;
+    unsigned int renderFlags = 0b00000001;
 };
 
 struct Uniforms {
     glm::vec4 sunColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    float minBias = 0.005f, maxBias = 0.05f;
+    float minBias = 0.000f, maxBias = 0.0f;
     float farPlane = 25.0f;
 };
 
@@ -322,21 +325,6 @@ void Application::run() {
     finalFramebuffer.attach(finalRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
     finalFramebuffer.unbind();
 
-    glTexture2D quadTexture;
-    quadTexture.bind();
-    quadTexture.init(SHADOW_WIDTH, SHADOW_HEIGHT, Format::SDR);
-    quadTexture.setFilter(Sampling::Filter::Bilinear);
-    quadTexture.unbind();
-
-    glRenderbuffer quadRenderbuffer;
-    quadRenderbuffer.init(SHADOW_WIDTH, SHADOW_HEIGHT, GL_DEPTH32F_STENCIL8);
-    
-    glFramebuffer quadFramebuffer;
-    quadFramebuffer.bind();
-    quadFramebuffer.attach(quadTexture, GL_COLOR_ATTACHMENT0);
-    quadFramebuffer.attach(quadRenderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-    quadFramebuffer.unbind();
-
     glTexture2D pingpongTextures[2];
     glFramebuffer pingpongFramebuffers[2];
 
@@ -427,10 +415,6 @@ void Application::run() {
     float farPlane = 25.0f;
     glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), float(SHADOW_WIDTH / SHADOW_HEIGHT), nearPlane, farPlane);
 
-    // toggle bool for changing the shadow map
-    bool debugShadows = false;
-
-
     // create SSAO kernel hemisphere
     std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // random floats between 0.0 - 1.0
     std::default_random_engine generator;
@@ -444,7 +428,7 @@ void Application::run() {
         );
         sample = glm::normalize(sample);
         sample *= randomFloats(generator);
-        float scale = (float)i / 64.0;
+        float scale = float(i / 64.0f);
 
         auto lerp = [](float a, float b, float f) {
             return a + f * (b - a);
@@ -488,16 +472,15 @@ void Application::run() {
     ssaoBlurFramebuffer.bind();
     ssaoBlurFramebuffer.attach(ssaoBlurTexture, GL_COLOR_ATTACHMENT0);
 
-
-    static bool wireframeOnly = false;
-    static bool frustrumCulling = false;
+    float ssaoBias = 0.025f, ssaoPower = 2.5f;
 
     glm::vec3 bloomThreshold { 2.0f, 2.0f, 2.0f };
     static bool doBloom = false;
+    bool mouseInViewport = false;
 
     while (running) {
         dt_timer.start();
-        handle_sdl_gui_events({ directxwindow }, debugShadows ? sunCamera : camera, dt); // in shadow debug we're in control of the shadow map camera
+        handle_sdl_gui_events({ directxwindow }, camera, mouseInViewport, dt); // in shadow debug we're in control of the shadow map camera
         sunCamera.update(true);
         camera.update(true);
 
@@ -571,16 +554,6 @@ void Application::run() {
             }
         }
 
-        // bind the generated shadow map and render it to a quad for debugging in-editor
-        shadowTexture.bind();
-        quadFramebuffer.bind();
-        Renderer::Clear({ 1,0,0,1 });
-        quadShader->bind();
-        Quad->render();
-        quadShader->unbind();
-        shadowTexture.unbind();
-        quadFramebuffer.unbind();
-
         // start G-Buffer pass
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glViewport(0, 0, renderWidth, renderHeight);
@@ -620,6 +593,8 @@ void Application::run() {
         SSAOshader->getUniform("projection") = camera.getProjection();
         SSAOshader->getUniform("noiseScale") = { renderWidth / 4.0f, renderHeight / 4.0f };
         SSAOshader->getUniform("samples") = ssaoKernel;
+        SSAOshader->getUniform("power") = ssaoPower;
+        SSAOshader->getUniform("bias") = ssaoBias;
 
         Quad->render();
 
@@ -664,18 +639,6 @@ void Application::run() {
         dxrb->bind(0);
 
         Quad->render();
-
-        if (wireframeOnly) {
-            // render collision shapes
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            for (auto& object : scene.objects) {
-                //if (object.name == "Mesh.366-1") {
-                mainShader->getUniform("model") = object.transform;
-                object.collisionRenderable->render();
-                //}
-            }
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        }
 
         // unbind the main frame buffer
         hdrFramebuffer.unbind();
@@ -766,6 +729,7 @@ void Application::run() {
             ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
         }
 
+
         // move the light by a fixed amount and let it bounce between -125 and 125 units/pixels on the x axis
         static double move_amount = 0.003;
         static double bounds = 7.5f;
@@ -852,8 +816,55 @@ void Application::run() {
 
         ImGui::End();
 
+        // post processing panel
+        ImGui::Begin("Post Processing");
+        if (ImGui::Checkbox("HDR", &hdr)) {}
+        ImGui::Separator();
+
+        static const char* current = tonemappingShaders.begin()->c_str();
+        if (ImGui::BeginCombo("Tonemapping", current)) {
+            for (auto it = tonemappingShaders.begin(); it != tonemappingShaders.end(); it++) {
+                bool selected = (it->c_str() == current);
+                if (ImGui::Selectable(it->c_str(), selected)) {
+                    current = it->c_str();
+
+                    hdr_shaders.clear();
+                    hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
+                    hdr_shaders.emplace_back(Shader::Type::FRAG, current);
+                    hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
+                }
+                if (selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        if (ImGui::SliderFloat("Exposure", &hdr_ubo.exposure, 0.0f, 1.0f)) {}
+        if (ImGui::SliderFloat("Gamma", &hdr_ubo.gamma, 1.0f, 3.2f)) {}
+        ImGui::NewLine();
+
+        if (ImGui::Checkbox("Bloom", &doBloom)) {}
+        ImGui::Separator();
+
+        if (ImGui::DragFloat3("Threshold", glm::value_ptr(bloomThreshold), 0.001f, 0.0f, 10.0f)) {}
+        ImGui::NewLine();
+
+        if (ImGui::CheckboxFlags("SSAO", &ubo.renderFlags, 0x01)) {}
+        ImGui::Separator();
+        if (ImGui::SliderFloat("Power", &ssaoPower, 0.0f, 5.0f)) {}
+        if (ImGui::SliderFloat("Bias", &ssaoBias, 0.0f, 1.0f)) {}
+
+
+        ImGui::End();
+
         // scene panel
         ImGui::Begin("Scene");
+        ImGui::SetItemDefaultFocus();
+
+        if (ImGui::Button("Reload 'main' shaders")) {
+            mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
+        }
 
         // toggle button for openGl vsync
         static bool use_vsync = false;
@@ -861,27 +872,37 @@ void Application::run() {
             use_vsync = !use_vsync;
         }
 
-        if (ImGui::RadioButton("Wireframe", wireframeOnly)) {
-            wireframeOnly = !wireframeOnly;
-        }
-
-        if (ImGui::RadioButton("Frustrum Culling", frustrumCulling)) {
-            frustrumCulling = !frustrumCulling;
-        }
-        
         if (ImGui::RadioButton("Animate Light", move_light)) {
             move_light = !move_light;
         }
 
-        if (ImGui::RadioButton("Debug shadows", debugShadows)) {
-            debugShadows = !debugShadows;
+        static glTexture2D* activeScreenTexture = &finalTexture;
+        if (ImGui::TreeNode("Screen Texture")) {
+            if (ImGui::Selectable(nameof(finalTexture), activeScreenTexture->ImGuiID() == finalTexture.ImGuiID()))
+                activeScreenTexture = &finalTexture;
+            if (ImGui::Selectable(nameof(hdrTexture), activeScreenTexture->ImGuiID() == hdrTexture.ImGuiID()))
+                activeScreenTexture = &hdrTexture;
+            if (ImGui::Selectable(nameof(albedoTexture), activeScreenTexture->ImGuiID() == albedoTexture.ImGuiID()))
+                activeScreenTexture = &albedoTexture;
+            if (ImGui::Selectable(nameof(normalTexture), activeScreenTexture->ImGuiID() == normalTexture.ImGuiID()))
+                activeScreenTexture = &normalTexture;
+            if (ImGui::Selectable(nameof(positionTexture), activeScreenTexture->ImGuiID() == positionTexture.ImGuiID()))
+                activeScreenTexture = &positionTexture;
+            if (ImGui::Selectable(nameof(shadowTexture), activeScreenTexture->ImGuiID() == shadowTexture.ImGuiID()))
+                activeScreenTexture = &shadowTexture;
+            if (ImGui::Selectable(nameof(preprocessTexture), activeScreenTexture->ImGuiID() == preprocessTexture.ImGuiID()))
+                activeScreenTexture = &preprocessTexture;
+            if (ImGui::Selectable(nameof(bloomTexture), activeScreenTexture->ImGuiID() == bloomTexture.ImGuiID()))
+                activeScreenTexture = &bloomTexture;
+            if (ImGui::Selectable(nameof(ssaoColorTexture), activeScreenTexture->ImGuiID() == ssaoColorTexture.ImGuiID()))
+                activeScreenTexture = &ssaoColorTexture;
+            if (ImGui::Selectable(nameof(ssaoBlurTexture), activeScreenTexture->ImGuiID() == ssaoBlurTexture.ImGuiID()))
+                activeScreenTexture = &ssaoBlurTexture;
+
+            ImGui::TreePop();
         }
 
-        if (ImGui::Button("Reload shaders")) {
-            mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
-        }
-
-        ImGui::NewLine(); 
+        ImGui::NewLine();
 
         ImGui::Text("Directional Light");
         ImGui::Separator();
@@ -905,14 +926,11 @@ void Application::run() {
         }
         
         ImGui::NewLine();
-        ImGui::Text("Post-processing");
+        ImGui::Text("Normal Maps");
         ImGui::Separator();
-        if (ImGui::Checkbox("HDR", &hdr)) {}
-        ImGui::SameLine();
-        if (ImGui::Checkbox("Bloom", &doBloom)) {}
 
         static bool doNormalMapping = false;
-        if (ImGui::Checkbox("Normal mapping", &doNormalMapping)) {
+        if (ImGui::Checkbox("Enable ##normalmapping", &doNormalMapping)) {
             if (!doNormalMapping) {
                 gbuffer_shaders[0].defines = { "NO_NORMAL_MAP" };
                 gbuffer_shaders[1].defines = { "NO_NORMAL_MAP" };
@@ -923,30 +941,6 @@ void Application::run() {
             }
             GBufferShader.reset(new GLShader(gbuffer_shaders.data(), gbuffer_shaders.size()));
         }
-
-        if (ImGui::DragFloat3("Bloom Threshold", glm::value_ptr(bloomThreshold), 0.001f, 0.0f, 10.0f)) {}
-
-        static const char* current = tonemappingShaders.begin()->c_str();
-        if (ImGui::BeginCombo("Tonemapping", current)) {
-            for (auto it = tonemappingShaders.begin(); it != tonemappingShaders.end(); it++) {
-                bool selected = (it->c_str() == current);
-                if (ImGui::Selectable(it->c_str(), selected)) {
-                    current = it->c_str();
-
-                    hdr_shaders.clear();
-                    hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
-                    hdr_shaders.emplace_back(Shader::Type::FRAG, current);
-                    hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
-                }
-                if (selected) {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-            ImGui::EndCombo();
-        }
-
-        if (ImGui::SliderFloat("Exposure", &hdr_ubo.exposure, 0.0f, 1.0f)) {}
-        if (ImGui::SliderFloat("Gamma", &hdr_ubo.gamma, 1.0f, 3.2f)) {}
 
         ImGui::End();
 
@@ -960,8 +954,6 @@ void Application::run() {
         if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
         ImGui::End();
 
-
-
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
         static ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
@@ -971,7 +963,7 @@ void Application::run() {
             std::array<const char*, 3> previews = {
                 "TRANSLATE", "ROTATE", "SCALE"
             };
-            static ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
+
             if (ImGui::BeginCombo("Gizmo mode", previews[operation])) {
                 for (int i = 0; i < previews.size(); i++) {
                     bool selected = (i == operation);
@@ -989,42 +981,38 @@ void Application::run() {
             if (ImGui::Button("Reset")) {
                 activeObject->reset_transform();
             }
+
             ImGui::End();
-
-            // draw the imguizmo at the center of the light
-            if (!move_light)
-                ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), operation, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
-            else
-                ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), operation, ImGuizmo::MODE::WORLD, glm::value_ptr(activeObject->transform));
-
         }
 
         // renderer viewport
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
         static bool resizing = false;
-        auto size = ImGui::GetWindowSize();
-        if (renderWidth != size.x || renderHeight != size.y - 25) {
+        auto size = ImGui::GetContentRegionAvail();
+        if (renderWidth != size.x || renderHeight != size.y) {
             resizing = true;
-            renderWidth = static_cast<uint32_t>(size.x), renderHeight = static_cast<uint32_t>(size.y - 25.0f);
+            renderWidth = static_cast<uint32_t>(size.x), renderHeight = static_cast<uint32_t>(size.y);
         }
         auto pos = ImGui::GetWindowPos();
 
-        bloomTexture.bind();
-        bloomTexture.init(renderWidth, renderHeight, Format::HDR);
-        bloomTexture.unbind();
-
+        if (io.MousePos.x > pos.x && io.MousePos.x < pos.x + size.x &&
+            io.MousePos.y > pos.y && io.MousePos.y < pos.y + size.y) {
+            mouseInViewport = true;
+        } else {
+            mouseInViewport = false;
+        }
 
         camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
         ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
+        
         // function that calls an ImGui image with the framebuffer's color stencil data
-        if (debugShadows) {
-            ImGui::Image(quadTexture.ImGuiID(), ImVec2(SHADOW_WIDTH, SHADOW_HEIGHT), { 0,1 }, { 1,0 });
-        }
-        else {
-            if (hdr) ImGui::Image(finalTexture.ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
-            else ImGui::Image(ssaoBlurTexture.ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
-        }
+        ImGui::Image(activeScreenTexture->ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
+
+        // draw the imguizmo at the center of the light
+        ImGuizmo::SetDrawlist();
+        glm::f32* gizmoData = move_light ? glm::value_ptr(activeObject->transform) : glm::value_ptr(lightmatrix);
+        ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), operation, ImGuizmo::MODE::WORLD, gizmoData);
 
         ImGui::End();
         ImGui::PopStyleVar();

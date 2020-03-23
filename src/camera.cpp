@@ -6,10 +6,11 @@ namespace Raekor {
 Camera::Camera(glm::vec3 position, glm::mat4 proj) :
     position(position),
     angle(static_cast<float>(M_PI), 0.0f), 
-    look_speed(0.0010f), move_speed(0.01f),
+    look_speed(0.15f), move_speed(0.01f),
     mouse_active(true) {
     projection = proj;
     //glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
+
 }
 
 void Camera::update(bool normalizePlanes) {
@@ -19,13 +20,13 @@ void Camera::update(bool normalizePlanes) {
 }
 
 glm::vec3 Camera::get_direction() {
-    return glm::vec3(cos(angle.y) * sin(angle.x), 
+    return glm::vec3(cos(angle.y) * sin(angle.x),
     sin(angle.y), cos(angle.y) * cos(angle.x));
 }
     
-void Camera::look(int x, int y) {
-    angle.x += look_speed * (x * -1);
-    angle.y += look_speed * (y * -1);
+void Camera::look(int x, int y, double dt) {
+    angle.x += float(look_speed * (x * -1) * (dt / 1000));
+    angle.y += float(look_speed * (y * -1) * (dt / 1000));
     // clamp to roughly half pi so we dont overshoot
     angle.y = std::clamp(angle.y, -1.57078f, 1.57078f);
 }
@@ -38,7 +39,7 @@ void Camera::zoom(float amount, double dt) {
 void Camera::move(glm::vec2 amount, double dt) {
     auto dir = get_direction();
     // sideways
-    position.x += (float)(amount.x * dt);
+    position += glm::normalize(glm::cross(dir, { 0,1,0 })) * (float)(amount.x * dt);
 
     // up and down
     position.y += (float)(amount.y * dt);

@@ -38,4 +38,5 @@ private:
     std::array<std::array<float, 4>, ImGuiCol_COUNT> themeColors;
 };
 
+
 } // Namespace Raekor
