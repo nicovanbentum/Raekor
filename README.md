@@ -25,9 +25,10 @@ Basic framework in place for DX11 and VK. Focus has shifted to getting features 
 - [X] Shadow mapping (point & directional)
 - [X] Normal mapping
 - [X] HDR, Gamma & Tone mapping
-- [ ] Deferred render pipeline
-- [ ] Physically Based Rendering
-- [ ] Screen Space Ambient Occlusion
+- [X] Deferred render pipeline
+- [ ] PBR Material system
+- [ ] Frostbite's Frame Graph design
+- [X] Screen Space Ambient Occlusion
 - [ ] Screen Space Reflections
 - [ ] Global Illumination (multiple techniques)
 
