@@ -2,6 +2,7 @@
 
 #include "pch.h"
 #include "mesh.h"
+#include "camera.h"
 #include "texture.h"
 
 namespace Raekor {
@@ -43,9 +44,7 @@ public:
 
 class Scene {
 public:
-    Scene() {
-        importer = std::make_shared<Assimp::Importer>();
-    }
+    Scene();
 
     void add(std::string file);
 
@@ -76,11 +75,20 @@ public:
         }
     }
 
+    void render(std::function<void(SceneObject& object)> perObjectCallback) {
+        for (auto& object : objects) {
+            perObjectCallback(object);
+            object.render();
+
+        }
+    }
+
     void render() {
         renderOpaque();
         renderTransparent();
     }
 
+    Camera camera;
     std::vector<SceneObject> objects;
 private:
     std::shared_ptr<Assimp::Importer> importer;

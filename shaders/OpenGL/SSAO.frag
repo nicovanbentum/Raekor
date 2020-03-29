@@ -4,7 +4,6 @@ out vec4 FragColor;
 
 in vec2 uv;
 
-
 layout(binding = 0) uniform sampler2D gPosition;
 layout(binding = 1) uniform sampler2D gNormals;
 layout(binding = 2) uniform sampler2D noiseTexture;
@@ -14,6 +13,7 @@ uniform mat4 projection;
 uniform mat4 view;
 uniform vec2 noiseScale;
 
+uniform float sampleCount;
 uniform float power;
 uniform float bias;
 
@@ -31,7 +31,7 @@ void main() {
 	mat3 TBN = mat3(tangent, bitangent, normal);
 
 	float occlusion = 0.0;
-	for(int i = 0; i < 64; i++) {
+	for(int i = 0; i < sampleCount; i++) {
 	// convert the random vector from tangent to view space
 		vec3 sampled = TBN * samples[i];
 		sampled = position + sampled * 0.5;
@@ -48,7 +48,7 @@ void main() {
 		occlusion += (sampledDepth >= sampled.z + bias ? 1.0 : 0.0) * rangecheck;
 	}
 
-	occlusion = 1.0 - (occlusion / 64);
+	occlusion = 1.0 - (occlusion / sampleCount);
 	occlusion = pow(occlusion, power);
 	FragColor = vec4(occlusion, occlusion, occlusion, 1.0);
 }

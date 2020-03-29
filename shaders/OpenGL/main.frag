@@ -79,12 +79,12 @@ void main()
 	PointLight light;
 	light.position = ubo.pointLightPos.xyz;
 	light.color = vec3(1.0, 1.0, 1.0);
-    light.constant = 0.0;
+    light.constant = 1.0;
     light.linear = 0.7;
     light.quad = 1.8;
 
-    vec3 result = doLight(dirLight);
-	//result += doLight(dirLight);
+    vec3 result = doLight(light);
+	//result += doLight(light);
 
     final_color = vec4(result, sampled.a);
 	//final_color = vec4(sampled.xyz * AO, sampled.a);

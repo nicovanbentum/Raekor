@@ -46,6 +46,11 @@ void SceneObject::render() {
     Renderer::DrawIndexed(drawCount);
 }
 
+Scene::Scene() : camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(45.0f), 16.0f / 9.0f, 1.0f, 100.0f)) {
+    camera.zoom(-3.5f, 1.0f);
+    importer = std::make_shared<Assimp::Importer>();
+}
+
 void Scene::add(std::string file) {
     constexpr unsigned int flags =
         aiProcess_GenNormals |

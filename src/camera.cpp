@@ -6,7 +6,7 @@ namespace Raekor {
 Camera::Camera(glm::vec3 position, glm::mat4 proj) :
     position(position),
     angle(static_cast<float>(M_PI), 0.0f), 
-    look_speed(0.15f), move_speed(0.01f),
+    look_speed(0.0015f), move_speed(0.01f),
     mouse_active(true) {
     projection = proj;
     //glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
@@ -25,24 +25,24 @@ glm::vec3 Camera::get_direction() {
 }
     
 void Camera::look(int x, int y, double dt) {
-    angle.x += float(look_speed * (x * -1) * (dt / 1000));
-    angle.y += float(look_speed * (y * -1) * (dt / 1000));
+    angle.x += float(look_speed * (x * -1));
+    angle.y += float(look_speed * (y * -1));
     // clamp to roughly half pi so we dont overshoot
     angle.y = std::clamp(angle.y, -1.57078f, 1.57078f);
 }
 
 void Camera::zoom(float amount, double dt) {
     auto dir = get_direction();
-    position += dir * (float)(amount*dt);
+    position += dir * (float)(amount);
 }
 
 void Camera::move(glm::vec2 amount, double dt) {
     auto dir = get_direction();
     // sideways
-    position += glm::normalize(glm::cross(dir, { 0,1,0 })) * (float)(amount.x * dt);
+    position += glm::normalize(glm::cross(dir, { 0,1,0 })) * (float)(amount.x * 2.0);
 
     // up and down
-    position.y += (float)(amount.y * dt);
+    position.y += (float)(amount.y);
 }
 
 void Camera::move_on_input(double dt) {
@@ -113,21 +113,6 @@ bool Camera::vertexInPlane(const glm::vec4& plane, const glm::vec3& v) {
     float d;
     d = plane.x*v.x + plane.y*v.y + plane.z*v.z + plane.w;
     if (d >= 0) return true;
-    return false;
-}
-
-bool Camera::isVisible(const SceneObject& object) {
-    int visiblePoints = 6;
-    for (auto& point : object.boundingBox) {
-        for (auto& plane : frustrumPlanes) {
-            if (!vertexInPlane(plane, point)) {
-                visiblePoints -= 1;
-                break;
-            }
-        }
-    }
-
-    if (visiblePoints > 0) return true;
     return false;
 }
 

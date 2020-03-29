@@ -74,6 +74,7 @@ protected:
 
 class GLShader : public Shader {
 public:
+    GLShader() {}
     GLShader(Stage* stages, size_t stageCount);
     ~GLShader();
 

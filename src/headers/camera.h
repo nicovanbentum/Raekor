@@ -1,7 +1,6 @@
 #pragma once
 
 #include "pch.h"
-#include "scene.h"
 
 namespace Raekor {
 
@@ -36,8 +35,6 @@ public:
     inline float* get_move_speed() { return &move_speed; }
     inline float* get_look_speed() { return &look_speed; }
     inline const glm::vec3& getPosition() { return position; }
-
-    bool isVisible(const SceneObject& object);
 
 private:
     void updatePlanes(bool normalize);

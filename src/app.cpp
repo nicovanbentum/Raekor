@@ -104,11 +104,6 @@ void Application::run() {
         activeObject = scene.objects.begin();
     }
 
-    // create a Camera we can use to move around our scene
-    static float fov = 45.0f;
-    Camera camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 1.0f, 100.0f));
-    camera.zoom(-3.5f, 1.0f);
-
     VertexUBO ubo = {};
     shadowUBO shadowUbo;
     HDR_UBO hdr_ubo;
@@ -201,7 +196,6 @@ void Application::run() {
     std::vector<Shader::Stage> ssaoBlur_shaders;
     ssaoBlur_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
     ssaoBlur_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\SSAOblur.frag");
-
 
     skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
     depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
@@ -349,7 +343,7 @@ void Application::run() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigWindowsMoveFromTitleBarOnly = true;
     io.ConfigDockingWithShift = true;
-    ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 16.0f);
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 15.0f);
     if (!io.Fonts->Fonts.empty()) {
         io.FontDefault = io.Fonts->Fonts.back();
     }
@@ -419,8 +413,7 @@ void Application::run() {
     std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // random floats between 0.0 - 1.0
     std::default_random_engine generator;
     std::vector<glm::vec3> ssaoKernel;
-    for (unsigned int i = 0; i < 64; ++i)
-    {
+    for (unsigned int i = 0; i < 64; ++i) {
         glm::vec3 sample(
             randomFloats(generator) * 2.0 - 1.0,
             randomFloats(generator) * 2.0 - 1.0,
@@ -473,16 +466,18 @@ void Application::run() {
     ssaoBlurFramebuffer.attach(ssaoBlurTexture, GL_COLOR_ATTACHMENT0);
 
     float ssaoBias = 0.025f, ssaoPower = 2.5f;
+    float ssaoSampleCount = 64.0f;
 
     glm::vec3 bloomThreshold { 2.0f, 2.0f, 2.0f };
     static bool doBloom = false;
     bool mouseInViewport = false;
+    bool gizmoEnabled = false;
 
     while (running) {
         dt_timer.start();
-        handle_sdl_gui_events({ directxwindow }, camera, mouseInViewport, dt); // in shadow debug we're in control of the shadow map camera
+        handle_sdl_gui_events({ directxwindow }, scene.camera, mouseInViewport, dt);
         sunCamera.update(true);
-        camera.update(true);
+        scene.camera.update(true);
 
         // clear the main window
         Renderer::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
@@ -499,20 +494,9 @@ void Application::run() {
         shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
         shadowVertUbo->bind(0);
 
-        // render the scene 
-        for (auto& object : scene.objects) {
-            if (!object.hasAlpha) {
-                depthShader->getUniform("model") = object.transform;
-                object.render();
-            }
-        }
-
-        for (auto& object : scene.objects) {
-            if (object.hasAlpha) {
-                depthShader->getUniform("model") = object.transform;
-                object.render();
-            }
-        }
+        scene.render([&](SceneObject& object) {
+            depthShader->getUniform("model") = object.transform;
+        });
 
         // setup the 3D shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -522,12 +506,12 @@ void Application::run() {
         // generate the view matrices for calculating lightspace
         std::vector<glm::mat4> shadowTransforms;
         glm::vec3 lightPosition = glm::make_vec3(lightPos);
-        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  1.0, 0.0, 0.0),    glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3( -1.0, 0.0, 0.0),    glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  0.0, 1.0, 0.0),    glm::vec3(0.0, 0.0, 1.0)));
-        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  0.0, -1.0, 0.0),   glm::vec3(0.0, 0.0, -1.0)));
-        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  0.0, 0.0, 1.0),    glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(  0.0, 0.0, -1.0),   glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
 
         // render every model using the depth cubemap shader
         depthCubeShader->bind();
@@ -538,20 +522,9 @@ void Application::run() {
             depthCubeShader->getUniform("projView") = shadowTransforms[i];
             depthCubeShader->getUniform("lightPos") = glm::make_vec3(lightPos);
 
-            // render the scene 
-            for (auto& object : scene.objects) {
-                if (!object.hasAlpha) {
-                    depthCubeShader->getUniform("model") = object.transform;
-                    object.render();
-                }
-            }
-
-            for (auto& object : scene.objects) {
-                if (object.hasAlpha) {
-                    depthCubeShader->getUniform("model") = object.transform;
-                    object.render();
-                }
-            }
+            scene.render([&](SceneObject& object) {
+                depthCubeShader->getUniform("model") = object.transform;
+            });
         }
 
         // start G-Buffer pass
@@ -562,49 +535,40 @@ void Application::run() {
         GBufferShader->bind();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        GBufferShader->getUniform("projection") = camera.getProjection();
-        GBufferShader->getUniform("view") = camera.getView();
+        GBufferShader->getUniform("projection") = scene.camera.getProjection();
+        GBufferShader->getUniform("view") = scene.camera.getView();
 
-        // render the scene 
-        for (auto& object : scene.objects) {
-            if (!object.hasAlpha) {
-                GBufferShader->getUniform("model") = object.transform;
-                object.render();
-            }
-        }
-
-        for (auto& object : scene.objects) {
-            if (object.hasAlpha) {
-                GBufferShader->getUniform("model") = object.transform;
-                object.render();
-            }
-        }
+        scene.render([&](SceneObject& object) {
+            GBufferShader->getUniform("model") = object.transform;
+        });
 
         GBuffer.unbind();
 
-        // SSAO PASS
-        ssaoFramebuffer.bind();
-        positionTexture.bindToSlot(0);
-        normalTexture.bindToSlot(1);
-        ssaoNoiseTexture.bindToSlot(2);
-        SSAOshader->bind();
+        if (ubo.renderFlags & 0x01) {
+            // SSAO PASS
+            ssaoFramebuffer.bind();
+            positionTexture.bindToSlot(0);
+            normalTexture.bindToSlot(1);
+            ssaoNoiseTexture.bindToSlot(2);
+            SSAOshader->bind();
 
-        SSAOshader->getUniform("view") = camera.getView();
-        SSAOshader->getUniform("projection") = camera.getProjection();
-        SSAOshader->getUniform("noiseScale") = { renderWidth / 4.0f, renderHeight / 4.0f };
-        SSAOshader->getUniform("samples") = ssaoKernel;
-        SSAOshader->getUniform("power") = ssaoPower;
-        SSAOshader->getUniform("bias") = ssaoBias;
+            SSAOshader->getUniform("samples") = ssaoKernel;
+            SSAOshader->getUniform("view") = scene.camera.getView();
+            SSAOshader->getUniform("projection") = scene.camera.getProjection();
+            SSAOshader->getUniform("noiseScale") = { renderWidth / 4.0f, renderHeight / 4.0f };
+            SSAOshader->getUniform("sampleCount") = ssaoSampleCount;
+            SSAOshader->getUniform("power") = ssaoPower;
+            SSAOshader->getUniform("bias") = ssaoBias;
 
-        Quad->render();
+            Quad->render();
 
-        // now blur the SSAO result
-        ssaoBlurFramebuffer.bind();
-        ssaoColorTexture.bindToSlot(0);
-        SSAOBlurShader->bind();
+            // now blur the SSAO result
+            ssaoBlurFramebuffer.bind();
+            ssaoColorTexture.bindToSlot(0);
+            SSAOBlurShader->bind();
 
-        Quad->render();
-
+            Quad->render();
+        }
 
         // bind the main framebuffer
         hdrFramebuffer.bind();
@@ -627,12 +591,12 @@ void Application::run() {
         normalTexture.bindToSlot(4);
         ssaoBlurTexture.bindToSlot(5);
 
-        ubo.view = camera.getView();
-        ubo.projection = camera.getProjection();
+        ubo.view = scene.camera.getView();
+        ubo.projection = scene.camera.getProjection();
         ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
         ubo.pointLightPos = glm::vec4(glm::make_vec3(lightPos), 1.0f);
         ubo.DirLightPos = glm::vec4(sunCamera.getPosition(), 1.0);
-        ubo.DirViewPos = glm::vec4(camera.getPosition(), 1.0);
+        ubo.DirViewPos = glm::vec4(scene.camera.getPosition(), 1.0);
         ubo.lightSpaceMatrix = sunCamera.getProjection() * sunCamera.getView();
 
         dxrb->update(&ubo, sizeof(VertexUBO));
@@ -691,7 +655,6 @@ void Application::run() {
         //get new frame for ImGui and ImGuizmo
         Renderer::ImGuiNewFrame(directxwindow);
         ImGuizmo::BeginFrame();
-        ImGuizmo::Enable(true);
 
         static bool opt_fullscreen_persistant = true;
         bool opt_fullscreen = opt_fullscreen_persistant;
@@ -852,7 +815,8 @@ void Application::run() {
 
         if (ImGui::CheckboxFlags("SSAO", &ubo.renderFlags, 0x01)) {}
         ImGui::Separator();
-        if (ImGui::SliderFloat("Power", &ssaoPower, 0.0f, 5.0f)) {}
+        if (ImGui::DragFloat("Samples", &ssaoSampleCount, 8.0f, 8.0f, 64.0f)) {}
+        if (ImGui::SliderFloat("Power", &ssaoPower, 0.0f, 15.0f)) {}
         if (ImGui::SliderFloat("Bias", &ssaoBias, 0.0f, 1.0f)) {}
 
 
@@ -939,7 +903,7 @@ void Application::run() {
                 gbuffer_shaders[0].defines.clear();
                 gbuffer_shaders[1].defines.clear();
             }
-            GBufferShader.reset(new GLShader(gbuffer_shaders.data(), gbuffer_shaders.size()));
+            GBufferShader->reload(gbuffer_shaders.data(), gbuffer_shaders.size());
         }
 
         ImGui::End();
@@ -947,24 +911,31 @@ void Application::run() {
         ImGui::ShowMetricsWindow();
 
         ImGui::Begin("Camera Properties");
-        if (ImGui::DragFloat("FOV", &fov, 1.0f, 35.0f, 120.0f)) {
-            camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 0.1f, 100.0f);
+        static float fov = 45.0f;
+        if (ImGui::DragFloat("FoV", &fov, 1.0f, 35.0f, 120.0f)) {
+            scene.camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
         }
-        if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.001f, FLT_MAX, "%.3f")) {}
-        if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Move Speed", scene.camera.get_move_speed(), 0.001f, 0.001f, FLT_MAX, "%.3f")) {}
+        if (ImGui::DragFloat("Look Speed", scene.camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
         ImGui::End();
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
         static ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
         if (!scene.objects.empty() && activeObject != scene.objects.end()) {
-            ImGui::Begin("Mesh Properties");
+            ImGui::Begin("Editor");
+
+            if(ImGui::Checkbox("Gizmo", &gizmoEnabled)) {
+                ImGuizmo::Enable(gizmoEnabled);
+            }
+
+            ImGui::Separator();
 
             std::array<const char*, 3> previews = {
                 "TRANSLATE", "ROTATE", "SCALE"
             };
 
-            if (ImGui::BeginCombo("Gizmo mode", previews[operation])) {
+            if (ImGui::BeginCombo("Mode", previews[operation])) {
                 for (int i = 0; i < previews.size(); i++) {
                     bool selected = (i == operation);
                     if (ImGui::Selectable(previews[i], selected)) {
@@ -988,6 +959,8 @@ void Application::run() {
         // renderer viewport
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+
+        // figure out if we need to resize the viewport
         static bool resizing = false;
         auto size = ImGui::GetContentRegionAvail();
         if (renderWidth != size.x || renderHeight != size.y) {
@@ -996,23 +969,22 @@ void Application::run() {
         }
         auto pos = ImGui::GetWindowPos();
 
-        if (io.MousePos.x > pos.x && io.MousePos.x < pos.x + size.x &&
-            io.MousePos.y > pos.y && io.MousePos.y < pos.y + size.y) {
+        // determine if the mouse is hovering the 
+        if (ImGui::IsWindowHovered()) {
             mouseInViewport = true;
         } else {
             mouseInViewport = false;
         }
 
-        camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
-        ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
-        
-        // function that calls an ImGui image with the framebuffer's color stencil data
+        // render the active screen texture to the view port as an imgui image
         ImGui::Image(activeScreenTexture->ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
 
         // draw the imguizmo at the center of the light
-        ImGuizmo::SetDrawlist();
-        glm::f32* gizmoData = move_light ? glm::value_ptr(activeObject->transform) : glm::value_ptr(lightmatrix);
-        ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), operation, ImGuizmo::MODE::WORLD, gizmoData);
+        if (gizmoEnabled) {
+            ImGuizmo::SetDrawlist();
+            auto gizmoData = move_light ? glm::value_ptr(activeObject->transform) : glm::value_ptr(lightmatrix);
+            ImGuizmo::Manipulate(glm::value_ptr(scene.camera.getView()), glm::value_ptr(scene.camera.getProjection()), operation, ImGuizmo::MODE::WORLD, gizmoData);
+        }
 
         ImGui::End();
         ImGui::PopStyleVar();
@@ -1022,7 +994,10 @@ void Application::run() {
         Renderer::SwapBuffers(use_vsync);
 
         if (resizing) {
-            // resizing
+            scene.camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
+            ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
+
+            // resizing framebuffers
             albedoTexture.bind();
             albedoTexture.init(renderWidth, renderHeight, Format::HDR);
 
