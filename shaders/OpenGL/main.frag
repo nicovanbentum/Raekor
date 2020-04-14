@@ -12,7 +12,7 @@ layout (std140) uniform stuff {
 	vec4 cameraPosition;
     vec4 DirLightPos;
 	vec4 pointLightPos;
-	unsigned int renderFlags;
+	uint renderFlags;
 } ubo;
 
 uniform vec4 sunColor;

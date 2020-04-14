@@ -16,7 +16,7 @@ public:
     static void Clear(glm::vec4 color);
     static void ImGuiRender();
     static void ImGuiNewFrame(SDL_Window* window);
-    static void DrawIndexed(unsigned int size, bool depth_test = true);
+    static void DrawIndexed(unsigned int size);
     static void SwapBuffers(bool vsync);
 
     // API methods to get and set the API used
@@ -30,7 +30,7 @@ private:
     virtual void impl_ImGui_Render()                                             = 0;
     virtual void impl_ImGui_NewFrame(SDL_Window* window)                         = 0;
     virtual void impl_Clear(glm::vec4 color)                                     = 0;
-    virtual void impl_DrawIndexed(unsigned int size, bool depth_test = true)     = 0;
+    virtual void impl_DrawIndexed(unsigned int size)                             = 0;
     virtual void impl_SwapBuffers(bool vsync) const                              = 0;
 
 protected:
@@ -50,7 +50,7 @@ public:
     virtual void impl_ImGui_Render()                                             override;
     virtual void impl_ImGui_NewFrame(SDL_Window* window)                         override;
     virtual void impl_Clear(glm::vec4 color)                                     override;
-    virtual void impl_DrawIndexed(unsigned int size, bool depth_test = true)     override;
+    virtual void impl_DrawIndexed(unsigned int size)                             override;
     virtual void impl_SwapBuffers(bool vsync) const                              override;
 
 private:

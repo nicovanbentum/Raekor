@@ -46,6 +46,7 @@ void GLShader::reload(Stage* stages, size_t stageCount) {
         std::string buffer;
         std::ifstream ifs(stage.filepath, std::ios::in | std::ios::binary);
         if (ifs) {
+            std::cout << programID << " : " << stage.filepath << std::endl;
             ifs.seekg(0, std::ios::end);
             buffer.resize(ifs.tellg());
             ifs.seekg(0, std::ios::beg);

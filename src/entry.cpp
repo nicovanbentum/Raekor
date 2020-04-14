@@ -97,6 +97,6 @@ int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
     app.run();
-    //app.serialize_settings("config.json", true);
+    app.serialize_settings("config.json", true);
     return 0;
 }

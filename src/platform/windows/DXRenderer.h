@@ -34,7 +34,7 @@ public:
     virtual void impl_ImGui_Render()                                     override;
     virtual void impl_ImGui_NewFrame(SDL_Window* window)                 override;
     virtual void impl_Clear(glm::vec4 color)                             override;
-    virtual void impl_DrawIndexed(unsigned int size, bool depth_test)    override;
+    virtual void impl_DrawIndexed(unsigned int size)                     override;
     virtual void impl_SwapBuffers(bool vsync) const                      override;
 
 private:

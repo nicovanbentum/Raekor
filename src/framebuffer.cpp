@@ -58,12 +58,9 @@ void glFramebuffer::attach(glTexture2D& texture, GLenum type) {
     glFramebufferTexture2D(GL_FRAMEBUFFER, type, texture.mTarget, texture.mID, 0);
 
     // if its a color attachment and we haven't seen it before, store it
-    for (int slot = GL_COLOR_ATTACHMENT0; slot < GL_COLOR_ATTACHMENT0 + GL_MAX_COLOR_ATTACHMENTS; slot++) {
-        if (type == slot) {
-            if (auto it = std::find(colorAttachments.begin(), colorAttachments.end(), type); it == colorAttachments.end()) {
-                colorAttachments.push_back(type);
-                break;
-            }
+    if (type != GL_DEPTH_ATTACHMENT && type != GL_STENCIL_ATTACHMENT && type != GL_DEPTH_STENCIL_ATTACHMENT) {
+        if (auto it = std::find(colorAttachments.begin(), colorAttachments.end(), type); it == colorAttachments.end()) {
+            colorAttachments.push_back(type);
         }
     }
 

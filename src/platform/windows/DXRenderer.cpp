@@ -153,7 +153,7 @@ void DXRenderer::impl_ImGui_Render() {
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
-void DXRenderer::impl_DrawIndexed(unsigned int size, bool depth_test) {
+void DXRenderer::impl_DrawIndexed(unsigned int size) {
     D3D.context->OMSetDepthStencilState(depth_stencil_state.Get(), 0);
     float blendFactor[] = { 0, 0, 0, 0 };
     UINT sampleMask = 0xffffffff;

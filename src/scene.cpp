@@ -64,11 +64,12 @@ void Scene::add(std::string file) {
         aiProcess_ValidateDataStructure;
 
     auto scene = importer->ReadFile(file, flags);
-    m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
     if (!scene) {
         std::cout << importer->GetErrorString() << '\n';
     }
+
+    m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
     // pre-load all the textures asynchronously
     std::vector<Stb::Image> albedos;
@@ -251,7 +252,6 @@ void Scene::add(std::string file) {
             }
 
         }
-
 
         if (normalIter != normals.end()) {
             auto index = normalIter - normals.begin();

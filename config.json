@@ -1,6 +1,6 @@
 {
     "name": "Raekor Renderer",
-    "display": 0,
+    "display": 1,
     "font": "resources/Roboto-Regular.ttf",
     "skyboxes": [
         {
@@ -38,7 +38,7 @@
         }
     ],
     "project": [
-        "C:\\Users\\LTSC2019\\Documents\\CornellBox\\CornellBox-Original.obj"
+        "C:\\VS Projects\\Raekor\\resources\\models\\polyman.obj"
     ],
     "themeColors": {
         "value0": {

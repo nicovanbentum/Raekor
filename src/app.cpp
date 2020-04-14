@@ -89,7 +89,7 @@ void Application::run() {
     Renderer::Init(directxwindow);
 
     // load the model files listed in the project section of config.json
-// basically acts like a budget project file
+    // basically acts like a budget project file
     Scene scene;
     std::vector<SceneObject>::iterator activeObject = scene.objects.end();
     Timer timer;
@@ -109,19 +109,6 @@ void Application::run() {
     HDR_UBO hdr_ubo;
     Uniforms uniforms;
 
-    std::unique_ptr<GLShader> mainShader;
-    std::unique_ptr<GLShader> skyShader;
-    std::unique_ptr<GLShader> depthShader;
-    std::unique_ptr<GLShader> depthCubeShader;
-    std::unique_ptr<GLShader> quadShader;
-    std::unique_ptr<GLShader> hdrShader;
-    std::unique_ptr<GLShader> CubemapDebugShader;
-    std::unique_ptr<GLShader> SSAOshader;
-    std::unique_ptr<GLShader> SSAOBlurShader;
-    std::unique_ptr<GLShader> blurShader;
-    std::unique_ptr<GLShader> bloomShader;
-    std::unique_ptr<GLShader> GBufferShader;
-
     std::unique_ptr<GLResourceBuffer> dxrb;
     std::unique_ptr<GLResourceBuffer> shadowVertUbo;
     std::unique_ptr<GLResourceBuffer> extraUbo;
@@ -129,9 +116,8 @@ void Application::run() {
     std::unique_ptr<GLResourceBuffer> mat4Ubo;
     std::unique_ptr<GLResourceBuffer> hdrUbo;
 
+    std::unique_ptr<Mesh> cubeMesh;
     std::unique_ptr<glTextureCube> skyCube;
-
-    std::unique_ptr<Mesh> skycube;
 
     Ffilter ft_mesh;
     ft_mesh.name = "Supported Mesh Files";
@@ -141,35 +127,109 @@ void Application::run() {
     ft_texture.name = "Supported Image Files";
     ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
+
+    std::unique_ptr<GLShader> mainShader;
     Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
     Shader::Stage frag(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
     std::array<Shader::Stage, 2> modelStages = { vertex, frag };
     mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
 
+
+    std::unique_ptr<GLShader> skyShader;
     std::vector<Shader::Stage> skybox_shaders;
-    skybox_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert");
-    skybox_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\skybox.frag");
+    skybox_shaders.emplace_back(Shader::Type::VERTEX,   "shaders\\OpenGL\\skybox.vert");
+    skybox_shaders.emplace_back(Shader::Type::FRAG,     "shaders\\OpenGL\\skybox.frag");
+    skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
 
+
+    std::unique_ptr<GLShader> depthShader;
     std::vector<Shader::Stage> depth_shaders;
-    depth_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depth.vert");
-    depth_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depth.frag");
+    depth_shaders.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\depth.vert");
+    depth_shaders.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\depth.frag");
+    depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
 
+
+    std::unique_ptr<GLShader> depthCubeShader;
     std::vector<Shader::Stage> depthCube_shaders;
-    depthCube_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depthCube.vert");
-    depthCube_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depthCube.frag");
+    depthCube_shaders.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\depthCube.vert");
+    depthCube_shaders.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\depthCube.frag");
+    depthCubeShader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
 
+
+    std::unique_ptr<GLShader> quadShader;
     std::vector<Shader::Stage> quad_shaders;
-    quad_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
-    quad_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\quad.frag");
+    quad_shaders.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\quad.vert");
+    quad_shaders.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\quad.frag");
+    quadShader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
 
+
+    std::unique_ptr<GLShader> blurShader;
     std::vector<Shader::Stage> blur_shaders;
-    blur_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
-    blur_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gaussian.frag");
+    blur_shaders.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\quad.vert");
+    blur_shaders.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\gaussian.frag");
+    blurShader.reset(new GLShader(blur_shaders.data(), blur_shaders.size()));
 
+
+    std::unique_ptr<GLShader> bloomShader;
     std::vector<Shader::Stage> bloom_shaders;
-    bloom_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
-    bloom_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\bloom.frag");
+    bloom_shaders.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\quad.vert");
+    bloom_shaders.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\bloom.frag");
+    bloomShader.reset(new GLShader(bloom_shaders.data(), bloom_shaders.size()));
+    
 
+    std::unique_ptr<GLShader> voxelShader;
+    std::vector<Shader::Stage> voxelStages;
+    voxelStages.emplace_back(Shader::Type::VERTEX,  "shaders\\OpenGL\\voxelize.vert");
+    voxelStages.emplace_back(Shader::Type::GEO,     "shaders\\OpenGL\\voxelize.geom");
+    voxelStages.emplace_back(Shader::Type::FRAG,    "shaders\\OpenGL\\voxelize.frag");
+    voxelShader.reset(new GLShader(voxelStages.data(), voxelStages.size()));
+
+
+    std::unique_ptr<GLShader> basicShader;
+    std::vector<Shader::Stage> basicStages;
+    basicStages.emplace_back(Shader::Type::VERTEX,  "shaders\\OpenGL\\basic.vert");
+    basicStages.emplace_back(Shader::Type::FRAG,    "shaders\\OpenGL\\basic.frag");
+    basicShader.reset(new GLShader(basicStages.data(), basicStages.size()));
+
+
+    std::unique_ptr<GLShader> voxelDebugShader;
+    std::vector<Shader::Stage> voxelDebugStages;
+    voxelDebugStages.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\voxelDebug.vert");
+    voxelDebugStages.emplace_back(Shader::Type::FRAG,   "shaders\\OpenGL\\voxelDebug.frag");
+    voxelDebugShader.reset(new GLShader(voxelDebugStages.data(), voxelDebugStages.size()));
+
+
+    std::unique_ptr<GLShader> CubemapDebugShader;
+    std::vector<Shader::Stage> cubedebug_shaders;
+    cubedebug_shaders.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\simple.vert");
+    cubedebug_shaders.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\simple.frag");
+    CubemapDebugShader.reset(new GLShader(cubedebug_shaders.data(), cubedebug_shaders.size()));
+
+
+    std::unique_ptr<GLShader> SSAOshader;
+    std::vector<Shader::Stage> SSAO_shaders;
+    SSAO_shaders.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\SSAO.vert");
+    SSAO_shaders.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\SSAO.frag");
+    SSAOshader.reset(new GLShader(SSAO_shaders.data(), SSAO_shaders.size()));
+
+
+    std::unique_ptr<GLShader> GBufferShader;
+    std::vector<Shader::Stage> gbuffer_shaders;
+    gbuffer_shaders.emplace_back(Shader::Type::VERTEX,  "shaders\\OpenGL\\gbuffer.vert");
+    gbuffer_shaders.emplace_back(Shader::Type::FRAG,    "shaders\\OpenGL\\gbuffer.frag");
+    gbuffer_shaders[0].defines = { "NO_NORMAL_MAP" };
+    gbuffer_shaders[1].defines = { "NO_NORMAL_MAP" };
+    GBufferShader.reset(new GLShader(gbuffer_shaders.data(), gbuffer_shaders.size()));
+
+
+    std::unique_ptr<GLShader> SSAOBlurShader;
+    std::vector<Shader::Stage> ssaoBlur_shaders;
+    ssaoBlur_shaders.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\quad.vert");
+    ssaoBlur_shaders.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\SSAOblur.frag");
+    SSAOBlurShader.reset(new GLShader(ssaoBlur_shaders.data(), ssaoBlur_shaders.size()));
+    
+
+    std::unique_ptr<GLShader> hdrShader;
     std::vector<Shader::Stage> hdr_shaders;
     std::vector<std::string> tonemappingShaders = {
        "shaders\\OpenGL\\HDR.frag",
@@ -178,39 +238,11 @@ void Application::run() {
     };
     hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
     hdr_shaders.emplace_back(Shader::Type::FRAG, tonemappingShaders.begin()->c_str());
-
-    std::vector<Shader::Stage> cubedebug_shaders;
-    cubedebug_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\simple.vert");
-    cubedebug_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\simple.frag");
-
-    std::vector<Shader::Stage> SSAO_shaders;
-    SSAO_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\SSAO.vert");
-    SSAO_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\SSAO.frag");
-
-    std::vector<Shader::Stage> gbuffer_shaders;
-    gbuffer_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\gbuffer.vert");
-    gbuffer_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gbuffer.frag");
-    gbuffer_shaders[0].defines = { "NO_NORMAL_MAP" };
-    gbuffer_shaders[1].defines = { "NO_NORMAL_MAP" };
-
-    std::vector<Shader::Stage> ssaoBlur_shaders;
-    ssaoBlur_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
-    ssaoBlur_shaders.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\SSAOblur.frag");
-
-    skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
-    depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
-    quadShader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
-    depthCubeShader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
     hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
-    CubemapDebugShader.reset(new GLShader(cubedebug_shaders.data(), cubedebug_shaders.size()));
-    SSAOshader.reset(new GLShader(SSAO_shaders.data(), SSAO_shaders.size()));
-    blurShader.reset(new GLShader(blur_shaders.data(), blur_shaders.size()));
-    bloomShader.reset(new GLShader(bloom_shaders.data(), bloom_shaders.size()));
-    GBufferShader.reset(new GLShader(gbuffer_shaders.data(), gbuffer_shaders.size()));
-    SSAOBlurShader.reset(new GLShader(ssaoBlur_shaders.data(), ssaoBlur_shaders.size()));
 
-    skycube.reset(new Mesh(Shape::Cube));
-    skycube->get_vertex_buffer()->set_layout({
+
+    cubeMesh.reset(new Mesh(Shape::Cube));
+    cubeMesh->get_vertex_buffer()->set_layout({
         {"POSITION",    ShaderType::FLOAT3},
         {"UV",          ShaderType::FLOAT2},
         {"NORMAL",      ShaderType::FLOAT3},
@@ -333,7 +365,68 @@ void Application::run() {
         pingpongFramebuffers[i].attach(pingpongTextures[i], GL_COLOR_ATTACHMENT0);
         pingpongFramebuffers[i].unbind();
     }
+
+    // Generate texture on GPU.
+    unsigned int voxelTexture;
+    glGenTextures(1, &voxelTexture);
+    glBindTexture(GL_TEXTURE_3D, voxelTexture);
+
+    // Parameter options.
+    const auto wrap = GL_CLAMP_TO_BORDER;
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, wrap);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, wrap);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, wrap);
+
+    const auto filter = GL_LINEAR_MIPMAP_LINEAR;
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // Upload texture buffer.
+    const int levels = 7;
+    glTexStorage3D(GL_TEXTURE_3D, levels, GL_RGBA32F, 512, 512, 512);
+    GLfloat clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    glClearTexImage(voxelTexture, 0, GL_RGBA, GL_FLOAT, &clearColor);
+    glGenerateMipmap(GL_TEXTURE_3D);
+    glBindTexture(GL_TEXTURE_3D, 0);
+
+    // 3D texture visualization r esources
+    //
+    glTexture2D cubeBackfaceTexture;
+    cubeBackfaceTexture.bind();
+    cubeBackfaceTexture.init(renderWidth, renderHeight, Format::SDR4);
+    cubeBackfaceTexture.setFilter(Sampling::Filter::None);
+    cubeBackfaceTexture.unbind();
+
+    glTexture2D cubeFrontfaceTexture;
+    cubeFrontfaceTexture.bind();
+    cubeFrontfaceTexture.init(renderWidth, renderHeight, Format::SDR4);
+    cubeFrontfaceTexture.setFilter(Sampling::Filter::None);
+    cubeFrontfaceTexture.unbind();
+
+    glRenderbuffer cubeTexture;
+    cubeTexture.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
        
+    glFramebuffer cubeBackfaceFramebuffer;
+    cubeBackfaceFramebuffer.bind();
+    cubeBackfaceFramebuffer.attach(cubeBackfaceTexture, GL_COLOR_ATTACHMENT0);
+    cubeBackfaceFramebuffer.unbind();
+
+    glFramebuffer cubeFrontfaceFramebuffer;
+    cubeFrontfaceFramebuffer.bind();
+    cubeFrontfaceFramebuffer.attach(cubeFrontfaceTexture, GL_COLOR_ATTACHMENT0);
+    cubeFrontfaceFramebuffer.unbind();
+
+    glTexture2D voxelVisTexture;
+    voxelVisTexture.bind();
+    voxelVisTexture.init(renderWidth, renderHeight, Format::HDR);
+    voxelVisTexture.setFilter(Sampling::Filter::None);
+    voxelVisTexture.unbind();
+
+    glFramebuffer voxelVisFramebuffer;
+    voxelVisFramebuffer.bind();
+    voxelVisFramebuffer.attach(voxelVisTexture, GL_COLOR_ATTACHMENT0);
+    voxelVisFramebuffer.unbind();
+
     // persistent imgui variable values
     auto active_skybox = skyboxes.find("lake");
 
@@ -473,6 +566,33 @@ void Application::run() {
     bool mouseInViewport = false;
     bool gizmoEnabled = false;
 
+    // voxel pass
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    voxelShader->bind();
+
+    glViewport(0, 0, 512, 512);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+
+    glBindImageTexture(1, voxelTexture, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    voxelShader->getUniform("view") = scene.camera.getView();
+    voxelShader->getUniform("projection") = scene.camera.getProjection();
+
+    for (auto& object : scene) {
+        voxelShader->getUniform("model") = object.transform;
+        object.render();
+    }
+
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+
     while (running) {
         dt_timer.start();
         handle_sdl_gui_events({ directxwindow }, scene.camera, mouseInViewport, dt);
@@ -481,6 +601,47 @@ void Application::run() {
 
         // clear the main window
         Renderer::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
+
+        // voxel visualization pass
+        //
+        glViewport(0, 0, renderWidth, renderHeight);
+        glCullFace(GL_BACK);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        cubeBackfaceFramebuffer.bind();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        basicShader->bind();
+        basicShader->getUniform("projection") = scene.camera.getProjection();
+        basicShader->getUniform("view") = scene.camera.getView();
+        basicShader->getUniform("model") = glm::mat4(1.0f);
+
+        cubeMesh->render();
+
+        glCullFace(GL_FRONT);
+        cubeFrontfaceFramebuffer.bind();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        cubeMesh->render();
+
+        // render to screen
+        glDisable(GL_CULL_FACE);
+        voxelDebugShader->bind();
+        voxelVisFramebuffer.bind();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        cubeBackfaceTexture.bindToSlot(0);
+        cubeFrontfaceTexture.bindToSlot(1);
+        glBindTextureUnit(2, voxelTexture);
+        voxelDebugShader->getUniform("cameraPosition") = scene.camera.getPosition();
+
+        Quad->render();
+
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+
+        //
+        // end voxel visualization pass
+
 
         // setup the shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -494,9 +655,10 @@ void Application::run() {
         shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
         shadowVertUbo->bind(0);
 
-        scene.render([&](SceneObject& object) {
+        for (auto& object : scene) {
             depthShader->getUniform("model") = object.transform;
-        });
+            object.render();
+        }
 
         // setup the 3D shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -522,13 +684,13 @@ void Application::run() {
             depthCubeShader->getUniform("projView") = shadowTransforms[i];
             depthCubeShader->getUniform("lightPos") = glm::make_vec3(lightPos);
 
-            scene.render([&](SceneObject& object) {
+            for (auto& object : scene) {
                 depthCubeShader->getUniform("model") = object.transform;
-            });
+                object.render();
+            }
         }
 
         // start G-Buffer pass
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glViewport(0, 0, renderWidth, renderHeight);
         GBuffer.bind();
 
@@ -538,9 +700,10 @@ void Application::run() {
         GBufferShader->getUniform("projection") = scene.camera.getProjection();
         GBufferShader->getUniform("view") = scene.camera.getView();
 
-        scene.render([&](SceneObject& object) {
+        for (auto& object : scene) {
             GBufferShader->getUniform("model") = object.transform;
-        });
+            object.render();
+        }
 
         GBuffer.unbind();
 
@@ -862,6 +1025,12 @@ void Application::run() {
                 activeScreenTexture = &ssaoColorTexture;
             if (ImGui::Selectable(nameof(ssaoBlurTexture), activeScreenTexture->ImGuiID() == ssaoBlurTexture.ImGuiID()))
                 activeScreenTexture = &ssaoBlurTexture;
+            if (ImGui::Selectable(nameof(voxelVisTexture), activeScreenTexture->ImGuiID() == voxelVisTexture.ImGuiID()))
+                activeScreenTexture = &voxelVisTexture;
+            if (ImGui::Selectable(nameof(cubeFrontfaceTexture), activeScreenTexture->ImGuiID() == cubeFrontfaceTexture.ImGuiID()))
+                activeScreenTexture = &cubeFrontfaceTexture;
+            if (ImGui::Selectable(nameof(cubeBackfaceTexture), activeScreenTexture->ImGuiID() == cubeBackfaceTexture.ImGuiID()))
+                activeScreenTexture = &cubeBackfaceTexture;
 
             ImGui::TreePop();
         }

@@ -43,7 +43,7 @@ void glTexture::bindToSlot(uint8_t slot) {
 //////////////////////////////////////////////////////////////////////////////////
 
 void glTexture::genMipMaps() {
-    glGenerateMipmap(GL_TEXTURE_2D);
+    glGenerateMipmap(mTarget);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -112,6 +112,13 @@ glTextureCube::glTextureCube() : glTexture(GL_TEXTURE_CUBE_MAP) {}
 
 void glTextureCube::init(uint32_t width, uint32_t height, uint8_t face, const Format::Format& format, const void* data) {
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, 0, format.intFormat, width, height, 0, format.extFormat, format.type, data);
+}
+
+glTexture3D::glTexture3D() : glTexture(GL_TEXTURE_3D) {}
+
+void glTexture3D::init(uint32_t width, uint32_t height, uint32_t depth, const Format::Format& format, const void* data) {
+    glTexStorage3D(mTarget, 7, format.intFormat, width, height, depth);
+    glTexImage3D(mTarget, 0, format.intFormat, width, height, depth, 0, format.extFormat, format.type, data);
 }
 
 } // Namespace Raekor

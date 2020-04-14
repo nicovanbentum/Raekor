@@ -74,6 +74,17 @@ public:
     void init(uint32_t width, uint32_t height, uint8_t face, const Format::Format& format, const void* data = nullptr);
 };
 
+class glTexture3D : public glTexture {
+
+public:
+    glTexture3D();
+    void init(uint32_t width, uint32_t height, uint32_t depth, const Format::Format& format, const void* data);
+    void bindForStorage(uint32_t slot, GLenum access, GLenum format) {
+        bindToSlot(slot);
+        glBindImageTexture(slot, mID, 0, GL_TRUE, 0, access, format);
+    }
+};
+
 
 
 } //Namespace Raekor

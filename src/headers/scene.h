@@ -59,34 +59,11 @@ public:
                 [&](SceneObject& obj) { return obj.name == name; });
     }
 
-    void renderOpaque() {
-        for (auto& object : objects) {
-            if (!object.hasAlpha) {
-                object.render();
-            }
-        }
-    }
-
-    void renderTransparent() {
-        for (auto& object : objects) {
-            if (object.hasAlpha) {
-                object.render();
-            }
-        }
-    }
-
-    void render(std::function<void(SceneObject& object)> perObjectCallback) {
-        for (auto& object : objects) {
-            perObjectCallback(object);
-            object.render();
-
-        }
-    }
-
-    void render() {
-        renderOpaque();
-        renderTransparent();
-    }
+    // for automatic for loop stuff
+    std::vector<SceneObject>::iterator begin() { return objects.begin(); }
+    std::vector<SceneObject>::iterator end() { return objects.end(); }
+    std::vector<SceneObject>::const_iterator begin() const { return objects.begin(); }
+    std::vector<SceneObject>::const_iterator end() const { return objects.end(); }
 
     Camera camera;
     std::vector<SceneObject> objects;
