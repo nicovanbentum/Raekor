@@ -86,15 +86,15 @@ void GLShader::reload(Stage* stages, size_t stageCount) {
         glShaderSource(shaderID, 1, &src, NULL);
         glCompileShader(shaderID);
 
-        int result = GL_FALSE;
-        int log_n = 0;
+        int shaderCompilationResult = GL_FALSE;
+        int logMessageLength = 0;
 
-        glGetShaderiv(shaderID, GL_COMPILE_STATUS, &result);
-        if (result == GL_FALSE) {
-            glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &log_n);
-            std::vector<char> error_msg(log_n);
-            glGetShaderInfoLog(shaderID, log_n, NULL, error_msg.data());
-            m_assert(!log_n, std::string(std::begin(error_msg), std::end(error_msg)));
+        glGetShaderiv(shaderID, GL_COMPILE_STATUS, &shaderCompilationResult);
+        if (shaderCompilationResult == GL_FALSE) {
+            glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &logMessageLength);
+            std::vector<char> error_msg(logMessageLength);
+            glGetShaderInfoLog(shaderID, logMessageLength, NULL, error_msg.data());
+            m_assert(!logMessageLength, std::string(std::begin(error_msg), std::end(error_msg)));
         }
 
         glAttachShader(programID, shaderID);
@@ -104,15 +104,15 @@ void GLShader::reload(Stage* stages, size_t stageCount) {
     // Link and check the program
     glLinkProgram(programID);
 
-    int result = 0, log_n = 0;
-    glGetProgramiv(programID, GL_LINK_STATUS, &result);
-    if (result == GL_FALSE) {
+    int shaderCompilationResult = 0, logMessageLength = 0;
+    glGetProgramiv(programID, GL_LINK_STATUS, &shaderCompilationResult);
+    if (shaderCompilationResult == GL_FALSE) {
         std::cout << "FAILED TO LINK GL SHADERS" << '\n';
 
-        glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &log_n);
-        std::vector<char> error_msg(log_n);
-        glGetProgramInfoLog(programID, log_n, NULL, error_msg.data());
-        m_assert(!log_n, std::string(std::begin(error_msg), std::end(error_msg)));
+        glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &logMessageLength);
+        std::vector<char> errorMessage(logMessageLength);
+        glGetProgramInfoLog(programID, logMessageLength, NULL, errorMessage.data());
+        m_assert(!logMessageLength, std::string(std::begin(errorMessage), std::end(errorMessage)));
     }
 
     for (unsigned int shader : shaders) {
@@ -131,10 +131,9 @@ inline const void GLShader::unbind() const { glUseProgram(0); }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-Shader::loc GLShader::operator[] (const char* data) {
-    loc ret;
-    ret.id = glGetUniformLocation(programID, data);
-    return ret;
+Shader::loc GLShader::operator[] (const char* name) {
+    return { glGetUniformLocation(programID, name) };
+
 }
 
 Shader::loc GLShader::getUniform(const char* name) {

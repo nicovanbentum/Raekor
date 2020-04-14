@@ -6,14 +6,6 @@
 
 namespace Raekor {
 
-// struct we send to the shaders
-// TODO: figure out a common place for these
-struct cb_vs {
-    glm::mat4 m;
-    glm::mat4 v;
-    glm::mat4 p;
-};
-
 class ResourceBuffer {
 public:
     virtual ~ResourceBuffer() {}
@@ -41,10 +33,10 @@ enum class ShaderType {
 uint32_t size_of(ShaderType type);
 
 struct GLShaderType {
-    GLenum type;
+    GLenum glType;
     uint8_t count;
 
-    GLShaderType(ShaderType shader_type);
+    GLShaderType(ShaderType type);
 };
 
 struct Element {
@@ -53,17 +45,17 @@ struct Element {
     uint32_t size;
     uint32_t offset;
 
-    Element(const std::string& p_name, ShaderType type) : 
-        name(p_name), type(type), size(size_of(type)), offset(0) {}
+    Element(const std::string & pName, ShaderType type) : 
+        name(pName), type(type), size(size_of(type)), offset(0) {}
 };
 
 class InputLayout {
 public:
-    InputLayout(const std::initializer_list<Element> element_list);
+    InputLayout(const std::initializer_list<Element> elementList);
     InputLayout() {}
 
     inline size_t size() const { return layout.size(); }
-    inline uint64_t get_stride() const { return stride; }
+    inline uint64_t getStride() const { return stride; }
 
     std::vector<Element>::iterator begin() { return layout.begin(); }
     std::vector<Element>::iterator end() { return layout.end(); }
@@ -82,7 +74,7 @@ struct Vertex {
     glm::vec3 tangent;
     glm::vec3 binormal;
 
-    static constexpr uint8_t attribute_count = 3;
+    static constexpr uint8_t attributeCount = 3;
 };
 
 struct Index {
@@ -96,7 +88,7 @@ public:
     virtual ~VertexBuffer() {}
     static VertexBuffer* construct(const std::vector<Vertex>& vertices);
     virtual void bind() const = 0;
-    virtual void set_layout(const InputLayout& layout) const = 0;
+    virtual void setLayout(const InputLayout& layout) const = 0;
 };
 
 class IndexBuffer {
@@ -104,7 +96,7 @@ public:
     virtual ~IndexBuffer() {}
     static IndexBuffer* construct(const std::vector<Index>& indices);
     virtual void bind() const = 0;
-    inline unsigned int get_count() const { return count; }
+    inline unsigned int getCount() const { return count; }
 
 protected:
     unsigned int count;
@@ -114,7 +106,7 @@ class GLVertexBuffer : public VertexBuffer {
 public:
     GLVertexBuffer(const std::vector<Vertex>& vertices);
     virtual void bind() const override;
-    virtual void set_layout(const InputLayout& layout) const override;
+    virtual void setLayout(const InputLayout& layout) const override;
 
 private:
     mutable InputLayout inputLayout;

@@ -14,7 +14,7 @@ struct Ffilter {
 class PlatformContext {
 public:
     PlatformContext() {}
-    std::string open_file_dialog(const std::vector<Ffilter>& filters);
+    std::string openFileDialog(const std::vector<Ffilter>& filters);
 };
 
 } // Namespace Raekor

@@ -5,10 +5,10 @@
 
 namespace Raekor {
 
-extern std::vector<Vertex> v_cube;
-extern std::vector<Index> i_cube;
-extern std::vector<Vertex> v_quad;
-extern std::vector<Index> i_quad;
+extern std::vector<Vertex> cubeVertices;
+extern std::vector<Index> cubeIndices;
+extern std::vector<Vertex> quadVertices;
+extern std::vector<Index> quadIndices;
 
 enum class Shape {
     None, Cube, Quad
@@ -19,18 +19,18 @@ public:
     Mesh(Shape basic_shape = Shape::None);
     Mesh(const std::vector<Vertex>& vb, const std::vector<Index>& ib);
 
-    void set_vertex_buffer(const std::vector<Vertex>& buffer);
-    void set_index_buffer(const std::vector<Index>& buffer);
+    void setVertexBuffer(const std::vector<Vertex>& buffer);
+    void setIndexBuffer(const std::vector<Index>& buffer);
 
-    const VertexBuffer* const get_vertex_buffer() const { return vb.get(); }
-    const IndexBuffer* const get_index_buffer() const { return ib.get(); }
+    const VertexBuffer* const getVertexBuffer() const { return vb.get(); }
+    const IndexBuffer* const getIndexBuffer() const { return ib.get(); }
     
     inline void render() {
         bind();
-        Renderer::DrawIndexed(ib->get_count());
+        Renderer::DrawIndexed(ib->getCount());
     }
 
-    static Mesh* fromBounds(const std::array<glm::vec3, 2>& bounds) {
+    static Mesh* createCube(const std::array<glm::vec3, 2>& bounds) {
         const auto min = bounds[0];
         const auto max = bounds[1];
 
@@ -46,7 +46,7 @@ public:
             { {min[0], max[1], max[2] } }
         };
 
-        return new Mesh(vertices, i_cube);
+        return new Mesh(vertices, cubeIndices);
     }
 
     void bind() const;

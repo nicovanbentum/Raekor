@@ -12,8 +12,8 @@ namespace Raekor {
 class Transformable {
 public:
     Transformable();
-    void reset_transform();
-    void recalc_transform();
+    void reset();
+    void recalculate();
 
     glm::mat4 transform;
     glm::vec3 position;

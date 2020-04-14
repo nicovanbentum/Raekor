@@ -9,7 +9,7 @@ COM_PTRS D3D;
 DXRenderer::DXRenderer(SDL_Window* window) {
     std::cout << "Active Rendering API: DirectX11  No device/context information available." << std::endl;
 
-    render_window = window;
+    renderWindow = window;
     auto hr = CoInitialize(NULL);
     m_assert(SUCCEEDED(hr), "failed to initialize microsoft WIC");
 

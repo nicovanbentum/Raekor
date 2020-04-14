@@ -18,22 +18,20 @@ class Camera {
     
 public:
     Camera(glm::vec3 position, glm::mat4 proj);
+    
+    glm::vec3 getDirection();
+
     void look(int x, int y, double dt);
     void zoom(float amount, double dt);
-    void update(bool normalizePlanes);
-    glm::vec3 get_direction();
     void move(glm::vec2 amount, double dt);
-    void move_on_input(double dt);
-    inline bool is_mouse_active() { return mouse_active; }
-    inline void set_mouse_active(bool state) { mouse_active = state; }
+    
+    void update(bool normalizePlanes);
 
     // getters
-    inline glm::mat4 get_mvp(bool transpose) { return (transpose ? glm::transpose(mvp) : mvp); }
+    inline glm::mat4 getMatrix(bool transpose) { return (transpose ? glm::transpose(mvp) : mvp); }
     inline glm::mat4& getView() { return view; }
     inline glm::vec2& getAngle() { return angle; }
     inline glm::mat4& getProjection() { return projection; }
-    inline float* get_move_speed() { return &move_speed; }
-    inline float* get_look_speed() { return &look_speed; }
     inline const glm::vec3& getPosition() { return position; }
 
 private:
@@ -47,12 +45,11 @@ private:
     glm::mat4 projection;
     glm::mat4 mvp;
     std::array<glm::vec4, 6> frustrumPlanes;
-    bool mouse_active;
 
 
 public:
-    float look_speed;
-    float move_speed;
+    float lookSpeed;
+    float moveSpeed;
 
 };
 

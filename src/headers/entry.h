@@ -6,6 +6,6 @@
 
 namespace Raekor {
 
-void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& camera, bool mouseInViewport, double dt);
+void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewport, double dt);
 
 } // namesapce Raekor

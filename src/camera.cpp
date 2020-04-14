@@ -6,60 +6,42 @@ namespace Raekor {
 Camera::Camera(glm::vec3 position, glm::mat4 proj) :
     position(position),
     angle(static_cast<float>(M_PI), 0.0f), 
-    look_speed(0.0015f), move_speed(0.01f),
-    mouse_active(true) {
+    lookSpeed(0.0015f), moveSpeed(0.01f) {
     projection = proj;
     //glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
 
 }
 
 void Camera::update(bool normalizePlanes) {
-    auto dir = get_direction();
+    auto dir = getDirection();
     view = glm::lookAtRH(position, position + dir, {0, 1, 0});
     updatePlanes(normalizePlanes);
 }
 
-glm::vec3 Camera::get_direction() {
+glm::vec3 Camera::getDirection() {
     return glm::vec3(cos(angle.y) * sin(angle.x),
     sin(angle.y), cos(angle.y) * cos(angle.x));
 }
     
 void Camera::look(int x, int y, double dt) {
-    angle.x += float(look_speed * (x * -1));
-    angle.y += float(look_speed * (y * -1));
+    angle.x += float(lookSpeed * (x * -1));
+    angle.y += float(lookSpeed * (y * -1));
     // clamp to roughly half pi so we dont overshoot
     angle.y = std::clamp(angle.y, -1.57078f, 1.57078f);
 }
 
 void Camera::zoom(float amount, double dt) {
-    auto dir = get_direction();
+    auto dir = getDirection();
     position += dir * (float)(amount);
 }
 
 void Camera::move(glm::vec2 amount, double dt) {
-    auto dir = get_direction();
+    auto dir = getDirection();
     // sideways
     position += glm::normalize(glm::cross(dir, { 0,1,0 })) * (float)(amount.x * 2.0);
 
     // up and down
     position.y += (float)(amount.y);
-}
-
-void Camera::move_on_input(double dt) {
-    auto dir = get_direction();
-    const uint8_t* keyboard = SDL_GetKeyboardState(NULL);
-    if (keyboard[SDL_SCANCODE_W]) {
-        position += dir * (float)(move_speed*dt);
-    } 
-    else if (keyboard[SDL_SCANCODE_S]) {
-            position -= dir * (float)(move_speed*dt);
-    }
-    if (keyboard[SDL_SCANCODE_A]) {
-        position -= glm::normalize(glm::cross(dir, { 0,1,0 })) * (float)(move_speed*dt);
-    }
-    else if (keyboard[SDL_SCANCODE_D]) {
-        position += glm::normalize(glm::cross(dir, { 0,1,0 })) * (float)(move_speed*dt);
-    }
 }
 
 /*

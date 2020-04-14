@@ -83,7 +83,7 @@ void DXVertexBuffer::bind() const {
     D3D.context->IASetInputLayout(input_layout.Get());
 }
 
-void DXVertexBuffer::set_layout(const InputLayout& layout) const {
+void DXVertexBuffer::setLayout(const InputLayout& layout) const {
     std::vector<D3D11_INPUT_ELEMENT_DESC> attributes;
     for (auto& element : layout) {
         attributes.push_back({ 

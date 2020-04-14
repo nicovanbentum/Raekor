@@ -34,7 +34,7 @@ private:
     virtual void impl_SwapBuffers(bool vsync) const                              = 0;
 
 protected:
-    SDL_Window* render_window;
+    SDL_Window* renderWindow;
 
 private:
     static RenderAPI activeAPI;

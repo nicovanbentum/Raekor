@@ -5,17 +5,31 @@
 
 namespace Raekor {
 
-void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& camera, bool mouseInViewport, double dt) {
-    auto flags = SDL_GetWindowFlags(windows[0]);
-    bool focus = (flags & SDL_WINDOW_INPUT_FOCUS) ? true : false;
+void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewport, double dt) {
+    auto flags = SDL_GetWindowFlags(window);
+    bool windowHasInputFocus = (flags & SDL_WINDOW_INPUT_FOCUS) ? true : false;
 
-    if (!focus && !camera.is_mouse_active()) {
-        camera.set_mouse_active(true);
-        SDL_SetRelativeMouseMode(static_cast<SDL_bool>(!camera.is_mouse_active()));
+    // press left Alt to go enable FPS-style camera controls
+    static bool inAltMode = false;
+    // free the mouse if the window loses focus
+    if (!windowHasInputFocus && inAltMode) {
+        inAltMode = false;
+        SDL_SetRelativeMouseMode(static_cast<SDL_bool>(inAltMode));
     }
 
-    if (!camera.is_mouse_active()) {
-        camera.move_on_input(dt);
+    auto keyboardState = SDL_GetKeyboardState(NULL);
+    if (inAltMode) {
+        if (keyboardState[SDL_SCANCODE_W]) {
+            camera.zoom(0.06f, dt);
+        } else if (keyboardState[SDL_SCANCODE_S]) {
+            camera.zoom(-0.06f, dt);
+        }
+
+        if (keyboardState[SDL_SCANCODE_A]) {
+            camera.move({ -0.02f, 0.0f }, dt);
+        } else if (keyboardState[SDL_SCANCODE_D]) {
+            camera.move({ 0.02f, 0.0f }, dt);
+        }
     }
 
     static bool cameraLooking = false;
@@ -26,10 +40,8 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
         //handle window events
         if (ev.type == SDL_WINDOWEVENT) {
             if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
-                for (SDL_Window* window : windows) {
-                    if (SDL_GetWindowID(window) == ev.window.windowID) {
-                        Application::running = false;
-                    }
+                if (SDL_GetWindowID(window) == ev.window.windowID) {
+                    Application::running = false;
                 }
             }
             else if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
@@ -58,7 +70,7 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
 
         // handle mousewheel events
         else if (ev.type == SDL_MOUSEWHEEL && mouseInViewport) {
-            camera.zoom(static_cast<float>(ev.wheel.y * 0.1f), dt);
+            camera.zoom(static_cast<float>(ev.wheel.y * 0.2f), dt);
         }
 
         // handle mouse motion events
@@ -69,7 +81,7 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
             else if (cameraMoving) {
                 camera.move({ ev.motion.xrel * -0.001f, ev.motion.yrel * 0.001f }, dt);
             }
-            else if (!camera.is_mouse_active()) {
+            else if (inAltMode) {
                 camera.look(ev.motion.xrel, ev.motion.yrel, dt);
             }
         }
@@ -78,8 +90,8 @@ void handle_sdl_gui_events(std::vector<SDL_Window*> windows, Raekor::Camera& cam
         if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
             switch (ev.key.keysym.sym) {
             case SDLK_LALT: {
-                camera.set_mouse_active(!camera.is_mouse_active());
-                SDL_SetRelativeMouseMode((SDL_bool)(!camera.is_mouse_active()));
+                inAltMode = !inAltMode;
+                SDL_SetRelativeMouseMode(static_cast<SDL_bool>(inAltMode));
             } break;
 
             case SDLK_h: {
@@ -97,6 +109,6 @@ int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
     app.run();
-    app.serialize_settings("config.json", true);
+    app.serializeSettings("config.json", true);
     return 0;
 }

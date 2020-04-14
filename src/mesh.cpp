@@ -10,7 +10,7 @@
 
 namespace Raekor {
 
-std::vector<Vertex> v_cube = {
+std::vector<Vertex> cubeVertices = {
     {{-1.0f, -1.0f, -1.0f}, {}, {}, {}, {}},
     {{1.0f, -1.0f, -1.0f}, {}, {}, {}, {}},
     {{1.0f, 1.0f, -0.999999f}, {}, {}, {}, {}},
@@ -22,7 +22,7 @@ std::vector<Vertex> v_cube = {
     {{-1.0f, 1.0f, 1.0f}, {}, {}, {}, {}}
 };
 
-std::vector<Index>  i_cube = {
+std::vector<Index>  cubeIndices = {
     {0, 1, 3}, {3, 1, 2},
     {1, 5, 2}, {2, 5, 6},
     {5, 4, 6}, {6, 4, 7},
@@ -31,41 +31,41 @@ std::vector<Index>  i_cube = {
     {4, 5, 0}, {0, 5, 1}
 };
 
-std::vector<Vertex> v_quad = {
+std::vector<Vertex> quadVertices = {
     {{-1.0f, -1.0f, 0.0f},  {0.0f, 0.0f},   {}, {}, {}},
     {{1.0f, -1.0f, 0.0f},   {1.0f, 0.0f},   {}, {}, {}},
     {{1.0f, 1.0f, 0.0f},    {1.0f, 1.0f},   {}, {}, {}},
     {{-1.0f, 1.0f, 0.0f},   {0.0f, 1.0f},   {}, {}, {}}
 };
 
-std::vector<Index> i_quad = {
+std::vector<Index> quadIndices = {
     {0, 1, 3}, {3, 1, 2}
 };
 
 
-Mesh::Mesh(Shape basic_shape) {
-    switch (basic_shape) {
+Mesh::Mesh(Shape shape) {
+    switch (shape) {
     case Shape::None: return;
     case Shape::Cube: {
-        set_vertex_buffer(v_cube);
-        set_index_buffer(i_cube);
+        setVertexBuffer(cubeVertices);
+        setIndexBuffer(cubeIndices);
     } break;
     case Shape::Quad: {
-        set_vertex_buffer(v_quad);
-        set_index_buffer(i_quad);
+        setVertexBuffer(quadVertices);
+        setIndexBuffer(quadIndices);
     } break;
     }
 }
 
 Mesh::Mesh(const std::vector<Vertex>& vb, const std::vector<Index>& ib) {
-    set_vertex_buffer(vb);
-    set_index_buffer(ib);
+    setVertexBuffer(vb);
+    setIndexBuffer(ib);
 }
 
-void Mesh::set_vertex_buffer(const std::vector<Vertex>& buffer) {
+void Mesh::setVertexBuffer(const std::vector<Vertex>& buffer) {
     vb.reset(Raekor::VertexBuffer::construct(buffer));
 }
-void Mesh::set_index_buffer(const std::vector<Index>& buffer) {
+void Mesh::setIndexBuffer(const std::vector<Index>& buffer) {
     ib.reset(Raekor::IndexBuffer::construct(buffer));
 }
 

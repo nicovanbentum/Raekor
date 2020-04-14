@@ -8,16 +8,16 @@ public:
     void start();
     void stop();
     void restart();
-    double elapsed_ms();
+    double elapsedMs();
 
 private:
     bool running = false;
 #ifdef _WIN32
-    std::chrono::time_point<std::chrono::steady_clock> start_time;
-    std::chrono::time_point<std::chrono::steady_clock> stop_time;
+    std::chrono::time_point<std::chrono::steady_clock> startTime;
+    std::chrono::time_point<std::chrono::steady_clock> stopTime;
 #else 
-    std::chrono::time_point<std::chrono::system_clock> start_time;
-    std::chrono::time_point<std::chrono::system_clock> stop_time;
+    std::chrono::time_point<std::chrono::system_clock> startTime;
+    std::chrono::time_point<std::chrono::system_clock> stopTime;
 #endif
 };
 

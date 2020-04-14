@@ -10,7 +10,7 @@ public:
     Application() {}
 
     void run();
-    void vulkan_main();
+    void vulkanMain();
 
     template<class C>
     void serialize(C& archive) {
@@ -23,7 +23,7 @@ public:
             CEREAL_NVP(themeColors)
         );
     }
-    void serialize_settings(const std::string& filepath, bool write = false);
+    void serializeSettings(const std::string& filepath, bool write = false);
 
     static bool running;
     static bool showUI;

@@ -189,7 +189,7 @@ namespace VK {
             if (material->GetTextureCount(aiTextureType_DIFFUSE) != 0) {
                 aiString filename;
                 material->GetTexture(aiTextureType_DIFFUSE, 0, &filename);
-                texture_path = get_file(path, PATH_OPTIONS::DIR) + std::string(filename.C_Str());
+                texture_path = parseFilepath(path, PATH_OPTIONS::DIR) + std::string(filename.C_Str());
             }
 
             if (!texture_path.empty()) {
@@ -230,8 +230,8 @@ namespace VK {
             skyboxFaces[i].load(face_files[i]);
         }
         skybox.reset(new VK::CubeTexture(context, skyboxFaces));
-        cube_v = std::make_unique<VK::VertexBuffer>(context, v_cube);
-        cube_i = std::make_unique<VK::IndexBuffer>(context, i_cube);
+        cube_v = std::make_unique<VK::VertexBuffer>(context, cubeVertices);
+        cube_i = std::make_unique<VK::IndexBuffer>(context, cubeIndices);
 
         input_state = meshVertexBuffer->getState();
 

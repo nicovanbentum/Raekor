@@ -12,7 +12,7 @@ public:
     virtual void bind() const override;
     virtual void unbind() const override;
 
-    virtual void ImGui_Image() const override;
+    virtual void Image() const override;
     virtual void resize(const glm::vec2& size) override;
 
 private:

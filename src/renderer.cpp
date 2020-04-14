@@ -28,7 +28,7 @@ RenderAPI Renderer::activeAPI = RenderAPI::OPENGL;
 Renderer* Renderer::instance = nullptr;
 
 GLRenderer::GLRenderer(SDL_Window* window) {
-    render_window = window;
+    renderWindow = window;
     
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
@@ -38,8 +38,8 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     
     context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, context);
-    int gl3w_err = gl3wInit();
-    m_assert(gl3w_err == 0, "failed to init gl3w");
+    int gl3wError = gl3wInit();
+    m_assert(gl3wError == 0, "failed to init gl3w");
     
     // print the initialized openGL specs
     std::cout << "Active Rendering API: OpenGL " << glGetString(GL_VERSION);
@@ -70,9 +70,9 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     glDepthFunc(GL_LEQUAL);
 
     // one time setup for binding vertey arrays
-    unsigned int vertex_array_id;
-    glGenVertexArrays(1, &vertex_array_id);
-    glBindVertexArray(vertex_array_id);
+    unsigned int vertexArrayID;
+    glGenVertexArrays(1, &vertexArrayID);
+    glBindVertexArray(vertexArrayID);
 }
 
 GLRenderer::~GLRenderer() {
@@ -98,7 +98,7 @@ void GLRenderer::impl_ImGui_Render() {
 
 void GLRenderer::impl_SwapBuffers(bool vsync) const {
     SDL_GL_SetSwapInterval(vsync);
-    SDL_GL_SwapWindow(render_window);
+    SDL_GL_SwapWindow(renderWindow);
 }
 
 void GLRenderer::impl_DrawIndexed(unsigned int size) {

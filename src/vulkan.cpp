@@ -28,11 +28,11 @@ bool Application::running = true;
 bool Application::showUI = true;
 bool Application::shouldResize = false;
 
-void Application::vulkan_main() {
+void Application::vulkanMain() {
     auto context = Raekor::PlatformContext();
 
     // retrieve the application settings from the config file
-    serialize_settings("config.json");
+    serializeSettings("config.json");
 
     int sdl_err = SDL_Init(SDL_INIT_VIDEO);
     m_assert(sdl_err == 0, "failed to init SDL for video");
@@ -113,7 +113,7 @@ void Application::vulkan_main() {
     while (running) {
         dt_timer.start();
         //handle sdl and imgui events
-        handle_sdl_gui_events({ window }, camera, mouseInViewport, dt);
+        handleEvents({ window }, camera, mouseInViewport, dt);
 
         // update the mvp structs
         for (uint32_t i = 0; i < mods.size(); i++) {
@@ -185,7 +185,7 @@ void Application::vulkan_main() {
             ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
             ImGui::Begin("ECS", (bool*)0, ImGuiWindowFlags_AlwaysAutoResize);
             if (ImGui::Button("Add Model")) {
-                std::string path = context.open_file_dialog({ ft_mesh });
+                std::string path = context.openFileDialog({ ft_mesh });
                 if (!path.empty()) {
                 }
             }
@@ -211,8 +211,8 @@ void Application::vulkan_main() {
             ImGui::End();
 
             ImGui::Begin("Camera Properties");
-            if (ImGui::DragFloat("Camera Move Speed", camera.get_move_speed(), 0.001f, 0.01f, FLT_MAX, "%.2f")) {}
-            if (ImGui::DragFloat("Camera Look Speed", camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
+            if (ImGui::DragFloat("Camera Move Speed", &camera.moveSpeed, 0.001f, 0.01f, FLT_MAX, "%.2f")) {}
+            if (ImGui::DragFloat("Camera Look Speed", &camera.lookSpeed, 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
 
             ImGui::End();
 
@@ -264,7 +264,7 @@ void Application::vulkan_main() {
         }
 
         dt_timer.stop();
-        dt = dt_timer.elapsed_ms();
+        dt = dt_timer.elapsedMs();
     }
 
     vk.waitForIdle();

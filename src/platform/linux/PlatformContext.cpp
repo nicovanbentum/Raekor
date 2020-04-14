@@ -4,7 +4,7 @@
 
 namespace Raekor {
 
-std::string PlatformContext::open_file_dialog(const std::vector<Ffilter>& filters) {
+std::string PlatformContext::openFileDialog(const std::vector<Ffilter>& filters) {
     //init gtk
     m_assert(gtk_init_check(NULL, NULL), "failed to init gtk");
     // allocate a new dialog window

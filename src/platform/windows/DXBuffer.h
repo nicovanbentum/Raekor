@@ -10,7 +10,7 @@ public:
     DXVertexBuffer(const std::vector<Vertex>& vertices);
     ~DXVertexBuffer() { remove("fake.hlsl"); }
     virtual void bind() const override;
-    virtual void set_layout(const InputLayout& layout) const override;
+    virtual void setLayout(const InputLayout& layout) const override;
 
 private:
     com_ptr<ID3D11Buffer> vertex_buffer;

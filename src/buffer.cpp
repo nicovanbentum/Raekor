@@ -10,8 +10,8 @@
 
 namespace Raekor {
     ResourceBuffer* ResourceBuffer::construct(size_t size) {
-        auto active_api = Renderer::getActiveAPI();
-        switch (active_api) {
+        auto activeAPI = Renderer::getActiveAPI();
+        switch (activeAPI) {
         case RenderAPI::OPENGL: {
             return new GLResourceBuffer(size);
         } break;
@@ -33,8 +33,8 @@ namespace Raekor {
 
     void GLResourceBuffer::update(void* data, const size_t size) const {
         glBindBuffer(GL_UNIFORM_BUFFER, id);
-        void* data_ptr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
-        memcpy(data_ptr, data, size);
+        void* dataPtr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
+        memcpy(dataPtr, data, size);
         glUnmapBuffer(GL_UNIFORM_BUFFER);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
@@ -53,28 +53,28 @@ uint32_t size_of(ShaderType type) {
     }
 }
 
-GLShaderType::GLShaderType(ShaderType shader_type) {
-    switch (shader_type) {
+GLShaderType::GLShaderType(ShaderType type) {
+    switch (type) {
         case ShaderType::FLOAT1: {
-            type = GL_FLOAT;
+            glType = GL_FLOAT;
             count = 1;
         } break;
         case ShaderType::FLOAT2: {
-            type = GL_FLOAT;
+            glType = GL_FLOAT;
             count = 2;
         } break;
         case ShaderType::FLOAT3: {
-            type = GL_FLOAT;
+            glType = GL_FLOAT;
             count = 3;
         } break;
         case ShaderType::FLOAT4: {
-            type = GL_FLOAT;
+            glType = GL_FLOAT;
             count = 4;
         } break;
     }
 }
 
-InputLayout::InputLayout(const std::initializer_list<Element> element_list) : layout(element_list), stride(0) {
+InputLayout::InputLayout(const std::initializer_list<Element> elementList) : layout(elementList), stride(0) {
     uint32_t offset = 0;
     for (auto& element : layout) {
         element.offset = offset;
@@ -114,34 +114,34 @@ IndexBuffer* IndexBuffer::construct(const std::vector<Index>& indices) {
 }
 
 GLVertexBuffer::GLVertexBuffer(const std::vector<Vertex>& vertices) {
-    id = gen_gl_buffer(vertices, GL_ARRAY_BUFFER);
+    id = createBufferGL(vertices, GL_ARRAY_BUFFER);
 }
 
 void GLVertexBuffer::bind() const {
     glBindBuffer(GL_ARRAY_BUFFER, id);
     GLuint index = 0;
     for (auto& element : inputLayout) {
-        auto GLType = static_cast<GLShaderType>(element.type);
+        auto shaderType = static_cast<GLShaderType>(element.type);
         glEnableVertexAttribArray(index);
         glVertexAttribPointer(
             index, // hlsl layout index
-            GLType.count, // number of types, e.g 3 floats
-            GLType.type, // type, e.g float
+            shaderType.count, // number of types, e.g 3 floats
+            shaderType.glType, // type, e.g float
             GL_FALSE, // normalized?
-            (GLsizei)inputLayout.get_stride(), // stride of the entire layout
+            (GLsizei)inputLayout.getStride(), // stride of the entire layout
             (const void*)((intptr_t)element.offset) // starting offset, casted up
         );
         index++;
     }
 }
 
-void GLVertexBuffer::set_layout(const InputLayout& layout) const {
+void GLVertexBuffer::setLayout(const InputLayout& layout) const {
     inputLayout = layout;
 }
 
 GLIndexBuffer::GLIndexBuffer(const std::vector<Index>& indices) {
     count = (unsigned int)(indices.size() * 3);
-    id = gen_gl_buffer(indices, GL_ELEMENT_ARRAY_BUFFER);
+    id = createBufferGL(indices, GL_ELEMENT_ARRAY_BUFFER);
 }
 
 

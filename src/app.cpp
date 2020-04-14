@@ -15,11 +15,11 @@
 
 namespace Raekor {
 
-struct shadowUBO {
+struct ShadowMapUniforms {
     glm::mat4 cameraMatrix;
 };
 
-struct VertexUBO {
+struct LightPassUniforms {
     glm::mat4 view, projection;
     glm::mat4 lightSpaceMatrix;
     glm::vec4 DirViewPos;
@@ -28,18 +28,18 @@ struct VertexUBO {
     unsigned int renderFlags = 0b00000001;
 };
 
-struct Uniforms {
+struct DirLightUniforms {
     glm::vec4 sunColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     float minBias = 0.000f, maxBias = 0.0f;
     float farPlane = 25.0f;
 };
 
-struct HDR_UBO {
+struct TonemapUniforms {
     float exposure = 1.0f;
     float gamma = 1.8f;
 };
 
-void Application::serialize_settings(const std::string& filepath, bool write) {
+void Application::serializeSettings(const std::string& filepath, bool write) {
     if (write) {
         std::ofstream os(filepath);
         cereal::JSONOutputArchive archive(os);
@@ -56,10 +56,10 @@ void Application::run() {
     auto context = Raekor::PlatformContext();
 
     // retrieve the application settings from the config file
-    serialize_settings("config.json");
+    serializeSettings("config.json");
 
-    int sdl_err = SDL_Init(SDL_INIT_VIDEO);
-    m_assert(sdl_err == 0, "failed to init SDL for video");
+    int sdlError = SDL_Init(SDL_INIT_VIDEO);
+    m_assert(sdlError == 0, "failed to init SDL for video");
 
     Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL |
         SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
@@ -98,34 +98,37 @@ void Application::run() {
         scene.add(path);
     }
     timer.stop();
-    std::cout << "Setup time = " << timer.elapsed_ms() << '\n';
+    std::cout << "Setup time = " << timer.elapsedMs() << '\n';
 
     if (!scene.objects.empty()) {
         activeObject = scene.objects.begin();
     }
 
-    VertexUBO ubo = {};
-    shadowUBO shadowUbo;
-    HDR_UBO hdr_ubo;
-    Uniforms uniforms;
+    LightPassUniforms lightUniforms = {};
+    ShadowMapUniforms shadowMapUniforms = {};
+    TonemapUniforms tonemapUniforms = {};
+    DirLightUniforms uniforms = {};
 
-    std::unique_ptr<GLResourceBuffer> dxrb;
-    std::unique_ptr<GLResourceBuffer> shadowVertUbo;
-    std::unique_ptr<GLResourceBuffer> extraUbo;
-    std::unique_ptr<GLResourceBuffer> Shadow3DUbo;
-    std::unique_ptr<GLResourceBuffer> mat4Ubo;
-    std::unique_ptr<GLResourceBuffer> hdrUbo;
+    std::unique_ptr<GLResourceBuffer> lightResourceBuffer;
+    lightResourceBuffer.reset(new GLResourceBuffer(sizeof(LightPassUniforms)));
+
+    std::unique_ptr<GLResourceBuffer> shadowMapResourceBuffer;
+    shadowMapResourceBuffer.reset(new GLResourceBuffer(sizeof(ShadowMapUniforms)));
+
+    std::unique_ptr<GLResourceBuffer> tonemapResourceBuffer;
+    tonemapResourceBuffer.reset(new GLResourceBuffer(sizeof(TonemapUniforms)));
+
 
     std::unique_ptr<Mesh> cubeMesh;
-    std::unique_ptr<glTextureCube> skyCube;
+    std::unique_ptr<glTextureCube> skyboxCubemap;
 
-    Ffilter ft_mesh;
-    ft_mesh.name = "Supported Mesh Files";
-    ft_mesh.extensions = "*.obj;*.fbx;*.gltf;*.glb";
+    Ffilter meshFileFormats;
+    meshFileFormats.name = "Supported Mesh Files";
+    meshFileFormats.extensions = "*.obj;*.fbx;*.gltf;*.glb";
 
-    Ffilter ft_texture;
-    ft_texture.name = "Supported Image Files";
-    ft_texture.extensions = "*.png;*.jpg;*.jpeg;*.tga";
+    Ffilter textureFileFormats;
+    textureFileFormats.name = "Supported Image Files";
+    textureFileFormats.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
 
     std::unique_ptr<GLShader> mainShader;
@@ -135,46 +138,46 @@ void Application::run() {
     mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
 
 
-    std::unique_ptr<GLShader> skyShader;
-    std::vector<Shader::Stage> skybox_shaders;
-    skybox_shaders.emplace_back(Shader::Type::VERTEX,   "shaders\\OpenGL\\skybox.vert");
-    skybox_shaders.emplace_back(Shader::Type::FRAG,     "shaders\\OpenGL\\skybox.frag");
-    skyShader.reset(new GLShader(skybox_shaders.data(), skybox_shaders.size()));
+    std::unique_ptr<GLShader> skyboxShader;
+    std::vector<Shader::Stage> skyboxStages;
+    skyboxStages.emplace_back(Shader::Type::VERTEX,   "shaders\\OpenGL\\skybox.vert");
+    skyboxStages.emplace_back(Shader::Type::FRAG,     "shaders\\OpenGL\\skybox.frag");
+    skyboxShader.reset(new GLShader(skyboxStages.data(), skyboxStages.size()));
 
 
-    std::unique_ptr<GLShader> depthShader;
-    std::vector<Shader::Stage> depth_shaders;
-    depth_shaders.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\depth.vert");
-    depth_shaders.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\depth.frag");
-    depthShader.reset(new GLShader(depth_shaders.data(), depth_shaders.size()));
+    std::unique_ptr<GLShader> shadowmapShader;
+    std::vector<Shader::Stage> shadowmapStages;
+    shadowmapStages.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\depth.vert");
+    shadowmapStages.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\depth.frag");
+    shadowmapShader.reset(new GLShader(shadowmapStages.data(), shadowmapStages.size()));
 
 
-    std::unique_ptr<GLShader> depthCubeShader;
-    std::vector<Shader::Stage> depthCube_shaders;
-    depthCube_shaders.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\depthCube.vert");
-    depthCube_shaders.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\depthCube.frag");
-    depthCubeShader.reset(new GLShader(depthCube_shaders.data(), depthCube_shaders.size()));
+    std::unique_ptr<GLShader> omniShadowmapShader;
+    std::vector<Shader::Stage> omniShadowmapStages;
+    omniShadowmapStages.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\depthCube.vert");
+    omniShadowmapStages.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\depthCube.frag");
+    omniShadowmapShader.reset(new GLShader(omniShadowmapStages.data(), omniShadowmapStages.size()));
 
 
     std::unique_ptr<GLShader> quadShader;
-    std::vector<Shader::Stage> quad_shaders;
-    quad_shaders.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\quad.vert");
-    quad_shaders.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\quad.frag");
-    quadShader.reset(new GLShader(quad_shaders.data(), quad_shaders.size()));
+    std::vector<Shader::Stage> quadStages;
+    quadStages.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\quad.vert");
+    quadStages.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\quad.frag");
+    quadShader.reset(new GLShader(quadStages.data(), quadStages.size()));
 
 
     std::unique_ptr<GLShader> blurShader;
-    std::vector<Shader::Stage> blur_shaders;
-    blur_shaders.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\quad.vert");
-    blur_shaders.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\gaussian.frag");
-    blurShader.reset(new GLShader(blur_shaders.data(), blur_shaders.size()));
+    std::vector<Shader::Stage> blurStages;
+    blurStages.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\quad.vert");
+    blurStages.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\gaussian.frag");
+    blurShader.reset(new GLShader(blurStages.data(), blurStages.size()));
 
 
     std::unique_ptr<GLShader> bloomShader;
-    std::vector<Shader::Stage> bloom_shaders;
-    bloom_shaders.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\quad.vert");
-    bloom_shaders.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\bloom.frag");
-    bloomShader.reset(new GLShader(bloom_shaders.data(), bloom_shaders.size()));
+    std::vector<Shader::Stage> bloomStages;
+    bloomStages.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\quad.vert");
+    bloomStages.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\bloom.frag");
+    bloomShader.reset(new GLShader(bloomStages.data(), bloomStages.size()));
     
 
     std::unique_ptr<GLShader> voxelShader;
@@ -199,50 +202,50 @@ void Application::run() {
     voxelDebugShader.reset(new GLShader(voxelDebugStages.data(), voxelDebugStages.size()));
 
 
-    std::unique_ptr<GLShader> CubemapDebugShader;
-    std::vector<Shader::Stage> cubedebug_shaders;
-    cubedebug_shaders.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\simple.vert");
-    cubedebug_shaders.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\simple.frag");
-    CubemapDebugShader.reset(new GLShader(cubedebug_shaders.data(), cubedebug_shaders.size()));
+    std::unique_ptr<GLShader> cubemapDebugShader;
+    std::vector<Shader::Stage> cubemapDebugStages;
+    cubemapDebugStages.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\simple.vert");
+    cubemapDebugStages.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\simple.frag");
+    cubemapDebugShader.reset(new GLShader(cubemapDebugStages.data(), cubemapDebugStages.size()));
 
 
-    std::unique_ptr<GLShader> SSAOshader;
-    std::vector<Shader::Stage> SSAO_shaders;
-    SSAO_shaders.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\SSAO.vert");
-    SSAO_shaders.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\SSAO.frag");
-    SSAOshader.reset(new GLShader(SSAO_shaders.data(), SSAO_shaders.size()));
+    std::unique_ptr<GLShader> ssaoShader;
+    std::vector<Shader::Stage> ssaoStages;
+    ssaoStages.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\SSAO.vert");
+    ssaoStages.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\SSAO.frag");
+    ssaoShader.reset(new GLShader(ssaoStages.data(), ssaoStages.size()));
 
 
-    std::unique_ptr<GLShader> GBufferShader;
-    std::vector<Shader::Stage> gbuffer_shaders;
-    gbuffer_shaders.emplace_back(Shader::Type::VERTEX,  "shaders\\OpenGL\\gbuffer.vert");
-    gbuffer_shaders.emplace_back(Shader::Type::FRAG,    "shaders\\OpenGL\\gbuffer.frag");
-    gbuffer_shaders[0].defines = { "NO_NORMAL_MAP" };
-    gbuffer_shaders[1].defines = { "NO_NORMAL_MAP" };
-    GBufferShader.reset(new GLShader(gbuffer_shaders.data(), gbuffer_shaders.size()));
+    std::unique_ptr<GLShader> gbufferShader;
+    std::vector<Shader::Stage> gbufferStages;
+    gbufferStages.emplace_back(Shader::Type::VERTEX,  "shaders\\OpenGL\\gbuffer.vert");
+    gbufferStages.emplace_back(Shader::Type::FRAG,    "shaders\\OpenGL\\gbuffer.frag");
+    gbufferStages[0].defines = { "NO_NORMAL_MAP" };
+    gbufferStages[1].defines = { "NO_NORMAL_MAP" };
+    gbufferShader.reset(new GLShader(gbufferStages.data(), gbufferStages.size()));
 
 
-    std::unique_ptr<GLShader> SSAOBlurShader;
-    std::vector<Shader::Stage> ssaoBlur_shaders;
-    ssaoBlur_shaders.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\quad.vert");
-    ssaoBlur_shaders.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\SSAOblur.frag");
-    SSAOBlurShader.reset(new GLShader(ssaoBlur_shaders.data(), ssaoBlur_shaders.size()));
+    std::unique_ptr<GLShader> ssaoBlurShader;
+    std::vector<Shader::Stage> ssaoBlurStages;
+    ssaoBlurStages.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\quad.vert");
+    ssaoBlurStages.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\SSAOblur.frag");
+    ssaoBlurShader.reset(new GLShader(ssaoBlurStages.data(), ssaoBlurStages.size()));
     
 
-    std::unique_ptr<GLShader> hdrShader;
-    std::vector<Shader::Stage> hdr_shaders;
+    std::unique_ptr<GLShader> tonemapShader;
+    std::vector<Shader::Stage> tonemapStages;
     std::vector<std::string> tonemappingShaders = {
        "shaders\\OpenGL\\HDR.frag",
        "shaders\\OpenGL\\HDRreinhard.frag",
        "shaders\\OpenGL\\HDRuncharted.frag"
     };
-    hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
-    hdr_shaders.emplace_back(Shader::Type::FRAG, tonemappingShaders.begin()->c_str());
-    hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
+    tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
+    tonemapStages.emplace_back(Shader::Type::FRAG, tonemappingShaders.begin()->c_str());
+    tonemapShader.reset(new GLShader(tonemapStages.data(), tonemapStages.size()));
 
 
     cubeMesh.reset(new Mesh(Shape::Cube));
-    cubeMesh->get_vertex_buffer()->set_layout({
+    cubeMesh->getVertexBuffer()->setLayout({
         {"POSITION",    ShaderType::FLOAT3},
         {"UV",          ShaderType::FLOAT2},
         {"NORMAL",      ShaderType::FLOAT3},
@@ -252,7 +255,7 @@ void Application::run() {
 
     std::unique_ptr<Mesh> Quad;
     Quad.reset(new Mesh(Shape::Quad));
-    Quad->get_vertex_buffer()->set_layout({
+    Quad->getVertexBuffer()->setLayout({
         {"POSITION",    ShaderType::FLOAT3},
         {"UV",          ShaderType::FLOAT2},
         {"NORMAL",      ShaderType::FLOAT3},
@@ -260,14 +263,11 @@ void Application::run() {
         {"BINORMAL",    ShaderType::FLOAT3}
     });
 
-    dxrb.reset(new GLResourceBuffer(sizeof(VertexUBO)));
-    shadowVertUbo.reset(new GLResourceBuffer(sizeof(shadowUBO)));
-    mat4Ubo.reset(new GLResourceBuffer(sizeof(glm::mat4)));
-    hdrUbo.reset(new GLResourceBuffer(sizeof(HDR_UBO)));
+
 
     uint32_t renderWidth = static_cast<uint32_t>(displays[display].w * .8f); 
     uint32_t renderHeight = static_cast<uint32_t>(displays[display].h * .8f);
-
+    
     renderWidth = 2003;
     renderHeight = 1370;
 
@@ -276,17 +276,17 @@ void Application::run() {
     glTexture2D albedoTexture, normalTexture, positionTexture;
     
     albedoTexture.bind();
-    albedoTexture.init(renderWidth, renderHeight, Format::HDR);
+    albedoTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
     albedoTexture.setFilter(Sampling::Filter::None);
     albedoTexture.unbind();
 
     normalTexture.bind();
-    normalTexture.init(renderWidth, renderHeight, Format::HDR);
+    normalTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
     normalTexture.setFilter(Sampling::Filter::None);
     normalTexture.unbind();
 
     positionTexture.bind();
-    positionTexture.init(renderWidth, renderHeight, Format::HDR);
+    positionTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
     positionTexture.setFilter(Sampling::Filter::None);
     positionTexture.setWrap(Sampling::Wrap::ClampEdge);
     positionTexture.unbind();
@@ -305,7 +305,7 @@ void Application::run() {
 
     glTexture2D preprocessTexture;
     preprocessTexture.bind();
-    preprocessTexture.init(renderWidth, renderHeight, Format::HDR);
+    preprocessTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
     preprocessTexture.setFilter(Sampling::Filter::Bilinear);
     preprocessTexture.unbind();
 
@@ -316,13 +316,13 @@ void Application::run() {
 
     glTexture2D hdrTexture;
     hdrTexture.bind();
-    hdrTexture.init(renderWidth, renderHeight, Format::HDR);
+    hdrTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
     hdrTexture.setFilter(Sampling::Filter::Bilinear);
     hdrTexture.unbind();
 
     glTexture2D bloomTexture;
     bloomTexture.bind();
-    bloomTexture.init(renderWidth, renderHeight, Format::HDR);
+    bloomTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
     bloomTexture.setFilter(Sampling::Filter::Bilinear);
     bloomTexture.unbind();
 
@@ -338,7 +338,7 @@ void Application::run() {
 
     glTexture2D finalTexture;
     finalTexture.bind();
-    finalTexture.init(renderWidth, renderHeight, Format::SDR);
+    finalTexture.init(renderWidth, renderHeight, Format::RGB_F);
     finalTexture.setFilter(Sampling::Filter::Bilinear);
     finalTexture.unbind();
 
@@ -356,7 +356,7 @@ void Application::run() {
 
     for (unsigned int i = 0; i < 2; i++) {
         pingpongTextures[i].bind();
-        pingpongTextures[i].init(renderWidth, renderHeight, Format::HDR);   
+        pingpongTextures[i].init(renderWidth, renderHeight, Format::RGBA_F16);   
         pingpongTextures[i].setFilter(Sampling::Filter::Bilinear);
         pingpongTextures[i].setWrap(Sampling::Wrap::ClampEdge);
         pingpongTextures[i].unbind();
@@ -393,13 +393,13 @@ void Application::run() {
     //
     glTexture2D cubeBackfaceTexture;
     cubeBackfaceTexture.bind();
-    cubeBackfaceTexture.init(renderWidth, renderHeight, Format::SDR4);
+    cubeBackfaceTexture.init(renderWidth, renderHeight, Format::RGBA_F);
     cubeBackfaceTexture.setFilter(Sampling::Filter::None);
     cubeBackfaceTexture.unbind();
 
     glTexture2D cubeFrontfaceTexture;
     cubeFrontfaceTexture.bind();
-    cubeFrontfaceTexture.init(renderWidth, renderHeight, Format::SDR4);
+    cubeFrontfaceTexture.init(renderWidth, renderHeight, Format::RGBA_F);
     cubeFrontfaceTexture.setFilter(Sampling::Filter::None);
     cubeFrontfaceTexture.unbind();
 
@@ -418,7 +418,7 @@ void Application::run() {
 
     glTexture2D voxelVisTexture;
     voxelVisTexture.bind();
-    voxelVisTexture.init(renderWidth, renderHeight, Format::HDR);
+    voxelVisTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
     voxelVisTexture.setFilter(Sampling::Filter::None);
     voxelVisTexture.unbind();
 
@@ -428,7 +428,7 @@ void Application::run() {
     voxelVisFramebuffer.unbind();
 
     // persistent imgui variable values
-    auto active_skybox = skyboxes.find("lake");
+    auto activeSkyboxTexture = skyboxes.find("lake");
 
     SDL_SetWindowInputFocus(directxwindow);
 
@@ -447,17 +447,15 @@ void Application::run() {
         colors[i] = ImVec4(savedColor[0], savedColor[1], savedColor[2], savedColor[3]);
     }
 
-    static unsigned int selected_mesh = 0;
-    bool show_settings_window = false;
 
-    Timer dt_timer;
-    double dt = 0;
+    Timer deltaTimer;
+    double deltaTime = 0;
 
     float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
 
     glTexture2D shadowTexture;
     shadowTexture.bind();
-    shadowTexture.init(SHADOW_WIDTH, SHADOW_HEIGHT, Format::Depth);
+    shadowTexture.init(SHADOW_WIDTH, SHADOW_HEIGHT, Format::DEPTH);
     shadowTexture.setFilter(Sampling::Filter::None);
     shadowTexture.setWrap(Sampling::Wrap::ClampBorder);
 
@@ -470,7 +468,7 @@ void Application::run() {
     glTextureCube depthCubeTexture;
     depthCubeTexture.bind();
     for (unsigned int i = 0; i < 6; ++i) {
-        depthCubeTexture.init(SHADOW_WIDTH, SHADOW_HEIGHT, i, Format::Depth, nullptr);
+        depthCubeTexture.init(SHADOW_WIDTH, SHADOW_HEIGHT, i, Format::DEPTH, nullptr);
     }
     depthCubeTexture.setFilter(Sampling::Filter::None);
     depthCubeTexture.setWrap(Sampling::Wrap::ClampEdge);
@@ -563,8 +561,12 @@ void Application::run() {
 
     glm::vec3 bloomThreshold { 2.0f, 2.0f, 2.0f };
     static bool doBloom = false;
+
     bool mouseInViewport = false;
     bool gizmoEnabled = false;
+    bool showSettingsWindow = false;
+
+    glTexture2D* activeScreenTexture = &finalTexture;
 
     // voxel pass
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -594,8 +596,8 @@ void Application::run() {
     glEnable(GL_BLEND);
 
     while (running) {
-        dt_timer.start();
-        handle_sdl_gui_events({ directxwindow }, scene.camera, mouseInViewport, dt);
+        deltaTimer.start();
+        handleEvents(directxwindow, scene.camera, mouseInViewport, deltaTime);
         sunCamera.update(true);
         scene.camera.update(true);
 
@@ -650,13 +652,13 @@ void Application::run() {
         glCullFace(GL_FRONT);
 
         // render the entire scene to the directional light shadow map
-        depthShader->bind();
-        shadowUbo.cameraMatrix = sunCamera.getProjection() * sunCamera.getView();
-        shadowVertUbo->update(&shadowUbo, sizeof(shadowUbo));
-        shadowVertUbo->bind(0);
+        shadowmapShader->bind();
+        shadowMapUniforms.cameraMatrix = sunCamera.getProjection() * sunCamera.getView();
+        shadowMapResourceBuffer->update(&shadowMapUniforms, sizeof(shadowMapUniforms));
+        shadowMapResourceBuffer->bind(0);
 
         for (auto& object : scene) {
-            depthShader->getUniform("model") = object.transform;
+            shadowmapShader->getUniform("model") = object.transform;
             object.render();
         }
 
@@ -676,16 +678,16 @@ void Application::run() {
         shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
 
         // render every model using the depth cubemap shader
-        depthCubeShader->bind();
-        depthCubeShader->getUniform("farPlane") = farPlane;
+        omniShadowmapShader->bind();
+        omniShadowmapShader->getUniform("farPlane") = farPlane;
         for (uint32_t i = 0; i < 6; i++) {
             depthCubeFramebuffer.attach(depthCubeTexture, GL_DEPTH_ATTACHMENT, i);
             glClear(GL_DEPTH_BUFFER_BIT);
-            depthCubeShader->getUniform("projView") = shadowTransforms[i];
-            depthCubeShader->getUniform("lightPos") = glm::make_vec3(lightPos);
+            omniShadowmapShader->getUniform("projView") = shadowTransforms[i];
+            omniShadowmapShader->getUniform("lightPos") = glm::make_vec3(lightPos);
 
             for (auto& object : scene) {
-                depthCubeShader->getUniform("model") = object.transform;
+                omniShadowmapShader->getUniform("model") = object.transform;
                 object.render();
             }
         }
@@ -694,41 +696,41 @@ void Application::run() {
         glViewport(0, 0, renderWidth, renderHeight);
         GBuffer.bind();
 
-        GBufferShader->bind();
+        gbufferShader->bind();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        GBufferShader->getUniform("projection") = scene.camera.getProjection();
-        GBufferShader->getUniform("view") = scene.camera.getView();
+        gbufferShader->getUniform("projection") = scene.camera.getProjection();
+        gbufferShader->getUniform("view") = scene.camera.getView();
 
         for (auto& object : scene) {
-            GBufferShader->getUniform("model") = object.transform;
+            gbufferShader->getUniform("model") = object.transform;
             object.render();
         }
 
         GBuffer.unbind();
 
-        if (ubo.renderFlags & 0x01) {
+        if (lightUniforms.renderFlags & 0x01) {
             // SSAO PASS
             ssaoFramebuffer.bind();
             positionTexture.bindToSlot(0);
             normalTexture.bindToSlot(1);
             ssaoNoiseTexture.bindToSlot(2);
-            SSAOshader->bind();
+            ssaoShader->bind();
 
-            SSAOshader->getUniform("samples") = ssaoKernel;
-            SSAOshader->getUniform("view") = scene.camera.getView();
-            SSAOshader->getUniform("projection") = scene.camera.getProjection();
-            SSAOshader->getUniform("noiseScale") = { renderWidth / 4.0f, renderHeight / 4.0f };
-            SSAOshader->getUniform("sampleCount") = ssaoSampleCount;
-            SSAOshader->getUniform("power") = ssaoPower;
-            SSAOshader->getUniform("bias") = ssaoBias;
+            ssaoShader->getUniform("samples") = ssaoKernel;
+            ssaoShader->getUniform("view") = scene.camera.getView();
+            ssaoShader->getUniform("projection") = scene.camera.getProjection();
+            ssaoShader->getUniform("noiseScale") = { renderWidth / 4.0f, renderHeight / 4.0f };
+            ssaoShader->getUniform("sampleCount") = ssaoSampleCount;
+            ssaoShader->getUniform("power") = ssaoPower;
+            ssaoShader->getUniform("bias") = ssaoBias;
 
             Quad->render();
 
             // now blur the SSAO result
             ssaoBlurFramebuffer.bind();
             ssaoColorTexture.bindToSlot(0);
-            SSAOBlurShader->bind();
+            ssaoBlurShader->bind();
 
             Quad->render();
         }
@@ -754,16 +756,16 @@ void Application::run() {
         normalTexture.bindToSlot(4);
         ssaoBlurTexture.bindToSlot(5);
 
-        ubo.view = scene.camera.getView();
-        ubo.projection = scene.camera.getProjection();
+        lightUniforms.view = scene.camera.getView();
+        lightUniforms.projection = scene.camera.getProjection();
         ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
-        ubo.pointLightPos = glm::vec4(glm::make_vec3(lightPos), 1.0f);
-        ubo.DirLightPos = glm::vec4(sunCamera.getPosition(), 1.0);
-        ubo.DirViewPos = glm::vec4(scene.camera.getPosition(), 1.0);
-        ubo.lightSpaceMatrix = sunCamera.getProjection() * sunCamera.getView();
+        lightUniforms.pointLightPos = glm::vec4(glm::make_vec3(lightPos), 1.0f);
+        lightUniforms.DirLightPos = glm::vec4(sunCamera.getPosition(), 1.0);
+        lightUniforms.DirViewPos = glm::vec4(scene.camera.getPosition(), 1.0);
+        lightUniforms.lightSpaceMatrix = sunCamera.getProjection() * sunCamera.getView();
 
-        dxrb->update(&ubo, sizeof(VertexUBO));
-        dxrb->bind(0);
+        lightResourceBuffer->update(&lightUniforms, sizeof(LightPassUniforms));
+        lightResourceBuffer->bind(0);
 
         Quad->render();
 
@@ -798,14 +800,14 @@ void Application::run() {
         preprocessFramebuffer.unbind();
 
         
-        static bool hdr = true;
-        if (hdr) {
+        static bool doTonemapping = true;
+        if (doTonemapping) {
             finalFramebuffer.bind();
             glViewport(0, 0, renderWidth, renderHeight);
-            hdrShader->bind();
+            tonemapShader->bind();
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            hdrUbo->update(&hdr_ubo, sizeof(HDR_UBO));
-            hdrUbo->bind(0);
+            tonemapResourceBuffer->update(&tonemapUniforms, sizeof(TonemapUniforms));
+            tonemapResourceBuffer->bind(0);
             if (doBloom) {
                 preprocessTexture.bindToSlot(0);
             } else {
@@ -819,34 +821,29 @@ void Application::run() {
         Renderer::ImGuiNewFrame(directxwindow);
         ImGuizmo::BeginFrame();
 
-        static bool opt_fullscreen_persistant = true;
-        bool opt_fullscreen = opt_fullscreen_persistant;
         static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
 
         // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
         // because it would be confusing to have two docking targets within each others.
-        ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-        if (opt_fullscreen) {
-            ImGuiViewport* viewport = ImGui::GetMainViewport();
-            ImGui::SetNextWindowPos(viewport->Pos);
-            ImGui::SetNextWindowSize(viewport->Size);
-            ImGui::SetNextWindowViewport(viewport->ID);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-            window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-            window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-        }
+        ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->Pos);
+        ImGui::SetNextWindowSize(viewport->Size);
+        ImGui::SetNextWindowViewport(viewport->ID);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | 
+            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
         // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background and handle the pass-thru hole, 
         // so we ask Begin() to not render a background.
-        if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
-            window_flags |= ImGuiWindowFlags_NoBackground;
+        if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) dockWindowFlags |= ImGuiWindowFlags_NoBackground;
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         static bool p_open = true;
-        ImGui::Begin("DockSpace", &p_open, window_flags);
+        ImGui::Begin("DockSpace", &p_open, dockWindowFlags);
         ImGui::PopStyleVar();
-        if (opt_fullscreen) ImGui::PopStyleVar(2);
+        ImGui::PopStyleVar(2);
 
         // DockSpace
         ImGuiIO& io = ImGui::GetIO();
@@ -855,34 +852,33 @@ void Application::run() {
             ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
         }
 
-
         // move the light by a fixed amount and let it bounce between -125 and 125 units/pixels on the x axis
-        static double move_amount = 0.003;
+        static double lightMoveSpeed = 0.003;
         static double bounds = 7.5f;
-        static bool move_light = false;
-        double light_delta = move_amount * dt;
-        if ((lightPos[0] >= bounds && move_amount > 0) || (lightPos[0] <= -bounds && move_amount < 0)) {
-            move_amount *= -1;
+        static bool moveLight = false;
+        double lightMoveAmount = lightMoveSpeed * deltaTime;
+        if ((lightPos[0] >= bounds && lightMoveSpeed > 0) || (lightPos[0] <= -bounds && lightMoveSpeed < 0)) {
+            lightMoveSpeed *= -1;
         }
-        if (move_light) {
-            lightmatrix = glm::translate(lightmatrix, { light_delta, 0.0, 0.0 });
+        if (moveLight) {
+            lightmatrix = glm::translate(lightmatrix, { lightMoveAmount, 0.0, 0.0 });
         }
 
         // draw the top user bar
         if (ImGui::BeginMenuBar()) {
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("Load model")) {
-                    std::string path = context.open_file_dialog({ ft_mesh });
+                    std::string path = context.openFileDialog({ meshFileFormats });
                     if (!path.empty()) {
                         project.push_back(path);
                         scene.add(path);
                     }
                 }
                 if (ImGui::MenuItem("Save project", "CTRL + S")) {
-                    serialize_settings("config.json", true);
+                    serializeSettings("config.json", true);
                 }
                 if (ImGui::MenuItem("Settings", "")) {
-                    show_settings_window = true;
+                    showSettingsWindow = true;
                 }
                 if (ImGui::MenuItem("Exit", "Escape")) {
                     running = false;
@@ -922,8 +918,8 @@ void Application::run() {
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), false)) {}
         }
         
-        auto tree_node_flags = ImGuiTreeNodeFlags_DefaultOpen;
-        if (ImGui::TreeNodeEx("Objects", tree_node_flags)) {
+        auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen;
+        if (ImGui::TreeNodeEx("Objects", treeNodeFlags)) {
             ImGui::Columns(1, NULL, false);
             // draw a selectable for every object in the scene
             unsigned int uniqueID = 0;
@@ -944,7 +940,13 @@ void Application::run() {
 
         // post processing panel
         ImGui::Begin("Post Processing");
-        if (ImGui::Checkbox("HDR", &hdr)) {}
+        if (ImGui::Checkbox("HDR", &doTonemapping)) {
+            if (doTonemapping) {
+                activeScreenTexture = &finalTexture;
+            } else {
+                activeScreenTexture = &hdrTexture;
+            }
+        }
         ImGui::Separator();
 
         static const char* current = tonemappingShaders.begin()->c_str();
@@ -954,10 +956,10 @@ void Application::run() {
                 if (ImGui::Selectable(it->c_str(), selected)) {
                     current = it->c_str();
 
-                    hdr_shaders.clear();
-                    hdr_shaders.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
-                    hdr_shaders.emplace_back(Shader::Type::FRAG, current);
-                    hdrShader.reset(new GLShader(hdr_shaders.data(), hdr_shaders.size()));
+                    tonemapStages.clear();
+                    tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
+                    tonemapStages.emplace_back(Shader::Type::FRAG, current);
+                    tonemapShader.reset(new GLShader(tonemapStages.data(), tonemapStages.size()));
                 }
                 if (selected) {
                     ImGui::SetItemDefaultFocus();
@@ -966,8 +968,8 @@ void Application::run() {
             ImGui::EndCombo();
         }
 
-        if (ImGui::SliderFloat("Exposure", &hdr_ubo.exposure, 0.0f, 1.0f)) {}
-        if (ImGui::SliderFloat("Gamma", &hdr_ubo.gamma, 1.0f, 3.2f)) {}
+        if (ImGui::SliderFloat("Exposure", &tonemapUniforms.exposure, 0.0f, 1.0f)) {}
+        if (ImGui::SliderFloat("Gamma", &tonemapUniforms.gamma, 1.0f, 3.2f)) {}
         ImGui::NewLine();
 
         if (ImGui::Checkbox("Bloom", &doBloom)) {}
@@ -976,7 +978,7 @@ void Application::run() {
         if (ImGui::DragFloat3("Threshold", glm::value_ptr(bloomThreshold), 0.001f, 0.0f, 10.0f)) {}
         ImGui::NewLine();
 
-        if (ImGui::CheckboxFlags("SSAO", &ubo.renderFlags, 0x01)) {}
+        if (ImGui::CheckboxFlags("SSAO", &lightUniforms.renderFlags, 0x01)) {}
         ImGui::Separator();
         if (ImGui::DragFloat("Samples", &ssaoSampleCount, 8.0f, 8.0f, 64.0f)) {}
         if (ImGui::SliderFloat("Power", &ssaoPower, 0.0f, 15.0f)) {}
@@ -994,16 +996,15 @@ void Application::run() {
         }
 
         // toggle button for openGl vsync
-        static bool use_vsync = false;
-        if (ImGui::RadioButton("USE VSYNC", use_vsync)) {
-            use_vsync = !use_vsync;
+        static bool doVsync = false;
+        if (ImGui::RadioButton("USE VSYNC", doVsync)) {
+            doVsync = !doVsync;
         }
 
-        if (ImGui::RadioButton("Animate Light", move_light)) {
-            move_light = !move_light;
+        if (ImGui::RadioButton("Animate Light", moveLight)) {
+            moveLight = !moveLight;
         }
 
-        static glTexture2D* activeScreenTexture = &finalTexture;
         if (ImGui::TreeNode("Screen Texture")) {
             if (ImGui::Selectable(nameof(finalTexture), activeScreenTexture->ImGuiID() == finalTexture.ImGuiID()))
                 activeScreenTexture = &finalTexture;
@@ -1065,14 +1066,14 @@ void Application::run() {
         static bool doNormalMapping = false;
         if (ImGui::Checkbox("Enable ##normalmapping", &doNormalMapping)) {
             if (!doNormalMapping) {
-                gbuffer_shaders[0].defines = { "NO_NORMAL_MAP" };
-                gbuffer_shaders[1].defines = { "NO_NORMAL_MAP" };
+                gbufferStages[0].defines = { "NO_NORMAL_MAP" };
+                gbufferStages[1].defines = { "NO_NORMAL_MAP" };
             }
             else {
-                gbuffer_shaders[0].defines.clear();
-                gbuffer_shaders[1].defines.clear();
+                gbufferStages[0].defines.clear();
+                gbufferStages[1].defines.clear();
             }
-            GBufferShader->reload(gbuffer_shaders.data(), gbuffer_shaders.size());
+            gbufferShader->reload(gbufferStages.data(), gbufferStages.size());
         }
 
         ImGui::End();
@@ -1084,8 +1085,8 @@ void Application::run() {
         if (ImGui::DragFloat("FoV", &fov, 1.0f, 35.0f, 120.0f)) {
             scene.camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
         }
-        if (ImGui::DragFloat("Move Speed", scene.camera.get_move_speed(), 0.001f, 0.001f, FLT_MAX, "%.3f")) {}
-        if (ImGui::DragFloat("Look Speed", scene.camera.get_look_speed(), 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Move Speed", &scene.camera.moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.3f")) {}
+        if (ImGui::DragFloat("Look Speed", &scene.camera.lookSpeed, 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
         ImGui::End();
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
@@ -1119,7 +1120,7 @@ void Application::run() {
 
             // resets the model's transformation
             if (ImGui::Button("Reset")) {
-                activeObject->reset_transform();
+                activeObject->reset();
             }
 
             ImGui::End();
@@ -1151,7 +1152,7 @@ void Application::run() {
         // draw the imguizmo at the center of the light
         if (gizmoEnabled) {
             ImGuizmo::SetDrawlist();
-            auto gizmoData = move_light ? glm::value_ptr(activeObject->transform) : glm::value_ptr(lightmatrix);
+            auto gizmoData = moveLight ? glm::value_ptr(activeObject->transform) : glm::value_ptr(lightmatrix);
             ImGuizmo::Manipulate(glm::value_ptr(scene.camera.getView()), glm::value_ptr(scene.camera.getProjection()), operation, ImGuizmo::MODE::WORLD, gizmoData);
         }
 
@@ -1160,7 +1161,7 @@ void Application::run() {
 
         ImGui::End();
         Renderer::ImGuiRender();
-        Renderer::SwapBuffers(use_vsync);
+        Renderer::SwapBuffers(doVsync);
 
         if (resizing) {
             scene.camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
@@ -1168,48 +1169,48 @@ void Application::run() {
 
             // resizing framebuffers
             albedoTexture.bind();
-            albedoTexture.init(renderWidth, renderHeight, Format::HDR);
+            albedoTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
 
             normalTexture.bind();
-            normalTexture.init(renderWidth, renderHeight, Format::HDR);
+            normalTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
 
             positionTexture.bind();
-            positionTexture.init(renderWidth, renderHeight, Format::HDR);
+            positionTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
 
             GDepthBuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
 
             preprocessTexture.bind();
-            preprocessTexture.init(renderWidth, renderHeight, Format::HDR);
+            preprocessTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
 
             hdrTexture.bind();
-            hdrTexture.init(renderWidth, renderHeight, Format::HDR);
+            hdrTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
 
             hdrRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
 
             finalTexture.bind();
-            finalTexture.init(renderWidth, renderHeight, Format::SDR);
+            finalTexture.init(renderWidth, renderHeight, Format::RGB_F);
 
             ssaoColorTexture.bind();
-            ssaoColorTexture.init(renderWidth, renderHeight, Format::SDR);
+            ssaoColorTexture.init(renderWidth, renderHeight, Format::RGB_F);
 
             finalRenderbuffer.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
 
             bloomTexture.bind();
-            bloomTexture.init(renderWidth, renderHeight, Format::HDR);
+            bloomTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
 
             for (unsigned int i = 0; i < 2; i++) {
                 pingpongTextures[i].bind();
-                pingpongTextures[i].init(renderWidth, renderHeight, Format::HDR);
+                pingpongTextures[i].init(renderWidth, renderHeight, Format::RGBA_F16);
             }
 
             ssaoBlurTexture.bind();
-            ssaoBlurTexture.init(renderWidth, renderHeight, Format::SDR);
+            ssaoBlurTexture.init(renderWidth, renderHeight, Format::RGB_F);
 
             resizing = false;
         }
 
-        dt_timer.stop();
-        dt = dt_timer.elapsed_ms();
+        deltaTimer.stop();
+        deltaTime = deltaTimer.elapsedMs();
 
     } // while true loop
 

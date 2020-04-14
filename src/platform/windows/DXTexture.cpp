@@ -29,7 +29,7 @@ DXTexture::DXTexture(const std::string& filepath) {
     auto image = stbi_load(filepath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
     m_assert(image, "failed to load directx texture using stbi");
     timer.stop();
-    std::cout << "DirectX stb texture load time : " << timer.elapsed_ms() << " ms" << '\n';
+    std::cout << "DirectX stb texture load time : " << timer.elapsedMs() << " ms" << '\n';
 
     // point the directx resource to the stb image data
     image_data.pSysMem = (const void*)image;

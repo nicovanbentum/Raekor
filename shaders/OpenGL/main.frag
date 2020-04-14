@@ -25,8 +25,8 @@ uniform vec3 bloomThreshold;
 in vec2 uv;
 
 // output data back to our openGL program
-layout (location = 0) out vec4 final_color;
-layout (location = 1) out vec4 bloom_color;
+layout (location = 0) out vec4 finalColor;
+layout (location = 1) out vec4 bloomColor;
 
 // shadow maps
 layout(binding = 0) uniform sampler2D shadowMap;
@@ -86,14 +86,13 @@ void main()
     vec3 result = doLight(light);
 	//result += doLight(light);
 
-    final_color = vec4(result, sampled.a);
-	//final_color = vec4(sampled.xyz * AO, sampled.a);
+    finalColor = vec4(result, sampled.a);
 
-	float brightness = dot(final_color.rgb, bloomThreshold);
+	float brightness = dot(finalColor.rgb, bloomThreshold);
 	if(brightness > 1.0) 
-		bloom_color = vec4(final_color.rgb, 1.0);
+		bloomColor = vec4(finalColor.rgb, 1.0);
 	else 
-		bloom_color = vec4(0.0, 0.0, 0.0, 1.0);
+		bloomColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
 
 float getShadow(DirectionalLight light) {
@@ -140,9 +139,6 @@ float getShadow(PointLight light) {
 	float closestDepth = texture(shadowMapOmni, frag2light).r;
 	closestDepth *= farPlane;
 	
-	// DEBUG
-	//final_color = vec4(vec3(closestDepth / farPlane), 1.0);  
-
 	// PCF sampling
 	float shadow = 0.0;
     float bias = 0.05;
@@ -175,8 +171,8 @@ vec3 doLight(PointLight light) {
     vec3 diffuse = light.color * diff * sampled.rgb;
 
     // specular
-    vec3 halfway_dir = normalize(direction + cameraDirection);
-    float spec = pow(max(dot(normal, halfway_dir), 0.0), 32.0f);
+    vec3 halfwayDir = normalize(direction + cameraDirection);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
     // distance between the light and the vertex
@@ -205,8 +201,8 @@ vec3 doLight(DirectionalLight light) {
     vec3 diffuse = light.color * diff * sampled.rgb;
 
     // specular
-    vec3 halfway_dir = normalize(direction + cameraDirection);
-    float spec = pow(max(dot(normal, halfway_dir), 0.0), 32.0f);
+    vec3 halfwayDir = normalize(direction + cameraDirection);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
 	float shadowAmount = 1.0 - getShadow(light);

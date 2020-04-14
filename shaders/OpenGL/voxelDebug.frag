@@ -3,7 +3,7 @@
 #define INV_STEP_LENGTH (1.0f/STEP_LENGTH)
 #define STEP_LENGTH 0.005f
 
-out vec4 final_color;
+out vec4 finalColor;
 
 in vec2 TexCoords;
 
@@ -28,13 +28,13 @@ void main() {
 	direction = normalize(direction);
 
 	// Trace.
-	final_color = vec4(0.0f);
-	for(uint step = 0; step < numberOfSteps && final_color.a < 0.99f; ++step) {
+	finalColor = vec4(0.0f);
+	for(uint step = 0; step < numberOfSteps && finalColor.a < 0.99f; ++step) {
 		const vec3 currentPoint = origin + STEP_LENGTH * step * direction;
 		vec3 coordinate = scaleAndBias(currentPoint);
 		vec4 currentSample = textureLod(voxelTexture, scaleAndBias(currentPoint), 0);
-		final_color += (1.0f - final_color.a) * currentSample;
+		finalColor += (1.0f - finalColor.a) * currentSample;
 	} 
-	//final_color.a = 1.0f;
-	//final_color.rgb = pow(final_color.rgb, vec3(1.0 / 2.2));
+	//finalColor.a = 1.0f;
+	//finalColor.rgb = pow(final_color.rgb, vec3(1.0 / 2.2));
 }

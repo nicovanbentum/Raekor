@@ -9,27 +9,27 @@ namespace Raekor {
 
 void Timer::start() {
     running = true;
-    start_time = TIME_NOW();
-    stop_time = TIME_NOW();
+    startTime = TIME_NOW();
+    stopTime = TIME_NOW();
 }
 
 void Timer::stop() {
     running = false;
-    stop_time = TIME_NOW();
+    stopTime = TIME_NOW();
 }
 
 void Timer::restart() {
     running = true;
-    start_time = TIME_NOW();
+    startTime = TIME_NOW();
 }
 
-double Timer::elapsed_ms() {
+double Timer::elapsedMs() {
     if (running) {
-        auto elapsed = std::chrono::duration<double, std::milli>(TIME_NOW() - start_time);
+        auto elapsed = std::chrono::duration<double, std::milli>(TIME_NOW() - startTime);
         return elapsed.count();
     }
     else {
-        auto elapsed = std::chrono::duration<double, std::milli>(stop_time - start_time);
+        auto elapsed = std::chrono::duration<double, std::milli>(stopTime - startTime);
         return elapsed.count();
     }
 }

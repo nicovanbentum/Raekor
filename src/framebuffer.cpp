@@ -10,8 +10,8 @@
 namespace Raekor {
 
 FrameBuffer* FrameBuffer::construct(FrameBuffer::ConstructInfo* info) {
-    auto active_api = Renderer::getActiveAPI();
-    switch (active_api) {
+    auto activeAPI = Renderer::getActiveAPI();
+    switch (activeAPI) {
         case RenderAPI::OPENGL: {
             return nullptr;
         } break;

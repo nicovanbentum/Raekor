@@ -12,24 +12,24 @@ Transformable::Transformable() :
     scale(1.0f)
 {}
 
-void Transformable::reset_transform() {
+void Transformable::reset() {
     transform = glm::mat4(1.0f);
     scale = glm::vec3(1.0f);
     position = glm::vec3(0.0f);
     rotation = glm::vec3(0.0f);
 }
 
-void Transformable::recalc_transform() {
+void Transformable::recalculate() {
     transform = glm::mat4(1.0f);
     transform = glm::translate(transform, position);
-    auto rotation_quat = static_cast<glm::quat>(rotation);
-    transform = transform * glm::toMat4(rotation_quat);
+    auto rotationQuat = static_cast<glm::quat>(rotation);
+    transform = transform * glm::toMat4(rotationQuat);
     transform = glm::scale(transform, scale);
 }
 
 SceneObject::SceneObject(const std::string& fp, const std::vector<Vertex>& vbuffer, const std::vector<Index>& ibuffer)
     : Mesh(vbuffer, ibuffer) {
-    vb->set_layout({
+    vb->setLayout({
         {"POSITION",    ShaderType::FLOAT3},
         {"UV",          ShaderType::FLOAT2},
         {"NORMAL",      ShaderType::FLOAT3},
@@ -42,7 +42,7 @@ void SceneObject::render() {
     if (albedo != nullptr) albedo->bindToSlot(0);
     if (normal != nullptr) normal->bindToSlot(3);
     bind();
-    int drawCount = ib->get_count();
+    int drawCount = ib->getCount();
     Renderer::DrawIndexed(drawCount);
 }
 
@@ -77,30 +77,30 @@ void Scene::add(std::string file) {
 
     for (uint64_t index = 0; index < scene->mNumMeshes; index++) {
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
-        auto ai_mesh = scene->mMeshes[index];
+        auto aiMesh = scene->mMeshes[index];
 
         aiString albedoFile, normalmapFile;
-        auto material = scene->mMaterials[ai_mesh->mMaterialIndex];
+        auto material = scene->mMaterials[aiMesh->mMaterialIndex];
         material->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
         material->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
 
 
-        std::string texture_path = get_file(file, PATH_OPTIONS::DIR) + std::string(albedoFile.C_Str());
-        std::string normal_path = get_file(file, PATH_OPTIONS::DIR) + std::string(normalmapFile.C_Str());
+        std::string albedoFilepath = parseFilepath(file, PATH_OPTIONS::DIR) + std::string(albedoFile.C_Str());
+        std::string normalmapFilepath = parseFilepath(file, PATH_OPTIONS::DIR) + std::string(normalmapFile.C_Str());
 
-        if (!texture_path.empty()) {
+        if (!albedoFilepath.empty()) {
             Stb::Image image;
             image.format = RGBA;
             image.isSRGB = true;
-            image.filepath = texture_path;
+            image.filepath = albedoFilepath;
             albedos.push_back(image);
         }
 
-        if (!normal_path.empty()) {
+        if (!normalmapFilepath.empty()) {
             Stb::Image image;
             image.format = RGBA;
             image.isSRGB = false;
-            image.filepath = normal_path;
+            image.filepath = normalmapFilepath;
             normals.push_back(image);
         }
     }
@@ -187,8 +187,8 @@ void Scene::add(std::string file) {
             { object.minAABB[0], object.maxAABB[1], object.maxAABB[2] }
         };
 
-        object.collisionRenderable.reset(Mesh::fromBounds({ object.minAABB, object.maxAABB }));
-        object.collisionRenderable->get_vertex_buffer()->set_layout({
+        object.collisionRenderable.reset(Mesh::createCube({ object.minAABB, object.maxAABB }));
+        object.collisionRenderable->getVertexBuffer()->setLayout({
             {"POSITION",    ShaderType::FLOAT3},
             {"UV",          ShaderType::FLOAT2},
             {"NORMAL",      ShaderType::FLOAT3},
@@ -203,20 +203,20 @@ void Scene::add(std::string file) {
         material->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
         material->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
 
-        std::string texture_path, normal_path;
+        std::string albedoPath, normalsPath;
         if (strcmp(albedoFile.C_Str(), "") != 0) {
-            texture_path = get_file(file, PATH_OPTIONS::DIR) + std::string(albedoFile.C_Str());
+            albedoPath = parseFilepath(file, PATH_OPTIONS::DIR) + std::string(albedoFile.C_Str());
         }
         if (strcmp(normalmapFile.C_Str(), "") != 0) {
-            normal_path = get_file(file, PATH_OPTIONS::DIR) + std::string(normalmapFile.C_Str());
+            normalsPath = parseFilepath(file, PATH_OPTIONS::DIR) + std::string(normalmapFile.C_Str());
         }
 
         auto albedoIter = std::find_if(albedos.begin(), albedos.end(), [&](const Stb::Image& img) {
-            return img.filepath == texture_path;
+            return img.filepath == albedoPath;
             });
 
         auto normalIter = std::find_if(normals.begin(), normals.end(), [&](const Stb::Image& img) {
-            return img.filepath == normal_path;
+            return img.filepath == normalsPath;
             });
 
         // hardcoded, every object has at least a diffuse texture,
@@ -229,7 +229,7 @@ void Scene::add(std::string file) {
             auto& image = albedos[index];
 
             albedo.bind();
-            albedo.init(image.w, image.h, Format::sRGBA, image.pixels);
+            albedo.init(image.w, image.h, Format::SRGBA_U8, image.pixels);
             albedo.setFilter(Sampling::Filter::Trilinear);
             albedo.genMipMaps();
             albedo.unbind();
@@ -261,7 +261,7 @@ void Scene::add(std::string file) {
             auto& normal = *objects.back().normal;
             
             normal.bind();
-            normal.init(image.w, image.h, Format::RGBA, image.pixels);
+            normal.init(image.w, image.h, Format::RGBA_U8, image.pixels);
             normal.setFilter(Sampling::Filter::Trilinear);
             normal.genMipMaps();
             normal.unbind();
