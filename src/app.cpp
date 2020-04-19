@@ -137,13 +137,11 @@ void Application::run() {
     std::array<Shader::Stage, 2> modelStages = { vertex, frag };
     mainShader.reset(new GLShader(modelStages.data(), modelStages.size()));
 
-
     std::unique_ptr<GLShader> skyboxShader;
     std::vector<Shader::Stage> skyboxStages;
     skyboxStages.emplace_back(Shader::Type::VERTEX,   "shaders\\OpenGL\\skybox.vert");
     skyboxStages.emplace_back(Shader::Type::FRAG,     "shaders\\OpenGL\\skybox.frag");
     skyboxShader.reset(new GLShader(skyboxStages.data(), skyboxStages.size()));
-
 
     std::unique_ptr<GLShader> shadowmapShader;
     std::vector<Shader::Stage> shadowmapStages;
@@ -242,6 +240,10 @@ void Application::run() {
     tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
     tonemapStages.emplace_back(Shader::Type::FRAG, tonemappingShaders.begin()->c_str());
     tonemapShader.reset(new GLShader(tonemapStages.data(), tonemapStages.size()));
+
+    ShaderHotloader hotloader;
+    hotloader.watch(mainShader.get(), modelStages.data(), modelStages.size());
+    hotloader.watch(gbufferShader.get(), gbufferStages.data(), gbufferStages.size());
 
 
     cubeMesh.reset(new Mesh(Shape::Cube));
@@ -600,6 +602,8 @@ void Application::run() {
         handleEvents(directxwindow, scene.camera, mouseInViewport, deltaTime);
         sunCamera.update(true);
         scene.camera.update(true);
+
+        hotloader.checkForUpdates();
 
         // clear the main window
         Renderer::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });

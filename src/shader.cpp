@@ -131,13 +131,74 @@ inline const void GLShader::unbind() const { glUseProgram(0); }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-Shader::loc GLShader::operator[] (const char* name) {
+GLShader::UniformLocation GLShader::operator[] (const char* name) {
     return { glGetUniformLocation(programID, name) };
 
 }
 
-Shader::loc GLShader::getUniform(const char* name) {
+GLShader::UniformLocation GLShader::getUniform(const char* name) {
     return { glGetUniformLocation(programID, name) };
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+GLShader::UniformLocation& GLShader::UniformLocation::operator=(const glm::mat4& rhs) {
+    glUniformMatrix4fv(id, 1, GL_FALSE, glm::value_ptr(rhs));
+    return *this;
+}
+
+GLShader::UniformLocation& GLShader::UniformLocation::operator=(const std::vector<glm::vec3>& rhs) {
+    glUniform3fv(id, static_cast<GLsizei>(rhs.size()), glm::value_ptr(rhs[0]));
+    return *this;
+}
+
+GLShader::UniformLocation& GLShader::UniformLocation::operator=(float rhs) {
+    glUniform1f(id, rhs);
+    return *this;
+}
+
+GLShader::UniformLocation& GLShader::UniformLocation::operator=(bool rhs) {
+    glUniform1i(id, rhs);
+    return *this;
+}
+
+GLShader::UniformLocation& GLShader::UniformLocation::operator=(const glm::vec4& rhs) {
+    glUniform4f(id, rhs.x, rhs.y, rhs.z, rhs.w);
+    return *this;
+}
+
+GLShader::UniformLocation& GLShader::UniformLocation::operator=(const glm::vec3& rhs) {
+    glUniform3f(id, rhs.x, rhs.y, rhs.z);
+    return *this;
+}
+
+GLShader::UniformLocation& GLShader::UniformLocation::operator=(const glm::vec2& rhs) {
+    glUniform2f(id, rhs.x, rhs.y);
+    return *this;
+}
+
+GLShader::UniformLocation& GLShader::UniformLocation::operator=(uint32_t rhs) {
+    glUniform1i(id, rhs);
+    return *this;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+void ShaderHotloader::watch(GLShader* shader, Shader::Stage* stages, size_t stageCount) {
+    // store a lambda that keeps a copy of pointers to the shader and stages
+    checks.emplace_back([=]() {
+        for (unsigned int i = 0; i < stageCount; i++) {
+            if (stages[i].watcher.wasModified()) {
+                shader->reload(stages, stageCount);
+            }
+        }
+        });
+}
+
+void ShaderHotloader::checkForUpdates() {
+    for (auto& check : checks) {
+        check();
+    }
 }
 
 } // Namespace Raekor

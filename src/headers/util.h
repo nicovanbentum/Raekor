@@ -91,5 +91,24 @@ namespace Stb {
     };
 }
 
+class FileWatcher {
+public:
+    FileWatcher(const std::string& path) : path(path) {
+        last_write_time = std::filesystem::last_write_time(path);
+    }
+
+    bool wasModified() {
+        if (auto new_time = std::filesystem::last_write_time(path); new_time != last_write_time) {
+            last_write_time = new_time;
+            return true;
+        }
+        return false;
+    }
+
+private:
+    std::string path;
+    std::filesystem::file_time_type last_write_time;
+};
+
 
 } // Namespace Raekor
