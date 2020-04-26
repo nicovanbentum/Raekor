@@ -12,7 +12,7 @@ namespace Raekor {
 Shader* Shader::construct(Stage* stages, size_t stageCount) {
     switch (Renderer::getActiveAPI()) {
         case RenderAPI::OPENGL: {
-            LOG_CATCH(return new GLShader(stages, stageCount));
+            LOG_CATCH(return new glShader(stages, stageCount));
 
         } break;
 #ifdef _WIN32
@@ -26,17 +26,17 @@ Shader* Shader::construct(Stage* stages, size_t stageCount) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-GLShader::GLShader(Stage* stages, size_t stageCount) {
+glShader::glShader(Stage* stages, size_t stageCount) {
     this->reload(stages, stageCount);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-GLShader::~GLShader() { glDeleteProgram(programID); }
+glShader::~glShader() { glDeleteProgram(programID); }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void GLShader::reload(Stage* stages, size_t stageCount) {
+void glShader::reload(Stage* stages, size_t stageCount) {
     programID = glCreateProgram();
     std::vector<unsigned int> shaders;
 
@@ -46,7 +46,6 @@ void GLShader::reload(Stage* stages, size_t stageCount) {
         std::string buffer;
         std::ifstream ifs(stage.filepath, std::ios::in | std::ios::binary);
         if (ifs) {
-            std::cout << programID << " : " << stage.filepath << std::endl;
             ifs.seekg(0, std::ios::end);
             buffer.resize(ifs.tellg());
             ifs.seekg(0, std::ios::beg);
@@ -94,7 +93,7 @@ void GLShader::reload(Stage* stages, size_t stageCount) {
             glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &logMessageLength);
             std::vector<char> error_msg(logMessageLength);
             glGetShaderInfoLog(shaderID, logMessageLength, NULL, error_msg.data());
-            m_assert(!logMessageLength, std::string(std::begin(error_msg), std::end(error_msg)));
+            throw std::runtime_error(error_msg.data());
         }
 
         glAttachShader(programID, shaderID);
@@ -112,7 +111,7 @@ void GLShader::reload(Stage* stages, size_t stageCount) {
         glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &logMessageLength);
         std::vector<char> errorMessage(logMessageLength);
         glGetProgramInfoLog(programID, logMessageLength, NULL, errorMessage.data());
-        m_assert(!logMessageLength, std::string(std::begin(errorMessage), std::end(errorMessage)));
+        throw std::runtime_error(errorMessage.data());
     }
 
     for (unsigned int shader : shaders) {
@@ -123,73 +122,80 @@ void GLShader::reload(Stage* stages, size_t stageCount) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-inline const void GLShader::bind() const { glUseProgram(programID); }
+inline const void glShader::bind() const { glUseProgram(programID); }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-inline const void GLShader::unbind() const { glUseProgram(0); }
+inline const void glShader::unbind() const { glUseProgram(0); }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-GLShader::UniformLocation GLShader::operator[] (const char* name) {
+glShader::UniformLocation glShader::operator[] (const char* name) {
     return { glGetUniformLocation(programID, name) };
 
 }
 
-GLShader::UniformLocation GLShader::getUniform(const char* name) {
+glShader::UniformLocation glShader::getUniform(const char* name) {
     return { glGetUniformLocation(programID, name) };
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-GLShader::UniformLocation& GLShader::UniformLocation::operator=(const glm::mat4& rhs) {
+glShader::UniformLocation& glShader::UniformLocation::operator=(const glm::mat4& rhs) {
     glUniformMatrix4fv(id, 1, GL_FALSE, glm::value_ptr(rhs));
     return *this;
 }
 
-GLShader::UniformLocation& GLShader::UniformLocation::operator=(const std::vector<glm::vec3>& rhs) {
+glShader::UniformLocation& glShader::UniformLocation::operator=(const std::vector<glm::vec3>& rhs) {
     glUniform3fv(id, static_cast<GLsizei>(rhs.size()), glm::value_ptr(rhs[0]));
     return *this;
 }
 
-GLShader::UniformLocation& GLShader::UniformLocation::operator=(float rhs) {
+glShader::UniformLocation& glShader::UniformLocation::operator=(float rhs) {
     glUniform1f(id, rhs);
     return *this;
 }
 
-GLShader::UniformLocation& GLShader::UniformLocation::operator=(bool rhs) {
+glShader::UniformLocation& glShader::UniformLocation::operator=(bool rhs) {
     glUniform1i(id, rhs);
     return *this;
 }
 
-GLShader::UniformLocation& GLShader::UniformLocation::operator=(const glm::vec4& rhs) {
+glShader::UniformLocation& glShader::UniformLocation::operator=(const glm::vec4& rhs) {
     glUniform4f(id, rhs.x, rhs.y, rhs.z, rhs.w);
     return *this;
 }
 
-GLShader::UniformLocation& GLShader::UniformLocation::operator=(const glm::vec3& rhs) {
+glShader::UniformLocation& glShader::UniformLocation::operator=(const glm::vec3& rhs) {
     glUniform3f(id, rhs.x, rhs.y, rhs.z);
     return *this;
 }
 
-GLShader::UniformLocation& GLShader::UniformLocation::operator=(const glm::vec2& rhs) {
+glShader::UniformLocation& glShader::UniformLocation::operator=(const glm::vec2& rhs) {
     glUniform2f(id, rhs.x, rhs.y);
     return *this;
 }
 
-GLShader::UniformLocation& GLShader::UniformLocation::operator=(uint32_t rhs) {
+glShader::UniformLocation& glShader::UniformLocation::operator=(uint32_t rhs) {
     glUniform1i(id, rhs);
     return *this;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void ShaderHotloader::watch(GLShader* shader, Shader::Stage* stages, size_t stageCount) {
+void ShaderHotloader::watch(glShader* shader, Shader::Stage* stages, size_t stageCount) {
     // store a lambda that keeps a copy of pointers to the shader and stages
     checks.emplace_back([=]() {
         for (unsigned int i = 0; i < stageCount; i++) {
             if (stages[i].watcher.wasModified()) {
-                shader->reload(stages, stageCount);
+                // in case compilation fails we discard progress and assign the old shader program
+                unsigned int temporaryID = shader->programID;
+                try {
+                    shader->reload(stages, stageCount);
+                } catch(std::exception e) {
+                    std::puts(e.what());
+                    shader->programID = temporaryID;
+                }
             }
         }
         });

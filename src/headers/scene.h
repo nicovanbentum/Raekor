@@ -9,6 +9,16 @@ namespace Raekor {
 
 // This is all really ugly and super hacky, should refactor to a pseudo ECS system
 
+struct PointLight {
+    glm::vec3 position;
+    glm::vec3 colour;
+};
+
+struct DirectionalLight {
+    glm::vec3 position;
+    glm::vec3 colour;
+};
+
 class Transformable {
 public:
     Transformable();
@@ -65,8 +75,13 @@ public:
     std::vector<SceneObject>::const_iterator begin() const { return objects.begin(); }
     std::vector<SceneObject>::const_iterator end() const { return objects.end(); }
 
+    // this scene has a camera, bunch of objects, 1 directional light, 1 point light
     Camera camera;
+    Camera sunCamera;
+    PointLight pointLight;
+    DirectionalLight dirLight;
     std::vector<SceneObject> objects;
+
 private:
     std::shared_ptr<Assimp::Importer> importer;
 };

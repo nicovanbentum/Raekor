@@ -46,8 +46,17 @@ void SceneObject::render() {
     Renderer::DrawIndexed(drawCount);
 }
 
-Scene::Scene() : camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(45.0f), 16.0f / 9.0f, 1.0f, 100.0f)) {
+Scene::Scene() : 
+    camera(     glm::vec3(0, 1.0, 0),   glm::perspectiveRH(glm::radians(45.0f), 16.0f / 9.0f, 1.0f, 100.0f)),
+    sunCamera(  glm::vec3(0, 15.0, 0),  glm::orthoRH_ZO(-16.0f, 16.0f, -16.0f, 16.0f, 1.0f, 20.0f))
+{
     camera.zoom(-3.5f, 1.0f);
+    sunCamera.getView() = glm::lookAtRH(
+        glm::vec3(-2.0f, 12.0f, 2.0f),
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f)
+    );
+    sunCamera.getAngle().y = -1.325f;
     importer = std::make_shared<Assimp::Importer>();
 }
 

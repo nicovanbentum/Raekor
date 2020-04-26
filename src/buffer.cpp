@@ -24,8 +24,16 @@ namespace Raekor {
         return nullptr;
     }
 
+    GLResourceBuffer::GLResourceBuffer() {
+        glGenBuffers(1, &id);
+    }
+
     GLResourceBuffer::GLResourceBuffer(size_t size) {
         glGenBuffers(1, &id);
+        setSize(size);
+    }
+
+    void GLResourceBuffer::setSize(size_t size) {
         glBindBuffer(GL_UNIFORM_BUFFER, id);
         glBufferData(GL_UNIFORM_BUFFER, size, NULL, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);

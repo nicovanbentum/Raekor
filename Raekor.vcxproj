@@ -15,20 +15,20 @@
     <ProjectGuid>{D188530A-1A5C-4AB6-A40D-A9673B9174CD}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Tine</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
     <ProjectName>Raekor</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -48,6 +48,7 @@
     <NMakeBuildCommandLine>/build</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>/rebuild</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>/clean</NMakeCleanCommandLine>
+    <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -176,6 +177,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClCompile Include="src\entry.cpp" />
     <ClCompile Include="src\framebuffer.cpp" />
     <ClCompile Include="src\mesh.cpp" />
+    <ClCompile Include="src\renderpass.cpp" />
     <ClCompile Include="src\scene.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -229,6 +231,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClInclude Include="src\headers\entry.h" />
     <ClInclude Include="src\headers\framebuffer.h" />
     <ClInclude Include="src\headers\mesh.h" />
+    <ClInclude Include="src\headers\renderpass.h" />
     <ClInclude Include="src\headers\scene.h" />
     <ClInclude Include="src\headers\pch.h" />
     <ClInclude Include="src\headers\renderer.h" />

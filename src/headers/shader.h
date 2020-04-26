@@ -28,42 +28,39 @@ public:
 
 /////////////////////////////////////////////////////////////////////
 
-class GLShader : public Shader {
+class glShader : public Shader {
     struct UniformLocation {
         GLint id;
 
+        UniformLocation& operator=(bool rhs);
+        UniformLocation& operator=(float rhs);
+        UniformLocation& operator=(uint32_t rhs);
+        UniformLocation& operator=(const glm::vec2& rhs);
+        UniformLocation& operator=(const glm::vec3& rhs);
+        UniformLocation& operator=(const glm::vec4& rhs);
         UniformLocation& operator=(const glm::mat4& rhs);
         UniformLocation& operator=(const std::vector<glm::vec3>& rhs);
-        UniformLocation& operator=(float rhs);
-        UniformLocation& operator=(bool rhs);
-        UniformLocation& operator=(const glm::vec4& rhs);
-        UniformLocation& operator=(const glm::vec3& rhs);
-        UniformLocation& operator=(const glm::vec2& rhs);
-        UniformLocation& operator=(uint32_t rhs);
     };
 
 public:
-    GLShader() {}
-    GLShader(Stage* stages, size_t stageCount);
-    ~GLShader();
+    glShader() {}
+    glShader(Stage* stages, size_t stageCount);
+    ~glShader();
 
     void reload(Stage* stages, size_t stageCount);
 
     inline const void bind() const;
     inline const void unbind() const;
 
-    inline unsigned int getID() const { return programID; }
-
     UniformLocation operator[] (const char* data);
     UniformLocation getUniform(const char* name);
 
-private:
     unsigned int programID;
 };
 
 class ShaderHotloader {
 public:
-    void watch(GLShader* shader, Shader::Stage* stages, size_t stageCount);
+    void watch(glShader* shader, Shader::Stage* stages, size_t stageCount);
     void checkForUpdates();
 
 private:

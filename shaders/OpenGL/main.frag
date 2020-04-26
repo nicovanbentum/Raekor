@@ -84,7 +84,7 @@ void main()
     light.quad = 1.8;
 
     vec3 result = doLight(light);
-	//result += doLight(light);
+	result += doLight(dirLight);
 
     finalColor = vec4(result, sampled.a);
 
