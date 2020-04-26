@@ -68,6 +68,11 @@ public:
 
 class ScreenSpaceAmbientOcclusion {
 public:
+    struct {
+        float samples = 64.0f;
+        float bias = 0.025f, power = 2.5f;
+    } settings;
+
     ScreenSpaceAmbientOcclusion(uint32_t renderWidth, uint32_t renderHeight);
     void execute(Scene& scene, GeometryBuffer* geometryPass, Mesh* quad);
     void resize(uint32_t renderWidth, uint32_t renderHeight);
@@ -110,73 +115,9 @@ public:
     } settings;
 
 
-    DeferredLighting(uint32_t width, uint32_t height) {
-        // load shaders from disk
-        Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
-        Shader::Stage frag(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
-        std::array<Shader::Stage, 2> modelStages = { vertex, frag };
-        shader.reload(modelStages.data(), modelStages.size());
-
-        // init render targets
-        result.bind();
-        result.init(width, height, Format::RGBA_F16);
-        result.setFilter(Sampling::Filter::Bilinear);
-        result.unbind();
-
-        bloomHighlights.bind();
-        bloomHighlights.init(width, height, Format::RGBA_F16);
-        bloomHighlights.setFilter(Sampling::Filter::Bilinear);
-        bloomHighlights.unbind();
-
-        renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
-
-        framebuffer.bind();
-        framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
-        framebuffer.attach(bloomHighlights, GL_COLOR_ATTACHMENT1);
-        framebuffer.attach(renderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-        framebuffer.unbind();
-
-        // init uniform buffer
-        uniformBuffer.setSize(sizeof(uniforms));
-    }
-
-    void execute(Scene& scene, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion,  Mesh* quad) {
-        // bind the main framebuffer
-        framebuffer.bind();
-        Renderer::Clear({ 0.0f, 0.0f, 0.0f, 1.0f });
-
-        // set uniforms
-        shader.bind();
-        shader.getUniform("sunColor") = settings.sunColor;
-        shader.getUniform("minBias") = settings.minBias;
-        shader.getUniform("maxBias") = settings.maxBias;
-        shader.getUniform("farPlane") = settings.farPlane;
-        shader.getUniform("bloomThreshold") = settings.bloomThreshold;
-
-        // bind textures to shader binding slots
-        shadowMap->result.bindToSlot(0);
-        omniShadowMap->result.bindToSlot(1);
-        GBuffer->positionTexture.bindToSlot(2);
-        GBuffer->albedoTexture.bindToSlot(3);
-        GBuffer->normalTexture.bindToSlot(4);
-        ambientOcclusion->result.bindToSlot(5);
-
-        // update the uniform buffer CPU side
-        uniforms.view = scene.camera.getView();
-        uniforms.projection = scene.camera.getProjection();
-        uniforms.pointLightPos = glm::vec4(scene.pointLight.position, 1.0f);
-        uniforms.DirLightPos = glm::vec4(scene.sunCamera.getPosition(), 1.0);
-        uniforms.DirViewPos = glm::vec4(scene.camera.getPosition(), 1.0);
-        uniforms.lightSpaceMatrix = scene.sunCamera.getProjection() * scene.sunCamera.getView();
-
-        // update uniform buffer GPU side
-        uniformBuffer.update(&uniforms, sizeof(uniforms));
-        uniformBuffer.bind(0);
-
-        // perform lighting pass and unbind
-        quad->render();
-        framebuffer.unbind();
-    }
+    DeferredLighting(uint32_t width, uint32_t height);
+    void execute(Scene& scene, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
+                    GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Mesh* quad);
 
 private:
     glShader shader;
@@ -187,6 +128,48 @@ private:
 public:
     glTexture2D result;
     glTexture2D bloomHighlights;
+};
+
+//////////////////////////////////////////////////////////////////////////////////
+
+class Bloom {
+public:
+    Bloom(uint32_t width, uint32_t height);
+    void execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad);
+    void resize(uint32_t width, uint32_t height);
+
+private:
+    glShader blurShader;
+    glShader bloomShader;
+    glTexture2D blurTextures[2];
+    glFramebuffer blurBuffers[2];
+    glFramebuffer resultFramebuffer;
+    
+public:
+    glTexture2D result;
+};
+
+//////////////////////////////////////////////////////////////////////////////////
+
+class Tonemapping {
+public:
+    struct {
+        float exposure = 1.0f;
+        float gamma = 1.8f;
+    } settings;
+
+    Tonemapping(uint32_t width, uint32_t height);
+    void resize(uint32_t width, uint32_t height);
+    void execute(glTexture2D& scene, Mesh* quad);
+
+private:
+    glShader shader;
+    glFramebuffer framebuffer;
+    glRenderbuffer renderbuffer;
+    GLResourceBuffer uniformBuffer;
+
+public:
+    glTexture2D result;
 };
 
 } // renderpass

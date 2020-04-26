@@ -122,7 +122,7 @@ IndexBuffer* IndexBuffer::construct(const std::vector<Index>& indices) {
 }
 
 GLVertexBuffer::GLVertexBuffer(const std::vector<Vertex>& vertices) {
-    id = createBufferGL(vertices, GL_ARRAY_BUFFER);
+    id = glCreateBuffer(vertices.data(), vertices.size(), GL_ARRAY_BUFFER);
 }
 
 void GLVertexBuffer::bind() const {
@@ -149,7 +149,7 @@ void GLVertexBuffer::setLayout(const InputLayout& layout) const {
 
 GLIndexBuffer::GLIndexBuffer(const std::vector<Index>& indices) {
     count = (unsigned int)(indices.size() * 3);
-    id = createBufferGL(indices, GL_ELEMENT_ARRAY_BUFFER);
+    id = glCreateBuffer(indices.data(), indices.size(), GL_ELEMENT_ARRAY_BUFFER);
 }
 
 

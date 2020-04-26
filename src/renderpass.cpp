@@ -236,10 +236,6 @@ ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(uint32_t renderWidth, u
 }
 
 void ScreenSpaceAmbientOcclusion::execute(Scene& scene, GeometryBuffer* geometryPass, Mesh* quad) {
-    // SSAO PASS
-    float ssaoBias = 0.025f, ssaoPower = 2.5f;
-    float ssaoSampleCount = 64.0f;
-
     framebuffer.bind();
     geometryPass->positionTexture.bindToSlot(0);
     geometryPass->normalTexture.bindToSlot(1);
@@ -250,9 +246,9 @@ void ScreenSpaceAmbientOcclusion::execute(Scene& scene, GeometryBuffer* geometry
     shader.getUniform("view") = scene.camera.getView();
     shader.getUniform("projection") = scene.camera.getProjection();
     shader.getUniform("noiseScale") = noiseScale;
-    shader.getUniform("sampleCount") = ssaoSampleCount;
-    shader.getUniform("power") = ssaoPower;
-    shader.getUniform("bias") = ssaoBias;
+    shader.getUniform("sampleCount") = settings.samples;
+    shader.getUniform("power") = settings.power;
+    shader.getUniform("bias") = settings.bias;
 
     quad->render();
 
@@ -272,6 +268,206 @@ void ScreenSpaceAmbientOcclusion::resize(uint32_t renderWidth, uint32_t renderHe
 
     result.bind();
     result.init(renderWidth, renderHeight, Format::RGB_F);
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+DeferredLighting::DeferredLighting(uint32_t width, uint32_t height) {
+    // load shaders from disk
+    Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
+    Shader::Stage frag(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
+    std::array<Shader::Stage, 2> modelStages = { vertex, frag };
+    shader.reload(modelStages.data(), modelStages.size());
+
+    // init render targets
+    result.bind();
+    result.init(width, height, Format::RGBA_F16);
+    result.setFilter(Sampling::Filter::Bilinear);
+    result.unbind();
+
+    bloomHighlights.bind();
+    bloomHighlights.init(width, height, Format::RGBA_F16);
+    bloomHighlights.setFilter(Sampling::Filter::Bilinear);
+    bloomHighlights.unbind();
+
+    renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
+
+    framebuffer.bind();
+    framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
+    framebuffer.attach(bloomHighlights, GL_COLOR_ATTACHMENT1);
+    framebuffer.attach(renderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+    framebuffer.unbind();
+
+    // init uniform buffer
+    uniformBuffer.setSize(sizeof(uniforms));
+}
+
+void DeferredLighting::execute(Scene& scene, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
+                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Mesh* quad) {
+    // bind the main framebuffer
+    framebuffer.bind();
+    Renderer::Clear({ 0.0f, 0.0f, 0.0f, 1.0f });
+
+    // set uniforms
+    shader.bind();
+    shader.getUniform("sunColor") = settings.sunColor;
+    shader.getUniform("minBias") = settings.minBias;
+    shader.getUniform("maxBias") = settings.maxBias;
+    shader.getUniform("farPlane") = settings.farPlane;
+    shader.getUniform("bloomThreshold") = settings.bloomThreshold;
+
+    // bind textures to shader binding slots
+    shadowMap->result.bindToSlot(0);
+    omniShadowMap->result.bindToSlot(1);
+    GBuffer->positionTexture.bindToSlot(2);
+    GBuffer->albedoTexture.bindToSlot(3);
+    GBuffer->normalTexture.bindToSlot(4);
+    ambientOcclusion->result.bindToSlot(5);
+
+    // update the uniform buffer CPU side
+    uniforms.view = scene.camera.getView();
+    uniforms.projection = scene.camera.getProjection();
+    uniforms.pointLightPos = glm::vec4(scene.pointLight.position, 1.0f);
+    uniforms.DirLightPos = glm::vec4(scene.sunCamera.getPosition(), 1.0);
+    uniforms.DirViewPos = glm::vec4(scene.camera.getPosition(), 1.0);
+    uniforms.lightSpaceMatrix = scene.sunCamera.getProjection() * scene.sunCamera.getView();
+
+    // update uniform buffer GPU side
+    uniformBuffer.update(&uniforms, sizeof(uniforms));
+    uniformBuffer.bind(0);
+
+    // perform lighting pass and unbind
+    quad->render();
+    framebuffer.unbind();
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+Bloom::Bloom(uint32_t width, uint32_t height) {
+    // load shaders from disk
+    std::vector<Shader::Stage> bloomStages;
+    bloomStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
+    bloomStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\bloom.frag");
+    bloomShader.reload(bloomStages.data(), bloomStages.size());
+
+    std::vector<Shader::Stage> blurStages;
+    blurStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
+    blurStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gaussian.frag");
+    blurShader.reload(blurStages.data(), blurStages.size());
+
+    // init render targets
+    result.bind();
+    result.init(width, height, Format::RGBA_F16);
+    result.setFilter(Sampling::Filter::Bilinear);
+    result.unbind();
+
+    resultFramebuffer.bind();
+    resultFramebuffer.attach(result, GL_COLOR_ATTACHMENT0);
+    resultFramebuffer.unbind();
+
+    for (unsigned int i = 0; i < 2; i++) {
+        blurTextures[i].bind();
+        blurTextures[i].init(width, height, Format::RGBA_F16);
+        blurTextures[i].setFilter(Sampling::Filter::Bilinear);
+        blurTextures[i].setWrap(Sampling::Wrap::ClampEdge);
+        blurTextures[i].unbind();
+
+        blurBuffers[i].bind();
+        blurBuffers[i].attach(blurTextures[i], GL_COLOR_ATTACHMENT0);
+        blurBuffers[i].unbind();
+    }
+}
+
+void Bloom::execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad) {
+    // perform gaussian blur on the bloom texture using "ping pong" framebuffers that
+    // take each others color attachments as input and perform a directional gaussian blur each
+    // iteration
+    bool horizontal = true, firstIteration = true;
+    blurShader.bind();
+    for (unsigned int i = 0; i < 10; i++) {
+        blurBuffers[horizontal].bind();
+        blurShader.getUniform("horizontal") = horizontal;
+        if (firstIteration) {
+            highlights.bindToSlot(0);
+            firstIteration = false;
+        }
+        else {
+            blurTextures[!horizontal].bindToSlot(0);
+        }
+        quad->render();
+        horizontal = !horizontal;
+    }
+
+    blurShader.unbind();
+
+    // blend the bloom and scene texture together
+    resultFramebuffer.bind();
+    bloomShader.bind();
+    scene.bindToSlot(0);
+    blurTextures[!horizontal].bindToSlot(1);
+    quad->render();
+    resultFramebuffer.unbind();
+}
+
+void Bloom::resize(uint32_t width, uint32_t height) {
+    result.bind();
+    result.init(width, height, Format::RGBA_F16);
+
+    for (unsigned int i = 0; i < 2; i++) {
+        blurTextures[i].bind();
+        blurTextures[i].init(width, height, Format::RGBA_F16);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+Tonemapping::Tonemapping(uint32_t width, uint32_t height) {
+    // load shaders from disk
+    std::vector<Shader::Stage> tonemapStages;
+    tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
+    tonemapStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDRuncharted.frag");
+    shader.reload(tonemapStages.data(), tonemapStages.size());
+
+    // init render targets
+    result.bind();
+    result.init(width, height, Format::RGB_F);
+    result.setFilter(Sampling::Filter::Bilinear);
+    result.unbind();
+
+    renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
+
+    framebuffer.bind();
+    framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
+    framebuffer.attach(renderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+    framebuffer.unbind();
+
+    // init uniform buffer
+    uniformBuffer.setSize(sizeof(settings));
+}
+
+void Tonemapping::resize(uint32_t width, uint32_t height) {
+    // resize render targets
+    result.bind();
+    result.init(width, height, Format::RGB_F);
+    renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
+}
+
+void Tonemapping::execute(glTexture2D& scene, Mesh* quad) {
+    // bind and clear render target
+    framebuffer.bind();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // bind shader and input texture
+    shader.bind();
+    scene.bindToSlot(0);
+
+    // update uniform buffer GPU side
+    uniformBuffer.update(&settings, sizeof(settings));
+    uniformBuffer.bind(0);
+
+    // render fullscreen quad to perform tonemapping
+    quad->render();
+    framebuffer.unbind();
 }
 
 } // renderpass

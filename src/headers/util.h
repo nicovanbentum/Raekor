@@ -2,6 +2,9 @@
 
 #include "pch.h"
 
+// code to literal, for when I don't feel thinking of a better literal string
+#define nameof(var) (#var)
+
 // message assert macro
 #ifndef NDEBUG
     #define m_assert(expr, msg) if(!expr) std::cout << msg << std::endl; assert(expr);
@@ -19,17 +22,6 @@ using com_ptr = Microsoft::WRL::ComPtr<T>;
 #define LOG_CATCH(code) try { code; } catch(std::exception e) { std::cout << e.what() << '\n'; }
 
 namespace Raekor {
-
-// function to create an OpenGL buffer out of a vector of whatever type
-template<typename T>
-unsigned int createBufferGL(const std::vector<T> & v, GLenum target) {
-    unsigned int id;
-    glGenBuffers(1, &id);
-    glBindBuffer(target, id);
-    glBufferData(target, v.size() * sizeof(T), v.data(), GL_STATIC_DRAW);
-    glBindBuffer(target, 0);
-    return id;
-}
 
 enum class PATH_OPTIONS {
     DIR,
