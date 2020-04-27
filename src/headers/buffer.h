@@ -16,17 +16,17 @@ public:
     virtual void bind(uint8_t slot) const = 0;
 };
 
-class GLResourceBuffer : public ResourceBuffer {
+class glUniformBuffer {
 public:
-    GLResourceBuffer();
-    GLResourceBuffer(size_t size);
-    virtual void update(void* data, const size_t size) const override;
-    virtual void bind(uint8_t slot) const override;
+    glUniformBuffer();
+    glUniformBuffer(size_t size);
 
     void setSize(size_t);
+    void bind(uint8_t slot) const;
+    void update(void* data, const size_t size) const;
 
 private:
-    unsigned int id;
+    uint32_t id;
 };
 
 enum class ShaderType {
@@ -99,10 +99,10 @@ public:
     virtual ~IndexBuffer() {}
     static IndexBuffer* construct(const std::vector<Index>& indices);
     virtual void bind() const = 0;
-    inline unsigned int getCount() const { return count; }
+    inline const uint32_t getCount() const { return count; }
 
 protected:
-    unsigned int count;
+    uint32_t count;
 };
 
 class GLVertexBuffer : public VertexBuffer {

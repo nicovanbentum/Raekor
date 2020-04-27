@@ -20,15 +20,15 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
     auto keyboardState = SDL_GetKeyboardState(NULL);
     if (inAltMode) {
         if (keyboardState[SDL_SCANCODE_W]) {
-            camera.zoom(0.06f, dt);
+            camera.zoom(float(0.01 * dt));
         } else if (keyboardState[SDL_SCANCODE_S]) {
-            camera.zoom(-0.06f, dt);
+            camera.zoom(float(-0.01 * dt));
         }
 
         if (keyboardState[SDL_SCANCODE_A]) {
-            camera.move({ -0.02f, 0.0f }, dt);
+            camera.move({ -0.005f * dt, 0.0f });
         } else if (keyboardState[SDL_SCANCODE_D]) {
-            camera.move({ 0.02f, 0.0f }, dt);
+            camera.move({ 0.005f * dt, 0.0f });
         }
     }
 
@@ -70,19 +70,19 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
 
         // handle mousewheel events
         else if (ev.type == SDL_MOUSEWHEEL && mouseInViewport) {
-            camera.zoom(static_cast<float>(ev.wheel.y * 0.2f), dt);
+            camera.zoom(static_cast<float>(ev.wheel.y * 0.2f));
         }
 
         // handle mouse motion events
         else if (ev.type == SDL_MOUSEMOTION) {
             if (cameraLooking) {
-                camera.look(ev.motion.xrel, ev.motion.yrel, dt);
+                camera.look(ev.motion.xrel, ev.motion.yrel);
             }
             else if (cameraMoving) {
-                camera.move({ ev.motion.xrel * -0.001f, ev.motion.yrel * 0.001f }, dt);
+                camera.move({ ev.motion.xrel * -0.002f, ev.motion.yrel * 0.002f });
             }
             else if (inAltMode) {
-                camera.look(ev.motion.xrel, ev.motion.yrel, dt);
+                camera.look(ev.motion.xrel, ev.motion.yrel);
             }
         }
 

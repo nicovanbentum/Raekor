@@ -425,7 +425,7 @@ Tonemapping::Tonemapping(uint32_t width, uint32_t height) {
     // load shaders from disk
     std::vector<Shader::Stage> tonemapStages;
     tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
-    tonemapStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDRuncharted.frag");
+    tonemapStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDR.frag");
     shader.reload(tonemapStages.data(), tonemapStages.size());
 
     // init render targets

@@ -23,19 +23,19 @@ glm::vec3 Camera::getDirection() {
     sin(angle.y), cos(angle.y) * cos(angle.x));
 }
     
-void Camera::look(int x, int y, double dt) {
+void Camera::look(int x, int y) {
     angle.x += float(lookSpeed * (x * -1));
     angle.y += float(lookSpeed * (y * -1));
     // clamp to roughly half pi so we dont overshoot
     angle.y = std::clamp(angle.y, -1.57078f, 1.57078f);
 }
 
-void Camera::zoom(float amount, double dt) {
+void Camera::zoom(float amount) {
     auto dir = getDirection();
     position += dir * (float)(amount);
 }
 
-void Camera::move(glm::vec2 amount, double dt) {
+void Camera::move(glm::vec2 amount) {
     auto dir = getDirection();
     // sideways
     position += glm::normalize(glm::cross(dir, { 0,1,0 })) * (float)(amount.x * 2.0);

@@ -21,7 +21,7 @@ public:
 private:
     glShader shader;
     glFramebuffer framebuffer;
-    GLResourceBuffer uniformBuffer;
+    glUniformBuffer uniformBuffer;
 
 public:
     glTexture2D result;
@@ -123,7 +123,7 @@ private:
     glShader shader;
     glFramebuffer framebuffer;
     glRenderbuffer renderbuffer;
-    GLResourceBuffer uniformBuffer;
+    glUniformBuffer uniformBuffer;
 
 public:
     glTexture2D result;
@@ -166,7 +166,7 @@ private:
     glShader shader;
     glFramebuffer framebuffer;
     glRenderbuffer renderbuffer;
-    GLResourceBuffer uniformBuffer;
+    glUniformBuffer uniformBuffer;
 
 public:
     glTexture2D result;

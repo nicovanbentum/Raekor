@@ -13,7 +13,7 @@ namespace Raekor {
         auto activeAPI = Renderer::getActiveAPI();
         switch (activeAPI) {
         case RenderAPI::OPENGL: {
-            return new GLResourceBuffer(size);
+            return nullptr;
         } break;
 #ifdef _WIN32
         case RenderAPI::DIRECTX11: {
@@ -24,22 +24,22 @@ namespace Raekor {
         return nullptr;
     }
 
-    GLResourceBuffer::GLResourceBuffer() {
+    glUniformBuffer::glUniformBuffer() {
         glGenBuffers(1, &id);
     }
 
-    GLResourceBuffer::GLResourceBuffer(size_t size) {
+    glUniformBuffer::glUniformBuffer(size_t size) {
         glGenBuffers(1, &id);
         setSize(size);
     }
 
-    void GLResourceBuffer::setSize(size_t size) {
+    void glUniformBuffer::setSize(size_t size) {
         glBindBuffer(GL_UNIFORM_BUFFER, id);
         glBufferData(GL_UNIFORM_BUFFER, size, NULL, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
-    void GLResourceBuffer::update(void* data, const size_t size) const {
+    void glUniformBuffer::update(void* data, const size_t size) const {
         glBindBuffer(GL_UNIFORM_BUFFER, id);
         void* dataPtr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
         memcpy(dataPtr, data, size);
@@ -47,7 +47,7 @@ namespace Raekor {
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
-    void GLResourceBuffer::bind(uint8_t slot) const {
+    void glUniformBuffer::bind(uint8_t slot) const {
         glBindBufferBase(GL_UNIFORM_BUFFER, slot, id);
     }
 

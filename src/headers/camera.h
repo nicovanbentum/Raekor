@@ -21,9 +21,9 @@ public:
     
     glm::vec3 getDirection();
 
-    void look(int x, int y, double dt);
-    void zoom(float amount, double dt);
-    void move(glm::vec2 amount, double dt);
+    void look(int x, int y);
+    void zoom(float amount);
+    void move(glm::vec2 amount);
     
     void update(bool normalizePlanes);
 

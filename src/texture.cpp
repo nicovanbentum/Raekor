@@ -76,8 +76,8 @@ void glTexture::setWrap(Sampling::Wrap mode) {
 
 ImTextureID glTexture::ImGuiID() { return (void*)((intptr_t)mID); }
 
-void glTexture::clear(const glm::vec3& colour) { 
-    glClearTexImage(mID, 0, GL_RGB, GL_FLOAT, glm::value_ptr(colour));
+void glTexture::clear(const glm::vec4& colour) { 
+    glClearTexImage(mID, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(colour));
 }
 
 //////////////////////////////////////////////////////////////////////////////////

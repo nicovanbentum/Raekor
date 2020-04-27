@@ -53,7 +53,7 @@ public:
 
     ImTextureID ImGuiID();
 
-    void clear(const glm::vec3& colour);
+    void clear(const glm::vec4& colour);
 
 protected:
     GLenum mTarget;

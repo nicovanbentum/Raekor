@@ -529,7 +529,7 @@ void Application::run() {
 
         if (ImGui::Checkbox("SSAO", &doSSAO)) {
             // if we don't want to apply SSAO we need to clear the old result
-            if (!doSSAO) ambientOcclusionPass->result.clear({ 1.0f, 1.0f, 1.0f });
+            if (!doSSAO) ambientOcclusionPass->result.clear({ 1.0f, 1.0f, 1.0f, 1.0f });
         }
         ImGui::Separator();
         if (ImGui::DragFloat(   "Samples",  &ambientOcclusionPass->settings.samples, 8.0f, 8.0f, 64.0f)) {}
