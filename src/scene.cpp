@@ -27,7 +27,7 @@ void Transformable::recalculate() {
     transform = glm::scale(transform, scale);
 }
 
-SceneObject::SceneObject(const std::string& fp, const std::vector<Vertex>& vbuffer, const std::vector<Index>& ibuffer)
+SceneObject::SceneObject(const std::string& fp, std::vector<Vertex>& vbuffer, std::vector<Index>& ibuffer)
     : Mesh(vbuffer, ibuffer) {
     vb->setLayout({
         {"POSITION",    ShaderType::FLOAT3},

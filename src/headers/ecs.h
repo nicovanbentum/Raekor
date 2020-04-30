@@ -1,5 +1,9 @@
 #pragma once
 
+#include "buffer.h"
+#include "mesh.h"
+#include "texture.h"
+
 namespace Raekor {
 namespace ECS {
 
@@ -12,8 +16,6 @@ static Entity newEntity() {
 
 static Entity newNamedEntity(const char* name) {
     Entity entity = newEntity();
-
-    
 }
 
 struct TransformComponent {
@@ -32,15 +34,53 @@ struct TransformComponent {
 };
 
 struct MeshComponent {
+    struct subMesh {
+        ECS::Entity material = NULL;
+        uint32_t indexOffset;
+        uint32_t indexCount;
+    };
 
+    std::string name = "NULL";
+    Shape shape;
+
+    std::vector<Vertex> vertices;
+    std::vector<Index> indices;
+
+    std::vector<subMesh> subMeshes;
+
+    uint32_t vertexBuffer;
+    uint32_t indexBuffer;
+
+    void init(Shape basicShape = Shape::None) {
+        switch (basicShape) {
+            case Shape::None: name = ""; break;
+            case Shape::Cube: name = "Cube"; break;
+            case Shape::Quad: name = "Quad"; break;
+        }
+
+        if (basicShape == Shape::None) {
+            return;
+        }
+
+        vertices = std::vector<Vertex>(cubeVertices);
+        indices = std::vector<Index>(cubeIndices);
+
+        // upload to GPU
+        vertexBuffer = glCreateBuffer(cubeVertices.data(), cubeVertices.size(), GL_ARRAY_BUFFER);
+        indexBuffer = glCreateBuffer(cubeIndices.data(), cubeIndices.size() * 3, GL_ELEMENT_ARRAY_BUFFER);
+
+        std::puts("uploaded cube to gpu");
+    }
 };
 
 struct MeshRendererComponent {
 
+
 };
 
 struct MaterialComponent {
-
+    glTexture2D albedo;
+    glTexture2D normals;
 };
 
 struct NameComponent {
@@ -87,21 +127,27 @@ public:
 
     void remove(Entity entity) {
         auto it = lookup.find(entity);
-        if (it == lookup.end()) return;
+        if (it != lookup.end())
+        {
+            // Directly index into components and entities array:
+            const size_t index = it->second;
+            const Entity entity = entities[index];
 
-        const size_t index = it->second;
-        const Entity entity = entities[index];
+            if (index < components.size() - 1)
+            {
+                // Swap out the dead element with the last one:
+                components[index] = std::move(components.back()); // try to use move instead of copy
+                entities[index] = entities.back();
 
-        if (index < components.size() - 1) {
-            components[index] = std::move(components.back());
-            entities[index] = entities.back();
-            
-            lookup[entities[index]] = index;
+                // Update the lookup table:
+                lookup[entities[index]] = index;
+            }
+
+            // Shrink the container:
+            components.pop_back();
+            entities.pop_back();
+            lookup.erase(entity);
         }
-
-        components.pop_back();
-        entities.pop_back();
-        lookup.erase(entity);
     }
 
     void clear() {
@@ -120,11 +166,9 @@ private:
 
 class Scene {
 public:
-    void createObject(const char* name) {
-        Entity entity = newEntity();
-        names.create(entity).name = name;
-        entities.push_back(entity);
-    }
+    void createObject(const char* name);
+    void attachCube(Entity entity);
+    void loadFromFile(const std::string& file);
 
 public:
     ComponentManager<NameComponent> names;
@@ -137,6 +181,17 @@ public:
     std::vector<Entity> entities;
 };
 
+// SYSTEMS TODO: turn this into classes and seperate files
+static void renderEntitySystem(ComponentManager<MeshComponent> meshes, ComponentManager<MaterialComponent> materials) {
+    for (size_t i = 0; i < meshes.getCount(); i++) {
+        Entity entity = meshes.getEntity(i);
+        auto mesh = meshes.getComponent(entity);
+        auto material = materials.getComponent(entity);
+        if (!mesh && !material) continue;
+        
+
+    }
+}
 
 } // ecs
 } // raekor

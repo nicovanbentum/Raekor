@@ -238,6 +238,8 @@ void Application::run() {
     SDL_ShowWindow(directxwindow);
     SDL_MaximizeWindow(directxwindow);
 
+    GUI::InspectorWindow inspectorWindow;
+
     while (running) {
         deltaTimer.start();
         handleEvents(directxwindow, scene.camera, mouseInViewport, deltaTime);
@@ -389,6 +391,10 @@ void Application::run() {
                     if (ImGui::MenuItem("Mesh Renderer", "")) {
                         newScene.meshRenderers.create(active);
                     }
+
+                    if (ImGui::MenuItem("Cube", "")) {
+                        newScene.attachCube(active);
+                    }
                 }
 
 
@@ -412,7 +418,7 @@ void Application::run() {
         }
 
         //Inspector panel
-        GUI::InspectorWindow::draw(newScene, active);
+        inspectorWindow.draw(newScene, active);
 
         // model panel
         ImGui::Begin("Scene Objects (DEPRECATED SOON");

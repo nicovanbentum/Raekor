@@ -39,7 +39,7 @@ public:
 class SceneObject : public Mesh, public Transformable {
 public:
     SceneObject() {}
-    SceneObject(const std::string& fp, const std::vector<Vertex>& vb, const std::vector<Index>& ib);
+    SceneObject(const std::string& fp, std::vector<Vertex>& vb, std::vector<Index>& ib);
     void render();
 
     bool hasAlpha = false;
