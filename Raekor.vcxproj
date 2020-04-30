@@ -171,11 +171,16 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="dependencies\imgui\misc\cpp\imgui_stdlib.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="src\app.cpp" />
     <ClCompile Include="src\buffer.cpp" />
     <ClCompile Include="src\camera.cpp" />
+    <ClCompile Include="src\ecs.cpp" />
     <ClCompile Include="src\entry.cpp" />
     <ClCompile Include="src\framebuffer.cpp" />
+    <ClCompile Include="src\gui.cpp" />
     <ClCompile Include="src\mesh.cpp" />
     <ClCompile Include="src\renderpass.cpp" />
     <ClCompile Include="src\scene.cpp" />
@@ -222,14 +227,17 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClInclude Include="dependencies\imgui\examples\imgui_impl_vulkan.h" />
     <ClInclude Include="dependencies\imgui\imgui.h" />
     <ClInclude Include="dependencies\imgui\imgui_internal.h" />
+    <ClInclude Include="dependencies\imgui\misc\cpp\imgui_stdlib.h" />
     <ClInclude Include="dependencies\NVDDS\nv_dds.h" />
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="src\headers\app.h" />
     <ClInclude Include="src\headers\buffer.h" />
     <ClInclude Include="src\headers\camera.h" />
+    <ClInclude Include="src\headers\ecs.h" />
     <ClInclude Include="src\headers\entry.h" />
     <ClInclude Include="src\headers\framebuffer.h" />
+    <ClInclude Include="src\headers\gui.h" />
     <ClInclude Include="src\headers\mesh.h" />
     <ClInclude Include="src\headers\renderpass.h" />
     <ClInclude Include="src\headers\scene.h" />

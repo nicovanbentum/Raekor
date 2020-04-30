@@ -118,6 +118,7 @@ public:
     DeferredLighting(uint32_t width, uint32_t height);
     void execute(Scene& scene, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
                     GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Mesh* quad);
+    void resize(uint32_t width, uint32_t height);
 
 private:
     glShader shader;
@@ -170,6 +171,42 @@ private:
 
 public:
     glTexture2D result;
+};
+
+//////////////////////////////////////////////////////////////////////////////////
+
+class Voxelization {
+public:
+    Voxelization(uint32_t width, uint32_t height, uint32_t depth);
+    void execute(Scene& scene);
+
+private:
+    glShader shader;
+
+public:
+    uint32_t result;
+};
+
+//////////////////////////////////////////////////////////////////////////////////
+
+class VoxelizationDebug {
+public:
+    VoxelizationDebug(uint32_t width, uint32_t height);
+    void execute(Scene& scene, uint32_t voxelMap, Mesh* cube, Mesh* quad);
+    void resize(uint32_t width, uint32_t height);
+
+private:
+    glShader basicShader;
+    glShader voxelTracedShader;
+    glRenderbuffer cubeTexture;
+    glFramebuffer voxelVisFramebuffer;
+    glFramebuffer cubeBackfaceFramebuffer;
+    glFramebuffer cubeFrontfaceFramebuffer;
+
+public:
+    glTexture2D result;
+    glTexture2D cubeBack;
+    glTexture2D cubeFront;
 };
 
 } // renderpass

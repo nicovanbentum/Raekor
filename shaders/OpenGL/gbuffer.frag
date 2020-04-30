@@ -25,6 +25,8 @@ void main() {
 	gNormal = normalize(gNormal * 2.0 - 1.0);
 	gNormal = vec4(normalize(TBN * gNormal.xyz), 1.0);
 
+    gNormal = vec4(normalize(normal), 1.0);
+
 	// positional data comes in from the vertex shader
 	gPosition = vec4(pos, 1.0);
 }

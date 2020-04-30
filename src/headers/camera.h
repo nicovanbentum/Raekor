@@ -21,9 +21,9 @@ public:
     
     glm::vec3 getDirection();
 
-    void look(int x, int y);
-    void zoom(float amount);
-    void move(glm::vec2 amount);
+    void look(float x, float y);
+    void zoom(float amount = 1.0f);
+    void move(glm::vec2 amount = {});
     
     void update(bool normalizePlanes);
 
@@ -48,8 +48,13 @@ private:
 
 
 public:
-    float lookSpeed;
-    float moveSpeed;
+    // constants for continues movement
+    // e.g camera.zoom(camera.zoomConstant);
+    float lookConstant = 1.0f, zoomConstant = 0.01f, moveConstant = 0.005f;
+
+    // speed relative to some other factor
+    // e.g camera.zoom(scrollAmount * zoomSpeed);
+    float lookSpeed = 0.0015f, zoomSpeed = 0.2f, moveSpeed = 0.002f;
 
 };
 

@@ -20,15 +20,15 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
     auto keyboardState = SDL_GetKeyboardState(NULL);
     if (inAltMode) {
         if (keyboardState[SDL_SCANCODE_W]) {
-            camera.zoom(float(0.01 * dt));
+            camera.zoom(float(camera.zoomConstant * dt));
         } else if (keyboardState[SDL_SCANCODE_S]) {
-            camera.zoom(float(-0.01 * dt));
+            camera.zoom(float(-camera.zoomConstant * dt));
         }
 
         if (keyboardState[SDL_SCANCODE_A]) {
-            camera.move({ -0.005f * dt, 0.0f });
+            camera.move({ -camera.moveConstant * dt, 0.0f });
         } else if (keyboardState[SDL_SCANCODE_D]) {
-            camera.move({ 0.005f * dt, 0.0f });
+            camera.move({ camera.moveConstant * dt, 0.0f });
         }
     }
 
@@ -70,19 +70,19 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
 
         // handle mousewheel events
         else if (ev.type == SDL_MOUSEWHEEL && mouseInViewport) {
-            camera.zoom(static_cast<float>(ev.wheel.y * 0.2f));
+            camera.zoom(static_cast<float>(ev.wheel.y * camera.zoomSpeed));
         }
 
         // handle mouse motion events
         else if (ev.type == SDL_MOUSEMOTION) {
             if (cameraLooking) {
-                camera.look(ev.motion.xrel, ev.motion.yrel);
+                camera.look(ev.motion.xrel * camera.lookSpeed, ev.motion.yrel * camera.lookSpeed);
             }
             else if (cameraMoving) {
-                camera.move({ ev.motion.xrel * -0.002f, ev.motion.yrel * 0.002f });
+                camera.move({ ev.motion.xrel * -camera.moveSpeed, ev.motion.yrel * camera.moveSpeed });
             }
             else if (inAltMode) {
-                camera.look(ev.motion.xrel, ev.motion.yrel);
+                camera.look(ev.motion.xrel * camera.lookSpeed, ev.motion.yrel * camera.lookSpeed);
             }
         }
 
@@ -108,7 +108,12 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
 int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
-    app.run();
+    try {
+        app.run();
+    }
+    catch (std::exception e) {
+        std::cout << e.what() << std::endl;
+    }
     app.serializeSettings("config.json", true);
     return 0;
 }

@@ -341,6 +341,18 @@ void DeferredLighting::execute(Scene& scene, ShadowMap* shadowMap, OmniShadowMap
     framebuffer.unbind();
 }
 
+void DeferredLighting::resize(uint32_t width, uint32_t height) {
+    // resize render targets
+    result.bind();
+    result.init(width, height, Format::RGBA_F16);
+
+    bloomHighlights.bind();
+    bloomHighlights.init(width, height, Format::RGBA_F16);
+
+    renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
+}
+
+
 //////////////////////////////////////////////////////////////////////////////////
 
 Bloom::Bloom(uint32_t width, uint32_t height) {
@@ -431,7 +443,7 @@ Tonemapping::Tonemapping(uint32_t width, uint32_t height) {
     // init render targets
     result.bind();
     result.init(width, height, Format::RGB_F);
-    result.setFilter(Sampling::Filter::Bilinear);
+    result.setFilter(Sampling::Filter::None);
     result.unbind();
 
     renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
@@ -449,6 +461,7 @@ void Tonemapping::resize(uint32_t width, uint32_t height) {
     // resize render targets
     result.bind();
     result.init(width, height, Format::RGB_F);
+
     renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
 }
 
@@ -468,6 +481,170 @@ void Tonemapping::execute(glTexture2D& scene, Mesh* quad) {
     // render fullscreen quad to perform tonemapping
     quad->render();
     framebuffer.unbind();
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+Voxelization::Voxelization(uint32_t width, uint32_t height, uint32_t depth) {
+    // load shaders from disk
+    std::vector<Shader::Stage> voxelStages;
+    voxelStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\voxelize.vert");
+    voxelStages.emplace_back(Shader::Type::GEO, "shaders\\OpenGL\\voxelize.geom");
+    voxelStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\voxelize.frag");
+    shader.reload(voxelStages.data(), voxelStages.size());
+
+    // Generate texture on GPU.
+    glGenTextures(1, &result);
+    glBindTexture(GL_TEXTURE_3D, result);
+
+    // Parameter options.
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // Upload texture buffer.
+    glTexStorage3D(GL_TEXTURE_3D, 7, GL_RGBA32F, width, height, depth);
+    GLfloat clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, &clearColor);
+    glGenerateMipmap(GL_TEXTURE_3D);
+    glBindTexture(GL_TEXTURE_3D, 0);
+}
+
+
+void Voxelization::execute(Scene& scene) {
+    shader.bind();
+
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+
+    glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    shader.getUniform("view") = scene.camera.getView();
+    shader.getUniform("projection") = scene.camera.getProjection();
+
+    for (auto& object : scene) {
+        shader.getUniform("model") = object.transform;
+        object.render();
+    }
+
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+VoxelizationDebug::VoxelizationDebug(uint32_t width, uint32_t height) {
+    std::vector<Shader::Stage> basicStages;
+    basicStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\basic.vert");
+    basicStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\basic.frag");
+    basicShader.reload(basicStages.data(), basicStages.size());
+
+
+    std::vector<Shader::Stage> voxelDebugStages;
+    voxelDebugStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\voxelDebug.vert");
+    voxelDebugStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\voxelDebug.frag");
+    voxelTracedShader.reload(voxelDebugStages.data(), voxelDebugStages.size());
+
+    cubeBack.bind();
+    cubeBack.init(width, height, Format::RGBA_F);
+    cubeBack.setFilter(Sampling::Filter::None);
+    cubeBack.unbind();
+
+    cubeFront.bind();
+    cubeFront.init(width, height, Format::RGBA_F);
+    cubeFront.setFilter(Sampling::Filter::None);
+    cubeFront.unbind();
+
+    cubeTexture.init(width, height, GL_DEPTH32F_STENCIL8);
+
+    cubeBackfaceFramebuffer.bind();
+    cubeBackfaceFramebuffer.attach(cubeBack, GL_COLOR_ATTACHMENT0);
+    cubeBackfaceFramebuffer.unbind();
+
+    cubeFrontfaceFramebuffer.bind();
+    cubeFrontfaceFramebuffer.attach(cubeFront, GL_COLOR_ATTACHMENT0);
+    cubeFrontfaceFramebuffer.unbind();
+
+    result.bind();
+    result.init(width, height, Format::RGBA_F16);
+    result.setFilter(Sampling::Filter::None);
+    result.unbind();
+
+    voxelVisFramebuffer.bind();
+    voxelVisFramebuffer.attach(result, GL_COLOR_ATTACHMENT0);
+    voxelVisFramebuffer.unbind();
+}
+
+void VoxelizationDebug::execute(Scene& scene, uint32_t voxelMap, Mesh* cube, Mesh* quad) {
+    // bind and clear render target
+    cubeBackfaceFramebuffer.bind();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // bind basic to-world shader
+    basicShader.bind();
+    basicShader.getUniform("projection") = scene.camera.getProjection();
+    basicShader.getUniform("view") = scene.camera.getView();
+    basicShader.getUniform("model") = glm::mat4(1.0f);
+
+    // render back face culled cube
+    cube->render();
+
+    // switch to front culling
+    glCullFace(GL_FRONT);
+
+    // bind and clear render target
+    cubeFrontfaceFramebuffer.bind();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // render front face culled cube
+    cube->render();
+
+    // disable culling altogether
+    glDisable(GL_CULL_FACE);
+
+    // bind cone trace shader and render target
+    voxelVisFramebuffer.bind();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // bind cone trace shader, cube face textures and the voxel map
+    voxelTracedShader.bind();
+    cubeBack.bindToSlot(0);
+    cubeFront.bindToSlot(1);
+    glBindTextureUnit(2, voxelMap);
+
+    // upload the camera position for trace direction
+    voxelTracedShader.getUniform("cameraPosition") = scene.camera.getPosition();
+
+    // render fullscreen quad to perform rendering
+    quad->render();
+
+    // re-enable backface culling
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
+    // unbind framebuffers
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void VoxelizationDebug::resize(uint32_t width, uint32_t height) {
+    result.bind();
+    result.init(width, height, Format::RGBA_F16);
+
+    cubeBack.bind();
+    cubeBack.init(width, height, Format::RGBA_F);
+
+    cubeFront.bind();
+    cubeFront.init(width, height, Format::RGBA_F);
+
+    cubeTexture.init(width, height, GL_DEPTH32F_STENCIL8);
 }
 
 } // renderpass

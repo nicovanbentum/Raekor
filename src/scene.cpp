@@ -35,7 +35,7 @@ SceneObject::SceneObject(const std::string& fp, const std::vector<Vertex>& vbuff
         {"NORMAL",      ShaderType::FLOAT3},
         {"TANGENT",     ShaderType::FLOAT3},
         {"BINORMAL",    ShaderType::FLOAT3}
-        });
+    });
 }
 
 void SceneObject::render() {
@@ -133,6 +133,8 @@ void Scene::add(std::string file) {
     auto processMesh = [&](aiMesh * mesh, aiMatrix4x4 localTransform, const aiScene * scene) {
         std::vector<Vertex> vertices;
         std::vector<Index> indices;
+
+        std::cout << "loading " << mesh->mName.C_Str() << "..." << std::endl;
 
         // extract vertices
         vertices.reserve(mesh->mNumVertices);

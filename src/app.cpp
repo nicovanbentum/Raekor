@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "app.h"
+#include "ecs.h"
 #include "util.h"
 #include "scene.h"
 #include "entry.h"
@@ -11,6 +12,7 @@
 #include "buffer.h"
 #include "timer.h"
 #include "renderpass.h"
+#include "gui.h"
 
 namespace Raekor {
 
@@ -37,7 +39,7 @@ void Application::run() {
     m_assert(sdlError == 0, "failed to init SDL for video");
 
     Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL |
-        SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_MAXIMIZED;
+        SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED;
 
     std::vector<SDL_Rect> displays;
     for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
@@ -54,6 +56,8 @@ void Application::run() {
         displays[display].h,
         wflags);
 
+    SDL_SetWindowInputFocus(directxwindow);
+
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -67,21 +71,15 @@ void Application::run() {
     // basically acts like a budget project file
     Scene scene;
     std::vector<SceneObject>::iterator activeObject = scene.objects.end();
-    Timer timer;
-    timer.start();
     for (const std::string& path : project) {
         scene.add(path);
     }
-    timer.stop();
-    std::cout << "Setup time = " << timer.elapsedMs() << '\n';
 
     if (!scene.objects.empty()) {
         activeObject = scene.objects.begin();
     }
 
-    std::unique_ptr<Mesh> cubeMesh;
-    std::unique_ptr<glTextureCube> skyboxCubemap;
-
+    
     Ffilter meshFileFormats;
     meshFileFormats.name = "Supported Mesh Files";
     meshFileFormats.extensions = "*.obj;*.fbx;*.gltf;*.glb";
@@ -90,48 +88,9 @@ void Application::run() {
     textureFileFormats.name = "Supported Image Files";
     textureFileFormats.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
-    std::unique_ptr<glShader> skyboxShader;
-    std::vector<Shader::Stage> skyboxStages;
-    skyboxStages.emplace_back(Shader::Type::VERTEX,   "shaders\\OpenGL\\skybox.vert");
-    skyboxStages.emplace_back(Shader::Type::FRAG,     "shaders\\OpenGL\\skybox.frag");
-    skyboxShader.reset(new glShader(skyboxStages.data(), skyboxStages.size()));
-
-    std::unique_ptr<glShader> quadShader;
-    std::vector<Shader::Stage> quadStages;
-    quadStages.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\quad.vert");
-    quadStages.emplace_back(Shader::Type::FRAG,       "shaders\\OpenGL\\quad.frag");
-    quadShader.reset(new glShader(quadStages.data(), quadStages.size())); 
-
-    std::unique_ptr<glShader> voxelShader;
-    std::vector<Shader::Stage> voxelStages;
-    voxelStages.emplace_back(Shader::Type::VERTEX,  "shaders\\OpenGL\\voxelize.vert");
-    voxelStages.emplace_back(Shader::Type::GEO,     "shaders\\OpenGL\\voxelize.geom");
-    voxelStages.emplace_back(Shader::Type::FRAG,    "shaders\\OpenGL\\voxelize.frag");
-    voxelShader.reset(new glShader(voxelStages.data(), voxelStages.size()));
-
-
-    std::unique_ptr<glShader> basicShader;
-    std::vector<Shader::Stage> basicStages;
-    basicStages.emplace_back(Shader::Type::VERTEX,  "shaders\\OpenGL\\basic.vert");
-    basicStages.emplace_back(Shader::Type::FRAG,    "shaders\\OpenGL\\basic.frag");
-    basicShader.reset(new glShader(basicStages.data(), basicStages.size()));
-
-
-    std::unique_ptr<glShader> voxelDebugShader;
-    std::vector<Shader::Stage> voxelDebugStages;
-    voxelDebugStages.emplace_back(Shader::Type::VERTEX,     "shaders\\OpenGL\\voxelDebug.vert");
-    voxelDebugStages.emplace_back(Shader::Type::FRAG,   "shaders\\OpenGL\\voxelDebug.frag");
-    voxelDebugShader.reset(new glShader(voxelDebugStages.data(), voxelDebugStages.size()));
-
-
-    std::unique_ptr<glShader> cubemapDebugShader;
-    std::vector<Shader::Stage> cubemapDebugStages;
-    cubemapDebugStages.emplace_back(Shader::Type::VERTEX,    "shaders\\OpenGL\\simple.vert");
-    cubemapDebugStages.emplace_back(Shader::Type::FRAG,      "shaders\\OpenGL\\simple.frag");
-    cubemapDebugShader.reset(new glShader(cubemapDebugStages.data(), cubemapDebugStages.size()));
-
-    cubeMesh.reset(new Mesh(Shape::Cube));
-    cubeMesh->getVertexBuffer()->setLayout({
+    std::unique_ptr<Mesh> cube;
+    cube.reset(new Mesh(Shape::Cube));
+    cube->getVertexBuffer()->setLayout({
         {"POSITION",    ShaderType::FLOAT3},
         {"UV",          ShaderType::FLOAT2},
         {"NORMAL",      ShaderType::FLOAT3},
@@ -149,6 +108,64 @@ void Application::run() {
         {"BINORMAL",    ShaderType::FLOAT3}
     });
 
+    // generate terrain based on perlin noise
+    std::vector<Vertex> vertices;
+    std::vector<Index> indices;
+
+    static const constexpr int width = 50, height = 50;
+    static const constexpr float scale = 0.3f;
+    uint32_t vertexIndex = 0;
+
+    std::vector<glm::vec3> noiseColourData;
+
+    auto getSurfaceNormal = [&](uint32_t i1, uint32_t i2, uint32_t i3) {
+        glm::vec3& v1 = vertices[i1].pos, &v2 = vertices[i2].pos, &v3 = vertices[i3].pos;
+        return glm::normalize(glm::cross(v2 - v1, v3 - v1));
+    };
+
+
+    for (float y = 0; y < height; y++) {
+        for (float x = 0; x < width; x++) {
+            float sampleX = x / scale, sampleY = y / scale;
+
+            Vertex v = {};
+            float z = glm::perlin(glm::vec2(sampleX , sampleY));
+
+            noiseColourData.push_back({ 0.0f, 1.0f - z , 1.0f - z });
+            
+            v.pos = { x, z, y };
+            v.uv = { x / (float)width, y / (float)height };
+            vertices.push_back(v);
+
+            if (x < width - 1 && y < height - 1) {
+                //indices.push_back({ vertexIndex, vertexIndex + width + 1, vertexIndex + width });
+                indices.push_back({ vertexIndex + 1, vertexIndex, vertexIndex + width + 1 });
+                //indices.push_back({ vertexIndex + width + 1, vertexIndex, vertexIndex + 1 });
+                indices.push_back({ vertexIndex + width, vertexIndex + width + 1, vertexIndex});
+            }
+
+            vertexIndex += 1;
+        }
+    }
+
+    for (uint32_t i = 0; i < indices.size(); i++) {
+        Index index = indices[i];
+        glm::vec3 normal = getSurfaceNormal(index.f1, index.f2, index.f3);
+        vertices[index.f1].normal = normal;
+        vertices[index.f2].normal = normal;
+        vertices[index.f3].normal = normal;
+    }
+
+    glTexture2D noiseTexture;
+    noiseTexture.bind();
+    noiseTexture.init(width, height, Format::RGB_F, noiseColourData.data());
+    noiseTexture.setFilter(Sampling::Filter::None);
+    noiseTexture.unbind();
+
+    //scene.objects.emplace_back("terrain", vertices, indices);
+    //scene.objects.back().name = "terrain";
+    //scene.objects.back().albedo.reset(&noiseTexture);
+
     uint32_t renderWidth = static_cast<uint32_t>(displays[display].w * .8f); 
     uint32_t renderHeight = static_cast<uint32_t>(displays[display].h * .8f);
     
@@ -156,69 +173,6 @@ void Application::run() {
     renderHeight = 1370;
 
     constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
-
-    // Generate texture on GPU.
-    unsigned int voxelTexture;
-    glGenTextures(1, &voxelTexture);
-    glBindTexture(GL_TEXTURE_3D, voxelTexture);
-
-    // Parameter options.
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    // Upload texture buffer.
-    glTexStorage3D(GL_TEXTURE_3D, 7, GL_RGBA32F, 512, 512, 512);
-    GLfloat clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-    glClearTexImage(voxelTexture, 0, GL_RGBA, GL_FLOAT, &clearColor);
-    glGenerateMipmap(GL_TEXTURE_3D);
-    glBindTexture(GL_TEXTURE_3D, 0);
-
-    // 3D texture visualization r esources
-    //
-    glTexture2D cubeBackfaceTexture;
-    cubeBackfaceTexture.bind();
-    cubeBackfaceTexture.init(renderWidth, renderHeight, Format::RGBA_F);
-    cubeBackfaceTexture.setFilter(Sampling::Filter::None);
-    cubeBackfaceTexture.unbind();
-
-    glTexture2D cubeFrontfaceTexture;
-    cubeFrontfaceTexture.bind();
-    cubeFrontfaceTexture.init(renderWidth, renderHeight, Format::RGBA_F);
-    cubeFrontfaceTexture.setFilter(Sampling::Filter::None);
-    cubeFrontfaceTexture.unbind();
-
-    glRenderbuffer cubeTexture;
-    cubeTexture.init(renderWidth, renderHeight, GL_DEPTH32F_STENCIL8);
-       
-    glFramebuffer cubeBackfaceFramebuffer;
-    cubeBackfaceFramebuffer.bind();
-    cubeBackfaceFramebuffer.attach(cubeBackfaceTexture, GL_COLOR_ATTACHMENT0);
-    cubeBackfaceFramebuffer.unbind();
-
-    glFramebuffer cubeFrontfaceFramebuffer;
-    cubeFrontfaceFramebuffer.bind();
-    cubeFrontfaceFramebuffer.attach(cubeFrontfaceTexture, GL_COLOR_ATTACHMENT0);
-    cubeFrontfaceFramebuffer.unbind();
-
-    glTexture2D voxelVisTexture;
-    voxelVisTexture.bind();
-    voxelVisTexture.init(renderWidth, renderHeight, Format::RGBA_F16);
-    voxelVisTexture.setFilter(Sampling::Filter::None);
-    voxelVisTexture.unbind();
-
-    glFramebuffer voxelVisFramebuffer;
-    voxelVisFramebuffer.bind();
-    voxelVisFramebuffer.attach(voxelVisTexture, GL_COLOR_ATTACHMENT0);
-    voxelVisFramebuffer.unbind();
-
-    // persistent imgui variable values
-    auto activeSkyboxTexture = skyboxes.find("lake");
-
-    SDL_SetWindowInputFocus(directxwindow);
 
     // get GUI i/o and set a bunch of settings
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -247,41 +201,13 @@ void Application::run() {
     glm::mat4 lightmatrix = glm::mat4(1.0f);
     scene.pointLight.position = { 0.0f, 1.8f, 0.0f };
     lightmatrix = glm::translate(lightmatrix, scene.pointLight.position);
-    float lightPos[3], lightRot[3], lightScale[3];
-    ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(lightmatrix), lightPos, lightRot, lightScale);
 
     // setup the camera that acts as the sun's view (directional light)
     glm::vec2 planes = { 1.0, 20.0f };
     float orthoSize = 16.0f;
     scene.sunCamera.getProjection() = glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
 
-
-    // voxel pass
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    voxelShader->bind();
-
-    glViewport(0, 0, 512, 512);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glDisable(GL_CULL_FACE);
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
-
-    glBindImageTexture(1, voxelTexture, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-    voxelShader->getUniform("view") = scene.camera.getView();
-    voxelShader->getUniform("projection") = scene.camera.getProjection();
-
-    for (auto& object : scene) {
-        voxelShader->getUniform("model") = object.transform;
-        object.render();
-    }
-
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glEnable(GL_CULL_FACE);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
+    std::cout << "Creating render passes..." << std::endl;
 
     // all render passes
     auto bloomPass = std::make_unique<RenderPass::Bloom>(renderWidth, renderHeight);
@@ -292,12 +218,25 @@ void Application::run() {
     auto geometryBufferPass = std::make_unique<RenderPass::GeometryBuffer>(renderWidth, renderHeight);
     auto ambientOcclusionPass = std::make_unique<RenderPass::ScreenSpaceAmbientOcclusion>(renderWidth, renderHeight);
 
+    auto voxelizationPass = std::make_unique<RenderPass::Voxelization>(512, 512, 512);
+    auto voxelDebugPass = std::make_unique<RenderPass::VoxelizationDebug>(renderWidth, renderHeight);
+
     // boolean settings needed for a couple things
     bool mouseInViewport = false, gizmoEnabled = false, showSettingsWindow = false;
     bool doSSAO = true, doBloom = false;
 
     // keep a pointer to the texture that's rendered to the window
     glTexture2D* activeScreenTexture = &tonemappingPass->result;
+
+    ECS::Scene newScene;
+    static ECS::Entity active = NULL;
+
+    std::cout << "Initialization done." << std::endl;
+
+    const GLubyte* vendor = glGetString(GL_VENDOR), *physicalDevice = glGetString(GL_RENDERER);
+
+    SDL_ShowWindow(directxwindow);
+    SDL_MaximizeWindow(directxwindow);
 
     while (running) {
         deltaTimer.start();
@@ -307,52 +246,14 @@ void Application::run() {
 
         // clear the main window
         Renderer::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
-
-        // voxel visualization pass
-        //
-        glViewport(0, 0, renderWidth, renderHeight);
-        glCullFace(GL_BACK);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        cubeBackfaceFramebuffer.bind();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        basicShader->bind();
-        basicShader->getUniform("projection") = scene.camera.getProjection();
-        basicShader->getUniform("view") = scene.camera.getView();
-        basicShader->getUniform("model") = glm::mat4(1.0f);
-
-        cubeMesh->render();
-
-        glCullFace(GL_FRONT);
-        cubeFrontfaceFramebuffer.bind();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        cubeMesh->render();
-
-        // render to screen
-        glDisable(GL_CULL_FACE);
-        voxelDebugShader->bind();
-        voxelVisFramebuffer.bind();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        cubeBackfaceTexture.bindToSlot(0);
-        cubeFrontfaceTexture.bindToSlot(1);
-        glBindTextureUnit(2, voxelTexture);
-        voxelDebugShader->getUniform("cameraPosition") = scene.camera.getPosition();
-
-        Quad->render();
-
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        //
-        // end voxel visualization pass
 
         // generate sun shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         shadowMapPass->execute(scene, scene.sunCamera);
 
         // generate point light shadow map 
-        omniShadowMapPass->execute(scene, glm::make_vec3(lightPos));
+        omniShadowMapPass->execute(scene, scene.pointLight.position);
 
         // generate a geometry buffer
         glViewport(0, 0, renderWidth, renderHeight);
@@ -363,7 +264,6 @@ void Application::run() {
         }
 
         // perform deferred lighting pass
-        glViewport(0, 0, renderWidth, renderHeight);
         lightingPass->execute(
             scene, 
             shadowMapPass.get(), 
@@ -384,6 +284,9 @@ void Application::run() {
             tonemappingPass->execute(lightingPass->result, Quad.get());
         }
 
+        // generate texture that visualizes a 3D voxel texture 
+        voxelDebugPass->execute(scene, voxelizationPass->result, cube.get(), Quad.get());
+        
         //get new frame for ImGui and ImGuizmo
         Renderer::ImGuiNewFrame(directxwindow);
         ImGuizmo::BeginFrame();
@@ -424,12 +327,11 @@ void Application::run() {
         static double bounds = 7.5f;
         static bool moveLight = false;
         double lightMoveAmount = lightMoveSpeed * deltaTime;
-        if ((lightPos[0] >= bounds && lightMoveSpeed > 0) || (lightPos[0] <= -bounds && lightMoveSpeed < 0)) {
+        if ((scene.pointLight.position.x >= bounds && lightMoveSpeed > 0) ||
+            (scene.pointLight.position.x <= -bounds && lightMoveSpeed < 0)) {
             lightMoveSpeed *= -1;
         }
-        if (moveLight) {
-            lightmatrix = glm::translate(lightmatrix, { lightMoveAmount, 0.0, 0.0 });
-        }
+        if (moveLight) lightmatrix = glm::translate(lightmatrix, { lightMoveAmount, 0.0, 0.0 });
 
         // draw the top user bar
         if (ImGui::BeginMenuBar()) {
@@ -447,6 +349,7 @@ void Application::run() {
                 if (ImGui::MenuItem("Settings", "")) {
                     showSettingsWindow = true;
                 }
+
                 if (ImGui::MenuItem("Exit", "Escape")) {
                     running = false;
                 }
@@ -464,6 +367,35 @@ void Application::run() {
                 ImGui::EndMenu();
             }
 
+            if (ImGui::BeginMenu("Add")) {
+                if (ImGui::MenuItem("Entity", "CTRL+E")) {
+                    newScene.createObject("Entity");
+                }
+                ImGui::Separator();
+
+                if (active != NULL) {
+                    if (ImGui::MenuItem("Transform", "")) {
+                        newScene.transforms.create(active);
+                    }
+
+                    if (ImGui::MenuItem("Mesh", "")) {
+                        newScene.meshes.create(active);
+                    }
+
+                    if (ImGui::MenuItem("Material", "")) {
+                        newScene.materials.create(active);
+                    }
+
+                    if (ImGui::MenuItem("Mesh Renderer", "")) {
+                        newScene.meshRenderers.create(active);
+                    }
+                }
+
+
+                ImGui::EndMenu();
+            }
+
+
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
                 // on press we remove the scene object
                 if (activeObject != scene.objects.end()) {
@@ -479,14 +411,16 @@ void Application::run() {
             ImGui::EndMenuBar();
         }
 
+        //Inspector panel
+        GUI::InspectorWindow::draw(newScene, active);
+
         // model panel
-        ImGui::Begin("Entities");
+        ImGui::Begin("Scene Objects (DEPRECATED SOON");
         if (ImGui::IsWindowFocused()) {
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), false)) {}
         }
         
-        auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen;
-        if (ImGui::TreeNodeEx("Objects", treeNodeFlags)) {
+        if (ImGui::TreeNodeEx("Objects", 0)) {
             ImGui::Columns(1, NULL, false);
             // draw a selectable for every object in the scene
             unsigned int uniqueID = 0;
@@ -503,12 +437,30 @@ void Application::run() {
             ImGui::TreePop();
         }
 
+        auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen;
+        if (ImGui::TreeNodeEx("Entities", treeNodeFlags)) {
+            ImGui::Columns(1, NULL, false);
+            unsigned int index = 0;
+            for (auto& entity : newScene.entities) {
+                bool selected = active == entity;
+                std::string& name = newScene.names.getComponent(entity)->name;
+                if (ImGui::Selectable(std::string(name + "##" + std::to_string(index)).c_str(), selected)) {
+                    active = entity;
+                }
+                if (selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+                index += 1;
+            }
+            ImGui::TreePop();
+        }
+
         ImGui::End();
 
         // post processing panel
         ImGui::Begin("Post Processing");
         static bool doTonemapping = true;
-        if (ImGui::Checkbox("HDR", &doTonemapping)) {
+        if (ImGui::Checkbox("Tonemap", &doTonemapping)) {
             if (doTonemapping) {
                 activeScreenTexture = &tonemappingPass->result;
             } else {
@@ -569,12 +521,14 @@ void Application::run() {
                 activeScreenTexture = &ambientOcclusionPass->result;
             if (ImGui::Selectable(nameof(ambientOcclusionPass->preblurResult), activeScreenTexture->ImGuiID() == ambientOcclusionPass->preblurResult.ImGuiID()))
                 activeScreenTexture = &ambientOcclusionPass->preblurResult;
-            if (ImGui::Selectable(nameof(voxelVisTexture), activeScreenTexture->ImGuiID() == voxelVisTexture.ImGuiID()))
-                activeScreenTexture = &voxelVisTexture;
-            if (ImGui::Selectable(nameof(cubeFrontfaceTexture), activeScreenTexture->ImGuiID() == cubeFrontfaceTexture.ImGuiID()))
-                activeScreenTexture = &cubeFrontfaceTexture;
-            if (ImGui::Selectable(nameof(cubeBackfaceTexture), activeScreenTexture->ImGuiID() == cubeBackfaceTexture.ImGuiID()))
-                activeScreenTexture = &cubeBackfaceTexture;
+            if (ImGui::Selectable(nameof(voxelDebugPass->result), activeScreenTexture->ImGuiID() == voxelDebugPass->result.ImGuiID()))
+                activeScreenTexture = &voxelDebugPass->result;
+            if (ImGui::Selectable(nameof(voxelDebugPass->cubeFront), activeScreenTexture->ImGuiID() == voxelDebugPass->cubeFront.ImGuiID()))
+                activeScreenTexture = &voxelDebugPass->cubeFront;
+            if (ImGui::Selectable(nameof(voxelDebugPass->cubeBack), activeScreenTexture->ImGuiID() == voxelDebugPass->cubeBack.ImGuiID()))
+                activeScreenTexture = &voxelDebugPass->cubeBack;
+            if (ImGui::Selectable(nameof(noiseTexture), activeScreenTexture->ImGuiID() == noiseTexture.ImGuiID()))
+                activeScreenTexture = &noiseTexture;
 
             ImGui::TreePop();
         }
@@ -616,15 +570,26 @@ void Application::run() {
 
         ImGui::End();
 
-        ImGui::ShowMetricsWindow();
+        // application/render metrics
+        auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar;
+        ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
+        ImGui::Text("Vendor: %s", vendor);
+        ImGui::Text("Product: %s", physicalDevice);
+        ImGui::Text("Resolution: %i x %i", renderWidth, renderHeight);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        ImGui::End();
 
         ImGui::Begin("Camera Properties");
         static float fov = 45.0f;
         if (ImGui::DragFloat("FoV", &fov, 1.0f, 35.0f, 120.0f)) {
             scene.camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
         }
-        if (ImGui::DragFloat("Move Speed", &scene.camera.moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.3f")) {}
-        if (ImGui::DragFloat("Look Speed", &scene.camera.lookSpeed, 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Move Speed", &scene.camera.moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Move Constant", &scene.camera.moveConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Look Speed", &scene.camera.lookSpeed, 0.1f, 0.0001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Look Constant", &scene.camera.lookConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Zoom Speed", &scene.camera.zoomSpeed, 0.001f, 0.0001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Zoom Constant", &scene.camera.zoomConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
         ImGui::End();
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
@@ -690,8 +655,11 @@ void Application::run() {
         // draw the imguizmo at the center of the light
         if (gizmoEnabled) {
             ImGuizmo::SetDrawlist();
+            // tell imguizmo to either manipulate selected mesh position or point light position
             auto gizmoData = moveLight ? glm::value_ptr(activeObject->transform) : glm::value_ptr(lightmatrix);
             ImGuizmo::Manipulate(glm::value_ptr(scene.camera.getView()), glm::value_ptr(scene.camera.getProjection()), operation, ImGuizmo::MODE::WORLD, gizmoData);
+            // update the lightpos
+            scene.pointLight.position = { lightmatrix[3][0], lightmatrix[3][1], lightmatrix[3][2] };
         }
 
         ImGui::End();
@@ -711,6 +679,9 @@ void Application::run() {
             tonemappingPass->resize(renderWidth, renderHeight);
             geometryBufferPass->resize(renderWidth, renderHeight);
             ambientOcclusionPass->resize(renderWidth, renderHeight);
+            lightingPass->resize(renderWidth, renderHeight);
+            voxelDebugPass->resize(renderWidth, renderHeight);
+
             
             resizing = false;
         }
