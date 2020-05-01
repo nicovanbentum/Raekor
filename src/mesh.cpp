@@ -57,16 +57,18 @@ Mesh::Mesh(Shape shape) {
     }
 }
 
-Mesh::Mesh(const std::vector<Vertex>& vb, const std::vector<Index>& ib) {
+Mesh::Mesh(std::vector<Vertex>& vb, std::vector<Index>& ib) {
     setVertexBuffer(vb);
     setIndexBuffer(ib);
 }
 
-void Mesh::setVertexBuffer(const std::vector<Vertex>& buffer) {
-    vb.reset(Raekor::VertexBuffer::construct(buffer));
+void Mesh::setVertexBuffer(std::vector<Vertex>& buffer) {
+    vb.reset(new glVertexBuffer());
+    vb->loadVertices(buffer.data(), buffer.size());
 }
-void Mesh::setIndexBuffer(const std::vector<Index>& buffer) {
-    ib.reset(Raekor::IndexBuffer::construct(buffer));
+void Mesh::setIndexBuffer(std::vector<Index>& buffer) {
+    ib.reset(new glIndexBuffer());
+    ib->loadIndices(buffer.data(), buffer.size());
 }
 
 void Mesh::bind() const {

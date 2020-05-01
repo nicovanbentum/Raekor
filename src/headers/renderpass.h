@@ -51,9 +51,9 @@ public:
 
 class GeometryBuffer {
 public:
-    GeometryBuffer(uint32_t width, uint32_t height);
-    void execute(Scene& scene);
-    void resize(uint32_t width, uint32_t height);
+    GeometryBuffer(Viewport& viewport);
+    void execute(Scene& scene, Viewport& viewport);
+    void resize(Viewport& viewport);
 
 private:
     glShader shader;
@@ -73,9 +73,9 @@ public:
         float bias = 0.025f, power = 2.5f;
     } settings;
 
-    ScreenSpaceAmbientOcclusion(uint32_t renderWidth, uint32_t renderHeight);
-    void execute(Scene& scene, GeometryBuffer* geometryPass, Mesh* quad);
-    void resize(uint32_t renderWidth, uint32_t renderHeight);
+    ScreenSpaceAmbientOcclusion(Viewport& viewport);
+    void execute(Scene& scene, Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad);
+    void resize(Viewport& viewport);
 
 private:
     glTexture2D noise;
@@ -115,10 +115,10 @@ public:
     } settings;
 
 
-    DeferredLighting(uint32_t width, uint32_t height);
-    void execute(Scene& scene, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
+    DeferredLighting(Viewport& viewport);
+    void execute(Scene& scene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
                     GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Mesh* quad);
-    void resize(uint32_t width, uint32_t height);
+    void resize(Viewport& viewport);
 
 private:
     glShader shader;
@@ -135,9 +135,9 @@ public:
 
 class Bloom {
 public:
-    Bloom(uint32_t width, uint32_t height);
+    Bloom(Viewport& viewport);
     void execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad);
-    void resize(uint32_t width, uint32_t height);
+    void resize(Viewport& viewport);
 
 private:
     glShader blurShader;
@@ -159,8 +159,8 @@ public:
         float gamma = 1.8f;
     } settings;
 
-    Tonemapping(uint32_t width, uint32_t height);
-    void resize(uint32_t width, uint32_t height);
+    Tonemapping(Viewport& viewport);
+    void resize(Viewport& viewport);
     void execute(glTexture2D& scene, Mesh* quad);
 
 private:
@@ -178,7 +178,7 @@ public:
 class Voxelization {
 public:
     Voxelization(uint32_t width, uint32_t height, uint32_t depth);
-    void execute(Scene& scene);
+    void execute(Scene& scene, Viewport& viewport);
 
 private:
     glShader shader;
@@ -191,9 +191,9 @@ public:
 
 class VoxelizationDebug {
 public:
-    VoxelizationDebug(uint32_t width, uint32_t height);
-    void execute(Scene& scene, uint32_t voxelMap, Mesh* cube, Mesh* quad);
-    void resize(uint32_t width, uint32_t height);
+    VoxelizationDebug(Viewport& viewport);
+    void execute(Scene& scene, Viewport& viewport, uint32_t voxelMap, Mesh* cube, Mesh* quad);
+    void resize(Viewport& viewport);
 
 private:
     glShader basicShader;

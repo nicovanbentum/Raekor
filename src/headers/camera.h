@@ -58,4 +58,40 @@ public:
 
 };
 
+class Viewport {
+public:
+    Viewport(SDL_Rect display) : 
+        fov(45.0f), 
+        aspectRatio(16.0f / 9.0f),
+        camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 1.0f, 100.0f)), 
+        size(glm::vec2(display.w, display.h))
+    {
+
+    }
+
+    void setFov(float fov) {
+        this->fov = fov;
+        camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 1.0f, 100.0f);
+    }
+
+    void setAspectRatio(float ratio) {
+        this->aspectRatio = ratio;
+        camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 1.0f, 100.0f);
+    }
+
+    inline Camera& getCamera() {
+        return camera;
+    }
+
+
+private:
+    float fov;
+    float aspectRatio;
+    Camera camera;
+
+public:
+    glm::uvec2 size;
+
+};
+
 } // Namespace Raekor

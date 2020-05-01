@@ -58,6 +58,8 @@ void Application::run() {
 
     SDL_SetWindowInputFocus(directxwindow);
 
+    Viewport viewport = Viewport(displays[display]);
+
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -166,12 +168,7 @@ void Application::run() {
     //scene.objects.back().name = "terrain";
     //scene.objects.back().albedo.reset(&noiseTexture);
 
-    uint32_t renderWidth = static_cast<uint32_t>(displays[display].w * .8f); 
-    uint32_t renderHeight = static_cast<uint32_t>(displays[display].h * .8f);
-    
-    renderWidth = 2003;
-    renderHeight = 1370;
-
+    viewport.size.x = 2003, viewport.size.y = 1370;
     constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 
     // get GUI i/o and set a bunch of settings
@@ -210,16 +207,16 @@ void Application::run() {
     std::cout << "Creating render passes..." << std::endl;
 
     // all render passes
-    auto bloomPass = std::make_unique<RenderPass::Bloom>(renderWidth, renderHeight);
-    auto lightingPass = std::make_unique<RenderPass::DeferredLighting>(renderWidth, renderHeight);
-    auto shadowMapPass = std::make_unique<RenderPass::ShadowMap>(SHADOW_WIDTH, SHADOW_HEIGHT);
-    auto tonemappingPass = std::make_unique<RenderPass::Tonemapping>(renderWidth, renderHeight);
-    auto omniShadowMapPass = std::make_unique<RenderPass::OmniShadowMap>(SHADOW_WIDTH, SHADOW_HEIGHT);
-    auto geometryBufferPass = std::make_unique<RenderPass::GeometryBuffer>(renderWidth, renderHeight);
-    auto ambientOcclusionPass = std::make_unique<RenderPass::ScreenSpaceAmbientOcclusion>(renderWidth, renderHeight);
+    auto bloomPass =                std::make_unique<RenderPass::Bloom>(viewport);
+    auto lightingPass =             std::make_unique<RenderPass::DeferredLighting>(viewport);
+    auto shadowMapPass =            std::make_unique<RenderPass::ShadowMap>(SHADOW_WIDTH, SHADOW_HEIGHT);
+    auto tonemappingPass =          std::make_unique<RenderPass::Tonemapping>(viewport);
+    auto omniShadowMapPass =        std::make_unique<RenderPass::OmniShadowMap>(SHADOW_WIDTH, SHADOW_HEIGHT);
+    auto geometryBufferPass =       std::make_unique<RenderPass::GeometryBuffer>(viewport);
+    auto ambientOcclusionPass =     std::make_unique<RenderPass::ScreenSpaceAmbientOcclusion>(viewport);
 
-    auto voxelizationPass = std::make_unique<RenderPass::Voxelization>(512, 512, 512);
-    auto voxelDebugPass = std::make_unique<RenderPass::VoxelizationDebug>(renderWidth, renderHeight);
+    auto voxelizationPass =         std::make_unique<RenderPass::Voxelization>(512, 512, 512);
+    auto voxelDebugPass =           std::make_unique<RenderPass::VoxelizationDebug>(viewport);
 
     // boolean settings needed for a couple things
     bool mouseInViewport = false, gizmoEnabled = false, showSettingsWindow = false;
@@ -242,9 +239,9 @@ void Application::run() {
 
     while (running) {
         deltaTimer.start();
-        handleEvents(directxwindow, scene.camera, mouseInViewport, deltaTime);
+        handleEvents(directxwindow, viewport.getCamera(), mouseInViewport, deltaTime);
         scene.sunCamera.update(true);
-        scene.camera.update(true);
+        viewport.getCamera().update(true);
 
         // clear the main window
         Renderer::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
@@ -258,16 +255,17 @@ void Application::run() {
         omniShadowMapPass->execute(scene, scene.pointLight.position);
 
         // generate a geometry buffer
-        glViewport(0, 0, renderWidth, renderHeight);
-        geometryBufferPass->execute(scene);
+        glViewport(0, 0, viewport.size.x, viewport.size.y);
+        geometryBufferPass->execute(scene, viewport);
 
         if (doSSAO) {
-            ambientOcclusionPass->execute(scene, geometryBufferPass.get(), Quad.get());
+            ambientOcclusionPass->execute(scene, viewport, geometryBufferPass.get(), Quad.get());
         }
 
         // perform deferred lighting pass
         lightingPass->execute(
             scene, 
+            viewport,
             shadowMapPass.get(), 
             omniShadowMapPass.get(),
             geometryBufferPass.get(),
@@ -287,7 +285,7 @@ void Application::run() {
         }
 
         // generate texture that visualizes a 3D voxel texture 
-        voxelDebugPass->execute(scene, voxelizationPass->result, cube.get(), Quad.get());
+        voxelDebugPass->execute(scene, viewport, voxelizationPass->result, cube.get(), Quad.get());
         
         //get new frame for ImGui and ImGuizmo
         Renderer::ImGuiNewFrame(directxwindow);
@@ -298,10 +296,10 @@ void Application::run() {
         // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
         // because it would be confusing to have two docking targets within each others.
         ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-        ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(viewport->Pos);
-        ImGui::SetNextWindowSize(viewport->Size);
-        ImGui::SetNextWindowViewport(viewport->ID);
+        ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(imGuiViewport->Pos);
+        ImGui::SetNextWindowSize(imGuiViewport->Size);
+        ImGui::SetNextWindowViewport(imGuiViewport->ID);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
         dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | 
@@ -551,6 +549,7 @@ void Application::run() {
         if (ImGui::DragFloat("Size", &orthoSize)) {
             scene.sunCamera.getProjection() = glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
         }
+
         if (ImGui::DragFloat("Min bias", &lightingPass->settings.minBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
         if (ImGui::DragFloat("Max bias", &lightingPass->settings.maxBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
         if (ImGui::ColorEdit3("Color", glm::value_ptr(lightingPass->settings.sunColor))) {}
@@ -581,21 +580,21 @@ void Application::run() {
         ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
         ImGui::Text("Vendor: %s", vendor);
         ImGui::Text("Product: %s", physicalDevice);
-        ImGui::Text("Resolution: %i x %i", renderWidth, renderHeight);
+        ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         ImGui::End();
 
         ImGui::Begin("Camera Properties");
         static float fov = 45.0f;
         if (ImGui::DragFloat("FoV", &fov, 1.0f, 35.0f, 120.0f)) {
-            scene.camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
+            viewport.getCamera().getProjection() = glm::perspectiveRH(glm::radians(fov), (float)viewport.size.x / (float)viewport.size.y, 0.1f, 100.0f);
         }
-        if (ImGui::DragFloat("Move Speed", &scene.camera.moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("Move Constant", &scene.camera.moveConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("Look Speed", &scene.camera.lookSpeed, 0.1f, 0.0001f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("Look Constant", &scene.camera.lookConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("Zoom Speed", &scene.camera.zoomSpeed, 0.001f, 0.0001f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("Zoom Constant", &scene.camera.zoomConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Move Speed", &viewport.getCamera().moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Move Constant", &viewport.getCamera().moveConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Look Speed", &viewport.getCamera().lookSpeed, 0.1f, 0.0001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Look Constant", &viewport.getCamera().lookConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Zoom Speed", &viewport.getCamera().zoomSpeed, 0.001f, 0.0001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Zoom Constant", &viewport.getCamera().zoomConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
         ImGui::End();
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
@@ -642,9 +641,9 @@ void Application::run() {
         // figure out if we need to resize the viewport
         static bool resizing = false;
         auto size = ImGui::GetContentRegionAvail();
-        if (renderWidth != size.x || renderHeight != size.y) {
+        if (viewport.size.x != size.x || viewport.size.y != size.y) {
             resizing = true;
-            renderWidth = static_cast<uint32_t>(size.x), renderHeight = static_cast<uint32_t>(size.y);
+            viewport.size.x = static_cast<uint32_t>(size.x), viewport.size.y = static_cast<uint32_t>(size.y);
         }
         auto pos = ImGui::GetWindowPos();
 
@@ -656,14 +655,14 @@ void Application::run() {
         }
 
         // render the active screen texture to the view port as an imgui image
-        ImGui::Image(activeScreenTexture->ImGuiID(), ImVec2((float)renderWidth, (float)renderHeight), { 0,1 }, { 1,0 });
+        ImGui::Image(activeScreenTexture->ImGuiID(), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0,1 }, { 1,0 });
 
         // draw the imguizmo at the center of the light
         if (gizmoEnabled) {
             ImGuizmo::SetDrawlist();
             // tell imguizmo to either manipulate selected mesh position or point light position
             auto gizmoData = moveLight ? glm::value_ptr(activeObject->transform) : glm::value_ptr(lightmatrix);
-            ImGuizmo::Manipulate(glm::value_ptr(scene.camera.getView()), glm::value_ptr(scene.camera.getProjection()), operation, ImGuizmo::MODE::WORLD, gizmoData);
+            ImGuizmo::Manipulate(glm::value_ptr(viewport.getCamera().getView()), glm::value_ptr(viewport.getCamera().getProjection()), operation, ImGuizmo::MODE::WORLD, gizmoData);
             // update the lightpos
             scene.pointLight.position = { lightmatrix[3][0], lightmatrix[3][1], lightmatrix[3][2] };
         }
@@ -677,16 +676,16 @@ void Application::run() {
 
         if (resizing) {
             // adjust the camera and gizmo
-            scene.camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)renderWidth / (float)renderHeight, 0.1f, 100.0f);
+            viewport.getCamera().getProjection() = glm::perspectiveRH(glm::radians(fov), (float)viewport.size.x / (float)viewport.size.y, 0.1f, 100.0f);
             ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
 
             // resizing framebuffers
-            bloomPass->resize(renderWidth, renderHeight);
-            tonemappingPass->resize(renderWidth, renderHeight);
-            geometryBufferPass->resize(renderWidth, renderHeight);
-            ambientOcclusionPass->resize(renderWidth, renderHeight);
-            lightingPass->resize(renderWidth, renderHeight);
-            voxelDebugPass->resize(renderWidth, renderHeight);
+            bloomPass->resize(viewport);
+            tonemappingPass->resize(viewport);
+            geometryBufferPass->resize(viewport);
+            ambientOcclusionPass->resize(viewport);
+            lightingPass->resize(viewport);
+            voxelDebugPass->resize(viewport);
 
             
             resizing = false;

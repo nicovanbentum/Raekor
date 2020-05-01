@@ -35,11 +35,11 @@ enum class ShaderType {
 
 uint32_t size_of(ShaderType type);
 
-struct GLShaderType {
+struct glShaderType {
     GLenum glType;
     uint8_t count;
 
-    GLShaderType(ShaderType type);
+    glShaderType(ShaderType type);
 };
 
 struct Element {
@@ -105,21 +105,25 @@ protected:
     uint32_t count;
 };
 
-class GLVertexBuffer : public VertexBuffer {
+class glVertexBuffer {
 public:
-    GLVertexBuffer(const std::vector<Vertex>& vertices);
-    virtual void bind() const override;
-    virtual void setLayout(const InputLayout& layout) const override;
+    glVertexBuffer() {}
+    void loadVertices(Vertex* vertices, size_t count);
+    void bind() const;
+    void setLayout(const InputLayout& layout) const;
 
 private:
     mutable InputLayout inputLayout;
     unsigned int id = 0;
 };
 
-class GLIndexBuffer : public IndexBuffer {
+class glIndexBuffer {
 public:
-    GLIndexBuffer(const std::vector<Index>& indices);
-    virtual void bind() const override;
+    glIndexBuffer() {}
+    void loadIndices(Index* indices, size_t count);
+    void bind() const ;
+
+    uint32_t count;
 
 private:
     unsigned int id = 0;

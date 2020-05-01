@@ -76,7 +76,6 @@ public:
     std::vector<SceneObject>::const_iterator end() const { return objects.end(); }
 
     // this scene has a camera, bunch of objects, 1 directional light, 1 point light
-    Camera camera;
     Camera sunCamera;
     PointLight pointLight;
     DirectionalLight dirLight;

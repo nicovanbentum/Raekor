@@ -48,8 +48,8 @@ struct MeshComponent {
 
     std::vector<subMesh> subMeshes;
 
-    uint32_t vertexBuffer;
-    uint32_t indexBuffer;
+    glVertexBuffer vertexBuffer;
+    glIndexBuffer indexBuffer;
 
     void init(Shape basicShape = Shape::None) {
         switch (basicShape) {
@@ -66,15 +66,14 @@ struct MeshComponent {
         indices = std::vector<Index>(cubeIndices);
 
         // upload to GPU
-        vertexBuffer = glCreateBuffer(cubeVertices.data(), cubeVertices.size(), GL_ARRAY_BUFFER);
-        indexBuffer = glCreateBuffer(cubeIndices.data(), cubeIndices.size() * 3, GL_ELEMENT_ARRAY_BUFFER);
+        vertexBuffer.loadVertices(vertices.data(), vertices.size());
+        indexBuffer.loadIndices(indices.data(), indices.size());
 
         std::puts("uploaded cube to gpu");
     }
 };
 
 struct MeshRendererComponent {
-
 
 };
 
@@ -182,14 +181,37 @@ public:
 };
 
 // SYSTEMS TODO: turn this into classes and seperate files
-static void renderEntitySystem(ComponentManager<MeshComponent> meshes, ComponentManager<MaterialComponent> materials) {
+// TODO: figure out how we do sub mesh transforms
+static void renderGeometryWithMaterials(ComponentManager<MeshComponent> meshes, ComponentManager<MaterialComponent> materials) {
     for (size_t i = 0; i < meshes.getCount(); i++) {
         Entity entity = meshes.getEntity(i);
         auto mesh = meshes.getComponent(entity);
         auto material = materials.getComponent(entity);
         if (!mesh && !material) continue;
         
+        mesh->vertexBuffer.bind();
+        mesh->indexBuffer.bind();
+        material->albedo.bindToSlot(0);
+        material->normals.bindToSlot(3);
 
+        // TODO: this only works because it's a per mesh vertex buffer,
+        // in the future we want a single vertex buffer for imported geometry and use submeshes to index into that vertex buffer
+        glDrawElements(GL_TRIANGLES, mesh->indexBuffer.count, GL_UNSIGNED_INT, nullptr);
+    }
+}
+
+static void renderGeometry(ComponentManager<MeshComponent>& meshes, ComponentManager<TransformComponent>& transforms) {
+    for (size_t i = 0; i < meshes.getCount(); i++) {
+        Entity entity = meshes.getEntity(i);
+        auto mesh = meshes.getComponent(entity);
+        if (!mesh) continue;
+
+        mesh->vertexBuffer.bind();
+        mesh->indexBuffer.bind();
+        
+        // TODO: this only works because it's a per mesh vertex buffer,
+        // in the future we want a single vertex buffer for imported geometry and use submeshes to index into that vertex buffer
+        glDrawElements(GL_TRIANGLES, mesh->indexBuffer.count, GL_UNSIGNED_INT, nullptr);
     }
 }
 

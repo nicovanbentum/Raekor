@@ -61,7 +61,7 @@ uint32_t size_of(ShaderType type) {
     }
 }
 
-GLShaderType::GLShaderType(ShaderType type) {
+glShaderType::glShaderType(ShaderType type) {
     switch (type) {
         case ShaderType::FLOAT1: {
             glType = GL_FLOAT;
@@ -95,7 +95,7 @@ VertexBuffer* VertexBuffer::construct(const std::vector<Vertex>& vertices) {
     auto active = Renderer::getActiveAPI();
     switch(active) {
         case RenderAPI::OPENGL: {
-            return new GLVertexBuffer(vertices);
+            return nullptr;
         } break;
 #ifdef _WIN32
         case RenderAPI::DIRECTX11: {
@@ -110,7 +110,7 @@ IndexBuffer* IndexBuffer::construct(const std::vector<Index>& indices) {
     auto active = Renderer::getActiveAPI();
     switch (active) {
         case RenderAPI::OPENGL: {
-            return new GLIndexBuffer(indices);
+            return nullptr;
         } break;
 #ifdef _WIN32
         case RenderAPI::DIRECTX11: {
@@ -121,15 +121,15 @@ IndexBuffer* IndexBuffer::construct(const std::vector<Index>& indices) {
     return nullptr;
 }
 
-GLVertexBuffer::GLVertexBuffer(const std::vector<Vertex>& vertices) {
-    id = glCreateBuffer(vertices.data(), vertices.size(), GL_ARRAY_BUFFER);
+void glVertexBuffer::loadVertices(Vertex* vertices, size_t count) {
+    id = glCreateBuffer(vertices, count, GL_ARRAY_BUFFER);
 }
 
-void GLVertexBuffer::bind() const {
+void glVertexBuffer::bind() const {
     glBindBuffer(GL_ARRAY_BUFFER, id);
     GLuint index = 0;
     for (auto& element : inputLayout) {
-        auto shaderType = static_cast<GLShaderType>(element.type);
+        auto shaderType = static_cast<glShaderType>(element.type);
         glEnableVertexAttribArray(index);
         glVertexAttribPointer(
             index, // hlsl layout index
@@ -143,17 +143,17 @@ void GLVertexBuffer::bind() const {
     }
 }
 
-void GLVertexBuffer::setLayout(const InputLayout& layout) const {
+void glVertexBuffer::setLayout(const InputLayout& layout) const {
     inputLayout = layout;
 }
 
-GLIndexBuffer::GLIndexBuffer(const std::vector<Index>& indices) {
-    count = (unsigned int)(indices.size() * 3);
-    id = glCreateBuffer(indices.data(), indices.size(), GL_ELEMENT_ARRAY_BUFFER);
+void glIndexBuffer::loadIndices(Index* indices, size_t count) {
+    id = glCreateBuffer(indices, count, GL_ELEMENT_ARRAY_BUFFER);
+    this->count = static_cast<uint32_t>(count * 3);
 }
 
 
-void GLIndexBuffer::bind() const {
+void glIndexBuffer::bind() const {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
 }
 

@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "renderpass.h"
+#include "ecs.h"
+#include "camera.h"
 
 namespace Raekor {
 namespace RenderPass {
@@ -100,7 +102,7 @@ void OmniShadowMap::execute(Scene& scene, const glm::vec3& lightPosition) {
 
 //////////////////////////////////////////////////////////////////////////////////
 
-GeometryBuffer::GeometryBuffer(uint32_t width, uint32_t height) {
+GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     std::vector<Shader::Stage> gbufferStages;
     gbufferStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\gbuffer.vert");
     gbufferStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gbuffer.frag");
@@ -109,22 +111,22 @@ GeometryBuffer::GeometryBuffer(uint32_t width, uint32_t height) {
     shader.reload(gbufferStages.data(), gbufferStages.size());
 
     albedoTexture.bind();
-    albedoTexture.init(width, height, Format::RGBA_F16);
+    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     albedoTexture.setFilter(Sampling::Filter::None);
     albedoTexture.unbind();
 
     normalTexture.bind();
-    normalTexture.init(width, height, Format::RGBA_F16);
+    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     normalTexture.setFilter(Sampling::Filter::None);
     normalTexture.unbind();
 
     positionTexture.bind();
-    positionTexture.init(width, height, Format::RGBA_F16);
+    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     positionTexture.setFilter(Sampling::Filter::None);
     positionTexture.setWrap(Sampling::Wrap::ClampEdge);
     positionTexture.unbind();
 
-    GDepthBuffer.init(width, height, GL_DEPTH32F_STENCIL8);
+    GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 
     GBuffer.bind();
     GBuffer.attach(positionTexture, GL_COLOR_ATTACHMENT0);
@@ -134,14 +136,14 @@ GeometryBuffer::GeometryBuffer(uint32_t width, uint32_t height) {
     GBuffer.unbind();
 }
 
-void GeometryBuffer::execute(Scene& scene) {
+void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
     GBuffer.bind();
 
     shader.bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    shader.getUniform("projection") = scene.camera.getProjection();
-    shader.getUniform("view") = scene.camera.getView();
+    shader.getUniform("projection") = viewport.getCamera().getProjection();
+    shader.getUniform("view") = viewport.getCamera().getView();
 
     for (auto& object : scene) {
         shader.getUniform("model") = object.transform;
@@ -151,24 +153,24 @@ void GeometryBuffer::execute(Scene& scene) {
     GBuffer.unbind();
 }
 
-void GeometryBuffer::resize(uint32_t width, uint32_t height) {
+void GeometryBuffer::resize(Viewport& viewport) {
     // resizing framebuffers
     albedoTexture.bind();
-    albedoTexture.init(width, height, Format::RGBA_F16);
+    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
     normalTexture.bind();
-    normalTexture.init(width, height, Format::RGBA_F16);
+    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
     positionTexture.bind();
-    positionTexture.init(width, height, Format::RGBA_F16);
+    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
-    GDepthBuffer.init(width, height, GL_DEPTH32F_STENCIL8);
+    GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
 
-ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(uint32_t renderWidth, uint32_t renderHeight) {
-    noiseScale = { renderWidth / 4.0f, renderHeight / 4.0f };
+ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(Viewport& viewport) {
+    noiseScale = { viewport.size.x / 4.0f, viewport.size.y / 4.0f };
 
     // load shaders from disk
     std::vector<Shader::Stage> ssaoStages;
@@ -221,21 +223,21 @@ ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(uint32_t renderWidth, u
     noise.setWrap(Sampling::Wrap::Repeat);
 
     preblurResult.bind();
-    preblurResult.init(renderWidth, renderHeight, { GL_RGBA, GL_RGBA, GL_FLOAT }, nullptr);
+    preblurResult.init(viewport.size.x, viewport.size.y, { GL_RGBA, GL_RGBA, GL_FLOAT }, nullptr);
     preblurResult.setFilter(Sampling::Filter::None);
 
     framebuffer.bind();
     framebuffer.attach(preblurResult, GL_COLOR_ATTACHMENT0);
 
     result.bind();
-    result.init(renderWidth, renderHeight, { GL_RGBA, GL_RGBA, GL_FLOAT }, nullptr);
+    result.init(viewport.size.x, viewport.size.y, { GL_RGBA, GL_RGBA, GL_FLOAT }, nullptr);
     result.setFilter(Sampling::Filter::None);
 
     blurFramebuffer.bind();
     blurFramebuffer.attach(result, GL_COLOR_ATTACHMENT0);
 }
 
-void ScreenSpaceAmbientOcclusion::execute(Scene& scene, GeometryBuffer* geometryPass, Mesh* quad) {
+void ScreenSpaceAmbientOcclusion::execute(Scene& scene, Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad) {
     framebuffer.bind();
     geometryPass->positionTexture.bindToSlot(0);
     geometryPass->normalTexture.bindToSlot(1);
@@ -243,8 +245,8 @@ void ScreenSpaceAmbientOcclusion::execute(Scene& scene, GeometryBuffer* geometry
     shader.bind();
 
     shader.getUniform("samples") = ssaoKernel;
-    shader.getUniform("view") = scene.camera.getView();
-    shader.getUniform("projection") = scene.camera.getProjection();
+    shader.getUniform("view") = viewport.getCamera().getView();
+    shader.getUniform("projection") = viewport.getCamera().getProjection();
     shader.getUniform("noiseScale") = noiseScale;
     shader.getUniform("sampleCount") = settings.samples;
     shader.getUniform("power") = settings.power;
@@ -260,19 +262,19 @@ void ScreenSpaceAmbientOcclusion::execute(Scene& scene, GeometryBuffer* geometry
     quad->render();
 }
 
-void ScreenSpaceAmbientOcclusion::resize(uint32_t renderWidth, uint32_t renderHeight) {
-    noiseScale = { renderWidth / 4.0f, renderHeight / 4.0f };
+void ScreenSpaceAmbientOcclusion::resize(Viewport& viewport) {
+    noiseScale = { viewport.size.x / 4.0f, viewport.size.y / 4.0f };
 
     preblurResult.bind();
-    preblurResult.init(renderWidth, renderHeight, Format::RGB_F);
+    preblurResult.init(viewport.size.x, viewport.size.y, Format::RGB_F);
 
     result.bind();
-    result.init(renderWidth, renderHeight, Format::RGB_F);
+    result.init(viewport.size.x, viewport.size.y, Format::RGB_F);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
 
-DeferredLighting::DeferredLighting(uint32_t width, uint32_t height) {
+DeferredLighting::DeferredLighting(Viewport& viewport) {
     // load shaders from disk
     Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
     Shader::Stage frag(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
@@ -281,16 +283,16 @@ DeferredLighting::DeferredLighting(uint32_t width, uint32_t height) {
 
     // init render targets
     result.bind();
-    result.init(width, height, Format::RGBA_F16);
+    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     result.setFilter(Sampling::Filter::Bilinear);
     result.unbind();
 
     bloomHighlights.bind();
-    bloomHighlights.init(width, height, Format::RGBA_F16);
+    bloomHighlights.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     bloomHighlights.setFilter(Sampling::Filter::Bilinear);
     bloomHighlights.unbind();
 
-    renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
+    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 
     framebuffer.bind();
     framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
@@ -302,7 +304,7 @@ DeferredLighting::DeferredLighting(uint32_t width, uint32_t height) {
     uniformBuffer.setSize(sizeof(uniforms));
 }
 
-void DeferredLighting::execute(Scene& scene, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
+void DeferredLighting::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
                                 GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Mesh* quad) {
     // bind the main framebuffer
     framebuffer.bind();
@@ -325,11 +327,11 @@ void DeferredLighting::execute(Scene& scene, ShadowMap* shadowMap, OmniShadowMap
     ambientOcclusion->result.bindToSlot(5);
 
     // update the uniform buffer CPU side
-    uniforms.view = scene.camera.getView();
-    uniforms.projection = scene.camera.getProjection();
+    uniforms.view = viewport.getCamera().getView();
+    uniforms.projection = viewport.getCamera().getProjection();
     uniforms.pointLightPos = glm::vec4(scene.pointLight.position, 1.0f);
     uniforms.DirLightPos = glm::vec4(scene.sunCamera.getPosition(), 1.0);
-    uniforms.DirViewPos = glm::vec4(scene.camera.getPosition(), 1.0);
+    uniforms.DirViewPos = glm::vec4(viewport.getCamera().getPosition(), 1.0);
     uniforms.lightSpaceMatrix = scene.sunCamera.getProjection() * scene.sunCamera.getView();
 
     // update uniform buffer GPU side
@@ -341,21 +343,21 @@ void DeferredLighting::execute(Scene& scene, ShadowMap* shadowMap, OmniShadowMap
     framebuffer.unbind();
 }
 
-void DeferredLighting::resize(uint32_t width, uint32_t height) {
+void DeferredLighting::resize(Viewport& viewport) {
     // resize render targets
     result.bind();
-    result.init(width, height, Format::RGBA_F16);
+    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
     bloomHighlights.bind();
-    bloomHighlights.init(width, height, Format::RGBA_F16);
+    bloomHighlights.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
-    renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
+    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
 
 
 //////////////////////////////////////////////////////////////////////////////////
 
-Bloom::Bloom(uint32_t width, uint32_t height) {
+Bloom::Bloom(Viewport& viewport) {
     // load shaders from disk
     std::vector<Shader::Stage> bloomStages;
     bloomStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
@@ -369,7 +371,7 @@ Bloom::Bloom(uint32_t width, uint32_t height) {
 
     // init render targets
     result.bind();
-    result.init(width, height, Format::RGBA_F16);
+    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     result.setFilter(Sampling::Filter::Bilinear);
     result.unbind();
 
@@ -379,7 +381,7 @@ Bloom::Bloom(uint32_t width, uint32_t height) {
 
     for (unsigned int i = 0; i < 2; i++) {
         blurTextures[i].bind();
-        blurTextures[i].init(width, height, Format::RGBA_F16);
+        blurTextures[i].init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
         blurTextures[i].setFilter(Sampling::Filter::Bilinear);
         blurTextures[i].setWrap(Sampling::Wrap::ClampEdge);
         blurTextures[i].unbind();
@@ -421,19 +423,19 @@ void Bloom::execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad) {
     resultFramebuffer.unbind();
 }
 
-void Bloom::resize(uint32_t width, uint32_t height) {
+void Bloom::resize(Viewport& viewport) {
     result.bind();
-    result.init(width, height, Format::RGBA_F16);
+    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
     for (unsigned int i = 0; i < 2; i++) {
         blurTextures[i].bind();
-        blurTextures[i].init(width, height, Format::RGBA_F16);
+        blurTextures[i].init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     }
 }
 
 //////////////////////////////////////////////////////////////////////////////////
 
-Tonemapping::Tonemapping(uint32_t width, uint32_t height) {
+Tonemapping::Tonemapping(Viewport& viewport) {
     // load shaders from disk
     std::vector<Shader::Stage> tonemapStages;
     tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
@@ -442,11 +444,11 @@ Tonemapping::Tonemapping(uint32_t width, uint32_t height) {
 
     // init render targets
     result.bind();
-    result.init(width, height, Format::RGB_F);
+    result.init(viewport.size.x, viewport.size.y, Format::RGB_F);
     result.setFilter(Sampling::Filter::None);
     result.unbind();
 
-    renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
+    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 
     framebuffer.bind();
     framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
@@ -457,12 +459,12 @@ Tonemapping::Tonemapping(uint32_t width, uint32_t height) {
     uniformBuffer.setSize(sizeof(settings));
 }
 
-void Tonemapping::resize(uint32_t width, uint32_t height) {
+void Tonemapping::resize(Viewport& viewport) {
     // resize render targets
     result.bind();
-    result.init(width, height, Format::RGB_F);
+    result.init(viewport.size.x, viewport.size.y, Format::RGB_F);
 
-    renderbuffer.init(width, height, GL_DEPTH32F_STENCIL8);
+    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
 
 void Tonemapping::execute(glTexture2D& scene, Mesh* quad) {
@@ -514,7 +516,7 @@ Voxelization::Voxelization(uint32_t width, uint32_t height, uint32_t depth) {
 }
 
 
-void Voxelization::execute(Scene& scene) {
+void Voxelization::execute(Scene& scene, Viewport& viewport) {
     shader.bind();
 
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -523,8 +525,8 @@ void Voxelization::execute(Scene& scene) {
     glDisable(GL_BLEND);
 
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-    shader.getUniform("view") = scene.camera.getView();
-    shader.getUniform("projection") = scene.camera.getProjection();
+    shader.getUniform("view") = viewport.getCamera().getView();
+    shader.getUniform("projection") = viewport.getCamera().getProjection();
 
     for (auto& object : scene) {
         shader.getUniform("model") = object.transform;
@@ -541,7 +543,7 @@ void Voxelization::execute(Scene& scene) {
 
 //////////////////////////////////////////////////////////////////////////////////
 
-VoxelizationDebug::VoxelizationDebug(uint32_t width, uint32_t height) {
+VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
     std::vector<Shader::Stage> basicStages;
     basicStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\basic.vert");
     basicStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\basic.frag");
@@ -554,16 +556,16 @@ VoxelizationDebug::VoxelizationDebug(uint32_t width, uint32_t height) {
     voxelTracedShader.reload(voxelDebugStages.data(), voxelDebugStages.size());
 
     cubeBack.bind();
-    cubeBack.init(width, height, Format::RGBA_F);
+    cubeBack.init(viewport.size.x, viewport.size.y, Format::RGBA_F);
     cubeBack.setFilter(Sampling::Filter::None);
     cubeBack.unbind();
 
     cubeFront.bind();
-    cubeFront.init(width, height, Format::RGBA_F);
+    cubeFront.init(viewport.size.x, viewport.size.y, Format::RGBA_F);
     cubeFront.setFilter(Sampling::Filter::None);
     cubeFront.unbind();
 
-    cubeTexture.init(width, height, GL_DEPTH32F_STENCIL8);
+    cubeTexture.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 
     cubeBackfaceFramebuffer.bind();
     cubeBackfaceFramebuffer.attach(cubeBack, GL_COLOR_ATTACHMENT0);
@@ -574,7 +576,7 @@ VoxelizationDebug::VoxelizationDebug(uint32_t width, uint32_t height) {
     cubeFrontfaceFramebuffer.unbind();
 
     result.bind();
-    result.init(width, height, Format::RGBA_F16);
+    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     result.setFilter(Sampling::Filter::None);
     result.unbind();
 
@@ -583,15 +585,15 @@ VoxelizationDebug::VoxelizationDebug(uint32_t width, uint32_t height) {
     voxelVisFramebuffer.unbind();
 }
 
-void VoxelizationDebug::execute(Scene& scene, uint32_t voxelMap, Mesh* cube, Mesh* quad) {
+void VoxelizationDebug::execute(Scene& scene, Viewport& viewport, uint32_t voxelMap, Mesh* cube, Mesh* quad) {
     // bind and clear render target
     cubeBackfaceFramebuffer.bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // bind basic to-world shader
     basicShader.bind();
-    basicShader.getUniform("projection") = scene.camera.getProjection();
-    basicShader.getUniform("view") = scene.camera.getView();
+    basicShader.getUniform("projection") = viewport.getCamera().getProjection();
+    basicShader.getUniform("view") = viewport.getCamera().getView();
     basicShader.getUniform("model") = glm::mat4(1.0f);
 
     // render back face culled cube
@@ -621,7 +623,7 @@ void VoxelizationDebug::execute(Scene& scene, uint32_t voxelMap, Mesh* cube, Mes
     glBindTextureUnit(2, voxelMap);
 
     // upload the camera position for trace direction
-    voxelTracedShader.getUniform("cameraPosition") = scene.camera.getPosition();
+    voxelTracedShader.getUniform("cameraPosition") = viewport.getCamera().getPosition();
 
     // render fullscreen quad to perform rendering
     quad->render();
@@ -634,17 +636,17 @@ void VoxelizationDebug::execute(Scene& scene, uint32_t voxelMap, Mesh* cube, Mes
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void VoxelizationDebug::resize(uint32_t width, uint32_t height) {
+void VoxelizationDebug::resize(Viewport& viewport) {
     result.bind();
-    result.init(width, height, Format::RGBA_F16);
+    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
     cubeBack.bind();
-    cubeBack.init(width, height, Format::RGBA_F);
+    cubeBack.init(viewport.size.x, viewport.size.y, Format::RGBA_F);
 
     cubeFront.bind();
-    cubeFront.init(width, height, Format::RGBA_F);
+    cubeFront.init(viewport.size.x, viewport.size.y, Format::RGBA_F);
 
-    cubeTexture.init(width, height, GL_DEPTH32F_STENCIL8);
+    cubeTexture.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
 
 } // renderpass

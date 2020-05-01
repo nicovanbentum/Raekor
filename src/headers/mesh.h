@@ -17,17 +17,17 @@ enum class Shape {
 class Mesh {
 public:
     Mesh(Shape basic_shape = Shape::None);
-    Mesh(const std::vector<Vertex>& vb, const std::vector<Index>& ib);
+    Mesh(std::vector<Vertex>& vb, std::vector<Index>& ib);
 
-    void setVertexBuffer(const std::vector<Vertex>& buffer);
-    void setIndexBuffer(const std::vector<Index>& buffer);
+    void setVertexBuffer(std::vector<Vertex>& buffer);
+    void setIndexBuffer(std::vector<Index>& buffer);
 
-    const VertexBuffer* const getVertexBuffer() const { return vb.get(); }
-    const IndexBuffer* const getIndexBuffer() const { return ib.get(); }
+    const glVertexBuffer* const getVertexBuffer() const { return vb.get(); }
+    const glIndexBuffer* const getIndexBuffer() const { return ib.get(); }
     
     inline void render() {
         bind();
-        Renderer::DrawIndexed(ib->getCount());
+        Renderer::DrawIndexed(ib->count);
     }
 
     static Mesh* createCube(const std::array<glm::vec3, 2>& bounds) {
@@ -53,8 +53,8 @@ public:
 
 protected:
     // TODO: we allow unnamed meshes, reconsider?
-    std::unique_ptr<VertexBuffer> vb;
-    std::unique_ptr<IndexBuffer> ib;
+    std::unique_ptr<glVertexBuffer> vb;
+    std::unique_ptr<glIndexBuffer> ib;
 };
 
 }
