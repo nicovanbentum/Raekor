@@ -22,3 +22,6 @@
 [submodule "dependencies/bullet3"]
 	path = dependencies/bullet3
 	url = https://github.com/bulletphysics/bullet3
+[submodule "dependencies/ChaiScript"]
+	path = dependencies/ChaiScript
+	url = https://github.com/ChaiScript/ChaiScript/

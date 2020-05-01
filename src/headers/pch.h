@@ -83,6 +83,10 @@
 // Bullet3 Physics library
 #include "btBulletDynamicsCommon.h"
 
+// ChaiScript
+#include "chaiscript/chaiscript.hpp"
+#include "chaiscript/chaiscript_stdlib.hpp"
+
 // c++ (17) includes
 #include <set>
 #include <map>

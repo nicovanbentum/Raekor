@@ -105,7 +105,16 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
 
 } // namespace Raekor
 
+std::string helloChai(const std::string& string) {
+    return "Hello Chai " + string + "\n";
+}
+
 int main(int argc, char** argv) {
+
+    chaiscript::ChaiScript chai;
+    chai.add(chaiscript::fun(&helloChai), "helloChai");
+
+    chai.eval("puts(helloChai(\"omgthisworks\");)");
     
     auto app = Raekor::Application();
     try {

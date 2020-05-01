@@ -190,6 +190,13 @@ void Application::run() {
         colors[i] = ImVec4(savedColor[0], savedColor[1], savedColor[2], savedColor[3]);
     }
 
+    ImGui::GetStyle().WindowRounding = 0.0f;
+    ImGui::GetStyle().ChildRounding = 0.0f;
+    ImGui::GetStyle().FrameRounding = 0.0f;
+    ImGui::GetStyle().GrabRounding = 0.0f;
+    ImGui::GetStyle().PopupRounding = 0.0f;
+    ImGui::GetStyle().ScrollbarRounding = 0.0f;
+
     // timer for keeping frametime
     Timer deltaTimer;
     double deltaTime = 0;
@@ -236,6 +243,7 @@ void Application::run() {
     SDL_MaximizeWindow(directxwindow);
 
     GUI::InspectorWindow inspectorWindow;
+    GUI::ConsoleWindow consoleWindow;
 
     while (running) {
         deltaTimer.start();
@@ -417,6 +425,9 @@ void Application::run() {
 
         //Inspector panel
         inspectorWindow.draw(newScene, active);
+
+        static bool isOpen = true;
+        consoleWindow.Draw("Console", &isOpen);
 
         // model panel
         ImGui::Begin("Scene Objects (DEPRECATED SOON");
