@@ -41,6 +41,10 @@ void Application::run() {
     Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL |
         SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED;
 
+    chaiscript::ChaiScript chai;
+
+    chai.eval("print(\"this function was called from chai\")");
+
     std::vector<SDL_Rect> displays;
     for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
         displays.push_back(SDL_Rect());
@@ -232,8 +236,12 @@ void Application::run() {
     // keep a pointer to the texture that's rendered to the window
     glTexture2D* activeScreenTexture = &tonemappingPass->result;
 
+    ECS::AssimpImporter importer;
     ECS::Scene newScene;
     static ECS::Entity active = NULL;
+    for (const std::string& path : project) {
+        importer.loadFromDisk(newScene, path);
+    }
 
     std::cout << "Initialization done." << std::endl;
 
@@ -244,6 +252,7 @@ void Application::run() {
 
     GUI::InspectorWindow inspectorWindow;
     GUI::ConsoleWindow consoleWindow;
+    GUI::EntityWindow ecsWindow;
 
     while (running) {
         deltaTimer.start();
@@ -427,7 +436,7 @@ void Application::run() {
         inspectorWindow.draw(newScene, active);
 
         static bool isOpen = true;
-        consoleWindow.Draw("Console", &isOpen);
+        consoleWindow.Draw("Console", &isOpen, chai);
 
         // model panel
         ImGui::Begin("Scene Objects (DEPRECATED SOON");
@@ -452,25 +461,29 @@ void Application::run() {
             ImGui::TreePop();
         }
 
-        auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen;
-        if (ImGui::TreeNodeEx("Entities", treeNodeFlags)) {
-            ImGui::Columns(1, NULL, false);
-            unsigned int index = 0;
-            for (auto& entity : newScene.entities) {
-                bool selected = active == entity;
-                std::string& name = newScene.names.getComponent(entity)->name;
-                if (ImGui::Selectable(std::string(name + "##" + std::to_string(index)).c_str(), selected)) {
-                    active = entity;
-                }
-                if (selected) {
-                    ImGui::SetItemDefaultFocus();
-                }
-                index += 1;
-            }
-            ImGui::TreePop();
-        }
-
         ImGui::End();
+
+        ecsWindow.draw(newScene, active);
+
+        //auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen;
+        //if (ImGui::TreeNodeEx("Entities", treeNodeFlags)) {
+        //    ImGui::Columns(1, NULL, false);
+        //    unsigned int index = 0;
+        //    for (auto& entity : newScene.entities) {
+        //        bool selected = active == entity;
+        //        std::string& name = newScene.names.getComponent(entity)->name;
+        //        if (ImGui::Selectable(std::string(name + "##" + std::to_string(index)).c_str(), selected)) {
+        //            active = entity;
+        //        }
+        //        if (selected) {
+        //            ImGui::SetItemDefaultFocus();
+        //        }
+        //        index += 1;
+        //    }
+        //    ImGui::TreePop();
+        //}
+
+        //ImGui::End();
 
         // post processing panel
         ImGui::Begin("Post Processing");

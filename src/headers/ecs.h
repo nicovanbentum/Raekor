@@ -78,8 +78,8 @@ struct MeshRendererComponent {
 };
 
 struct MaterialComponent {
-    glTexture2D albedo;
-    glTexture2D normals;
+    std::unique_ptr<glTexture2D> albedo;
+    std::unique_ptr<glTexture2D> normals;
 };
 
 struct NameComponent {
@@ -163,11 +163,12 @@ private:
 
 };
 
+class AssimpImporter;
+
 class Scene {
 public:
     void createObject(const char* name);
     void attachCube(Entity entity);
-    void loadFromFile(const std::string& file);
 
 public:
     ComponentManager<NameComponent> names;
@@ -191,8 +192,8 @@ static void renderGeometryWithMaterials(ComponentManager<MeshComponent> meshes, 
         
         mesh->vertexBuffer.bind();
         mesh->indexBuffer.bind();
-        material->albedo.bindToSlot(0);
-        material->normals.bindToSlot(3);
+        material->albedo->bindToSlot(0);
+        material->normals->bindToSlot(3);
 
         // TODO: this only works because it's a per mesh vertex buffer,
         // in the future we want a single vertex buffer for imported geometry and use submeshes to index into that vertex buffer
@@ -214,6 +215,24 @@ static void renderGeometry(ComponentManager<MeshComponent>& meshes, ComponentMan
         glDrawElements(GL_TRIANGLES, mesh->indexBuffer.count, GL_UNSIGNED_INT, nullptr);
     }
 }
+
+class AssimpImporter {
+public:
+    // default constructable
+    AssimpImporter() {}
+
+    void loadFromDisk(ECS::Scene& scene, const std::string& file);
+
+private:
+    void processAiNode(ECS::Scene& scene, const aiScene* aiscene, aiNode* node);
+    // TODO: every mesh in the file is created as an Entity that has 1 name, 1 mesh and 1 material component
+    // we might want to incorporate meshrenderers and seperate entities for materials
+    void loadMesh(ECS::Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform);
+    void loadTexturesAsync(const aiScene* scene, const std::string& directory);
+
+private:
+    std::unordered_map<std::string, Stb::Image> images;
+};
 
 } // ecs
 } // raekor
