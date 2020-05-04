@@ -6,9 +6,9 @@
 namespace Raekor {
 
 extern std::vector<Vertex> cubeVertices;
-extern std::vector<Index> cubeIndices;
+extern std::vector<Face> cubeIndices;
 extern std::vector<Vertex> quadVertices;
-extern std::vector<Index> quadIndices;
+extern std::vector<Face> quadIndices;
 
 enum class Shape {
     None, Cube, Quad
@@ -17,10 +17,10 @@ enum class Shape {
 class Mesh {
 public:
     Mesh(Shape basic_shape = Shape::None);
-    Mesh(std::vector<Vertex>& vb, std::vector<Index>& ib);
+    Mesh(std::vector<Vertex>& vb, std::vector<Face>& ib);
 
     void setVertexBuffer(std::vector<Vertex>& buffer);
-    void setIndexBuffer(std::vector<Index>& buffer);
+    void setIndexBuffer(std::vector<Face>& buffer);
 
     const glVertexBuffer* const getVertexBuffer() const { return vb.get(); }
     const glIndexBuffer* const getIndexBuffer() const { return ib.get(); }

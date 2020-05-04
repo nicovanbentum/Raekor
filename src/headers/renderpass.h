@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ecs.h"
 #include "scene.h"
 #include "mesh.h"
 #include "texture.h"
@@ -16,7 +17,7 @@ private:
 
 public:
     ShadowMap(uint32_t width, uint32_t height);
-    void execute(Scene& scene, Camera& sunCamera);
+    void execute(ECS::Scene& scene, Camera& sunCamera);
 
 private:
     glShader shader;
@@ -37,7 +38,7 @@ public:
     } settings;
 
     OmniShadowMap(uint32_t width, uint32_t height);
-    void execute(Scene& scene, const glm::vec3& lightPosition);
+    void execute(ECS::Scene& scene, const glm::vec3& lightPosition);
 
 private:
     glShader shader;
@@ -52,7 +53,7 @@ public:
 class GeometryBuffer {
 public:
     GeometryBuffer(Viewport& viewport);
-    void execute(Scene& scene, Viewport& viewport);
+    void execute(ECS::Scene& scene, Viewport& viewport);
     void resize(Viewport& viewport);
 
 private:
@@ -74,7 +75,7 @@ public:
     } settings;
 
     ScreenSpaceAmbientOcclusion(Viewport& viewport);
-    void execute(Scene& scene, Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad);
+    void execute(Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad);
     void resize(Viewport& viewport);
 
 private:
@@ -178,7 +179,7 @@ public:
 class Voxelization {
 public:
     Voxelization(uint32_t width, uint32_t height, uint32_t depth);
-    void execute(Scene& scene, Viewport& viewport);
+    void execute(ECS::Scene& scene, Viewport& viewport);
 
 private:
     glShader shader;
@@ -192,7 +193,7 @@ public:
 class VoxelizationDebug {
 public:
     VoxelizationDebug(Viewport& viewport);
-    void execute(Scene& scene, Viewport& viewport, uint32_t voxelMap, Mesh* cube, Mesh* quad);
+    void execute(Viewport& viewport, uint32_t voxelMap, Mesh* cube, Mesh* quad);
     void resize(Viewport& viewport);
 
 private:
@@ -207,6 +208,23 @@ public:
     glTexture2D result;
     glTexture2D cubeBack;
     glTexture2D cubeFront;
+};
+
+class BoundingBoxDebug {
+public:
+    BoundingBoxDebug(Viewport& viewport);
+    void execute(ECS::Scene& scene, Viewport& viewport, glTexture2D& texture, ECS::Entity active);
+    void resize(Viewport& viewport);
+
+private:
+    glShader shader;
+    glFramebuffer frameBuffer;
+    glRenderbuffer renderBuffer;
+    glVertexBuffer vertexBuffer;
+    glIndexBuffer indexBuffer;
+
+public:
+    glTexture2D result;
 };
 
 } // renderpass

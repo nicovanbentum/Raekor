@@ -143,7 +143,7 @@ namespace VK {
 
         meshes.reserve(scene->mNumMeshes);
         std::vector<Vertex> vertices;
-        std::vector<Index> indices;
+        std::vector<Face> indices;
 
         for (unsigned int m = 0, ti = 0; m < scene->mNumMeshes; m++) {
             auto ai_mesh = scene->mMeshes[m];

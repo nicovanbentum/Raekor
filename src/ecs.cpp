@@ -10,11 +10,6 @@ namespace ECS {
         entities.push_back(entity);
     }
 
-    void Scene:: attachCube(Entity entity) {
-        auto& mesh = meshes.create(entity);
-        mesh.init(Shape::Cube);
-    }
-
     void AssimpImporter::loadFromDisk(ECS::Scene& scene, const std::string& file) {
         constexpr unsigned int flags =
             aiProcess_GenNormals |
@@ -69,8 +64,8 @@ namespace ECS {
         NameComponent& name = scene.names.create(entity);
         name.name = assimpMesh->mName.C_Str();
 
-        // TODO: temp
-        std::cout << "loading " << assimpMesh->mName.C_Str() << "..." << std::endl;
+        TransformComponent& transform = scene.transforms.create(entity);
+        transform.matrix = glm::mat4(1.0f);
 
         // extract vertices
         mesh.vertices.reserve(assimpMesh->mNumVertices);
@@ -97,6 +92,39 @@ namespace ECS {
             m_assert((assimpMesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
             mesh.indices.emplace_back(assimpMesh->mFaces[i].mIndices[0], assimpMesh->mFaces[i].mIndices[1], assimpMesh->mFaces[i].mIndices[2]);
         }
+
+        // setup physics data structure
+        std::unique_ptr<btTriangleMesh> trimesh = std::make_unique<btTriangleMesh>();
+        for (unsigned int i = 0; i < mesh.vertices.size(); i += 3) {
+            if (i + 2 >= mesh.vertices.size()) break;
+            trimesh->addTriangle(
+                { mesh.vertices[i].pos.x,      mesh.vertices[i].pos.y,          mesh.vertices[i].pos.z },
+                { mesh.vertices[i + 1].pos.x,  mesh.vertices[i + 1].pos.y,      mesh.vertices[i + 1].pos.z },
+                { mesh.vertices[i + 2].pos.x,  mesh.vertices[i + 2].pos.y,      mesh.vertices[i + 2].pos.z });
+        }
+
+        auto  shape = std::make_unique< btBvhTriangleMeshShape>(trimesh.get(), false);
+        auto minAABB = shape->getLocalAabbMin();
+        auto maxAABB = shape->getLocalAabbMax();
+
+        mesh.aabb[0] = { minAABB.x(), minAABB.y(), minAABB.z() };
+        mesh.aabb[1] = { maxAABB.x(), maxAABB.y(), maxAABB.z() };
+
+        transform.localPosition = (mesh.aabb[0] + mesh.aabb[1]) / 2.0f;
+
+        // upload the mesh buffers to the GPU
+        mesh.vertexBuffer.bind();
+        mesh.vertexBuffer.loadVertices(mesh.vertices.data(), mesh.vertices.size());
+        mesh.vertexBuffer.setLayout({
+            {"POSITION",    ShaderType::FLOAT3},
+            {"UV",          ShaderType::FLOAT2},
+            {"NORMAL",      ShaderType::FLOAT3},
+            {"TANGENT",     ShaderType::FLOAT3},
+            {"BINORMAL",    ShaderType::FLOAT3}
+        });
+
+        mesh.indexBuffer.bind();
+        mesh.indexBuffer.loadFaces(mesh.indices.data(), mesh.indices.size());
 
         // get material textures from Assimp's import
         aiString albedoFile, normalmapFile;
@@ -137,7 +165,7 @@ namespace ECS {
             Stb::Image& image = normalsEntry->second;
             material.normals = std::make_unique<glTexture2D>();
             material.normals->bind();
-            material.normals->init(image.w, image.h, Format::SRGBA_U8, image.pixels);
+            material.normals->init(image.w, image.h, Format::RGBA_U8, image.pixels);
             material.normals->setFilter(Sampling::Filter::Trilinear);
             material.normals->genMipMaps();
             material.normals->unbind();

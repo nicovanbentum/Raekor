@@ -27,7 +27,7 @@ void Transformable::recalculate() {
     transform = glm::scale(transform, scale);
 }
 
-SceneObject::SceneObject(const std::string& fp, std::vector<Vertex>& vbuffer, std::vector<Index>& ibuffer)
+SceneObject::SceneObject(const std::string& fp, std::vector<Vertex>& vbuffer, std::vector<Face>& ibuffer)
     : Mesh(vbuffer, ibuffer) {
     vb->setLayout({
         {"POSITION",    ShaderType::FLOAT3},
@@ -130,7 +130,7 @@ void Scene::add(std::string file) {
     
     auto processMesh = [&](aiMesh * mesh, aiMatrix4x4 localTransform, const aiScene * scene) {
         std::vector<Vertex> vertices;
-        std::vector<Index> indices;
+        std::vector<Face> indices;
 
         std::cout << "loading " << mesh->mName.C_Str() << "..." << std::endl;
 

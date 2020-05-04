@@ -20,7 +20,7 @@ private:
 
 class DXIndexBuffer : public IndexBuffer {
 public:
-    DXIndexBuffer(const std::vector<Index>& indices);
+    DXIndexBuffer(const std::vector<Face>& indices);
     virtual void bind() const override;
 
 private:

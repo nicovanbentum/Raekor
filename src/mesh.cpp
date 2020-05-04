@@ -22,7 +22,7 @@ std::vector<Vertex> cubeVertices = {
     {{-1.0f, 1.0f, 1.0f}, {}, {}, {}, {}}
 };
 
-std::vector<Index>  cubeIndices = {
+std::vector<Face>  cubeIndices = {
     {0, 1, 3}, {3, 1, 2},
     {1, 5, 2}, {2, 5, 6},
     {5, 4, 6}, {6, 4, 7},
@@ -38,7 +38,7 @@ std::vector<Vertex> quadVertices = {
     {{-1.0f, 1.0f, 0.0f},   {0.0f, 1.0f},   {}, {}, {}}
 };
 
-std::vector<Index> quadIndices = {
+std::vector<Face> quadIndices = {
     {0, 1, 3}, {3, 1, 2}
 };
 
@@ -57,7 +57,7 @@ Mesh::Mesh(Shape shape) {
     }
 }
 
-Mesh::Mesh(std::vector<Vertex>& vb, std::vector<Index>& ib) {
+Mesh::Mesh(std::vector<Vertex>& vb, std::vector<Face>& ib) {
     setVertexBuffer(vb);
     setIndexBuffer(ib);
 }
@@ -66,9 +66,9 @@ void Mesh::setVertexBuffer(std::vector<Vertex>& buffer) {
     vb.reset(new glVertexBuffer());
     vb->loadVertices(buffer.data(), buffer.size());
 }
-void Mesh::setIndexBuffer(std::vector<Index>& buffer) {
+void Mesh::setIndexBuffer(std::vector<Face>& buffer) {
     ib.reset(new glIndexBuffer());
-    ib->loadIndices(buffer.data(), buffer.size());
+    ib->loadFaces(buffer.data(), buffer.size());
 }
 
 void Mesh::bind() const {

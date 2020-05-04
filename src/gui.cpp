@@ -44,16 +44,22 @@ void InspectorWindow::draw(ECS::Scene& scene, ECS::Entity entity) {
 
 void InspectorWindow::drawNameComponent(ECS::NameComponent* component) {
     if (ImGui::InputText("Name", &component->name, ImGuiInputTextFlags_AutoSelectAll)) {
-        if (component->name.size() > 8) {
-            component->name = component->name.substr(0, 12);
+        if (component->name.size() > 16) {
+            component->name = component->name.substr(0, 16);
         }
     }
 }
 
 void InspectorWindow::drawTransformComponent(ECS::TransformComponent* component) {
-    if (ImGui::DragFloat3("Scale", glm::value_ptr(component->scale))) {}
-    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component->rotation))) {}
-    if (ImGui::DragFloat3("Position", glm::value_ptr(component->position))) {}
+    if (ImGui::DragFloat3("Scale", glm::value_ptr(component->scale))) {
+        component->recalculateMatrix();
+    }
+    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component->rotation))) {
+        component->recalculateMatrix();
+    }
+    if (ImGui::DragFloat3("Position", glm::value_ptr(component->position))) {
+        component->recalculateMatrix();
+    }
 }
 
 void InspectorWindow::drawMeshComponent(ECS::MeshComponent* component) {
@@ -102,20 +108,12 @@ void ConsoleWindow::ClearLog()
     Items.clear();
 }
 
-void    ConsoleWindow::Draw(const char* title, bool* p_open, chaiscript::ChaiScript& chai)
+void ConsoleWindow::Draw(chaiscript::ChaiScript& chai)
 {
-    ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin(title, p_open))
+    if (!ImGui::Begin("Console"))
     {
         ImGui::End();
         return;
-    }
-
-    if (ImGui::BeginPopupContextItem())
-    {
-        if (ImGui::MenuItem("Close Console"))
-            *p_open = false;
-        ImGui::EndPopup();
     }
 
     ImGui::Separator();
@@ -187,6 +185,84 @@ int ConsoleWindow::TextEditCallbackStub(ImGuiInputTextCallbackData* data) // In 
 }
 
 int ConsoleWindow::TextEditCallback(ImGuiInputTextCallbackData* data) { return 0; }
+
+void EntityWindow::draw(ECS::Scene& scene, ECS::Entity& active) {
+    ImGui::Begin("Scene");
+    auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_CollapsingHeader;
+    if (ImGui::TreeNodeEx("Entities", treeNodeFlags)) {
+        ImGui::Columns(1, NULL, false);
+        unsigned int index = 0;
+        for (uint32_t i = 0; i < scene.names.getCount(); i++) {
+            ECS::Entity entity = scene.names.getEntity(i);
+            bool selected = active == entity;
+            std::string& name = scene.names.getComponent(entity)->name;
+            if (ImGui::Selectable(std::string(name + "##" + std::to_string(index)).c_str(), selected)) {
+                active = entity;
+            }
+            if (selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+            index += 1;
+        }
+    }
+
+    ImGui::End();
+}
+
+void Guizmo::drawGuizmo(ECS::Scene& scene, Viewport& viewport, ECS::Entity active) {
+    ECS::TransformComponent* transform = scene.transforms.getComponent(active);
+    if (!active || !enabled || !transform) return;
+
+    // set the gizmo's viewport
+    ImGuizmo::SetDrawlist();
+    auto pos = ImGui::GetWindowPos();
+    ImGuizmo::SetRect(pos.x, pos.y, viewport.size.x, viewport.size.y);
+
+    // temporarily transform to local space for gizmo use
+    transform->matrix = glm::translate(transform->matrix, transform->localPosition);
+
+    // draw gizmo
+    ImGuizmo::Manipulate(
+        glm::value_ptr(viewport.getCamera().getView()),
+        glm::value_ptr(viewport.getCamera().getProjection()),
+        operation, ImGuizmo::MODE::WORLD,
+        glm::value_ptr(transform->matrix)
+    );
+
+    // transform back to world space
+    transform->matrix = glm::translate(transform->matrix, -transform->localPosition);
+
+    // update the transformation
+    ImGuizmo::DecomposeMatrixToComponents(
+        glm::value_ptr(transform->matrix),
+        glm::value_ptr(transform->position),
+        glm::value_ptr(transform->rotation),
+        glm::value_ptr(transform->scale)
+    );
+}
+
+void Guizmo::drawWindow() {
+    ImGui::Begin("Editor");
+    if (ImGui::Checkbox("Gizmo", &enabled)) {
+        ImGuizmo::Enable(enabled);
+    }
+
+    ImGui::Separator();
+
+    if (ImGui::BeginCombo("Mode", previews[operation])) {
+        for (int i = 0; i < previews.size(); i++) {
+            bool selected = (i == operation);
+            if (ImGui::Selectable(previews[i], selected)) {
+                operation = (ImGuizmo::OPERATION)i;
+            }
+            if (selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::End();
+}
 
 } // gui
 } // raekor

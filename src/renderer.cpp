@@ -41,11 +41,6 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     int gl3wError = gl3wInit();
     m_assert(gl3wError == 0, "failed to init gl3w");
     
-    // print the initialized openGL specs
-    std::cout << "Active Rendering API: OpenGL " << glGetString(GL_VERSION);
-    printf("GL INFO: OpenGL %s, GLSL %s\n", glGetString(GL_VERSION),
-        glGetString(GL_SHADING_LANGUAGE_VERSION));
-    
     ImGui_ImplSDL2_InitForOpenGL(window, &context);
     ImGui_ImplOpenGL3_Init("#version 330");
 

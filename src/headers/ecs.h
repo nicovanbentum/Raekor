@@ -14,23 +14,32 @@ static Entity newEntity() {
     return ++next;
 }
 
-static Entity newNamedEntity(const char* name) {
-    Entity entity = newEntity();
-}
-
 struct TransformComponent {
-    glm::vec3 position;
-    glm::vec3 scale;
-    glm::vec3 rotation;
-    glm::mat4 matrix;
+    glm::vec3 position      = { 0.0f, 0.0f, 0.0f };
+    glm::vec3 scale         = { 1.0f, 1.0f, 1.0f };
+    glm::vec3 rotation      = { 0.0f, 0.0f, 0.0f };
+
+    glm::mat4 matrix        = glm::mat4(1.0f);
+
+    glm::vec3 localPosition = { 0.0f, 0.0f, 0.0f };
 
     void recalculateMatrix() {
-        matrix = glm::mat4(1.0f);
         matrix = glm::translate(glm::mat4(1.0f), position);
         auto rotationQuat = static_cast<glm::quat>(rotation);
         matrix = matrix * glm::toMat4(rotationQuat);
         matrix = glm::scale(matrix, scale);
     }
+};
+
+struct LightComponent {
+    enum class Type {
+        DIRECTIONAL, POINT
+    };
+
+    glm::vec3 position;
+    glm::vec3 colour;
+
+
 };
 
 struct MeshComponent {
@@ -40,37 +49,14 @@ struct MeshComponent {
         uint32_t indexCount;
     };
 
-    std::string name = "NULL";
-    Shape shape;
-
-    std::vector<Vertex> vertices;
-    std::vector<Index> indices;
-
     std::vector<subMesh> subMeshes;
-
+    
+    std::vector<Vertex> vertices;
+    std::vector<Face> indices;
     glVertexBuffer vertexBuffer;
     glIndexBuffer indexBuffer;
 
-    void init(Shape basicShape = Shape::None) {
-        switch (basicShape) {
-            case Shape::None: name = ""; break;
-            case Shape::Cube: name = "Cube"; break;
-            case Shape::Quad: name = "Quad"; break;
-        }
-
-        if (basicShape == Shape::None) {
-            return;
-        }
-
-        vertices = std::vector<Vertex>(cubeVertices);
-        indices = std::vector<Index>(cubeIndices);
-
-        // upload to GPU
-        vertexBuffer.loadVertices(vertices.data(), vertices.size());
-        indexBuffer.loadIndices(indices.data(), indices.size());
-
-        std::puts("uploaded cube to gpu");
-    }
+    std::array<glm::vec3, 2> aabb;
 };
 
 struct MeshRendererComponent {
@@ -155,7 +141,6 @@ public:
         lookup.clear();
     }
 
-
 private:
     std::vector< ComponentType> components;
     std::vector<Entity> entities;
@@ -163,12 +148,16 @@ private:
 
 };
 
-class AssimpImporter;
-
 class Scene {
 public:
     void createObject(const char* name);
-    void attachCube(Entity entity);
+
+    void remove(ECS::Entity entity) {
+        names.remove(entity);
+        transforms.remove(entity);
+        meshes.remove(entity);
+        materials.remove(entity);
+    }
 
 public:
     ComponentManager<NameComponent> names;
@@ -181,53 +170,17 @@ public:
     std::vector<Entity> entities;
 };
 
-// SYSTEMS TODO: turn this into classes and seperate files
-// TODO: figure out how we do sub mesh transforms
-static void renderGeometryWithMaterials(ComponentManager<MeshComponent> meshes, ComponentManager<MaterialComponent> materials) {
-    for (size_t i = 0; i < meshes.getCount(); i++) {
-        Entity entity = meshes.getEntity(i);
-        auto mesh = meshes.getComponent(entity);
-        auto material = materials.getComponent(entity);
-        if (!mesh && !material) continue;
-        
-        mesh->vertexBuffer.bind();
-        mesh->indexBuffer.bind();
-        material->albedo->bindToSlot(0);
-        material->normals->bindToSlot(3);
-
-        // TODO: this only works because it's a per mesh vertex buffer,
-        // in the future we want a single vertex buffer for imported geometry and use submeshes to index into that vertex buffer
-        glDrawElements(GL_TRIANGLES, mesh->indexBuffer.count, GL_UNSIGNED_INT, nullptr);
-    }
-}
-
-static void renderGeometry(ComponentManager<MeshComponent>& meshes, ComponentManager<TransformComponent>& transforms) {
-    for (size_t i = 0; i < meshes.getCount(); i++) {
-        Entity entity = meshes.getEntity(i);
-        auto mesh = meshes.getComponent(entity);
-        if (!mesh) continue;
-
-        mesh->vertexBuffer.bind();
-        mesh->indexBuffer.bind();
-        
-        // TODO: this only works because it's a per mesh vertex buffer,
-        // in the future we want a single vertex buffer for imported geometry and use submeshes to index into that vertex buffer
-        glDrawElements(GL_TRIANGLES, mesh->indexBuffer.count, GL_UNSIGNED_INT, nullptr);
-    }
-}
-
 class AssimpImporter {
 public:
-    // default constructable
-    AssimpImporter() {}
-
     void loadFromDisk(ECS::Scene& scene, const std::string& file);
 
 private:
     void processAiNode(ECS::Scene& scene, const aiScene* aiscene, aiNode* node);
+
     // TODO: every mesh in the file is created as an Entity that has 1 name, 1 mesh and 1 material component
     // we might want to incorporate meshrenderers and seperate entities for materials
     void loadMesh(ECS::Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform);
+
     void loadTexturesAsync(const aiScene* scene, const std::string& directory);
 
 private:

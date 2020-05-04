@@ -99,7 +99,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\VS Projects\Raekor\dependencies\bullet3\src;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;C:\VulkanSDK\1.1.130.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VS Projects\Raekor\dependencies\bullet3\src;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\SDL\include;$(SolutionDir);$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\assimp\include;$(SolutionDir)\dependencies\assimp-build;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\src\headers;$(SolutionDir)\dependencies\stb;$(SolutionDir)\src\platform;$(SolutionDir)\dependencies\DirectXTK\Inc;$(SolutionDir)\src\platform\windows;C:\VulkanSDK\1.1.130.0\Include;C:\VS Projects\Raekor\dependencies\ChaiScript\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -173,6 +173,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     </ClCompile>
     <ClCompile Include="dependencies\imgui\misc\cpp\imgui_stdlib.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\app.cpp" />
     <ClCompile Include="src\buffer.cpp" />

@@ -106,7 +106,7 @@ VertexBuffer* VertexBuffer::construct(const std::vector<Vertex>& vertices) {
     return nullptr;
 }
 
-IndexBuffer* IndexBuffer::construct(const std::vector<Index>& indices) {
+IndexBuffer* IndexBuffer::construct(const std::vector<Face>& indices) {
     auto active = Renderer::getActiveAPI();
     switch (active) {
         case RenderAPI::OPENGL: {
@@ -147,9 +147,14 @@ void glVertexBuffer::setLayout(const InputLayout& layout) const {
     inputLayout = layout;
 }
 
-void glIndexBuffer::loadIndices(Index* indices, size_t count) {
+void glIndexBuffer::loadFaces(Face* indices, size_t count) {
     id = glCreateBuffer(indices, count, GL_ELEMENT_ARRAY_BUFFER);
     this->count = static_cast<uint32_t>(count * 3);
+}
+
+void glIndexBuffer::loadIndices(uint32_t* indices, size_t count) {
+    id = glCreateBuffer(indices, count, GL_ELEMENT_ARRAY_BUFFER);
+    this->count = static_cast<uint32_t>(count);
 }
 
 

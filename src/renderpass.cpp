@@ -27,7 +27,7 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     framebuffer.unbind();
 }
 
-void ShadowMap::execute(Scene& scene, Camera& sunCamera) {
+void ShadowMap::execute(ECS::Scene& scene, Camera& sunCamera) {
     // setup the shadow map 
     framebuffer.bind();
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -39,9 +39,23 @@ void ShadowMap::execute(Scene& scene, Camera& sunCamera) {
     uniformBuffer.update(&uniforms, sizeof(uniforms));
     uniformBuffer.bind(0);
 
-    for (auto& object : scene) {
-        shader.getUniform("model") = object.transform;
-        object.render();
+    shader.getUniform("model") = glm::mat4(1.0f);
+
+    for (uint32_t i = 0; i < scene.meshes.getCount(); i++) {
+        ECS::Entity entity = scene.meshes.getEntity(i);
+
+        ECS::MeshComponent& mesh = scene.meshes[i];
+        ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
+
+        if (transform) {
+            shader.getUniform("model") = transform->matrix;
+        } else {
+            shader.getUniform("model") = glm::mat4(1.0f);
+        }
+
+        mesh.vertexBuffer.bind();
+        mesh.indexBuffer.bind();
+        Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
 }
 
@@ -68,7 +82,7 @@ OmniShadowMap::OmniShadowMap(uint32_t width, uint32_t height) {
     depthCubeFramebuffer.unbind();
 }
 
-void OmniShadowMap::execute(Scene& scene, const glm::vec3& lightPosition) {
+void OmniShadowMap::execute(ECS::Scene& scene, const glm::vec3& lightPosition) {
     // generate the view matrices for calculating lightspace
     std::vector<glm::mat4> shadowTransforms;
     glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), float(settings.width / settings.height), settings.nearPlane, settings.farPlane);
@@ -93,9 +107,22 @@ void OmniShadowMap::execute(Scene& scene, const glm::vec3& lightPosition) {
         shader.getUniform("projView") = shadowTransforms[i];
         shader.getUniform("lightPos") = lightPosition;
 
-        for (auto& object : scene) {
-            shader.getUniform("model") = object.transform;
-            object.render();
+        for (uint32_t i = 0; i < scene.meshes.getCount(); i++) {
+            ECS::Entity entity = scene.meshes.getEntity(i);
+
+            ECS::MeshComponent& mesh = scene.meshes[i];
+            ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
+
+            if (transform) {
+                shader.getUniform("model") = transform->matrix;
+            }
+            else {
+                shader.getUniform("model") = glm::mat4(1.0f);
+            }
+
+            mesh.vertexBuffer.bind();
+            mesh.indexBuffer.bind();
+            Renderer::DrawIndexed(mesh.indexBuffer.count);
         }
     }
 }
@@ -136,7 +163,7 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     GBuffer.unbind();
 }
 
-void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
+void GeometryBuffer::execute(ECS::Scene& scene, Viewport& viewport) {
     GBuffer.bind();
 
     shader.bind();
@@ -145,9 +172,28 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
     shader.getUniform("projection") = viewport.getCamera().getProjection();
     shader.getUniform("view") = viewport.getCamera().getView();
 
-    for (auto& object : scene) {
-        shader.getUniform("model") = object.transform;
-        object.render();
+    for (uint32_t i = 0; i < scene.meshes.getCount(); i++) {
+        ECS::Entity entity = scene.meshes.getEntity(i);
+
+        ECS::MeshComponent& mesh = scene.meshes[i];
+        ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
+        ECS::MaterialComponent* material = scene.materials.getComponent(entity);
+
+        if (material) {
+            material->albedo->bindToSlot(0);
+            if(material->normals) material->normals->bindToSlot(3);
+        }
+
+        if (transform) {
+            shader.getUniform("model") = transform->matrix;
+        }
+        else {
+            shader.getUniform("model") = glm::mat4(1.0f);
+        }
+
+        mesh.vertexBuffer.bind();
+        mesh.indexBuffer.bind();
+        Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
 
     GBuffer.unbind();
@@ -237,7 +283,7 @@ ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(Viewport& viewport) {
     blurFramebuffer.attach(result, GL_COLOR_ATTACHMENT0);
 }
 
-void ScreenSpaceAmbientOcclusion::execute(Scene& scene, Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad) {
+void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad) {
     framebuffer.bind();
     geometryPass->positionTexture.bindToSlot(0);
     geometryPass->normalTexture.bindToSlot(1);
@@ -516,7 +562,7 @@ Voxelization::Voxelization(uint32_t width, uint32_t height, uint32_t depth) {
 }
 
 
-void Voxelization::execute(Scene& scene, Viewport& viewport) {
+void Voxelization::execute(ECS::Scene& scene, Viewport& viewport) {
     shader.bind();
 
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -528,9 +574,22 @@ void Voxelization::execute(Scene& scene, Viewport& viewport) {
     shader.getUniform("view") = viewport.getCamera().getView();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
 
-    for (auto& object : scene) {
-        shader.getUniform("model") = object.transform;
-        object.render();
+    for (uint32_t i = 0; i < scene.meshes.getCount(); i++) {
+        ECS::Entity entity = scene.meshes.getEntity(i);
+
+        ECS::MeshComponent& mesh = scene.meshes[i];
+        ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
+
+        if (transform) {
+            shader.getUniform("model") = transform->matrix;
+        }
+        else {
+            shader.getUniform("model") = glm::mat4(1.0f);
+        }
+
+        mesh.vertexBuffer.bind();
+        mesh.indexBuffer.bind();
+        Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
 
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -585,7 +644,7 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
     voxelVisFramebuffer.unbind();
 }
 
-void VoxelizationDebug::execute(Scene& scene, Viewport& viewport, uint32_t voxelMap, Mesh* cube, Mesh* quad) {
+void VoxelizationDebug::execute(Viewport& viewport, uint32_t voxelMap, Mesh* cube, Mesh* quad) {
     // bind and clear render target
     cubeBackfaceFramebuffer.bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -647,6 +706,94 @@ void VoxelizationDebug::resize(Viewport& viewport) {
     cubeFront.init(viewport.size.x, viewport.size.y, Format::RGBA_F);
 
     cubeTexture.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
+    // load shaders from disk
+    std::vector<Shader::Stage> aabbStages;
+    aabbStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\aabb.vert");
+    aabbStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\aabb.frag");
+    shader.reload(aabbStages.data(), aabbStages.size());
+
+    result.bind();
+    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F);
+    result.setFilter(Sampling::Filter::None);
+    result.unbind();
+
+    renderBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
+
+    frameBuffer.bind();
+    frameBuffer.attach(renderBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+    frameBuffer.unbind();
+
+    std::vector<uint32_t> indices = {
+    0, 1, 1, 2, 2, 3, 3, 0, 4,
+    5, 5, 6, 6, 7, 7, 4, 0, 0,
+    0, 4, 1, 5, 2, 6, 3, 7, 7
+    };
+    indexBuffer.loadIndices(indices.data(), indices.size());
+
+    vertexBuffer.setLayout({
+    {"POSITION",    ShaderType::FLOAT3},
+    {"UV",          ShaderType::FLOAT2},
+    {"NORMAL",      ShaderType::FLOAT3},
+    {"TANGENT",     ShaderType::FLOAT3},
+    {"BINORMAL",    ShaderType::FLOAT3}
+        });
+}
+
+void BoundingBoxDebug::execute(ECS::Scene& scene, Viewport& viewport, glTexture2D& texture, ECS::Entity active) {
+    if (!active) return;
+    ECS::MeshComponent* mesh = scene.meshes.getComponent(active);
+    ECS::TransformComponent* transform = scene.transforms.getComponent(active);
+    if (!mesh) return;
+
+    glEnable(GL_LINE_SMOOTH);
+
+    frameBuffer.bind();
+    frameBuffer.attach(texture, GL_COLOR_ATTACHMENT0);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    shader.bind();
+    shader.getUniform("projection") = viewport.getCamera().getProjection();
+    shader.getUniform("view") = viewport.getCamera().getView();
+    shader.getUniform("model") = transform ? transform->matrix : glm::mat4(1.0f);
+
+    const auto min = mesh->aabb[0];
+    const auto max = mesh->aabb[1];
+
+    std::vector<Vertex> vertices = {
+        { {min} },
+        { {max[0], min[1], min[2] } },
+
+        { {max[0], max[1], min[2] } },
+        { {min[0], max[1], min[2] } },
+
+        { {min[0], min[1], max[2] } },
+        { {max[0], min[1], max[2] } },
+
+        { {max} },
+        { {min[0], max[1], max[2] } },
+    };
+
+    vertexBuffer.loadVertices(vertices.data(), vertices.size());
+
+    vertexBuffer.bind();
+    indexBuffer.bind();
+
+    glDrawElements(GL_LINES, indexBuffer.count, GL_UNSIGNED_INT, nullptr);
+
+    glDisable(GL_LINE_SMOOTH);
+}
+
+void BoundingBoxDebug::resize(Viewport& viewport) {
+    result.bind();
+    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F);
+    result.unbind();
+
+    renderBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
 
 } // renderpass

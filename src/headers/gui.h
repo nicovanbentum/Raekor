@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ecs.h"
+#include "camera.h"
 
 namespace Raekor {
 namespace GUI {
@@ -10,45 +11,20 @@ public:
     void draw(ECS::Scene& scene, ECS::Entity entity);
 
 private:
-
     void drawNameComponent(ECS::NameComponent* component);
-    void drawTransformComponent(ECS::TransformComponent* component);
     void drawMeshComponent(ECS::MeshComponent* component);
-    void drawMeshRendererComponent(ECS::MeshRendererComponent* component);
     void drawMaterialComponent(ECS::MaterialComponent* component);
+    void drawTransformComponent(ECS::TransformComponent* component);
+    void drawMeshRendererComponent(ECS::MeshRendererComponent* component);
 };
 
 class EntityWindow {
 public:
-    void draw(ECS::Scene& scene, ECS::Entity& active) {
-        ImGui::Begin("Entity Component System");
-        auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen;
-        if (ImGui::TreeNodeEx("Entities", treeNodeFlags)) {
-            ImGui::Columns(1, NULL, false);
-            unsigned int index = 0;
-            for (uint32_t i = 0; i < scene.names.getCount(); i++) {
-                ECS::Entity entity = scene.names.getEntity(i);
-                bool selected = active == entity;
-                std::string& name = scene.names.getComponent(entity)->name;
-                if (ImGui::Selectable(std::string(name + "##" + std::to_string(index)).c_str(), selected)) {
-                    active = entity;
-                }
-                if (selected) {
-                    ImGui::SetItemDefaultFocus();
-                }
-                index += 1;
-            }
-            ImGui::TreePop();
-        }
-
-        ImGui::End();
-    }
-
+    void draw(ECS::Scene& scene, ECS::Entity& active);
 };
 
-/*
-    Copied over from the ImGui Demo file, will be used for executing chaiscript evals 
-*/
+
+// Copied over from the ImGui Demo file, used for executing chaiscript evals 
 class ConsoleWindow {
 public:
     ConsoleWindow();
@@ -72,7 +48,7 @@ public:
         Items.push_back(Strdup(buf));
     }
 
-    void    Draw(const char* title, bool* p_open, chaiscript::ChaiScript& chai);
+    void    Draw(chaiscript::ChaiScript& chai);
     void    ExecCommand(const char* command_line);
     
     static int TextEditCallbackStub(ImGuiInputTextCallbackData* data);
@@ -86,6 +62,18 @@ private:
     ImGuiTextFilter       Filter;
     bool                  AutoScroll;
     bool                  ScrollToBottom;
+};
+
+class Guizmo {
+public:
+    void drawGuizmo(ECS::Scene& scene, Viewport& viewport, ECS::Entity active);
+    void drawWindow();
+
+private:
+    bool enabled = true;
+    ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
+    std::array<const char*, 3> previews = { "TRANSLATE", "ROTATE", "SCALE"};
+
 };
 
 } // gui

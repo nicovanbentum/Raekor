@@ -41,9 +41,8 @@ void Application::run() {
     Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL |
         SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED;
 
+    // init scripting language
     chaiscript::ChaiScript chai;
-
-    chai.eval("print(\"this function was called from chai\")");
 
     std::vector<SDL_Rect> displays;
     for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
@@ -76,14 +75,6 @@ void Application::run() {
     // load the model files listed in the project section of config.json
     // basically acts like a budget project file
     Scene scene;
-    std::vector<SceneObject>::iterator activeObject = scene.objects.end();
-    for (const std::string& path : project) {
-        scene.add(path);
-    }
-
-    if (!scene.objects.empty()) {
-        activeObject = scene.objects.begin();
-    }
 
     
     Ffilter meshFileFormats;
@@ -116,7 +107,7 @@ void Application::run() {
 
     // generate terrain based on perlin noise
     std::vector<Vertex> vertices;
-    std::vector<Index> indices;
+    std::vector<Face> indices;
 
     static const constexpr int width = 50, height = 50;
     static const constexpr float scale = 0.3f;
@@ -155,7 +146,7 @@ void Application::run() {
     }
 
     for (uint32_t i = 0; i < indices.size(); i++) {
-        Index index = indices[i];
+        Face index = indices[i];
         glm::vec3 normal = getSurfaceNormal(index.f1, index.f2, index.f3);
         vertices[index.f1].normal = normal;
         vertices[index.f2].normal = normal;
@@ -218,20 +209,23 @@ void Application::run() {
     std::cout << "Creating render passes..." << std::endl;
 
     // all render passes
-    auto bloomPass =                std::make_unique<RenderPass::Bloom>(viewport);
-    auto lightingPass =             std::make_unique<RenderPass::DeferredLighting>(viewport);
-    auto shadowMapPass =            std::make_unique<RenderPass::ShadowMap>(SHADOW_WIDTH, SHADOW_HEIGHT);
-    auto tonemappingPass =          std::make_unique<RenderPass::Tonemapping>(viewport);
-    auto omniShadowMapPass =        std::make_unique<RenderPass::OmniShadowMap>(SHADOW_WIDTH, SHADOW_HEIGHT);
-    auto geometryBufferPass =       std::make_unique<RenderPass::GeometryBuffer>(viewport);
-    auto ambientOcclusionPass =     std::make_unique<RenderPass::ScreenSpaceAmbientOcclusion>(viewport);
+    auto bloomPass              = std::make_unique<RenderPass::Bloom>(viewport);
+    auto lightingPass           = std::make_unique<RenderPass::DeferredLighting>(viewport);
+    auto shadowMapPass          = std::make_unique<RenderPass::ShadowMap>(SHADOW_WIDTH, SHADOW_HEIGHT);
+    auto tonemappingPass        = std::make_unique<RenderPass::Tonemapping>(viewport);
+    auto omniShadowMapPass      = std::make_unique<RenderPass::OmniShadowMap>(SHADOW_WIDTH, SHADOW_HEIGHT);
+    auto geometryBufferPass     = std::make_unique<RenderPass::GeometryBuffer>(viewport);
+    auto ambientOcclusionPass   = std::make_unique<RenderPass::ScreenSpaceAmbientOcclusion>(viewport);
 
-    auto voxelizationPass =         std::make_unique<RenderPass::Voxelization>(512, 512, 512);
-    auto voxelDebugPass =           std::make_unique<RenderPass::VoxelizationDebug>(viewport);
+    auto voxelizationPass       = std::make_unique<RenderPass::Voxelization>(512, 512, 512);
+    auto voxelDebugPass         = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
+
+    auto aabbDebugPass          = std::make_unique<RenderPass::BoundingBoxDebug>(viewport);
+
 
     // boolean settings needed for a couple things
-    bool mouseInViewport = false, gizmoEnabled = false, showSettingsWindow = false;
     bool doSSAO = true, doBloom = false;
+    bool mouseInViewport = false, gizmoEnabled = false, showSettingsWindow = false;
 
     // keep a pointer to the texture that's rendered to the window
     glTexture2D* activeScreenTexture = &tonemappingPass->result;
@@ -240,19 +234,19 @@ void Application::run() {
     ECS::Scene newScene;
     static ECS::Entity active = NULL;
     for (const std::string& path : project) {
+        std::cout << "Loading " << parseFilepath(path, PATH_OPTIONS::FILENAME) << "...\n";
         importer.loadFromDisk(newScene, path);
     }
 
     std::cout << "Initialization done." << std::endl;
 
-    const GLubyte* vendor = glGetString(GL_VENDOR), *physicalDevice = glGetString(GL_RENDERER);
-
     SDL_ShowWindow(directxwindow);
     SDL_MaximizeWindow(directxwindow);
 
-    GUI::InspectorWindow inspectorWindow;
-    GUI::ConsoleWindow consoleWindow;
+    GUI::Guizmo gizmo;
     GUI::EntityWindow ecsWindow;
+    GUI::ConsoleWindow consoleWindow;
+    GUI::InspectorWindow inspectorWindow;
 
     while (running) {
         deltaTimer.start();
@@ -266,17 +260,17 @@ void Application::run() {
 
         // generate sun shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-        shadowMapPass->execute(scene, scene.sunCamera);
+        shadowMapPass->execute(newScene, scene.sunCamera);
 
         // generate point light shadow map 
-        omniShadowMapPass->execute(scene, scene.pointLight.position);
+        omniShadowMapPass->execute(newScene, scene.pointLight.position);
 
         // generate a geometry buffer
         glViewport(0, 0, viewport.size.x, viewport.size.y);
-        geometryBufferPass->execute(scene, viewport);
+        geometryBufferPass->execute(newScene, viewport);
 
         if (doSSAO) {
-            ambientOcclusionPass->execute(scene, viewport, geometryBufferPass.get(), Quad.get());
+            ambientOcclusionPass->execute(viewport, geometryBufferPass.get(), Quad.get());
         }
 
         // perform deferred lighting pass
@@ -301,8 +295,12 @@ void Application::run() {
             tonemappingPass->execute(lightingPass->result, Quad.get());
         }
 
+        if (active) {
+            aabbDebugPass->execute(newScene, viewport, tonemappingPass->result, active);
+        }
+
         // generate texture that visualizes a 3D voxel texture 
-        voxelDebugPass->execute(scene, viewport, voxelizationPass->result, cube.get(), Quad.get());
+        voxelDebugPass->execute(viewport, voxelizationPass->result, cube.get(), Quad.get());
         
         //get new frame for ImGui and ImGuizmo
         Renderer::ImGuiNewFrame(directxwindow);
@@ -376,10 +374,8 @@ void Application::run() {
             if (ImGui::BeginMenu("Edit")) {
                 if (ImGui::MenuItem("Delete", "DEL")) {
                     // on press we remove the scene object
-                    if (activeObject != scene.objects.end()) {
-                        scene.erase(activeObject->name);
-                        activeObject = scene.objects.begin();
-                    }
+                    newScene.remove(active);
+                    active = NULL;
                 }
                 ImGui::EndMenu();
             }
@@ -389,40 +385,12 @@ void Application::run() {
                     newScene.createObject("Entity");
                 }
                 ImGui::Separator();
-
-                if (active != NULL) {
-                    if (ImGui::MenuItem("Transform", "")) {
-                        newScene.transforms.create(active);
-                    }
-
-                    if (ImGui::MenuItem("Mesh", "")) {
-                        newScene.meshes.create(active);
-                    }
-
-                    if (ImGui::MenuItem("Material", "")) {
-                        newScene.materials.create(active);
-                    }
-
-                    if (ImGui::MenuItem("Mesh Renderer", "")) {
-                        newScene.meshRenderers.create(active);
-                    }
-
-                    if (ImGui::MenuItem("Cube", "")) {
-                        newScene.attachCube(active);
-                    }
-                }
-
-
                 ImGui::EndMenu();
             }
 
 
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
                 // on press we remove the scene object
-                if (activeObject != scene.objects.end()) {
-                    scene.erase(activeObject->name);
-                    activeObject = scene.objects.begin();
-                }
             }
 
             if (ImGui::BeginMenu("Help")) {
@@ -432,58 +400,14 @@ void Application::run() {
             ImGui::EndMenuBar();
         }
 
+        // chai console panel
+        consoleWindow.Draw(chai);
+
         //Inspector panel
         inspectorWindow.draw(newScene, active);
 
-        static bool isOpen = true;
-        consoleWindow.Draw("Console", &isOpen, chai);
-
-        // model panel
-        ImGui::Begin("Scene Objects (DEPRECATED SOON");
-        if (ImGui::IsWindowFocused()) {
-            if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), false)) {}
-        }
-        
-        if (ImGui::TreeNodeEx("Objects", 0)) {
-            ImGui::Columns(1, NULL, false);
-            // draw a selectable for every object in the scene
-            unsigned int uniqueID = 0;
-            for (auto& object : scene.objects) {
-                    bool selected = activeObject->name == object.name;
-                    if (ImGui::Selectable(object.name.c_str(), selected)) {
-                        activeObject = scene.at(object.name);
-                    }
-                if (selected) {
-                    ImGui::SetItemDefaultFocus();
-                }
-                uniqueID = uniqueID + 1;
-            }
-            ImGui::TreePop();
-        }
-
-        ImGui::End();
-
+        // scene / ecs panel
         ecsWindow.draw(newScene, active);
-
-        //auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen;
-        //if (ImGui::TreeNodeEx("Entities", treeNodeFlags)) {
-        //    ImGui::Columns(1, NULL, false);
-        //    unsigned int index = 0;
-        //    for (auto& entity : newScene.entities) {
-        //        bool selected = active == entity;
-        //        std::string& name = newScene.names.getComponent(entity)->name;
-        //        if (ImGui::Selectable(std::string(name + "##" + std::to_string(index)).c_str(), selected)) {
-        //            active = entity;
-        //        }
-        //        if (selected) {
-        //            ImGui::SetItemDefaultFocus();
-        //        }
-        //        index += 1;
-        //    }
-        //    ImGui::TreePop();
-        //}
-
-        //ImGui::End();
 
         // post processing panel
         ImGui::Begin("Post Processing");
@@ -519,7 +443,7 @@ void Application::run() {
         ImGui::End();
 
         // scene panel
-        ImGui::Begin("Scene");
+        ImGui::Begin("Random");
         ImGui::SetItemDefaultFocus();
 
         // toggle button for openGl vsync
@@ -557,6 +481,8 @@ void Application::run() {
                 activeScreenTexture = &voxelDebugPass->cubeBack;
             if (ImGui::Selectable(nameof(noiseTexture), activeScreenTexture->ImGuiID() == noiseTexture.ImGuiID()))
                 activeScreenTexture = &noiseTexture;
+            if (ImGui::Selectable(nameof(aabbDebugPass->result), activeScreenTexture->ImGuiID() == aabbDebugPass->result.ImGuiID()))
+                activeScreenTexture = &aabbDebugPass->result;
 
             ImGui::TreePop();
         }
@@ -602,10 +528,11 @@ void Application::run() {
         // application/render metrics
         auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar;
         ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
-        ImGui::Text("Vendor: %s", vendor);
-        ImGui::Text("Product: %s", physicalDevice);
+        ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
+        ImGui::Text("Product: %s", glGetString(GL_RENDERER));
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
 
         ImGui::Begin("Camera Properties");
@@ -623,39 +550,8 @@ void Application::run() {
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
         // AND the active model has a mesh to modify, the properties window draws
-        static ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
-        if (!scene.objects.empty() && activeObject != scene.objects.end()) {
-            ImGui::Begin("Editor");
-
-            if(ImGui::Checkbox("Gizmo", &gizmoEnabled)) {
-                ImGuizmo::Enable(gizmoEnabled);
-            }
-
-            ImGui::Separator();
-
-            std::array<const char*, 3> previews = {
-                "TRANSLATE", "ROTATE", "SCALE"
-            };
-
-            if (ImGui::BeginCombo("Mode", previews[operation])) {
-                for (int i = 0; i < previews.size(); i++) {
-                    bool selected = (i == operation);
-                    if (ImGui::Selectable(previews[i], selected)) {
-                        operation = (ImGuizmo::OPERATION)i;
-                    }
-                    if (selected) {
-                        ImGui::SetItemDefaultFocus();
-                    }
-                }
-                ImGui::EndCombo();
-            }
-
-            // resets the model's transformation
-            if (ImGui::Button("Reset")) {
-                activeObject->reset();
-            }
-
-            ImGui::End();
+        if (active) {
+            gizmo.drawWindow();
         }
 
         // renderer viewport
@@ -681,14 +577,9 @@ void Application::run() {
         // render the active screen texture to the view port as an imgui image
         ImGui::Image(activeScreenTexture->ImGuiID(), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0,1 }, { 1,0 });
 
-        // draw the imguizmo at the center of the light
-        if (gizmoEnabled) {
-            ImGuizmo::SetDrawlist();
-            // tell imguizmo to either manipulate selected mesh position or point light position
-            auto gizmoData = moveLight ? glm::value_ptr(activeObject->transform) : glm::value_ptr(lightmatrix);
-            ImGuizmo::Manipulate(glm::value_ptr(viewport.getCamera().getView()), glm::value_ptr(viewport.getCamera().getProjection()), operation, ImGuizmo::MODE::WORLD, gizmoData);
-            // update the lightpos
-            scene.pointLight.position = { lightmatrix[3][0], lightmatrix[3][1], lightmatrix[3][2] };
+        // draw the imguizmo at the center of the active entity
+        if (active) {
+            gizmo.drawGuizmo(newScene, viewport, active);
         }
 
         ImGui::End();
@@ -710,6 +601,7 @@ void Application::run() {
             ambientOcclusionPass->resize(viewport);
             lightingPass->resize(viewport);
             voxelDebugPass->resize(viewport);
+            aabbDebugPass->resize(viewport);
 
             
             resizing = false;

@@ -1,25 +1,6 @@
-ECS thoughts
-	Data driven entity component system, this should also fix normal mapping toggle. Right now
-	we use a very hacky SceneObject/Scene class that contains way too much stuff. Ideally we have an entity class that you
-	can add components to at run time. as a user: 
-		left panel is Entity list, menu title bar is for adding new entities
-		Title bar also needs options for adding components e.g
-			Material -> has a properties panel where you can do stuff like change type (PBR), add bump map etc.
-			Mesh -> can choose from basic shapes like cube, plane
-	Another option is being able to click 'Load file' and select a GLTF file. This will create entities and attach components to them automatically.
-	For meshes and materials we'll be using Unity's approach : have a Mesh, MeshRenderer and Material component
-	We'll also need a new bottom window that holds assets, like loaded textures
-	
-SCRIPTING thoughts
-	After initial investigations I've come to the conclusion that my scripting language decision comes down to ease of use (me implementing it).
-	Languages like Ruby or Python are out of the question, they are too tedious to setup, even with SWIG.
-	I like SWIG for what it solves but its not necessary for our use case.
-	The obvious go-to language is Lua, it's trivial to setup using SOL2 BUT, I really, really dislike Lua as a language.
-	Arrays start at 1, scopes use 'end' instead of curly braces, loop are like a shitty version of Python's for loops etc.
-	I'll be implementing ChaiScript first, its header only, easy to initialize, and has a clean and well-documented interface. 
-	The only downside is that its not as mature as Lua, which is reflected in performance. According to Jason's videos, Lua executes about
-	4 million function callbacks in a second, where as ChaiScript does about 1.5 million. Ofcourse performance is important, but since this is 
-	but a hobby project, I can live with the performance, especially if I design the code well enough to port it over to Lua or some other language in the future.
+Known performance slow-downs:
+	Not clearing the voxelization texture
+	SSAO when up close to geometry
 		
 	
 		
