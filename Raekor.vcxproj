@@ -197,7 +197,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClCompile Include="src\platform\windows\DXResourceBuffer.cpp" />
     <ClCompile Include="src\platform\windows\DXShader.cpp" />
     <ClCompile Include="src\platform\windows\DXTexture.cpp" />
-    <ClCompile Include="src\platform\windows\PlatformContext.cpp" />
+    <ClCompile Include="src\platform\windows\OS.cpp" />
     <ClCompile Include="src\renderer.cpp" />
     <ClCompile Include="src\shader.cpp" />
     <ClCompile Include="src\stb_impl.cpp">
@@ -248,7 +248,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClInclude Include="src\headers\texture.h" />
     <ClInclude Include="src\headers\timer.h" />
     <ClInclude Include="src\headers\util.h" />
-    <ClInclude Include="src\platform\PlatformContext.h" />
+    <ClInclude Include="src\platform\OS.h" />
     <ClInclude Include="src\platform\windows\DXBuffer.h" />
     <ClInclude Include="src\platform\windows\DXFrameBuffer.h" />
     <ClInclude Include="src\platform\windows\DXRenderer.h" />

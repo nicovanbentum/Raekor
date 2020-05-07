@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "gui.h"
+#include "OS.h"
 
 namespace Raekor {
 namespace GUI {
@@ -54,10 +55,10 @@ void InspectorWindow::drawTransformComponent(ECS::TransformComponent* component)
     if (ImGui::DragFloat3("Scale", glm::value_ptr(component->scale))) {
         component->recalculateMatrix();
     }
-    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component->rotation))) {
+    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component->rotation), 0.001f, FLT_MIN, FLT_MAX)) {
         component->recalculateMatrix();
     }
-    if (ImGui::DragFloat3("Position", glm::value_ptr(component->position))) {
+    if (ImGui::DragFloat3("Position", glm::value_ptr(component->position), 0.001f, FLT_MIN, FLT_MAX)) {
         component->recalculateMatrix();
     }
 }
@@ -72,9 +73,26 @@ void InspectorWindow::drawMeshRendererComponent(ECS::MeshRendererComponent* comp
 }
 
 void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent* component) {
+    Ffilter textureFileFormats;
+    textureFileFormats.name = "Supported Image Files";
+    textureFileFormats.extensions = "*.png;*.jpg;*.jpeg;*.tga";
+
     ImGui::Image(component->albedo->ImGuiID(), ImVec2(50, 50));
     ImGui::SameLine();
     ImGui::Text("Albedo");
+    ImGui::SameLine();
+    if (ImGui::Button("Load image..")) {
+        std::string filepath = OS::openFileDialog( { textureFileFormats } );
+        if (!filepath.empty()) {
+            Stb::Image image;
+            image.load(filepath, true);
+            component->albedo->bind();
+            component->albedo->init(image.w, image.h, Format::SRGBA_U8, image.pixels);
+            component->albedo->setFilter(Sampling::Filter::Trilinear);
+            component->albedo->genMipMaps();
+            component->albedo->unbind();
+        }
+    }
 
     if (component->normals.get() != nullptr) {
         ImGui::Image(component->normals->ImGuiID(), ImVec2(50, 50));
@@ -153,7 +171,17 @@ void ConsoleWindow::Draw(chaiscript::ChaiScript& chai)
         if (s[0]) {
             ExecCommand(s);
             std::string evaluation = std::string(s);
-            chai.eval(evaluation);
+
+            try {
+                chai.eval(evaluation);
+            } catch (const chaiscript::exception::eval_error& ee) {
+                std::cout << ee.what();
+                if (ee.call_stack.size() > 0) {
+                    std::cout << "during evaluation at (" << ee.call_stack[0].start().line << ", " << ee.call_stack[0].start().column << ")";
+                }
+                std::cout << '\n';
+            }
+
         }
         strcpy(s, "");
         reclaim_focus = true;
@@ -197,7 +225,8 @@ void EntityWindow::draw(ECS::Scene& scene, ECS::Entity& active) {
             bool selected = active == entity;
             std::string& name = scene.names.getComponent(entity)->name;
             if (ImGui::Selectable(std::string(name + "##" + std::to_string(index)).c_str(), selected)) {
-                active = entity;
+                if (active == entity) active = NULL;
+                else active = entity;
             }
             if (selected) {
                 ImGui::SetItemDefaultFocus();
@@ -216,7 +245,7 @@ void Guizmo::drawGuizmo(ECS::Scene& scene, Viewport& viewport, ECS::Entity activ
     // set the gizmo's viewport
     ImGuizmo::SetDrawlist();
     auto pos = ImGui::GetWindowPos();
-    ImGuizmo::SetRect(pos.x, pos.y, viewport.size.x, viewport.size.y);
+    ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
 
     // temporarily transform to local space for gizmo use
     transform->matrix = glm::translate(transform->matrix, transform->localPosition);
@@ -225,7 +254,7 @@ void Guizmo::drawGuizmo(ECS::Scene& scene, Viewport& viewport, ECS::Entity activ
     ImGuizmo::Manipulate(
         glm::value_ptr(viewport.getCamera().getView()),
         glm::value_ptr(viewport.getCamera().getProjection()),
-        operation, ImGuizmo::MODE::WORLD,
+        operation, ImGuizmo::MODE::LOCAL,
         glm::value_ptr(transform->matrix)
     );
 
@@ -239,6 +268,8 @@ void Guizmo::drawGuizmo(ECS::Scene& scene, Viewport& viewport, ECS::Entity activ
         glm::value_ptr(transform->rotation),
         glm::value_ptr(transform->scale)
     );
+
+    transform->rotation = glm::radians(transform->rotation);
 }
 
 void Guizmo::drawWindow() {
@@ -249,18 +280,23 @@ void Guizmo::drawWindow() {
 
     ImGui::Separator();
 
-    if (ImGui::BeginCombo("Mode", previews[operation])) {
-        for (int i = 0; i < previews.size(); i++) {
-            bool selected = (i == operation);
-            if (ImGui::Selectable(previews[i], selected)) {
-                operation = (ImGuizmo::OPERATION)i;
-            }
-            if (selected) {
-                ImGui::SetItemDefaultFocus();
-            }
-        }
-        ImGui::EndCombo();
+    if (ImGui::RadioButton("Move", operation == ImGuizmo::OPERATION::TRANSLATE)) {
+        operation = ImGuizmo::OPERATION::TRANSLATE;
     }
+
+    ImGui::SameLine();
+
+    if (ImGui::RadioButton("Rotate", operation == ImGuizmo::OPERATION::ROTATE)) {
+        operation = ImGuizmo::OPERATION::ROTATE;
+    }
+
+    ImGui::SameLine();
+
+
+    if (ImGui::RadioButton("Scale", operation == ImGuizmo::OPERATION::SCALE)) {
+        operation = ImGuizmo::OPERATION::SCALE;
+    }
+
     ImGui::End();
 }
 

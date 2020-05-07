@@ -11,10 +11,9 @@ struct Ffilter {
 
 // Interface for OS specific tasks
 // Compile time decides which function definitions to pull in
-class PlatformContext {
+class OS {
 public:
-    PlatformContext() {}
-    std::string openFileDialog(const std::vector<Ffilter>& filters);
+    static std::string openFileDialog(const std::vector<Ffilter>& filters);
 };
 
 } // Namespace Raekor

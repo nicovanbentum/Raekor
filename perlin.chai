@@ -1,0 +1,33 @@
+class vec3 {
+    var x;
+    var y;
+    var z;
+
+    def vec3() {
+        this.x = 0.0f;
+        this.y = 0.0f;
+        this.z = 0.0f;
+    }
+};
+
+print("Hello Chai..");
+
+var type = vec3();
+print(type.x);
+
+var vec = Vector();
+vec.push_back(vec3());
+print(vec[0].x);
+
+//test
+
+for(var y = 0.0f; y < 50.0f; ++y) {
+    for(var x = 0.0f; x < 50.0f; ++x) {
+        var sampleX = x / 0.3f;
+        var sampleY = y / 0.3f;
+
+        var vv = Vector2(sampleX, sampleY);
+        var result = perlin(vv);
+        print(result);
+    }
+}

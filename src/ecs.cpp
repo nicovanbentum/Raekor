@@ -4,10 +4,11 @@
 namespace Raekor {
 namespace ECS {
 
-    void Scene:: createObject(const char* name) {
+    Entity Scene::createObject(const std::string& name) {
         Entity entity = newEntity();
         names.create(entity).name = name;
         entities.push_back(entity);
+        return entity;
     }
 
     void AssimpImporter::loadFromDisk(ECS::Scene& scene, const std::string& file) {
@@ -103,7 +104,7 @@ namespace ECS {
                 { mesh.vertices[i + 2].pos.x,  mesh.vertices[i + 2].pos.y,      mesh.vertices[i + 2].pos.z });
         }
 
-        auto  shape = std::make_unique< btBvhTriangleMeshShape>(trimesh.get(), false);
+        auto shape = std::make_unique< btBvhTriangleMeshShape>(trimesh.get(), false);
         auto minAABB = shape->getLocalAabbMin();
         auto maxAABB = shape->getLocalAabbMax();
 
@@ -152,7 +153,6 @@ namespace ECS {
                 material.albedo = std::make_unique<glTexture2D>();
                 material.albedo->bind();
                 Format::Format format = { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT };
-                diffuse = aiColor4D(1.0, 0.0, 0.0, 1.0);
                 material.albedo->init(1, 1, format, &diffuse[0]);
                 material.albedo->setFilter(Sampling::Filter::None);
                 material.albedo->setWrap(Sampling::Wrap::Repeat);

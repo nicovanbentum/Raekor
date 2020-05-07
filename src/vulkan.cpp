@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "OS.h"
 #include "app.h"
 #include "mesh.h"
 #include "util.h"
@@ -6,7 +7,6 @@
 #include "entry.h"
 #include "camera.h"
 #include "buffer.h"
-#include "PlatformContext.h"
 #include "VK/VKRenderer.h"
 
 struct mod {
@@ -29,7 +29,7 @@ bool Application::showUI = true;
 bool Application::shouldResize = false;
 
 void Application::vulkanMain() {
-    auto context = Raekor::PlatformContext();
+    auto context = Raekor::OS();
 
     // retrieve the application settings from the config file
     serializeSettings("config.json");

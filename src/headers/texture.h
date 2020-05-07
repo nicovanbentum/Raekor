@@ -43,6 +43,23 @@ public:
     glTexture(GLenum pTarget);
     ~glTexture();
 
+    // we don't allow copying of OpenGL wrapper classes
+    // see section 2.1 of https://www.khronos.org/opengl/wiki/Common_Mistakes
+    glTexture(const glTexture&) = delete;
+    glTexture& operator=(const glTexture&) = delete;
+
+    glTexture(glTexture&& other) : mID(other.mID) {
+        other.mID = 0; //Use null texture for the old object
+    }
+
+    glTexture& operator=(glTexture&& other) {
+        if (this != &other) {
+            glDeleteTextures(1, &mID);
+            mID = 0;
+            std::swap(mID, other.mID);
+        }
+    }
+
     void bind();
     void unbind();
     void bindToSlot(uint8_t slot);

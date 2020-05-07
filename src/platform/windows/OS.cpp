@@ -1,10 +1,10 @@
 #include "pch.h"
-#include "PlatformContext.h"
+#include "OS.h"
 #include "util.h"
 
 namespace Raekor {
 
-std::string PlatformContext::openFileDialog(const std::vector<Ffilter>& filters) {
+std::string OS::openFileDialog(const std::vector<Ffilter>& filters) {
     std::string lpstr_filters;
     for (const Ffilter& filter : filters) {
         lpstr_filters.append(filter.name + " (" + filter.extensions + ')' + '\0' + filter.extensions + '\0');

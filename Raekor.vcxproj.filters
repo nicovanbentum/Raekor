@@ -42,9 +42,6 @@
     <ClCompile Include="src\shader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\platform\windows\PlatformContext.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="dependencies\imgui\imgui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -150,6 +147,9 @@
     <ClCompile Include="src\gui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\platform\windows\OS.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\glm\glm.hpp">
@@ -183,9 +183,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\headers\shader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\platform\PlatformContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\headers\app.h">
@@ -282,6 +279,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\headers\gui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\platform\OS.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

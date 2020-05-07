@@ -57,6 +57,21 @@ struct MeshComponent {
     glIndexBuffer indexBuffer;
 
     std::array<glm::vec3, 2> aabb;
+
+    void uploadVertices() {
+        vertexBuffer.loadVertices(vertices.data(), vertices.size());
+        vertexBuffer.setLayout({
+            {"POSITION",    ShaderType::FLOAT3},
+            {"UV",          ShaderType::FLOAT2},
+            {"NORMAL",      ShaderType::FLOAT3},
+            {"TANGENT",     ShaderType::FLOAT3},
+            {"BINORMAL",    ShaderType::FLOAT3}
+        });
+    }
+
+    void uploadIndices() {
+        indexBuffer.loadFaces(indices.data(), indices.size());
+    }
 };
 
 struct MeshRendererComponent {
@@ -150,7 +165,12 @@ private:
 
 class Scene {
 public:
-    void createObject(const char* name);
+    Entity createObject(const std::string& name);
+
+    MeshComponent&  addMesh() {
+        Entity entity = createObject("Mesh");
+        return meshes.create(entity);
+    }
 
     void remove(ECS::Entity entity) {
         names.remove(entity);

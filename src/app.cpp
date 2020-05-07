@@ -7,7 +7,7 @@
 #include "camera.h"
 #include "shader.h"
 #include "framebuffer.h"
-#include "PlatformContext.h"
+#include "OS.h"
 #include "renderer.h"
 #include "buffer.h"
 #include "timer.h"
@@ -30,8 +30,6 @@ void Application::serializeSettings(const std::string& filepath, bool write) {
 }
 
 void Application::run() {
-    auto context = Raekor::PlatformContext();
-
     // retrieve the application settings from the config file
     serializeSettings("config.json");
 
@@ -43,6 +41,35 @@ void Application::run() {
 
     // init scripting language
     chaiscript::ChaiScript chai;
+
+    // add glm::vec2
+    chai.add(chaiscript::user_type<glm::vec<2, float, glm::packed_highp>>(), "Vector2");
+    chai.add(chaiscript::constructor<glm::vec<2, float, glm::packed_highp>(float x, float y)>(), "Vector2");
+    chai.add(chaiscript::fun(&glm::vec<2, float, glm::packed_highp>::x), "x");
+    chai.add(chaiscript::fun(&glm::vec<2, float, glm::packed_highp>::y), "y");
+
+    // add glm::perlin for vec2's
+    chai.add(chaiscript::fun(static_cast<float(*)(glm::vec<2, float, glm::packed_highp> const&)>(&glm::perlin<float, glm::packed_highp>)), "perlin");
+
+    //
+    chai.add(chaiscript::fun(&ECS::Scene::addMesh), "addMesh");
+    chai.add(chaiscript::fun(&ECS::MeshComponent::vertices), "vertices");
+    chai.add(chaiscript::fun(&ECS::MeshComponent::indices), "indices");
+
+    chai.add(chaiscript::user_type<Vertex>(), "Vertex");
+    chai.add(chaiscript::fun(&Vertex::pos), "position");
+    chai.add(chaiscript::fun(&Vertex::normal), "normal");
+
+    try {
+        chai.eval_file("perlin.chai");
+    }
+    catch (const chaiscript::exception::eval_error& ee) {
+        std::cout << ee.what();
+        if (ee.call_stack.size() > 0) {
+            std::cout << "during evaluation at (" << ee.call_stack[0].start().line << ", " << ee.call_stack[0].start().column << ")";
+        }
+        std::cout << '\n';
+    }
 
     std::vector<SDL_Rect> displays;
     for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
@@ -250,7 +277,13 @@ void Application::run() {
 
     while (running) {
         deltaTimer.start();
-        handleEvents(directxwindow, viewport.getCamera(), mouseInViewport, deltaTime);
+
+        // if we're debugging the shadow map we directly control the sun camera
+        if (activeScreenTexture != &shadowMapPass->result)
+            handleEvents(directxwindow, viewport.getCamera(), mouseInViewport, deltaTime);
+        else
+            handleEvents(directxwindow, scene.sunCamera, mouseInViewport, deltaTime);
+        
         scene.sunCamera.update(true);
         viewport.getCamera().update(true);
 
@@ -287,11 +320,9 @@ void Application::run() {
         // perform Bloom
         if (doBloom) {
             bloomPass->execute(lightingPass->result, lightingPass->bloomHighlights, Quad.get());
-        }
-
-        if (doBloom) {
             tonemappingPass->execute(bloomPass->result, Quad.get());
-        } else {
+        }
+        else {
             tonemappingPass->execute(lightingPass->result, Quad.get());
         }
 
@@ -346,21 +377,28 @@ void Application::run() {
             (scene.pointLight.position.x <= -bounds && lightMoveSpeed < 0)) {
             lightMoveSpeed *= -1;
         }
-        if (moveLight) lightmatrix = glm::translate(lightmatrix, { lightMoveAmount, 0.0, 0.0 });
+        if (moveLight) {
+            lightmatrix = glm::translate(lightmatrix, { lightMoveAmount, 0.0, 0.0 });
+            scene.pointLight.position.x += static_cast<decltype(scene.pointLight.position.x)>(lightMoveAmount);
+        }
 
         // draw the top user bar
         if (ImGui::BeginMenuBar()) {
             if (ImGui::BeginMenu("File")) {
-                if (ImGui::MenuItem("Load model")) {
-                    std::string path = context.openFileDialog({ meshFileFormats });
+                if (ImGui::MenuItem("Load..")) {
+                    std::string path = OS::openFileDialog({ meshFileFormats });
                     if (!path.empty()) {
-                        project.push_back(path);
-                        scene.add(path);
+                        importer.loadFromDisk(newScene, path);
                     }
                 }
-                if (ImGui::MenuItem("Save project", "CTRL + S")) {
+                if (ImGui::MenuItem("Save", "CTRL + S")) {
                     serializeSettings("config.json", true);
                 }
+
+                if (ImGui::MenuItem("Save as..", "CTRL + S")) {
+                    serializeSettings("config.json", true);
+                }
+
                 if (ImGui::MenuItem("Settings", "")) {
                     showSettingsWindow = true;
                 }
@@ -391,6 +429,8 @@ void Application::run() {
 
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
                 // on press we remove the scene object
+                newScene.remove(active);
+                active = NULL;
             }
 
             if (ImGui::BeginMenu("Help")) {
