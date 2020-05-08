@@ -3,6 +3,7 @@
 #include "buffer.h"
 #include "mesh.h"
 #include "texture.h"
+#include "math.h"
 
 namespace Raekor {
 namespace ECS {
@@ -206,6 +207,51 @@ private:
 private:
     std::unordered_map<std::string, Stb::Image> images;
 };
+
+static Entity pickMesh(ComponentManager<MeshComponent>& meshes, ComponentManager<TransformComponent>& transforms, Math::Ray& ray) {
+    // if this never gets a value we conclude there were no hits
+    std::optional<float> shortestDistance;
+    ECS::Entity result = NULL;
+
+    for (size_t i = 0; i < meshes.getCount(); i++) {
+        ECS::Entity entity = meshes.getEntity(i);
+
+        MeshComponent& mesh = meshes[i];
+
+        // get the OBB transformation matrix
+        TransformComponent* transform = transforms.getComponent(entity);
+        const glm::mat4& worldTransform = transform ? transform->matrix : glm::mat4(1.0f);
+
+        // convert AABB from local to world space
+        std::array<glm::vec3, 2> worldAABB = {
+            worldTransform* glm::vec4(mesh.aabb[0], 1.0),
+            worldTransform * glm::vec4(mesh.aabb[1], 1.0)
+        };
+
+        // if the camera is inside a mesh's world AABB we skip it
+        if (Math::pointInAABB(ray.origin, worldAABB[0], worldAABB[1])) {
+            continue;
+        }
+
+        // check for ray hit
+        auto hitResult = ray.hitsOBB(mesh.aabb[0], mesh.aabb[1], worldTransform);
+
+        // if we hit do something
+        if (hitResult.has_value()) {
+            // if its the first iteration we init the shortest distance
+            if (!shortestDistance.has_value()) {
+                shortestDistance = hitResult;
+                result = entity;
+            } // every other iteration we check if the hits distance is shorter and update the result
+            else if (hitResult.value() < shortestDistance.value()) {
+                shortestDistance = hitResult;
+                result = entity;
+            }
+        }
+    }
+
+    return result;
+}
 
 } // ecs
 } // raekor

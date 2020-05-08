@@ -52,6 +52,8 @@ public:
 
 class GeometryBuffer {
 public:
+    uint32_t culled = 0;
+
     GeometryBuffer(Viewport& viewport);
     void execute(ECS::Scene& scene, Viewport& viewport);
     void resize(Viewport& viewport);

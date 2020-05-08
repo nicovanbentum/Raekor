@@ -182,6 +182,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClCompile Include="src\entry.cpp" />
     <ClCompile Include="src\framebuffer.cpp" />
     <ClCompile Include="src\gui.cpp" />
+    <ClCompile Include="src\math.cpp" />
     <ClCompile Include="src\mesh.cpp" />
     <ClCompile Include="src\renderpass.cpp" />
     <ClCompile Include="src\scene.cpp" />
@@ -239,6 +240,7 @@ copy "$(SolutionDir)\dependencies\assimp-build\config.h" "$(SolutionDir)\depende
     <ClInclude Include="src\headers\entry.h" />
     <ClInclude Include="src\headers\framebuffer.h" />
     <ClInclude Include="src\headers\gui.h" />
+    <ClInclude Include="src\headers\math.h" />
     <ClInclude Include="src\headers\mesh.h" />
     <ClInclude Include="src\headers\renderpass.h" />
     <ClInclude Include="src\headers\scene.h" />

@@ -112,13 +112,9 @@ void OmniShadowMap::execute(ECS::Scene& scene, const glm::vec3& lightPosition) {
 
             ECS::MeshComponent& mesh = scene.meshes[i];
             ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
+            const glm::mat4& worldTransform = transform ? transform->matrix : glm::mat4(1.0f);
 
-            if (transform) {
-                shader.getUniform("model") = transform->matrix;
-            }
-            else {
-                shader.getUniform("model") = glm::mat4(1.0f);
-            }
+            shader.getUniform("model") = worldTransform;
 
             mesh.vertexBuffer.bind();
             mesh.indexBuffer.bind();
@@ -172,11 +168,34 @@ void GeometryBuffer::execute(ECS::Scene& scene, Viewport& viewport) {
     shader.getUniform("projection") = viewport.getCamera().getProjection();
     shader.getUniform("view") = viewport.getCamera().getView();
 
+    Math::Frustrum frustrum;
+    frustrum.update(viewport.getCamera().getProjection() * viewport.getCamera().getView(), true);
+
+    culled = 0;
+
     for (uint32_t i = 0; i < scene.meshes.getCount(); i++) {
         ECS::Entity entity = scene.meshes.getEntity(i);
 
         ECS::MeshComponent& mesh = scene.meshes[i];
+
+        ECS::NameComponent* name = scene.names.getComponent(entity);
+
         ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
+        const glm::mat4& worldTransform = transform ? transform->matrix : glm::mat4(1.0f);
+
+            // convert AABB from local to world space
+            std::array<glm::vec3, 2> worldAABB = {
+                worldTransform * glm::vec4(mesh.aabb[0], 1.0),
+                worldTransform * glm::vec4(mesh.aabb[1], 1.0)
+            };
+
+            // if the frustrum can't see the mesh's OBB we cull it
+            if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
+                culled += 1;
+                continue;
+            }
+
+
         ECS::MaterialComponent* material = scene.materials.getComponent(entity);
 
         if (material) {

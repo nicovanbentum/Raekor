@@ -61,7 +61,7 @@ void Application::run() {
     chai.add(chaiscript::fun(&Vertex::normal), "normal");
 
     try {
-        chai.eval_file("perlin.chai");
+        //chai.eval_file("perlin.chai");
     }
     catch (const chaiscript::exception::eval_error& ee) {
         std::cout << ee.what();
@@ -572,13 +572,14 @@ void Application::run() {
         ImGui::Text("Product: %s", glGetString(GL_RENDERER));
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        ImGui::Text("Culling: %i of %i meshes", geometryBufferPass->culled, newScene.meshes.getCount());
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
 
         ImGui::Begin("Camera Properties");
         static float fov = 45.0f;
         if (ImGui::DragFloat("FoV", &fov, 1.0f, 35.0f, 120.0f)) {
-            viewport.getCamera().getProjection() = glm::perspectiveRH(glm::radians(fov), (float)viewport.size.x / (float)viewport.size.y, 0.1f, 100.0f);
+            viewport.getCamera().getProjection() = glm::perspectiveRH(glm::radians(fov), (float)viewport.size.x / (float)viewport.size.y, 0.1f, 10000.0f);
         }
         if (ImGui::DragFloat("Move Speed", &viewport.getCamera().moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
         if (ImGui::DragFloat("Move Constant", &viewport.getCamera().moveConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
@@ -586,6 +587,7 @@ void Application::run() {
         if (ImGui::DragFloat("Look Constant", &viewport.getCamera().lookConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
         if (ImGui::DragFloat("Zoom Speed", &viewport.getCamera().zoomSpeed, 0.001f, 0.0001f, FLT_MAX, "%.4f")) {}
         if (ImGui::DragFloat("Zoom Constant", &viewport.getCamera().zoomConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+
         ImGui::End();
 
         // if the scene containt at least one model, AND the active model is pointing at a valid model,
@@ -614,6 +616,35 @@ void Application::run() {
             mouseInViewport = false;
         }
 
+        // on mouse click we shoot a ray to pick which mesh was clicked
+        // is ignored if the guizmo was clicked
+        if (io.MouseClicked[0] && mouseInViewport && !(active != NULL && ImGuizmo::IsOver()) ) {
+            glm::ivec2 mousePosition;
+            SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
+
+            glm::ivec2 rendererMousePosition = { (mousePosition.x - pos.x), (mousePosition.y - pos.y) };
+
+            glm::vec3 rayNDC = {
+                (2.0f * rendererMousePosition.x) / size.x - 1.0f,
+                1.0f - (2.0f * rendererMousePosition.y) / size.y,
+                1.0f
+            };
+
+            glm::vec4 rayClip = { rayNDC.x, rayNDC.y, -1.0f, 1.0f };
+
+            glm::vec4 rayCamera = glm::inverse(viewport.getCamera().getProjection()) * rayClip;
+            rayCamera.z = -1.0f, rayCamera.w = 0.0f;
+
+            glm::vec3 rayWorld = glm::inverse(viewport.getCamera().getView()) * rayCamera;
+            rayWorld = glm::normalize(rayWorld);
+
+            Math::Ray pickRay;
+            pickRay.direction = rayWorld;
+            pickRay.origin = viewport.getCamera().getPosition();
+
+            active = ECS::pickMesh(newScene.meshes, newScene.transforms, pickRay);
+        }
+
         // render the active screen texture to the view port as an imgui image
         ImGui::Image(activeScreenTexture->ImGuiID(), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0,1 }, { 1,0 });
 
@@ -631,7 +662,7 @@ void Application::run() {
 
         if (resizing) {
             // adjust the camera and gizmo
-            viewport.getCamera().getProjection() = glm::perspectiveRH(glm::radians(fov), (float)viewport.size.x / (float)viewport.size.y, 0.1f, 100.0f);
+            viewport.getCamera().getProjection() = glm::perspectiveRH(glm::radians(fov), (float)viewport.size.x / (float)viewport.size.y, 0.1f, 10000.0f);
             ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
 
             // resizing framebuffers
