@@ -81,6 +81,7 @@ struct Vertex {
 };
 
 struct Face {
+    Face() {}
     Face(uint32_t _f1, uint32_t _f2, uint32_t _f3) : f1(_f1), f2(_f2), f3(_f3) {}
 
     uint32_t f1, f2, f3;

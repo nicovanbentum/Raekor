@@ -17,7 +17,7 @@ private:
 
 public:
     ShadowMap(uint32_t width, uint32_t height);
-    void execute(ECS::Scene& scene, Camera& sunCamera);
+    void execute(Scene& scene, Camera& sunCamera);
 
 private:
     glShader shader;
@@ -38,7 +38,7 @@ public:
     } settings;
 
     OmniShadowMap(uint32_t width, uint32_t height);
-    void execute(ECS::Scene& scene, const glm::vec3& lightPosition);
+    void execute(Scene& scene, const glm::vec3& lightPosition);
 
 private:
     glShader shader;
@@ -55,8 +55,16 @@ public:
     uint32_t culled = 0;
 
     GeometryBuffer(Viewport& viewport);
-    void execute(ECS::Scene& scene, Viewport& viewport);
+    void execute(Scene& scene, Viewport& viewport);
     void resize(Viewport& viewport);
+
+    ECS::Entity pick(uint32_t x, uint32_t y) {
+        int id;
+        GBuffer.bind();
+        glReadPixels(x, y, 1, 1, GL_STENCIL_INDEX, GL_INT, &id);
+        GBuffer.unbind();
+        return id;
+    }
 
 private:
     glShader shader;
@@ -119,7 +127,7 @@ public:
 
 
     DeferredLighting(Viewport& viewport);
-    void execute(Scene& scene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
+    void execute(DeprecatedScene& scene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
                     GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Mesh* quad);
     void resize(Viewport& viewport);
 
@@ -181,7 +189,7 @@ public:
 class Voxelization {
 public:
     Voxelization(uint32_t width, uint32_t height, uint32_t depth);
-    void execute(ECS::Scene& scene, Viewport& viewport);
+    void execute(Scene& scene, Viewport& viewport);
 
 private:
     glShader shader;
@@ -215,7 +223,7 @@ public:
 class BoundingBoxDebug {
 public:
     BoundingBoxDebug(Viewport& viewport);
-    void execute(ECS::Scene& scene, Viewport& viewport, glTexture2D& texture, ECS::Entity active);
+    void execute(Scene& scene, Viewport& viewport, glTexture2D& texture, ECS::Entity active);
     void resize(Viewport& viewport);
 
 private:

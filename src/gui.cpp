@@ -5,7 +5,7 @@
 namespace Raekor {
 namespace GUI {
 
-void InspectorWindow::draw(ECS::Scene& scene, ECS::Entity entity) {
+void InspectorWindow::draw(Scene& scene, ECS::Entity entity) {
     ImGui::Begin("Inspector");
     if (entity != NULL) {
         ImGui::Text("ID: %i", entity);
@@ -37,6 +37,30 @@ void InspectorWindow::draw(ECS::Scene& scene, ECS::Entity entity) {
                 if (isOpen) drawMaterialComponent(scene.materials.getComponent(entity));
                 else scene.materials.remove(entity);
             }
+        }
+
+        if (ImGui::BeginPopup("Components"))
+        {
+            if (ImGui::Selectable("Transform", false)) {
+                scene.transforms.create(entity);
+                ImGui::CloseCurrentPopup();
+            }
+
+            if(ImGui::Selectable("Mesh", false)) {
+                scene.meshes.create(entity);
+                ImGui::CloseCurrentPopup();
+            }
+
+            if (ImGui::Selectable("Material", false)) {
+                scene.materials.create(entity);
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
+        }
+
+        if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0))) {
+            ImGui::OpenPopup("Components");
         }
     }
 
@@ -77,15 +101,23 @@ void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent* component) {
     textureFileFormats.name = "Supported Image Files";
     textureFileFormats.extensions = "*.png;*.jpg;*.jpeg;*.tga";
 
-    ImGui::Image(component->albedo->ImGuiID(), ImVec2(50, 50));
-    ImGui::SameLine();
+    if (component->albedo) {
+        ImGui::Image(component->albedo->ImGuiID(), ImVec2(15, 15));
+        ImGui::SameLine();
+    }
+
     ImGui::Text("Albedo");
     ImGui::SameLine();
-    if (ImGui::Button("Load image..")) {
+    if (ImGui::SmallButton("...")) {
         std::string filepath = OS::openFileDialog( { textureFileFormats } );
         if (!filepath.empty()) {
             Stb::Image image;
             image.load(filepath, true);
+
+            if (!component->albedo) {
+                component->albedo.reset(new glTexture2D());
+            }
+
             component->albedo->bind();
             component->albedo->init(image.w, image.h, Format::SRGBA_U8, image.pixels);
             component->albedo->setFilter(Sampling::Filter::Trilinear);
@@ -94,10 +126,28 @@ void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent* component) {
         }
     }
 
-    if (component->normals.get() != nullptr) {
-        ImGui::Image(component->normals->ImGuiID(), ImVec2(50, 50));
+    if (component->normals) {
+        ImGui::Image(component->normals->ImGuiID(), ImVec2(15, 15));
         ImGui::SameLine();
-        ImGui::Text("Normal map");
+    }
+    
+    ImGui::Text("Normal map");
+    ImGui::SameLine();
+    if (ImGui::SmallButton("...")) {
+        std::string filepath = OS::openFileDialog({ textureFileFormats });
+        if (!filepath.empty()) {
+            Stb::Image image;
+            image.load(filepath, true);
+
+            if (!component->normals) {
+                component->normals.reset(new glTexture2D());
+            }
+
+            component->normals->bind();
+            component->normals->init(image.w, image.h, Format::RGBA_U8, image.pixels);
+            component->normals->setFilter(Sampling::Filter::None);
+            component->normals->unbind();
+        }
     }
 }
 
@@ -214,7 +264,7 @@ int ConsoleWindow::TextEditCallbackStub(ImGuiInputTextCallbackData* data) // In 
 
 int ConsoleWindow::TextEditCallback(ImGuiInputTextCallbackData* data) { return 0; }
 
-void EntityWindow::draw(ECS::Scene& scene, ECS::Entity& active) {
+void EntityWindow::draw(Scene& scene, ECS::Entity& active) {
     ImGui::Begin("Scene");
     auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_CollapsingHeader;
     if (ImGui::TreeNodeEx("Entities", treeNodeFlags)) {
@@ -238,7 +288,7 @@ void EntityWindow::draw(ECS::Scene& scene, ECS::Entity& active) {
     ImGui::End();
 }
 
-void Guizmo::drawGuizmo(ECS::Scene& scene, Viewport& viewport, ECS::Entity active) {
+void Guizmo::drawGuizmo(Scene& scene, Viewport& viewport, ECS::Entity active) {
     ECS::TransformComponent* transform = scene.transforms.getComponent(active);
     if (!active || !enabled || !transform) return;
 

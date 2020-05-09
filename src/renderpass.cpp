@@ -27,7 +27,7 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     framebuffer.unbind();
 }
 
-void ShadowMap::execute(ECS::Scene& scene, Camera& sunCamera) {
+void ShadowMap::execute(Scene& scene, Camera& sunCamera) {
     // setup the shadow map 
     framebuffer.bind();
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -82,7 +82,7 @@ OmniShadowMap::OmniShadowMap(uint32_t width, uint32_t height) {
     depthCubeFramebuffer.unbind();
 }
 
-void OmniShadowMap::execute(ECS::Scene& scene, const glm::vec3& lightPosition) {
+void OmniShadowMap::execute(Scene& scene, const glm::vec3& lightPosition) {
     // generate the view matrices for calculating lightspace
     std::vector<glm::mat4> shadowTransforms;
     glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), float(settings.width / settings.height), settings.nearPlane, settings.farPlane);
@@ -159,11 +159,17 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     GBuffer.unbind();
 }
 
-void GeometryBuffer::execute(ECS::Scene& scene, Viewport& viewport) {
-    GBuffer.bind();
+void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
+    // enable stencil stuff
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glStencilMask(0xFFFF); // Write to stencil buffer
+    glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
 
+    GBuffer.bind();
     shader.bind();
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
 
     shader.getUniform("projection") = viewport.getCamera().getProjection();
     shader.getUniform("view") = viewport.getCamera().getView();
@@ -189,17 +195,17 @@ void GeometryBuffer::execute(ECS::Scene& scene, Viewport& viewport) {
                 worldTransform * glm::vec4(mesh.aabb[1], 1.0)
             };
 
-            // if the frustrum can't see the mesh's OBB we cull it
-            if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
-                culled += 1;
-                continue;
-            }
+            //// if the frustrum can't see the mesh's OBB we cull it
+            //if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
+            //    culled += 1;
+            //    continue;
+            //}
 
 
         ECS::MaterialComponent* material = scene.materials.getComponent(entity);
 
         if (material) {
-            material->albedo->bindToSlot(0);
+            if(material->albedo) material->albedo->bindToSlot(0);
             if(material->normals) material->normals->bindToSlot(3);
         }
 
@@ -210,12 +216,19 @@ void GeometryBuffer::execute(ECS::Scene& scene, Viewport& viewport) {
             shader.getUniform("model") = glm::mat4(1.0f);
         }
 
+        // write the entity ID to the stencil buffer for picking
+        glStencilFunc(GL_ALWAYS, (GLint)entity, 0xFFFF);
+
         mesh.vertexBuffer.bind();
         mesh.indexBuffer.bind();
         Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
 
     GBuffer.unbind();
+
+    // disable stencil stuff
+    glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
+    glDisable(GL_STENCIL_TEST);
 }
 
 void GeometryBuffer::resize(Viewport& viewport) {
@@ -369,7 +382,7 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
     uniformBuffer.setSize(sizeof(uniforms));
 }
 
-void DeferredLighting::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
+void DeferredLighting::execute(DeprecatedScene& scene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
                                 GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Mesh* quad) {
     // bind the main framebuffer
     framebuffer.bind();
@@ -581,7 +594,7 @@ Voxelization::Voxelization(uint32_t width, uint32_t height, uint32_t depth) {
 }
 
 
-void Voxelization::execute(ECS::Scene& scene, Viewport& viewport) {
+void Voxelization::execute(Scene& scene, Viewport& viewport) {
     shader.bind();
 
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -763,7 +776,7 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
         });
 }
 
-void BoundingBoxDebug::execute(ECS::Scene& scene, Viewport& viewport, glTexture2D& texture, ECS::Entity active) {
+void BoundingBoxDebug::execute(Scene& scene, Viewport& viewport, glTexture2D& texture, ECS::Entity active) {
     if (!active) return;
     ECS::MeshComponent* mesh = scene.meshes.getComponent(active);
     ECS::TransformComponent* transform = scene.transforms.getComponent(active);
@@ -778,11 +791,12 @@ void BoundingBoxDebug::execute(ECS::Scene& scene, Viewport& viewport, glTexture2
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
     shader.getUniform("view") = viewport.getCamera().getView();
-    shader.getUniform("model") = transform ? transform->matrix : glm::mat4(1.0f);
+    shader.getUniform("model") = glm::mat4(1.0f);
 
-    const auto min = mesh->aabb[0];
-    const auto max = mesh->aabb[1];
-
+    // calculate obb from aabb
+    const auto min = (mesh->aabb[0] * transform->scale) + transform->position;
+    const auto max = (mesh->aabb[1] * transform->scale) + transform->position;
+    
     std::vector<Vertex> vertices = {
         { {min} },
         { {max[0], min[1], min[2] } },

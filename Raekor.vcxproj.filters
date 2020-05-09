@@ -138,9 +138,6 @@
     <ClCompile Include="src\renderpass.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\ecs.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="dependencies\imgui\misc\cpp\imgui_stdlib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -150,7 +147,10 @@
     <ClCompile Include="src\platform\windows\OS.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\math.cpp">
+    <ClCompile Include="src\rmath.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\components.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -287,7 +287,10 @@
     <ClInclude Include="src\platform\OS.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\headers\math.h">
+    <ClInclude Include="src\headers\rmath.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\headers\components.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

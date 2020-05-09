@@ -5,9 +5,51 @@
 #include "camera.h"
 #include "texture.h"
 
+#include "ecs.h"
+#include "components.h"
+
 namespace Raekor {
 
-// This is all really ugly and super hacky, should refactor to a pseudo ECS system
+class Scene {
+public:
+    ECS::Entity createObject(const std::string& name);
+
+    ECS::MeshComponent& addMesh();
+
+    void remove(ECS::Entity entity);
+
+public:
+    ECS::ComponentManager<ECS::NameComponent> names;
+    ECS::ComponentManager<ECS::TransformComponent> transforms;
+    ECS::ComponentManager<ECS::MeshComponent> meshes;
+    ECS::ComponentManager<ECS::MeshRendererComponent> meshRenderers;
+    ECS::ComponentManager<ECS::MaterialComponent> materials;
+
+public:
+    std::vector<ECS::Entity> entities;
+};
+
+class AssimpImporter {
+public:
+    void loadFromDisk(Scene& scene, const std::string& file);
+
+private:
+    void processAiNode(Scene& scene, const aiScene* aiscene, aiNode* node);
+
+    // TODO: every mesh in the file is created as an Entity that has 1 name, 1 mesh and 1 material component
+    // we might want to incorporate meshrenderers and seperate entities for materials
+    void loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform);
+
+    void loadTexturesAsync(const aiScene* scene, const std::string& directory);
+
+private:
+    std::unordered_map<std::string, Stb::Image> images;
+};
+
+////////////////////////////////////////
+// EVERYTHING BELOW SHOULD BE DEPRECATED
+///////////////////////////////////////
+
 
 struct PointLight {
     glm::vec3 position;
@@ -52,9 +94,9 @@ public:
     std::unique_ptr<btBvhTriangleMeshShape> shape;
 };
 
-class Scene {
+class DeprecatedScene {
 public:
-    Scene();
+    DeprecatedScene();
 
     void add(std::string file);
 

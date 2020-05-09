@@ -35,6 +35,7 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
     SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     
     context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, context);

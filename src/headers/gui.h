@@ -3,12 +3,15 @@
 #include "ecs.h"
 #include "camera.h"
 
+#include "scene.h"
+#include "components.h"
+
 namespace Raekor {
 namespace GUI {
 
 class InspectorWindow {
 public:
-    void draw(ECS::Scene& scene, ECS::Entity entity);
+    void draw(Scene& scene, ECS::Entity entity);
 
 private:
     void drawNameComponent(ECS::NameComponent* component);
@@ -20,7 +23,7 @@ private:
 
 class EntityWindow {
 public:
-    void draw(ECS::Scene& scene, ECS::Entity& active);
+    void draw(Scene& scene, ECS::Entity& active);
 };
 
 
@@ -66,7 +69,7 @@ private:
 
 class Guizmo {
 public:
-    void drawGuizmo(ECS::Scene& scene, Viewport& viewport, ECS::Entity active);
+    void drawGuizmo(Scene& scene, Viewport& viewport, ECS::Entity active);
     void drawWindow();
 
 private:

@@ -1,33 +1,58 @@
-class vec3 {
-    var x;
-    var y;
-    var z;
-
-    def vec3() {
-        this.x = 0.0f;
-        this.y = 0.0f;
-        this.z = 0.0f;
-    }
-};
-
 print("Hello Chai..");
 
-var type = vec3();
-print(type.x);
+// var empty := scene.createEmpty();
+// var mesh := scene.meshes.create(empty);
+// var material = scene.materials.create(empty);
+// material.loadFromDisk()
 
-var vec = Vector();
-vec.push_back(vec3());
-print(vec[0].x);
+var mesh := addMesh();
 
-//test
+var width = 50.0f;
+var height = 50.0f;
+var scale = 0.3f;
+var vertex_index = 0;
 
-for(var y = 0.0f; y < 50.0f; ++y) {
-    for(var x = 0.0f; x < 50.0f; ++x) {
-        var sampleX = x / 0.3f;
-        var sampleY = y / 0.3f;
+var colourData = Vector();
 
-        var vv = Vector2(sampleX, sampleY);
-        var result = perlin(vv);
-        print(result);
+for(var y = 0.0f; y < width; ++y) {
+    for(var x = 0.0f; x < height; ++x) {
+        var sample_x = x / scale;
+        var sample_y = y / scale;
+
+        var vertex = Vertex();
+        var z = perlin(Vector2(sample_x, sample_y));
+
+        colourData.push_back(Vector3(0.0f, 1.0f - z , 1.0f - z));
+
+        vertex.pos = Vector3(x, z, y);
+        vertex.uv = Vector2(x / width, y / width);
+        mesh.vertices.push_back(vertex);
+
+        if(x < width - 1 && y < height -1) {
+            mesh.indices.push_back(Face(vertex_index + 1, vertex_index, vertex_index + width +1));
+            mesh.indices.push_back(Face(vertex_index + width, vertex_index + width + 1, vertex_index));
+        }
+
+        vertex_index += 1;
     }
 }
+
+
+for(var i = 0; i < mesh.indices.size(); i = i + 1) {
+    var index := mesh.indices[i];
+
+    // calculate normal
+    var v1 := mesh.vertices[mesh.indices[i].f1].pos;
+    var v2 := mesh.vertices[mesh.indices[i].f2].pos;
+    var v3 := mesh.vertices[mesh.indices[i].f3].pos;
+
+    var normal = normalize(cross(v2 - v1, v3 - v1));
+
+    mesh.vertices[mesh.indices[i].f1].normal = normal;
+    mesh.vertices[mesh.indices[i].f2].normal = normal;
+    mesh.vertices[mesh.indices[i].f3].normal = normal;
+}
+
+mesh.generateAABB();
+mesh.uploadIndices();
+mesh.uploadVertices();

@@ -48,28 +48,57 @@ void Application::run() {
     chai.add(chaiscript::fun(&glm::vec<2, float, glm::packed_highp>::x), "x");
     chai.add(chaiscript::fun(&glm::vec<2, float, glm::packed_highp>::y), "y");
 
+    // add glm::vec3
+    chai.add(chaiscript::user_type<glm::vec<2, float, glm::packed_highp>>(), "Vector3");
+    chai.add(chaiscript::constructor<glm::vec<3, float, glm::packed_highp>(float x, float y, float z)>(), "Vector3");
+
+    chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp> & (glm::vec<3, float, glm::packed_highp>::*)(const glm::vec<3, float, glm::packed_highp>&)>(&glm::vec<3, float, glm::packed_highp>::operator=)), "=");
+    chai.add(chaiscript::fun(static_cast<glm::vec<2, float, glm::packed_highp> & (glm::vec<2, float, glm::packed_highp>::*)(const glm::vec<2, float, glm::packed_highp>&)>(&glm::vec<2, float, glm::packed_highp>::operator=)), "=");
+
+    chai.add(chaiscript::bootstrap::standard_library::vector_type<std::vector<Vertex>>("VertexList"));
+    chai.add(chaiscript::bootstrap::standard_library::vector_type<std::vector<Face>>("FaceList"));
+
+    chai.add(chaiscript::fun(&glm::vec<3, float, glm::packed_highp>::x), "x");
+    chai.add(chaiscript::fun(&glm::vec<3, float, glm::packed_highp>::y), "y");
+    chai.add(chaiscript::fun(&glm::vec<3, float, glm::packed_highp>::z), "z");
+
+    // add Vertex
+    chai.add(chaiscript::user_type<Vertex>(), "Vertex");
+    chai.add(chaiscript::constructor<Vertex()>(), "Vertex");
+    chai.add(chaiscript::fun(&Vertex::pos), "pos");
+    chai.add(chaiscript::fun(&Vertex::uv), "uv");
+    chai.add(chaiscript::fun(&Vertex::normal), "normal");
+
+     //add Face
+    chai.add(chaiscript::user_type<Face>(), "Face");
+    chai.add(chaiscript::constructor<Face()>(), "Face");
+    chai.add(chaiscript::constructor<Face(uint32_t _f1, uint32_t _f2, uint32_t _f3)>(), "Face");
+    chai.add(chaiscript::fun(&Face::f1), "f1");
+    chai.add(chaiscript::fun(&Face::f2), "f2");
+    chai.add(chaiscript::fun(&Face::f3), "f3");
+
+    // add cross product for vec3's
+    chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp>(*)(const glm::vec<3, float, glm::packed_highp>&, const glm::vec<3, float, glm::packed_highp>&)>(&glm::cross<float, glm::packed_highp>)), "cross");
+
+    // add normalize for vector 3
+    chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp>(*)(const glm::vec<3, float, glm::packed_highp>&)>(&glm::normalize<3, float, glm::packed_highp>)), "normalize");
+
+    // add minus operator for vector 3's
+    chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp>(*)(const glm::vec<3, float, glm::packed_highp>&, const glm::vec<3, float, glm::packed_highp>&)>(&glm::operator-<float, glm::packed_highp>)), "-");
+
+    glm::vec<3, float, glm::packed_highp>(*fff)(const glm::vec<3, float, glm::packed_highp>&, const glm::vec<3, float, glm::packed_highp>&) = glm::operator-<float, glm::packed_highp>;
+
     // add glm::perlin for vec2's
     chai.add(chaiscript::fun(static_cast<float(*)(glm::vec<2, float, glm::packed_highp> const&)>(&glm::perlin<float, glm::packed_highp>)), "perlin");
 
-    //
-    chai.add(chaiscript::fun(&ECS::Scene::addMesh), "addMesh");
+    // add scene methods
+    Scene newScene;
+    chai.add(chaiscript::fun(&Scene::addMesh, &newScene), "addMesh");
     chai.add(chaiscript::fun(&ECS::MeshComponent::vertices), "vertices");
     chai.add(chaiscript::fun(&ECS::MeshComponent::indices), "indices");
-
-    chai.add(chaiscript::user_type<Vertex>(), "Vertex");
-    chai.add(chaiscript::fun(&Vertex::pos), "position");
-    chai.add(chaiscript::fun(&Vertex::normal), "normal");
-
-    try {
-        //chai.eval_file("perlin.chai");
-    }
-    catch (const chaiscript::exception::eval_error& ee) {
-        std::cout << ee.what();
-        if (ee.call_stack.size() > 0) {
-            std::cout << "during evaluation at (" << ee.call_stack[0].start().line << ", " << ee.call_stack[0].start().column << ")";
-        }
-        std::cout << '\n';
-    }
+    chai.add(chaiscript::fun(&ECS::MeshComponent::uploadVertices), "uploadVertices");
+    chai.add(chaiscript::fun(&ECS::MeshComponent::uploadIndices), "uploadIndices");
+    chai.add(chaiscript::fun(&ECS::MeshComponent::generateAABB), "generateAABB");
 
     std::vector<SDL_Rect> displays;
     for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
@@ -99,9 +128,20 @@ void Application::run() {
     Renderer::setAPI(RenderAPI::OPENGL);
     Renderer::Init(directxwindow);
 
+    try {
+        //chai.eval_file("perlin.chai");
+    }
+    catch (const chaiscript::exception::eval_error& ee) {
+        std::cout << ee.what();
+        if (ee.call_stack.size() > 0) {
+            std::cout << "during evaluation at (" << ee.call_stack[0].start().line << ", " << ee.call_stack[0].start().column << ")";
+        }
+        std::cout << '\n';
+    }
+
     // load the model files listed in the project section of config.json
     // basically acts like a budget project file
-    Scene scene;
+    DeprecatedScene scene;
 
     
     Ffilter meshFileFormats;
@@ -257,8 +297,7 @@ void Application::run() {
     // keep a pointer to the texture that's rendered to the window
     glTexture2D* activeScreenTexture = &tonemappingPass->result;
 
-    ECS::AssimpImporter importer;
-    ECS::Scene newScene;
+    AssimpImporter importer;
     static ECS::Entity active = NULL;
     for (const std::string& path : project) {
         std::cout << "Loading " << parseFilepath(path, PATH_OPTIONS::FILENAME) << "...\n";
@@ -274,6 +313,8 @@ void Application::run() {
     GUI::EntityWindow ecsWindow;
     GUI::ConsoleWindow consoleWindow;
     GUI::InspectorWindow inspectorWindow;
+
+    ImVec2 pos;
 
     while (running) {
         deltaTimer.start();
@@ -419,9 +460,10 @@ void Application::run() {
             }
 
             if (ImGui::BeginMenu("Add")) {
-                if (ImGui::MenuItem("Entity", "CTRL+E")) {
-                    newScene.createObject("Entity");
+                if (ImGui::MenuItem("Empty", "CTRL+E")) {
+                    newScene.createObject("Empty");
                 }
+
                 ImGui::Separator();
                 ImGui::EndMenu();
             }
@@ -572,7 +614,7 @@ void Application::run() {
         ImGui::Text("Product: %s", glGetString(GL_RENDERER));
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        ImGui::Text("Culling: %i of %i meshes", geometryBufferPass->culled, newScene.meshes.getCount());
+        ImGui::Text("Culling: %i of %i meshes (Gbuffer only)", geometryBufferPass->culled, newScene.meshes.getCount());
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
 
@@ -607,42 +649,27 @@ void Application::run() {
             resizing = true;
             viewport.size.x = static_cast<uint32_t>(size.x), viewport.size.y = static_cast<uint32_t>(size.y);
         }
-        auto pos = ImGui::GetWindowPos();
+        pos = ImGui::GetWindowPos();
 
-        // determine if the mouse is hovering the 
+        // determine if the mouse is hovering the viewport 
         if (ImGui::IsWindowHovered()) {
             mouseInViewport = true;
         } else {
             mouseInViewport = false;
         }
 
-        // on mouse click we shoot a ray to pick which mesh was clicked
-        // is ignored if the guizmo was clicked
-        if (io.MouseClicked[0] && mouseInViewport && !(active != NULL && ImGuizmo::IsOver()) ) {
+        if (io.MouseClicked[0] && mouseInViewport && !(active != NULL && ImGuizmo::IsOver())) {
+            // get mouse position in window
             glm::ivec2 mousePosition;
             SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
 
+            // get mouse position relative to viewport
             glm::ivec2 rendererMousePosition = { (mousePosition.x - pos.x), (mousePosition.y - pos.y) };
 
-            glm::vec3 rayNDC = {
-                (2.0f * rendererMousePosition.x) / size.x - 1.0f,
-                1.0f - (2.0f * rendererMousePosition.y) / size.y,
-                1.0f
-            };
+            // flip mouse coords for opengl
+            rendererMousePosition.y = viewport.size.y - rendererMousePosition.y;
 
-            glm::vec4 rayClip = { rayNDC.x, rayNDC.y, -1.0f, 1.0f };
-
-            glm::vec4 rayCamera = glm::inverse(viewport.getCamera().getProjection()) * rayClip;
-            rayCamera.z = -1.0f, rayCamera.w = 0.0f;
-
-            glm::vec3 rayWorld = glm::inverse(viewport.getCamera().getView()) * rayCamera;
-            rayWorld = glm::normalize(rayWorld);
-
-            Math::Ray pickRay;
-            pickRay.direction = rayWorld;
-            pickRay.origin = viewport.getCamera().getPosition();
-
-            active = ECS::pickMesh(newScene.meshes, newScene.transforms, pickRay);
+            active = geometryBufferPass->pick(rendererMousePosition.x, rendererMousePosition.y);
         }
 
         // render the active screen texture to the view port as an imgui image
