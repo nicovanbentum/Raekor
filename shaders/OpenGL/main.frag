@@ -6,6 +6,17 @@ const float PI = 3.14159265359;
 #define doBloom		0x02
 #define mapNormals	0x03
 
+struct DirectionalLight {
+	vec3 position;
+	vec3 color;
+};
+
+struct PointLight {
+	vec3 position;
+	vec3 color;
+	float constant, linear, quad;
+};
+
 layout (std140) uniform stuff {
 	mat4 view, projection;
 	mat4 lightSpaceMatrix;
@@ -37,17 +48,6 @@ layout(binding = 2) uniform sampler2D gPositions;
 layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 5) uniform sampler2D SSAO;
-
-struct DirectionalLight {
-	vec3 position;
-	vec3 color;
-};
-
-struct PointLight {
-	vec3 position;
-	vec3 color;
-	float constant, linear, quad;
-};
 
 vec3 doLight(PointLight light);
 vec3 doLight(DirectionalLight light);

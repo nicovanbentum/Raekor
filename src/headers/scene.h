@@ -24,6 +24,7 @@ public:
     ECS::ComponentManager<ECS::MeshComponent> meshes;
     ECS::ComponentManager<ECS::MeshRendererComponent> meshRenderers;
     ECS::ComponentManager<ECS::MaterialComponent> materials;
+    ECS::ComponentManager<ECS::LightComponent> lights;
 
 public:
     std::vector<ECS::Entity> entities;

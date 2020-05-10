@@ -30,7 +30,6 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file) {
         aiProcess_GenNormals |
         aiProcess_Triangulate |
         aiProcess_SortByPType |
-        aiProcess_PreTransformVertices |
         aiProcess_JoinIdenticalVertices |
         aiProcess_GenUVCoords |
         aiProcess_OptimizeMeshes |

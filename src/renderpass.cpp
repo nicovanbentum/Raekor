@@ -791,11 +791,11 @@ void BoundingBoxDebug::execute(Scene& scene, Viewport& viewport, glTexture2D& te
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
     shader.getUniform("view") = viewport.getCamera().getView();
-    shader.getUniform("model") = glm::mat4(1.0f);
+    shader.getUniform("model") = transform->matrix;
 
     // calculate obb from aabb
-    const auto min = (mesh->aabb[0] * transform->scale) + transform->position;
-    const auto max = (mesh->aabb[1] * transform->scale) + transform->position;
+    const auto min = mesh->aabb[0];
+    const auto max = mesh->aabb[1];
     
     std::vector<Vertex> vertices = {
         { {min} },
