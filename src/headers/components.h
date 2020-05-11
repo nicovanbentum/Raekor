@@ -17,13 +17,20 @@ struct TransformComponent {
     void recalculateMatrix();
 };
 
-struct LightComponent {
-    enum class Type {
-        DIRECTIONAL, POINT
-    };
+struct DirectionalLightComponent {
+    struct ShaderBuffer {
+        glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
+        glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+    } buffer;
 
-    glm::vec3 position;
-    glm::vec3 colour;
+
+};
+
+struct PointLightComponent {
+    struct ShaderBuffer {
+        glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
+        glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+    } buffer;
 
 
 };
@@ -38,7 +45,7 @@ struct MeshComponent {
     std::vector<subMesh> subMeshes;
 
     std::vector<Vertex> vertices;
-    std::vector<Face> indices;
+    std::vector<Triangle> indices;
     glVertexBuffer vertexBuffer;
     glIndexBuffer indexBuffer;
 

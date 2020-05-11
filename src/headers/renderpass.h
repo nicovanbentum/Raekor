@@ -15,9 +15,14 @@ private:
         glm::mat4 cameraMatrix;
     } uniforms;
 
-public:
+ public:
+     struct {
+         glm::vec2 planes = { 1.0, 20.0f };
+         float size = 16.0f;
+     } settings;
+
     ShadowMap(uint32_t width, uint32_t height);
-    void execute(Scene& scene, Camera& sunCamera);
+    void execute(Scene& scene);
 
 private:
     glShader shader;
@@ -25,6 +30,7 @@ private:
     glUniformBuffer uniformBuffer;
 
 public:
+    Camera sunCamera;
     glTexture2D result;
 };
 
@@ -111,9 +117,9 @@ private:
     struct {
         glm::mat4 view, projection;
         glm::mat4 lightSpaceMatrix;
-        glm::vec4 DirViewPos;
-        glm::vec4 DirLightPos;
-        glm::vec4 pointLightPos;
+        glm::vec4 cameraPosition;
+        ECS::DirectionalLightComponent::ShaderBuffer dirLights[1];
+        ECS::PointLightComponent::ShaderBuffer pointLights[10];
         unsigned int renderFlags = 0b00000001;
     } uniforms;
 
@@ -127,15 +133,16 @@ public:
 
 
     DeferredLighting(Viewport& viewport);
-    void execute(DeprecatedScene& scene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
+    void execute(Scene& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
                     GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Mesh* quad);
     void resize(Viewport& viewport);
 
 private:
     glShader shader;
     glFramebuffer framebuffer;
-    glRenderbuffer renderbuffer;
     glUniformBuffer uniformBuffer;
+
+    ShaderHotloader hotloader;
 
 public:
     glTexture2D result;
@@ -177,7 +184,6 @@ public:
 private:
     glShader shader;
     glFramebuffer framebuffer;
-    glRenderbuffer renderbuffer;
     glUniformBuffer uniformBuffer;
 
 public:

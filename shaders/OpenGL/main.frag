@@ -2,28 +2,25 @@
 
 const float PI = 3.14159265359;
 
-#define doSSAO		0x01
-#define doBloom		0x02
-#define mapNormals	0x03
+#define MAX_POINT_LIGHTS 10
+#define MAX_DIR_LIGHTS 1
 
 struct DirectionalLight {
-	vec3 position;
-	vec3 color;
+	vec4 position;
+	vec4 color;
 };
 
 struct PointLight {
-	vec3 position;
-	vec3 color;
-	float constant, linear, quad;
+	vec4 position;
+	vec4 color;
 };
 
 layout (std140) uniform stuff {
 	mat4 view, projection;
 	mat4 lightSpaceMatrix;
 	vec4 cameraPosition;
-    vec4 DirLightPos;
-	vec4 pointLightPos;
-	uint renderFlags;
+    DirectionalLight dirLights[MAX_DIR_LIGHTS];
+    PointLight pointLights[MAX_POINT_LIGHTS];
 } ubo;
 
 uniform vec4 sunColor;
@@ -31,6 +28,9 @@ uniform float minBias;
 uniform float maxBias;
 uniform float farPlane;
 uniform vec3 bloomThreshold;
+
+uniform int pointLightCount;
+uniform int directionalLightCount;
 
 // in vars
 in vec2 uv;
@@ -66,25 +66,20 @@ void main()
 	normal = texture(gNormals, uv).xyz;
 	position = texture(gPositions, uv).xyz;
 
-	if(bool(ubo.renderFlags & doSSAO)) {
-		AO = texture(SSAO, uv).x;
-		AO = clamp(AO, 0.0, 1.0);
-	}
+    AO = texture(SSAO, uv).x;
+    AO = clamp(AO, 0.0, 1.0);
 
+    vec3 result = vec3(0.0, 0.0, 0.0);
 
-	DirectionalLight dirLight;
-	dirLight.color = sunColor.rgb;
-	dirLight.position = ubo.DirLightPos.xyz;
+    // caculate point lights contribution
+    for(uint i = 0; i < pointLightCount; i++) {
+        result += doLight(ubo.pointLights[i]);
+    }
 
-	PointLight light;
-	light.position = ubo.pointLightPos.xyz;
-	light.color = vec3(1.0, 1.0, 1.0);
-    light.constant = 1.0;
-    light.linear = 0.7;
-    light.quad = 1.8;
-
-    vec3 result = doLight(light);
-	result += doLight(dirLight);
+    // calculate directional lights contribution
+    for(uint i = 0; i < directionalLightCount; i++) {
+        result += doLight(ubo.dirLights[i]);
+    }
 
     finalColor = vec4(result, sampled.a);
 
@@ -102,7 +97,7 @@ float getShadow(DirectionalLight light) {
 
     float currentDepth = projCoords.z;
 
-	vec3 direction = normalize(light.position - position);
+	vec3 direction = normalize(light.position.xyz - position);
     float bias = max(maxBias * (1.0 - dot(normal, direction)), minBias);
     
 	// simplest PCF algorithm
@@ -133,7 +128,7 @@ vec3 gridSamplingDisk[20] = vec3[]
 );
 
 float getShadow(PointLight light) {
-	vec3 frag2light = position - light.position;
+	vec3 frag2light = position - light.position.xyz;
 	float currentDepth = length(frag2light);
 
 	float closestDepth = texture(shadowMapOmni, frag2light).r;
@@ -161,14 +156,19 @@ float getShadow(PointLight light) {
 
 
 vec3 doLight(PointLight light) {
+    // hardcoded for now
+    float constant = 1.0;
+    float linear = 0.7;
+    float quad = 1.8;
+
     // ambient
     vec3 ambient = 0.05 * sampled.xyz * AO;
 
-	vec3 direction = normalize(light.position - position);
+	vec3 direction = normalize(light.position.xyz - position);
 	vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
     
 	float diff = clamp(dot(normal, direction), 0, 1);
-    vec3 diffuse = light.color * diff * sampled.rgb;
+    vec3 diffuse = light.color.xyz * diff * sampled.rgb;
 
     // specular
     vec3 halfwayDir = normalize(direction + cameraDirection);
@@ -176,16 +176,16 @@ vec3 doLight(PointLight light) {
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
     // distance between the light and the vertex
-    float distance = length(light.position - position);
-    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quad * (distance * distance));
+    float distance = length(light.position.xyz - position);
+    float attenuation = 1.0 / (constant + linear * distance + quad * (distance * distance));
 
     ambient = ambient * attenuation;
     diffuse = diffuse * attenuation;
     specular = specular * attenuation;
 
-	float shadowAmount = 1.0 - getShadow(light);
-	diffuse *= shadowAmount;
-	specular *= shadowAmount;
+    // float shadowAmount = 1.0 - getShadow(light);
+    // diffuse *= shadowAmount;
+    // specular *= shadowAmount;
 
     return (ambient + diffuse + specular);
 }
@@ -194,11 +194,11 @@ vec3 doLight(DirectionalLight light) {
 	// ambient
     vec3 ambient = 0.05 * sampled.xyz * AO;
 
-	vec3 direction = normalize(light.position - position);
+	vec3 direction = normalize(light.position.xyz - position);
 	vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
     
 	float diff = clamp(dot(normal, direction), 0, 1);
-    vec3 diffuse = light.color * diff * sampled.rgb;
+    vec3 diffuse = light.color.xyz * diff * sampled.rgb;
 
     // specular
     vec3 halfwayDir = normalize(direction + cameraDirection);

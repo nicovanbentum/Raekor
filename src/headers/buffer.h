@@ -80,11 +80,11 @@ struct Vertex {
     static constexpr uint8_t attributeCount = 3;
 };
 
-struct Face {
-    Face() {}
-    Face(uint32_t _f1, uint32_t _f2, uint32_t _f3) : f1(_f1), f2(_f2), f3(_f3) {}
+struct Triangle {
+    Triangle() {}
+    Triangle(uint32_t _p1, uint32_t _p2, uint32_t _p3) : p1(_p1), p2(_p2), p3(_p3) {}
 
-    uint32_t f1, f2, f3;
+    uint32_t p1, p2, p3;
 };
 
 class VertexBuffer {
@@ -98,7 +98,7 @@ public:
 class IndexBuffer {
 public:
     virtual ~IndexBuffer() {}
-    static IndexBuffer* construct(const std::vector<Face>& indices);
+    static IndexBuffer* construct(const std::vector<Triangle>& indices);
     virtual void bind() const = 0;
     inline const uint32_t getCount() const { return count; }
 
@@ -121,7 +121,7 @@ private:
 class glIndexBuffer {
 public:
     glIndexBuffer() {}
-    void loadFaces(Face* faces, size_t count);
+    void loadFaces(Triangle* faces, size_t count);
     void loadIndices(uint32_t* indices, size_t count);
     void bind() const ;
 

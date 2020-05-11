@@ -21,9 +21,9 @@ VkFormat Buffer::toVkFormat(ShaderType type) {
     }
 }
 
-IndexBuffer::IndexBuffer(const Context& ctx, const std::vector<Face>& indices) 
+IndexBuffer::IndexBuffer(const Context& ctx, const std::vector<Triangle>& indices) 
     : Buffer(ctx.device), count(static_cast<uint32_t>(indices.size() * 3)) {
-    ctx.device.uploadBuffer<Face>(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, buffer, memory);
+    ctx.device.uploadBuffer<Triangle>(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, buffer, memory);
 }
 
 VertexBuffer::VertexBuffer(const Context& ctx, std::vector<Vertex>& vertices) 

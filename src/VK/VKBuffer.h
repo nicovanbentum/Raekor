@@ -29,7 +29,7 @@ public:
 
 class IndexBuffer : public Buffer {
 public:
-    IndexBuffer(const Context& ctx, const std::vector<Face>& indices);
+    IndexBuffer(const Context& ctx, const std::vector<Triangle>& indices);
     inline uint32_t getCount() const { return count; }
 
 private:

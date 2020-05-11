@@ -29,8 +29,8 @@ for(var y = 0.0f; y < width; ++y) {
         mesh.vertices.push_back(vertex);
 
         if(x < width - 1 && y < height -1) {
-            mesh.indices.push_back(Face(vertex_index + 1, vertex_index, vertex_index + width +1));
-            mesh.indices.push_back(Face(vertex_index + width, vertex_index + width + 1, vertex_index));
+            mesh.indices.push_back(Triangle(vertex_index + 1, vertex_index, vertex_index + width +1));
+            mesh.indices.push_back(Triangle(vertex_index + width, vertex_index + width + 1, vertex_index));
         }
 
         vertex_index += 1;
@@ -38,19 +38,19 @@ for(var y = 0.0f; y < width; ++y) {
 }
 
 
-for(var i = 0; i < mesh.indices.size(); i = i + 1) {
+for(var i = 0; i < mesh.indices.size(); ++i) {
     var index := mesh.indices[i];
 
     // calculate normal
-    var v1 := mesh.vertices[mesh.indices[i].f1].pos;
-    var v2 := mesh.vertices[mesh.indices[i].f2].pos;
-    var v3 := mesh.vertices[mesh.indices[i].f3].pos;
+    var v1 := mesh.vertices[mesh.indices[i].p1].pos;
+    var v2 := mesh.vertices[mesh.indices[i].p2].pos;
+    var v3 := mesh.vertices[mesh.indices[i].p3].pos;
 
     var normal = normalize(cross(v2 - v1, v3 - v1));
 
-    mesh.vertices[mesh.indices[i].f1].normal = normal;
-    mesh.vertices[mesh.indices[i].f2].normal = normal;
-    mesh.vertices[mesh.indices[i].f3].normal = normal;
+    mesh.vertices[mesh.indices[i].p1].normal = normal;
+    mesh.vertices[mesh.indices[i].p2].normal = normal;
+    mesh.vertices[mesh.indices[i].p3].normal = normal;
 }
 
 mesh.generateAABB();

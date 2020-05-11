@@ -6,7 +6,19 @@
 namespace Raekor {
 namespace RenderPass {
 
-ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
+ShadowMap::ShadowMap(uint32_t width, uint32_t height) :
+    sunCamera(glm::vec3(0, 15.0, 0), glm::orthoRH_ZO(
+        -settings.size, settings.size, -settings.size, settings.size, 
+        settings.planes.x, settings.planes.y
+    )) 
+{
+    sunCamera.getView() = glm::lookAtRH(
+        glm::vec3(-2.0f, 12.0f, 2.0f),
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f)
+    );
+    sunCamera.getAngle().y = -1.325f;
+
     // load shaders from disk
     std::vector<Shader::Stage> shadowmapStages;
     shadowmapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depth.vert");
@@ -27,7 +39,7 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     framebuffer.unbind();
 }
 
-void ShadowMap::execute(Scene& scene, Camera& sunCamera) {
+void ShadowMap::execute(Scene& scene) {
     // setup the shadow map 
     framebuffer.bind();
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -195,11 +207,11 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
                 worldTransform * glm::vec4(mesh.aabb[1], 1.0)
             };
 
-            //// if the frustrum can't see the mesh's OBB we cull it
-            //if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
-            //    culled += 1;
-            //    continue;
-            //}
+            // if the frustrum can't see the mesh's OBB we cull it
+            if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
+                culled += 1;
+                continue;
+            }
 
 
         ECS::MaterialComponent* material = scene.materials.getComponent(entity);
@@ -354,6 +366,7 @@ void ScreenSpaceAmbientOcclusion::resize(Viewport& viewport) {
 
 DeferredLighting::DeferredLighting(Viewport& viewport) {
     // load shaders from disk
+
     Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
     Shader::Stage frag(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
     std::array<Shader::Stage, 2> modelStages = { vertex, frag };
@@ -370,19 +383,16 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
     bloomHighlights.setFilter(Sampling::Filter::Bilinear);
     bloomHighlights.unbind();
 
-    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
-
     framebuffer.bind();
     framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
     framebuffer.attach(bloomHighlights, GL_COLOR_ATTACHMENT1);
-    framebuffer.attach(renderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
     framebuffer.unbind();
 
     // init uniform buffer
     uniformBuffer.setSize(sizeof(uniforms));
 }
 
-void DeferredLighting::execute(DeprecatedScene& scene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
+void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
                                 GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Mesh* quad) {
     // bind the main framebuffer
     framebuffer.bind();
@@ -396,6 +406,9 @@ void DeferredLighting::execute(DeprecatedScene& scene, Viewport& viewport, Shado
     shader.getUniform("farPlane") = settings.farPlane;
     shader.getUniform("bloomThreshold") = settings.bloomThreshold;
 
+    shader.getUniform("pointLightCount") = (uint32_t)sscene.pointLights.getCount();
+    shader.getUniform("directionalLightCount") = (uint32_t)sscene.directionalLights.getCount();
+
     // bind textures to shader binding slots
     shadowMap->result.bindToSlot(0);
     omniShadowMap->result.bindToSlot(1);
@@ -407,10 +420,34 @@ void DeferredLighting::execute(DeprecatedScene& scene, Viewport& viewport, Shado
     // update the uniform buffer CPU side
     uniforms.view = viewport.getCamera().getView();
     uniforms.projection = viewport.getCamera().getProjection();
-    uniforms.pointLightPos = glm::vec4(scene.pointLight.position, 1.0f);
-    uniforms.DirLightPos = glm::vec4(scene.sunCamera.getPosition(), 1.0);
-    uniforms.DirViewPos = glm::vec4(viewport.getCamera().getPosition(), 1.0);
-    uniforms.lightSpaceMatrix = scene.sunCamera.getProjection() * scene.sunCamera.getView();
+
+    // update every light type
+    for (uint32_t i = 0; i < sscene.directionalLights.getCount() && i < ARRAYSIZE(uniforms.dirLights); i++) {
+        auto entity = sscene.directionalLights.getEntity(i);
+        auto transform = sscene.transforms.getComponent(entity);
+
+        auto& light = sscene.directionalLights[i];
+
+        light.buffer.position = glm::vec4(transform->position, 1.0f);
+        
+        uniforms.dirLights[i] = light.buffer;
+    }
+
+    for (uint32_t i = 0; i < sscene.pointLights.getCount() && i < ARRAYSIZE(uniforms.pointLights); i++) {
+        // TODO: might want to move the code for updating every light with its transform to a system
+        // instead of doing it here
+        auto entity = sscene.pointLights.getEntity(i);
+        auto transform = sscene.transforms.getComponent(entity);
+
+        auto& light = sscene.pointLights[i];
+
+        light.buffer.position = glm::vec4(transform->position, 1.0f);
+
+        uniforms.pointLights[i] = light.buffer;
+    }
+
+    uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
+    uniforms.lightSpaceMatrix = shadowMap->sunCamera.getProjection() * shadowMap->sunCamera.getView();
 
     // update uniform buffer GPU side
     uniformBuffer.update(&uniforms, sizeof(uniforms));
@@ -428,8 +465,6 @@ void DeferredLighting::resize(Viewport& viewport) {
 
     bloomHighlights.bind();
     bloomHighlights.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-
-    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
 
 
@@ -526,11 +561,8 @@ Tonemapping::Tonemapping(Viewport& viewport) {
     result.setFilter(Sampling::Filter::None);
     result.unbind();
 
-    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
-
     framebuffer.bind();
     framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
-    framebuffer.attach(renderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
     framebuffer.unbind();
 
     // init uniform buffer
@@ -541,8 +573,6 @@ void Tonemapping::resize(Viewport& viewport) {
     // resize render targets
     result.bind();
     result.init(viewport.size.x, viewport.size.y, Format::RGB_F);
-
-    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
 
 void Tonemapping::execute(glTexture2D& scene, Mesh* quad) {

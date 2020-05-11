@@ -6,15 +6,6 @@ layout(location = 2) in vec3 v_normal;
 layout(location = 3) in vec3 v_tangent;
 layout(location = 4) in vec3 v_binormal;
 
-layout (std140) uniform stuff {
-    mat4 view, projection;
-	mat4 lightSpaceMatrix;
-	vec4 cameraPosition;
-    vec4 DirLightPos;
-	vec4 pointLightPos;
-	unsigned int renderFlags;
-} ubo;
-
 uniform mat4 model;
 
 //we send out a uv coordinate for our frag shader

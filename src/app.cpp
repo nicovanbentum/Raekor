@@ -56,7 +56,7 @@ void Application::run() {
     chai.add(chaiscript::fun(static_cast<glm::vec<2, float, glm::packed_highp> & (glm::vec<2, float, glm::packed_highp>::*)(const glm::vec<2, float, glm::packed_highp>&)>(&glm::vec<2, float, glm::packed_highp>::operator=)), "=");
 
     chai.add(chaiscript::bootstrap::standard_library::vector_type<std::vector<Vertex>>("VertexList"));
-    chai.add(chaiscript::bootstrap::standard_library::vector_type<std::vector<Face>>("FaceList"));
+    chai.add(chaiscript::bootstrap::standard_library::vector_type<std::vector<Triangle>>("FaceList"));
 
     chai.add(chaiscript::fun(&glm::vec<3, float, glm::packed_highp>::x), "x");
     chai.add(chaiscript::fun(&glm::vec<3, float, glm::packed_highp>::y), "y");
@@ -70,12 +70,12 @@ void Application::run() {
     chai.add(chaiscript::fun(&Vertex::normal), "normal");
 
      //add Face
-    chai.add(chaiscript::user_type<Face>(), "Face");
-    chai.add(chaiscript::constructor<Face()>(), "Face");
-    chai.add(chaiscript::constructor<Face(uint32_t _f1, uint32_t _f2, uint32_t _f3)>(), "Face");
-    chai.add(chaiscript::fun(&Face::f1), "f1");
-    chai.add(chaiscript::fun(&Face::f2), "f2");
-    chai.add(chaiscript::fun(&Face::f3), "f3");
+    chai.add(chaiscript::user_type<Triangle>(), "Triangle");
+    chai.add(chaiscript::constructor<Triangle()>(), "Triangle");
+    chai.add(chaiscript::constructor<Triangle(uint32_t _f1, uint32_t _f2, uint32_t _f3)>(), "Triangle");
+    chai.add(chaiscript::fun(&Triangle::p1), "p1");
+    chai.add(chaiscript::fun(&Triangle::p2), "p2");
+    chai.add(chaiscript::fun(&Triangle::p3), "p3");
 
     // add cross product for vec3's
     chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp>(*)(const glm::vec<3, float, glm::packed_highp>&, const glm::vec<3, float, glm::packed_highp>&)>(&glm::cross<float, glm::packed_highp>)), "cross");
@@ -139,11 +139,6 @@ void Application::run() {
         std::cout << '\n';
     }
 
-    // load the model files listed in the project section of config.json
-    // basically acts like a budget project file
-    DeprecatedScene scene;
-
-    
     Ffilter meshFileFormats;
     meshFileFormats.name = "Supported Mesh Files";
     meshFileFormats.extensions = "*.obj;*.fbx;*.gltf;*.glb";
@@ -171,64 +166,6 @@ void Application::run() {
         {"TANGENT",     ShaderType::FLOAT3},
         {"BINORMAL",    ShaderType::FLOAT3}
     });
-
-    // generate terrain based on perlin noise
-    std::vector<Vertex> vertices;
-    std::vector<Face> indices;
-
-    static const constexpr int width = 50, height = 50;
-    static const constexpr float scale = 0.3f;
-    uint32_t vertexIndex = 0;
-
-    std::vector<glm::vec3> noiseColourData;
-
-    auto getSurfaceNormal = [&](uint32_t i1, uint32_t i2, uint32_t i3) {
-        glm::vec3& v1 = vertices[i1].pos, &v2 = vertices[i2].pos, &v3 = vertices[i3].pos;
-        return glm::normalize(glm::cross(v2 - v1, v3 - v1));
-    };
-
-
-    for (float y = 0; y < height; y++) {
-        for (float x = 0; x < width; x++) {
-            float sampleX = x / scale, sampleY = y / scale;
-
-            Vertex v = {};
-            float z = glm::perlin(glm::vec2(sampleX , sampleY));
-
-            noiseColourData.push_back({ 0.0f, 1.0f - z , 1.0f - z });
-            
-            v.pos = { x, z, y };
-            v.uv = { x / (float)width, y / (float)height };
-            vertices.push_back(v);
-
-            if (x < width - 1 && y < height - 1) {
-                //indices.push_back({ vertexIndex, vertexIndex + width + 1, vertexIndex + width });
-                indices.push_back({ vertexIndex + 1, vertexIndex, vertexIndex + width + 1 });
-                //indices.push_back({ vertexIndex + width + 1, vertexIndex, vertexIndex + 1 });
-                indices.push_back({ vertexIndex + width, vertexIndex + width + 1, vertexIndex});
-            }
-
-            vertexIndex += 1;
-        }
-    }
-
-    for (uint32_t i = 0; i < indices.size(); i++) {
-        Face index = indices[i];
-        glm::vec3 normal = getSurfaceNormal(index.f1, index.f2, index.f3);
-        vertices[index.f1].normal = normal;
-        vertices[index.f2].normal = normal;
-        vertices[index.f3].normal = normal;
-    }
-
-    glTexture2D noiseTexture;
-    noiseTexture.bind();
-    noiseTexture.init(width, height, Format::RGB_F, noiseColourData.data());
-    noiseTexture.setFilter(Sampling::Filter::None);
-    noiseTexture.unbind();
-
-    //scene.objects.emplace_back("terrain", vertices, indices);
-    //scene.objects.back().name = "terrain";
-    //scene.objects.back().albedo.reset(&noiseTexture);
 
     viewport.size.x = 2003, viewport.size.y = 1370;
     constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
@@ -263,16 +200,7 @@ void Application::run() {
     Timer deltaTimer;
     double deltaTime = 0;
 
-    // setup  light matrices for a movable point light
-    glm::mat4 lightmatrix = glm::mat4(1.0f);
-    scene.pointLight.position = { 0.0f, 1.8f, 0.0f };
-    lightmatrix = glm::translate(lightmatrix, scene.pointLight.position);
-
     // setup the camera that acts as the sun's view (directional light)
-    glm::vec2 planes = { 1.0, 20.0f };
-    float orthoSize = 16.0f;
-    scene.sunCamera.getProjection() = glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
-
     std::cout << "Creating render passes..." << std::endl;
 
     // all render passes
@@ -304,6 +232,15 @@ void Application::run() {
         importer.loadFromDisk(newScene, path);
     }
 
+    auto pointLight = newScene.createPointLight("Point Light");
+    auto pointLightTransform = newScene.transforms.getComponent(pointLight);
+
+
+    auto dirLightEntity = newScene.createDirectionalLight("Directional Light");
+    auto transform = newScene.transforms.getComponent(dirLightEntity);
+    transform->position.y = 15.0f;
+    transform->recalculateMatrix();
+
     std::cout << "Initialization done." << std::endl;
 
     SDL_ShowWindow(directxwindow);
@@ -323,9 +260,9 @@ void Application::run() {
         if (activeScreenTexture != &shadowMapPass->result)
             handleEvents(directxwindow, viewport.getCamera(), mouseInViewport, deltaTime);
         else
-            handleEvents(directxwindow, scene.sunCamera, mouseInViewport, deltaTime);
+            handleEvents(directxwindow, shadowMapPass->sunCamera, mouseInViewport, deltaTime);
         
-        scene.sunCamera.update(true);
+        shadowMapPass->sunCamera.update(true);
         viewport.getCamera().update(true);
 
         // clear the main window
@@ -334,10 +271,10 @@ void Application::run() {
 
         // generate sun shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-        shadowMapPass->execute(newScene, scene.sunCamera);
+        shadowMapPass->execute(newScene);
 
         // generate point light shadow map 
-        omniShadowMapPass->execute(newScene, scene.pointLight.position);
+        omniShadowMapPass->execute(newScene, pointLightTransform->position);
 
         // generate a geometry buffer
         glViewport(0, 0, viewport.size.x, viewport.size.y);
@@ -349,7 +286,7 @@ void Application::run() {
 
         // perform deferred lighting pass
         lightingPass->execute(
-            scene, 
+            newScene,
             viewport,
             shadowMapPass.get(), 
             omniShadowMapPass.get(),
@@ -414,14 +351,6 @@ void Application::run() {
         static double bounds = 7.5f;
         static bool moveLight = false;
         double lightMoveAmount = lightMoveSpeed * deltaTime;
-        if ((scene.pointLight.position.x >= bounds && lightMoveSpeed > 0) ||
-            (scene.pointLight.position.x <= -bounds && lightMoveSpeed < 0)) {
-            lightMoveSpeed *= -1;
-        }
-        if (moveLight) {
-            lightmatrix = glm::translate(lightmatrix, { lightMoveAmount, 0.0, 0.0 });
-            scene.pointLight.position.x += static_cast<decltype(scene.pointLight.position.x)>(lightMoveAmount);
-        }
 
         // draw the top user bar
         if (ImGui::BeginMenuBar()) {
@@ -463,8 +392,22 @@ void Application::run() {
                 if (ImGui::MenuItem("Empty", "CTRL+E")) {
                     newScene.createObject("Empty");
                 }
-
                 ImGui::Separator();
+
+                if (ImGui::BeginMenu("Light")) {
+
+                    if (ImGui::MenuItem("Directional Light")) {
+                        newScene.createDirectionalLight("Directional Light");
+                    }
+
+                    if (ImGui::MenuItem("Point Light")) {
+                        newScene.createPointLight("Point Light");
+                    }
+
+                    ImGui::EndMenu();
+                }
+
+
                 ImGui::EndMenu();
             }
 
@@ -561,8 +504,6 @@ void Application::run() {
                 activeScreenTexture = &voxelDebugPass->cubeFront;
             if (ImGui::Selectable(nameof(voxelDebugPass->cubeBack), activeScreenTexture->ImGuiID() == voxelDebugPass->cubeBack.ImGuiID()))
                 activeScreenTexture = &voxelDebugPass->cubeBack;
-            if (ImGui::Selectable(nameof(noiseTexture), activeScreenTexture->ImGuiID() == noiseTexture.ImGuiID()))
-                activeScreenTexture = &noiseTexture;
             if (ImGui::Selectable(nameof(aabbDebugPass->result), activeScreenTexture->ImGuiID() == aabbDebugPass->result.ImGuiID()))
                 activeScreenTexture = &aabbDebugPass->result;
 
@@ -573,13 +514,17 @@ void Application::run() {
 
         ImGui::Text("Directional Light");
         ImGui::Separator();
-        if (ImGui::DragFloat2("Angle", glm::value_ptr(scene.sunCamera.getAngle()), 0.01f)) {}
+        if (ImGui::DragFloat2("Angle", glm::value_ptr(shadowMapPass->sunCamera.getAngle()), 0.01f)) {}
         
-        if (ImGui::DragFloat2("Planes", glm::value_ptr(planes), 0.1f)) {
-            scene.sunCamera.getProjection() = glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
+        if (ImGui::DragFloat2("Planes", glm::value_ptr(shadowMapPass->settings.planes), 0.1f)) {
+            shadowMapPass->sunCamera.getProjection() = glm::orthoRH_ZO(-shadowMapPass->settings.size, shadowMapPass->settings.size, -shadowMapPass->settings.size, shadowMapPass->settings.size,
+                shadowMapPass->settings.planes.x, shadowMapPass->settings.planes.y
+            );
         }
-        if (ImGui::DragFloat("Size", &orthoSize)) {
-            scene.sunCamera.getProjection() = glm::orthoRH_ZO(-orthoSize, orthoSize, -orthoSize, orthoSize, planes.x, planes.y);
+        if (ImGui::DragFloat("Size", &shadowMapPass->settings.size)) {
+            shadowMapPass->sunCamera.getProjection() = glm::orthoRH_ZO(-shadowMapPass->settings.size, shadowMapPass->settings.size, -shadowMapPass->settings.size, shadowMapPass->settings.size,
+                shadowMapPass->settings.planes.x, shadowMapPass->settings.planes.y
+            );
         }
 
         if (ImGui::DragFloat("Min bias", &lightingPass->settings.minBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}

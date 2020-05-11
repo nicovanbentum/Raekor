@@ -19,6 +19,7 @@ private:
     void drawMaterialComponent(ECS::MaterialComponent* component);
     void drawTransformComponent(ECS::TransformComponent* component);
     void drawMeshRendererComponent(ECS::MeshRendererComponent* component);
+    void drawPointLightComponent(ECS::PointLightComponent* component);
 };
 
 class EntityWindow {
@@ -76,7 +77,6 @@ private:
     bool enabled = true;
     ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
     std::array<const char*, 3> previews = { "TRANSLATE", "ROTATE", "SCALE"};
-
 };
 
 } // gui
