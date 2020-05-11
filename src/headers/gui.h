@@ -20,6 +20,7 @@ private:
     void drawTransformComponent(ECS::TransformComponent* component);
     void drawMeshRendererComponent(ECS::MeshRendererComponent* component);
     void drawPointLightComponent(ECS::PointLightComponent* component);
+    void drawDirectionalLightComponent(ECS::DirectionalLightComponent* component);
 };
 
 class EntityWindow {

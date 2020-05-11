@@ -47,6 +47,14 @@ void InspectorWindow::draw(Scene& scene, ECS::Entity entity) {
             }
         }
 
+        if (scene.directionalLights.contains(entity)) {
+            bool isOpen = true; // for checking if the close button was clicked
+            if (ImGui::CollapsingHeader("Directional Light Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
+                if (isOpen) drawDirectionalLightComponent(scene.directionalLights.getComponent(entity));
+                else scene.directionalLights.remove(entity);
+            }
+        }
+
         if (ImGui::BeginPopup("Components"))
         {
             if (ImGui::Selectable("Transform", false)) {
@@ -171,6 +179,12 @@ void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent* component) {
 }
 
 void InspectorWindow::drawPointLightComponent(ECS::PointLightComponent* component) {
+    if (ImGui::ColorEdit4("Colour", glm::value_ptr(component->buffer.colour))) {
+        // nothing really
+    }
+}
+
+void InspectorWindow::drawDirectionalLightComponent(ECS::DirectionalLightComponent* component) {
     if (ImGui::ColorEdit4("Colour", glm::value_ptr(component->buffer.colour))) {
         // nothing really
     }

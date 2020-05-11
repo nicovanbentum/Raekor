@@ -234,6 +234,9 @@ void Application::run() {
 
     auto pointLight = newScene.createPointLight("Point Light");
     auto pointLightTransform = newScene.transforms.getComponent(pointLight);
+    pointLightTransform->position.z = 3.0f;
+    pointLightTransform->position.y = 1.0f;
+    pointLightTransform->recalculateMatrix();
 
 
     auto dirLightEntity = newScene.createDirectionalLight("Directional Light");

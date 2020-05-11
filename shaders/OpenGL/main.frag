@@ -183,9 +183,9 @@ vec3 doLight(PointLight light) {
     diffuse = diffuse * attenuation;
     specular = specular * attenuation;
 
-    // float shadowAmount = 1.0 - getShadow(light);
-    // diffuse *= shadowAmount;
-    // specular *= shadowAmount;
+     float shadowAmount = 1.0 - getShadow(light);
+     diffuse *= shadowAmount;
+     specular *= shadowAmount;
 
     return (ambient + diffuse + specular);
 }
