@@ -8,11 +8,13 @@
 This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build and link the big binaries, make sure it is installed correctly and integrated user-wide.
 
 Clone this repository using
-```git clone --recursive https://github.com/nicovanbentum/Raekor.git ```
+```git clone --recursive https://github.com/nicovanbentum/Raekor.git ``` to also pull in all the submodules.
 
 Next make sure you have the Vulkan SDK installed, you can get the latest version [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe).
 
-Copy over the ```init.bat``` file in Raekor's main directory to VCPKG's directory and let it do its thing (can take a while to compile Assimp and Bullet3). Once that is done open up the supplied Visual Studio solution (re-target to newest if necessary). ```CTRL+B``` to build, ```CTRL+F5``` to run.
+![image](https://i.imgur.com/2VFTJFH.png)
+
+Copy over ```init.bat``` from Raekor to VCPKG's directory, run it there and let it do its thing (can take a while to compile Assimp and Bullet3). Once that is done open up the supplied Visual Studio solution (re-target to newest if necessary). ```CTRL+B``` to build, ```CTRL+F5``` to run.
 
 ## Linux
 Used to work through the supplied makefile, but it's out of date.
