@@ -5,7 +5,7 @@
 # Build
 
 ## Windows
-This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build the big binaries, make sure it is installed correctly and integrated globally.
+This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build and link the big binaries, make sure it is installed correctly and integrated user-wide.
 
 Next copy over the ```init.bat``` file in Raekor's main directory to VCPKG's directory and let it do its thing (can take a while to compile Assimp and Bullet3). Once that is done open up the supplied Visual Studio project (re-target to newest if necessary). ```CTRL+B``` to build, ```CTRL+F5``` to run.
 
