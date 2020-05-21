@@ -5,12 +5,9 @@
 # Build
 
 ## Windows
-This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build the big binaries, make sure to have it installed and added to your PATH ([help](https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/)) so the build script can automatically find the executable. 
+This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build the big binaries, make sure it is installed correctly and integrated globally.
 
-Next double click the ```init.bat``` file in Raekor's main directory and let it do its thing (can take a while to compile Assimp and Bullet3).
-Once that is done open up the supplied Visual Studio 2019 project. From there pick a configuration like Release (it's all 64 bit) and run/build. 
-
-
+Next copy over the ```init.bat``` file in Raekor's main directory to VCPKG's directory and let it do its thing (can take a while to compile Assimp and Bullet3). Once that is done open up the supplied Visual Studio project (re-target to newest if necessary). ```CTRL+B``` to build, ```CTRL+F5``` to run.
 
 ## Linux
 Used to work through the supplied makefile, but it's out of date.
