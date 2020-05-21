@@ -4,11 +4,16 @@
 
 # Build
 
-### Windows
-Use the supplied Visual Studio Project, binaries for SDL2 and Assimp are included.
+## Windows
+This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build the big binaries, make sure to have it installed and added to your PATH ([help](https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/)) so the build script can automatically find the executable. 
 
-### Linux
-Used to work through our makefile, but it's out of date.
+Next double click the ```init.bat``` file in Raekor's main directory and let it do its thing (can take a while to compile Assimp and Bullet3).
+Once that is done open up the supplied Visual Studio 2019 project. From there pick a configuration like Release (it's all 64 bit) and run/build. 
+
+
+
+## Linux
+Used to work through the supplied makefile, but it's out of date.
 
 # Features
 Some experimentals are in place for DirectX 11 and Vulkan. Focus has shifted to getting features in fast in OpenGL so I can use the engine to  research and implement Global Illumination for a research course at the Hogeschool Utrecht. Some of the features currently being worked on:
