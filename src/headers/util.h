@@ -1,7 +1,5 @@
 #pragma once
 
-#include "pch.h"
-
 // code to literal, for when I don't feel thinking of a better literal string
 #define nameof(var) (#var)
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "pch.h"
 #include "mesh.h"
 #include "camera.h"
 #include "texture.h"
@@ -15,6 +14,10 @@ public:
     ECS::Entity createObject(const std::string& name);
     ECS::Entity createPointLight(const std::string& name);
     ECS::Entity createDirectionalLight(const std::string& name);
+
+    inline ECS::TransformComponent* getTransform(ECS::Entity entity) {
+        return transforms.getComponent(entity);
+    }
 
     ECS::MeshComponent& addMesh();
 

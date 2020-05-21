@@ -40,7 +40,7 @@ void Application::run() {
         SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED;
 
     // init scripting language
-    chaiscript::ChaiScript chai;
+    chaiscript::ChaiScript chai = chaiscript::ChaiScript({}, { "scripts\\" });
 
     // add glm::vec2
     chai.add(chaiscript::user_type<glm::vec<2, float, glm::packed_highp>>(), "Vector2");
@@ -54,6 +54,9 @@ void Application::run() {
 
     chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp> & (glm::vec<3, float, glm::packed_highp>::*)(const glm::vec<3, float, glm::packed_highp>&)>(&glm::vec<3, float, glm::packed_highp>::operator=)), "=");
     chai.add(chaiscript::fun(static_cast<glm::vec<2, float, glm::packed_highp> & (glm::vec<2, float, glm::packed_highp>::*)(const glm::vec<2, float, glm::packed_highp>&)>(&glm::vec<2, float, glm::packed_highp>::operator=)), "=");
+
+
+    chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp> & (glm::vec<3, float, glm::packed_highp>::*)(const glm::vec<3, float, glm::packed_highp>&)>(&glm::vec<3, float, glm::packed_highp>::operator+=)), "+=");
 
     chai.add(chaiscript::bootstrap::standard_library::vector_type<std::vector<Vertex>>("VertexList"));
     chai.add(chaiscript::bootstrap::standard_library::vector_type<std::vector<Triangle>>("FaceList"));
@@ -90,10 +93,23 @@ void Application::run() {
 
     // add glm::perlin for vec2's
     chai.add(chaiscript::fun(static_cast<float(*)(glm::vec<2, float, glm::packed_highp> const&)>(&glm::perlin<float, glm::packed_highp>)), "perlin");
+    chai.add(chaiscript::fun(static_cast<float(*)(glm::vec<2, float, glm::packed_highp> const&)>(&glm::simplex<float, glm::packed_highp>)), "simplex");
 
     // add scene methods
     Scene newScene;
-    chai.add(chaiscript::fun(&Scene::addMesh, &newScene), "addMesh");
+
+    // add scene type
+    chai.add(chaiscript::var(std::ref(newScene)), "scene");
+
+    chai.add(chaiscript::fun(&Scene::addMesh), "addMesh");
+    chai.add(chaiscript::fun(&Scene::createPointLight), "createPointLight");
+    chai.add(chaiscript::fun(&Scene::createObject), "createObject");
+
+    chai.add(chaiscript::fun(&Scene::meshes), "meshes");
+
+    chai.add(chaiscript::fun(&ECS::ComponentManager<ECS::MeshComponent>::create), "create");
+
+
     chai.add(chaiscript::fun(&ECS::MeshComponent::vertices), "vertices");
     chai.add(chaiscript::fun(&ECS::MeshComponent::indices), "indices");
     chai.add(chaiscript::fun(&ECS::MeshComponent::uploadVertices), "uploadVertices");
@@ -365,6 +381,7 @@ void Application::run() {
                     }
                 }
                 if (ImGui::MenuItem("Save", "CTRL + S")) {
+                    display = SDL_GetWindowDisplayIndex(directxwindow);
                     serializeSettings("config.json", true);
                 }
 

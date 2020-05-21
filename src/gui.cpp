@@ -270,8 +270,9 @@ void ConsoleWindow::Draw(chaiscript::ChaiScript& chai)
                     std::cout << "during evaluation at (" << ee.call_stack[0].start().line << ", " << ee.call_stack[0].start().column << ")";
                 }
                 std::cout << '\n';
+            } catch (const std::exception& e) {
+                std::cout << e.what() << '\n';
             }
-
         }
         strcpy(s, "");
         reclaim_focus = true;
