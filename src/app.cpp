@@ -7,7 +7,7 @@
 #include "camera.h"
 #include "shader.h"
 #include "framebuffer.h"
-#include "OS.h"
+#include "platform/OS.h"
 #include "renderer.h"
 #include "buffer.h"
 #include "timer.h"

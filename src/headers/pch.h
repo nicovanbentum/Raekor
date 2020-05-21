@@ -2,6 +2,9 @@
 
 #define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
 
+#define _USE_MATH_DEFINES
+#include <cmath>
+
 // platform specific includes
 #include "GL/gl3w.h"
 
@@ -16,31 +19,14 @@
     #include <ShObjIdl_core.h>
 
     // include DirectXTK
-    #include "CommonStates.h"
-    #include "DDSTextureLoader.h"
-    //#include "DirectXHelpers.h"
-    #include "Effects.h"
-    #include "GamePad.h"
-    #include "GeometricPrimitive.h"
-    #include "GraphicsMemory.h"
-    #include "Keyboard.h"
-    //#include "Model.h"
-    #include "Mouse.h"
-    #include "PostProcess.h"
-    #include "PrimitiveBatch.h"
-    #include "ScreenGrab.h"
-    #include "SimpleMath.h"
-    #include "SpriteBatch.h"
-    #include "SpriteFont.h"
-    #include "VertexTypes.h"
-    #include "WICTextureLoader.h"
+    #include "DirectXTK/DDSTextureLoader.h"
+    #include "DirectXTK/WICTextureLoader.h"
     
 #elif __linux__
     #include <GL/gl.h>
     #include <gtk/gtk.h>
     
-    
-#endif
+#endif // _WIN32
 
 // Vulkan includes
 #ifdef _WIN32
@@ -56,18 +42,15 @@
 // imgui headers to build once
 #include "imconfig.h"
 #include "imgui.h"
-#include "imgui_internal.h"
-#include "imstb_rectpack.h"
-#include "imstb_textedit.h"
-#include "imstb_truetype.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_vulkan.h"
 #include "misc/cpp/imgui_stdlib.h"
+
+// imguizmo header
 #include "ImGuizmo.h"
 
-// if we're on windows we also include 
-// the directx11 implementation for ImGui
+// if we're on windows we also include the directx11 implementation for ImGui
 #ifdef _WIN32
     #include "imgui_impl_dx11.h"
 #endif
@@ -81,7 +64,7 @@
 #include "gtx/matrix_decompose.hpp"
 
 // Bullet3 Physics library
-#include "btBulletDynamicsCommon.h"
+#include "bullet/btBulletDynamicsCommon.h"
 
 // ChaiScript
 #include "chaiscript/chaiscript.hpp"
@@ -111,7 +94,7 @@
 #include "cereal/types/complex.hpp"
 #include "cereal/types/vector.hpp"
 
-// include stb
+// include stb image
 #include "stb_image.h"
 
 // include asset importer

@@ -4,8 +4,8 @@
 #include "util.h"
 
 #ifdef _WIN32
-    #include "DXBuffer.h"
-    #include "DXResourceBuffer.h"
+    #include "platform/windows/DXBuffer.h"
+    #include "platform/windows/DXResourceBuffer.h"
 #endif
 
 namespace Raekor {

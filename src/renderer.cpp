@@ -2,7 +2,7 @@
 #include "renderer.h"
 
 #ifdef _WIN32
-    #include "DXRenderer.h"
+    #include "platform/windows/DXRenderer.h"
 #endif
 
 namespace Raekor {

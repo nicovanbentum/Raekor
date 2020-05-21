@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "gui.h"
-#include "OS.h"
+#include "platform/OS.h"
 
 namespace Raekor {
 namespace GUI {

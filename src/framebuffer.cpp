@@ -4,7 +4,7 @@
 #include "renderer.h"
 
 #ifdef _WIN32
-#include "DXFrameBuffer.h"
+#include "platform/windows/DXFrameBuffer.h"
 #endif
 
 namespace Raekor {

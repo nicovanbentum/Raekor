@@ -4,7 +4,7 @@
 #include "renderer.h"
 
 #ifdef _WIN32
-#include "DXTexture.h"
+#include "platform/windows/DXTexture.h"
 #endif
 
 namespace Raekor {
