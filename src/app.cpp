@@ -3,6 +3,7 @@
 #include "ecs.h"
 #include "util.h"
 #include "scene.h"
+#include "mesh.h"
 #include "entry.h"
 #include "camera.h"
 #include "shader.h"
@@ -173,6 +174,18 @@ void Application::run() {
         {"BINORMAL",    ShaderType::FLOAT3}
     });
 
+    std::unique_ptr<Mesh> unitCube;
+    unitCube.reset(new Mesh());
+    unitCube->setVertexBuffer(unitCubeVertices);
+    unitCube->setIndexBuffer(cubeIndices);
+    unitCube->getVertexBuffer()->setLayout({
+        {"POSITION",    ShaderType::FLOAT3},
+        {"UV",          ShaderType::FLOAT2},
+        {"NORMAL",      ShaderType::FLOAT3},
+        {"TANGENT",     ShaderType::FLOAT3},
+        {"BINORMAL",    ShaderType::FLOAT3}
+    });
+
     std::unique_ptr<Mesh> Quad;
     Quad.reset(new Mesh(Shape::Quad));
     Quad->getVertexBuffer()->setLayout({
@@ -328,7 +341,8 @@ void Application::run() {
         }
 
         // generate texture that visualizes a 3D voxel texture 
-        voxelDebugPass->execute(viewport, voxelizationPass->result, cube.get(), Quad.get());
+        voxelizationPass->execute(newScene, viewport);
+        voxelDebugPass->execute(viewport, voxelizationPass->result, unitCube.get(), Quad.get());
         
         //get new frame for ImGui and ImGuizmo
         Renderer::ImGuiNewFrame(directxwindow);

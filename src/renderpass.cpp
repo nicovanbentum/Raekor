@@ -617,7 +617,7 @@ Voxelization::Voxelization(uint32_t width, uint32_t height, uint32_t depth) {
 
     // Upload texture buffer.
     glTexStorage3D(GL_TEXTURE_3D, 7, GL_RGBA32F, width, height, depth);
-    GLfloat clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    GLfloat clearColor[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
     glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, &clearColor);
     glGenerateMipmap(GL_TEXTURE_3D);
     glBindTexture(GL_TEXTURE_3D, 0);

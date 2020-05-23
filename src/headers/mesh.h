@@ -5,6 +5,7 @@
 namespace Raekor {
 
 extern std::vector<Vertex> cubeVertices;
+extern std::vector<Vertex> unitCubeVertices;
 extern std::vector<Triangle> cubeIndices;
 extern std::vector<Vertex> quadVertices;
 extern std::vector<Triangle> quadIndices;
