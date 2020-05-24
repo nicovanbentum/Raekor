@@ -617,7 +617,7 @@ Voxelization::Voxelization(uint32_t width, uint32_t height, uint32_t depth) {
 
     // Upload texture buffer.
     glTexStorage3D(GL_TEXTURE_3D, 7, GL_RGBA32F, width, height, depth);
-    GLfloat clearColor[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+    GLfloat clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, &clearColor);
     glGenerateMipmap(GL_TEXTURE_3D);
     glBindTexture(GL_TEXTURE_3D, 0);
@@ -625,12 +625,15 @@ Voxelization::Voxelization(uint32_t width, uint32_t height, uint32_t depth) {
 
 
 void Voxelization::execute(Scene& scene, Viewport& viewport) {
-    shader.bind();
+    GLfloat clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, &clearColor);
 
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
+    
+    shader.bind();
 
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA32F);
     shader.getUniform("view") = viewport.getCamera().getView();
@@ -647,6 +650,13 @@ void Voxelization::execute(Scene& scene, Viewport& viewport) {
         }
         else {
             shader.getUniform("model") = glm::mat4(1.0f);
+        }
+
+
+        ECS::MaterialComponent* material = scene.materials.getComponent(entity);
+
+        if (material) {
+            if (material->albedo) material->albedo->bindToSlot(0);
         }
 
         mesh.vertexBuffer.bind();

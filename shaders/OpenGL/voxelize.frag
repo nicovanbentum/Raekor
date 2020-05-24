@@ -13,7 +13,7 @@ bool isInsideCube(const vec3 p, float e) { return abs(p.x) < 1 + e && abs(p.y) <
 
 void main() {
 	if(!isInsideCube(f_position, 0)) {
-		return;
+		//return;
 	}
 
 	vec4 sampled = texture(albedo, f_uv);

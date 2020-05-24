@@ -13,8 +13,9 @@ out vec2 f_uv;
 
 void main() {
 	// get triangle normal
-	vec3 face_normal = normalize(normals[0] + normals[1] + normals[2]);
-	vec3 n = abs(face_normal);
+	const vec3 p1 = positions[1] - positions[0];
+	const vec3 p2 = positions[2] - positions[0];
+	const vec3 n = abs(cross(p1, p2)); 
 
 	for(uint i = 0; i < 3; ++i) {
 		f_position = positions[i];
