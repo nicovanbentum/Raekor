@@ -3,38 +3,35 @@
 layout (triangles) in;
 layout (triangle_strip, max_vertices=3) out;
 
-in vec3 positions[];
-in vec3 normals[];
 in vec2 uvs[];
 
-out vec3 f_position;
-out vec3 f_normal;
-out vec2 f_uv;
+out vec2 uv;
+out mat4 p;
+out flat int axis;
+
+uniform mat4 px;
+uniform mat4 py;
+uniform mat4 pz;
 
 void main() {
-	// get triangle normal
-	const vec3 p1 = positions[1] - positions[0];
-	const vec3 p2 = positions[2] - positions[0];
-	const vec3 n = abs(cross(p1, p2)); 
+    vec3 p1 = gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz;
+    vec3 p2 = gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz;
+    vec3 normal = normalize(cross(p1,p2));
 
-	for(uint i = 0; i < 3; ++i) {
-		f_position = positions[i];
-		f_normal = normals[i];
-		f_uv = uvs[i];
+    float nDotX = abs(normal.x);
+    float nDotY = abs(normal.y);
+    float nDotZ = abs(normal.z);
 
-		// dominant axis selection
-		if(n.z > n.x && n.z > n.y) {
-			gl_Position = vec4(f_position.x, f_position.y, 0, 1);
-		}
-		else if(n.x > n.y && n.x > n.z) {
-			gl_Position = vec4(f_position.y, f_position.z, 0, 1);
-		}
-		else {
-			gl_Position = vec4(f_position.x, f_position.z, 0, 1);
-		}
-
-		EmitVertex();
-	}
-
-	EndPrimitive();
+    // 0 = x axis dominant, 1 = y axis dominant, 2 = z axis dominant
+    axis = (nDotX >= nDotY && nDotX >= nDotZ) ? 1 : (nDotY >= nDotX && nDotY >= nDotZ) ? 2 : 3;
+    p = axis == 1 ? px : axis == 2 ? py : pz;
+    
+    for(int i = 0; i < gl_in.length(); i++) {
+        uv = uvs[i];
+        gl_Position = p * gl_in[i].gl_Position;
+        EmitVertex();
+    }
+    
+    // Finished creating vertices
+    EndPrimitive();
 }

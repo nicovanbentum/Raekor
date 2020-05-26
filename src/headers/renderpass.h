@@ -194,10 +194,12 @@ public:
 
 class Voxelization {
 public:
-    Voxelization(uint32_t width, uint32_t height, uint32_t depth);
+    Voxelization(int size);
     void execute(Scene& scene, Viewport& viewport);
 
 private:
+    int size;
+    glm::mat4 px, py, pz;
     glShader shader;
 
 public:
@@ -209,21 +211,13 @@ public:
 class VoxelizationDebug {
 public:
     VoxelizationDebug(Viewport& viewport);
-    void execute(Viewport& viewport, uint32_t voxelMap, Mesh* cube, Mesh* quad);
+    void execute(Viewport& viewport, glTexture2D& input, uint32_t voxelMap);
     void resize(Viewport& viewport);
 
 private:
-    glShader basicShader;
-    glShader voxelTracedShader;
-    glRenderbuffer cubeTexture;
-    glFramebuffer voxelVisFramebuffer;
-    glFramebuffer cubeBackfaceFramebuffer;
-    glFramebuffer cubeFrontfaceFramebuffer;
-
-public:
-    glTexture2D result;
-    glTexture2D cubeBack;
-    glTexture2D cubeFront;
+    glFramebuffer frameBuffer;
+    glRenderbuffer renderBuffer;
+    glShader shader;
 };
 
 class BoundingBoxDebug {

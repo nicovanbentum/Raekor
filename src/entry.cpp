@@ -108,7 +108,13 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
 int main(int argc, char** argv) {
     
     auto app = Raekor::Application();
-    app.run();
+    try {
+        app.run();
+    }
+    catch (std::exception& e) {
+        std::cout << e.what() << '\n';
+        system("PAUSE");
+    }
     //app.serializeSettings("config.json", true);
     return 0;
 }

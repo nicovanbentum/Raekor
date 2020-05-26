@@ -1,12 +1,18 @@
 #version 440 core
 
-layout (location = 0) in vec3 v_pos;
-layout (location = 1) in vec2 v_uv;
+layout(binding = 0) uniform sampler3D voxels;
+uniform float voxelSize;
 
-out vec2 uv;
+out vec4 color;
 
 void main()
 {
-    gl_Position = vec4(v_pos.x, v_pos.y, 0.0, 1.0); 
-    uv = v_uv;
+	vec3 pos; // Center of voxel
+    const int dim = textureSize(voxels, 0).x;
+	pos.x = gl_VertexID % dim;
+	pos.z = (gl_VertexID / dim) % dim;
+	pos.y = gl_VertexID / (dim * dim);
+
+	color = texture(voxels, pos / dim);
+	gl_Position = vec4(pos - dim * 0.5, 1);
 }

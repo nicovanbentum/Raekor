@@ -233,22 +233,19 @@ void Application::run() {
     std::cout << "Creating render passes..." << std::endl;
 
     // all render passes
-    auto bloomPass              = std::make_unique<RenderPass::Bloom>(viewport);
     auto lightingPass           = std::make_unique<RenderPass::DeferredLighting>(viewport);
     auto shadowMapPass          = std::make_unique<RenderPass::ShadowMap>(SHADOW_WIDTH, SHADOW_HEIGHT);
     auto tonemappingPass        = std::make_unique<RenderPass::Tonemapping>(viewport);
-    auto omniShadowMapPass      = std::make_unique<RenderPass::OmniShadowMap>(SHADOW_WIDTH, SHADOW_HEIGHT);
     auto geometryBufferPass     = std::make_unique<RenderPass::GeometryBuffer>(viewport);
-    auto ambientOcclusionPass   = std::make_unique<RenderPass::ScreenSpaceAmbientOcclusion>(viewport);
-
-    auto voxelizationPass       = std::make_unique<RenderPass::Voxelization>(512, 512, 512);
-    auto voxelDebugPass         = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
-
     auto aabbDebugPass          = std::make_unique<RenderPass::BoundingBoxDebug>(viewport);
+
+    auto voxelizePass = std::make_unique<RenderPass::Voxelization>(128);
+
+    auto voxelDebugPass = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
 
 
     // boolean settings needed for a couple things
-    bool doSSAO = true, doBloom = false;
+    bool doSSAO = false, doBloom = false, debugVoxels = false;
     bool mouseInViewport = false, gizmoEnabled = false, showSettingsWindow = false;
 
     // keep a pointer to the texture that's rendered to the window
@@ -260,13 +257,6 @@ void Application::run() {
         std::cout << "Loading " << parseFilepath(path, PATH_OPTIONS::FILENAME) << "...\n";
         importer.loadFromDisk(newScene, path);
     }
-
-    auto pointLight = newScene.createPointLight("Point Light");
-    auto pointLightTransform = newScene.transforms.getComponent(pointLight);
-    pointLightTransform->position.z = 3.0f;
-    pointLightTransform->position.y = 1.0f;
-    pointLightTransform->recalculateMatrix();
-
 
     auto dirLightEntity = newScene.createDirectionalLight("Directional Light");
     auto transform = newScene.transforms.getComponent(dirLightEntity);
@@ -282,6 +272,8 @@ void Application::run() {
     GUI::EntityWindow ecsWindow;
     GUI::ConsoleWindow consoleWindow;
     GUI::InspectorWindow inspectorWindow;
+
+    voxelizePass->execute(newScene, viewport);
 
     ImVec2 pos;
 
@@ -305,44 +297,30 @@ void Application::run() {
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         shadowMapPass->execute(newScene);
 
-        // generate point light shadow map 
-        omniShadowMapPass->execute(newScene, pointLightTransform->position);
-
         // generate a geometry buffer
         glViewport(0, 0, viewport.size.x, viewport.size.y);
         geometryBufferPass->execute(newScene, viewport);
-
-        if (doSSAO) {
-            ambientOcclusionPass->execute(viewport, geometryBufferPass.get(), Quad.get());
-        }
 
         // perform deferred lighting pass
         lightingPass->execute(
             newScene,
             viewport,
             shadowMapPass.get(), 
-            omniShadowMapPass.get(),
+            nullptr,
             geometryBufferPass.get(),
-            ambientOcclusionPass.get(),
+            nullptr,
             Quad.get()
         );
 
-        // perform Bloom
-        if (doBloom) {
-            bloomPass->execute(lightingPass->result, lightingPass->bloomHighlights, Quad.get());
-            tonemappingPass->execute(bloomPass->result, Quad.get());
-        }
-        else {
-            tonemappingPass->execute(lightingPass->result, Quad.get());
-        }
+        tonemappingPass->execute(lightingPass->result, Quad.get());
 
         if (active) {
-            aabbDebugPass->execute(newScene, viewport, tonemappingPass->result, active);
+            //aabbDebugPass->execute(newScene, viewport, tonemappingPass->result, active);
         }
 
-        // generate texture that visualizes a 3D voxel texture 
-        voxelizationPass->execute(newScene, viewport);
-        voxelDebugPass->execute(viewport, voxelizationPass->result, unitCube.get(), Quad.get());
+        if (debugVoxels) {
+            voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass->result);
+        }
         
         //get new frame for ImGui and ImGuizmo
         Renderer::ImGuiNewFrame(directxwindow);
@@ -490,15 +468,6 @@ void Application::run() {
         if (ImGui::DragFloat3("Threshold", glm::value_ptr(lightingPass->settings.bloomThreshold), 0.001f, 0.0f, 10.0f)) {}
         ImGui::NewLine();
 
-        if (ImGui::Checkbox("SSAO", &doSSAO)) {
-            // if we don't want to apply SSAO we need to clear the old result
-            if (!doSSAO) ambientOcclusionPass->result.clear({ 1.0f, 1.0f, 1.0f, 1.0f });
-        }
-        ImGui::Separator();
-        if (ImGui::DragFloat(   "Samples",  &ambientOcclusionPass->settings.samples, 8.0f, 8.0f, 64.0f)) {}
-        if (ImGui::SliderFloat( "Power",    &ambientOcclusionPass->settings.power, 0.0f, 15.0f)) {}
-        if (ImGui::SliderFloat( "Bias",     &ambientOcclusionPass->settings.bias, 0.0f, 1.0f)) {}
-
         ImGui::End();
 
         // scene panel
@@ -511,8 +480,8 @@ void Application::run() {
             doVsync = !doVsync;
         }
 
-        if (ImGui::RadioButton("Animate Light", moveLight)) {
-            moveLight = !moveLight;
+        if (ImGui::RadioButton("debug voxels", debugVoxels)) {
+            debugVoxels = !debugVoxels;
         }
 
         if (ImGui::TreeNode("Screen Texture")) {
@@ -526,18 +495,6 @@ void Application::run() {
                 activeScreenTexture = &geometryBufferPass->positionTexture;
             if (ImGui::Selectable(nameof(shadowMapPass->result), activeScreenTexture->ImGuiID() == shadowMapPass->result.ImGuiID()))
                 activeScreenTexture = &shadowMapPass->result;
-            if (ImGui::Selectable(nameof(bloomPass->result), activeScreenTexture->ImGuiID() == bloomPass->result.ImGuiID()))
-                activeScreenTexture = &bloomPass->result;
-            if (ImGui::Selectable(nameof(ambientOcclusionPass->result), activeScreenTexture->ImGuiID() == ambientOcclusionPass->result.ImGuiID()))
-                activeScreenTexture = &ambientOcclusionPass->result;
-            if (ImGui::Selectable(nameof(ambientOcclusionPass->preblurResult), activeScreenTexture->ImGuiID() == ambientOcclusionPass->preblurResult.ImGuiID()))
-                activeScreenTexture = &ambientOcclusionPass->preblurResult;
-            if (ImGui::Selectable(nameof(voxelDebugPass->result), activeScreenTexture->ImGuiID() == voxelDebugPass->result.ImGuiID()))
-                activeScreenTexture = &voxelDebugPass->result;
-            if (ImGui::Selectable(nameof(voxelDebugPass->cubeFront), activeScreenTexture->ImGuiID() == voxelDebugPass->cubeFront.ImGuiID()))
-                activeScreenTexture = &voxelDebugPass->cubeFront;
-            if (ImGui::Selectable(nameof(voxelDebugPass->cubeBack), activeScreenTexture->ImGuiID() == voxelDebugPass->cubeBack.ImGuiID()))
-                activeScreenTexture = &voxelDebugPass->cubeBack;
             if (ImGui::Selectable(nameof(aabbDebugPass->result), activeScreenTexture->ImGuiID() == aabbDebugPass->result.ImGuiID()))
                 activeScreenTexture = &aabbDebugPass->result;
 
@@ -568,22 +525,6 @@ void Application::run() {
         ImGui::NewLine();
         ImGui::Text("Point Light");
         ImGui::Separator();
-        if (ImGui::DragFloat("far plane", &omniShadowMapPass->settings.farPlane)) {}
-        
-        ImGui::NewLine();
-        ImGui::Text("Normal Maps");
-        ImGui::Separator();
-
-        static bool doNormalMapping = false;
-        if (ImGui::Checkbox("Enable ##normalmapping", &doNormalMapping)) {
-            if (!doNormalMapping) {
-            
-            }
-            else {
-            
-            }
-        }
-
         ImGui::End();
 
         // application/render metrics
@@ -672,13 +613,11 @@ void Application::run() {
             ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
 
             // resizing framebuffers
-            bloomPass->resize(viewport);
             tonemappingPass->resize(viewport);
             geometryBufferPass->resize(viewport);
-            ambientOcclusionPass->resize(viewport);
             lightingPass->resize(viewport);
-            voxelDebugPass->resize(viewport);
             aabbDebugPass->resize(viewport);
+            voxelDebugPass->resize(viewport);
 
             
             resizing = false;

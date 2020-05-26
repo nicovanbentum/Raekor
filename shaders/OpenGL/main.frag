@@ -66,15 +66,15 @@ void main()
 	normal = texture(gNormals, uv).xyz;
 	position = texture(gPositions, uv).xyz;
 
-    AO = texture(SSAO, uv).x;
-    AO = clamp(AO, 0.0, 1.0);
+    // AO = texture(SSAO, uv).x;
+    // AO = clamp(AO, 0.0, 1.0);
 
     vec3 result = vec3(0.0, 0.0, 0.0);
 
     // caculate point lights contribution
-    for(uint i = 0; i < pointLightCount; i++) {
-        result += doLight(ubo.pointLights[i]);
-    }
+    // for(uint i = 0; i < pointLightCount; i++) {
+    //     result += doLight(ubo.pointLights[i]);
+    // }
 
     // calculate directional lights contribution
     for(uint i = 0; i < directionalLightCount; i++) {
@@ -183,16 +183,16 @@ vec3 doLight(PointLight light) {
     diffuse = diffuse * attenuation;
     specular = specular * attenuation;
 
-     float shadowAmount = 1.0 - getShadow(light);
-     diffuse *= shadowAmount;
-     specular *= shadowAmount;
+    //  float shadowAmount = 1.0 - getShadow(light);
+    //  diffuse *= shadowAmount;
+    //  specular *= shadowAmount;
 
     return (ambient + diffuse + specular);
 }
 
 vec3 doLight(DirectionalLight light) {
 	// ambient
-    vec3 ambient = 0.05 * sampled.xyz * AO;
+    vec3 ambient = 0.0 * sampled.xyz * AO;
 
 	vec3 direction = normalize(light.position.xyz - position);
 	vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);

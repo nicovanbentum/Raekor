@@ -1,25 +1,32 @@
 #version 440 core
+#extension GL_ARB_shader_image_load_store : enable
 
 layout(binding = 0) uniform sampler2D albedo;
-layout(rgba32f, binding = 1) uniform image3D voxels;
+layout(RGBA8, binding = 1) uniform image3D voxels;
 
-in vec3 f_position;
-in vec3 f_normal;
-in vec2 f_uv;
-
-vec3 scaleAndBias(vec3 p) { return 0.5f * p + vec3(0.5f); }
-
-bool isInsideCube(const vec3 p, float e) { return abs(p.x) < 1 + e && abs(p.y) < 1 + e && abs(p.z) < 1 + e; }
+in vec2 uv;
+in mat4 p;
+in flat int axis;
 
 void main() {
-	if(!isInsideCube(f_position, 0)) {
-		//return;
+    vec4 materialColor = texture(albedo, uv);
+    const int dim = imageSize(voxels).x;
+
+	ivec3 camPos = ivec3(gl_FragCoord.x, gl_FragCoord.y, dim * gl_FragCoord.z);
+	ivec3 texPos;
+	if(axis == 1) {
+	    texPos.x = dim - camPos.z;
+		texPos.z = camPos.x;
+		texPos.y = camPos.y;
+	}
+	else if(axis == 2) {
+	    texPos.z = camPos.y;
+		texPos.y = dim - camPos.z;
+		texPos.x = camPos.x;
+	} else {
+	    texPos = camPos;
 	}
 
-	vec4 sampled = texture(albedo, f_uv);
-	vec3 voxel = scaleAndBias(f_position);
-	ivec3 dim = imageSize(voxels);
-	vec4 res = vec4(sampled.xyz, 1);
-	// debug test by filling the 3d texture with red pixel data
-	imageStore(voxels, ivec3(dim * voxel), res);
+	texPos.z = dim - texPos.z - 1;
+    imageStore(voxels, texPos, vec4(materialColor.rgb, 1.0));
 }
