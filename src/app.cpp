@@ -238,10 +238,9 @@ void Application::run() {
     auto tonemappingPass        = std::make_unique<RenderPass::Tonemapping>(viewport);
     auto geometryBufferPass     = std::make_unique<RenderPass::GeometryBuffer>(viewport);
     auto aabbDebugPass          = std::make_unique<RenderPass::BoundingBoxDebug>(viewport);
-
-    auto voxelizePass = std::make_unique<RenderPass::Voxelization>(128);
-
-    auto voxelDebugPass = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
+    auto ConeTracePass          = std::make_unique<RenderPass::ForwardLightingPass>(viewport);
+    auto voxelizePass           = std::make_unique<RenderPass::Voxelization>(128);
+    auto voxelDebugPass         = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
 
 
     // boolean settings needed for a couple things
@@ -286,41 +285,36 @@ void Application::run() {
         else
             handleEvents(directxwindow, shadowMapPass->sunCamera, mouseInViewport, deltaTime);
         
+
         shadowMapPass->sunCamera.update(true);
         viewport.getCamera().update(true);
 
         // clear the main window
         Renderer::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
+        
         // generate sun shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         shadowMapPass->execute(newScene);
 
-        // generate a geometry buffer
         glViewport(0, 0, viewport.size.x, viewport.size.y);
-        geometryBufferPass->execute(newScene, viewport);
 
-        // perform deferred lighting pass
-        lightingPass->execute(
-            newScene,
-            viewport,
-            shadowMapPass.get(), 
-            nullptr,
-            geometryBufferPass.get(),
-            nullptr,
-            Quad.get()
-        );
+        //geometryBufferPass->execute(newScene, viewport);
 
-        tonemappingPass->execute(lightingPass->result, Quad.get());
+        //lightingPass->execute(newScene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
+
+        ConeTracePass->execute(viewport, newScene, voxelizePass.get(), shadowMapPass.get());
+
+        tonemappingPass->execute(ConeTracePass->result, Quad.get());
 
         if (active) {
-            //aabbDebugPass->execute(newScene, viewport, tonemappingPass->result, active);
+            aabbDebugPass->execute(newScene, viewport, tonemappingPass->result, active);
         }
 
         if (debugVoxels) {
             voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass->result);
         }
+
         
         //get new frame for ImGui and ImGuizmo
         Renderer::ImGuiNewFrame(directxwindow);
@@ -480,6 +474,10 @@ void Application::run() {
             doVsync = !doVsync;
         }
 
+        if (ImGui::Button("Voxelize")) {
+            voxelizePass->execute(newScene, viewport);
+        }
+
         if (ImGui::RadioButton("debug voxels", debugVoxels)) {
             debugVoxels = !debugVoxels;
         }
@@ -493,10 +491,14 @@ void Application::run() {
                 activeScreenTexture = &geometryBufferPass->normalTexture;
             if (ImGui::Selectable(nameof(geometryBufferPass->positionTexture), activeScreenTexture->ImGuiID() == geometryBufferPass->positionTexture.ImGuiID()))
                 activeScreenTexture = &geometryBufferPass->positionTexture;
+            if (ImGui::Selectable(nameof(lightingPass->result), activeScreenTexture->ImGuiID() == lightingPass->result.ImGuiID()))
+                activeScreenTexture = &lightingPass->result;
             if (ImGui::Selectable(nameof(shadowMapPass->result), activeScreenTexture->ImGuiID() == shadowMapPass->result.ImGuiID()))
                 activeScreenTexture = &shadowMapPass->result;
             if (ImGui::Selectable(nameof(aabbDebugPass->result), activeScreenTexture->ImGuiID() == aabbDebugPass->result.ImGuiID()))
                 activeScreenTexture = &aabbDebugPass->result;
+            if (ImGui::Selectable(nameof(ConeTracePass->result), activeScreenTexture->ImGuiID() == ConeTracePass->result.ImGuiID()))
+                activeScreenTexture = &ConeTracePass->result;
 
             ImGui::TreePop();
         }
@@ -618,6 +620,7 @@ void Application::run() {
             lightingPass->resize(viewport);
             aabbDebugPass->resize(viewport);
             voxelDebugPass->resize(viewport);
+            ConeTracePass->resize(viewport);
 
             
             resizing = false;

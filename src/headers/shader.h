@@ -63,6 +63,7 @@ public:
     void checkForUpdates();
 
 private:
+    std::vector<Shader::Stage> stages;
     std::vector<std::function<void()>> checks;
 };
 

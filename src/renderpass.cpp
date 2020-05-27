@@ -31,8 +31,8 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) :
     // init render target
     result.bind();
     result.init(width, height, Format::DEPTH);
-    result.setFilter(Sampling::Filter::None);
-    result.setWrap(Sampling::Wrap::ClampBorder);
+    result.setFilter(Sampling::Filter::Bilinear);
+    result.setWrap(Sampling::Wrap::ClampEdge);
 
     framebuffer.bind();
     framebuffer.attach(result, GL_DEPTH_ATTACHMENT);
@@ -376,6 +376,8 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
     std::array<Shader::Stage, 2> modelStages = { vertex, frag };
     shader.reload(modelStages.data(), modelStages.size());
 
+    hotloader.watch(&shader, modelStages.data(), modelStages.size());
+
     // init render targets
     result.bind();
     result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
@@ -397,7 +399,9 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 }
 
 void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
-                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Mesh* quad) {
+                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad) {
+    hotloader.checkForUpdates();
+    
     // bind the main framebuffer
     framebuffer.bind();
     Renderer::Clear({ 0.0f, 0.0f, 0.0f, 1.0f });
@@ -427,6 +431,8 @@ void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* sha
     if (ambientOcclusion) {
         ambientOcclusion->result.bindToSlot(5);
     }
+
+    glBindTextureUnit(6, voxels->result);
 
     // update the uniform buffer CPU side
     uniforms.view = viewport.getCamera().getView();
@@ -630,7 +636,7 @@ Voxelization::Voxelization(int size) : size(size) {
     glGenerateMipmap(GL_TEXTURE_3D);
 
     // Create projection matrices used to project stuff onto each axis in 
-    float worldSize = 50.0f;
+    float worldSize = 150.0f;
 
     // left, right, bottom, top, zNear, zFar
     auto projectionMatrix = glm::ortho(-worldSize * 0.5f, worldSize * 0.5f, -worldSize * 0.5f, worldSize * 0.5f, worldSize * 0.5f, worldSize * 1.5f);
@@ -643,6 +649,9 @@ Voxelization::Voxelization(int size) : size(size) {
 
 
 void Voxelization::execute(Scene& scene, Viewport& viewport) {
+    GLubyte clearColor[4] = { 0, 0, 0, 0 };
+    glClearTexImage(result, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearColor);
+
     // set GL state
     glViewport(0, 0, size, size);
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);

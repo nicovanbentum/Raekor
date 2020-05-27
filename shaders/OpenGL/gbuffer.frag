@@ -26,7 +26,7 @@ void main() {
 	gNormal = vec4(normalize(TBN * gNormal.xyz), 1.0);
 
     // TODO: figure out a way to toggle normal mapping
-    // gNormal = vec4(normalize(normal), 1.0);
+     gNormal = vec4(normalize(normal), 1.0);
 
 	// positional data comes in from the vertex shader
 	gPosition = vec4(pos, 1.0);

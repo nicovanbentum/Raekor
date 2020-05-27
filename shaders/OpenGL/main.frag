@@ -2,6 +2,8 @@
 
 const float PI = 3.14159265359;
 
+const float voxelGridSize = 150.0f;
+
 #define MAX_POINT_LIGHTS 10
 #define MAX_DIR_LIGHTS 1
 
@@ -49,6 +51,23 @@ layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 5) uniform sampler2D SSAO;
 
+layout(binding = 6) uniform sampler3D voxels;
+
+const float MAX_DIST = 100.0;
+const float ALPHA_THRESH = 0.95;
+
+// 6 60 degree cone
+const int NUM_CONES = 6;
+vec3 coneDirections[6] = vec3[]
+(                            vec3(0, 1, 0),
+                            vec3(0, 0.5, 0.866025),
+                            vec3(0.823639, 0.5, 0.267617),
+                            vec3(0.509037, 0.5, -0.700629),
+                            vec3(-0.509037, 0.5, -0.700629),
+                            vec3(-0.823639, 0.5, 0.267617)
+                            );
+float coneWeights[6] = float[](0.25, 0.15, 0.15, 0.15, 0.15, 0.15);
+
 vec3 doLight(PointLight light);
 vec3 doLight(DirectionalLight light);
 float getShadow(PointLight light);
@@ -60,28 +79,87 @@ vec3 normal;
 vec4 sampled;
 float AO = 1.0;
 
+vec4 sampleVoxels(vec3 worldPosition, float lod) {
+    vec3 offset = vec3(1.0 / 128, 1.0 / 128, 0); // Why??
+    vec3 voxelTextureUV = position / (voxelGridSize * 0.5);
+    voxelTextureUV = voxelTextureUV * 0.5 + 0.5 + offset;
+    return textureLod(voxels, voxelTextureUV, lod);
+}
+
+// Third argument to say how long between steps?
+vec4 coneTrace(vec3 direction, float tanHalfAngle, out float occlusion) {
+    // lod level 0 mipmap is full size, level 1 is half that size and so on
+    float lod = 0.0;
+    vec3 color = vec3(0);
+    float alpha = 0.0;
+    occlusion = 0.0;
+
+    float voxelWorldSize = voxelGridSize / 128;
+    float dist = voxelWorldSize; // Start one voxel away to avoid self occlusion
+    vec3 startPos = position + normal * voxelWorldSize; // Plus move away slightly in the normal direction to avoid
+                                                                    // self occlusion in flat surfaces
+    while(dist < MAX_DIST && alpha < ALPHA_THRESH) {
+        // smallest sample diameter possible is the voxel size
+        float diameter = max(voxelWorldSize, 2.0 * tanHalfAngle * dist);
+        float lodLevel = log2(diameter / voxelWorldSize);
+        vec4 voxelColor = sampleVoxels(startPos + dist * direction, lodLevel);
+
+        // front-to-back compositing
+        float a = (1.0 - alpha);
+        color += a * voxelColor.rgb;
+        alpha += a * voxelColor.a;
+        //occlusion += a * voxelColor.a;
+        occlusion += (a * voxelColor.a) / (1.0 + 0.03 * diameter);
+        dist += diameter * 0.5; // smoother
+        //dist += diameter; // faster but misses more voxels
+    }
+
+    return vec4(color, alpha);
+}
+
+vec4 indirectLight(out float occlusion_out) {
+    vec4 color = vec4(0);
+    occlusion_out = 0.0;
+
+    for(int i = 0; i < NUM_CONES; i++) {
+        float occlusion = 0.0;
+        // 60 degree cones -> tan(30) = 0.577
+        // 90 degree cones -> tan(45) = 1.0
+        color += coneWeights[i] * coneTrace(coneDirections[i], 0.577, occlusion);
+        occlusion_out += coneWeights[i] * occlusion;
+    }
+
+    occlusion_out = 1.0 - occlusion_out;
+
+    return color;
+}
+
 void main()
 {
 	sampled = texture(gColors, uv);
 	normal = texture(gNormals, uv).xyz;
 	position = texture(gPositions, uv).xyz;
 
-    // AO = texture(SSAO, uv).x;
-    // AO = clamp(AO, 0.0, 1.0);
-
-    vec3 result = vec3(0.0, 0.0, 0.0);
-
-    // caculate point lights contribution
-    // for(uint i = 0; i < pointLightCount; i++) {
-    //     result += doLight(ubo.pointLights[i]);
-    // }
+    //  AO = texture(SSAO, uv).x;
+    //  AO = clamp(AO, 0.0, 1.0);
 
     // calculate directional lights contribution
     for(uint i = 0; i < directionalLightCount; i++) {
-        result += doLight(ubo.dirLights[i]);
+        //result += doLight(ubo.dirLights[i]);
     }
 
-    finalColor = vec4(result, sampled.a);
+    vec3 diffuse = doLight(ubo.dirLights[0]);
+
+    // Indirect diffuse light
+    float occlusion = 0.0;
+    vec3 indirectDiffuseLight = indirectLight(occlusion).rgb;
+    indirectDiffuseLight = 4.0 * indirectDiffuseLight;
+
+    // Sum direct and indirect diffuse light and tweak a little bit
+    occlusion = min(1.0, 1.5 * occlusion); // Make occlusion brighter
+    vec3 diffuseReflection = 2.0 * occlusion * (diffuse + indirectDiffuseLight) * sampled.rgb;
+
+    finalColor = vec4(diffuseReflection, sampled.a);
 
 	float brightness = dot(finalColor.rgb, bloomThreshold);
 	if(brightness > 1.0) 
@@ -205,9 +283,9 @@ vec3 doLight(DirectionalLight light) {
     float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0f);
     vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
 
-	float shadowAmount = 1.0 - getShadow(light);
-	diffuse *= shadowAmount;
-	specular *= shadowAmount;
+	// float shadowAmount = 1.0 - getShadow(light);
+	// diffuse *= shadowAmount;
+	// specular *= shadowAmount;
 
     return (ambient + diffuse + specular);
 }

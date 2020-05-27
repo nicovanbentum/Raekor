@@ -100,6 +100,7 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
 
     transform.position = { position.x, position.y, position.z };
     transform.scale = { scale.x, scale.y, scale.z };
+    transform.scale = { 0.05f, 0.05f, 0.05f };
     transform.rotation = { glm::radians(rotation.x), glm::radians(rotation.y), glm::radians(rotation.z) };
 
     transform.recalculateMatrix();

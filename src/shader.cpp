@@ -183,15 +183,20 @@ glShader::UniformLocation& glShader::UniformLocation::operator=(uint32_t rhs) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void ShaderHotloader::watch(glShader* shader, Shader::Stage* stages, size_t stageCount) {
-    // store a lambda that keeps a copy of pointers to the shader and stages
+void ShaderHotloader::watch(glShader* shader, Shader::Stage* inStages, size_t stageCount) {
+    // store the stages    
+    for (int i = 0; i < stageCount; i++) {
+        stages.push_back(inStages[i]);
+    }
+
+    // store a lambda that keeps a copy of pointers to the shader
     checks.emplace_back([=]() {
-        for (unsigned int i = 0; i < stageCount; i++) {
-            if (stages[i].watcher.wasModified()) {
+        for (auto& stage : stages) {
+            if (stage.watcher.wasModified()) {
                 // in case compilation fails we discard progress and assign the old shader program
                 unsigned int temporaryID = shader->programID;
                 try {
-                    shader->reload(stages, stageCount);
+                    shader->reload(stages.data(), stageCount);
                 } catch(std::exception e) {
                     std::puts(e.what());
                     shader->programID = temporaryID;
