@@ -20,7 +20,8 @@ Copy over ```init.bat``` from Raekor to VCPKG's directory, run it there and let 
 Used to work through the supplied makefile, but it's out of date.
 
 # Features
-Some experimentals are in place for DirectX 11 and Vulkan. Focus has shifted to getting features in fast in OpenGL so I can use the engine to  research and implement Global Illumination for a research course at the Hogeschool Utrecht. Some of the features currently being worked on:
+This project requires and uses at least C++ 17 and modern rendering API's, OpenGL requires version 4.5 for direct state access functions and shader extensions. Focus has currently shifted to getting features in fast in OpenGL so I can use the engine to  research and implement Global Illumination for a research course at the Hogeschool Utrecht. After finishing my research course I will be migrating the engine to Vulkan (not sure if I will keep OpenGL support) and start working on physically based shading.
+
 - [X] Shader hotloading
 - [X] Directional & Point lighting
 - [X] Shadow mapping (point & directional)
@@ -28,9 +29,10 @@ Some experimentals are in place for DirectX 11 and Vulkan. Focus has shifted to 
 - [X] HDR, Gamma & Tone mapping
 - [X] Deferred render pipeline
 - [ ] PBR Material system
+- [ ] C++ 17 Job System
 - [X] Screen Space Ambient Occlusion
 - [ ] Screen Space Reflections
-- [ ] Global Illumination (multiple techniques)
+- [X] Global Illumination (cone traced voxels)
 - [ ] Scripting language
 - [x] Data driven Entity Component System
 
