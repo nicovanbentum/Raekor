@@ -136,7 +136,6 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
     transform.localPosition = (mesh.aabb[0] + mesh.aabb[1]) / 2.0f;
 
     // upload the mesh buffers to the GPU
-    mesh.vertexBuffer.bind();
     mesh.vertexBuffer.loadVertices(mesh.vertices.data(), mesh.vertices.size());
     mesh.vertexBuffer.setLayout({
         {"POSITION",    ShaderType::FLOAT3},
@@ -146,7 +145,6 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
         {"BINORMAL",    ShaderType::FLOAT3}
         });
 
-    mesh.indexBuffer.bind();
     mesh.indexBuffer.loadFaces(mesh.indices.data(), mesh.indices.size());
 
     // get material textures from Assimp's import

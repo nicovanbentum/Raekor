@@ -39,7 +39,7 @@ void glRenderbuffer::init(uint32_t width, uint32_t height, GLenum format) {
 }
 
 glFramebuffer::glFramebuffer() {
-    glGenFramebuffers(1, &mID);
+    glCreateFramebuffers(1, &mID);
 }
 
 glFramebuffer::~glFramebuffer() {
@@ -55,7 +55,7 @@ void glFramebuffer::unbind() {
 }
 
 void glFramebuffer::attach(glTexture2D& texture, GLenum type) {
-    glFramebufferTexture2D(GL_FRAMEBUFFER, type, texture.mTarget, texture.mID, 0);
+    glNamedFramebufferTexture(mID, type, texture.mID, 0);
 
     // if its a color attachment and we haven't seen it before, store it
     if (type != GL_DEPTH_ATTACHMENT && type != GL_STENCIL_ATTACHMENT && type != GL_DEPTH_STENCIL_ATTACHMENT) {
@@ -70,13 +70,17 @@ void glFramebuffer::attach(glTexture2D& texture, GLenum type) {
         // else we assume its a depth only attachment for now
     }
     else {
-        glDrawBuffer(GL_NONE);
-        glReadBuffer(GL_NONE);
+        glNamedFramebufferDrawBuffer(mID, GL_NONE);
+        glNamedFramebufferReadBuffer(mID, GL_NONE);
     }
 }
 
 void glFramebuffer::attach(glRenderbuffer& buffer, GLenum attachment) {
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, buffer.mID);
+    glNamedFramebufferRenderbuffer(mID, attachment, GL_RENDERBUFFER, buffer.mID);
+}
+
+void glFramebuffer::attach(glTextureCube& texture, GLenum type, uint8_t face) {
+    glNamedFramebufferTexture(mID, type, texture.mID, face);
 }
 
 } // Raekor

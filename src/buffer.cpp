@@ -125,6 +125,7 @@ void glVertexBuffer::loadVertices(Vertex* vertices, size_t count) {
     id = glCreateBuffer(vertices, count, GL_ARRAY_BUFFER);
 }
 
+// TODO: rework this entire thing, consider VAO's
 void glVertexBuffer::bind() const {
     glBindBuffer(GL_ARRAY_BUFFER, id);
     GLuint index = 0;

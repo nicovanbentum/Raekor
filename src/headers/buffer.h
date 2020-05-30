@@ -134,9 +134,8 @@ private:
 template<typename Type>
 uint32_t glCreateBuffer(Type* data, size_t count, GLenum target) {
     unsigned int id;
-    glGenBuffers(1, &id);
-    glBindBuffer(target, id);
-    glBufferData(target, count * sizeof(Type), data, GL_STATIC_DRAW);
+    glCreateBuffers(1, &id);
+    glNamedBufferData(id, count * sizeof(Type), data, GL_STATIC_DRAW);
     glBindBuffer(target, 0);
     return id;
 }

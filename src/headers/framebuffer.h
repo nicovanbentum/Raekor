@@ -55,10 +55,7 @@ public:
     void unbind();
     void attach(glTexture2D& texture, GLenum type);
     void attach(glRenderbuffer& buffer, GLenum attachment);
-    void attach(glTextureCube& texture, GLenum type, uint8_t face) {
-        glFramebufferTexture2D(GL_FRAMEBUFFER, type,
-            GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, texture.mID, 0);
-    }
+    void attach(glTextureCube& texture, GLenum type, uint8_t face);
 
 private:
     std::vector<unsigned int> colorAttachments;

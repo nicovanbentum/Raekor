@@ -36,9 +36,7 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) :
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 
-    framebuffer.bind();
     framebuffer.attach(result, GL_DEPTH_ATTACHMENT);
-    framebuffer.unbind();
 }
 
 void ShadowMap::execute(Scene& scene) {
@@ -89,11 +87,6 @@ OmniShadowMap::OmniShadowMap(uint32_t width, uint32_t height) {
     }
     result.setFilter(Sampling::Filter::None);
     result.setWrap(Sampling::Wrap::ClampEdge);
-
-    depthCubeFramebuffer.bind();
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-    depthCubeFramebuffer.unbind();
 }
 
 void OmniShadowMap::execute(Scene& scene, const glm::vec3& lightPosition) {
@@ -167,12 +160,10 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
 
     GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 
-    GBuffer.bind();
     GBuffer.attach(positionTexture, GL_COLOR_ATTACHMENT0);
     GBuffer.attach(normalTexture, GL_COLOR_ATTACHMENT1);
     GBuffer.attach(albedoTexture, GL_COLOR_ATTACHMENT2);
     GBuffer.attach(GDepthBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-    GBuffer.unbind();
 }
 
 void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
@@ -320,14 +311,12 @@ ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(Viewport& viewport) {
     preblurResult.init(viewport.size.x, viewport.size.y, { GL_RGBA, GL_RGBA, GL_FLOAT }, nullptr);
     preblurResult.setFilter(Sampling::Filter::None);
 
-    framebuffer.bind();
     framebuffer.attach(preblurResult, GL_COLOR_ATTACHMENT0);
 
     result.bind();
     result.init(viewport.size.x, viewport.size.y, { GL_RGBA, GL_RGBA, GL_FLOAT }, nullptr);
     result.setFilter(Sampling::Filter::None);
 
-    blurFramebuffer.bind();
     blurFramebuffer.attach(result, GL_COLOR_ATTACHMENT0);
 }
 
@@ -389,10 +378,8 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
     bloomHighlights.setFilter(Sampling::Filter::Bilinear);
     bloomHighlights.unbind();
 
-    framebuffer.bind();
     framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
     framebuffer.attach(bloomHighlights, GL_COLOR_ATTACHMENT1);
-    framebuffer.unbind();
 
     // init uniform buffer
     uniformBuffer.setSize(sizeof(uniforms));
@@ -505,9 +492,7 @@ Bloom::Bloom(Viewport& viewport) {
     result.setFilter(Sampling::Filter::Bilinear);
     result.unbind();
 
-    resultFramebuffer.bind();
     resultFramebuffer.attach(result, GL_COLOR_ATTACHMENT0);
-    resultFramebuffer.unbind();
 
     for (unsigned int i = 0; i < 2; i++) {
         blurTextures[i].bind();
@@ -578,9 +563,7 @@ Tonemapping::Tonemapping(Viewport& viewport) {
     result.setFilter(Sampling::Filter::None);
     result.unbind();
 
-    framebuffer.bind();
     framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
-    framebuffer.unbind();
 
     // init uniform buffer
     uniformBuffer.setSize(sizeof(settings));
@@ -702,9 +685,7 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
 
     renderBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 
-    frameBuffer.bind();
     frameBuffer.attach(renderBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-    frameBuffer.unbind();
 }
 
 void VoxelizationDebug::execute(Viewport& viewport, glTexture2D& input, glTexture3D& voxels) {
@@ -749,9 +730,7 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
 
     renderBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 
-    frameBuffer.bind();
     frameBuffer.attach(renderBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-    frameBuffer.unbind();
 
     std::vector<uint32_t> indices = {
     0, 1, 1, 2, 2, 3, 3, 0, 4,
@@ -841,10 +820,8 @@ ForwardLightingPass::ForwardLightingPass(Viewport& viewport) {
 
     renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 
-    framebuffer.bind();
     framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
     framebuffer.attach(renderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-    framebuffer.unbind();
 
     // init uniform buffer
     uniformBuffer.setSize(sizeof(uniforms));
