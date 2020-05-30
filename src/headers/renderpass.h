@@ -215,6 +215,14 @@ public:
     void execute(Viewport& viewport, Scene& scene, Voxelization* voxels, ShadowMap* shadowmap);
     void resize(Viewport& viewport);
 
+    ECS::Entity pick(uint32_t x, uint32_t y) {
+        int id;
+        framebuffer.bind();
+        glReadPixels(x, y, 1, 1, GL_STENCIL_INDEX, GL_INT, &id);
+        framebuffer.unbind();
+        return id;
+    }
+
 private:
     glShader shader;
     glFramebuffer framebuffer;

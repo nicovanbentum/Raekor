@@ -491,16 +491,17 @@ void Application::run() {
 
         // toggle button for openGl vsync
         static bool doVsync = false;
-        if (ImGui::RadioButton("USE VSYNC", doVsync)) {
+        if (ImGui::RadioButton("Vsync", doVsync)) {
             doVsync = !doVsync;
         }
 
-        if (ImGui::Button("Voxelize")) {
-            voxelizePass->execute(newScene, viewport, shadowMapPass.get());
-        }
 
         if (ImGui::RadioButton("debug voxels", debugVoxels)) {
             debugVoxels = !debugVoxels;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Voxelize")) {
+            shouldVoxelize = true;
         }
 
         if (ImGui::TreeNode("Screen Texture")) {
@@ -614,7 +615,9 @@ void Application::run() {
             // flip mouse coords for opengl
             rendererMousePosition.y = viewport.size.y - rendererMousePosition.y;
 
-            active = geometryBufferPass->pick(rendererMousePosition.x, rendererMousePosition.y);
+            auto picked = ConeTracePass->pick(rendererMousePosition.x, rendererMousePosition.y);
+
+            active = active == picked ? NULL : picked;
         }
 
         // render the active screen texture to the view port as an imgui image

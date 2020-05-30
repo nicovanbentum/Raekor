@@ -29,7 +29,6 @@ void main() {
     p = axis == 1 ? px : axis == 2 ? py : pz;
     
     for(int i = 0; i < gl_in.length(); i++) {
-        vec3 middlePos = gl_in[0].gl_Position.xyz / 3.0 + gl_in[1].gl_Position.xyz / 3.0 + gl_in[2].gl_Position.xyz / 3.0;
         uv = uvs[i];
         depthPosition = depthPositions[i];
         gl_Position = p * gl_in[i].gl_Position;

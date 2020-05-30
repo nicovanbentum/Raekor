@@ -11,11 +11,8 @@ out vec2 uvs;
 out vec4 depthPositions;
 
 void main() {
-
     gl_Position = model * vec4(v_pos ,1);
-
-    depthPositions = lightViewProjection * model * vec4(v_pos, 1);
+    depthPositions = lightViewProjection * gl_Position;
 	depthPositions.xyz = depthPositions.xyz * 0.5 + 0.5;
-
     uvs = v_uv;
 }

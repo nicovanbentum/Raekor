@@ -64,6 +64,7 @@ struct MeshRendererComponent {
 struct MaterialComponent {
     std::unique_ptr<glTexture2D> albedo;
     std::unique_ptr<glTexture2D> normals;
+    std::unique_ptr<glTexture2D> occlusion;
 };
 
 struct NameComponent {

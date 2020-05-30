@@ -827,6 +827,12 @@ ForwardLightingPass::ForwardLightingPass(Viewport& viewport) {
 void ForwardLightingPass::execute(Viewport& viewport, Scene& scene, Voxelization* voxels, ShadowMap* shadowmap) {
     hotloader.checkForUpdates();
 
+    // enable stencil stuff
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glStencilMask(0xFFFF); // Write to stencil buffer
+    glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
+
     // update the uniform buffer CPU side
     uniforms.view = viewport.getCamera().getView();
     uniforms.projection = viewport.getCamera().getProjection();
@@ -910,10 +916,17 @@ void ForwardLightingPass::execute(Viewport& viewport, Scene& scene, Voxelization
             shader.getUniform("model") = glm::mat4(1.0f);
         }
 
+        // write the entity ID to the stencil buffer for picking
+        glStencilFunc(GL_ALWAYS, (GLint)entity, 0xFFFF);
+
         mesh.vertexBuffer.bind();
         mesh.indexBuffer.bind();
         Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
+
+    // disable stencil stuff
+    glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
+    glDisable(GL_STENCIL_TEST);
 
     framebuffer.unbind();
 }

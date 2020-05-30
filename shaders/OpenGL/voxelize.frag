@@ -11,30 +11,27 @@ in flat int axis;
 in vec4 depthPosition;
 
 void main() {
-    vec4 materialColor = texture(albedo, uv);
+    vec4 sampled = texture(albedo, uv);
     const int dim = imageSize(voxels).x;
 
-    float visibility = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.001)/depthPosition.w));
+    // TODO: uniform bias and stuff
+    float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.001)/depthPosition.w));
 
 	ivec3 camPos = ivec3(gl_FragCoord.x, gl_FragCoord.y, dim * gl_FragCoord.z);
-	ivec3 texPos;
+	ivec3 voxelPosition;
 	if(axis == 1) {
-	    texPos.x = dim - camPos.z;
-		texPos.z = camPos.x;
-		texPos.y = camPos.y;
+	    voxelPosition.x = dim - camPos.z;
+		voxelPosition.z = camPos.x;
+		voxelPosition.y = camPos.y;
 	}
 	else if(axis == 2) {
-	    texPos.z = camPos.y;
-		texPos.y = dim - camPos.z;
-		texPos.x = camPos.x;
+	    voxelPosition.z = camPos.y;
+		voxelPosition.y = dim - camPos.z;
+		voxelPosition.x = camPos.x;
 	} else {
-	    texPos = camPos;
+	    voxelPosition = camPos;
 	}
 
-	texPos.z = dim - texPos.z - 1;
-        imageStore(voxels, texPos, vec4(materialColor.rgb * visibility, 1.0));
-    if(visibility == 1.0) {
-        //imageStore(voxels, texPos, vec4(1.0, 0.0, 0.0, 1.0));
-    } else {
-    }
+	voxelPosition.z = dim - voxelPosition.z - 1;
+    imageStore(voxels, voxelPosition, vec4(sampled.rgb * shadowAmount, sampled.a));
 }
