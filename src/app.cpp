@@ -377,6 +377,24 @@ void Application::run() {
                     serializeSettings("config.json", true);
                 }
 
+                if (ImGui::MenuItem("Screenshot..")) {
+                    Ffilter screenshotFileFormats;
+                    screenshotFileFormats.name = "PNG File Format";
+                    screenshotFileFormats.extensions = "*.png";
+
+                    std::string savePath = OS::saveFileDialog("Uncompressed PNG (*.png)\0", "png");
+
+                    if (!savePath.empty()) {
+                        unsigned char* pixels = new unsigned char[4 * viewport.size.x * viewport.size.y];
+                        tonemappingPass->result.bind();
+                        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+                        tonemappingPass->result.unbind();
+                        stbi_flip_vertically_on_write(true);
+                        stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels, viewport.size.x * 4);
+                    }
+
+                }
+
                 if (ImGui::MenuItem("Settings", "")) {
                     showSettingsWindow = true;
                 }
@@ -426,6 +444,7 @@ void Application::run() {
                 active = NULL;
             }
 
+            static bool takeScreenshot = false;
             if (ImGui::BeginMenu("Help")) {
                 if (ImGui::MenuItem("About", "")) {}
                 ImGui::EndMenu();
@@ -540,7 +559,7 @@ void Application::run() {
         ImGui::Text("Product: %s", glGetString(GL_RENDERER));
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        ImGui::Text("Culling: %i of %i meshes (Gbuffer only)", ConeTracePass->culled, newScene.meshes.getCount());
+        ImGui::Text("Culling: %i of %i meshes", ConeTracePass->culled, newScene.meshes.getCount());
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
 

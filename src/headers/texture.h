@@ -18,9 +18,9 @@ namespace Sampling {
 
 namespace Format {
     struct Format {
-        GLenum intFormat;
-        GLenum extFormat;
-        GLenum type;
+        GLenum intFormat    = GL_INVALID_ENUM;
+        GLenum extFormat    = GL_INVALID_ENUM;
+        GLenum type         = GL_INVALID_ENUM;
     };
 
     static constexpr Format DEPTH           { GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_FLOAT };
@@ -46,7 +46,8 @@ public:
     glTexture(const glTexture&) = delete;
     glTexture& operator=(const glTexture&) = delete;
 
-    glTexture(glTexture&& other) : mID(other.mID) {
+    glTexture(glTexture&& other) {
+        mID = other.mID;
         other.mID = 0; //Use null texture for the old object
     }
 
@@ -70,9 +71,9 @@ public:
 
     void clear(const glm::vec4& colour);
 
+    unsigned int mID;
 protected:
     GLenum mTarget;
-    unsigned int mID;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -95,11 +96,11 @@ class glTexture3D : public glTexture {
 
 public:
     glTexture3D();
-    void init(uint32_t width, uint32_t height, uint32_t depth, const Format::Format& format, const void* data);
-    void bindForStorage(uint32_t slot, GLenum access, GLenum format) {
-        bindToSlot(slot);
-        glBindImageTexture(slot, mID, 0, GL_TRUE, 0, access, format);
-    }
+    void init(uint32_t width, uint32_t height, uint32_t depth, GLenum format, const void* data);
+    
+    // oh C++, why are you like this ??
+    using glTexture::bindToSlot;
+    void bindToSlot(uint32_t slot, GLenum access, GLenum format);
 };
 
 

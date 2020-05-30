@@ -11,7 +11,7 @@ namespace Raekor {
 
 glTexture::glTexture(GLenum pTarget) {
     mTarget = pTarget;
-    glGenTextures(1, &mID);
+    glCreateTextures(mTarget, 1, &mID);
 }
 
 glTexture::~glTexture() {
@@ -31,7 +31,7 @@ void glTexture::bindToSlot(uint8_t slot) {
 }
 
 void glTexture::genMipMaps() {
-    glGenerateMipmap(mTarget);
+    glGenerateTextureMipmap(mID);
 }
 
 void glTexture::setFilter(Sampling::Filter filter) {
@@ -50,8 +50,8 @@ void glTexture::setFilter(Sampling::Filter filter) {
     } break;
     }
 
-    glTexParameteri(mTarget, GL_TEXTURE_MIN_FILTER, minFilter);
-    glTexParameteri(mTarget, GL_TEXTURE_MAG_FILTER, magFilter);
+    glTextureParameteri(mID, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTextureParameteri(mID, GL_TEXTURE_MAG_FILTER, magFilter);
 }
 
 void glTexture::setWrap(Sampling::Wrap mode) {
@@ -69,9 +69,9 @@ void glTexture::setWrap(Sampling::Wrap mode) {
     } break;
     }
 
-    glTexParameteri(mTarget, GL_TEXTURE_WRAP_S, wrapMode);
-    glTexParameteri(mTarget, GL_TEXTURE_WRAP_T, wrapMode);
-    glTexParameteri(mTarget, GL_TEXTURE_WRAP_R, wrapMode);
+    glTextureParameteri(mID, GL_TEXTURE_WRAP_S, wrapMode);
+    glTextureParameteri(mID, GL_TEXTURE_WRAP_T, wrapMode);
+    glTextureParameteri(mID, GL_TEXTURE_WRAP_R, wrapMode);
 }
 
 ImTextureID glTexture::ImGuiID() { return (void*)((intptr_t)mID); }
@@ -100,9 +100,12 @@ void glTextureCube::init(uint32_t width, uint32_t height, uint8_t face, const Fo
 
 glTexture3D::glTexture3D() : glTexture(GL_TEXTURE_3D) {}
 
-void glTexture3D::init(uint32_t width, uint32_t height, uint32_t depth, const Format::Format& format, const void* data) {
-    glTexStorage3D(mTarget, 7, format.intFormat, width, height, depth);
-    glTexImage3D(mTarget, 0, format.intFormat, width, height, depth, 0, format.extFormat, format.type, data);
+void glTexture3D::init(uint32_t width, uint32_t height, uint32_t depth, GLenum format, const void* data) {
+    glTextureStorage3D(mID, 7, format, width, height, depth);
+}
+
+void glTexture3D::bindToSlot(uint32_t slot, GLenum access, GLenum format) {
+    glBindImageTexture(slot, mID, 0, GL_TRUE, 0, access, format);
 }
 
 } // Namespace Raekor

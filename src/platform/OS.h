@@ -14,6 +14,7 @@ struct Ffilter {
 class OS {
 public:
     static std::string openFileDialog(const std::vector<Ffilter>& filters);
+    static std::string saveFileDialog(const char* filters, const char* defaultExt);
 };
 
 } // Namespace Raekor

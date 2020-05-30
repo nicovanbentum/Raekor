@@ -96,6 +96,7 @@
 
 // include stb image
 #include "stb_image.h"
+#include "stb_image_write.h"
 
 // include asset importer
 #include "assimp/scene.h"

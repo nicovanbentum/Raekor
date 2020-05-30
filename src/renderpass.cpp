@@ -432,7 +432,7 @@ void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* sha
         ambientOcclusion->result.bindToSlot(5);
     }
 
-    glBindTextureUnit(6, voxels->result);
+    voxels->result.bindToSlot(6);
 
     // update the uniform buffer CPU side
     uniforms.view = viewport.getCamera().getView();
@@ -622,21 +622,11 @@ Voxelization::Voxelization(int size) : size(size) {
 
     hotloader.watch(&shader, voxelStages.data(), voxelStages.size());
 
-    // Generate texture on GPU.
-    glGenTextures(1, &result);
-    glBindTexture(GL_TEXTURE_3D, result);
-
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    // init image storage and clear it
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA8, size, size, size, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    GLubyte clearColor[4] = { 0, 0, 0, 0 };
-    glClearTexImage(result, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearColor);
-
-    // generate mips
-    glGenerateMipmap(GL_TEXTURE_3D);
-
+    // Direct State Access (TODO: Experimental, implement everywhere)
+    result.init(size, size, size, GL_RGBA8, nullptr);
+    result.setFilter(Sampling::Filter::Trilinear);
+    result.genMipMaps();
+    
     // Create projection matrices used to project stuff onto each axis in 
     float worldSize = 150.0f;
 
@@ -645,16 +635,13 @@ Voxelization::Voxelization(int size) : size(size) {
     px = projectionMatrix * glm::lookAt(glm::vec3(worldSize, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
     py = projectionMatrix * glm::lookAt(glm::vec3(0, worldSize, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, -1));
     pz = projectionMatrix * glm::lookAt(glm::vec3(0, 0, worldSize), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-
-    glBindTexture(GL_TEXTURE_3D, 0);
 }
 
 
 void Voxelization::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowmap) {
     hotloader.checkForUpdates();
 
-    GLubyte clearColor[4] = { 0, 0, 0, 0 };
-    glClearTexImage(result, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearColor);
+    result.clear({ 0, 0, 0, 0 });
 
     // set GL state
     glViewport(0, 0, size, size);
@@ -665,7 +652,7 @@ void Voxelization::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowma
 
     // bind shader and 3d voxel map
     shader.bind();
-    glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
+    result.bindToSlot(1, GL_WRITE_ONLY, GL_RGBA8);
     shadowmap->result.bindToSlot(2);
 
     shader.getUniform("lightViewProjection") = shadowmap->sunCamera.getProjection() * shadowmap->sunCamera.getView();
@@ -694,8 +681,7 @@ void Voxelization::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowma
 
     // sync with host and generate mips
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-    glBindTexture(GL_TEXTURE_3D, result);
-    glGenerateMipmap(GL_TEXTURE_3D);
+    result.genMipMaps();
 
     // reset OpenGL state
     glViewport(0, 0, viewport.size.x, viewport.size.y);
@@ -721,7 +707,7 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
     frameBuffer.unbind();
 }
 
-void VoxelizationDebug::execute(Viewport& viewport, glTexture2D& input, uint32_t voxelMap) {
+void VoxelizationDebug::execute(Viewport& viewport, glTexture2D& input, glTexture3D& voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
     frameBuffer.bind();
     frameBuffer.attach(input, GL_COLOR_ATTACHMENT0);
@@ -736,7 +722,7 @@ void VoxelizationDebug::execute(Viewport& viewport, glTexture2D& input, uint32_t
     shader.getUniform("p") = viewport.getCamera().getProjection();
     shader.getUniform("mv") = viewport.getCamera().getView() * modelMatrix;
 
-    glBindTextureUnit(0, voxelMap);
+    voxels.bindToSlot(0);
     glDrawArrays(GL_POINTS, 0, 128 * 128 * 128);
 
     // unbind framebuffers
@@ -907,7 +893,7 @@ void ForwardLightingPass::execute(Viewport& viewport, Scene& scene, Voxelization
     shader.bind();
     uniformBuffer.bind(0);
 
-    glBindTextureUnit(0, voxels->result);
+    voxels->result.bindToSlot(0);
     shadowmap->result.bindToSlot(3);
 
     Math::Frustrum frustrum;

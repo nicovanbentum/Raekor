@@ -165,7 +165,7 @@ private:
     ShaderHotloader hotloader;
 
 public:
-    uint32_t result;
+    glTexture3D result;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -173,7 +173,7 @@ public:
 class VoxelizationDebug {
 public:
     VoxelizationDebug(Viewport& viewport);
-    void execute(Viewport& viewport, glTexture2D& input, uint32_t voxelMap);
+    void execute(Viewport& viewport, glTexture2D& input, glTexture3D& voxels);
     void resize(Viewport& viewport);
 
 private:
