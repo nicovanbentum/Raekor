@@ -52,7 +52,7 @@ public:
 
     // speed relative to some other factor
     // e.g camera.zoom(scrollAmount * zoomSpeed);
-    float lookSpeed = 0.0015f, zoomSpeed = 0.2f, moveSpeed = 0.002f;
+    float lookSpeed = 0.0015f, zoomSpeed = 1.0f, moveSpeed = 0.015f;
 
 };
 

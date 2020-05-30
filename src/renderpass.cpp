@@ -7,7 +7,7 @@ namespace Raekor {
 namespace RenderPass {
 
 ShadowMap::ShadowMap(uint32_t width, uint32_t height) :
-    sunCamera(glm::vec3(0, 15.0, 0), glm::orthoRH_ZO(
+    sunCamera(glm::vec3(0, 0, 0), glm::orthoRH_ZO(
         -settings.size, settings.size, -settings.size, settings.size, 
         settings.planes.x, settings.planes.y
     )) 
@@ -33,6 +33,8 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) :
     result.init(width, height, Format::DEPTH);
     result.setFilter(Sampling::Filter::Bilinear);
     result.setWrap(Sampling::Wrap::ClampEdge);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 
     framebuffer.bind();
     framebuffer.attach(result, GL_DEPTH_ATTACHMENT);
@@ -50,8 +52,6 @@ void ShadowMap::execute(Scene& scene) {
     uniforms.cameraMatrix = sunCamera.getProjection() * sunCamera.getView();
     uniformBuffer.update(&uniforms, sizeof(uniforms));
     uniformBuffer.bind(0);
-
-    shader.getUniform("model") = glm::mat4(1.0f);
 
     for (uint32_t i = 0; i < scene.meshes.getCount(); i++) {
         ECS::Entity entity = scene.meshes.getEntity(i);
@@ -620,6 +620,8 @@ Voxelization::Voxelization(int size) : size(size) {
     voxelStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\voxelize.frag");
     shader.reload(voxelStages.data(), voxelStages.size());
 
+    hotloader.watch(&shader, voxelStages.data(), voxelStages.size());
+
     // Generate texture on GPU.
     glGenTextures(1, &result);
     glBindTexture(GL_TEXTURE_3D, result);
@@ -648,7 +650,9 @@ Voxelization::Voxelization(int size) : size(size) {
 }
 
 
-void Voxelization::execute(Scene& scene, Viewport& viewport) {
+void Voxelization::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowmap) {
+    hotloader.checkForUpdates();
+
     GLubyte clearColor[4] = { 0, 0, 0, 0 };
     glClearTexImage(result, 0, GL_RGBA, GL_UNSIGNED_BYTE, &clearColor);
 
@@ -662,6 +666,10 @@ void Voxelization::execute(Scene& scene, Viewport& viewport) {
     // bind shader and 3d voxel map
     shader.bind();
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
+    shadowmap->result.bindToSlot(2);
+
+    shader.getUniform("lightViewProjection") = shadowmap->sunCamera.getProjection() * shadowmap->sunCamera.getView();
+
 
     for (uint32_t i = 0; i < scene.meshes.getCount(); i++) {
         ECS::Entity entity = scene.meshes.getEntity(i);
@@ -719,7 +727,7 @@ void VoxelizationDebug::execute(Viewport& viewport, glTexture2D& input, uint32_t
     frameBuffer.attach(input, GL_COLOR_ATTACHMENT0);
     glClear(GL_DEPTH_BUFFER_BIT);
 
-    float voxelSize = 50.0f / 128;
+    float voxelSize = 150.0f / 128;
     glm::mat4 modelMatrix = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(voxelSize)), glm::vec3(0, 0, 0));
 
     // bind shader and set uniforms
@@ -828,6 +836,133 @@ void BoundingBoxDebug::resize(Viewport& viewport) {
     result.unbind();
 
     renderBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
+}
+
+ForwardLightingPass::ForwardLightingPass(Viewport& viewport) {
+    // load shaders from disk
+    std::vector<Shader::Stage> stages;
+    stages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\fwdLight.vert");
+    stages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\fwdLight.frag");
+    shader.reload(stages.data(), stages.size());
+
+    hotloader.watch(&shader, stages.data(), stages.size());
+
+    // init render targets
+    result.bind();
+    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    result.setFilter(Sampling::Filter::Bilinear);
+    result.unbind();
+
+    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
+
+    framebuffer.bind();
+    framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
+    framebuffer.attach(renderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+    framebuffer.unbind();
+
+    // init uniform buffer
+    uniformBuffer.setSize(sizeof(uniforms));
+}
+
+void ForwardLightingPass::execute(Viewport& viewport, Scene& scene, Voxelization* voxels, ShadowMap* shadowmap) {
+    hotloader.checkForUpdates();
+
+    // update the uniform buffer CPU side
+    uniforms.view = viewport.getCamera().getView();
+    uniforms.projection = viewport.getCamera().getProjection();
+
+    for (uint32_t i = 0; i < scene.directionalLights.getCount() && i < ARRAYSIZE(uniforms.dirLights); i++) {
+        auto entity = scene.directionalLights.getEntity(i);
+        auto transform = scene.transforms.getComponent(entity);
+
+        auto& light = scene.directionalLights[i];
+
+        light.buffer.position = glm::vec4(transform->position, 1.0f);
+
+        uniforms.dirLights[i] = light.buffer;
+    }
+
+    for (uint32_t i = 0; i < scene.pointLights.getCount() && i < ARRAYSIZE(uniforms.pointLights); i++) {
+        // TODO: might want to move the code for updating every light with its transform to a system
+        // instead of doing it here
+        auto entity = scene.pointLights.getEntity(i);
+        auto transform = scene.transforms.getComponent(entity);
+
+        auto& light = scene.pointLights[i];
+
+        light.buffer.position = glm::vec4(transform->position, 1.0f);
+
+        uniforms.pointLights[i] = light.buffer;
+    }
+
+    uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
+    uniforms.lightSpaceMatrix = shadowmap->sunCamera.getProjection() * shadowmap->sunCamera.getView();
+
+    // update uniform buffer GPU side
+    uniformBuffer.update(&uniforms, sizeof(uniforms));
+
+    framebuffer.bind();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    shader.bind();
+    uniformBuffer.bind(0);
+
+    glBindTextureUnit(0, voxels->result);
+    shadowmap->result.bindToSlot(3);
+
+    Math::Frustrum frustrum;
+    frustrum.update(viewport.getCamera().getProjection() * viewport.getCamera().getView(), true);
+    culled = 0;
+
+    for (uint32_t i = 0; i < scene.meshes.getCount(); i++) {
+        ECS::Entity entity = scene.meshes.getEntity(i);
+
+        ECS::MeshComponent& mesh = scene.meshes[i];
+
+        ECS::NameComponent* name = scene.names.getComponent(entity);
+
+        ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
+        const glm::mat4& worldTransform = transform ? transform->matrix : glm::mat4(1.0f);
+
+        // convert AABB from local to world space
+        std::array<glm::vec3, 2> worldAABB = {
+            worldTransform * glm::vec4(mesh.aabb[0], 1.0),
+            worldTransform * glm::vec4(mesh.aabb[1], 1.0)
+        };
+
+        // if the frustrum can't see the mesh's OBB we cull it
+        if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
+            culled += 1;
+            continue;
+        }
+
+        ECS::MaterialComponent* material = scene.materials.getComponent(entity);
+
+        if (material) {
+            if (material->albedo) material->albedo->bindToSlot(1);
+            if (material->normals) material->normals->bindToSlot(2);
+        }
+
+        if (transform) {
+            shader.getUniform("model") = transform->matrix;
+        }
+        else {
+            shader.getUniform("model") = glm::mat4(1.0f);
+        }
+
+        mesh.vertexBuffer.bind();
+        mesh.indexBuffer.bind();
+        Renderer::DrawIndexed(mesh.indexBuffer.count);
+    }
+
+    framebuffer.unbind();
+}
+
+void ForwardLightingPass::resize(Viewport& viewport) {
+    result.bind();
+    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+
+    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
 
 } // renderpass

@@ -34,7 +34,9 @@ out vec3 position;
 out vec3 normal;
 out vec3 tangent;
 out vec3 bitangent;
+out mat3 TBN;
 out vec3 cameraDirection;
+out vec4 depthPosition;
 
 void main() {
 	position = (model * vec4(v_pos ,1)).xyz;
@@ -43,6 +45,9 @@ void main() {
 	normal = normalize((model * vec4(v_normal, 0.0)).xyz);
 	tangent = normalize((model * vec4(v_tangent, 0.0)).xyz);
 	bitangent = normalize((model * vec4(v_bitangent , 0.0)).xyz);
+
+    depthPosition = ubo.lightSpaceMatrix * model * vec4(v_pos, 1);
+	depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
 	cameraDirection = ubo.cameraPosition.xyz - position;
 

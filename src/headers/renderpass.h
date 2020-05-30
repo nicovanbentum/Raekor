@@ -17,8 +17,8 @@ private:
 
  public:
      struct {
-         glm::vec2 planes = { 1.0, 20.0f };
-         float size = 16.0f;
+         glm::vec<2, float> planes = { 1.0f, 200.0f };
+         float size = 100.0f;
      } settings;
 
     ShadowMap(uint32_t width, uint32_t height);
@@ -135,7 +135,7 @@ class Tonemapping {
 public:
     struct {
         float exposure = 1.0f;
-        float gamma = 1.8f;
+        float gamma = 2.2f;
     } settings;
 
     Tonemapping(Viewport& viewport);
@@ -156,12 +156,13 @@ public:
 class Voxelization {
 public:
     Voxelization(int size);
-    void execute(Scene& scene, Viewport& viewport);
+    void execute(Scene& scene, Viewport& viewport, ShadowMap* shadowmap);
 
 private:
     int size;
     glm::mat4 px, py, pz;
     glShader shader;
+    ShaderHotloader hotloader;
 
 public:
     uint32_t result;
@@ -210,130 +211,9 @@ private:
     } uniforms;
 
 public:
-    ForwardLightingPass(Viewport& viewport) {
-        // load shaders from disk
-        std::vector<Shader::Stage> stages;
-        stages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\fwdLight.vert");
-        stages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\fwdLight.frag");
-        shader.reload(stages.data(), stages.size());
-
-        hotloader.watch(&shader, stages.data(), stages.size());
-
-        // init render targets
-        result.bind();
-        result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-        result.setFilter(Sampling::Filter::Bilinear);
-        result.unbind();
-
-        renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
-
-        framebuffer.bind();
-        framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
-        framebuffer.attach(renderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-        framebuffer.unbind();
-
-        // init uniform buffer
-        uniformBuffer.setSize(sizeof(uniforms));
-    }
-
-    void execute(Viewport& viewport, Scene& scene, Voxelization* voxels, ShadowMap* shadowmap) {
-        hotloader.checkForUpdates();
-
-        // update the uniform buffer CPU side
-        uniforms.view = viewport.getCamera().getView();
-        uniforms.projection = viewport.getCamera().getProjection();
-
-        for (uint32_t i = 0; i < scene.directionalLights.getCount() && i < ARRAYSIZE(uniforms.dirLights); i++) {
-            auto entity = scene.directionalLights.getEntity(i);
-            auto transform = scene.transforms.getComponent(entity);
-
-            auto& light = scene.directionalLights[i];
-
-            light.buffer.position = glm::vec4(transform->position, 1.0f);
-
-            uniforms.dirLights[i] = light.buffer;
-        }
-
-        for (uint32_t i = 0; i < scene.pointLights.getCount() && i < ARRAYSIZE(uniforms.pointLights); i++) {
-            // TODO: might want to move the code for updating every light with its transform to a system
-            // instead of doing it here
-            auto entity = scene.pointLights.getEntity(i);
-            auto transform = scene.transforms.getComponent(entity);
-
-            auto& light = scene.pointLights[i];
-
-            light.buffer.position = glm::vec4(transform->position, 1.0f);
-
-            uniforms.pointLights[i] = light.buffer;
-        }
-
-        uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
-        uniforms.lightSpaceMatrix = shadowmap->sunCamera.getProjection() * shadowmap->sunCamera.getView();
-
-        // update uniform buffer GPU side
-        uniformBuffer.update(&uniforms, sizeof(uniforms));
-
-        framebuffer.bind();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-        shader.bind();
-        uniformBuffer.bind(0);
-
-        glBindTextureUnit(0, voxels->result);
-        shadowmap->result.bindToSlot(3);
-    
-        Math::Frustrum frustrum;
-        frustrum.update(viewport.getCamera().getProjection() * viewport.getCamera().getView(), true);
-
-        for (uint32_t i = 0; i < scene.meshes.getCount(); i++) {
-            ECS::Entity entity = scene.meshes.getEntity(i);
-
-            ECS::MeshComponent& mesh = scene.meshes[i];
-
-            ECS::NameComponent* name = scene.names.getComponent(entity);
-
-            ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
-            const glm::mat4& worldTransform = transform ? transform->matrix : glm::mat4(1.0f);
-
-            // convert AABB from local to world space
-            std::array<glm::vec3, 2> worldAABB = {
-                worldTransform * glm::vec4(mesh.aabb[0], 1.0),
-                worldTransform * glm::vec4(mesh.aabb[1], 1.0)
-            };
-
-            // if the frustrum can't see the mesh's OBB we cull it
-            if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
-                continue;
-            }
-
-            ECS::MaterialComponent* material = scene.materials.getComponent(entity);
-
-            if (material) {
-                if (material->albedo) material->albedo->bindToSlot(1);
-                if (material->normals) material->normals->bindToSlot(2);
-            }
-
-            if (transform) {
-                shader.getUniform("model") = transform->matrix;
-            }
-            else {
-                shader.getUniform("model") = glm::mat4(1.0f);
-            }
-
-            mesh.vertexBuffer.bind();
-            mesh.indexBuffer.bind();
-            Renderer::DrawIndexed(mesh.indexBuffer.count);
-        }
-
-        framebuffer.unbind();
-    }
-
-    void resize(Viewport& viewport) {
-        result.bind();
-        result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-
-        renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
-    }
+    ForwardLightingPass(Viewport& viewport);
+    void execute(Viewport& viewport, Scene& scene, Voxelization* voxels, ShadowMap* shadowmap);
+    void resize(Viewport& viewport);
 
 private:
     glShader shader;
@@ -344,6 +224,7 @@ private:
     ShaderHotloader hotloader;
 
 public:
+    int culled = 0;
     glTexture2D result;
 };
 

@@ -197,7 +197,7 @@ void Application::run() {
     });
 
     viewport.size.x = 2003, viewport.size.y = 1370;
-    constexpr unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
+    constexpr unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
 
     // get GUI i/o and set a bunch of settings
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -272,9 +272,10 @@ void Application::run() {
     GUI::ConsoleWindow consoleWindow;
     GUI::InspectorWindow inspectorWindow;
 
-    voxelizePass->execute(newScene, viewport);
 
     ImVec2 pos;
+
+    bool shouldVoxelize = true;
 
     while (running) {
         deltaTimer.start();
@@ -297,11 +298,12 @@ void Application::run() {
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         shadowMapPass->execute(newScene);
 
+        if (shouldVoxelize) {
+            voxelizePass->execute(newScene, viewport, shadowMapPass.get());
+            shouldVoxelize = false;
+        }
+        
         glViewport(0, 0, viewport.size.x, viewport.size.y);
-
-        //geometryBufferPass->execute(newScene, viewport);
-
-        //lightingPass->execute(newScene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
 
         ConeTracePass->execute(viewport, newScene, voxelizePass.get(), shadowMapPass.get());
 
@@ -475,7 +477,7 @@ void Application::run() {
         }
 
         if (ImGui::Button("Voxelize")) {
-            voxelizePass->execute(newScene, viewport);
+            voxelizePass->execute(newScene, viewport, shadowMapPass.get());
         }
 
         if (ImGui::RadioButton("debug voxels", debugVoxels)) {
@@ -507,7 +509,9 @@ void Application::run() {
 
         ImGui::Text("Directional Light");
         ImGui::Separator();
-        if (ImGui::DragFloat2("Angle", glm::value_ptr(shadowMapPass->sunCamera.getAngle()), 0.01f)) {}
+        if (ImGui::DragFloat2("Angle", glm::value_ptr(shadowMapPass->sunCamera.getAngle()), 0.01f)) {
+            voxelizePass->execute(newScene, viewport, shadowMapPass.get());
+        }
         
         if (ImGui::DragFloat2("Planes", glm::value_ptr(shadowMapPass->settings.planes), 0.1f)) {
             shadowMapPass->sunCamera.getProjection() = glm::orthoRH_ZO(-shadowMapPass->settings.size, shadowMapPass->settings.size, -shadowMapPass->settings.size, shadowMapPass->settings.size,
@@ -536,7 +540,7 @@ void Application::run() {
         ImGui::Text("Product: %s", glGetString(GL_RENDERER));
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        ImGui::Text("Culling: %i of %i meshes (Gbuffer only)", geometryBufferPass->culled, newScene.meshes.getCount());
+        ImGui::Text("Culling: %i of %i meshes (Gbuffer only)", ConeTracePass->culled, newScene.meshes.getCount());
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
 

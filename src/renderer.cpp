@@ -13,7 +13,7 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
             (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
             type, severity, message);
 
-        throw std::runtime_error("OpenGL Error");
+        assert(false);
     }
 }
 
