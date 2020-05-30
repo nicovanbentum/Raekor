@@ -174,10 +174,9 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
     glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
 
     GBuffer.bind();
-    shader.bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-
+    shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
     shader.getUniform("view") = viewport.getCamera().getView();
 
@@ -501,9 +500,7 @@ Bloom::Bloom(Viewport& viewport) {
         blurTextures[i].setWrap(Sampling::Wrap::ClampEdge);
         blurTextures[i].unbind();
 
-        blurBuffers[i].bind();
         blurBuffers[i].attach(blurTextures[i], GL_COLOR_ATTACHMENT0);
-        blurBuffers[i].unbind();
     }
 }
 

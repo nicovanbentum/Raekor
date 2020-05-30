@@ -25,26 +25,26 @@ namespace Raekor {
     }
 
     glUniformBuffer::glUniformBuffer() {
-        glGenBuffers(1, &id);
+        glCreateBuffers(1, &id);
+    }
+
+    glUniformBuffer::~glUniformBuffer() {
+        if (dataPtr) glUnmapNamedBuffer(id);
+        glDeleteBuffers(1, &id);
     }
 
     glUniformBuffer::glUniformBuffer(size_t size) {
-        glGenBuffers(1, &id);
+        glCreateBuffers(1, &id);
         setSize(size);
     }
 
     void glUniformBuffer::setSize(size_t size) {
-        glBindBuffer(GL_UNIFORM_BUFFER, id);
-        glBufferData(GL_UNIFORM_BUFFER, size, NULL, GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        glNamedBufferStorage(id, size, nullptr, GL_MAP_WRITE_BIT | GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_DYNAMIC_STORAGE_BIT);
+        dataPtr = glMapNamedBufferRange(id, 0, size, GL_MAP_WRITE_BIT | GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
     }
 
-    void glUniformBuffer::update(void* data, const size_t size) const {
-        glBindBuffer(GL_UNIFORM_BUFFER, id);
-        void* dataPtr = glMapBuffer(GL_UNIFORM_BUFFER, GL_READ_WRITE);
+    void glUniformBuffer::update(void* data, const size_t size) {
         memcpy(dataPtr, data, size);
-        glUnmapBuffer(GL_UNIFORM_BUFFER);
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
     void glUniformBuffer::bind(uint8_t slot) const {
