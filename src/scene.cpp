@@ -78,7 +78,6 @@ void AssimpImporter::processAiNode(Scene& scene, const aiScene* aiscene, aiNode*
         // load mesh with material and transform into raekor scene
         loadMesh(scene, mesh, material, node->mTransformation);
     }
-
     // recursive node processing
     for (uint32_t i = 0; i < node->mNumChildren; i++) {
         processAiNode(scene, aiscene, node->mChildren[i]);
@@ -86,6 +85,7 @@ void AssimpImporter::processAiNode(Scene& scene, const aiScene* aiscene, aiNode*
 }
 
 void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform) {
+
     // create new entity and attach a mesh component
     ECS::Entity entity = ECS::newEntity();
     ECS::MeshComponent& mesh = scene.meshes.create(entity);
@@ -147,12 +147,13 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
 
     mesh.indexBuffer.loadFaces(mesh.indices.data(), mesh.indices.size());
 
+
     // get material textures from Assimp's import
     aiString albedoFile, normalmapFile, aoFile;
 
     assimpMaterial->GetTextureCount(aiTextureType_DIFFUSE);
-    assimpMaterial->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_BASE_COLOR_TEXTURE, &albedoFile);
-    assimpMaterial->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &aoFile);
+    assimpMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
+    assimpMaterial->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
 
     ECS::MaterialComponent& material = scene.materials.create(entity);
 
@@ -189,6 +190,7 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
         material.normals->genMipMaps();
         material.normals->unbind();
     }
+
 }
 
 void AssimpImporter::loadTexturesAsync(const aiScene* scene, const std::string& directory) {

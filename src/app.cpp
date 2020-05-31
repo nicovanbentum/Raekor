@@ -37,6 +37,8 @@ void Application::run() {
     int sdlError = SDL_Init(SDL_INIT_VIDEO);
     m_assert(sdlError == 0, "failed to init SDL for video");
 
+
+
     Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL |
         SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED;
 
@@ -117,6 +119,8 @@ void Application::run() {
     chai.add(chaiscript::fun(&ECS::MeshComponent::uploadIndices), "uploadIndices");
     chai.add(chaiscript::fun(&ECS::MeshComponent::generateAABB), "generateAABB");
 
+
+
     std::vector<SDL_Rect> displays;
     for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
         displays.push_back(SDL_Rect());
@@ -145,16 +149,7 @@ void Application::run() {
     Renderer::setAPI(RenderAPI::OPENGL);
     Renderer::Init(directxwindow);
 
-    try {
-        //chai.eval_file("perlin.chai");
-    }
-    catch (const chaiscript::exception::eval_error& ee) {
-        std::cout << ee.what();
-        if (ee.call_stack.size() > 0) {
-            std::cout << "during evaluation at (" << ee.call_stack[0].start().line << ", " << ee.call_stack[0].start().column << ")";
-        }
-        std::cout << '\n';
-    }
+
 
     Ffilter meshFileFormats;
     meshFileFormats.name = "Supported Mesh Files";
@@ -197,13 +192,14 @@ void Application::run() {
     });
 
     viewport.size.x = 2003, viewport.size.y = 1370;
-    constexpr unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
+    constexpr unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
     // get GUI i/o and set a bunch of settings
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigWindowsMoveFromTitleBarOnly = true;
     io.ConfigDockingWithShift = true;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     // set UI font that's saved in config 
     ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 15.0f);
@@ -257,6 +253,7 @@ void Application::run() {
         importer.loadFromDisk(newScene, path);
     }
 
+
     auto dirLightEntity = newScene.createDirectionalLight("Directional Light");
     auto transform = newScene.transforms.getComponent(dirLightEntity);
     transform->position.y = 15.0f;
@@ -276,6 +273,7 @@ void Application::run() {
     ImVec2 pos;
 
     bool shouldVoxelize = true;
+
 
     while (running) {
         deltaTimer.start();

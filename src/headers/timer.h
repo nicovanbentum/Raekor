@@ -1,5 +1,8 @@
 #pragma once
 
+#define TIMER_SECTION_START() Timer timer; timer.start()
+#define TIMER_SECTION_END(s) timer.stop(); std::cout << s << timer.elapsedMs() << '\n'
+
 namespace Raekor {
 
 class Timer {
@@ -19,6 +22,20 @@ private:
     std::chrono::time_point<std::chrono::system_clock> startTime;
     std::chrono::time_point<std::chrono::system_clock> stopTime;
 #endif
+};
+
+class ScopedTimer : Timer {
+public:
+    ScopedTimer(const std::string& name) : name(name) {
+        start();
+    }
+    ~ScopedTimer() {
+        stop();
+        std::cout << "Timer " << name << " elapsed " << elapsedMs() << " ms" << '\n';
+    }
+
+private:
+    std::string name;
 };
 
 } // namespace Raekor
