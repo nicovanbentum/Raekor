@@ -10,7 +10,7 @@ layout(location = 4) in vec3 v_bitangent;
 #define MAX_DIR_LIGHTS 1
 
 struct DirectionalLight {
-	vec4 position;
+    vec3 direction;
 	vec4 color;
 };
 

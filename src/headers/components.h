@@ -19,7 +19,7 @@ struct TransformComponent {
 
 struct DirectionalLightComponent {
     struct ShaderBuffer {
-        glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
+        alignas(16) glm::vec3 direction = { 0.0f, 0.0f, 0.0f };
         glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
     } buffer;
 

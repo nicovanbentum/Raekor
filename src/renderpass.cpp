@@ -430,9 +430,7 @@ void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* sha
         auto transform = sscene.transforms.getComponent(entity);
 
         auto& light = sscene.directionalLights[i];
-
-        light.buffer.position = glm::vec4(transform->position, 1.0f);
-        
+        light.buffer.direction = shadowMap->sunCamera.getDirection();
         uniforms.dirLights[i] = light.buffer;
     }
 
@@ -842,8 +840,7 @@ void ForwardLightingPass::execute(Viewport& viewport, Scene& scene, Voxelization
         auto transform = scene.transforms.getComponent(entity);
 
         auto& light = scene.directionalLights[i];
-
-        light.buffer.position = glm::vec4(transform->position, 1.0f);
+        light.buffer.direction = shadowmap->sunCamera.getDirection();
 
         uniforms.dirLights[i] = light.buffer;
     }

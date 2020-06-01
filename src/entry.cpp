@@ -115,6 +115,6 @@ int main(int argc, char** argv) {
         std::cout << e.what() << '\n';
         system("PAUSE");
     }
-    //app.serializeSettings("config.json", true);
+    app.serializeSettings("config.json", true);
     return 0;
 }

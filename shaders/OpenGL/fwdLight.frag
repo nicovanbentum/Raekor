@@ -4,7 +4,7 @@
 #define MAX_DIR_LIGHTS 1
 
 struct DirectionalLight {
-	vec4 position;
+    vec3 direction;
 	vec4 color;
 };
 
@@ -123,8 +123,8 @@ void main() {
 
     DirectionalLight light = ubo.dirLights[0];
 
-	vec3 direction = vec3(-0.9, 0.9, 0.25);
-    float diff = clamp(dot(normal, direction) * shadowAmount, 0, 1);
+	vec3 direction = vec3(0.0, 0.9, 0.0);
+    float diff = clamp(dot(normal, normalize(-light.direction)) * shadowAmount, 0, 1);
     vec3 directLight = light.color.xyz * diff * albedo.rgb;
 
     float occlusion = 0.0;

@@ -548,11 +548,8 @@ void Application::run() {
 
         if (ImGui::DragFloat("Min bias", &lightingPass->settings.minBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
         if (ImGui::DragFloat("Max bias", &lightingPass->settings.maxBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
-        if (ImGui::ColorEdit3("Color", glm::value_ptr(lightingPass->settings.sunColor))) {}
         
         ImGui::NewLine();
-        ImGui::Text("Point Light");
-        ImGui::Separator();
         ImGui::End();
 
         // application/render metrics

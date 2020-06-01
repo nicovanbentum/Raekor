@@ -179,15 +179,12 @@ void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent* component) {
 }
 
 void InspectorWindow::drawPointLightComponent(ECS::PointLightComponent* component) {
-    if (ImGui::ColorEdit4("Colour", glm::value_ptr(component->buffer.colour))) {
-        // nothing really
-    }
+    ImGui::ColorEdit4("Colour", glm::value_ptr(component->buffer.colour));
 }
 
 void InspectorWindow::drawDirectionalLightComponent(ECS::DirectionalLightComponent* component) {
-    if (ImGui::ColorEdit4("Colour", glm::value_ptr(component->buffer.colour))) {
-        // nothing really
-    }
+    ImGui::DragFloat3("Direction", glm::value_ptr(component->buffer.direction), 0.01f, -1.0f, 1.0f);
+    ImGui::ColorEdit4("Colour", glm::value_ptr(component->buffer.colour));
 }
 
 
