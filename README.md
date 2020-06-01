@@ -34,6 +34,6 @@ This project requires and uses at least C++ 17 and modern rendering API's, OpenG
 ⬜️ (Screen Space) Reflections\
 ✅ Voxel Cone Traced Global Illumination\
 ⬜️ Scripting language\
-✅ Data driven Entity Component System\
+✅ Data driven Entity Component System
 
 > More to follow.
