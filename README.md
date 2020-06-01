@@ -1,6 +1,6 @@
 # Raekor Engine
 
-![image](https://i.imgur.com/31qDNlr.png)
+![image](https://i.imgur.com/BoJFQ4V.png)
 
 # Build
 
