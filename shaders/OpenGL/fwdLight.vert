@@ -46,6 +46,11 @@ void main() {
 	tangent = normalize((model * vec4(v_tangent, 0.0)).xyz);
 	bitangent = normalize((model * vec4(v_bitangent , 0.0)).xyz);
 
+    vec3 T = normalize(vec3(model * vec4(v_tangent,		0.0)));
+	vec3 B = normalize(vec3(model * vec4(v_bitangent,	0.0)));
+	vec3 N = normalize(vec3(model * vec4(v_normal,		0.0)));
+	TBN = mat3(T, B, N);
+
     depthPosition = ubo.lightSpaceMatrix * model * vec4(v_pos, 1);
 	depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 

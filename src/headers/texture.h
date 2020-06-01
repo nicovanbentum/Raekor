@@ -59,6 +59,8 @@ public:
         }
     }
 
+    operator GLuint() const { return mID; }
+
     void bind();
     void unbind();
     void bindToSlot(uint8_t slot);

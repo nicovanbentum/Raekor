@@ -57,7 +57,6 @@ vec3 coneDirections[6] = vec3[] (
 float coneWeights[6] = float[](0.25, 0.15, 0.15, 0.15, 0.15, 0.15);
 
 mat3 tangentToWorld;
-vec3 mappedNormal;
 
 // cone tracing through ray marching
 // a ray is just a starting vector and a direction
@@ -68,14 +67,15 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 direction, in float coneAperture, o
     occlusion = 0.0;
 
     float voxelWorldSize = VoxelGridWorldSize / VoxelDimensions;
+     // start one voxel away from the current vertex' position
     float dist = voxelWorldSize; 
-    vec3 startPos = p + n * voxelWorldSize;
-
+    vec3 startPos = p + n * voxelWorldSize; 
+    
     while(dist < VoxelGridWorldSize && colour.a < 1) {
         float diameter = max(voxelWorldSize, 2 * coneAperture * dist);
         float mip = log2(diameter / voxelWorldSize);
 
-        vec3 offset = vec3(1.0 / VoxelDimensions, 1.0 / VoxelDimensions, 0); // Why??
+        vec3 offset = vec3(1.0 / VoxelDimensions, 1.0 / VoxelDimensions, 0);
         vec3 voxelTextureUV = (startPos + dist * direction) / (VoxelGridWorldSize * 0.5);
         voxelTextureUV = voxelTextureUV * 0.5 + 0.5 + offset;
         vec4 voxel_colour = textureLod(voxels, voxelTextureUV, mip);
@@ -117,22 +117,33 @@ void main() {
 
     tangentToWorld = inverse(transpose(mat3(tangent, normal, bitangent)));
     // TODO: figure out why this isnt working and/or how to fix normal map
-    mappedNormal = normalize(tangentToWorld * texture(normalMap, uv).xyz);
+	vec4 normalColor = texture(normalMap, uv);
+	normalColor = normalize(normalColor * 2.0 - 1.0);
+	normalColor = vec4(normalize(TBN * normalColor.xyz), 1.0);
 
     float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.0005)/depthPosition.w));
 
     DirectionalLight light = ubo.dirLights[0];
 
-	vec3 direction = vec3(0.0, 0.9, 0.0);
-    float diff = clamp(dot(normal, normalize(-light.direction)) * shadowAmount, 0, 1);
+	vec3 direction = normalize(-light.direction);
+    float diff = clamp(dot(normalColor.xyz, direction) * shadowAmount, 0, 1);
     vec3 directLight = light.color.xyz * diff * albedo.rgb;
 
+    // specular
+    
+    vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
+    vec3 reflectDir = reflect(-cameraDirection, normalColor.xyz);
+
+
+    float specOcclusion = 0.0;
+    vec4 specularTraced = coneTrace(position, normalColor.xyz, reflectDir, 0.07, specOcclusion);
+    vec3 specular = vec3(1.0, 1.0, 1.0) * specularTraced.xyz * light.color.xyz;
+    
+
     float occlusion = 0.0;
-    vec3 bounceLight = coneTraceBounceLight(position, normal, occlusion).rgb;
+    vec3 bounceLight = coneTraceBounceLight(position, normalColor.xyz, occlusion).rgb;
 
-    vec3 ambient = 0.05 * albedo.rgb;
-
-    vec3 diffuseReflection = occlusion * (directLight + bounceLight) * albedo.rgb;
+    vec3 diffuseReflection = occlusion * (directLight + bounceLight + specular) * albedo.rgb;
 
     color = vec4(diffuseReflection,  albedo.a);
 }
