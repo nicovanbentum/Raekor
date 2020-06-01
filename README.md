@@ -22,18 +22,18 @@ Used to work through the supplied makefile, but it's out of date.
 # Features
 This project requires and uses at least C++ 17 and modern rendering API's, OpenGL requires version 4.5 for direct state access functions and shader extensions. Focus has currently shifted to getting features in fast in OpenGL so I can use the engine to  research and implement Global Illumination for a research course at the Hogeschool Utrecht. After finishing my research course I will be migrating the engine to Vulkan (not sure if I will keep OpenGL support) and start working on physically based shading.
 
-- [X] Shader hotloading
-- [X] Directional & Point lighting
-- [X] Shadow mapping (point & directional)
-- [X] Normal mapping
-- [X] HDR, Gamma & Tone mapping
-- [X] Deferred render pipeline
-- [ ] PBR Material system
-- [X] C++ 17 Task-based Concurrency
-- [X] Screen Space Ambient Occlusion
-- [ ] (Screen Space) Reflections
-- [X] Global Illumination (cone traced voxels)
-- [ ] Scripting language
-- [X] Data driven Entity Component System
+✅ Shader hotloading\
+✅ Directional & Point lighting\
+✅ Shadow mapping (point & directional)\
+✅ Normal mapping\
+✅ HDR, Gamma & Tone mapping\
+✅ Deferred render pipeline\
+⬜️ PBR Material system\
+✅ C++ 17 Task-based Concurrency\
+✅ Screen Space Ambient Occlusion\
+⬜️ (Screen Space) Reflections\
+✅ Voxel Cone Traced Global Illumination\
+⬜️ Scripting language\
+✅ Data driven Entity Component System\
 
 > More to follow.
