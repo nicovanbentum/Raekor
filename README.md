@@ -29,11 +29,11 @@ This project requires and uses at least C++ 17 and modern rendering API's, OpenG
 - [X] HDR, Gamma & Tone mapping
 - [X] Deferred render pipeline
 - [ ] PBR Material system
-- [ ] C++ 17 Job System
+- [X] C++ 17 Task-based Concurrency
 - [X] Screen Space Ambient Occlusion
-- [ ] Screen Space Reflections
+- [ ] (Screen Space) Reflections
 - [X] Global Illumination (cone traced voxels)
 - [ ] Scripting language
-- [x] Data driven Entity Component System
+- [X] Data driven Entity Component System
 
 > More to follow.
