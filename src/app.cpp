@@ -246,11 +246,15 @@ void Application::run() {
     // keep a pointer to the texture that's rendered to the window
     glTexture2D* activeScreenTexture = &tonemappingPass->result;
 
+    int coreCount = std::thread::hardware_concurrency();
+    int threadCount = std::max(1, coreCount - 1);
+    auto dispatcher = AsyncDispatcher(threadCount);
+
     AssimpImporter importer;
     static ECS::Entity active = NULL;
     for (const std::string& path : project) {
         std::cout << "Loading " << parseFilepath(path, PATH_OPTIONS::FILENAME) << "...\n";
-        importer.loadFromDisk(newScene, path);
+        importer.loadFromDisk(newScene, path, dispatcher);
     }
 
 
@@ -363,7 +367,7 @@ void Application::run() {
                 if (ImGui::MenuItem("Load..")) {
                     std::string path = OS::openFileDialog({ meshFileFormats });
                     if (!path.empty()) {
-                        importer.loadFromDisk(newScene, path);
+                        importer.loadFromDisk(newScene, path, dispatcher);
                     }
                 }
                 if (ImGui::MenuItem("Save", "CTRL + S")) {

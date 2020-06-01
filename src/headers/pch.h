@@ -74,6 +74,7 @@
 #include <set>
 #include <map>
 #include <array>
+#include <queue>
 #include <future>
 #include <chrono>
 #include <numeric>

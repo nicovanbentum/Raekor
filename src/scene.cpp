@@ -39,7 +39,7 @@ void Scene::remove(ECS::Entity entity) {
     directionalLights.remove(entity);
 }
 
-void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file) {
+void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDispatcher& dispatcher) {
     constexpr unsigned int flags =
         aiProcess_GenNormals |
         aiProcess_Triangulate |
@@ -65,8 +65,11 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file) {
 
     // load all textures into an unordered map
     std::string textureDirectory = parseFilepath(file, PATH_OPTIONS::DIR);
-    loadTexturesAsync(assimpScene, textureDirectory);
 
+    {
+        ScopedTimer timer("Async texture time = ");
+        loadTexturesAsync(assimpScene, textureDirectory, dispatcher);
+    }
     // recursively process the ai scene graph
     processAiNode(scene, assimpScene, assimpScene->mRootNode);
 }
@@ -193,7 +196,7 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
 
 }
 
-void AssimpImporter::loadTexturesAsync(const aiScene* scene, const std::string& directory) {
+void AssimpImporter::loadTexturesAsync(const aiScene* scene, const std::string& directory, AsyncDispatcher& dispatcher) {
     for (uint64_t index = 0; index < scene->mNumMeshes; index++) {
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
         auto aiMesh = scene->mMeshes[index];
@@ -222,14 +225,13 @@ void AssimpImporter::loadTexturesAsync(const aiScene* scene, const std::string& 
     }
 
     // asyncronously load textures from disk
-    std::vector<std::future<void>> futures;
     for (auto& pair : images) {
-        futures.push_back(std::async(std::launch::async, &Stb::Image::load, &pair.second, pair.second.filepath, true));
+        dispatcher.dispatch([&pair]() {
+            pair.second.load(pair.second.filepath, true);
+        });
     }
 
-    for (auto& future : futures) {
-        future.wait();
-    }
+    dispatcher.wait();
 }
 
 } // Namespace Raekor
