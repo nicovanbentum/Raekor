@@ -6,7 +6,7 @@ const float PI = 3.14159265359;
 #define MAX_DIR_LIGHTS 1
 
 struct DirectionalLight {
-	vec4 position;
+	vec3 direction;
 	vec4 color;
 };
 
@@ -40,7 +40,7 @@ layout (location = 0) out vec4 finalColor;
 layout (location = 1) out vec4 bloomColor;
 
 // shadow maps
-layout(binding = 0) uniform sampler2D shadowMap;
+layout(binding = 0) uniform sampler2DShadow shadowMap;
 layout(binding = 1) uniform samplerCube shadowMapOmni;
 
 // GBUFFER textures
@@ -48,166 +48,120 @@ layout(binding = 2) uniform sampler2D gPositions;
 layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 5) uniform sampler2D SSAO;
-
-vec3 doLight(PointLight light);
-vec3 doLight(DirectionalLight light);
-float getShadow(PointLight light);
-float getShadow(DirectionalLight light);
+layout(binding = 6) uniform sampler3D voxels;
+layout(binding = 7) uniform sampler2D gTangents;
 
 // vars retrieved from the Gbuffer TODO: make them not global?
 vec3 position;
 vec3 normal;
-vec4 sampled;
+vec3 tangent;
 float AO = 1.0;
+
+// Voxel stuff
+const float VoxelGridWorldSize = 150.0;
+int VoxelDimensions;
+
+// source: http://simonstechblog.blogspot.com/2013/01/implementing-voxel-cone-tracing.html
+// 6 60 degree cone
+const int NUM_CONES = 6;
+vec3 coneDirections[6] = vec3[] (
+    vec3(0, 1, 0),
+    vec3(0, 0.5, 0.866025),
+    vec3(0.823639, 0.5, 0.267617),
+    vec3(0.509037, 0.5, -0.700629),
+    vec3(-0.509037, 0.5, -0.700629),
+    vec3(-0.823639, 0.5, 0.267617)
+);
+float coneWeights[6] = float[](0.25, 0.15, 0.15, 0.15, 0.15, 0.15);
+
+// cone tracing through ray marching
+// a ray is just a starting vector and a direction
+// so it goes : sample, move in direction, sample, move in direction, sample etc
+// until we hit opacity 1 which means we hit a solid object
+vec4 coneTrace(in vec3 p, in vec3 n, in vec3 direction, in float coneAperture, out float occlusion) {
+    vec4 colour = vec4(0);
+    occlusion = 0.0;
+
+    float voxelWorldSize = VoxelGridWorldSize / VoxelDimensions;
+     // start one voxel away from the current vertex' position
+    float dist = voxelWorldSize; 
+    vec3 startPos = p + n * voxelWorldSize; 
+    
+    while(dist < VoxelGridWorldSize && colour.a < 1) {
+        float diameter = max(voxelWorldSize, 2 * coneAperture * dist);
+        float mip = log2(diameter / voxelWorldSize);
+
+        vec3 offset = vec3(1.0 / VoxelDimensions, 1.0 / VoxelDimensions, 0);
+        vec3 voxelTextureUV = (startPos + dist * direction) / (VoxelGridWorldSize * 0.5);
+        voxelTextureUV = voxelTextureUV * 0.5 + 0.5 + offset;
+        vec4 voxel_colour = textureLod(voxels, voxelTextureUV, mip);
+
+        float a = (1.0 - colour.a);
+        colour.rgb += a * voxel_colour.rgb;
+        colour.a += a * voxel_colour.a;
+        occlusion += (a * voxel_colour.a) / (1.0 + 0.03 * diameter);
+
+        // move along the ray
+        dist += diameter * 0.5;
+    }
+
+    return colour;
+}
+
+vec4 coneTraceBounceLight(in vec3 p, in vec3 n, out float occlusion_out) {
+    vec4 color = vec4(0);
+    occlusion_out = 0.0;
+
+    for(int i = 0; i < NUM_CONES; i++) {
+        float occlusion = 0.0;
+        color += coneWeights[i] * coneTrace(p, n, coneDirections[i], tan(radians(30)), occlusion);
+        occlusion_out += coneWeights[i] * occlusion;
+    }
+
+    occlusion_out = 1.0 - occlusion_out;
+
+    return color;
+}
 
 void main()
 {
-	sampled = texture(gColors, uv);
+    VoxelDimensions = textureSize(voxels, 0).x;
+	vec4 albedo = texture(gColors, uv);
 	normal = texture(gNormals, uv).xyz;
 	position = texture(gPositions, uv).xyz;
 
-    // AO = texture(SSAO, uv).x;
-    // AO = clamp(AO, 0.0, 1.0);
+    vec4 depthPosition = ubo.lightSpaceMatrix * texture(gPositions, uv);
+    // map to OpenGL range
+    depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
-    vec3 result = vec3(0.0, 0.0, 0.0);
+    float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.0005)/depthPosition.w));
 
-    // caculate point lights contribution
-    // for(uint i = 0; i < pointLightCount; i++) {
-    //     result += doLight(ubo.pointLights[i]);
-    // }
+    DirectionalLight light = ubo.dirLights[0];
 
-    // calculate directional lights contribution
-    for(uint i = 0; i < directionalLightCount; i++) {
-        result += doLight(ubo.dirLights[i]);
-    }
+    vec3 direction = normalize(-light.direction);
+    float diff = clamp(dot(normal.xyz, direction) * shadowAmount, 0, 1);
+    vec3 directLight = light.color.xyz * diff * albedo.rgb;
 
-    finalColor = vec4(result, sampled.a);
+    float occlusion = 0.0;
+    vec3 bounceLight = coneTraceBounceLight(position, normal.xyz, occlusion).rgb;
+
+    // specular
+    
+    vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
+    vec3 reflectDir = reflect(-cameraDirection, normal.xyz);
+
+
+    float specOcclusion = 0.0;
+    vec4 specularTraced = coneTrace(position, normal.xyz, reflectDir, 0.07, specOcclusion);
+    vec3 specular = vec3(1.0, 1.0, 1.0) * specularTraced.xyz * light.color.xyz;
+    
+    vec3 diffuseReflection = occlusion * (directLight * bounceLight + specular) * albedo.rgb;
+
+    finalColor = vec4(diffuseReflection, albedo.a);
 
 	float brightness = dot(finalColor.rgb, bloomThreshold);
 	if(brightness > 1.0) 
 		bloomColor = vec4(finalColor.rgb, 1.0);
 	else 
 		bloomColor = vec4(0.0, 0.0, 0.0, 1.0);
-}
-
-float getShadow(DirectionalLight light) {
-	vec4 FragPosLightSpace = ubo.lightSpaceMatrix * vec4(position, 1.0);
-    vec3 projCoords = FragPosLightSpace.xyz / FragPosLightSpace.w;
-    projCoords = projCoords * 0.5 + 0.5;
-
-    float currentDepth = projCoords.z;
-
-	vec3 direction = normalize(light.position.xyz - position);
-    float bias = max(maxBias * (1.0 - dot(normal, direction)), minBias);
-    
-	// simplest PCF algorithm
-    float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for(int x = -1; x <= 1; ++x) {
-        for(int y = -1; y <= 1; ++y) {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;    
-        }    
-    }
-    shadow /= 9.0;
-    
-    // keep the shadow at 0.0 when outside the far plane region of the light's frustum
-    if(projCoords.z > 1.0) shadow = 0.0;
-        
-    return shadow;
-}
-
-// array of offset direction for sampling
-vec3 gridSamplingDisk[20] = vec3[]
-(
-   vec3(1, 1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1, 1,  1), 
-   vec3(1, 1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1, 1, -1),
-   vec3(1, 1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1, 1,  0),
-   vec3(1, 0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1, 0, -1),
-   vec3(0, 1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0, 1, -1)
-);
-
-float getShadow(PointLight light) {
-	vec3 frag2light = position - light.position.xyz;
-	float currentDepth = length(frag2light);
-
-	float closestDepth = texture(shadowMapOmni, frag2light).r;
-	closestDepth *= farPlane;
-	
-	// PCF sampling
-	float shadow = 0.0;
-    float bias = 0.05;
-    int samples = 20;
-
-	return currentDepth - bias > closestDepth ? 1.0 : 0.0;
-
-    float viewDistance = length(ubo.cameraPosition.xyz - position);
-    float diskRadius = (1.0 + (viewDistance / farPlane)) / farPlane;
-    for(int i = 0; i < samples; ++i) {
-        float closestDepth = texture(shadowMapOmni, frag2light + gridSamplingDisk[i] * diskRadius).r;
-        closestDepth *= farPlane;   // undo mapping [0;1]
-        if(currentDepth - bias > closestDepth)
-            shadow += 1.0;
-    }
-    shadow /= float(samples);
-
-	return shadow;
-}
-
-
-vec3 doLight(PointLight light) {
-    // hardcoded for now
-    float constant = 1.0;
-    float linear = 0.7;
-    float quad = 1.8;
-
-    // ambient
-    vec3 ambient = 0.05 * sampled.xyz * AO;
-
-	vec3 direction = normalize(light.position.xyz - position);
-	vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
-    
-	float diff = clamp(dot(normal, direction), 0, 1);
-    vec3 diffuse = light.color.xyz * diff * sampled.rgb;
-
-    // specular
-    vec3 halfwayDir = normalize(direction + cameraDirection);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0f);
-    vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
-
-    // distance between the light and the vertex
-    float distance = length(light.position.xyz - position);
-    float attenuation = 1.0 / (constant + linear * distance + quad * (distance * distance));
-
-    ambient = ambient * attenuation;
-    diffuse = diffuse * attenuation;
-    specular = specular * attenuation;
-
-    //  float shadowAmount = 1.0 - getShadow(light);
-    //  diffuse *= shadowAmount;
-    //  specular *= shadowAmount;
-
-    return (ambient + diffuse + specular);
-}
-
-vec3 doLight(DirectionalLight light) {
-	// ambient
-    vec3 ambient = 0.05 * sampled.xyz * AO;
-
-	vec3 direction = normalize(light.position.xyz - position);
-	vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
-    
-	float diff = clamp(dot(normal, direction), 0, 1);
-    vec3 diffuse = light.color.xyz * diff * sampled.rgb;
-
-    // specular
-    vec3 halfwayDir = normalize(direction + cameraDirection);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0f);
-    vec3 specular = vec3(1.0, 1.0, 1.0) * spec * sampled.rgb;
-
-	float shadowAmount = 1.0 - getShadow(light);
-	diffuse *= shadowAmount;
-	specular *= shadowAmount;
-
-    return (ambient + diffuse + specular);
 }

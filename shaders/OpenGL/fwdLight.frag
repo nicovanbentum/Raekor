@@ -24,8 +24,6 @@ layout (std140) uniform stuff {
 in vec2 uv;
 in vec3 position;
 in vec3 normal;
-in vec3 tangent;
-in vec3 bitangent;
 in mat3 TBN;
 in vec3 cameraDirection;
 in vec4 depthPosition;
@@ -55,8 +53,6 @@ vec3 coneDirections[6] = vec3[] (
     vec3(-0.823639, 0.5, 0.267617)
 );
 float coneWeights[6] = float[](0.25, 0.15, 0.15, 0.15, 0.15, 0.15);
-
-mat3 tangentToWorld;
 
 // cone tracing through ray marching
 // a ray is just a starting vector and a direction
@@ -98,7 +94,7 @@ vec4 coneTraceBounceLight(in vec3 p, in vec3 n, out float occlusion_out) {
 
     for(int i = 0; i < NUM_CONES; i++) {
         float occlusion = 0.0;
-        color += coneWeights[i] * coneTrace(p, n, tangentToWorld * coneDirections[i], tan(radians(30)), occlusion);
+        color += coneWeights[i] * coneTrace(p, n, coneDirections[i], tan(radians(30)), occlusion);
         occlusion_out += coneWeights[i] * occlusion;
     }
 
@@ -115,8 +111,6 @@ void main() {
         discard;
     }
 
-    tangentToWorld = inverse(transpose(mat3(tangent, normal, bitangent)));
-    // TODO: figure out why this isnt working and/or how to fix normal map
 	vec4 normalColor = texture(normalMap, uv);
 	normalColor = normalize(normalColor * 2.0 - 1.0);
 	normalColor = vec4(normalize(TBN * normalColor.xyz), 1.0);

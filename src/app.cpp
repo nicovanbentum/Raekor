@@ -240,7 +240,7 @@ void Application::run() {
 
 
     // boolean settings needed for a couple things
-    bool doSSAO = false, doBloom = false, debugVoxels = false;
+    bool doSSAO = false, doBloom = false, debugVoxels = false, doDeferred = false;
     bool mouseInViewport = false, gizmoEnabled = false, showSettingsWindow = false;
 
     // keep a pointer to the texture that's rendered to the window
@@ -307,9 +307,15 @@ void Application::run() {
         
         glViewport(0, 0, viewport.size.x, viewport.size.y);
 
-        ConeTracePass->execute(viewport, newScene, voxelizePass.get(), shadowMapPass.get());
+        if (doDeferred) {
+            geometryBufferPass->execute(newScene, viewport);
+            lightingPass->execute(newScene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
+            tonemappingPass->execute(lightingPass->result, Quad.get());
+        } else {
+            ConeTracePass->execute(viewport, newScene, voxelizePass.get(), shadowMapPass.get());
+            tonemappingPass->execute(ConeTracePass->result, Quad.get());
 
-        tonemappingPass->execute(ConeTracePass->result, Quad.get());
+        }
 
         if (active) {
             aabbDebugPass->execute(newScene, viewport, tonemappingPass->result, active);
@@ -504,6 +510,10 @@ void Application::run() {
         ImGui::SameLine();
         if (ImGui::Button("Voxelize")) {
             shouldVoxelize = true;
+        }
+
+        if (ImGui::RadioButton("Deferred", doDeferred)) {
+            doDeferred = !doDeferred;
         }
 
         if (ImGui::TreeNode("Screen Texture")) {

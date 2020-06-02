@@ -32,8 +32,6 @@ uniform mat4 model;
 out vec2 uv;
 out vec3 position;
 out vec3 normal;
-out vec3 tangent;
-out vec3 bitangent;
 out mat3 TBN;
 out vec3 cameraDirection;
 out vec4 depthPosition;
@@ -42,14 +40,10 @@ void main() {
 	position = (model * vec4(v_pos ,1)).xyz;
     gl_Position =  ubo.projection * ubo.view * vec4(position , 1.0);
 
-	normal = normalize((model * vec4(v_normal, 0.0)).xyz);
-	tangent = normalize((model * vec4(v_tangent, 0.0)).xyz);
-	bitangent = normalize((model * vec4(v_bitangent , 0.0)).xyz);
-
     vec3 T = normalize(vec3(model * vec4(v_tangent,		0.0)));
 	vec3 B = normalize(vec3(model * vec4(v_bitangent,	0.0)));
-	vec3 N = normalize(vec3(model * vec4(v_normal,		0.0)));
-	TBN = mat3(T, B, N);
+	normal = normalize(vec3(model * vec4(v_normal,		0.0)));
+	TBN = mat3(T, B, normal.xyz);
 
     depthPosition = ubo.lightSpaceMatrix * model * vec4(v_pos, 1);
 	depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;

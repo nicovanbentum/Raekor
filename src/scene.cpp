@@ -46,7 +46,7 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDi
         aiProcess_SortByPType |
         aiProcess_JoinIdenticalVertices |
         aiProcess_GenUVCoords |
-        aiProcess_OptimizeMeshes |
+        //aiProcess_OptimizeMeshes |
         aiProcess_GenBoundingBoxes |
         aiProcess_Debone |
         aiProcess_ValidateDataStructure;
