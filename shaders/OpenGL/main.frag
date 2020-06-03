@@ -49,13 +49,11 @@ layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 5) uniform sampler2D SSAO;
 layout(binding = 6) uniform sampler3D voxels;
-layout(binding = 7) uniform sampler2D gTangents;
 
 // vars retrieved from the Gbuffer TODO: make them not global?
 vec3 position;
 vec3 normal;
 vec3 tangent;
-float AO = 1.0;
 
 // Voxel stuff
 const float VoxelGridWorldSize = 150.0;
@@ -142,9 +140,6 @@ void main()
     float diff = clamp(dot(normal.xyz, direction) * shadowAmount, 0, 1);
     vec3 directLight = light.color.xyz * diff * albedo.rgb;
 
-    float occlusion = 0.0;
-    vec3 bounceLight = coneTraceBounceLight(position, normal.xyz, occlusion).rgb;
-
     // specular
     
     vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
@@ -154,10 +149,17 @@ void main()
     float specOcclusion = 0.0;
     vec4 specularTraced = coneTrace(position, normal.xyz, reflectDir, 0.07, specOcclusion);
     vec3 specular = vec3(1.0, 1.0, 1.0) * specularTraced.xyz * light.color.xyz;
+
+    float occlusion = 0.0;
+    vec3 bounceLight = coneTraceBounceLight(position, normal.xyz, occlusion).rgb;
     
-    vec3 diffuseReflection = occlusion * (directLight * bounceLight + specular) * albedo.rgb;
+    vec3 diffuseReflection = occlusion * (directLight + bounceLight + specular) * albedo.rgb;
 
     finalColor = vec4(diffuseReflection, albedo.a);
+
+
+
+    // BLOOM SEPERATION
 
 	float brightness = dot(finalColor.rgb, bloomThreshold);
 	if(brightness > 1.0) 

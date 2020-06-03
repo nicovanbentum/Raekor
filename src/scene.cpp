@@ -65,11 +65,8 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDi
 
     // load all textures into an unordered map
     std::string textureDirectory = parseFilepath(file, PATH_OPTIONS::DIR);
-
-    {
-        ScopedTimer timer("Async texture time = ");
-        loadTexturesAsync(assimpScene, textureDirectory, dispatcher);
-    }
+    loadTexturesAsync(assimpScene, textureDirectory, dispatcher);
+    
     // recursively process the ai scene graph
     processAiNode(scene, assimpScene, assimpScene->mRootNode);
 }

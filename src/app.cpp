@@ -393,10 +393,9 @@ void Application::run() {
                     std::string savePath = OS::saveFileDialog("Uncompressed PNG (*.png)\0", "png");
 
                     if (!savePath.empty()) {
-                        unsigned char* pixels = new unsigned char[4 * viewport.size.x * viewport.size.y];
-                        tonemappingPass->result.bind();
-                        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-                        tonemappingPass->result.unbind();
+                        const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
+                        unsigned char* pixels = new unsigned char[bufferSize];
+                        glGetTextureImage(tonemappingPass->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize* sizeof(unsigned char), pixels);
                         stbi_flip_vertically_on_write(true);
                         stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels, viewport.size.x * 4);
                     }

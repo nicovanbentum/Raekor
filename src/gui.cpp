@@ -183,8 +183,8 @@ void InspectorWindow::drawPointLightComponent(ECS::PointLightComponent* componen
 }
 
 void InspectorWindow::drawDirectionalLightComponent(ECS::DirectionalLightComponent* component) {
-    ImGui::DragFloat3("Direction", glm::value_ptr(component->buffer.direction), 0.01f, -1.0f, 1.0f);
     ImGui::ColorEdit4("Colour", glm::value_ptr(component->buffer.colour));
+    ImGui::DragFloat3("Direction", glm::value_ptr(component->buffer.direction), 0.01f, -1.0f, 1.0f);
 }
 
 
