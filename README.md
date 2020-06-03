@@ -1,4 +1,4 @@
-# Raekor Engine
+# Raekor Renderer
 
 ![image](https://i.imgur.com/iv3ytur.jpg)
 
