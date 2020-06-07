@@ -32,6 +32,8 @@ uniform vec3 bloomThreshold;
 uniform int pointLightCount;
 uniform int directionalLightCount;
 
+uniform float voxelsWorldSize;
+
 // in vars
 in vec2 uv;
 
@@ -56,7 +58,6 @@ vec3 normal;
 vec3 tangent;
 
 // Voxel stuff
-const float VoxelGridWorldSize = 150.0;
 int VoxelDimensions;
 
 // source: http://simonstechblog.blogspot.com/2013/01/implementing-voxel-cone-tracing.html
@@ -80,17 +81,17 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 direction, in float coneAperture, o
     vec4 colour = vec4(0);
     occlusion = 0.0;
 
-    float voxelWorldSize = VoxelGridWorldSize / VoxelDimensions;
+    float voxelSize = voxelsWorldSize / VoxelDimensions;
      // start one voxel away from the current vertex' position
-    float dist = voxelWorldSize; 
-    vec3 startPos = p + n * voxelWorldSize; 
+    float dist = voxelSize; 
+    vec3 startPos = p + n * voxelSize; 
     
-    while(dist < VoxelGridWorldSize && colour.a < 1) {
-        float diameter = max(voxelWorldSize, 2 * coneAperture * dist);
-        float mip = log2(diameter / voxelWorldSize);
+    while(dist < voxelsWorldSize && colour.a < 1) {
+        float diameter = max(voxelSize, 2 * coneAperture * dist);
+        float mip = log2(diameter / voxelSize);
 
         vec3 offset = vec3(1.0 / VoxelDimensions, 1.0 / VoxelDimensions, 0);
-        vec3 voxelTextureUV = (startPos + dist * direction) / (VoxelGridWorldSize * 0.5);
+        vec3 voxelTextureUV = (startPos + dist * direction) / (voxelsWorldSize * 0.5);
         voxelTextureUV = voxelTextureUV * 0.5 + 0.5 + offset;
         vec4 voxel_colour = textureLod(voxels, voxelTextureUV, mip);
 
@@ -129,7 +130,7 @@ void main()
 	position = texture(gPositions, uv).xyz;
 
     vec4 depthPosition = ubo.lightSpaceMatrix * texture(gPositions, uv);
-    // map to OpenGL range
+    // from -1 1 to 0 1 range for uv coordinate
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
     float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.0005)/depthPosition.w));

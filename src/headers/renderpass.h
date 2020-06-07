@@ -165,6 +165,7 @@ private:
     ShaderHotloader hotloader;
 
 public:
+    float worldSize = 150.0f;
     glTexture3D result;
 };
 
@@ -173,7 +174,7 @@ public:
 class VoxelizationDebug {
 public:
     VoxelizationDebug(Viewport& viewport);
-    void execute(Viewport& viewport, glTexture2D& input, glTexture3D& voxels);
+    void execute(Viewport& viewport, glTexture2D& input, Voxelization* voxels);
     void resize(Viewport& viewport);
 
 private:

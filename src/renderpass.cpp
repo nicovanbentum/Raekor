@@ -403,6 +403,8 @@ void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* sha
     shader.getUniform("pointLightCount") = (uint32_t)sscene.pointLights.getCount();
     shader.getUniform("directionalLightCount") = (uint32_t)sscene.directionalLights.getCount();
 
+    shader.getUniform("voxelsWorldSize") = voxels->worldSize;
+
     // bind textures to shader binding slots
     shadowMap->result.bindToSlot(0);
     
@@ -605,9 +607,6 @@ Voxelization::Voxelization(int size) : size(size) {
     result.setFilter(Sampling::Filter::Trilinear);
     result.genMipMaps();
     
-    // Create projection matrices used to project stuff onto each axis in 
-    float worldSize = 150.0f;
-
     // left, right, bottom, top, zNear, zFar
     auto projectionMatrix = glm::ortho(-worldSize * 0.5f, worldSize * 0.5f, -worldSize * 0.5f, worldSize * 0.5f, worldSize * 0.5f, worldSize * 1.5f);
     px = projectionMatrix * glm::lookAt(glm::vec3(worldSize, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
@@ -683,23 +682,23 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
     frameBuffer.attach(renderBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
 }
 
-void VoxelizationDebug::execute(Viewport& viewport, glTexture2D& input, glTexture3D& voxels) {
+void VoxelizationDebug::execute(Viewport& viewport, glTexture2D& input, Voxelization* voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
     frameBuffer.bind();
     frameBuffer.attach(input, GL_COLOR_ATTACHMENT0);
     glClear(GL_DEPTH_BUFFER_BIT);
 
-    float voxelSize = 150.0f / 128;
+    float voxelSize = voxels->worldSize / 128;
     glm::mat4 modelMatrix = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(voxelSize)), glm::vec3(0, 0, 0));
 
     // bind shader and set uniforms
     shader.bind();
-    shader.getUniform("voxelSize") = 150.0f / 128;
+    shader.getUniform("voxelSize") = voxels->worldSize / 128;
     shader.getUniform("p") = viewport.getCamera().getProjection();
     shader.getUniform("mv") = viewport.getCamera().getView() * modelMatrix;
 
-    voxels.bindToSlot(0);
-    glDrawArrays(GL_POINTS, 0, 128 * 128 * 128);
+    voxels->result.bindToSlot(0);
+    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(std::pow(128, 3)));
 
     // unbind framebuffers
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

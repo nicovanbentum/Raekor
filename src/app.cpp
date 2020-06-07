@@ -149,8 +149,6 @@ void Application::run() {
     Renderer::setAPI(RenderAPI::OPENGL);
     Renderer::Init(directxwindow);
 
-
-
     Ffilter meshFileFormats;
     meshFileFormats.name = "Supported Mesh Files";
     meshFileFormats.extensions = "*.obj;*.fbx;*.gltf;*.glb";
@@ -240,7 +238,7 @@ void Application::run() {
 
 
     // boolean settings needed for a couple things
-    bool doSSAO = false, doBloom = false, debugVoxels = false, doDeferred = false;
+    bool doSSAO = false, doBloom = false, debugVoxels = false, doDeferred = true;
     bool mouseInViewport = false, gizmoEnabled = false, showSettingsWindow = false;
 
     // keep a pointer to the texture that's rendered to the window
@@ -322,7 +320,7 @@ void Application::run() {
         }
 
         if (debugVoxels) {
-            voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass->result);
+            voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass.get());
         }
 
         
@@ -502,10 +500,13 @@ void Application::run() {
             doVsync = !doVsync;
         }
 
+        ImGui::NewLine(); ImGui::Separator(); 
+        ImGui::Text("Voxel Cone Tracing");
 
-        if (ImGui::RadioButton("debug voxels", debugVoxels)) {
+        if (ImGui::RadioButton("Debug", debugVoxels)) {
             debugVoxels = !debugVoxels;
         }
+
         ImGui::SameLine();
         if (ImGui::Button("Voxelize")) {
             shouldVoxelize = true;
@@ -514,6 +515,10 @@ void Application::run() {
         if (ImGui::RadioButton("Deferred", doDeferred)) {
             doDeferred = !doDeferred;
         }
+
+        ImGui::DragFloat("World size", &voxelizePass->worldSize, 0.1f, 0.0f, FLT_MAX, "%.2f");
+
+        ImGui::Separator();
 
         if (ImGui::TreeNode("Screen Texture")) {
             if (ImGui::Selectable(nameof(tonemappingPass->result), activeScreenTexture->ImGuiID() == tonemappingPass->result.ImGuiID()))
@@ -623,7 +628,12 @@ void Application::run() {
             // flip mouse coords for opengl
             rendererMousePosition.y = viewport.size.y - rendererMousePosition.y;
 
-            auto picked = ConeTracePass->pick(rendererMousePosition.x, rendererMousePosition.y);
+            ECS::Entity picked = NULL;
+            if (doDeferred) {
+                picked = geometryBufferPass->pick(rendererMousePosition.x, rendererMousePosition.y);
+            } else {
+                picked = ConeTracePass->pick(rendererMousePosition.x, rendererMousePosition.y);
+            }
 
             active = active == picked ? NULL : picked;
         }

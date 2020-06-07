@@ -62,6 +62,7 @@
 #include "gtx/string_cast.hpp"
 #include "gtc/type_ptr.hpp"
 #include "gtx/matrix_decompose.hpp"
+#include "gtx/euler_angles.hpp"
 
 // Bullet3 Physics library
 #include "bullet/btBulletDynamicsCommon.h"
