@@ -2,7 +2,7 @@
 #extension GL_ARB_shader_image_load_store : enable
 
 layout(binding = 0) uniform sampler2D albedo;
-layout(RGBA8, binding = 1) uniform image3D voxels;
+layout(rgba8, binding = 1) uniform image3D voxels;
 layout(binding = 2) uniform sampler2DShadow shadowMap;
 
 in vec2 uv;
