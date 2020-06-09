@@ -76,6 +76,8 @@ private:
     glShader shader;
     glFramebuffer GBuffer;
     glRenderbuffer GDepthBuffer;
+
+    ShaderHotloader hotloader;
   
 public:
     glTexture2D albedoTexture, normalTexture, positionTexture;

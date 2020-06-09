@@ -13,7 +13,6 @@ uniform mat4 model;
 
 out vec3 pos;
 out vec2 uv;
-out vec3 normal;
 out mat3 TBN;
 
 void main() {
@@ -25,9 +24,5 @@ void main() {
 	vec3 N = normalize(vec3(model * vec4(v_normal,		0.0)));
 	TBN = mat3(T, B, N);
 
-	mat3 normalMatrix = transpose(inverse(mat3(model)));
-    normal = normalMatrix * v_normal;
-	
 	uv = v_uv;
-	//normal = v_normal;
 }

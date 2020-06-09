@@ -141,6 +141,7 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     gbufferStages[0].defines = { "NO_NORMAL_MAP" };
     gbufferStages[1].defines = { "NO_NORMAL_MAP" };
     shader.reload(gbufferStages.data(), gbufferStages.size());
+    hotloader.watch(&shader, gbufferStages.data(), gbufferStages.size());
 
     albedoTexture.bind();
     albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
@@ -167,6 +168,8 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
 }
 
 void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
+    hotloader.checkForUpdates();
+
     // enable stencil stuff
     glEnable(GL_STENCIL_TEST);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
