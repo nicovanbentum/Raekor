@@ -255,7 +255,6 @@ void Application::run() {
         importer.loadFromDisk(newScene, path, dispatcher);
     }
 
-
     auto dirLightEntity = newScene.createDirectionalLight("Directional Light");
     auto transform = newScene.transforms.getComponent(dirLightEntity);
     transform->position.y = 15.0f;
@@ -445,7 +444,14 @@ void Application::run() {
 
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
                 // on press we remove the scene object
-                newScene.remove(active);
+                if (ecsWindow.multiselectedEntities.empty()) {
+                    newScene.remove(active);
+                } else {
+                    for (auto entity : ecsWindow.multiselectedEntities) {
+                        newScene.remove(entity);
+                    }
+                }
+                
                 active = NULL;
             }
 
@@ -573,7 +579,8 @@ void Application::run() {
         ImGui::Text("Product: %s", glGetString(GL_RENDERER));
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        ImGui::Text("Culling: %i of %i meshes", ConeTracePass->culled, newScene.meshes.getCount());
+        int culledCount = doDeferred ? geometryBufferPass->culled : ConeTracePass->culled;
+        ImGui::Text("Culling: %i of %i meshes", culledCount, newScene.meshes.getCount());
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
 
@@ -591,12 +598,10 @@ void Application::run() {
 
         ImGui::End();
 
-        // if the scene containt at least one model, AND the active model is pointing at a valid model,
-        // AND the active model has a mesh to modify, the properties window draws
         if (active) {
             gizmo.drawWindow();
         }
-
+        
         // renderer viewport
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);

@@ -307,19 +307,42 @@ void EntityWindow::draw(Scene& scene, ECS::Entity& active) {
     auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_CollapsingHeader;
     if (ImGui::TreeNodeEx("Entities", treeNodeFlags)) {
         ImGui::Columns(1, NULL, false);
-        unsigned int index = 0;
-        for (uint32_t i = 0; i < scene.names.getCount(); i++) {
-            ECS::Entity entity = scene.names.getEntity(i);
-            bool selected = active == entity;
+        for (int entityIndex = 0; entityIndex < scene.names.getCount(); ++entityIndex) {
+            const ECS::Entity entity = scene.names.getEntity(entityIndex);
+
+            const bool isActive = (active == entity);
+            const auto selectedIter = std::find(multiselectedEntities.begin(), multiselectedEntities.end(), entity);
+            const bool isMultiSelected = selectedIter != multiselectedEntities.end();
+
             std::string& name = scene.names.getComponent(entity)->name;
-            if (ImGui::Selectable(std::string(name + "##" + std::to_string(index)).c_str(), selected)) {
-                if (active == entity) active = NULL;
-                else active = entity;
+            if (ImGui::Selectable(std::string(name + "##" + std::to_string(entityIndex)).c_str(), isActive || isMultiSelected)) {
+                if (isActive) {
+                    active = NULL;
+                } else {
+                    if (SDL_GetModState() & KMOD_SHIFT) {
+                        multiselectedEntities.clear();
+                        int activeIndex = 0;
+                        for (int index = 0; index < scene.names.getCount(); ++index) {
+                            auto e = scene.names.getEntity(index);
+                            if (e == active) activeIndex = index;
+                        }
+
+                        for (int i = std::min(entityIndex, activeIndex); i <= std::max(entityIndex, activeIndex); i++) {
+                            multiselectedEntities.push_back(scene.names.getEntity(i));
+                        }
+                    } else if (SDL_GetModState() & KMOD_LCTRL && isMultiSelected) {
+                        multiselectedEntities.erase(selectedIter);
+                    } else {
+                        if (!multiselectedEntities.empty()) {
+                            multiselectedEntities.clear();
+                        } 
+                        active = entity;
+                    }
+                }
             }
-            if (selected) {
+            if (isActive) {
                 ImGui::SetItemDefaultFocus();
             }
-            index += 1;
         }
     }
 

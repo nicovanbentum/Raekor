@@ -26,6 +26,7 @@ private:
 class EntityWindow {
 public:
     void draw(Scene& scene, ECS::Entity& active);
+    std::vector<ECS::Entity> multiselectedEntities;
 };
 
 
