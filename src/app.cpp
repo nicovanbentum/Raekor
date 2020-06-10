@@ -495,7 +495,7 @@ void Application::run() {
         ImGui::SetItemDefaultFocus();
 
         // toggle button for openGl vsync
-        static bool doVsync = false;
+        static bool doVsync = true;
         if (ImGui::RadioButton("Vsync", doVsync)) {
             doVsync = !doVsync;
         }

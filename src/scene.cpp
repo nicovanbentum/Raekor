@@ -42,6 +42,7 @@ void Scene::remove(ECS::Entity entity) {
 void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDispatcher& dispatcher) {
     constexpr unsigned int flags =
         aiProcess_GenNormals |
+        aiProcess_CalcTangentSpace |
         aiProcess_Triangulate |
         aiProcess_SortByPType |
         aiProcess_JoinIdenticalVertices |
@@ -191,7 +192,7 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
     } else {
         material.normals = std::make_unique<glTexture2D>();
         material.normals->bind();
-        auto tbnAxis = glm::vec<4, float>(0.0f, 0.0f, 1.0f, 1.0f);
+        auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
         material.normals->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(tbnAxis));
         material.normals->setFilter(Sampling::Filter::None);
         material.normals->setWrap(Sampling::Wrap::Repeat);

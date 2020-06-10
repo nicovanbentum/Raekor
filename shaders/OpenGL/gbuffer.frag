@@ -21,13 +21,9 @@ void main() {
 
 	// retrieve the normal from the normal map
     vec4 sampledNormal = texture(normalMap, uv);
-	gNormal = normalize(sampledNormal * 2.0 - 1.0);
-	gNormal = vec4(normalize(TBN * gNormal.xyz), 1.0);
-
-    // TODO: why the frick can I not use sampledNormal directly??
-    if(sampledNormal.x == 0.0 && sampledNormal.y == 0.0 && sampledNormal.z == 1.0) {
-        gNormal = vec4(normalize(TBN * vec3(0, 0, 1)), 1.0);
-    }
+	vec3 glNormal = sampledNormal.xyz * 2.0 - 1.0;
+    vec3 normal = TBN * glNormal;
+	gNormal = vec4(normal, 1.0);
 
 	// positional data comes in from the vertex shader
 	gPosition = vec4(pos, 1.0);
