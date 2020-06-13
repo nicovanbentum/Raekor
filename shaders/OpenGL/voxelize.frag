@@ -6,7 +6,6 @@ layout(rgba8, binding = 1) uniform image3D voxels;
 layout(binding = 2) uniform sampler2DShadow shadowMap;
 
 in vec2 uv;
-in mat4 p;
 in flat int axis;
 in vec4 depthPosition;
 

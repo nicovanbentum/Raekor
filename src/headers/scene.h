@@ -28,6 +28,7 @@ public:
 public:
     ECS::ComponentManager<ECS::NameComponent> names;
     ECS::ComponentManager<ECS::TransformComponent> transforms;
+    ECS::ComponentManager<ECS::NodeComponent> nodes;
     ECS::ComponentManager<ECS::MeshComponent> meshes;
     ECS::ComponentManager<ECS::MeshRendererComponent> meshRenderers;
     ECS::ComponentManager<ECS::MaterialComponent> materials;

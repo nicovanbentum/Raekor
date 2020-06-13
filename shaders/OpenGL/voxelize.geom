@@ -7,7 +7,6 @@ in vec2 uvs[];
 in vec4 depthPositions[];
 
 out vec2 uv;
-out mat4 p;
 out flat int axis;
 out vec4 depthPosition;
 
@@ -26,7 +25,7 @@ void main() {
 
     // 0 = x axis dominant, 1 = y axis dominant, 2 = z axis dominant
     axis = (nDotX >= nDotY && nDotX >= nDotZ) ? 1 : (nDotY >= nDotX && nDotY >= nDotZ) ? 2 : 3;
-    p = axis == 1 ? px : axis == 2 ? py : pz;
+    mat4 p = axis == 1 ? px : axis == 2 ? py : pz;
     
     for(int i = 0; i < gl_in.length(); i++) {
         uv = uvs[i];

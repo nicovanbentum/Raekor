@@ -135,7 +135,7 @@ void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent* component) {
 
     ImGui::Text("Albedo");
     ImGui::SameLine();
-    if (ImGui::SmallButton("...")) {
+    if (ImGui::SmallButton("... ## albedo")) {
         std::string filepath = OS::openFileDialog( { textureFileFormats } );
         if (!filepath.empty()) {
             Stb::Image image;
@@ -160,7 +160,7 @@ void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent* component) {
     
     ImGui::Text("Normal map");
     ImGui::SameLine();
-    if (ImGui::SmallButton("...")) {
+    if (ImGui::SmallButton("... ## normalmap")) {
         std::string filepath = OS::openFileDialog({ textureFileFormats });
         if (!filepath.empty()) {
             Stb::Image image;
@@ -176,6 +176,18 @@ void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent* component) {
             component->normals->unbind();
         }
     }
+
+    if (component->metalrough) {
+        ImGui::Image(component->metalrough->ImGuiID(), ImVec2(15, 15));
+        ImGui::SameLine();
+    }
+
+    ImGui::Text("Metallic Roughness map");
+    ImGui::SameLine();
+    if (ImGui::SmallButton("... ## metallic roughness")) {
+        std::string filepath = OS::openFileDialog({ textureFileFormats });
+    }
+
 }
 
 void InspectorWindow::drawPointLightComponent(ECS::PointLightComponent* component) {

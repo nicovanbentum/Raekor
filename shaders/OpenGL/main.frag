@@ -122,10 +122,37 @@ vec4 coneTraceBounceLight(in vec3 p, in vec3 n, out float occlusion_out) {
     return color;
 }
 
+float getShadow(DirectionalLight light, vec3 position) {
+    vec4 FragPosLightSpace = ubo.lightSpaceMatrix * vec4(position, 1.0);
+    FragPosLightSpace.xyz = FragPosLightSpace.xyz * 0.5 + 0.5;
+
+    float currentDepth = FragPosLightSpace.z;
+
+	vec3 direction = normalize(-light.direction);
+    float bias = max(maxBias * (1.0 - dot(normal, direction)), minBias);
+    
+	// simplest PCF algorithm
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    for(int x = -3; x <= 3; ++x) {
+        for(int y = -3; y <= 3; ++y) {
+            float pcfDepth = texture(shadowMap, vec3(FragPosLightSpace.xy + vec2(x, y) * texelSize, (FragPosLightSpace.z - 0.0005)/FragPosLightSpace.w)).r; 
+            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;    
+        }    
+    }
+    shadow /= 49.0;
+    
+    // keep the shadow at 0.0 when outside the far plane region of the light's frustum
+    if(FragPosLightSpace.z > 1.0) shadow = 0.0;
+        
+    return shadow;
+}
+
 void main()
 {
     VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
+
 	normal = texture(gNormals, uv).xyz;
 	position = texture(gPositions, uv).xyz;
 
@@ -133,9 +160,9 @@ void main()
     // from -1 1 to 0 1 range for uv coordinate
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
-    float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.0005)/depthPosition.w));
-
     DirectionalLight light = ubo.dirLights[0];
+    float shadowAmount = 1.0 - getShadow(light, position);
+
 
     vec3 direction = normalize(-light.direction);
     float diff = clamp(dot(normal.xyz, direction) * shadowAmount, 0, 1);

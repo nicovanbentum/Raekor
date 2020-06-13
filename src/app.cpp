@@ -190,7 +190,7 @@ void Application::run() {
     });
 
     viewport.size.x = 2003, viewport.size.y = 1370;
-    constexpr unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+    constexpr unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
 
     // get GUI i/o and set a bunch of settings
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -235,6 +235,8 @@ void Application::run() {
     auto ConeTracePass          = std::make_unique<RenderPass::ForwardLightingPass>(viewport);
     auto voxelizePass           = std::make_unique<RenderPass::Voxelization>(128);
     auto voxelDebugPass         = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
+
+    auto skyPass = std::make_unique<RenderPass::SkyPass>(viewport);
 
 
     // boolean settings needed for a couple things
@@ -311,7 +313,6 @@ void Application::run() {
         } else {
             ConeTracePass->execute(viewport, newScene, voxelizePass.get(), shadowMapPass.get());
             tonemappingPass->execute(ConeTracePass->result, Quad.get());
-
         }
 
         if (active) {
@@ -322,8 +323,12 @@ void Application::run() {
             voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass.get());
         }
 
+        skyPass->execute(viewport, Quad.get());
+        tonemappingPass->execute(skyPass->result, Quad.get());
+
         
         //get new frame for ImGui and ImGuizmo
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         Renderer::ImGuiNewFrame(directxwindow);
         ImGuizmo::BeginFrame();
 
@@ -535,6 +540,8 @@ void Application::run() {
                 activeScreenTexture = &geometryBufferPass->normalTexture;
             if (ImGui::Selectable(nameof(geometryBufferPass->positionTexture), activeScreenTexture->ImGuiID() == geometryBufferPass->positionTexture.ImGuiID()))
                 activeScreenTexture = &geometryBufferPass->positionTexture;
+            if (ImGui::Selectable(nameof(geometryBufferPass->materialTexture), activeScreenTexture->ImGuiID() == geometryBufferPass->materialTexture.ImGuiID()))
+                activeScreenTexture = &geometryBufferPass->materialTexture;
             if (ImGui::Selectable(nameof(lightingPass->result), activeScreenTexture->ImGuiID() == lightingPass->result.ImGuiID()))
                 activeScreenTexture = &lightingPass->result;
             if (ImGui::Selectable(nameof(shadowMapPass->result), activeScreenTexture->ImGuiID() == shadowMapPass->result.ImGuiID()))
@@ -543,6 +550,8 @@ void Application::run() {
                 activeScreenTexture = &aabbDebugPass->result;
             if (ImGui::Selectable(nameof(ConeTracePass->result), activeScreenTexture->ImGuiID() == ConeTracePass->result.ImGuiID()))
                 activeScreenTexture = &ConeTracePass->result;
+            if (ImGui::Selectable(nameof(skyPass->result), activeScreenTexture->ImGuiID() == skyPass->result.ImGuiID()))
+                activeScreenTexture = &skyPass->result;
 
             ImGui::TreePop();
         }
@@ -570,6 +579,15 @@ void Application::run() {
         if (ImGui::DragFloat("Max bias", &lightingPass->settings.maxBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
         
         ImGui::NewLine();
+        ImGui::Separator();
+        ImGui::NewLine();
+        ImGui::Text("Sky Settings");
+        ImGui::DragFloat("time", &skyPass->settings.time, 0.01f, 0.0f, 1000.0f);
+        ImGui::DragFloat("cumulus", &skyPass->settings.cumulus, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat("cirrus", &skyPass->settings.cirrus, 0.01f, 0.0f, 1.0f);
+        ImGui::NewLine();
+
+
         ImGui::End();
 
         // application/render metrics

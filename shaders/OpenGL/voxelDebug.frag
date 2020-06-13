@@ -10,4 +10,5 @@ void main() {
 		discard;
 
 	final_colour = vec4(fragColor);
+    final_colour.a = 1.0;
 }

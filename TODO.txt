@@ -1,8 +1,0 @@
-Known performance slow-downs:
-	Not clearing the voxelization texture
-	SSAO when up close to geometry
-		
-	
-		
-			
-	

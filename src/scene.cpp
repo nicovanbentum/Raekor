@@ -47,9 +47,6 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDi
         aiProcess_SortByPType |
         aiProcess_JoinIdenticalVertices |
         aiProcess_GenUVCoords |
-        //aiProcess_OptimizeMeshes |
-        aiProcess_GenBoundingBoxes |
-        aiProcess_Debone |
         aiProcess_ValidateDataStructure;
 
     Assimp::Importer importer;
@@ -149,56 +146,61 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
 
 
     // get material textures from Assimp's import
-    aiString albedoFile, normalmapFile, aoFile;
+    aiString albedoFile, normalmapFile, metalroughFile;
 
-    assimpMaterial->GetTextureCount(aiTextureType_DIFFUSE);
     assimpMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
     assimpMaterial->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
+    assimpMaterial->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &metalroughFile);
 
     ECS::MaterialComponent& material = scene.materials.create(entity);
 
+    auto defaultNormal = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
+
     auto albedoEntry = images.find(albedoFile.C_Str());
+    material.albedo = std::make_unique<glTexture2D>();
+    material.albedo->bind();
+
     if (albedoEntry != images.end()) {
         Stb::Image& image = albedoEntry->second;
-        material.albedo = std::make_unique<glTexture2D>();
-        material.albedo->bind();
         material.albedo->init(image.w, image.h, Format::SRGBA_U8, image.pixels);
         material.albedo->setFilter(Sampling::Filter::Trilinear);
         material.albedo->genMipMaps();
-        material.albedo->unbind();
     }
     else {
         aiColor4D diffuse; // if the mesh doesn't have an albedo on disk we create a single pixel texture with its diffuse colour
         if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, &diffuse)) {
-            material.albedo = std::make_unique<glTexture2D>();
-            material.albedo->bind();
-            Format::Format format = { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT };
-            material.albedo->init(1, 1, format, &diffuse[0]);
+            material.albedo->init(1, 1, { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT }, &diffuse[0]);
             material.albedo->setFilter(Sampling::Filter::None);
             material.albedo->setWrap(Sampling::Wrap::Repeat);
-            material.albedo->unbind();
         }
     }
 
     auto normalsEntry = images.find(normalmapFile.C_Str());
+    material.normals = std::make_unique<glTexture2D>();
+    material.normals->bind();
+
     if (normalsEntry != images.end()) {
         Stb::Image& image = normalsEntry->second;
-        material.normals = std::make_unique<glTexture2D>();
-        material.normals->bind();
         material.normals->init(image.w, image.h, Format::RGBA_U8, image.pixels);
         material.normals->setFilter(Sampling::Filter::Trilinear);
         material.normals->genMipMaps();
-        material.normals->unbind();
     } else {
-        material.normals = std::make_unique<glTexture2D>();
-        material.normals->bind();
-        auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
+        constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
         material.normals->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(tbnAxis));
         material.normals->setFilter(Sampling::Filter::None);
         material.normals->setWrap(Sampling::Wrap::Repeat);
-        material.normals->unbind();
     }
 
+    auto metalroughEntry = images.find(metalroughFile.C_Str());
+
+    if (metalroughEntry != images.end()) {
+        Stb::Image& image = metalroughEntry->second;
+        material.metalrough = std::make_unique<glTexture2D>();
+        material.metalrough->bind();
+        material.metalrough->init(image.w, image.h, { GL_RGBA16F, GL_RGBA, GL_UNSIGNED_BYTE }, image.pixels);
+        material.metalrough->setFilter(Sampling::Filter::None);
+        material.metalrough->setWrap(Sampling::Wrap::ClampEdge);
+    }
 }
 
 void AssimpImporter::loadTexturesAsync(const aiScene* scene, const std::string& directory, AsyncDispatcher& dispatcher) {
@@ -206,10 +208,11 @@ void AssimpImporter::loadTexturesAsync(const aiScene* scene, const std::string& 
         m_assert(scene && scene->HasMeshes(), "failed to load mesh");
         auto aiMesh = scene->mMeshes[index];
 
-        aiString albedoFile, normalmapFile;
+        aiString albedoFile, normalmapFile, metalroughFile;
         auto material = scene->mMaterials[aiMesh->mMaterialIndex];
         material->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
         material->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
+        material->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &metalroughFile);
 
         if (strcmp(albedoFile.C_Str(), "") != 0) {
             Stb::Image image;
@@ -226,6 +229,15 @@ void AssimpImporter::loadTexturesAsync(const aiScene* scene, const std::string& 
             image.isSRGB = false;
             image.filepath = directory + std::string(normalmapFile.C_Str());
             images[normalmapFile.C_Str()] = image;
+        }
+
+
+        if (strcmp(metalroughFile.C_Str(), "") != 0) {
+            Stb::Image image;
+            image.format = RGBA;
+            image.isSRGB = false;
+            image.filepath = directory + std::string(metalroughFile.C_Str());
+            images[metalroughFile.C_Str()] = image;
         }
     }
 

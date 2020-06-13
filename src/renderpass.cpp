@@ -159,6 +159,13 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     positionTexture.setWrap(Sampling::Wrap::ClampEdge);
     positionTexture.unbind();
 
+    materialTexture.bind();
+    materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    auto clearColor = glm::vec4(1.0);
+    materialTexture.setFilter(Sampling::Filter::None);
+    glClearTexImage(materialTexture.mID, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColor));
+    materialTexture.unbind();
+
     GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 
     GBuffer.attach(positionTexture, GL_COLOR_ATTACHMENT0);
@@ -214,8 +221,9 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
         ECS::MaterialComponent* material = scene.materials.getComponent(entity);
 
         if (material) {
-            if(material->albedo) material->albedo->bindToSlot(0);
-            if(material->normals) material->normals->bindToSlot(3);
+            if (material->albedo)       material->albedo->bindToSlot(0);
+            if (material->normals)      material->normals->bindToSlot(3);
+            if (material->metalrough)   material->metalrough->bindToSlot(4);
         }
 
         if (transform) {
@@ -393,7 +401,8 @@ void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* sha
     
     // bind the main framebuffer
     framebuffer.bind();
-    Renderer::Clear({ 0.0f, 0.0f, 0.0f, 1.0f });
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    //Renderer::Clear({ 0.0f, 0.0f, 0.0f, 1.0f });
 
     // set uniforms
     shader.bind();
@@ -620,6 +629,12 @@ Voxelization::Voxelization(int size) : size(size) {
 
 void Voxelization::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowmap) {
     hotloader.checkForUpdates();
+
+    // left, right, bottom, top, zNear, zFar
+    auto projectionMatrix = glm::ortho(-worldSize * 0.5f, worldSize * 0.5f, -worldSize * 0.5f, worldSize * 0.5f, worldSize * 0.5f, worldSize * 1.5f);
+    px = projectionMatrix * glm::lookAt(glm::vec3(worldSize, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+    py = projectionMatrix * glm::lookAt(glm::vec3(0, worldSize, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, -1));
+    pz = projectionMatrix * glm::lookAt(glm::vec3(0, 0, worldSize), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
     result.clear({ 0, 0, 0, 0 });
 
