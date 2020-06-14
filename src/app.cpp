@@ -306,7 +306,9 @@ void Application::run() {
         
         glViewport(0, 0, viewport.size.x, viewport.size.y);
 
+        skyPass->settings.sunPosition = shadowMapPass->sunCamera.getDirection() * -1.0f;
         skyPass->execute(viewport, Quad.get());
+
 
         if (doDeferred) {
             geometryBufferPass->execute(newScene, viewport);
@@ -581,9 +583,8 @@ void Application::run() {
         ImGui::NewLine();
         ImGui::Text("Sky Settings");
 
-        ImGui::DragFloat("time", &skyPass->settings.time, 0.01f, 0.0f, 1000.0f);
-        static float timeSpeed = 1.0f;
         static bool animateSky = false;
+        static float timeSpeed = 0.1f;
         if (ImGui::DragFloat("##sky speed", &timeSpeed, 0.1f, 0.0f, 100.0f)) {}
         ImGui::SameLine();
         if(ImGui::RadioButton("Animate", animateSky)) {
@@ -591,10 +592,15 @@ void Application::run() {
         }
 
         if (animateSky) {
-            skyPass->settings.time += timeSpeed * static_cast<float>(deltaTime / 1000);
+            if (shadowMapPass->sunCamera.getAngle().y < -M_PI * 2) {
+                shadowMapPass->sunCamera.getAngle().y = 0.0f;
+            }
+            shadowMapPass->sunCamera.getAngle().y += static_cast<float>(-timeSpeed * (deltaTime / 1000));
+            voxelizePass->execute(newScene, viewport, shadowMapPass.get());
         }
 
         ImGui::DragFloat("cirrus", &skyPass->settings.cirrus, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat3("sun position", glm::value_ptr(skyPass->settings.sunPosition), 0.01f, -1.0f, 1.0f);
         ImGui::NewLine();
 
 

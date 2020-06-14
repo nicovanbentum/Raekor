@@ -246,6 +246,7 @@ public:
     struct {
         float time = 0.0f;
         float cirrus = 0.65f;
+        glm::vec3 sunPosition = glm::vec3(0.0);
     } settings;
 
     SkyPass(Viewport& viewport) {
@@ -271,6 +272,7 @@ public:
         glClear(GL_COLOR_BUFFER_BIT);
 
         shader.bind();
+        shader.getUniform("sunPosition") = settings.sunPosition;
         shader.getUniform("projection") = viewport.getCamera().getProjection();
         shader.getUniform("view") = viewport.getCamera().getView();
         shader.getUniform("time") = settings.time;
