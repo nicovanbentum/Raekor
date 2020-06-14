@@ -51,7 +51,6 @@ layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 5) uniform sampler2D SSAO;
 layout(binding = 6) uniform sampler3D voxels;
-layout(binding = 7) uniform sampler2D skyTexture;
 
 // vars retrieved from the Gbuffer TODO: make them not global?
 vec3 position;
@@ -153,12 +152,6 @@ void main()
 {
     VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
-    vec4 sky = texture(skyTexture, uv);
-
-    if(albedo.a < 1.0) {
-        finalColor = vec4(sky.rgb, 1.0);
-        return;
-    }
 
 	normal = texture(gNormals, uv).xyz;
 	position = texture(gPositions, uv).xyz;

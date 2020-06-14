@@ -241,11 +241,49 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////////
 
+class DeferredLighting {
+private:
+    struct {
+        glm::mat4 view, projection;
+        glm::mat4 lightSpaceMatrix;
+        glm::vec4 cameraPosition;
+        ECS::DirectionalLightComponent::ShaderBuffer dirLights[1];
+        ECS::PointLightComponent::ShaderBuffer pointLights[10];
+        unsigned int renderFlags = 0b00000001;
+    } uniforms;
+
+public:
+    struct {
+        float farPlane = 25.0f;
+        float minBias = 0.000f, maxBias = 0.0f;
+        glm::vec4 sunColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+        glm::vec3 bloomThreshold{ 2.0f, 2.0f, 2.0f };
+    } settings;
+
+
+    DeferredLighting(Viewport& viewport);
+    void execute(Scene& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
+        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad);
+    void resize(Viewport& viewport);
+
+private:
+    glShader shader;
+    glFramebuffer framebuffer;
+    glUniformBuffer uniformBuffer;
+
+    ShaderHotloader hotloader;
+
+public:
+    glTexture2D result;
+    glTexture2D bloomHighlights;
+};
+
 class SkyPass {
 public:
     struct {
         float time = 0.0f;
-        float cirrus = 0.65f;
+        float cirrus = 0.4f;
+        float cumulus = 0.8f;
     } settings;
 
     SkyPass(Viewport& viewport) {
@@ -275,6 +313,7 @@ public:
         shader.getUniform("view") = viewport.getCamera().getView();
         shader.getUniform("time") = settings.time;
         shader.getUniform("cirrus") = settings.cirrus;
+        shader.getUniform("cumulus") = settings.cumulus;
 
         quad->render();
 
@@ -290,43 +329,6 @@ public:
     glTexture2D result;
 
 
-};
-
-class DeferredLighting {
-private:
-    struct {
-        glm::mat4 view, projection;
-        glm::mat4 lightSpaceMatrix;
-        glm::vec4 cameraPosition;
-        ECS::DirectionalLightComponent::ShaderBuffer dirLights[1];
-        ECS::PointLightComponent::ShaderBuffer pointLights[10];
-        unsigned int renderFlags = 0b00000001;
-    } uniforms;
-
-public:
-    struct {
-        float farPlane = 25.0f;
-        float minBias = 0.000f, maxBias = 0.0f;
-        glm::vec4 sunColor{ 1.0f, 1.0f, 1.0f, 1.0f };
-        glm::vec3 bloomThreshold{ 2.0f, 2.0f, 2.0f };
-    } settings;
-
-
-    DeferredLighting(Viewport& viewport);
-    void execute(Scene& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad, SkyPass* skyPass);
-    void resize(Viewport& viewport);
-
-private:
-    glShader shader;
-    glFramebuffer framebuffer;
-    glUniformBuffer uniformBuffer;
-
-    ShaderHotloader hotloader;
-
-public:
-    glTexture2D result;
-    glTexture2D bloomHighlights;
 };
 
 } // renderpass

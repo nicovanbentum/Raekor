@@ -306,11 +306,9 @@ void Application::run() {
         
         glViewport(0, 0, viewport.size.x, viewport.size.y);
 
-        skyPass->execute(viewport, Quad.get());
-
         if (doDeferred) {
             geometryBufferPass->execute(newScene, viewport);
-            lightingPass->execute(newScene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get(), skyPass.get());
+            lightingPass->execute(newScene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
             tonemappingPass->execute(lightingPass->result, Quad.get());
         } else {
             ConeTracePass->execute(viewport, newScene, voxelizePass.get(), shadowMapPass.get());
@@ -324,6 +322,10 @@ void Application::run() {
         if (debugVoxels) {
             voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass.get());
         }
+
+        skyPass->execute(viewport, Quad.get());
+        tonemappingPass->execute(skyPass->result, Quad.get());
+
         
         //get new frame for ImGui and ImGuizmo
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -580,20 +582,8 @@ void Application::run() {
         ImGui::Separator();
         ImGui::NewLine();
         ImGui::Text("Sky Settings");
-
         ImGui::DragFloat("time", &skyPass->settings.time, 0.01f, 0.0f, 1000.0f);
-        static float timeSpeed = 1.0f;
-        static bool animateSky = false;
-        if (ImGui::DragFloat("##sky speed", &timeSpeed, 0.1f, 0.0f, 100.0f)) {}
-        ImGui::SameLine();
-        if(ImGui::RadioButton("Animate", animateSky)) {
-            animateSky = !animateSky;
-        }
-
-        if (animateSky) {
-            skyPass->settings.time += timeSpeed * static_cast<float>(deltaTime / 1000);
-        }
-
+        ImGui::DragFloat("cumulus", &skyPass->settings.cumulus, 0.01f, 0.0f, 1.0f);
         ImGui::DragFloat("cirrus", &skyPass->settings.cirrus, 0.01f, 0.0f, 1.0f);
         ImGui::NewLine();
 
