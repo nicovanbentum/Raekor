@@ -952,5 +952,39 @@ void ForwardLightingPass::resize(Viewport& viewport) {
     renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
 
+SkyPass::SkyPass(Viewport& viewport) {
+    std::vector<glShader::Stage> stages;
+    stages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\sky.vert");
+    stages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\sky.frag");
+    shader.reload(stages.data(), stages.size());
+    hotloader.watch(&shader, stages.data(), stages.size());
+
+    result.bind();
+    result.init(viewport.size.x, viewport.size.y, { GL_RGBA32F, GL_RGBA, GL_FLOAT });
+    result.setFilter(Sampling::Filter::None);
+    result.setWrap(Sampling::Wrap::ClampEdge);
+    result.unbind();
+
+    framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
+}
+
+void SkyPass::execute(Viewport& viewport, Mesh* quad) {
+    hotloader.checkForUpdates();
+
+    framebuffer.bind();
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    shader.bind();
+    shader.getUniform("projection") = viewport.getCamera().getProjection();
+    shader.getUniform("view") = viewport.getCamera().getView();
+    shader.getUniform("time") = settings.time;
+    shader.getUniform("cirrus") = settings.cirrus;
+    shader.getUniform("cumulus") = settings.cumulus;
+
+    quad->render();
+
+    framebuffer.unbind();
+}
+
 } // renderpass
 } // namespace Raekor

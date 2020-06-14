@@ -54,7 +54,7 @@ public:
         Items.push_back(Strdup(buf));
     }
 
-    void    Draw(chaiscript::ChaiScript& chai);
+    void    Draw(chaiscript::ChaiScript* chai);
     void    ExecCommand(const char* command_line);
     
     static int TextEditCallbackStub(ImGuiInputTextCallbackData* data);

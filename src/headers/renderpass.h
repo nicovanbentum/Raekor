@@ -286,39 +286,9 @@ public:
         float cumulus = 0.8f;
     } settings;
 
-    SkyPass(Viewport& viewport) {
-        std::vector<glShader::Stage> stages;
-        stages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\sky.vert");
-        stages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\sky.frag");
-        shader.reload(stages.data(), stages.size());
-        hotloader.watch(&shader, stages.data(), stages.size());
-    
-        result.bind();
-        result.init(viewport.size.x, viewport.size.y, { GL_RGBA32F, GL_RGBA, GL_FLOAT });
-        result.setFilter(Sampling::Filter::None);
-        result.setWrap(Sampling::Wrap::ClampEdge);
-        result.unbind();
+    SkyPass(Viewport& viewport);
 
-        framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
-    }
-
-    void execute( Viewport& viewport, Mesh* quad) {
-        hotloader.checkForUpdates();
-
-        framebuffer.bind();
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        shader.bind();
-        shader.getUniform("projection") = viewport.getCamera().getProjection();
-        shader.getUniform("view") = viewport.getCamera().getView();
-        shader.getUniform("time") = settings.time;
-        shader.getUniform("cirrus") = settings.cirrus;
-        shader.getUniform("cumulus") = settings.cumulus;
-
-        quad->render();
-
-        framebuffer.unbind();
-    }
+    void execute(Viewport& viewport, Mesh* quad);
 
 private:
     glShader shader;

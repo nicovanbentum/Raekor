@@ -7,6 +7,7 @@
 #include "entry.h"
 #include "camera.h"
 #include "shader.h"
+#include "script.h"
 #include "framebuffer.h"
 #include "platform/OS.h"
 #include "renderer.h"
@@ -43,81 +44,10 @@ void Application::run() {
         SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED;
 
     // init scripting language
-    chaiscript::ChaiScript chai = chaiscript::ChaiScript({}, { "scripts\\" });
-
-    // add glm::vec2
-    chai.add(chaiscript::user_type<glm::vec<2, float, glm::packed_highp>>(), "Vector2");
-    chai.add(chaiscript::constructor<glm::vec<2, float, glm::packed_highp>(float x, float y)>(), "Vector2");
-    chai.add(chaiscript::fun(&glm::vec<2, float, glm::packed_highp>::x), "x");
-    chai.add(chaiscript::fun(&glm::vec<2, float, glm::packed_highp>::y), "y");
-
-    // add glm::vec3
-    chai.add(chaiscript::user_type<glm::vec<2, float, glm::packed_highp>>(), "Vector3");
-    chai.add(chaiscript::constructor<glm::vec<3, float, glm::packed_highp>(float x, float y, float z)>(), "Vector3");
-
-    chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp> & (glm::vec<3, float, glm::packed_highp>::*)(const glm::vec<3, float, glm::packed_highp>&)>(&glm::vec<3, float, glm::packed_highp>::operator=)), "=");
-    chai.add(chaiscript::fun(static_cast<glm::vec<2, float, glm::packed_highp> & (glm::vec<2, float, glm::packed_highp>::*)(const glm::vec<2, float, glm::packed_highp>&)>(&glm::vec<2, float, glm::packed_highp>::operator=)), "=");
-
-
-    chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp> & (glm::vec<3, float, glm::packed_highp>::*)(const glm::vec<3, float, glm::packed_highp>&)>(&glm::vec<3, float, glm::packed_highp>::operator+=)), "+=");
-
-    chai.add(chaiscript::bootstrap::standard_library::vector_type<std::vector<Vertex>>("VertexList"));
-    chai.add(chaiscript::bootstrap::standard_library::vector_type<std::vector<Triangle>>("FaceList"));
-
-    chai.add(chaiscript::fun(&glm::vec<3, float, glm::packed_highp>::x), "x");
-    chai.add(chaiscript::fun(&glm::vec<3, float, glm::packed_highp>::y), "y");
-    chai.add(chaiscript::fun(&glm::vec<3, float, glm::packed_highp>::z), "z");
-
-    // add Vertex
-    chai.add(chaiscript::user_type<Vertex>(), "Vertex");
-    chai.add(chaiscript::constructor<Vertex()>(), "Vertex");
-    chai.add(chaiscript::fun(&Vertex::pos), "pos");
-    chai.add(chaiscript::fun(&Vertex::uv), "uv");
-    chai.add(chaiscript::fun(&Vertex::normal), "normal");
-
-     //add Face
-    chai.add(chaiscript::user_type<Triangle>(), "Triangle");
-    chai.add(chaiscript::constructor<Triangle()>(), "Triangle");
-    chai.add(chaiscript::constructor<Triangle(uint32_t _f1, uint32_t _f2, uint32_t _f3)>(), "Triangle");
-    chai.add(chaiscript::fun(&Triangle::p1), "p1");
-    chai.add(chaiscript::fun(&Triangle::p2), "p2");
-    chai.add(chaiscript::fun(&Triangle::p3), "p3");
-
-    // add cross product for vec3's
-    chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp>(*)(const glm::vec<3, float, glm::packed_highp>&, const glm::vec<3, float, glm::packed_highp>&)>(&glm::cross<float, glm::packed_highp>)), "cross");
-
-    // add normalize for vector 3
-    chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp>(*)(const glm::vec<3, float, glm::packed_highp>&)>(&glm::normalize<3, float, glm::packed_highp>)), "normalize");
-
-    // add minus operator for vector 3's
-    chai.add(chaiscript::fun(static_cast<glm::vec<3, float, glm::packed_highp>(*)(const glm::vec<3, float, glm::packed_highp>&, const glm::vec<3, float, glm::packed_highp>&)>(&glm::operator-<float, glm::packed_highp>)), "-");
-
-    glm::vec<3, float, glm::packed_highp>(*fff)(const glm::vec<3, float, glm::packed_highp>&, const glm::vec<3, float, glm::packed_highp>&) = glm::operator-<float, glm::packed_highp>;
-
-    // add glm::perlin for vec2's
-    chai.add(chaiscript::fun(static_cast<float(*)(glm::vec<2, float, glm::packed_highp> const&)>(&glm::perlin<float, glm::packed_highp>)), "perlin");
-    chai.add(chaiscript::fun(static_cast<float(*)(glm::vec<2, float, glm::packed_highp> const&)>(&glm::simplex<float, glm::packed_highp>)), "simplex");
+    auto chai = create_chaiscript();
 
     // add scene methods
     Scene newScene;
-
-    // add scene type
-    chai.add(chaiscript::var(std::ref(newScene)), "scene");
-
-    chai.add(chaiscript::fun(&Scene::addMesh), "addMesh");
-    chai.add(chaiscript::fun(&Scene::createPointLight), "createPointLight");
-    chai.add(chaiscript::fun(&Scene::createObject), "createObject");
-
-    chai.add(chaiscript::fun(&Scene::meshes), "meshes");
-
-    chai.add(chaiscript::fun(&ECS::ComponentManager<ECS::MeshComponent>::create), "create");
-
-
-    chai.add(chaiscript::fun(&ECS::MeshComponent::vertices), "vertices");
-    chai.add(chaiscript::fun(&ECS::MeshComponent::indices), "indices");
-    chai.add(chaiscript::fun(&ECS::MeshComponent::uploadVertices), "uploadVertices");
-    chai.add(chaiscript::fun(&ECS::MeshComponent::uploadIndices), "uploadIndices");
-    chai.add(chaiscript::fun(&ECS::MeshComponent::generateAABB), "generateAABB");
 
 
 
@@ -235,9 +165,7 @@ void Application::run() {
     auto ConeTracePass          = std::make_unique<RenderPass::ForwardLightingPass>(viewport);
     auto voxelizePass           = std::make_unique<RenderPass::Voxelization>(128);
     auto voxelDebugPass         = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
-
-    auto skyPass = std::make_unique<RenderPass::SkyPass>(viewport);
-
+    auto skyPass                = std::make_unique<RenderPass::SkyPass>(viewport);
 
     // boolean settings needed for a couple things
     bool doSSAO = false, doBloom = false, debugVoxels = false, doDeferred = true;
@@ -271,7 +199,6 @@ void Application::run() {
     GUI::EntityWindow ecsWindow;
     GUI::ConsoleWindow consoleWindow;
     GUI::InspectorWindow inspectorWindow;
-
 
     ImVec2 pos;
 
@@ -465,7 +392,7 @@ void Application::run() {
         }
 
         // chai console panel
-        consoleWindow.Draw(chai);
+        consoleWindow.Draw(chai.get());
 
         //Inspector panel
         inspectorWindow.draw(newScene, active);
@@ -582,7 +509,6 @@ void Application::run() {
         ImGui::DragFloat("cumulus", &skyPass->settings.cumulus, 0.01f, 0.0f, 1.0f);
         ImGui::DragFloat("cirrus", &skyPass->settings.cirrus, 0.01f, 0.0f, 1.0f);
         ImGui::NewLine();
-
 
         ImGui::End();
 

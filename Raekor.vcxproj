@@ -196,6 +196,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\platform\windows\DXTexture.cpp" />
     <ClCompile Include="src\platform\windows\OS.cpp" />
     <ClCompile Include="src\renderer.cpp" />
+    <ClCompile Include="src\script.cpp" />
     <ClCompile Include="src\shader.cpp" />
     <ClCompile Include="src\stb_impl.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
@@ -244,6 +245,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\scene.h" />
     <ClInclude Include="src\headers\pch.h" />
     <ClInclude Include="src\headers\renderer.h" />
+    <ClInclude Include="src\headers\script.h" />
     <ClInclude Include="src\headers\shader.h" />
     <ClInclude Include="src\headers\texture.h" />
     <ClInclude Include="src\headers\timer.h" />

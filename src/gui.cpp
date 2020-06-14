@@ -225,7 +225,7 @@ void ConsoleWindow::ClearLog()
     Items.clear();
 }
 
-void ConsoleWindow::Draw(chaiscript::ChaiScript& chai)
+void ConsoleWindow::Draw(chaiscript::ChaiScript* chai)
 {
     if (!ImGui::Begin("Console"))
     {
@@ -272,7 +272,7 @@ void ConsoleWindow::Draw(chaiscript::ChaiScript& chai)
             std::string evaluation = std::string(s);
 
             try {
-                chai.eval(evaluation);
+                chai->eval(evaluation);
             } catch (const chaiscript::exception::eval_error& ee) {
                 std::cout << ee.what();
                 if (ee.call_stack.size() > 0) {
