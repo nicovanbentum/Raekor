@@ -323,10 +323,6 @@ void Application::run() {
             voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass.get());
         }
 
-        skyPass->execute(viewport, Quad.get());
-        tonemappingPass->execute(skyPass->result, Quad.get());
-
-        
         //get new frame for ImGui and ImGuizmo
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         Renderer::ImGuiNewFrame(directxwindow);
