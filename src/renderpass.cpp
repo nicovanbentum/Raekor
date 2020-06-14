@@ -6,26 +6,6 @@
 namespace Raekor {
 namespace RenderPass {
 
-std::vector<ECS::Entity> get_entities_sorted_by_transparency(Viewport& viewport, ECS::ComponentManager<ECS::TransformComponent>& transforms) {
-    std::vector<ECS::Entity> entities;
-    entities.reserve(transforms.getCount());
-    for (int i = 0; i < transforms.getCount(); i++) {
-        entities.push_back(transforms.getEntity(i));
-    }
-
-    std::sort(entities.begin(), entities.end(), [&](ECS::Entity lhs, ECS::Entity rhs) -> bool {
-        auto lhsTransform = transforms.getComponent(lhs);
-        auto rhsTransform = transforms.getComponent(rhs);
-
-        const auto lhsDist = glm::distance(viewport.getCamera().getPosition(), lhsTransform->localPosition);
-        const auto rhsDist = glm::distance(viewport.getCamera().getPosition(), rhsTransform->localPosition);
-
-        return lhsDist > rhsDist;
-        });
-
-    return entities;
-}
-
 ShadowMap::ShadowMap(uint32_t width, uint32_t height) :
     sunCamera(glm::vec3(0, 0, 0), glm::orthoRH_ZO(
         -settings.size, settings.size, -settings.size, settings.size, 
@@ -217,12 +197,10 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
 
     culled = 0;
 
-    auto entities = get_entities_sorted_by_transparency(viewport, scene.transforms);
+    for (uint32_t i = 0; i < scene.meshes.getCount(); i++) {
+        ECS::Entity entity = scene.meshes.getEntity(i);
 
-    for (auto entity : entities) {
-
-        ECS::MeshComponent* mesh = scene.meshes.getComponent(entity);
-        if (!mesh) continue;
+        ECS::MeshComponent& mesh = scene.meshes[i];
 
         ECS::NameComponent* name = scene.names.getComponent(entity);
 
@@ -231,8 +209,8 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
 
             // convert AABB from local to world space
             std::array<glm::vec3, 2> worldAABB = {
-                worldTransform * glm::vec4(mesh->aabb[0], 1.0),
-                worldTransform * glm::vec4(mesh->aabb[1], 1.0)
+                worldTransform * glm::vec4(mesh.aabb[0], 1.0),
+                worldTransform * glm::vec4(mesh.aabb[1], 1.0)
             };
 
             // if the frustrum can't see the mesh's OBB we cull it
@@ -260,9 +238,9 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
         // write the entity ID to the stencil buffer for picking
         glStencilFunc(GL_ALWAYS, (GLint)entity, 0xFFFF);
 
-        mesh->vertexBuffer.bind();
-        mesh->indexBuffer.bind();
-        Renderer::DrawIndexed(mesh->indexBuffer.count);
+        mesh.vertexBuffer.bind();
+        mesh.indexBuffer.bind();
+        Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
 
     GBuffer.unbind();

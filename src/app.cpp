@@ -698,7 +698,6 @@ void Application::run() {
             aabbDebugPass->resize(viewport);
             voxelDebugPass->resize(viewport);
             ConeTracePass->resize(viewport);
-            skyPass->resize(viewport);
 
             
             resizing = false;

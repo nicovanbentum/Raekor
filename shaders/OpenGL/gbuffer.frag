@@ -21,8 +21,6 @@ void main() {
 	// write the color to the color texture of the gbuffer
 	gColor = texture(meshTexture, uv);
 
-    if(gColor.a < 1.0) discard;
-
 	// retrieve the normal from the normal map
     vec4 sampledNormal = texture(normalTexture, uv);
 	vec3 glNormal = sampledNormal.xyz * 2.0 - 1.0;

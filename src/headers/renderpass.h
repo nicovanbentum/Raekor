@@ -281,14 +281,6 @@ public:
         framebuffer.unbind();
     }
 
-    void resize(Viewport& viewport) {
-        result.bind();
-        result.init(viewport.size.x, viewport.size.y, { GL_RGBA32F, GL_RGBA, GL_FLOAT });
-        result.setFilter(Sampling::Filter::None);
-        result.setWrap(Sampling::Wrap::ClampEdge);
-        result.unbind();
-    }
-
 private:
     glShader shader;
     ShaderHotloader hotloader;

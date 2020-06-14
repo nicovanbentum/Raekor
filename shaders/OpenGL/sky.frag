@@ -15,9 +15,9 @@ in vec3 pos;
 in vec3 fsun;
 
 const float Br = 0.0025;
-const float Bm = 0.0002;
-const float g =  0.9900;
-const vec3 nitrogen = vec3(0.790, 0.699, 0.615);
+const float Bm = 0.0003;
+const float g =  0.9800;
+const vec3 nitrogen = vec3(0.750, 0.670, 0.575);
 const vec3 Kr = Br / pow(nitrogen, vec3(4.0));
 const vec3 Km = Bm / pow(nitrogen, vec3(0.84));
 
@@ -59,7 +59,7 @@ void main() {
      final_colour.rgb = mix(final_colour.rgb, extinction * 4.0, density * max(pos.y, 0.0));
 
     // Dithering Noise
-    final_colour.rgb += noise(pos * 1000) * 0.01;
+    //final_colour.rgb += noise(pos * 1000) * 0.01;
 
     final_colour.a = 1.0;
 }

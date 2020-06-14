@@ -13,5 +13,6 @@ out vec3 fsun;
 void main() {
     gl_Position = vec4(v_pos.x, v_pos.y, 0.0, 1.0);
     pos = transpose(mat3(view)) * (inverse(projection) * gl_Position).xyz;
-    fsun = vec3(-0.3, sin(time * 0.01), cos(time * 0.01));
+    pos.x += 0.5;
+    fsun = vec3(0.0, sin(time * 0.01), cos(time * 0.01));
 }
