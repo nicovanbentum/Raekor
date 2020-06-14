@@ -8,6 +8,7 @@
 
 layout(location = 0) out vec4 final_colour;
 
+uniform float time = 0.0;
 uniform float cirrus = 0.4;
 
 in vec3 pos;
@@ -47,8 +48,6 @@ float fbm(vec3 p) {
 
 void main() {
     //if (pos.y < 0) discard;
-
-    float time = asin(fsun.y) * 100;
 
     // // Atmosphere Scattering
      float mu = dot(normalize(pos), normalize(fsun));
