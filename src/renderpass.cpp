@@ -184,7 +184,9 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
     glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
 
     GBuffer.bind();
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
@@ -396,7 +398,7 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 }
 
 void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap, 
-                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad) {
+                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad, SkyPass* skyPass) {
     hotloader.checkForUpdates();
     
     // bind the main framebuffer
@@ -433,6 +435,7 @@ void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* sha
     }
 
     voxels->result.bindToSlot(6);
+    skyPass->result.bindToSlot(7);
 
     // update the uniform buffer CPU side
     uniforms.view = viewport.getCamera().getView();
