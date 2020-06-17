@@ -228,7 +228,6 @@ void Application::run() {
 
         if (shouldVoxelize) {
             voxelizePass->execute(newScene, viewport, shadowMapPass.get());
-            shouldVoxelize = false;
         }
         
         glViewport(0, 0, viewport.size.x, viewport.size.y);
@@ -441,9 +440,8 @@ void Application::run() {
             debugVoxels = !debugVoxels;
         }
 
-        ImGui::SameLine();
-        if (ImGui::Button("Voxelize")) {
-            shouldVoxelize = true;
+        if (ImGui::RadioButton("Voxelize", shouldVoxelize)) {
+            shouldVoxelize = !shouldVoxelize;
         }
 
         if (ImGui::RadioButton("Deferred", doDeferred)) {
@@ -483,9 +481,7 @@ void Application::run() {
 
         ImGui::Text("Directional Light");
         ImGui::Separator();
-        if (ImGui::DragFloat2("Angle", glm::value_ptr(shadowMapPass->sunCamera.getAngle()), 0.01f)) {
-            voxelizePass->execute(newScene, viewport, shadowMapPass.get());
-        }
+        ImGui::DragFloat2("Angle", glm::value_ptr(shadowMapPass->sunCamera.getAngle()), 0.01f);
         
         if (ImGui::DragFloat2("Planes", glm::value_ptr(shadowMapPass->settings.planes), 0.1f)) {
             shadowMapPass->sunCamera.getProjection() = glm::orthoRH_ZO(-shadowMapPass->settings.size, shadowMapPass->settings.size, -shadowMapPass->settings.size, shadowMapPass->settings.size,

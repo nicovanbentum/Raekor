@@ -161,9 +161,12 @@ public:
     void execute(Scene& scene, Viewport& viewport, ShadowMap* shadowmap);
 
 private:
+    void computeMipmaps();
+
     int size;
     glm::mat4 px, py, pz;
     glShader shader;
+    glShader mipmapShader;
     ShaderHotloader hotloader;
 
 public:

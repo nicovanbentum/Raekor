@@ -1,0 +1,23 @@
+#version 440 core
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+uniform readonly layout(binding = 0, RGBA8) image3D inputTexture;
+uniform writeonly layout(binding = 1, RGBA8) image3D outputTexture;
+
+void main() {
+    ivec3 gid = ivec3(gl_GlobalInvocationID);
+    ivec3 pos = gid * 2;
+    ivec3 pos_max = pos + 1;
+
+    vec4 result = vec4(0.0);
+    for(int x = pos.x; x <= pos_max.x; ++x) {
+        for(int y = pos.y; y <= pos_max.y; ++y) {
+            for(int z = pos.z; z <= pos_max.z; ++z) {
+                result += imageLoad(inputTexture, ivec3(x, y, z));
+            }
+        }
+    }
+
+    result = result / 8.0;
+    imageStore(outputTexture, gid, result);
+}

@@ -614,16 +614,29 @@ Voxelization::Voxelization(int size) : size(size) {
 
     hotloader.watch(&shader, voxelStages.data(), voxelStages.size());
 
+    auto mipStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\mipmap.comp");
+    mipmapShader.reload(&mipStage, 1);
+
     // Direct State Access (TODO: Experimental, implement everywhere)
-    result.init(size, size, size, GL_RGBA8, nullptr);
     result.setFilter(Sampling::Filter::Trilinear);
+    auto level = std::log2(size);
+    glTextureStorage3D(result.mID, static_cast<GLsizei>(std::floor(level)), GL_RGBA8, size, size, size);
+
     result.genMipMaps();
-    
-    // left, right, bottom, top, zNear, zFar
-    auto projectionMatrix = glm::ortho(-worldSize * 0.5f, worldSize * 0.5f, -worldSize * 0.5f, worldSize * 0.5f, worldSize * 0.5f, worldSize * 1.5f);
-    px = projectionMatrix * glm::lookAt(glm::vec3(worldSize, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-    py = projectionMatrix * glm::lookAt(glm::vec3(0, worldSize, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, -1));
-    pz = projectionMatrix * glm::lookAt(glm::vec3(0, 0, worldSize), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+}
+
+void Voxelization::computeMipmaps() {
+    int level = 0, texSize = size;
+    while (texSize >= 1.0f) {
+        texSize = static_cast<int>(texSize * 0.5f);
+        mipmapShader.bind();
+        glBindImageTexture(0, result.mID, level, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA8);
+        glBindImageTexture(1, result.mID, level + 1, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
+        glDispatchCompute(texSize, texSize, texSize);
+        mipmapShader.unbind();
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        level++;
+    }
 }
 
 
@@ -674,9 +687,8 @@ void Voxelization::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowma
         Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
 
-    // sync with host and generate mips
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-    result.genMipMaps();
+    computeMipmaps();
+    //result.genMipMaps();
 
     // reset OpenGL state
     glViewport(0, 0, viewport.size.x, viewport.size.y);

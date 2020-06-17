@@ -162,7 +162,7 @@ void main()
 
     DirectionalLight light = ubo.dirLights[0];
     float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.0005)/depthPosition.w));
-
+    shadowAmount = 1.0 - getShadow(light, position);
 
     vec3 direction = normalize(-light.direction);
     float diff = clamp(dot(normal.xyz, direction) * shadowAmount, 0, 1);
