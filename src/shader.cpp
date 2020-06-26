@@ -93,6 +93,7 @@ void glShader::reload(Stage* stages, size_t stageCount) {
             glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &logMessageLength);
             std::vector<char> error_msg(logMessageLength);
             glGetShaderInfoLog(shaderID, logMessageLength, NULL, error_msg.data());
+            std::cout << error_msg.data() << std::endl;
             throw std::runtime_error(error_msg.data());
         }
 

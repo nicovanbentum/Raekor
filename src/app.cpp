@@ -481,7 +481,11 @@ void Application::run() {
 
         ImGui::Text("Directional Light");
         ImGui::Separator();
-        ImGui::DragFloat2("Angle", glm::value_ptr(shadowMapPass->sunCamera.getAngle()), 0.01f);
+        if (ImGui::DragFloat2("Angle", glm::value_ptr(shadowMapPass->sunCamera.getAngle()), 0.01f)) {
+            if (!shouldVoxelize) {
+                voxelizePass->execute(newScene, viewport, shadowMapPass.get());
+            }
+        }
         
         if (ImGui::DragFloat2("Planes", glm::value_ptr(shadowMapPass->settings.planes), 0.1f)) {
             shadowMapPass->sunCamera.getProjection() = glm::orthoRH_ZO(-shadowMapPass->settings.size, shadowMapPass->settings.size, -shadowMapPass->settings.size, shadowMapPass->settings.size,

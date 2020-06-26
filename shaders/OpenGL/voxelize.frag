@@ -1,13 +1,50 @@
-#version 440 core
-#extension GL_ARB_shader_image_load_store : enable
+#version 450
+#extension GL_ARB_shader_image_load_store : require
 
 layout(binding = 0) uniform sampler2D albedo;
-layout(rgba8, binding = 1) uniform image3D voxels;
+layout(r32ui, binding = 1) uniform volatile coherent uimage3D voxels;
+
 layout(binding = 2) uniform sampler2DShadow shadowMap;
 
 in vec2 uv;
 in flat int axis;
 in vec4 depthPosition;
+
+vec4 convRGBA8ToVec4(uint val)
+{
+    return vec4(float((val & 0x000000FF)), 
+    float((val & 0x0000FF00) >> 8U), 
+    float((val & 0x00FF0000) >> 16U), 
+    float((val & 0xFF000000) >> 24U));
+}
+
+uint convVec4ToRGBA8(vec4 val)
+{
+    return (uint(val.w) & 0x000000FF) << 24U | 
+    (uint(val.z) & 0x000000FF) << 16U | 
+    (uint(val.y) & 0x000000FF) << 8U | 
+    (uint(val.x) & 0x000000FF);
+}
+
+void imageAtomicRGBA8Avg(layout(r32ui) volatile coherent uimage3D grid, ivec3 coords, vec4 value)
+{
+    value.rgb *= 255.0;                 // optimize following calculations
+    uint newVal = convVec4ToRGBA8(value);
+    uint prevStoredVal = 0;
+    uint curStoredVal;
+
+    // if curstoredval = prevstoredval, write newval
+    while((curStoredVal = imageAtomicCompSwap(grid, coords, prevStoredVal, newVal)) 
+            != prevStoredVal)
+    {
+        prevStoredVal = curStoredVal;
+        vec4 rval = convRGBA8ToVec4(curStoredVal);
+        rval.rgb = (rval.rgb * rval.a); // Denormalize
+        vec4 curValF = rval + value;    // Add
+        curValF.rgb /= curValF.a;      // Renormalize
+        newVal = convVec4ToRGBA8(curValF);
+    }
+}
 
 void main() {
     vec4 sampled = texture(albedo, uv);
@@ -32,5 +69,6 @@ void main() {
 	}
 
 	voxelPosition.z = dim - voxelPosition.z - 1;
-    imageStore(voxels, voxelPosition, vec4(sampled.rgb * shadowAmount, sampled.a));
+    vec4 writeVal = vec4(sampled.rgb * shadowAmount, sampled.a);
+    imageAtomicRGBA8Avg(voxels, voxelPosition, writeVal);
 }

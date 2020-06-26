@@ -161,12 +161,15 @@ public:
     void execute(Scene& scene, Viewport& viewport, ShadowMap* shadowmap);
 
 private:
-    void computeMipmaps();
+    void computeMipmaps(glTexture3D& texture);
+
+    void correctOpacity(glTexture3D& texture);
 
     int size;
     glm::mat4 px, py, pz;
     glShader shader;
     glShader mipmapShader;
+    glShader opacityFixShader;
     ShaderHotloader hotloader;
 
 public:

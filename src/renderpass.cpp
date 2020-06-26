@@ -617,26 +617,37 @@ Voxelization::Voxelization(int size) : size(size) {
     auto mipStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\mipmap.comp");
     mipmapShader.reload(&mipStage, 1);
 
+    auto opacityFixStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\correctAlpha.comp");
+    opacityFixShader.reload(&opacityFixStage, 1);
+
     // Direct State Access (TODO: Experimental, implement everywhere)
     result.setFilter(Sampling::Filter::Trilinear);
-    auto level = std::log2(size);
-    glTextureStorage3D(result.mID, static_cast<GLsizei>(std::floor(level)), GL_RGBA8, size, size, size);
-
+    auto levelCount = std::log2(size);
+    glTextureStorage3D(result.mID, static_cast<GLsizei>(levelCount), GL_RGBA8, size, size, size);
     result.genMipMaps();
 }
 
-void Voxelization::computeMipmaps() {
+void Voxelization::computeMipmaps(glTexture3D& texture) {
     int level = 0, texSize = size;
     while (texSize >= 1.0f) {
         texSize = static_cast<int>(texSize * 0.5f);
         mipmapShader.bind();
-        glBindImageTexture(0, result.mID, level, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA8);
-        glBindImageTexture(1, result.mID, level + 1, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
+        glBindImageTexture(0, texture.mID, level, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA8);
+        glBindImageTexture(1, texture.mID, level + 1, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
         glDispatchCompute(texSize, texSize, texSize);
         mipmapShader.unbind();
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
         level++;
     }
+}
+
+void Voxelization::correctOpacity(glTexture3D& texture) {
+    opacityFixShader.bind();
+    glBindImageTexture(0, texture.mID, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA8);
+    // local work group size is 64
+    glDispatchCompute(static_cast<GLuint>(size / 64), size, size);
+    opacityFixShader.unbind();
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
 
@@ -660,7 +671,7 @@ void Voxelization::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowma
 
     // bind shader and 3d voxel map
     shader.bind();
-    result.bindToSlot(1, GL_WRITE_ONLY, GL_RGBA8);
+    result.bindToSlot(1, GL_WRITE_ONLY, GL_R32UI);
     shadowmap->result.bindToSlot(2);
 
     shader.getUniform("lightViewProjection") = shadowmap->sunCamera.getProjection() * shadowmap->sunCamera.getView();
@@ -687,7 +698,11 @@ void Voxelization::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowma
         Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
 
-    computeMipmaps();
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Run compute shaders
+    correctOpacity(result);
+    computeMipmaps(result);
     //result.genMipMaps();
 
     // reset OpenGL state
