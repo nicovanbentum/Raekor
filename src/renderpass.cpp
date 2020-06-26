@@ -634,7 +634,8 @@ void Voxelization::computeMipmaps(glTexture3D& texture) {
         mipmapShader.bind();
         glBindImageTexture(0, texture.mID, level, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA8);
         glBindImageTexture(1, texture.mID, level + 1, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
-        glDispatchCompute(texSize, texSize, texSize);
+        // TODO: query local work group size at startup
+        glDispatchCompute(static_cast<GLuint>(size / 64), texSize, texSize);
         mipmapShader.unbind();
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
         level++;
