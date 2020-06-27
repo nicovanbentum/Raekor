@@ -44,7 +44,7 @@ std::string OS::saveFileDialog(const char* filters, const char* defaultExt) {
     ofn.lpstrDefExt = defaultExt;
     ofn.nMaxFileTitle = 0;
     ofn.lpstrInitialDir = NULL;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT;
 
     if (GetSaveFileNameA(&ofn) == TRUE) {
         return ofn.lpstrFile;

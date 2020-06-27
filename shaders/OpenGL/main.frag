@@ -51,6 +51,7 @@ layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 5) uniform sampler2D SSAO;
 layout(binding = 6) uniform sampler3D voxels;
+layout(binding = 7) uniform sampler2D gMetallicRoughness;
 
 // vars retrieved from the Gbuffer TODO: make them not global?
 vec3 position;
@@ -153,6 +154,8 @@ void main()
     VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
 
+    vec4 metallicRoughness = texture(gMetallicRoughness, uv);
+
 	normal = texture(gNormals, uv).xyz;
 	position = texture(gPositions, uv).xyz;
 
@@ -176,7 +179,8 @@ void main()
 
     float specOcclusion = 0.0;
     vec4 specularTraced = coneTrace(position, normal.xyz, reflectDir, 0.07, specOcclusion);
-    vec3 specular = vec3(1.0, 1.0, 1.0) * specularTraced.xyz * light.color.xyz;
+    float specTerm = 1.0 - metallicRoughness.g;
+    vec3 specular = specTerm * specularTraced.xyz * light.color.xyz;
 
     float occlusion = 0.0;
     vec3 bounceLight = coneTraceBounceLight(position, normal.xyz, occlusion).rgb;

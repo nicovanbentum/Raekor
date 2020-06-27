@@ -161,9 +161,7 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
 
     materialTexture.bind();
     materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-    auto clearColor = glm::vec4(1.0);
     materialTexture.setFilter(Sampling::Filter::None);
-    glClearTexImage(materialTexture.mID, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColor));
     materialTexture.unbind();
 
     GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
@@ -171,6 +169,7 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     GBuffer.attach(positionTexture, GL_COLOR_ATTACHMENT0);
     GBuffer.attach(normalTexture, GL_COLOR_ATTACHMENT1);
     GBuffer.attach(albedoTexture, GL_COLOR_ATTACHMENT2);
+    GBuffer.attach(materialTexture, GL_COLOR_ATTACHMENT3);
     GBuffer.attach(GDepthBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
 }
 
@@ -258,6 +257,9 @@ void GeometryBuffer::resize(Viewport& viewport) {
 
     positionTexture.bind();
     positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+
+    materialTexture.bind();
+    materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
     GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
@@ -433,6 +435,7 @@ void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* sha
     }
 
     voxels->result.bindToSlot(6);
+    glBindTextureUnit(7, GBuffer->materialTexture.mID);
 
     // update the uniform buffer CPU side
     uniforms.view = viewport.getCamera().getView();

@@ -127,7 +127,6 @@ void Application::run() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigWindowsMoveFromTitleBarOnly = true;
     io.ConfigDockingWithShift = true;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     // set UI font that's saved in config 
     ImFont* pFont = io.Fonts->AddFontFromFileTTF(font.c_str(), 15.0f);
