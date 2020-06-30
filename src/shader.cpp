@@ -37,9 +37,10 @@ glShader::~glShader() { glDeleteProgram(programID); }
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void glShader::reload(Stage* stages, size_t stageCount) {
-    programID = glCreateProgram();
+    auto newProgramID = glCreateProgram();
+    bool failed = false;
+    
     std::vector<unsigned int> shaders;
-
     for (unsigned int i = 0; i < stageCount; i++) {
         Stage& stage = stages[i];
 
@@ -93,31 +94,42 @@ void glShader::reload(Stage* stages, size_t stageCount) {
             glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &logMessageLength);
             std::vector<char> error_msg(logMessageLength);
             glGetShaderInfoLog(shaderID, logMessageLength, NULL, error_msg.data());
-            std::cout << error_msg.data() << std::endl;
-            throw std::runtime_error(error_msg.data());
+            std::puts(error_msg.data());
+            failed = true;
         }
+        else {
+            shaders.push_back(shaderID);
+        }
+    }
 
-        glAttachShader(programID, shaderID);
-        shaders.push_back(shaderID);
+    if (shaders.empty()) return;
+
+    for (auto shader : shaders) {
+        glAttachShader(newProgramID, shader);
     }
 
     // Link and check the program
-    glLinkProgram(programID);
+    glLinkProgram(newProgramID);
 
     int shaderCompilationResult = 0, logMessageLength = 0;
-    glGetProgramiv(programID, GL_LINK_STATUS, &shaderCompilationResult);
+    glGetProgramiv(newProgramID, GL_LINK_STATUS, &shaderCompilationResult);
     if (shaderCompilationResult == GL_FALSE) {
-        std::cout << "FAILED TO LINK GL SHADERS" << '\n';
-
-        glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &logMessageLength);
+        glGetProgramiv(newProgramID, GL_INFO_LOG_LENGTH, &logMessageLength);
         std::vector<char> errorMessage(logMessageLength);
-        glGetProgramInfoLog(programID, logMessageLength, NULL, errorMessage.data());
-        throw std::runtime_error(errorMessage.data());
+        glGetProgramInfoLog(newProgramID, logMessageLength, NULL, errorMessage.data());
+        std::puts(errorMessage.data());
+        failed = true;
     }
 
-    for (unsigned int shader : shaders) {
-        glDetachShader(programID, shader);
+    for (auto shader : shaders) {
+        glDetachShader(newProgramID, shader);
         glDeleteShader(shader);
+    }
+
+    if (failed) {
+        glDeleteProgram(newProgramID);
+    } else {
+        programID = newProgramID;
     }
 }
 
@@ -194,17 +206,10 @@ void ShaderHotloader::watch(glShader* shader, Shader::Stage* inStages, size_t st
     checks.emplace_back([=]() {
         for (auto& stage : stages) {
             if (stage.watcher.wasModified()) {
-                // in case compilation fails we discard progress and assign the old shader program
-                unsigned int temporaryID = shader->programID;
-                try {
-                    shader->reload(stages.data(), stageCount);
-                } catch(std::exception e) {
-                    std::puts(e.what());
-                    shader->programID = temporaryID;
-                }
+                shader->reload(stages.data(), stageCount);
             }
         }
-        });
+    });
 }
 
 void ShaderHotloader::checkForUpdates() {

@@ -7,6 +7,7 @@ out vec4 color;
 
 void main()
 {
+    // calculate vertices by hand
 	vec3 pos; // Center of voxel
     const int dim = textureSize(voxels, 0).x;
 	pos.x = gl_VertexID % dim;

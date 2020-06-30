@@ -10,6 +10,7 @@ in vec2 uv;
 in flat int axis;
 in vec4 depthPosition;
 
+// SOURCE: https://www.seas.upenn.edu/~pcozzi/OpenGLInsights/OpenGLInsights-SparseVoxelization.pdf
 vec4 convRGBA8ToVec4(uint val)
 {
     return vec4(float((val & 0x000000FF)), 
@@ -26,9 +27,8 @@ uint convVec4ToRGBA8(vec4 val)
     (uint(val.x) & 0x000000FF);
 }
 
-void imageAtomicRGBA8Avg(layout(r32ui) volatile coherent uimage3D grid, ivec3 coords, vec4 value)
-{
-    value.rgb *= 255.0;                 // optimize following calculations
+void imageAtomicRGBA8Avg(layout(r32ui) volatile coherent uimage3D grid, ivec3 coords, vec4 value) {
+    value.rgb *= 255.0;
     uint newVal = convVec4ToRGBA8(value);
     uint prevStoredVal = 0;
     uint curStoredVal;
@@ -50,7 +50,7 @@ void main() {
     vec4 sampled = texture(albedo, uv);
     const int dim = imageSize(voxels).x;
 
-    // TODO: uniform bias and stuff
+    // TODO: improve shadow sampling
     float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.001)/depthPosition.w));
 
 	ivec3 camPos = ivec3(gl_FragCoord.x, gl_FragCoord.y, dim * gl_FragCoord.z);

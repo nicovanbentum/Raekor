@@ -771,10 +771,6 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
     result.setFilter(Sampling::Filter::None);
     result.unbind();
 
-    renderBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
-
-    frameBuffer.attach(renderBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
-
     std::vector<uint32_t> indices = {
     0, 1, 1, 2, 2, 3, 3, 0, 4,
     5, 5, 6, 6, 7, 7, 4, 0, 0,
@@ -791,7 +787,7 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
         });
 }
 
-void BoundingBoxDebug::execute(Scene& scene, Viewport& viewport, glTexture2D& texture, ECS::Entity active) {
+void BoundingBoxDebug::execute(Scene& scene, Viewport& viewport, glTexture2D& texture, glRenderbuffer& renderBuffer, ECS::Entity active) {
     if (!active) return;
     ECS::MeshComponent* mesh = scene.meshes.getComponent(active);
     ECS::TransformComponent* transform = scene.transforms.getComponent(active);
@@ -801,7 +797,7 @@ void BoundingBoxDebug::execute(Scene& scene, Viewport& viewport, glTexture2D& te
 
     frameBuffer.bind();
     frameBuffer.attach(texture, GL_COLOR_ATTACHMENT0);
-    glClear(GL_DEPTH_BUFFER_BIT);
+    frameBuffer.attach(renderBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
 
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
@@ -842,8 +838,6 @@ void BoundingBoxDebug::resize(Viewport& viewport) {
     result.bind();
     result.init(viewport.size.x, viewport.size.y, Format::RGBA_F);
     result.unbind();
-
-    renderBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
 
 ForwardLightingPass::ForwardLightingPass(Viewport& viewport) {

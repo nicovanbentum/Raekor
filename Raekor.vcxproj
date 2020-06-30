@@ -65,9 +65,10 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /bigobj %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /bigobj /EHsc %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <ExceptionHandling>false</ExceptionHandling>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -98,12 +99,13 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /EHsc %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <FloatingPointModel>Fast</FloatingPointModel>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <ExceptionHandling>false</ExceptionHandling>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

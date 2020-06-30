@@ -23,6 +23,7 @@ void main() {
 	vec4 v7 = p * mv * (gl_in[0].gl_Position + vec4(-0.5, -0.5, -0.5, 0));
 	vec4 v8 = p * mv * (gl_in[0].gl_Position + vec4(0.5, -0.5, -0.5, 0));
 
+    // expand to cube
 	//
 	//      v5 _____________ v6
 	//        /|           /|

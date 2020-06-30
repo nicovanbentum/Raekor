@@ -8,7 +8,7 @@ layout(location = 4) in vec3 v_binormal;
 
 uniform mat4 model;
 
-//we send out a uv coordinate for our frag shader
+// texture coordinate for sampling gbuffers
 out vec2 uv;
 
 void main()

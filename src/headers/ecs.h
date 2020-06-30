@@ -23,9 +23,7 @@ public:
     }
 
     ComponentType& create(Entity entity) {
-        if (entity == NULL) {
-            throw std::runtime_error("entity is null");
-        }
+        m_assert(entity != NULL, "Can't create component for null entity.");
         
         // add component
         components.push_back(ComponentType());

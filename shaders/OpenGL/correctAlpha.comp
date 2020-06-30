@@ -1,5 +1,8 @@
 #version 440 core
 
+// Simple compute shader that corrects the alpha values inside the 3D voxel texture after using the alpha channel
+// of every voxel as atomic counter
+
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 layout(binding = 0, RGBA8) uniform image3D voxelTexture;
 

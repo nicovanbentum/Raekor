@@ -53,8 +53,8 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDi
     auto assimpScene = importer.ReadFile(file, flags);
 
     if (!assimpScene) {
-        std::cout << importer.GetErrorString() << '\n';
-        throw std::runtime_error("Failed to load " + file);
+        std::clog << "Error loading " << file << ": " << importer.GetErrorString() << '\n';
+        return;
     }
 
     if (!assimpScene->HasMeshes() && !assimpScene->HasMaterials()) {
@@ -119,6 +119,7 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
             v.tangent = { assimpMesh->mTangents[i].x, assimpMesh->mTangents[i].y, assimpMesh->mTangents[i].z };
             v.binormal = { assimpMesh->mBitangents[i].x, assimpMesh->mBitangents[i].y, assimpMesh->mBitangents[i].z };
         }
+
         mesh.vertices.push_back(std::move(v));
     }
     // extract indices
@@ -249,6 +250,17 @@ void AssimpImporter::loadTexturesAsync(const aiScene* scene, const std::string& 
     }
 
     dispatcher.wait();
+}
+
+void updateTransforms(Scene& scene) {
+    for (int i = 0; i < scene.nodes.getCount(); i++) {
+        auto node = scene.nodes[i];
+
+        auto worldTransform = scene.transforms[i].matrix;
+        for (auto parent = node.parent; parent != NULL; parent = node.parent) {
+            worldTransform *= scene.transforms.getComponent(parent)->matrix;
+        }
+    }
 }
 
 } // Namespace Raekor

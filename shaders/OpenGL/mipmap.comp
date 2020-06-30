@@ -1,5 +1,7 @@
 #version 440 core
 
+// SOURCE: Interactive GPU-Based Visualization of Large Dynamic Particle Data by Falk, Martin and Grottel, Sebastian and Krone, Michael.
+
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 uniform readonly layout(binding = 0, RGBA8) image3D inputTexture;
 uniform writeonly layout(binding = 1, RGBA8) image3D outputTexture;

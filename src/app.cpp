@@ -241,7 +241,7 @@ void Application::run() {
         }
 
         if (active) {
-            aabbDebugPass->execute(newScene, viewport, tonemappingPass->result, active);
+            aabbDebugPass->execute(newScene, viewport, tonemappingPass->result, geometryBufferPass->GDepthBuffer,  active);
         }
 
         if (debugVoxels) {

@@ -48,6 +48,8 @@ public:
 
     void reload(Stage* stages, size_t stageCount);
 
+    operator bool() { return programID != 0; };
+
     inline const void bind() const;
     inline const void unbind() const;
 

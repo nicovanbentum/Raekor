@@ -75,11 +75,11 @@ public:
 private:
     glShader shader;
     glFramebuffer GBuffer;
-    glRenderbuffer GDepthBuffer;
 
     ShaderHotloader hotloader;
   
 public:
+    glRenderbuffer GDepthBuffer;
     glTexture2D albedoTexture, normalTexture, positionTexture, materialTexture;
 };
 
@@ -194,13 +194,12 @@ private:
 class BoundingBoxDebug {
 public:
     BoundingBoxDebug(Viewport& viewport);
-    void execute(Scene& scene, Viewport& viewport, glTexture2D& texture, ECS::Entity active);
+    void execute(Scene& scene, Viewport& viewport, glTexture2D& texture, glRenderbuffer& renderBuffer, ECS::Entity active);
     void resize(Viewport& viewport);
 
 private:
     glShader shader;
     glFramebuffer frameBuffer;
-    glRenderbuffer renderBuffer;
     glVertexBuffer vertexBuffer;
     glIndexBuffer indexBuffer;
 
