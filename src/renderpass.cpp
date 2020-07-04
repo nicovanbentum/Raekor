@@ -58,7 +58,7 @@ void ShadowMap::execute(Scene& scene) {
         ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
 
         if (transform) {
-            shader.getUniform("model") = transform->matrix;
+            shader.getUniform("model") = transform->worldTransform;
         } else {
             shader.getUniform("model") = glm::mat4(1.0f);
         }
@@ -119,7 +119,7 @@ void OmniShadowMap::execute(Scene& scene, const glm::vec3& lightPosition) {
 
             ECS::MeshComponent& mesh = scene.meshes[i];
             ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
-            const glm::mat4& worldTransform = transform ? transform->matrix : glm::mat4(1.0f);
+            const glm::mat4& worldTransform = transform ? transform->worldTransform : glm::mat4(1.0f);
 
             shader.getUniform("model") = worldTransform;
 
@@ -202,7 +202,7 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
         ECS::NameComponent* name = scene.names.getComponent(entity);
 
         ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
-        const glm::mat4& worldTransform = transform ? transform->matrix : glm::mat4(1.0f);
+        const glm::mat4& worldTransform = transform ? transform->worldTransform : glm::mat4(1.0f);
 
             // convert AABB from local to world space
             std::array<glm::vec3, 2> worldAABB = {
@@ -226,7 +226,7 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
         }
 
         if (transform) {
-            shader.getUniform("model") = transform->matrix;
+            shader.getUniform("model") = transform->worldTransform;
         }
         else {
             shader.getUniform("model") = glm::mat4(1.0f);
@@ -447,7 +447,7 @@ void DeferredLighting::execute(Scene& sscene, Viewport& viewport, ShadowMap* sha
         auto transform = sscene.transforms.getComponent(entity);
 
         auto& light = sscene.directionalLights[i];
-        light.buffer.direction = shadowMap->sunCamera.getDirection();
+        light.buffer.direction = glm::vec4(shadowMap->sunCamera.getDirection(), 1.0);
         uniforms.dirLights[i] = light.buffer;
     }
 
@@ -688,7 +688,7 @@ void Voxelization::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowma
         ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
         ECS::MaterialComponent* material = scene.materials.getComponent(entity);
 
-        shader.getUniform("model") = transform ? transform->matrix : glm::mat4(1.0f);
+        shader.getUniform("model") = transform ? transform->worldTransform : glm::mat4(1.0f);
         shader.getUniform("px") = px;
         shader.getUniform("py") = py;
         shader.getUniform("pz") = pz;
@@ -802,7 +802,7 @@ void BoundingBoxDebug::execute(Scene& scene, Viewport& viewport, glTexture2D& te
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
     shader.getUniform("view") = viewport.getCamera().getView();
-    shader.getUniform("model") = transform->matrix;
+    shader.getUniform("model") = transform->worldTransform;
 
     // calculate obb from aabb
     const auto min = mesh->aabb[0];
@@ -882,7 +882,7 @@ void ForwardLightingPass::execute(Viewport& viewport, Scene& scene, Voxelization
         auto transform = scene.transforms.getComponent(entity);
 
         auto& light = scene.directionalLights[i];
-        light.buffer.direction = shadowmap->sunCamera.getDirection();
+        light.buffer.direction = glm::vec4(shadowmap->sunCamera.getDirection(), 1.0);
 
         uniforms.dirLights[i] = light.buffer;
     }
@@ -927,7 +927,7 @@ void ForwardLightingPass::execute(Viewport& viewport, Scene& scene, Voxelization
         ECS::NameComponent* name = scene.names.getComponent(entity);
 
         ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
-        const glm::mat4& worldTransform = transform ? transform->matrix : glm::mat4(1.0f);
+        const glm::mat4& worldTransform = transform ? transform->worldTransform : glm::mat4(1.0f);
 
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB = {
@@ -949,7 +949,7 @@ void ForwardLightingPass::execute(Viewport& viewport, Scene& scene, Voxelization
         }
 
         if (transform) {
-            shader.getUniform("model") = transform->matrix;
+            shader.getUniform("model") = transform->worldTransform;
         }
         else {
             shader.getUniform("model") = glm::mat4(1.0f);

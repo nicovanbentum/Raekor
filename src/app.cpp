@@ -207,6 +207,8 @@ void Application::run() {
     while (running) {
         deltaTimer.start();
 
+        updateTransforms(newScene);
+
         // if we're debugging the shadow map we directly control the sun camera
         if (activeScreenTexture != &shadowMapPass->result)
             handleEvents(directxwindow, viewport.getCamera(), mouseInViewport, deltaTime);
@@ -346,7 +348,10 @@ void Application::run() {
 
             if (ImGui::BeginMenu("Add")) {
                 if (ImGui::MenuItem("Empty", "CTRL+E")) {
-                    newScene.createObject("Empty");
+                    auto newEntity = newScene.createObject("Empty");
+                    if (active) {
+                        newScene.nodes.getComponent(newEntity)->parent = active;
+                    }
                 }
                 ImGui::Separator();
 
@@ -369,15 +374,7 @@ void Application::run() {
 
 
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
-                // on press we remove the scene object
-                if (ecsWindow.multiselectedEntities.empty()) {
-                    newScene.remove(active);
-                } else {
-                    for (auto entity : ecsWindow.multiselectedEntities) {
-                        newScene.remove(entity);
-                    }
-                }
-                
+                newScene.remove(active);
                 active = NULL;
             }
 

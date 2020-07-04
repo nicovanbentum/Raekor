@@ -11,6 +11,7 @@ struct TransformComponent {
     glm::vec3 rotation = { 0.0f, 0.0f, 0.0f };
 
     glm::mat4 matrix = glm::mat4(1.0f);
+    glm::mat4 worldTransform = glm::mat4(1.0f);
 
     glm::vec3 localPosition = { 0.0f, 0.0f, 0.0f };
 
@@ -19,7 +20,7 @@ struct TransformComponent {
 
 struct DirectionalLightComponent {
     struct ShaderBuffer {
-        alignas(16) glm::vec3 direction = { 0.0f, 0.0f, 0.0f };
+        glm::vec4 direction = { 0.0f, 0.0f, 0.0f, 0.0f };
         glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
     } buffer;
 
@@ -37,19 +38,13 @@ struct PointLightComponent {
 
 struct NodeComponent {
     ECS::Entity parent = NULL;
+    bool hasChildren = false;
 };
 
 struct MeshComponent {
-    struct subMesh {
-        ECS::Entity material = NULL;
-        uint32_t indexOffset;
-        uint32_t indexCount;
-    };
-
-    std::vector<subMesh> subMeshes;
-
     std::vector<Vertex> vertices;
     std::vector<Triangle> indices;
+
     glVertexBuffer vertexBuffer;
     glIndexBuffer indexBuffer;
 

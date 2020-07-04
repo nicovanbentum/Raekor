@@ -7,7 +7,7 @@ const float PI = 3.14159265359;
 #define MAX_DIR_LIGHTS 1
 
 struct DirectionalLight {
-	vec3 direction;
+	vec4 direction;
 	vec4 color;
 };
 
@@ -163,7 +163,7 @@ float getShadow(DirectionalLight light, vec3 position) {
 
     float currentDepth = FragPosLightSpace.z;
 
-	vec3 direction = normalize(-light.direction);
+	vec3 direction = normalize(-light.direction.xyz);
     float bias = max(maxBias * (1.0 - dot(normal, direction)), minBias);
     
 	// simplest PCF algorithm
@@ -199,10 +199,10 @@ void main()
 
     DirectionalLight light = ubo.dirLights[0];
     float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.0005)/depthPosition.w));
-    //shadowAmount = 1.0 - getShadow(light, position);
+    shadowAmount = 1.0 - getShadow(light, position);
 
     // get direct light
-    vec3 direction = normalize(-light.direction);
+    vec3 direction = normalize(-light.direction.xyz);
     float diff = clamp(dot(normal.xyz, direction) * shadowAmount, 0, 1);
     vec3 directLight = light.color.xyz * diff;
 
@@ -221,7 +221,7 @@ void main()
     vec3 bounceLight = coneTraceBounceLight(position, normal.xyz, occlusion).rgb;
     
     // combine all
-    vec3 diffuseReflection = (directLight + bounceLight + specular) * albedo.rgb;
+    vec3 diffuseReflection = (directLight + bounceLight) * albedo.rgb;
     finalColor = vec4(diffuseReflection, albedo.a);
 
     // BLOOM SEPERATION

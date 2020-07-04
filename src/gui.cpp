@@ -15,6 +15,12 @@ void InspectorWindow::draw(Scene& scene, ECS::Entity entity) {
             }
         }
 
+        if (scene.nodes.contains(entity)) {
+            if (ImGui::CollapsingHeader("Node Component", ImGuiTreeNodeFlags_DefaultOpen)) {
+                drawNodeComponent(scene.nodes.getComponent(entity));
+            }
+        }
+
         if (scene.transforms.contains(entity)) {
             bool isOpen = true; // for checking if the close button was clicked
             if (ImGui::CollapsingHeader("Transform Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -100,6 +106,10 @@ void InspectorWindow::drawNameComponent(ECS::NameComponent* component) {
             component->name = component->name.substr(0, 16);
         }
     }
+}
+
+void InspectorWindow::drawNodeComponent(ECS::NodeComponent* component) {
+    ImGui::Text("Parent entity: %i", component->parent);
 }
 
 void InspectorWindow::drawTransformComponent(ECS::TransformComponent* component) {
@@ -314,47 +324,64 @@ int ConsoleWindow::TextEditCallbackStub(ImGuiInputTextCallbackData* data) // In 
 
 int ConsoleWindow::TextEditCallback(ImGuiInputTextCallbackData* data) { return 0; }
 
+bool EntityWindow::drawFamilyNode(Scene& scene, ECS::Entity entity, ECS::Entity& active) {
+    auto selected = active == entity ? ImGuiTreeNodeFlags_Selected : 0;
+    auto treeNodeFlags = selected | ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow;
+    auto name = scene.names.getComponent(entity);
+    bool opened = ImGui::TreeNodeEx(name->name.c_str(), treeNodeFlags);
+    if (ImGui::IsItemClicked()) {
+        active = active == entity ? NULL : entity;
+    }
+     return opened;
+}
+
+void EntityWindow::drawChildlessNode(Scene& scene, ECS::Entity entity, ECS::Entity& active) {
+    auto name = scene.names.getComponent(entity);
+    if (ImGui::Selectable(std::string(name->name + "##" + std::to_string(entity)).c_str(), entity == active)) {
+        active = active == entity ? NULL : entity;
+    }
+}
+
+void EntityWindow::drawFamily(Scene& scene, ECS::Entity parent, ECS::Entity& active) {
+    for (int i = 0; i < scene.nodes.getCount(); i++) {
+        if (scene.nodes[i].parent == parent) {
+            if (drawFamilyNode(scene, scene.nodes.getEntity(i), active)) {
+                drawFamily(scene, scene.nodes.getEntity(i), active);
+                ImGui::TreePop();
+            }
+        }
+    }
+}
+
 void EntityWindow::draw(Scene& scene, ECS::Entity& active) {
     ImGui::Begin("Scene");
-    auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_CollapsingHeader;
-    if (ImGui::TreeNodeEx("Entities", treeNodeFlags)) {
-        ImGui::Columns(1, NULL, false);
-        for (int entityIndex = 0; entityIndex < scene.names.getCount(); ++entityIndex) {
-            const ECS::Entity entity = scene.names.getEntity(entityIndex);
 
-            const bool isActive = (active == entity);
-            const auto selectedIter = std::find(multiselectedEntities.begin(), multiselectedEntities.end(), entity);
-            const bool isMultiSelected = selectedIter != multiselectedEntities.end();
+    std::vector<ECS::Entity> rootEntities;
+    for(int i = 0; i < scene.nodes.getCount(); i++) {
+        if (scene.nodes[i].parent == NULL) {
+            rootEntities.push_back(scene.nodes.getEntity(i));
+        }
+    }
 
-            std::string& name = scene.names.getComponent(entity)->name;
-            if (ImGui::Selectable(std::string(name + "##" + std::to_string(entityIndex)).c_str(), isActive || isMultiSelected)) {
-                if (isActive) {
-                    active = NULL;
-                } else {
-                    if (SDL_GetModState() & KMOD_SHIFT) {
-                        multiselectedEntities.clear();
-                        int activeIndex = 0;
-                        for (int index = 0; index < scene.names.getCount(); ++index) {
-                            auto e = scene.names.getEntity(index);
-                            if (e == active) activeIndex = index;
+    for (auto rootEntity : rootEntities) {
+        if (scene.nodes.getComponent(rootEntity)->hasChildren) {
+            if (drawFamilyNode(scene, rootEntity, active)) {
+                for (int i = 0; i < scene.nodes.getCount(); i++) {
+                    if (scene.nodes[i].parent == rootEntity) {
+                        if (scene.nodes[i].hasChildren) {
+                            if (drawFamilyNode(scene, scene.nodes.getEntity(i), active)) {
+                                drawFamily(scene, scene.nodes.getEntity(i), active);
+                                ImGui::TreePop();
+                            }
+                        } else {
+                            drawChildlessNode(scene, scene.nodes.getEntity(i), active);
                         }
-
-                        for (int i = std::min(entityIndex, activeIndex); i <= std::max(entityIndex, activeIndex); i++) {
-                            multiselectedEntities.push_back(scene.names.getEntity(i));
-                        }
-                    } else if (SDL_GetModState() & KMOD_LCTRL && isMultiSelected) {
-                        multiselectedEntities.erase(selectedIter);
-                    } else {
-                        if (!multiselectedEntities.empty()) {
-                            multiselectedEntities.clear();
-                        } 
-                        active = entity;
                     }
                 }
+                ImGui::TreePop();
             }
-            if (isActive) {
-                ImGui::SetItemDefaultFocus();
-            }
+        } else {
+            drawChildlessNode(scene, rootEntity, active);
         }
     }
 

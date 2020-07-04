@@ -15,6 +15,7 @@ public:
 
 private:
     void drawNameComponent(ECS::NameComponent* component);
+    void drawNodeComponent(ECS::NodeComponent* component);
     void drawMeshComponent(ECS::MeshComponent* component);
     void drawMaterialComponent(ECS::MaterialComponent* component);
     void drawTransformComponent(ECS::TransformComponent* component);
@@ -26,7 +27,11 @@ private:
 class EntityWindow {
 public:
     void draw(Scene& scene, ECS::Entity& active);
-    std::vector<ECS::Entity> multiselectedEntities;
+
+private:
+    void drawFamily(Scene& scene, ECS::Entity parent, ECS::Entity& active);
+    bool drawFamilyNode(Scene& scene, ECS::Entity entity, ECS::Entity& active);
+    void drawChildlessNode(Scene& scene, ECS::Entity entity, ECS::Entity& active);
 };
 
 

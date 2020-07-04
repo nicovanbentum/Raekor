@@ -7,6 +7,7 @@ namespace Raekor {
 
 ECS::Entity Scene::createObject(const std::string& name) {
     ECS::Entity entity = ECS::newEntity();
+    nodes.create(entity);
     names.create(entity).name = name;
     transforms.create(entity);
     entities.push_back(entity);
@@ -31,12 +32,21 @@ ECS::MeshComponent& Scene::addMesh() {
 }
 
 void Scene::remove(ECS::Entity entity) {
+    nodes.remove(entity);
     names.remove(entity);
     transforms.remove(entity);
     meshes.remove(entity);
     materials.remove(entity);
     pointLights.remove(entity);
     directionalLights.remove(entity);
+
+    for (int i = 0; i < nodes.getCount(); /* update on no remove */) {
+        if (nodes[i].parent == entity) {
+            remove(nodes.getEntity(i));
+        } else {
+            i += 1;
+        }
+    }
 }
 
 void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDispatcher& dispatcher) {
@@ -66,32 +76,35 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDi
     loadTexturesAsync(assimpScene, textureDirectory, dispatcher);
     
     // recursively process the ai scene graph
-    processAiNode(scene, assimpScene, assimpScene->mRootNode);
+    auto rootEntity = scene.createObject(parseFilepath(file, PATH_OPTIONS::FILENAME));
+    auto node = scene.nodes.getComponent(rootEntity);
+    node->hasChildren = true;
+    processAiNode(scene, assimpScene, assimpScene->mRootNode, rootEntity);
 }
 
-void AssimpImporter::processAiNode(Scene& scene, const aiScene* aiscene, aiNode* node) {
+void AssimpImporter::processAiNode(Scene& scene, const aiScene* aiscene, aiNode* node, ECS::Entity root) {
     for (uint32_t i = 0; i < node->mNumMeshes; i++) {
         aiMesh* mesh = aiscene->mMeshes[node->mMeshes[i]];
         aiMaterial* material = aiscene->mMaterials[mesh->mMaterialIndex];
         // load mesh with material and transform into raekor scene
-        loadMesh(scene, mesh, material, node->mTransformation);
+        loadMesh(scene, mesh, material, node->mTransformation, root);
     }
     // recursive node processing
     for (uint32_t i = 0; i < node->mNumChildren; i++) {
-        processAiNode(scene, aiscene, node->mChildren[i]);
+        processAiNode(scene, aiscene, node->mChildren[i], root);
     }
 }
 
-void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform) {
-
-    // create new entity and attach a mesh component
+void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, ECS::Entity root) {
+    // create new entity and attach components
     ECS::Entity entity = ECS::newEntity();
+    ECS::NodeComponent& node = scene.nodes.create(entity);
+    ECS::NameComponent& name = scene.names.create(entity);
+    ECS::TransformComponent& transform = scene.transforms.create(entity);
     ECS::MeshComponent& mesh = scene.meshes.create(entity);
 
-    ECS::NameComponent& name = scene.names.create(entity);
     name.name = assimpMesh->mName.C_Str();
-
-    ECS::TransformComponent& transform = scene.transforms.create(entity);
+    node.parent = root;
 
     aiVector3D position, scale, rotation;
     localTransform.Decompose(scale, rotation, position);
@@ -99,7 +112,6 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
     transform.position = { position.x, position.y, position.z };
     transform.scale = { scale.x, scale.y, scale.z };
     transform.rotation = { glm::radians(rotation.x), glm::radians(rotation.y), glm::radians(rotation.z) };
-
     transform.recalculateMatrix();
 
     // extract vertices
@@ -256,10 +268,13 @@ void updateTransforms(Scene& scene) {
     for (int i = 0; i < scene.nodes.getCount(); i++) {
         auto node = scene.nodes[i];
 
-        auto worldTransform = scene.transforms[i].matrix;
-        for (auto parent = node.parent; parent != NULL; parent = node.parent) {
-            worldTransform *= scene.transforms.getComponent(parent)->matrix;
+        // update the world matrix by multiplying the local matrix with each parent matrix
+        auto transform = scene.transforms[i].matrix;
+        for (auto parent = node.parent; parent != NULL; parent = scene.nodes.getComponent(parent)->parent) {
+            transform *= scene.transforms.getComponent(parent)->matrix;
         }
+
+        scene.transforms[i].worldTransform = transform;
     }
 }
 

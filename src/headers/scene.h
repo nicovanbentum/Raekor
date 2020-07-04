@@ -44,16 +44,19 @@ public:
     void loadFromDisk(Scene& scene, const std::string& file, AsyncDispatcher& dispatcher);
 
 private:
-    void processAiNode(Scene& scene, const aiScene* aiscene, aiNode* node);
+    void processAiNode(Scene& scene, const aiScene* aiscene, aiNode* node, ECS::Entity root);
 
     // TODO: every mesh in the file is created as an Entity that has 1 name, 1 mesh and 1 material component
     // we might want to incorporate meshrenderers and seperate entities for materials
-    void loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform);
+    void loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, ECS::Entity root);
 
     void loadTexturesAsync(const aiScene* scene, const std::string& directory, AsyncDispatcher& dispatcher);
 
 private:
     std::unordered_map<std::string, Stb::Image> images;
 };
+
+void updateTransforms(Scene& scene);
+
 
 } // Namespace Raekor
