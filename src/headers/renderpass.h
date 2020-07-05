@@ -63,14 +63,7 @@ public:
     GeometryBuffer(Viewport& viewport);
     void execute(Scene& scene, Viewport& viewport);
     void resize(Viewport& viewport);
-
-    ECS::Entity pick(uint32_t x, uint32_t y) {
-        int id;
-        GBuffer.bind();
-        glReadPixels(x, y, 1, 1, GL_STENCIL_INDEX, GL_INT, &id);
-        GBuffer.unbind();
-        return id;
-    }
+    ECS::Entity pick(uint32_t x, uint32_t y);
 
 private:
     glShader shader;

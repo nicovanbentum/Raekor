@@ -164,26 +164,21 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     materialTexture.setFilter(Sampling::Filter::None);
     materialTexture.unbind();
 
-    GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH24_STENCIL8);
+    GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH_COMPONENT32F);
 
     GBuffer.attach(positionTexture, GL_COLOR_ATTACHMENT0);
     GBuffer.attach(normalTexture, GL_COLOR_ATTACHMENT1);
     GBuffer.attach(albedoTexture, GL_COLOR_ATTACHMENT2);
     GBuffer.attach(materialTexture, GL_COLOR_ATTACHMENT3);
-    GBuffer.attach(GDepthBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+
+    GBuffer.attach(GDepthBuffer, GL_DEPTH_ATTACHMENT);
 }
 
 void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
     hotloader.checkForUpdates();
 
-    // enable stencil stuff
-    glEnable(GL_STENCIL_TEST);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    glStencilMask(0xFFFF); // Write to stencil buffer
-    glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
-
     GBuffer.bind();
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
@@ -232,8 +227,7 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
             shader.getUniform("model") = glm::mat4(1.0f);
         }
 
-        // write the entity ID to the stencil buffer for picking
-        glStencilFunc(GL_ALWAYS, (GLint)entity, 0xFFFF);
+        shader.getUniform("entity") = entity;
 
         mesh.vertexBuffer.bind();
         mesh.indexBuffer.bind();
@@ -241,10 +235,6 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
     }
 
     GBuffer.unbind();
-
-    // disable stencil stuff
-    glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
-    glDisable(GL_STENCIL_TEST);
 }
 
 void GeometryBuffer::resize(Viewport& viewport) {
@@ -262,6 +252,12 @@ void GeometryBuffer::resize(Viewport& viewport) {
     materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
     GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
+}
+
+ECS::Entity GeometryBuffer::pick(uint32_t x, uint32_t y) {
+    glm::vec4 readPixel;
+    glGetTextureSubImage(materialTexture.mID, 0, x, y, 0, 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(glm::vec4), glm::value_ptr(readPixel));
+    return readPixel.b;
 }
 
 //////////////////////////////////////////////////////////////////////////////////

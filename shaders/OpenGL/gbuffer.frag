@@ -13,6 +13,8 @@ layout(binding = 0) uniform sampler2D meshTexture;
 layout(binding = 3) uniform sampler2D normalTexture;
 layout(binding = 4) uniform sampler2D metalroughTexture;
 
+uniform int entity;
+
 in vec3 pos;
 in vec2 uv;
 in mat3 TBN;
@@ -31,4 +33,5 @@ void main() {
 	gPosition = vec4(pos, 1.0);
 
     gMetallicRoughness = texture(metalroughTexture, uv);
+    gMetallicRoughness.b = entity;
 }
