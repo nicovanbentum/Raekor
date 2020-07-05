@@ -32,6 +32,8 @@ ECS::MeshComponent& Scene::addMesh() {
 }
 
 void Scene::remove(ECS::Entity entity) {
+    bool isNode = nodes.contains(entity);
+
     nodes.remove(entity);
     names.remove(entity);
     transforms.remove(entity);
@@ -40,11 +42,23 @@ void Scene::remove(ECS::Entity entity) {
     pointLights.remove(entity);
     directionalLights.remove(entity);
 
-    for (int i = 0; i < nodes.getCount(); /* update on no remove */) {
-        if (nodes[i].parent == entity) {
-            remove(nodes.getEntity(i));
-        } else {
-            i += 1;
+    if (isNode) {
+        for (int i = 0; i < nodes.getCount(); /* update on no remove */) {
+            if (nodes[i].parent == entity) {
+                remove(nodes.getEntity(i));
+            } else {
+                i += 1;
+            }
+        }
+    }
+
+    // update children boolean for all nodes
+    for (int i = 0; i < nodes.getCount(); i++) {
+        nodes[i].hasChildren = false;
+        for (int j = 0; j < nodes.getCount(); j++) {
+            if (nodes[j].parent == nodes.getEntity(i)) {
+                nodes[i].hasChildren = true;
+            }
         }
     }
 }
@@ -276,6 +290,59 @@ void updateTransforms(Scene& scene) {
 
         scene.transforms[i].worldTransform = transform;
     }
+}
+
+ECS::Entity pickObject(Scene& scene, Math::Ray& ray) {
+    ECS::Entity pickedEntity = NULL;
+    std::map<float, ECS::Entity> boxesHit;
+
+    for (size_t i = 0; i < scene.meshes.getCount(); i++) {
+        ECS::Entity entity = scene.meshes.getEntity(i);
+
+        ECS::MeshComponent& mesh = scene.meshes[i];
+
+        // get the OBB transformation matrix
+        ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
+        const glm::mat4& worldTransform = transform ? transform->worldTransform : glm::mat4(1.0f);
+
+        // convert AABB from local to world space
+        std::array<glm::vec3, 2> worldAABB = {
+            worldTransform * glm::vec4(mesh.aabb[0], 1.0),
+            worldTransform * glm::vec4(mesh.aabb[1], 1.0)
+        };
+
+        // check for ray hit
+        auto scaledMin = mesh.aabb[0] * transform->scale;
+        auto scaledMax = mesh.aabb[1] * transform->scale;
+        std::cout << glm::to_string(worldTransform) << std::endl;
+        std::cout << "min " << glm::to_string(scaledMin) << ", max " << glm::to_string(scaledMax) << std::endl;
+        auto hitResult = ray.hitsOBB(scaledMin, scaledMax, worldTransform);
+
+        if (hitResult.has_value()) {
+            boxesHit[hitResult.value()] = entity;
+        }
+    }
+
+    for (auto& pair : boxesHit) {
+        auto mesh = scene.meshes.getComponent(pair.second);
+        auto transform = scene.transforms.getComponent(pair.second);
+
+        std::cout << "Hit " << pair.second << " at distance " << pair.first << std::endl;
+        for (auto& triangle : mesh->indices) {
+            auto v0 = glm::vec3(transform->worldTransform * glm::vec4(mesh->vertices[triangle.p1].pos, 1.0));
+            auto v1 = glm::vec3(transform->worldTransform * glm::vec4(mesh->vertices[triangle.p2].pos, 1.0));
+            auto v2 = glm::vec3(transform->worldTransform * glm::vec4(mesh->vertices[triangle.p3].pos, 1.0));
+
+            auto triangleHitResult = ray.hitsTriangle(v0, v1, v2);
+            if (triangleHitResult.has_value()) {
+                pickedEntity = pair.second;
+                std::cout << "Picking " << pickedEntity << std::endl;
+                return pickedEntity;
+            }
+        }
+    }
+
+    return pickedEntity;
 }
 
 } // Namespace Raekor

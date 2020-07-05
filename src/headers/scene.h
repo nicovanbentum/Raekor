@@ -57,6 +57,7 @@ private:
 };
 
 void updateTransforms(Scene& scene);
+ECS::Entity pickObject(Scene& scene, Math::Ray& ray);
 
 
 } // Namespace Raekor

@@ -44,7 +44,7 @@ std::optional<float> Ray::hitsOBB(const glm::vec3& min, const glm::vec3& max, co
 
             if (t2 < tMax) tMax = t2;
             if (t1 > tMin) tMin = t1;
-            if (tMax < tMin) return {};
+            if (tMin > tMax) return {};
 
         }
         else {

@@ -351,6 +351,9 @@ void Application::run() {
                     auto newEntity = newScene.createObject("Empty");
                     if (active) {
                         newScene.nodes.getComponent(newEntity)->parent = active;
+                        newScene.nodes.getComponent(newEntity)->hasChildren = false;
+                        newScene.nodes.getComponent(active)->hasChildren = true;
+
                     }
                 }
                 ImGui::Separator();

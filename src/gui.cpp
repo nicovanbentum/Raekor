@@ -110,6 +110,8 @@ void InspectorWindow::drawNameComponent(ECS::NameComponent* component) {
 
 void InspectorWindow::drawNodeComponent(ECS::NodeComponent* component) {
     ImGui::Text("Parent entity: %i", component->parent);
+    ImGui::SameLine();
+    ImGui::Text("| Has children: %s", component->hasChildren ? "True" : "False");
 }
 
 void InspectorWindow::drawTransformComponent(ECS::TransformComponent* component) {
@@ -345,9 +347,13 @@ void EntityWindow::drawChildlessNode(Scene& scene, ECS::Entity entity, ECS::Enti
 void EntityWindow::drawFamily(Scene& scene, ECS::Entity parent, ECS::Entity& active) {
     for (int i = 0; i < scene.nodes.getCount(); i++) {
         if (scene.nodes[i].parent == parent) {
-            if (drawFamilyNode(scene, scene.nodes.getEntity(i), active)) {
-                drawFamily(scene, scene.nodes.getEntity(i), active);
-                ImGui::TreePop();
+            if (scene.nodes[i].hasChildren) {
+                if (drawFamilyNode(scene, scene.nodes.getEntity(i), active)) {
+                    drawFamily(scene, scene.nodes.getEntity(i), active);
+                    ImGui::TreePop();
+                }
+            } else {
+                drawChildlessNode(scene, scene.nodes.getEntity(i), active);
             }
         }
     }
@@ -356,32 +362,17 @@ void EntityWindow::drawFamily(Scene& scene, ECS::Entity parent, ECS::Entity& act
 void EntityWindow::draw(Scene& scene, ECS::Entity& active) {
     ImGui::Begin("Scene");
 
-    std::vector<ECS::Entity> rootEntities;
     for(int i = 0; i < scene.nodes.getCount(); i++) {
         if (scene.nodes[i].parent == NULL) {
-            rootEntities.push_back(scene.nodes.getEntity(i));
-        }
-    }
-
-    for (auto rootEntity : rootEntities) {
-        if (scene.nodes.getComponent(rootEntity)->hasChildren) {
-            if (drawFamilyNode(scene, rootEntity, active)) {
-                for (int i = 0; i < scene.nodes.getCount(); i++) {
-                    if (scene.nodes[i].parent == rootEntity) {
-                        if (scene.nodes[i].hasChildren) {
-                            if (drawFamilyNode(scene, scene.nodes.getEntity(i), active)) {
-                                drawFamily(scene, scene.nodes.getEntity(i), active);
-                                ImGui::TreePop();
-                            }
-                        } else {
-                            drawChildlessNode(scene, scene.nodes.getEntity(i), active);
-                        }
-                    }
+            auto entity = scene.nodes.getEntity(i);
+            if (scene.nodes.getComponent(entity)->hasChildren) {
+                if (drawFamilyNode(scene, entity, active)) {
+                    drawFamily(scene, entity, active);
+                    ImGui::TreePop();
                 }
-                ImGui::TreePop();
+            } else {
+                drawChildlessNode(scene, entity, active);
             }
-        } else {
-            drawChildlessNode(scene, rootEntity, active);
         }
     }
 

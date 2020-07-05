@@ -164,7 +164,7 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     materialTexture.setFilter(Sampling::Filter::None);
     materialTexture.unbind();
 
-    GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
+    GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH24_STENCIL8);
 
     GBuffer.attach(positionTexture, GL_COLOR_ATTACHMENT0);
     GBuffer.attach(normalTexture, GL_COLOR_ATTACHMENT1);
