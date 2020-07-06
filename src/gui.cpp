@@ -22,10 +22,8 @@ void InspectorWindow::draw(Scene& scene, ECS::Entity entity) {
         }
 
         if (scene.transforms.contains(entity)) {
-            bool isOpen = true; // for checking if the close button was clicked
-            if (ImGui::CollapsingHeader("Transform Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (isOpen) drawTransformComponent(scene.transforms.getComponent(entity));
-                else scene.transforms.remove(entity);
+            if (ImGui::CollapsingHeader("Transform Component", ImGuiTreeNodeFlags_DefaultOpen)) {
+                drawTransformComponent(scene.transforms.getComponent(entity));
             }
         }
 

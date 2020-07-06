@@ -32,7 +32,8 @@ private:
 };
 
 enum class ShaderType {
-    FLOAT1, FLOAT2, FLOAT3, FLOAT4
+    FLOAT1, FLOAT2, FLOAT3, FLOAT4,
+    INT4
 };
 
 uint32_t size_of(ShaderType type);
@@ -78,8 +79,10 @@ struct Vertex {
     glm::vec3 normal;
     glm::vec3 tangent;
     glm::vec3 binormal;
+    glm::vec4 boneIndices;
+    glm::vec4 boneWeights;
 
-    static constexpr uint8_t attributeCount = 3;
+    static constexpr uint8_t attributeCount = 7;
 };
 
 struct Triangle {

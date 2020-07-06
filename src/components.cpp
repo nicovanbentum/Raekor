@@ -27,7 +27,9 @@ void MeshComponent::uploadVertices() {
         { "UV",          ShaderType::FLOAT2 },
         { "NORMAL",      ShaderType::FLOAT3 },
         { "TANGENT",     ShaderType::FLOAT3 },
-        { "BINORMAL",    ShaderType::FLOAT3 }
+        { "BINORMAL",    ShaderType::FLOAT3 },
+        {"BONEINDICES",  ShaderType::FLOAT4 },
+        {"BONEWEIGHTS",  ShaderType::FLOAT4 }
         });
 }
 

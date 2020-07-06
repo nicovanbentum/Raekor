@@ -193,6 +193,7 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
         ECS::Entity entity = scene.meshes.getEntity(i);
 
         ECS::MeshComponent& mesh = scene.meshes[i];
+        shader.getUniform("boneTransforms") = mesh.boneTransforms;
 
         ECS::NameComponent* name = scene.names.getComponent(entity);
 
@@ -779,7 +780,9 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
     {"UV",          ShaderType::FLOAT2},
     {"NORMAL",      ShaderType::FLOAT3},
     {"TANGENT",     ShaderType::FLOAT3},
-    {"BINORMAL",    ShaderType::FLOAT3}
+    {"BINORMAL",    ShaderType::FLOAT3},
+    {"BONEINDICES", ShaderType::FLOAT4},
+    {"BONEWEIGHTS", ShaderType::FLOAT4}
         });
 }
 

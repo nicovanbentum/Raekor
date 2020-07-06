@@ -53,10 +53,12 @@ namespace Raekor {
 
 uint32_t size_of(ShaderType type) {
     switch (type) {
-    case ShaderType::FLOAT1: return sizeof(float);
-    case ShaderType::FLOAT2: return sizeof(float) * 2;
-    case ShaderType::FLOAT3: return sizeof(float) * 3;
-    case ShaderType::FLOAT4: return sizeof(float) * 4;
+    case ShaderType::FLOAT1:    return sizeof(float);
+    case ShaderType::FLOAT2:    return sizeof(float) * 2;
+    case ShaderType::FLOAT3:    return sizeof(float) * 3;
+    case ShaderType::FLOAT4:    return sizeof(float) * 4;
+
+    case ShaderType::INT4:      return sizeof(int) * 4;
     default: return 0;
     }
 }
@@ -77,6 +79,10 @@ glShaderType::glShaderType(ShaderType type) {
         } break;
         case ShaderType::FLOAT4: {
             glType = GL_FLOAT;
+            count = 4;
+        } break;
+        case ShaderType::INT4: {
+            glType = GL_INT;
             count = 4;
         } break;
     }

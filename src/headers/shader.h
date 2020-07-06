@@ -39,6 +39,7 @@ class glShader : public Shader {
         UniformLocation& operator=(const glm::vec4& rhs);
         UniformLocation& operator=(const glm::mat4& rhs);
         UniformLocation& operator=(const std::vector<glm::vec3>& rhs);
+        UniformLocation& operator=(const std::vector<glm::mat4>& rhs);
     };
 
 public:

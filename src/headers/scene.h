@@ -41,6 +41,9 @@ public:
 
 class AssimpImporter {
 public:
+    AssimpImporter() :
+    importer(std::make_unique<Assimp::Importer>()) 
+    {}
     void loadFromDisk(Scene& scene, const std::string& file, AsyncDispatcher& dispatcher);
 
 private:
@@ -48,12 +51,13 @@ private:
 
     // TODO: every mesh in the file is created as an Entity that has 1 name, 1 mesh and 1 material component
     // we might want to incorporate meshrenderers and seperate entities for materials
-    void loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, ECS::Entity root);
+    void loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, ECS::Entity root);
 
     void loadTexturesAsync(const aiScene* scene, const std::string& directory, AsyncDispatcher& dispatcher);
 
 private:
     std::unordered_map<std::string, Stb::Image> images;
+    std::unique_ptr<Assimp::Importer> importer;
 };
 
 void updateTransforms(Scene& scene);

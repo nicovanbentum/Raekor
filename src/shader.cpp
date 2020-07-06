@@ -164,6 +164,11 @@ glShader::UniformLocation& glShader::UniformLocation::operator=(const std::vecto
     return *this;
 }
 
+glShader::UniformLocation& glShader::UniformLocation::operator=(const std::vector<glm::mat4>& rhs) {
+    glUniformMatrix4fv(id, rhs.size(), GL_FALSE, glm::value_ptr(rhs[0]));
+    return *this;
+}
+
 glShader::UniformLocation& glShader::UniformLocation::operator=(float rhs) {
     glUniform1f(id, rhs);
     return *this;

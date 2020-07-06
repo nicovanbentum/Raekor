@@ -94,7 +94,9 @@ void Application::run() {
         {"UV",          ShaderType::FLOAT2},
         {"NORMAL",      ShaderType::FLOAT3},
         {"TANGENT",     ShaderType::FLOAT3},
-        {"BINORMAL",    ShaderType::FLOAT3}
+        {"BINORMAL",    ShaderType::FLOAT3},
+        {"BONEINDICES", ShaderType::FLOAT4},
+        {"BONEWEIGHTS", ShaderType::FLOAT4}
     });
 
     std::unique_ptr<Mesh> unitCube;
@@ -106,7 +108,9 @@ void Application::run() {
         {"UV",          ShaderType::FLOAT2},
         {"NORMAL",      ShaderType::FLOAT3},
         {"TANGENT",     ShaderType::FLOAT3},
-        {"BINORMAL",    ShaderType::FLOAT3}
+        {"BINORMAL",    ShaderType::FLOAT3},
+        {"BONEINDICES", ShaderType::FLOAT4},
+        {"BONEWEIGHTS", ShaderType::FLOAT4}
     });
 
     std::unique_ptr<Mesh> Quad;
@@ -116,7 +120,9 @@ void Application::run() {
         {"UV",          ShaderType::FLOAT2},
         {"NORMAL",      ShaderType::FLOAT3},
         {"TANGENT",     ShaderType::FLOAT3},
-        {"BINORMAL",    ShaderType::FLOAT3}
+        {"BINORMAL",    ShaderType::FLOAT3},
+        {"BONEINDICES", ShaderType::FLOAT4},
+        {"BONEWEIGHTS", ShaderType::FLOAT4}
     });
 
     viewport.size.x = 2003, viewport.size.y = 1370;
@@ -203,11 +209,15 @@ void Application::run() {
 
     bool shouldVoxelize = true;
 
+    float runningTime = 0;
 
     while (running) {
         deltaTimer.start();
 
         updateTransforms(newScene);
+        for (int m = 0; m < newScene.meshes.getCount(); m++) {
+            newScene.meshes[m].boneTransform(runningTime);
+        }
 
         // if we're debugging the shadow map we directly control the sun camera
         if (activeScreenTexture != &shadowMapPass->result)
@@ -431,6 +441,8 @@ void Application::run() {
         if (ImGui::RadioButton("Vsync", doVsync)) {
             doVsync = !doVsync;
         }
+
+        ImGui::DragFloat("Animation tim", &runningTime, 0.01f, 0, FLT_MAX);
 
         ImGui::NewLine(); ImGui::Separator(); 
         ImGui::Text("Voxel Cone Tracing");

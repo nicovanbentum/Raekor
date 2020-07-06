@@ -63,6 +63,16 @@ void Scene::remove(ECS::Entity entity) {
     }
 }
 
+static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from) {
+    glm::mat4 to;
+    //the a,b,c,d in assimp is the row ; the 1,2,3,4 is the column
+    to[0][0] = from.a1; to[1][0] = from.a2; to[2][0] = from.a3; to[3][0] = from.a4;
+    to[0][1] = from.b1; to[1][1] = from.b2; to[2][1] = from.b3; to[3][1] = from.b4;
+    to[0][2] = from.c1; to[1][2] = from.c2; to[2][2] = from.c3; to[3][2] = from.c4;
+    to[0][3] = from.d1; to[1][3] = from.d2; to[2][3] = from.d3; to[3][3] = from.d4;
+    return to;
+};
+
 void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDispatcher& dispatcher) {
     constexpr unsigned int flags =
         aiProcess_GenNormals |
@@ -73,11 +83,11 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDi
         aiProcess_GenUVCoords |
         aiProcess_ValidateDataStructure;
 
-    Assimp::Importer importer;
-    auto assimpScene = importer.ReadFile(file, flags);
+    // the importer takes care of deleting the scene
+    const aiScene* assimpScene = importer->ReadFile(file, flags);
 
     if (!assimpScene) {
-        std::clog << "Error loading " << file << ": " << importer.GetErrorString() << '\n';
+        std::clog << "Error loading " << file << ": " << importer->GetErrorString() << '\n';
         return;
     }
 
@@ -94,6 +104,8 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDi
     auto node = scene.nodes.getComponent(rootEntity);
     node->hasChildren = true;
     processAiNode(scene, assimpScene, assimpScene->mRootNode, rootEntity);
+
+    auto animation = assimpScene->mAnimations[0];
 }
 
 void AssimpImporter::processAiNode(Scene& scene, const aiScene* aiscene, aiNode* node, ECS::Entity root) {
@@ -101,7 +113,7 @@ void AssimpImporter::processAiNode(Scene& scene, const aiScene* aiscene, aiNode*
         aiMesh* mesh = aiscene->mMeshes[node->mMeshes[i]];
         aiMaterial* material = aiscene->mMaterials[mesh->mMaterialIndex];
         // load mesh with material and transform into raekor scene
-        loadMesh(scene, mesh, material, node->mTransformation, root);
+        loadMesh(aiscene, scene, mesh, material, node->mTransformation, root);
     }
     // recursive node processing
     for (uint32_t i = 0; i < node->mNumChildren; i++) {
@@ -109,7 +121,7 @@ void AssimpImporter::processAiNode(Scene& scene, const aiScene* aiscene, aiNode*
     }
 }
 
-void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, ECS::Entity root) {
+void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, ECS::Entity root) {
     // create new entity and attach components
     ECS::Entity entity = ECS::newEntity();
     ECS::NodeComponent& node = scene.nodes.create(entity);
@@ -148,6 +160,54 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
 
         mesh.vertices.push_back(std::move(v));
     }
+
+    if (assimpMesh->HasBones()) {
+        for (size_t i = 0; i < assimpMesh->mNumBones; i++) {
+            auto bone = assimpMesh->mBones[i];
+            int boneIndex = 0;
+
+            if (mesh.bonemapping.find(bone->mName.C_Str()) == mesh.bonemapping.end()) {
+                boneIndex = mesh.boneCount;
+                mesh.boneCount++;
+                ECS::BoneInfo bi;
+                mesh.boneInfos.push_back(bi);
+                mesh.boneInfos[boneIndex].boneOffset = aiMat4toGLM(bone->mOffsetMatrix);
+                mesh.bonemapping[bone->mName.C_Str()] = boneIndex;
+            } else {
+                std::cout << "found existing bone in map" << std::endl;
+                boneIndex = mesh.bonemapping[bone->mName.C_Str()];
+            }
+
+            auto addBoneData = [](Vertex& v, uint32_t boneID, float weight) {
+                for (int i = 0; i < 4; i++) {
+                    if (v.boneWeights[i] == 0.0f) {
+                        v.boneIndices[i] = boneID;
+                        v.boneWeights[i] = weight;
+                        return;
+                    }
+                }
+
+                std::puts("Discarding excess bone data..");
+            };
+
+            for (size_t j = 0; j < bone->mNumWeights; j++) {
+                int vertexID = assimpMesh->mBones[i]->mWeights[j].mVertexId;
+                float weight = assimpMesh->mBones[i]->mWeights[j].mWeight;
+                addBoneData(mesh.vertices[vertexID], boneIndex, weight);
+            }
+        }
+
+        mesh.boneTransforms.resize(mesh.boneCount);
+        for (int i = 0; i < mesh.boneCount; i++) {
+            mesh.boneInfos[i].finalTransformation = glm::mat4(1.0f);
+            mesh.boneTransforms[i] = mesh.boneInfos[i].finalTransformation;
+        }
+
+        for (auto& matrix : mesh.boneTransforms) {
+            std::cout << glm::to_string(matrix) << '\n';
+        }
+    }
+
     // extract indices
     mesh.indices.reserve(assimpMesh->mNumFaces);
     for (size_t i = 0; i < mesh.indices.capacity(); i++) {
@@ -156,7 +216,6 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
     }
 
     mesh.generateAABB();
-
     transform.localPosition = (mesh.aabb[0] + mesh.aabb[1]) / 2.0f;
 
     // upload the mesh buffers to the GPU
@@ -166,10 +225,15 @@ void AssimpImporter::loadMesh(Scene& scene, aiMesh* assimpMesh, aiMaterial* assi
         {"UV",          ShaderType::FLOAT2},
         {"NORMAL",      ShaderType::FLOAT3},
         {"TANGENT",     ShaderType::FLOAT3},
-        {"BINORMAL",    ShaderType::FLOAT3}
-        });
+        {"BINORMAL",    ShaderType::FLOAT3},
+        {"BONEINDICES", ShaderType::FLOAT4},
+        {"BONEWEIGHTS", ShaderType::FLOAT4}
+    });
 
     mesh.indexBuffer.loadFaces(mesh.indices.data(), mesh.indices.size());
+
+    mesh.scene = aiscene;
+    mesh.inverseGlobalTransform = glm::inverse(ECS::MeshComponent::aiMat4toGLM(aiscene->mRootNode->mTransformation));
 
 
     // get material textures from Assimp's import
