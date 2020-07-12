@@ -227,8 +227,8 @@ void Application::run() {
         viewport.getCamera().update(true);
 
         // clear the main window
-        Renderer::Clear({ 0.22f, 0.32f, 0.42f, 1.0f });
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         // generate sun shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);

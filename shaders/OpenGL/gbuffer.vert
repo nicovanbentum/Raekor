@@ -11,8 +11,6 @@ uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
 
-uniform mat4 boneTransforms[100];
-
 out vec3 pos;
 out vec2 uv;
 out mat3 TBN;

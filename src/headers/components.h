@@ -62,13 +62,16 @@ struct MeshComponent {
     const aiScene* scene;
     aiAnimation animation;
 
-    const aiNodeAnim* findNodeAnim(const aiAnimation* animation, const std::string& nodeName) {
+    const aiNodeAnim* findNodeAnim(const aiAnimation* animation, const char* nodeName) {
         for (unsigned int i = 0; i < animation->mNumChannels; i++) {
+            
             auto nodeAnim = animation->mChannels[i];
-            if (std::string(nodeAnim->mNodeName.data) == nodeName) {
+
+            if (strcmp(nodeAnim->mNodeName.C_Str(), nodeName) == 0) {
                 return nodeAnim;
             }
         }
+
         return nullptr;
     }
 
@@ -174,13 +177,11 @@ struct MeshComponent {
     };
 
     void ReadNodeHierarchy(float animationTime, const aiNode* pNode, const glm::mat4& parentTransform) {
-        std::string name(pNode->mName.data);
-        
         auto animation = scene->mAnimations[0];
         
-        glm::mat4 nodeTransform = glm::mat4(aiMat4toGLM(pNode->mTransformation));
+        glm::mat4 nodeTransform = aiMat4toGLM(pNode->mTransformation);
         
-        auto nodeAnim = findNodeAnim(animation, name);
+        auto nodeAnim = findNodeAnim(animation, pNode->mName.C_Str());
 
         if (nodeAnim) {
             glm::vec3 translation = InterpolateTranslation(animationTime, nodeAnim);
@@ -197,10 +198,11 @@ struct MeshComponent {
 
         auto globalTransformation = parentTransform * nodeTransform;
 
-            if (bonemapping.find(name) != bonemapping.end()) {
-                unsigned int boneIndex = bonemapping[name];
+            if (bonemapping.find(pNode->mName.C_Str()) != bonemapping.end()) {
+                unsigned int boneIndex = bonemapping[pNode->mName.C_Str()];
                 boneInfos[boneIndex].finalTransformation = globalTransformation * boneInfos[boneIndex].boneOffset;
             }
+
 
             for (unsigned int i = 0; i < pNode->mNumChildren; i++) {
                 ReadNodeHierarchy(animationTime, pNode->mChildren[i], globalTransformation);

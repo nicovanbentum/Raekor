@@ -193,9 +193,6 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
         ECS::Entity entity = scene.meshes.getEntity(i);
 
         ECS::MeshComponent& mesh = scene.meshes[i];
-        shader.getUniform("boneTransforms") = mesh.boneTransforms;
-
-        ECS::NameComponent* name = scene.names.getComponent(entity);
 
         ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
         const glm::mat4& worldTransform = transform ? transform->worldTransform : glm::mat4(1.0f);

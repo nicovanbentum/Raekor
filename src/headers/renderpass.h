@@ -318,7 +318,7 @@ public:
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, mesh.skinnedVertexBuffer.id);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, mesh.boneTransformsBuffer);
         
-        glDispatchCompute(mesh.vertices.size(), 1, 1);
+        glDispatchCompute(static_cast<GLuint>(mesh.vertices.size()), 1, 1);
         
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
