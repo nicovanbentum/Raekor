@@ -295,8 +295,37 @@ private:
 
 public:
     glTexture2D result;
+};
 
+class Skinning {
+public:
+    Skinning() {
+        std::vector<Shader::Stage> stages;
+        stages.emplace_back(Shader::Type::COMPUTE, "shaders\\OpenGL\\skinning.comp");
+        computeShader.reload(stages.data(), stages.size());
+        hotloader.watch(&computeShader, stages.data(), stages.size());
+    }
 
+    void execute(ECS::MeshComponent& mesh) {
+
+        glNamedBufferData(mesh.boneTransformsBuffer, mesh.boneTransforms.size() * sizeof(glm::mat4), mesh.boneTransforms.data(), GL_STATIC_DRAW);
+        
+        computeShader.bind();
+        
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, mesh.boneIndexBuffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, mesh.boneWeightBuffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, mesh.vertexBuffer.id);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, mesh.skinnedVertexBuffer.id);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, mesh.boneTransformsBuffer);
+        
+        glDispatchCompute(mesh.vertices.size(), 1, 1);
+        
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    }
+
+private:
+    glShader computeShader;
+    ShaderHotloader hotloader;
 };
 
 } // renderpass

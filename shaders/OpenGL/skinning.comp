@@ -1,0 +1,44 @@
+#version 440 core
+
+// Compute shader that takes an input vertex buffer, skins it using input bone index and weight buffers, and writes the result to an output buffer
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+struct Vertex {
+    vec3 pos;
+    vec2 uv;
+    vec3 normal;
+    vec3 tangent;
+    vec3 binormal;
+};
+
+layout(std140, binding = 0) buffer boneIndexBuffer {
+    ivec4 boneIndices [];
+};
+
+layout(std140, binding = 1) buffer boneWeightBuffer {
+    vec4 boneWeights [];
+};
+
+layout(std140, binding = 2) buffer inputVertexBuffer {
+    Vertex inputVertices [];
+};
+
+layout(std140, binding = 3) buffer outputVertexBuffer {
+    Vertex outputVertices [];
+};
+
+layout(std140, binding = 4) buffer boneTransformBuffer {
+    mat4 boneTransforms [];
+};
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+
+    mat4 boneTransform = boneTransforms[boneIndices[id][0]] * boneWeights[id][0];
+    boneTransform += boneTransforms[boneIndices[id][1]] * boneWeights[id][1];
+    boneTransform += boneTransforms[boneIndices[id][2]] * boneWeights[id][2];
+    boneTransform += boneTransforms[boneIndices[id][3]] * boneWeights[id][3];
+
+    outputVertices[id].pos = vec3(boneTransform * vec4(inputVertices[id].pos, 1.0));
+}

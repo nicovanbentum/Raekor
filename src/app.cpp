@@ -95,8 +95,6 @@ void Application::run() {
         {"NORMAL",      ShaderType::FLOAT3},
         {"TANGENT",     ShaderType::FLOAT3},
         {"BINORMAL",    ShaderType::FLOAT3},
-        {"BONEINDICES", ShaderType::FLOAT4},
-        {"BONEWEIGHTS", ShaderType::FLOAT4}
     });
 
     std::unique_ptr<Mesh> unitCube;
@@ -109,8 +107,6 @@ void Application::run() {
         {"NORMAL",      ShaderType::FLOAT3},
         {"TANGENT",     ShaderType::FLOAT3},
         {"BINORMAL",    ShaderType::FLOAT3},
-        {"BONEINDICES", ShaderType::FLOAT4},
-        {"BONEWEIGHTS", ShaderType::FLOAT4}
     });
 
     std::unique_ptr<Mesh> Quad;
@@ -121,8 +117,6 @@ void Application::run() {
         {"NORMAL",      ShaderType::FLOAT3},
         {"TANGENT",     ShaderType::FLOAT3},
         {"BINORMAL",    ShaderType::FLOAT3},
-        {"BONEINDICES", ShaderType::FLOAT4},
-        {"BONEWEIGHTS", ShaderType::FLOAT4}
     });
 
     viewport.size.x = 2003, viewport.size.y = 1370;
@@ -171,6 +165,8 @@ void Application::run() {
     auto voxelizePass           = std::make_unique<RenderPass::Voxelization>(128);
     auto voxelDebugPass         = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
     auto skyPass                = std::make_unique<RenderPass::SkyPass>(viewport);
+    auto skinningPass            = std::make_unique<RenderPass::Skinning>();
+
 
     // boolean settings needed for a couple things
     bool doSSAO = false, doBloom = false, debugVoxels = false, doDeferred = true;
@@ -217,6 +213,7 @@ void Application::run() {
         updateTransforms(newScene);
         for (int m = 0; m < newScene.meshes.getCount(); m++) {
             newScene.meshes[m].boneTransform(runningTime);
+            skinningPass->execute(newScene.meshes[m]);
         }
 
         // if we're debugging the shadow map we directly control the sun camera
@@ -224,7 +221,7 @@ void Application::run() {
             handleEvents(directxwindow, viewport.getCamera(), mouseInViewport, deltaTime);
         else
             handleEvents(directxwindow, shadowMapPass->sunCamera, mouseInViewport, deltaTime);
-        
+
 
         shadowMapPass->sunCamera.update(true);
         viewport.getCamera().update(true);
@@ -442,7 +439,7 @@ void Application::run() {
             doVsync = !doVsync;
         }
 
-        ImGui::DragFloat("Animation tim", &runningTime, 0.01f, 0, FLT_MAX);
+        ImGui::DragFloat("Animation", &runningTime, 0.1f, 0, FLT_MAX);
 
         ImGui::NewLine(); ImGui::Separator(); 
         ImGui::Text("Voxel Cone Tracing");
@@ -459,7 +456,7 @@ void Application::run() {
             doDeferred = !doDeferred;
         }
 
-        ImGui::DragFloat("World size", &voxelizePass->worldSize, 0.1f, 0.0f, FLT_MAX, "%.2f");
+        ImGui::DragFloat("World size", &voxelizePass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
 
         ImGui::Separator();
 

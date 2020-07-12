@@ -74,15 +74,13 @@ private:
 };
 
 struct Vertex {
-    glm::vec3 pos;
-    glm::vec2 uv;
-    glm::vec3 normal;
-    glm::vec3 tangent;
-    glm::vec3 binormal;
-    glm::vec4 boneIndices;
-    glm::vec4 boneWeights;
+    alignas(16) glm::vec3 pos;
+    alignas(16) glm::vec2 uv;
+    alignas(16) glm::vec3 normal;
+    alignas(16) glm::vec3 tangent;
+    alignas(16) glm::vec3 binormal;
 
-    static constexpr uint8_t attributeCount = 7;
+    static constexpr uint8_t attributeCount = 5;
 };
 
 struct Triangle {
@@ -118,9 +116,9 @@ public:
     void bind() const;
     void setLayout(const InputLayout& layout) const;
 
+    unsigned int id = 0;
 private:
     mutable InputLayout inputLayout;
-    unsigned int id = 0;
 };
 
 class glIndexBuffer {

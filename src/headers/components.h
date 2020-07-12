@@ -50,6 +50,9 @@ struct MeshComponent {
     std::vector<Vertex> vertices;
     std::vector<Triangle> indices;
 
+    std::vector<glm::vec4> boneWeights;
+    std::vector<glm::ivec4> boneIndices;
+
     int boneCount = 0;
     std::vector<BoneInfo> boneInfos;
     glm::mat4 inverseGlobalTransform;
@@ -60,7 +63,7 @@ struct MeshComponent {
     aiAnimation animation;
 
     const aiNodeAnim* findNodeAnim(const aiAnimation* animation, const std::string& nodeName) {
-        for (uint32_t i = 0; i < animation->mNumChannels; i++) {
+        for (unsigned int i = 0; i < animation->mNumChannels; i++) {
             auto nodeAnim = animation->mChannels[i];
             if (std::string(nodeAnim->mNodeName.data) == nodeName) {
                 return nodeAnim;
@@ -69,45 +72,35 @@ struct MeshComponent {
         return nullptr;
     }
 
-    uint32_t FindPosition(float AnimationTime, const aiNodeAnim* pNodeAnim)
-    {
-        for (uint32_t i = 0; i < pNodeAnim->mNumPositionKeys - 1; i++)
-        {
-            if (AnimationTime < (float)pNodeAnim->mPositionKeys[i + 1].mTime)
+    unsigned int FindPosition(float AnimationTime, const aiNodeAnim* pNodeAnim) {
+        for (unsigned int i = 0; i < pNodeAnim->mNumPositionKeys - 1; i++) {
+            if (AnimationTime < (float)pNodeAnim->mPositionKeys[i + 1].mTime) {
                 return i;
+            }
         }
-
         return 0;
     }
 
-
-    uint32_t FindRotation(float AnimationTime, const aiNodeAnim* pNodeAnim)
-    {
-        for (uint32_t i = 0; i < pNodeAnim->mNumRotationKeys - 1; i++)
-        {
-            if (AnimationTime < (float)pNodeAnim->mRotationKeys[i + 1].mTime)
+    unsigned int FindRotation(float AnimationTime, const aiNodeAnim* pNodeAnim) {
+        for (unsigned int i = 0; i < pNodeAnim->mNumRotationKeys - 1; i++) {
+            if (AnimationTime < (float)pNodeAnim->mRotationKeys[i + 1].mTime) {
                 return i;
+            }
         }
-
         return 0;
     }
 
-
-    uint32_t FindScaling(float AnimationTime, const aiNodeAnim* pNodeAnim)
-    {
-        for (uint32_t i = 0; i < pNodeAnim->mNumScalingKeys - 1; i++)
-        {
-            if (AnimationTime < (float)pNodeAnim->mScalingKeys[i + 1].mTime)
+    unsigned int FindScaling(float AnimationTime, const aiNodeAnim* pNodeAnim) {
+        for (unsigned int i = 0; i < pNodeAnim->mNumScalingKeys - 1; i++) {
+            if (AnimationTime < (float)pNodeAnim->mScalingKeys[i + 1].mTime) {
                 return i;
+            }
         }
-
         return 0;
     }
 
-    glm::vec3 InterpolateTranslation(float animationTime, const aiNodeAnim* nodeAnim)
-    {
-        if (nodeAnim->mNumPositionKeys == 1)
-        {
+    glm::vec3 InterpolateTranslation(float animationTime, const aiNodeAnim* nodeAnim) {
+        if (nodeAnim->mNumPositionKeys == 1) {
             // No interpolation necessary for single value
             auto v = nodeAnim->mPositionKeys[0].mValue;
             return { v.x, v.y, v.z };
@@ -115,10 +108,11 @@ struct MeshComponent {
 
         uint32_t PositionIndex = FindPosition(animationTime, nodeAnim);
         uint32_t NextPositionIndex = (PositionIndex + 1);
+        
         float DeltaTime = (float)(nodeAnim->mPositionKeys[NextPositionIndex].mTime - nodeAnim->mPositionKeys[PositionIndex].mTime);
         float Factor = (animationTime - (float)nodeAnim->mPositionKeys[PositionIndex].mTime) / DeltaTime;
-        if (Factor < 0.0f)
-            Factor = 0.0f;
+        if (Factor < 0.0f) Factor = 0.0f;
+        
         const aiVector3D& Start = nodeAnim->mPositionKeys[PositionIndex].mValue;
         const aiVector3D& End = nodeAnim->mPositionKeys[NextPositionIndex].mValue;
         aiVector3D Delta = End - Start;
@@ -126,11 +120,8 @@ struct MeshComponent {
         return { aiVec.x, aiVec.y, aiVec.z };
     }
 
-
-    glm::quat InterpolateRotation(float animationTime, const aiNodeAnim* nodeAnim)
-    {
-        if (nodeAnim->mNumRotationKeys == 1)
-        {
+    glm::quat InterpolateRotation(float animationTime, const aiNodeAnim* nodeAnim) {
+        if (nodeAnim->mNumRotationKeys == 1) {
             // No interpolation necessary for single value
             auto v = nodeAnim->mRotationKeys[0].mValue;
             return glm::quat(v.w, v.x, v.y, v.z);
@@ -138,10 +129,11 @@ struct MeshComponent {
 
         uint32_t RotationIndex = FindRotation(animationTime, nodeAnim);
         uint32_t NextRotationIndex = (RotationIndex + 1);
+        
         float DeltaTime = (float)(nodeAnim->mRotationKeys[NextRotationIndex].mTime - nodeAnim->mRotationKeys[RotationIndex].mTime);
         float Factor = (animationTime - (float)nodeAnim->mRotationKeys[RotationIndex].mTime) / DeltaTime;
-        if (Factor < 0.0f)
-            Factor = 0.0f;
+        if (Factor < 0.0f) Factor = 0.0f;
+        
         const aiQuaternion& StartRotationQ = nodeAnim->mRotationKeys[RotationIndex].mValue;
         const aiQuaternion& EndRotationQ = nodeAnim->mRotationKeys[NextRotationIndex].mValue;
         auto q = aiQuaternion();
@@ -150,10 +142,8 @@ struct MeshComponent {
         return glm::quat(q.w, q.x, q.y, q.z);
     }
 
-    glm::vec3 InterpolateScale(float animationTime, const aiNodeAnim* nodeAnim)
-    {
-        if (nodeAnim->mNumScalingKeys == 1)
-        {
+    glm::vec3 InterpolateScale(float animationTime, const aiNodeAnim* nodeAnim) {
+        if (nodeAnim->mNumScalingKeys == 1) {
             // No interpolation necessary for single value
             auto v = nodeAnim->mScalingKeys[0].mValue;
             return { v.x, v.y, v.z };
@@ -161,10 +151,11 @@ struct MeshComponent {
 
         uint32_t index = FindScaling(animationTime, nodeAnim);
         uint32_t nextIndex = (index + 1);
+        
         float deltaTime = (float)(nodeAnim->mScalingKeys[nextIndex].mTime - nodeAnim->mScalingKeys[index].mTime);
         float factor = (animationTime - (float)nodeAnim->mScalingKeys[index].mTime) / deltaTime;
-        if (factor < 0.0f)
-            factor = 0.0f;
+        if (factor < 0.0f) factor = 0.0f;
+        
         const auto& start = nodeAnim->mScalingKeys[index].mValue;
         const auto& end = nodeAnim->mScalingKeys[nextIndex].mValue;
         auto delta = end - start;
@@ -211,18 +202,19 @@ struct MeshComponent {
                 boneInfos[boneIndex].finalTransformation = globalTransformation * boneInfos[boneIndex].boneOffset;
             }
 
-            for (int i = 0; i < pNode->mNumChildren; i++) {
+            for (unsigned int i = 0; i < pNode->mNumChildren; i++) {
                 ReadNodeHierarchy(animationTime, pNode->mChildren[i], globalTransformation);
             }
     }
 
     void boneTransform(float TimeInSeconds) {
-        auto identity = glm::mat4(1.0f);
-        float TicksPerSecond = scene->mAnimations[0]->mTicksPerSecond != 0 ?
-            scene->mAnimations[0]->mTicksPerSecond : 25.0f;
+        float ticks = static_cast<float>(scene->mAnimations[0]->mTicksPerSecond);
+        float duration = static_cast<float>(scene->mAnimations[0]->mDuration);
+        float TicksPerSecond = ticks != 0.0 ? ticks : 25.0f;
         float TimeInTicks = TimeInSeconds * TicksPerSecond;
-        float AnimationTime = fmod(TimeInTicks, scene->mAnimations[0]->mDuration);
+        float AnimationTime = fmod(TimeInTicks, duration);
 
+        auto identity = glm::mat4(1.0f);
         ReadNodeHierarchy(AnimationTime, scene->mRootNode, identity);
 
         boneTransforms.resize(boneCount);
@@ -232,7 +224,12 @@ struct MeshComponent {
     }
 
     glVertexBuffer vertexBuffer;
+    glVertexBuffer skinnedVertexBuffer;
     glIndexBuffer indexBuffer;
+
+    unsigned int boneIndexBuffer;
+    unsigned int boneWeightBuffer;
+    unsigned int boneTransformsBuffer;
 
     std::array<glm::vec3, 2> aabb;
 

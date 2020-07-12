@@ -28,9 +28,26 @@ void MeshComponent::uploadVertices() {
         { "NORMAL",      ShaderType::FLOAT3 },
         { "TANGENT",     ShaderType::FLOAT3 },
         { "BINORMAL",    ShaderType::FLOAT3 },
-        {"BONEINDICES",  ShaderType::FLOAT4 },
-        {"BONEWEIGHTS",  ShaderType::FLOAT4 }
         });
+
+    glCreateBuffers(1, &boneIndexBuffer);
+
+    glNamedBufferData(boneIndexBuffer, boneIndices.size() * sizeof(glm::ivec4), boneIndices.data(), GL_STATIC_COPY);
+    
+    glCreateBuffers(1, &boneWeightBuffer);
+    glNamedBufferData(boneWeightBuffer, boneWeights.size() * sizeof(glm::vec4), boneWeights.data(), GL_STATIC_COPY);
+
+    glCreateBuffers(1, &boneTransformsBuffer);
+    glNamedBufferData(boneTransformsBuffer, boneTransforms.size() * sizeof(glm::mat4), boneTransforms.data(), GL_DYNAMIC_READ);
+
+    skinnedVertexBuffer.loadVertices(vertices.data(), vertices.size());
+    skinnedVertexBuffer.setLayout({
+        { "POSITION",    ShaderType::FLOAT3 },
+        { "UV",          ShaderType::FLOAT2 },
+        { "NORMAL",      ShaderType::FLOAT3 },
+        { "TANGENT",     ShaderType::FLOAT3 },
+        { "BINORMAL",    ShaderType::FLOAT3 },
+    });
 }
 
 void MeshComponent::uploadIndices() {

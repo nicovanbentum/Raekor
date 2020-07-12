@@ -230,7 +230,7 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
 
         shader.getUniform("entity") = entity;
 
-        mesh.vertexBuffer.bind();
+        mesh.skinnedVertexBuffer.bind();
         mesh.indexBuffer.bind();
         Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
@@ -258,7 +258,7 @@ void GeometryBuffer::resize(Viewport& viewport) {
 ECS::Entity GeometryBuffer::pick(uint32_t x, uint32_t y) {
     glm::vec4 readPixel;
     glGetTextureSubImage(materialTexture.mID, 0, x, y, 0, 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(glm::vec4), glm::value_ptr(readPixel));
-    return readPixel.b;
+    return static_cast<ECS::Entity>(readPixel.b);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -781,8 +781,6 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
     {"NORMAL",      ShaderType::FLOAT3},
     {"TANGENT",     ShaderType::FLOAT3},
     {"BINORMAL",    ShaderType::FLOAT3},
-    {"BONEINDICES", ShaderType::FLOAT4},
-    {"BONEWEIGHTS", ShaderType::FLOAT4}
         });
 }
 
