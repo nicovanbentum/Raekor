@@ -19,7 +19,6 @@ private:
     void drawMeshComponent(ECS::MeshComponent* component);
     void drawMaterialComponent(ECS::MaterialComponent* component);
     void drawTransformComponent(ECS::TransformComponent* component);
-    void drawMeshRendererComponent(ECS::MeshRendererComponent* component);
     void drawPointLightComponent(ECS::PointLightComponent* component);
     void drawDirectionalLightComponent(ECS::DirectionalLightComponent* component);
 };

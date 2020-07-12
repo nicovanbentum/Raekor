@@ -63,7 +63,13 @@ void ShadowMap::execute(Scene& scene) {
             shader.getUniform("model") = glm::mat4(1.0f);
         }
 
-        mesh.vertexBuffer.bind();
+        // determine if we use the original mesh vertices or GPU skinned vertices
+        if (scene.animations.contains(entity)) {
+            scene.animations.getComponent(entity)->skinnedVertexBuffer.bind();
+        }
+        else {
+            mesh.vertexBuffer.bind();
+        }
         mesh.indexBuffer.bind();
         Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
@@ -123,7 +129,13 @@ void OmniShadowMap::execute(Scene& scene, const glm::vec3& lightPosition) {
 
             shader.getUniform("model") = worldTransform;
 
-            mesh.vertexBuffer.bind();
+            // determine if we use the original mesh vertices or GPU skinned vertices
+            if (scene.animations.contains(entity)) {
+                scene.animations.getComponent(entity)->skinnedVertexBuffer.bind();
+            }
+            else {
+                mesh.vertexBuffer.bind();
+            }
             mesh.indexBuffer.bind();
             Renderer::DrawIndexed(mesh.indexBuffer.count);
         }
@@ -227,7 +239,13 @@ void GeometryBuffer::execute(Scene& scene, Viewport& viewport) {
 
         shader.getUniform("entity") = entity;
 
-        mesh.skinnedVertexBuffer.bind();
+        // determine if we use the original mesh vertices or GPU skinned vertices
+        if (scene.animations.contains(entity)) {
+            scene.animations.getComponent(entity)->skinnedVertexBuffer.bind();  
+        } else {
+            mesh.vertexBuffer.bind();
+        }
+
         mesh.indexBuffer.bind();
         Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
@@ -691,7 +709,13 @@ void Voxelization::execute(Scene& scene, Viewport& viewport, ShadowMap* shadowma
             if (material->albedo) material->albedo->bindToSlot(0);
         }
 
-        mesh.vertexBuffer.bind();
+        // determine if we use the original mesh vertices or GPU skinned vertices
+        if (scene.animations.contains(entity)) {
+            scene.animations.getComponent(entity)->skinnedVertexBuffer.bind();
+        }
+        else {
+            mesh.vertexBuffer.bind();
+        }
         mesh.indexBuffer.bind();
         Renderer::DrawIndexed(mesh.indexBuffer.count);
     }
@@ -952,7 +976,13 @@ void ForwardLightingPass::execute(Viewport& viewport, Scene& scene, Voxelization
         // write the entity ID to the stencil buffer for picking
         glStencilFunc(GL_ALWAYS, (GLint)entity, 0xFFFF);
 
-        mesh.vertexBuffer.bind();
+        // determine if we use the original mesh vertices or GPU skinned vertices
+        if (scene.animations.contains(entity)) {
+            scene.animations.getComponent(entity)->skinnedVertexBuffer.bind();
+        }
+        else {
+            mesh.vertexBuffer.bind();
+        }
         mesh.indexBuffer.bind();
         Renderer::DrawIndexed(mesh.indexBuffer.count);
     }

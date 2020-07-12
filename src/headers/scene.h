@@ -30,10 +30,10 @@ public:
     ECS::ComponentManager<ECS::TransformComponent> transforms;
     ECS::ComponentManager<ECS::NodeComponent> nodes;
     ECS::ComponentManager<ECS::MeshComponent> meshes;
-    ECS::ComponentManager<ECS::MeshRendererComponent> meshRenderers;
     ECS::ComponentManager<ECS::MaterialComponent> materials;
     ECS::ComponentManager<ECS::DirectionalLightComponent> directionalLights;
     ECS::ComponentManager<ECS::PointLightComponent> pointLights;
+    ECS::ComponentManager<ECS::MeshAnimationComponent> animations;
 
 public:
     std::vector<ECS::Entity> entities;

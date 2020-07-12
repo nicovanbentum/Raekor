@@ -129,10 +129,6 @@ void InspectorWindow::drawMeshComponent(ECS::MeshComponent* component) {
     ImGui::Text("Index count: %i", component->indices.size() * 3);
 }
 
-void InspectorWindow::drawMeshRendererComponent(ECS::MeshRendererComponent* component) {
-
-}
-
 void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent* component) {
     Ffilter textureFileFormats;
     textureFileFormats.name = "Supported Image Files";

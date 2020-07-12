@@ -211,9 +211,13 @@ void Application::run() {
         deltaTimer.start();
 
         updateTransforms(newScene);
-        for (int m = 0; m < newScene.meshes.getCount(); m++) {
-            newScene.meshes[m].boneTransform(runningTime);
-            skinningPass->execute(newScene.meshes[m]);
+        for (int m = 0; m < newScene.animations.getCount(); m++) {
+            newScene.animations[m].boneTransform(runningTime);
+            auto entity = newScene.animations.getEntity(m);
+            if (!newScene.meshes.contains(entity)) {
+                continue;
+            }
+            skinningPass->execute(*newScene.meshes.getComponent(entity), newScene.animations[m]);
         }
 
         // if we're debugging the shadow map we directly control the sun camera

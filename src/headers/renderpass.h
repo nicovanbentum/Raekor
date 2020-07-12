@@ -306,17 +306,17 @@ public:
         hotloader.watch(&computeShader, stages.data(), stages.size());
     }
 
-    void execute(ECS::MeshComponent& mesh) {
+    void execute(ECS::MeshComponent& mesh, ECS::MeshAnimationComponent& anim) {
 
-        glNamedBufferData(mesh.boneTransformsBuffer, mesh.boneTransforms.size() * sizeof(glm::mat4), mesh.boneTransforms.data(), GL_STATIC_DRAW);
+        glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransforms.size() * sizeof(glm::mat4), anim.boneTransforms.data(), GL_STATIC_DRAW);
         
         computeShader.bind();
         
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, mesh.boneIndexBuffer);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, mesh.boneWeightBuffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, anim.boneIndexBuffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, anim.boneWeightBuffer);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, mesh.vertexBuffer.id);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, mesh.skinnedVertexBuffer.id);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, mesh.boneTransformsBuffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, anim.skinnedVertexBuffer.id);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, anim.boneTransformsBuffer);
         
         glDispatchCompute(static_cast<GLuint>(mesh.vertices.size()), 1, 1);
         

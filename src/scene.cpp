@@ -41,6 +41,7 @@ void Scene::remove(ECS::Entity entity) {
     materials.remove(entity);
     pointLights.remove(entity);
     directionalLights.remove(entity);
+    animations.remove(entity);
 
     if (isNode) {
         for (int i = 0; i < nodes.getCount(); /* update on no remove */) {
@@ -104,8 +105,6 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDi
     auto node = scene.nodes.getComponent(rootEntity);
     node->hasChildren = true;
     processAiNode(scene, assimpScene, assimpScene->mRootNode, rootEntity);
-
-    auto animation = assimpScene->mAnimations[0];
 }
 
 void AssimpImporter::processAiNode(Scene& scene, const aiScene* aiscene, aiNode* node, ECS::Entity root) {
@@ -162,30 +161,32 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
     }
 
     if (assimpMesh->HasBones()) {
-        mesh.boneWeights.resize(mesh.vertices.size());
-        mesh.boneIndices.resize(mesh.vertices.size());
+        auto& animation = scene.animations.create(entity);
+
+        animation.boneWeights.resize(mesh.vertices.size());
+        animation.boneIndices.resize(mesh.vertices.size());
 
         for (size_t i = 0; i < assimpMesh->mNumBones; i++) {
             auto bone = assimpMesh->mBones[i];
             int boneIndex = 0;
 
-            if (mesh.bonemapping.find(bone->mName.C_Str()) == mesh.bonemapping.end()) {
-                boneIndex = mesh.boneCount;
-                mesh.boneCount++;
+            if (animation.bonemapping.find(bone->mName.C_Str()) == animation.bonemapping.end()) {
+                boneIndex = animation.boneCount;
+                animation.boneCount++;
                 ECS::BoneInfo bi;
-                mesh.boneInfos.push_back(bi);
-                mesh.boneInfos[boneIndex].boneOffset = aiMat4toGLM(bone->mOffsetMatrix);
-                mesh.bonemapping[bone->mName.C_Str()] = boneIndex;
+                animation.boneInfos.push_back(bi);
+                animation.boneInfos[boneIndex].boneOffset = aiMat4toGLM(bone->mOffsetMatrix);
+                animation.bonemapping[bone->mName.C_Str()] = boneIndex;
             } else {
                 std::puts("found existing bone in map");
-                boneIndex = mesh.bonemapping[bone->mName.C_Str()];
+                boneIndex = animation.bonemapping[bone->mName.C_Str()];
             }
 
-            auto addBoneData = [](ECS::MeshComponent& mesh, uint32_t index, uint32_t boneID, float weight) {
+            auto addBoneData = [](ECS::MeshAnimationComponent& anim, uint32_t index, uint32_t boneID, float weight) {
                 for (int i = 0; i < 4; i++) {
-                    if (mesh.boneWeights[index][i] == 0.0f) {
-                        mesh.boneIndices[index][i] = boneID;
-                        mesh.boneWeights[index][i] = weight;
+                    if (anim.boneWeights[index][i] == 0.0f) {
+                        anim.boneIndices[index][i] = boneID;
+                        anim.boneWeights[index][i] = weight;
                         return;
                     }
                 }
@@ -196,15 +197,18 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
             for (size_t j = 0; j < bone->mNumWeights; j++) {
                 int vertexID = assimpMesh->mBones[i]->mWeights[j].mVertexId;
                 float weight = assimpMesh->mBones[i]->mWeights[j].mWeight;
-                addBoneData(mesh, vertexID, boneIndex, weight);
+                addBoneData(animation, vertexID, boneIndex, weight);
             }
         }
 
-        mesh.boneTransforms.resize(mesh.boneCount);
-        for (int i = 0; i < mesh.boneCount; i++) {
-            mesh.boneInfos[i].finalTransformation = glm::mat4(1.0f);
-            mesh.boneTransforms[i] = mesh.boneInfos[i].finalTransformation;
+        animation.boneTransforms.resize(animation.boneCount);
+        for (int i = 0; i < animation.boneCount; i++) {
+            animation.boneInfos[i].finalTransformation = glm::mat4(1.0f);
+            animation.boneTransforms[i] = animation.boneInfos[i].finalTransformation;
         }
+        
+        animation.scene = aiscene;
+        animation.uploadRenderData(mesh);
     }
 
     // extract indices
@@ -220,7 +224,6 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
     // upload the mesh buffers to the GPU
     mesh.uploadVertices();
     mesh.uploadIndices();
-    mesh.scene = aiscene;
 
 
     // get material textures from Assimp's import
