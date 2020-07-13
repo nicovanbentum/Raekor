@@ -61,6 +61,24 @@ struct MeshComponent {
     void uploadIndices();
 };
 
+struct BoneTreeNode {
+    std::string name;
+    std::vector<BoneTreeNode> children;
+};
+
+struct BoneAnimation {
+    std::vector<aiVectorKey> positionKeys;
+    std::vector<aiQuatKey> rotationkeys;
+    std::vector<aiVectorKey> scaleKeys;
+};
+
+struct Animation {
+    std::string name;
+    float ticksPerSecond;
+    float TotalDuration;
+    std::unordered_map<std::string, BoneAnimation> boneAnimations;
+};
+
 struct MeshAnimationComponent {
     MeshAnimationComponent() {}
     ~MeshAnimationComponent() {
@@ -77,22 +95,22 @@ struct MeshAnimationComponent {
     std::vector<glm::mat4> boneTransforms;
     std::unordered_map<std::string, uint32_t> bonemapping;
 
-    const aiScene* scene;
-    aiAnimation animation;
+    Animation animation;
+    BoneTreeNode* boneTreeRootNode;
 
     const aiNodeAnim* findNodeAnim(const aiAnimation* animation, const char* nodeName);
 
-    unsigned int FindPosition(float AnimationTime, const aiNodeAnim* pNodeAnim);
-    unsigned int FindRotation(float AnimationTime, const aiNodeAnim* pNodeAnim);
-    unsigned int FindScaling(float AnimationTime, const aiNodeAnim* pNodeAnim);
+    unsigned int FindPosition(float AnimationTime, const BoneAnimation* pNodeAnim);
+    unsigned int FindRotation(float AnimationTime, const BoneAnimation* pNodeAnim);
+    unsigned int FindScaling(float AnimationTime, const BoneAnimation* pNodeAnim);
 
-    glm::vec3 InterpolateTranslation(float animationTime, const aiNodeAnim* nodeAnim);
-    glm::quat InterpolateRotation(float animationTime, const aiNodeAnim* nodeAnim);
-    glm::vec3 InterpolateScale(float animationTime, const aiNodeAnim* nodeAnim);
+    glm::vec3 InterpolateTranslation(float animationTime, const BoneAnimation* nodeAnim);
+    glm::quat InterpolateRotation(float animationTime, const BoneAnimation* nodeAnim);
+    glm::vec3 InterpolateScale(float animationTime, const BoneAnimation* nodeAnim);
 
     static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from);;
 
-    void ReadNodeHierarchy(float animationTime, const aiNode* pNode, const glm::mat4& parentTransform);
+    void ReadNodeHierarchy(float animationTime, const BoneTreeNode* pNode, const glm::mat4& parentTransform);
 
     void boneTransform(float TimeInSeconds);
 

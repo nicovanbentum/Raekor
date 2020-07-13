@@ -41,9 +41,7 @@ public:
 
 class AssimpImporter {
 public:
-    AssimpImporter() :
-    importer(std::make_unique<Assimp::Importer>()) 
-    {}
+    AssimpImporter() {}
     void loadFromDisk(Scene& scene, const std::string& file, AsyncDispatcher& dispatcher);
 
 private:
@@ -57,7 +55,6 @@ private:
 
 private:
     std::unordered_map<std::string, Stb::Image> images;
-    std::unique_ptr<Assimp::Importer> importer;
 };
 
 void updateTransforms(Scene& scene);

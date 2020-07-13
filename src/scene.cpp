@@ -85,7 +85,8 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDi
         aiProcess_ValidateDataStructure;
 
     // the importer takes care of deleting the scene
-    const aiScene* assimpScene = importer->ReadFile(file, flags);
+    auto importer = std::make_shared<Assimp::Importer>();
+    auto assimpScene = importer->ReadFile(file, flags);
 
     if (!assimpScene) {
         std::clog << "Error loading " << file << ": " << importer->GetErrorString() << '\n';
@@ -163,6 +164,41 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
     if (assimpMesh->HasBones()) {
         auto& animation = scene.animations.create(entity);
 
+        // extract a single animation
+        // TODO: make these assets or a vector at least
+        auto aiAnim = aiscene->mAnimations[0];
+        animation.animation.name = aiAnim->mName.C_Str();
+        animation.animation.ticksPerSecond = static_cast<float>(aiAnim->mTicksPerSecond);
+        animation.animation.TotalDuration = static_cast<float>(aiAnim->mDuration);
+
+        for (unsigned int ch = 0; ch < aiAnim->mNumChannels; ch++) {
+            auto aiNodeAnim = aiAnim->mChannels[ch];
+
+            animation.animation.boneAnimations[aiNodeAnim->mNodeName.C_Str()] = {};
+            auto& nodeAnim = animation.animation.boneAnimations[aiNodeAnim->mNodeName.C_Str()];
+
+            for (unsigned int i = 0; i < aiNodeAnim->mNumScalingKeys; i++) {
+                nodeAnim.scaleKeys.push_back(aiNodeAnim->mScalingKeys[i]);
+            }
+
+            for (unsigned int i = 0; i < aiNodeAnim->mNumRotationKeys; i++) {
+                nodeAnim.rotationkeys.push_back(aiNodeAnim->mRotationKeys[i]);
+            }
+
+
+
+            for (unsigned int i = 0; i < aiNodeAnim->mNumPositionKeys; i++) {
+                nodeAnim.positionKeys.push_back(aiNodeAnim->mPositionKeys[i]);
+            }
+
+        }
+
+
+
+        std::cout << " done loading animation" << std::endl;
+
+        // extract bone structure
+        // TODO: figure this mess out
         animation.boneWeights.resize(mesh.vertices.size());
         animation.boneIndices.resize(mesh.vertices.size());
 
@@ -207,8 +243,55 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
             animation.boneTransforms[i] = animation.boneInfos[i].finalTransformation;
         }
         
-        animation.scene = aiscene;
         animation.uploadRenderData(mesh);
+
+        aiNode* rootBone = nullptr;
+        std::stack<aiNode*> nodes;
+        nodes.push(aiscene->mRootNode);
+        while (!nodes.empty()) {
+            if (rootBone) break;
+
+            auto current = nodes.top();
+            nodes.pop();
+            
+            for (auto b = 0; b < assimpMesh->mNumBones; b++) {
+                if (rootBone) break;
+                // check if current node is a bone
+                if (assimpMesh->mBones[b]->mName == current->mName) {
+                    // check if its parent is a bone, if not it is the root bone
+                    bool isRoot = true;
+                    for (auto parentIndex = 0; parentIndex < assimpMesh->mNumBones; parentIndex++) {
+                        if (current->mParent->mName == assimpMesh->mBones[parentIndex]->mName) {
+                            isRoot = false;
+                        }
+                    }
+
+                    if (isRoot) rootBone = current;
+                }
+            }
+
+            for (auto i = 0; i < current->mNumChildren; i++) {
+                nodes.push(current->mChildren[i]);
+            }
+        }
+
+        animation.boneTreeRootNode = new ECS::BoneTreeNode();
+        animation.boneTreeRootNode->name = rootBone->mName.C_Str();
+
+        std::function<void(aiNode* node, ECS::BoneTreeNode* boneNode)> copyBoneNode;
+        copyBoneNode = [&](aiNode* node, ECS::BoneTreeNode* boneNode) -> void {
+            for (unsigned int i = 0; i < node->mNumChildren; i++) {
+                auto childNode = node->mChildren[i];
+                auto it = animation.bonemapping.find(childNode->mName.C_Str());
+                if (it != animation.bonemapping.end()) {
+                    boneNode->children.push_back(ECS::BoneTreeNode());
+                    boneNode->children.back().name = childNode->mName.C_Str();
+                    copyBoneNode(childNode, &boneNode->children.back());
+                }
+            }
+        };
+
+        copyBoneNode(rootBone, animation.boneTreeRootNode);
     }
 
     // extract indices
