@@ -164,36 +164,7 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
     if (assimpMesh->HasBones()) {
         auto& animation = scene.animations.create(entity);
 
-        // extract a single animation
-        // TODO: make these assets or a vector at least
-        auto aiAnim = aiscene->mAnimations[0];
-        animation.animation.name = aiAnim->mName.C_Str();
-        animation.animation.ticksPerSecond = static_cast<float>(aiAnim->mTicksPerSecond);
-        animation.animation.TotalDuration = static_cast<float>(aiAnim->mDuration);
-
-        for (unsigned int ch = 0; ch < aiAnim->mNumChannels; ch++) {
-            auto aiNodeAnim = aiAnim->mChannels[ch];
-
-            animation.animation.boneAnimations[aiNodeAnim->mNodeName.C_Str()] = {};
-            auto& nodeAnim = animation.animation.boneAnimations[aiNodeAnim->mNodeName.C_Str()];
-
-            for (unsigned int i = 0; i < aiNodeAnim->mNumScalingKeys; i++) {
-                nodeAnim.scaleKeys.push_back(aiNodeAnim->mScalingKeys[i]);
-            }
-
-            for (unsigned int i = 0; i < aiNodeAnim->mNumRotationKeys; i++) {
-                nodeAnim.rotationkeys.push_back(aiNodeAnim->mRotationKeys[i]);
-            }
-
-
-
-            for (unsigned int i = 0; i < aiNodeAnim->mNumPositionKeys; i++) {
-                nodeAnim.positionKeys.push_back(aiNodeAnim->mPositionKeys[i]);
-            }
-
-        }
-
-
+        animation.animation = Animation(aiscene->mAnimations[0]);
 
         std::cout << " done loading animation" << std::endl;
 
@@ -254,13 +225,13 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
             auto current = nodes.top();
             nodes.pop();
             
-            for (auto b = 0; b < assimpMesh->mNumBones; b++) {
+            for (uint32_t b = 0; b < assimpMesh->mNumBones; b++) {
                 if (rootBone) break;
                 // check if current node is a bone
                 if (assimpMesh->mBones[b]->mName == current->mName) {
                     // check if its parent is a bone, if not it is the root bone
                     bool isRoot = true;
-                    for (auto parentIndex = 0; parentIndex < assimpMesh->mNumBones; parentIndex++) {
+                    for (uint32_t parentIndex = 0; parentIndex < assimpMesh->mNumBones; parentIndex++) {
                         if (current->mParent->mName == assimpMesh->mBones[parentIndex]->mName) {
                             isRoot = false;
                         }
@@ -270,7 +241,7 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
                 }
             }
 
-            for (auto i = 0; i < current->mNumChildren; i++) {
+            for (uint32_t i = 0; i < current->mNumChildren; i++) {
                 nodes.push(current->mChildren[i]);
             }
         }

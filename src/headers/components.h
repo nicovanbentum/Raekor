@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ecs.h"
+#include "anim.h"
 
 namespace Raekor {
 namespace ECS {
@@ -66,19 +67,6 @@ struct BoneTreeNode {
     std::vector<BoneTreeNode> children;
 };
 
-struct BoneAnimation {
-    std::vector<aiVectorKey> positionKeys;
-    std::vector<aiQuatKey> rotationkeys;
-    std::vector<aiVectorKey> scaleKeys;
-};
-
-struct Animation {
-    std::string name;
-    float ticksPerSecond;
-    float TotalDuration;
-    std::unordered_map<std::string, BoneAnimation> boneAnimations;
-};
-
 struct MeshAnimationComponent {
     MeshAnimationComponent() {}
     ~MeshAnimationComponent() {
@@ -97,18 +85,6 @@ struct MeshAnimationComponent {
 
     Animation animation;
     BoneTreeNode* boneTreeRootNode;
-
-    const aiNodeAnim* findNodeAnim(const aiAnimation* animation, const char* nodeName);
-
-    unsigned int FindPosition(float AnimationTime, const BoneAnimation* pNodeAnim);
-    unsigned int FindRotation(float AnimationTime, const BoneAnimation* pNodeAnim);
-    unsigned int FindScaling(float AnimationTime, const BoneAnimation* pNodeAnim);
-
-    glm::vec3 InterpolateTranslation(float animationTime, const BoneAnimation* nodeAnim);
-    glm::quat InterpolateRotation(float animationTime, const BoneAnimation* nodeAnim);
-    glm::vec3 InterpolateScale(float animationTime, const BoneAnimation* nodeAnim);
-
-    static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from);;
 
     void ReadNodeHierarchy(float animationTime, const BoneTreeNode* pNode, const glm::mat4& parentTransform);
 

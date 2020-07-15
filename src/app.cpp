@@ -443,8 +443,6 @@ void Application::run() {
             doVsync = !doVsync;
         }
 
-        ImGui::DragFloat("Animation", &runningTime, 0.1f, 0, FLT_MAX);
-
         ImGui::NewLine(); ImGui::Separator(); 
         ImGui::Text("Voxel Cone Tracing");
 

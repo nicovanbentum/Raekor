@@ -159,6 +159,9 @@
     <ClCompile Include="src\script.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\anim.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\glm\glm.hpp">
@@ -303,6 +306,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\headers\script.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\headers\anim.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

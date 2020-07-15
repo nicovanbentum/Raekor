@@ -172,6 +172,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\anim.cpp" />
     <ClCompile Include="src\app.cpp" />
     <ClCompile Include="src\async.cpp" />
     <ClCompile Include="src\buffer.cpp" />
@@ -232,6 +233,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="dependencies\NVDDS\nv_dds.h" />
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="src\headers\anim.h" />
     <ClInclude Include="src\headers\app.h" />
     <ClInclude Include="src\headers\async.h" />
     <ClInclude Include="src\headers\buffer.h" />

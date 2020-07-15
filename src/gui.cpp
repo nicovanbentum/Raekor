@@ -59,6 +59,14 @@ void InspectorWindow::draw(Scene& scene, ECS::Entity entity) {
             }
         }
 
+        if (scene.animations.contains(entity)) {
+            bool isOpen = true;
+            if (ImGui::CollapsingHeader("Animation Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
+                if (isOpen) drawAnimationComponent(scene.animations.getComponent(entity));
+                else scene.animations.remove(entity);
+            }
+        }
+
         if (ImGui::BeginPopup("Components"))
         {
             if (ImGui::Selectable("Transform", false)) {
@@ -203,6 +211,15 @@ void InspectorWindow::drawPointLightComponent(ECS::PointLightComponent* componen
 void InspectorWindow::drawDirectionalLightComponent(ECS::DirectionalLightComponent* component) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component->buffer.colour));
     ImGui::DragFloat3("Direction", glm::value_ptr(component->buffer.direction), 0.01f, -1.0f, 1.0f);
+}
+
+void InspectorWindow::drawAnimationComponent(ECS::MeshAnimationComponent* component) {
+    static bool playing = false;
+    if (ImGui::Button(playing ? "pause" : "play")) {
+        playing = !playing;
+    }
+
+    ImGui::SliderFloat("Time", &component->animation.runningTime, 0, component->animation.totalDuration);
 }
 
 

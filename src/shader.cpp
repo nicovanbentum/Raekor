@@ -165,7 +165,7 @@ glShader::UniformLocation& glShader::UniformLocation::operator=(const std::vecto
 }
 
 glShader::UniformLocation& glShader::UniformLocation::operator=(const std::vector<glm::mat4>& rhs) {
-    glUniformMatrix4fv(id, rhs.size(), GL_FALSE, glm::value_ptr(rhs[0]));
+    glUniformMatrix4fv(id, static_cast<GLuint>(rhs.size()), GL_FALSE, glm::value_ptr(rhs[0]));
     return *this;
 }
 

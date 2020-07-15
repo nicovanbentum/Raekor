@@ -1,6 +1,6 @@
 {
     "name": "Raekor Renderer",
-    "display": 1,
+    "display": 2,
     "font": "resources/Roboto-Regular.ttf",
     "skyboxes": [
         {
