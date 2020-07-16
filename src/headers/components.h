@@ -68,12 +68,6 @@ struct BoneTreeNode {
 };
 
 struct MeshAnimationComponent {
-    MeshAnimationComponent() {}
-    ~MeshAnimationComponent() {
-        auto buffersToDelete = { boneIndexBuffer, boneWeightBuffer, boneTransformsBuffer };
-        glDeleteBuffers(3, buffersToDelete.begin());
-    }
-
     std::vector<glm::vec4> boneWeights;
     std::vector<glm::ivec4> boneIndices;
 
@@ -84,9 +78,9 @@ struct MeshAnimationComponent {
     std::unordered_map<std::string, uint32_t> bonemapping;
 
     Animation animation;
-    BoneTreeNode* boneTreeRootNode;
+    BoneTreeNode boneTreeRootNode;
 
-    void ReadNodeHierarchy(float animationTime, const BoneTreeNode* pNode, const glm::mat4& parentTransform);
+    void ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform);
 
     void boneTransform(float TimeInSeconds);
 

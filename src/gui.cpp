@@ -215,11 +215,11 @@ void InspectorWindow::drawDirectionalLightComponent(ECS::DirectionalLightCompone
 
 void InspectorWindow::drawAnimationComponent(ECS::MeshAnimationComponent* component) {
     static bool playing = false;
+    ImGui::SliderFloat("Time", &component->animation.runningTime, 0, component->animation.totalDuration);
     if (ImGui::Button(playing ? "pause" : "play")) {
         playing = !playing;
     }
 
-    ImGui::SliderFloat("Time", &component->animation.runningTime, 0, component->animation.totalDuration);
 }
 
 

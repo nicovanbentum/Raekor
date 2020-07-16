@@ -308,7 +308,7 @@ public:
 
     void execute(ECS::MeshComponent& mesh, ECS::MeshAnimationComponent& anim) {
 
-        glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransforms.size() * sizeof(glm::mat4), anim.boneTransforms.data(), GL_STATIC_DRAW);
+        glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransforms.size() * sizeof(glm::mat4), anim.boneTransforms.data(), GL_DYNAMIC_DRAW);
         
         computeShader.bind();
         

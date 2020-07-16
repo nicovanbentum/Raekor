@@ -166,8 +166,6 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
 
         animation.animation = Animation(aiscene->mAnimations[0]);
 
-        std::cout << " done loading animation" << std::endl;
-
         // extract bone structure
         // TODO: figure this mess out
         animation.boneWeights.resize(mesh.vertices.size());
@@ -246,18 +244,17 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
             }
         }
 
-        animation.boneTreeRootNode = new ECS::BoneTreeNode();
-        animation.boneTreeRootNode->name = rootBone->mName.C_Str();
+        animation.boneTreeRootNode.name = rootBone->mName.C_Str();
 
-        std::function<void(aiNode* node, ECS::BoneTreeNode* boneNode)> copyBoneNode;
-        copyBoneNode = [&](aiNode* node, ECS::BoneTreeNode* boneNode) -> void {
+        std::function<void(aiNode* node, ECS::BoneTreeNode& boneNode)> copyBoneNode;
+        copyBoneNode = [&](aiNode* node, ECS::BoneTreeNode& boneNode) -> void {
             for (unsigned int i = 0; i < node->mNumChildren; i++) {
                 auto childNode = node->mChildren[i];
                 auto it = animation.bonemapping.find(childNode->mName.C_Str());
                 if (it != animation.bonemapping.end()) {
-                    boneNode->children.push_back(ECS::BoneTreeNode());
-                    boneNode->children.back().name = childNode->mName.C_Str();
-                    copyBoneNode(childNode, &boneNode->children.back());
+                    auto& child = boneNode.children.emplace_back();
+                    child.name = childNode->mName.C_Str();
+                    copyBoneNode(childNode, child);
                 }
             }
         };
@@ -422,8 +419,6 @@ ECS::Entity pickObject(Scene& scene, Math::Ray& ray) {
         // check for ray hit
         auto scaledMin = mesh.aabb[0] * transform->scale;
         auto scaledMax = mesh.aabb[1] * transform->scale;
-        std::cout << glm::to_string(worldTransform) << std::endl;
-        std::cout << "min " << glm::to_string(scaledMin) << ", max " << glm::to_string(scaledMax) << std::endl;
         auto hitResult = ray.hitsOBB(scaledMin, scaledMax, worldTransform);
 
         if (hitResult.has_value()) {
@@ -435,7 +430,6 @@ ECS::Entity pickObject(Scene& scene, Math::Ray& ray) {
         auto mesh = scene.meshes.getComponent(pair.second);
         auto transform = scene.transforms.getComponent(pair.second);
 
-        std::cout << "Hit " << pair.second << " at distance " << pair.first << std::endl;
         for (auto& triangle : mesh->indices) {
             auto v0 = glm::vec3(transform->worldTransform * glm::vec4(mesh->vertices[triangle.p1].pos, 1.0));
             auto v1 = glm::vec3(transform->worldTransform * glm::vec4(mesh->vertices[triangle.p2].pos, 1.0));
@@ -444,7 +438,6 @@ ECS::Entity pickObject(Scene& scene, Math::Ray& ray) {
             auto triangleHitResult = ray.hitsTriangle(v0, v1, v2);
             if (triangleHitResult.has_value()) {
                 pickedEntity = pair.second;
-                std::cout << "Picking " << pickedEntity << std::endl;
                 return pickedEntity;
             }
         }

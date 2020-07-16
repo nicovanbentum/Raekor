@@ -35,16 +35,16 @@ void MeshComponent::uploadIndices() {
     indexBuffer.loadFaces(indices.data(), indices.size());
 }
 
-void MeshAnimationComponent::ReadNodeHierarchy(float animationTime, const BoneTreeNode* pNode, const glm::mat4& parentTransform) {
+void MeshAnimationComponent::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform) {
     auto globalTransformation = glm::mat4(1.0f);
 
-    bool hasAnimation = animation.boneAnimations.find(pNode->name) != animation.boneAnimations.end();
+    bool hasAnimation = animation.boneAnimations.find(pNode.name) != animation.boneAnimations.end();
 
-    if (bonemapping.find(pNode->name) != bonemapping.end() && pNode != boneTreeRootNode && hasAnimation) {
+    if (bonemapping.find(pNode.name) != bonemapping.end() && pNode.name != boneTreeRootNode.name && hasAnimation) {
 
         glm::mat4 nodeTransform = glm::mat4(1.0f);
 
-        auto& nodeAnim = animation.boneAnimations[pNode->name.c_str()];
+        auto& nodeAnim = animation.boneAnimations[pNode.name.c_str()];
 
         glm::vec3 translation = nodeAnim.getInterpolatedPosition(animationTime);
         glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(translation.x, translation.y, translation.z));
@@ -59,12 +59,12 @@ void MeshAnimationComponent::ReadNodeHierarchy(float animationTime, const BoneTr
 
         globalTransformation = parentTransform * nodeTransform;
         
-        unsigned int boneIndex = bonemapping[pNode->name];
+        unsigned int boneIndex = bonemapping[pNode.name];
         boneInfos[boneIndex].finalTransformation = globalTransformation * boneInfos[boneIndex].boneOffset;
     }
 
-    for (auto& child : pNode->children) {
-        ReadNodeHierarchy(animationTime, &child, globalTransformation);
+    for (auto& child : pNode.children) {
+        ReadNodeHierarchy(animationTime, child, globalTransformation);
     }
 }
 

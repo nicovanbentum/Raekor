@@ -59,13 +59,15 @@ public:
 class Viewport {
 public:
     Viewport(SDL_Rect display) : 
-        fov(45.0f), 
+        fov(65.0f), 
         aspectRatio(16.0f / 9.0f),
         camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 0.1f, 10000.0f)), 
         size(glm::vec2(display.w, display.h))
     {
 
     }
+
+    inline float& getFov() { return fov; }
 
     void setFov(float fov) {
         this->fov = fov;

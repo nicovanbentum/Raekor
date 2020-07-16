@@ -205,14 +205,13 @@ void Application::run() {
 
     bool shouldVoxelize = true;
 
-    float runningTime = 0;
-
     while (running) {
         deltaTimer.start();
 
         updateTransforms(newScene);
         for (int m = 0; m < newScene.animations.getCount(); m++) {
-            newScene.animations[m].boneTransform(runningTime);
+            newScene.animations[m].boneTransform(newScene.animations[m].animation.runningTime);
+            newScene.animations[m].animation.runningTime += static_cast<float>(deltaTime / 100);
             auto entity = newScene.animations.getEntity(m);
             if (!newScene.meshes.contains(entity)) {
                 continue;
@@ -535,9 +534,8 @@ void Application::run() {
         ImGui::End();
 
         ImGui::Begin("Camera Properties");
-        static float fov = 45.0f;
-        if (ImGui::DragFloat("FoV", &fov, 1.0f, 35.0f, 120.0f)) {
-            viewport.getCamera().getProjection() = glm::perspectiveRH(glm::radians(fov), (float)viewport.size.x / (float)viewport.size.y, 0.1f, 10000.0f);
+        if (ImGui::DragFloat("FoV", &viewport.getFov(), 1.0f, 35.0f, 120.0f)) {
+            viewport.setFov(viewport.getFov());
         }
         if (ImGui::DragFloat("Move Speed", &viewport.getCamera().moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
         if (ImGui::DragFloat("Move Constant", &viewport.getCamera().moveConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
@@ -610,7 +608,7 @@ void Application::run() {
 
         if (resizing) {
             // adjust the camera and gizmo
-            viewport.getCamera().getProjection() = glm::perspectiveRH(glm::radians(fov), (float)viewport.size.x / (float)viewport.size.y, 0.1f, 10000.0f);
+            viewport.getCamera().getProjection() = glm::perspectiveRH(glm::radians(viewport.getFov()), (float)viewport.size.x / (float)viewport.size.y, 0.1f, 10000.0f);
             ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
 
             // resizing framebuffers
