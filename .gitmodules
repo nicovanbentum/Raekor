@@ -16,3 +16,6 @@
 [submodule "dependencies/ChaiScript"]
 	path = dependencies/ChaiScript
 	url = https://github.com/ChaiScript/ChaiScript/
+[submodule "dependencies/entt"]
+	path = dependencies/entt
+	url = https://github.com/skypjack/entt

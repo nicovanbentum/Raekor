@@ -38,7 +38,7 @@ struct PointLightComponent {
 };
 
 struct NodeComponent {
-    ECS::Entity parent = NULL;
+    entt::entity parent = entt::null;
     bool hasChildren = false;
 };
 

@@ -22,7 +22,7 @@ private:
      } settings;
 
     ShadowMap(uint32_t width, uint32_t height);
-    void execute(Scene& scene);
+    void execute(entt::registry& scene);
 
 private:
     glShader shader;
@@ -44,7 +44,7 @@ public:
     } settings;
 
     OmniShadowMap(uint32_t width, uint32_t height);
-    void execute(Scene& scene, const glm::vec3& lightPosition);
+    void execute(entt::registry& scene, const glm::vec3& lightPosition);
 
 private:
     glShader shader;
@@ -61,9 +61,9 @@ public:
     uint32_t culled = 0;
 
     GeometryBuffer(Viewport& viewport);
-    void execute(Scene& scene, Viewport& viewport);
+    void execute(entt::registry& scene, Viewport& viewport);
     void resize(Viewport& viewport);
-    ECS::Entity pick(uint32_t x, uint32_t y);
+    entt::entity pick(uint32_t x, uint32_t y);
 
 private:
     glShader shader;
@@ -151,7 +151,7 @@ public:
 class Voxelization {
 public:
     Voxelization(int size);
-    void execute(Scene& scene, Viewport& viewport, ShadowMap* shadowmap);
+    void execute(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap);
 
 private:
     void computeMipmaps(glTexture3D& texture);
@@ -187,7 +187,7 @@ private:
 class BoundingBoxDebug {
 public:
     BoundingBoxDebug(Viewport& viewport);
-    void execute(Scene& scene, Viewport& viewport, glTexture2D& texture, glRenderbuffer& renderBuffer, ECS::Entity active);
+    void execute(entt::registry& scene, Viewport& viewport, glTexture2D& texture, glRenderbuffer& renderBuffer, entt::entity active);
     void resize(Viewport& viewport);
 
 private:
@@ -213,15 +213,15 @@ private:
 
 public:
     ForwardLightingPass(Viewport& viewport);
-    void execute(Viewport& viewport, Scene& scene, Voxelization* voxels, ShadowMap* shadowmap);
+    void execute(Viewport& viewport, entt::registry& scene, Voxelization* voxels, ShadowMap* shadowmap);
     void resize(Viewport& viewport);
 
-    ECS::Entity pick(uint32_t x, uint32_t y) {
+    entt::entity pick(uint32_t x, uint32_t y) {
         int id;
         framebuffer.bind();
         glReadPixels(x, y, 1, 1, GL_STENCIL_INDEX, GL_INT, &id);
         framebuffer.unbind();
-        return id;
+        return static_cast<entt::entity>(id);
     }
 
 private:
@@ -260,7 +260,7 @@ public:
 
 
     DeferredLighting(Viewport& viewport);
-    void execute(Scene& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
+    void execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
         GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad);
     void resize(Viewport& viewport);
 

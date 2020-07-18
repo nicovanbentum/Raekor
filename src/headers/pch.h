@@ -5,6 +5,8 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 
+#define NOMINMAX // i hate computers
+
 // platform specific includes
 #include "GL/gl3w.h"
 
@@ -74,12 +76,14 @@
 // c++ (17) includes
 #include <set>
 #include <map>
+#include <stack>
 #include <array>
 #include <queue>
 #include <future>
 #include <chrono>
 #include <numeric>
 #include <random>
+#include <limits>
 #include <fstream>
 #include <sstream>
 #include <optional>
@@ -90,6 +94,7 @@
 
 // header only Cereal library
 #include "cereal/archives/json.hpp"
+#include "cereal/archives/binary.hpp"
 #include "cereal/types/map.hpp"
 #include "cereal/types/array.hpp"
 #include "cereal/types/string.hpp"
@@ -105,3 +110,6 @@
 #include "assimp/postprocess.h"
 #include "assimp/Importer.hpp"
 #include "assimp/pbrmaterial.h"
+
+// Entity-component system entt
+#include "entt/entt.hpp"

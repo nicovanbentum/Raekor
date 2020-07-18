@@ -46,11 +46,6 @@ void Application::run() {
     // init scripting language
     auto chai = create_chaiscript();
 
-    // add scene methods
-    Scene newScene;
-
-
-
     std::vector<SDL_Rect> displays;
     for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
         displays.push_back(SDL_Rect());
@@ -180,16 +175,18 @@ void Application::run() {
     auto dispatcher = AsyncDispatcher(threadCount);
 
     AssimpImporter importer;
-    static ECS::Entity active = NULL;
+    entt::registry scene;
+    static entt::entity active = entt::null;
     for (const std::string& path : project) {
         std::cout << "Loading " << parseFilepath(path, PATH_OPTIONS::FILENAME) << "...\n";
-        importer.loadFromDisk(newScene, path, dispatcher);
+        importer.loadFromDisk(scene, path, dispatcher);
     }
 
-    auto dirLightEntity = newScene.createDirectionalLight("Directional Light");
-    auto transform = newScene.transforms.getComponent(dirLightEntity);
-    transform->position.y = 15.0f;
-    transform->recalculateMatrix();
+    auto dirLightEntity = createEmpty(scene, "Directional Light");
+    scene.emplace<ECS::DirectionalLightComponent>(dirLightEntity);
+    auto& transform = scene.get<ECS::TransformComponent>(dirLightEntity);
+    transform.position.y = 15.0f;
+    transform.recalculateMatrix();
 
     std::cout << "Initialization done." << std::endl;
 
@@ -208,15 +205,16 @@ void Application::run() {
     while (running) {
         deltaTimer.start();
 
-        updateTransforms(newScene);
-        for (int m = 0; m < newScene.animations.getCount(); m++) {
-            newScene.animations[m].boneTransform(newScene.animations[m].animation.runningTime);
-            newScene.animations[m].animation.runningTime += static_cast<float>(deltaTime / 100);
-            auto entity = newScene.animations.getEntity(m);
-            if (!newScene.meshes.contains(entity)) {
-                continue;
-            }
-            skinningPass->execute(*newScene.meshes.getComponent(entity), newScene.animations[m]);
+        updateTransforms(scene);
+
+        auto animationUpdateView = scene.view<ECS::MeshAnimationComponent, ECS::MeshComponent>();
+        for (auto entity : animationUpdateView) {
+            auto& animation = animationUpdateView.get<ECS::MeshAnimationComponent>(entity);
+            auto& mesh = animationUpdateView.get<ECS::MeshComponent>(entity);
+
+            animation.boneTransform(animation.animation.runningTime);
+            animation.animation.runningTime += static_cast<float>(deltaTime / 100);
+            skinningPass->execute(mesh, animation);
         }
 
         // if we're debugging the shadow map we directly control the sun camera
@@ -235,25 +233,25 @@ void Application::run() {
         
         // generate sun shadow map 
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-        shadowMapPass->execute(newScene);
+        shadowMapPass->execute(scene);
 
         if (shouldVoxelize) {
-            voxelizePass->execute(newScene, viewport, shadowMapPass.get());
+            voxelizePass->execute(scene, viewport, shadowMapPass.get());
         }
         
         glViewport(0, 0, viewport.size.x, viewport.size.y);
 
         if (doDeferred) {
-            geometryBufferPass->execute(newScene, viewport);
-            lightingPass->execute(newScene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
+            geometryBufferPass->execute(scene, viewport);
+            lightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
             tonemappingPass->execute(lightingPass->result, Quad.get());
         } else {
-            ConeTracePass->execute(viewport, newScene, voxelizePass.get(), shadowMapPass.get());
+            ConeTracePass->execute(viewport, scene, voxelizePass.get(), shadowMapPass.get());
             tonemappingPass->execute(ConeTracePass->result, Quad.get());
         }
 
-        if (active) {
-            aabbDebugPass->execute(newScene, viewport, tonemappingPass->result, geometryBufferPass->GDepthBuffer,  active);
+        if (active != entt::null) {
+            aabbDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->GDepthBuffer,  active);
         }
 
         if (debugVoxels) {
@@ -308,7 +306,7 @@ void Application::run() {
                 if (ImGui::MenuItem("Load..")) {
                     std::string path = OS::openFileDialog({ meshFileFormats });
                     if (!path.empty()) {
-                        importer.loadFromDisk(newScene, path, dispatcher);
+                        importer.loadFromDisk(scene, path, dispatcher);
                     }
                 }
                 if (ImGui::MenuItem("Save", "CTRL + S")) {
@@ -350,20 +348,21 @@ void Application::run() {
             if (ImGui::BeginMenu("Edit")) {
                 if (ImGui::MenuItem("Delete", "DEL")) {
                     // on press we remove the scene object
-                    newScene.remove(active);
-                    active = NULL;
+                    scene.destroy(active);
+                    active = entt::null;
                 }
                 ImGui::EndMenu();
             }
 
             if (ImGui::BeginMenu("Add")) {
                 if (ImGui::MenuItem("Empty", "CTRL+E")) {
-                    auto newEntity = newScene.createObject("Empty");
-                    if (active) {
-                        newScene.nodes.getComponent(newEntity)->parent = active;
-                        newScene.nodes.getComponent(newEntity)->hasChildren = false;
-                        newScene.nodes.getComponent(active)->hasChildren = true;
+                    auto entity = createEmpty(scene, "Empty");
 
+                    if (active != entt::null) {
+                        auto& node = scene.get<ECS::NodeComponent>(entity);
+                        node.parent = active;
+                        node.hasChildren = false;
+                        scene.get<ECS::NodeComponent>(node.parent).hasChildren = true;
                     }
                 }
                 ImGui::Separator();
@@ -371,11 +370,13 @@ void Application::run() {
                 if (ImGui::BeginMenu("Light")) {
 
                     if (ImGui::MenuItem("Directional Light")) {
-                        newScene.createDirectionalLight("Directional Light");
+                        auto entity = createEmpty(scene, "Directional Light");
+                        scene.emplace<ECS::DirectionalLightComponent>(entity);
                     }
 
                     if (ImGui::MenuItem("Point Light")) {
-                        newScene.createPointLight("Point Light");
+                        auto entity = createEmpty(scene, "Point Light");
+                        scene.emplace<ECS::PointLightComponent>(entity);
                     }
 
                     ImGui::EndMenu();
@@ -387,8 +388,8 @@ void Application::run() {
 
 
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
-                newScene.remove(active);
-                active = NULL;
+                scene.destroy(active);
+                active = entt::null;
             }
 
             static bool takeScreenshot = false;
@@ -403,10 +404,10 @@ void Application::run() {
         consoleWindow.Draw(chai.get());
 
         //Inspector panel
-        inspectorWindow.draw(newScene, active);
+        inspectorWindow.draw(scene, active);
 
         // scene / ecs panel
-        ecsWindow.draw(newScene, active);
+        ecsWindow.draw(scene, active);
 
         // post processing panel
         ImGui::Begin("Post Processing");
@@ -492,7 +493,7 @@ void Application::run() {
         ImGui::Separator();
         if (ImGui::DragFloat2("Angle", glm::value_ptr(shadowMapPass->sunCamera.getAngle()), 0.01f)) {
             if (!shouldVoxelize) {
-                voxelizePass->execute(newScene, viewport, shadowMapPass.get());
+                voxelizePass->execute(scene, viewport, shadowMapPass.get());
             }
         }
         
@@ -529,7 +530,7 @@ void Application::run() {
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         int culledCount = doDeferred ? geometryBufferPass->culled : ConeTracePass->culled;
-        ImGui::Text("Culling: %i of %i meshes", culledCount, newScene.meshes.getCount());
+        ImGui::Text("Culling: %i of %i meshes", culledCount, scene.view<ECS::MeshComponent>().size());
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
 
@@ -546,7 +547,7 @@ void Application::run() {
 
         ImGui::End();
 
-        if (active) {
+        if (active != entt::null) {
             gizmo.drawWindow();
         }
         
@@ -570,7 +571,7 @@ void Application::run() {
             mouseInViewport = false;
         }
 
-        if (io.MouseClicked[0] && mouseInViewport && !(active != NULL && ImGuizmo::IsOver())) {
+        if (io.MouseClicked[0] && mouseInViewport && !(active != entt::null && ImGuizmo::IsOver())) {
             // get mouse position in window
             glm::ivec2 mousePosition;
             SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
@@ -581,22 +582,22 @@ void Application::run() {
             // flip mouse coords for opengl
             rendererMousePosition.y = viewport.size.y - rendererMousePosition.y;
 
-            ECS::Entity picked = NULL;
+            entt::entity picked = entt::null;
             if (doDeferred) {
                 picked = geometryBufferPass->pick(rendererMousePosition.x, rendererMousePosition.y);
             } else {
                 picked = ConeTracePass->pick(rendererMousePosition.x, rendererMousePosition.y);
             }
 
-            active = active == picked ? NULL : picked;
+            active = active == picked ? entt::null : picked;
         }
 
         // render the active screen texture to the view port as an imgui image
         ImGui::Image(activeScreenTexture->ImGuiID(), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0,1 }, { 1,0 });
 
         // draw the imguizmo at the center of the active entity
-        if (active) {
-            gizmo.drawGuizmo(newScene, viewport, active);
+        if (active != entt::null) {
+            gizmo.drawGuizmo(scene, viewport, active);
         }
 
         ImGui::End();

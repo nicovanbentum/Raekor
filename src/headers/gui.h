@@ -11,27 +11,27 @@ namespace GUI {
 
 class InspectorWindow {
 public:
-    void draw(Scene& scene, ECS::Entity entity);
+    void draw(entt::registry& scene, entt::entity entity);
 
 private:
-    void drawNameComponent(ECS::NameComponent* component);
-    void drawNodeComponent(ECS::NodeComponent* component);
-    void drawMeshComponent(ECS::MeshComponent* component);
-    void drawMaterialComponent(ECS::MaterialComponent* component);
-    void drawTransformComponent(ECS::TransformComponent* component);
-    void drawPointLightComponent(ECS::PointLightComponent* component);
-    void drawDirectionalLightComponent(ECS::DirectionalLightComponent* component);
-    void drawAnimationComponent(ECS::MeshAnimationComponent* component);
+    void drawNameComponent(ECS::NameComponent& component);
+    void drawNodeComponent(ECS::NodeComponent& component);
+    void drawMeshComponent(ECS::MeshComponent& component);
+    void drawMaterialComponent(ECS::MaterialComponent& component);
+    void drawTransformComponent(ECS::TransformComponent& component);
+    void drawPointLightComponent(ECS::PointLightComponent& component);
+    void drawAnimationComponent(ECS::MeshAnimationComponent& component);
+    void drawDirectionalLightComponent(ECS::DirectionalLightComponent& component);
 };
 
 class EntityWindow {
 public:
-    void draw(Scene& scene, ECS::Entity& active);
+    void draw(entt::registry& scene, entt::entity& active);
 
 private:
-    void drawFamily(Scene& scene, ECS::Entity parent, ECS::Entity& active);
-    bool drawFamilyNode(Scene& scene, ECS::Entity entity, ECS::Entity& active);
-    void drawChildlessNode(Scene& scene, ECS::Entity entity, ECS::Entity& active);
+    void drawFamily(entt::registry& scene, entt::entity parent, entt::entity& active);
+    bool drawFamilyNode(entt::registry& scene, entt::entity entity, entt::entity& active);
+    void drawChildlessNode(entt::registry& scene, entt::entity entity, entt::entity& active);
 };
 
 
@@ -77,7 +77,7 @@ private:
 
 class Guizmo {
 public:
-    void drawGuizmo(Scene& scene, Viewport& viewport, ECS::Entity active);
+    void drawGuizmo(entt::registry& scene, Viewport& viewport, entt::entity active);
     void drawWindow();
 
 private:

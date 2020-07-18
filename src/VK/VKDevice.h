@@ -8,7 +8,7 @@ class Device {
     struct Queues {
         std::optional<uint32_t> graphics;
         std::optional<uint32_t> present;
-        bool isComplete() { return graphics.has_value() and present.has_value(); }
+        bool isComplete() { return graphics.has_value() && present.has_value(); }
     };
 
 public:

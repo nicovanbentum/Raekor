@@ -5,65 +5,6 @@
 
 namespace Raekor {
 
-ECS::Entity Scene::createObject(const std::string& name) {
-    ECS::Entity entity = ECS::newEntity();
-    nodes.create(entity);
-    names.create(entity).name = name;
-    transforms.create(entity);
-    entities.push_back(entity);
-    return entity;
-}
-
-ECS::Entity Scene::createPointLight(const std::string& name) {
-    auto entity = createObject(name);
-    pointLights.create(entity);
-    return entity;
-}
-
-ECS::Entity Scene::createDirectionalLight(const std::string& name) {
-    auto entity = createObject(name);
-    directionalLights.create(entity);
-    return entity;
-}
-
-ECS::MeshComponent& Scene::addMesh() {
-    ECS::Entity entity = createObject("Mesh");
-    return meshes.create(entity);
-}
-
-void Scene::remove(ECS::Entity entity) {
-    bool isNode = nodes.contains(entity);
-
-    nodes.remove(entity);
-    names.remove(entity);
-    transforms.remove(entity);
-    meshes.remove(entity);
-    materials.remove(entity);
-    pointLights.remove(entity);
-    directionalLights.remove(entity);
-    animations.remove(entity);
-
-    if (isNode) {
-        for (int i = 0; i < nodes.getCount(); /* update on no remove */) {
-            if (nodes[i].parent == entity) {
-                remove(nodes.getEntity(i));
-            } else {
-                i += 1;
-            }
-        }
-    }
-
-    // update children boolean for all nodes
-    for (int i = 0; i < nodes.getCount(); i++) {
-        nodes[i].hasChildren = false;
-        for (int j = 0; j < nodes.getCount(); j++) {
-            if (nodes[j].parent == nodes.getEntity(i)) {
-                nodes[i].hasChildren = true;
-            }
-        }
-    }
-}
-
 static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from) {
     glm::mat4 to;
     //the a,b,c,d in assimp is the row ; the 1,2,3,4 is the column
@@ -74,7 +15,7 @@ static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from) {
     return to;
 };
 
-void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDispatcher& dispatcher) {
+void AssimpImporter::loadFromDisk(entt::registry& scene, const std::string& file, AsyncDispatcher& dispatcher) {
     constexpr unsigned int flags =
         aiProcess_GenNormals |
         aiProcess_CalcTangentSpace |
@@ -102,13 +43,16 @@ void AssimpImporter::loadFromDisk(Scene& scene, const std::string& file, AsyncDi
     loadTexturesAsync(assimpScene, textureDirectory, dispatcher);
     
     // recursively process the ai scene graph
-    auto rootEntity = scene.createObject(parseFilepath(file, PATH_OPTIONS::FILENAME));
-    auto node = scene.nodes.getComponent(rootEntity);
-    node->hasChildren = true;
+
+    auto rootEntity = scene.create();
+    scene.emplace<ECS::NameComponent>(rootEntity, parseFilepath(file, PATH_OPTIONS::FILENAME));
+    scene.emplace<ECS::TransformComponent>(rootEntity);
+    auto& node = scene.emplace<ECS::NodeComponent>(rootEntity);
+    node.hasChildren = true;
     processAiNode(scene, assimpScene, assimpScene->mRootNode, rootEntity);
 }
 
-void AssimpImporter::processAiNode(Scene& scene, const aiScene* aiscene, aiNode* node, ECS::Entity root) {
+void AssimpImporter::processAiNode(entt::registry& scene, const aiScene* aiscene, aiNode* node, entt::entity root) {
     for (uint32_t i = 0; i < node->mNumMeshes; i++) {
         aiMesh* mesh = aiscene->mMeshes[node->mMeshes[i]];
         aiMaterial* material = aiscene->mMaterials[mesh->mMaterialIndex];
@@ -121,13 +65,14 @@ void AssimpImporter::processAiNode(Scene& scene, const aiScene* aiscene, aiNode*
     }
 }
 
-void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, ECS::Entity root) {
+void AssimpImporter::loadMesh(const aiScene* aiscene, entt::registry& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, entt::entity root) {
     // create new entity and attach components
-    ECS::Entity entity = ECS::newEntity();
-    ECS::NodeComponent& node = scene.nodes.create(entity);
-    ECS::NameComponent& name = scene.names.create(entity);
-    ECS::TransformComponent& transform = scene.transforms.create(entity);
-    ECS::MeshComponent& mesh = scene.meshes.create(entity);
+    auto entity = scene.create();
+    auto& node = scene.emplace<ECS::NodeComponent>(entity);
+    auto& name = scene.emplace<ECS::NameComponent>(entity);
+    auto& transform = scene.emplace<ECS::TransformComponent>(entity);
+    auto& mesh = scene.emplace<ECS::MeshComponent>(entity);
+
 
     name.name = assimpMesh->mName.C_Str();
     node.parent = root;
@@ -162,7 +107,7 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
     }
 
     if (assimpMesh->HasBones()) {
-        auto& animation = scene.animations.create(entity);
+        auto& animation = scene.emplace<ECS::MeshAnimationComponent>(entity);
 
         animation.animation = Animation(aiscene->mAnimations[0]);
 
@@ -284,7 +229,7 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assi
     assimpMaterial->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
     assimpMaterial->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &metalroughFile);
 
-    ECS::MaterialComponent& material = scene.materials.create(entity);
+    auto& material = scene.emplace<ECS::MaterialComponent>(entity);
 
     auto defaultNormal = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
 
@@ -383,43 +328,40 @@ void AssimpImporter::loadTexturesAsync(const aiScene* scene, const std::string& 
     dispatcher.wait();
 }
 
-void updateTransforms(Scene& scene) {
-    for (int i = 0; i < scene.nodes.getCount(); i++) {
-        auto node = scene.nodes[i];
+void updateTransforms(entt::registry& scene) {
+    auto nodeView = scene.view<ECS::NodeComponent, ECS::TransformComponent>();
+    for (auto entity : nodeView) {
+        auto& node = scene.get<ECS::NodeComponent>(entity);
+        auto& transform = scene.get<ECS::TransformComponent>(entity);
+        auto currentMatrix = transform.matrix;
 
-        // update the world matrix by multiplying the local matrix with each parent matrix
-        auto transform = scene.transforms[i].matrix;
-        for (auto parent = node.parent; parent != NULL; parent = scene.nodes.getComponent(parent)->parent) {
-            transform *= scene.transforms.getComponent(parent)->matrix;
+        for (auto parent = node.parent; parent != entt::null; parent = scene.get<ECS::NodeComponent>(parent).parent) {
+            currentMatrix *= scene.get<ECS::TransformComponent>(parent).matrix;
         }
 
-        scene.transforms[i].worldTransform = transform;
+        transform.worldTransform = currentMatrix;
     }
 }
 
-ECS::Entity pickObject(Scene& scene, Math::Ray& ray) {
-    ECS::Entity pickedEntity = NULL;
-    std::map<float, ECS::Entity> boxesHit;
+entt::entity pickObject(entt::registry& scene, Math::Ray& ray) {
+    entt::entity pickedEntity = entt::null;
+    std::map<float, entt::entity> boxesHit;
 
-    for (size_t i = 0; i < scene.meshes.getCount(); i++) {
-        ECS::Entity entity = scene.meshes.getEntity(i);
-
-        ECS::MeshComponent& mesh = scene.meshes[i];
-
-        // get the OBB transformation matrix
-        ECS::TransformComponent* transform = scene.transforms.getComponent(entity);
-        const glm::mat4& worldTransform = transform ? transform->worldTransform : glm::mat4(1.0f);
+    auto view = scene.view<ECS::MeshComponent, ECS::TransformComponent>();
+    for (auto entity : view) {
+        auto& mesh = view.get<ECS::MeshComponent>(entity);
+        auto& transform = view.get<ECS::TransformComponent>(entity);
 
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB = {
-            worldTransform * glm::vec4(mesh.aabb[0], 1.0),
-            worldTransform * glm::vec4(mesh.aabb[1], 1.0)
+            transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
+            transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
         };
 
         // check for ray hit
-        auto scaledMin = mesh.aabb[0] * transform->scale;
-        auto scaledMax = mesh.aabb[1] * transform->scale;
-        auto hitResult = ray.hitsOBB(scaledMin, scaledMax, worldTransform);
+        auto scaledMin = mesh.aabb[0] * transform.scale;
+        auto scaledMax = mesh.aabb[1] * transform.scale;
+        auto hitResult = ray.hitsOBB(scaledMin, scaledMax, transform.worldTransform);
 
         if (hitResult.has_value()) {
             boxesHit[hitResult.value()] = entity;
@@ -427,13 +369,13 @@ ECS::Entity pickObject(Scene& scene, Math::Ray& ray) {
     }
 
     for (auto& pair : boxesHit) {
-        auto mesh = scene.meshes.getComponent(pair.second);
-        auto transform = scene.transforms.getComponent(pair.second);
+        auto& mesh = scene.get<ECS::MeshComponent>(pair.second);
+        auto& transform = scene.get<ECS::TransformComponent>(pair.second);
 
-        for (auto& triangle : mesh->indices) {
-            auto v0 = glm::vec3(transform->worldTransform * glm::vec4(mesh->vertices[triangle.p1].pos, 1.0));
-            auto v1 = glm::vec3(transform->worldTransform * glm::vec4(mesh->vertices[triangle.p2].pos, 1.0));
-            auto v2 = glm::vec3(transform->worldTransform * glm::vec4(mesh->vertices[triangle.p3].pos, 1.0));
+        for (auto& triangle : mesh.indices) {
+            auto v0 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[triangle.p1].pos, 1.0));
+            auto v1 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[triangle.p2].pos, 1.0));
+            auto v2 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[triangle.p3].pos, 1.0));
 
             auto triangleHitResult = ray.hitsTriangle(v0, v1, v2);
             if (triangleHitResult.has_value()) {

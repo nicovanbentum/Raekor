@@ -10,46 +10,26 @@
 
 namespace Raekor {
 
-class Scene {
-public:
-    ECS::Entity createObject(const std::string& name);
-    ECS::Entity createPointLight(const std::string& name);
-    ECS::Entity createDirectionalLight(const std::string& name);
+static entt::entity createEmpty(entt::registry& registry, const std::string& name) {
+    auto entity = registry.create();
+    auto comp = registry.emplace<ECS::NameComponent>(entity, name);
+    registry.emplace<ECS::NodeComponent>(entity);
+    registry.emplace<ECS::TransformComponent>(entity);
+    return entity;
+}
 
-    inline ECS::TransformComponent* getTransform(ECS::Entity entity) {
-        return transforms.getComponent(entity);
-    }
-
-    ECS::MeshComponent& addMesh();
-
-    void remove(ECS::Entity entity);
-
-
-public:
-    ECS::ComponentManager<ECS::NameComponent> names;
-    ECS::ComponentManager<ECS::TransformComponent> transforms;
-    ECS::ComponentManager<ECS::NodeComponent> nodes;
-    ECS::ComponentManager<ECS::MeshComponent> meshes;
-    ECS::ComponentManager<ECS::MaterialComponent> materials;
-    ECS::ComponentManager<ECS::DirectionalLightComponent> directionalLights;
-    ECS::ComponentManager<ECS::PointLightComponent> pointLights;
-    ECS::ComponentManager<ECS::MeshAnimationComponent> animations;
-
-public:
-    std::vector<ECS::Entity> entities;
-};
 
 class AssimpImporter {
 public:
     AssimpImporter() {}
-    void loadFromDisk(Scene& scene, const std::string& file, AsyncDispatcher& dispatcher);
+    void loadFromDisk(entt::registry& scene, const std::string& file, AsyncDispatcher& dispatcher);
 
 private:
-    void processAiNode(Scene& scene, const aiScene* aiscene, aiNode* node, ECS::Entity root);
+    void processAiNode(entt::registry& scene, const aiScene* aiscene, aiNode* node, entt::entity root);
 
     // TODO: every mesh in the file is created as an Entity that has 1 name, 1 mesh and 1 material component
     // we might want to incorporate meshrenderers and seperate entities for materials
-    void loadMesh(const aiScene* aiscene, Scene& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, ECS::Entity root);
+    void loadMesh(const aiScene* aiscene, entt::registry& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, entt::entity root);
 
     void loadTexturesAsync(const aiScene* scene, const std::string& directory, AsyncDispatcher& dispatcher);
 
@@ -57,8 +37,9 @@ private:
     std::unordered_map<std::string, Stb::Image> images;
 };
 
-void updateTransforms(Scene& scene);
-ECS::Entity pickObject(Scene& scene, Math::Ray& ray);
+void updateTransforms(entt::registry& scene);
+
+entt::entity pickObject(entt::registry& scene, Math::Ray& ray);
 
 
 } // Namespace Raekor
