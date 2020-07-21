@@ -24,8 +24,6 @@ struct DirectionalLightComponent {
         glm::vec4 direction = { 0.0f, 0.0f, 0.0f, 0.0f };
         glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
     } buffer;
-
-
 };
 
 struct PointLightComponent {
@@ -33,8 +31,6 @@ struct PointLightComponent {
         glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
         glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
     } buffer;
-
-
 };
 
 struct NodeComponent {
@@ -93,14 +89,18 @@ struct MeshAnimationComponent {
 };
 
 struct MaterialComponent {
-    std::unique_ptr<glTexture2D> albedo;
-    std::unique_ptr<glTexture2D> normals;
-    std::unique_ptr<glTexture2D> metalrough;
+    std::string albedoFile, normalFile, mrFile;
+    glm::vec4 baseColour = { 1.0, 1.0, 1.0, 1.0 };
+
+    std::shared_ptr<glTexture2D> albedo;
+    std::shared_ptr<glTexture2D> normals;
+    std::shared_ptr<glTexture2D> metalrough;
 };
 
 struct NameComponent {
     std::string name;
 };
+
 
 } // ECS
 } // raekor

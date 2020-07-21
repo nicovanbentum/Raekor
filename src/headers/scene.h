@@ -31,8 +31,6 @@ private:
     // we might want to incorporate meshrenderers and seperate entities for materials
     void loadMesh(const aiScene* aiscene, entt::registry& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, entt::entity root);
 
-    void loadTexturesAsync(const aiScene* scene, const std::string& directory, AsyncDispatcher& dispatcher);
-
 private:
     std::unordered_map<std::string, Stb::Image> images;
 };
@@ -40,6 +38,8 @@ private:
 void updateTransforms(entt::registry& scene);
 
 entt::entity pickObject(entt::registry& scene, Math::Ray& ray);
+void destroyNode(entt::registry& scene, entt::entity entity);
+void loadAssetsFromDisk(entt::registry& scene, AsyncDispatcher& dispatcher, const std::string& directory = "");
 
 
 } // Namespace Raekor

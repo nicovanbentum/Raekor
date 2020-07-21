@@ -5,6 +5,7 @@
 #include "scene.h"
 #include "mesh.h"
 #include "entry.h"
+#include "serial.h"
 #include "camera.h"
 #include "shader.h"
 #include "script.h"
@@ -207,15 +208,10 @@ void Application::run() {
 
         updateTransforms(scene);
 
-        auto animationUpdateView = scene.view<ECS::MeshAnimationComponent, ECS::MeshComponent>();
-        for (auto entity : animationUpdateView) {
-            auto& animation = animationUpdateView.get<ECS::MeshAnimationComponent>(entity);
-            auto& mesh = animationUpdateView.get<ECS::MeshComponent>(entity);
-
-            animation.boneTransform(animation.animation.runningTime);
-            animation.animation.runningTime += static_cast<float>(deltaTime / 100);
+        scene.view<ECS::MeshAnimationComponent, ECS::MeshComponent>().each([&](auto& animation, auto& mesh) {
+            animation.boneTransform(static_cast<float>(deltaTime));
             skinningPass->execute(mesh, animation);
-        }
+        });
 
         // if we're debugging the shadow map we directly control the sun camera
         if (activeScreenTexture != &shadowMapPass->result)
@@ -314,8 +310,30 @@ void Application::run() {
                     serializeSettings("config.json", true);
                 }
 
+                if (ImGui::MenuItem("Open..")) {
+                    std::ifstream storage("test.bin", std::ios::binary);
+                    cereal::BinaryInputArchive input(storage);
+                    scene.clear();
+                    entt::snapshot_loader{ scene }.entities(input).component<
+                        ECS::NameComponent, 
+                        ECS::NodeComponent, 
+                        ECS::TransformComponent,
+                        ECS::MeshComponent,
+                    ECS::MaterialComponent>(input);
+                    loadAssetsFromDisk(scene, dispatcher);
+                    auto view = scene.view<ECS::MeshComponent>();
+                    for (auto entity : view) {
+                        auto& mesh = view.get<ECS::MeshComponent>(entity);
+                        mesh.generateAABB();
+                        mesh.uploadVertices();
+                        mesh.uploadIndices();
+                    }
+                }
+
                 if (ImGui::MenuItem("Save as..", "CTRL + S")) {
-                    serializeSettings("config.json", true);
+                    std::ofstream storage("test.bin", std::ios::binary);
+                    cereal::BinaryOutputArchive output(storage);
+                    entt::snapshot{ scene }.entities(output).component<ECS::NameComponent, ECS::NodeComponent, ECS::TransformComponent, ECS::MeshComponent, ECS::MaterialComponent>(output);
                 }
 
                 if (ImGui::MenuItem("Screenshot..")) {
@@ -348,7 +366,7 @@ void Application::run() {
             if (ImGui::BeginMenu("Edit")) {
                 if (ImGui::MenuItem("Delete", "DEL")) {
                     // on press we remove the scene object
-                    scene.destroy(active);
+                    destroyNode(scene, active);
                     active = entt::null;
                 }
                 ImGui::EndMenu();
@@ -388,7 +406,7 @@ void Application::run() {
 
 
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
-                scene.destroy(active);
+                destroyNode(scene, active);
                 active = entt::null;
             }
 
@@ -475,8 +493,6 @@ void Application::run() {
                 activeScreenTexture = &geometryBufferPass->materialTexture;
             if (ImGui::Selectable(nameof(lightingPass->result), activeScreenTexture->ImGuiID() == lightingPass->result.ImGuiID()))
                 activeScreenTexture = &lightingPass->result;
-            if (ImGui::Selectable(nameof(shadowMapPass->result), activeScreenTexture->ImGuiID() == shadowMapPass->result.ImGuiID()))
-                activeScreenTexture = &shadowMapPass->result;
             if (ImGui::Selectable(nameof(aabbDebugPass->result), activeScreenTexture->ImGuiID() == aabbDebugPass->result.ImGuiID()))
                 activeScreenTexture = &aabbDebugPass->result;
             if (ImGui::Selectable(nameof(ConeTracePass->result), activeScreenTexture->ImGuiID() == ConeTracePass->result.ImGuiID()))
@@ -528,7 +544,7 @@ void Application::run() {
         ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
         ImGui::Text("Product: %s", glGetString(GL_RENDERER));
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         int culledCount = doDeferred ? geometryBufferPass->culled : ConeTracePass->culled;
         ImGui::Text("Culling: %i of %i meshes", culledCount, scene.view<ECS::MeshComponent>().size());
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));

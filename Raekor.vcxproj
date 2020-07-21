@@ -250,6 +250,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\pch.h" />
     <ClInclude Include="src\headers\renderer.h" />
     <ClInclude Include="src\headers\script.h" />
+    <ClInclude Include="src\headers\serial.h" />
     <ClInclude Include="src\headers\shader.h" />
     <ClInclude Include="src\headers\texture.h" />
     <ClInclude Include="src\headers\timer.h" />

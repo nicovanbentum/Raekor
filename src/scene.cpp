@@ -38,18 +38,16 @@ void AssimpImporter::loadFromDisk(entt::registry& scene, const std::string& file
         return;
     }
 
-    // load all textures into an unordered map
-    std::string textureDirectory = parseFilepath(file, PATH_OPTIONS::DIR);
-    loadTexturesAsync(assimpScene, textureDirectory, dispatcher);
-    
     // recursively process the ai scene graph
-
     auto rootEntity = scene.create();
     scene.emplace<ECS::NameComponent>(rootEntity, parseFilepath(file, PATH_OPTIONS::FILENAME));
     scene.emplace<ECS::TransformComponent>(rootEntity);
     auto& node = scene.emplace<ECS::NodeComponent>(rootEntity);
     node.hasChildren = true;
     processAiNode(scene, assimpScene, assimpScene->mRootNode, rootEntity);
+    
+    // async asset loading
+    loadAssetsFromDisk(scene, dispatcher, parseFilepath(file, PATH_OPTIONS::DIR));
 }
 
 void AssimpImporter::processAiNode(entt::registry& scene, const aiScene* aiscene, aiNode* node, entt::entity root) {
@@ -230,102 +228,45 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, entt::registry& scene, aiM
     assimpMaterial->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &metalroughFile);
 
     auto& material = scene.emplace<ECS::MaterialComponent>(entity);
-
-    auto defaultNormal = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
-
-    auto albedoEntry = images.find(albedoFile.C_Str());
-    material.albedo = std::make_unique<glTexture2D>();
-    material.albedo->bind();
-
-    if (albedoEntry != images.end()) {
-        Stb::Image& image = albedoEntry->second;
-        material.albedo->init(image.w, image.h, Format::SRGBA_U8, image.pixels);
-        material.albedo->setFilter(Sampling::Filter::Trilinear);
-        material.albedo->genMipMaps();
-    }
-    else {
-        aiColor4D diffuse; // if the mesh doesn't have an albedo on disk we create a single pixel texture with its diffuse colour
-        if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, &diffuse)) {
-            material.albedo->init(1, 1, { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT }, &diffuse[0]);
-            material.albedo->setFilter(Sampling::Filter::None);
-            material.albedo->setWrap(Sampling::Wrap::Repeat);
-        }
+    aiColor4D diffuse; 
+    if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, &diffuse)) {
+        material.baseColour = { diffuse.r, diffuse.g, diffuse.b, diffuse.a };
     }
 
-    auto normalsEntry = images.find(normalmapFile.C_Str());
-    material.normals = std::make_unique<glTexture2D>();
-    material.normals->bind();
-
-    if (normalsEntry != images.end()) {
-        Stb::Image& image = normalsEntry->second;
-        material.normals->init(image.w, image.h, Format::RGBA_U8, image.pixels);
-        material.normals->setFilter(Sampling::Filter::Trilinear);
-        material.normals->genMipMaps();
-    } else {
-        constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
-        material.normals->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(tbnAxis));
-        material.normals->setFilter(Sampling::Filter::None);
-        material.normals->setWrap(Sampling::Wrap::Repeat);
-    }
-
-    auto metalroughEntry = images.find(metalroughFile.C_Str());
-
-    if (metalroughEntry != images.end()) {
-        Stb::Image& image = metalroughEntry->second;
-        material.metalrough = std::make_unique<glTexture2D>();
-        material.metalrough->bind();
-        material.metalrough->init(image.w, image.h, { GL_RGBA16F, GL_RGBA, GL_UNSIGNED_BYTE }, image.pixels);
-        material.metalrough->setFilter(Sampling::Filter::None);
-        material.metalrough->setWrap(Sampling::Wrap::ClampEdge);
-    }
+    material.albedoFile = albedoFile.C_Str();
+    material.normalFile = normalmapFile.C_Str();
+    material.mrFile = metalroughFile.C_Str();
 }
 
-void AssimpImporter::loadTexturesAsync(const aiScene* scene, const std::string& directory, AsyncDispatcher& dispatcher) {
-    for (uint64_t index = 0; index < scene->mNumMeshes; index++) {
-        m_assert(scene && scene->HasMeshes(), "failed to load mesh");
-        auto aiMesh = scene->mMeshes[index];
-
-        aiString albedoFile, normalmapFile, metalroughFile;
-        auto material = scene->mMaterials[aiMesh->mMaterialIndex];
-        material->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
-        material->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
-        material->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &metalroughFile);
-
-        if (strcmp(albedoFile.C_Str(), "") != 0) {
-            Stb::Image image;
-            image.format = RGBA;
-            image.isSRGB = true;
-            image.filepath = directory + std::string(albedoFile.C_Str());
-            images[albedoFile.C_Str()] = image;
-        }
-
-
-        if (strcmp(normalmapFile.C_Str(), "") != 0) {
-            Stb::Image image;
-            image.format = RGBA;
-            image.isSRGB = false;
-            image.filepath = directory + std::string(normalmapFile.C_Str());
-            images[normalmapFile.C_Str()] = image;
-        }
-
-
-        if (strcmp(metalroughFile.C_Str(), "") != 0) {
-            Stb::Image image;
-            image.format = RGBA;
-            image.isSRGB = false;
-            image.filepath = directory + std::string(metalroughFile.C_Str());
-            images[metalroughFile.C_Str()] = image;
+void destroyNode(entt::registry& scene, entt::entity entity) {
+    if (!scene.has<ECS::NodeComponent>(entity)) return;
+    auto view = scene.view<ECS::NodeComponent>();
+    std::unordered_set<entt::entity> destructible;
+    // loop over every node in the scene
+    for (auto e : view) {
+        std::vector<entt::entity> parents;
+        // loop over the node's parent chain, storing parents along the way
+        for (auto parent = view.get<ECS::NodeComponent>(e).parent; parent != entt::null; parent = view.get<ECS::NodeComponent>(parent).parent) {
+            // if we find the deleted node along the parent chain, we traverse the chain and mark the chain destructable
+            if (parent == entity) {
+                destructible.insert(e);
+                for (auto p : parents) {
+                    destructible.insert(p);
+                }
+                break;
+            // else we add the parent to the chain
+            } else {
+                parents.push_back(parent);
+            }
         }
     }
 
-    // asyncronously load textures from disk
-    for (auto& pair : images) {
-        dispatcher.dispatch([&pair]() {
-            pair.second.load(pair.second.filepath, true);
-        });
+    // destroy all the entities
+    for (auto e : destructible) {
+        scene.destroy(e);
     }
 
-    dispatcher.wait();
+    scene.destroy(entity);
 }
 
 void updateTransforms(entt::registry& scene) {
@@ -386,6 +327,95 @@ entt::entity pickObject(entt::registry& scene, Math::Ray& ray) {
     }
 
     return pickedEntity;
+}
+
+void loadAssetsFromDisk(entt::registry& scene, AsyncDispatcher& dispatcher, const std::string& directory) {
+    std::unordered_map<std::string, Stb::Image> images;
+
+    // setup a centralized data structure for all the images
+    auto view = scene.view<ECS::MaterialComponent>();
+    for (auto entity : view) {
+        auto& material = view.get<ECS::MaterialComponent>(entity);
+
+        if (material.albedo) continue;
+
+        if (!directory.empty()) {
+            if(!material.albedoFile.empty()) 
+                material.albedoFile = directory + material.albedoFile;
+            if(!material.normalFile.empty())
+                material.normalFile = directory + material.normalFile;
+            if(!material.mrFile.empty())
+                material.mrFile = directory + material.mrFile;
+        }
+
+        images[material.albedoFile] = Stb::Image(RGBA, material.albedoFile);
+        images[material.normalFile] = Stb::Image(RGBA, material.normalFile);
+        images[material.mrFile] = Stb::Image(RGBA, material.mrFile);
+    }
+
+    // load every texture from disk in parallel
+    for (auto& pair : images) {
+        dispatcher.dispatch([&pair]() {
+            pair.second.load(pair.second.filepath, true);
+         });
+    }
+
+    // wait for disk loading to finish
+    dispatcher.wait();
+
+    // upload textures to GPU
+    for (auto entity : view) {
+        auto& material = view.get<ECS::MaterialComponent>(entity);
+
+        if (material.albedo) continue;
+
+        auto albedoEntry = images.find(material.albedoFile);
+        material.albedo = std::make_unique<glTexture2D>();
+        material.albedo->bind();
+
+        if (albedoEntry != images.end()) {
+            Stb::Image& image = albedoEntry->second;
+            material.albedo->init(image.w, image.h, Format::SRGBA_U8, image.pixels);
+            material.albedo->setFilter(Sampling::Filter::Trilinear);
+            material.albedo->genMipMaps();
+        }
+        else {
+            aiColor4D diffuse; // if the mesh doesn't have an albedo on disk we create a single pixel texture with its diffuse colour
+            diffuse.r = material.baseColour.r;
+            diffuse.g = material.baseColour.g;
+            diffuse.b = material.baseColour.b;
+            diffuse.a = material.baseColour.a;
+        }
+
+        auto normalsEntry = images.find(material.normalFile);
+        material.normals = std::make_unique<glTexture2D>();
+        material.normals->bind();
+
+        if (normalsEntry != images.end() && !normalsEntry->first.empty()) {
+            Stb::Image& image = normalsEntry->second;
+            material.normals->init(image.w, image.h, Format::RGBA_U8, image.pixels);
+            material.normals->setFilter(Sampling::Filter::Trilinear);
+            material.normals->genMipMaps();
+        }
+        else {
+            constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
+            material.normals->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(tbnAxis));
+            material.normals->setFilter(Sampling::Filter::None);
+            material.normals->setWrap(Sampling::Wrap::Repeat);
+        }
+
+        auto metalroughEntry = images.find(material.mrFile);
+
+        if (metalroughEntry != images.end() && !metalroughEntry->first.empty()) {
+            Stb::Image& image = metalroughEntry->second;
+            material.metalrough = std::make_unique<glTexture2D>();
+            material.metalrough->bind();
+            material.metalrough->init(image.w, image.h, { GL_RGBA16F, GL_RGBA, GL_UNSIGNED_BYTE }, image.pixels);
+            material.metalrough->setFilter(Sampling::Filter::None);
+            material.metalrough->setWrap(Sampling::Wrap::ClampEdge);
+        }
+    }
+
 }
 
 } // Namespace Raekor

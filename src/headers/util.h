@@ -64,7 +64,8 @@ enum { RGB = 3, RGBA = 4 };
 
 namespace Stb {
     struct Image {
-        Image(uint32_t format = RGBA) : filepath(""), format(format) {}
+        Image(uint32_t format = RGBA, const std::string& fp = "") : filepath(fp), format(format) {}
+
         ~Image() { if (pixels != nullptr)  stbi_image_free(pixels); }
 
         void load(const std::string& fp, bool loadFlipped = false) {

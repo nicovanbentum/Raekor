@@ -68,13 +68,16 @@ void MeshAnimationComponent::ReadNodeHierarchy(float animationTime, BoneTreeNode
     }
 }
 
-void MeshAnimationComponent::boneTransform(float TimeInSeconds) {
-    float TicksPerSecond = animation.ticksPerSecond != 0.0 ? animation.ticksPerSecond : 25.0f;
-    float TimeInTicks = TimeInSeconds * TicksPerSecond;
-    float AnimationTime = fmod(TimeInTicks, animation.totalDuration);
+void MeshAnimationComponent::boneTransform(float dt) {
+    /*
+        This is bugged, Assimp docs say totalDuration is in ticks, but the actual value is real world time in milliseconds
+        see https://github.com/assimp/assimp/issues/2662
+    */
+    animation.runningTime += dt;
+    if (animation.runningTime > animation.totalDuration) animation.runningTime = 0;
 
     auto identity = glm::mat4(1.0f);
-    ReadNodeHierarchy(AnimationTime, boneTreeRootNode, identity);
+    ReadNodeHierarchy(animation.runningTime, boneTreeRootNode, identity);
 
     boneTransforms.resize(boneCount);
     for (int i = 0; i < boneCount; i++) {
