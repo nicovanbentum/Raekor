@@ -373,7 +373,7 @@ void loadAssetsFromDisk(entt::registry& scene, AsyncDispatcher& dispatcher, cons
         material.albedo = std::make_unique<glTexture2D>();
         material.albedo->bind();
 
-        if (albedoEntry != images.end()) {
+        if (albedoEntry != images.end() && !albedoEntry->first.empty()) {
             Stb::Image& image = albedoEntry->second;
             material.albedo->init(image.w, image.h, Format::SRGBA_U8, image.pixels);
             material.albedo->setFilter(Sampling::Filter::Trilinear);

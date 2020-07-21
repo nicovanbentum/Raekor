@@ -186,7 +186,6 @@ void Application::run() {
     auto dirLightEntity = createEmpty(scene, "Directional Light");
     scene.emplace<ECS::DirectionalLightComponent>(dirLightEntity);
     auto& transform = scene.get<ECS::TransformComponent>(dirLightEntity);
-    transform.position.y = 15.0f;
     transform.recalculateMatrix();
 
     std::cout << "Initialization done." << std::endl;
@@ -213,14 +212,7 @@ void Application::run() {
             skinningPass->execute(mesh, animation);
         });
 
-        // if we're debugging the shadow map we directly control the sun camera
-        if (activeScreenTexture != &shadowMapPass->result)
-            handleEvents(directxwindow, viewport.getCamera(), mouseInViewport, deltaTime);
-        else
-            handleEvents(directxwindow, shadowMapPass->sunCamera, mouseInViewport, deltaTime);
-
-
-        shadowMapPass->sunCamera.update(true);
+        handleEvents(directxwindow, viewport.getCamera(), mouseInViewport, deltaTime);
         viewport.getCamera().update(true);
 
         // clear the main window
@@ -297,46 +289,60 @@ void Application::run() {
         double lightMoveAmount = lightMoveSpeed * deltaTime;
 
         // draw the top user bar
-        if (ImGui::BeginMenuBar()) {
+        if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
-                if (ImGui::MenuItem("Load..")) {
+                if (ImGui::MenuItem("Open scene..")) {
+                    Ffilter formats;
+                    formats.name = "Raekor Scene Files";
+                    formats.extensions = "*.bin";
+                    std::string path = OS::openFileDialog({ formats });
+                    if (!path.empty()) {
+                        std::ifstream storage(path, std::ios::binary);
+                        cereal::BinaryInputArchive input(storage);
+                        scene.clear();
+                        entt::snapshot_loader{ scene }.entities(input).component<
+                            ECS::NameComponent, 
+                            ECS::NodeComponent, 
+                            ECS::TransformComponent,
+                            ECS::MeshComponent,
+                            ECS::MaterialComponent,
+                            ECS::PointLightComponent,
+                            ECS::DirectionalLightComponent>(input);
+                        loadAssetsFromDisk(scene, dispatcher);
+                        auto view = scene.view<ECS::MeshComponent>();
+                        for (auto entity : view) {
+                            auto& mesh = view.get<ECS::MeshComponent>(entity);
+                            mesh.generateAABB();
+                            mesh.uploadVertices();
+                            mesh.uploadIndices();
+                        }
+                    }
+                }
+
+                if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
+                    std::string savePath = OS::saveFileDialog("Binary File (*.bin)\0", "bin");
+                    if (!savePath.empty()) {
+                        std::ofstream storage(savePath, std::ios::binary);
+                        cereal::BinaryOutputArchive output(storage);
+                        entt::snapshot{ scene }.entities(output).component<
+                            ECS::NameComponent, 
+                            ECS::NodeComponent, 
+                            ECS::TransformComponent, 
+                            ECS::MeshComponent, 
+                            ECS::MaterialComponent,
+                            ECS::PointLightComponent,
+                            ECS::DirectionalLightComponent>(output);
+                    }
+                }
+
+                if (ImGui::MenuItem("Load model..")) {
                     std::string path = OS::openFileDialog({ meshFileFormats });
                     if (!path.empty()) {
                         importer.loadFromDisk(scene, path, dispatcher);
                     }
                 }
-                if (ImGui::MenuItem("Save", "CTRL + S")) {
-                    display = SDL_GetWindowDisplayIndex(directxwindow);
-                    serializeSettings("config.json", true);
-                }
 
-                if (ImGui::MenuItem("Open..")) {
-                    std::ifstream storage("test.bin", std::ios::binary);
-                    cereal::BinaryInputArchive input(storage);
-                    scene.clear();
-                    entt::snapshot_loader{ scene }.entities(input).component<
-                        ECS::NameComponent, 
-                        ECS::NodeComponent, 
-                        ECS::TransformComponent,
-                        ECS::MeshComponent,
-                    ECS::MaterialComponent>(input);
-                    loadAssetsFromDisk(scene, dispatcher);
-                    auto view = scene.view<ECS::MeshComponent>();
-                    for (auto entity : view) {
-                        auto& mesh = view.get<ECS::MeshComponent>(entity);
-                        mesh.generateAABB();
-                        mesh.uploadVertices();
-                        mesh.uploadIndices();
-                    }
-                }
-
-                if (ImGui::MenuItem("Save as..", "CTRL + S")) {
-                    std::ofstream storage("test.bin", std::ios::binary);
-                    cereal::BinaryOutputArchive output(storage);
-                    entt::snapshot{ scene }.entities(output).component<ECS::NameComponent, ECS::NodeComponent, ECS::TransformComponent, ECS::MeshComponent, ECS::MaterialComponent>(output);
-                }
-
-                if (ImGui::MenuItem("Screenshot..")) {
+                if (ImGui::MenuItem("Save Screenshot..")) {
                     Ffilter screenshotFileFormats;
                     screenshotFileFormats.name = "PNG File Format";
                     screenshotFileFormats.extensions = "*.png";
@@ -351,10 +357,6 @@ void Application::run() {
                         stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels, viewport.size.x * 4);
                     }
 
-                }
-
-                if (ImGui::MenuItem("Settings", "")) {
-                    showSettingsWindow = true;
                 }
 
                 if (ImGui::MenuItem("Exit", "Escape")) {
@@ -415,8 +417,12 @@ void Application::run() {
                 if (ImGui::MenuItem("About", "")) {}
                 ImGui::EndMenu();
             }
-            ImGui::EndMenuBar();
+            ImGui::EndMainMenuBar();
         }
+
+        ImGui::Begin("Asset Browser");
+
+        ImGui::End();
 
         // chai console panel
         consoleWindow.Draw(chai.get());
@@ -505,25 +511,11 @@ void Application::run() {
 
         ImGui::NewLine();
 
-        ImGui::Text("Directional Light");
+        ImGui::Text("Shadow Mapping");
         ImGui::Separator();
-        if (ImGui::DragFloat2("Angle", glm::value_ptr(shadowMapPass->sunCamera.getAngle()), 0.01f)) {
-            if (!shouldVoxelize) {
-                voxelizePass->execute(scene, viewport, shadowMapPass.get());
-            }
-        }
         
-        if (ImGui::DragFloat2("Planes", glm::value_ptr(shadowMapPass->settings.planes), 0.1f)) {
-            shadowMapPass->sunCamera.getProjection() = glm::orthoRH_ZO(-shadowMapPass->settings.size, shadowMapPass->settings.size, -shadowMapPass->settings.size, shadowMapPass->settings.size,
-                shadowMapPass->settings.planes.x, shadowMapPass->settings.planes.y
-            );
-        }
-        if (ImGui::DragFloat("Size", &shadowMapPass->settings.size)) {
-            shadowMapPass->sunCamera.getProjection() = glm::orthoRH_ZO(-shadowMapPass->settings.size, shadowMapPass->settings.size, -shadowMapPass->settings.size, shadowMapPass->settings.size,
-                shadowMapPass->settings.planes.x, shadowMapPass->settings.planes.y
-            );
-        }
-
+        if (ImGui::DragFloat2("Planes", glm::value_ptr(shadowMapPass->settings.planes), 0.1f)) {}
+        if (ImGui::DragFloat("Size", &shadowMapPass->settings.size)) {}
         if (ImGui::DragFloat("Min bias", &lightingPass->settings.minBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
         if (ImGui::DragFloat("Max bias", &lightingPass->settings.maxBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
         
@@ -536,18 +528,6 @@ void Application::run() {
         ImGui::DragFloat("cirrus", &skyPass->settings.cirrus, 0.01f, 0.0f, 1.0f);
         ImGui::NewLine();
 
-        ImGui::End();
-
-        // application/render metrics
-        auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar;
-        ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
-        ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
-        ImGui::Text("Product: %s", glGetString(GL_RENDERER));
-        ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
-        ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        int culledCount = doDeferred ? geometryBufferPass->culled : ConeTracePass->culled;
-        ImGui::Text("Culling: %i of %i meshes", culledCount, scene.view<ECS::MeshComponent>().size());
-        ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
 
         ImGui::Begin("Camera Properties");
@@ -618,6 +598,21 @@ void Application::run() {
 
         ImGui::End();
         ImGui::PopStyleVar();
+
+        // application/render metrics
+        ImGui::SetNextWindowBgAlpha(0.35f);
+        ImGui::SetNextWindowPos(ImVec2(pos.x + size.x - size.x / 7.5 - 5, pos.y + 5));
+        ImGui::SetNextWindowSize(ImVec2(size.x / 7.5, size.y / 9));
+        auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration;
+        ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
+        ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
+        ImGui::Text("Product: %s", glGetString(GL_RENDERER));
+        ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
+        ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        int culledCount = doDeferred ? geometryBufferPass->culled : ConeTracePass->culled;
+        ImGui::Text("Culling: %i of %i meshes", culledCount, scene.view<ECS::MeshComponent>().size());
+        ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
+        ImGui::End();
 
         ImGui::End();
         Renderer::ImGuiRender();

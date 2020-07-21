@@ -130,7 +130,8 @@ void InspectorWindow::drawTransformComponent(ECS::TransformComponent& component)
     if (ImGui::DragFloat3("Scale", glm::value_ptr(component.scale))) {
         component.recalculateMatrix();
     }
-    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component.rotation), 0.001f, FLT_MIN, FLT_MAX)) {
+    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component.rotation), 0.001f, -M_PI, M_PI)) {
+        std::cout << glm::to_string(component.rotation) << '\n';
         component.recalculateMatrix();
     }
     if (ImGui::DragFloat3("Position", glm::value_ptr(component.position), 0.001f, FLT_MIN, FLT_MAX)) {

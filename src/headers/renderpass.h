@@ -10,12 +10,11 @@ namespace Raekor {
 namespace RenderPass {
 
 class ShadowMap {
-private:
+ public:
     struct {
         glm::mat4 cameraMatrix;
     } uniforms;
 
- public:
      struct {
          glm::vec<2, float> planes = { 1.0f, 200.0f };
          float size = 100.0f;
@@ -30,7 +29,6 @@ private:
     glUniformBuffer uniformBuffer;
 
 public:
-    Camera sunCamera;
     glTexture2D result;
 };
 

@@ -24,6 +24,8 @@ struct DirectionalLightComponent {
         glm::vec4 direction = { 0.0f, 0.0f, 0.0f, 0.0f };
         glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
     } buffer;
+
+    float brightness;
 };
 
 struct PointLightComponent {
@@ -31,6 +33,8 @@ struct PointLightComponent {
         glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
         glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
     } buffer;
+
+    float brightness;
 };
 
 struct NodeComponent {
@@ -51,6 +55,8 @@ struct MeshComponent {
     glIndexBuffer indexBuffer;
 
     std::array<glm::vec3, 2> aabb;
+
+    entt::entity material = entt::null;
 
     void generateAABB();
     

@@ -6,19 +6,7 @@
 namespace Raekor {
 namespace RenderPass {
 
-ShadowMap::ShadowMap(uint32_t width, uint32_t height) :
-    sunCamera(glm::vec3(0, 0, 0), glm::orthoRH_ZO(
-        -settings.size, settings.size, -settings.size, settings.size, 
-        settings.planes.x, settings.planes.y
-    )) 
-{
-    sunCamera.getView() = glm::lookAtRH(
-        glm::vec3(-2.0f, 12.0f, 2.0f),
-        glm::vec3(0.0f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 1.0f, 0.0f)
-    );
-    sunCamera.getAngle().y = -1.325f;
-
+ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     // load shaders from disk
     std::vector<Shader::Stage> shadowmapStages;
     shadowmapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depth.vert");
@@ -46,8 +34,30 @@ void ShadowMap::execute(entt::registry& scene) {
     glCullFace(GL_FRONT);
 
     // render the entire scene to the directional light shadow map
+    auto lightView = scene.view<ECS::DirectionalLightComponent, ECS::TransformComponent>();
+    auto lookDirection = glm::vec3(0.0f, -1.0f, 0.0f);
+    
+    if (lightView.size() > 0) {
+        auto& lightTransform = lightView.get<ECS::TransformComponent>(lightView.front());
+        lookDirection = static_cast<glm::quat>(lightTransform.rotation) * glm::vec3(0, -1, 0);
+    }
+
+    lookDirection = glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
+
+    // TODO: calculate these matrices based on the view frustrum
+    auto mapView = glm::lookAtRH(
+        glm::vec3(0, 15, 0),
+        glm::vec3(0, 15, 0) + lookDirection,
+        glm::vec3(0.0f, 1.0f, 0.0f)
+    );
+
+    auto mapProjection = glm::orthoRH_ZO(
+        -settings.size, settings.size, -settings.size, settings.size,
+        settings.planes.x, settings.planes.y
+    );
+
     shader.bind();
-    uniforms.cameraMatrix = sunCamera.getProjection() * sunCamera.getView();
+    uniforms.cameraMatrix = mapProjection * mapView;
     uniformBuffer.update(&uniforms, sizeof(uniforms));
     uniformBuffer.bind(0);
 
@@ -404,7 +414,6 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     // bind the main framebuffer
     framebuffer.bind();
     glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    //Renderer::Clear({ 0.0f, 0.0f, 0.0f, 1.0f });
 
     // set uniforms
     shader.bind();
@@ -442,7 +451,8 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     uniforms.projection = viewport.getCamera().getProjection();
 
     // update every light type
-    // TODO: figure out this directional light crap, I only really want to support a single one
+    // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
+    // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -1, 0)
     {
         auto view = sscene.view<ECS::DirectionalLightComponent, ECS::TransformComponent>();
         auto entity = view.front();
@@ -450,8 +460,13 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
             auto& light = view.get<ECS::DirectionalLightComponent>(entity);
             auto& transform = view.get<ECS::TransformComponent>(entity);
 
-            light.buffer.direction = glm::vec4(shadowMap->sunCamera.getDirection(), 1.0);
+            light.buffer.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
             uniforms.dirLights[0] = light.buffer;
+        }  else {
+            std::puts("wtf? no dir light?");
+            auto buffer = ECS::DirectionalLightComponent().buffer;
+            buffer.direction.y = -1.0;
+            uniforms.dirLights[0] = ECS::DirectionalLightComponent().buffer;
         }
     }
 
@@ -471,7 +486,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     }
 
     uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
-    uniforms.lightSpaceMatrix = shadowMap->sunCamera.getProjection() * shadowMap->sunCamera.getView();
+    uniforms.lightSpaceMatrix = shadowMap->uniforms.cameraMatrix;
 
     // update uniform buffer GPU side
     uniformBuffer.update(&uniforms, sizeof(uniforms));
@@ -684,7 +699,7 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
     result.bindToSlot(1, GL_WRITE_ONLY, GL_R32UI);
     shadowmap->result.bindToSlot(2);
 
-    shader.getUniform("lightViewProjection") = shadowmap->sunCamera.getProjection() * shadowmap->sunCamera.getView();
+    shader.getUniform("lightViewProjection") = shadowmap->uniforms.cameraMatrix;
 
 
     auto view = scene.view<ECS::MeshComponent, ECS::TransformComponent>();
@@ -907,7 +922,8 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
             break;
         }
 
-        light.buffer.direction = glm::vec4(shadowmap->sunCamera.getDirection(), 1.0);
+        light.buffer.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
+        uniforms.dirLights[0] = light.buffer;
         uniforms.dirLights[dirLightCounter] = light.buffer;
     }
 
@@ -927,7 +943,7 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
     }
 
     uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
-    uniforms.lightSpaceMatrix = shadowmap->sunCamera.getProjection() * shadowmap->sunCamera.getView();
+    uniforms.lightSpaceMatrix = shadowmap->uniforms.cameraMatrix;
 
     // update uniform buffer GPU side
     uniformBuffer.update(&uniforms, sizeof(uniforms));
