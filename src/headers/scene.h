@@ -22,7 +22,7 @@ static entt::entity createEmpty(entt::registry& registry, const std::string& nam
 class AssimpImporter {
 public:
     AssimpImporter() {}
-    void loadFromDisk(entt::registry& scene, const std::string& file, AsyncDispatcher& dispatcher);
+    void loadFromDisk(entt::registry& scene, const std::string& file, entt::registry& assets, AsyncDispatcher& dispatcher);
 
 private:
     void processAiNode(entt::registry& scene, const aiScene* aiscene, aiNode* node, entt::entity root);

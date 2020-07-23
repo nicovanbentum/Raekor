@@ -137,12 +137,17 @@ void Application::run() {
         colors[i] = ImVec4(savedColor[0], savedColor[1], savedColor[2], savedColor[3]);
     }
 
+    colors[ImGuiCol_DockingEmptyBg] = ImVec4(1, 0, 0, 1);
+
     ImGui::GetStyle().WindowRounding = 0.0f;
     ImGui::GetStyle().ChildRounding = 0.0f;
     ImGui::GetStyle().FrameRounding = 0.0f;
     ImGui::GetStyle().GrabRounding = 0.0f;
     ImGui::GetStyle().PopupRounding = 0.0f;
     ImGui::GetStyle().ScrollbarRounding = 0.0f;
+    ImGui::GetStyle().WindowBorderSize = 0.0f;
+    ImGui::GetStyle().ChildBorderSize = 0.0f;
+    ImGui::GetStyle().FrameBorderSize = 0.0f;
 
     // timer for keeping frametime
     Timer deltaTimer;
@@ -177,16 +182,8 @@ void Application::run() {
 
     AssimpImporter importer;
     entt::registry scene;
+    entt::registry assets;
     static entt::entity active = entt::null;
-    for (const std::string& path : project) {
-        std::cout << "Loading " << parseFilepath(path, PATH_OPTIONS::FILENAME) << "...\n";
-        importer.loadFromDisk(scene, path, dispatcher);
-    }
-
-    auto dirLightEntity = createEmpty(scene, "Directional Light");
-    scene.emplace<ECS::DirectionalLightComponent>(dirLightEntity);
-    auto& transform = scene.get<ECS::TransformComponent>(dirLightEntity);
-    transform.recalculateMatrix();
 
     std::cout << "Initialization done." << std::endl;
 
@@ -218,38 +215,46 @@ void Application::run() {
         // clear the main window
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // generate sun shadow map 
+            glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+            shadowMapPass->execute(scene);
+
+            if (shouldVoxelize) {
+                voxelizePass->execute(scene, viewport, shadowMapPass.get());
+            }
         
-        // generate sun shadow map 
-        glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-        shadowMapPass->execute(scene);
+            glViewport(0, 0, viewport.size.x, viewport.size.y);
 
-        if (shouldVoxelize) {
-            voxelizePass->execute(scene, viewport, shadowMapPass.get());
-        }
-        
-        glViewport(0, 0, viewport.size.x, viewport.size.y);
+            if (doDeferred) {
+                if (!scene.view<ECS::MeshComponent>().empty()) {
+                    geometryBufferPass->execute(scene, viewport);
+                    lightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
+                    tonemappingPass->execute(lightingPass->result, Quad.get());
+                }
+            } else {
+                if (!scene.view<ECS::MeshComponent>().empty()) {
+                    ConeTracePass->execute(viewport, scene, voxelizePass.get(), shadowMapPass.get());
+                    tonemappingPass->execute(ConeTracePass->result, Quad.get());
+                }
+            }
 
-        if (doDeferred) {
-            geometryBufferPass->execute(scene, viewport);
-            lightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
-            tonemappingPass->execute(lightingPass->result, Quad.get());
-        } else {
-            ConeTracePass->execute(viewport, scene, voxelizePass.get(), shadowMapPass.get());
-            tonemappingPass->execute(ConeTracePass->result, Quad.get());
-        }
+            if (active != entt::null) {
+                aabbDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->GDepthBuffer,  active);
+            }
 
-        if (active != entt::null) {
-            aabbDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->GDepthBuffer,  active);
-        }
-
-        if (debugVoxels) {
-            voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass.get());
-        }
+            if (debugVoxels) {
+                voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass.get());
+            }
 
         //get new frame for ImGui and ImGuizmo
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         Renderer::ImGuiNewFrame(directxwindow);
         ImGuizmo::BeginFrame();
+
+        if (ImGui::IsAnyItemActive()) {
+            // perform input mapping
+        }
 
         static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
 
@@ -294,7 +299,7 @@ void Application::run() {
                 if (ImGui::MenuItem("Open scene..")) {
                     Ffilter formats;
                     formats.name = "Raekor Scene Files";
-                    formats.extensions = "*.bin";
+                    formats.extensions = "**.scene";
                     std::string path = OS::openFileDialog({ formats });
                     if (!path.empty()) {
                         std::ifstream storage(path, std::ios::binary);
@@ -320,7 +325,7 @@ void Application::run() {
                 }
 
                 if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
-                    std::string savePath = OS::saveFileDialog("Binary File (*.bin)\0", "bin");
+                    std::string savePath = OS::saveFileDialog("Binary File (*.scene)\0", "scene");
                     if (!savePath.empty()) {
                         std::ofstream storage(savePath, std::ios::binary);
                         cereal::BinaryOutputArchive output(storage);
@@ -338,7 +343,7 @@ void Application::run() {
                 if (ImGui::MenuItem("Load model..")) {
                     std::string path = OS::openFileDialog({ meshFileFormats });
                     if (!path.empty()) {
-                        importer.loadFromDisk(scene, path, dispatcher);
+                        importer.loadFromDisk(scene, path, assets, dispatcher);
                     }
                 }
 
@@ -408,8 +413,10 @@ void Application::run() {
 
 
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
-                destroyNode(scene, active);
-                active = entt::null;
+                if (scene.valid(active)) {
+                    destroyNode(scene, active);
+                    active = entt::null;
+                }
             }
 
             static bool takeScreenshot = false;
@@ -543,9 +550,7 @@ void Application::run() {
 
         ImGui::End();
 
-        if (active != entt::null) {
-            gizmo.drawWindow();
-        }
+        gizmo.drawWindow();
         
         // renderer viewport
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
@@ -585,7 +590,11 @@ void Application::run() {
                 picked = ConeTracePass->pick(rendererMousePosition.x, rendererMousePosition.y);
             }
 
-            active = active == picked ? entt::null : picked;
+            if (scene.valid(picked)) {
+                active = active == picked ? entt::null : picked;
+            } else {
+                active = entt::null;
+            }
         }
 
         // render the active screen texture to the view port as an imgui image
@@ -601,8 +610,8 @@ void Application::run() {
 
         // application/render metrics
         ImGui::SetNextWindowBgAlpha(0.35f);
-        ImGui::SetNextWindowPos(ImVec2(pos.x + size.x - size.x / 7.5 - 5, pos.y + 5));
-        ImGui::SetNextWindowSize(ImVec2(size.x / 7.5, size.y / 9));
+        ImGui::SetNextWindowPos(ImVec2(pos.x + size.x - size.x / 7.5f - 5.0f, pos.y + 5.0f));
+        ImGui::SetNextWindowSize(ImVec2(size.x / 7.5f, size.y / 9.0f));
         auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration;
         ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
         ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
@@ -613,6 +622,7 @@ void Application::run() {
         ImGui::Text("Culling: %i of %i meshes", culledCount, scene.view<ECS::MeshComponent>().size());
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
+
 
         ImGui::End();
         Renderer::ImGuiRender();

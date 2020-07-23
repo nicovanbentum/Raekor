@@ -161,23 +161,23 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     hotloader.watch(&shader, gbufferStages.data(), gbufferStages.size());
 
     albedoTexture.bind();
-    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
     albedoTexture.setFilter(Sampling::Filter::None);
     albedoTexture.unbind();
 
     normalTexture.bind();
-    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
     normalTexture.setFilter(Sampling::Filter::None);
     normalTexture.unbind();
 
     positionTexture.bind();
-    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
     positionTexture.setFilter(Sampling::Filter::None);
     positionTexture.setWrap(Sampling::Wrap::ClampEdge);
     positionTexture.unbind();
 
     materialTexture.bind();
-    materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
     materialTexture.setFilter(Sampling::Filter::None);
     materialTexture.unbind();
 
@@ -187,8 +187,11 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     GBuffer.attach(normalTexture, GL_COLOR_ATTACHMENT1);
     GBuffer.attach(albedoTexture, GL_COLOR_ATTACHMENT2);
     GBuffer.attach(materialTexture, GL_COLOR_ATTACHMENT3);
-
     GBuffer.attach(GDepthBuffer, GL_DEPTH_ATTACHMENT);
+
+    GBuffer.bind();
+    glClear(GL_COLOR_BUFFER_BIT);
+    GBuffer.unbind();
 }
 
 void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
@@ -254,16 +257,16 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
 void GeometryBuffer::resize(Viewport& viewport) {
     // resizing framebuffers
     albedoTexture.bind();
-    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
 
     normalTexture.bind();
-    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
 
     positionTexture.bind();
-    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
 
     materialTexture.bind();
-    materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
 
     GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
 }
@@ -410,10 +413,10 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
                                 GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad) {
     hotloader.checkForUpdates();
-    
+
     // bind the main framebuffer
     framebuffer.bind();
-    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     // set uniforms
     shader.bind();
@@ -463,7 +466,6 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
             light.buffer.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
             uniforms.dirLights[0] = light.buffer;
         }  else {
-            std::puts("wtf? no dir light?");
             auto buffer = ECS::DirectionalLightComponent().buffer;
             buffer.direction.y = -1.0;
             uniforms.dirLights[0] = ECS::DirectionalLightComponent().buffer;

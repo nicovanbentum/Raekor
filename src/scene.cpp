@@ -15,7 +15,7 @@ static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from) {
     return to;
 };
 
-void AssimpImporter::loadFromDisk(entt::registry& scene, const std::string& file, AsyncDispatcher& dispatcher) {
+void AssimpImporter::loadFromDisk(entt::registry& scene, const std::string& file, entt::registry& assets, AsyncDispatcher& dispatcher) {
     constexpr unsigned int flags =
         aiProcess_GenNormals |
         aiProcess_CalcTangentSpace |

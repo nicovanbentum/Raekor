@@ -26,6 +26,7 @@ namespace Format {
     static constexpr Format DEPTH           { GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT };
     static constexpr Format SRGBA_U8        { GL_SRGB_ALPHA, GL_RGBA, GL_UNSIGNED_BYTE };
     static constexpr Format RGBA_U8         { GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE };
+    static constexpr Format RGBA_32F        { GL_RGBA32F, GL_RGBA, GL_FLOAT };
     static constexpr Format RGBA_F16        { GL_RGBA16F, GL_RGBA, GL_FLOAT };
     static constexpr Format RGB_F16         { GL_RGB16F, GL_RGB, GL_FLOAT };
     static constexpr Format RGB_F           { GL_RGB, GL_RGB, GL_FLOAT };

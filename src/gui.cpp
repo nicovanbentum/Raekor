@@ -69,32 +69,40 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity entity) {
 
         if (ImGui::BeginPopup("Components"))
         {
-            if (ImGui::Selectable("Transform", false)) {
-                scene.emplace<ECS::TransformComponent>(entity);
-                ImGui::CloseCurrentPopup();
+            if (!scene.has<ECS::TransformComponent>(entity)) {
+                if (ImGui::Selectable("Transform", false)) {
+                    scene.emplace<ECS::TransformComponent>(entity);
+                    ImGui::CloseCurrentPopup();
+                }
             }
 
-            if(ImGui::Selectable("Mesh", false)) {
-                scene.emplace<ECS::MeshComponent>(entity);
-                ImGui::CloseCurrentPopup();
+            if (!scene.has<ECS::MeshComponent>(entity)){
+                if(ImGui::Selectable("Mesh", false)) {
+                    scene.emplace<ECS::MeshComponent>(entity);
+                    ImGui::CloseCurrentPopup();
+                }
             }
 
-            if (ImGui::Selectable("Material", false)) {
-                scene.emplace<ECS::MaterialComponent>(entity);
-
-                ImGui::CloseCurrentPopup();
+            if (!scene.has<ECS::MaterialComponent>(entity)) {
+                if (ImGui::Selectable("Material", false)) {
+                    scene.emplace<ECS::MaterialComponent>(entity);
+                    ImGui::CloseCurrentPopup();
+                }
             }
 
-            if (ImGui::Selectable("Point Light", false)) {
-                scene.emplace<ECS::PointLightComponent>(entity);
-                ImGui::CloseCurrentPopup();
+            if (!scene.has<ECS::PointLightComponent>(entity)) {
+                if (ImGui::Selectable("Point Light", false)) {
+                    scene.emplace<ECS::PointLightComponent>(entity);
+                    ImGui::CloseCurrentPopup();
+                }
             }
 
-            if (ImGui::Selectable("Directional Light", false)) {
-                scene.emplace<ECS::DirectionalLightComponent>(entity);
-                ImGui::CloseCurrentPopup();
+            if (!scene.has<ECS::DirectionalLightComponent>(entity)) {
+                if (ImGui::Selectable("Directional Light", false)) {
+                    scene.emplace<ECS::DirectionalLightComponent>(entity);
+                    ImGui::CloseCurrentPopup();
+                }
             }
-
 
             ImGui::EndPopup();
         }
@@ -130,7 +138,7 @@ void InspectorWindow::drawTransformComponent(ECS::TransformComponent& component)
     if (ImGui::DragFloat3("Scale", glm::value_ptr(component.scale))) {
         component.recalculateMatrix();
     }
-    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component.rotation), 0.001f, -M_PI, M_PI)) {
+    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component.rotation), 0.001f, static_cast<float>(-M_PI), static_cast<float>(M_PI))) {
         std::cout << glm::to_string(component.rotation) << '\n';
         component.recalculateMatrix();
     }
@@ -401,8 +409,7 @@ void EntityWindow::draw(entt::registry& scene, entt::entity& active) {
 }
 
 void Guizmo::drawGuizmo(entt::registry& scene, Viewport& viewport, entt::entity active) {
-
-    if (active == entt::null || !enabled || !scene.has<ECS::TransformComponent>(active)) return;
+    if (!scene.valid(active) || !enabled || !scene.has<ECS::TransformComponent>(active)) return;
     auto& transform = scene.get<ECS::TransformComponent>(active);
 
     // set the gizmo's viewport
@@ -441,7 +448,7 @@ void Guizmo::drawWindow() {
         ImGuizmo::Enable(enabled);
     }
 
-    ImGui::Separator();
+    ImGui::SameLine();
 
     if (ImGui::RadioButton("Move", operation == ImGuizmo::OPERATION::TRANSLATE)) {
         operation = ImGuizmo::OPERATION::TRANSLATE;
