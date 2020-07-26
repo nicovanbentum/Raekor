@@ -10,9 +10,6 @@
 [submodule "dependencies/imgui"]
 	path = dependencies/imgui
 	url = https://github.com/ocornut/imgui
-[submodule "dependencies/ImGuizmo"]
-	path = dependencies/ImGuizmo
-	url = https://github.com/CedricGuillemet/ImGuizmo
 [submodule "dependencies/ChaiScript"]
 	path = dependencies/ChaiScript
 	url = https://github.com/ChaiScript/ChaiScript/
