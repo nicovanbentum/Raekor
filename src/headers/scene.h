@@ -12,9 +12,9 @@ namespace Raekor {
 
 static entt::entity createEmpty(entt::registry& registry, const std::string& name) {
     auto entity = registry.create();
-    auto comp = registry.emplace<ECS::NameComponent>(entity, name);
-    registry.emplace<ECS::NodeComponent>(entity);
-    registry.emplace<ECS::TransformComponent>(entity);
+    auto comp = registry.emplace<ecs::NameComponent>(entity, name);
+    registry.emplace<ecs::NodeComponent>(entity);
+    registry.emplace<ecs::TransformComponent>(entity);
     return entity;
 }
 

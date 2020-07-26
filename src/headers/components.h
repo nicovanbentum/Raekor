@@ -4,7 +4,7 @@
 #include "anim.h"
 
 namespace Raekor {
-namespace ECS {
+namespace ecs {
 
 struct TransformComponent {
     glm::vec3 position = { 0.0f, 0.0f, 0.0f };
@@ -86,7 +86,7 @@ struct MeshAnimationComponent {
 
     void boneTransform(float TimeInSeconds);
 
-    void uploadRenderData(ECS::MeshComponent& mesh);
+    void uploadRenderData(ecs::MeshComponent& mesh);
 
     unsigned int boneIndexBuffer;
     unsigned int boneWeightBuffer;
@@ -95,9 +95,13 @@ struct MeshAnimationComponent {
 };
 
 struct MaterialComponent {
+    std::string name;
     std::string albedoFile, normalFile, mrFile;
     glm::vec4 baseColour = { 1.0, 1.0, 1.0, 1.0 };
+    float metallic = 1.0f;
+    float roughness = 1.0f;
 
+    // GPU resources
     std::shared_ptr<glTexture2D> albedo;
     std::shared_ptr<glTexture2D> normals;
     std::shared_ptr<glTexture2D> metalrough;

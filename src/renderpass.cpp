@@ -34,11 +34,11 @@ void ShadowMap::execute(entt::registry& scene) {
     glCullFace(GL_FRONT);
 
     // render the entire scene to the directional light shadow map
-    auto lightView = scene.view<ECS::DirectionalLightComponent, ECS::TransformComponent>();
+    auto lightView = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
     auto lookDirection = glm::vec3(0.0f, -1.0f, 0.0f);
     
     if (lightView.size() > 0) {
-        auto& lightTransform = lightView.get<ECS::TransformComponent>(lightView.front());
+        auto& lightTransform = lightView.get<ecs::TransformComponent>(lightView.front());
         lookDirection = static_cast<glm::quat>(lightTransform.rotation) * glm::vec3(0, -1, 0);
     }
 
@@ -61,17 +61,17 @@ void ShadowMap::execute(entt::registry& scene) {
     uniformBuffer.update(&uniforms, sizeof(uniforms));
     uniformBuffer.bind(0);
 
-    auto view = scene.view<ECS::MeshComponent, ECS::TransformComponent>();
+    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
     for (auto entity : view) {
-        auto& mesh = view.get<ECS::MeshComponent>(entity);
-        auto& transform = view.get<ECS::TransformComponent>(entity);
+        auto& mesh = view.get<ecs::MeshComponent>(entity);
+        auto& transform = view.get<ecs::TransformComponent>(entity);
 
         shader.getUniform("model") = transform.worldTransform;
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<ECS::MeshAnimationComponent>(entity)) {
-            scene.get<ECS::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
+        if (scene.has<ecs::MeshAnimationComponent>(entity)) {
+            scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
         }
         else {
             mesh.vertexBuffer.bind();
@@ -126,17 +126,17 @@ void OmniShadowMap::execute(entt::registry& scene, const glm::vec3& lightPositio
         shader.getUniform("projView") = shadowTransforms[i];
         shader.getUniform("lightPos") = lightPosition;
 
-        auto view = scene.view<ECS::MeshComponent, ECS::TransformComponent>();
+        auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
         for (auto entity : view) {
-            auto& mesh = view.get<ECS::MeshComponent>(entity);
-            auto& transform = view.get<ECS::TransformComponent>(entity);
+            auto& mesh = view.get<ecs::MeshComponent>(entity);
+            auto& transform = view.get<ecs::TransformComponent>(entity);
 
             shader.getUniform("model") = transform.worldTransform;
 
             // determine if we use the original mesh vertices or GPU skinned vertices
-            if (scene.has<ECS::MeshAnimationComponent>(entity)) {
-                scene.get<ECS::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
+            if (scene.has<ecs::MeshAnimationComponent>(entity)) {
+                scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
             }
             else {
                 mesh.vertexBuffer.bind();
@@ -209,11 +209,11 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
 
     culled = 0;
 
-    auto view = scene.view<ECS::MeshComponent, ECS::TransformComponent>();
+    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
     for (auto entity : view) {
-        auto& mesh = view.get<ECS::MeshComponent>(entity);
-        auto& transform = view.get<ECS::TransformComponent>(entity);
+        auto& mesh = view.get<ecs::MeshComponent>(entity);
+        auto& transform = view.get<ecs::TransformComponent>(entity);
 
             // convert AABB from local to world space
             std::array<glm::vec3, 2> worldAABB = {
@@ -228,7 +228,7 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
             }
 
 
-        auto material = scene.try_get<ECS::MaterialComponent>(entity);
+        auto material = scene.try_get<ecs::MaterialComponent>(entity);
 
         if (material) {
             if (material->albedo)       material->albedo->bindToSlot(0);
@@ -241,8 +241,8 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
         shader.getUniform("entity") = static_cast<uint32_t>(entity);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<ECS::MeshAnimationComponent>(entity)) {
-            scene.get<ECS::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
+        if (scene.has<ecs::MeshAnimationComponent>(entity)) {
+            scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
         } else {
             mesh.vertexBuffer.bind();
         }
@@ -426,8 +426,8 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     shader.getUniform("farPlane") = settings.farPlane;
     shader.getUniform("bloomThreshold") = settings.bloomThreshold;
 
-    shader.getUniform("pointLightCount") = (uint32_t)sscene.view<ECS::PointLightComponent>().size();
-    shader.getUniform("directionalLightCount") = (uint32_t)sscene.view<ECS::DirectionalLightComponent>().size();
+    shader.getUniform("pointLightCount") = (uint32_t)sscene.view<ecs::PointLightComponent>().size();
+    shader.getUniform("directionalLightCount") = (uint32_t)sscene.view<ecs::DirectionalLightComponent>().size();
 
     shader.getUniform("voxelsWorldSize") = voxels->worldSize;
 
@@ -457,26 +457,26 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
     // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -1, 0)
     {
-        auto view = sscene.view<ECS::DirectionalLightComponent, ECS::TransformComponent>();
+        auto view = sscene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
         auto entity = view.front();
         if (entity != entt::null) {
-            auto& light = view.get<ECS::DirectionalLightComponent>(entity);
-            auto& transform = view.get<ECS::TransformComponent>(entity);
+            auto& light = view.get<ecs::DirectionalLightComponent>(entity);
+            auto& transform = view.get<ecs::TransformComponent>(entity);
 
             light.buffer.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
             uniforms.dirLights[0] = light.buffer;
         }  else {
-            auto buffer = ECS::DirectionalLightComponent().buffer;
+            auto buffer = ecs::DirectionalLightComponent().buffer;
             buffer.direction.y = -1.0;
-            uniforms.dirLights[0] = ECS::DirectionalLightComponent().buffer;
+            uniforms.dirLights[0] = ecs::DirectionalLightComponent().buffer;
         }
     }
 
-    auto posView = sscene.view<ECS::PointLightComponent, ECS::TransformComponent>();
+    auto posView = sscene.view<ecs::PointLightComponent, ecs::TransformComponent>();
     unsigned int posViewCounter = 0;
     for (auto entity : posView) {
-        auto& light = posView.get<ECS::PointLightComponent>(entity);
-        auto& transform = posView.get<ECS::TransformComponent>(entity);
+        auto& light = posView.get<ecs::PointLightComponent>(entity);
+        auto& transform = posView.get<ecs::TransformComponent>(entity);
 
         posViewCounter++;
         if (posViewCounter >= ARRAYSIZE(uniforms.pointLights)) {
@@ -704,14 +704,14 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
     shader.getUniform("lightViewProjection") = shadowmap->uniforms.cameraMatrix;
 
 
-    auto view = scene.view<ECS::MeshComponent, ECS::TransformComponent>();
+    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
     for (auto entity : view) {
 
-        auto& mesh = view.get<ECS::MeshComponent>(entity);
-        auto& transform = view.get<ECS::TransformComponent>(entity);
+        auto& mesh = view.get<ecs::MeshComponent>(entity);
+        auto& transform = view.get<ecs::TransformComponent>(entity);
 
-        ECS::MaterialComponent* material = scene.try_get<ECS::MaterialComponent>(entity);
+        ecs::MaterialComponent* material = scene.try_get<ecs::MaterialComponent>(entity);
 
         shader.getUniform("model") = transform.worldTransform;
         shader.getUniform("px") = px;
@@ -723,8 +723,8 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
         }
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<ECS::MeshAnimationComponent>(entity)) {
-            scene.get<ECS::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
+        if (scene.has<ecs::MeshAnimationComponent>(entity)) {
+            scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
         }
         else {
             mesh.vertexBuffer.bind();
@@ -821,12 +821,12 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
 void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, glTexture2D& texture, glRenderbuffer& renderBuffer, entt::entity active) {
     
     assert(active != entt::null);
-    if (!scene.has<ECS::MeshComponent>(active) || !scene.has<ECS::TransformComponent>(active)) {
+    if (!scene.has<ecs::MeshComponent>(active) || !scene.has<ecs::TransformComponent>(active)) {
         return;
     }
 
-    auto& mesh = scene.get<ECS::MeshComponent>(active);
-    auto& transform = scene.get<ECS::TransformComponent>(active);
+    auto& mesh = scene.get<ecs::MeshComponent>(active);
+    auto& transform = scene.get<ecs::TransformComponent>(active);
 
     glEnable(GL_LINE_SMOOTH);
 
@@ -913,11 +913,11 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
     uniforms.projection = viewport.getCamera().getProjection();
 
     // update every light type
-    auto dirView = scene.view<ECS::DirectionalLightComponent, ECS::TransformComponent>();
+    auto dirView = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
     unsigned int dirLightCounter = 0;
     for (auto entity : dirView) {
-        auto& light = dirView.get<ECS::DirectionalLightComponent>(entity);
-        auto& transform = dirView.get<ECS::TransformComponent>(entity);
+        auto& light = dirView.get<ecs::DirectionalLightComponent>(entity);
+        auto& transform = dirView.get<ecs::TransformComponent>(entity);
 
         dirLightCounter++;
         if (dirLightCounter >= ARRAYSIZE(uniforms.dirLights)) {
@@ -929,11 +929,11 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
         uniforms.dirLights[dirLightCounter] = light.buffer;
     }
 
-    auto posView = scene.view<ECS::PointLightComponent, ECS::TransformComponent>();
+    auto posView = scene.view<ecs::PointLightComponent, ecs::TransformComponent>();
     unsigned int posViewCounter = 0;
     for (auto entity : posView) {
-        auto& light = posView.get<ECS::PointLightComponent>(entity);
-        auto& transform = posView.get<ECS::TransformComponent>(entity);
+        auto& light = posView.get<ecs::PointLightComponent>(entity);
+        auto& transform = posView.get<ecs::TransformComponent>(entity);
 
         posViewCounter++;
         if (posViewCounter >= ARRAYSIZE(uniforms.pointLights)) {
@@ -963,11 +963,11 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
     frustrum.update(viewport.getCamera().getProjection() * viewport.getCamera().getView(), true);
     culled = 0;
 
-    auto view = scene.view<ECS::MeshComponent, ECS::TransformComponent>();
+    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
     for (auto entity : view) {
-        auto& mesh = scene.get<ECS::MeshComponent>(entity);
-        auto& transform = scene.get<ECS::TransformComponent>(entity);
+        auto& mesh = scene.get<ecs::MeshComponent>(entity);
+        auto& transform = scene.get<ecs::TransformComponent>(entity);
 
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB = {
@@ -981,7 +981,7 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
             continue;
         }
 
-        ECS::MaterialComponent* material = scene.try_get<ECS::MaterialComponent>(entity);
+        ecs::MaterialComponent* material = scene.try_get<ecs::MaterialComponent>(entity);
 
         if (material) {
             if (material->albedo) material->albedo->bindToSlot(1);
@@ -994,8 +994,8 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
         glStencilFunc(GL_ALWAYS, (GLint)entity, 0xFFFF);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<ECS::MeshAnimationComponent>(entity)) {
-            scene.get<ECS::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
+        if (scene.has<ecs::MeshAnimationComponent>(entity)) {
+            scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
         }
         else {
             mesh.vertexBuffer.bind();

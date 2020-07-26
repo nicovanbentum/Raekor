@@ -2,7 +2,7 @@
 #include "components.h"
 
 namespace Raekor {
-namespace ECS {
+namespace ecs {
 
 void TransformComponent::recalculateMatrix() {
     matrix = glm::translate(glm::mat4(1.0f), position);
@@ -85,7 +85,7 @@ void MeshAnimationComponent::boneTransform(float dt) {
     }
 }
 
-void MeshAnimationComponent::uploadRenderData(ECS::MeshComponent& mesh) {
+void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
     glCreateBuffers(1, &boneIndexBuffer);
     glNamedBufferData(boneIndexBuffer, boneIndices.size() * sizeof(glm::ivec4), boneIndices.data(), GL_STATIC_COPY);
 

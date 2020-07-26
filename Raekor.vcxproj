@@ -63,7 +63,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /bigobj /EHsc %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -97,7 +97,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /EHsc %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>

@@ -4,11 +4,7 @@
 
 namespace Raekor {
 
-std::string OS::openFileDialog(const std::vector<Ffilter>& filters) {
-    std::string lpstr_filters;
-    for (const Ffilter& filter : filters) {
-        lpstr_filters.append(filter.name + " (" + filter.extensions + ')' + '\0' + filter.extensions + '\0');
-    }
+std::string OS::openFileDialog(const char* filters) {
 
     OPENFILENAMEA ofn;
     CHAR szFile[260] = { 0 };
@@ -17,7 +13,7 @@ std::string OS::openFileDialog(const std::vector<Ffilter>& filters) {
     ofn.hwndOwner = GetActiveWindow();
     ofn.lpstrFile = szFile;
     ofn.nMaxFile = sizeof(szFile);
-    ofn.lpstrFilter = lpstr_filters.c_str();
+    ofn.lpstrFilter = filters;
     ofn.nFilterIndex = 1;
     ofn.lpstrFileTitle = NULL;
     ofn.nMaxFileTitle = 0;
@@ -32,7 +28,7 @@ std::string OS::openFileDialog(const std::vector<Ffilter>& filters) {
 
 std::string OS::saveFileDialog(const char* filters, const char* defaultExt) {
     OPENFILENAMEA ofn;
-    CHAR szFile[260] = { 0 };
+    CHAR szFile[260] = { 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '\0' };
     ZeroMemory(&ofn, sizeof(OPENFILENAME));
     ofn.lStructSize = sizeof(OPENFILENAME);
     ofn.hwndOwner = GetActiveWindow();

@@ -7,21 +7,21 @@
 #include "components.h"
 
 namespace Raekor {
-namespace GUI {
+namespace gui {
 
 class InspectorWindow {
 public:
     void draw(entt::registry& scene, entt::entity entity);
 
 private:
-    void drawNameComponent(ECS::NameComponent& component);
-    void drawNodeComponent(ECS::NodeComponent& component);
-    void drawMeshComponent(ECS::MeshComponent& component);
-    void drawMaterialComponent(ECS::MaterialComponent& component);
-    void drawTransformComponent(ECS::TransformComponent& component);
-    void drawPointLightComponent(ECS::PointLightComponent& component);
-    void drawAnimationComponent(ECS::MeshAnimationComponent& component);
-    void drawDirectionalLightComponent(ECS::DirectionalLightComponent& component);
+    void drawNameComponent(ecs::NameComponent& component);
+    void drawNodeComponent(ecs::NodeComponent& component);
+    void drawMeshComponent(ecs::MeshComponent& component);
+    void drawMaterialComponent(ecs::MaterialComponent& component);
+    void drawTransformComponent(ecs::TransformComponent& component);
+    void drawPointLightComponent(ecs::PointLightComponent& component);
+    void drawAnimationComponent(ecs::MeshAnimationComponent& component);
+    void drawDirectionalLightComponent(ecs::DirectionalLightComponent& component);
 };
 
 class EntityWindow {
@@ -79,11 +79,32 @@ class Guizmo {
 public:
     void drawGuizmo(entt::registry& scene, Viewport& viewport, entt::entity active);
     void drawWindow();
+    inline ImGuizmo::OPERATION getOperation() { return operation; }
 
 private:
     bool enabled = true;
     ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
     std::array<const char*, 3> previews = { "TRANSLATE", "ROTATE", "SCALE"};
+};
+
+class AssetBrowser {
+public:
+    void drawWindow(entt::registry& assets, entt::entity& active) {
+        ImGui::Begin("Asset Browser");
+
+        auto materialView = assets.view<ecs::MaterialComponent>();
+        ImGui::Columns(10);
+        for (auto entity : materialView) {
+            auto& material = materialView.get<ecs::MaterialComponent>(entity);
+            if (ImGui::Selectable(material.name.c_str(), active == entity)) {
+                active = entity;
+            }
+            ImGui::NextColumn();
+        }
+
+        ImGui::End();
+
+    }
 };
 
 } // gui

@@ -221,7 +221,7 @@ void main()
     vec3 bounceLight = coneTraceBounceLight(position, normal.xyz, occlusion).rgb;
     
     // combine all
-    vec3 diffuseReflection = (directLight + bounceLight) * albedo.rgb;
+    vec3 diffuseReflection = (directLight + bounceLight + specular) * albedo.rgb;
     finalColor = vec4(diffuseReflection, albedo.a);
 
     // BLOOM SEPERATION

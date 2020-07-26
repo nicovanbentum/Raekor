@@ -75,14 +75,6 @@ void Application::run() {
     Renderer::setAPI(RenderAPI::OPENGL);
     Renderer::Init(directxwindow);
 
-    Ffilter meshFileFormats;
-    meshFileFormats.name = "Supported Mesh Files";
-    meshFileFormats.extensions = "*.obj;*.fbx;*.gltf;*.glb";
-
-    Ffilter textureFileFormats;
-    textureFileFormats.name = "Supported Image Files";
-    textureFileFormats.extensions = "*.png;*.jpg;*.jpeg;*.tga";
-
     std::unique_ptr<Mesh> cube;
     cube.reset(new Mesh(Shape::Cube));
     cube->getVertexBuffer()->setLayout({
@@ -190,12 +182,11 @@ void Application::run() {
     SDL_ShowWindow(directxwindow);
     SDL_MaximizeWindow(directxwindow);
 
-    GUI::Guizmo gizmo;
-    GUI::EntityWindow ecsWindow;
-    GUI::ConsoleWindow consoleWindow;
-    GUI::InspectorWindow inspectorWindow;
-
-    ImVec2 pos;
+    gui::Guizmo gizmo;
+    gui::EntityWindow ecsWindow;
+    gui::ConsoleWindow consoleWindow;
+    gui::InspectorWindow inspectorWindow;
+    gui::AssetBrowser assetBrowser;
 
     bool shouldVoxelize = true;
 
@@ -204,7 +195,7 @@ void Application::run() {
 
         updateTransforms(scene);
 
-        scene.view<ECS::MeshAnimationComponent, ECS::MeshComponent>().each([&](auto& animation, auto& mesh) {
+        scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
             animation.boneTransform(static_cast<float>(deltaTime));
             skinningPass->execute(mesh, animation);
         });
@@ -227,13 +218,13 @@ void Application::run() {
             glViewport(0, 0, viewport.size.x, viewport.size.y);
 
             if (doDeferred) {
-                if (!scene.view<ECS::MeshComponent>().empty()) {
+                if (!scene.view<ecs::MeshComponent>().empty()) {
                     geometryBufferPass->execute(scene, viewport);
                     lightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
                     tonemappingPass->execute(lightingPass->result, Quad.get());
                 }
             } else {
-                if (!scene.view<ECS::MeshComponent>().empty()) {
+                if (!scene.view<ecs::MeshComponent>().empty()) {
                     ConeTracePass->execute(viewport, scene, voxelizePass.get(), shadowMapPass.get());
                     tonemappingPass->execute(ConeTracePass->result, Quad.get());
                 }
@@ -297,26 +288,23 @@ void Application::run() {
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("Open scene..")) {
-                    Ffilter formats;
-                    formats.name = "Raekor Scene Files";
-                    formats.extensions = "**.scene";
-                    std::string path = OS::openFileDialog({ formats });
+                    std::string path = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
                     if (!path.empty()) {
                         std::ifstream storage(path, std::ios::binary);
                         cereal::BinaryInputArchive input(storage);
                         scene.clear();
                         entt::snapshot_loader{ scene }.entities(input).component<
-                            ECS::NameComponent, 
-                            ECS::NodeComponent, 
-                            ECS::TransformComponent,
-                            ECS::MeshComponent,
-                            ECS::MaterialComponent,
-                            ECS::PointLightComponent,
-                            ECS::DirectionalLightComponent>(input);
+                            ecs::NameComponent, 
+                            ecs::NodeComponent, 
+                            ecs::TransformComponent,
+                            ecs::MeshComponent,
+                            ecs::MaterialComponent,
+                            ecs::PointLightComponent,
+                            ecs::DirectionalLightComponent>(input);
                         loadAssetsFromDisk(scene, dispatcher);
-                        auto view = scene.view<ECS::MeshComponent>();
+                        auto view = scene.view<ecs::MeshComponent>();
                         for (auto entity : view) {
-                            auto& mesh = view.get<ECS::MeshComponent>(entity);
+                            auto& mesh = view.get<ecs::MeshComponent>(entity);
                             mesh.generateAABB();
                             mesh.uploadVertices();
                             mesh.uploadIndices();
@@ -325,33 +313,30 @@ void Application::run() {
                 }
 
                 if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
-                    std::string savePath = OS::saveFileDialog("Binary File (*.scene)\0", "scene");
+                    std::string savePath = OS::saveFileDialog("Scene File (*.scene)\0", "scene");
+
                     if (!savePath.empty()) {
                         std::ofstream storage(savePath, std::ios::binary);
                         cereal::BinaryOutputArchive output(storage);
                         entt::snapshot{ scene }.entities(output).component<
-                            ECS::NameComponent, 
-                            ECS::NodeComponent, 
-                            ECS::TransformComponent, 
-                            ECS::MeshComponent, 
-                            ECS::MaterialComponent,
-                            ECS::PointLightComponent,
-                            ECS::DirectionalLightComponent>(output);
+                            ecs::NameComponent, 
+                            ecs::NodeComponent, 
+                            ecs::TransformComponent, 
+                            ecs::MeshComponent, 
+                            ecs::MaterialComponent,
+                            ecs::PointLightComponent,
+                            ecs::DirectionalLightComponent>(output);
                     }
                 }
 
                 if (ImGui::MenuItem("Load model..")) {
-                    std::string path = OS::openFileDialog({ meshFileFormats });
+                    std::string path = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
                     if (!path.empty()) {
                         importer.loadFromDisk(scene, path, assets, dispatcher);
                     }
                 }
 
                 if (ImGui::MenuItem("Save Screenshot..")) {
-                    Ffilter screenshotFileFormats;
-                    screenshotFileFormats.name = "PNG File Format";
-                    screenshotFileFormats.extensions = "*.png";
-
                     std::string savePath = OS::saveFileDialog("Uncompressed PNG (*.png)\0", "png");
 
                     if (!savePath.empty()) {
@@ -373,8 +358,10 @@ void Application::run() {
             if (ImGui::BeginMenu("Edit")) {
                 if (ImGui::MenuItem("Delete", "DEL")) {
                     // on press we remove the scene object
-                    destroyNode(scene, active);
-                    active = entt::null;
+                    if (active != entt::null) {
+                        destroyNode(scene, active);
+                        active = entt::null;
+                    }
                 }
                 ImGui::EndMenu();
             }
@@ -384,10 +371,10 @@ void Application::run() {
                     auto entity = createEmpty(scene, "Empty");
 
                     if (active != entt::null) {
-                        auto& node = scene.get<ECS::NodeComponent>(entity);
+                        auto& node = scene.get<ecs::NodeComponent>(entity);
                         node.parent = active;
                         node.hasChildren = false;
-                        scene.get<ECS::NodeComponent>(node.parent).hasChildren = true;
+                        scene.get<ecs::NodeComponent>(node.parent).hasChildren = true;
                     }
                 }
                 ImGui::Separator();
@@ -396,12 +383,12 @@ void Application::run() {
 
                     if (ImGui::MenuItem("Directional Light")) {
                         auto entity = createEmpty(scene, "Directional Light");
-                        scene.emplace<ECS::DirectionalLightComponent>(entity);
+                        scene.emplace<ecs::DirectionalLightComponent>(entity);
                     }
 
                     if (ImGui::MenuItem("Point Light")) {
                         auto entity = createEmpty(scene, "Point Light");
-                        scene.emplace<ECS::PointLightComponent>(entity);
+                        scene.emplace<ecs::PointLightComponent>(entity);
                     }
 
                     ImGui::EndMenu();
@@ -427,9 +414,7 @@ void Application::run() {
             ImGui::EndMainMenuBar();
         }
 
-        ImGui::Begin("Asset Browser");
-
-        ImGui::End();
+        assetBrowser.drawWindow(assets, active);
 
         // chai console panel
         consoleWindow.Draw(chai.get());
@@ -563,7 +548,7 @@ void Application::run() {
             resizing = true;
             viewport.size.x = static_cast<uint32_t>(size.x), viewport.size.y = static_cast<uint32_t>(size.y);
         }
-        pos = ImGui::GetWindowPos();
+        auto pos = ImGui::GetWindowPos();
 
         // determine if the mouse is hovering the viewport 
         if (ImGui::IsWindowHovered()) {
@@ -572,7 +557,9 @@ void Application::run() {
             mouseInViewport = false;
         }
 
-        if (io.MouseClicked[0] && mouseInViewport && !(active != entt::null && ImGuizmo::IsOver())) {
+        if (io.MouseClicked[0] && mouseInViewport && !ImGuizmo::IsOver(gizmo.getOperation())) {
+            
+            std::puts("picking");
             // get mouse position in window
             glm::ivec2 mousePosition;
             SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
@@ -619,7 +606,7 @@ void Application::run() {
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         int culledCount = doDeferred ? geometryBufferPass->culled : ConeTracePass->culled;
-        ImGui::Text("Culling: %i of %i meshes", culledCount, scene.view<ECS::MeshComponent>().size());
+        ImGui::Text("Culling: %i of %i meshes", culledCount, scene.view<ecs::MeshComponent>().size());
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
 

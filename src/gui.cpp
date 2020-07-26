@@ -3,103 +3,103 @@
 #include "platform/OS.h"
 
 namespace Raekor {
-namespace GUI {
+namespace gui {
 
 void InspectorWindow::draw(entt::registry& scene, entt::entity entity) {
     ImGui::Begin("Inspector");
     if (entity != entt::null) {
         ImGui::Text("ID: %i", entity);
-        if (scene.has<ECS::NameComponent>(entity)) {
+        if (scene.has<ecs::NameComponent>(entity)) {
             if (ImGui::CollapsingHeader("Name Component", ImGuiTreeNodeFlags_DefaultOpen)) {
-                drawNameComponent(scene.get<ECS::NameComponent>(entity));
+                drawNameComponent(scene.get<ecs::NameComponent>(entity));
             }
         }
 
-        if (scene.has<ECS::NodeComponent>(entity)) {
+        if (scene.has<ecs::NodeComponent>(entity)) {
             if (ImGui::CollapsingHeader("Node Component", ImGuiTreeNodeFlags_DefaultOpen)) {
-                drawNodeComponent(scene.get<ECS::NodeComponent>(entity));
+                drawNodeComponent(scene.get<ecs::NodeComponent>(entity));
             }
         }
 
-        if (scene.has<ECS::TransformComponent>(entity)) {
+        if (scene.has<ecs::TransformComponent>(entity)) {
             if (ImGui::CollapsingHeader("Transform Component", ImGuiTreeNodeFlags_DefaultOpen)) {
-                drawTransformComponent(scene.get<ECS::TransformComponent>(entity));
+                drawTransformComponent(scene.get<ecs::TransformComponent>(entity));
             }
         }
 
-        if (scene.has<ECS::MeshComponent>(entity)) {
+        if (scene.has<ecs::MeshComponent>(entity)) {
             bool isOpen = true; // for checking if the close button was clicked
             if (ImGui::CollapsingHeader("Mesh Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (isOpen) drawMeshComponent(scene.get<ECS::MeshComponent>(entity));
-                else scene.remove<ECS::MeshComponent>(entity);
+                if (isOpen) drawMeshComponent(scene.get<ecs::MeshComponent>(entity));
+                else scene.remove<ecs::MeshComponent>(entity);
             }
         }
 
-        if (scene.has<ECS::MaterialComponent>(entity)) {
+        if (scene.has<ecs::MaterialComponent>(entity)) {
             bool isOpen = true; // for checking if the close button was clicked
             if (ImGui::CollapsingHeader("Material Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (isOpen) drawMaterialComponent(scene.get<ECS::MaterialComponent>(entity));
-                else scene.remove<ECS::MaterialComponent>(entity);
+                if (isOpen) drawMaterialComponent(scene.get<ecs::MaterialComponent>(entity));
+                else scene.remove<ecs::MaterialComponent>(entity);
             }
         }
 
-        if (scene.has<ECS::PointLightComponent>(entity)) {
+        if (scene.has<ecs::PointLightComponent>(entity)) {
             bool isOpen = true; // for checking if the close button was clicked
             if (ImGui::CollapsingHeader("Point Light Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (isOpen) drawPointLightComponent(scene.get<ECS::PointLightComponent>(entity));
-                else scene.remove<ECS::PointLightComponent>(entity);
+                if (isOpen) drawPointLightComponent(scene.get<ecs::PointLightComponent>(entity));
+                else scene.remove<ecs::PointLightComponent>(entity);
             }
         }
 
-        if (scene.has<ECS::DirectionalLightComponent>(entity)) {
+        if (scene.has<ecs::DirectionalLightComponent>(entity)) {
             bool isOpen = true; // for checking if the close button was clicked
             if (ImGui::CollapsingHeader("Directional Light Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (isOpen) drawDirectionalLightComponent(scene.get<ECS::DirectionalLightComponent>(entity));
-                else scene.remove<ECS::DirectionalLightComponent>(entity);
+                if (isOpen) drawDirectionalLightComponent(scene.get<ecs::DirectionalLightComponent>(entity));
+                else scene.remove<ecs::DirectionalLightComponent>(entity);
             }
         }
 
-        if (scene.has<ECS::MeshAnimationComponent>(entity)) {
+        if (scene.has<ecs::MeshAnimationComponent>(entity)) {
             bool isOpen = true;
             if (ImGui::CollapsingHeader("Animation Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (isOpen) drawAnimationComponent(scene.get<ECS::MeshAnimationComponent>(entity));
-                else scene.remove<ECS::MeshAnimationComponent>(entity);
+                if (isOpen) drawAnimationComponent(scene.get<ecs::MeshAnimationComponent>(entity));
+                else scene.remove<ecs::MeshAnimationComponent>(entity);
             }
         }
 
         if (ImGui::BeginPopup("Components"))
         {
-            if (!scene.has<ECS::TransformComponent>(entity)) {
+            if (!scene.has<ecs::TransformComponent>(entity)) {
                 if (ImGui::Selectable("Transform", false)) {
-                    scene.emplace<ECS::TransformComponent>(entity);
+                    scene.emplace<ecs::TransformComponent>(entity);
                     ImGui::CloseCurrentPopup();
                 }
             }
 
-            if (!scene.has<ECS::MeshComponent>(entity)){
+            if (!scene.has<ecs::MeshComponent>(entity)){
                 if(ImGui::Selectable("Mesh", false)) {
-                    scene.emplace<ECS::MeshComponent>(entity);
+                    scene.emplace<ecs::MeshComponent>(entity);
                     ImGui::CloseCurrentPopup();
                 }
             }
 
-            if (!scene.has<ECS::MaterialComponent>(entity)) {
+            if (!scene.has<ecs::MaterialComponent>(entity)) {
                 if (ImGui::Selectable("Material", false)) {
-                    scene.emplace<ECS::MaterialComponent>(entity);
+                    scene.emplace<ecs::MaterialComponent>(entity);
                     ImGui::CloseCurrentPopup();
                 }
             }
 
-            if (!scene.has<ECS::PointLightComponent>(entity)) {
+            if (!scene.has<ecs::PointLightComponent>(entity)) {
                 if (ImGui::Selectable("Point Light", false)) {
-                    scene.emplace<ECS::PointLightComponent>(entity);
+                    scene.emplace<ecs::PointLightComponent>(entity);
                     ImGui::CloseCurrentPopup();
                 }
             }
 
-            if (!scene.has<ECS::DirectionalLightComponent>(entity)) {
+            if (!scene.has<ecs::DirectionalLightComponent>(entity)) {
                 if (ImGui::Selectable("Directional Light", false)) {
-                    scene.emplace<ECS::DirectionalLightComponent>(entity);
+                    scene.emplace<ecs::DirectionalLightComponent>(entity);
                     ImGui::CloseCurrentPopup();
                 }
             }
@@ -115,7 +115,7 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity entity) {
     ImGui::End();
 }
 
-void InspectorWindow::drawNameComponent(ECS::NameComponent& component) {
+void InspectorWindow::drawNameComponent(ecs::NameComponent& component) {
     if (ImGui::InputText("Name", &component.name, ImGuiInputTextFlags_AutoSelectAll)) {
         if (component.name.size() > 16) {
             component.name = component.name.substr(0, 16);
@@ -123,7 +123,7 @@ void InspectorWindow::drawNameComponent(ECS::NameComponent& component) {
     }
 }
 
-void InspectorWindow::drawNodeComponent(ECS::NodeComponent& component) {
+void InspectorWindow::drawNodeComponent(ecs::NodeComponent& component) {
     if (component.parent == entt::null) {
         ImGui::Text("Parent entity: None");
     } else {
@@ -134,7 +134,7 @@ void InspectorWindow::drawNodeComponent(ECS::NodeComponent& component) {
     ImGui::Text("| Has children: %s", component.hasChildren ? "True" : "False");
 }
 
-void InspectorWindow::drawTransformComponent(ECS::TransformComponent& component) {
+void InspectorWindow::drawTransformComponent(ecs::TransformComponent& component) {
     if (ImGui::DragFloat3("Scale", glm::value_ptr(component.scale))) {
         component.recalculateMatrix();
     }
@@ -147,25 +147,39 @@ void InspectorWindow::drawTransformComponent(ECS::TransformComponent& component)
     }
 }
 
-void InspectorWindow::drawMeshComponent(ECS::MeshComponent&component) {
+void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component) {
     ImGui::Text("Vertex count: %i", component.vertices.size());
     ImGui::Text("Index count: %i", component.indices.size() * 3);
 }
 
-void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent& component) {
-    Ffilter textureFileFormats;
-    textureFileFormats.name = "Supported Image Files";
-    textureFileFormats.extensions = "*.png;*.jpg;*.jpeg;*.tga";
+void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
+    if (ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour))) {
+        if (component.albedo && component.albedoFile.empty()) {
+            glTextureSubImage2D(component.albedo->mID, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(component.baseColour));
+        }
+    }
+
+    const bool adjustedMetallic = ImGui::DragFloat("Metallic", &component.metallic, 0.001f, 0.0f, 1.0f);
+    const bool adjustedRoughness = ImGui::DragFloat("Roughness", &component.roughness, 0.001f, 0.0f, 1.0f);
+
+    if (adjustedMetallic || adjustedRoughness) {
+        if (component.metalrough && component.mrFile.empty()) {
+            auto metalRoughnessValue = glm::vec4(component.metallic, component.roughness, 0.0f, 1.0f);
+            glTextureSubImage2D(component.metalrough->mID, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
+        }
+    }
 
     if (component.albedo) {
         ImGui::Image(component.albedo->ImGuiID(), ImVec2(15, 15));
         ImGui::SameLine();
     }
 
+    constexpr const char* fileFilters = "Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0";
+    
     ImGui::Text("Albedo");
     ImGui::SameLine();
     if (ImGui::SmallButton("... ## albedo")) {
-        std::string filepath = OS::openFileDialog( { textureFileFormats } );
+        std::string filepath = OS::openFileDialog(fileFilters);
         if (!filepath.empty()) {
             Stb::Image image;
             image.load(filepath, true);
@@ -190,7 +204,7 @@ void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent& component) {
     ImGui::Text("Normal map");
     ImGui::SameLine();
     if (ImGui::SmallButton("... ## normalmap")) {
-        std::string filepath = OS::openFileDialog({ textureFileFormats });
+        std::string filepath = OS::openFileDialog(fileFilters);
         if (!filepath.empty()) {
             Stb::Image image;
             image.load(filepath, true);
@@ -214,21 +228,21 @@ void InspectorWindow::drawMaterialComponent(ECS::MaterialComponent& component) {
     ImGui::Text("Metallic Roughness map");
     ImGui::SameLine();
     if (ImGui::SmallButton("... ## metallic roughness")) {
-        std::string filepath = OS::openFileDialog({ textureFileFormats });
+        std::string filepath = OS::openFileDialog(fileFilters);
     }
 
 }
 
-void InspectorWindow::drawPointLightComponent(ECS::PointLightComponent& component) {
+void InspectorWindow::drawPointLightComponent(ecs::PointLightComponent& component) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component.buffer.colour));
 }
 
-void InspectorWindow::drawDirectionalLightComponent(ECS::DirectionalLightComponent& component) {
+void InspectorWindow::drawDirectionalLightComponent(ecs::DirectionalLightComponent& component) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component.buffer.colour));
     ImGui::DragFloat3("Direction", glm::value_ptr(component.buffer.direction), 0.01f, -1.0f, 1.0f);
 }
 
-void InspectorWindow::drawAnimationComponent(ECS::MeshAnimationComponent& component) {
+void InspectorWindow::drawAnimationComponent(ecs::MeshAnimationComponent& component) {
     static bool playing = false;
     ImGui::SliderFloat("Time", &component.animation.runningTime, 0, component.animation.totalDuration);
     if (ImGui::Button(playing ? "pause" : "play")) {
@@ -354,8 +368,8 @@ int ConsoleWindow::TextEditCallback(ImGuiInputTextCallbackData* data) { return 0
 
 bool EntityWindow::drawFamilyNode(entt::registry& scene, entt::entity entity, entt::entity& active) {
     auto selected = active == entity ? ImGuiTreeNodeFlags_Selected : 0;
-    auto treeNodeFlags = selected | ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow;
-    auto name = scene.get<ECS::NameComponent>(entity);
+    auto treeNodeFlags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
+    auto name = scene.get<ecs::NameComponent>(entity);
     bool opened = ImGui::TreeNodeEx(name.name.c_str(), treeNodeFlags);
     if (ImGui::IsItemClicked()) {
         active = active == entity ? entt::null : entity;
@@ -364,16 +378,16 @@ bool EntityWindow::drawFamilyNode(entt::registry& scene, entt::entity entity, en
 }
 
 void EntityWindow::drawChildlessNode(entt::registry& scene, entt::entity entity, entt::entity& active) {
-    auto name = scene.get<ECS::NameComponent>(entity);
+    auto name = scene.get<ecs::NameComponent>(entity);
     if (ImGui::Selectable(std::string(name.name + "##" + std::to_string(static_cast<uint32_t>(entity))).c_str(), entity == active)) {
         active = active == entity ? entt::null : entity;
     }
 }
 
 void EntityWindow::drawFamily(entt::registry& scene, entt::entity parent, entt::entity& active) {
-    auto nodeView = scene.view<ECS::NodeComponent>();
+    auto nodeView = scene.view<ecs::NodeComponent>();
     for (auto entity : nodeView) {
-        auto& node = scene.get<ECS::NodeComponent>(entity);
+        auto& node = scene.get<ecs::NodeComponent>(entity);
         if(node.parent == parent) {
             if (node.hasChildren) {
                 if (drawFamilyNode(scene, entity, active)) {
@@ -390,9 +404,9 @@ void EntityWindow::drawFamily(entt::registry& scene, entt::entity parent, entt::
 void EntityWindow::draw(entt::registry& scene, entt::entity& active) {
     ImGui::Begin("Scene");
 
-    auto nodeView = scene.view<ECS::NodeComponent>();
+    auto nodeView = scene.view<ecs::NodeComponent>();
     for (auto entity : nodeView) {
-        auto& node = nodeView.get<ECS::NodeComponent>(entity);
+        auto& node = nodeView.get<ecs::NodeComponent>(entity);
         if (node.parent == entt::null) {
             if (node.hasChildren) {
                 if (drawFamilyNode(scene, entity, active)) {
@@ -409,8 +423,8 @@ void EntityWindow::draw(entt::registry& scene, entt::entity& active) {
 }
 
 void Guizmo::drawGuizmo(entt::registry& scene, Viewport& viewport, entt::entity active) {
-    if (!scene.valid(active) || !enabled || !scene.has<ECS::TransformComponent>(active)) return;
-    auto& transform = scene.get<ECS::TransformComponent>(active);
+    if (!scene.valid(active) || !enabled || !scene.has<ecs::TransformComponent>(active)) return;
+    auto& transform = scene.get<ecs::TransformComponent>(active);
 
     // set the gizmo's viewport
     ImGuizmo::SetDrawlist();

@@ -82,10 +82,6 @@ void Application::vulkanMain() {
     SDL_ShowWindow(window);
     SDL_SetWindowInputFocus(window);
 
-    Ffilter ft_mesh = {};
-    ft_mesh.name = "Supported Mesh Files";
-    ft_mesh.extensions = "*.obj;*.fbx";
-
     // MVP uniform buffer object
     glm::mat4 ubo = {};
     int active = 0;
@@ -185,7 +181,7 @@ void Application::vulkanMain() {
             ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
             ImGui::Begin("ECS", (bool*)0, ImGuiWindowFlags_AlwaysAutoResize);
             if (ImGui::Button("Add Model")) {
-                std::string path = context.openFileDialog({ ft_mesh });
+                std::string path = context.openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
                 if (!path.empty()) {
                 }
             }

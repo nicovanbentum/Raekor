@@ -25,7 +25,7 @@ namespace cereal {
 
 
     template<typename Archive>
-    void serialize(Archive& archive, Raekor::ECS::TransformComponent& transform) {
+    void serialize(Archive& archive, Raekor::ecs::TransformComponent& transform) {
 		archive(
 			transform.position,
 			transform.rotation,
@@ -37,18 +37,18 @@ namespace cereal {
     }
 
 	template<typename Archive> 
-	void serialize(Archive& archive, Raekor::ECS::DirectionalLightComponent) {}
+	void serialize(Archive& archive, Raekor::ecs::DirectionalLightComponent) {}
 
 	template<typename Archive>
-	void serialize(Archive& archive, Raekor::ECS::PointLightComponent) {}
+	void serialize(Archive& archive, Raekor::ecs::PointLightComponent) {}
 
     template<class Archive>
-    void serialize(Archive& archive, Raekor::ECS::NodeComponent& node) {
+    void serialize(Archive& archive, Raekor::ecs::NodeComponent& node) {
         archive(node.parent, node.hasChildren);
     }
 
 	template<class Archive>
-	void serialize(Archive& archive, Raekor::ECS::BoneInfo& boneInfo) {
+	void serialize(Archive& archive, Raekor::ecs::BoneInfo& boneInfo) {
 		archive(boneInfo.boneOffset, boneInfo.finalTransformation);
 	}
 
@@ -65,27 +65,27 @@ namespace cereal {
 	}
 
 	template<class Archive>
-	void save(Archive& archive, const Raekor::ECS::MeshComponent& mesh) {
+	void save(Archive& archive, const Raekor::ecs::MeshComponent& mesh) {
 		archive(mesh.vertices, mesh.indices);
 	}
 
 	template<class Archive>
-	void load(Archive& archive, Raekor::ECS::MeshComponent& mesh) {
+	void load(Archive& archive, Raekor::ecs::MeshComponent& mesh) {
 		archive(mesh.vertices, mesh.indices);
 	}
 
 	template<class Archive>
-	void save(Archive& archive, const Raekor::ECS::MaterialComponent& mat) {
-		archive(mat.albedoFile, mat.normalFile, mat.mrFile);
+	void save(Archive& archive, const Raekor::ecs::MaterialComponent& mat) {
+		archive(mat.albedoFile, mat.normalFile, mat.mrFile, mat.baseColour, mat.metallic, mat.roughness);
 	}
 
 	template<class Archive>
-	void load(Archive& archive, Raekor::ECS::MaterialComponent& mat) {
+	void load(Archive& archive, Raekor::ecs::MaterialComponent& mat) {
 		archive(mat.albedoFile, mat.normalFile, mat.mrFile);
 	}
 
     template<class Archive>
-    void serialize(Archive& archive, Raekor::ECS::NameComponent& name) {
+    void serialize(Archive& archive, Raekor::ecs::NameComponent& name) {
         archive(name.name);
     }
 }

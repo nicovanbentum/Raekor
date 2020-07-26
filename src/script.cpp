@@ -56,12 +56,12 @@ namespace Raekor {
 
         // add Scene methods
 
-        module->add(chaiscript::fun(&ECS::ComponentManager<ECS::MeshComponent>::create), "create");
-        module->add(chaiscript::fun(&ECS::MeshComponent::vertices), "vertices");
-        module->add(chaiscript::fun(&ECS::MeshComponent::indices), "indices");
-        module->add(chaiscript::fun(&ECS::MeshComponent::uploadVertices), "uploadVertices");
-        module->add(chaiscript::fun(&ECS::MeshComponent::uploadIndices), "uploadIndices");
-        module->add(chaiscript::fun(&ECS::MeshComponent::generateAABB), "generateAABB");
+        module->add(chaiscript::fun(&ecs::ComponentManager<ecs::MeshComponent>::create), "create");
+        module->add(chaiscript::fun(&ecs::MeshComponent::vertices), "vertices");
+        module->add(chaiscript::fun(&ecs::MeshComponent::indices), "indices");
+        module->add(chaiscript::fun(&ecs::MeshComponent::uploadVertices), "uploadVertices");
+        module->add(chaiscript::fun(&ecs::MeshComponent::uploadIndices), "uploadIndices");
+        module->add(chaiscript::fun(&ecs::MeshComponent::generateAABB), "generateAABB");
 
         return module;
     }

@@ -81,6 +81,7 @@
 #include <queue>
 #include <future>
 #include <chrono>
+#include <bitset>
 #include <numeric>
 #include <random>
 #include <limits>
@@ -89,6 +90,7 @@
 #include <optional>
 #include <iostream>
 #include <algorithm>
+#include <type_traits>
 #include <unordered_map>
 #include <filesystem>
 
@@ -113,3 +115,6 @@
 
 // Entity-component system entt
 #include "entt/entt.hpp"
+
+// lz4 compression
+#include "lz4.h"

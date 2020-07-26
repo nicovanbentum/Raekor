@@ -17,7 +17,7 @@ class ShadowMap {
 
      struct {
          glm::vec<2, float> planes = { 1.0f, 200.0f };
-         float size = 100.0f;
+         float size = 50.0f;
      } settings;
 
     ShadowMap(uint32_t width, uint32_t height);
@@ -204,8 +204,8 @@ private:
         glm::mat4 view, projection;
         glm::mat4 lightSpaceMatrix;
         glm::vec4 cameraPosition;
-        ECS::DirectionalLightComponent::ShaderBuffer dirLights[1];
-        ECS::PointLightComponent::ShaderBuffer pointLights[10];
+        ecs::DirectionalLightComponent::ShaderBuffer dirLights[1];
+        ecs::PointLightComponent::ShaderBuffer pointLights[10];
         unsigned int renderFlags = 0b00000001;
     } uniforms;
 
@@ -243,8 +243,8 @@ private:
         glm::mat4 view, projection;
         glm::mat4 lightSpaceMatrix;
         glm::vec4 cameraPosition;
-        ECS::DirectionalLightComponent::ShaderBuffer dirLights[1];
-        ECS::PointLightComponent::ShaderBuffer pointLights[10];
+        ecs::DirectionalLightComponent::ShaderBuffer dirLights[1];
+        ecs::PointLightComponent::ShaderBuffer pointLights[10];
         unsigned int renderFlags = 0b00000001;
     } uniforms;
 
@@ -304,7 +304,7 @@ public:
         hotloader.watch(&computeShader, stages.data(), stages.size());
     }
 
-    void execute(ECS::MeshComponent& mesh, ECS::MeshAnimationComponent& anim) {
+    void execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim) {
 
         glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransforms.size() * sizeof(glm::mat4), anim.boneTransforms.data(), GL_DYNAMIC_DRAW);
         

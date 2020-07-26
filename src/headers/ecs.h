@@ -5,8 +5,19 @@
 #include "texture.h"
 #include "rmath.h"
 
+/*
+    Old entity component system pre-dating the integration of entt
+    With this you can create a scene class that contains multiple ComponentManager's, like:
+    class Scene {
+        ComponentManager<NameComponent> names;
+        ComponentManager<MeshComponent> meshes;
+    }
+
+    It worked well but the need for a manager for each component resulted in an ugly API that wasn't that great to work with.
+*/
+
 namespace Raekor {
-namespace ECS {
+namespace ecs {
 
 typedef uint32_t Entity;
 

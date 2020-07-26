@@ -40,11 +40,22 @@ void AssimpImporter::loadFromDisk(entt::registry& scene, const std::string& file
 
     // recursively process the ai scene graph
     auto rootEntity = scene.create();
-    scene.emplace<ECS::NameComponent>(rootEntity, parseFilepath(file, PATH_OPTIONS::FILENAME));
-    scene.emplace<ECS::TransformComponent>(rootEntity);
-    auto& node = scene.emplace<ECS::NodeComponent>(rootEntity);
+    scene.emplace<ecs::NameComponent>(rootEntity, parseFilepath(file, PATH_OPTIONS::FILENAME));
+    scene.emplace<ecs::TransformComponent>(rootEntity);
+    auto& node = scene.emplace<ecs::NodeComponent>(rootEntity);
     node.hasChildren = true;
     processAiNode(scene, assimpScene, assimpScene->mRootNode, rootEntity);
+
+    for (unsigned int i = 0; i < assimpScene->mNumMaterials; i++) {
+        auto aimaterial = assimpScene->mMaterials[i];
+        auto& material = assets.emplace<ecs::MaterialComponent>(assets.create());
+        
+        if (aimaterial->GetName() != aiString("")) {
+            material.name = aimaterial->GetName().C_Str();
+        } else {
+            material.name = "Material #" + std::to_string(assets.size());
+        }
+    }
     
     // async asset loading
     loadAssetsFromDisk(scene, dispatcher, parseFilepath(file, PATH_OPTIONS::DIR));
@@ -66,10 +77,10 @@ void AssimpImporter::processAiNode(entt::registry& scene, const aiScene* aiscene
 void AssimpImporter::loadMesh(const aiScene* aiscene, entt::registry& scene, aiMesh* assimpMesh, aiMaterial* assimpMaterial, aiMatrix4x4 localTransform, entt::entity root) {
     // create new entity and attach components
     auto entity = scene.create();
-    auto& node = scene.emplace<ECS::NodeComponent>(entity);
-    auto& name = scene.emplace<ECS::NameComponent>(entity);
-    auto& transform = scene.emplace<ECS::TransformComponent>(entity);
-    auto& mesh = scene.emplace<ECS::MeshComponent>(entity);
+    auto& node = scene.emplace<ecs::NodeComponent>(entity);
+    auto& name = scene.emplace<ecs::NameComponent>(entity);
+    auto& transform = scene.emplace<ecs::TransformComponent>(entity);
+    auto& mesh = scene.emplace<ecs::MeshComponent>(entity);
 
 
     name.name = assimpMesh->mName.C_Str();
@@ -105,7 +116,7 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, entt::registry& scene, aiM
     }
 
     if (assimpMesh->HasBones()) {
-        auto& animation = scene.emplace<ECS::MeshAnimationComponent>(entity);
+        auto& animation = scene.emplace<ecs::MeshAnimationComponent>(entity);
 
         animation.animation = Animation(aiscene->mAnimations[0]);
 
@@ -121,7 +132,7 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, entt::registry& scene, aiM
             if (animation.bonemapping.find(bone->mName.C_Str()) == animation.bonemapping.end()) {
                 boneIndex = animation.boneCount;
                 animation.boneCount++;
-                ECS::BoneInfo bi;
+                ecs::BoneInfo bi;
                 animation.boneInfos.push_back(bi);
                 animation.boneInfos[boneIndex].boneOffset = aiMat4toGLM(bone->mOffsetMatrix);
                 animation.bonemapping[bone->mName.C_Str()] = boneIndex;
@@ -130,7 +141,7 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, entt::registry& scene, aiM
                 boneIndex = animation.bonemapping[bone->mName.C_Str()];
             }
 
-            auto addBoneData = [](ECS::MeshAnimationComponent& anim, uint32_t index, uint32_t boneID, float weight) {
+            auto addBoneData = [](ecs::MeshAnimationComponent& anim, uint32_t index, uint32_t boneID, float weight) {
                 for (int i = 0; i < 4; i++) {
                     if (anim.boneWeights[index][i] == 0.0f) {
                         anim.boneIndices[index][i] = boneID;
@@ -189,8 +200,8 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, entt::registry& scene, aiM
 
         animation.boneTreeRootNode.name = rootBone->mName.C_Str();
 
-        std::function<void(aiNode* node, ECS::BoneTreeNode& boneNode)> copyBoneNode;
-        copyBoneNode = [&](aiNode* node, ECS::BoneTreeNode& boneNode) -> void {
+        std::function<void(aiNode* node, ecs::BoneTreeNode& boneNode)> copyBoneNode;
+        copyBoneNode = [&](aiNode* node, ecs::BoneTreeNode& boneNode) -> void {
             for (unsigned int i = 0; i < node->mNumChildren; i++) {
                 auto childNode = node->mChildren[i];
                 auto it = animation.bonemapping.find(childNode->mName.C_Str());
@@ -227,7 +238,7 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, entt::registry& scene, aiM
     assimpMaterial->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
     assimpMaterial->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &metalroughFile);
 
-    auto& material = scene.emplace<ECS::MaterialComponent>(entity);
+    auto& material = scene.emplace<ecs::MaterialComponent>(entity);
     aiColor4D diffuse; 
     if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, &diffuse)) {
         material.baseColour = { diffuse.r, diffuse.g, diffuse.b, diffuse.a };
@@ -239,14 +250,14 @@ void AssimpImporter::loadMesh(const aiScene* aiscene, entt::registry& scene, aiM
 }
 
 void destroyNode(entt::registry& scene, entt::entity entity) {
-    if (!scene.has<ECS::NodeComponent>(entity)) return;
-    auto view = scene.view<ECS::NodeComponent>();
+    if (!scene.has<ecs::NodeComponent>(entity)) return;
+    auto view = scene.view<ecs::NodeComponent>();
     std::unordered_set<entt::entity> destructible;
     // loop over every node in the scene
     for (auto e : view) {
         std::vector<entt::entity> parents;
         // loop over the node's parent chain, storing parents along the way
-        for (auto parent = view.get<ECS::NodeComponent>(e).parent; parent != entt::null; parent = view.get<ECS::NodeComponent>(parent).parent) {
+        for (auto parent = view.get<ecs::NodeComponent>(e).parent; parent != entt::null; parent = view.get<ecs::NodeComponent>(parent).parent) {
             // if we find the deleted node along the parent chain, we traverse the chain and mark the chain destructable
             if (parent == entity) {
                 destructible.insert(e);
@@ -270,14 +281,14 @@ void destroyNode(entt::registry& scene, entt::entity entity) {
 }
 
 void updateTransforms(entt::registry& scene) {
-    auto nodeView = scene.view<ECS::NodeComponent, ECS::TransformComponent>();
+    auto nodeView = scene.view<ecs::NodeComponent, ecs::TransformComponent>();
     for (auto entity : nodeView) {
-        auto& node = scene.get<ECS::NodeComponent>(entity);
-        auto& transform = scene.get<ECS::TransformComponent>(entity);
+        auto& node = scene.get<ecs::NodeComponent>(entity);
+        auto& transform = scene.get<ecs::TransformComponent>(entity);
         auto currentMatrix = transform.matrix;
 
-        for (auto parent = node.parent; parent != entt::null; parent = scene.get<ECS::NodeComponent>(parent).parent) {
-            currentMatrix *= scene.get<ECS::TransformComponent>(parent).matrix;
+        for (auto parent = node.parent; parent != entt::null; parent = scene.get<ecs::NodeComponent>(parent).parent) {
+            currentMatrix *= scene.get<ecs::TransformComponent>(parent).matrix;
         }
 
         transform.worldTransform = currentMatrix;
@@ -288,10 +299,10 @@ entt::entity pickObject(entt::registry& scene, Math::Ray& ray) {
     entt::entity pickedEntity = entt::null;
     std::map<float, entt::entity> boxesHit;
 
-    auto view = scene.view<ECS::MeshComponent, ECS::TransformComponent>();
+    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
     for (auto entity : view) {
-        auto& mesh = view.get<ECS::MeshComponent>(entity);
-        auto& transform = view.get<ECS::TransformComponent>(entity);
+        auto& mesh = view.get<ecs::MeshComponent>(entity);
+        auto& transform = view.get<ecs::TransformComponent>(entity);
 
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB = {
@@ -310,8 +321,8 @@ entt::entity pickObject(entt::registry& scene, Math::Ray& ray) {
     }
 
     for (auto& pair : boxesHit) {
-        auto& mesh = scene.get<ECS::MeshComponent>(pair.second);
-        auto& transform = scene.get<ECS::TransformComponent>(pair.second);
+        auto& mesh = scene.get<ecs::MeshComponent>(pair.second);
+        auto& transform = scene.get<ecs::TransformComponent>(pair.second);
 
         for (auto& triangle : mesh.indices) {
             auto v0 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[triangle.p1].pos, 1.0));
@@ -333,9 +344,9 @@ void loadAssetsFromDisk(entt::registry& scene, AsyncDispatcher& dispatcher, cons
     std::unordered_map<std::string, Stb::Image> images;
 
     // setup a centralized data structure for all the images
-    auto view = scene.view<ECS::MaterialComponent>();
+    auto view = scene.view<ecs::MaterialComponent>();
     for (auto entity : view) {
-        auto& material = view.get<ECS::MaterialComponent>(entity);
+        auto& material = view.get<ecs::MaterialComponent>(entity);
 
         if (material.albedo) continue;
 
@@ -365,7 +376,7 @@ void loadAssetsFromDisk(entt::registry& scene, AsyncDispatcher& dispatcher, cons
 
     // upload textures to GPU
     for (auto entity : view) {
-        auto& material = view.get<ECS::MaterialComponent>(entity);
+        auto& material = view.get<ecs::MaterialComponent>(entity);
 
         if (material.albedo) continue;
 
@@ -380,11 +391,9 @@ void loadAssetsFromDisk(entt::registry& scene, AsyncDispatcher& dispatcher, cons
             material.albedo->genMipMaps();
         }
         else {
-            aiColor4D diffuse; // if the mesh doesn't have an albedo on disk we create a single pixel texture with its diffuse colour
-            diffuse.r = material.baseColour.r;
-            diffuse.g = material.baseColour.g;
-            diffuse.b = material.baseColour.b;
-            diffuse.a = material.baseColour.a;
+                material.albedo->init(1, 1, { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT }, glm::value_ptr(material.baseColour));
+                material.albedo->setFilter(Sampling::Filter::None);
+                material.albedo->setWrap(Sampling::Wrap::Repeat);
         }
 
         auto normalsEntry = images.find(material.normalFile);
@@ -413,6 +422,13 @@ void loadAssetsFromDisk(entt::registry& scene, AsyncDispatcher& dispatcher, cons
             material.metalrough->init(image.w, image.h, { GL_RGBA16F, GL_RGBA, GL_UNSIGNED_BYTE }, image.pixels);
             material.metalrough->setFilter(Sampling::Filter::None);
             material.metalrough->setWrap(Sampling::Wrap::ClampEdge);
+        } else {
+            auto metalRoughnessValue = glm::vec4(material.metallic, material.roughness, 0.0f, 1.0f);
+            material.metalrough = std::make_unique<glTexture2D>();
+            material.metalrough->bind();
+            material.metalrough->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT}, glm::value_ptr(metalRoughnessValue));
+            material.metalrough->setFilter(Sampling::Filter::None);
+            material.metalrough->setWrap(Sampling::Wrap::Repeat);
         }
     }
 
