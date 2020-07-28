@@ -375,6 +375,8 @@ void Application::run() {
                         node.hasChildren = false;
                         scene.get<ecs::NodeComponent>(node.parent).hasChildren = true;
                     }
+
+                    active = entity;
                 }
                 ImGui::Separator();
 
@@ -386,11 +388,13 @@ void Application::run() {
                         transform.rotation.x = static_cast<float>(M_PI / 12);
                         transform.recalculateMatrix();
                         scene.emplace<ecs::DirectionalLightComponent>(entity);
+                        active = entity;
                     }
 
                     if (ImGui::MenuItem("Point Light")) {
                         auto entity = createEmpty(scene, "Point Light");
                         scene.emplace<ecs::PointLightComponent>(entity);
+                        active = entity;
                     }
 
                     ImGui::EndMenu();
@@ -559,7 +563,7 @@ void Application::run() {
             mouseInViewport = false;
         }
 
-        if (io.MouseClicked[0] && mouseInViewport && !ImGuizmo::IsOver(gizmo.getOperation())) {
+        if (io.MouseClicked[0] && mouseInViewport && !(active != entt::null && ImGuizmo::IsOver(gizmo.getOperation()))) {
             // get mouse position in window
             glm::ivec2 mousePosition;
             SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
