@@ -37,17 +37,20 @@ void ShadowMap::execute(entt::registry& scene) {
     auto lightView = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
     auto lookDirection = glm::vec3(0.0f, -1.0f, 0.0f);
     
-    if (lightView.size() > 0) {
+    if (!lightView.empty()) {
         auto& lightTransform = lightView.get<ecs::TransformComponent>(lightView.front());
-        lookDirection = static_cast<glm::quat>(lightTransform.rotation) * glm::vec3(0, -1, 0);
+        lookDirection = static_cast<glm::quat>(lightTransform.rotation) * lookDirection;
+    } else {
+        // we rotate default light a little or else we get nan values in our view matrix
+        lookDirection = static_cast<glm::quat>(glm::vec3(glm::radians(15.0f), 0, 0)) * lookDirection;
     }
 
     lookDirection = glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
 
     // TODO: calculate these matrices based on the view frustrum
     auto mapView = glm::lookAtRH(
-        glm::vec3(0, 15, 0),
-        glm::vec3(0, 15, 0) + lookDirection,
+        glm::vec3(0.0f, 15.0f, 0.0f),
+        glm::vec3(0.0f, 15.0f, 0.0f) + lookDirection,
         glm::vec3(0.0f, 1.0f, 0.0f)
     );
 
@@ -161,17 +164,17 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     hotloader.watch(&shader, gbufferStages.data(), gbufferStages.size());
 
     albedoTexture.bind();
-    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
+    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     albedoTexture.setFilter(Sampling::Filter::None);
     albedoTexture.unbind();
 
     normalTexture.bind();
-    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
+    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     normalTexture.setFilter(Sampling::Filter::None);
     normalTexture.unbind();
 
     positionTexture.bind();
-    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
+    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
     positionTexture.setFilter(Sampling::Filter::None);
     positionTexture.setWrap(Sampling::Wrap::ClampEdge);
     positionTexture.unbind();
@@ -238,7 +241,7 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
 
         shader.getUniform("model") = transform.worldTransform;
 
-        shader.getUniform("entity") = static_cast<uint32_t>(entity);
+        shader.getUniform("entity") = entt::to_integral(entity);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
         if (scene.has<ecs::MeshAnimationComponent>(entity)) {
@@ -257,13 +260,13 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
 void GeometryBuffer::resize(Viewport& viewport) {
     // resizing framebuffers
     albedoTexture.bind();
-    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
+    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
     normalTexture.bind();
-    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
+    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
     positionTexture.bind();
-    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
+    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
 
     materialTexture.bind();
     materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
@@ -426,8 +429,8 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     shader.getUniform("farPlane") = settings.farPlane;
     shader.getUniform("bloomThreshold") = settings.bloomThreshold;
 
-    shader.getUniform("pointLightCount") = (uint32_t)sscene.view<ecs::PointLightComponent>().size();
-    shader.getUniform("directionalLightCount") = (uint32_t)sscene.view<ecs::DirectionalLightComponent>().size();
+    shader.getUniform("pointLightCount") = static_cast<uint32_t>(sscene.view<ecs::PointLightComponent>().size());
+    shader.getUniform("directionalLightCount") = static_cast<uint32_t>(sscene.view<ecs::DirectionalLightComponent>().size());
 
     shader.getUniform("voxelsWorldSize") = voxels->worldSize;
 
@@ -466,9 +469,9 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
             light.buffer.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
             uniforms.dirLights[0] = light.buffer;
         }  else {
-            auto buffer = ecs::DirectionalLightComponent().buffer;
-            buffer.direction.y = -1.0;
-            uniforms.dirLights[0] = ecs::DirectionalLightComponent().buffer;
+            auto light = ecs::DirectionalLightComponent();
+            light.buffer.direction.y = -0.9f;
+            uniforms.dirLights[0] = light.buffer;
         }
     }
 

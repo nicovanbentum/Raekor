@@ -15,7 +15,7 @@ static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from) {
     return to;
 };
 
-void AssimpImporter::loadFromDisk(entt::registry& scene, const std::string& file, entt::registry& assets, AsyncDispatcher& dispatcher) {
+void AssimpImporter::loadFromDisk(entt::registry& scene, const std::string& file, AsyncDispatcher& dispatcher) {
     constexpr unsigned int flags =
         aiProcess_GenNormals |
         aiProcess_CalcTangentSpace |
@@ -46,17 +46,6 @@ void AssimpImporter::loadFromDisk(entt::registry& scene, const std::string& file
     node.hasChildren = true;
     processAiNode(scene, assimpScene, assimpScene->mRootNode, rootEntity);
 
-    for (unsigned int i = 0; i < assimpScene->mNumMaterials; i++) {
-        auto aimaterial = assimpScene->mMaterials[i];
-        auto& material = assets.emplace<ecs::MaterialComponent>(assets.create());
-        
-        if (aimaterial->GetName() != aiString("")) {
-            material.name = aimaterial->GetName().C_Str();
-        } else {
-            material.name = "Material #" + std::to_string(assets.size());
-        }
-    }
-    
     // async asset loading
     loadAssetsFromDisk(scene, dispatcher, parseFilepath(file, PATH_OPTIONS::DIR));
 }
@@ -414,17 +403,16 @@ void loadAssetsFromDisk(entt::registry& scene, AsyncDispatcher& dispatcher, cons
         }
 
         auto metalroughEntry = images.find(material.mrFile);
+        material.metalrough = std::make_unique<glTexture2D>();
 
         if (metalroughEntry != images.end() && !metalroughEntry->first.empty()) {
             Stb::Image& image = metalroughEntry->second;
-            material.metalrough = std::make_unique<glTexture2D>();
             material.metalrough->bind();
-            material.metalrough->init(image.w, image.h, { GL_RGBA16F, GL_RGBA, GL_UNSIGNED_BYTE }, image.pixels);
+            material.metalrough->init(image.w, image.h, { GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE }, image.pixels);
             material.metalrough->setFilter(Sampling::Filter::None);
-            material.metalrough->setWrap(Sampling::Wrap::ClampEdge);
+            material.normals->genMipMaps();
         } else {
             auto metalRoughnessValue = glm::vec4(material.metallic, material.roughness, 0.0f, 1.0f);
-            material.metalrough = std::make_unique<glTexture2D>();
             material.metalrough->bind();
             material.metalrough->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT}, glm::value_ptr(metalRoughnessValue));
             material.metalrough->setFilter(Sampling::Filter::None);

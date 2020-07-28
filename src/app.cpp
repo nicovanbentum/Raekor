@@ -174,7 +174,6 @@ void Application::run() {
 
     AssimpImporter importer;
     entt::registry scene;
-    entt::registry assets;
     static entt::entity active = entt::null;
 
     std::cout << "Initialization done." << std::endl;
@@ -207,36 +206,36 @@ void Application::run() {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // generate sun shadow map 
-            glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-            shadowMapPass->execute(scene);
+        // generate sun shadow map 
+        glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+        shadowMapPass->execute(scene);
 
-            if (shouldVoxelize) {
-                voxelizePass->execute(scene, viewport, shadowMapPass.get());
-            }
+        if (shouldVoxelize) {
+            voxelizePass->execute(scene, viewport, shadowMapPass.get());
+        }
         
-            glViewport(0, 0, viewport.size.x, viewport.size.y);
+        glViewport(0, 0, viewport.size.x, viewport.size.y);
 
-            if (doDeferred) {
-                if (!scene.view<ecs::MeshComponent>().empty()) {
-                    geometryBufferPass->execute(scene, viewport);
-                    lightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
-                    tonemappingPass->execute(lightingPass->result, Quad.get());
-                }
-            } else {
-                if (!scene.view<ecs::MeshComponent>().empty()) {
-                    ConeTracePass->execute(viewport, scene, voxelizePass.get(), shadowMapPass.get());
-                    tonemappingPass->execute(ConeTracePass->result, Quad.get());
-                }
+        if (doDeferred) {
+            if (!scene.view<ecs::MeshComponent>().empty()) {
+                geometryBufferPass->execute(scene, viewport);
+                lightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
+                tonemappingPass->execute(lightingPass->result, Quad.get());
             }
+        } else {
+            if (!scene.view<ecs::MeshComponent>().empty()) {
+                ConeTracePass->execute(viewport, scene, voxelizePass.get(), shadowMapPass.get());
+                tonemappingPass->execute(ConeTracePass->result, Quad.get());
+            }
+        }
 
-            if (active != entt::null) {
-                aabbDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->GDepthBuffer,  active);
-            }
+        if (active != entt::null) {
+            aabbDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->GDepthBuffer,  active);
+        }
 
-            if (debugVoxels) {
-                voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass.get());
-            }
+        if (debugVoxels) {
+            voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass.get());
+        }
 
         //get new frame for ImGui and ImGuizmo
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -332,7 +331,7 @@ void Application::run() {
                 if (ImGui::MenuItem("Load model..")) {
                     std::string path = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
                     if (!path.empty()) {
-                        importer.loadFromDisk(scene, path, assets, dispatcher);
+                        importer.loadFromDisk(scene, path, dispatcher);
                     }
                 }
 
@@ -383,6 +382,9 @@ void Application::run() {
 
                     if (ImGui::MenuItem("Directional Light")) {
                         auto entity = createEmpty(scene, "Directional Light");
+                        auto& transform = scene.get<ecs::TransformComponent>(entity);
+                        transform.rotation.x = static_cast<float>(M_PI / 12);
+                        transform.recalculateMatrix();
                         scene.emplace<ecs::DirectionalLightComponent>(entity);
                     }
 
@@ -414,7 +416,7 @@ void Application::run() {
             ImGui::EndMainMenuBar();
         }
 
-        assetBrowser.drawWindow(assets, active);
+        assetBrowser.drawWindow(scene, active);
 
         // chai console panel
         consoleWindow.Draw(chai.get());
@@ -558,8 +560,6 @@ void Application::run() {
         }
 
         if (io.MouseClicked[0] && mouseInViewport && !ImGuizmo::IsOver(gizmo.getOperation())) {
-            
-            std::puts("picking");
             // get mouse position in window
             glm::ivec2 mousePosition;
             SDL_GetMouseState(&mousePosition.x, &mousePosition.y);

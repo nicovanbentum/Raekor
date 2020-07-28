@@ -153,7 +153,7 @@ void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component) {
 }
 
 void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
-    if (ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour))) {
+    if (ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour), ImGuiColorEditFlags_Float)) {
         if (component.albedo && component.albedoFile.empty()) {
             glTextureSubImage2D(component.albedo->mID, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(component.baseColour));
         }
