@@ -5,7 +5,13 @@
 #include "texture.h"
 #include "rmath.h"
 
-/*
+namespace Raekor {
+namespace ecs {
+
+    template<class ...Component>
+    using view = entt::basic_view <entt::entity, entt::exclude_t<>, Component... > ;
+    
+    /*
     Old entity component system pre-dating the integration of entt
     With this you can create a scene class that contains multiple ComponentManager's, like:
     class Scene {
@@ -15,9 +21,6 @@
 
     It worked well but the need for a manager for each component resulted in an ugly API that wasn't that great to work with.
 */
-
-namespace Raekor {
-namespace ecs {
 
 typedef uint32_t Entity;
 

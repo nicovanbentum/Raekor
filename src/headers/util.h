@@ -69,6 +69,9 @@ namespace Stb {
         ~Image() { if (pixels != nullptr)  stbi_image_free(pixels); }
 
         void load(const std::string& fp, bool loadFlipped = false) {
+            if(!std::filesystem::exists(fp)) {
+                std::clog << "Image file \"" << fp << "\" not found on disk.\n";
+            }
             this->filepath = fp;
             stbi_set_flip_vertically_on_load(loadFlipped);
             pixels = stbi_load(fp.c_str(), &w, &h, &channels, static_cast<uint32_t>(format));

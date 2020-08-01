@@ -66,12 +66,12 @@ namespace cereal {
 
 	template<class Archive>
 	void save(Archive& archive, const Raekor::ecs::MeshComponent& mesh) {
-		archive(mesh.vertices, mesh.indices);
+		archive(mesh.vertices, mesh.indices, mesh.material);
 	}
 
 	template<class Archive>
 	void load(Archive& archive, Raekor::ecs::MeshComponent& mesh) {
-		archive(mesh.vertices, mesh.indices);
+		archive(mesh.vertices, mesh.indices, mesh.material);
 	}
 
 	template<class Archive>
@@ -81,7 +81,7 @@ namespace cereal {
 
 	template<class Archive>
 	void load(Archive& archive, Raekor::ecs::MaterialComponent& mat) {
-		archive(mat.albedoFile, mat.normalFile, mat.mrFile);
+		archive(mat.albedoFile, mat.normalFile, mat.mrFile, mat.baseColour, mat.metallic, mat.roughness);
 	}
 
     template<class Archive>

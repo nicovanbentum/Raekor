@@ -126,6 +126,7 @@ void Application::run() {
     ImVec4* colors = ImGui::GetStyle().Colors;
     for (unsigned int i = 0; i < themeColors.size(); i++) {
         auto& savedColor = themeColors[i];
+        ImGuiCol_Text;
         colors[i] = ImVec4(savedColor[0], savedColor[1], savedColor[2], savedColor[3]);
     }
 
@@ -193,9 +194,16 @@ void Application::run() {
         deltaTimer.start();
 
         updateTransforms(scene);
+        
+        scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
+            dispatcher.dispatch([&]() {
+                animation.boneTransform(static_cast<float>(deltaTime));
+            });
+        });
+
+        dispatcher.wait();
 
         scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
-            animation.boneTransform(static_cast<float>(deltaTime));
             skinningPass->execute(mesh, animation);
         });
 
@@ -300,7 +308,7 @@ void Application::run() {
                             ecs::MaterialComponent,
                             ecs::PointLightComponent,
                             ecs::DirectionalLightComponent>(input);
-                        loadAssetsFromDisk(scene, dispatcher);
+                        loadMaterialTextures(scene.view<ecs::MaterialComponent>(), dispatcher);
                         auto view = scene.view<ecs::MeshComponent>();
                         for (auto entity : view) {
                             auto& mesh = view.get<ecs::MeshComponent>(entity);
@@ -331,7 +339,7 @@ void Application::run() {
                 if (ImGui::MenuItem("Load model..")) {
                     std::string path = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
                     if (!path.empty()) {
-                        importer.loadFromDisk(scene, path, dispatcher);
+                        importer.loadFile(scene, dispatcher, path);
                     }
                 }
 
@@ -358,7 +366,11 @@ void Application::run() {
                 if (ImGui::MenuItem("Delete", "DEL")) {
                     // on press we remove the scene object
                     if (active != entt::null) {
-                        destroyNode(scene, active);
+                        if (scene.has<ecs::NodeComponent>(active)) {
+                            destroyNode(scene, active);
+                        } else {
+                            scene.destroy(active);
+                        }
                         active = entt::null;
                     }
                 }

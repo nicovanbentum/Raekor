@@ -231,7 +231,7 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
             }
 
 
-        auto material = scene.try_get<ecs::MaterialComponent>(entity);
+        auto material = scene.try_get<ecs::MaterialComponent>(mesh.material);
 
         if (material) {
             if (material->albedo)       material->albedo->bindToSlot(0);
@@ -714,7 +714,7 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
         auto& mesh = view.get<ecs::MeshComponent>(entity);
         auto& transform = view.get<ecs::TransformComponent>(entity);
 
-        ecs::MaterialComponent* material = scene.try_get<ecs::MaterialComponent>(entity);
+        ecs::MaterialComponent* material = scene.try_get<ecs::MaterialComponent>(mesh.material);
 
         shader.getUniform("model") = transform.worldTransform;
         shader.getUniform("px") = px;
@@ -984,7 +984,7 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
             continue;
         }
 
-        ecs::MaterialComponent* material = scene.try_get<ecs::MaterialComponent>(entity);
+        ecs::MaterialComponent* material = scene.try_get<ecs::MaterialComponent>(mesh.material);
 
         if (material) {
             if (material->albedo) material->albedo->bindToSlot(1);

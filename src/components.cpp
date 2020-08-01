@@ -105,5 +105,58 @@ void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
         });
 }
 
+void MaterialComponent::uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images) {
+    auto albedoEntry = images.find(albedoFile);
+    albedo = std::make_unique<glTexture2D>();
+    albedo->bind();
+
+    if (albedoEntry != images.end() && !albedoEntry->first.empty()) {
+        const Stb::Image& image = albedoEntry->second;
+        albedo->init(image.w, image.h, Format::SRGBA_U8, image.pixels);
+        albedo->setFilter(Sampling::Filter::Trilinear);
+        albedo->genMipMaps();
+    }
+    else {
+        albedo->init(1, 1, { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT }, glm::value_ptr(baseColour));
+        albedo->setFilter(Sampling::Filter::None);
+        albedo->setWrap(Sampling::Wrap::Repeat);
+    }
+
+    auto normalsEntry = images.find(normalFile);
+    normals = std::make_unique<glTexture2D>();
+    normals->bind();
+
+    if (normalsEntry != images.end() && !normalsEntry->first.empty()) {
+        const Stb::Image& image = normalsEntry->second;
+        normals->init(image.w, image.h, Format::RGBA_U8, image.pixels);
+        normals->setFilter(Sampling::Filter::Trilinear);
+        normals->genMipMaps();
+    }
+    else {
+        constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
+        normals->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(tbnAxis));
+        normals->setFilter(Sampling::Filter::None);
+        normals->setWrap(Sampling::Wrap::Repeat);
+    }
+
+    auto metalroughEntry = images.find(mrFile);
+    metalrough = std::make_unique<glTexture2D>();
+
+    if (metalroughEntry != images.end() && !metalroughEntry->first.empty()) {
+        const Stb::Image& image = metalroughEntry->second;
+        metalrough->bind();
+        metalrough->init(image.w, image.h, { GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE }, image.pixels);
+        metalrough->setFilter(Sampling::Filter::None);
+        normals->genMipMaps();
+    }
+    else {
+        auto metalRoughnessValue = glm::vec4(metallic, roughness, 0.0f, 1.0f);
+        metalrough->bind();
+        metalrough->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(metalRoughnessValue));
+        metalrough->setFilter(Sampling::Filter::None);
+        metalrough->setWrap(Sampling::Wrap::Repeat);
+    }
+}
+
 } // ECS
 } // raekor

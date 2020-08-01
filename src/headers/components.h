@@ -98,17 +98,22 @@ struct MaterialComponent {
     std::string name;
     std::string albedoFile, normalFile, mrFile;
     glm::vec4 baseColour = { 1.0, 1.0, 1.0, 1.0 };
-    float metallic = 1.0f;
-    float roughness = 1.0f;
+    float metallic = 1.0f, roughness = 1.0f;
 
     // GPU resources
     std::shared_ptr<glTexture2D> albedo;
     std::shared_ptr<glTexture2D> normals;
     std::shared_ptr<glTexture2D> metalrough;
+
+    void uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images);
 };
 
 struct NameComponent {
     std::string name;
+
+    inline operator const std::string& () { return name; }
+    inline bool operator==(const std::string& rhs) { return name == rhs; }
+    inline NameComponent& operator=(const std::string& rhs) { name = rhs; }
 };
 
 

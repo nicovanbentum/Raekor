@@ -30,7 +30,7 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity entity) {
         if (scene.has<ecs::MeshComponent>(entity)) {
             bool isOpen = true; // for checking if the close button was clicked
             if (ImGui::CollapsingHeader("Mesh Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (isOpen) drawMeshComponent(scene.get<ecs::MeshComponent>(entity));
+                if (isOpen) drawMeshComponent(scene.get<ecs::MeshComponent>(entity), scene);
                 else scene.remove<ecs::MeshComponent>(entity);
             }
         }
@@ -147,9 +147,22 @@ void InspectorWindow::drawTransformComponent(ecs::TransformComponent& component)
     }
 }
 
-void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component) {
+void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component, entt::registry& scene) {
     ImGui::Text("Vertex count: %i", component.vertices.size());
     ImGui::Text("Index count: %i", component.indices.size() * 3);
+    if (scene.valid(component.material) && scene.has<ecs::MaterialComponent, ecs::NameComponent>(component.material)) {
+        auto& [material, name] = scene.get<ecs::MaterialComponent, ecs::NameComponent>(component.material);
+        ImGui::Image(material.albedo->ImGuiID(), ImVec2(15 * ImGui::GetWindowDpiScale(), 15 * ImGui::GetWindowDpiScale()));
+        ImGui::SameLine();
+        ImGui::Text(name.name.c_str());
+
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
+                component.material = *reinterpret_cast<const entt::entity*>(payload->Data);
+            }
+            ImGui::EndDragDropTarget();
+        }
+    }
 }
 
 void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
@@ -431,8 +444,9 @@ void Guizmo::drawGuizmo(entt::registry& scene, Viewport& viewport, entt::entity 
     auto pos = ImGui::GetWindowPos();
     ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
 
-    // temporarily transform to local space for gizmo use
-    transform.matrix = glm::translate(transform.matrix, transform.localPosition);
+    // temporarily transform to mesh space for gizmo use
+    auto mesh = scene.try_get<ecs::MeshComponent>(active);
+    if (mesh) transform.matrix = glm::translate(transform.matrix, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
 
     // draw gizmo
     ImGuizmo::Manipulate(
@@ -443,7 +457,8 @@ void Guizmo::drawGuizmo(entt::registry& scene, Viewport& viewport, entt::entity 
     );
 
     // transform back to world space
-    transform.matrix = glm::translate(transform.matrix, -transform.localPosition);
+    if (mesh) transform.matrix = glm::translate(transform.matrix, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+
 
     // update the transformation
     ImGuizmo::DecomposeMatrixToComponents(
