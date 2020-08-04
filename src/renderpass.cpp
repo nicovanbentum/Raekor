@@ -251,7 +251,7 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
         }
 
         mesh.indexBuffer.bind();
-        Renderer::DrawIndexed(mesh.indexBuffer.count);
+        glDrawElements(GL_TRIANGLES, mesh.indexBuffer.count, GL_UNSIGNED_INT, nullptr);
     }
 
     GBuffer.unbind();

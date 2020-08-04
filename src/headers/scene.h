@@ -1,39 +1,48 @@
 #pragma once
 
-#include "mesh.h"
-#include "camera.h"
-#include "texture.h"
-
 #include "ecs.h"
 #include "components.h"
 #include "async.h"
 
 namespace Raekor {
 
-static entt::entity createEmpty(entt::registry& registry, const std::string& name = "Empty") {
-    auto entity = registry.create();
-    auto comp = registry.emplace<ecs::NameComponent>(entity, name);
-    registry.emplace<ecs::NodeComponent>(entity);
-    registry.emplace<ecs::TransformComponent>(entity);
-    return entity;
-}
-
-class AssimpImporter {
+class Scene {
 public:
-    AssimpImporter() {}
+    Scene() = default;
+    Scene(const Scene& rhs) = delete;
 
-    bool loadFile(entt::registry& scene, AsyncDispatcher& dispatcher, const std::string& file);
+    // object management
+    entt::entity createObject(const std::string& name = "Empty");
+    void destroyObject(entt::entity entity);
+    entt::entity pickObject(Math::Ray& ray);
+    
+    // per frame systems
+    void updateTransforms();
+    void loadMaterialTextures(const std::vector<entt::entity>& materials);
+
+    // save to disk
+    void saveToFile(const std::string& file);
+    void openFromFile(const std::string& file);
+    
+    // get access to the underlying registry using these
+    inline operator entt::registry& () { return registry; }
+    inline entt::registry* const operator->() { return &registry; }
 
 private:
-    std::vector<entt::entity>   loadMaterials(entt::registry& scene, const aiScene* aiscene, const std::string& directory);
-    entt::entity                loadMesh(entt::registry& scene, aiMesh* assimpMesh);
-    void                        loadBones(entt::registry& scene, const aiScene* aiscene, aiMesh* assimpMesh, entt::entity entity);
+    entt::registry registry;
 };
 
-// TODO: move this stuff into classes
-void updateTransforms(entt::registry& scene);
-entt::entity pickObject(entt::registry& scene, Math::Ray& ray);
-void destroyNode(entt::registry& scene, entt::entity entity);
-void loadMaterialTextures(const ecs::view<ecs::MaterialComponent>& materials, AsyncDispatcher& dispatcher);
+class AssimpImporter {
+    // class instead of namespace to hide the individual load methods
+public:
+    AssimpImporter() = delete;
+
+    static bool loadFile(Scene& scene, const std::string& file);
+
+private:
+    static std::vector<entt::entity>   loadMaterials(entt::registry& scene, const aiScene* aiscene, const std::string& directory);
+    static entt::entity                loadMesh(entt::registry& scene, aiMesh* assimpMesh);
+    static void                        loadBones(entt::registry& scene, const aiScene* aiscene, aiMesh* assimpMesh, entt::entity entity);
+};
 
 } // Namespace Raekor

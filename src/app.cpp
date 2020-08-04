@@ -173,9 +173,15 @@ void Application::run() {
     int threadCount = std::max(1, coreCount - 1);
     auto dispatcher = AsyncDispatcher(threadCount);
 
-    AssimpImporter importer;
-    entt::registry scene;
+    Scene scene;
     static entt::entity active = entt::null;
+
+
+    auto defaultMaterialEntity = scene->create();
+    auto& defaultMaterialName = scene->emplace<ecs::NameComponent>(defaultMaterialEntity);
+    defaultMaterialName = "Default Material";
+    auto& defaultMaterial = scene->emplace<ecs::MaterialComponent>(defaultMaterialEntity);
+    defaultMaterial.uploadRenderData();
 
     std::cout << "Initialization done." << std::endl;
 
@@ -193,9 +199,9 @@ void Application::run() {
     while (running) {
         deltaTimer.start();
 
-        updateTransforms(scene);
+        scene.updateTransforms();
         
-        scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
+        scene->view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
             dispatcher.dispatch([&]() {
                 animation.boneTransform(static_cast<float>(deltaTime));
             });
@@ -203,7 +209,7 @@ void Application::run() {
 
         dispatcher.wait();
 
-        scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
+        scene->view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
             skinningPass->execute(mesh, animation);
         });
 
@@ -225,13 +231,13 @@ void Application::run() {
         glViewport(0, 0, viewport.size.x, viewport.size.y);
 
         if (doDeferred) {
-            if (!scene.view<ecs::MeshComponent>().empty()) {
+            if (!scene->view<ecs::MeshComponent>().empty()) {
                 geometryBufferPass->execute(scene, viewport);
                 lightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
                 tonemappingPass->execute(lightingPass->result, Quad.get());
             }
         } else {
-            if (!scene.view<ecs::MeshComponent>().empty()) {
+            if (!scene->view<ecs::MeshComponent>().empty()) {
                 ConeTracePass->execute(viewport, scene, voxelizePass.get(), shadowMapPass.get());
                 tonemappingPass->execute(ConeTracePass->result, Quad.get());
             }
@@ -295,51 +301,23 @@ void Application::run() {
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("Open scene..")) {
-                    std::string path = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
-                    if (!path.empty()) {
-                        std::ifstream storage(path, std::ios::binary);
-                        cereal::BinaryInputArchive input(storage);
-                        scene.clear();
-                        entt::snapshot_loader{ scene }.entities(input).component<
-                            ecs::NameComponent, 
-                            ecs::NodeComponent, 
-                            ecs::TransformComponent,
-                            ecs::MeshComponent,
-                            ecs::MaterialComponent,
-                            ecs::PointLightComponent,
-                            ecs::DirectionalLightComponent>(input);
-                        loadMaterialTextures(scene.view<ecs::MaterialComponent>(), dispatcher);
-                        auto view = scene.view<ecs::MeshComponent>();
-                        for (auto entity : view) {
-                            auto& mesh = view.get<ecs::MeshComponent>(entity);
-                            mesh.generateAABB();
-                            mesh.uploadVertices();
-                            mesh.uploadIndices();
-                        }
+                    std::string filepath = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
+                    if (!filepath.empty()) {
+                        scene.openFromFile(filepath);
                     }
                 }
 
                 if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
-                    std::string savePath = OS::saveFileDialog("Scene File (*.scene)\0", "scene");
-
-                    if (!savePath.empty()) {
-                        std::ofstream storage(savePath, std::ios::binary);
-                        cereal::BinaryOutputArchive output(storage);
-                        entt::snapshot{ scene }.entities(output).component<
-                            ecs::NameComponent, 
-                            ecs::NodeComponent, 
-                            ecs::TransformComponent, 
-                            ecs::MeshComponent, 
-                            ecs::MaterialComponent,
-                            ecs::PointLightComponent,
-                            ecs::DirectionalLightComponent>(output);
+                    std::string filepath = OS::saveFileDialog("Scene File (*.scene)\0", "scene");
+                    if (!filepath.empty()) {
+                        scene.saveToFile(filepath);
                     }
                 }
 
                 if (ImGui::MenuItem("Load model..")) {
-                    std::string path = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
-                    if (!path.empty()) {
-                        importer.loadFile(scene, dispatcher, path);
+                    std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
+                    if (!filepath.empty()) {
+                        AssimpImporter::loadFile(scene, filepath);
                     }
                 }
 
@@ -348,10 +326,10 @@ void Application::run() {
 
                     if (!savePath.empty()) {
                         const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
-                        unsigned char* pixels = new unsigned char[bufferSize];
-                        glGetTextureImage(tonemappingPass->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize* sizeof(unsigned char), pixels);
+                        auto pixels = std::vector<unsigned char>(bufferSize);
+                        glGetTextureImage(tonemappingPass->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize* sizeof(unsigned char), pixels.data());
                         stbi_flip_vertically_on_write(true);
-                        stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels, viewport.size.x * 4);
+                        stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
                     }
 
                 }
@@ -366,10 +344,10 @@ void Application::run() {
                 if (ImGui::MenuItem("Delete", "DEL")) {
                     // on press we remove the scene object
                     if (active != entt::null) {
-                        if (scene.has<ecs::NodeComponent>(active)) {
-                            destroyNode(scene, active);
+                        if (scene->has<ecs::NodeComponent>(active)) {
+                            scene.destroyObject(active);
                         } else {
-                            scene.destroy(active);
+                            scene->destroy(active);
                         }
                         active = entt::null;
                     }
@@ -379,33 +357,116 @@ void Application::run() {
 
             if (ImGui::BeginMenu("Add")) {
                 if (ImGui::MenuItem("Empty", "CTRL+E")) {
-                    auto entity = createEmpty(scene, "Empty");
+                    auto entity = scene.createObject("Empty");
 
                     if (active != entt::null) {
-                        auto& node = scene.get<ecs::NodeComponent>(entity);
+                        auto& node = scene->get<ecs::NodeComponent>(entity);
                         node.parent = active;
                         node.hasChildren = false;
-                        scene.get<ecs::NodeComponent>(node.parent).hasChildren = true;
+                        scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
                     }
 
                     active = entity;
                 }
                 ImGui::Separator();
 
+                if (ImGui::MenuItem("Sphere")) {
+                    auto entity = scene.createObject("Sphere");
+                    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+
+                    const float radius = 2.0f;
+                    float x, y, z, xy;                              // vertex position
+                    float nx, ny, nz, lengthInv = 1.0f / radius;    // vertex normal
+                    float s, t;                                     // vertex texCoord
+
+                    const int sectorCount = 36;
+                    const int stackCount = 18;
+                    const float PI = static_cast<float>(M_PI);
+                    float sectorStep = 2 * PI / sectorCount;
+                    float stackStep = PI / stackCount;
+                    float sectorAngle, stackAngle;
+
+                    for (int i = 0; i <= stackCount; ++i)
+                    {
+                        stackAngle = PI / 2 - i * stackStep;        // starting from pi/2 to -pi/2
+                        xy = radius * cosf(stackAngle);             // r * cos(u)
+                        z = radius * sinf(stackAngle);              // r * sin(u)
+
+                        // add (sectorCount+1) vertices per stack
+                        // the first and last vertices have same position and normal, but different tex coords
+                        for (int j = 0; j <= sectorCount; ++j)
+                        {
+                            sectorAngle = j * sectorStep;           // starting from 0 to 2pi
+
+                            // vertex position (x, y, z)
+                            x = xy * cosf(sectorAngle);             // r * cos(u) * cos(v)
+                            y = xy * sinf(sectorAngle);             // r * cos(u) * sin(v)
+                            Vertex v;
+                            v.pos = { x, y, z };
+
+                            // normalized vertex normal (nx, ny, nz)
+                            nx = x * lengthInv;
+                            ny = y * lengthInv;
+                            nz = z * lengthInv;
+
+                            v.normal = { nx, ny, nz };
+
+                            // vertex tex coord (s, t) range between [0, 1]
+                            s = (float)j / sectorCount;
+                            t = (float)i / stackCount;
+                            v.uv = { s, t };
+
+                            mesh.vertices.push_back(v);
+                        }
+                    }
+
+                    int k1, k2;
+                    for (int i = 0; i < stackCount; ++i)
+                    {
+                        k1 = i * (sectorCount + 1);     // beginning of current stack
+                        k2 = k1 + sectorCount + 1;      // beginning of next stack
+
+                        for (int j = 0; j < sectorCount; ++j, ++k1, ++k2)
+                        {
+                            // 2 triangles per sector excluding first and last stacks
+                            // k1 => k2 => k1+1
+                            if (i != 0)
+                            {
+                                mesh.indices.push_back(k1);
+                                mesh.indices.push_back(k2);
+                                mesh.indices.push_back(k1 + 1);
+                            }
+
+                            // k1+1 => k2 => k2+1
+                            if (i != (stackCount - 1))
+                            {
+                                mesh.indices.push_back(k1 + 1);
+                                mesh.indices.push_back(k2);
+                                mesh.indices.push_back(k2 + 1);
+                            }
+                        }
+                    }
+
+                    mesh.uploadVertices();
+                    mesh.uploadIndices();
+                    mesh.generateAABB();
+                    mesh.material = defaultMaterialEntity;
+                }
+
                 if (ImGui::BeginMenu("Light")) {
 
                     if (ImGui::MenuItem("Directional Light")) {
-                        auto entity = createEmpty(scene, "Directional Light");
-                        auto& transform = scene.get<ecs::TransformComponent>(entity);
+                        auto entity = scene.createObject("Directional Light");
+                        auto& transform = scene->get<ecs::TransformComponent>(entity);
                         transform.rotation.x = static_cast<float>(M_PI / 12);
                         transform.recalculateMatrix();
-                        scene.emplace<ecs::DirectionalLightComponent>(entity);
+                        scene->emplace<ecs::DirectionalLightComponent>(entity);
                         active = entity;
                     }
 
                     if (ImGui::MenuItem("Point Light")) {
-                        auto entity = createEmpty(scene, "Point Light");
-                        scene.emplace<ecs::PointLightComponent>(entity);
+                        auto entity = scene.createObject("Point Light");
+                        scene->emplace<ecs::PointLightComponent>(entity);
                         active = entity;
                     }
 
@@ -418,9 +479,22 @@ void Application::run() {
 
 
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
-                if (scene.valid(active)) {
-                    destroyNode(scene, active);
+                if (scene->valid(active)) {
+                    scene.destroyObject(active);
                     active = entt::null;
+                }
+            }
+
+            if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_C), true)) {
+                if (SDL_GetModState() & KMOD_LCTRL) {
+                    auto newEntity = scene->create();
+
+                    scene->visit(active, [&](const auto& component) {
+                        auto clone_function = ecs::cloner::getSingleton()->getFunction(component);
+                        if (clone_function) {
+                            clone_function(scene, active, newEntity);
+                        }
+                    });
                 }
             }
 
@@ -593,7 +667,7 @@ void Application::run() {
                 picked = ConeTracePass->pick(rendererMousePosition.x, rendererMousePosition.y);
             }
 
-            if (scene.valid(picked)) {
+            if (scene->valid(picked)) {
                 active = active == picked ? entt::null : picked;
             } else {
                 active = entt::null;
@@ -622,7 +696,7 @@ void Application::run() {
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         int culledCount = doDeferred ? geometryBufferPass->culled : ConeTracePass->culled;
-        ImGui::Text("Culling: %i of %i meshes", culledCount, scene.view<ecs::MeshComponent>().size());
+        ImGui::Text("Culling: %i of %i meshes", culledCount, scene->view<ecs::MeshComponent>().size());
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
 

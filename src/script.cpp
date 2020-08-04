@@ -1,8 +1,8 @@
 #include "pch.h"
 #include "script.h"
 
+#include "components.h"
 #include "buffer.h"
-#include "scene.h"
 
 namespace Raekor {
 

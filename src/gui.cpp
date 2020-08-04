@@ -5,7 +5,7 @@
 namespace Raekor {
 namespace gui {
 
-void InspectorWindow::draw(entt::registry& scene, entt::entity entity) {
+void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
     ImGui::Begin("Inspector");
     if (entity != entt::null) {
         ImGui::Text("ID: %i", entity);
@@ -30,7 +30,7 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity entity) {
         if (scene.has<ecs::MeshComponent>(entity)) {
             bool isOpen = true; // for checking if the close button was clicked
             if (ImGui::CollapsingHeader("Mesh Component", &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (isOpen) drawMeshComponent(scene.get<ecs::MeshComponent>(entity), scene);
+                if (isOpen) drawMeshComponent(scene.get<ecs::MeshComponent>(entity), scene, entity);
                 else scene.remove<ecs::MeshComponent>(entity);
             }
         }
@@ -147,12 +147,14 @@ void InspectorWindow::drawTransformComponent(ecs::TransformComponent& component)
     }
 }
 
-void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component, entt::registry& scene) {
+void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component, entt::registry& scene, entt::entity& active) {
     ImGui::Text("Vertex count: %i", component.vertices.size());
     ImGui::Text("Index count: %i", component.indices.size() * 3);
     if (scene.valid(component.material) && scene.has<ecs::MaterialComponent, ecs::NameComponent>(component.material)) {
         auto& [material, name] = scene.get<ecs::MaterialComponent, ecs::NameComponent>(component.material);
-        ImGui::Image(material.albedo->ImGuiID(), ImVec2(15 * ImGui::GetWindowDpiScale(), 15 * ImGui::GetWindowDpiScale()));
+        if (ImGui::ImageButton(material.albedo->ImGuiID(), ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale()))) {
+            active = component.material;
+        }
         ImGui::SameLine();
         ImGui::Text(name.name.c_str());
 
@@ -497,6 +499,32 @@ void Guizmo::drawWindow() {
     }
 
     ImGui::End();
+}
+
+void AssetBrowser::drawWindow(entt::registry& assets, entt::entity& active) {
+    ImGui::Begin("Asset Browser");
+
+    auto materialView = assets.view<ecs::MaterialComponent, ecs::NameComponent>();
+    ImGui::Columns(10);
+    for (auto entity : materialView) {
+        auto& [material, name] = materialView.get<ecs::MaterialComponent, ecs::NameComponent>(entity);
+        std::string selectableName = name.name.c_str() + std::string("##") + std::to_string(entt::to_integral(entity));
+        if (ImGui::Selectable(selectableName.c_str() , active == entity)) {
+            active = entity;
+        }
+
+        ImGuiDragDropFlags src_flags = ImGuiDragDropFlags_SourceNoDisableHover;
+        src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers;
+        if (ImGui::BeginDragDropSource(src_flags)) {
+            ImGui::SetDragDropPayload("drag_drop_mesh_material", &entity, sizeof(entt::entity));
+            ImGui::EndDragDropSource();
+        }
+
+        ImGui::NextColumn();
+    }
+
+    ImGui::End();
+
 }
 
 } // gui

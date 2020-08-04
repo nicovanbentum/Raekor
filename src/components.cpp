@@ -11,6 +11,8 @@ void TransformComponent::recalculateMatrix() {
     matrix = glm::scale(matrix, scale);
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
+
 void MeshComponent::generateAABB() {
     aabb[0] = vertices[0].pos;
     aabb[1] = vertices[1].pos;
@@ -19,6 +21,8 @@ void MeshComponent::generateAABB() {
         aabb[1] = glm::max(aabb[1], v.pos);
     }
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 void MeshComponent::uploadVertices() {
     vertexBuffer.loadVertices(vertices.data(), vertices.size());
@@ -31,9 +35,13 @@ void MeshComponent::uploadVertices() {
         });
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
+
 void MeshComponent::uploadIndices() {
-    indexBuffer.loadFaces(indices.data(), indices.size());
+    indexBuffer.loadIndices(indices.data(), indices.size());
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 void MeshAnimationComponent::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform) {
     auto globalTransformation = glm::mat4(1.0f);
@@ -68,6 +76,8 @@ void MeshAnimationComponent::ReadNodeHierarchy(float animationTime, BoneTreeNode
     }
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
+
 void MeshAnimationComponent::boneTransform(float dt) {
     /*
         This is bugged, Assimp docs say totalDuration is in ticks, but the actual value is real world time in milliseconds
@@ -84,6 +94,8 @@ void MeshAnimationComponent::boneTransform(float dt) {
         boneTransforms[i] = boneInfos[i].finalTransformation;
     }
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
     glCreateBuffers(1, &boneIndexBuffer);
@@ -104,6 +116,8 @@ void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
         { "BINORMAL",    ShaderType::FLOAT3 },
         });
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images) {
     auto albedoEntry = images.find(albedoFile);
@@ -156,6 +170,70 @@ void MaterialComponent::uploadRenderData(const std::unordered_map<std::string, S
         metalrough->setFilter(Sampling::Filter::None);
         metalrough->setWrap(Sampling::Wrap::Repeat);
     }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+template<>
+void clone<TransformComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& component = reg.get<TransformComponent>(from);
+    reg.emplace<TransformComponent>(to, component);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+template<>
+void clone<NodeComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& component = reg.get<NodeComponent>(from);
+    reg.emplace<NodeComponent>(to, component);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+template<>
+void clone<NameComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& component = reg.get<NameComponent>(from);
+    reg.emplace<NameComponent>(to, component);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+template<>
+void clone<MeshComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& from_component = reg.get<MeshComponent>(from);
+    auto& to_component = reg.emplace<MeshComponent>(to, from_component);
+    to_component.uploadVertices();
+    to_component.uploadIndices();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+template<>
+void clone<MaterialComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& from_component = reg.get<MaterialComponent>(from);
+    auto& to_component = reg.emplace<MaterialComponent>(to, from_component);
+    to_component.uploadRenderData();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+cloner::cloner() {
+    clone_functions[entt::type_info<NameComponent>::id()] = &clone<NameComponent>;
+    clone_functions[entt::type_info<NodeComponent>::id()] = &clone<NodeComponent>;
+    clone_functions[entt::type_info<MeshComponent>::id()] = &clone<MeshComponent>;
+    clone_functions[entt::type_info<MaterialComponent>::id()] = &clone<MaterialComponent>;
+    clone_functions[entt::type_info<TransformComponent>::id()] = &clone<TransformComponent>;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+cloner::clone_fn_type* cloner::getFunction(entt::id_type id_type) { return clone_functions[id_type]; }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+cloner* cloner::getSingleton() {
+    static std::unique_ptr<cloner> cl = std::make_unique<cloner>();
+    return cl.get();
 }
 
 } // ECS

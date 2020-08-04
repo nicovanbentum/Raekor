@@ -48,8 +48,9 @@ struct BoneInfo {
 };
 
 struct MeshComponent {
+
     std::vector<Vertex> vertices;
-    std::vector<Triangle> indices;
+    std::vector<uint32_t> indices;
 
     glVertexBuffer vertexBuffer;
     glIndexBuffer indexBuffer;
@@ -97,7 +98,7 @@ struct MeshAnimationComponent {
 struct MaterialComponent {
     std::string name;
     std::string albedoFile, normalFile, mrFile;
-    glm::vec4 baseColour = { 1.0, 1.0, 1.0, 1.0 };
+    glm::vec4 baseColour = { 1.0f, 1.0f, 1.0f, 1.0f };
     float metallic = 1.0f, roughness = 1.0f;
 
     // GPU resources
@@ -105,6 +106,27 @@ struct MaterialComponent {
     std::shared_ptr<glTexture2D> normals;
     std::shared_ptr<glTexture2D> metalrough;
 
+    void uploadRenderData() {
+        albedo = std::make_shared<glTexture2D>();
+        albedo->bind();
+        albedo->init(1, 1, { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT }, glm::value_ptr(baseColour));
+        albedo->setFilter(Sampling::Filter::None);
+        albedo->setWrap(Sampling::Wrap::Repeat);
+
+        normals = std::make_shared<glTexture2D>();
+        normals->bind();
+        constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
+        normals->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(tbnAxis));
+        normals->setFilter(Sampling::Filter::None);
+        normals->setWrap(Sampling::Wrap::Repeat);
+
+        metalrough = std::make_shared<glTexture2D>();
+        auto metalRoughnessValue = glm::vec4(metallic, roughness, 0.0f, 1.0f);
+        metalrough->bind();
+        metalrough->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(metalRoughnessValue));
+        metalrough->setFilter(Sampling::Filter::None);
+        metalrough->setWrap(Sampling::Wrap::Repeat);
+    }
     void uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images);
 };
 
@@ -113,9 +135,24 @@ struct NameComponent {
 
     inline operator const std::string& () { return name; }
     inline bool operator==(const std::string& rhs) { return name == rhs; }
-    inline NameComponent& operator=(const std::string& rhs) { name = rhs; }
+    inline NameComponent& operator=(const std::string& rhs) { name = rhs; return *this; }
 };
 
+template<typename T>
+inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {}
+
+class cloner {
+private:
+    using clone_fn_type = void(entt::registry& reg, entt::entity from, entt::entity to);
+    
+public:
+    cloner();
+    static cloner* getSingleton();
+    clone_fn_type* getFunction(entt::id_type id_type);
+
+private:
+    std::unordered_map<entt::id_type, clone_fn_type*> clone_functions;
+};
 
 } // ECS
 } // raekor

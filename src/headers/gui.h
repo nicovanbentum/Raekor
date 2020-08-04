@@ -11,12 +11,12 @@ namespace gui {
 
 class InspectorWindow {
 public:
-    void draw(entt::registry& scene, entt::entity entity);
+    void draw(entt::registry& scene, entt::entity& entity);
 
 private:
     void drawNameComponent                  (ecs::NameComponent& component);
     void drawNodeComponent                  (ecs::NodeComponent& component);
-    void drawMeshComponent                  (ecs::MeshComponent& component, entt::registry& scene);
+    void drawMeshComponent                  (ecs::MeshComponent& component, entt::registry& scene, entt::entity& active);
     void drawMaterialComponent              (ecs::MaterialComponent& component);
     void drawTransformComponent             (ecs::TransformComponent& component);
     void drawPointLightComponent            (ecs::PointLightComponent& component);
@@ -89,30 +89,7 @@ private:
 
 class AssetBrowser {
 public:
-    void drawWindow(entt::registry& assets, entt::entity& active) {
-        ImGui::Begin("Asset Browser");
-
-        auto materialView = assets.view<ecs::MaterialComponent, ecs::NameComponent>();
-        ImGui::Columns(10);
-        for (auto entity : materialView) {
-            auto& [material, name] = materialView.get<ecs::MaterialComponent, ecs::NameComponent>(entity);
-            if (ImGui::Selectable(name.name.c_str(), active == entity)) {
-                active = entity;
-            }
-
-            ImGuiDragDropFlags src_flags = ImGuiDragDropFlags_SourceNoDisableHover;
-            src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers;
-            if (ImGui::BeginDragDropSource(src_flags)) {
-                ImGui::SetDragDropPayload("drag_drop_mesh_material", &entity, sizeof(entt::entity));
-                ImGui::EndDragDropSource();
-            }
-
-            ImGui::NextColumn();
-        }
-
-        ImGui::End();
-
-    }
+    void drawWindow(entt::registry& assets, entt::entity& active);
 };
 
 } // gui

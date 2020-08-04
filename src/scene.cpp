@@ -2,8 +2,198 @@
 #include "scene.h"
 #include "mesh.h"
 #include "timer.h"
+#include "serial.h"
 
 namespace Raekor {
+
+entt::entity Scene::createObject(const std::string& name) {
+    auto entity = registry.create();
+    registry.emplace<ecs::NameComponent>(entity, name);
+    registry.emplace<ecs::NodeComponent>(entity);
+    registry.emplace<ecs::TransformComponent>(entity);
+    return entity;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+void Scene::destroyObject(entt::entity entity) {
+    if (!registry.has<ecs::NodeComponent>(entity)) return;
+    auto view = registry.view<ecs::NodeComponent>();
+    std::unordered_set<entt::entity> destructible;
+    // loop over every node in the scene
+    for (auto e : view) {
+        std::vector<entt::entity> parents;
+        // loop over the node's parent chain, storing parents along the way
+        for (auto parent = view.get<ecs::NodeComponent>(e).parent; parent != entt::null; parent = view.get<ecs::NodeComponent>(parent).parent) {
+            // if we find the deleted node along the parent chain, we traverse the chain and mark the chain destructable
+            if (parent == entity) {
+                destructible.insert(e);
+                for (auto p : parents) {
+                    destructible.insert(p);
+                }
+                break;
+                // else we add the parent to the chain
+            }
+            else {
+                parents.push_back(parent);
+            }
+        }
+    }
+
+    // destroy the marked entities
+    for (auto e : destructible) {
+        registry.destroy(e);
+    }
+
+    registry.destroy(entity);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+entt::entity Scene::pickObject(Math::Ray& ray) {
+    entt::entity pickedEntity = entt::null;
+    std::map<float, entt::entity> boxesHit;
+
+    auto view = registry.view<ecs::MeshComponent, ecs::TransformComponent>();
+    for (auto entity : view) {
+        auto& mesh = view.get<ecs::MeshComponent>(entity);
+        auto& transform = view.get<ecs::TransformComponent>(entity);
+
+        // convert AABB from local to world space
+        std::array<glm::vec3, 2> worldAABB = {
+            transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
+            transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
+        };
+
+        // check for ray hit
+        auto scaledMin = mesh.aabb[0] * transform.scale;
+        auto scaledMax = mesh.aabb[1] * transform.scale;
+        auto hitResult = ray.hitsOBB(scaledMin, scaledMax, transform.worldTransform);
+
+        if (hitResult.has_value()) {
+            boxesHit[hitResult.value()] = entity;
+        }
+    }
+
+    for (auto& pair : boxesHit) {
+        auto& mesh = view.get<ecs::MeshComponent>(pair.second);
+        auto& transform = view.get<ecs::TransformComponent>(pair.second);
+
+        for (unsigned int i = 0; i < mesh.indices.size(); i += 3) {
+            auto v0 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[mesh.indices[i]].pos, 1.0));
+            auto v1 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[mesh.indices[i + 1]].pos, 1.0));
+            auto v2 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[mesh.indices[i + 2]].pos, 1.0));
+
+            auto triangleHitResult = ray.hitsTriangle(v0, v1, v2);
+            if (triangleHitResult.has_value()) {
+                pickedEntity = pair.second;
+                return pickedEntity;
+            }
+        }
+    }
+
+    return pickedEntity;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+void Scene::updateTransforms() {
+    auto nodeView = registry.view<ecs::NodeComponent, ecs::TransformComponent>();
+    for (auto entity : nodeView) {
+        auto& node = nodeView.get<ecs::NodeComponent>(entity);
+        auto& transform = nodeView.get<ecs::TransformComponent>(entity);
+        auto currentMatrix = transform.matrix;
+
+        for (auto parent = node.parent; parent != entt::null; parent = nodeView.get<ecs::NodeComponent>(parent).parent) {
+            currentMatrix *= nodeView.get<ecs::TransformComponent>(parent).matrix;
+        }
+
+        transform.worldTransform = currentMatrix;
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials) {
+    // setup a centralized data structure for all the images
+
+    std::unordered_map<std::string, Stb::Image> images;
+    for (auto entity : materials) {
+        auto& material = registry.get<ecs::MaterialComponent>(entity);
+        if (std::filesystem::is_regular_file(material.albedoFile))
+            images[material.albedoFile] = Stb::Image(RGBA, material.albedoFile);
+        if (std::filesystem::is_regular_file(material.normalFile))
+            images[material.normalFile] = Stb::Image(RGBA, material.normalFile);
+        if (std::filesystem::is_regular_file(material.mrFile))
+            images[material.mrFile] = Stb::Image(RGBA, material.mrFile);
+    }
+
+    // load every texture from disk in parallel
+    std::for_each(std::execution::par_unseq, images.begin(), images.end(), [](auto& kv) {
+        kv.second.load(kv.first, true);
+        });
+
+    for (auto entity : materials) {
+        auto& material = registry.get<ecs::MaterialComponent>(entity);
+        material.uploadRenderData(images);
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+void Scene::saveToFile(const std::string& file) {
+    std::ofstream outstream(file, std::ios::binary);
+    cereal::BinaryOutputArchive output(outstream);
+    entt::snapshot{ registry }.entities(output).component<
+        ecs::NameComponent,
+        ecs::NodeComponent,
+        ecs::TransformComponent,
+        ecs::MeshComponent,
+        ecs::MaterialComponent,
+        ecs::PointLightComponent,
+        ecs::DirectionalLightComponent>(output);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+void Scene::openFromFile(const std::string& file) {
+    if (!std::filesystem::is_regular_file(file)) return;
+    std::ifstream storage(file, std::ios::binary);
+
+    // TODO: lz4 compression
+    ////Read file into buffer
+    //std::string buffer;
+    //storage.seekg(0, std::ios::end);
+    //buffer.resize(storage.tellg());
+    //storage.seekg(0, std::ios::beg);
+    //storage.read(&buffer[0], buffer.size());
+
+    //char* const regen_buffer = (char*)malloc(buffer.size());
+    //const int decompressed_size = LZ4_decompress_safe(buffer.data(), regen_buffer, buffer.size(), bound_size);
+
+    cereal::BinaryInputArchive input(storage);
+    registry.clear();
+    entt::snapshot_loader{ registry }.entities(input).component<
+        ecs::NameComponent,
+        ecs::NodeComponent,
+        ecs::TransformComponent,
+        ecs::MeshComponent,
+        ecs::MaterialComponent,
+        ecs::PointLightComponent,
+        ecs::DirectionalLightComponent>(input);
+    auto materials = registry.view<ecs::MaterialComponent>();
+    auto materialEntities = std::vector<entt::entity>();
+    materialEntities.assign(materials.data(), materials.data() + materials.size());
+    loadMaterialTextures(materialEntities);
+    auto view = registry.view<ecs::MeshComponent>();
+    for (auto entity : view) {
+        auto& mesh = view.get<ecs::MeshComponent>(entity);
+        mesh.generateAABB();
+        mesh.uploadVertices();
+        mesh.uploadIndices();
+    }
+}
+
 
 static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from) {
     glm::mat4 to;
@@ -15,7 +205,9 @@ static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from) {
     return to;
 };
 
-bool AssimpImporter::loadFile(entt::registry& scene, AsyncDispatcher& dispatcher, const std::string& file) {
+/////////////////////////////////////////////////////////////////////////////////////////
+
+bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
     constexpr unsigned int flags =
         aiProcess_GenNormals |
         aiProcess_CalcTangentSpace |
@@ -39,45 +231,21 @@ bool AssimpImporter::loadFile(entt::registry& scene, AsyncDispatcher& dispatcher
         return false;
     }
 
-    auto rootEntity = scene.create();
-    scene.emplace<ecs::NameComponent>(rootEntity, parseFilepath(file, PATH_OPTIONS::FILENAME));
-    scene.emplace<ecs::TransformComponent>(rootEntity);
-    auto& node = scene.emplace<ecs::NodeComponent>(rootEntity);
+    auto rootEntity = scene->create();
+    scene->emplace<ecs::NameComponent>(rootEntity, parseFilepath(file, PATH_OPTIONS::FILENAME));
+    scene->emplace<ecs::TransformComponent>(rootEntity);
+    auto& node = scene->emplace<ecs::NodeComponent>(rootEntity);
     node.hasChildren = true;
 
     auto materials = loadMaterials(scene, assimpScene, directory);
-
-    std::unordered_map<std::string, Stb::Image> images;
-
-    // build filepath : image map
-    for (auto entity : materials) {
-        auto& material = scene.get<ecs::MaterialComponent>(entity);
-        if (material.albedo) continue;
-
-        if (std::filesystem::is_regular_file(material.albedoFile))
-            images[material.albedoFile] = Stb::Image(RGBA, material.albedoFile);
-        if (std::filesystem::is_regular_file(material.normalFile))
-            images[material.normalFile] = Stb::Image(RGBA, material.normalFile);
-        if (std::filesystem::is_regular_file(material.mrFile))
-            images[material.mrFile] = Stb::Image(RGBA, material.mrFile);
-    }
-
-    // load every texture from disk in parallel
-    for (auto& pair : images) {
-        dispatcher.dispatch([&pair]() {
-            pair.second.load(pair.second.filepath, true);
-        });
-    }
-
-    // wait for disk loading to finish
-    dispatcher.wait();
+    scene.loadMaterialTextures(materials);
 
     // load meshes and assign materials
     std::vector<entt::entity> meshes(assimpScene->mNumMeshes);
     for (unsigned int i = 0; i < assimpScene->mNumMeshes; i++) {
         meshes[i] = loadMesh(scene, assimpScene->mMeshes[i]);
         auto entity = meshes[i];
-        auto& mesh = scene.get<ecs::MeshComponent>(entity);
+        auto& mesh = scene->get<ecs::MeshComponent>(entity);
         auto assimpMesh = assimpScene->mMeshes[i];
         mesh.material = materials[assimpMesh->mMaterialIndex];
 
@@ -95,9 +263,9 @@ bool AssimpImporter::loadFile(entt::registry& scene, AsyncDispatcher& dispatcher
         for (unsigned int i = 0; i < assimpNode->mNumMeshes; i++) {
             // create node and transform components
             auto entity = meshes[assimpNode->mMeshes[i]];
-            scene.emplace<ecs::NodeComponent>(entity);
-            scene.emplace<ecs::TransformComponent>(entity);
-            auto& [transform, node, mesh] = scene.get<ecs::TransformComponent, ecs::NodeComponent, ecs::MeshComponent>(entity);
+            scene->emplace<ecs::NodeComponent>(entity);
+            scene->emplace<ecs::TransformComponent>(entity);
+            auto& [transform, node, mesh] = scene->get<ecs::TransformComponent, ecs::NodeComponent, ecs::MeshComponent>(entity);
 
             // translate assimp transformation to glm
             aiVector3D position, scale, rotation;
@@ -120,18 +288,16 @@ bool AssimpImporter::loadFile(entt::registry& scene, AsyncDispatcher& dispatcher
         }
     }
 
-    for (auto entity : materials) {
-        scene.get<ecs::MaterialComponent>(entity).uploadRenderData(images);
-    }
-
     for (auto entity : meshes) {
-        auto& mesh = scene.get<ecs::MeshComponent>(entity);
+        auto& mesh = scene->get<ecs::MeshComponent>(entity);
         mesh.uploadVertices();
         mesh.uploadIndices();
     }
 
     return true;
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 entt::entity AssimpImporter::loadMesh(entt::registry& scene, aiMesh* assimpMesh) {
     // create new entity and attach components
@@ -162,16 +328,20 @@ entt::entity AssimpImporter::loadMesh(entt::registry& scene, aiMesh* assimpMesh)
     }
 
     // extract indices
-    mesh.indices.reserve(assimpMesh->mNumFaces);
-    for (size_t i = 0; i < mesh.indices.capacity(); i++) {
+    //mesh.indices.reserve(assimpMesh->mNumFaces);
+    for (size_t i = 0; i < assimpMesh->mNumFaces; i++) {
         m_assert((assimpMesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
-        mesh.indices.emplace_back(assimpMesh->mFaces[i].mIndices[0], assimpMesh->mFaces[i].mIndices[1], assimpMesh->mFaces[i].mIndices[2]);
+        mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[0]);
+        mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[1]);
+        mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[2]);
     }
 
     mesh.generateAABB();
 
     return entity;
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 std::vector<entt::entity> AssimpImporter::loadMaterials(entt::registry& scene, const aiScene* aiscene, const std::string& directory) {
     std::vector<entt::entity> materials(aiscene->mNumMaterials);
@@ -209,6 +379,8 @@ std::vector<entt::entity> AssimpImporter::loadMaterials(entt::registry& scene, c
 
     return materials;
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 void AssimpImporter::loadBones(entt::registry& scene, const aiScene* aiscene, aiMesh* assimpMesh, entt::entity entity) {
     auto& mesh = scene.get<ecs::MeshComponent>(entity);
@@ -312,126 +484,4 @@ void AssimpImporter::loadBones(entt::registry& scene, const aiScene* aiscene, ai
 
     copyBoneNode(rootBone, animation.boneTreeRootNode);
 }
-
-void destroyNode(entt::registry& scene, entt::entity entity) {
-    if (!scene.has<ecs::NodeComponent>(entity)) return;
-    auto view = scene.view<ecs::NodeComponent>();
-    std::unordered_set<entt::entity> destructible;
-    // loop over every node in the scene
-    for (auto e : view) {
-        std::vector<entt::entity> parents;
-        // loop over the node's parent chain, storing parents along the way
-        for (auto parent = view.get<ecs::NodeComponent>(e).parent; parent != entt::null; parent = view.get<ecs::NodeComponent>(parent).parent) {
-            // if we find the deleted node along the parent chain, we traverse the chain and mark the chain destructable
-            if (parent == entity) {
-                destructible.insert(e);
-                for (auto p : parents) {
-                    destructible.insert(p);
-                }
-                break;
-            // else we add the parent to the chain
-            } else {
-                parents.push_back(parent);
-            }
-        }
-    }
-
-    // destroy all the entities
-    for (auto e : destructible) {
-        scene.destroy(e);
-    }
-
-    scene.destroy(entity);
-}
-
-void updateTransforms(entt::registry& scene) {
-    auto nodeView = scene.view<ecs::NodeComponent, ecs::TransformComponent>();
-    for (auto entity : nodeView) {
-        auto& node = scene.get<ecs::NodeComponent>(entity);
-        auto& transform = scene.get<ecs::TransformComponent>(entity);
-        auto currentMatrix = transform.matrix;
-
-        for (auto parent = node.parent; parent != entt::null; parent = scene.get<ecs::NodeComponent>(parent).parent) {
-            currentMatrix *= nodeView.get<ecs::TransformComponent>(parent).matrix;
-        }
-
-        transform.worldTransform = currentMatrix;
-    }
-}
-
-entt::entity pickObject(entt::registry& scene, Math::Ray& ray) {
-    entt::entity pickedEntity = entt::null;
-    std::map<float, entt::entity> boxesHit;
-
-    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
-    for (auto entity : view) {
-        auto& mesh = view.get<ecs::MeshComponent>(entity);
-        auto& transform = view.get<ecs::TransformComponent>(entity);
-
-        // convert AABB from local to world space
-        std::array<glm::vec3, 2> worldAABB = {
-            transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
-            transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
-        };
-
-        // check for ray hit
-        auto scaledMin = mesh.aabb[0] * transform.scale;
-        auto scaledMax = mesh.aabb[1] * transform.scale;
-        auto hitResult = ray.hitsOBB(scaledMin, scaledMax, transform.worldTransform);
-
-        if (hitResult.has_value()) {
-            boxesHit[hitResult.value()] = entity;
-        }
-    }
-
-    for (auto& pair : boxesHit) {
-        auto& mesh = scene.get<ecs::MeshComponent>(pair.second);
-        auto& transform = scene.get<ecs::TransformComponent>(pair.second);
-
-        for (auto& triangle : mesh.indices) {
-            auto v0 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[triangle.p1].pos, 1.0));
-            auto v1 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[triangle.p2].pos, 1.0));
-            auto v2 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[triangle.p3].pos, 1.0));
-
-            auto triangleHitResult = ray.hitsTriangle(v0, v1, v2);
-            if (triangleHitResult.has_value()) {
-                pickedEntity = pair.second;
-                return pickedEntity;
-            }
-        }
-    }
-
-    return pickedEntity;
-}
-
-void loadMaterialTextures(const ecs::view<ecs::MaterialComponent>& materials, AsyncDispatcher& dispatcher) {
-    // setup a centralized data structure for all the images
-
-    std::unordered_map<std::string, Stb::Image> images;
-    for (auto entity : materials) {
-        auto& material = materials.get(entity);
-        if (std::filesystem::is_regular_file(material.albedoFile))
-            images[material.albedoFile] = Stb::Image(RGBA, material.albedoFile);
-        if (std::filesystem::is_regular_file(material.normalFile))
-            images[material.normalFile] = Stb::Image(RGBA, material.normalFile);
-        if (std::filesystem::is_regular_file(material.mrFile))
-            images[material.mrFile] = Stb::Image(RGBA, material.mrFile);
-    }
-
-    // load every texture from disk in parallel
-    for (auto& pair : images) {
-        dispatcher.dispatch([&pair]() {
-            pair.second.load(pair.second.filepath, true);
-         });
-    }
-
-    // wait for disk loading to finish
-    dispatcher.wait();
-
-    for (auto entity : materials) {
-        auto& material = materials.get(entity);
-        material.uploadRenderData(images);
-    }
-}
-
 } // Raekor
