@@ -55,14 +55,14 @@ void Application::run() {
 
     // if our display setting is higher than the nr of displays we pick the default display
     display = display > displays.size() - 1 ? 0 : display;
-    auto directxwindow = SDL_CreateWindow(name.c_str(),
+    auto sdlWindow = SDL_CreateWindow(name.c_str(),
         displays[display].x,
         displays[display].y,
         displays[display].w,
         displays[display].h,
         wflags);
 
-    SDL_SetWindowInputFocus(directxwindow);
+    SDL_SetWindowInputFocus(sdlWindow);
 
     Viewport viewport = Viewport(displays[display]);
 
@@ -73,7 +73,7 @@ void Application::run() {
 
     // create the renderer object that does sets up the API and does all the runtime magic
     Renderer::setAPI(RenderAPI::OPENGL);
-    Renderer::Init(directxwindow);
+    Renderer::Init(sdlWindow);
 
     std::unique_ptr<Mesh> cube;
     cube.reset(new Mesh(Shape::Cube));
@@ -159,7 +159,8 @@ void Application::run() {
     auto voxelizePass           = std::make_unique<RenderPass::Voxelization>(128);
     auto voxelDebugPass         = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
     auto skyPass                = std::make_unique<RenderPass::SkyPass>(viewport);
-    auto skinningPass            = std::make_unique<RenderPass::Skinning>();
+    auto skinningPass           = std::make_unique<RenderPass::Skinning>();
+    auto environmentPass        = std::make_unique<RenderPass::EnvironmentPass>();
 
 
     // boolean settings needed for a couple things
@@ -185,8 +186,8 @@ void Application::run() {
 
     std::cout << "Initialization done." << std::endl;
 
-    SDL_ShowWindow(directxwindow);
-    SDL_MaximizeWindow(directxwindow);
+    SDL_ShowWindow(sdlWindow);
+    SDL_MaximizeWindow(sdlWindow);
 
     gui::Guizmo gizmo;
     gui::EntityWindow ecsWindow;
@@ -213,7 +214,7 @@ void Application::run() {
             skinningPass->execute(mesh, animation);
         });
 
-        handleEvents(directxwindow, viewport.getCamera(), mouseInViewport, deltaTime);
+        handleEvents(sdlWindow, viewport.getCamera(), mouseInViewport, deltaTime);
         viewport.getCamera().update(true);
 
         // clear the main window
@@ -253,7 +254,7 @@ void Application::run() {
 
         //get new frame for ImGui and ImGuizmo
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        Renderer::ImGuiNewFrame(directxwindow);
+        Renderer::ImGuiNewFrame(sdlWindow);
         ImGuizmo::BeginFrame();
 
         if (ImGui::IsAnyItemActive()) {
@@ -300,9 +301,15 @@ void Application::run() {
         // draw the top user bar
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
+                if(ImGui::MenuItem("New Scene")) {
+                    scene->clear();
+                    active = entt::null;
+                }
+
                 if (ImGui::MenuItem("Open scene..")) {
                     std::string filepath = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
                     if (!filepath.empty()) {
+                        SDL_SetWindowTitle(sdlWindow, std::string(filepath + " - Raekor Renderer").c_str());
                         scene.openFromFile(filepath);
                     }
                 }
@@ -373,6 +380,13 @@ void Application::run() {
                 if (ImGui::MenuItem("Sphere")) {
                     auto entity = scene.createObject("Sphere");
                     auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+
+                    if (active != entt::null) {
+                        auto& node = scene->get<ecs::NodeComponent>(entity);
+                        node.parent = active;
+                        node.hasChildren = false;
+                        scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
+                    }
 
                     const float radius = 2.0f;
                     float x, y, z, xy;                              // vertex position
@@ -479,8 +493,13 @@ void Application::run() {
 
 
             if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
-                if (scene->valid(active)) {
-                    scene.destroyObject(active);
+                if (active != entt::null) {
+                    if (scene->has<ecs::NodeComponent>(active)) {
+                        scene.destroyObject(active);
+                    }
+                    else {
+                        scene->destroy(active);
+                    }
                     active = entt::null;
                 }
             }
@@ -498,7 +517,6 @@ void Application::run() {
                 }
             }
 
-            static bool takeScreenshot = false;
             if (ImGui::BeginMenu("Help")) {
                 if (ImGui::MenuItem("About", "")) {}
                 ImGui::EndMenu();
@@ -727,9 +745,9 @@ void Application::run() {
 
     } // while true loop
 
-    display = SDL_GetWindowDisplayIndex(directxwindow);
+    display = SDL_GetWindowDisplayIndex(sdlWindow);
     //clean up SDL
-    SDL_DestroyWindow(directxwindow);
+    SDL_DestroyWindow(sdlWindow);
     SDL_Quit();
 
 } // application::run

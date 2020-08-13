@@ -36,13 +36,45 @@ enum class ShaderType {
     INT4
 };
 
-uint32_t size_of(ShaderType type);
+constexpr uint32_t size_of(ShaderType type) {
+    switch (type) {
+    case ShaderType::FLOAT1:    return sizeof(float);
+    case ShaderType::FLOAT2:    return 16;
+    case ShaderType::FLOAT3:    return 16;
+    case ShaderType::FLOAT4:    return 16;
+    case ShaderType::INT4:      return sizeof(int) * 4;
+    default: return 0;
+    }
+}
 
 struct glShaderType {
     GLenum glType;
     uint8_t count;
 
-    glShaderType(ShaderType type);
+    constexpr glShaderType::glShaderType(ShaderType type) : glType(0), count(0) {
+        switch (type) {
+            case ShaderType::FLOAT1: {
+                glType = GL_FLOAT;
+                count = 1;
+            } break;
+            case ShaderType::FLOAT2: {
+                glType = GL_FLOAT;
+                count = 2;
+            } break;
+            case ShaderType::FLOAT3: {
+                glType = GL_FLOAT;
+                count = 3;
+            } break;
+            case ShaderType::FLOAT4: {
+                glType = GL_FLOAT;
+                count = 4;
+            } break;
+            case ShaderType::INT4: {
+                glType = GL_INT;
+                count = 4;
+            } break;
+        }
+    }
 };
 
 struct Element {
@@ -69,8 +101,8 @@ public:
     std::vector<Element>::const_iterator end() const { return layout.end(); }
 
 private:
-    std::vector<Element> layout;
     uint64_t stride;
+    std::vector<Element> layout;
 };
 
 struct Vertex {
@@ -111,7 +143,7 @@ protected:
 
 class glVertexBuffer {
 public:
-    glVertexBuffer() {}
+    glVertexBuffer() = default;
     void loadVertices(Vertex* vertices, size_t count);
     void bind() const;
     void setLayout(const InputLayout& layout) const;
@@ -123,10 +155,10 @@ private:
 
 class glIndexBuffer {
 public:
-    glIndexBuffer() {}
+    glIndexBuffer() = default;
     void loadFaces(Triangle* faces, size_t count);
     void loadIndices(uint32_t* indices, size_t count);
-    void bind() const ;
+    void bind() const;
 
     uint32_t count;
 

@@ -51,43 +51,6 @@ namespace Raekor {
         glBindBufferBase(GL_UNIFORM_BUFFER, slot, id);
     }
 
-uint32_t size_of(ShaderType type) {
-    switch (type) {
-    case ShaderType::FLOAT1:    return sizeof(float);
-    case ShaderType::FLOAT2:    return 16;
-    case ShaderType::FLOAT3:    return 16;
-    case ShaderType::FLOAT4:    return 16;
-
-    case ShaderType::INT4:      return sizeof(int) * 4;
-    default: return 0;
-    }
-}
-
-glShaderType::glShaderType(ShaderType type) {
-    switch (type) {
-        case ShaderType::FLOAT1: {
-            glType = GL_FLOAT;
-            count = 1;
-        } break;
-        case ShaderType::FLOAT2: {
-            glType = GL_FLOAT;
-            count = 2;
-        } break;
-        case ShaderType::FLOAT3: {
-            glType = GL_FLOAT;
-            count = 3;
-        } break;
-        case ShaderType::FLOAT4: {
-            glType = GL_FLOAT;
-            count = 4;
-        } break;
-        case ShaderType::INT4: {
-            glType = GL_INT;
-            count = 4;
-        } break;
-    }
-}
-
 InputLayout::InputLayout(const std::initializer_list<Element> elementList) : layout(elementList), stride(0) {
     uint32_t offset = 0;
     for (auto& element : layout) {

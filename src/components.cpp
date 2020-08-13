@@ -119,6 +119,30 @@ void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
+void MaterialComponent::uploadRenderData() {
+    albedo = std::make_shared<glTexture2D>();
+    albedo->bind();
+    albedo->init(1, 1, { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT }, glm::value_ptr(baseColour));
+    albedo->setFilter(Sampling::Filter::None);
+    albedo->setWrap(Sampling::Wrap::Repeat);
+
+    normals = std::make_shared<glTexture2D>();
+    normals->bind();
+    constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
+    normals->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(tbnAxis));
+    normals->setFilter(Sampling::Filter::None);
+    normals->setWrap(Sampling::Wrap::Repeat);
+
+    metalrough = std::make_shared<glTexture2D>();
+    auto metalRoughnessValue = glm::vec4(metallic, roughness, 0.0f, 1.0f);
+    metalrough->bind();
+    metalrough->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(metalRoughnessValue));
+    metalrough->setFilter(Sampling::Filter::None);
+    metalrough->setWrap(Sampling::Wrap::Repeat);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
 void MaterialComponent::uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images) {
     auto albedoEntry = images.find(albedoFile);
     albedo = std::make_unique<glTexture2D>();

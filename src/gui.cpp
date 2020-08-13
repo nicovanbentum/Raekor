@@ -168,7 +168,7 @@ void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component, entt::reg
 }
 
 void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
-    if (ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour), ImGuiColorEditFlags_Float)) {
+    if (ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR)) {
         if (component.albedo && component.albedoFile.empty()) {
             glTextureSubImage2D(component.albedo->mID, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(component.baseColour));
         }
@@ -249,11 +249,11 @@ void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
 }
 
 void InspectorWindow::drawPointLightComponent(ecs::PointLightComponent& component) {
-    ImGui::ColorEdit4("Colour", glm::value_ptr(component.buffer.colour));
+    ImGui::ColorEdit4("Colour", glm::value_ptr(component.buffer.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 }
 
 void InspectorWindow::drawDirectionalLightComponent(ecs::DirectionalLightComponent& component) {
-    ImGui::ColorEdit4("Colour", glm::value_ptr(component.buffer.colour));
+    ImGui::ColorEdit4("Colour", glm::value_ptr(component.buffer.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
     ImGui::DragFloat3("Direction", glm::value_ptr(component.buffer.direction), 0.01f, -1.0f, 1.0f);
 }
 

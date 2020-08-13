@@ -145,12 +145,8 @@ void Scene::saveToFile(const std::string& file) {
     std::ofstream outstream(file, std::ios::binary);
     cereal::BinaryOutputArchive output(outstream);
     entt::snapshot{ registry }.entities(output).component<
-        ecs::NameComponent,
-        ecs::NodeComponent,
-        ecs::TransformComponent,
-        ecs::MeshComponent,
-        ecs::MaterialComponent,
-        ecs::PointLightComponent,
+        ecs::NameComponent, ecs::NodeComponent, ecs::TransformComponent,
+        ecs::MeshComponent, ecs::MaterialComponent, ecs::PointLightComponent,
         ecs::DirectionalLightComponent>(output);
 }
 
@@ -171,20 +167,21 @@ void Scene::openFromFile(const std::string& file) {
     //char* const regen_buffer = (char*)malloc(buffer.size());
     //const int decompressed_size = LZ4_decompress_safe(buffer.data(), regen_buffer, buffer.size(), bound_size);
 
-    cereal::BinaryInputArchive input(storage);
     registry.clear();
+    
+    cereal::BinaryInputArchive input(storage);
     entt::snapshot_loader{ registry }.entities(input).component<
-        ecs::NameComponent,
-        ecs::NodeComponent,
-        ecs::TransformComponent,
-        ecs::MeshComponent,
-        ecs::MaterialComponent,
-        ecs::PointLightComponent,
+        ecs::NameComponent, ecs::NodeComponent, ecs::TransformComponent,
+        ecs::MeshComponent, ecs::MaterialComponent, ecs::PointLightComponent,
         ecs::DirectionalLightComponent>(input);
+
+    // init material render data
     auto materials = registry.view<ecs::MaterialComponent>();
     auto materialEntities = std::vector<entt::entity>();
     materialEntities.assign(materials.data(), materials.data() + materials.size());
     loadMaterialTextures(materialEntities);
+    
+    // init mesh render data
     auto view = registry.view<ecs::MeshComponent>();
     for (auto entity : view) {
         auto& mesh = view.get<ecs::MeshComponent>(entity);
@@ -194,6 +191,7 @@ void Scene::openFromFile(const std::string& file) {
     }
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
 
 static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from) {
     glm::mat4 to;

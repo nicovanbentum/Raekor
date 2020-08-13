@@ -158,8 +158,6 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     std::vector<Shader::Stage> gbufferStages;
     gbufferStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\gbuffer.vert");
     gbufferStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gbuffer.frag");
-    gbufferStages[0].defines = { "NO_NORMAL_MAP" };
-    gbufferStages[1].defines = { "NO_NORMAL_MAP" };
     shader.reload(gbufferStages.data(), gbufferStages.size());
     hotloader.watch(&shader, gbufferStages.data(), gbufferStages.size());
 
@@ -1053,6 +1051,75 @@ void SkyPass::execute(Viewport& viewport, Mesh* quad) {
     quad->render();
 
     framebuffer.unbind();
+}
+
+void Skinning::execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim) {
+
+    glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransforms.size() * sizeof(glm::mat4), anim.boneTransforms.data(), GL_DYNAMIC_DRAW);
+
+    computeShader.bind();
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, anim.boneIndexBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, anim.boneWeightBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, mesh.vertexBuffer.id);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, anim.skinnedVertexBuffer.id);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, anim.boneTransformsBuffer);
+
+    glDispatchCompute(static_cast<GLuint>(mesh.vertices.size()), 1, 1);
+
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+}
+
+void EnvironmentPass::execute(const std::string& file, Mesh* unitCube) {
+    stbi_set_flip_vertically_on_load(true);
+    int w, h, ch;
+    float* data = stbi_loadf(file.c_str(), &w, &h, &ch, 3);
+    if (!data) return;
+
+    unsigned int originalTexture;
+    glGenTextures(1, &originalTexture);
+    glBindTexture(GL_TEXTURE_2D, originalTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_FLOAT, data);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    stbi_image_free(data);
+
+    captureRenderbuffer.init(512, 512, GL_DEPTH_COMPONENT24);
+    captureFramebuffer.attach(captureRenderbuffer, GL_DEPTH_ATTACHMENT);
+
+    for (unsigned int i = 0; i < 6; i++) {
+        envCubemap.init(512, 512, i, { GL_RGB16F, GL_RGB, GL_FLOAT }, nullptr);
+    }
+
+    glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+    std::array<glm::mat4, 6> captureViews = {
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
+    };
+
+    toCubemapShader.bind();
+    toCubemapShader.getUniform("projection") = captureProjection;
+    glBindTextureUnit(originalTexture, 0);
+
+    glViewport(0, 0, 512, 512);
+    captureFramebuffer.bind();
+    for (unsigned int i = 0; i < 6; i++) {
+        toCubemapShader["view"] = captureViews[i];
+        captureFramebuffer.attach(envCubemap, GL_COLOR_ATTACHMENT0 + i, i);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        unitCube->render();
+    }
+
+
+
 }
 
 } // renderpass
