@@ -2,13 +2,15 @@
 
 namespace Raekor {
 
-class Application {
+class Editor {
 
 public:
-    Application() {}
+    Editor() {}
 
-    void run();
-    void vulkanMain();
+    void runOGL();
+
+    // todo: this one is bheind by a lot and probably does not work
+    void runVulkan();
 
     template<class C>
     void serialize(C& archive) {

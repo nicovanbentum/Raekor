@@ -19,7 +19,7 @@
 
 namespace Raekor {
 
-void Application::serializeSettings(const std::string& filepath, bool write) {
+void Editor::serializeSettings(const std::string& filepath, bool write) {
     if (write) {
         std::ofstream os(filepath);
         cereal::JSONOutputArchive archive(os);
@@ -32,7 +32,7 @@ void Application::serializeSettings(const std::string& filepath, bool write) {
     }
 }
 
-void Application::run() {
+void Editor::runOGL() {
     // retrieve the application settings from the config file
     serializeSettings("config.json");
 
@@ -168,19 +168,20 @@ void Application::run() {
     bool mouseInViewport = false, gizmoEnabled = false, showSettingsWindow = false;
 
     // keep a pointer to the texture that's rendered to the window
-    glTexture2D* activeScreenTexture = &tonemappingPass->result;
+    unsigned int activeScreenTexture = tonemappingPass->result;
 
+    // create thread pool
     int coreCount = std::thread::hardware_concurrency();
     int threadCount = std::max(1, coreCount - 1);
     auto dispatcher = AsyncDispatcher(threadCount);
 
+    // create empty scene
     Scene scene;
-    static entt::entity active = entt::null;
-
+    entt::entity active = entt::null;
+    //scene.openFromFile("spheres.scene");
 
     auto defaultMaterialEntity = scene->create();
-    auto& defaultMaterialName = scene->emplace<ecs::NameComponent>(defaultMaterialEntity);
-    defaultMaterialName = "Default Material";
+    auto& defaultMaterialName = scene->emplace<ecs::NameComponent>(defaultMaterialEntity, "Default Material");
     auto& defaultMaterial = scene->emplace<ecs::MaterialComponent>(defaultMaterialEntity);
     defaultMaterial.uploadRenderData();
 
@@ -191,9 +192,9 @@ void Application::run() {
 
     gui::Guizmo gizmo;
     gui::EntityWindow ecsWindow;
+    gui::AssetWindow assetBrowser;
     gui::ConsoleWindow consoleWindow;
     gui::InspectorWindow inspectorWindow;
-    gui::AssetBrowser assetBrowser;
 
     bool shouldVoxelize = true;
 
@@ -202,13 +203,11 @@ void Application::run() {
 
         scene.updateTransforms();
         
-        scene->view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
-            dispatcher.dispatch([&]() {
-                animation.boneTransform(static_cast<float>(deltaTime));
-            });
+        auto animationView = scene->view<ecs::MeshAnimationComponent>();
+        std::for_each(std::execution::par_unseq, animationView.begin(), animationView.end(), [&](auto entity) {
+            auto& animation = animationView.get<ecs::MeshAnimationComponent>(entity);
+            animationView.get(entity).boneTransform(static_cast<float>(deltaTime));
         });
-
-        dispatcher.wait();
 
         scene->view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
             skinningPass->execute(mesh, animation);
@@ -261,8 +260,6 @@ void Application::run() {
             // perform input mapping
         }
 
-        static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
-
         // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
         // because it would be confusing to have two docking targets within each others.
         ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
@@ -277,11 +274,11 @@ void Application::run() {
 
         // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background and handle the pass-thru hole, 
         // so we ask Begin() to not render a background.
+        ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
         if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) dockWindowFlags |= ImGuiWindowFlags_NoBackground;
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-        static bool p_open = true;
-        ImGui::Begin("DockSpace", &p_open, dockWindowFlags);
+        ImGui::Begin("DockSpace", (bool*)true, dockWindowFlags);
         ImGui::PopStyleVar();
         ImGui::PopStyleVar(2);
 
@@ -291,12 +288,6 @@ void Application::run() {
             ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
             ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
         }
-
-        // move the light by a fixed amount and let it bounce between -125 and 125 units/pixels on the x axis
-        static double lightMoveSpeed = 0.003;
-        static double bounds = 7.5f;
-        static bool moveLight = false;
-        double lightMoveAmount = lightMoveSpeed * deltaTime;
 
         // draw the top user bar
         if (ImGui::BeginMainMenuBar()) {
@@ -540,9 +531,9 @@ void Application::run() {
         static bool doTonemapping = true;
         if (ImGui::Checkbox("Tonemap", &doTonemapping)) {
             if (doTonemapping) {
-                activeScreenTexture = &tonemappingPass->result;
+                activeScreenTexture = tonemappingPass->result;
             } else {
-                activeScreenTexture = &lightingPass->result;
+                activeScreenTexture = lightingPass->result;
             }
         }
         ImGui::Separator();
@@ -589,25 +580,18 @@ void Application::run() {
         ImGui::Separator();
 
         if (ImGui::TreeNode("Screen Texture")) {
-            if (ImGui::Selectable(nameof(tonemappingPass->result), activeScreenTexture->ImGuiID() == tonemappingPass->result.ImGuiID()))
-                activeScreenTexture = &tonemappingPass->result;
-            if (ImGui::Selectable(nameof(geometryBufferPass->albedoTexture), activeScreenTexture->ImGuiID() == geometryBufferPass->albedoTexture.ImGuiID()))
-                activeScreenTexture = &geometryBufferPass->albedoTexture;
-            if (ImGui::Selectable(nameof(geometryBufferPass->normalTexture), activeScreenTexture->ImGuiID() == geometryBufferPass->normalTexture.ImGuiID()))
-                activeScreenTexture = &geometryBufferPass->normalTexture;
-            if (ImGui::Selectable(nameof(geometryBufferPass->positionTexture), activeScreenTexture->ImGuiID() == geometryBufferPass->positionTexture.ImGuiID()))
-                activeScreenTexture = &geometryBufferPass->positionTexture;
-            if (ImGui::Selectable(nameof(geometryBufferPass->materialTexture), activeScreenTexture->ImGuiID() == geometryBufferPass->materialTexture.ImGuiID()))
-                activeScreenTexture = &geometryBufferPass->materialTexture;
-            if (ImGui::Selectable(nameof(lightingPass->result), activeScreenTexture->ImGuiID() == lightingPass->result.ImGuiID()))
-                activeScreenTexture = &lightingPass->result;
-            if (ImGui::Selectable(nameof(aabbDebugPass->result), activeScreenTexture->ImGuiID() == aabbDebugPass->result.ImGuiID()))
-                activeScreenTexture = &aabbDebugPass->result;
-            if (ImGui::Selectable(nameof(ConeTracePass->result), activeScreenTexture->ImGuiID() == ConeTracePass->result.ImGuiID()))
-                activeScreenTexture = &ConeTracePass->result;
-            if (ImGui::Selectable(nameof(skyPass->result), activeScreenTexture->ImGuiID() == skyPass->result.ImGuiID()))
-                activeScreenTexture = &skyPass->result;
-
+            if (ImGui::Selectable(nameof(tonemappingPass->result), activeScreenTexture == tonemappingPass->result))
+                activeScreenTexture = tonemappingPass->result;
+            if (ImGui::Selectable(nameof(skyPass->result), activeScreenTexture == skyPass->result))
+                activeScreenTexture = skyPass->result;
+            if (ImGui::Selectable(nameof(geometryBufferPass->albedoTexture), activeScreenTexture == geometryBufferPass->albedoTexture))
+                activeScreenTexture = geometryBufferPass->albedoTexture;
+            if (ImGui::Selectable(nameof(geometryBufferPass->normalTexture), activeScreenTexture == geometryBufferPass->normalTexture))
+                activeScreenTexture = geometryBufferPass->normalTexture;
+            if (ImGui::Selectable(nameof(geometryBufferPass->materialTexture), activeScreenTexture == geometryBufferPass->materialTexture))
+                activeScreenTexture = geometryBufferPass->materialTexture;
+            if (ImGui::Selectable(nameof(geometryBufferPass->positionTexture), activeScreenTexture == geometryBufferPass->positionTexture))
+                activeScreenTexture = geometryBufferPass->positionTexture;
             ImGui::TreePop();
         }
 
@@ -693,7 +677,7 @@ void Application::run() {
         }
 
         // render the active screen texture to the view port as an imgui image
-        ImGui::Image(activeScreenTexture->ImGuiID(), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0,1 }, { 1,0 });
+        ImGui::Image((void*)((intptr_t)activeScreenTexture), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0,1 }, { 1,0 });
 
         // draw the imguizmo at the center of the active entity
         if (active != entt::null) {
@@ -729,12 +713,23 @@ void Application::run() {
             ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
 
             // resizing framebuffers
-            tonemappingPass->resize(viewport);
-            geometryBufferPass->resize(viewport);
-            lightingPass->resize(viewport);
-            aabbDebugPass->resize(viewport);
-            voxelDebugPass->resize(viewport);
-            ConeTracePass->resize(viewport);
+            lightingPass->deleteResources();
+            lightingPass->createResources(viewport);
+
+            ConeTracePass->deleteResources();
+            ConeTracePass->createResources(viewport);
+
+            aabbDebugPass->deleteResources();
+            aabbDebugPass->createResources(viewport);
+
+            voxelDebugPass->deleteResources();
+            voxelDebugPass->createResources(viewport);
+
+            tonemappingPass->deleteResources();
+            tonemappingPass->createResources(viewport);
+
+            geometryBufferPass->deleteResources();
+            geometryBufferPass->createResources(viewport);
 
             
             resizing = false;

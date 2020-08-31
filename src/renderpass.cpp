@@ -17,19 +17,31 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     uniformBuffer.setSize(sizeof(uniforms));
 
     // init render target
-    result.bind();
-    result.init(width, height, Format::DEPTH);
-    result.setFilter(Sampling::Filter::Bilinear);
-    result.setWrap(Sampling::Wrap::ClampEdge);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_DEPTH_COMPONENT32F, width, height);
+    
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    glTextureParameteri(result, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 
-    framebuffer.attach(result, GL_DEPTH_ATTACHMENT);
+    glCreateFramebuffers(1, &framebuffer);
+    glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, result, 0);
+    glNamedFramebufferDrawBuffer(framebuffer, GL_NONE);
+    glNamedFramebufferReadBuffer(framebuffer, GL_NONE);
+}
+
+ShadowMap::~ShadowMap() {
+    glDeleteTextures(1, &result);
+    glDeleteFramebuffers(1, &framebuffer);
 }
 
 void ShadowMap::execute(entt::registry& scene) {
     // setup the shadow map 
-    framebuffer.bind();
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_DEPTH_BUFFER_BIT);
     glCullFace(GL_FRONT);
 
@@ -161,44 +173,13 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     shader.reload(gbufferStages.data(), gbufferStages.size());
     hotloader.watch(&shader, gbufferStages.data(), gbufferStages.size());
 
-    albedoTexture.bind();
-    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-    albedoTexture.setFilter(Sampling::Filter::None);
-    albedoTexture.unbind();
-
-    normalTexture.bind();
-    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-    normalTexture.setFilter(Sampling::Filter::None);
-    normalTexture.unbind();
-
-    positionTexture.bind();
-    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-    positionTexture.setFilter(Sampling::Filter::None);
-    positionTexture.setWrap(Sampling::Wrap::ClampEdge);
-    positionTexture.unbind();
-
-    materialTexture.bind();
-    materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
-    materialTexture.setFilter(Sampling::Filter::None);
-    materialTexture.unbind();
-
-    GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH_COMPONENT32F);
-
-    GBuffer.attach(positionTexture, GL_COLOR_ATTACHMENT0);
-    GBuffer.attach(normalTexture, GL_COLOR_ATTACHMENT1);
-    GBuffer.attach(albedoTexture, GL_COLOR_ATTACHMENT2);
-    GBuffer.attach(materialTexture, GL_COLOR_ATTACHMENT3);
-    GBuffer.attach(GDepthBuffer, GL_DEPTH_ATTACHMENT);
-
-    GBuffer.bind();
-    glClear(GL_COLOR_BUFFER_BIT);
-    GBuffer.unbind();
+    createResources(viewport);
 }
 
 void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
     hotloader.checkForUpdates();
 
-    GBuffer.bind();
+    glBindFramebuffer(GL_FRAMEBUFFER, GBuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     shader.bind();
@@ -252,30 +233,59 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
         glDrawElements(GL_TRIANGLES, mesh.indexBuffer.count, GL_UNSIGNED_INT, nullptr);
     }
 
-    GBuffer.unbind();
-}
-
-void GeometryBuffer::resize(Viewport& viewport) {
-    // resizing framebuffers
-    albedoTexture.bind();
-    albedoTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-
-    normalTexture.bind();
-    normalTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-
-    positionTexture.bind();
-    positionTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-
-    materialTexture.bind();
-    materialTexture.init(viewport.size.x, viewport.size.y, Format::RGBA_32F);
-
-    GDepthBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 entt::entity GeometryBuffer::pick(uint32_t x, uint32_t y) {
     glm::vec4 readPixel;
-    glGetTextureSubImage(materialTexture.mID, 0, x, y, 0, 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(glm::vec4), glm::value_ptr(readPixel));
+    glGetTextureSubImage(materialTexture, 0, x, y, 0, 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(glm::vec4), glm::value_ptr(readPixel));
     return static_cast<entt::entity>(readPixel.b);
+}
+
+void GeometryBuffer::createResources(Viewport& viewport) {
+    glCreateTextures(GL_TEXTURE_2D, 1, &albedoTexture);
+    glTextureStorage2D(albedoTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(albedoTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(albedoTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &normalTexture);
+    glTextureStorage2D(normalTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(albedoTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(albedoTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &positionTexture);
+    glTextureStorage2D(positionTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(positionTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(positionTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(positionTexture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(positionTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(positionTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &materialTexture);
+    glTextureStorage2D(materialTexture, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(positionTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(positionTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateRenderbuffers(1, &GDepthBuffer);
+    glNamedRenderbufferStorage(GDepthBuffer, GL_DEPTH_COMPONENT32F, viewport.size.x, viewport.size.y);
+
+    glCreateFramebuffers(1, &GBuffer);
+    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT0, positionTexture, 0);
+    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT1, normalTexture, 0);
+    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT2, albedoTexture, 0);
+    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT3, materialTexture, 0);
+
+    std::array<GLenum, 4> colorAttachments = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+    glNamedFramebufferDrawBuffers(GBuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
+
+    glNamedFramebufferRenderbuffer(GBuffer, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, GDepthBuffer);
+}
+
+void GeometryBuffer::deleteResources() {
+    std::array<unsigned int, 4> textures = { albedoTexture, normalTexture, positionTexture, materialTexture };
+    glDeleteTextures(textures.size(), textures.data());
+    glDeleteRenderbuffers(1, &GDepthBuffer);
+    glDeleteFramebuffers(1, &GBuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -317,42 +327,16 @@ ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(Viewport& viewport) {
         ssaoKernel.push_back(sample);
     }
 
-    // create data for the random noise texture
-    std::vector<glm::vec3> ssaoNoise;
-    for (unsigned int i = 0; i < 16; i++) {
-        glm::vec3 noise(
-            randomFloats(generator) * 2.0 - 1.0,
-            randomFloats(generator) * 2.0 - 1.0,
-            0.0f);
-        ssaoNoise.push_back(noise);
-    }
-
-    // init textures and framebuffers
-    noise.bind();
-    noise.init(4, 4, { GL_RGB16F, GL_RGB, GL_FLOAT }, &ssaoNoise[0]);
-    noise.setFilter(Sampling::Filter::None);
-    noise.setWrap(Sampling::Wrap::Repeat);
-
-    preblurResult.bind();
-    preblurResult.init(viewport.size.x, viewport.size.y, { GL_RGBA, GL_RGBA, GL_FLOAT }, nullptr);
-    preblurResult.setFilter(Sampling::Filter::None);
-
-    framebuffer.attach(preblurResult, GL_COLOR_ATTACHMENT0);
-
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, { GL_RGBA, GL_RGBA, GL_FLOAT }, nullptr);
-    result.setFilter(Sampling::Filter::None);
-
-    blurFramebuffer.attach(result, GL_COLOR_ATTACHMENT0);
+    createResources(viewport);
 }
 
 void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad) {
-    framebuffer.bind();
-    geometryPass->positionTexture.bindToSlot(0);
-    geometryPass->normalTexture.bindToSlot(1);
-    noise.bindToSlot(2);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glBindTextureUnit(0, geometryPass->positionTexture);
+    glBindTextureUnit(1, geometryPass->normalTexture);
+    glBindTextureUnit(2, noiseTexture);
+    
     shader.bind();
-
     shader.getUniform("samples") = ssaoKernel;
     shader.getUniform("view") = viewport.getCamera().getView();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
@@ -364,21 +348,63 @@ void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* ge
     quad->render();
 
     // now blur the SSAO result
-    blurFramebuffer.bind();
-    preblurResult.bindToSlot(0);
+    glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
+    glBindTextureUnit(0, preblurResult);
     blurShader.bind();
 
     quad->render();
 }
 
-void ScreenSpaceAmbientOcclusion::resize(Viewport& viewport) {
-    noiseScale = { viewport.size.x / 4.0f, viewport.size.y / 4.0f };
+void ScreenSpaceAmbientOcclusion::createResources(Viewport& viewport) {
+    // create SSAO kernel hemisphere
+    std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
+    std::default_random_engine generator;
 
-    preblurResult.bind();
-    preblurResult.init(viewport.size.x, viewport.size.y, Format::RGB_F);
+    // create data for the random noise texture
+    std::vector<glm::vec3> ssaoNoise;
+    for (unsigned int i = 0; i < 16; i++) {
+        glm::vec3 noise(
+            randomFloats(generator) * 2.0 - 1.0,
+            randomFloats(generator) * 2.0 - 1.0,
+            0.0f);
+        ssaoNoise.push_back(noise);
+    }
 
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGB_F);
+    // init textures and framebuffers
+    glCreateTextures(GL_TEXTURE_2D, 1, &noiseTexture);
+    glTextureStorage2D(noiseTexture, 1, GL_RGB16F, 4, 4);
+    glTextureSubImage2D(noiseTexture, 0, 0, 0, 4, 4, GL_RGB, GL_FLOAT, &ssaoNoise[0]);
+    glTextureParameteri(noiseTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(noiseTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(noiseTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(noiseTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(noiseTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &preblurResult);
+    glTextureStorage2D(preblurResult, 1, GL_RGBA, viewport.size.x, viewport.size.y);
+    glTextureParameteri(preblurResult, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(preblurResult, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateFramebuffers(1, &framebuffer);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, preblurResult, 0);
+    glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_RGBA, viewport.size.x, viewport.size.y);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateFramebuffers(1, &blurFramebuffer);
+    glNamedFramebufferTexture(blurFramebuffer, GL_COLOR_ATTACHMENT0, result, 0);
+    glNamedFramebufferDrawBuffer(blurFramebuffer, GL_COLOR_ATTACHMENT0);
+}
+
+void ScreenSpaceAmbientOcclusion::deleteResources() {
+    std::array<GLuint, 3> textures = { noiseTexture, result, preblurResult };
+    glDeleteTextures(textures.size(), textures.data());
+
+    glDeleteFramebuffers(1, &framebuffer);
+    glDeleteFramebuffers(1, &blurFramebuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -393,19 +419,8 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 
     hotloader.watch(&shader, modelStages.data(), modelStages.size());
 
-    // init render targets
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-    result.setFilter(Sampling::Filter::Bilinear);
-    result.unbind();
-
-    bloomHighlights.bind();
-    bloomHighlights.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-    bloomHighlights.setFilter(Sampling::Filter::Bilinear);
-    bloomHighlights.unbind();
-
-    framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
-    framebuffer.attach(bloomHighlights, GL_COLOR_ATTACHMENT1);
+    // init resources
+    createResources(viewport);
 
     // init uniform buffer
     uniformBuffer.setSize(sizeof(uniforms));
@@ -416,7 +431,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     hotloader.checkForUpdates();
 
     // bind the main framebuffer
-    framebuffer.bind();
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT);
 
     // set uniforms
@@ -433,22 +448,22 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     shader.getUniform("voxelsWorldSize") = voxels->worldSize;
 
     // bind textures to shader binding slots
-    shadowMap->result.bindToSlot(0);
+    glBindTextureUnit(0, shadowMap->result);
     
     if (omniShadowMap) {
         omniShadowMap->result.bindToSlot(1);
     }
 
-    GBuffer->positionTexture.bindToSlot(2);
-    GBuffer->albedoTexture.bindToSlot(3);
-    GBuffer->normalTexture.bindToSlot(4);
+    glBindTextureUnit(2, GBuffer->positionTexture);
+    glBindTextureUnit(3, GBuffer->albedoTexture);
+    glBindTextureUnit(4, GBuffer->normalTexture);
 
     if (ambientOcclusion) {
-        ambientOcclusion->result.bindToSlot(5);
+        glBindTextureUnit(5, ambientOcclusion->result);
     }
 
     voxels->result.bindToSlot(6);
-    glBindTextureUnit(7, GBuffer->materialTexture.mID);
+    glBindTextureUnit(7, GBuffer->materialTexture);
 
     // update the uniform buffer CPU side
     uniforms.view = viewport.getCamera().getView();
@@ -497,16 +512,30 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
 
     // perform lighting pass and unbind
     quad->render();
-    framebuffer.unbind();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void DeferredLighting::resize(Viewport& viewport) {
-    // resize render targets
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+void DeferredLighting::createResources(Viewport& viewport) {
+    // init render targets
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    bloomHighlights.bind();
-    bloomHighlights.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+    glCreateTextures(GL_TEXTURE_2D, 1, &bloomHighlights);
+    glTextureStorage2D(bloomHighlights, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(bloomHighlights, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(bloomHighlights, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glCreateFramebuffers(1, &framebuffer);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT1, bloomHighlights, 0);
+}
+
+void DeferredLighting::deleteResources() {
+    glDeleteTextures(1, &result);
+    glDeleteTextures(1, &bloomHighlights);
+    glDeleteFramebuffers(1, &framebuffer);
 }
 
 
@@ -523,24 +552,6 @@ Bloom::Bloom(Viewport& viewport) {
     blurStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
     blurStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gaussian.frag");
     blurShader.reload(blurStages.data(), blurStages.size());
-
-    // init render targets
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-    result.setFilter(Sampling::Filter::Bilinear);
-    result.unbind();
-
-    resultFramebuffer.attach(result, GL_COLOR_ATTACHMENT0);
-
-    for (unsigned int i = 0; i < 2; i++) {
-        blurTextures[i].bind();
-        blurTextures[i].init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-        blurTextures[i].setFilter(Sampling::Filter::Bilinear);
-        blurTextures[i].setWrap(Sampling::Wrap::ClampEdge);
-        blurTextures[i].unbind();
-
-        blurBuffers[i].attach(blurTextures[i], GL_COLOR_ATTACHMENT0);
-    }
 }
 
 void Bloom::execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad) {
@@ -550,14 +561,14 @@ void Bloom::execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad) {
     bool horizontal = true, firstIteration = true;
     blurShader.bind();
     for (unsigned int i = 0; i < 10; i++) {
-        blurBuffers[horizontal].bind();
+        glBindFramebuffer(GL_FRAMEBUFFER, blurBuffers[horizontal]);
         blurShader.getUniform("horizontal") = horizontal;
         if (firstIteration) {
             highlights.bindToSlot(0);
             firstIteration = false;
         }
         else {
-            blurTextures[!horizontal].bindToSlot(0);
+            glBindTextureUnit(0, blurTextures[!horizontal]);
         }
         quad->render();
         horizontal = !horizontal;
@@ -566,22 +577,45 @@ void Bloom::execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad) {
     blurShader.unbind();
 
     // blend the bloom and scene texture together
-    resultFramebuffer.bind();
+    glBindFramebuffer(GL_FRAMEBUFFER, resultFramebuffer);
     bloomShader.bind();
     scene.bindToSlot(0);
-    blurTextures[!horizontal].bindToSlot(1);
+    glBindTextureUnit(1, blurTextures[!horizontal]);
     quad->render();
-    resultFramebuffer.unbind();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Bloom::resize(Viewport& viewport) {
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+void Bloom::createResources(Viewport& viewport) {
+    // init render targets
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glCreateFramebuffers(1, &resultFramebuffer);
+    glNamedFramebufferTexture(resultFramebuffer, GL_COLOR_ATTACHMENT0, result, 0);
+    glNamedFramebufferDrawBuffer(resultFramebuffer, GL_COLOR_ATTACHMENT0);
 
     for (unsigned int i = 0; i < 2; i++) {
-        blurTextures[i].bind();
-        blurTextures[i].init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+        glCreateTextures(GL_TEXTURE_2D, 1, &blurTextures[i]);
+        glTextureStorage2D(blurTextures[i], 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
+        glTextureParameteri(blurTextures[i], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(blurTextures[i], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(blurTextures[i], GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(blurTextures[i], GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(blurTextures[i], GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+        glCreateFramebuffers(1, &blurBuffers[i]);
+        glNamedFramebufferTexture(blurBuffers[i], GL_COLOR_ATTACHMENT0, blurTextures[i], 0);
+        glNamedFramebufferDrawBuffer(blurBuffers[i], GL_COLOR_ATTACHMENT0);
     }
+}
+
+void Bloom::deleteResources() {
+    glDeleteTextures(1, &result);
+    glDeleteTextures(2, blurTextures);
+    glDeleteFramebuffers(2, blurBuffers);
+    glDeleteFramebuffers(1, &resultFramebuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -594,31 +628,20 @@ Tonemapping::Tonemapping(Viewport& viewport) {
     shader.reload(tonemapStages.data(), tonemapStages.size());
 
     // init render targets
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGB_F);
-    result.setFilter(Sampling::Filter::None);
-    result.unbind();
-
-    framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
+    createResources(viewport);
 
     // init uniform buffer
     uniformBuffer.setSize(sizeof(settings));
 }
 
-void Tonemapping::resize(Viewport& viewport) {
-    // resize render targets
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGB_F);
-}
-
-void Tonemapping::execute(glTexture2D& scene, Mesh* quad) {
+void Tonemapping::execute(unsigned int scene, Mesh* quad) {
     // bind and clear render target
-    framebuffer.bind();
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // bind shader and input texture
     shader.bind();
-    scene.bindToSlot(0);
+    glBindTextureUnit(0, scene);
 
     // update uniform buffer GPU side
     uniformBuffer.update(&settings, sizeof(settings));
@@ -626,7 +649,24 @@ void Tonemapping::execute(glTexture2D& scene, Mesh* quad) {
 
     // render fullscreen quad to perform tonemapping
     quad->render();
-    framebuffer.unbind();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Tonemapping::createResources(Viewport& viewport) {
+    // init render targets
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_RGB8, viewport.size.x, viewport.size.y);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateFramebuffers(1, &framebuffer);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
+    glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
+}
+
+void Tonemapping::deleteResources() {
+    glDeleteTextures(1, &result);
+    glDeleteFramebuffers(1, &framebuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -700,7 +740,7 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
     // bind shader and 3d voxel map
     shader.bind();
     result.bindToSlot(1, GL_WRITE_ONLY, GL_R32UI);
-    shadowmap->result.bindToSlot(2);
+    glBindTextureUnit(2, shadowmap->result);
 
     shader.getUniform("lightViewProjection") = shadowmap->uniforms.cameraMatrix;
 
@@ -758,15 +798,15 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
     voxelDebugStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\voxelDebug.frag");
     shader.reload(voxelDebugStages.data(), voxelDebugStages.size());
 
-    renderBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
-
-    frameBuffer.attach(renderBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+    // init resources
+    createResources(viewport);
 }
 
-void VoxelizationDebug::execute(Viewport& viewport, glTexture2D& input, Voxelization* voxels) {
+void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxelization* voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
-    frameBuffer.bind();
-    frameBuffer.attach(input, GL_COLOR_ATTACHMENT0);
+    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+    glNamedFramebufferTexture(frameBuffer, GL_COLOR_ATTACHMENT0, input, 0);
+    glNamedFramebufferDrawBuffer(frameBuffer, GL_COLOR_ATTACHMENT0);
     glClear(GL_DEPTH_BUFFER_BIT);
 
     float voxelSize = voxels->worldSize / 128;
@@ -785,8 +825,18 @@ void VoxelizationDebug::execute(Viewport& viewport, glTexture2D& input, Voxeliza
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void VoxelizationDebug::resize(Viewport& viewport) {
-    renderBuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
+void VoxelizationDebug::createResources(Viewport& viewport) {
+    // init resources
+    glCreateRenderbuffers(1, &renderBuffer);
+    glNamedRenderbufferStorage(renderBuffer, GL_DEPTH32F_STENCIL8, viewport.size.x, viewport.size.y);
+
+    glCreateFramebuffers(1, &frameBuffer);
+    glNamedFramebufferRenderbuffer(frameBuffer, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
+}
+
+void VoxelizationDebug::deleteResources() {
+    glDeleteRenderbuffers(1, &renderBuffer);
+    glDeleteFramebuffers(1, &frameBuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -798,10 +848,12 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
     aabbStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\aabb.frag");
     shader.reload(aabbStages.data(), aabbStages.size());
 
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F);
-    result.setFilter(Sampling::Filter::None);
-    result.unbind();
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateFramebuffers(1, &frameBuffer);
 
     std::vector<uint32_t> indices = {
     0, 1, 1, 2, 2, 3, 3, 0, 4,
@@ -819,7 +871,7 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
         });
 }
 
-void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, glTexture2D& texture, glRenderbuffer& renderBuffer, entt::entity active) {
+void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer, entt::entity active) {
     
     assert(active != entt::null);
     if (!scene.has<ecs::MeshComponent>(active) || !scene.has<ecs::TransformComponent>(active)) {
@@ -831,9 +883,10 @@ void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, glText
 
     glEnable(GL_LINE_SMOOTH);
 
-    frameBuffer.bind();
-    frameBuffer.attach(texture, GL_COLOR_ATTACHMENT0);
-    frameBuffer.attach(renderBuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+    glNamedFramebufferTexture(frameBuffer, GL_COLOR_ATTACHMENT0, texture, 0);
+    glNamedFramebufferDrawBuffer(frameBuffer, GL_COLOR_ATTACHMENT0);
+    glNamedFramebufferRenderbuffer(frameBuffer, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
 
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
@@ -866,14 +919,21 @@ void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, glText
     glDrawElements(GL_LINES, indexBuffer.count, GL_UNSIGNED_INT, nullptr);
 
     glDisable(GL_LINE_SMOOTH);
-
-    frameBuffer.unbind();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void BoundingBoxDebug::resize(Viewport& viewport) {
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F);
-    result.unbind();
+void BoundingBoxDebug::createResources(Viewport& viewport) {
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateFramebuffers(1, &frameBuffer);
+}
+
+void BoundingBoxDebug::deleteResources() {
+    glDeleteTextures(1, &result);
+    glDeleteFramebuffers(1, &frameBuffer);
 }
 
 ForwardLightingPass::ForwardLightingPass(Viewport& viewport) {
@@ -886,15 +946,7 @@ ForwardLightingPass::ForwardLightingPass(Viewport& viewport) {
     hotloader.watch(&shader, stages.data(), stages.size());
 
     // init render targets
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
-    result.setFilter(Sampling::Filter::Bilinear);
-    result.unbind();
-
-    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
-
-    framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
-    framebuffer.attach(renderbuffer, GL_DEPTH_STENCIL_ATTACHMENT);
+    createResources(viewport);
 
     // init uniform buffer
     uniformBuffer.setSize(sizeof(uniforms));
@@ -951,14 +1003,14 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
     // update uniform buffer GPU side
     uniformBuffer.update(&uniforms, sizeof(uniforms));
 
-    framebuffer.bind();
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     shader.bind();
     uniformBuffer.bind(0);
 
     voxels->result.bindToSlot(0);
-    shadowmap->result.bindToSlot(3);
+    glBindTextureUnit(3, shadowmap->result);
 
     Math::Frustrum frustrum;
     frustrum.update(viewport.getCamera().getProjection() * viewport.getCamera().getView(), true);
@@ -1008,15 +1060,28 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
     // disable stencil stuff
     glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
     glDisable(GL_STENCIL_TEST);
-
-    framebuffer.unbind();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void ForwardLightingPass::resize(Viewport& viewport) {
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, Format::RGBA_F16);
+void ForwardLightingPass::createResources(Viewport& viewport) {
+    // init render targets
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    renderbuffer.init(viewport.size.x, viewport.size.y, GL_DEPTH32F_STENCIL8);
+    glCreateRenderbuffers(1, &renderbuffer);
+    glNamedRenderbufferStorage(renderbuffer, GL_DEPTH32F_STENCIL8, viewport.size.x, viewport.size.y);
+
+    glCreateFramebuffers(1, &framebuffer);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
+    glNamedFramebufferRenderbuffer(framebuffer, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, renderbuffer);
+}
+
+void ForwardLightingPass::deleteResources() {
+    glDeleteTextures(1, &result);
+    glDeleteRenderbuffers(1, &renderbuffer);
+    glDeleteFramebuffers(1, &framebuffer);
 }
 
 SkyPass::SkyPass(Viewport& viewport) {
@@ -1026,19 +1091,22 @@ SkyPass::SkyPass(Viewport& viewport) {
     shader.reload(stages.data(), stages.size());
     hotloader.watch(&shader, stages.data(), stages.size());
 
-    result.bind();
-    result.init(viewport.size.x, viewport.size.y, { GL_RGBA32F, GL_RGBA, GL_FLOAT });
-    result.setFilter(Sampling::Filter::None);
-    result.setWrap(Sampling::Wrap::ClampEdge);
-    result.unbind();
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    framebuffer.attach(result, GL_COLOR_ATTACHMENT0);
+    glCreateFramebuffers(1, &framebuffer);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
 }
 
 void SkyPass::execute(Viewport& viewport, Mesh* quad) {
     hotloader.checkForUpdates();
 
-    framebuffer.bind();
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT);
 
     shader.bind();
@@ -1050,7 +1118,7 @@ void SkyPass::execute(Viewport& viewport, Mesh* quad) {
 
     quad->render();
 
-    framebuffer.unbind();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void Skinning::execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim) {

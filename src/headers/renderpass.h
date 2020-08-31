@@ -21,15 +21,16 @@ class ShadowMap {
      } settings;
 
     ShadowMap(uint32_t width, uint32_t height);
+    ~ShadowMap();
     void execute(entt::registry& scene);
 
 private:
     glShader shader;
-    glFramebuffer framebuffer;
+    unsigned int framebuffer;
     glUniformBuffer uniformBuffer;
 
 public:
-    glTexture2D result;
+    unsigned int result;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -60,18 +61,20 @@ public:
 
     GeometryBuffer(Viewport& viewport);
     void execute(entt::registry& scene, Viewport& viewport);
-    void resize(Viewport& viewport);
     entt::entity pick(uint32_t x, uint32_t y);
+
+    void createResources(Viewport& viewport);
+    void deleteResources();
 
 private:
     glShader shader;
-    glFramebuffer GBuffer;
+    unsigned int GBuffer;
 
     ShaderHotloader hotloader;
   
 public:
-    glRenderbuffer GDepthBuffer;
-    glTexture2D albedoTexture, normalTexture, positionTexture, materialTexture;
+    unsigned int GDepthBuffer;
+    unsigned int albedoTexture, normalTexture, positionTexture, materialTexture;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -85,18 +88,20 @@ public:
 
     ScreenSpaceAmbientOcclusion(Viewport& viewport);
     void execute(Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad);
-    void resize(Viewport& viewport);
+
+    void createResources(Viewport& viewport);
+    void deleteResources();
 
 private:
-    glTexture2D noise;
+    unsigned int noiseTexture;
     glShader shader;
     glShader blurShader;
-    glFramebuffer framebuffer;
-    glFramebuffer blurFramebuffer;
+    unsigned int framebuffer;
+    unsigned int blurFramebuffer;
 
 public:
-    glTexture2D result;
-    glTexture2D preblurResult;
+    unsigned int result;
+    unsigned int preblurResult;
 
 private:
     glm::vec2 noiseScale;
@@ -109,17 +114,18 @@ class Bloom {
 public:
     Bloom(Viewport& viewport);
     void execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad);
-    void resize(Viewport& viewport);
+    void createResources(Viewport& viewport);
+    void deleteResources();
 
 private:
     glShader blurShader;
     glShader bloomShader;
-    glTexture2D blurTextures[2];
-    glFramebuffer blurBuffers[2];
-    glFramebuffer resultFramebuffer;
+    unsigned int blurTextures[2];
+    unsigned int blurBuffers[2];
+    unsigned int resultFramebuffer;
     
 public:
-    glTexture2D result;
+    unsigned int result;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -132,16 +138,18 @@ public:
     } settings;
 
     Tonemapping(Viewport& viewport);
-    void resize(Viewport& viewport);
-    void execute(glTexture2D& scene, Mesh* quad);
+    void execute(unsigned int scene, Mesh* quad);
+
+    void createResources(Viewport& viewport);
+    void deleteResources();
 
 private:
     glShader shader;
-    glFramebuffer framebuffer;
+    unsigned int framebuffer;
     glUniformBuffer uniformBuffer;
 
 public:
-    glTexture2D result;
+    unsigned int result;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -173,29 +181,31 @@ public:
 class VoxelizationDebug {
 public:
     VoxelizationDebug(Viewport& viewport);
-    void execute(Viewport& viewport, glTexture2D& input, Voxelization* voxels);
-    void resize(Viewport& viewport);
+    void execute(Viewport& viewport, unsigned int input, Voxelization* voxels);
+    void createResources(Viewport& viewport);
+    void deleteResources();
 
 private:
-    glFramebuffer frameBuffer;
-    glRenderbuffer renderBuffer;
+    unsigned int frameBuffer;
+    unsigned int renderBuffer;
     glShader shader;
 };
 
 class BoundingBoxDebug {
 public:
     BoundingBoxDebug(Viewport& viewport);
-    void execute(entt::registry& scene, Viewport& viewport, glTexture2D& texture, glRenderbuffer& renderBuffer, entt::entity active);
-    void resize(Viewport& viewport);
+    void execute(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer, entt::entity active);
+    void createResources(Viewport& viewport);
+    void deleteResources();
 
 private:
     glShader shader;
-    glFramebuffer frameBuffer;
+    unsigned int frameBuffer;
     glVertexBuffer vertexBuffer;
     glIndexBuffer indexBuffer;
 
 public:
-    glTexture2D result;
+    unsigned int result;
 };
 
 class ForwardLightingPass {
@@ -212,27 +222,28 @@ private:
 public:
     ForwardLightingPass(Viewport& viewport);
     void execute(Viewport& viewport, entt::registry& scene, Voxelization* voxels, ShadowMap* shadowmap);
-    void resize(Viewport& viewport);
+    void createResources(Viewport& viewport);
+    void deleteResources();
 
     entt::entity pick(uint32_t x, uint32_t y) {
         int id;
-        framebuffer.bind();
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         glReadPixels(x, y, 1, 1, GL_STENCIL_INDEX, GL_INT, &id);
-        framebuffer.unbind();
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return static_cast<entt::entity>(id);
     }
 
 private:
     glShader shader;
-    glFramebuffer framebuffer;
-    glRenderbuffer renderbuffer;
+    unsigned int framebuffer;
+    unsigned int renderbuffer;
     glUniformBuffer uniformBuffer;
 
     ShaderHotloader hotloader;
 
 public:
     int culled = 0;
-    glTexture2D result;
+    unsigned int result;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -260,18 +271,19 @@ public:
     DeferredLighting(Viewport& viewport);
     void execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
         GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad);
-    void resize(Viewport& viewport);
+    void createResources(Viewport& viewport);
+    void deleteResources();
 
 private:
     glShader shader;
-    glFramebuffer framebuffer;
+    unsigned int framebuffer;
     glUniformBuffer uniformBuffer;
 
     ShaderHotloader hotloader;
 
 public:
-    glTexture2D result;
-    glTexture2D bloomHighlights;
+    unsigned int result;
+    unsigned int bloomHighlights;
 };
 
 class SkyPass {
@@ -289,10 +301,10 @@ public:
 private:
     glShader shader;
     ShaderHotloader hotloader;
-    glFramebuffer framebuffer;
+    unsigned int framebuffer;
 
 public:
-    glTexture2D result;
+    unsigned int result;
 };
 
 class Skinning {
@@ -319,6 +331,8 @@ public:
 
 private:
     glTextureCube envCubemap;
+    glTextureCube irradianceCubemap;
+
     glFramebuffer captureFramebuffer;
     glRenderbuffer captureRenderbuffer;
     glShader toCubemapShader;

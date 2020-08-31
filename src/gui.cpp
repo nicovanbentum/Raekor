@@ -501,7 +501,7 @@ void Guizmo::drawWindow() {
     ImGui::End();
 }
 
-void AssetBrowser::drawWindow(entt::registry& assets, entt::entity& active) {
+void AssetWindow::drawWindow(entt::registry& assets, entt::entity& active) {
     ImGui::Begin("Asset Browser");
 
     auto materialView = assets.view<ecs::MaterialComponent, ecs::NameComponent>();

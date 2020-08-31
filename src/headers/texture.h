@@ -35,6 +35,35 @@ namespace Format {
 
 //////////////////////////////////////////////////////////////////////////////////
 
+class OGLTexture {
+public:
+    OGLTexture(const OGLTexture& rhs) = delete;
+    OGLTexture& operator=(const OGLTexture& rhs) = delete;
+
+    OGLTexture(OGLTexture&& rhs) noexcept : handle(std::exchange(rhs.handle, 0)) {}
+
+    OGLTexture& operator=(OGLTexture&& rhs) noexcept {
+        glDeleteTextures(1, &handle);
+        handle = std::exchange(rhs.handle, 0);
+        return *this;
+    }
+
+    OGLTexture() = default;
+    OGLTexture(GLenum target) { create(target); }
+
+    ~OGLTexture() {
+        glDeleteTextures(1, &handle);
+    }
+
+    void create(GLenum target) {
+        glCreateTextures(target, 1, &handle);
+    }
+
+private:
+    GLuint handle;
+};
+
+
 class glTexture {
 public:
     friend class glFramebuffer;
@@ -47,16 +76,11 @@ public:
     glTexture(const glTexture&) = delete;
     glTexture& operator=(const glTexture&) = delete;
 
-    glTexture(glTexture&& other) {
-        mID = other.mID;
-        other.mID = 0; //Use null texture for the old object
-    }
+    glTexture(glTexture&& other) noexcept : mID(std::exchange(other.mID, 0)) {}
 
-    glTexture& operator=(glTexture&& other) {
+    glTexture& operator=(glTexture&& other) noexcept {
         if (this != &other) {
-            glDeleteTextures(1, &mID);
-            mID = 0;
-            std::swap(mID, other.mID);
+            mID = std::exchange(other.mID, 0);
         }
     }
 

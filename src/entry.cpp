@@ -41,11 +41,12 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
         if (ev.type == SDL_WINDOWEVENT) {
             if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
                 if (SDL_GetWindowID(window) == ev.window.windowID) {
-                    Application::running = false;
+                    Editor::running = false;
                 }
             }
             else if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
-                Application::shouldResize = true;
+                Editor::shouldResize = true;
+                std::cout << " should reize = " << Editor::shouldResize << '\n';
             }
         }
         // handle mouse down events
@@ -95,7 +96,7 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
             } break;
 
             case SDLK_h: {
-                Application::showUI = !Application::showUI;
+                Editor::showUI = !Editor::showUI;
             } break;
             }
         }
@@ -107,8 +108,8 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
 
 int main(int argc, char** argv) {
     
-    auto app = Raekor::Application();
-    app.run();
+    auto app = Raekor::Editor();
+    app.runOGL();
     app.serializeSettings("config.json", true);
     return 0;
 }

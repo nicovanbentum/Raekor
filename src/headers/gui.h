@@ -87,7 +87,7 @@ private:
     std::array<const char*, 3> previews = { "TRANSLATE", "ROTATE", "SCALE"};
 };
 
-class AssetBrowser {
+class AssetWindow {
 public:
     void drawWindow(entt::registry& assets, entt::entity& active);
 };

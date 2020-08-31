@@ -24,11 +24,11 @@ struct mod {
 
 namespace Raekor {
 
-bool Application::running = true;
-bool Application::showUI = true;
-bool Application::shouldResize = false;
+bool Editor::running = true;
+bool Editor::showUI = true;
+bool Editor::shouldResize = false;
 
-void Application::vulkanMain() {
+void Editor::runVulkan() {
     auto context = Raekor::OS();
 
     // retrieve the application settings from the config file
