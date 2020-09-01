@@ -152,7 +152,7 @@ void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component, entt::reg
     ImGui::Text("Index count: %i", component.indices.size() * 3);
     if (scene.valid(component.material) && scene.has<ecs::MaterialComponent, ecs::NameComponent>(component.material)) {
         auto& [material, name] = scene.get<ecs::MaterialComponent, ecs::NameComponent>(component.material);
-        if (ImGui::ImageButton(material.albedo->ImGuiID(), ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale()))) {
+        if (ImGui::ImageButton((void*)((intptr_t)*material.albedo), ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale()))) {
             active = component.material;
         }
         ImGui::SameLine();
@@ -170,7 +170,7 @@ void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component, entt::reg
 void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
     if (ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR)) {
         if (component.albedo && component.albedoFile.empty()) {
-            glTextureSubImage2D(component.albedo->mID, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(component.baseColour));
+            glTextureSubImage2D(*component.albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(component.baseColour));
         }
     }
 
@@ -180,12 +180,12 @@ void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
     if (adjustedMetallic || adjustedRoughness) {
         if (component.metalrough && component.mrFile.empty()) {
             auto metalRoughnessValue = glm::vec4(component.metallic, component.roughness, 0.0f, 1.0f);
-            glTextureSubImage2D(component.metalrough->mID, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
+            glTextureSubImage2D(*component.metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
         }
     }
 
     if (component.albedo) {
-        ImGui::Image(component.albedo->ImGuiID(), ImVec2(15, 15));
+        ImGui::Image((void*)((intptr_t)*component.albedo), ImVec2(15, 15));
         ImGui::SameLine();
     }
 
@@ -198,21 +198,12 @@ void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
         if (!filepath.empty()) {
             Stb::Image image;
             image.load(filepath, true);
-
-            if (!component.albedo) {
-                component.albedo.reset(new glTexture2D());
-            }
-
-            component.albedo->bind();
-            component.albedo->init(image.w, image.h, Format::SRGBA_U8, image.pixels);
-            component.albedo->setFilter(Sampling::Filter::Trilinear);
-            component.albedo->genMipMaps();
-            component.albedo->unbind();
+            component.createAlbedoTexture(image);
         }
     }
 
     if (component.normals) {
-        ImGui::Image(component.normals->ImGuiID(), ImVec2(15, 15));
+        ImGui::Image((void*)((intptr_t)*component.normals), ImVec2(15, 15));
         ImGui::SameLine();
     }
     
@@ -223,20 +214,12 @@ void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
         if (!filepath.empty()) {
             Stb::Image image;
             image.load(filepath, true);
-
-            if (!component.normals) {
-                component.normals.reset(new glTexture2D());
-            }
-
-            component.normals->bind();
-            component.normals->init(image.w, image.h, Format::RGBA_U8, image.pixels);
-            component.normals->setFilter(Sampling::Filter::None);
-            component.normals->unbind();
+            component.createNormalTexture(image);
         }
     }
 
     if (component.metalrough) {
-        ImGui::Image(component.metalrough->ImGuiID(), ImVec2(15, 15));
+        ImGui::Image((void*)((intptr_t)*component.metalrough), ImVec2(15, 15));
         ImGui::SameLine();
     }
 

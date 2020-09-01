@@ -119,81 +119,120 @@ void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::uploadRenderData() {
-    albedo = std::make_shared<glTexture2D>();
-    albedo->bind();
-    albedo->init(1, 1, { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT }, glm::value_ptr(baseColour));
-    albedo->setFilter(Sampling::Filter::None);
-    albedo->setWrap(Sampling::Wrap::Repeat);
+void MaterialComponent::createAlbedoTexture() {
+    if (albedo) glDeleteTextures(1, albedo.get());
+    albedo = std::make_shared<unsigned int>();
 
-    normals = std::make_shared<glTexture2D>();
-    normals->bind();
+    glCreateTextures(GL_TEXTURE_2D, 1, albedo.get());
+    glTextureStorage2D(*albedo, 1, GL_SRGB8_ALPHA8, 1, 1);
+    glTextureSubImage2D(*albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(baseColour));
+
+    glTextureParameteri(*albedo, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(*albedo, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(*albedo, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(*albedo, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(*albedo, GL_TEXTURE_WRAP_R, GL_REPEAT);
+}
+
+void MaterialComponent::createAlbedoTexture(const Stb::Image& image) {
+    if (albedo) glDeleteTextures(1, albedo.get());
+    albedo = std::make_shared<unsigned int>();
+
+    glCreateTextures(GL_TEXTURE_2D, 1, albedo.get());
+    auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(image.w, image.h))));
+    glTextureStorage2D(*albedo, mipmapLevels, GL_SRGB8_ALPHA8, image.w, image.h);
+    glTextureSubImage2D(*albedo, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+    glTextureParameteri(*albedo, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(*albedo, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateTextureMipmap(*albedo);
+}
+
+void MaterialComponent::createNormalTexture() {
+    if (normals) glDeleteTextures(1, normals.get());
+    normals = std::make_shared<unsigned int>();
+
     constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
-    normals->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(tbnAxis));
-    normals->setFilter(Sampling::Filter::None);
-    normals->setWrap(Sampling::Wrap::Repeat);
+    glCreateTextures(GL_TEXTURE_2D, 1, normals.get());
+    glTextureStorage2D(*normals, 1, GL_RGBA16F, 1, 1);
+    glTextureSubImage2D(*normals, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(tbnAxis));
+    glTextureParameteri(*normals, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(*normals, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(*normals, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(*normals, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(*normals, GL_TEXTURE_WRAP_R, GL_REPEAT);
+}
 
-    metalrough = std::make_shared<glTexture2D>();
+void MaterialComponent::createNormalTexture(const Stb::Image& image)
+{
+    if (normals) glDeleteTextures(1, normals.get());
+    normals = std::make_shared<unsigned int>();
+
+    glCreateTextures(GL_TEXTURE_2D, 1, normals.get());
+    auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(image.w, image.h))));
+    glTextureStorage2D(*normals, mipmapLevels, GL_RGBA8, image.w, image.h);
+    glTextureSubImage2D(*normals, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+    glTextureParameteri(*normals, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(*normals, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateTextureMipmap(*normals);
+}
+
+void MaterialComponent::createMetalRoughTexture() {
+    if (metalrough) glDeleteTextures(1, metalrough.get());
+    metalrough = std::make_shared<unsigned int>();
+
     auto metalRoughnessValue = glm::vec4(metallic, roughness, 0.0f, 1.0f);
-    metalrough->bind();
-    metalrough->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(metalRoughnessValue));
-    metalrough->setFilter(Sampling::Filter::None);
-    metalrough->setWrap(Sampling::Wrap::Repeat);
+    glCreateTextures(GL_TEXTURE_2D, 1, metalrough.get());
+    glTextureStorage2D(*metalrough, 1, GL_RGBA16F, 1, 1);
+    glTextureSubImage2D(*metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
+    glTextureParameteri(*metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(*metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(*metalrough, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(*metalrough, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(*metalrough, GL_TEXTURE_WRAP_R, GL_REPEAT);
+}
+
+void MaterialComponent::createMetalRoughTexture(const Stb::Image& image) {
+    if (metalrough) glDeleteTextures(1, metalrough.get());
+    metalrough = std::make_shared<unsigned int>();
+
+    glCreateTextures(GL_TEXTURE_2D, 1, metalrough.get());
+    auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(image.w, image.h))));
+    glTextureStorage2D(*metalrough, mipmapLevels, GL_RGBA8, image.w, image.h);
+    glTextureSubImage2D(*metalrough, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+    glTextureParameteri(*metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(*metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glGenerateTextureMipmap(*metalrough);
+}
+
+void MaterialComponent::uploadRenderData() {
+    createAlbedoTexture();
+    createNormalTexture();
+    createMetalRoughTexture();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images) {
     auto albedoEntry = images.find(albedoFile);
-    albedo = std::make_unique<glTexture2D>();
-    albedo->bind();
-
-    if (albedoEntry != images.end() && !albedoEntry->first.empty()) {
-        const Stb::Image& image = albedoEntry->second;
-        albedo->init(image.w, image.h, Format::SRGBA_U8, image.pixels);
-        albedo->setFilter(Sampling::Filter::Trilinear);
-        albedo->genMipMaps();
-    }
-    else {
-        albedo->init(1, 1, { GL_SRGB_ALPHA, GL_RGBA, GL_FLOAT }, glm::value_ptr(baseColour));
-        albedo->setFilter(Sampling::Filter::None);
-        albedo->setWrap(Sampling::Wrap::Repeat);
-    }
+    albedo = std::make_shared<unsigned int>();
 
     auto normalsEntry = images.find(normalFile);
-    normals = std::make_unique<glTexture2D>();
-    normals->bind();
-
-    if (normalsEntry != images.end() && !normalsEntry->first.empty()) {
-        const Stb::Image& image = normalsEntry->second;
-        normals->init(image.w, image.h, Format::RGBA_U8, image.pixels);
-        normals->setFilter(Sampling::Filter::Trilinear);
-        normals->genMipMaps();
-    }
-    else {
-        constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
-        normals->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(tbnAxis));
-        normals->setFilter(Sampling::Filter::None);
-        normals->setWrap(Sampling::Wrap::Repeat);
-    }
-
+    normals = std::make_shared<unsigned int>();
+    
     auto metalroughEntry = images.find(mrFile);
-    metalrough = std::make_unique<glTexture2D>();
+    metalrough = std::make_shared<unsigned int>();
+    
+    if (albedoEntry != images.end() && !albedoEntry->first.empty()) {
+        createAlbedoTexture(albedoEntry->second);
+    } else createAlbedoTexture();
+    
+    if (normalsEntry != images.end() && !normalsEntry->first.empty()) {
+        createNormalTexture(normalsEntry->second);
+    } else createNormalTexture();
 
     if (metalroughEntry != images.end() && !metalroughEntry->first.empty()) {
-        const Stb::Image& image = metalroughEntry->second;
-        metalrough->bind();
-        metalrough->init(image.w, image.h, { GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE }, image.pixels);
-        metalrough->setFilter(Sampling::Filter::None);
-        normals->genMipMaps();
-    }
-    else {
-        auto metalRoughnessValue = glm::vec4(metallic, roughness, 0.0f, 1.0f);
-        metalrough->bind();
-        metalrough->init(1, 1, { GL_RGBA16F, GL_RGBA, GL_FLOAT }, glm::value_ptr(metalRoughnessValue));
-        metalrough->setFilter(Sampling::Filter::None);
-        metalrough->setWrap(Sampling::Wrap::Repeat);
-    }
+        createMetalRoughTexture(metalroughEntry->second);
+    } else createMetalRoughTexture();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

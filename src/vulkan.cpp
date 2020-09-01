@@ -55,6 +55,10 @@ void Editor::runVulkan() {
         static_cast<int>(displays[index].h * 0.9),
         wflags);
 
+    if (!window) {
+        std::cout << SDL_GetError() << '\n';
+    }
+
     //initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

@@ -33,33 +33,4 @@ protected:
     unsigned int textureID;
 };
 
-
-class glRenderbuffer {
-public:
-    friend class glFramebuffer;
-    
-    glRenderbuffer();
-    ~glRenderbuffer();
-    void init(uint32_t width, uint32_t height, GLenum format);
-
-private:
-    unsigned int mID;
-};
-
-class glFramebuffer {
-public:
-    glFramebuffer();
-    ~glFramebuffer();
-
-    void bind();
-    void unbind();
-    void attach(glTexture2D& texture, GLenum type);
-    void attach(glRenderbuffer& buffer, GLenum attachment);
-    void attach(glTextureCube& texture, GLenum type, uint8_t face);
-
-private:
-    std::vector<unsigned int> colorAttachments;
-    unsigned int mID;
-};
-
 } // Raekor

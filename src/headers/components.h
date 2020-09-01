@@ -102,9 +102,18 @@ struct MaterialComponent {
     float metallic = 1.0f, roughness = 1.0f;
 
     // GPU resources
-    std::shared_ptr<glTexture2D> albedo;
-    std::shared_ptr<glTexture2D> normals;
-    std::shared_ptr<glTexture2D> metalrough;
+    std::shared_ptr<unsigned int> albedo;
+    std::shared_ptr<unsigned int> normals;
+    std::shared_ptr<unsigned int> metalrough;
+
+    void createAlbedoTexture();
+    void createAlbedoTexture(const Stb::Image& image);
+
+    void createNormalTexture();
+    void createNormalTexture(const Stb::Image& image);
+
+    void createMetalRoughTexture();
+    void createMetalRoughTexture(const Stb::Image& image);
 
     void uploadRenderData();
     void uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images);

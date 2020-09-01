@@ -108,12 +108,14 @@ OmniShadowMap::OmniShadowMap(uint32_t width, uint32_t height) {
     omniShadowmapStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depthCube.frag");
     shader.reload(omniShadowmapStages.data(), omniShadowmapStages.size());
 
-    result.bind();
-    for (unsigned int i = 0; i < 6; ++i) {
-        result.init(settings.width, settings.height, i, Format::DEPTH, nullptr);
-    }
-    result.setFilter(Sampling::Filter::None);
-    result.setWrap(Sampling::Wrap::ClampEdge);
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &result);
+    glTextureStorage3D(result, 1, GL_DEPTH_COMPONENT32F, settings.width, settings.height, 6);
+
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 }
 
 void OmniShadowMap::execute(entt::registry& scene, const glm::vec3& lightPosition) {
@@ -130,13 +132,13 @@ void OmniShadowMap::execute(entt::registry& scene, const glm::vec3& lightPositio
     shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
 
     // render every model using the depth cubemap shader
-    depthCubeFramebuffer.bind();
+    glBindFramebuffer(GL_FRAMEBUFFER, depthCubeFramebuffer);
     glCullFace(GL_BACK);
 
     shader.bind();
     shader.getUniform("farPlane") = settings.farPlane;
     for (uint32_t i = 0; i < 6; i++) {
-        depthCubeFramebuffer.attach(result, GL_DEPTH_ATTACHMENT, i);
+        glNamedFramebufferTexture(depthCubeFramebuffer, GL_COLOR_ATTACHMENT0 + i, result, i);
         glClear(GL_DEPTH_BUFFER_BIT);
         shader.getUniform("projView") = shadowTransforms[i];
         shader.getUniform("lightPos") = lightPosition;
@@ -161,7 +163,7 @@ void OmniShadowMap::execute(entt::registry& scene, const glm::vec3& lightPositio
         }
     }
 
-    depthCubeFramebuffer.unbind();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -213,9 +215,9 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
         auto material = scene.try_get<ecs::MaterialComponent>(mesh.material);
 
         if (material) {
-            if (material->albedo)       material->albedo->bindToSlot(0);
-            if (material->normals)      material->normals->bindToSlot(3);
-            if (material->metalrough)   material->metalrough->bindToSlot(4);
+            if (material->albedo)       glBindTextureUnit(0, *material->albedo);
+            if (material->normals)      glBindTextureUnit(3, *material->normals);
+            if (material->metalrough)   glBindTextureUnit(4, *material->metalrough);
         }
 
         shader.getUniform("model") = transform.worldTransform;
@@ -283,7 +285,7 @@ void GeometryBuffer::createResources(Viewport& viewport) {
 
 void GeometryBuffer::deleteResources() {
     std::array<unsigned int, 4> textures = { albedoTexture, normalTexture, positionTexture, materialTexture };
-    glDeleteTextures(textures.size(), textures.data());
+    glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
     glDeleteRenderbuffers(1, &GDepthBuffer);
     glDeleteFramebuffers(1, &GBuffer);
 }
@@ -401,7 +403,7 @@ void ScreenSpaceAmbientOcclusion::createResources(Viewport& viewport) {
 
 void ScreenSpaceAmbientOcclusion::deleteResources() {
     std::array<GLuint, 3> textures = { noiseTexture, result, preblurResult };
-    glDeleteTextures(textures.size(), textures.data());
+    glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
 
     glDeleteFramebuffers(1, &framebuffer);
     glDeleteFramebuffers(1, &blurFramebuffer);
@@ -451,7 +453,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     glBindTextureUnit(0, shadowMap->result);
     
     if (omniShadowMap) {
-        omniShadowMap->result.bindToSlot(1);
+        glBindTextureUnit(1, omniShadowMap->result);
     }
 
     glBindTextureUnit(2, GBuffer->positionTexture);
@@ -462,7 +464,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
         glBindTextureUnit(5, ambientOcclusion->result);
     }
 
-    voxels->result.bindToSlot(6);
+    glBindTextureUnit(6, voxels->result);
     glBindTextureUnit(7, GBuffer->materialTexture);
 
     // update the uniform buffer CPU side
@@ -554,7 +556,7 @@ Bloom::Bloom(Viewport& viewport) {
     blurShader.reload(blurStages.data(), blurStages.size());
 }
 
-void Bloom::execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad) {
+void Bloom::execute(unsigned int scene, unsigned int highlights, Mesh* quad) {
     // perform gaussian blur on the bloom texture using "ping pong" framebuffers that
     // take each others color attachments as input and perform a directional gaussian blur each
     // iteration
@@ -564,7 +566,7 @@ void Bloom::execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad) {
         glBindFramebuffer(GL_FRAMEBUFFER, blurBuffers[horizontal]);
         blurShader.getUniform("horizontal") = horizontal;
         if (firstIteration) {
-            highlights.bindToSlot(0);
+            glBindTextureUnit(0, highlights);
             firstIteration = false;
         }
         else {
@@ -578,10 +580,13 @@ void Bloom::execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad) {
 
     // blend the bloom and scene texture together
     glBindFramebuffer(GL_FRAMEBUFFER, resultFramebuffer);
+
     bloomShader.bind();
-    scene.bindToSlot(0);
+    glBindTextureUnit(0, scene);
     glBindTextureUnit(1, blurTextures[!horizontal]);
+
     quad->render();
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -687,20 +692,20 @@ Voxelization::Voxelization(int size) : size(size) {
     auto opacityFixStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\correctAlpha.comp");
     opacityFixShader.reload(&opacityFixStage, 1);
 
-    // Direct State Access (TODO: Experimental, implement everywhere)
-    result.setFilter(Sampling::Filter::Trilinear);
-    auto levelCount = std::log2(size);
-    glTextureStorage3D(result.mID, static_cast<GLsizei>(levelCount), GL_RGBA8, size, size, size);
-    result.genMipMaps();
+    glCreateTextures(GL_TEXTURE_3D, 1, &result);
+    glTextureStorage3D(result, static_cast<GLsizei>(std::log2(size)), GL_RGBA8, size, size, size);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateTextureMipmap(result);
 }
 
-void Voxelization::computeMipmaps(glTexture3D& texture) {
+void Voxelization::computeMipmaps(unsigned int texture) {
     int level = 0, texSize = size;
     while (texSize >= 1.0f) {
         texSize = static_cast<int>(texSize * 0.5f);
         mipmapShader.bind();
-        glBindImageTexture(0, texture.mID, level, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA8);
-        glBindImageTexture(1, texture.mID, level + 1, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
+        glBindImageTexture(0, texture, level, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA8);
+        glBindImageTexture(1, texture, level + 1, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
         // TODO: query local work group size at startup
         glDispatchCompute(static_cast<GLuint>(size / 64), texSize, texSize);
         mipmapShader.unbind();
@@ -709,9 +714,9 @@ void Voxelization::computeMipmaps(glTexture3D& texture) {
     }
 }
 
-void Voxelization::correctOpacity(glTexture3D& texture) {
+void Voxelization::correctOpacity(unsigned int texture) {
     opacityFixShader.bind();
-    glBindImageTexture(0, texture.mID, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA8);
+    glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA8);
     // local work group size is 64
     glDispatchCompute(static_cast<GLuint>(size / 64), size, size);
     opacityFixShader.unbind();
@@ -728,7 +733,11 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
     py = projectionMatrix * glm::lookAt(glm::vec3(0, worldSize, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, -1));
     pz = projectionMatrix * glm::lookAt(glm::vec3(0, 0, worldSize), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
-    result.clear({ 0, 0, 0, 0 });
+    // clear the entire voxel texture
+    constexpr auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    for (uint32_t level = 0; level < std::log2(size); level++) {
+        glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
+    }
 
     // set GL state
     glViewport(0, 0, size, size);
@@ -739,7 +748,7 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
 
     // bind shader and 3d voxel map
     shader.bind();
-    result.bindToSlot(1, GL_WRITE_ONLY, GL_R32UI);
+    glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32UI);
     glBindTextureUnit(2, shadowmap->result);
 
     shader.getUniform("lightViewProjection") = shadowmap->uniforms.cameraMatrix;
@@ -760,7 +769,7 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
         shader.getUniform("pz") = pz;
 
         if (material) {
-            if (material->albedo) material->albedo->bindToSlot(0);
+            if (material->albedo) glBindTextureUnit(0, *material->albedo);
         }
 
         // determine if we use the original mesh vertices or GPU skinned vertices
@@ -818,7 +827,7 @@ void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxeliza
     shader.getUniform("p") = viewport.getCamera().getProjection();
     shader.getUniform("mv") = viewport.getCamera().getView() * modelMatrix;
 
-    voxels->result.bindToSlot(0);
+    glBindTextureUnit(0, voxels->result);
     glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(std::pow(128, 3)));
 
     // unbind framebuffers
@@ -1009,7 +1018,7 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
     shader.bind();
     uniformBuffer.bind(0);
 
-    voxels->result.bindToSlot(0);
+    glBindTextureUnit(0, voxels->result);
     glBindTextureUnit(3, shadowmap->result);
 
     Math::Frustrum frustrum;
@@ -1037,8 +1046,8 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
         ecs::MaterialComponent* material = scene.try_get<ecs::MaterialComponent>(mesh.material);
 
         if (material) {
-            if (material->albedo) material->albedo->bindToSlot(1);
-            if (material->normals) material->normals->bindToSlot(2);
+            if (material->albedo) glBindTextureUnit(1, *material->albedo);
+            if (material->normals) glBindTextureUnit(2, *material->normals);
         }
 
         shader.getUniform("model") = transform.worldTransform;
@@ -1156,12 +1165,14 @@ void EnvironmentPass::execute(const std::string& file, Mesh* unitCube) {
 
     stbi_image_free(data);
 
-    captureRenderbuffer.init(512, 512, GL_DEPTH_COMPONENT24);
-    captureFramebuffer.attach(captureRenderbuffer, GL_DEPTH_ATTACHMENT);
+    glCreateRenderbuffers(1, &captureRenderbuffer);
+    glNamedRenderbufferStorage(captureRenderbuffer, GL_DEPTH_COMPONENT24, 512, 512);
 
-    for (unsigned int i = 0; i < 6; i++) {
-        envCubemap.init(512, 512, i, { GL_RGB16F, GL_RGB, GL_FLOAT }, nullptr);
-    }
+    glCreateFramebuffers(1, &captureFramebuffer);
+    glNamedFramebufferRenderbuffer(captureFramebuffer, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, captureRenderbuffer);
+
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &envCubemap);
+    glTextureStorage3D(envCubemap, 1, GL_RGB16F, 512, 512, 6);
 
     glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
     std::array<glm::mat4, 6> captureViews = {
@@ -1178,10 +1189,10 @@ void EnvironmentPass::execute(const std::string& file, Mesh* unitCube) {
     glBindTextureUnit(originalTexture, 0);
 
     glViewport(0, 0, 512, 512);
-    captureFramebuffer.bind();
+    glBindFramebuffer(GL_FRAMEBUFFER, captureFramebuffer);
     for (unsigned int i = 0; i < 6; i++) {
         toCubemapShader["view"] = captureViews[i];
-        captureFramebuffer.attach(envCubemap, GL_COLOR_ATTACHMENT0 + i, i);
+        glNamedFramebufferTexture(captureFramebuffer, GL_COLOR_ATTACHMENT0 + i, envCubemap, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         unitCube->render();
     }

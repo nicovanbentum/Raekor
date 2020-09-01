@@ -47,10 +47,10 @@ public:
 
 private:
     glShader shader;
-    glFramebuffer depthCubeFramebuffer;
+    unsigned int depthCubeFramebuffer;
 
 public:
-    glTextureCube result;
+    unsigned int result;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -113,7 +113,7 @@ private:
 class Bloom {
 public:
     Bloom(Viewport& viewport);
-    void execute(glTexture2D& scene, glTexture2D& highlights, Mesh* quad);
+    void execute(unsigned int scene, unsigned int highlights, Mesh* quad);
     void createResources(Viewport& viewport);
     void deleteResources();
 
@@ -160,9 +160,9 @@ public:
     void execute(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap);
 
 private:
-    void computeMipmaps(glTexture3D& texture);
+    void computeMipmaps(unsigned int texture);
 
-    void correctOpacity(glTexture3D& texture);
+    void correctOpacity(unsigned int texture);
 
     int size;
     glm::mat4 px, py, pz;
@@ -173,7 +173,7 @@ private:
 
 public:
     float worldSize = 150.0f;
-    glTexture3D result;
+    unsigned int result;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -330,11 +330,11 @@ public:
     void execute(const std::string& file, Mesh* unitCube);
 
 private:
-    glTextureCube envCubemap;
-    glTextureCube irradianceCubemap;
+    unsigned int envCubemap;
+    unsigned int irradianceCubemap;
 
-    glFramebuffer captureFramebuffer;
-    glRenderbuffer captureRenderbuffer;
+    unsigned int captureFramebuffer;
+    unsigned int captureRenderbuffer;
     glShader toCubemapShader;
 };
 
