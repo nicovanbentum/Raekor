@@ -14,25 +14,67 @@ void TransformComponent::recalculateMatrix() {
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void MeshComponent::generateAABB() {
-    aabb[0] = vertices[0].pos;
-    aabb[1] = vertices[1].pos;
-    for (auto& v : vertices) {
-        aabb[0] = glm::min(aabb[0], v.pos);
-        aabb[1] = glm::max(aabb[1], v.pos);
+    aabb[0] = positions[0];
+    aabb[1] = positions[1];
+    for (auto& v : positions) {
+        aabb[0] = glm::min(aabb[0], v);
+        aabb[1] = glm::max(aabb[1], v);
+    }
+}
+
+void MeshComponent::fillStagingBuffer(std::vector<float>& stagingBuffer) {
+    if (!stagingBuffer.empty()) stagingBuffer.clear();
+
+    stagingBuffer.reserve(
+        3 * positions.size() +
+        2 * uvs.size() +
+        3 * normals.size() +
+        3 * tangents.size() +
+        3 * bitangents.size()
+    );
+
+    for (auto i = 0; i < positions.size(); i++) {
+        auto position = glm::value_ptr(positions[i]);
+        stagingBuffer.insert(stagingBuffer.end(), position, position + 3);
+
+        if (!uvs.empty()) {
+            auto uv = glm::value_ptr(uvs[i]);
+            stagingBuffer.insert(stagingBuffer.end(), uv, uv + 2);
+        }
+
+        if (!normals.empty()) {
+            auto normal = glm::value_ptr(normals[i]);
+            stagingBuffer.insert(stagingBuffer.end(), normal, normal + 3);
+        }
+
+        if (!tangents.empty()) {
+            auto tangent = glm::value_ptr(tangents[i]);
+            stagingBuffer.insert(stagingBuffer.end(), tangent, tangent + 3);
+        }
+
+        if (!bitangents.empty()) {
+            auto bitangent = glm::value_ptr(bitangents[i]);
+            stagingBuffer.insert(stagingBuffer.end(), bitangent, bitangent + 3);
+        }
     }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void MeshComponent::uploadVertices() {
-    vertexBuffer.loadVertices(vertices.data(), vertices.size());
-    vertexBuffer.setLayout({
-        { "POSITION",    ShaderType::FLOAT3 },
-        { "UV",          ShaderType::FLOAT2 },
-        { "NORMAL",      ShaderType::FLOAT3 },
-        { "TANGENT",     ShaderType::FLOAT3 },
-        { "BINORMAL",    ShaderType::FLOAT3 },
-        });
+
+    std::vector<float> stagingBuffer;
+    fillStagingBuffer(stagingBuffer);
+
+    std::vector<Element> layout;
+    if (!positions.empty())     layout.emplace_back("POSITION", ShaderType::FLOAT3);
+    if (!uvs.empty())           layout.emplace_back("TEXCOORD", ShaderType::FLOAT2);
+    if (!normals.empty())       layout.emplace_back("NORMAL",   ShaderType::FLOAT3);
+    if (!tangents.empty())      layout.emplace_back("TANGENT",  ShaderType::FLOAT3);
+    if (!bitangents.empty())    layout.emplace_back("BINORMAL", ShaderType::FLOAT3);
+
+    vertexBuffer.loadVertices(stagingBuffer.data(), stagingBuffer.size());
+    vertexBuffer.setLayout(layout);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -107,14 +149,16 @@ void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
     glCreateBuffers(1, &boneTransformsBuffer);
     glNamedBufferData(boneTransformsBuffer, boneTransforms.size() * sizeof(glm::mat4), boneTransforms.data(), GL_DYNAMIC_READ);
 
-    skinnedVertexBuffer.loadVertices(mesh.vertices.data(), mesh.vertices.size());
+    std::vector<float> originalMeshBuffer;
+    mesh.fillStagingBuffer(originalMeshBuffer);
+    skinnedVertexBuffer.loadVertices(originalMeshBuffer.data(), originalMeshBuffer.size());
     skinnedVertexBuffer.setLayout({
         { "POSITION",    ShaderType::FLOAT3 },
         { "UV",          ShaderType::FLOAT2 },
         { "NORMAL",      ShaderType::FLOAT3 },
         { "TANGENT",     ShaderType::FLOAT3 },
         { "BINORMAL",    ShaderType::FLOAT3 },
-        });
+    });
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

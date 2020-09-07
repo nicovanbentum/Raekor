@@ -42,14 +42,14 @@ struct NodeComponent {
     bool hasChildren = false;
 };
 
-struct BoneInfo {
-    glm::mat4 boneOffset;
-    glm::mat4 finalTransformation;
-};
 
 struct MeshComponent {
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec2> uvs;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec3> tangents;
+    std::vector<glm::vec3> bitangents;
 
-    std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 
     glVertexBuffer vertexBuffer;
@@ -60,9 +60,15 @@ struct MeshComponent {
     entt::entity material = entt::null;
 
     void generateAABB();
-    
-    void uploadVertices();
     void uploadIndices();
+    void uploadVertices();
+    void fillStagingBuffer(std::vector<float>& stagingBuffer);
+};
+
+// TODO: move these two structs somewhere else
+struct BoneInfo {
+    glm::mat4 boneOffset;
+    glm::mat4 finalTransformation;
 };
 
 struct BoneTreeNode {

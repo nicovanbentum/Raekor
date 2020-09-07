@@ -28,13 +28,20 @@ Instance::Instance(SDL_Window* window) {
         throw std::runtime_error("failed to get vulkan instance extensions");
     }
 
-    std::vector<const char*> extensions = { VK_EXT_DEBUG_REPORT_EXTENSION_NAME };
+    std::vector<const char*> extensions = { 
+        VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
+    };
+
     size_t additional_extension_count = extensions.size();
     extensions.resize(additional_extension_count + count);
 
     auto sdl_bool = SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data() + additional_extension_count);
     if (!sdl_bool) {
         throw std::runtime_error("failed to get instance extensions");
+    }
+
+    for (auto extension : extensions) {
+        std::cout << extension << '\n';
     }
 
     const std::vector<const char*> validationLayers = {

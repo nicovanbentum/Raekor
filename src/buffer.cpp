@@ -60,6 +60,15 @@ InputLayout::InputLayout(const std::initializer_list<Element> elementList) : lay
     }
 }
 
+InputLayout::InputLayout(const std::vector<Element> elementList) : layout(elementList), stride(0) {
+    uint32_t offset = 0;
+    for (auto& element : layout) {
+        element.offset = offset;
+        offset += element.size;
+        stride += element.size;
+    }
+}
+
 VertexBuffer* VertexBuffer::construct(const std::vector<Vertex>& vertices) {
     auto active = Renderer::getActiveAPI();
     switch(active) {
@@ -91,6 +100,10 @@ IndexBuffer* IndexBuffer::construct(const std::vector<Triangle>& indices) {
 }
 
 void glVertexBuffer::loadVertices(Vertex* vertices, size_t count) {
+    id = glCreateBuffer(vertices, count, GL_ARRAY_BUFFER);
+}
+
+void glVertexBuffer::loadVertices(float* vertices, size_t count) {
     id = glCreateBuffer(vertices, count, GL_ARRAY_BUFFER);
 }
 

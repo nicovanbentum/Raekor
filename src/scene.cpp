@@ -80,9 +80,9 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
         auto& transform = view.get<ecs::TransformComponent>(pair.second);
 
         for (unsigned int i = 0; i < mesh.indices.size(); i += 3) {
-            auto v0 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[mesh.indices[i]].pos, 1.0));
-            auto v1 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[mesh.indices[i + 1]].pos, 1.0));
-            auto v2 = glm::vec3(transform.worldTransform * glm::vec4(mesh.vertices[mesh.indices[i + 2]].pos, 1.0));
+            auto v0 = glm::vec3(transform.worldTransform * glm::vec4(mesh.positions[mesh.indices[i]], 1.0));
+            auto v1 = glm::vec3(transform.worldTransform * glm::vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
+            auto v2 = glm::vec3(transform.worldTransform * glm::vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
 
             auto triangleHitResult = ray.hitsTriangle(v0, v1, v2);
             if (triangleHitResult.has_value()) {
@@ -305,24 +305,20 @@ entt::entity AssimpImporter::loadMesh(entt::registry& scene, aiMesh* assimpMesh)
     name.name = assimpMesh->mName.C_Str();
 
     // extract vertices
-    mesh.vertices.reserve(assimpMesh->mNumVertices);
-    for (size_t i = 0; i < mesh.vertices.capacity(); i++) {
-        Vertex v = {};
-        v.pos = { assimpMesh->mVertices[i].x, assimpMesh->mVertices[i].y, assimpMesh->mVertices[i].z };
+    for (size_t i = 0; i < assimpMesh->mNumVertices; i++) {
+        mesh.positions.emplace_back(assimpMesh->mVertices[i].x, assimpMesh->mVertices[i].y, assimpMesh->mVertices[i].z);
 
         if (assimpMesh->HasTextureCoords(0)) {
-            v.uv = { assimpMesh->mTextureCoords[0][i].x, assimpMesh->mTextureCoords[0][i].y };
+            mesh.uvs.emplace_back(assimpMesh->mTextureCoords[0][i].x, assimpMesh->mTextureCoords[0][i].y);
         }
         if (assimpMesh->HasNormals()) {
-            v.normal = { assimpMesh->mNormals[i].x, assimpMesh->mNormals[i].y, assimpMesh->mNormals[i].z };
+            mesh.normals.emplace_back(assimpMesh->mNormals[i].x, assimpMesh->mNormals[i].y, assimpMesh->mNormals[i].z);
         }
 
         if (assimpMesh->HasTangentsAndBitangents()) {
-            v.tangent = { assimpMesh->mTangents[i].x, assimpMesh->mTangents[i].y, assimpMesh->mTangents[i].z };
-            v.binormal = { assimpMesh->mBitangents[i].x, assimpMesh->mBitangents[i].y, assimpMesh->mBitangents[i].z };
+            mesh.tangents.emplace_back(assimpMesh->mTangents[i].x, assimpMesh->mTangents[i].y, assimpMesh->mTangents[i].z);
+            mesh.bitangents.emplace_back(assimpMesh->mBitangents[i].x, assimpMesh->mBitangents[i].y, assimpMesh->mBitangents[i].z);
         }
-
-        mesh.vertices.push_back(std::move(v));
     }
 
     // extract indices
@@ -388,8 +384,8 @@ void AssimpImporter::loadBones(entt::registry& scene, const aiScene* aiscene, ai
 
     // extract bone structure
     // TODO: figure this mess out
-    animation.boneWeights.resize(mesh.vertices.size());
-    animation.boneIndices.resize(mesh.vertices.size());
+    animation.boneWeights.resize(assimpMesh->mNumVertices);
+    animation.boneIndices.resize(assimpMesh->mNumVertices);
 
     for (size_t i = 0; i < assimpMesh->mNumBones; i++) {
         auto bone = assimpMesh->mBones[i];

@@ -66,12 +66,12 @@ namespace cereal {
 
 	template<class Archive>
 	void save(Archive& archive, const Raekor::ecs::MeshComponent& mesh) {
-		archive(mesh.vertices, mesh.indices, mesh.material);
+		archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.bitangents, mesh.indices, mesh.material);
 	}
 
 	template<class Archive>
 	void load(Archive& archive, Raekor::ecs::MeshComponent& mesh) {
-		archive(mesh.vertices, mesh.indices, mesh.material);
+		archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.bitangents, mesh.indices, mesh.material);
 	}
 
 	template<class Archive>

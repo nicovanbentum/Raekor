@@ -3,8 +3,8 @@
 #include "ecs.h"
 #include "scene.h"
 #include "mesh.h"
-#include "texture.h"
 #include "framebuffer.h"
+#include "opengl.h"
 
 namespace Raekor {
 namespace RenderPass {

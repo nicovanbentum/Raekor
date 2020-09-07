@@ -1,7 +1,6 @@
 #pragma once
 
 #include "util.h"
-#include "texture.h"
 
 namespace Raekor {
 

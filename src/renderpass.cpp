@@ -2,6 +2,7 @@
 #include "renderpass.h"
 #include "ecs.h"
 #include "camera.h"
+#include "opengl.h"
 
 namespace Raekor {
 namespace RenderPass {
@@ -872,12 +873,12 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
     indexBuffer.loadIndices(indices.data(), indices.size());
 
     vertexBuffer.setLayout({
-    {"POSITION",    ShaderType::FLOAT3},
-    {"UV",          ShaderType::FLOAT2},
-    {"NORMAL",      ShaderType::FLOAT3},
-    {"TANGENT",     ShaderType::FLOAT3},
-    {"BINORMAL",    ShaderType::FLOAT3},
-        });
+        {"POSITION",    ShaderType::FLOAT3},
+        {"UV",          ShaderType::FLOAT2},
+        {"NORMAL",      ShaderType::FLOAT3},
+        {"TANGENT",     ShaderType::FLOAT3},
+        {"BINORMAL",    ShaderType::FLOAT3},
+    });
 }
 
 void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer, entt::entity active) {
@@ -905,6 +906,9 @@ void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsign
     // calculate obb from aabb
     const auto min = mesh.aabb[0];
     const auto max = mesh.aabb[1];
+
+    std::cout << glm::to_string(min) << std::endl;
+    std::cout << glm::to_string(max) << std::endl;
     
     std::vector<Vertex> vertices = {
         { {min} },
@@ -1142,7 +1146,7 @@ void Skinning::execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& an
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, anim.skinnedVertexBuffer.id);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, anim.boneTransformsBuffer);
 
-    glDispatchCompute(static_cast<GLuint>(mesh.vertices.size()), 1, 1);
+    glDispatchCompute(static_cast<GLuint>(mesh.positions.size()), 1, 1);
 
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }

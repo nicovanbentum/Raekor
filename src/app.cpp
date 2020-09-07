@@ -39,8 +39,6 @@ void Editor::runOGL() {
     int sdlError = SDL_Init(SDL_INIT_VIDEO);
     m_assert(sdlError == 0, "failed to init SDL for video");
 
-
-
     Uint32 wflags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL |
         SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED;
 
@@ -84,6 +82,9 @@ void Editor::runOGL() {
         {"TANGENT",     ShaderType::FLOAT3},
         {"BINORMAL",    ShaderType::FLOAT3},
     });
+
+    auto cubeMesh = std::make_unique<ecs::MeshComponent>();
+
 
     std::unique_ptr<Mesh> unitCube;
     unitCube.reset(new Mesh());
@@ -206,7 +207,7 @@ void Editor::runOGL() {
         auto animationView = scene->view<ecs::MeshAnimationComponent>();
         std::for_each(std::execution::par_unseq, animationView.begin(), animationView.end(), [&](auto entity) {
             auto& animation = animationView.get<ecs::MeshAnimationComponent>(entity);
-            animationView.get(entity).boneTransform(static_cast<float>(deltaTime));
+            animation.boneTransform(static_cast<float>(deltaTime));
         });
 
         scene->view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
@@ -406,22 +407,19 @@ void Editor::runOGL() {
                             // vertex position (x, y, z)
                             x = xy * cosf(sectorAngle);             // r * cos(u) * cos(v)
                             y = xy * sinf(sectorAngle);             // r * cos(u) * sin(v)
-                            Vertex v;
-                            v.pos = { x, y, z };
+                            mesh.positions.emplace_back(x, y, z);
 
                             // normalized vertex normal (nx, ny, nz)
                             nx = x * lengthInv;
                             ny = y * lengthInv;
                             nz = z * lengthInv;
-
-                            v.normal = { nx, ny, nz };
-
+                            mesh.normals.emplace_back(nx, ny, nz);
+                            
                             // vertex tex coord (s, t) range between [0, 1]
                             s = (float)j / sectorCount;
                             t = (float)i / stackCount;
-                            v.uv = { s, t };
+                            mesh.uvs.emplace_back(s, t);
 
-                            mesh.vertices.push_back(v);
                         }
                     }
 

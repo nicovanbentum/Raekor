@@ -2,7 +2,6 @@
 
 #include "buffer.h"
 #include "mesh.h"
-#include "texture.h"
 #include "rmath.h"
 
 namespace Raekor {

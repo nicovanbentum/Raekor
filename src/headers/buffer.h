@@ -39,9 +39,9 @@ enum class ShaderType {
 constexpr uint32_t size_of(ShaderType type) {
     switch (type) {
     case ShaderType::FLOAT1:    return sizeof(float);
-    case ShaderType::FLOAT2:    return 16;
-    case ShaderType::FLOAT3:    return 16;
-    case ShaderType::FLOAT4:    return 16;
+    case ShaderType::FLOAT2:    return sizeof(float) * 2;
+    case ShaderType::FLOAT3:    return sizeof(float) * 3;
+    case ShaderType::FLOAT4:    return sizeof(float) * 4;
     case ShaderType::INT4:      return sizeof(int) * 4;
     default: return 0;
     }
@@ -90,6 +90,7 @@ struct Element {
 class InputLayout {
 public:
     InputLayout(const std::initializer_list<Element> elementList);
+    InputLayout(const std::vector<Element> elementList);
     InputLayout() {}
 
     inline size_t size() const { return layout.size(); }
@@ -106,11 +107,11 @@ private:
 };
 
 struct Vertex {
-    alignas(16) glm::vec3 pos;
-    alignas(16) glm::vec2 uv;
-    alignas(16) glm::vec3 normal;
-    alignas(16) glm::vec3 tangent;
-    alignas(16) glm::vec3 binormal;
+    glm::vec3 pos;
+    glm::vec2 uv;
+    glm::vec3 normal;
+    glm::vec3 tangent;
+    glm::vec3 binormal;
 
     static constexpr uint8_t attributeCount = 5;
 };
@@ -145,6 +146,7 @@ class glVertexBuffer {
 public:
     glVertexBuffer() = default;
     void loadVertices(Vertex* vertices, size_t count);
+    void loadVertices(float* vertices, size_t count);
     void bind() const;
     void setLayout(const InputLayout& layout) const;
 
@@ -171,7 +173,6 @@ uint32_t glCreateBuffer(Type* data, size_t count, GLenum target) {
     unsigned int id;
     glCreateBuffers(1, &id);
     glNamedBufferData(id, count * sizeof(Type), data, GL_STATIC_DRAW);
-    glBindBuffer(target, 0);
     return id;
 }
 

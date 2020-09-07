@@ -132,6 +132,26 @@ std::optional<float> Ray::hitsAABB(const glm::vec3& min, const glm::vec3& max) {
     return true;
 }
 
+std::optional<float> Ray::hitsTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2) {
+    auto p1 = v1 - v0;
+    auto p2 = v2 - v0;
+    auto pvec = glm::cross(direction, p2);
+    float det = glm::dot(p1, pvec);
+
+    if (det < std::numeric_limits<float>::epsilon()) return std::nullopt;
+
+    float invDet = 1 / det;
+    auto tvec = origin - v0;
+    auto u = glm::dot(tvec, pvec) * invDet;
+    if (u < 0 || u > 1) return std::nullopt;
+
+    auto qvec = glm::cross(tvec, p1);
+    auto v = glm::dot(direction, qvec) * invDet;
+    if (v < 0 || u + v > 1) return std::nullopt;
+
+    return glm::dot(p2, qvec) * invDet;
+}
+
 bool pointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max) {
     return  (point.x >= min.x && point.x <= max.x) &&
         (point.y >= min.y && point.y <= max.y) &&

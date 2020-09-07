@@ -17,7 +17,7 @@ VkFormat Buffer::toVkFormat(ShaderType type) {
     case ShaderType::FLOAT2: return VK_FORMAT_R32G32_SFLOAT;
     case ShaderType::FLOAT3: return VK_FORMAT_R32G32B32_SFLOAT;
     case ShaderType::FLOAT4: return VK_FORMAT_R32G32B32A32_SFLOAT;
-    default: return VK_FORMAT_END_RANGE;
+    default: return VK_FORMAT_UNDEFINED;
     }
 }
 

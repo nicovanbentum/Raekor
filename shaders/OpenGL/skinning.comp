@@ -1,34 +1,34 @@
-#version 440 core
+#version 450 core
 
 // Compute shader that takes an input vertex buffer, skins it using input bone index and weight buffers, and writes the result to an output buffer
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 struct Vertex {
-    vec3 pos;
-    vec2 uv;
-    vec3 normal;
-    vec3 tangent;
-    vec3 binormal;
+    float pos[3];
+    float uv[2];
+    float normal[3];
+    float tangent[3];
+    float binormal[3];
 };
 
-layout(std140, binding = 0) buffer boneIndexBuffer {
+layout(std430, binding = 0) buffer boneIndexBuffer {
     ivec4 boneIndices [];
 };
 
-layout(std140, binding = 1) buffer boneWeightBuffer {
+layout(std430, binding = 1) buffer boneWeightBuffer {
     vec4 boneWeights [];
 };
 
-layout(std140, binding = 2) buffer inputVertexBuffer {
+layout(std430, binding = 2) buffer inputVertexBuffer {
     Vertex inputVertices [];
 };
 
-layout(std140, binding = 3) buffer outputVertexBuffer {
+layout(std430, binding = 3) buffer outputVertexBuffer {
     Vertex outputVertices [];
 };
 
-layout(std140, binding = 4) buffer boneTransformBuffer {
+layout(std430, binding = 4) buffer boneTransformBuffer {
     mat4 boneTransforms [];
 };
 
@@ -40,5 +40,11 @@ void main() {
     boneTransform += boneTransforms[boneIndices[id][2]] * boneWeights[id][2];
     boneTransform += boneTransforms[boneIndices[id][3]] * boneWeights[id][3];
 
-    outputVertices[id].pos = vec3(boneTransform * vec4(inputVertices[id].pos, 1.0));
+    vec3 originalPosition = vec3(inputVertices[id].pos[0], inputVertices[id].pos[1], inputVertices[id].pos[2]);
+    vec3 transformedPosition = vec3(boneTransform * vec4(originalPosition, 1.0));
+
+    outputVertices[id].pos[0] = transformedPosition.x;
+    outputVertices[id].pos[1] = transformedPosition.y;
+    outputVertices[id].pos[2] = transformedPosition.z;
+
 }

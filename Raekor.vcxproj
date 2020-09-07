@@ -208,7 +208,8 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MaxSpeed</Optimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
-    <ClCompile Include="src\texture.cpp" />
+    <ClCompile Include="src\opengl.cpp" />
+    <ClCompile Include="src\systems.cpp" />
     <ClCompile Include="src\timer.cpp" />
     <ClCompile Include="src\VK\VKBase.cpp" />
     <ClCompile Include="src\VK\VKBuffer.cpp" />
@@ -254,7 +255,8 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\script.h" />
     <ClInclude Include="src\headers\serial.h" />
     <ClInclude Include="src\headers\shader.h" />
-    <ClInclude Include="src\headers\texture.h" />
+    <ClInclude Include="src\headers\opengl.h" />
+    <ClInclude Include="src\headers\systems.h" />
     <ClInclude Include="src\headers\timer.h" />
     <ClInclude Include="src\headers\util.h" />
     <ClInclude Include="src\platform\OS.h" />
