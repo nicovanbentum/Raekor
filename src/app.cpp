@@ -162,6 +162,7 @@ void Editor::runOGL() {
     auto skyPass                = std::make_unique<RenderPass::SkyPass>(viewport);
     auto skinningPass           = std::make_unique<RenderPass::Skinning>();
     auto environmentPass        = std::make_unique<RenderPass::EnvironmentPass>();
+    auto rayTracePass           = std::make_unique<RenderPass::RayComputePass>(viewport);
 
 
     // boolean settings needed for a couple things
@@ -169,7 +170,7 @@ void Editor::runOGL() {
     bool mouseInViewport = false, gizmoEnabled = false, showSettingsWindow = false;
 
     // keep a pointer to the texture that's rendered to the window
-    unsigned int activeScreenTexture = tonemappingPass->result;
+    unsigned int activeScreenTexture = rayTracePass->result;
 
     // create thread pool
     int coreCount = std::thread::hardware_concurrency();
@@ -221,36 +222,39 @@ void Editor::runOGL() {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // generate sun shadow map 
-        glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-        shadowMapPass->execute(scene);
+        //// generate sun shadow map 
+        //glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+        //shadowMapPass->execute(scene);
 
-        if (shouldVoxelize) {
-            voxelizePass->execute(scene, viewport, shadowMapPass.get());
-        }
+
+        //if (shouldVoxelize) {
+        //    voxelizePass->execute(scene, viewport, shadowMapPass.get());
+        //}
         
         glViewport(0, 0, viewport.size.x, viewport.size.y);
 
-        if (doDeferred) {
-            if (!scene->view<ecs::MeshComponent>().empty()) {
-                geometryBufferPass->execute(scene, viewport);
-                lightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
-                tonemappingPass->execute(lightingPass->result, Quad.get());
-            }
-        } else {
-            if (!scene->view<ecs::MeshComponent>().empty()) {
-                ConeTracePass->execute(viewport, scene, voxelizePass.get(), shadowMapPass.get());
-                tonemappingPass->execute(ConeTracePass->result, Quad.get());
-            }
-        }
+        rayTracePass->execute(viewport);
 
-        if (active != entt::null) {
-            aabbDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->GDepthBuffer,  active);
-        }
+        //if (doDeferred) {
+        //    if (!scene->view<ecs::MeshComponent>().empty()) {
+        //        geometryBufferPass->execute(scene, viewport);
+        //        lightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizePass.get(), Quad.get());
+        //        tonemappingPass->execute(lightingPass->result, Quad.get());
+        //    }
+        //} else {
+        //    if (!scene->view<ecs::MeshComponent>().empty()) {
+        //        ConeTracePass->execute(viewport, scene, voxelizePass.get(), shadowMapPass.get());
+        //        tonemappingPass->execute(ConeTracePass->result, Quad.get());
+        //    }
+        //}
 
-        if (debugVoxels) {
-            voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass.get());
-        }
+        //if (active != entt::null) {
+        //    aabbDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->GDepthBuffer,  active);
+        //}
+
+        //if (debugVoxels && !scene->view<ecs::MeshComponent>().empty()) {
+        //    voxelDebugPass->execute(viewport, tonemappingPass->result, voxelizePass.get());
+        //}
 
         //get new frame for ImGui and ImGuizmo
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -326,7 +330,7 @@ void Editor::runOGL() {
                     if (!savePath.empty()) {
                         const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
                         auto pixels = std::vector<unsigned char>(bufferSize);
-                        glGetTextureImage(tonemappingPass->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize* sizeof(unsigned char), pixels.data());
+                        glGetTextureImage(activeScreenTexture, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize* sizeof(unsigned char), pixels.data());
                         stbi_flip_vertically_on_write(true);
                         stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
                     }
@@ -590,6 +594,8 @@ void Editor::runOGL() {
                 activeScreenTexture = geometryBufferPass->materialTexture;
             if (ImGui::Selectable(nameof(geometryBufferPass->positionTexture), activeScreenTexture == geometryBufferPass->positionTexture))
                 activeScreenTexture = geometryBufferPass->positionTexture;
+            if (ImGui::Selectable(nameof(rayTracePass->result), activeScreenTexture == rayTracePass->result))
+                activeScreenTexture = rayTracePass->result;
             ImGui::TreePop();
         }
 
@@ -728,6 +734,9 @@ void Editor::runOGL() {
 
             geometryBufferPass->deleteResources();
             geometryBufferPass->createResources(viewport);
+
+            rayTracePass->deleteResources();
+            rayTracePass->createResources(viewport);
 
             
             resizing = false;

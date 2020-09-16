@@ -1134,6 +1134,13 @@ void SkyPass::execute(Viewport& viewport, Mesh* quad) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+Skinning::Skinning() {
+    std::vector<Shader::Stage> stages;
+    stages.emplace_back(Shader::Type::COMPUTE, "shaders\\OpenGL\\skinning.comp");
+    computeShader.reload(stages.data(), stages.size());
+    hotloader.watch(&computeShader, stages.data(), stages.size());
+}
+
 void Skinning::execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim) {
 
     glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransforms.size() * sizeof(glm::mat4), anim.boneTransforms.data(), GL_DYNAMIC_DRAW);
@@ -1203,6 +1210,45 @@ void EnvironmentPass::execute(const std::string& file, Mesh* unitCube) {
 
 
 
+}
+
+RayComputePass::RayComputePass(Viewport& viewport) {
+    std::vector<Shader::Stage> stages;
+    stages.emplace_back(Shader::Type::COMPUTE, "shaders\\OpenGL\\ray.comp");
+    shader.reload(stages.data(), stages.size());
+    hotloader.watch(&shader, stages.data(), stages.size());
+
+    createResources(viewport);
+    auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
+}
+
+void RayComputePass::execute(Viewport& viewport) {
+    hotloader.checkForUpdates();
+
+    auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
+
+    shader.bind();
+    glBindImageTexture(0, result, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+    glDispatchCompute(viewport.size.x /8 , viewport.size.y / 8, 1);
+
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+}
+
+void RayComputePass::createResources(Viewport& viewport) {
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+}
+
+void RayComputePass::deleteResources() {
+    glDeleteTextures(1, &result);
 }
 
 } // renderpass

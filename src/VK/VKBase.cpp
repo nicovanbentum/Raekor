@@ -14,10 +14,10 @@ Instance::Instance(SDL_Window* window) {
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "Render Engine";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 1, 0);
+    appInfo.applicationVersion = VK_MAKE_VERSION(1, 2, 0);
     appInfo.pEngineName = "Raekor Engine";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 1, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_1;
+    appInfo.engineVersion = VK_MAKE_VERSION(1, 2, 0);
+    appInfo.apiVersion = VK_API_VERSION_1_2;
 
     VkInstanceCreateInfo instance_info = {};
     instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -45,8 +45,9 @@ Instance::Instance(SDL_Window* window) {
     }
 
     const std::vector<const char*> validationLayers = {
-        "VK_LAYER_LUNARG_standard_validation"
+        "VK_LAYER_KHRONOS_validation"
     };
+
 
     if (isDebug) {
         uint32_t layerCount;

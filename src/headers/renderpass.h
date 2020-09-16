@@ -309,13 +309,7 @@ public:
 
 class Skinning {
 public:
-    Skinning() {
-        std::vector<Shader::Stage> stages;
-        stages.emplace_back(Shader::Type::COMPUTE, "shaders\\OpenGL\\skinning.comp");
-        computeShader.reload(stages.data(), stages.size());
-        hotloader.watch(&computeShader, stages.data(), stages.size());
-    }
-
+    Skinning();
     void execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim);
 
 private:
@@ -326,7 +320,6 @@ private:
 class EnvironmentPass {
 public:
     EnvironmentPass() = default;
-
     void execute(const std::string& file, Mesh* unitCube);
 
 private:
@@ -336,6 +329,23 @@ private:
     unsigned int captureFramebuffer;
     unsigned int captureRenderbuffer;
     glShader toCubemapShader;
+};
+
+class RayComputePass {
+public:
+    RayComputePass(Viewport& viewport);
+
+    void execute(Viewport& viewport);
+
+    void createResources(Viewport& viewport);
+    void deleteResources();
+
+private:
+    glShader shader;
+    ShaderHotloader hotloader;
+
+public:
+    unsigned int result;
 };
 
 } // renderpass
