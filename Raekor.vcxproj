@@ -180,6 +180,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\components.cpp" />
     <ClCompile Include="src\entry.cpp" />
     <ClCompile Include="src\framebuffer.cpp" />
+    <ClCompile Include="src\gl_raytracer.cpp" />
     <ClCompile Include="src\gui.cpp" />
     <ClCompile Include="src\input.cpp" />
     <ClCompile Include="src\rmath.cpp" />

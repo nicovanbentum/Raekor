@@ -12,6 +12,9 @@ public:
     // todo: this one is bheind by a lot and probably does not work
     void runVulkan();
 
+    // new
+    void computeRayTracer();
+
     template<class C>
     void serialize(C& archive) {
         archive(
