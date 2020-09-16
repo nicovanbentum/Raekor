@@ -4,7 +4,7 @@
 // of every voxel as atomic counter
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-layout(binding = 0, RGBA8) uniform image3D voxelTexture;
+layout(binding = 0, rgba8) uniform image3D voxelTexture;
 
 void main() {
 

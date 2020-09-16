@@ -240,9 +240,9 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
 }
 
 entt::entity GeometryBuffer::pick(uint32_t x, uint32_t y) {
-    glm::vec4 readPixel;
-    glGetTextureSubImage(materialTexture, 0, x, y, 0, 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(glm::vec4), glm::value_ptr(readPixel));
-    return static_cast<entt::entity>(readPixel.b);
+    float readPixel[4];
+    glGetTextureSubImage(materialTexture, 0, x, y, 0, 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(glm::vec4), readPixel);
+    return static_cast<entt::entity>((uint32_t)readPixel[2]);
 }
 
 void GeometryBuffer::createResources(Viewport& viewport) {

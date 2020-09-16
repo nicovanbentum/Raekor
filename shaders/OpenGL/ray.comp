@@ -8,7 +8,7 @@ layout(local_size_x = 8, local_size_y = 8) in;
 #define MAXDEPTH 	5
 #define NUMSAMPLES 	4
 
-uniform layout(binding = 0, rgba32f) image2D outputTexture;
+layout(binding = 0, rgba32f) uniform image2D outputTexture;
 
 struct Sphere {
     vec3 position;
