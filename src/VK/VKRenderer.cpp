@@ -11,9 +11,6 @@ namespace VK {
         for (int i = 0; i < meshes.size(); i++) {
             recordMeshBuffer(i, meshes[i], pipelineLayout, *modelSet, secondaryBuffers[meshes.size() - 1 - i]);
         }
-        recordMeshBuffer(20, meshes[20], pipelineLayout, *modelSet, secondaryBuffers[20]);
-        int other_index = (int)meshes.size() - 1 - 20;
-        recordMeshBuffer(other_index, meshes[other_index], pipelineLayout, *modelSet, secondaryBuffers[other_index]);
     }
 
     void Renderer::reloadShaders() {
@@ -22,8 +19,8 @@ namespace VK {
             throw std::runtime_error("failed to wait for the gpu to idle");
         }
         // recompile and reload the shaders
-        VK::Shader::Compile("shaders/Vulkan/vulkan.vert", "shaders/Vulkan/vert.spv");
-        VK::Shader::Compile("shaders/Vulkan/vulkan.frag", "shaders/Vulkan/frag.spv");
+        VK::Shader::compileFromCommandLine("shaders/Vulkan/vulkan.vert", "shaders/Vulkan/vert.spv");
+        VK::Shader::compileFromCommandLine("shaders/Vulkan/vulkan.frag", "shaders/Vulkan/frag.spv");
         vert.reload();
         frag.reload();
         std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {

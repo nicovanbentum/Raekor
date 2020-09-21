@@ -10,7 +10,7 @@ public:
     Shader(const Context& context, const std::string& path = "");
     ~Shader();
     void reload();
-    static void Compile(const char* in, const char* out);
+    static void compileFromCommandLine(const std::string& originalFileName, const std::string& outFilename);
     operator VkShaderModule() { return module; }
     VkPipelineShaderStageCreateInfo getInfo(VkShaderStageFlagBits stage) const;
 

@@ -31,46 +31,27 @@ struct Camera {
 };
 
 bool hitSphere(Ray ray, Sphere sphere, float t_min, float t_max, out float t_out) {
-    // analytical solution
-    vec3 oc = ray.origin - sphere.position;
-    float a = dot(ray.direction, ray.direction);
-    float b = dot(oc, ray.direction);
-    float c = dot(oc, oc) - sphere.radius * sphere.radius;
+    // Geometric solution
+    float R2 = sphere.radius * sphere.radius;
+    vec3 L = sphere.position - ray.origin;
+    float tca = dot(L, normalize(ray.direction));
+    if(tca < 0) return false;
 
-    float discriminant = b * b - a * c;
+    float D2 = dot(L, L) - tca * tca;
+    if(D2 > R2) return false;
+    float thc = sqrt(R2 - D2);
+    float t0 = tca - thc;
+    float t1 = tca + thc;
 
-    if (discriminant > 0.0f) {
-        if(b > 0) 
-            t_out = (-b + sqrt(discriminant)) / a;
-        else 
-            t_out = (-b - sqrt(discriminant)) / a;
-        
-        if(t_out < t_max && t_out > t_min) {
-            return true;
-        }
+    if(t0 < t_max && t0 > t_min) {
+        t_out = t0 / length(ray.direction);
+        return true;
     }
 
-    // Geometric solution
-    // float R2 = sphere.radius * sphere.radius;
-    // vec3 L = sphere.position - ray.origin;
-    // float tca = dot(L, normalize(ray.direction));
-    // if(tca < 0) return false;
-
-    // float D2 = dot(L, L) - tca * tca;
-    // if(D2 > R2) return false;
-    // float thc = sqrt(R2 - D2);
-    // float t0 = tca - thc;
-    // float t1 = tca + thc;
-
-    // if(t0 < t_max && t0 > t_min) {
-    //     t_out = t0;
-    //     return true;
-    // }
-
-    // if(t1 < t_max && t1 > t_min) {
-    //     t_out = t1;
-    //     return true;
-    // }
+    if(t1 < t_max && t1 > t_min) {
+        t_out = t1 / length(ray.direction);
+        return true;
+    }
     
     return false; 
 }

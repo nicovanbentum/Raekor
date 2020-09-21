@@ -10,7 +10,7 @@ layout(location = 4) in vec3 light_pos;
 layout(location = 5) in vec3 light_angle;
 
 // in uniforms
-layout(set = 0, binding = 1) uniform sampler2D tex_sampler[24]; 
+layout(set = 0, binding = 1) uniform sampler2D tex_sampler[20]; 
 layout(push_constant) uniform pushConstants {
     int samplerIndex;
 } pc;
@@ -38,8 +38,8 @@ void main() {
 	light.position = light_pos;
 	light.color = vec3(1.0, 0.7725, 0.56);
     light.constant = 1.0f;
-    light.linear = 0.7;
-    light.quad = 1.8;
+    light.linear = 0.07;
+    light.quad = 0.018;
 
 	DirectionalLight dirlight;
 	dirlight.direction = light_angle;
@@ -47,8 +47,7 @@ void main() {
 
     vec4 sampled = texture( tex_sampler[pc.samplerIndex], uv);
 
-    vec3 result = doLight(dirlight) * 0.1;
-	result += doLight(light);
+	vec3 result = doLight(light);
     final_color = vec4(result, sampled.a);
 }
 

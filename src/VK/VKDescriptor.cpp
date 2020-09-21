@@ -182,7 +182,7 @@ void DescriptorSet::complete(const Context& ctx) {
     // update the set
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
 
-    for (const VkWriteDescriptorSet& set : sets) {
+    for (const auto& set : sets) {
         if (set.pImageInfo != nullptr) {
             //operator delete[]((void*)set.pImageInfo);
         }

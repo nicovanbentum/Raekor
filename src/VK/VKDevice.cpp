@@ -13,11 +13,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
 #endif
     const std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
-        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-        VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
-        VK_KHR_RAY_TRACING_EXTENSION_NAME
+        VK_NV_RAY_TRACING_EXTENSION_NAME
 
     };
 
