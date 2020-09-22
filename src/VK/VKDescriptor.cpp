@@ -4,20 +4,19 @@
 namespace Raekor {
 namespace VK {
 
-UniformBuffer::UniformBuffer(const Context& ctx, size_t size, bool isDynamic) 
-    : Buffer(ctx.device), dynamic(isDynamic)
-{
-    ctx.device.createBuffer(
-        size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        isDynamic ? VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT : VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        buffer, memory);
+UniformBuffer::UniformBuffer(const Context& ctx, VmaAllocator allocator, size_t size) {
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    vkMapMemory(ctx.device, memory, 0, size, 0, &mappedMemory);
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-    memoryRange = {};
-    memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-    memoryRange.memory = memory;
-    memoryRange.size = size;
+    auto vkresult = vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &buffer, &alloc, &allocationInfo);
+    assert(vkresult == VK_SUCCESS);
 
     descriptor.buffer = buffer;
     descriptor.offset = 0;
@@ -26,18 +25,16 @@ UniformBuffer::UniformBuffer(const Context& ctx, size_t size, bool isDynamic)
 
 ///////////////////////////////////////////////////////////////////////
 
-UniformBuffer::~UniformBuffer() {
-    vkUnmapMemory(device, memory);
+void UniformBuffer::update(VmaAllocator allocator, const void* data, size_t size) const {
+    size = size == VK_WHOLE_SIZE ? allocationInfo.size : size;
+    memcpy(allocationInfo.pMappedData, data, size);
+    vmaFlushAllocation(allocator, alloc, 0, size);
 }
 
 ///////////////////////////////////////////////////////////////////////
 
-void UniformBuffer::update(const void* data, size_t size) const {
-    if (size == VK_WHOLE_SIZE) size = memoryRange.size;
-    memcpy(mappedMemory, data, size);
-    if (dynamic) {
-        vkFlushMappedMemoryRanges(device, 1, &memoryRange);
-    }
+void UniformBuffer::destroy(VmaAllocator allocator) {
+    vmaDestroyBuffer(allocator, buffer, alloc);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -56,7 +53,7 @@ DescriptorSet::~DescriptorSet() {
 void DescriptorSet::bind(uint32_t slot, const UniformBuffer& buffer, VkShaderStageFlags stages) {
     VkDescriptorSetLayoutBinding binding = {};
     binding.binding = slot;
-    binding.descriptorType = buffer.isDynamic() ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     binding.descriptorCount = 1;
     binding.pImmutableSamplers = nullptr;
     binding.stageFlags = stages;

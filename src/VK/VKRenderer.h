@@ -5,7 +5,6 @@
 #include "VKContext.h"
 #include "VKSwapchain.h"
 #include "VKShader.h"
-#include "VKBuffer.h"
 #include "VKTexture.h"
 #include "VKDescriptor.h"
 
@@ -37,7 +36,6 @@ private:
     VkRenderPass renderPass;
 
     VkPipeline graphicsPipeline;
-    VkPipeline skyboxPipeline;
 
     bool vsync = true;
 
@@ -48,20 +46,24 @@ private:
 
     VkCommandBuffer maincmdbuffer;
     VkCommandBuffer imguicmdbuffer;
-    VkCommandBuffer skyboxcmdbuffer;
     std::vector<VkCommandBuffer> secondaryBuffers;
     VkPipelineLayout pipelineLayout;
-    VkPipelineLayout pipelineLayout2;
 
     std::vector<VKMesh> meshes;
 
-    VulkanBuffer vertexBuffer;
-    VulkanBuffer indexBuffer;
+    VkBuffer vertexBuffer;
+    VmaAllocation vertexBufferAlloc;
+    VmaAllocationInfo vertexBufferAllocInfo;
+
+    VkBuffer indexBuffer;
+    VmaAllocation indexBufferAlloc;
+    VmaAllocationInfo indexBufferAllocInfo;
+
 
     // vertex input state
-    std::vector<VkVertexInputAttributeDescription> layout;
     VkPipelineVertexInputStateCreateInfo input_state;
     VkVertexInputBindingDescription bindingDescription;
+    std::vector<VkVertexInputAttributeDescription> layout;
     
     std::unique_ptr<VK::DepthTexture> depth_texture;
 
@@ -74,19 +76,8 @@ private:
     // texture handles
     std::vector<VK::Texture> textures;
 
-    // skybox resources
-    std::unique_ptr<VK::VertexBuffer> cube_v;
-    std::unique_ptr<VK::IndexBuffer> cube_i;
-    std::unique_ptr<VK::CubeTexture> skybox;
-    std::unique_ptr<VK::UniformBuffer> skyboxUbo;
-    std::unique_ptr<VK::DescriptorSet> skyboxSet;
-
     VK::Shader vert;
     VK::Shader frag;
-    VK::Shader skyboxv;
-    VK::Shader skyboxf;
-
-    std::array<std::string, 6> face_files;
 
     VmaAllocator bufferAllocator;
 
@@ -99,7 +90,7 @@ public:
 
     uint32_t getMeshCount();
 
-    Renderer(SDL_Window* window, const std::array<std::string, 6>& cubeTextureFiles);
+    Renderer(SDL_Window* window);
 
     void cleanupSwapChain();
 
@@ -111,19 +102,15 @@ public:
 
     void setupSyncObjects();
 
-    void setupSkyboxStageUniformBuffers();
-
     void allocateCommandBuffers();
 
     uint32_t getNextFrame();
 
     void waitForIdle();
 
-    void recordSkyboxBuffer(VK::VertexBuffer* cubeVertices, VK::IndexBuffer* cubeIndices, VkPipelineLayout pLayout, VkDescriptorSet set, VkCommandBuffer& cmdbuffer);
-
     void recordMeshBuffer(uint32_t bufferIndex, VKMesh& m, VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSets, VkCommandBuffer& cmdbuffer);
 
-    void createGraphicsPipeline(std::array<VkPipelineShaderStageCreateInfo, 2> shaders, std::array<VkPipelineShaderStageCreateInfo, 2> skyboxShaders);
+    void createGraphicsPipeline(std::array<VkPipelineShaderStageCreateInfo, 2> shaders);
 
     void ImGuiRecord();
 

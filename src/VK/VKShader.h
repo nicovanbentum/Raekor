@@ -7,19 +7,23 @@ namespace VK {
 
 class Shader {
 public:
+    // constructors & desctructor
+    Shader() = default;
     Shader(const Context& context, const std::string& path = "");
     ~Shader();
+
+
     void reload();
     static void compileFromCommandLine(const std::string& originalFileName, const std::string& outFilename);
-    operator VkShaderModule() { return module; }
     VkPipelineShaderStageCreateInfo getInfo(VkShaderStageFlagBits stage) const;
+    operator VkShaderModule() { return module; }
 
 private:
     VkDevice device;
     std::string filepath;
     VkShaderModule module;
 
-    std::vector<char> readShaderFile(const std::string& path);
+    std::vector<char> readSpirvFile(const std::string& path);
 };
 
 

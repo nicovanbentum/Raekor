@@ -114,9 +114,6 @@
     <ClCompile Include="src\VK\VKShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\VK\VKBuffer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\VK\VKDescriptor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -267,9 +264,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\VK\VKShader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\VK\VKBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\VK\VKDescriptor.h">

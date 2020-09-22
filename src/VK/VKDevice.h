@@ -1,6 +1,5 @@
 #pragma once
 #include "VKBase.h"
-#include "VKBuffer.h"
 
 namespace Raekor {
 namespace VK {
@@ -24,82 +23,17 @@ public:
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
-
-    void createImage(uint32_t w, uint32_t h, uint32_t mipLevels, uint32_t layers, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-        VkImage& image, VkDeviceMemory& imageMemory) const;
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount = 1) const;
+    
     void transitionImageLayout(VkImage image, VkFormat format, uint32_t mipLevels, uint32_t layerCount, VkImageLayout oldLayout, VkImageLayout newLayout) const;
     VkImageView createImageView(VkImage image, VkFormat format, VkImageViewType type, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t layerCount) const;
     void generateMipmaps(VkImage image, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) const;
 
-    template<typename T>
-    void uploadBuffer(const std::vector<T>& v, VkBufferUsageFlagBits usage, VkBuffer& outBuffer, VkDeviceMemory& outMemory) const {
-        VkDeviceSize buffer_size = sizeof(T) * v.size();
-
-        VkBuffer staging_buffer;
-        VkDeviceMemory stage_mem;
-        createBuffer(
-            buffer_size,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            staging_buffer,
-            stage_mem
-        );
-
-        void* data;
-        vkMapMemory(device, stage_mem, 0, buffer_size, 0, &data);
-        memcpy(data, v.data(), (size_t)buffer_size);
-        vkUnmapMemory(device, stage_mem);
-
-        createBuffer(
-            buffer_size,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            outBuffer,
-            outMemory
-        );
-
-        copyBuffer(staging_buffer, outBuffer, buffer_size);
-        vkDestroyBuffer(device, staging_buffer, nullptr);
-        vkFreeMemory(device, stage_mem, nullptr);
-    }
-
-    VulkanBuffer::Unique uploadBuffer(VmaAllocator allocator,  void* data, size_t size, VkBufferUsageFlags usage) {
-        VkBufferCreateInfo vbInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-        vbInfo.size = size;
-        vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        vbInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-        allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-        VulkanBuffer::Unique stagingBuffer = VulkanBuffer::create(allocator, &vbInfo, &allocInfo);
-        memcpy(stagingBuffer->allocInfo.pMappedData, data, vbInfo.size);
-
-        vbInfo.usage = usage;
-        allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-        allocInfo.flags = NULL;
-
-        auto realBuffer = VulkanBuffer::create(allocator, &vbInfo, &allocInfo);
-
-        auto commands = beginSingleTimeCommands();
-
-        VkBufferCopy vbCopyRegion = {};
-        vbCopyRegion.srcOffset = 0;
-        vbCopyRegion.dstOffset = 0;
-        vbCopyRegion.size = vbInfo.size;
-        vkCmdCopyBuffer(commands, stagingBuffer->buffer, realBuffer->buffer, 1, &vbCopyRegion);
-
-        endSingleTimeCommands(commands);
-
-        return realBuffer;
-    }
-
     void allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets) const;
     void freeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const;
+
+    std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo> createStagingBuffer(VmaAllocator allocator, size_t sizeInBytes) const;
 
 private:
     Queues qindices;

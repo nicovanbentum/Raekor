@@ -213,7 +213,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\systems.cpp" />
     <ClCompile Include="src\timer.cpp" />
     <ClCompile Include="src\VK\VKBase.cpp" />
-    <ClCompile Include="src\VK\VKBuffer.cpp" />
     <ClCompile Include="src\VK\VKContext.cpp" />
     <ClCompile Include="src\VK\VKDescriptor.cpp" />
     <ClCompile Include="src\VK\VKDevice.cpp" />
@@ -268,7 +267,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\platform\windows\DXShader.h" />
     <ClInclude Include="src\platform\windows\DXTexture.h" />
     <ClInclude Include="src\VK\VKBase.h" />
-    <ClInclude Include="src\VK\VKBuffer.h" />
     <ClInclude Include="src\VK\VKContext.h" />
     <ClInclude Include="src\VK\VKDescriptor.h" />
     <ClInclude Include="src\VK\VKDevice.h" />

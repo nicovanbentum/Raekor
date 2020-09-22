@@ -11,10 +11,10 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
 #else
     bool isDebug = true;
 #endif
+
     const std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_NV_RAY_TRACING_EXTENSION_NAME
-
     };
 
     uint32_t extensionCount;
@@ -83,16 +83,14 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
     device_info.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     device_info.ppEnabledExtensionNames = deviceExtensions.data();
 
-    // TODO: abstract debug
     const std::vector<const char*> validationLayers = {
-    "VK_LAYER_LUNARG_standard_validation"
+        "VK_LAYER_LUNARG_standard_validation"
     };
 
     if (isDebug) {
         device_info.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         device_info.ppEnabledLayerNames = validationLayers.data();
-    }
-    else {
+    } else {
         device_info.enabledLayerCount = 0;
     }
 
@@ -200,35 +198,7 @@ uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags prope
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Device::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-    VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const  {
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create buffer!");
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate buffer memory!");
-    }
-    vkBindBufferMemory(device, buffer, bufferMemory, 0);
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)const  {
+void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const  {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
     VkBufferCopy copyRegion = {};
@@ -236,44 +206,6 @@ void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
     endSingleTimeCommands(commandBuffer);
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Device::createImage(uint32_t w, uint32_t h, uint32_t mipLevels, uint32_t layers, VkFormat format, VkImageTiling tiling,
-    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const  {
-    VkImageCreateInfo imageInfo = {};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = w;
-    imageInfo.extent.height = h;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = mipLevels;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = format;
-    imageInfo.tiling = tiling;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = usage;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create vk image");
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(device, image, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate image meory");
-    }
-
-    vkBindImageMemory(device, image, imageMemory, 0);
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -491,6 +423,30 @@ void Device::allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layout
 void Device::freeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const {
     if (count <= 0) return;
     vkFreeDescriptorSets(device, descriptorPool, count, sets);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo> Device::createStagingBuffer(VmaAllocator allocator, size_t sizeInBytes) const{
+    VkBufferCreateInfo stagingBufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    stagingBufferCreateInfo.size = sizeInBytes;
+    stagingBufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    stagingBufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo stagingAllocCreateInfo = {};
+    stagingAllocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    stagingAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VmaAllocation stagingAlloc = VK_NULL_HANDLE;
+    VmaAllocationInfo stagingAllocInfo = {};
+
+    auto vkresult = vmaCreateBuffer(allocator, &stagingBufferCreateInfo, &stagingAllocCreateInfo, &stagingBuffer, &stagingAlloc, &stagingAllocInfo);
+    assert(vkresult == VK_SUCCESS);
+
+    return { stagingBuffer, stagingAlloc, stagingAllocInfo };
+
+    return std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo>();
 }
 
 } // VK

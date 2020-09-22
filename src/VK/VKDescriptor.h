@@ -1,29 +1,26 @@
 #pragma once
 
-#include "VKBuffer.h"
 #include "VKTexture.h"
 
 namespace Raekor {
 namespace VK {
 
-class UniformBuffer : public Buffer {
+class UniformBuffer {
 public:
-    UniformBuffer(const Context& ctx, size_t allocationSize, bool isDynamic);
-    ~UniformBuffer();
+    UniformBuffer(const Context& ctx, VmaAllocator allocator, size_t allocationSize);
 
-    void update(const void* data, size_t size = VK_WHOLE_SIZE) const;
-    inline size_t getSize() const { return memoryRange.size; }
-    inline bool isDynamic() const { return dynamic; }
+    void update(VmaAllocator allocator, const void* data, size_t size = VK_WHOLE_SIZE) const;
     inline const VkDescriptorBufferInfo* getDescriptor() const { return &descriptor; }
+    void destroy(VmaAllocator allocator);
 
 public:
+    VkBuffer buffer;
+    VmaAllocation alloc;
+    VmaAllocationInfo allocationInfo;
     VkDescriptorBufferInfo descriptor;
-
-private:
-    bool dynamic;
-    void* mappedMemory;
-    VkMappedMemoryRange memoryRange;
 };
+
+///////////////////////////////////////////////////////////////////////
 
 class DescriptorSet {
 public:

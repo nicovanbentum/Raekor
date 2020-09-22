@@ -1,14 +1,13 @@
 #include "pch.h"
 #include "VKShader.h"
 
-#define _glslc "dependencies\\glslc.exe "
-#define _cl(in, out) system(std::string(_glslc + static_cast<std::string>(in) + static_cast<std::string>(" -o ") + static_cast<std::string>(out)).c_str())
-
 namespace Raekor {
 namespace VK {
 
-Shader::Shader(const Context& ctx, const std::string& path) 
-    : device(ctx.device), filepath(path), module(VK_NULL_HANDLE)
+Shader::Shader(const Context& ctx, const std::string& path) :
+    device(ctx.device), 
+    filepath(path), 
+    module(VK_NULL_HANDLE)
 {
     if (filepath.empty()) return;
     reload();
@@ -26,11 +25,14 @@ void Shader::reload() {
     if (module != VK_NULL_HANDLE) {
         vkDestroyShaderModule(device, module, nullptr);
     }
-    auto buffer = readShaderFile(filepath);
+
+    const auto buffer = readSpirvFile(filepath);
+    
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = buffer.size();
     createInfo.pCode = reinterpret_cast<const uint32_t*>(buffer.data());
+    
     if (vkCreateShaderModule(device, &createInfo, nullptr, &module) != VK_SUCCESS) {
         throw std::runtime_error("failed to create vk shader module");
     }
@@ -39,14 +41,14 @@ void Shader::reload() {
 ///////////////////////////////////////////////////////////////////////////
 
 void Shader::compileFromCommandLine(const std::string& in, const std::string& out) {
-    auto vulkan_sdk_path = getenv("VULKAN_SDK");
+    const auto vulkan_sdk_path = getenv("VULKAN_SDK");
     if (!vulkan_sdk_path) {
         std::puts("Unable to find Vulkan SDK, cannot compile shader");
         return;
     }
 
-    std::string compiler = vulkan_sdk_path + std::string("\\Bin\\glslc.exe ");
-    std::string command = compiler + in + " -o " + out;
+    const auto compiler = vulkan_sdk_path + std::string("\\Bin\\glslc.exe ");
+    const auto command = compiler + in + " -o " + out;
 
     if (system(command.c_str()) != 0) {
         std::cout << "failed to compile vulkan shader: " + std::string(in) << '\n';
@@ -57,16 +59,16 @@ void Shader::compileFromCommandLine(const std::string& in, const std::string& ou
 
 ///////////////////////////////////////////////////////////////////////////
 
-std::vector<char> Shader::readShaderFile(const std::string& path) {
+std::vector<char> Shader::readSpirvFile(const std::string& path) {
     std::ifstream file(path, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
-        throw std::runtime_error(std::string("failed to open " + path).c_str());
-    }
-    size_t filesize = (size_t)file.tellg();
+    if (!file.is_open()) return {};
+    
+    const size_t filesize = static_cast<size_t>(file.tellg());
     std::vector<char> buffer(filesize);
     file.seekg(0);
     file.read(buffer.data(), filesize);
     file.close();
+
     return buffer;
 }
 
@@ -81,5 +83,5 @@ VkPipelineShaderStageCreateInfo Shader::getInfo(VkShaderStageFlagBits stage) con
     return stage_info;
 }
 
-} // VK
+} // VK 
 } // Raekor

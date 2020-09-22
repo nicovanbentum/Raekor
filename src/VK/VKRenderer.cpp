@@ -26,13 +26,9 @@ namespace VK {
             frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
         };
 
-        std::array<VkPipelineShaderStageCreateInfo, 2> shaders2 = {
-            skyboxv.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
-            skyboxf.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
-        };
         // recreate the graphics pipeline and re-record the mesh buffers
         // TODO: this still uses the depth order hack
-        createGraphicsPipeline(shaders, shaders2);
+        createGraphicsPipeline(shaders);
         recordModel();
     }
 
@@ -43,12 +39,10 @@ namespace VK {
 
         // destroy/free pipeline related stuff
         vkDestroyPipeline(context.device, graphicsPipeline, nullptr);
-        vkDestroyPipeline(context.device, skyboxPipeline, nullptr);
         vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
-        vkDestroyPipelineLayout(context.device, pipelineLayout2, nullptr);
 
         // destroy/free command buffer stuff
-        std::array<VkCommandBuffer, 3> buffers = { maincmdbuffer, imguicmdbuffer, skyboxcmdbuffer };
+        std::array<VkCommandBuffer, 2> buffers = { maincmdbuffer, imguicmdbuffer};
         vkFreeCommandBuffers(context.device, context.device.commandPool, (uint32_t)buffers.size(), buffers.data());
         vkFreeCommandBuffers(context.device, context.device.commandPool, (uint32_t)secondaryBuffers.size(), secondaryBuffers.data());
 
@@ -62,8 +56,18 @@ namespace VK {
         // destroy render pass
         vkDestroyRenderPass(context.device, renderPass, nullptr);
   
-        vertexBuffer.destroy(bufferAllocator);
-        indexBuffer.destroy(bufferAllocator);
+        // destroy memory objects
+        modelUbo->destroy(bufferAllocator);
+
+        vmaDestroyBuffer(bufferAllocator, vertexBuffer, vertexBufferAlloc);
+        vmaDestroyBuffer(bufferAllocator, indexBuffer, indexBufferAlloc);
+
+        for (auto& texture : textures) {
+            texture.destroy(bufferAllocator);
+        }
+
+        depth_texture->destroy(bufferAllocator);
+
         vmaDestroyAllocator(bufferAllocator);
     }
 
@@ -72,13 +76,10 @@ namespace VK {
         return static_cast<uint32_t>(meshes.size());
     }
 
-    Renderer::Renderer(SDL_Window* window, const std::array<std::string, 6>& cubeTextureFiles)
+    Renderer::Renderer(SDL_Window* window)
         : context(window),
         vert(context, "shaders/Vulkan/vert.spv"),
-        frag(context, "shaders/Vulkan/frag.spv"),
-        skyboxf(context, "shaders/Vulkan/f_skybox.spv"),
-        skyboxv(context, "shaders/Vulkan/v_skybox.spv"),
-        face_files(cubeTextureFiles)
+        frag(context, "shaders/Vulkan/frag.spv")
     {
         VmaAllocatorCreateInfo allocInfo = {};
         allocInfo.physicalDevice = context.PDevice;
@@ -99,27 +100,18 @@ namespace VK {
         initResources();
         setupModelStageUniformBuffers();
 
-        skyboxUbo.reset(new VK::UniformBuffer(context, sizeof(glm::mat4), false));
-        setupSkyboxStageUniformBuffers();
-
         std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
             vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
             frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
         };
 
-        std::array<VkPipelineShaderStageCreateInfo, 2> shaders2 = {
-            skyboxv.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
-            skyboxf.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
-        };
-
         // create the graphics pipeline
-        createGraphicsPipeline(shaders, shaders2);
+        createGraphicsPipeline(shaders);
         setupFrameBuffers();
 
         // allocate and record the command buffers for imgui, skybox and scene
         allocateCommandBuffers();
         recordModel();
-        recordSkyboxBuffer(cube_v.get(), cube_i.get(), pipelineLayout2, *skyboxSet, skyboxcmdbuffer);
 
         // setup sysnc objects for synchronization between cpu and gpu
         setupSyncObjects();
@@ -127,9 +119,7 @@ namespace VK {
 
     void Renderer::cleanupSwapChain() {
         vkDestroyPipeline(context.device, graphicsPipeline, nullptr);
-        vkDestroyPipeline(context.device, skyboxPipeline, nullptr);
         vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
-        vkDestroyPipelineLayout(context.device, pipelineLayout2, nullptr);
         vkDestroyRenderPass(context.device, renderPass, nullptr);
     }
 
@@ -185,67 +175,50 @@ namespace VK {
         }
 
         {   // vertex buffer upload
+            const size_t sizeInBytes = sizeof(Vertex) * vertices.size();
+            auto [stagingBuffer, stagingAlloc, stagingBufferAllocInfo] = context.device.createStagingBuffer(bufferAllocator, sizeInBytes);
+
+            // copy the data over
+            memcpy(stagingBufferAllocInfo.pMappedData, vertices.data(), sizeInBytes);
+
             VkBufferCreateInfo vbInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-            vbInfo.size = vertices.size() * sizeof(Vertex);
-            vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-            vbInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-            VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-            allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-            VulkanBuffer::Unique stagingBuffer = VulkanBuffer::create(bufferAllocator, &vbInfo, &allocInfo);
-            memcpy(stagingBuffer->allocInfo.pMappedData, vertices.data(), vbInfo.size);
-
+            vbInfo.size = sizeInBytes;
             vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+            
+            VmaAllocationCreateInfo allocInfo = {};
             allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
             allocInfo.flags = NULL;
 
-            vertexBuffer = VulkanBuffer(bufferAllocator, &vbInfo, &allocInfo);
+            auto vkresult = vmaCreateBuffer(bufferAllocator, &vbInfo, &allocInfo, &vertexBuffer, &vertexBufferAlloc, &vertexBufferAllocInfo);
+            assert(vkresult == VK_SUCCESS);
 
-            auto commands = context.device.beginSingleTimeCommands();
+            context.device.copyBuffer(stagingBuffer, vertexBuffer, sizeInBytes);
 
-            VkBufferCopy vbCopyRegion = {};
-            vbCopyRegion.srcOffset = 0;
-            vbCopyRegion.dstOffset = 0;
-            vbCopyRegion.size = vbInfo.size;
-            vkCmdCopyBuffer(commands, stagingBuffer->buffer, vertexBuffer.buffer, 1, &vbCopyRegion);
-
-            context.device.endSingleTimeCommands(commands);
+            vmaDestroyBuffer(bufferAllocator, stagingBuffer, stagingAlloc);
         }
 
         {   // index buffer upload
+            const size_t sizeInBytes = sizeof(Triangle) * indices.size();
+            auto [stagingBuffer, stagingAlloc, stagingBufferAllocInfo] = context.device.createStagingBuffer(bufferAllocator, sizeInBytes);
+            
+            // copy the data over
+            memcpy(stagingBufferAllocInfo.pMappedData, indices.data(), sizeInBytes);
+
             VkBufferCreateInfo vbInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-            vbInfo.size = indices.size() * sizeof(Triangle);
-            vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-            vbInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            vbInfo.size = sizeInBytes;
+            vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
             VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-            allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-            VulkanBuffer::Unique stagingBuffer = VulkanBuffer::create(bufferAllocator, &vbInfo, &allocInfo);
-            memcpy(stagingBuffer->allocInfo.pMappedData, indices.data(), vbInfo.size);
-
-            vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
             allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
             allocInfo.flags = NULL;
 
-            indexBuffer = VulkanBuffer(bufferAllocator, &vbInfo, &allocInfo);
+            auto vkresult = vmaCreateBuffer(bufferAllocator, &vbInfo, &allocInfo, &indexBuffer, &indexBufferAlloc, &indexBufferAllocInfo);
+            assert(vkresult == VK_SUCCESS);
 
-            auto commands = context.device.beginSingleTimeCommands();
+            context.device.copyBuffer(stagingBuffer, indexBuffer, sizeInBytes);
 
-            VkBufferCopy vbCopyRegion = {};
-            vbCopyRegion.srcOffset = 0;
-            vbCopyRegion.dstOffset = 0;
-            vbCopyRegion.size = vbInfo.size;
-            vkCmdCopyBuffer(commands, stagingBuffer->buffer, indexBuffer.buffer, 1, &vbCopyRegion);
-
-            context.device.endSingleTimeCommands(commands);
+            vmaDestroyBuffer(bufferAllocator, stagingBuffer, stagingAlloc);
         }
-
-
-
 
         for (unsigned int m = 0, ti = 0; m < scene->mNumMeshes; m++) {
             auto ai_mesh = scene->mMeshes[m];
@@ -286,18 +259,8 @@ namespace VK {
 
         textures.reserve(images.size());
         for (const auto& image : images) {
-            textures.emplace_back(context, image);
+            textures.emplace_back(context, image, bufferAllocator);
         }
-
-        // skybox resources, load_skybox basically uploads a cubemap image
-        // cube v and i are the vertex and index buffer for a cube
-        std::array<Stb::Image, 6> skyboxFaces;
-        for (uint32_t i = 0; i < 6; i++) {
-            skyboxFaces[i].load(face_files[i]);
-        }
-        skybox.reset(new VK::CubeTexture(context, skyboxFaces));
-        cube_v = std::make_unique<VK::VertexBuffer>(context, cubeVertices);
-        cube_i = std::make_unique<VK::IndexBuffer>(context, cubeIndices);
 
         VkVertexInputAttributeDescription pos = {};
         pos.binding = 0;
@@ -342,23 +305,24 @@ namespace VK {
 
         VkPhysicalDeviceProperties props;
         vkGetPhysicalDeviceProperties(context.PDevice, &props);
+
         // Calculate required alignment based on minimum device offset alignment
-        size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
+        const size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
         dynamicAlignment = sizeof(MVP);
         if (minUboAlignment > 0) {
             dynamicAlignment = (dynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
         }
 
         // whole size to allocate entire buffer
-        auto wholeSize = dynamicAlignment * meshes.size();
+        const auto wholeSize = dynamicAlignment * meshes.size();
 
         // allocate the CPU side data
         uboDynamic.mvp = (MVP*)malloc(wholeSize);
         memset(uboDynamic.mvp, 1, wholeSize);
 
         // init and update the GPU buffer
-        modelUbo.reset(new VK::UniformBuffer(context, wholeSize, true));
-        modelUbo->update(uboDynamic.mvp, wholeSize);
+        modelUbo.reset(new VK::UniformBuffer(context, bufferAllocator, wholeSize));
+        modelUbo->update(bufferAllocator, uboDynamic.mvp, wholeSize);
 
         // bind and complete set
         modelSet->bind(0, *modelUbo, VK_SHADER_STAGE_VERTEX_BIT);
@@ -366,15 +330,8 @@ namespace VK {
         modelSet->complete(context);
     }
 
-    void Renderer::setupSkyboxStageUniformBuffers() {
-        skyboxSet.reset(new VK::DescriptorSet(context));
-        skyboxSet->bind(0, *skyboxUbo, VK_SHADER_STAGE_VERTEX_BIT);
-        skyboxSet->bind(1, skybox.get(), VK_SHADER_STAGE_FRAGMENT_BIT);
-        skyboxSet->complete(context);
-    }
-
     void Renderer::setupFrameBuffers() {
-        depth_texture.reset(new VK::DepthTexture(context, { swapchain.extent.width, swapchain.extent.height }));
+        depth_texture.reset(new VK::DepthTexture(context, { swapchain.extent.width, swapchain.extent.height }, bufferAllocator));
         swapchain.setupFrameBuffers(context, renderPass, { depth_texture->view });
     }
 
@@ -429,11 +386,6 @@ namespace VK {
         if (vkAllocateCommandBuffers(context.device, &secondaryInfo, &imguicmdbuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate vk command buffers");
         }
-
-        // allocate skybox cmd buffer
-        if (vkAllocateCommandBuffers(context.device, &secondaryInfo, &skyboxcmdbuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate vk command buffers");
-        }
     }
 
     uint32_t Renderer::getNextFrame() {
@@ -456,34 +408,6 @@ namespace VK {
         }
     }
 
-    void Renderer::recordSkyboxBuffer(VK::VertexBuffer* cubeVertices, VK::IndexBuffer* cubeIndices, VkPipelineLayout pLayout, VkDescriptorSet set, VkCommandBuffer& cmdbuffer) {
-        VkCommandBufferInheritanceInfo inherit_info = {};
-        inherit_info.renderPass = renderPass;
-        inherit_info.subpass = 0;
-        inherit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-
-        // create secondary command buffer begin info
-        VkCommandBufferBeginInfo beginInfo = {};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT; // Optional
-        beginInfo.pInheritanceInfo = &inherit_info; // Optional
-
-        if (vkBeginCommandBuffer(cmdbuffer, &beginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("failed to begin command buffer recording");
-        }
-        VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(cmdbuffer, 0, 1, &cubeVertices->buffer, offsets);
-        vkCmdBindIndexBuffer(cmdbuffer, cubeIndices->buffer, 0, VK_INDEX_TYPE_UINT32);
-
-        vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline);
-        vkCmdBindDescriptorSets(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pLayout, 0, 1, &set, 0, nullptr);
-
-        vkCmdDrawIndexed(cmdbuffer, cubeIndices->getCount(), 1, 0, 0, 0);
-        if (vkEndCommandBuffer(cmdbuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to end command buffer");
-        }
-    }
-
     void Renderer::recordMeshBuffer(uint32_t bufferIndex, VKMesh& m, VkPipelineLayout pipelineLayout, VkDescriptorSet descriptorSets, VkCommandBuffer& cmdbuffer) {
         // record static mesh command buffer
         // allocate static buffers for meshes
@@ -503,8 +427,8 @@ namespace VK {
         }
         VkDeviceSize offsets[] = { 0 };
         vkCmdPushConstants(cmdbuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(uint32_t), &m.textureIndex);
-        vkCmdBindVertexBuffers(cmdbuffer, 0, 1, &vertexBuffer.buffer, offsets);
-        vkCmdBindIndexBuffer(cmdbuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(cmdbuffer, 0, 1, &vertexBuffer, offsets);
+        vkCmdBindIndexBuffer(cmdbuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
         uint32_t offset = static_cast<uint32_t>(bufferIndex * dynamicAlignment);
@@ -517,7 +441,7 @@ namespace VK {
         }
     }
 
-    void Renderer::createGraphicsPipeline(std::array<VkPipelineShaderStageCreateInfo, 2> shaders, std::array<VkPipelineShaderStageCreateInfo, 2> skyboxShaders) {
+    void Renderer::createGraphicsPipeline(std::array<VkPipelineShaderStageCreateInfo, 2> shaders) {
         // describe the topology used, like in directx
         VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -601,17 +525,6 @@ namespace VK {
         pipelineLayoutInfo.pPushConstantRanges = &pcr;
 
         if (vkCreatePipelineLayout(context.device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create pipeline layout");
-        }
-
-        VkPipelineLayoutCreateInfo pipelineLayoutInfo2 = {};
-        pipelineLayoutInfo2.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo2.setLayoutCount = 1;
-        pipelineLayoutInfo2.pSetLayouts = &skyboxSet->layout;
-        pipelineLayoutInfo.pushConstantRangeCount = 1;
-        pipelineLayoutInfo.pPushConstantRanges = &pcr;
-
-        if (vkCreatePipelineLayout(context.device, &pipelineLayoutInfo2, nullptr, &pipelineLayout2) != VK_SUCCESS) {
             throw std::runtime_error("failed to create pipeline layout");
         }
 
@@ -708,33 +621,6 @@ namespace VK {
                 throw std::runtime_error("failed to create vk final graphics pipeline");
             }
         }
-
-        {
-            depthStencil.depthTestEnable = VK_FALSE;
-            depthStencil.depthWriteEnable = VK_FALSE;
-            rasterizer.cullMode = VK_CULL_MODE_NONE;
-
-            VkGraphicsPipelineCreateInfo pipelineInfo = {};
-            pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-            pipelineInfo.stageCount = 2;
-            pipelineInfo.pStages = skyboxShaders.data();
-            pipelineInfo.pVertexInputState = &input_state;
-            pipelineInfo.pInputAssemblyState = &inputAssembly;
-            pipelineInfo.pViewportState = &viewportState;
-            pipelineInfo.pRasterizationState = &rasterizer;
-            pipelineInfo.pMultisampleState = &multisampling;
-            pipelineInfo.pDepthStencilState = nullptr; // Optional
-            pipelineInfo.pColorBlendState = &colorBlending;
-            pipelineInfo.pDynamicState = nullptr; // Optional
-            pipelineInfo.layout = pipelineLayout2;
-            pipelineInfo.renderPass = renderPass;
-            pipelineInfo.subpass = 0;
-            pipelineInfo.pDepthStencilState = &depthStencil;
-
-            if (vkCreateGraphicsPipelines(context.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &skyboxPipeline) != VK_SUCCESS) {
-                throw std::runtime_error("failed to create vk final graphics pipeline");
-            }
-        }
     }
 
     void Renderer::ImGuiRecord() {
@@ -773,7 +659,7 @@ namespace VK {
         render_info.renderArea.extent = swapchain.extent;
 
         std::array<VkClearValue, 2> clearValues = {};
-        clearValues[0].color = { 1.0f, 1.0f, 0.0f, 1.0f };
+        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
         clearValues[1].depthStencil = { 1.0f, 0 };
 
         render_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -786,11 +672,7 @@ namespace VK {
         // start the render pass and execute secondary command buffers
         vkCmdBeginRenderPass(maincmdbuffer, &render_info, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 
-        // update the mvp without translation and execute the skybox render commands
-        skyboxUbo->update(&sky_transform, sizeof(glm::mat4));
-        vkCmdExecuteCommands(maincmdbuffer, 1, &skyboxcmdbuffer);
-
-        modelUbo->update(uboDynamic.mvp);
+        modelUbo->update(bufferAllocator, uboDynamic.mvp);
 
         if (secondaryBuffers.data() != nullptr) {
             vkCmdExecuteCommands(maincmdbuffer, static_cast<uint32_t>(secondaryBuffers.size()), secondaryBuffers.data());
@@ -888,16 +770,10 @@ namespace VK {
                 frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
             };
 
-            std::array<VkPipelineShaderStageCreateInfo, 2> shaders2 = {
-                skyboxv.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                skyboxf.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
-            };
-
             // create the graphics pipeline
-            createGraphicsPipeline(shaders, shaders2);
+            createGraphicsPipeline(shaders);
             setupFrameBuffers();
             recordModel();
-            recordSkyboxBuffer(cube_v.get(), cube_i.get(), pipelineLayout2, *skyboxSet, skyboxcmdbuffer);
         }
         catch (std::exception e) {
             std::cout << e.what() << '\n';
