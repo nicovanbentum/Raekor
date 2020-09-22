@@ -1,5 +1,6 @@
 #pragma once
 #include "VKBase.h"
+#include "VKBuffer.h"
 
 namespace Raekor {
 namespace VK {
@@ -63,6 +64,38 @@ public:
         copyBuffer(staging_buffer, outBuffer, buffer_size);
         vkDestroyBuffer(device, staging_buffer, nullptr);
         vkFreeMemory(device, stage_mem, nullptr);
+    }
+
+    VulkanBuffer::Unique uploadBuffer(VmaAllocator allocator,  void* data, size_t size, VkBufferUsageFlags usage) {
+        VkBufferCreateInfo vbInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        vbInfo.size = size;
+        vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        vbInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        VmaAllocationCreateInfo allocInfo = {};
+        allocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+        allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+        VulkanBuffer::Unique stagingBuffer = VulkanBuffer::create(allocator, &vbInfo, &allocInfo);
+        memcpy(stagingBuffer->allocInfo.pMappedData, data, vbInfo.size);
+
+        vbInfo.usage = usage;
+        allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        allocInfo.flags = NULL;
+
+        auto realBuffer = VulkanBuffer::create(allocator, &vbInfo, &allocInfo);
+
+        auto commands = beginSingleTimeCommands();
+
+        VkBufferCopy vbCopyRegion = {};
+        vbCopyRegion.srcOffset = 0;
+        vbCopyRegion.dstOffset = 0;
+        vbCopyRegion.size = vbInfo.size;
+        vkCmdCopyBuffer(commands, stagingBuffer->buffer, realBuffer->buffer, 1, &vbCopyRegion);
+
+        endSingleTimeCommands(commands);
+
+        return realBuffer;
     }
 
     void allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets) const;

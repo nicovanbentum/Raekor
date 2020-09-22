@@ -54,11 +54,15 @@ private:
     VkPipelineLayout pipelineLayout2;
 
     std::vector<VKMesh> meshes;
-    std::unique_ptr<VK::VertexBuffer> meshVertexBuffer;
-    std::unique_ptr<VK::IndexBuffer> meshIndexBuffer;
 
+    VulkanBuffer vertexBuffer;
+    VulkanBuffer indexBuffer;
 
+    // vertex input state
+    std::vector<VkVertexInputAttributeDescription> layout;
     VkPipelineVertexInputStateCreateInfo input_state;
+    VkVertexInputBindingDescription bindingDescription;
+    
     std::unique_ptr<VK::DepthTexture> depth_texture;
 
     std::unique_ptr<VK::DescriptorSet> modelSet;
@@ -83,6 +87,8 @@ private:
     VK::Shader skyboxf;
 
     std::array<std::string, 6> face_files;
+
+    VmaAllocator bufferAllocator;
 
 public:
     void recordModel();

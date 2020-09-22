@@ -6,8 +6,6 @@ namespace Raekor {
 namespace VK {
 
     void Renderer::recordModel() {
-        // pre-record the entire model's mesh buffers
-        // hardcoded for correct depth ordering, TODO: implement actual depth ordering for transparency
         for (int i = 0; i < meshes.size(); i++) {
             recordMeshBuffer(i, meshes[i], pipelineLayout, *modelSet, secondaryBuffers[meshes.size() - 1 - i]);
         }
@@ -63,7 +61,12 @@ namespace VK {
 
         // destroy render pass
         vkDestroyRenderPass(context.device, renderPass, nullptr);
+  
+        vertexBuffer.destroy(bufferAllocator);
+        indexBuffer.destroy(bufferAllocator);
+        vmaDestroyAllocator(bufferAllocator);
     }
+
     
     uint32_t Renderer::getMeshCount() {
         return static_cast<uint32_t>(meshes.size());
@@ -77,6 +80,17 @@ namespace VK {
         skyboxv(context, "shaders/Vulkan/v_skybox.spv"),
         face_files(cubeTextureFiles)
     {
+        VmaAllocatorCreateInfo allocInfo = {};
+        allocInfo.physicalDevice = context.PDevice;
+        allocInfo.device = context.device;
+        allocInfo.instance = context.instance;
+        allocInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+
+        VkResult vmaResult = vmaCreateAllocator(&allocInfo, &bufferAllocator);
+        if (vmaResult != VK_SUCCESS) {
+            throw std::runtime_error("failed create vma allocator");
+        }
+
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
         VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
@@ -170,13 +184,68 @@ namespace VK {
 
         }
 
-        meshIndexBuffer = std::make_unique<VK::IndexBuffer>(context, indices);
-        meshVertexBuffer = std::make_unique<VK::VertexBuffer>(context, vertices);
-        meshVertexBuffer->setLayout({
-            { "POSITION", ShaderType::FLOAT3 },
-            { "UV",       ShaderType::FLOAT2 },
-            { "NORMAL",   ShaderType::FLOAT3 }
-            });
+        {   // vertex buffer upload
+            VkBufferCreateInfo vbInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+            vbInfo.size = vertices.size() * sizeof(Vertex);
+            vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            vbInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+            allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+            VulkanBuffer::Unique stagingBuffer = VulkanBuffer::create(bufferAllocator, &vbInfo, &allocInfo);
+            memcpy(stagingBuffer->allocInfo.pMappedData, vertices.data(), vbInfo.size);
+
+            vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+            allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+            allocInfo.flags = NULL;
+
+            vertexBuffer = VulkanBuffer(bufferAllocator, &vbInfo, &allocInfo);
+
+            auto commands = context.device.beginSingleTimeCommands();
+
+            VkBufferCopy vbCopyRegion = {};
+            vbCopyRegion.srcOffset = 0;
+            vbCopyRegion.dstOffset = 0;
+            vbCopyRegion.size = vbInfo.size;
+            vkCmdCopyBuffer(commands, stagingBuffer->buffer, vertexBuffer.buffer, 1, &vbCopyRegion);
+
+            context.device.endSingleTimeCommands(commands);
+        }
+
+        {   // index buffer upload
+            VkBufferCreateInfo vbInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+            vbInfo.size = indices.size() * sizeof(Triangle);
+            vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            vbInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+            VmaAllocationCreateInfo allocInfo = {};
+            allocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+            allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+            VulkanBuffer::Unique stagingBuffer = VulkanBuffer::create(bufferAllocator, &vbInfo, &allocInfo);
+            memcpy(stagingBuffer->allocInfo.pMappedData, indices.data(), vbInfo.size);
+
+            vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+            allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+            allocInfo.flags = NULL;
+
+            indexBuffer = VulkanBuffer(bufferAllocator, &vbInfo, &allocInfo);
+
+            auto commands = context.device.beginSingleTimeCommands();
+
+            VkBufferCopy vbCopyRegion = {};
+            vbCopyRegion.srcOffset = 0;
+            vbCopyRegion.dstOffset = 0;
+            vbCopyRegion.size = vbInfo.size;
+            vkCmdCopyBuffer(commands, stagingBuffer->buffer, indexBuffer.buffer, 1, &vbCopyRegion);
+
+            context.device.endSingleTimeCommands(commands);
+        }
+
+
+
 
         for (unsigned int m = 0, ti = 0; m < scene->mNumMeshes; m++) {
             auto ai_mesh = scene->mMeshes[m];
@@ -230,7 +299,39 @@ namespace VK {
         cube_v = std::make_unique<VK::VertexBuffer>(context, cubeVertices);
         cube_i = std::make_unique<VK::IndexBuffer>(context, cubeIndices);
 
-        input_state = meshVertexBuffer->getState();
+        VkVertexInputAttributeDescription pos = {};
+        pos.binding = 0;
+        pos.location = 0;
+        pos.format = VK_FORMAT_R32G32B32_SFLOAT;
+        pos.offset = 0;
+
+        VkVertexInputAttributeDescription uv = {};
+        uv.binding = 0;
+        uv.location = 1;
+        uv.format = VK_FORMAT_R32G32_SFLOAT;
+        uv.offset = pos.offset + sizeof(float) * 3;
+
+        VkVertexInputAttributeDescription normal = {};
+        normal.binding = 0;
+        normal.location = 2;
+        normal.format = VK_FORMAT_R32G32B32_SFLOAT;
+        normal.offset = uv.offset + sizeof(float) * 2;
+
+        layout.push_back(pos);
+        layout.push_back(uv);
+        layout.push_back(normal);
+
+        bindingDescription = {};
+        bindingDescription.binding = 0;
+        bindingDescription.stride = sizeof(Vertex);
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        input_state = {};
+        input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        input_state.vertexBindingDescriptionCount = 1;
+        input_state.pVertexBindingDescriptions = &bindingDescription;
+        input_state.vertexAttributeDescriptionCount = static_cast<uint32_t>(layout.size());
+        input_state.pVertexAttributeDescriptions = layout.data();
 
         std::cout << "mesh total = " << meshes.size() << "\n";
     }
@@ -402,8 +503,8 @@ namespace VK {
         }
         VkDeviceSize offsets[] = { 0 };
         vkCmdPushConstants(cmdbuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(uint32_t), &m.textureIndex);
-        vkCmdBindVertexBuffers(cmdbuffer, 0, 1, &meshVertexBuffer->buffer, offsets);
-        vkCmdBindIndexBuffer(cmdbuffer, meshIndexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(cmdbuffer, 0, 1, &vertexBuffer.buffer, offsets);
+        vkCmdBindIndexBuffer(cmdbuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindPipeline(cmdbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
         uint32_t offset = static_cast<uint32_t>(bufferIndex * dynamicAlignment);

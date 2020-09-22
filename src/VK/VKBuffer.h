@@ -2,10 +2,26 @@
 
 #include "pch.h"
 #include "buffer.h"
-#include "VKContext.h"
 
 namespace Raekor {
 namespace VK {
+
+class Context;
+
+class VulkanBuffer {
+public:
+    VulkanBuffer() = default;
+    VulkanBuffer(VmaAllocator allocator, const VkBufferCreateInfo* pBufferCreateInfo, const VmaAllocationCreateInfo* pAllocationCreateInfo);
+
+    using Unique = std::unique_ptr<VulkanBuffer, std::function<void(VulkanBuffer*)>>;
+    static Unique create(VmaAllocator allocator, const VkBufferCreateInfo* pBufferCreateInfo, const VmaAllocationCreateInfo* pAllocationCreateInfo);
+
+    VkBuffer buffer;
+    VmaAllocation alloc;
+    VmaAllocationInfo allocInfo;
+
+    void destroy(VmaAllocator allocator);
+};
 
 class Buffer {
 protected:

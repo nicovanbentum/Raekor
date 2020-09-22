@@ -109,7 +109,8 @@ void handleEvents(SDL_Window* window, Raekor::Camera& camera, bool mouseInViewpo
 int main(int argc, char** argv) {
     
     auto app = Raekor::Editor();
-    app.computeRayTracer();
+    app.runVulkan();
     app.serializeSettings("config.json", true);
+    system("PAUSE");
     return 0;
 }

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "VKBuffer.h"
+#include "VKContext.h"
 
 namespace Raekor {
 namespace VK {
@@ -61,6 +62,25 @@ VkPipelineVertexInputStateCreateInfo VertexBuffer::getState() {
     setLayout(extLayout);
     describe();
     return info;
+}
+
+VulkanBuffer::VulkanBuffer(VmaAllocator allocator, const VkBufferCreateInfo* pBufferCreateInfo, const VmaAllocationCreateInfo* pAllocationCreateInfo) {
+    auto vkresult = vmaCreateBuffer(allocator, pBufferCreateInfo, pAllocationCreateInfo, &buffer, &alloc, &allocInfo);
+    assert(vkresult == VK_SUCCESS);
+}
+
+VulkanBuffer::Unique VulkanBuffer::create(VmaAllocator allocator, const VkBufferCreateInfo* pBufferCreateInfo, const VmaAllocationCreateInfo* pAllocationCreateInfo) {
+    auto vkbuffer = new VulkanBuffer();
+    vmaCreateBuffer(allocator, pBufferCreateInfo, pAllocationCreateInfo, &vkbuffer->buffer, &vkbuffer->alloc, &vkbuffer->allocInfo);
+    return Unique(vkbuffer, [=](VulkanBuffer* f) {
+        assert(allocator);
+        f->destroy(allocator);
+        });
+}
+
+void VulkanBuffer::destroy(VmaAllocator allocator) {
+    vmaDestroyBuffer(allocator, buffer, alloc);
+    std::cout << "destroyed " << std::endl;
 }
 
 }

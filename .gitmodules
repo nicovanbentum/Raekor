@@ -19,3 +19,6 @@
 [submodule "dependencies/ImGuizmo"]
 	path = dependencies/ImGuizmo
 	url = https://github.com/nicovanbentum/ImGuizmo/
+[submodule "dependencies/VulkanMemoryAllocator"]
+	path = dependencies/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator

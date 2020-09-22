@@ -48,7 +48,7 @@ void main() {
     vec4 sampled = texture( tex_sampler[pc.samplerIndex], uv);
 
 	vec3 result = doLight(light);
-    final_color = vec4(result, sampled.a);
+    final_color = vec4(sampled.xyz, sampled.a);
 }
 
 

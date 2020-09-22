@@ -36,6 +36,7 @@
 #endif
 #define VK_ENABLE_BETA_EXTENSIONS // ray tracing extensions
 #include "vulkan/vulkan.h"
+#include "vk_mem_alloc.h"
 
 // SDL includes
 #include "SDL.h"
