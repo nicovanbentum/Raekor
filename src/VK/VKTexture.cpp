@@ -5,9 +5,9 @@ namespace Raekor {
 namespace VK {
 
 void Image::destroy(VmaAllocator allocator) {
-    vkDestroyImageView(device, view, nullptr);
-    vmaDestroyImage(allocator, image, alloc);
-    vkDestroySampler(device, sampler, nullptr);
+    if(view != VK_NULL_HANDLE) vkDestroyImageView(device, view, nullptr);
+    if(image) vmaDestroyImage(allocator, image, alloc);
+    if(sampler) vkDestroySampler(device, sampler, nullptr);
 }
 
 Texture::Texture(const Context& ctx, const Stb::Image& image, VmaAllocator allocator) : Image(ctx.device) {

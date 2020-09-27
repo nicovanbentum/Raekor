@@ -11,16 +11,14 @@ Instance::Instance(SDL_Window* window) {
     isDebug = true;
 #endif
 
-    VkApplicationInfo appInfo = {};
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "Render Engine";
+    VkApplicationInfo appInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
+    appInfo.pApplicationName = "Raekor Editor";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 2, 0);
-    appInfo.pEngineName = "Raekor Engine";
+    appInfo.pEngineName = "Raekor";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 2, 0);
     appInfo.apiVersion = VK_API_VERSION_1_2;
 
-    VkInstanceCreateInfo instance_info = {};
-    instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    VkInstanceCreateInfo instance_info = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
     instance_info.pApplicationInfo = &appInfo;
 
     unsigned int count;
@@ -32,11 +30,11 @@ Instance::Instance(SDL_Window* window) {
         VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
     };
 
-    size_t additional_extension_count = extensions.size();
-    extensions.resize(additional_extension_count + count);
+    const size_t additionalExtensionCount = extensions.size();
+    extensions.resize(additionalExtensionCount + count);
 
-    auto sdl_bool = SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data() + additional_extension_count);
-    if (!sdl_bool) {
+    auto sdlBool = SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data() + additionalExtensionCount);
+    if (!sdlBool) {
         throw std::runtime_error("failed to get instance extensions");
     }
 
@@ -55,7 +53,7 @@ Instance::Instance(SDL_Window* window) {
         std::vector<VkLayerProperties> availableLayers(layerCount);
         vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-        for (const char* layerName : validationLayers) {
+        for (auto layerName : validationLayers) {
             bool found = false;
             for (const auto& layerProperties : availableLayers) {
                 if (strcmp(layerName, layerProperties.layerName) == 0) {
@@ -63,6 +61,7 @@ Instance::Instance(SDL_Window* window) {
                     break;
                 }
             }
+
             if (!found) throw std::runtime_error("requested validation layer not supported");
         }
     }
@@ -102,9 +101,7 @@ PhysicalDevice::PhysicalDevice(const Instance& instance)
 {
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
-    if (device_count == 0) {
-        throw std::runtime_error("failed to find any physical devices");
-    }
+    assert(device_count > 0);
 
     std::vector<VkPhysicalDevice> devices(device_count);
     vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
@@ -120,9 +117,8 @@ PhysicalDevice::PhysicalDevice(const Instance& instance)
         }
     }
     // else we just get the first adapter found
-    // TODO: implement actual device picking and scoring
     if (gpu == VK_NULL_HANDLE) {
-        gpu = *devices.begin();
+        gpu = devices[0];
     }
 }
 

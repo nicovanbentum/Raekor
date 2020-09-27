@@ -14,7 +14,7 @@ public:
 
 
     void reload();
-    static void compileFromCommandLine(const std::string& originalFileName, const std::string& outFilename);
+    static void compileFromCommandLine(std::string_view in, std::string_view out);
     VkPipelineShaderStageCreateInfo getInfo(VkShaderStageFlagBits stage) const;
     operator VkShaderModule() { return module; }
 

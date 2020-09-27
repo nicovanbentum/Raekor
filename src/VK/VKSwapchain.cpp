@@ -4,38 +4,16 @@
 namespace Raekor {
 namespace VK {
 
-Swapchain::Swapchain() : device(VK_NULL_HANDLE), created(false) {}
-
 Swapchain::Swapchain(const Context& context, glm::vec2 resolution, VkPresentModeKHR mode) {
-    created = false;
-    device = context.device;
-    this->recreate(context, resolution, mode);
-}
-
-Swapchain::~Swapchain() {
-    if (created) {
-        this->destruct();
+    if (!create(context, resolution, mode)) {
+        std::puts("failed to create swap chain");
     }
 }
 
-void Swapchain::destruct() {
-    for (auto& framebuffer : framebuffers)
-        if (framebuffer != VK_NULL_HANDLE)
-            vkDestroyFramebuffer(device, framebuffer, nullptr);
-    for (auto& view : views) {
-        if (view != VK_NULL_HANDLE)
-            vkDestroyImageView(device, view, nullptr);
-    }
-    if (swapchain != VK_NULL_HANDLE && created) {
-        vkDestroySwapchainKHR(device, swapchain, nullptr);
-    }
-}
+///////////////////////////////////////////////////////////////////////
 
-void Swapchain::recreate(const Context& context, glm::vec2 resolution, VkPresentModeKHR mode) {
-    if (device == VK_NULL_HANDLE) device = context.device;
-    if (created) this->destruct();
-    created = true;
-    
+bool Swapchain::create(const Context& context, glm::vec2 resolution, VkPresentModeKHR mode)
+{
     struct SwapChainSupportDetails {
         VkSurfaceCapabilitiesKHR capabilities;
         std::vector<VkSurfaceFormatKHR> formats;
@@ -49,7 +27,7 @@ void Swapchain::recreate(const Context& context, glm::vec2 resolution, VkPresent
     uint32_t formatCount;
     vkGetPhysicalDeviceSurfaceFormatsKHR(context.PDevice, surface, &formatCount, nullptr);
 
-    if (formatCount != 0) {
+    if (formatCount) {
         details.formats.resize(formatCount);
         vkGetPhysicalDeviceSurfaceFormatsKHR(context.PDevice, surface, &formatCount, details.formats.data());
     }
@@ -85,8 +63,8 @@ void Swapchain::recreate(const Context& context, glm::vec2 resolution, VkPresent
         extent = capabilities.currentExtent;
     }
     else {
-        VkExtent2D actualExtent = { 
-            static_cast<uint32_t>(resolution.x), 
+        VkExtent2D actualExtent = {
+            static_cast<uint32_t>(resolution.x),
             static_cast<uint32_t>(resolution.y)
         };
         actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
@@ -111,9 +89,9 @@ void Swapchain::recreate(const Context& context, glm::vec2 resolution, VkPresent
     sc_info.imageArrayLayers = 1;
     sc_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    uint32_t queueFamilyIndices[] = { 
-        context.device.getQueues().graphics.value(), 
-        context.device.getQueues().present.value() 
+    uint32_t queueFamilyIndices[] = {
+        context.device.getQueues().graphics.value(),
+        context.device.getQueues().present.value()
     };
 
     if (context.device.getQueues().graphics.value() != context.device.getQueues().present.value()) {
@@ -134,7 +112,7 @@ void Swapchain::recreate(const Context& context, glm::vec2 resolution, VkPresent
     sc_info.oldSwapchain = VK_NULL_HANDLE;
 
     if (vkCreateSwapchainKHR(context.device, &sc_info, nullptr, &swapchain) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create swapchain");
+        return false;
     }
 
     vkGetSwapchainImagesKHR(context.device, swapchain, &imageCount, nullptr);
@@ -143,7 +121,7 @@ void Swapchain::recreate(const Context& context, glm::vec2 resolution, VkPresent
     imageFormat = surface_format.format;
 
     views.resize(images.size());
-        for (size_t i = 0; i < images.size(); i++) {
+    for (size_t i = 0; i < images.size(); i++) {
         VkImageViewCreateInfo iv_info = {};
         iv_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         iv_info.image = images[i];
@@ -160,10 +138,27 @@ void Swapchain::recreate(const Context& context, glm::vec2 resolution, VkPresent
         iv_info.subresourceRange.layerCount = 1;
 
         if (vkCreateImageView(context.device, &iv_info, nullptr, &views[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create image view");
+            return false;
         }
     }
+
+    return true;
 }
+
+///////////////////////////////////////////////////////////////////////
+
+void Swapchain::destroy(VkDevice device)
+{
+    std::puts("SWAPCHAIN DEAD IS GONE DESTROYED FINITO");
+    for (auto& framebuffer : framebuffers)
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+    for (auto& view : views) {
+        vkDestroyImageView(device, view, nullptr);
+    }
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+}
+
+///////////////////////////////////////////////////////////////////////
 
 void Swapchain::setupFrameBuffers(const Context& context, VkRenderPass renderPass, const std::vector<VkImageView>& pAttachments) {
     framebuffers.resize(views.size());

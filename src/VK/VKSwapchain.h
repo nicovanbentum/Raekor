@@ -7,21 +7,18 @@ namespace VK {
 
 class Swapchain {
 public:
-    Swapchain();
+    Swapchain() = default;
     Swapchain(const Context& context, glm::vec2 resolution, VkPresentModeKHR mode);
-    ~Swapchain();
 
-    void destruct();
-    inline const VkExtent2D& getExtent() const { return extent; }
-    void recreate(const Context& context, glm::vec2 resolution, VkPresentModeKHR mode);
-    void setupFrameBuffers(const Context& context, VkRenderPass renderPass, const std::vector<VkImageView>& attachments);
+    [[nodiscard]] bool create(const Context& context, glm::vec2 resolution, VkPresentModeKHR mode);
+    void destroy(VkDevice device);
 
     operator VkSwapchainKHR() const { return swapchain; }
+    inline const VkExtent2D& getExtent() const { return extent; }
+    void setupFrameBuffers(const Context& context, VkRenderPass renderPass, const std::vector<VkImageView>& attachments);
 
 private:
-    bool created;
-    VkDevice device;
-    VkSwapchainKHR swapchain;
+    VkSwapchainKHR swapchain    = VK_NULL_HANDLE;
 
 public:
     VkExtent2D extent;

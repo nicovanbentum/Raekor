@@ -29,8 +29,6 @@ bool Editor::showUI = true;
 bool Editor::shouldResize = false;
 
 void Editor::runVulkan() {
-    auto context = Raekor::OS();
-
     // retrieve the application settings from the config file
     serializeSettings("config.json");
 
@@ -55,9 +53,7 @@ void Editor::runVulkan() {
         static_cast<int>(displays[index].h * 0.9),
         wflags);
 
-    if (!window) {
-        std::cout << SDL_GetError() << '\n';
-    }
+    if (!window) std::cout << SDL_GetError() << '\n';
 
     //initialize ImGui
     IMGUI_CHECKVERSION();
@@ -185,7 +181,7 @@ void Editor::runVulkan() {
             ImGuizmo::Manipulate(glm::value_ptr(camera.getView()), glm::value_ptr(camera.getProjection()), ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD, glm::value_ptr(lightmatrix));
             ImGui::Begin("ECS", (bool*)0, ImGuiWindowFlags_AlwaysAutoResize);
             if (ImGui::Button("Add Model")) {
-                std::string path = context.openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
+                std::string path = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
                 if (!path.empty()) {
                 }
             }

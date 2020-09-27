@@ -46,7 +46,7 @@ namespace Raekor {
 
         SDL_SetWindowInputFocus(sdlWindow);
 
-        Viewport viewport = Viewport(displays[display]);
+        Viewport viewport { displays[display] };
 
         // initialize ImGui
         IMGUI_CHECKVERSION();

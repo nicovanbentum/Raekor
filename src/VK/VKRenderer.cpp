@@ -55,6 +55,8 @@ namespace VK {
 
         // destroy render pass
         vkDestroyRenderPass(context.device, renderPass, nullptr);
+
+        swapchain.destroy(context.device);
   
         // destroy memory objects
         modelUbo->destroy(bufferAllocator);
@@ -95,7 +97,9 @@ namespace VK {
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
         VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
-        swapchain.recreate(context, { w, h }, mode);
+        if (!swapchain.create(context, { w,h }, mode)) {
+            std::puts("wtfffffffffffffffff");
+        }
 
         initResources();
         setupModelStageUniformBuffers();
@@ -117,7 +121,7 @@ namespace VK {
         setupSyncObjects();
     }
 
-    void Renderer::cleanupSwapChain() {
+    void Renderer::destroyGraphicsPipeline() {
         vkDestroyPipeline(context.device, graphicsPipeline, nullptr);
         vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
         vkDestroyRenderPass(context.device, renderPass, nullptr);
@@ -331,6 +335,7 @@ namespace VK {
     }
 
     void Renderer::setupFrameBuffers() {
+        if(depth_texture) depth_texture->destroy(bufferAllocator);
         depth_texture.reset(new VK::DepthTexture(context, { swapchain.extent.width, swapchain.extent.height }, bufferAllocator));
         swapchain.setupFrameBuffers(context, renderPass, { depth_texture->view });
     }
@@ -750,35 +755,32 @@ namespace VK {
 
     void Renderer::recreateSwapchain(bool useVsync) {
         vsync = useVsync;
-        try {
-            waitForIdle();
-            int w, h;
-            SDL_GetWindowSize(context.window, &w, &h);
-            uint32_t flags = SDL_GetWindowFlags(context.window);
-            while (flags & SDL_WINDOW_MINIMIZED) {
-                flags = SDL_GetWindowFlags(context.window);
-                SDL_Event ev;
-                while (SDL_PollEvent(&ev)) {}
-            }
-            // recreate the swapchain
-            cleanupSwapChain();
-            VkPresentModeKHR mode = useVsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
-            swapchain.recreate(context, { w, h }, mode);
-
-            std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
-                vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
-                frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
-            };
-
-            // create the graphics pipeline
-            createGraphicsPipeline(shaders);
-            setupFrameBuffers();
-            recordModel();
+        waitForIdle();
+        int w, h;
+        SDL_GetWindowSize(context.window, &w, &h);
+        uint32_t flags = SDL_GetWindowFlags(context.window);
+        while (flags & SDL_WINDOW_MINIMIZED) {
+            flags = SDL_GetWindowFlags(context.window);
+            SDL_Event ev;
+            while (SDL_PollEvent(&ev)) {}
         }
-        catch (std::exception e) {
-            std::cout << e.what() << '\n';
-            abort();
+        // recreate the swapchain
+        VkPresentModeKHR mode = useVsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+        swapchain.destroy(context.device);
+        if (!swapchain.create(context, { w, h }, mode)) {
+            std::puts("WTF SWAP CHAIN FAILED??");
         }
+
+        // re-create the graphics pipeline
+        destroyGraphicsPipeline();
+        std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
+            vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
+            frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
+        };
+
+        createGraphicsPipeline(shaders);
+        setupFrameBuffers();
+        recordModel();
     }
 
     void Renderer::ImGuiInit(SDL_Window* window) {

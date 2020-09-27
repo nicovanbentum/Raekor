@@ -82,17 +82,17 @@ private:
     VmaAllocator bufferAllocator;
 
 public:
+    ~Renderer();
+
     void recordModel();
 
     void reloadShaders();
-
-    ~Renderer();
 
     uint32_t getMeshCount();
 
     Renderer(SDL_Window* window);
 
-    void cleanupSwapChain();
+    void destroyGraphicsPipeline();
 
     void initResources();
 

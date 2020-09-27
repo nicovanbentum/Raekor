@@ -40,7 +40,7 @@ void Shader::reload() {
 
 ///////////////////////////////////////////////////////////////////////////
 
-void Shader::compileFromCommandLine(const std::string& in, const std::string& out) {
+void Shader::compileFromCommandLine(std::string_view in, std::string_view out) {
     const auto vulkan_sdk_path = getenv("VULKAN_SDK");
     if (!vulkan_sdk_path) {
         std::puts("Unable to find Vulkan SDK, cannot compile shader");
@@ -48,12 +48,12 @@ void Shader::compileFromCommandLine(const std::string& in, const std::string& ou
     }
 
     const auto compiler = vulkan_sdk_path + std::string("\\Bin\\glslc.exe ");
-    const auto command = compiler + in + " -o " + out;
+    const auto command = compiler + std::string(in) + " -o " + std::string(out);
 
     if (system(command.c_str()) != 0) {
-        std::cout << "failed to compile vulkan shader: " + std::string(in) << '\n';
+        std::cout << "failed to compile vulkan shader: " << in << '\n';
     } else {
-        std::cout << "Successfully compiled VK shader: " + std::string(in) << '\n';
+        std::cout << "Successfully compiled VK shader: " << in << '\n';
     }
 }
 

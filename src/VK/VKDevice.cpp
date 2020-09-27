@@ -393,12 +393,8 @@ void Device::transitionImageLayout(VkImage image, VkFormat format, uint32_t mipL
     }
 
     vkCmdPipelineBarrier(
-        commandBuffer,
-        sourceStage, destinationStage,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &barrier
+        commandBuffer, sourceStage, destinationStage,
+        0, 0, nullptr, 0, nullptr, 1, &barrier
     );
 
     endSingleTimeCommands(commandBuffer);
@@ -445,8 +441,6 @@ std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo> Device::createStagingBuff
     assert(vkresult == VK_SUCCESS);
 
     return { stagingBuffer, stagingAlloc, stagingAllocInfo };
-
-    return std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo>();
 }
 
 } // VK
