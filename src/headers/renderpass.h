@@ -3,8 +3,6 @@
 #include "ecs.h"
 #include "scene.h"
 #include "mesh.h"
-#include "framebuffer.h"
-#include "opengl.h"
 
 namespace Raekor {
 namespace RenderPass {
@@ -191,6 +189,8 @@ private:
     glShader shader;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 class BoundingBoxDebug {
 public:
     BoundingBoxDebug(Viewport& viewport);
@@ -208,7 +208,9 @@ public:
     unsigned int result;
 };
 
-class ForwardLightingPass {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+class ForwardLighting {
 private:
     struct {
         glm::mat4 view, projection;
@@ -220,7 +222,7 @@ private:
     } uniforms;
 
 public:
-    ForwardLightingPass(Viewport& viewport);
+    ForwardLighting(Viewport& viewport);
     void execute(Viewport& viewport, entt::registry& scene, Voxelization* voxels, ShadowMap* shadowmap);
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -246,7 +248,7 @@ public:
     unsigned int result;
 };
 
-//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class DeferredLighting {
 private:
@@ -286,7 +288,9 @@ public:
     unsigned int bloomHighlights;
 };
 
-class SkyPass {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+class Sky {
 public:
     struct {
         float time = 0.0f;
@@ -294,7 +298,7 @@ public:
         float cumulus = 0.8f;
     } settings;
 
-    SkyPass(Viewport& viewport);
+    Sky(Viewport& viewport);
 
     void execute(Viewport& viewport, Mesh* quad);
 
@@ -307,6 +311,8 @@ public:
     unsigned int result;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 class Skinning {
 public:
     Skinning();
@@ -317,9 +323,11 @@ private:
     ShaderHotloader hotloader;
 };
 
-class EnvironmentPass {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+class Environment {
 public:
-    EnvironmentPass() = default;
+    Environment() = default;
     void execute(const std::string& file, Mesh* unitCube);
 
 private:
@@ -331,9 +339,11 @@ private:
     glShader toCubemapShader;
 };
 
-class RayComputePass {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+class RayCompute {
 public:
-    RayComputePass(Viewport& viewport);
+    RayCompute(Viewport& viewport);
 
     void execute(Viewport& viewport);
 

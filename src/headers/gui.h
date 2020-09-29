@@ -1,13 +1,40 @@
 #pragma once
 
-#include "ecs.h"
-#include "camera.h"
-
-#include "scene.h"
-#include "components.h"
+#include "application.h"
 
 namespace Raekor {
 namespace gui {
+
+void setTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void setFont(const std::string& filepath);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+class TopMenuBar {
+public:
+    void draw(WindowApplication* app, Scene& scene, unsigned int activeTexture, entt::entity& active);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+class Dockspace {
+public:
+    void begin();
+    void end();
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+class MetricsWindow {
+public:
+    void draw(Viewport& viewport, ImVec2 pos, ImVec2 size);
+    void draw(Viewport& viewport);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class InspectorWindow {
 public:
@@ -24,6 +51,8 @@ private:
     void drawDirectionalLightComponent      (ecs::DirectionalLightComponent& component);
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 class EntityWindow {
 public:
     void draw(entt::registry& scene, entt::entity& active);
@@ -34,58 +63,32 @@ private:
     void drawChildlessNode(entt::registry& scene, entt::entity entity, entt::entity& active);
 };
 
-
-// Copied over from the ImGui Demo file, used for executing chaiscript evals 
-class ConsoleWindow {
-public:
-    ConsoleWindow();
-    ~ConsoleWindow();
-
-    static char* Strdup(const char* str);
-    static void Strtrim(char* str);
-
-    void ClearLog();
-
-    // TODO: figure this out 
-    void AddLog(const char* fmt, ...) IM_FMTARGS(2)
-    {
-        // FIXME-OPT
-        char buf[1024];
-        va_list args;
-        va_start(args, fmt);
-        vsnprintf(buf, IM_ARRAYSIZE(buf), fmt, args);
-        buf[IM_ARRAYSIZE(buf) - 1] = 0;
-        va_end(args);
-        Items.push_back(Strdup(buf));
-    }
-
-    void    Draw(chaiscript::ChaiScript* chai);
-    void    ExecCommand(const char* command_line);
-    
-    static int TextEditCallbackStub(ImGuiInputTextCallbackData* data);
-    int TextEditCallback(ImGuiInputTextCallbackData* data);
-
-private:
-    char                  InputBuf[256];
-    ImVector<char*>       Items;
-    ImVector<char*>       History;
-    int                   HistoryPos;
-    ImGuiTextFilter       Filter;
-    bool                  AutoScroll;
-    bool                  ScrollToBottom;
-};
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class Guizmo {
+    friend class ViewportWindow;
+
 public:
-    void drawGuizmo(entt::registry& scene, Viewport& viewport, entt::entity active);
     void drawWindow();
-    inline ImGuizmo::OPERATION getOperation() { return operation; }
+    ImGuizmo::OPERATION getOperation();
 
 private:
     bool enabled = true;
     ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
     std::array<const char*, 3> previews = { "TRANSLATE", "ROTATE", "SCALE"};
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+class ViewportWindow {
+public:
+    bool begin(Viewport& viewport, unsigned int texture);
+    void end();
+
+    void drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewport& viewport, entt::entity active);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class AssetWindow {
 public:

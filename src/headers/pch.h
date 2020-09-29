@@ -7,6 +7,7 @@
 
 #define NOMINMAX // i hate computers
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // platform specific includes
 #include "GL/gl3w.h"
 
@@ -20,7 +21,7 @@
     #include <d3dcompiler.h>
     #include <ShObjIdl_core.h>
 
-    // include DirectXTK
+    // DirectXTK Framework Header only 
     #include "DirectXTK/DDSTextureLoader.h"
     #include "DirectXTK/WICTextureLoader.h"
     
@@ -28,22 +29,25 @@
     #include <GL/gl.h>
     #include <gtk/gtk.h>
     
-#endif // _WIN32
+#endif
 
-// Vulkan includes
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Vulkan SDK
 #ifdef _WIN32
     #define VK_USE_PLATFORM_WIN32_KHR
 #endif
-#define VK_ENABLE_BETA_EXTENSIONS // ray tracing extensions
+#define VK_ENABLE_BETA_EXTENSIONS
 #include "vulkan/vulkan.h"
 #include "vk_mem_alloc.h"
 
-// SDL includes
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Simple DirectMedia Layer
 #include "SDL.h"
 #include "SDL_vulkan.h"
 #undef main //stupid sdl_main
 
-// imgui headers to build once
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// ImGui library
 #include "imconfig.h"
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
@@ -51,14 +55,15 @@
 #include "imgui_impl_vulkan.h"
 #include "misc/cpp/imgui_stdlib.h"
 
-// imguizmo header
-#include "ImGuizmo.h"
-
-// if we're on windows we also include the directx11 implementation for ImGui
 #ifdef _WIN32
     #include "imgui_impl_dx11.h"
 #endif
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// ImGuizmo library
+#include "ImGuizmo.h"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // openGL math library
 #include "glm.hpp"
 #include "ext.hpp"
@@ -68,13 +73,16 @@
 #include "gtx/matrix_decompose.hpp"
 #include "gtx/euler_angles.hpp"
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // Bullet3 Physics library
 #include "bullet/btBulletDynamicsCommon.h"
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // ChaiScript
 #include "chaiscript/chaiscript.hpp"
 #include "chaiscript/chaiscript_stdlib.hpp"
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // c++ (17) includes
 #include <set>
 #include <map>
@@ -97,6 +105,7 @@
 #include <unordered_map>
 #include <filesystem>
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // header only Cereal library
 #include "cereal/archives/json.hpp"
 #include "cereal/archives/binary.hpp"
@@ -106,18 +115,22 @@
 #include "cereal/types/complex.hpp"
 #include "cereal/types/vector.hpp"
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // include stb image
 #include "stb_image.h"
 #include "stb_image_write.h"
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // include asset importer
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 #include "assimp/Importer.hpp"
 #include "assimp/pbrmaterial.h"
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // Entity-component system entt
 #include "entt/entt.hpp"
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // lz4 compression
 #include "lz4.h"

@@ -2,44 +2,6 @@
     "name": "Raekor Renderer",
     "display": 1,
     "font": "resources/Roboto-Regular.ttf",
-    "skyboxes": [
-        {
-            "key": "lake",
-            "value": {
-                "value0": "resources/skyboxes/lake/right.jpg",
-                "value1": "resources/skyboxes/lake/left.jpg",
-                "value2": "resources/skyboxes/lake/top.jpg",
-                "value3": "resources/skyboxes/lake/bottom.jpg",
-                "value4": "resources/skyboxes/lake/front.jpg",
-                "value5": "resources/skyboxes/lake/back.jpg"
-            }
-        },
-        {
-            "key": "nebula",
-            "value": {
-                "value0": "resources/skyboxes/nebula/right.png",
-                "value1": "resources/skyboxes/nebula/left.png",
-                "value2": "resources/skyboxes/nebula/top.png",
-                "value3": "resources/skyboxes/nebula/bottom.png",
-                "value4": "resources/skyboxes/nebula/front.png",
-                "value5": "resources/skyboxes/nebula/back.png"
-            }
-        },
-        {
-            "key": "night",
-            "value": {
-                "value0": "resources/skyboxes/night/right.jpg",
-                "value1": "resources/skyboxes/night/left.jpg",
-                "value2": "resources/skyboxes/night/top.jpg",
-                "value3": "resources/skyboxes/night/bottom.jpg",
-                "value4": "resources/skyboxes/night/front.jpg",
-                "value5": "resources/skyboxes/night/back.jpg"
-            }
-        }
-    ],
-    "project": [
-        "C:\\Users\\LTSC2019\\Downloads\\dancin_stormtrooper_2\\scene.gltf"
-    ],
     "themeColors": {
         "value0": {
             "value0": 1.0,

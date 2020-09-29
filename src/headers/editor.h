@@ -1,0 +1,49 @@
+#pragma once
+
+#include "application.h"
+#include "gui.h"
+
+namespace Raekor {
+
+class EditorOpenGL : public WindowApplication {
+public:
+    EditorOpenGL();
+    virtual ~EditorOpenGL() = default;
+
+    virtual void update(double dt);
+
+private:
+    Scene scene;
+    entt::entity active = entt::null;
+    unsigned int activeScreenTexture;
+    entt::entity defaultMaterialEntity;
+
+    std::unique_ptr<RenderPass::Sky>                skyPass;
+    std::unique_ptr<RenderPass::Skinning>           skinningPass;
+    std::unique_ptr<RenderPass::ShadowMap>          shadowMapPass;
+    std::unique_ptr<RenderPass::Tonemapping>        tonemappingPass;
+    std::unique_ptr<RenderPass::Environment>        environmentPass;
+    std::unique_ptr<RenderPass::Voxelization>       voxelizationPass;
+    std::unique_ptr<RenderPass::GeometryBuffer>     geometryBufferPass;
+    std::unique_ptr<RenderPass::ForwardLighting>    fowardLightingPass;
+    std::unique_ptr<RenderPass::DeferredLighting>   DeferredLightingPass;
+    std::unique_ptr<RenderPass::BoundingBoxDebug>   boundingBoxDebugPass;
+    std::unique_ptr<RenderPass::VoxelizationDebug>  voxelizationDebugPass;
+
+    bool mouseInViewport = false;
+    bool doSSAO = false, doBloom = false, debugVoxels = false, doDeferred = true;
+    bool shouldVoxelize = true, gizmoEnabled = false, showSettingsWindow = false;
+
+    std::unique_ptr<Mesh> Quad;
+
+    gui::Guizmo gizmo;
+    gui::Dockspace dockspace;
+    gui::TopMenuBar topMenuBar;
+    gui::EntityWindow ecsWindow;
+    gui::AssetWindow assetBrowser;
+    gui::MetricsWindow metricsWindow;
+    gui::ViewportWindow viewportWindow;
+    gui::InspectorWindow inspectorWindow;
+};
+
+} // raekor

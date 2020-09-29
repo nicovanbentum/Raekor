@@ -9,7 +9,7 @@ class Timer {
 public:
     Timer() {}
     void start();
-    void stop();
+    double stop();
     void restart();
     double elapsedMs();
 
@@ -23,6 +23,8 @@ private:
     std::chrono::time_point<std::chrono::system_clock> stopTime;
 #endif
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class ScopedTimer : Timer {
 public:

@@ -19,6 +19,8 @@ struct TransformComponent {
     void recalculateMatrix();
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct DirectionalLightComponent {
     struct ShaderBuffer {
         glm::vec4 direction = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -27,6 +29,8 @@ struct DirectionalLightComponent {
 
     float brightness;
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct PointLightComponent {
     struct ShaderBuffer {
@@ -37,11 +41,14 @@ struct PointLightComponent {
     float brightness;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct NodeComponent {
     entt::entity parent = entt::null;
     bool hasChildren = false;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct MeshComponent {
     std::vector<glm::vec3> positions;
@@ -62,19 +69,25 @@ struct MeshComponent {
     void generateAABB();
     void uploadIndices();
     void uploadVertices();
-    void fillStagingBuffer(std::vector<float>& stagingBuffer);
+    std::vector<float> getVertexData();
 };
 
-// TODO: move these two structs somewhere else
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+// TODO: move these next two structs somewhere else
 struct BoneInfo {
     glm::mat4 boneOffset;
     glm::mat4 finalTransformation;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct BoneTreeNode {
     std::string name;
     std::vector<BoneTreeNode> children;
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct MeshAnimationComponent {
     std::vector<glm::vec4> boneWeights;
@@ -101,6 +114,8 @@ struct MeshAnimationComponent {
     glVertexBuffer skinnedVertexBuffer;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct MaterialComponent {
     std::string name;
     std::string albedoFile, normalFile, mrFile;
@@ -125,6 +140,8 @@ struct MaterialComponent {
     void uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images);
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct NameComponent {
     std::string name;
 
@@ -132,6 +149,8 @@ struct NameComponent {
     inline bool operator==(const std::string& rhs) { return name == rhs; }
     inline NameComponent& operator=(const std::string& rhs) { name = rhs; return *this; }
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename T>
 inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {}

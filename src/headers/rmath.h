@@ -17,6 +17,8 @@ struct Ray {
     std::optional<float> hitsTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2);
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct Frustrum {
     enum Halfspace {
         NEGATIVE = -1,
@@ -29,6 +31,8 @@ struct Frustrum {
     void update(const glm::mat4& vp, bool normalize);
     bool vsAABB(const glm::vec3& min, const glm::vec3& max);
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool pointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max);
 

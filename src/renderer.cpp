@@ -17,15 +17,21 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 static void log_msg(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
         std::cout << message << std::endl;
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 // globals for the active API and renderer
 RenderAPI Renderer::activeAPI = RenderAPI::OPENGL;
 Renderer* Renderer::instance = nullptr;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 GLRenderer::GLRenderer(SDL_Window* window) {
     renderWindow = window;
@@ -44,6 +50,12 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     
     ImGui_ImplSDL2_InitForOpenGL(window, &context);
     ImGui_ImplOpenGL3_Init("#version 330");
+
+    // get GUI i/o and set a bunch of settings
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
+    io.ConfigDockingWithShift = true;
 
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -76,10 +88,14 @@ GLRenderer::~GLRenderer() {
     SDL_GL_DeleteContext(context);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void GLRenderer::impl_Clear(glm::vec4 color) {
     glClearColor(color.r, color.g, color.b, color.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GLRenderer::impl_ImGui_NewFrame(SDL_Window* window) {
     ImGui_ImplOpenGL3_NewFrame();
@@ -87,19 +103,27 @@ void GLRenderer::impl_ImGui_NewFrame(SDL_Window* window) {
     ImGui::NewFrame();
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void GLRenderer::impl_ImGui_Render() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GLRenderer::impl_SwapBuffers(bool vsync) const {
     SDL_GL_SetSwapInterval(vsync);
     SDL_GL_SwapWindow(renderWindow);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void GLRenderer::impl_DrawIndexed(unsigned int size) {
     glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Renderer::Init(SDL_Window * window) {
     switch (activeAPI) {
@@ -114,29 +138,43 @@ void Renderer::Init(SDL_Window * window) {
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Renderer::Clear(glm::vec4 color) {
     instance->impl_Clear(color);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Renderer::ImGuiRender() {
     instance->impl_ImGui_Render();
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Renderer::ImGuiNewFrame(SDL_Window* window) {
     instance->impl_ImGui_NewFrame(window);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Renderer::DrawIndexed(unsigned int size) {
     instance->impl_DrawIndexed(size);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Renderer::SwapBuffers(bool vsync) {
     instance->impl_SwapBuffers(vsync);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 RenderAPI Renderer::getActiveAPI() {
     return activeAPI;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Renderer::setAPI(const RenderAPI api) {
     activeAPI = api;

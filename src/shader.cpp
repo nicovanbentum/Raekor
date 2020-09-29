@@ -217,6 +217,8 @@ void ShaderHotloader::watch(glShader* shader, Shader::Stage* inStages, size_t st
     });
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void ShaderHotloader::checkForUpdates() {
     for (auto& check : checks) {
         check();

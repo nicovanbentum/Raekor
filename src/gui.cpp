@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "gui.h"
 #include "platform/OS.h"
+#include "application.h"
 
 namespace Raekor {
 namespace gui {
@@ -115,6 +116,8 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
     ImGui::End();
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void InspectorWindow::drawNameComponent(ecs::NameComponent& component) {
     if (ImGui::InputText("Name", &component.name, ImGuiInputTextFlags_AutoSelectAll)) {
         if (component.name.size() > 16) {
@@ -122,6 +125,8 @@ void InspectorWindow::drawNameComponent(ecs::NameComponent& component) {
         }
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void InspectorWindow::drawNodeComponent(ecs::NodeComponent& component) {
     if (component.parent == entt::null) {
@@ -139,13 +144,14 @@ void InspectorWindow::drawTransformComponent(ecs::TransformComponent& component)
         component.recalculateMatrix();
     }
     if (ImGui::DragFloat3("Rotation", glm::value_ptr(component.rotation), 0.001f, static_cast<float>(-M_PI), static_cast<float>(M_PI))) {
-        std::cout << glm::to_string(component.rotation) << '\n';
         component.recalculateMatrix();
     }
     if (ImGui::DragFloat3("Position", glm::value_ptr(component.position), 0.001f, FLT_MIN, FLT_MAX)) {
         component.recalculateMatrix();
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component, entt::registry& scene, entt::entity& active) {
     ImGui::Text("Triangle count: %i", component.indices.size() / 3);
@@ -165,6 +171,8 @@ void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component, entt::reg
         }
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
     if (ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR)) {
@@ -230,14 +238,20 @@ void InspectorWindow::drawMaterialComponent(ecs::MaterialComponent& component) {
 
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void InspectorWindow::drawPointLightComponent(ecs::PointLightComponent& component) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component.buffer.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void InspectorWindow::drawDirectionalLightComponent(ecs::DirectionalLightComponent& component) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component.buffer.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
     ImGui::DragFloat3("Direction", glm::value_ptr(component.buffer.direction), 0.01f, -1.0f, 1.0f);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void InspectorWindow::drawAnimationComponent(ecs::MeshAnimationComponent& component) {
     static bool playing = false;
@@ -248,120 +262,7 @@ void InspectorWindow::drawAnimationComponent(ecs::MeshAnimationComponent& compon
 
 }
 
-
-ConsoleWindow::ConsoleWindow() {
-    ClearLog();
-    memset(InputBuf, 0, sizeof(InputBuf));
-    HistoryPos = -1;
-    AutoScroll = true;
-    ScrollToBottom = false;
-}
-
-ConsoleWindow::~ConsoleWindow()
-{
-    ClearLog();
-    for (int i = 0; i < History.Size; i++)
-        free(History[i]);
-}
-
-char* ConsoleWindow::Strdup(const char* str) { size_t len = strlen(str) + 1; void* buf = malloc(len); IM_ASSERT(buf); return (char*)memcpy(buf, (const void*)str, len); }
-void  ConsoleWindow::Strtrim(char* str) { char* str_end = str + strlen(str); while (str_end > str && str_end[-1] == ' ') str_end--; *str_end = 0; }
-
-void ConsoleWindow::ClearLog()
-{
-    for (int i = 0; i < Items.Size; i++)
-        free(Items[i]);
-    Items.clear();
-}
-
-void ConsoleWindow::Draw(chaiscript::ChaiScript* chai)
-{
-    if (!ImGui::Begin("Console"))
-    {
-        ImGui::End();
-        return;
-    }
-
-    ImGui::Separator();
-
-    const float footer_height_to_reserve = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
-    ImGui::BeginChild("ScrollingRegion", ImVec2(0, -footer_height_to_reserve), false, ImGuiWindowFlags_HorizontalScrollbar);
-    if (ImGui::BeginPopupContextWindow())
-    {
-        if (ImGui::Selectable("Clear")) ClearLog();
-        ImGui::EndPopup();
-    }
-
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tighten spacing
-    for (int i = 0; i < Items.Size; i++)
-    {
-        const char* item = Items[i];
-        if (!Filter.PassFilter(item))
-            continue;
-
-        ImGui::TextUnformatted(item);
-    }
-
-    if (ScrollToBottom || (AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()))
-        ImGui::SetScrollHereY(1.0f);
-    ScrollToBottom = false;
-
-    ImGui::PopStyleVar();
-    ImGui::EndChild();
-    ImGui::Separator();
-
-    // Command-line
-    bool reclaim_focus = false;
-    if (ImGui::InputText("##Input", InputBuf, IM_ARRAYSIZE(InputBuf), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory, &TextEditCallbackStub, (void*)this))
-    {
-        char* s = InputBuf;
-        Strtrim(s);
-        if (s[0]) {
-            ExecCommand(s);
-            std::string evaluation = std::string(s);
-
-            try {
-                chai->eval(evaluation);
-            } catch (const chaiscript::exception::eval_error& ee) {
-                std::cout << ee.what();
-                if (ee.call_stack.size() > 0) {
-                    std::cout << "during evaluation at (" << ee.call_stack[0].start().line << ", " << ee.call_stack[0].start().column << ")";
-                }
-                std::cout << '\n';
-            } catch (const std::exception& e) {
-                std::cout << e.what() << '\n';
-            }
-        }
-        strcpy(s, "");
-        reclaim_focus = true;
-    }
-
-    // Auto-focus on window apparition
-    ImGui::SetItemDefaultFocus();
-    if (reclaim_focus)
-        ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
-
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Clear")) { ClearLog(); }
-
-    ImGui::End();
-}
-
-void    ConsoleWindow::ExecCommand(const char* command_line)
-{
-    AddLog(command_line);
-
-    // On command input, we scroll to bottom even if AutoScroll==false
-    ScrollToBottom = true;
-}
-
-int ConsoleWindow::TextEditCallbackStub(ImGuiInputTextCallbackData* data) // In C++11 you are better off using lambdas for this sort of forwarding callbacks
-{
-    ConsoleWindow* console = (ConsoleWindow*)data->UserData;
-    return console->TextEditCallback(data);
-}
-
-int ConsoleWindow::TextEditCallback(ImGuiInputTextCallbackData* data) { return 0; }
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool EntityWindow::drawFamilyNode(entt::registry& scene, entt::entity entity, entt::entity& active) {
     auto selected = active == entity ? ImGuiTreeNodeFlags_Selected : 0;
@@ -374,12 +275,16 @@ bool EntityWindow::drawFamilyNode(entt::registry& scene, entt::entity entity, en
      return opened;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void EntityWindow::drawChildlessNode(entt::registry& scene, entt::entity entity, entt::entity& active) {
     auto name = scene.get<ecs::NameComponent>(entity);
     if (ImGui::Selectable(std::string(name.name + "##" + std::to_string(static_cast<uint32_t>(entity))).c_str(), entity == active)) {
         active = active == entity ? entt::null : entity;
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void EntityWindow::drawFamily(entt::registry& scene, entt::entity parent, entt::entity& active) {
     auto nodeView = scene.view<ecs::NodeComponent>();
@@ -397,6 +302,8 @@ void EntityWindow::drawFamily(entt::registry& scene, entt::entity parent, entt::
         }
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void EntityWindow::draw(entt::registry& scene, entt::entity& active) {
     ImGui::Begin("Scene");
@@ -419,41 +326,7 @@ void EntityWindow::draw(entt::registry& scene, entt::entity& active) {
     ImGui::End();
 }
 
-void Guizmo::drawGuizmo(entt::registry& scene, Viewport& viewport, entt::entity active) {
-    if (!scene.valid(active) || !enabled || !scene.has<ecs::TransformComponent>(active)) return;
-    auto& transform = scene.get<ecs::TransformComponent>(active);
-
-    // set the gizmo's viewport
-    ImGuizmo::SetDrawlist();
-    auto pos = ImGui::GetWindowPos();
-    ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
-
-    // temporarily transform to mesh space for gizmo use
-    auto mesh = scene.try_get<ecs::MeshComponent>(active);
-    if (mesh) transform.matrix = glm::translate(transform.matrix, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
-
-    // draw gizmo
-    ImGuizmo::Manipulate(
-        glm::value_ptr(viewport.getCamera().getView()),
-        glm::value_ptr(viewport.getCamera().getProjection()),
-        operation, ImGuizmo::MODE::LOCAL,
-        glm::value_ptr(transform.matrix)
-    );
-
-    // transform back to world space
-    if (mesh) transform.matrix = glm::translate(transform.matrix, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
-
-
-    // update the transformation
-    ImGuizmo::DecomposeMatrixToComponents(
-        glm::value_ptr(transform.matrix),
-        glm::value_ptr(transform.position),
-        glm::value_ptr(transform.rotation),
-        glm::value_ptr(transform.scale)
-    );
-
-    transform.rotation = glm::radians(transform.rotation);
-}
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Guizmo::drawWindow() {
     ImGui::Begin("Editor");
@@ -483,6 +356,10 @@ void Guizmo::drawWindow() {
     ImGui::End();
 }
 
+ImGuizmo::OPERATION Guizmo::getOperation() { return operation; }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void AssetWindow::drawWindow(entt::registry& assets, entt::entity& active) {
     ImGui::Begin("Asset Browser");
 
@@ -507,6 +384,372 @@ void AssetWindow::drawWindow(entt::registry& assets, entt::entity& active) {
 
     ImGui::End();
 
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Dockspace::begin() {
+    // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
+    // because it would be confusing to have two docking targets within each others.
+    ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(imGuiViewport->Pos);
+    ImGui::SetNextWindowSize(imGuiViewport->Size);
+    ImGui::SetNextWindowViewport(imGuiViewport->ID);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background and handle the pass-thru hole, 
+    // so we ask Begin() to not render a background.
+    ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) dockWindowFlags |= ImGuiWindowFlags_NoBackground;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("DockSpace", (bool*)true, dockWindowFlags);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
+
+    // DockSpace
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Dockspace::end() {
+    ImGui::End();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool ViewportWindow::begin(Viewport& viewport, unsigned int texture) {
+    // renderer viewport
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+
+    // figure out if we need to resize the viewport
+    auto size = ImGui::GetContentRegionAvail();
+    auto resized = false;
+    if (viewport.size.x != size.x || viewport.size.y != size.y) {
+        viewport.resize({ size.x, size.y });
+        resized = true;
+    }
+
+    auto pos = ImGui::GetWindowPos();
+
+    // render the active screen texture to the view port as an imgui image
+    ImGui::Image((void*)((intptr_t)texture), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0,1 }, { 1,0 });
+
+    return resized;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ViewportWindow::end() {
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ViewportWindow::drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewport& viewport, entt::entity active) {
+    if (!scene.valid(active) || !gizmo.enabled || !scene.has<ecs::TransformComponent>(active)) return;
+    auto& transform = scene.get<ecs::TransformComponent>(active);
+
+    // set the gizmo's viewport
+    ImGuizmo::SetDrawlist();
+    auto pos = ImGui::GetWindowPos();
+    ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
+
+    // temporarily transform to mesh space for gizmo use
+    auto mesh = scene.try_get<ecs::MeshComponent>(active);
+    if (mesh) transform.matrix = glm::translate(transform.matrix, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+
+    // draw gizmo
+    ImGuizmo::Manipulate(
+        glm::value_ptr(viewport.getCamera().getView()),
+        glm::value_ptr(viewport.getCamera().getProjection()),
+        gizmo.operation, ImGuizmo::MODE::LOCAL,
+        glm::value_ptr(transform.matrix)
+    );
+
+    // transform back to world space
+    if (mesh) transform.matrix = glm::translate(transform.matrix, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+
+
+    // update the transformation
+    ImGuizmo::DecomposeMatrixToComponents(
+        glm::value_ptr(transform.matrix),
+        glm::value_ptr(transform.position),
+        glm::value_ptr(transform.rotation),
+        glm::value_ptr(transform.scale)
+    );
+
+    transform.rotation = glm::radians(transform.rotation);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void setTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data) {
+    // load the UI's theme from config
+    ImVec4* colors = ImGui::GetStyle().Colors;
+    for (unsigned int i = 0; i < data.size(); i++) {
+        auto& savedColor = data[i];
+        ImGuiCol_Text;
+        colors[i] = ImVec4(savedColor[0], savedColor[1], savedColor[2], savedColor[3]);
+    }
+
+    ImGui::GetStyle().WindowRounding = 0.0f;
+    ImGui::GetStyle().ChildRounding = 0.0f;
+    ImGui::GetStyle().FrameRounding = 0.0f;
+    ImGui::GetStyle().GrabRounding = 0.0f;
+    ImGui::GetStyle().PopupRounding = 0.0f;
+    ImGui::GetStyle().ScrollbarRounding = 0.0f;
+    ImGui::GetStyle().WindowBorderSize = 0.0f;
+    ImGui::GetStyle().ChildBorderSize = 0.0f;
+    ImGui::GetStyle().FrameBorderSize = 0.0f;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void setFont(const std::string& filepath) {
+    auto& io = ImGui::GetIO();
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF(filepath.c_str(), 15.0f);
+    if (!io.Fonts->Fonts.empty()) {
+        io.FontDefault = io.Fonts->Fonts.back();
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeTexture, entt::entity& active)
+{
+    // draw the top user bar
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New Scene")) {
+                scene->clear();
+                active = entt::null;
+            }
+
+            if (ImGui::MenuItem("Open scene..")) {
+                std::string filepath = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
+                if (!filepath.empty()) {
+                    SDL_SetWindowTitle(app->getWindow(), std::string(filepath + " - Raekor Renderer").c_str());
+                    scene.openFromFile(filepath);
+                }
+            }
+
+            if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
+                std::string filepath = OS::saveFileDialog("Scene File (*.scene)\0", "scene");
+                if (!filepath.empty()) {
+                    scene.saveToFile(filepath);
+                }
+            }
+
+            if (ImGui::MenuItem("Load model..")) {
+                std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
+                if (!filepath.empty()) {
+                    AssimpImporter::loadFile(scene, filepath);
+                }
+            }
+
+            if (ImGui::MenuItem("Save Screenshot..")) {
+                std::string savePath = OS::saveFileDialog("Uncompressed PNG (*.png)\0", "png");
+
+                if (!savePath.empty()) {
+                    auto& viewport = app->getViewport();
+                    const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
+                    auto pixels = std::vector<unsigned char>(bufferSize);
+                    glGetTextureImage(activeTexture, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
+                    stbi_flip_vertically_on_write(true);
+                    stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
+                }
+
+            }
+
+            if (ImGui::MenuItem("Exit", "Escape")) {
+                app->running = false;
+            }
+
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Edit")) {
+            if (ImGui::MenuItem("Delete", "DEL")) {
+                // on press we remove the scene object
+                if (active != entt::null) {
+                    if (scene->has<ecs::NodeComponent>(active)) {
+                        scene.destroyObject(active);
+                    }
+                    else {
+                        scene->destroy(active);
+                    }
+                    active = entt::null;
+                }
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Add")) {
+            if (ImGui::MenuItem("Empty", "CTRL+E")) {
+                auto entity = scene.createObject("Empty");
+
+                if (active != entt::null) {
+                    auto& node = scene->get<ecs::NodeComponent>(entity);
+                    node.parent = active;
+                    node.hasChildren = false;
+                    scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
+                }
+
+                active = entity;
+            }
+            ImGui::Separator();
+
+            if (ImGui::MenuItem("Sphere")) {
+                auto entity = scene.createObject("Sphere");
+                auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+
+                if (active != entt::null) {
+                    auto& node = scene->get<ecs::NodeComponent>(entity);
+                    node.parent = active;
+                    node.hasChildren = false;
+                    scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
+                }
+
+                const float radius = 2.0f;
+                float x, y, z, xy;                              // vertex position
+                float nx, ny, nz, lengthInv = 1.0f / radius;    // vertex normal
+                float s, t;                                     // vertex texCoord
+
+                const int sectorCount = 36;
+                const int stackCount = 18;
+                const float PI = static_cast<float>(M_PI);
+                float sectorStep = 2 * PI / sectorCount;
+                float stackStep = PI / stackCount;
+                float sectorAngle, stackAngle;
+
+                for (int i = 0; i <= stackCount; ++i)
+                {
+                    stackAngle = PI / 2 - i * stackStep;        // starting from pi/2 to -pi/2
+                    xy = radius * cosf(stackAngle);             // r * cos(u)
+                    z = radius * sinf(stackAngle);              // r * sin(u)
+
+                    // add (sectorCount+1) vertices per stack
+                    // the first and last vertices have same position and normal, but different tex coords
+                    for (int j = 0; j <= sectorCount; ++j)
+                    {
+                        sectorAngle = j * sectorStep;           // starting from 0 to 2pi
+
+                        // vertex position (x, y, z)
+                        x = xy * cosf(sectorAngle);             // r * cos(u) * cos(v)
+                        y = xy * sinf(sectorAngle);             // r * cos(u) * sin(v)
+                        mesh.positions.emplace_back(x, y, z);
+
+                        // normalized vertex normal (nx, ny, nz)
+                        nx = x * lengthInv;
+                        ny = y * lengthInv;
+                        nz = z * lengthInv;
+                        mesh.normals.emplace_back(nx, ny, nz);
+
+                        // vertex tex coord (s, t) range between [0, 1]
+                        s = (float)j / sectorCount;
+                        t = (float)i / stackCount;
+                        mesh.uvs.emplace_back(s, t);
+
+                    }
+                }
+
+                int k1, k2;
+                for (int i = 0; i < stackCount; ++i)
+                {
+                    k1 = i * (sectorCount + 1);     // beginning of current stack
+                    k2 = k1 + sectorCount + 1;      // beginning of next stack
+
+                    for (int j = 0; j < sectorCount; ++j, ++k1, ++k2)
+                    {
+                        // 2 triangles per sector excluding first and last stacks
+                        // k1 => k2 => k1+1
+                        if (i != 0)
+                        {
+                            mesh.indices.push_back(k1);
+                            mesh.indices.push_back(k2);
+                            mesh.indices.push_back(k1 + 1);
+                        }
+
+                        // k1+1 => k2 => k2+1
+                        if (i != (stackCount - 1))
+                        {
+                            mesh.indices.push_back(k1 + 1);
+                            mesh.indices.push_back(k2);
+                            mesh.indices.push_back(k2 + 1);
+                        }
+                    }
+                }
+
+                mesh.uploadVertices();
+                mesh.uploadIndices();
+                mesh.generateAABB();
+            }
+
+            if (ImGui::BeginMenu("Light")) {
+
+                if (ImGui::MenuItem("Directional Light")) {
+                    auto entity = scene.createObject("Directional Light");
+                    auto& transform = scene->get<ecs::TransformComponent>(entity);
+                    transform.rotation.x = static_cast<float>(M_PI / 12);
+                    transform.recalculateMatrix();
+                    scene->emplace<ecs::DirectionalLightComponent>(entity);
+                    active = entity;
+                }
+
+                if (ImGui::MenuItem("Point Light")) {
+                    auto entity = scene.createObject("Point Light");
+                    scene->emplace<ecs::PointLightComponent>(entity);
+                    active = entity;
+                }
+
+                ImGui::EndMenu();
+            }
+
+
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Help")) {
+            if (ImGui::MenuItem("About", "")) {}
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void MetricsWindow::draw(Viewport& viewport, ImVec2 pos, ImVec2 size) {
+    ImGui::SetNextWindowPos(pos);
+    ImGui::SetNextWindowSize(size);
+    draw(viewport);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void MetricsWindow::draw(Viewport& viewport) {
+    // application/render metrics
+    auto& io = ImGui::GetIO();
+    ImGui::SetNextWindowBgAlpha(0.35f);
+    auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration;
+    ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
+    ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
+    ImGui::Text("Product: %s", glGetString(GL_RENDERER));
+    ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
+    ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
+    ImGui::End();
 }
 
 } // gui

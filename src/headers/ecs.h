@@ -7,10 +7,12 @@
 namespace Raekor {
 namespace ecs {
 
-    template<class ...Component>
-    using view = entt::basic_view <entt::entity, entt::exclude_t<>, Component... > ;
+template<class ...Component>
+using view = entt::basic_view <entt::entity, entt::exclude_t<>, Component...>;
     
-    /*
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
     Old entity component system pre-dating the integration of entt
     With this you can create a scene class that contains multiple ComponentManager's, like:
     class Scene {

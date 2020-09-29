@@ -13,15 +13,22 @@ void Timer::start() {
     stopTime = TIME_NOW();
 }
 
-void Timer::stop() {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+double Timer::stop() {
     running = false;
     stopTime = TIME_NOW();
+    return std::chrono::duration<double, std::milli>(stopTime - startTime).count();
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Timer::restart() {
     running = true;
     startTime = TIME_NOW();
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 double Timer::elapsedMs() {
     if (running) {
@@ -34,4 +41,4 @@ double Timer::elapsedMs() {
     }
 }
 
-} // namespace Raekor
+} // raekor

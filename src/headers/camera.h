@@ -12,6 +12,8 @@ struct MVP {
     glm::vec3 dirLightPosition;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 class Camera {
     
 public:
@@ -36,14 +38,12 @@ private:
     void updatePlanes(bool normalize);
     bool vertexInPlane(const glm::vec4& plane, const glm::vec3& v);
 
-private:
     glm::vec3 position;
     glm::vec2 angle;
     glm::mat4 view;
     glm::mat4 projection;
     glm::mat4 mvp;
     std::array<glm::vec4, 6> frustrumPlanes;
-
 
 public:
     // constants for continues movement
@@ -56,33 +56,17 @@ public:
 
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 class Viewport {
 public:
-    Viewport(SDL_Rect display) : 
-        fov(65.0f), 
-        aspectRatio(16.0f / 9.0f),
-        camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 0.1f, 10000.0f)), 
-        size(glm::vec2(display.w, display.h))
-    {
-
-    }
-
-    inline float& getFov() { return fov; }
-
-    void setFov(float fov) {
-        this->fov = fov;
-        camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
-    }
-
-    void setAspectRatio(float ratio) {
-        this->aspectRatio = ratio;
-        camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
-    }
-
-    inline Camera& getCamera() {
-        return camera;
-    }
-
+    Viewport(glm::vec2 size = glm::vec2(0, 0));
+    float& getFov();
+    Camera& getCamera();
+    
+    void setFov(float fov);
+    void resize(glm::vec2 newSize);
+    void setAspectRatio(float ratio);
 
 private:
     float fov;
@@ -91,7 +75,6 @@ private:
 
 public:
     glm::uvec2 size;
-
 };
 
 } // Namespace Raekor

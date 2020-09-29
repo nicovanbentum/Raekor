@@ -232,7 +232,8 @@ namespace VK {
             if (material->GetTextureCount(aiTextureType_DIFFUSE) != 0) {
                 aiString filename;
                 material->GetTexture(aiTextureType_DIFFUSE, 0, &filename);
-                texture_path = parseFilepath(path, PATH_OPTIONS::DIR) + std::string(filename.C_Str());
+                auto fsPath = std::filesystem::path(path);
+                texture_path = fsPath.parent_path().string() + std::string(filename.C_Str());
             }
 
             if (!texture_path.empty()) {

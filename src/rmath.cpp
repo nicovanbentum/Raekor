@@ -24,6 +24,8 @@ Ray::Ray(Viewport& viewport, glm::vec2 coords) {
     origin = viewport.getCamera().getPosition();
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 std::optional<float> Ray::hitsOBB(const glm::vec3& min, const glm::vec3& max, const glm::mat4& modelMatrix) {
     float tMin = 0.0f;
     float tMax = 100000.0f;
@@ -101,6 +103,8 @@ std::optional<float> Ray::hitsOBB(const glm::vec3& min, const glm::vec3& max, co
     return tMin;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 std::optional<float> Ray::hitsAABB(const glm::vec3& min, const glm::vec3& max) {
     auto tnear = (min.x - origin.x) / direction.x;
     auto tfar = (max.x - origin.x) / direction.x;
@@ -127,10 +131,10 @@ std::optional<float> Ray::hitsAABB(const glm::vec3& min, const glm::vec3& max) {
     if (t1z > tnear) tnear = t1z;
     if (t2z < tfar) tfar = t2z;
 
-    std::cout << tfar - tnear << std::endl;
-
     return true;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::optional<float> Ray::hitsTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2) {
     auto p1 = v1 - v0;
@@ -152,12 +156,15 @@ std::optional<float> Ray::hitsTriangle(const glm::vec3& v0, const glm::vec3& v1,
     return glm::dot(p2, qvec) * invDet;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 bool pointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max) {
     return  (point.x >= min.x && point.x <= max.x) &&
         (point.y >= min.y && point.y <= max.y) &&
         (point.z >= min.z && point.z <= max.z);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 /*
     Fast Extraction of Viewing Frustum Planes from the World-View-Projection Matrix by G. Gribb & K. Hartmann 
     https://www.gamedevs.org/uploads/fast-extraction-viewing-frustum-planes-from-world-view-projection-matrix.pdf
@@ -204,6 +211,8 @@ void Frustrum::update(const glm::mat4& vp, bool normalize) {
         }
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool Frustrum::vsAABB(const glm::vec3& min, const glm::vec3& max) {
     for (auto& plane : planes) {

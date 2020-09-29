@@ -31,10 +31,14 @@ private:
     uint32_t id;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 enum class ShaderType {
     FLOAT1, FLOAT2, FLOAT3, FLOAT4,
     INT4
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 constexpr uint32_t size_of(ShaderType type) {
     switch (type) {
@@ -46,6 +50,8 @@ constexpr uint32_t size_of(ShaderType type) {
     default: return 0;
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct glShaderType {
     GLenum glType;
@@ -77,6 +83,8 @@ struct glShaderType {
     }
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct Element {
     std::string name;
     ShaderType type;
@@ -86,6 +94,8 @@ struct Element {
     Element(const std::string & pName, ShaderType type) : 
         name(pName), type(type), size(size_of(type)), offset(0) {}
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class InputLayout {
 public:
@@ -106,7 +116,12 @@ private:
     std::vector<Element> layout;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct Vertex {
+    constexpr Vertex(glm::vec3 p = {}, glm::vec2 uv = {}, glm::vec3 n = {}, glm::vec3 t = {}, glm::vec3 b = {}) :
+        pos(p), uv(uv), normal(n), tangent(t), binormal(b) {}
+
     glm::vec3 pos;
     glm::vec2 uv;
     glm::vec3 normal;
@@ -116,12 +131,16 @@ struct Vertex {
     static constexpr uint8_t attributeCount = 5;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct Triangle {
-    Triangle() {}
-    Triangle(uint32_t _p1, uint32_t _p2, uint32_t _p3) : p1(_p1), p2(_p2), p3(_p3) {}
+    constexpr Triangle(uint32_t _p1 = {}, uint32_t _p2 = {}, uint32_t _p3 = {}) :
+        p1(_p1), p2(_p2), p3(_p3) {}
 
     uint32_t p1, p2, p3;
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class VertexBuffer {
 public:
@@ -130,6 +149,8 @@ public:
     virtual void bind() const = 0;
     virtual void setLayout(const InputLayout& layout) const = 0;
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class IndexBuffer {
 public:
@@ -142,10 +163,12 @@ protected:
     uint32_t count;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 class glVertexBuffer {
 public:
     glVertexBuffer() = default;
-    void loadVertices(Vertex* vertices, size_t count);
+    void loadVertices(const Vertex* vertices, size_t count);
     void loadVertices(float* vertices, size_t count);
     void bind() const;
     void setLayout(const InputLayout& layout) const;
@@ -155,10 +178,12 @@ private:
     mutable InputLayout inputLayout;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 class glIndexBuffer {
 public:
     glIndexBuffer() = default;
-    void loadFaces(Triangle* faces, size_t count);
+    void loadFaces(const Triangle* faces, size_t count);
     void loadIndices(uint32_t* indices, size_t count);
     void bind() const;
 
@@ -167,6 +192,8 @@ public:
 private:
     unsigned int id = 0;
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename Type>
 uint32_t glCreateBuffer(Type* data, size_t count, GLenum target) {

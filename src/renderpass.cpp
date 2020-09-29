@@ -2,7 +2,6 @@
 #include "renderpass.h"
 #include "ecs.h"
 #include "camera.h"
-#include "opengl.h"
 
 namespace Raekor {
 namespace RenderPass {
@@ -35,10 +34,14 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     glNamedFramebufferReadBuffer(framebuffer, GL_NONE);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 ShadowMap::~ShadowMap() {
     glDeleteTextures(1, &result);
     glDeleteFramebuffers(1, &framebuffer);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ShadowMap::execute(entt::registry& scene) {
     // setup the shadow map 
@@ -99,7 +102,7 @@ void ShadowMap::execute(entt::registry& scene) {
     glCullFace(GL_BACK);
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 OmniShadowMap::OmniShadowMap(uint32_t width, uint32_t height) {
     settings.width = width, settings.height = height;
@@ -118,6 +121,8 @@ OmniShadowMap::OmniShadowMap(uint32_t width, uint32_t height) {
     glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void OmniShadowMap::execute(entt::registry& scene, const glm::vec3& lightPosition) {
     // generate the view matrices for calculating lightspace
@@ -167,7 +172,7 @@ void OmniShadowMap::execute(entt::registry& scene, const glm::vec3& lightPositio
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 GeometryBuffer::GeometryBuffer(Viewport& viewport) {
     std::vector<Shader::Stage> gbufferStages;
@@ -178,6 +183,8 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
 
     createResources(viewport);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
     hotloader.checkForUpdates();
@@ -239,11 +246,15 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 entt::entity GeometryBuffer::pick(uint32_t x, uint32_t y) {
     float readPixel[4];
     glGetTextureSubImage(materialTexture, 0, x, y, 0, 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(glm::vec4), readPixel);
     return static_cast<entt::entity>((uint32_t)readPixel[2]);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GeometryBuffer::createResources(Viewport& viewport) {
     glCreateTextures(GL_TEXTURE_2D, 1, &albedoTexture);
@@ -284,6 +295,8 @@ void GeometryBuffer::createResources(Viewport& viewport) {
     glNamedFramebufferRenderbuffer(GBuffer, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, GDepthBuffer);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void GeometryBuffer::deleteResources() {
     std::array<unsigned int, 4> textures = { albedoTexture, normalTexture, positionTexture, materialTexture };
     glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
@@ -291,7 +304,7 @@ void GeometryBuffer::deleteResources() {
     glDeleteFramebuffers(1, &GBuffer);
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(Viewport& viewport) {
     noiseScale = { viewport.size.x / 4.0f, viewport.size.y / 4.0f };
@@ -333,6 +346,8 @@ ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(Viewport& viewport) {
     createResources(viewport);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad) {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glBindTextureUnit(0, geometryPass->positionTexture);
@@ -357,6 +372,8 @@ void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* ge
 
     quad->render();
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ScreenSpaceAmbientOcclusion::createResources(Viewport& viewport) {
     // create SSAO kernel hemisphere
@@ -402,6 +419,8 @@ void ScreenSpaceAmbientOcclusion::createResources(Viewport& viewport) {
     glNamedFramebufferDrawBuffer(blurFramebuffer, GL_COLOR_ATTACHMENT0);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void ScreenSpaceAmbientOcclusion::deleteResources() {
     std::array<GLuint, 3> textures = { noiseTexture, result, preblurResult };
     glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
@@ -428,6 +447,8 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
     // init uniform buffer
     uniformBuffer.setSize(sizeof(uniforms));
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
                                 GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad) {
@@ -518,6 +539,8 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DeferredLighting::createResources(Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
@@ -541,8 +564,7 @@ void DeferredLighting::deleteResources() {
     glDeleteFramebuffers(1, &framebuffer);
 }
 
-
-//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 Bloom::Bloom(Viewport& viewport) {
     // load shaders from disk
@@ -556,6 +578,8 @@ Bloom::Bloom(Viewport& viewport) {
     blurStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gaussian.frag");
     blurShader.reload(blurStages.data(), blurStages.size());
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Bloom::execute(unsigned int scene, unsigned int highlights, Mesh* quad) {
     // perform gaussian blur on the bloom texture using "ping pong" framebuffers that
@@ -591,6 +615,8 @@ void Bloom::execute(unsigned int scene, unsigned int highlights, Mesh* quad) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Bloom::createResources(Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
@@ -617,6 +643,8 @@ void Bloom::createResources(Viewport& viewport) {
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Bloom::deleteResources() {
     glDeleteTextures(1, &result);
     glDeleteTextures(2, blurTextures);
@@ -624,7 +652,7 @@ void Bloom::deleteResources() {
     glDeleteFramebuffers(1, &resultFramebuffer);
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 Tonemapping::Tonemapping(Viewport& viewport) {
     // load shaders from disk
@@ -639,6 +667,8 @@ Tonemapping::Tonemapping(Viewport& viewport) {
     // init uniform buffer
     uniformBuffer.setSize(sizeof(settings));
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Tonemapping::execute(unsigned int scene, Mesh* quad) {
     // bind and clear render target
@@ -658,6 +688,8 @@ void Tonemapping::execute(unsigned int scene, Mesh* quad) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Tonemapping::createResources(Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
@@ -670,12 +702,14 @@ void Tonemapping::createResources(Viewport& viewport) {
     glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Tonemapping::deleteResources() {
     glDeleteTextures(1, &result);
     glDeleteFramebuffers(1, &framebuffer);
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 Voxelization::Voxelization(int size) : size(size) {
     // load shaders from disk
@@ -700,6 +734,8 @@ Voxelization::Voxelization(int size) : size(size) {
     glGenerateTextureMipmap(result);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Voxelization::computeMipmaps(unsigned int texture) {
     int level = 0, texSize = size;
     while (texSize >= 1.0f) {
@@ -715,6 +751,8 @@ void Voxelization::computeMipmaps(unsigned int texture) {
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Voxelization::correctOpacity(unsigned int texture) {
     opacityFixShader.bind();
     glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA8);
@@ -724,6 +762,7 @@ void Voxelization::correctOpacity(unsigned int texture) {
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap) {
     hotloader.checkForUpdates();
@@ -799,7 +838,7 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
     glEnable(GL_BLEND);
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
     std::vector<Shader::Stage> voxelDebugStages;
@@ -811,6 +850,8 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
     // init resources
     createResources(viewport);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxelization* voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
@@ -835,14 +876,17 @@ void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxeliza
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void VoxelizationDebug::createResources(Viewport& viewport) {
-    // init resources
     glCreateRenderbuffers(1, &renderBuffer);
     glNamedRenderbufferStorage(renderBuffer, GL_DEPTH32F_STENCIL8, viewport.size.x, viewport.size.y);
 
     glCreateFramebuffers(1, &frameBuffer);
     glNamedFramebufferRenderbuffer(frameBuffer, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void VoxelizationDebug::deleteResources() {
     glDeleteRenderbuffers(1, &renderBuffer);
@@ -852,7 +896,6 @@ void VoxelizationDebug::deleteResources() {
 //////////////////////////////////////////////////////////////////////////////////
 
 BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
-    // load shaders from disk
     std::vector<Shader::Stage> aabbStages;
     aabbStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\aabb.vert");
     aabbStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\aabb.frag");
@@ -881,9 +924,10 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
     });
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer, entt::entity active) {
-    
-    assert(active != entt::null);
+    if (active == entt::null) return;
     if (!scene.has<ecs::MeshComponent>(active) || !scene.has<ecs::TransformComponent>(active)) {
         return;
     }
@@ -907,19 +951,13 @@ void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsign
     const auto min = mesh.aabb[0];
     const auto max = mesh.aabb[1];
 
-    std::cout << glm::to_string(min) << std::endl;
-    std::cout << glm::to_string(max) << std::endl;
-    
     std::vector<Vertex> vertices = {
         { {min} },
         { {max[0], min[1], min[2] } },
-
         { {max[0], max[1], min[2] } },
         { {min[0], max[1], min[2] } },
-
         { {min[0], min[1], max[2] } },
         { {max[0], min[1], max[2] } },
-
         { {max} },
         { {min[0], max[1], max[2] } },
     };
@@ -935,6 +973,8 @@ void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsign
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void BoundingBoxDebug::createResources(Viewport& viewport) {
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
@@ -944,12 +984,16 @@ void BoundingBoxDebug::createResources(Viewport& viewport) {
     glCreateFramebuffers(1, &frameBuffer);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void BoundingBoxDebug::deleteResources() {
     glDeleteTextures(1, &result);
     glDeleteFramebuffers(1, &frameBuffer);
 }
 
-ForwardLightingPass::ForwardLightingPass(Viewport& viewport) {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+ForwardLighting::ForwardLighting(Viewport& viewport) {
     // load shaders from disk
     std::vector<Shader::Stage> stages;
     stages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\fwdLight.vert");
@@ -965,7 +1009,9 @@ ForwardLightingPass::ForwardLightingPass(Viewport& viewport) {
     uniformBuffer.setSize(sizeof(uniforms));
 }
 
-void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Voxelization* voxels, ShadowMap* shadowmap) {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ForwardLighting::execute(Viewport& viewport, entt::registry& scene, Voxelization* voxels, ShadowMap* shadowmap) {
     hotloader.checkForUpdates();
 
     // enable stencil stuff
@@ -1076,7 +1122,9 @@ void ForwardLightingPass::execute(Viewport& viewport, entt::registry& scene, Vox
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void ForwardLightingPass::createResources(Viewport& viewport) {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ForwardLighting::createResources(Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
@@ -1091,13 +1139,17 @@ void ForwardLightingPass::createResources(Viewport& viewport) {
     glNamedFramebufferRenderbuffer(framebuffer, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, renderbuffer);
 }
 
-void ForwardLightingPass::deleteResources() {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ForwardLighting::deleteResources() {
     glDeleteTextures(1, &result);
     glDeleteRenderbuffers(1, &renderbuffer);
     glDeleteFramebuffers(1, &framebuffer);
 }
 
-SkyPass::SkyPass(Viewport& viewport) {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+Sky::Sky(Viewport& viewport) {
     std::vector<glShader::Stage> stages;
     stages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\sky.vert");
     stages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\sky.frag");
@@ -1116,7 +1168,9 @@ SkyPass::SkyPass(Viewport& viewport) {
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
 }
 
-void SkyPass::execute(Viewport& viewport, Mesh* quad) {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Sky::execute(Viewport& viewport, Mesh* quad) {
     hotloader.checkForUpdates();
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -1133,6 +1187,8 @@ void SkyPass::execute(Viewport& viewport, Mesh* quad) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 Skinning::Skinning() {
     std::vector<Shader::Stage> stages;
@@ -1158,7 +1214,9 @@ void Skinning::execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& an
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
-void EnvironmentPass::execute(const std::string& file, Mesh* unitCube) {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Environment::execute(const std::string& file, Mesh* unitCube) {
     stbi_set_flip_vertically_on_load(true);
     int w, h, ch;
     float* data = stbi_loadf(file.c_str(), &w, &h, &ch, 3);
@@ -1207,12 +1265,11 @@ void EnvironmentPass::execute(const std::string& file, Mesh* unitCube) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         unitCube->render();
     }
-
-
-
 }
 
-RayComputePass::RayComputePass(Viewport& viewport) {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+RayCompute::RayCompute(Viewport& viewport) {
     std::vector<Shader::Stage> stages;
     stages.emplace_back(Shader::Type::COMPUTE, "shaders\\OpenGL\\ray.comp");
     shader.reload(stages.data(), stages.size());
@@ -1223,7 +1280,9 @@ RayComputePass::RayComputePass(Viewport& viewport) {
     glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
 }
 
-void RayComputePass::execute(Viewport& viewport) {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RayCompute::execute(Viewport& viewport) {
     hotloader.checkForUpdates();
 
     auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -1237,7 +1296,7 @@ void RayComputePass::execute(Viewport& viewport) {
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
-void RayComputePass::createResources(Viewport& viewport) {
+void RayCompute::createResources(Viewport& viewport) {
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
     glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -1247,7 +1306,9 @@ void RayComputePass::createResources(Viewport& viewport) {
     glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 }
 
-void RayComputePass::deleteResources() {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RayCompute::deleteResources() {
     glDeleteTextures(1, &result);
 }
 

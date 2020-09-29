@@ -7,9 +7,9 @@ Camera::Camera(glm::vec3 position, glm::mat4 proj) :
     position(position),
     angle(static_cast<float>(M_PI), 0.0f) {
     projection = proj;
-    //glm::perspectiveRH_ZO(glm::radians(FOV), 16.0f/9.0f, 0.1f, 10000.0f);
-
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Camera::update(bool normalizePlanes) {
     auto dir = getDirection();
@@ -17,11 +17,15 @@ void Camera::update(bool normalizePlanes) {
     updatePlanes(normalizePlanes);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 glm::vec3 Camera::getDirection() {
     return glm::vec3(cos(angle.y) * sin(angle.x),
     sin(angle.y), cos(angle.y) * cos(angle.x));
 }
-    
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Camera::look(float x, float y) {
     angle.x += float(x * -1);
     angle.y += float(y * -1);
@@ -29,10 +33,14 @@ void Camera::look(float x, float y) {
     angle.y = std::clamp(angle.y, -1.57078f, 1.57078f);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Camera::zoom(float amount) {
     auto dir = getDirection();
     position += dir * (float)(amount);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Camera::move(glm::vec2 amount) {
     auto dir = getDirection();
@@ -42,6 +50,8 @@ void Camera::move(glm::vec2 amount) {
     // up and down
     position.y += (float)(amount.y);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 /*
     https://www.gamedevs.org/uploads/fast-extraction-viewing-frustum-planes-from-world-view-projection-matrix.pdf
@@ -90,11 +100,48 @@ void Camera::updatePlanes(bool normalize) {
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 bool Camera::vertexInPlane(const glm::vec4& plane, const glm::vec3& v) {
     float d;
     d = plane.x*v.x + plane.y*v.y + plane.z*v.z + plane.w;
     if (d >= 0) return true;
     return false;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+Viewport::Viewport(glm::vec2 size) : fov(65.0f), aspectRatio(16.0f / 9.0f),
+camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 0.1f, 10000.0f)),
+size(size) {}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+float& Viewport::getFov() { return fov; }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Viewport::setFov(float fov) {
+    this->fov = fov;
+    camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Viewport::setAspectRatio(float ratio) {
+    this->aspectRatio = ratio;
+    camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+Camera& Viewport::getCamera() { return camera; }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Viewport::resize(glm::vec2 newSize) {
+    size = { newSize.x, newSize.y };
+    camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)size.x / (float)size.y, 0.1f, 10000.0f);
 }
 
 }

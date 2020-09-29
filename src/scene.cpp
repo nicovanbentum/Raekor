@@ -218,7 +218,10 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
     // the importer takes care of deleting the scene
     auto importer = std::make_shared<Assimp::Importer>();
     auto assimpScene = importer->ReadFile(file, flags);
-    auto directory = parseFilepath(file, PATH_OPTIONS::DIR);
+
+    auto path = std::filesystem::path(file);
+    auto directory = path.parent_path() / "";
+    auto filename = path.filename();
 
     if (!assimpScene) {
         std::clog << "Error loading " << file << ": " << importer->GetErrorString() << '\n';
@@ -230,12 +233,12 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
     }
 
     auto rootEntity = scene->create();
-    scene->emplace<ecs::NameComponent>(rootEntity, parseFilepath(file, PATH_OPTIONS::FILENAME));
+    scene->emplace<ecs::NameComponent>(rootEntity, filename.string());
     scene->emplace<ecs::TransformComponent>(rootEntity);
     auto& node = scene->emplace<ecs::NodeComponent>(rootEntity);
     node.hasChildren = true;
 
-    auto materials = loadMaterials(scene, assimpScene, directory);
+    auto materials = loadMaterials(scene, assimpScene, directory.string());
     scene.loadMaterialTextures(materials);
 
     // load meshes and assign materials

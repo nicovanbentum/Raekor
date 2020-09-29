@@ -22,10 +22,11 @@ void MeshComponent::generateAABB() {
     }
 }
 
-void MeshComponent::fillStagingBuffer(std::vector<float>& stagingBuffer) {
-    if (!stagingBuffer.empty()) stagingBuffer.clear();
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
-    stagingBuffer.reserve(
+std::vector<float> MeshComponent::getVertexData() {
+    std::vector<float> vertices;
+    vertices.reserve(
         3 * positions.size() +
         2 * uvs.size() +
         3 * normals.size() +
@@ -35,36 +36,36 @@ void MeshComponent::fillStagingBuffer(std::vector<float>& stagingBuffer) {
 
     for (auto i = 0; i < positions.size(); i++) {
         auto position = glm::value_ptr(positions[i]);
-        stagingBuffer.insert(stagingBuffer.end(), position, position + 3);
+        vertices.insert(vertices.end(), position, position + 3);
 
         if (!uvs.empty()) {
             auto uv = glm::value_ptr(uvs[i]);
-            stagingBuffer.insert(stagingBuffer.end(), uv, uv + 2);
+            vertices.insert(vertices.end(), uv, uv + 2);
         }
 
         if (!normals.empty()) {
             auto normal = glm::value_ptr(normals[i]);
-            stagingBuffer.insert(stagingBuffer.end(), normal, normal + 3);
+            vertices.insert(vertices.end(), normal, normal + 3);
         }
 
         if (!tangents.empty()) {
             auto tangent = glm::value_ptr(tangents[i]);
-            stagingBuffer.insert(stagingBuffer.end(), tangent, tangent + 3);
+            vertices.insert(vertices.end(), tangent, tangent + 3);
         }
 
         if (!bitangents.empty()) {
             auto bitangent = glm::value_ptr(bitangents[i]);
-            stagingBuffer.insert(stagingBuffer.end(), bitangent, bitangent + 3);
+            vertices.insert(vertices.end(), bitangent, bitangent + 3);
         }
     }
+
+    return vertices;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void MeshComponent::uploadVertices() {
-
-    std::vector<float> stagingBuffer;
-    fillStagingBuffer(stagingBuffer);
+    auto vertices = getVertexData();
 
     std::vector<Element> layout;
     if (!positions.empty())     layout.emplace_back("POSITION", ShaderType::FLOAT3);
@@ -73,7 +74,7 @@ void MeshComponent::uploadVertices() {
     if (!tangents.empty())      layout.emplace_back("TANGENT",  ShaderType::FLOAT3);
     if (!bitangents.empty())    layout.emplace_back("BINORMAL", ShaderType::FLOAT3);
 
-    vertexBuffer.loadVertices(stagingBuffer.data(), stagingBuffer.size());
+    vertexBuffer.loadVertices(vertices.data(), vertices.size());
     vertexBuffer.setLayout(layout);
 }
 
@@ -149,8 +150,7 @@ void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
     glCreateBuffers(1, &boneTransformsBuffer);
     glNamedBufferData(boneTransformsBuffer, boneTransforms.size() * sizeof(glm::mat4), boneTransforms.data(), GL_DYNAMIC_READ);
 
-    std::vector<float> originalMeshBuffer;
-    mesh.fillStagingBuffer(originalMeshBuffer);
+    auto originalMeshBuffer = mesh.getVertexData();
     skinnedVertexBuffer.loadVertices(originalMeshBuffer.data(), originalMeshBuffer.size());
     skinnedVertexBuffer.setLayout({
         { "POSITION",    ShaderType::FLOAT3 },
@@ -178,6 +178,8 @@ void MaterialComponent::createAlbedoTexture() {
     glTextureParameteri(*albedo, GL_TEXTURE_WRAP_R, GL_REPEAT);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void MaterialComponent::createAlbedoTexture(const Stb::Image& image) {
     if (albedo) glDeleteTextures(1, albedo.get());
     albedo = std::make_shared<unsigned int>();
@@ -190,6 +192,8 @@ void MaterialComponent::createAlbedoTexture(const Stb::Image& image) {
     glTextureParameteri(*albedo, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glGenerateTextureMipmap(*albedo);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::createNormalTexture() {
     if (normals) glDeleteTextures(1, normals.get());
@@ -206,6 +210,8 @@ void MaterialComponent::createNormalTexture() {
     glTextureParameteri(*normals, GL_TEXTURE_WRAP_R, GL_REPEAT);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void MaterialComponent::createNormalTexture(const Stb::Image& image)
 {
     if (normals) glDeleteTextures(1, normals.get());
@@ -219,6 +225,8 @@ void MaterialComponent::createNormalTexture(const Stb::Image& image)
     glTextureParameteri(*normals, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glGenerateTextureMipmap(*normals);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::createMetalRoughTexture() {
     if (metalrough) glDeleteTextures(1, metalrough.get());
@@ -235,6 +243,8 @@ void MaterialComponent::createMetalRoughTexture() {
     glTextureParameteri(*metalrough, GL_TEXTURE_WRAP_R, GL_REPEAT);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void MaterialComponent::createMetalRoughTexture(const Stb::Image& image) {
     if (metalrough) glDeleteTextures(1, metalrough.get());
     metalrough = std::make_shared<unsigned int>();
@@ -247,6 +257,8 @@ void MaterialComponent::createMetalRoughTexture(const Stb::Image& image) {
     glTextureParameteri(*metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glGenerateTextureMipmap(*metalrough);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::uploadRenderData() {
     createAlbedoTexture();

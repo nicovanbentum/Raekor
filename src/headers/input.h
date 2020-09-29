@@ -1,31 +1,25 @@
 #pragma once
 
+#include "application.h"
+
 namespace Raekor {
+
+class InputHandler {
+public:
+    static void handleEvents(WindowApplication* app, bool mouseInViewport, double dt);
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class Input {
 public:
-    Input() :
-        keyboardState(SDL_GetKeyboardState(NULL))
-    {}
+    Input();
 
-    static inline bool isKeyPressed(SDL_Keycode code) {
-        return singleton->keyboardState[code];
-    }
+    static bool isKeyPressed(SDL_Keycode code);
+    static bool isButtonPressed(unsigned int button);
+    static void setCallback(Uint32 type, const std::function<void()>& callback);
 
-    static inline bool isButtonPressed(unsigned int button) {
-        return singleton->mouseState & SDL_BUTTON(button);
-    }
-
-    static void setCallback(Uint32 type, const std::function<void()>& callback) {
-
-    }
-
-    void pollEvents() {
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-
-        }
-    }
+    void pollEvents();
 
 private:
     static std::unique_ptr<Input> singleton;

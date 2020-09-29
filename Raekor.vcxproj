@@ -173,14 +173,14 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\anim.cpp" />
-    <ClCompile Include="src\app.cpp" />
+    <ClCompile Include="src\application.cpp" />
+    <ClCompile Include="src\apps.cpp" />
     <ClCompile Include="src\async.cpp" />
     <ClCompile Include="src\buffer.cpp" />
     <ClCompile Include="src\camera.cpp" />
     <ClCompile Include="src\components.cpp" />
+    <ClCompile Include="src\editor.cpp" />
     <ClCompile Include="src\entry.cpp" />
-    <ClCompile Include="src\framebuffer.cpp" />
-    <ClCompile Include="src\gl_raytracer.cpp" />
     <ClCompile Include="src\gui.cpp" />
     <ClCompile Include="src\input.cpp" />
     <ClCompile Include="src\rmath.cpp" />
@@ -209,9 +209,8 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MaxSpeed</Optimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
-    <ClCompile Include="src\opengl.cpp" />
-    <ClCompile Include="src\systems.cpp" />
     <ClCompile Include="src\timer.cpp" />
+    <ClCompile Include="src\util.cpp" />
     <ClCompile Include="src\VK\VKBase.cpp" />
     <ClCompile Include="src\VK\VKContext.cpp" />
     <ClCompile Include="src\VK\VKDescriptor.cpp" />
@@ -220,7 +219,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\VK\VKShader.cpp" />
     <ClCompile Include="src\VK\VKSwapchain.cpp" />
     <ClCompile Include="src\VK\VKTexture.cpp" />
-    <ClCompile Include="src\vulkan.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\glm\glm.hpp" />
@@ -236,14 +234,14 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="src\headers\anim.h" />
-    <ClInclude Include="src\headers\app.h" />
+    <ClInclude Include="src\headers\application.h" />
+    <ClInclude Include="src\headers\apps.h" />
     <ClInclude Include="src\headers\async.h" />
     <ClInclude Include="src\headers\buffer.h" />
     <ClInclude Include="src\headers\camera.h" />
     <ClInclude Include="src\headers\components.h" />
     <ClInclude Include="src\headers\ecs.h" />
-    <ClInclude Include="src\headers\entry.h" />
-    <ClInclude Include="src\headers\framebuffer.h" />
+    <ClInclude Include="src\headers\editor.h" />
     <ClInclude Include="src\headers\gui.h" />
     <ClInclude Include="src\headers\input.h" />
     <ClInclude Include="src\headers\rmath.h" />
@@ -255,8 +253,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\script.h" />
     <ClInclude Include="src\headers\serial.h" />
     <ClInclude Include="src\headers\shader.h" />
-    <ClInclude Include="src\headers\opengl.h" />
-    <ClInclude Include="src\headers\systems.h" />
     <ClInclude Include="src\headers\timer.h" />
     <ClInclude Include="src\headers\util.h" />
     <ClInclude Include="src\platform\OS.h" />

@@ -32,6 +32,8 @@ private:
     entt::registry registry;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 class AssimpImporter {
     // class instead of namespace to hide the individual load methods
 public:
