@@ -15,6 +15,7 @@ public:
     virtual void update(double dt) override;
 
 private:
+    gui::Dockspace dockspace;
     gui::MetricsWindow metricsWindow;
     gui::ViewportWindow viewportWindow;
     std::unique_ptr<RenderPass::RayCompute> rayTracePass;

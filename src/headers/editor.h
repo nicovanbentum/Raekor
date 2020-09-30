@@ -18,11 +18,9 @@ private:
     unsigned int activeScreenTexture;
     entt::entity defaultMaterialEntity;
 
-    std::unique_ptr<RenderPass::Sky>                skyPass;
     std::unique_ptr<RenderPass::Skinning>           skinningPass;
     std::unique_ptr<RenderPass::ShadowMap>          shadowMapPass;
     std::unique_ptr<RenderPass::Tonemapping>        tonemappingPass;
-    std::unique_ptr<RenderPass::Environment>        environmentPass;
     std::unique_ptr<RenderPass::Voxelization>       voxelizationPass;
     std::unique_ptr<RenderPass::GeometryBuffer>     geometryBufferPass;
     std::unique_ptr<RenderPass::ForwardLighting>    fowardLightingPass;

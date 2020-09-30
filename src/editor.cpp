@@ -31,8 +31,6 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL) {
 
 
     skinningPass            = std::make_unique<RenderPass::Skinning>();
-    skyPass                 = std::make_unique<RenderPass::Sky>(viewport);
-    environmentPass         = std::make_unique<RenderPass::Environment>();
     voxelizationPass        = std::make_unique<RenderPass::Voxelization>(128);
     shadowMapPass           = std::make_unique<RenderPass::ShadowMap>(4096, 4096);
     tonemappingPass         = std::make_unique<RenderPass::Tonemapping>(viewport);
@@ -67,7 +65,7 @@ void EditorOpenGL::update(double dt) {
     std::for_each(std::execution::par_unseq, animationView.begin(), animationView.end(), [&](auto entity) {
         auto& animation = animationView.get<ecs::MeshAnimationComponent>(entity);
         animation.boneTransform(static_cast<float>(dt));
-        });
+    });
 
     scene->view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
         skinningPass->execute(mesh, animation);
@@ -204,8 +202,6 @@ void EditorOpenGL::update(double dt) {
     if (ImGui::TreeNode("Screen Texture")) {
         if (ImGui::Selectable(nameof(tonemappingPass->result), activeScreenTexture == tonemappingPass->result))
             activeScreenTexture = tonemappingPass->result;
-        if (ImGui::Selectable(nameof(skyPass->result), activeScreenTexture == skyPass->result))
-            activeScreenTexture = skyPass->result;
         if (ImGui::Selectable(nameof(geometryBufferPass->albedoTexture), activeScreenTexture == geometryBufferPass->albedoTexture))
             activeScreenTexture = geometryBufferPass->albedoTexture;
         if (ImGui::Selectable(nameof(geometryBufferPass->normalTexture), activeScreenTexture == geometryBufferPass->normalTexture))
@@ -229,11 +225,6 @@ void EditorOpenGL::update(double dt) {
 
     ImGui::NewLine();
     ImGui::Separator();
-    ImGui::NewLine();
-    ImGui::Text("Sky Settings");
-    ImGui::DragFloat("time", &skyPass->settings.time, 0.01f, 0.0f, 1000.0f);
-    ImGui::DragFloat("cumulus", &skyPass->settings.cumulus, 0.01f, 0.0f, 1.0f);
-    ImGui::DragFloat("cirrus", &skyPass->settings.cirrus, 0.01f, 0.0f, 1.0f);
     ImGui::NewLine();
 
     ImGui::End();

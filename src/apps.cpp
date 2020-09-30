@@ -44,24 +44,21 @@ void RayTraceApp::update(double dt) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     Renderer::ImGuiNewFrame(window);
 
-    bool didViewportResize = false;
-    {
-        auto dockspace = gui::Dockspace();
+    dockspace.begin();
+    ImGui::Begin("Settings");
+    ImGui::Button("Add sphere");
+    ImGui::End();
 
-        ImGui::Begin("Settings");
-        ImGui::Button("Add sphere");
-        ImGui::End();
+    auto resized = viewportWindow.begin(viewport, rayTracePass->result);
+    viewportWindow.end();
 
-        didViewportResize = viewportWindow.begin(viewport, rayTracePass->result);
-        viewportWindow.end();
-
-        metricsWindow.draw(viewport);
-    }
+    metricsWindow.draw(viewport);
+    dockspace.end();
 
     Renderer::ImGuiRender();
     Renderer::SwapBuffers(false);
 
-    if (didViewportResize) {
+    if (resized) {
         rayTracePass->deleteResources();
         rayTracePass->createResources(viewport);
     }
@@ -90,8 +87,6 @@ VulkanApp::VulkanApp() : WindowApplication(RenderAPI::VULKAN), vk(window) {
         m.model = glm::mat4(1.0f);
         m.transform();
     }
-
-    std::cout << vk.getMeshCount() << std::endl;
 
     std::puts("Job well done.");
 
