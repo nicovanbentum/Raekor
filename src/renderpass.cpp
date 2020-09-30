@@ -2,6 +2,7 @@
 #include "renderpass.h"
 #include "ecs.h"
 #include "camera.h"
+#include "timer.h"
 
 namespace Raekor {
 namespace RenderPass {
@@ -187,7 +188,7 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
-    hotloader.checkForUpdates();
+    hotloader.changed();
 
     glBindFramebuffer(GL_FRAMEBUFFER, GBuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -452,7 +453,7 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 
 void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
                                 GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad) {
-    hotloader.checkForUpdates();
+    hotloader.changed();
 
     // bind the main framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -765,7 +766,7 @@ void Voxelization::correctOpacity(unsigned int texture) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap) {
-    hotloader.checkForUpdates();
+    hotloader.changed();
 
     // left, right, bottom, top, zNear, zFar
     auto projectionMatrix = glm::ortho(-worldSize * 0.5f, worldSize * 0.5f, -worldSize * 0.5f, worldSize * 0.5f, worldSize * 0.5f, worldSize * 1.5f);
@@ -1012,7 +1013,7 @@ ForwardLighting::ForwardLighting(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ForwardLighting::execute(Viewport& viewport, entt::registry& scene, Voxelization* voxels, ShadowMap* shadowmap) {
-    hotloader.checkForUpdates();
+    hotloader.changed();
 
     // enable stencil stuff
     glEnable(GL_STENCIL_TEST);
@@ -1171,7 +1172,7 @@ Sky::Sky(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Sky::execute(Viewport& viewport, Mesh* quad) {
-    hotloader.checkForUpdates();
+    hotloader.changed();
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -1278,18 +1279,28 @@ RayCompute::RayCompute(Viewport& viewport) {
     createResources(viewport);
     auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
     glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
+
+    rayTimer.start();
+}
+
+RayCompute::~RayCompute() {
+    rayTimer.stop();
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void RayCompute::execute(Viewport& viewport) {
-    hotloader.checkForUpdates();
-
-    auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
+    if (hotloader.changed()) {
+        auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
+    }
 
     shader.bind();
     glBindImageTexture(0, result, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
+    glBindImageTexture(1, finalResult, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+    shader.getUniform("iTime") = static_cast<float>(rayTimer.elapsedMs() / 1000);
 
     glDispatchCompute(viewport.size.x /8 , viewport.size.y / 8, 1);
 
@@ -1304,12 +1315,21 @@ void RayCompute::createResources(Viewport& viewport) {
     glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &finalResult);
+    glTextureStorage2D(finalResult, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(finalResult, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(finalResult, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(finalResult, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(finalResult, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(finalResult, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void RayCompute::deleteResources() {
     glDeleteTextures(1, &result);
+    glDeleteTextures(1, &finalResult);
 }
 
 } // renderpass

@@ -19,7 +19,10 @@ RayTraceApp::RayTraceApp() : WindowApplication(RenderAPI::OPENGL) {
     gui::setFont(settings.font.c_str());
     gui::setTheme(settings.themeColors);
 
+    // this is where the timer starts
     rayTracePass = std::make_unique<RenderPass::RayCompute>(viewport);
+
+    activeScreenTexture = rayTracePass->finalResult;
 
     std::cout << "Initialization done." << std::endl;
 
@@ -47,16 +50,39 @@ void RayTraceApp::update(double dt) {
     dockspace.begin();
     ImGui::Begin("Settings");
     ImGui::Button("Add sphere");
+
+    if (ImGui::TreeNode("Screen Texture")) {
+        if (ImGui::Selectable(nameof(rayTracePass->result), activeScreenTexture == rayTracePass->result))
+            activeScreenTexture = rayTracePass->result;
+        if (ImGui::Selectable(nameof(rayTracePass->finalResult), activeScreenTexture == rayTracePass->finalResult))
+            activeScreenTexture = rayTracePass->finalResult;
+        ImGui::TreePop();
+    }
+
+    if (ImGui::Button("Save screenshot")) {
+        auto savePath = OS::saveFileDialog("Uncompressed PNG (*.png)\0", "png");
+
+        if (!savePath.empty()) {
+            const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
+            auto pixels = std::vector<unsigned char>(bufferSize);
+            
+            glGetTextureImage(activeScreenTexture, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
+            
+            stbi_flip_vertically_on_write(true);
+            stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
+        }
+    }
+
     ImGui::End();
 
-    auto resized = viewportWindow.begin(viewport, rayTracePass->result);
+    auto resized = viewportWindow.begin(viewport, activeScreenTexture);
     viewportWindow.end();
 
     metricsWindow.draw(viewport);
     dockspace.end();
 
     Renderer::ImGuiRender();
-    Renderer::SwapBuffers(false);
+    Renderer::SwapBuffers(true);
 
     if (resized) {
         rayTracePass->deleteResources();

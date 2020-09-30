@@ -43,7 +43,7 @@ class glShader : public Shader {
     };
 
 public:
-    glShader() {}
+    glShader() = default;
     glShader(Stage* stages, size_t stageCount);
     ~glShader();
 
@@ -57,7 +57,7 @@ public:
     UniformLocation operator[] (const char* data);
     UniformLocation getUniform(const char* name);
 
-    unsigned int programID;
+    unsigned int programID = 0;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,11 +65,11 @@ public:
 class ShaderHotloader {
 public:
     void watch(glShader* shader, Shader::Stage* stages, size_t stageCount);
-    void checkForUpdates();
+    bool changed();
 
 private:
     std::vector<Shader::Stage> stages;
-    std::vector<std::function<void()>> checks;
+    std::vector<std::function<bool()>> checks;
 };
 
 } // Namespace Raekor

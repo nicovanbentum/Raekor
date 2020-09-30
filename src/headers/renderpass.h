@@ -3,6 +3,7 @@
 #include "ecs.h"
 #include "scene.h"
 #include "mesh.h"
+#include "timer.h"
 
 namespace Raekor {
 namespace RenderPass {
@@ -344,17 +345,20 @@ private:
 class RayCompute {
 public:
     RayCompute(Viewport& viewport);
+    ~RayCompute();
 
     void execute(Viewport& viewport);
 
     void createResources(Viewport& viewport);
     void deleteResources();
 
+    Timer rayTimer;
 private:
     glShader shader;
     ShaderHotloader hotloader;
 
 public:
+    unsigned int finalResult;
     unsigned int result;
 };
 

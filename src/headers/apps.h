@@ -3,6 +3,7 @@
 #include "gui.h"
 #include "application.h"
 
+#include "timer.h"
 #include "../VK/VKRenderer.h"
 
 namespace Raekor {
@@ -15,6 +16,7 @@ public:
     virtual void update(double dt) override;
 
 private:
+    unsigned int activeScreenTexture;
     gui::Dockspace dockspace;
     gui::MetricsWindow metricsWindow;
     gui::ViewportWindow viewportWindow;

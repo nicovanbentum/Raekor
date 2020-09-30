@@ -208,21 +208,25 @@ void ShaderHotloader::watch(glShader* shader, Shader::Stage* inStages, size_t st
     }
 
     // store a lambda that keeps a copy of pointers to the shader
-    checks.emplace_back([=]() {
+    checks.emplace_back([=]() -> bool {
         for (auto& stage : stages) {
             if (stage.watcher.wasModified()) {
                 shader->reload(stages.data(), stageCount);
+                return true;
             }
         }
+        return false;
     });
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ShaderHotloader::checkForUpdates() {
+bool ShaderHotloader::changed() {
+    bool updated = false;
     for (auto& check : checks) {
-        check();
+        updated = check() ? true : updated;
     }
+    return updated;
 }
 
 } // Namespace Raekor

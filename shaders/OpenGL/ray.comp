@@ -8,12 +8,26 @@ layout(local_size_x = 8, local_size_y = 8) in;
 #define MAXDEPTH 	5
 #define NUMSAMPLES 	4
 
+#define RANGE uvec4(65535u)
+#define MAX_RANDOM float(RANGE-1u)
+
 layout(binding = 0, rgba32f) uniform image2D outputTexture;
+layout(binding = 1, rgba32f) uniform image2D finalTexture;
+
+uniform float iTime;
+
+const uint ROUGH = 0;
+const uint REFLECT = 1;
+
+struct Material {
+    vec3 color;
+    uint type;
+};
 
 struct Sphere {
     vec3 position;
     float radius;
-    vec3 color;
+    Material material;
 };
 
 struct Ray {
@@ -56,56 +70,52 @@ bool hitSphere(Ray ray, Sphere sphere, float t_min, float t_max, out float t_out
     return false; 
 }
 
-// random number generator
-vec2 randState;
 
-float hash( const float n )  {
-     return fract(sin(n)*43758.54554213);
-}
-
-
-float rand2D() {
-    randState.x = fract(sin(dot(randState.xy, vec2(12.9898, 78.233))) * 43758.5453);
-    randState.y = fract(sin(dot(randState.xy, vec2(12.9898, 78.233))) * 43758.5453);;
+// Noise generation from https://www.shadertoy.com/view/MtycWc
+// https://merlin3d.wordpress.com/2018/10/04/correlated-multi-jittered-sampling-on-gpu/
+// Generate an unsigned integer random vector in the range of [0..range-1]^3 
+// with uniform distribution from a linear seed using mixing functions.
+// Maximum valid value of range is 65535.
+uvec4 rand ( uvec4 s, uvec4 range ) {
+    s ^= uvec4(s.x >> 19, s.y >> 19, s.z >> 13, s.w >> 19);
+    s *= uvec4(1619700021, 3466831627, 923620057, 3466831627);
+    s ^= uvec4(s.x >> 16, s.y >> 12, s.z >> 18, s.w >> 17);
+    s *= uvec4(175973783, 2388179301, 3077236438, 2388179301);
+    s ^= uvec4(s.x >> 15, s.y >> 17, s.z >> 18, s.w >> 18);
     
-    return randState.x;
+    uvec4 f = s >> 16;
+    return (range * f + (s % range)) >> 16;    
 }
 
-// random point on unit disk (for depth of field camera)
-vec3 random_in_unit_disk() {
-    float spx = 2.0 * rand2D() - 1.0;
-    float spy = 2.0 * rand2D() - 1.0;
+uvec4 seed ( in vec2 fragCoord, in vec2 iResolution, in float iTime ) {
+    float fseed = fragCoord.x + fragCoord.y * iResolution.x + 1.0 + mod(iTime, 16.0f) * iResolution.x * iResolution.y;
+    return uvec4(fseed);
+}
 
-    float r, phi;
+// return a random point on or inside the unit sphere
+vec3 sampleUnitSphere ( inout uvec4 useed ) {
+    useed = rand(useed, RANGE);
+    vec3 noise3 = vec3(useed.xyz) / MAX_RANDOM - .5;
+    float noise = float(useed.w) / MAX_RANDOM;
+    return normalize(noise3) * noise;
+}
 
-    if(spx > -spy) {
-        if(spx > spy) {
-            r = spx;
-            phi = spy / spx;
-        } else {
-            r = spy;
-            phi = 2.0 - spx / spy;
-        }
+vec3 randomInHemisphere(vec3 n, inout uvec4 useed) {
+    vec3 inUnitSphere = sampleUnitSphere(useed);
+    if(dot(inUnitSphere, n) > 0.0) {
+        return inUnitSphere;
     } else {
-        if(spx < spy) {
-            r = -spx;
-            phi = 4.0f + spy / spx;
-        }
-        else {
-            r = -spy;
-
-            if(spy != 0.0) 
-                phi = 6.0 - spx / spy;
-            else 
-                phi = 0.0;
-        }
+        return -inUnitSphere;
     }
-
-    phi *= PI / 4.0;
-
-    return vec3(r * cos(phi), r * sin(phi), 0.0f);
 }
 
+// return a random point on a unit disk
+vec3 sampleUnitDisk ( inout uvec4 useed ) {
+    useed = rand(useed, RANGE);
+    vec3 noise3 = vec3(useed.xyz) / MAX_RANDOM - .5;
+    float noise = float(useed.w) / MAX_RANDOM;
+    return vec3((normalize(noise3) * noise).xy, 0);
+}
 
 // vfov is top to bottom in degrees
 void Camera_init(out Camera camera, vec3 lookfrom, vec3 lookat, vec3 vup, float vfov, float aspect, float aperture, float focusDist) {
@@ -129,8 +139,8 @@ void Camera_init(out Camera camera, vec3 lookfrom, vec3 lookat, vec3 vup, float 
     camera.vertical   = 2.0 * halfHeight * focusDist * camera.v;
 }
 
-Ray Camera_getRay(Camera camera, float s, float t) {
-    vec3 rd = camera.lensRadius * random_in_unit_disk();
+Ray Camera_getRay(Camera camera, float s, float t, inout uvec4 useed) {
+    vec3 rd = camera.lensRadius * sampleUnitDisk(useed);
     vec3 offset = camera.u * rd.x + camera.v * rd.y;
 
     Ray ray;
@@ -141,35 +151,25 @@ Ray Camera_getRay(Camera camera, float s, float t) {
     return ray;
 }
 
-
-// random direction in unit sphere (for lambert brdf)
-vec3 random_in_unit_sphere() {
-    float phi = 2.0 * PI * rand2D();
-    float cosTheta = 2.0 * rand2D() - 1.0;
-    float u = rand2D();
-
-    float theta = acos(cosTheta);
-    float r = pow(u, 1.0 / 3.0);
-
-    float x = r * sin(theta) * cos(phi);
-    float y = r * sin(theta) * sin(phi);
-    float z = r * cos(theta);
-
-    return vec3(x, y, z);
-}
-
-bool MaterialBsdf(Sphere sphere, float t, Ray wo, out Ray wi, out vec3 attenuation) {
+bool MaterialBsdf(Sphere sphere, float t, Ray wo, out Ray wi, out vec3 attenuation, inout uvec4 useed) {
     vec3 p = wo.origin + wo.direction * t;
     vec3 n = normalize(p - sphere.position);
-    vec3 target = p + n + random_in_unit_sphere();
+
+    vec3 target;
+    if(sphere.material.type == ROUGH) {
+        target = p + randomInHemisphere(n, useed);
+    } else if(sphere.material.type == REFLECT) {
+        target = p + reflect(normalize(wo.direction), n);
+    }
 
     wi.origin = p;
     wi.direction = target - p;
-    attenuation = sphere.color;
-    return true;
+    attenuation = sphere.material.color;
+
+    return (dot(wi.direction, n) > 0.0);
 }
 
-bool get_closest_sphere_hit(Ray ray, Sphere world[2], float t_min, float t_max, out Sphere closest_sphere_hit, out float closest_so_far) {
+bool get_closest_sphere_hit(Ray ray, Sphere world[3], float t_min, float t_max, out Sphere closest_sphere_hit, out float closest_so_far) {
     float p_temp;
     
     bool hit_anything = false;
@@ -193,18 +193,18 @@ vec3 sky_gradient(Ray ray) {
     return (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
 }
 
-vec3 rayTraceWorld(Ray ray, Sphere world[2]) {
+vec3 rayTraceWorld(Ray ray, Sphere world[3], inout uvec4 useed) {
     vec3 color = vec3(1.0, 1.0, 1.0);
 
     float t;
     Sphere closest_sphere_hit;
 
     for(int i = 0; i < MAXDEPTH; i++) {
-        if(get_closest_sphere_hit(ray, world, 0.001, MAXFLOAT, closest_sphere_hit, t)) {
+        if(get_closest_sphere_hit(ray, world, 0.001, 10000.0, closest_sphere_hit, t)) {
 
             Ray wi;
             vec3 attenuation;
-            bool scattered = MaterialBsdf(closest_sphere_hit, t, ray, wi, attenuation);
+            bool scattered = MaterialBsdf(closest_sphere_hit, t, ray, wi, attenuation, useed);
 
             ray.origin = wi.origin;
             ray.direction = wi.direction;
@@ -226,9 +226,10 @@ vec3 rayTraceWorld(Ray ray, Sphere world[2]) {
 }
 
 void main() {
-    Sphere world[] = Sphere[2](
-        Sphere(vec3(0, -1000, 0), 1000, vec3(0.5, 0.5, 0.5)),
-        Sphere(vec3(0.000000, 1.000000, 0.000000), 1.0, vec3(0.400000, 0.200000, 0.100000))
+    Sphere world[] = Sphere[3] (
+        Sphere(vec3(0, -1000, 0), 1000, Material( vec3(0.5, 0.5, 0.5), ROUGH)),
+        Sphere(vec3(0.000000, 1.000000, 0.000000), 1.0, Material(vec3(0.900000, 0.900000, 0.100000), ROUGH)),
+        Sphere(vec3(1.000000, 1.000000, -2.000000), 1.0, Material(vec3(0.400000, 0.600000, 0.450000), REFLECT))
     );
     
     vec2 iResolution = imageSize(outputTexture);
@@ -242,20 +243,27 @@ void main() {
     Camera camera;
     Camera_init(camera, lookFrom, lookAt, vec3(0, 1, 0), 20.0f, float(iResolution.x) / float(iResolution.y), aperture, distToFocus);
 
-    randState = fragCoord.xy / iResolution.xy;
-    
     vec3 color = vec3(0, 0, 0);
 
-    for(int s = 0; s < NUMSAMPLES; s++) {
-        float u = float(fragCoord.x + rand2D()) / float(iResolution.x);
-        float v = float(fragCoord.y + rand2D()) / float(iResolution.y);
+    uvec4 useed = seed(fragCoord, iResolution, iTime);
 
-        Ray ray = Camera_getRay(camera, u, v);
-        color += rayTraceWorld(ray, world);
+    for(int s = 0; s < NUMSAMPLES; s++) {
+        useed = rand(useed, RANGE);
+        vec2 noise2 = vec2(useed.xy) / MAX_RANDOM - 0.5;
+        float u = float(fragCoord.x + noise2.x) / float(iResolution.x);
+        float v = float(fragCoord.y + noise2.y) / float(iResolution.y);
+
+        Ray ray = Camera_getRay(camera, u, v, useed);
+        color += rayTraceWorld(ray, world, useed);
     }
 
     color /= float(NUMSAMPLES);
-    color = vec3(sqrt(color[0]), sqrt(color[1]), sqrt(color[2]));
+    //color = vec3(sqrt(color[0]), sqrt(color[1]), sqrt(color[2]));
 
-    imageStore(outputTexture, fragCoord, vec4(color, 1.0));
+    vec4 currentColor = imageLoad(outputTexture, fragCoord);
+    imageStore(outputTexture, fragCoord, currentColor + vec4(color, 1.0));
+
+    vec4 accumulatedColor = imageLoad(outputTexture, fragCoord);
+    imageStore(finalTexture, fragCoord, vec4(sqrt(accumulatedColor.rgb / accumulatedColor.w), 1.0));
+    //imageStore(finalTexture, fragCoord, vec4(sqrt(color), 1.0));
 }
