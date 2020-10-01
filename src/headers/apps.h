@@ -15,11 +15,18 @@ public:
 
     virtual void update(double dt) override;
 
+    void drawSphereProperties(RenderPass::Sphere& sphere);
+
 private:
-    unsigned int activeScreenTexture;
+    bool sceneChanged = false;
+
+    unsigned int activeSphere = 0;
+    unsigned int activeScreenTexture = 0;
+
     gui::Dockspace dockspace;
     gui::MetricsWindow metricsWindow;
     gui::ViewportWindow viewportWindow;
+    gui::CameraSettings cameraSettingsWindow;
     std::unique_ptr<RenderPass::RayCompute> rayTracePass;
 };
 

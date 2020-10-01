@@ -95,5 +95,20 @@ public:
     void drawWindow(entt::registry& assets, entt::entity& active);
 };
 
+class CameraSettings {
+public:
+    void drawWindow(Camera& camera) {
+        ImGui::Begin("Camera Properties");
+        if (ImGui::DragFloat("Move Speed", &camera.moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Move Constant", &camera.moveConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Look Speed", &camera.lookSpeed, 0.1f, 0.0001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Look Constant", &camera.lookConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Zoom Speed", &camera.zoomSpeed, 0.001f, 0.0001f, FLT_MAX, "%.4f")) {}
+        if (ImGui::DragFloat("Zoom Constant", &camera.zoomConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+
+        ImGui::End();
+    }
+};
+
 } // gui
 } // raekor

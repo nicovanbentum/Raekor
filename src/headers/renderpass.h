@@ -228,13 +228,7 @@ public:
     void createResources(Viewport& viewport);
     void deleteResources();
 
-    entt::entity pick(uint32_t x, uint32_t y) {
-        int id;
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-        glReadPixels(x, y, 1, 1, GL_STENCIL_INDEX, GL_INT, &id);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        return static_cast<entt::entity>(id);
-    }
+    entt::entity pick(uint32_t x, uint32_t y);
 
 private:
     glShader shader;
@@ -342,6 +336,14 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+struct Sphere {
+    alignas(16) glm::vec3 origin;
+    alignas(16) glm::vec3 colour;
+    alignas(4) float roughness;
+    alignas(4) float metalness;
+    alignas(4) float radius;
+};
+
 class RayCompute {
 public:
     RayCompute(Viewport& viewport);
@@ -352,14 +354,17 @@ public:
     void createResources(Viewport& viewport);
     void deleteResources();
 
-    Timer rayTimer;
+    std::vector<Sphere> spheres;
+
 private:
+    Timer rayTimer;
     glShader shader;
     ShaderHotloader hotloader;
+    unsigned int sphereBuffer;
 
 public:
-    unsigned int finalResult;
     unsigned int result;
+    unsigned int finalResult;
 };
 
 } // renderpass

@@ -195,7 +195,7 @@ glShader::UniformLocation& glShader::UniformLocation::operator=(const glm::vec2&
 }
 
 glShader::UniformLocation& glShader::UniformLocation::operator=(uint32_t rhs) {
-    glUniform1i(id, rhs);
+    glUniform1ui(id, rhs);
     return *this;
 }
 

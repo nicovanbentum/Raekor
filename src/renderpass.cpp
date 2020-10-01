@@ -1148,6 +1148,14 @@ void ForwardLighting::deleteResources() {
     glDeleteFramebuffers(1, &framebuffer);
 }
 
+entt::entity ForwardLighting::pick(uint32_t x, uint32_t y) {
+    int id;
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glReadPixels(x, y, 1, 1, GL_STENCIL_INDEX, GL_INT, &id);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    return static_cast<entt::entity>(id);
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 Sky::Sky(Viewport& viewport) {
@@ -1278,6 +1286,10 @@ RayCompute::RayCompute(Viewport& viewport) {
     shader.reload(stages.data(), stages.size());
     hotloader.watch(&shader, stages.data(), stages.size());
 
+    spheres.push_back(Sphere{ glm::vec3(0, -1000, 0), glm::vec3(0.5, 0.5, 0.5), 1.0f, 1.0f, 1000.0f });
+    spheres.push_back(Sphere{ glm::vec3(0, 1, 0), glm::vec3(0.9, 0.9, 0.1), 1.0f, 1.0f, 1.0f });
+    spheres.push_back(Sphere{ glm::vec3(1, 1, 2), glm::vec3(0.4, 0.6, 0.45), 1.0f, 1.0f, 1.0f });
+
     createResources(viewport);
     auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
     glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
@@ -1297,6 +1309,10 @@ RayCompute::~RayCompute() {
 void RayCompute::execute(Viewport& viewport, bool update) {
     // if the shader changed or we moved the camera we clear the result
     if (!update || hotloader.changed()) {
+        glDeleteBuffers(1, &sphereBuffer);
+        glCreateBuffers(1, &sphereBuffer);
+        glNamedBufferStorage(sphereBuffer, spheres.size() * sizeof(Sphere), spheres.data(), GL_DYNAMIC_STORAGE_BIT);
+
         auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
         glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
     }
@@ -1304,12 +1320,16 @@ void RayCompute::execute(Viewport& viewport, bool update) {
     shader.bind();
     glBindImageTexture(0, result, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
     glBindImageTexture(1, finalResult, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, sphereBuffer);
 
     shader.getUniform("iTime") = static_cast<float>(rayTimer.elapsedMs() / 1000);
     shader.getUniform("position") = viewport.getCamera().getPosition();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
     shader.getUniform("view") = viewport.getCamera().getView(); 
     shader.getUniform("doUpdate") = update;
+
+    GLuint numberOfSpheres = static_cast<GLuint>(spheres.size());
+    shader.getUniform("sphereCount") = numberOfSpheres;
 
     glDispatchCompute(viewport.size.x /8 , viewport.size.y / 8, 1);
 
@@ -1334,6 +1354,9 @@ void RayCompute::createResources(Viewport& viewport) {
     glTextureParameteri(finalResult, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTextureParameteri(finalResult, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(finalResult, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glCreateBuffers(1, &sphereBuffer);
+    glNamedBufferStorage(sphereBuffer, spheres.size() * sizeof(Sphere), spheres.data(), GL_DYNAMIC_STORAGE_BIT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
