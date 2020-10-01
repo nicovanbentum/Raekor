@@ -3,7 +3,7 @@
 
 namespace Raekor {
 
-void InputHandler::handleEvents(WindowApplication* app, bool mouseInViewport, double dt) {
+bool InputHandler::handleEvents(WindowApplication* app, bool mouseInViewport, double dt) {
     auto flags = SDL_GetWindowFlags(app->window);
     bool windowHasInputFocus = (flags & SDL_WINDOW_INPUT_FOCUS) ? true : false;
     auto& camera = app->viewport.getCamera();
@@ -98,6 +98,8 @@ void InputHandler::handleEvents(WindowApplication* app, bool mouseInViewport, do
         }
         ImGui_ImplSDL2_ProcessEvent(&ev);
     }
+
+    return inAltMode;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

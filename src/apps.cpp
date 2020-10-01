@@ -33,7 +33,7 @@ RayTraceApp::RayTraceApp() : WindowApplication(RenderAPI::OPENGL) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void RayTraceApp::update(double dt) {
-    InputHandler::handleEvents(this, true, dt);
+    bool inFreeCameraMode = InputHandler::handleEvents(this, true, dt);
     viewport.getCamera().update(true);
 
     // clear the main window
@@ -41,7 +41,7 @@ void RayTraceApp::update(double dt) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, viewport.size.x, viewport.size.y);
 
-    rayTracePass->execute(viewport);
+    rayTracePass->execute(viewport, !inFreeCameraMode);
 
     //get new frame for ImGui and ImGuizmo
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

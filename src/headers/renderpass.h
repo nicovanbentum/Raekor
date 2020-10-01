@@ -347,7 +347,7 @@ public:
     RayCompute(Viewport& viewport);
     ~RayCompute();
 
-    void execute(Viewport& viewport);
+    void execute(Viewport& viewport, bool shouldClear);
 
     void createResources(Viewport& viewport);
     void deleteResources();

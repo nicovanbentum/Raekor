@@ -6,7 +6,7 @@ namespace Raekor {
 
 class InputHandler {
 public:
-    static void handleEvents(WindowApplication* app, bool mouseInViewport, double dt);
+    static bool handleEvents(WindowApplication* app, bool mouseInViewport, double dt);
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

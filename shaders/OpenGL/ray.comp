@@ -14,7 +14,15 @@ layout(local_size_x = 8, local_size_y = 8) in;
 layout(binding = 0, rgba32f) uniform image2D outputTexture;
 layout(binding = 1, rgba32f) uniform image2D finalTexture;
 
+vec2 iResolution = imageSize(outputTexture);
+ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
+
 uniform float iTime;
+
+uniform vec3 position;
+uniform mat4 view;
+uniform mat4 projection;
+uniform bool doUpdate;
 
 const uint ROUGH = 0;
 const uint REFLECT = 1;
@@ -33,15 +41,6 @@ struct Sphere {
 struct Ray {
     vec3 origin;
     vec3 direction;
-};
-
-struct Camera {
-    vec3 origin;
-    vec3 lowerLeftCorner;
-    vec3 horizontal;
-    vec3 vertical;
-    vec3 u, v, w;
-    float lensRadius;
 };
 
 bool hitSphere(Ray ray, Sphere sphere, float t_min, float t_max, out float t_out) {
@@ -117,38 +116,21 @@ vec3 sampleUnitDisk ( inout uvec4 useed ) {
     return vec3((normalize(noise3) * noise).xy, 0);
 }
 
-// vfov is top to bottom in degrees
-void Camera_init(out Camera camera, vec3 lookfrom, vec3 lookat, vec3 vup, float vfov, float aspect, float aperture, float focusDist) {
-    camera.lensRadius = aperture / 2.0;
-    
-    float theta = vfov * PI / 180.0;
-    float halfHeight = tan(theta / 2.0);
-    float halfWidth = aspect * halfHeight;
+Ray Camera_getRay(inout uvec4 useed) {
+    vec3 rayNDC = vec3(
+        (2.0f * fragCoord.x) / iResolution.x - 1.0f,
+        1.0f - (2.0f * fragCoord.y) / iResolution.y,
+        1.0f
+    );
 
-    camera.origin = lookfrom;
+    vec4 rayClip = vec4( rayNDC.x, rayNDC.y * -1, -1.0f, 1.0f );
 
-    camera.w = normalize(lookfrom - lookat);
-    camera.u = normalize(cross(vup, camera.w));
-    camera.v = cross(camera.w, camera.u);
+    vec4 rayCamera = inverse(projection) * rayClip;
+    rayCamera.z = -1.0f, rayCamera.w = 0.0f;
 
-    camera.lowerLeftCorner = camera.origin  - halfWidth  * focusDist * camera.u
-                                            - halfHeight * focusDist * camera.v
-                                            -              focusDist * camera.w;
+    vec3 direction = normalize((inverse(view) * rayCamera).xyz);
 
-    camera.horizontal = 2.0 * halfWidth  * focusDist * camera.u;
-    camera.vertical   = 2.0 * halfHeight * focusDist * camera.v;
-}
-
-Ray Camera_getRay(Camera camera, float s, float t, inout uvec4 useed) {
-    vec3 rd = camera.lensRadius * sampleUnitDisk(useed);
-    vec3 offset = camera.u * rd.x + camera.v * rd.y;
-
-    Ray ray;
-
-    ray.origin = camera.origin + offset;
-    ray.direction = camera.lowerLeftCorner + s * camera.horizontal + t * camera.vertical - camera.origin - offset;
-
-    return ray;
+    return Ray(position, direction);
 }
 
 bool MaterialBsdf(Sphere sphere, float t, Ray wo, out Ray wi, out vec3 attenuation, inout uvec4 useed) {
@@ -229,19 +211,14 @@ void main() {
     Sphere world[] = Sphere[3] (
         Sphere(vec3(0, -1000, 0), 1000, Material( vec3(0.5, 0.5, 0.5), ROUGH)),
         Sphere(vec3(0.000000, 1.000000, 0.000000), 1.0, Material(vec3(0.900000, 0.900000, 0.100000), ROUGH)),
-        Sphere(vec3(1.000000, 1.000000, -2.000000), 1.0, Material(vec3(0.400000, 0.600000, 0.450000), REFLECT))
+        Sphere(vec3(1.000000, 1.000000, 2.000000), 1.0, Material(vec3(0.400000, 0.600000, 0.450000), REFLECT))
     );
     
-    vec2 iResolution = imageSize(outputTexture);
-    ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
 
     vec3 lookFrom = vec3(13.0, 2.0, 3.0);
     const vec3 lookAt = vec3(0, 0, 0);
     float distToFocus = 10;
     float aperture = 0.1;
-
-    Camera camera;
-    Camera_init(camera, lookFrom, lookAt, vec3(0, 1, 0), 20.0f, float(iResolution.x) / float(iResolution.y), aperture, distToFocus);
 
     vec3 color = vec3(0, 0, 0);
 
@@ -253,17 +230,20 @@ void main() {
         float u = float(fragCoord.x + noise2.x) / float(iResolution.x);
         float v = float(fragCoord.y + noise2.y) / float(iResolution.y);
 
-        Ray ray = Camera_getRay(camera, u, v, useed);
+        Ray ray = Camera_getRay(useed);
         color += rayTraceWorld(ray, world, useed);
     }
 
     color /= float(NUMSAMPLES);
-    //color = vec3(sqrt(color[0]), sqrt(color[1]), sqrt(color[2]));
 
-    vec4 currentColor = imageLoad(outputTexture, fragCoord);
-    imageStore(outputTexture, fragCoord, currentColor + vec4(color, 1.0));
+    if(doUpdate) {
+        vec4 currentColor = imageLoad(outputTexture, fragCoord);
+        imageStore(outputTexture, fragCoord, currentColor + vec4(color, 1.0));
 
-    vec4 accumulatedColor = imageLoad(outputTexture, fragCoord);
-    imageStore(finalTexture, fragCoord, vec4(sqrt(accumulatedColor.rgb / accumulatedColor.w), 1.0));
-    //imageStore(finalTexture, fragCoord, vec4(sqrt(color), 1.0));
+        vec4 accumulatedColor = imageLoad(outputTexture, fragCoord);
+        imageStore(finalTexture, fragCoord, vec4(sqrt(accumulatedColor.rgb / accumulatedColor.w), 1.0));
+    } else {
+        imageStore(finalTexture, fragCoord, vec4(sqrt(color), 1.0));
+    }
+
 }

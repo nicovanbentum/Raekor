@@ -1198,6 +1198,8 @@ Skinning::Skinning() {
     hotloader.watch(&computeShader, stages.data(), stages.size());
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void Skinning::execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim) {
 
     glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransforms.size() * sizeof(glm::mat4), anim.boneTransforms.data(), GL_DYNAMIC_DRAW);
@@ -1283,6 +1285,8 @@ RayCompute::RayCompute(Viewport& viewport) {
     rayTimer.start();
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 RayCompute::~RayCompute() {
     rayTimer.stop();
 
@@ -1290,8 +1294,9 @@ RayCompute::~RayCompute() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void RayCompute::execute(Viewport& viewport) {
-    if (hotloader.changed()) {
+void RayCompute::execute(Viewport& viewport, bool update) {
+    // if the shader changed or we moved the camera we clear the result
+    if (!update || hotloader.changed()) {
         auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
         glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
     }
@@ -1301,11 +1306,17 @@ void RayCompute::execute(Viewport& viewport) {
     glBindImageTexture(1, finalResult, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
 
     shader.getUniform("iTime") = static_cast<float>(rayTimer.elapsedMs() / 1000);
+    shader.getUniform("position") = viewport.getCamera().getPosition();
+    shader.getUniform("projection") = viewport.getCamera().getProjection();
+    shader.getUniform("view") = viewport.getCamera().getView(); 
+    shader.getUniform("doUpdate") = update;
 
     glDispatchCompute(viewport.size.x /8 , viewport.size.y / 8, 1);
 
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void RayCompute::createResources(Viewport& viewport) {
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
