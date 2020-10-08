@@ -1,6 +1,7 @@
 # Raekor Renderer
 
 ![image](https://i.imgur.com/iv3ytur.jpg)
+*Crytek's Sponza with specularity turned all the way up on every material.*
 
 # Build
 
