@@ -73,7 +73,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>%VULKAN_SDK%\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;spirv-cross-cored.lib;spirv-cross-cppd.lib;spirv-cross-glsld.lib;spirv-cross-reflectd.lib;spirv-cross-utild.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/NODEFAULTLIB:libcmt.lib;NODEFAULTLIB:libcmtd.lib;/NODEFAULTLIB:msvcrtd.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -113,7 +113,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>%VULKAN_SDK%\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;spirv-cross-core.lib;spirv-cross-cpp.lib;spirv-cross-glsl.lib;spirv-cross-reflect.lib;spirv-cross-util.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -165,10 +165,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="dependencies\imgui\imgui_widgets.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\misc\cpp\imgui_stdlib.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -229,7 +225,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="dependencies\imgui\examples\imgui_impl_vulkan.h" />
     <ClInclude Include="dependencies\imgui\imgui.h" />
     <ClInclude Include="dependencies\imgui\imgui_internal.h" />
-    <ClInclude Include="dependencies\imgui\misc\cpp\imgui_stdlib.h" />
     <ClInclude Include="dependencies\NVDDS\nv_dds.h" />
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="resource.h" />

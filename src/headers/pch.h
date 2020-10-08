@@ -7,6 +7,12 @@
 
 #define NOMINMAX // i hate computers
 
+#ifdef NDEBUG
+    #define RAEKOR_DEBUG 0
+#else 
+    #define RAEKOR_DEBUG 1
+#endif
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // platform specific includes
 #include "GL/gl3w.h"
@@ -39,6 +45,8 @@
 #define VK_ENABLE_BETA_EXTENSIONS
 #include "vulkan/vulkan.h"
 #include "vk_mem_alloc.h"
+#include "spirv_cross/spirv_cross.hpp"
+#include "spirv_cross/spirv_glsl.hpp"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Simple DirectMedia Layer
@@ -53,7 +61,6 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_vulkan.h"
-#include "misc/cpp/imgui_stdlib.h"
 
 #ifdef _WIN32
     #include "imgui_impl_dx11.h"
@@ -76,11 +83,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Bullet3 Physics library
 #include "bullet/btBulletDynamicsCommon.h"
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-// ChaiScript
-#include "chaiscript/chaiscript.hpp"
-#include "chaiscript/chaiscript_stdlib.hpp"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // c++ (17) includes

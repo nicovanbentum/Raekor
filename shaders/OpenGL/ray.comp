@@ -1,6 +1,6 @@
 #version 450
 
-layout(local_size_x = 8, local_size_y = 8) in;
+layout(local_size_x = 16, local_size_y = 16) in;
 
 #define PI 			3.1415926535
 #define MAXFLOAT	99999.99
@@ -65,16 +65,13 @@ bool hitSphere(Ray ray, Sphere sphere, float t_min, float t_max, out float t_out
     float t0 = tca - thc;
     float t1 = tca + thc;
 
-    if(t0 < t_max && t0 > t_min) {
-        t_out = t0 / length(ray.direction);
+    float closest_t = min(t0, t1);
+
+    if(closest_t < t_max && closest_t > t_min) {
+        t_out = closest_t / length(ray.direction);
         return true;
     }
 
-    if(t1 < t_max && t1 > t_min) {
-        t_out = t1 / length(ray.direction);
-        return true;
-    }
-    
     return false; 
 }
 
@@ -126,9 +123,13 @@ vec3 sampleUnitDisk ( inout uvec4 useed ) {
 }
 
 Ray Camera_getRay(inout uvec4 useed) {
+    float aperture = 0.01;
+    float lens_radius = aperture / 2;
+    vec3 rd = lens_radius * sampleUnitDisk(useed);
+    
     vec3 rayNDC = vec3(
-        (2.0f * fragCoord.x) / iResolution.x - 1.0f,
-        1.0f - (2.0f * fragCoord.y) / iResolution.y,
+        ((2.0f * fragCoord.x) / iResolution.x - 1.0f),
+        (1.0f - (2.0f * fragCoord.y) / iResolution.y),
         1.0f
     );
 
@@ -139,36 +140,37 @@ Ray Camera_getRay(inout uvec4 useed) {
 
     vec3 direction = normalize((inverse(view) * rayCamera).xyz);
 
-    return Ray(position, direction);
+    return Ray(position + rd, direction - rd);
 }
 
 bool MaterialBsdf(Sphere sphere, float t, Ray wo, out Ray wi, out vec3 attenuation, inout uvec4 useed) {
     vec3 p = wo.origin + wo.direction * t;
     vec3 n = normalize(p - sphere.origin);
 
-    vec3 target;
-    //if(sphere.material.type == ROUGH) {
-        target = p + randomInHemisphere(n, useed);
-    //} else if(sphere.material.type == REFLECT) {
-    //    target = p + reflect(normalize(wo.direction), n);
-    //}
+    vec3 direction;
+    if(sphere.metalness >= 1.0f) {
+        vec3 reflected = reflect(normalize(wo.direction), n);
+        direction = n + reflected + sphere.roughness * sampleUnitSphere(useed);
+    } else {
+        direction = randomInHemisphere(n, useed);
+    }
 
     wi.origin = p;
-    wi.direction = target - p;
+    wi.direction = direction;
     attenuation = sphere.colour;
 
     return (dot(wi.direction, n) > 0.0);
 }
 
-bool get_closest_sphere_hit(Ray ray, float t_min, float t_max, out Sphere closest_sphere_hit, out float closest_so_far) {
-    float p_temp;
+bool get_closest_sphere_hit(Ray ray, float t_min, float t_max, out Sphere closest_sphere_hit, out float t_closest) {
+    float t_hit;
     
+    t_closest = t_max;
     bool hit_anything = false;
-    closest_so_far = t_max;
 
     for(int i = 0; i < sphereCount; i++) {
-        if(hitSphere(ray, spheres[i], t_min, t_max, p_temp)) {
-            closest_so_far = p_temp < closest_so_far ? p_temp : closest_so_far;
+        if(hitSphere(ray, spheres[i], t_min, t_max, t_hit) && t_hit < t_closest) {
+            t_closest = t_hit;
             closest_sphere_hit = spheres[i];
             hit_anything = true;
         }
@@ -216,20 +218,12 @@ vec3 rayTraceWorld(Ray ray, inout uvec4 useed) {
 }
 
 void main() {
-    vec3 lookFrom = vec3(13.0, 2.0, 3.0);
-    const vec3 lookAt = vec3(0, 0, 0);
-    float distToFocus = 10;
-    float aperture = 0.1;
-
     vec3 color = vec3(0, 0, 0);
 
     uvec4 useed = seed(fragCoord, iResolution, iTime);
 
     for(int s = 0; s < NUMSAMPLES; s++) {
         useed = rand(useed, RANGE);
-        vec2 noise2 = vec2(useed.xy) / MAX_RANDOM - 0.5;
-        float u = float(fragCoord.x + noise2.x) / float(iResolution.x);
-        float v = float(fragCoord.y + noise2.y) / float(iResolution.y);
 
         Ray ray = Camera_getRay(useed);
         color += rayTraceWorld(ray, useed);
@@ -240,11 +234,11 @@ void main() {
     if(doUpdate) {
         vec4 currentColor = imageLoad(outputTexture, fragCoord);
         imageStore(outputTexture, fragCoord, currentColor + vec4(color, 1.0));
-
-        vec4 accumulatedColor = imageLoad(outputTexture, fragCoord);
-        imageStore(finalTexture, fragCoord, vec4(sqrt(accumulatedColor.rgb / accumulatedColor.w), 1.0));
     } else {
-        imageStore(finalTexture, fragCoord, vec4(sqrt(color), 1.0));
+        imageStore(outputTexture, fragCoord, vec4(color, 1.0));
     }
+
+    vec4 accumulatedColor = imageLoad(outputTexture, fragCoord);
+    imageStore(finalTexture, fragCoord, vec4(sqrt(accumulatedColor.rgb / accumulatedColor.w), 1.0));
 
 }

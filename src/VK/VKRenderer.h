@@ -29,7 +29,6 @@ private:
     VK::Context context;
     VK::Swapchain swapchain;
 
-
     bool enableValidationLayers;
     std::vector<const char*> extensions;
 
@@ -59,7 +58,6 @@ private:
     VmaAllocation indexBufferAlloc;
     VmaAllocationInfo indexBufferAllocInfo;
 
-
     // vertex input state
     VkPipelineVertexInputStateCreateInfo input_state;
     VkVertexInputBindingDescription bindingDescription;
@@ -67,7 +65,7 @@ private:
     
     std::unique_ptr<VK::DepthTexture> depth_texture;
 
-    std::unique_ptr<VK::DescriptorSet> modelSet;
+    DescriptorSet shaderDescriptorSet;
     std::unique_ptr<VK::UniformBuffer> modelUbo;
 
     static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
@@ -75,6 +73,7 @@ private:
 
     // texture handles
     std::vector<VK::Texture> textures;
+    std::vector<VkDescriptorImageInfo> textureDescriptorInfos;
 
     VK::Shader vert;
     VK::Shader frag;

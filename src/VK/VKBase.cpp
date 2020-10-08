@@ -5,12 +5,6 @@ namespace Raekor {
 namespace VK {
 
 Instance::Instance(SDL_Window* window) {
-#ifdef NDEBUG
-    isDebug = false;
-#else
-    isDebug = true;
-#endif
-
     VkApplicationInfo appInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
     appInfo.pApplicationName = "Raekor Editor";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 2, 0);
@@ -47,7 +41,7 @@ Instance::Instance(SDL_Window* window) {
     };
 
 
-    if (isDebug) {
+    if (RAEKOR_DEBUG) {
         uint32_t layerCount;
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
         std::vector<VkLayerProperties> availableLayers(layerCount);
@@ -70,7 +64,7 @@ Instance::Instance(SDL_Window* window) {
     instance_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     instance_info.ppEnabledExtensionNames = extensions.data();
 
-    if (isDebug) {
+    if (RAEKOR_DEBUG) {
         instance_info.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         instance_info.ppEnabledLayerNames = validationLayers.data();
     }

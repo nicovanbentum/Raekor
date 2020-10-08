@@ -7,7 +7,7 @@
 
 int main(int argc, char** argv) {
     {
-        auto app = Raekor::RayTraceApp();
+        auto app = Raekor::VulkanApp();
 
         double dt = 0;
         Raekor::Timer timer;
@@ -19,6 +19,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    system("PAUSE");
+    system("pause");
+
     return 0;
 }

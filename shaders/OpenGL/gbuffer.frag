@@ -13,7 +13,7 @@ layout(binding = 0) uniform sampler2D meshTexture;
 layout(binding = 3) uniform sampler2D normalTexture;
 layout(binding = 4) uniform sampler2D metalroughTexture;
 
-uniform int entity;
+uniform uint entity;
 
 in vec3 pos;
 in vec2 uv;

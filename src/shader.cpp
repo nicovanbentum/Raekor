@@ -199,6 +199,11 @@ glShader::UniformLocation& glShader::UniformLocation::operator=(uint32_t rhs) {
     return *this;
 }
 
+glShader::UniformLocation& glShader::UniformLocation::operator=(int32_t rhs) {
+    glUniform1i(id, rhs);
+    return *this;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void ShaderHotloader::watch(glShader* shader, Shader::Stage* inStages, size_t stageCount) {

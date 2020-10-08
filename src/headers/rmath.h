@@ -15,6 +15,7 @@ struct Ray {
     std::optional<float> hitsOBB(const glm::vec3& min, const glm::vec3& max, const glm::mat4& modelMatrix);
     std::optional<float> hitsAABB(const glm::vec3& min, const glm::vec3& max);
     std::optional<float> hitsTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2);
+    std::optional<float> hitsSphere(const glm::vec3& o, float radius, float t_min, float t_max);
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

@@ -156,6 +156,27 @@ std::optional<float> Ray::hitsTriangle(const glm::vec3& v0, const glm::vec3& v1,
     return glm::dot(p2, qvec) * invDet;
 }
 
+std::optional<float> Ray::hitsSphere(const glm::vec3& o, float radius, float t_min, float t_max) {
+    float R2 = radius * radius;
+    glm::vec3 L = o - origin;
+    float tca = glm::dot(L, glm::normalize(direction));
+    if (tca < 0) return std::nullopt;
+
+    float D2 = dot(L, L) - tca * tca;
+    if (D2 > R2) return std::nullopt;
+    float thc = sqrt(R2 - D2);
+    float t0 = tca - thc;
+    float t1 = tca + thc;
+
+    float closest_t = std::min(t0, t1);
+
+    if (closest_t < t_max && closest_t > t_min) {
+        return closest_t / glm::length(direction);
+    }
+
+    return std::nullopt;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool pointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VKTexture.h"
+#include "VKShader.h"
 
 namespace Raekor {
 namespace VK {
@@ -24,25 +25,27 @@ public:
 
 class DescriptorSet {
 public:
-    DescriptorSet(const Context& ctx);
-    ~DescriptorSet();
+    DescriptorSet() = default;
+    DescriptorSet(Context& context, Shader** shaders, size_t count);
+    void destroy(const Device& device);
 
-    void bind(uint32_t slot, const Texture& texture, VkShaderStageFlags stages);
-    void bind(uint32_t slot, const UniformBuffer& buffer, VkShaderStageFlags stages);
-    void bind(uint32_t slot, const Image* image, VkShaderStageFlags stages);
-    void bind(uint32_t slot, const std::vector<Texture>& textures, VkShaderStageFlags stages);
-    void complete(const Context& ctx);
+    operator VkDescriptorSet();
+    VkDescriptorSetLayout& getLayout();
 
-    operator VkDescriptorSet() const;
+    VkWriteDescriptorSet* getResource(const std::string& name);
 
-public:
-    VkDescriptorSetLayout layout;
+    void update(VkDevice device);
+    void update(VkDevice device, const std::string& name);
 
 private:
-    const Device& device;
-    VkDescriptorSet dstSet;
-    std::vector<VkWriteDescriptorSet> sets;
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
+    VkDescriptorSet descriptorSet;
+    VkDescriptorSetLayout descriptorSetLayout;
+    std::unordered_map<std::string, VkWriteDescriptorSet> resources;
+    
+private:
+    VkWriteDescriptorSet getDescriptorSet(spirv_cross::Compiler* compiler, spirv_cross::Resource& resource, VkDescriptorType descriptorType);
+    VkDescriptorSetLayoutBinding getBinding(spirv_cross::Compiler* compiler, spirv_cross::Resource& resource, VkDescriptorType descriptorType);
+
 };
 
 } // VK

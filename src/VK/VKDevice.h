@@ -12,6 +12,12 @@ class Device {
     };
 
 public:
+    Device() = delete;
+    Device(Device&) = delete;
+    Device(Device&&) = delete;
+    Device& operator=(Device&) = delete;
+    Device& operator=(Device&&) = delete;
+
     Device(const Instance& instance, const PhysicalDevice& physicalDevice);
     ~Device();
     operator VkDevice() { return device; }

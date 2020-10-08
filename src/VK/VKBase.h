@@ -12,7 +12,6 @@ public:
     inline VkSurfaceKHR getSurface() const { return surface; }
 
 private:
-    bool isDebug;
     VkInstance instance;
     VkSurfaceKHR surface;
 

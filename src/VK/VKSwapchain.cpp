@@ -149,7 +149,6 @@ bool Swapchain::create(const Context& context, glm::vec2 resolution, VkPresentMo
 
 void Swapchain::destroy(VkDevice device)
 {
-    std::puts("SWAPCHAIN DEAD IS GONE DESTROYED FINITO");
     for (auto& framebuffer : framebuffers)
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     for (auto& view : views) {

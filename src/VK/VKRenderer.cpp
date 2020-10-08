@@ -7,7 +7,7 @@ namespace VK {
 
     void Renderer::recordModel() {
         for (int i = 0; i < meshes.size(); i++) {
-            recordMeshBuffer(i, meshes[i], pipelineLayout, *modelSet, secondaryBuffers[meshes.size() - 1 - i]);
+            recordMeshBuffer(i, meshes[i], pipelineLayout, shaderDescriptorSet, secondaryBuffers[meshes.size() - 1 - i]);
         }
     }
 
@@ -59,6 +59,7 @@ namespace VK {
         swapchain.destroy(context.device);
   
         // destroy memory objects
+        shaderDescriptorSet.destroy(context.device);
         modelUbo->destroy(bufferAllocator);
 
         vmaDestroyBuffer(bufferAllocator, vertexBuffer, vertexBufferAlloc);
@@ -252,18 +253,14 @@ namespace VK {
             image.format = RGBA;
         }
 
-        std::vector<std::future<void>> futures;
-        for (const auto& kv : seen) {
-            futures.push_back(std::async(std::launch::async, &Stb::Image::load, &images[kv.second], kv.first, true));
-        }
-
-        for (auto& future : futures) {
-            future.wait();
-        }
+        std::for_each(std::execution::par_unseq, seen.begin(), seen.end(), [&](const std::pair<std::string, int>& kv) {
+            images[kv.second].load(kv.first, true);
+        });
 
         textures.reserve(images.size());
         for (const auto& image : images) {
             textures.emplace_back(context, image, bufferAllocator);
+            textureDescriptorInfos.push_back(textures.back().descriptor);
         }
 
         VkVertexInputAttributeDescription pos = {};
@@ -304,8 +301,9 @@ namespace VK {
     }
 
     void Renderer::setupModelStageUniformBuffers() {
-        // init model set
-        modelSet.reset(new VK::DescriptorSet(context));
+        // init descriptor set
+        std::array<Shader*, 2> shaders = { &vert, &frag };
+        shaderDescriptorSet = DescriptorSet(context, shaders.data(), shaders.size());
 
         VkPhysicalDeviceProperties props;
         vkGetPhysicalDeviceProperties(context.PDevice, &props);
@@ -329,9 +327,9 @@ namespace VK {
         modelUbo->update(bufferAllocator, uboDynamic.mvp, wholeSize);
 
         // bind and complete set
-        modelSet->bind(0, *modelUbo, VK_SHADER_STAGE_VERTEX_BIT);
-        modelSet->bind(1, textures, VK_SHADER_STAGE_FRAGMENT_BIT);
-        modelSet->complete(context);
+        shaderDescriptorSet.getResource("Camera")->pBufferInfo = modelUbo->getDescriptor();
+        shaderDescriptorSet.getResource("tex_sampler")->pImageInfo = textureDescriptorInfos.data();
+        shaderDescriptorSet.update(context.device);
     }
 
     void Renderer::setupFrameBuffers() {
@@ -525,7 +523,7 @@ namespace VK {
         VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = &modelSet->layout;
+        pipelineLayoutInfo.pSetLayouts = &shaderDescriptorSet.getLayout();
         pipelineLayoutInfo.pushConstantRangeCount = 1;
         pipelineLayoutInfo.pPushConstantRanges = &pcr;
 

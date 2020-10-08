@@ -24,12 +24,15 @@ RayTraceApp::RayTraceApp() : WindowApplication(RenderAPI::OPENGL) {
 
     activeScreenTexture = rayTracePass->finalResult;
 
-    viewport.getCamera().zoom(-5);
 
     std::cout << "Initialization done." << std::endl;
 
     SDL_ShowWindow(window);
     SDL_MaximizeWindow(window);
+
+    viewport.setFov(20);
+    viewport.getCamera().move(glm::vec2(13, 2));
+    viewport.getCamera().zoom(3);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -50,10 +53,11 @@ void RayTraceApp::update(double dt) {
     Renderer::ImGuiNewFrame(window);
 
     sceneChanged = false;
-    if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
-        rayTracePass->spheres.erase(rayTracePass->spheres.begin() + activeSphere);
-        activeSphere = std::max(rayTracePass->spheres.size() -1, 0ull);
-        sceneChanged = true;
+    if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_C), true)) {
+        if (SDL_GetModState() & KMOD_LCTRL) {
+            rayTracePass->spheres.push_back(rayTracePass->spheres[activeSphere]);
+            activeSphere = static_cast<uint32_t>(rayTracePass->spheres.size() - 1);
+        }
     }
 
     dockspace.begin();
@@ -81,39 +85,27 @@ void RayTraceApp::update(double dt) {
         }
     }
 
-ImGui::Separator();
+    ImGui::Separator(); ImGui::NewLine();
 
-    std::vector<std::string> sphereNames;
-    for (size_t i = 0; i < rayTracePass->spheres.size(); i++) {
-        sphereNames.push_back("Sphere " + std::to_string(i));
-    }
-    if (ImGui::BeginCombo("Spheres", sphereNames[activeSphere].c_str())) {
-        for (uint32_t i = 0; i < sphereNames.size(); i++) {
-            bool selected = i == activeSphere;
-            if (ImGui::Selectable(sphereNames[i].c_str(), &selected)) {
-                activeSphere = i;
-            }
-        }
-
-        ImGui::EndCombo();
+    if (drawSphereProperties(rayTracePass->spheres[activeSphere])) {
+        sceneChanged = true;
     }
 
-    if (ImGui::Button("New"))
+    if (ImGui::Button("New sphere.."))
         ImGui::OpenPopup("Sphere properties");
 
     ImGui::SameLine();
 
-    if (ImGui::Button("Delete") && !rayTracePass->spheres.size() > 1) {
+    if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
         rayTracePass->spheres.erase(rayTracePass->spheres.begin() + activeSphere);
-        activeSphere = std::max(0ull, rayTracePass->spheres.size() - 1);
-
+        activeSphere = static_cast<uint32_t>(std::max(0ull, rayTracePass->spheres.size() - 1));
+        sceneChanged = true;
     }
-
-
 
     ImGui::Separator();
 
-    if (ImGui::BeginPopupModal("Sphere properties", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+    bool open = true;
+    if (ImGui::BeginPopupModal("Sphere properties", &open, ImGuiWindowFlags_AlwaysAutoResize)) {
         static RenderPass::Sphere sphere = {
             glm::vec3(0, 0, 0), 
             glm::vec3(1, 1, 1),
@@ -122,10 +114,11 @@ ImGui::Separator();
 
         drawSphereProperties(sphere);
 
-        if (ImGui::Button("Add")) {
+        if (ImGui::Button("Create")) {
             rayTracePass->spheres.push_back(sphere);
             ImGui::CloseCurrentPopup();
             sceneChanged = true;
+            activeSphere = static_cast<uint32_t>(rayTracePass->spheres.size() - 1);
         }
 
         ImGui::SameLine();
@@ -138,42 +131,77 @@ ImGui::Separator();
     }
 
     ImGui::End();
+    
+    cameraSettingsWindow.drawWindow(viewport.getCamera());
+
+    gizmo.drawWindow();
 
     auto resized = viewportWindow.begin(viewport, activeScreenTexture);
+    if (resized) sceneChanged = true;
 
     auto pos = ImGui::GetWindowPos();
     auto size = ImGui::GetWindowSize();
-    const auto metricsWindowSize = ImVec2(size.x / 7.5f, size.y / 9.0f);
-    const auto metricsWindowPosition = ImVec2(pos.x + size.x - size.x / 7.5f - 5.0f, pos.y + 5.0f);
-    metricsWindow.draw(viewport, metricsWindowPosition, metricsWindowSize);
 
     // set the gizmo's viewport
     ImGuizmo::SetDrawlist();
     ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
 
-
     // draw gizmo
     glm::vec3 rotation, scale;
     auto matrix = glm::translate(glm::mat4(1.0f), rayTracePass->spheres[activeSphere].origin);
+    matrix = glm::scale(matrix, glm::vec3(rayTracePass->spheres[activeSphere].radius));
+    auto deltaMatrix = glm::mat4(1.0f);
     
-    ImGuizmo::Manipulate(
-        glm::value_ptr(viewport.getCamera().getView()),
-        glm::value_ptr(viewport.getCamera().getProjection()),
-        ImGuizmo::TRANSLATE, ImGuizmo::MODE::LOCAL,
-        glm::value_ptr(matrix)
-    );
+    if (ImGuizmo::Manipulate(glm::value_ptr(viewport.getCamera().getView()), glm::value_ptr(viewport.getCamera().getProjection()),
+        gizmo.getOperation(), ImGuizmo::MODE::LOCAL, glm::value_ptr(matrix), glm::value_ptr(deltaMatrix))) {
+        // update the transformation
+        ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(matrix), glm::value_ptr(rayTracePass->spheres[activeSphere].origin),
+        glm::value_ptr(rotation),glm::value_ptr(scale));
+        float averageScale = (matrix[0][0] + matrix[1][1] + matrix[2][2]) / 3;
+        rayTracePass->spheres[activeSphere].radius = averageScale;
+        sceneChanged = true;
+    }
 
-    // update the transformation
-    ImGuizmo::DecomposeMatrixToComponents(
-        glm::value_ptr(matrix),
-        glm::value_ptr(rayTracePass->spheres[activeSphere].origin),
-        glm::value_ptr(rotation),
-        glm::value_ptr(scale)
-    );
+    auto& io = ImGui::GetIO();
+    if (io.MouseClicked[0] && ImGui::IsWindowHovered() && !ImGuizmo::IsOver(ImGuizmo::OPERATION::TRANSLATE)) {
+        // get mouse position in window
+        glm::ivec2 mousePosition;
+        SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
+
+        // get mouse position relative to viewport
+        auto pos = ImGui::GetWindowPos();
+        glm::ivec2 rendererMousePosition = { (mousePosition.x - pos.x), (mousePosition.y - pos.y) };
+
+        auto ray = Math::Ray(viewport, rendererMousePosition);
+
+        // check for ray intersection with every sphere 
+        float closest_t = FLT_MAX;
+        uint32_t closestSphereIndex = activeSphere;
+        for (uint32_t sphereIndex = 0; sphereIndex < rayTracePass->spheres.size(); sphereIndex++) {
+            const auto& sphere = rayTracePass->spheres[sphereIndex];
+            auto hit = ray.hitsSphere(sphere.origin, sphere.radius, 0.001f, 10000.0f);
+
+            if (hit.has_value()) {
+            }
+            // if it hit a sphere AND the intersection distance is the smallest so far we save it
+            if (hit.has_value() && hit.value() < closest_t) {
+                closest_t = hit.value();
+                closestSphereIndex = sphereIndex;
+            }
+        }
+
+        if (closestSphereIndex == activeSphere) {
+            activeSphere = 0;
+        } else {
+            activeSphere = closestSphereIndex;
+        }
+    }
 
     viewportWindow.end();
 
-    cameraSettingsWindow.drawWindow(viewport.getCamera());
+    const auto metricsWindowSize = ImVec2(size.x / 8.5f, size.y / 13.0f);
+    const auto metricsWindowPosition = ImVec2(pos.x + size.x - size.x / 8.5f - 5.0f, pos.y + 5.0f);
+    metricsWindow.draw(viewport, metricsWindowPosition, metricsWindowSize);
 
     dockspace.end();
 
@@ -186,12 +214,14 @@ ImGui::Separator();
     }
 }
 
-void RayTraceApp::drawSphereProperties(RenderPass::Sphere& sphere) {
-    ImGui::DragFloat3("Position", glm::value_ptr(sphere.origin));
-    ImGui::ColorEdit3("Base colour", glm::value_ptr(sphere.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
-    ImGui::DragFloat("Roughness", &sphere.roughness);
-    ImGui::DragFloat("Metalness", &sphere.metalness);
-    ImGui::DragFloat("Radius", &sphere.radius);
+bool RayTraceApp::drawSphereProperties(RenderPass::Sphere& sphere) {
+    bool changed = false;
+    changed = ImGui::DragFloat("Radius", &sphere.radius) ? true : changed;
+    changed = ImGui::DragFloat3("Position", glm::value_ptr(sphere.origin)) ? true : changed;
+    changed = ImGui::DragFloat("Roughness", &sphere.roughness, 0.001f, 0.0f, 10.0f) ? true : changed;
+    changed = ImGui::DragFloat("Metalness", &sphere.metalness, 1.0f, 0.0f, 1.0f) ? true : changed;
+    changed = ImGui::ColorEdit3("Base colour", glm::value_ptr(sphere.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR) ? true : changed;
+    return changed;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -222,7 +252,6 @@ VulkanApp::VulkanApp() : WindowApplication(RenderAPI::VULKAN), vk(window) {
 
     SDL_ShowWindow(window);
     SDL_SetWindowInputFocus(window);
-
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

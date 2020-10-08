@@ -33,6 +33,7 @@ class glShader : public Shader {
 
         UniformLocation& operator=(bool rhs);
         UniformLocation& operator=(float rhs);
+        UniformLocation& operator=(int32_t rhs);
         UniformLocation& operator=(uint32_t rhs);
         UniformLocation& operator=(const glm::vec2& rhs);
         UniformLocation& operator=(const glm::vec3& rhs);

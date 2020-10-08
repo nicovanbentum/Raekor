@@ -119,7 +119,8 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void InspectorWindow::drawNameComponent(ecs::NameComponent& component) {
-    if (ImGui::InputText("Name", &component.name, ImGuiInputTextFlags_AutoSelectAll)) {
+
+    if(ImGui::InputText("Name", component.name.data(), component.name.size(), ImGuiInputTextFlags_AutoSelectAll)) {
         if (component.name.size() > 16) {
             component.name = component.name.substr(0, 16);
         }

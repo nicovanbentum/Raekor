@@ -15,7 +15,7 @@ public:
 
     virtual void update(double dt) override;
 
-    void drawSphereProperties(RenderPass::Sphere& sphere);
+    bool drawSphereProperties(RenderPass::Sphere& sphere);
 
 private:
     bool sceneChanged = false;
@@ -23,6 +23,7 @@ private:
     unsigned int activeSphere = 0;
     unsigned int activeScreenTexture = 0;
 
+    gui::Guizmo gizmo;
     gui::Dockspace dockspace;
     gui::MetricsWindow metricsWindow;
     gui::ViewportWindow viewportWindow;

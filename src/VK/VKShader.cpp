@@ -26,12 +26,12 @@ void Shader::reload() {
         vkDestroyShaderModule(device, module, nullptr);
     }
 
-    const auto buffer = readSpirvFile(filepath);
+    spirv = readSpirvFile(filepath);
     
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = buffer.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(buffer.data());
+    createInfo.codeSize = spirv.size();
+    createInfo.pCode = spirv.data();
     
     if (vkCreateShaderModule(device, &createInfo, nullptr, &module) != VK_SUCCESS) {
         throw std::runtime_error("failed to create vk shader module");
@@ -59,14 +59,14 @@ void Shader::compileFromCommandLine(std::string_view in, std::string_view out) {
 
 ///////////////////////////////////////////////////////////////////////////
 
-std::vector<char> Shader::readSpirvFile(const std::string& path) {
+std::vector<uint32_t> Shader::readSpirvFile(const std::string& path) {
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     if (!file.is_open()) return {};
     
     const size_t filesize = static_cast<size_t>(file.tellg());
-    std::vector<char> buffer(filesize);
+    std::vector<uint32_t> buffer(filesize);
     file.seekg(0);
-    file.read(buffer.data(), filesize);
+    file.read((char*) &buffer[0], filesize);
     file.close();
 
     return buffer;
@@ -81,6 +81,16 @@ VkPipelineShaderStageCreateInfo Shader::getInfo(VkShaderStageFlagBits stage) con
     stage_info.module = module;
     stage_info.pName = "main";
     return stage_info;
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+VkShaderStageFlagBits getStageFromExecutionModel(spv::ExecutionModel model) {
+    switch (model) {
+        case spv::ExecutionModel::ExecutionModelVertex: return VK_SHADER_STAGE_VERTEX_BIT;
+        case spv::ExecutionModel::ExecutionModelFragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
+        default: return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+    }
 }
 
 } // VK 
