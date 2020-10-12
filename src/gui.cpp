@@ -163,13 +163,15 @@ void InspectorWindow::drawMeshComponent(ecs::MeshComponent& component, entt::reg
         }
         ImGui::SameLine();
         ImGui::Text(name.name.c_str());
+    } else {
+        ImGui::Text("No material");
+    }
 
-        if (ImGui::BeginDragDropTarget()) {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
-                component.material = *reinterpret_cast<const entt::entity*>(payload->Data);
-            }
-            ImGui::EndDragDropTarget();
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
+            component.material = *reinterpret_cast<const entt::entity*>(payload->Data);
         }
+        ImGui::EndDragDropTarget();
     }
 }
 
@@ -611,90 +613,133 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
             }
             ImGui::Separator();
 
-            if (ImGui::MenuItem("Sphere")) {
-                auto entity = scene.createObject("Sphere");
-                auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+            if (ImGui::MenuItem("Material")) {
+                auto entity = scene->create();
+                scene->emplace<ecs::NameComponent>(entity, "New Material");
+                auto& defaultMaterial = scene->emplace<ecs::MaterialComponent>(entity);
+                defaultMaterial.uploadRenderData();
+                active = entity;
+            }
 
-                if (active != entt::null) {
-                    auto& node = scene->get<ecs::NodeComponent>(entity);
-                    node.parent = active;
-                    node.hasChildren = false;
-                    scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
-                }
+            if (ImGui::BeginMenu("Shapes")) {
 
-                const float radius = 2.0f;
-                float x, y, z, xy;                              // vertex position
-                float nx, ny, nz, lengthInv = 1.0f / radius;    // vertex normal
-                float s, t;                                     // vertex texCoord
+                if (ImGui::MenuItem("Sphere")) {
+                    auto entity = scene.createObject("Sphere");
+                    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
 
-                const int sectorCount = 36;
-                const int stackCount = 18;
-                const float PI = static_cast<float>(M_PI);
-                float sectorStep = 2 * PI / sectorCount;
-                float stackStep = PI / stackCount;
-                float sectorAngle, stackAngle;
-
-                for (int i = 0; i <= stackCount; ++i)
-                {
-                    stackAngle = PI / 2 - i * stackStep;        // starting from pi/2 to -pi/2
-                    xy = radius * cosf(stackAngle);             // r * cos(u)
-                    z = radius * sinf(stackAngle);              // r * sin(u)
-
-                    // add (sectorCount+1) vertices per stack
-                    // the first and last vertices have same position and normal, but different tex coords
-                    for (int j = 0; j <= sectorCount; ++j)
-                    {
-                        sectorAngle = j * sectorStep;           // starting from 0 to 2pi
-
-                        // vertex position (x, y, z)
-                        x = xy * cosf(sectorAngle);             // r * cos(u) * cos(v)
-                        y = xy * sinf(sectorAngle);             // r * cos(u) * sin(v)
-                        mesh.positions.emplace_back(x, y, z);
-
-                        // normalized vertex normal (nx, ny, nz)
-                        nx = x * lengthInv;
-                        ny = y * lengthInv;
-                        nz = z * lengthInv;
-                        mesh.normals.emplace_back(nx, ny, nz);
-
-                        // vertex tex coord (s, t) range between [0, 1]
-                        s = (float)j / sectorCount;
-                        t = (float)i / stackCount;
-                        mesh.uvs.emplace_back(s, t);
-
+                    if (active != entt::null) {
+                        auto& node = scene->get<ecs::NodeComponent>(entity);
+                        node.parent = active;
+                        node.hasChildren = false;
+                        scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
                     }
-                }
 
-                int k1, k2;
-                for (int i = 0; i < stackCount; ++i)
-                {
-                    k1 = i * (sectorCount + 1);     // beginning of current stack
-                    k2 = k1 + sectorCount + 1;      // beginning of next stack
+                    const float radius = 2.0f;
+                    float x, y, z, xy;                              // vertex position
+                    float nx, ny, nz, lengthInv = 1.0f / radius;    // vertex normal
+                    float s, t;                                     // vertex texCoord
 
-                    for (int j = 0; j < sectorCount; ++j, ++k1, ++k2)
+                    const int sectorCount = 36;
+                    const int stackCount = 18;
+                    const float PI = static_cast<float>(M_PI);
+                    float sectorStep = 2 * PI / sectorCount;
+                    float stackStep = PI / stackCount;
+                    float sectorAngle, stackAngle;
+
+                    for (int i = 0; i <= stackCount; ++i)
                     {
-                        // 2 triangles per sector excluding first and last stacks
-                        // k1 => k2 => k1+1
-                        if (i != 0)
-                        {
-                            mesh.indices.push_back(k1);
-                            mesh.indices.push_back(k2);
-                            mesh.indices.push_back(k1 + 1);
-                        }
+                        stackAngle = PI / 2 - i * stackStep;        // starting from pi/2 to -pi/2
+                        xy = radius * cosf(stackAngle);             // r * cos(u)
+                        z = radius * sinf(stackAngle);              // r * sin(u)
 
-                        // k1+1 => k2 => k2+1
-                        if (i != (stackCount - 1))
+                        // add (sectorCount+1) vertices per stack
+                        // the first and last vertices have same position and normal, but different tex coords
+                        for (int j = 0; j <= sectorCount; ++j)
                         {
-                            mesh.indices.push_back(k1 + 1);
-                            mesh.indices.push_back(k2);
-                            mesh.indices.push_back(k2 + 1);
+                            sectorAngle = j * sectorStep;           // starting from 0 to 2pi
+
+                            // vertex position (x, y, z)
+                            x = xy * cosf(sectorAngle);             // r * cos(u) * cos(v)
+                            y = xy * sinf(sectorAngle);             // r * cos(u) * sin(v)
+                            mesh.positions.emplace_back(x, y, z);
+
+                            // normalized vertex normal (nx, ny, nz)
+                            nx = x * lengthInv;
+                            ny = y * lengthInv;
+                            nz = z * lengthInv;
+                            mesh.normals.emplace_back(nx, ny, nz);
+
+                            // vertex tex coord (s, t) range between [0, 1]
+                            s = (float)j / sectorCount;
+                            t = (float)i / stackCount;
+                            mesh.uvs.emplace_back(s, t);
+
                         }
                     }
+
+                    int k1, k2;
+                    for (int i = 0; i < stackCount; ++i)
+                    {
+                        k1 = i * (sectorCount + 1);     // beginning of current stack
+                        k2 = k1 + sectorCount + 1;      // beginning of next stack
+
+                        for (int j = 0; j < sectorCount; ++j, ++k1, ++k2)
+                        {
+                            // 2 triangles per sector excluding first and last stacks
+                            // k1 => k2 => k1+1
+                            if (i != 0)
+                            {
+                                mesh.indices.push_back(k1);
+                                mesh.indices.push_back(k2);
+                                mesh.indices.push_back(k1 + 1);
+                            }
+
+                            // k1+1 => k2 => k2+1
+                            if (i != (stackCount - 1))
+                            {
+                                mesh.indices.push_back(k1 + 1);
+                                mesh.indices.push_back(k2);
+                                mesh.indices.push_back(k2 + 1);
+                            }
+                        }
+                    }
+
+                    mesh.generateTangents();
+                    mesh.uploadVertices();
+                    mesh.uploadIndices();
+                    mesh.generateAABB();
                 }
 
-                mesh.uploadVertices();
-                mesh.uploadIndices();
-                mesh.generateAABB();
+                if (ImGui::MenuItem("Cube")) {
+                    auto entity = scene.createObject("Cube");
+                    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+
+                    if (active != entt::null) {
+                        auto& node = scene->get<ecs::NodeComponent>(entity);
+                        node.parent = active;
+                        node.hasChildren = false;
+                        scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
+                    }
+
+                    for (const auto& v : unitCubeVertices) {
+                        mesh.positions.push_back(v.pos);
+                        mesh.uvs.push_back(v.uv);
+                        mesh.normals.push_back(v.normal);
+                    }
+
+                    for (const auto& index : cubeIndices) {
+                        mesh.indices.push_back(index.p1);
+                        mesh.indices.push_back(index.p2);
+                        mesh.indices.push_back(index.p3);
+                    }
+
+                    mesh.generateTangents();
+                    mesh.uploadVertices();
+                    mesh.uploadIndices();
+                    mesh.generateAABB();
+                }
+
+                ImGui::EndMenu();
             }
 
             if (ImGui::BeginMenu("Light")) {

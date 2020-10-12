@@ -66,6 +66,7 @@ struct MeshComponent {
 
     entt::entity material = entt::null;
 
+    void generateTangents();
     void generateAABB();
     void uploadIndices();
     void uploadVertices();
@@ -118,9 +119,9 @@ struct MeshAnimationComponent {
 
 struct MaterialComponent {
     std::string name;
-    std::string albedoFile, normalFile, mrFile;
     glm::vec4 baseColour = { 1.0f, 1.0f, 1.0f, 1.0f };
     float metallic = 1.0f, roughness = 1.0f;
+    std::string albedoFile, normalFile, mrFile;
 
     // GPU resources
     std::shared_ptr<unsigned int> albedo;
@@ -138,6 +139,8 @@ struct MaterialComponent {
 
     void uploadRenderData();
     void uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images);
+
+    static MaterialComponent Default;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

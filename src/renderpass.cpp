@@ -221,12 +221,19 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
             }
 
 
-        auto material = scene.try_get<ecs::MaterialComponent>(mesh.material);
+            ecs::MaterialComponent* material = nullptr;
+            if (scene.valid(mesh.material)) {
+                material = scene.try_get<ecs::MaterialComponent>(mesh.material);
+            }
 
         if (material) {
             if (material->albedo)       glBindTextureUnit(0, *material->albedo);
             if (material->normals)      glBindTextureUnit(3, *material->normals);
             if (material->metalrough)   glBindTextureUnit(4, *material->metalrough);
+        } else {
+            glBindTextureUnit(0, *ecs::MaterialComponent::Default.albedo);
+            glBindTextureUnit(3, *ecs::MaterialComponent::Default.normals);
+            glBindTextureUnit(4, *ecs::MaterialComponent::Default.metalrough);
         }
 
         shader.getUniform("model") = transform.worldTransform;
@@ -241,7 +248,7 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
         }
 
         mesh.indexBuffer.bind();
-        glDrawElements(GL_TRIANGLES, mesh.indexBuffer.count, GL_UNSIGNED_INT, nullptr);
+        glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -802,7 +809,11 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
         auto& mesh = view.get<ecs::MeshComponent>(entity);
         auto& transform = view.get<ecs::TransformComponent>(entity);
 
-        ecs::MaterialComponent* material = scene.try_get<ecs::MaterialComponent>(mesh.material);
+
+        ecs::MaterialComponent* material = nullptr;
+        if (scene.valid(mesh.material)) {
+            material = scene.try_get<ecs::MaterialComponent>(mesh.material);
+        }
 
         shader.getUniform("model") = transform.worldTransform;
         shader.getUniform("px") = px;
@@ -811,6 +822,8 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
 
         if (material) {
             if (material->albedo) glBindTextureUnit(0, *material->albedo);
+        } else {
+            glBindTextureUnit(0, *ecs::MaterialComponent::Default.albedo);
         }
 
         // determine if we use the original mesh vertices or GPU skinned vertices
@@ -1094,11 +1107,17 @@ void ForwardLighting::execute(Viewport& viewport, entt::registry& scene, Voxeliz
             continue;
         }
 
-        ecs::MaterialComponent* material = scene.try_get<ecs::MaterialComponent>(mesh.material);
+        ecs::MaterialComponent* material = nullptr;
+        if (scene.valid(mesh.material)) {
+            material = scene.try_get<ecs::MaterialComponent>(mesh.material);
+        }
 
         if (material) {
             if (material->albedo) glBindTextureUnit(1, *material->albedo);
             if (material->normals) glBindTextureUnit(2, *material->normals);
+        } else {
+            glBindTextureUnit(1, *ecs::MaterialComponent::Default.albedo);
+            glBindTextureUnit(2, *ecs::MaterialComponent::Default.normals);
         }
 
         shader.getUniform("model") = transform.worldTransform;

@@ -13,6 +13,44 @@ void TransformComponent::recalculateMatrix() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
+void MeshComponent::generateTangents() {
+    // calculate tangents
+    tangents.resize(positions.size());
+    for (size_t i = 0; i < indices.size(); i += 3) {
+        auto v0 = positions[indices[i]];
+        auto v1 = positions[indices[i + 1]];
+        auto v2 = positions[indices[i + 2]];
+
+        glm::vec3 normal = glm::cross((v1 - v0), (v2 - v0));
+
+        glm::vec3 deltaPos;
+        if (v0 == v1)
+            deltaPos = v2 - v0;
+        else
+            deltaPos = v1 - v0;
+
+        glm::vec2 uv0 = uvs[indices[i]];
+        glm::vec2 uv1 = uvs[indices[i + 1]];
+        glm::vec2 uv2 = uvs[indices[i + 2]];
+
+        glm::vec2 deltaUV1 = uv1 - uv0;
+        glm::vec2 deltaUV2 = uv2 - uv0;
+
+        glm::vec3 tan;
+
+        if (deltaUV1.s != 0)
+            tan = deltaPos / deltaUV1.s;
+        else
+            tan = deltaPos / 1.0f;
+
+        tan = glm::normalize(tan - glm::dot(normal, tan) * normal);
+
+        tangents[indices[i]] = tan;
+        tangents[indices[i+1]] = tan;
+        tangents[indices[i+2]] = tan;
+    }
+}
+
 void MeshComponent::generateAABB() {
     aabb[0] = positions[0];
     aabb[1] = positions[1];
@@ -290,6 +328,10 @@ void MaterialComponent::uploadRenderData(const std::unordered_map<std::string, S
         createMetalRoughTexture(metalroughEntry->second);
     } else createMetalRoughTexture();
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+MaterialComponent MaterialComponent::Default;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 

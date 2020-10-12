@@ -47,11 +47,6 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL) {
 
     SDL_ShowWindow(window);
     SDL_MaximizeWindow(window);
-
-    auto defaultMaterialEntity = scene->create();
-    auto& defaultMaterialName = scene->emplace<ecs::NameComponent>(defaultMaterialEntity, "Default Material");
-    auto& defaultMaterial = scene->emplace<ecs::MaterialComponent>(defaultMaterialEntity);
-    defaultMaterial.uploadRenderData();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

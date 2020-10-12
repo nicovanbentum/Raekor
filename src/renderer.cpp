@@ -5,6 +5,8 @@
     #include "platform/windows/DXRenderer.h"
 #endif
 
+#include "components.h"
+
 namespace Raekor {
 
 void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
@@ -13,15 +15,11 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
             (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
             type, severity, message);
 
-        assert(false);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-static void log_msg(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
-    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
-        std::cout << message << std::endl;
+        switch (id) {
+            case 131218: return; // shader state recompilation
+            default:
+                assert(false);
+        }
     }
 }
 
@@ -81,6 +79,14 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     unsigned int vertexArrayID;
     glGenVertexArrays(1, &vertexArrayID);
     glBindVertexArray(vertexArrayID);
+
+    // initialize default gpu resources
+    ecs::MaterialComponent::Default = ecs::MaterialComponent{
+        "default", glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), 0.0f, 1.0f
+    };
+
+    ecs::MaterialComponent::Default.uploadRenderData();
+
 }
 
 GLRenderer::~GLRenderer() {
