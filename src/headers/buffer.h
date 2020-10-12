@@ -99,9 +99,9 @@ struct Element {
 
 class InputLayout {
 public:
+    InputLayout() = default;
     InputLayout(const std::initializer_list<Element> elementList);
     InputLayout(const std::vector<Element> elementList);
-    InputLayout() {}
 
     inline size_t size() const { return layout.size(); }
     inline uint64_t getStride() const { return stride; }
@@ -173,6 +173,8 @@ public:
     void bind() const;
     void setLayout(const InputLayout& layout) const;
 
+    void destroy();
+
     unsigned int id = 0;
 private:
     mutable InputLayout inputLayout;
@@ -187,6 +189,8 @@ public:
     void loadIndices(uint32_t* indices, size_t count);
     void bind() const;
 
+    void destroy();
+
     uint32_t count;
 
 private:
@@ -194,13 +198,5 @@ private:
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-
-template<typename Type>
-uint32_t glCreateBuffer(Type* data, size_t count, GLenum target) {
-    unsigned int id;
-    glCreateBuffers(1, &id);
-    glNamedBufferData(id, count * sizeof(Type), data, GL_STATIC_DRAW);
-    return id;
-}
 
 } // namespace Raekor

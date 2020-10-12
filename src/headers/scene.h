@@ -8,7 +8,8 @@ namespace Raekor {
 
 class Scene {
 public:
-    Scene() = default;
+    Scene();
+    ~Scene();
     Scene(const Scene& rhs) = delete;
 
     // object management

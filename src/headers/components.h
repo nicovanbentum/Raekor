@@ -71,6 +71,7 @@ struct MeshComponent {
     void uploadIndices();
     void uploadVertices();
     std::vector<float> getVertexData();
+    void destroy();
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -109,6 +110,8 @@ struct MeshAnimationComponent {
 
     void uploadRenderData(ecs::MeshComponent& mesh);
 
+    void destroy();
+
     unsigned int boneIndexBuffer;
     unsigned int boneWeightBuffer;
     unsigned int boneTransformsBuffer;
@@ -139,6 +142,8 @@ struct MaterialComponent {
 
     void uploadRenderData();
     void uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images);
+
+    void destroy();
 
     static MaterialComponent Default;
 };

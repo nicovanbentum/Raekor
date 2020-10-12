@@ -187,6 +187,12 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+GeometryBuffer::~GeometryBuffer() {
+    deleteResources();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
     hotloader.changed();
 
@@ -248,7 +254,7 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
         }
 
         mesh.indexBuffer.bind();
-        glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
+        glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -310,6 +316,12 @@ void GeometryBuffer::deleteResources() {
     glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
     glDeleteRenderbuffers(1, &GDepthBuffer);
     glDeleteFramebuffers(1, &GBuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+ScreenSpaceAmbientOcclusion::~ScreenSpaceAmbientOcclusion() {
+    deleteResources();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -435,6 +447,12 @@ void ScreenSpaceAmbientOcclusion::deleteResources() {
 
     glDeleteFramebuffers(1, &framebuffer);
     glDeleteFramebuffers(1, &blurFramebuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+DeferredLighting::~DeferredLighting() {
+    deleteResources();
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -574,6 +592,12 @@ void DeferredLighting::deleteResources() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+Bloom::~Bloom() {
+    deleteResources();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 Bloom::Bloom(Viewport& viewport) {
     // load shaders from disk
     std::vector<Shader::Stage> bloomStages;
@@ -658,6 +682,12 @@ void Bloom::deleteResources() {
     glDeleteTextures(2, blurTextures);
     glDeleteFramebuffers(2, blurBuffers);
     glDeleteFramebuffers(1, &resultFramebuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+Tonemapping::~Tonemapping() {
+    deleteResources();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -854,6 +884,12 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+VoxelizationDebug::~VoxelizationDebug() {
+    deleteResources();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
     std::vector<Shader::Stage> voxelDebugStages;
     voxelDebugStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\voxelDebug.vert");
@@ -905,6 +941,12 @@ void VoxelizationDebug::createResources(Viewport& viewport) {
 void VoxelizationDebug::deleteResources() {
     glDeleteRenderbuffers(1, &renderBuffer);
     glDeleteFramebuffers(1, &frameBuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+BoundingBoxDebug::~BoundingBoxDebug() {
+    deleteResources();
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -1003,6 +1045,12 @@ void BoundingBoxDebug::createResources(Viewport& viewport) {
 void BoundingBoxDebug::deleteResources() {
     glDeleteTextures(1, &result);
     glDeleteFramebuffers(1, &frameBuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+ForwardLighting::~ForwardLighting() {
+    deleteResources();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1371,6 +1419,7 @@ RayCompute::RayCompute(Viewport& viewport) {
 
 RayCompute::~RayCompute() {
     rayTimer.stop();
+    deleteResources();
 
 }
 

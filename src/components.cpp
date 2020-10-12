@@ -102,6 +102,13 @@ std::vector<float> MeshComponent::getVertexData() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
+void MeshComponent::destroy() {
+    vertexBuffer.destroy();
+    indexBuffer.destroy();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
 void MeshComponent::uploadVertices() {
     auto vertices = getVertexData();
 
@@ -197,6 +204,15 @@ void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
         { "TANGENT",     ShaderType::FLOAT3 },
         { "BINORMAL",    ShaderType::FLOAT3 },
     });
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+void MeshAnimationComponent::destroy() {
+    glDeleteBuffers(1, &boneIndexBuffer);
+    glDeleteBuffers(1, &boneWeightBuffer);
+    glDeleteBuffers(1, &boneTransformsBuffer);
+    skinnedVertexBuffer.destroy();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -327,6 +343,12 @@ void MaterialComponent::uploadRenderData(const std::unordered_map<std::string, S
     if (metalroughEntry != images.end() && !metalroughEntry->first.empty()) {
         createMetalRoughTexture(metalroughEntry->second);
     } else createMetalRoughTexture();
+}
+
+void MaterialComponent::destroy() {
+    if (albedo) glDeleteTextures(1, albedo.get());
+    if (normals) glDeleteTextures(1, normals.get());
+    if (metalrough) glDeleteTextures(1, metalrough.get());
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

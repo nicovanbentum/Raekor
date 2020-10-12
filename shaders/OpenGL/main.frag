@@ -183,53 +183,12 @@ float getShadow(DirectionalLight light, vec3 position) {
     return shadow;
 }
 
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
-{
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
-}
-
-float DistributionGGX(vec3 N, vec3 H, float roughness)
-{
-    float a      = roughness*roughness;
-    float a2     = a*a;
-    float NdotH  = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH*NdotH;
-	
-    float num   = a2;
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
-	
-    return num / denom;
-}
-
-float GeometrySchlickGGX(float NdotV, float roughness)
-{
-    float r = (roughness + 1.0);
-    float k = (r*r) / 8.0;
-
-    float num   = NdotV;
-    float denom = NdotV * (1.0 - k) + k;
-	
-    return num / denom;
-}
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
-{
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    float ggx2  = GeometrySchlickGGX(NdotV, roughness);
-    float ggx1  = GeometrySchlickGGX(NdotL, roughness);
-	
-    return ggx1 * ggx2;
-}
-
 void main()
 {
     VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
 
-    vec4 metallicRoughness = texture(gMetallicRoughness, uv);\
-    float metallic = metallicRoughness.r;
-    float roughness = metallicRoughness.g;
+    vec4 metallicRoughness = texture(gMetallicRoughness, uv);
 
 	normal = texture(gNormals, uv).xyz;
 	position = texture(gPositions, uv).xyz;
@@ -245,47 +204,26 @@ void main()
     // get direct light
     vec3 direction = normalize(-light.direction.xyz);
     float diff = clamp(dot(normal.xyz, direction) * shadowAmount, 0, 1);
-    vec3 diffuse = light.color.xyz * diff;
+    vec3 directLight = light.color.xyz * diff;
 
     // get specular light
-    vec3 V = normalize(ubo.cameraPosition.xyz - position);
-    vec3 reflectDir = reflect(-V, normal.xyz);
-
-    // PBR
-    ////////////////////////////////
-    vec3 L = -light.direction.xyz;
-    vec3 halfway = normalize(V + L);
-    vec3 radiance = light.color.rgb * shadowAmount;
-
-    vec3 F0 = vec3(0.04);
-    F0 = mix(F0, albedo.rgb, metallic);
-
-    float NDF = DistributionGGX(normal, halfway, roughness);
-    float G = GeometrySmith(normal, V, L, roughness);
-    vec3 F = fresnelSchlick(max(dot(halfway, V), 0.0), F0);
-
-    vec3 kS = F;
-    vec3 kD = vec3(1.0) - kS;
-    kD *= 1.0 - metallic;
+    vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
     
-    vec3 numerator = NDF * G * F;
-    float denominator = 4.0 * max(dot(normal, V), 0.0) * max(dot(normal, L), 0.0);
-    vec3 specular = numerator / max(denominator, 0.001);
+    vec3 reflectDir = reflect(-cameraDirection, normal.xyz);
 
+    float specOcclusion = 0.0;
+    vec4 specularTraced = coneTrace(position, normal.xyz, reflectDir, 0.07, specOcclusion);
+    // TODO: not use roughness as specular term, should move everything to PBR
+    float specTerm = 1 - metallicRoughness.g;
+    vec3 specular = specTerm * specularTraced.xyz * light.color.xyz;
 
-    float NdotL = max(dot(normal, L), 0.0);
-    vec3 Lo = (kD * albedo.rgb / PI + specular) * radiance * NdotL;
-    
     // get first bounce light
     float occlusion = 0.0;
     vec3 bounceLight = coneTraceBounceLight(position, normal.xyz, occlusion).rgb;
-
-    vec3 ambient = bounceLight * albedo.rgb;
-    vec3 color = ambient + Lo;
-
+    
     // combine all
-    vec3 diffuseReflection = (radiance + bounceLight + specular) * albedo.rgb;
-    finalColor = vec4(color, albedo.a);
+    vec3 diffuseReflection = (directLight + bounceLight + specular) * albedo.rgb;
+    finalColor = vec4(diffuseReflection, albedo.a);
 
     // BLOOM SEPERATION
 	float brightness = dot(finalColor.rgb, bloomThreshold);

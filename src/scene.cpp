@@ -6,6 +6,16 @@
 
 namespace Raekor {
 
+Scene::Scene() {
+    registry.on_destroy<ecs::MeshComponent>().connect<entt::invoke<&ecs::MeshComponent::destroy>>();
+    registry.on_destroy<ecs::MaterialComponent>().connect<entt::invoke<&ecs::MaterialComponent::destroy>>();
+    registry.on_destroy<ecs::MeshAnimationComponent>().connect<entt::invoke<&ecs::MeshAnimationComponent::destroy>>();
+}
+
+Scene::~Scene() {
+    registry.clear();
+}
+
 entt::entity Scene::createObject(const std::string& name) {
     auto entity = registry.create();
     registry.emplace<ecs::NameComponent>(entity, name);

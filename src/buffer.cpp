@@ -124,14 +124,15 @@ IndexBuffer* IndexBuffer::construct(const std::vector<Triangle>& indices) {
 
 void glVertexBuffer::loadVertices(const Vertex* vertices, size_t count) {
     if (id) glDeleteBuffers(1, &id);
-    id = glCreateBuffer(vertices, count, GL_ARRAY_BUFFER);
+    glCreateBuffers(1, &id);
+    glNamedBufferData(id, sizeof(Vertex) * count, vertices, GL_STATIC_DRAW);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void glVertexBuffer::loadVertices(float* vertices, size_t count) {
-    if (id) glDeleteBuffers(1, &id);
-    id = glCreateBuffer(vertices, count, GL_ARRAY_BUFFER);
+    glCreateBuffers(1, &id);
+    glNamedBufferData(id, sizeof(float) * count, vertices, GL_STATIC_DRAW);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -163,15 +164,23 @@ void glVertexBuffer::setLayout(const InputLayout& layout) const {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+void glVertexBuffer::destroy() {
+    if (id) glDeleteBuffers(1, &id);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void glIndexBuffer::loadFaces(const Triangle* indices, size_t count) {
-    id = glCreateBuffer(indices, count, GL_ELEMENT_ARRAY_BUFFER);
+    glCreateBuffers(1, &id);
+    glNamedBufferData(id, sizeof(Triangle) * count, indices, GL_STATIC_DRAW);
     this->count = static_cast<uint32_t>(count * 3);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void glIndexBuffer::loadIndices(uint32_t* indices, size_t count) {
-    id = glCreateBuffer(indices, count, GL_ELEMENT_ARRAY_BUFFER);
+    glCreateBuffers(1, &id);
+    glNamedBufferData(id, sizeof(uint32_t) * count, indices, GL_STATIC_DRAW);
     this->count = static_cast<uint32_t>(count);
 }
 
@@ -179,6 +188,12 @@ void glIndexBuffer::loadIndices(uint32_t* indices, size_t count) {
 
 void glIndexBuffer::bind() const {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void glIndexBuffer::destroy() {
+    if (id) glDeleteBuffers(1, &id);
 }
 
 } // namespace Raekor

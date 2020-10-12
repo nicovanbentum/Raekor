@@ -19,8 +19,9 @@ class ShadowMap {
          float size = 50.0f;
      } settings;
 
-    ShadowMap(uint32_t width, uint32_t height);
     ~ShadowMap();
+    ShadowMap(uint32_t width, uint32_t height);
+
     void execute(entt::registry& scene);
 
 private:
@@ -58,8 +59,11 @@ class GeometryBuffer {
 public:
     uint32_t culled = 0;
 
+    ~GeometryBuffer();
     GeometryBuffer(Viewport& viewport);
+
     void execute(entt::registry& scene, Viewport& viewport);
+
     entt::entity pick(uint32_t x, uint32_t y);
 
     void createResources(Viewport& viewport);
@@ -67,9 +71,8 @@ public:
 
 private:
     glShader shader;
-    unsigned int GBuffer;
-
     ShaderHotloader hotloader;
+    unsigned int GBuffer;
   
 public:
     unsigned int GDepthBuffer;
@@ -85,6 +88,7 @@ public:
         float bias = 0.025f, power = 2.5f;
     } settings;
 
+    ~ScreenSpaceAmbientOcclusion();
     ScreenSpaceAmbientOcclusion(Viewport& viewport);
     void execute(Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad);
 
@@ -111,6 +115,7 @@ private:
 
 class Bloom {
 public:
+    ~Bloom();
     Bloom(Viewport& viewport);
     void execute(unsigned int scene, unsigned int highlights, Mesh* quad);
     void createResources(Viewport& viewport);
@@ -136,6 +141,7 @@ public:
         float gamma = 2.2f;
     } settings;
 
+    ~Tonemapping();
     Tonemapping(Viewport& viewport);
     void execute(unsigned int scene, Mesh* quad);
 
@@ -179,8 +185,11 @@ public:
 
 class VoxelizationDebug {
 public:
+    ~VoxelizationDebug();
     VoxelizationDebug(Viewport& viewport);
+
     void execute(Viewport& viewport, unsigned int input, Voxelization* voxels);
+
     void createResources(Viewport& viewport);
     void deleteResources();
 
@@ -194,8 +203,11 @@ private:
 
 class BoundingBoxDebug {
 public:
+    ~BoundingBoxDebug();
     BoundingBoxDebug(Viewport& viewport);
+
     void execute(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer, entt::entity active);
+
     void createResources(Viewport& viewport);
     void deleteResources();
 
@@ -223,8 +235,11 @@ private:
     } uniforms;
 
 public:
+    ~ForwardLighting();
     ForwardLighting(Viewport& viewport);
+
     void execute(Viewport& viewport, entt::registry& scene, Voxelization* voxels, ShadowMap* shadowmap);
+
     void createResources(Viewport& viewport);
     void deleteResources();
 
@@ -264,10 +279,12 @@ public:
         glm::vec3 bloomThreshold{ 2.0f, 2.0f, 2.0f };
     } settings;
 
-
+    ~DeferredLighting();
     DeferredLighting(Viewport& viewport);
+
     void execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
         GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad);
+
     void createResources(Viewport& viewport);
     void deleteResources();
 
