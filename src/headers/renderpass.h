@@ -371,6 +371,8 @@ public:
     void createResources(Viewport& viewport);
     void deleteResources();
 
+    bool shaderChanged() { return hotloader.changed(); }
+
     std::vector<Sphere> spheres;
 
 private:

@@ -229,7 +229,7 @@ void ShaderHotloader::watch(glShader* shader, Shader::Stage* inStages, size_t st
 bool ShaderHotloader::changed() {
     bool updated = false;
     for (auto& check : checks) {
-        updated = check() ? true : updated;
+        updated |= check();
     }
     return updated;
 }

@@ -1427,8 +1427,6 @@ RayCompute::~RayCompute() {
 
 void RayCompute::execute(Viewport& viewport, bool update) {
     // if the shader changed or we moved the camera we clear the result
-    update = hotloader.changed() ? true : update;
-
     if (!update) {
         glDeleteBuffers(1, &sphereBuffer);
         glCreateBuffers(1, &sphereBuffer);
@@ -1449,7 +1447,7 @@ void RayCompute::execute(Viewport& viewport, bool update) {
     const GLuint numberOfSpheres = static_cast<GLuint>(spheres.size());
     shader.getUniform("sphereCount") = numberOfSpheres;
 
-    glDispatchCompute(viewport.size.x /16 , viewport.size.y / 16, 1);
+    glDispatchCompute(viewport.size.x / 16 , viewport.size.y / 16, 1);
 
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }

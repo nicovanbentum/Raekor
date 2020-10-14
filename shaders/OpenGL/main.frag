@@ -104,7 +104,7 @@ const vec3 CONES[] =
 // a ray is just a starting vector and a direction
 // so it goes : sample, move in direction, sample, move in direction, sample etc
 // until we hit opacity 1 which means we hit a solid object
-vec4 coneTrace(in vec3 p, in vec3 n, in vec3 direction, in float coneAperture, out float occlusion) {
+vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneAperture, out float occlusion) {
     vec4 colour = vec4(0);
     occlusion = 0.0;
 
@@ -119,7 +119,7 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 direction, in float coneAperture, o
 
         // create vec3 for reading voxel texture from world vector
         vec3 offset = vec3(1.0 / VoxelDimensions, 1.0 / VoxelDimensions, 0);
-        vec3 voxelTextureUV = (startPos + dist * direction) / (voxelsWorldSize * 0.5);
+        vec3 voxelTextureUV = (startPos + dist * coneDirection) / (voxelsWorldSize * 0.5);
         voxelTextureUV = voxelTextureUV * 0.5 + 0.5 + offset;
         vec4 voxel_colour = textureLod(voxels, voxelTextureUV, mip);
 
@@ -136,7 +136,7 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 direction, in float coneAperture, o
     return colour;
 }
 
-vec4 coneTraceBounceLight(in vec3 p, in vec3 n, out float occlusion_out) {
+vec4 coneTraceRadiance(in vec3 p, in vec3 n, out float occlusion_out) {
     vec4 color = vec4(0);
     occlusion_out = 0.0;
 
@@ -155,6 +155,15 @@ vec4 coneTraceBounceLight(in vec3 p, in vec3 n, out float occlusion_out) {
     occlusion_out = 1.0 - occlusion_out;
 
     return max(vec4(0), color);
+}
+
+vec4 coneTraceReflection(in vec3 P, in vec3 N, in vec3 V, in float roughness) {
+    float aperture = tan(roughness * PI * 0.5f * 0.1f);
+    vec3 coneDirection = reflect(-V, N);
+
+    float occlusion;
+    vec4 reflection = coneTrace(P, N, coneDirection, aperture, occlusion);
+    return vec4(max(vec3(0), reflection.rgb), clamp(reflection.a, 0, 1));
 }
 
 float getShadow(DirectionalLight light, vec3 position) {
@@ -183,46 +192,118 @@ float getShadow(DirectionalLight light, vec3 position) {
     return shadow;
 }
 
+// GGX/Towbridge-Reitz normal distribution function.
+// Uses Disney's reparametrization of alpha = roughness^2
+float ndfGGX(float cosLh, float roughness)
+{
+	float alpha = roughness * roughness;
+	float alphaSq = alpha * alpha;
+
+	float denom = (cosLh * cosLh) * (alphaSq - 1.0) + 1.0;
+	return alphaSq / (PI * denom * denom);
+}
+
+// Single term for separable Schlick-GGX below.
+float gaSchlickG1(float cosTheta, float k)
+{
+	return cosTheta / (cosTheta * (1.0 - k) + k);
+}
+
+// Schlick-GGX approximation of geometric attenuation function using Smith's method.
+float gaSchlickGGX(float cosLi, float NdotV, float roughness)
+{
+	float r = roughness + 1.0;
+	float k = (r * r) / 8.0; // Epic suggests using this roughness remapping for analytic lights.
+	return gaSchlickG1(cosLi, k) * gaSchlickG1(NdotV, k);
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness)
+{
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+
+    float nom   = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return nom / denom;
+}
+
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+{
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+
+    return ggx1 * ggx2;
+}
+
+// Shlick's approximation of the Fresnel factor.
+vec3 fresnelSchlick(vec3 F0, float cosTheta)
+{
+	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+vec3 fresnelSchlickRoughness(vec3 F0, float cosTheta, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+} 
+
 void main()
 {
     VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
 
     vec4 metallicRoughness = texture(gMetallicRoughness, uv);
+    float metalness = metallicRoughness.r;
+    float roughness = metallicRoughness.g;
 
-	normal = texture(gNormals, uv).xyz;
+	normal = normalize(texture(gNormals, uv).xyz);
 	position = texture(gPositions, uv).xyz;
 
     vec4 depthPosition = ubo.lightSpaceMatrix * texture(gPositions, uv);
-    // from -1 1 to 0 1 range for uv coordinate
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
     DirectionalLight light = ubo.dirLights[0];
     float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.0005)/depthPosition.w));
     shadowAmount = 1.0 - getShadow(light, position);
 
+
+    vec3 Li = normalize(-light.direction.xyz);
+    vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
+    vec3 Lh = normalize(Li + V);
+
+    // Calculate angles between surface normal and various light vectors.
+    float NdotV = max(dot(normal, V), 0.0);
+    float cosLi = max(0.0, dot(normal, Li));
+    float cosLh = max(0.0, dot(normal, Lh));
+
+	vec3 F0 = mix(vec3(0.04), albedo.rgb, metalness);
+    vec3 F = fresnelSchlick(F0, max(0.0, dot(Lh, V)));
+    float D = ndfGGX(cosLh, roughness);
+    float G = gaSchlickGGX(cosLi, NdotV, roughness);
+
+    vec3 kd = (1.0 - F) * (1.0 - metallicRoughness.r);
+    vec3 diffuseBRDF = kd * albedo.rgb;
+
+    // Cook-Torrance
+    vec3 specularBRDF = (F * D * G) / max(0.00001, 4.0 * cosLi * NdotV);
+
     // get direct light
-    vec3 direction = normalize(-light.direction.xyz);
-    float diff = clamp(dot(normal.xyz, direction) * shadowAmount, 0, 1);
-    vec3 directLight = light.color.xyz * diff;
+    vec3 directLight = diffuseBRDF * light.color.xyz * cosLi * shadowAmount;
 
     // get specular light
     vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
     
-    vec3 reflectDir = reflect(-cameraDirection, normal.xyz);
-
-    float specOcclusion = 0.0;
-    vec4 specularTraced = coneTrace(position, normal.xyz, reflectDir, 0.07, specOcclusion);
-    // TODO: not use roughness as specular term, should move everything to PBR
-    float specTerm = 1 - metallicRoughness.g;
-    vec3 specular = specTerm * specularTraced.xyz * light.color.xyz;
-
     // get first bounce light
-    float occlusion = 0.0;
-    vec3 bounceLight = coneTraceBounceLight(position, normal.xyz, occlusion).rgb;
-    
+    float occlusion = 0.0; 
+    vec4 indirectLight = coneTraceRadiance(position, normal.xyz, occlusion);
+
+    vec4 reflection = coneTraceReflection(position, normal.xyz, V, roughness) * cosLi;
+ 
+
     // combine all
-    vec3 diffuseReflection = (directLight + bounceLight + specular) * albedo.rgb;
+    vec3 diffuseReflection = (directLight + indirectLight.rgb + reflection.rgb) * albedo.rgb;
     finalColor = vec4(diffuseReflection, albedo.a);
 
     // BLOOM SEPERATION

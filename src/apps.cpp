@@ -31,8 +31,10 @@ RayTraceApp::RayTraceApp() : WindowApplication(RenderAPI::OPENGL) {
     SDL_MaximizeWindow(window);
 
     viewport.setFov(20);
-    viewport.getCamera().move(glm::vec2(13, 2));
-    viewport.getCamera().zoom(3);
+    viewport.getCamera().move(glm::vec2(-3, 3));
+    viewport.getCamera().zoom(19);
+    viewport.getCamera().look(-3.3, .2);
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,10 +55,16 @@ void RayTraceApp::update(double dt) {
     Renderer::ImGuiNewFrame(window);
 
     sceneChanged = false;
+
+    if (rayTracePass->shaderChanged()) {
+        sceneChanged = true;
+    }
+
     if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_C), true)) {
         if (SDL_GetModState() & KMOD_LCTRL) {
             rayTracePass->spheres.push_back(rayTracePass->spheres[activeSphere]);
             activeSphere = static_cast<uint32_t>(rayTracePass->spheres.size() - 1);
+            sceneChanged = true;
         }
     }
 
@@ -216,11 +224,11 @@ void RayTraceApp::update(double dt) {
 
 bool RayTraceApp::drawSphereProperties(RenderPass::Sphere& sphere) {
     bool changed = false;
-    changed = ImGui::DragFloat("Radius", &sphere.radius) ? true : changed;
-    changed = ImGui::DragFloat3("Position", glm::value_ptr(sphere.origin)) ? true : changed;
-    changed = ImGui::DragFloat("Roughness", &sphere.roughness, 0.001f, 0.0f, 10.0f) ? true : changed;
-    changed = ImGui::DragFloat("Metalness", &sphere.metalness, 1.0f, 0.0f, 1.0f) ? true : changed;
-    changed = ImGui::ColorEdit3("Base colour", glm::value_ptr(sphere.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR) ? true : changed;
+    changed |= ImGui::DragFloat("Radius", &sphere.radius);
+    changed |= ImGui::DragFloat3("Position", glm::value_ptr(sphere.origin));
+    changed |= ImGui::DragFloat("Roughness", &sphere.roughness, 0.001f, 0.0f, 10.0f);
+    changed |= ImGui::DragFloat("Metalness", &sphere.metalness, 1.0f, 0.0f, 1.0f);
+    changed |= ImGui::ColorEdit3("Base colour", glm::value_ptr(sphere.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
     return changed;
 }
 

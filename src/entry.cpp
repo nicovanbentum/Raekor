@@ -7,7 +7,7 @@
 
 int main(int argc, char** argv) {
     {
-        auto app = Raekor::EditorOpenGL();
+        auto app = Raekor::RayTraceApp();
 
         double dt = 0;
         Raekor::Timer timer;
@@ -18,8 +18,6 @@ int main(int argc, char** argv) {
             dt = timer.stop();
         }
     }
-
-    system("pause");
 
     return 0;
 }

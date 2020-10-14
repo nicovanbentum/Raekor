@@ -5,8 +5,8 @@ layout(local_size_x = 16, local_size_y = 16) in;
 #define PI 			3.1415926535
 #define MAXFLOAT	99999.99
 
-#define MAXDEPTH 	5
-#define NUMSAMPLES 	4
+#define MAXDEPTH 	10
+#define NUMSAMPLES 	5
 
 #define RANGE uvec4(65535u)
 #define MAX_RANDOM float(RANGE-1u)
@@ -123,9 +123,17 @@ vec3 sampleUnitDisk ( inout uvec4 useed ) {
 }
 
 Ray Camera_getRay(inout uvec4 useed) {
-    float aperture = 0.01;
+    float aperture = 0.001;
     float lens_radius = aperture / 2;
     vec3 rd = lens_radius * sampleUnitDisk(useed);
+
+    // x axis, cross(up, z axis)
+    vec3 u = vec3(view[0][0], view[1][0], view[2][0]);
+
+    // yaxis, cross(z axis, x axis)
+    vec3 v = vec3(view[0][1], view[1][1], view[2][1]);
+
+    vec3 offset = u * rd.x + v * rd.y;
     
     vec3 rayNDC = vec3(
         ((2.0f * fragCoord.x) / iResolution.x - 1.0f),
@@ -140,7 +148,7 @@ Ray Camera_getRay(inout uvec4 useed) {
 
     vec3 direction = normalize((inverse(view) * rayCamera).xyz);
 
-    return Ray(position + rd, direction - rd);
+    return Ray(position + offset, direction - offset);
 }
 
 bool MaterialBsdf(Sphere sphere, float t, Ray wo, out Ray wi, out vec3 attenuation, inout uvec4 useed) {
@@ -221,24 +229,40 @@ void main() {
     vec3 color = vec3(0, 0, 0);
 
     uvec4 useed = seed(fragCoord, iResolution, iTime);
+    vec4 currentColor = imageLoad(outputTexture, fragCoord);
 
-    for(int s = 0; s < NUMSAMPLES; s++) {
-        useed = rand(useed, RANGE);
+    if(currentColor.a < 200) {
+        for(int s = 0; s < NUMSAMPLES; s++) {
+            useed = rand(useed, RANGE);
 
-        Ray ray = Camera_getRay(useed);
-        color += rayTraceWorld(ray, useed);
-    }
+            Ray ray = Camera_getRay(useed);
+            color += rayTraceWorld(ray, useed);
+        }
 
-    color /= float(NUMSAMPLES);
+        color /= float(NUMSAMPLES);
 
-    if(doUpdate) {
-        vec4 currentColor = imageLoad(outputTexture, fragCoord);
-        imageStore(outputTexture, fragCoord, currentColor + vec4(color, 1.0));
+        if(doUpdate) {
+            imageStore(outputTexture, fragCoord, currentColor + vec4(color, 1.0));
+        } else {
+            imageStore(outputTexture, fragCoord, vec4(color, 1.0));
+        }
+
+        vec4 accumulatedColor = imageLoad(outputTexture, fragCoord);
+        imageStore(finalTexture, fragCoord, vec4(sqrt(accumulatedColor.rgb / accumulatedColor.w), 1.0));
+
     } else {
-        imageStore(outputTexture, fragCoord, vec4(color, 1.0));
+        if(!doUpdate) {
+            for(int s = 0; s < NUMSAMPLES; s++) {
+            useed = rand(useed, RANGE);
+
+            Ray ray = Camera_getRay(useed);
+            color += rayTraceWorld(ray, useed);
+            }
+
+            color /= float(NUMSAMPLES);
+            imageStore(outputTexture, fragCoord, vec4(color, 1.0));
+        }
     }
 
-    vec4 accumulatedColor = imageLoad(outputTexture, fragCoord);
-    imageStore(finalTexture, fragCoord, vec4(sqrt(accumulatedColor.rgb / accumulatedColor.w), 1.0));
 
 }
