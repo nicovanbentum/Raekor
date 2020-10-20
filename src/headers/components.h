@@ -160,6 +160,27 @@ struct NameComponent {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+template<typename Component>
+struct ComponentDescription {
+    const char* name;
+    using type = Component;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+static constexpr auto Components = std::make_tuple (
+    ComponentDescription<NameComponent>{"Name Component"},
+    ComponentDescription<NodeComponent>{"Node Component"},
+    ComponentDescription<MeshComponent>{"Mesh Component"},
+    ComponentDescription<MaterialComponent>{"Material Component"},
+    ComponentDescription<TransformComponent>{"Transform Component"},
+    ComponentDescription<PointLightComponent>{"Point Light Component"},
+    ComponentDescription<MeshAnimationComponent>{"Mesh Animation Component"},
+    ComponentDescription<DirectionalLightComponent>{"Directional Light Component"}
+);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 template<typename T>
 inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {}
 

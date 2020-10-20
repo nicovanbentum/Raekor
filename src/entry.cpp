@@ -7,7 +7,7 @@
 
 int main(int argc, char** argv) {
     {
-        auto app = Raekor::RayTraceApp();
+        auto app = Raekor::EditorOpenGL();
 
         double dt = 0;
         Raekor::Timer timer;

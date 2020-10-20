@@ -41,14 +41,14 @@ public:
     void draw(entt::registry& scene, entt::entity& entity);
 
 private:
-    void drawNameComponent                  (ecs::NameComponent& component);
-    void drawNodeComponent                  (ecs::NodeComponent& component);
-    void drawMeshComponent                  (ecs::MeshComponent& component, entt::registry& scene, entt::entity& active);
-    void drawMaterialComponent              (ecs::MaterialComponent& component);
-    void drawTransformComponent             (ecs::TransformComponent& component);
-    void drawPointLightComponent            (ecs::PointLightComponent& component);
-    void drawAnimationComponent             (ecs::MeshAnimationComponent& component);
-    void drawDirectionalLightComponent      (ecs::DirectionalLightComponent& component);
+    void drawComponent(ecs::NameComponent& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(ecs::NodeComponent& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(ecs::MeshComponent& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(ecs::MaterialComponent& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(ecs::TransformComponent& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(ecs::PointLightComponent& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(ecs::MeshAnimationComponent& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(ecs::DirectionalLightComponent& component, entt::registry& scene, entt::entity& active);
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
