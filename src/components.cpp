@@ -218,103 +218,97 @@ void MeshAnimationComponent::destroy() {
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::createAlbedoTexture() {
-    if (albedo) glDeleteTextures(1, albedo.get());
-    albedo = std::make_shared<unsigned int>();
+    glDeleteTextures(1, &albedo);
 
-    glCreateTextures(GL_TEXTURE_2D, 1, albedo.get());
-    glTextureStorage2D(*albedo, 1, GL_SRGB8_ALPHA8, 1, 1);
-    glTextureSubImage2D(*albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(baseColour));
+    glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
+    glTextureStorage2D(albedo, 1, GL_SRGB8_ALPHA8, 1, 1);
+    glTextureSubImage2D(albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(baseColour));
 
-    glTextureParameteri(*albedo, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(*albedo, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(*albedo, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(*albedo, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(*albedo, GL_TEXTURE_WRAP_R, GL_REPEAT);
+    glTextureParameteri(albedo, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(albedo, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(albedo, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(albedo, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(albedo, GL_TEXTURE_WRAP_R, GL_REPEAT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::createAlbedoTexture(const Stb::Image& image) {
-    if (albedo) glDeleteTextures(1, albedo.get());
-    albedo = std::make_shared<unsigned int>();
+    glDeleteTextures(1, &albedo);
 
-    glCreateTextures(GL_TEXTURE_2D, 1, albedo.get());
+    glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
     auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(image.w, image.h))));
-    glTextureStorage2D(*albedo, mipmapLevels, GL_SRGB8_ALPHA8, image.w, image.h);
-    glTextureSubImage2D(*albedo, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
-    glTextureParameteri(*albedo, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(*albedo, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateTextureMipmap(*albedo);
+    glTextureStorage2D(albedo, mipmapLevels, GL_SRGB8_ALPHA8, image.w, image.h);
+    glTextureSubImage2D(albedo, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+    glTextureParameteri(albedo, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(albedo, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateTextureMipmap(albedo);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::createNormalTexture() {
-    if (normals) glDeleteTextures(1, normals.get());
-    normals = std::make_shared<unsigned int>();
+    glDeleteTextures(1, &normals);
 
     constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
-    glCreateTextures(GL_TEXTURE_2D, 1, normals.get());
-    glTextureStorage2D(*normals, 1, GL_RGBA16F, 1, 1);
-    glTextureSubImage2D(*normals, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(tbnAxis));
-    glTextureParameteri(*normals, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(*normals, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(*normals, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(*normals, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(*normals, GL_TEXTURE_WRAP_R, GL_REPEAT);
+    glCreateTextures(GL_TEXTURE_2D, 1, &normals);
+    glTextureStorage2D(normals, 1, GL_RGBA16F, 1, 1);
+    glTextureSubImage2D(normals, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(tbnAxis));
+    glTextureParameteri(normals, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(normals, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(normals, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(normals, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(normals, GL_TEXTURE_WRAP_R, GL_REPEAT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::createNormalTexture(const Stb::Image& image)
 {
-    if (normals) glDeleteTextures(1, normals.get());
-    normals = std::make_shared<unsigned int>();
+    glDeleteTextures(1, &normals);
 
-    glCreateTextures(GL_TEXTURE_2D, 1, normals.get());
+    glCreateTextures(GL_TEXTURE_2D, 1, &normals);
     auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(image.w, image.h))));
-    glTextureStorage2D(*normals, mipmapLevels, GL_RGBA8, image.w, image.h);
-    glTextureSubImage2D(*normals, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
-    glTextureParameteri(*normals, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(*normals, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateTextureMipmap(*normals);
+    glTextureStorage2D(normals, mipmapLevels, GL_RGBA8, image.w, image.h);
+    glTextureSubImage2D(normals, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+    glTextureParameteri(normals, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(normals, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateTextureMipmap(normals);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::createMetalRoughTexture() {
-    if (metalrough) glDeleteTextures(1, metalrough.get());
-    metalrough = std::make_shared<unsigned int>();
+    glDeleteTextures(1, &metalrough);
 
     auto metalRoughnessValue = glm::vec4(metallic, roughness, 0.0f, 1.0f);
-    glCreateTextures(GL_TEXTURE_2D, 1, metalrough.get());
-    glTextureStorage2D(*metalrough, 1, GL_RGBA16F, 1, 1);
-    glTextureSubImage2D(*metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
-    glTextureParameteri(*metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(*metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(*metalrough, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(*metalrough, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(*metalrough, GL_TEXTURE_WRAP_R, GL_REPEAT);
+    glCreateTextures(GL_TEXTURE_2D, 1, &metalrough);
+    glTextureStorage2D(metalrough, 1, GL_RGBA16F, 1, 1);
+    glTextureSubImage2D(metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
+    glTextureParameteri(metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(metalrough, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(metalrough, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(metalrough, GL_TEXTURE_WRAP_R, GL_REPEAT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::createMetalRoughTexture(const Stb::Image& image) {
-    if (metalrough) glDeleteTextures(1, metalrough.get());
-    metalrough = std::make_shared<unsigned int>();
+    glDeleteTextures(1, &metalrough);
 
-    glCreateTextures(GL_TEXTURE_2D, 1, metalrough.get());
+    glCreateTextures(GL_TEXTURE_2D, 1, &metalrough);
     auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(image.w, image.h))));
-    glTextureStorage2D(*metalrough, mipmapLevels, GL_RGBA8, image.w, image.h);
-    glTextureSubImage2D(*metalrough, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
-    glTextureParameteri(*metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(*metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glGenerateTextureMipmap(*metalrough);
+    glTextureStorage2D(metalrough, mipmapLevels, GL_RGBA8, image.w, image.h);
+    glTextureSubImage2D(metalrough, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+    glTextureParameteri(metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glGenerateTextureMipmap(metalrough);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::uploadRenderData() {
+void MaterialComponent::uploadFromValues() {
     createAlbedoTexture();
     createNormalTexture();
     createMetalRoughTexture();
@@ -322,15 +316,10 @@ void MaterialComponent::uploadRenderData() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images) {
+void MaterialComponent::uploadFromImages(const std::unordered_map<std::string, Stb::Image>& images) {
     auto albedoEntry = images.find(albedoFile);
-    albedo = std::make_shared<unsigned int>();
-
     auto normalsEntry = images.find(normalFile);
-    normals = std::make_shared<unsigned int>();
-    
     auto metalroughEntry = images.find(mrFile);
-    metalrough = std::make_shared<unsigned int>();
     
     if (albedoEntry != images.end() && !albedoEntry->first.empty()) {
         createAlbedoTexture(albedoEntry->second);
@@ -346,9 +335,10 @@ void MaterialComponent::uploadRenderData(const std::unordered_map<std::string, S
 }
 
 void MaterialComponent::destroy() {
-    if (albedo) glDeleteTextures(1, albedo.get());
-    if (normals) glDeleteTextures(1, normals.get());
-    if (metalrough) glDeleteTextures(1, metalrough.get());
+        glDeleteTextures(1, &albedo);
+        glDeleteTextures(1, &normals);
+        glDeleteTextures(1, &metalrough);
+        albedo = 0, normals = 0, metalrough = 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -395,7 +385,7 @@ template<>
 void clone<MaterialComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
     auto& from_component = reg.get<MaterialComponent>(from);
     auto& to_component = reg.emplace<MaterialComponent>(to, from_component);
-    to_component.uploadRenderData();
+    to_component.uploadFromValues();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

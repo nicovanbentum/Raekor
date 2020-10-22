@@ -18,6 +18,9 @@ private:
     unsigned int activeScreenTexture;
     entt::entity defaultMaterialEntity;
 
+    ecs::MeshComponent quad;
+
+    GLRenderer renderer;
     std::unique_ptr<RenderPass::Skinning>           skinningPass;
     std::unique_ptr<RenderPass::ShadowMap>          shadowMapPass;
     std::unique_ptr<RenderPass::Tonemapping>        tonemappingPass;
@@ -31,8 +34,6 @@ private:
     bool mouseInViewport = false;
     bool doSSAO = false, doBloom = false, debugVoxels = false, doDeferred = true;
     bool shouldVoxelize = true, gizmoEnabled = false, showSettingsWindow = false;
-
-    std::unique_ptr<Mesh> Quad;
 
     gui::Guizmo gizmo;
     gui::Dockspace dockspace;

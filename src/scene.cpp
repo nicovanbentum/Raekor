@@ -10,6 +10,9 @@ Scene::Scene() {
     registry.on_destroy<ecs::MeshComponent>().connect<entt::invoke<&ecs::MeshComponent::destroy>>();
     registry.on_destroy<ecs::MaterialComponent>().connect<entt::invoke<&ecs::MaterialComponent::destroy>>();
     registry.on_destroy<ecs::MeshAnimationComponent>().connect<entt::invoke<&ecs::MeshAnimationComponent::destroy>>();
+
+    registry.on_construct<ecs::MaterialComponent>().connect<entt::invoke<&ecs::MaterialComponent::uploadFromValues>>();
+
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -149,7 +152,7 @@ void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials) {
 
     for (auto entity : materials) {
         auto& material = registry.get<ecs::MaterialComponent>(entity);
-        material.uploadRenderData(images);
+        material.uploadFromImages(images);
     }
 }
 

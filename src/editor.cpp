@@ -6,29 +6,28 @@
 
 namespace Raekor {
 
-EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL) {
-    // initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-
-    // create the renderer object that does sets up the API and does all the runtime magic
-    Renderer::setAPI(RenderAPI::OPENGL);
-    Renderer::Init(window);
-
+EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(window) {
     // gui stuff
     gui::setFont(settings.font.c_str());
     gui::setTheme(settings.themeColors);
 
-    Quad.reset(new Mesh(Shape::Quad));
-    Quad->getVertexBuffer()->setLayout({
-        {"POSITION",    ShaderType::FLOAT3},
-        {"UV",          ShaderType::FLOAT2},
-        {"NORMAL",      ShaderType::FLOAT3},
-        {"TANGENT",     ShaderType::FLOAT3},
-        {"BINORMAL",    ShaderType::FLOAT3},
-    });
+    // create quad for render passes
+    for (const auto& v : quadVertices) {
+        quad.positions.push_back(v.pos);
+        quad.uvs.push_back(v.uv);
+        quad.normals.push_back(v.normal);
+        quad.tangents.push_back(v.tangent);
+        quad.bitangents.push_back(v.binormal);
+    }
 
+    for (const auto& i : quadIndices) {
+        quad.indices.push_back(i.p1);
+        quad.indices.push_back(i.p2);
+        quad.indices.push_back(i.p3);
+    }
+
+    quad.uploadVertices();
+    quad.uploadIndices();
 
     skinningPass            = std::make_unique<RenderPass::Skinning>();
     voxelizationPass        = std::make_unique<RenderPass::Voxelization>(128);
@@ -85,14 +84,14 @@ void EditorOpenGL::update(double dt) {
     if (doDeferred) {
         if (!scene->view<ecs::MeshComponent>().empty()) {
             geometryBufferPass->execute(scene, viewport);
-            DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), Quad.get());
-            tonemappingPass->execute(DeferredLightingPass->result, Quad.get());
+            DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), quad);
+            tonemappingPass->execute(DeferredLightingPass->result, quad);
         }
     }
     else {
         if (!scene->view<ecs::MeshComponent>().empty()) {
             fowardLightingPass->execute(viewport, scene, voxelizationPass.get(), shadowMapPass.get());
-            tonemappingPass->execute(fowardLightingPass->result, Quad.get());
+            tonemappingPass->execute(fowardLightingPass->result, quad);
         }
     }
 
@@ -106,7 +105,7 @@ void EditorOpenGL::update(double dt) {
 
     //get new frame for ImGui and ImGuizmo
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    Renderer::ImGuiNewFrame(window);
+    renderer.ImGui_NewFrame(window);
     ImGuizmo::BeginFrame();
 
     if (ImGui::IsAnyItemActive()) {
@@ -286,8 +285,8 @@ void EditorOpenGL::update(double dt) {
 
     dockspace.end();
 
-    Renderer::ImGuiRender();
-    Renderer::SwapBuffers(doVsync);
+    renderer.ImGui_Render();
+    renderer.SwapBuffers(window, doVsync);
 
     if (resized) {
         // resizing framebuffers

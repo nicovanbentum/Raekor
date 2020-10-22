@@ -32,8 +32,6 @@ Renderer* Renderer::instance = nullptr;
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 GLRenderer::GLRenderer(SDL_Window* window) {
-    renderWindow = window;
-    
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -45,9 +43,13 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     SDL_GL_MakeCurrent(window, context);
     int gl3wError = gl3wInit();
     m_assert(gl3wError == 0, "failed to init gl3w");
-    
+   
+    // initialize ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
     ImGui_ImplSDL2_InitForOpenGL(window, &context);
-    ImGui_ImplOpenGL3_Init("#version 330");
+    ImGui_ImplOpenGL3_Init("#version 450");
 
     // get GUI i/o and set a bunch of settings
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -81,11 +83,11 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     glBindVertexArray(vertexArrayID);
 
     // initialize default gpu resources
-    ecs::MaterialComponent::Default = ecs::MaterialComponent{
+    ecs::MaterialComponent::Default = ecs::MaterialComponent {
         "default", glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), 0.0f, 1.0f
     };
 
-    ecs::MaterialComponent::Default.uploadRenderData();
+    ecs::MaterialComponent::Default.uploadFromValues();
 
 }
 
@@ -96,14 +98,14 @@ GLRenderer::~GLRenderer() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLRenderer::impl_Clear(glm::vec4 color) {
+void GLRenderer::Clear(glm::vec4 color) {
     glClearColor(color.r, color.g, color.b, color.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLRenderer::impl_ImGui_NewFrame(SDL_Window* window) {
+void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
@@ -111,21 +113,21 @@ void GLRenderer::impl_ImGui_NewFrame(SDL_Window* window) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLRenderer::impl_ImGui_Render() {
+void GLRenderer::ImGui_Render() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLRenderer::impl_SwapBuffers(bool vsync) const {
+void GLRenderer::SwapBuffers(SDL_Window* window, bool vsync) {
     SDL_GL_SetSwapInterval(vsync);
-    SDL_GL_SwapWindow(renderWindow);
+    SDL_GL_SwapWindow(window);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLRenderer::impl_DrawIndexed(unsigned int size) {
+void GLRenderer::DrawIndexed(unsigned int size) {
     glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
 }
 
@@ -134,7 +136,7 @@ void GLRenderer::impl_DrawIndexed(unsigned int size) {
 void Renderer::Init(SDL_Window * window) {
     switch (activeAPI) {
         case RenderAPI::OPENGL: {
-            instance = new GLRenderer(window);
+            instance = nullptr;
         } break;
 #ifdef _WIN32
         case RenderAPI::DIRECTX11: {

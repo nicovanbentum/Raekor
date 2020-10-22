@@ -90,7 +90,7 @@ public:
 
     ~ScreenSpaceAmbientOcclusion();
     ScreenSpaceAmbientOcclusion(Viewport& viewport);
-    void execute(Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad);
+    void execute(Viewport& viewport, GeometryBuffer* geometryPass, ecs::MeshComponent& quad);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -117,7 +117,7 @@ class Bloom {
 public:
     ~Bloom();
     Bloom(Viewport& viewport);
-    void execute(unsigned int scene, unsigned int highlights, Mesh* quad);
+    void execute(unsigned int scene, unsigned int highlights, ecs::MeshComponent& quad);
     void createResources(Viewport& viewport);
     void deleteResources();
 
@@ -143,7 +143,7 @@ public:
 
     ~Tonemapping();
     Tonemapping(Viewport& viewport);
-    void execute(unsigned int scene, Mesh* quad);
+    void execute(unsigned int scene, ecs::MeshComponent& quad);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -169,7 +169,6 @@ private:
 
     void correctOpacity(unsigned int texture);
 
-    int size;
     glm::mat4 px, py, pz;
     glShader shader;
     glShader mipmapShader;
@@ -177,6 +176,7 @@ private:
     ShaderHotloader hotloader;
 
 public:
+    int size;
     float worldSize = 150.0f;
     unsigned int result;
 };
@@ -283,7 +283,7 @@ public:
     DeferredLighting(Viewport& viewport);
 
     void execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad);
+        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, ecs::MeshComponent& quad);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -312,7 +312,7 @@ public:
 
     Sky(Viewport& viewport);
 
-    void execute(Viewport& viewport, Mesh* quad);
+    void execute(Viewport& viewport, ecs::MeshComponent& quad);
 
 private:
     glShader shader;
@@ -340,7 +340,7 @@ private:
 class Environment {
 public:
     Environment() = default;
-    void execute(const std::string& file, Mesh* unitCube);
+    void execute(const std::string& file, ecs::MeshComponent& unitCube);
 
 private:
     unsigned int envCubemap;

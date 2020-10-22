@@ -127,9 +127,9 @@ struct MaterialComponent {
     std::string albedoFile, normalFile, mrFile;
 
     // GPU resources
-    std::shared_ptr<unsigned int> albedo;
-    std::shared_ptr<unsigned int> normals;
-    std::shared_ptr<unsigned int> metalrough;
+    unsigned int albedo = 0;
+    unsigned int normals = 0;
+    unsigned int metalrough = 0;
 
     void createAlbedoTexture();
     void createAlbedoTexture(const Stb::Image& image);
@@ -140,8 +140,8 @@ struct MaterialComponent {
     void createMetalRoughTexture();
     void createMetalRoughTexture(const Stb::Image& image);
 
-    void uploadRenderData();
-    void uploadRenderData(const std::unordered_map<std::string, Stb::Image>& images);
+    void uploadFromValues();
+    void uploadFromImages(const std::unordered_map<std::string, Stb::Image>& images);
 
     void destroy();
 
@@ -169,14 +169,14 @@ struct ComponentDescription {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 static constexpr auto Components = std::make_tuple (
-    ComponentDescription<NameComponent>{"Name Component"},
-    ComponentDescription<NodeComponent>{"Node Component"},
-    ComponentDescription<MeshComponent>{"Mesh Component"},
-    ComponentDescription<MaterialComponent>{"Material Component"},
-    ComponentDescription<TransformComponent>{"Transform Component"},
-    ComponentDescription<PointLightComponent>{"Point Light Component"},
-    ComponentDescription<MeshAnimationComponent>{"Mesh Animation Component"},
-    ComponentDescription<DirectionalLightComponent>{"Directional Light Component"}
+    ComponentDescription<NameComponent>{"Name"},
+    ComponentDescription<NodeComponent>{"Node"},
+    ComponentDescription<MeshComponent>{"Mesh"},
+    ComponentDescription<MaterialComponent>{"Material"},
+    ComponentDescription<TransformComponent>{"Transform"},
+    ComponentDescription<PointLightComponent>{"Point Light"},
+    ComponentDescription<MeshAnimationComponent>{"Mesh Animation"},
+    ComponentDescription<DirectionalLightComponent>{"Directional Light"}
 );
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8,18 +8,46 @@ namespace gui {
 
 void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
     ImGui::Begin("Inspector");
-    if (entity != entt::null) {
-        ImGui::Text("ID: %i", entity);
 
-        // name, node and transform component drawing
+    if (entity == entt::null) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Text("ID: %i", entity);
+
+    std::_For_each_tuple_element(ecs::Components, [&](auto component) {
+        using ComponentType = decltype(component)::type;
+
+        if (scene.has<ComponentType>(entity)) {
+            bool isOpen = true;
+            if (ImGui::CollapsingHeader(component.name, &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
+                if (isOpen) {
+                    drawComponent(scene.get<ComponentType>(entity), scene, entity);
+                } else {
+                    scene.remove<ComponentType>(entity);
+                }
+            }
+        }
+    });
+
+    if (ImGui::BeginPopup("Components")) {
         std::_For_each_tuple_element(ecs::Components, [&](auto component) {
             using ComponentType = decltype(component)::type;
-            if (scene.has<ComponentType>(entity)) {
-                if (ImGui::CollapsingHeader(component.name, ImGuiTreeNodeFlags_DefaultOpen)) {
-                    drawComponent(scene.get<ComponentType>(entity), scene, entity);
+
+            if (!scene.has<ComponentType>(entity)) {
+                if (ImGui::Selectable(component.name, false)) {
+                    scene.emplace<ComponentType>(entity);
+                    ImGui::CloseCurrentPopup();
                 }
             }
         });
+        
+        ImGui::EndPopup();
+    }
+
+    if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0))) {
+        ImGui::OpenPopup("Components");
     }
 
     ImGui::End();
@@ -67,7 +95,7 @@ void InspectorWindow::drawComponent(ecs::MeshComponent& component, entt::registr
     ImGui::Text("Triangle count: %i", component.indices.size() / 3);
     if (scene.valid(component.material) && scene.has<ecs::MaterialComponent, ecs::NameComponent>(component.material)) {
         auto& [material, name] = scene.get<ecs::MaterialComponent, ecs::NameComponent>(component.material);
-        if (ImGui::ImageButton((void*)((intptr_t)*material.albedo), ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale()))) {
+        if (ImGui::ImageButton((void*)((intptr_t)material.albedo), ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale()))) {
             active = component.material;
         }
         ImGui::SameLine();
@@ -87,9 +115,13 @@ void InspectorWindow::drawComponent(ecs::MeshComponent& component, entt::registr
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::registry& scene, entt::entity& active) {
+    auto& io = ImGui::GetIO();
+    auto& style = ImGui::GetStyle();
+    float lineHeight = io.FontDefault->FontSize;
+
     if (ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR)) {
         if (component.albedo && component.albedoFile.empty()) {
-            glTextureSubImage2D(*component.albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(component.baseColour));
+            glTextureSubImage2D(component.albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(component.baseColour));
         }
     }
 
@@ -99,12 +131,12 @@ void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::reg
     if (adjustedMetallic || adjustedRoughness) {
         if (component.metalrough && component.mrFile.empty()) {
             auto metalRoughnessValue = glm::vec4(component.metallic, component.roughness, 0.0f, 1.0f);
-            glTextureSubImage2D(*component.metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
+            glTextureSubImage2D(component.metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
         }
     }
 
     if (component.albedo) {
-        ImGui::Image((void*)((intptr_t)*component.albedo), ImVec2(15, 15));
+        ImGui::Image((void*)((intptr_t)component.albedo), ImVec2(lineHeight, lineHeight));
         ImGui::SameLine();
     }
 
@@ -122,7 +154,7 @@ void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::reg
     }
 
     if (component.normals) {
-        ImGui::Image((void*)((intptr_t)*component.normals), ImVec2(15, 15));
+        ImGui::Image((void*)((intptr_t)component.normals), ImVec2(lineHeight, lineHeight));
         ImGui::SameLine();
     }
     
@@ -138,7 +170,7 @@ void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::reg
     }
 
     if (component.metalrough) {
-        ImGui::Image((void*)((intptr_t)*component.metalrough), ImVec2(15, 15));
+        ImGui::Image((void*)((intptr_t)component.metalrough), ImVec2(lineHeight, lineHeight));
         ImGui::SameLine();
     }
 
@@ -526,7 +558,7 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
                 auto entity = scene->create();
                 scene->emplace<ecs::NameComponent>(entity, "New Material");
                 auto& defaultMaterial = scene->emplace<ecs::MaterialComponent>(entity);
-                defaultMaterial.uploadRenderData();
+                defaultMaterial.uploadFromValues();
                 active = entity;
             }
 

@@ -33,7 +33,7 @@ RayTraceApp::RayTraceApp() : WindowApplication(RenderAPI::OPENGL) {
     viewport.setFov(20);
     viewport.getCamera().move(glm::vec2(-3, 3));
     viewport.getCamera().zoom(19);
-    viewport.getCamera().look(-3.3, .2);
+    viewport.getCamera().look(-3.3f, .2f);
 
 }
 

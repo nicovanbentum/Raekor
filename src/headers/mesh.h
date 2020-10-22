@@ -41,38 +41,4 @@ constexpr std::array<Triangle, 2> quadIndices = {
     Triangle{0, 1, 3}, Triangle{3, 1, 2}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-enum class Shape {
-    None, Cube, Quad
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-class Mesh {
-public:
-    Mesh(Shape basic_shape = Shape::None);
-    Mesh(std::vector<Vertex>& vb, std::vector<Triangle>& ib);
-    Mesh(const Vertex* vertices, size_t vSize, const Triangle* triangles, size_t tSize);
-
-    void setVertexBuffer(std::vector<Vertex>& buffer);
-    void setVertexBuffer(const Vertex* data, size_t size);
-    void setIndexBuffer(std::vector<Triangle>& buffer);
-    void setIndexBuffer(const Triangle* data, size_t size);
-
-    const glVertexBuffer* const getVertexBuffer() const { return vb.get(); }
-    const glIndexBuffer* const getIndexBuffer() const { return ib.get(); }
-    
-    void render();
-
-    static std::unique_ptr<Mesh> createCube(const std::array<glm::vec3, 2>& bounds);
-
-    void bind() const;
-
-protected:
-    // TODO: we allow unnamed meshes, reconsider?
-    std::unique_ptr<glVertexBuffer> vb;
-    std::unique_ptr<glIndexBuffer> ib;
-};
-
 }

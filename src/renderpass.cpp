@@ -97,7 +97,8 @@ void ShadowMap::execute(entt::registry& scene) {
             mesh.vertexBuffer.bind();
         }
         mesh.indexBuffer.bind();
-        Renderer::DrawIndexed(mesh.indexBuffer.count);
+        glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
+
     }
 
     glCullFace(GL_BACK);
@@ -166,7 +167,7 @@ void OmniShadowMap::execute(entt::registry& scene, const glm::vec3& lightPositio
                 mesh.vertexBuffer.bind();
             }
             mesh.indexBuffer.bind();
-            Renderer::DrawIndexed(mesh.indexBuffer.count);
+            glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
         }
     }
 
@@ -233,13 +234,13 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
             }
 
         if (material) {
-            if (material->albedo)       glBindTextureUnit(0, *material->albedo);
-            if (material->normals)      glBindTextureUnit(3, *material->normals);
-            if (material->metalrough)   glBindTextureUnit(4, *material->metalrough);
+            if (material->albedo)       glBindTextureUnit(0, material->albedo);
+            if (material->normals)      glBindTextureUnit(3, material->normals);
+            if (material->metalrough)   glBindTextureUnit(4, material->metalrough);
         } else {
-            glBindTextureUnit(0, *ecs::MaterialComponent::Default.albedo);
-            glBindTextureUnit(3, *ecs::MaterialComponent::Default.normals);
-            glBindTextureUnit(4, *ecs::MaterialComponent::Default.metalrough);
+            glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
+            glBindTextureUnit(3, ecs::MaterialComponent::Default.normals);
+            glBindTextureUnit(4, ecs::MaterialComponent::Default.metalrough);
         }
 
         shader.getUniform("model") = transform.worldTransform;
@@ -368,7 +369,7 @@ ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* geometryPass, Mesh* quad) {
+void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* geometryPass, ecs::MeshComponent& quad) {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glBindTextureUnit(0, geometryPass->positionTexture);
     glBindTextureUnit(1, geometryPass->normalTexture);
@@ -383,14 +384,16 @@ void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* ge
     shader.getUniform("power") = settings.power;
     shader.getUniform("bias") = settings.bias;
 
-    quad->render();
+    quad.vertexBuffer.bind();
+    quad.indexBuffer.bind();
+    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
 
     // now blur the SSAO result
     glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
     glBindTextureUnit(0, preblurResult);
     blurShader.bind();
 
-    quad->render();
+    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -477,7 +480,7 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, Mesh* quad) {
+                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, ecs::MeshComponent& quad) {
     hotloader.changed();
 
     // bind the main framebuffer
@@ -561,7 +564,10 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     uniformBuffer.bind(0);
 
     // perform lighting pass and unbind
-    quad->render();
+    quad.vertexBuffer.bind();
+    quad.indexBuffer.bind();
+    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -613,12 +619,16 @@ Bloom::Bloom(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Bloom::execute(unsigned int scene, unsigned int highlights, Mesh* quad) {
+void Bloom::execute(unsigned int scene, unsigned int highlights, ecs::MeshComponent& quad) {
     // perform gaussian blur on the bloom texture using "ping pong" framebuffers that
     // take each others color attachments as input and perform a directional gaussian blur each
     // iteration
     bool horizontal = true, firstIteration = true;
     blurShader.bind();
+
+    quad.vertexBuffer.bind();
+    quad.indexBuffer.bind();
+
     for (unsigned int i = 0; i < 10; i++) {
         glBindFramebuffer(GL_FRAMEBUFFER, blurBuffers[horizontal]);
         blurShader.getUniform("horizontal") = horizontal;
@@ -629,7 +639,9 @@ void Bloom::execute(unsigned int scene, unsigned int highlights, Mesh* quad) {
         else {
             glBindTextureUnit(0, blurTextures[!horizontal]);
         }
-        quad->render();
+        
+        glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
+
         horizontal = !horizontal;
     }
 
@@ -642,7 +654,7 @@ void Bloom::execute(unsigned int scene, unsigned int highlights, Mesh* quad) {
     glBindTextureUnit(0, scene);
     glBindTextureUnit(1, blurTextures[!horizontal]);
 
-    quad->render();
+    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -708,7 +720,7 @@ Tonemapping::Tonemapping(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Tonemapping::execute(unsigned int scene, Mesh* quad) {
+void Tonemapping::execute(unsigned int scene, ecs::MeshComponent& quad) {
     // bind and clear render target
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -722,7 +734,10 @@ void Tonemapping::execute(unsigned int scene, Mesh* quad) {
     uniformBuffer.bind(0);
 
     // render fullscreen quad to perform tonemapping
-    quad->render();
+    quad.vertexBuffer.bind();
+    quad.indexBuffer.bind();
+    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -814,7 +829,7 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
     // clear the entire voxel texture
     constexpr auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     for (uint32_t level = 0; level < std::log2(size); level++) {
-        glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
+        glClearTexImage(result, level, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
     }
 
     // set GL state
@@ -824,21 +839,17 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
 
-    // bind shader and 3d voxel map
+    // bind shader and level 0 of the voxel volume
     shader.bind();
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32UI);
     glBindTextureUnit(2, shadowmap->result);
 
     shader.getUniform("lightViewProjection") = shadowmap->uniforms.cameraMatrix;
 
-
     auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
     for (auto entity : view) {
-
-        auto& mesh = view.get<ecs::MeshComponent>(entity);
-        auto& transform = view.get<ecs::TransformComponent>(entity);
-
+        auto& [mesh, transform] = view.get<ecs::MeshComponent, ecs::TransformComponent>(entity);
 
         ecs::MaterialComponent* material = nullptr;
         if (scene.valid(mesh.material)) {
@@ -851,9 +862,9 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
         shader.getUniform("pz") = pz;
 
         if (material) {
-            if (material->albedo) glBindTextureUnit(0, *material->albedo);
+            if (material->albedo) glBindTextureUnit(0, material->albedo);
         } else {
-            glBindTextureUnit(0, *ecs::MaterialComponent::Default.albedo);
+            glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
         }
 
         // determine if we use the original mesh vertices or GPU skinned vertices
@@ -863,8 +874,9 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
         else {
             mesh.vertexBuffer.bind();
         }
+
         mesh.indexBuffer.bind();
-        Renderer::DrawIndexed(mesh.indexBuffer.count);
+        glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
     }
 
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -910,17 +922,17 @@ void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxeliza
     glNamedFramebufferDrawBuffer(frameBuffer, GL_COLOR_ATTACHMENT0);
     glClear(GL_DEPTH_BUFFER_BIT);
 
-    float voxelSize = voxels->worldSize / 128;
+    float voxelSize = voxels->worldSize / voxels->size;
     glm::mat4 modelMatrix = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(voxelSize)), glm::vec3(0, 0, 0));
 
     // bind shader and set uniforms
     shader.bind();
-    shader.getUniform("voxelSize") = voxels->worldSize / 128;
+    shader.getUniform("voxelSize") = voxels->worldSize / voxels->size;
     shader.getUniform("p") = viewport.getCamera().getProjection();
     shader.getUniform("mv") = viewport.getCamera().getView() * modelMatrix;
 
     glBindTextureUnit(0, voxels->result);
-    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(std::pow(128, 3)));
+    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(std::pow(voxels->size, 3)));
 
     // unbind framebuffers
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1023,7 +1035,7 @@ void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsign
     vertexBuffer.bind();
     indexBuffer.bind();
 
-    glDrawElements(GL_LINES, indexBuffer.count, GL_UNSIGNED_INT, nullptr);
+    glDrawElements(GL_LINES, (GLsizei)indexBuffer.count, GL_UNSIGNED_INT, nullptr);
 
     glDisable(GL_LINE_SMOOTH);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1161,11 +1173,11 @@ void ForwardLighting::execute(Viewport& viewport, entt::registry& scene, Voxeliz
         }
 
         if (material) {
-            if (material->albedo) glBindTextureUnit(1, *material->albedo);
-            if (material->normals) glBindTextureUnit(2, *material->normals);
+            if (material->albedo) glBindTextureUnit(1, material->albedo);
+            if (material->normals) glBindTextureUnit(2, material->normals);
         } else {
-            glBindTextureUnit(1, *ecs::MaterialComponent::Default.albedo);
-            glBindTextureUnit(2, *ecs::MaterialComponent::Default.normals);
+            glBindTextureUnit(1, ecs::MaterialComponent::Default.albedo);
+            glBindTextureUnit(2, ecs::MaterialComponent::Default.normals);
         }
 
         shader.getUniform("model") = transform.worldTransform;
@@ -1181,7 +1193,7 @@ void ForwardLighting::execute(Viewport& viewport, entt::registry& scene, Voxeliz
             mesh.vertexBuffer.bind();
         }
         mesh.indexBuffer.bind();
-        Renderer::DrawIndexed(mesh.indexBuffer.count);
+        glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
     }
 
     // disable stencil stuff
@@ -1246,7 +1258,7 @@ Sky::Sky(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Sky::execute(Viewport& viewport, Mesh* quad) {
+void Sky::execute(Viewport& viewport, ecs::MeshComponent& quad) {
     hotloader.changed();
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -1259,7 +1271,9 @@ void Sky::execute(Viewport& viewport, Mesh* quad) {
     shader.getUniform("cirrus") = settings.cirrus;
     shader.getUniform("cumulus") = settings.cumulus;
 
-    quad->render();
+    quad.vertexBuffer.bind();
+    quad.indexBuffer.bind();
+    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -1294,7 +1308,7 @@ void Skinning::execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& an
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Environment::execute(const std::string& file, Mesh* unitCube) {
+void Environment::execute(const std::string& file, ecs::MeshComponent& unitCube) {
     stbi_set_flip_vertically_on_load(true);
     int w, h, ch;
     float* data = stbi_loadf(file.c_str(), &w, &h, &ch, 3);
@@ -1337,11 +1351,15 @@ void Environment::execute(const std::string& file, Mesh* unitCube) {
 
     glViewport(0, 0, 512, 512);
     glBindFramebuffer(GL_FRAMEBUFFER, captureFramebuffer);
+
+    unitCube.vertexBuffer.bind();
+    unitCube.indexBuffer.bind();
+
     for (unsigned int i = 0; i < 6; i++) {
         toCubemapShader["view"] = captureViews[i];
         glNamedFramebufferTexture(captureFramebuffer, GL_COLOR_ATTACHMENT0 + i, envCubemap, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        unitCube->render();
+        glDrawElements(GL_TRIANGLES, (GLsizei)unitCube.indices.size(), GL_UNSIGNED_INT, nullptr);
     }
 }
 

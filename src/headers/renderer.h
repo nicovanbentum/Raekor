@@ -44,18 +44,19 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class GLRenderer : public Renderer {
+class GLRenderer {
 public:
     GLRenderer(SDL_Window* window);
     ~GLRenderer();
 
-    virtual void impl_ImGui_Render()                                             override;
-    virtual void impl_ImGui_NewFrame(SDL_Window* window)                         override;
-    virtual void impl_Clear(glm::vec4 color)                                     override;
-    virtual void impl_DrawIndexed(unsigned int size)                             override;
-    virtual void impl_SwapBuffers(bool vsync) const                              override;
+    void ImGui_Render();
+    void ImGui_NewFrame(SDL_Window* window);
+    void Clear(glm::vec4 color);
+    void DrawIndexed(unsigned int size);
+    void SwapBuffers(SDL_Window* window, bool vsync);
 
 private:
+
     SDL_GLContext context;
 
 };
