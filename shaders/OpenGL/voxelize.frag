@@ -33,10 +33,11 @@ void imageAtomicRGBA8Avg(layout(r32ui) volatile coherent uimage3D grid, ivec3 co
     uint prevStoredVal = 0;
     uint curStoredVal;
 
-    // if curstoredval = prevstoredval, write newval
-    while((curStoredVal = imageAtomicCompSwap(grid, coords, prevStoredVal, newVal)) 
-            != prevStoredVal)
-    {
+    while(true) {
+        // if curstoredval = prevstoredval, write newval
+        curStoredVal = imageAtomicCompSwap(grid, coords, prevStoredVal, newVal);
+        if(curStoredVal == prevStoredVal) break;
+    
         prevStoredVal = curStoredVal;
         vec4 rval = convRGBA8ToVec4(curStoredVal);
         rval.rgb = (rval.rgb * rval.a); // Denormalize
