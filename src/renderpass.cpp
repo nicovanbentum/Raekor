@@ -581,13 +581,23 @@ void DeferredLighting::createResources(Viewport& viewport) {
     glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &bloomHighlights);
-    glTextureStorage2D(bloomHighlights, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(bloomHighlights, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureStorage2D(bloomHighlights, 5, GL_RGBA16F, std::max(16u, viewport.size.x), std::max(16u, viewport.size.y));
+    glTextureParameteri(bloomHighlights, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(bloomHighlights, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(bloomHighlights, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(bloomHighlights, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(bloomHighlights, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glGenerateTextureMipmap(bloomHighlights);
 
     glCreateFramebuffers(1, &framebuffer);
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT1, bloomHighlights, 0);
+
+    auto colorAttachments = std::array<GLenum, 4> { 
+        GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1    
+    };
+
+    glNamedFramebufferDrawBuffers(framebuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
 }
 
 void DeferredLighting::deleteResources() {
@@ -606,94 +616,55 @@ Bloom::~Bloom() {
 
 Bloom::Bloom(Viewport& viewport) {
     // load shaders from disk
-    std::vector<Shader::Stage> bloomStages;
-    bloomStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
-    bloomStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\bloom.frag");
-    bloomShader.reload(bloomStages.data(), bloomStages.size());
+    auto blurStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\gaussian.comp");
+    blurShader.reload(&blurStage, 1);
 
-    std::vector<Shader::Stage> blurStages;
-    blurStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
-    blurStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gaussian.frag");
-    blurShader.reload(blurStages.data(), blurStages.size());
+    auto upsampleStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\upsample.comp");
+    upsampleShader.reload(&upsampleStage, 1);
+
+    createResources(viewport);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Bloom::execute(unsigned int scene, unsigned int highlights, ecs::MeshComponent& quad) {
-    // perform gaussian blur on the bloom texture using "ping pong" framebuffers that
-    // take each others color attachments as input and perform a directional gaussian blur each
-    // iteration
-    bool horizontal = true, firstIteration = true;
-    blurShader.bind();
-
-    quad.vertexBuffer.bind();
-    quad.indexBuffer.bind();
-
-    for (unsigned int i = 0; i < 10; i++) {
-        glBindFramebuffer(GL_FRAMEBUFFER, blurBuffers[horizontal]);
-        blurShader.getUniform("horizontal") = horizontal;
-        if (firstIteration) {
-            glBindTextureUnit(0, highlights);
-            firstIteration = false;
-        }
-        else {
-            glBindTextureUnit(0, blurTextures[!horizontal]);
-        }
-        
-        glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
-
-        horizontal = !horizontal;
+void Bloom::execute(Viewport& viewport, unsigned int highlights) {
+    if (viewport.size.x < 16.0f || viewport.size.y < 16.0f) {
+        return;
     }
-
-    blurShader.unbind();
-
-    // blend the bloom and scene texture together
-    glBindFramebuffer(GL_FRAMEBUFFER, resultFramebuffer);
-
-    bloomShader.bind();
-    glBindTextureUnit(0, scene);
-    glBindTextureUnit(1, blurTextures[!horizontal]);
-
-    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    for (int i = 0; i < 10; i++) {
+        auto resolution = mipResolutions[0];
+        gaussianBlurLod(highlights, 0, resolution.x, resolution.y);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Bloom::createResources(Viewport& viewport) {
-    // init render targets
-    glCreateTextures(GL_TEXTURE_2D, 1, &result);
-    glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glCreateFramebuffers(1, &resultFramebuffer);
-    glNamedFramebufferTexture(resultFramebuffer, GL_COLOR_ATTACHMENT0, result, 0);
-    glNamedFramebufferDrawBuffer(resultFramebuffer, GL_COLOR_ATTACHMENT0);
-
-    for (unsigned int i = 0; i < 2; i++) {
-        glCreateTextures(GL_TEXTURE_2D, 1, &blurTextures[i]);
-        glTextureStorage2D(blurTextures[i], 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
-        glTextureParameteri(blurTextures[i], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(blurTextures[i], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTextureParameteri(blurTextures[i], GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(blurTextures[i], GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(blurTextures[i], GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-        glCreateFramebuffers(1, &blurBuffers[i]);
-        glNamedFramebufferTexture(blurBuffers[i], GL_COLOR_ATTACHMENT0, blurTextures[i], 0);
-        glNamedFramebufferDrawBuffer(blurBuffers[i], GL_COLOR_ATTACHMENT0);
+    for (unsigned int level = 0; level < 5; level++) {
+        auto resolution = viewport.size / static_cast<unsigned int>(std::pow(2, level));
+        mipResolutions.push_back(resolution);
     }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Bloom::deleteResources() {
-    glDeleteTextures(1, &result);
-    glDeleteTextures(2, blurTextures);
-    glDeleteFramebuffers(2, blurBuffers);
-    glDeleteFramebuffers(1, &resultFramebuffer);
+    mipResolutions.clear();
+}
+
+void Bloom::gaussianBlurLod(uint32_t texture, uint32_t level, uint32_t width, uint32_t height) {
+    blurShader.bind();
+    glBindImageTexture(0, texture, level, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+    glBindTextureUnit(1, texture);
+    
+    blurShader.getUniform("direction") = glm::vec2(1, 0);
+    glDispatchCompute(width / 16, height / 16, 1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
+    blurShader.getUniform("direction") = glm::vec2(1, 0);
+    glDispatchCompute(width / 16, height / 16, 1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -720,7 +691,7 @@ Tonemapping::Tonemapping(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Tonemapping::execute(unsigned int scene, ecs::MeshComponent& quad) {
+void Tonemapping::execute(unsigned int scene, ecs::MeshComponent& quad, unsigned int bloom) {
     // bind and clear render target
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -728,6 +699,7 @@ void Tonemapping::execute(unsigned int scene, ecs::MeshComponent& quad) {
     // bind shader and input texture
     shader.bind();
     glBindTextureUnit(0, scene);
+    glBindTextureUnit(1, bloom);
 
     // update uniform buffer GPU side
     uniformBuffer.update(&settings, sizeof(settings));

@@ -38,14 +38,12 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
     DeferredLightingPass    = std::make_unique<RenderPass::DeferredLighting>(viewport);
     boundingBoxDebugPass    = std::make_unique<RenderPass::BoundingBoxDebug>(viewport);
     voxelizationDebugPass   = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
+    bloomPass               = std::make_unique<RenderPass::Bloom>(viewport);
 
     // keep a pointer to the texture that's rendered to the window
     activeScreenTexture = tonemappingPass->result;
 
     std::cout << "Initialization done." << std::endl;
-
-    SDL_ShowWindow(window);
-    SDL_MaximizeWindow(window);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -85,13 +83,13 @@ void EditorOpenGL::update(double dt) {
         if (!scene->view<ecs::MeshComponent>().empty()) {
             geometryBufferPass->execute(scene, viewport);
             DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), quad);
-            tonemappingPass->execute(DeferredLightingPass->result, quad);
+            tonemappingPass->execute(DeferredLightingPass->result, quad, DeferredLightingPass->bloomHighlights);
         }
     }
     else {
         if (!scene->view<ecs::MeshComponent>().empty()) {
             fowardLightingPass->execute(viewport, scene, voxelizationPass.get(), shadowMapPass.get());
-            tonemappingPass->execute(fowardLightingPass->result, quad);
+            tonemappingPass->execute(fowardLightingPass->result, quad, DeferredLightingPass->bloomHighlights);
         }
     }
 
@@ -102,6 +100,8 @@ void EditorOpenGL::update(double dt) {
     if (debugVoxels) {
         voxelizationDebugPass->execute(viewport, tonemappingPass->result, voxelizationPass.get());
     }
+
+    //bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
 
     //get new frame for ImGui and ImGuizmo
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -204,6 +204,10 @@ void EditorOpenGL::update(double dt) {
             activeScreenTexture = geometryBufferPass->materialTexture;
         if (ImGui::Selectable(nameof(geometryBufferPass->positionTexture), activeScreenTexture == geometryBufferPass->positionTexture))
             activeScreenTexture = geometryBufferPass->positionTexture;
+        if (ImGui::Selectable(nameof(DeferredLightingPass->bloomHighlights), activeScreenTexture == DeferredLightingPass->bloomHighlights))
+            activeScreenTexture = DeferredLightingPass->bloomHighlights;
+        if (ImGui::Selectable(nameof(DeferredLightingPass->result), activeScreenTexture == DeferredLightingPass->result))
+            activeScreenTexture = DeferredLightingPass->result;
         ImGui::TreePop();
     }
 
@@ -307,6 +311,9 @@ void EditorOpenGL::update(double dt) {
 
         geometryBufferPass->deleteResources();
         geometryBufferPass->createResources(viewport);
+
+        bloomPass->deleteResources();
+        bloomPass->createResources(viewport);
     }
 }
 

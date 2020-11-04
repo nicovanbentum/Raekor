@@ -164,6 +164,8 @@ template<typename Component>
 struct ComponentDescription {
     const char* name;
     using type = Component;
+
+    void draw(entt::registry& scene, entt::entity& entity) {}
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -182,7 +184,26 @@ static constexpr auto Components = std::make_tuple (
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename T>
-inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {}
+inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {
+    std::cout << " no dont call this" << std::endl;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+template<>
+void clone<TransformComponent>(entt::registry& reg, entt::entity from, entt::entity to);
+
+template<>
+void clone<NodeComponent>(entt::registry& reg, entt::entity from, entt::entity to);
+
+template<>
+void clone<NameComponent>(entt::registry& reg, entt::entity from, entt::entity to);
+
+template<>
+void clone<MeshComponent>(entt::registry& reg, entt::entity from, entt::entity to);
+
+template<>
+void clone<MaterialComponent>(entt::registry& reg, entt::entity from, entt::entity to);
 
 class cloner {
 private:

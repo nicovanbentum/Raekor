@@ -1,6 +1,6 @@
 {
     "name": "Raekor Renderer",
-    "display": 1,
+    "display": 0,
     "font": "resources/Roboto-Regular.ttf",
     "themeColors": {
         "value0": {

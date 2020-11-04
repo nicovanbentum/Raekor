@@ -127,6 +127,7 @@ void glShader::reload(Stage* stages, size_t stageCount) {
     }
 
     if (failed) {
+        std::cerr << "failed to compile shader program" << std::endl;
         glDeleteProgram(newProgramID);
     } else {
         programID = newProgramID;
@@ -171,6 +172,11 @@ glShader::UniformLocation& glShader::UniformLocation::operator=(const std::vecto
 
 glShader::UniformLocation& glShader::UniformLocation::operator=(float rhs) {
     glUniform1f(id, rhs);
+    return *this;
+}
+
+glShader::UniformLocation& glShader::UniformLocation::operator=(const std::vector<float>& rhs) {
+    glUniform1fv(id, static_cast<GLsizei>(rhs.size()), rhs.data());
     return *this;
 }
 

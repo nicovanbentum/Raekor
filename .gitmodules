@@ -22,3 +22,6 @@
 [submodule "dependencies/VulkanMemoryAllocator"]
 	path = dependencies/VulkanMemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+[submodule "dependencies/IconFontCppHeaders"]
+	path = dependencies/IconFontCppHeaders
+	url = https://github.com/juliettef/IconFontCppHeaders

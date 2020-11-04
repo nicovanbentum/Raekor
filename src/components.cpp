@@ -221,7 +221,7 @@ void MaterialComponent::createAlbedoTexture() {
     glDeleteTextures(1, &albedo);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
-    glTextureStorage2D(albedo, 1, GL_SRGB8_ALPHA8, 1, 1);
+    glTextureStorage2D(albedo, 1, GL_RGBA16F, 1, 1);
     glTextureSubImage2D(albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(baseColour));
 
     glTextureParameteri(albedo, GL_TEXTURE_MIN_FILTER, GL_NEAREST);

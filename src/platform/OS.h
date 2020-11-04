@@ -8,6 +8,7 @@ namespace Raekor {
 // Compile time decides which function definitions to pull in
 class OS {
 public:
+    static bool RunMsBuild(const char* args);
     static std::string openFileDialog(const char* filters);
     static std::string saveFileDialog(const char* filters, const char* defaultExt);
 };

@@ -5,15 +5,11 @@
 
 namespace Raekor {
 
-RayTraceApp::RayTraceApp() : WindowApplication(RenderAPI::OPENGL) {
+RayTraceApp::RayTraceApp() : WindowApplication(RenderAPI::OPENGL), renderer(window) {
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-
-    // create the renderer object that does sets up the API and does all the runtime magic
-    Renderer::setAPI(RenderAPI::OPENGL);
-    Renderer::Init(window);
 
     // gui stuff
     gui::setFont(settings.font.c_str());
@@ -23,7 +19,6 @@ RayTraceApp::RayTraceApp() : WindowApplication(RenderAPI::OPENGL) {
     rayTracePass = std::make_unique<RenderPass::RayCompute>(viewport);
 
     activeScreenTexture = rayTracePass->finalResult;
-
 
     std::cout << "Initialization done." << std::endl;
 
@@ -52,7 +47,7 @@ void RayTraceApp::update(double dt) {
 
     //get new frame for ImGui and ImGuizmo
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    Renderer::ImGuiNewFrame(window);
+    renderer.ImGui_NewFrame(window);
 
     sceneChanged = false;
 
@@ -213,8 +208,8 @@ void RayTraceApp::update(double dt) {
 
     dockspace.end();
 
-    Renderer::ImGuiRender();
-    Renderer::SwapBuffers(true);
+    renderer.ImGui_Render();
+    renderer.SwapBuffers(window, true);
 
     if (resized) {
         rayTracePass->deleteResources();

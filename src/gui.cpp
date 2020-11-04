@@ -3,8 +3,15 @@
 #include "platform/OS.h"
 #include "application.h"
 
+#include "IconsFontAwesome5.h"
+
 namespace Raekor {
 namespace gui {
+
+template<typename T>
+void drawComp(ecs::ComponentDescription<T>&& comp) {
+
+}
 
 void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
     ImGui::Begin("Inspector");
@@ -16,12 +23,14 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
 
     ImGui::Text("ID: %i", entity);
 
-    std::_For_each_tuple_element(ecs::Components, [&](auto component) {
-        using ComponentType = decltype(component)::type;
+    // I much prefered the for_each_tuple_element syntax, I'll leave one of both in
+    std::apply([this, &scene, &entity](const auto&... components) { (...,
+        [&components, this](entt::registry& scene, entt::entity& entity) {
+        using ComponentType = typename std::decay<decltype(components)>::type::type;
 
         if (scene.has<ComponentType>(entity)) {
             bool isOpen = true;
-            if (ImGui::CollapsingHeader(component.name, &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::CollapsingHeader(components.name, &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
                 if (isOpen) {
                     drawComponent(scene.get<ComponentType>(entity), scene, entity);
                 } else {
@@ -29,10 +38,11 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
                 }
             }
         }
-    });
+    }(scene, entity));
+    }, ecs::Components);
 
     if (ImGui::BeginPopup("Components")) {
-        std::_For_each_tuple_element(ecs::Components, [&](auto component) {
+        for_each_tuple_element(ecs::Components, [&](auto component) {
             using ComponentType = decltype(component)::type;
 
             if (!scene.has<ComponentType>(entity)) {
@@ -42,7 +52,7 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
                 }
             }
         });
-        
+
         ImGui::EndPopup();
     }
 
@@ -274,6 +284,9 @@ void EntityWindow::draw(entt::registry& scene, entt::entity& active) {
 
 void Guizmo::drawWindow() {
     ImGui::Begin("Editor");
+
+    auto totalContentRegionAvail = ImGui::GetContentRegionAvail();
+
     if (ImGui::Checkbox("Gizmo", &enabled)) {
         ImGuizmo::Enable(enabled);
     }
@@ -296,6 +309,17 @@ void Guizmo::drawWindow() {
     if (ImGui::RadioButton("Scale", operation == ImGuizmo::OPERATION::SCALE)) {
         operation = ImGuizmo::OPERATION::SCALE;
     }
+
+    float currentWidth = totalContentRegionAvail.x - ImGui::GetContentRegionAvail().x;
+    float advanceWidth = (totalContentRegionAvail.x / 2) - currentWidth;
+
+    ImGui::SameLine(advanceWidth - ImGui::GetFrameHeightWithSpacing() * 1.5f);
+
+    ImGui::Button(ICON_FA_HAMMER);
+    ImGui::SameLine();
+    ImGui::Button(ICON_FA_PLAY);
+    ImGui::SameLine();
+    ImGui::Button(ICON_FA_STOP);
 
     ImGui::End();
 }
@@ -467,6 +491,12 @@ void setFont(const std::string& filepath) {
     if (!io.Fonts->Fonts.empty()) {
         io.FontDefault = io.Fonts->Fonts.back();
     }
+
+    // merge in icons from Font Awesome
+    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+    ImFontConfig icons_config; icons_config.MergeMode = true; icons_config.PixelSnapH = true;
+    io.Fonts->AddFontFromFileTTF("resources/" FONT_ICON_FILE_NAME_FAS, 15.0f, &icons_config, icons_ranges);
+    // use FONT_ICON_FILE_NAME_FAR if you want regular instead of solid
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

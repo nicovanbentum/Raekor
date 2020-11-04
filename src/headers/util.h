@@ -62,6 +62,24 @@ namespace Stb {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+template <typename Tpl, typename Fx, size_t... Indices>
+void for_each_tuple_element_impl(Tpl&& Tuple, Fx Func, std::index_sequence<Indices...>) {
+    // call Func() on the Indices elements of Tuple
+    int ignored[] = { (static_cast<void>(Func(std::get<Indices>(std::forward<Tpl>(Tuple)))), 0)... };
+    (void)ignored;
+}
+
+template <typename Tpl, typename Fx>
+void for_each_tuple_element(Tpl&& Tuple, Fx Func) { // call Func() on each element in Tuple
+    for_each_tuple_element_impl(
+        std::forward<Tpl>(Tuple), Func, std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<Tpl>>>{});
+}
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 class FileWatcher {
 public:
     FileWatcher(const std::string& path);

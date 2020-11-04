@@ -117,19 +117,16 @@ class Bloom {
 public:
     ~Bloom();
     Bloom(Viewport& viewport);
-    void execute(unsigned int scene, unsigned int highlights, ecs::MeshComponent& quad);
+    void execute(Viewport& viewport, unsigned int highlights);
     void createResources(Viewport& viewport);
     void deleteResources();
 
 private:
+    void gaussianBlurLod(uint32_t texture, uint32_t level, uint32_t width, uint32_t height);
+
     glShader blurShader;
-    glShader bloomShader;
-    unsigned int blurTextures[2];
-    unsigned int blurBuffers[2];
-    unsigned int resultFramebuffer;
-    
-public:
-    unsigned int result;
+    glShader upsampleShader;
+    std::vector<glm::ivec2> mipResolutions;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -143,7 +140,7 @@ public:
 
     ~Tonemapping();
     Tonemapping(Viewport& viewport);
-    void execute(unsigned int scene, ecs::MeshComponent& quad);
+    void execute(unsigned int scene, ecs::MeshComponent& quad, unsigned int bloom);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -276,7 +273,7 @@ public:
         float farPlane = 25.0f;
         float minBias = 0.000f, maxBias = 0.0f;
         glm::vec4 sunColor{ 1.0f, 1.0f, 1.0f, 1.0f };
-        glm::vec3 bloomThreshold{ 2.0f, 2.0f, 2.0f };
+        glm::vec3 bloomThreshold{ 0.2126f , 0.7152f , 0.0722f };
     } settings;
 
     ~DeferredLighting();

@@ -1,0 +1,22 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+// downsampled output
+layout(binding = 0, rgba16f) uniform image2D targetMip;
+layout(binding = 1) uniform sampler2D targetTexture;
+
+vec2 iResolution = imageSize(targetMip);
+ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
+
+uniform uint level;
+
+void main() {
+    vec2 uv = fragCoord / iResolution;
+
+    vec4 stored = imageLoad(targetMip, fragCoord);
+
+    vec4 sampled = textureLod(targetTexture, uv, level);
+
+    imageStore(targetMip, fragCoord, stored + sampled);
+}

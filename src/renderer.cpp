@@ -15,11 +15,11 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
             (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
             type, severity, message);
 
-        switch (id) {
-            case 131218: return; // shader state recompilation
-            default:
-                assert(false);
-        }
+        //switch (id) {
+        //    case 131218: return; // shader state recompilation
+        //    default:
+        //        assert(false);
+        //}
     }
 }
 

@@ -147,7 +147,7 @@ vec4 coneTraceRadiance(in vec3 p, in vec3 n, out float occlusion_out) {
         float occlusion = 0.0;
         // aperture is half tan of angle
         color += coneTrace(p, n, coneDirection, tan(PI * 0.5f * 0.33f), occlusion);
-        occlusion_out += occlusion;
+        occlusion_out += coneWeights[i] * occlusion;
     }
 
     color /= NUM_CONES;
@@ -157,11 +157,10 @@ vec4 coneTraceRadiance(in vec3 p, in vec3 n, out float occlusion_out) {
     return max(vec4(0), color);
 }
 
-vec4 coneTraceReflection(in vec3 P, in vec3 N, in vec3 V, in float roughness) {
+vec4 coneTraceReflection(in vec3 P, in vec3 N, in vec3 V, in float roughness, out float occlusion) {
     float aperture = tan(roughness * PI * 0.5f * 0.1f);
     vec3 coneDirection = reflect(-V, N);
 
-    float occlusion;
     vec4 reflection = coneTrace(P, N, coneDirection, aperture, occlusion);
     return vec4(max(vec3(0), reflection.rgb), clamp(reflection.a, 0, 1));
 }
@@ -249,8 +248,7 @@ vec3 fresnelSchlickRoughness(vec3 F0, float cosTheta, float roughness)
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 } 
 
-void main()
-{
+void main() {
     VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
 
@@ -292,15 +290,12 @@ void main()
     // get direct light
     vec3 directLight = diffuseBRDF * light.color.xyz * cosLi * shadowAmount;
 
-    // get specular light
-    vec3 cameraDirection = normalize(ubo.cameraPosition.xyz - position);
-    
     // get first bounce light
     float occlusion = 0.0; 
     vec4 indirectLight = coneTraceRadiance(position, normal.xyz, occlusion);
 
-    vec4 reflection = coneTraceReflection(position, normal.xyz, V, roughness) * cosLi;
- 
+    float reflectOcclusion;
+    vec4 reflection = coneTraceReflection(position, normal.xyz, V, roughness, reflectOcclusion) * cosLi;
 
     // combine all
     vec3 diffuseReflection = (directLight + indirectLight.rgb + reflection.rgb) * albedo.rgb;
@@ -308,8 +303,5 @@ void main()
 
     // BLOOM SEPERATION
 	float brightness = dot(finalColor.rgb, bloomThreshold);
-	if(brightness > 1.0) 
-		bloomColor = vec4(finalColor.rgb, 1.0);
-	else 
-		bloomColor = vec4(0.0, 0.0, 0.0, 1.0);
+    bloomColor = finalColor * brightness;
 }

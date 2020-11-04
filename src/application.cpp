@@ -23,7 +23,7 @@ WindowApplication::WindowApplication(RenderAPI api) :
     }
 
     Uint32 wflags = SDL_WINDOW_RESIZABLE | windowRendererFlag |
-        SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED;
+        SDL_WINDOW_ALLOW_HIGHDPI;
 
     std::vector<SDL_Rect> displays;
     for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
@@ -34,18 +34,15 @@ WindowApplication::WindowApplication(RenderAPI api) :
     // if our display setting is higher than the nr of displays we pick the default display
     settings.display = settings.display > displays.size() - 1 ? 0 : settings.display;
     window = SDL_CreateWindow(settings.name.c_str(),
-        displays[settings.display].x,
-        displays[settings.display].y,
-        displays[settings.display].w,
-        displays[settings.display].h,
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        displays[settings.display].w * 0.9f,
+        displays[settings.display].h * 0.9f,
         wflags);
 
     SDL_Rect rect;
     SDL_GetDisplayBounds(SDL_GetWindowDisplayIndex(window), &rect);
     viewport = Viewport(glm::vec2(rect.w, rect.h));
-
-    SDL_ShowWindow(window);
-    SDL_MaximizeWindow(window);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

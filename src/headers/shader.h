@@ -16,7 +16,11 @@ public:
         FileWatcher watcher;
         std::vector<std::string> defines;
 
-        Stage(Type type, const char* filepath) : type(type), filepath(filepath), watcher(filepath) {}
+        Stage(Type type, const char* filepath) : type(type), filepath(filepath), watcher(filepath) {
+            if (!std::filesystem::exists(filepath)) {
+                std::cerr << "file does not exist on disk\n";
+            }
+        }
     };
 
 
@@ -39,6 +43,7 @@ class glShader : public Shader {
         UniformLocation& operator=(const glm::vec3& rhs);
         UniformLocation& operator=(const glm::vec4& rhs);
         UniformLocation& operator=(const glm::mat4& rhs);
+        UniformLocation& operator=(const std::vector<float>& rhs);
         UniformLocation& operator=(const std::vector<glm::vec3>& rhs);
         UniformLocation& operator=(const std::vector<glm::mat4>& rhs);
     };

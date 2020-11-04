@@ -21,6 +21,7 @@ private:
     ecs::MeshComponent quad;
 
     GLRenderer renderer;
+    std::unique_ptr<RenderPass::Bloom>              bloomPass;
     std::unique_ptr<RenderPass::Skinning>           skinningPass;
     std::unique_ptr<RenderPass::ShadowMap>          shadowMapPass;
     std::unique_ptr<RenderPass::Tonemapping>        tonemappingPass;

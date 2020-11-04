@@ -4,6 +4,26 @@
 
 namespace Raekor {
 
+bool OS::RunMsBuild(const char* args) {
+    LPSTARTUPINFOA startupInfo;
+    PROCESS_INFORMATION procInfo;
+    memset(&startupInfo, 0, sizeof(startupInfo));
+    memset(&procInfo, 0, sizeof(procInfo));
+
+    std::string cmdLine("C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\MSBuild.exe ");
+    cmdLine += args;
+
+    if (!CreateProcessA(0, const_cast<char*>(cmdLine.c_str()),
+        0, 0, FALSE, 0, 0, 0, startupInfo, &procInfo))
+        return false;
+    WaitForSingleObject(procInfo.hProcess, INFINITE);
+    DWORD dwExitCode;
+    GetExitCodeProcess(procInfo.hProcess, &dwExitCode);
+    CloseHandle(procInfo.hProcess);
+    CloseHandle(procInfo.hThread);
+    return dwExitCode == 0;
+}
+
 std::string OS::openFileDialog(const char* filters) {
 
     OPENFILENAMEA ofn;

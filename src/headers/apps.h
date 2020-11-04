@@ -23,6 +23,8 @@ private:
     unsigned int activeSphere = 0;
     unsigned int activeScreenTexture = 0;
 
+    GLRenderer renderer;
+
     gui::Guizmo gizmo;
     gui::Dockspace dockspace;
     gui::MetricsWindow metricsWindow;
