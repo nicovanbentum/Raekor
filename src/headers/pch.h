@@ -22,14 +22,14 @@
     #include <d3d11.h>
     #include <commdlg.h>
     #include <GL/GL.h>
-    #include <SDL_syswm.h>
+    #include <SDL2/SDL_syswm.h>
     #include <wrl.h>
     #include <d3dcompiler.h>
     #include <ShObjIdl_core.h>
 
     // DirectXTK Framework Header only 
-    #include "DirectXTK/DDSTextureLoader.h"
-    #include "DirectXTK/WICTextureLoader.h"
+    //#include "DirectXTK/DDSTextureLoader.h"
+    //#include "DirectXTK/WICTextureLoader.h"
     
 #elif __linux__
     #include <GL/gl.h>
