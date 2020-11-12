@@ -27,7 +27,7 @@ uint convVec4ToRGBA8(vec4 val)
     (uint(val.x) & 0x000000FF);
 }
 
-void imageAtomicRGBA8Avg(layout(r32ui) volatile coherent uimage3D grid, ivec3 coords, vec4 value) {
+void imageAtomicRGBA8Avg(ivec3 coords, vec4 value) {
     value.rgb *= 255.0;
     uint newVal = convVec4ToRGBA8(value);
     uint prevStoredVal = 0;
@@ -35,7 +35,7 @@ void imageAtomicRGBA8Avg(layout(r32ui) volatile coherent uimage3D grid, ivec3 co
 
     while(true) {
         // if curstoredval = prevstoredval, write newval
-        curStoredVal = imageAtomicCompSwap(grid, coords, prevStoredVal, newVal);
+        curStoredVal = imageAtomicCompSwap(voxels, coords, prevStoredVal, newVal);
         if(curStoredVal == prevStoredVal) break;
     
         prevStoredVal = curStoredVal;
@@ -71,5 +71,5 @@ void main() {
 
 	voxelPosition.z = dim - voxelPosition.z - 1;
     vec4 writeVal = vec4(sampled.rgb * shadowAmount, sampled.a);
-    imageAtomicRGBA8Avg(voxels, voxelPosition, writeVal);
+    imageAtomicRGBA8Avg(voxelPosition, writeVal);
 }
