@@ -178,22 +178,33 @@ public:
     unsigned int result;
 };
 
-//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class VoxelizationDebug {
 public:
     ~VoxelizationDebug();
-    VoxelizationDebug(Viewport& viewport);
-
+    
+    // naive geometry shader impl
+    VoxelizationDebug(Viewport& viewport); // naive geometry shader impl
+    
+    // fast cube rendering using a technique from https://twitter.com/SebAaltonen/status/1315982782439591938/photo/1
+    VoxelizationDebug(Viewport& viewport, uint32_t voxelTextureSize);
+    
+    
     void execute(Viewport& viewport, unsigned int input, Voxelization* voxels);
+    void execute2(Viewport& viewport, unsigned int input, Voxelization* voxels);
 
     void createResources(Viewport& viewport);
     void deleteResources();
 
 private:
+    glShader shader;
     unsigned int frameBuffer;
     unsigned int renderBuffer;
-    glShader shader;
+
+    uint32_t indexCount;
+    glIndexBuffer indexBuffer;
+    glVertexBuffer vertexBuffer;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

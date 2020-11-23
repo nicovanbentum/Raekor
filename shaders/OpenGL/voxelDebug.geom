@@ -8,11 +8,12 @@ uniform mat4 p;
 
 in vec4 color[];
 
-out vec3 normal;
 out vec4 fragColor;
 
 void main() {
 	fragColor = color[0];
+
+    if(fragColor.a < 0.5f) return;
 
 	vec4 v1 = p * mv * (gl_in[0].gl_Position + vec4(-0.5, 0.5, 0.5, 0));
 	vec4 v2 = p * mv * (gl_in[0].gl_Position + vec4(0.5, 0.5, 0.5, 0));
@@ -41,7 +42,6 @@ void main() {
 
 	// TODO: Optimize
 	// +Z
-    normal = vec3(0, 0, 1);
     gl_Position = v1;
     EmitVertex();
     gl_Position = v3;
@@ -58,7 +58,6 @@ void main() {
     EndPrimitive();
 
     // -Z
-    normal = vec3(0, 0, -1);
     gl_Position = v6;
     EmitVertex();
     gl_Position = v8;
@@ -75,7 +74,6 @@ void main() {
     EndPrimitive();
 
     // +X
-    normal = vec3(1, 0, 0);
     gl_Position = v2;
     EmitVertex();
     gl_Position = v4;
@@ -92,7 +90,6 @@ void main() {
     EndPrimitive();
 
     // -X
-    normal = vec3(-1, 0, 0);
     gl_Position = v5;
     EmitVertex();
     gl_Position = v7;
@@ -109,7 +106,6 @@ void main() {
     EndPrimitive();
 
     // +Y
-    normal = vec3(0, 1, 0);
     gl_Position = v5;
     EmitVertex();
     gl_Position = v1;
@@ -126,7 +122,6 @@ void main() {
     EndPrimitive();
 
     // -Y
-    normal = vec3(0, -1, 0);
     gl_Position = v3;
     EmitVertex();
     gl_Position = v7;

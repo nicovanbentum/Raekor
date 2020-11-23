@@ -36,8 +36,8 @@ WindowApplication::WindowApplication(RenderAPI api) :
     window = SDL_CreateWindow(settings.name.c_str(),
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        displays[settings.display].w * 0.9f,
-        displays[settings.display].h * 0.9f,
+        static_cast<int>(displays[settings.display].w * 0.9f),
+        static_cast<int>(displays[settings.display].h * 0.9f),
         wflags);
 
     SDL_Rect rect;

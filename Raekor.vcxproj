@@ -65,7 +65,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)$(VcpkgConfigSubdir)include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /bigobj /EHsc %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -75,7 +75,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>%VULKAN_SDK%\Lib;$(VcpkgCurrentInstalledDir)$(VcpkgConfigSubdir)lib\manual-link\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2main.lib;winmm.lib;imm32.lib;version.lib;Setupapi.lib;vulkan-1.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SDL2maind.lib;winmm.lib;imm32.lib;version.lib;Setupapi.lib;vulkan-1.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/NODEFAULTLIB:libcmt.lib;NODEFAULTLIB:libcmtd.lib;/NODEFAULTLIB:msvcrtd.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -99,7 +99,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)$(VcpkgConfigSubdir)include\SDL2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /EHsc %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -130,7 +130,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="dependencies\gl3w\src\gl3w.c">
+    <ClCompile Include="dependencies\glad\GL\src\glad.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>

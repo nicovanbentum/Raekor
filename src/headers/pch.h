@@ -15,13 +15,11 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // platform specific includes
-#include "GL/gl3w.h"
 
 #ifdef _WIN32
     #include <Windows.h>
     #include <d3d11.h>
     #include <commdlg.h>
-    #include <GL/GL.h>
     #include <SDL2/SDL_syswm.h>
     #include <wrl.h>
     #include <d3dcompiler.h>
@@ -36,6 +34,9 @@
     #include <gtk/gtk.h>
     
 #endif
+
+// OpenGL includes
+#include "glad/glad.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Vulkan SDK

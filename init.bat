@@ -1,5 +1,6 @@
 @echo off
 
+vcpkg install glad --triplet x64-windows-static
 vcpkg install assimp --triplet x64-windows-static
 vcpkg install bullet3 --triplet x64-windows-static
 vcpkg install sdl2[vulkan] --triplet x64-windows-static

@@ -1,7 +1,6 @@
 #version 440 core
 
 layout(binding = 0) uniform sampler3D voxels;
-uniform float voxelSize;
 
 out vec4 color;
 

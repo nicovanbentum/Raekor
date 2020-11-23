@@ -378,9 +378,10 @@ std::vector<entt::entity> AssimpImporter::loadMaterials(entt::registry& scene, c
             material.baseColour = { diffuse.r, diffuse.g, diffuse.b, diffuse.a };
         }
 
-        material.albedoFile = directory + albedoFile.C_Str();
-        material.normalFile = directory + normalmapFile.C_Str();
-        material.mrFile = directory + metalroughFile.C_Str();
+        std::error_code ec;
+        material.albedoFile = std::filesystem::relative(directory + albedoFile.C_Str(), ec).string();
+        material.normalFile = std::filesystem::relative(directory + normalmapFile.C_Str(), ec).string();
+        material.mrFile = std::filesystem::relative(directory + metalroughFile.C_Str(), ec).string();
 
         if (strcmp(aiMat->GetName().C_Str(), "") != 0) {
             materialName.name = aiMat->GetName().C_Str();

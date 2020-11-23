@@ -887,6 +887,52 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+VoxelizationDebug::VoxelizationDebug(Viewport& viewport, uint32_t voxelTextureSize) {
+    std::vector<Shader::Stage> voxelDebugStages;
+    voxelDebugStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\voxelDebugFast.vert");
+    voxelDebugStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\voxelDebugFast.frag");
+    shader.reload(voxelDebugStages.data(), voxelDebugStages.size());
+
+    // init resources
+    createResources(viewport);
+
+    const bool CUBE_BACKFACE_OPTIMIZATION = true;
+
+    constexpr size_t NUM_CUBE_INDICES = CUBE_BACKFACE_OPTIMIZATION ? 3 * 3 * 2 : 3 * 6 * 2;
+    constexpr size_t NUM_CUBE_VERTICES = 8;
+
+    constexpr std::array<uint32_t, 36> cubeIndices = {
+        0, 2, 1, 2, 3, 1,
+        5, 4, 1, 1, 4, 0,
+        0, 4, 6, 0, 6, 2,
+        6, 5, 7, 6, 4, 5,
+        2, 6, 3, 6, 7, 3,
+        7, 1, 3, 7, 5, 1
+    };
+
+    const size_t numIndices = static_cast<size_t>(std::pow(voxelTextureSize, 3u) * NUM_CUBE_INDICES);
+
+    std::vector<uint32_t> indexBufferData(numIndices);
+
+    const auto chunks = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    const size_t CHUNK_SIZE = numIndices / chunks.size();
+
+
+    std::for_each(std::execution::par_unseq, chunks.begin(), chunks.end(), [&](const int chunk) {
+        const size_t start = (chunk - 1) * CHUNK_SIZE;
+        const size_t end = chunk * CHUNK_SIZE;
+
+        for (size_t i = start; i < end; i++) {
+            auto cube = i / NUM_CUBE_INDICES;
+            auto cube_local = i % NUM_CUBE_INDICES;
+            indexBufferData[i] = static_cast<uint32_t>(cubeIndices[cube_local] + cube * NUM_CUBE_VERTICES);
+        }
+    });
+
+    indexBuffer.loadIndices(indexBufferData.data(), indexBufferData.size());
+    indexCount = static_cast<uint32_t>(indexBufferData.size());
+}
+
 void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxelization* voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
@@ -899,15 +945,46 @@ void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxeliza
 
     // bind shader and set uniforms
     shader.bind();
-    shader.getUniform("voxelSize") = voxels->worldSize / voxels->size;
     shader.getUniform("p") = viewport.getCamera().getProjection();
     shader.getUniform("mv") = viewport.getCamera().getView() * modelMatrix;
 
     glBindTextureUnit(0, voxels->result);
+
     glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(std::pow(voxels->size, 3)));
 
     // unbind framebuffers
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void VoxelizationDebug::execute2(Viewport& viewport, unsigned int input, Voxelization* voxels) {
+    // bind the input framebuffer, we draw the debug vertices on top
+    glDisable(GL_CULL_FACE);    
+
+    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+    glNamedFramebufferTexture(frameBuffer, GL_COLOR_ATTACHMENT0, input, 0);
+    glNamedFramebufferDrawBuffer(frameBuffer, GL_COLOR_ATTACHMENT0);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    float voxelSize = voxels->worldSize / voxels->size;
+    glm::mat4 modelMatrix = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(voxelSize)), glm::vec3(0, 0, 0));
+
+    // bind shader and set uniforms
+    shader.bind();
+    shader.getUniform("p") = viewport.getCamera().getProjection();
+    shader.getUniform("mv") = viewport.getCamera().getView() * modelMatrix;
+    shader.getUniform("cameraPosition") = viewport.getCamera().getPosition();
+
+    glBindTextureUnit(0, voxels->result);
+
+    indexBuffer.bind();
+    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, nullptr);
+
+    // unbind framebuffers
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glEnable(GL_CULL_FACE);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

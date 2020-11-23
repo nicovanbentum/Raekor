@@ -15,11 +15,13 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
             (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
             type, severity, message);
 
-        //switch (id) {
-        //    case 131218: return; // shader state recompilation
-        //    default:
-        //        assert(false);
-        //}
+        switch (id) {
+            case 131218: return; // shader state recompilation
+#ifndef NDEBUG
+            default:
+                assert(false);
+#endif
+        }
     }
 }
 
@@ -41,8 +43,17 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     
     context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, context);
-    int gl3wError = gl3wInit();
-    m_assert(gl3wError == 0, "failed to init gl3w");
+
+    // Load GL extensions using glad
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
+        std::cerr << "Failed to initialize the OpenGL context.\n";
+        return;
+    }
+
+    // Loaded OpenGL successfully.
+    std::cout << "OpenGL version loaded: " << GLVersion.major << "."
+        << GLVersion.minor << std::endl;
+
    
     // initialize ImGui
     IMGUI_CHECKVERSION();
