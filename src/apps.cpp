@@ -202,9 +202,7 @@ void RayTraceApp::update(double dt) {
 
     viewportWindow.end();
 
-    const auto metricsWindowSize = ImVec2(size.x / 8.5f, size.y / 13.0f);
-    const auto metricsWindowPosition = ImVec2(pos.x + size.x - size.x / 8.5f - 5.0f, pos.y + 5.0f);
-    metricsWindow.draw(viewport, metricsWindowPosition, metricsWindowSize);
+    metricsWindow.draw(viewport, pos);
 
     dockspace.end();
 

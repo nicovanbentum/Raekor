@@ -44,6 +44,13 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
     activeScreenTexture = tonemappingPass->result;
 
     std::cout << "Initialization done." << std::endl;
+
+    if (std::filesystem::is_regular_file(settings.defaultScene)) {
+        if (std::filesystem::path(settings.defaultScene).extension() == ".scene") {
+            SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
+            scene.openFromFile(settings.defaultScene);
+        }
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -79,22 +86,12 @@ void EditorOpenGL::update(double dt) {
 
     glViewport(0, 0, viewport.size.x, viewport.size.y);
 
-    if (doDeferred) {
-        if (!scene->view<ecs::MeshComponent>().empty()) {
-            geometryBufferPass->execute(scene, viewport);
-            DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), quad);
-            tonemappingPass->execute(DeferredLightingPass->result, quad, DeferredLightingPass->bloomHighlights);
-        }
-    }
-    else {
-        if (!scene->view<ecs::MeshComponent>().empty()) {
-            fowardLightingPass->execute(viewport, scene, voxelizationPass.get(), shadowMapPass.get());
-            tonemappingPass->execute(fowardLightingPass->result, quad, DeferredLightingPass->bloomHighlights);
-        }
-    }
+    geometryBufferPass->execute(scene, viewport);
+    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), quad);
+    tonemappingPass->execute(DeferredLightingPass->result, quad, DeferredLightingPass->bloomHighlights);
 
     if (active != entt::null) {
-        boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->GDepthBuffer, active);
+        boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->depthTexture, active);
     }
 
     if (debugVoxels) {
@@ -185,11 +182,7 @@ void EditorOpenGL::update(double dt) {
         shouldVoxelize = !shouldVoxelize;
     }
 
-    if (ImGui::RadioButton("Deferred", doDeferred)) {
-        doDeferred = !doDeferred;
-    }
-
-    ImGui::DragFloat("World size", &voxelizationPass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
+    ImGui::DragFloat("Coverage", &voxelizationPass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
 
     ImGui::Separator();
 
@@ -243,8 +236,25 @@ void EditorOpenGL::update(double dt) {
     gizmo.drawWindow();
 
     // renderer viewport
-
     bool resized = viewportWindow.begin(viewport, activeScreenTexture);
+
+    // the viewport image is a drag and drop target for dropping materials onto meshes
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
+            auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos());
+            uint32_t pixel = geometryBufferPass->readEntity(mousePos.x, mousePos.y);
+            entt::entity picked = static_cast<entt::entity>(pixel);
+
+            if (scene->valid(picked)) {
+                auto mesh = scene->try_get<ecs::MeshComponent>(picked);
+                if (mesh) {
+                    mesh->material = *reinterpret_cast<const entt::entity*>(payload->Data);
+                }
+            }
+        }
+
+        ImGui::EndDragDropTarget();
+    }
 
     auto pos = ImGui::GetWindowPos();
     auto size = ImGui::GetWindowSize();
@@ -252,23 +262,9 @@ void EditorOpenGL::update(double dt) {
 
     auto& io = ImGui::GetIO();
     if (io.MouseClicked[0] && mouseInViewport && !(active != entt::null && ImGuizmo::IsOver(gizmo.getOperation()))) {
-        // get mouse position in window
-        glm::ivec2 mousePosition;
-        SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
-
-        // get mouse position relative to viewport
-        auto pos = ImGui::GetWindowPos();
-        glm::ivec2 rendererMousePosition = { (mousePosition.x - pos.x), (mousePosition.y - pos.y) };
-
-        // flip mouse coords for opengl
-        rendererMousePosition.y = viewport.size.y - rendererMousePosition.y;
-
-        entt::entity picked = entt::null;
-        if (doDeferred) {
-            picked = geometryBufferPass->pick(rendererMousePosition.x, rendererMousePosition.y);
-        } else {
-            picked = fowardLightingPass->pick(rendererMousePosition.x, rendererMousePosition.y);
-        }
+        auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos());
+        uint32_t pixel = geometryBufferPass->readEntity(mousePos.x, mousePos.y);
+        entt::entity picked = static_cast<entt::entity>(pixel);
 
         if (scene->valid(picked)) {
             active = active == picked ? entt::null : picked;
@@ -283,9 +279,7 @@ void EditorOpenGL::update(double dt) {
 
     viewportWindow.end();
 
-    const auto metricsWindowSize = ImVec2(size.x / 7.5f, size.y / 9.0f);
-    const auto metricsWindowPosition = ImVec2(pos.x + size.x - size.x / 7.5f - 5.0f, pos.y + 5.0f);
-    metricsWindow.draw(viewport, metricsWindowPosition, metricsWindowSize);
+    metricsWindow.draw(viewport, pos);
 
     dockspace.end();
 

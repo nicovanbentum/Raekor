@@ -7,12 +7,12 @@ namespace Raekor {
 namespace ecs {
 
 struct TransformComponent {
-    glm::vec3 position = { 0.0f, 0.0f, 0.0f };
-    glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
-    glm::vec3 rotation = { 0.0f, 0.0f, 0.0f };
+    glm::vec3 scale     = { 1.0f, 1.0f, 1.0f };
+    glm::vec3 position  = { 0.0f, 0.0f, 0.0f };
+    glm::vec3 rotation  = { 0.0f, 0.0f, 0.0f };
 
-    glm::mat4 matrix = glm::mat4(1.0f);
-    glm::mat4 worldTransform = glm::mat4(1.0f);
+    glm::mat4 matrix          = glm::mat4(1.0f);
+    glm::mat4 worldTransform  = glm::mat4(1.0f);
 
     glm::vec3 localPosition = { 0.0f, 0.0f, 0.0f };
 
@@ -121,7 +121,6 @@ struct MeshAnimationComponent {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct MaterialComponent {
-    std::string name;
     glm::vec4 baseColour = { 1.0f, 1.0f, 1.0f, 1.0f };
     float metallic = 1.0f, roughness = 1.0f;
     std::string albedoFile, normalFile, mrFile;
@@ -139,9 +138,6 @@ struct MaterialComponent {
 
     void createMetalRoughTexture();
     void createMetalRoughTexture(const Stb::Image& image);
-
-    void uploadFromValues();
-    void uploadFromImages(const std::unordered_map<std::string, Stb::Image>& images);
 
     void destroy();
 

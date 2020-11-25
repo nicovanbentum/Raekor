@@ -10,6 +10,7 @@ public:
     int display;
     std::string name;
     std::string font;
+    std::string defaultScene;
     std::array<std::array<float, 4>, ImGuiCol_COUNT> themeColors;
 
     ApplicationSettings(const std::filesystem::path path);
@@ -51,7 +52,7 @@ public:
 template<class C>
 void ApplicationSettings::serialize(C& archive) {
     archive( CEREAL_NVP(name), CEREAL_NVP(display),
-        CEREAL_NVP(font), CEREAL_NVP(themeColors)
+        CEREAL_NVP(font), CEREAL_NVP(defaultScene), CEREAL_NVP(themeColors)
     );
 }
 

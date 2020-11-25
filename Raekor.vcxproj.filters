@@ -159,6 +159,9 @@
     <ClCompile Include="dependencies\glad\GL\src\glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="dependencies\imgui\misc\cpp\imgui_stdlib.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\glm\glm.hpp">
@@ -303,6 +306,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\headers\editor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\imgui\misc\cpp\imgui_stdlib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

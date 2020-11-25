@@ -1,12 +1,12 @@
-#version 330 core
-layout (location = 0) in vec3 pos;
-layout (location = 1) in vec2 uv;
-layout (location = 2) in vec3 normal;
+#version 450
 
-out vec2 TexCoords;
+layout(location = 0) out vec2 uv;
 
-void main()
+void main() 
 {
-    gl_Position = vec4(pos.x, pos.y, 0.0, 1.0); 
-    TexCoords = uv;
+    float x = float(((uint(gl_VertexID) + 2u) / 3u)%2u); 
+    float y = float(((uint(gl_VertexID) + 1u) / 3u)%2u); 
+
+    gl_Position = vec4(-1.0f + x*2.0f, -1.0f+y*2.0f, 0.0f, 1.0f);
+    uv = vec2(x, y);
 }

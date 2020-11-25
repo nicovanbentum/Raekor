@@ -8,11 +8,6 @@
 namespace Raekor {
 namespace gui {
 
-template<typename T>
-void drawComp(ecs::ComponentDescription<T>&& comp) {
-
-}
-
 void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
     ImGui::Begin("Inspector");
 
@@ -30,7 +25,7 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
 
         if (scene.has<ComponentType>(entity)) {
             bool isOpen = true;
-            if (ImGui::CollapsingHeader(components.name, &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::CollapsingHeader(components.name, ImGuiTreeNodeFlags_DefaultOpen)) {
                 if (isOpen) {
                     drawComponent(scene.get<ComponentType>(entity), scene, entity);
                 } else {
@@ -56,9 +51,10 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
         ImGui::EndPopup();
     }
 
-    if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0))) {
-        ImGui::OpenPopup("Components");
-    }
+    // Broken for now
+    //if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0))) {
+    //    ImGui::OpenPopup("Components");
+    //}
 
     ImGui::End();
 }
@@ -66,12 +62,7 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void InspectorWindow::drawComponent(ecs::NameComponent& component, entt::registry& scene, entt::entity& active) {
-
-    if(ImGui::InputText("Name", component.name.data(), component.name.size(), ImGuiInputTextFlags_AutoSelectAll)) {
-        if (component.name.size() > 16) {
-            component.name = component.name.substr(0, 16);
-        }
-    }
+    ImGui::InputText("Name##1", &component.name, ImGuiInputTextFlags_AutoSelectAll);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -88,7 +79,7 @@ void InspectorWindow::drawComponent(ecs::NodeComponent& component, entt::registr
 }
 
 void InspectorWindow::drawComponent(ecs::TransformComponent& component, entt::registry& scene, entt::entity& active) {
-    if (ImGui::DragFloat3("Scale", glm::value_ptr(component.scale))) {
+    if (ImGui::DragFloat3("Scale", glm::value_ptr(component.scale), 0.001f, 0.0f, FLT_MAX)) {
         component.recalculateMatrix();
     }
     if (ImGui::DragFloat3("Rotation", glm::value_ptr(component.rotation), 0.001f, static_cast<float>(-M_PI), static_cast<float>(M_PI))) {
@@ -103,15 +94,25 @@ void InspectorWindow::drawComponent(ecs::TransformComponent& component, entt::re
 
 void InspectorWindow::drawComponent(ecs::MeshComponent& component, entt::registry& scene, entt::entity& active) {
     ImGui::Text("Triangle count: %i", component.indices.size() / 3);
+
     if (scene.valid(component.material) && scene.has<ecs::MaterialComponent, ecs::NameComponent>(component.material)) {
         auto& [material, name] = scene.get<ecs::MaterialComponent, ecs::NameComponent>(component.material);
-        if (ImGui::ImageButton((void*)((intptr_t)material.albedo), ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale()))) {
+
+        const auto albedoTexture = (void*)((intptr_t)material.albedo);
+        const auto previewSize = ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale());
+        const auto tintColor = ImVec4(material.baseColour.r, material.baseColour.g, material.baseColour.b, material.baseColour.a);
+
+        if (ImGui::ImageButton(albedoTexture, previewSize, ImVec2(0,0), ImVec2(1,1), -1, ImVec4(0,0,0,0), tintColor)) {
             active = component.material;
         }
+
         ImGui::SameLine();
         ImGui::Text(name.name.c_str());
+
     } else {
+
         ImGui::Text("No material");
+
     }
 
     if (ImGui::BeginDragDropTarget()) {
@@ -129,11 +130,7 @@ void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::reg
     auto& style = ImGui::GetStyle();
     float lineHeight = io.FontDefault->FontSize;
 
-    if (ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR)) {
-        if (component.albedo && component.albedoFile.empty()) {
-            glTextureSubImage2D(component.albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(component.baseColour));
-        }
-    }
+    ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 
     const bool adjustedMetallic = ImGui::DragFloat("Metallic", &component.metallic, 0.001f, 0.0f, 1.0f);
     const bool adjustedRoughness = ImGui::DragFloat("Roughness", &component.roughness, 0.001f, 0.0f, 1.0f);
@@ -439,10 +436,10 @@ void ViewportWindow::drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewp
     if (mesh) transform.matrix = glm::translate(transform.matrix, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
 
     // draw gizmo
-    ImGuizmo::Manipulate(
+    bool manipulated = ImGuizmo::Manipulate(
         glm::value_ptr(viewport.getCamera().getView()),
         glm::value_ptr(viewport.getCamera().getProjection()),
-        gizmo.operation, ImGuizmo::MODE::LOCAL,
+        gizmo.operation, ImGuizmo::MODE::WORLD,
         glm::value_ptr(transform.matrix)
     );
 
@@ -451,14 +448,15 @@ void ViewportWindow::drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewp
 
 
     // update the transformation
-    ImGuizmo::DecomposeMatrixToComponents(
-        glm::value_ptr(transform.matrix),
-        glm::value_ptr(transform.position),
-        glm::value_ptr(transform.rotation),
-        glm::value_ptr(transform.scale)
-    );
+    if (manipulated) {
+        glm::vec3 skew;
+        glm::quat rotation;
+        glm::vec4 perspective;
+        glm::decompose(transform.matrix, transform.scale, rotation, transform.position, skew, perspective);
+        glm::extractEulerAngleXYZ(transform.matrix, transform.rotation.x, transform.rotation.y, transform.rotation.z);
+    }
 
-    transform.rotation = glm::radians(transform.rotation);
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -497,6 +495,21 @@ void setFont(const std::string& filepath) {
     ImFontConfig icons_config; icons_config.MergeMode = true; icons_config.PixelSnapH = true;
     io.Fonts->AddFontFromFileTTF("resources/" FONT_ICON_FILE_NAME_FAS, 15.0f, &icons_config, icons_ranges);
     // use FONT_ICON_FILE_NAME_FAR if you want regular instead of solid
+}
+
+glm::ivec2 getMousePosWindow(const Viewport& viewport, ImVec2 windowPos) {
+    // get mouse position in window
+    glm::ivec2 mousePosition;
+    SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
+
+    // get mouse position relative to viewport
+    glm::ivec2 rendererMousePosition = { (mousePosition.x - windowPos.x), (mousePosition.y - windowPos.y) };
+
+    // flip mouse coords for opengl
+    rendererMousePosition.y = std::max(viewport.size.y - rendererMousePosition.y, 0u);
+    rendererMousePosition.x = std::max(rendererMousePosition.x, 0);
+
+    return rendererMousePosition;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -572,14 +585,6 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
         if (ImGui::BeginMenu("Add")) {
             if (ImGui::MenuItem("Empty", "CTRL+E")) {
                 auto entity = scene.createObject("Empty");
-
-                if (active != entt::null) {
-                    auto& node = scene->get<ecs::NodeComponent>(entity);
-                    node.parent = active;
-                    node.hasChildren = false;
-                    scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
-                }
-
                 active = entity;
             }
             ImGui::Separator();
@@ -588,7 +593,6 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
                 auto entity = scene->create();
                 scene->emplace<ecs::NameComponent>(entity, "New Material");
                 auto& defaultMaterial = scene->emplace<ecs::MaterialComponent>(entity);
-                defaultMaterial.uploadFromValues();
                 active = entity;
             }
 
@@ -597,13 +601,6 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
                 if (ImGui::MenuItem("Sphere")) {
                     auto entity = scene.createObject("Sphere");
                     auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
-
-                    if (active != entt::null) {
-                        auto& node = scene->get<ecs::NodeComponent>(entity);
-                        node.parent = active;
-                        node.hasChildren = false;
-                        scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
-                    }
 
                     const float radius = 2.0f;
                     float x, y, z, xy;                              // vertex position
@@ -681,34 +678,34 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
                     mesh.generateAABB();
                 }
 
-                if (ImGui::MenuItem("Cube")) {
-                    auto entity = scene.createObject("Cube");
-                    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+                //if (ImGui::MenuItem("Cube")) {
+                //    auto entity = scene.createObject("Cube");
+                //    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
 
-                    if (active != entt::null) {
-                        auto& node = scene->get<ecs::NodeComponent>(entity);
-                        node.parent = active;
-                        node.hasChildren = false;
-                        scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
-                    }
+                //    if (active != entt::null) {
+                //        auto& node = scene->get<ecs::NodeComponent>(entity);
+                //        node.parent = active;
+                //        node.hasChildren = false;
+                //        scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
+                //    }
 
-                    for (const auto& v : unitCubeVertices) {
-                        mesh.positions.push_back(v.pos);
-                        mesh.uvs.push_back(v.uv);
-                        mesh.normals.push_back(v.normal);
-                    }
+                //    for (const auto& v : unitCubeVertices) {
+                //        mesh.positions.push_back(v.pos);
+                //        mesh.uvs.push_back(v.uv);
+                //        mesh.normals.push_back(v.normal);
+                //    }
 
-                    for (const auto& index : cubeIndices) {
-                        mesh.indices.push_back(index.p1);
-                        mesh.indices.push_back(index.p2);
-                        mesh.indices.push_back(index.p3);
-                    }
+                //    for (const auto& index : cubeIndices) {
+                //        mesh.indices.push_back(index.p1);
+                //        mesh.indices.push_back(index.p2);
+                //        mesh.indices.push_back(index.p3);
+                //    }
 
-                    mesh.generateTangents();
-                    mesh.uploadVertices();
-                    mesh.uploadIndices();
-                    mesh.generateAABB();
-                }
+                //    mesh.generateTangents();
+                //    mesh.uploadVertices();
+                //    mesh.uploadIndices();
+                //    mesh.generateAABB();
+                //}
 
                 ImGui::EndMenu();
             }
@@ -747,9 +744,8 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MetricsWindow::draw(Viewport& viewport, ImVec2 pos, ImVec2 size) {
+void MetricsWindow::draw(Viewport& viewport, ImVec2 pos) {
     ImGui::SetNextWindowPos(pos);
-    ImGui::SetNextWindowSize(size);
     draw(viewport);
 }
 
@@ -759,7 +755,7 @@ void MetricsWindow::draw(Viewport& viewport) {
     // application/render metrics
     auto& io = ImGui::GetIO();
     ImGui::SetNextWindowBgAlpha(0.35f);
-    auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration;
+    auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
     ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
     ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
     ImGui::Text("Product: %s", glGetString(GL_RENDERER));

@@ -170,6 +170,10 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="dependencies\imgui\misc\cpp\imgui_stdlib.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="src\anim.cpp" />
     <ClCompile Include="src\application.cpp" />
     <ClCompile Include="src\apps.cpp" />
@@ -227,6 +231,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="dependencies\imgui\examples\imgui_impl_vulkan.h" />
     <ClInclude Include="dependencies\imgui\imgui.h" />
     <ClInclude Include="dependencies\imgui\imgui_internal.h" />
+    <ClInclude Include="dependencies\imgui\misc\cpp\imgui_stdlib.h" />
     <ClInclude Include="dependencies\NVDDS\nv_dds.h" />
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="resource.h" />

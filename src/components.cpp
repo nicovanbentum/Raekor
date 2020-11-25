@@ -5,10 +5,9 @@ namespace Raekor {
 namespace ecs {
 
 void TransformComponent::recalculateMatrix() {
-    matrix = glm::translate(glm::mat4(1.0f), position);
-    auto rotationQuat = static_cast<glm::quat>(rotation);
-    matrix = matrix * glm::toMat4(rotationQuat);
-    matrix = glm::scale(matrix, scale);
+    matrix  =    glm::translate(glm::mat4(1.0f), position);
+    matrix *=    glm::eulerAngleXYZ(rotation.x, rotation.y, rotation.z);
+    matrix  =    glm::scale(matrix, scale);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -306,33 +305,7 @@ void MaterialComponent::createMetalRoughTexture(const Stb::Image& image) {
     glGenerateTextureMipmap(metalrough);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void MaterialComponent::uploadFromValues() {
-    createAlbedoTexture();
-    createNormalTexture();
-    createMetalRoughTexture();
-}
-
 /////////////////////////////////////////////////////////////////////////////////////////
-
-void MaterialComponent::uploadFromImages(const std::unordered_map<std::string, Stb::Image>& images) {
-    auto albedoEntry = images.find(albedoFile);
-    auto normalsEntry = images.find(normalFile);
-    auto metalroughEntry = images.find(mrFile);
-    
-    if (albedoEntry != images.end() && !albedoEntry->first.empty()) {
-        createAlbedoTexture(albedoEntry->second);
-    } else createAlbedoTexture();
-    
-    if (normalsEntry != images.end() && !normalsEntry->first.empty()) {
-        createNormalTexture(normalsEntry->second);
-    } else createNormalTexture();
-
-    if (metalroughEntry != images.end() && !metalroughEntry->first.empty()) {
-        createMetalRoughTexture(metalroughEntry->second);
-    } else createMetalRoughTexture();
-}
 
 void MaterialComponent::destroy() {
         glDeleteTextures(1, &albedo);
@@ -385,7 +358,6 @@ template<>
 void clone<MaterialComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
     auto& from_component = reg.get<MaterialComponent>(from);
     auto& to_component = reg.emplace<MaterialComponent>(to, from_component);
-    to_component.uploadFromValues();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

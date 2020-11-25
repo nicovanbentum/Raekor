@@ -65,6 +65,7 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     // get GUI i/o and set a bunch of settings
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_NavNoCaptureKeyboard;
     io.ConfigWindowsMoveFromTitleBarOnly = true;
     io.ConfigDockingWithShift = true;
 
@@ -95,10 +96,12 @@ GLRenderer::GLRenderer(SDL_Window* window) {
 
     // initialize default gpu resources
     ecs::MaterialComponent::Default = ecs::MaterialComponent {
-        "default", glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), 0.0f, 1.0f
+        glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f
     };
 
-    ecs::MaterialComponent::Default.uploadFromValues();
+    ecs::MaterialComponent::Default.createAlbedoTexture();
+    ecs::MaterialComponent::Default.createMetalRoughTexture();
+    ecs::MaterialComponent::Default.createNormalTexture();
 
 }
 

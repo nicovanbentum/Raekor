@@ -13,6 +13,10 @@ void setFont(const std::string& filepath);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+glm::ivec2 getMousePosWindow(const Viewport& viewport, ImVec2 windowPos);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 class TopMenuBar {
 public:
     void draw(WindowApplication* app, Scene& scene, unsigned int activeTexture, entt::entity& active);
@@ -30,7 +34,7 @@ public:
 
 class MetricsWindow {
 public:
-    void draw(Viewport& viewport, ImVec2 pos, ImVec2 size);
+    void draw(Viewport& viewport, ImVec2 pos);
     void draw(Viewport& viewport);
 };
 

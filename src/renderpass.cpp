@@ -227,20 +227,28 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
                 continue;
             }
 
-
             ecs::MaterialComponent* material = nullptr;
             if (scene.valid(mesh.material)) {
                 material = scene.try_get<ecs::MaterialComponent>(mesh.material);
             }
 
         if (material) {
-            if (material->albedo)       glBindTextureUnit(0, material->albedo);
-            if (material->normals)      glBindTextureUnit(3, material->normals);
-            if (material->metalrough)   glBindTextureUnit(4, material->metalrough);
+            if (material->albedo)  glBindTextureUnit(0, material->albedo);
+            else glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
+
+            if (material->normals) glBindTextureUnit(3, material->normals);
+            glBindTextureUnit(3, ecs::MaterialComponent::Default.normals);
+
+            if (material->metalrough) glBindTextureUnit(4, material->metalrough);
+            else glBindTextureUnit(4, ecs::MaterialComponent::Default.metalrough);
+
+            shader.getUniform("colour") = material->baseColour;
+
         } else {
             glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
             glBindTextureUnit(3, ecs::MaterialComponent::Default.normals);
             glBindTextureUnit(4, ecs::MaterialComponent::Default.metalrough);
+            shader.getUniform("colour") = ecs::MaterialComponent::Default.baseColour;
         }
 
         shader.getUniform("model") = transform.worldTransform;
@@ -263,10 +271,11 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-entt::entity GeometryBuffer::pick(uint32_t x, uint32_t y) {
-    float readPixel[4];
-    glGetTextureSubImage(materialTexture, 0, x, y, 0, 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(glm::vec4), readPixel);
-    return static_cast<entt::entity>((uint32_t)readPixel[2]);
+uint32_t GeometryBuffer::readEntity(GLint x, GLint y) {
+    std::array<float, 4> pixel;
+    glGetTextureSubImage(materialTexture, 0, x, y,
+        0, 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(pixel), pixel.data());
+    return static_cast<uint32_t>(pixel[2]);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -295,8 +304,10 @@ void GeometryBuffer::createResources(Viewport& viewport) {
     glTextureParameteri(positionTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(positionTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    glCreateRenderbuffers(1, &GDepthBuffer);
-    glNamedRenderbufferStorage(GDepthBuffer, GL_DEPTH_COMPONENT32F, viewport.size.x, viewport.size.y);
+    glCreateTextures(GL_TEXTURE_2D, 1, &depthTexture);
+    glTextureStorage2D(depthTexture, 1, GL_DEPTH_COMPONENT32F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(positionTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(positionTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glCreateFramebuffers(1, &GBuffer);
     glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT0, positionTexture, 0);
@@ -306,16 +317,14 @@ void GeometryBuffer::createResources(Viewport& viewport) {
 
     std::array<GLenum, 4> colorAttachments = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
     glNamedFramebufferDrawBuffers(GBuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
-
-    glNamedFramebufferRenderbuffer(GBuffer, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, GDepthBuffer);
+    glNamedFramebufferTexture(GBuffer, GL_DEPTH_ATTACHMENT, depthTexture, 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GeometryBuffer::deleteResources() {
-    std::array<unsigned int, 4> textures = { albedoTexture, normalTexture, positionTexture, materialTexture };
+    std::array<unsigned int, 5> textures = { albedoTexture, normalTexture, positionTexture, materialTexture, depthTexture };
     glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
-    glDeleteRenderbuffers(1, &GDepthBuffer);
     glDeleteFramebuffers(1, &GBuffer);
 }
 
@@ -517,6 +526,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
 
     glBindTextureUnit(6, voxels->result);
     glBindTextureUnit(7, GBuffer->materialTexture);
+    glBindTextureUnit(8, GBuffer->depthTexture);
 
     // update the uniform buffer CPU side
     uniforms.view = viewport.getCamera().getView();
@@ -1056,8 +1066,8 @@ void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsign
 
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
     glNamedFramebufferTexture(frameBuffer, GL_COLOR_ATTACHMENT0, texture, 0);
+    glNamedFramebufferTexture(frameBuffer, GL_DEPTH_ATTACHMENT, renderBuffer, 0);
     glNamedFramebufferDrawBuffer(frameBuffer, GL_COLOR_ATTACHMENT0);
-    glNamedFramebufferRenderbuffer(frameBuffer, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
 
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();

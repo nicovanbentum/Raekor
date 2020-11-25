@@ -13,6 +13,8 @@ layout(binding = 0) uniform sampler2D meshTexture;
 layout(binding = 3) uniform sampler2D normalTexture;
 layout(binding = 4) uniform sampler2D metalroughTexture;
 
+uniform vec4 colour;
+
 uniform uint entity;
 
 in vec3 pos;
@@ -21,7 +23,7 @@ in mat3 TBN;
 
 void main() {
 	// write the color to the color texture of the gbuffer
-	gColor = texture(meshTexture, uv);
+	gColor = texture(meshTexture, uv) * colour;
 
 	// retrieve the normal from the normal map
     vec4 sampledNormal = texture(normalTexture, uv);

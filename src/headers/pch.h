@@ -62,6 +62,8 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_vulkan.h"
+#include "misc/cpp/imgui_stdlib.h"
+#include "imgui_internal.h"
 
 #ifdef _WIN32
     #include "imgui_impl_dx11.h"

@@ -64,7 +64,7 @@ public:
 
     void execute(entt::registry& scene, Viewport& viewport);
 
-    entt::entity pick(uint32_t x, uint32_t y);
+    uint32_t readEntity(GLint x, GLint y);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -75,8 +75,8 @@ private:
     unsigned int GBuffer;
   
 public:
-    unsigned int GDepthBuffer;
     unsigned int albedoTexture, normalTexture, positionTexture, materialTexture;
+    unsigned int depthTexture;
 };
 
 //////////////////////////////////////////////////////////////////////////////////

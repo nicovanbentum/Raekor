@@ -33,7 +33,7 @@ private:
     std::unique_ptr<RenderPass::VoxelizationDebug>  voxelizationDebugPass;
 
     bool mouseInViewport = false;
-    bool doSSAO = false, doBloom = false, debugVoxels = false, doDeferred = true;
+    bool doSSAO = false, doBloom = false, debugVoxels = false;
     bool shouldVoxelize = true, gizmoEnabled = false, showSettingsWindow = false;
 
     gui::Guizmo gizmo;
