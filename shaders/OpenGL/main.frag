@@ -172,15 +172,14 @@ float getShadow(DirectionalLight light, vec3 position) {
     float currentDepth = FragPosLightSpace.z;
 
 	vec3 direction = normalize(-light.direction.xyz);
-    float bias = max(maxBias * (1.0 - dot(normal, direction)), minBias);
     
 	// simplest PCF algorithm
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
     for(int x = -3; x <= 3; ++x) {
         for(int y = -3; y <= 3; ++y) {
-            float pcfDepth = texture(shadowMap, vec3(FragPosLightSpace.xy + vec2(x, y) * texelSize, (FragPosLightSpace.z - 0.0005)/FragPosLightSpace.w)).r; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;    
+            float pcfDepth = texture(shadowMap, vec3(FragPosLightSpace.xy + vec2(x, y) * texelSize, (FragPosLightSpace.z)/FragPosLightSpace.w)).r; 
+            shadow += currentDepth > pcfDepth  ? 1.0 : 0.0;    
         }    
     }
     shadow /= 49.0;
@@ -263,9 +262,8 @@ void main() {
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
     DirectionalLight light = ubo.dirLights[0];
-    float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.0005)/depthPosition.w));
-    shadowAmount = 1.0 - getShadow(light, position);
-
+    //float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
+    float shadowAmount = 1.0 - getShadow(light, position);
 
     vec3 Li = normalize(-light.direction.xyz);
     vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);

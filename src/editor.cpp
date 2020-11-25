@@ -12,7 +12,7 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
     gui::setTheme(settings.themeColors);
 
     skinningPass            = std::make_unique<RenderPass::Skinning>();
-    voxelizationPass        = std::make_unique<RenderPass::Voxelization>(128);
+    voxelizationPass        = std::make_unique<RenderPass::Voxelization>(256);
     shadowMapPass           = std::make_unique<RenderPass::ShadowMap>(4096, 4096);
     tonemappingPass         = std::make_unique<RenderPass::Tonemapping>(viewport);
     geometryBufferPass      = std::make_unique<RenderPass::GeometryBuffer>(viewport);
@@ -192,8 +192,8 @@ void EditorOpenGL::update(double dt) {
 
     if (ImGui::DragFloat2("Planes", glm::value_ptr(shadowMapPass->settings.planes), 0.1f)) {}
     if (ImGui::DragFloat("Size", &shadowMapPass->settings.size)) {}
-    if (ImGui::DragFloat("Min bias", &DeferredLightingPass->settings.minBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
-    if (ImGui::DragFloat("Max bias", &DeferredLightingPass->settings.maxBias, 0.0001f, 0.0f, FLT_MAX, "%.4f")) {}
+    if (ImGui::DragFloat("Bias constant", &shadowMapPass->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    if (ImGui::DragFloat("Bias slope factor", &shadowMapPass->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
 
     ImGui::NewLine();
     ImGui::Separator();

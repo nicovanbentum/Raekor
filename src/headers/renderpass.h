@@ -17,6 +17,8 @@ class ShadowMap {
      struct {
          glm::vec<2, float> planes = { 1.0f, 200.0f };
          float size = 50.0f;
+         float depthBiasConstant = 1.25f;
+         float depthBiasSlope = 1.75f;
      } settings;
 
     ~ShadowMap();

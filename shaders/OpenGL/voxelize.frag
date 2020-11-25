@@ -52,7 +52,7 @@ void main() {
     const int dim = imageSize(voxels).x;
 
     // TODO: improve shadow sampling
-    float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z - 0.001)/depthPosition.w));
+    float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
 
 	ivec3 camPos = ivec3(gl_FragCoord.x, gl_FragCoord.y, dim * gl_FragCoord.z);
 	ivec3 voxelPosition;
