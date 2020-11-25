@@ -38,7 +38,7 @@ uniform int directionalLightCount;
 uniform float voxelsWorldSize;
 
 // in vars
-in vec2 uv;
+layout(location = 0) in vec2 uv;
 
 // output data back to our openGL program
 layout (location = 0) out vec4 finalColor;

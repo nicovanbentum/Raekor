@@ -27,7 +27,6 @@ private:
     std::unique_ptr<RenderPass::Tonemapping>        tonemappingPass;
     std::unique_ptr<RenderPass::Voxelization>       voxelizationPass;
     std::unique_ptr<RenderPass::GeometryBuffer>     geometryBufferPass;
-    std::unique_ptr<RenderPass::ForwardLighting>    fowardLightingPass;
     std::unique_ptr<RenderPass::DeferredLighting>   DeferredLightingPass;
     std::unique_ptr<RenderPass::BoundingBoxDebug>   boundingBoxDebugPass;
     std::unique_ptr<RenderPass::VoxelizationDebug>  voxelizationDebugPass;

@@ -90,7 +90,7 @@ public:
 
     ~ScreenSpaceAmbientOcclusion();
     ScreenSpaceAmbientOcclusion(Viewport& viewport);
-    void execute(Viewport& viewport, GeometryBuffer* geometryPass, ecs::MeshComponent& quad);
+    void execute(Viewport& viewport, GeometryBuffer* geometryPass);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -140,7 +140,7 @@ public:
 
     ~Tonemapping();
     Tonemapping(Viewport& viewport);
-    void execute(unsigned int scene, ecs::MeshComponent& quad, unsigned int bloom);
+    void execute(unsigned int scene, unsigned int bloom);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -231,43 +231,6 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class ForwardLighting {
-private:
-    struct {
-        glm::mat4 view, projection;
-        glm::mat4 lightSpaceMatrix;
-        glm::vec4 cameraPosition;
-        ecs::DirectionalLightComponent::ShaderBuffer dirLights[1];
-        ecs::PointLightComponent::ShaderBuffer pointLights[10];
-        unsigned int renderFlags = 0b00000001;
-    } uniforms;
-
-public:
-    ~ForwardLighting();
-    ForwardLighting(Viewport& viewport);
-
-    void execute(Viewport& viewport, entt::registry& scene, Voxelization* voxels, ShadowMap* shadowmap);
-
-    void createResources(Viewport& viewport);
-    void deleteResources();
-
-    entt::entity pick(uint32_t x, uint32_t y);
-
-private:
-    glShader shader;
-    unsigned int framebuffer;
-    unsigned int renderbuffer;
-    glUniformBuffer uniformBuffer;
-
-    ShaderHotloader hotloader;
-
-public:
-    int culled = 0;
-    unsigned int result;
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 class DeferredLighting {
 private:
     struct {
@@ -291,7 +254,7 @@ public:
     DeferredLighting(Viewport& viewport);
 
     void execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, ecs::MeshComponent& quad);
+        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -310,29 +273,6 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class Sky {
-public:
-    struct {
-        float time = 0.0f;
-        float cirrus = 0.4f;
-        float cumulus = 0.8f;
-    } settings;
-
-    Sky(Viewport& viewport);
-
-    void execute(Viewport& viewport, ecs::MeshComponent& quad);
-
-private:
-    glShader shader;
-    ShaderHotloader hotloader;
-    unsigned int framebuffer;
-
-public:
-    unsigned int result;
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 class Skinning {
 public:
     Skinning();
@@ -341,22 +281,6 @@ public:
 private:
     glShader computeShader;
     ShaderHotloader hotloader;
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-class Environment {
-public:
-    Environment() = default;
-    void execute(const std::string& file, ecs::MeshComponent& unitCube);
-
-private:
-    unsigned int envCubemap;
-    unsigned int irradianceCubemap;
-
-    unsigned int captureFramebuffer;
-    unsigned int captureRenderbuffer;
-    glShader toCubemapShader;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

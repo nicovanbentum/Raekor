@@ -378,7 +378,7 @@ ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* geometryPass, ecs::MeshComponent& quad) {
+void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* geometryPass) {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glBindTextureUnit(0, geometryPass->positionTexture);
     glBindTextureUnit(1, geometryPass->normalTexture);
@@ -393,16 +393,14 @@ void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* ge
     shader.getUniform("power") = settings.power;
     shader.getUniform("bias") = settings.bias;
 
-    quad.vertexBuffer.bind();
-    quad.indexBuffer.bind();
-    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     // now blur the SSAO result
     glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
     glBindTextureUnit(0, preblurResult);
     blurShader.bind();
 
-    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -472,7 +470,7 @@ DeferredLighting::~DeferredLighting() {
 DeferredLighting::DeferredLighting(Viewport& viewport) {
     // load shaders from disk
 
-    Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\main.vert");
+    Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
     Shader::Stage frag(Shader::Type::FRAG, "shaders\\OpenGL\\main.frag");
     std::array<Shader::Stage, 2> modelStages = { vertex, frag };
     shader.reload(modelStages.data(), modelStages.size());
@@ -489,7 +487,7 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, ecs::MeshComponent& quad) {
+                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels) {
     hotloader.changed();
 
     // bind the main framebuffer
@@ -574,9 +572,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     uniformBuffer.bind(0);
 
     // perform lighting pass and unbind
-    quad.vertexBuffer.bind();
-    quad.indexBuffer.bind();
-    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -688,7 +684,7 @@ Tonemapping::~Tonemapping() {
 Tonemapping::Tonemapping(Viewport& viewport) {
     // load shaders from disk
     std::vector<Shader::Stage> tonemapStages;
-    tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\HDR.vert");
+    tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
     tonemapStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDR.frag");
     shader.reload(tonemapStages.data(), tonemapStages.size());
 
@@ -701,7 +697,7 @@ Tonemapping::Tonemapping(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Tonemapping::execute(unsigned int scene, ecs::MeshComponent& quad, unsigned int bloom) {
+void Tonemapping::execute(unsigned int scene, unsigned int bloom) {
     // bind and clear render target
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -716,9 +712,7 @@ void Tonemapping::execute(unsigned int scene, ecs::MeshComponent& quad, unsigned
     uniformBuffer.bind(0);
 
     // render fullscreen quad to perform tonemapping
-    quad.vertexBuffer.bind();
-    quad.indexBuffer.bind();
-    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -1120,225 +1114,6 @@ void BoundingBoxDebug::deleteResources() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-ForwardLighting::~ForwardLighting() {
-    deleteResources();
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-ForwardLighting::ForwardLighting(Viewport& viewport) {
-    // load shaders from disk
-    std::vector<Shader::Stage> stages;
-    stages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\fwdLight.vert");
-    stages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\fwdLight.frag");
-    shader.reload(stages.data(), stages.size());
-
-    hotloader.watch(&shader, stages.data(), stages.size());
-
-    // init render targets
-    createResources(viewport);
-
-    // init uniform buffer
-    uniformBuffer.setSize(sizeof(uniforms));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void ForwardLighting::execute(Viewport& viewport, entt::registry& scene, Voxelization* voxels, ShadowMap* shadowmap) {
-    hotloader.changed();
-
-    // enable stencil stuff
-    glEnable(GL_STENCIL_TEST);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    glStencilMask(0xFFFF); // Write to stencil buffer
-    glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
-
-    // update the uniform buffer CPU side
-    uniforms.view = viewport.getCamera().getView();
-    uniforms.projection = viewport.getCamera().getProjection();
-
-    // update every light type
-    auto dirView = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
-    unsigned int dirLightCounter = 0;
-    for (auto entity : dirView) {
-        auto& light = dirView.get<ecs::DirectionalLightComponent>(entity);
-        auto& transform = dirView.get<ecs::TransformComponent>(entity);
-
-        dirLightCounter++;
-        if (dirLightCounter >= ARRAYSIZE(uniforms.dirLights)) {
-            break;
-        }
-
-        light.buffer.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
-        uniforms.dirLights[0] = light.buffer;
-        uniforms.dirLights[dirLightCounter] = light.buffer;
-    }
-
-    auto posView = scene.view<ecs::PointLightComponent, ecs::TransformComponent>();
-    unsigned int posViewCounter = 0;
-    for (auto entity : posView) {
-        auto& light = posView.get<ecs::PointLightComponent>(entity);
-        auto& transform = posView.get<ecs::TransformComponent>(entity);
-
-        posViewCounter++;
-        if (posViewCounter >= ARRAYSIZE(uniforms.pointLights)) {
-            break;
-        }
-
-        light.buffer.position = glm::vec4(transform.position, 1.0f);
-        uniforms.pointLights[posViewCounter] = light.buffer;
-    }
-
-    uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
-    uniforms.lightSpaceMatrix = shadowmap->uniforms.cameraMatrix;
-
-    // update uniform buffer GPU side
-    uniformBuffer.update(&uniforms, sizeof(uniforms));
-
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-    shader.bind();
-    uniformBuffer.bind(0);
-
-    glBindTextureUnit(0, voxels->result);
-    glBindTextureUnit(3, shadowmap->result);
-
-    Math::Frustrum frustrum;
-    frustrum.update(viewport.getCamera().getProjection() * viewport.getCamera().getView(), true);
-    culled = 0;
-
-    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
-
-    for (auto entity : view) {
-        auto& mesh = scene.get<ecs::MeshComponent>(entity);
-        auto& transform = scene.get<ecs::TransformComponent>(entity);
-
-        // convert AABB from local to world space
-        std::array<glm::vec3, 2> worldAABB = {
-            transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
-            transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
-        };
-
-        // if the frustrum can't see the mesh's OBB we cull it
-        if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
-            culled += 1;
-            continue;
-        }
-
-        ecs::MaterialComponent* material = nullptr;
-        if (scene.valid(mesh.material)) {
-            material = scene.try_get<ecs::MaterialComponent>(mesh.material);
-        }
-
-        if (material) {
-            if (material->albedo) glBindTextureUnit(1, material->albedo);
-            if (material->normals) glBindTextureUnit(2, material->normals);
-        } else {
-            glBindTextureUnit(1, ecs::MaterialComponent::Default.albedo);
-            glBindTextureUnit(2, ecs::MaterialComponent::Default.normals);
-        }
-
-        shader.getUniform("model") = transform.worldTransform;
-
-        // write the entity ID to the stencil buffer for picking
-        glStencilFunc(GL_ALWAYS, (GLint)entity, 0xFFFF);
-
-        // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<ecs::MeshAnimationComponent>(entity)) {
-            scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
-        }
-        else {
-            mesh.vertexBuffer.bind();
-        }
-        mesh.indexBuffer.bind();
-        glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
-    }
-
-    // disable stencil stuff
-    glStencilFunc(GL_ALWAYS, 0, 0xFFFF);  // Set any stencil to 0
-    glDisable(GL_STENCIL_TEST);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void ForwardLighting::createResources(Viewport& viewport) {
-    // init render targets
-    glCreateTextures(GL_TEXTURE_2D, 1, &result);
-    glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glCreateRenderbuffers(1, &renderbuffer);
-    glNamedRenderbufferStorage(renderbuffer, GL_DEPTH32F_STENCIL8, viewport.size.x, viewport.size.y);
-
-    glCreateFramebuffers(1, &framebuffer);
-    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
-    glNamedFramebufferRenderbuffer(framebuffer, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, renderbuffer);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void ForwardLighting::deleteResources() {
-    glDeleteTextures(1, &result);
-    glDeleteRenderbuffers(1, &renderbuffer);
-    glDeleteFramebuffers(1, &framebuffer);
-}
-
-entt::entity ForwardLighting::pick(uint32_t x, uint32_t y) {
-    int id;
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glReadPixels(x, y, 1, 1, GL_STENCIL_INDEX, GL_INT, &id);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    return static_cast<entt::entity>(id);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-Sky::Sky(Viewport& viewport) {
-    std::vector<glShader::Stage> stages;
-    stages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\sky.vert");
-    stages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\sky.frag");
-    shader.reload(stages.data(), stages.size());
-    hotloader.watch(&shader, stages.data(), stages.size());
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &result);
-    glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    glCreateFramebuffers(1, &framebuffer);
-    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Sky::execute(Viewport& viewport, ecs::MeshComponent& quad) {
-    hotloader.changed();
-
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    shader.bind();
-    shader.getUniform("projection") = viewport.getCamera().getProjection();
-    shader.getUniform("view") = viewport.getCamera().getView();
-    shader.getUniform("time") = settings.time;
-    shader.getUniform("cirrus") = settings.cirrus;
-    shader.getUniform("cumulus") = settings.cumulus;
-
-    quad.vertexBuffer.bind();
-    quad.indexBuffer.bind();
-    glDrawElements(GL_TRIANGLES, (GLsizei)quad.indices.size(), GL_UNSIGNED_INT, nullptr);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 Skinning::Skinning() {
     std::vector<Shader::Stage> stages;
     stages.emplace_back(Shader::Type::COMPUTE, "shaders\\OpenGL\\skinning.comp");
@@ -1367,68 +1142,13 @@ void Skinning::execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& an
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Environment::execute(const std::string& file, ecs::MeshComponent& unitCube) {
-    stbi_set_flip_vertically_on_load(true);
-    int w, h, ch;
-    float* data = stbi_loadf(file.c_str(), &w, &h, &ch, 3);
-    if (!data) return;
-
-    unsigned int originalTexture;
-    glGenTextures(1, &originalTexture);
-    glBindTexture(GL_TEXTURE_2D, originalTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_FLOAT, data);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    stbi_image_free(data);
-
-    glCreateRenderbuffers(1, &captureRenderbuffer);
-    glNamedRenderbufferStorage(captureRenderbuffer, GL_DEPTH_COMPONENT24, 512, 512);
-
-    glCreateFramebuffers(1, &captureFramebuffer);
-    glNamedFramebufferRenderbuffer(captureFramebuffer, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, captureRenderbuffer);
-
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &envCubemap);
-    glTextureStorage3D(envCubemap, 1, GL_RGB16F, 512, 512, 6);
-
-    glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-    std::array<glm::mat4, 6> captureViews = {
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
-    };
-
-    toCubemapShader.bind();
-    toCubemapShader.getUniform("projection") = captureProjection;
-    glBindTextureUnit(originalTexture, 0);
-
-    glViewport(0, 0, 512, 512);
-    glBindFramebuffer(GL_FRAMEBUFFER, captureFramebuffer);
-
-    unitCube.vertexBuffer.bind();
-    unitCube.indexBuffer.bind();
-
-    for (unsigned int i = 0; i < 6; i++) {
-        toCubemapShader["view"] = captureViews[i];
-        glNamedFramebufferTexture(captureFramebuffer, GL_COLOR_ATTACHMENT0 + i, envCubemap, 0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glDrawElements(GL_TRIANGLES, (GLsizei)unitCube.indices.size(), GL_UNSIGNED_INT, nullptr);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 inline double random_double() {
     static std::uniform_real_distribution<double> distribution(0.0, 1.0);
     static std::mt19937 generator;
     return distribution(generator);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 inline double random_double(double min, double max) {
     static std::uniform_real_distribution<double> distribution(min, max);
@@ -1436,13 +1156,19 @@ inline double random_double(double min, double max) {
     return distribution(generator);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 inline glm::vec3 random_color() {
     return glm::vec3(random_double(), random_double(), random_double());
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 inline glm::vec3 random_color(double min, double max) {
     return glm::vec3(random_double(min, max), random_double(min, max), random_double(min, max));
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 RayCompute::RayCompute(Viewport& viewport) {
     std::vector<Shader::Stage> stages;

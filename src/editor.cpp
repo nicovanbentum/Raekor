@@ -11,30 +11,11 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
     gui::setFont(settings.font.c_str());
     gui::setTheme(settings.themeColors);
 
-    // create quad for render passes
-    for (const auto& v : quadVertices) {
-        quad.positions.push_back(v.pos);
-        quad.uvs.push_back(v.uv);
-        quad.normals.push_back(v.normal);
-        quad.tangents.push_back(v.tangent);
-        quad.bitangents.push_back(v.binormal);
-    }
-
-    for (const auto& i : quadIndices) {
-        quad.indices.push_back(i.p1);
-        quad.indices.push_back(i.p2);
-        quad.indices.push_back(i.p3);
-    }
-
-    quad.uploadVertices();
-    quad.uploadIndices();
-
     skinningPass            = std::make_unique<RenderPass::Skinning>();
     voxelizationPass        = std::make_unique<RenderPass::Voxelization>(128);
     shadowMapPass           = std::make_unique<RenderPass::ShadowMap>(4096, 4096);
     tonemappingPass         = std::make_unique<RenderPass::Tonemapping>(viewport);
     geometryBufferPass      = std::make_unique<RenderPass::GeometryBuffer>(viewport);
-    fowardLightingPass      = std::make_unique<RenderPass::ForwardLighting>(viewport);
     DeferredLightingPass    = std::make_unique<RenderPass::DeferredLighting>(viewport);
     boundingBoxDebugPass    = std::make_unique<RenderPass::BoundingBoxDebug>(viewport);
     voxelizationDebugPass   = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
@@ -87,8 +68,8 @@ void EditorOpenGL::update(double dt) {
     glViewport(0, 0, viewport.size.x, viewport.size.y);
 
     geometryBufferPass->execute(scene, viewport);
-    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), quad);
-    tonemappingPass->execute(DeferredLightingPass->result, quad, DeferredLightingPass->bloomHighlights);
+    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get());
+    tonemappingPass->execute(DeferredLightingPass->result, DeferredLightingPass->bloomHighlights);
 
     if (active != entt::null) {
         boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->depthTexture, active);
@@ -290,9 +271,6 @@ void EditorOpenGL::update(double dt) {
         // resizing framebuffers
         DeferredLightingPass->deleteResources();
         DeferredLightingPass->createResources(viewport);
-
-        fowardLightingPass->deleteResources();
-        fowardLightingPass->createResources(viewport);
 
         boundingBoxDebugPass->deleteResources();
         boundingBoxDebugPass->createResources(viewport);
