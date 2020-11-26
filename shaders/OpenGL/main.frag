@@ -37,6 +37,8 @@ uniform int directionalLightCount;
 
 uniform float voxelsWorldSize;
 
+uniform mat4 invViewProjection;
+
 // in vars
 layout(location = 0) in vec2 uv;
 
@@ -53,6 +55,7 @@ layout(binding = 2) uniform sampler2D gPositions;
 layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 7) uniform sampler2D gMetallicRoughness;
+layout(binding = 8) uniform sampler2D gDepth;
 
 // previous render pass attachments
 layout(binding = 5) uniform sampler2D SSAO;
@@ -247,6 +250,16 @@ vec3 fresnelSchlickRoughness(vec3 F0, float cosTheta, float roughness)
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 } 
 
+vec3 reconstructPosition(in vec2 uv, in float depth, in mat4 InvVP) {
+  float x = uv.x * 2.0f - 1.0f;
+  float y = (uv.y) * 2.0f - 1.0f; // uv.y * -1 for d3d
+  float z = depth * 2.0 - 1.0f;
+  vec4 position_s = vec4(x, y, z, 1.0f);
+  vec4 position_v = InvVP * position_s;
+  vec3 div = position_v.xyz / position_v.w;
+  return div;
+}
+
 void main() {
     VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
@@ -256,7 +269,9 @@ void main() {
     float roughness = metallicRoughness.g;
 
 	normal = normalize(texture(gNormals, uv).xyz);
-	position = texture(gPositions, uv).xyz;
+
+    float depth = texture(gDepth, uv).r;
+    position = reconstructPosition(uv, depth, invViewProjection);
 
     vec4 depthPosition = ubo.lightSpaceMatrix * texture(gPositions, uv);
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;

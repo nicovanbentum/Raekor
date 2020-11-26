@@ -237,7 +237,7 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
             else glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
 
             if (material->normals) glBindTextureUnit(3, material->normals);
-            glBindTextureUnit(3, ecs::MaterialComponent::Default.normals);
+            else glBindTextureUnit(3, ecs::MaterialComponent::Default.normals);
 
             if (material->metalrough) glBindTextureUnit(4, material->metalrough);
             else glBindTextureUnit(4, ecs::MaterialComponent::Default.metalrough);
@@ -291,29 +291,20 @@ void GeometryBuffer::createResources(Viewport& viewport) {
     glTextureParameteri(albedoTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(albedoTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    glCreateTextures(GL_TEXTURE_2D, 1, &positionTexture);
-    glTextureStorage2D(positionTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(positionTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(positionTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(positionTexture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(positionTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(positionTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
     glCreateTextures(GL_TEXTURE_2D, 1, &materialTexture);
     glTextureStorage2D(materialTexture, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(positionTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(positionTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(materialTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(materialTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &depthTexture);
     glTextureStorage2D(depthTexture, 1, GL_DEPTH_COMPONENT32F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(positionTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(positionTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(depthTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(depthTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glCreateFramebuffers(1, &GBuffer);
-    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT0, positionTexture, 0);
-    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT1, normalTexture, 0);
-    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT2, albedoTexture, 0);
-    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT3, materialTexture, 0);
+    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT0, normalTexture, 0);
+    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT1, albedoTexture, 0);
+    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT2, materialTexture, 0);
 
     std::array<GLenum, 4> colorAttachments = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
     glNamedFramebufferDrawBuffers(GBuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
@@ -323,7 +314,7 @@ void GeometryBuffer::createResources(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GeometryBuffer::deleteResources() {
-    std::array<unsigned int, 5> textures = { albedoTexture, normalTexture, positionTexture, materialTexture, depthTexture };
+    std::array<unsigned int, 4> textures = { albedoTexture, normalTexture, materialTexture, depthTexture };
     glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
     glDeleteFramebuffers(1, &GBuffer);
 }
@@ -380,7 +371,6 @@ ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(Viewport& viewport) {
 
 void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* geometryPass) {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glBindTextureUnit(0, geometryPass->positionTexture);
     glBindTextureUnit(1, geometryPass->normalTexture);
     glBindTextureUnit(2, noiseTexture);
     
@@ -490,43 +480,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
                                 GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels) {
     hotloader.changed();
 
-    // bind the main framebuffer
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    // set uniforms
-    shader.bind();
-    shader.getUniform("sunColor") = settings.sunColor;
-    shader.getUniform("minBias") = settings.minBias;
-    shader.getUniform("maxBias") = settings.maxBias;
-    shader.getUniform("farPlane") = settings.farPlane;
-    shader.getUniform("bloomThreshold") = settings.bloomThreshold;
-
-    shader.getUniform("pointLightCount") = static_cast<uint32_t>(sscene.view<ecs::PointLightComponent>().size());
-    shader.getUniform("directionalLightCount") = static_cast<uint32_t>(sscene.view<ecs::DirectionalLightComponent>().size());
-
-    shader.getUniform("voxelsWorldSize") = voxels->worldSize;
-
-    // bind textures to shader binding slots
-    glBindTextureUnit(0, shadowMap->result);
-    
-    if (omniShadowMap) {
-        glBindTextureUnit(1, omniShadowMap->result);
-    }
-
-    glBindTextureUnit(2, GBuffer->positionTexture);
-    glBindTextureUnit(3, GBuffer->albedoTexture);
-    glBindTextureUnit(4, GBuffer->normalTexture);
-
-    if (ambientOcclusion) {
-        glBindTextureUnit(5, ambientOcclusion->result);
-    }
-
-    glBindTextureUnit(6, voxels->result);
-    glBindTextureUnit(7, GBuffer->materialTexture);
-    glBindTextureUnit(8, GBuffer->depthTexture);
-
-    // update the uniform buffer CPU side
+    // update the uniform buffer
     uniforms.view = viewport.getCamera().getView();
     uniforms.projection = viewport.getCamera().getProjection();
 
@@ -542,7 +496,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
 
             light.buffer.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
             uniforms.dirLights[0] = light.buffer;
-        }  else {
+        } else {
             auto light = ecs::DirectionalLightComponent();
             light.buffer.direction.y = -0.9f;
             uniforms.dirLights[0] = light.buffer;
@@ -567,8 +521,52 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
     uniforms.lightSpaceMatrix = shadowMap->uniforms.cameraMatrix;
 
-    // update uniform buffer GPU side
+    // update uniforms GPU side
     uniformBuffer.update(&uniforms, sizeof(uniforms));
+
+    // bind the main framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // set uniforms
+    shader.bind();
+    shader.getUniform("sunColor") = settings.sunColor;
+    shader.getUniform("minBias") = settings.minBias;
+    shader.getUniform("maxBias") = settings.maxBias;
+    shader.getUniform("farPlane") = settings.farPlane;
+    shader.getUniform("bloomThreshold") = settings.bloomThreshold;
+
+    shader.getUniform("pointLightCount") = static_cast<uint32_t>(sscene.view<ecs::PointLightComponent>().size());
+    shader.getUniform("directionalLightCount") = static_cast<uint32_t>(sscene.view<ecs::DirectionalLightComponent>().size());
+
+    shader.getUniform("voxelsWorldSize") = voxels->worldSize;
+
+    // TODO: why on earth does this need to be here?? If I just do:
+    // inverse(projection * view) in the shader we get shadow flickering.
+    // Probably something to do with how the uniform buffer is updated?
+    shader.getUniform("invViewProjection") = glm::inverse(uniforms.projection * uniforms.view);
+
+    // bind textures to shader binding slots
+    glBindTextureUnit(0, shadowMap->result);
+    
+    if (omniShadowMap) {
+        glBindTextureUnit(1, omniShadowMap->result);
+    }
+
+    glBindTextureUnit(3, GBuffer->albedoTexture);
+    glBindTextureUnit(4, GBuffer->normalTexture);
+
+    if (ambientOcclusion) {
+        glBindTextureUnit(5, ambientOcclusion->result);
+    }
+
+    glBindTextureUnit(6, voxels->result);
+    glBindTextureUnit(7, GBuffer->materialTexture);
+    glBindTextureUnit(8, GBuffer->depthTexture);
+
+
+
+    // update uniform buffer GPU side
     uniformBuffer.bind(0);
 
     // perform lighting pass and unbind

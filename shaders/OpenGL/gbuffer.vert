@@ -10,12 +10,11 @@ uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
 
-out vec3 pos;
 out vec2 uv;
 out mat3 TBN;
 
 void main() {
-	pos = vec3(model * vec4(v_pos, 1.0));
+	vec3 pos = vec3(model * vec4(v_pos, 1.0));
 	gl_Position = projection * view * vec4(pos, 1.0);
 
     vec3 v_binormal = cross(v_normal, v_tangent);

@@ -3,10 +3,9 @@
 // TODO: optimize by packing more data per byte
 // MRT texture output 
 // NOTE: always render to 1, 2 or 4 component vectors
-layout(location = 0) out vec4 gPosition;
-layout(location = 1) out vec4 gNormal;
-layout(location = 2) out vec4 gColor;
-layout(location = 3) out vec4 gMetallicRoughness;
+layout(location = 0) out vec4 gNormal;
+layout(location = 1) out vec4 gColor;
+layout(location = 2) out vec4 gMetallicRoughness;
 
 // constant mesh values
 layout(binding = 0) uniform sampler2D meshTexture;
@@ -17,7 +16,6 @@ uniform vec4 colour;
 
 uniform uint entity;
 
-in vec3 pos;
 in vec2 uv;
 in mat3 TBN;
 
@@ -30,9 +28,6 @@ void main() {
 	vec3 glNormal = sampledNormal.xyz * 2.0 - 1.0;
     vec3 normal = TBN * glNormal;
 	gNormal = vec4(normal, 1.0);
-
-	// positional data comes in from the vertex shader
-	gPosition = vec4(pos, 1.0);
 
     gMetallicRoughness = texture(metalroughTexture, uv);
     gMetallicRoughness.b = entity;

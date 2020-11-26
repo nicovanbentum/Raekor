@@ -176,8 +176,6 @@ void EditorOpenGL::update(double dt) {
             activeScreenTexture = geometryBufferPass->normalTexture;
         if (ImGui::Selectable(nameof(geometryBufferPass->materialTexture), activeScreenTexture == geometryBufferPass->materialTexture))
             activeScreenTexture = geometryBufferPass->materialTexture;
-        if (ImGui::Selectable(nameof(geometryBufferPass->positionTexture), activeScreenTexture == geometryBufferPass->positionTexture))
-            activeScreenTexture = geometryBufferPass->positionTexture;
         if (ImGui::Selectable(nameof(DeferredLightingPass->bloomHighlights), activeScreenTexture == DeferredLightingPass->bloomHighlights))
             activeScreenTexture = DeferredLightingPass->bloomHighlights;
         if (ImGui::Selectable(nameof(DeferredLightingPass->result), activeScreenTexture == DeferredLightingPass->result))

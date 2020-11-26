@@ -77,7 +77,7 @@ private:
     unsigned int GBuffer;
   
 public:
-    unsigned int albedoTexture, normalTexture, positionTexture, materialTexture;
+    unsigned int albedoTexture, normalTexture, materialTexture;
     unsigned int depthTexture;
 };
 
