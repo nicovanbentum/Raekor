@@ -12,14 +12,14 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
     gui::setTheme(settings.themeColors);
 
     skinningPass            = std::make_unique<RenderPass::Skinning>();
-    voxelizationPass        = std::make_unique<RenderPass::Voxelization>(256);
-    shadowMapPass           = std::make_unique<RenderPass::ShadowMap>(4096, 4096);
+    voxelizationPass        = std::make_unique<RenderPass::Voxelization>(128);
     tonemappingPass         = std::make_unique<RenderPass::Tonemapping>(viewport);
     geometryBufferPass      = std::make_unique<RenderPass::GeometryBuffer>(viewport);
     DeferredLightingPass    = std::make_unique<RenderPass::DeferredLighting>(viewport);
     boundingBoxDebugPass    = std::make_unique<RenderPass::BoundingBoxDebug>(viewport);
     voxelizationDebugPass   = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
     bloomPass               = std::make_unique<RenderPass::Bloom>(viewport);
+    rayTracedShadowPass     = std::make_unique<RenderPass::RayTracedShadows>(viewport);
 
     // keep a pointer to the texture that's rendered to the window
     activeScreenTexture = tonemappingPass->result;
@@ -32,6 +32,9 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
             scene.openFromFile(settings.defaultScene);
         }
     }
+
+    // we probably crash here
+    rayTracedShadowPass->createAccelerationStructure(scene);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -58,21 +61,21 @@ void EditorOpenGL::update(double dt) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // generate sun shadow map 
-    glViewport(0, 0, 4096, 4096);
-    shadowMapPass->execute(scene);
+    glViewport(0, 0, viewport.size.x, viewport.size.y);
+    geometryBufferPass->execute(scene, viewport, rayTracedShadowPass->depthTexture);
+    
+    auto light = scene->raw<ecs::DirectionalLightComponent>()[0];
+    rayTracedShadowPass->execute(viewport, light);
 
     if (shouldVoxelize) {
-        voxelizationPass->execute(scene, viewport, shadowMapPass.get());
+        voxelizationPass->execute(scene, viewport, rayTracedShadowPass->shadowTexture);
     }
 
-    glViewport(0, 0, viewport.size.x, viewport.size.y);
-
-    geometryBufferPass->execute(scene, viewport);
-    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get());
+    DeferredLightingPass->execute(scene, viewport, geometryBufferPass.get(), voxelizationPass.get(), rayTracedShadowPass->depthTexture, rayTracedShadowPass->shadowTexture);
     tonemappingPass->execute(DeferredLightingPass->result, DeferredLightingPass->bloomHighlights);
 
     if (active != entt::null) {
-        boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->depthTexture, active);
+        boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, rayTracedShadowPass->depthTexture, active);
     }
 
     if (debugVoxels) {
@@ -163,6 +166,11 @@ void EditorOpenGL::update(double dt) {
         shouldVoxelize = !shouldVoxelize;
     }
 
+    if (ImGui::Button("Build AS")) {
+        rayTracedShadowPass->clearAccelerationStructure();
+        rayTracedShadowPass->createAccelerationStructure(scene);
+    }
+
     ImGui::DragFloat("Coverage", &voxelizationPass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
 
     ImGui::Separator();
@@ -180,6 +188,11 @@ void EditorOpenGL::update(double dt) {
             activeScreenTexture = DeferredLightingPass->bloomHighlights;
         if (ImGui::Selectable(nameof(DeferredLightingPass->result), activeScreenTexture == DeferredLightingPass->result))
             activeScreenTexture = DeferredLightingPass->result;
+        if (ImGui::Selectable(nameof(rayTracedShadowPass->shadowTexture), activeScreenTexture == rayTracedShadowPass->shadowTexture))
+            activeScreenTexture = rayTracedShadowPass->shadowTexture;
+        if (ImGui::Selectable(nameof(rayTracedShadowPass->depthTexture), activeScreenTexture == rayTracedShadowPass->depthTexture))
+            activeScreenTexture = rayTracedShadowPass->depthTexture;
+
         ImGui::TreePop();
     }
 
@@ -188,10 +201,10 @@ void EditorOpenGL::update(double dt) {
     ImGui::Text("Shadow Mapping");
     ImGui::Separator();
 
-    if (ImGui::DragFloat2("Planes", glm::value_ptr(shadowMapPass->settings.planes), 0.1f)) {}
-    if (ImGui::DragFloat("Size", &shadowMapPass->settings.size)) {}
-    if (ImGui::DragFloat("Bias constant", &shadowMapPass->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Bias slope factor", &shadowMapPass->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    //if (ImGui::DragFloat2("Planes", glm::value_ptr(shadowMapPass->settings.planes), 0.1f)) {}
+    //if (ImGui::DragFloat("Size", &shadowMapPass->settings.size)) {}
+    //if (ImGui::DragFloat("Bias constant", &shadowMapPass->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    //if (ImGui::DragFloat("Bias slope factor", &shadowMapPass->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
 
     ImGui::NewLine();
     ImGui::Separator();
@@ -284,6 +297,10 @@ void EditorOpenGL::update(double dt) {
 
         bloomPass->deleteResources();
         bloomPass->createResources(viewport);
+
+        rayTracedShadowPass->destroyResources();
+        rayTracedShadowPass->createResources(viewport);
+
     }
 }
 

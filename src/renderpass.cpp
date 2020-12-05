@@ -194,11 +194,20 @@ GeometryBuffer::~GeometryBuffer() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
+void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport, unsigned int depthTextureEXT) {
     hotloader.changed();
 
     glBindFramebuffer(GL_FRAMEBUFFER, GBuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    if (depthTextureEXT) {
+        int w, h;
+        int miplevel = 0;
+        glGetTextureLevelParameteriv(depthTextureEXT, 0, GL_TEXTURE_WIDTH, &w);
+        glGetTextureLevelParameteriv(depthTextureEXT, 0, GL_TEXTURE_HEIGHT, &h);
+
+        glNamedFramebufferTexture(GBuffer, GL_DEPTH_ATTACHMENT, depthTextureEXT, 0);
+    }
 
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
@@ -476,8 +485,7 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels) {
+void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, GeometryBuffer* GBuffer, Voxelization* voxels, unsigned int depthTextureEXT, unsigned int shadowTexture) {
     hotloader.changed();
 
     // update the uniform buffer
@@ -519,7 +527,6 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     }
 
     uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
-    uniforms.lightSpaceMatrix = shadowMap->uniforms.cameraMatrix;
 
     // update uniforms GPU side
     uniformBuffer.update(&uniforms, sizeof(uniforms));
@@ -547,22 +554,20 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     shader.getUniform("invViewProjection") = glm::inverse(uniforms.projection * uniforms.view);
 
     // bind textures to shader binding slots
-    glBindTextureUnit(0, shadowMap->result);
-    
-    if (omniShadowMap) {
-        glBindTextureUnit(1, omniShadowMap->result);
-    }
+    glBindTextureUnit(0, shadowTexture);
 
     glBindTextureUnit(3, GBuffer->albedoTexture);
     glBindTextureUnit(4, GBuffer->normalTexture);
 
-    if (ambientOcclusion) {
-        glBindTextureUnit(5, ambientOcclusion->result);
-    }
-
     glBindTextureUnit(6, voxels->result);
     glBindTextureUnit(7, GBuffer->materialTexture);
-    glBindTextureUnit(8, GBuffer->depthTexture);
+
+    if (depthTextureEXT) {
+        glBindTextureUnit(8, depthTextureEXT);
+    } else {
+        glBindTextureUnit(8, GBuffer->depthTexture);
+    }
+
 
 
 
@@ -791,7 +796,7 @@ void Voxelization::correctOpacity(unsigned int texture) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap) {
+void Voxelization::execute(entt::registry& scene, Viewport& viewport, unsigned int shadowTexture) {
     hotloader.changed();
 
     // left, right, bottom, top, zNear, zFar
@@ -816,9 +821,7 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
     // bind shader and level 0 of the voxel volume
     shader.bind();
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32UI);
-    glBindTextureUnit(2, shadowmap->result);
-
-    shader.getUniform("lightViewProjection") = shadowmap->uniforms.cameraMatrix;
+    glBindTextureUnit(2, shadowTexture);
 
     auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 

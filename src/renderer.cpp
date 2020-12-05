@@ -19,7 +19,7 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
             case 131218: return; // shader state recompilation
 #ifndef NDEBUG
             default:
-                assert(false);
+                if(type == GL_DEBUG_TYPE_ERROR) assert(false);
 #endif
         }
     }

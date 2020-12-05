@@ -1,0 +1,65 @@
+#version 460
+
+#extension GL_NV_ray_tracing : require
+
+layout(binding = 0, set = 0) uniform accelerationStructureNV AS;
+
+layout(binding = 1, set = 0, rgba8) uniform writeonly image2D shadowTexture;
+
+layout(binding = 2, set = 0) uniform sampler2D depthTexture;
+
+layout(location = 0) rayPayloadNV vec3 payload;
+
+layout(push_constant) uniform pushConstants {
+    vec4 light_direction;
+    mat4 inverseViewProjection;
+} pc;
+
+vec3 worldPosFromDepth(vec2 uv, float depth) {
+    vec4 clipPos = vec4(uv * 2.0 - vec2(1.0), 2.0 * depth - 1.0, 1.0);
+    vec4 worldPos = pc.inverseViewProjection * clipPos;
+    return(worldPos.xyz / worldPos.w);
+}
+
+vec3 reconstructPosition(in vec2 uv, in float depth, in mat4 InvVP) {
+  float x = uv.x * 2.0f - 1.0f;
+  float y = (uv.y) * 2.0f - 1.0f; // uv.y * -1 for d3d
+  float z = depth * 2.0 - 1.0f;
+  vec4 position_s = vec4(x, y, z, 1.0f);
+  vec4 position_v = InvVP * position_s;
+  vec3 div = position_v.xyz / position_v.w;
+  return div;
+}
+
+void main() {
+    const vec2 pixelCenter = vec2(gl_LaunchIDNV.xy) + vec2(0.5);
+    const vec2 uv = pixelCenter/vec2(gl_LaunchSizeNV.xy);
+
+    uint rayFlags = gl_RayFlagsOpaqueNV;
+    float tMin = 0.001;
+    float tMax = 10000.0;
+
+    // sample the current depth
+    float depth = texture(depthTexture, uv).r;
+
+    // if the current pixel was never rendered to early out
+    if(depth == 1.0 || depth > 0.99999) {
+        imageStore(shadowTexture, ivec2(gl_LaunchIDNV.xy), vec4(0));
+        return;
+    }
+
+    // reconstruct world position of pixel
+    vec3 origin = reconstructPosition(uv, depth, pc.inverseViewProjection);
+
+    // ray direction is the inverse of the light direction
+    vec3 direction = normalize(-pc.light_direction.xyz);
+
+    // everything is considered in shadow until we miss any geometry
+    payload = vec3(0);
+
+    traceNV(AS, rayFlags, 0xFF, 0, 0, 0, origin, tMin, direction, tMax, 0);
+
+    // store either the original 0, or 1 if the miss shader executed
+    // if the miss shader executes it means it was able to 'reach' the light from the current pixel's position
+    imageStore(shadowTexture, ivec2(gl_LaunchIDNV.xy), vec4(payload, 1.0));
+}

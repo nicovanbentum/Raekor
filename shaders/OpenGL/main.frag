@@ -47,11 +47,9 @@ layout (location = 0) out vec4 finalColor;
 layout (location = 1) out vec4 bloomColor;
 
 // shadow maps
-layout(binding = 0) uniform sampler2DShadow shadowMap;
-layout(binding = 1) uniform samplerCube shadowMapOmni;
+layout(binding = 0) uniform sampler2D rtShadows;
 
 // GBUFFER textures
-layout(binding = 2) uniform sampler2D gPositions;
 layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 7) uniform sampler2D gMetallicRoughness;
@@ -114,7 +112,7 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
     float voxelSize = voxelsWorldSize / VoxelDimensions;
      // start one voxel away from the current vertex' position
     float dist = voxelSize; 
-    vec3 startPos = p + n * voxelSize * 2 * sqrt(2); 
+    vec3 startPos = p + n * voxelSize; 
     
     while(dist <= voxelsWorldSize && colour.a < 1.0) {
         float diameter = max(voxelSize, 2 * coneAperture * dist);
@@ -166,31 +164,6 @@ vec4 coneTraceReflection(in vec3 P, in vec3 N, in vec3 V, in float roughness, ou
 
     vec4 reflection = coneTrace(P, N, coneDirection, aperture, occlusion);
     return vec4(max(vec3(0), reflection.rgb), clamp(reflection.a, 0, 1));
-}
-
-float getShadow(DirectionalLight light, vec3 position) {
-    vec4 FragPosLightSpace = ubo.lightSpaceMatrix * vec4(position, 1.0);
-    FragPosLightSpace.xyz = FragPosLightSpace.xyz * 0.5 + 0.5;
-
-    float currentDepth = FragPosLightSpace.z;
-
-	vec3 direction = normalize(-light.direction.xyz);
-    
-	// simplest PCF algorithm
-    float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for(int x = -3; x <= 3; ++x) {
-        for(int y = -3; y <= 3; ++y) {
-            float pcfDepth = texture(shadowMap, vec3(FragPosLightSpace.xy + vec2(x, y) * texelSize, (FragPosLightSpace.z)/FragPosLightSpace.w)).r; 
-            shadow += currentDepth > pcfDepth  ? 1.0 : 0.0;    
-        }    
-    }
-    shadow /= 49.0;
-    
-    // keep the shadow at 0.0 when outside the far plane region of the light's frustum
-    if(FragPosLightSpace.z > 1.0) shadow = 0.0;
-        
-    return shadow;
 }
 
 // GGX/Towbridge-Reitz normal distribution function.
@@ -261,6 +234,8 @@ vec3 reconstructPosition(in vec2 uv, in float depth, in mat4 InvVP) {
 }
 
 void main() {
+    float shadowAmount = texture(rtShadows, uv).r;
+
     VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
 
@@ -273,12 +248,7 @@ void main() {
     float depth = texture(gDepth, uv).r;
     position = reconstructPosition(uv, depth, invViewProjection);
 
-    vec4 depthPosition = ubo.lightSpaceMatrix * texture(gPositions, uv);
-    depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
-
     DirectionalLight light = ubo.dirLights[0];
-    //float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
-    float shadowAmount = 1.0 - getShadow(light, position);
 
     vec3 Li = normalize(-light.direction.xyz);
     vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);

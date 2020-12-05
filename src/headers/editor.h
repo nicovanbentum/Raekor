@@ -31,6 +31,8 @@ private:
     std::unique_ptr<RenderPass::BoundingBoxDebug>   boundingBoxDebugPass;
     std::unique_ptr<RenderPass::VoxelizationDebug>  voxelizationDebugPass;
 
+    std::unique_ptr<RenderPass::RayTracedShadows>   rayTracedShadowPass;
+
     bool mouseInViewport = false;
     bool doSSAO = false, doBloom = false, debugVoxels = false;
     bool shouldVoxelize = true, gizmoEnabled = false, showSettingsWindow = false;
