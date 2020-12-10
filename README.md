@@ -1,7 +1,7 @@
 # Raekor Renderer
 
-![image](https://i.imgur.com/iv3ytur.jpg)
-*Crytek's Sponza with specularity turned all the way up on every material.*
+![image](https://i.imgur.com/2PCUuBm.png)
+*Crytek's Sponza with hard ray traced shadows using Vulkan.*
 
 # Build
 
