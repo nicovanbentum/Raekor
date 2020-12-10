@@ -185,6 +185,11 @@ void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::reg
     ImGui::SameLine();
     if (ImGui::SmallButton("... ## metallic roughness")) {
         std::string filepath = OS::openFileDialog(fileFilters);
+        if (!filepath.empty()) {
+            Stb::Image image;
+            image.load(filepath, true);
+            component.createMetalRoughTexture(image);
+        }
     }
 
 }
@@ -540,7 +545,7 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
             }
 
             if (ImGui::MenuItem("Load model..")) {
-                std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
+                std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.glb)\0*.gltf;*.fbx;*.glb\0");
                 if (!filepath.empty()) {
                     AssimpImporter::loadFile(scene, filepath);
                 }

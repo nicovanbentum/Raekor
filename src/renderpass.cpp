@@ -796,7 +796,7 @@ void Voxelization::correctOpacity(unsigned int texture) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Voxelization::execute(entt::registry& scene, Viewport& viewport, unsigned int shadowTexture) {
+void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap) {
     hotloader.changed();
 
     // left, right, bottom, top, zNear, zFar
@@ -821,7 +821,9 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, unsigned i
     // bind shader and level 0 of the voxel volume
     shader.bind();
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32UI);
-    glBindTextureUnit(2, shadowTexture);
+    glBindTextureUnit(2, shadowmap->result);
+
+    shader.getUniform("lightViewProjection") = shadowmap->uniforms.cameraMatrix;
 
     auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
@@ -937,6 +939,8 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport, uint32_t voxelTextureSi
     indexBuffer.loadIndices(indexBufferData.data(), indexBufferData.size());
     indexCount = static_cast<uint32_t>(indexBufferData.size());
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxelization* voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
@@ -1279,6 +1283,139 @@ void RayCompute::deleteResources() {
     glDeleteTextures(1, &result);
     glDeleteTextures(1, &finalResult);
     glDeleteBuffers(1, &sphereBuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+RayTracedShadows::RayTracedShadows(Viewport& viewport) {
+    scat.init(viewport.size.x, viewport.size.y);
+    createResources(viewport);
+
+    readyHandle = scat.getReadySemaphoreHandle();
+    doneHandle = scat.getDoneSemaphoreHandle();
+
+    glGenSemaphoresEXT(1, &readySemaphore);
+    glGenSemaphoresEXT(1, &completeSemaphore);
+    glImportSemaphoreWin32HandleEXT(readySemaphore, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, readyHandle);
+    glImportSemaphoreWin32HandleEXT(completeSemaphore, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, doneHandle);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+RayTracedShadows::~RayTracedShadows() {
+    CloseHandle(readyHandle);
+    CloseHandle(doneHandle);
+    CloseHandle(depthHandle);
+    CloseHandle(shadowHandle);
+
+    //scat.destroyTextures();
+    glDeleteTextures(1, &depthTexture);
+    glDeleteMemoryObjectsEXT(1, &depthTextureMemory);
+
+    glDeleteTextures(1, &shadowTexture);
+    glDeleteMemoryObjectsEXT(1, &shadowTextureMemory);
+
+    glDeleteSemaphoresEXT(1, &readySemaphore);
+    glDeleteSemaphoresEXT(1, &completeSemaphore);
+
+    scat.destroy();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RayTracedShadows::createAccelerationStructure(entt::registry& scene) {
+    // set the vertex input state
+    scat.setVertexOffset(0);
+    scat.setVertexStride(sizeof(float) * 3);
+    scat.setIndexFormat(scatter::IndexFormat::UINT32);
+    scat.setVertexFormat(scatter::VertexFormat::R32G32B32_SFLOAT);
+
+    // loop over all scene geometry and make a single BLAS per mesh
+    // scatter has a single TLAS of BLAS's, with single instances
+    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
+
+    for (entt::entity entity : view) {
+        ecs::MeshComponent& mesh = view.get<ecs::MeshComponent>(entity);
+        ecs::TransformComponent& transform = view.get<ecs::TransformComponent>(entity);
+
+        uint64_t blasHandle = scat.addMesh(mesh.positions.data(), mesh.indices.data(),
+            (unsigned int)mesh.positions.size(), (unsigned int)mesh.indices.size());
+
+        // GLM is column major, vulkan wants row major
+        auto transposed = glm::transpose(transform.matrix); 
+
+        scat.addInstance(blasHandle, glm::value_ptr(transposed));
+    }
+
+    // build the acceleration structure
+    scat.build();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RayTracedShadows::clearAccelerationStructure() {
+    scat.clear();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RayTracedShadows::createResources(Viewport& viewport) {
+    scat.createTextures(viewport.size.x, viewport.size.y);
+
+    depthHandle = scat.getDepthTextureMemoryhandle();
+    const auto depthSize = scat.getDepthTextureMemorySize();
+
+    shadowHandle = scat.getShadowTextureMemoryHandle();
+    auto shadowSize = scat.getShadowTextureMemorySize();
+
+    glCreateMemoryObjectsEXT(1, &depthTextureMemory);
+    glImportMemoryWin32HandleEXT(depthTextureMemory, depthSize, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, depthHandle);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &depthTexture);
+    glTextureStorageMem2DEXT(depthTexture, 1, GL_DEPTH_COMPONENT32F, viewport.size.x, viewport.size.y, depthTextureMemory, 0);
+    glTextureParameteri(depthTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(depthTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateMemoryObjectsEXT(1, &shadowTextureMemory);
+    glImportMemoryWin32HandleEXT(shadowTextureMemory, shadowSize, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, shadowHandle);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &shadowTexture);
+    glTextureStorageMem2DEXT(shadowTexture, 1, GL_RGBA8, viewport.size.x, viewport.size.y, shadowTextureMemory, 0);
+    glTextureParameteri(shadowTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(shadowTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RayTracedShadows::destroyResources() {
+    scat.destroyTextures();
+
+    glDeleteTextures(1, &depthTexture);
+    glDeleteMemoryObjectsEXT(1, &depthTextureMemory);
+
+    glDeleteTextures(1, &shadowTexture);
+    glDeleteMemoryObjectsEXT(1, &shadowTextureMemory);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RayTracedShadows::execute(Viewport& viewport, ecs::DirectionalLightComponent& light) {
+    // give scatter the camera's inverse view projection matrix
+    auto invViewProj = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
+    scat.setInverseViewProjectionMatrix(glm::value_ptr(invViewProj));
+
+    // set the light direction
+    scat.setLightDirection(light.buffer.direction.x, light.buffer.direction.y, light.buffer.direction.z);
+
+    GLuint textures[2] = { shadowTexture, depthTexture };
+    GLenum vkLayout[2] = { GL_LAYOUT_GENERAL_EXT, GL_LAYOUT_GENERAL_EXT };
+    glSignalSemaphoreEXT(readySemaphore, 0, nullptr, 2, textures, vkLayout);
+
+    // call vulkan submit
+    scat.submit(viewport.size.x, viewport.size.y);
+
+    GLenum glLayout[2] = { GL_LAYOUT_SHADER_READ_ONLY_EXT, GL_LAYOUT_DEPTH_STENCIL_ATTACHMENT_EXT };
+    glWaitSemaphoreEXT(completeSemaphore, 0, nullptr, 2, &depthTexture, glLayout);
 }
 
 } // renderpass

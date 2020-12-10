@@ -4,9 +4,11 @@ layout (triangles) in;
 layout (triangle_strip, max_vertices=3) out;
 
 in vec2 uvs[];
+in vec4 depthPositions[];
 
 out vec2 uv;
 out flat int axis;
+out vec4 depthPosition;
 
 uniform mat4 px;
 uniform mat4 py;
@@ -28,6 +30,7 @@ void main() {
     
     for(int i = 0; i < gl_in.length(); i++) {
         uv = uvs[i];
+        depthPosition = depthPositions[i];
         gl_Position = p * gl_in[i].gl_Position;
         EmitVertex();
     }

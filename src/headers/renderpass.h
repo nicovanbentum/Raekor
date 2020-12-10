@@ -161,7 +161,7 @@ public:
 class Voxelization {
 public:
     Voxelization(int size);
-    void execute(entt::registry& scene, Viewport& viewport, unsigned int shadowTexture);
+    void execute(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap);
 
 private:
     void computeMipmaps(unsigned int texture);
@@ -332,114 +332,29 @@ public:
 
 class RayTracedShadows {
 public:
-    RayTracedShadows(Viewport& viewport) {
-        scat.init(viewport.size.x, viewport.size.y);
-        createResources(viewport);
+    RayTracedShadows(Viewport& viewport);
+    ~RayTracedShadows();
 
-        auto readyHandle = scat.getReadySemaphoreHandle();
-        auto doneHandle = scat.getDoneSemaphoreHandle();
+    void createAccelerationStructure(entt::registry& scene);
+    void clearAccelerationStructure();
 
-        glGenSemaphoresEXT(1, &readySemaphore);
-        glGenSemaphoresEXT(1, &completeSemaphore);
-        glImportSemaphoreWin32HandleEXT(readySemaphore, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, readyHandle);
-        glImportSemaphoreWin32HandleEXT(completeSemaphore, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, doneHandle);
-    }
+    void createResources(Viewport& viewport);
+    void destroyResources();
 
-    void createAccelerationStructure(entt::registry& scene) {
-        // set the vertex input state
-        scat.setVertexOffset(0);
-        scat.setVertexStride(sizeof(float) * 3);
-        scat.setIndexFormat(scatter::IndexFormat::UINT32);
-        scat.setVertexFormat(scatter::VertexFormat::R32G32B32_SFLOAT);
-
-        // loop over all scene geometry and make a single BLAS per mesh
-        // scatter has a single TLAS of BLAS's, with single instances
-        auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
-
-        for (auto entity : view) {
-            auto& mesh = view.get<ecs::MeshComponent>(entity);
-            auto& transform = view.get<ecs::TransformComponent>(entity);
-
-            auto blasHandle = scat.addMesh(mesh.positions.data(), mesh.indices.data(), 
-                            mesh.positions.size(), mesh.indices.size());
-
-            scat.addInstance(blasHandle, glm::value_ptr(transform.matrix));
-        }
-
-        // build the acceleration structure
-        scat.build();
-    }
-
-    void clearAccelerationStructure() {
-        scat.clear();
-    }
-
-    void createResources(Viewport& viewport) {
-        scat.createTextures(viewport.size.x, viewport.size.y);
-
-        auto depthHandle = scat.getDepthTextureMemoryhandle();
-        const auto depthSize = scat.getDepthTextureMemorySize();
-
-        auto shadowHandle = scat.getShadowTextureMemoryHandle();
-        auto shadowSize = scat.getShadowTextureMemorySize();
-
-        glCreateMemoryObjectsEXT(1, &depthTextureMemory);
-        glImportMemoryWin32HandleEXT(depthTextureMemory, depthSize, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, depthHandle);
-
-        glCreateTextures(GL_TEXTURE_2D, 1, &depthTexture);
-        glTextureStorageMem2DEXT(depthTexture, 1, GL_DEPTH_COMPONENT32F, viewport.size.x, viewport.size.y, depthTextureMemory, 0);
-        glTextureParameteri(depthTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTextureParameteri(depthTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-        glCreateMemoryObjectsEXT(1, &shadowTextureMemory);
-        glImportMemoryWin32HandleEXT(shadowTextureMemory, shadowSize, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, shadowHandle);
-
-        glCreateTextures(GL_TEXTURE_2D, 1, &shadowTexture);
-        glTextureStorageMem2DEXT(shadowTexture, 1, GL_RGBA8, viewport.size.x, viewport.size.y, shadowTextureMemory, 0);
-        glTextureParameteri(shadowTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTextureParameteri(shadowTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }
-
-    void destroyResources() {
-        std::puts("DESTROYING");
-        scat.destroyTextures();
-
-        glDeleteTextures(1, &depthTexture);
-        glDeleteMemoryObjectsEXT(1, &depthTextureMemory);
-
-        glDeleteTextures(1, &shadowTexture);
-        glDeleteMemoryObjectsEXT(1, &shadowTextureMemory);
-    }
-
-    void execute(Viewport& viewport, ecs::DirectionalLightComponent& light) {
-        // give scatter the camera's inverse view projection matrix
-        auto invViewProj = glm::inverse(viewport.getCamera().getProjection()* viewport.getCamera().getView());
-        scat.setInverseViewProjectionMatrix(glm::value_ptr(invViewProj));
-
-        // set the light direction
-        scat.setLightDirection(light.buffer.direction.x, light.buffer.direction.y, light.buffer.direction.z);
-
-        GLuint textures[2] = { shadowTexture, depthTexture };
-        GLenum vkLayout[2] = { GL_LAYOUT_GENERAL_EXT, GL_LAYOUT_GENERAL_EXT };
-        glSignalSemaphoreEXT(readySemaphore, 0, nullptr, 2, textures, vkLayout);
-
-        // call vulkan submit
-        scat.submit(viewport.size.x, viewport.size.y);
-
-        GLenum glLayout[2] = { GL_LAYOUT_SHADER_READ_ONLY_EXT, GL_LAYOUT_DEPTH_STENCIL_ATTACHMENT_EXT };
-        glWaitSemaphoreEXT(completeSemaphore, 0, nullptr, 2, &depthTexture, glLayout);
-    }
+    void execute(Viewport& viewport, ecs::DirectionalLightComponent& light);
 
     GLuint shadowTexture;
     GLuint depthTexture;
+
 private:
     GLuint shadowTextureMemory;
-
     GLuint depthTextureMemory;
 
     GLuint readySemaphore;
     GLuint completeSemaphore;
 
+    HANDLE readyHandle, doneHandle;
+    HANDLE depthHandle, shadowHandle;
 
     scatter::Scatter scat;
 };

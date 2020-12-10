@@ -37,5 +37,7 @@ struct Frustrum {
 
 bool pointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max);
 
+bool vertexInPlane(const glm::vec4& plane, const glm::vec3& v);
+
 } // raekor
 } // math

@@ -4,10 +4,11 @@
 layout(binding = 0) uniform sampler2D albedo;
 layout(r32ui, binding = 1) uniform volatile coherent uimage3D voxels;
 
-layout(binding = 2) uniform sampler2D rtShadows;
+layout(binding = 2) uniform sampler2DShadow shadowMap;
 
 in vec2 uv;
 in flat int axis;
+in vec4 depthPosition;
 
 // SOURCE: https://www.seas.upenn.edu/~pcozzi/OpenGLInsights/OpenGLInsights-SparseVoxelization.pdf
 vec4 convRGBA8ToVec4(uint val)
@@ -51,7 +52,7 @@ void main() {
     const int dim = imageSize(voxels).x;
 
     // TODO: improve shadow sampling
-    float shadowAmount = texture(rtShadows, uv).r;
+    float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
 
 	ivec3 camPos = ivec3(gl_FragCoord.x, gl_FragCoord.y, dim * gl_FragCoord.z);
 	ivec3 voxelPosition;

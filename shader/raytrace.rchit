@@ -5,6 +5,5 @@
 layout(location = 0) rayPayloadInNV vec3 payload;
 
 void main() {
-    // debug colour
-    //payload = vec3(1, 0, 0);
+    payload = vec3(gl_HitTNV / 100.0f);
 }

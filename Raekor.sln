@@ -5,8 +5,6 @@ VisualStudioVersion = 16.0.30011.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Raekor", "Raekor.vcxproj", "{D188530A-1A5C-4AB6-A40D-A9673B9174CD}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Scatter", "..\vulkanOI\Scatter\Scatter\Scatter.vcxproj", "{A0B1DBEF-91F0-4291-8BD4-0B6288901481}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -17,10 +15,6 @@ Global
 		{D188530A-1A5C-4AB6-A40D-A9673B9174CD}.Debug|x64.Build.0 = Debug|x64
 		{D188530A-1A5C-4AB6-A40D-A9673B9174CD}.Release|x64.ActiveCfg = Release|x64
 		{D188530A-1A5C-4AB6-A40D-A9673B9174CD}.Release|x64.Build.0 = Release|x64
-		{A0B1DBEF-91F0-4291-8BD4-0B6288901481}.Debug|x64.ActiveCfg = Debug|x64
-		{A0B1DBEF-91F0-4291-8BD4-0B6288901481}.Debug|x64.Build.0 = Debug|x64
-		{A0B1DBEF-91F0-4291-8BD4-0B6288901481}.Release|x64.ActiveCfg = Release|x64
-		{A0B1DBEF-91F0-4291-8BD4-0B6288901481}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

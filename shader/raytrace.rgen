@@ -15,12 +15,6 @@ layout(push_constant) uniform pushConstants {
     mat4 inverseViewProjection;
 } pc;
 
-vec3 worldPosFromDepth(vec2 uv, float depth) {
-    vec4 clipPos = vec4(uv * 2.0 - vec2(1.0), 2.0 * depth - 1.0, 1.0);
-    vec4 worldPos = pc.inverseViewProjection * clipPos;
-    return(worldPos.xyz / worldPos.w);
-}
-
 vec3 reconstructPosition(in vec2 uv, in float depth, in mat4 InvVP) {
   float x = uv.x * 2.0f - 1.0f;
   float y = (uv.y) * 2.0f - 1.0f; // uv.y * -1 for d3d
@@ -35,7 +29,7 @@ void main() {
     const vec2 pixelCenter = vec2(gl_LaunchIDNV.xy) + vec2(0.5);
     const vec2 uv = pixelCenter/vec2(gl_LaunchSizeNV.xy);
 
-    uint rayFlags = gl_RayFlagsOpaqueNV;
+    uint rayFlags = gl_RayFlagsOpaqueNV | gl_RayFlagsSkipClosestHitShaderNV;
     float tMin = 0.001;
     float tMax = 10000.0;
 
@@ -43,13 +37,27 @@ void main() {
     float depth = texture(depthTexture, uv).r;
 
     // if the current pixel was never rendered to early out
-    if(depth == 1.0 || depth > 0.99999) {
+    if(depth >= 0.99999999) {
         imageStore(shadowTexture, ivec2(gl_LaunchIDNV.xy), vec4(0));
         return;
     }
 
     // reconstruct world position of pixel
     vec3 origin = reconstructPosition(uv, depth, pc.inverseViewProjection);
+
+    // get adjacent world positions to form a triangle
+    vec2 xuv = (pixelCenter + vec2(1.0, 0.0)) / gl_LaunchSizeNV.xy;
+    vec2 yuv = (pixelCenter + vec2(0.0, 1.0)) / gl_LaunchSizeNV.xy;
+
+    vec3 px = reconstructPosition(xuv, texture(depthTexture, xuv).r, pc.inverseViewProjection);
+    vec3 py = reconstructPosition(yuv, texture(depthTexture, yuv).r, pc.inverseViewProjection);
+
+    // reconstruct normal
+    vec3 tx = px - origin;
+    vec3 ty = py - origin;
+    vec3 normal = normalize(cross(tx, ty));
+
+    origin = origin + normal * 0.005;
 
     // ray direction is the inverse of the light direction
     vec3 direction = normalize(-pc.light_direction.xyz);

@@ -185,6 +185,13 @@ bool pointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& 
         (point.z >= min.z && point.z <= max.z);
 }
 
+bool vertexInPlane(const glm::vec4& plane, const glm::vec3& v) {
+    float d;
+    d = plane.x * v.x + plane.y * v.y + plane.z * v.z + plane.w;
+    if (d >= 0) return true;
+    return false;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 /*
     Fast Extraction of Viewing Frustum Planes from the World-View-Projection Matrix by G. Gribb & K. Hartmann 

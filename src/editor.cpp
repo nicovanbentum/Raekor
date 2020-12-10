@@ -12,7 +12,7 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
     gui::setTheme(settings.themeColors);
 
     skinningPass            = std::make_unique<RenderPass::Skinning>();
-    voxelizationPass        = std::make_unique<RenderPass::Voxelization>(128);
+    voxelizationPass        = std::make_unique<RenderPass::Voxelization>(256);
     tonemappingPass         = std::make_unique<RenderPass::Tonemapping>(viewport);
     geometryBufferPass      = std::make_unique<RenderPass::GeometryBuffer>(viewport);
     DeferredLightingPass    = std::make_unique<RenderPass::DeferredLighting>(viewport);
@@ -20,6 +20,7 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
     voxelizationDebugPass   = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
     bloomPass               = std::make_unique<RenderPass::Bloom>(viewport);
     rayTracedShadowPass     = std::make_unique<RenderPass::RayTracedShadows>(viewport);
+    shadowMapPass           = std::make_unique<RenderPass::ShadowMap>(4096, 4096);
 
     // keep a pointer to the texture that's rendered to the window
     activeScreenTexture = tonemappingPass->result;
@@ -56,36 +57,6 @@ void EditorOpenGL::update(double dt) {
 
     viewport.getCamera().update(true);
 
-    // clear the main window
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // generate sun shadow map 
-    glViewport(0, 0, viewport.size.x, viewport.size.y);
-    geometryBufferPass->execute(scene, viewport, rayTracedShadowPass->depthTexture);
-    
-    auto light = scene->raw<ecs::DirectionalLightComponent>()[0];
-    rayTracedShadowPass->execute(viewport, light);
-
-    if (shouldVoxelize) {
-        voxelizationPass->execute(scene, viewport, rayTracedShadowPass->shadowTexture);
-    }
-
-    DeferredLightingPass->execute(scene, viewport, geometryBufferPass.get(), voxelizationPass.get(), rayTracedShadowPass->depthTexture, rayTracedShadowPass->shadowTexture);
-    tonemappingPass->execute(DeferredLightingPass->result, DeferredLightingPass->bloomHighlights);
-
-    if (active != entt::null) {
-        boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, rayTracedShadowPass->depthTexture, active);
-    }
-
-    if (debugVoxels) {
-        voxelizationDebugPass->execute(viewport, tonemappingPass->result, voxelizationPass.get());
-    }
-
-    //bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
-
-    //get new frame for ImGui and ImGuizmo
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     renderer.ImGui_NewFrame(window);
     ImGuizmo::BeginFrame();
 
@@ -274,6 +245,41 @@ void EditorOpenGL::update(double dt) {
     metricsWindow.draw(viewport, pos);
 
     dockspace.end();
+
+    // clear the main window
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glViewport(0, 0, 4096, 4096);
+    shadowMapPass->execute(scene);
+
+    // generate sun shadow map 
+    glViewport(0, 0, viewport.size.x, viewport.size.y);
+    geometryBufferPass->execute(scene, viewport, rayTracedShadowPass->depthTexture);
+
+    auto light = scene->raw<ecs::DirectionalLightComponent>()[0];
+    rayTracedShadowPass->execute(viewport, light);
+
+
+    if (shouldVoxelize) {
+        voxelizationPass->execute(scene, viewport, shadowMapPass.get());
+    }
+
+    DeferredLightingPass->execute(scene, viewport, geometryBufferPass.get(), voxelizationPass.get(), rayTracedShadowPass->depthTexture, rayTracedShadowPass->shadowTexture);
+    tonemappingPass->execute(DeferredLightingPass->result, DeferredLightingPass->bloomHighlights);
+
+    if (active != entt::null) {
+        boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, rayTracedShadowPass->depthTexture, active);
+    }
+
+    if (debugVoxels) {
+        voxelizationDebugPass->execute(viewport, tonemappingPass->result, voxelizationPass.get());
+    }
+
+    //bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
+
+    //get new frame for ImGui and ImGuizmo
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     renderer.ImGui_Render();
     renderer.SwapBuffers(window, doVsync);

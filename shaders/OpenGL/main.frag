@@ -233,8 +233,37 @@ vec3 reconstructPosition(in vec2 uv, in float depth, in mat4 InvVP) {
   return div;
 }
 
+float getOccludedShadow(float currentSample, float depth) {
+    // get sample region size
+    const float lightSize = 1.0;
+    float sampleSize = ((1.0 - currentSample) * lightSize) / depth;
+
+    // get per pixel uv size
+    vec2 texelSize = 1.0 / textureSize(rtShadows, 0);
+    vec2 halfSize = texelSize * 3;
+    vec2 fullSize = texelSize * 6;
+
+    // init smallest distance to max
+    float sampleSizeSquared = texelSize.x * texelSize.x + texelSize.y + texelSize.y;
+    float smallest = sampleSizeSquared;
+
+    // loop like a kernel around the current uv coordinate, sampling at every pixel step
+    for(float x = -halfSize.x; x < halfSize.x; x += texelSize.x) {
+        for(float y = -halfSize.y; y < halfSize.y; y += texelSize.y) {
+            float occl = texture(rtShadows, uv + vec2(x,y)).r;
+            float dist = x*x + y*y;
+
+            if(abs(occl - 1.0) > 0.001 && dist < smallest) {
+                smallest = dist;
+            }
+        }
+    }
+
+    // return the factor of the shortest distance to the furthest distance
+    return smallest / sampleSizeSquared;
+}
+
 void main() {
-    float shadowAmount = texture(rtShadows, uv).r;
 
     VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
@@ -246,7 +275,13 @@ void main() {
 	normal = normalize(texture(gNormals, uv).xyz);
 
     float depth = texture(gDepth, uv).r;
+    
     position = reconstructPosition(uv, depth, invViewProjection);
+    
+    float sampledShadow = texture(rtShadows, uv).r;
+    //sampledShadow = 3*(pow(sampledShadow, 2))-2*pow(sampledShadow, 3);
+
+    //float shadowAmount = 1.0 - getOccludedShadow(sampledShadow, depth);
 
     DirectionalLight light = ubo.dirLights[0];
 
@@ -265,24 +300,19 @@ void main() {
     float G = gaSchlickGGX(cosLi, NdotV, roughness);
 
     vec3 kd = (1.0 - F) * (1.0 - metallicRoughness.r);
-    vec3 diffuseBRDF = kd * albedo.rgb;
 
     // Cook-Torrance
     vec3 specularBRDF = (F * D * G) / max(0.00001, 4.0 * cosLi * NdotV);
 
     // get direct light
-    vec3 directLight = diffuseBRDF * light.color.xyz * cosLi * shadowAmount;
+    vec3 directLight = kd * light.color.xyz * cosLi * sampledShadow;
 
-    // get first bounce light
-    float occlusion = 0.0; 
-    vec4 indirectLight = coneTraceRadiance(position, normal.xyz, occlusion);
-
-    float reflectOcclusion;
-    vec4 reflection = coneTraceReflection(position, normal.xyz, V, roughness, reflectOcclusion) * cosLi;
+    float occlusion;
+    vec4 indirectLight = coneTraceRadiance(position, normal, occlusion);
 
     // combine all
-    vec3 diffuseReflection = (directLight + indirectLight.rgb + reflection.rgb) * albedo.rgb;
-    finalColor = vec4(diffuseReflection, albedo.a);
+    vec3 diffuseReflection = (directLight + indirectLight.rgb) * albedo.rgb;
+    finalColor = vec4(vec3(diffuseReflection), albedo.a);
 
     // BLOOM SEPERATION
 	float brightness = dot(finalColor.rgb, bloomThreshold);
