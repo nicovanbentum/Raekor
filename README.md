@@ -1,7 +1,7 @@
 # Raekor Renderer
 
 ![image](https://i.imgur.com/2PCUuBm.png)
-*Crytek's Sponza with hard ray traced shadows using Vulkan.*
+*Crytek's Sponza with hard ray traced shadows using Vulkan and voxel cone traced first bounce global illumination.*
 
 # Build
 
