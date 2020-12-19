@@ -22,7 +22,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -65,7 +65,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;$(VcpkgCurrentInstalledDir)include\physx;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /bigobj /EHsc %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -185,6 +185,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\entry.cpp" />
     <ClCompile Include="src\gui.cpp" />
     <ClCompile Include="src\input.cpp" />
+    <ClCompile Include="src\physics.cpp" />
     <ClCompile Include="src\rmath.cpp" />
     <ClCompile Include="src\mesh.cpp" />
     <ClCompile Include="src\renderpass.cpp" />
@@ -246,6 +247,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\editor.h" />
     <ClInclude Include="src\headers\gui.h" />
     <ClInclude Include="src\headers\input.h" />
+    <ClInclude Include="src\headers\physics.h" />
     <ClInclude Include="src\headers\rmath.h" />
     <ClInclude Include="src\headers\mesh.h" />
     <ClInclude Include="src\headers\renderpass.h" />

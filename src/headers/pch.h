@@ -84,8 +84,18 @@
 #include "gtx/euler_angles.hpp"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-// Bullet3 Physics library
-#include "bullet/btBulletDynamicsCommon.h"
+// PhysX 
+#include "PxPhysics.h"
+#include "PxMaterial.h"
+#include "PxRigidDynamic.h"
+#include "cooking/PxCooking.h"
+#include "extensions/PxDefaultAllocator.h"
+#include "extensions/PxDefaultErrorCallback.h"
+#include "extensions/PxDefaultCpuDispatcher.h"
+#include "extensions/PxExtensionsAPI.h"
+#include "PxPhysicsVersion.h"
+#include "PxScene.h"
+#include "gpu/PxGpu.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // c++ (17) includes

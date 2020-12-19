@@ -2,6 +2,7 @@
 
 #include "application.h"
 #include "gui.h"
+#include "physics.h"
 
 namespace Raekor {
 
@@ -35,6 +36,7 @@ private:
     bool doSSAO = false, doBloom = false, debugVoxels = false;
     bool shouldVoxelize = true, gizmoEnabled = false, showSettingsWindow = false;
 
+    Physics physics;
     gui::Guizmo gizmo;
     gui::Dockspace dockspace;
     gui::TopMenuBar topMenuBar;

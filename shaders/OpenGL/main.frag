@@ -51,7 +51,6 @@ layout(binding = 0) uniform sampler2DShadow shadowMap;
 layout(binding = 1) uniform samplerCube shadowMapOmni;
 
 // GBUFFER textures
-layout(binding = 2) uniform sampler2D gPositions;
 layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 7) uniform sampler2D gMetallicRoughness;
@@ -273,12 +272,12 @@ void main() {
     float depth = texture(gDepth, uv).r;
     position = reconstructPosition(uv, depth, invViewProjection);
 
-    vec4 depthPosition = ubo.lightSpaceMatrix * texture(gPositions, uv);
+    vec4 depthPosition = ubo.lightSpaceMatrix * vec4(position, 1.0);
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
     DirectionalLight light = ubo.dirLights[0];
-    //float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
-    float shadowAmount = 1.0 - getShadow(light, position);
+    float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
+    //float shadowAmount = 1.0 - getShadow(light, position);
 
     vec3 Li = normalize(-light.direction.xyz);
     vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
@@ -295,23 +294,19 @@ void main() {
     float G = gaSchlickGGX(cosLi, NdotV, roughness);
 
     vec3 kd = (1.0 - F) * (1.0 - metallicRoughness.r);
-    vec3 diffuseBRDF = kd * albedo.rgb;
 
     // Cook-Torrance
     vec3 specularBRDF = (F * D * G) / max(0.00001, 4.0 * cosLi * NdotV);
 
     // get direct light
-    vec3 directLight = diffuseBRDF * light.color.xyz * cosLi * shadowAmount;
+    vec3 directLight = kd * light.color.xyz * cosLi * shadowAmount;
 
     // get first bounce light
     float occlusion = 0.0; 
     vec4 indirectLight = coneTraceRadiance(position, normal.xyz, occlusion);
 
-    float reflectOcclusion;
-    vec4 reflection = coneTraceReflection(position, normal.xyz, V, roughness, reflectOcclusion) * cosLi;
-
     // combine all
-    vec3 diffuseReflection = (directLight + indirectLight.rgb + reflection.rgb) * albedo.rgb;
+    vec3 diffuseReflection = (directLight + indirectLight.rgb) * albedo.rgb;
     finalColor = vec4(diffuseReflection, albedo.a);
 
     // BLOOM SEPERATION
