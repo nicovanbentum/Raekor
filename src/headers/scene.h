@@ -14,7 +14,6 @@ public:
 
     // object management
     entt::entity createObject(const std::string& name = "Empty");
-    void destroyObject(entt::entity entity);
     entt::entity pickObject(Math::Ray& ray);
     
     // per frame systems

@@ -21,8 +21,8 @@ public:
 
     void pollEvents();
 
-private:
     static std::unique_ptr<Input> singleton;
+private:
 
     Uint32 mouseState;
     const Uint8* keyboardState;

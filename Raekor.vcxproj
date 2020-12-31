@@ -22,7 +22,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -99,7 +99,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\examples;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;$(VcpkgCurrentInstalledDir)include\physx;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /EHsc %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -212,6 +212,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MaxSpeed</Optimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
+    <ClCompile Include="src\systems.cpp" />
     <ClCompile Include="src\timer.cpp" />
     <ClCompile Include="src\util.cpp" />
     <ClCompile Include="src\VK\VKBase.cpp" />
@@ -257,6 +258,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\script.h" />
     <ClInclude Include="src\headers\serial.h" />
     <ClInclude Include="src\headers\shader.h" />
+    <ClInclude Include="src\headers\systems.h" />
     <ClInclude Include="src\headers\timer.h" />
     <ClInclude Include="src\headers\util.h" />
     <ClInclude Include="src\platform\OS.h" />

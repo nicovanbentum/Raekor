@@ -1,7 +1,5 @@
 #pragma once
 
-#include "input.h"
-
 namespace Raekor {
 
 /*
@@ -25,31 +23,9 @@ private:
     entt::registry* scene;
 };
 
-namespace ecs {
-    struct NativeScriptComponent {
-        HMODULE* DLL;
-        std::string factoryFN;
-        NativeScript* script;
-    };
-};
-
-void updateNativeScripts(entt::registry& scene, float dt);
-
-
 class MoveCubeScript : public NativeScript {
 public:
     void update(float dt) override;
 };
 
-extern "C" __declspec(dllexport) NativeScript * __cdecl CreateMoveScript() {
-    return new MoveCubeScript();
-}
-
-
-
-/*
-    update system
-*/
-
-
-} // raekor
+} // Raekor

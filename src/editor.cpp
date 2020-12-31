@@ -2,6 +2,7 @@
 #include "editor.h"
 #include "gui.h"
 #include "input.h"
+#include "systems.h"
 #include "platform/OS.h"
 
 namespace Raekor {
@@ -53,6 +54,12 @@ void EditorOpenGL::update(double dt) {
 
     viewport.getCamera().update(true);
 
+    scene->view<ecs::NativeScriptComponent>().each([&](ecs::NativeScriptComponent& component) {
+        if (component.script) {
+            component.script->update(dt);
+        }
+    });
+
     // clear the main window
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -97,11 +104,21 @@ void EditorOpenGL::update(double dt) {
     if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
         if (active != entt::null) {
             if (scene->has<ecs::NodeComponent>(active)) {
-                scene.destroyObject(active);
+
+                auto childTree = NodeSystem::getTree(scene, scene->get<ecs::NodeComponent>(active));
+
+                for (auto entity : childTree) {
+                    NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(entity));
+                    scene->destroy(entity);
+                }
+
+                NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(active));
+                scene->destroy(active);
             }
             else {
                 scene->destroy(active);
             }
+
             active = entt::null;
         }
     }

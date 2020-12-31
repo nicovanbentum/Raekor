@@ -41,4 +41,17 @@ constexpr std::array<Triangle, 2> quadIndices = {
     Triangle{0, 1, 3}, Triangle{3, 1, 2}
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+constexpr std::array<Vertex, 4> planeVertices = {
+    Vertex{{-1.0f, 0.0f, -1.0f},  {0.0f, 0.0f},   {0.0, 1.0, 0.0}, {}, {}},
+    Vertex{{1.0f, 0.0f, -1.0f},   {1.0f, 0.0f},   {0.0, 1.0, 0.0}, {}, {}},
+    Vertex{{1.0f, 0.0f, 1.0f},    {1.0f, 1.0f},   {0.0, 1.0, 0.0}, {}, {}},
+    Vertex{{-1.0f, 0.0f, 1.0f},   {0.0f, 1.0f},   {0.0, 1.0, 0.0}, {}, {}}
+};
+
+constexpr std::array<Triangle, 2> planeIndices = {
+    Triangle{3, 1, 0}, Triangle{2, 1, 3}
+};
+
 }

@@ -87,6 +87,20 @@ void ShadowMap::execute(entt::registry& scene) {
         auto& mesh = view.get<ecs::MeshComponent>(entity);
         auto& transform = view.get<ecs::TransformComponent>(entity);
 
+        // convert AABB from local to world space
+        std::array<glm::vec3, 2> worldAABB = {
+            transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
+            transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
+        };
+
+        Math::Frustrum frustrum;
+        frustrum.update(mapProjection * mapView, true);
+
+        // if the frustrum can't see the mesh's OBB we cull it
+        if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
+            continue;
+        }
+
         shader.getUniform("model") = transform.worldTransform;
 
         // determine if we use the original mesh vertices or GPU skinned vertices

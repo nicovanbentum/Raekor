@@ -2,9 +2,20 @@
 
 #include "ecs.h"
 #include "anim.h"
+#include "script.h"
 
 namespace Raekor {
 namespace ecs {
+
+struct NameComponent {
+    std::string name;
+
+    inline operator const std::string& () { return name; }
+    inline bool operator==(const std::string& rhs) { return name == rhs; }
+    inline NameComponent& operator=(const std::string& rhs) { name = rhs; return *this; }
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct TransformComponent {
     glm::vec3 scale     = { 1.0f, 1.0f, 1.0f };
@@ -44,8 +55,11 @@ struct PointLightComponent {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct NodeComponent {
+    size_t childCount = 0;
     entt::entity parent = entt::null;
-    bool hasChildren = false;
+    entt::entity firstChild = entt::null;
+    entt::entity prevSibling = entt::null;
+    entt::entity nextSibling = entt::null;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -146,12 +160,10 @@ struct MaterialComponent {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct NameComponent {
-    std::string name;
-
-    inline operator const std::string& () { return name; }
-    inline bool operator==(const std::string& rhs) { return name == rhs; }
-    inline NameComponent& operator=(const std::string& rhs) { name = rhs; return *this; }
+struct NativeScriptComponent {
+    HMODULE hmodule;
+    NativeScript* script;
+    std::string procAddress;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -174,7 +186,8 @@ static constexpr auto Components = std::make_tuple (
     ComponentDescription<TransformComponent>{"Transform"},
     ComponentDescription<PointLightComponent>{"Point Light"},
     ComponentDescription<MeshAnimationComponent>{"Mesh Animation"},
-    ComponentDescription<DirectionalLightComponent>{"Directional Light"}
+    ComponentDescription<DirectionalLightComponent>{"Directional Light"},
+    ComponentDescription<NativeScriptComponent>{"Native Script"}
 );
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

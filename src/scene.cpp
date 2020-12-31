@@ -3,6 +3,7 @@
 #include "mesh.h"
 #include "timer.h"
 #include "serial.h"
+#include "systems.h"
 
 namespace Raekor {
 
@@ -26,40 +27,6 @@ entt::entity Scene::createObject(const std::string& name) {
     registry.emplace<ecs::NodeComponent>(entity);
     registry.emplace<ecs::TransformComponent>(entity);
     return entity;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-
-void Scene::destroyObject(entt::entity entity) {
-    if (!registry.has<ecs::NodeComponent>(entity)) return;
-    auto view = registry.view<ecs::NodeComponent>();
-    std::unordered_set<entt::entity> destructible;
-    // loop over every node in the scene
-    for (auto e : view) {
-        std::vector<entt::entity> parents;
-        // loop over the node's parent chain, storing parents along the way
-        for (auto parent = view.get<ecs::NodeComponent>(e).parent; parent != entt::null; parent = view.get<ecs::NodeComponent>(parent).parent) {
-            // if we find the deleted node along the parent chain, we traverse the chain and mark the chain destructable
-            if (parent == entity) {
-                destructible.insert(e);
-                for (auto p : parents) {
-                    destructible.insert(p);
-                }
-                break;
-                // else we add the parent to the chain
-            }
-            else {
-                parents.push_back(parent);
-            }
-        }
-    }
-
-    // destroy the marked entities
-    for (auto e : destructible) {
-        registry.destroy(e);
-    }
-
-    registry.destroy(entity);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -259,8 +226,7 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
     auto rootEntity = scene->create();
     scene->emplace<ecs::NameComponent>(rootEntity, filename.string());
     scene->emplace<ecs::TransformComponent>(rootEntity);
-    auto& node = scene->emplace<ecs::NodeComponent>(rootEntity);
-    node.hasChildren = true;
+    scene->emplace<ecs::NodeComponent>(rootEntity);
 
     auto materials = loadMaterials(scene, assimpScene, directory.string());
     scene.loadMaterialTextures(materials);
@@ -286,11 +252,15 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
         auto assimpNode = nodes.top();
         nodes.pop();
         for (unsigned int i = 0; i < assimpNode->mNumMeshes; i++) {
-            // create node and transform components
+            // get the associated entity for the mesh
             auto entity = meshes[assimpNode->mMeshes[i]];
-            scene->emplace<ecs::NodeComponent>(entity);
-            scene->emplace<ecs::TransformComponent>(entity);
-            auto& [transform, node, mesh] = scene->get<ecs::TransformComponent, ecs::NodeComponent, ecs::MeshComponent>(entity);
+            
+            // make it a child to the root node
+            auto& node = scene->emplace<ecs::NodeComponent>(entity);
+            NodeSystem::append(scene, scene->get<ecs::NodeComponent>(rootEntity), node);
+            
+            auto& transform = scene->emplace<ecs::TransformComponent>(entity);
+            auto& mesh = scene->get<ecs::MeshComponent>(entity);
 
             // translate assimp transformation to glm
             aiVector3D position, scale, rotation;

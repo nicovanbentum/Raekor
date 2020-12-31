@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "gui.h"
+#include "systems.h"
 #include "platform/OS.h"
 #include "application.h"
 
@@ -37,24 +38,29 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
     }, ecs::Components);
 
     if (ImGui::BeginPopup("Components")) {
-        for_each_tuple_element(ecs::Components, [&](auto component) {
-            using ComponentType = decltype(component)::type;
+        //for_each_tuple_element(ecs::Components, [&](auto component) {
+        //    using ComponentType = decltype(component)::type;
 
-            if (!scene.has<ComponentType>(entity)) {
-                if (ImGui::Selectable(component.name, false)) {
-                    scene.emplace<ComponentType>(entity);
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-        });
+        //    if (!scene.has<ComponentType>(entity)) {
+        //        if (ImGui::Selectable(component.name, false)) {
+        //            scene.emplace<ComponentType>(entity);
+        //            ImGui::CloseCurrentPopup();
+        //        }
+        //    }
+        //});
+
+        if(ImGui::Selectable("Native Script", false)) {
+            scene.emplace<ecs::NativeScriptComponent>(entity);
+            ImGui::CloseCurrentPopup();
+        }
 
         ImGui::EndPopup();
     }
 
     // Broken for now
-    //if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0))) {
-    //    ImGui::OpenPopup("Components");
-    //}
+    if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0))) {
+        ImGui::OpenPopup("Components");
+    }
 
     ImGui::End();
 }
@@ -68,14 +74,11 @@ void InspectorWindow::drawComponent(ecs::NameComponent& component, entt::registr
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void InspectorWindow::drawComponent(ecs::NodeComponent& component, entt::registry& scene, entt::entity& active) {
-    if (component.parent == entt::null) {
-        ImGui::Text("Parent entity: None");
-    } else {
-        ImGui::Text("Parent entity: %i", component.parent);
+    ImGui::Text("Parent entity: %i", component.parent);
+    ImGui::Text("Siblings: %i, %i", component.prevSibling, component.nextSibling);
 
-    }
     ImGui::SameLine();
-    ImGui::Text("| Has children: %s", component.hasChildren ? "True" : "False");
+    ImGui::Text("| Child count: %i", component.childCount);
 }
 
 void InspectorWindow::drawComponent(ecs::TransformComponent& component, entt::registry& scene, entt::entity& active) {
@@ -210,12 +213,37 @@ void InspectorWindow::drawComponent(ecs::MeshAnimationComponent& component, entt
     if (ImGui::Button(playing ? "pause" : "play")) {
         playing = !playing;
     }
+}
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void InspectorWindow::drawComponent(ecs::NativeScriptComponent& component, entt::registry& scene, entt::entity& active) {
+    if (!component.hmodule) {
+        if (ImGui::Button("Load DLL..")) {
+            std::string filepath = OS::openFileDialog("DLL Files (*.dll)\0*.dll\0");
+            component.hmodule = LoadLibraryA(filepath.c_str());
+        }
+    } else {
+        ImGui::Text("Module: %i", component.hmodule);
+    }
+    if (ImGui::InputText("Function", &component.procAddress, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue)) {
+        if (component.hmodule) {
+            auto address = GetProcAddress(component.hmodule, component.procAddress.c_str());
+            if (address) {
+                auto function = reinterpret_cast<NativeScript::FactoryType>(address);
+                component.script = function();
+                component.script->bind(active, scene);
+                std::puts("newing from proc address!");
+            }
+        }
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool EntityWindow::drawFamilyNode(entt::registry& scene, entt::entity entity, entt::entity& active) {
+    auto& node = scene.get<ecs::NodeComponent>(entity);
+
     auto selected = active == entity ? ImGuiTreeNodeFlags_Selected : 0;
     auto treeNodeFlags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
     auto name = scene.get<ecs::NameComponent>(entity);
@@ -229,6 +257,7 @@ bool EntityWindow::drawFamilyNode(entt::registry& scene, entt::entity entity, en
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void EntityWindow::drawChildlessNode(entt::registry& scene, entt::entity entity, entt::entity& active) {
+    auto& node = scene.get<ecs::NodeComponent>(entity);
     auto name = scene.get<ecs::NameComponent>(entity);
     if (ImGui::Selectable(std::string(name.name + "##" + std::to_string(static_cast<uint32_t>(entity))).c_str(), entity == active)) {
         active = active == entity ? entt::null : entity;
@@ -237,20 +266,23 @@ void EntityWindow::drawChildlessNode(entt::registry& scene, entt::entity entity,
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void EntityWindow::drawFamily(entt::registry& scene, entt::entity parent, entt::entity& active) {
-    auto nodeView = scene.view<ecs::NodeComponent>();
-    for (auto entity : nodeView) {
-        auto& node = scene.get<ecs::NodeComponent>(entity);
-        if(node.parent == parent) {
-            if (node.hasChildren) {
-                if (drawFamilyNode(scene, entity, active)) {
-                    drawFamily(scene, entity, active);
-                    ImGui::TreePop();
-                }
-            } else {
-                drawChildlessNode(scene, entity, active);
+void EntityWindow::drawFamily(entt::registry& scene, entt::entity entity, entt::entity& active) {
+    auto& node = scene.get<ecs::NodeComponent>(entity);
+    auto currentChild = node.firstChild;
+
+    for (unsigned int i = 0; i < node.childCount; i++) {
+        auto& currentChildComponent = scene.get<ecs::NodeComponent>(currentChild);
+    
+        if (currentChildComponent.childCount > 0) {
+            if (drawFamilyNode(scene, currentChild, active)) {
+                drawFamily(scene, currentChild, active);
+                ImGui::TreePop();
             }
+        } else {
+            drawChildlessNode(scene, currentChild, active);
         }
+
+        currentChild = scene.get<ecs::NodeComponent>(currentChild).nextSibling;
     }
 }
 
@@ -262,8 +294,9 @@ void EntityWindow::draw(entt::registry& scene, entt::entity& active) {
     auto nodeView = scene.view<ecs::NodeComponent>();
     for (auto entity : nodeView) {
         auto& node = nodeView.get<ecs::NodeComponent>(entity);
+
         if (node.parent == entt::null) {
-            if (node.hasChildren) {
+            if (node.childCount > 0) {
                 if (drawFamilyNode(scene, entity, active)) {
                     drawFamily(scene, entity, active);
                     ImGui::TreePop();
@@ -571,7 +604,19 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
                 // on press we remove the scene object
                 if (active != entt::null) {
                     if (scene->has<ecs::NodeComponent>(active)) {
-                        scene.destroyObject(active);
+                        std::stack<entt::entity> entities;
+                        entities.push(active);
+                        while (!entities.empty()) {
+                            auto& node = scene->get<ecs::NodeComponent>(entities.top());
+                            entities.pop();
+
+                            auto current = node.firstChild;
+                            while (current != entt::null) {
+                                NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(current));
+                                current = scene->get<ecs::NodeComponent>(current).nextSibling;
+                                entities.push(current);
+                            }
+                        }
                     }
                     else {
                         scene->destroy(active);
@@ -670,6 +715,27 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
                                 mesh.indices.push_back(k2 + 1);
                             }
                         }
+                    }
+
+                    mesh.generateTangents();
+                    mesh.uploadVertices();
+                    mesh.uploadIndices();
+                    mesh.generateAABB();
+                }
+
+                if (ImGui::MenuItem("Plane")) {
+                    auto entity = scene.createObject("Plane");
+                    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+                    for (const auto& v : planeVertices) {
+                        mesh.positions.push_back(v.pos);
+                        mesh.uvs.push_back(v.uv);
+                        mesh.normals.push_back(v.normal);
+                    }
+
+                    for (const auto& triangle : planeIndices) {
+                        mesh.indices.push_back(triangle.p1);
+                        mesh.indices.push_back(triangle.p2);
+                        mesh.indices.push_back(triangle.p3);
                     }
 
                     mesh.generateTangents();

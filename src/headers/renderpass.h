@@ -1,9 +1,9 @@
 #pragma once
 
-#include "ecs.h"
-#include "scene.h"
-#include "mesh.h"
 #include "timer.h"
+#include "shader.h"
+#include "buffer.h"
+#include "components.h"
 
 namespace Raekor {
 namespace RenderPass {
