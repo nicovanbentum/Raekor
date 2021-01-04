@@ -6,6 +6,8 @@ layout(r32ui, binding = 1) uniform volatile coherent uimage3D voxels;
 
 layout(binding = 2) uniform sampler2DShadow shadowMap;
 
+uniform vec4 colour;
+
 in vec2 uv;
 in flat int axis;
 in vec4 depthPosition;
@@ -48,7 +50,7 @@ void imageAtomicRGBA8Avg(ivec3 coords, vec4 value) {
 }
 
 void main() {
-    vec4 sampled = texture(albedo, uv);
+    vec4 sampled = texture(albedo, uv) * colour;
     const int dim = imageSize(voxels).x;
 
     // TODO: improve shadow sampling

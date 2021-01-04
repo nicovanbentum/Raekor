@@ -276,8 +276,8 @@ void main() {
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
     DirectionalLight light = ubo.dirLights[0];
-    float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
-    //float shadowAmount = 1.0 - getShadow(light, position);
+    //float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
+    float shadowAmount = 1.0 - getShadow(light, position);
 
     vec3 Li = normalize(-light.direction.xyz);
     vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
@@ -306,7 +306,7 @@ void main() {
     vec4 indirectLight = coneTraceRadiance(position, normal.xyz, occlusion);
 
     // combine all
-    vec3 diffuseReflection = (directLight + indirectLight.rgb) * albedo.rgb;
+    vec3 diffuseReflection = (directLight + indirectLight.rgb * occlusion) * albedo.rgb;
     finalColor = vec4(diffuseReflection, albedo.a);
 
     // BLOOM SEPERATION

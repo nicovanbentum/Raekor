@@ -849,10 +849,14 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
         shader.getUniform("py") = py;
         shader.getUniform("pz") = pz;
 
+
         if (material) {
-            if (material->albedo) glBindTextureUnit(0, material->albedo);
+            if (material->albedo)  glBindTextureUnit(0, material->albedo);
+            else glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
+            shader.getUniform("colour") = material->baseColour;
         } else {
             glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
+            shader.getUniform("colour") = ecs::MaterialComponent::Default.baseColour;
         }
 
         // determine if we use the original mesh vertices or GPU skinned vertices
