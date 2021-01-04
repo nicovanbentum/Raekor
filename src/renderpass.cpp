@@ -1338,23 +1338,19 @@ void RayTracedShadows::createAccelerationStructure(entt::registry& scene) {
         ecs::MeshComponent& mesh = view.get<ecs::MeshComponent>(entity);
         ecs::TransformComponent& transform = view.get<ecs::TransformComponent>(entity);
 
-        uint64_t blasHandle = scat.addMesh(mesh.positions.data(), mesh.indices.data(),
+        auto& asc = scene.emplace<ecs::AccelStructureComponent>(entity);
+
+        asc.BLAS = scat.addMesh(mesh.positions.data(), mesh.indices.data(),
             (unsigned int)mesh.positions.size(), (unsigned int)mesh.indices.size());
 
         // GLM is column major, vulkan wants row major
         auto transposed = glm::transpose(transform.matrix); 
 
-        scat.addInstance(blasHandle, glm::value_ptr(transposed));
+        scat.addInstance(asc.BLAS, glm::value_ptr(transposed));
     }
 
     // build the acceleration structure
     scat.build();
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void RayTracedShadows::clearAccelerationStructure() {
-    scat.clear();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1398,6 +1394,24 @@ void RayTracedShadows::destroyResources() {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RayTracedShadows::updateTLAS(entt::registry& scene) {
+    scat.clearInstances();
+
+    auto view = scene.view<ecs::TransformComponent, ecs::AccelStructureComponent>();
+
+    for (entt::entity entity : view) {
+        ecs::TransformComponent& transform = view.get<ecs::TransformComponent>(entity);
+        ecs::AccelStructureComponent& accelStructure = view.get<ecs::AccelStructureComponent>(entity);
+
+        // GLM is column major, vulkan wants row major
+        auto transposed = glm::transpose(transform.matrix);
+
+        scat.addInstance(accelStructure.BLAS, glm::value_ptr(transposed));
+    }
+
+    scat.build();
+}
 
 void RayTracedShadows::execute(Viewport& viewport, ecs::DirectionalLightComponent& light) {
     // give scatter the camera's inverse view projection matrix

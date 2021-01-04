@@ -44,6 +44,8 @@ void EditorOpenGL::update(double dt) {
     InputHandler::handleEvents(this, mouseInViewport, dt);
 
     scene.updateTransforms();
+
+    rayTracedShadowPass->updateTLAS(scene);
     
     auto animationView = scene->view<ecs::MeshAnimationComponent>();
     std::for_each(std::execution::par_unseq, animationView.begin(), animationView.end(), [&](auto entity) {
@@ -135,11 +137,6 @@ void EditorOpenGL::update(double dt) {
 
     if (ImGui::RadioButton("Voxelize", shouldVoxelize)) {
         shouldVoxelize = !shouldVoxelize;
-    }
-
-    if (ImGui::Button("Build AS")) {
-        rayTracedShadowPass->clearAccelerationStructure();
-        rayTracedShadowPass->createAccelerationStructure(scene);
     }
 
     ImGui::DragFloat("Coverage", &voxelizationPass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");

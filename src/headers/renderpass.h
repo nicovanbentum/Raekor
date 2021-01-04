@@ -336,11 +336,10 @@ public:
     ~RayTracedShadows();
 
     void createAccelerationStructure(entt::registry& scene);
-    void clearAccelerationStructure();
-
     void createResources(Viewport& viewport);
     void destroyResources();
 
+    void updateTLAS(entt::registry& scene);
     void execute(Viewport& viewport, ecs::DirectionalLightComponent& light);
 
     GLuint shadowTexture;

@@ -19,6 +19,14 @@ struct TransformComponent {
     void recalculateMatrix();
 };
 
+struct AccelStructureComponent {
+    uint64_t BLAS;
+
+    void destroy(scatter::Scatter& sc) {
+        sc.destroyMesh(BLAS);
+    }
+};
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct DirectionalLightComponent {
