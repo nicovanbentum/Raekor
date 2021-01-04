@@ -11,7 +11,7 @@ public:
     EditorOpenGL();
     virtual ~EditorOpenGL() = default;
 
-    virtual void update(double dt);
+    virtual void update(float dt);
 
 private:
     Scene scene;
@@ -31,6 +31,7 @@ private:
     std::unique_ptr<RenderPass::DeferredLighting>   DeferredLightingPass;
     std::unique_ptr<RenderPass::BoundingBoxDebug>   boundingBoxDebugPass;
     std::unique_ptr<RenderPass::VoxelizationDebug>  voxelizationDebugPass;
+    std::unique_ptr<RenderPass::WorldIcons>         worldIconsPass;
 
     bool mouseInViewport = false;
     bool doSSAO = false, doBloom = false, debugVoxels = false;

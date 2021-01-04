@@ -9,13 +9,13 @@ int main(int argc, char** argv) {
     {
         auto app = Raekor::EditorOpenGL();
 
-        double dt = 0;
+        float dt = 0;
         Raekor::Timer timer;
 
         while (app.running) {
             timer.start();
             app.update(dt);
-            dt = timer.stop();
+            dt = static_cast<float>(timer.stop());
         }
     }
 

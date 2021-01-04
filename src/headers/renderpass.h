@@ -77,8 +77,101 @@ private:
     unsigned int GBuffer;
   
 public:
-    unsigned int albedoTexture, normalTexture, materialTexture;
+    unsigned int albedoTexture, normalTexture, materialTexture, entityTexture;
     unsigned int depthTexture;
+};
+
+class WorldIcons {
+public:
+    WorldIcons(Viewport& viewport) {
+        Shader::Stage stages[2] = { 
+            Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\billboard.vert"), 
+            Shader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\billboard.frag") 
+        };
+
+        shader.reload(stages, 2);
+
+        int w, h, ch;
+        stbi_set_flip_vertically_on_load(true);
+        auto img = stbi_load("resources/light.png", &w, &h, &ch, 4);
+        
+        glCreateTextures(GL_TEXTURE_2D, 1, &lightTexture);
+        glTextureStorage2D(lightTexture, 1, GL_RGBA8, w, h);
+        glTextureSubImage2D(lightTexture, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, img);
+        glTextureParameteri(lightTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(lightTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureParameteri(lightTexture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(lightTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(lightTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+        createResources(viewport);
+    }
+
+    void createResources(Viewport& viewport) {
+        glCreateFramebuffers(1, &framebuffer);
+    }
+
+    void destroyResources() {
+        glDeleteRenderbuffers(1, &framebuffer);
+    }
+
+    void execute(entt::registry& scene, Viewport& viewport, unsigned int screenTexture, unsigned int entityTexture) {
+        glDisable(GL_CULL_FACE);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, screenTexture, 0);
+        glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT1, entityTexture, 0);
+
+        GLenum attachments[2] = { GL_COLOR_ATTACHMENT0 , GL_COLOR_ATTACHMENT1 };
+        glNamedFramebufferDrawBuffers(framebuffer, 2, attachments);
+
+        glBindTextureUnit(0, lightTexture);
+
+        shader.bind();
+
+        auto vp = viewport.getCamera().getProjection() * viewport.getCamera().getView();
+
+        auto view = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
+        for (auto entity : view) {
+            auto& light = view.get<ecs::DirectionalLightComponent>(entity);
+            auto& transform = view.get<ecs::TransformComponent>(entity);
+
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, transform.position);
+
+            glm::vec3 V;
+            V.x = viewport.getCamera().getPosition().x - transform.position.x;
+            V.y = 0;
+            V.z = viewport.getCamera().getPosition().z - transform.position.z;
+
+            auto Vnorm = glm::normalize(V);
+
+            glm::vec3 lookAt = glm::vec3(0.0f, 0.0f, 1.0f);
+
+            auto upAux = glm::cross(lookAt, Vnorm);
+            auto cosTheta = glm::dot(lookAt, Vnorm);
+
+            if ((cosTheta < 0.9990) && (cosTheta > -0.9999)) {
+                model = glm::rotate(model, acos(cosTheta), upAux);
+            }
+
+            model = glm::scale(model, glm::vec3(glm::length(V) * 0.05f));
+            
+            shader.getUniform("mvp") = vp * model;
+
+            shader.getUniform("entity") = entt::to_integral(entity);
+            shader.getUniform("world_position") = transform.position;
+            
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
+
+        glEnable(GL_CULL_FACE);
+    }
+
+private:
+    glShader shader;
+    unsigned int framebuffer;
+
+    unsigned int lightTexture;
 };
 
 //////////////////////////////////////////////////////////////////////////////////

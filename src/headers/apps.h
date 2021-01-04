@@ -13,7 +13,7 @@ public:
     RayTraceApp();
     virtual ~RayTraceApp() = default;
 
-    virtual void update(double dt) override;
+    virtual void update(float dt) override;
 
     bool drawSphereProperties(RenderPass::Sphere& sphere);
 
@@ -55,7 +55,7 @@ public:
     VulkanApp();
     virtual ~VulkanApp();
 
-    virtual void update(double dt) override;
+    virtual void update(float dt) override;
 
 private:
     int active = 0;

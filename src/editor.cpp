@@ -21,6 +21,7 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
     boundingBoxDebugPass    = std::make_unique<RenderPass::BoundingBoxDebug>(viewport);
     voxelizationDebugPass   = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
     bloomPass               = std::make_unique<RenderPass::Bloom>(viewport);
+    worldIconsPass          = std::make_unique<RenderPass::WorldIcons>(viewport);
 
     // keep a pointer to the texture that's rendered to the window
     activeScreenTexture = tonemappingPass->result;
@@ -37,7 +38,7 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void EditorOpenGL::update(double dt) {
+void EditorOpenGL::update(float dt) {
     InputHandler::handleEvents(this, mouseInViewport, dt);
 
     scene.updateTransforms();
@@ -85,6 +86,8 @@ void EditorOpenGL::update(double dt) {
     if (debugVoxels) {
         voxelizationDebugPass->execute(viewport, tonemappingPass->result, voxelizationPass.get());
     }
+
+    worldIconsPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->entityTexture);
 
     //bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
 
@@ -193,6 +196,8 @@ void EditorOpenGL::update(double dt) {
             activeScreenTexture = geometryBufferPass->normalTexture;
         if (ImGui::Selectable(nameof(geometryBufferPass->materialTexture), activeScreenTexture == geometryBufferPass->materialTexture))
             activeScreenTexture = geometryBufferPass->materialTexture;
+        if (ImGui::Selectable(nameof(geometryBufferPass->entityTexture), activeScreenTexture == geometryBufferPass->entityTexture))
+            activeScreenTexture = geometryBufferPass->entityTexture;
         if (ImGui::Selectable(nameof(DeferredLightingPass->bloomHighlights), activeScreenTexture == DeferredLightingPass->bloomHighlights))
             activeScreenTexture = DeferredLightingPass->bloomHighlights;
         if (ImGui::Selectable(nameof(DeferredLightingPass->result), activeScreenTexture == DeferredLightingPass->result))
@@ -301,6 +306,9 @@ void EditorOpenGL::update(double dt) {
 
         bloomPass->deleteResources();
         bloomPass->createResources(viewport);
+
+        worldIconsPass->destroyResources();
+        worldIconsPass->createResources(viewport);
     }
 }
 

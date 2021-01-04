@@ -32,7 +32,7 @@ public:
     WindowApplication(RenderAPI api);
     virtual ~WindowApplication();
 
-    virtual void update(double dt)  = 0;
+    virtual void update(float dt)  = 0;
 
     Viewport& getViewport() { return viewport; }
     SDL_Window* getWindow() { return window; }

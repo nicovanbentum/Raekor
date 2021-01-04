@@ -6,6 +6,7 @@
 layout(location = 0) out vec4 gNormal;
 layout(location = 1) out vec4 gColor;
 layout(location = 2) out vec4 gMetallicRoughness;
+layout(location = 3) out vec4 gEntityID;
 
 // constant mesh values
 layout(binding = 0) uniform sampler2D meshTexture;
@@ -29,6 +30,7 @@ void main() {
     vec3 normal = TBN * glNormal;
 	gNormal = vec4(normal, 1.0);
 
-    gMetallicRoughness = texture(metalroughTexture, uv);
-    gMetallicRoughness.b = entity;
+    vec4 metalrough = texture(metalroughTexture, uv);
+    gMetallicRoughness = vec4(metalrough.r, metalrough.g, 1.0, 1.0);
+    gEntityID = vec4(entity, 0, 0, 1.0);
 }

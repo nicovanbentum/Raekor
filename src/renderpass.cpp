@@ -286,10 +286,10 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 uint32_t GeometryBuffer::readEntity(GLint x, GLint y) {
-    std::array<float, 4> pixel;
-    glGetTextureSubImage(materialTexture, 0, x, y,
-        0, 1, 1, 1, GL_RGBA, GL_FLOAT, sizeof(pixel), pixel.data());
-    return static_cast<uint32_t>(pixel[2]);
+    float pixel;
+    glGetTextureSubImage(entityTexture, 0, x, y,
+        0, 1, 1, 1, GL_RED, GL_FLOAT, sizeof(float), &pixel);
+    return static_cast<uint32_t>(pixel);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -306,9 +306,14 @@ void GeometryBuffer::createResources(Viewport& viewport) {
     glTextureParameteri(albedoTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &materialTexture);
-    glTextureStorage2D(materialTexture, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
+    glTextureStorage2D(materialTexture, 1, GL_RG16F, viewport.size.x, viewport.size.y);
     glTextureParameteri(materialTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(materialTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &entityTexture);
+    glTextureStorage2D(entityTexture, 1, GL_R32F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(entityTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(entityTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &depthTexture);
     glTextureStorage2D(depthTexture, 1, GL_DEPTH_COMPONENT32F, viewport.size.x, viewport.size.y);
@@ -319,8 +324,15 @@ void GeometryBuffer::createResources(Viewport& viewport) {
     glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT0, normalTexture, 0);
     glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT1, albedoTexture, 0);
     glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT2, materialTexture, 0);
+    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT3, entityTexture, 0);
 
-    std::array<GLenum, 4> colorAttachments = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+    std::array<GLenum, 4> colorAttachments = { 
+        GL_COLOR_ATTACHMENT0, 
+        GL_COLOR_ATTACHMENT1, 
+        GL_COLOR_ATTACHMENT2, 
+        GL_COLOR_ATTACHMENT3,
+    };
+
     glNamedFramebufferDrawBuffers(GBuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
     glNamedFramebufferTexture(GBuffer, GL_DEPTH_ATTACHMENT, depthTexture, 0);
 }
@@ -328,7 +340,14 @@ void GeometryBuffer::createResources(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GeometryBuffer::deleteResources() {
-    std::array<unsigned int, 4> textures = { albedoTexture, normalTexture, materialTexture, depthTexture };
+    std::array<unsigned int, 5> textures = { 
+        albedoTexture, 
+        normalTexture, 
+        materialTexture, 
+        depthTexture, 
+        entityTexture 
+    };
+
     glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
     glDeleteFramebuffers(1, &GBuffer);
 }

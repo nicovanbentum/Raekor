@@ -34,7 +34,7 @@ RayTraceApp::RayTraceApp() : WindowApplication(RenderAPI::OPENGL), renderer(wind
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void RayTraceApp::update(double dt) {
+void RayTraceApp::update(float dt) {
     bool inFreeCameraMode = InputHandler::handleEvents(this, true, dt);
     viewport.getCamera().update(true);
 
@@ -257,7 +257,7 @@ VulkanApp::VulkanApp() : WindowApplication(RenderAPI::VULKAN), vk(window) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void VulkanApp::update(double dt) {
+void VulkanApp::update(float dt) {
     //handle sdl and imgui events
     InputHandler::handleEvents(this, false, dt);
 
