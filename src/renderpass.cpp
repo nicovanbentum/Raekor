@@ -1288,7 +1288,7 @@ void RayCompute::deleteResources() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 RayTracedShadows::RayTracedShadows(Viewport& viewport) {
-    scat.init(viewport.size.x, viewport.size.y);
+    scat.init();
     createResources(viewport);
 
     readyHandle = scat.getReadySemaphoreHandle();
@@ -1319,6 +1319,19 @@ RayTracedShadows::~RayTracedShadows() {
     glDeleteSemaphoresEXT(1, &completeSemaphore);
 
     scat.destroy();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RayTracedShadows::destroyBLAS(entt::registry& registry, entt::entity entity) {
+    auto& component = registry.get<ecs::AccelStructureComponent>(entity);
+    scat.destroyMesh(component.BLAS);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void RayTracedShadows::connect(entt::registry& scene) {
+    scene.on_destroy<ecs::AccelStructureComponent>().connect<&RayTracedShadows::destroyBLAS>(this);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1396,6 +1409,20 @@ void RayTracedShadows::destroyResources() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void RayTracedShadows::updateTLAS(entt::registry& scene) {
+    auto meshView = scene.view<ecs::MeshComponent>();
+    
+    // JIT create new bottom level acceleration structures
+    for (auto entity : meshView) {
+        auto blas = scene.try_get<ecs::AccelStructureComponent>(entity);
+        if (!blas) {
+            auto& mesh = meshView.get<ecs::MeshComponent>(entity);
+            auto& asc = scene.emplace<ecs::AccelStructureComponent>(entity);
+
+            asc.BLAS = scat.addMesh(mesh.positions.data(), mesh.indices.data(),
+                (unsigned int)mesh.positions.size(), (unsigned int)mesh.indices.size());
+        }
+    }
+
     scat.clearInstances();
 
     auto view = scene.view<ecs::TransformComponent, ecs::AccelStructureComponent>();

@@ -34,8 +34,11 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
         }
     }
 
-    // we probably crash here
+    // create initial bottom levels
     rayTracedShadowPass->createAccelerationStructure(scene);
+
+    // connect scatter to entt for blas deletion
+    rayTracedShadowPass->connect(scene);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

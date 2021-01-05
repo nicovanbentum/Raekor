@@ -335,6 +335,9 @@ public:
     RayTracedShadows(Viewport& viewport);
     ~RayTracedShadows();
 
+    void destroyBLAS(entt::registry& registry, entt::entity entity);
+    void connect(entt::registry& scene);
+
     void createAccelerationStructure(entt::registry& scene);
     void createResources(Viewport& viewport);
     void destroyResources();
