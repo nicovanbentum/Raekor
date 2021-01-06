@@ -337,6 +337,7 @@ public:
 
     void destroyBLAS(entt::registry& registry, entt::entity entity);
     void connect(entt::registry& scene);
+    void disconnect(entt::registry& scene);
 
     void createAccelerationStructure(entt::registry& scene);
     void createResources(Viewport& viewport);

@@ -13,13 +13,6 @@ public:
     virtual void update(double dt);
 
 private:
-    Scene scene;
-    entt::entity active = entt::null;
-    unsigned int activeScreenTexture;
-    entt::entity defaultMaterialEntity;
-
-    ecs::MeshComponent quad;
-
     GLRenderer renderer;
     std::unique_ptr<RenderPass::Bloom>              bloomPass;
     std::unique_ptr<RenderPass::Skinning>           skinningPass;
@@ -30,8 +23,12 @@ private:
     std::unique_ptr<RenderPass::DeferredLighting>   DeferredLightingPass;
     std::unique_ptr<RenderPass::BoundingBoxDebug>   boundingBoxDebugPass;
     std::unique_ptr<RenderPass::VoxelizationDebug>  voxelizationDebugPass;
-
     std::unique_ptr<RenderPass::RayTracedShadows>   rayTracedShadowPass;
+
+    Scene scene;
+    entt::entity active = entt::null;
+    unsigned int activeScreenTexture;
+    entt::entity defaultMaterialEntity;
 
     bool mouseInViewport = false;
     bool doSSAO = false, doBloom = false, debugVoxels = false;
