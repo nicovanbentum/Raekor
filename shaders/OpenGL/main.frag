@@ -263,14 +263,15 @@ void main() {
     VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
 
+    float depth = texture(gDepth, uv).r;
+    position = reconstructPosition(uv, depth, invViewProjection);
+
     vec4 metallicRoughness = texture(gMetallicRoughness, uv);
     float metalness = metallicRoughness.r;
     float roughness = metallicRoughness.g;
 
 	normal = normalize(texture(gNormals, uv).xyz);
 
-    float depth = texture(gDepth, uv).r;
-    position = reconstructPosition(uv, depth, invViewProjection);
 
     vec4 depthPosition = ubo.lightSpaceMatrix * vec4(position, 1.0);
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
@@ -308,6 +309,10 @@ void main() {
     // combine all
     vec3 diffuseReflection = (directLight + indirectLight.rgb * occlusion) * albedo.rgb;
     finalColor = vec4(diffuseReflection, albedo.a);
+
+    if(depth >= 1.0) {
+        finalColor = albedo;
+    }
 
     // BLOOM SEPERATION
 	float brightness = dot(finalColor.rgb, bloomThreshold);

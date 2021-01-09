@@ -210,6 +210,8 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
     auto importer = std::make_shared<Assimp::Importer>();
     auto assimpScene = importer->ReadFile(file, flags);
 
+    std::cout << importer->GetErrorString() << std::endl;
+
     auto path = std::filesystem::path(file);
     auto directory = path.parent_path() / "";
     auto filename = path.filename();
@@ -234,10 +236,13 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
     // load meshes and assign materials
     std::vector<entt::entity> meshes(assimpScene->mNumMeshes);
     for (unsigned int i = 0; i < assimpScene->mNumMeshes; i++) {
-        meshes[i] = loadMesh(scene, assimpScene->mMeshes[i]);
-        auto entity = meshes[i];
-        auto& mesh = scene->get<ecs::MeshComponent>(entity);
         auto assimpMesh = assimpScene->mMeshes[i];
+        auto entity = scene->create();
+        auto& name = scene->emplace<ecs::NameComponent>(entity);
+        auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+        name.name = assimpMesh->mName.C_Str();
+        convertMesh(mesh, assimpMesh);
+
         mesh.material = materials[assimpMesh->mMaterialIndex];
 
         if (assimpMesh->HasBones()) {
@@ -294,13 +299,7 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-entt::entity AssimpImporter::loadMesh(entt::registry& scene, aiMesh* assimpMesh) {
-    // create new entity and attach components
-    auto entity = scene.create();
-    auto& name = scene.emplace<ecs::NameComponent>(entity);
-    auto& mesh = scene.emplace<ecs::MeshComponent>(entity);
-    name.name = assimpMesh->mName.C_Str();
-
+bool AssimpImporter::convertMesh(ecs::MeshComponent& mesh, aiMesh* assimpMesh) {
     // extract vertices
     for (size_t i = 0; i < assimpMesh->mNumVertices; i++) {
         mesh.positions.emplace_back(assimpMesh->mVertices[i].x, assimpMesh->mVertices[i].y, assimpMesh->mVertices[i].z);
@@ -321,7 +320,7 @@ entt::entity AssimpImporter::loadMesh(entt::registry& scene, aiMesh* assimpMesh)
     // extract indices
     //mesh.indices.reserve(assimpMesh->mNumFaces);
     for (size_t i = 0; i < assimpMesh->mNumFaces; i++) {
-        m_assert((assimpMesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
+        if (assimpMesh->mFaces[i].mNumIndices != 3) return false;
         mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[0]);
         mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[1]);
         mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[2]);
@@ -329,7 +328,7 @@ entt::entity AssimpImporter::loadMesh(entt::registry& scene, aiMesh* assimpMesh)
 
     mesh.generateAABB();
 
-    return entity;
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

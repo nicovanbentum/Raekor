@@ -34,17 +34,11 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class AssimpImporter {
-    // class instead of namespace to hide the individual load methods
-public:
-    AssimpImporter() = delete;
-
-    static bool loadFile(Scene& scene, const std::string& file);
-
-private:
-    static std::vector<entt::entity>   loadMaterials(entt::registry& scene, const aiScene* aiscene, const std::string& directory);
-    static entt::entity                loadMesh(entt::registry& scene, aiMesh* assimpMesh);
-    static void                        loadBones(entt::registry& scene, const aiScene* aiscene, aiMesh* assimpMesh, entt::entity entity);
+namespace AssimpImporter {
+    bool loadFile(Scene& scene, const std::string& file);
+    std::vector<entt::entity> loadMaterials(entt::registry& scene, const aiScene* aiscene, const std::string& directory);
+    bool convertMesh(ecs::MeshComponent& mesh, aiMesh* assimpMesh);
+    void loadBones(entt::registry& scene, const aiScene* aiscene, aiMesh* assimpMesh, entt::entity entity);
 };
 
 } // Namespace Raekor

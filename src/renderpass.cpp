@@ -3,6 +3,7 @@
 #include "ecs.h"
 #include "camera.h"
 #include "timer.h"
+#include "scene.h"
 
 namespace Raekor {
 namespace RenderPass {
@@ -23,9 +24,11 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     
     glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+    float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    glTextureParameterfv(result, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTextureParameteri(result, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     glTextureParameteri(result, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 
@@ -1313,6 +1316,176 @@ void RayCompute::deleteResources() {
     glDeleteTextures(1, &result);
     glDeleteTextures(1, &finalResult);
     glDeleteBuffers(1, &sphereBuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+Skydome::Skydome(Viewport& viewport) {
+    Shader::Stage stages[2] = {
+        Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\skydome.vert"),
+        Shader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\skydome.frag")
+    };
+
+    shader.reload(stages, 2);
+    hotloader.watch(&shader, stages, 2);
+
+    auto importer = std::make_unique<Assimp::Importer>();
+    auto scene = importer->ReadFile("resources/models/wtfsphere.obj",
+        aiProcess_GenNormals |
+        aiProcess_CalcTangentSpace |
+        aiProcess_Triangulate |
+        aiProcess_SortByPType |
+        aiProcess_JoinIdenticalVertices |
+        aiProcess_GenUVCoords |
+        aiProcess_ValidateDataStructure);
+
+    if (!scene) std::cout << importer->GetErrorString() << '\n';
+
+    assert(scene->HasMeshes());
+    AssimpImporter::convertMesh(sphere, scene->mMeshes[0]);
+    sphere.uploadVertices();
+    sphere.uploadIndices();
+
+    createResources(viewport);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+Skydome::~Skydome() {
+
+    deleteResources();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Skydome::execute(Viewport& viewport, unsigned int texture, unsigned int depth) {
+    hotloader.changed();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, texture, 0);
+    glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
+    glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, depth, 0);
+
+    glDisable(GL_CULL_FACE);
+    glDepthMask(GL_FALSE);
+    glDepthFunc(GL_LEQUAL);
+
+    shader.bind();
+    shader.getUniform("projection") = viewport.getCamera().getProjection();
+    shader.getUniform("view") = glm::mat4(glm::mat3(viewport.getCamera().getView()));
+    shader.getUniform("mid_color") = settings.mid_color;
+    shader.getUniform("top_color") = settings.top_color;
+
+    sphere.vertexBuffer.bind();
+    sphere.indexBuffer.bind();
+    glDrawElements(GL_TRIANGLES, (GLsizei)sphere.indices.size(), GL_UNSIGNED_INT, nullptr);
+
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Skydome::createResources(Viewport& viewport) {
+    glCreateFramebuffers(1, &framebuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Skydome::deleteResources() {
+    glDeleteFramebuffers(1, &framebuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+WorldIcons::WorldIcons(Viewport& viewport) {
+    Shader::Stage stages[2] = {
+        Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\billboard.vert"),
+        Shader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\billboard.frag")
+    };
+
+    shader.reload(stages, 2);
+
+    int w, h, ch;
+    stbi_set_flip_vertically_on_load(true);
+    auto img = stbi_load("resources/light.png", &w, &h, &ch, 4);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &lightTexture);
+    glTextureStorage2D(lightTexture, 1, GL_RGBA8, w, h);
+    glTextureSubImage2D(lightTexture, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, img);
+    glTextureParameteri(lightTexture, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(lightTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(lightTexture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(lightTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(lightTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glGenerateTextureMipmap(lightTexture);
+    createResources(viewport);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void WorldIcons::createResources(Viewport& viewport) {
+    glCreateFramebuffers(1, &framebuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void WorldIcons::destroyResources() {
+    glDeleteRenderbuffers(1, &framebuffer);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void WorldIcons::execute(entt::registry& scene, Viewport& viewport, unsigned int screenTexture, unsigned int entityTexture) {
+    glDisable(GL_CULL_FACE);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, screenTexture, 0);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT1, entityTexture, 0);
+
+    GLenum attachments[2] = { GL_COLOR_ATTACHMENT0 , GL_COLOR_ATTACHMENT1 };
+    glNamedFramebufferDrawBuffers(framebuffer, 2, attachments);
+
+    glBindTextureUnit(0, lightTexture);
+
+    shader.bind();
+
+    auto vp = viewport.getCamera().getProjection() * viewport.getCamera().getView();
+
+    auto view = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
+    for (auto entity : view) {
+        auto& light = view.get<ecs::DirectionalLightComponent>(entity);
+        auto& transform = view.get<ecs::TransformComponent>(entity);
+
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, transform.position);
+
+        glm::vec3 V;
+        V.x = viewport.getCamera().getPosition().x - transform.position.x;
+        V.y = 0;
+        V.z = viewport.getCamera().getPosition().z - transform.position.z;
+
+        auto Vnorm = glm::normalize(V);
+
+        glm::vec3 lookAt = glm::vec3(0.0f, 0.0f, 1.0f);
+
+        auto upAux = glm::cross(lookAt, Vnorm);
+        auto cosTheta = glm::dot(lookAt, Vnorm);
+
+        model = glm::rotate(model, acos(cosTheta), upAux);
+
+        model = glm::scale(model, glm::vec3(glm::length(V) * 0.05f));
+
+        shader.getUniform("mvp") = vp * model;
+
+        shader.getUniform("entity") = entt::to_integral(entity);
+        shader.getUniform("world_position") = transform.position;
+
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    glEnable(GL_CULL_FACE);
 }
 
 } // renderpass

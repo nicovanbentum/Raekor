@@ -22,6 +22,7 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
     voxelizationDebugPass   = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
     bloomPass               = std::make_unique<RenderPass::Bloom>(viewport);
     worldIconsPass          = std::make_unique<RenderPass::WorldIcons>(viewport);
+    skydomePass             = std::make_unique<RenderPass::Skydome>(viewport);
 
     // keep a pointer to the texture that's rendered to the window
     activeScreenTexture = tonemappingPass->result;
@@ -76,12 +77,14 @@ void EditorOpenGL::update(float dt) {
     glViewport(0, 0, viewport.size.x, viewport.size.y);
 
     geometryBufferPass->execute(scene, viewport);
+    skydomePass->execute(viewport, geometryBufferPass->albedoTexture, geometryBufferPass->depthTexture);
     DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get());
     tonemappingPass->execute(DeferredLightingPass->result, DeferredLightingPass->bloomHighlights);
 
     if (active != entt::null) {
         boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->depthTexture, active);
     }
+
 
     if (debugVoxels) {
         voxelizationDebugPass->execute(viewport, tonemappingPass->result, voxelizationPass.get());
@@ -179,13 +182,18 @@ void EditorOpenGL::update(float dt) {
         debugVoxels = !debugVoxels;
     }
 
-    if (ImGui::RadioButton("Voxelize", shouldVoxelize)) {
+    if (ImGui::RadioButton("Update", shouldVoxelize)) {
         shouldVoxelize = !shouldVoxelize;
     }
+    
+    ImGui::DragFloat("Range", &voxelizationPass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
 
-    ImGui::DragFloat("Coverage", &voxelizationPass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
+    ImGui::NewLine(); ImGui::Separator();
+    ImGui::Text("Skydome");
+    ImGui::ColorEdit3("Mid color", glm::value_ptr(skydomePass->settings.mid_color), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+    ImGui::ColorEdit3("Top color", glm::value_ptr(skydomePass->settings.top_color), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 
-    ImGui::Separator();
+    ImGui::NewLine(); ImGui::Separator();
 
     if (ImGui::TreeNode("Screen Texture")) {
         if (ImGui::Selectable(nameof(tonemappingPass->result), activeScreenTexture == tonemappingPass->result))
