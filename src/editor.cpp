@@ -77,9 +77,15 @@ void EditorOpenGL::update(float dt) {
     glViewport(0, 0, viewport.size.x, viewport.size.y);
 
     geometryBufferPass->execute(scene, viewport);
+    
     skydomePass->execute(viewport, geometryBufferPass->albedoTexture, geometryBufferPass->depthTexture);
+    
     DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get());
-    tonemappingPass->execute(DeferredLightingPass->result, DeferredLightingPass->bloomHighlights);
+    
+    bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
+    
+    tonemappingPass->execute(DeferredLightingPass->result, bloomPass->result);
+
 
     if (active != entt::null) {
         boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->depthTexture, active);
@@ -91,8 +97,6 @@ void EditorOpenGL::update(float dt) {
     }
 
     worldIconsPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->entityTexture);
-
-    //bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
 
     //get new frame for ImGui and ImGuizmo
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -210,6 +214,10 @@ void EditorOpenGL::update(float dt) {
             activeScreenTexture = DeferredLightingPass->bloomHighlights;
         if (ImGui::Selectable(nameof(DeferredLightingPass->result), activeScreenTexture == DeferredLightingPass->result))
             activeScreenTexture = DeferredLightingPass->result;
+        if (ImGui::Selectable(nameof(bloomPass->result), activeScreenTexture == bloomPass->result))
+            activeScreenTexture = bloomPass->result;
+        if (ImGui::Selectable(nameof(bloomPass->darkenedMip), activeScreenTexture == bloomPass->darkenedMip))
+            activeScreenTexture = bloomPass->darkenedMip;
         ImGui::TreePop();
     }
 

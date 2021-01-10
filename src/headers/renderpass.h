@@ -139,12 +139,12 @@ public:
     void createResources(Viewport& viewport);
     void deleteResources();
 
-private:
-    void gaussianBlurLod(uint32_t texture, uint32_t level, uint32_t width, uint32_t height);
+    unsigned int result;
+    unsigned int darkenedMip;
 
+private:
     glShader blurShader;
-    glShader upsampleShader;
-    std::vector<glm::ivec2> mipResolutions;
+    glShader downsampleShader;
 };
 
 //////////////////////////////////////////////////////////////////////////////////

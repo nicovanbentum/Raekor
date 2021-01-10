@@ -659,8 +659,8 @@ Bloom::Bloom(Viewport& viewport) {
     auto blurStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\gaussian.comp");
     blurShader.reload(&blurStage, 1);
 
-    auto upsampleStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\upsample.comp");
-    upsampleShader.reload(&upsampleStage, 1);
+    auto downsampleStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\darken.comp");
+    downsampleShader.reload(&downsampleStage, 1);
 
     createResources(viewport);
 }
@@ -671,40 +671,52 @@ void Bloom::execute(Viewport& viewport, unsigned int highlights) {
     if (viewport.size.x < 16.0f || viewport.size.y < 16.0f) {
         return;
     }
+
+    auto quarter = glm::ivec2(viewport.size.x / 4, viewport.size.y / 4);
     
-    for (int i = 0; i < 10; i++) {
-        auto resolution = mipResolutions[0];
-        gaussianBlurLod(highlights, 0, resolution.x, resolution.y);
-    }
+    // darken and downsample to quarter screen res
+    downsampleShader.bind();
+    glBindTextureUnit(0, highlights);
+    glBindImageTexture(1, darkenedMip, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+    glDispatchCompute(quarter.x, quarter.y, 1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
+    // perform separable guassian blur to quarter texture
+    blurShader.bind();
+    glBindImageTexture(0, result, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+    glBindTextureUnit(1, darkenedMip);
+
+    glDispatchCompute(quarter.x, quarter.y, 1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Bloom::createResources(Viewport& viewport) {
-    for (unsigned int level = 0; level < 5; level++) {
-        auto resolution = viewport.size / static_cast<unsigned int>(std::pow(2, level));
-        mipResolutions.push_back(resolution);
-    }
+    auto quarterRes = glm::ivec2(viewport.size.x / 4, viewport.size.y / 4);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &result);
+    glTextureStorage2D(result, 1, GL_RGBA16F, quarterRes.x, quarterRes.y);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &darkenedMip);
+    glTextureStorage2D(darkenedMip, 1, GL_RGBA16F, quarterRes.x, quarterRes.y);
+    glTextureParameteri(darkenedMip, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(darkenedMip, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(darkenedMip, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTextureParameteri(darkenedMip, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+    glTextureParameteri(darkenedMip, GL_TEXTURE_WRAP_R, GL_MIRRORED_REPEAT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Bloom::deleteResources() {
-    mipResolutions.clear();
-}
-
-void Bloom::gaussianBlurLod(uint32_t texture, uint32_t level, uint32_t width, uint32_t height) {
-    blurShader.bind();
-    glBindImageTexture(0, texture, level, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-    glBindTextureUnit(1, texture);
-    
-    blurShader.getUniform("direction") = glm::vec2(1, 0);
-    glDispatchCompute(width / 16, height / 16, 1);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-
-    blurShader.getUniform("direction") = glm::vec2(1, 0);
-    glDispatchCompute(width / 16, height / 16, 1);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+    glDeleteTextures(1, &result);
+    glDeleteTextures(1, &darkenedMip);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -719,7 +731,7 @@ Tonemapping::Tonemapping(Viewport& viewport) {
     // load shaders from disk
     std::vector<Shader::Stage> tonemapStages;
     tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
-    tonemapStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDR.frag");
+    tonemapStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDRuncharted.frag");
     shader.reload(tonemapStages.data(), tonemapStages.size());
 
     // init render targets

@@ -1,9 +1,10 @@
 #version 440 core
 out vec4 FragColor;
   
-in vec2 TexCoords;
+layout(location = 0) in vec2 TexCoords;
 
 layout(binding = 0) uniform sampler2D hdrBuffer;
+layout(binding = 1) uniform sampler2D bloom;
 
 layout (std140) uniform stuff {
 	float exposure;
@@ -26,6 +27,7 @@ vec3 Uncharted2Tonemap(vec3 x)
 void main()
 {             
     vec3 hdrColor = texture(hdrBuffer, TexCoords).rgb;
+    hdrColor += texture(bloom, TexCoords).rgb;
 
 	float exposureBias = 2.0f;
 	vec3 curr = Uncharted2Tonemap(exposureBias*hdrColor);

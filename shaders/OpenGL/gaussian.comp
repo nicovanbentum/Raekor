@@ -1,15 +1,13 @@
 #version 450
 
-layout(local_size_x = 16, local_size_y = 16) in;
+layout(local_size_x = 1, local_size_y = 1) in;
 
 // downsampled output
-layout(binding = 0, rgba16f) uniform image2D targetMip;
-layout(binding = 1) uniform sampler2D blurredTexture; 
+layout(binding = 0, rgba16f) uniform image2D target;
+layout(binding = 1) uniform sampler2D source; 
 
-vec2 iResolution = imageSize(targetMip);
+vec2 iResolution = imageSize(target);
 ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
-
-uniform vec2 direction;
 
 vec4 blur13(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
   vec4 color = vec4(0.0);
@@ -28,5 +26,11 @@ vec4 blur13(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
 
 void main() {
     vec2 uv = fragCoord / iResolution;
-    imageStore(targetMip, fragCoord, blur13(blurredTexture, uv, iResolution, direction));
+
+    vec4 blurred_x = blur13(source, uv, iResolution, vec2(1, 0));
+    vec4 blurred_y = blur13(source, uv, iResolution, vec2(0, 1));
+    vec4 result = (blurred_x + blurred_y) / 2;
+    result.a = 1.0;
+
+    imageStore(target, fragCoord, result);
 }
