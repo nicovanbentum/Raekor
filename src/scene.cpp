@@ -145,7 +145,7 @@ void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials) {
     // load every texture from disk in parallel
     std::for_each(std::execution::par_unseq, images.begin(), images.end(), [](auto& kv) {
         kv.second.load(kv.first, true);
-        });
+    });
 
     for (auto entity : materials) {
         auto& material = registry.get<ecs::MaterialComponent>(entity);
@@ -234,8 +234,6 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
         aiProcess_GenNormals |
         aiProcess_CalcTangentSpace |
         aiProcess_Triangulate |
-        aiProcess_SortByPType |
-        aiProcess_JoinIdenticalVertices |
         aiProcess_GenUVCoords |
         aiProcess_ValidateDataStructure;
 

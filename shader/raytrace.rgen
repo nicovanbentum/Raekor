@@ -29,7 +29,7 @@ void main() {
     const vec2 pixelCenter = vec2(gl_LaunchIDNV.xy) + vec2(0.5);
     const vec2 uv = pixelCenter/vec2(gl_LaunchSizeNV.xy);
 
-    uint rayFlags = gl_RayFlagsOpaqueNV | gl_RayFlagsSkipClosestHitShaderNV;
+    uint rayFlags = gl_RayFlagsOpaqueNV | gl_RayFlagsSkipClosestHitShaderNV | gl_RayFlagsTerminateOnFirstHitNV;
     float tMin = 0.001;
     float tMax = 10000.0;
 
