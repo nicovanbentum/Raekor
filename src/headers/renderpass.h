@@ -139,8 +139,8 @@ public:
     void createResources(Viewport& viewport);
     void deleteResources();
 
-    unsigned int result;
-    unsigned int darkenedMip;
+    unsigned int bloomTexture;
+    unsigned int quarterResTexture;
 
 private:
     glShader blurShader;

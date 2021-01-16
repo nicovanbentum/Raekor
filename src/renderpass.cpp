@@ -677,14 +677,24 @@ void Bloom::execute(Viewport& viewport, unsigned int highlights) {
     // darken and downsample to quarter screen res
     downsampleShader.bind();
     glBindTextureUnit(0, highlights);
-    glBindImageTexture(1, darkenedMip, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+    glBindImageTexture(1, bloomTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
     glDispatchCompute(quarter.x, quarter.y, 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
     // perform separable guassian blur to quarter texture
     blurShader.bind();
-    glBindImageTexture(0, result, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-    glBindTextureUnit(1, darkenedMip);
+    glBindImageTexture(0, quarterResTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+    glBindTextureUnit(1, bloomTexture);
+
+    blurShader.getUniform("direction") = glm::vec2(1, 0);
+
+    glDispatchCompute(quarter.x, quarter.y, 1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
+    glBindImageTexture(0, bloomTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+    glBindTextureUnit(1, quarterResTexture);
+
+    blurShader.getUniform("direction") = glm::vec2(0, 1);
 
     glDispatchCompute(quarter.x, quarter.y, 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -695,28 +705,29 @@ void Bloom::execute(Viewport& viewport, unsigned int highlights) {
 void Bloom::createResources(Viewport& viewport) {
     auto quarterRes = glm::ivec2(viewport.size.x / 4, viewport.size.y / 4);
 
-    glCreateTextures(GL_TEXTURE_2D, 1, &result);
-    glTextureStorage2D(result, 1, GL_RGBA16F, quarterRes.x, quarterRes.y);
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glCreateTextures(GL_TEXTURE_2D, 1, &bloomTexture);
+    glTextureStorage2D(bloomTexture, 1, GL_RGBA16F, quarterRes.x, quarterRes.y);
+    glTextureParameteri(bloomTexture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(bloomTexture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(bloomTexture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(bloomTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(bloomTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    glCreateTextures(GL_TEXTURE_2D, 1, &darkenedMip);
-    glTextureStorage2D(darkenedMip, 1, GL_RGBA16F, quarterRes.x, quarterRes.y);
-    glTextureParameteri(darkenedMip, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(darkenedMip, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTextureParameteri(darkenedMip, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTextureParameteri(darkenedMip, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-    glTextureParameteri(darkenedMip, GL_TEXTURE_WRAP_R, GL_MIRRORED_REPEAT);
+    glCreateTextures(GL_TEXTURE_2D, 1, &quarterResTexture);
+    glTextureStorage2D(quarterResTexture, 1, GL_RGBA16F, quarterRes.x, quarterRes.y);
+    glTextureParameteri(quarterResTexture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(quarterResTexture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(quarterResTexture, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTextureParameteri(quarterResTexture, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+    glTextureParameteri(quarterResTexture, GL_TEXTURE_WRAP_R, GL_MIRRORED_REPEAT);
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Bloom::deleteResources() {
-    glDeleteTextures(1, &result);
-    glDeleteTextures(1, &darkenedMip);
+    glDeleteTextures(1, &bloomTexture);
+    glDeleteTextures(1, &quarterResTexture);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

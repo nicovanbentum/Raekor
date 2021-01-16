@@ -7,7 +7,7 @@ layout(binding = 0) uniform sampler2D source;
 layout(binding = 1, rgba16f) uniform image2D target;
 
 void main() {
-    vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(imageSize(target));
+    vec2 uv = vec2(gl_GlobalInvocationID.xy + vec2(0.5)) / vec2(imageSize(target));
 
     vec4 sampled = texture(source, uv);
     //sampled.rgb /= 2.0;

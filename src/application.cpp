@@ -34,8 +34,8 @@ WindowApplication::WindowApplication(RenderAPI api) :
     // if our display setting is higher than the nr of displays we pick the default display
     settings.display = settings.display > displays.size() - 1 ? 0 : settings.display;
     window = SDL_CreateWindow(settings.name.c_str(),
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED_DISPLAY(settings.display),
+        SDL_WINDOWPOS_CENTERED_DISPLAY(settings.display),
         static_cast<int>(displays[settings.display].w * 0.9f),
         static_cast<int>(displays[settings.display].h * 0.9f),
         wflags);

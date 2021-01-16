@@ -81,10 +81,26 @@ void EditorOpenGL::update(float dt) {
     skydomePass->execute(viewport, geometryBufferPass->albedoTexture, geometryBufferPass->depthTexture);
     
     DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get());
+
+    if (doBloom) {
+        bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
+        tonemappingPass->execute(DeferredLightingPass->result, bloomPass->bloomTexture);
+    } else {
+        static unsigned int blackTexture = 0;
+        if (blackTexture == 0) {
+            glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
+            glTextureStorage2D(blackTexture, 1, GL_RGBA16F, 1, 1);
+            glTextureParameteri(blackTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTextureParameteri(blackTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
+        }
+        
+        tonemappingPass->execute(DeferredLightingPass->result, blackTexture);
+    }
     
-    bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
     
-    tonemappingPass->execute(DeferredLightingPass->result, bloomPass->result);
 
 
     if (active != entt::null) {
@@ -214,10 +230,10 @@ void EditorOpenGL::update(float dt) {
             activeScreenTexture = DeferredLightingPass->bloomHighlights;
         if (ImGui::Selectable(nameof(DeferredLightingPass->result), activeScreenTexture == DeferredLightingPass->result))
             activeScreenTexture = DeferredLightingPass->result;
-        if (ImGui::Selectable(nameof(bloomPass->result), activeScreenTexture == bloomPass->result))
-            activeScreenTexture = bloomPass->result;
-        if (ImGui::Selectable(nameof(bloomPass->darkenedMip), activeScreenTexture == bloomPass->darkenedMip))
-            activeScreenTexture = bloomPass->darkenedMip;
+        if (ImGui::Selectable(nameof(bloomPass->result), activeScreenTexture == bloomPass->bloomTexture))
+            activeScreenTexture = bloomPass->bloomTexture;
+        if (ImGui::Selectable(nameof(bloomPass->quarterResTexture), activeScreenTexture == bloomPass->quarterResTexture))
+            activeScreenTexture = bloomPass->quarterResTexture;
         ImGui::TreePop();
     }
 

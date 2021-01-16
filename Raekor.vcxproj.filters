@@ -162,10 +162,10 @@
     <ClCompile Include="dependencies\imgui\misc\cpp\imgui_stdlib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\physics.cpp">
+    <ClCompile Include="src\systems.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\systems.cpp">
+    <ClCompile Include="src\physics.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -317,10 +317,10 @@
     <ClInclude Include="dependencies\imgui\misc\cpp\imgui_stdlib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\headers\physics.h">
+    <ClInclude Include="src\headers\systems.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\headers\systems.h">
+    <ClInclude Include="src\headers\physics.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

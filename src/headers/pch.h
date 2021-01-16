@@ -85,17 +85,8 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // PhysX 
-#include "PxPhysics.h"
-#include "PxMaterial.h"
-#include "PxRigidDynamic.h"
-#include "cooking/PxCooking.h"
-#include "extensions/PxDefaultAllocator.h"
-#include "extensions/PxDefaultErrorCallback.h"
-#include "extensions/PxDefaultCpuDispatcher.h"
-#include "extensions/PxExtensionsAPI.h"
-#include "PxPhysicsVersion.h"
-#include "PxScene.h"
-#include "gpu/PxGpu.h"
+#define PX_PHYSX_STATIC_LIB
+#include "PxPhysicsAPI.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // c++ (17) includes
