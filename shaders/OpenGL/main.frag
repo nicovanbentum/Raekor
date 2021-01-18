@@ -1,4 +1,4 @@
-#version 440 core
+#version 450 core
 
 const float PI = 3.14159265359;
 
@@ -113,7 +113,7 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
     float voxelSize = voxelsWorldSize / VoxelDimensions;
      // start one voxel away from the current vertex' position
     float dist = voxelSize; 
-    vec3 startPos = p + n * voxelSize * 2 * sqrt(2); 
+    vec3 startPos = p + n * voxelSize; 
     
     while(dist <= voxelsWorldSize && colour.a < 1.0) {
         float diameter = max(voxelSize, 2 * coneAperture * dist);
@@ -167,24 +167,104 @@ vec4 coneTraceReflection(in vec3 P, in vec3 N, in vec3 V, in float roughness, ou
     return vec4(max(vec3(0), reflection.rgb), clamp(reflection.a, 0, 1));
 }
 
+float InterleavedGradientNoise(vec2 pixel) {
+  vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);
+  return fract(magic.z * fract(dot(pixel, magic.xy)));
+}
+
+float rand(vec2 n) { 
+	return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
+}
+
+float noise(vec2 p){
+	vec2 ip = floor(p);
+	vec2 u = fract(p);
+	u = u*u*(3.0-2.0*u);
+	
+	float res = mix(
+		mix(rand(ip),rand(ip+vec2(1.0,0.0)),u.x),
+		mix(rand(ip+vec2(0.0,1.0)),rand(ip+vec2(1.0,1.0)),u.x),u.y);
+	return res*res;
+}
+
+// from https://www.gamedev.net/tutorials/programming/graphics/contact-hardening-soft-shadows-made-fast-r4906/
+vec2 VogelDiskSample(int sampleIndex, int samplesCount, float phi) {
+    float GoldenAngle = 2.4f;
+
+    float r = sqrt(sampleIndex + 0.5f) / sqrt(samplesCount);
+    float theta = sampleIndex * GoldenAngle + phi;
+
+    float sine = sin(theta);
+    float cosine = cos(theta);
+
+    return vec2(r * cosine, r* sine);
+}
+
+float AvgBlockersDepthToPenumbra(float lightSize, float z_shadowMapView, float avgBlockersDepth) {
+    return lightSize * (z_shadowMapView - avgBlockersDepth) / avgBlockersDepth;
+}
+
+vec2 VogelDiskScale(vec2 shadowMapSize, int samplingKernelSize) {
+    vec2 texelSize = 2.0 / shadowMapSize;
+    return texelSize * samplingKernelSize;
+}
+
+float Penumbra(float gradientNoise, vec4 FragPosLightSpace, int samplesCount) {
+    float avgBlockersDepth = 0.0f;
+    float blockersCount = 0.0f;
+
+    const int KernelSize = 4;
+    vec2 shadowMapSize = textureSize(shadowMap, 0).xy;
+    vec2 penumbraFilterMaxSize = VogelDiskScale(shadowMapSize, KernelSize);
+
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+
+    for(int i = 0; i < samplesCount; i ++) {
+        vec2 offsetUv = VogelDiskSample(i, samplesCount, gradientNoise) * penumbraFilterMaxSize;
+
+        float sampleDepth = texture(shadowMap, vec3(FragPosLightSpace.xy, FragPosLightSpace.z)).r; 
+
+        // if the sampled depth is smaller than the fragments depth, its a blocker
+        if(sampleDepth < FragPosLightSpace.z)
+        {
+            avgBlockersDepth += sampleDepth;
+            blockersCount += 1.0f;
+        }
+    }
+
+    if(blockersCount > 0.0f) {
+        avgBlockersDepth /= blockersCount;
+        return AvgBlockersDepthToPenumbra(0.1, FragPosLightSpace.z, avgBlockersDepth);
+    } else {
+        return 0.0f;
+    }
+}
+
 float getShadow(DirectionalLight light, vec3 position) {
     vec4 FragPosLightSpace = ubo.lightSpaceMatrix * vec4(position, 1.0);
+    FragPosLightSpace.xyz /= FragPosLightSpace.w;
     FragPosLightSpace.xyz = FragPosLightSpace.xyz * 0.5 + 0.5;
 
-    float currentDepth = FragPosLightSpace.z;
-
-	vec3 direction = normalize(-light.direction.xyz);
-    
-	// simplest PCF algorithm
-    float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for(int x = -3; x <= 3; ++x) {
-        for(int y = -3; y <= 3; ++y) {
-            float pcfDepth = texture(shadowMap, vec3(FragPosLightSpace.xy + vec2(x, y) * texelSize, (FragPosLightSpace.z)/FragPosLightSpace.w)).r; 
-            shadow += currentDepth > pcfDepth  ? 1.0 : 0.0;    
-        }    
+
+    const int KernelSize = 4;
+    vec2 penumbraFilterMaxSize = VogelDiskScale(textureSize(shadowMap, 0).xy, KernelSize);
+
+    float gradientNoise = PI * 2.0 * InterleavedGradientNoise(gl_FragCoord.xy);
+    int samplesCount = 16;
+
+    float penumbra = Penumbra(gradientNoise, FragPosLightSpace, samplesCount);
+
+    float shadow = 0.0;
+    for(int i = 0; i < samplesCount; i++) {
+        vec2 offsetUv = VogelDiskSample(i, samplesCount, gradientNoise);
+        //offsetUv = offsetUv * penumbra;
+
+        float sampled = texture(shadowMap, vec3(FragPosLightSpace.xy + offsetUv * texelSize, FragPosLightSpace.z)).r;
+        shadow += 1.0 - sampled; 
     }
-    shadow /= 49.0;
+
+    shadow /= samplesCount;
     
     // keep the shadow at 0.0 when outside the far plane region of the light's frustum
     if(FragPosLightSpace.z > 1.0) shadow = 0.0;
@@ -277,8 +357,10 @@ void main() {
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
     DirectionalLight light = ubo.dirLights[0];
+
     //float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
     float shadowAmount = 1.0 - getShadow(light, position);
+
 
     vec3 Li = normalize(-light.direction.xyz);
     vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
@@ -290,14 +372,14 @@ void main() {
     float cosLh = max(0.0, dot(normal, Lh));
 
 	vec3 F0 = mix(vec3(0.04), albedo.rgb, metalness);
-    vec3 F = fresnelSchlick(F0, max(0.0, dot(Lh, V)));
+    vec3 Fresnel = fresnelSchlick(F0, cosLh);
     float D = ndfGGX(cosLh, roughness);
     float G = gaSchlickGGX(cosLi, NdotV, roughness);
 
-    vec3 kd = (1.0 - F) * (1.0 - metallicRoughness.r);
+    vec3 kd = (1.0 - Fresnel) * (1.0 - metalness);
 
     // Cook-Torrance
-    vec3 specularBRDF = (F * D * G) / max(0.00001, 4.0 * cosLi * NdotV);
+    vec3 specularBRDF = (Fresnel * D * G) / max(0.00001, 4.0 * cosLi * NdotV);
 
     // get direct light
     vec3 directLight = kd * light.color.xyz * cosLi * shadowAmount;
@@ -306,8 +388,14 @@ void main() {
     float occlusion = 0.0; 
     vec4 indirectLight = coneTraceRadiance(position, normal.xyz, occlusion);
 
+    float reflOcclusion;
+    vec4 tracedReflection = coneTraceReflection(position, normal, V,  roughness, reflOcclusion);
+
     // combine all
     vec3 diffuseReflection = (directLight + indirectLight.rgb * occlusion) * albedo.rgb;
+
+
+
     finalColor = vec4(diffuseReflection, albedo.a);
 
     if(depth >= 1.0) {

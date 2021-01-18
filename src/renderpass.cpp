@@ -621,13 +621,12 @@ void DeferredLighting::createResources(Viewport& viewport) {
     glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &bloomHighlights);
-    glTextureStorage2D(bloomHighlights, 5, GL_RGBA16F, std::max(16u, viewport.size.x), std::max(16u, viewport.size.y));
-    glTextureParameteri(bloomHighlights, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureStorage2D(bloomHighlights, 1, GL_RGBA16F, viewport.size.x,  viewport.size.y);
+    glTextureParameteri(bloomHighlights, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(bloomHighlights, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTextureParameteri(bloomHighlights, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTextureParameteri(bloomHighlights, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(bloomHighlights, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glGenerateTextureMipmap(bloomHighlights);
 
     glCreateFramebuffers(1, &framebuffer);
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
@@ -656,11 +655,20 @@ Bloom::~Bloom() {
 
 Bloom::Bloom(Viewport& viewport) {
     // load shaders from disk
-    auto blurStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\gaussian.comp");
-    blurShader.reload(&blurStage, 1);
+    Shader::Stage blurStages[2] = {
+        Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"),
+        Shader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\gaussian.frag")
+    };
 
-    auto downsampleStage = Shader::Stage(Shader::Type::COMPUTE, "shaders\\OpenGL\\darken.comp");
-    downsampleShader.reload(&downsampleStage, 1);
+    blurShader.reload(blurStages, 2);
+
+
+    Shader::Stage downsampleStages[2] = {
+        Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"),
+        Shader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\downsample.frag")
+    };
+
+    downsampleShader.reload(downsampleStages, 2);
 
     createResources(viewport);
 }
@@ -674,30 +682,35 @@ void Bloom::execute(Viewport& viewport, unsigned int highlights) {
 
     auto quarter = glm::ivec2(viewport.size.x / 4, viewport.size.y / 4);
     
-    // darken and downsample to quarter screen res
+    // downsample to quarter screen res
+    glBindFramebuffer(GL_FRAMEBUFFER, bloomFramebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glViewport(0, 0, quarter.x, quarter.y);
+
     downsampleShader.bind();
     glBindTextureUnit(0, highlights);
-    glBindImageTexture(1, bloomTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-    glDispatchCompute(quarter.x, quarter.y, 1);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    // perform separable guassian blur to quarter texture
     blurShader.bind();
-    glBindImageTexture(0, quarterResTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-    glBindTextureUnit(1, bloomTexture);
+    
+    // horizontally blur 1/4th bloom to blur texture
+    glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     blurShader.getUniform("direction") = glm::vec2(1, 0);
+    glBindTextureUnit(0, bloomTexture);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    glDispatchCompute(quarter.x, quarter.y, 1);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-
-    glBindImageTexture(0, bloomTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
-    glBindTextureUnit(1, quarterResTexture);
+    // vertically blur the blur to bloom texture
+    glBindFramebuffer(GL_FRAMEBUFFER, bloomFramebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     blurShader.getUniform("direction") = glm::vec2(0, 1);
+    glBindTextureUnit(0, blurTexture);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    glDispatchCompute(quarter.x, quarter.y, 1);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+    glViewport(0, 0, viewport.size.x, viewport.size.y);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -713,21 +726,31 @@ void Bloom::createResources(Viewport& viewport) {
     glTextureParameteri(bloomTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(bloomTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    glCreateTextures(GL_TEXTURE_2D, 1, &quarterResTexture);
-    glTextureStorage2D(quarterResTexture, 1, GL_RGBA16F, quarterRes.x, quarterRes.y);
-    glTextureParameteri(quarterResTexture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(quarterResTexture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTextureParameteri(quarterResTexture, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTextureParameteri(quarterResTexture, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-    glTextureParameteri(quarterResTexture, GL_TEXTURE_WRAP_R, GL_MIRRORED_REPEAT);
+    glCreateTextures(GL_TEXTURE_2D, 1, &blurTexture);
+    glTextureStorage2D(blurTexture, 1, GL_RGBA16F, quarterRes.x, quarterRes.y);
+    glTextureParameteri(blurTexture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(blurTexture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(blurTexture, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTextureParameteri(blurTexture, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+    glTextureParameteri(blurTexture, GL_TEXTURE_WRAP_R, GL_MIRRORED_REPEAT);
+
+    glCreateFramebuffers(1, &bloomFramebuffer);
+    glNamedFramebufferTexture(bloomFramebuffer, GL_COLOR_ATTACHMENT0, bloomTexture, 0);
+    glNamedFramebufferDrawBuffer(bloomFramebuffer, GL_COLOR_ATTACHMENT0);
+
+    glCreateFramebuffers(1, &blurFramebuffer);
+    glNamedFramebufferTexture(blurFramebuffer, GL_COLOR_ATTACHMENT0, blurTexture, 0);
+    glNamedFramebufferDrawBuffer(blurFramebuffer, GL_COLOR_ATTACHMENT0);
 
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Bloom::deleteResources() {
+    glDeleteFramebuffers(1, &bloomFramebuffer);
+    glDeleteFramebuffers(1, &blurFramebuffer);
     glDeleteTextures(1, &bloomTexture);
-    glDeleteTextures(1, &quarterResTexture);
+    glDeleteTextures(1, &blurTexture);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

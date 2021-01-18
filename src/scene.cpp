@@ -238,6 +238,7 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
     for (unsigned int i = 0; i < assimpScene->mNumMeshes; i++) {
         auto assimpMesh = assimpScene->mMeshes[i];
         auto entity = scene->create();
+        meshes[i] = entity;
         auto& name = scene->emplace<ecs::NameComponent>(entity);
         auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
         name.name = assimpMesh->mName.C_Str();

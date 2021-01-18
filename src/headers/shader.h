@@ -31,22 +31,23 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class glShader : public Shader {
-    struct UniformLocation {
-        GLint id;
+struct UniformLocation {
+    GLint id;
 
-        UniformLocation& operator=(bool rhs);
-        UniformLocation& operator=(float rhs);
-        UniformLocation& operator=(int32_t rhs);
-        UniformLocation& operator=(uint32_t rhs);
-        UniformLocation& operator=(const glm::vec2& rhs);
-        UniformLocation& operator=(const glm::vec3& rhs);
-        UniformLocation& operator=(const glm::vec4& rhs);
-        UniformLocation& operator=(const glm::mat4& rhs);
-        UniformLocation& operator=(const std::vector<float>& rhs);
-        UniformLocation& operator=(const std::vector<glm::vec3>& rhs);
-        UniformLocation& operator=(const std::vector<glm::mat4>& rhs);
-    };
+    UniformLocation& operator=(bool rhs);
+    UniformLocation& operator=(float rhs);
+    UniformLocation& operator=(int32_t rhs);
+    UniformLocation& operator=(uint32_t rhs);
+    UniformLocation& operator=(const glm::vec2& rhs);
+    UniformLocation& operator=(const glm::vec3& rhs);
+    UniformLocation& operator=(const glm::vec4& rhs);
+    UniformLocation& operator=(const glm::mat4& rhs);
+    UniformLocation& operator=(const std::vector<float>& rhs);
+    UniformLocation& operator=(const std::vector<glm::vec3>& rhs);
+    UniformLocation& operator=(const std::vector<glm::mat4>& rhs);
+};
+
+class glShader : public Shader {
 
 public:
     glShader() = default;

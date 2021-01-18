@@ -139,8 +139,10 @@ public:
     void createResources(Viewport& viewport);
     void deleteResources();
 
+    unsigned int blurTexture;
     unsigned int bloomTexture;
-    unsigned int quarterResTexture;
+    unsigned int blurFramebuffer;
+    unsigned int bloomFramebuffer;
 
 private:
     glShader blurShader;

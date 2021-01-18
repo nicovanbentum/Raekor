@@ -144,68 +144,67 @@ inline const void glShader::unbind() const { glUseProgram(0); }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-glShader::UniformLocation glShader::operator[] (const char* name) {
-    return { glGetUniformLocation(programID, name) };
-
+UniformLocation glShader::operator[] (const char* name) {
+    return getUniform(name);
 }
 
-glShader::UniformLocation glShader::getUniform(const char* name) {
+UniformLocation glShader::getUniform(const char* name) {
     return { glGetUniformLocation(programID, name) };
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(const glm::mat4& rhs) {
+UniformLocation& UniformLocation::operator=(const glm::mat4& rhs) {
     glUniformMatrix4fv(id, 1, GL_FALSE, glm::value_ptr(rhs));
     return *this;
 }
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(const std::vector<glm::vec3>& rhs) {
+UniformLocation& UniformLocation::operator=(const std::vector<glm::vec3>& rhs) {
     glUniform3fv(id, static_cast<GLsizei>(rhs.size()), glm::value_ptr(rhs[0]));
     return *this;
 }
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(const std::vector<glm::mat4>& rhs) {
+UniformLocation& UniformLocation::operator=(const std::vector<glm::mat4>& rhs) {
     glUniformMatrix4fv(id, static_cast<GLuint>(rhs.size()), GL_FALSE, glm::value_ptr(rhs[0]));
     return *this;
 }
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(float rhs) {
+UniformLocation& UniformLocation::operator=(float rhs) {
     glUniform1f(id, rhs);
     return *this;
 }
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(const std::vector<float>& rhs) {
+UniformLocation& UniformLocation::operator=(const std::vector<float>& rhs) {
     glUniform1fv(id, static_cast<GLsizei>(rhs.size()), rhs.data());
     return *this;
 }
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(bool rhs) {
+UniformLocation& UniformLocation::operator=(bool rhs) {
     glUniform1i(id, rhs);
     return *this;
 }
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(const glm::vec4& rhs) {
+UniformLocation& UniformLocation::operator=(const glm::vec4& rhs) {
     glUniform4f(id, rhs.x, rhs.y, rhs.z, rhs.w);
     return *this;
 }
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(const glm::vec3& rhs) {
+UniformLocation& UniformLocation::operator=(const glm::vec3& rhs) {
     glUniform3f(id, rhs.x, rhs.y, rhs.z);
     return *this;
 }
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(const glm::vec2& rhs) {
+UniformLocation& UniformLocation::operator=(const glm::vec2& rhs) {
     glUniform2f(id, rhs.x, rhs.y);
     return *this;
 }
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(uint32_t rhs) {
+UniformLocation& UniformLocation::operator=(uint32_t rhs) {
     glUniform1ui(id, rhs);
     return *this;
 }
 
-glShader::UniformLocation& glShader::UniformLocation::operator=(int32_t rhs) {
+UniformLocation& UniformLocation::operator=(int32_t rhs) {
     glUniform1i(id, rhs);
     return *this;
 }

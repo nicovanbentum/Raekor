@@ -78,6 +78,8 @@ void EditorOpenGL::update(float dt) {
 
     geometryBufferPass->execute(scene, viewport);
     
+    worldIconsPass->execute(scene, viewport, geometryBufferPass->albedoTexture, geometryBufferPass->entityTexture);
+    
     skydomePass->execute(viewport, geometryBufferPass->albedoTexture, geometryBufferPass->depthTexture);
     
     DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get());
@@ -99,9 +101,6 @@ void EditorOpenGL::update(float dt) {
         
         tonemappingPass->execute(DeferredLightingPass->result, blackTexture);
     }
-    
-    
-
 
     if (active != entt::null) {
         boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->depthTexture, active);
@@ -112,7 +111,6 @@ void EditorOpenGL::update(float dt) {
         voxelizationDebugPass->execute(viewport, tonemappingPass->result, voxelizationPass.get());
     }
 
-    worldIconsPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->entityTexture);
 
     //get new frame for ImGui and ImGuizmo
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -232,8 +230,8 @@ void EditorOpenGL::update(float dt) {
             activeScreenTexture = DeferredLightingPass->result;
         if (ImGui::Selectable(nameof(bloomPass->result), activeScreenTexture == bloomPass->bloomTexture))
             activeScreenTexture = bloomPass->bloomTexture;
-        if (ImGui::Selectable(nameof(bloomPass->quarterResTexture), activeScreenTexture == bloomPass->quarterResTexture))
-            activeScreenTexture = bloomPass->quarterResTexture;
+        if (ImGui::Selectable(nameof(bloomPass->blurTexture), activeScreenTexture == bloomPass->blurTexture))
+            activeScreenTexture = bloomPass->blurTexture;
         ImGui::TreePop();
     }
 
