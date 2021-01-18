@@ -7,7 +7,7 @@ Debug/
 Release/
 .vs/
 .vscode/
-x64/Linux/GE
+x64/
 .clang-format
 resources/models/
 resources/textures/
