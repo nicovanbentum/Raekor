@@ -562,6 +562,7 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
                 if (!filepath.empty()) {
                     SDL_SetWindowTitle(app->getWindow(), std::string(filepath + " - Raekor Renderer").c_str());
                     scene.openFromFile(filepath);
+                    active = entt::null;
                 }
             }
 
@@ -576,6 +577,7 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
                 std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
                 if (!filepath.empty()) {
                     AssimpImporter::loadFile(scene, filepath);
+                    active = entt::null;
                 }
             }
 

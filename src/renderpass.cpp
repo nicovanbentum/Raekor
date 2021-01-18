@@ -684,7 +684,7 @@ void Bloom::execute(Viewport& viewport, unsigned int highlights) {
     
     // downsample to quarter screen res
     glBindFramebuffer(GL_FRAMEBUFFER, bloomFramebuffer);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     glViewport(0, 0, quarter.x, quarter.y);
 
@@ -696,7 +696,7 @@ void Bloom::execute(Viewport& viewport, unsigned int highlights) {
     
     // horizontally blur 1/4th bloom to blur texture
     glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     blurShader.getUniform("direction") = glm::vec2(1, 0);
     glBindTextureUnit(0, bloomTexture);
@@ -704,7 +704,7 @@ void Bloom::execute(Viewport& viewport, unsigned int highlights) {
 
     // vertically blur the blur to bloom texture
     glBindFramebuffer(GL_FRAMEBUFFER, bloomFramebuffer);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     blurShader.getUniform("direction") = glm::vec2(0, 1);
     glBindTextureUnit(0, blurTexture);

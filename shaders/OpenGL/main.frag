@@ -372,17 +372,18 @@ void main() {
     float cosLh = max(0.0, dot(normal, Lh));
 
 	vec3 F0 = mix(vec3(0.04), albedo.rgb, metalness);
-    vec3 Fresnel = fresnelSchlick(F0, cosLh);
+    vec3 Fresnel = fresnelSchlick(F0, max(dot(Lh, V), 0.0));
     float D = ndfGGX(cosLh, roughness);
     float G = gaSchlickGGX(cosLi, NdotV, roughness);
 
     vec3 kd = (1.0 - Fresnel) * (1.0 - metalness);
+    kd = kd * shadowAmount;
 
     // Cook-Torrance
     vec3 specularBRDF = (Fresnel * D * G) / max(0.00001, 4.0 * cosLi * NdotV);
 
     // get direct light
-    vec3 directLight = kd * light.color.xyz * cosLi * shadowAmount;
+    vec3 directLight = kd * light.color.xyz * cosLi;
 
     // get first bounce light
     float occlusion = 0.0; 
