@@ -33,6 +33,7 @@ private:
     std::unique_ptr<RenderPass::VoxelizationDebug>  voxelizationDebugPass;
     std::unique_ptr<RenderPass::WorldIcons>         worldIconsPass;
     std::unique_ptr<RenderPass::Skydome>            skydomePass;
+    std::unique_ptr<RenderPass::HDRSky>             skyPass;
 
     bool mouseInViewport = false;
     bool doSSAO = false, doBloom = true, debugVoxels = false;

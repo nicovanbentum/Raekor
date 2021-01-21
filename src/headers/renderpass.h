@@ -71,6 +71,8 @@ public:
     void createResources(Viewport& viewport);
     void deleteResources();
 
+    unsigned int getFramebuffer() { return GBuffer; }
+
 private:
     glShader shader;
     ShaderHotloader hotloader;
@@ -338,6 +340,8 @@ public:
     unsigned int finalResult;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 class Skydome {
 public:
     struct {
@@ -359,6 +363,34 @@ private:
     unsigned int framebuffer;
     ShaderHotloader hotloader;
     ecs::MeshComponent sphere;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+class HDRSky {
+public:
+    HDRSky();
+    ~HDRSky();
+
+    void execute(const std::string& filepath);
+    void renderEnvironmentMap(Viewport& viewport, unsigned int colorTarget, unsigned int depthTarget);
+
+private:
+    glShader skyboxShader;
+    glShader convoluteShader;
+    glShader equiToCubemapShader;
+
+    ecs::MeshComponent unitCube;
+
+    unsigned int captureFramebuffer;
+    unsigned int captureRenderbuffer;
+
+    unsigned int convRenderbuffer;
+
+    unsigned int skyboxFramebuffer;
+
+    unsigned int irradianceMap;
+    unsigned int environmentMap;
 };
 
 } // renderpass

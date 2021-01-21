@@ -149,7 +149,8 @@ UniformLocation glShader::operator[] (const char* name) {
 }
 
 UniformLocation glShader::getUniform(const char* name) {
-    return { glGetUniformLocation(programID, name) };
+    auto location = glGetUniformLocation(programID, name);
+    return { location };
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

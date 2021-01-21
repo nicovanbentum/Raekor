@@ -26,10 +26,6 @@ layout (std140) uniform stuff {
 } ubo;
 
 // TODO: some of these are no longer in use since VCT
-uniform vec4 sunColor;
-uniform float minBias;
-uniform float maxBias;
-uniform float farPlane;
 uniform vec3 bloomThreshold;
 
 uniform int pointLightCount;
@@ -53,12 +49,13 @@ layout(binding = 1) uniform samplerCube shadowMapOmni;
 // GBUFFER textures
 layout(binding = 3) uniform sampler2D gColors;
 layout(binding = 4) uniform sampler2D gNormals;
-layout(binding = 7) uniform sampler2D gMetallicRoughness;
-layout(binding = 8) uniform sampler2D gDepth;
-
-// previous render pass attachments
 layout(binding = 5) uniform sampler2D SSAO;
 layout(binding = 6) uniform sampler3D voxels;
+layout(binding = 7) uniform sampler2D gMetallicRoughness;
+layout(binding = 8) uniform sampler2D gDepth;
+layout(binding = 9) uniform sampler2D irradianceMap;
+
+// previous render pass attachments
 
 // vars retrieved from the Gbuffer TODO: make them not global?
 vec3 position;

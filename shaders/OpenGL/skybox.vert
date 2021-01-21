@@ -1,7 +1,7 @@
-#version 330 core
+#version 450 core
 layout (location = 0) in vec3 pos;
 
-out vec3 texturePos;
+layout(location = 0) out vec3 texturePos;
 
 uniform mat4 view;
 uniform mat4 proj;

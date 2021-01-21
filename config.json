@@ -2,7 +2,7 @@
     "name": "Raekor Renderer",
     "display": 0,
     "font": "resources/Roboto-Regular.ttf",
-    "defaultScene": "scenes/sponza.scene",
+    "defaultScene": "scenes/pbr.scene",
     "themeColors": {
         "value0": {
             "value0": 1.0,

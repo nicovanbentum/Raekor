@@ -23,6 +23,9 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RenderAPI::OPENGL), renderer(wi
     bloomPass               = std::make_unique<RenderPass::Bloom>(viewport);
     worldIconsPass          = std::make_unique<RenderPass::WorldIcons>(viewport);
     skydomePass             = std::make_unique<RenderPass::Skydome>(viewport);
+    skyPass                 = std::make_unique<RenderPass::HDRSky>();
+
+    skyPass->execute("resources/sky/newport_loft.hdr");
 
     // keep a pointer to the texture that's rendered to the window
     activeScreenTexture = tonemappingPass->result;
@@ -62,7 +65,9 @@ void EditorOpenGL::update(float dt) {
         }
     });
 
-    // clear the main window
+    //skyPass->execute("resources/sky/test.hdr");
+
+
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -78,12 +83,12 @@ void EditorOpenGL::update(float dt) {
 
     geometryBufferPass->execute(scene, viewport);
     
-    worldIconsPass->execute(scene, viewport, geometryBufferPass->albedoTexture, geometryBufferPass->entityTexture);
-    
-    skydomePass->execute(viewport, geometryBufferPass->albedoTexture, geometryBufferPass->depthTexture);
-    
     DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get());
+    
+    skyPass->renderEnvironmentMap(viewport, DeferredLightingPass->result, geometryBufferPass->depthTexture);
 
+    worldIconsPass->execute(scene, viewport, DeferredLightingPass->result, geometryBufferPass->entityTexture);
+    
     if (doBloom) {
         bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
         tonemappingPass->execute(DeferredLightingPass->result, bloomPass->bloomTexture);
