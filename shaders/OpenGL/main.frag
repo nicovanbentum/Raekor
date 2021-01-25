@@ -54,16 +54,8 @@ layout(binding = 6) uniform sampler3D voxels;
 layout(binding = 7) uniform sampler2D gMetallicRoughness;
 layout(binding = 8) uniform sampler2D gDepth;
 layout(binding = 9) uniform samplerCube irradianceMap;
-
-// previous render pass attachments
-
-// vars retrieved from the Gbuffer TODO: make them not global?
-vec3 position;
-vec3 normal;
-vec3 tangent;
-
-// Voxel stuff
-int VoxelDimensions;
+layout(binding = 10) uniform samplerCube prefilterMap;
+layout(binding = 11) uniform sampler2D brdfLut;
 
 // source: http://simonstechblog.blogspot.com/2013/01/implementing-voxel-cone-tracing.html
 // 6 60 degree cone
@@ -106,6 +98,8 @@ const vec3 CONES[] =
 vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneAperture, out float occlusion) {
     vec4 colour = vec4(0);
     occlusion = 0.0;
+
+    int VoxelDimensions = textureSize(voxels, 0).x;
 
     float voxelSize = voxelsWorldSize / VoxelDimensions;
      // start one voxel away from the current vertex' position
@@ -321,10 +315,10 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
 }
 
-vec3 fresnelSchlickRoughness(vec3 F0, float cosTheta, float roughness)
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 {
-    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
-} 
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
+}  
 
 vec3 reconstructPosition(in vec2 uv, in float depth, in mat4 InvVP) {
   float x = uv.x * 2.0f - 1.0f;
@@ -349,19 +343,79 @@ float DistributionGGX(vec3 N, vec3 H, float roughness) {
     return nom / denom;
 }
 
+struct Material {
+    vec3 albedo;
+    float metallic;
+    float roughness;
+};
+
+vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material) {
+    vec3 Li = normalize(-light.direction.xyz);
+    vec3 Lh = normalize(Li + V);
+
+    vec3 radiance = light.color.rgb;
+
+	vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
+
+    float NDF = DistributionGGX(N, Lh, material.roughness);   
+    float G   = GeometrySmith(N, V, Li, material.roughness);    
+    vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);
+
+    vec3 nominator    = NDF * G * F;
+    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, Li), 0.0) + 0.001; // 0.001 to prevent divide by zero.
+    vec3 specular = nominator / denominator;
+
+    vec3 kS = F;
+
+    vec3 kD = vec3(1.0) - kS;
+
+    kD *= 1.0 - material.metallic;
+
+    float NdotL = max(dot(N, Li), 0.0);
+
+    return (kD * material.albedo / PI + specular) * light.color.rgb * NdotL;
+}
+
+vec3 ambient(vec3 N, vec3 V, Material material) {
+	vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
+    vec3 F = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, material.roughness);
+    
+    vec3 kS = F;
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - material.metallic;	  
+    
+    vec3 irradiance = texture(irradianceMap, N).rgb;
+    vec3 diffuse = irradiance * material.albedo;
+    
+    // sample both the pre-filter map and the BRDF lut and combine them together as 
+    //per the Split-Sum approximation to get the IBL specular part.
+    vec3 R = reflect(-V, N);   
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 prefilteredColor = textureLod(prefilterMap, R,  material.roughness * MAX_REFLECTION_LOD).rgb;  
+
+    vec2 brdf  = texture(brdfLut, vec2(max(dot(N, V), 0.0), material.roughness)).rg;
+
+    vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+
+    return  kD * diffuse + specular;
+}
+
 void main() {
-    VoxelDimensions = textureSize(voxels, 0).x;
 	vec4 albedo = texture(gColors, uv);
+    vec4 metallicRoughness = texture(gMetallicRoughness, uv);
+
+    Material material;
+    material.albedo = albedo.rgb;
+    material.metallic = metallicRoughness.r;
+    material.roughness = metallicRoughness.g;
 
     float depth = texture(gDepth, uv).r;
-    position = reconstructPosition(uv, depth, invViewProjection);
+    vec3 position = reconstructPosition(uv, depth, invViewProjection);
 
-    vec4 metallicRoughness = texture(gMetallicRoughness, uv);
     float metalness = metallicRoughness.r;
     float roughness = metallicRoughness.g;
 
-	normal = normalize(texture(gNormals, uv).xyz);
-
+	vec3 normal = normalize(texture(gNormals, uv).xyz);
 
     vec4 depthPosition = ubo.lightSpaceMatrix * vec4(position, 1.0);
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
@@ -371,43 +425,16 @@ void main() {
     //float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
     float shadowAmount = 1.0 - getShadow(light, position);
 
-	vec3 F0 = mix(vec3(0.04), albedo.rgb, metalness);
-
     vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
 
-    vec3 Li = normalize(-light.direction.xyz);
-    vec3 Lh = normalize(Li + V);
+    vec3 Lo = radiance(light, normal, V, material);
 
-    // Cook-Torrance BRDF
-    float NDF = DistributionGGX(normal, Lh, roughness);   
-    float G   = GeometrySmith(normal, V, Li, roughness);    
-    vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);        
+    vec3 ambient = ambient(normal, V, material);
     
-    vec3 nominator    = NDF * G * F;
-    float denominator = 4 * max(dot(normal, V), 0.0) * max(dot(normal, Li), 0.0) + 0.001; // 0.001 to prevent divide by zero.
-    vec3 specular = nominator / denominator;
-
-    // Calculate angles between surface normal and various light vectors.
-    float NdotV = max(dot(normal, V), 0.0);
-    float cosLi = max(0.0, dot(normal, Li));
-    float cosLh = max(0.0, dot(normal, Lh));
-
-    vec3 kS = F;
-    vec3 kD = vec3(1.0) - kS;
-    kD *= 1.0 - metalness;
-
-    float NdotL = max(dot(normal, Li), 0.0);
-
-    vec3 Lo = (kD * albedo.rgb / PI + specular) * light.color.rgb * NdotL;
-
-    // ambient lighting (we now use IBL as the ambient term)
-    vec3 irradiance = texture(irradianceMap, normal).rgb;
-    vec3 diffuse      = irradiance * albedo.rgb;
-    vec3 ambient = (kD * diffuse) * 1.0;
-    
-    vec3 color = ambient + Lo;
+    vec3 color = (Lo + ambient);
 
     finalColor = vec4(color, albedo.a);
+
 
     if(depth >= 1.0) {
         finalColor = albedo;

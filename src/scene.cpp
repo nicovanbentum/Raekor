@@ -363,15 +363,25 @@ std::vector<entt::entity> AssimpImporter::loadMaterials(entt::registry& scene, c
         auto materialEntity = scene.create();
         auto& materialName = scene.emplace<ecs::NameComponent>(materialEntity);
         auto& material = scene.emplace<ecs::MaterialComponent>(materialEntity);
+        
         aiColor4D diffuse;
         if (AI_SUCCESS == aiGetMaterialColor(aiMat, AI_MATKEY_COLOR_DIFFUSE, &diffuse)) {
             material.baseColour = { diffuse.r, diffuse.g, diffuse.b, diffuse.a };
         }
 
+        float roughness, metallic;
+        if (AI_SUCCESS == aiGetMaterialFloat(aiMat, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLIC_FACTOR, &metallic)) {
+            material.metallic = metallic;
+        }
+
+        if (AI_SUCCESS == aiGetMaterialFloat(aiMat, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_ROUGHNESS_FACTOR, &roughness)) {
+            material.roughness = roughness;
+        }
+
         std::error_code ec;
-        material.albedoFile = std::filesystem::relative(directory + albedoFile.C_Str(), ec).string();
-        material.normalFile = std::filesystem::relative(directory + normalmapFile.C_Str(), ec).string();
-        material.mrFile = std::filesystem::relative(directory + metalroughFile.C_Str(), ec).string();
+        if(albedoFile.length) material.albedoFile = std::filesystem::relative(directory + albedoFile.C_Str(), ec).string();
+        if(normalmapFile.length) material.normalFile = std::filesystem::relative(directory + normalmapFile.C_Str(), ec).string();
+        if(metalroughFile.length) material.mrFile = std::filesystem::relative(directory + metalroughFile.C_Str(), ec).string();
 
         if (strcmp(aiMat->GetName().C_Str(), "") != 0) {
             materialName.name = aiMat->GetName().C_Str();

@@ -82,7 +82,7 @@ void EditorOpenGL::update(float dt) {
 
     geometryBufferPass->execute(scene, viewport);
     
-    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), skyPass->irradianceMap);
+    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), skyPass.get());
     
     skyPass->renderEnvironmentMap(viewport, DeferredLightingPass->result, geometryBufferPass->depthTexture);
 
@@ -236,6 +236,9 @@ void EditorOpenGL::update(float dt) {
             activeScreenTexture = bloomPass->bloomTexture;
         if (ImGui::Selectable(nameof(bloomPass->blurTexture), activeScreenTexture == bloomPass->blurTexture))
             activeScreenTexture = bloomPass->blurTexture;
+        if (ImGui::Selectable(nameof(skyPass->brdfLUT), activeScreenTexture == skyPass->brdfLUT))
+            activeScreenTexture = skyPass->brdfLUT;
+
         ImGui::TreePop();
     }
 

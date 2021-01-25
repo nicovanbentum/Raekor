@@ -139,7 +139,7 @@ void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::reg
     const bool adjustedRoughness = ImGui::DragFloat("Roughness", &component.roughness, 0.001f, 0.0f, 1.0f);
 
     if (adjustedMetallic || adjustedRoughness) {
-        if (component.metalrough && component.mrFile.empty()) {
+        if (component.mrFile.empty() && component.metalrough) {
             auto metalRoughnessValue = glm::vec4(component.metallic, component.roughness, 0.0f, 1.0f);
             glTextureSubImage2D(component.metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
         }
@@ -640,6 +640,7 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
                 auto entity = scene->create();
                 scene->emplace<ecs::NameComponent>(entity, "New Material");
                 auto& defaultMaterial = scene->emplace<ecs::MaterialComponent>(entity);
+                defaultMaterial.createMetalRoughTexture();
                 active = entity;
             }
 

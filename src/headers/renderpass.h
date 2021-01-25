@@ -253,48 +253,6 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class DeferredLighting {
-private:
-    struct {
-        glm::mat4 view, projection;
-        glm::mat4 lightSpaceMatrix;
-        glm::vec4 cameraPosition;
-        ecs::DirectionalLightComponent::ShaderBuffer dirLights[1];
-        ecs::PointLightComponent::ShaderBuffer pointLights[10];
-        unsigned int renderFlags = 0b00000001;
-    } uniforms;
-
-public:
-    struct {
-        float farPlane = 25.0f;
-        float minBias = 0.000f, maxBias = 0.0f;
-        glm::vec4 sunColor{ 1.0f, 1.0f, 1.0f, 1.0f };
-        glm::vec3 bloomThreshold{ 0.2126f , 0.7152f , 0.0722f };
-    } settings;
-
-    ~DeferredLighting();
-    DeferredLighting(Viewport& viewport);
-
-    void execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, unsigned int irradianceMap);
-
-    void createResources(Viewport& viewport);
-    void deleteResources();
-
-private:
-    glShader shader;
-    unsigned int framebuffer;
-    glUniformBuffer uniformBuffer;
-
-    ShaderHotloader hotloader;
-
-public:
-    unsigned int result;
-    unsigned int bloomHighlights;
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 class Skinning {
 public:
     Skinning();
@@ -376,9 +334,13 @@ public:
     void renderEnvironmentMap(Viewport& viewport, unsigned int colorTarget, unsigned int depthTarget);
 
     unsigned int irradianceMap;
+    unsigned int environmentMap;
+    unsigned int prefilterMap;
+    unsigned int brdfLUT;
 
 private:
     glShader skyboxShader;
+    glShader brdfLUTshader;
     glShader convoluteShader;
     glShader prefilterShader;
     glShader equiToCubemapShader;
@@ -386,16 +348,48 @@ private:
     ecs::MeshComponent unitCube;
 
     unsigned int captureFramebuffer;
-    unsigned int captureRenderbuffer;
-
-    unsigned int convRenderbuffer;
-
     unsigned int prefilterFramebuffer;
-
     unsigned int skyboxFramebuffer;
-    unsigned int environmentMap;
+};
 
-    unsigned int prefilterMap;
+class DeferredLighting {
+private:
+    struct {
+        glm::mat4 view, projection;
+        glm::mat4 lightSpaceMatrix;
+        glm::vec4 cameraPosition;
+        ecs::DirectionalLightComponent::ShaderBuffer dirLights[1];
+        ecs::PointLightComponent::ShaderBuffer pointLights[10];
+        unsigned int renderFlags = 0b00000001;
+    } uniforms;
+
+public:
+    struct {
+        float farPlane = 25.0f;
+        float minBias = 0.000f, maxBias = 0.0f;
+        glm::vec4 sunColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+        glm::vec3 bloomThreshold{ 0.2126f , 0.7152f , 0.0722f };
+    } settings;
+
+    ~DeferredLighting();
+    DeferredLighting(Viewport& viewport);
+
+    void execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
+        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, HDRSky* sky);
+
+    void createResources(Viewport& viewport);
+    void deleteResources();
+
+private:
+    glShader shader;
+    unsigned int framebuffer;
+    glUniformBuffer uniformBuffer;
+
+    ShaderHotloader hotloader;
+
+public:
+    unsigned int result;
+    unsigned int bloomHighlights;
 };
 
 } // renderpass
