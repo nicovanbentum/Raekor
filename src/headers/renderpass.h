@@ -380,6 +380,7 @@ public:
 private:
     glShader skyboxShader;
     glShader convoluteShader;
+    glShader prefilterShader;
     glShader equiToCubemapShader;
 
     ecs::MeshComponent unitCube;
@@ -389,8 +390,12 @@ private:
 
     unsigned int convRenderbuffer;
 
+    unsigned int prefilterFramebuffer;
+
     unsigned int skyboxFramebuffer;
     unsigned int environmentMap;
+
+    unsigned int prefilterMap;
 };
 
 } // renderpass

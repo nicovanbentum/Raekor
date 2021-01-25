@@ -8,6 +8,6 @@ layout(binding = 0) uniform samplerCube skybox;
 
 void main()
 {    
-    final_color = vec4(texture(skybox, texturePos).rgb, 1.0);
+    final_color = vec4(textureLod(skybox, texturePos, 1.2).rgb, 1.0);
 	//color = vec4(texture_pos.xyz, 1.0f); // debug colors
 }

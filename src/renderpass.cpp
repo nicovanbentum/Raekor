@@ -1553,6 +1553,13 @@ HDRSky::HDRSky() {
     };
     convoluteShader.reload(convoluteStages, 2);
 
+    std::vector prefilterStages {
+        glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert"),
+        glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\prefilter.frag")
+    };
+
+    prefilterShader.reload(prefilterStages.data(), prefilterStages.size());
+
     for (const auto& v : unitCubeVertices) {
         glm::vec3 glPos = v.pos * glm::vec3(2.0) - glm::vec3(1.0);
         unitCube.positions.push_back(glPos);
@@ -1569,6 +1576,7 @@ HDRSky::HDRSky() {
 
     glCreateFramebuffers(1, &captureFramebuffer);
     glCreateFramebuffers(1, &skyboxFramebuffer);
+    glCreateFramebuffers(1, &prefilterFramebuffer);
     glCreateRenderbuffers(1, &captureRenderbuffer);
     glCreateRenderbuffers(1, &convRenderbuffer);
 
@@ -1592,6 +1600,14 @@ HDRSky::HDRSky() {
 
     glNamedRenderbufferStorage(convRenderbuffer, GL_DEPTH_COMPONENT24, 32, 32);
 
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &prefilterMap);
+    glTextureStorage2D(prefilterMap, 5, GL_RGB16F, 128, 128);
+    glTextureParameteri(prefilterMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(prefilterMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(prefilterMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(prefilterMap, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(prefilterMap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateTextureMipmap(prefilterMap);
 }
 
 HDRSky::~HDRSky() {
@@ -1602,6 +1618,7 @@ HDRSky::~HDRSky() {
 
     glDeleteTextures(1, &irradianceMap);
     glDeleteTextures(1, &environmentMap);
+    glDeleteFramebuffers(1, &prefilterFramebuffer);
 
     unitCube.destroy();
 
@@ -1679,6 +1696,31 @@ void HDRSky::execute(const std::string& filepath) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glDeleteTextures(1, &hdrTexture);
+
+    prefilterShader.bind();
+    prefilterShader.getUniform("proj") = projection;
+
+    glBindTextureUnit(0, environmentMap);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, prefilterFramebuffer);
+    const unsigned int maxMipLevels = 5;
+    for (unsigned int mip = 0; mip < maxMipLevels; mip++) {
+        unsigned int mipWidth = 128 * std::pow(0.5, mip);
+        unsigned int mipHeight = 128 * std::pow(0.5, mip);
+
+        glViewport(0, 0, mipWidth, mipHeight);
+
+        const float roughness = (float)mip / (float)(maxMipLevels - 1);
+        prefilterShader.getUniform("roughness") = roughness;
+        for (unsigned int i = 0; i < 6; i++) {
+            prefilterShader.getUniform("view") = views[i];
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, prefilterMap, mip);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            glDrawElements(GL_TRIANGLES, unitCube.indices.size(), GL_UNSIGNED_INT, nullptr);
+        }
+    }
 }
 
 void HDRSky::renderEnvironmentMap(Viewport& viewport, unsigned int colorTarget, unsigned int depthTarget) {
@@ -1695,7 +1737,7 @@ void HDRSky::renderEnvironmentMap(Viewport& viewport, unsigned int colorTarget, 
     skyboxShader.getUniform("proj") = viewport.getCamera().getProjection();
     skyboxShader.getUniform("view") = glm::mat4(glm::mat3(viewport.getCamera().getView()));
 
-    glBindTextureUnit(0, irradianceMap);
+    glBindTextureUnit(0, prefilterMap);
 
     unitCube.vertexBuffer.bind();
     unitCube.indexBuffer.bind();
