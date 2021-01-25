@@ -67,7 +67,6 @@ void EditorOpenGL::update(float dt) {
 
     //skyPass->execute("resources/sky/test.hdr");
 
-
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -83,7 +82,7 @@ void EditorOpenGL::update(float dt) {
 
     geometryBufferPass->execute(scene, viewport);
     
-    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get());
+    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), skyPass->irradianceMap);
     
     skyPass->renderEnvironmentMap(viewport, DeferredLightingPass->result, geometryBufferPass->depthTexture);
 

@@ -513,7 +513,7 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels) {
+                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, unsigned int irradianceMap) {
     hotloader.changed();
 
     // update the uniform buffer
@@ -595,6 +595,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     glBindTextureUnit(6, voxels->result);
     glBindTextureUnit(7, GBuffer->materialTexture);
     glBindTextureUnit(8, GBuffer->depthTexture);
+    glBindTextureUnit(9, irradianceMap);
 
 
 

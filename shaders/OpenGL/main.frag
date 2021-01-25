@@ -53,7 +53,7 @@ layout(binding = 5) uniform sampler2D SSAO;
 layout(binding = 6) uniform sampler3D voxels;
 layout(binding = 7) uniform sampler2D gMetallicRoughness;
 layout(binding = 8) uniform sampler2D gDepth;
-layout(binding = 9) uniform sampler2D irradianceMap;
+layout(binding = 9) uniform samplerCube irradianceMap;
 
 // previous render pass attachments
 
@@ -316,9 +316,9 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 }
 
 // Shlick's approximation of the Fresnel factor.
-vec3 fresnelSchlick(vec3 F0, float cosTheta)
+vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
-	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+    return F0 + (1.0 - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
 }
 
 vec3 fresnelSchlickRoughness(vec3 F0, float cosTheta, float roughness)
@@ -334,6 +334,19 @@ vec3 reconstructPosition(in vec2 uv, in float depth, in mat4 InvVP) {
   vec4 position_v = InvVP * position_s;
   vec3 div = position_v.xyz / position_v.w;
   return div;
+}
+
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+    float a = roughness*roughness;
+    float a2 = a*a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+
+    float nom   = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+
+    return nom / denom;
 }
 
 void main() {
@@ -358,43 +371,43 @@ void main() {
     //float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
     float shadowAmount = 1.0 - getShadow(light, position);
 
+	vec3 F0 = mix(vec3(0.04), albedo.rgb, metalness);
+
+    vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
 
     vec3 Li = normalize(-light.direction.xyz);
-    vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
     vec3 Lh = normalize(Li + V);
+
+    // Cook-Torrance BRDF
+    float NDF = DistributionGGX(normal, Lh, roughness);   
+    float G   = GeometrySmith(normal, V, Li, roughness);    
+    vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);        
+    
+    vec3 nominator    = NDF * G * F;
+    float denominator = 4 * max(dot(normal, V), 0.0) * max(dot(normal, Li), 0.0) + 0.001; // 0.001 to prevent divide by zero.
+    vec3 specular = nominator / denominator;
 
     // Calculate angles between surface normal and various light vectors.
     float NdotV = max(dot(normal, V), 0.0);
     float cosLi = max(0.0, dot(normal, Li));
     float cosLh = max(0.0, dot(normal, Lh));
 
-	vec3 F0 = mix(vec3(0.04), albedo.rgb, metalness);
-    vec3 Fresnel = fresnelSchlick(F0, max(dot(Lh, V), 0.0));
-    float D = ndfGGX(cosLh, roughness);
-    float G = gaSchlickGGX(cosLi, NdotV, roughness);
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metalness;
 
-    vec3 kd = (1.0 - Fresnel) * (1.0 - metalness);
-    kd = kd * shadowAmount;
+    float NdotL = max(dot(normal, Li), 0.0);
 
-    // Cook-Torrance
-    vec3 specularBRDF = (Fresnel * D * G) / max(0.00001, 4.0 * cosLi * NdotV);
+    vec3 Lo = (kD * albedo.rgb / PI + specular) * light.color.rgb * NdotL;
 
-    // get direct light
-    vec3 directLight = kd * light.color.xyz * cosLi;
+    // ambient lighting (we now use IBL as the ambient term)
+    vec3 irradiance = texture(irradianceMap, normal).rgb;
+    vec3 diffuse      = irradiance * albedo.rgb;
+    vec3 ambient = (kD * diffuse) * 1.0;
+    
+    vec3 color = ambient + Lo;
 
-    // get first bounce light
-    float occlusion = 0.0; 
-    vec4 indirectLight = coneTraceRadiance(position, normal.xyz, occlusion);
-
-    float reflOcclusion;
-    vec4 tracedReflection = coneTraceReflection(position, normal, V,  roughness, reflOcclusion);
-
-    // combine all
-    vec3 diffuseReflection = (directLight + indirectLight.rgb * occlusion) * albedo.rgb;
-
-
-
-    finalColor = vec4(diffuseReflection, albedo.a);
+    finalColor = vec4(color, albedo.a);
 
     if(depth >= 1.0) {
         finalColor = albedo;

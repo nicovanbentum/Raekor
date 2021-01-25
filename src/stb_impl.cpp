@@ -4,5 +4,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#define STB_DXT_IMPLEMENTATION
+#include "stb_dxt.h"
+
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"

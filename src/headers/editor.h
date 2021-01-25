@@ -36,7 +36,7 @@ private:
     std::unique_ptr<RenderPass::HDRSky>             skyPass;
 
     bool mouseInViewport = false;
-    bool doSSAO = false, doBloom = true, debugVoxels = false;
+    bool doSSAO = false, doBloom = false, debugVoxels = false;
     bool shouldVoxelize = true, gizmoEnabled = false, showSettingsWindow = false;
 
     Physics physics;

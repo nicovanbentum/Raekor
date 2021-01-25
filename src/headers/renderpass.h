@@ -276,7 +276,7 @@ public:
     DeferredLighting(Viewport& viewport);
 
     void execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels);
+        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, unsigned int irradianceMap);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -375,6 +375,8 @@ public:
     void execute(const std::string& filepath);
     void renderEnvironmentMap(Viewport& viewport, unsigned int colorTarget, unsigned int depthTarget);
 
+    unsigned int irradianceMap;
+
 private:
     glShader skyboxShader;
     glShader convoluteShader;
@@ -388,8 +390,6 @@ private:
     unsigned int convRenderbuffer;
 
     unsigned int skyboxFramebuffer;
-
-    unsigned int irradianceMap;
     unsigned int environmentMap;
 };
 

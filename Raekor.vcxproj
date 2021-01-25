@@ -240,10 +240,12 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\anim.cpp" />
     <ClCompile Include="src\application.cpp" />
     <ClCompile Include="src\apps.cpp" />
+    <ClCompile Include="src\assets.cpp" />
     <ClCompile Include="src\async.cpp" />
     <ClCompile Include="src\buffer.cpp" />
     <ClCompile Include="src\camera.cpp" />
     <ClCompile Include="src\components.cpp" />
+    <ClCompile Include="src\dds.cpp" />
     <ClCompile Include="src\editor.cpp" />
     <ClCompile Include="src\entry.cpp" />
     <ClCompile Include="src\gui.cpp" />
@@ -308,10 +310,12 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\anim.h" />
     <ClInclude Include="src\headers\application.h" />
     <ClInclude Include="src\headers\apps.h" />
+    <ClInclude Include="src\headers\assets.h" />
     <ClInclude Include="src\headers\async.h" />
     <ClInclude Include="src\headers\buffer.h" />
     <ClInclude Include="src\headers\camera.h" />
     <ClInclude Include="src\headers\components.h" />
+    <ClInclude Include="src\headers\dds.h" />
     <ClInclude Include="src\headers\ecs.h" />
     <ClInclude Include="src\headers\editor.h" />
     <ClInclude Include="src\headers\gui.h" />

@@ -4,6 +4,7 @@
 #include "timer.h"
 #include "serial.h"
 #include "systems.h"
+#include "assets.h"
 
 namespace Raekor {
 
@@ -109,10 +110,20 @@ void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials) {
             images[material.mrFile] = Stb::Image(RGBA, material.mrFile);
     }
 
+
     // load every texture from disk in parallel
     std::for_each(std::execution::par_unseq, images.begin(), images.end(), [](auto& kv) {
         kv.second.load(kv.first, true);
-        });
+    });
+
+    //timer.start();
+    //std::for_each(std::execution::par_unseq, images.begin(), images.end(), [&](auto& kv) {
+    //    auto path = std::filesystem::path(kv.first);
+    //    auto asset = TextureAsset();
+    //    asset.load(path.filename().replace_extension(".tex").string());
+    //});
+    //timer.stop();
+    //std::cout << "Parallel .tex format " << timer.elapsedMs() << '\n';
 
     for (auto entity : materials) {
         auto& material = registry.get<ecs::MaterialComponent>(entity);
@@ -122,9 +133,11 @@ void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials) {
         }
         if (images.find(material.normalFile) != images.end()) {
             material.createNormalTexture(images[material.normalFile]);
-        }
+        } 
         if (images.find(material.mrFile) != images.end()) {
             material.createMetalRoughTexture(images[material.mrFile]);
+        } else {
+            material.createMetalRoughTexture();
         }
 
     }
