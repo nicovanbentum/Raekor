@@ -2,7 +2,6 @@
 
 #include "util.h"
 #include "shader.h"
-#include "renderer.h"
 
 namespace Raekor {
 

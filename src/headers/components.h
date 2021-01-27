@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ecs.h"
+#include "buffer.h"
 #include "anim.h"
 #include "script.h"
 

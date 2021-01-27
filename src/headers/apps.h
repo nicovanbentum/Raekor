@@ -27,7 +27,6 @@ private:
 
     gui::Guizmo gizmo;
     gui::Dockspace dockspace;
-    gui::MetricsWindow metricsWindow;
     gui::ViewportWindow viewportWindow;
     gui::CameraSettings cameraSettingsWindow;
     std::unique_ptr<RenderPass::RayCompute> rayTracePass;

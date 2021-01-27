@@ -29,6 +29,12 @@ struct Frustrum {
 
     std::array<glm::vec4, 6> planes;
 
+    Frustrum() = default;
+
+    Frustrum(const glm::mat4& vp, bool normalize) {
+        update(vp, normalize);
+    }
+
     void update(const glm::mat4& vp, bool normalize);
     bool vsAABB(const glm::vec3& min, const glm::vec3& max);
 };

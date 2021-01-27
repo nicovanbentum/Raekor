@@ -4,6 +4,7 @@
 #include "camera.h"
 #include "timer.h"
 #include "scene.h"
+#include "mesh.h"
 
 namespace Raekor {
 namespace RenderPass {
@@ -53,6 +54,9 @@ void ShadowMap::execute(entt::registry& scene) {
     glClear(GL_DEPTH_BUFFER_BIT);
     glCullFace(GL_FRONT);
 
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(settings.depthBiasSlope, settings.depthBiasConstant);
+
     // render the entire scene to the directional light shadow map
     auto lightView = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
     auto lookDirection = glm::vec3(0.0f, -1.0f, 0.0f);
@@ -90,20 +94,6 @@ void ShadowMap::execute(entt::registry& scene) {
         auto& mesh = view.get<ecs::MeshComponent>(entity);
         auto& transform = view.get<ecs::TransformComponent>(entity);
 
-        // convert AABB from local to world space
-        std::array<glm::vec3, 2> worldAABB = {
-            transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
-            transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
-        };
-
-        Math::Frustrum frustrum;
-        frustrum.update(mapProjection * mapView, true);
-
-        // if the frustrum can't see the mesh's OBB we cull it
-        if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
-            continue;
-        }
-
         shader.getUniform("model") = transform.worldTransform;
 
         // determine if we use the original mesh vertices or GPU skinned vertices
@@ -118,7 +108,10 @@ void ShadowMap::execute(entt::registry& scene) {
 
     }
 
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(0, 0);
     glCullFace(GL_BACK);
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -216,6 +209,10 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, GBuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    entt::entity e = entt::null;
+    GLfloat clearColor[] = { static_cast<float>(entt::to_integral(e)) , 0, 0, 1.0 };
+    glClearBufferfv(GL_COLOR, 3, clearColor);
 
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();

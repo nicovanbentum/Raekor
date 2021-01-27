@@ -5,7 +5,8 @@
     #include "platform/windows/DXRenderer.h"
 #endif
 
-#include "components.h"
+#include "camera.h"
+#include "renderpass.h"
 
 namespace Raekor {
 
@@ -33,7 +34,7 @@ Renderer* Renderer::instance = nullptr;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-GLRenderer::GLRenderer(SDL_Window* window) {
+GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -69,6 +70,7 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     io.ConfigWindowsMoveFromTitleBarOnly = true;
     io.ConfigDockingWithShift = true;
 
+    // set debug callback
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(MessageCallback, nullptr);
@@ -89,7 +91,7 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    // one time setup for binding vertey arrays
+    // one time setup for binding vertex arrays
     unsigned int vertexArrayID;
     glGenVertexArrays(1, &vertexArrayID);
     glBindVertexArray(vertexArrayID);
@@ -103,18 +105,24 @@ GLRenderer::GLRenderer(SDL_Window* window) {
     ecs::MaterialComponent::Default.createMetalRoughTexture();
     ecs::MaterialComponent::Default.createNormalTexture();
 
+    skinningPass = std::make_unique<RenderPass::Skinning>();
+    voxelizationPass = std::make_unique<RenderPass::Voxelization>(256);
+    shadowMapPass = std::make_unique<RenderPass::ShadowMap>(4096, 4096);
+    tonemappingPass = std::make_unique<RenderPass::Tonemapping>(viewport);
+    geometryBufferPass = std::make_unique<RenderPass::GeometryBuffer>(viewport);
+    DeferredLightingPass = std::make_unique<RenderPass::DeferredLighting>(viewport);
+    boundingBoxDebugPass = std::make_unique<RenderPass::BoundingBoxDebug>(viewport);
+    voxelizationDebugPass = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
+    bloomPass = std::make_unique<RenderPass::Bloom>(viewport);
+    worldIconsPass = std::make_unique<RenderPass::WorldIcons>(viewport);
+    skyPass = std::make_unique<RenderPass::HDRSky>();
+
+    skyPass->execute("resources/sky/PaperMill_E_3k.hdr");
 }
 
 GLRenderer::~GLRenderer() {
     ImGui_ImplOpenGL3_DestroyDeviceObjects();
     SDL_GL_DeleteContext(context);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void GLRenderer::Clear(glm::vec4 color) {
-    glClearColor(color.r, color.g, color.b, color.a);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -127,22 +135,95 @@ void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+void GLRenderer::render(entt::registry& scene, Viewport& viewport, entt::entity& active) {
+    {
+        ScopedTimer timer("time ");
+
+
+        scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
+            skinningPass->execute(mesh, animation);
+        });
+
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // generate sun shadow map 
+        glViewport(0, 0, 4096, 4096);
+        shadowMapPass->execute(scene);
+
+    }
+        if (shouldVoxelize) {
+            voxelizationPass->execute(scene, viewport, shadowMapPass.get());
+        }
+
+        glViewport(0, 0, viewport.size.x, viewport.size.y);
+
+        geometryBufferPass->execute(scene, viewport);
+
+        DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), skyPass.get());
+
+        skyPass->renderEnvironmentMap(viewport, DeferredLightingPass->result, geometryBufferPass->depthTexture);
+
+        worldIconsPass->execute(scene, viewport, DeferredLightingPass->result, geometryBufferPass->entityTexture);
+
+        if (doBloom) {
+            bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
+            tonemappingPass->execute(DeferredLightingPass->result, bloomPass->bloomTexture);
+        } else {
+            static unsigned int blackTexture = 0;
+            if (blackTexture == 0) {
+                glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
+                glTextureStorage2D(blackTexture, 1, GL_RGBA16F, 1, 1);
+                glTextureParameteri(blackTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTextureParameteri(blackTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+                glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
+            }
+
+            tonemappingPass->execute(DeferredLightingPass->result, blackTexture);
+        }
+
+        if (active != entt::null) {
+            boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->depthTexture, active);
+        }
+
+
+        if (debugVoxels) {
+            voxelizationDebugPass->execute(viewport, tonemappingPass->result, voxelizationPass.get());
+        }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void GLRenderer::resize(Viewport& viewport) {
+    DeferredLightingPass->deleteResources();
+    DeferredLightingPass->createResources(viewport);
+
+    boundingBoxDebugPass->deleteResources();
+    boundingBoxDebugPass->createResources(viewport);
+
+    voxelizationDebugPass->deleteResources();
+    voxelizationDebugPass->createResources(viewport);
+
+    tonemappingPass->deleteResources();
+    tonemappingPass->createResources(viewport);
+
+    geometryBufferPass->deleteResources();
+    geometryBufferPass->createResources(viewport);
+
+    bloomPass->deleteResources();
+    bloomPass->createResources(viewport);
+
+    worldIconsPass->destroyResources();
+    worldIconsPass->createResources(viewport);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void GLRenderer::ImGui_Render() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void GLRenderer::SwapBuffers(SDL_Window* window, bool vsync) {
-    SDL_GL_SetSwapInterval(vsync);
-    SDL_GL_SwapWindow(window);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void GLRenderer::DrawIndexed(unsigned int size) {
-    glDrawElements(GL_TRIANGLES, size, GL_UNSIGNED_INT, nullptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

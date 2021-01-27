@@ -3,6 +3,7 @@
 #include "systems.h"
 #include "platform/OS.h"
 #include "application.h"
+#include "mesh.h"
 
 #include "IconsFontAwesome5.h"
 
@@ -425,7 +426,7 @@ void Dockspace::end() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool ViewportWindow::begin(Viewport& viewport, unsigned int texture) {
+bool ViewportWindow::draw(Viewport& viewport, GLRenderer& renderer, entt::registry& scene, entt::entity& active) {
     // renderer viewport
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
@@ -438,19 +439,69 @@ bool ViewportWindow::begin(Viewport& viewport, unsigned int texture) {
         resized = true;
     }
 
-    auto pos = ImGui::GetWindowPos();
-
     // render the active screen texture to the view port as an imgui image
     ImGui::Image((void*)((intptr_t)texture), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0,1 }, { 1,0 });
+
+    // the viewport image is a drag and drop target for dropping materials onto meshes
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
+            auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos());
+            uint32_t pixel = renderer.geometryBufferPass->readEntity(mousePos.x, mousePos.y);
+            entt::entity picked = static_cast<entt::entity>(pixel);
+
+            if (scene.valid(picked)) {
+                auto mesh = scene.try_get<ecs::MeshComponent>(picked);
+                if (mesh) {
+                    mesh->material = *reinterpret_cast<const entt::entity*>(payload->Data);
+                    active = picked;
+                }
+            }
+        }
+
+        ImGui::EndDragDropTarget();
+    }
+
+    auto pos = ImGui::GetWindowPos();
+    mouseInViewport = ImGui::IsWindowHovered();
+
+    auto& io = ImGui::GetIO();
+    if (io.MouseClicked[0] && mouseInViewport && !(active != entt::null && ImGuizmo::IsOver(gizmo.getOperation()))) {
+        auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos());
+        uint32_t pixel = renderer.geometryBufferPass->readEntity(mousePos.x, mousePos.y);
+        entt::entity picked = static_cast<entt::entity>(pixel);
+
+        if (scene.valid(picked)) {
+            active = active == picked ? entt::null : picked;
+        } else {
+            active = entt::null;
+        }
+    }
+
+    if (active != entt::null) {
+        drawGizmo(gizmo, scene, viewport, active);
+    }
+
+    ImGui::SetNextWindowPos(ImGui::GetWindowPos());
+
+    ImGui::End();
+    ImGui::PopStyleVar();
+
+    // application/render metrics
+    ImGui::SetNextWindowBgAlpha(0.35f);
+    auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
+    ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
+    ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
+    ImGui::Text("Product: %s", glGetString(GL_RENDERER));
+    ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
+    ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
+    ImGui::End();
 
     return resized;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void ViewportWindow::end() {
-    ImGui::End();
-    ImGui::PopStyleVar();
+void ViewportWindow::setTexture(unsigned int texture) {
+    this->texture = texture;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -547,7 +598,7 @@ glm::ivec2 getMousePosWindow(const Viewport& viewport, ImVec2 windowPos) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeTexture, entt::entity& active)
+void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer, entt::entity& active)
 {
     // draw the top user bar
     if (ImGui::BeginMainMenuBar()) {
@@ -588,7 +639,7 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
                     auto& viewport = app->getViewport();
                     const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
                     auto pixels = std::vector<unsigned char>(bufferSize);
-                    glGetTextureImage(activeTexture, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
+                    glGetTextureImage(0, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
                     stbi_flip_vertically_on_write(true);
                     stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
                 }
@@ -813,24 +864,80 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, unsigned int activeT
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MetricsWindow::draw(Viewport& viewport, ImVec2 pos) {
-    ImGui::SetNextWindowPos(pos);
-    draw(viewport);
+void CameraSettings::drawWindow(Camera& camera) {
+    ImGui::Begin("Camera Properties");
+    if (ImGui::DragFloat("Move Speed", &camera.moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+    if (ImGui::DragFloat("Move Constant", &camera.moveConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+    if (ImGui::DragFloat("Look Speed", &camera.lookSpeed, 0.1f, 0.0001f, FLT_MAX, "%.4f")) {}
+    if (ImGui::DragFloat("Look Constant", &camera.lookConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+    if (ImGui::DragFloat("Zoom Speed", &camera.zoomSpeed, 0.001f, 0.0001f, FLT_MAX, "%.4f")) {}
+    if (ImGui::DragFloat("Zoom Constant", &camera.zoomConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+
+    ImGui::End();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+void RandomWindow::drawWindow(GLRenderer& renderer) {
+    // scene panel
+    ImGui::Begin("Random");
+    ImGui::SetItemDefaultFocus();
 
-void MetricsWindow::draw(Viewport& viewport) {
-    // application/render metrics
-    auto& io = ImGui::GetIO();
-    ImGui::SetNextWindowBgAlpha(0.35f);
-    auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
-    ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
-    ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
-    ImGui::Text("Product: %s", glGetString(GL_RENDERER));
-    ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
-    ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-    ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
+    // toggle button for openGl vsync
+    if (ImGui::RadioButton("Vsync", renderer.vsync)) {
+        renderer.vsync = !renderer.vsync;
+        SDL_GL_SetSwapInterval(renderer.vsync);
+    }
+
+    ImGui::NewLine(); ImGui::Separator();
+    ImGui::Text("Voxel Cone Tracing");
+
+    if (ImGui::RadioButton("Debug", renderer.debugVoxels)) {
+        renderer.debugVoxels = !renderer.debugVoxels;
+    }
+
+    if (ImGui::RadioButton("Update", renderer.shouldVoxelize)) {
+        renderer.shouldVoxelize = !renderer.shouldVoxelize;
+    }
+
+    ImGui::DragFloat("Range", &renderer.voxelizationPass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
+
+    ImGui::NewLine(); ImGui::Separator();
+    ImGui::Text("Skydome");
+
+    ImGui::NewLine(); ImGui::Separator();
+
+    ImGui::NewLine();
+
+    ImGui::Text("Shadow Mapping");
+    ImGui::Separator();
+
+    if (ImGui::DragFloat2("Planes", glm::value_ptr(renderer.shadowMapPass->settings.planes), 0.1f)) {}
+    if (ImGui::DragFloat("Size", &renderer.shadowMapPass->settings.size)) {}
+    if (ImGui::DragFloat("Bias constant", &renderer.shadowMapPass->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    if (ImGui::DragFloat("Bias slope factor", &renderer.shadowMapPass->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+
+    ImGui::NewLine();
+    ImGui::Separator();
+    ImGui::NewLine();
+
+    ImGui::End();
+}
+
+void PostprocessWindow::drawWindow(GLRenderer& renderer) {
+    // post processing panel
+    ImGui::Begin("Post Processing");
+
+    ImGui::Separator();
+
+    if (ImGui::SliderFloat("Exposure", &renderer.tonemappingPass->settings.exposure, 0.0f, 1.0f)) {}
+    if (ImGui::SliderFloat("Gamma", &renderer.tonemappingPass->settings.gamma, 1.0f, 3.2f)) {}
+    ImGui::NewLine();
+
+    if (ImGui::Checkbox("Bloom", &doBloom)) {}
+    ImGui::Separator();
+
+    if (ImGui::DragFloat3("Threshold", glm::value_ptr(renderer.DeferredLightingPass->settings.bloomThreshold), 0.001f, 0.0f, 10.0f)) {}
+    ImGui::NewLine();
+
     ImGui::End();
 }
 

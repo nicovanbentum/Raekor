@@ -1,7 +1,6 @@
 #pragma once
 
 #include "camera.h"
-#include "renderpass.h"
 
 namespace Raekor {
 
@@ -25,11 +24,16 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+enum RendererFlags {
+    OPENGL = SDL_WINDOW_OPENGL,
+    VULKAN = SDL_WINDOW_VULKAN,
+};
+
 class WindowApplication {
 public:
     friend class InputHandler;
 
-    WindowApplication(RenderAPI api);
+    WindowApplication(RendererFlags flag);
     virtual ~WindowApplication();
 
     virtual void update(float dt)  = 0;

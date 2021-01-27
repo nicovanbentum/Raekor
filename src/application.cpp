@@ -1,28 +1,18 @@
 #include "pch.h"
 #include "application.h"
 
+#include "util.h"
+#include "camera.h"
+
 namespace Raekor {
 
-WindowApplication::WindowApplication(RenderAPI api) : 
+WindowApplication::WindowApplication(RendererFlags flag) : 
     window(nullptr), running(true), shouldResize(false), settings("config.json") 
 {
     int sdlError = SDL_Init(SDL_INIT_VIDEO);
     m_assert(sdlError == 0, "failed to init SDL for video");
 
-    Uint32 windowRendererFlag;
-    switch (api) {
-        case RenderAPI::OPENGL: {
-            windowRendererFlag = SDL_WINDOW_OPENGL;
-        } break;
-        case RenderAPI::VULKAN: {
-            windowRendererFlag = SDL_WINDOW_VULKAN;
-        } break;
-        default: {
-            windowRendererFlag = SDL_WINDOW_OPENGL;
-        }
-    }
-
-    Uint32 wflags = SDL_WINDOW_RESIZABLE | windowRendererFlag |
+    Uint32 wflags = SDL_WINDOW_RESIZABLE | flag |
         SDL_WINDOW_ALLOW_HIGHDPI;
 
     std::vector<SDL_Rect> displays;

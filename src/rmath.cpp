@@ -223,8 +223,7 @@ void Frustrum::update(const glm::mat4& vp, bool normalize) {
 
     if (normalize) {
         for (auto& plane : planes) {
-            float mag;
-            mag = sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
+            const float mag = sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
             plane.x = plane.x / mag;
             plane.y = plane.y / mag;
             plane.z = plane.z / mag;
@@ -236,7 +235,7 @@ void Frustrum::update(const glm::mat4& vp, bool normalize) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool Frustrum::vsAABB(const glm::vec3& min, const glm::vec3& max) {
-    for (auto& plane : planes) {
+    for (const auto& plane : planes) {
         int out = 0;
         out += ((glm::dot(plane, glm::vec4(min.x, min.y, min.z, 1.0f)) < 0.0) ? 1 : 0);
         out += ((glm::dot(plane, glm::vec4(max.x, min.y, min.z, 1.0f)) < 0.0) ? 1 : 0);

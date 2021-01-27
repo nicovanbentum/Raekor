@@ -3,6 +3,7 @@
 #include "ecs.h"
 #include "components.h"
 #include "async.h"
+#include "rmath.h"
 
 namespace Raekor {
 

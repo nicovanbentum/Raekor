@@ -2,7 +2,6 @@
 #include "assets.h"
 
 #include "dds.h"
-#include "components.h"
 
 namespace Raekor {
 

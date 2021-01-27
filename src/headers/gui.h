@@ -2,6 +2,7 @@
 
 #include "scene.h"
 #include "application.h"
+#include "renderer.h"
 
 namespace Raekor {
 namespace gui {
@@ -20,7 +21,7 @@ glm::ivec2 getMousePosWindow(const Viewport& viewport, ImVec2 windowPos);
 
 class TopMenuBar {
 public:
-    void draw(WindowApplication* app, Scene& scene, unsigned int activeTexture, entt::entity& active);
+    void draw(WindowApplication* app, Scene& scene, GLRenderer& renderer, entt::entity& active);
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,14 +30,6 @@ class Dockspace {
 public:
     void begin();
     void end();
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-class MetricsWindow {
-public:
-    void draw(Viewport& viewport, ImVec2 pos);
-    void draw(Viewport& viewport);
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,6 +60,8 @@ private:
     void drawFamily(entt::registry& scene, entt::entity parent, entt::entity& active);
     bool drawFamilyNode(entt::registry& scene, entt::entity entity, entt::entity& active);
     void drawChildlessNode(entt::registry& scene, entt::entity entity, entt::entity& active);
+
+    entt::entity active;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -88,10 +83,16 @@ private:
 
 class ViewportWindow {
 public:
-    bool begin(Viewport& viewport, unsigned int texture);
-    void end();
+    bool draw(Viewport& viewport, GLRenderer& renderer, entt::registry& scene, entt::entity& active);
+    void setTexture(unsigned int texture);
 
+private:
     void drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewport& viewport, entt::entity active);
+
+private:
+    Guizmo gizmo;
+    bool mouseInViewport;
+    unsigned int texture;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -103,17 +104,41 @@ public:
 
 class CameraSettings {
 public:
-    void drawWindow(Camera& camera) {
-        ImGui::Begin("Camera Properties");
-        if (ImGui::DragFloat("Move Speed", &camera.moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("Move Constant", &camera.moveConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("Look Speed", &camera.lookSpeed, 0.1f, 0.0001f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("Look Constant", &camera.lookConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("Zoom Speed", &camera.zoomSpeed, 0.001f, 0.0001f, FLT_MAX, "%.4f")) {}
-        if (ImGui::DragFloat("Zoom Constant", &camera.zoomConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
+    void drawWindow(Camera& camera);
+};
 
-        ImGui::End();
+class RandomWindow {
+public:
+    void drawWindow(GLRenderer& renderer);
+
+private:
+};
+
+class PostprocessWindow {
+public:
+    void drawWindow(GLRenderer& renderer);
+
+private:
+    bool doBloom = false;
+};
+
+class EditorGUI {
+public:
+    void draw(GLRenderer& renderer) {
+        
     }
+
+private:
+    gui::Guizmo gizmo;
+    gui::Dockspace dockspace;
+    gui::TopMenuBar topMenuBar;
+    gui::EntityWindow ecsWindow;
+    gui::AssetWindow assetBrowser;
+    gui::RandomWindow randomWindow;
+    gui::CameraSettings cameraWindow;
+    gui::ViewportWindow viewportWindow;
+    gui::InspectorWindow inspectorWindow;
+    gui::PostprocessWindow postprocessWindow;
 };
 
 } // gui

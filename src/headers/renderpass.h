@@ -2,8 +2,8 @@
 
 #include "timer.h"
 #include "shader.h"
-#include "buffer.h"
 #include "components.h"
+#include "camera.h"
 
 namespace Raekor {
 namespace RenderPass {

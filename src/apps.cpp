@@ -5,7 +5,7 @@
 
 namespace Raekor {
 
-RayTraceApp::RayTraceApp() : WindowApplication(RenderAPI::OPENGL), renderer(window) {
+RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(window, viewport) {
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -139,11 +139,21 @@ void RayTraceApp::update(float dt) {
 
     gizmo.drawWindow();
 
-    auto resized = viewportWindow.begin(viewport, activeScreenTexture);
-    if (resized) sceneChanged = true;
+    // renderer viewport
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+
+    // figure out if we need to resize the viewport
+    auto size = ImGui::GetContentRegionAvail();
+    auto resized = false;
+    if (viewport.size.x != size.x || viewport.size.y != size.y) {
+        viewport.resize({ size.x, size.y });
+        resized = true;
+    }
 
     auto pos = ImGui::GetWindowPos();
-    auto size = ImGui::GetWindowSize();
+
+    ImGui::Image((void*)((intptr_t)activeScreenTexture), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0,1 }, { 1,0 });
 
     // set the gizmo's viewport
     ImGuizmo::SetDrawlist();
@@ -172,7 +182,6 @@ void RayTraceApp::update(float dt) {
         SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
 
         // get mouse position relative to viewport
-        auto pos = ImGui::GetWindowPos();
         glm::ivec2 rendererMousePosition = { (mousePosition.x - pos.x), (mousePosition.y - pos.y) };
 
         auto ray = Math::Ray(viewport, rendererMousePosition);
@@ -200,14 +209,27 @@ void RayTraceApp::update(float dt) {
         }
     }
 
-    viewportWindow.end();
+    ImGui::SetNextWindowPos(pos);
 
-    metricsWindow.draw(viewport, pos);
+    ImGui::End();
+    ImGui::PopStyleVar();
+
+    // application/render metrics
+    ImGui::SetNextWindowBgAlpha(0.35f);
+    auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
+    ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
+    ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
+    ImGui::Text("Product: %s", glGetString(GL_RENDERER));
+    ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
+    ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
+    ImGui::End();
 
     dockspace.end();
 
     renderer.ImGui_Render();
-    renderer.SwapBuffers(window, true);
+    
+    SDL_GL_SwapWindow(window);
 
     if (resized) {
         rayTracePass->deleteResources();
@@ -227,7 +249,7 @@ bool RayTraceApp::drawSphereProperties(RenderPass::Sphere& sphere) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-VulkanApp::VulkanApp() : WindowApplication(RenderAPI::VULKAN), vk(window) {
+VulkanApp::VulkanApp() : WindowApplication(RendererFlags::VULKAN), vk(window) {
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

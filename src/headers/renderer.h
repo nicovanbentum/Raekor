@@ -1,8 +1,45 @@
 #pragma once
 
 #include "util.h"
+#include "camera.h"
+#include "renderpass.h"
 
 namespace Raekor {
+
+class GLRenderer {
+public:
+    GLRenderer(SDL_Window* window, Viewport& viewport);
+    ~GLRenderer();
+
+    void ImGui_Render();
+    void ImGui_NewFrame(SDL_Window* window);
+
+    void render(entt::registry& scene, Viewport& viewport, entt::entity& active);
+    void resize(Viewport& viewport);
+
+public:
+    std::unique_ptr<RenderPass::HDRSky>             skyPass;
+    std::unique_ptr<RenderPass::Bloom>              bloomPass;
+    std::unique_ptr<RenderPass::Skinning>           skinningPass;
+    std::unique_ptr<RenderPass::ShadowMap>          shadowMapPass;
+    std::unique_ptr<RenderPass::WorldIcons>         worldIconsPass;
+    std::unique_ptr<RenderPass::Tonemapping>        tonemappingPass;
+    std::unique_ptr<RenderPass::Voxelization>       voxelizationPass;
+    std::unique_ptr<RenderPass::GeometryBuffer>     geometryBufferPass;
+    std::unique_ptr<RenderPass::DeferredLighting>   DeferredLightingPass;
+    std::unique_ptr<RenderPass::BoundingBoxDebug>   boundingBoxDebugPass;
+    std::unique_ptr<RenderPass::VoxelizationDebug>  voxelizationDebugPass;
+
+    bool doBloom = false;
+    bool shouldVoxelize = true;
+    bool debugVoxels = false;
+    bool vsync = true;
+
+private:
+    SDL_GLContext context;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 enum class RenderAPI {
     OPENGL, DIRECTX11, VULKAN
@@ -40,25 +77,6 @@ protected:
 private:
     static RenderAPI activeAPI;
     static Renderer* instance;
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-class GLRenderer {
-public:
-    GLRenderer(SDL_Window* window);
-    ~GLRenderer();
-
-    void ImGui_Render();
-    void ImGui_NewFrame(SDL_Window* window);
-    void Clear(glm::vec4 color);
-    void DrawIndexed(unsigned int size);
-    void SwapBuffers(SDL_Window* window, bool vsync);
-
-private:
-
-    SDL_GLContext context;
-
 };
 
 } // namespace Raekor

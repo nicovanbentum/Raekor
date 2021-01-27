@@ -349,11 +349,9 @@ struct Material {
     float roughness;
 };
 
-vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material) {
+vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material, float shadow) {
     vec3 Li = normalize(-light.direction.xyz);
     vec3 Lh = normalize(Li + V);
-
-    vec3 radiance = light.color.rgb;
 
 	vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
 
@@ -373,10 +371,12 @@ vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material) {
 
     float NdotL = max(dot(N, Li), 0.0);
 
-    return (kD * material.albedo / PI + specular) * light.color.rgb * NdotL;
+    vec3 radiance = light.color.rgb * NdotL * shadow;
+
+    return (kD * (material.albedo) + specular) * radiance;
 }
 
-vec3 ambient(vec3 N, vec3 V, Material material) {
+vec3 ambient(vec3 N, vec3 V, Material material, float shadow) {
 	vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
     vec3 F = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, material.roughness);
     
@@ -427,11 +427,11 @@ void main() {
 
     vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
 
-    vec3 Lo = radiance(light, normal, V, material);
+    vec3 Lo = radiance(light, normal, V, material, shadowAmount);
 
-    vec3 ambient = ambient(normal, V, material);
-    
-    vec3 color = (Lo + ambient);
+    vec3 ambient = ambient(normal, V, material, shadowAmount);
+
+    vec3 color = Lo + ambient;
 
     finalColor = vec4(color, albedo.a);
 
