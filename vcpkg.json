@@ -1,0 +1,27 @@
+{
+	"name": "raekor",
+	"version-string": "0.1",
+    "dependencies": [
+        {
+            "name": "lz4",
+            "platform": "windows & static"
+        },
+        {
+            "name": "assimp",
+            "platform": "windows & static"
+        },
+        {
+            "name": "physx",
+            "platform": "windows & static"
+        },
+        {
+            "name": "sdl2",
+            "features": ["vulkan"],
+            "platform": "windows & static"
+        },
+        {
+            "name": "spirv-cross",
+            "platform": "windows & static"
+        }
+    ]
+}
