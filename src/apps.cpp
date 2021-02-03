@@ -35,7 +35,8 @@ RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void RayTraceApp::update(float dt) {
-    bool inFreeCameraMode = InputHandler::handleEvents(this, true, dt);
+    //TODO: bool inFreeCameraMode = InputHandler::handleEvents(this, true, dt);
+    bool inFreeCameraMode = false;
     viewport.getCamera().update(true);
 
     // clear the main window
@@ -281,7 +282,7 @@ VulkanApp::VulkanApp() : WindowApplication(RendererFlags::VULKAN), vk(window) {
 
 void VulkanApp::update(float dt) {
     //handle sdl and imgui events
-    InputHandler::handleEvents(this, false, dt);
+    // TODO: InputHandler::handleEvents(this, false, dt);
 
     // update the mvp structs
     auto& camera = viewport.getCamera();

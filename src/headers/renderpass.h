@@ -73,13 +73,13 @@ public:
 
     unsigned int getFramebuffer() { return GBuffer; }
 
+    unsigned int albedoTexture, normalTexture, materialTexture, entityTexture;
 private:
     glShader shader;
     ShaderHotloader hotloader;
     unsigned int GBuffer;
   
 public:
-    unsigned int albedoTexture, normalTexture, materialTexture, entityTexture;
     unsigned int depthTexture;
 };
 

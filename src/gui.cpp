@@ -462,6 +462,8 @@ bool ViewportWindow::draw(Viewport& viewport, GLRenderer& renderer, entt::regist
     }
 
     auto pos = ImGui::GetWindowPos();
+    viewport.offset = { pos.x, pos.y };
+
     mouseInViewport = ImGui::IsWindowHovered();
 
     auto& io = ImGui::GetIO();

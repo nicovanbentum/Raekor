@@ -24,6 +24,11 @@ public:
     void look(float x, float y);
     void zoom(float amount = 1.0f);
     void move(glm::vec2 amount = {});
+
+    void onEventEditor(const SDL_Event& event);
+
+    void strafeWASD(float dt);
+    void strafeMouse(SDL_Event& event, float dt);
     
     void update(bool normalizePlanes);
 
@@ -75,6 +80,7 @@ private:
 
 public:
     glm::uvec2 size;
+    glm::uvec2 offset;
 };
 
 } // Namespace Raekor

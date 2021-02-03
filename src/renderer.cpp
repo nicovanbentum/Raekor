@@ -136,67 +136,62 @@ void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GLRenderer::render(entt::registry& scene, Viewport& viewport, entt::entity& active) {
-    {
-        ScopedTimer timer("time ");
+    scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
+        skinningPass->execute(mesh, animation);
+    });
 
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
-            skinningPass->execute(mesh, animation);
-        });
+    // generate sun shadow map 
+    glViewport(0, 0, 4096, 4096);
+    shadowMapPass->execute(scene);
 
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // generate sun shadow map 
-        glViewport(0, 0, 4096, 4096);
-        shadowMapPass->execute(scene);
-
+    if (shouldVoxelize) {
+        voxelizationPass->execute(scene, viewport, shadowMapPass.get());
     }
-        if (shouldVoxelize) {
-            voxelizationPass->execute(scene, viewport, shadowMapPass.get());
+
+    glViewport(0, 0, viewport.size.x, viewport.size.y);
+
+    geometryBufferPass->execute(scene, viewport);
+
+    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), skyPass.get());
+
+    skyPass->renderEnvironmentMap(viewport, DeferredLightingPass->result, geometryBufferPass->depthTexture);
+
+    worldIconsPass->execute(scene, viewport, DeferredLightingPass->result, geometryBufferPass->entityTexture);
+
+    if (doBloom) {
+        bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
+        tonemappingPass->execute(DeferredLightingPass->result, bloomPass->bloomTexture);
+    } else {
+        static unsigned int blackTexture = 0;
+        if (blackTexture == 0) {
+            glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
+            glTextureStorage2D(blackTexture, 1, GL_RGBA16F, 1, 1);
+            glTextureParameteri(blackTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTextureParameteri(blackTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
         }
 
-        glViewport(0, 0, viewport.size.x, viewport.size.y);
+        tonemappingPass->execute(DeferredLightingPass->result, blackTexture);
+    }
 
-        geometryBufferPass->execute(scene, viewport);
-
-        DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), skyPass.get());
-
-        skyPass->renderEnvironmentMap(viewport, DeferredLightingPass->result, geometryBufferPass->depthTexture);
-
-        worldIconsPass->execute(scene, viewport, DeferredLightingPass->result, geometryBufferPass->entityTexture);
-
-        if (doBloom) {
-            bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
-            tonemappingPass->execute(DeferredLightingPass->result, bloomPass->bloomTexture);
-        } else {
-            static unsigned int blackTexture = 0;
-            if (blackTexture == 0) {
-                glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
-                glTextureStorage2D(blackTexture, 1, GL_RGBA16F, 1, 1);
-                glTextureParameteri(blackTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-                glTextureParameteri(blackTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-                glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
-            }
-
-            tonemappingPass->execute(DeferredLightingPass->result, blackTexture);
-        }
-
-        if (active != entt::null) {
-            boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->depthTexture, active);
-        }
+    if (active != entt::null) {
+        boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->depthTexture, active);
+    }
 
 
-        if (debugVoxels) {
-            voxelizationDebugPass->execute(viewport, tonemappingPass->result, voxelizationPass.get());
-        }
+    if (debugVoxels) {
+        voxelizationDebugPass->execute(viewport, tonemappingPass->result, voxelizationPass.get());
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLRenderer::resize(Viewport& viewport) {
+void GLRenderer::createResources(Viewport& viewport) {
     DeferredLightingPass->deleteResources();
     DeferredLightingPass->createResources(viewport);
 

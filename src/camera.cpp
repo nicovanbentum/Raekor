@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "camera.h"
+#include "input.h"
 
 namespace Raekor {
 
@@ -44,11 +45,48 @@ void Camera::zoom(float amount) {
 
 void Camera::move(glm::vec2 amount) {
     auto dir = getDirection();
+
     // sideways
     position += glm::normalize(glm::cross(dir, { 0,1,0 })) * amount.x;
 
     // up and down
     position.y += (float)(amount.y);
+}
+
+void Camera::strafeWASD(float dt) {
+    if (Input::isKeyPressed(SDL_SCANCODE_W)) {
+        zoom(float(zoomConstant * dt));
+    } else if (Input::isKeyPressed(SDL_SCANCODE_S)) {
+        zoom(float(-zoomConstant * dt));
+    }
+
+    if (Input::isKeyPressed(SDL_SCANCODE_A)) {
+        move({ -moveConstant * dt, 0.0f });
+    } else if (Input::isKeyPressed(SDL_SCANCODE_D)) {
+        move({ moveConstant * dt, 0.0f });
+    }
+}
+
+void Camera::strafeMouse(SDL_Event& event, float dt) {
+    if (event.type == SDL_MOUSEMOTION) {
+        look(event.motion.xrel * lookSpeed, event.motion.yrel * lookSpeed);
+    }
+}
+
+void Camera::onEventEditor(const SDL_Event& event) {
+    int x, y;
+    auto mouseState = SDL_GetMouseState(&x, &y);
+
+    if (event.type == SDL_MOUSEMOTION) {
+        if (mouseState & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
+            look(event.motion.xrel * lookSpeed, event.motion.yrel * lookSpeed);
+        } else if (mouseState & SDL_BUTTON(SDL_BUTTON_MIDDLE)) {
+            move({ event.motion.xrel * -moveSpeed, event.motion.yrel * moveSpeed });
+        } 
+    }
+    else if (event.type == SDL_MOUSEWHEEL) {
+        zoom(static_cast<float>(event.wheel.y * zoomSpeed));
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

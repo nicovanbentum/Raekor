@@ -28,8 +28,33 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RendererFlags::OPENGL), rendere
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void EditorOpenGL::update(float dt) {
-    // handle input
-    InputHandler::handleEvents(this, mouseInViewport, dt);
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        onEvent(event);
+        ImGui_ImplSDL2_ProcessEvent(&event);
+
+        if (inAltMode) {
+            viewport.getCamera().strafeMouse(event, dt);
+
+        } else if (ImGui::IsMouseHoveringRect(ImVec(viewport.offset), ImVec(viewport.size), false)) {
+            viewport.getCamera().onEventEditor(event);
+        }
+
+        if (event.type == SDL_WINDOWEVENT) {
+            if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
+                if (SDL_GetWindowID(window) == event.window.windowID) {
+                    running = false;
+                }
+            }
+            if (event.window.event = SDL_WINDOWEVENT_RESIZED) {
+                renderer.createResources(viewport);
+            }
+        }
+    }
+
+    if (inAltMode) {
+        viewport.getCamera().strafeWASD(dt);
+    }
 
     // update transforms
     scene.updateTransforms();
@@ -127,9 +152,32 @@ void EditorOpenGL::update(float dt) {
     renderer.ImGui_Render();
     SDL_GL_SwapWindow(window);
 
-
     if (resized) {
-        renderer.resize(viewport);
+        renderer.createResources(viewport);
+    }
+
+    float pixel;
+    //glGetTextureSubImage(renderer.geometryBufferPass->entityTexture, 0, 1, 1,
+     //   0, 1, 1, 1, GL_RED, GL_FLOAT, sizeof(float), &pixel);
+}
+
+void EditorOpenGL::onEvent(const SDL_Event& event) {
+    // free the mouse if the window loses focus
+    auto flags = SDL_GetWindowFlags(window);
+    if (!(flags & SDL_WINDOW_INPUT_FOCUS || flags & SDL_WINDOW_MINIMIZED) && inAltMode) {
+        inAltMode = false;
+        SDL_SetRelativeMouseMode(SDL_FALSE);
+        return;
+    }
+
+    // key down and not repeating a hold
+    if (event.type == SDL_KEYDOWN && !event.key.repeat) {
+        switch (event.key.keysym.sym) {
+            case SDLK_LALT: {
+                inAltMode = !inAltMode;
+                SDL_SetRelativeMouseMode(static_cast<SDL_bool>(inAltMode));
+            } break;
+        }
     }
 }
 

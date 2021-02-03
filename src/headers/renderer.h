@@ -15,7 +15,7 @@ public:
     void ImGui_NewFrame(SDL_Window* window);
 
     void render(entt::registry& scene, Viewport& viewport, entt::entity& active);
-    void resize(Viewport& viewport);
+    void createResources(Viewport& viewport);
 
 public:
     std::unique_ptr<RenderPass::HDRSky>             skyPass;

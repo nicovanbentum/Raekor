@@ -225,26 +225,34 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
 
     auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
+    auto materials = scene.view<ecs::MaterialComponent>();
+
+    std::vector<uint64_t> handles;
+
+    for (auto entity : materials) {
+
+    }
+
     for (auto entity : view) {
         auto& mesh = view.get<ecs::MeshComponent>(entity);
         auto& transform = view.get<ecs::TransformComponent>(entity);
 
-            // convert AABB from local to world space
-            std::array<glm::vec3, 2> worldAABB = {
-                transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
-                transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
-            };
+        // convert AABB from local to world space
+        std::array<glm::vec3, 2> worldAABB = {
+            transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
+            transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
+        };
 
-            // if the frustrum can't see the mesh's OBB we cull it
-            if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
-                culled += 1;
-                continue;
-            }
+        // if the frustrum can't see the mesh's OBB we cull it
+        if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
+            culled += 1;
+            continue;
+        }
 
-            ecs::MaterialComponent* material = nullptr;
-            if (scene.valid(mesh.material)) {
-                material = scene.try_get<ecs::MaterialComponent>(mesh.material);
-            }
+        ecs::MaterialComponent* material = nullptr;
+        if (scene.valid(mesh.material)) {
+            material = scene.try_get<ecs::MaterialComponent>(mesh.material);
+        }
 
         if (material) {
             if (material->albedo)  glBindTextureUnit(0, material->albedo);
@@ -1651,8 +1659,8 @@ void HDRSky::execute(const std::string& filepath) {
 
     stbi_image_free(data);
 
-    glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-    glm::mat4 views[] = {
+    const glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+    const glm::mat4 views[6] = {
        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),

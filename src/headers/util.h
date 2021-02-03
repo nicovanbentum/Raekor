@@ -91,5 +91,10 @@ private:
     std::filesystem::file_time_type last_write_time;
 };
 
+template <typename T>
+constexpr ImVec2 ImVec(const glm::vec<2, T>& vec) {
+    return ImVec2(static_cast<float>(vec.x), static_cast<float>(vec.y));
+}
+
 
 } // Namespace Raekor

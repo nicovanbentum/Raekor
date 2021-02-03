@@ -4,13 +4,6 @@
 
 namespace Raekor {
 
-class InputHandler {
-public:
-    static bool handleEvents(WindowApplication* app, bool mouseInViewport, double dt);
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 class Input {
 public:
     Input();
@@ -21,7 +14,7 @@ public:
 
     void pollEvents();
 
-    static std::unique_ptr<Input> singleton;
+    inline static std::unique_ptr<Input> singleton = std::make_unique<Input>();
 private:
 
     Uint32 mouseState;

@@ -11,7 +11,9 @@ public:
     EditorOpenGL();
     virtual ~EditorOpenGL() = default;
 
+
     virtual void update(float dt);
+    virtual void onEvent(const SDL_Event& event);
 
 private:
     Scene scene;
@@ -21,6 +23,8 @@ private:
     ecs::MeshComponent quad;
 
     GLRenderer renderer;
+
+    bool inAltMode = false;
 
     bool mouseInViewport = false;
     bool doSSAO = false, doBloom = false, debugVoxels = false;

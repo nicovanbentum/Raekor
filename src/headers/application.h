@@ -37,6 +37,7 @@ public:
     virtual ~WindowApplication();
 
     virtual void update(float dt)  = 0;
+    virtual void onEvent(const SDL_Event& event) = 0;
 
     Viewport& getViewport() { return viewport; }
     SDL_Window* getWindow() { return window; }
