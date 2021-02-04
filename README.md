@@ -6,14 +6,14 @@
 # Build
 
 ### Windows
-This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build and link the big binaries. Make sure it is installed correctly, integrated user wide, and added to PATH by registering the Powershell tools (```vcpkg integrate powershell```).
+This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build and link the big binaries. Make sure it is installed correctly and integrated user wide.
+
+Next make sure you have the _**latest**_ Vulkan SDK installed, you can get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe).
 
 Clone this repository using
 ```git clone --recursive https://github.com/nicovanbentum/Raekor.git ``` to also pull in all the submodules.
 
-Next make sure you have the _**latest**_ Vulkan SDK installed, you can get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe).
-
-Double click ```init.bat``` and let it do its thing (can take a while to compile Assimp and Bullet3). Once that is done open up the supplied Visual Studio solution (re-target to newest if necessary). ```CTRL+B``` to build, ```CTRL+F5``` to run.
+Build using the supplied Visual Studio solution (re-target to newest if necessary).
 
 ### Linux
 Used to work through the supplied makefile, but it's out of date. No Linux support for the forseeable future.
