@@ -145,10 +145,10 @@ public:
     unsigned int bloomTexture;
     unsigned int blurFramebuffer;
     unsigned int bloomFramebuffer;
+    unsigned int highlightsFramebuffer;
 
 private:
     glShader blurShader;
-    glShader downsampleShader;
 };
 
 //////////////////////////////////////////////////////////////////////////////////

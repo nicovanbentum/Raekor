@@ -117,9 +117,6 @@ private:
 class PostprocessWindow {
 public:
     void drawWindow(GLRenderer& renderer);
-
-private:
-    bool doBloom = false;
 };
 
 class EditorGUI {

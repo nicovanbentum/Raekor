@@ -75,8 +75,8 @@ protected:
     SDL_Window* renderWindow;
 
 private:
-    static RenderAPI activeAPI;
-    static Renderer* instance;
+    inline static RenderAPI activeAPI = RenderAPI::OPENGL;
+    inline static Renderer* instance = nullptr;
 };
 
 } // namespace Raekor

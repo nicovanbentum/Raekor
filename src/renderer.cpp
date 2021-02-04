@@ -28,12 +28,6 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// globals for the active API and renderer
-RenderAPI Renderer::activeAPI = RenderAPI::OPENGL;
-Renderer* Renderer::instance = nullptr;
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);

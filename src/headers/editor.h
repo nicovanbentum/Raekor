@@ -31,7 +31,6 @@ private:
     bool shouldVoxelize = true, gizmoEnabled = false, showSettingsWindow = false;
 
     Physics physics;
-    gui::Guizmo gizmo;
     gui::Dockspace dockspace;
     gui::TopMenuBar topMenuBar;
     gui::EntityWindow ecsWindow;

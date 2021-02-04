@@ -141,8 +141,6 @@ void EditorOpenGL::update(float dt) {
 
     cameraWindow.drawWindow(viewport.getCamera());
 
-    gizmo.drawWindow();
-
     viewportWindow.setTexture(renderer.tonemappingPass->result);
 
     bool resized = viewportWindow.draw(viewport, renderer, scene, active);

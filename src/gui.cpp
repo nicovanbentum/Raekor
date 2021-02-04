@@ -427,6 +427,8 @@ void Dockspace::end() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool ViewportWindow::draw(Viewport& viewport, GLRenderer& renderer, entt::registry& scene, entt::entity& active) {
+    gizmo.drawWindow();
+
     // renderer viewport
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
@@ -479,7 +481,7 @@ bool ViewportWindow::draw(Viewport& viewport, GLRenderer& renderer, entt::regist
         }
     }
 
-    if (active != entt::null) {
+    if (active != entt::null && gizmo.enabled) {
         drawGizmo(gizmo, scene, viewport, active);
     }
 
@@ -934,7 +936,7 @@ void PostprocessWindow::drawWindow(GLRenderer& renderer) {
     if (ImGui::SliderFloat("Gamma", &renderer.tonemappingPass->settings.gamma, 1.0f, 3.2f)) {}
     ImGui::NewLine();
 
-    if (ImGui::Checkbox("Bloom", &doBloom)) {}
+    if (ImGui::Checkbox("Bloom", &renderer.doBloom)) {}
     ImGui::Separator();
 
     if (ImGui::DragFloat3("Threshold", glm::value_ptr(renderer.DeferredLightingPass->settings.bloomThreshold), 0.001f, 0.0f, 10.0f)) {}

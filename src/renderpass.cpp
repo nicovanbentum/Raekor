@@ -668,14 +668,6 @@ Bloom::Bloom(Viewport& viewport) {
 
     blurShader.reload(blurStages, 2);
 
-
-    Shader::Stage downsampleStages[2] = {
-        Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"),
-        Shader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\downsample.frag")
-    };
-
-    downsampleShader.reload(downsampleStages, 2);
-
     createResources(viewport);
 }
 
@@ -688,19 +680,16 @@ void Bloom::execute(Viewport& viewport, unsigned int highlights) {
 
     auto quarter = glm::ivec2(viewport.size.x / 4, viewport.size.y / 4);
     
-    // downsample to quarter screen res
-    glBindFramebuffer(GL_FRAMEBUFFER, bloomFramebuffer);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glNamedFramebufferTexture(highlightsFramebuffer, GL_COLOR_ATTACHMENT0, highlights, 0);
 
-    glViewport(0, 0, quarter.x, quarter.y);
-
-    downsampleShader.bind();
-    glBindTextureUnit(0, highlights);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    blurShader.bind();
+    glBlitNamedFramebuffer(highlightsFramebuffer, bloomFramebuffer, 
+        0, 0, viewport.size.x, viewport.size.y, 
+        0, 0, quarter.x, quarter.y, 
+        GL_COLOR_BUFFER_BIT, GL_LINEAR);
     
     // horizontally blur 1/4th bloom to blur texture
+    blurShader.bind();
+    glViewport(0, 0, quarter.x, quarter.y);
     glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -748,6 +737,8 @@ void Bloom::createResources(Viewport& viewport) {
     glNamedFramebufferTexture(blurFramebuffer, GL_COLOR_ATTACHMENT0, blurTexture, 0);
     glNamedFramebufferDrawBuffer(blurFramebuffer, GL_COLOR_ATTACHMENT0);
 
+    glCreateFramebuffers(1, &highlightsFramebuffer);
+    glNamedFramebufferDrawBuffer(highlightsFramebuffer, GL_COLOR_ATTACHMENT0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
