@@ -431,7 +431,10 @@ void main() {
 
     vec3 ambient = ambient(normal, V, material, shadowAmount);
 
-    vec3 color = Lo + ambient;
+    float occlusion;
+    vec3 radiance = coneTraceRadiance(position, normal, occlusion).xyz * (ambient);
+    
+    vec3 color = Lo + radiance;
 
     finalColor = vec4(color, albedo.a);
 

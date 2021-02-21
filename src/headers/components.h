@@ -3,6 +3,7 @@
 #include "buffer.h"
 #include "anim.h"
 #include "script.h"
+#include "assets.h"
 
 namespace Raekor {
 namespace ecs {
@@ -145,13 +146,13 @@ struct MaterialComponent {
     unsigned int metalrough = 0;
 
     void createAlbedoTexture();
-    void createAlbedoTexture(const Stb::Image& image);
+    void createAlbedoTexture(std::shared_ptr<TextureAsset> texture);
 
     void createNormalTexture();
-    void createNormalTexture(const Stb::Image& image);
+    void createNormalTexture(std::shared_ptr<TextureAsset> texture);
 
     void createMetalRoughTexture();
-    void createMetalRoughTexture(const Stb::Image& image);
+    void createMetalRoughTexture(std::shared_ptr<TextureAsset> texture);
 
     void destroy();
 

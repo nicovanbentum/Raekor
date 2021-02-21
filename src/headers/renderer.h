@@ -29,11 +29,14 @@ public:
     std::unique_ptr<RenderPass::DeferredLighting>   DeferredLightingPass;
     std::unique_ptr<RenderPass::BoundingBoxDebug>   boundingBoxDebugPass;
     std::unique_ptr<RenderPass::VoxelizationDebug>  voxelizationDebugPass;
-
-    bool doBloom = false;
-    bool shouldVoxelize = true;
-    bool debugVoxels = false;
+    
+public:
     bool vsync = true;
+
+private:
+    int& doBloom            = ConVars::create("r_bloom", 0);
+    int& debugVoxels        = ConVars::create("r_voxelize_debug", 0);
+    int& shouldVoxelize     = ConVars::create("r_voxelize", 1);
 
 private:
     SDL_GLContext context;

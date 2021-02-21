@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cvars.h"
+
 namespace Raekor {
 
 struct MVP {
@@ -18,7 +20,9 @@ class Camera {
     
 public:
     Camera(glm::vec3 position, glm::mat4 proj);
-    
+    Camera(const Camera&) : Camera(getPosition(), projection) {}
+    Camera& operator=(const Camera& rhs) { return *this; }
+
     glm::vec3 getDirection();
 
     void look(float x, float y);
@@ -51,13 +55,15 @@ private:
     std::array<glm::vec4, 6> frustrumPlanes;
 
 public:
+    float& sensitivity = ConVars::create<float>("sensitivity", 2.0f);
+
     // constants for continues movement
     // e.g camera.zoom(camera.zoomConstant);
     float lookConstant = 1.0f, zoomConstant = 0.01f, moveConstant = 0.005f;
 
     // speed relative to some other factor
     // e.g camera.zoom(scrollAmount * zoomSpeed);
-    float lookSpeed = 0.0015f, zoomSpeed = 1.0f, moveSpeed = 0.015f;
+    float zoomSpeed = 1.0f, moveSpeed = 0.015f;
 
 };
 

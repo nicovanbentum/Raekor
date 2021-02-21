@@ -1,13 +1,16 @@
 #include "pch.h"
 #include "components.h"
+#include "assets.h"
 
-namespace Raekor {
-namespace ecs {
+namespace Raekor
+{
+namespace ecs
+{
 
 void TransformComponent::recalculateMatrix() {
-    matrix  =    glm::translate(glm::mat4(1.0f), position);
-    matrix *=    glm::eulerAngleXYZ(rotation.x, rotation.y, rotation.z);
-    matrix  =    glm::scale(matrix, scale);
+    matrix = glm::translate(glm::mat4(1.0f), position);
+    matrix *= glm::eulerAngleXYZ(rotation.x, rotation.y, rotation.z);
+    matrix = glm::scale(matrix, scale);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -23,10 +26,11 @@ void MeshComponent::generateTangents() {
         glm::vec3 normal = glm::cross((v1 - v0), (v2 - v0));
 
         glm::vec3 deltaPos;
-        if (v0 == v1)
+        if (v0 == v1) {
             deltaPos = v2 - v0;
-        else
+        } else {
             deltaPos = v1 - v0;
+        }
 
         glm::vec2 uv0 = uvs[indices[i]];
         glm::vec2 uv1 = uvs[indices[i + 1]];
@@ -37,16 +41,17 @@ void MeshComponent::generateTangents() {
 
         glm::vec3 tan;
 
-        if (deltaUV1.s != 0)
+        if (deltaUV1.s != 0) {
             tan = deltaPos / deltaUV1.s;
-        else
+        } else {
             tan = deltaPos / 1.0f;
+        }
 
         tan = glm::normalize(tan - glm::dot(normal, tan) * normal);
 
         tangents[indices[i]] = tan;
-        tangents[indices[i+1]] = tan;
-        tangents[indices[i+2]] = tan;
+        tangents[indices[i + 1]] = tan;
+        tangents[indices[i + 2]] = tan;
     }
 }
 
@@ -112,11 +117,21 @@ void MeshComponent::uploadVertices() {
     auto vertices = getVertexData();
 
     std::vector<Element> layout;
-    if (!positions.empty())     layout.emplace_back("POSITION", ShaderType::FLOAT3);
-    if (!uvs.empty())           layout.emplace_back("TEXCOORD", ShaderType::FLOAT2);
-    if (!normals.empty())       layout.emplace_back("NORMAL",   ShaderType::FLOAT3);
-    if (!tangents.empty())      layout.emplace_back("TANGENT",  ShaderType::FLOAT3);
-    if (!bitangents.empty())    layout.emplace_back("BINORMAL", ShaderType::FLOAT3);
+    if (!positions.empty()) {
+        layout.emplace_back("POSITION", ShaderType::FLOAT3);
+    }
+    if (!uvs.empty()) {
+        layout.emplace_back("TEXCOORD", ShaderType::FLOAT2);
+    }
+    if (!normals.empty()) {
+        layout.emplace_back("NORMAL", ShaderType::FLOAT3);
+    }
+    if (!tangents.empty()) {
+        layout.emplace_back("TANGENT", ShaderType::FLOAT3);
+    }
+    if (!bitangents.empty()) {
+        layout.emplace_back("BINORMAL", ShaderType::FLOAT3);
+    }
 
     vertexBuffer.loadVertices(vertices.data(), vertices.size());
     vertexBuffer.setLayout(layout);
@@ -153,7 +168,7 @@ void MeshAnimationComponent::ReadNodeHierarchy(float animationTime, BoneTreeNode
         nodeTransform = translationMatrix * rotationMatrix * scaleMatrix;
 
         globalTransformation = parentTransform * nodeTransform;
-        
+
         unsigned int boneIndex = bonemapping[pNode.name];
         boneInfos[boneIndex].finalTransformation = globalTransformation * boneInfos[boneIndex].boneOffset;
     }
@@ -171,7 +186,9 @@ void MeshAnimationComponent::boneTransform(float dt) {
         see https://github.com/assimp/assimp/issues/2662
     */
     animation.runningTime += dt;
-    if (animation.runningTime > animation.totalDuration) animation.runningTime = 0;
+    if (animation.runningTime > animation.totalDuration) {
+        animation.runningTime = 0;
+    }
 
     auto identity = glm::mat4(1.0f);
     ReadNodeHierarchy(animation.runningTime, boneTreeRootNode, identity);
@@ -196,13 +213,14 @@ void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
 
     auto originalMeshBuffer = mesh.getVertexData();
     skinnedVertexBuffer.loadVertices(originalMeshBuffer.data(), originalMeshBuffer.size());
-    skinnedVertexBuffer.setLayout({
-        { "POSITION",    ShaderType::FLOAT3 },
-        { "UV",          ShaderType::FLOAT2 },
-        { "NORMAL",      ShaderType::FLOAT3 },
-        { "TANGENT",     ShaderType::FLOAT3 },
-        { "BINORMAL",    ShaderType::FLOAT3 },
-    });
+    skinnedVertexBuffer.setLayout(
+        {
+            { "POSITION",    ShaderType::FLOAT3 },
+            { "UV",          ShaderType::FLOAT2 },
+            { "NORMAL",      ShaderType::FLOAT3 },
+            { "TANGENT",     ShaderType::FLOAT3 },
+            { "BINORMAL",    ShaderType::FLOAT3 },
+        });
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -232,16 +250,28 @@ void MaterialComponent::createAlbedoTexture() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::createAlbedoTexture(const Stb::Image& image) {
-    glDeleteTextures(1, &albedo);
+void MaterialComponent::createAlbedoTexture(std::shared_ptr<TextureAsset> texture) {
+    if (!texture) {
+        return;
+    }
 
+    auto header = texture->getHeader();
+    auto dataPtr = texture->getData();
+    albedoFile = texture->getPath().string();
+
+    glDeleteTextures(1, &albedo);
     glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
-    auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(image.w, image.h))));
-    glTextureStorage2D(albedo, mipmapLevels, GL_SRGB8_ALPHA8, image.w, image.h);
-    glTextureSubImage2D(albedo, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+    glTextureStorage2D(albedo, header.dwMipMapCount, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
+
+    for (int mip = 0; mip < header.dwMipMapCount; mip++) {
+        glm::ivec2 dimensions = { header.dwWidth >> mip, header.dwHeight >> mip };
+        size_t dataSize = std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16;
+        glCompressedTextureSubImage2D(albedo, mip, 0, 0, dimensions.x, dimensions.y, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, dataSize, dataPtr);
+        dataPtr += dimensions.x * dimensions.y;
+    }
+
     glTextureParameteri(albedo, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(albedo, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateTextureMipmap(albedo);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -262,17 +292,30 @@ void MaterialComponent::createNormalTexture() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::createNormalTexture(const Stb::Image& image)
-{
+void MaterialComponent::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
+    if (!texture) {
+        return;
+    }
+
     glDeleteTextures(1, &normals);
 
+    auto header = texture->getHeader();
+    auto dataPtr = texture->getData();
+
     glCreateTextures(GL_TEXTURE_2D, 1, &normals);
-    auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(image.w, image.h))));
-    glTextureStorage2D(normals, mipmapLevels, GL_RGBA8, image.w, image.h);
-    glTextureSubImage2D(normals, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+    glTextureStorage2D(normals, header.dwMipMapCount, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
+
+    for (int mip = 0; mip < header.dwMipMapCount; mip++) {
+        glm::ivec2 size = { header.dwWidth >> mip, header.dwHeight >> mip };
+        size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
+        glCompressedTextureSubImage2D(normals, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, dataSize, dataPtr);
+        dataPtr += size.x * size.y;
+    }
+
     glTextureParameteri(normals, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(normals, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateTextureMipmap(normals);
+
+    normalFile = texture->getPath().string();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -293,25 +336,40 @@ void MaterialComponent::createMetalRoughTexture() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::createMetalRoughTexture(const Stb::Image& image) {
+void MaterialComponent::createMetalRoughTexture(std::shared_ptr<TextureAsset> texture) {
+    if (!texture) {
+        return;
+    }
+
     glDeleteTextures(1, &metalrough);
 
+    auto header = texture->getHeader();
+    auto dataPtr = texture->getData();
+
     glCreateTextures(GL_TEXTURE_2D, 1, &metalrough);
-    auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(image.w, image.h))));
-    glTextureStorage2D(metalrough, mipmapLevels, GL_RGBA8, image.w, image.h);
-    glTextureSubImage2D(metalrough, 0, 0, 0, image.w, image.h, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+    auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(header.dwWidth, header.dwHeight))));
+    glTextureStorage2D(metalrough, mipmapLevels, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
+
+    for (int mip = 0; mip < header.dwMipMapCount; mip++) {
+        glm::ivec2 size = { header.dwWidth >> mip, header.dwHeight >> mip };
+        size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
+        glCompressedTextureSubImage2D(metalrough, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, dataSize, dataPtr);
+        dataPtr += size.x * size.y;
+    }
+
     glTextureParameteri(metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glGenerateTextureMipmap(metalrough);
+
+    mrFile = texture->getPath().string();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void MaterialComponent::destroy() {
-        glDeleteTextures(1, &albedo);
-        glDeleteTextures(1, &normals);
-        glDeleteTextures(1, &metalrough);
-        albedo = 0, normals = 0, metalrough = 0;
+    glDeleteTextures(1, &albedo);
+    glDeleteTextures(1, &normals);
+    glDeleteTextures(1, &metalrough);
+    albedo = 0, normals = 0, metalrough = 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

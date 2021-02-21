@@ -7,6 +7,44 @@
 namespace Raekor {
 namespace gui {
 
+class ConsoleWindow {
+public:
+    ConsoleWindow();
+    ~ConsoleWindow();
+
+    static char* Strdup(const char* str);
+    static void Strtrim(char* str);
+
+    void ClearLog();
+
+    // TODO: figure this out 
+    void AddLog(const char* fmt, ...) IM_FMTARGS(2) {
+        // FIXME-OPT
+        char buf[1024];
+        va_list args;
+        va_start(args, fmt);
+        vsnprintf(buf, IM_ARRAYSIZE(buf), fmt, args);
+        buf[IM_ARRAYSIZE(buf) - 1] = 0;
+        va_end(args);
+		Items.insert(Items.begin(), Strdup(buf));
+    }
+
+    void    Draw(const char* title, bool* p_open);
+    void    ExecCommand(const char* command_line);
+
+    static int TextEditCallbackStub(ImGuiInputTextCallbackData* data);
+    int TextEditCallback(ImGuiInputTextCallbackData* data);
+
+private:
+    char                  InputBuf[256];
+    ImVector<char*>       Items;
+    ImVector<char*>       History;
+    int                   HistoryPos;
+    ImGuiTextFilter       Filter;
+    bool                  AutoScroll;
+    bool                  ScrollToBottom;
+};
+
 void setTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -21,7 +59,7 @@ glm::ivec2 getMousePosWindow(const Viewport& viewport, ImVec2 windowPos);
 
 class TopMenuBar {
 public:
-    void draw(WindowApplication* app, Scene& scene, GLRenderer& renderer, entt::entity& active);
+	void draw(WindowApplication* app, Scene& scene, GLRenderer& renderer, AssetManager& assetManager, entt::entity& active);
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -109,7 +147,7 @@ public:
 
 class RandomWindow {
 public:
-    void drawWindow(GLRenderer& renderer);
+	void drawWindow(GLRenderer& renderer, ViewportWindow& window);
 
 private:
 };

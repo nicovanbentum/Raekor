@@ -3,6 +3,7 @@
 #include "application.h"
 #include "gui.h"
 #include "physics.h"
+#include "assets.h"
 
 namespace Raekor {
 
@@ -20,6 +21,8 @@ private:
     entt::entity active = entt::null;
     entt::entity defaultMaterialEntity;
 
+    AssetManager assetManager;
+
     ecs::MeshComponent quad;
 
     GLRenderer renderer;
@@ -36,6 +39,7 @@ private:
     gui::EntityWindow ecsWindow;
     gui::AssetWindow assetBrowser;
     gui::RandomWindow randomWindow;
+    gui::ConsoleWindow consoleWindow;
     gui::CameraSettings cameraWindow;
     gui::ViewportWindow viewportWindow;
     gui::InspectorWindow inspectorWindow;

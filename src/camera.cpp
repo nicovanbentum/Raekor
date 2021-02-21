@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "camera.h"
 #include "input.h"
+#include "cvars.h"
 
 namespace Raekor {
 
@@ -14,7 +15,7 @@ Camera::Camera(glm::vec3 position, glm::mat4 proj) :
 
 void Camera::update(bool normalizePlanes) {
     auto dir = getDirection();
-    view = glm::lookAtRH(position, position + dir, {0, 1, 0});
+    view = glm::lookAtRH(position, position + dir, { 0, 1, 0 });
     updatePlanes(normalizePlanes);
 }
 
@@ -22,7 +23,7 @@ void Camera::update(bool normalizePlanes) {
 
 glm::vec3 Camera::getDirection() {
     return glm::vec3(cos(angle.y) * sin(angle.x),
-    sin(angle.y), cos(angle.y) * cos(angle.x));
+        sin(angle.y), cos(angle.y) * cos(angle.x));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -47,7 +48,7 @@ void Camera::move(glm::vec2 amount) {
     auto dir = getDirection();
 
     // sideways
-    position += glm::normalize(glm::cross(dir, { 0,1,0 })) * amount.x;
+    position += glm::normalize(glm::cross(dir, { 0, 1, 0 })) * amount.x;
 
     // up and down
     position.y += (float)(amount.y);
@@ -69,7 +70,8 @@ void Camera::strafeWASD(float dt) {
 
 void Camera::strafeMouse(SDL_Event& event, float dt) {
     if (event.type == SDL_MOUSEMOTION) {
-        look(event.motion.xrel * lookSpeed, event.motion.yrel * lookSpeed);
+        auto formula = glm::radians(0.022f * sensitivity);
+        look((event.motion.xrel * formula), event.motion.yrel * formula);
     }
 }
 
@@ -79,12 +81,12 @@ void Camera::onEventEditor(const SDL_Event& event) {
 
     if (event.type == SDL_MOUSEMOTION) {
         if (mouseState & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
-            look(event.motion.xrel * lookSpeed, event.motion.yrel * lookSpeed);
+            auto formula = glm::radians(0.022f * sensitivity * 2.0f);
+            look(event.motion.xrel * formula, event.motion.yrel * formula);
         } else if (mouseState & SDL_BUTTON(SDL_BUTTON_MIDDLE)) {
             move({ event.motion.xrel * -moveSpeed, event.motion.yrel * moveSpeed });
-        } 
-    }
-    else if (event.type == SDL_MOUSEWHEEL) {
+        }
+    } else if (event.type == SDL_MOUSEWHEEL) {
         zoom(static_cast<float>(event.wheel.y * zoomSpeed));
     }
 }
@@ -142,8 +144,10 @@ void Camera::updatePlanes(bool normalize) {
 
 bool Camera::vertexInPlane(const glm::vec4& plane, const glm::vec3& v) {
     float d;
-    d = plane.x*v.x + plane.y*v.y + plane.z*v.z + plane.w;
-    if (d >= 0) return true;
+    d = plane.x * v.x + plane.y * v.y + plane.z * v.z + plane.w;
+    if (d >= 0) {
+        return true;
+    }
     return false;
 }
 

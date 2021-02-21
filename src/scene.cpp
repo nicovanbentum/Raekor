@@ -1,12 +1,13 @@
 #include "pch.h"
 #include "scene.h"
+
 #include "mesh.h"
 #include "timer.h"
 #include "serial.h"
 #include "systems.h"
-#include "assets.h"
 
-namespace Raekor {
+namespace Raekor
+{
 
 Scene::Scene() {
     registry.on_destroy<ecs::MeshComponent>().connect<entt::invoke<&ecs::MeshComponent::destroy>>();
@@ -42,7 +43,8 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
         auto& transform = view.get<ecs::TransformComponent>(entity);
 
         // convert AABB from local to world space
-        std::array<glm::vec3, 2> worldAABB = {
+        std::array<glm::vec3, 2> worldAABB =
+        {
             transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
             transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
         };
@@ -81,6 +83,7 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
 
 void Scene::updateTransforms() {
     auto nodeView = registry.view<ecs::NodeComponent, ecs::TransformComponent>();
+
     for (auto entity : nodeView) {
         auto& node = nodeView.get<ecs::NodeComponent>(entity);
         auto& transform = nodeView.get<ecs::TransformComponent>(entity);
@@ -96,51 +99,36 @@ void Scene::updateTransforms() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials) {
-    // setup a centralized data structure for all the images
-
-    std::unordered_map<std::string, Stb::Image> images;
-    for (auto entity : materials) {
+void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials, AssetManager& assetManager) {
+    Timer timer;
+    timer.start();
+    std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [&](auto entity) {
         auto& material = registry.get<ecs::MaterialComponent>(entity);
-        if (std::filesystem::is_regular_file(material.albedoFile))
-            images[material.albedoFile] = Stb::Image(RGBA, material.albedoFile);
-        if (std::filesystem::is_regular_file(material.normalFile))
-            images[material.normalFile] = Stb::Image(RGBA, material.normalFile);
-        if (std::filesystem::is_regular_file(material.mrFile))
-            images[material.mrFile] = Stb::Image(RGBA, material.mrFile);
-    }
-
-
-    // load every texture from disk in parallel
-    std::for_each(std::execution::par_unseq, images.begin(), images.end(), [](auto& kv) {
-        kv.second.load(kv.first, true);
+        assetManager.get<TextureAsset>(material.albedoFile);
+        assetManager.get<TextureAsset>(material.normalFile);
+        assetManager.get<TextureAsset>(material.mrFile);
     });
 
-    //timer.start();
-    //std::for_each(std::execution::par_unseq, images.begin(), images.end(), [&](auto& kv) {
-    //    auto path = std::filesystem::path(kv.first);
-    //    auto asset = TextureAsset();
-    //    asset.load(path.filename().replace_extension(".tex").string());
-    //});
-    //timer.stop();
-    //std::cout << "Parallel .tex format " << timer.elapsedMs() << '\n';
+    timer.stop();
+    std::cout << "Async texture time " << timer.elapsedMs() << std::endl;
 
+    timer.start();
     for (auto entity : materials) {
         auto& material = registry.get<ecs::MaterialComponent>(entity);
 
-        if (images.find(material.albedoFile) != images.end()) {
-            material.createAlbedoTexture(images[material.albedoFile]);
-        }
-        if (images.find(material.normalFile) != images.end()) {
-            material.createNormalTexture(images[material.normalFile]);
-        } 
-        if (images.find(material.mrFile) != images.end()) {
-            material.createMetalRoughTexture(images[material.mrFile]);
+        material.createAlbedoTexture(assetManager.get<TextureAsset>(material.albedoFile));
+        material.createNormalTexture(assetManager.get<TextureAsset>(material.normalFile));
+
+        auto mrTexture = assetManager.get<TextureAsset>(material.mrFile);
+        if (mrTexture) {
+            material.createMetalRoughTexture(mrTexture);
         } else {
             material.createMetalRoughTexture();
         }
-
     }
+
+    timer.stop();
+    std::cout << "Upload texture time " << timer.elapsedMs() << std::endl;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -148,16 +136,18 @@ void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials) {
 void Scene::saveToFile(const std::string& file) {
     std::ofstream outstream(file, std::ios::binary);
     cereal::BinaryOutputArchive output(outstream);
-    entt::snapshot{ registry }.entities(output).component<
+    entt::snapshot{ registry }.entities(output).component <
         ecs::NameComponent, ecs::NodeComponent, ecs::TransformComponent,
         ecs::MeshComponent, ecs::MaterialComponent, ecs::PointLightComponent,
-        ecs::DirectionalLightComponent>(output);
+        ecs::DirectionalLightComponent >(output);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void Scene::openFromFile(const std::string& file) {
-    if (!std::filesystem::is_regular_file(file)) return;
+void Scene::openFromFile(const std::string& file, AssetManager& assetManager) {
+    if (!std::filesystem::is_regular_file(file)) {
+        return;
+    }
     std::ifstream storage(file, std::ios::binary);
 
     // TODO: lz4 compression
@@ -172,19 +162,28 @@ void Scene::openFromFile(const std::string& file) {
     //const int decompressed_size = LZ4_decompress_safe(buffer.data(), regen_buffer, buffer.size(), bound_size);
 
     registry.clear();
-    
+
+    Timer timer;
+    timer.start();
+
     cereal::BinaryInputArchive input(storage);
-    entt::snapshot_loader{ registry }.entities(input).component<
+    entt::snapshot_loader{ registry }.entities(input).component <
         ecs::NameComponent, ecs::NodeComponent, ecs::TransformComponent,
         ecs::MeshComponent, ecs::MaterialComponent, ecs::PointLightComponent,
-        ecs::DirectionalLightComponent>(input);
+        ecs::DirectionalLightComponent >(input);
+
+    timer.stop();
+    std::cout << "Archive time " << timer.elapsedMs() << std::endl;
+
 
     // init material render data
     auto materials = registry.view<ecs::MaterialComponent>();
     auto materialEntities = std::vector<entt::entity>();
     materialEntities.assign(materials.data(), materials.data() + materials.size());
-    loadMaterialTextures(materialEntities);
-    
+    loadMaterialTextures(materialEntities, assetManager);
+
+    timer.start();
+
     // init mesh render data
     auto view = registry.view<ecs::MeshComponent>();
     for (auto entity : view) {
@@ -193,6 +192,9 @@ void Scene::openFromFile(const std::string& file) {
         mesh.uploadVertices();
         mesh.uploadIndices();
     }
+
+    timer.stop();
+    std::cout << "Mesh time " << timer.elapsedMs() << std::endl << std::endl;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -209,7 +211,7 @@ static glm::mat4 aiMat4toGLM(const aiMatrix4x4& from) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
+bool AssimpImporter::loadFile(Scene& scene, const std::string& file, AssetManager& assetManager) {
     constexpr unsigned int flags =
         aiProcess_GenNormals |
         aiProcess_CalcTangentSpace |
@@ -244,7 +246,7 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
     scene->emplace<ecs::NodeComponent>(rootEntity);
 
     auto materials = loadMaterials(scene, assimpScene, directory.string());
-    scene.loadMaterialTextures(materials);
+    scene.loadMaterialTextures(materials, assetManager);
 
     // load meshes and assign materials
     std::vector<entt::entity> meshes(assimpScene->mNumMeshes);
@@ -273,11 +275,11 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file) {
         for (unsigned int i = 0; i < assimpNode->mNumMeshes; i++) {
             // get the associated entity for the mesh
             auto entity = meshes[assimpNode->mMeshes[i]];
-            
+
             // make it a child to the root node
             auto& node = scene->emplace<ecs::NodeComponent>(entity);
             NodeSystem::append(scene, scene->get<ecs::NodeComponent>(rootEntity), node);
-            
+
             auto& transform = scene->emplace<ecs::TransformComponent>(entity);
             auto& mesh = scene->get<ecs::MeshComponent>(entity);
 
@@ -334,7 +336,9 @@ bool AssimpImporter::convertMesh(ecs::MeshComponent& mesh, aiMesh* assimpMesh) {
     // extract indices
     //mesh.indices.reserve(assimpMesh->mNumFaces);
     for (size_t i = 0; i < assimpMesh->mNumFaces; i++) {
-        if (assimpMesh->mFaces[i].mNumIndices != 3) return false;
+        if (assimpMesh->mFaces[i].mNumIndices != 3) {
+            return false;
+        }
         mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[0]);
         mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[1]);
         mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[2]);
@@ -351,6 +355,8 @@ std::vector<entt::entity> AssimpImporter::loadMaterials(entt::registry& scene, c
     std::vector<entt::entity> materials(aiscene->mNumMaterials);
 
     for (unsigned int i = 0; i < aiscene->mNumMaterials; i++) {
+        printProgressBar(i, 0, aiscene->mNumMaterials);
+
         auto aiMat = aiscene->mMaterials[i];
 
         // get material textures from Assimp's import
@@ -363,7 +369,7 @@ std::vector<entt::entity> AssimpImporter::loadMaterials(entt::registry& scene, c
         auto materialEntity = scene.create();
         auto& materialName = scene.emplace<ecs::NameComponent>(materialEntity);
         auto& material = scene.emplace<ecs::MaterialComponent>(materialEntity);
-        
+
         aiColor4D diffuse;
         if (AI_SUCCESS == aiGetMaterialColor(aiMat, AI_MATKEY_COLOR_DIFFUSE, &diffuse)) {
             material.baseColour = { diffuse.r, diffuse.g, diffuse.b, diffuse.a };
@@ -379,9 +385,21 @@ std::vector<entt::entity> AssimpImporter::loadMaterials(entt::registry& scene, c
         }
 
         std::error_code ec;
-        if(albedoFile.length) material.albedoFile = std::filesystem::relative(directory + albedoFile.C_Str(), ec).string();
-        if(normalmapFile.length) material.normalFile = std::filesystem::relative(directory + normalmapFile.C_Str(), ec).string();
-        if(metalroughFile.length) material.mrFile = std::filesystem::relative(directory + metalroughFile.C_Str(), ec).string();
+        if (albedoFile.length) {
+            auto relativePath = std::filesystem::relative(directory + albedoFile.C_Str(), ec).string();
+            auto assetPath = TextureAsset::create(relativePath);
+            material.albedoFile = assetPath;
+        }
+        if (normalmapFile.length) {
+            auto relativePath = std::filesystem::relative(directory + normalmapFile.C_Str(), ec).string();
+            auto assetPath = TextureAsset::create(relativePath);
+            material.normalFile = assetPath;
+        }
+        if (metalroughFile.length) {
+            auto relativePath = std::filesystem::relative(directory + metalroughFile.C_Str(), ec).string();
+            auto assetPath = TextureAsset::create(relativePath);
+            material.mrFile = assetPath;
+        }
 
         if (strcmp(aiMat->GetName().C_Str(), "") != 0) {
             materialName.name = aiMat->GetName().C_Str();
@@ -399,7 +417,7 @@ std::vector<entt::entity> AssimpImporter::loadMaterials(entt::registry& scene, c
 
 void AssimpImporter::loadBones(entt::registry& scene, const aiScene* aiscene, aiMesh* assimpMesh, entt::entity entity) {
     auto& mesh = scene.get<ecs::MeshComponent>(entity);
-    
+
     auto& animation = scene.emplace<ecs::MeshAnimationComponent>(entity);
     animation.animation = Animation(aiscene->mAnimations[0]);
 
@@ -419,8 +437,7 @@ void AssimpImporter::loadBones(entt::registry& scene, const aiScene* aiscene, ai
             animation.boneInfos.push_back(bi);
             animation.boneInfos[boneIndex].boneOffset = aiMat4toGLM(bone->mOffsetMatrix);
             animation.bonemapping[bone->mName.C_Str()] = boneIndex;
-        }
-        else {
+        } else {
             std::puts("found existing bone in map");
             boneIndex = animation.bonemapping[bone->mName.C_Str()];
         }
@@ -456,13 +473,17 @@ void AssimpImporter::loadBones(entt::registry& scene, const aiScene* aiscene, ai
     std::stack<aiNode*> nodes;
     nodes.push(aiscene->mRootNode);
     while (!nodes.empty()) {
-        if (rootBone) break;
+        if (rootBone) {
+            break;
+        }
 
         auto current = nodes.top();
         nodes.pop();
 
         for (uint32_t b = 0; b < assimpMesh->mNumBones; b++) {
-            if (rootBone) break;
+            if (rootBone) {
+                break;
+            }
             // check if current node is a bone
             if (assimpMesh->mBones[b]->mName == current->mName) {
                 // check if its parent is a bone, if not it is the root bone
@@ -473,7 +494,9 @@ void AssimpImporter::loadBones(entt::registry& scene, const aiScene* aiscene, ai
                     }
                 }
 
-                if (isRoot) rootBone = current;
+                if (isRoot) {
+                    rootBone = current;
+                }
             }
         }
 

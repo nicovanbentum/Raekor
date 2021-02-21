@@ -7,8 +7,152 @@
 
 #include "IconsFontAwesome5.h"
 
-namespace Raekor {
-namespace gui {
+namespace Raekor
+{
+namespace gui
+{
+
+ConsoleWindow::ConsoleWindow() {
+    ClearLog();
+    memset(InputBuf, 0, sizeof(InputBuf));
+    HistoryPos = -1;
+    AutoScroll = true;
+    ScrollToBottom = false;
+}
+
+ConsoleWindow::~ConsoleWindow() {
+    ClearLog();
+    for (int i = 0; i < History.Size; i++)
+        free(History[i]);
+}
+
+char* ConsoleWindow::Strdup(const char* str) { size_t len = strlen(str) + 1; void* buf = malloc(len); IM_ASSERT(buf); return (char*)memcpy(buf, (const void*)str, len); }
+void  ConsoleWindow::Strtrim(char* str) { char* str_end = str + strlen(str); while (str_end > str && str_end[-1] == ' ') str_end--; *str_end = 0; }
+
+void ConsoleWindow::ClearLog() {
+    for (int i = 0; i < Items.Size; i++)
+        free(Items[i]);
+    Items.clear();
+}
+
+void    ConsoleWindow::Draw(const char* title, bool* p_open) {
+    ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin(title, p_open)) {
+        ImGui::End();
+        return;
+    }
+
+    // Command-line
+    bool reclaim_focus = false;
+
+    ImGui::PushItemWidth(ImGui::GetWindowWidth());
+    if (ImGui::InputText("##Input", InputBuf, IM_ARRAYSIZE(InputBuf), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackAlways, &TextEditCallbackStub, (void*)this)) {
+        char* s = InputBuf;
+        Strtrim(s);
+        if (s[0]) {
+            ExecCommand(s);
+            std::string expression = std::string(s);
+            std::istringstream stream(expression);
+            std::string name, value;
+            stream >> name >> value;
+
+            bool success = ConVars::set(name, value);
+            if (!success) {
+                ExecCommand(std::string("Failed to set var " + name + " to " + value).c_str());
+            }
+        }
+        strcpy(s, "");
+        reclaim_focus = true;
+    }
+
+    ImGui::PopItemWidth();
+
+    if (ImGui::BeginPopupContextItem()) {
+        if (ImGui::MenuItem("Close Console"))
+            *p_open = false;
+        ImGui::EndPopup();
+    }
+
+    ImGui::Separator();
+
+    const float footer_height_to_reserve = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
+    ImGui::BeginChild("ScrollingRegion", ImVec2(0, -footer_height_to_reserve), false, ImGuiWindowFlags_HorizontalScrollbar);
+    if (ImGui::BeginPopupContextWindow()) {
+        if (ImGui::Selectable("Clear")) ClearLog();
+        ImGui::EndPopup();
+    }
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tighten spacing
+    for (int i = 0; i < Items.Size; i++) {
+        const char* item = Items[i];
+        if (!Filter.PassFilter(item))
+            continue;
+
+        ImGui::TextUnformatted(item);
+    }
+
+    if (ScrollToBottom || (AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()))
+        ImGui::SetScrollHereY(1.0f);
+    ScrollToBottom = false;
+
+    ImGui::PopStyleVar();
+    ImGui::EndChild();
+    ImGui::Separator();
+
+    // Auto-focus on window apparition
+    ImGui::SetItemDefaultFocus();
+    if (reclaim_focus)
+        ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
+
+    ImGui::End();
+}
+
+void    ConsoleWindow::ExecCommand(const char* command_line) {
+    AddLog(command_line);
+
+    // On command input, we scroll to bottom even if AutoScroll==false
+    ScrollToBottom = true;
+}
+
+int ConsoleWindow::TextEditCallbackStub(ImGuiInputTextCallbackData* data) // In C++11 you are better off using lambdas for this sort of forwarding callbacks
+{
+    if (data->EventFlag == ImGuiInputTextFlags_CallbackAlways && data->BufTextLen) {
+
+        if (data->EventKey == ImGuiKey_Tab) {
+            std::cout << "completed" << std::endl;
+        }
+
+        ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y));
+        ImGuiTextFilter filter(data->Buf);
+
+        int count = 0;
+        for (const auto& mapping : ConVars::getIterable()) {
+            if (filter.PassFilter(mapping.first.c_str())) {
+                count++;
+            }
+        }
+
+        ImGui::SetNextWindowSize(ImVec2(200, (count + 1) * ImGui::GetTextLineHeightWithSpacing()));
+        ImGui::BeginTooltip();
+
+        for (const auto& mapping : ConVars::getIterable()) {
+            if (filter.PassFilter(mapping.first.c_str())) {
+                std::string cvarText = mapping.first + " " + ConVars::get(mapping.first) + '\n';
+                ImGui::TextUnformatted(cvarText.c_str());
+            }
+        }
+
+        ImGui::EndTooltip();
+    }
+
+    ConsoleWindow* console = (ConsoleWindow*)data->UserData;
+    return console->TextEditCallback(data);
+}
+
+int ConsoleWindow::TextEditCallback(ImGuiInputTextCallbackData* data) {
+    return 0;
+}
+
 
 void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
     ImGui::Begin("Inspector");
@@ -21,21 +165,22 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
     ImGui::Text("ID: %i", entity);
 
     // I much prefered the for_each_tuple_element syntax, I'll leave one of both in
-    std::apply([this, &scene, &entity](const auto&... components) { (...,
-        [&components, this](entt::registry& scene, entt::entity& entity) {
-        using ComponentType = typename std::decay<decltype(components)>::type::type;
+    std::apply([this, &scene, &entity](const auto & ... components) {
+        (...,
+            [&components, this](entt::registry& scene, entt::entity& entity) {
+            using ComponentType = typename std::decay<decltype(components)>::type::type;
 
-        if (scene.has<ComponentType>(entity)) {
-            bool isOpen = true;
-            if (ImGui::CollapsingHeader(components.name, ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (isOpen) {
-                    drawComponent(scene.get<ComponentType>(entity), scene, entity);
-                } else {
-                    scene.remove<ComponentType>(entity);
+            if (scene.has<ComponentType>(entity)) {
+                bool isOpen = true;
+                if (ImGui::CollapsingHeader(components.name, ImGuiTreeNodeFlags_DefaultOpen)) {
+                    if (isOpen) {
+                        drawComponent(scene.get<ComponentType>(entity), scene, entity);
+                    } else {
+                        scene.remove<ComponentType>(entity);
+                    }
                 }
             }
-        }
-    }(scene, entity));
+        }(scene, entity));
     }, ecs::Components);
 
     if (ImGui::BeginPopup("Components")) {
@@ -50,7 +195,7 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
         //    }
         //});
 
-        if(ImGui::Selectable("Native Script", false)) {
+        if (ImGui::Selectable("Native Script", false)) {
             scene.emplace<ecs::NativeScriptComponent>(entity);
             ImGui::CloseCurrentPopup();
         }
@@ -106,7 +251,7 @@ void InspectorWindow::drawComponent(ecs::MeshComponent& component, entt::registr
         const auto previewSize = ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale());
         const auto tintColor = ImVec4(material.baseColour.r, material.baseColour.g, material.baseColour.b, material.baseColour.a);
 
-        if (ImGui::ImageButton(albedoTexture, previewSize, ImVec2(0,0), ImVec2(1,1), -1, ImVec4(0,0,0,0), tintColor)) {
+        if (ImGui::ImageButton(albedoTexture, previewSize, ImVec2(0, 0), ImVec2(1, 1), -1, ImVec4(0, 0, 0, 0), tintColor)) {
             active = component.material;
         }
 
@@ -146,51 +291,40 @@ void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::reg
         }
     }
 
-    if (component.albedo) {
-        ImGui::Image((void*)((intptr_t)component.albedo), ImVec2(lineHeight, lineHeight));
-        ImGui::SameLine();
-    }
+    constexpr char* fileFilters = "Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0";
 
-    constexpr const char* fileFilters = "Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0";
-    
-    ImGui::Text("Albedo");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("... ## albedo")) {
-        std::string filepath = OS::openFileDialog(fileFilters);
-        if (!filepath.empty()) {
-            Stb::Image image;
-            image.load(filepath, true);
-            component.createAlbedoTexture(image);
+    auto drawTextureInteraction = [fileFilters, lineHeight](
+        GLuint texture,
+        const char* name,
+        ecs::MaterialComponent* component,
+        void(ecs::MaterialComponent::* func)(std::shared_ptr<TextureAsset> texture)) {
+        ImGui::PushID(texture);
+
+        bool usingTexture = texture != 0;
+        if (ImGui::Checkbox("", &usingTexture)) {
         }
-    }
 
-    if (component.normals) {
-        ImGui::Image((void*)((intptr_t)component.normals), ImVec2(lineHeight, lineHeight));
+        ImGui::PopID();
+
         ImGui::SameLine();
-    }
-    
-    ImGui::Text("Normal map");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("... ## normalmap")) {
-        std::string filepath = OS::openFileDialog(fileFilters);
-        if (!filepath.empty()) {
-            Stb::Image image;
-            image.load(filepath, true);
-            component.createNormalTexture(image);
+
+        const GLuint image = texture ? texture : ecs::MaterialComponent::Default.albedo;
+
+        if (ImGui::ImageButton((void*)((intptr_t)image), ImVec2(lineHeight - 1, lineHeight - 1))) {
+            auto filepath = OS::openFileDialog(fileFilters);
+            if (!filepath.empty()) {
+                //(component->*func)(assetManager.get<TextureAsset>(filepath));
+            }
         }
-    }
 
-    if (component.metalrough) {
-        ImGui::Image((void*)((intptr_t)component.metalrough), ImVec2(lineHeight, lineHeight));
         ImGui::SameLine();
-    }
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text(name);
+    };
 
-    ImGui::Text("Metallic Roughness map");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("... ## metallic roughness")) {
-        std::string filepath = OS::openFileDialog(fileFilters);
-    }
-
+    drawTextureInteraction(component.albedo, component.albedoFile.c_str(), &component, &ecs::MaterialComponent::createAlbedoTexture);
+    drawTextureInteraction(component.normals, component.normalFile.c_str(), &component, &ecs::MaterialComponent::createNormalTexture);
+    drawTextureInteraction(component.metalrough, component.mrFile.c_str(), &component, &ecs::MaterialComponent::createMetalRoughTexture);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -252,7 +386,7 @@ bool EntityWindow::drawFamilyNode(entt::registry& scene, entt::entity entity, en
     if (ImGui::IsItemClicked()) {
         active = active == entity ? entt::null : entity;
     }
-     return opened;
+    return opened;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -273,7 +407,7 @@ void EntityWindow::drawFamily(entt::registry& scene, entt::entity entity, entt::
 
     for (unsigned int i = 0; i < node.childCount; i++) {
         auto& currentChildComponent = scene.get<ecs::NodeComponent>(currentChild);
-    
+
         if (currentChildComponent.childCount > 0) {
             if (drawFamilyNode(scene, currentChild, active)) {
                 drawFamily(scene, currentChild, active);
@@ -363,23 +497,39 @@ void AssetWindow::drawWindow(entt::registry& assets, entt::entity& active) {
     ImGui::Begin("Asset Browser");
 
     auto materialView = assets.view<ecs::MaterialComponent, ecs::NameComponent>();
-    ImGui::Columns(10);
-    for (auto entity : materialView) {
-        auto& [material, name] = materialView.get<ecs::MaterialComponent, ecs::NameComponent>(entity);
-        std::string selectableName = name.name.c_str() + std::string("##") + std::to_string(entt::to_integral(entity));
-        if (ImGui::Selectable(selectableName.c_str() , active == entity)) {
-            active = entity;
+
+    if (ImGui::BeginTable("Assets", 24)) {
+        for (auto entity : materialView) {
+            auto& [material, name] = materialView.get<ecs::MaterialComponent, ecs::NameComponent>(entity);
+            std::string selectableName = name.name.substr(0, 9).c_str() + std::string("...");
+
+            ImGui::TableNextColumn();
+
+            if (active == entity) {
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::ColorConvertFloat4ToU32(ImVec4(1, 1, 1, 0.2)));
+            }
+
+            ImGui::PushID(entt::to_integral(entity));
+            if (ImGui::ImageButton((void*)((intptr_t)material.albedo),
+                ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()), ImVec2(0, 0), ImVec2(1, 1), -1, ImVec4(0, 1, 0, 1))) {
+                active = entity;
+            }
+
+            ImGuiDragDropFlags src_flags = ImGuiDragDropFlags_SourceNoDisableHover;
+            src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers;
+            if (ImGui::BeginDragDropSource(src_flags)) {
+                ImGui::SetDragDropPayload("drag_drop_mesh_material", &entity, sizeof(entt::entity));
+                ImGui::EndDragDropSource();
+            }
+
+            ImGui::PopID();
+
+            ImGui::Text(selectableName.c_str());
         }
 
-        ImGuiDragDropFlags src_flags = ImGuiDragDropFlags_SourceNoDisableHover;
-        src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers;
-        if (ImGui::BeginDragDropSource(src_flags)) {
-            ImGui::SetDragDropPayload("drag_drop_mesh_material", &entity, sizeof(entt::entity));
-            ImGui::EndDragDropSource();
-        }
-
-        ImGui::NextColumn();
+        ImGui::EndTable();
     }
+
 
     ImGui::End();
 
@@ -400,10 +550,12 @@ void Dockspace::begin() {
     dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
-    // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background and handle the pass-thru hole, 
+    // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background and handle the pass-thru hole,
     // so we ask Begin() to not render a background.
     ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
-    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) dockWindowFlags |= ImGuiWindowFlags_NoBackground;
+    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) {
+        dockWindowFlags |= ImGuiWindowFlags_NoBackground;
+    }
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::Begin("DockSpace", (bool*)true, dockWindowFlags);
@@ -442,7 +594,7 @@ bool ViewportWindow::draw(Viewport& viewport, GLRenderer& renderer, entt::regist
     }
 
     // render the active screen texture to the view port as an imgui image
-    ImGui::Image((void*)((intptr_t)texture), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0,1 }, { 1,0 });
+    ImGui::Image((void*)((intptr_t)texture), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0, 1 }, { 1, 0 });
 
     // the viewport image is a drag and drop target for dropping materials onto meshes
     if (ImGui::BeginDragDropTarget()) {
@@ -511,7 +663,9 @@ void ViewportWindow::setTexture(unsigned int texture) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ViewportWindow::drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewport& viewport, entt::entity active) {
-    if (!scene.valid(active) || !gizmo.enabled || !scene.has<ecs::TransformComponent>(active)) return;
+    if (!scene.valid(active) || !gizmo.enabled || !scene.has<ecs::TransformComponent>(active)) {
+        return;
+    }
     auto& transform = scene.get<ecs::TransformComponent>(active);
 
     // set the gizmo's viewport
@@ -521,7 +675,9 @@ void ViewportWindow::drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewp
 
     // temporarily transform to mesh space for gizmo use
     auto mesh = scene.try_get<ecs::MeshComponent>(active);
-    if (mesh) transform.matrix = glm::translate(transform.matrix, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+    if (mesh) {
+        transform.matrix = glm::translate(transform.matrix, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+    }
 
     // draw gizmo
     bool manipulated = ImGuizmo::Manipulate(
@@ -532,7 +688,9 @@ void ViewportWindow::drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewp
     );
 
     // transform back to world space
-    if (mesh) transform.matrix = glm::translate(transform.matrix, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+    if (mesh) {
+        transform.matrix = glm::translate(transform.matrix, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+    }
 
 
     // update the transformation
@@ -602,8 +760,7 @@ glm::ivec2 getMousePosWindow(const Viewport& viewport, ImVec2 windowPos) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer, entt::entity& active)
-{
+void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer, AssetManager& assetManager, entt::entity& active) {
     // draw the top user bar
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
@@ -616,7 +773,7 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer
                 std::string filepath = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
                 if (!filepath.empty()) {
                     SDL_SetWindowTitle(app->getWindow(), std::string(filepath + " - Raekor Renderer").c_str());
-                    scene.openFromFile(filepath);
+                    scene.openFromFile(filepath, assetManager);
                     active = entt::null;
                 }
             }
@@ -631,7 +788,7 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer
             if (ImGui::MenuItem("Load model..")) {
                 std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
                 if (!filepath.empty()) {
-                    AssimpImporter::loadFile(scene, filepath);
+                    AssimpImporter::loadFile(scene, filepath, assetManager);
                     active = entt::null;
                 }
             }
@@ -674,8 +831,7 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer
                                 entities.push(current);
                             }
                         }
-                    }
-                    else {
+                    } else {
                         scene->destroy(active);
                     }
                     active = entt::null;
@@ -717,16 +873,14 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer
                     float stackStep = PI / stackCount;
                     float sectorAngle, stackAngle;
 
-                    for (int i = 0; i <= stackCount; ++i)
-                    {
+                    for (int i = 0; i <= stackCount; ++i) {
                         stackAngle = PI / 2 - i * stackStep;        // starting from pi/2 to -pi/2
                         xy = radius * cosf(stackAngle);             // r * cos(u)
                         z = radius * sinf(stackAngle);              // r * sin(u)
 
                         // add (sectorCount+1) vertices per stack
                         // the first and last vertices have same position and normal, but different tex coords
-                        for (int j = 0; j <= sectorCount; ++j)
-                        {
+                        for (int j = 0; j <= sectorCount; ++j) {
                             sectorAngle = j * sectorStep;           // starting from 0 to 2pi
 
                             // vertex position (x, y, z)
@@ -749,25 +903,21 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer
                     }
 
                     int k1, k2;
-                    for (int i = 0; i < stackCount; ++i)
-                    {
+                    for (int i = 0; i < stackCount; ++i) {
                         k1 = i * (sectorCount + 1);     // beginning of current stack
                         k2 = k1 + sectorCount + 1;      // beginning of next stack
 
-                        for (int j = 0; j < sectorCount; ++j, ++k1, ++k2)
-                        {
+                        for (int j = 0; j < sectorCount; ++j, ++k1, ++k2) {
                             // 2 triangles per sector excluding first and last stacks
                             // k1 => k2 => k1+1
-                            if (i != 0)
-                            {
+                            if (i != 0) {
                                 mesh.indices.push_back(k1);
                                 mesh.indices.push_back(k2);
                                 mesh.indices.push_back(k1 + 1);
                             }
 
                             // k1+1 => k2 => k2+1
-                            if (i != (stackCount - 1))
-                            {
+                            if (i != (stackCount - 1)) {
                                 mesh.indices.push_back(k1 + 1);
                                 mesh.indices.push_back(k2);
                                 mesh.indices.push_back(k2 + 1);
@@ -872,7 +1022,6 @@ void CameraSettings::drawWindow(Camera& camera) {
     ImGui::Begin("Camera Properties");
     if (ImGui::DragFloat("Move Speed", &camera.moveSpeed, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
     if (ImGui::DragFloat("Move Constant", &camera.moveConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
-    if (ImGui::DragFloat("Look Speed", &camera.lookSpeed, 0.1f, 0.0001f, FLT_MAX, "%.4f")) {}
     if (ImGui::DragFloat("Look Constant", &camera.lookConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
     if (ImGui::DragFloat("Zoom Speed", &camera.zoomSpeed, 0.001f, 0.0001f, FLT_MAX, "%.4f")) {}
     if (ImGui::DragFloat("Zoom Constant", &camera.zoomConstant, 0.001f, 0.001f, FLT_MAX, "%.4f")) {}
@@ -880,12 +1029,11 @@ void CameraSettings::drawWindow(Camera& camera) {
     ImGui::End();
 }
 
-void RandomWindow::drawWindow(GLRenderer& renderer) {
+void RandomWindow::drawWindow(GLRenderer& renderer, ViewportWindow& window) {
     // scene panel
     ImGui::Begin("Random");
     ImGui::SetItemDefaultFocus();
 
-    // toggle button for openGl vsync
     if (ImGui::RadioButton("Vsync", renderer.vsync)) {
         renderer.vsync = !renderer.vsync;
         SDL_GL_SetSwapInterval(renderer.vsync);
@@ -894,22 +1042,9 @@ void RandomWindow::drawWindow(GLRenderer& renderer) {
     ImGui::NewLine(); ImGui::Separator();
     ImGui::Text("Voxel Cone Tracing");
 
-    if (ImGui::RadioButton("Debug", renderer.debugVoxels)) {
-        renderer.debugVoxels = !renderer.debugVoxels;
-    }
-
-    if (ImGui::RadioButton("Update", renderer.shouldVoxelize)) {
-        renderer.shouldVoxelize = !renderer.shouldVoxelize;
-    }
-
     ImGui::DragFloat("Range", &renderer.voxelizationPass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
 
     ImGui::NewLine(); ImGui::Separator();
-    ImGui::Text("Skydome");
-
-    ImGui::NewLine(); ImGui::Separator();
-
-    ImGui::NewLine();
 
     ImGui::Text("Shadow Mapping");
     ImGui::Separator();
@@ -918,6 +1053,27 @@ void RandomWindow::drawWindow(GLRenderer& renderer) {
     if (ImGui::DragFloat("Size", &renderer.shadowMapPass->settings.size)) {}
     if (ImGui::DragFloat("Bias constant", &renderer.shadowMapPass->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
     if (ImGui::DragFloat("Bias slope factor", &renderer.shadowMapPass->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+
+    if (ImGui::TreeNode("Screen Texture")) {
+        if (ImGui::Selectable("Normals")) {
+            window.setTexture(renderer.geometryBufferPass->normalTexture);
+        }
+        if (ImGui::Selectable("Material")) {
+            window.setTexture(renderer.geometryBufferPass->materialTexture);
+        }
+        if (ImGui::Selectable("Lighting")) {
+            window.setTexture(renderer.DeferredLightingPass->result);
+        }
+        if (ImGui::Selectable("Final")) {
+            window.setTexture(renderer.tonemappingPass->result);
+        }
+        if (ImGui::Selectable("Albedo")) {
+            window.setTexture(renderer.geometryBufferPass->albedoTexture);
+        }
+
+
+        ImGui::TreePop();
+    }
 
     ImGui::NewLine();
     ImGui::Separator();
@@ -936,7 +1092,6 @@ void PostprocessWindow::drawWindow(GLRenderer& renderer) {
     if (ImGui::SliderFloat("Gamma", &renderer.tonemappingPass->settings.gamma, 1.0f, 3.2f)) {}
     ImGui::NewLine();
 
-    if (ImGui::Checkbox("Bloom", &renderer.doBloom)) {}
     ImGui::Separator();
 
     if (ImGui::DragFloat3("Threshold", glm::value_ptr(renderer.DeferredLightingPass->settings.bloomThreshold), 0.001f, 0.0f, 10.0f)) {}

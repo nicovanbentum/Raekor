@@ -101,6 +101,7 @@
 #include <numeric>
 #include <random>
 #include <limits>
+#include <variant>
 #include <fstream>
 #include <sstream>
 #include <optional>
@@ -109,7 +110,10 @@
 #include <algorithm>
 #include <type_traits>
 #include <unordered_map>
+
 #include <filesystem>
+namespace fs = std::filesystem;
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // header only Cereal library
@@ -120,11 +124,13 @@
 #include "cereal/types/string.hpp"
 #include "cereal/types/complex.hpp"
 #include "cereal/types/vector.hpp"
+#include "cereal/types/variant.hpp"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // include stb image
 #include "stb_image.h"
 #include "stb_image_write.h"
+#include "stb_image_resize.h"
 #include "stb_dxt.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -133,6 +139,7 @@
 #include "assimp/postprocess.h"
 #include "assimp/Importer.hpp"
 #include "assimp/pbrmaterial.h"
+#include "assimp/Exporter.hpp"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Entity-component system entt

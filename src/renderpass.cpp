@@ -6,8 +6,10 @@
 #include "scene.h"
 #include "mesh.h"
 
-namespace Raekor {
-namespace RenderPass {
+namespace Raekor
+{
+namespace RenderPass
+{
 
 ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     // load shaders from disk
@@ -22,12 +24,13 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     // init render target
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_DEPTH_COMPONENT32F, width, height);
-    
+
     glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+
     float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
     glTextureParameterfv(result, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTextureParameteri(result, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
@@ -49,7 +52,7 @@ ShadowMap::~ShadowMap() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ShadowMap::execute(entt::registry& scene) {
-    // setup the shadow map 
+    // setup the shadow map
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_DEPTH_BUFFER_BIT);
     glCullFace(GL_FRONT);
@@ -60,7 +63,7 @@ void ShadowMap::execute(entt::registry& scene) {
     // render the entire scene to the directional light shadow map
     auto lightView = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
     auto lookDirection = glm::vec3(0.0f, -1.0f, 0.0f);
-    
+
     if (!lightView.empty()) {
         auto& lightTransform = lightView.get<ecs::TransformComponent>(lightView.front());
         lookDirection = static_cast<glm::quat>(lightTransform.rotation) * lookDirection;
@@ -99,8 +102,7 @@ void ShadowMap::execute(entt::registry& scene) {
         // determine if we use the original mesh vertices or GPU skinned vertices
         if (scene.has<ecs::MeshAnimationComponent>(entity)) {
             scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
-        }
-        else {
+        } else {
             mesh.vertexBuffer.bind();
         }
         mesh.indexBuffer.bind();
@@ -172,8 +174,7 @@ void OmniShadowMap::execute(entt::registry& scene, const glm::vec3& lightPositio
             // determine if we use the original mesh vertices or GPU skinned vertices
             if (scene.has<ecs::MeshAnimationComponent>(entity)) {
                 scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
-            }
-            else {
+            } else {
                 mesh.vertexBuffer.bind();
             }
             mesh.indexBuffer.bind();
@@ -211,7 +212,7 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     entt::entity e = entt::null;
-    GLfloat clearColor[] = { static_cast<float>(entt::to_integral(e)) , 0, 0, 1.0 };
+    GLfloat clearColor[] = { static_cast<float>(entt::to_integral(e)), 0, 0, 1.0 };
     glClearBufferfv(GL_COLOR, 3, clearColor);
 
     shader.bind();
@@ -238,7 +239,8 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
         auto& transform = view.get<ecs::TransformComponent>(entity);
 
         // convert AABB from local to world space
-        std::array<glm::vec3, 2> worldAABB = {
+        std::array<glm::vec3, 2> worldAABB =
+        {
             transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
             transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
         };
@@ -255,14 +257,23 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
         }
 
         if (material) {
-            if (material->albedo)  glBindTextureUnit(0, material->albedo);
-            else glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
+            if (material->albedo) {
+                glBindTextureUnit(0, material->albedo);
+            } else {
+                glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
+            }
 
-            if (material->normals) glBindTextureUnit(3, material->normals);
-            else glBindTextureUnit(3, ecs::MaterialComponent::Default.normals);
+            if (material->normals) {
+                glBindTextureUnit(3, material->normals);
+            } else {
+                glBindTextureUnit(3, ecs::MaterialComponent::Default.normals);
+            }
 
-            if (material->metalrough) glBindTextureUnit(4, material->metalrough);
-            else glBindTextureUnit(4, ecs::MaterialComponent::Default.metalrough);
+            if (material->metalrough) {
+                glBindTextureUnit(4, material->metalrough);
+            } else {
+                glBindTextureUnit(4, ecs::MaterialComponent::Default.metalrough);
+            }
 
             shader.getUniform("colour") = material->baseColour;
 
@@ -334,10 +345,11 @@ void GeometryBuffer::createResources(Viewport& viewport) {
     glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT2, materialTexture, 0);
     glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT3, entityTexture, 0);
 
-    std::array<GLenum, 4> colorAttachments = { 
-        GL_COLOR_ATTACHMENT0, 
-        GL_COLOR_ATTACHMENT1, 
-        GL_COLOR_ATTACHMENT2, 
+    std::array<GLenum, 4> colorAttachments =
+    {
+        GL_COLOR_ATTACHMENT0,
+        GL_COLOR_ATTACHMENT1,
+        GL_COLOR_ATTACHMENT2,
         GL_COLOR_ATTACHMENT3,
     };
 
@@ -348,12 +360,13 @@ void GeometryBuffer::createResources(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GeometryBuffer::deleteResources() {
-    std::array<unsigned int, 5> textures = { 
-        albedoTexture, 
-        normalTexture, 
-        materialTexture, 
-        depthTexture, 
-        entityTexture 
+    std::array<unsigned int, 5> textures =
+    {
+        albedoTexture,
+        normalTexture,
+        materialTexture,
+        depthTexture,
+        entityTexture
     };
 
     glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
@@ -414,7 +427,7 @@ void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* ge
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glBindTextureUnit(1, geometryPass->normalTexture);
     glBindTextureUnit(2, noiseTexture);
-    
+
     shader.bind();
     shader.getUniform("samples") = ssaoKernel;
     shader.getUniform("view") = viewport.getCamera().getView();
@@ -518,7 +531,7 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-                                GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, HDRSky* sky) {
+    GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, HDRSky* sky) {
     hotloader.changed();
 
     // update the uniform buffer
@@ -585,7 +598,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
 
     // bind textures to shader binding slots
     glBindTextureUnit(0, shadowMap->result);
-    
+
     if (omniShadowMap) {
         glBindTextureUnit(1, omniShadowMap->result);
     }
@@ -627,7 +640,7 @@ void DeferredLighting::createResources(Viewport& viewport) {
     glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &bloomHighlights);
-    glTextureStorage2D(bloomHighlights, 1, GL_RGBA16F, viewport.size.x,  viewport.size.y);
+    glTextureStorage2D(bloomHighlights, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
     glTextureParameteri(bloomHighlights, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(bloomHighlights, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTextureParameteri(bloomHighlights, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -638,8 +651,9 @@ void DeferredLighting::createResources(Viewport& viewport) {
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT1, bloomHighlights, 0);
 
-    auto colorAttachments = std::array<GLenum, 4> { 
-        GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1    
+    auto colorAttachments = std::array<GLenum, 4>
+    {
+        GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1
     };
 
     glNamedFramebufferDrawBuffers(framebuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
@@ -661,7 +675,8 @@ Bloom::~Bloom() {
 
 Bloom::Bloom(Viewport& viewport) {
     // load shaders from disk
-    Shader::Stage blurStages[2] = {
+    Shader::Stage blurStages[2] =
+    {
         Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"),
         Shader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\gaussian.frag")
     };
@@ -679,14 +694,14 @@ void Bloom::execute(Viewport& viewport, unsigned int highlights) {
     }
 
     auto quarter = glm::ivec2(viewport.size.x / 4, viewport.size.y / 4);
-    
+
     glNamedFramebufferTexture(highlightsFramebuffer, GL_COLOR_ATTACHMENT0, highlights, 0);
 
-    glBlitNamedFramebuffer(highlightsFramebuffer, bloomFramebuffer, 
-        0, 0, viewport.size.x, viewport.size.y, 
-        0, 0, quarter.x, quarter.y, 
+    glBlitNamedFramebuffer(highlightsFramebuffer, bloomFramebuffer,
+        0, 0, viewport.size.x, viewport.size.y,
+        0, 0, quarter.x, quarter.y,
         GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    
+
     // horizontally blur 1/4th bloom to blur texture
     blurShader.bind();
     glViewport(0, 0, quarter.x, quarter.y);
@@ -916,8 +931,11 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
 
 
         if (material) {
-            if (material->albedo)  glBindTextureUnit(0, material->albedo);
-            else glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
+            if (material->albedo) {
+                glBindTextureUnit(0, material->albedo);
+            } else {
+                glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
+            }
             shader.getUniform("colour") = material->baseColour;
         } else {
             glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
@@ -927,8 +945,7 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
         // determine if we use the original mesh vertices or GPU skinned vertices
         if (scene.has<ecs::MeshAnimationComponent>(entity)) {
             scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
-        }
-        else {
+        } else {
             mesh.vertexBuffer.bind();
         }
 
@@ -986,7 +1003,8 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport, uint32_t voxelTextureSi
     constexpr size_t NUM_CUBE_INDICES = CUBE_BACKFACE_OPTIMIZATION ? 3 * 3 * 2 : 3 * 6 * 2;
     constexpr size_t NUM_CUBE_VERTICES = 8;
 
-    constexpr std::array<uint32_t, 36> cubeIndices = {
+    constexpr std::array<uint32_t, 36> cubeIndices =
+    {
         0, 2, 1, 2, 3, 1,
         5, 4, 1, 1, 4, 0,
         0, 4, 6, 0, 6, 2,
@@ -1045,7 +1063,7 @@ void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxeliza
 
 void VoxelizationDebug::execute2(Viewport& viewport, unsigned int input, Voxelization* voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
-    glDisable(GL_CULL_FACE);    
+    glDisable(GL_CULL_FACE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
     glNamedFramebufferTexture(frameBuffer, GL_COLOR_ATTACHMENT0, input, 0);
@@ -1110,26 +1128,30 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
 
     glCreateFramebuffers(1, &frameBuffer);
 
-    std::vector<uint32_t> indices = {
-    0, 1, 1, 2, 2, 3, 3, 0, 4,
-    5, 5, 6, 6, 7, 7, 4, 0, 0,
-    0, 4, 1, 5, 2, 6, 3, 7, 7
+    std::vector<uint32_t> indices =
+    {
+        0, 1, 1, 2, 2, 3, 3, 0, 4,
+        5, 5, 6, 6, 7, 7, 4, 0, 0,
+        0, 4, 1, 5, 2, 6, 3, 7, 7
     };
     indexBuffer.loadIndices(indices.data(), indices.size());
 
-    vertexBuffer.setLayout({
-        {"POSITION",    ShaderType::FLOAT3},
-        {"UV",          ShaderType::FLOAT2},
-        {"NORMAL",      ShaderType::FLOAT3},
-        {"TANGENT",     ShaderType::FLOAT3},
-        {"BINORMAL",    ShaderType::FLOAT3},
-    });
+    vertexBuffer.setLayout(
+        {
+            {"POSITION",    ShaderType::FLOAT3},
+            {"UV",          ShaderType::FLOAT2},
+            {"NORMAL",      ShaderType::FLOAT3},
+            {"TANGENT",     ShaderType::FLOAT3},
+            {"BINORMAL",    ShaderType::FLOAT3},
+        });
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer, entt::entity active) {
-    if (active == entt::null) return;
+    if (active == entt::null) {
+        return;
+    }
     if (!scene.has<ecs::MeshComponent>(active) || !scene.has<ecs::TransformComponent>(active)) {
         return;
     }
@@ -1153,7 +1175,8 @@ void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsign
     const auto min = mesh.aabb[0];
     const auto max = mesh.aabb[1];
 
-    std::vector<Vertex> vertices = {
+    std::vector<Vertex> vertices =
+    {
         { {min} },
         { {max[0], min[1], min[2] } },
         { {max[0], max[1], min[2] } },
@@ -1275,8 +1298,7 @@ RayCompute::RayCompute(Viewport& viewport) {
                     sphere.radius = 0.2f;
                     sphere.origin = center;
                     spheres.push_back(sphere);
-                }
-                else if (choose_mat < 0.95) {
+                } else if (choose_mat < 0.95) {
                     // metal
                     sphere.colour = random_color(0.5, 1);
                     sphere.roughness = static_cast<float>(random_double(0, 0.5));
@@ -1325,13 +1347,13 @@ void RayCompute::execute(Viewport& viewport, bool update) {
     shader.getUniform("iTime") = static_cast<float>(rayTimer.elapsedMs() / 1000);
     shader.getUniform("position") = viewport.getCamera().getPosition();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
-    shader.getUniform("view") = viewport.getCamera().getView(); 
+    shader.getUniform("view") = viewport.getCamera().getView();
     shader.getUniform("doUpdate") = update;
 
     const GLuint numberOfSpheres = static_cast<GLuint>(spheres.size());
     shader.getUniform("sphereCount") = numberOfSpheres;
 
-    glDispatchCompute(viewport.size.x / 16 , viewport.size.y / 16, 1);
+    glDispatchCompute(viewport.size.x / 16, viewport.size.y / 16, 1);
 
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
@@ -1364,7 +1386,8 @@ void RayCompute::deleteResources() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 Skydome::Skydome(Viewport& viewport) {
-    Shader::Stage stages[2] = {
+    Shader::Stage stages[2] =
+    {
         Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\skydome.vert"),
         Shader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\skydome.frag")
     };
@@ -1382,7 +1405,9 @@ Skydome::Skydome(Viewport& viewport) {
         aiProcess_GenUVCoords |
         aiProcess_ValidateDataStructure);
 
-    if (!scene) std::cout << importer->GetErrorString() << '\n';
+    if (!scene) {
+        std::cout << importer->GetErrorString() << '\n';
+    }
 
     assert(scene->HasMeshes());
     AssimpImporter::convertMesh(sphere, scene->mMeshes[0]);
@@ -1443,7 +1468,8 @@ void Skydome::deleteResources() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 WorldIcons::WorldIcons(Viewport& viewport) {
-    Shader::Stage stages[2] = {
+    Shader::Stage stages[2] =
+    {
         Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\billboard.vert"),
         Shader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\billboard.frag")
     };
@@ -1487,7 +1513,7 @@ void WorldIcons::execute(entt::registry& scene, Viewport& viewport, unsigned int
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, screenTexture, 0);
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT1, entityTexture, 0);
 
-    GLenum attachments[2] = { GL_COLOR_ATTACHMENT0 , GL_COLOR_ATTACHMENT1 };
+    GLenum attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
     glNamedFramebufferDrawBuffers(framebuffer, 2, attachments);
 
     glBindTextureUnit(0, lightTexture);
@@ -1532,13 +1558,15 @@ void WorldIcons::execute(entt::registry& scene, Viewport& viewport, unsigned int
 }
 
 HDRSky::HDRSky() {
-    glShader::Stage equiStages[2] = {
+    glShader::Stage equiStages[2] =
+    {
         glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\equiToCubemap.vert"),
         glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\equiToCubemap.frag")
     };
     equiToCubemapShader.reload(equiStages, 2);
 
-    std::vector skyboxStages {
+    std::vector skyboxStages
+    {
         glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert"),
         glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\skybox.frag")
     };
@@ -1547,20 +1575,23 @@ HDRSky::HDRSky() {
 
     skyboxShader.reload(skyboxStages.data(), skyboxStages.size());
 
-    glShader::Stage convoluteStages[2] = {
+    glShader::Stage convoluteStages[2] =
+    {
         glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert"),
         glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\convolute.frag")
     };
     convoluteShader.reload(convoluteStages, 2);
 
-    std::vector prefilterStages {
+    std::vector prefilterStages
+    {
         glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert"),
         glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\prefilter.frag")
     };
 
     prefilterShader.reload(prefilterStages.data(), prefilterStages.size());
 
-    std::vector lutStages {
+    std::vector lutStages
+    {
         glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"),
         glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\brdfLUT.frag")
     };
@@ -1593,7 +1624,7 @@ HDRSky::HDRSky() {
     glTextureParameteri(brdfLUT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &environmentMap);
-    glTextureStorage2D(environmentMap, 1, GL_RGB16F, 512, 512);
+    glTextureStorage2D(environmentMap, 1, GL_RGB16F, 4096, 4096);
     glTextureParameteri(environmentMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTextureParameteri(environmentMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(environmentMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
@@ -1651,13 +1682,14 @@ void HDRSky::execute(const std::string& filepath) {
     stbi_image_free(data);
 
     const glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-    const glm::mat4 views[6] = {
-       glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-       glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-       glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-       glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-       glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-       glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
+    const glm::mat4 views[6] =
+    {
+        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
     };
 
     unitCube.vertexBuffer.bind();
@@ -1665,12 +1697,12 @@ void HDRSky::execute(const std::string& filepath) {
 
     equiToCubemapShader.bind();
     equiToCubemapShader["projection"] = projection;
-    
+
     glBindTextureUnit(0, hdrTexture);
 
-    glViewport(0, 0, 512, 512); 
+    glViewport(0, 0, 4096, 4096);
     glBindFramebuffer(GL_FRAMEBUFFER, captureFramebuffer);
-    
+
     for (unsigned int i = 0; i < 6; ++i) {
         equiToCubemapShader["view"] = views[i];
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -1684,9 +1716,9 @@ void HDRSky::execute(const std::string& filepath) {
 
     convoluteShader.bind();
     convoluteShader.getUniform("proj") = projection;
-    
+
     glBindTextureUnit(0, environmentMap);
-    
+
     glViewport(0, 0, 32, 32);
 
     for (unsigned int i = 0; i < 6; i++) {
@@ -1750,7 +1782,7 @@ void HDRSky::renderEnvironmentMap(Viewport& viewport, unsigned int colorTarget, 
     skyboxShader.getUniform("proj") = viewport.getCamera().getProjection();
     skyboxShader.getUniform("view") = glm::mat4(glm::mat3(viewport.getCamera().getView()));
 
-    glBindTextureUnit(0, environmentMap);
+    glBindTextureUnit(0, prefilterMap);
 
     unitCube.vertexBuffer.bind();
     unitCube.indexBuffer.bind();

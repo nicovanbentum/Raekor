@@ -2,13 +2,14 @@
 #include "renderer.h"
 
 #ifdef _WIN32
-    #include "platform/windows/DXRenderer.h"
+#include "platform/windows/DXRenderer.h"
 #endif
 
 #include "camera.h"
 #include "renderpass.h"
 
-namespace Raekor {
+namespace Raekor
+{
 
 void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
@@ -35,7 +36,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
     SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-    
+
     context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, context);
 
@@ -49,7 +50,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     std::cout << "OpenGL version loaded: " << GLVersion.major << "."
         << GLVersion.minor << std::endl;
 
-   
+
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -91,7 +92,8 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     glBindVertexArray(vertexArrayID);
 
     // initialize default gpu resources
-    ecs::MaterialComponent::Default = ecs::MaterialComponent {
+    ecs::MaterialComponent::Default = ecs::MaterialComponent
+    {
         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f
     };
 
@@ -111,7 +113,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     worldIconsPass = std::make_unique<RenderPass::WorldIcons>(viewport);
     skyPass = std::make_unique<RenderPass::HDRSky>();
 
-    skyPass->execute("resources/sky/PaperMill_E_3k.hdr");
+    skyPass->execute("resources/sky/snow.hdr");
 }
 
 GLRenderer::~GLRenderer() {
@@ -137,7 +139,7 @@ void GLRenderer::render(entt::registry& scene, Viewport& viewport, entt::entity&
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // generate sun shadow map 
+    // generate sun shadow map
     glViewport(0, 0, 4096, 4096);
     shadowMapPass->execute(scene);
 
@@ -149,9 +151,9 @@ void GLRenderer::render(entt::registry& scene, Viewport& viewport, entt::entity&
 
     geometryBufferPass->execute(scene, viewport);
 
-    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), skyPass.get());
+    skyPass->renderEnvironmentMap(viewport, geometryBufferPass->albedoTexture, geometryBufferPass->depthTexture);
 
-    skyPass->renderEnvironmentMap(viewport, DeferredLightingPass->result, geometryBufferPass->depthTexture);
+    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), skyPass.get());
 
     worldIconsPass->execute(scene, viewport, DeferredLightingPass->result, geometryBufferPass->entityTexture);
 
@@ -217,13 +219,15 @@ void GLRenderer::ImGui_Render() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Renderer::Init(SDL_Window * window) {
+void Renderer::Init(SDL_Window* window) {
     switch (activeAPI) {
-        case RenderAPI::OPENGL: {
+        case RenderAPI::OPENGL:
+        {
             instance = nullptr;
         } break;
 #ifdef _WIN32
-        case RenderAPI::DIRECTX11: {
+        case RenderAPI::DIRECTX11:
+        {
             instance = new DXRenderer(window);
         } break;
 #endif

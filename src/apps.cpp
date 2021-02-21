@@ -331,12 +331,6 @@ void VulkanApp::update(float dt) {
     }
     ImGui::End();
 
-    ImGui::Begin("Camera Properties");
-    if (ImGui::DragFloat("Camera Move Speed", &camera.moveSpeed, 0.001f, 0.01f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Camera Look Speed", &camera.lookSpeed, 0.0001f, 0.0001f, FLT_MAX, "%.4f")) {}
-
-    ImGui::End();
-
     // scene panel
     ImGui::Begin("Scene");
     // toggle button for vsync

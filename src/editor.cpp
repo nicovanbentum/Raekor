@@ -4,8 +4,10 @@
 #include "input.h"
 #include "systems.h"
 #include "platform/OS.h"
+#include "cvars.h"
 
-namespace Raekor {
+namespace Raekor
+{
 
 EditorOpenGL::EditorOpenGL() : WindowApplication(RendererFlags::OPENGL), renderer(window, viewport) {
     // gui stuff
@@ -18,9 +20,13 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RendererFlags::OPENGL), rendere
     if (std::filesystem::is_regular_file(settings.defaultScene)) {
         if (std::filesystem::path(settings.defaultScene).extension() == ".scene") {
             SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
-            scene.openFromFile(settings.defaultScene);
+            scene.openFromFile(settings.defaultScene, assetManager);
         }
     }
+
+    auto& sv_wireframe = ConVars::create("sv_wireframe", 0);
+    auto& sv_cheats = ConVars::create("sv_cheats", 1);
+    auto& mat_postprocess_enable = ConVars::create("mat_postprocess_enable", 0);
 
     viewportWindow.setTexture(renderer.tonemappingPass->result);
 }
@@ -58,7 +64,7 @@ void EditorOpenGL::update(float dt) {
 
     // update transforms
     scene.updateTransforms();
-    
+
     // update animations
     auto animationView = scene->view<ecs::MeshAnimationComponent>();
     std::for_each(std::execution::par_unseq, animationView.begin(), animationView.end(), [&](auto entity) {
@@ -90,8 +96,8 @@ void EditorOpenGL::update(float dt) {
 
     dockspace.begin();
 
-    topMenuBar.draw(this, scene, renderer, active);
-    
+    topMenuBar.draw(this, scene, renderer, assetManager, active);
+
     if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
         if (active != entt::null) {
             if (scene->has<ecs::NodeComponent>(active)) {
@@ -105,8 +111,7 @@ void EditorOpenGL::update(float dt) {
 
                 NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(active));
                 scene->destroy(active);
-            }
-            else {
+            } else {
                 scene->destroy(active);
             }
 
@@ -127,6 +132,9 @@ void EditorOpenGL::update(float dt) {
         }
     }
 
+    bool open = true;
+    consoleWindow.Draw("Console", &open);
+
     assetBrowser.drawWindow(scene, active);
 
     inspectorWindow.draw(scene, active);
@@ -137,13 +145,15 @@ void EditorOpenGL::update(float dt) {
     postprocessWindow.drawWindow(renderer);
 
     // scene panel
-    randomWindow.drawWindow(renderer);
+    randomWindow.drawWindow(renderer, viewportWindow);
 
     cameraWindow.drawWindow(viewport.getCamera());
 
-    viewportWindow.setTexture(renderer.tonemappingPass->result);
-
     bool resized = viewportWindow.draw(viewport, renderer, scene, active);
+
+    if (resized) {
+        viewportWindow.setTexture(renderer.tonemappingPass->result);
+    }
 
     dockspace.end();
 
@@ -156,7 +166,7 @@ void EditorOpenGL::update(float dt) {
 
     float pixel;
     //glGetTextureSubImage(renderer.geometryBufferPass->entityTexture, 0, 1, 1,
-     //   0, 1, 1, 1, GL_RED, GL_FLOAT, sizeof(float), &pixel);
+    //   0, 1, 1, 1, GL_RED, GL_FLOAT, sizeof(float), &pixel);
 }
 
 void EditorOpenGL::onEvent(const SDL_Event& event) {
@@ -171,7 +181,8 @@ void EditorOpenGL::onEvent(const SDL_Event& event) {
     // key down and not repeating a hold
     if (event.type == SDL_KEYDOWN && !event.key.repeat) {
         switch (event.key.keysym.sym) {
-            case SDLK_LALT: {
+            case SDLK_LALT:
+            {
                 inAltMode = !inAltMode;
                 SDL_SetRelativeMouseMode(static_cast<SDL_bool>(inAltMode));
             } break;
