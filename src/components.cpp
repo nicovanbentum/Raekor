@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "components.h"
 #include "assets.h"
+#include "systems.h"
 
 namespace Raekor
 {
@@ -386,10 +387,14 @@ void clone<TransformComponent>(entt::registry& reg, entt::entity from, entt::ent
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
+
 template<>
 void clone<NodeComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& component = reg.get<NodeComponent>(from);
-    reg.emplace<NodeComponent>(to, component);
+    auto& fromNode = reg.get<NodeComponent>(from);
+    auto& toNode = reg.emplace<NodeComponent>(to);
+    if (fromNode.parent != entt::null) {
+        NodeSystem::append(reg, reg.get<NodeComponent>(fromNode.parent), toNode);
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -416,27 +421,6 @@ template<>
 void clone<MaterialComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
     auto& from_component = reg.get<MaterialComponent>(from);
     auto& to_component = reg.emplace<MaterialComponent>(to, from_component);
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-
-cloner::cloner() {
-    clone_functions[entt::type_info<NameComponent>::id()] = &clone<NameComponent>;
-    clone_functions[entt::type_info<NodeComponent>::id()] = &clone<NodeComponent>;
-    clone_functions[entt::type_info<MeshComponent>::id()] = &clone<MeshComponent>;
-    clone_functions[entt::type_info<MaterialComponent>::id()] = &clone<MaterialComponent>;
-    clone_functions[entt::type_info<TransformComponent>::id()] = &clone<TransformComponent>;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-
-cloner::clone_fn_type* cloner::getFunction(entt::id_type id_type) { return clone_functions[id_type]; }
-
-/////////////////////////////////////////////////////////////////////////////////////////
-
-cloner* cloner::getSingleton() {
-    static std::unique_ptr<cloner> cl = std::make_unique<cloner>();
-    return cl.get();
 }
 
 } // ECS

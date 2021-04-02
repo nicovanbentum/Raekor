@@ -54,7 +54,7 @@ void serialize(Archive& archive, Raekor::ecs::PointLightComponent light) {
 
 template<class Archive>
 void serialize(Archive& archive, Raekor::ecs::NodeComponent& node) {
-    archive(node.parent, node.childCount, node.firstChild, node.nextSibling, node.prevSibling);
+    archive(node.parent, node.firstChild, node.nextSibling, node.prevSibling);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

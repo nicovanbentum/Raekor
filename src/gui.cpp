@@ -222,9 +222,6 @@ void InspectorWindow::drawComponent(ecs::NameComponent& component, entt::registr
 void InspectorWindow::drawComponent(ecs::NodeComponent& component, entt::registry& scene, entt::entity& active) {
     ImGui::Text("Parent entity: %i", component.parent);
     ImGui::Text("Siblings: %i, %i", component.prevSibling, component.nextSibling);
-
-    ImGui::SameLine();
-    ImGui::Text("| Child count: %i", component.childCount);
 }
 
 void InspectorWindow::drawComponent(ecs::TransformComponent& component, entt::registry& scene, entt::entity& active) {
@@ -403,21 +400,20 @@ void EntityWindow::drawChildlessNode(entt::registry& scene, entt::entity entity,
 
 void EntityWindow::drawFamily(entt::registry& scene, entt::entity entity, entt::entity& active) {
     auto& node = scene.get<ecs::NodeComponent>(entity);
-    auto currentChild = node.firstChild;
 
-    for (unsigned int i = 0; i < node.childCount; i++) {
-        auto& currentChildComponent = scene.get<ecs::NodeComponent>(currentChild);
-
-        if (currentChildComponent.childCount > 0) {
-            if (drawFamilyNode(scene, currentChild, active)) {
-                drawFamily(scene, currentChild, active);
-                ImGui::TreePop();
+    if (node.firstChild != entt::null) {
+        for (auto it = node.firstChild; it != entt::null; it = scene.get<ecs::NodeComponent>(it).nextSibling) {
+            auto& itNode = scene.get<ecs::NodeComponent>(it);
+            
+            if (itNode.firstChild != entt::null) {
+                if (drawFamilyNode(scene, it, active)) {
+                    drawFamily(scene, it, active);
+                    ImGui::TreePop();
+                }
+            } else {
+                drawChildlessNode(scene, it, active);
             }
-        } else {
-            drawChildlessNode(scene, currentChild, active);
         }
-
-        currentChild = scene.get<ecs::NodeComponent>(currentChild).nextSibling;
     }
 }
 
@@ -431,7 +427,7 @@ void EntityWindow::draw(entt::registry& scene, entt::entity& active) {
         auto& node = nodeView.get<ecs::NodeComponent>(entity);
 
         if (node.parent == entt::null) {
-            if (node.childCount > 0) {
+            if (node.firstChild != entt::null) {
                 if (drawFamilyNode(scene, entity, active)) {
                     drawFamily(scene, entity, active);
                     ImGui::TreePop();
@@ -952,34 +948,32 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer
                     mesh.generateAABB();
                 }
 
-                //if (ImGui::MenuItem("Cube")) {
-                //    auto entity = scene.createObject("Cube");
-                //    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+                if (ImGui::MenuItem("Cube")) {
+                    auto entity = scene.createObject("Cube");
+                    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
 
-                //    if (active != entt::null) {
-                //        auto& node = scene->get<ecs::NodeComponent>(entity);
-                //        node.parent = active;
-                //        node.hasChildren = false;
-                //        scene->get<ecs::NodeComponent>(node.parent).hasChildren = true;
-                //    }
+                    if (active != entt::null) {
+                        auto& node = scene->get<ecs::NodeComponent>(entity);
+                        NodeSystem::append(scene, scene->get<ecs::NodeComponent>(active), node);
+                    }
 
-                //    for (const auto& v : unitCubeVertices) {
-                //        mesh.positions.push_back(v.pos);
-                //        mesh.uvs.push_back(v.uv);
-                //        mesh.normals.push_back(v.normal);
-                //    }
+                    for (const auto& v : unitCubeVertices) {
+                        mesh.positions.push_back(v.pos);
+                        mesh.uvs.push_back(v.uv);
+                        mesh.normals.push_back(v.pos);
+                    }
 
-                //    for (const auto& index : cubeIndices) {
-                //        mesh.indices.push_back(index.p1);
-                //        mesh.indices.push_back(index.p2);
-                //        mesh.indices.push_back(index.p3);
-                //    }
+                    for (const auto& index : cubeIndices) {
+                        mesh.indices.push_back(index.p1);
+                        mesh.indices.push_back(index.p2);
+                        mesh.indices.push_back(index.p3);
+                    }
 
-                //    mesh.generateTangents();
-                //    mesh.uploadVertices();
-                //    mesh.uploadIndices();
-                //    mesh.generateAABB();
-                //}
+                    mesh.generateTangents();
+                    mesh.uploadVertices();
+                    mesh.uploadIndices();
+                    mesh.generateAABB();
+                }
 
                 ImGui::EndMenu();
             }

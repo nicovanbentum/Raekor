@@ -511,7 +511,7 @@ void AssimpImporter::loadBones(entt::registry& scene, const aiScene* aiscene, ai
     animation.boneTreeRootNode.name = rootBone->mName.C_Str();
 
     std::function<void(aiNode* node, ecs::BoneTreeNode& boneNode)> copyBoneNode;
-    auto copyBoneNode = [&](aiNode* node, ecs::BoneTreeNode& boneNode) -> void {
+    copyBoneNode = [&](aiNode* node, ecs::BoneTreeNode& boneNode) -> void {
         for (unsigned int i = 0; i < node->mNumChildren; i++) {
             auto childNode = node->mChildren[i];
             auto it = animation.bonemapping.find(childNode->mName.C_Str());

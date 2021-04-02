@@ -191,11 +191,7 @@ static constexpr auto Components = std::make_tuple (
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename T>
-inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {
-    std::cout << " no dont call this" << std::endl;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
+inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {}
 
 template<>
 void clone<TransformComponent>(entt::registry& reg, entt::entity from, entt::entity to);
@@ -211,19 +207,6 @@ void clone<MeshComponent>(entt::registry& reg, entt::entity from, entt::entity t
 
 template<>
 void clone<MaterialComponent>(entt::registry& reg, entt::entity from, entt::entity to);
-
-class cloner {
-private:
-    using clone_fn_type = void(entt::registry& reg, entt::entity from, entt::entity to);
-    
-public:
-    cloner();
-    static cloner* getSingleton();
-    clone_fn_type* getFunction(entt::id_type id_type);
-
-private:
-    std::unordered_map<entt::id_type, clone_fn_type*> clone_functions;
-};
 
 } // ECS
 } // raekor

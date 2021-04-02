@@ -24,10 +24,6 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RendererFlags::OPENGL), rendere
         }
     }
 
-    auto& sv_wireframe = ConVars::create("sv_wireframe", 0);
-    auto& sv_cheats = ConVars::create("sv_cheats", 1);
-    auto& mat_postprocess_enable = ConVars::create("mat_postprocess_enable", 0);
-
     viewportWindow.setTexture(renderer.tonemappingPass->result);
 }
 
@@ -121,13 +117,15 @@ void EditorOpenGL::update(float dt) {
 
     if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_C), true)) {
         if (SDL_GetModState() & KMOD_LCTRL) {
-            auto newEntity = scene->create();
+            auto copy = scene->create();
 
-            scene->visit(active, [&](const auto& component) {
-                auto clone_function = ecs::cloner::getSingleton()->getFunction(component);
-                if (clone_function) {
-                    clone_function(scene, active, newEntity);
-                }
+            scene->visit(active, [&](const entt::id_type id) {
+                for_each_tuple_element(ecs::Components, [&](auto component) {
+                    using type = decltype(component)::type;
+                    if (id == entt::type_info<type>::id()) {
+                        ecs::clone<type>(scene, active, copy);
+                    }
+                });
             });
         }
     }
