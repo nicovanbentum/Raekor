@@ -286,7 +286,7 @@ void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::reg
 
     if (adjustedMetallic || adjustedRoughness) {
         if (component.mrFile.empty() && component.metalrough) {
-            auto metalRoughnessValue = glm::vec4(component.metallic, component.roughness, 0.0f, 1.0f);
+            auto metalRoughnessValue = glm::vec4(0.0f, component.roughness, component.metallic, 1.0f);
             glTextureSubImage2D(component.metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
         }
     }

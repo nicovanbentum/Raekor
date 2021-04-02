@@ -13,9 +13,7 @@ TextureAsset::TextureAsset(const std::string& filepath)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 DDS_HEADER TextureAsset::getHeader() {
-    DDS_HEADER header;
-    memcpy(&header, data.data() + sizeof(DWORD), sizeof(DDS_HEADER));
-    return header;
+    return *reinterpret_cast<DDS_HEADER*>(data.data() + sizeof(DWORD));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

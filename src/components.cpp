@@ -263,10 +263,10 @@ void MaterialComponent::createAlbedoTexture(std::shared_ptr<TextureAsset> textur
     glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
     glTextureStorage2D(albedo, header.dwMipMapCount, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
 
-    for (int mip = 0; mip < header.dwMipMapCount; mip++) {
+    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
         glm::ivec2 dimensions = { header.dwWidth >> mip, header.dwHeight >> mip };
         size_t dataSize = std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16;
-        glCompressedTextureSubImage2D(albedo, mip, 0, 0, dimensions.x, dimensions.y, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, dataSize, dataPtr);
+        glCompressedTextureSubImage2D(albedo, mip, 0, 0, dimensions.x, dimensions.y, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += dimensions.x * dimensions.y;
     }
 
@@ -305,10 +305,10 @@ void MaterialComponent::createNormalTexture(std::shared_ptr<TextureAsset> textur
     glCreateTextures(GL_TEXTURE_2D, 1, &normals);
     glTextureStorage2D(normals, header.dwMipMapCount, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
 
-    for (int mip = 0; mip < header.dwMipMapCount; mip++) {
+    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
         glm::ivec2 size = { header.dwWidth >> mip, header.dwHeight >> mip };
         size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
-        glCompressedTextureSubImage2D(normals, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, dataSize, dataPtr);
+        glCompressedTextureSubImage2D(normals, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += size.x * size.y;
     }
 
@@ -323,7 +323,7 @@ void MaterialComponent::createNormalTexture(std::shared_ptr<TextureAsset> textur
 void MaterialComponent::createMetalRoughTexture() {
     glDeleteTextures(1, &metalrough);
 
-    auto metalRoughnessValue = glm::vec4(metallic, roughness, 0.0f, 1.0f);
+    auto metalRoughnessValue = glm::vec4(0.0f, roughness, metallic, 1.0f);
     glCreateTextures(GL_TEXTURE_2D, 1, &metalrough);
     glTextureStorage2D(metalrough, 1, GL_RGBA16F, 1, 1);
     glTextureSubImage2D(metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
@@ -350,10 +350,10 @@ void MaterialComponent::createMetalRoughTexture(std::shared_ptr<TextureAsset> te
     auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(header.dwWidth, header.dwHeight))));
     glTextureStorage2D(metalrough, mipmapLevels, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
 
-    for (int mip = 0; mip < header.dwMipMapCount; mip++) {
+    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
         glm::ivec2 size = { header.dwWidth >> mip, header.dwHeight >> mip };
         size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
-        glCompressedTextureSubImage2D(metalrough, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, dataSize, dataPtr);
+        glCompressedTextureSubImage2D(metalrough, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += size.x * size.y;
     }
 

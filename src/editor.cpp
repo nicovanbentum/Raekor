@@ -102,7 +102,7 @@ void EditorOpenGL::update(float dt) {
         if (active != entt::null) {
             if (scene->has<ecs::NodeComponent>(active)) {
 
-                auto childTree = NodeSystem::getTree(scene, scene->get<ecs::NodeComponent>(active));
+                auto childTree = NodeSystem::getFlatHierarchy(scene, scene->get<ecs::NodeComponent>(active));
 
                 for (auto entity : childTree) {
                     NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(entity));

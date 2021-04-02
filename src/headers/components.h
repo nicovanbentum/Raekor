@@ -56,7 +56,6 @@ struct PointLightComponent {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct NodeComponent {
-    size_t childCount = 0;
     entt::entity parent = entt::null;
     entt::entity firstChild = entt::null;
     entt::entity prevSibling = entt::null;
@@ -173,8 +172,6 @@ template<typename Component>
 struct ComponentDescription {
     const char* name;
     using type = Component;
-
-    void draw(entt::registry& scene, entt::entity& entity) {}
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

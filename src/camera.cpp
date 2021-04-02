@@ -39,7 +39,7 @@ void Camera::look(float x, float y) {
 
 void Camera::zoom(float amount) {
     auto dir = getDirection();
-    position += dir * (float)(amount);
+    position += dir * (amount* zoomSpeed);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

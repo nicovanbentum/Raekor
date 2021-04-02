@@ -325,7 +325,7 @@ void GeometryBuffer::createResources(Viewport& viewport) {
     glTextureParameteri(albedoTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &materialTexture);
-    glTextureStorage2D(materialTexture, 1, GL_RG16F, viewport.size.x, viewport.size.y);
+    glTextureStorage2D(materialTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
     glTextureParameteri(materialTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(materialTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 

@@ -6,7 +6,6 @@ namespace Raekor {
 void NodeSystem::append(entt::registry& registry, ecs::NodeComponent& parent, ecs::NodeComponent& child) {
     auto view = registry.view<ecs::NodeComponent>();
     child.parent = entt::to_entity(registry, parent);
-    parent.childCount += 1;
 
     // if its the parent's first child we simply assign it
     if (parent.firstChild == entt::null) {
@@ -32,7 +31,6 @@ void NodeSystem::remove(entt::registry& registry, ecs::NodeComponent& node) {
     // decrement parent's child count
     if (node.parent == entt::null) return;
     auto& parent = registry.get<ecs::NodeComponent>(node.parent);
-    parent.childCount -= 1;
 
     // handle first child case
     if (entt::to_entity(registry, node) == parent.firstChild) {
@@ -52,11 +50,11 @@ void NodeSystem::remove(entt::registry& registry, ecs::NodeComponent& node) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<entt::entity> NodeSystem::getTree(entt::registry& registry, ecs::NodeComponent& node) {
+std::vector<entt::entity> NodeSystem::getFlatHierarchy(entt::registry& registry, ecs::NodeComponent& startingNode) {
     std::vector<entt::entity> result;
     std::queue<entt::entity> entities;
 
-    entities.push(entt::to_entity(registry, node));
+    entities.push(entt::to_entity(registry, startingNode));
 
     while (!entities.empty()) {
         auto& current = registry.get<ecs::NodeComponent>(entities.front());
@@ -64,15 +62,9 @@ std::vector<entt::entity> NodeSystem::getTree(entt::registry& registry, ecs::Nod
         entities.pop();
 
         // if it has children
-        if (current.childCount > 0) {
-            // start iteration from the first child
-            entities.push(current.firstChild);
-            auto& childNode = registry.get<ecs::NodeComponent>(current.firstChild);
-
-            // start at 1 to skip first child
-            for (int i = 1; i < current.childCount; i++) {
-                entities.push(childNode.nextSibling);
-                childNode = registry.get<ecs::NodeComponent>(childNode.nextSibling);
+        if (current.firstChild != entt::null) {
+            for (auto it = current.firstChild; it != entt::null; it = registry.get<ecs::NodeComponent>(it).nextSibling) {
+                entities.push(it);
             }
         }
 

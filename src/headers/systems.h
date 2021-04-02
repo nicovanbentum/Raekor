@@ -11,7 +11,7 @@ public:
     
     static void remove(entt::registry& registry, ecs::NodeComponent& node);
 
-    static std::vector<entt::entity> getTree(entt::registry& registry, ecs::NodeComponent& node);
+    static std::vector<entt::entity> getFlatHierarchy(entt::registry& registry, ecs::NodeComponent& node);
 };
 
 }

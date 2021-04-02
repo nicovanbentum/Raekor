@@ -17,11 +17,12 @@ void main() {
 	vec3 pos = vec3(model * vec4(v_pos, 1.0));
 	gl_Position = projection * view * vec4(pos, 1.0);
 
-    vec3 v_binormal = cross(v_normal, v_tangent);
-
 	vec3 T = normalize(vec3(model * vec4(v_tangent,		0.0)));
-	vec3 B = normalize(vec3(model * vec4(v_binormal,	0.0)));
-	vec3 N = normalize(vec3(model * vec4(v_normal,		0.0)));
+    vec3 N = normalize(vec3(model * vec4(v_normal,		0.0)));
+    
+    T = normalize(T - dot(T, N) * N);
+
+	vec3 B = cross(N, T);
 	TBN = mat3(T, B, N);
 
 	uv = v_uv;

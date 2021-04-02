@@ -406,7 +406,7 @@ void main() {
 
     Material material;
     material.albedo = albedo.rgb;
-    material.metallic = metallicRoughness.r;
+    material.metallic = metallicRoughness.b;
     material.roughness = metallicRoughness.g;
 
     float depth = texture(gDepth, uv).r;
@@ -425,7 +425,7 @@ void main() {
     //float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
     float shadowAmount = 1.0 - getShadow(light, position);
 
-    vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
+    vec3 V = normalize(inverse(ubo.view)[3].xyz - position.xyz);
 
     vec3 Lo = radiance(light, normal, V, material, shadowAmount);
 
@@ -434,7 +434,7 @@ void main() {
     float occlusion;
     vec3 radiance = coneTraceRadiance(position, normal, occlusion).xyz * (ambient);
     
-    vec3 color = Lo + radiance;
+    vec3 color = Lo + radiance * occlusion;
 
     finalColor = vec4(color, albedo.a);
 
@@ -445,5 +445,8 @@ void main() {
 
     // BLOOM SEPERATION
 	float brightness = dot(finalColor.rgb, bloomThreshold);
-    bloomColor = finalColor * brightness;
+    bloomColor = finalColor * min(brightness, 1.0);
+    bloomColor.r = min(bloomColor.r, 1.0);
+    bloomColor.g = min(bloomColor.g, 1.0);
+    bloomColor.b = min(bloomColor.b, 1.0);
 }

@@ -215,6 +215,7 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file, AssetManage
     constexpr unsigned int flags =
         aiProcess_GenNormals |
         aiProcess_CalcTangentSpace |
+        //aiProcess_PreTransformVertices |
         aiProcess_Triangulate |
         aiProcess_SortByPType |
         aiProcess_JoinIdenticalVertices |
@@ -267,11 +268,13 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file, AssetManage
     }
 
     // calculate mesh node and transform hierarchy, simple linear tree traversal
-    std::stack<aiNode*> nodes;
+    std::queue<aiNode*> nodes;
     nodes.push(assimpScene->mRootNode);
+
     while (!nodes.empty()) {
-        auto assimpNode = nodes.top();
+        auto assimpNode = nodes.front();
         nodes.pop();
+        
         for (unsigned int i = 0; i < assimpNode->mNumMeshes; i++) {
             // get the associated entity for the mesh
             auto entity = meshes[assimpNode->mMeshes[i]];
@@ -285,7 +288,7 @@ bool AssimpImporter::loadFile(Scene& scene, const std::string& file, AssetManage
 
             // translate assimp transformation to glm
             aiVector3D position, scale, rotation;
-            auto localTransform = assimpNode->mTransformation;
+            aiMatrix4x4 localTransform = assimpNode->mTransformation;
             localTransform.Decompose(scale, rotation, position);
 
             transform.position = { position.x, position.y, position.z };
@@ -508,7 +511,7 @@ void AssimpImporter::loadBones(entt::registry& scene, const aiScene* aiscene, ai
     animation.boneTreeRootNode.name = rootBone->mName.C_Str();
 
     std::function<void(aiNode* node, ecs::BoneTreeNode& boneNode)> copyBoneNode;
-    copyBoneNode = [&](aiNode* node, ecs::BoneTreeNode& boneNode) -> void {
+    auto copyBoneNode = [&](aiNode* node, ecs::BoneTreeNode& boneNode) -> void {
         for (unsigned int i = 0; i < node->mNumChildren; i++) {
             auto childNode = node->mChildren[i];
             auto it = animation.bonemapping.find(childNode->mName.C_Str());
