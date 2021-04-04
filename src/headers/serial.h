@@ -28,7 +28,7 @@ template<class Archive> void serialize(Archive& archive, glm::dquat& q) { archiv
 template<typename Archive>
 void serialize(Archive& archive, Raekor::ecs::TransformComponent& transform) {
 	archive(transform.position, transform.rotation, transform.scale, 
-		transform.matrix, transform.worldTransform,transform.localPosition);
+		transform.localTransform, transform.worldTransform);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

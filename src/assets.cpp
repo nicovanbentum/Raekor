@@ -35,6 +35,8 @@ std::string TextureAsset::create(const std::string& filepath) {
         return false;
     }
 
+    // TODO: gpu mip mapping, cant right now because assets are loaded in parallel but OpenGL can't do multithreading
+
     int mipmapLevels = 1 + std::floor(std::log2(std::max(width, height)));
 
     for (size_t i = 1; i < mipmapLevels; i++) {

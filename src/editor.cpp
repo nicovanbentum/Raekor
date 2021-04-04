@@ -48,7 +48,7 @@ void EditorOpenGL::update(float dt) {
                     running = false;
                 }
             }
-            if (event.window.event = SDL_WINDOWEVENT_RESIZED) {
+            if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
                 renderer.createResources(viewport);
             }
         }

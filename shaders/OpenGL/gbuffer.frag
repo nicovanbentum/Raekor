@@ -21,8 +21,10 @@ in vec2 uv;
 in mat3 TBN;
 
 void main() {
+    vec4 color = texture(meshTexture, uv);
+    if(color.a < 0.5) discard;
 	// write the color to the color texture of the gbuffer
-	gColor = texture(meshTexture, uv) * colour;
+	gColor = color * colour;
 
 	// retrieve the normal from the normal map
     vec4 sampledNormal = texture(normalTexture, uv);

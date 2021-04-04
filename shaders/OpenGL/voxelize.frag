@@ -51,6 +51,7 @@ void imageAtomicRGBA8Avg(ivec3 coords, vec4 value) {
 
 void main() {
     vec4 sampled = texture(albedo, uv) * colour;
+    if(sampled.a < 0.5) discard;
     const int dim = imageSize(voxels).x;
 
     // TODO: improve shadow sampling

@@ -248,6 +248,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\application.cpp" />
     <ClCompile Include="src\apps.cpp" />
     <ClCompile Include="src\assets.cpp" />
+    <ClCompile Include="src\assimp.cpp" />
     <ClCompile Include="src\async.cpp" />
     <ClCompile Include="src\buffer.cpp" />
     <ClCompile Include="src\camera.cpp" />
@@ -318,6 +319,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\application.h" />
     <ClInclude Include="src\headers\apps.h" />
     <ClInclude Include="src\headers\assets.h" />
+    <ClInclude Include="src\headers\assimp.h" />
     <ClInclude Include="src\headers\async.h" />
     <ClInclude Include="src\headers\buffer.h" />
     <ClInclude Include="src\headers\camera.h" />

@@ -55,8 +55,6 @@ void ShadowMap::execute(entt::registry& scene) {
     // setup the shadow map
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_DEPTH_BUFFER_BIT);
-    glCullFace(GL_FRONT);
-
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(settings.depthBiasSlope, settings.depthBiasConstant);
 
@@ -321,8 +319,8 @@ void GeometryBuffer::createResources(Viewport& viewport) {
 
     glCreateTextures(GL_TEXTURE_2D, 1, &normalTexture);
     glTextureStorage2D(normalTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(albedoTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(albedoTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(normalTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(normalTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &materialTexture);
     glTextureStorage2D(materialTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
@@ -780,6 +778,8 @@ Tonemapping::Tonemapping(Viewport& viewport) {
     tonemapStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\HDRuncharted.frag");
     shader.reload(tonemapStages.data(), tonemapStages.size());
 
+    hotloader.watch(&shader, tonemapStages.data(), tonemapStages.size());
+
     // init render targets
     createResources(viewport);
 
@@ -790,6 +790,8 @@ Tonemapping::Tonemapping(Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Tonemapping::execute(unsigned int scene, unsigned int bloom) {
+    hotloader.changed();
+    
     // bind and clear render target
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1381,88 +1383,6 @@ void RayCompute::deleteResources() {
     glDeleteTextures(1, &result);
     glDeleteTextures(1, &finalResult);
     glDeleteBuffers(1, &sphereBuffer);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-Skydome::Skydome(Viewport& viewport) {
-    Shader::Stage stages[2] =
-    {
-        Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\skydome.vert"),
-        Shader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\skydome.frag")
-    };
-
-    shader.reload(stages, 2);
-    hotloader.watch(&shader, stages, 2);
-
-    auto importer = std::make_unique<Assimp::Importer>();
-    auto scene = importer->ReadFile("resources/models/wtfsphere.obj",
-        aiProcess_GenNormals |
-        aiProcess_CalcTangentSpace |
-        aiProcess_Triangulate |
-        aiProcess_SortByPType |
-        aiProcess_JoinIdenticalVertices |
-        aiProcess_GenUVCoords |
-        aiProcess_ValidateDataStructure);
-
-    if (!scene) {
-        std::cout << importer->GetErrorString() << '\n';
-    }
-
-    assert(scene->HasMeshes());
-    AssimpImporter::convertMesh(sphere, scene->mMeshes[0]);
-    sphere.uploadVertices();
-    sphere.uploadIndices();
-
-    createResources(viewport);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-Skydome::~Skydome() {
-
-    deleteResources();
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Skydome::execute(Viewport& viewport, unsigned int texture, unsigned int depth) {
-    hotloader.changed();
-
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, texture, 0);
-    glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
-    glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, depth, 0);
-
-    glDisable(GL_CULL_FACE);
-    glDepthMask(GL_FALSE);
-    glDepthFunc(GL_LEQUAL);
-
-    shader.bind();
-    shader.getUniform("projection") = viewport.getCamera().getProjection();
-    shader.getUniform("view") = glm::mat4(glm::mat3(viewport.getCamera().getView()));
-    shader.getUniform("mid_color") = settings.mid_color;
-    shader.getUniform("top_color") = settings.top_color;
-
-    sphere.vertexBuffer.bind();
-    sphere.indexBuffer.bind();
-    glDrawElements(GL_TRIANGLES, (GLsizei)sphere.indices.size(), GL_UNSIGNED_INT, nullptr);
-
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-    glEnable(GL_CULL_FACE);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Skydome::createResources(Viewport& viewport) {
-    glCreateFramebuffers(1, &framebuffer);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Skydome::deleteResources() {
-    glDeleteFramebuffers(1, &framebuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

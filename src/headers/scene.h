@@ -26,21 +26,28 @@ public:
 	void saveToFile(const std::string& file);
 	void openFromFile(const std::string& file, AssetManager& assetManager);
 
+	template<typename T>
+	T& Get(entt::entity entity) {
+		return registry.get<T>(entity);
+	}
+
+	template<typename T>
+	T& Add(entt::entity entity) {
+		return registry.emplace<T>(entity);
+	}
+
+	entt::entity Create() {
+		return registry.create();
+	}
+
 	// get access to the underlying registry using these
 	inline operator entt::registry& () { return registry; }
 	inline entt::registry* const operator->() { return &registry; }
 
+
+
 private:
 	entt::registry registry;
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-namespace AssimpImporter {
-	bool loadFile(Scene& scene, const std::string& file, AssetManager& assetManager);
-	std::vector<entt::entity> loadMaterials(entt::registry& scene, const aiScene* aiscene, const std::string& directory);
-	bool convertMesh(ecs::MeshComponent& mesh, aiMesh* assimpMesh);
-	void loadBones(entt::registry& scene, const aiScene* aiscene, aiMesh* assimpMesh, entt::entity entity);
 };
 
 } // Namespace Raekor

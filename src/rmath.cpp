@@ -30,11 +30,11 @@ std::optional<float> Ray::hitsOBB(const glm::vec3& min, const glm::vec3& max, co
     float tMin = 0.0f;
     float tMax = 100000.0f;
 
-    glm::vec3 OBBposition_worldspace(modelMatrix[3].x, modelMatrix[3].y, modelMatrix[3].z);
+    glm::vec3 OBBposition_worldspace(modelMatrix[3]);
     glm::vec3 delta = OBBposition_worldspace - origin;
 
     {
-        glm::vec3 xaxis(modelMatrix[0].x, modelMatrix[0].y, modelMatrix[0].z);
+        glm::vec3 xaxis(modelMatrix[0]);
         float e = glm::dot(xaxis, delta);
         float f = glm::dot(direction, xaxis);
 
@@ -46,17 +46,17 @@ std::optional<float> Ray::hitsOBB(const glm::vec3& min, const glm::vec3& max, co
 
             if (t2 < tMax) tMax = t2;
             if (t1 > tMin) tMin = t1;
-            if (tMin > tMax) return {};
+            if (tMin > tMax) return std::nullopt;
 
         }
         else {
-            if (-e + min.x > 0.0f || -e + max.x < 0.0f) return {};
+            //if (-e + min.x > 0.0f || -e + max.x < 0.0f) return std::nullopt;
         }
     }
 
 
     {
-        glm::vec3 yaxis(modelMatrix[1].x, modelMatrix[1].y, modelMatrix[1].z);
+        glm::vec3 yaxis(modelMatrix[1]);
         float e = glm::dot(yaxis, delta);
         float f = glm::dot(direction, yaxis);
 
@@ -69,17 +69,17 @@ std::optional<float> Ray::hitsOBB(const glm::vec3& min, const glm::vec3& max, co
 
             if (t2 < tMax) tMax = t2;
             if (t1 > tMin) tMin = t1;
-            if (tMin > tMax) return {};
+            if (tMin > tMax) return std::nullopt;
 
         }
         else {
-            if (-e + min.y > 0.0f || -e + max.y < 0.0f) return {};
+            //if (-e + min.y > 0.0f || -e + max.y < 0.0f) return std::nullopt;
         }
     }
 
 
     {
-        glm::vec3 zaxis(modelMatrix[2].x, modelMatrix[2].y, modelMatrix[2].z);
+        glm::vec3 zaxis(modelMatrix[2]);
         float e = glm::dot(zaxis, delta);
         float f = glm::dot(direction, zaxis);
 
@@ -92,11 +92,11 @@ std::optional<float> Ray::hitsOBB(const glm::vec3& min, const glm::vec3& max, co
 
             if (t2 < tMax) tMax = t2;
             if (t1 > tMin) tMin = t1;
-            if (tMin > tMax) return {};
+            if (tMin > tMax) return std::nullopt;
 
         }
         else {
-            if (-e + min.z > 0.0f || -e + max.z < 0.0f) return {};
+            //if (-e + min.z > 0.0f || -e + max.z < 0.0f) return std::nullopt;
         }
     }
 
@@ -142,7 +142,7 @@ std::optional<float> Ray::hitsTriangle(const glm::vec3& v0, const glm::vec3& v1,
     auto pvec = glm::cross(direction, p2);
     float det = glm::dot(p1, pvec);
 
-    if (det < std::numeric_limits<float>::epsilon()) return std::nullopt;
+    if (fabs(det) < std::numeric_limits<float>::epsilon()) return std::nullopt;
 
     float invDet = 1 / det;
     auto tvec = origin - v0;

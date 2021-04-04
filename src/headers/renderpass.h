@@ -171,6 +171,7 @@ private:
     glShader shader;
     unsigned int framebuffer;
     glUniformBuffer uniformBuffer;
+    ShaderHotloader hotloader;
 
 public:
     unsigned int result;
@@ -296,31 +297,6 @@ private:
 public:
     unsigned int result;
     unsigned int finalResult;
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-class Skydome {
-public:
-    struct {
-        glm::vec3 mid_color = { 0.518f, 0.949f, 1.0f };
-        glm::vec3 top_color = { 0.929f, 0.989f, 1.0f };
-    } settings;
-
-public:
-    Skydome(Viewport& viewport);
-    ~Skydome();
-
-    void execute(Viewport& viewport, unsigned int texture, unsigned int depth);
-
-    void createResources(Viewport& viewport);
-    void deleteResources();
-
-private:
-    glShader shader;
-    unsigned int framebuffer;
-    ShaderHotloader hotloader;
-    ecs::MeshComponent sphere;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8,10 +8,18 @@ namespace Raekor
 namespace ecs
 {
 
-void TransformComponent::recalculateMatrix() {
-    matrix = glm::translate(glm::mat4(1.0f), position);
-    matrix *= glm::eulerAngleXYZ(rotation.x, rotation.y, rotation.z);
-    matrix = glm::scale(matrix, scale);
+void TransformComponent::compose() {
+    localTransform = glm::translate(glm::mat4(1.0f), position);
+    localTransform *= glm::eulerAngleXYZ(rotation.x, rotation.y, rotation.z);
+    localTransform = glm::scale(localTransform, scale);
+}
+
+void TransformComponent::decompose() {
+    glm::vec3 skew;
+    glm::quat quat;
+    glm::vec4 perspective;
+    glm::decompose(localTransform, scale, quat, position, skew, perspective);
+    glm::extractEulerAngleXYZ(localTransform, rotation.x, rotation.y, rotation.z);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -358,8 +366,10 @@ void MaterialComponent::createMetalRoughTexture(std::shared_ptr<TextureAsset> te
         dataPtr += size.x * size.y;
     }
 
-    glTextureParameteri(metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+
+    glTextureParameteri(metalrough, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(metalrough, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     mrFile = texture->getPath().string();
 }

@@ -4,6 +4,7 @@
 #include "platform/OS.h"
 #include "application.h"
 #include "mesh.h"
+#include "assimp.h"
 
 #include "IconsFontAwesome5.h"
 
@@ -164,7 +165,7 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
 
     ImGui::Text("ID: %i", entity);
 
-    // I much prefered the for_each_tuple_element syntax, I'll leave one of both in
+    // I much prefered the for_each_tuple_element syntax tbh
     std::apply([this, &scene, &entity](const auto & ... components) {
         (...,
             [&components, this](entt::registry& scene, entt::entity& entity) {
@@ -184,17 +185,6 @@ void InspectorWindow::draw(entt::registry& scene, entt::entity& entity) {
     }, ecs::Components);
 
     if (ImGui::BeginPopup("Components")) {
-        //for_each_tuple_element(ecs::Components, [&](auto component) {
-        //    using ComponentType = decltype(component)::type;
-
-        //    if (!scene.has<ComponentType>(entity)) {
-        //        if (ImGui::Selectable(component.name, false)) {
-        //            scene.emplace<ComponentType>(entity);
-        //            ImGui::CloseCurrentPopup();
-        //        }
-        //    }
-        //});
-
         if (ImGui::Selectable("Native Script", false)) {
             scene.emplace<ecs::NativeScriptComponent>(entity);
             ImGui::CloseCurrentPopup();
@@ -226,13 +216,13 @@ void InspectorWindow::drawComponent(ecs::NodeComponent& component, entt::registr
 
 void InspectorWindow::drawComponent(ecs::TransformComponent& component, entt::registry& scene, entt::entity& active) {
     if (ImGui::DragFloat3("Scale", glm::value_ptr(component.scale), 0.001f, 0.0f, FLT_MAX)) {
-        component.recalculateMatrix();
+        component.compose();
     }
     if (ImGui::DragFloat3("Rotation", glm::value_ptr(component.rotation), 0.001f, static_cast<float>(-M_PI), static_cast<float>(M_PI))) {
-        component.recalculateMatrix();
+        component.compose();
     }
     if (ImGui::DragFloat3("Position", glm::value_ptr(component.position), 0.001f, FLT_MIN, FLT_MAX)) {
-        component.recalculateMatrix();
+        component.compose();
     }
 }
 
@@ -672,7 +662,7 @@ void ViewportWindow::drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewp
     // temporarily transform to mesh space for gizmo use
     auto mesh = scene.try_get<ecs::MeshComponent>(active);
     if (mesh) {
-        transform.matrix = glm::translate(transform.matrix, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+        transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
     }
 
     // draw gizmo
@@ -680,22 +670,18 @@ void ViewportWindow::drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewp
         glm::value_ptr(viewport.getCamera().getView()),
         glm::value_ptr(viewport.getCamera().getProjection()),
         gizmo.operation, ImGuizmo::MODE::WORLD,
-        glm::value_ptr(transform.matrix)
+        glm::value_ptr(transform.localTransform)
     );
 
     // transform back to world space
     if (mesh) {
-        transform.matrix = glm::translate(transform.matrix, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+        transform.localTransform = glm::translate(transform.localTransform, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
     }
 
 
     // update the transformation
     if (manipulated) {
-        glm::vec3 skew;
-        glm::quat rotation;
-        glm::vec4 perspective;
-        glm::decompose(transform.matrix, transform.scale, rotation, transform.position, skew, perspective);
-        glm::extractEulerAngleXYZ(transform.matrix, transform.rotation.x, transform.rotation.y, transform.rotation.z);
+        transform.decompose();
     }
 
 
@@ -784,7 +770,8 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer
             if (ImGui::MenuItem("Load model..")) {
                 std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
                 if (!filepath.empty()) {
-                    AssimpImporter::loadFile(scene, filepath, assetManager);
+                    AssimpImporter importer(&scene);
+                    importer.LoadFromFile(filepath, assetManager);
                     active = entt::null;
                 }
             }
@@ -984,7 +971,7 @@ void TopMenuBar::draw(WindowApplication* app, Scene& scene, GLRenderer& renderer
                     auto entity = scene.createObject("Directional Light");
                     auto& transform = scene->get<ecs::TransformComponent>(entity);
                     transform.rotation.x = static_cast<float>(M_PI / 12);
-                    transform.recalculateMatrix();
+                    transform.compose();
                     scene->emplace<ecs::DirectionalLightComponent>(entity);
                     active = entity;
                 }
