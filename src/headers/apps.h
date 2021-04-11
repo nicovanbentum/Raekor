@@ -15,7 +15,7 @@ public:
 
     virtual void update(float dt) override;
 
-    bool drawSphereProperties(RenderPass::Sphere& sphere);
+    bool drawSphereProperties(Sphere& sphere);
 
 private:
     bool sceneChanged = false;
@@ -29,7 +29,7 @@ private:
     gui::Dockspace dockspace;
     gui::ViewportWindow viewportWindow;
     gui::CameraSettings cameraSettingsWindow;
-    std::unique_ptr<RenderPass::RayCompute> rayTracePass;
+    std::unique_ptr<RayCompute> rayTracePass;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

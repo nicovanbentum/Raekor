@@ -280,7 +280,7 @@ void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::reg
 
     constexpr char* fileFilters = "Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0";
 
-    auto drawTextureInteraction = [fileFilters, lineHeight](
+    auto drawTextureInteraction = [this, fileFilters, lineHeight](
         GLuint texture,
         const char* name,
         ecs::MaterialComponent* component,
@@ -300,7 +300,8 @@ void InspectorWindow::drawComponent(ecs::MaterialComponent& component, entt::reg
         if (ImGui::ImageButton((void*)((intptr_t)image), ImVec2(lineHeight - 1, lineHeight - 1))) {
             auto filepath = OS::openFileDialog(fileFilters);
             if (!filepath.empty()) {
-                //(component->*func)(assetManager.get<TextureAsset>(filepath));
+                auto assetPath = TextureAsset::create(filepath);
+                (component->*func)(assetManager.get<TextureAsset>(assetPath));
             }
         }
 
@@ -586,7 +587,7 @@ bool ViewportWindow::draw(Viewport& viewport, GLRenderer& renderer, entt::regist
     if (ImGui::BeginDragDropTarget()) {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
             auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos());
-            uint32_t pixel = renderer.geometryBufferPass->readEntity(mousePos.x, mousePos.y);
+            uint32_t pixel = renderer.GBufferPass->readEntity(mousePos.x, mousePos.y);
             entt::entity picked = static_cast<entt::entity>(pixel);
 
             if (scene.valid(picked)) {
@@ -609,7 +610,7 @@ bool ViewportWindow::draw(Viewport& viewport, GLRenderer& renderer, entt::regist
     auto& io = ImGui::GetIO();
     if (io.MouseClicked[0] && mouseInViewport && !(active != entt::null && ImGuizmo::IsOver(gizmo.getOperation()))) {
         auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos());
-        uint32_t pixel = renderer.geometryBufferPass->readEntity(mousePos.x, mousePos.y);
+        uint32_t pixel = renderer.GBufferPass->readEntity(mousePos.x, mousePos.y);
         entt::entity picked = static_cast<entt::entity>(pixel);
 
         if (scene.valid(picked)) {
@@ -669,7 +670,7 @@ void ViewportWindow::drawGizmo(const Guizmo& gizmo, entt::registry& scene, Viewp
     bool manipulated = ImGuizmo::Manipulate(
         glm::value_ptr(viewport.getCamera().getView()),
         glm::value_ptr(viewport.getCamera().getProjection()),
-        gizmo.operation, ImGuizmo::MODE::WORLD,
+        gizmo.operation, ImGuizmo::MODE::LOCAL,
         glm::value_ptr(transform.localTransform)
     );
 
@@ -1023,7 +1024,7 @@ void RandomWindow::drawWindow(GLRenderer& renderer, ViewportWindow& window) {
     ImGui::NewLine(); ImGui::Separator();
     ImGui::Text("Voxel Cone Tracing");
 
-    ImGui::DragFloat("Range", &renderer.voxelizationPass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
+    ImGui::DragFloat("Range", &renderer.voxelizePass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
 
     ImGui::NewLine(); ImGui::Separator();
 
@@ -1037,19 +1038,19 @@ void RandomWindow::drawWindow(GLRenderer& renderer, ViewportWindow& window) {
 
     if (ImGui::TreeNode("Screen Texture")) {
         if (ImGui::Selectable("Normals")) {
-            window.setTexture(renderer.geometryBufferPass->normalTexture);
+            window.setTexture(renderer.GBufferPass->normalTexture);
         }
         if (ImGui::Selectable("Material")) {
-            window.setTexture(renderer.geometryBufferPass->materialTexture);
+            window.setTexture(renderer.GBufferPass->materialTexture);
         }
         if (ImGui::Selectable("Lighting")) {
-            window.setTexture(renderer.DeferredLightingPass->result);
+            window.setTexture(renderer.deferredPass->result);
         }
         if (ImGui::Selectable("Final")) {
             window.setTexture(renderer.tonemappingPass->result);
         }
         if (ImGui::Selectable("Albedo")) {
-            window.setTexture(renderer.geometryBufferPass->albedoTexture);
+            window.setTexture(renderer.GBufferPass->albedoTexture);
         }
 
 
@@ -1075,7 +1076,7 @@ void PostprocessWindow::drawWindow(GLRenderer& renderer) {
 
     ImGui::Separator();
 
-    if (ImGui::DragFloat3("Threshold", glm::value_ptr(renderer.DeferredLightingPass->settings.bloomThreshold), 0.001f, 0.0f, 10.0f)) {}
+    if (ImGui::DragFloat3("Threshold", glm::value_ptr(renderer.deferredPass->settings.bloomThreshold), 0.001f, 0.0f, 10.0f)) {}
     ImGui::NewLine();
 
     ImGui::End();

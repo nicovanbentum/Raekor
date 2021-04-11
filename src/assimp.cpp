@@ -177,14 +177,13 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
-    auto& mesh = scene->Get<ecs::MeshComponent>(entity);
-    auto& animation = scene->Add<ecs::MeshAnimationComponent>(entity);
-
-    if (assimpScene->HasAnimations()) {
-        animation.animation = Animation(assimpScene->mAnimations[0]);
-    } else {
+    if (!assimpScene->HasAnimations()) {
         return;
     }
+    
+    auto& mesh = scene->Get<ecs::MeshComponent>(entity);
+    auto& animation = scene->Add<ecs::MeshAnimationComponent>(entity);
+    animation.animation = Animation(assimpScene->mAnimations[0]);
 
     // extract bone structure
     // TODO: figure this mess out

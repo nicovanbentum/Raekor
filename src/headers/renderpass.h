@@ -6,7 +6,6 @@
 #include "camera.h"
 
 namespace Raekor {
-namespace RenderPass {
 
 class ShadowMap {
  public:
@@ -24,7 +23,7 @@ class ShadowMap {
     ~ShadowMap();
     ShadowMap(uint32_t width, uint32_t height);
 
-    void execute(entt::registry& scene);
+    void render(entt::registry& scene);
 
 private:
     glShader shader;
@@ -37,60 +36,40 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////////
 
-class OmniShadowMap {
-public:
-    struct {
-        uint32_t width, height;
-        float nearPlane = 0.1f, farPlane = 25.0f;
-    } settings;
-
-    OmniShadowMap(uint32_t width, uint32_t height);
-    void execute(entt::registry& scene, const glm::vec3& lightPosition);
-
-private:
-    glShader shader;
-    unsigned int depthCubeFramebuffer;
-
-public:
-    unsigned int result;
-};
-
-//////////////////////////////////////////////////////////////////////////////////
-
-class GeometryBuffer {
+class GBuffer {
 public:
     uint32_t culled = 0;
 
-    ~GeometryBuffer();
-    GeometryBuffer(Viewport& viewport);
+    ~GBuffer();
+    GBuffer(Viewport& viewport);
 
-    void execute(entt::registry& scene, Viewport& viewport);
+    void render(entt::registry& scene, Viewport& viewport);
 
     uint32_t readEntity(GLint x, GLint y);
 
     void createResources(Viewport& viewport);
     void deleteResources();
 
-    unsigned int getFramebuffer() { return GBuffer; }
+    unsigned int getFramebuffer() { return framebuffer; }
 
     unsigned int albedoTexture, normalTexture, materialTexture, entityTexture;
 private:
     glShader shader;
     ShaderHotloader hotloader;
-    unsigned int GBuffer;
+    unsigned int framebuffer;
   
 public:
     unsigned int depthTexture;
 };
 
-class WorldIcons {
+class Icons {
 public:
-    WorldIcons(Viewport& viewport);
+    Icons(Viewport& viewport);
 
     void createResources(Viewport& viewport);
     void destroyResources();
 
-    void execute(entt::registry& scene, Viewport& viewport, unsigned int screenTexture, unsigned int entityTexture);
+    void render(entt::registry& scene, Viewport& viewport, unsigned int screenTexture, unsigned int entityTexture);
 
 private:
     glShader shader;
@@ -101,43 +80,11 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////////
 
-class ScreenSpaceAmbientOcclusion {
-public:
-    struct {
-        float samples = 64.0f;
-        float bias = 0.025f, power = 2.5f;
-    } settings;
-
-    ~ScreenSpaceAmbientOcclusion();
-    ScreenSpaceAmbientOcclusion(Viewport& viewport);
-    void execute(Viewport& viewport, GeometryBuffer* geometryPass);
-
-    void createResources(Viewport& viewport);
-    void deleteResources();
-
-private:
-    unsigned int noiseTexture;
-    glShader shader;
-    glShader blurShader;
-    unsigned int framebuffer;
-    unsigned int blurFramebuffer;
-
-public:
-    unsigned int result;
-    unsigned int preblurResult;
-
-private:
-    glm::vec2 noiseScale;
-    std::vector<glm::vec3> ssaoKernel;
-};
-
-//////////////////////////////////////////////////////////////////////////////////
-
 class Bloom {
 public:
     ~Bloom();
     Bloom(Viewport& viewport);
-    void execute(Viewport& viewport, unsigned int highlights);
+    void render(Viewport& viewport, unsigned int highlights);
     void createResources(Viewport& viewport);
     void deleteResources();
 
@@ -153,16 +100,16 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////////
 
-class Tonemapping {
+class Tonemap {
 public:
     struct {
         float exposure = 1.0f;
         float gamma = 2.2f;
     } settings;
 
-    ~Tonemapping();
-    Tonemapping(Viewport& viewport);
-    void execute(unsigned int scene, unsigned int bloom);
+    ~Tonemap();
+    Tonemap(Viewport& viewport);
+    void render(unsigned int scene, unsigned int bloom);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -179,10 +126,10 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////////
 
-class Voxelization {
+class Voxelize {
 public:
-    Voxelization(int size);
-    void execute(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap);
+    Voxelize(int size);
+    void render(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap);
 
 private:
     void computeMipmaps(unsigned int texture);
@@ -203,19 +150,19 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class VoxelizationDebug {
+class VoxelizeDebug {
 public:
-    ~VoxelizationDebug();
+    ~VoxelizeDebug();
     
     // naive geometry shader impl
-    VoxelizationDebug(Viewport& viewport); // naive geometry shader impl
+    VoxelizeDebug(Viewport& viewport); // naive geometry shader impl
     
     // fast cube rendering using a technique from https://twitter.com/SebAaltonen/status/1315982782439591938/photo/1
-    VoxelizationDebug(Viewport& viewport, uint32_t voxelTextureSize);
+    VoxelizeDebug(Viewport& viewport, uint32_t voxelTextureSize);
     
     
-    void execute(Viewport& viewport, unsigned int input, Voxelization* voxels);
-    void execute2(Viewport& viewport, unsigned int input, Voxelization* voxels);
+    void render(Viewport& viewport, unsigned int input, Voxelize* voxels);
+    void execute2(Viewport& viewport, unsigned int input, Voxelize* voxels);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -232,32 +179,29 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class BoundingBoxDebug {
+class DebugLines {
 public:
-    ~BoundingBoxDebug();
-    BoundingBoxDebug(Viewport& viewport);
+    friend class GLRenderer;
 
-    void execute(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer, entt::entity active);
-
-    void createResources(Viewport& viewport);
-    void deleteResources();
+    DebugLines();
+    ~DebugLines();
+    
+    void render(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer);
 
 private:
     glShader shader;
     unsigned int frameBuffer;
     glVertexBuffer vertexBuffer;
-    glIndexBuffer indexBuffer;
 
-public:
-    unsigned int result;
+    std::vector<Vertex> points;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class Skinning {
+class SkinCompute {
 public:
-    Skinning();
-    void execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim);
+    SkinCompute();
+    void render(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim);
 
 private:
     glShader computeShader;
@@ -279,7 +223,7 @@ public:
     RayCompute(Viewport& viewport);
     ~RayCompute();
 
-    void execute(Viewport& viewport, bool shouldClear);
+    void render(Viewport& viewport, bool shouldClear);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -301,34 +245,7 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class HDRSky {
-public:
-    HDRSky();
-    ~HDRSky();
-
-    void execute(const std::string& filepath);
-    void renderEnvironmentMap(Viewport& viewport, unsigned int colorTarget, unsigned int depthTarget);
-
-    unsigned int irradianceMap;
-    unsigned int environmentMap;
-    unsigned int prefilterMap;
-    unsigned int brdfLUT;
-
-private:
-    glShader skyboxShader;
-    glShader brdfLUTshader;
-    glShader convoluteShader;
-    glShader prefilterShader;
-    glShader equiToCubemapShader;
-
-    ecs::MeshComponent unitCube;
-
-    unsigned int captureFramebuffer;
-    unsigned int prefilterFramebuffer;
-    unsigned int skyboxFramebuffer;
-};
-
-class DeferredLighting {
+class DeferredShading {
 private:
     struct {
         glm::mat4 view, projection;
@@ -347,11 +264,11 @@ public:
         glm::vec3 bloomThreshold{ 0.2126f , 0.7152f , 0.0722f };
     } settings;
 
-    ~DeferredLighting();
-    DeferredLighting(Viewport& viewport);
+    ~DeferredShading();
+    DeferredShading(Viewport& viewport);
 
-    void execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-        GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, HDRSky* sky);
+    void render(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap,
+        GBuffer* GBuffer, Voxelize* voxels);
 
     void createResources(Viewport& viewport);
     void deleteResources();
@@ -368,5 +285,21 @@ public:
     unsigned int bloomHighlights;
 };
 
-} // renderpass
+class Atmosphere {
+public:
+    Atmosphere(Viewport& viewport);
+    ~Atmosphere();
+
+    void createResources(Viewport& viewport);
+    void destroyResources();
+
+    void render(Viewport& viewport, entt::registry& scene, unsigned int out, unsigned int depth);
+
+
+private:
+    glShader shader;
+    ShaderHotloader hotloader;
+    unsigned int framebuffer;
+};
+
 } // raekor

@@ -273,7 +273,7 @@ void MaterialComponent::createAlbedoTexture(std::shared_ptr<TextureAsset> textur
     glTextureStorage2D(albedo, header.dwMipMapCount, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
 
     for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
-        glm::ivec2 dimensions = { header.dwWidth >> mip, header.dwHeight >> mip };
+        glm::ivec2 dimensions = { std::max(header.dwWidth >> mip, 1ul), std::max(header.dwHeight >> mip, 1ul) };
         size_t dataSize = std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16;
         glCompressedTextureSubImage2D(albedo, mip, 0, 0, dimensions.x, dimensions.y, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += dimensions.x * dimensions.y;

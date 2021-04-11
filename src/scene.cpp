@@ -81,19 +81,41 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
+void Scene::updateNode(entt::entity node, entt::entity parent) {
+    auto& transform = registry.get<ecs::TransformComponent>(node);
+    
+    if (parent == entt::null) {
+        transform.worldTransform = transform.localTransform;
+    } else {
+        auto& parentTransform = registry.get<ecs::TransformComponent>(parent);
+        transform.worldTransform = parentTransform.worldTransform * transform.localTransform;
+    }
+
+    auto& comp = registry.get<ecs::NodeComponent>(node);
+
+    auto curr = comp.firstChild;
+    while (curr != entt::null) {
+        updateNode(curr, node);
+        curr = registry.get<ecs::NodeComponent>(curr).nextSibling;
+    }
+}
+
 void Scene::updateTransforms() {
     auto nodeView = registry.view<ecs::NodeComponent, ecs::TransformComponent>();
 
     for (auto entity : nodeView) {
         auto& node = nodeView.get<ecs::NodeComponent>(entity);
         auto& transform = nodeView.get<ecs::TransformComponent>(entity);
-        auto currentMatrix = transform.localTransform;
+
+        updateNode(entity, node.parent);
+
+        /*auto currentMatrix = transform.localTransform;
 
         for (auto parent = node.parent; parent != entt::null; parent = nodeView.get<ecs::NodeComponent>(parent).parent) {
-            currentMatrix *= nodeView.get<ecs::TransformComponent>(parent).localTransform;
+            currentMatrix *= nodeView.get<ecs::TransformComponent>(parent).worldTransform;
         }
 
-        transform.worldTransform = currentMatrix;
+        transform.worldTransform = currentMatrix;*/
     }
 }
 

@@ -92,7 +92,7 @@ void main()
     vec3 hdrColor = texture(hdrBuffer, TexCoords).rgb;
     hdrColor += texture(bloom, TexCoords).rgb;
 
-	vec3 color = uncharted2(hdrColor);
+	vec3 color = aces(hdrColor);
 
 	vec3 retColor = pow(color, vec3(1/ubo.gamma));
 	FragColor = vec4(retColor, 1.0);

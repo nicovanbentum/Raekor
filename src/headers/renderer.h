@@ -7,6 +7,12 @@
 namespace Raekor {
 
 class GLRenderer {
+    struct {
+        int& doBloom = ConVars::create("r_bloom", 0);
+        int& debugVoxels = ConVars::create("r_voxelize_debug", 0);
+        int& shouldVoxelize = ConVars::create("r_voxelize", 1);
+    } settings;
+
 public:
     GLRenderer(SDL_Window* window, Viewport& viewport);
     ~GLRenderer();
@@ -14,29 +20,29 @@ public:
     void ImGui_Render();
     void ImGui_NewFrame(SDL_Window* window);
 
+    void addLine(glm::vec3 p1, glm::vec3 p2) {
+        debugPass->points.push_back(p1);
+        debugPass->points.push_back(p2);
+    }
+
     void render(entt::registry& scene, Viewport& viewport, entt::entity& active);
     void createResources(Viewport& viewport);
 
 public:
-    std::unique_ptr<RenderPass::HDRSky>             skyPass;
-    std::unique_ptr<RenderPass::Bloom>              bloomPass;
-    std::unique_ptr<RenderPass::Skinning>           skinningPass;
-    std::unique_ptr<RenderPass::ShadowMap>          shadowMapPass;
-    std::unique_ptr<RenderPass::WorldIcons>         worldIconsPass;
-    std::unique_ptr<RenderPass::Tonemapping>        tonemappingPass;
-    std::unique_ptr<RenderPass::Voxelization>       voxelizationPass;
-    std::unique_ptr<RenderPass::GeometryBuffer>     geometryBufferPass;
-    std::unique_ptr<RenderPass::DeferredLighting>   DeferredLightingPass;
-    std::unique_ptr<RenderPass::BoundingBoxDebug>   boundingBoxDebugPass;
-    std::unique_ptr<RenderPass::VoxelizationDebug>  voxelizationDebugPass;
-    
+    std::unique_ptr<Bloom> bloomPass;
+    std::unique_ptr<GBuffer> GBufferPass;
+    std::unique_ptr<Icons> worldIconsPass;
+    std::unique_ptr<DebugLines> debugPass;
+    std::unique_ptr<Voxelize> voxelizePass;
+    std::unique_ptr<Tonemap> tonemappingPass;
+    std::unique_ptr<ShadowMap> shadowMapPass;
+    std::unique_ptr<SkinCompute> skinningPass;
+    std::unique_ptr<Atmosphere> atmospherePass;
+    std::unique_ptr<DeferredShading> deferredPass;
+    std::unique_ptr<VoxelizeDebug> voxelizeDebugPass;
+
 public:
     bool vsync = true;
-
-private:
-    int& doBloom            = ConVars::create("r_bloom", 0);
-    int& debugVoxels        = ConVars::create("r_voxelize_debug", 0);
-    int& shouldVoxelize     = ConVars::create("r_voxelize", 1);
 
 private:
     SDL_GLContext context;

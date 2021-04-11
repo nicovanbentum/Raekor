@@ -25,14 +25,13 @@ char* const TextureAsset::getData() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::string TextureAsset::create(const std::string& filepath) {
-    std::vector<stbi_uc*> mipChain;
-
     int width, height, ch;
+    std::vector<stbi_uc*> mipChain;
     mipChain.push_back(stbi_load(filepath.c_str(), &width, &height, &ch, 4));
 
     if (!mipChain[0]) {
         std::cout << "stb failed " << filepath << std::endl;
-        return false;
+        return {};
     }
 
     // TODO: gpu mip mapping, cant right now because assets are loaded in parallel but OpenGL can't do multithreading

@@ -9,7 +9,11 @@
 namespace Raekor
 {
 
-EditorOpenGL::EditorOpenGL() : WindowApplication(RendererFlags::OPENGL), renderer(window, viewport) {
+EditorOpenGL::EditorOpenGL() : 
+    WindowApplication(RendererFlags::OPENGL), 
+    renderer(window, viewport), 
+    inspectorWindow(assetManager) 
+{
     // gui stuff
     gui::setFont(settings.font.c_str());
     gui::setTheme(settings.themeColors);
@@ -19,8 +23,8 @@ EditorOpenGL::EditorOpenGL() : WindowApplication(RendererFlags::OPENGL), rendere
 
     if (std::filesystem::is_regular_file(settings.defaultScene)) {
         if (std::filesystem::path(settings.defaultScene).extension() == ".scene") {
-            SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
-            scene.openFromFile(settings.defaultScene, assetManager);
+            //SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
+            //scene.openFromFile(settings.defaultScene, assetManager);
         }
     }
 
@@ -43,14 +47,25 @@ void EditorOpenGL::update(float dt) {
         }
 
         if (event.type == SDL_WINDOWEVENT) {
+            if (event.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+                while (1) {
+                    SDL_Event ev;
+                    SDL_PollEvent(&ev);
+
+                    if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
+                        break;
+                    }
+                }
+            }
             if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
                 if (SDL_GetWindowID(window) == event.window.windowID) {
                     running = false;
                 }
             }
             if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                renderer.createResources(viewport);
+                //renderer.createResources(viewport);
             }
+
         }
     }
 
@@ -77,6 +92,33 @@ void EditorOpenGL::update(float dt) {
             component.script->update(dt);
         }
     });
+
+     if (active != entt::null && scene->has<ecs::MeshComponent>(active)) {
+        auto& mesh = scene->get<ecs::MeshComponent>(active);
+        auto& transform = scene->get<ecs::TransformComponent>(active);
+
+        const auto min = mesh.aabb[0];
+        const auto max = mesh.aabb[1];
+
+        auto DrawLine = [&](glm::vec3 v1, glm::vec3 v2) {
+            v1 = glm::vec3(transform.localTransform * glm::vec4(v1, 1.0f));
+            v2 = glm::vec3(transform.localTransform * glm::vec4(v2, 1.0f));
+            renderer.addLine(v1, v2);
+        };
+
+        DrawLine(glm::vec3(min.x, min.y, min.z), glm::vec3(max.x, min.y, min.z));
+        DrawLine(glm::vec3(max.x, min.y, min.z), glm::vec3(max.x, max.y, min.z));
+        DrawLine(glm::vec3(max.x, max.y, min.z), glm::vec3(min.x, max.y, min.z));
+        DrawLine(glm::vec3(min.x, max.y, min.z), glm::vec3(min.x, min.y, min.z));
+        DrawLine(glm::vec3(min.x, min.y, min.z), glm::vec3(min.x, min.y, max.z));
+        DrawLine(glm::vec3(max.x, min.y, min.z), glm::vec3(max.x, min.y, max.z));
+        DrawLine(glm::vec3(max.x, max.y, min.z), glm::vec3(max.x, max.y, max.z));
+        DrawLine(glm::vec3(min.x, max.y, min.z), glm::vec3(min.x, max.y, max.z));
+        DrawLine(glm::vec3(min.x, min.y, max.z), glm::vec3(max.x, min.y, max.z));
+        DrawLine(glm::vec3(max.x, min.y, max.z), glm::vec3(max.x, max.y, max.z));
+        DrawLine(glm::vec3(max.x, max.y, max.z), glm::vec3(min.x, max.y, max.z));
+        DrawLine(glm::vec3(min.x, max.y, max.z), glm::vec3(min.x, min.y, max.z));
+    }
 
     // render scene
     renderer.render(scene, viewport, active);

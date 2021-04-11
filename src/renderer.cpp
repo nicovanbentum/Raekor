@@ -101,19 +101,17 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     ecs::MaterialComponent::Default.createMetalRoughTexture();
     ecs::MaterialComponent::Default.createNormalTexture();
 
-    skinningPass = std::make_unique<RenderPass::Skinning>();
-    voxelizationPass = std::make_unique<RenderPass::Voxelization>(256);
-    shadowMapPass = std::make_unique<RenderPass::ShadowMap>(4096, 4096);
-    tonemappingPass = std::make_unique<RenderPass::Tonemapping>(viewport);
-    geometryBufferPass = std::make_unique<RenderPass::GeometryBuffer>(viewport);
-    DeferredLightingPass = std::make_unique<RenderPass::DeferredLighting>(viewport);
-    boundingBoxDebugPass = std::make_unique<RenderPass::BoundingBoxDebug>(viewport);
-    voxelizationDebugPass = std::make_unique<RenderPass::VoxelizationDebug>(viewport);
-    bloomPass = std::make_unique<RenderPass::Bloom>(viewport);
-    worldIconsPass = std::make_unique<RenderPass::WorldIcons>(viewport);
-    skyPass = std::make_unique<RenderPass::HDRSky>();
-
-    skyPass->execute("resources/sky/snow.hdr");
+    skinningPass = std::make_unique<SkinCompute>();
+    voxelizePass = std::make_unique<Voxelize>(256);
+    shadowMapPass = std::make_unique<ShadowMap>(4096, 4096);
+    tonemappingPass = std::make_unique<Tonemap>(viewport);
+    GBufferPass = std::make_unique<GBuffer>(viewport);
+    deferredPass = std::make_unique<DeferredShading>(viewport);
+    debugPass = std::make_unique<DebugLines>();
+    voxelizeDebugPass = std::make_unique<VoxelizeDebug>(viewport);
+    bloomPass = std::make_unique<Bloom>(viewport);
+    worldIconsPass = std::make_unique<Icons>(viewport);
+    atmospherePass = std::make_unique<Atmosphere>(viewport);
 }
 
 GLRenderer::~GLRenderer() {
@@ -131,9 +129,42 @@ void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+class GLTimer {
+public:
+    GLTimer() {
+        glGenQueries(2, queries);
+        glBeginQuery(GL_TIME_ELAPSED, queries[1]);
+        glEndQuery(GL_TIME_ELAPSED);
+    }
+
+    ~GLTimer() {
+        glDeleteQueries(2, queries);
+    }
+
+    void Begin() {
+        glBeginQuery(GL_TIME_ELAPSED, queries[index]);
+    }
+
+    void End() {
+        glEndQuery(GL_TIME_ELAPSED);
+        glGetQueryObjectui64v(queries[!index], GL_QUERY_RESULT_NO_WAIT, &time);
+        index = !index;
+    }
+
+    float GetMilliseconds() {
+        return time * 0.000001f;
+    }
+
+private:
+    GLuint64 time;
+    GLuint index = 0;
+    GLuint queries[2];
+
+};
+
 void GLRenderer::render(entt::registry& scene, Viewport& viewport, entt::entity& active) {
     scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
-        skinningPass->execute(mesh, animation);
+        skinningPass->render(mesh, animation);
     });
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -141,30 +172,30 @@ void GLRenderer::render(entt::registry& scene, Viewport& viewport, entt::entity&
 
     // generate sun shadow map
     glViewport(0, 0, 4096, 4096);
-    shadowMapPass->execute(scene);
+    shadowMapPass->render(scene);
 
-    if (shouldVoxelize) {
-        voxelizationPass->execute(scene, viewport, shadowMapPass.get());
+    if (settings.shouldVoxelize) {
+        voxelizePass->render(scene, viewport, shadowMapPass.get());
     }
 
     glViewport(0, 0, viewport.size.x, viewport.size.y);
 
-    geometryBufferPass->execute(scene, viewport);
+    GBufferPass->render(scene, viewport);
 
-    skyPass->renderEnvironmentMap(viewport, geometryBufferPass->albedoTexture, geometryBufferPass->depthTexture);
+    deferredPass->render(scene, viewport, shadowMapPass.get(), GBufferPass.get(), voxelizePass.get());
 
-    DeferredLightingPass->execute(scene, viewport, shadowMapPass.get(), nullptr, geometryBufferPass.get(), nullptr, voxelizationPass.get(), skyPass.get());
+    atmospherePass->render(viewport, scene, deferredPass->result, GBufferPass->depthTexture);
+    
+    worldIconsPass->render(scene, viewport, deferredPass->result, GBufferPass->entityTexture);
 
-    worldIconsPass->execute(scene, viewport, DeferredLightingPass->result, geometryBufferPass->entityTexture);
-
-    if (doBloom) {
-        bloomPass->execute(viewport, DeferredLightingPass->bloomHighlights);
-        tonemappingPass->execute(DeferredLightingPass->result, bloomPass->bloomTexture);
+    if (settings.doBloom) {
+        bloomPass->render(viewport, deferredPass->bloomHighlights);
+        tonemappingPass->render(deferredPass->result, bloomPass->bloomTexture);
     } else {
         static unsigned int blackTexture = 0;
         if (blackTexture == 0) {
             glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
-            glTextureStorage2D(blackTexture, 1, GL_RGBA16F, 1, 1);
+            glTextureStorage2D(blackTexture, 1, GL_RGBA8, 1, 1);
             glTextureParameteri(blackTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTextureParameteri(blackTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -172,42 +203,39 @@ void GLRenderer::render(entt::registry& scene, Viewport& viewport, entt::entity&
             glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
         }
 
-        tonemappingPass->execute(DeferredLightingPass->result, blackTexture);
+        tonemappingPass->render(deferredPass->result, blackTexture);
     }
+    
+    debugPass->render(scene, viewport, tonemappingPass->result, GBufferPass->depthTexture);
 
-    if (active != entt::null) {
-        boundingBoxDebugPass->execute(scene, viewport, tonemappingPass->result, geometryBufferPass->depthTexture, active);
-    }
-
-
-    if (debugVoxels) {
-        voxelizationDebugPass->execute(viewport, tonemappingPass->result, voxelizationPass.get());
+    if (settings.debugVoxels) {
+        voxelizeDebugPass->render(viewport, tonemappingPass->result, voxelizePass.get());
     }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GLRenderer::createResources(Viewport& viewport) {
-    DeferredLightingPass->deleteResources();
-    DeferredLightingPass->createResources(viewport);
+    deferredPass->deleteResources();
+    deferredPass->createResources(viewport);
 
-    boundingBoxDebugPass->deleteResources();
-    boundingBoxDebugPass->createResources(viewport);
-
-    voxelizationDebugPass->deleteResources();
-    voxelizationDebugPass->createResources(viewport);
+    voxelizeDebugPass->deleteResources();
+    voxelizeDebugPass->createResources(viewport);
 
     tonemappingPass->deleteResources();
     tonemappingPass->createResources(viewport);
 
-    geometryBufferPass->deleteResources();
-    geometryBufferPass->createResources(viewport);
+    GBufferPass->deleteResources();
+    GBufferPass->createResources(viewport);
 
     bloomPass->deleteResources();
     bloomPass->createResources(viewport);
 
     worldIconsPass->destroyResources();
     worldIconsPass->createResources(viewport);
+
+    atmospherePass->destroyResources();
+    atmospherePass->createResources(viewport);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8,8 +8,6 @@
 
 namespace Raekor
 {
-namespace RenderPass
-{
 
 ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     // load shaders from disk
@@ -51,7 +49,7 @@ ShadowMap::~ShadowMap() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ShadowMap::execute(entt::registry& scene) {
+void ShadowMap::render(entt::registry& scene) {
     // setup the shadow map
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -116,76 +114,7 @@ void ShadowMap::execute(entt::registry& scene) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-OmniShadowMap::OmniShadowMap(uint32_t width, uint32_t height) {
-    settings.width = width, settings.height = height;
-
-    std::vector<Shader::Stage> omniShadowmapStages;
-    omniShadowmapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\depthCube.vert");
-    omniShadowmapStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depthCube.frag");
-    shader.reload(omniShadowmapStages.data(), omniShadowmapStages.size());
-
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &result);
-    glTextureStorage3D(result, 1, GL_DEPTH_COMPONENT32F, settings.width, settings.height, 6);
-
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void OmniShadowMap::execute(entt::registry& scene, const glm::vec3& lightPosition) {
-    // generate the view matrices for calculating lightspace
-    std::vector<glm::mat4> shadowTransforms;
-    glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), float(settings.width / settings.height), settings.nearPlane, settings.farPlane);
-
-    shadowTransforms.reserve(6);
-    shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
-    shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
-    shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
-    shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
-    shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
-    shadowTransforms.push_back(shadowProj * glm::lookAtRH(lightPosition, lightPosition + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
-
-    // render every model using the depth cubemap shader
-    glBindFramebuffer(GL_FRAMEBUFFER, depthCubeFramebuffer);
-    glCullFace(GL_BACK);
-
-    shader.bind();
-    shader.getUniform("farPlane") = settings.farPlane;
-    for (uint32_t i = 0; i < 6; i++) {
-        glNamedFramebufferTexture(depthCubeFramebuffer, GL_COLOR_ATTACHMENT0 + i, result, i);
-        glClear(GL_DEPTH_BUFFER_BIT);
-        shader.getUniform("projView") = shadowTransforms[i];
-        shader.getUniform("lightPos") = lightPosition;
-
-        auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
-
-        for (auto entity : view) {
-            auto& mesh = view.get<ecs::MeshComponent>(entity);
-            auto& transform = view.get<ecs::TransformComponent>(entity);
-
-            shader.getUniform("model") = transform.worldTransform;
-
-            // determine if we use the original mesh vertices or GPU skinned vertices
-            if (scene.has<ecs::MeshAnimationComponent>(entity)) {
-                scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
-            } else {
-                mesh.vertexBuffer.bind();
-            }
-            mesh.indexBuffer.bind();
-            glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
-        }
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-GeometryBuffer::GeometryBuffer(Viewport& viewport) {
+GBuffer::GBuffer(Viewport& viewport) {
     std::vector<Shader::Stage> gbufferStages;
     gbufferStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\gbuffer.vert");
     gbufferStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gbuffer.frag");
@@ -197,16 +126,16 @@ GeometryBuffer::GeometryBuffer(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-GeometryBuffer::~GeometryBuffer() {
+GBuffer::~GBuffer() {
     deleteResources();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
+void GBuffer::render(entt::registry& scene, Viewport& viewport) {
     hotloader.changed();
 
-    glBindFramebuffer(GL_FRAMEBUFFER, GBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     entt::entity e = entt::null;
@@ -302,7 +231,7 @@ void GeometryBuffer::execute(entt::registry& scene, Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-uint32_t GeometryBuffer::readEntity(GLint x, GLint y) {
+uint32_t GBuffer::readEntity(GLint x, GLint y) {
     float pixel;
     glGetTextureSubImage(entityTexture, 0, x, y,
         0, 1, 1, 1, GL_RED, GL_FLOAT, sizeof(float), &pixel);
@@ -311,7 +240,7 @@ uint32_t GeometryBuffer::readEntity(GLint x, GLint y) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GeometryBuffer::createResources(Viewport& viewport) {
+void GBuffer::createResources(Viewport& viewport) {
     glCreateTextures(GL_TEXTURE_2D, 1, &albedoTexture);
     glTextureStorage2D(albedoTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
     glTextureParameteri(albedoTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -337,11 +266,11 @@ void GeometryBuffer::createResources(Viewport& viewport) {
     glTextureParameteri(depthTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(depthTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    glCreateFramebuffers(1, &GBuffer);
-    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT0, normalTexture, 0);
-    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT1, albedoTexture, 0);
-    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT2, materialTexture, 0);
-    glNamedFramebufferTexture(GBuffer, GL_COLOR_ATTACHMENT3, entityTexture, 0);
+    glCreateFramebuffers(1, &framebuffer);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, normalTexture, 0);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT1, albedoTexture, 0);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT2, materialTexture, 0);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT3, entityTexture, 0);
 
     std::array<GLenum, 4> colorAttachments =
     {
@@ -351,13 +280,13 @@ void GeometryBuffer::createResources(Viewport& viewport) {
         GL_COLOR_ATTACHMENT3,
     };
 
-    glNamedFramebufferDrawBuffers(GBuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
-    glNamedFramebufferTexture(GBuffer, GL_DEPTH_ATTACHMENT, depthTexture, 0);
+    glNamedFramebufferDrawBuffers(framebuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
+    glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, depthTexture, 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GeometryBuffer::deleteResources() {
+void GBuffer::deleteResources() {
     std::array<unsigned int, 5> textures =
     {
         albedoTexture,
@@ -368,148 +297,18 @@ void GeometryBuffer::deleteResources() {
     };
 
     glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
-    glDeleteFramebuffers(1, &GBuffer);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-ScreenSpaceAmbientOcclusion::~ScreenSpaceAmbientOcclusion() {
-    deleteResources();
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-ScreenSpaceAmbientOcclusion::ScreenSpaceAmbientOcclusion(Viewport& viewport) {
-    noiseScale = { viewport.size.x / 4.0f, viewport.size.y / 4.0f };
-
-    // load shaders from disk
-    std::vector<Shader::Stage> ssaoStages;
-    ssaoStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\SSAO.vert");
-    ssaoStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\SSAO.frag");
-    shader.reload(ssaoStages.data(), ssaoStages.size());
-
-    std::vector<Shader::Stage> ssaoBlurStages;
-    ssaoBlurStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
-    ssaoBlurStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\SSAOblur.frag");
-    blurShader.reload(ssaoBlurStages.data(), ssaoBlurStages.size());
-
-
-    // create SSAO kernel hemisphere
-    std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
-    std::default_random_engine generator;
-    for (unsigned int i = 0; i < 64; ++i) {
-        glm::vec3 sample(
-            randomFloats(generator) * 2.0 - 1.0,
-            randomFloats(generator) * 2.0 - 1.0,
-            randomFloats(generator)
-        );
-        sample = glm::normalize(sample);
-        sample *= randomFloats(generator);
-        float scale = float(i / 64.0f);
-
-        auto lerp = [](float a, float b, float f) {
-            return a + f * (b - a);
-        };
-
-        scale = lerp(0.1f, 1.0f, scale * scale);
-        sample *= scale;
-        ssaoKernel.push_back(sample);
-    }
-
-    createResources(viewport);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void ScreenSpaceAmbientOcclusion::execute(Viewport& viewport, GeometryBuffer* geometryPass) {
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glBindTextureUnit(1, geometryPass->normalTexture);
-    glBindTextureUnit(2, noiseTexture);
-
-    shader.bind();
-    shader.getUniform("samples") = ssaoKernel;
-    shader.getUniform("view") = viewport.getCamera().getView();
-    shader.getUniform("projection") = viewport.getCamera().getProjection();
-    shader.getUniform("noiseScale") = noiseScale;
-    shader.getUniform("sampleCount") = settings.samples;
-    shader.getUniform("power") = settings.power;
-    shader.getUniform("bias") = settings.bias;
-
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    // now blur the SSAO result
-    glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
-    glBindTextureUnit(0, preblurResult);
-    blurShader.bind();
-
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void ScreenSpaceAmbientOcclusion::createResources(Viewport& viewport) {
-    // create SSAO kernel hemisphere
-    std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
-    std::default_random_engine generator;
-
-    // create data for the random noise texture
-    std::vector<glm::vec3> ssaoNoise;
-    for (unsigned int i = 0; i < 16; i++) {
-        glm::vec3 noise(
-            randomFloats(generator) * 2.0 - 1.0,
-            randomFloats(generator) * 2.0 - 1.0,
-            0.0f);
-        ssaoNoise.push_back(noise);
-    }
-
-    // init textures and framebuffers
-    glCreateTextures(GL_TEXTURE_2D, 1, &noiseTexture);
-    glTextureStorage2D(noiseTexture, 1, GL_RGB16F, 4, 4);
-    glTextureSubImage2D(noiseTexture, 0, 0, 0, 4, 4, GL_RGB, GL_FLOAT, &ssaoNoise[0]);
-    glTextureParameteri(noiseTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(noiseTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(noiseTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(noiseTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(noiseTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &preblurResult);
-    glTextureStorage2D(preblurResult, 1, GL_RGBA, viewport.size.x, viewport.size.y);
-    glTextureParameteri(preblurResult, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(preblurResult, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glCreateFramebuffers(1, &framebuffer);
-    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, preblurResult, 0);
-    glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &result);
-    glTextureStorage2D(result, 1, GL_RGBA, viewport.size.x, viewport.size.y);
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glCreateFramebuffers(1, &blurFramebuffer);
-    glNamedFramebufferTexture(blurFramebuffer, GL_COLOR_ATTACHMENT0, result, 0);
-    glNamedFramebufferDrawBuffer(blurFramebuffer, GL_COLOR_ATTACHMENT0);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void ScreenSpaceAmbientOcclusion::deleteResources() {
-    std::array<GLuint, 3> textures = { noiseTexture, result, preblurResult };
-    glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
-
     glDeleteFramebuffers(1, &framebuffer);
-    glDeleteFramebuffers(1, &blurFramebuffer);
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
-DeferredLighting::~DeferredLighting() {
+DeferredShading::~DeferredShading() {
     deleteResources();
 }
 
 //////////////////////////////////////////////////////////////////////////////////
 
-DeferredLighting::DeferredLighting(Viewport& viewport) {
+DeferredShading::DeferredShading(Viewport& viewport) {
     // load shaders from disk
 
     Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
@@ -528,8 +327,8 @@ DeferredLighting::DeferredLighting(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap, OmniShadowMap* omniShadowMap,
-    GeometryBuffer* GBuffer, ScreenSpaceAmbientOcclusion* ambientOcclusion, Voxelization* voxels, HDRSky* sky) {
+void DeferredShading::render(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap,
+    GBuffer* GBuffer, Voxelize* voxels) {
     hotloader.changed();
 
     // update the uniform buffer
@@ -597,27 +396,12 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
     // bind textures to shader binding slots
     glBindTextureUnit(0, shadowMap->result);
 
-    if (omniShadowMap) {
-        glBindTextureUnit(1, omniShadowMap->result);
-    }
-
     glBindTextureUnit(3, GBuffer->albedoTexture);
     glBindTextureUnit(4, GBuffer->normalTexture);
-
-    if (ambientOcclusion) {
-        glBindTextureUnit(5, ambientOcclusion->result);
-    }
 
     glBindTextureUnit(6, voxels->result);
     glBindTextureUnit(7, GBuffer->materialTexture);
     glBindTextureUnit(8, GBuffer->depthTexture);
-    glBindTextureUnit(9, sky->irradianceMap);
-    glBindTextureUnit(10, sky->prefilterMap);
-    glBindTextureUnit(11, sky->brdfLUT);
-
-
-
-
 
     // update uniform buffer GPU side
     uniformBuffer.bind(0);
@@ -630,7 +414,7 @@ void DeferredLighting::execute(entt::registry& sscene, Viewport& viewport, Shado
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DeferredLighting::createResources(Viewport& viewport) {
+void DeferredShading::createResources(Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
@@ -657,7 +441,7 @@ void DeferredLighting::createResources(Viewport& viewport) {
     glNamedFramebufferDrawBuffers(framebuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
 }
 
-void DeferredLighting::deleteResources() {
+void DeferredShading::deleteResources() {
     glDeleteTextures(1, &result);
     glDeleteTextures(1, &bloomHighlights);
     glDeleteFramebuffers(1, &framebuffer);
@@ -686,7 +470,7 @@ Bloom::Bloom(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Bloom::execute(Viewport& viewport, unsigned int highlights) {
+void Bloom::render(Viewport& viewport, unsigned int highlights) {
     if (viewport.size.x < 16.0f || viewport.size.y < 16.0f) {
         return;
     }
@@ -724,7 +508,10 @@ void Bloom::execute(Viewport& viewport, unsigned int highlights) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Bloom::createResources(Viewport& viewport) {
-    auto quarterRes = glm::ivec2(viewport.size.x / 4, viewport.size.y / 4);
+    auto quarterRes = glm::ivec2(
+        std::max(viewport.size.x / 4, 1u),
+        std::max(viewport.size.y / 4, 1u)
+    );
 
     glCreateTextures(GL_TEXTURE_2D, 1, &bloomTexture);
     glTextureStorage2D(bloomTexture, 1, GL_RGBA16F, quarterRes.x, quarterRes.y);
@@ -765,13 +552,13 @@ void Bloom::deleteResources() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-Tonemapping::~Tonemapping() {
+Tonemap::~Tonemap() {
     deleteResources();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-Tonemapping::Tonemapping(Viewport& viewport) {
+Tonemap::Tonemap(Viewport& viewport) {
     // load shaders from disk
     std::vector<Shader::Stage> tonemapStages;
     tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
@@ -789,7 +576,7 @@ Tonemapping::Tonemapping(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Tonemapping::execute(unsigned int scene, unsigned int bloom) {
+void Tonemap::render(unsigned int scene, unsigned int bloom) {
     hotloader.changed();
     
     // bind and clear render target
@@ -813,7 +600,7 @@ void Tonemapping::execute(unsigned int scene, unsigned int bloom) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Tonemapping::createResources(Viewport& viewport) {
+void Tonemap::createResources(Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGB8, viewport.size.x, viewport.size.y);
@@ -827,14 +614,14 @@ void Tonemapping::createResources(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Tonemapping::deleteResources() {
+void Tonemap::deleteResources() {
     glDeleteTextures(1, &result);
     glDeleteFramebuffers(1, &framebuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-Voxelization::Voxelization(int size) : size(size) {
+Voxelize::Voxelize(int size) : size(size) {
     // load shaders from disk
     std::vector<Shader::Stage> voxelStages;
     voxelStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\voxelize.vert");
@@ -859,7 +646,7 @@ Voxelization::Voxelization(int size) : size(size) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Voxelization::computeMipmaps(unsigned int texture) {
+void Voxelize::computeMipmaps(unsigned int texture) {
     int level = 0, texSize = size;
     while (texSize >= 1.0f) {
         texSize = static_cast<int>(texSize * 0.5f);
@@ -876,7 +663,7 @@ void Voxelization::computeMipmaps(unsigned int texture) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Voxelization::correctOpacity(unsigned int texture) {
+void Voxelize::correctOpacity(unsigned int texture) {
     opacityFixShader.bind();
     glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA8);
     // local work group size is 64
@@ -887,7 +674,7 @@ void Voxelization::correctOpacity(unsigned int texture) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap) {
+void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap) {
     hotloader.changed();
 
     // left, right, bottom, top, zNear, zFar
@@ -972,13 +759,13 @@ void Voxelization::execute(entt::registry& scene, Viewport& viewport, ShadowMap*
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-VoxelizationDebug::~VoxelizationDebug() {
+VoxelizeDebug::~VoxelizeDebug() {
     deleteResources();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
+VoxelizeDebug::VoxelizeDebug(Viewport& viewport) {
     std::vector<Shader::Stage> voxelDebugStages;
     voxelDebugStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\voxelDebug.vert");
     voxelDebugStages.emplace_back(Shader::Type::GEO, "shaders\\OpenGL\\voxelDebug.geom");
@@ -991,7 +778,7 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-VoxelizationDebug::VoxelizationDebug(Viewport& viewport, uint32_t voxelTextureSize) {
+VoxelizeDebug::VoxelizeDebug(Viewport& viewport, uint32_t voxelTextureSize) {
     std::vector<Shader::Stage> voxelDebugStages;
     voxelDebugStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\voxelDebugFast.vert");
     voxelDebugStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\voxelDebugFast.frag");
@@ -1038,7 +825,7 @@ VoxelizationDebug::VoxelizationDebug(Viewport& viewport, uint32_t voxelTextureSi
     indexCount = static_cast<uint32_t>(indexBufferData.size());
 }
 
-void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxelization* voxels) {
+void VoxelizeDebug::render(Viewport& viewport, unsigned int input, Voxelize* voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
     glNamedFramebufferTexture(frameBuffer, GL_COLOR_ATTACHMENT0, input, 0);
@@ -1063,7 +850,7 @@ void VoxelizationDebug::execute(Viewport& viewport, unsigned int input, Voxeliza
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void VoxelizationDebug::execute2(Viewport& viewport, unsigned int input, Voxelization* voxels) {
+void VoxelizeDebug::execute2(Viewport& viewport, unsigned int input, Voxelize* voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
     glDisable(GL_CULL_FACE);
 
@@ -1094,7 +881,7 @@ void VoxelizationDebug::execute2(Viewport& viewport, unsigned int input, Voxeliz
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void VoxelizationDebug::createResources(Viewport& viewport) {
+void VoxelizeDebug::createResources(Viewport& viewport) {
     glCreateRenderbuffers(1, &renderBuffer);
     glNamedRenderbufferStorage(renderBuffer, GL_DEPTH32F_STENCIL8, viewport.size.x, viewport.size.y);
 
@@ -1104,39 +891,26 @@ void VoxelizationDebug::createResources(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void VoxelizationDebug::deleteResources() {
+void VoxelizeDebug::deleteResources() {
     glDeleteRenderbuffers(1, &renderBuffer);
     glDeleteFramebuffers(1, &frameBuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
 
-BoundingBoxDebug::~BoundingBoxDebug() {
-    deleteResources();
+DebugLines::~DebugLines() {
+    glDeleteFramebuffers(1, &frameBuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
 
-BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
+DebugLines::DebugLines() {
     std::vector<Shader::Stage> aabbStages;
     aabbStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\aabb.vert");
     aabbStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\aabb.frag");
     shader.reload(aabbStages.data(), aabbStages.size());
 
-    glCreateTextures(GL_TEXTURE_2D, 1, &result);
-    glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
     glCreateFramebuffers(1, &frameBuffer);
-
-    std::vector<uint32_t> indices =
-    {
-        0, 1, 1, 2, 2, 3, 3, 0, 4,
-        5, 5, 6, 6, 7, 7, 4, 0, 0,
-        0, 4, 1, 5, 2, 6, 3, 7, 7
-    };
-    indexBuffer.loadIndices(indices.data(), indices.size());
 
     vertexBuffer.setLayout(
         {
@@ -1150,16 +924,8 @@ BoundingBoxDebug::BoundingBoxDebug(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer, entt::entity active) {
-    if (active == entt::null) {
-        return;
-    }
-    if (!scene.has<ecs::MeshComponent>(active) || !scene.has<ecs::TransformComponent>(active)) {
-        return;
-    }
-
-    auto& mesh = scene.get<ecs::MeshComponent>(active);
-    auto& transform = scene.get<ecs::TransformComponent>(active);
+void DebugLines::render(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer) {
+    if (points.size() < 2) return;
 
     glEnable(GL_LINE_SMOOTH);
 
@@ -1171,56 +937,21 @@ void BoundingBoxDebug::execute(entt::registry& scene, Viewport& viewport, unsign
     shader.bind();
     shader.getUniform("projection") = viewport.getCamera().getProjection();
     shader.getUniform("view") = viewport.getCamera().getView();
-    shader.getUniform("model") = transform.worldTransform;
 
-    // calculate obb from aabb
-    const auto min = mesh.aabb[0];
-    const auto max = mesh.aabb[1];
-
-    std::vector<Vertex> vertices =
-    {
-        { {min} },
-        { {max[0], min[1], min[2] } },
-        { {max[0], max[1], min[2] } },
-        { {min[0], max[1], min[2] } },
-        { {min[0], min[1], max[2] } },
-        { {max[0], min[1], max[2] } },
-        { {max} },
-        { {min[0], max[1], max[2] } },
-    };
-
-    vertexBuffer.loadVertices(vertices.data(), vertices.size());
-
+    vertexBuffer.loadVertices(points.data(), points.size());
     vertexBuffer.bind();
-    indexBuffer.bind();
 
-    glDrawElements(GL_LINES, (GLsizei)indexBuffer.count, GL_UNSIGNED_INT, nullptr);
+    glDrawArrays(GL_LINES, 0, points.size());
 
     glDisable(GL_LINE_SMOOTH);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    points.clear();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void BoundingBoxDebug::createResources(Viewport& viewport) {
-    glCreateTextures(GL_TEXTURE_2D, 1, &result);
-    glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glCreateFramebuffers(1, &frameBuffer);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void BoundingBoxDebug::deleteResources() {
-    glDeleteTextures(1, &result);
-    glDeleteFramebuffers(1, &frameBuffer);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-Skinning::Skinning() {
+SkinCompute::SkinCompute() {
     std::vector<Shader::Stage> stages;
     stages.emplace_back(Shader::Type::COMPUTE, "shaders\\OpenGL\\skinning.comp");
     computeShader.reload(stages.data(), stages.size());
@@ -1229,7 +960,7 @@ Skinning::Skinning() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Skinning::execute(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim) {
+void SkinCompute::render(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim) {
 
     glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransforms.size() * sizeof(glm::mat4), anim.boneTransforms.data(), GL_DYNAMIC_DRAW);
 
@@ -1333,7 +1064,7 @@ RayCompute::~RayCompute() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void RayCompute::execute(Viewport& viewport, bool update) {
+void RayCompute::render(Viewport& viewport, bool update) {
     // if the shader changed or we moved the camera we clear the result
     if (!update) {
         glDeleteBuffers(1, &sphereBuffer);
@@ -1387,7 +1118,7 @@ void RayCompute::deleteResources() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-WorldIcons::WorldIcons(Viewport& viewport) {
+Icons::Icons(Viewport& viewport) {
     Shader::Stage stages[2] =
     {
         Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\billboard.vert"),
@@ -1414,19 +1145,19 @@ WorldIcons::WorldIcons(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void WorldIcons::createResources(Viewport& viewport) {
+void Icons::createResources(Viewport& viewport) {
     glCreateFramebuffers(1, &framebuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void WorldIcons::destroyResources() {
-    glDeleteRenderbuffers(1, &framebuffer);
+void Icons::destroyResources() {
+    glDeleteFramebuffers(1, &framebuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void WorldIcons::execute(entt::registry& scene, Viewport& viewport, unsigned int screenTexture, unsigned int entityTexture) {
+void Icons::render(entt::registry& scene, Viewport& viewport, unsigned int screenTexture, unsigned int entityTexture) {
     glDisable(GL_CULL_FACE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -1477,241 +1208,67 @@ void WorldIcons::execute(entt::registry& scene, Viewport& viewport, unsigned int
     glEnable(GL_CULL_FACE);
 }
 
-HDRSky::HDRSky() {
-    glShader::Stage equiStages[2] =
-    {
-        glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\equiToCubemap.vert"),
-        glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\equiToCubemap.frag")
-    };
-    equiToCubemapShader.reload(equiStages, 2);
-
-    std::vector skyboxStages
-    {
-        glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert"),
-        glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\skybox.frag")
-    };
-
-
-
-    skyboxShader.reload(skyboxStages.data(), skyboxStages.size());
-
-    glShader::Stage convoluteStages[2] =
-    {
-        glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert"),
-        glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\convolute.frag")
-    };
-    convoluteShader.reload(convoluteStages, 2);
-
-    std::vector prefilterStages
-    {
-        glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert"),
-        glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\prefilter.frag")
-    };
-
-    prefilterShader.reload(prefilterStages.data(), prefilterStages.size());
-
-    std::vector lutStages
-    {
+Atmosphere::Atmosphere(Viewport& viewport) {
+    std::array shaders{
         glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"),
-        glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\brdfLUT.frag")
+        glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\atmosphere.frag")
     };
 
-    brdfLUTshader.reload(lutStages.data(), lutStages.size());
+    shader.reload(shaders.data(), shaders.size());
+    hotloader.watch(&shader, shaders.data(), shaders.size());
 
-    for (const auto& v : unitCubeVertices) {
-        glm::vec3 glPos = v.pos * glm::vec3(2.0) - glm::vec3(1.0);
-        unitCube.positions.push_back(glPos);
-    }
-
-    for (const auto& idx : cubeIndices) {
-        unitCube.indices.push_back(idx.p1);
-        unitCube.indices.push_back(idx.p2);
-        unitCube.indices.push_back(idx.p3);
-    }
-
-    unitCube.uploadVertices();
-    unitCube.uploadIndices();
-
-    glCreateFramebuffers(1, &captureFramebuffer);
-    glCreateFramebuffers(1, &skyboxFramebuffer);
-    glCreateFramebuffers(1, &prefilterFramebuffer);
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &brdfLUT);
-    glTextureStorage2D(brdfLUT, 1, GL_RG16F, 512, 512);
-    glTextureParameteri(brdfLUT, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(brdfLUT, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(brdfLUT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(brdfLUT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &environmentMap);
-    glTextureStorage2D(environmentMap, 1, GL_RGB16F, 4096, 4096);
-    glTextureParameteri(environmentMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(environmentMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(environmentMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(environmentMap, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(environmentMap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &irradianceMap);
-    glTextureStorage2D(irradianceMap, 1, GL_RGB16F, 32, 32);
-    glTextureParameteri(irradianceMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(irradianceMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(irradianceMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(irradianceMap, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(irradianceMap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &prefilterMap);
-    glTextureStorage2D(prefilterMap, 5, GL_RGB16F, 128, 128);
-    glTextureParameteri(prefilterMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(prefilterMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(prefilterMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(prefilterMap, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(prefilterMap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateTextureMipmap(prefilterMap);
+    createResources(viewport);
 }
 
-HDRSky::~HDRSky() {
-    glDeleteFramebuffers(1, &captureFramebuffer);
-    glDeleteFramebuffers(1, &skyboxFramebuffer);
-    glDeleteFramebuffers(1, &prefilterFramebuffer);
-
-    glDeleteTextures(1, &irradianceMap);
-    glDeleteTextures(1, &environmentMap);
-
-    unitCube.destroy();
+Atmosphere::~Atmosphere() {
+    destroyResources();
 }
 
-void HDRSky::execute(const std::string& filepath) {
-    stbi_set_flip_vertically_on_load(true);
-    int w, h, ch;
-    float* data = stbi_loadf(filepath.c_str(), &w, &h, &ch, 3);
+void Atmosphere::createResources(Viewport& viewport) {
+    glCreateFramebuffers(1, &framebuffer);
+}
 
-    if (!data) {
-        std::puts("failed to load envionrment map");
-        return;
-    }
+void Atmosphere::destroyResources() {
+    glDeleteFramebuffers(1, &framebuffer);
+}
 
-    unsigned int hdrTexture;
-    glCreateTextures(GL_TEXTURE_2D, 1, &hdrTexture);
-    glTextureStorage2D(hdrTexture, 1, GL_RGB16F, w, h);
-    glTextureSubImage2D(hdrTexture, 0, 0, 0, w, h, GL_RGB, GL_FLOAT, data);
-    glTextureParameteri(hdrTexture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(hdrTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(hdrTexture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(hdrTexture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+void Atmosphere::render(Viewport& viewport, entt::registry& scene, unsigned int out, unsigned int depth) {
+    hotloader.changed();
 
-    stbi_image_free(data);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, out, 0);
+    glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, depth, 0);
+    glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
 
-    const glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-    const glm::mat4 views[6] =
+    auto light = ecs::DirectionalLightComponent();
+    light.buffer.direction.y = -0.9f;
+
+    shader.bind();
+    shader["invViewProj"] = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
+    shader["cameraPos"] = viewport.getCamera().getPosition();
+
+    // update every light type
+    // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
+    // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -1, 0)
     {
-        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-        glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
-    };
+        auto view = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
+        auto entity = view.front();
+        if (entity != entt::null) {
+            auto& light = view.get<ecs::DirectionalLightComponent>(entity);
+            auto& transform = view.get<ecs::TransformComponent>(entity);
 
-    unitCube.vertexBuffer.bind();
-    unitCube.indexBuffer.bind();
-
-    equiToCubemapShader.bind();
-    equiToCubemapShader["projection"] = projection;
-
-    glBindTextureUnit(0, hdrTexture);
-
-    glViewport(0, 0, 4096, 4096);
-    glBindFramebuffer(GL_FRAMEBUFFER, captureFramebuffer);
-
-    for (unsigned int i = 0; i < 6; ++i) {
-        equiToCubemapShader["view"] = views[i];
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, environmentMap, 0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        glDrawElements(GL_TRIANGLES, unitCube.indices.size(), GL_UNSIGNED_INT, nullptr);
-    }
-
-    glGenerateTextureMipmap(environmentMap);
-
-    convoluteShader.bind();
-    convoluteShader.getUniform("proj") = projection;
-
-    glBindTextureUnit(0, environmentMap);
-
-    glViewport(0, 0, 32, 32);
-
-    for (unsigned int i = 0; i < 6; i++) {
-        convoluteShader.getUniform("view") = views[i];
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradianceMap, 0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        glDrawElements(GL_TRIANGLES, unitCube.indices.size(), GL_UNSIGNED_INT, nullptr);
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glDeleteTextures(1, &hdrTexture);
-
-    prefilterShader.bind();
-    prefilterShader.getUniform("proj") = projection;
-
-    glBindTextureUnit(0, environmentMap);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, prefilterFramebuffer);
-    const unsigned int maxMipLevels = 5;
-    for (unsigned int mip = 0; mip < maxMipLevels; mip++) {
-        unsigned int mipWidth = 128 * std::pow(0.5, mip);
-        unsigned int mipHeight = 128 * std::pow(0.5, mip);
-
-        glViewport(0, 0, mipWidth, mipHeight);
-
-        const float roughness = (float)mip / (float)(maxMipLevels - 1);
-        prefilterShader.getUniform("roughness") = roughness;
-        for (unsigned int i = 0; i < 6; i++) {
-            prefilterShader.getUniform("view") = views[i];
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, prefilterMap, mip);
-            glClear(GL_COLOR_BUFFER_BIT);
-
-            glDrawElements(GL_TRIANGLES, unitCube.indices.size(), GL_UNSIGNED_INT, nullptr);
+            light.buffer.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
+            shader["sunlightDir"] = glm::vec3(light.buffer.direction);
+            shader["sunlightColor"] = glm::vec3(light.buffer.colour);
+        } else {
+            auto light = ecs::DirectionalLightComponent();
+            light.buffer.direction.y = -0.9f;
+            shader["sunlightDir"] = glm::vec3(light.buffer.direction);
+            shader["sunlightColor"] = glm::vec3(light.buffer.colour);
         }
     }
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdfLUT, 0);
-    glViewport(0, 0, 512, 512);
-    brdfLUTshader.bind();
-    glClear(GL_COLOR_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void HDRSky::renderEnvironmentMap(Viewport& viewport, unsigned int colorTarget, unsigned int depthTarget) {
-    glBindFramebuffer(GL_FRAMEBUFFER, skyboxFramebuffer);
-    glNamedFramebufferTexture(skyboxFramebuffer, GL_COLOR_ATTACHMENT0, colorTarget, 0);
-    glNamedFramebufferDrawBuffer(skyboxFramebuffer, GL_COLOR_ATTACHMENT0);
-    glNamedFramebufferTexture(skyboxFramebuffer, GL_DEPTH_ATTACHMENT, depthTarget, 0);
-
-    glDisable(GL_CULL_FACE);
-    glDepthMask(GL_FALSE);
-    glDepthFunc(GL_LEQUAL);
-
-    skyboxShader.bind();
-    skyboxShader.getUniform("proj") = viewport.getCamera().getProjection();
-    skyboxShader.getUniform("view") = glm::mat4(glm::mat3(viewport.getCamera().getView()));
-
-    glBindTextureUnit(0, prefilterMap);
-
-    unitCube.vertexBuffer.bind();
-    unitCube.indexBuffer.bind();
-    glDrawElements(GL_TRIANGLES, unitCube.indices.size(), GL_UNSIGNED_INT, nullptr);
-
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-    glEnable(GL_CULL_FACE);
-}
-
-} // renderpass
 } // namespace Raekor

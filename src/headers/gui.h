@@ -74,6 +74,7 @@ public:
 
 class InspectorWindow {
 public:
+    InspectorWindow(AssetManager& assetManager) : assetManager(assetManager) {}
     void draw(entt::registry& scene, entt::entity& entity);
 
 private:
@@ -86,6 +87,9 @@ private:
     void drawComponent(ecs::NativeScriptComponent& component, entt::registry& scene, entt::entity& active);
     void drawComponent(ecs::MeshAnimationComponent& component, entt::registry& scene, entt::entity& active);
     void drawComponent(ecs::DirectionalLightComponent& component, entt::registry& scene, entt::entity& active);
+
+private:
+    AssetManager& assetManager;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -155,25 +159,6 @@ private:
 class PostprocessWindow {
 public:
     void drawWindow(GLRenderer& renderer);
-};
-
-class EditorGUI {
-public:
-    void draw(GLRenderer& renderer) {
-        
-    }
-
-private:
-    gui::Guizmo gizmo;
-    gui::Dockspace dockspace;
-    gui::TopMenuBar topMenuBar;
-    gui::EntityWindow ecsWindow;
-    gui::AssetWindow assetBrowser;
-    gui::RandomWindow randomWindow;
-    gui::CameraSettings cameraWindow;
-    gui::ViewportWindow viewportWindow;
-    gui::InspectorWindow inspectorWindow;
-    gui::PostprocessWindow postprocessWindow;
 };
 
 } // gui

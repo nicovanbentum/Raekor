@@ -19,6 +19,7 @@ public:
 	entt::entity pickObject(Math::Ray& ray);
 
 	// per frame systems
+	void updateNode(entt::entity node, entt::entity parent);
 	void updateTransforms();
 	void loadMaterialTextures(const std::vector<entt::entity>& materials, AssetManager& assetManager);
 
