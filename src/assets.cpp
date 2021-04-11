@@ -72,6 +72,11 @@ std::string TextureAsset::create(const std::string& filepath) {
     header.dwWidth = width;
     header.dwHeight = height;
     header.dwMipMapCount = mipmapLevels;
+    header.dwFlags |= DDSD_MIPMAPCOUNT | DDSD_LINEARSIZE;
+    header.dwPitchOrLinearSize = std::max(1, ((width + 3) / 4)) * std::max(1, ((height + 3) / 4)) * 16;
+    header.ddspf = DDS_PIXELFORMAT();
+    header.dwCaps |= DDSCAPS_COMPLEX | DDSCAPS_MIPMAP;
+    header.dwDepth = 0;
 
     // copy the header
     memcpy(ddsBuffer.data() + 4, &header, sizeof(DDS_HEADER));

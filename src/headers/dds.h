@@ -6,17 +6,23 @@ namespace Raekor {
 //
 void rygCompress(unsigned char* dst, unsigned char* src, int w, int h, int isDxt5);
 
+#ifndef MAKEFOURCC
+#define MAKEFOURCC(ch0, ch1, ch2, ch3)                              \
+                ((uint32)(byte)(ch0) | ((uint32)(byte)(ch1) << 8) |       \
+                ((uint32)(byte)(ch2) << 16) | ((uint32)(byte)(ch3) << 24))
+#endif /* defined(MAKEFOURCC) */
+
 constexpr DWORD DDS_MAGIC = 0x20534444;
 
 struct DDS_PIXELFORMAT {
-    DWORD dwSize;
-    DWORD dwFlags;
-    DWORD dwFourCC;
-    DWORD dwRGBBitCount;
-    DWORD dwRBitMask;
-    DWORD dwGBitMask;
-    DWORD dwBBitMask;
-    DWORD dwABitMask;
+    DWORD dwSize = 32;
+    DWORD dwFlags = 0x4;
+    DWORD dwFourCC = MAKEFOURCC('D', 'X', 'T', '5');
+    DWORD dwRGBBitCount = 32;
+    DWORD dwRBitMask = 0xff000000;
+    DWORD dwGBitMask = 0x00ff0000;
+    DWORD dwBBitMask = 0x0000ff00;
+    DWORD dwABitMask = 0x000000ff;
 };
 
 enum DDS_FLAGS {
