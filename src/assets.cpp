@@ -67,16 +67,27 @@ std::string TextureAsset::create(const std::string& filepath) {
     // copy the magic number
     memcpy(ddsBuffer.data(), &DDS_MAGIC, sizeof(DDS_MAGIC));
 
+    DDS_PIXELFORMAT pixelFormat;
+    pixelFormat.dwSize = 32;
+    pixelFormat.dwFlags = 0x4;
+    pixelFormat.dwFourCC = MAKEFOURCC('D', 'X', 'T', '5');
+    pixelFormat.dwRGBBitCount = 32;
+    pixelFormat.dwRBitMask = 0xff000000;
+    pixelFormat.dwGBitMask = 0x00ff0000;
+    pixelFormat.dwBBitMask = 0x0000ff00;
+    pixelFormat.dwABitMask = 0x000000ff;
+    
     // fill out the header
     DDS_HEADER header;
-    header.dwWidth = width;
+    header.dwSize = 124;
+    header.dwFlags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT | DDSD_MIPMAPCOUNT | DDSD_LINEARSIZE;
     header.dwHeight = height;
-    header.dwMipMapCount = mipmapLevels;
-    header.dwFlags |= DDSD_MIPMAPCOUNT | DDSD_LINEARSIZE;
+    header.dwWidth = width;
     header.dwPitchOrLinearSize = std::max(1, ((width + 3) / 4)) * std::max(1, ((height + 3) / 4)) * 16;
-    header.ddspf = DDS_PIXELFORMAT();
-    header.dwCaps |= DDSCAPS_COMPLEX | DDSCAPS_MIPMAP;
     header.dwDepth = 0;
+    header.dwMipMapCount = mipmapLevels;
+    header.ddspf = pixelFormat;
+    header.dwCaps = DDSCAPS_TEXTURE |DDSCAPS_COMPLEX | DDSCAPS_MIPMAP;
 
     // copy the header
     memcpy(ddsBuffer.data() + 4, &header, sizeof(DDS_HEADER));

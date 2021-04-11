@@ -4,46 +4,27 @@
 #include "gui.h"
 #include "physics.h"
 #include "assets.h"
+#include "../GUI/widget.h"
 
 namespace Raekor {
 
-class EditorOpenGL : public WindowApplication {
+class Editor : public WindowApplication {
 public:
-    EditorOpenGL();
-    virtual ~EditorOpenGL() = default;
-
-
+    Editor();
+    virtual ~Editor() = default;
+    
     virtual void update(float dt);
     virtual void onEvent(const SDL_Event& event);
 
-private:
     Scene scene;
-    entt::entity active = entt::null;
-    entt::entity defaultMaterialEntity;
-
-    AssetManager assetManager;
-
-    ecs::MeshComponent quad;
-
     GLRenderer renderer;
+    AssetManager assetManager;
+    entt::entity active = entt::null;
 
-    bool inAltMode = false;
-
-    bool mouseInViewport = false;
-    bool doSSAO = false, doBloom = false, debugVoxels = false;
-    bool shouldVoxelize = true, gizmoEnabled = false, showSettingsWindow = false;
-
+private:
     Physics physics;
-    gui::Dockspace dockspace;
-    gui::TopMenuBar topMenuBar;
-    gui::EntityWindow ecsWindow;
-    gui::AssetWindow assetBrowser;
-    gui::RandomWindow randomWindow;
-    gui::ConsoleWindow consoleWindow;
-    gui::CameraSettings cameraWindow;
-    gui::ViewportWindow viewportWindow;
-    gui::InspectorWindow inspectorWindow;
-    gui::PostprocessWindow postprocessWindow;
+    bool inAltMode = false;
+    std::vector<std::shared_ptr<IWidget>> widgets;
 };
 
 } // raekor

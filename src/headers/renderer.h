@@ -20,12 +20,10 @@ public:
     void ImGui_Render();
     void ImGui_NewFrame(SDL_Window* window);
 
-    void addLine(glm::vec3 p1, glm::vec3 p2) {
-        debugPass->points.push_back(p1);
-        debugPass->points.push_back(p2);
-    }
+    void drawLine(glm::vec3 p1, glm::vec3 p2);
+    void drawBox(glm::vec3 min, glm::vec3 max, glm::mat4& m = glm::mat4(1.0f));
 
-    void render(entt::registry& scene, Viewport& viewport, entt::entity& active);
+    void render(entt::registry& scene, Viewport& viewport);
     void createResources(Viewport& viewport);
 
 public:

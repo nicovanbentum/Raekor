@@ -3,6 +3,8 @@
 #include "input.h"
 #include "platform/OS.h"
 
+#include "gui/viewportWidget.h"
+
 namespace Raekor {
 
 RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(window, viewport) {
@@ -29,7 +31,6 @@ RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(
     viewport.getCamera().move(glm::vec2(-3, 3));
     viewport.getCamera().zoom(19);
     viewport.getCamera().look(-3.3f, .2f);
-
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -37,7 +38,7 @@ RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(
 void RayTraceApp::update(float dt) {
     //TODO: bool inFreeCameraMode = InputHandler::handleEvents(this, true, dt);
     bool inFreeCameraMode = false;
-    viewport.getCamera().update(true);
+    viewport.getCamera().update();
 
     // clear the main window
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -64,7 +65,31 @@ void RayTraceApp::update(float dt) {
         }
     }
 
-    dockspace.begin();
+    ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(imGuiViewport->Pos);
+    ImGui::SetNextWindowSize(imGuiViewport->Size);
+    ImGui::SetNextWindowViewport(imGuiViewport->ID);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) {
+        dockWindowFlags |= ImGuiWindowFlags_NoBackground;
+    }
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("DockSpace", (bool*)true, dockWindowFlags);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+    }
     ImGui::Begin("Settings");
 
     if (ImGui::TreeNode("Screen Texture")) {
@@ -136,10 +161,6 @@ void RayTraceApp::update(float dt) {
 
     ImGui::End();
     
-    cameraSettingsWindow.drawWindow(viewport.getCamera());
-
-    gizmo.drawWindow();
-
     // renderer viewport
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
@@ -167,7 +188,7 @@ void RayTraceApp::update(float dt) {
     auto deltaMatrix = glm::mat4(1.0f);
     
     if (ImGuizmo::Manipulate(glm::value_ptr(viewport.getCamera().getView()), glm::value_ptr(viewport.getCamera().getProjection()),
-        gizmo.getOperation(), ImGuizmo::MODE::LOCAL, glm::value_ptr(matrix), glm::value_ptr(deltaMatrix))) {
+        ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::LOCAL, glm::value_ptr(matrix), glm::value_ptr(deltaMatrix))) {
         // update the transformation
         ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(matrix), glm::value_ptr(rayTracePass->spheres[activeSphere].origin),
         glm::value_ptr(rotation),glm::value_ptr(scale));
@@ -176,7 +197,6 @@ void RayTraceApp::update(float dt) {
         sceneChanged = true;
     }
 
-    auto& io = ImGui::GetIO();
     if (io.MouseClicked[0] && ImGui::IsWindowHovered() && !ImGuizmo::IsOver(ImGuizmo::OPERATION::TRANSLATE)) {
         // get mouse position in window
         glm::ivec2 mousePosition;
@@ -226,7 +246,7 @@ void RayTraceApp::update(float dt) {
     ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
     ImGui::End();
 
-    dockspace.end();
+    ImGui::End();
 
     renderer.ImGui_Render();
     
@@ -281,9 +301,6 @@ VulkanApp::VulkanApp() : WindowApplication(RendererFlags::VULKAN), vk(window) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void VulkanApp::update(float dt) {
-    //handle sdl and imgui events
-    // TODO: InputHandler::handleEvents(this, false, dt);
-
     // update the mvp structs
     auto& camera = viewport.getCamera();
     for (uint32_t i = 0; i < mods.size(); i++) {
@@ -302,7 +319,31 @@ void VulkanApp::update(float dt) {
     ImGuizmo::BeginFrame();
     ImGuizmo::Enable(true);
 
-    dockspace.begin();
+    ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(imGuiViewport->Pos);
+    ImGui::SetNextWindowSize(imGuiViewport->Size);
+    ImGui::SetNextWindowViewport(imGuiViewport->ID);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) {
+        dockWindowFlags |= ImGuiWindowFlags_NoBackground;
+    }
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("DockSpace", (bool*)true, dockWindowFlags);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+    }
 
     ImGui::Begin("ECS", (bool*)0, ImGuiWindowFlags_AlwaysAutoResize);
     if (ImGui::Button("Add Model")) {
@@ -347,16 +388,15 @@ void VulkanApp::update(float dt) {
 
     ImGui::End();
 
-
     // End DOCKSPACE
-    dockspace.end();
+    ImGui::End();
 
     // tell imgui to collect render data
     ImGui::Render();
     // record the collected data to secondary command buffers
     vk.ImGuiRecord();
     // start the overall render pass
-    camera.update(false);
+    camera.update();
 
     glm::mat4 sky_matrix = camera.getProjection() * glm::mat4(glm::mat3(camera.getView())) * glm::mat4(1.0f);
 
@@ -364,10 +404,9 @@ void VulkanApp::update(float dt) {
     // tell imgui we're done with the current frame
     ImGui::EndFrame();
 
-    if (shouldRecreateSwapchain || shouldResize) {
+    if (shouldRecreateSwapchain) {
         vk.recreateSwapchain(useVsync);
         shouldRecreateSwapchain = false;
-        shouldResize = false;
     }
 }
 

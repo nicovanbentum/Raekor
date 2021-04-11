@@ -7,7 +7,7 @@
 namespace Raekor {
 
 WindowApplication::WindowApplication(RendererFlags flag) : 
-    window(nullptr), running(true), shouldResize(false), settings("config.json") 
+    window(nullptr), running(true), settings("config.json") 
 {
     int sdlError = SDL_Init(SDL_INIT_VIDEO);
     m_assert(sdlError == 0, "failed to init SDL for video");

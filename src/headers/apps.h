@@ -6,6 +6,8 @@
 #include "timer.h"
 #include "../VK/VKRenderer.h"
 
+#include "gui/widget.h"
+
 namespace Raekor {
 
 class RayTraceApp : public WindowApplication {
@@ -24,11 +26,7 @@ private:
     unsigned int activeScreenTexture = 0;
 
     GLRenderer renderer;
-
-    gui::Guizmo gizmo;
-    gui::Dockspace dockspace;
-    gui::ViewportWindow viewportWindow;
-    gui::CameraSettings cameraSettingsWindow;
+    std::vector<std::shared_ptr<IWidget>> widgets;
     std::unique_ptr<RayCompute> rayTracePass;
 };
 
@@ -63,8 +61,7 @@ private:
 
     bool useVsync = true, shouldRecreateSwapchain = false;
 
-    gui::Dockspace dockspace;
-    gui::ViewportWindow viewportWindow;
+    std::shared_ptr<IWidget> viewportWindow;
 };
 
 } // raekor

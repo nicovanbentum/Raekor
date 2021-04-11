@@ -162,7 +162,7 @@ private:
 
 };
 
-void GLRenderer::render(entt::registry& scene, Viewport& viewport, entt::entity& active) {
+void GLRenderer::render(entt::registry& scene, Viewport& viewport) {
     scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
         skinningPass->render(mesh, animation);
     });
@@ -211,6 +211,26 @@ void GLRenderer::render(entt::registry& scene, Viewport& viewport, entt::entity&
     if (settings.debugVoxels) {
         voxelizeDebugPass->render(viewport, tonemappingPass->result, voxelizePass.get());
     }
+}
+
+void GLRenderer::drawLine(glm::vec3 p1, glm::vec3 p2) {
+    debugPass->points.push_back(p1);
+    debugPass->points.push_back(p2);
+}
+
+void GLRenderer::drawBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
+    drawLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
+    drawLine(glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

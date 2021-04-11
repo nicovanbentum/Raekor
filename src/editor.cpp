@@ -1,25 +1,28 @@
 #include "pch.h"
 #include "editor.h"
-#include "gui.h"
 #include "input.h"
 #include "systems.h"
 #include "platform/OS.h"
 #include "cvars.h"
 
+#include "gui/assetsWidget.h"
+#include "gui/randomWidget.h"
+#include "gui/menubarWidget.h"
+#include "gui/consoleWidget.h"
+#include "gui/viewportWidget.h"
+#include "gui/inspectorWidget.h"
+#include "gui/hierarchyWidget.h"
+
 namespace Raekor
 {
 
-EditorOpenGL::EditorOpenGL() : 
+Editor::Editor() : 
     WindowApplication(RendererFlags::OPENGL), 
-    renderer(window, viewport), 
-    inspectorWindow(assetManager) 
+    renderer(window, viewport)
 {
     // gui stuff
     gui::setFont(settings.font.c_str());
     gui::setTheme(settings.themeColors);
-
-    // keep a pointer to the texture that's rendered to the window
-    std::cout << "Initialization done." << std::endl;
 
     if (std::filesystem::is_regular_file(settings.defaultScene)) {
         if (std::filesystem::path(settings.defaultScene).extension() == ".scene") {
@@ -28,12 +31,20 @@ EditorOpenGL::EditorOpenGL() :
         }
     }
 
-    viewportWindow.setTexture(renderer.tonemappingPass->result);
+    widgets.emplace_back(new AssetsWidget(this));
+    widgets.emplace_back(new InspectorWidget(this));
+    widgets.emplace_back(new HierarchyWidget(this));
+    widgets.emplace_back(new MenubarWidget(this));
+    widgets.emplace_back(new ConsoleWidget(this));
+    widgets.emplace_back(new ViewportWidget(this));
+    widgets.emplace_back(new RandomWidget(this));
+    
+    std::cout << "Initialization done." << std::endl;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void EditorOpenGL::update(float dt) {
+void Editor::update(float dt) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         onEvent(event);
@@ -63,7 +74,7 @@ void EditorOpenGL::update(float dt) {
                 }
             }
             if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                //renderer.createResources(viewport);
+                renderer.createResources(viewport);
             }
 
         }
@@ -84,7 +95,7 @@ void EditorOpenGL::update(float dt) {
     });
 
     // update camera
-    viewport.getCamera().update(true);
+    viewport.getCamera().update();
 
     // update scripts
     scene->view<ecs::NativeScriptComponent>().each([&](ecs::NativeScriptComponent& component) {
@@ -100,28 +111,11 @@ void EditorOpenGL::update(float dt) {
         const auto min = mesh.aabb[0];
         const auto max = mesh.aabb[1];
 
-        auto DrawLine = [&](glm::vec3 v1, glm::vec3 v2) {
-            v1 = glm::vec3(transform.localTransform * glm::vec4(v1, 1.0f));
-            v2 = glm::vec3(transform.localTransform * glm::vec4(v2, 1.0f));
-            renderer.addLine(v1, v2);
-        };
-
-        DrawLine(glm::vec3(min.x, min.y, min.z), glm::vec3(max.x, min.y, min.z));
-        DrawLine(glm::vec3(max.x, min.y, min.z), glm::vec3(max.x, max.y, min.z));
-        DrawLine(glm::vec3(max.x, max.y, min.z), glm::vec3(min.x, max.y, min.z));
-        DrawLine(glm::vec3(min.x, max.y, min.z), glm::vec3(min.x, min.y, min.z));
-        DrawLine(glm::vec3(min.x, min.y, min.z), glm::vec3(min.x, min.y, max.z));
-        DrawLine(glm::vec3(max.x, min.y, min.z), glm::vec3(max.x, min.y, max.z));
-        DrawLine(glm::vec3(max.x, max.y, min.z), glm::vec3(max.x, max.y, max.z));
-        DrawLine(glm::vec3(min.x, max.y, min.z), glm::vec3(min.x, max.y, max.z));
-        DrawLine(glm::vec3(min.x, min.y, max.z), glm::vec3(max.x, min.y, max.z));
-        DrawLine(glm::vec3(max.x, min.y, max.z), glm::vec3(max.x, max.y, max.z));
-        DrawLine(glm::vec3(max.x, max.y, max.z), glm::vec3(min.x, max.y, max.z));
-        DrawLine(glm::vec3(min.x, max.y, max.z), glm::vec3(min.x, min.y, max.z));
+        renderer.drawBox(min, max, transform.localTransform);
     }
 
     // render scene
-    renderer.render(scene, viewport, active);
+    renderer.render(scene, viewport);
 
     //get new frame for ImGui and ImGuizmo
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -132,84 +126,48 @@ void EditorOpenGL::update(float dt) {
         // perform input mapping
     }
 
-    dockspace.begin();
+    // begin ImGui dockspace
+    ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(imGuiViewport->Pos);
+    ImGui::SetNextWindowSize(imGuiViewport->Size);
+    ImGui::SetNextWindowViewport(imGuiViewport->ID);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
-    topMenuBar.draw(this, scene, renderer, assetManager, active);
+    ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) {
+        dockWindowFlags |= ImGuiWindowFlags_NoBackground;
+    }
 
-    if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Delete), true)) {
-        if (active != entt::null) {
-            if (scene->has<ecs::NodeComponent>(active)) {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("DockSpace", (bool*)true, dockWindowFlags);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
 
-                auto childTree = NodeSystem::getFlatHierarchy(scene, scene->get<ecs::NodeComponent>(active));
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+    }
 
-                for (auto entity : childTree) {
-                    NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(entity));
-                    scene->destroy(entity);
-                }
-
-                NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(active));
-                scene->destroy(active);
-            } else {
-                scene->destroy(active);
-            }
-
-            active = entt::null;
+    // draw all the widgets
+    for (auto widget : widgets) {
+        if (widget->isVisible()) {
+            widget->draw();
         }
     }
 
-    if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_C), true)) {
-        if (SDL_GetModState() & KMOD_LCTRL) {
-            auto copy = scene->create();
-
-            scene->visit(active, [&](const entt::id_type id) {
-                for_each_tuple_element(ecs::Components, [&](auto component) {
-                    using type = decltype(component)::type;
-                    if (id == entt::type_info<type>::id()) {
-                        ecs::clone<type>(scene, active, copy);
-                    }
-                });
-            });
-        }
-    }
-
-    bool open = true;
-    consoleWindow.Draw("Console", &open);
-
-    assetBrowser.drawWindow(scene, active);
-
-    inspectorWindow.draw(scene, active);
-
-    ecsWindow.draw(scene, active);
-
-    // post processing panel
-    postprocessWindow.drawWindow(renderer);
-
-    // scene panel
-    randomWindow.drawWindow(renderer, viewportWindow);
-
-    cameraWindow.drawWindow(viewport.getCamera());
-
-    bool resized = viewportWindow.draw(viewport, renderer, scene, active);
-
-    if (resized) {
-        viewportWindow.setTexture(renderer.tonemappingPass->result);
-    }
-
-    dockspace.end();
+    // end ImGui dockspace
+    ImGui::End();
 
     renderer.ImGui_Render();
     SDL_GL_SwapWindow(window);
-
-    if (resized) {
-        renderer.createResources(viewport);
-    }
-
-    float pixel;
-    //glGetTextureSubImage(renderer.geometryBufferPass->entityTexture, 0, 1, 1,
-    //   0, 1, 1, 1, GL_RED, GL_FLOAT, sizeof(float), &pixel);
 }
 
-void EditorOpenGL::onEvent(const SDL_Event& event) {
+void Editor::onEvent(const SDL_Event& event) {
     // free the mouse if the window loses focus
     auto flags = SDL_GetWindowFlags(window);
     if (!(flags & SDL_WINDOW_INPUT_FOCUS || flags & SDL_WINDOW_MINIMIZED) && inAltMode) {
@@ -221,11 +179,44 @@ void EditorOpenGL::onEvent(const SDL_Event& event) {
     // key down and not repeating a hold
     if (event.type == SDL_KEYDOWN && !event.key.repeat) {
         switch (event.key.keysym.sym) {
-            case SDLK_LALT:
-            {
+            case SDLK_LALT: {
                 inAltMode = !inAltMode;
                 SDL_SetRelativeMouseMode(static_cast<SDL_bool>(inAltMode));
-            } break;
+            };
+            case SDLK_DELETE: {
+                if (active != entt::null) {
+                    if (scene->has<ecs::NodeComponent>(active)) {
+
+                        auto childTree = NodeSystem::getFlatHierarchy(scene, scene->get<ecs::NodeComponent>(active));
+
+                        for (auto entity : childTree) {
+                            NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(entity));
+                            scene->destroy(entity);
+                        }
+
+                        NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(active));
+                        scene->destroy(active);
+                    } else {
+                        scene->destroy(active);
+                    }
+
+                    active = entt::null;
+                }
+            };
+            case SDLK_c: {
+                if (SDL_GetModState() & KMOD_LCTRL) {
+                    auto copy = scene->create();
+
+                    scene->visit(active, [&](const entt::id_type id) {
+                        for_each_tuple_element(ecs::Components, [&](auto component) {
+                            using type = decltype(component)::type;
+                            if (id == entt::type_info<type>::id()) {
+                                ecs::clone<type>(scene, active, copy);
+                            }
+                        });
+                    });
+                }
+            };
         }
     }
 }
