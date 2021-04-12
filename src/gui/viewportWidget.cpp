@@ -2,6 +2,8 @@
 #include "viewportWidget.h"
 #include "editor.h"
 
+#include "IconsFontAwesome5.h"
+
 namespace Raekor {
 
 ViewportWidget::ViewportWidget(Editor* editor) : 
@@ -16,8 +18,32 @@ void ViewportWidget::draw() {
     auto& viewport = editor->getViewport();
 
     // renderer viewport
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4.0f));
     ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+
+    if (ImGui::Checkbox("Gizmo", &enabled)) {
+        ImGuizmo::Enable(enabled);
+    } ImGui::SameLine();
+
+    if (ImGui::RadioButton("Move", operation == ImGuizmo::OPERATION::TRANSLATE)) {
+        operation = ImGuizmo::OPERATION::TRANSLATE;
+    } ImGui::SameLine();
+
+    if (ImGui::RadioButton("Rotate", operation == ImGuizmo::OPERATION::ROTATE)) {
+        operation = ImGuizmo::OPERATION::ROTATE;
+    } ImGui::SameLine();
+
+    if (ImGui::RadioButton("Scale", operation == ImGuizmo::OPERATION::SCALE)) {
+        operation = ImGuizmo::OPERATION::SCALE;
+    }
+
+    ImGui::SameLine((ImGui::GetContentRegionAvail().x / 2) - ImGui::GetFrameHeightWithSpacing() * 1.5f);
+
+    ImGui::Button(ICON_FA_HAMMER);
+    ImGui::SameLine();
+    ImGui::Button(ICON_FA_PLAY);
+    ImGui::SameLine();
+    ImGui::Button(ICON_FA_STOP);
 
     // figure out if we need to resize the viewport
     auto size = ImGui::GetContentRegionAvail();
@@ -55,7 +81,7 @@ void ViewportWidget::draw() {
     mouseInViewport = ImGui::IsWindowHovered();
 
     auto& io = ImGui::GetIO();
-    if (io.MouseClicked[0] && mouseInViewport && !(editor->active != entt::null && ImGuizmo::IsOver(ImGuizmo::OPERATION::TRANSLATE))) {
+    if (io.MouseClicked[0] && mouseInViewport && !(editor->active != entt::null && ImGuizmo::IsOver(operation))) {
         auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos());
         uint32_t pixel = editor->renderer.GBufferPass->readEntity(mousePos.x, mousePos.y);
         entt::entity picked = static_cast<entt::entity>(pixel);
@@ -67,10 +93,9 @@ void ViewportWidget::draw() {
         }
     }
 
-    if (editor->active != entt::null) {
+    if (editor->active != entt::null && enabled) {
         if (!editor->scene->valid(editor->active) || 
             !editor->scene->has<ecs::TransformComponent>(editor->active)) {
-            return;
         }
 
         // set the gizmo's viewport
@@ -89,7 +114,7 @@ void ViewportWidget::draw() {
         bool manipulated = ImGuizmo::Manipulate(
             glm::value_ptr(viewport.getCamera().getView()),
             glm::value_ptr(viewport.getCamera().getProjection()),
-            ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::LOCAL,
+            operation, ImGuizmo::MODE::LOCAL,
             glm::value_ptr(transform.localTransform)
         );
 
@@ -104,7 +129,9 @@ void ViewportWidget::draw() {
         }
     }
 
-    ImGui::SetNextWindowPos(ImGui::GetWindowPos());
+    auto metricsPosition = ImGui::GetWindowPos();
+    metricsPosition.y += ImGui::GetFrameHeightWithSpacing();
+    ImGui::SetNextWindowPos(metricsPosition);
 
     ImGui::End();
     ImGui::PopStyleVar();

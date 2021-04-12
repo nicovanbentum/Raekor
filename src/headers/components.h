@@ -26,6 +26,8 @@ struct TransformComponent {
     glm::mat4 localTransform  = glm::mat4(1.0f);
     glm::mat4 worldTransform  = glm::mat4(1.0f);
 
+    bool dirty = true;
+
     void compose();
     void decompose();
 };

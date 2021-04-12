@@ -14,9 +14,8 @@ public:
     bool isVisible() { return visible; }
 
 protected:
-    bool visible = true;
-    ImDrawList* drawList;
     Editor* editor;
+    bool visible = true;
 };
 
 }

@@ -12,6 +12,8 @@ public:
     virtual void draw() override;
 
 private:
+    bool enabled;
+    ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
     bool mouseInViewport;
     GLuint* rendertarget;
 };

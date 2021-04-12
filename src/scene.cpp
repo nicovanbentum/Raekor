@@ -107,15 +107,10 @@ void Scene::updateTransforms() {
         auto& node = nodeView.get<ecs::NodeComponent>(entity);
         auto& transform = nodeView.get<ecs::TransformComponent>(entity);
 
-        updateNode(entity, node.parent);
-
-        /*auto currentMatrix = transform.localTransform;
-
-        for (auto parent = node.parent; parent != entt::null; parent = nodeView.get<ecs::NodeComponent>(parent).parent) {
-            currentMatrix *= nodeView.get<ecs::TransformComponent>(parent).worldTransform;
+        if (node.parent == entt::null) {
+            updateNode(entity, node.parent);
         }
 
-        transform.worldTransform = currentMatrix;*/
     }
 }
 

@@ -31,13 +31,13 @@ Editor::Editor() :
         }
     }
 
+    widgets.emplace_back(new ConsoleWidget(this));
     widgets.emplace_back(new AssetsWidget(this));
     widgets.emplace_back(new InspectorWidget(this));
     widgets.emplace_back(new HierarchyWidget(this));
     widgets.emplace_back(new MenubarWidget(this));
-    widgets.emplace_back(new ConsoleWidget(this));
-    widgets.emplace_back(new ViewportWidget(this));
     widgets.emplace_back(new RandomWidget(this));
+    widgets.emplace_back(new ViewportWidget(this));
     
     std::cout << "Initialization done." << std::endl;
 }
@@ -182,7 +182,7 @@ void Editor::onEvent(const SDL_Event& event) {
             case SDLK_LALT: {
                 inAltMode = !inAltMode;
                 SDL_SetRelativeMouseMode(static_cast<SDL_bool>(inAltMode));
-            };
+            }break;
             case SDLK_DELETE: {
                 if (active != entt::null) {
                     if (scene->has<ecs::NodeComponent>(active)) {
@@ -202,7 +202,7 @@ void Editor::onEvent(const SDL_Event& event) {
 
                     active = entt::null;
                 }
-            };
+            }break;
             case SDLK_c: {
                 if (SDL_GetModState() & KMOD_LCTRL) {
                     auto copy = scene->create();
@@ -216,7 +216,7 @@ void Editor::onEvent(const SDL_Event& event) {
                         });
                     });
                 }
-            };
+            }break;
         }
     }
 }
