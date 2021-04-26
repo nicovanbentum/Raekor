@@ -7,31 +7,59 @@
 
 namespace Raekor {
 
+class GLTimer {
+public:
+    GLTimer() {
+        glGenQueries(2, queries);
+        glBeginQuery(GL_TIME_ELAPSED, queries[1]);
+        glEndQuery(GL_TIME_ELAPSED);
+    }
+
+    ~GLTimer() {
+        glDeleteQueries(2, queries);
+    }
+
+    void Begin() {
+        glBeginQuery(GL_TIME_ELAPSED, queries[index]);
+    }
+
+    void End() {
+        glEndQuery(GL_TIME_ELAPSED);
+        glGetQueryObjectui64v(queries[!index], GL_QUERY_RESULT_NO_WAIT, &time);
+        index = !index;
+    }
+
+    float GetMilliseconds() {
+        return time * 0.000001f;
+    }
+
+private:
+    GLuint64 time;
+    GLuint index = 0;
+    GLuint queries[2];
+};
+
 class ShadowMap {
  public:
-    struct {
-        glm::mat4 cameraMatrix;
-    } uniforms;
-
      struct {
-         glm::vec<2, float> planes = { 1.0f, 200.0f };
-         float size = 75.0f;
          float depthBiasConstant = 1.25f;
          float depthBiasSlope = 1.75f;
+         float cascadeSplitLambda = 0.985f;
      } settings;
 
     ~ShadowMap();
     ShadowMap(uint32_t width, uint32_t height);
 
-    void render(entt::registry& scene);
+    void render(Viewport& viewport, entt::registry& scene);
 
 private:
     glShader shader;
     unsigned int framebuffer;
-    glUniformBuffer uniformBuffer;
 
 public:
-    unsigned int result;
+    unsigned int cascades;
+    glm::vec4 m_splits;
+    std::array<glm::mat4, 4> matrices;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -249,7 +277,8 @@ class DeferredShading {
 private:
     struct {
         glm::mat4 view, projection;
-        glm::mat4 lightSpaceMatrix;
+        std::array<glm::mat4, 4> shadowMatrices;
+        glm::vec4 shadowSplits;
         glm::vec4 cameraPosition;
         ecs::DirectionalLightComponent::ShaderBuffer dirLights[1];
         ecs::PointLightComponent::ShaderBuffer pointLights[10];
@@ -270,6 +299,8 @@ public:
     void render(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap,
         GBuffer* GBuffer, Voxelize* voxels);
 
+    float getTimeMs() { return timer.GetMilliseconds(); }
+
     void createResources(Viewport& viewport);
     void deleteResources();
 
@@ -278,7 +309,9 @@ private:
     unsigned int framebuffer;
     glUniformBuffer uniformBuffer;
 
+    GLTimer timer;
     ShaderHotloader hotloader;
+
 
 public:
     unsigned int result;

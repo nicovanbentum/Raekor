@@ -262,6 +262,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\gui\hierarchyWidget.cpp" />
     <ClCompile Include="src\gui\inspectorWidget.cpp" />
     <ClCompile Include="src\gui\menubarWidget.cpp" />
+    <ClCompile Include="src\gui\metricsWidget.cpp" />
     <ClCompile Include="src\gui\randomWidget.cpp" />
     <ClCompile Include="src\gui\viewportWidget.cpp" />
     <ClCompile Include="src\gui\widget.cpp" />
@@ -328,6 +329,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\gui\hierarchyWidget.h" />
     <ClInclude Include="src\gui\inspectorWidget.h" />
     <ClInclude Include="src\gui\menubarWidget.h" />
+    <ClInclude Include="src\gui\metricsWidget.h" />
     <ClInclude Include="src\gui\randomWidget.h" />
     <ClInclude Include="src\gui\viewportWidget.h" />
     <ClInclude Include="src\gui\widget.h" />

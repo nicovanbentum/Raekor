@@ -14,6 +14,31 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
+// header only Cereal library
+#include "cereal/archives/json.hpp"
+#include "cereal/archives/binary.hpp"
+#include "cereal/types/map.hpp"
+#include "cereal/types/array.hpp"
+#include "cereal/types/string.hpp"
+#include "cereal/types/complex.hpp"
+#include "cereal/types/vector.hpp"
+#include "cereal/types/variant.hpp"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// ImGui library
+#include "imconfig.h"
+#include "imgui.h"
+#include "imgui_impl_opengl3.h"
+#include "imgui_impl_sdl.h"
+#include "imgui_impl_vulkan.h"
+#include "imgui_internal.h"
+#include "misc/cpp/imgui_stdlib.h"
+
+#ifdef _WIN32
+#include "imgui_impl_dx11.h"
+#endif
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // platform specific includes
 
 #ifdef _WIN32
@@ -54,20 +79,6 @@
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_vulkan.h"
 #undef main //stupid sdl_main
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-// ImGui library
-#include "imconfig.h"
-#include "imgui.h"
-#include "imgui_impl_opengl3.h"
-#include "imgui_impl_sdl.h"
-#include "imgui_impl_vulkan.h"
-#include "misc/cpp/imgui_stdlib.h"
-#include "imgui_internal.h"
-
-#ifdef _WIN32
-    #include "imgui_impl_dx11.h"
-#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // ImGuizmo library
@@ -113,18 +124,6 @@
 
 #include <filesystem>
 namespace fs = std::filesystem;
-
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-// header only Cereal library
-#include "cereal/archives/json.hpp"
-#include "cereal/archives/binary.hpp"
-#include "cereal/types/map.hpp"
-#include "cereal/types/array.hpp"
-#include "cereal/types/string.hpp"
-#include "cereal/types/complex.hpp"
-#include "cereal/types/vector.hpp"
-#include "cereal/types/variant.hpp"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // include stb image

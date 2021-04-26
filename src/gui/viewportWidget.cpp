@@ -7,7 +7,7 @@
 namespace Raekor {
 
 ViewportWidget::ViewportWidget(Editor* editor) : 
-    IWidget(editor),
+    IWidget(editor, "Viewport"),
     mouseInViewport(false),
     rendertarget(&editor->renderer.tonemappingPass->result)
 {}
@@ -19,7 +19,7 @@ void ViewportWidget::draw() {
 
     // renderer viewport
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4.0f));
-    ImGui::Begin("Renderer", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::Begin(title.c_str(), NULL, ImGuiWindowFlags_AlwaysAutoResize);
 
     if (ImGui::Checkbox("Gizmo", &enabled)) {
         ImGuizmo::Enable(enabled);
@@ -64,8 +64,8 @@ void ViewportWidget::draw() {
             uint32_t pixel = editor->renderer.GBufferPass->readEntity(mousePos.x, mousePos.y);
             entt::entity picked = static_cast<entt::entity>(pixel);
 
-            if (editor->scene->valid(picked)) {
-                auto mesh = editor->scene->try_get<ecs::MeshComponent>(picked);
+            if (editor->scene.valid(picked)) {
+                auto mesh = editor->scene.try_get<ecs::MeshComponent>(picked);
                 if (mesh) {
                     mesh->material = *reinterpret_cast<const entt::entity*>(payload->Data);
                     editor->active = picked;
@@ -86,7 +86,7 @@ void ViewportWidget::draw() {
         uint32_t pixel = editor->renderer.GBufferPass->readEntity(mousePos.x, mousePos.y);
         entt::entity picked = static_cast<entt::entity>(pixel);
 
-        if (editor->scene->valid(picked)) {
+        if (editor->scene.valid(picked)) {
             editor->active = editor->active == picked ? entt::null : picked;
         } else {
             editor->active = entt::null;
@@ -94,39 +94,39 @@ void ViewportWidget::draw() {
     }
 
     if (editor->active != entt::null && enabled) {
-        if (!editor->scene->valid(editor->active) || 
-            !editor->scene->has<ecs::TransformComponent>(editor->active)) {
+        if (editor->scene.valid(editor->active) &&
+            editor->scene.has<ecs::TransformComponent>(editor->active)) {
+            // set the gizmo's viewport
+            ImGuizmo::SetDrawlist();
+            auto pos = ImGui::GetWindowPos();
+            ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
+
+            // temporarily transform to mesh space for gizmo use
+            auto& transform = editor->scene.get<ecs::TransformComponent>(editor->active);
+            auto mesh = editor->scene.try_get<ecs::MeshComponent>(editor->active);
+            if (mesh) {
+                transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+            }
+
+            // draw gizmo
+            bool manipulated = ImGuizmo::Manipulate(
+                glm::value_ptr(viewport.getCamera().getView()),
+                glm::value_ptr(viewport.getCamera().getProjection()),
+                operation, ImGuizmo::MODE::LOCAL,
+                glm::value_ptr(transform.localTransform)
+            );
+
+            // transform back to world space
+            if (mesh) {
+                transform.localTransform = glm::translate(transform.localTransform, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+            }
+
+            // update the transformation
+            if (manipulated) {
+                transform.decompose();
+            }
         }
 
-        // set the gizmo's viewport
-        ImGuizmo::SetDrawlist();
-        auto pos = ImGui::GetWindowPos();
-        ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
-
-        // temporarily transform to mesh space for gizmo use
-        auto& transform = editor->scene->get<ecs::TransformComponent>(editor->active);
-        auto mesh = editor->scene->try_get<ecs::MeshComponent>(editor->active);
-        if (mesh) {
-            transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
-        }
-
-        // draw gizmo
-        bool manipulated = ImGuizmo::Manipulate(
-            glm::value_ptr(viewport.getCamera().getView()),
-            glm::value_ptr(viewport.getCamera().getProjection()),
-            operation, ImGuizmo::MODE::LOCAL,
-            glm::value_ptr(transform.localTransform)
-        );
-
-        // transform back to world space
-        if (mesh) {
-            transform.localTransform = glm::translate(transform.localTransform, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
-        }
-
-        // update the transformation
-        if (manipulated) {
-            transform.decompose();
-        }
     }
 
     auto metricsPosition = ImGui::GetWindowPos();

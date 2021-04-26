@@ -10,24 +10,24 @@ namespace Raekor
 {
 
 Scene::Scene() {
-    registry.on_destroy<ecs::MeshComponent>().connect<entt::invoke<&ecs::MeshComponent::destroy>>();
-    registry.on_destroy<ecs::MaterialComponent>().connect<entt::invoke<&ecs::MaterialComponent::destroy>>();
-    registry.on_destroy<ecs::MeshAnimationComponent>().connect<entt::invoke<&ecs::MeshAnimationComponent::destroy>>();
+    on_destroy<ecs::MeshComponent>().connect<entt::invoke<&ecs::MeshComponent::destroy>>();
+    on_destroy<ecs::MaterialComponent>().connect<entt::invoke<&ecs::MaterialComponent::destroy>>();
+    on_destroy<ecs::MeshAnimationComponent>().connect<entt::invoke<&ecs::MeshAnimationComponent::destroy>>();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 Scene::~Scene() {
-    registry.clear();
+    clear();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 entt::entity Scene::createObject(const std::string& name) {
-    auto entity = registry.create();
-    registry.emplace<ecs::NameComponent>(entity, name);
-    registry.emplace<ecs::NodeComponent>(entity);
-    registry.emplace<ecs::TransformComponent>(entity);
+    auto entity = create();
+    emplace<ecs::NameComponent>(entity, name);
+    emplace<ecs::NodeComponent>(entity);
+    emplace<ecs::TransformComponent>(entity);
     return entity;
 }
 
@@ -37,10 +37,10 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
     entt::entity pickedEntity = entt::null;
     std::map<float, entt::entity> boxesHit;
 
-    auto view = registry.view<ecs::MeshComponent, ecs::TransformComponent>();
-    for (auto entity : view) {
-        auto& mesh = view.get<ecs::MeshComponent>(entity);
-        auto& transform = view.get<ecs::TransformComponent>(entity);
+    auto entities = view<ecs::MeshComponent, ecs::TransformComponent>();
+    for (auto entity : entities) {
+        auto& mesh = entities.get<ecs::MeshComponent>(entity);
+        auto& transform = entities.get<ecs::TransformComponent>(entity);
 
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB =
@@ -60,8 +60,8 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
     }
 
     for (auto& pair : boxesHit) {
-        auto& mesh = view.get<ecs::MeshComponent>(pair.second);
-        auto& transform = view.get<ecs::TransformComponent>(pair.second);
+        auto& mesh = entities.get<ecs::MeshComponent>(pair.second);
+        auto& transform = entities.get<ecs::TransformComponent>(pair.second);
 
         for (unsigned int i = 0; i < mesh.indices.size(); i += 3) {
             auto v0 = glm::vec3(transform.worldTransform * glm::vec4(mesh.positions[mesh.indices[i]], 1.0));
@@ -81,31 +81,44 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
+void Scene::destroyObject(entt::entity entity) {
+    if (has<ecs::NodeComponent>(entity)) {
+        auto tree = NodeSystem::getFlatHierarchy(*this, get<ecs::NodeComponent>(entity));
+        for (auto member : tree) {
+            NodeSystem::remove(*this, get<ecs::NodeComponent>(member));
+            destroy(member);
+        }
+    }
+
+    destroy(entity);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
 void Scene::updateNode(entt::entity node, entt::entity parent) {
-    auto& transform = registry.get<ecs::TransformComponent>(node);
+    auto& transform = get<ecs::TransformComponent>(node);
     
     if (parent == entt::null) {
         transform.worldTransform = transform.localTransform;
     } else {
-        auto& parentTransform = registry.get<ecs::TransformComponent>(parent);
+        auto& parentTransform = get<ecs::TransformComponent>(parent);
         transform.worldTransform = parentTransform.worldTransform * transform.localTransform;
     }
 
-    auto& comp = registry.get<ecs::NodeComponent>(node);
+    auto& comp = get<ecs::NodeComponent>(node);
 
     auto curr = comp.firstChild;
     while (curr != entt::null) {
         updateNode(curr, node);
-        curr = registry.get<ecs::NodeComponent>(curr).nextSibling;
+        curr = get<ecs::NodeComponent>(curr).nextSibling;
     }
 }
 
 void Scene::updateTransforms() {
-    auto nodeView = registry.view<ecs::NodeComponent, ecs::TransformComponent>();
+    auto nodeView = view<ecs::NodeComponent, ecs::TransformComponent>();
 
     for (auto entity : nodeView) {
-        auto& node = nodeView.get<ecs::NodeComponent>(entity);
-        auto& transform = nodeView.get<ecs::TransformComponent>(entity);
+        auto& [node, transform] = nodeView.get<ecs::NodeComponent, ecs::TransformComponent>(entity);
 
         if (node.parent == entt::null) {
             updateNode(entity, node.parent);
@@ -120,7 +133,7 @@ void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials, Ass
     Timer timer;
     timer.start();
     std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [&](auto entity) {
-        auto& material = registry.get<ecs::MaterialComponent>(entity);
+        auto& material = this->get<ecs::MaterialComponent>(entity);
         assetManager.get<TextureAsset>(material.albedoFile);
         assetManager.get<TextureAsset>(material.normalFile);
         assetManager.get<TextureAsset>(material.mrFile);
@@ -131,7 +144,7 @@ void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials, Ass
 
     timer.start();
     for (auto entity : materials) {
-        auto& material = registry.get<ecs::MaterialComponent>(entity);
+        auto& material = get<ecs::MaterialComponent>(entity);
 
         material.createAlbedoTexture(assetManager.get<TextureAsset>(material.albedoFile));
         material.createNormalTexture(assetManager.get<TextureAsset>(material.normalFile));
@@ -153,7 +166,7 @@ void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials, Ass
 void Scene::saveToFile(const std::string& file) {
     std::ofstream outstream(file, std::ios::binary);
     cereal::BinaryOutputArchive output(outstream);
-    entt::snapshot{ registry }.entities(output).component <
+    entt::snapshot{ *this }.entities(output).component <
         ecs::NameComponent, ecs::NodeComponent, ecs::TransformComponent,
         ecs::MeshComponent, ecs::MaterialComponent, ecs::PointLightComponent,
         ecs::DirectionalLightComponent >(output);
@@ -178,13 +191,13 @@ void Scene::openFromFile(const std::string& file, AssetManager& assetManager) {
     //char* const regen_buffer = (char*)malloc(buffer.size());
     //const int decompressed_size = LZ4_decompress_safe(buffer.data(), regen_buffer, buffer.size(), bound_size);
 
-    registry.clear();
+    clear();
 
     Timer timer;
     timer.start();
 
     cereal::BinaryInputArchive input(storage);
-    entt::snapshot_loader{ registry }.entities(input).component <
+    entt::snapshot_loader{ *this }.entities(input).component <
         ecs::NameComponent, ecs::NodeComponent, ecs::TransformComponent,
         ecs::MeshComponent, ecs::MaterialComponent, ecs::PointLightComponent,
         ecs::DirectionalLightComponent >(input);
@@ -194,7 +207,7 @@ void Scene::openFromFile(const std::string& file, AssetManager& assetManager) {
 
 
     // init material render data
-    auto materials = registry.view<ecs::MaterialComponent>();
+    auto materials = view<ecs::MaterialComponent>();
     auto materialEntities = std::vector<entt::entity>();
     materialEntities.assign(materials.data(), materials.data() + materials.size());
     loadMaterialTextures(materialEntities, assetManager);
@@ -202,9 +215,9 @@ void Scene::openFromFile(const std::string& file, AssetManager& assetManager) {
     timer.start();
 
     // init mesh render data
-    auto view = registry.view<ecs::MeshComponent>();
-    for (auto entity : view) {
-        auto& mesh = view.get<ecs::MeshComponent>(entity);
+    auto entities = view<ecs::MeshComponent>();
+    for (auto entity : entities) {
+        auto& mesh = entities.get<ecs::MeshComponent>(entity);
         mesh.generateAABB();
         mesh.uploadVertices();
         mesh.uploadIndices();

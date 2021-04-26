@@ -6,7 +6,7 @@ namespace Raekor {
 
 
 
-ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor) {
+ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor, "Console") {
     ClearLog();
     memset(InputBuf, 0, sizeof(InputBuf));
     HistoryPos = -1;
@@ -31,7 +31,7 @@ void ConsoleWidget::ClearLog() {
 
 void ConsoleWidget::draw() {
     ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Console", &visible)) {
+    if (!ImGui::Begin(title.c_str(), &visible)) {
         ImGui::End();
         return;
     }

@@ -19,8 +19,9 @@ struct PointLight {
 // cpu side uniform buffer
 layout (std140) uniform stuff {
 	mat4 view, projection;
-	mat4 lightSpaceMatrix;
-	vec4 cameraPosition;
+	mat4 shadowMatrices[4];
+	vec4 shadowSplits;
+    vec4 cameraPosition;
     DirectionalLight dirLights[MAX_DIR_LIGHTS];
     PointLight pointLights[MAX_POINT_LIGHTS];
 } ubo;
@@ -43,7 +44,7 @@ layout (location = 0) out vec4 finalColor;
 layout (location = 1) out vec4 bloomColor;
 
 // shadow maps
-layout(binding = 0) uniform sampler2DShadow shadowMap;
+layout(binding = 0) uniform sampler2DArrayShadow shadowMap;
 
 // GBUFFER textures
 layout(binding = 3) uniform sampler2D gColors;
@@ -203,12 +204,12 @@ float Penumbra(float gradientNoise, vec4 FragPosLightSpace, int samplesCount) {
     vec2 shadowMapSize = textureSize(shadowMap, 0).xy;
     vec2 penumbraFilterMaxSize = VogelDiskScale(shadowMapSize, KernelSize);
 
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0).xy;
 
     for(int i = 0; i < samplesCount; i ++) {
         vec2 offsetUv = VogelDiskSample(i, samplesCount, gradientNoise) * penumbraFilterMaxSize;
 
-        float sampleDepth = texture(shadowMap, vec3(FragPosLightSpace.xy, FragPosLightSpace.z)).r; 
+        float sampleDepth = texture(shadowMap, vec4(FragPosLightSpace.xy, FragPosLightSpace.z, 0)).r; 
 
         // if the sampled depth is smaller than the fragments depth, its a blocker
         if(sampleDepth < FragPosLightSpace.z)
@@ -227,11 +228,19 @@ float Penumbra(float gradientNoise, vec4 FragPosLightSpace, int samplesCount) {
 }
 
 float getShadow(DirectionalLight light, vec3 position) {
-    vec4 FragPosLightSpace = ubo.lightSpaceMatrix * vec4(position, 1.0);
+    uint cascadeIndex = 0;
+    vec4 viewPos = ubo.view * vec4(position, 1.0);
+    for(uint i = 0; i < 4 - 1; i++) {
+        if(viewPos.z < ubo.shadowSplits[i]) {	
+            cascadeIndex = i + 1;
+        }
+    }
+
+    vec4 FragPosLightSpace = ubo.shadowMatrices[cascadeIndex] * vec4(position, 1.0);
     FragPosLightSpace.xyz /= FragPosLightSpace.w;
     FragPosLightSpace.xyz = FragPosLightSpace.xyz * 0.5 + 0.5;
 
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0).xy;
 
     const int KernelSize = 4;
     vec2 penumbraFilterMaxSize = VogelDiskScale(textureSize(shadowMap, 0).xy, KernelSize);
@@ -246,7 +255,7 @@ float getShadow(DirectionalLight light, vec3 position) {
         vec2 offsetUv = VogelDiskSample(i, samplesCount, gradientNoise);
         //offsetUv = offsetUv * penumbra;
 
-        float sampled = texture(shadowMap, vec3(FragPosLightSpace.xy + offsetUv * texelSize, FragPosLightSpace.z)).r;
+        float sampled = texture(shadowMap, vec4(FragPosLightSpace.xy + offsetUv * texelSize, cascadeIndex, FragPosLightSpace.z)).r;
         shadow += 1.0 - sampled; 
     }
 
@@ -585,6 +594,48 @@ vec3 IntegrateScattering (vec3 rayStart, vec3 rayDir, float rayLength, vec3 ligh
 	return (rayleigh * C_RAYLEIGH + mie * C_MIE) * lightColor * EXPOSURE;
 }
 
+float linearize_depth(float d,float zNear,float zFar)
+{
+    float z_n = 2.0 * d - 1.0;
+    return 2.0 * zNear * zFar / (zFar + zNear - z_n * (zFar - zNear));
+}
+
+float ScreenSpaceShadow(vec3 worldPos, DirectionalLight light) {
+    vec4 rayPos = ubo.view * vec4(worldPos, 1.0);
+    vec4 rayDir = ubo.view * vec4(-light.direction.xyz, 0.0);
+    
+    vec3 rayStep = rayDir.xyz * (0.003/ 8.0);
+    float occlusion = 0.0f;
+
+    float offset = InterleavedGradientNoise(gl_FragCoord.xy);
+
+    for(int i = 0; i < 8; i++) {
+        rayPos.xyz += rayStep;
+
+        // get the uv coordinates
+        vec4 v = ubo.projection * vec4(rayPos.xyz, 1.0); // project
+        vec2 rayUV = v.xy / v.w; // perspective divide
+        rayUV = rayUV * vec2(0.5) + 0.5; // -1, 1 to 0, 1
+
+        if(rayUV.x < 1.0 && rayUV.x > 0.0 && rayUV.y < 1.0 && rayUV.y > 0.0) {
+            // sample current ray point depth and convert it bback  to -1 , 1
+            vec3 wpos = reconstructPosition(rayUV, texture(gDepth, rayUV).r, invViewProjection);
+            vec4 vpos = ubo.view * vec4(wpos, 1.0);
+
+            // delta between scene and ray depth
+            float delta = rayPos.z - vpos.z;
+
+            // if the scene depth is larger than the ray depth, we found an occluder
+            if((vpos.z > rayPos.z) && (abs(delta) < 0.005)) {
+                occlusion = 1.0;
+                break;
+            }
+        }
+    }
+
+    return 1.0 - occlusion;
+}
+
 void main() {
     float depth = texture(gDepth, uv).r;
     vec3 position = reconstructPosition(uv, depth, invViewProjection);
@@ -602,29 +653,50 @@ void main() {
 
 	vec3 normal = normalize(texture(gNormals, uv).xyz);
 
-    vec4 depthPosition = ubo.lightSpaceMatrix * vec4(position, 1.0);
+    uint cascadeIndex = 0;
+    vec4 viewPos = ubo.view * vec4(position, 1.0);
+	for(uint i = 0; i < 4 - 1; i++) {
+		if(viewPos.z < ubo.shadowSplits[i]) {	
+			cascadeIndex = i + 1;
+		}
+	}
+
+    vec4 depthPosition = ubo.shadowMatrices[cascadeIndex] * vec4(position, 1.0);
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
     DirectionalLight light = ubo.dirLights[0];
 
-    float shadowAmount = texture(shadowMap, vec3(depthPosition.xy, (depthPosition.z)/depthPosition.w));
-    //float shadowAmount = 1.0 - getShadow(light, position);
+    //float shadowAmount = texture(shadowMap, vec4(depthPosition.xy, cascadeIndex, (depthPosition.z)/depthPosition.w));
+    float shadowAmount = 1.0 - getShadow(light, position);
 
     vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
-
     vec3 Lo = radiance(light, normal, V, material, shadowAmount);
 
-     float occlusion;
-     vec3 radiance = coneTraceRadiance(position, normal, occlusion).xyz;
+    float occlusion;
+    vec4 traced = coneTraceRadiance(position, normal, occlusion);
 
     vec3 transmittance;
-    vec3 inscattering = IntegrateScattering(ubo.cameraPosition.xyz, normalize(ubo.cameraPosition.xyz - position), INFINITY, light.direction.xyz, light.color.xyz, transmittance);
+    vec3 inscattering = IntegrateScattering(position, vec3(0, -1, 0), INFINITY, light.direction.xyz, light.color.xyz, transmittance);
     inscattering *= albedo.rgb;
-    transmittance *= albedo.rgb;
-
-    vec3 color = Lo + inscattering * occlusion;
+    
+    vec3 color = Lo + inscattering * transmittance * occlusion;
 
     finalColor = vec4(color, albedo.a);
+
+    // switch(cascadeIndex) {
+    //     case 0 : 
+    //         finalColor.rgb *= vec3(1.0f, 0.25f, 0.25f);
+    //         break;
+    //     case 1 : 
+    //         finalColor.rgb *= vec3(0.25f, 1.0f, 0.25f);
+    //         break;
+    //     case 2 : 
+    //         finalColor.rgb *= vec3(0.25f, 0.25f, 1.0f);
+    //         break;
+    //     case 3 : 
+    //         finalColor.rgb *= vec3(1.0f, 1.0f, 0.25f);
+    //         break;
+    // }
 
     if(depth >= 1.0) {
         finalColor = albedo;

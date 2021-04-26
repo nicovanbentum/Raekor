@@ -10,7 +10,7 @@
 namespace Raekor {
 
 MenubarWidget::MenubarWidget(Editor* editor) : 
-    IWidget(editor),
+    IWidget(editor, "Menubar"),
     scene(editor->scene),
     active(editor->active) 
 {}
@@ -18,12 +18,10 @@ MenubarWidget::MenubarWidget(Editor* editor) :
 
 
 void MenubarWidget::draw() {
-
-    // draw the top user bar
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New Scene")) {
-                editor->scene->clear();
+                editor->scene.clear();
                 editor->active = entt::null;
             }
 
@@ -46,7 +44,7 @@ void MenubarWidget::draw() {
             if (ImGui::MenuItem("Load model..")) {
                 std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
                 if (!filepath.empty()) {
-                    AssimpImporter importer(&scene);
+                    AssimpImporter importer(scene);
                     importer.LoadFromFile(filepath, editor->assetManager);
                     active = entt::null;
                 }
@@ -57,16 +55,14 @@ void MenubarWidget::draw() {
 
                 if (!savePath.empty()) {
                     auto& viewport = editor->getViewport();
-
                     const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
+                    
                     auto pixels = std::vector<unsigned char>(bufferSize);
-
                     glGetTextureImage(editor->renderer.tonemappingPass->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
 
                     stbi_flip_vertically_on_write(true);
                     stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
                 }
-
             }
 
             if (ImGui::MenuItem("Exit", "Escape")) {
@@ -78,18 +74,20 @@ void MenubarWidget::draw() {
         if (ImGui::BeginMenu("Edit")) {
             if (ImGui::MenuItem("Delete", "DEL")) {
                 if (active != entt::null) {
-                    if (scene->has<ecs::NodeComponent>(active)) {
-                        auto tree = NodeSystem::getFlatHierarchy(scene, scene->get<ecs::NodeComponent>(active));
-                        for (auto entity : tree) {
-                            NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(entity));
-                            scene->destroy(entity);
-                        }
-                    }
-
-                    scene->destroy(active);
+                    scene.destroyObject(active);
                     active = entt::null;
                 }
             }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("View")) {
+            ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
+            for (auto widget : editor->widgets) {
+                if (ImGui::MenuItem(widget->getTitle().c_str(), "", &widget->isVisible())) {}
+            }
+            ImGui::PopItemFlag();
+
             ImGui::EndMenu();
         }
 
@@ -98,21 +96,21 @@ void MenubarWidget::draw() {
                 auto entity = scene.createObject("Empty");
                 active = entity;
             }
+
             ImGui::Separator();
 
             if (ImGui::MenuItem("Material")) {
-                auto entity = scene->create();
-                scene->emplace<ecs::NameComponent>(entity, "New Material");
-                auto& defaultMaterial = scene->emplace<ecs::MaterialComponent>(entity);
+                auto entity = scene.create();
+                scene.emplace<ecs::NameComponent>(entity, "New Material");
+                auto& defaultMaterial = scene.emplace<ecs::MaterialComponent>(entity);
                 defaultMaterial.createMetalRoughTexture();
                 active = entity;
             }
 
             if (ImGui::BeginMenu("Shapes")) {
-
                 if (ImGui::MenuItem("Sphere")) {
                     auto entity = scene.createObject("Sphere");
-                    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+                    auto& mesh = scene.emplace<ecs::MeshComponent>(entity);
 
                     const float radius = 2.0f;
                     float x, y, z, xy;                              // vertex position
@@ -186,7 +184,7 @@ void MenubarWidget::draw() {
 
                 if (ImGui::MenuItem("Plane")) {
                     auto entity = scene.createObject("Plane");
-                    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+                    auto& mesh = scene.emplace<ecs::MeshComponent>(entity);
                     for (const auto& v : planeVertices) {
                         mesh.positions.push_back(v.pos);
                         mesh.uvs.push_back(v.uv);
@@ -207,11 +205,11 @@ void MenubarWidget::draw() {
 
                 if (ImGui::MenuItem("Cube")) {
                     auto entity = scene.createObject("Cube");
-                    auto& mesh = scene->emplace<ecs::MeshComponent>(entity);
+                    auto& mesh = scene.emplace<ecs::MeshComponent>(entity);
 
                     if (active != entt::null) {
-                        auto& node = scene->get<ecs::NodeComponent>(entity);
-                        NodeSystem::append(scene, scene->get<ecs::NodeComponent>(active), node);
+                        auto& node = scene.get<ecs::NodeComponent>(entity);
+                        NodeSystem::append(scene, scene.get<ecs::NodeComponent>(active), node);
                     }
 
                     for (const auto& v : unitCubeVertices) {
@@ -237,19 +235,12 @@ void MenubarWidget::draw() {
 
             if (ImGui::BeginMenu("Light")) {
                 if (ImGui::MenuItem("Directional Light")) {
-                    if (scene->capacity<ecs::DirectionalLightComponent>() < 1) {
-                        auto entity = scene.createObject("Directional Light");
-                        auto& transform = scene->get<ecs::TransformComponent>(entity);
-                        transform.rotation.x = static_cast<float>(M_PI / 12);
-                        transform.compose();
-                        scene->emplace<ecs::DirectionalLightComponent>(entity);
-                        active = entity;
-                    }
+                    active = scene.createDirectionalLight();
                 }
 
                 if (ImGui::MenuItem("Point Light")) {
                     auto entity = scene.createObject("Point Light");
-                    scene->emplace<ecs::PointLightComponent>(entity);
+                    scene.emplace<ecs::PointLightComponent>(entity);
                     active = entity;
                 }
 

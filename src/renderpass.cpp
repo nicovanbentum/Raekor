@@ -16,26 +16,22 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     shadowmapStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\depth.frag");
     shader.reload(shadowmapStages.data(), shadowmapStages.size());
 
-    // init uniform buffer
-    uniformBuffer.setSize(sizeof(uniforms));
-
     // init render target
-    glCreateTextures(GL_TEXTURE_2D, 1, &result);
-    glTextureStorage2D(result, 1, GL_DEPTH_COMPONENT32F, width, height);
-
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+    glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &cascades);
+    glTextureStorage3D(cascades, 1, GL_DEPTH_COMPONENT32F, width, height, 4);
+    glTextureParameteri(cascades, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(cascades, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(cascades, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(cascades, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(cascades, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
 
     float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    glTextureParameterfv(result, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTextureParameteri(result, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-    glTextureParameteri(result, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTextureParameterfv(cascades, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTextureParameteri(cascades, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    glTextureParameteri(cascades, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 
     glCreateFramebuffers(1, &framebuffer);
-    glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, result, 0);
+    glNamedFramebufferTextureLayer(framebuffer, GL_DEPTH_ATTACHMENT, cascades, 0, 0);
     glNamedFramebufferDrawBuffer(framebuffer, GL_NONE);
     glNamedFramebufferReadBuffer(framebuffer, GL_NONE);
 }
@@ -43,20 +39,13 @@ ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 ShadowMap::~ShadowMap() {
-    glDeleteTextures(1, &result);
+    glDeleteTextures(1, &cascades);
     glDeleteFramebuffers(1, &framebuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ShadowMap::render(entt::registry& scene) {
-    // setup the shadow map
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(settings.depthBiasSlope, settings.depthBiasConstant);
-
-    // render the entire scene to the directional light shadow map
+void ShadowMap::render(Viewport& viewport, entt::registry& scene) {
     auto lightView = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
     auto lookDirection = glm::vec3(0.0f, -1.0f, 0.0f);
 
@@ -70,46 +59,123 @@ void ShadowMap::render(entt::registry& scene) {
 
     lookDirection = glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
 
-    // TODO: calculate these matrices based on the view frustrum
-    auto mapView = glm::lookAtRH(
-        glm::vec3(0.0f, 15.0f, 0.0f),
-        glm::vec3(0.0f, 15.0f, 0.0f) + lookDirection,
-        glm::vec3(0.0f, 1.0f, 0.0f)
-    );
+    float cascadeSplits[4];
 
-    auto mapProjection = glm::orthoRH_ZO(
-        -settings.size, settings.size, -settings.size, settings.size,
-        settings.planes.x, settings.planes.y
-    );
+    float nearClip = 0.1f;
+    float farClip = 10000.0f;
+    float clipRange = farClip - nearClip;
 
+    float minZ = nearClip;
+    float maxZ = nearClip + clipRange;
+
+    float range = maxZ - minZ;
+    float ratio = maxZ / minZ;
+
+    // Calculate split depths based on view camera frustum
+        // Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
+    for (uint32_t i = 0; i < 4; i++) {
+        float p = (i + 1) / static_cast<float>(4);
+        float log = minZ * std::pow(ratio, p);
+        float uniform = minZ + range * p;
+        float d = settings.cascadeSplitLambda * (log - uniform) + uniform;
+        cascadeSplits[i] = (d - nearClip) / clipRange;
+    }
+
+    float lastSplitDist = 0.0;
+    for (int i = 0; i < 4; i++) {
+        float splitDist = cascadeSplits[i];
+
+        glm::vec3 frustumCorners[8] = {
+                glm::vec3(-1.0f,  1.0f, -1.0f),
+                glm::vec3(1.0f,  1.0f, -1.0f),
+                glm::vec3(1.0f, -1.0f, -1.0f),
+                glm::vec3(-1.0f, -1.0f, -1.0f),
+                glm::vec3(-1.0f,  1.0f,  1.0f),
+                glm::vec3(1.0f,  1.0f,  1.0f),
+                glm::vec3(1.0f, -1.0f,  1.0f),
+                glm::vec3(-1.0f, -1.0f,  1.0f),
+        };
+
+        // Project frustum corners into world space
+        glm::mat4 invCam = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
+        for (uint32_t i = 0; i < 8; i++) {
+            glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[i], 1.0f);
+            frustumCorners[i] = invCorner / invCorner.w;
+        }
+
+        for (uint32_t i = 0; i < 4; i++) {
+            glm::vec3 dist = frustumCorners[i + 4] - frustumCorners[i];
+            frustumCorners[i + 4] = frustumCorners[i] + (dist * splitDist);
+            frustumCorners[i] = frustumCorners[i] + (dist * lastSplitDist);
+        }
+
+        // Get frustum center
+        glm::vec3 frustumCenter = glm::vec3(0.0f);
+        for (uint32_t i = 0; i < 8; i++) {
+            frustumCenter += frustumCorners[i];
+        }
+
+        frustumCenter /= 8.0f;
+
+        float radius = 0.0f;
+        for (uint32_t i = 0; i < 8; i++) {
+            float distance = glm::length(frustumCorners[i] - frustumCenter);
+            radius = glm::max(radius, distance);
+        }
+
+        radius = std::floor(radius * 16.0f) / 16.0f;
+
+        glm::vec3 maxExtents = glm::vec3(radius);
+        glm::vec3 minExtents = -maxExtents;
+
+        float texel = 4096.0f / (radius * 2);
+        
+        glm::mat4 lightViewMatrix = glm::lookAtRH(frustumCenter - glm::normalize(lookDirection) * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 lightOrthoMatrix = glm::orthoRH_ZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
+        m_splits[i] = (0.1f + splitDist * clipRange) * -1.0f;
+
+        lightViewMatrix[3][0] -= glm::mod(lightViewMatrix[3][0], 2.f * m_splits[i] / texel);
+        lightViewMatrix[3][1] -= glm::mod(lightViewMatrix[3][1], 2.f * m_splits[i] / texel);
+        lightViewMatrix[3][2] -= glm::mod(lightViewMatrix[3][2], 2.f * m_splits[i] / texel);
+
+        matrices[i] = lightOrthoMatrix * lightViewMatrix;
+
+        lastSplitDist = cascadeSplits[i];
+    }
+
+    // setup for rendering
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(settings.depthBiasSlope, settings.depthBiasConstant);
+    
     shader.bind();
-    uniforms.cameraMatrix = mapProjection * mapView;
-    uniformBuffer.update(&uniforms, sizeof(uniforms));
-    uniformBuffer.bind(0);
 
     auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
-    for (auto entity : view) {
-        auto& mesh = view.get<ecs::MeshComponent>(entity);
-        auto& transform = view.get<ecs::TransformComponent>(entity);
+    for (int i = 0; i < 4; i++) {
+        glNamedFramebufferTextureLayer(framebuffer, GL_DEPTH_ATTACHMENT, cascades, 0, i);
+        glClear(GL_DEPTH_BUFFER_BIT);
 
-        shader.getUniform("model") = transform.worldTransform;
+        shader.getUniform("lightMatrix") = matrices[i];
+        
+        for (auto entity : view) {
+            auto& mesh = view.get<ecs::MeshComponent>(entity);
+            auto& transform = view.get<ecs::TransformComponent>(entity);
 
-        // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<ecs::MeshAnimationComponent>(entity)) {
-            scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
-        } else {
-            mesh.vertexBuffer.bind();
+            shader.getUniform("model") = transform.worldTransform;
+
+            // determine if we use the original mesh vertices or GPU skinned vertices
+            if (scene.has<ecs::MeshAnimationComponent>(entity)) {
+                scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
+            } else {
+                mesh.vertexBuffer.bind();
+            }
+            mesh.indexBuffer.bind();
+            glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
         }
-        mesh.indexBuffer.bind();
-        glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
-
     }
 
     glDisable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(0, 0);
-    glCullFace(GL_BACK);
-
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -147,7 +213,7 @@ void GBuffer::render(entt::registry& scene, Viewport& viewport) {
     shader.getUniform("view") = viewport.getCamera().getView();
 
     Math::Frustrum frustrum;
-    frustrum.update(viewport.getCamera().getProjection() * viewport.getCamera().getView(), true);
+    frustrum.update(viewport.getCamera().getProjection() * viewport.getCamera().getView(), false);
 
     culled = 0;
 
@@ -157,13 +223,8 @@ void GBuffer::render(entt::registry& scene, Viewport& viewport) {
 
     std::vector<uint64_t> handles;
 
-    for (auto entity : materials) {
-
-    }
-
     for (auto entity : view) {
-        auto& mesh = view.get<ecs::MeshComponent>(entity);
-        auto& transform = view.get<ecs::TransformComponent>(entity);
+        auto& [mesh, transform] = view.get<ecs::MeshComponent, ecs::TransformComponent>(entity);
 
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB =
@@ -331,6 +392,8 @@ void DeferredShading::render(entt::registry& sscene, Viewport& viewport, ShadowM
     GBuffer* GBuffer, Voxelize* voxels) {
     hotloader.changed();
 
+    timer.Begin();
+
     // update the uniform buffer
     uniforms.view = viewport.getCamera().getView();
     uniforms.projection = viewport.getCamera().getProjection();
@@ -370,7 +433,8 @@ void DeferredShading::render(entt::registry& sscene, Viewport& viewport, ShadowM
     }
 
     uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
-    uniforms.lightSpaceMatrix = shadowMap->uniforms.cameraMatrix;
+    uniforms.shadowMatrices = shadowMap->matrices;
+    uniforms.shadowSplits = shadowMap->m_splits;
 
     // update uniforms GPU side
     uniformBuffer.update(&uniforms, sizeof(uniforms));
@@ -394,7 +458,7 @@ void DeferredShading::render(entt::registry& sscene, Viewport& viewport, ShadowM
     shader.getUniform("invViewProjection") = glm::inverse(uniforms.projection * uniforms.view);
 
     // bind textures to shader binding slots
-    glBindTextureUnit(0, shadowMap->result);
+    glBindTextureUnit(0, shadowMap->cascades);
 
     glBindTextureUnit(3, GBuffer->albedoTexture);
     glBindTextureUnit(4, GBuffer->normalTexture);
@@ -410,6 +474,8 @@ void DeferredShading::render(entt::registry& sscene, Viewport& viewport, ShadowM
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    timer.End();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -699,9 +765,9 @@ void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shad
     // bind shader and level 0 of the voxel volume
     shader.bind();
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32UI);
-    glBindTextureUnit(2, shadowmap->result);
+    glBindTextureUnit(2, shadowmap->cascades);
 
-    shader.getUniform("lightViewProjection") = shadowmap->uniforms.cameraMatrix;
+    shader.getUniform("lightViewProjection") = shadowmap->matrices[0];
 
     auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
@@ -941,7 +1007,7 @@ void DebugLines::render(entt::registry& scene, Viewport& viewport, unsigned int 
     vertexBuffer.loadVertices(points.data(), points.size());
     vertexBuffer.bind();
 
-    glDrawArrays(GL_LINES, 0, points.size());
+    glDrawArrays(GL_LINES, 0, (GLsizei)points.size());
 
     glDisable(GL_LINE_SMOOTH);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

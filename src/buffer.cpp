@@ -34,7 +34,6 @@ glUniformBuffer::glUniformBuffer() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 glUniformBuffer::~glUniformBuffer() {
-    if (dataPtr) glUnmapNamedBuffer(id);
     glDeleteBuffers(1, &id);
 }
 
@@ -48,14 +47,13 @@ glUniformBuffer::glUniformBuffer(size_t size) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void glUniformBuffer::setSize(size_t size) {
-    glNamedBufferStorage(id, size, nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_DYNAMIC_STORAGE_BIT);
-    dataPtr = glMapNamedBufferRange(id, 0, size, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+    glNamedBufferStorage(id, size, nullptr, GL_DYNAMIC_STORAGE_BIT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void glUniformBuffer::update(void* data, const size_t size) {
-    memcpy(dataPtr, data, size);
+    glNamedBufferSubData(id, 0, size, data);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

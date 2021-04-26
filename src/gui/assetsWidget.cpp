@@ -2,14 +2,16 @@
 #include "assetsWidget.h"
 #include "editor.h"
 
+#include "IconsFontAwesome5.h"
+
 namespace Raekor {
 
-AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor) {}
+AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, "Asset Browser") {}
 
 void AssetsWidget::draw() {
-    ImGui::Begin("Asset Browser");
+    ImGui::Begin(title.c_str());
 
-    auto materialView = editor->scene->view<ecs::MaterialComponent, ecs::NameComponent>();
+    auto materialView = editor->scene.view<ecs::MaterialComponent, ecs::NameComponent>();
 
     if (ImGui::BeginTable("Assets", 24)) {
         for (auto entity : materialView) {
@@ -19,7 +21,7 @@ void AssetsWidget::draw() {
             ImGui::TableNextColumn();
 
             if (editor->active == entity) {
-                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::ColorConvertFloat4ToU32(ImVec4(1, 1, 1, 0.2)));
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.2f)));
             }
 
             ImGui::PushID(entt::to_integral(entity));
@@ -27,6 +29,10 @@ void AssetsWidget::draw() {
                 ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()), ImVec2(0, 0), ImVec2(1, 1), -1, ImVec4(0, 1, 0, 1))) {
                 editor->active = entity;
             }
+
+            //if (ImGui::Button(ICON_FA_ARCHIVE, ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()))) {
+            //    editor->active = entity;
+            //}
 
             ImGuiDragDropFlags src_flags = ImGuiDragDropFlags_SourceNoDisableHover;
             src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers;

@@ -4,14 +4,14 @@
 
 namespace Raekor {
 
-HierarchyWidget::HierarchyWidget(Editor* editor) : IWidget(editor) {}
+HierarchyWidget::HierarchyWidget(Editor* editor) : IWidget(editor, "Scene") {}
 
 
 
 void HierarchyWidget::draw() {
-    ImGui::Begin("Scene");
+    ImGui::Begin(title.c_str());
 
-    auto nodeView = editor->scene->view<ecs::NodeComponent>();
+    auto nodeView = editor->scene.view<ecs::NodeComponent>();
     for (auto entity : nodeView) {
         auto& node = nodeView.get<ecs::NodeComponent>(entity);
 

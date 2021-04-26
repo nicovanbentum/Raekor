@@ -8,7 +8,7 @@
             }
         },
         {
-            "key": "r_bloom",
+            "key": "sv_cheats",
             "value": {
                 "index": 0,
                 "data": 1
@@ -22,14 +22,7 @@
             }
         },
         {
-            "key": "sv_cheats",
-            "value": {
-                "index": 0,
-                "data": 1
-            }
-        },
-        {
-            "key": "r_voxelize_debug",
+            "key": "r_bloom",
             "value": {
                 "index": 0,
                 "data": 0
@@ -39,7 +32,14 @@
             "key": "r_voxelize",
             "value": {
                 "index": 0,
-                "data": 1
+                "data": 0
+            }
+        },
+        {
+            "key": "r_voxelize_debug",
+            "value": {
+                "index": 0,
+                "data": 0
             }
         },
         {

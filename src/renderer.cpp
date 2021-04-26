@@ -129,39 +129,6 @@ void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class GLTimer {
-public:
-    GLTimer() {
-        glGenQueries(2, queries);
-        glBeginQuery(GL_TIME_ELAPSED, queries[1]);
-        glEndQuery(GL_TIME_ELAPSED);
-    }
-
-    ~GLTimer() {
-        glDeleteQueries(2, queries);
-    }
-
-    void Begin() {
-        glBeginQuery(GL_TIME_ELAPSED, queries[index]);
-    }
-
-    void End() {
-        glEndQuery(GL_TIME_ELAPSED);
-        glGetQueryObjectui64v(queries[!index], GL_QUERY_RESULT_NO_WAIT, &time);
-        index = !index;
-    }
-
-    float GetMilliseconds() {
-        return time * 0.000001f;
-    }
-
-private:
-    GLuint64 time;
-    GLuint index = 0;
-    GLuint queries[2];
-
-};
-
 void GLRenderer::render(entt::registry& scene, Viewport& viewport) {
     scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
         skinningPass->render(mesh, animation);
@@ -172,7 +139,7 @@ void GLRenderer::render(entt::registry& scene, Viewport& viewport) {
 
     // generate sun shadow map
     glViewport(0, 0, 4096, 4096);
-    shadowMapPass->render(scene);
+    shadowMapPass->render(viewport, scene);
 
     if (settings.shouldVoxelize) {
         voxelizePass->render(scene, viewport, shadowMapPass.get());

@@ -21,10 +21,10 @@ public:
     AssetManager assetManager;
     entt::entity active = entt::null;
 
+    std::vector<std::shared_ptr<IWidget>> widgets;
 private:
     Physics physics;
     bool inAltMode = false;
-    std::vector<std::shared_ptr<IWidget>> widgets;
 };
 
 } // raekor

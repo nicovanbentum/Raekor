@@ -55,18 +55,20 @@ public:
 			} else {
 				assets[filepath] = std::shared_ptr<Asset>(new T(filepath));
 			}
+
+			// only get here if this thread created the asset pointer, try to load it.
+			// if load success we return the asset pointer
+			if (assets[filepath]->load(filepath)) {
+				return std::static_pointer_cast<T>(assets[filepath]);
+			} else {
+			// if load failed, lock -> remove asset pointer -> return nullptr
+				std::scoped_lock(releaseMutex);
+				assets.erase(filepath);
+				return nullptr;
+			}
 		}
 
-		// only get here if this thread created the asset pointer, try to load it.
-		// if load success we return the asset pointer
-		if (assets[filepath]->load(filepath)) {
-			return std::static_pointer_cast<T>(assets[filepath]);
-		} else {
-		// if load failed, lock -> remove asset pointer -> return nullptr
-			std::scoped_lock(releaseMutex);
-			assets.erase(filepath);
-			return nullptr;
-		}
+
 	}
 
 	void release(const std::string& filepath) {

@@ -4,6 +4,6 @@
 
 namespace Raekor {
 
- IWidget::IWidget(Editor* editor) : editor(editor) {}
+ IWidget::IWidget(Editor* editor, const std::string& title) : editor(editor), title(title) {}
 
 }

@@ -7,6 +7,7 @@
 
 #include "gui/assetsWidget.h"
 #include "gui/randomWidget.h"
+#include "gui/metricsWidget.h"
 #include "gui/menubarWidget.h"
 #include "gui/consoleWidget.h"
 #include "gui/viewportWidget.h"
@@ -26,8 +27,8 @@ Editor::Editor() :
 
     if (std::filesystem::is_regular_file(settings.defaultScene)) {
         if (std::filesystem::path(settings.defaultScene).extension() == ".scene") {
-            //SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
-            //scene.openFromFile(settings.defaultScene, assetManager);
+            SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
+            scene.openFromFile(settings.defaultScene, assetManager);
         }
     }
 
@@ -88,7 +89,7 @@ void Editor::update(float dt) {
     scene.updateTransforms();
 
     // update animations
-    auto animationView = scene->view<ecs::MeshAnimationComponent>();
+    auto animationView = scene.view<ecs::MeshAnimationComponent>();
     std::for_each(std::execution::par_unseq, animationView.begin(), animationView.end(), [&](auto entity) {
         auto& animation = animationView.get<ecs::MeshAnimationComponent>(entity);
         animation.boneTransform(static_cast<float>(dt));
@@ -98,15 +99,15 @@ void Editor::update(float dt) {
     viewport.getCamera().update();
 
     // update scripts
-    scene->view<ecs::NativeScriptComponent>().each([&](ecs::NativeScriptComponent& component) {
+    scene.view<ecs::NativeScriptComponent>().each([&](ecs::NativeScriptComponent& component) {
         if (component.script) {
             component.script->update(dt);
         }
     });
 
-     if (active != entt::null && scene->has<ecs::MeshComponent>(active)) {
-        auto& mesh = scene->get<ecs::MeshComponent>(active);
-        auto& transform = scene->get<ecs::TransformComponent>(active);
+     if (active != entt::null && scene.has<ecs::MeshComponent>(active)) {
+        auto& mesh = scene.get<ecs::MeshComponent>(active);
+        auto& transform = scene.get<ecs::TransformComponent>(active);
 
         const auto min = mesh.aabb[0];
         const auto max = mesh.aabb[1];
@@ -185,29 +186,23 @@ void Editor::onEvent(const SDL_Event& event) {
             }break;
             case SDLK_DELETE: {
                 if (active != entt::null) {
-                    if (scene->has<ecs::NodeComponent>(active)) {
-
-                        auto childTree = NodeSystem::getFlatHierarchy(scene, scene->get<ecs::NodeComponent>(active));
-
-                        for (auto entity : childTree) {
-                            NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(entity));
-                            scene->destroy(entity);
+                    if (scene.has<ecs::NodeComponent>(active)) {
+                        auto tree = NodeSystem::getFlatHierarchy(scene, scene.get<ecs::NodeComponent>(active));
+                        for (auto entity : tree) {
+                            NodeSystem::remove(scene, scene.get<ecs::NodeComponent>(entity));
+                            scene.destroy(entity);
                         }
-
-                        NodeSystem::remove(scene, scene->get<ecs::NodeComponent>(active));
-                        scene->destroy(active);
-                    } else {
-                        scene->destroy(active);
                     }
 
+                    scene.destroy(active);
                     active = entt::null;
                 }
             }break;
-            case SDLK_c: {
+            case SDLK_d: {
                 if (SDL_GetModState() & KMOD_LCTRL) {
-                    auto copy = scene->create();
+                    auto copy = scene.create();
 
-                    scene->visit(active, [&](const entt::id_type id) {
+                    scene.visit(active, [&](const entt::id_type id) {
                         for_each_tuple_element(ecs::Components, [&](auto component) {
                             using type = decltype(component)::type;
                             if (id == entt::type_info<type>::id()) {

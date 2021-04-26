@@ -26,7 +26,6 @@ public:
     void update(void* data, const size_t size);
 
 private:
-    void* dataPtr;
     uint32_t id;
 };
 

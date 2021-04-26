@@ -6,14 +6,14 @@
 namespace Raekor {
 
 RandomWidget::RandomWidget(Editor* editor) : 
-    IWidget(editor),  
+    IWidget(editor, "Random"),  
     renderer(editor->renderer)
 {}
 
 
 
 void RandomWidget::draw() {
-    ImGui::Begin("Random");
+    ImGui::Begin(title.c_str());
     ImGui::SetItemDefaultFocus();
 
     if (ImGui::RadioButton("Vsync", renderer.vsync)) {
@@ -31,10 +31,9 @@ void RandomWidget::draw() {
     ImGui::Text("Shadow Mapping");
     ImGui::Separator();
 
-    if (ImGui::DragFloat2("Planes", glm::value_ptr(renderer.shadowMapPass->settings.planes), 0.1f)) {}
-    if (ImGui::DragFloat("Size", &renderer.shadowMapPass->settings.size)) {}
     if (ImGui::DragFloat("Bias constant", &renderer.shadowMapPass->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
     if (ImGui::DragFloat("Bias slope factor", &renderer.shadowMapPass->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    if (ImGui::DragFloat("Cascade lambda", &renderer.shadowMapPass->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {}
 
     ImGui::End();
 }

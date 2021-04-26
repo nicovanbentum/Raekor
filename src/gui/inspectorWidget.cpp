@@ -5,7 +5,7 @@
 
 namespace Raekor {
 
-InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor) {}
+InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, "Inspector") {}
 
 
 
@@ -170,7 +170,7 @@ void InspectorWidget::drawComponent(ecs::NativeScriptComponent& component, entt:
 
 
 void InspectorWidget::draw() {
-    ImGui::Begin("Inspector");
+    ImGui::Begin(title.c_str());
 
     if (editor->active == entt::null) {
         ImGui::End();

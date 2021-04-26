@@ -13,7 +13,7 @@ class AssetManager;
 
 class AssimpImporter {
 public:
-	AssimpImporter(Scene* scene) : scene(scene) {}
+	AssimpImporter(Scene& scene) : scene(scene) {}
 	bool LoadFromFile(const std::string& file, AssetManager& assetManager);
 
 private:
@@ -26,7 +26,7 @@ private:
 	void LoadMaterial(entt::entity entity, const aiMaterial* assimpMaterial);
 
 private:
-	Scene* scene;
+	Scene& scene;
 	const aiScene* assimpScene;
 	std::filesystem::path directory;
 	std::vector<entt::entity> materials;
