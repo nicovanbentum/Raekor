@@ -68,17 +68,17 @@ private:
     DescriptorSet shaderDescriptorSet;
     std::unique_ptr<VK::UniformBuffer> modelUbo;
 
-    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
     int current_frame = 0;
 
     // texture handles
     std::vector<VK::Texture> textures;
     std::vector<VkDescriptorImageInfo> textureDescriptorInfos;
 
+    VmaAllocator bufferAllocator;
+
     VK::Shader vert;
     VK::Shader frag;
-
-    VmaAllocator bufferAllocator;
 
 public:
     ~Renderer();
@@ -116,6 +116,8 @@ public:
     void render(uint32_t imageIndex, const glm::mat4& sky_transform);
 
     void recreateSwapchain(bool useVsync);
+
+    void createAccelerationStructure();
 
     void ImGuiInit(SDL_Window* window);
 

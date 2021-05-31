@@ -71,8 +71,7 @@
 #define VK_ENABLE_BETA_EXTENSIONS
 #include "vulkan/vulkan.h"
 #include "vk_mem_alloc.h"
-#include "spirv_cross/spirv_cross.hpp"
-#include "spirv_cross/spirv_glsl.hpp"
+#include "spirv_reflect.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Simple DirectMedia Layer

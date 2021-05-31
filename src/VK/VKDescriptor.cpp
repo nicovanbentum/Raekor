@@ -40,23 +40,65 @@ void UniformBuffer::destroy(VmaAllocator allocator) {
 ///////////////////////////////////////////////////////////////////////
 
 DescriptorSet::DescriptorSet(Context& context, Shader** shaders, size_t count) {
-
     std::vector<VkDescriptorSetLayoutBinding> bindings;
 
     for (size_t i = 0; i < count; i++) {
         Shader* shader = shaders[i];
 
-        auto compiler = spirv_cross::CompilerGLSL(shader->spirv.data(), shader->spirv.size() / sizeof(uint32_t));
-        auto resources = compiler.get_shader_resources();
+        SpvReflectShaderModule module;
+        SpvReflectResult result = spvReflectCreateShaderModule(shader->spirv.size(), shader->spirv.data(), &module);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
-        for (auto& resource : resources.sampled_images) {
-            bindings.push_back(getBinding(&compiler, resource, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
-        }
+        const SpvReflectDescriptorSet* reflectSet = spvReflectGetDescriptorSet(&module, 0, &result);
 
-        for (auto& resource : resources.uniform_buffers) {
-            bindings.push_back(getBinding(&compiler, resource, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC));
+        unsigned int blockIndex = 0;
+
+        for (uint32_t i = 0; i < reflectSet->binding_count; i++) {
+            const SpvReflectDescriptorBinding& reflBinding = *(reflectSet->bindings[i]);
+            const VkDescriptorType type = static_cast<VkDescriptorType>(reflBinding.descriptor_type);
+
+            VkWriteDescriptorSet descriptor = {};
+            descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptor.dstSet = descriptorSet;
+            descriptor.dstBinding = reflBinding.binding;
+            descriptor.dstArrayElement = 0;
+            descriptor.descriptorType = type;
+            descriptor.descriptorCount = reflBinding.count;
+            descriptor.pBufferInfo = nullptr;
+            descriptor.pImageInfo = nullptr;
+            descriptor.pTexelBufferView = nullptr;
+
+            this->resources[reflBinding.name] = descriptor;
+
+            VkDescriptorSetLayoutBinding binding = {};
+            binding.binding = reflBinding.binding;
+            binding.descriptorType = static_cast<VkDescriptorType>(reflBinding.descriptor_type);
+            binding.descriptorCount = reflBinding.count;
+
+            for (uint32_t dim = 0; dim < reflBinding.array.dims_count; ++dim) {
+                binding.descriptorCount *= reflBinding.array.dims[dim];
+            }
+
+            binding.stageFlags = static_cast<VkShaderStageFlagBits>(module.shader_stage);
+
+            bindings.push_back(binding);
         }
     }
+
+    std::vector<VkDescriptorBindingFlags> descriptorBindingFlags;
+
+    for (const auto& binding : bindings) {
+        if (binding.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && binding.descriptorCount > 1) {
+            descriptorBindingFlags.push_back(VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT);
+        } else {
+            descriptorBindingFlags.push_back(0);
+        }
+    }
+    
+    VkDescriptorSetLayoutBindingFlagsCreateInfo setLayoutBindingFlags{};
+    setLayoutBindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    setLayoutBindingFlags.bindingCount = static_cast<uint32_t>(descriptorBindingFlags.size());
+    setLayoutBindingFlags.pBindingFlags = descriptorBindingFlags.data();
 
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -71,21 +113,17 @@ DescriptorSet::DescriptorSet(Context& context, Shader** shaders, size_t count) {
         throw std::runtime_error("fialed to create descriptor layout");
     }
 
-    context.device.allocateDescriptorSet(1, &descriptorSetLayout, &descriptorSet);
+    // Descriptor sets
+    uint32_t variableDescCounts[] = { 20 };
+    VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {};
+    variableDescriptorCountAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+    variableDescriptorCountAllocInfo.descriptorSetCount = 1;
+    variableDescriptorCountAllocInfo.pDescriptorCounts = variableDescCounts;
 
-    for (size_t i = 0; i < count; i++) {
-        Shader* shader = shaders[i];
+    context.device.allocateDescriptorSet(1, &descriptorSetLayout, &descriptorSet, &variableDescriptorCountAllocInfo);
 
-        auto compiler = spirv_cross::CompilerGLSL(shader->spirv.data(), shader->spirv.size() / sizeof(uint32_t));
-        auto resources = compiler.get_shader_resources();
-
-        for (auto& resource : resources.sampled_images) {
-            this->resources[resource.name] = getDescriptorSet(&compiler, resource, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        }
-
-        for (auto& resource : resources.uniform_buffers) {
-            this->resources[resource.name] = getDescriptorSet(&compiler, resource, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
-        }
+    for (auto& resource : resources) {
+        resource.second.dstSet = descriptorSet;
     }
 
     for (auto& res : this->resources) {
@@ -138,40 +176,6 @@ void DescriptorSet::update(VkDevice device, const std::string& name) {
     if (resource) {
         vkUpdateDescriptorSets(device, 1, getResource(name), 0, nullptr);
     }
-}
-
-///////////////////////////////////////////////////////////////////////
-
-VkDescriptorSetLayoutBinding DescriptorSet::getBinding(spirv_cross::Compiler* compiler, spirv_cross::Resource& resource, VkDescriptorType descriptorType) {
-    auto& type = compiler->get_type(resource.type_id);
-
-    VkDescriptorSetLayoutBinding binding = {};
-    binding.binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
-    binding.descriptorType = descriptorType;
-    binding.descriptorCount = type.array.size() ? type.array[0] : 1;
-    binding.stageFlags = getStageFromExecutionModel(compiler->get_execution_model());
-    binding.pImmutableSamplers = nullptr;
-
-    return binding;
-}
-
-///////////////////////////////////////////////////////////////////////
-
-VkWriteDescriptorSet DescriptorSet::getDescriptorSet(spirv_cross::Compiler* compiler, spirv_cross::Resource& resource, VkDescriptorType descriptorType) {
-    auto& type = compiler->get_type(resource.type_id);
-
-    VkWriteDescriptorSet descriptor = {};
-    descriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor.dstSet = descriptorSet;
-    descriptor.dstBinding = compiler->get_decoration(resource.id, spv::DecorationBinding);
-    descriptor.dstArrayElement = 0;
-    descriptor.descriptorType = descriptorType;
-    descriptor.descriptorCount = type.array.size() ? type.array[0] : 1;
-    descriptor.pBufferInfo = nullptr;
-    descriptor.pImageInfo = nullptr;
-    descriptor.pTexelBufferView = nullptr;
-
-    return descriptor;
 }
 
 } // VK

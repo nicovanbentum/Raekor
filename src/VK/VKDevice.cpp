@@ -14,7 +14,16 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
 
     const std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_NV_RAY_TRACING_EXTENSION_NAME
+        VK_KHR_MAINTENANCE3_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+
+        // vk_khr_ray_tracing
+        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+        VK_KHR_RAY_QUERY_EXTENSION_NAME,
+        VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
+
     };
 
     uint32_t extensionCount;
@@ -52,14 +61,8 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
         throw std::runtime_error("queue family and/or extensions failed");
     }
 
-    VkDeviceQueueCreateInfo queueCreateInfo = {};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = qindices.graphics.value();
-    queueCreateInfo.queueCount = 1;
-
     float queuePriority = 1.0f;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
-
+    
     VkPhysicalDeviceFeatures deviceFeatures = {};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
 
@@ -82,6 +85,14 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
     device_info.pEnabledFeatures = &deviceFeatures;
     device_info.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     device_info.ppEnabledExtensionNames = deviceExtensions.data();
+
+    //VkPhysicalDeviceDescriptorIndexingFeatures descriptorFeatures;
+    //descriptorFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    //descriptorFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    //descriptorFeatures.runtimeDescriptorArray = VK_TRUE;
+    //descriptorFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
+
+    //device_info.pNext = &descriptorFeatures;
 
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_LUNARG_standard_validation"
@@ -402,12 +413,13 @@ void Device::transitionImageLayout(VkImage image, VkFormat format, uint32_t mipL
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Device::allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets) const {
+void Device::allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets, const void* pNext) const {
     VkDescriptorSetAllocateInfo desc_info = {};
     desc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     desc_info.descriptorPool = descriptorPool;
     desc_info.descriptorSetCount = count;
     desc_info.pSetLayouts = layouts;
+    desc_info.pNext = pNext;
 
     if (vkAllocateDescriptorSets(device, &desc_info, sets) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets");

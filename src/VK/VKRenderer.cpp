@@ -2,13 +2,17 @@
 #include "VKRenderer.h"
 #include "mesh.h"
 
+#include <ranges>
+
 namespace Raekor {
 namespace VK {
 
     void Renderer::recordModel() {
-        for (int i = 0; i < meshes.size(); i++) {
-            recordMeshBuffer(i, meshes[i], pipelineLayout, shaderDescriptorSet, secondaryBuffers[meshes.size() - 1 - i]);
-        }
+        std::atomic_int i = 0;
+        std::for_each(meshes.begin(), meshes.end(), [&](VKMesh& mesh) {
+            recordMeshBuffer(i, mesh, pipelineLayout, shaderDescriptorSet, secondaryBuffers[meshes.size() - 1 - i]);
+            i++;
+        });
     }
 
     void Renderer::reloadShaders() {
@@ -17,8 +21,12 @@ namespace VK {
             throw std::runtime_error("failed to wait for the gpu to idle");
         }
         // recompile and reload the shaders
-        VK::Shader::compileFromCommandLine("shaders/Vulkan/vulkan.vert", "shaders/Vulkan/vert.spv");
-        VK::Shader::compileFromCommandLine("shaders/Vulkan/vulkan.frag", "shaders/Vulkan/frag.spv");
+        bool sucess = false;;
+        sucess |= VK::Shader::compileFromCommandLine("shaders/Vulkan/vulkan.vert", "shaders/Vulkan/bin/vert.spv");
+        sucess |= VK::Shader::compileFromCommandLine("shaders/Vulkan/vulkan.frag", "shaders/Vulkan/bin/frag.spv");
+
+        if (!sucess) return;
+
         vert.reload();
         frag.reload();
         std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
@@ -81,8 +89,8 @@ namespace VK {
 
     Renderer::Renderer(SDL_Window* window)
         : context(window),
-        vert(context, "shaders/Vulkan/vert.spv"),
-        frag(context, "shaders/Vulkan/frag.spv")
+        vert(context.device, "shaders/Vulkan/bin/vert.spv"),
+        frag(context.device, "shaders/Vulkan/bin/frag.spv")
     {
         VmaAllocatorCreateInfo allocInfo = {};
         allocInfo.physicalDevice = context.PDevice;
@@ -327,8 +335,9 @@ namespace VK {
         modelUbo->update(bufferAllocator, uboDynamic.mvp, wholeSize);
 
         // bind and complete set
-        shaderDescriptorSet.getResource("Camera")->pBufferInfo = modelUbo->getDescriptor();
+        shaderDescriptorSet.getResource("ubo")->pBufferInfo = modelUbo->getDescriptor();
         shaderDescriptorSet.getResource("tex_sampler")->pImageInfo = textureDescriptorInfos.data();
+        shaderDescriptorSet.getResource("tex_sampler")->descriptorCount = textures.size();
         shaderDescriptorSet.update(context.device);
     }
 
@@ -771,14 +780,22 @@ namespace VK {
 
         // re-create the graphics pipeline
         destroyGraphicsPipeline();
+
         std::array<VkPipelineShaderStageCreateInfo, 2> shaders = {
             vert.getInfo(VK_SHADER_STAGE_VERTEX_BIT),
             frag.getInfo(VK_SHADER_STAGE_FRAGMENT_BIT)
         };
 
+
+
         createGraphicsPipeline(shaders);
         setupFrameBuffers();
         recordModel();
+    }
+
+    void Renderer::createAccelerationStructure() {
+
+
     }
 
     void Renderer::ImGuiInit(SDL_Window* window) {

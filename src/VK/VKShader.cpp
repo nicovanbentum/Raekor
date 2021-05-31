@@ -4,8 +4,8 @@
 namespace Raekor {
 namespace VK {
 
-Shader::Shader(const Context& ctx, const std::string& path) :
-    device(ctx.device), 
+Shader::Shader(VkDevice device, const std::string& path) :
+    device(device),
     filepath(path), 
     module(VK_NULL_HANDLE)
 {
@@ -32,7 +32,7 @@ void Shader::reload() {
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = spirv.size();
     createInfo.pCode = spirv.data();
-    
+
     if (vkCreateShaderModule(device, &createInfo, nullptr, &module) != VK_SUCCESS) {
         throw std::runtime_error("failed to create vk shader module");
     }
@@ -40,11 +40,11 @@ void Shader::reload() {
 
 ///////////////////////////////////////////////////////////////////////////
 
-void Shader::compileFromCommandLine(std::string_view in, std::string_view out) {
+bool Shader::compileFromCommandLine(std::string_view in, std::string_view out) {
     const auto vulkan_sdk_path = getenv("VULKAN_SDK");
     if (!vulkan_sdk_path) {
         std::puts("Unable to find Vulkan SDK, cannot compile shader");
-        return;
+        return false;
     }
 
     const auto compiler = vulkan_sdk_path + std::string("\\Bin\\glslc.exe ");
@@ -52,8 +52,10 @@ void Shader::compileFromCommandLine(std::string_view in, std::string_view out) {
 
     if (system(command.c_str()) != 0) {
         std::cout << "failed to compile vulkan shader: " << in << '\n';
+        return false;
     } else {
         std::cout << "Successfully compiled VK shader: " << in << '\n';
+        return true;
     }
 }
 
@@ -81,16 +83,6 @@ VkPipelineShaderStageCreateInfo Shader::getInfo(VkShaderStageFlagBits stage) con
     stage_info.module = module;
     stage_info.pName = "main";
     return stage_info;
-}
-
-///////////////////////////////////////////////////////////////////////////
-
-VkShaderStageFlagBits getStageFromExecutionModel(spv::ExecutionModel model) {
-    switch (model) {
-        case spv::ExecutionModel::ExecutionModelVertex: return VK_SHADER_STAGE_VERTEX_BIT;
-        case spv::ExecutionModel::ExecutionModelFragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
-        default: return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
-    }
 }
 
 } // VK 

@@ -36,8 +36,10 @@ public:
     VkImageView createImageView(VkImage image, VkFormat format, VkImageViewType type, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t layerCount) const;
     void generateMipmaps(VkImage image, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) const;
 
-    void allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets) const;
+    void allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets, const void* pNext = nullptr) const;
     void freeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const;
+
+    VmaAllocator getAllocator() { return allocator; }
 
     std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo> createStagingBuffer(VmaAllocator allocator, size_t sizeInBytes) const;
 
@@ -49,6 +51,8 @@ public:
     VkQueue graphicsQueue;
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;
+    VmaAllocator allocator;
+
 private:
     VkPhysicalDeviceMemoryProperties memProperties;
 };

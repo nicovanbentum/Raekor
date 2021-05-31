@@ -5,25 +5,32 @@
 namespace Raekor {
 namespace VK {
 
-    VkShaderStageFlagBits getStageFromExecutionModel(spv::ExecutionModel model);
-
 class Shader {
     friend class DescriptorSet;
 public:
     // constructors & desctructor
     Shader() = default;
-    Shader(const Context& context, const std::string& path = "");
+    Shader(VkDevice device, const std::string& path = "");
     ~Shader();
 
     operator VkShaderModule() { return module; }
+
+    VkShaderModule getModule() { return module; }
+    VkShaderStageFlagBits getStage() { return stage; }
+
+    const std::vector<uint32_t>& getSpirv() {
+        return spirv;
+    }
+
     void reload();
-    static void compileFromCommandLine(std::string_view in, std::string_view out);
+    static bool compileFromCommandLine(std::string_view in, std::string_view out);
     VkPipelineShaderStageCreateInfo getInfo(VkShaderStageFlagBits stage) const;
 
 private:
     VkDevice device;
     std::string filepath;
     VkShaderModule module;
+    VkShaderStageFlagBits stage;
     std::vector<uint32_t> spirv;
 
     std::vector<uint32_t> readSpirvFile(const std::string& path);

@@ -41,11 +41,6 @@ private:
     VkDescriptorSet descriptorSet;
     VkDescriptorSetLayout descriptorSetLayout;
     std::unordered_map<std::string, VkWriteDescriptorSet> resources;
-    
-private:
-    VkWriteDescriptorSet getDescriptorSet(spirv_cross::Compiler* compiler, spirv_cross::Resource& resource, VkDescriptorType descriptorType);
-    VkDescriptorSetLayoutBinding getBinding(spirv_cross::Compiler* compiler, spirv_cross::Resource& resource, VkDescriptorType descriptorType);
-
 };
 
 } // VK

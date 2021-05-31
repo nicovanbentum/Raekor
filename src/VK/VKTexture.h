@@ -11,6 +11,7 @@ public:
     void destroy(VmaAllocator allocator);
 
 protected:
+    Image() = default;
     Image(VkDevice device) : device(device) {}
     VkDevice device;
 
