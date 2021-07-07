@@ -5,14 +5,12 @@ layout(location = 1) in vec2 v_uv;
 layout(location = 2) in vec3 v_normal;
 
 uniform mat4 model;
-uniform mat4 lightViewProjection;
 
 out vec2 uvs;
-out vec4 depthPositions;
+out vec4 worldPositions;
 
 void main() {
-    gl_Position = model * vec4(v_pos ,1);
-    depthPositions = lightViewProjection * gl_Position;
-	depthPositions.xyz = depthPositions.xyz * 0.5 + 0.5;
+    worldPositions = model * vec4(v_pos ,1);
+    gl_Position = worldPositions;
     uvs = v_uv;
 }
