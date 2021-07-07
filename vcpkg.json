@@ -15,13 +15,9 @@
             "platform": "windows & static"
         },
         {
-            "name": "sdl2",
-            "features": ["vulkan"],
-            "platform": "windows & static"
-        },
-        {
-            "name": "spirv-cross",
-            "platform": "windows & static"
+          "name": "sdl2",
+          "features": [ "vulkan" ],
+          "platform": "windows & static"
         }
     ]
 }

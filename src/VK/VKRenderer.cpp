@@ -2,8 +2,6 @@
 #include "VKRenderer.h"
 #include "mesh.h"
 
-#include <ranges>
-
 namespace Raekor {
 namespace VK {
 
