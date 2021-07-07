@@ -85,28 +85,42 @@ std::vector<float> MeshComponent::getVertexData() {
         3 * bitangents.size()
     );
 
+    const bool hasUVs = !uvs.empty();
+    const bool hasNormals = !normals.empty();
+    const bool hasTangents = !tangents.empty();
+    const bool hasBitangents = !bitangents.empty();
+
     for (auto i = 0; i < positions.size(); i++) {
-        auto position = glm::value_ptr(positions[i]);
-        vertices.insert(vertices.end(), position, position + 3);
+        auto position = positions[i];
+        vertices.push_back(position.x);
+        vertices.push_back(position.y);
+        vertices.push_back(position.z);
 
-        if (!uvs.empty()) {
-            auto uv = glm::value_ptr(uvs[i]);
-            vertices.insert(vertices.end(), uv, uv + 2);
+        if (hasUVs) {
+            auto uv = uvs[i];
+            vertices.push_back(uv.x);
+            vertices.push_back(uv.y);
         }
 
-        if (!normals.empty()) {
-            auto normal = glm::value_ptr(normals[i]);
-            vertices.insert(vertices.end(), normal, normal + 3);
+        if (hasNormals) {
+            auto normal = normals[i];
+            vertices.push_back(normal.x);
+            vertices.push_back(normal.y);
+            vertices.push_back(normal.z);
         }
 
-        if (!tangents.empty()) {
-            auto tangent = glm::value_ptr(tangents[i]);
-            vertices.insert(vertices.end(), tangent, tangent + 3);
+        if (hasTangents) {
+            auto tangent = tangents[i];
+            vertices.push_back(tangent.x);
+            vertices.push_back(tangent.y);
+            vertices.push_back(tangent.z);
         }
 
-        if (!bitangents.empty()) {
-            auto bitangent = glm::value_ptr(bitangents[i]);
-            vertices.insert(vertices.end(), bitangent, bitangent + 3);
+        if (hasBitangents) {
+            auto bitangent = bitangents[i];
+            vertices.push_back(bitangent.x);
+            vertices.push_back(bitangent.y);
+            vertices.push_back(bitangent.z);
         }
     }
 

@@ -7,16 +7,18 @@
 
 int main(int argc, char** argv) {
     {
-        auto app = Raekor::Editor();
+        Raekor::WindowApplication* app = new Raekor::Editor();
 
         float dt = 0;
         Raekor::Timer timer;
 
-        while (app.running) {
+        while (app->running) {
             timer.start();
-            app.update(dt);
+            app->update(dt);
             dt = static_cast<float>(timer.stop());
         }
+
+        delete app;
     }
 
     return 0;

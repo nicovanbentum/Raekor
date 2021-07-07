@@ -14,3 +14,5 @@ x64/
 resources/models/
 resources/textures/
 fake.hlsl
+/assets
+/scenes
