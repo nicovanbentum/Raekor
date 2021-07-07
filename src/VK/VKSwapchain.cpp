@@ -142,13 +142,20 @@ bool Swapchain::create(const Context& context, glm::vec2 resolution, VkPresentMo
         }
     }
 
+    VkCommandBufferAllocateInfo blitBufferInfo = {};
+    blitBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    blitBufferInfo.commandPool = context.device.commandPool;
+    blitBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    blitBufferInfo.commandBufferCount = 1;
+
+    vkAllocateCommandBuffers(context.device, &blitBufferInfo, &blitBuffer);
+
     return true;
 }
 
 ///////////////////////////////////////////////////////////////////////
 
-void Swapchain::destroy(VkDevice device)
-{
+void Swapchain::destroy(VkDevice device) {
     for (auto& framebuffer : framebuffers)
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     for (auto& view : views) {

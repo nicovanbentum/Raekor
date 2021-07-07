@@ -8,6 +8,7 @@ namespace VK {
 
 class UniformBuffer {
 public:
+    UniformBuffer() = default;
     UniformBuffer(const Context& ctx, VmaAllocator allocator, size_t allocationSize);
 
     void update(VmaAllocator allocator, const void* data, size_t size = VK_WHOLE_SIZE) const;

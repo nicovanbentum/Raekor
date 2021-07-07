@@ -41,16 +41,20 @@ public:
 
     VmaAllocator getAllocator() { return allocator; }
 
-    std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo> createStagingBuffer(VmaAllocator allocator, size_t sizeInBytes) const;
+    std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo> createStagingBuffer(size_t sizeInBytes) const;
 
 private:
     Queues qindices;
     VkDevice device;
+
 public:
     VkQueue presentQueue;
     VkQueue graphicsQueue;
+    
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;
+    
+
     VmaAllocator allocator;
 
 private:

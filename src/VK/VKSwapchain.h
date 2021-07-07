@@ -18,7 +18,7 @@ public:
     void setupFrameBuffers(const Context& context, VkRenderPass renderPass, const std::vector<VkImageView>& attachments);
 
 private:
-    VkSwapchainKHR swapchain    = VK_NULL_HANDLE;
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 
 public:
     VkExtent2D extent;
@@ -26,6 +26,8 @@ public:
     std::vector<VkImage> images;
     std::vector<VkImageView> views;
     std::vector<VkFramebuffer> framebuffers;
+
+    VkCommandBuffer blitBuffer;
     
 };
 

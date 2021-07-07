@@ -1,0 +1,16 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_GOOGLE_include_directive : require
+
+layout(set = 0, binding = 0, rgba8) uniform writeonly image2D outTexture;
+
+void main() {
+    const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+    const vec2 uv = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
+
+    uint rayFlags = gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+    float tMin = 0.001;
+    float tMax = 10000.0;
+
+    imageStore(outTexture, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(0, 1, 0), 1.0));
+}

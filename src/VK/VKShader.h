@@ -36,6 +36,5 @@ private:
     std::vector<uint32_t> readSpirvFile(const std::string& path);
 };
 
-
 } // VK
 } // Raekor

@@ -1,6 +1,39 @@
 #include "pch.h"
 #include "VKBase.h"
 
+VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+    std::cerr << pCallbackData->pMessage << '\n';
+
+    if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+        assert(false);
+    }
+
+    return VK_FALSE;
+}
+
+static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
+    const VkAllocationCallbacks* pAllocator) {
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance,
+        "vkDestroyDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        func(instance, debugMessenger, pAllocator);
+    }
+}
+
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance,
+    const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+    const VkAllocationCallbacks* pAllocator,
+    VkDebugUtilsMessengerEXT* pDebugMessenger) {
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance,
+        "vkCreateDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    } 	else 	{
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+
 namespace Raekor {
 namespace VK {
 
@@ -21,7 +54,7 @@ Instance::Instance(SDL_Window* window) {
     }
 
     std::vector<const char*> extensions = { 
-        VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
+        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
         VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
 
     };
@@ -43,7 +76,15 @@ Instance::Instance(SDL_Window* window) {
     };
 
 
-    if (RAEKOR_DEBUG) {
+#if RAEKOR_DEBUG
+        VkDebugUtilsMessengerCreateInfoEXT debugInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
+        debugInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        debugInfo.pfnUserCallback = debugCallback;
+
         uint32_t layerCount;
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
         std::vector<VkLayerProperties> availableLayers(layerCount);
@@ -60,7 +101,9 @@ Instance::Instance(SDL_Window* window) {
 
             if (!found) throw std::runtime_error("requested validation layer not supported");
         }
-    }
+
+        instance_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugInfo;
+#endif
 
     // Now we can make the Vulkan instance
     instance_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
@@ -77,6 +120,10 @@ Instance::Instance(SDL_Window* window) {
     if (vkCreateInstance(&instance_info, nullptr, &instance) != VK_SUCCESS) {
         throw std::runtime_error("failed to create vulkan instance");
     }
+
+#if RAEKOR_DEBUG
+    CreateDebugUtilsMessengerEXT(instance, &debugInfo, nullptr, &debugMessenger);
+#endif
 
     if (!SDL_Vulkan_CreateSurface(window, instance, &surface)) {
         throw std::runtime_error("failed to create vulkan surface");

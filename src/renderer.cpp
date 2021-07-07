@@ -19,10 +19,8 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
 
         switch (id) {
             case 131218: return; // shader state recompilation
-#ifndef NDEBUG
             default:
                 assert(false);
-#endif
         }
     }
 }
@@ -102,7 +100,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     ecs::MaterialComponent::Default.createNormalTexture();
 
     skinningPass = std::make_unique<SkinCompute>();
-    voxelizePass = std::make_unique<Voxelize>(256);
+    voxelizePass = std::make_unique<Voxelize>(512);
     shadowMapPass = std::make_unique<ShadowMap>(4096, 4096);
     tonemappingPass = std::make_unique<Tonemap>(viewport);
     GBufferPass = std::make_unique<GBuffer>(viewport);

@@ -36,6 +36,19 @@ void Shader::reload() {
     if (vkCreateShaderModule(device, &createInfo, nullptr, &module) != VK_SUCCESS) {
         throw std::runtime_error("failed to create vk shader module");
     }
+
+    SpvReflectShaderModule module;
+    SpvReflectResult result = spvReflectCreateShaderModule(spirv.size(), spirv.data(), &module);
+    assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+    switch (module.spirv_execution_model) {
+        case SpvExecutionModel::SpvExecutionModelVertex: {
+            stage = VK_SHADER_STAGE_VERTEX_BIT;
+        } break;
+        case SpvExecutionModel::SpvExecutionModelFragment: {
+            stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        } break;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////

@@ -78,6 +78,13 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
+    VkPhysicalDeviceDescriptorIndexingFeatures descriptorFeatures{};
+    descriptorFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    descriptorFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    descriptorFeatures.runtimeDescriptorArray = VK_TRUE;
+    descriptorFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    descriptorFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+
     VkDeviceCreateInfo device_info = {};
     device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     device_info.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
@@ -85,14 +92,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
     device_info.pEnabledFeatures = &deviceFeatures;
     device_info.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     device_info.ppEnabledExtensionNames = deviceExtensions.data();
-
-    //VkPhysicalDeviceDescriptorIndexingFeatures descriptorFeatures;
-    //descriptorFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-    //descriptorFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-    //descriptorFeatures.runtimeDescriptorArray = VK_TRUE;
-    //descriptorFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
-
-    //device_info.pNext = &descriptorFeatures;
+    device_info.pNext = &descriptorFeatures;
 
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_LUNARG_standard_validation"
@@ -146,6 +146,17 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
         if (vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool for imgui");
         }
+    }
+
+    VmaAllocatorCreateInfo allocInfo = {};
+    allocInfo.physicalDevice = GPU;
+    allocInfo.device = device;
+    allocInfo.instance = instance;
+    allocInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+
+    VkResult vmaResult = vmaCreateAllocator(&allocInfo, &allocator);
+    if (vmaResult != VK_SUCCESS) {
+        throw std::runtime_error("failed create vma allocator");
     }
 }
 
@@ -435,7 +446,7 @@ void Device::freeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo> Device::createStagingBuffer(VmaAllocator allocator, size_t sizeInBytes) const{
+std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo> Device::createStagingBuffer(size_t sizeInBytes) const {
     VkBufferCreateInfo stagingBufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     stagingBufferCreateInfo.size = sizeInBytes;
     stagingBufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;

@@ -19,7 +19,7 @@ void Texture::upload(const Context& ctx, const Stb::Image& stb, VmaAllocator all
 
     VkDeviceSize byteSize = stb.w * stb.h * static_cast<uint32_t>(stb.format);
 
-    auto [stagingBuffer, stagingAlloc, stagingAllocInfo] = ctx.device.createStagingBuffer(allocator, byteSize);
+    auto [stagingBuffer, stagingAlloc, stagingAllocInfo] = ctx.device.createStagingBuffer(byteSize);
 
     memcpy(stagingAllocInfo.pMappedData, stb.pixels, static_cast<size_t>(byteSize));
 
@@ -85,7 +85,7 @@ CubeTexture::CubeTexture(const Context& ctx, const std::array<Stb::Image, 6>& im
     const VkDeviceSize imageSize = width * height * 4 * 6;
     const VkDeviceSize layerSize = imageSize / 6;
 
-    auto [stagingBuffer, stagingAlloc, stagingAllocInfo] = ctx.device.createStagingBuffer(allocator, imageSize);
+    auto [stagingBuffer, stagingAlloc, stagingAllocInfo] = ctx.device.createStagingBuffer(imageSize);
 
     for (unsigned int i = 0; i < 6; i++) {
         unsigned char* location = static_cast<unsigned char*>(stagingAllocInfo.pMappedData) + (layerSize * i);

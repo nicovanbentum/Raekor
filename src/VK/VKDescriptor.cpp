@@ -88,8 +88,8 @@ DescriptorSet::DescriptorSet(Context& context, Shader** shaders, size_t count) {
     std::vector<VkDescriptorBindingFlags> descriptorBindingFlags;
 
     for (const auto& binding : bindings) {
-        if (binding.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && binding.descriptorCount > 1) {
-            descriptorBindingFlags.push_back(VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT);
+        if (binding.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+            descriptorBindingFlags.push_back(VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
         } else {
             descriptorBindingFlags.push_back(0);
         }
@@ -104,6 +104,7 @@ DescriptorSet::DescriptorSet(Context& context, Shader** shaders, size_t count) {
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pBindings = bindings.data();
+    layoutInfo.pNext = &setLayoutBindingFlags;
 
     for (auto& binding : bindings) {
         std::cout << " completed binding at " << binding.binding << '\n';

@@ -30,38 +30,24 @@ private:
     std::unique_ptr<RayCompute> rayTracePass;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-struct mod {
-    glm::mat4 model = glm::mat4(1.0f);
-    glm::vec3 position = { 0.0, 0.0f, 0.0f }, scale = { 1.0f, 1.0f, 1.0f }, rotation = { 0, 0, 0 };
-
-    void transform() {
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, position);
-        auto rotation_quat = static_cast<glm::quat>(rotation);
-        model = model * glm::toMat4(rotation_quat);
-        model = glm::scale(model, scale);
-    }
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 class VulkanApp : public WindowApplication {
 public:
     VulkanApp();
     virtual ~VulkanApp();
 
     virtual void update(float dt) override;
+    virtual void onEvent(const SDL_Event& ev) override {}
 
 private:
-    int active = 0;
     VK::Renderer vk;
-    std::vector<mod> mods;
 
-    bool useVsync = true, shouldRecreateSwapchain = false;
+    HANDLE changes;
+    std::filesystem::directory_iterator shaderDirectory;
+    std::unordered_map<std::string, std::filesystem::file_time_type> files;
 
     std::shared_ptr<IWidget> viewportWindow;
+    bool useVsync = true, shouldRecreateSwapchain = false;
+
 };
 
 } // raekor

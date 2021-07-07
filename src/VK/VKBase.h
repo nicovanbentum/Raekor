@@ -14,7 +14,7 @@ public:
 private:
     VkInstance instance;
     VkSurfaceKHR surface;
-
+    VkDebugUtilsMessengerEXT debugMessenger;
 };
 
 

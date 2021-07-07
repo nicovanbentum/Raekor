@@ -276,9 +276,6 @@ VulkanApp::VulkanApp() : WindowApplication(RendererFlags::VULKAN), vk(window) {
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
-    vk.ImGuiInit(window);
-    vk.ImGuiCreateFonts();
-
     // gui stuff
     gui::setTheme(settings.themeColors);
 
@@ -286,123 +283,56 @@ VulkanApp::VulkanApp() : WindowApplication(RendererFlags::VULKAN), vk(window) {
     glm::mat4 ubo = {};
     int active = 0;
 
-    mods.resize(vk.getMeshCount());
-    for (mod& m : mods) {
-        m.model = glm::mat4(1.0f);
-        m.transform();
-    }
-
     std::puts("Job well done.");
 
     SDL_ShowWindow(window);
     SDL_SetWindowInputFocus(window);
+
+    for (const auto& file : fs::directory_iterator("shaders/Vulkan")) {
+        files[file.path().string()] = std::filesystem::last_write_time(file);
+    }
+
+    changes = FindFirstChangeNotificationA("shaders/vulkan", FALSE, FILE_NOTIFY_CHANGE_LAST_WRITE);
+
+    if (changes == INVALID_HANDLE_VALUE) {
+        printf("\n ERROR: FindFirstChangeNotification function failed.\n");
+        throw std::runtime_error("failed to watch directory");
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void VulkanApp::update(float dt) {
-    // update the mvp structs
-    auto& camera = viewport.getCamera();
-    for (uint32_t i = 0; i < mods.size(); i++) {
-        MVP* modelMat = (MVP*)(((uint64_t)vk.uboDynamic.mvp + (i * vk.dynamicAlignment)));
-        modelMat->model = mods[i].model;
-        modelMat->projection = camera.getProjection();
-        modelMat->view = camera.getView();
-        modelMat->lightPos = glm::vec4(glm::vec3(0, 3, 0), 1.0f);
-        modelMat->lightAngle = { 0.0f, 1.0f, 1.0f, 0.0f };
-    }
+    SDL_Event ev;
+    while (SDL_PollEvent(&ev)) {
+        onEvent(ev);
+        ImGui_ImplSDL2_ProcessEvent(&ev);
 
-    uint32_t frame = vk.getNextFrame();
+        viewport.getCamera().onEventEditor(ev);
 
-    // start a new imgui frame
-    vk.ImGuiNewFrame(window);
-    ImGuizmo::BeginFrame();
-    ImGuizmo::Enable(true);
+        if (ev.type == SDL_WINDOWEVENT) {
+            if (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+                while (1) {
+                    SDL_Event ev;
+                    SDL_PollEvent(&ev);
 
-    ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-    ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(imGuiViewport->Pos);
-    ImGui::SetNextWindowSize(imGuiViewport->Size);
-    ImGui::SetNextWindowViewport(imGuiViewport->ID);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-
-    ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
-    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) {
-        dockWindowFlags |= ImGuiWindowFlags_NoBackground;
-    }
-
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::Begin("DockSpace", (bool*)true, dockWindowFlags);
-    ImGui::PopStyleVar();
-    ImGui::PopStyleVar(2);
-
-    ImGuiIO& io = ImGui::GetIO();
-    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
-        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
-    }
-
-    ImGui::Begin("ECS", (bool*)0, ImGuiWindowFlags_AlwaysAutoResize);
-    if (ImGui::Button("Add Model")) {
-        std::string path = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
-        if (!path.empty()) {
+                    if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
+                        break;
+                    }
+                }
+            }
+            if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
+                if (SDL_GetWindowID(window) == ev.window.windowID) {
+                    running = false;
+                }
+            }
+            if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
+                shouldRecreateSwapchain = true;
+            }
         }
     }
-    ImGui::SameLine();
-    if (ImGui::Button("Remove Model")) {
-    }
-    ImGui::End();
 
-    ImGui::ShowMetricsWindow();
-
-    ImGui::Begin("Mesh Properties");
-
-    if (ImGui::SliderInt("Mesh", &active, 0, 24)) {}
-    if (ImGui::DragFloat3("Scale", glm::value_ptr(mods[active].scale), 0.01f, 0.0f, 10.0f)) {
-        mods[active].transform();
-    }
-    if (ImGui::DragFloat3("Position", glm::value_ptr(mods[active].position), 0.01f, -100.0f, 100.0f)) {
-        mods[active].transform();
-    }
-    if (ImGui::DragFloat3("Rotation", glm::value_ptr(mods[active].rotation), 0.01f, (float)(-M_PI), (float)(M_PI))) {
-        mods[active].transform();
-    }
-    ImGui::End();
-
-    // scene panel
-    ImGui::Begin("Scene");
-    // toggle button for vsync
-    if (ImGui::RadioButton("USE VSYNC", useVsync)) {
-        useVsync = !useVsync;
-        shouldRecreateSwapchain = true;
-    }
-
-    if (ImGui::Button("Reload shaders")) {
-        vk.reloadShaders();
-    }
-
-    ImGui::NewLine(); ImGui::Separator();
-
-    ImGui::End();
-
-    // End DOCKSPACE
-    ImGui::End();
-
-    // tell imgui to collect render data
-    ImGui::Render();
-    // record the collected data to secondary command buffers
-    vk.ImGuiRecord();
-    // start the overall render pass
-    camera.update();
-
-    glm::mat4 sky_matrix = camera.getProjection() * glm::mat4(glm::mat3(camera.getView())) * glm::mat4(1.0f);
-
-    vk.render(frame, sky_matrix);
-    // tell imgui we're done with the current frame
-    ImGui::EndFrame();
+    vk.run();
 
     if (shouldRecreateSwapchain) {
         vk.recreateSwapchain(useVsync);
@@ -413,7 +343,7 @@ void VulkanApp::update(float dt) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 VulkanApp::~VulkanApp() {
-    vk.waitForIdle();
+    CloseHandle(changes);
 }
 
 } // raekor

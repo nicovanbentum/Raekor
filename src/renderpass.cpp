@@ -761,13 +761,12 @@ void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shad
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
+    glEnable(GL_CONSERVATIVE_RASTERIZATION_NV);
 
     // bind shader and level 0 of the voxel volume
     shader.bind();
-    glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32UI);
+    glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
     glBindTextureUnit(2, shadowmap->cascades);
-
-    shader.getUniform("lightViewProjection") = shadowmap->matrices[0];
 
     auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
 
@@ -783,6 +782,11 @@ void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shad
         shader.getUniform("px") = px;
         shader.getUniform("py") = py;
         shader.getUniform("pz") = pz;
+
+        shader.getUniform("shadowMatrices") = std::vector<glm::mat4>(shadowmap->matrices.begin(), shadowmap->matrices.end());
+        shader.getUniform("shadowSplits") = shadowmap->m_splits;
+        shader.getUniform("view") = viewport.getCamera().getView();
+
 
 
         if (material) {
@@ -806,14 +810,16 @@ void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shad
 
         mesh.indexBuffer.bind();
         glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
 
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     // Run compute shaders
-    correctOpacity(result);
+    //correctOpacity(result);
     computeMipmaps(result);
     //result.genMipMaps();
+
 
     // reset OpenGL state
     glViewport(0, 0, viewport.size.x, viewport.size.y);
@@ -821,6 +827,8 @@ void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shad
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
+    glDisable(GL_CONSERVATIVE_RASTERIZATION_NV);
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
