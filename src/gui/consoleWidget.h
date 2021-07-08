@@ -29,10 +29,7 @@ public:
 
     void    ExecCommand(const char* command_line);
 
-    static int TextEditCallbackStub(ImGuiInputTextCallbackData* data);
-    int TextEditCallback(ImGuiInputTextCallbackData* data);
-
-private:
+public:
     char                  InputBuf[256];
     ImVector<char*>       Items;
     ImVector<char*>       History;
@@ -40,6 +37,9 @@ private:
     ImGuiTextFilter       Filter;
     bool                  AutoScroll;
     bool                  ScrollToBottom;
+
+    int                   activeItem = 0;
+    std::vector<const char*> items;
 };
 
 } // raekor

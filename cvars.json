@@ -18,7 +18,7 @@
             "key": "sv_wireframe",
             "value": {
                 "index": 0,
-                "data": 0
+                "data": 1
             }
         },
         {
@@ -39,7 +39,7 @@
             "key": "r_voxelize",
             "value": {
                 "index": 0,
-                "data": 1
+                "data": 0
             }
         },
         {

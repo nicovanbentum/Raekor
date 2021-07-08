@@ -113,7 +113,7 @@ public:
 	inline auto begin()  { return cvars.begin(); }
 	inline size_t size() { return cvars.size();  }
 
-	static ConVars& getIterable() { return *singleton.get(); }
+	static ConVars& get() { return *singleton.get(); }
 
 private:
 	std::unordered_map<std::string, cvar_t> cvars;

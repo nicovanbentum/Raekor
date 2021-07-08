@@ -12,6 +12,10 @@ ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor, "Console") {
     HistoryPos = -1;
     AutoScroll = true;
     ScrollToBottom = false;
+
+    for (const auto& cvar : ConVars::get()) {
+        items.push_back(cvar.first.c_str());
+    }
 }
 
 ConsoleWidget::~ConsoleWidget() {
@@ -36,11 +40,44 @@ void ConsoleWidget::draw() {
         return;
     }
 
-    // Command-line
-    bool reclaim_focus = false;
+    auto callback = [](ImGuiInputTextCallbackData* data) -> int {
+        ConsoleWidget* console = (ConsoleWidget*)data->UserData;
+
+        if (data->EventKey == ImGuiKey_Tab && data->BufTextLen) {
+            ImGuiTextFilter filter(data->Buf);
+
+            int index = 0;
+
+            for (const auto& cvar : ConVars::get()) {
+                if (filter.PassFilter(cvar.first.c_str())) {
+                    if (index == console->activeItem) {
+                        data->DeleteChars(0, data->BufTextLen);
+                        data->InsertChars(0, std::string(cvar.first + ' ').c_str());
+                        break;
+                    }
+                    index++;
+                }
+            }
+        }
+
+        if (data->EventKey == ImGuiKey_DownArrow) {
+            console->activeItem++;
+        }
+
+        if (data->EventKey == ImGuiKey_UpArrow) {
+            if (console->activeItem) {
+                console->activeItem--;
+            }
+        }
+
+        return 0;
+    };
 
     ImGui::PushItemWidth(ImGui::GetWindowWidth());
-    if (ImGui::InputText("##Input", InputBuf, IM_ARRAYSIZE(InputBuf), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackAlways, &TextEditCallbackStub, (void*)this)) {
+
+    auto flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory;
+
+    if (ImGui::InputText("##Input", InputBuf, IM_ARRAYSIZE(InputBuf), flags, callback, (void*)this)) {
         char* s = InputBuf;
         Strtrim(s);
         if (s[0]) {
@@ -56,7 +93,41 @@ void ConsoleWidget::draw() {
             }
         }
         strcpy(s, "");
-        reclaim_focus = true;
+    }
+
+    if (strlen(InputBuf) > 0) {
+        ImGuiTextFilter filter(InputBuf);
+
+        ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y));
+
+        int count = 0;
+        for (const auto& mapping : ConVars::get()) {
+            if (filter.PassFilter(mapping.first.c_str())) {
+                count++;
+            }
+        }
+
+        ImGui::SetNextWindowSize(ImVec2(200, (count + 1) * ImGui::GetTextLineHeightWithSpacing()));
+        ImGui::BeginTooltip();
+
+        count = 0;
+        for (const auto& mapping : ConVars::get()) {
+            if (filter.PassFilter(mapping.first.c_str())) {
+                std::string cvarText = mapping.first + " " + ConVars::get(mapping.first) + '\n';
+
+                if (count == activeItem) {
+                    ImGui::Selectable(cvarText.c_str(), true);
+                } else {
+                    ImGui::TextUnformatted(cvarText.c_str());
+                }
+
+                count++;
+            }
+        }
+
+        activeItem = activeItem > count ? count : activeItem;
+
+        ImGui::EndTooltip();
     }
 
     ImGui::PopItemWidth();
@@ -95,56 +166,15 @@ void ConsoleWidget::draw() {
 
     // Auto-focus on window apparition
     ImGui::SetItemDefaultFocus();
-    if (reclaim_focus)
-        ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
 
     ImGui::End();
 }
 
-void    ConsoleWidget::ExecCommand(const char* command_line) {
+void ConsoleWidget::ExecCommand(const char* command_line) {
     AddLog(command_line);
 
     // On command input, we scroll to bottom even if AutoScroll==false
     ScrollToBottom = true;
-}
-
-int ConsoleWidget::TextEditCallbackStub(ImGuiInputTextCallbackData* data) // In C++11 you are better off using lambdas for this sort of forwarding callbacks
-{
-    if (data->EventFlag == ImGuiInputTextFlags_CallbackAlways && data->BufTextLen) {
-
-        if (data->EventKey == ImGuiKey_Tab) {
-            std::cout << "completed" << std::endl;
-        }
-
-        ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y));
-        ImGuiTextFilter filter(data->Buf);
-
-        int count = 0;
-        for (const auto& mapping : ConVars::getIterable()) {
-            if (filter.PassFilter(mapping.first.c_str())) {
-                count++;
-            }
-        }
-
-        ImGui::SetNextWindowSize(ImVec2(200, (count + 1) * ImGui::GetTextLineHeightWithSpacing()));
-        ImGui::BeginTooltip();
-
-        for (const auto& mapping : ConVars::getIterable()) {
-            if (filter.PassFilter(mapping.first.c_str())) {
-                std::string cvarText = mapping.first + " " + ConVars::get(mapping.first) + '\n';
-                ImGui::TextUnformatted(cvarText.c_str());
-            }
-        }
-
-        ImGui::EndTooltip();
-    }
-
-    ConsoleWidget* console = (ConsoleWidget*)data->UserData;
-    return console->TextEditCallback(data);
-}
-
-int ConsoleWidget::TextEditCallback(ImGuiInputTextCallbackData* data) {
-    return 0;
 }
 
 }
