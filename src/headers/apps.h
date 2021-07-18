@@ -27,7 +27,7 @@ private:
 
     GLRenderer renderer;
     std::vector<std::shared_ptr<IWidget>> widgets;
-    std::unique_ptr<RayCompute> rayTracePass;
+    std::unique_ptr<RayTracingOneWeekend> rayTracePass;
 };
 
 class VulkanApp : public WindowApplication {

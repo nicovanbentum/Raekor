@@ -11,41 +11,45 @@ namespace Raekor {
 
 MenubarWidget::MenubarWidget(Editor* editor) : 
     IWidget(editor, "Menubar"),
-    scene(editor->scene),
-    active(editor->active) 
+    active(editor->active)
 {}
 
 
 
 void MenubarWidget::draw() {
+    auto& scene = IWidget::scene();
+
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New Scene")) {
-                editor->scene.clear();
+                scene.clear();
                 editor->active = entt::null;
             }
 
             if (ImGui::MenuItem("Open scene..")) {
                 std::string filepath = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
+
                 if (!filepath.empty()) {
                     SDL_SetWindowTitle(editor->getWindow(), std::string(filepath + " - Raekor Renderer").c_str());
-                    editor->scene.openFromFile(filepath, editor->assetManager);
+                    scene.openFromFile(IWidget::async(), IWidget::assets(), filepath);
                     editor->active = entt::null;
                 }
             }
 
             if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
                 std::string filepath = OS::saveFileDialog("Scene File (*.scene)\0", "scene");
+
                 if (!filepath.empty()) {
-                    editor->scene.saveToFile(filepath);
+                    scene.saveToFile(filepath);
                 }
             }
 
             if (ImGui::MenuItem("Load model..")) {
                 std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
+                
                 if (!filepath.empty()) {
                     AssimpImporter importer(scene);
-                    importer.LoadFromFile(filepath, editor->assetManager);
+                    importer.LoadFromFile(IWidget::async(), IWidget::assets(), filepath);
                     active = entt::null;
                 }
             }
@@ -58,7 +62,7 @@ void MenubarWidget::draw() {
                     const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
                     
                     auto pixels = std::vector<unsigned char>(bufferSize);
-                    glGetTextureImage(editor->renderer.tonemappingPass->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
+                    glGetTextureImage(IWidget::renderer().tonemap->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
 
                     stbi_flip_vertically_on_write(true);
                     stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
@@ -71,21 +75,26 @@ void MenubarWidget::draw() {
 
             ImGui::EndMenu();
         }
+
         if (ImGui::BeginMenu("Edit")) {
+
             if (ImGui::MenuItem("Delete", "DEL")) {
                 if (active != entt::null) {
-                    scene.destroyObject(active);
+                    IWidget::scene().destroyObject(active);
                     active = entt::null;
                 }
             }
+
             ImGui::EndMenu();
         }
 
         if (ImGui::BeginMenu("View")) {
             ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
-            for (auto widget : editor->widgets) {
+
+            for (const auto& widget : editor->getWidgets()) {
                 if (ImGui::MenuItem(widget->getTitle().c_str(), "", &widget->isVisible())) {}
             }
+
             ImGui::PopItemFlag();
 
             ImGui::EndMenu();
@@ -234,10 +243,6 @@ void MenubarWidget::draw() {
             }
 
             if (ImGui::BeginMenu("Light")) {
-                if (ImGui::MenuItem("Directional Light")) {
-                    active = scene.createDirectionalLight();
-                }
-
                 if (ImGui::MenuItem("Point Light")) {
                     auto entity = scene.createObject("Point Light");
                     scene.emplace<ecs::PointLightComponent>(entity);

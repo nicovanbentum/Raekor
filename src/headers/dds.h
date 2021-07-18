@@ -8,8 +8,8 @@ void rygCompress(unsigned char* dst, unsigned char* src, int w, int h, int isDxt
 
 #ifndef MAKEFOURCC
 #define MAKEFOURCC(ch0, ch1, ch2, ch3)                              \
-                ((uint32)(byte)(ch0) | ((uint32)(byte)(ch1) << 8) |       \
-                ((uint32)(byte)(ch2) << 16) | ((uint32)(byte)(ch3) << 24))
+                ((uint32_t)(unsigned char)(ch0) | ((uint32_t)(unsigned char)(ch1) << 8) |       \
+                ((uint32_t)(unsigned char)(ch2) << 16) | ((uint32_t)(unsigned char)(ch3) << 24))
 #endif /* defined(MAKEFOURCC) */
 
 constexpr DWORD DDS_MAGIC = 0x20534444;

@@ -20,7 +20,7 @@ glm::mat4 toMat4(const aiMatrix4x4& from) {
 
 namespace Raekor {
 
-bool AssimpImporter::LoadFromFile(const std::string& file, AssetManager& assetManager) {
+bool AssimpImporter::LoadFromFile(Async& async, Assets& assets, const std::string& file) {
     constexpr unsigned int flags =
         //aiProcess_PreTransformVertices |
         aiProcess_FindInstances |
@@ -54,7 +54,7 @@ bool AssimpImporter::LoadFromFile(const std::string& file, AssetManager& assetMa
     }
 
     // preload material texture in parallel
-    scene.loadMaterialTextures(materials, assetManager);
+    scene.loadMaterialTextures(async, assets, materials);
 
     // parse the node tree recursively
     auto root = scene.createObject(assimpScene->mRootNode->mName.C_Str());
@@ -185,7 +185,7 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
     }
     
     auto& mesh = scene.get<ecs::MeshComponent>(entity);
-    auto& animation = scene.emplace<ecs::MeshAnimationComponent>(entity);
+    auto& animation = scene.emplace<ecs::AnimationComponent>(entity);
     animation.animation = Animation(assimpScene->mAnimations[0]);
 
     // extract bone structure
@@ -209,7 +209,7 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
             boneIndex = animation.bonemapping[bone->mName.C_Str()];
         }
 
-        auto addBoneData = [](ecs::MeshAnimationComponent& anim, uint32_t index, uint32_t boneID, float weight) {
+        auto addBoneData = [](ecs::AnimationComponent& anim, uint32_t index, uint32_t boneID, float weight) {
             for (int i = 0; i < 4; i++) {
                 if (anim.boneWeights[index][i] == 0.0f) {
                     anim.boneIndices[index][i] = boneID;
@@ -315,17 +315,17 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
     std::error_code ec;
     if (albedoFile.length) {
         auto relativePath = std::filesystem::relative(directory.string() + albedoFile.C_Str(), ec).string();
-        auto assetPath = TextureAsset::create(relativePath);
+        auto assetPath = TextureAsset::convert(relativePath);
         material.albedoFile = assetPath;
     }
     if (normalmapFile.length) {
         auto relativePath = std::filesystem::relative(directory.string() + normalmapFile.C_Str(), ec).string();
-        auto assetPath = TextureAsset::create(relativePath);
+        auto assetPath = TextureAsset::convert(relativePath);
         material.normalFile = assetPath;
     }
     if (metalroughFile.length) {
         auto relativePath = std::filesystem::relative(directory.string() + metalroughFile.C_Str(), ec).string();
-        auto assetPath = TextureAsset::create(relativePath);
+        auto assetPath = TextureAsset::convert(relativePath);
         material.mrFile = assetPath;
     }
 }

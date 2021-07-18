@@ -1,21 +1,22 @@
 #pragma once
 
 namespace Raekor {
-    class AsyncDispatcher {
-        using task = std::function<void()>;
+    class Async {
+        using Task = std::function<void()>;
 
     public:
-        AsyncDispatcher(int threadCount);
-        ~AsyncDispatcher();
+        Async();
+        Async(int threadCount);
+        ~Async();
 
-        void dispatch(const task& task);
+        void dispatch(const Task& task);
         void handler();
-        inline void wait() { while (activeTaskCount.load() > 0) {} }
+        void wait();
 
         bool shouldQuit = false;
         
         std::mutex mutex;
-        std::queue<task> queue;
+        std::queue<Task> queue;
         std::condition_variable cv;
         std::vector<std::thread> threads;
         std::atomic<uint32_t> activeTaskCount = 0;

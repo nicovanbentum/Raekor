@@ -9,12 +9,13 @@ glm::mat4 toMat4(const aiMatrix4x4& from);
 namespace Raekor {
 
 class Scene;
-class AssetManager;
+class Async;
+class Assets;
 
 class AssimpImporter {
 public:
 	AssimpImporter(Scene& scene) : scene(scene) {}
-	bool LoadFromFile(const std::string& file, AssetManager& assetManager);
+	bool LoadFromFile(Async& async, Assets& assets, const std::string& file);
 
 private:
 	void parseMaterial(aiMaterial* assimpMaterial, entt::entity entity);

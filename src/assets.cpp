@@ -24,7 +24,7 @@ char* const TextureAsset::getData() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::string TextureAsset::create(const std::string& filepath) {
+std::string TextureAsset::convert(const std::string& filepath) {
     int width, height, ch;
     std::vector<stbi_uc*> mipChain;
     mipChain.push_back(stbi_load(filepath.c_str(), &width, &height, &ch, 4));
@@ -127,7 +127,7 @@ bool TextureAsset::load(const std::string& filepath) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-AssetManager::AssetManager() {
+Assets::Assets() {
     if (!fs::exists("assets")) {
         fs::create_directory("assets");
     }

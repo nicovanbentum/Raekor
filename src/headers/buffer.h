@@ -104,10 +104,10 @@ public:
     inline size_t size() const { return layout.size(); }
     inline uint64_t getStride() const { return stride; }
 
-    std::vector<Element>::iterator begin() { return layout.begin(); }
-    std::vector<Element>::iterator end() { return layout.end(); }
-    std::vector<Element>::const_iterator begin() const { return layout.begin(); }
-    std::vector<Element>::const_iterator end() const { return layout.end(); }
+    auto begin() { return layout.begin(); }
+    auto begin() const { return layout.begin(); }
+    auto end() { return layout.end(); }
+    auto end() const { return layout.end(); }
 
 private:
     uint64_t stride;
@@ -169,13 +169,13 @@ public:
     void loadVertices(const Vertex* vertices, size_t count);
     void loadVertices(float* vertices, size_t count);
     void bind() const;
-    void setLayout(const InputLayout& layout) const;
+    void setLayout(const InputLayout& layout);
 
     void destroy();
 
     unsigned int id = 0;
 private:
-    mutable InputLayout inputLayout;
+    InputLayout inputLayout;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -191,10 +191,8 @@ public:
 
     uint32_t count;
 
-private:
     unsigned int id = 0;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
 } // namespace Raekor

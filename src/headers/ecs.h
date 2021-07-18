@@ -27,7 +27,7 @@ public:
         return lookup.find(entity) != lookup.end();
     }
 
-    ComponentType& create(Entity entity) {
+    ComponentType& convert(Entity entity) {
         m_assert(entity != NULL, "Can't create component for null entity.");
         
         // add component

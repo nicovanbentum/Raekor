@@ -5,6 +5,7 @@
 #include "timer.h"
 #include "serial.h"
 #include "systems.h"
+#include "async.h"
 
 namespace Raekor
 {
@@ -12,7 +13,7 @@ namespace Raekor
 Scene::Scene() {
     on_destroy<ecs::MeshComponent>().connect<entt::invoke<&ecs::MeshComponent::destroy>>();
     on_destroy<ecs::MaterialComponent>().connect<entt::invoke<&ecs::MaterialComponent::destroy>>();
-    on_destroy<ecs::MeshAnimationComponent>().connect<entt::invoke<&ecs::MeshAnimationComponent::destroy>>();
+    on_destroy<ecs::AnimationComponent>().connect<entt::invoke<&ecs::AnimationComponent::destroy>>();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -127,17 +128,40 @@ void Scene::updateTransforms() {
     }
 }
 
+void Scene::updateLights() {
+    auto dirLights = view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
+
+    for (auto entity : dirLights) {
+        auto& light = dirLights.get<ecs::DirectionalLightComponent>(entity);
+        auto& transform = dirLights.get<ecs::TransformComponent>(entity);
+        light.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
+    }
+
+    auto pointLights = view<ecs::PointLightComponent, ecs::TransformComponent>();
+
+    for (auto entity : pointLights) {
+        auto& light = pointLights.get<ecs::PointLightComponent>(entity);
+        auto& transform = pointLights.get<ecs::TransformComponent>(entity);
+        light.position = glm::vec4(transform.position, 1.0f);
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials, AssetManager& assetManager) {
+void Scene::loadMaterialTextures(Async& async, Assets& assets, const std::vector<entt::entity>& materials) {
     Timer timer;
     timer.start();
-    std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [&](auto entity) {
-        auto& material = this->get<ecs::MaterialComponent>(entity);
-        assetManager.get<TextureAsset>(material.albedoFile);
-        assetManager.get<TextureAsset>(material.normalFile);
-        assetManager.get<TextureAsset>(material.mrFile);
-    });
+
+    for (const auto& entity : materials) {
+        async.dispatch([&]() {
+            auto& material = this->get<ecs::MaterialComponent>(entity);
+            assets.get<TextureAsset>(material.albedoFile);
+            assets.get<TextureAsset>(material.normalFile);
+            assets.get<TextureAsset>(material.mrFile);
+        });
+    }
+
+    async.wait();
 
     timer.stop();
     std::cout << "Async texture time " << timer.elapsedMs() << std::endl;
@@ -146,10 +170,10 @@ void Scene::loadMaterialTextures(const std::vector<entt::entity>& materials, Ass
     for (auto entity : materials) {
         auto& material = get<ecs::MaterialComponent>(entity);
 
-        material.createAlbedoTexture(assetManager.get<TextureAsset>(material.albedoFile));
-        material.createNormalTexture(assetManager.get<TextureAsset>(material.normalFile));
+        material.createAlbedoTexture(assets.get<TextureAsset>(material.albedoFile));
+        material.createNormalTexture(assets.get<TextureAsset>(material.normalFile));
 
-        auto mrTexture = assetManager.get<TextureAsset>(material.mrFile);
+        auto mrTexture = assets.get<TextureAsset>(material.mrFile);
         if (mrTexture) {
             material.createMetalRoughTexture(mrTexture);
         } else {
@@ -174,7 +198,7 @@ void Scene::saveToFile(const std::string& file) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void Scene::openFromFile(const std::string& file, AssetManager& assetManager) {
+void Scene::openFromFile(Async& async, Assets& assets, const std::string& file) {
     if (!std::filesystem::is_regular_file(file)) {
         return;
     }
@@ -210,7 +234,7 @@ void Scene::openFromFile(const std::string& file, AssetManager& assetManager) {
     auto materials = view<ecs::MaterialComponent>();
     auto materialEntities = std::vector<entt::entity>();
     materialEntities.assign(materials.data(), materials.data() + materials.size());
-    loadMaterialTextures(materialEntities, assetManager);
+    loadMaterialTextures(async, assets, materialEntities);
 
     timer.start();
 

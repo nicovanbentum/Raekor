@@ -36,10 +36,14 @@ public:
     
     void update();
 
-    inline glm::mat4& getView() { return view; }
     inline glm::vec2& getAngle() { return angle; }
+    inline const glm::vec3& getPosition() const { return position; }
+
+    inline glm::mat4& getView() { return view; }
+    inline const glm::mat4& getView() const { return view; }
+
     inline glm::mat4& getProjection() { return projection; }
-    inline const glm::vec3& getPosition() { return position; }
+    inline const glm::mat4& getProjection() const { return projection; }
 
     float getFOV();
     float getAspectRatio();
@@ -51,7 +55,7 @@ private:
     glm::mat4 projection;
 
 public:
-    float& sensitivity = ConVars::create<float>("sensitivity", 2.0f);
+    float& sensitivity = ConVars::convert<float>("sensitivity", 2.0f);
     float lookConstant = 1.0f, zoomConstant = 0.01f, moveConstant = 0.005f;
     float zoomSpeed = 1.0f, moveSpeed = 0.015f;
 
@@ -63,7 +67,9 @@ class Viewport {
 public:
     Viewport(glm::vec2 size = glm::vec2(0, 0));
     float& getFov();
+
     Camera& getCamera();
+    const Camera& getCamera() const;
     
     void setFov(float fov);
     void resize(glm::vec2 newSize);

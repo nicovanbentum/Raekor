@@ -70,7 +70,7 @@ public:
 	}
 
 	template<typename T>
-	[[nodiscard]] static T& create(const std::string& name, T value) {
+	[[nodiscard]] static T& convert(const std::string& name, T value) {
 		if (singleton->cvars.find(name) == singleton->cvars.end()) {
 			singleton->cvars[name] = value;
 		}

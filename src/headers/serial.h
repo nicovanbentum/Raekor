@@ -35,19 +35,19 @@ void serialize(Archive& archive, Raekor::ecs::TransformComponent& transform) {
 
 template<typename Archive> 
 void save(Archive& archive, const Raekor::ecs::DirectionalLightComponent& light) {
-	archive(light.buffer.colour, light.buffer.direction);
+	archive(light.colour, light.direction);
 }
 
 template<typename Archive>
 void load(Archive& archive, Raekor::ecs::DirectionalLightComponent& light) {
-	archive(light.buffer.colour, light.buffer.direction);
+	archive(light.colour, light.direction);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename Archive>
 void serialize(Archive& archive, Raekor::ecs::PointLightComponent light) {
-	archive(light.buffer.colour, light.buffer.colour);
+	archive(light.colour, light.colour);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

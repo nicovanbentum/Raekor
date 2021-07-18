@@ -11,18 +11,20 @@ HierarchyWidget::HierarchyWidget(Editor* editor) : IWidget(editor, "Scene") {}
 void HierarchyWidget::draw() {
     ImGui::Begin(title.c_str());
 
-    auto nodeView = editor->scene.view<ecs::NodeComponent>();
+    auto& scene = IWidget::scene();
+
+    auto nodeView = scene.view<ecs::NodeComponent>();
     for (auto entity : nodeView) {
         auto& node = nodeView.get<ecs::NodeComponent>(entity);
 
         if (node.parent == entt::null) {
             if (node.firstChild != entt::null) {
-                if (drawFamilyNode(editor->scene, entity, editor->active)) {
-                    drawFamily(editor->scene, entity, editor->active);
+                if (drawFamilyNode(scene, entity, editor->active)) {
+                    drawFamily(scene, entity, editor->active);
                     ImGui::TreePop();
                 }
             } else {
-                drawChildlessNode(editor->scene, entity, editor->active);
+                drawChildlessNode(scene, entity, editor->active);
             }
         }
     }

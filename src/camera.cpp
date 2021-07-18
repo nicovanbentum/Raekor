@@ -134,6 +134,9 @@ void Viewport::setAspectRatio(float ratio) {
 
 Camera& Viewport::getCamera() { return camera; }
 
+const Camera& Viewport::getCamera() const {
+    return camera;
+}
 
 
 void Viewport::resize(glm::vec2 newSize) {

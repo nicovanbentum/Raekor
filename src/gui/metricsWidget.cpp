@@ -13,8 +13,7 @@ void MetricsWidget::draw() {
 
     ImGui::Begin(title.c_str(), &visible);
 
-
-    ImGui::Text("Deferred shading: %.3f", editor->renderer.deferredPass->getTimeMs());
+    ImGui::Text("Deferred shading: %.3f", IWidget::renderer().shading->getTimeMs());
 
     ImGui::End();
 }

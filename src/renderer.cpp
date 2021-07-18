@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "renderer.h"
+#include "scene.h"
 
 #ifdef _WIN32
 #include "platform/windows/DXRenderer.h"
@@ -84,10 +85,17 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    // one time setup for binding vertex arrays
     unsigned int vertexArrayID;
     glGenVertexArrays(1, &vertexArrayID);
     glBindVertexArray(vertexArrayID);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
+    glTextureStorage2D(blackTexture, 1, GL_RGBA8, 1, 1);
+    glTextureParameteri(blackTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(blackTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
 
     // initialize default gpu resources
     ecs::MaterialComponent::Default = ecs::MaterialComponent
@@ -99,17 +107,17 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     ecs::MaterialComponent::Default.createMetalRoughTexture();
     ecs::MaterialComponent::Default.createNormalTexture();
 
-    skinningPass = std::make_unique<SkinCompute>();
-    voxelizePass = std::make_unique<Voxelize>(512);
-    shadowMapPass = std::make_unique<ShadowMap>(4096, 4096);
-    tonemappingPass = std::make_unique<Tonemap>(viewport);
-    GBufferPass = std::make_unique<GBuffer>(viewport);
-    deferredPass = std::make_unique<DeferredShading>(viewport);
-    debugPass = std::make_unique<DebugLines>();
-    voxelizeDebugPass = std::make_unique<VoxelizeDebug>(viewport);
-    bloomPass = std::make_unique<Bloom>(viewport);
-    worldIconsPass = std::make_unique<Icons>(viewport);
-    atmospherePass = std::make_unique<Atmosphere>(viewport);
+    skinning = std::make_unique<Skinning>();
+    voxelize = std::make_unique<Voxelize>(512);
+    shadows = std::make_unique<ShadowMap>(4096, 4096);
+    tonemap = std::make_unique<Tonemap>(viewport);
+    gbuffer = std::make_unique<GBuffer>(viewport);
+    shading = std::make_unique<DeferredShading>(viewport);
+    lines = std::make_unique<DebugLines>();
+    debugvoxels = std::make_unique<VoxelizeDebug>(viewport);
+    bloom = std::make_unique<Bloom>(viewport);
+    icons = std::make_unique<Icons>(viewport);
+    sky = std::make_unique<Atmosphere>(viewport);
 }
 
 GLRenderer::~GLRenderer() {
@@ -127,60 +135,53 @@ void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLRenderer::render(entt::registry& scene, Viewport& viewport) {
-    scene.view<ecs::MeshAnimationComponent, ecs::MeshComponent>().each([&](auto& animation, auto& mesh) {
-        skinningPass->render(mesh, animation);
+void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
+    // skin all meshes in the scene
+    scene.view<const ecs::AnimationComponent, const ecs::MeshComponent>()
+         .each([&](auto& animation, auto& mesh) {
+            skinning->compute(mesh, animation);
     });
 
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // render 4 * 4096 cascaded shadow maps
+    shadows->render(viewport, scene);
 
-    // generate sun shadow map
-    glViewport(0, 0, 4096, 4096);
-    shadowMapPass->render(viewport, scene);
-
+    // voxelize the Scene to a 3D texture
     if (settings.shouldVoxelize) {
-        voxelizePass->render(scene, viewport, shadowMapPass.get());
+        voxelize->render(scene, viewport, *shadows);
     }
 
-    glViewport(0, 0, viewport.size.x, viewport.size.y);
+    // generate a geometry buffer with depth, normals, material and albedo
+    gbuffer->render(scene, viewport);
 
-    GBufferPass->render(scene, viewport);
+    // fullscreen PBR deferred shading pass
+    shading->render(scene, viewport, *shadows, *gbuffer, *voxelize);
 
-    deferredPass->render(scene, viewport, shadowMapPass.get(), GBufferPass.get(), voxelizePass.get());
-
-    atmospherePass->render(viewport, scene, deferredPass->result, GBufferPass->depthTexture);
+    // render the sky using ray marching for atmospheric scattering
+    sky->render(viewport, scene, shading->result, gbuffer->depthTexture);
     
-    worldIconsPass->render(scene, viewport, deferredPass->result, GBufferPass->entityTexture);
+    // render editor icons
+    icons->render(scene, viewport, shading->result, gbuffer->entityTexture);
 
+    // generate downsampled bloom and do ACES tonemapping
     if (settings.doBloom) {
-        bloomPass->render(viewport, deferredPass->bloomHighlights);
-        tonemappingPass->render(deferredPass->result, bloomPass->bloomTexture);
+        bloom->render(viewport, shading->bloomHighlights);
+        tonemap->render(shading->result, bloom->bloomTexture);
     } else {
-        static unsigned int blackTexture = 0;
-        if (blackTexture == 0) {
-            glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
-            glTextureStorage2D(blackTexture, 1, GL_RGBA8, 1, 1);
-            glTextureParameteri(blackTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTextureParameteri(blackTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
-        }
-
-        tonemappingPass->render(deferredPass->result, blackTexture);
+        tonemap->render(shading->result, blackTexture);
     }
     
-    debugPass->render(scene, viewport, tonemappingPass->result, GBufferPass->depthTexture);
+    // render debug lines / shapes
+    lines->render(scene, viewport, tonemap->result, gbuffer->depthTexture);
 
+    // render 3D voxel texture size ^ 3 cubes
     if (settings.debugVoxels) {
-        voxelizeDebugPass->render(viewport, tonemappingPass->result, voxelizePass.get());
+        debugvoxels->render(viewport, tonemap->result, *voxelize);
     }
 }
 
 void GLRenderer::drawLine(glm::vec3 p1, glm::vec3 p2) {
-    debugPass->points.push_back(p1);
-    debugPass->points.push_back(p2);
+    lines->points.push_back(p1);
+    lines->points.push_back(p2);
 }
 
 void GLRenderer::drawBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
@@ -200,27 +201,27 @@ void GLRenderer::drawBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLRenderer::createResources(Viewport& viewport) {
-    deferredPass->deleteResources();
-    deferredPass->createResources(viewport);
+void GLRenderer::createRenderTargets(const Viewport& viewport) {
+    shading->destroyRenderTargets();
+    shading->createRenderTargets(viewport);
 
-    voxelizeDebugPass->deleteResources();
-    voxelizeDebugPass->createResources(viewport);
+    debugvoxels->destroyRenderTargets();
+    debugvoxels->createRenderTargets(viewport);
 
-    tonemappingPass->deleteResources();
-    tonemappingPass->createResources(viewport);
+    tonemap->destroyRenderTargets();
+    tonemap->createRenderTargets(viewport);
 
-    GBufferPass->deleteResources();
-    GBufferPass->createResources(viewport);
+    gbuffer->destroyRenderTargets();
+    gbuffer->createRenderTargets(viewport);
 
-    bloomPass->deleteResources();
-    bloomPass->createResources(viewport);
+    bloom->destroyRenderTargets();
+    bloom->createRenderTargets(viewport);
 
-    worldIconsPass->destroyResources();
-    worldIconsPass->createResources(viewport);
+    icons->destroyResources();
+    icons->createRenderTargets(viewport);
 
-    atmospherePass->destroyResources();
-    atmospherePass->createResources(viewport);
+    sky->destroyResources();
+    sky->createRenderTargets(viewport);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

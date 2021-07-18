@@ -28,7 +28,7 @@ Editor::Editor() :
     if (std::filesystem::is_regular_file(settings.defaultScene)) {
         if (std::filesystem::path(settings.defaultScene).extension() == ".scene") {
             SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
-            scene.openFromFile(settings.defaultScene, assetManager);
+            scene.openFromFile(async, assets, settings.defaultScene);
         }
     }
 
@@ -75,7 +75,7 @@ void Editor::update(float dt) {
                 }
             }
             if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                renderer.createResources(viewport);
+                renderer.createRenderTargets(viewport);
             }
 
         }
@@ -87,13 +87,16 @@ void Editor::update(float dt) {
 
     // update transforms
     scene.updateTransforms();
+    scene.updateLights();
 
     // update animations
-    auto animationView = scene.view<ecs::MeshAnimationComponent>();
-    std::for_each(std::execution::par_unseq, animationView.begin(), animationView.end(), [&](auto entity) {
-        auto& animation = animationView.get<ecs::MeshAnimationComponent>(entity);
-        animation.boneTransform(static_cast<float>(dt));
+    scene.view<ecs::AnimationComponent>().each([&](ecs::AnimationComponent& animation) {
+        async.dispatch([&]() {
+            animation.boneTransform(dt);
+        });
     });
+
+    async.wait();
 
     // update camera
     viewport.getCamera().update();
@@ -115,16 +118,15 @@ void Editor::update(float dt) {
         renderer.drawBox(min, max, transform.localTransform);
     }
 
-    // render scene
-    renderer.render(scene, viewport);
-
-    //get new frame for ImGui and ImGuizmo
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
     renderer.ImGui_NewFrame(window);
     ImGuizmo::BeginFrame();
 
     if (ImGui::IsAnyItemActive()) {
-        // perform input mapping
+        // TODO: perform input mapping
     }
 
     // begin ImGui dockspace
@@ -163,6 +165,9 @@ void Editor::update(float dt) {
 
     // end ImGui dockspace
     ImGui::End();
+
+    // render scene
+    renderer.render(scene, viewport);
 
     renderer.ImGui_Render();
     SDL_GL_SwapWindow(window);

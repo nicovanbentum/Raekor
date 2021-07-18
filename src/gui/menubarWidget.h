@@ -12,7 +12,6 @@ public:
     virtual void draw() override;
 
 private:
-    Scene& scene;
     entt::entity& active;
 };
 

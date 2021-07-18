@@ -1,11 +1,8 @@
 #pragma once
 
-#define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
+#define WIN32_LEAN_AND_MEAN
 
-#define _USE_MATH_DEFINES
-#include <cmath>
-
-#define NOMINMAX // i hate computers
+#define M_PI 3.14159265358979323846
 
 #ifdef NDEBUG
     #define RAEKOR_DEBUG 0

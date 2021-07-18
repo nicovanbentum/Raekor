@@ -3,9 +3,13 @@
 
 namespace Raekor {
 
-AsyncDispatcher::AsyncDispatcher(int threadCount) {
+Async::Async() : Async(std::thread::hardware_concurrency() - 1) {}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+Async::Async(int threadCount) {
     for (int i = 0; i < threadCount; i++) {
-        threads.push_back(std::thread(&AsyncDispatcher::handler, this));
+        threads.push_back(std::thread(&Async::handler, this));
 
         // Do Windows-specific thread setup:
         HANDLE handle = (HANDLE)threads[i].native_handle();
@@ -23,12 +27,13 @@ AsyncDispatcher::AsyncDispatcher(int threadCount) {
 
 //////////////////////////////////////////////////////////////////////////////////
 
-AsyncDispatcher::~AsyncDispatcher() {
+Async::~Async() {
     // let every thread know they can exit their while loops
     {
         std::scoped_lock<std::mutex> lock(mutex);
         shouldQuit = true;
     }
+
     cv.notify_all();
 
     // wait for all to finish up
@@ -41,7 +46,7 @@ AsyncDispatcher::~AsyncDispatcher() {
 
 //////////////////////////////////////////////////////////////////////////////////
 
-void AsyncDispatcher::dispatch(const task& task) {
+void Async::dispatch(const Task& task) {
     {
         std::scoped_lock<std::mutex> lock(mutex);
         queue.push(task);
@@ -53,7 +58,7 @@ void AsyncDispatcher::dispatch(const task& task) {
 
 //////////////////////////////////////////////////////////////////////////////////
 
-void AsyncDispatcher::handler() {
+void Async::handler() {
     // take control of the mutex
     std::unique_lock<std::mutex> lock(mutex);
 
@@ -61,21 +66,27 @@ void AsyncDispatcher::handler() {
         // wait releases the mutex and re-acquires when there's work available
         cv.wait(lock, [this] {
             return queue.size() || shouldQuit;
-            });
+        });
 
         if (queue.size() && !shouldQuit) {
-            auto task = std::move(queue.front());
+            Task task = std::move(queue.front());
             queue.pop();
 
             lock.unlock();
 
             task();
+            
             activeTaskCount.fetch_sub(1);
 
             // re-lock so wait doesn't unlock an unlocked mutex
             lock.lock();
         }
     } while (!shouldQuit);
+}
+
+void Async::wait() { 
+    while (activeTaskCount.load() > 0) {
+    } 
 }
 
 } // raekor

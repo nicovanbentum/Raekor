@@ -26,8 +26,6 @@ struct TransformComponent {
     glm::mat4 localTransform  = glm::mat4(1.0f);
     glm::mat4 worldTransform  = glm::mat4(1.0f);
 
-    bool dirty = true;
-
     void compose();
     void decompose();
 };
@@ -35,23 +33,15 @@ struct TransformComponent {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct DirectionalLightComponent {
-    struct ShaderBuffer {
-        glm::vec4 direction = { 0.0f, 0.0f, 0.0f, 0.0f };
-        glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
-    } buffer;
-
-    float brightness;
+    glm::vec4 direction = { 0.0f, -0.9f, 0.0f, 0.0f };
+    glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct PointLightComponent {
-    struct ShaderBuffer {
-        glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
-        glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
-    } buffer;
-
-    float brightness;
+    glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
+    glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -106,7 +96,7 @@ struct BoneTreeNode {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct MeshAnimationComponent {
+struct AnimationComponent {
     std::vector<glm::vec4> boneWeights;
     std::vector<glm::ivec4> boneIndices;
 
@@ -184,7 +174,7 @@ static constexpr auto Components = std::make_tuple (
     ComponentDescription<MaterialComponent>{"Material"},
     ComponentDescription<TransformComponent>{"Transform"},
     ComponentDescription<PointLightComponent>{"Point Light"},
-    ComponentDescription<MeshAnimationComponent>{"Mesh Animation"},
+    ComponentDescription<AnimationComponent>{"Mesh Animation"},
     ComponentDescription<DirectionalLightComponent>{"Directional Light"},
     ComponentDescription<NativeScriptComponent>{"Native Script"}
 );

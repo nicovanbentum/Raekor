@@ -10,9 +10,6 @@ class RandomWidget : public IWidget {
 public:
     RandomWidget(Editor* editor);
     virtual void draw() override;
-
-private:
-    GLRenderer& renderer;
 };
 
 } // raekor

@@ -18,7 +18,7 @@ RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(
     gui::setTheme(settings.themeColors);
 
     // this is where the timer starts
-    rayTracePass = std::make_unique<RayCompute>(viewport);
+    rayTracePass = std::make_unique<RayTracingOneWeekend>(viewport);
 
     activeScreenTexture = rayTracePass->finalResult;
 
@@ -45,7 +45,7 @@ void RayTraceApp::update(float dt) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, viewport.size.x, viewport.size.y);
 
-    rayTracePass->render(viewport, !inFreeCameraMode && !sceneChanged);
+    rayTracePass->compute(viewport, !inFreeCameraMode && !sceneChanged);
 
     //get new frame for ImGui and ImGuizmo
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -253,8 +253,8 @@ void RayTraceApp::update(float dt) {
     SDL_GL_SwapWindow(window);
 
     if (resized) {
-        rayTracePass->deleteResources();
-        rayTracePass->createResources(viewport);
+        rayTracePass->destroyRenderTargets();
+        rayTracePass->createRenderTargets(viewport);
     }
 }
 

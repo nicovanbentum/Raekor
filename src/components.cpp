@@ -168,7 +168,7 @@ void MeshComponent::uploadIndices() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MeshAnimationComponent::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform) {
+void AnimationComponent::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform) {
     auto globalTransformation = glm::mat4(1.0f);
 
     bool hasAnimation = animation.boneAnimations.find(pNode.name) != animation.boneAnimations.end();
@@ -203,7 +203,7 @@ void MeshAnimationComponent::ReadNodeHierarchy(float animationTime, BoneTreeNode
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MeshAnimationComponent::boneTransform(float dt) {
+void AnimationComponent::boneTransform(float dt) {
     /*
         This is bugged, Assimp docs say totalDuration is in ticks, but the actual value is real world time in milliseconds
         see https://github.com/assimp/assimp/issues/2662
@@ -224,7 +224,7 @@ void MeshAnimationComponent::boneTransform(float dt) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
+void AnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
     glCreateBuffers(1, &boneIndexBuffer);
     glNamedBufferData(boneIndexBuffer, boneIndices.size() * sizeof(glm::ivec4), boneIndices.data(), GL_STATIC_COPY);
 
@@ -248,7 +248,7 @@ void MeshAnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MeshAnimationComponent::destroy() {
+void AnimationComponent::destroy() {
     glDeleteBuffers(1, &boneIndexBuffer);
     glDeleteBuffers(1, &boneWeightBuffer);
     glDeleteBuffers(1, &boneTransformsBuffer);
@@ -286,12 +286,14 @@ void MaterialComponent::createAlbedoTexture(std::shared_ptr<TextureAsset> textur
     glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
     glTextureStorage2D(albedo, header.dwMipMapCount, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
 
-    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
+    for (unsigned int mip = 0; mip < 1; mip++) {
         glm::ivec2 dimensions = { std::max(header.dwWidth >> mip, 1ul), std::max(header.dwHeight >> mip, 1ul) };
         size_t dataSize = std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16;
         glCompressedTextureSubImage2D(albedo, mip, 0, 0, dimensions.x, dimensions.y, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += dimensions.x * dimensions.y;
     }
+
+    glGenerateTextureMipmap(albedo);
 
     glTextureParameteri(albedo, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(albedo, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -328,7 +330,7 @@ void MaterialComponent::createNormalTexture(std::shared_ptr<TextureAsset> textur
     glCreateTextures(GL_TEXTURE_2D, 1, &normals);
     glTextureStorage2D(normals, header.dwMipMapCount, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
 
-    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
+    for (unsigned int mip = 0; mip < 1; mip++) {
         glm::ivec2 size = { header.dwWidth >> mip, header.dwHeight >> mip };
         size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
         glCompressedTextureSubImage2D(normals, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
@@ -337,6 +339,8 @@ void MaterialComponent::createNormalTexture(std::shared_ptr<TextureAsset> textur
 
     glTextureParameteri(normals, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(normals, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glGenerateTextureMipmap(normals);
 
     normalFile = texture->getPath().string();
 }
@@ -373,14 +377,14 @@ void MaterialComponent::createMetalRoughTexture(std::shared_ptr<TextureAsset> te
     auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(header.dwWidth, header.dwHeight))));
     glTextureStorage2D(metalrough, mipmapLevels, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
 
-    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
+    for (unsigned int mip = 0; mip < 1; mip++) {
         glm::ivec2 size = { header.dwWidth >> mip, header.dwHeight >> mip };
         size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
         glCompressedTextureSubImage2D(metalrough, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += size.x * size.y;
     }
 
-
+    glGenerateTextureMipmap(metalrough);
 
     glTextureParameteri(metalrough, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(metalrough, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

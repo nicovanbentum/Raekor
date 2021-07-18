@@ -6,13 +6,12 @@
 namespace Raekor {
 
 RandomWidget::RandomWidget(Editor* editor) : 
-    IWidget(editor, "Random"),  
-    renderer(editor->renderer)
+    IWidget(editor, "Random")
 {}
 
-
-
 void RandomWidget::draw() {
+    auto& renderer = IWidget::renderer();
+
     ImGui::Begin(title.c_str());
     ImGui::SetItemDefaultFocus();
 
@@ -24,16 +23,16 @@ void RandomWidget::draw() {
     ImGui::NewLine(); ImGui::Separator();
     ImGui::Text("Voxel Cone Tracing");
 
-    ImGui::DragFloat("Range", &renderer.voxelizePass->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
+    ImGui::DragFloat("Range", &renderer.voxelize->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
 
     ImGui::NewLine(); ImGui::Separator();
 
     ImGui::Text("Shadow Mapping");
     ImGui::Separator();
 
-    if (ImGui::DragFloat("Bias constant", &renderer.shadowMapPass->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Bias slope factor", &renderer.shadowMapPass->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Cascade lambda", &renderer.shadowMapPass->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {}
+    if (ImGui::DragFloat("Bias constant", &renderer.shadows->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    if (ImGui::DragFloat("Bias slope factor", &renderer.shadows->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    if (ImGui::DragFloat("Cascade lambda", &renderer.shadows->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {}
 
     ImGui::End();
 }

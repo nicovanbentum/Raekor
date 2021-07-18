@@ -6,11 +6,13 @@
 
 namespace Raekor {
 
+class Scene;
+
 class GLRenderer {
     struct {
-        int& doBloom = ConVars::create("r_bloom", 0);
-        int& debugVoxels = ConVars::create("r_voxelize_debug", 0);
-        int& shouldVoxelize = ConVars::create("r_voxelize", 1);
+        int& doBloom = ConVars::convert("r_bloom", 0);
+        int& debugVoxels = ConVars::convert("r_voxelize_debug", 0);
+        int& shouldVoxelize = ConVars::convert("r_voxelize", 1);
     } settings;
 
 public:
@@ -23,26 +25,27 @@ public:
     void drawLine(glm::vec3 p1, glm::vec3 p2);
     void drawBox(glm::vec3 min, glm::vec3 max, glm::mat4& m = glm::mat4(1.0f));
 
-    void render(entt::registry& scene, Viewport& viewport);
-    void createResources(Viewport& viewport);
+    void render(const Scene& scene, const Viewport& viewport);
+    void createRenderTargets(const Viewport& viewport);
 
 public:
-    std::unique_ptr<Bloom> bloomPass;
-    std::unique_ptr<GBuffer> GBufferPass;
-    std::unique_ptr<Icons> worldIconsPass;
-    std::unique_ptr<DebugLines> debugPass;
-    std::unique_ptr<Voxelize> voxelizePass;
-    std::unique_ptr<Tonemap> tonemappingPass;
-    std::unique_ptr<ShadowMap> shadowMapPass;
-    std::unique_ptr<SkinCompute> skinningPass;
-    std::unique_ptr<Atmosphere> atmospherePass;
-    std::unique_ptr<DeferredShading> deferredPass;
-    std::unique_ptr<VoxelizeDebug> voxelizeDebugPass;
+    std::unique_ptr<Bloom> bloom;
+    std::unique_ptr<GBuffer> gbuffer;
+    std::unique_ptr<Icons> icons;
+    std::unique_ptr<DebugLines> lines;
+    std::unique_ptr<Voxelize> voxelize;
+    std::unique_ptr<Tonemap> tonemap;
+    std::unique_ptr<ShadowMap> shadows;
+    std::unique_ptr<Skinning> skinning;
+    std::unique_ptr<Atmosphere> sky;
+    std::unique_ptr<DeferredShading> shading;
+    std::unique_ptr<VoxelizeDebug> debugvoxels;
 
 public:
     bool vsync = true;
 
 private:
+    GLuint blackTexture;
     SDL_GLContext context;
 };
 

@@ -25,7 +25,7 @@ class TextureAsset : public Asset {
 public:
 	TextureAsset(const std::string& filepath);
 
-	static std::string create(const std::string& filepath);
+	static std::string convert(const std::string& filepath);
 	virtual bool load(const std::string& filepath) override;
 
 	DDS_HEADER getHeader();
@@ -35,9 +35,14 @@ private:
 	std::vector<char> data;
 };
 
-class AssetManager {
+class Assets {
 public:
-	AssetManager();
+	Assets();
+	Assets(const Assets&) = delete;
+	Assets(const Assets&&) = delete;
+	Assets& operator=(Assets&) = delete;
+	Assets& operator=(Assets&&) = delete;
+
 
 	template<typename T>
 	std::shared_ptr<T> get(const std::string& filepath) {
@@ -67,8 +72,6 @@ public:
 				return nullptr;
 			}
 		}
-
-
 	}
 
 	void release(const std::string& filepath) {

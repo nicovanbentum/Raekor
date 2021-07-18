@@ -45,12 +45,14 @@ ShadowMap::~ShadowMap() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ShadowMap::render(Viewport& viewport, entt::registry& scene) {
-    auto lightView = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
+void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
+    glViewport(0, 0, 4096, 4096);
+
+    const auto lightView = scene.view<const ecs::DirectionalLightComponent, const ecs::TransformComponent>();
     auto lookDirection = glm::vec3(0.0f, -1.0f, 0.0f);
 
     if (!lightView.empty()) {
-        auto& lightTransform = lightView.get<ecs::TransformComponent>(lightView.front());
+        const auto& lightTransform = lightView.get<const ecs::TransformComponent>(lightView.front());
         lookDirection = static_cast<glm::quat>(lightTransform.rotation) * lookDirection;
     } else {
         // we rotate default light a little or else we get nan values in our view matrix
@@ -61,50 +63,50 @@ void ShadowMap::render(Viewport& viewport, entt::registry& scene) {
 
     float cascadeSplits[4];
 
-    float nearClip = 0.1f;
-    float farClip = 10000.0f;
-    float clipRange = farClip - nearClip;
+    const float nearClip = 0.1f;
+    const float farClip = 10000.0f;
+    const float clipRange = farClip - nearClip;
 
-    float minZ = nearClip;
-    float maxZ = nearClip + clipRange;
+    const float minZ = nearClip;
+    const float maxZ = nearClip + clipRange;
 
-    float range = maxZ - minZ;
-    float ratio = maxZ / minZ;
+    const float range = maxZ - minZ;
+    const float ratio = maxZ / minZ;
 
     // Calculate split depths based on view camera frustum
-        // Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
+    // Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
     for (uint32_t i = 0; i < 4; i++) {
-        float p = (i + 1) / static_cast<float>(4);
-        float log = minZ * std::pow(ratio, p);
-        float uniform = minZ + range * p;
-        float d = settings.cascadeSplitLambda * (log - uniform) + uniform;
+        const float p = (i + 1) / static_cast<float>(4);
+        const float log = minZ * std::pow(ratio, p);
+        const float uniform = minZ + range * p;
+        const float d = settings.cascadeSplitLambda * (log - uniform) + uniform;
         cascadeSplits[i] = (d - nearClip) / clipRange;
     }
 
     float lastSplitDist = 0.0;
     for (int i = 0; i < 4; i++) {
-        float splitDist = cascadeSplits[i];
+        const float splitDist = cascadeSplits[i];
 
         glm::vec3 frustumCorners[8] = {
                 glm::vec3(-1.0f,  1.0f, -1.0f),
-                glm::vec3(1.0f,  1.0f, -1.0f),
-                glm::vec3(1.0f, -1.0f, -1.0f),
+                glm::vec3( 1.0f,  1.0f, -1.0f),
+                glm::vec3( 1.0f, -1.0f, -1.0f),
                 glm::vec3(-1.0f, -1.0f, -1.0f),
                 glm::vec3(-1.0f,  1.0f,  1.0f),
-                glm::vec3(1.0f,  1.0f,  1.0f),
-                glm::vec3(1.0f, -1.0f,  1.0f),
+                glm::vec3( 1.0f,  1.0f,  1.0f),
+                glm::vec3( 1.0f, -1.0f,  1.0f),
                 glm::vec3(-1.0f, -1.0f,  1.0f),
         };
 
         // Project frustum corners into world space
-        glm::mat4 invCam = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
+        const glm::mat4 invCam = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
         for (uint32_t i = 0; i < 8; i++) {
             glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[i], 1.0f);
             frustumCorners[i] = invCorner / invCorner.w;
         }
 
         for (uint32_t i = 0; i < 4; i++) {
-            glm::vec3 dist = frustumCorners[i + 4] - frustumCorners[i];
+            const glm::vec3 dist = frustumCorners[i + 4] - frustumCorners[i];
             frustumCorners[i + 4] = frustumCorners[i] + (dist * splitDist);
             frustumCorners[i] = frustumCorners[i] + (dist * lastSplitDist);
         }
@@ -123,21 +125,15 @@ void ShadowMap::render(Viewport& viewport, entt::registry& scene) {
             radius = glm::max(radius, distance);
         }
 
-        radius = std::floor(radius * 16.0f) / 16.0f;
+        radius = std::ceil(radius * 16.0f) / 16.0f;
 
-        glm::vec3 maxExtents = glm::vec3(radius);
-        glm::vec3 minExtents = -maxExtents;
+        const glm::vec3 maxExtents = glm::vec3(radius);
+        const glm::vec3 minExtents = -maxExtents;
 
-        float texel = 4096.0f / (radius * 2);
-        
-        glm::mat4 lightViewMatrix = glm::lookAtRH(frustumCenter - glm::normalize(lookDirection) * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 lightViewMatrix = glm::lookAtRH(frustumCenter - glm::normalize(lookDirection) * maxExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 lightOrthoMatrix = glm::orthoRH_ZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
+        
         m_splits[i] = (0.1f + splitDist * clipRange) * -1.0f;
-
-        lightViewMatrix[3][0] -= glm::mod(lightViewMatrix[3][0], 2.f * m_splits[i] / texel);
-        lightViewMatrix[3][1] -= glm::mod(lightViewMatrix[3][1], 2.f * m_splits[i] / texel);
-        lightViewMatrix[3][2] -= glm::mod(lightViewMatrix[3][2], 2.f * m_splits[i] / texel);
-
         matrices[i] = lightOrthoMatrix * lightViewMatrix;
 
         lastSplitDist = cascadeSplits[i];
@@ -150,7 +146,7 @@ void ShadowMap::render(Viewport& viewport, entt::registry& scene) {
     
     shader.bind();
 
-    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
+    const auto view = scene.view<const ecs::MeshComponent, const ecs::TransformComponent>();
 
     for (int i = 0; i < 4; i++) {
         glNamedFramebufferTextureLayer(framebuffer, GL_DEPTH_ATTACHMENT, cascades, 0, i);
@@ -159,14 +155,14 @@ void ShadowMap::render(Viewport& viewport, entt::registry& scene) {
         shader.getUniform("lightMatrix") = matrices[i];
         
         for (auto entity : view) {
-            auto& mesh = view.get<ecs::MeshComponent>(entity);
-            auto& transform = view.get<ecs::TransformComponent>(entity);
+            const auto& mesh = view.get<const ecs::MeshComponent>(entity);
+            const auto& transform = view.get<const ecs::TransformComponent>(entity);
 
             shader.getUniform("model") = transform.worldTransform;
 
             // determine if we use the original mesh vertices or GPU skinned vertices
-            if (scene.has<ecs::MeshAnimationComponent>(entity)) {
-                scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
+            if (scene.has<ecs::AnimationComponent>(entity)) {
+                scene.get<ecs::AnimationComponent>(entity).skinnedVertexBuffer.bind();
             } else {
                 mesh.vertexBuffer.bind();
             }
@@ -180,26 +176,28 @@ void ShadowMap::render(Viewport& viewport, entt::registry& scene) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-GBuffer::GBuffer(Viewport& viewport) {
+GBuffer::GBuffer(const Viewport& viewport) {
     std::vector<Shader::Stage> gbufferStages;
     gbufferStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\gbuffer.vert");
     gbufferStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\gbuffer.frag");
     shader.reload(gbufferStages.data(), gbufferStages.size());
     hotloader.watch(&shader, gbufferStages.data(), gbufferStages.size());
 
-    createResources(viewport);
+    createRenderTargets(viewport);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 GBuffer::~GBuffer() {
-    deleteResources();
+    destroyRenderTargets();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GBuffer::render(entt::registry& scene, Viewport& viewport) {
+void GBuffer::render(const Scene& scene, const Viewport& viewport) {
     hotloader.changed();
+
+    glViewport(0, 0, viewport.size.x, viewport.size.y);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -217,14 +215,14 @@ void GBuffer::render(entt::registry& scene, Viewport& viewport) {
 
     culled = 0;
 
-    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
+    const auto view = scene.view<const ecs::MeshComponent, const ecs::TransformComponent>();
 
-    auto materials = scene.view<ecs::MaterialComponent>();
+    const auto materials = scene.view<const ecs::MaterialComponent>();
 
     std::vector<uint64_t> handles;
 
     for (auto entity : view) {
-        auto& [mesh, transform] = view.get<ecs::MeshComponent, ecs::TransformComponent>(entity);
+        const auto& [mesh, transform] = view.get<const ecs::MeshComponent, const ecs::TransformComponent>(entity);
 
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB =
@@ -239,7 +237,7 @@ void GBuffer::render(entt::registry& scene, Viewport& viewport) {
             continue;
         }
 
-        ecs::MaterialComponent* material = nullptr;
+        const ecs::MaterialComponent* material = nullptr;
         if (scene.valid(mesh.material)) {
             material = scene.try_get<ecs::MaterialComponent>(mesh.material);
         }
@@ -277,8 +275,8 @@ void GBuffer::render(entt::registry& scene, Viewport& viewport) {
         shader.getUniform("entity") = entt::to_integral(entity);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<ecs::MeshAnimationComponent>(entity)) {
-            scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
+        if (scene.has<ecs::AnimationComponent>(entity)) {
+            scene.get<ecs::AnimationComponent>(entity).skinnedVertexBuffer.bind();
         } else {
             mesh.vertexBuffer.bind();
         }
@@ -301,7 +299,7 @@ uint32_t GBuffer::readEntity(GLint x, GLint y) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GBuffer::createResources(Viewport& viewport) {
+void GBuffer::createRenderTargets(const Viewport& viewport) {
     glCreateTextures(GL_TEXTURE_2D, 1, &albedoTexture);
     glTextureStorage2D(albedoTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
     glTextureParameteri(albedoTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -347,7 +345,7 @@ void GBuffer::createResources(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GBuffer::deleteResources() {
+void GBuffer::destroyRenderTargets() {
     std::array<unsigned int, 5> textures =
     {
         albedoTexture,
@@ -364,12 +362,12 @@ void GBuffer::deleteResources() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 DeferredShading::~DeferredShading() {
-    deleteResources();
+    destroyRenderTargets();
 }
 
 //////////////////////////////////////////////////////////////////////////////////
 
-DeferredShading::DeferredShading(Viewport& viewport) {
+DeferredShading::DeferredShading(const Viewport& viewport) {
     // load shaders from disk
 
     Shader::Stage vertex(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
@@ -380,7 +378,7 @@ DeferredShading::DeferredShading(Viewport& viewport) {
     hotloader.watch(&shader, modelStages.data(), modelStages.size());
 
     // init resources
-    createResources(viewport);
+    createRenderTargets(viewport);
 
     // init uniform buffer
     uniformBuffer.setSize(sizeof(uniforms));
@@ -388,8 +386,8 @@ DeferredShading::DeferredShading(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DeferredShading::render(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap,
-    GBuffer* GBuffer, Voxelize* voxels) {
+void DeferredShading::render(const Scene& sscene, const Viewport& viewport, const ShadowMap& shadowMap,
+    const GBuffer& GBuffer, const Voxelize& voxels) {
     hotloader.changed();
 
     timer.Begin();
@@ -402,70 +400,61 @@ void DeferredShading::render(entt::registry& sscene, Viewport& viewport, ShadowM
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
     // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -1, 0)
     {
-        auto view = sscene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
+        const auto view = sscene.view<const ecs::DirectionalLightComponent, const ecs::TransformComponent>();
         auto entity = view.front();
         if (entity != entt::null) {
-            auto& light = view.get<ecs::DirectionalLightComponent>(entity);
-            auto& transform = view.get<ecs::TransformComponent>(entity);
-
-            light.buffer.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
-            uniforms.dirLights[0] = light.buffer;
+            const auto& light = view.get<const ecs::DirectionalLightComponent>(entity);
+            const auto& transform = view.get<const ecs::TransformComponent>(entity);
+            uniforms.dirLight = light;
         } else {
             auto light = ecs::DirectionalLightComponent();
-            light.buffer.direction.y = -0.9f;
-            uniforms.dirLights[0] = light.buffer;
+            light.direction.y = -0.9f;
+            uniforms.dirLight = light;
         }
     }
 
-    auto posView = sscene.view<ecs::PointLightComponent, ecs::TransformComponent>();
-    unsigned int posViewCounter = 0;
+    const auto posView = sscene.view<const ecs::PointLightComponent, const ecs::TransformComponent>();
+    
+    unsigned int i = 0;
     for (auto entity : posView) {
-        auto& light = posView.get<ecs::PointLightComponent>(entity);
-        auto& transform = posView.get<ecs::TransformComponent>(entity);
+        const auto& light = posView.get<const ecs::PointLightComponent>(entity);
+        const auto& transform = posView.get<const ecs::TransformComponent>(entity);
 
-        posViewCounter++;
-        if (posViewCounter >= ARRAYSIZE(uniforms.pointLights)) {
+        i++;
+
+        if (i >= ARRAYSIZE(uniforms.pointLights)) {
             break;
         }
 
-        light.buffer.position = glm::vec4(transform.position, 1.0f);
-        uniforms.pointLights[posViewCounter] = light.buffer;
+        uniforms.pointLights[i] = light;
     }
 
     uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
-    uniforms.shadowMatrices = shadowMap->matrices;
-    uniforms.shadowSplits = shadowMap->m_splits;
+    uniforms.shadowMatrices = shadowMap.matrices;
+    uniforms.shadowSplits = shadowMap.m_splits;
 
     // update uniforms GPU side
     uniformBuffer.update(&uniforms, sizeof(uniforms));
 
     // bind the main framebuffer
+    glViewport(0, 0, viewport.size.x, viewport.size.y);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT);
 
     // set uniforms
     shader.bind();
     shader.getUniform("bloomThreshold") = settings.bloomThreshold;
-
-    shader.getUniform("pointLightCount") = static_cast<uint32_t>(sscene.view<ecs::PointLightComponent>().size());
-    shader.getUniform("directionalLightCount") = static_cast<uint32_t>(sscene.view<ecs::DirectionalLightComponent>().size());
-
-    shader.getUniform("voxelsWorldSize") = voxels->worldSize;
-
-    // TODO: why on earth does this need to be here?? If I just do:
-    // inverse(projection * view) in the shader we get shadow flickering.
-    // Probably something to do with how the uniform buffer is updated?
+    shader.getUniform("pointLightCount") = static_cast<uint32_t>(sscene.size<ecs::PointLightComponent>());
+    shader.getUniform("directionalLightCount") = static_cast<uint32_t>(sscene.size<ecs::DirectionalLightComponent>());;
+    shader.getUniform("voxelsWorldSize") = voxels.worldSize;
     shader.getUniform("invViewProjection") = glm::inverse(uniforms.projection * uniforms.view);
 
-    // bind textures to shader binding slots
-    glBindTextureUnit(0, shadowMap->cascades);
-
-    glBindTextureUnit(3, GBuffer->albedoTexture);
-    glBindTextureUnit(4, GBuffer->normalTexture);
-
-    glBindTextureUnit(6, voxels->result);
-    glBindTextureUnit(7, GBuffer->materialTexture);
-    glBindTextureUnit(8, GBuffer->depthTexture);
+    glBindTextureUnit(0, shadowMap.cascades);
+    glBindTextureUnit(3, GBuffer.albedoTexture);
+    glBindTextureUnit(4, GBuffer.normalTexture);
+    glBindTextureUnit(6, voxels.result);
+    glBindTextureUnit(7, GBuffer.materialTexture);
+    glBindTextureUnit(8, GBuffer.depthTexture);
 
     // update uniform buffer GPU side
     uniformBuffer.bind(0);
@@ -480,7 +469,7 @@ void DeferredShading::render(entt::registry& sscene, Viewport& viewport, ShadowM
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DeferredShading::createResources(Viewport& viewport) {
+void DeferredShading::createRenderTargets(const Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
@@ -507,7 +496,7 @@ void DeferredShading::createResources(Viewport& viewport) {
     glNamedFramebufferDrawBuffers(framebuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
 }
 
-void DeferredShading::deleteResources() {
+void DeferredShading::destroyRenderTargets() {
     glDeleteTextures(1, &result);
     glDeleteTextures(1, &bloomHighlights);
     glDeleteFramebuffers(1, &framebuffer);
@@ -516,12 +505,12 @@ void DeferredShading::deleteResources() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 Bloom::~Bloom() {
-    deleteResources();
+    destroyRenderTargets();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-Bloom::Bloom(Viewport& viewport) {
+Bloom::Bloom(const Viewport& viewport) {
     // load shaders from disk
     Shader::Stage blurStages[2] =
     {
@@ -531,12 +520,12 @@ Bloom::Bloom(Viewport& viewport) {
 
     blurShader.reload(blurStages, 2);
 
-    createResources(viewport);
+    createRenderTargets(viewport);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Bloom::render(Viewport& viewport, unsigned int highlights) {
+void Bloom::render(const Viewport& viewport, GLuint highlights) {
     if (viewport.size.x < 16.0f || viewport.size.y < 16.0f) {
         return;
     }
@@ -573,7 +562,7 @@ void Bloom::render(Viewport& viewport, unsigned int highlights) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Bloom::createResources(Viewport& viewport) {
+void Bloom::createRenderTargets(const Viewport& viewport) {
     auto quarterRes = glm::ivec2(
         std::max(viewport.size.x / 4, 1u),
         std::max(viewport.size.y / 4, 1u)
@@ -609,7 +598,7 @@ void Bloom::createResources(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Bloom::deleteResources() {
+void Bloom::destroyRenderTargets() {
     glDeleteFramebuffers(1, &bloomFramebuffer);
     glDeleteFramebuffers(1, &blurFramebuffer);
     glDeleteTextures(1, &bloomTexture);
@@ -619,12 +608,12 @@ void Bloom::deleteResources() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 Tonemap::~Tonemap() {
-    deleteResources();
+    destroyRenderTargets();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-Tonemap::Tonemap(Viewport& viewport) {
+Tonemap::Tonemap(const Viewport& viewport) {
     // load shaders from disk
     std::vector<Shader::Stage> tonemapStages;
     tonemapStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert");
@@ -634,7 +623,7 @@ Tonemap::Tonemap(Viewport& viewport) {
     hotloader.watch(&shader, tonemapStages.data(), tonemapStages.size());
 
     // init render targets
-    createResources(viewport);
+    createRenderTargets(viewport);
 
     // init uniform buffer
     uniformBuffer.setSize(sizeof(settings));
@@ -642,7 +631,7 @@ Tonemap::Tonemap(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Tonemap::render(unsigned int scene, unsigned int bloom) {
+void Tonemap::render(GLuint scene, GLuint bloom) {
     hotloader.changed();
     
     // bind and clear render target
@@ -666,7 +655,7 @@ void Tonemap::render(unsigned int scene, unsigned int bloom) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Tonemap::createResources(Viewport& viewport) {
+void Tonemap::createRenderTargets(const Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGB8, viewport.size.x, viewport.size.y);
@@ -680,14 +669,14 @@ void Tonemap::createResources(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Tonemap::deleteResources() {
+void Tonemap::destroyRenderTargets() {
     glDeleteTextures(1, &result);
     glDeleteFramebuffers(1, &framebuffer);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-Voxelize::Voxelize(int size) : size(size) {
+Voxelize::Voxelize(uint32_t size) : size(size) {
     // load shaders from disk
     std::vector<Shader::Stage> voxelStages;
     voxelStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\voxelize.vert");
@@ -712,7 +701,7 @@ Voxelize::Voxelize(int size) : size(size) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Voxelize::computeMipmaps(unsigned int texture) {
+void Voxelize::computeMipmaps(GLuint texture) {
     int level = 0, texSize = size;
     while (texSize >= 1.0f) {
         texSize = static_cast<int>(texSize * 0.5f);
@@ -729,7 +718,7 @@ void Voxelize::computeMipmaps(unsigned int texture) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Voxelize::correctOpacity(unsigned int texture) {
+void Voxelize::correctOpacity(GLuint texture) {
     opacityFixShader.bind();
     glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA8);
     // local work group size is 64
@@ -740,7 +729,7 @@ void Voxelize::correctOpacity(unsigned int texture) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap) {
+void Voxelize::render(const Scene& scene, const Viewport& viewport, const ShadowMap& shadowmap) {
     hotloader.changed();
 
     // left, right, bottom, top, zNear, zFar
@@ -766,14 +755,14 @@ void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shad
     // bind shader and level 0 of the voxel volume
     shader.bind();
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
-    glBindTextureUnit(2, shadowmap->cascades);
+    glBindTextureUnit(2, shadowmap.cascades);
 
-    auto view = scene.view<ecs::MeshComponent, ecs::TransformComponent>();
+    const auto view = scene.view<const ecs::MeshComponent, const ecs::TransformComponent>();
 
     for (auto entity : view) {
-        auto& [mesh, transform] = view.get<ecs::MeshComponent, ecs::TransformComponent>(entity);
+        const auto& [mesh, transform] = view.get<const ecs::MeshComponent, const ecs::TransformComponent>(entity);
 
-        ecs::MaterialComponent* material = nullptr;
+        const ecs::MaterialComponent* material = nullptr;
         if (scene.valid(mesh.material)) {
             material = scene.try_get<ecs::MaterialComponent>(mesh.material);
         }
@@ -783,11 +772,9 @@ void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shad
         shader.getUniform("py") = py;
         shader.getUniform("pz") = pz;
 
-        shader.getUniform("shadowMatrices") = std::vector<glm::mat4>(shadowmap->matrices.begin(), shadowmap->matrices.end());
-        shader.getUniform("shadowSplits") = shadowmap->m_splits;
+        shader.getUniform("shadowMatrices") = std::vector<glm::mat4>(shadowmap.matrices.begin(), shadowmap.matrices.end());
+        shader.getUniform("shadowSplits") = shadowmap.m_splits;
         shader.getUniform("view") = viewport.getCamera().getView();
-
-
 
         if (material) {
             if (material->albedo) {
@@ -802,8 +789,8 @@ void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shad
         }
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<ecs::MeshAnimationComponent>(entity)) {
-            scene.get<ecs::MeshAnimationComponent>(entity).skinnedVertexBuffer.bind();
+        if (scene.has<ecs::AnimationComponent>(entity)) {
+            scene.get<ecs::AnimationComponent>(entity).skinnedVertexBuffer.bind();
         } else {
             mesh.vertexBuffer.bind();
         }
@@ -834,12 +821,12 @@ void Voxelize::render(entt::registry& scene, Viewport& viewport, ShadowMap* shad
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 VoxelizeDebug::~VoxelizeDebug() {
-    deleteResources();
+    destroyRenderTargets();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-VoxelizeDebug::VoxelizeDebug(Viewport& viewport) {
+VoxelizeDebug::VoxelizeDebug(const Viewport& viewport) {
     std::vector<Shader::Stage> voxelDebugStages;
     voxelDebugStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\voxelDebug.vert");
     voxelDebugStages.emplace_back(Shader::Type::GEO, "shaders\\OpenGL\\voxelDebug.geom");
@@ -847,19 +834,19 @@ VoxelizeDebug::VoxelizeDebug(Viewport& viewport) {
     shader.reload(voxelDebugStages.data(), voxelDebugStages.size());
 
     // init resources
-    createResources(viewport);
+    createRenderTargets(viewport);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-VoxelizeDebug::VoxelizeDebug(Viewport& viewport, uint32_t voxelTextureSize) {
+VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize) {
     std::vector<Shader::Stage> voxelDebugStages;
     voxelDebugStages.emplace_back(Shader::Type::VERTEX, "shaders\\OpenGL\\voxelDebugFast.vert");
     voxelDebugStages.emplace_back(Shader::Type::FRAG, "shaders\\OpenGL\\voxelDebugFast.frag");
     shader.reload(voxelDebugStages.data(), voxelDebugStages.size());
 
     // init resources
-    createResources(viewport);
+    createRenderTargets(viewport);
 
     const bool CUBE_BACKFACE_OPTIMIZATION = true;
 
@@ -899,14 +886,14 @@ VoxelizeDebug::VoxelizeDebug(Viewport& viewport, uint32_t voxelTextureSize) {
     indexCount = static_cast<uint32_t>(indexBufferData.size());
 }
 
-void VoxelizeDebug::render(Viewport& viewport, unsigned int input, Voxelize* voxels) {
+void VoxelizeDebug::render(const Viewport& viewport, GLuint input, const Voxelize& voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
     glNamedFramebufferTexture(frameBuffer, GL_COLOR_ATTACHMENT0, input, 0);
     glNamedFramebufferDrawBuffer(frameBuffer, GL_COLOR_ATTACHMENT0);
     glClear(GL_DEPTH_BUFFER_BIT);
 
-    float voxelSize = voxels->worldSize / voxels->size;
+    float voxelSize = voxels.worldSize / voxels.size;
     glm::mat4 modelMatrix = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(voxelSize)), glm::vec3(0, 0, 0));
 
     // bind shader and set uniforms
@@ -914,9 +901,9 @@ void VoxelizeDebug::render(Viewport& viewport, unsigned int input, Voxelize* vox
     shader.getUniform("p") = viewport.getCamera().getProjection();
     shader.getUniform("mv") = viewport.getCamera().getView() * modelMatrix;
 
-    glBindTextureUnit(0, voxels->result);
+    glBindTextureUnit(0, voxels.result);
 
-    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(std::pow(voxels->size, 3)));
+    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(std::pow(voxels.size, 3)));
 
     // unbind framebuffers
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -924,7 +911,7 @@ void VoxelizeDebug::render(Viewport& viewport, unsigned int input, Voxelize* vox
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void VoxelizeDebug::execute2(Viewport& viewport, unsigned int input, Voxelize* voxels) {
+void VoxelizeDebug::execute2(const Viewport& viewport, GLuint input, const Voxelize& voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
     glDisable(GL_CULL_FACE);
 
@@ -933,7 +920,7 @@ void VoxelizeDebug::execute2(Viewport& viewport, unsigned int input, Voxelize* v
     glNamedFramebufferDrawBuffer(frameBuffer, GL_COLOR_ATTACHMENT0);
     glClear(GL_DEPTH_BUFFER_BIT);
 
-    float voxelSize = voxels->worldSize / voxels->size;
+    float voxelSize = voxels.worldSize / voxels.size;
     glm::mat4 modelMatrix = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(voxelSize)), glm::vec3(0, 0, 0));
 
     // bind shader and set uniforms
@@ -942,7 +929,7 @@ void VoxelizeDebug::execute2(Viewport& viewport, unsigned int input, Voxelize* v
     shader.getUniform("mv") = viewport.getCamera().getView() * modelMatrix;
     shader.getUniform("cameraPosition") = viewport.getCamera().getPosition();
 
-    glBindTextureUnit(0, voxels->result);
+    glBindTextureUnit(0, voxels.result);
 
     indexBuffer.bind();
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, nullptr);
@@ -955,7 +942,7 @@ void VoxelizeDebug::execute2(Viewport& viewport, unsigned int input, Voxelize* v
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void VoxelizeDebug::createResources(Viewport& viewport) {
+void VoxelizeDebug::createRenderTargets(const Viewport& viewport) {
     glCreateRenderbuffers(1, &renderBuffer);
     glNamedRenderbufferStorage(renderBuffer, GL_DEPTH32F_STENCIL8, viewport.size.x, viewport.size.y);
 
@@ -965,7 +952,7 @@ void VoxelizeDebug::createResources(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void VoxelizeDebug::deleteResources() {
+void VoxelizeDebug::destroyRenderTargets() {
     glDeleteRenderbuffers(1, &renderBuffer);
     glDeleteFramebuffers(1, &frameBuffer);
 }
@@ -998,7 +985,7 @@ DebugLines::DebugLines() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DebugLines::render(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer) {
+void DebugLines::render(const Scene& scene, const Viewport& viewport, GLuint texture, GLuint renderBuffer) {
     if (points.size() < 2) return;
 
     glEnable(GL_LINE_SMOOTH);
@@ -1025,7 +1012,7 @@ void DebugLines::render(entt::registry& scene, Viewport& viewport, unsigned int 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-SkinCompute::SkinCompute() {
+Skinning::Skinning() {
     std::vector<Shader::Stage> stages;
     stages.emplace_back(Shader::Type::COMPUTE, "shaders\\OpenGL\\skinning.comp");
     computeShader.reload(stages.data(), stages.size());
@@ -1034,7 +1021,7 @@ SkinCompute::SkinCompute() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void SkinCompute::render(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim) {
+void Skinning::compute(const ecs::MeshComponent& mesh, const ecs::AnimationComponent& anim) {
 
     glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransforms.size() * sizeof(glm::mat4), anim.boneTransforms.data(), GL_DYNAMIC_DRAW);
 
@@ -1081,7 +1068,7 @@ inline glm::vec3 random_color(double min, double max) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-RayCompute::RayCompute(Viewport& viewport) {
+RayTracingOneWeekend::RayTracingOneWeekend(const Viewport& viewport) {
     std::vector<Shader::Stage> stages;
     stages.emplace_back(Shader::Type::COMPUTE, "shaders\\OpenGL\\ray.comp");
     shader.reload(stages.data(), stages.size());
@@ -1121,7 +1108,7 @@ RayCompute::RayCompute(Viewport& viewport) {
     spheres.push_back(Sphere{ glm::vec3(-4, 1, 0), glm::vec3(0.4, 0.2, 0.1), 1.0f, 0.0f, 1.0f });
     spheres.push_back(Sphere{ glm::vec3(4, 1, 0), glm::vec3(0.7, 0.6, 0.5), 0.0f, 1.0f, 1.0f });
 
-    createResources(viewport);
+    createRenderTargets(viewport);
     auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
     glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
 
@@ -1130,15 +1117,15 @@ RayCompute::RayCompute(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-RayCompute::~RayCompute() {
+RayTracingOneWeekend::~RayTracingOneWeekend() {
     rayTimer.stop();
-    deleteResources();
+    destroyRenderTargets();
 
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void RayCompute::render(Viewport& viewport, bool update) {
+void RayTracingOneWeekend::compute(const Viewport& viewport, bool update) {
     // if the shader changed or we moved the camera we clear the result
     if (!update) {
         glDeleteBuffers(1, &sphereBuffer);
@@ -1167,7 +1154,7 @@ void RayCompute::render(Viewport& viewport, bool update) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void RayCompute::createResources(Viewport& viewport) {
+void RayTracingOneWeekend::createRenderTargets(const Viewport& viewport) {
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
     glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -1184,7 +1171,7 @@ void RayCompute::createResources(Viewport& viewport) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void RayCompute::deleteResources() {
+void RayTracingOneWeekend::destroyRenderTargets() {
     glDeleteTextures(1, &result);
     glDeleteTextures(1, &finalResult);
     glDeleteBuffers(1, &sphereBuffer);
@@ -1192,7 +1179,7 @@ void RayCompute::deleteResources() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-Icons::Icons(Viewport& viewport) {
+Icons::Icons(const Viewport& viewport) {
     Shader::Stage stages[2] =
     {
         Shader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\billboard.vert"),
@@ -1214,12 +1201,12 @@ Icons::Icons(Viewport& viewport) {
     glTextureParameteri(lightTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(lightTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glGenerateTextureMipmap(lightTexture);
-    createResources(viewport);
+    createRenderTargets(viewport);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Icons::createResources(Viewport& viewport) {
+void Icons::createRenderTargets(const Viewport& viewport) {
     glCreateFramebuffers(1, &framebuffer);
 }
 
@@ -1231,7 +1218,7 @@ void Icons::destroyResources() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Icons::render(entt::registry& scene, Viewport& viewport, unsigned int screenTexture, unsigned int entityTexture) {
+void Icons::render(const Scene& scene, const Viewport& viewport, GLuint screenTexture, GLuint entityTexture) {
     glDisable(GL_CULL_FACE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -1245,12 +1232,13 @@ void Icons::render(entt::registry& scene, Viewport& viewport, unsigned int scree
 
     shader.bind();
 
-    auto vp = viewport.getCamera().getProjection() * viewport.getCamera().getView();
+    const auto vp = viewport.getCamera().getProjection() * viewport.getCamera().getView();
 
-    auto view = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
-    for (auto entity : view) {
-        auto& light = view.get<ecs::DirectionalLightComponent>(entity);
-        auto& transform = view.get<ecs::TransformComponent>(entity);
+    const auto view = scene.view<const ecs::DirectionalLightComponent, const ecs::TransformComponent>();
+
+    for (const auto entity : view) {
+        const auto& light = view.get<const ecs::DirectionalLightComponent>(entity);
+        const auto& transform = view.get<const ecs::TransformComponent>(entity);
 
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, transform.position);
@@ -1282,7 +1270,7 @@ void Icons::render(entt::registry& scene, Viewport& viewport, unsigned int scree
     glEnable(GL_CULL_FACE);
 }
 
-Atmosphere::Atmosphere(Viewport& viewport) {
+Atmosphere::Atmosphere(const Viewport& viewport) {
     std::array shaders{
         glShader::Stage(Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"),
         glShader::Stage(Shader::Type::FRAG, "shaders\\OpenGL\\atmosphere.frag")
@@ -1291,14 +1279,14 @@ Atmosphere::Atmosphere(Viewport& viewport) {
     shader.reload(shaders.data(), shaders.size());
     hotloader.watch(&shader, shaders.data(), shaders.size());
 
-    createResources(viewport);
+    createRenderTargets(viewport);
 }
 
 Atmosphere::~Atmosphere() {
     destroyResources();
 }
 
-void Atmosphere::createResources(Viewport& viewport) {
+void Atmosphere::createRenderTargets(const Viewport& viewport) {
     glCreateFramebuffers(1, &framebuffer);
 }
 
@@ -1306,8 +1294,10 @@ void Atmosphere::destroyResources() {
     glDeleteFramebuffers(1, &framebuffer);
 }
 
-void Atmosphere::render(Viewport& viewport, entt::registry& scene, unsigned int out, unsigned int depth) {
+void Atmosphere::render(const Viewport& viewport, const Scene& scene, GLuint out, GLuint depth) {
     hotloader.changed();
+
+    glViewport(0, 0, viewport.size.x, viewport.size.y);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, out, 0);
@@ -1315,30 +1305,28 @@ void Atmosphere::render(Viewport& viewport, entt::registry& scene, unsigned int 
     glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
 
     auto light = ecs::DirectionalLightComponent();
-    light.buffer.direction.y = -0.9f;
+    light.direction.y = -0.9f;
 
     shader.bind();
     shader["invViewProj"] = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
     shader["cameraPos"] = viewport.getCamera().getPosition();
 
-    // update every light type
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
-    // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -1, 0)
+    // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -0.9, 0)
     {
-        auto view = scene.view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
-        auto entity = view.front();
+        const auto view = scene.view<const ecs::DirectionalLightComponent, const ecs::TransformComponent>();
+        const auto entity = view.front();
         if (entity != entt::null) {
-            auto& light = view.get<ecs::DirectionalLightComponent>(entity);
-            auto& transform = view.get<ecs::TransformComponent>(entity);
+            const auto& light = view.get<const ecs::DirectionalLightComponent>(entity);
+            const auto& transform = view.get<const ecs::TransformComponent>(entity);
 
-            light.buffer.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
-            shader["sunlightDir"] = glm::vec3(light.buffer.direction);
-            shader["sunlightColor"] = glm::vec3(light.buffer.colour);
+            shader["sunlightDir"] = glm::vec3(light.direction);
+            shader["sunlightColor"] = glm::vec3(light.colour);
         } else {
             auto light = ecs::DirectionalLightComponent();
-            light.buffer.direction.y = -0.9f;
-            shader["sunlightDir"] = glm::vec3(light.buffer.direction);
-            shader["sunlightColor"] = glm::vec3(light.buffer.colour);
+            light.direction.y = -0.9f;
+            shader["sunlightDir"] = glm::vec3(light.direction);
+            shader["sunlightColor"] = glm::vec3(light.colour);
         }
     }
 

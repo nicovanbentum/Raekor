@@ -11,7 +11,7 @@ AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, "Asset Browser") {}
 void AssetsWidget::draw() {
     ImGui::Begin(title.c_str());
 
-    auto materialView = editor->scene.view<ecs::MaterialComponent, ecs::NameComponent>();
+    auto materialView = IWidget::scene().view<ecs::MaterialComponent, ecs::NameComponent>();
 
     if (ImGui::BeginTable("Assets", 24)) {
         for (auto entity : materialView) {

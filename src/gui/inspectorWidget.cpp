@@ -105,8 +105,8 @@ void InspectorWidget::drawComponent(ecs::MaterialComponent& component, entt::reg
         if (ImGui::ImageButton((void*)((intptr_t)image), ImVec2(lineHeight - 1, lineHeight - 1))) {
             auto filepath = OS::openFileDialog(fileFilters);
             if (!filepath.empty()) {
-                auto assetPath = TextureAsset::create(filepath);
-                (component->*func)(editor->assetManager.get<TextureAsset>(assetPath));
+                auto assetPath = TextureAsset::convert(filepath);
+                (component->*func)(IWidget::assets().get<TextureAsset>(assetPath));
             }
         }
 
@@ -123,19 +123,19 @@ void InspectorWidget::drawComponent(ecs::MaterialComponent& component, entt::reg
 
 
 void InspectorWidget::drawComponent(ecs::PointLightComponent& component, entt::registry& scene, entt::entity& active) {
-    ImGui::ColorEdit4("Colour", glm::value_ptr(component.buffer.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+    ImGui::ColorEdit4("Colour", glm::value_ptr(component.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 }
 
 
 
 void InspectorWidget::drawComponent(ecs::DirectionalLightComponent& component, entt::registry& scene, entt::entity& active) {
-    ImGui::ColorEdit4("Colour", glm::value_ptr(component.buffer.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
-    ImGui::DragFloat3("Direction", glm::value_ptr(component.buffer.direction), 0.01f, -1.0f, 1.0f);
+    ImGui::ColorEdit4("Colour", glm::value_ptr(component.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+    ImGui::DragFloat3("Direction", glm::value_ptr(component.direction), 0.01f, -1.0f, 1.0f);
 }
 
 
 
-void InspectorWidget::drawComponent(ecs::MeshAnimationComponent& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(ecs::AnimationComponent& component, entt::registry& scene, entt::entity& active) {
     static bool playing = false;
     ImGui::SliderFloat("Time", &component.animation.runningTime, 0, component.animation.totalDuration);
     if (ImGui::Button(playing ? "pause" : "play")) {
@@ -179,7 +179,7 @@ void InspectorWidget::draw() {
 
     ImGui::Text("ID: %i", editor->active);
 
-    entt::registry& scene = editor->scene;
+    entt::registry& scene = IWidget::scene();
     entt::entity& active = editor->active;
 
     // I much prefered the for_each_tuple_element syntax tbh

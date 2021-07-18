@@ -7,6 +7,8 @@
 
 namespace Raekor {
 
+class Scene;
+
 class GLTimer {
 public:
     GLTimer() {
@@ -44,13 +46,13 @@ class ShadowMap {
      struct {
          float depthBiasConstant = 1.25f;
          float depthBiasSlope = 1.75f;
-         float cascadeSplitLambda = 0.985f;
+         float cascadeSplitLambda = 0.98f;
      } settings;
 
     ~ShadowMap();
     ShadowMap(uint32_t width, uint32_t height);
 
-    void render(Viewport& viewport, entt::registry& scene);
+    void render(const Viewport& viewport, const Scene& scene);
 
 private:
     glShader shader;
@@ -69,41 +71,40 @@ public:
     uint32_t culled = 0;
 
     ~GBuffer();
-    GBuffer(Viewport& viewport);
+    GBuffer(const Viewport& viewport);
 
-    void render(entt::registry& scene, Viewport& viewport);
+    void render(const Scene& scene, const Viewport& viewport);
 
     uint32_t readEntity(GLint x, GLint y);
 
-    void createResources(Viewport& viewport);
-    void deleteResources();
+    void createRenderTargets(const Viewport& viewport);
+    void destroyRenderTargets();
 
-    unsigned int getFramebuffer() { return framebuffer; }
+    GLuint getFramebuffer() { return framebuffer; }
 
-    unsigned int albedoTexture, normalTexture, materialTexture, entityTexture;
+    GLuint albedoTexture, normalTexture, materialTexture, entityTexture;
 private:
     glShader shader;
     ShaderHotloader hotloader;
-    unsigned int framebuffer;
+    GLuint framebuffer;
   
 public:
-    unsigned int depthTexture;
+    GLuint depthTexture;
 };
 
 class Icons {
 public:
-    Icons(Viewport& viewport);
+    Icons(const Viewport& viewport);
 
-    void createResources(Viewport& viewport);
+    void createRenderTargets(const Viewport& viewport);
     void destroyResources();
 
-    void render(entt::registry& scene, Viewport& viewport, unsigned int screenTexture, unsigned int entityTexture);
+    void render(const Scene& scene, const Viewport& viewport, GLuint screenTexture, GLuint entityTexture);
 
 private:
     glShader shader;
-    unsigned int framebuffer;
-
-    unsigned int lightTexture;
+    GLuint framebuffer;
+    GLuint lightTexture;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -111,10 +112,10 @@ private:
 class Bloom {
 public:
     ~Bloom();
-    Bloom(Viewport& viewport);
-    void render(Viewport& viewport, unsigned int highlights);
-    void createResources(Viewport& viewport);
-    void deleteResources();
+    Bloom(const Viewport& viewport);
+    void render(const Viewport& viewport, unsigned int highlights);
+    void createRenderTargets(const Viewport& viewport);
+    void destroyRenderTargets();
 
     unsigned int blurTexture;
     unsigned int bloomTexture;
@@ -136,11 +137,11 @@ public:
     } settings;
 
     ~Tonemap();
-    Tonemap(Viewport& viewport);
+    Tonemap(const Viewport& viewport);
     void render(unsigned int scene, unsigned int bloom);
 
-    void createResources(Viewport& viewport);
-    void deleteResources();
+    void createRenderTargets(const Viewport& viewport);
+    void destroyRenderTargets();
 
 private:
     glShader shader;
@@ -156,13 +157,13 @@ public:
 
 class Voxelize {
 public:
-    Voxelize(int size);
-    void render(entt::registry& scene, Viewport& viewport, ShadowMap* shadowmap);
+    Voxelize(uint32_t size);
+    void render(const Scene& scene, const Viewport& viewport, const ShadowMap& shadowmap);
 
 private:
-    void computeMipmaps(unsigned int texture);
+    void computeMipmaps(GLuint texture);
 
-    void correctOpacity(unsigned int texture);
+    void correctOpacity(GLuint texture);
 
     glm::mat4 px, py, pz;
     glShader shader;
@@ -173,7 +174,7 @@ private:
 public:
     int size;
     float worldSize = 150.0f;
-    unsigned int result;
+    GLuint result;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -183,22 +184,21 @@ public:
     ~VoxelizeDebug();
     
     // naive geometry shader impl
-    VoxelizeDebug(Viewport& viewport); // naive geometry shader impl
+    VoxelizeDebug(const Viewport& viewport); // naive geometry shader impl
     
     // fast cube rendering using a technique from https://twitter.com/SebAaltonen/status/1315982782439591938/photo/1
-    VoxelizeDebug(Viewport& viewport, uint32_t voxelTextureSize);
+    VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize);
     
     
-    void render(Viewport& viewport, unsigned int input, Voxelize* voxels);
-    void execute2(Viewport& viewport, unsigned int input, Voxelize* voxels);
+    void render(const Viewport& viewport, GLuint input, const Voxelize& voxels);
+    void execute2(const Viewport& viewport, GLuint input, const Voxelize& voxels);
 
-    void createResources(Viewport& viewport);
-    void deleteResources();
+    void createRenderTargets(const Viewport& viewport);
+    void destroyRenderTargets();
 
 private:
     glShader shader;
-    unsigned int frameBuffer;
-    unsigned int renderBuffer;
+    GLuint frameBuffer, renderBuffer;
 
     uint32_t indexCount;
     glIndexBuffer indexBuffer;
@@ -214,11 +214,11 @@ public:
     DebugLines();
     ~DebugLines();
     
-    void render(entt::registry& scene, Viewport& viewport, unsigned int texture, unsigned int renderBuffer);
+    void render(const Scene& scene, const Viewport& viewport, GLuint texture, GLuint renderBuffer);
 
 private:
     glShader shader;
-    unsigned int frameBuffer;
+    GLuint frameBuffer;
     glVertexBuffer vertexBuffer;
 
     std::vector<Vertex> points;
@@ -226,10 +226,10 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-class SkinCompute {
+class Skinning {
 public:
-    SkinCompute();
-    void render(ecs::MeshComponent& mesh, ecs::MeshAnimationComponent& anim);
+    Skinning();
+    void compute(const ecs::MeshComponent& mesh, const ecs::AnimationComponent& anim);
 
 private:
     glShader computeShader;
@@ -246,15 +246,15 @@ struct Sphere {
     alignas(4) float radius;
 };
 
-class RayCompute {
+class RayTracingOneWeekend {
 public:
-    RayCompute(Viewport& viewport);
-    ~RayCompute();
+    RayTracingOneWeekend(const Viewport& viewport);
+    ~RayTracingOneWeekend();
 
-    void render(Viewport& viewport, bool shouldClear);
+    void compute(const Viewport& viewport, bool shouldClear);
 
-    void createResources(Viewport& viewport);
-    void deleteResources();
+    void createRenderTargets(const Viewport& viewport);
+    void destroyRenderTargets();
 
     bool shaderChanged() { return hotloader.changed(); }
 
@@ -264,24 +264,24 @@ private:
     Timer rayTimer;
     glShader shader;
     ShaderHotloader hotloader;
-    unsigned int sphereBuffer;
+
+    GLuint sphereBuffer;
 
 public:
-    unsigned int result;
-    unsigned int finalResult;
+    GLuint result, finalResult;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 class DeferredShading {
 private:
-    struct {
+    struct Uniforms {
         glm::mat4 view, projection;
         std::array<glm::mat4, 4> shadowMatrices;
         glm::vec4 shadowSplits;
         glm::vec4 cameraPosition;
-        ecs::DirectionalLightComponent::ShaderBuffer dirLights[1];
-        ecs::PointLightComponent::ShaderBuffer pointLights[10];
+        ecs::DirectionalLightComponent dirLight;
+        ecs::PointLightComponent pointLights[10];
         unsigned int renderFlags = 0b00000001;
     } uniforms;
 
@@ -294,45 +294,47 @@ public:
     } settings;
 
     ~DeferredShading();
-    DeferredShading(Viewport& viewport);
+    DeferredShading(const Viewport& viewport);
 
-    void render(entt::registry& sscene, Viewport& viewport, ShadowMap* shadowMap,
-        GBuffer* GBuffer, Voxelize* voxels);
+    void render(const Scene& sscene, 
+                const Viewport& viewport, 
+                const ShadowMap& shadowMap,
+                const GBuffer& GBuffer, 
+                const Voxelize& voxels);
 
     float getTimeMs() { return timer.GetMilliseconds(); }
 
-    void createResources(Viewport& viewport);
-    void deleteResources();
+    void createRenderTargets(const Viewport& viewport);
+    void destroyRenderTargets();
 
 private:
     glShader shader;
-    unsigned int framebuffer;
+    GLuint framebuffer;
     glUniformBuffer uniformBuffer;
 
     GLTimer timer;
     ShaderHotloader hotloader;
 
-
 public:
-    unsigned int result;
-    unsigned int bloomHighlights;
+    GLuint result;
+    GLuint bloomHighlights;
 };
 
 class Atmosphere {
 public:
-    Atmosphere(Viewport& viewport);
+    Atmosphere(const Viewport& viewport);
     ~Atmosphere();
 
-    void createResources(Viewport& viewport);
+    void createRenderTargets(const Viewport& viewport);
     void destroyResources();
 
-    void render(Viewport& viewport, entt::registry& scene, unsigned int out, unsigned int depth);
+    void render(const Viewport& viewport, const Scene& scene, GLuint out, GLuint depth);
 
 
 private:
     glShader shader;
     ShaderHotloader hotloader;
-    unsigned int framebuffer;
+    GLuint framebuffer;
 };
 
 } // raekor

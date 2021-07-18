@@ -15,6 +15,7 @@ int main(int argc, char** argv) {
         while (app->running) {
             timer.start();
             app->update(dt);
+            std::this_thread::sleep_for(std::chrono::nanoseconds(20));
             dt = static_cast<float>(timer.stop());
         }
 

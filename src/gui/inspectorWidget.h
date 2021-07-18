@@ -18,7 +18,7 @@ private:
     void drawComponent(ecs::TransformComponent& component, entt::registry& scene, entt::entity& active);
     void drawComponent(ecs::PointLightComponent& component, entt::registry& scene, entt::entity& active);
     void drawComponent(ecs::NativeScriptComponent& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(ecs::MeshAnimationComponent& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(ecs::AnimationComponent& component, entt::registry& scene, entt::entity& active);
     void drawComponent(ecs::DirectionalLightComponent& component, entt::registry& scene, entt::entity& active);
 };
 

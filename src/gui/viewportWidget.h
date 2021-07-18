@@ -12,10 +12,10 @@ public:
     virtual void draw() override;
 
 private:
-    bool enabled;
+    bool enabled = true;
     ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
     bool mouseInViewport;
-    GLuint* rendertarget;
+    GLuint rendertarget;
 };
 
 } // raekor

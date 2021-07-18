@@ -139,7 +139,7 @@ void glVertexBuffer::loadVertices(float* vertices, size_t count) {
 void glVertexBuffer::bind() const {
     glBindBuffer(GL_ARRAY_BUFFER, id);
     GLuint index = 0;
-    for (auto& element : inputLayout) {
+    for (const auto& element : inputLayout) {
         auto shaderType = static_cast<glShaderType>(element.type);
         glEnableVertexAttribArray(index);
         glVertexAttribPointer(
@@ -156,7 +156,7 @@ void glVertexBuffer::bind() const {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void glVertexBuffer::setLayout(const InputLayout& layout) const {
+void glVertexBuffer::setLayout(const InputLayout& layout) {
     inputLayout = layout;
 }
 
