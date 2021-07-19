@@ -6,7 +6,9 @@ layout(location = 0) in vec2 uv;
 
 layout(location = 0) out vec4 final_color;
 
-uniform vec2 direction;
+layout(binding = 0) uniform ubo {
+    vec2 direction;
+};
 
 vec2 iResolution = textureSize(source, 0);
 

@@ -12,7 +12,7 @@ namespace Raekor {
 Shader* Shader::construct(Stage* stages, size_t stageCount) {
     switch (Renderer::getActiveAPI()) {
         case RenderAPI::OPENGL: {
-            LOG_CATCH(return new glShader(stages, stageCount));
+            return nullptr;
 
         } break;
 #ifdef _WIN32
@@ -24,25 +24,29 @@ Shader* Shader::construct(Stage* stages, size_t stageCount) {
     return nullptr;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
 
-glShader::glShader(Stage* stages, size_t stageCount) {
-    this->reload(stages, stageCount);
-}
 
-/////////////////////////////////////////////////////////////////////////////////////////
+glShader::glShader(const std::initializer_list<Stage>& list) : stages(list) {}
+
+
 
 glShader::~glShader() { glDeleteProgram(programID); }
 
-/////////////////////////////////////////////////////////////////////////////////////////
 
-void glShader::reload(Stage* stages, size_t stageCount) {
+
+void glShader::compile(const std::initializer_list<Stage>& list) {
+    stages = list;
+    compile();
+}
+
+
+
+void glShader::compile() {
     auto newProgramID = glCreateProgram();
     bool failed = false;
     
     std::vector<unsigned int> shaders;
-    for (unsigned int i = 0; i < stageCount; i++) {
-        Stage& stage = stages[i];
+    for (const auto& stage : stages) {
 
         std::string buffer;
         std::ifstream ifs(stage.filepath, std::ios::in | std::ios::binary);
@@ -54,13 +58,6 @@ void glShader::reload(Stage* stages, size_t stageCount) {
             ifs.close();
         } else {
             std::cout << stage.filepath << " does not exist on disk." << "\n";
-        }
-
-        auto it = buffer.find_first_of('\n') + 1;
-        for (std::string& define : stage.defines) {
-
-            buffer.insert(it, "#define " + define + '\n');
-            it += 9 + define.size();
         }
 
         const char* src = buffer.c_str();
@@ -108,7 +105,6 @@ void glShader::reload(Stage* stages, size_t stageCount) {
         glAttachShader(newProgramID, shader);
     }
 
-    // Link and check the program
     glLinkProgram(newProgramID);
 
     int shaderCompilationResult = 0, logMessageLength = 0;
@@ -134,110 +130,34 @@ void glShader::reload(Stage* stages, size_t stageCount) {
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
 
-inline const void glShader::bind() const { glUseProgram(programID); }
 
-/////////////////////////////////////////////////////////////////////////////////////////
-
-inline const void glShader::unbind() const { glUseProgram(0); }
-
-/////////////////////////////////////////////////////////////////////////////////////////
-
-UniformLocation glShader::operator[] (const char* name) {
-    return getUniform(name);
-}
-
-UniformLocation glShader::getUniform(const char* name) {
-    auto location = glGetUniformLocation(programID, name);
-    return { location };
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-
-UniformLocation& UniformLocation::operator=(const glm::mat4& rhs) {
-    glUniformMatrix4fv(id, 1, GL_FALSE, glm::value_ptr(rhs));
-    return *this;
-}
-
-UniformLocation& UniformLocation::operator=(const std::vector<glm::vec3>& rhs) {
-    glUniform3fv(id, static_cast<GLsizei>(rhs.size()), glm::value_ptr(rhs[0]));
-    return *this;
-}
-
-UniformLocation& UniformLocation::operator=(const std::vector<glm::mat4>& rhs) {
-    glUniformMatrix4fv(id, static_cast<GLuint>(rhs.size()), GL_FALSE, glm::value_ptr(rhs[0]));
-    return *this;
-}
-
-UniformLocation& UniformLocation::operator=(float rhs) {
-    glUniform1f(id, rhs);
-    return *this;
-}
-
-UniformLocation& UniformLocation::operator=(const std::vector<float>& rhs) {
-    glUniform1fv(id, static_cast<GLsizei>(rhs.size()), rhs.data());
-    return *this;
-}
-
-UniformLocation& UniformLocation::operator=(bool rhs) {
-    glUniform1i(id, rhs);
-    return *this;
-}
-
-UniformLocation& UniformLocation::operator=(const glm::vec4& rhs) {
-    glUniform4f(id, rhs.x, rhs.y, rhs.z, rhs.w);
-    return *this;
-}
-
-UniformLocation& UniformLocation::operator=(const glm::vec3& rhs) {
-    glUniform3f(id, rhs.x, rhs.y, rhs.z);
-    return *this;
-}
-
-UniformLocation& UniformLocation::operator=(const glm::vec2& rhs) {
-    glUniform2f(id, rhs.x, rhs.y);
-    return *this;
-}
-
-UniformLocation& UniformLocation::operator=(uint32_t rhs) {
-    glUniform1ui(id, rhs);
-    return *this;
-}
-
-UniformLocation& UniformLocation::operator=(int32_t rhs) {
-    glUniform1i(id, rhs);
-    return *this;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-
-void ShaderHotloader::watch(glShader* shader, Shader::Stage* inStages, size_t stageCount) {
-    // store the stages    
-    for (int i = 0; i < stageCount; i++) {
-        stages.push_back(inStages[i]);
-    }
-
-    // store a lambda that keeps a copy of pointers to the shader
-    checks.emplace_back([=]() -> bool {
-        for (auto& stage : stages) {
-            if (stage.watcher.wasModified()) {
-                shader->reload(stages.data(), stageCount);
-                return true;
-            }
+void glShader::bind() { 
+    for (auto& stage : stages) {
+        if (stage.watcher.wasModified()) {
+            compile();
         }
-        return false;
-    });
+    }
+
+    glUseProgram(programID); 
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool ShaderHotloader::changed() {
-    bool updated = false;
-    for (auto& check : checks) {
-        updated |= check();
+
+void glShader::unbind() { 
+    glUseProgram(0); 
+}
+
+
+
+Shader::Stage::Stage(Type type, const char* filepath) : 
+    type(type), 
+    filepath(filepath), 
+    watcher(filepath) 
+{
+    if (!std::filesystem::exists(filepath)) {
+        std::cerr << "file does not exist on disk\n";
     }
-    return updated;
 }
 
 } // Namespace Raekor

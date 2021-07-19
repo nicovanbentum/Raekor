@@ -34,7 +34,7 @@ DXShader::DXShader(Stage* stages, size_t stageCount) {
     }
 }
 
-const void DXShader::bind() const {
+void DXShader::bind() {
     if (vertex_shader)
         D3D.context->VSSetShader(vertex_shader.Get(), NULL, 0);
     if (pixel_shader)
@@ -45,7 +45,7 @@ const void DXShader::bind() const {
         D3D.context->CSSetShader(compute_shader.Get(), NULL, 0);
 }
 
-const void DXShader::unbind() const {
+void DXShader::unbind() {
     D3D.context->VSSetShader(NULL, NULL, 0);
     D3D.context->PSSetShader(NULL, NULL, 0);
     D3D.context->GSSetShader(NULL, NULL, 0);

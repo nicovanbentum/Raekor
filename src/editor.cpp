@@ -86,7 +86,7 @@ void Editor::update(float dt) {
     }
 
     // update transforms
-    //scene.updateTransforms();
+    scene.updateTransforms();
     scene.updateLights();
 
     // update animations

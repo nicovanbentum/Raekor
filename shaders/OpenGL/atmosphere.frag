@@ -33,14 +33,12 @@ layout(location = 0) out vec4 out_color;
 
 layout(location = 0) in vec2 uv;
 
-// inverse view projection matrix of camera used to render geometry
-uniform mat4 invViewProj;
-// camera position
-uniform vec3 cameraPos;
-// sun/directional light direction
-uniform vec3 sunlightDir;
-// sun/directional light color
-uniform vec3 sunlightColor;
+layout(binding = 0) uniform ubo {
+    mat4 invViewProj;
+    vec4 cameraPos;
+    vec4 sunlightDir;
+    vec4 sunlightColor;
+};
 
 vec2 SphereIntersection(vec3 rayStart, vec3 rayDir, vec3 sphereCenter, float sphereRadius) {
     rayStart -= sphereCenter;
@@ -212,13 +210,13 @@ void main()
     vec4 position_v = invViewProj * position_s;
     vec3 div = position_v.xyz / position_v.w;
 
-    vec3 rayDir = normalize(cameraPos - div);
-    vec3 rayStart = cameraPos;
+    vec3 rayDir = normalize(cameraPos.xyz - div);
+    vec3 rayStart = cameraPos.xyz;
     float rayLength = INFINITY;
 
 
     vec3 transmittance;
-    vec3 color = IntegrateScattering(rayStart, rayDir, rayLength, sunlightDir, sunlightColor, transmittance);
+    vec3 color = IntegrateScattering(rayStart, rayDir, rayLength, sunlightDir.xyz, sunlightColor.rgb, transmittance);
 
     out_color = vec4(color, 1.0);
 }

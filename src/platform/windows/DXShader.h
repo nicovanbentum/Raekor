@@ -9,8 +9,8 @@ namespace Raekor {
 class DXShader : public Shader {
 public:
     DXShader(Stage* stages, size_t stageCount);
-    const void bind() const override;
-    const void unbind() const override;
+    void bind() override;
+    void unbind() override;
 
 private:
     com_ptr<ID3D11VertexShader> vertex_shader;

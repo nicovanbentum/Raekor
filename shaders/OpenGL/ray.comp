@@ -17,12 +17,15 @@ layout(binding = 1, rgba32f) uniform image2D finalTexture;
 vec2 iResolution = imageSize(outputTexture);
 ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
 
-uniform float iTime;
 
-uniform vec3 position;
-uniform mat4 view;
-uniform mat4 projection;
-uniform bool doUpdate;
+layout(binding = 3) uniform ubo {
+    vec4 position;
+    mat4 projection;
+    mat4 view;
+    float iTime;
+    uint sphereCount;
+    uint doUpdate;
+};
 
 const uint ROUGH = 0;
 const uint REFLECT = 1;
@@ -44,8 +47,6 @@ struct Sphere {
 layout(std430, binding = 2) buffer world {
     Sphere spheres [];
 };
-
-uniform uint sphereCount;
 
 struct Ray {
     vec3 origin;
@@ -148,7 +149,7 @@ Ray Camera_getRay(inout uvec4 useed) {
 
     vec3 direction = normalize((inverse(view) * rayCamera).xyz);
 
-    return Ray(position + offset, direction - offset);
+    return Ray(position.xyz + offset, direction - offset);
 }
 
 bool MaterialBsdf(Sphere sphere, float t, Ray wo, out Ray wi, out vec3 attenuation, inout uvec4 useed) {
@@ -241,7 +242,7 @@ void main() {
 
         color /= float(NUMSAMPLES);
 
-        if(doUpdate) {
+        if(doUpdate == 1) {
             imageStore(outputTexture, fragCoord, currentColor + vec4(color, 1.0));
         } else {
             imageStore(outputTexture, fragCoord, vec4(color, 1.0));
@@ -251,7 +252,7 @@ void main() {
         imageStore(finalTexture, fragCoord, vec4(sqrt(accumulatedColor.rgb / accumulatedColor.w), 1.0));
 
     } else {
-        if(!doUpdate) {
+        if(doUpdate == 0) {
             for(int s = 0; s < NUMSAMPLES; s++) {
             useed = rand(useed, RANGE);
 

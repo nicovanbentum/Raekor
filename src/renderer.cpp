@@ -32,7 +32,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
     SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
@@ -217,10 +217,10 @@ void GLRenderer::createRenderTargets(const Viewport& viewport) {
     bloom->destroyRenderTargets();
     bloom->createRenderTargets(viewport);
 
-    icons->destroyResources();
+    icons->destroyRenderTargets();
     icons->createRenderTargets(viewport);
 
-    sky->destroyResources();
+    sky->destroyRenderTargets();
     sky->createRenderTargets(viewport);
 }
 

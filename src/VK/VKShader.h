@@ -22,7 +22,7 @@ public:
         return spirv;
     }
 
-    void reload();
+    void compile();
     static bool compileFromCommandLine(std::string_view in, std::string_view out);
     VkPipelineShaderStageCreateInfo getInfo(VkShaderStageFlagBits stage) const;
 

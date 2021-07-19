@@ -8,33 +8,37 @@ layout(rgba8, binding = 1) uniform coherent image3D voxels;
 
 layout(binding = 2) uniform sampler2DArrayShadow shadowMap;
 
-uniform vec4 colour;
+layout(binding = 0) uniform ubo {
+    mat4 px, py, pz;
+    mat4 shadowMatrices[4];
+    mat4 view;
+    mat4 model;
+    vec4 shadowSplits;
+    vec4 colour;
+};
 
 in vec2 uv;
 in flat int axis;
 in vec4 worldPosition;
+in vec4 normal;
 
-uniform	mat4 shadowMatrices[4];
-uniform vec4 shadowSplits;
-uniform mat4 view;
 
 void main() {
     vec4 sampled = texture(albedo, uv) * colour;
     if(sampled.a < 0.5) discard;
     const int dim = imageSize(voxels).x;
 
-    // TODO: improve shadow sampling
     uint cascadeIndex = 0;
 	for(uint i = 0; i < 4 - 1; i++) {
-		if((view * worldPosition).z < shadowSplits[i]) {	
+		if((view * worldPosition).z < shadowSplits[i]) {
 			cascadeIndex = i + 1;
 		}
 	}
 
-    vec4 depthPosition = shadowMatrices[2] * worldPosition;
+    vec4 depthPosition = shadowMatrices[cascadeIndex] * worldPosition;
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
-    float shadowAmount = texture(shadowMap, vec4(depthPosition.xy, 2, (depthPosition.z)/depthPosition.w));
+    float shadowAmount = texture(shadowMap, vec4(depthPosition.xy, cascadeIndex, (depthPosition.z)/depthPosition.w));
 
     ivec3 camPos = ivec3(gl_FragCoord.x, gl_FragCoord.y, dim * gl_FragCoord.z);
 	ivec3 voxelPosition;
@@ -52,7 +56,7 @@ void main() {
 	}
 
 	voxelPosition.z = dim - voxelPosition.z - 1;
-    vec4 writeVal = vec4(sampled.rgb, sampled.a);
+    vec4 writeVal = vec4(sampled.rgb * shadowAmount, sampled.a);
 
     beginInvocationInterlockARB();
 
@@ -63,7 +67,7 @@ void main() {
     vec3 Co = curVal.rgb * curVal.a + writeVal.rgb * writeVal.a * (1 - curVal.a);
     Co = Co / Ao;
 
-    imageStore(voxels, voxelPosition, vec4(Co * shadowAmount, 1));
+    imageStore(voxels, voxelPosition, vec4(Co, sampled.a));
 
     endInvocationInterlockARB();
 

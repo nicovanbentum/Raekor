@@ -7,7 +7,11 @@ layout(location = 0) in vec2 uv;
 
 layout(binding = 0) uniform sampler2D uTexture;
 
-uniform uint entity;
+layout(binding = 0) uniform ubo {
+   mat4 mvp;
+   vec4 world_position;
+   uint entity;
+};
 
 void main() {
     vec4 sampled = texture(uTexture, uv);

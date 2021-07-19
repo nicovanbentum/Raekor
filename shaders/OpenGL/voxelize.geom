@@ -10,16 +10,22 @@ out vec2 uv;
 out flat int axis;
 out vec4 depthPosition;
 out vec4 worldPosition;
+out vec4 normal;
 
-uniform mat4 px;
-uniform mat4 py;
-uniform mat4 pz;
+layout(binding = 0) uniform ubo {
+    mat4 px, py, pz;
+    mat4 shadowMatrices[4];
+    mat4 view;
+    mat4 model;
+    vec4 shadowSplits;
+    vec4 colour;
+};
 
 void main() {
     // get triangle normal
     vec3 p1 = gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz;
     vec3 p2 = gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz;
-    vec3 normal = normalize(cross(p1,p2));
+    normal = vec4(normalize(cross(p1,p2)), 1.0);
 
     float nDotX = abs(normal.x);
     float nDotY = abs(normal.y);

@@ -10,7 +10,7 @@ Shader::Shader(VkDevice device, const std::string& path) :
     module(VK_NULL_HANDLE)
 {
     if (filepath.empty()) return;
-    reload();
+    compile();
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -21,7 +21,7 @@ Shader::~Shader() {
 
 ///////////////////////////////////////////////////////////////////////////
 
-void Shader::reload() {
+void Shader::compile() {
     if (module != VK_NULL_HANDLE) {
         vkDestroyShaderModule(device, module, nullptr);
     }

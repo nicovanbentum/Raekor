@@ -2,7 +2,11 @@
 
 layout(location = 0) out vec2 uv;
 
-uniform mat4 mvp;
+layout(binding = 0) uniform ubo {
+   mat4 mvp;
+   vec4 world_position;
+   uint entity;
+};
 
 void main() 
 {

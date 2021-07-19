@@ -15,20 +15,6 @@ public:
     virtual void bind(uint8_t slot) const = 0;
 };
 
-class glUniformBuffer {
-public:
-    glUniformBuffer();
-    ~glUniformBuffer();
-    glUniformBuffer(size_t size);
-
-    void setSize(size_t);
-    void bind(uint8_t slot) const;
-    void update(void* data, const size_t size);
-
-private:
-    uint32_t id;
-};
-
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 enum class ShaderType {

@@ -85,10 +85,13 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
 void Scene::destroyObject(entt::entity entity) {
     if (has<Node>(entity)) {
         auto tree = NodeSystem::getFlatHierarchy(*this, get<Node>(entity));
+        
         for (auto member : tree) {
             NodeSystem::remove(*this, get<Node>(member));
             destroy(member);
         }
+    
+        NodeSystem::remove(*this, get<Node>(entity));
     }
 
     destroy(entity);

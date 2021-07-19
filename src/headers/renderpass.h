@@ -49,6 +49,11 @@ class ShadowMap {
          float cascadeSplitLambda = 0.98f;
      } settings;
 
+     struct {
+         glm::mat4 lightMatrix;
+         glm::mat4 modelMatrix;
+     } uniforms;
+
     ~ShadowMap();
     ShadowMap(uint32_t width, uint32_t height);
 
@@ -56,10 +61,11 @@ class ShadowMap {
 
 private:
     glShader shader;
-    unsigned int framebuffer;
+    GLuint framebuffer;
+    GLuint uniformBuffer;
 
 public:
-    unsigned int cascades;
+    GLuint cascades;
     glm::vec4 m_splits;
     std::array<glm::mat4, 4> matrices;
 };
@@ -67,6 +73,14 @@ public:
 //////////////////////////////////////////////////////////////////////////////////
 
 class GBuffer {
+    struct {
+        glm::mat4 projection;
+        glm::mat4 view;
+        glm::mat4 model;
+        glm::vec4 colour;
+        uint32_t entity;
+    } uniforms;
+
 public:
     uint32_t culled = 0;
 
@@ -85,19 +99,26 @@ public:
     GLuint albedoTexture, normalTexture, materialTexture, entityTexture;
 private:
     glShader shader;
-    ShaderHotloader hotloader;
     GLuint framebuffer;
+    GLuint uniformBuffer;
   
 public:
     GLuint depthTexture;
 };
 
 class Icons {
+    struct {
+        glm::mat4 mvp;
+        glm::vec4 world_position;
+        uint32_t entity;
+    } uniforms;
+
 public:
     Icons(const Viewport& viewport);
+    ~Icons();
 
     void createRenderTargets(const Viewport& viewport);
-    void destroyResources();
+    void destroyRenderTargets();
 
     void render(const Scene& scene, const Viewport& viewport, GLuint screenTexture, GLuint entityTexture);
 
@@ -105,15 +126,20 @@ private:
     glShader shader;
     GLuint framebuffer;
     GLuint lightTexture;
+    GLuint uniformBuffer;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
 
 class Bloom {
+    struct {
+        glm::vec2 direction;
+    } uniforms;
+
 public:
     ~Bloom();
     Bloom(const Viewport& viewport);
-    void render(const Viewport& viewport, unsigned int highlights);
+    void render(const Viewport& viewport, GLuint highlights);
     void createRenderTargets(const Viewport& viewport);
     void destroyRenderTargets();
 
@@ -125,6 +151,7 @@ public:
 
 private:
     glShader blurShader;
+    GLuint uniformBuffer;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -138,24 +165,32 @@ public:
 
     ~Tonemap();
     Tonemap(const Viewport& viewport);
-    void render(unsigned int scene, unsigned int bloom);
+    void render(GLuint scene, GLuint bloom);
 
     void createRenderTargets(const Viewport& viewport);
     void destroyRenderTargets();
 
 private:
     glShader shader;
-    unsigned int framebuffer;
-    glUniformBuffer uniformBuffer;
-    ShaderHotloader hotloader;
+    GLuint framebuffer;
+    GLuint uniformBuffer;
 
 public:
-    unsigned int result;
+    GLuint result;
 };
 
 //////////////////////////////////////////////////////////////////////////////////
 
 class Voxelize {
+    struct Uniforms {
+        glm::mat4 px, py, pz;
+        std::array<glm::mat4, 4> shadowMatrices;
+        glm::mat4 view;
+        glm::mat4 model;
+        glm::vec4 shadowSplits;
+        glm::vec4 colour;
+    } uniforms;
+
 public:
     Voxelize(uint32_t size);
     void render(const Scene& scene, const Viewport& viewport, const ShadowMap& shadowmap);
@@ -169,7 +204,8 @@ private:
     glShader shader;
     glShader mipmapShader;
     glShader opacityFixShader;
-    ShaderHotloader hotloader;
+
+    GLuint uniformBuffer;
 
 public:
     int size;
@@ -180,6 +216,12 @@ public:
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 class VoxelizeDebug {
+    struct {
+        glm::mat4 p;
+        glm::mat4 mv;
+        glm::vec4 cameraPosition;
+    } uniforms;
+
 public:
     ~VoxelizeDebug();
     
@@ -199,6 +241,7 @@ public:
 private:
     glShader shader;
     GLuint frameBuffer, renderBuffer;
+    GLuint uniformBuffer;
 
     uint32_t indexCount;
     glIndexBuffer indexBuffer;
@@ -208,6 +251,11 @@ private:
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 class DebugLines {
+    struct {
+        glm::mat4 projection;
+        glm::mat4 view;
+    } uniforms;
+
 public:
     friend class GLRenderer;
 
@@ -220,6 +268,7 @@ private:
     glShader shader;
     GLuint frameBuffer;
     glVertexBuffer vertexBuffer;
+    GLuint uniformBuffer;
 
     std::vector<Vertex> points;
 };
@@ -233,7 +282,6 @@ public:
 
 private:
     glShader computeShader;
-    ShaderHotloader hotloader;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -247,6 +295,15 @@ struct Sphere {
 };
 
 class RayTracingOneWeekend {
+    struct {
+        glm::vec4 position;
+        glm::mat4 projection;
+        glm::mat4 view;
+        float iTime;
+        uint32_t sphereCount;
+        uint32_t doUpdate;
+    } uniforms;
+
 public:
     RayTracingOneWeekend(const Viewport& viewport);
     ~RayTracingOneWeekend();
@@ -256,16 +313,16 @@ public:
     void createRenderTargets(const Viewport& viewport);
     void destroyRenderTargets();
 
-    bool shaderChanged() { return hotloader.changed(); }
+    bool shaderChanged() { return true; }
 
     std::vector<Sphere> spheres;
 
 private:
     Timer rayTimer;
     glShader shader;
-    ShaderHotloader hotloader;
 
     GLuint sphereBuffer;
+    GLuint uniformBuffer;
 
 public:
     GLuint result, finalResult;
@@ -284,6 +341,15 @@ private:
         PointLight pointLights[10];
         unsigned int renderFlags = 0b00000001;
     } uniforms;
+
+    struct Uniforms2 {
+        glm::mat4 invViewProjection;
+        glm::vec4 bloomThreshold;
+        float voxelWorldSize;
+        int pointLightCount;
+        int directionalLightCount;
+
+    } uniforms2;
 
 public:
     struct {
@@ -310,10 +376,11 @@ public:
 private:
     glShader shader;
     GLuint framebuffer;
-    glUniformBuffer uniformBuffer;
+
+    GLuint uniformBuffer;
+    GLuint uniformBuffer2;
 
     GLTimer timer;
-    ShaderHotloader hotloader;
 
 public:
     GLuint result;
@@ -321,20 +388,27 @@ public:
 };
 
 class Atmosphere {
+    struct {
+        glm::mat4 invViewProj;
+        glm::vec4 cameraPos;
+        glm::vec4 sunlightDir;
+        glm::vec4 sunlightColor;
+    } uniforms;
+
 public:
     Atmosphere(const Viewport& viewport);
     ~Atmosphere();
 
     void createRenderTargets(const Viewport& viewport);
-    void destroyResources();
+    void destroyRenderTargets();
 
     void render(const Viewport& viewport, const Scene& scene, GLuint out, GLuint depth);
 
 
 private:
     glShader shader;
-    ShaderHotloader hotloader;
     GLuint framebuffer;
+    GLuint uniformBuffer;
 };
 
 } // raekor

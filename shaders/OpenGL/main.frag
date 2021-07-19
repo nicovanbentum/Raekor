@@ -17,7 +17,7 @@ struct PointLight {
 };
 
 // cpu side uniform buffer
-layout (std140) uniform stuff {
+layout (binding = 0) uniform stuff {
 	mat4 view, projection;
 	mat4 shadowMatrices[4];
 	vec4 shadowSplits;
@@ -26,15 +26,13 @@ layout (std140) uniform stuff {
     PointLight pointLights[MAX_POINT_LIGHTS];
 } ubo;
 
-// TODO: some of these are no longer in use since VCT
-uniform vec3 bloomThreshold;
-
-uniform int pointLightCount;
-uniform int directionalLightCount;
-
-uniform float voxelsWorldSize;
-
-uniform mat4 invViewProjection;
+layout(binding = 1) uniform random {
+    mat4 invViewProjection;
+    vec4 bloomThreshold;
+    float voxelsWorldSize;
+    int pointLightCount;
+    int directionalLightCount;
+};
 
 // in vars
 layout(location = 0) in vec2 uv;
@@ -52,40 +50,6 @@ layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 6) uniform sampler3D voxels;
 layout(binding = 7) uniform sampler2D gMetallicRoughness;
 layout(binding = 8) uniform sampler2D gDepth;
-
-// source: http://simonstechblog.blogspot.com/2013/01/implementing-voxel-cone-tracing.html
-// 6 60 degree cone
-const int NUM_CONES = 6;
-vec3 coneDirections[6] = vec3[] (
-    vec3(0, 1, 0),
-    vec3(0, 0.5, 0.866025),
-    vec3(0.823639, 0.5, 0.267617),
-    vec3(0.509037, 0.5, -0.700629),
-    vec3(-0.509037, 0.5, -0.700629),
-    vec3(-0.823639, 0.5, 0.267617)
-);
-float coneWeights[6] = float[](0.25, 0.15, 0.15, 0.15, 0.15, 0.15);
-
-// source: https://wickedengine.net/2017/08/30/voxel-based-global-illumination/
-const vec3 CONES[] = 
-{
-	vec3(0.57735, 0.57735, 0.57735),
-	vec3(0.57735, -0.57735, -0.57735),
-	vec3(-0.57735, 0.57735, -0.57735),
-	vec3(-0.57735, -0.57735, 0.57735),
-	vec3(-0.903007, -0.182696, -0.388844),
-	vec3(-0.903007, 0.182696, 0.388844),
-	vec3(0.903007, -0.182696, 0.388844),
-	vec3(0.903007, 0.182696, -0.388844),
-	vec3(-0.388844, -0.903007, -0.182696),
-	vec3(0.388844, -0.903007, 0.182696),
-	vec3(0.388844, 0.903007, -0.182696),
-	vec3(-0.388844, 0.903007, 0.182696),
-	vec3(-0.182696, -0.388844, -0.903007),
-	vec3(0.182696, 0.388844, -0.903007),
-	vec3(-0.182696, 0.388844, 0.903007),
-	vec3(0.182696, -0.388844, 0.903007)
-};
 
 // -------------------------------------
 // Defines
@@ -276,6 +240,29 @@ vec3 IntegrateScattering (vec3 rayStart, vec3 rayDir, float rayLength, vec3 ligh
 	return (rayleigh * C_RAYLEIGH + mie * C_MIE) * lightColor * EXPOSURE;
 }
 
+float saturate(float a) { return clamp(a, 0.0, 1.0); }
+bool is_saturated(float a) { return a == saturate(a); }
+bool is_saturated(vec3 a) { return a.x == saturate(a.x) &&  a.y == saturate(a.y) &&  a.z == saturate(a.z); }
+
+vec2 hammersley2d(uint idx, uint num) {
+	uint bits = idx;
+	bits = (bits << 16u) | (bits >> 16u);
+	bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+	bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+	bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+	bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+	const float radicalInverse_VdC = float(bits) * 2.3283064365386963e-10; // / 0x100000000
+
+	return vec2(float(idx) / float(num), radicalInverse_VdC);
+}
+
+vec3 importance_sample(float u, float v) {
+	float phi = v * 2 * PI;
+	float cosTheta = sqrt(1 - u);
+	float sinTheta = sqrt(1 - cosTheta * cosTheta);
+	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
 // cone tracing through ray marching
 // a ray is just a starting vector and a direction
 // so it goes : sample, move in direction, sample, move in direction, sample etc
@@ -291,29 +278,20 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
     float dist = voxelSize; 
     vec3 startPos = p + n * voxelSize; 
 
-    while(colour.a < 1.0) {
+    while(dist < voxelsWorldSize && colour.a < 1.0) {
         
         float diameter = max(voxelSize, 2 * coneAperture * dist);
         float mip = log2(diameter / voxelSize);
 
         // create vec3 for reading voxel texture from world vector
         vec3 offset = vec3(1.0 / VoxelDimensions, 1.0 / VoxelDimensions, 0);
-        vec3 voxelTextureUV = (startPos + dist * coneDirection) / (voxelsWorldSize * 0.5);
-        voxelTextureUV = voxelTextureUV * 0.5 + 0.5 + offset;
-        vec4 voxel_colour = textureLod(voxels, voxelTextureUV, mip);
+        vec3 uv3d = (startPos + dist * coneDirection) / (voxelsWorldSize * 0.5);
+        uv3d = uv3d * 0.5 + 0.5 + offset;
+        vec4 voxel_colour = textureLod(voxels, uv3d, mip);
 
-
-        if(dist >= voxelsWorldSize) {
-            vec3 transmittance;
-            vec3 inscattering = IntegrateScattering(p, vec3(0, -1, 0), INFINITY, ubo.dirLights[0].direction.xyz, ubo.dirLights[0].color.xyz, transmittance);
-            voxel_colour = vec4(inscattering * transmittance, 1.0);
-            float a = (1.0 - colour.a);
-            colour.rgb += a * voxel_colour.rgb;
-            colour.a += a * voxel_colour.a;
-            occlusion += (a * voxel_colour.a) / (1.0 + 0.03 * diameter);
+        if(!is_saturated(uv3d) || mip >= log2(VoxelDimensions)) {
             break;
         }
-
 
         // back-to-front alpha 
         float a = (1.0 - colour.a);
@@ -328,23 +306,42 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
     return colour;
 }
 
+mat3 GetTangentSpace(in vec3 normal)
+{
+	// Choose a helper vector for the cross product
+	vec3 helper = abs(normal.x) > 0.99 ? vec3(0, 0, 1) : vec3(1, 0, 0);
+
+	// Generate vectors
+	vec3 tangent = normalize(cross(normal, helper));
+	vec3 binormal = normalize(cross(normal, tangent));
+	return mat3(tangent, binormal, normal);
+}
+
+
 vec4 coneTraceRadiance(in vec3 p, in vec3 n, out float occlusion_out) {
     vec4 color = vec4(0);
     occlusion_out = 0.0;
 
-    for(int i = 0; i < NUM_CONES; i++) {
-        vec3 coneDirection = normalize(coneDirections[i] + n);
-        coneDirection *= dot(coneDirection, n) < 0 ? -1 : 1;
+    mat3 tangentSpace = GetTangentSpace(n);
+
+    for(int i = 0; i < 16; i++) {
+
+        vec2 ham = hammersley2d(i, 16);
+        vec3 hemi = importance_sample(ham.x, ham.y);
+        vec3 coneDirection = hemi * tangentSpace;
 
         float occlusion = 0.0;
+
         // aperture is half tan of angle
         color += coneTrace(p, n, coneDirection, tan(PI * 0.5f * 0.33f), occlusion);
-        occlusion_out += coneWeights[i] * occlusion;
+        occlusion_out += occlusion;
     }
 
-    color /= NUM_CONES;
-    color.a = clamp(color.a, 0, 1);
+    occlusion_out /= 16;
     occlusion_out = 1.0 - occlusion_out;
+
+    color /= 16;
+    color.a = clamp(color.a, 0, 1);
 
     return max(vec4(0), color);
 }
@@ -564,7 +561,7 @@ vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material, float s
 
     float NDF = DistributionGGX(N, Lh, material.roughness);   
     float G   = GeometrySmith(N, V, Li, material.roughness);    
-    vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);
+    vec3 F    = FresnelSchlickRoughness(max(dot(Lh, V), 0.0), F0, material.roughness);
 
     vec3 nominator    = NDF * G * F;
     float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, Li), 0.0) + 0.001; // 0.001 to prevent divide by zero.
@@ -580,7 +577,7 @@ vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material, float s
 
     vec3 radiance = light.color.rgb * NdotL * shadow;
 
-    return (kD * (material.albedo) + specular) * radiance;
+    return (kD + specular) * radiance;
 }
 
 vec3 ambient(vec3 N, vec3 V, Material material, float shadow) {
@@ -687,9 +684,9 @@ void main() {
     vec3 Lo = radiance(light, normal, V, material, shadowAmount);
 
     float occlusion;
-    vec4 traced = coneTraceRadiance(position, normal, occlusion) * albedo;
+    //vec4 traced = coneTraceRadiance(position, normal, occlusion);
 
-    vec3 color = Lo + traced.rgb;
+    vec3 color = Lo * albedo.rgb + albedo.rgb * 0.1;
 
     finalColor = vec4(color, albedo.a);
 
@@ -713,7 +710,7 @@ void main() {
     }
 
     // BLOOM SEPERATION
-	float brightness = dot(finalColor.rgb, bloomThreshold);
+	float brightness = dot(finalColor.rgb, bloomThreshold.rgb);
     bloomColor = finalColor * min(brightness, 1.0);
     bloomColor.r = min(bloomColor.r, 1.0);
     bloomColor.g = min(bloomColor.g, 1.0);

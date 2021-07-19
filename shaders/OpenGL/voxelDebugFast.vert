@@ -5,9 +5,11 @@ layout(binding = 0) uniform sampler3D voxels;
 layout(location = 0) out vec4 color;
 layout(location = 1) out uint instance;
 
-uniform mat4 p;
-uniform mat4 mv;
-uniform vec3 cameraPosition;
+layout(binding = 0) uniform ubo {
+    mat4 p;
+    mat4 mv;
+    vec4 cameraPosition;
+};
 
 vec4 center_to_edge[8] = {
 	vec4(-0.5, 0.5, 0.5, 0.0), 
@@ -25,7 +27,7 @@ void main() {
 	instance = vx >> 3;
 
 	vec3 instance_pos;
-	vec3 local_camera_pos = cameraPosition - instance_pos;
+	vec3 local_camera_pos = cameraPosition.xyz - instance_pos;
 
 	uvec3 xyz = uvec3(vx & 0x1, (vx & 0x4) >> 2, (vx & 0x2) >> 1);
 	

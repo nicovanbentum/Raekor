@@ -4,7 +4,14 @@ layout(location = 0) in vec3 v_pos;
 layout(location = 1) in vec2 v_uv;
 layout(location = 2) in vec3 v_normal;
 
-uniform mat4 model;
+layout(binding = 0) uniform ubo {
+    mat4 px, py, pz;
+    mat4 shadowMatrices[4];
+    mat4 view;
+    mat4 model;
+    vec4 shadowSplits;
+    vec4 colour;
+};
 
 out vec2 uvs;
 out vec4 worldPositions;

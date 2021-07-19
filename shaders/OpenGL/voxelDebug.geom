@@ -3,8 +3,11 @@
 layout(points) in;
 layout(triangle_strip, max_vertices = 36) out;
 
-uniform mat4 mv;
-uniform mat4 p;
+layout(binding = 0) uniform ubo {
+    mat4 p;
+    mat4 mv;
+    vec4 cameraPosition;
+};
 
 in vec4 color[];
 

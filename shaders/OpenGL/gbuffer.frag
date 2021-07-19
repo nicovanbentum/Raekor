@@ -1,4 +1,4 @@
-#version 440 core
+#version 460 core
 
 // TODO: optimize by packing more data per byte
 // MRT texture output 
@@ -9,19 +9,23 @@ layout(location = 2) out vec4 gMetallicRoughness;
 layout(location = 3) out vec4 gEntityID;
 
 // constant mesh values
-layout(binding = 0) uniform sampler2D meshTexture;
-layout(binding = 3) uniform sampler2D normalTexture;
-layout(binding = 4) uniform sampler2D metalroughTexture;
+layout(binding = 1) uniform sampler2D albedoTexture;
+layout(binding = 2) uniform sampler2D normalTexture;
+layout(binding = 3) uniform sampler2D metalroughTexture;
 
-uniform vec4 colour;
-
-uniform uint entity;
+layout(binding = 0) uniform ubo {
+      mat4 projection;
+      mat4 view;
+      mat4 model;
+      vec4 colour;
+      uint entity;
+};
 
 in vec2 uv;
 in mat3 TBN;
 
 void main() {
-    vec4 color = texture(meshTexture, uv);
+    vec4 color = texture(albedoTexture, uv);
     if(color.a < 0.5) discard;
 	// write the color to the color texture of the gbuffer
 	gColor = color * colour;

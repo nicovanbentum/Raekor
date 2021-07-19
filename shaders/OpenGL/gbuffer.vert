@@ -1,4 +1,4 @@
-#version 440 core
+#version 460 core
 
 // vertex buffer data
 layout(location = 0) in vec3 v_pos;
@@ -7,9 +7,13 @@ layout(location = 2) in vec3 v_normal;
 layout(location = 3) in vec3 v_tangent;
 layout(location = 4) in vec3 v_binormal;
 
-uniform mat4 projection;
-uniform mat4 view;
-uniform mat4 model;
+layout(binding = 0) uniform ubo {
+      mat4 projection;
+      mat4 view;
+      mat4 model;
+      vec4 colour;
+      uint entity;
+};
 
 out vec2 uv;
 out mat3 TBN;
