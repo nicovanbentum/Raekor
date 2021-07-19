@@ -6,19 +6,18 @@
 #include "assets.h"
 
 namespace Raekor {
-namespace ecs {
 
-struct NameComponent {
+struct Name {
     std::string name;
 
     inline operator const std::string& () { return name; }
     inline bool operator==(const std::string& rhs) { return name == rhs; }
-    inline NameComponent& operator=(const std::string& rhs) { name = rhs; return *this; }
+    inline Name& operator=(const std::string& rhs) { name = rhs; return *this; }
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct TransformComponent {
+struct Transform {
     glm::vec3 scale     = { 1.0f, 1.0f, 1.0f };
     glm::vec3 position  = { 0.0f, 0.0f, 0.0f };
     glm::vec3 rotation  = { 0.0f, 0.0f, 0.0f };
@@ -32,21 +31,21 @@ struct TransformComponent {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct DirectionalLightComponent {
+struct DirectionalLight {
     glm::vec4 direction = { 0.0f, -0.9f, 0.0f, 0.0f };
     glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct PointLightComponent {
+struct PointLight {
     glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
     glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct NodeComponent {
+struct Node {
     entt::entity parent = entt::null;
     entt::entity firstChild = entt::null;
     entt::entity prevSibling = entt::null;
@@ -55,7 +54,7 @@ struct NodeComponent {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct MeshComponent {
+struct Mesh {
     std::vector<glm::vec3> positions;
     std::vector<glm::vec2> uvs;
     std::vector<glm::vec3> normals;
@@ -96,7 +95,7 @@ struct BoneTreeNode {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct AnimationComponent {
+struct Skeleton {
     std::vector<glm::vec4> boneWeights;
     std::vector<glm::ivec4> boneIndices;
 
@@ -113,7 +112,7 @@ struct AnimationComponent {
 
     void boneTransform(float TimeInSeconds);
 
-    void uploadRenderData(ecs::MeshComponent& mesh);
+    void uploadRenderData(Mesh& mesh);
 
     void destroy();
 
@@ -125,7 +124,7 @@ struct AnimationComponent {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct MaterialComponent {
+struct Material {
     glm::vec4 baseColour = { 1.0f, 1.0f, 1.0f, 1.0f };
     float metallic = 1.0f, roughness = 1.0f;
     std::string albedoFile, normalFile, mrFile;
@@ -146,7 +145,7 @@ struct MaterialComponent {
 
     void destroy();
 
-    static MaterialComponent Default;
+    static Material Default;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -168,14 +167,14 @@ struct ComponentDescription {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 static constexpr auto Components = std::make_tuple (
-    ComponentDescription<NameComponent>{"Name"},
-    ComponentDescription<NodeComponent>{"Node"},
-    ComponentDescription<MeshComponent>{"Mesh"},
-    ComponentDescription<MaterialComponent>{"Material"},
-    ComponentDescription<TransformComponent>{"Transform"},
-    ComponentDescription<PointLightComponent>{"Point Light"},
-    ComponentDescription<AnimationComponent>{"Mesh Animation"},
-    ComponentDescription<DirectionalLightComponent>{"Directional Light"},
+    ComponentDescription<Name>{"Name"},
+    ComponentDescription<Node>{"Node"},
+    ComponentDescription<Mesh>{"Mesh"},
+    ComponentDescription<Material>{"Material"},
+    ComponentDescription<Transform>{"Transform"},
+    ComponentDescription<PointLight>{"Point Light"},
+    ComponentDescription<Skeleton>{"Mesh Animation"},
+    ComponentDescription<DirectionalLight>{"Directional Light"},
     ComponentDescription<NativeScriptComponent>{"Native Script"}
 );
 
@@ -185,19 +184,18 @@ template<typename T>
 inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {}
 
 template<>
-void clone<TransformComponent>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<Transform>(entt::registry& reg, entt::entity from, entt::entity to);
 
 template<>
-void clone<NodeComponent>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<Node>(entt::registry& reg, entt::entity from, entt::entity to);
 
 template<>
-void clone<NameComponent>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<Name>(entt::registry& reg, entt::entity from, entt::entity to);
 
 template<>
-void clone<MeshComponent>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<Mesh>(entt::registry& reg, entt::entity from, entt::entity to);
 
 template<>
-void clone<MaterialComponent>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<Material>(entt::registry& reg, entt::entity from, entt::entity to);
 
-} // ECS
 } // raekor

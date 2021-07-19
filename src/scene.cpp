@@ -11,9 +11,9 @@ namespace Raekor
 {
 
 Scene::Scene() {
-    on_destroy<ecs::MeshComponent>().connect<entt::invoke<&ecs::MeshComponent::destroy>>();
-    on_destroy<ecs::MaterialComponent>().connect<entt::invoke<&ecs::MaterialComponent::destroy>>();
-    on_destroy<ecs::AnimationComponent>().connect<entt::invoke<&ecs::AnimationComponent::destroy>>();
+    on_destroy<Mesh>().connect<entt::invoke<&Mesh::destroy>>();
+    on_destroy<Material>().connect<entt::invoke<&Material::destroy>>();
+    on_destroy<Skeleton>().connect<entt::invoke<&Skeleton::destroy>>();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -26,9 +26,9 @@ Scene::~Scene() {
 
 entt::entity Scene::createObject(const std::string& name) {
     auto entity = create();
-    emplace<ecs::NameComponent>(entity, name);
-    emplace<ecs::NodeComponent>(entity);
-    emplace<ecs::TransformComponent>(entity);
+    emplace<Name>(entity, name);
+    emplace<Node>(entity);
+    emplace<Transform>(entity);
     return entity;
 }
 
@@ -38,10 +38,10 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
     entt::entity pickedEntity = entt::null;
     std::map<float, entt::entity> boxesHit;
 
-    auto entities = view<ecs::MeshComponent, ecs::TransformComponent>();
+    auto entities = view<Mesh, Transform>();
     for (auto entity : entities) {
-        auto& mesh = entities.get<ecs::MeshComponent>(entity);
-        auto& transform = entities.get<ecs::TransformComponent>(entity);
+        auto& mesh = entities.get<Mesh>(entity);
+        auto& transform = entities.get<Transform>(entity);
 
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB =
@@ -61,8 +61,8 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
     }
 
     for (auto& pair : boxesHit) {
-        auto& mesh = entities.get<ecs::MeshComponent>(pair.second);
-        auto& transform = entities.get<ecs::TransformComponent>(pair.second);
+        auto& mesh = entities.get<Mesh>(pair.second);
+        auto& transform = entities.get<Transform>(pair.second);
 
         for (unsigned int i = 0; i < mesh.indices.size(); i += 3) {
             auto v0 = glm::vec3(transform.worldTransform * glm::vec4(mesh.positions[mesh.indices[i]], 1.0));
@@ -83,10 +83,10 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void Scene::destroyObject(entt::entity entity) {
-    if (has<ecs::NodeComponent>(entity)) {
-        auto tree = NodeSystem::getFlatHierarchy(*this, get<ecs::NodeComponent>(entity));
+    if (has<Node>(entity)) {
+        auto tree = NodeSystem::getFlatHierarchy(*this, get<Node>(entity));
         for (auto member : tree) {
-            NodeSystem::remove(*this, get<ecs::NodeComponent>(member));
+            NodeSystem::remove(*this, get<Node>(member));
             destroy(member);
         }
     }
@@ -97,29 +97,29 @@ void Scene::destroyObject(entt::entity entity) {
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void Scene::updateNode(entt::entity node, entt::entity parent) {
-    auto& transform = get<ecs::TransformComponent>(node);
+    auto& transform = get<Transform>(node);
     
     if (parent == entt::null) {
         transform.worldTransform = transform.localTransform;
     } else {
-        auto& parentTransform = get<ecs::TransformComponent>(parent);
+        auto& parentTransform = get<Transform>(parent);
         transform.worldTransform = parentTransform.worldTransform * transform.localTransform;
     }
 
-    auto& comp = get<ecs::NodeComponent>(node);
+    auto& comp = get<Node>(node);
 
     auto curr = comp.firstChild;
     while (curr != entt::null) {
         updateNode(curr, node);
-        curr = get<ecs::NodeComponent>(curr).nextSibling;
+        curr = get<Node>(curr).nextSibling;
     }
 }
 
 void Scene::updateTransforms() {
-    auto nodeView = view<ecs::NodeComponent, ecs::TransformComponent>();
+    auto nodeView = view<Node, Transform>();
 
     for (auto entity : nodeView) {
-        auto& [node, transform] = nodeView.get<ecs::NodeComponent, ecs::TransformComponent>(entity);
+        auto& [node, transform] = nodeView.get<Node, Transform>(entity);
 
         if (node.parent == entt::null) {
             updateNode(entity, node.parent);
@@ -129,19 +129,19 @@ void Scene::updateTransforms() {
 }
 
 void Scene::updateLights() {
-    auto dirLights = view<ecs::DirectionalLightComponent, ecs::TransformComponent>();
+    auto dirLights = view<DirectionalLight, Transform>();
 
     for (auto entity : dirLights) {
-        auto& light = dirLights.get<ecs::DirectionalLightComponent>(entity);
-        auto& transform = dirLights.get<ecs::TransformComponent>(entity);
+        auto& light = dirLights.get<DirectionalLight>(entity);
+        auto& transform = dirLights.get<Transform>(entity);
         light.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
     }
 
-    auto pointLights = view<ecs::PointLightComponent, ecs::TransformComponent>();
+    auto pointLights = view<PointLight, Transform>();
 
     for (auto entity : pointLights) {
-        auto& light = pointLights.get<ecs::PointLightComponent>(entity);
-        auto& transform = pointLights.get<ecs::TransformComponent>(entity);
+        auto& light = pointLights.get<PointLight>(entity);
+        auto& transform = pointLights.get<Transform>(entity);
         light.position = glm::vec4(transform.position, 1.0f);
     }
 }
@@ -154,7 +154,7 @@ void Scene::loadMaterialTextures(Async& async, Assets& assets, const std::vector
 
     for (const auto& entity : materials) {
         async.dispatch([&]() {
-            auto& material = this->get<ecs::MaterialComponent>(entity);
+            auto& material = this->get<Material>(entity);
             assets.get<TextureAsset>(material.albedoFile);
             assets.get<TextureAsset>(material.normalFile);
             assets.get<TextureAsset>(material.mrFile);
@@ -168,7 +168,7 @@ void Scene::loadMaterialTextures(Async& async, Assets& assets, const std::vector
 
     timer.start();
     for (auto entity : materials) {
-        auto& material = get<ecs::MaterialComponent>(entity);
+        auto& material = get<Material>(entity);
 
         material.createAlbedoTexture(assets.get<TextureAsset>(material.albedoFile));
         material.createNormalTexture(assets.get<TextureAsset>(material.normalFile));
@@ -191,9 +191,9 @@ void Scene::saveToFile(const std::string& file) {
     std::ofstream outstream(file, std::ios::binary);
     cereal::BinaryOutputArchive output(outstream);
     entt::snapshot{ *this }.entities(output).component <
-        ecs::NameComponent, ecs::NodeComponent, ecs::TransformComponent,
-        ecs::MeshComponent, ecs::MaterialComponent, ecs::PointLightComponent,
-        ecs::DirectionalLightComponent >(output);
+        Name, Node, Transform,
+        Mesh, Material, PointLight,
+        DirectionalLight >(output);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -222,16 +222,16 @@ void Scene::openFromFile(Async& async, Assets& assets, const std::string& file) 
 
     cereal::BinaryInputArchive input(storage);
     entt::snapshot_loader{ *this }.entities(input).component <
-        ecs::NameComponent, ecs::NodeComponent, ecs::TransformComponent,
-        ecs::MeshComponent, ecs::MaterialComponent, ecs::PointLightComponent,
-        ecs::DirectionalLightComponent >(input);
+        Name, Node, Transform,
+        Mesh, Material, PointLight,
+        DirectionalLight >(input);
 
     timer.stop();
     std::cout << "Archive time " << timer.elapsedMs() << std::endl;
 
 
     // init material render data
-    auto materials = view<ecs::MaterialComponent>();
+    auto materials = view<Material>();
     auto materialEntities = std::vector<entt::entity>();
     materialEntities.assign(materials.data(), materials.data() + materials.size());
     loadMaterialTextures(async, assets, materialEntities);
@@ -239,9 +239,9 @@ void Scene::openFromFile(Async& async, Assets& assets, const std::string& file) 
     timer.start();
 
     // init mesh render data
-    auto entities = view<ecs::MeshComponent>();
+    auto entities = view<Mesh>();
     for (auto entity : entities) {
-        auto& mesh = entities.get<ecs::MeshComponent>(entity);
+        auto& mesh = entities.get<Mesh>(entity);
         mesh.generateAABB();
         mesh.uploadVertices();
         mesh.uploadIndices();

@@ -9,20 +9,20 @@ InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, "Inspector") 
 
 
 
-void InspectorWidget::drawComponent(ecs::NameComponent& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(Name& component, entt::registry& scene, entt::entity& active) {
     ImGui::InputText("Name##1", &component.name, ImGuiInputTextFlags_AutoSelectAll);
 }
 
 
 
-void InspectorWidget::drawComponent(ecs::NodeComponent& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(Node& component, entt::registry& scene, entt::entity& active) {
     ImGui::Text("Parent entity: %i", component.parent);
     ImGui::Text("Siblings: %i, %i", component.prevSibling, component.nextSibling);
 }
 
 
 
-void InspectorWidget::drawComponent(ecs::TransformComponent& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(Transform& component, entt::registry& scene, entt::entity& active) {
     if (ImGui::DragFloat3("Scale", glm::value_ptr(component.scale), 0.001f, 0.0f, FLT_MAX)) {
         component.compose();
     }
@@ -36,11 +36,11 @@ void InspectorWidget::drawComponent(ecs::TransformComponent& component, entt::re
 
 
 
-void InspectorWidget::drawComponent(ecs::MeshComponent& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(Mesh& component, entt::registry& scene, entt::entity& active) {
     ImGui::Text("Triangle count: %i", component.indices.size() / 3);
 
-    if (scene.valid(component.material) && scene.has<ecs::MaterialComponent, ecs::NameComponent>(component.material)) {
-        auto& [material, name] = scene.get<ecs::MaterialComponent, ecs::NameComponent>(component.material);
+    if (scene.valid(component.material) && scene.has<Material, Name>(component.material)) {
+        auto& [material, name] = scene.get<Material, Name>(component.material);
 
         const auto albedoTexture = (void*)((intptr_t)material.albedo);
         const auto previewSize = ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale());
@@ -66,7 +66,7 @@ void InspectorWidget::drawComponent(ecs::MeshComponent& component, entt::registr
 
 
 
-void InspectorWidget::drawComponent(ecs::MaterialComponent& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(Material& component, entt::registry& scene, entt::entity& active) {
     auto& io = ImGui::GetIO();
     auto& style = ImGui::GetStyle();
     float lineHeight = io.FontDefault->FontSize;
@@ -88,8 +88,8 @@ void InspectorWidget::drawComponent(ecs::MaterialComponent& component, entt::reg
     auto drawTextureInteraction = [this, fileFilters, lineHeight](
         GLuint texture,
         const char* name,
-        ecs::MaterialComponent* component,
-        void(ecs::MaterialComponent::* func)(std::shared_ptr<TextureAsset> texture)) {
+        Material* component,
+        void(Material::* func)(std::shared_ptr<TextureAsset> texture)) {
         ImGui::PushID(texture);
 
         bool usingTexture = texture != 0;
@@ -100,7 +100,7 @@ void InspectorWidget::drawComponent(ecs::MaterialComponent& component, entt::reg
 
         ImGui::SameLine();
 
-        const GLuint image = texture ? texture : ecs::MaterialComponent::Default.albedo;
+        const GLuint image = texture ? texture : Material::Default.albedo;
 
         if (ImGui::ImageButton((void*)((intptr_t)image), ImVec2(lineHeight - 1, lineHeight - 1))) {
             auto filepath = OS::openFileDialog(fileFilters);
@@ -115,27 +115,27 @@ void InspectorWidget::drawComponent(ecs::MaterialComponent& component, entt::reg
         ImGui::Text(name);
     };
 
-    drawTextureInteraction(component.albedo, component.albedoFile.c_str(), &component, &ecs::MaterialComponent::createAlbedoTexture);
-    drawTextureInteraction(component.normals, component.normalFile.c_str(), &component, &ecs::MaterialComponent::createNormalTexture);
-    drawTextureInteraction(component.metalrough, component.mrFile.c_str(), &component, &ecs::MaterialComponent::createMetalRoughTexture);
+    drawTextureInteraction(component.albedo, component.albedoFile.c_str(), &component, &Material::createAlbedoTexture);
+    drawTextureInteraction(component.normals, component.normalFile.c_str(), &component, &Material::createNormalTexture);
+    drawTextureInteraction(component.metalrough, component.mrFile.c_str(), &component, &Material::createMetalRoughTexture);
 }
 
 
 
-void InspectorWidget::drawComponent(ecs::PointLightComponent& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(PointLight& component, entt::registry& scene, entt::entity& active) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 }
 
 
 
-void InspectorWidget::drawComponent(ecs::DirectionalLightComponent& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(DirectionalLight& component, entt::registry& scene, entt::entity& active) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
     ImGui::DragFloat3("Direction", glm::value_ptr(component.direction), 0.01f, -1.0f, 1.0f);
 }
 
 
 
-void InspectorWidget::drawComponent(ecs::AnimationComponent& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(Skeleton& component, entt::registry& scene, entt::entity& active) {
     static bool playing = false;
     ImGui::SliderFloat("Time", &component.animation.runningTime, 0, component.animation.totalDuration);
     if (ImGui::Button(playing ? "pause" : "play")) {
@@ -145,7 +145,7 @@ void InspectorWidget::drawComponent(ecs::AnimationComponent& component, entt::re
 
 
 
-void InspectorWidget::drawComponent(ecs::NativeScriptComponent& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(NativeScriptComponent& component, entt::registry& scene, entt::entity& active) {
     if (!component.hmodule) {
         if (ImGui::Button("Load DLL..")) {
             std::string filepath = OS::openFileDialog("DLL Files (*.dll)\0*.dll\0");
@@ -199,11 +199,11 @@ void InspectorWidget::draw() {
                 }
             }
         }(scene, active));
-    }, ecs::Components);
+    }, Components);
 
     if (ImGui::BeginPopup("Components")) {
         if (ImGui::Selectable("Native Script", false)) {
-            scene.emplace<ecs::NativeScriptComponent>(active);
+            scene.emplace<NativeScriptComponent>(active);
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();

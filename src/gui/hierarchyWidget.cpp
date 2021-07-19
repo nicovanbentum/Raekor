@@ -13,9 +13,9 @@ void HierarchyWidget::draw() {
 
     auto& scene = IWidget::scene();
 
-    auto nodeView = scene.view<ecs::NodeComponent>();
+    auto nodeView = scene.view<Node>();
     for (auto entity : nodeView) {
-        auto& node = nodeView.get<ecs::NodeComponent>(entity);
+        auto& node = nodeView.get<Node>(entity);
 
         if (node.parent == entt::null) {
             if (node.firstChild != entt::null) {
@@ -35,11 +35,11 @@ void HierarchyWidget::draw() {
 
 
 bool HierarchyWidget::drawFamilyNode(entt::registry& scene, entt::entity entity, entt::entity& active) {
-    auto& node = scene.get<ecs::NodeComponent>(entity);
+    auto& node = scene.get<Node>(entity);
 
     auto selected = active == entity ? ImGuiTreeNodeFlags_Selected : 0;
     auto treeNodeFlags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
-    auto name = scene.get<ecs::NameComponent>(entity);
+    auto name = scene.get<Name>(entity);
     bool opened = ImGui::TreeNodeEx(name.name.c_str(), treeNodeFlags);
     if (ImGui::IsItemClicked()) {
         active = active == entity ? entt::null : entity;
@@ -50,8 +50,8 @@ bool HierarchyWidget::drawFamilyNode(entt::registry& scene, entt::entity entity,
 
 
 void HierarchyWidget::drawChildlessNode(entt::registry& scene, entt::entity entity, entt::entity& active) {
-    auto& node = scene.get<ecs::NodeComponent>(entity);
-    auto name = scene.get<ecs::NameComponent>(entity);
+    auto& node = scene.get<Node>(entity);
+    auto name = scene.get<Name>(entity);
     if (ImGui::Selectable(std::string(name.name + "##" + std::to_string(static_cast<uint32_t>(entity))).c_str(), entity == active)) {
         active = active == entity ? entt::null : entity;
     }
@@ -60,11 +60,11 @@ void HierarchyWidget::drawChildlessNode(entt::registry& scene, entt::entity enti
 
 
 void HierarchyWidget::drawFamily(entt::registry& scene, entt::entity entity, entt::entity& active) {
-    auto& node = scene.get<ecs::NodeComponent>(entity);
+    auto& node = scene.get<Node>(entity);
 
     if (node.firstChild != entt::null) {
-        for (auto it = node.firstChild; it != entt::null; it = scene.get<ecs::NodeComponent>(it).nextSibling) {
-            auto& itNode = scene.get<ecs::NodeComponent>(it);
+        for (auto it = node.firstChild; it != entt::null; it = scene.get<Node>(it).nextSibling) {
+            auto& itNode = scene.get<Node>(it);
 
             if (itNode.firstChild != entt::null) {
                 if (drawFamilyNode(scene, it, active)) {

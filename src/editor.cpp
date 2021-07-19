@@ -86,11 +86,11 @@ void Editor::update(float dt) {
     }
 
     // update transforms
-    scene.updateTransforms();
+    //scene.updateTransforms();
     scene.updateLights();
 
     // update animations
-    scene.view<ecs::AnimationComponent>().each([&](ecs::AnimationComponent& animation) {
+    scene.view<Skeleton>().each([&](Skeleton& animation) {
         async.dispatch([&]() {
             animation.boneTransform(dt);
         });
@@ -102,15 +102,15 @@ void Editor::update(float dt) {
     viewport.getCamera().update();
 
     // update scripts
-    scene.view<ecs::NativeScriptComponent>().each([&](ecs::NativeScriptComponent& component) {
+    scene.view<NativeScriptComponent>().each([&](NativeScriptComponent& component) {
         if (component.script) {
             component.script->update(dt);
         }
     });
 
-     if (active != entt::null && scene.has<ecs::MeshComponent>(active)) {
-        auto& mesh = scene.get<ecs::MeshComponent>(active);
-        auto& transform = scene.get<ecs::TransformComponent>(active);
+     if (active != entt::null && scene.has<Mesh>(active)) {
+        auto& mesh = scene.get<Mesh>(active);
+        auto& transform = scene.get<Transform>(active);
 
         const auto min = mesh.aabb[0];
         const auto max = mesh.aabb[1];
@@ -191,10 +191,10 @@ void Editor::onEvent(const SDL_Event& event) {
             }break;
             case SDLK_DELETE: {
                 if (active != entt::null) {
-                    if (scene.has<ecs::NodeComponent>(active)) {
-                        auto tree = NodeSystem::getFlatHierarchy(scene, scene.get<ecs::NodeComponent>(active));
+                    if (scene.has<Node>(active)) {
+                        auto tree = NodeSystem::getFlatHierarchy(scene, scene.get<Node>(active));
                         for (auto entity : tree) {
-                            NodeSystem::remove(scene, scene.get<ecs::NodeComponent>(entity));
+                            NodeSystem::remove(scene, scene.get<Node>(entity));
                             scene.destroy(entity);
                         }
                     }
@@ -208,10 +208,10 @@ void Editor::onEvent(const SDL_Event& event) {
                     auto copy = scene.create();
 
                     scene.visit(active, [&](const entt::id_type id) {
-                        for_each_tuple_element(ecs::Components, [&](auto component) {
+                        for_each_tuple_element(Components, [&](auto component) {
                             using type = decltype(component)::type;
                             if (id == entt::type_info<type>::id()) {
-                                ecs::clone<type>(scene, active, copy);
+                                clone<type>(scene, active, copy);
                             }
                         });
                     });

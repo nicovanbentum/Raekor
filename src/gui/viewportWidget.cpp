@@ -67,7 +67,7 @@ void ViewportWidget::draw() {
             entt::entity picked = static_cast<entt::entity>(pixel);
 
             if (scene.valid(picked)) {
-                auto mesh = scene.try_get<ecs::MeshComponent>(picked);
+                auto mesh = scene.try_get<Mesh>(picked);
                 if (mesh) {
                     mesh->material = *reinterpret_cast<const entt::entity*>(payload->Data);
                     editor->active = picked;
@@ -97,15 +97,15 @@ void ViewportWidget::draw() {
 
     if (editor->active != entt::null && enabled) {
         if (scene.valid(editor->active) &&
-            scene.has<ecs::TransformComponent>(editor->active)) {
+            scene.has<Transform>(editor->active)) {
             // set the gizmo's viewport
             ImGuizmo::SetDrawlist();
             auto pos = ImGui::GetWindowPos();
             ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
 
             // temporarily transform to mesh space for gizmo use
-            auto& transform = scene.get<ecs::TransformComponent>(editor->active);
-            auto mesh = scene.try_get<ecs::MeshComponent>(editor->active);
+            auto& transform = scene.get<Transform>(editor->active);
+            auto mesh = scene.try_get<Mesh>(editor->active);
             if (mesh) {
                 transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
             }

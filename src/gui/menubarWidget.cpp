@@ -110,8 +110,8 @@ void MenubarWidget::draw() {
 
             if (ImGui::MenuItem("Material")) {
                 auto entity = scene.create();
-                scene.emplace<ecs::NameComponent>(entity, "New Material");
-                auto& defaultMaterial = scene.emplace<ecs::MaterialComponent>(entity);
+                scene.emplace<Name>(entity, "New Material");
+                auto& defaultMaterial = scene.emplace<Material>(entity);
                 defaultMaterial.createMetalRoughTexture();
                 active = entity;
             }
@@ -119,7 +119,7 @@ void MenubarWidget::draw() {
             if (ImGui::BeginMenu("Shapes")) {
                 if (ImGui::MenuItem("Sphere")) {
                     auto entity = scene.createObject("Sphere");
-                    auto& mesh = scene.emplace<ecs::MeshComponent>(entity);
+                    auto& mesh = scene.emplace<Mesh>(entity);
 
                     const float radius = 2.0f;
                     float x, y, z, xy;                              // vertex position
@@ -193,7 +193,7 @@ void MenubarWidget::draw() {
 
                 if (ImGui::MenuItem("Plane")) {
                     auto entity = scene.createObject("Plane");
-                    auto& mesh = scene.emplace<ecs::MeshComponent>(entity);
+                    auto& mesh = scene.emplace<Mesh>(entity);
                     for (const auto& v : planeVertices) {
                         mesh.positions.push_back(v.pos);
                         mesh.uvs.push_back(v.uv);
@@ -214,11 +214,11 @@ void MenubarWidget::draw() {
 
                 if (ImGui::MenuItem("Cube")) {
                     auto entity = scene.createObject("Cube");
-                    auto& mesh = scene.emplace<ecs::MeshComponent>(entity);
+                    auto& mesh = scene.emplace<Mesh>(entity);
 
                     if (active != entt::null) {
-                        auto& node = scene.get<ecs::NodeComponent>(entity);
-                        NodeSystem::append(scene, scene.get<ecs::NodeComponent>(active), node);
+                        auto& node = scene.get<Node>(entity);
+                        NodeSystem::append(scene, scene.get<Node>(active), node);
                     }
 
                     for (const auto& v : unitCubeVertices) {
@@ -245,7 +245,7 @@ void MenubarWidget::draw() {
             if (ImGui::BeginMenu("Light")) {
                 if (ImGui::MenuItem("Point Light")) {
                     auto entity = scene.createObject("Point Light");
-                    scene.emplace<ecs::PointLightComponent>(entity);
+                    scene.emplace<PointLight>(entity);
                     active = entity;
                 }
 

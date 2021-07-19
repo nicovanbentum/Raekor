@@ -98,14 +98,14 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
 
     // initialize default gpu resources
-    ecs::MaterialComponent::Default = ecs::MaterialComponent
+    Material::Default = Material
     {
         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f
     };
 
-    ecs::MaterialComponent::Default.createAlbedoTexture();
-    ecs::MaterialComponent::Default.createMetalRoughTexture();
-    ecs::MaterialComponent::Default.createNormalTexture();
+    Material::Default.createAlbedoTexture();
+    Material::Default.createMetalRoughTexture();
+    Material::Default.createNormalTexture();
 
     skinning = std::make_unique<Skinning>();
     voxelize = std::make_unique<Voxelize>(512);
@@ -137,7 +137,7 @@ void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
 
 void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     // skin all meshes in the scene
-    scene.view<const ecs::AnimationComponent, const ecs::MeshComponent>()
+    scene.view<const Skeleton, const Mesh>()
          .each([&](auto& animation, auto& mesh) {
             skinning->compute(mesh, animation);
     });

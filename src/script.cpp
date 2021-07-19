@@ -12,7 +12,7 @@ void NativeScript::bind(entt::entity entity, entt::registry& scene) {
 }
 
 void MoveCubeScript::update(float dt) {
-   /* auto& transform = getComponent<ecs::TransformComponent>();
+   /* auto& transform = getComponent<TransformComponent>();
     auto keyboardState = SDL_GetKeyboardState(NULL);
     if (keyboardState[SDL_SCANCODE_W]) {
         std::puts("CALLING UPDATE FROM DLL");

@@ -65,7 +65,7 @@ bool AssimpImporter::LoadFromFile(Async& async, Assets& assets, const std::strin
 
 void AssimpImporter::parseMaterial(aiMaterial* assimpMaterial, entt::entity entity) {
     // figure out the material name
-    auto& nameComponent = scene.emplace<ecs::NameComponent>(entity);
+    auto& nameComponent = scene.emplace<Name>(entity);
 
     if (strcmp(assimpMaterial->GetName().C_Str(), "") != 0) {
         nameComponent.name = assimpMaterial->GetName().C_Str();
@@ -80,19 +80,19 @@ void AssimpImporter::parseMaterial(aiMaterial* assimpMaterial, entt::entity enti
 
 void AssimpImporter::parseNode(const aiNode* assimpNode, entt::entity parent, entt::entity new_entity) {
     // set the name
-    scene.get<ecs::NameComponent>(new_entity).name = assimpNode->mName.C_Str();
+    scene.get<Name>(new_entity).name = assimpNode->mName.C_Str();
 
     // set the new entity's parent
     if (parent != entt::null) {
         NodeSystem::append(scene,
-            scene.get<ecs::NodeComponent>(parent),
-            scene.get<ecs::NodeComponent>(new_entity)
+            scene.get<Node>(parent),
+            scene.get<Node>(new_entity)
         );
     }
 
     // translate assimp transformation to glm
     aiMatrix4x4 localTransform = assimpNode->mTransformation;
-    auto& transform = scene.get<ecs::TransformComponent>(new_entity);
+    auto& transform = scene.get<Transform>(new_entity);
     transform.localTransform = Assimp::toMat4(localTransform);
     transform.decompose();
 
@@ -116,15 +116,15 @@ void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_enti
             entity = scene.createObject(assimpMesh->mName.C_Str());
 
             aiMatrix4x4 localTransform = assimpNode->mTransformation;
-            auto& transform = scene.get<ecs::TransformComponent>(entity);
+            auto& transform = scene.get<Transform>(entity);
             transform.localTransform = Assimp::toMat4(localTransform);
             transform.decompose();
 
                 auto p = parent != entt::null ? parent : new_entity;
                 NodeSystem::append(
                     scene,
-                    scene.get<ecs::NodeComponent>(p),
-                    scene.get<ecs::NodeComponent>(entity)
+                    scene.get<Node>(p),
+                    scene.get<Node>(entity)
                 );
         }
 
@@ -143,7 +143,7 @@ void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_enti
 
 void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
     // extract vertices
-    auto& mesh = scene.emplace<ecs::MeshComponent>(entity);
+    auto& mesh = scene.emplace<Mesh>(entity);
 
     for (size_t i = 0; i < assimpMesh->mNumVertices; i++) {
         mesh.positions.emplace_back(assimpMesh->mVertices[i].x, assimpMesh->mVertices[i].y, assimpMesh->mVertices[i].z);
@@ -184,32 +184,32 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
         return;
     }
     
-    auto& mesh = scene.get<ecs::MeshComponent>(entity);
-    auto& animation = scene.emplace<ecs::AnimationComponent>(entity);
-    animation.animation = Animation(assimpScene->mAnimations[0]);
+    auto& mesh = scene.get<Mesh>(entity);
+    auto& skeleton = scene.emplace<Skeleton>(entity);
+    skeleton.animation = Animation(assimpScene->mAnimations[0]);
 
     // extract bone structure
     // TODO: figure this mess out
-    animation.boneWeights.resize(assimpMesh->mNumVertices);
-    animation.boneIndices.resize(assimpMesh->mNumVertices);
+    skeleton.boneWeights.resize(assimpMesh->mNumVertices);
+    skeleton.boneIndices.resize(assimpMesh->mNumVertices);
 
     for (size_t i = 0; i < assimpMesh->mNumBones; i++) {
         auto bone = assimpMesh->mBones[i];
         int boneIndex = 0;
 
-        if (animation.bonemapping.find(bone->mName.C_Str()) == animation.bonemapping.end()) {
-            boneIndex = animation.boneCount;
-            animation.boneCount++;
-            ecs::BoneInfo bi;
-            animation.boneInfos.push_back(bi);
-            animation.boneInfos[boneIndex].boneOffset = Assimp::toMat4(bone->mOffsetMatrix);
-            animation.bonemapping[bone->mName.C_Str()] = boneIndex;
+        if (skeleton.bonemapping.find(bone->mName.C_Str()) == skeleton.bonemapping.end()) {
+            boneIndex = skeleton.boneCount;
+            skeleton.boneCount++;
+            BoneInfo bi;
+            skeleton.boneInfos.push_back(bi);
+            skeleton.boneInfos[boneIndex].boneOffset = Assimp::toMat4(bone->mOffsetMatrix);
+            skeleton.bonemapping[bone->mName.C_Str()] = boneIndex;
         } else {
             std::puts("found existing bone in map");
-            boneIndex = animation.bonemapping[bone->mName.C_Str()];
+            boneIndex = skeleton.bonemapping[bone->mName.C_Str()];
         }
 
-        auto addBoneData = [](ecs::AnimationComponent& anim, uint32_t index, uint32_t boneID, float weight) {
+        auto addBoneData = [](Skeleton& anim, uint32_t index, uint32_t boneID, float weight) {
             for (int i = 0; i < 4; i++) {
                 if (anim.boneWeights[index][i] == 0.0f) {
                     anim.boneIndices[index][i] = boneID;
@@ -224,17 +224,17 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
         for (size_t j = 0; j < bone->mNumWeights; j++) {
             int vertexID = assimpMesh->mBones[i]->mWeights[j].mVertexId;
             float weight = assimpMesh->mBones[i]->mWeights[j].mWeight;
-            addBoneData(animation, vertexID, boneIndex, weight);
+            addBoneData(skeleton, vertexID, boneIndex, weight);
         }
     }
 
-    animation.boneTransforms.resize(animation.boneCount);
-    for (int i = 0; i < animation.boneCount; i++) {
-        animation.boneInfos[i].finalTransformation = glm::mat4(1.0f);
-        animation.boneTransforms[i] = animation.boneInfos[i].finalTransformation;
+    skeleton.boneTransforms.resize(skeleton.boneCount);
+    for (int i = 0; i < skeleton.boneCount; i++) {
+        skeleton.boneInfos[i].finalTransformation = glm::mat4(1.0f);
+        skeleton.boneTransforms[i] = skeleton.boneInfos[i].finalTransformation;
     }
 
-    animation.uploadRenderData(mesh);
+    skeleton.uploadRenderData(mesh);
 
     aiNode* rootBone = nullptr;
     std::stack<aiNode*> nodes;
@@ -272,14 +272,14 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
         }
     }
 
-    animation.boneTreeRootNode.name = rootBone->mName.C_Str();
+    skeleton.boneTreeRootNode.name = rootBone->mName.C_Str();
 
-    std::function<void(aiNode* node, ecs::BoneTreeNode& boneNode)> copyBoneNode;
-    copyBoneNode = [&](aiNode* node, ecs::BoneTreeNode& boneNode) -> void {
+    std::function<void(aiNode* node, BoneTreeNode& boneNode)> copyBoneNode;
+    copyBoneNode = [&](aiNode* node, BoneTreeNode& boneNode) -> void {
         for (unsigned int i = 0; i < node->mNumChildren; i++) {
             auto childNode = node->mChildren[i];
-            auto it = animation.bonemapping.find(childNode->mName.C_Str());
-            if (it != animation.bonemapping.end()) {
+            auto it = skeleton.bonemapping.find(childNode->mName.C_Str());
+            if (it != skeleton.bonemapping.end()) {
                 auto& child = boneNode.children.emplace_back();
                 child.name = childNode->mName.C_Str();
                 copyBoneNode(childNode, child);
@@ -287,11 +287,11 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
         }
     };
 
-    copyBoneNode(rootBone, animation.boneTreeRootNode);
+    copyBoneNode(rootBone, skeleton.boneTreeRootNode);
 }
 
 void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpMaterial) {
-    auto& material = scene.emplace<ecs::MaterialComponent>(entity);
+    auto& material = scene.emplace<Material>(entity);
 
     aiString albedoFile, normalmapFile, metalroughFile;
     assimpMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);

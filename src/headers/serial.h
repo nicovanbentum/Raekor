@@ -26,7 +26,7 @@ template<class Archive> void serialize(Archive& archive, glm::dquat& q) { archiv
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename Archive>
-void serialize(Archive& archive, Raekor::ecs::TransformComponent& transform) {
+void serialize(Archive& archive, Raekor::Transform& transform) {
 	archive(transform.position, transform.rotation, transform.scale, 
 		transform.localTransform, transform.worldTransform);
 }
@@ -34,33 +34,33 @@ void serialize(Archive& archive, Raekor::ecs::TransformComponent& transform) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename Archive> 
-void save(Archive& archive, const Raekor::ecs::DirectionalLightComponent& light) {
+void save(Archive& archive, const Raekor::DirectionalLight& light) {
 	archive(light.colour, light.direction);
 }
 
 template<typename Archive>
-void load(Archive& archive, Raekor::ecs::DirectionalLightComponent& light) {
+void load(Archive& archive, Raekor::DirectionalLight& light) {
 	archive(light.colour, light.direction);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename Archive>
-void serialize(Archive& archive, Raekor::ecs::PointLightComponent light) {
+void serialize(Archive& archive, Raekor::PointLight light) {
 	archive(light.colour, light.colour);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<class Archive>
-void serialize(Archive& archive, Raekor::ecs::NodeComponent& node) {
+void serialize(Archive& archive, Raekor::Node& node) {
     archive(node.parent, node.firstChild, node.nextSibling, node.prevSibling);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<class Archive>
-void serialize(Archive& archive, Raekor::ecs::BoneInfo& boneInfo) {
+void serialize(Archive& archive, Raekor::BoneInfo& boneInfo) {
 	archive(boneInfo.boneOffset, boneInfo.finalTransformation);
 }
 
@@ -81,35 +81,35 @@ void serialize(Archive& archive, Raekor::Vertex& v) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<class Archive>
-void save(Archive& archive, const Raekor::ecs::MeshComponent& mesh) {
+void save(Archive& archive, const Raekor::Mesh& mesh) {
 	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.bitangents, mesh.indices, mesh.material);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<class Archive>
-void load(Archive& archive, Raekor::ecs::MeshComponent& mesh) {
+void load(Archive& archive, Raekor::Mesh& mesh) {
 	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.bitangents, mesh.indices, mesh.material);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<class Archive>
-void save(Archive& archive, const Raekor::ecs::MaterialComponent& mat) {
+void save(Archive& archive, const Raekor::Material& mat) {
 	archive(mat.albedoFile, mat.normalFile, mat.mrFile, mat.baseColour, mat.metallic, mat.roughness);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<class Archive>
-void load(Archive& archive, Raekor::ecs::MaterialComponent& mat) {
+void load(Archive& archive, Raekor::Material& mat) {
 	archive(mat.albedoFile, mat.normalFile, mat.mrFile, mat.baseColour, mat.metallic, mat.roughness);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<class Archive>
-void serialize(Archive& archive, Raekor::ecs::NameComponent& name) {
+void serialize(Archive& archive, Raekor::Name& name) {
     archive(name.name);
 }
 

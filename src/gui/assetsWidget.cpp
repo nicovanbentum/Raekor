@@ -11,11 +11,11 @@ AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, "Asset Browser") {}
 void AssetsWidget::draw() {
     ImGui::Begin(title.c_str());
 
-    auto materialView = IWidget::scene().view<ecs::MaterialComponent, ecs::NameComponent>();
+    auto materialView = IWidget::scene().view<Material, Name>();
 
     if (ImGui::BeginTable("Assets", 24)) {
         for (auto entity : materialView) {
-            auto& [material, name] = materialView.get<ecs::MaterialComponent, ecs::NameComponent>(entity);
+            auto& [material, name] = materialView.get<Material, Name>(entity);
             std::string selectableName = name.name.substr(0, 9).c_str() + std::string("...");
 
             ImGui::TableNextColumn();

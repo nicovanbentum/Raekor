@@ -5,16 +5,14 @@
 
 namespace Raekor
 {
-namespace ecs
-{
 
-void TransformComponent::compose() {
+void Transform::compose() {
     localTransform = glm::translate(glm::mat4(1.0f), position);
     localTransform *= glm::eulerAngleXYZ(rotation.x, rotation.y, rotation.z);
     localTransform = glm::scale(localTransform, scale);
 }
 
-void TransformComponent::decompose() {
+void Transform::decompose() {
     glm::vec3 skew;
     glm::quat quat;
     glm::vec4 perspective;
@@ -24,7 +22,7 @@ void TransformComponent::decompose() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MeshComponent::generateTangents() {
+void Mesh::generateTangents() {
     // calculate tangents
     tangents.resize(positions.size());
     for (size_t i = 0; i < indices.size(); i += 3) {
@@ -64,7 +62,7 @@ void MeshComponent::generateTangents() {
     }
 }
 
-void MeshComponent::generateAABB() {
+void Mesh::generateAABB() {
     aabb[0] = positions[0];
     aabb[1] = positions[1];
     for (auto& v : positions) {
@@ -75,7 +73,7 @@ void MeshComponent::generateAABB() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<float> MeshComponent::getVertexData() {
+std::vector<float> Mesh::getVertexData() {
     std::vector<float> vertices;
     vertices.reserve(
         3 * positions.size() +
@@ -129,14 +127,14 @@ std::vector<float> MeshComponent::getVertexData() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MeshComponent::destroy() {
+void Mesh::destroy() {
     vertexBuffer.destroy();
     indexBuffer.destroy();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MeshComponent::uploadVertices() {
+void Mesh::uploadVertices() {
     auto vertices = getVertexData();
 
     std::vector<Element> layout;
@@ -162,13 +160,13 @@ void MeshComponent::uploadVertices() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MeshComponent::uploadIndices() {
+void Mesh::uploadIndices() {
     indexBuffer.loadIndices(indices.data(), indices.size());
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void AnimationComponent::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform) {
+void Skeleton::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform) {
     auto globalTransformation = glm::mat4(1.0f);
 
     bool hasAnimation = animation.boneAnimations.find(pNode.name) != animation.boneAnimations.end();
@@ -203,7 +201,7 @@ void AnimationComponent::ReadNodeHierarchy(float animationTime, BoneTreeNode& pN
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void AnimationComponent::boneTransform(float dt) {
+void Skeleton::boneTransform(float dt) {
     /*
         This is bugged, Assimp docs say totalDuration is in ticks, but the actual value is real world time in milliseconds
         see https://github.com/assimp/assimp/issues/2662
@@ -224,7 +222,7 @@ void AnimationComponent::boneTransform(float dt) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void AnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
+void Skeleton::uploadRenderData(Mesh& mesh) {
     glCreateBuffers(1, &boneIndexBuffer);
     glNamedBufferData(boneIndexBuffer, boneIndices.size() * sizeof(glm::ivec4), boneIndices.data(), GL_STATIC_COPY);
 
@@ -248,7 +246,7 @@ void AnimationComponent::uploadRenderData(ecs::MeshComponent& mesh) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void AnimationComponent::destroy() {
+void Skeleton::destroy() {
     glDeleteBuffers(1, &boneIndexBuffer);
     glDeleteBuffers(1, &boneWeightBuffer);
     glDeleteBuffers(1, &boneTransformsBuffer);
@@ -257,7 +255,7 @@ void AnimationComponent::destroy() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::createAlbedoTexture() {
+void Material::createAlbedoTexture() {
     glDeleteTextures(1, &albedo);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
@@ -273,7 +271,7 @@ void MaterialComponent::createAlbedoTexture() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::createAlbedoTexture(std::shared_ptr<TextureAsset> texture) {
+void Material::createAlbedoTexture(std::shared_ptr<TextureAsset> texture) {
     if (!texture) {
         return;
     }
@@ -286,14 +284,12 @@ void MaterialComponent::createAlbedoTexture(std::shared_ptr<TextureAsset> textur
     glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
     glTextureStorage2D(albedo, header.dwMipMapCount, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
 
-    for (unsigned int mip = 0; mip < 1; mip++) {
+    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
         glm::ivec2 dimensions = { std::max(header.dwWidth >> mip, 1ul), std::max(header.dwHeight >> mip, 1ul) };
         size_t dataSize = std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16;
         glCompressedTextureSubImage2D(albedo, mip, 0, 0, dimensions.x, dimensions.y, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += dimensions.x * dimensions.y;
     }
-
-    glGenerateTextureMipmap(albedo);
 
     glTextureParameteri(albedo, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(albedo, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -301,7 +297,7 @@ void MaterialComponent::createAlbedoTexture(std::shared_ptr<TextureAsset> textur
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::createNormalTexture() {
+void Material::createNormalTexture() {
     glDeleteTextures(1, &normals);
 
     constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
@@ -317,7 +313,7 @@ void MaterialComponent::createNormalTexture() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
+void Material::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
     if (!texture) {
         return;
     }
@@ -330,7 +326,7 @@ void MaterialComponent::createNormalTexture(std::shared_ptr<TextureAsset> textur
     glCreateTextures(GL_TEXTURE_2D, 1, &normals);
     glTextureStorage2D(normals, header.dwMipMapCount, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
 
-    for (unsigned int mip = 0; mip < 1; mip++) {
+    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
         glm::ivec2 size = { header.dwWidth >> mip, header.dwHeight >> mip };
         size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
         glCompressedTextureSubImage2D(normals, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
@@ -340,14 +336,12 @@ void MaterialComponent::createNormalTexture(std::shared_ptr<TextureAsset> textur
     glTextureParameteri(normals, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(normals, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glGenerateTextureMipmap(normals);
-
     normalFile = texture->getPath().string();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::createMetalRoughTexture() {
+void Material::createMetalRoughTexture() {
     glDeleteTextures(1, &metalrough);
 
     auto metalRoughnessValue = glm::vec4(0.0f, roughness, metallic, 1.0f);
@@ -363,7 +357,7 @@ void MaterialComponent::createMetalRoughTexture() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::createMetalRoughTexture(std::shared_ptr<TextureAsset> texture) {
+void Material::createMetalRoughTexture(std::shared_ptr<TextureAsset> texture) {
     if (!texture) {
         return;
     }
@@ -377,14 +371,12 @@ void MaterialComponent::createMetalRoughTexture(std::shared_ptr<TextureAsset> te
     auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(header.dwWidth, header.dwHeight))));
     glTextureStorage2D(metalrough, mipmapLevels, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
 
-    for (unsigned int mip = 0; mip < 1; mip++) {
+    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
         glm::ivec2 size = { header.dwWidth >> mip, header.dwHeight >> mip };
         size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
         glCompressedTextureSubImage2D(metalrough, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += size.x * size.y;
     }
-
-    glGenerateTextureMipmap(metalrough);
 
     glTextureParameteri(metalrough, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(metalrough, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -394,7 +386,7 @@ void MaterialComponent::createMetalRoughTexture(std::shared_ptr<TextureAsset> te
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void MaterialComponent::destroy() {
+void Material::destroy() {
     glDeleteTextures(1, &albedo);
     glDeleteTextures(1, &normals);
     glDeleteTextures(1, &metalrough);
@@ -403,42 +395,42 @@ void MaterialComponent::destroy() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-MaterialComponent MaterialComponent::Default;
+Material Material::Default;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 template<>
-void clone<TransformComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& component = reg.get<TransformComponent>(from);
-    reg.emplace<TransformComponent>(to, component);
+void clone<Transform>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& component = reg.get<Transform>(from);
+    reg.emplace<Transform>(to, component);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 
 template<>
-void clone<NodeComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& fromNode = reg.get<NodeComponent>(from);
-    auto& toNode = reg.emplace<NodeComponent>(to);
+void clone<Node>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& fromNode = reg.get<Node>(from);
+    auto& toNode = reg.emplace<Node>(to);
     if (fromNode.parent != entt::null) {
-        NodeSystem::append(reg, reg.get<NodeComponent>(fromNode.parent), toNode);
+        NodeSystem::append(reg, reg.get<Node>(fromNode.parent), toNode);
     }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 template<>
-void clone<NameComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& component = reg.get<NameComponent>(from);
-    reg.emplace<NameComponent>(to, component);
+void clone<Name>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& component = reg.get<Name>(from);
+    reg.emplace<Name>(to, component);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 template<>
-void clone<MeshComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& from_component = reg.get<MeshComponent>(from);
-    auto& to_component = reg.emplace<MeshComponent>(to, from_component);
+void clone<Mesh>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& from_component = reg.get<Mesh>(from);
+    auto& to_component = reg.emplace<Mesh>(to, from_component);
     to_component.uploadVertices();
     to_component.uploadIndices();
 }
@@ -446,10 +438,9 @@ void clone<MeshComponent>(entt::registry& reg, entt::entity from, entt::entity t
 /////////////////////////////////////////////////////////////////////////////////////////
 
 template<>
-void clone<MaterialComponent>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& from_component = reg.get<MaterialComponent>(from);
-    auto& to_component = reg.emplace<MaterialComponent>(to, from_component);
+void clone<Material>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& from_component = reg.get<Material>(from);
+    auto& to_component = reg.emplace<Material>(to, from_component);
 }
 
-} // ECS
 } // raekor

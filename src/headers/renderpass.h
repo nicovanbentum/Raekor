@@ -229,7 +229,7 @@ private:
 class Skinning {
 public:
     Skinning();
-    void compute(const ecs::MeshComponent& mesh, const ecs::AnimationComponent& anim);
+    void compute(const Mesh& mesh, const Skeleton& anim);
 
 private:
     glShader computeShader;
@@ -280,8 +280,8 @@ private:
         std::array<glm::mat4, 4> shadowMatrices;
         glm::vec4 shadowSplits;
         glm::vec4 cameraPosition;
-        ecs::DirectionalLightComponent dirLight;
-        ecs::PointLightComponent pointLights[10];
+        DirectionalLight dirLight;
+        PointLight pointLights[10];
         unsigned int renderFlags = 0b00000001;
     } uniforms;
 

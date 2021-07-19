@@ -7,11 +7,11 @@ namespace Raekor {
 
 class NodeSystem {
 public:
-    static void append(entt::registry& registry, ecs::NodeComponent& parent, ecs::NodeComponent& child);
+    static void append(entt::registry& registry, Node& parent, Node& child);
     
-    static void remove(entt::registry& registry, ecs::NodeComponent& node);
+    static void remove(entt::registry& registry, Node& node);
 
-    static std::vector<entt::entity> getFlatHierarchy(entt::registry& registry, ecs::NodeComponent& node);
+    static std::vector<entt::entity> getFlatHierarchy(entt::registry& registry, Node& node);
 };
 
 }

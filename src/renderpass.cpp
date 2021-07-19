@@ -48,11 +48,11 @@ ShadowMap::~ShadowMap() {
 void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
     glViewport(0, 0, 4096, 4096);
 
-    const auto lightView = scene.view<const ecs::DirectionalLightComponent, const ecs::TransformComponent>();
+    const auto lightView = scene.view<const DirectionalLight, const Transform>();
     auto lookDirection = glm::vec3(0.0f, -1.0f, 0.0f);
 
     if (!lightView.empty()) {
-        const auto& lightTransform = lightView.get<const ecs::TransformComponent>(lightView.front());
+        const auto& lightTransform = lightView.get<const Transform>(lightView.front());
         lookDirection = static_cast<glm::quat>(lightTransform.rotation) * lookDirection;
     } else {
         // we rotate default light a little or else we get nan values in our view matrix
@@ -146,7 +146,7 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
     
     shader.bind();
 
-    const auto view = scene.view<const ecs::MeshComponent, const ecs::TransformComponent>();
+    const auto view = scene.view<const Mesh, const Transform>();
 
     for (int i = 0; i < 4; i++) {
         glNamedFramebufferTextureLayer(framebuffer, GL_DEPTH_ATTACHMENT, cascades, 0, i);
@@ -155,14 +155,14 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
         shader.getUniform("lightMatrix") = matrices[i];
         
         for (auto entity : view) {
-            const auto& mesh = view.get<const ecs::MeshComponent>(entity);
-            const auto& transform = view.get<const ecs::TransformComponent>(entity);
+            const auto& mesh = view.get<const Mesh>(entity);
+            const auto& transform = view.get<const Transform>(entity);
 
             shader.getUniform("model") = transform.worldTransform;
 
             // determine if we use the original mesh vertices or GPU skinned vertices
-            if (scene.has<ecs::AnimationComponent>(entity)) {
-                scene.get<ecs::AnimationComponent>(entity).skinnedVertexBuffer.bind();
+            if (scene.has<Skeleton>(entity)) {
+                scene.get<Skeleton>(entity).skinnedVertexBuffer.bind();
             } else {
                 mesh.vertexBuffer.bind();
             }
@@ -215,14 +215,14 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport) {
 
     culled = 0;
 
-    const auto view = scene.view<const ecs::MeshComponent, const ecs::TransformComponent>();
+    const auto view = scene.view<const Mesh, const Transform>();
 
-    const auto materials = scene.view<const ecs::MaterialComponent>();
+    const auto materials = scene.view<const Material>();
 
     std::vector<uint64_t> handles;
 
     for (auto entity : view) {
-        const auto& [mesh, transform] = view.get<const ecs::MeshComponent, const ecs::TransformComponent>(entity);
+        const auto& [mesh, transform] = view.get<const Mesh, const Transform>(entity);
 
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB =
@@ -237,37 +237,37 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport) {
             continue;
         }
 
-        const ecs::MaterialComponent* material = nullptr;
+        const Material* material = nullptr;
         if (scene.valid(mesh.material)) {
-            material = scene.try_get<ecs::MaterialComponent>(mesh.material);
+            material = scene.try_get<Material>(mesh.material);
         }
 
         if (material) {
             if (material->albedo) {
                 glBindTextureUnit(0, material->albedo);
             } else {
-                glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
+                glBindTextureUnit(0, Material::Default.albedo);
             }
 
             if (material->normals) {
                 glBindTextureUnit(3, material->normals);
             } else {
-                glBindTextureUnit(3, ecs::MaterialComponent::Default.normals);
+                glBindTextureUnit(3, Material::Default.normals);
             }
 
             if (material->metalrough) {
                 glBindTextureUnit(4, material->metalrough);
             } else {
-                glBindTextureUnit(4, ecs::MaterialComponent::Default.metalrough);
+                glBindTextureUnit(4, Material::Default.metalrough);
             }
 
             shader.getUniform("colour") = material->baseColour;
 
         } else {
-            glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
-            glBindTextureUnit(3, ecs::MaterialComponent::Default.normals);
-            glBindTextureUnit(4, ecs::MaterialComponent::Default.metalrough);
-            shader.getUniform("colour") = ecs::MaterialComponent::Default.baseColour;
+            glBindTextureUnit(0, Material::Default.albedo);
+            glBindTextureUnit(3, Material::Default.normals);
+            glBindTextureUnit(4, Material::Default.metalrough);
+            shader.getUniform("colour") = Material::Default.baseColour;
         }
 
         shader.getUniform("model") = transform.worldTransform;
@@ -275,8 +275,8 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport) {
         shader.getUniform("entity") = entt::to_integral(entity);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<ecs::AnimationComponent>(entity)) {
-            scene.get<ecs::AnimationComponent>(entity).skinnedVertexBuffer.bind();
+        if (scene.has<Skeleton>(entity)) {
+            scene.get<Skeleton>(entity).skinnedVertexBuffer.bind();
         } else {
             mesh.vertexBuffer.bind();
         }
@@ -400,25 +400,25 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport, cons
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
     // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -1, 0)
     {
-        const auto view = sscene.view<const ecs::DirectionalLightComponent, const ecs::TransformComponent>();
+        const auto view = sscene.view<const DirectionalLight, const Transform>();
         auto entity = view.front();
         if (entity != entt::null) {
-            const auto& light = view.get<const ecs::DirectionalLightComponent>(entity);
-            const auto& transform = view.get<const ecs::TransformComponent>(entity);
+            const auto& light = view.get<const DirectionalLight>(entity);
+            const auto& transform = view.get<const Transform>(entity);
             uniforms.dirLight = light;
         } else {
-            auto light = ecs::DirectionalLightComponent();
+            auto light = DirectionalLight();
             light.direction.y = -0.9f;
             uniforms.dirLight = light;
         }
     }
 
-    const auto posView = sscene.view<const ecs::PointLightComponent, const ecs::TransformComponent>();
+    const auto posView = sscene.view<const PointLight, const Transform>();
     
     unsigned int i = 0;
     for (auto entity : posView) {
-        const auto& light = posView.get<const ecs::PointLightComponent>(entity);
-        const auto& transform = posView.get<const ecs::TransformComponent>(entity);
+        const auto& light = posView.get<const PointLight>(entity);
+        const auto& transform = posView.get<const Transform>(entity);
 
         i++;
 
@@ -444,8 +444,8 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport, cons
     // set uniforms
     shader.bind();
     shader.getUniform("bloomThreshold") = settings.bloomThreshold;
-    shader.getUniform("pointLightCount") = static_cast<uint32_t>(sscene.size<ecs::PointLightComponent>());
-    shader.getUniform("directionalLightCount") = static_cast<uint32_t>(sscene.size<ecs::DirectionalLightComponent>());;
+    shader.getUniform("pointLightCount") = static_cast<uint32_t>(sscene.size<PointLight>());
+    shader.getUniform("directionalLightCount") = static_cast<uint32_t>(sscene.size<DirectionalLight>());;
     shader.getUniform("voxelsWorldSize") = voxels.worldSize;
     shader.getUniform("invViewProjection") = glm::inverse(uniforms.projection * uniforms.view);
 
@@ -757,14 +757,14 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
     glBindTextureUnit(2, shadowmap.cascades);
 
-    const auto view = scene.view<const ecs::MeshComponent, const ecs::TransformComponent>();
+    const auto view = scene.view<const Mesh, const Transform>();
 
     for (auto entity : view) {
-        const auto& [mesh, transform] = view.get<const ecs::MeshComponent, const ecs::TransformComponent>(entity);
+        const auto& [mesh, transform] = view.get<const Mesh, const Transform>(entity);
 
-        const ecs::MaterialComponent* material = nullptr;
+        const Material* material = nullptr;
         if (scene.valid(mesh.material)) {
-            material = scene.try_get<ecs::MaterialComponent>(mesh.material);
+            material = scene.try_get<Material>(mesh.material);
         }
 
         shader.getUniform("model") = transform.worldTransform;
@@ -780,17 +780,17 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
             if (material->albedo) {
                 glBindTextureUnit(0, material->albedo);
             } else {
-                glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
+                glBindTextureUnit(0, Material::Default.albedo);
             }
             shader.getUniform("colour") = material->baseColour;
         } else {
-            glBindTextureUnit(0, ecs::MaterialComponent::Default.albedo);
-            shader.getUniform("colour") = ecs::MaterialComponent::Default.baseColour;
+            glBindTextureUnit(0, Material::Default.albedo);
+            shader.getUniform("colour") = Material::Default.baseColour;
         }
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<ecs::AnimationComponent>(entity)) {
-            scene.get<ecs::AnimationComponent>(entity).skinnedVertexBuffer.bind();
+        if (scene.has<Skeleton>(entity)) {
+            scene.get<Skeleton>(entity).skinnedVertexBuffer.bind();
         } else {
             mesh.vertexBuffer.bind();
         }
@@ -1021,7 +1021,7 @@ Skinning::Skinning() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Skinning::compute(const ecs::MeshComponent& mesh, const ecs::AnimationComponent& anim) {
+void Skinning::compute(const Mesh& mesh, const Skeleton& anim) {
 
     glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransforms.size() * sizeof(glm::mat4), anim.boneTransforms.data(), GL_DYNAMIC_DRAW);
 
@@ -1234,11 +1234,11 @@ void Icons::render(const Scene& scene, const Viewport& viewport, GLuint screenTe
 
     const auto vp = viewport.getCamera().getProjection() * viewport.getCamera().getView();
 
-    const auto view = scene.view<const ecs::DirectionalLightComponent, const ecs::TransformComponent>();
+    const auto view = scene.view<const DirectionalLight, const Transform>();
 
     for (const auto entity : view) {
-        const auto& light = view.get<const ecs::DirectionalLightComponent>(entity);
-        const auto& transform = view.get<const ecs::TransformComponent>(entity);
+        const auto& light = view.get<const DirectionalLight>(entity);
+        const auto& transform = view.get<const Transform>(entity);
 
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, transform.position);
@@ -1304,7 +1304,7 @@ void Atmosphere::render(const Viewport& viewport, const Scene& scene, GLuint out
     glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, depth, 0);
     glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
 
-    auto light = ecs::DirectionalLightComponent();
+    auto light = DirectionalLight();
     light.direction.y = -0.9f;
 
     shader.bind();
@@ -1314,16 +1314,16 @@ void Atmosphere::render(const Viewport& viewport, const Scene& scene, GLuint out
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
     // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -0.9, 0)
     {
-        const auto view = scene.view<const ecs::DirectionalLightComponent, const ecs::TransformComponent>();
+        const auto view = scene.view<const DirectionalLight, const Transform>();
         const auto entity = view.front();
         if (entity != entt::null) {
-            const auto& light = view.get<const ecs::DirectionalLightComponent>(entity);
-            const auto& transform = view.get<const ecs::TransformComponent>(entity);
+            const auto& light = view.get<const DirectionalLight>(entity);
+            const auto& transform = view.get<const Transform>(entity);
 
             shader["sunlightDir"] = glm::vec3(light.direction);
             shader["sunlightColor"] = glm::vec3(light.colour);
         } else {
-            auto light = ecs::DirectionalLightComponent();
+            auto light = DirectionalLight();
             light.direction.y = -0.9f;
             shader["sunlightDir"] = glm::vec3(light.direction);
             shader["sunlightColor"] = glm::vec3(light.colour);

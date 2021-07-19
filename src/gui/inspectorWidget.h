@@ -11,15 +11,15 @@ public:
     virtual void draw() override;
 
 private:
-    void drawComponent(ecs::NameComponent& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(ecs::NodeComponent& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(ecs::MeshComponent& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(ecs::MaterialComponent& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(ecs::TransformComponent& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(ecs::PointLightComponent& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(ecs::NativeScriptComponent& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(ecs::AnimationComponent& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(ecs::DirectionalLightComponent& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(Name& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(Node& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(Mesh& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(Material& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(Transform& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(PointLight& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(NativeScriptComponent& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(Skeleton& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(DirectionalLight& component, entt::registry& scene, entt::entity& active);
 };
 
 }

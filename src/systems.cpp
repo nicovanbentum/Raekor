@@ -3,8 +3,8 @@
 
 namespace Raekor {
 
-void NodeSystem::append(entt::registry& registry, ecs::NodeComponent& parent, ecs::NodeComponent& child) {
-    auto view = registry.view<ecs::NodeComponent>();
+void NodeSystem::append(entt::registry& registry, Node& parent, Node& child) {
+    auto view = registry.view<Node>();
     child.parent = entt::to_entity(registry, parent);
 
     // if its the parent's first child we simply assign it
@@ -16,32 +16,32 @@ void NodeSystem::append(entt::registry& registry, ecs::NodeComponent& parent, ec
         auto lastChild = parent.firstChild;
 
         // traverse to the end of the sibling chain
-        while (view.get<ecs::NodeComponent>(lastChild).nextSibling != entt::null) {
-            lastChild = view.get<ecs::NodeComponent>(lastChild).nextSibling;
+        while (view.get<Node>(lastChild).nextSibling != entt::null) {
+            lastChild = view.get<Node>(lastChild).nextSibling;
         }
 
-        view.get<ecs::NodeComponent>(lastChild).nextSibling = entt::to_entity(registry, child);
+        view.get<Node>(lastChild).nextSibling = entt::to_entity(registry, child);
         child.prevSibling = lastChild;
     }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void NodeSystem::remove(entt::registry& registry, ecs::NodeComponent& node) {
+void NodeSystem::remove(entt::registry& registry, Node& node) {
     // decrement parent's child count
     if (node.parent == entt::null) return;
-    auto& parent = registry.get<ecs::NodeComponent>(node.parent);
+    auto& parent = registry.get<Node>(node.parent);
 
     // handle first child case
     if (entt::to_entity(registry, node) == parent.firstChild) {
         parent.firstChild = node.nextSibling;
      // other cases
     } else {
-        auto& prevComp = registry.get<ecs::NodeComponent>(node.prevSibling); 
+        auto& prevComp = registry.get<Node>(node.prevSibling); 
         prevComp.nextSibling = node.nextSibling;
 
         if (node.nextSibling != entt::null) {
-            auto& nextComp = registry.get<ecs::NodeComponent>(node.nextSibling);
+            auto& nextComp = registry.get<Node>(node.nextSibling);
             nextComp.prevSibling = node.prevSibling;
         }
 
@@ -50,20 +50,20 @@ void NodeSystem::remove(entt::registry& registry, ecs::NodeComponent& node) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<entt::entity> NodeSystem::getFlatHierarchy(entt::registry& registry, ecs::NodeComponent& startingNode) {
+std::vector<entt::entity> NodeSystem::getFlatHierarchy(entt::registry& registry, Node& startingNode) {
     std::vector<entt::entity> result;
     std::queue<entt::entity> entities;
 
     entities.push(entt::to_entity(registry, startingNode));
 
     while (!entities.empty()) {
-        auto& current = registry.get<ecs::NodeComponent>(entities.front());
+        auto& current = registry.get<Node>(entities.front());
         result.push_back(entities.front());
         entities.pop();
 
         // if it has children
         if (current.firstChild != entt::null) {
-            for (auto it = current.firstChild; it != entt::null; it = registry.get<ecs::NodeComponent>(it).nextSibling) {
+            for (auto it = current.firstChild; it != entt::null; it = registry.get<Node>(it).nextSibling) {
                 entities.push(it);
             }
         }
