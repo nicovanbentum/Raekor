@@ -76,7 +76,7 @@ void glShader::compileSPIRV() {
         }
 
         unsigned int shaderID = glCreateShader(type);
-        glShaderBinary(1, &shaderID, GL_SHADER_BINARY_FORMAT_SPIR_V, spirv.data(), spirv.size());
+        glShaderBinary(1, &shaderID, GL_SHADER_BINARY_FORMAT_SPIR_V, spirv.data(), (GLsizei)spirv.size());
         glSpecializeShader(shaderID, "main", 0, nullptr, nullptr);
 
         int shaderCompilationResult = GL_FALSE;
