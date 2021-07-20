@@ -9,10 +9,11 @@ public:
     enum class Type { VERTEX, FRAG, GEO, COMPUTE };
 
     struct Stage {
-        Stage(Type type, const char* filepath);
+        Stage(Type type, const fs::path& textfile);
 
         Type type;
-        const char* filepath;
+        std::string textfile;
+        std::string binfile;
         FileWatcher watcher;
     };
 

@@ -49,7 +49,7 @@ void glShader::compileSPIRV() {
     std::vector<GLuint> shaders;
 
     for (const auto& stage : stages) {
-        std::ifstream file(stage.filepath, std::ios::ate | std::ios::binary);
+        std::ifstream file(stage.binfile, std::ios::ate | std::ios::binary);
         if (!file.is_open()) return;
 
         const size_t filesize = static_cast<size_t>(file.tellg());
@@ -133,7 +133,7 @@ void glShader::compile() {
     for (const auto& stage : stages) {
 
         std::string buffer;
-        std::ifstream ifs(stage.filepath, std::ios::in | std::ios::binary);
+        std::ifstream ifs(stage.textfile, std::ios::in | std::ios::binary);
         if (ifs) {
             ifs.seekg(0, std::ios::end);
             buffer.resize(ifs.tellg());
@@ -141,7 +141,8 @@ void glShader::compile() {
             ifs.read(&buffer[0], buffer.size());
             ifs.close();
         } else {
-            std::cout << stage.filepath << " does not exist on disk." << "\n";
+            std::cout << stage.textfile << " does not exist on disk." << "\n";
+            assert(false);
         }
 
         const char* src = buffer.c_str();
@@ -233,7 +234,12 @@ bool glShader::glslangValidator(const char* vulkanSDK, const fs::directory_entry
 void glShader::bind() { 
     for (auto& stage : stages) {
         if (stage.watcher.wasModified()) {
-            compile();
+            const auto sdk = getenv("VULKAN_SDK");
+            assert(sdk);
+
+            glslangValidator(sdk, fs::directory_entry(stage.textfile));
+
+            compileSPIRV();
         }
     }
 
@@ -248,14 +254,19 @@ void glShader::unbind() {
 
 
 
-Shader::Stage::Stage(Type type, const char* filepath) : 
+Shader::Stage::Stage(Type type, const fs::path& textfile) : 
     type(type), 
-    filepath(filepath), 
-    watcher(filepath) 
+    textfile(textfile.string()),
+    watcher(textfile.string()) 
 {
-    if (!std::filesystem::exists(filepath)) {
+    if (!std::filesystem::exists(textfile)) {
         std::cerr << "file does not exist on disk\n";
+        return;
     }
+
+    auto outfile = textfile.parent_path() / "bin" / textfile.filename();
+    outfile.replace_extension(outfile.extension().string() + ".spv");
+    binfile = outfile.string().c_str();
 }
 
 } // Namespace Raekor

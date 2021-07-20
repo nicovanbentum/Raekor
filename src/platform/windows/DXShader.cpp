@@ -7,7 +7,7 @@ namespace Raekor {
 DXShader::DXShader(Stage* stages, size_t stageCount) {
     for (unsigned int i = 0; i < stageCount; i++) {
         Stage& stage = stages[i];
-        auto fp = std::string(stage.filepath);
+        auto fp = std::string(stage.textfile);
         auto ww = std::wstring(fp.begin(), fp.end());
         LPCWSTR wstr = ww.c_str();
 

@@ -1,7 +1,7 @@
 #version 450
 #extension GL_ARB_shader_image_load_store : require
-#extension GL_ARB_fragment_shader_interlock : require
-layout(pixel_interlock_ordered) in;
+// #extension GL_ARB_fragment_shader_interlock : require
+// layout(pixel_interlock_ordered) in;
 
 layout(binding = 0) uniform sampler2D albedo;
 layout(rgba8, binding = 1) uniform coherent image3D voxels;
@@ -60,7 +60,7 @@ void main() {
 	voxelPosition.z = dim - voxelPosition.z - 1;
     vec4 writeVal = vec4(sampled.rgb * shadowAmount, sampled.a);
 
-    beginInvocationInterlockARB();
+    //beginInvocationInterlockARB();
 
     memoryBarrier();
     vec4 curVal = imageLoad(voxels, voxelPosition);
@@ -71,6 +71,6 @@ void main() {
 
     imageStore(voxels, voxelPosition, vec4(Co, sampled.a));
 
-    endInvocationInterlockARB();
+    //endInvocationInterlockARB();
 
 }

@@ -690,7 +690,7 @@ void main() {
 
     vec3 color = Lo * albedo.rgb + albedo.rgb * 0.1;
 
-    finalColor = vec4(vec3(1.0) - color, albedo.a);
+    finalColor = vec4(color, albedo.a);
 
     // switch(cascadeIndex) {
     //     case 0 : 
