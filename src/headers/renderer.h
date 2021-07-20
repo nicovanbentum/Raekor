@@ -7,6 +7,7 @@
 namespace Raekor {
 
 class Scene;
+class Async;
 
 class GLRenderer {
     struct {
@@ -16,7 +17,7 @@ class GLRenderer {
     } settings;
 
 public:
-    GLRenderer(SDL_Window* window, Viewport& viewport);
+    GLRenderer(Async& async, SDL_Window* window, Viewport& viewport);
     ~GLRenderer();
 
     void ImGui_Render();

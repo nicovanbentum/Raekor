@@ -32,14 +32,98 @@ glShader::glShader(const std::initializer_list<Stage>& list) : stages(list) {}
 
 glShader::~glShader() { glDeleteProgram(programID); }
 
-
+void glShader::compileSPIRV(const std::initializer_list<Stage>& list) {
+    stages = list;
+    compileSPIRV();
+}
 
 void glShader::compile(const std::initializer_list<Stage>& list) {
     stages = list;
     compile();
 }
 
+void glShader::compileSPIRV() {
+    auto newProgramID = glCreateProgram();
+    bool failed = false;
 
+    std::vector<GLuint> shaders;
+
+    for (const auto& stage : stages) {
+        std::ifstream file(stage.filepath, std::ios::ate | std::ios::binary);
+        if (!file.is_open()) return;
+
+        const size_t filesize = static_cast<size_t>(file.tellg());
+        std::vector<unsigned char> spirv(filesize);
+        file.seekg(0);
+        file.read((char*)&spirv[0], filesize);
+        file.close();
+
+        GLenum type = NULL;
+
+        switch (stage.type) {
+            case Type::VERTEX: {
+                type = GL_VERTEX_SHADER;
+            } break;
+            case Type::FRAG: {
+                type = GL_FRAGMENT_SHADER;
+            } break;
+            case Type::GEO: {
+                type = GL_GEOMETRY_SHADER;
+            } break;
+            case Type::COMPUTE: {
+                type = GL_COMPUTE_SHADER;
+            } break;
+        }
+
+        unsigned int shaderID = glCreateShader(type);
+        glShaderBinary(1, &shaderID, GL_SHADER_BINARY_FORMAT_SPIR_V, spirv.data(), spirv.size());
+        glSpecializeShader(shaderID, "main", 0, nullptr, nullptr);
+
+        int shaderCompilationResult = GL_FALSE;
+        int logMessageLength = 0;
+
+        glGetShaderiv(shaderID, GL_COMPILE_STATUS, &shaderCompilationResult);
+        if (shaderCompilationResult == GL_FALSE) {
+            glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &logMessageLength);
+            std::vector<char> error_msg(logMessageLength);
+            glGetShaderInfoLog(shaderID, logMessageLength, NULL, error_msg.data());
+            std::puts(error_msg.data());
+            failed = true;
+        }         else {
+            shaders.push_back(shaderID);
+        }
+    }
+
+    if (shaders.empty()) return;
+
+    for (auto shader : shaders) {
+        glAttachShader(newProgramID, shader);
+    }
+
+    glLinkProgram(newProgramID);
+
+    int shaderCompilationResult = 0, logMessageLength = 0;
+    glGetProgramiv(newProgramID, GL_LINK_STATUS, &shaderCompilationResult);
+    if (shaderCompilationResult == GL_FALSE) {
+        glGetProgramiv(newProgramID, GL_INFO_LOG_LENGTH, &logMessageLength);
+        std::vector<char> errorMessage(logMessageLength);
+        glGetProgramInfoLog(newProgramID, logMessageLength, NULL, errorMessage.data());
+        std::puts(errorMessage.data());
+        failed = true;
+    }
+
+    for (auto shader : shaders) {
+        glDetachShader(newProgramID, shader);
+        glDeleteShader(shader);
+    }
+
+    if (failed) {
+        std::cerr << "failed to compile shader program" << std::endl;
+        glDeleteProgram(newProgramID);
+    } else {
+        programID = newProgramID;
+    }
+}
 
 void glShader::compile() {
     auto newProgramID = glCreateProgram();
@@ -128,6 +212,20 @@ void glShader::compile() {
     } else {
         programID = newProgramID;
     }
+}
+
+bool glShader::glslangValidator(const char* vulkanSDK, const fs::directory_entry& file) {
+    if (!file.is_regular_file()) return false;
+
+    const auto outfile = file.path().parent_path() / "bin" / file.path().filename();
+    const auto compiler = vulkanSDK + std::string("\\Bin\\glslangValidator.exe -G ");
+    const auto command = compiler + file.path().string() + " -o " + std::string(outfile.string() + ".spv");
+
+    if (system(command.c_str()) != 0) {
+        return false;
+    }
+
+    return true;
 }
 
 

@@ -17,10 +17,12 @@ layout(binding = 0) uniform ubo {
     vec4 colour;
 };
 
-in vec2 uv;
-in flat int axis;
-in vec4 worldPosition;
-in vec4 normal;
+layout(location = 0) in GEOM_OUT {
+    vec2 uv;
+    flat int axis;
+    vec4 worldPosition;
+    vec4 normal;
+};
 
 
 void main() {

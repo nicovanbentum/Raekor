@@ -1,21 +1,23 @@
 #version 440 core
 
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
 
-in vec2 uv;
+layout(location = 0) in vec2 uv;
 
 layout(binding = 0) uniform sampler2D gPosition;
 layout(binding = 1) uniform sampler2D gNormals;
 layout(binding = 2) uniform sampler2D noiseTexture;
 
-uniform vec3 samples[64];
-uniform mat4 projection;
-uniform mat4 view;
-uniform vec2 noiseScale;
+layout(binding = 0) uniform Uniforms {
+    vec3 samples[64];
+    mat4 projection;
+    mat4 view;
+    vec2 noiseScale;
+    float sampleCount;
+    float power;
+    float bias;
+};
 
-uniform float sampleCount;
-uniform float power;
-uniform float bias;
 
 void main() {
 		

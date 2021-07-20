@@ -9,9 +9,9 @@ layout(binding = 0) uniform ubo {
     vec4 cameraPosition;
 };
 
-in vec4 color[];
+layout(location = 0) in vec4 color[];
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 void main() {
 	fragColor = color[0];

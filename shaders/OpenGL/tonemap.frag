@@ -1,12 +1,12 @@
 #version 440 core
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
   
 layout(location = 0) in vec2 TexCoords;
 
 layout(binding = 0) uniform sampler2D hdrBuffer;
 layout(binding = 1) uniform sampler2D bloom;
 
-layout (std140) uniform stuff {
+layout (binding = 0, std140) uniform stuff {
 	float exposure;
 	float gamma;
 } ubo;

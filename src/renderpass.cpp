@@ -186,9 +186,9 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 GBuffer::GBuffer(const Viewport& viewport) {
-    shader.compile({
-        {Shader::Type::VERTEX, "shaders\\OpenGL\\gbuffer.vert"}, 
-        {Shader::Type::FRAG, "shaders\\OpenGL\\gbuffer.frag"} 
+    shader.compileSPIRV({
+        {Shader::Type::VERTEX, "shaders\\OpenGL\\bin\\gbuffer.vert.spv"}, 
+        {Shader::Type::FRAG, "shaders\\OpenGL\\bin\\gbuffer.frag.spv"} 
     });
 
     glCreateBuffers(1, &uniformBuffer);
@@ -639,7 +639,7 @@ Tonemap::Tonemap(const Viewport& viewport) {
     // load shaders from disk
     shader.compile({ 
         {Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"}, 
-        {Shader::Type::FRAG, "shaders\\OpenGL\\HDRuncharted.frag"} 
+        {Shader::Type::FRAG, "shaders\\OpenGL\\tonemap.frag"} 
     });
 
     // init render targets

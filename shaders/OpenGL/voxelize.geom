@@ -3,14 +3,15 @@
 layout (triangles) in;
 layout (triangle_strip, max_vertices=3) out;
 
-in vec2 uvs[];
-in vec4 worldPositions[];
+layout(location = 0) in vec2 uvs[];
+layout(location = 1) in vec4 worldPositions[];
 
-out vec2 uv;
-out flat int axis;
-out vec4 depthPosition;
-out vec4 worldPosition;
-out vec4 normal;
+layout(location = 0) out GEOM_OUT {
+    vec2 uv;
+    flat int axis;
+    vec4 worldPosition;
+    vec4 normal;
+};
 
 layout(binding = 0) uniform ubo {
     mat4 px, py, pz;

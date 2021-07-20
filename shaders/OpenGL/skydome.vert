@@ -2,10 +2,14 @@
 
 layout(location = 0) in vec3 pos;
 
-uniform mat4 projection;
-uniform mat4 view;
+layout(binding = 0) uniform Uniforms {
+    mat4 projection;
+    mat4 view;
+    vec3 mid_color;
+    vec3 top_color;
+};
 
-out VS_OUT {
+layout(location = 0) out VS_OUT {
     float lerp;
 } vs_out;
 

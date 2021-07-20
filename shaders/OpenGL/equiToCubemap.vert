@@ -4,8 +4,10 @@ layout(location = 0) in vec3 pos;
 
 layout(location = 0) out vec3 localPos;
 
-uniform mat4 view;
-uniform mat4 projection;
+layout(binding = 0) uniform Uniforms {
+    mat4 view;
+    mat4 projection;
+};
 
 void main() {
     localPos = pos;

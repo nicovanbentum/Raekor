@@ -35,10 +35,13 @@ layout(std430, binding = 4) buffer boneTransformBuffer {
 void main() {
     uint id = gl_GlobalInvocationID.x;
 
-    mat4 boneTransform = boneTransforms[boneIndices[id][0]] * boneWeights[id][0];
-    boneTransform += boneTransforms[boneIndices[id][1]] * boneWeights[id][1];
-    boneTransform += boneTransforms[boneIndices[id][2]] * boneWeights[id][2];
-    boneTransform += boneTransforms[boneIndices[id][3]] * boneWeights[id][3];
+    ivec4 bone = boneIndices[id];
+    vec4 weight = boneWeights[id];
+
+    mat4 boneTransform  = boneTransforms[bone[0]] * weight[0];
+         boneTransform += boneTransforms[bone[1]] * weight[1];
+         boneTransform += boneTransforms[bone[2]] * weight[2];
+         boneTransform += boneTransforms[bone[3]] * weight[3];
 
     vec3 originalPosition = vec3(inputVertices[id].pos[0], inputVertices[id].pos[1], inputVertices[id].pos[2]);
     vec3 transformedPosition = vec3(boneTransform * vec4(originalPosition, 1.0));

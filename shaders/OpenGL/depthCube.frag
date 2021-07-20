@@ -1,10 +1,16 @@
 #version 440 core
 
-in vec3 fragPos;
+layout(location = 0) in vec3 fragPos;
 
-uniform vec3 lightPos;
-uniform float farPlane;
+layout (binding = 0, std140) uniform Uniforms {
+    mat4 model;
+	mat4 faceMatrices[6];
+	vec4 lightPos;
+    mat4 projView;
+	float farPlane;
+	float x, y, z;
+};
 
 void main() {
-    gl_FragDepth = length(lightPos - fragPos) / 25.0f; 
+    gl_FragDepth = length(lightPos.xyz - fragPos) / 25.0f; 
 } 

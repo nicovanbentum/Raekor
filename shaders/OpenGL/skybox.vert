@@ -3,8 +3,10 @@ layout (location = 0) in vec3 pos;
 
 layout(location = 0) out vec3 texturePos;
 
-uniform mat4 view;
-uniform mat4 proj;
+layout(binding = 0) uniform Uniforms {
+    mat4 view;
+    mat4 proj;
+};
 
 void main()
 {

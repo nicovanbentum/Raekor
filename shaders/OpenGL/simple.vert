@@ -1,11 +1,13 @@
-#version 330 core
+#version 440 core
 layout (location = 0) in vec3 pos;
 
-out vec3 texturePos;
+layout(location = 0) out vec3 texturePos;
 
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 proj;
+layout(binding = 0) uniform Uniforms {
+    mat4 model;
+    mat4 view;
+    mat4 proj;
+};
 
 void main()
 {

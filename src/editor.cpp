@@ -19,7 +19,7 @@ namespace Raekor
 
 Editor::Editor() : 
     WindowApplication(RendererFlags::OPENGL), 
-    renderer(window, viewport)
+    renderer(async, window, viewport)
 {
     // gui stuff
     gui::setFont(settings.font.c_str());

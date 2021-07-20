@@ -647,6 +647,8 @@ float ScreenSpaceShadow(vec3 worldPos, DirectionalLight light) {
     return 1.0 - occlusion;
 }
 
+
+
 void main() {
     float depth = texture(gDepth, uv).r;
     vec3 position = reconstructPosition(uv, depth, invViewProjection);
@@ -688,7 +690,7 @@ void main() {
 
     vec3 color = Lo * albedo.rgb + albedo.rgb * 0.1;
 
-    finalColor = vec4(color, albedo.a);
+    finalColor = vec4(vec3(1.0) - color, albedo.a);
 
     // switch(cascadeIndex) {
     //     case 0 : 

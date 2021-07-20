@@ -1,7 +1,7 @@
 #version 440 core
-out vec4 color;
+layout(location = 0) out vec4 color;
 
-in vec3 texturePos;
+layout(location = 0) in vec3 texturePos;
 
 layout(binding = 0) uniform samplerCube skybox;
 

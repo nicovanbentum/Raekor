@@ -19,36 +19,38 @@ struct PointLight {
 	vec4 color;
 };
 
-layout (std140) uniform stuff {
+layout (binding = 0, std140) uniform Uniforms {
+    mat4 model;
 	mat4 view, projection;
 	mat4 lightSpaceMatrix;
 	vec4 cameraPosition;
     DirectionalLight dirLights[MAX_DIR_LIGHTS];
     PointLight pointLights[MAX_POINT_LIGHTS];
-} ubo;
+};
 
-uniform mat4 model;
+layout(location = 0) out VS_OUT {
+    vec2 uv;
+    vec3 position;
+    vec3 normal;
+    mat3 TBN;
+    vec3 cameraDirection;
+    vec4 depthPosition;
+} vs_out;
 
-out vec2 uv;
-out vec3 position;
-out vec3 normal;
-out mat3 TBN;
-out vec3 cameraDirection;
-out vec4 depthPosition;
 
 void main() {
-	position = (model * vec4(v_pos ,1)).xyz;
-    gl_Position =  ubo.projection * ubo.view * vec4(position , 1.0);
+	vs_out.position = (model * vec4(v_pos ,1)).xyz;
+    gl_Position =  projection * view * vec4(vs_out.position , 1.0);
 
     vec3 T = normalize(vec3(model * vec4(v_tangent,		0.0)));
 	vec3 B = normalize(vec3(model * vec4(v_bitangent,	0.0)));
-	normal = normalize(vec3(model * vec4(v_normal,		0.0)));
-	TBN = mat3(T, B, normal.xyz);
+	vs_out.normal = normalize(vec3(model * vec4(v_normal, 0.0)));
+	vs_out.TBN = mat3(T, B, vs_out.normal.xyz);
 
-    depthPosition = ubo.lightSpaceMatrix * model * vec4(v_pos, 1);
-	depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
+    vs_out.depthPosition = lightSpaceMatrix * model * vec4(v_pos, 1);
+	vs_out.depthPosition.xyz = vs_out.depthPosition.xyz * 0.5 + 0.5;
 
-	cameraDirection = ubo.cameraPosition.xyz - position;
+	vs_out.cameraDirection = cameraPosition.xyz - vs_out.position;
 
-	uv = v_uv;
+	vs_out.uv = v_uv;
 }

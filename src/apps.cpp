@@ -7,7 +7,7 @@
 
 namespace Raekor {
 
-RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(window, viewport) {
+RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(async, window, viewport) {
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

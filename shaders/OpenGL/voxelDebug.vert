@@ -2,7 +2,7 @@
 
 layout(binding = 0) uniform sampler3D voxels;
 
-out vec4 color;
+layout(location = 0) out vec4 color;
 
 void main()
 {

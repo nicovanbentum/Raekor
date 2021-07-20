@@ -1,4 +1,4 @@
-#version 440 core
+#version 460 core
 layout (location = 0) in vec3 v_pos;
 
 layout(binding = 0) uniform ubo {

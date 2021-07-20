@@ -8,12 +8,16 @@
 
 layout(location = 0) out vec4 final_colour;
 
-uniform float time = 0.0;
-uniform float cirrus = 0.4;
-uniform float cumulus = 0.8;
+layout(binding = 0) uniform Uniforms {
+    mat4 projection;
+    mat4 view;
+    float time;
+    float cirrus; // = 0.4;
+    float cumulus; // = 0.8;
+};
 
-in vec3 pos;
-in vec3 fsun;
+layout(location = 0) in vec3 pos;
+layout(location = 1) in vec3 fsun;
 
 const float Br = 0.0025;
 const float Bm = 0.0003;

@@ -13,7 +13,7 @@ struct PointLight {
 	vec4 color;
 };
 
-layout (std140) uniform stuff {
+layout (binding = 0, std140) uniform stuff {
 	mat4 view, projection;
 	mat4 lightSpaceMatrix;
 	vec4 cameraPosition;
@@ -21,14 +21,16 @@ layout (std140) uniform stuff {
     PointLight pointLights[MAX_POINT_LIGHTS];
 } ubo;
 
-in vec2 uv;
-in vec3 position;
-in vec3 normal;
-in mat3 TBN;
-in vec3 cameraDirection;
-in vec4 depthPosition;
+layout(location = 0) in VS_OUT {
+    vec2 uv;
+    vec3 position;
+    vec3 normal;
+    mat3 TBN;
+    vec3 cameraDirection;
+    vec4 depthPosition;
+};
 
-out vec4 color;
+layout(location = 0) out vec4 color;
 
 // constant mesh values
 layout(binding = 0) uniform sampler3D voxels;

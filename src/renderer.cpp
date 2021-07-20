@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "renderer.h"
 #include "scene.h"
+#include "async.h"
 
 #ifdef _WIN32
 #include "platform/windows/DXRenderer.h"
@@ -28,7 +29,7 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
+GLRenderer::GLRenderer(Async& async, SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -47,8 +48,29 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
 
     // Loaded OpenGL successfully.
     std::cout << "OpenGL version loaded: " << GLVersion.major << "."
-        << GLVersion.minor << std::endl;
+        << GLVersion.minor << '\n';
 
+    const auto vulkanSDK = getenv("VULKAN_SDK");
+    assert(vulkanSDK);
+
+    for (const auto& file : fs::directory_iterator("shaders/OpenGL")) {
+        if (!file.is_regular_file()) continue;
+        
+        async.dispatch([=]() {
+            auto outfile = file.path().parent_path() / "bin" / file.path().filename();
+            outfile.replace_extension(outfile.extension().string() + ".spv");
+            
+            if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time()) {
+                auto success = glShader::glslangValidator(vulkanSDK, file);
+                
+                if (!success) {
+                    std::cout << "failed to compile vulkan shader: " << file.path().string() << '\n';
+                } 
+            }
+        });
+    }
+
+    async.wait();
 
     // initialize ImGui
     IMGUI_CHECKVERSION();

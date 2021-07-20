@@ -13,8 +13,8 @@ layout(binding = 0) uniform ubo {
     vec4 colour;
 };
 
-out vec2 uvs;
-out vec4 worldPositions;
+layout(location = 0) out vec2 uvs;
+layout(location = 1) out vec4 worldPositions;
 
 void main() {
     worldPositions = model * vec4(v_pos ,1);

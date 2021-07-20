@@ -15,8 +15,11 @@ layout(binding = 0) uniform ubo {
       uint entity;
 };
 
-out vec2 uv;
-out mat3 TBN;
+layout(location = 0) out VS_OUT {
+    vec2 uv;
+    mat3 TBN;
+} vs_out;
+
 
 void main() {
 	vec3 pos = vec3(model * vec4(v_pos, 1.0));
@@ -31,7 +34,7 @@ void main() {
 
 	vec3 B = cross(N, T);
     B = v_binormal;
-	TBN = mat3(T, B, N);
+	vs_out.TBN = mat3(T, B, N);
 
-	uv = v_uv;
+	vs_out.uv = v_uv;
 }
