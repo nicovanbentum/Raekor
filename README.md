@@ -3,6 +3,9 @@
 ![image](https://i.imgur.com/2PCUuBm.png)
 *Crytek's Sponza with hard ray traced shadows using Vulkan and voxel cone traced first bounce global illumination.*
 
+![image2](https://i.imgur.com/htxWnRu.png)
+*Blender's splash screen scene.*
+
 # Build
 
 ### Windows
