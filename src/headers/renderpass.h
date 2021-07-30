@@ -73,6 +73,8 @@ public:
 //////////////////////////////////////////////////////////////////////////////////
 
 class GBuffer {
+    friend class GLRenderer;
+
     struct {
         glm::mat4 projection;
         glm::mat4 view;
@@ -84,8 +86,8 @@ class GBuffer {
 public:
     uint32_t culled = 0;
 
-    ~GBuffer();
     GBuffer(const Viewport& viewport);
+    ~GBuffer();
 
     void render(const Scene& scene, const Viewport& viewport);
 
@@ -101,6 +103,9 @@ private:
     glShader shader;
     GLuint framebuffer;
     GLuint uniformBuffer;
+
+    GLuint pbo;
+    void* entity;
   
 public:
     GLuint depthTexture;
@@ -379,6 +384,10 @@ private:
 
     GLuint uniformBuffer;
     GLuint uniformBuffer2;
+
+    GLuint brdfLUT;
+    glShader brdfLUTshader;
+    GLuint brdfLUTframebuffer;
 
     GLTimer timer;
 

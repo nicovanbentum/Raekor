@@ -23,14 +23,10 @@ public:
 };
 
 class glShader : public Shader {
-
 public:
     glShader() = default;
     glShader(const std::initializer_list<Stage>& list);
     ~glShader();
-
-    void compileSPIRV(const std::initializer_list<Stage>& list);
-    void compileSPIRV();
 
     void compile(const std::initializer_list<Stage>& list);
     void compile();

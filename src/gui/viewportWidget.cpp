@@ -47,6 +47,33 @@ void ViewportWidget::draw() {
     ImGui::SameLine();
     ImGui::Button(ICON_FA_STOP);
 
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 256.0f);
+
+    constexpr std::array items = { 
+        "Final", 
+        "Albedo", 
+        "Normals", 
+        "Material" 
+    };
+
+    const std::array targets = { 
+        renderer.tonemap->result, 
+        renderer.gbuffer->albedoTexture, 
+        renderer.gbuffer->normalTexture, 
+        renderer.gbuffer->materialTexture 
+    };
+
+    int currentItem = 0;
+    for (int i = 0; i < targets.size(); i++) {
+        if (rendertarget == targets[i]) {
+            currentItem = i;
+        }
+    }
+    
+    if (ImGui::Combo("##Render target", &currentItem, items.data(), items.size())) {
+        rendertarget = targets[currentItem];
+    }
+
     // figure out if we need to resize the viewport
     auto size = ImGui::GetContentRegionAvail();
     auto resized = false;
@@ -61,19 +88,25 @@ void ViewportWidget::draw() {
 
     // the viewport image is a drag and drop target for dropping materials onto meshes
     if (ImGui::BeginDragDropTarget()) {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
-            auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos());
-            uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
-            entt::entity picked = static_cast<entt::entity>(pixel);
+        auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
+        uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
+        entt::entity picked = static_cast<entt::entity>(pixel);
 
-            if (scene.valid(picked)) {
-                auto mesh = scene.try_get<Mesh>(picked);
-                if (mesh) {
-                    mesh->material = *reinterpret_cast<const entt::entity*>(payload->Data);
-                    editor->active = picked;
-                }
+        Mesh* mesh = nullptr;
+
+        if (scene.valid(picked)) {
+            mesh = scene.try_get<Mesh>(picked);
+            if (mesh) {
+                editor->active = picked;
             }
         }
+
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
+            if (mesh) {
+                mesh->material = *reinterpret_cast<const entt::entity*>(payload->Data);
+            }
+        }
+
         ImGui::EndDragDropTarget();
     }
 
@@ -84,7 +117,7 @@ void ViewportWidget::draw() {
 
     auto& io = ImGui::GetIO();
     if (io.MouseClicked[0] && mouseInViewport && !(editor->active != entt::null && ImGuizmo::IsOver(operation))) {
-        auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos());
+        auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
         uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
         entt::entity picked = static_cast<entt::entity>(pixel);
 
@@ -95,40 +128,33 @@ void ViewportWidget::draw() {
         }
     }
 
-    if (editor->active != entt::null && enabled) {
-        if (scene.valid(editor->active) &&
-            scene.has<Transform>(editor->active)) {
-            // set the gizmo's viewport
-            ImGuizmo::SetDrawlist();
-            auto pos = ImGui::GetWindowPos();
-            ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
+    if (editor->active != entt::null && scene.valid(editor->active) && scene.has<Transform>(editor->active) && enabled) {
+        ImGuizmo::SetDrawlist();
+        auto pos = ImGui::GetWindowPos();
+        ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
 
-            // temporarily transform to mesh space for gizmo use
-            auto& transform = scene.get<Transform>(editor->active);
-            auto mesh = scene.try_get<Mesh>(editor->active);
-            if (mesh) {
-                transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
-            }
-
-            // draw gizmo
-            bool manipulated = ImGuizmo::Manipulate(
-                glm::value_ptr(viewport.getCamera().getView()),
-                glm::value_ptr(viewport.getCamera().getProjection()),
-                operation, ImGuizmo::MODE::LOCAL,
-                glm::value_ptr(transform.localTransform)
-            );
-
-            // transform back to world space
-            if (mesh) {
-                transform.localTransform = glm::translate(transform.localTransform, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
-            }
-
-            // update the transformation
-            if (manipulated) {
-                transform.decompose();
-            }
+        // temporarily transform to mesh space for gizmo use
+        auto& transform = scene.get<Transform>(editor->active);
+        auto mesh = scene.try_get<Mesh>(editor->active);
+        if (mesh) {
+            transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
         }
 
+        bool manipulated = ImGuizmo::Manipulate(
+            glm::value_ptr(viewport.getCamera().getView()),
+            glm::value_ptr(viewport.getCamera().getProjection()),
+            operation, ImGuizmo::MODE::LOCAL,
+            glm::value_ptr(transform.localTransform)
+        );
+
+        // transform back to world space
+        if (mesh) {
+            transform.localTransform = glm::translate(transform.localTransform, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+        }
+
+        if (manipulated) {
+            transform.decompose();
+        }
     }
 
     auto metricsPosition = ImGui::GetWindowPos();
@@ -138,7 +164,6 @@ void ViewportWidget::draw() {
     ImGui::End();
     ImGui::PopStyleVar();
 
-    // application/render metrics
     ImGui::SetNextWindowBgAlpha(0.35f);
     auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
     ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
@@ -149,5 +174,7 @@ void ViewportWidget::draw() {
     ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
     ImGui::End();
 }
+
+
 
 }

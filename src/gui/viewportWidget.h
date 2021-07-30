@@ -11,7 +11,7 @@ public:
     ViewportWidget(Editor* editor);
     virtual void draw() override;
 
-private:
+protected:
     bool enabled = true;
     ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
     bool mouseInViewport;

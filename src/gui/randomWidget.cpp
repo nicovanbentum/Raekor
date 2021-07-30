@@ -34,6 +34,10 @@ void RandomWidget::draw() {
     if (ImGui::DragFloat("Bias slope factor", &renderer.shadows->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
     if (ImGui::DragFloat("Cascade lambda", &renderer.shadows->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {}
 
+    if (ImGui::DragFloat("Camera FOV", &editor->getViewport().getFov(), 1.0f, 5.0f, 105.0f, "%.2f", 1.0f)) {
+        editor->getViewport().setFov(editor->getViewport().getFov());
+    }
+
     ImGui::End();
 }
 

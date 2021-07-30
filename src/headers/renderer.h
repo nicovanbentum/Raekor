@@ -10,6 +10,8 @@ class Scene;
 class Async;
 
 class GLRenderer {
+    friend class ViewportWidget;
+
     struct {
         int& doBloom = ConVars::convert("r_bloom", 0);
         int& debugVoxels = ConVars::convert("r_voxelize_debug", 0);

@@ -11,7 +11,7 @@ namespace Raekor
 
 ShadowMap::ShadowMap(uint32_t width, uint32_t height) {
     // load shaders from disk
-    shader.compileSPIRV({
+    shader.compile({
         {Shader::Type::VERTEX, "shaders\\OpenGL\\depth.vert"},
         {Shader::Type::FRAG, "shaders\\OpenGL\\depth.frag"}
     });
@@ -186,13 +186,17 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 GBuffer::GBuffer(const Viewport& viewport) {
-    shader.compileSPIRV({
+    shader.compile({
         {Shader::Type::VERTEX, "shaders\\OpenGL\\gbuffer.vert"}, 
         {Shader::Type::FRAG, "shaders\\OpenGL\\gbuffer.frag"}
     });
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
+
+    glCreateBuffers(1, &pbo);
+    glNamedBufferStorage(pbo, sizeof(float), NULL, GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+    entity = glMapNamedBufferRange(pbo, 0, sizeof(float), GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
 
     createRenderTargets(viewport);
 }
@@ -306,10 +310,19 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 uint32_t GBuffer::readEntity(GLint x, GLint y) {
-    float pixel;
-    glGetTextureSubImage(entityTexture, 0, x, y,
-        0, 1, 1, 1, GL_RED, GL_FLOAT, sizeof(float), &pixel);
-    return static_cast<uint32_t>(pixel);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glReadBuffer(GL_COLOR_ATTACHMENT3);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    
+    glReadPixels(x, y, 1, 1, GL_RED, GL_FLOAT, 0);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+    GLsync sync =  glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    glClientWaitSync(sync, 0, UINT64_MAX);
+
+    return static_cast<uint32_t>(*static_cast<float*>(entity));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -386,9 +399,14 @@ DeferredShading::~DeferredShading() {
 
 DeferredShading::DeferredShading(const Viewport& viewport) {
     // load shaders from disk
-    shader.compileSPIRV({
+    shader.compile({
         {Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"}, 
         {Shader::Type::FRAG, "shaders\\OpenGL\\main.frag"} 
+    });
+
+    brdfLUTshader.compile({
+        {Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"},
+        {Shader::Type::FRAG, "shaders\\OpenGL\\brdfLUT.frag"}
     });
 
     // init resources
@@ -401,6 +419,25 @@ DeferredShading::DeferredShading(const Viewport& viewport) {
     glCreateBuffers(1, &uniformBuffer2);
     glNamedBufferStorage(uniformBuffer2, sizeof(uniforms2), NULL, GL_DYNAMIC_STORAGE_BIT);
 
+    glCreateTextures(GL_TEXTURE_2D, 1, &brdfLUT);
+    glTextureStorage2D(brdfLUT, 1, GL_RG16F, 512, 512);
+    glTextureParameteri(brdfLUT, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(brdfLUT, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(brdfLUT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(brdfLUT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glCreateFramebuffers(1, &brdfLUTframebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, brdfLUTframebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdfLUT, 0);
+
+    glViewport(0, 0, 512, 512);
+    glClear(GL_COLOR_BUFFER_BIT);
+    
+    brdfLUTshader.bind();
+    
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -470,6 +507,7 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
     glBindTextureUnit(6, voxels.result);
     glBindTextureUnit(7, GBuffer.materialTexture);
     glBindTextureUnit(8, GBuffer.depthTexture);
+    glBindTextureUnit(9, brdfLUT);
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, uniformBuffer2);
@@ -526,7 +564,7 @@ Bloom::~Bloom() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 Bloom::Bloom(const Viewport& viewport) {
-    blurShader.compileSPIRV({
+    blurShader.compile({
         {Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"}, 
         {Shader::Type::FRAG, "shaders\\OpenGL\\gaussian.frag"} 
     });
@@ -637,7 +675,7 @@ Tonemap::~Tonemap() {
 
 Tonemap::Tonemap(const Viewport& viewport) {
     // load shaders from disk
-    shader.compileSPIRV({
+    shader.compile({
         {Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"}, 
         {Shader::Type::FRAG, "shaders\\OpenGL\\tonemap.frag"} 
     });
@@ -697,14 +735,14 @@ void Tonemap::destroyRenderTargets() {
 
 Voxelize::Voxelize(uint32_t size) : size(size) {
     // load shaders from disk
-    shader.compileSPIRV({
+    shader.compile({
         {Shader::Type::VERTEX, "shaders\\OpenGL\\voxelize.vert"},
         {Shader::Type::GEO, "shaders\\OpenGL\\voxelize.geom"},
         {Shader::Type::FRAG, "shaders\\OpenGL\\voxelize.frag"}
     });
 
-    mipmapShader.compileSPIRV({ {Shader::Type::COMPUTE, "shaders\\OpenGL\\mipmap.comp"} });
-    opacityFixShader.compileSPIRV({ {Shader::Type::COMPUTE, "shaders\\OpenGL\\correctAlpha.comp"} });
+    mipmapShader.compile({ {Shader::Type::COMPUTE, "shaders\\OpenGL\\mipmap.comp"} });
+    opacityFixShader.compile({ {Shader::Type::COMPUTE, "shaders\\OpenGL\\correctAlpha.comp"} });
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
@@ -844,7 +882,7 @@ VoxelizeDebug::~VoxelizeDebug() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 VoxelizeDebug::VoxelizeDebug(const Viewport& viewport) {
-    shader.compileSPIRV({ 
+    shader.compile({ 
         {Shader::Type::VERTEX, "shaders\\OpenGL\\voxelDebug.vert"},
         {Shader::Type::GEO, "shaders\\OpenGL\\voxelDebug.geom"},
         {Shader::Type::FRAG, "shaders\\OpenGL\\voxelDebug.frag"}
@@ -859,7 +897,7 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize) {
-    shader.compileSPIRV({ 
+    shader.compile({ 
         {Shader::Type::VERTEX, "shaders\\OpenGL\\voxelDebugFast.vert"},
         {Shader::Type::FRAG, "shaders\\OpenGL\\voxelDebugFast.frag"}
     });
@@ -997,7 +1035,7 @@ DebugLines::~DebugLines() {
 //////////////////////////////////////////////////////////////////////////////////
 
 DebugLines::DebugLines() {
-    shader.compileSPIRV({
+    shader.compile({
         {Shader::Type::VERTEX, "shaders\\OpenGL\\aabb.vert"},
         {Shader::Type::FRAG, "shaders\\OpenGL\\aabb.frag"}
     });
@@ -1051,7 +1089,7 @@ void DebugLines::render(const Scene& scene, const Viewport& viewport, GLuint tex
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 Skinning::Skinning() {
-    computeShader.compileSPIRV({ {Shader::Type::COMPUTE, "shaders\\OpenGL\\skinning.comp"} });
+    computeShader.compile({ {Shader::Type::COMPUTE, "shaders\\OpenGL\\skinning.comp"} });
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1104,7 +1142,7 @@ inline glm::vec3 random_color(double min, double max) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 RayTracingOneWeekend::RayTracingOneWeekend(const Viewport& viewport) {
-    shader.compileSPIRV({ {Shader::Type::COMPUTE, "shaders\\OpenGL\\ray.comp"} });
+    shader.compile({ {Shader::Type::COMPUTE, "shaders\\OpenGL\\ray.comp"} });
 
     spheres.push_back(Sphere{ glm::vec3(0, -1000, 0), glm::vec3(0.5, 0.5, 0.5), 1.0f, 0.0f, 1000.0f });
 
@@ -1219,7 +1257,7 @@ void RayTracingOneWeekend::destroyRenderTargets() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 Icons::Icons(const Viewport& viewport) {
-    shader.compileSPIRV({
+    shader.compile({
         {Shader::Type::VERTEX, "shaders\\OpenGL\\billboard.vert"},
         {Shader::Type::FRAG, "shaders\\OpenGL\\billboard.frag"}
     });
@@ -1318,7 +1356,7 @@ void Icons::render(const Scene& scene, const Viewport& viewport, GLuint screenTe
 }
 
 Atmosphere::Atmosphere(const Viewport& viewport) {
-    shader.compileSPIRV({
+    shader.compile({
         {Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "shaders\\OpenGL\\atmosphere.frag"}
     });

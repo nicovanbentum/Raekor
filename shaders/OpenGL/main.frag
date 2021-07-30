@@ -50,6 +50,7 @@ layout(binding = 4) uniform sampler2D gNormals;
 layout(binding = 6) uniform sampler3D voxels;
 layout(binding = 7) uniform sampler2D gMetallicRoughness;
 layout(binding = 8) uniform sampler2D gDepth;
+layout(binding = 9) uniform sampler2D brdfLUT;
 
 // -------------------------------------
 // Defines
@@ -555,13 +556,13 @@ struct Material {
 
 vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material, float shadow) {
     vec3 Li = normalize(-light.direction.xyz);
-    vec3 Lh = normalize(Li + V);
+    vec3 Lh = normalize(V + Li);
 
 	vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
 
     float NDF = DistributionGGX(N, Lh, material.roughness);   
     float G   = GeometrySmith(N, V, Li, material.roughness);    
-    vec3 F    = FresnelSchlickRoughness(max(dot(Lh, V), 0.0), F0, material.roughness);
+    vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);
 
     vec3 nominator    = NDF * G * F;
     float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, Li), 0.0) + 0.001; // 0.001 to prevent divide by zero.
@@ -577,10 +578,10 @@ vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material, float s
 
     vec3 radiance = light.color.rgb * NdotL * shadow;
 
-    return (kD + specular) * radiance;
+    return (kD *  material.albedo / PI + specular) * radiance;
 }
 
-vec3 ambient(vec3 N, vec3 V, Material material, float shadow) {
+vec3 ambient(DirectionalLight light, vec3 P,  vec3 N, vec3 V, Material material) {
 	vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
     vec3 F = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, material.roughness);
     
@@ -588,21 +589,20 @@ vec3 ambient(vec3 N, vec3 V, Material material, float shadow) {
     vec3 kD = 1.0 - kS;
     kD *= 1.0 - material.metallic;	  
     
-    // TODO: SSR
-    // vec3 irradiance = texture(irradianceMap, N).rgb;
-    // vec3 diffuse = irradiance * material.albedo;
-    
-    // // sample both the pre-filter map and the BRDF lut and combine them together as 
-    // //per the Split-Sum approximation to get the IBL specular part.
-    // vec3 R = reflect(-V, N);   
-    // const float MAX_REFLECTION_LOD = 4.0;
-    // vec3 prefilteredColor = textureLod(prefilterMap, R,  material.roughness * MAX_REFLECTION_LOD).rgb;  
+    vec3 R = reflect(-V, N);
 
-    // vec2 brdf  = texture(brdfLut, vec2(max(dot(N, V), 0.0), material.roughness)).rg;
+    vec3 transmittance;
+    vec3 scattered = IntegrateScattering(P, reflect(-light.direction.xyz, N), INFINITY, light.direction.xyz, light.color.rgb, transmittance);
 
-    // vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+    vec3 diffuse = scattered;
 
-    return  kD;
+    vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), material.roughness)).rg;
+
+    vec3 specular = scattered * (F * brdf.x + brdf.y);
+
+    vec3 ambient = (kD * diffuse + specular);
+
+    return ambient;
 }
 
 float linearize_depth(float d,float zNear,float zFar)
@@ -685,12 +685,12 @@ void main() {
     vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
     vec3 Lo = radiance(light, normal, V, material, shadowAmount);
 
+    vec3 ambient = ambient(light, position,  normal, V, material);
+
     float occlusion;
-    //vec4 traced = coneTraceRadiance(position, normal, occlusion);
+    vec4 traced = coneTraceRadiance(position, normal, occlusion);
 
-    vec3 color = Lo * albedo.rgb + albedo.rgb * 0.1;
-
-    finalColor = vec4(color, albedo.a);
+    finalColor = vec4(Lo + ambient * albedo.rgb * occlusion + traced.rgb * albedo.rgb * occlusion, albedo.a);
 
     // switch(cascadeIndex) {
     //     case 0 : 

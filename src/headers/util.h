@@ -75,8 +75,6 @@ void for_each_tuple_element(Tpl&& Tuple, Fx Func) { // call Func() on each eleme
         std::forward<Tpl>(Tuple), Func, std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<Tpl>>>{});
 }
 
-
-
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -91,9 +89,19 @@ private:
     std::filesystem::file_time_type last_write_time;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 template <typename T>
 constexpr ImVec2 ImVec(const glm::vec<2, T>& vec) {
     return ImVec2(static_cast<float>(vec.x), static_cast<float>(vec.y));
+}
+
+inline ImVec2 operator-(const ImVec2& lhs, const ImVec2& rhs) {
+    return ImVec2(lhs.x - rhs.x, lhs.y - rhs.y);
+}
+
+inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) {
+    return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y);
 }
 
 

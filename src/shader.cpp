@@ -24,25 +24,28 @@ Shader* Shader::construct(Stage* stages, size_t stageCount) {
     return nullptr;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
+glShader::glShader(const std::initializer_list<Stage>& list) 
+    : stages(list) 
+{}
 
-glShader::glShader(const std::initializer_list<Stage>& list) : stages(list) {}
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-
-glShader::~glShader() { glDeleteProgram(programID); }
-
-void glShader::compileSPIRV(const std::initializer_list<Stage>& list) {
-    stages = list;
-    compileSPIRV();
+glShader::~glShader() { 
+    glDeleteProgram(programID); 
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void glShader::compile(const std::initializer_list<Stage>& list) {
     stages = list;
     compile();
 }
 
-void glShader::compileSPIRV() {
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void glShader::compile() {
     auto newProgramID = glCreateProgram();
     bool failed = false;
 
@@ -83,104 +86,22 @@ void glShader::compileSPIRV() {
         int logMessageLength = 0;
 
         glGetShaderiv(shaderID, GL_COMPILE_STATUS, &shaderCompilationResult);
-        if (shaderCompilationResult == GL_FALSE) {
-            glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &logMessageLength);
-            std::vector<char> error_msg(logMessageLength);
-            glGetShaderInfoLog(shaderID, logMessageLength, NULL, error_msg.data());
-            std::puts(error_msg.data());
-            failed = true;
-        }         else {
+        
+        if (shaderCompilationResult) {
+
             shaders.push_back(shaderID);
-        }
-    }
 
-    if (shaders.empty()) return;
-
-    for (auto shader : shaders) {
-        glAttachShader(newProgramID, shader);
-    }
-
-    glLinkProgram(newProgramID);
-
-    int shaderCompilationResult = 0, logMessageLength = 0;
-    glGetProgramiv(newProgramID, GL_LINK_STATUS, &shaderCompilationResult);
-    if (shaderCompilationResult == GL_FALSE) {
-        glGetProgramiv(newProgramID, GL_INFO_LOG_LENGTH, &logMessageLength);
-        std::vector<char> errorMessage(logMessageLength);
-        glGetProgramInfoLog(newProgramID, logMessageLength, NULL, errorMessage.data());
-        std::puts(errorMessage.data());
-        failed = true;
-    }
-
-    for (auto shader : shaders) {
-        glDetachShader(newProgramID, shader);
-        glDeleteShader(shader);
-    }
-
-    if (failed) {
-        std::cerr << "failed to compile shader program" << std::endl;
-        glDeleteProgram(newProgramID);
-    } else {
-        programID = newProgramID;
-    }
-}
-
-void glShader::compile() {
-    auto newProgramID = glCreateProgram();
-    bool failed = false;
-    
-    std::vector<unsigned int> shaders;
-    for (const auto& stage : stages) {
-
-        std::string buffer;
-        std::ifstream ifs(stage.textfile, std::ios::in | std::ios::binary);
-        if (ifs) {
-            ifs.seekg(0, std::ios::end);
-            buffer.resize(ifs.tellg());
-            ifs.seekg(0, std::ios::beg);
-            ifs.read(&buffer[0], buffer.size());
-            ifs.close();
         } else {
-            std::cout << stage.textfile << " does not exist on disk." << "\n";
-            assert(false);
-        }
 
-        const char* src = buffer.c_str();
-
-        GLenum type = NULL;
-
-        switch (stage.type) {
-            case Type::VERTEX: {
-                type = GL_VERTEX_SHADER;
-            } break;
-            case Type::FRAG: {
-                type = GL_FRAGMENT_SHADER;
-            } break;
-            case Type::GEO: {
-                type = GL_GEOMETRY_SHADER;
-            } break;
-            case Type::COMPUTE: {
-                type = GL_COMPUTE_SHADER;
-            } break;
-        }
-
-        unsigned int shaderID = glCreateShader(type);
-        glShaderSource(shaderID, 1, &src, NULL);
-        glCompileShader(shaderID);
-
-        int shaderCompilationResult = GL_FALSE;
-        int logMessageLength = 0;
-
-        glGetShaderiv(shaderID, GL_COMPILE_STATUS, &shaderCompilationResult);
-        if (shaderCompilationResult == GL_FALSE) {
             glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &logMessageLength);
+
             std::vector<char> error_msg(logMessageLength);
+
             glGetShaderInfoLog(shaderID, logMessageLength, NULL, error_msg.data());
-            std::puts(error_msg.data());
+
+            std::cerr << error_msg.data() << '\n';
+
             failed = true;
-        }
-        else {
-            shaders.push_back(shaderID);
         }
     }
 
@@ -194,11 +115,16 @@ void glShader::compile() {
 
     int shaderCompilationResult = 0, logMessageLength = 0;
     glGetProgramiv(newProgramID, GL_LINK_STATUS, &shaderCompilationResult);
+
     if (shaderCompilationResult == GL_FALSE) {
         glGetProgramiv(newProgramID, GL_INFO_LOG_LENGTH, &logMessageLength);
+        
         std::vector<char> errorMessage(logMessageLength);
+       
         glGetProgramInfoLog(newProgramID, logMessageLength, NULL, errorMessage.data());
-        std::puts(errorMessage.data());
+        
+        std::cerr << errorMessage.data() << '\n';
+        
         failed = true;
     }
 
@@ -214,6 +140,8 @@ void glShader::compile() {
         programID = newProgramID;
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool glShader::glslangValidator(const char* vulkanSDK, const fs::directory_entry& file) {
     if (!file.is_regular_file()) return false;
@@ -229,7 +157,7 @@ bool glShader::glslangValidator(const char* vulkanSDK, const fs::directory_entry
     return true;
 }
 
-
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void glShader::bind() { 
     for (auto& stage : stages) {
@@ -239,20 +167,20 @@ void glShader::bind() {
 
             glslangValidator(sdk, fs::directory_entry(stage.textfile));
 
-            compileSPIRV();
+            compile();
         }
     }
 
     glUseProgram(programID); 
 }
 
-
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void glShader::unbind() { 
     glUseProgram(0); 
 }
 
-
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 Shader::Stage::Stage(Type type, const fs::path& textfile) : 
     type(type), 
