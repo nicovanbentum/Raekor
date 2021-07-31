@@ -10,8 +10,7 @@ class MetricsWidget : public IWidget {
 public:
     MetricsWidget(Editor* editor);
     virtual void draw() override;
-
-private:
+    virtual void onEvent(const SDL_Event& ev) override {}
 };
 
 }

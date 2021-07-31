@@ -8,6 +8,7 @@ class HierarchyWidget : public IWidget {
 public:
     HierarchyWidget(Editor* editor);
     virtual void draw() override;
+    virtual void onEvent(const SDL_Event& ev) override {}
 
 private:
     void drawFamily(entt::registry& scene, entt::entity parent, entt::entity& active);

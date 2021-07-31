@@ -9,6 +9,7 @@ class InspectorWidget : public IWidget {
 public:
     InspectorWidget(Editor* editor);
     virtual void draw() override;
+    virtual void onEvent(const SDL_Event& ev) override {}
 
 private:
     void drawComponent(Name& component, entt::registry& scene, entt::entity& active);

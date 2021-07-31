@@ -16,12 +16,14 @@ class IWidget {
 public:
     IWidget(Editor* editor, const std::string& title);
     virtual void draw() = 0;
+    virtual void onEvent(const SDL_Event& ev) = 0;
 
     void show() { visible = true; }
     void hide() { visible = false; }
     bool& isVisible() { return visible; }
     void setVisible(bool value) { visible = value; }
     const std::string& getTitle() { return title; }
+    bool isFocused() { return focused; }
 
     Async& async();
     Scene& scene();
@@ -33,6 +35,7 @@ protected:
     Editor* editor;
     std::string title;
     bool visible = true;
+    bool focused = false;
 };
 
 }

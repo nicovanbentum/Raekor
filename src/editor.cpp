@@ -77,7 +77,12 @@ void Editor::update(float dt) {
             if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
                 renderer.createRenderTargets(viewport);
             }
+        }
 
+        for (const auto& widget : widgets) {
+            if (widget->isFocused()) {
+                widget->onEvent(event);
+            }
         }
     }
 

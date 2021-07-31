@@ -8,7 +8,6 @@ namespace Raekor {
 
 ViewportWidget::ViewportWidget(Editor* editor) : 
     IWidget(editor, "Viewport"),
-    mouseInViewport(false),
     rendertarget(IWidget::renderer().tonemap->result)
 {}
 
@@ -23,8 +22,8 @@ void ViewportWidget::draw() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4.0f));
     ImGui::Begin(title.c_str(), NULL, ImGuiWindowFlags_AlwaysAutoResize);
 
-    if (ImGui::Checkbox("Gizmo", &enabled)) {
-        ImGuizmo::Enable(enabled);
+    if (ImGui::Checkbox("Gizmo", &gizmoEnabled)) {
+        ImGuizmo::Enable(gizmoEnabled);
     } ImGui::SameLine();
 
     if (ImGui::RadioButton("Move", operation == ImGuizmo::OPERATION::TRANSLATE)) {
@@ -70,7 +69,7 @@ void ViewportWidget::draw() {
         }
     }
     
-    if (ImGui::Combo("##Render target", &currentItem, items.data(), items.size())) {
+    if (ImGui::Combo("##Render target", &currentItem, items.data(), static_cast<int>(items.size()))) {
         rendertarget = targets[currentItem];
     }
 
@@ -83,8 +82,13 @@ void ViewportWidget::draw() {
         resized = true;
     }
 
+    focused = ImGui::IsWindowFocused();
+
     // render the active screen texture to the view port as an imgui image
     ImGui::Image((void*)((intptr_t)rendertarget), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0, 1 }, { 1, 0 });
+
+    const ImVec2 viewportMin = ImGui::GetItemRectMin();
+    const ImVec2 viewportMax = ImGui::GetItemRectMax();
 
     // the viewport image is a drag and drop target for dropping materials onto meshes
     if (ImGui::BeginDragDropTarget()) {
@@ -95,15 +99,26 @@ void ViewportWidget::draw() {
         Mesh* mesh = nullptr;
 
         if (scene.valid(picked)) {
+            ImGui::BeginTooltip();
+            
             mesh = scene.try_get<Mesh>(picked);
+            
             if (mesh) {
+                ImGui::Text(std::string(std::string("Apply to ") + scene.get<Name>(picked).name).c_str());
                 editor->active = picked;
+            } else {
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
+                ImGui::Text("Invalid target");
+                ImGui::PopStyleColor();
             }
+            
+            ImGui::EndTooltip();
         }
 
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
             if (mesh) {
                 mesh->material = *reinterpret_cast<const entt::entity*>(payload->Data);
+                editor->active = mesh->material;
             }
         }
 
@@ -113,7 +128,7 @@ void ViewportWidget::draw() {
     auto pos = ImGui::GetWindowPos();
     viewport.offset = { pos.x, pos.y };
 
-    mouseInViewport = ImGui::IsWindowHovered();
+    mouseInViewport = ImGui::IsMouseHoveringRect(viewportMin, viewportMax);
 
     auto& io = ImGui::GetIO();
     if (io.MouseClicked[0] && mouseInViewport && !(editor->active != entt::null && ImGuizmo::IsOver(operation))) {
@@ -128,10 +143,10 @@ void ViewportWidget::draw() {
         }
     }
 
-    if (editor->active != entt::null && scene.valid(editor->active) && scene.has<Transform>(editor->active) && enabled) {
+    
+    if (editor->active != entt::null && scene.valid(editor->active) && scene.has<Transform>(editor->active) && gizmoEnabled) {
         ImGuizmo::SetDrawlist();
-        auto pos = ImGui::GetWindowPos();
-        ImGuizmo::SetRect(pos.x, pos.y, (float)viewport.size.x, (float)viewport.size.y);
+        ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
 
         // temporarily transform to mesh space for gizmo use
         auto& transform = scene.get<Transform>(editor->active);
@@ -139,6 +154,8 @@ void ViewportWidget::draw() {
         if (mesh) {
             transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
         }
+
+        ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
 
         bool manipulated = ImGuizmo::Manipulate(
             glm::value_ptr(viewport.getCamera().getView()),
@@ -173,6 +190,24 @@ void ViewportWidget::draw() {
     ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
     ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
     ImGui::End();
+}
+
+
+
+void ViewportWidget::onEvent(const SDL_Event& ev) {
+    if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
+        switch (ev.key.keysym.sym) {
+            case SDLK_r: {
+                operation = ImGuizmo::OPERATION::ROTATE;
+            } break;
+            case SDLK_t: {
+                operation = ImGuizmo::OPERATION::TRANSLATE;
+            } break;
+            case SDLK_s: {
+                operation = ImGuizmo::OPERATION::SCALE;
+            } break;
+        }
+    }
 }
 
 
