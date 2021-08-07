@@ -75,8 +75,8 @@ void Async::handler() {
             lock.unlock();
 
             task();
-            
-            activeTaskCount.fetch_sub(1);
+
+            if(activeTaskCount.load() > 0) activeTaskCount.fetch_sub(1);
 
             // re-lock so wait doesn't unlock an unlocked mutex
             lock.lock();
@@ -84,9 +84,8 @@ void Async::handler() {
     } while (!shouldQuit);
 }
 
-void Async::wait() { 
-    while (activeTaskCount.load() > 0) {
-    } 
+void Async::wait() {
+    while (activeTaskCount.load() > 0) {}
 }
 
 } // raekor

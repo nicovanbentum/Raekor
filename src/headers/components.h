@@ -150,10 +150,11 @@ struct Material {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct NativeScriptComponent {
-    HMODULE hmodule;
-    NativeScript* script;
+struct NativeScript {
+    std::string file;
     std::string procAddress;
+    INativeScript* script = nullptr;
+    std::shared_ptr<ScriptAsset> asset;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -175,7 +176,7 @@ static constexpr auto Components = std::make_tuple (
     ComponentDescription<PointLight>{"Point Light"},
     ComponentDescription<Skeleton>{"Mesh Animation"},
     ComponentDescription<DirectionalLight>{"Directional Light"},
-    ComponentDescription<NativeScriptComponent>{"Native Script"}
+    ComponentDescription<NativeScript>{"Native Script"}
 );
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

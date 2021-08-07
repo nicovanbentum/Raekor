@@ -13,9 +13,10 @@ class GLRenderer {
     friend class ViewportWidget;
 
     struct {
-        int& doBloom = ConVars::convert("r_bloom", 0);
-        int& debugVoxels = ConVars::convert("r_voxelize_debug", 0);
-        int& shouldVoxelize = ConVars::convert("r_voxelize", 1);
+        int& doBloom = ConVars::create("r_bloom", 0);
+        int& debugVoxels = ConVars::create("r_voxelize_debug", 0);
+        int& shouldVoxelize = ConVars::create("r_voxelize", 1);
+        int& debugCascades = ConVars::create("r_debugCascades", 0);
     } settings;
 
 public:

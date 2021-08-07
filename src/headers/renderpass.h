@@ -42,6 +42,14 @@ private:
 };
 
 class ShadowMap {
+    friend class GLRenderer;
+    friend class ViewportWidget;
+
+    struct Split {
+        float split;
+        float radius;
+    };
+
  public:
      struct {
          float depthBiasConstant = 1.25f;
@@ -55,18 +63,26 @@ class ShadowMap {
      } uniforms;
 
     ~ShadowMap();
-    ShadowMap(uint32_t width, uint32_t height);
+    ShadowMap(const Viewport& viewport, uint32_t width, uint32_t height);
 
+    void updatePerspectiveConstants(const Viewport& viewport);
+
+    void updateCascades(const Scene& scene, const Viewport& viewport);
     void render(const Viewport& viewport, const Scene& scene);
+    void renderCascade(const Viewport& viewport, GLuint framebuffer);
 
 private:
     glShader shader;
+    glShader debugShader;
     GLuint framebuffer;
     GLuint uniformBuffer;
+
+    int& lockRadius = ConVars::create("r_lockCascadeRadius", 0);
 
 public:
     GLuint cascades;
     glm::vec4 m_splits;
+    std::array<Split, 4> splits;
     std::array<glm::mat4, 4> matrices;
 };
 
@@ -74,12 +90,15 @@ public:
 
 class GBuffer {
     friend class GLRenderer;
+    friend class ViewportWidget;
 
     struct {
         glm::mat4 projection;
         glm::mat4 view;
         glm::mat4 model;
         glm::vec4 colour;
+        float metallic;
+        float roughness;
         uint32_t entity;
     } uniforms;
 
@@ -112,6 +131,8 @@ public:
 };
 
 class Icons {
+    friend class GLRenderer;
+
     struct {
         glm::mat4 mvp;
         glm::vec4 world_position;
@@ -137,6 +158,8 @@ private:
 //////////////////////////////////////////////////////////////////////////////////
 
 class Bloom {
+    friend class GLRenderer;
+
     struct {
         glm::vec2 direction;
     } uniforms;
@@ -162,6 +185,9 @@ private:
 //////////////////////////////////////////////////////////////////////////////////
 
 class Tonemap {
+    friend class GLRenderer;
+    friend class ViewportWidget;
+
 public:
     struct {
         float exposure = 1.0f;
@@ -256,6 +282,8 @@ private:
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 class DebugLines {
+    friend class GLRenderer;
+
     struct {
         glm::mat4 projection;
         glm::mat4 view;
@@ -281,6 +309,8 @@ private:
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 class Skinning {
+    friend class GLRenderer;
+
 public:
     Skinning();
     void compute(const Mesh& mesh, const Skeleton& anim);
@@ -336,6 +366,8 @@ public:
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 class DeferredShading {
+    friend class GLRenderer;
+
 private:
     struct Uniforms {
         glm::mat4 view, projection;
@@ -344,7 +376,6 @@ private:
         glm::vec4 cameraPosition;
         DirectionalLight dirLight;
         PointLight pointLights[10];
-        unsigned int renderFlags = 0b00000001;
     } uniforms;
 
     struct Uniforms2 {
@@ -353,7 +384,6 @@ private:
         float voxelWorldSize;
         int pointLightCount;
         int directionalLightCount;
-
     } uniforms2;
 
 public:
@@ -397,6 +427,8 @@ public:
 };
 
 class Atmosphere {
+    friend class GLRenderer;
+
     struct {
         glm::mat4 invViewProj;
         glm::vec4 cameraPos;

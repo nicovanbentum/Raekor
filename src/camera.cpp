@@ -46,7 +46,7 @@ void Camera::zoom(float amount) {
 void Camera::move(glm::vec2 amount) {
     auto dir = getForwardVector();
     // sideways
-    position += glm::normalize(glm::cross(dir, { 0, 1, 0 })) * amount.x;
+    position += glm::normalize(glm::cross(dir, { 0.0f, 1.0f, 0.0f })) * amount.x;
     // up and down
     position.y += (float)(amount.y);
 }
@@ -108,6 +108,18 @@ float Camera::getAspectRatio() {
 
 
 
+float Camera::getNear() { 
+    return projection[3][2] / (projection[2][2] - 1.0f); 
+}
+
+
+
+float Camera::getFar() { 
+    return projection[3][2] / (projection[2][2] + 1.0f); 
+}
+
+
+
 Viewport::Viewport(glm::vec2 size) : fov(65.0f), aspectRatio(16.0f / 9.0f),
 camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 0.1f, 10000.0f)),
 size(size) {}
@@ -134,14 +146,15 @@ void Viewport::setAspectRatio(float ratio) {
 
 Camera& Viewport::getCamera() { return camera; }
 
-const Camera& Viewport::getCamera() const {
-    return camera;
-}
+
+
+const Camera& Viewport::getCamera() const { return camera; }
+
 
 
 void Viewport::resize(glm::vec2 newSize) {
     size = { newSize.x, newSize.y };
-    camera.getProjection() = glm::perspectiveRH(glm::radians(fov), (float)size.x / (float)size.y, 0.1f, 10000.0f);
+    camera.getProjection() = glm::perspectiveRH(glm::radians(camera.getFOV()), (float)size.x / (float)size.y, 0.1f, 10000.0f);
 }
 
 }

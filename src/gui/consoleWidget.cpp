@@ -10,16 +10,16 @@ ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor, "Console") {}
 
 void ConsoleWidget::draw() {
     ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-    
+
     if (!ImGui::Begin(title.c_str(), &visible, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
         ImGui::End();
         return;
     }
 
     const float footerHeight = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
-    
+
     ImGui::BeginChild("##LOG", ImVec2(ImGui::GetContentRegionAvail().x, -footerHeight), false, ImGuiWindowFlags_HorizontalScrollbar);
-    
+
     if (ImGui::BeginPopupContextWindow()) {
         if (ImGui::Selectable("clear")) items.clear();
         ImGui::EndPopup();
@@ -34,7 +34,6 @@ void ConsoleWidget::draw() {
         ImGui::SetScrollHereY(1.0f);
         ScrollToBottom = false;
     }
-    
 
     ImGui::PopStyleVar();
     ImGui::EndChild();
@@ -48,11 +47,11 @@ void ConsoleWidget::draw() {
     ImGui::PushItemWidth(ImGui::GetWindowWidth());
     auto flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory;
 
-    if(ImGui::InputText("##Input", &inputBuffer, flags, editCallback, (void*)this)) {
+    if (ImGui::InputText("##Input", &inputBuffer, flags, editCallback, (void*)this)) {
         if (!inputBuffer.empty()) {
             items.push_back(inputBuffer);
             ScrollToBottom = true;
-            
+
             std::istringstream stream(inputBuffer);
             std::string name, value;
             stream >> name >> value;
@@ -67,17 +66,15 @@ void ConsoleWidget::draw() {
         ImGui::SetKeyboardFocusHere(-1);
     }
 
-
     if (!inputBuffer.empty()) {
         ImGuiTextFilter filter(inputBuffer.c_str());
 
         const int suggestionCount = static_cast<int>(ImGui::GetWindowHeight() * (2.0f / 3.0f) / ImGui::GetTextLineHeightWithSpacing());
         const float suggestionWidth = ImGui::GetItemRectSize().x - ImGui::GetStyle().FramePadding.x * 2;
         const float suggestionHeight = ImGui::GetTextLineHeightWithSpacing() * suggestionCount;
-        const float suggestionPosY = cursorAfterLog.y - ImGui::GetTextLineHeightWithSpacing() * suggestionCount;
 
         ImGui::SetNextWindowSize(ImVec2(suggestionWidth, suggestionHeight));
-        ImGui::SetNextWindowPos(ImVec2(cursorAfterLog.x, suggestionPosY));
+        ImGui::SetNextWindowPos(ImVec2(cursorAfterLog.x, cursorAfterLog.y - suggestionHeight));
         ImGui::BeginTooltip();
 
         int count = 0;

@@ -80,6 +80,20 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
     return pickedEntity;
 }
 
+void Scene::bindScript(entt::entity entity, NativeScript& script) {
+    auto address = GetProcAddress(script.asset->getModule(), script.procAddress.c_str());
+    if (address) {
+        auto function = reinterpret_cast<INativeScript::FactoryType>(address);
+        script.script = function();
+        script.script->bind(entity, *this);
+    } else {
+        std::clog << "Failed to "
+            "bind script " << script.file <<
+            " to entity " << entt::to_integral(entity) <<
+            " from class " << script.procAddress << '\n';
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void Scene::destroyObject(entt::entity entity) {
@@ -125,9 +139,9 @@ void Scene::updateTransforms() {
         auto& [node, transform] = nodeView.get<Node, Transform>(entity);
 
         if (node.parent == entt::null) {
+            transform.compose();
             updateNode(entity, node.parent);
         }
-
     }
 }
 
@@ -175,13 +189,7 @@ void Scene::loadMaterialTextures(Async& async, Assets& assets, const std::vector
 
         material.createAlbedoTexture(assets.get<TextureAsset>(material.albedoFile));
         material.createNormalTexture(assets.get<TextureAsset>(material.normalFile));
-
-        auto mrTexture = assets.get<TextureAsset>(material.mrFile);
-        if (mrTexture) {
-            material.createMetalRoughTexture(mrTexture);
-        } else {
-            material.createMetalRoughTexture();
-        }
+        material.createMetalRoughTexture(assets.get<TextureAsset>(material.mrFile));
     }
 
     timer.stop();

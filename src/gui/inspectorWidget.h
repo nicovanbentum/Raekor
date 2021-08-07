@@ -5,6 +5,8 @@
 
 namespace Raekor {
 
+class Scene;
+
 class InspectorWidget : public IWidget {
 public:
     InspectorWidget(Editor* editor);
@@ -12,15 +14,15 @@ public:
     virtual void onEvent(const SDL_Event& ev) override {}
 
 private:
-    void drawComponent(Name& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(Node& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(Mesh& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(Material& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(Transform& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(PointLight& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(NativeScriptComponent& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(Skeleton& component, entt::registry& scene, entt::entity& active);
-    void drawComponent(DirectionalLight& component, entt::registry& scene, entt::entity& active);
+    void drawComponent(Name& component, Assets& assets, Scene& scene, entt::entity& active);
+    void drawComponent(Node& component, Assets& assets, Scene& scene, entt::entity& active);
+    void drawComponent(Mesh& component, Assets& assets, Scene& scene, entt::entity& active);
+    void drawComponent(Skeleton& component, Assets& assets, Scene& scene, entt::entity& active);
+    void drawComponent(Material& component, Assets& assets, Scene& scene, entt::entity& active);
+    void drawComponent(Transform& component, Assets& assets, Scene& scene, entt::entity& active);
+    void drawComponent(PointLight& component, Assets& assets, Scene& scene, entt::entity& active);
+    void drawComponent(NativeScript& component, Assets& assets, Scene& scene, entt::entity& active);
+    void drawComponent(DirectionalLight& component, Assets& assets, Scene& scene, entt::entity& active);
 };
 
 }

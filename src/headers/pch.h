@@ -46,7 +46,12 @@
     #include <wrl.h>
     #include <d3dcompiler.h>
     #include <ShObjIdl_core.h>
+    #include <mbstring.h>
+    #include <DbgHelp.h>
+    #include <Psapi.h>
 
+    template<typename T>
+    using com_ptr = Microsoft::WRL::ComPtr<T>;
     // DirectXTK Framework Header only 
     //#include "DirectXTK/DDSTextureLoader.h"
     //#include "DirectXTK/WICTextureLoader.h"

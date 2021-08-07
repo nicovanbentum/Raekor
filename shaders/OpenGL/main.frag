@@ -264,11 +264,7 @@ vec3 importance_sample(float u, float v) {
 	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
 }
 
-// cone tracing through ray marching
-// a ray is just a starting vector and a direction
-// so it goes : sample, move in direction, sample, move in direction, sample etc
-// until we hit opacity 1 which means we hit a solid object
-vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneAperture, out float occlusion) {
+vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneAperture, out float occlusion, DirectionalLight light) {
     vec4 colour = vec4(0);
     occlusion = 0.0;
 
@@ -279,7 +275,7 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
     float dist = voxelSize; 
     vec3 startPos = p + n * voxelSize; 
 
-    while(dist < voxelsWorldSize && colour.a < 1.0) {
+    while(colour.a < 1.0) {
         
         float diameter = max(voxelSize, 2 * coneAperture * dist);
         float mip = log2(diameter / voxelSize);
@@ -289,6 +285,17 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
         vec3 uv3d = (startPos + dist * coneDirection) / (voxelsWorldSize * 0.5);
         uv3d = uv3d * 0.5 + 0.5 + offset;
         vec4 voxel_colour = textureLod(voxels, uv3d, mip);
+
+        if(dist > voxelsWorldSize) {
+            vec3 transmittance;
+            vec3 scattered = IntegrateScattering(startPos + dist * coneDirection, coneDirection, INFINITY, light.direction.xyz, light.color.rgb, transmittance);
+            voxel_colour = vec4(scattered, 1.0);
+            float a = (1.0 - colour.a);
+            colour.rgb += a * voxel_colour.rgb;
+            colour.a += a * voxel_colour.a;
+            occlusion += (a * voxel_colour.a) / (1.0 + 0.03 * diameter);
+            break;
+        }
 
         if(!is_saturated(uv3d) || mip >= log2(VoxelDimensions)) {
             break;
@@ -307,8 +314,7 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
     return colour;
 }
 
-mat3 GetTangentSpace(in vec3 normal)
-{
+mat3 GetTangentSpace(in vec3 normal){
 	// Choose a helper vector for the cross product
 	vec3 helper = abs(normal.x) > 0.99 ? vec3(0, 0, 1) : vec3(1, 0, 0);
 
@@ -318,14 +324,13 @@ mat3 GetTangentSpace(in vec3 normal)
 	return mat3(tangent, binormal, normal);
 }
 
-
-vec4 coneTraceRadiance(in vec3 p, in vec3 n, out float occlusion_out) {
+vec4 coneTraceRadiance(in vec3 p, in vec3 n, int rayCount, out float occlusion_out, DirectionalLight light) {
     vec4 color = vec4(0);
     occlusion_out = 0.0;
 
     mat3 tangentSpace = GetTangentSpace(n);
 
-    for(int i = 0; i < 16; i++) {
+    for(int i = 0; i < rayCount; i++) {
 
         vec2 ham = hammersley2d(i, 16);
         vec3 hemi = importance_sample(ham.x, ham.y);
@@ -334,24 +339,24 @@ vec4 coneTraceRadiance(in vec3 p, in vec3 n, out float occlusion_out) {
         float occlusion = 0.0;
 
         // aperture is half tan of angle
-        color += coneTrace(p, n, coneDirection, tan(PI * 0.5f * 0.33f), occlusion);
+        color += coneTrace(p, n, coneDirection, tan(PI * 0.5f * 0.33f), occlusion, light);
         occlusion_out += occlusion;
     }
 
-    occlusion_out /= 16;
+    occlusion_out /= rayCount;
     occlusion_out = 1.0 - occlusion_out;
 
-    color /= 16;
+    color /= rayCount;
     color.a = clamp(color.a, 0, 1);
 
     return max(vec4(0), color);
 }
 
-vec4 coneTraceReflection(in vec3 P, in vec3 N, in vec3 V, in float roughness, out float occlusion) {
+vec4 coneTraceReflection(in vec3 P, in vec3 N, in vec3 V, in float roughness, out float occlusion, DirectionalLight light) {
     float aperture = tan(roughness * PI * 0.5f * 0.1f);
     vec3 coneDirection = reflect(-V, N);
 
-    vec4 reflection = coneTrace(P, N, coneDirection, aperture, occlusion);
+    vec4 reflection = coneTrace(P, N, coneDirection, aperture, occlusion, light);
     return vec4(max(vec3(0), reflection.rgb), clamp(reflection.a, 0, 1));
 }
 
@@ -470,8 +475,7 @@ float getShadow(DirectionalLight light, vec3 position) {
 
 // GGX/Towbridge-Reitz normal distribution function.
 // Uses Disney's reparametrization of alpha = roughness^2
-float ndfGGX(float cosLh, float roughness)
-{
+float ndfGGX(float cosLh, float roughness) {
 	float alpha = roughness * roughness;
 	float alphaSq = alpha * alpha;
 
@@ -480,21 +484,18 @@ float ndfGGX(float cosLh, float roughness)
 }
 
 // Single term for separable Schlick-GGX below.
-float gaSchlickG1(float cosTheta, float k)
-{
+float gaSchlickG1(float cosTheta, float k) {
 	return cosTheta / (cosTheta * (1.0 - k) + k);
 }
 
 // Schlick-GGX approximation of geometric attenuation function using Smith's method.
-float gaSchlickGGX(float cosLi, float NdotV, float roughness)
-{
+float gaSchlickGGX(float cosLi, float NdotV, float roughness) {
 	float r = roughness + 1.0;
 	float k = (r * r) / 8.0; // Epic suggests using this roughness remapping for analytic lights.
 	return gaSchlickG1(cosLi, k) * gaSchlickG1(NdotV, k);
 }
 
-float GeometrySchlickGGX(float NdotV, float roughness)
-{
+float GeometrySchlickGGX(float NdotV, float roughness) {
     float r = (roughness + 1.0);
     float k = (r*r) / 8.0;
 
@@ -515,13 +516,11 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 }
 
 // Shlick's approximation of the Fresnel factor.
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
-{
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
 }
 
-vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
-{
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
 }  
 
@@ -648,12 +647,22 @@ float ScreenSpaceShadow(vec3 worldPos, DirectionalLight light) {
 }
 
 
-
 void main() {
     float depth = texture(gDepth, uv).r;
     vec3 position = reconstructPosition(uv, depth, invViewProjection);
     
 	vec4 albedo = texture(gColors, uv);
+
+    if(depth >= 1.0) {
+        finalColor = albedo;
+        float brightness = dot(finalColor.rgb, bloomThreshold.rgb);
+        bloomColor = finalColor * min(brightness, 1.0);
+        bloomColor.r = min(bloomColor.r, 1.0);
+        bloomColor.g = min(bloomColor.g, 1.0);
+        bloomColor.b = min(bloomColor.b, 1.0);
+        return;
+    }
+
     vec4 metallicRoughness = texture(gMetallicRoughness, uv);
 
     Material material;
@@ -688,9 +697,9 @@ void main() {
     vec3 ambient = ambient(light, position,  normal, V, material);
 
     float occlusion;
-    vec4 traced = coneTraceRadiance(position, normal, occlusion);
+    vec4 radiance = coneTraceRadiance(position, normal, 16, occlusion, light);
 
-    finalColor = vec4(Lo + ambient * albedo.rgb * occlusion + traced.rgb * albedo.rgb * occlusion, albedo.a);
+    finalColor = vec4(Lo + albedo.rgb * radiance.rgb, albedo.a);
 
     // switch(cascadeIndex) {
     //     case 0 : 
@@ -706,10 +715,6 @@ void main() {
     //         finalColor.rgb *= vec3(1.0f, 1.0f, 0.25f);
     //         break;
     // }
-
-    if(depth >= 1.0) {
-        finalColor = albedo;
-    }
 
     // BLOOM SEPERATION
 	float brightness = dot(finalColor.rgb, bloomThreshold.rgb);

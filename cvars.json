@@ -8,6 +8,20 @@
             }
         },
         {
+            "key": "sv_cheats",
+            "value": {
+                "index": 0,
+                "data": 0
+            }
+        },
+        {
+            "key": "sv_wireframe",
+            "value": {
+                "index": 0,
+                "data": 0
+            }
+        },
+        {
             "key": "r_bloom",
             "value": {
                 "index": 0,
@@ -15,14 +29,7 @@
             }
         },
         {
-            "key": "sv_wireframe",
-            "value": {
-                "index": 0,
-                "data": 1
-            }
-        },
-        {
-            "key": "sv_cheats",
+            "key": "r_voxelize",
             "value": {
                 "index": 0,
                 "data": 1
@@ -36,17 +43,24 @@
             }
         },
         {
-            "key": "r_voxelize",
+            "key": "mat_postprocess_enable",
             "value": {
                 "index": 0,
                 "data": 0
             }
         },
         {
-            "key": "mat_postprocess_enable",
+            "key": "r_debugCascades",
             "value": {
                 "index": 0,
                 "data": 0
+            }
+        },
+        {
+            "key": "r_lockCascadeRadius",
+            "value": {
+                "index": 0,
+                "data": 1
             }
         }
     ]

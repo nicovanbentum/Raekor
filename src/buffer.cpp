@@ -157,4 +157,29 @@ void glIndexBuffer::destroy() {
     if (id) glDeleteBuffers(1, &id);
 }
 
+glShaderType::glShaderType(ShaderType type) : glType(0), count(0) {
+    switch (type) {
+        case ShaderType::FLOAT1: {
+            glType = GL_FLOAT;
+            count = 1;
+        } break;
+        case ShaderType::FLOAT2: {
+            glType = GL_FLOAT;
+            count = 2;
+        } break;
+        case ShaderType::FLOAT3: {
+            glType = GL_FLOAT;
+            count = 3;
+        } break;
+        case ShaderType::FLOAT4: {
+            glType = GL_FLOAT;
+            count = 4;
+        } break;
+        case ShaderType::INT4: {
+            glType = GL_INT;
+            count = 4;
+        } break;
+    }
+}
+
 } // namespace Raekor

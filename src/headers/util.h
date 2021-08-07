@@ -14,14 +14,6 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// alias for Microsoft's com pointers
-#ifdef _WIN32
-template<typename T>
-using com_ptr = Microsoft::WRL::ComPtr<T>;
-#endif
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 #define LOG_CATCH(code) try { code; } catch(std::exception e) { std::cout << e.what() << '\n'; }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -104,5 +96,17 @@ inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) {
     return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+// std::string version of https://docs.microsoft.com/en-us/cpp/text/how-to-convert-between-various-string-types?view=msvc-160
+inline std::string wchar_to_std_string(wchar_t* wchars) {
+    const auto len = wcslen(wchars);
+    auto string = std::string((len + 1) * 2, 0);
+
+    size_t convertedChars = 0;
+    wcstombs_s(&convertedChars, string.data(), string.size(), wchars, _TRUNCATE);
+
+    return string.substr(0, len);
+}
 
 } // Namespace Raekor

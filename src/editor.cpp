@@ -14,13 +14,11 @@
 #include "gui/inspectorWidget.h"
 #include "gui/hierarchyWidget.h"
 
-namespace Raekor
-{
+namespace Raekor {
 
-Editor::Editor() : 
-    WindowApplication(RendererFlags::OPENGL), 
-    renderer(async, window, viewport)
-{
+Editor::Editor() :
+    WindowApplication(RendererFlags::OPENGL),
+    renderer(async, window, viewport) {
     // gui stuff
     gui::setFont(settings.font.c_str());
     gui::setTheme(settings.themeColors);
@@ -39,7 +37,7 @@ Editor::Editor() :
     widgets.emplace_back(new MenubarWidget(this));
     widgets.emplace_back(new RandomWidget(this));
     widgets.emplace_back(new ViewportWidget(this));
-    
+
     std::cout << "Initialization done." << std::endl;
 }
 
@@ -86,6 +84,8 @@ void Editor::update(float dt) {
         }
     }
 
+    viewport.getCamera().update();
+
     if (inAltMode) {
         viewport.getCamera().strafeWASD(dt);
     }
@@ -95,38 +95,38 @@ void Editor::update(float dt) {
     scene.updateLights();
 
     // update animations
-    scene.view<Skeleton>().each([&](Skeleton& animation) {
+    scene.view<Skeleton>().each([&](Skeleton& skeleton) {
         async.dispatch([&]() {
-            animation.boneTransform(dt);
+            skeleton.boneTransform(dt);
         });
     });
 
     async.wait();
-
-    // update camera
-    viewport.getCamera().update();
-
+  
     // update scripts
-    scene.view<NativeScriptComponent>().each([&](NativeScriptComponent& component) {
+    scene.view<NativeScript>().each([&](NativeScript& component) {
         if (component.script) {
             component.script->update(dt);
         }
     });
 
-     if (active != entt::null && scene.has<Mesh>(active)) {
+    if (active != entt::null && scene.has<Mesh>(active)) {
         auto& mesh = scene.get<Mesh>(active);
         auto& transform = scene.get<Transform>(active);
 
         const auto min = mesh.aabb[0];
         const auto max = mesh.aabb[1];
 
-        renderer.drawBox(min, max, transform.localTransform);
+        renderer.drawBox(min, max, transform.worldTransform);
     }
+
+    // render scene
+    renderer.render(scene, viewport);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
+
     renderer.ImGui_NewFrame(window);
     ImGuizmo::BeginFrame();
 
@@ -143,7 +143,7 @@ void Editor::update(float dt) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+                       ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
     ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
     if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) {
@@ -171,9 +171,6 @@ void Editor::update(float dt) {
     // end ImGui dockspace
     ImGui::End();
 
-    // render scene
-    renderer.render(scene, viewport);
-
     renderer.ImGui_Render();
     SDL_GL_SwapWindow(window);
 }
@@ -193,7 +190,7 @@ void Editor::onEvent(const SDL_Event& event) {
             case SDLK_LALT: {
                 inAltMode = !inAltMode;
                 SDL_SetRelativeMouseMode(static_cast<SDL_bool>(inAltMode));
-            }break;
+            } break;
             case SDLK_DELETE: {
                 if (active != entt::null) {
                     if (scene.has<Node>(active)) {
@@ -202,12 +199,14 @@ void Editor::onEvent(const SDL_Event& event) {
                             NodeSystem::remove(scene, scene.get<Node>(entity));
                             scene.destroy(entity);
                         }
+                    
+                        NodeSystem::remove(scene, scene.get<Node>(active));
                     }
 
                     scene.destroy(active);
                     active = entt::null;
                 }
-            }break;
+            } break;
             case SDLK_d: {
                 if (SDL_GetModState() & KMOD_LCTRL) {
                     auto copy = scene.create();
@@ -221,7 +220,7 @@ void Editor::onEvent(const SDL_Event& event) {
                         });
                     });
                 }
-            }break;
+            } break;
         }
     }
 }

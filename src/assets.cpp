@@ -2,6 +2,9 @@
 #include "assets.h"
 
 #include "dds.h"
+#include "util.h"
+#include "timer.h"
+#include "vswhere.h"
 
 namespace Raekor
 {
@@ -12,7 +15,7 @@ TextureAsset::TextureAsset(const std::string& filepath)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-DDS_HEADER TextureAsset::getHeader() {
+DDS_HEADER TextureAsset::header() {
     return *reinterpret_cast<DDS_HEADER*>(data.data() + sizeof(DWORD));
 }
 
@@ -130,6 +133,126 @@ bool TextureAsset::load(const std::string& filepath) {
 Assets::Assets() {
     if (!fs::exists("assets")) {
         fs::create_directory("assets");
+    }
+}
+
+
+
+ScriptAsset::ScriptAsset(const std::string& filepath) : Asset(filepath) {}
+
+ScriptAsset::~ScriptAsset() {
+    if (hmodule) FreeLibrary(hmodule);
+}
+
+
+
+std::string ScriptAsset::convert(const std::string& filepath) {
+    Find_Result vswhere = find_visual_studio_and_windows_sdk();
+    
+    std::string visualStudioPath = wchar_to_std_string(vswhere.vs_exe_path);
+    std::cout << visualStudioPath << '\n';
+    free_resources(&vswhere);
+
+    std::string vcvarsall = "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat\" x64";
+    system(std::string('"' + vcvarsall + '"').c_str());
+
+    auto dll = fs::path(filepath);
+    dll.replace_extension(".dll");
+
+    std::string includeDirs =
+        " /I\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\14.28.29910\\include\""
+        " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\ucrt\""
+        " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\um\""
+        " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\shared\""
+        " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\winrt\""
+        " /I\"C:\\VS-Projects\\Raekor\\src\\headers\""
+        " /I\"%VULKAN_SDK%\\Include\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\stb\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\imgui\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\glm\\glm\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\ImGuizmo\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\gl3w\\include\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\cereal\\include\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\imgui\\backends\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\ChaiScript\\include\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\entt\\src\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\VulkanMemoryAllocator\\src\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\IconFontCppHeaders\""
+        " /I\"C:\\VS-Projects\\Raekor\\vcpkg_installed\\x64-windows-static\\include\\SDL2\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\glad\\GL\\include\""
+        " /I\"C:\\VS-Projects\\Raekor\\vcpkg_installed\\x64-windows-static\\include\\physx\""
+        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\SPIRV-Reflect\""
+        " /I\"C:\\VS-Projects\\Raekor\\vcpkg_installed\\x64-windows-static\\include\" ";
+
+#if RAEKOR_DEBUG
+    std::string clOptions = "/D \"_DEBUG\" /MDd ";
+#else
+    std::string clOptions = "/D \"NDEBUG\" /MD ";
+#endif
+    std::string command = "\"" + visualStudioPath +  "\\cl.exe\"" + includeDirs + clOptions + "/std:c++17 /GR- /EHsc \"" + filepath +
+        "\" /link "
+        "/LIBPATH:\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\14.28.29910\\lib\\x64\""
+        " /LIBPATH:\"C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\um\\x64\""
+        " /LIBPATH:\"C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\ucrt\\x64\""
+        " /DLL /OUT:\"" + dll.string() + "\"";
+
+    std::cout << command << '\n';
+
+    Timer timer;
+    timer.start();
+
+    int result = system(std::string("\"" + command + "\"").c_str());
+
+    std::cout << "Script compile time of " << timer.stop() << " ms.\n";
+
+    return result == 0 ? dll.string() : std::string();
+}
+
+
+
+bool ScriptAsset::load(const std::string& filepath) {
+    if (filepath.empty() || !fs::exists(filepath)) {
+        return false;
+    }
+
+    hmodule = LoadLibraryA(filepath.c_str());
+
+    return hmodule != NULL;
+}
+
+void ScriptAsset::enumerateSymbols() {
+    MODULEINFO info;
+    GetModuleInformation(GetCurrentProcess(), hmodule, &info, sizeof(MODULEINFO));
+
+    std::string pdbFile = m_path.replace_extension(".pdb").string();
+
+    PSYM_ENUMERATESYMBOLS_CALLBACK processSymbol = [](PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID UserContext) -> BOOL {
+        std::cout << "Symbol: " << pSymInfo->Name << '\n';
+        return true;
+    };
+
+    PSYM_ENUMERATESYMBOLS_CALLBACK callback = [](PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID UserContext) -> BOOL {
+        std::cout << "User type: " << pSymInfo->Name << '\n';
+        return true;
+    };
+
+    if (!SymInitialize(GetCurrentProcess(), NULL, FALSE)) {
+        std::cerr << "Failed to initialize symbol handler \n";
+    }
+
+
+    DWORD64 result = SymLoadModuleEx(GetCurrentProcess(), NULL, pdbFile.c_str(), NULL, (DWORD64)hmodule, info.SizeOfImage, NULL, NULL);
+
+    if (result == 0 && GetLastError() != 0) {
+        std::cout << "Failed" << std::endl;
+    }     else if (result == 0 && GetLastError() == 0) {
+        std::cout << "Already loaded" << std::endl;
+    }
+
+    if (result) {
+        SymEnumTypes(GetCurrentProcess(), (ULONG64)result, callback, NULL);
+        SymEnumSymbols(GetCurrentProcess(), (DWORD64)result, NULL, processSymbol, NULL);
+        SymUnloadModule(GetCurrentProcess(), (DWORD64)result);
     }
 }
 

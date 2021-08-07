@@ -1,31 +1,40 @@
 #pragma once
 
-namespace Raekor {
+#define RAEKOR_SCRIPT_CLASS(x) extern "C" __declspec(dllexport) Raekor::INativeScript * __cdecl x() { return new class x(); }
 
+namespace Raekor {
 /*
     interface class for native scripts
 */
-class NativeScript {
+class INativeScript {
 public:
-    typedef NativeScript* (__cdecl* FactoryType)();
+    typedef INativeScript* (__cdecl* FactoryType)();
 
-    virtual ~NativeScript() = default;
+    virtual ~INativeScript() = default;
 
     void bind(entt::entity entity, entt::registry& scene);
 
     virtual void update(float dt) = 0;
 
     template<typename T>
-    T& getComponent() { return scene->get<T>(entity); }
+    T& GetComponent() { return scene->get<T>(entity); }
 
 private:
     entt::entity entity;
     entt::registry* scene;
 };
 
+class ScriptManager {
+
+};
+
+/* Example
+
 class MoveCubeScript : public NativeScript {
 public:
     void update(float dt) override;
 };
+
+*/
 
 } // Raekor

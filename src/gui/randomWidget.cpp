@@ -5,7 +5,7 @@
 
 namespace Raekor {
 
-RandomWidget::RandomWidget(Editor* editor) : 
+RandomWidget::RandomWidget(Editor* editor) :
     IWidget(editor, "Random")
 {}
 
@@ -32,10 +32,14 @@ void RandomWidget::draw() {
 
     if (ImGui::DragFloat("Bias constant", &renderer.shadows->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
     if (ImGui::DragFloat("Bias slope factor", &renderer.shadows->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Cascade lambda", &renderer.shadows->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {}
+    if (ImGui::DragFloat("Cascade lambda", &renderer.shadows->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {
+        renderer.shadows->updatePerspectiveConstants(editor->getViewport());
+    }
 
-    if (ImGui::DragFloat("Camera FOV", &editor->getViewport().getFov(), 1.0f, 5.0f, 105.0f, "%.2f", 1.0f)) {
-        editor->getViewport().setFov(editor->getViewport().getFov());
+    ImGui::DragFloat3("Bloom threshold", glm::value_ptr(renderer.shading->settings.bloomThreshold), 0.01f, 0.0f, 10.0f, "%.3f");
+
+    float fov = editor->getViewport().getCamera().getFOV();
+    if (ImGui::DragFloat("Camera FOV", &fov, 1.0f, 5.0f, 105.0f, "%.2f", 1.0f)) {
     }
 
     ImGui::End();

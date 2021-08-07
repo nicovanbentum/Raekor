@@ -20,6 +20,8 @@ public:
 	void			destroyObject(entt::entity entity);
 	entt::entity	pickObject(Math::Ray& ray);
 
+	void bindScript(entt::entity entity, NativeScript& script);
+
 	// per frame systems
 	void updateNode(entt::entity node, entt::entity parent);
 	void updateTransforms();

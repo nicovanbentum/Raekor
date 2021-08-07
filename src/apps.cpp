@@ -27,7 +27,7 @@ RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(
     SDL_ShowWindow(window);
     SDL_MaximizeWindow(window);
 
-    viewport.setFov(20);
+    // TODO: viewport.setFov(20);
     viewport.getCamera().move(glm::vec2(-3, 3));
     viewport.getCamera().zoom(19);
     viewport.getCamera().look(-3.3f, .2f);

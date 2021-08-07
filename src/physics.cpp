@@ -36,6 +36,7 @@ Physics::Physics() {
 }
 
 Physics::~Physics() {
+    scene->release();
     physics->release();
     foundation->release();
 }

@@ -21,7 +21,7 @@ void MenubarWidget::draw() {
 
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("New Scene")) {
+            if (ImGui::MenuItem("New scene")) {
                 scene.clear();
                 editor->active = entt::null;
             }
@@ -54,7 +54,14 @@ void MenubarWidget::draw() {
                 }
             }
 
-            if (ImGui::MenuItem("Save Screenshot..")) {
+            if (ImGui::MenuItem("Compile script..")) {
+                std::string filepath = OS::openFileDialog("C++ Files (*.cpp)\0*.cpp\0");
+                if (!filepath.empty()) {
+                    ScriptAsset::convert(filepath);
+                }
+            }
+
+            if (ImGui::MenuItem("Save screenshot..")) {
                 std::string savePath = OS::saveFileDialog("Uncompressed PNG (*.png)\0", "png");
 
                 if (!savePath.empty()) {
@@ -111,8 +118,7 @@ void MenubarWidget::draw() {
             if (ImGui::MenuItem("Material")) {
                 auto entity = scene.create();
                 scene.emplace<Name>(entity, "New Material");
-                auto& defaultMaterial = scene.emplace<Material>(entity);
-                defaultMaterial.createMetalRoughTexture();
+                scene.emplace<Material>(entity);
                 active = entity;
             }
 
@@ -120,6 +126,11 @@ void MenubarWidget::draw() {
                 if (ImGui::MenuItem("Sphere")) {
                     auto entity = scene.createObject("Sphere");
                     auto& mesh = scene.emplace<Mesh>(entity);
+
+                    if (active != entt::null) {
+                        auto& node = scene.get<Node>(entity);
+                        NodeSystem::append(scene, scene.get<Node>(active), node);
+                    }
 
                     const float radius = 2.0f;
                     float x, y, z, xy;                              // vertex position
@@ -194,6 +205,12 @@ void MenubarWidget::draw() {
                 if (ImGui::MenuItem("Plane")) {
                     auto entity = scene.createObject("Plane");
                     auto& mesh = scene.emplace<Mesh>(entity);
+                    
+                    if (active != entt::null) {
+                        auto& node = scene.get<Node>(entity);
+                        NodeSystem::append(scene, scene.get<Node>(active), node);
+                    }
+                    
                     for (const auto& v : planeVertices) {
                         mesh.positions.push_back(v.pos);
                         mesh.uvs.push_back(v.uv);

@@ -52,14 +52,22 @@ void ViewportWidget::draw() {
         "Final", 
         "Albedo", 
         "Normals", 
-        "Material" 
+        "Material",
+        "Bloom (Threshold)",
+        "Bloom (Blur 1)",
+        "Bloom (Final)",
+        "Shading (Result)"
     };
 
     const std::array targets = { 
         renderer.tonemap->result, 
         renderer.gbuffer->albedoTexture, 
         renderer.gbuffer->normalTexture, 
-        renderer.gbuffer->materialTexture 
+        renderer.gbuffer->materialTexture,
+        renderer.shading->bloomHighlights,
+        renderer.bloom->blurTexture,
+        renderer.bloom->bloomTexture,
+        renderer.shading->result
     };
 
     int currentItem = 0;
@@ -131,7 +139,7 @@ void ViewportWidget::draw() {
     mouseInViewport = ImGui::IsMouseHoveringRect(viewportMin, viewportMax);
 
     auto& io = ImGui::GetIO();
-    if (io.MouseClicked[0] && mouseInViewport && !(editor->active != entt::null && ImGuizmo::IsOver(operation))) {
+    if (io.MouseClicked[0] && mouseInViewport && !(editor->active != entt::null && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
         auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
         uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
         entt::entity picked = static_cast<entt::entity>(pixel);
@@ -149,18 +157,20 @@ void ViewportWidget::draw() {
         ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
 
         // temporarily transform to mesh space for gizmo use
-        auto& transform = scene.get<Transform>(editor->active);
-        auto mesh = scene.try_get<Mesh>(editor->active);
+        Transform& transform = scene.get<Transform>(editor->active);
+        Mesh* mesh = scene.try_get<Mesh>(editor->active);
+
         if (mesh) {
             transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
         }
 
+        // prevent the gizmo from going outside of the viewport
         ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
 
         bool manipulated = ImGuizmo::Manipulate(
             glm::value_ptr(viewport.getCamera().getView()),
             glm::value_ptr(viewport.getCamera().getProjection()),
-            operation, ImGuizmo::MODE::LOCAL,
+            operation, ImGuizmo::MODE::WORLD,
             glm::value_ptr(transform.localTransform)
         );
 
@@ -174,7 +184,7 @@ void ViewportWidget::draw() {
         }
     }
 
-    auto metricsPosition = ImGui::GetWindowPos();
+    ImVec2 metricsPosition = ImGui::GetWindowPos();
     metricsPosition.y += ImGui::GetFrameHeightWithSpacing();
     ImGui::SetNextWindowPos(metricsPosition);
 
@@ -182,7 +192,7 @@ void ViewportWidget::draw() {
     ImGui::PopStyleVar();
 
     ImGui::SetNextWindowBgAlpha(0.35f);
-    auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
+    ImGuiWindowFlags metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
     ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
     ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
     ImGui::Text("Product: %s", glGetString(GL_RENDERER));

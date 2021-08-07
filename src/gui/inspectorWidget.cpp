@@ -9,34 +9,70 @@ InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, "Inspector") 
 
 
 
-void InspectorWidget::drawComponent(Name& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::draw() {
+    ImGui::Begin(title.c_str());
+
+    if (editor->active == entt::null) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Text("ID: %i", editor->active);
+
+    Scene& scene = IWidget::scene();
+    Assets& assets = IWidget::assets();
+    entt::entity& active = editor->active;
+
+    // I much prefered the for_each_tuple_element syntax tbh
+    std::apply([&](const auto& ... components) {
+        (..., [&](Assets& assets, Scene& scene, entt::entity& entity) {
+            using ComponentType = typename std::decay<decltype(components)>::type::type;
+
+            if (scene.has<ComponentType>(entity)) {
+                bool isOpen = true;
+                if (ImGui::CollapsingHeader(components.name, &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
+                    if (isOpen) {
+                        drawComponent(scene.get<ComponentType>(entity), assets, scene, entity);
+                    } else {
+                        scene.remove<ComponentType>(entity);
+                    }
+                }
+            }
+        }(assets, scene, active));
+    }, Components);
+
+    if (ImGui::BeginPopup("Components")) {
+        if (ImGui::Selectable("Native Script", false)) {
+            scene.emplace<NativeScript>(active);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // Broken for now
+    if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0))) {
+        ImGui::OpenPopup("Components");
+    }
+
+    ImGui::End();
+};
+
+
+
+void InspectorWidget::drawComponent(Name& component, Assets& assets, Scene& scene, entt::entity& active) {
     ImGui::InputText("Name##1", &component.name, ImGuiInputTextFlags_AutoSelectAll);
 }
 
 
 
-void InspectorWidget::drawComponent(Node& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(Node& component, Assets& assets, Scene& scene, entt::entity& active) {
     ImGui::Text("Parent entity: %i", component.parent);
     ImGui::Text("Siblings: %i, %i", component.prevSibling, component.nextSibling);
 }
 
 
 
-void InspectorWidget::drawComponent(Transform& component, entt::registry& scene, entt::entity& active) {
-    if (ImGui::DragFloat3("Scale", glm::value_ptr(component.scale), 0.001f, 0.0f, FLT_MAX)) {
-        component.compose();
-    }
-    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component.rotation), 0.001f, static_cast<float>(-M_PI), static_cast<float>(M_PI))) {
-        component.compose();
-    }
-    if (ImGui::DragFloat3("Position", glm::value_ptr(component.position), 0.001f, FLT_MIN, FLT_MAX)) {
-        component.compose();
-    }
-}
-
-
-
-void InspectorWidget::drawComponent(Mesh& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(Mesh& component, Assets& assets, Scene& scene, entt::entity& active) {
     ImGui::Text("Triangle count: %i", component.indices.size() / 3);
 
     if (scene.valid(component.material) && scene.has<Material, Name>(component.material)) {
@@ -66,7 +102,17 @@ void InspectorWidget::drawComponent(Mesh& component, entt::registry& scene, entt
 
 
 
-void InspectorWidget::drawComponent(Material& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(Skeleton& component, Assets& assets, Scene& scene, entt::entity& active) {
+    static bool playing = false;
+    ImGui::SliderFloat("Time", &component.animation.runningTime, 0, component.animation.totalDuration);
+    if (ImGui::Button(playing ? "pause" : "play")) {
+        playing = !playing;
+    }
+}
+
+
+
+void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& scene, entt::entity& active) {
     auto& io = ImGui::GetIO();
     auto& style = ImGui::GetStyle();
     float lineHeight = io.FontDefault->FontSize;
@@ -83,13 +129,11 @@ void InspectorWidget::drawComponent(Material& component, entt::registry& scene, 
         }
     }
 
-    constexpr char* fileFilters = "Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0";
+    const char* fileFilters = "Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0";
 
-    auto drawTextureInteraction = [this, fileFilters, lineHeight](
-        GLuint texture,
-        const char* name,
-        Material* component,
-        void(Material::* func)(std::shared_ptr<TextureAsset> texture)) {
+    using createTextureFnType = void(Material::*)(std::shared_ptr<TextureAsset> texture);
+
+    auto drawTextureInteraction = [=](GLuint texture,const char* name, Material* component, createTextureFnType create) {
         ImGui::PushID(texture);
 
         bool usingTexture = texture != 0;
@@ -106,7 +150,7 @@ void InspectorWidget::drawComponent(Material& component, entt::registry& scene, 
             auto filepath = OS::openFileDialog(fileFilters);
             if (!filepath.empty()) {
                 auto assetPath = TextureAsset::convert(filepath);
-                (component->*func)(IWidget::assets().get<TextureAsset>(assetPath));
+                (component->*create)(IWidget::assets().get<TextureAsset>(assetPath));
             }
         }
 
@@ -122,99 +166,84 @@ void InspectorWidget::drawComponent(Material& component, entt::registry& scene, 
 
 
 
-void InspectorWidget::drawComponent(PointLight& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(Transform& component, Assets& assets, Scene& scene, entt::entity& active) {
+    if (ImGui::DragFloat3("Scale", glm::value_ptr(component.scale), 0.001f, 0.0f, FLT_MAX)) {
+        component.compose();
+    }
+    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component.rotation), 0.001f, static_cast<float>(-M_PI), static_cast<float>(M_PI))) {
+        component.compose();
+    }
+    if (ImGui::DragFloat3("Position", glm::value_ptr(component.position), 0.001f, FLT_MIN, FLT_MAX)) {
+        component.compose();
+    }
+}
+
+
+
+void InspectorWidget::drawComponent(PointLight& component, Assets& assets, Scene& scene, entt::entity& active) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 }
 
 
 
-void InspectorWidget::drawComponent(DirectionalLight& component, entt::registry& scene, entt::entity& active) {
+void InspectorWidget::drawComponent(NativeScript& component, Assets& assets, Scene& scene, entt::entity& active) {
+    if (component.asset) {
+        ImGui::Text("Module: %i", component.asset->getModule());
+        ImGui::Text("File: %s", component.file.c_str());
+    }
+
+    if (ImGui::Button("Load..")) {
+        std::string filepath = OS::openFileDialog("DLL Files (*.dll)\0*.dll\0");
+        if (!filepath.empty()) {
+            component.file = fs::relative(filepath).string();
+            component.asset = assets.get<ScriptAsset>(component.file);
+        }
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Release")) {
+        assets.release(component.file);
+        delete component.script;
+        component = {};
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Recompile")) {
+        std::string filepath = OS::openFileDialog("C++ Files (*.cpp)\0*.cpp\0");
+
+        if (!filepath.empty()) {
+            std::string procAddress = component.procAddress;
+            
+            delete component.script;
+            assets.release(component.file);
+            component = NativeScript();
+            
+            std::string asset =  ScriptAsset::convert(filepath);
+            
+            if (!asset.empty()) {
+                component.file = asset;
+                component.procAddress = procAddress;
+                component.asset = assets.get<ScriptAsset>(asset);
+
+                scene.bindScript(active, component);
+            }
+        }
+    }
+
+    if (ImGui::InputText("Function", &component.procAddress, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue)) {
+        if (component.asset) {
+            scene.bindScript(active, component);
+        }
+    }
+}
+
+
+
+void InspectorWidget::drawComponent(DirectionalLight& component, Assets& assets, Scene& scene, entt::entity& active) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
     ImGui::DragFloat3("Direction", glm::value_ptr(component.direction), 0.01f, -1.0f, 1.0f);
 }
-
-
-
-void InspectorWidget::drawComponent(Skeleton& component, entt::registry& scene, entt::entity& active) {
-    static bool playing = false;
-    ImGui::SliderFloat("Time", &component.animation.runningTime, 0, component.animation.totalDuration);
-    if (ImGui::Button(playing ? "pause" : "play")) {
-        playing = !playing;
-    }
-}
-
-
-
-void InspectorWidget::drawComponent(NativeScriptComponent& component, entt::registry& scene, entt::entity& active) {
-    if (!component.hmodule) {
-        if (ImGui::Button("Load DLL..")) {
-            std::string filepath = OS::openFileDialog("DLL Files (*.dll)\0*.dll\0");
-            component.hmodule = LoadLibraryA(filepath.c_str());
-        }
-    } else {
-        ImGui::Text("Module: %i", component.hmodule);
-    }
-    if (ImGui::InputText("Function", &component.procAddress, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue)) {
-        if (component.hmodule) {
-            auto address = GetProcAddress(component.hmodule, component.procAddress.c_str());
-            if (address) {
-                auto function = reinterpret_cast<NativeScript::FactoryType>(address);
-                component.script = function();
-                component.script->bind(active, scene);
-                std::puts("newing from proc address!");
-            }
-        }
-    }
-}
-
-
-
-void InspectorWidget::draw() {
-    ImGui::Begin(title.c_str());
-
-    if (editor->active == entt::null) {
-        ImGui::End();
-        return;
-    }
-
-    ImGui::Text("ID: %i", editor->active);
-
-    entt::registry& scene = IWidget::scene();
-    entt::entity& active = editor->active;
-
-    // I much prefered the for_each_tuple_element syntax tbh
-    std::apply([this, &scene, &active](const auto & ... components) {
-        (...,
-            [&components, this](entt::registry& scene, entt::entity& entity) {
-            using ComponentType = typename std::decay<decltype(components)>::type::type;
-
-            if (scene.has<ComponentType>(entity)) {
-                bool isOpen = true;
-                if (ImGui::CollapsingHeader(components.name, ImGuiTreeNodeFlags_DefaultOpen)) {
-                    if (isOpen) {
-                        drawComponent(scene.get<ComponentType>(entity), scene, entity);
-                    } else {
-                        scene.remove<ComponentType>(entity);
-                    }
-                }
-            }
-        }(scene, active));
-    }, Components);
-
-    if (ImGui::BeginPopup("Components")) {
-        if (ImGui::Selectable("Native Script", false)) {
-            scene.emplace<NativeScriptComponent>(active);
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
-
-    // Broken for now
-    if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0))) {
-        ImGui::OpenPopup("Components");
-    }
-
-    ImGui::End();
-};
 
 }

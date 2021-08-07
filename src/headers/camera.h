@@ -47,6 +47,8 @@ public:
 
     float getFOV();
     float getAspectRatio();
+    float getNear();
+    float getFar();
 
 private:
     glm::vec3 position;
@@ -55,7 +57,7 @@ private:
     glm::mat4 projection;
 
 public:
-    float& sensitivity = ConVars::convert<float>("sensitivity", 2.0f);
+    float& sensitivity = ConVars::create<float>("sensitivity", 2.0f);
     float lookConstant = 1.0f, zoomConstant = 0.01f, moveConstant = 0.005f;
     float zoomSpeed = 1.0f, moveSpeed = 0.015f;
 

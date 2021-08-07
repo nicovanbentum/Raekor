@@ -130,8 +130,8 @@ GLRenderer::GLRenderer(Async& async, SDL_Window* window, Viewport& viewport) {
     Material::Default.createNormalTexture();
 
     skinning = std::make_unique<Skinning>();
-    voxelize = std::make_unique<Voxelize>(512);
-    shadows = std::make_unique<ShadowMap>(4096, 4096);
+    voxelize = std::make_unique<Voxelize>(128);
+    shadows = std::make_unique<ShadowMap>(viewport, 4096, 4096);
     tonemap = std::make_unique<Tonemap>(viewport);
     gbuffer = std::make_unique<GBuffer>(viewport);
     shading = std::make_unique<DeferredShading>(viewport);
@@ -175,11 +175,11 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     // generate a geometry buffer with depth, normals, material and albedo
     gbuffer->render(scene, viewport);
 
+    // render the sky using ray marching for atmospheric scattering
+    sky->render(viewport, scene, gbuffer->albedoTexture, gbuffer->depthTexture);
+
     // fullscreen PBR deferred shading pass
     shading->render(scene, viewport, *shadows, *gbuffer, *voxelize);
-
-    // render the sky using ray marching for atmospheric scattering
-    sky->render(viewport, scene, shading->result, gbuffer->depthTexture);
     
     // render editor icons
     icons->render(scene, viewport, shading->result, gbuffer->entityTexture);
@@ -191,7 +191,11 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     } else {
         tonemap->render(shading->result, blackTexture);
     }
-    
+
+    if (settings.debugCascades) {
+        shadows->renderCascade(viewport, tonemap->framebuffer);
+    }
+
     // render debug lines / shapes
     lines->render(scene, viewport, tonemap->result, gbuffer->depthTexture);
 
@@ -244,6 +248,8 @@ void GLRenderer::createRenderTargets(const Viewport& viewport) {
 
     sky->destroyRenderTargets();
     sky->createRenderTargets(viewport);
+
+    shadows->updatePerspectiveConstants(viewport);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

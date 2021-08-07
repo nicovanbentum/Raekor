@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "buffer.h"
 #include "components.h"
 #include "assets.h"
 #include "systems.h"
@@ -258,6 +259,7 @@ void Skeleton::destroy() {
 void Material::createAlbedoTexture() {
     glDeleteTextures(1, &albedo);
 
+    glm::vec4 color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
     glTextureStorage2D(albedo, 1, GL_RGBA16F, 1, 1);
     glTextureSubImage2D(albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(baseColour));
@@ -276,9 +278,9 @@ void Material::createAlbedoTexture(std::shared_ptr<TextureAsset> texture) {
         return;
     }
 
-    auto header = texture->getHeader();
+    auto header = texture->header();
     auto dataPtr = texture->getData();
-    albedoFile = texture->getPath().string();
+    albedoFile = texture->path().string();
 
     glDeleteTextures(1, &albedo);
     glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
@@ -320,7 +322,7 @@ void Material::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
 
     glDeleteTextures(1, &normals);
 
-    auto header = texture->getHeader();
+    auto header = texture->header();
     auto dataPtr = texture->getData();
 
     glCreateTextures(GL_TEXTURE_2D, 1, &normals);
@@ -336,7 +338,7 @@ void Material::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
     glTextureParameteri(normals, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(normals, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    normalFile = texture->getPath().string();
+    normalFile = texture->path().string();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -344,7 +346,7 @@ void Material::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
 void Material::createMetalRoughTexture() {
     glDeleteTextures(1, &metalrough);
 
-    auto metalRoughnessValue = glm::vec4(0.0f, roughness, metallic, 1.0f);
+    auto metalRoughnessValue = glm::vec4(0.0f, 1.0, 1.0, 1.0f);
     glCreateTextures(GL_TEXTURE_2D, 1, &metalrough);
     glTextureStorage2D(metalrough, 1, GL_RGBA16F, 1, 1);
     glTextureSubImage2D(metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
@@ -364,7 +366,7 @@ void Material::createMetalRoughTexture(std::shared_ptr<TextureAsset> texture) {
 
     glDeleteTextures(1, &metalrough);
 
-    auto header = texture->getHeader();
+    auto header = texture->header();
     auto dataPtr = texture->getData();
 
     glCreateTextures(GL_TEXTURE_2D, 1, &metalrough);
@@ -381,7 +383,7 @@ void Material::createMetalRoughTexture(std::shared_ptr<TextureAsset> texture) {
     glTextureParameteri(metalrough, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(metalrough, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    mrFile = texture->getPath().string();
+    mrFile = texture->path().string();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
