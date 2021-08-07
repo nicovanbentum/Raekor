@@ -16,3 +16,8 @@ resources/textures/
 fake.hlsl
 /assets
 /scenes
+/screenshots
+/scripts/*.exp
+/scripts/*.dll
+/scripts/*.lib
+/scripts/*.pdb
