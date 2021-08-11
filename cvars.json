@@ -32,7 +32,7 @@
             "key": "r_voxelize",
             "value": {
                 "index": 0,
-                "data": 1
+                "data": 0
             }
         },
         {
@@ -61,6 +61,20 @@
             "value": {
                 "index": 0,
                 "data": 1
+            }
+        },
+        {
+            "key": "quit",
+            "value": {
+                "index": 3,
+                "data": {}
+            }
+        },
+        {
+            "key": "exit",
+            "value": {
+                "index": 3,
+                "data": {}
             }
         }
     ]

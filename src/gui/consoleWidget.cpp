@@ -58,7 +58,13 @@ void ConsoleWidget::draw() {
 
             bool success = ConVars::set(name, value);
             if (!success) {
-                items.emplace_back("Failed to set var " + name + " to " + value);
+                if (ConVars::get(name).empty()) {
+                    items.emplace_back("cvar \"" + name + "\" does not exist.");
+                } else if(value.empty()) {
+                    items.emplace_back("Please provide a value.");
+                } else {
+                    items.emplace_back("Failed to set cvar " + name + " to " + "\"" + value + "\"");
+                }
             }
         }
 

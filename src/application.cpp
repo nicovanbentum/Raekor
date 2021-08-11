@@ -35,6 +35,13 @@ WindowApplication::WindowApplication(RendererFlags flag) :
     SDL_Rect rect;
     SDL_GetDisplayBounds(SDL_GetWindowDisplayIndex(window), &rect);
     viewport = Viewport(glm::vec2(rect.w, rect.h));
+
+    auto quit_function = [&]() {
+        running = false;
+    };
+
+    ConVars::func("quit", quit_function);
+    ConVars::func("exit", quit_function);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

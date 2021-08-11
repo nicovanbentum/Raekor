@@ -1,10 +1,11 @@
 #pragma once
 
 #include "pch.h"
+#include "serial.h"
 
 namespace Raekor {
 
-typedef std::variant<int, float, std::string> cvar_t;
+typedef std::variant<int, float, std::string, std::function<void()>> cvar_t;
 
 template<class Archive>
 void serialize(Archive& archive, cvar_t& cvar) {
@@ -22,6 +23,10 @@ private:
 		template<> std::string operator()(std::string& value) {
 			return value;
 		}
+
+		template<> std::string operator()(std::function<void()>& value) {
+			return {};
+		}
 	};
 
 
@@ -31,6 +36,11 @@ private:
 
 		template<typename T> bool operator()(T& cvar) {
 			return false;
+		}
+
+		template<> bool operator()(std::function<void()>& cvar) {
+			cvar();
+			return true;
 		}
 
 		template<> bool operator()(std::string& cvar) {
@@ -70,20 +80,28 @@ public:
 	}
 
 	template<typename T>
-	[[nodiscard]] static T& create(const std::string& name, T value) {
-		if (singleton->cvars.find(name) == singleton->cvars.end()) {
+	[[nodiscard]] static T& create(const std::string& name, T value, bool force = false) {
+		if (singleton->cvars.find(name) == singleton->cvars.end() || force) {
 			singleton->cvars[name] = value;
 		}
 
 		return std::get<T>(singleton->cvars[name]);
 	}
 
+	static void func(const std::string& name, std::function<void()> fn) {
+		auto ret = create(name, fn, true);
+	}
+	
 	template<typename T>
 	[[nodiscard]] static T& getValue(const std::string& name) {
 		return std::get<T>(singleton->cvars[name]);
 	}
 
 	static std::string get(const std::string& name) {
+		if (singleton->cvars.find(name) == singleton->cvars.end()) {
+			return {};
+		}
+
 		try {
 			GetVisitor visitor;
 			return std::visit(visitor, singleton->cvars[name]);
@@ -103,8 +121,7 @@ public:
 			SetVisitor visitor(value);
 			return std::visit(visitor, singleton->cvars[name]);
 		}
-		catch (const std::exception& e) {
-			UNREFERENCED_PARAMETER(e);
+		catch (...) {
 			return false;
 		}
 	}
