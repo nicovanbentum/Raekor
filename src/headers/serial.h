@@ -82,14 +82,14 @@ void serialize(Archive& archive, Raekor::Vertex& v) {
 
 template<class Archive>
 void save(Archive& archive, const Raekor::Mesh& mesh) {
-	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.bitangents, mesh.indices, mesh.material);
+	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.indices, mesh.material);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<class Archive>
 void load(Archive& archive, Raekor::Mesh& mesh) {
-	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.bitangents, mesh.indices, mesh.material);
+	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.indices, mesh.material);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,6 +111,20 @@ void load(Archive& archive, Raekor::Material& mat) {
 template<class Archive>
 void serialize(Archive& archive, Raekor::Name& name) {
     archive(name.name);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<class Archive>
+void load(Archive& archive, std::function<void()>& fn) {
+
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<class Archive>
+void save(Archive& archive, const std::function<void()>& fn) {
+
 }
 
 } // namespace cereal

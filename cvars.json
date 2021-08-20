@@ -8,7 +8,7 @@
             }
         },
         {
-            "key": "sv_cheats",
+            "key": "r_bloom",
             "value": {
                 "index": 0,
                 "data": 0
@@ -22,14 +22,7 @@
             }
         },
         {
-            "key": "r_bloom",
-            "value": {
-                "index": 0,
-                "data": 1
-            }
-        },
-        {
-            "key": "r_voxelize",
+            "key": "sv_cheats",
             "value": {
                 "index": 0,
                 "data": 0
@@ -43,6 +36,13 @@
             }
         },
         {
+            "key": "r_voxelize",
+            "value": {
+                "index": 0,
+                "data": 1
+            }
+        },
+        {
             "key": "mat_postprocess_enable",
             "value": {
                 "index": 0,
@@ -53,7 +53,7 @@
             "key": "r_debugCascades",
             "value": {
                 "index": 0,
-                "data": 0
+                "data": 1
             }
         },
         {

@@ -28,6 +28,8 @@ layout(binding = 0) uniform ubo {
       mat4 view;
       mat4 model;
       vec4 colour;
+      float metallic;
+      float roughness;
       uint entity;
 };
 
@@ -68,6 +70,6 @@ void main() {
 	gNormal = vec4(normal, 1.0);
 
     vec4 metalrough = texture(metalroughTexture, vs_out.uv);
-    gMetallicRoughness = vec4(metalrough.r, metalrough.g, metalrough.b, 1.0);
+    gMetallicRoughness = vec4(metalrough.r, metalrough.g * roughness, metalrough.b * metallic, 1.0);
     gEntityID = vec4(entity, 0, 0, 1.0);
 }

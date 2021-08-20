@@ -4,14 +4,15 @@
 layout(location = 0) in vec3 v_pos;
 layout(location = 1) in vec2 v_uv;
 layout(location = 2) in vec3 v_normal;
-layout(location = 3) in vec3 v_tangent;
-layout(location = 4) in vec3 v_binormal;
+layout(location = 3) in vec4 v_tangent;
 
 layout(binding = 0) uniform ubo {
       mat4 projection;
       mat4 view;
       mat4 model;
       vec4 colour;
+      float metallic;
+      float roughness;
       uint entity;
 };
 
@@ -27,13 +28,12 @@ void main() {
 
     // TODO: handle possible tangent w -1.0
 
-	vec3 T = normalize(vec3(model * vec4(v_tangent,		0.0)));
-    vec3 N = normalize(vec3(model * vec4(v_normal,		0.0)));
+    vec3 N = normalize(vec3(model * vec4(v_normal, 0.0)));
+	vec3 T = normalize(vec3(model * vec4(vec3(v_tangent), 0.0)));
     
     T = normalize(T - dot(T, N) * N);
 
-	vec3 B = cross(N, T);
-    B = v_binormal;
+	vec3 B = cross(N, T) * v_tangent.w;
 	vs_out.TBN = mat3(T, B, N);
 
 	vs_out.uv = v_uv;

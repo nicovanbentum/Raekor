@@ -6,7 +6,7 @@
 
 namespace Raekor {
 
-ViewportWidget::ViewportWidget(Editor* editor) : 
+ViewportWidget::ViewportWidget(Editor* editor) :
     IWidget(editor, "Viewport"),
     rendertarget(IWidget::renderer().tonemap->result)
 {}
@@ -14,6 +14,7 @@ ViewportWidget::ViewportWidget(Editor* editor) :
 
 
 void ViewportWidget::draw() {
+
     auto& scene = IWidget::scene();
     auto& renderer = IWidget::renderer();
     auto& viewport = editor->getViewport();
@@ -48,10 +49,10 @@ void ViewportWidget::draw() {
 
     ImGui::SameLine(ImGui::GetContentRegionAvail().x - 256.0f);
 
-    constexpr std::array items = { 
-        "Final", 
-        "Albedo", 
-        "Normals", 
+    constexpr std::array items = {
+        "Final",
+        "Albedo",
+        "Normals",
         "Material",
         "Bloom (Threshold)",
         "Bloom (Blur 1)",
@@ -59,10 +60,10 @@ void ViewportWidget::draw() {
         "Shading (Result)"
     };
 
-    const std::array targets = { 
-        renderer.tonemap->result, 
-        renderer.gbuffer->albedoTexture, 
-        renderer.gbuffer->normalTexture, 
+    const std::array targets = {
+        renderer.tonemap->result,
+        renderer.gbuffer->albedoTexture,
+        renderer.gbuffer->normalTexture,
         renderer.gbuffer->materialTexture,
         renderer.shading->bloomHighlights,
         renderer.bloom->blurTexture,
@@ -76,7 +77,7 @@ void ViewportWidget::draw() {
             currentItem = i;
         }
     }
-    
+
     if (ImGui::Combo("##Render target", &currentItem, items.data(), static_cast<int>(items.size()))) {
         rendertarget = targets[currentItem];
     }
@@ -108,9 +109,9 @@ void ViewportWidget::draw() {
 
         if (scene.valid(picked)) {
             ImGui::BeginTooltip();
-            
+
             mesh = scene.try_get<Mesh>(picked);
-            
+
             if (mesh) {
                 ImGui::Text(std::string(std::string("Apply to ") + scene.get<Name>(picked).name).c_str());
                 editor->active = picked;
@@ -119,7 +120,7 @@ void ViewportWidget::draw() {
                 ImGui::Text("Invalid target");
                 ImGui::PopStyleColor();
             }
-            
+
             ImGui::EndTooltip();
         }
 
@@ -151,7 +152,7 @@ void ViewportWidget::draw() {
         }
     }
 
-    
+
     if (editor->active != entt::null && scene.valid(editor->active) && scene.has<Transform>(editor->active) && gizmoEnabled) {
         ImGuizmo::SetDrawlist();
         ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
@@ -168,11 +169,11 @@ void ViewportWidget::draw() {
         ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
 
         bool manipulated = ImGuizmo::Manipulate(
-            glm::value_ptr(viewport.getCamera().getView()),
-            glm::value_ptr(viewport.getCamera().getProjection()),
-            operation, ImGuizmo::MODE::WORLD,
-            glm::value_ptr(transform.localTransform)
-        );
+                               glm::value_ptr(viewport.getCamera().getView()),
+                               glm::value_ptr(viewport.getCamera().getProjection()),
+                               operation, ImGuizmo::MODE::WORLD,
+                               glm::value_ptr(transform.localTransform)
+                           );
 
         // transform back to world space
         if (mesh) {

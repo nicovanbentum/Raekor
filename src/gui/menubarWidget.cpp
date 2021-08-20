@@ -266,6 +266,12 @@ void MenubarWidget::draw() {
                     active = entity;
                 }
 
+                if (ImGui::MenuItem("Directional Light")) {
+                    auto entity = scene.createObject("Directional Light");
+                    scene.emplace<DirectionalLight>(entity);
+                    active = entity;
+                }
+
                 ImGui::EndMenu();
             }
 

@@ -60,7 +60,7 @@ bool AssimpImporter::LoadFromFile(Async& async, Assets& assets, const std::strin
     auto root = scene.createObject(assimpScene->mRootNode->mName.C_Str());
     parseNode(assimpScene->mRootNode, entt::null, root);
 
-    return true;
+return true;
 }
 
 void AssimpImporter::parseMaterial(aiMaterial* assimpMaterial, entt::entity entity) {
@@ -120,12 +120,12 @@ void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_enti
             transform.localTransform = Assimp::toMat4(localTransform);
             transform.decompose();
 
-                auto p = parent != entt::null ? parent : new_entity;
-                NodeSystem::append(
-                    scene,
-                    scene.get<Node>(p),
-                    scene.get<Node>(entity)
-                );
+            auto p = parent != entt::null ? parent : new_entity;
+            NodeSystem::append(
+                scene,
+                scene.get<Node>(p),
+                scene.get<Node>(entity)
+            );
         }
 
         // process mesh
@@ -142,8 +142,12 @@ void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_enti
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
-    // extract vertices
     auto& mesh = scene.emplace<Mesh>(entity);
+
+    mesh.positions.reserve(assimpMesh->mNumVertices);
+    mesh.uvs.reserve(assimpMesh->mNumVertices);
+    mesh.normals.reserve(assimpMesh->mNumVertices);
+    mesh.tangents.reserve(assimpMesh->mNumVertices);
 
     for (size_t i = 0; i < assimpMesh->mNumVertices; i++) {
         mesh.positions.emplace_back(assimpMesh->mVertices[i].x, assimpMesh->mVertices[i].y, assimpMesh->mVertices[i].z);
@@ -151,18 +155,24 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
         if (assimpMesh->HasTextureCoords(0)) {
             mesh.uvs.emplace_back(assimpMesh->mTextureCoords[0][i].x, assimpMesh->mTextureCoords[0][i].y);
         }
+
         if (assimpMesh->HasNormals()) {
             mesh.normals.emplace_back(assimpMesh->mNormals[i].x, assimpMesh->mNormals[i].y, assimpMesh->mNormals[i].z);
         }
 
         if (assimpMesh->HasTangentsAndBitangents()) {
-            mesh.tangents.emplace_back(assimpMesh->mTangents[i].x, assimpMesh->mTangents[i].y, assimpMesh->mTangents[i].z);
-            mesh.bitangents.emplace_back(assimpMesh->mBitangents[i].x, assimpMesh->mBitangents[i].y, assimpMesh->mBitangents[i].z);
+            auto& tangent = mesh.tangents.emplace_back(assimpMesh->mTangents[i].x, assimpMesh->mTangents[i].y, assimpMesh->mTangents[i].z, 1.0f);
+
+            glm::vec3 bitangent = glm::vec3(assimpMesh->mBitangents[i].x, assimpMesh->mBitangents[i].y, assimpMesh->mBitangents[i].z);
+
+            if (glm::dot(glm::cross(mesh.normals[i],glm::vec3(tangent)), bitangent) < 0.0f) {
+                tangent.w *= -1.0f;
+            }
         }
     }
 
-    // extract indices
-    //mesh.indices.reserve(assimpMesh->mNumFaces);
+    mesh.indices.reserve(assimpMesh->mNumFaces * 3);
+    
     for (size_t i = 0; i < assimpMesh->mNumFaces; i++) {
         assert(assimpMesh->mFaces[i].mNumIndices == 3);
         mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[0]);

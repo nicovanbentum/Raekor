@@ -303,7 +303,7 @@ private:
     glVertexBuffer vertexBuffer;
     GLuint uniformBuffer;
 
-    std::vector<Vertex> points;
+    std::vector<glm::vec3> points;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

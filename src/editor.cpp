@@ -23,20 +23,18 @@ Editor::Editor() :
     gui::setFont(settings.font.c_str());
     gui::setTheme(settings.themeColors);
 
-    if (std::filesystem::is_regular_file(settings.defaultScene)) {
-        if (std::filesystem::path(settings.defaultScene).extension() == ".scene") {
-            SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
-            scene.openFromFile(async, assets, settings.defaultScene);
-        }
+    if (fs::exists(settings.defaultScene) && fs::path(settings.defaultScene).extension() == ".scene") {
+        SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
+        scene.openFromFile(async, assets, settings.defaultScene);
     }
 
-    widgets.emplace_back(new ConsoleWidget(this));
-    widgets.emplace_back(new AssetsWidget(this));
-    widgets.emplace_back(new InspectorWidget(this));
-    widgets.emplace_back(new HierarchyWidget(this));
-    widgets.emplace_back(new MenubarWidget(this));
-    widgets.emplace_back(new RandomWidget(this));
-    widgets.emplace_back(new ViewportWidget(this));
+    widgets.emplace_back(std::make_shared<ConsoleWidget>(this));
+    widgets.emplace_back(std::make_shared<AssetsWidget>(this));
+    widgets.emplace_back(std::make_shared<InspectorWidget>(this));
+    widgets.emplace_back(std::make_shared<HierarchyWidget>(this));
+    widgets.emplace_back(std::make_shared<MenubarWidget>(this));
+    widgets.emplace_back(std::make_shared<RandomWidget>(this));
+    widgets.emplace_back(std::make_shared<ViewportWidget>(this));
 
     std::cout << "Initialization done." << std::endl;
 }
@@ -51,7 +49,6 @@ void Editor::update(float dt) {
 
         if (inAltMode) {
             viewport.getCamera().strafeMouse(event, dt);
-
         } else if (ImGui::IsMouseHoveringRect(ImVec(viewport.offset), ImVec(viewport.size), false)) {
             viewport.getCamera().onEventEditor(event);
         }
@@ -77,24 +74,27 @@ void Editor::update(float dt) {
             }
         }
 
-        for (const auto& widget : widgets) {
-            if (widget->isFocused()) {
-                widget->onEvent(event);
+        if (ImGui::IsAnyItemActive()) {
+            for (const auto& widget : widgets) {
+                if (widget->isFocused()) {
+                    widget->onEvent(event);
+                }
             }
         }
     }
-
-    viewport.getCamera().update();
 
     if (inAltMode) {
         viewport.getCamera().strafeWASD(dt);
     }
 
-    // update transforms
+    // update the camera
+    viewport.getCamera().update();
+
+    // update scene components
     scene.updateTransforms();
     scene.updateLights();
 
-    // update animations
+    // update animations in parallel
     scene.view<Skeleton>().each([&](Skeleton& skeleton) {
         async.dispatch([&]() {
             skeleton.boneTransform(dt);
@@ -102,7 +102,6 @@ void Editor::update(float dt) {
     });
 
     async.wait();
-  
     // update scripts
     scene.view<NativeScript>().each([&](NativeScript& component) {
         if (component.script) {
@@ -110,6 +109,7 @@ void Editor::update(float dt) {
         }
     });
 
+    // draw the bounding box of the active entity
     if (active != entt::null && scene.has<Mesh>(active)) {
         auto& mesh = scene.get<Mesh>(active);
         auto& transform = scene.get<Transform>(active);
@@ -128,48 +128,18 @@ void Editor::update(float dt) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     renderer.ImGui_NewFrame(window);
-    ImGuizmo::BeginFrame();
 
-    if (ImGui::IsAnyItemActive()) {
-        // TODO: perform input mapping
-    }
 
-    // begin ImGui dockspace
-    ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-    ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(imGuiViewport->Pos);
-    ImGui::SetNextWindowSize(imGuiViewport->Size);
-    ImGui::SetNextWindowViewport(imGuiViewport->ID);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-                       ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+    {
+        // draw ImGui
+        gui::ScopedDockSpace dockspace;
 
-    ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
-    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) {
-        dockWindowFlags |= ImGuiWindowFlags_NoBackground;
-    }
-
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::Begin("DockSpace", (bool*)true, dockWindowFlags);
-    ImGui::PopStyleVar();
-    ImGui::PopStyleVar(2);
-
-    ImGuiIO& io = ImGui::GetIO();
-    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
-        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
-    }
-
-    // draw all the widgets
-    for (auto widget : widgets) {
-        if (widget->isVisible()) {
-            widget->draw();
+        for (auto widget : widgets) {
+            if (widget->isVisible()) {
+                widget->draw();
+            }
         }
     }
-
-    // end ImGui dockspace
-    ImGui::End();
 
     renderer.ImGui_Render();
     SDL_GL_SwapWindow(window);
@@ -199,7 +169,7 @@ void Editor::onEvent(const SDL_Event& event) {
                             NodeSystem::remove(scene, scene.get<Node>(entity));
                             scene.destroy(entity);
                         }
-                    
+
                         NodeSystem::remove(scene, scene.get<Node>(active));
                     }
 

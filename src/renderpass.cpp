@@ -224,10 +224,7 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
 
         uniforms.lightMatrix = matrices[i];
 
-        for (auto entity : view) {
-            const auto& mesh = view.get<const Mesh>(entity);
-            const auto& transform = view.get<const Transform>(entity);
-
+        for (const auto& [entity, mesh, transform] : view.each()) {
             uniforms.modelMatrix = transform.worldTransform;
 
             // determine if we use the original mesh vertices or GPU skinned vertices
@@ -310,9 +307,7 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport) {
 
     std::vector<uint64_t> handles;
 
-    for (auto entity : view) {
-        const auto& [mesh, transform] = view.get<const Mesh, const Transform>(entity);
-
+    for (const auto& [entity, mesh, transform] : view.each()) {
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB = {
             transform.worldTransform* glm::vec4(mesh.aabb[0], 1.0),
@@ -826,6 +821,11 @@ Voxelize::Voxelize(uint32_t size) : size(size) {
     glTextureStorage3D(result, static_cast<GLsizei>(std::log2(size)), GL_RGBA8, size, size, size);
     glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+    float borderColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    glTextureParameterfv(result, GL_TEXTURE_BORDER_COLOR, borderColor);
     glGenerateTextureMipmap(result);
 }
 
@@ -882,7 +882,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
-    glEnable(GL_CONSERVATIVE_RASTERIZATION_NV);
+    //glEnable(GL_CONSERVATIVE_RASTERIZATION_NV);
 
     // bind shader and level 0 of the voxel volume
     shader.bind();
@@ -933,6 +933,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
 
     // Run compute shaders
     computeMipmaps(result);
+    //glGenerateTextureMipmap(result);
 
     // reset OpenGL state
     glViewport(0, 0, viewport.size.x, viewport.size.y);
@@ -940,7 +941,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    glDisable(GL_CONSERVATIVE_RASTERIZATION_NV);
+    //glDisable(GL_CONSERVATIVE_RASTERIZATION_NV);
 
 }
 
@@ -1114,11 +1115,7 @@ DebugLines::DebugLines() {
     glCreateFramebuffers(1, &frameBuffer);
 
     vertexBuffer.setLayout( {
-        {"POSITION",    ShaderType::FLOAT3},
-        {"UV",          ShaderType::FLOAT2},
-        {"NORMAL",      ShaderType::FLOAT3},
-        {"TANGENT",     ShaderType::FLOAT3},
-        {"BINORMAL",    ShaderType::FLOAT3},
+        {"POSITION", ShaderType::FLOAT3}
     });
 
     glCreateBuffers(1, &uniformBuffer);
@@ -1145,7 +1142,7 @@ void DebugLines::render(const Scene& scene, const Viewport& viewport, GLuint tex
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
 
-    vertexBuffer.loadVertices(points.data(), points.size());
+    vertexBuffer.loadVertices(glm::value_ptr(*points.data()), points.size() * 3);
     vertexBuffer.bind();
 
     glDrawArrays(GL_LINES, 0, (GLsizei)points.size());

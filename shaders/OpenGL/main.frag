@@ -275,9 +275,9 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
     float dist = voxelSize; 
     vec3 startPos = p + n * voxelSize; 
 
-    while(colour.a < 1.0) {
+    while(dist < voxelsWorldSize && colour.a < 1.0) {
         
-        float diameter = max(voxelSize, 2 * coneAperture * dist);
+        float diameter = max(voxelSize, 2 * dist * coneAperture);
         float mip = log2(diameter / voxelSize);
 
         // create vec3 for reading voxel texture from world vector
@@ -286,19 +286,8 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
         uv3d = uv3d * 0.5 + 0.5 + offset;
         vec4 voxel_colour = textureLod(voxels, uv3d, mip);
 
-        if(dist > voxelsWorldSize) {
-            vec3 transmittance;
-            vec3 scattered = IntegrateScattering(startPos + dist * coneDirection, coneDirection, INFINITY, light.direction.xyz, light.color.rgb, transmittance);
-            voxel_colour = vec4(scattered, 1.0);
-            float a = (1.0 - colour.a);
-            colour.rgb += a * voxel_colour.rgb;
-            colour.a += a * voxel_colour.a;
-            occlusion += (a * voxel_colour.a) / (1.0 + 0.03 * diameter);
-            break;
-        }
-
         if(!is_saturated(uv3d) || mip >= log2(VoxelDimensions)) {
-            break;
+           break;
         }
 
         // back-to-front alpha 
@@ -308,7 +297,7 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
         occlusion += (a * voxel_colour.a) / (1.0 + 0.03 * diameter);
 
         // move along the ray
-        dist += diameter * 0.5;
+        dist += diameter;
     }
 
     return colour;
@@ -332,7 +321,7 @@ vec4 coneTraceRadiance(in vec3 p, in vec3 n, int rayCount, out float occlusion_o
 
     for(int i = 0; i < rayCount; i++) {
 
-        vec2 ham = hammersley2d(i, 16);
+        vec2 ham = hammersley2d(i, rayCount);
         vec3 hemi = importance_sample(ham.x, ham.y);
         vec3 coneDirection = hemi * tangentSpace;
 
@@ -590,6 +579,8 @@ vec3 ambient(DirectionalLight light, vec3 P,  vec3 N, vec3 V, Material material)
     
     vec3 R = reflect(-V, N);
 
+    float d = clamp(dot(N, vec3(0, 1, 0)), 0.0, 1);
+
     vec3 transmittance;
     vec3 scattered = IntegrateScattering(P, reflect(-light.direction.xyz, N), INFINITY, light.direction.xyz, light.color.rgb, transmittance);
 
@@ -599,7 +590,7 @@ vec3 ambient(DirectionalLight light, vec3 P,  vec3 N, vec3 V, Material material)
 
     vec3 specular = scattered * (F * brdf.x + brdf.y);
 
-    vec3 ambient = (kD * diffuse + specular);
+    vec3 ambient = (kD * diffuse + specular) * d;
 
     return ambient;
 }
@@ -697,9 +688,14 @@ void main() {
     vec3 ambient = ambient(light, position,  normal, V, material);
 
     float occlusion;
+
+    float I = max(dot(-light.direction.xyz, normal), 0);
+
     vec4 radiance = coneTraceRadiance(position, normal, 16, occlusion, light);
 
-    finalColor = vec4(Lo + albedo.rgb * radiance.rgb, albedo.a);
+    finalColor = vec4(Lo + occlusion * albedo.rgb * ambient, 1.0);
+
+    
 
     // switch(cascadeIndex) {
     //     case 0 : 
@@ -717,6 +713,8 @@ void main() {
     // }
 
     // BLOOM SEPERATION
+    // TODO: upscale final bloom texture to screen res and lerp between final and bloom in the tonemap shader
+    // this way we can get rid of thresholding
 	float brightness = dot(finalColor.rgb, bloomThreshold.rgb);
     bloomColor = finalColor * min(brightness, 1.0);
     bloomColor.r = min(bloomColor.r, 1.0);

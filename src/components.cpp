@@ -57,9 +57,9 @@ void Mesh::generateTangents() {
 
         tan = glm::normalize(tan - glm::dot(normal, tan) * normal);
 
-        tangents[indices[i]] = tan;
-        tangents[indices[i + 1]] = tan;
-        tangents[indices[i + 2]] = tan;
+        tangents[indices[i]] = glm::vec4(tan, 1.0f);
+        tangents[indices[i + 1]] = glm::vec4(tan, 1.0f);
+        tangents[indices[i + 2]] = glm::vec4(tan, 1.0f);
     }
 }
 
@@ -74,20 +74,18 @@ void Mesh::generateAABB() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<float> Mesh::getVertexData() {
+std::vector<float> Mesh::getInterleavedVertices() {
     std::vector<float> vertices;
     vertices.reserve(
         3 * positions.size() +
         2 * uvs.size() +
         3 * normals.size() +
-        3 * tangents.size() +
-        3 * bitangents.size()
+        4 * tangents.size()
     );
 
     const bool hasUVs = !uvs.empty();
     const bool hasNormals = !normals.empty();
     const bool hasTangents = !tangents.empty();
-    const bool hasBitangents = !bitangents.empty();
 
     for (auto i = 0; i < positions.size(); i++) {
         auto position = positions[i];
@@ -113,13 +111,7 @@ std::vector<float> Mesh::getVertexData() {
             vertices.push_back(tangent.x);
             vertices.push_back(tangent.y);
             vertices.push_back(tangent.z);
-        }
-
-        if (hasBitangents) {
-            auto bitangent = bitangents[i];
-            vertices.push_back(bitangent.x);
-            vertices.push_back(bitangent.y);
-            vertices.push_back(bitangent.z);
+            vertices.push_back(tangent.w);
         }
     }
 
@@ -136,7 +128,7 @@ void Mesh::destroy() {
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void Mesh::uploadVertices() {
-    auto vertices = getVertexData();
+    auto vertices = getInterleavedVertices();
 
     std::vector<Element> layout;
     if (!positions.empty()) {
@@ -149,20 +141,17 @@ void Mesh::uploadVertices() {
         layout.emplace_back("NORMAL", ShaderType::FLOAT3);
     }
     if (!tangents.empty()) {
-        layout.emplace_back("TANGENT", ShaderType::FLOAT3);
-    }
-    if (!bitangents.empty()) {
-        layout.emplace_back("BINORMAL", ShaderType::FLOAT3);
+        layout.emplace_back("TANGENT", ShaderType::FLOAT4);
     }
 
-    vertexBuffer.loadVertices(vertices.data(), vertices.size());
+    //vertexBuffer.loadVertices(vertices.data(), vertices.size());
     vertexBuffer.setLayout(layout);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void Mesh::uploadIndices() {
-    indexBuffer.loadIndices(indices.data(), indices.size());
+    //indexBuffer.loadIndices(indices.data(), indices.size());
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -233,15 +222,14 @@ void Skeleton::uploadRenderData(Mesh& mesh) {
     glCreateBuffers(1, &boneTransformsBuffer);
     glNamedBufferData(boneTransformsBuffer, boneTransforms.size() * sizeof(glm::mat4), boneTransforms.data(), GL_DYNAMIC_READ);
 
-    auto originalMeshBuffer = mesh.getVertexData();
+    auto originalMeshBuffer = mesh.getInterleavedVertices();
     skinnedVertexBuffer.loadVertices(originalMeshBuffer.data(), originalMeshBuffer.size());
     skinnedVertexBuffer.setLayout(
         {
             { "POSITION",    ShaderType::FLOAT3 },
             { "UV",          ShaderType::FLOAT2 },
             { "NORMAL",      ShaderType::FLOAT3 },
-            { "TANGENT",     ShaderType::FLOAT3 },
-            { "BINORMAL",    ShaderType::FLOAT3 },
+            { "TANGENT",     ShaderType::FLOAT4 },
         });
 }
 
@@ -255,23 +243,6 @@ void Skeleton::destroy() {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
-
-void Material::createAlbedoTexture() {
-    glDeleteTextures(1, &albedo);
-
-    glm::vec4 color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
-    glTextureStorage2D(albedo, 1, GL_RGBA16F, 1, 1);
-    glTextureSubImage2D(albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(baseColour));
-
-    glTextureParameteri(albedo, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(albedo, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(albedo, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(albedo, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(albedo, GL_TEXTURE_WRAP_R, GL_REPEAT);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Material::createAlbedoTexture(std::shared_ptr<TextureAsset> texture) {
     if (!texture) {
@@ -295,22 +266,6 @@ void Material::createAlbedoTexture(std::shared_ptr<TextureAsset> texture) {
 
     glTextureParameteri(albedo, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(albedo, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Material::createNormalTexture() {
-    glDeleteTextures(1, &normals);
-
-    constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
-    glCreateTextures(GL_TEXTURE_2D, 1, &normals);
-    glTextureStorage2D(normals, 1, GL_RGBA16F, 1, 1);
-    glTextureSubImage2D(normals, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(tbnAxis));
-    glTextureParameteri(normals, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(normals, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(normals, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(normals, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(normals, GL_TEXTURE_WRAP_R, GL_REPEAT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -339,22 +294,6 @@ void Material::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
     glTextureParameteri(normals, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     normalFile = texture->path().string();
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Material::createMetalRoughTexture() {
-    glDeleteTextures(1, &metalrough);
-
-    auto metalRoughnessValue = glm::vec4(0.0f, 1.0, 1.0, 1.0f);
-    glCreateTextures(GL_TEXTURE_2D, 1, &metalrough);
-    glTextureStorage2D(metalrough, 1, GL_RGBA16F, 1, 1);
-    glTextureSubImage2D(metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
-    glTextureParameteri(metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(metalrough, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(metalrough, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(metalrough, GL_TEXTURE_WRAP_R, GL_REPEAT);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

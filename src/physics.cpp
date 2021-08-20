@@ -37,6 +37,7 @@ Physics::Physics() {
 
 Physics::~Physics() {
     scene->release();
+    PxCloseExtensions();
     physics->release();
     foundation->release();
 }

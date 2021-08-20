@@ -8,10 +8,39 @@
 
 #include "IconsFontAwesome5.h"
 
-namespace Raekor
-{
-namespace gui
-{
+namespace Raekor::gui {
+
+ScopedDockSpace::ScopedDockSpace() {
+    ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(imGuiViewport->Pos);
+    ImGui::SetNextWindowSize(imGuiViewport->Size);
+    ImGui::SetNextWindowViewport(imGuiViewport->ID);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    dockWindowFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) {
+        dockWindowFlags |= ImGuiWindowFlags_NoBackground;
+    }
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("DockSpace", (bool*)true, dockWindowFlags);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+    }
+}
+
+ScopedDockSpace::~ScopedDockSpace() {
+    ImGui::End();
+}
 
 void setTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data) {
     // load the UI's theme from config
@@ -62,5 +91,4 @@ glm::ivec2 getMousePosWindow(const Viewport& viewport, ImVec2 windowPos) {
     return rendererMousePosition;
 }
 
-} // gui
 } // raekor

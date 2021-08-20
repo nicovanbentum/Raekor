@@ -4,20 +4,19 @@
 #include "async.h"
 
 #ifdef _WIN32
-#include "platform/windows/DXRenderer.h"
+    #include "platform/windows/DXRenderer.h"
 #endif
 
 #include "camera.h"
 #include "renderpass.h"
 
-namespace Raekor
-{
+namespace Raekor {
 
 void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
         fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
-            (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
-            type, severity, message);
+                (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
+                type, severity, message);
 
         switch (id) {
             case 131218: return; // shader state recompilation
@@ -48,24 +47,24 @@ GLRenderer::GLRenderer(Async& async, SDL_Window* window, Viewport& viewport) {
 
     // Loaded OpenGL successfully.
     std::cout << "OpenGL version loaded: " << GLVersion.major << "."
-        << GLVersion.minor << '\n';
+              << GLVersion.minor << '\n';
 
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
     for (const auto& file : fs::directory_iterator("shaders/OpenGL")) {
         if (!file.is_regular_file()) continue;
-        
+
         async.dispatch([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
-            
+
             if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time()) {
                 auto success = glShader::glslangValidator(vulkanSDK, file);
-                
+
                 if (!success) {
                     std::cout << "failed to compile vulkan shader: " << file.path().string() << '\n';
-                } 
+                }
             }
         });
     }
@@ -120,17 +119,43 @@ GLRenderer::GLRenderer(Async& async, SDL_Window* window, Viewport& viewport) {
     glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
 
     // initialize default gpu resources
-    Material::Default = Material
-    {
+    Material::Default = Material {
         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f
     };
 
-    Material::Default.createAlbedoTexture();
-    Material::Default.createMetalRoughTexture();
-    Material::Default.createNormalTexture();
+    glm::vec4 color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    glCreateTextures(GL_TEXTURE_2D, 1, &Material::Default.albedo);
+    glTextureStorage2D(Material::Default.albedo, 1, GL_RGBA16F, 1, 1);
+    glTextureSubImage2D(Material::Default.albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(color));
+
+    glTextureParameteri(Material::Default.albedo, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(Material::Default.albedo, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(Material::Default.albedo, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(Material::Default.albedo, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(Material::Default.albedo, GL_TEXTURE_WRAP_R, GL_REPEAT);
+
+    auto metalRoughnessValue = glm::vec4(0.0f, 1.0, 1.0, 1.0f);
+    glCreateTextures(GL_TEXTURE_2D, 1, &Material::Default.metalrough);
+    glTextureStorage2D(Material::Default.metalrough, 1, GL_RGBA16F, 1, 1);
+    glTextureSubImage2D(Material::Default.metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
+    glTextureParameteri(Material::Default.metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(Material::Default.metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(Material::Default.metalrough, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(Material::Default.metalrough, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(Material::Default.metalrough, GL_TEXTURE_WRAP_R, GL_REPEAT);
+
+    constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
+    glCreateTextures(GL_TEXTURE_2D, 1, &Material::Default.normals);
+    glTextureStorage2D(Material::Default.normals, 1, GL_RGBA16F, 1, 1);
+    glTextureSubImage2D(Material::Default.normals, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(tbnAxis));
+    glTextureParameteri(Material::Default.normals, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(Material::Default.normals, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(Material::Default.normals, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(Material::Default.normals, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(Material::Default.normals, GL_TEXTURE_WRAP_R, GL_REPEAT);
 
     skinning = std::make_unique<Skinning>();
-    voxelize = std::make_unique<Voxelize>(128);
+    voxelize = std::make_unique<Voxelize>(512);
     shadows = std::make_unique<ShadowMap>(viewport, 4096, 4096);
     tonemap = std::make_unique<Tonemap>(viewport);
     gbuffer = std::make_unique<GBuffer>(viewport);
@@ -153,6 +178,7 @@ void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -160,8 +186,8 @@ void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
 void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     // skin all meshes in the scene
     scene.view<const Skeleton, const Mesh>()
-         .each([&](auto& animation, auto& mesh) {
-            skinning->compute(mesh, animation);
+    .each([&](auto& animation, auto& mesh) {
+        skinning->compute(mesh, animation);
     });
 
     // render 4 * 4096 cascaded shadow maps
@@ -180,7 +206,7 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
 
     // fullscreen PBR deferred shading pass
     shading->render(scene, viewport, *shadows, *gbuffer, *voxelize);
-    
+
     // render editor icons
     icons->render(scene, viewport, shading->result, gbuffer->entityTexture);
 
@@ -263,13 +289,11 @@ void GLRenderer::ImGui_Render() {
 
 void Renderer::Init(SDL_Window* window) {
     switch (activeAPI) {
-        case RenderAPI::OPENGL:
-        {
+        case RenderAPI::OPENGL: {
             instance = nullptr;
         } break;
 #ifdef _WIN32
-        case RenderAPI::DIRECTX11:
-        {
+        case RenderAPI::DIRECTX11: {
             instance = new DXRenderer(window);
         } break;
 #endif

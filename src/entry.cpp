@@ -7,7 +7,7 @@
 
 int main(int argc, char** argv) {
     {
-        Raekor::WindowApplication* app = new Raekor::Editor();
+        Raekor::WindowApplication* app = new Raekor::VulkanApp();
 
         float dt = 0;
         Raekor::Timer timer;
@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
         while (app->running) {
             timer.start();
             app->update(dt);
-            std::this_thread::sleep_for(std::chrono::nanoseconds(20));
+            //std::this_thread::sleep_for(std::chrono::nanoseconds(20));
             dt = static_cast<float>(timer.stop());
         }
 

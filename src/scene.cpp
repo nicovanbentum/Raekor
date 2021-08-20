@@ -11,8 +11,8 @@ namespace Raekor
 {
 
 Scene::Scene() {
-    on_destroy<Mesh>().connect<entt::invoke<&Mesh::destroy>>();
-    on_destroy<Material>().connect<entt::invoke<&Material::destroy>>();
+  /*  on_destroy<Mesh>().connect<entt::invoke<&Mesh::destroy>>();
+    on_destroy<Material>().connect<entt::invoke<&Material::destroy>>();*/
     on_destroy<Skeleton>().connect<entt::invoke<&Skeleton::destroy>>();
 }
 
@@ -187,9 +187,9 @@ void Scene::loadMaterialTextures(Async& async, Assets& assets, const std::vector
     for (auto entity : materials) {
         auto& material = get<Material>(entity);
 
-        material.createAlbedoTexture(assets.get<TextureAsset>(material.albedoFile));
+       /* material.createAlbedoTexture(assets.get<TextureAsset>(material.albedoFile));
         material.createNormalTexture(assets.get<TextureAsset>(material.normalFile));
-        material.createMetalRoughTexture(assets.get<TextureAsset>(material.mrFile));
+        material.createMetalRoughTexture(assets.get<TextureAsset>(material.mrFile));*/
     }
 
     timer.stop();
