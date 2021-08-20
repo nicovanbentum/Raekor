@@ -29,20 +29,20 @@ public:
 
 class Texture : public Image {
 public:
-    Texture(const Context& ctx, const Stb::Image& image, VmaAllocator allocator);
+    Texture(Device& device, const Stb::Image& image);
 
 private:
-    void upload(const Context& ctx, const Stb::Image& image, VmaAllocator allocator);
+    void upload(Device& device, const Stb::Image& image);
 };
 
 class DepthTexture : public Image {
 public:
-    DepthTexture(const Context& ctx, glm::ivec2 extent, VmaAllocator allocator);
+    DepthTexture(Device& device, glm::ivec2 extent);
 };
 
 class CubeTexture : public Image {
 public:
-    CubeTexture(const Context& ctx, const std::array<Stb::Image, 6>& images, VmaAllocator allocator);
+    CubeTexture(Device& device, const std::array<Stb::Image, 6>& images);
 };
 
 }

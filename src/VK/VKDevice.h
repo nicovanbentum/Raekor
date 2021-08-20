@@ -5,12 +5,6 @@ namespace Raekor {
 namespace VK {
 
 class Device {
-    struct Queues {
-        std::optional<uint32_t> graphics;
-        std::optional<uint32_t> present;
-        bool isComplete() { return graphics.has_value() && present.has_value(); }
-    };
-
 public:
     Device() = delete;
     Device(Device&) = delete;
@@ -20,12 +14,15 @@ public:
 
     Device(const Instance& instance, const PhysicalDevice& physicalDevice);
     ~Device();
+
     operator VkDevice() { return device; }
     operator VkDevice() const { return device; }
-    const Queues& getQueues() const { return qindices; }
 
-    VkCommandBuffer beginSingleTimeCommands() const;
-    void endSingleTimeCommands(VkCommandBuffer commandBuffer) const;
+    VkQueue get_queue() { return queue; }
+    uint32_t get_queue_family_index() { return queue_family_index; }
+
+    VkCommandBuffer startSingleSubmit() const;
+    void flushSingleSubmit(VkCommandBuffer commandBuffer) const;
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
@@ -39,25 +36,26 @@ public:
     void allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets, const void* pNext = nullptr) const;
     void freeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const;
 
-    VmaAllocator getAllocator() { return allocator; }
+    VmaAllocator getAllocator() { return this->allocator; }
 
-    std::tuple<VkBuffer, VmaAllocation, VmaAllocationInfo> createStagingBuffer(size_t sizeInBytes) const;
+    std::tuple<VkBuffer, VmaAllocation> createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage, bool mapped = false);
+    void* getMappedPointer(VmaAllocation allocation);
+
+    VkDeviceAddress getDeviceAddress(VkBuffer buffer);
+    VkDeviceAddress getDeviceAddress(VkAccelerationStructureKHR accelerationStructure);
 
 private:
-    Queues qindices;
     VkDevice device;
 
 public:
-    VkQueue presentQueue;
-    VkQueue graphicsQueue;
+    VkQueue queue;
+    uint32_t queue_family_index = 0;
     
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;
-    
-
-    VmaAllocator allocator;
 
 private:
+    VmaAllocator allocator;
     VkPhysicalDeviceMemoryProperties memProperties;
 };
 

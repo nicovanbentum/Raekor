@@ -133,6 +133,7 @@ public:
     void loadVertices(float* vertices, size_t count);
     void bind() const;
     void setLayout(const InputLayout& layout);
+    uint64_t getStride() { return inputLayout.getStride(); }
 
     void destroy();
 

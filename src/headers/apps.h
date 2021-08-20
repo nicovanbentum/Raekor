@@ -39,13 +39,9 @@ public:
     virtual void onEvent(const SDL_Event& ev) override {}
 
 private:
-    VK::Renderer vk;
-
-    HANDLE changes;
-    std::filesystem::directory_iterator shaderDirectory;
-    std::unordered_map<std::string, std::filesystem::file_time_type> files;
-
-    std::shared_ptr<IWidget> viewportWindow;
+    Scene scene;
+    Assets assets;
+    VK::Renderer renderer;
     bool useVsync = true, shouldRecreateSwapchain = false;
 
 };

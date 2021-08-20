@@ -8,8 +8,8 @@ namespace VK {
 Context::Context(SDL_Window* window):   
     window(window), 
     instance(window),
-    PDevice(instance),
-    device(instance, PDevice) 
+    physicalDevice(instance),
+    device(instance, physicalDevice) 
 {
 
 }

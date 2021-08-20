@@ -58,8 +58,7 @@ struct Mesh {
     std::vector<glm::vec3> positions;
     std::vector<glm::vec2> uvs;
     std::vector<glm::vec3> normals;
-    std::vector<glm::vec3> tangents;
-    std::vector<glm::vec3> bitangents;
+    std::vector<glm::vec4> tangents;
 
     std::vector<uint32_t> indices;
 
@@ -74,7 +73,7 @@ struct Mesh {
     void generateAABB();
     void uploadIndices();
     void uploadVertices();
-    std::vector<float> getVertexData();
+    std::vector<float> getInterleavedVertices();
     void destroy();
 };
 
@@ -126,7 +125,7 @@ struct Skeleton {
 
 struct Material {
     glm::vec4 baseColour = { 1.0f, 1.0f, 1.0f, 1.0f };
-    float metallic = 1.0f, roughness = 1.0f;
+    float metallic = 0.0f, roughness = 1.0f;
     std::string albedoFile, normalFile, mrFile;
 
     // GPU resources
@@ -134,13 +133,8 @@ struct Material {
     unsigned int normals = 0;
     unsigned int metalrough = 0;
 
-    void createAlbedoTexture();
     void createAlbedoTexture(std::shared_ptr<TextureAsset> texture);
-
-    void createNormalTexture();
     void createNormalTexture(std::shared_ptr<TextureAsset> texture);
-
-    void createMetalRoughTexture();
     void createMetalRoughTexture(std::shared_ptr<TextureAsset> texture);
 
     void destroy();

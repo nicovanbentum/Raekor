@@ -270,34 +270,30 @@ bool RayTraceApp::drawSphereProperties(Sphere& sphere) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-VulkanApp::VulkanApp() : WindowApplication(RendererFlags::VULKAN), vk(window) {
+VulkanApp::VulkanApp() : WindowApplication(RendererFlags::VULKAN), renderer(window) {
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
+    if (fs::exists(settings.defaultScene) && fs::path(settings.defaultScene).extension() == ".scene") {
+        SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
+        scene.openFromFile(async, assets, settings.defaultScene);
+    }
+
+    auto meshes = scene.view<Mesh>();
+    for (auto& [entity, mesh] : meshes.each()) {
+        auto component = renderer.createBLAS(mesh);
+        scene.emplace<VK::RTGeometry>(entity, component);
+    }
+
     // gui stuff
     gui::setTheme(settings.themeColors);
-
-    // MVP uniform buffer object
-    glm::mat4 ubo = {};
-    int active = 0;
 
     std::puts("Job well done.");
 
     SDL_ShowWindow(window);
     SDL_SetWindowInputFocus(window);
-
-    for (const auto& file : fs::directory_iterator("shaders/Vulkan")) {
-        files[file.path().string()] = std::filesystem::last_write_time(file);
-    }
-
-    changes = FindFirstChangeNotificationA("shaders/vulkan", FALSE, FILE_NOTIFY_CHANGE_LAST_WRITE);
-
-    if (changes == INVALID_HANDLE_VALUE) {
-        printf("\n ERROR: FindFirstChangeNotification function failed.\n");
-        throw std::runtime_error("failed to watch directory");
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -332,10 +328,10 @@ void VulkanApp::update(float dt) {
         }
     }
 
-    vk.run();
+    renderer.render(scene);
 
     if (shouldRecreateSwapchain) {
-        vk.recreateSwapchain(useVsync);
+        renderer.recreateSwapchain(useVsync);
         shouldRecreateSwapchain = false;
     }
 }
@@ -343,7 +339,6 @@ void VulkanApp::update(float dt) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 VulkanApp::~VulkanApp() {
-    CloseHandle(changes);
 }
 
 } // raekor

@@ -9,10 +9,10 @@ namespace Raekor::VK {
 void GUI::init(Context& context, SDL_Window* window) {
     ImGui_ImplVulkan_InitInfo info = {};
     info.Device = context.device;
-    info.PhysicalDevice = context.PDevice;
+    info.PhysicalDevice = context.physicalDevice;
     info.Instance = context.instance;
-    info.QueueFamily = context.device.getQueues().graphics.value();
-    info.Queue = context.device.graphicsQueue;
+    info.QueueFamily = context.device.get_queue_family_index();
+    info.Queue = context.device.get_queue();
     info.PipelineCache = VK_NULL_HANDLE;
     info.DescriptorPool = context.device.descriptorPool;
     info.MinImageCount = 2;

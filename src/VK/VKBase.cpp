@@ -133,6 +133,7 @@ Instance::Instance(SDL_Window* window) {
 //////////////////////////////////////////////////////////////////////////
 
 Instance::~Instance() {
+    DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
 }

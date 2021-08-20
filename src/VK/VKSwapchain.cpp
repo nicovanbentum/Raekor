@@ -22,22 +22,22 @@ bool Swapchain::create(const Context& context, glm::vec2 resolution, VkPresentMo
 
     VkSurfaceKHR surface = context.instance.getSurface();
     SwapChainSupportDetails details;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context.PDevice, surface, &details.capabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context.physicalDevice, surface, &details.capabilities);
 
     uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(context.PDevice, surface, &formatCount, nullptr);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(context.physicalDevice, surface, &formatCount, nullptr);
 
     if (formatCount) {
         details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(context.PDevice, surface, &formatCount, details.formats.data());
+        vkGetPhysicalDeviceSurfaceFormatsKHR(context.physicalDevice, surface, &formatCount, details.formats.data());
     }
 
     uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(context.PDevice, surface, &presentModeCount, nullptr);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(context.physicalDevice, surface, &presentModeCount, nullptr);
 
     if (presentModeCount != 0) {
         details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(context.PDevice, surface, &presentModeCount, details.presentModes.data());
+        vkGetPhysicalDeviceSurfacePresentModesKHR(context.physicalDevice, surface, &presentModeCount, details.presentModes.data());
     }
 
     const std::vector<VkSurfaceFormatKHR> availableFormats = details.formats;
@@ -87,29 +87,12 @@ bool Swapchain::create(const Context& context, glm::vec2 resolution, VkPresentMo
     sc_info.imageColorSpace = surface_format.colorSpace;
     sc_info.imageExtent = extent;
     sc_info.imageArrayLayers = 1;
-    sc_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    uint32_t queueFamilyIndices[] = {
-        context.device.getQueues().graphics.value(),
-        context.device.getQueues().present.value()
-    };
-
-    if (context.device.getQueues().graphics.value() != context.device.getQueues().present.value()) {
-        sc_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        sc_info.queueFamilyIndexCount = 2;
-        sc_info.pQueueFamilyIndices = queueFamilyIndices;
-    }
-    else {
-        sc_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        sc_info.queueFamilyIndexCount = 0; // Optional
-        sc_info.pQueueFamilyIndices = nullptr; // Optional
-    }
-
+    sc_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    sc_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     sc_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     sc_info.preTransform = details.capabilities.currentTransform;
     sc_info.presentMode = present_mode;
     sc_info.clipped = VK_TRUE;
-    sc_info.oldSwapchain = VK_NULL_HANDLE;
 
     if (vkCreateSwapchainKHR(context.device, &sc_info, nullptr, &swapchain) != VK_SUCCESS) {
         return false;

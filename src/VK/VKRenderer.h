@@ -1,7 +1,9 @@
 #pragma once
 
 #include "pch.h"
+#include "scene.h"
 #include "camera.h"
+#include "VKPass.h"
 #include "VKContext.h"
 #include "VKSwapchain.h"
 #include "VKShader.h"
@@ -9,26 +11,41 @@
 #include "VKDescriptor.h"
 #include "VKScene.h"
 #include "VKImGui.h"
+#include "VKAccelerationStructure.h"
 
 namespace Raekor::VK {
+
+struct RTGeometry {
+    VkBuffer vertexBuffer;
+    VmaAllocation vertexAllocation;
+
+    VkBuffer indexBuffer;
+    VmaAllocation indexAllocation;
+    
+    AccelerationStructure accelerationStructure;
+};
 
 class Renderer {
 public:
     Renderer(SDL_Window* window);
     ~Renderer();
 
-    void run();
+    void render(Scene& scene);
 
     void reloadShaders();
     void setupSyncObjects();
     void recreateSwapchain(bool useVsync);
-    void createAccelerationStructure();
+
+    RTGeometry createBLAS(Mesh& mesh);
+    AccelerationStructure createTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count);
 
 private:
     VK::Context context;
     
     VK::GUI imgui;
     VK::Swapchain swapchain;
+
+    PathTracePass pathTracePass;
 
     bool enableValidationLayers;
     std::vector<const char*> extensions;
@@ -40,12 +57,10 @@ private:
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
 
-    VkCommandBuffer maincmdbuffer;
-
-    VkPipelineLayout pipelineLayout;
-
     int current_frame = 0;
     static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
+
+    AccelerationStructure TLAS;
 
 };
 

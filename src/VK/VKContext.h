@@ -13,7 +13,7 @@ public:
 public:
     SDL_Window* window;
     Instance instance;
-    PhysicalDevice PDevice;
+    PhysicalDevice physicalDevice;
     Device device;
 };
 

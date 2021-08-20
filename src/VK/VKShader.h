@@ -8,12 +8,15 @@ namespace VK {
 class Shader {
     friend class DescriptorSet;
 public:
-    // constructors & desctructor
-    Shader() = default;
-    Shader(VkDevice device, const std::string& path = "");
-    ~Shader();
+    
+    void create(Device& device, const std::string& filepath) {
+        this->filepath = filepath;
+        compile(device);
+    }
 
-    operator VkShaderModule() { return module; }
+    void destroy(Device& device) {
+        vkDestroyShaderModule(device, module, nullptr);
+    }
 
     VkShaderModule getModule() { return module; }
     VkShaderStageFlagBits getStage() { return stage; }
@@ -22,14 +25,13 @@ public:
         return spirv;
     }
 
-    void compile();
+    void compile(Device& device);
     static bool compileFromCommandLine(std::string_view in, std::string_view out);
     VkPipelineShaderStageCreateInfo getInfo(VkShaderStageFlagBits stage) const;
 
 private:
-    VkDevice device;
     std::string filepath;
-    VkShaderModule module;
+    VkShaderModule module = VK_NULL_HANDLE;
     VkShaderStageFlagBits stage;
     std::vector<uint32_t> spirv;
 

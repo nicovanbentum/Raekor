@@ -56,10 +56,10 @@ void VKScene::load(Context& context) {
 
     {   // vertex buffer upload
         const size_t sizeInBytes = sizeof(Vertex) * vertices.size();
-        auto [stagingBuffer, stagingAlloc, stagingBufferAllocInfo] = context.device.createStagingBuffer(sizeInBytes);
+        auto [stagingBuffer, stagingAlloc] = context.device.createBuffer(sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
 
         // copy the data over
-        memcpy(stagingBufferAllocInfo.pMappedData, vertices.data(), sizeInBytes);
+        memcpy(context.device.getMappedPointer(stagingAlloc), vertices.data(), sizeInBytes);
 
         VkBufferCreateInfo vbInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         vbInfo.size = sizeInBytes;
@@ -79,10 +79,10 @@ void VKScene::load(Context& context) {
 
     {   // index buffer upload
         const size_t sizeInBytes = sizeof(Triangle) * indices.size();
-        auto [stagingBuffer, stagingAlloc, stagingBufferAllocInfo] = context.device.createStagingBuffer(sizeInBytes);
+        auto [stagingBuffer, stagingAlloc] = context.device.createBuffer(sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
 
         // copy the data over
-        memcpy(stagingBufferAllocInfo.pMappedData, indices.data(), sizeInBytes);
+        memcpy(context.device.getMappedPointer(stagingAlloc), indices.data(), sizeInBytes);
 
         VkBufferCreateInfo vbInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         vbInfo.size = sizeInBytes;
@@ -132,7 +132,7 @@ void VKScene::load(Context& context) {
 
     textures.reserve(images.size());
     for (const auto& image : images) {
-        textures.emplace_back(context, image, context.device.getAllocator());
+        textures.emplace_back(context.device, image);
     }
 }
 

@@ -4,24 +4,9 @@
 namespace Raekor {
 namespace VK {
 
-Shader::Shader(VkDevice device, const std::string& path) :
-    device(device),
-    filepath(path), 
-    module(VK_NULL_HANDLE)
-{
-    if (filepath.empty()) return;
-    compile();
-}
-
 ///////////////////////////////////////////////////////////////////////////
 
-Shader::~Shader() {
-    vkDestroyShaderModule(device, module, nullptr);
-}
-
-///////////////////////////////////////////////////////////////////////////
-
-void Shader::compile() {
+void Shader::compile(Device& device) {
     if (module != VK_NULL_HANDLE) {
         vkDestroyShaderModule(device, module, nullptr);
     }
@@ -37,11 +22,11 @@ void Shader::compile() {
         throw std::runtime_error("failed to create vk shader module");
     }
 
-    SpvReflectShaderModule module;
-    SpvReflectResult result = spvReflectCreateShaderModule(spirv.size(), spirv.data(), &module);
+    SpvReflectShaderModule reflectModule;
+    SpvReflectResult result = spvReflectCreateShaderModule(spirv.size(), spirv.data(), &reflectModule);
     assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
-    switch (module.spirv_execution_model) {
+    switch (reflectModule.spirv_execution_model) {
         case SpvExecutionModel::SpvExecutionModelVertex: {
             stage = VK_SHADER_STAGE_VERTEX_BIT;
         } break;
@@ -60,14 +45,13 @@ bool Shader::compileFromCommandLine(std::string_view in, std::string_view out) {
         return false;
     }
 
-    const auto compiler = vulkan_sdk_path + std::string("\\Bin\\glslc.exe ");
-    const auto command = compiler + std::string(in) + " -o " + std::string(out);
+    const auto compiler = vulkan_sdk_path + std::string("\\Bin\\glslangValidator.exe ");
+    const auto command = compiler  + "--target-env vulkan1.2 -V "  + std::string(in) + " -o " + std::string(out);
 
     if (system(command.c_str()) != 0) {
         std::cout << "failed to compile vulkan shader: " << in << '\n';
         return false;
     } else {
-        std::cout << "Successfully compiled VK shader: " << in << '\n';
         return true;
     }
 }

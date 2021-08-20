@@ -109,4 +109,17 @@ inline std::string wchar_to_std_string(wchar_t* wchars) {
     return string.substr(0, len);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+inline VkTransformMatrixKHR VkTransformMatrix(const glm::mat4& matrix) {
+    glm::mat4 transpose = glm::transpose(matrix);
+    
+    VkTransformMatrixKHR result;
+    memcpy(&result, glm::value_ptr(transpose), sizeof(VkTransformMatrixKHR));
+
+    return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 } // Namespace Raekor
