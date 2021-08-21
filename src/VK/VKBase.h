@@ -19,14 +19,24 @@ private:
 
 
 class PhysicalDevice {
+    struct Properties {
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties { 
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR 
+        };
+    } properties;
+
 public:
     PhysicalDevice(const Instance& instance);
     operator VkPhysicalDevice() { return gpu; }
     operator VkPhysicalDevice() const { return gpu; }
 
+    const Properties& getProperties() const { return properties; }
+
     VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
+
 private:
     VkPhysicalDevice gpu;
+
 };
 
 } // VK

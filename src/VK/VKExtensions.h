@@ -8,6 +8,7 @@ namespace Raekor {
 
 class EXT {
 public:
+    inline static PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
     inline static PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
     inline static PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
     inline static PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;

@@ -164,6 +164,12 @@ PhysicalDevice::PhysicalDevice(const Instance& instance)
     if (gpu == VK_NULL_HANDLE) {
         gpu = devices[0];
     }
+
+    VkPhysicalDeviceProperties2 props2 = {};
+    props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    props2.pNext = &properties.rayTracingPipelineProperties;
+
+    vkGetPhysicalDeviceProperties2(gpu, &props2);
 }
 
 //////////////////////////////////////////////////////////////////////////

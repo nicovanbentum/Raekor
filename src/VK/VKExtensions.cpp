@@ -4,6 +4,7 @@
 namespace Raekor {
 
 void EXT::init(VkDevice device) {
+    vkCmdTraceRaysKHR = VK_LOAD_FN(device, vkCmdTraceRaysKHR);
     vkCreateRayTracingPipelinesKHR = VK_LOAD_FN(device, vkCreateRayTracingPipelinesKHR);
     vkCreateAccelerationStructureKHR = VK_LOAD_FN(device, vkCreateAccelerationStructureKHR);
     vkDestroyAccelerationStructureKHR = VK_LOAD_FN(device, vkDestroyAccelerationStructureKHR);

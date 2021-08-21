@@ -91,17 +91,11 @@ void PathTracePass::createPipeline(Device& device) {
 }
 
 void PathTracePass::createShaderBindingTable(Device& device, PhysicalDevice& physicalDevice) {
-    VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingProperties = {};
-    rayTracingProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
-    
-    VkPhysicalDeviceProperties2 properties = {};
-    properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    properties.pNext = &rayTracingProperties;
-    
-    vkGetPhysicalDeviceProperties2(physicalDevice, &properties);
+    const auto& rayTracingProperties = device.getPhysicalDevice().getProperties().rayTracingPipelineProperties;
 
     const uint32_t groupCount = static_cast<uint32_t>(shaderGroups.size());
-    const uint32_t sbtSize = groupCount * rayTracingProperties.shaderGroupBaseAlignment;
+    const uint32_t alignedGroupSize = align_up(rayTracingProperties.shaderGroupHandleSize, rayTracingProperties.shaderGroupHandleAlignment);
+    const uint32_t sbtSize = groupCount * alignedGroupSize;
 
     auto [buffer, allocation] = device.createBuffer(sbtSize, VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR, VMA_MEMORY_USAGE_CPU_ONLY, true);
     shaderBindingTableBuffer = buffer;
@@ -116,13 +110,35 @@ void PathTracePass::createShaderBindingTable(Device& device, PhysicalDevice& phy
     auto mappedPtr = static_cast<uint8_t*>(device.getMappedPointer(allocation));
 
     for (uint32_t group = 0; group < groupCount; group++) {
-        memcpy(
-            mappedPtr + group * rayTracingProperties.shaderGroupBaseAlignment,
-            shaderHandleStorage.data() + group * rayTracingProperties.shaderGroupHandleSize,
-            rayTracingProperties.shaderGroupHandleSize
-        );
+        const auto dataPtr = shaderHandleStorage.data() + group * rayTracingProperties.shaderGroupHandleSize;
+        memcpy(mappedPtr, dataPtr, rayTracingProperties.shaderGroupHandleSize);
+        mappedPtr += alignedGroupSize;
     }
+}
 
+void PathTracePass::recordCommands(Device& device, PhysicalDevice& physicalDevice, VkCommandBuffer commandBuffer, const glm::uvec2& size) {
+    const auto& rayTracingProperties = device.getPhysicalDevice().getProperties().rayTracingPipelineProperties;
+
+    const uint32_t alignedGroupSize = align_up(rayTracingProperties.shaderGroupHandleSize, rayTracingProperties.shaderGroupHandleAlignment);
+
+    auto SBTBufferDeviceAddress = device.getDeviceAddress(shaderBindingTableBuffer);
+
+    VkStridedDeviceAddressRegionKHR raygenRegion = {};
+    raygenRegion.deviceAddress = SBTBufferDeviceAddress;
+    raygenRegion.size = alignedGroupSize;
+    raygenRegion.stride = alignedGroupSize;
+
+    VkStridedDeviceAddressRegionKHR missRegion = {};
+    raygenRegion.deviceAddress = SBTBufferDeviceAddress + alignedGroupSize;
+    raygenRegion.size = alignedGroupSize;
+    raygenRegion.stride = alignedGroupSize;
+
+    VkStridedDeviceAddressRegionKHR hitRegion = {};
+    raygenRegion.deviceAddress = SBTBufferDeviceAddress + alignedGroupSize * 2;
+    raygenRegion.size = alignedGroupSize;
+    raygenRegion.stride = alignedGroupSize;
+
+    EXT::vkCmdTraceRaysKHR(commandBuffer, &raygenRegion, &missRegion, &hitRegion, nullptr, size.x, size.y, 1);
 }
 
 }

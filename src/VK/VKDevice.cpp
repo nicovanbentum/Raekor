@@ -6,7 +6,7 @@
 namespace Raekor {
 namespace VK {
 
-Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
+Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) : physicalDevice(physicalDevice) {
 #ifdef NDEBUG
     bool isDebug = false;
 #else
@@ -28,10 +28,10 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
     };
 
     uint32_t extensionCount;
-    vkEnumerateDeviceExtensionProperties(GPU, nullptr, &extensionCount, nullptr);
+    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
 
     std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-    vkEnumerateDeviceExtensionProperties(GPU, nullptr, &extensionCount, availableExtensions.data());
+    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions.data());
 
     std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
@@ -41,14 +41,14 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
     }
 
     uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(GPU, &queueFamilyCount, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
 
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(GPU, &queueFamilyCount, queueFamilies.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
 
     for (const auto& queueFamily : queueFamilies) {
         VkBool32 supports_present = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(GPU, queue_family_index, instance.getSurface(), &supports_present);
+        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queue_family_index, instance.getSurface(), &supports_present);
         
         if (queueFamily.queueCount > 0 && (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && supports_present) {
             break;
@@ -96,7 +96,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
     bufferDeviceAddressFeatures.pNext = &rayTracingPipelineFeatures;
     rayTracingPipelineFeatures.pNext = &accelerationStructureFeatures;
 
-    vkGetPhysicalDeviceFeatures2(GPU, &deviceFeatures2);
+    vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures2);
 
     if (bufferDeviceAddressFeatures.bufferDeviceAddress == VK_FALSE) {
         std::cerr << "Buffer Device Address extension not supported.\n";
@@ -126,7 +126,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
         device_info.enabledLayerCount = 0;
     }
 
-    if (vkCreateDevice(GPU, &device_info, nullptr, &device) != VK_SUCCESS) {
+    if (vkCreateDevice(physicalDevice, &device_info, nullptr, &device) != VK_SUCCESS) {
         throw std::runtime_error("failed to create vk logical device");
     }
 
@@ -143,7 +143,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
         throw std::runtime_error("failed to create vk command pool");
     }
 
-    vkGetPhysicalDeviceMemoryProperties(GPU, &memProperties);
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
     // Create Descriptor Pool
     {
         VkDescriptorPoolSize pool_sizes[] =
@@ -172,7 +172,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& GPU) {
     }
 
     VmaAllocatorCreateInfo allocInfo = {};
-    allocInfo.physicalDevice = GPU;
+    allocInfo.physicalDevice = physicalDevice;
     allocInfo.device = device;
     allocInfo.instance = instance;
     allocInfo.vulkanApiVersion = VK_API_VERSION_1_2;

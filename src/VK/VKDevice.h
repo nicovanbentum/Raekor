@@ -18,6 +18,8 @@ public:
     operator VkDevice() { return device; }
     operator VkDevice() const { return device; }
 
+    const PhysicalDevice& getPhysicalDevice() { return physicalDevice; }
+
     VkQueue get_queue() { return queue; }
     uint32_t get_queue_family_index() { return queue_family_index; }
 
@@ -46,6 +48,7 @@ public:
 
 private:
     VkDevice device;
+    const PhysicalDevice& physicalDevice;
 
 public:
     VkQueue queue;
