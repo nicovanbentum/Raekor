@@ -3,6 +3,12 @@
 namespace Raekor {
 namespace VK {
 
+inline void ThrowIfFailed(VkResult result) {
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Exception thrown.");
+    }
+}
+
 class Instance {
 public:
     Instance(SDL_Window* window);

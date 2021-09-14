@@ -2,41 +2,25 @@
 
 #include "VKContext.h"
 
-namespace Raekor {
-namespace VK {
+namespace Raekor::VK {
 
 class Shader {
     friend class DescriptorSet;
 public:
+    static bool compileFromCommandLine(const fs::path& InShader, const fs::path& OutBinary);
     
-    void create(Device& device, const std::string& filepath) {
-        this->filepath = filepath;
-        compile(device);
-    }
+    void create(Device& device, const std::string& filepath);
+    void destroy(Device& device);
 
-    void destroy(Device& device) {
-        vkDestroyShaderModule(device, module, nullptr);
-    }
-
-    VkShaderModule getModule() { return module; }
-    VkShaderStageFlagBits getStage() { return stage; }
-
-    const std::vector<uint32_t>& getSpirv() {
-        return spirv;
-    }
-
-    void compile(Device& device);
-    static bool compileFromCommandLine(std::string_view in, std::string_view out);
-    VkPipelineShaderStageCreateInfo getInfo(VkShaderStageFlagBits stage) const;
+    VkShaderModule getModule() const { return module; }
+    VkShaderStageFlagBits getStage() const { return stage; }
+    VkPipelineShaderStageCreateInfo getPipelineCreateInfo() const;
 
 private:
     std::string filepath;
-    VkShaderModule module = VK_NULL_HANDLE;
     VkShaderStageFlagBits stage;
     std::vector<uint32_t> spirv;
-
-    std::vector<uint32_t> readSpirvFile(const std::string& path);
+    VkShaderModule module = VK_NULL_HANDLE;
 };
 
-} // VK
-} // Raekor
+} // Raekor::VK

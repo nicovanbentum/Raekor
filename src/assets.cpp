@@ -15,14 +15,20 @@ TextureAsset::TextureAsset(const std::string& filepath)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-DDS_HEADER TextureAsset::header() {
-    return *reinterpret_cast<DDS_HEADER*>(data.data() + sizeof(DWORD));
+const DDS_HEADER* TextureAsset::header() {
+    return reinterpret_cast<DDS_HEADER*>(data.data() + sizeof(DWORD));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 char* const TextureAsset::getData() {
     return data.data() + 128;
+}
+
+
+
+uint32_t TextureAsset::getDataSize() const { 
+    return data.size() - 128; 
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,7 +45,8 @@ std::string TextureAsset::convert(const std::string& filepath) {
 
     // TODO: gpu mip mapping, cant right now because assets are loaded in parallel but OpenGL can't do multithreading
 
-    int mipmapLevels = 1 + (int)std::floor(std::log2(std::max(width, height)));
+    // mips down to 2x2 but DXT works on 4x4 so we subtract one level
+    int mipmapLevels = (int)std::floor(std::log2(std::max(width, height))) - 1;
 
     for (size_t i = 1; i < mipmapLevels; i++) {
         glm::ivec2 prevSize = { width >> (i - 1), height >> (i - 1) };
@@ -110,9 +117,12 @@ bool TextureAsset::load(const std::string& filepath) {
         return false;
     }
 
-    std::ifstream file(filepath, std::ios::binary);
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
 
-    file.seekg(0, std::ios::end);
+    constexpr size_t twoMegabytes = 2097152;
+    std::vector<char> scratch(twoMegabytes);
+    file.rdbuf()->pubsetbuf(scratch.data(), scratch.size());
+
     data.resize(file.tellg());
     file.seekg(0, std::ios::beg);
     file.read(data.data(), data.size());

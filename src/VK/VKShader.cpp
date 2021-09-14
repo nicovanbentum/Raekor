@@ -1,18 +1,45 @@
 #include "pch.h"
 #include "VKShader.h"
 
-namespace Raekor {
-namespace VK {
+namespace Raekor::VK {
 
-///////////////////////////////////////////////////////////////////////////
-
-void Shader::compile(Device& device) {
-    if (module != VK_NULL_HANDLE) {
-        vkDestroyShaderModule(device, module, nullptr);
+bool Shader::compileFromCommandLine(const fs::path& inShader, const fs::path& outBinary) {
+    if (!fs::exists(inShader)) {
+        std::cout << "Shader file " << inShader.string() << " does not exist on disk.\n";
+        return false;
     }
 
-    spirv = readSpirvFile(filepath);
+    const auto vulkan_sdk_path = getenv("VULKAN_SDK");
+    if (!vulkan_sdk_path) {
+        std::puts("Unable to find Vulkan SDK, cannot compile shader");
+        return false;
+    }
+
+    const auto compiler = vulkan_sdk_path + std::string("\\Bin\\glslangValidator.exe ");
+    const auto command = compiler + "--target-env vulkan1.2 -V " + inShader.string() + " -o " + outBinary.string();
+
+    if (system(command.c_str()) != 0) {
+        std::cout << "failed to compile vulkan shader: " << inShader.string() << '\n';
+        return false;
+    } else {
+        return true;
+    }
+}
+
+
+
+void Shader::create(Device& device, const std::string& filepath) {
+    this->filepath = filepath;
     
+    std::ifstream file(filepath, std::ios::ate | std::ios::binary);
+    if (!file.is_open()) return;
+
+    const size_t filesize = static_cast<size_t>(file.tellg());
+    spirv.resize(filesize);
+    file.seekg(0);
+    file.read((char*)&spirv[0], filesize);
+    file.close();
+
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = spirv.size();
@@ -33,47 +60,30 @@ void Shader::compile(Device& device) {
         case SpvExecutionModel::SpvExecutionModelFragment: {
             stage = VK_SHADER_STAGE_FRAGMENT_BIT;
         } break;
+        case SpvExecutionModel::SpvExecutionModelClosestHitKHR: {
+            stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+        } break;
+        case SpvExecutionModel::SpvExecutionModelMissKHR: {
+            stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+        } break;
+        case SpvExecutionModel::SpvExecutionModelRayGenerationKHR: {
+            stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+        } break;
     }
 }
 
-///////////////////////////////////////////////////////////////////////////
 
-bool Shader::compileFromCommandLine(std::string_view in, std::string_view out) {
-    const auto vulkan_sdk_path = getenv("VULKAN_SDK");
-    if (!vulkan_sdk_path) {
-        std::puts("Unable to find Vulkan SDK, cannot compile shader");
-        return false;
-    }
 
-    const auto compiler = vulkan_sdk_path + std::string("\\Bin\\glslangValidator.exe ");
-    const auto command = compiler  + "--target-env vulkan1.2 -V "  + std::string(in) + " -o " + std::string(out);
-
-    if (system(command.c_str()) != 0) {
-        std::cout << "failed to compile vulkan shader: " << in << '\n';
-        return false;
-    } else {
-        return true;
+void Shader::destroy(Device& device) {
+    if (module != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(device, module, nullptr);
+        module = VK_NULL_HANDLE;
     }
 }
 
-///////////////////////////////////////////////////////////////////////////
 
-std::vector<uint32_t> Shader::readSpirvFile(const std::string& path) {
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) return {};
-    
-    const size_t filesize = static_cast<size_t>(file.tellg());
-    std::vector<uint32_t> buffer(filesize);
-    file.seekg(0);
-    file.read((char*) &buffer[0], filesize);
-    file.close();
 
-    return buffer;
-}
-
-///////////////////////////////////////////////////////////////////////////
-
-VkPipelineShaderStageCreateInfo Shader::getInfo(VkShaderStageFlagBits stage) const {
+VkPipelineShaderStageCreateInfo Shader::getPipelineCreateInfo() const {
     VkPipelineShaderStageCreateInfo stage_info = {};
     stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stage_info.stage = stage;
@@ -82,5 +92,4 @@ VkPipelineShaderStageCreateInfo Shader::getInfo(VkShaderStageFlagBits stage) con
     return stage_info;
 }
 
-} // VK 
-} // Raekor
+} // Raekor::VK

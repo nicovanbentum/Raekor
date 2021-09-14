@@ -2,15 +2,54 @@
 #extension GL_EXT_ray_tracing : require
 #extension GL_GOOGLE_include_directive : require
 
-//layout(set = 0, binding = 0, rgba8) uniform writeonly image2D outTexture;
+#include "include/structs.glsl"
+#include "include/random.glsl"
+
+layout(set = 0, binding = 0, rgba8) uniform writeonly image2D outTexture;
+layout(set = 0, binding = 1) uniform accelerationStructureEXT TLAS;
+
+layout(push_constant) uniform pushConstants {
+    mat4 invViewProj;
+    vec4 cameraPosition;
+};
+
+layout(location = 0) rayPayloadEXT RayPayload payload;
 
 void main() {
-    const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
-    const vec2 uv = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
+    vec2 id = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 
-    uint rayFlags = gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
-    float tMin = 0.001;
-    float tMax = 10000.0;
+    payload.rng = seed(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy, 16.0);
+    vec4 v4 = rand(payload.rng);
 
-    //imageStore(outTexture, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(0, 1, 0), 1.0));
+    id += v4.xy;
+
+    vec2 uv = id / vec2(gl_LaunchSizeEXT.xy);
+    uv.y = 1.0 - uv.y;
+    const vec2 clip = uv * 2.0 - 1.0;
+    
+    vec4 target = normalize(invViewProj * vec4(clip.x, clip.y, 0.0, 1.0));
+    target /= target.w;
+
+    vec3 origin = cameraPosition.xyz;
+
+    vec3 direction = normalize(target.xyz - origin);
+
+    uint rayFlags = gl_RayFlagsOpaqueEXT;
+    float tMin = 0.01;
+    float tMax = 1000.0;
+
+    traceRayEXT(TLAS,
+        rayFlags, 
+        0xFF, 
+        0, 
+        0, 
+        0,
+        origin, 
+        tMin, 
+        direction, 
+        tMax, 
+        0 // payload location identifier
+    );
+
+    imageStore(outTexture, ivec2(gl_LaunchIDEXT.xy), vec4(payload.Lio, 1.0));
 }

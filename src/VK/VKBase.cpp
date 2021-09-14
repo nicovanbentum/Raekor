@@ -67,10 +67,6 @@ Instance::Instance(SDL_Window* window) {
         throw std::runtime_error("failed to get instance extensions");
     }
 
-    for (auto extension : extensions) {
-        std::cout << extension << '\n';
-    }
-
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
     };
@@ -105,7 +101,6 @@ Instance::Instance(SDL_Window* window) {
         instance_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugInfo;
 #endif
 
-    // Now we can make the Vulkan instance
     instance_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     instance_info.ppEnabledExtensionNames = extensions.data();
 
@@ -133,7 +128,9 @@ Instance::Instance(SDL_Window* window) {
 //////////////////////////////////////////////////////////////////////////
 
 Instance::~Instance() {
+#if RAEKOR_DEBUG
     DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+#endif
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
 }

@@ -36,7 +36,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
     std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
     for (const auto& extension : availableExtensions) {
-        std::cout << extension.extensionName << '\n';
+        //std::cout << extension.extensionName << '\n';
         requiredExtensions.erase(extension.extensionName);
     }
 
@@ -77,6 +77,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
 
     VkPhysicalDeviceFeatures deviceFeatures = {};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
+    deviceFeatures.shaderInt64 = VK_TRUE;
 
     VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures = {};
     bufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
@@ -98,11 +99,10 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
 
     vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures2);
 
-    if (bufferDeviceAddressFeatures.bufferDeviceAddress == VK_FALSE) {
-        std::cerr << "Buffer Device Address extension not supported.\n";
-        std::terminate();
-    } else {
+    if (bufferDeviceAddressFeatures.bufferDeviceAddress) {
         descriptorFeatures.pNext = &bufferDeviceAddressFeatures;
+    } else {
+        throw std::runtime_error("Buffer Device Address extension not supported.");
     }
 
 
@@ -126,9 +126,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
         device_info.enabledLayerCount = 0;
     }
 
-    if (vkCreateDevice(physicalDevice, &device_info, nullptr, &device) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create vk logical device");
-    }
+    ThrowIfFailed(vkCreateDevice(physicalDevice, &device_info, nullptr, &device));
 
     EXT::init(device);
 
@@ -139,36 +137,26 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = queue_family_index;
 
-    if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create vk command pool");
-    }
+    ThrowIfFailed(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool));
 
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
     // Create Descriptor Pool
     {
-        VkDescriptorPoolSize pool_sizes[] =
+        std::array pools =
         {
-            { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-            { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-            { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-            { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+            VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
+            VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 }
         };
+
         VkDescriptorPoolCreateInfo pool_info = {};
         pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-        pool_info.maxSets = 1000 * ARRAYSIZE(pool_sizes);
-        pool_info.poolSizeCount = static_cast<uint32_t>(ARRAYSIZE(pool_sizes));
-        pool_info.pPoolSizes = pool_sizes;
-        if (vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create descriptor pool for imgui");
-        }
+        pool_info.maxSets = 1000u * static_cast<uint32_t>(pools.size());
+        pool_info.poolSizeCount = static_cast<uint32_t>(pools.size());
+        pool_info.pPoolSizes = pools.data();
+
+
+        ThrowIfFailed(vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool));
     }
 
     VmaAllocatorCreateInfo allocInfo = {};
@@ -190,6 +178,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
 Device::~Device() {
     vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+    vmaDestroyAllocator(allocator);
     vkDestroyDevice(device, nullptr);
 }
 
@@ -230,10 +219,7 @@ void Device::flushSingleSubmit(VkCommandBuffer commandBuffer) const  {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
 
-    VkResult result = vkQueueSubmit(queue, 1, &submitInfo, fence);
-    if(result != VK_SUCCESS) {
-        throw std::runtime_error("failed to submit single time queue");
-    }
+    ThrowIfFailed(vkQueueSubmit(queue, 1, &submitInfo, fence));
 
     vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
     vkDestroyFence(device, fence, nullptr);
@@ -381,9 +367,7 @@ VkImageView Device::createImageView(VkImage image, VkFormat format, VkImageViewT
     viewInfo.subresourceRange.layerCount = layerCount;
 
     VkImageView imageView;
-    if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create texture image view!");
-    }
+    ThrowIfFailed(vkCreateImageView(device, &viewInfo, nullptr, &imageView));
 
     return imageView;
 };
@@ -465,9 +449,7 @@ void Device::allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layout
     desc_info.pSetLayouts = layouts;
     desc_info.pNext = pNext;
 
-    if (vkAllocateDescriptorSets(device, &desc_info, sets) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate descriptor sets");
-    }
+    ThrowIfFailed(vkAllocateDescriptorSets(device, &desc_info, sets));
 }
 
 
@@ -479,7 +461,7 @@ void Device::freeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const {
 
 
 
-std::tuple<VkBuffer, VmaAllocation> Device::createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage, bool mapped) {
+std::tuple<VkBuffer, VmaAllocation> Device::createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage) {
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
@@ -488,17 +470,26 @@ std::tuple<VkBuffer, VmaAllocation> Device::createBuffer(size_t size, VkBufferUs
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = memoryUsage;
 
-    if (mapped) allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    if ((memoryUsage & VMA_MEMORY_USAGE_CPU_ONLY) || (memoryUsage & VMA_MEMORY_USAGE_CPU_TO_GPU)) {
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    }
+
 
     VkBuffer buffer;
     VmaAllocation allocation;
 
-    if (vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &buffer, &allocation, nullptr) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create buffer");
-    }
+    ThrowIfFailed(vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &buffer, &allocation, nullptr));
 
     return { buffer, allocation };
 }
+
+
+
+void Device::destroyBuffer(VkBuffer buffer, VmaAllocation allocation) {
+    vmaDestroyBuffer(allocator, buffer, allocation);
+}
+
+
 
 void* Device::getMappedPointer(VmaAllocation allocation) {
     VmaAllocationInfo info = {};
@@ -508,17 +499,16 @@ void* Device::getMappedPointer(VmaAllocation allocation) {
 
 
 
-VkDeviceAddress Device::getDeviceAddress(VkBuffer buffer) {
+VkDeviceAddress Device::getDeviceAddress(VkBuffer buffer) const {
     VkBufferDeviceAddressInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
     info.buffer = buffer;
-
     return vkGetBufferDeviceAddress(device, &info);
 }
 
 
 
-VkDeviceAddress Device::getDeviceAddress(VkAccelerationStructureKHR accelerationStructure) {
+VkDeviceAddress Device::getDeviceAddress(VkAccelerationStructureKHR accelerationStructure) const {
     VkAccelerationStructureDeviceAddressInfoKHR addressInfo = {};
     addressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
     addressInfo.accelerationStructure = accelerationStructure;

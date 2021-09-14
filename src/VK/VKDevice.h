@@ -18,10 +18,10 @@ public:
     operator VkDevice() { return device; }
     operator VkDevice() const { return device; }
 
-    const PhysicalDevice& getPhysicalDevice() { return physicalDevice; }
+    const PhysicalDevice& getPhysicalDevice() const { return physicalDevice; }
 
-    VkQueue get_queue() { return queue; }
-    uint32_t get_queue_family_index() { return queue_family_index; }
+    VkQueue getQueue() { return queue; }
+    uint32_t getQueueFamilyIndex() { return queue_family_index; }
 
     VkCommandBuffer startSingleSubmit() const;
     void flushSingleSubmit(VkCommandBuffer commandBuffer) const;
@@ -40,11 +40,12 @@ public:
 
     VmaAllocator getAllocator() { return this->allocator; }
 
-    std::tuple<VkBuffer, VmaAllocation> createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage, bool mapped = false);
+    [[nodiscard]] std::tuple<VkBuffer, VmaAllocation> createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage);
+    void destroyBuffer(VkBuffer buffer, VmaAllocation allocation);
     void* getMappedPointer(VmaAllocation allocation);
 
-    VkDeviceAddress getDeviceAddress(VkBuffer buffer);
-    VkDeviceAddress getDeviceAddress(VkAccelerationStructureKHR accelerationStructure);
+    VkDeviceAddress getDeviceAddress(VkBuffer buffer) const;
+    VkDeviceAddress getDeviceAddress(VkAccelerationStructureKHR accelerationStructure) const;
 
 private:
     VkDevice device;

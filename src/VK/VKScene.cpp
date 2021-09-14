@@ -56,7 +56,7 @@ void VKScene::load(Context& context) {
 
     {   // vertex buffer upload
         const size_t sizeInBytes = sizeof(Vertex) * vertices.size();
-        auto [stagingBuffer, stagingAlloc] = context.device.createBuffer(sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+        auto [stagingBuffer, stagingAlloc] = context.device.createBuffer(sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
         // copy the data over
         memcpy(context.device.getMappedPointer(stagingAlloc), vertices.data(), sizeInBytes);
@@ -79,7 +79,7 @@ void VKScene::load(Context& context) {
 
     {   // index buffer upload
         const size_t sizeInBytes = sizeof(Triangle) * indices.size();
-        auto [stagingBuffer, stagingAlloc] = context.device.createBuffer(sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+        auto [stagingBuffer, stagingAlloc] = context.device.createBuffer(sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
         // copy the data over
         memcpy(context.device.getMappedPointer(stagingAlloc), indices.data(), sizeInBytes);

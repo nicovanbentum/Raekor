@@ -6,6 +6,27 @@
 namespace Raekor {
 namespace VK {
 
+class BindlessDescriptorSet {
+public:
+    void create(const Context& context, VkDescriptorType type, VkShaderStageFlags stages);
+    void destroy(const Device& device);
+
+    uint32_t write(const Device& device, VkDescriptorType type, const VkDescriptorImageInfo& imageInfo);
+
+    const VkDescriptorSet& getDescriptorSet() const { return set; }
+    const VkDescriptorSetLayout& getLayout() const { return layout; }
+
+private:
+    uint32_t size = 0;
+    std::vector<uint32_t> freeIndices;
+    
+private:
+    VkDescriptorSet set;
+    VkDescriptorPool pool;
+    VkDescriptorSetLayout layout;
+
+};
+
 class UniformBuffer {
 public:
     UniformBuffer() = default;

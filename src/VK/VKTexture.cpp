@@ -19,7 +19,7 @@ void Texture::upload(Device& device, const Stb::Image& stb) {
 
     VkDeviceSize byteSize = stb.w * stb.h * static_cast<uint32_t>(stb.format);
 
-    auto [stagingBuffer, stagingAlloc] = device.createBuffer(byteSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+    auto [stagingBuffer, stagingAlloc] = device.createBuffer(byteSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
     memcpy(device.getMappedPointer(stagingAlloc), stb.pixels, static_cast<size_t>(byteSize));
 
     VkImageCreateInfo imageInfo = {};
@@ -84,7 +84,7 @@ CubeTexture::CubeTexture(Device& device, const std::array<Stb::Image, 6>& images
     const VkDeviceSize imageSize = width * height * 4 * 6;
     const VkDeviceSize layerSize = imageSize / 6;
 
-    auto [stagingBuffer, stagingAlloc] = device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, true);
+    auto [stagingBuffer, stagingAlloc] = device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
     auto mappedPtr = device.getMappedPointer(stagingAlloc);
 
     for (unsigned int i = 0; i < 6; i++) {

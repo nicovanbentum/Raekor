@@ -7,7 +7,7 @@
 
 namespace Raekor {
 
-RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(async, window, viewport) {
+RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(window, viewport) {
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -33,7 +33,7 @@ RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(
     viewport.getCamera().look(-3.3f, .2f);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void RayTraceApp::update(float dt) {
     //TODO: bool inFreeCameraMode = InputHandler::handleEvents(this, true, dt);
@@ -258,6 +258,8 @@ void RayTraceApp::update(float dt) {
     }
 }
 
+
+
 bool RayTraceApp::drawSphereProperties(Sphere& sphere) {
     bool changed = false;
     changed |= ImGui::DragFloat("Radius", &sphere.radius);
@@ -266,79 +268,6 @@ bool RayTraceApp::drawSphereProperties(Sphere& sphere) {
     changed |= ImGui::DragFloat("Metalness", &sphere.metalness, 1.0f, 0.0f, 1.0f);
     changed |= ImGui::ColorEdit3("Base colour", glm::value_ptr(sphere.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
     return changed;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-VulkanApp::VulkanApp() : WindowApplication(RendererFlags::VULKAN), renderer(window) {
-    // initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-
-    if (fs::exists(settings.defaultScene) && fs::path(settings.defaultScene).extension() == ".scene") {
-        SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
-        scene.openFromFile(async, assets, settings.defaultScene);
-    }
-
-    auto meshes = scene.view<Mesh>();
-    for (auto& [entity, mesh] : meshes.each()) {
-        auto component = renderer.createBLAS(mesh);
-        scene.emplace<VK::RTGeometry>(entity, component);
-    }
-
-    // gui stuff
-    gui::setTheme(settings.themeColors);
-
-    std::puts("Job well done.");
-
-    SDL_ShowWindow(window);
-    SDL_SetWindowInputFocus(window);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void VulkanApp::update(float dt) {
-    SDL_Event ev;
-    while (SDL_PollEvent(&ev)) {
-        onEvent(ev);
-        ImGui_ImplSDL2_ProcessEvent(&ev);
-
-        viewport.getCamera().onEventEditor(ev);
-
-        if (ev.type == SDL_WINDOWEVENT) {
-            if (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) {
-                while (1) {
-                    SDL_Event ev;
-                    SDL_PollEvent(&ev);
-
-                    if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
-                        break;
-                    }
-                }
-            }
-            if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
-                if (SDL_GetWindowID(window) == ev.window.windowID) {
-                    running = false;
-                }
-            }
-            if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
-                shouldRecreateSwapchain = true;
-            }
-        }
-    }
-
-    renderer.render(scene);
-
-    if (shouldRecreateSwapchain) {
-        renderer.recreateSwapchain(useVsync);
-        shouldRecreateSwapchain = false;
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-VulkanApp::~VulkanApp() {
 }
 
 } // raekor
