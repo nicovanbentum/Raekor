@@ -28,7 +28,7 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-GLRenderer::GLRenderer(Async& async, SDL_Window* window, Viewport& viewport) {
+GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -53,9 +53,9 @@ GLRenderer::GLRenderer(Async& async, SDL_Window* window, Viewport& viewport) {
     assert(vulkanSDK);
 
     for (const auto& file : fs::directory_iterator("shaders/OpenGL")) {
-        if (!file.is_regular_file()) continue;
+        if (file.is_directory()) continue;
 
-        async.dispatch([=]() {
+        Async::dispatch([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
@@ -69,7 +69,7 @@ GLRenderer::GLRenderer(Async& async, SDL_Window* window, Viewport& viewport) {
         });
     }
 
-    async.wait();
+    Async::wait();
 
     // initialize ImGui
     IMGUI_CHECKVERSION();
@@ -155,7 +155,7 @@ GLRenderer::GLRenderer(Async& async, SDL_Window* window, Viewport& viewport) {
     glTextureParameteri(Material::Default.normals, GL_TEXTURE_WRAP_R, GL_REPEAT);
 
     skinning = std::make_unique<Skinning>();
-    voxelize = std::make_unique<Voxelize>(512);
+    voxelize = std::make_unique<Voxelize>(128);
     shadows = std::make_unique<ShadowMap>(viewport, 4096, 4096);
     tonemap = std::make_unique<Tonemap>(viewport);
     gbuffer = std::make_unique<GBuffer>(viewport);

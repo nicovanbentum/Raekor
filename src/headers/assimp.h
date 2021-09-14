@@ -15,7 +15,7 @@ class Assets;
 class AssimpImporter {
 public:
 	AssimpImporter(Scene& scene) : scene(scene) {}
-	bool LoadFromFile(Async& async, Assets& assets, const std::string& file);
+	bool LoadFromFile(Assets& assets, const std::string& file);
 
 private:
 	void parseMaterial(aiMaterial* assimpMaterial, entt::entity entity);

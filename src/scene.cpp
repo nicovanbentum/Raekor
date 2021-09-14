@@ -11,7 +11,7 @@ namespace Raekor
 {
 
 Scene::Scene() {
-  /*  on_destroy<Mesh>().connect<entt::invoke<&Mesh::destroy>>();
+    /* on_destroy<Mesh>().connect<entt::invoke<&Mesh::destroy>>();
     on_destroy<Material>().connect<entt::invoke<&Material::destroy>>();*/
     on_destroy<Skeleton>().connect<entt::invoke<&Skeleton::destroy>>();
 }
@@ -97,7 +97,7 @@ void Scene::bindScript(entt::entity entity, NativeScript& script) {
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void Scene::destroyObject(entt::entity entity) {
-    if (has<Node>(entity)) {
+    if (all_of<Node>(entity)) {
         auto tree = NodeSystem::getFlatHierarchy(*this, get<Node>(entity));
         
         for (auto member : tree) {
@@ -165,12 +165,12 @@ void Scene::updateLights() {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void Scene::loadMaterialTextures(Async& async, Assets& assets, const std::vector<entt::entity>& materials) {
+void Scene::loadMaterialTextures(Assets& assets, const std::vector<entt::entity>& materials) {
     Timer timer;
     timer.start();
 
     for (const auto& entity : materials) {
-        async.dispatch([&]() {
+        Async::dispatch([&]() {
             auto& material = this->get<Material>(entity);
             assets.get<TextureAsset>(material.albedoFile);
             assets.get<TextureAsset>(material.normalFile);
@@ -178,7 +178,7 @@ void Scene::loadMaterialTextures(Async& async, Assets& assets, const std::vector
         });
     }
 
-    async.wait();
+    Async::wait();
 
     timer.stop();
     std::cout << "Async texture time " << timer.elapsedMs() << std::endl;
@@ -187,7 +187,7 @@ void Scene::loadMaterialTextures(Async& async, Assets& assets, const std::vector
     for (auto entity : materials) {
         auto& material = get<Material>(entity);
 
-       /* material.createAlbedoTexture(assets.get<TextureAsset>(material.albedoFile));
+      /*  material.createAlbedoTexture(assets.get<TextureAsset>(material.albedoFile));
         material.createNormalTexture(assets.get<TextureAsset>(material.normalFile));
         material.createMetalRoughTexture(assets.get<TextureAsset>(material.mrFile));*/
     }
@@ -201,15 +201,15 @@ void Scene::loadMaterialTextures(Async& async, Assets& assets, const std::vector
 void Scene::saveToFile(const std::string& file) {
     std::ofstream outstream(file, std::ios::binary);
     cereal::BinaryOutputArchive output(outstream);
-    entt::snapshot{ *this }.entities(output).component <
+    entt::snapshot{ *this }.entities(output).component<
         Name, Node, Transform,
         Mesh, Material, PointLight,
-        DirectionalLight >(output);
+        DirectionalLight>(output);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void Scene::openFromFile(Async& async, Assets& assets, const std::string& file) {
+void Scene::openFromFile(Assets& assets, const std::string& file) {
     if (!std::filesystem::is_regular_file(file)) {
         return;
     }
@@ -245,7 +245,7 @@ void Scene::openFromFile(Async& async, Assets& assets, const std::string& file) 
     auto materials = view<Material>();
     auto materialEntities = std::vector<entt::entity>();
     materialEntities.assign(materials.data(), materials.data() + materials.size());
-    loadMaterialTextures(async, assets, materialEntities);
+    loadMaterialTextures(assets, materialEntities);
 
     timer.start();
 

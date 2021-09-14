@@ -5,7 +5,7 @@ namespace Raekor {
 
 Async::Async() : Async(std::thread::hardware_concurrency() - 1) {}
 
-//////////////////////////////////////////////////////////////////////////////////
+
 
 Async::Async(int threadCount) {
     for (int i = 0; i < threadCount; i++) {
@@ -25,13 +25,13 @@ Async::Async(int threadCount) {
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+
 
 Async::~Async() {
     // let every thread know they can exit their while loops
     {
         std::scoped_lock<std::mutex> lock(mutex);
-        shouldQuit = true;
+        quit = true;
     }
 
     cv.notify_all();
@@ -44,19 +44,25 @@ Async::~Async() {
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+
 
 void Async::dispatch(const Task& task) {
     {
-        std::scoped_lock<std::mutex> lock(mutex);
-        queue.push(task);
+        std::scoped_lock<std::mutex> lock(async->mutex);
+        async->queue.push(task);
     }
 
-    activeTaskCount.fetch_add(1);
-    cv.notify_one();
+    async->activeTaskCount.fetch_add(1);
+    async->cv.notify_one();
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+
+
+void Async::wait() {
+    while (async->activeTaskCount.load() > 0) {}
+}
+
+
 
 void Async::handler() {
     // take control of the mutex
@@ -65,10 +71,10 @@ void Async::handler() {
     do {
         // wait releases the mutex and re-acquires when there's work available
         cv.wait(lock, [this] {
-            return queue.size() || shouldQuit;
+            return queue.size() || quit;
         });
 
-        if (queue.size() && !shouldQuit) {
+        if (queue.size() && !quit) {
             Task task = std::move(queue.front());
             queue.pop();
 
@@ -81,11 +87,7 @@ void Async::handler() {
             // re-lock so wait doesn't unlock an unlocked mutex
             lock.lock();
         }
-    } while (!shouldQuit);
-}
-
-void Async::wait() {
-    while (activeTaskCount.load() > 0) {}
+    } while (!quit);
 }
 
 } // raekor

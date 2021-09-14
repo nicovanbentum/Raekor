@@ -25,7 +25,6 @@ public:
     const std::string& getTitle() { return title; }
     bool isFocused() { return focused; }
 
-    Async& async();
     Scene& scene();
     Assets& assets();
     GLRenderer& renderer();

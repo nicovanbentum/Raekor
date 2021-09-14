@@ -20,7 +20,7 @@ glm::mat4 toMat4(const aiMatrix4x4& from) {
 
 namespace Raekor {
 
-bool AssimpImporter::LoadFromFile(Async& async, Assets& assets, const std::string& file) {
+bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
     constexpr unsigned int flags =
         //aiProcess_PreTransformVertices |
         aiProcess_FindInstances |
@@ -54,7 +54,7 @@ bool AssimpImporter::LoadFromFile(Async& async, Assets& assets, const std::strin
     }
 
     // preload material texture in parallel
-    scene.loadMaterialTextures(async, assets, materials);
+    scene.loadMaterialTextures(assets, materials);
 
     // parse the node tree recursively
     auto root = scene.createObject(assimpScene->mRootNode->mName.C_Str());
@@ -161,12 +161,12 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
         }
 
         if (assimpMesh->HasTangentsAndBitangents()) {
-            auto& tangent = mesh.tangents.emplace_back(assimpMesh->mTangents[i].x, assimpMesh->mTangents[i].y, assimpMesh->mTangents[i].z, 1.0f);
+            auto& tangent = mesh.tangents.emplace_back(assimpMesh->mTangents[i].x, assimpMesh->mTangents[i].y, assimpMesh->mTangents[i].z);
 
             glm::vec3 bitangent = glm::vec3(assimpMesh->mBitangents[i].x, assimpMesh->mBitangents[i].y, assimpMesh->mBitangents[i].z);
 
             if (glm::dot(glm::cross(mesh.normals[i],glm::vec3(tangent)), bitangent) < 0.0f) {
-                tangent.w *= -1.0f;
+                tangent *= -1.0f;
             }
         }
     }

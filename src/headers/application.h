@@ -43,10 +43,7 @@ public:
     Viewport& getViewport() { return viewport; }
     SDL_Window* getWindow() { return window; }
 
-    Async& getAsync() { return async; }
-
 protected:
-    Async async;
     Viewport viewport;
     SDL_Window* window;
     ApplicationSettings settings;

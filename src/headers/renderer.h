@@ -20,7 +20,7 @@ class GLRenderer {
     } settings;
 
 public:
-    GLRenderer(Async& async, SDL_Window* window, Viewport& viewport);
+    GLRenderer(SDL_Window* window, Viewport& viewport);
     ~GLRenderer();
 
     void ImGui_Render();
