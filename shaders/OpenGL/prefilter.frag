@@ -4,7 +4,7 @@ layout(location = 0) in vec3 texturePos;
 
 layout(location = 0) out vec4 final_color;
 
-layout(location = 0) uniform samplerCube environmentMap;
+layout(binding = 0) uniform samplerCube environmentMap;
 
 layout(binding = 0) uniform Uniforms {
     float roughness;

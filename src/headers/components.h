@@ -15,7 +15,7 @@ struct Name {
     inline Name& operator=(const std::string& rhs) { name = rhs; return *this; }
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct Transform {
     glm::vec3 scale     = { 1.0f, 1.0f, 1.0f };
@@ -29,21 +29,21 @@ struct Transform {
     void decompose();
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct DirectionalLight {
     glm::vec4 direction = { 0.0f, -0.9f, 0.0f, 0.0f };
     glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct PointLight {
     glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
     glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct Node {
     entt::entity parent = entt::null;
@@ -52,13 +52,13 @@ struct Node {
     entt::entity nextSibling = entt::null;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct Mesh {
     std::vector<glm::vec3> positions;
     std::vector<glm::vec2> uvs;
     std::vector<glm::vec3> normals;
-    std::vector<glm::vec4> tangents;
+    std::vector<glm::vec3> tangents;
 
     std::vector<uint32_t> indices;
 
@@ -70,6 +70,7 @@ struct Mesh {
     entt::entity material = entt::null;
 
     void generateTangents();
+    void generateNormals();
     void generateAABB();
     void uploadIndices();
     void uploadVertices();
@@ -77,7 +78,7 @@ struct Mesh {
     void destroy();
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 // TODO: move these next two structs somewhere else
 struct BoneInfo {
@@ -85,14 +86,14 @@ struct BoneInfo {
     glm::mat4 finalTransformation;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct BoneTreeNode {
     std::string name;
     std::vector<BoneTreeNode> children;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct Skeleton {
     std::vector<glm::vec4> boneWeights;
@@ -121,7 +122,7 @@ struct Skeleton {
     glVertexBuffer skinnedVertexBuffer;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct Material {
     glm::vec4 baseColour = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -142,7 +143,7 @@ struct Material {
     static Material Default;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct NativeScript {
     std::string file;
@@ -151,7 +152,7 @@ struct NativeScript {
     std::shared_ptr<ScriptAsset> asset;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 template<typename Component>
 struct ComponentDescription {
@@ -159,7 +160,7 @@ struct ComponentDescription {
     using type = Component;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 static constexpr auto Components = std::make_tuple (
     ComponentDescription<Name>{"Name"},
@@ -173,7 +174,7 @@ static constexpr auto Components = std::make_tuple (
     ComponentDescription<NativeScript>{"Native Script"}
 );
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 template<typename T>
 inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {}

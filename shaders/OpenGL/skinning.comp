@@ -9,7 +9,6 @@ struct Vertex {
     float uv[2];
     float normal[3];
     float tangent[3];
-    float binormal[3];
 };
 
 layout(std430, binding = 0) buffer boneIndexBuffer {
