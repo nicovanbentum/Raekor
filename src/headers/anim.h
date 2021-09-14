@@ -19,12 +19,18 @@ private:
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 class Animation {
+	friend struct Skeleton;;
+
 public:
-	Animation() {}
+	Animation() = default;
 	Animation(aiAnimation* anim);
+
+	inline float getCurrentTime() { return runningTime; }
+	inline float getTotalDuration() { return totalDuration; }
 
 	void loadFromAssimp(aiAnimation* anim);
 
+private:
 	std::string name;
 	float ticksPerSecond;
 	float totalDuration;

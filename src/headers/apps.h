@@ -30,20 +30,4 @@ private:
     std::unique_ptr<RayTracingOneWeekend> rayTracePass;
 };
 
-class VulkanApp : public WindowApplication {
-public:
-    VulkanApp();
-    virtual ~VulkanApp();
-
-    virtual void update(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override {}
-
-private:
-    Scene scene;
-    Assets assets;
-    VK::Renderer renderer;
-    bool useVsync = true, shouldRecreateSwapchain = false;
-
-};
-
 } // raekor

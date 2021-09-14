@@ -153,7 +153,7 @@ void ViewportWidget::draw() {
     }
 
 
-    if (editor->active != entt::null && scene.valid(editor->active) && scene.has<Transform>(editor->active) && gizmoEnabled) {
+    if (editor->active != entt::null && scene.valid(editor->active) && scene.all_of<Transform>(editor->active) && gizmoEnabled) {
         ImGuizmo::SetDrawlist();
         ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
 

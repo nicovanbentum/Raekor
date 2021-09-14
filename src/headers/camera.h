@@ -32,7 +32,7 @@ public:
     void onEventEditor(const SDL_Event& event);
 
     void strafeWASD(float dt);
-    void strafeMouse(SDL_Event& event, float dt);
+    void strafeMouse(const SDL_Event& event);
     
     void update();
 

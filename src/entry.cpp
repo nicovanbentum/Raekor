@@ -4,10 +4,11 @@
 #include "camera.h"
 #include "editor.h"
 #include "renderer.h"
+#include "VK/VKEntry.h"
 
 int main(int argc, char** argv) {
     {
-        Raekor::WindowApplication* app = new Raekor::VulkanApp();
+        Raekor::WindowApplication* app = new Raekor::VulkanPathTracer();
 
         float dt = 0;
         Raekor::Timer timer;

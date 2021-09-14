@@ -31,7 +31,7 @@ void MenubarWidget::draw() {
 
                 if (!filepath.empty()) {
                     SDL_SetWindowTitle(editor->getWindow(), std::string(filepath + " - Raekor Renderer").c_str());
-                    scene.openFromFile(IWidget::async(), IWidget::assets(), filepath);
+                    scene.openFromFile(IWidget::assets(), filepath);
                     editor->active = entt::null;
                 }
             }
@@ -49,7 +49,7 @@ void MenubarWidget::draw() {
                 
                 if (!filepath.empty()) {
                     AssimpImporter importer(scene);
-                    importer.LoadFromFile(IWidget::async(), IWidget::assets(), filepath);
+                    importer.LoadFromFile(IWidget::assets(), filepath);
                     active = entt::null;
                 }
             }

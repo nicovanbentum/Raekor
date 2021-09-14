@@ -79,8 +79,9 @@ public:
     static std::string convert(const std::string& filepath);
     virtual bool load(const std::string& filepath) override;
 
-    DDS_HEADER header();
+    const DDS_HEADER* header();
     char* const getData();
+    uint32_t getDataSize() const;
 
 private:
     std::vector<char> data;

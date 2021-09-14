@@ -273,18 +273,18 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
     float voxelSize = voxelsWorldSize / VoxelDimensions;
      // start one voxel away from the current vertex' position
     float dist = voxelSize; 
-    vec3 startPos = p + n * voxelSize; 
+    vec3 startPos = p + n * voxelSize * 2 * sqrt(2); 
 
     while(dist < voxelsWorldSize && colour.a < 1.0) {
         
-        float diameter = max(voxelSize, 2 * dist * coneAperture);
+        float diameter = max(voxelSize, 2 * coneAperture * dist);
         float mip = log2(diameter / voxelSize);
 
         // create vec3 for reading voxel texture from world vector
         vec3 offset = vec3(1.0 / VoxelDimensions, 1.0 / VoxelDimensions, 0);
         vec3 uv3d = (startPos + dist * coneDirection) / (voxelsWorldSize * 0.5);
         uv3d = uv3d * 0.5 + 0.5 + offset;
-        vec4 voxel_colour = textureLod(voxels, uv3d, mip);
+        vec4 sampled = textureLod(voxels, uv3d, mip);
 
         if(!is_saturated(uv3d) || mip >= log2(VoxelDimensions)) {
            break;
@@ -292,12 +292,12 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
 
         // back-to-front alpha 
         float a = (1.0 - colour.a);
-        colour.rgb += a * voxel_colour.rgb;
-        colour.a += a * voxel_colour.a;
-        occlusion += (a * voxel_colour.a) / (1.0 + 0.03 * diameter);
+        colour.rgb += a * sampled.rgb;
+        colour.a += a * sampled.a;
+        occlusion += (a * sampled.a) / (1.0 + 0.03 * diameter);
 
         // move along the ray
-        dist += diameter;
+        dist += diameter * 0.5;
     }
 
     return colour;
@@ -691,9 +691,9 @@ void main() {
 
     float I = max(dot(-light.direction.xyz, normal), 0);
 
-    vec4 radiance = coneTraceRadiance(position, normal, 16, occlusion, light);
+    //vec4 radiance = coneTraceRadiance(position, normal, 12, occlusion, light);
 
-    finalColor = vec4(Lo + occlusion * albedo.rgb * ambient, 1.0);
+    finalColor = vec4(Lo + albedo.rgb * 0.1, 1.0);
 
     
 

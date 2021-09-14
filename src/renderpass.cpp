@@ -124,7 +124,7 @@ void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
     const auto lightView = scene.view<const DirectionalLight, const Transform>();
     auto lookDirection = glm::vec3(0.25f, -0.9f, 0.0f);
 
-    if (!lightView.empty()) {
+    if (lightView.begin() != lightView.end()) {
         const auto& lightTransform = lightView.get<const Transform>(lightView.front());
         lookDirection = static_cast<glm::quat>(lightTransform.rotation) * lookDirection;
     } else {
@@ -228,7 +228,7 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
             uniforms.modelMatrix = transform.worldTransform;
 
             // determine if we use the original mesh vertices or GPU skinned vertices
-            if (scene.has<Skeleton>(entity)) {
+            if (scene.all_of<Skeleton>(entity)) {
                 scene.get<Skeleton>(entity).skinnedVertexBuffer.bind();
             } else {
                 mesh.vertexBuffer.bind();
@@ -362,7 +362,7 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport) {
         uniforms.entity = entt::to_integral(entity);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<Skeleton>(entity)) {
+        if (scene.all_of<Skeleton>(entity)) {
             scene.get<Skeleton>(entity).skinnedVertexBuffer.bind();
         } else {
             mesh.vertexBuffer.bind();
@@ -914,7 +914,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
         }
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.has<Skeleton>(entity)) {
+        if (scene.all_of<Skeleton>(entity)) {
             scene.get<Skeleton>(entity).skinnedVertexBuffer.bind();
         } else {
             mesh.vertexBuffer.bind();

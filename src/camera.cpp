@@ -69,7 +69,7 @@ void Camera::strafeWASD(float dt) {
 
 
 
-void Camera::strafeMouse(SDL_Event& event, float dt) {
+void Camera::strafeMouse(const SDL_Event& event) {
     if (event.type == SDL_MOUSEMOTION) {
         auto formula = glm::radians(0.022f * sensitivity);
         look((event.motion.xrel * formula), event.motion.yrel * formula);

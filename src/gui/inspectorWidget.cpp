@@ -28,7 +28,7 @@ void InspectorWidget::draw() {
         (..., [&](Assets& assets, Scene& scene, entt::entity& entity) {
             using ComponentType = typename std::decay<decltype(components)>::type::type;
 
-            if (scene.has<ComponentType>(entity)) {
+            if (scene.all_of<ComponentType>(entity)) {
                 bool isOpen = true;
                 if (ImGui::CollapsingHeader(components.name, &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
                     if (isOpen) {
@@ -75,7 +75,7 @@ void InspectorWidget::drawComponent(Node& component, Assets& assets, Scene& scen
 void InspectorWidget::drawComponent(Mesh& component, Assets& assets, Scene& scene, entt::entity& active) {
     ImGui::Text("Triangle count: %i", component.indices.size() / 3);
 
-    if (scene.valid(component.material) && scene.has<Material, Name>(component.material)) {
+    if (scene.valid(component.material) && scene.all_of<Material, Name>(component.material)) {
         auto& [material, name] = scene.get<Material, Name>(component.material);
 
         const auto albedoTexture = (void*)((intptr_t)material.albedo);
@@ -104,7 +104,11 @@ void InspectorWidget::drawComponent(Mesh& component, Assets& assets, Scene& scen
 
 void InspectorWidget::drawComponent(Skeleton& component, Assets& assets, Scene& scene, entt::entity& active) {
     static bool playing = false;
-    ImGui::SliderFloat("Time", &component.animation.runningTime, 0, component.animation.totalDuration);
+    const float currentTime = component.animation.getCurrentTime();
+    const float totalDuration = component.animation.getTotalDuration();
+
+    ImGui::ProgressBar(currentTime / totalDuration);
+
     if (ImGui::Button(playing ? "pause" : "play")) {
         playing = !playing;
     }

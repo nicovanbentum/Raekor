@@ -20,6 +20,10 @@
 
 namespace Raekor {
 
+constexpr inline size_t align_up(size_t value, size_t alignment) noexcept {
+    return (value + alignment - 1) & ~(alignment - 1);
+}
+
 enum class PATH_OPTIONS {
     DIR,
     FILENAME,

@@ -13,6 +13,8 @@ void Transform::compose() {
     localTransform = glm::scale(localTransform, scale);
 }
 
+
+
 void Transform::decompose() {
     glm::vec3 skew;
     glm::quat quat;
@@ -21,10 +23,9 @@ void Transform::decompose() {
     glm::extractEulerAngleXYZ(localTransform, rotation.x, rotation.y, rotation.z);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Mesh::generateTangents() {
-    // calculate tangents
     tangents.resize(positions.size());
     for (size_t i = 0; i < indices.size(); i += 3) {
         auto v0 = positions[indices[i]];
@@ -63,16 +64,39 @@ void Mesh::generateTangents() {
     }
 }
 
+
+
+void Mesh::generateNormals() {
+    std::vector<glm::vec3> normals(positions.size(), glm::vec3(0.0f));
+
+    for (auto i = 0; i < indices.size(); i += 3) {
+        auto normal = glm::normalize(glm::cross(
+            positions[indices[i]] - positions[indices[i + 1]], 
+            positions[indices[i + 1]] - positions[indices[i + 2]]
+        ));
+
+        normals[indices[i]] += normal;
+        normals[indices[i + 1]] += normal;
+        normals[indices[i + 2]] += normal;
+    }
+
+    for (auto& normal : normals) {
+        normal = glm::normalize(normal / 3.0f);
+    }
+}
+
+
+
 void Mesh::generateAABB() {
     aabb[0] = positions[0];
     aabb[1] = positions[1];
-    for (auto& v : positions) {
+    for (const auto& v : positions) {
         aabb[0] = glm::min(aabb[0], v);
         aabb[1] = glm::max(aabb[1], v);
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 std::vector<float> Mesh::getInterleavedVertices() {
     std::vector<float> vertices;
@@ -80,7 +104,7 @@ std::vector<float> Mesh::getInterleavedVertices() {
         3 * positions.size() +
         2 * uvs.size() +
         3 * normals.size() +
-        4 * tangents.size()
+        3 * tangents.size()
     );
 
     const bool hasUVs = !uvs.empty();
@@ -111,21 +135,20 @@ std::vector<float> Mesh::getInterleavedVertices() {
             vertices.push_back(tangent.x);
             vertices.push_back(tangent.y);
             vertices.push_back(tangent.z);
-            vertices.push_back(tangent.w);
         }
     }
-
+    
     return vertices;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Mesh::destroy() {
     vertexBuffer.destroy();
     indexBuffer.destroy();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Mesh::uploadVertices() {
     auto vertices = getInterleavedVertices();
@@ -141,20 +164,20 @@ void Mesh::uploadVertices() {
         layout.emplace_back("NORMAL", ShaderType::FLOAT3);
     }
     if (!tangents.empty()) {
-        layout.emplace_back("TANGENT", ShaderType::FLOAT4);
+        layout.emplace_back("TANGENT", ShaderType::FLOAT3);
     }
 
     //vertexBuffer.loadVertices(vertices.data(), vertices.size());
     vertexBuffer.setLayout(layout);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Mesh::uploadIndices() {
     //indexBuffer.loadIndices(indices.data(), indices.size());
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Skeleton::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform) {
     auto globalTransformation = glm::mat4(1.0f);
@@ -189,7 +212,7 @@ void Skeleton::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Skeleton::boneTransform(float dt) {
     /*
@@ -210,7 +233,7 @@ void Skeleton::boneTransform(float dt) {
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Skeleton::uploadRenderData(Mesh& mesh) {
     glCreateBuffers(1, &boneIndexBuffer);
@@ -229,11 +252,11 @@ void Skeleton::uploadRenderData(Mesh& mesh) {
             { "POSITION",    ShaderType::FLOAT3 },
             { "UV",          ShaderType::FLOAT2 },
             { "NORMAL",      ShaderType::FLOAT3 },
-            { "TANGENT",     ShaderType::FLOAT4 },
+            { "TANGENT",     ShaderType::FLOAT3 },
         });
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Skeleton::destroy() {
     glDeleteBuffers(1, &boneIndexBuffer);
@@ -242,7 +265,7 @@ void Skeleton::destroy() {
     skinnedVertexBuffer.destroy();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Material::createAlbedoTexture(std::shared_ptr<TextureAsset> texture) {
     if (!texture) {
@@ -255,10 +278,10 @@ void Material::createAlbedoTexture(std::shared_ptr<TextureAsset> texture) {
 
     glDeleteTextures(1, &albedo);
     glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
-    glTextureStorage2D(albedo, header.dwMipMapCount, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
+    glTextureStorage2D(albedo, header->dwMipMapCount, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, header->dwWidth, header->dwHeight);
 
-    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
-        glm::ivec2 dimensions = { std::max(header.dwWidth >> mip, 1ul), std::max(header.dwHeight >> mip, 1ul) };
+    for (unsigned int mip = 0; mip < header->dwMipMapCount; mip++) {
+        glm::ivec2 dimensions = { std::max(header->dwWidth >> mip, 1ul), std::max(header->dwHeight >> mip, 1ul) };
         size_t dataSize = std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16;
         glCompressedTextureSubImage2D(albedo, mip, 0, 0, dimensions.x, dimensions.y, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += dimensions.x * dimensions.y;
@@ -268,7 +291,7 @@ void Material::createAlbedoTexture(std::shared_ptr<TextureAsset> texture) {
     glTextureParameteri(albedo, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Material::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
     if (!texture) {
@@ -277,14 +300,14 @@ void Material::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
 
     glDeleteTextures(1, &normals);
 
-    auto header = texture->header();
+    auto headerPtr = texture->header();
     auto dataPtr = texture->getData();
 
     glCreateTextures(GL_TEXTURE_2D, 1, &normals);
-    glTextureStorage2D(normals, header.dwMipMapCount, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
+    glTextureStorage2D(normals, headerPtr->dwMipMapCount, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, headerPtr->dwWidth, headerPtr->dwHeight);
 
-    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
-        glm::ivec2 size = { header.dwWidth >> mip, header.dwHeight >> mip };
+    for (unsigned int mip = 0; mip < headerPtr->dwMipMapCount; mip++) {
+        glm::ivec2 size = { headerPtr->dwWidth >> mip, headerPtr->dwHeight >> mip };
         size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
         glCompressedTextureSubImage2D(normals, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += size.x * size.y;
@@ -296,7 +319,7 @@ void Material::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
     normalFile = texture->path().string();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Material::createMetalRoughTexture(std::shared_ptr<TextureAsset> texture) {
     if (!texture) {
@@ -305,15 +328,15 @@ void Material::createMetalRoughTexture(std::shared_ptr<TextureAsset> texture) {
 
     glDeleteTextures(1, &metalrough);
 
-    auto header = texture->header();
+    auto headerPtr = texture->header();
     auto dataPtr = texture->getData();
 
     glCreateTextures(GL_TEXTURE_2D, 1, &metalrough);
-    auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(header.dwWidth, header.dwHeight))));
-    glTextureStorage2D(metalrough, mipmapLevels, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header.dwWidth, header.dwHeight);
+    auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(headerPtr->dwWidth, headerPtr->dwHeight))));
+    glTextureStorage2D(metalrough, mipmapLevels, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, headerPtr->dwWidth, headerPtr->dwHeight);
 
-    for (unsigned int mip = 0; mip < header.dwMipMapCount; mip++) {
-        glm::ivec2 size = { header.dwWidth >> mip, header.dwHeight >> mip };
+    for (unsigned int mip = 0; mip < headerPtr->dwMipMapCount; mip++) {
+        glm::ivec2 size = { headerPtr->dwWidth >> mip, headerPtr->dwHeight >> mip };
         size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
         glCompressedTextureSubImage2D(metalrough, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
         dataPtr += size.x * size.y;
@@ -325,7 +348,7 @@ void Material::createMetalRoughTexture(std::shared_ptr<TextureAsset> texture) {
     mrFile = texture->path().string();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Material::destroy() {
     glDeleteTextures(1, &albedo);
@@ -334,11 +357,11 @@ void Material::destroy() {
     albedo = 0, normals = 0, metalrough = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 Material Material::Default;
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 template<>
 void clone<Transform>(entt::registry& reg, entt::entity from, entt::entity to) {
@@ -346,7 +369,7 @@ void clone<Transform>(entt::registry& reg, entt::entity from, entt::entity to) {
     reg.emplace<Transform>(to, component);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 
 template<>
@@ -358,7 +381,7 @@ void clone<Node>(entt::registry& reg, entt::entity from, entt::entity to) {
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 template<>
 void clone<Name>(entt::registry& reg, entt::entity from, entt::entity to) {
@@ -366,7 +389,7 @@ void clone<Name>(entt::registry& reg, entt::entity from, entt::entity to) {
     reg.emplace<Name>(to, component);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 template<>
 void clone<Mesh>(entt::registry& reg, entt::entity from, entt::entity to) {
@@ -376,7 +399,7 @@ void clone<Mesh>(entt::registry& reg, entt::entity from, entt::entity to) {
     to_component.uploadIndices();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 template<>
 void clone<Material>(entt::registry& reg, entt::entity from, entt::entity to) {
