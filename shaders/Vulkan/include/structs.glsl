@@ -24,7 +24,7 @@ struct Instance {
 };
 
 struct RayPayload {
-    uvec4 rng;
+    uint rng;
     uint depth;
     vec3 Lio;
 };

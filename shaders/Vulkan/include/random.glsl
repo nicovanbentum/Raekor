@@ -1,8 +1,8 @@
 #ifndef RANDOM_GLSL
 #define RANDOM_GLSL
 
-uvec4 seed ( in vec2 fragCoord, in vec2 iResolution, in float iTime ) {
-    float fseed = fragCoord.x + fragCoord.y * iResolution.x + 1.0 + mod(iTime, 16.0f) * iResolution.x * iResolution.y;
+uvec4 seed ( in vec2 fragCoord, in vec2 iResolution, uint frameCounter) {
+    float fseed = fragCoord.x + fragCoord.y * iResolution.x + 1.0 + (1.0 / frameCounter) * iResolution.x * iResolution.y;
     return uvec4(fseed);
 }
 
@@ -31,5 +31,26 @@ vec2 UniformSampleDisk(vec2 u) {
     float theta = 2 * 3.1415 * u.y;
     return vec2(r * cos(theta), r * sin(theta));
 }
+
+vec3 UniformSampleCone(const vec2 u, float cosThetaMax) {
+    float cosTheta = (1.0 - u.x) + u.x * cosThetaMax;
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+    float phi = u.y * 2 * 3.1415;
+    return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
+// from https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+uint pcg_hash(inout uint in_state)
+{
+    uint state = in_state * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    in_state = (word >> 22u) ^ word;
+    return in_state;
+}
+
+float pcg_float(inout uint in_state) {
+    return pcg_hash(in_state) / float(uint(0xffffffff));
+}
+
 
 #endif

@@ -7,5 +7,5 @@
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 
 void main() {
-    payload.Lio = vec3(0.5, 0.7, 1.0);
+    payload.Lio += vec3(0.0, 0.0, 0.0);
 }

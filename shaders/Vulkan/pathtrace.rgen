@@ -5,23 +5,41 @@
 #include "include/structs.glsl"
 #include "include/random.glsl"
 
-layout(set = 0, binding = 0, rgba8) uniform writeonly image2D outTexture;
+layout(set = 0, binding = 0, rgba32f) uniform image2D outTexture;
+layout(set = 0, binding = 4, rgba32f) uniform image2D accumTexture;
 layout(set = 0, binding = 1) uniform accelerationStructureEXT TLAS;
 
 layout(push_constant) uniform pushConstants {
     mat4 invViewProj;
     vec4 cameraPosition;
+    uint frameCounter;
 };
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
+vec3 aces(vec3 x) {
+  const float a = 2.51;
+  const float b = 0.03;
+  const float c = 2.43;
+  const float d = 0.59;
+  const float e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
 void main() {
+    ivec2 pixelCoord = ivec2(gl_LaunchIDEXT.xy);
     vec2 id = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 
-    payload.rng = seed(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy, 16.0);
-    vec4 v4 = rand(payload.rng);
+    payload.rng = ((pixelCoord.y << 16) | pixelCoord.x) * (uint(0xffffffff) / (frameCounter + 1));
+    payload.Lio = vec3(0.0);
 
-    id += v4.xy;
+    vec3 result = vec3(
+        pcg_float(payload.rng),
+        pcg_float(payload.rng),
+        pcg_float(payload.rng)
+    );
+
+    id += result.xy;
 
     vec2 uv = id / vec2(gl_LaunchSizeEXT.xy);
     uv.y = 1.0 - uv.y;
@@ -51,5 +69,20 @@ void main() {
         0 // payload location identifier
     );
 
-    imageStore(outTexture, ivec2(gl_LaunchIDEXT.xy), vec4(payload.Lio, 1.0));
+    if (frameCounter == 0) {
+        imageStore(accumTexture, pixelCoord, vec4(payload.Lio, 1.0));
+        imageStore(outTexture, pixelCoord, vec4(payload.Lio, 1.0));
+    } else if (frameCounter < uint(0xffffffff)) { 
+        vec4 stored = imageLoad(accumTexture, pixelCoord);
+        vec4 accumulated = stored + vec4(payload.Lio, 1.0);
+
+        imageStore(accumTexture, pixelCoord, accumulated);
+
+        vec3 color = aces(accumulated.rgb / frameCounter);
+        vec3 retColor = pow(color, vec3(1/2.2));
+
+        imageStore(outTexture, pixelCoord, vec4(retColor, 1.0));
+    }
+
+
 }
