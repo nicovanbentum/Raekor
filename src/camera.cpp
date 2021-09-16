@@ -78,7 +78,9 @@ void Camera::strafeMouse(const SDL_Event& event) {
 
 
 
-void Camera::onEventEditor(const SDL_Event& event) {
+bool Camera::onEventEditor(const SDL_Event& event) {
+    bool moved = false;
+
     int x, y;
     auto mouseState = SDL_GetMouseState(&x, &y);
 
@@ -86,12 +88,17 @@ void Camera::onEventEditor(const SDL_Event& event) {
         if (mouseState & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
             auto formula = glm::radians(0.022f * sensitivity * 2.0f);
             look(event.motion.xrel * formula, event.motion.yrel * formula);
+            moved = true;
         } else if (mouseState & SDL_BUTTON(SDL_BUTTON_MIDDLE)) {
             move({ event.motion.xrel * -moveSpeed, event.motion.yrel * moveSpeed });
+            moved = true;
         }
     } else if (event.type == SDL_MOUSEWHEEL) {
         zoom(static_cast<float>(event.wheel.y * zoomSpeed));
+        moved = true;
     }
+
+    return moved;
 }
 
 

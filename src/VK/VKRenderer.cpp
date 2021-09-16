@@ -35,9 +35,19 @@ Renderer::~Renderer() {
     context.device.destroyBuffer(materialBuffer, materialAllocation);
 }
 
+
+
 void Renderer::initialize(Scene& scene) {
     pathTracePass.initialize(context, swapchain, TLAS, instanceBuffer, materialBuffer, bindlessTextures);
 }
+
+
+
+void Renderer::resetAccumulation() {
+    pathTracePass.pushConstants.frameCounter = 0;
+}
+
+
 
 void Renderer::updateMaterials(Assets& assets, Scene& scene) {
     auto materialView = scene.view<Material>();
@@ -125,6 +135,8 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
     memcpy(mappedPtr, hostInstances.data(), hostInstances.size() * sizeof(Instance));
 }
 
+
+
 void Renderer::render(const Viewport& viewport, Scene& scene) {
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(context.device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
@@ -135,14 +147,14 @@ void Renderer::render(const Viewport& viewport, Scene& scene) {
     }
 
     if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-        vkWaitForFences(context.device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+        ThrowIfFailed(vkWaitForFences(context.device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX));
     }
 
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     
-    vkBeginCommandBuffer(swapchain.blitBuffer, &beginInfo);
+    ThrowIfFailed(vkBeginCommandBuffer(swapchain.blitBuffer, &beginInfo));
 
     // TODO: implement actual texture class that tracks the image layouts and abstract the image barriers
 
@@ -162,6 +174,24 @@ void Renderer::render(const Viewport& viewport, Scene& scene) {
         vkCmdPipelineBarrier(swapchain.blitBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
         pathTracePass.finalImageLayout = barrier.newLayout;
+    }
+
+    if (pathTracePass.accumImageLayout != VK_IMAGE_LAYOUT_GENERAL) {
+        VkImageMemoryBarrier barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.pNext = nullptr;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT; // TODO: optimize
+        barrier.oldLayout = pathTracePass.accumImageLayout;
+        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.image = pathTracePass.accumImage;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.layerCount = 1;
+
+        vkCmdPipelineBarrier(swapchain.blitBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+        pathTracePass.accumImageLayout = barrier.newLayout;
     }
 
     pathTracePass.recordCommands(context, viewport, swapchain.blitBuffer, bindlessTextures);
@@ -219,7 +249,7 @@ void Renderer::render(const Viewport& viewport, Scene& scene) {
         barrier.dstAccessMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
         barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        barrier.image = swapchain.images[imageIndex];;
+        barrier.image = swapchain.images[imageIndex];
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
@@ -227,7 +257,7 @@ void Renderer::render(const Viewport& viewport, Scene& scene) {
         vkCmdPipelineBarrier(swapchain.blitBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     }
 
-    vkEndCommandBuffer(swapchain.blitBuffer);
+    ThrowIfFailed(vkEndCommandBuffer(swapchain.blitBuffer));
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -236,7 +266,7 @@ void Renderer::render(const Viewport& viewport, Scene& scene) {
     submitInfo.pCommandBuffers = &swapchain.blitBuffer;
     submitInfo.pSignalSemaphores = &renderFinishedSemaphores[current_frame];
 
-    vkQueueSubmit(context.device.queue, 1, &submitInfo, NULL);
+    ThrowIfFailed(vkQueueSubmit(context.device.queue, 1, &submitInfo, NULL));
 
     imagesInFlight[imageIndex] = inFlightFences[current_frame];
 
@@ -260,13 +290,13 @@ void Renderer::render(const Viewport& viewport, Scene& scene) {
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
         recreateSwapchain(vsync);
-    }  else if (result != VK_SUCCESS) {
-        throw std::runtime_error("failed to present swap chain image!");
+    }  else {
+        ThrowIfFailed(result);
     }
 
-    vkQueueWaitIdle(context.device.queue);
+    ThrowIfFailed(vkQueueWaitIdle(context.device.queue));
 
-    vkWaitForFences(context.device, 1, &inFlightFences[current_frame], VK_TRUE, UINT64_MAX);
+    ThrowIfFailed(vkWaitForFences(context.device, 1, &inFlightFences[current_frame], VK_TRUE, UINT64_MAX));
     current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
@@ -326,8 +356,8 @@ void Renderer::recreateSwapchain(bool useVsync) {
         std::puts("WTF SWAP CHAIN FAILED??");
     }
 
-    pathTracePass.destroyFinalTexture(context.device);
-    pathTracePass.createFinalTexture(context.device, { w, h });
+    pathTracePass.destroyRenderTextures(context.device);
+    pathTracePass.createRenderTextures(context.device, { w, h });
     pathTracePass.updateDescriptorSet(context.device, TLAS, instanceBuffer, materialBuffer);
 }
 

@@ -46,6 +46,8 @@ public:
 
     void initialize(Scene& scene);
 
+    void resetAccumulation();
+
     void updateMaterials(Assets& assets, Scene& scene);
     void updateAccelerationStructures(Scene& scene);
     void render(const Viewport& viewport, Scene& scene);
@@ -53,9 +55,7 @@ public:
     void setupSyncObjects();
     void recreateSwapchain(bool useVsync);
 
-    void addMaterial(Assets& assets, const Material& material);
     int32_t addBindlessTexture(Device& device, const std::shared_ptr<TextureAsset>& asset);
-
 
     void reloadShaders();
 

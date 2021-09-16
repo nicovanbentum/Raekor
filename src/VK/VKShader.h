@@ -7,7 +7,7 @@ namespace Raekor::VK {
 class Shader {
     friend class DescriptorSet;
 public:
-    static bool compileFromCommandLine(const fs::path& InShader, const fs::path& OutBinary);
+    static bool glslangValidator(const char* vulkanSDK, const fs::directory_entry& file);
     
     void create(Device& device, const std::string& filepath);
     void destroy(Device& device);

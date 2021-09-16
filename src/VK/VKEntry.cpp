@@ -43,7 +43,9 @@ void VulkanPathTracer::update(float dt) {
         onEvent(ev);
         ImGui_ImplSDL2_ProcessEvent(&ev);
 
-        viewport.getCamera().onEventEditor(ev);
+        if (viewport.getCamera().onEventEditor(ev)) {
+            renderer.resetAccumulation();
+        }
 
         if (ev.type == SDL_WINDOWEVENT) {
             if (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) {
@@ -70,6 +72,7 @@ void VulkanPathTracer::update(float dt) {
             switch (ev.key.keysym.sym) {
             case SDLK_r: {
                 renderer.reloadShaders();
+                renderer.resetAccumulation();
             } break;
             }
         }
@@ -83,6 +86,7 @@ void VulkanPathTracer::update(float dt) {
 
         viewport.resize(glm::uvec2(w, h));
         renderer.recreateSwapchain(useVsync);
+        renderer.resetAccumulation();
         shouldRecreateSwapchain = false;
     }
 

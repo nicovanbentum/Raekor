@@ -3,27 +3,18 @@
 
 namespace Raekor::VK {
 
-bool Shader::compileFromCommandLine(const fs::path& inShader, const fs::path& outBinary) {
-    if (!fs::exists(inShader)) {
-        std::cout << "Shader file " << inShader.string() << " does not exist on disk.\n";
-        return false;
-    }
+bool Shader::glslangValidator(const char* vulkanSDK, const fs::directory_entry& file) {
+    if (!file.is_regular_file()) return false;
 
-    const auto vulkan_sdk_path = getenv("VULKAN_SDK");
-    if (!vulkan_sdk_path) {
-        std::puts("Unable to find Vulkan SDK, cannot compile shader");
-        return false;
-    }
-
-    const auto compiler = vulkan_sdk_path + std::string("\\Bin\\glslangValidator.exe ");
-    const auto command = compiler + "--target-env vulkan1.2 -V " + inShader.string() + " -o " + outBinary.string();
+    const auto outfile = file.path().parent_path() / "bin" / file.path().filename();
+    const auto compiler = vulkanSDK + std::string("\\Bin\\glslangValidator.exe ");
+    const auto command = compiler + "--target-env vulkan1.2 -V " + file.path().string() + " -o " + std::string(outfile.string() + ".spv");
 
     if (system(command.c_str()) != 0) {
-        std::cout << "failed to compile vulkan shader: " << inShader.string() << '\n';
         return false;
-    } else {
-        return true;
-    }
+    } 
+    
+    return true;
 }
 
 
