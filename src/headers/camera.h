@@ -29,7 +29,7 @@ public:
     void zoom(float amount);
     void move(glm::vec2 amount);
 
-    void onEventEditor(const SDL_Event& event);
+    bool onEventEditor(const SDL_Event& event);
 
     void strafeWASD(float dt);
     void strafeMouse(const SDL_Event& event);
