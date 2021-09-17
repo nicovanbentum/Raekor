@@ -55,7 +55,7 @@ public:
     void setupSyncObjects();
     void recreateSwapchain(bool useVsync);
 
-    int32_t addBindlessTexture(Device& device, const std::shared_ptr<TextureAsset>& asset);
+    int32_t addBindlessTexture(Device& device, const std::shared_ptr<TextureAsset>& asset, VkFormat format);
 
     void reloadShaders();
 

@@ -93,6 +93,18 @@ void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
+    bool includesOutofDate = false;
+
+    fs::file_time_type timeOfMostRecentlyUpdatedIncludeFile;
+
+    for (const auto& file : fs::directory_iterator("shaders/Vulkan/include")) {
+        const auto updateTime = fs::last_write_time(file);
+
+        if (updateTime > timeOfMostRecentlyUpdatedIncludeFile) {
+            timeOfMostRecentlyUpdatedIncludeFile = updateTime;
+        }
+    }
+
     for (const auto& file : fs::directory_iterator("shaders/Vulkan")) {
         if (file.is_directory()) continue;
 
@@ -100,7 +112,9 @@ void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
-            if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time()) {
+            const auto writeTime = file.last_write_time();
+
+            if (!fs::exists(outfile) || fs::last_write_time(outfile) < writeTime || timeOfMostRecentlyUpdatedIncludeFile > writeTime) {
                 auto success = Shader::glslangValidator(vulkanSDK, file);
 
                 if (!success) {

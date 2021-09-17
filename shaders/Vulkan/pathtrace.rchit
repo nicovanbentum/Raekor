@@ -11,7 +11,6 @@
 #include "include/structs.glsl"
 #include "include/random.glsl"
 
-
 layout(push_constant) uniform pushConstants {
     mat4 invViewProj;
     vec4 cameraPosition;
@@ -133,7 +132,7 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
 }
 
-vec3 evaluateLight(Surface surface, vec3 lightDirection, vec3 lightColor) {
+vec3 evaluateLight(Surface surface, vec3 lightDirection, vec3 lightColor, inout vec3 K) {
     vec3 V = normalize(-gl_WorldRayDirectionEXT);
 
     vec3 Li = normalize(-lightDirection.xyz);
@@ -194,7 +193,7 @@ void main() {
     vec3 lightDir = normalize(vec3(-0.1, -1, -0.2)); // TODO: buffer or push constant
 
     vec2 rng = vec2(pcg_float(payloadIn.rng), pcg_float(payloadIn.rng));
-    vec2 unitDiskOffset = UniformSampleDisk(rng.xy); // could also use cone to parameterize shadow penumbra
+    vec2 unitDiskOffset = uniformSampleDisk(rng.xy); // could also use cone to parameterize shadow penumbra
     lightDir.xy += unitDiskOffset.xy;
 
 //    vec3 coneOffset = UniformSampleCone(rng, 0.01);
@@ -203,26 +202,27 @@ void main() {
     canReachLight = false; 
     traceRayEXT(TLAS, rayFlags, 0xFF, 0, 0, 1, surface.pos, tMin, -lightDir, tMax, 1);
    
-    vec3 directLight = evaluateLight(surface, lightDir, vec3(1.0));
+    vec3 directLight = evaluateLight(surface, lightDir, vec3(1.0), payloadIn.K);
 
     if(canReachLight) {
-        payloadIn.Lio += directLight;
+        payloadIn.Lo += directLight;
     }
 
-//    if((payloadIn.depth + 1) < 2) {
-//        vec3 newDirection = normalize(reflect(-gl_WorldRayDirectionEXT, surface.normal));
-//        vec2 rng2 = vec2(pcg_float(payloadIn.rng), pcg_float(payloadIn.rng));
-//        vec2 offset = UniformSampleDisk(rng.xy);
-//        newDirection.xy += offset;
-//
-//        payloadOut.Lio = vec3(0.0);
-//        payloadOut.depth = payloadIn.depth + 1;
-//        payloadOut.rng = payloadIn.rng;
-//
-//        traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, surface.pos, tMin, newDirection, tMax, 2);
-//
-//        payloadIn.Lio += payloadOut.Lio;
-//    }
+    if((payloadIn.depth + 1) < 2) {
+        vec3 reflected = normalize(reflect(gl_WorldRayDirectionEXT, surface.normal));
+        reflected.xyz += pcg_vec3(payloadIn.rng) * surface.roughness;
+
+        vec3 Wi;
+
+        payloadOut.Lo = vec3(0.0);
+        payloadOut.depth = payloadIn.depth + 1;
+        payloadOut.rng = payloadIn.rng;
+        payloadOut.K = payloadIn.K;
+
+        traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, surface.pos, tMin, reflected, tMax, 2);
+
+        payloadIn.Lo += payloadOut.Lo;
+    }
 
 
 }

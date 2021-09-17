@@ -3,6 +3,8 @@
 
 #include "scene.h"
 #include "systems.h"
+#include "async.h"
+#include "timer.h"
 
 namespace Assimp {
 
@@ -44,14 +46,20 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
         return false;
     }
 
-    auto path = std::filesystem::path(file);
+    auto path = fs::path(file);
     directory = path.parent_path() / "";
 
     // pre-parse materials
+    Timer timer;
+    timer.start();
+
     for (unsigned int i = 0; i < assimpScene->mNumMaterials; i++) {
-        printProgressBar(i, 0, assimpScene->mNumMaterials);
+        printProgressBar(i, 0, assimpScene->mNumMaterials - 1);
         parseMaterial(assimpScene->mMaterials[i], scene.create());
     }
+
+    timer.stop();
+    std::cout << "Texture conversion took " << timer.elapsedMs() << " ms. \n";
 
     // preload material texture in parallel
     scene.loadMaterialTextures(assets, materials);
@@ -324,20 +332,25 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
 
     std::error_code ec;
     if (albedoFile.length) {
-        auto relativePath = std::filesystem::relative(directory.string() + albedoFile.C_Str(), ec).string();
-        auto assetPath = TextureAsset::convert(relativePath);
-        material.albedoFile = assetPath;
+        Async::dispatch([&]() {
+            auto assetPath = TextureAsset::convert(directory.string() + albedoFile.C_Str());
+            material.albedoFile = assetPath;
+        });
     }
     if (normalmapFile.length) {
-        auto relativePath = std::filesystem::relative(directory.string() + normalmapFile.C_Str(), ec).string();
-        auto assetPath = TextureAsset::convert(relativePath);
-        material.normalFile = assetPath;
+        Async::dispatch([&]() {
+            auto assetPath = TextureAsset::convert(directory.string() + normalmapFile.C_Str());
+            material.normalFile = assetPath;
+        });
     }
     if (metalroughFile.length) {
-        auto relativePath = std::filesystem::relative(directory.string() + metalroughFile.C_Str(), ec).string();
-        auto assetPath = TextureAsset::convert(relativePath);
-        material.mrFile = assetPath;
+        Async::dispatch([&]() {
+            auto assetPath = TextureAsset::convert(directory.string() + metalroughFile.C_Str());
+            material.mrFile = assetPath;
+        });
     }
+
+    Async::wait();
 }
 
 } // raekor

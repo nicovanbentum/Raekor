@@ -59,9 +59,9 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
         auto& buffer = materials[index];
         buffer.albedo = material.baseColour;
 
-        buffer.textures.x = addBindlessTexture(context.device, assets.get<TextureAsset>(material.albedoFile));
-        buffer.textures.y = addBindlessTexture(context.device, assets.get<TextureAsset>(material.normalFile));
-        buffer.textures.z = addBindlessTexture(context.device, assets.get<TextureAsset>(material.mrFile));
+        buffer.textures.x = addBindlessTexture(context.device, assets.get<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.y = addBindlessTexture(context.device, assets.get<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.z = addBindlessTexture(context.device, assets.get<TextureAsset>(material.mrFile), VK_FORMAT_BC3_UNORM_BLOCK);
 
         buffer.properties.x = material.metallic;
         buffer.properties.y = material.roughness;
@@ -361,18 +361,18 @@ void Renderer::recreateSwapchain(bool useVsync) {
     pathTracePass.updateDescriptorSet(context.device, TLAS, instanceBuffer, materialBuffer);
 }
 
-int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<TextureAsset>& asset) {
+int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<TextureAsset>& asset, VkFormat format) {
     if (!asset) {
         return -1;
     }
 
     const glm::uvec2 dimensions = { asset->header()->dwWidth, asset->header()->dwHeight };
-    uint32_t mipmapCount = asset->header()->dwMipMapCount - 2; // Reload texture assets to account for 4x4 DXT
+    uint32_t mipmapCount = asset->header()->dwMipMapCount;
 
     VkImageCreateInfo imageInfo = {};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.format = VK_FORMAT_BC3_UNORM_BLOCK; // DXT5
+    imageInfo.format = format; // DXT5
     imageInfo.extent = { dimensions.x, dimensions.y, 1 };
     imageInfo.mipLevels = mipmapCount;
     imageInfo.arrayLayers = 1;
@@ -391,7 +391,7 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
     VkImageViewCreateInfo viewInfo = {};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = VK_FORMAT_BC3_UNORM_BLOCK;
+    viewInfo.format = format;
     viewInfo.image = texture.image;
     viewInfo.subresourceRange.levelCount = mipmapCount;
     viewInfo.subresourceRange.layerCount = 1;
@@ -420,7 +420,7 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
     vkCreateSampler(device, &samplerInfo, nullptr, &texture.sampler);
 
     auto [buffer, allocation] = device.createBuffer(
-        asset->getDataSize(), 
+        asset->getDataSize() + 16u, // the disk size is not aligned to 16
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VMA_MEMORY_USAGE_CPU_ONLY
     );
@@ -431,7 +431,7 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
 
     device.transitionImageLayout(
         texture.image, 
-        VK_FORMAT_BC3_UNORM_BLOCK, 
+        format, 
         mipmapCount, 1, 
         VK_IMAGE_LAYOUT_UNDEFINED, 
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
@@ -468,14 +468,14 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
         commandBuffer, 
         buffer, texture.image, 
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-        regions.size(), regions.data()
+        (uint32_t)regions.size(), regions.data()
     );
 
     device.flushSingleSubmit(commandBuffer);
 
     device.transitionImageLayout(
         texture.image, 
-        VK_FORMAT_BC3_UNORM_BLOCK, 
+        format, 
         mipmapCount, 1, 
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL

@@ -28,7 +28,7 @@ char* const TextureAsset::getData() {
 
 
 uint32_t TextureAsset::getDataSize() const { 
-    return data.size() - 128; 
+    return static_cast<uint32_t>(data.size() - 128); 
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,7 +36,9 @@ uint32_t TextureAsset::getDataSize() const {
 std::string TextureAsset::convert(const std::string& filepath) {
     int width, height, ch;
     std::vector<stbi_uc*> mipChain;
+
     mipChain.push_back(stbi_load(filepath.c_str(), &width, &height, &ch, 4));
+
 
     if (!mipChain[0]) {
         std::cout << "stb failed " << filepath << std::endl;
@@ -46,7 +48,7 @@ std::string TextureAsset::convert(const std::string& filepath) {
     // TODO: gpu mip mapping, cant right now because assets are loaded in parallel but OpenGL can't do multithreading
 
     // mips down to 2x2 but DXT works on 4x4 so we subtract one level
-    int mipmapLevels = (int)std::floor(std::log2(std::max(width, height))) - 1;
+    int mipmapLevels = (int)std::max(std::floor(std::log2(std::max(width, height))) - 1, 0.0);
 
     for (size_t i = 1; i < mipmapLevels; i++) {
         glm::ivec2 prevSize = { width >> (i - 1), height >> (i - 1) };
