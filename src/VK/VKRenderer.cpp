@@ -1,13 +1,12 @@
 #include "pch.h"
 #include "VKRenderer.h"
-#include "mesh.h"
-#include "VKAccelerationStructure.h"
-#include "VKExtensions.h"
-#include "scene.h"
-#include "util.h"
 
-namespace Raekor {
-namespace VK {
+#include "VKUtil.h"
+#include "VKDevice.h"
+#include "VKExtensions.h"
+#include "VKAccelerationStructure.h"
+
+namespace Raekor::VK {
 
 Renderer::~Renderer() {
     ImGui_ImplVulkan_Shutdown();
@@ -15,30 +14,30 @@ Renderer::~Renderer() {
     ImGui::DestroyContext();
 
     for (unsigned int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkDestroySemaphore(context.device, imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(context.device, renderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(context.device, inFlightFences[i], nullptr);
+        vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
+        vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
+        vkDestroyFence(device, inFlightFences[i], nullptr);
     }
 
     for (const auto& texture : textures) {
-        vmaDestroyImage(context.device.getAllocator(), texture.image, texture.allocation);
-        vkDestroyImageView(context.device, texture.view, nullptr);
-        vkDestroySampler(context.device, texture.sampler, nullptr);
+        vmaDestroyImage(device.getAllocator(), texture.image, texture.allocation);
+        vkDestroyImageView(device, texture.view, nullptr);
+        vkDestroySampler(device, texture.sampler, nullptr);
     }
 
-    bindlessTextures.destroy(context.device);
+    bindlessTextures.destroy(device);
 
-    TLAS.destroy(context.device);
-    swapchain.destroy(context.device);
-    pathTracePass.destroy(context.device);
-    context.device.destroyBuffer(instanceBuffer, instanceAllocation);
-    context.device.destroyBuffer(materialBuffer, materialAllocation);
+    TLAS.destroy(device);
+    swapchain.destroy(device);
+    pathTracePass.destroy(device);
+    device.destroyBuffer(instanceBuffer, instanceAllocation);
+    device.destroyBuffer(materialBuffer, materialAllocation);
 }
 
 
 
 void Renderer::initialize(Scene& scene) {
-    pathTracePass.initialize(context, swapchain, TLAS, instanceBuffer, materialBuffer, bindlessTextures);
+    pathTracePass.initialize(device, swapchain, TLAS, instanceBuffer, materialBuffer, bindlessTextures);
 }
 
 
@@ -59,9 +58,9 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
         auto& buffer = materials[index];
         buffer.albedo = material.baseColour;
 
-        buffer.textures.x = addBindlessTexture(context.device, assets.get<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_UNORM_BLOCK);
-        buffer.textures.y = addBindlessTexture(context.device, assets.get<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
-        buffer.textures.z = addBindlessTexture(context.device, assets.get<TextureAsset>(material.mrFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.x = addBindlessTexture(device, assets.get<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.y = addBindlessTexture(device, assets.get<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.z = addBindlessTexture(device, assets.get<TextureAsset>(material.mrFile), VK_FORMAT_BC3_UNORM_BLOCK);
 
         buffer.properties.x = material.metallic;
         buffer.properties.y = material.roughness;
@@ -70,13 +69,13 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
 
     const auto materialBufferSize = materials.size() * sizeof(materials[0]);
 
-    std::tie(materialBuffer, materialAllocation) = context.device.createBuffer(
+    std::tie(materialBuffer, materialAllocation) = device.createBuffer(
         materialBufferSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    auto mappedPtr = context.device.getMappedPointer(materialAllocation);
+    auto mappedPtr = device.getMappedPointer(materialAllocation);
     memcpy(mappedPtr, materials.data(), materialBufferSize);
 }
 
@@ -89,7 +88,7 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
 
     uint32_t customIndex = 0; 
     for (auto& [entity, mesh, transform, geometry] : meshes.each()) {
-        auto deviceAddress = context.device.getDeviceAddress(geometry.accelerationStructure.accelerationStructure);
+        auto deviceAddress = device.getDeviceAddress(geometry.accelerationStructure.accelerationStructure);
 
         VkAccelerationStructureInstanceKHR instance = {};
         instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
@@ -102,7 +101,7 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
         deviceInstances.push_back(instance);
     }
 
-    TLAS.destroy(context.device);
+    TLAS.destroy(device);
     TLAS = createTLAS(deviceInstances.data(), deviceInstances.size());
 
     struct Instance {
@@ -118,36 +117,36 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
         Instance instance = {};
         instance.materialIndex.x = entt::entt_traits<entt::entity>::to_entity(mesh.material);
         instance.localToWorldTransform = transform.worldTransform;
-        instance.indexBufferAddress = context.device.getDeviceAddress(geometry.indexBuffer);
-        instance.vertexBufferAddress = context.device.getDeviceAddress(geometry.vertexBuffer);
+        instance.indexBufferAddress = device.getDeviceAddress(geometry.indexBuffer);
+        instance.vertexBufferAddress = device.getDeviceAddress(geometry.vertexBuffer);
 
         hostInstances.push_back(instance);
     }
 
-    std::tie(instanceBuffer, instanceAllocation) = context.device.createBuffer(
+    std::tie(instanceBuffer, instanceAllocation) = device.createBuffer(
         sizeof(Instance) * meshes.size_hint(), 
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    auto mappedPtr = context.device.getMappedPointer(instanceAllocation);
+    auto mappedPtr = device.getMappedPointer(instanceAllocation);
 
     memcpy(mappedPtr, hostInstances.data(), hostInstances.size() * sizeof(Instance));
 }
 
 
 
-void Renderer::render(const Viewport& viewport, Scene& scene) {
+void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene) {
     uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(context.device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        recreateSwapchain(vsync);
+        recreateSwapchain(window);
         return;
     }
 
     if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-        ThrowIfFailed(vkWaitForFences(context.device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX));
+        ThrowIfFailed(vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX));
     }
 
     VkCommandBufferBeginInfo beginInfo = {};
@@ -194,7 +193,7 @@ void Renderer::render(const Viewport& viewport, Scene& scene) {
         pathTracePass.accumImageLayout = barrier.newLayout;
     }
 
-    pathTracePass.recordCommands(context, viewport, swapchain.blitBuffer, bindlessTextures);
+    pathTracePass.recordCommands(device, viewport, swapchain.blitBuffer, bindlessTextures);
 
     {   // transition patrh trace image to transfer src layout
         VkImageMemoryBarrier barrier = {};
@@ -231,11 +230,11 @@ void Renderer::render(const Viewport& viewport, Scene& scene) {
 
     VkImageBlit region = {};
 
-    region.srcOffsets[1] = { (int32_t)viewport.size.x, (int32_t)viewport.size.y, 1 };
+    region.srcOffsets[1] = { int32_t(viewport.size.x), int32_t(viewport.size.y), 1 };
     region.srcSubresource.layerCount = 1;
     region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-    region.dstOffsets[1] = { (int32_t)viewport.size.x, (int32_t)viewport.size.y, 1 };
+    region.dstOffsets[1] = { int32_t(viewport.size.x), int32_t(viewport.size.y), 1 };
     region.dstSubresource.layerCount = 1;
     region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
@@ -266,7 +265,7 @@ void Renderer::render(const Viewport& viewport, Scene& scene) {
     submitInfo.pCommandBuffers = &swapchain.blitBuffer;
     submitInfo.pSignalSemaphores = &renderFinishedSemaphores[current_frame];
 
-    ThrowIfFailed(vkQueueSubmit(context.device.queue, 1, &submitInfo, NULL));
+    ThrowIfFailed(vkQueueSubmit(device.queue, 1, &submitInfo, NULL));
 
     imagesInFlight[imageIndex] = inFlightFences[current_frame];
 
@@ -286,34 +285,35 @@ void Renderer::render(const Viewport& viewport, Scene& scene) {
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = &imageIndex;
 
-    result = vkQueuePresentKHR(context.device.queue, &presentInfo);
+    result = vkQueuePresentKHR(device.queue, &presentInfo);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-        recreateSwapchain(vsync);
+        recreateSwapchain(window);
     }  else {
         ThrowIfFailed(result);
     }
 
-    ThrowIfFailed(vkQueueWaitIdle(context.device.queue));
+    ThrowIfFailed(vkQueueWaitIdle(device.queue));
 
-    ThrowIfFailed(vkWaitForFences(context.device, 1, &inFlightFences[current_frame], VK_TRUE, UINT64_MAX));
+    ThrowIfFailed(vkWaitForFences(device, 1, &inFlightFences[current_frame], VK_TRUE, UINT64_MAX));
     current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 
-Renderer::Renderer(SDL_Window* window) : context(window) {
+Renderer::Renderer(SDL_Window* window) : 
+    device(window) 
+{
     int w, h;
     SDL_GetWindowSize(window, &w, &h);
 
     VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
 
-    if (!swapchain.create(context, { w, h }, mode)) {
-        throw std::runtime_error("Failed to create swapchain.");
-    }
+    swapchain.create(device, { w, h }, mode);
+        
 
     setupSyncObjects();
 
-    bindlessTextures.create(context, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+    bindlessTextures.create(device, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
 }
 
 
@@ -332,33 +332,35 @@ void Renderer::setupSyncObjects() {
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     for (unsigned int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkCreateSemaphore(context.device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]);
-        vkCreateSemaphore(context.device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]);
-        vkCreateFence(context.device, &fenceInfo, nullptr, &inFlightFences[i]);
+        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]);
+        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]);
+        vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]);
     }
 }
 
-void Renderer::recreateSwapchain(bool useVsync) {
-    vsync = useVsync;
-    vkQueueWaitIdle(context.device.queue);
-    int w, h;
-    SDL_GetWindowSize(context.window, &w, &h);
-    uint32_t flags = SDL_GetWindowFlags(context.window);
+
+
+void Renderer::recreateSwapchain(SDL_Window* window) {
+    vkQueueWaitIdle(device.queue);
+    
+    uint32_t flags = SDL_GetWindowFlags(window);
     while (flags & SDL_WINDOW_MINIMIZED) {
-        flags = SDL_GetWindowFlags(context.window);
+        flags = SDL_GetWindowFlags(window);
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {}
     }
-    // recreate the swapchain
-    VkPresentModeKHR mode = useVsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
-    swapchain.destroy(context.device);
-    if (!swapchain.create(context, { w, h }, mode)) {
-        std::puts("WTF SWAP CHAIN FAILED??");
-    }
 
-    pathTracePass.destroyRenderTextures(context.device);
-    pathTracePass.createRenderTextures(context.device, { w, h });
-    pathTracePass.updateDescriptorSet(context.device, TLAS, instanceBuffer, materialBuffer);
+    VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+    
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+    
+    swapchain.destroy(device);
+    swapchain.create(device, { w, h }, mode);
+
+    pathTracePass.destroyRenderTextures(device);
+    pathTracePass.createRenderTextures(device, glm::uvec2(w, h));
+    pathTracePass.updateDescriptorSet(device, TLAS, instanceBuffer, materialBuffer);
 }
 
 int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<TextureAsset>& asset, VkFormat format) {
@@ -415,7 +417,7 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = static_cast<float>(mipmapCount);
+    samplerInfo.maxLod = float(mipmapCount);
 
     vkCreateSampler(device, &samplerInfo, nullptr, &texture.sampler);
 
@@ -468,7 +470,7 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
         commandBuffer, 
         buffer, texture.image, 
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-        (uint32_t)regions.size(), regions.data()
+        uint32_t(regions.size()), regions.data()
     );
 
     device.flushSingleSubmit(commandBuffer);
@@ -481,8 +483,6 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     );
 
-    // TODO: load mips in one go, refactor Device to put everything in a single command buffer
-
     device.destroyBuffer(buffer, allocation);
     textures.push_back(texture);
 
@@ -494,48 +494,71 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
     return bindlessTextures.write(device, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorInfo);
 }
 
+
+
 void Renderer::reloadShaders() {
-    pathTracePass.reloadShadersFromDisk(context.device);
+    pathTracePass.reloadShadersFromDisk(device);
 }
+
+
+
+void Renderer::setVsync(bool on) { 
+    vsync = on; 
+}
+
+
 
 RTGeometry Renderer::createBLAS(Mesh& mesh) {
     auto vertices = mesh.getInterleavedVertices();
     const auto sizeOfVertexBuffer = vertices.size() * sizeof(vertices[0]);
     const auto sizeOfIndexBuffer = mesh.indices.size() * sizeof(mesh.indices[0]);
 
-    auto [vertexStageBuffer, vertexStageAllocation] = context.device.createBuffer(sizeOfVertexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-    auto [indexStageBuffer, indexStageAllocation] = context.device.createBuffer(sizeOfIndexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    auto [vertexStageBuffer, vertexStageAllocation] = device.createBuffer(sizeOfVertexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    auto [indexStageBuffer, indexStageAllocation] = device.createBuffer(sizeOfIndexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
-    memcpy(context.device.getMappedPointer(vertexStageAllocation), vertices.data(), sizeOfVertexBuffer);
-    memcpy(context.device.getMappedPointer(indexStageAllocation), mesh.indices.data(), sizeOfIndexBuffer);
+    memcpy(device.getMappedPointer(vertexStageAllocation), vertices.data(), sizeOfVertexBuffer);
+    memcpy(device.getMappedPointer(indexStageAllocation), mesh.indices.data(), sizeOfIndexBuffer);
 
-    const auto bufferUsages = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    auto [vertexBuffer, vertexAllocation] = context.device.createBuffer(sizeOfVertexBuffer, bufferUsages | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
-    auto [indexBuffer, indexAllocation] = context.device.createBuffer(sizeOfIndexBuffer, bufferUsages | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    constexpr auto bufferUsages = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | 
+                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    
+    RTGeometry component = {};
 
-    VkCommandBuffer commandBuffer = context.device.startSingleSubmit();
+    std::tie(component.vertexBuffer, component.vertexAllocation) = device.createBuffer(
+        sizeOfVertexBuffer, 
+        bufferUsages | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+        VMA_MEMORY_USAGE_GPU_ONLY
+    );
+
+    std::tie(component.indexBuffer, component.indexAllocation) = device.createBuffer(
+        sizeOfIndexBuffer, 
+        bufferUsages | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+        VMA_MEMORY_USAGE_GPU_ONLY
+    );
+
+    VkCommandBuffer commandBuffer = device.startSingleSubmit();
 
     VkBufferCopy vertexRegion = {};
     vertexRegion.size = sizeOfVertexBuffer;
-    vkCmdCopyBuffer(commandBuffer, vertexStageBuffer, vertexBuffer, 1, &vertexRegion);
+    vkCmdCopyBuffer(commandBuffer, vertexStageBuffer, component.vertexBuffer, 1, &vertexRegion);
 
     VkBufferCopy indexRegion = {};
     indexRegion.size = sizeOfIndexBuffer;
-    vkCmdCopyBuffer(commandBuffer, indexStageBuffer, indexBuffer, 1, &indexRegion);
+    vkCmdCopyBuffer(commandBuffer, indexStageBuffer, component.indexBuffer, 1, &indexRegion);
 
-    context.device.flushSingleSubmit(commandBuffer);
+    device.flushSingleSubmit(commandBuffer);
 
-    vmaDestroyBuffer(context.device.getAllocator(), indexStageBuffer, indexStageAllocation);
-    vmaDestroyBuffer(context.device.getAllocator(), vertexStageBuffer, vertexStageAllocation);
+    device.destroyBuffer(indexStageBuffer, indexStageAllocation);
+    device.destroyBuffer(vertexStageBuffer, vertexStageAllocation);
 
     VkAccelerationStructureGeometryTrianglesDataKHR triangles = {};
     triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
     triangles.indexType = VK_INDEX_TYPE_UINT32;
     triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-    triangles.maxVertex = static_cast<uint32_t>(mesh.positions.size());
-    triangles.vertexStride = static_cast<uint32_t>(mesh.vertexBuffer.getStride());
-    triangles.indexData.deviceAddress = context.device.getDeviceAddress(indexBuffer);
-    triangles.vertexData.deviceAddress = context.device.getDeviceAddress(vertexBuffer);
+    triangles.maxVertex = uint32_t(mesh.positions.size());
+    triangles.vertexStride = uint32_t(mesh.vertexBuffer.getStride());
+    triangles.indexData.deviceAddress = device.getDeviceAddress(component.indexBuffer);
+    triangles.vertexData.deviceAddress = device.getDeviceAddress(component.vertexBuffer);
 
     VkAccelerationStructureGeometryKHR geometry = {};
     geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -550,51 +573,33 @@ RTGeometry Renderer::createBLAS(Mesh& mesh) {
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geometry;
 
-    AccelerationStructure bottomLevelAS;
-    bottomLevelAS.create(context.device, buildInfo, static_cast<uint32_t>(mesh.indices.size() / 3u));
-
-    RTGeometry component = {};
-    component.indexBuffer = indexBuffer;
-    component.vertexBuffer = vertexBuffer;
-    component.indexAllocation = indexAllocation;
-    component.vertexAllocation = vertexAllocation;
-    component.accelerationStructure = bottomLevelAS;
-
+    component.accelerationStructure.create(device, buildInfo, uint32_t(mesh.indices.size() / 3u));
     return component;
 }
 
 void Renderer::destroyBLAS(RTGeometry& geometry) {
-    geometry.accelerationStructure.destroy(context.device);
-    vmaDestroyBuffer(context.device.getAllocator(), geometry.vertexBuffer, geometry.vertexAllocation);
-    vmaDestroyBuffer(context.device.getAllocator(), geometry.indexBuffer, geometry.indexAllocation);
+    geometry.accelerationStructure.destroy(device);
+    device.destroyBuffer(geometry.vertexBuffer, geometry.vertexAllocation);
+    device.destroyBuffer(geometry.indexBuffer, geometry.indexAllocation);
 }
 
 AccelerationStructure Renderer::createTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count) {
     assert(instances);
     assert(count);
 
-    VkBuffer buffer;
-    VmaAllocation allocation;
-    VmaAllocationInfo allocationInfo;
+    const size_t bufferSize = sizeof(VkAccelerationStructureInstanceKHR) * count;
 
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = sizeof(VkAccelerationStructureInstanceKHR) * count;
-    bufferInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    auto [buffer, allocation] = device.createBuffer(
+        bufferSize,
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        VMA_MEMORY_USAGE_CPU_TO_GPU
+    );
 
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-    if (vmaCreateBuffer(context.device.getAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, &allocationInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create buffer");
-    }
-
-    std::memcpy(allocationInfo.pMappedData, instances, sizeof(VkAccelerationStructureInstanceKHR) * count);
+    std::memcpy(device.getMappedPointer(allocation), instances, bufferSize);
 
     VkAccelerationStructureGeometryInstancesDataKHR instanceData = {};
     instanceData.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-    instanceData.data.deviceAddress = context.device.getDeviceAddress(buffer);
+    instanceData.data.deviceAddress = device.getDeviceAddress(buffer);
 
     VkAccelerationStructureGeometryKHR geometry = {};
     geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -610,12 +615,11 @@ AccelerationStructure Renderer::createTLAS(VkAccelerationStructureInstanceKHR* i
     buildInfo.pGeometries = &geometry;
 
     AccelerationStructure tlas = {};
-    tlas.create(context.device, buildInfo, static_cast<uint32_t>(count));
+    tlas.create(device, buildInfo, uint32_t(count));
 
-    vmaDestroyBuffer(context.device.getAllocator(), buffer, allocation);
+    device.destroyBuffer(buffer, allocation);
 
     return tlas;
 }
 
-} // vk
 } // raekor

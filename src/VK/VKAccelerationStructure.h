@@ -1,8 +1,8 @@
 #pragma once
 
-#include "VKDevice.h"
-
 namespace Raekor::VK {
+
+class Device;
 
 struct AccelerationStructure {
     void create(Device& device, VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount);

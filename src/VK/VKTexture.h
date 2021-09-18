@@ -1,10 +1,10 @@
 #pragma once
 
 #include "util.h"
-#include "VKContext.h"
 
-namespace Raekor {
-namespace VK {
+namespace Raekor::VK {
+
+class Device;
 
 class Image {
 public:
@@ -45,5 +45,4 @@ public:
     CubeTexture(Device& device, const std::array<Stb::Image, 6>& images);
 };
 
-}
-}
+} // Raekor::VK

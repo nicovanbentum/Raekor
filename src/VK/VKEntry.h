@@ -19,7 +19,7 @@ private:
     Scene scene;
     Assets assets;
     VK::Renderer renderer;
-    bool useVsync = false, shouldRecreateSwapchain = true;
+    bool shouldRecreateSwapchain = true;
 
 };
 

@@ -4,18 +4,6 @@
 
 namespace Raekor {
 
-struct MVP {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 projection;
-    glm::vec4 lightPos;
-    glm::vec4 lightAngle;
-    glm::mat4 lightSpaceMatrix;
-    glm::vec3 dirLightPosition;
-};
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 class Camera {
     
 public:
@@ -57,13 +45,13 @@ private:
     glm::mat4 projection;
 
 public:
-    float& sensitivity = ConVars::create<float>("sensitivity", 2.0f);
+    float& sensitivity = ConVars::create("sensitivity", 2.0f);
     float lookConstant = 1.0f, zoomConstant = 0.01f, moveConstant = 0.005f;
     float zoomSpeed = 1.0f, moveSpeed = 0.015f;
 
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 class Viewport {
 public:

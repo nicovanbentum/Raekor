@@ -8,7 +8,7 @@ namespace VK {
 
 class BindlessDescriptorSet {
 public:
-    void create(const Context& context, VkDescriptorType type, VkShaderStageFlags stages);
+    void create(const Device& device, VkDescriptorType type, VkShaderStageFlags stages);
     void destroy(const Device& device);
 
     uint32_t write(const Device& device, VkDescriptorType type, const VkDescriptorImageInfo& imageInfo);
@@ -30,7 +30,7 @@ private:
 class UniformBuffer {
 public:
     UniformBuffer() = default;
-    UniformBuffer(const Context& ctx, VmaAllocator allocator, size_t allocationSize);
+    UniformBuffer(Device& device, size_t size);
 
     void update(VmaAllocator allocator, const void* data, size_t size = VK_WHOLE_SIZE) const;
     inline const VkDescriptorBufferInfo* getDescriptor() const { return &descriptor; }
@@ -48,7 +48,7 @@ public:
 class DescriptorSet {
 public:
     DescriptorSet() = default;
-    DescriptorSet(Context& context, Shader** shaders, size_t count);
+    DescriptorSet(Device& context, Shader** shaders, size_t count);
     void destroy(const Device& device);
 
     operator VkDescriptorSet();

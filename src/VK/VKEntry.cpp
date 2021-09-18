@@ -1,10 +1,14 @@
 #include "pch.h"
 #include "VKEntry.h"
+
 #include "gui.h"
 
 namespace Raekor {
 
-VulkanPathTracer::VulkanPathTracer() : WindowApplication(RendererFlags::VULKAN), renderer(window) {
+VulkanPathTracer::VulkanPathTracer() : 
+    WindowApplication(RendererFlags::VULKAN), 
+    renderer(window) 
+{
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -85,14 +89,14 @@ void VulkanPathTracer::update(float dt) {
         SDL_GetWindowSize(window, &w, &h);
 
         viewport.resize(glm::uvec2(w, h));
-        renderer.recreateSwapchain(useVsync);
+        renderer.recreateSwapchain(window);
         renderer.resetAccumulation();
         shouldRecreateSwapchain = false;
     }
 
     SDL_SetWindowTitle(window, std::string(std::to_string(dt) + " ms.").c_str());
 
-    renderer.render(viewport, scene);
+    renderer.render(window, viewport, scene);
 }
 
 

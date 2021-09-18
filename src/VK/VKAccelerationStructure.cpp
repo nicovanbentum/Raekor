@@ -1,5 +1,8 @@
 #include "pch.h"
 #include "VKAccelerationStructure.h"
+
+#include "VKUtil.h"
+#include "VKDevice.h"
 #include "VKExtensions.h"
 
 namespace Raekor::VK {
@@ -20,7 +23,7 @@ void AccelerationStructure::create(Device& device, VkAccelerationStructureBuildG
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    vmaCreateBuffer(device.getAllocator(), &bufferInfo, &allocCreateInfo, &buffer, &allocation, nullptr);
+    ThrowIfFailed(vmaCreateBuffer(device.getAllocator(), &bufferInfo, &allocCreateInfo, &buffer, &allocation, nullptr));
 
     // create the acceleration structure
     VkAccelerationStructureCreateInfoKHR asInfo = {};
@@ -29,9 +32,7 @@ void AccelerationStructure::create(Device& device, VkAccelerationStructureBuildG
     asInfo.size = sizeInfo.accelerationStructureSize;
     asInfo.buffer = buffer;
 
-    if (EXT::vkCreateAccelerationStructureKHR(device, &asInfo, nullptr, &accelerationStructure) != VK_SUCCESS) {
-        assert(false);
-    }
+    ThrowIfFailed(EXT::vkCreateAccelerationStructureKHR(device, &asInfo, nullptr, &accelerationStructure));
 
     buildInfo.dstAccelerationStructure = accelerationStructure;
 
@@ -44,7 +45,7 @@ void AccelerationStructure::create(Device& device, VkAccelerationStructureBuildG
     VkBuffer scratchBuffer;
     VmaAllocation scratchAlloc;
 
-    vmaCreateBuffer(device.getAllocator(), &scratchBufferInfo, &allocCreateInfo, &scratchBuffer, &scratchAlloc, nullptr);
+    ThrowIfFailed(vmaCreateBuffer(device.getAllocator(), &scratchBufferInfo, &allocCreateInfo, &scratchBuffer, &scratchAlloc, nullptr));
 
     buildInfo.scratchData.deviceAddress = device.getDeviceAddress(scratchBuffer);
 

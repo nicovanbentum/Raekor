@@ -1,19 +1,16 @@
 #include "pch.h"
 #include "VKDevice.h"
 #include "VKBase.h"
+#include "VKUtil.h"
 #include "VKExtensions.h"
 
-namespace Raekor {
-namespace VK {
+namespace Raekor::VK {
 
-Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) : physicalDevice(physicalDevice) {
-#ifdef NDEBUG
-    bool isDebug = false;
-#else
-    bool isDebug = true;
-#endif
-
-    const std::vector<const char*> deviceExtensions = {
+Device::Device(SDL_Window* window) : 
+    instance(window), 
+    physicalDevice(instance) 
+{
+    constexpr std::array deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_MAINTENANCE3_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
@@ -24,7 +21,6 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
         VK_KHR_RAY_QUERY_EXTENSION_NAME,
         VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
         VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
-
     };
 
     uint32_t extensionCount;
@@ -36,7 +32,6 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
     std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
     for (const auto& extension : availableExtensions) {
-        //std::cout << extension.extensionName << '\n';
         requiredExtensions.erase(extension.extensionName);
     }
 
@@ -47,24 +42,24 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
 
     for (const auto& queueFamily : queueFamilies) {
-        VkBool32 supports_present = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queue_family_index, instance.getSurface(), &supports_present);
-        
-        if (queueFamily.queueCount > 0 && (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && supports_present) {
+        VkBool32 supportsPresent = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamilyIndex, instance.getSurface(), &supportsPresent);
+
+        if (queueFamily.queueCount > 0 && (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && supportsPresent) {
             break;
         }
 
-        queue_family_index++;
+        queueFamilyIndex++;
     }
 
-    if (queue_family_index > queueFamilyCount) {
+    if (queueFamilyIndex > queueFamilyCount) {
         throw std::runtime_error("Could not find a queue that supports both graphics and present");
     }
 
     float queuePriority = 1.0f;
     VkDeviceQueueCreateInfo queueCreateInfo = {};
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = queue_family_index;
+    queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
     queueCreateInfo.queueCount = 1;
     queueCreateInfo.pQueuePriorities = &queuePriority;
 
@@ -106,58 +101,52 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
     }
 
 
-    VkDeviceCreateInfo device_info = {};
-    device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    device_info.queueCreateInfoCount = 1;
-    device_info.pQueueCreateInfos = &queueCreateInfo;
-    device_info.pEnabledFeatures = &deviceFeatures;
-    device_info.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-    device_info.ppEnabledExtensionNames = deviceExtensions.data();
-    device_info.pNext = &descriptorFeatures;
+    VkDeviceCreateInfo deviceInfo = {};
+    deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    deviceInfo.queueCreateInfoCount = 1;
+    deviceInfo.pEnabledFeatures = &deviceFeatures;
+    deviceInfo.pQueueCreateInfos = &queueCreateInfo;
+    deviceInfo.ppEnabledExtensionNames = deviceExtensions.data();
+    deviceInfo.enabledExtensionCount = uint32_t(deviceExtensions.size());
+    deviceInfo.pNext = &descriptorFeatures;
 
-    const std::vector<const char*> validationLayers = {
+    constexpr std::array validationLayers = {
         "VK_LAYER_KHRONOS_validation"
     };
 
-    if (isDebug) {
-        device_info.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-        device_info.ppEnabledLayerNames = validationLayers.data();
-    } else {
-        device_info.enabledLayerCount = 0;
-    }
+#if RAEKOR_DEBUG
+        deviceInfo.ppEnabledLayerNames = validationLayers.data();
+        deviceInfo.enabledLayerCount = uint32_t(validationLayers.size());
+#endif
 
-    ThrowIfFailed(vkCreateDevice(physicalDevice, &device_info, nullptr, &device));
+    ThrowIfFailed(vkCreateDevice(physicalDevice, &deviceInfo, nullptr, &device));
 
-    EXT::init(device);
+    EXT::init(device); // Initialize the Vulkan ray tracing extensions
 
-    vkGetDeviceQueue(device, queue_family_index, 0, &queue);
+    vkGetDeviceQueue(device, queueFamilyIndex, 0, &queue);
 
-    VkCommandPoolCreateInfo poolInfo = {};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = queue_family_index;
+    VkCommandPoolCreateInfo commandPoolInfo = {};
+    commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    commandPoolInfo.queueFamilyIndex = queueFamilyIndex;
 
-    ThrowIfFailed(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool));
+    ThrowIfFailed(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &commandPool));
 
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-    // Create Descriptor Pool
-    {
-        std::array pools =
-        {
-            VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
-            VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 }
-        };
 
-        VkDescriptorPoolCreateInfo pool_info = {};
-        pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-        pool_info.maxSets = 1000u * static_cast<uint32_t>(pools.size());
-        pool_info.poolSizeCount = static_cast<uint32_t>(pools.size());
-        pool_info.pPoolSizes = pools.data();
+    std::array pools = {
+        VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
+        VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 }
+    };
 
+    VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
+    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptorPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    descriptorPoolInfo.pPoolSizes = pools.data();
+    descriptorPoolInfo.poolSizeCount = uint32_t(pools.size());
+    descriptorPoolInfo.maxSets = 1000u * uint32_t(pools.size());
 
-        ThrowIfFailed(vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool));
-    }
+    ThrowIfFailed(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 
     VmaAllocatorCreateInfo allocInfo = {};
     allocInfo.physicalDevice = physicalDevice;
@@ -166,11 +155,7 @@ Device::Device(const Instance& instance, const PhysicalDevice& physicalDevice) :
     allocInfo.vulkanApiVersion = VK_API_VERSION_1_2;
     allocInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
-    VkResult vmaResult = vmaCreateAllocator(&allocInfo, &allocator);
-
-    if (vmaResult != VK_SUCCESS) {
-        throw std::runtime_error("failed create vma allocator");
-    }
+    ThrowIfFailed(vmaCreateAllocator(&allocInfo, &allocator));
 }
 
 
@@ -207,7 +192,7 @@ VkCommandBuffer Device::startSingleSubmit() const  {
 
 void Device::flushSingleSubmit(VkCommandBuffer commandBuffer) const  {
     vkEndCommandBuffer(commandBuffer);
-    
+
     VkFence fence;
     VkFenceCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -223,7 +208,7 @@ void Device::flushSingleSubmit(VkCommandBuffer commandBuffer) const  {
 
     vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
     vkDestroyFence(device, fence, nullptr);
-    
+
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 };
 
@@ -398,8 +383,7 @@ void Device::transitionImageLayout(VkImage image, VkFormat format, uint32_t mipL
         if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) {
             barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
         }
-    }
-    else {
+    } else {
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     }
 
@@ -412,22 +396,19 @@ void Device::transitionImageLayout(VkImage image, VkFormat format, uint32_t mipL
 
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+    } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+    } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    }
-    else {
+    } else {
         throw std::invalid_argument("unsupported layout transition!");
     }
 
@@ -442,14 +423,14 @@ void Device::transitionImageLayout(VkImage image, VkFormat format, uint32_t mipL
 
 
 void Device::allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets, const void* pNext) const {
-    VkDescriptorSetAllocateInfo desc_info = {};
-    desc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    desc_info.descriptorPool = descriptorPool;
-    desc_info.descriptorSetCount = count;
-    desc_info.pSetLayouts = layouts;
-    desc_info.pNext = pNext;
+    VkDescriptorSetAllocateInfo descInfo = {};
+    descInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descInfo.descriptorPool = descriptorPool;
+    descInfo.descriptorSetCount = count;
+    descInfo.pSetLayouts = layouts;
+    descInfo.pNext = pNext;
 
-    ThrowIfFailed(vkAllocateDescriptorSets(device, &desc_info, sets));
+    ThrowIfFailed(vkAllocateDescriptorSets(device, &descInfo, sets));
 }
 
 
@@ -473,7 +454,6 @@ std::tuple<VkBuffer, VmaAllocation> Device::createBuffer(size_t size, VkBufferUs
     if ((memoryUsage & VMA_MEMORY_USAGE_CPU_ONLY) || (memoryUsage & VMA_MEMORY_USAGE_CPU_TO_GPU)) {
         allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
     }
-
 
     VkBuffer buffer;
     VmaAllocation allocation;
@@ -515,7 +495,4 @@ VkDeviceAddress Device::getDeviceAddress(VkAccelerationStructureKHR acceleration
     return EXT::vkGetAccelerationStructureDeviceAddressKHR(device, &addressInfo);
 }
 
-
-
-} // VK
 } // Raekor

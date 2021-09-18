@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "VKShader.h"
+#include "VKDevice.h"
 
 namespace Raekor::VK {
 
@@ -25,7 +26,7 @@ void Shader::create(Device& device, const std::string& filepath) {
     std::ifstream file(filepath, std::ios::ate | std::ios::binary);
     if (!file.is_open()) return;
 
-    const size_t filesize = static_cast<size_t>(file.tellg());
+    const size_t filesize = size_t(file.tellg());
     spirv.resize(filesize);
     file.seekg(0);
     file.read((char*)&spirv[0], filesize);

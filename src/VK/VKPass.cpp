@@ -1,19 +1,23 @@
 #include "pch.h"
 #include "VKPass.h"
-#include "VKExtensions.h"
+
+#include "VKUtil.h"
+#include "VKDevice.h"
 #include "VKSwapchain.h"
+#include "VKExtensions.h"
 #include "VKAccelerationStructure.h"
+
 #include "camera.h"
 #include "async.h"
 
 namespace Raekor::VK {
 
-void PathTracePass::initialize(Context& context, const Swapchain& swapchain, const AccelerationStructure& accelStruct, VkBuffer instanceBuffer, VkBuffer materialBuffer, const BindlessDescriptorSet& bindlessTextures) {
-    createRenderTextures(context.device, glm::uvec2(swapchain.getExtent().width, swapchain.getExtent().height));
-    createDescriptorSet(context.device, bindlessTextures);
-    updateDescriptorSet(context.device, accelStruct, instanceBuffer, materialBuffer);
-    createPipeline(context.device, 8);
-    createShaderBindingTable(context.device, context.physicalDevice);
+void PathTracePass::initialize(Device& device, const Swapchain& swapchain, const AccelerationStructure& accelStruct, VkBuffer instanceBuffer, VkBuffer materialBuffer, const BindlessDescriptorSet& bindlessTextures) {
+    createRenderTextures(device, glm::uvec2(swapchain.getExtent().width, swapchain.getExtent().height));
+    createDescriptorSet(device, bindlessTextures);
+    updateDescriptorSet(device, accelStruct, instanceBuffer, materialBuffer);
+    createPipeline(device, 8);
+    createShaderBindingTable(device);
 }
 
 void PathTracePass::destroy(Device& device) {
@@ -33,7 +37,7 @@ void PathTracePass::destroy(Device& device) {
 void PathTracePass::createRenderTextures(Device& device, const glm::uvec2& size) {
     finalImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     accumImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    
+
     VkImageCreateInfo imageInfo = {};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -45,7 +49,7 @@ void PathTracePass::createRenderTextures(Device& device, const glm::uvec2& size)
     imageInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | 
+    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                       VK_IMAGE_USAGE_STORAGE_BIT;
 
     VmaAllocationCreateInfo allocationInfo = {};
@@ -53,18 +57,18 @@ void PathTracePass::createRenderTextures(Device& device, const glm::uvec2& size)
 
     ThrowIfFailed(
         vmaCreateImage(
-            device.getAllocator(), 
-            &imageInfo, &allocationInfo, 
-            &finalImage, &finalImageAllocation, 
+            device.getAllocator(),
+            &imageInfo, &allocationInfo,
+            &finalImage, &finalImageAllocation,
             nullptr
         )
     );
 
     ThrowIfFailed(
         vmaCreateImage(
-            device.getAllocator(), 
-            &imageInfo, &allocationInfo, 
-            &accumImage, &accumImageAllocation, 
+            device.getAllocator(),
+            &imageInfo, &allocationInfo,
+            &accumImage, &accumImageAllocation,
             nullptr
         )
     );
@@ -114,11 +118,14 @@ void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
 
             const auto writeTime = file.last_write_time();
 
-            if (!fs::exists(outfile) || fs::last_write_time(outfile) < writeTime || timeOfMostRecentlyUpdatedIncludeFile > writeTime) {
+            if (!fs::exists(outfile) ||
+                fs::last_write_time(outfile) < writeTime ||
+                timeOfMostRecentlyUpdatedIncludeFile > writeTime) {
+
                 auto success = Shader::glslangValidator(vulkanSDK, file);
 
                 if (!success) {
-                    std::cout << "failed to compile vulkan shader: " << file.path().string() << '\n';
+                    std::cout << "Failed to compile vulkan shader: " << file.path().string() << '\n';
                 } else {
                     std::cout << "Compiled vulkan shader: " << file.path().string() << '\n';
                 }
@@ -133,8 +140,8 @@ void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
     rchitShader.create(device, "shaders/Vulkan/bin/pathtrace.rchit.spv");
     rmissShadowShader.create(device, "shaders/Vulkan/bin/shadow.rmiss.spv");
 
-    std::array shaderStages = { 
-        rgenShader.getPipelineCreateInfo(), 
+    std::array shaderStages = {
+        rgenShader.getPipelineCreateInfo(),
         rmissShader.getPipelineCreateInfo(),
         rmissShadowShader.getPipelineCreateInfo(),
         rchitShader.getPipelineCreateInfo()
@@ -169,8 +176,8 @@ void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
     pipelineInfo.layout = pipelineLayout;
     pipelineInfo.pStages = shaderStages.data();
     pipelineInfo.pGroups = shaderGroups.data();
-    pipelineInfo.groupCount = static_cast<uint32_t>(shaderGroups.size());
-    pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
+    pipelineInfo.groupCount = uint32_t(shaderGroups.size());
+    pipelineInfo.stageCount = uint32_t(shaderStages.size());
     pipelineInfo.maxPipelineRayRecursionDepth = maxRecursionDepth;
 
     ThrowIfFailed(EXT::vkCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
@@ -213,7 +220,7 @@ void PathTracePass::createDescriptorSet(Device& device, const BindlessDescriptor
 
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo = {};
     descriptorSetLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptorSetLayoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    descriptorSetLayoutInfo.bindingCount = uint32_t(bindings.size());
     descriptorSetLayoutInfo.pBindings = bindings.data();
 
     ThrowIfFailed(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutInfo, nullptr, &descriptorSetLayout));
@@ -221,7 +228,9 @@ void PathTracePass::createDescriptorSet(Device& device, const BindlessDescriptor
     device.allocateDescriptorSet(1, &descriptorSetLayout, &descriptorSet);
 
     VkPushConstantRange pushConstantRange = {};
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR |
+                                   VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR |
+                                   VK_SHADER_STAGE_MISS_BIT_KHR;
     pushConstantRange.size = sizeof(PushConstants); // TODO: query size from physical device
 
     std::array layouts = { descriptorSetLayout, bindlessTextures.getLayout() };
@@ -229,7 +238,7 @@ void PathTracePass::createDescriptorSet(Device& device, const BindlessDescriptor
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.pSetLayouts = layouts.data();
-    layoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+    layoutInfo.setLayoutCount = uint32_t(layouts.size());
     layoutInfo.pushConstantRangeCount = 1;
     layoutInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -238,7 +247,7 @@ void PathTracePass::createDescriptorSet(Device& device, const BindlessDescriptor
 
 
 
-void PathTracePass::updateDescriptorSet(Device& device, const VK::AccelerationStructure& accelStruct, VkBuffer instanceBuffer, VkBuffer materialBuffer) {
+void PathTracePass::updateDescriptorSet(Device& device, const AccelerationStructure& accelStruct, VkBuffer instanceBuffer, VkBuffer materialBuffer) {
     VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     imageInfo.imageView = finalImageView;
@@ -255,7 +264,7 @@ void PathTracePass::updateDescriptorSet(Device& device, const VK::AccelerationSt
     accelStructInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
     accelStructInfo.pAccelerationStructures = &accelStruct.accelerationStructure;
     accelStructInfo.accelerationStructureCount = 1;
-    
+
     VkWriteDescriptorSet write1 = {};
     write1.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write1.descriptorCount = 1;
@@ -307,22 +316,23 @@ void PathTracePass::updateDescriptorSet(Device& device, const VK::AccelerationSt
 
 
 
-void PathTracePass::createShaderBindingTable(Device& device, PhysicalDevice& physicalDevice) {
-    const auto& rayTracingProperties = device.getPhysicalDevice().getProperties().rayTracingPipelineProperties;
+void PathTracePass::createShaderBindingTable(Device& device) {
+    const auto& rayTracingProperties = device.getPhysicalProperties().rayTracingPipelineProperties;
 
-    const uint32_t groupCount = static_cast<uint32_t>(shaderGroups.size());
-    
-    const uint32_t alignedGroupSize = static_cast<uint32_t>(
-        align_up(rayTracingProperties.shaderGroupHandleSize, rayTracingProperties.shaderGroupBaseAlignment)
-    );
-    
+    const uint32_t groupCount = uint32_t(shaderGroups.size());
+
+    const uint32_t alignedGroupSize = uint32_t(align_up(
+                                          rayTracingProperties.shaderGroupHandleSize,
+                                          rayTracingProperties.shaderGroupBaseAlignment
+                                      ));
+
     const uint32_t sbtSize = groupCount * alignedGroupSize;
 
     std::tie(shaderBindingTableBuffer, shaderBindingTableAllocation) = device.createBuffer(
-        sbtSize, 
-        VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, 
-        VMA_MEMORY_USAGE_CPU_ONLY
-    );
+                sbtSize,
+                VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                VMA_MEMORY_USAGE_CPU_ONLY
+            );
 
     std::vector<uint8_t> shaderHandleStorage(sbtSize);
 
@@ -339,14 +349,38 @@ void PathTracePass::createShaderBindingTable(Device& device, PhysicalDevice& phy
 
 
 
-void PathTracePass::recordCommands(const Context& context, const Viewport& viewport, VkCommandBuffer commandBuffer, const BindlessDescriptorSet& bindlessTextures) {
-    const auto& rayTracingProperties = context.device.getPhysicalDevice().getProperties().rayTracingPipelineProperties;
+void PathTracePass::recordCommands(const Device& device, const Viewport& viewport, VkCommandBuffer commandBuffer, const BindlessDescriptorSet& bindlessTextures) {
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline);
 
-    const uint32_t alignedGroupSize = static_cast<uint32_t>(
-        align_up(rayTracingProperties.shaderGroupHandleSize, rayTracingProperties.shaderGroupBaseAlignment)
-    );
+    std::array descriptorSets = {
+        /* set = 0 */ descriptorSet,
+        /* set = 1 */ bindlessTextures.getDescriptorSet()
+    };
 
-    auto SBTBufferDeviceAddress = context.device.getDeviceAddress(shaderBindingTableBuffer);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout,
+                            0, uint32_t(descriptorSets.size()), descriptorSets.data(),
+                            0, nullptr
+                           );
+
+    pushConstants.invViewProj = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
+    pushConstants.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
+
+    constexpr VkShaderStageFlags stages = VK_SHADER_STAGE_RAYGEN_BIT_KHR |
+                                          VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR |
+                                          VK_SHADER_STAGE_MISS_BIT_KHR;
+
+    vkCmdPushConstants(commandBuffer, pipelineLayout, stages, 0, sizeof(pushConstants), &pushConstants);
+
+    pushConstants.frameCounter++;
+
+    const auto& rayTracingProperties = device.getPhysicalProperties().rayTracingPipelineProperties;
+
+    const uint32_t alignedGroupSize = uint32_t(align_up(
+                                          rayTracingProperties.shaderGroupHandleSize,
+                                          rayTracingProperties.shaderGroupBaseAlignment
+                                      ));
+
+    const auto SBTBufferDeviceAddress = device.getDeviceAddress(shaderBindingTableBuffer);
 
     VkStridedDeviceAddressRegionKHR raygenRegion = {};
     raygenRegion.deviceAddress = SBTBufferDeviceAddress;
@@ -365,23 +399,6 @@ void PathTracePass::recordCommands(const Context& context, const Viewport& viewp
 
     VkStridedDeviceAddressRegionKHR callableRegion = {};
 
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline);
-
-    std::array descriptorSets = { 
-        /* set = 0 */ descriptorSet, 
-        /* set = 1 */ bindlessTextures.getDescriptorSet()
-    };
-
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout, 0, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
-
-    pushConstants.invViewProj = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
-    pushConstants.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
-    
-    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0, sizeof(pushConstants), &pushConstants);
-    
-    pushConstants.frameCounter++;
-    
     EXT::vkCmdTraceRaysKHR(commandBuffer, &raygenRegion, &missRegion, &hitRegion, &callableRegion, viewport.size.x, viewport.size.y, 1);
 }
 

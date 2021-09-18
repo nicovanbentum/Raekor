@@ -1,11 +1,10 @@
 #pragma once
 
-#include "util.h"
-#include "buffer.h"
-#include "VKContext.h"
 #include "VKTexture.h"
 
 namespace Raekor::VK {
+
+class Device;
 
 struct VKMesh {
     uint32_t index;
@@ -15,7 +14,7 @@ struct VKMesh {
 
 class VKScene {
 public:
-    void load(Context& context);
+    void load(Device& device);
 
 private:
     std::vector<VKMesh> meshes;

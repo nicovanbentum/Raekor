@@ -1,17 +1,15 @@
 #pragma once
 
-#include "pch.h"
-#include "scene.h"
-#include "camera.h"
 #include "VKPass.h"
-#include "VKContext.h"
-#include "VKSwapchain.h"
-#include "VKShader.h"
-#include "VKTexture.h"
-#include "VKDescriptor.h"
 #include "VKScene.h"
 #include "VKImGui.h"
+#include "VKDevice.h"
+#include "VKSwapchain.h"
+#include "VKDescriptor.h"
 #include "VKAccelerationStructure.h"
+
+#include "scene.h"
+#include "camera.h"
 
 namespace Raekor::VK {
 
@@ -50,14 +48,15 @@ public:
 
     void updateMaterials(Assets& assets, Scene& scene);
     void updateAccelerationStructures(Scene& scene);
-    void render(const Viewport& viewport, Scene& scene);
+    void render(SDL_Window* window, const Viewport& viewport, Scene& scene);
 
     void setupSyncObjects();
-    void recreateSwapchain(bool useVsync);
+    void recreateSwapchain(SDL_Window* window);
 
     int32_t addBindlessTexture(Device& device, const std::shared_ptr<TextureAsset>& asset, VkFormat format);
 
     void reloadShaders();
+    void setVsync(bool on);
 
     RTGeometry createBLAS(Mesh& mesh);
     void destroyBLAS(RTGeometry& geometry);
@@ -65,7 +64,7 @@ public:
     AccelerationStructure createTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count);
 
 private:
-    VK::Context context;
+    VK::Device device;
     
     VK::GUI imgui;
     VK::Swapchain swapchain;
@@ -97,4 +96,4 @@ private:
     AccelerationStructure TLAS;
 };
 
-} // namespace
+} // Raekor::VK

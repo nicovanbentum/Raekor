@@ -1,49 +1,61 @@
 #pragma once
 
-namespace Raekor {
-namespace VK {
-
-inline void ThrowIfFailed(VkResult result) {
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("Exception thrown.");
-    }
-}
+namespace Raekor::VK {
 
 class Instance {
+    friend class Device;
+
 public:
-    Instance(SDL_Window* window);
+    Instance() = delete;
+    Instance(Instance&) = delete;
+    Instance(Instance&&) = delete;
+    Instance& operator=(Instance&) = delete;
+    Instance& operator=(Instance&&) = delete;
+
+    explicit Instance(SDL_Window* window);
     ~Instance();
+
     operator VkInstance() { return instance; }
     operator VkInstance() const { return instance; }
+    
     inline VkSurfaceKHR getSurface() const { return surface; }
 
 private:
-    VkInstance instance;
-    VkSurfaceKHR surface;
-    VkDebugUtilsMessengerEXT debugMessenger;
+    VkInstance instance = VK_NULL_HANDLE;
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
 };
 
 
 class PhysicalDevice {
-    struct Properties {
-        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties { 
-            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR 
-        };
-    } properties;
+    friend class Device;
+
+private:
+    PhysicalDevice() = delete;
+    PhysicalDevice(PhysicalDevice&) = delete;
+    PhysicalDevice(PhysicalDevice&&) = delete;
+    PhysicalDevice& operator=(PhysicalDevice&) = delete;
+    PhysicalDevice& operator=(PhysicalDevice&&) = delete;
 
 public:
-    PhysicalDevice(const Instance& instance);
+    explicit PhysicalDevice(const Instance& instance);
+
     operator VkPhysicalDevice() { return gpu; }
     operator VkPhysicalDevice() const { return gpu; }
-
-    const Properties& getProperties() const { return properties; }
 
     VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
 
 private:
-    VkPhysicalDevice gpu;
+    struct Properties {
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties { 
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR 
+        };
+        VkPhysicalDeviceDescriptorIndexingProperties descriptorIndexingProperties = {
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES
+        };
+    } properties;
 
+    VkPhysicalDevice gpu = VK_NULL_HANDLE;
 };
 
-} // VK
 } // raekor

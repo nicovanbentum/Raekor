@@ -1,18 +1,19 @@
 #pragma once
 #include "VKBase.h"
 
-namespace Raekor {
-namespace VK {
+namespace Raekor::VK {
 
 class Device {
-public:
+    friend class Swapchain;
+
     Device() = delete;
     Device(Device&) = delete;
     Device(Device&&) = delete;
     Device& operator=(Device&) = delete;
     Device& operator=(Device&&) = delete;
 
-    Device(const Instance& instance, const PhysicalDevice& physicalDevice);
+public:
+    explicit Device(SDL_Window* window);
     ~Device();
 
     operator VkDevice() { return device; }
@@ -21,7 +22,7 @@ public:
     const PhysicalDevice& getPhysicalDevice() const { return physicalDevice; }
 
     VkQueue getQueue() { return queue; }
-    uint32_t getQueueFamilyIndex() { return queue_family_index; }
+    uint32_t getQueueFamilyIndex() { return queueFamilyIndex; }
 
     VkCommandBuffer startSingleSubmit() const;
     void flushSingleSubmit(VkCommandBuffer commandBuffer) const;
@@ -47,13 +48,16 @@ public:
     VkDeviceAddress getDeviceAddress(VkBuffer buffer) const;
     VkDeviceAddress getDeviceAddress(VkAccelerationStructureKHR accelerationStructure) const;
 
+    const PhysicalDevice::Properties& getPhysicalProperties() const { return physicalDevice.properties; }
+
 private:
+    Instance instance;
+    PhysicalDevice physicalDevice;
     VkDevice device;
-    const PhysicalDevice& physicalDevice;
 
 public:
     VkQueue queue;
-    uint32_t queue_family_index = 0;
+    uint32_t queueFamilyIndex = 0;
     
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;
@@ -63,5 +67,4 @@ private:
     VkPhysicalDeviceMemoryProperties memProperties;
 };
 
-}
-}
+} // Raekor::VK

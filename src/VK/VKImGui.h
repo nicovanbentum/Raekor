@@ -2,11 +2,11 @@
 
 namespace Raekor::VK {
 
-class Context;
+class Device;
 
 class GUI {
 public:
-    void init(Context& context, SDL_Window* window);
+    void init(Device& device, SDL_Window* window);
     void destroy();
 
     void newFrame(SDL_Window* window);

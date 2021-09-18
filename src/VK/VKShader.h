@@ -1,11 +1,12 @@
 #pragma once
 
-#include "VKContext.h"
-
 namespace Raekor::VK {
+
+class Device;
 
 class Shader {
     friend class DescriptorSet;
+
 public:
     static bool glslangValidator(const char* vulkanSDK, const fs::directory_entry& file);
     

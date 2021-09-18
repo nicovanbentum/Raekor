@@ -3,11 +3,11 @@
 #include "VKPass.h"
 #include "VKShader.h"
 #include "VKDescriptor.h"
+
 #include "camera.h"
 
 namespace Raekor::VK {
 
-class Raekor::Viewport;
 class Swapchain;
 struct AccelerationStructure;
 
@@ -20,16 +20,16 @@ public:
     } pushConstants;
 
 public:
-    void initialize(Context& context, const Swapchain& swapchain, const AccelerationStructure& accelStruct, VkBuffer instanceBuffer, VkBuffer materialBuffer, const BindlessDescriptorSet& bindlessTextures);
+    void initialize(Device& device, const Swapchain& swapchain, const AccelerationStructure& accelStruct, VkBuffer instanceBuffer, VkBuffer materialBuffer, const BindlessDescriptorSet& bindlessTextures);
     void destroy(Device& device);
 
     void createRenderTextures(Device& device, const glm::uvec2& size);
     void createPipeline(Device& device, uint32_t maxRecursionDepth);
     void createDescriptorSet(Device& device, const BindlessDescriptorSet& bindlessTextures);
-    void createShaderBindingTable(Device& device, PhysicalDevice& physicalDevice);
+    void createShaderBindingTable(Device& device);
 
     void updateDescriptorSet(Device& device, const VK::AccelerationStructure& accelStruct, VkBuffer instanceBuffer, VkBuffer materialBuffer);
-    void recordCommands(const Context& context, const Viewport& viewport, VkCommandBuffer commandBuffer, const BindlessDescriptorSet& bindlessTextures);
+    void recordCommands(const Device& context, const Viewport& viewport, VkCommandBuffer commandBuffer, const BindlessDescriptorSet& bindlessTextures);
 
     void reloadShadersFromDisk(Device& device);
 

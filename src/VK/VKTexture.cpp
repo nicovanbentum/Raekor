@@ -1,11 +1,13 @@
 #include "pch.h"
 #include "VKTexture.h"
 
-namespace Raekor {
-namespace VK {
+#include "VKDevice.h"
+#include "VKUtil.h"
+
+namespace Raekor::VK {
 
 void Image::destroy(VmaAllocator allocator) {
-    if(view != VK_NULL_HANDLE) vkDestroyImageView(device, view, nullptr);
+    if(view) vkDestroyImageView(device, view, nullptr);
     if(image) vmaDestroyImage(allocator, image, alloc);
     if(sampler) vkDestroySampler(device, sampler, nullptr);
 }
@@ -15,12 +17,12 @@ Texture::Texture(Device& device, const Stb::Image& image) : Image(device) {
 }
 
 void Texture::upload(Device& device, const Stb::Image& stb) {
-    uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(stb.w, stb.h)))) + 1;
+    uint32_t mipLevels = uint32_t(std::floor(std::log2(std::max(stb.w, stb.h)))) + 1;
 
-    VkDeviceSize byteSize = stb.w * stb.h * static_cast<uint32_t>(stb.format);
+    VkDeviceSize byteSize = stb.w * stb.h * uint32_t(stb.format);
 
     auto [stagingBuffer, stagingAlloc] = device.createBuffer(byteSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-    memcpy(device.getMappedPointer(stagingAlloc), stb.pixels, static_cast<size_t>(byteSize));
+    memcpy(device.getMappedPointer(stagingAlloc), stb.pixels, size_t(byteSize));
 
     VkImageCreateInfo imageInfo = {};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -40,11 +42,10 @@ void Texture::upload(Device& device, const Stb::Image& stb) {
     VmaAllocationCreateInfo imageAllocCreateInfo = {};
     imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     
-    auto vkresult = vmaCreateImage(device.getAllocator(), &imageInfo, &imageAllocCreateInfo, &image, &alloc, &allocInfo);
-    assert(vkresult == VK_SUCCESS);
+    ThrowIfFailed(vmaCreateImage(device.getAllocator(), &imageInfo, &imageAllocCreateInfo, &image, &alloc, &allocInfo));
     
     device.transitionImageLayout(image, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    device.copyBufferToImage(stagingBuffer, image, static_cast<uint32_t>(stb.w), static_cast<uint32_t>(stb.h));
+    device.copyBufferToImage(stagingBuffer, image, uint32_t(stb.w), uint32_t(stb.h));
     device.generateMipmaps(image, stb.w, stb.h, mipLevels);
 
     vmaDestroyBuffer(device.getAllocator(), stagingBuffer, stagingAlloc);
@@ -67,11 +68,9 @@ void Texture::upload(Device& device, const Stb::Image& stb) {
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = static_cast<float>(mipLevels);
+    samplerInfo.maxLod = float(mipLevels);
 
-    if (vkCreateSampler(device, &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create vk sampler");
-    }
+    ThrowIfFailed(vkCreateSampler(device, &samplerInfo, nullptr, &sampler));
 
     descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     descriptor.imageView = view;
@@ -112,13 +111,12 @@ CubeTexture::CubeTexture(Device& device, const std::array<Stb::Image, 6>& images
     VmaAllocationCreateInfo imageAllocCreateInfo = {};
     imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    auto vkresult = vmaCreateImage(device.getAllocator(), &imageInfo, &imageAllocCreateInfo, &image, &alloc, &allocInfo);
-    assert(vkresult == VK_SUCCESS);
+    ThrowIfFailed(vmaCreateImage(device.getAllocator(), &imageInfo, &imageAllocCreateInfo, &image, &alloc, &allocInfo));
 
     constexpr uint32_t mipLevels = 1;
     constexpr uint32_t layerCount = 6;
     device.transitionImageLayout(image, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, layerCount, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    device.copyBufferToImage(stagingBuffer, image, static_cast<uint32_t>(width), static_cast<uint32_t>(height), 6);
+    device.copyBufferToImage(stagingBuffer, image, uint32_t(width), uint32_t(height), 6);
     device.transitionImageLayout(image, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, layerCount, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     
     vmaDestroyBuffer(device.getAllocator(), stagingBuffer, stagingAlloc);
@@ -134,9 +132,7 @@ CubeTexture::CubeTexture(Device& device, const std::array<Stb::Image, 6>& images
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 6;
 
-    if (vkCreateImageView(device, &viewInfo, nullptr, &view) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create texture image view!");
-    }
+    ThrowIfFailed(vkCreateImageView(device, &viewInfo, nullptr, &view));
 
     VkSamplerCreateInfo samplerInfo = {};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -156,9 +152,7 @@ CubeTexture::CubeTexture(Device& device, const std::array<Stb::Image, 6>& images
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 1.0f;
 
-    if (vkCreateSampler(device, &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create vk sampler");
-    }
+    ThrowIfFailed(vkCreateSampler(device, &samplerInfo, nullptr, &sampler));
 
     descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     descriptor.imageView = view;
@@ -186,12 +180,10 @@ DepthTexture::DepthTexture(Device& device, glm::ivec2 extent)
     VmaAllocationCreateInfo imageAllocCreateInfo = {};
     imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    auto vkresult = vmaCreateImage(device.getAllocator(), &imageInfo, &imageAllocCreateInfo, &image, &alloc, &allocInfo);
-    assert(vkresult == VK_SUCCESS);
+    ThrowIfFailed(vmaCreateImage(device.getAllocator(), &imageInfo, &imageAllocCreateInfo, &image, &alloc, &allocInfo));
 
     view = device.createImageView(image, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
     device.transitionImageLayout(image, VK_FORMAT_D24_UNORM_S8_UINT, 1, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
-}
 }

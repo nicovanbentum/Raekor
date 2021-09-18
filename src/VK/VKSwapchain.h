@@ -1,21 +1,19 @@
 #pragma once
 
-#include "VKContext.h"
+namespace Raekor::VK {
 
-namespace Raekor {
-namespace VK {
+class Device;
 
 class Swapchain {
 public:
     Swapchain() = default;
-    Swapchain(const Context& context, glm::vec2 resolution, VkPresentModeKHR mode);
+    operator VkSwapchainKHR() const { return swapchain; }
 
-    [[nodiscard]] bool create(const Context& context, glm::vec2 resolution, VkPresentModeKHR mode);
+    void create(const Device& device, glm::ivec2 resolution, VkPresentModeKHR mode);
     void destroy(VkDevice device);
 
-    operator VkSwapchainKHR() const { return swapchain; }
-    inline const VkExtent2D& getExtent() const { return extent; }
-    void setupFrameBuffers(const Context& context, VkRenderPass renderPass, const std::vector<VkImageView>& attachments);
+    const VkExtent2D& getExtent() const;
+    void createFramebuffers(const Device& device, VkRenderPass renderPass, const std::vector<VkImageView>& attachments);
 
 private:
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
@@ -31,5 +29,4 @@ public:
     
 };
 
-} // VK
 } // Raekor

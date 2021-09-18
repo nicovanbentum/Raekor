@@ -1,9 +1,14 @@
 #include "pch.h"
 #include "VKScene.h"
 
+#include "VKUtil.h"
+#include "VKDevice.h"
+
+#include "buffer.h"
+
 namespace Raekor::VK {
 
-void VKScene::load(Context& context) {
+void VKScene::load(Device& device) {
     constexpr unsigned int flags =
         aiProcess_CalcTangentSpace |
         aiProcess_Triangulate |
@@ -16,95 +21,101 @@ void VKScene::load(Context& context) {
         aiProcess_ValidateDataStructure;
 
     Assimp::Importer importer;
+    
     std::string path = "resources/models/Sponza/Sponza.gltf";
     const auto scene = importer.ReadFile(path, flags);
+    
     m_assert(scene && scene->HasMeshes(), "failed to load mesh");
 
-    std::map<std::string, int> seen;
-
-    meshes.reserve(scene->mNumMeshes);
+    meshes.resize(scene->mNumMeshes);
     std::vector<Vertex> vertices;
     std::vector<Triangle> indices;
 
     for (unsigned int m = 0, ti = 0; m < scene->mNumMeshes; m++) {
-        auto ai_mesh = scene->mMeshes[m];
+        auto assimpMesh = scene->mMeshes[m];
 
-        VKMesh mm;
-        mm.indexOffset = static_cast<uint32_t>(indices.size() * 3);
-        mm.indexRange = ai_mesh->mNumFaces * 3;
-        mm.vertexOffset = static_cast<uint32_t>(vertices.size());
-        meshes.push_back(mm);
+        VKMesh& mesh = meshes[m];
+        mesh.indexOffset = uint32_t(indices.size() * 3);
+        mesh.indexRange = assimpMesh->mNumFaces * 3;
+        mesh.vertexOffset = uint32_t(vertices.size());
 
-        for (size_t i = 0; i < ai_mesh->mNumVertices; i++) {
-            Vertex v;
-            v.pos = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z };
-            if (ai_mesh->HasTextureCoords(0)) {
-                v.uv = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
+        for (size_t i = 0; i < assimpMesh->mNumVertices; i++) {
+            Vertex& v = vertices.emplace_back();
+            
+            v.pos = { assimpMesh->mVertices[i].x, assimpMesh->mVertices[i].y, assimpMesh->mVertices[i].z };
+            
+            if (assimpMesh->HasTextureCoords(0)) {
+                v.uv = { assimpMesh->mTextureCoords[0][i].x, assimpMesh->mTextureCoords[0][i].y };
             }
-            if (ai_mesh->HasNormals()) {
-                v.normal = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
+            
+            if (assimpMesh->HasNormals()) {
+                v.normal = { assimpMesh->mNormals[i].x, assimpMesh->mNormals[i].y, assimpMesh->mNormals[i].z };
             }
-            vertices.push_back(std::move(v));
         }
+
         // extract indices
-        for (size_t i = 0; i < ai_mesh->mNumFaces; i++) {
-            m_assert((ai_mesh->mFaces[i].mNumIndices == 3), "faces require 3 indices");
-            indices.push_back({ ai_mesh->mFaces[i].mIndices[0], ai_mesh->mFaces[i].mIndices[1], ai_mesh->mFaces[i].mIndices[2] });
+        for (size_t i = 0; i < assimpMesh->mNumFaces; i++) {
+            m_assert((assimpMesh->mFaces[i].mNumIndices == 3), "Faces require 3 indices");
+            
+            indices.push_back({ 
+                assimpMesh->mFaces[i].mIndices[0], 
+                assimpMesh->mFaces[i].mIndices[1], 
+                assimpMesh->mFaces[i].mIndices[2] 
+            });
         }
 
     }
 
-    {   // vertex buffer upload
-        const size_t sizeInBytes = sizeof(Vertex) * vertices.size();
-        auto [stagingBuffer, stagingAlloc] = context.device.createBuffer(sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    // vertex buffer upload
+    const size_t vertexBufferSize = sizeof(Vertex) * vertices.size();
+    
+    auto [vertexStageBuffer, vertexStageAlloc] = device.createBuffer(
+        vertexBufferSize, 
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VMA_MEMORY_USAGE_CPU_ONLY
+    );
 
-        // copy the data over
-        memcpy(context.device.getMappedPointer(stagingAlloc), vertices.data(), sizeInBytes);
+    memcpy(device.getMappedPointer(vertexStageAlloc), vertices.data(), vertexBufferSize);
 
-        VkBufferCreateInfo vbInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-        vbInfo.size = sizeInBytes;
-        vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    std::tie(vertexBuffer, vertexBufferAlloc) = device.createBuffer(
+        vertexBufferSize, 
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+        VMA_MEMORY_USAGE_GPU_ONLY
+    );
 
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-        allocInfo.flags = NULL;
+    device.copyBuffer(vertexStageBuffer, vertexBuffer, vertexBufferSize);
+        
+    device.destroyBuffer(vertexStageBuffer, vertexStageAlloc);
 
-        auto vkresult = vmaCreateBuffer(context.device.getAllocator(), &vbInfo, &allocInfo, &vertexBuffer, &vertexBufferAlloc, &vertexBufferAllocInfo);
-        assert(vkresult == VK_SUCCESS);
+    // index buffer upload
+    const size_t indexBufferSize = sizeof(Triangle) * indices.size();
 
-        context.device.copyBuffer(stagingBuffer, vertexBuffer, sizeInBytes);
+    auto [indexStageBuffer, indexStageAlloc] = device.createBuffer(
+        indexBufferSize, 
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VMA_MEMORY_USAGE_CPU_ONLY
+    );
 
-        vmaDestroyBuffer(context.device.getAllocator(), stagingBuffer, stagingAlloc);
-    }
+    memcpy(device.getMappedPointer(indexStageAlloc), indices.data(), indexBufferSize);
 
-    {   // index buffer upload
-        const size_t sizeInBytes = sizeof(Triangle) * indices.size();
-        auto [stagingBuffer, stagingAlloc] = context.device.createBuffer(sizeInBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    std::tie(indexBuffer, indexBufferAlloc) = device.createBuffer(
+        indexBufferSize, 
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+        VMA_MEMORY_USAGE_GPU_ONLY
+    );
 
-        // copy the data over
-        memcpy(context.device.getMappedPointer(stagingAlloc), indices.data(), sizeInBytes);
+    device.copyBuffer(indexStageBuffer, indexBuffer, indexBufferSize);
 
-        VkBufferCreateInfo vbInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-        vbInfo.size = sizeInBytes;
-        vbInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    device.destroyBuffer(indexStageBuffer, indexStageAlloc);
 
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-        allocInfo.flags = NULL;
+    std::map<std::string, int> seen;
 
-        auto vkresult = vmaCreateBuffer(context.device.getAllocator(), &vbInfo, &allocInfo, &indexBuffer, &indexBufferAlloc, &indexBufferAllocInfo);
-        assert(vkresult == VK_SUCCESS);
-
-        context.device.copyBuffer(stagingBuffer, indexBuffer, sizeInBytes);
-
-        vmaDestroyBuffer(context.device.getAllocator(), stagingBuffer, stagingAlloc);
-    }
-
-    for (unsigned int m = 0, ti = 0; m < scene->mNumMeshes; m++) {
-        auto ai_mesh = scene->mMeshes[m];
+    for (unsigned int meshIndex = 0, textureIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++) {
+        auto assimpMesh = scene->mMeshes[meshIndex];
 
         std::string texture_path;
-        auto material = scene->mMaterials[ai_mesh->mMaterialIndex];
+        auto material = scene->mMaterials[assimpMesh->mMaterialIndex];
+        
         if (material->GetTextureCount(aiTextureType_DIFFUSE) != 0) {
             aiString filename;
             material->GetTexture(aiTextureType_DIFFUSE, 0, &filename);
@@ -113,11 +124,15 @@ void VKScene::load(Context& context) {
 
         if (!texture_path.empty()) {
             if (seen.find(texture_path) == seen.end()) {
-                meshes[m].textureIndex = ti;
-                seen[texture_path] = ti;
-                ti++;
-            } else meshes[m].textureIndex = seen[texture_path];
-        } else meshes[m].textureIndex = -1;
+                meshes[meshIndex].textureIndex = textureIndex;
+                seen[texture_path] = textureIndex;
+                textureIndex++;
+            } else {
+                meshes[meshIndex].textureIndex = seen[texture_path];
+            }
+        } else {
+            meshes[meshIndex].textureIndex = -1;
+        }
     }
 
 
@@ -132,7 +147,7 @@ void VKScene::load(Context& context) {
 
     textures.reserve(images.size());
     for (const auto& image : images) {
-        textures.emplace_back(context.device, image);
+        textures.emplace_back(device, image);
     }
 }
 

@@ -1,20 +1,21 @@
 #include "pch.h"
 #include "VKImGui.h"
 
-#include "VKContext.h"
+#include "VKUtil.h"
+#include "VKDevice.h"
 
 namespace Raekor::VK {
 
 
-void GUI::init(Context& context, SDL_Window* window) {
+void GUI::init(Device& device, SDL_Window* window) {
     ImGui_ImplVulkan_InitInfo info = {};
-    info.Device = context.device;
-    info.PhysicalDevice = context.physicalDevice;
-    info.Instance = context.instance;
-    info.QueueFamily = context.device.getQueueFamilyIndex();
-    info.Queue = context.device.getQueue();
+    info.Device = device;
+    //info.PhysicalDevice = physicalDevice;
+    //info.Instance = instance; // TODO
+    info.QueueFamily = device.getQueueFamilyIndex();
+    info.Queue = device.getQueue();
     info.PipelineCache = VK_NULL_HANDLE;
-    info.DescriptorPool = context.device.descriptorPool;
+    info.DescriptorPool = device.descriptorPool;
     info.MinImageCount = 2;
     info.ImageCount = info.MinImageCount;
     info.Allocator = nullptr;

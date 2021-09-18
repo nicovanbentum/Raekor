@@ -1,29 +1,23 @@
 #include "pch.h"
 #include "VKDescriptor.h"
+#include "VKUtil.h"
+#include "VKDevice.h"
 
-namespace Raekor {
-namespace VK {
+namespace Raekor::VK {
 
-UniformBuffer::UniformBuffer(const Context& ctx, VmaAllocator allocator, size_t size) {
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-    auto vkresult = vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &buffer, &alloc, &allocationInfo);
-    assert(vkresult == VK_SUCCESS);
+UniformBuffer::UniformBuffer(Device& device, size_t size) {
+    std::tie(buffer, alloc) = device.createBuffer(
+        size, 
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+        VMA_MEMORY_USAGE_CPU_TO_GPU
+    );
 
     descriptor.buffer = buffer;
     descriptor.offset = 0;
     descriptor.range = VK_WHOLE_SIZE;
 }
 
-///////////////////////////////////////////////////////////////////////
+
 
 void UniformBuffer::update(VmaAllocator allocator, const void* data, size_t size) const {
     size = size == VK_WHOLE_SIZE ? allocationInfo.size : size;
@@ -31,23 +25,26 @@ void UniformBuffer::update(VmaAllocator allocator, const void* data, size_t size
     vmaFlushAllocation(allocator, alloc, 0, size);
 }
 
-///////////////////////////////////////////////////////////////////////
+
 
 void UniformBuffer::destroy(VmaAllocator allocator) {
     vmaDestroyBuffer(allocator, buffer, alloc);
 }
 
-///////////////////////////////////////////////////////////////////////
 
-DescriptorSet::DescriptorSet(Context& context, Shader** shaders, size_t count) {
+
+DescriptorSet::DescriptorSet(Device& device, Shader** shaders, size_t count) {
     std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-    for (size_t i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < count; i++) {
         Shader* shader = shaders[i];
 
         SpvReflectShaderModule module;
         SpvReflectResult result = spvReflectCreateShaderModule(shader->spirv.size(), shader->spirv.data(), &module);
-        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+        
+        if (result != SPV_REFLECT_RESULT_SUCCESS) {
+            throw std::runtime_error("Failed to create a shader module for SPIRV-Reflect.");
+        }
 
         const SpvReflectDescriptorSet* reflectSet = spvReflectGetDescriptorSet(&module, 0, &result);
 
@@ -97,12 +94,12 @@ DescriptorSet::DescriptorSet(Context& context, Shader** shaders, size_t count) {
     
     VkDescriptorSetLayoutBindingFlagsCreateInfo setLayoutBindingFlags{};
     setLayoutBindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-    setLayoutBindingFlags.bindingCount = static_cast<uint32_t>(descriptorBindingFlags.size());
+    setLayoutBindingFlags.bindingCount = uint32_t(descriptorBindingFlags.size());
     setLayoutBindingFlags.pBindingFlags = descriptorBindingFlags.data();
 
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.bindingCount = uint32_t(bindings.size());
     layoutInfo.pBindings = bindings.data();
     layoutInfo.pNext = &setLayoutBindingFlags;
 
@@ -110,18 +107,15 @@ DescriptorSet::DescriptorSet(Context& context, Shader** shaders, size_t count) {
         std::cout << " completed binding at " << binding.binding << '\n';
     }
 
-    if (vkCreateDescriptorSetLayout(context.device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-        throw std::runtime_error("fialed to create descriptor layout");
-    }
+    ThrowIfFailed(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout));
 
-    // Descriptor sets
     uint32_t variableDescCounts[] = { 20 };
     VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {};
     variableDescriptorCountAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
     variableDescriptorCountAllocInfo.descriptorSetCount = 1;
     variableDescriptorCountAllocInfo.pDescriptorCounts = variableDescCounts;
 
-    context.device.allocateDescriptorSet(1, &descriptorSetLayout, &descriptorSet, &variableDescriptorCountAllocInfo);
+    device.allocateDescriptorSet(1, &descriptorSetLayout, &descriptorSet, &variableDescriptorCountAllocInfo);
 
     for (auto& resource : resources) {
         resource.second.dstSet = descriptorSet;
@@ -132,62 +126,61 @@ DescriptorSet::DescriptorSet(Context& context, Shader** shaders, size_t count) {
     }
 }
 
-///////////////////////////////////////////////////////////////////////
+
 
 void DescriptorSet::destroy(const Device& device) {
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     device.freeDescriptorSet(1, &descriptorSet);
 }
 
-///////////////////////////////////////////////////////////////////////
+DescriptorSet::operator VkDescriptorSet() { 
+    return descriptorSet; 
+}
 
-DescriptorSet::operator VkDescriptorSet() { return descriptorSet; }
 
-///////////////////////////////////////////////////////////////////////
 
-VkDescriptorSetLayout& DescriptorSet::getLayout() { return descriptorSetLayout; }
+VkDescriptorSetLayout& DescriptorSet::getLayout() { 
+    return descriptorSetLayout; 
+}
 
-///////////////////////////////////////////////////////////////////////
+
 
 VkWriteDescriptorSet* DescriptorSet::getResource(const std::string& name) {
     auto it = resources.find(name);
     if (it != resources.end()) {
         return &it->second;
-    }
-    else {
+    } else {
         return nullptr;
     }
 }
 
-///////////////////////////////////////////////////////////////////////
+
 
 void DescriptorSet::update(VkDevice device) {
     std::vector<VkWriteDescriptorSet> writeSets;
+    
     std::for_each(resources.begin(), resources.end(), [&](const auto& kv) {
         writeSets.push_back(kv.second);
-        });
+    });
 
-    vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeSets.size()), writeSets.data(), 0, nullptr);
+    vkUpdateDescriptorSets(device, uint32_t(writeSets.size()), writeSets.data(), 0, nullptr);
 }
 
-///////////////////////////////////////////////////////////////////////
+
 
 void DescriptorSet::update(VkDevice device, const std::string& name) {
     auto resource = getResource(name);
+
     if (resource) {
         vkUpdateDescriptorSets(device, 1, getResource(name), 0, nullptr);
     }
 }
 
-void BindlessDescriptorSet::create(const Context& context, VkDescriptorType type, VkShaderStageFlags stages) {
-    VkPhysicalDeviceDescriptorIndexingProperties descriptorIndexingProperties = {};
-    descriptorIndexingProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES;
 
-    VkPhysicalDeviceProperties2 properties = {};
-    properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    properties.pNext = &descriptorIndexingProperties;
 
-    vkGetPhysicalDeviceProperties2(context.physicalDevice, &properties);
+void BindlessDescriptorSet::create(const Device& device, VkDescriptorType type, VkShaderStageFlags stages) {
+
+    const auto& descriptorIndexingProperties = device.getPhysicalProperties().descriptorIndexingProperties;
 
     uint32_t descriptorCount = 0;
 
@@ -236,9 +229,8 @@ void BindlessDescriptorSet::create(const Context& context, VkDescriptorType type
     layoutInfo.pBindings = &bindingDesc;
     layoutInfo.pNext = &setLayoutBindingFlags;
 
-    ThrowIfFailed(vkCreateDescriptorSetLayout(context.device, &layoutInfo, nullptr, &layout));
+    ThrowIfFailed(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &layout));
 
-    // Descriptor sets
     VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {};
     variableDescriptorCountAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
     variableDescriptorCountAllocInfo.descriptorSetCount = 1;
@@ -255,7 +247,7 @@ void BindlessDescriptorSet::create(const Context& context, VkDescriptorType type
     pool_info.poolSizeCount = 1;
     pool_info.pPoolSizes = &poolSize;
 
-    ThrowIfFailed(vkCreateDescriptorPool(context.device, &pool_info, nullptr, &pool));
+    ThrowIfFailed(vkCreateDescriptorPool(device, &pool_info, nullptr, &pool));
 
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -264,14 +256,18 @@ void BindlessDescriptorSet::create(const Context& context, VkDescriptorType type
     allocInfo.pSetLayouts = &layout;
     allocInfo.pNext = &variableDescriptorCountAllocInfo;
 
-    ThrowIfFailed(vkAllocateDescriptorSets(context.device, &allocInfo, &set));
+    ThrowIfFailed(vkAllocateDescriptorSets(device, &allocInfo, &set));
 }
+
+
 
 void BindlessDescriptorSet::destroy(const Device& device) {
     vkFreeDescriptorSets(device, pool, 1, &set);
     vkDestroyDescriptorSetLayout(device, layout, nullptr);
     vkDestroyDescriptorPool(device, pool, nullptr);
 }
+
+
 
 uint32_t BindlessDescriptorSet::write(const Device& device, VkDescriptorType type, const VkDescriptorImageInfo& imageInfo) {
     VkWriteDescriptorSet write = {};
@@ -285,8 +281,7 @@ uint32_t BindlessDescriptorSet::write(const Device& device, VkDescriptorType typ
     if (!freeIndices.empty()) {
         write.dstArrayElement = freeIndices.back();
         freeIndices.pop_back();
-    }
-    else {
+    } else {
         write.dstArrayElement = size++;
     }
 
@@ -295,5 +290,4 @@ uint32_t BindlessDescriptorSet::write(const Device& device, VkDescriptorType typ
     return write.dstArrayElement;
 }
 
-} // VK
-} // Raekor
+} // Raekor::VK
