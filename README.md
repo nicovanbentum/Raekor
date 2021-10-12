@@ -41,7 +41,7 @@ This project requires C++ 17 and OpenGL 4.6 for direct state access functions an
     - Voxel Cone Traced Specular Reflections
     - Voxel Cone Traced Global Illumination (single bounce diffuse)
 * Scenes
-    - DDC import (Assimp)
+    - DCC import (Assimp)
     - Serialisation (Cereal)
     - Entity component system (EnTT)
     - S3TC DXT5 texture compression
