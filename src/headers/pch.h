@@ -10,6 +10,8 @@
     #define RAEKOR_DEBUG 1
 #endif
 
+extern bool PATHTRACE;
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // header only Cereal library
 #include "cereal/archives/json.hpp"

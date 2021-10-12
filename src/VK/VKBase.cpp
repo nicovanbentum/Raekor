@@ -178,6 +178,8 @@ PhysicalDevice::PhysicalDevice(const Instance& instance) :
     properties.rayTracingPipelineProperties.pNext = &properties.descriptorIndexingProperties;
 
     vkGetPhysicalDeviceProperties2(gpu, &props2);
+
+    limits = props2.properties.limits;
 }
 
 

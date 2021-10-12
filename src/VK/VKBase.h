@@ -15,7 +15,6 @@ public:
     explicit Instance(SDL_Window* window);
     ~Instance();
 
-    operator VkInstance() { return instance; }
     operator VkInstance() const { return instance; }
     
     inline VkSurfaceKHR getSurface() const { return surface; }
@@ -25,6 +24,7 @@ private:
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
 };
+
 
 
 class PhysicalDevice {
@@ -39,8 +39,6 @@ private:
 
 public:
     explicit PhysicalDevice(const Instance& instance);
-
-    operator VkPhysicalDevice() { return gpu; }
     operator VkPhysicalDevice() const { return gpu; }
 
     VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
@@ -54,6 +52,8 @@ private:
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES
         };
     } properties;
+
+    VkPhysicalDeviceLimits limits;
 
     VkPhysicalDevice gpu = VK_NULL_HANDLE;
 };

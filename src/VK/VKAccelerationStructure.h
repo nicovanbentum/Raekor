@@ -1,5 +1,7 @@
 #pragma once
 
+#include "VKStructs.h"
+
 namespace Raekor::VK {
 
 class Device;
@@ -8,8 +10,7 @@ struct AccelerationStructure {
     void create(Device& device, VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount);
     void destroy(Device& device);
 
-    VkBuffer buffer = VK_NULL_HANDLE;
-    VmaAllocation allocation = VK_NULL_HANDLE;
+    Buffer buffer = {};
     VkAccelerationStructureKHR accelerationStructure = VK_NULL_HANDLE;
 };
 

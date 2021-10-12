@@ -6,184 +6,126 @@
 
 namespace Raekor::VK {
 
-void Image::destroy(VmaAllocator allocator) {
-    if(view) vkDestroyImageView(device, view, nullptr);
-    if(image) vmaDestroyImage(allocator, image, alloc);
-    if(sampler) vkDestroySampler(device, sampler, nullptr);
-}
-
-Texture::Texture(Device& device, const Stb::Image& image) : Image(device) {
-    this->upload(device, image);
-}
-
-void Texture::upload(Device& device, const Stb::Image& stb) {
-    uint32_t mipLevels = uint32_t(std::floor(std::log2(std::max(stb.w, stb.h)))) + 1;
-
-    VkDeviceSize byteSize = stb.w * stb.h * uint32_t(stb.format);
-
-    auto [stagingBuffer, stagingAlloc] = device.createBuffer(byteSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-    memcpy(device.getMappedPointer(stagingAlloc), stb.pixels, size_t(byteSize));
-
+Texture Device::createTexture(const Texture::Desc& desc) {
     VkImageCreateInfo imageInfo = {};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = stb.w;
-    imageInfo.extent.height = stb.h;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = mipLevels;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.format = desc.format;
+    imageInfo.extent = { desc.width, desc.height, desc.depth };
+    imageInfo.mipLevels = desc.mipLevels;
+    imageInfo.arrayLayers = desc.arrayLayers;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT
+        | VK_IMAGE_USAGE_TRANSFER_DST_BIT
+        | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-    VmaAllocationCreateInfo imageAllocCreateInfo = {};
-    imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    
-    ThrowIfFailed(vmaCreateImage(device.getAllocator(), &imageInfo, &imageAllocCreateInfo, &image, &alloc, &allocInfo));
-    
-    device.transitionImageLayout(image, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    device.copyBufferToImage(stagingBuffer, image, uint32_t(stb.w), uint32_t(stb.h));
-    device.generateMipmaps(image, stb.w, stb.h, mipLevels);
-
-    vmaDestroyBuffer(device.getAllocator(), stagingBuffer, stagingAlloc);
-
-    view = device.createImageView(image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels, 1);
-
-    VkSamplerCreateInfo samplerInfo = {};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.anisotropyEnable = VK_TRUE;
-    samplerInfo.maxAnisotropy = 16;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = float(mipLevels);
-
-    ThrowIfFailed(vkCreateSampler(device, &samplerInfo, nullptr, &sampler));
-
-    descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    descriptor.imageView = view;
-    descriptor.sampler = sampler;
-}
-
-CubeTexture::CubeTexture(Device& device, const std::array<Stb::Image, 6>& images) : Image(device) {
-    //Calculate the image size and the layer size.
-    uint32_t width = images[0].w, height = images[0].h;
-    const VkDeviceSize imageSize = width * height * 4 * 6;
-    const VkDeviceSize layerSize = imageSize / 6;
-
-    auto [stagingBuffer, stagingAlloc] = device.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-    auto mappedPtr = device.getMappedPointer(stagingAlloc);
-
-    for (unsigned int i = 0; i < 6; i++) {
-        unsigned char* location = static_cast<unsigned char*>(mappedPtr) + (layerSize * i);
-        memcpy(location, images[i].pixels, layerSize);
+    if (desc.isFramebufferAttachment) {
+        if (desc.format >= VK_FORMAT_D16_UNORM &&
+            desc.format <= VK_FORMAT_D32_SFLOAT_S8_UINT) {
+            imageInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        }
+        else {
+            imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        }
     }
 
-    // create the image
-    VkImageCreateInfo imageInfo = {};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = width;
-    imageInfo.extent.height = height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 6;
-    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    VmaAllocationCreateInfo imageAllocCreateInfo = {};
-    imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    Texture texture;
+    texture.description = desc;
 
-    ThrowIfFailed(vmaCreateImage(device.getAllocator(), &imageInfo, &imageAllocCreateInfo, &image, &alloc, &allocInfo));
-
-    constexpr uint32_t mipLevels = 1;
-    constexpr uint32_t layerCount = 6;
-    device.transitionImageLayout(image, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, layerCount, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    device.copyBufferToImage(stagingBuffer, image, uint32_t(width), uint32_t(height), 6);
-    device.transitionImageLayout(image, VK_FORMAT_R8G8B8A8_UNORM, mipLevels, layerCount, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    ThrowIfFailed(vmaCreateImage(allocator, &imageInfo, &allocInfo, &texture.image, &texture.allocation, nullptr));
+        
+    return texture;
+}
     
-    vmaDestroyBuffer(device.getAllocator(), stagingBuffer, stagingAlloc);
-    
+
+
+void Device::destroyTexture(Texture& texture) {
+    for (const auto& [mip, view] : texture.viewsByMip) {
+        vkDestroyImageView(device, view, nullptr);
+    }
+
+    vmaDestroyImage(allocator, texture.image, texture.allocation);
+}
+
+
+
+VkImageView Device::createView(Texture& texture, uint32_t mipLevel) {
+    const auto& desc = texture.description;
+    auto& views = texture.viewsByMip;
+        
+    if (views.find(mipLevel) != views.end()) {
+        return views.at(mipLevel);
+    }
+
     VkImageViewCreateInfo viewInfo = {};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = desc.format;
+    viewInfo.image = texture.image;
     viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 6;
+    viewInfo.subresourceRange.layerCount = 1;
+    viewInfo.subresourceRange.baseMipLevel = mipLevel;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-    ThrowIfFailed(vkCreateImageView(device, &viewInfo, nullptr, &view));
+    if (desc.format >= VK_FORMAT_D16_UNORM &&
+        desc.format <= VK_FORMAT_D32_SFLOAT_S8_UINT) {
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    }
+    else {
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
 
+    VkImageView view;
+    vkCreateImageView(device, &viewInfo, nullptr, &view);
+
+    views.insert({ mipLevel, view });
+    
+    return view;
+}
+
+
+
+Sampler Device::createSampler(const Sampler::Desc& desc) {
     VkSamplerCreateInfo samplerInfo = {};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.anisotropyEnable = VK_TRUE;
-    samplerInfo.maxAnisotropy = 16;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.magFilter = desc.minFilter;
+    samplerInfo.minFilter = desc.magFilter;
+    samplerInfo.addressModeU = desc.addressMode;
+    samplerInfo.addressModeV = desc.addressMode;
+    samplerInfo.addressModeW = desc.addressMode;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.borderColor = desc.borderColor;
+
+    if (desc.anisotropy) {
+        samplerInfo.maxAnisotropy = desc.anisotropy;
+        samplerInfo.anisotropyEnable = VK_TRUE;
+    }
+
+
+    if (desc.maxMipmap) {
+        samplerInfo.maxLod = desc.maxMipmap;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    }
+
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 1.0f;
+    samplerInfo.maxLod = desc.maxMipmap;
 
-    ThrowIfFailed(vkCreateSampler(device, &samplerInfo, nullptr, &sampler));
+    Sampler sampler;
+    sampler.description = desc;
+    
+    vkCreateSampler(device, &samplerInfo, nullptr, &sampler.sampler);
 
-    descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    descriptor.imageView = view;
-    descriptor.sampler = sampler;
+    return sampler;
 }
 
-DepthTexture::DepthTexture(Device& device, glm::ivec2 extent)
-    : Image(device)
-{
-    VkImageCreateInfo imageInfo = {};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = extent.x;
-    imageInfo.extent.height = extent.y;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = VK_FORMAT_D24_UNORM_S8_UINT;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VmaAllocationCreateInfo imageAllocCreateInfo = {};
-    imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    ThrowIfFailed(vmaCreateImage(device.getAllocator(), &imageInfo, &imageAllocCreateInfo, &image, &alloc, &allocInfo));
-
-    view = device.createImageView(image, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
-    device.transitionImageLayout(image, VK_FORMAT_D24_UNORM_S8_UINT, 1, 1, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+void Device::destroySampler(Sampler& sampler) {
+    vkDestroySampler(device, sampler.sampler, nullptr);
 }
 
-}
+} // Raekor::VK

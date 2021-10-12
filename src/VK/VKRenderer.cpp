@@ -8,21 +8,42 @@
 
 namespace Raekor::VK {
 
+Renderer::Renderer(SDL_Window* window) : 
+    device(window) 
+{
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+
+    VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
+
+    swapchain.create(device, { w, h }, mode);
+
+    setupSyncObjects();
+
+    bindlessTextures.create(device, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+}
+
+
+
 Renderer::~Renderer() {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
-    for (unsigned int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
+    vkDeviceWaitIdle(device);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroySemaphore(device, imageAcquiredSemaphores[i], nullptr);
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(device, inFlightFences[i], nullptr);
+        vkDestroyFence(device, commandsFinishedFences[i], nullptr);
     }
 
-    for (const auto& texture : textures) {
-        vmaDestroyImage(device.getAllocator(), texture.image, texture.allocation);
-        vkDestroyImageView(device, texture.view, nullptr);
-        vkDestroySampler(device, texture.sampler, nullptr);
+    for (auto& texture : textures) {
+        device.destroyTexture(texture);
+    }
+
+    for (auto& sampler : samplers) {
+        device.destroySampler(sampler);
     }
 
     bindlessTextures.destroy(device);
@@ -30,14 +51,16 @@ Renderer::~Renderer() {
     TLAS.destroy(device);
     swapchain.destroy(device);
     pathTracePass.destroy(device);
-    device.destroyBuffer(instanceBuffer, instanceAllocation);
-    device.destroyBuffer(materialBuffer, materialAllocation);
+    imGuiPass.destroy(device);
+    device.destroyBuffer(instanceBuffer);
+    device.destroyBuffer(materialBuffer);
 }
 
 
 
 void Renderer::initialize(Scene& scene) {
     pathTracePass.initialize(device, swapchain, TLAS, instanceBuffer, materialBuffer, bindlessTextures);
+    imGuiPass.initialize(device, swapchain, pathTracePass, bindlessTextures);
 }
 
 
@@ -49,16 +72,19 @@ void Renderer::resetAccumulation() {
 
 
 void Renderer::updateMaterials(Assets& assets, Scene& scene) {
-    auto materialView = scene.view<Material>();
-    std::vector<RTMaterial> materials(materialView.size());
+    auto view = scene.view<Material>();
 
-    for (auto& [entity, material] : materialView.each()) {
-        uint32_t index = entt::entt_traits<entt::entity>::to_entity(entity);
-        
-        auto& buffer = materials[index];
+    std::vector<RTMaterial> materials(view.size());
+
+    auto raw = *view.raw();
+
+    for (int i = 0; i < view.size(); i++) {
+        auto& material = raw[i];
+
+        auto& buffer = materials[i];
         buffer.albedo = material.baseColour;
 
-        buffer.textures.x = addBindlessTexture(device, assets.get<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.x = addBindlessTexture(device, assets.get<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_SRGB_BLOCK);
         buffer.textures.y = addBindlessTexture(device, assets.get<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
         buffer.textures.z = addBindlessTexture(device, assets.get<TextureAsset>(material.mrFile), VK_FORMAT_BC3_UNORM_BLOCK);
 
@@ -69,13 +95,13 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
 
     const auto materialBufferSize = materials.size() * sizeof(materials[0]);
 
-    std::tie(materialBuffer, materialAllocation) = device.createBuffer(
+    materialBuffer = device.createBuffer(
         materialBufferSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    auto mappedPtr = device.getMappedPointer(materialAllocation);
+    auto mappedPtr = device.getMappedPointer(materialBuffer);
     memcpy(mappedPtr, materials.data(), materialBufferSize);
 }
 
@@ -85,10 +111,11 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
     if (meshes.size_hint() < 1) return;
 
     std::vector<VkAccelerationStructureInstanceKHR> deviceInstances;
+    deviceInstances.reserve(meshes.size_hint());
 
     uint32_t customIndex = 0; 
     for (auto& [entity, mesh, transform, geometry] : meshes.each()) {
-        auto deviceAddress = device.getDeviceAddress(geometry.accelerationStructure.accelerationStructure);
+        auto deviceAddress = device.getDeviceAddress(geometry.accelStruct.accelerationStructure);
 
         VkAccelerationStructureInstanceKHR instance = {};
         instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
@@ -112,24 +139,27 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
     };
 
     std::vector<Instance> hostInstances;
+    hostInstances.reserve(meshes.size_hint());
+
+    auto materials = scene.view<Material>();
 
     for (auto& [entity, mesh, transform, geometry] : meshes.each()) {
         Instance instance = {};
-        instance.materialIndex.x = entt::entt_traits<entt::entity>::to_entity(mesh.material);
+        instance.materialIndex.x = int32_t(materials.raw_index(mesh.material));
         instance.localToWorldTransform = transform.worldTransform;
-        instance.indexBufferAddress = device.getDeviceAddress(geometry.indexBuffer);
-        instance.vertexBufferAddress = device.getDeviceAddress(geometry.vertexBuffer);
+        instance.indexBufferAddress = device.getDeviceAddress(geometry.indices);
+        instance.vertexBufferAddress = device.getDeviceAddress(geometry.vertices);
 
         hostInstances.push_back(instance);
     }
 
-    std::tie(instanceBuffer, instanceAllocation) = device.createBuffer(
+    instanceBuffer = device.createBuffer(
         sizeof(Instance) * meshes.size_hint(), 
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    auto mappedPtr = device.getMappedPointer(instanceAllocation);
+    auto mappedPtr = device.getMappedPointer(instanceBuffer);
 
     memcpy(mappedPtr, hostInstances.data(), hostInstances.size() * sizeof(Instance));
 }
@@ -137,23 +167,24 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
 
 
 void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene) {
-    uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvailableSemaphores[current_frame], VK_NULL_HANDLE, &imageIndex);
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    vkWaitForFences(device, 1, &commandsFinishedFences[currentFrame], VK_TRUE, UINT64_MAX);
+    vkResetFences(device, 1, &commandsFinishedFences[currentFrame]);
+
+    VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAcquiredSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapchain(window);
         return;
     }
 
-    if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-        ThrowIfFailed(vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX));
-    }
-
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     
-    ThrowIfFailed(vkBeginCommandBuffer(swapchain.blitBuffer, &beginInfo));
+    auto commandBuffer = swapchain.submitBuffers[currentFrame];
+
+    ThrowIfFailed(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
     // TODO: implement actual texture class that tracks the image layouts and abstract the image barriers
 
@@ -170,7 +201,7 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
 
-        vkCmdPipelineBarrier(swapchain.blitBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
         pathTracePass.finalImageLayout = barrier.newLayout;
     }
@@ -188,29 +219,13 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
 
-        vkCmdPipelineBarrier(swapchain.blitBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
         pathTracePass.accumImageLayout = barrier.newLayout;
     }
 
-    pathTracePass.recordCommands(device, viewport, swapchain.blitBuffer, bindlessTextures);
-
-    {   // transition patrh trace image to transfer src layout
-        VkImageMemoryBarrier barrier = {};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.pNext = nullptr;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT; // TODO: optimize
-        barrier.oldLayout = pathTracePass.finalImageLayout;
-        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier.image = pathTracePass.finalImage;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.layerCount = 1;
-
-        vkCmdPipelineBarrier(swapchain.blitBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-        pathTracePass.finalImageLayout = barrier.newLayout;
-    }
+    pathTracePass.recordCommands(device, viewport, commandBuffer, bindlessTextures);
+    imGuiPass.record(device, commandBuffer, ImGui::GetDrawData(), bindlessTextures, viewport.size.x, viewport.size.y, pathTracePass);
 
     {   // transition swapchain to transfer destination layout
         VkImageMemoryBarrier barrier = {};
@@ -225,7 +240,7 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
 
-        vkCmdPipelineBarrier(swapchain.blitBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     }
 
     VkImageBlit region = {};
@@ -238,7 +253,7 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
     region.dstSubresource.layerCount = 1;
     region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-    vkCmdBlitImage(swapchain.blitBuffer, pathTracePass.finalImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchain.images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_NEAREST);
+    vkCmdBlitImage(commandBuffer, pathTracePass.finalImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchain.images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_NEAREST);
 
     {   // transition swapchain image to present layout
         VkImageMemoryBarrier barrier = {};
@@ -253,37 +268,34 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
 
-        vkCmdPipelineBarrier(swapchain.blitBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     }
 
-    ThrowIfFailed(vkEndCommandBuffer(swapchain.blitBuffer));
+    ThrowIfFailed(vkEndCommandBuffer(commandBuffer));
+
+    VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR; // For now
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &imageAcquiredSemaphores[currentFrame];
     submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pCommandBuffers = &swapchain.blitBuffer;
-    submitInfo.pSignalSemaphores = &renderFinishedSemaphores[current_frame];
+    submitInfo.pSignalSemaphores = &renderFinishedSemaphores[imageIndex];
+    submitInfo.pWaitDstStageMask = &waitStages;
 
-    ThrowIfFailed(vkQueueSubmit(device.queue, 1, &submitInfo, NULL));
-
-    imagesInFlight[imageIndex] = inFlightFences[current_frame];
-
-    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[current_frame] };
-    VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[current_frame] };
-    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-
-    VkSemaphore waits[] = { imageAvailableSemaphores[current_frame], renderFinishedSemaphores[current_frame] };
+    ThrowIfFailed(vkQueueSubmit(device.queue, 1, &submitInfo, commandsFinishedFences[currentFrame]));
 
     VkSwapchainKHR swapChains[] = { swapchain };
 
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = 2;
-    presentInfo.pWaitSemaphores = waits;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = &imageIndex;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &renderFinishedSemaphores[imageIndex];
 
     result = vkQueuePresentKHR(device.queue, &presentInfo);
 
@@ -292,37 +304,14 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
     }  else {
         ThrowIfFailed(result);
     }
-
-    ThrowIfFailed(vkQueueWaitIdle(device.queue));
-
-    ThrowIfFailed(vkWaitForFences(device, 1, &inFlightFences[current_frame], VK_TRUE, UINT64_MAX));
-    current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-
-
-Renderer::Renderer(SDL_Window* window) : 
-    device(window) 
-{
-    int w, h;
-    SDL_GetWindowSize(window, &w, &h);
-
-    VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
-
-    swapchain.create(device, { w, h }, mode);
-        
-
-    setupSyncObjects();
-
-    bindlessTextures.create(device, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
 }
 
 
 
 void Renderer::setupSyncObjects() {
-    imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    imageAcquiredSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-    imagesInFlight.resize(swapchain.images.size(), VK_NULL_HANDLE);
+    commandsFinishedFences.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkFenceCreateInfo fenceInfo = {};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -332,9 +321,9 @@ void Renderer::setupSyncObjects() {
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     for (unsigned int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]);
+        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAcquiredSemaphores[i]);
         vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]);
-        vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]);
+        vkCreateFence(device, &fenceInfo, nullptr, &commandsFinishedFences[i]);
     }
 }
 
@@ -361,6 +350,9 @@ void Renderer::recreateSwapchain(SDL_Window* window) {
     pathTracePass.destroyRenderTextures(device);
     pathTracePass.createRenderTextures(device, glm::uvec2(w, h));
     pathTracePass.updateDescriptorSet(device, TLAS, instanceBuffer, materialBuffer);
+
+    imGuiPass.destroyFramebuffer(device);
+    imGuiPass.createFramebuffer(device, pathTracePass, uint32_t(w), uint32_t(h));
 }
 
 int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<TextureAsset>& asset, VkFormat format) {
@@ -368,97 +360,54 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
         return -1;
     }
 
-    const glm::uvec2 dimensions = { asset->header()->dwWidth, asset->header()->dwHeight };
-    uint32_t mipmapCount = asset->header()->dwMipMapCount;
+    Texture::Desc desc;
+    desc.format = format;
+    desc.width = asset->header()->dwWidth;
+    desc.height = asset->header()->dwHeight;
+    desc.mipLevels = asset->header()->dwMipMapCount;
 
-    VkImageCreateInfo imageInfo = {};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.format = format; // DXT5
-    imageInfo.extent = { dimensions.x, dimensions.y, 1 };
-    imageInfo.mipLevels = mipmapCount;
-    imageInfo.arrayLayers = 1;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT 
-        | VK_IMAGE_USAGE_TRANSFER_DST_BIT 
-        | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    auto texture = device.createTexture(desc);
+    auto view = device.createView(texture);
 
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    Sampler::Desc samplerDesc;
+    samplerDesc.minFilter = VK_FILTER_LINEAR;
+    samplerDesc.magFilter = VK_FILTER_LINEAR;
+    samplerDesc.anisotropy = 16.0f;
+    samplerDesc.maxMipmap = float(desc.mipLevels);
 
-    Texture2 texture = {};
-    ThrowIfFailed(vmaCreateImage(device.getAllocator(), &imageInfo, &allocInfo, &texture.image, &texture.allocation, nullptr));
+    auto sampler = samplers.emplace_back(device.createSampler(samplerDesc));
 
-    VkImageViewCreateInfo viewInfo = {};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = format;
-    viewInfo.image = texture.image;
-    viewInfo.subresourceRange.levelCount = mipmapCount;
-    viewInfo.subresourceRange.layerCount = 1;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-    vkCreateImageView(device, &viewInfo, nullptr, &texture.view);
-
-    VkSamplerCreateInfo samplerInfo = {};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.anisotropyEnable = VK_TRUE;
-    samplerInfo.maxAnisotropy = 16;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = float(mipmapCount);
-
-    vkCreateSampler(device, &samplerInfo, nullptr, &texture.sampler);
-
-    auto [buffer, allocation] = device.createBuffer(
-        asset->getDataSize() + 16u, // the disk size is not aligned to 16
+    auto buffer = device.createBuffer(
+        align_up(asset->getDataSize(), 16), // the disk size is not aligned to 16
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VMA_MEMORY_USAGE_CPU_ONLY
     );
 
-    auto mappedPtr = device.getMappedPointer(allocation);
+    auto mappedPtr = device.getMappedPointer(buffer);
 
     memcpy(mappedPtr, asset->getData(), asset->getDataSize());
 
     device.transitionImageLayout(
-        texture.image, 
-        format, 
-        mipmapCount, 1, 
+        texture,
         VK_IMAGE_LAYOUT_UNDEFINED, 
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
     );
 
-    std::vector<VkBufferImageCopy> regions(mipmapCount);
+    std::vector<VkBufferImageCopy> regions(desc.mipLevels);
 
     uint32_t mip = 0, bufferOffset = 0;
 
     for (auto& region : regions) {
         glm::uvec2 mipDimensions = { 
-            std::max(dimensions.x >> mip, 1u), 
-            std::max(dimensions.y >> mip, 1u) 
+            std::max(desc.width >> mip, 1u), 
+            std::max(desc.height >> mip, 1u) 
         };
 
         region.bufferOffset = bufferOffset;
-        region.bufferRowLength = 0;
-        region.bufferImageHeight = 0;
-        
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.mipLevel = mip++;
-        region.imageSubresource.baseArrayLayer = 0;
         region.imageSubresource.layerCount = 1;
         
-        region.imageOffset = { 0, 0, 0 };
         region.imageExtent = { mipDimensions.x, mipDimensions.y, 1 };
         
         bufferOffset +=  mipDimensions.x * mipDimensions.y;
@@ -467,8 +416,7 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
     auto commandBuffer = device.startSingleSubmit();
 
     vkCmdCopyBufferToImage(
-        commandBuffer, 
-        buffer, texture.image, 
+        commandBuffer, buffer.buffer, texture.image, 
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
         uint32_t(regions.size()), regions.data()
     );
@@ -476,22 +424,20 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
     device.flushSingleSubmit(commandBuffer);
 
     device.transitionImageLayout(
-        texture.image, 
-        format, 
-        mipmapCount, 1, 
+        texture,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     );
 
-    device.destroyBuffer(buffer, allocation);
+    device.destroyBuffer(buffer);
     textures.push_back(texture);
 
     VkDescriptorImageInfo descriptorInfo = {};
     descriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    descriptorInfo.imageView = texture.view;
-    descriptorInfo.sampler = texture.sampler;
+    descriptorInfo.imageView = view;
+    descriptorInfo.sampler = sampler.native();
 
-    return bindlessTextures.write(device, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorInfo);
+    return bindlessTextures.push_back(device, descriptorInfo);
 }
 
 
@@ -513,24 +459,24 @@ RTGeometry Renderer::createBLAS(Mesh& mesh) {
     const auto sizeOfVertexBuffer = vertices.size() * sizeof(vertices[0]);
     const auto sizeOfIndexBuffer = mesh.indices.size() * sizeof(mesh.indices[0]);
 
-    auto [vertexStageBuffer, vertexStageAllocation] = device.createBuffer(sizeOfVertexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-    auto [indexStageBuffer, indexStageAllocation] = device.createBuffer(sizeOfIndexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    auto vertexStageBuffer = device.createBuffer(sizeOfVertexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    auto indexStageBuffer = device.createBuffer(sizeOfIndexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
-    memcpy(device.getMappedPointer(vertexStageAllocation), vertices.data(), sizeOfVertexBuffer);
-    memcpy(device.getMappedPointer(indexStageAllocation), mesh.indices.data(), sizeOfIndexBuffer);
+    memcpy(device.getMappedPointer(vertexStageBuffer), vertices.data(), sizeOfVertexBuffer);
+    memcpy(device.getMappedPointer(indexStageBuffer), mesh.indices.data(), sizeOfIndexBuffer);
 
     constexpr auto bufferUsages = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | 
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     
     RTGeometry component = {};
 
-    std::tie(component.vertexBuffer, component.vertexAllocation) = device.createBuffer(
+    component.vertices = device.createBuffer(
         sizeOfVertexBuffer, 
         bufferUsages | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
         VMA_MEMORY_USAGE_GPU_ONLY
     );
 
-    std::tie(component.indexBuffer, component.indexAllocation) = device.createBuffer(
+    component.indices = device.createBuffer(
         sizeOfIndexBuffer, 
         bufferUsages | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
         VMA_MEMORY_USAGE_GPU_ONLY
@@ -540,16 +486,16 @@ RTGeometry Renderer::createBLAS(Mesh& mesh) {
 
     VkBufferCopy vertexRegion = {};
     vertexRegion.size = sizeOfVertexBuffer;
-    vkCmdCopyBuffer(commandBuffer, vertexStageBuffer, component.vertexBuffer, 1, &vertexRegion);
+    vkCmdCopyBuffer(commandBuffer, vertexStageBuffer.buffer, component.vertices.buffer, 1, &vertexRegion);
 
     VkBufferCopy indexRegion = {};
     indexRegion.size = sizeOfIndexBuffer;
-    vkCmdCopyBuffer(commandBuffer, indexStageBuffer, component.indexBuffer, 1, &indexRegion);
+    vkCmdCopyBuffer(commandBuffer, indexStageBuffer.buffer, component.indices.buffer, 1, &indexRegion);
 
     device.flushSingleSubmit(commandBuffer);
 
-    device.destroyBuffer(indexStageBuffer, indexStageAllocation);
-    device.destroyBuffer(vertexStageBuffer, vertexStageAllocation);
+    device.destroyBuffer(indexStageBuffer);
+    device.destroyBuffer(vertexStageBuffer);
 
     VkAccelerationStructureGeometryTrianglesDataKHR triangles = {};
     triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
@@ -557,8 +503,8 @@ RTGeometry Renderer::createBLAS(Mesh& mesh) {
     triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
     triangles.maxVertex = uint32_t(mesh.positions.size());
     triangles.vertexStride = uint32_t(mesh.vertexBuffer.getStride());
-    triangles.indexData.deviceAddress = device.getDeviceAddress(component.indexBuffer);
-    triangles.vertexData.deviceAddress = device.getDeviceAddress(component.vertexBuffer);
+    triangles.indexData.deviceAddress = device.getDeviceAddress(component.indices);
+    triangles.vertexData.deviceAddress = device.getDeviceAddress(component.vertices);
 
     VkAccelerationStructureGeometryKHR geometry = {};
     geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -573,14 +519,15 @@ RTGeometry Renderer::createBLAS(Mesh& mesh) {
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geometry;
 
-    component.accelerationStructure.create(device, buildInfo, uint32_t(mesh.indices.size() / 3u));
+    component.accelStruct.create(device, buildInfo, uint32_t(mesh.indices.size() / 3u));
+
     return component;
 }
 
 void Renderer::destroyBLAS(RTGeometry& geometry) {
-    geometry.accelerationStructure.destroy(device);
-    device.destroyBuffer(geometry.vertexBuffer, geometry.vertexAllocation);
-    device.destroyBuffer(geometry.indexBuffer, geometry.indexAllocation);
+    geometry.accelStruct.destroy(device);
+    device.destroyBuffer(geometry.vertices);
+    device.destroyBuffer(geometry.indices);
 }
 
 AccelerationStructure Renderer::createTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count) {
@@ -589,13 +536,13 @@ AccelerationStructure Renderer::createTLAS(VkAccelerationStructureInstanceKHR* i
 
     const size_t bufferSize = sizeof(VkAccelerationStructureInstanceKHR) * count;
 
-    auto [buffer, allocation] = device.createBuffer(
+    auto buffer = device.createBuffer(
         bufferSize,
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    std::memcpy(device.getMappedPointer(allocation), instances, bufferSize);
+    std::memcpy(device.getMappedPointer(buffer), instances, bufferSize);
 
     VkAccelerationStructureGeometryInstancesDataKHR instanceData = {};
     instanceData.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
@@ -617,7 +564,7 @@ AccelerationStructure Renderer::createTLAS(VkAccelerationStructureInstanceKHR* i
     AccelerationStructure tlas = {};
     tlas.create(device, buildInfo, uint32_t(count));
 
-    device.destroyBuffer(buffer, allocation);
+    device.destroyBuffer(buffer);
 
     return tlas;
 }

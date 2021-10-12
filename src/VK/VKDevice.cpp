@@ -210,13 +210,14 @@ void Device::flushSingleSubmit(VkCommandBuffer commandBuffer) const  {
     vkDestroyFence(device, fence, nullptr);
 
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-};
+}
 
 
 
 uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const  {
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+        if ((typeFilter & (1 << i)) && 
+            (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
             return i;
         }
     }
@@ -237,7 +238,7 @@ void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
 
 
 
-void Device::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount) const  {
+void Device::copyBufferToImage(const Buffer& buffer, Texture& texture, uint32_t width, uint32_t height, uint32_t layerCount) const  {
     VkCommandBuffer commandBuffer = startSingleSubmit();
 
     VkBufferImageCopy region = {};
@@ -253,7 +254,7 @@ void Device::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, u
     region.imageOffset = { 0, 0, 0 };
     region.imageExtent = { width, height, 1 };
 
-    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    vkCmdCopyBufferToImage(commandBuffer, buffer.buffer, texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     flushSingleSubmit(commandBuffer);
 };
@@ -261,7 +262,6 @@ void Device::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, u
 
 
 void Device::generateMipmaps(VkImage image, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) const  {
-
     VkCommandBuffer cmds = startSingleSubmit();
 
     VkImageMemoryBarrier barrier = {};
@@ -339,27 +339,9 @@ void Device::generateMipmaps(VkImage image, int32_t texWidth, int32_t texHeight,
 
 
 
-VkImageView Device::createImageView(VkImage image, VkFormat format, VkImageViewType type, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t layerCount) const  {
-    VkImageViewCreateInfo viewInfo = {};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = image;
-    viewInfo.viewType = type;
-    viewInfo.format = format;
-    viewInfo.subresourceRange.aspectMask = aspectFlags;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = mipLevels;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = layerCount;
-
-    VkImageView imageView;
-    ThrowIfFailed(vkCreateImageView(device, &viewInfo, nullptr, &imageView));
-
-    return imageView;
-};
-
-
-
-void Device::transitionImageLayout(VkImage image, VkFormat format, uint32_t mipLevels, uint32_t layerCount, VkImageLayout oldLayout, VkImageLayout newLayout) const  {
+void Device::transitionImageLayout(const Texture& texture, VkImageLayout oldLayout, VkImageLayout newLayout) const  {
+    const auto& desc = texture.description;
+    
     VkCommandBuffer commandBuffer = startSingleSubmit();
 
     VkImageMemoryBarrier barrier = {};
@@ -368,19 +350,19 @@ void Device::transitionImageLayout(VkImage image, VkFormat format, uint32_t mipL
     barrier.newLayout = newLayout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image;
+    barrier.image = texture.image;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = mipLevels;
+    barrier.subresourceRange.levelCount = desc.mipLevels;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = layerCount;
+    barrier.subresourceRange.layerCount = desc.arrayLayers;
     barrier.srcAccessMask = 0; // TODO
     barrier.dstAccessMask = 0; // TODO
 
     if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-        if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) {
+        if (desc.format == VK_FORMAT_D32_SFLOAT_S8_UINT || desc.format == VK_FORMAT_D24_UNORM_S8_UINT) {
             barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
         }
     } else {
@@ -442,7 +424,7 @@ void Device::freeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const {
 
 
 
-std::tuple<VkBuffer, VmaAllocation> Device::createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage) {
+Buffer Device::createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage) {
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
@@ -465,15 +447,15 @@ std::tuple<VkBuffer, VmaAllocation> Device::createBuffer(size_t size, VkBufferUs
 
 
 
-void Device::destroyBuffer(VkBuffer buffer, VmaAllocation allocation) {
-    vmaDestroyBuffer(allocator, buffer, allocation);
+void Device::destroyBuffer(const Buffer& buffer) {
+    vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
 }
 
 
 
-void* Device::getMappedPointer(VmaAllocation allocation) {
+void* Device::getMappedPointer(const Buffer& buffer) {
     VmaAllocationInfo info = {};
-    vmaGetAllocationInfo(allocator, allocation, &info);
+    vmaGetAllocationInfo(allocator, buffer.allocation, &info);
     return info.pMappedData;
 }
 
@@ -484,6 +466,12 @@ VkDeviceAddress Device::getDeviceAddress(VkBuffer buffer) const {
     info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
     info.buffer = buffer;
     return vkGetBufferDeviceAddress(device, &info);
+}
+
+
+
+VkDeviceAddress Device::getDeviceAddress(const Buffer& buffer) const {
+    return getDeviceAddress(buffer.buffer);
 }
 
 

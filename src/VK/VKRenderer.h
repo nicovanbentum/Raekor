@@ -1,7 +1,6 @@
 #pragma once
 
 #include "VKPass.h"
-#include "VKScene.h"
 #include "VKImGui.h"
 #include "VKDevice.h"
 #include "VKSwapchain.h"
@@ -14,27 +13,15 @@
 namespace Raekor::VK {
 
 struct RTGeometry {
-    VkBuffer vertexBuffer;
-    VmaAllocation vertexAllocation;
-
-    VkBuffer indexBuffer;
-    VmaAllocation indexAllocation;
-    
-    AccelerationStructure accelerationStructure;
+    Buffer vertices;
+    Buffer indices;
+    AccelerationStructure accelStruct;
 };
 
 struct RTMaterial {
     glm::vec4 albedo;
     glm::ivec4 textures; // x = albedo, y = normals, z = metalrough
     glm::vec4 properties; // x = metalness, y = roughness, z = emissive
-};
-
-struct Texture2 {
-    VkImage image;
-    VkImageView view;
-    VkSampler sampler;
-    VkImageLayout layout;
-    VmaAllocation allocation;
 };
 
 class Renderer {
@@ -58,6 +45,8 @@ public:
     void reloadShaders();
     void setVsync(bool on);
 
+    PathTracePass::PushConstants& constants() { return pathTracePass.pushConstants; }
+
     RTGeometry createBLAS(Mesh& mesh);
     void destroyBLAS(RTGeometry& geometry);
 
@@ -66,33 +55,31 @@ public:
 private:
     VK::Device device;
     
-    VK::GUI imgui;
+    VK::ImGuiPass imgui;
     VK::Swapchain swapchain;
 
     PathTracePass pathTracePass;
+    ImGuiPass imGuiPass;
 
     bool enableValidationLayers;
     std::vector<const char*> extensions;
 
     bool vsync = false;
 
-    std::vector<VkFence> inFlightFences;
-    std::vector<VkFence> imagesInFlight;
-    std::vector<VkSemaphore> imageAvailableSemaphores;
+    std::vector<VkFence> commandsFinishedFences;
+    std::vector<VkSemaphore> imageAcquiredSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
 
-    std::vector<Texture2> textures;
+    std::vector<Texture> textures;
+    std::vector<Sampler> samplers;
     BindlessDescriptorSet bindlessTextures;
 
-    int current_frame = 0;
+    uint32_t imageIndex = 0;
+    uint32_t currentFrame = 0;
     static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
 
-    VkBuffer instanceBuffer;
-    VmaAllocation instanceAllocation;
-
-    VkBuffer materialBuffer;
-    VmaAllocation materialAllocation;
-    
+    Buffer instanceBuffer;
+    Buffer materialBuffer;
     AccelerationStructure TLAS;
 };
 

@@ -14,54 +14,44 @@ void AccelerationStructure::create(Device& device, VkAccelerationStructureBuildG
     
     EXT::vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &primitiveCount, &sizeInfo);
 
-    // create the buffer that stores the acceleration structure
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = sizeInfo.accelerationStructureSize;
-    bufferInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+    buffer = device.createBuffer(
+        sizeInfo.accelerationStructureSize, 
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, 
+        VMA_MEMORY_USAGE_GPU_ONLY
+    );
 
-    VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-    ThrowIfFailed(vmaCreateBuffer(device.getAllocator(), &bufferInfo, &allocCreateInfo, &buffer, &allocation, nullptr));
-
-    // create the acceleration structure
+    // create the acceleration structure buffer
     VkAccelerationStructureCreateInfoKHR asInfo = {};
     asInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
     asInfo.type = buildInfo.type;
     asInfo.size = sizeInfo.accelerationStructureSize;
-    asInfo.buffer = buffer;
+    asInfo.buffer = buffer.buffer;
 
     ThrowIfFailed(EXT::vkCreateAccelerationStructureKHR(device, &asInfo, nullptr, &accelerationStructure));
 
     buildInfo.dstAccelerationStructure = accelerationStructure;
 
-    // create the scratch buffer for writing
-    VkBufferCreateInfo scratchBufferInfo = {};
-    scratchBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    scratchBufferInfo.size = sizeInfo.buildScratchSize;
-    scratchBufferInfo.usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-
-    VkBuffer scratchBuffer;
-    VmaAllocation scratchAlloc;
-
-    ThrowIfFailed(vmaCreateBuffer(device.getAllocator(), &scratchBufferInfo, &allocCreateInfo, &scratchBuffer, &scratchAlloc, nullptr));
+    Buffer scratchBuffer = device.createBuffer(
+        sizeInfo.buildScratchSize, 
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
+        VMA_MEMORY_USAGE_GPU_ONLY
+    );
 
     buildInfo.scratchData.deviceAddress = device.getDeviceAddress(scratchBuffer);
 
-    // build the acceleration structure
+    // build the acceleration structure on the GPU
     VkCommandBuffer commandBuffer = device.startSingleSubmit();
 
     VkAccelerationStructureBuildRangeInfoKHR buildRange = {};
     buildRange.primitiveCount = primitiveCount;
 
-    std::array buildRanges = { &buildRange };
+    const std::array buildRanges = { &buildRange };
 
     EXT::vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, buildRanges.data());
 
     device.flushSingleSubmit(commandBuffer);
 
-    vmaDestroyBuffer(device.getAllocator(), scratchBuffer, scratchAlloc);
+    device.destroyBuffer(scratchBuffer);
 }
 
 void AccelerationStructure::destroy(Device& device) {
@@ -69,9 +59,7 @@ void AccelerationStructure::destroy(Device& device) {
         EXT::vkDestroyAccelerationStructureKHR(device, accelerationStructure, nullptr);
     }
 
-    if (buffer && allocation) {
-        vmaDestroyBuffer(device.getAllocator(), buffer, allocation);
-    }
+    device.destroyBuffer(buffer);
 }
 
 }

@@ -2,6 +2,7 @@
 
 #include "VKPass.h"
 #include "VKShader.h"
+#include "VKStructs.h"
 #include "VKDescriptor.h"
 
 #include "camera.h"
@@ -16,11 +17,14 @@ public:
     struct PushConstants {
         glm::mat4 invViewProj;
         glm::vec4 cameraPosition;
+        glm::vec4 lightDir = glm::vec4(-0.1, -1, -0.2, 0.0);
         uint32_t frameCounter = 0;
+        uint32_t bounces = 1;
+        float sunConeAngle = 1.0f;
     } pushConstants;
 
 public:
-    void initialize(Device& device, const Swapchain& swapchain, const AccelerationStructure& accelStruct, VkBuffer instanceBuffer, VkBuffer materialBuffer, const BindlessDescriptorSet& bindlessTextures);
+    void initialize(Device& device, const Swapchain& swapchain, const AccelerationStructure& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer, const BindlessDescriptorSet& bindlessTextures);
     void destroy(Device& device);
 
     void createRenderTextures(Device& device, const glm::uvec2& size);
@@ -28,7 +32,7 @@ public:
     void createDescriptorSet(Device& device, const BindlessDescriptorSet& bindlessTextures);
     void createShaderBindingTable(Device& device);
 
-    void updateDescriptorSet(Device& device, const VK::AccelerationStructure& accelStruct, VkBuffer instanceBuffer, VkBuffer materialBuffer);
+    void updateDescriptorSet(Device& device, const VK::AccelerationStructure& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer);
     void recordCommands(const Device& context, const Viewport& viewport, VkCommandBuffer commandBuffer, const BindlessDescriptorSet& bindlessTextures);
 
     void reloadShadersFromDisk(Device& device);
@@ -36,6 +40,7 @@ public:
     void destroyRenderTextures(Device& device);
 
     VkImage finalImage;
+    VkImageView finalImageView;
     VkImageLayout finalImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     VkImage accumImage;
@@ -46,7 +51,6 @@ private:
     VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
 
-    VkImageView finalImageView;
     VmaAllocation finalImageAllocation;
 
     VkImageView accumImageView;
@@ -60,8 +64,7 @@ private:
     Shader rchitShader;
     Shader rmissShadowShader;
 
-    VkBuffer shaderBindingTableBuffer;
-    VmaAllocation shaderBindingTableAllocation;
+    Buffer shaderBindingTable;
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
 };
 

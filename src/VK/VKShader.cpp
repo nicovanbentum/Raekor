@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "VKShader.h"
 #include "VKDevice.h"
+#include "VKUtil.h"
 
 namespace Raekor::VK {
 
@@ -20,12 +21,12 @@ bool Shader::glslangValidator(const char* vulkanSDK, const fs::directory_entry& 
 
 
 
-void Shader::create(Device& device, const std::string& filepath) {
-    this->filepath = filepath;
+Shader Device::createShader(const std::string& filepath) {
     
     std::ifstream file(filepath, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) return;
+    if (!file.is_open()) return Shader(); // TODO: ptr type
 
+    std::vector<uint32_t> spirv;
     const size_t filesize = size_t(file.tellg());
     spirv.resize(filesize);
     file.seekg(0);
@@ -37,40 +38,43 @@ void Shader::create(Device& device, const std::string& filepath) {
     createInfo.codeSize = spirv.size();
     createInfo.pCode = spirv.data();
 
-    if (vkCreateShaderModule(device, &createInfo, nullptr, &module) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create vk shader module");
-    }
+    Shader shader;
+    shader.filepath = filepath;
+    ThrowIfFailed(vkCreateShaderModule(device, &createInfo, nullptr, &shader.module));
 
-    SpvReflectShaderModule reflectModule;
-    SpvReflectResult result = spvReflectCreateShaderModule(spirv.size(), spirv.data(), &reflectModule);
+    SpvReflectResult result = spvReflectCreateShaderModule(spirv.size(), spirv.data(), &shader.reflectModule);
     assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
-    switch (reflectModule.spirv_execution_model) {
+    switch (shader.reflectModule.spirv_execution_model) {
         case SpvExecutionModel::SpvExecutionModelVertex: {
-            stage = VK_SHADER_STAGE_VERTEX_BIT;
+            shader.stage = VK_SHADER_STAGE_VERTEX_BIT;
         } break;
         case SpvExecutionModel::SpvExecutionModelFragment: {
-            stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+            shader.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
         } break;
         case SpvExecutionModel::SpvExecutionModelClosestHitKHR: {
-            stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+            shader.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
         } break;
         case SpvExecutionModel::SpvExecutionModelMissKHR: {
-            stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+            shader.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
         } break;
         case SpvExecutionModel::SpvExecutionModelRayGenerationKHR: {
-            stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+            shader.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
         } break;
     }
+
+    return shader;
 }
 
 
 
-void Shader::destroy(Device& device) {
-    if (module != VK_NULL_HANDLE) {
-        vkDestroyShaderModule(device, module, nullptr);
-        module = VK_NULL_HANDLE;
+void Device::destroyShader(Shader& shader) {
+    if (shader.module != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(device, shader.module, nullptr);
+        shader.module = VK_NULL_HANDLE;
     }
+
+    spvReflectDestroyShaderModule(&shader.reflectModule);
 }
 
 
