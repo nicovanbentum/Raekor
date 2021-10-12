@@ -15,7 +15,7 @@
 	url = https://github.com/ChaiScript/ChaiScript/
 [submodule "dependencies/entt"]
 	path = dependencies/entt
-	url = https://github.com/skypjack/entt
+	url = https://github.com/nicovanbentum/entt
 [submodule "dependencies/ImGuizmo"]
 	path = dependencies/ImGuizmo
 	url = https://github.com/nicovanbentum/ImGuizmo/

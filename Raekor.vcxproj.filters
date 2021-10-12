@@ -75,9 +75,6 @@
     <ClCompile Include="src\VK\VKBase.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\VK\VKContext.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\VK\VKDevice.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -207,9 +204,6 @@
     <ClCompile Include="dependencies\SPIRV-Reflect\spirv_reflect.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\VK\VKScene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\VK\VKImGui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -220,6 +214,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\VK\VKEntry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\VK\VKCommandList.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\VK\VKFrameBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\VK\VKPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -288,9 +291,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\VK\VKBase.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\VK\VKContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\VK\VKDevice.h">
@@ -422,9 +422,6 @@
     <ClInclude Include="dependencies\SPIRV-Reflect\spirv_reflect.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\VK\VKScene.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\VK\VKImGui.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -441,6 +438,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\VK\VKEntry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\VK\VKUtil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\VK\VKCommandList.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\VK\VKStructs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\VK\VKFrameBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\VK\VKPipeline.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
