@@ -3,33 +3,14 @@
 
 namespace Raekor {
 
-Stb::Image::Image(uint32_t format, const std::string& fp) : filepath(fp), format(format) {}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-Stb::Image::~Image() { if (pixels != nullptr)  stbi_image_free(pixels); }
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Stb::Image::load(const std::string& fp, bool loadFlipped) {
-    if (!std::filesystem::exists(fp)) {
-        std::clog << "Image file \"" << fp << "\" not found on disk.\n";
-    }
-    this->filepath = fp;
-    stbi_set_flip_vertically_on_load(loadFlipped);
-    pixels = stbi_load(fp.c_str(), &w, &h, &channels, static_cast<uint32_t>(format));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void printProgressBar(int val, int min, int max) {
+void printProgressBar(float fract) {
     static std::string bar = "----------]";
     std::string loading = "Loading textures: [";
-    auto index = (val - min) * (10 - 0) / (max - min) + 0;
+    int index = int(fract * 10);
     if (index == 0) bar = "----------]";
     if (bar[index] == '-') bar[index] = '#';
     std::cout << '\r' << loading << bar;
-    if (val == max) std::cout << std::endl;
+    if (index == 10) std::cout << '\n';
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

@@ -10,9 +10,11 @@ class Scene;
 class Async;
 
 class GLRenderer {
+    friend class RandomWidget;
     friend class ViewportWidget;
 
     struct {
+        int& vsync = ConVars::create("r_vsync", 1);
         int& doBloom = ConVars::create("r_bloom", 0);
         int& debugVoxels = ConVars::create("r_voxelize_debug", 0);
         int& shouldVoxelize = ConVars::create("r_voxelize", 1);
@@ -44,9 +46,6 @@ public:
     std::unique_ptr<Atmosphere> sky;
     std::unique_ptr<DeferredShading> shading;
     std::unique_ptr<VoxelizeDebug> debugvoxels;
-
-public:
-    bool vsync = true;
 
 private:
     GLuint blackTexture;

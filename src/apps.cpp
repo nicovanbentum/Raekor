@@ -93,9 +93,9 @@ void RayTraceApp::update(float dt) {
     ImGui::Begin("Settings");
 
     if (ImGui::TreeNode("Screen Texture")) {
-        if (ImGui::Selectable(nameof(rayTracePass->result), activeScreenTexture == rayTracePass->result))
+        if (ImGui::Selectable("rayTracePass->result", activeScreenTexture == rayTracePass->result))
             activeScreenTexture = rayTracePass->result;
-        if (ImGui::Selectable(nameof(rayTracePass->finalResult), activeScreenTexture == rayTracePass->finalResult))
+        if (ImGui::Selectable("rayTracePass->finalResult", activeScreenTexture == rayTracePass->finalResult))
             activeScreenTexture = rayTracePass->finalResult;
         ImGui::TreePop();
     }

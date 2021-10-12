@@ -45,7 +45,7 @@ void MenubarWidget::draw() {
             }
 
             if (ImGui::MenuItem("Load model..")) {
-                std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.obj)\0*.gltf;*.fbx;*.obj\0");
+                std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.glb)\0*.gltf;*.fbx;*.glb\0");
                 
                 if (!filepath.empty()) {
                     AssimpImporter importer(scene);

@@ -83,20 +83,12 @@ void extractBlock(const unsigned char* src, int x, int y,
 }
 
 void rygCompress(unsigned char* dst, unsigned char* src, int w, int h, int isDxt5) {
-    constexpr int rem[] =
-    {
-        0, 0, 0, 0,
-        0, 1, 0, 1,
-        0, 1, 2, 0,
-        0, 1, 2, 3
-    };
-
-    unsigned char block[64];
     int x, y;
-
+    unsigned char block[64];
+    
     for (y = 0; y < h; y += 4) {
         for (x = 0; x < w; x += 4) {
-            extractBlock(src, x, y, w, h, block);
+            extractBlockFast(src, x, y, w, h, block);
             stb_compress_dxt_block(dst, block, isDxt5, 10);
             dst += isDxt5 ? 16 : 8;
         }

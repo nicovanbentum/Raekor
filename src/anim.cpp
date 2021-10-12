@@ -17,7 +17,7 @@ void BoneAnimation::loadFromAssimp(aiNodeAnim* nodeAnim) {
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 glm::vec3 BoneAnimation::getInterpolatedPosition(float animationTime) {
 	if (positionKeys.size() == 1) {
@@ -47,7 +47,7 @@ glm::vec3 BoneAnimation::getInterpolatedPosition(float animationTime) {
 	return { aiVec.x, aiVec.y, aiVec.z };
 }
 	
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 glm::quat BoneAnimation::getInterpolatedRotation(float animationTime) {
 	if (rotationkeys.size() == 1) {
@@ -78,7 +78,7 @@ glm::quat BoneAnimation::getInterpolatedRotation(float animationTime) {
 	return glm::quat(q.w, q.x, q.y, q.z);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 glm::vec3 BoneAnimation::getInterpolatedScale(float animationTime) {
 	if (scaleKeys.size() == 1) {
@@ -107,13 +107,13 @@ glm::vec3 BoneAnimation::getInterpolatedScale(float animationTime) {
 	return { aiVec.x, aiVec.y, aiVec.z };
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 Animation::Animation(aiAnimation* anim) {
 	loadFromAssimp(anim);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Animation::loadFromAssimp(aiAnimation* anim) {
 	name = anim->mName.C_Str();

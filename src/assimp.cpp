@@ -32,6 +32,7 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
         aiProcess_CalcTangentSpace |
         aiProcess_Triangulate |
         aiProcess_SortByPType |
+        aiProcess_LimitBoneWeights |
         aiProcess_JoinIdenticalVertices |
         aiProcess_GenUVCoords |
         aiProcess_ValidateDataStructure;
@@ -54,7 +55,7 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
     timer.start();
 
     for (unsigned int i = 0; i < assimpScene->mNumMaterials; i++) {
-        printProgressBar(i, 0, assimpScene->mNumMaterials - 1);
+        printProgressBar(float(i) / assimpScene->mNumMaterials);
         parseMaterial(assimpScene->mMaterials[i], scene.create());
     }
 

@@ -7,7 +7,7 @@ namespace Raekor {
 class DXTexture {
 public:
     DXTexture(const std::string& filepath);
-    DXTexture(const Stb::Image& image);
+    DXTexture(uint32_t width, uint32_t height, const void* pixels);
     virtual void bind(uint32_t slot) const;
 
 private:

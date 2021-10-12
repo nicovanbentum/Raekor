@@ -171,39 +171,42 @@ std::string ScriptAsset::convert(const std::string& filepath) {
     auto dll = fs::path(filepath);
     dll.replace_extension(".dll");
 
+    auto wd = fs::current_path();
+
     std::string includeDirs =
-        " /I\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\14.28.29910\\include\""
+        " /I\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\14.16.27023\\include\""
         " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\ucrt\""
         " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\um\""
         " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\shared\""
         " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\winrt\""
-        " /I\"C:\\VS-Projects\\Raekor\\src\\headers\""
-        " /I\"%VULKAN_SDK%\\Include\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\stb\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\imgui\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\glm\\glm\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\ImGuizmo\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\gl3w\\include\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\cereal\\include\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\imgui\\backends\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\ChaiScript\\include\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\entt\\src\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\VulkanMemoryAllocator\\src\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\IconFontCppHeaders\""
-        " /I\"C:\\VS-Projects\\Raekor\\vcpkg_installed\\x64-windows-static\\include\\SDL2\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\glad\\GL\\include\""
-        " /I\"C:\\VS-Projects\\Raekor\\vcpkg_installed\\x64-windows-static\\include\\physx\""
-        " /I\"C:\\VS-Projects\\Raekor\\dependencies\\SPIRV-Reflect\""
-        " /I\"C:\\VS-Projects\\Raekor\\vcpkg_installed\\x64-windows-static\\include\" ";
+        " /I\"%VULKAN_SDK%\\Include\"";
+
+    includeDirs += std::string(" /I\"" + (wd / "src\\headers\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\stb\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\imgui\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\glm\\glm\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\ImGuizmo\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\gl3w\\include\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\cereal\\include\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\imgui\\backends\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\ChaiScript\\include\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\entt\\src\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\VulkanMemoryAllocator\\src\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\IconFontCppHeaders\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "vcpkg_installed\\x64-windows-static\\include\\SDL2\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\glad\\GL\\include\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "vcpkg_installed\\x64-windows-static\\include\\physx\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "dependencies\\SPIRV-Reflect\"").string());
+    includeDirs += std::string(" /I\"" + (wd / "vcpkg_installed\\x64-windows-static\\include\" ").string());
 
 #if RAEKOR_DEBUG
-    std::string clOptions = "/D \"_DEBUG\" /MDd ";
+    std::string clOptions = "/D_DEBUG /MDd ";
 #else
-    std::string clOptions = "/D \"NDEBUG\" /MD ";
+    std::string clOptions = "/DNDEBUG /MD ";
 #endif
     std::string command = "\"" + visualStudioPath +  "\\cl.exe\"" + includeDirs + clOptions + "/std:c++17 /GR- /EHsc \"" + filepath +
         "\" /link "
-        "/LIBPATH:\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\14.28.29910\\lib\\x64\""
+        "/LIBPATH:\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\14.29.30133\\lib\\x64\""
         " /LIBPATH:\"C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\um\\x64\""
         " /LIBPATH:\"C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\ucrt\\x64\""
         " /DLL /OUT:\"" + dll.string() + "\"";
@@ -231,6 +234,8 @@ bool ScriptAsset::load(const std::string& filepath) {
 
     return hmodule != NULL;
 }
+
+
 
 void ScriptAsset::enumerateSymbols() {
     MODULEINFO info;

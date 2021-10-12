@@ -78,13 +78,8 @@ void Editor::update(float dt) {
 
     // draw the bounding box of the active entity
     if (active != entt::null && scene.all_of<Mesh>(active)) {
-        auto& mesh = scene.get<Mesh>(active);
-        auto& transform = scene.get<Transform>(active);
-
-        const auto min = mesh.aabb[0];
-        const auto max = mesh.aabb[1];
-
-        renderer.drawBox(min, max, transform.worldTransform);
+        const auto& [mesh, transform] = scene.get<Mesh, Transform>(active);
+        renderer.drawBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
     }
 
     // render scene

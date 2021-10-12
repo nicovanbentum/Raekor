@@ -55,6 +55,13 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     for (const auto& file : fs::directory_iterator("shaders/OpenGL")) {
         if (file.is_directory()) continue;
 
+        // visual studio code glsl linter keeps compiling spirv files to the directory,
+        // delete em
+        if (file.path().extension() == ".spv") {
+            remove(file.path().string().c_str());
+            continue;
+        }
+
         Async::dispatch([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");

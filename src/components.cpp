@@ -167,14 +167,18 @@ void Mesh::uploadVertices() {
         layout.emplace_back("TANGENT", ShaderType::FLOAT3);
     }
 
-    //vertexBuffer.loadVertices(vertices.data(), vertices.size());
+    if (!PATHTRACE) {
+        vertexBuffer.loadVertices(vertices.data(), vertices.size());
+    }
     vertexBuffer.setLayout(layout);
 }
 
 
 
 void Mesh::uploadIndices() {
-    //indexBuffer.loadIndices(indices.data(), indices.size());
+    if (!PATHTRACE) {
+        indexBuffer.loadIndices(indices.data(), indices.size());
+    }
 }
 
 

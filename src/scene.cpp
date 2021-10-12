@@ -16,13 +16,13 @@ Scene::Scene() {
     on_destroy<Skeleton>().connect<entt::invoke<&Skeleton::destroy>>();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 Scene::~Scene() {
     clear();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 entt::entity Scene::createObject(const std::string& name) {
     auto entity = create();
@@ -32,7 +32,7 @@ entt::entity Scene::createObject(const std::string& name) {
     return entity;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 entt::entity Scene::pickObject(Math::Ray& ray) {
     entt::entity pickedEntity = entt::null;
@@ -80,6 +80,8 @@ entt::entity Scene::pickObject(Math::Ray& ray) {
     return pickedEntity;
 }
 
+
+
 void Scene::bindScript(entt::entity entity, NativeScript& script) {
     auto address = GetProcAddress(script.asset->getModule(), script.procAddress.c_str());
     if (address) {
@@ -94,7 +96,7 @@ void Scene::bindScript(entt::entity entity, NativeScript& script) {
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Scene::destroyObject(entt::entity entity) {
     if (all_of<Node>(entity)) {
@@ -111,7 +113,7 @@ void Scene::destroyObject(entt::entity entity) {
     destroy(entity);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Scene::updateNode(entt::entity node, entt::entity parent) {
     auto& transform = get<Transform>(node);
@@ -132,6 +134,8 @@ void Scene::updateNode(entt::entity node, entt::entity parent) {
     }
 }
 
+
+
 void Scene::updateTransforms() {
     auto nodeView = view<Node, Transform>();
 
@@ -144,6 +148,8 @@ void Scene::updateTransforms() {
         }
     }
 }
+
+
 
 void Scene::updateLights() {
     auto dirLights = view<DirectionalLight, Transform>();
@@ -163,7 +169,7 @@ void Scene::updateLights() {
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Scene::loadMaterialTextures(Assets& assets, const std::vector<entt::entity>& materials) {
     Timer timer;
@@ -187,16 +193,19 @@ void Scene::loadMaterialTextures(Assets& assets, const std::vector<entt::entity>
     for (auto entity : materials) {
         auto& material = get<Material>(entity);
 
-      /*  material.createAlbedoTexture(assets.get<TextureAsset>(material.albedoFile));
-        material.createNormalTexture(assets.get<TextureAsset>(material.normalFile));
-        material.createMetalRoughTexture(assets.get<TextureAsset>(material.mrFile));*/
+        if (!PATHTRACE) {
+            material.createAlbedoTexture(assets.get<TextureAsset>(material.albedoFile));
+            material.createNormalTexture(assets.get<TextureAsset>(material.normalFile));
+            material.createMetalRoughTexture(assets.get<TextureAsset>(material.mrFile));
+        }
+
     }
 
     timer.stop();
     std::cout << "Upload texture time " << timer.elapsedMs() << std::endl;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Scene::saveToFile(const std::string& file) {
     std::ofstream outstream(file, std::ios::binary);
@@ -207,7 +216,7 @@ void Scene::saveToFile(const std::string& file) {
         DirectionalLight>(output);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Scene::openFromFile(Assets& assets, const std::string& file) {
     if (!std::filesystem::is_regular_file(file)) {

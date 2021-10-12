@@ -65,7 +65,7 @@ DXTexture::DXTexture(const std::string& filepath) {
     m_assert(SUCCEEDED(hr), "failed to create sampler state");
 }
 
-DXTexture::DXTexture(const Stb::Image& image) {
+DXTexture::DXTexture(uint32_t width, uint32_t height, const void* pixels) {
     //describe our 2d texture
     D3D11_TEXTURE2D_DESC desc;
     desc.MipLevels = 0;
@@ -81,10 +81,10 @@ DXTexture::DXTexture(const Stb::Image& image) {
 
     // point the directx resource to the stb image data
     D3D11_SUBRESOURCE_DATA image_data;
-    image_data.pSysMem = (const void*)image.pixels;
-    image_data.SysMemPitch = STBI_rgb_alpha * image.w;
-    desc.Width = image.w;
-    desc.Height = image.h;
+    image_data.pSysMem = (const void*)pixels;
+    image_data.SysMemPitch = STBI_rgb_alpha * width;
+    desc.Width = width;
+    desc.Height = height;
 
     auto hr = D3D.device->CreateTexture2D(&desc, nullptr, texture.GetAddressOf());
     m_assert(SUCCEEDED(hr), "failed to create 2d texture object");
@@ -98,7 +98,7 @@ DXTexture::DXTexture(const Stb::Image& image) {
     hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
     m_assert(SUCCEEDED(hr), "failed to create shader resource view for dx texture");
 
-    D3D.context->UpdateSubresource(texture.Get(), 0, 0, (const void*)image.pixels, image_data.SysMemPitch, 0);
+    D3D.context->UpdateSubresource(texture.Get(), 0, 0, (const void*)pixels, image_data.SysMemPitch, 0);
     D3D.context->GenerateMips(texture_resource.Get());
 
     D3D11_SAMPLER_DESC samp_desc;

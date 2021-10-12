@@ -15,9 +15,9 @@ void RandomWidget::draw() {
     ImGui::Begin(title.c_str());
     ImGui::SetItemDefaultFocus();
 
-    if (ImGui::RadioButton("Vsync", renderer.vsync)) {
-        renderer.vsync = !renderer.vsync;
-        SDL_GL_SetSwapInterval(renderer.vsync);
+    if (ImGui::RadioButton("Vsync", renderer.settings.vsync)) {
+        renderer.settings.vsync = !renderer.settings.vsync;
+        SDL_GL_SetSwapInterval(renderer.settings.vsync);
     }
 
     ImGui::NewLine(); ImGui::Separator();
