@@ -25,8 +25,6 @@ void main() {
 	vec3 pos = vec3(model * vec4(v_pos, 1.0));
 	gl_Position = projection * view * vec4(pos, 1.0);
 
-    // TODO: handle possible tangent w -1.0
-
     vec3 N = normalize(mat3(transpose(inverse(model))) * v_normal);
 	vec3 T = normalize(vec3(model * vec4(vec3(v_tangent), 0.0)));
     

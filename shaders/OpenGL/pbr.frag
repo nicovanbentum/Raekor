@@ -264,7 +264,7 @@ vec3 importance_sample(float u, float v) {
 	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
 }
 
-vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneAperture, out float occlusion, DirectionalLight light) {
+vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneAperture, out float occlusion) {
     vec4 colour = vec4(0);
     occlusion = 0.0;
 
@@ -286,7 +286,19 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
         uv3d = uv3d * 0.5 + 0.5 + offset;
         vec4 sampled = textureLod(voxels, uv3d, mip);
 
-        if(!is_saturated(uv3d) || mip >= log2(VoxelDimensions)) {
+        dist += diameter * 0.5;
+
+        if(!is_saturated(uv3d) || dist >= voxelsWorldSize) {
+             vec3 transmittance;
+             DirectionalLight light = ubo.dirLights[0];
+             sampled.rgb = IntegrateScattering(p, vec3(0, -1, 0), INFINITY, light.direction.xyz, light.color.rgb, transmittance);
+            
+            // back-to-front alpha 
+            float a = (1.0 - colour.a);
+            colour.rgb += a * sampled.rgb;
+            colour.a += a * sampled.a;
+            occlusion += (a * sampled.a) / (1.0 + 0.03 * diameter);
+
            break;
         }
 
@@ -297,7 +309,8 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
         occlusion += (a * sampled.a) / (1.0 + 0.03 * diameter);
 
         // move along the ray
-        dist += diameter * 0.5;
+
+
     }
 
     return colour;
@@ -313,7 +326,7 @@ mat3 GetTangentSpace(in vec3 normal){
 	return mat3(tangent, binormal, normal);
 }
 
-vec4 coneTraceRadiance(in vec3 p, in vec3 n, int rayCount, out float occlusion_out, DirectionalLight light) {
+vec4 coneTraceRadiance(in vec3 p, in vec3 n, int rayCount, out float occlusion_out) {
     vec4 color = vec4(0);
     occlusion_out = 0.0;
 
@@ -328,7 +341,7 @@ vec4 coneTraceRadiance(in vec3 p, in vec3 n, int rayCount, out float occlusion_o
         float occlusion = 0.0;
 
         // aperture is half tan of angle
-        color += coneTrace(p, n, coneDirection, tan(PI * 0.5f * 0.33f), occlusion, light);
+        color += coneTrace(p, n, coneDirection, tan(PI * 0.5f * 0.33f), occlusion);
         occlusion_out += occlusion;
     }
 
@@ -341,11 +354,11 @@ vec4 coneTraceRadiance(in vec3 p, in vec3 n, int rayCount, out float occlusion_o
     return max(vec4(0), color);
 }
 
-vec4 coneTraceReflection(in vec3 P, in vec3 N, in vec3 V, in float roughness, out float occlusion, DirectionalLight light) {
+vec4 coneTraceReflection(in vec3 P, in vec3 N, in vec3 V, in float roughness, out float occlusion) {
     float aperture = tan(roughness * PI * 0.5f * 0.1f);
     vec3 coneDirection = reflect(-V, N);
 
-    vec4 reflection = coneTrace(P, N, coneDirection, aperture, occlusion, light);
+    vec4 reflection = coneTrace(P, N, coneDirection, aperture, occlusion);
     return vec4(max(vec3(0), reflection.rgb), clamp(reflection.a, 0, 1));
 }
 
@@ -581,16 +594,22 @@ vec3 ambient(DirectionalLight light, vec3 P,  vec3 N, vec3 V, Material material)
 
     float d = clamp(dot(N, vec3(0, 1, 0)), 0.0, 1);
 
-    vec3 transmittance;
-    vec3 scattered = IntegrateScattering(P, reflect(-light.direction.xyz, N), INFINITY, light.direction.xyz, light.color.rgb, transmittance);
+    // vec3 transmittance;
+    // vec3 scattered = IntegrateScattering(P, vec3(0, -1, 0), INFINITY, light.direction.xyz, light.color.rgb, transmittance);
 
-    vec3 diffuse = scattered;
+    float occlusion;
+    vec4 irradiance = coneTraceRadiance(P, N, 8, occlusion);
+
+    float occ;
+    vec4 refl = coneTraceReflection(P, N, V, material.roughness, occ);
+
+    vec3 diffuse = irradiance.rgb * material.albedo;
 
     vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), material.roughness)).rg;
 
-    vec3 specular = scattered * (F * brdf.x + brdf.y);
+    vec3 specular = refl.rgb * (F * brdf.x + brdf.y);
 
-    vec3 ambient = (kD * diffuse + specular) * d;
+    vec3 ambient = (kD * diffuse + specular) * occlusion;
 
     return ambient;
 }
@@ -693,7 +712,7 @@ void main() {
 
     //vec4 radiance = coneTraceRadiance(position, normal, 12, occlusion, light);
 
-    finalColor = vec4(Lo + albedo.rgb * 0.1, 1.0);
+    finalColor = vec4(Lo + ambient, 1.0);
 
     
 
