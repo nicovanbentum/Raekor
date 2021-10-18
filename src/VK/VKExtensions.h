@@ -16,8 +16,11 @@ public:
     inline static PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
     inline static PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
     inline static PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
+    inline static PFN_vkCmdPipelineBarrier2KHR vkCmdPipelineBarrier2KHR;
 
     static void init(VkDevice device);
 };
+
+
 
 }

@@ -20,7 +20,10 @@ Device::Device(SDL_Window* window) :
         VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
         VK_KHR_RAY_QUERY_EXTENSION_NAME,
         VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+
+        // sync2
+        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
     };
 
     uint32_t extensionCount;
@@ -86,11 +89,16 @@ Device::Device(SDL_Window* window) :
     accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
     accelerationStructureFeatures.accelerationStructure = VK_TRUE;
 
+    VkPhysicalDeviceSynchronization2FeaturesKHR sync2Features = {};
+    sync2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
+    sync2Features.synchronization2 = VK_TRUE;
+
     VkPhysicalDeviceFeatures2 deviceFeatures2 = {};
     deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     deviceFeatures2.pNext = &bufferDeviceAddressFeatures;
     bufferDeviceAddressFeatures.pNext = &rayTracingPipelineFeatures;
     rayTracingPipelineFeatures.pNext = &accelerationStructureFeatures;
+    accelerationStructureFeatures.pNext = &sync2Features;
 
     vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures2);
 
@@ -135,7 +143,8 @@ Device::Device(SDL_Window* window) :
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
     std::array pools = {
-        VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
+        VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 },
+        VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3 },
         VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 }
     };
 
@@ -169,7 +178,7 @@ Device::~Device() {
 
 
 
-VkCommandBuffer Device::startSingleSubmit() const  {
+VkCommandBuffer Device::startSingleSubmit() const {
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -190,7 +199,7 @@ VkCommandBuffer Device::startSingleSubmit() const  {
 
 
 
-void Device::flushSingleSubmit(VkCommandBuffer commandBuffer) const  {
+void Device::flushSingleSubmit(VkCommandBuffer commandBuffer) const {
     vkEndCommandBuffer(commandBuffer);
 
     VkFence fence;
@@ -214,7 +223,7 @@ void Device::flushSingleSubmit(VkCommandBuffer commandBuffer) const  {
 
 
 
-uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const  {
+uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) && 
             (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -226,7 +235,7 @@ uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags prope
 
 
 
-void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const  {
+void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const {
     VkCommandBuffer commandBuffer = startSingleSubmit();
 
     VkBufferCopy copyRegion = {};
@@ -238,7 +247,7 @@ void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
 
 
 
-void Device::copyBufferToImage(const Buffer& buffer, Texture& texture, uint32_t width, uint32_t height, uint32_t layerCount) const  {
+void Device::copyBufferToImage(const Buffer& buffer, Texture& texture, uint32_t width, uint32_t height, uint32_t layerCount) const {
     VkCommandBuffer commandBuffer = startSingleSubmit();
 
     VkBufferImageCopy region = {};
@@ -261,7 +270,7 @@ void Device::copyBufferToImage(const Buffer& buffer, Texture& texture, uint32_t 
 
 
 
-void Device::generateMipmaps(VkImage image, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) const  {
+void Device::generateMipmaps(VkImage image, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) const {
     VkCommandBuffer cmds = startSingleSubmit();
 
     VkImageMemoryBarrier barrier = {};
@@ -339,7 +348,7 @@ void Device::generateMipmaps(VkImage image, int32_t texWidth, int32_t texHeight,
 
 
 
-void Device::transitionImageLayout(const Texture& texture, VkImageLayout oldLayout, VkImageLayout newLayout) const  {
+void Device::transitionImageLayout(const Texture& texture, VkImageLayout oldLayout, VkImageLayout newLayout) const {
     const auto& desc = texture.description;
     
     VkCommandBuffer commandBuffer = startSingleSubmit();
@@ -449,6 +458,18 @@ Buffer Device::createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemo
 
 void Device::destroyBuffer(const Buffer& buffer) {
     vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
+}
+
+
+
+void Device::setDebugName(const Texture& texture, const std::string& name) {
+    VkDebugUtilsObjectNameInfoEXT info = {};
+    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+    info.objectType = VK_OBJECT_TYPE_IMAGE;
+    info.objectHandle = (uint64_t)texture.image;
+    info.pObjectName = name.c_str();
+
+    instance.vkSetDebugUtilsObjectNameEXT(device, &info);
 }
 
 

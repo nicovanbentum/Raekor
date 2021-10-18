@@ -15,7 +15,7 @@ public:
         uint32_t width = 1, height = 1, depth = 1;
         uint32_t mipLevels = 1;
         uint32_t arrayLayers = 1;
-        bool isFramebufferAttachment = false;
+        bool shaderAccess = false;
     };
 
     VkImage image;

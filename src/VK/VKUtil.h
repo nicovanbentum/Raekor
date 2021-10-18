@@ -7,3 +7,14 @@ inline void ThrowIfFailed(VkResult result) {
         __debugbreak();
     }
 }
+
+
+
+inline VkTransformMatrixKHR VkTransformMatrix(const glm::mat4& matrix) {
+    glm::mat4 transpose = glm::transpose(matrix);
+
+    VkTransformMatrixKHR result;
+    memcpy(&result, glm::value_ptr(transpose), sizeof(VkTransformMatrixKHR));
+
+    return result;
+}

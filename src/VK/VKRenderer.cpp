@@ -26,7 +26,6 @@ Renderer::Renderer(SDL_Window* window) :
 
 
 Renderer::~Renderer() {
-    ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
@@ -46,12 +45,12 @@ Renderer::~Renderer() {
         device.destroySampler(sampler);
     }
 
-    bindlessTextures.destroy(device);
 
     TLAS.destroy(device);
     swapchain.destroy(device);
-    pathTracePass.destroy(device);
     imGuiPass.destroy(device);
+    pathTracePass.destroy(device);
+    bindlessTextures.destroy(device);
     device.destroyBuffer(instanceBuffer);
     device.destroyBuffer(materialBuffer);
 }
@@ -186,61 +185,50 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
 
     ThrowIfFailed(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-    // TODO: implement actual texture class that tracks the image layouts and abstract the image barriers
-
-    if (pathTracePass.finalImageLayout != VK_IMAGE_LAYOUT_GENERAL) {
-        VkImageMemoryBarrier barrier = {};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.pNext = nullptr;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT; // TODO: optimize
-        barrier.oldLayout = pathTracePass.finalImageLayout;
+    {
+        VkImageMemoryBarrier2KHR barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+        barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT_KHR | 
+                                VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT_KHR;
         barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-        barrier.image = pathTracePass.finalImage;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        VkDependencyInfoKHR dep = {};
+        dep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
+        dep.imageMemoryBarrierCount = 1;
+        dep.pImageMemoryBarriers = &barrier;
 
-        pathTracePass.finalImageLayout = barrier.newLayout;
-    }
+        barrier.image = pathTracePass.finalTexture.image;
+        EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
 
-    if (pathTracePass.accumImageLayout != VK_IMAGE_LAYOUT_GENERAL) {
-        VkImageMemoryBarrier barrier = {};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.pNext = nullptr;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT; // TODO: optimize
-        barrier.oldLayout = pathTracePass.accumImageLayout;
-        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-        barrier.image = pathTracePass.accumImage;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.layerCount = 1;
-
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-        pathTracePass.accumImageLayout = barrier.newLayout;
+        barrier.image = pathTracePass.accumTexture.image;
+        EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
     }
 
     pathTracePass.recordCommands(device, viewport, commandBuffer, bindlessTextures);
+    
     imGuiPass.record(device, commandBuffer, ImGui::GetDrawData(), bindlessTextures, viewport.size.x, viewport.size.y, pathTracePass);
 
-    {   // transition swapchain to transfer destination layout
-        VkImageMemoryBarrier barrier = {};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.pNext = nullptr;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    {
+        VkImageMemoryBarrier2KHR barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
+        barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
         barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.image = swapchain.images[imageIndex];;
+        barrier.image = swapchain.images[imageIndex];
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        VkDependencyInfoKHR dep = {};
+        dep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
+        dep.imageMemoryBarrierCount = 1;
+        dep.pImageMemoryBarriers = &barrier;
+
+        EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
     }
 
     VkImageBlit region = {};
@@ -253,22 +241,26 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
     region.dstSubresource.layerCount = 1;
     region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-    vkCmdBlitImage(commandBuffer, pathTracePass.finalImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchain.images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_NEAREST);
+    vkCmdBlitImage(commandBuffer, pathTracePass.finalTexture.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchain.images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_NEAREST);
 
-    {   // transition swapchain image to present layout
-        VkImageMemoryBarrier barrier = {};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.pNext = nullptr;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    {
+        VkImageMemoryBarrier2KHR barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
         barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT_KHR;
         barrier.image = swapchain.images[imageIndex];
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        VkDependencyInfoKHR dep = {};
+        dep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
+        dep.imageMemoryBarrierCount = 1;
+        dep.pImageMemoryBarriers = &barrier;
+
+        EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
     }
 
     ThrowIfFailed(vkEndCommandBuffer(commandBuffer));
@@ -437,7 +429,7 @@ int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<Textu
     descriptorInfo.imageView = view;
     descriptorInfo.sampler = sampler.native();
 
-    return bindlessTextures.push_back(device, descriptorInfo);
+    return bindlessTextures.append(device, descriptorInfo);
 }
 
 

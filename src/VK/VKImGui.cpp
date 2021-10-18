@@ -71,8 +71,9 @@ void ImGuiPass::initialize(Device& device, const Swapchain& swapchain, PathTrace
 	imageInfo.sampler = fontSampler.native();
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	fontTextureID = textures.push_back(device, imageInfo);
+	fontTextureID = textures.append(device, imageInfo);
 	io.Fonts->TexID = &fontTextureID;
+
 
 	// setup the single subpass contents
 	VkAttachmentReference colorAttachmentRef = {};
@@ -94,13 +95,23 @@ void ImGuiPass::initialize(Device& device, const Swapchain& swapchain, PathTrace
 	description.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
 	description.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-	VkSubpassDependency dependency = {};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
-	dependency.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	VkSubpassDependency beginDep = {};
+	beginDep.srcSubpass = VK_SUBPASS_EXTERNAL;
+	beginDep.dstSubpass = 0;
+	beginDep.srcStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+	beginDep.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+	beginDep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	beginDep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	VkSubpassDependency endDep = {};
+	endDep.srcSubpass = 0;
+	endDep.dstSubpass = VK_SUBPASS_EXTERNAL;
+	endDep.srcStageMask = beginDep.dstStageMask;
+	endDep.srcAccessMask = beginDep.dstAccessMask;
+	endDep.dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	endDep.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+
+	std::array deps = { beginDep, endDep };
 
 	VkRenderPassCreateInfo renderPassInfo = {};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -108,7 +119,8 @@ void ImGuiPass::initialize(Device& device, const Swapchain& swapchain, PathTrace
 	renderPassInfo.pAttachments = &description;
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.pDependencies = &dependency;
+	renderPassInfo.dependencyCount = uint32_t(deps.size());
+	renderPassInfo.pDependencies = deps.data();
 
 	ThrowIfFailed(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 
@@ -131,6 +143,8 @@ void ImGuiPass::initialize(Device& device, const Swapchain& swapchain, PathTrace
 	vertexBinding.binding = 0;
 	vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	vertexBinding.stride = sizeof(ImDrawVert);
+
+
 
 	constexpr std::array vertexAttributes = {
 		VkVertexInputAttributeDescription {
@@ -167,8 +181,8 @@ void ImGuiPass::initialize(Device& device, const Swapchain& swapchain, PathTrace
 	dynamicState.dynamicStateCount = uint32_t(dynamicStates.size());
 	dynamicState.pDynamicStates = dynamicStates.data();
 
-	pixelShader = device.createShader("shaders/Vulkan/bin/imgui.frag.spv");
-	vertexShader = device.createShader("shaders/Vulkan/bin/imgui.vert.spv");
+	pixelShader = device.createShader("shaders/Vulkan/bin/imguiPS.hlsl.spv");
+	vertexShader = device.createShader("shaders/Vulkan/bin/imguiVS.hlsl.spv");
 
 	std::array stages = {
 		pixelShader.getPipelineCreateInfo(),
@@ -259,9 +273,7 @@ void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 	beginInfo.clearValueCount = (uint32_t)clearValues.size();
 	beginInfo.pClearValues = clearValues.data();
 
-
 	vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-	pathTracePass.finalImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
 	VkDeviceSize offset[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offset);
@@ -324,14 +336,15 @@ void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 
 
 void ImGuiPass::createFramebuffer(Device& device, PathTracePass& pathTracePass, uint32_t width, uint32_t height) {
+	const VkImageView attachment = device.createView(pathTracePass.finalTexture);
+
 	VkFramebufferCreateInfo framebufferInfo = {};
 	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	framebufferInfo.renderPass = renderPass;
 	framebufferInfo.attachmentCount = 1u;
-	framebufferInfo.pAttachments = &pathTracePass.finalImageView;
+	framebufferInfo.pAttachments = &attachment;
 	framebufferInfo.width = width;
 	framebufferInfo.height = height;
-
 	framebufferInfo.layers = 1;
 
 	ThrowIfFailed(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffer));

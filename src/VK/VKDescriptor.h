@@ -10,7 +10,7 @@ public:
     void create(const Device& device, VkDescriptorType type);
     void destroy(const Device& device);
 
-    uint32_t push_back(const Device& device, const VkDescriptorImageInfo& imageInfo);
+    uint32_t append(const Device& device, const VkDescriptorImageInfo& imageInfo);
 
     const VkDescriptorSet& getDescriptorSet() const { return set; }
     const VkDescriptorSetLayout& getLayout() const { return layout; }

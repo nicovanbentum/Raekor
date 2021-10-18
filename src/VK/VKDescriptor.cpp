@@ -6,10 +6,9 @@
 namespace Raekor::VK {
 
 void BindlessDescriptorSet::create(const Device& device, VkDescriptorType type) {
-    this->type = type;
-
     const auto& descriptorIndexingProperties = device.getPhysicalProperties().descriptorIndexingProperties;
 
+    this->type = type;
     uint32_t descriptorCount = 0;
 
     switch (type) {
@@ -97,7 +96,7 @@ void BindlessDescriptorSet::destroy(const Device& device) {
 
 
 
-uint32_t BindlessDescriptorSet::push_back(const Device& device, const VkDescriptorImageInfo& imageInfo) {
+uint32_t BindlessDescriptorSet::append(const Device& device, const VkDescriptorImageInfo& imageInfo) {
     VkWriteDescriptorSet write = {};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.descriptorCount = 1;

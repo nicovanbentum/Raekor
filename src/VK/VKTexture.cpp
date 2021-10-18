@@ -20,9 +20,10 @@ Texture Device::createTexture(const Texture::Desc& desc) {
         | VK_IMAGE_USAGE_TRANSFER_DST_BIT
         | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-    if (desc.isFramebufferAttachment) {
-        if (desc.format >= VK_FORMAT_D16_UNORM &&
-            desc.format <= VK_FORMAT_D32_SFLOAT_S8_UINT) {
+    if (desc.shaderAccess) {
+        imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+
+        if (desc.format >= VK_FORMAT_D16_UNORM && desc.format <= VK_FORMAT_D32_SFLOAT_S8_UINT) {
             imageInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         }
         else {

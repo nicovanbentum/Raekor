@@ -5,15 +5,15 @@
 #include "assets.h"
 #include "VKRenderer.h"
 
-namespace Raekor {
+namespace Raekor::VK {
 
-class VulkanPathTracer : public WindowApplication {
+class PathTracer : public Application {
 public:
-    VulkanPathTracer();
-    virtual ~VulkanPathTracer();
+    PathTracer();
+    virtual ~PathTracer();
 
-    virtual void update(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override {}
+    virtual void onUpdate(float dt) override;
+    virtual void onEvent(const SDL_Event& ev) override;
 
 private:
     Scene scene;

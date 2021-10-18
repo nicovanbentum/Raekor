@@ -23,6 +23,7 @@ private:
     VkInstance instance = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
+    PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
 };
 
 
@@ -51,6 +52,7 @@ private:
         VkPhysicalDeviceDescriptorIndexingProperties descriptorIndexingProperties = {
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES
         };
+
     } properties;
 
     VkPhysicalDeviceLimits limits;

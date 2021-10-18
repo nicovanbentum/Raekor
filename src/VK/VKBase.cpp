@@ -2,14 +2,12 @@
 #include "VKBase.h"
 #include "VKUtil.h"
 
-VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, 
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData
-) {
+VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, 
+                                             const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
     std::cerr << pCallbackData->pMessage << '\n';
 
     if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-        assert(false);
+        //assert(false);
     }
 
     return VK_FALSE;
@@ -27,10 +25,10 @@ static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMesse
 
 
 
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance,
-    const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-    const VkAllocationCallbacks* pAllocator,
-    VkDebugUtilsMessengerEXT* pDebugMessenger) {
+VkResult CreateDebugUtilsMessengerEXT(
+    VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
+    const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) 
+{
     auto func = PFN_vkCreateDebugUtilsMessengerEXT(vkGetInstanceProcAddr(instance,
         "vkCreateDebugUtilsMessengerEXT"));
     if (func != nullptr) {
@@ -108,6 +106,20 @@ Instance::Instance(SDL_Window* window) {
         }
 
         instanceInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugInfo;
+        
+        // synchronization validation layers, pls save me
+        std::vector<VkValidationFeatureEnableEXT> enables = { 
+            VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
+        };
+
+        VkValidationFeaturesEXT features = {};
+        features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+        //features.enabledValidationFeatureCount = uint32_t(enables.size()); // uncomment to enable synch validation
+        features.pEnabledValidationFeatures = enables.data();
+        features.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugInfo;
+
+        instanceInfo.pNext = &features;
+
 #endif
 
     instanceInfo.enabledExtensionCount = uint32_t(extensions.size());
@@ -125,10 +137,13 @@ Instance::Instance(SDL_Window* window) {
 #if RAEKOR_DEBUG
     ThrowIfFailed(CreateDebugUtilsMessengerEXT(instance, &debugInfo, nullptr, &debugMessenger));
 #endif
+    
+    vkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT");
 
     if (!SDL_Vulkan_CreateSurface(window, instance, &surface)) {
         throw std::runtime_error("Failed to create vulkan surface");
     }
+
 
 }
 
@@ -178,7 +193,6 @@ PhysicalDevice::PhysicalDevice(const Instance& instance) :
     properties.rayTracingPipelineProperties.pNext = &properties.descriptorIndexingProperties;
 
     vkGetPhysicalDeviceProperties2(gpu, &props2);
-
     limits = props2.properties.limits;
 }
 

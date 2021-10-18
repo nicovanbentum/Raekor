@@ -39,22 +39,12 @@ public:
 
     void destroyRenderTextures(Device& device);
 
-    VkImage finalImage;
-    VkImageView finalImageView;
-    VkImageLayout finalImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    VkImage accumImage;
-    VkImageLayout accumImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
+    Texture finalTexture;
+    Texture accumTexture;
 
 private:
     VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
-
-    VmaAllocation finalImageAllocation;
-
-    VkImageView accumImageView;
-    VmaAllocation accumImageAllocation;
 
     VkDescriptorSet descriptorSet;
     VkDescriptorSetLayout descriptorSetLayout; // TODO: move this somewhere else

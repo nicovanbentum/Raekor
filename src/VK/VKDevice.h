@@ -57,6 +57,8 @@ public:
     void destroySampler(Sampler& sampler);
     void destroyTexture(Texture& texture);
     void destroyBuffer(const Buffer& buffer);
+
+    void setDebugName(const Texture& texture, const std::string& name);
     
     void* getMappedPointer(const Buffer& buffer);
 

@@ -35,61 +35,19 @@ void PathTracePass::destroy(Device& device) {
 
 
 void PathTracePass::createRenderTextures(Device& device, const glm::uvec2& size) {
-    finalImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    accumImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    {
+        Texture::Desc desc;
+        desc.width = size.x;
+        desc.height = size.y;
+        desc.shaderAccess = true;
+        desc.format = VK_FORMAT_R32G32B32A32_SFLOAT;
 
-    VkImageCreateInfo imageInfo = {};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent = { size.x, size.y, 1 };
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                      VK_IMAGE_USAGE_STORAGE_BIT | 
-                      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        finalTexture = device.createTexture(desc);
+        accumTexture = device.createTexture(desc);
 
-    VmaAllocationCreateInfo allocationInfo = {};
-    allocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-    ThrowIfFailed(
-        vmaCreateImage(
-            device.getAllocator(),
-            &imageInfo, &allocationInfo,
-            &finalImage, &finalImageAllocation,
-            nullptr
-        )
-    );
-
-    ThrowIfFailed(
-        vmaCreateImage(
-            device.getAllocator(),
-            &imageInfo, &allocationInfo,
-            &accumImage, &accumImageAllocation,
-            nullptr
-        )
-    );
-
-    VkImageViewCreateInfo viewCreateInfo = {};
-    viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewCreateInfo.image = finalImage;
-    viewCreateInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewCreateInfo.subresourceRange.levelCount = 1;
-    viewCreateInfo.subresourceRange.layerCount = 1;
-    viewCreateInfo.subresourceRange.baseMipLevel = 0;
-    viewCreateInfo.subresourceRange.baseArrayLayer = 0;
-    viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-    ThrowIfFailed(vkCreateImageView(device, &viewCreateInfo, nullptr, &finalImageView));
-
-    viewCreateInfo.image = accumImage;
-
-    ThrowIfFailed(vkCreateImageView(device, &viewCreateInfo, nullptr, &accumImageView));
+        device.setDebugName(finalTexture, "finalTexture");
+        device.setDebugName(accumTexture, "accumTexture");
+    }
 }
 
 
@@ -121,12 +79,18 @@ void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
                 fs::last_write_time(outfile) < textFileWriteTime ||
                 timeOfMostRecentlyUpdatedIncludeFile > fs::last_write_time(outfile)) {
 
-                auto success = Shader::glslangValidator(vulkanSDK, file);
+                bool success = false;
+
+                if (file.path().extension() == ".hlsl") {
+                    success = Shader::DXC(file);
+                } else {
+                    success = Shader::glslangValidator(vulkanSDK, file);
+                }
 
                 if (!success) {
-                    std::cout << "Failed to compile vulkan shader: " << file.path().string() << '\n';
+                    std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
                 } else {
-                    std::cout << "Compiled vulkan shader: " << file.path().string() << '\n';
+                    std::cout << "Compilation " << COUT_GREEN("finished") << " for shader: " << file.path().string() << '\n';
                 }
             }
         });
@@ -249,7 +213,7 @@ void PathTracePass::createDescriptorSet(Device& device, const BindlessDescriptor
 void PathTracePass::updateDescriptorSet(Device& device, const AccelerationStructure& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer) {
     VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageInfo.imageView = finalImageView;
+    imageInfo.imageView = device.createView(finalTexture);
 
     VkWriteDescriptorSet write0 = {};
     write0.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -298,7 +262,7 @@ void PathTracePass::updateDescriptorSet(Device& device, const AccelerationStruct
 
     VkDescriptorImageInfo imageInfo2 = {};
     imageInfo2.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageInfo2.imageView = accumImageView;
+    imageInfo2.imageView = device.createView(accumTexture);
 
     VkWriteDescriptorSet write4 = {};
     write4.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -419,11 +383,8 @@ void PathTracePass::reloadShadersFromDisk(Device& device) {
 
 
 void PathTracePass::destroyRenderTextures(Device& device) {
-    vkDestroyImageView(device, finalImageView, nullptr);
-    vmaDestroyImage(device.getAllocator(), finalImage, finalImageAllocation);
-
-    vkDestroyImageView(device, accumImageView, nullptr);
-    vmaDestroyImage(device.getAllocator(), accumImage, accumImageAllocation);
+    device.destroyTexture(finalTexture);
+    device.destroyTexture(accumTexture);
 }
 
 }

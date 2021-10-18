@@ -12,6 +12,7 @@ void EXT::init(VkDevice device) {
     vkGetRayTracingShaderGroupHandlesKHR = VK_LOAD_FN(device, vkGetRayTracingShaderGroupHandlesKHR);
     vkGetAccelerationStructureBuildSizesKHR = VK_LOAD_FN(device, vkGetAccelerationStructureBuildSizesKHR);
     vkGetAccelerationStructureDeviceAddressKHR = VK_LOAD_FN(device, vkGetAccelerationStructureDeviceAddressKHR);
+    vkCmdPipelineBarrier2KHR = VK_LOAD_FN(device, vkCmdPipelineBarrier2KHR);
 }
 
 }

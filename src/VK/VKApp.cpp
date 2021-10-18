@@ -1,12 +1,12 @@
 #include "pch.h"
-#include "VKEntry.h"
+#include "VKApp.h"
 
 #include "gui.h"
 
-namespace Raekor {
+namespace Raekor::VK {
 
-VulkanPathTracer::VulkanPathTracer() : 
-    WindowApplication(RendererFlags::VULKAN), 
+    PathTracer::PathTracer() : 
+    Application(RendererFlags::VULKAN), 
     renderer(window) 
 {
     // initialize ImGui
@@ -34,7 +34,7 @@ VulkanPathTracer::VulkanPathTracer() :
     renderer.initialize(scene);
 
     // gui stuff
-    gui::setTheme(settings.themeColors);
+    GUI::setTheme(settings.themeColors);
 
     std::puts("Job well done.");
 
@@ -44,45 +44,11 @@ VulkanPathTracer::VulkanPathTracer() :
 
 
 
-void VulkanPathTracer::update(float dt) {
+void PathTracer::onUpdate(float dt) {
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         onEvent(ev);
         ImGui_ImplSDL2_ProcessEvent(&ev);
-
-        if (viewport.getCamera().onEventEditor(ev)) {
-            renderer.resetAccumulation();
-        }
-
-        if (ev.type == SDL_WINDOWEVENT) {
-            if (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) {
-                while (1) {
-                    SDL_Event ev;
-                    SDL_PollEvent(&ev);
-
-                    if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
-                        break;
-                    }
-                }
-            }
-            if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
-                if (SDL_GetWindowID(window) == ev.window.windowID) {
-                    running = false;
-                }
-            }
-            if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
-                shouldRecreateSwapchain = true;
-            }
-        }
-
-        if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
-            switch (ev.key.keysym.sym) {
-            case SDLK_r: {
-                renderer.reloadShaders();
-                renderer.resetAccumulation();
-            } break;
-            }
-        }
     }
 
     viewport.getCamera().update();
@@ -116,9 +82,7 @@ void VulkanPathTracer::update(float dt) {
 
     bool reset = false;
 
-    ImGui_ImplSDL2_NewFrame(window);
-    ImGui::NewFrame();
-    ImGuizmo::BeginFrame();
+    GUI::beginFrame(window);
 
     bool open = true;
     ImGui::Begin("Path Trace Settings", &open, ImGuiWindowFlags_AlwaysAutoResize);
@@ -146,8 +110,7 @@ void VulkanPathTracer::update(float dt) {
         reset |= manipulated;
     }*/
 
-    ImGui::EndFrame();
-    ImGui::Render();
+    GUI::endFrame();
 
     if (reset) {
         renderer.resetAccumulation();
@@ -158,7 +121,45 @@ void VulkanPathTracer::update(float dt) {
 
 
 
-VulkanPathTracer::~VulkanPathTracer() {
+void PathTracer::onEvent(const SDL_Event& ev) {
+    if (viewport.getCamera().onEventEditor(ev)) {
+        renderer.resetAccumulation();
+    }
+
+    if (ev.type == SDL_WINDOWEVENT) {
+        if (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+            while (1) {
+                SDL_Event ev;
+                SDL_PollEvent(&ev);
+
+                if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
+                    break;
+                }
+            }
+        }
+        if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
+            if (SDL_GetWindowID(window) == ev.window.windowID) {
+                running = false;
+            }
+        }
+        if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
+            shouldRecreateSwapchain = true;
+        }
+    }
+
+    if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
+        switch (ev.key.keysym.sym) {
+        case SDLK_r: {
+            renderer.reloadShaders();
+            renderer.resetAccumulation();
+        } break;
+        }
+    }
+}
+
+
+
+PathTracer::~PathTracer() {
     auto view = scene.view<VK::RTGeometry>();
     for (auto& [entity, geometry] : view.each()) {
         renderer.destroyBLAS(geometry);
