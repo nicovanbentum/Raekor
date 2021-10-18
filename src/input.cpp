@@ -7,31 +7,23 @@ Input::Input() :
     keyboardState(SDL_GetKeyboardState(NULL))
 {}
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 bool Input::isKeyPressed(SDL_Keycode code) {
     return singleton->keyboardState[code];
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool Input::isButtonPressed(unsigned int button) {
-    return singleton->mouseState & SDL_BUTTON(button);
+
+bool Input::isButtonPressed(uint32_t button) {
+    auto state = SDL_GetMouseState(NULL, NULL);
+    return state & SDL_BUTTON(button);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Input::setCallback(Uint32 type, const std::function<void()>& callback) {
 
-}
+void Input::setCallback(uint32_t type, const std::function<void()>& callback) {
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Input::pollEvents() {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-
-    }
 }
 
 } // raekor

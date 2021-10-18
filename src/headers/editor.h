@@ -8,15 +8,15 @@
 
 namespace Raekor {
 
-class Editor : public WindowApplication {
+class Editor : public Application {
 public:
     friend class IWidget;
 
     Editor();
     virtual ~Editor() = default;
     
-    virtual void update(float dt);
-    virtual void onEvent(const SDL_Event& event);
+    void onUpdate(float dt) override;
+    void onEvent(const SDL_Event& event) override;
 
     const std::vector<std::shared_ptr<IWidget>>& getWidgets() { return widgets; }
 
@@ -25,10 +25,10 @@ public:
 private:
     Scene scene;
     Assets assets;
+    Physics physics;
     GLRenderer renderer;
     std::vector<std::shared_ptr<IWidget>> widgets;
 
-    Physics physics;
     bool inAltMode = false;
 };
 

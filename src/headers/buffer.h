@@ -130,7 +130,7 @@ class glVertexBuffer {
 public:
     glVertexBuffer() = default;
     void loadVertices(const Vertex* vertices, size_t count);
-    void loadVertices(float* vertices, size_t count);
+    void loadVertices(const float* vertices, size_t count);
     void bind() const;
     void setLayout(const InputLayout& layout);
     uint64_t getStride() { return inputLayout.getStride(); }

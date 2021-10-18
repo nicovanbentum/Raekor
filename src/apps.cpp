@@ -7,15 +7,15 @@
 
 namespace Raekor {
 
-RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(window, viewport) {
+RayTraceApp::RayTraceApp() : Application(RendererFlags::OPENGL), renderer(window, viewport) {
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
     // gui stuff
-    gui::setFont(settings.font.c_str());
-    gui::setTheme(settings.themeColors);
+    GUI::setFont(settings.font.c_str());
+    GUI::setTheme(settings.themeColors);
 
     // this is where the timer starts
     rayTracePass = std::make_unique<RayTracingOneWeekend>(viewport);
@@ -35,7 +35,7 @@ RayTraceApp::RayTraceApp() : WindowApplication(RendererFlags::OPENGL), renderer(
 
 
 
-void RayTraceApp::update(float dt) {
+void RayTraceApp::onUpdate(float dt) {
     //TODO: bool inFreeCameraMode = InputHandler::handleEvents(this, true, dt);
     bool inFreeCameraMode = false;
     viewport.getCamera().update();
@@ -49,7 +49,10 @@ void RayTraceApp::update(float dt) {
 
     //get new frame for ImGui and ImGuizmo
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    renderer.ImGui_NewFrame(window);
+    ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
+    ImGui_ImplSDL2_NewFrame(window);
+    ImGui_ImplOpenGL3_NewFrame();
 
     sceneChanged = false;
 
@@ -248,7 +251,8 @@ void RayTraceApp::update(float dt) {
 
     ImGui::End();
 
-    renderer.ImGui_Render();
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     
     SDL_GL_SwapWindow(window);
 

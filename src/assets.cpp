@@ -13,13 +13,13 @@ TextureAsset::TextureAsset(const std::string& filepath)
     : Asset(filepath) {
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 const DDS_HEADER* TextureAsset::header() {
     return reinterpret_cast<DDS_HEADER*>(data.data() + sizeof(DWORD));
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 char* const TextureAsset::getData() {
     return data.data() + 128;
@@ -31,7 +31,7 @@ uint32_t TextureAsset::getDataSize() const {
     return static_cast<uint32_t>(data.size() - 128); 
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 std::string TextureAsset::convert(const std::string& filepath) {
     int width, height, ch;
@@ -112,7 +112,7 @@ std::string TextureAsset::convert(const std::string& filepath) {
     return outFileName;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 bool TextureAsset::load(const std::string& filepath) {
     if (filepath.empty() || !fs::exists(filepath)) {
@@ -140,7 +140,7 @@ bool TextureAsset::load(const std::string& filepath) {
     return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 Assets::Assets() {
     if (!fs::exists("assets")) {

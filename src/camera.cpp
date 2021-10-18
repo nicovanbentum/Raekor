@@ -103,33 +103,36 @@ bool Camera::onEventEditor(const SDL_Event& event) {
 
 
 
-float Camera::getFOV() {
+float Camera::getFOV() const {
     return 2.0f * atan(1.0f / projection[1][1]) * 180.0f / (float)M_PI;
 }
 
 
 
-float Camera::getAspectRatio() {
+float Camera::getAspectRatio() const {
     return projection[1][1] / projection[0][0];
 }
 
 
 
-float Camera::getNear() { 
+float Camera::getNear() const { 
     return projection[3][2] / (projection[2][2] - 1.0f); 
 }
 
 
 
-float Camera::getFar() { 
+float Camera::getFar() const { 
     return projection[3][2] / (projection[2][2] + 1.0f); 
 }
 
 
 
-Viewport::Viewport(glm::vec2 size) : fov(65.0f), aspectRatio(16.0f / 9.0f),
-camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 0.1f, 10000.0f)),
-size(size) {}
+Viewport::Viewport(glm::vec2 size) : 
+    fov(65.0f), 
+    aspectRatio(16.0f / 9.0f),
+    camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 0.1f, 1000.0f)),
+    size(size) 
+{}
 
 
 
@@ -139,14 +142,24 @@ float& Viewport::getFov() { return fov; }
 
 void Viewport::setFov(float fov) {
     this->fov = fov;
-    camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
+    camera.getProjection() = glm::perspectiveRH(
+        glm::radians(fov), 
+        camera.getAspectRatio(), 
+        camera.getNear(), 
+        camera.getFar()
+    );
 }
 
 
 
 void Viewport::setAspectRatio(float ratio) {
     this->aspectRatio = ratio;
-    camera.getProjection() = glm::perspectiveRH(glm::radians(fov), 16.0f / 9.0f, 0.1f, 10000.0f);
+    camera.getProjection() = glm::perspectiveRH(
+        glm::radians(fov), 
+        camera.getAspectRatio(), 
+        camera.getNear(), 
+        camera.getFar()
+    );
 }
 
 
@@ -161,7 +174,12 @@ const Camera& Viewport::getCamera() const { return camera; }
 
 void Viewport::resize(glm::vec2 newSize) {
     size = { newSize.x, newSize.y };
-    camera.getProjection() = glm::perspectiveRH(glm::radians(camera.getFOV()), (float)size.x / (float)size.y, 0.1f, 10000.0f);
+    camera.getProjection() = glm::perspectiveRH(
+        glm::radians(camera.getFOV()), 
+        float(size.x) / float(size.y), 
+        camera.getNear(), 
+        camera.getFar()
+    );
 }
 
 }

@@ -108,6 +108,7 @@ extern bool PATHTRACE;
 #include <map>
 #include <stack>
 #include <array>
+#include <cmath>
 #include <queue>
 #include <future>
 #include <chrono>

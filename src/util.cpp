@@ -13,13 +13,13 @@ void printProgressBar(float fract) {
     if (index == 10) std::cout << '\n';
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 FileWatcher::FileWatcher(const std::string& path) : path(path) {
     last_write_time = std::filesystem::last_write_time(path);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 bool FileWatcher::wasModified() {
     if (auto new_time = std::filesystem::last_write_time(path); new_time != last_write_time) {

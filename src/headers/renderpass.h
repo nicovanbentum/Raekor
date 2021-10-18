@@ -2,38 +2,23 @@
 
 #include "timer.h"
 #include "shader.h"
+#include "buffer.h"
 #include "components.h"
-#include "camera.h"
 
 namespace Raekor {
 
 class Scene;
+class Viewport;
 
 class GLTimer {
 public:
-    GLTimer() {
-        glGenQueries(2, queries);
-        glBeginQuery(GL_TIME_ELAPSED, queries[1]);
-        glEndQuery(GL_TIME_ELAPSED);
-    }
+    GLTimer();
+    ~GLTimer();
 
-    ~GLTimer() {
-        glDeleteQueries(2, queries);
-    }
+    void Begin();
+    void End();
 
-    void Begin() {
-        glBeginQuery(GL_TIME_ELAPSED, queries[index]);
-    }
-
-    void End() {
-        glEndQuery(GL_TIME_ELAPSED);
-        glGetQueryObjectui64v(queries[!index], GL_QUERY_RESULT_NO_WAIT, &time);
-        index = !index;
-    }
-
-    float GetMilliseconds() {
-        return time * 0.000001f;
-    }
+    float GetMilliseconds();
 
 private:
     GLuint64 time;
@@ -41,20 +26,22 @@ private:
     GLuint queries[2];
 };
 
-class ShadowMap {
-    friend class GLRenderer;
-    friend class ViewportWidget;
 
-    struct Split {
+
+class ShadowMap {
+    struct Cascade {
         float split;
         float radius;
+        glm::mat4 matrix;
     };
 
  public:
      struct {
+         uint32_t resolution = 4096;
+         uint32_t nrOfCascades = 4;
          float depthBiasConstant = 1.25f;
-         float depthBiasSlope = 1.75f;
-         float cascadeSplitLambda = 0.98f;
+         float depthBiasSlope = 3.0f; // 1.75f; 
+         float cascadeSplitLambda = 0.99f; // 0.98f;
      } settings;
 
      struct {
@@ -63,10 +50,9 @@ class ShadowMap {
      } uniforms;
 
     ~ShadowMap();
-    ShadowMap(const Viewport& viewport, uint32_t width, uint32_t height);
+    ShadowMap(const Viewport& viewport);
 
     void updatePerspectiveConstants(const Viewport& viewport);
-
     void updateCascades(const Scene& scene, const Viewport& viewport);
     void render(const Viewport& viewport, const Scene& scene);
     void renderCascade(const Viewport& viewport, GLuint framebuffer);
@@ -77,16 +63,12 @@ private:
     GLuint framebuffer;
     GLuint uniformBuffer;
 
-    int& lockRadius = ConVars::create("r_lockCascadeRadius", 0);
-
 public:
-    GLuint cascades;
-    glm::vec4 m_splits;
-    std::array<Split, 4> splits;
-    std::array<glm::mat4, 4> matrices;
+    GLuint texture;
+    std::vector<Cascade> cascades;
 };
 
-//////////////////////////////////////////////////////////////////////////////////
+
 
 class GBuffer {
     friend class GLRenderer;
@@ -108,27 +90,27 @@ public:
     GBuffer(const Viewport& viewport);
     ~GBuffer();
 
-    void render(const Scene& scene, const Viewport& viewport);
-
     uint32_t readEntity(GLint x, GLint y);
 
+    void render(const Scene& scene, const Viewport& viewport);
     void createRenderTargets(const Viewport& viewport);
     void destroyRenderTargets();
 
-    GLuint getFramebuffer() { return framebuffer; }
-
+public:
+    GLuint framebuffer;
+    GLuint depthTexture;
     GLuint albedoTexture, normalTexture, materialTexture, entityTexture;
+
 private:
     glShader shader;
-    GLuint framebuffer;
     GLuint uniformBuffer;
 
     GLuint pbo;
     void* entity;
   
-public:
-    GLuint depthTexture;
 };
+
+
 
 class Icons {
     friend class GLRenderer;
@@ -155,7 +137,7 @@ private:
     GLuint uniformBuffer;
 };
 
-//////////////////////////////////////////////////////////////////////////////////
+
 
 class Bloom {
     friend class GLRenderer;
@@ -171,18 +153,18 @@ public:
     void createRenderTargets(const Viewport& viewport);
     void destroyRenderTargets();
 
-    unsigned int blurTexture;
-    unsigned int bloomTexture;
-    unsigned int blurFramebuffer;
-    unsigned int bloomFramebuffer;
-    unsigned int highlightsFramebuffer;
+    GLuint blurTexture;
+    GLuint bloomTexture;
+    GLuint blurFramebuffer;
+    GLuint bloomFramebuffer;
+    GLuint highlightsFramebuffer;
 
 private:
     glShader blurShader;
     GLuint uniformBuffer;
 };
 
-//////////////////////////////////////////////////////////////////////////////////
+
 
 class Tonemap {
     friend class GLRenderer;
@@ -210,7 +192,7 @@ public:
     GLuint result;
 };
 
-//////////////////////////////////////////////////////////////////////////////////
+
 
 class Voxelize {
     struct Uniforms {
@@ -228,15 +210,13 @@ public:
 
 private:
     void computeMipmaps(GLuint texture);
-
     void correctOpacity(GLuint texture);
 
-    glm::mat4 px, py, pz;
     glShader shader;
     glShader mipmapShader;
     glShader opacityFixShader;
-
     GLuint uniformBuffer;
+    glm::mat4 px, py, pz;
 
 public:
     int size;
@@ -244,7 +224,7 @@ public:
     GLuint result;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 class VoxelizeDebug {
     struct {
@@ -259,9 +239,8 @@ public:
     // naive geometry shader impl
     VoxelizeDebug(const Viewport& viewport); // naive geometry shader impl
     
-    // fast cube rendering using a technique from https://twitter.com/SebAaltonen/status/1315982782439591938/photo/1
+    // fast cube rendering from https://twitter.com/SebAaltonen/status/1315982782439591938/photo/1
     VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize);
-    
     
     void render(const Viewport& viewport, GLuint input, const Voxelize& voxels);
     void execute2(const Viewport& viewport, GLuint input, const Voxelize& voxels);
@@ -279,7 +258,7 @@ private:
     glVertexBuffer vertexBuffer;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 class DebugLines {
     friend class GLRenderer;
@@ -290,23 +269,20 @@ class DebugLines {
     } uniforms;
 
 public:
-    friend class GLRenderer;
-
     DebugLines();
     ~DebugLines();
-    
-    void render(const Scene& scene, const Viewport& viewport, GLuint texture, GLuint renderBuffer);
+
+    void render(const Viewport& viewport, GLuint colorAttachment, GLuint depthAttachment);
 
 private:
     glShader shader;
     GLuint frameBuffer;
-    glVertexBuffer vertexBuffer;
     GLuint uniformBuffer;
-
+    glVertexBuffer vertexBuffer;
     std::vector<glm::vec3> points;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 class Skinning {
     friend class GLRenderer;
@@ -319,7 +295,7 @@ private:
     glShader computeShader;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct Sphere {
     alignas(16) glm::vec3 origin;
@@ -363,7 +339,7 @@ public:
     GLuint result, finalResult;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 class DeferredShading {
     friend class GLRenderer;
@@ -426,6 +402,8 @@ public:
     GLuint bloomHighlights;
 };
 
+
+
 class Atmosphere {
     friend class GLRenderer;
 
@@ -444,7 +422,6 @@ public:
     void destroyRenderTargets();
 
     void render(const Viewport& viewport, const Scene& scene, GLuint out, GLuint depth);
-
 
 private:
     glShader shader;

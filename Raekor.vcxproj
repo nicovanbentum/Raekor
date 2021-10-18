@@ -310,7 +310,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\VK\VKCommandList.cpp" />
     <ClCompile Include="src\VK\VKDescriptor.cpp" />
     <ClCompile Include="src\VK\VKDevice.cpp" />
-    <ClCompile Include="src\VK\VKEntry.cpp" />
+    <ClCompile Include="src\VK\VKApp.cpp" />
     <ClCompile Include="src\VK\VKExtensions.cpp" />
     <ClCompile Include="src\VK\VKFrameBuffer.cpp" />
     <ClCompile Include="src\VK\VKImGui.cpp" />
@@ -386,7 +386,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\VK\VKCommandList.h" />
     <ClInclude Include="src\VK\VKDescriptor.h" />
     <ClInclude Include="src\VK\VKDevice.h" />
-    <ClInclude Include="src\VK\VKEntry.h" />
+    <ClInclude Include="src\VK\VKApp.h" />
     <ClInclude Include="src\VK\VKExtensions.h" />
     <ClInclude Include="src\VK\VKFrameBuffer.h" />
     <ClInclude Include="src\VK\VKImGui.h" />

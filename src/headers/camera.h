@@ -33,10 +33,10 @@ public:
     inline glm::mat4& getProjection() { return projection; }
     inline const glm::mat4& getProjection() const { return projection; }
 
-    float getFOV();
-    float getAspectRatio();
-    float getNear();
-    float getFar();
+    float getFOV() const;
+    float getAspectRatio() const;
+    float getNear() const;
+    float getFar() const;
 
 private:
     glm::vec3 position;

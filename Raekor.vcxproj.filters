@@ -213,7 +213,7 @@
     <ClCompile Include="src\VK\VKExtensions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\VK\VKEntry.cpp">
+    <ClCompile Include="src\VK\VKApp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\VK\VKCommandList.cpp">
@@ -437,7 +437,7 @@
     <ClInclude Include="src\VK\VKExtensions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\VK\VKEntry.h">
+    <ClInclude Include="src\VK\VKApp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\VK\VKUtil.h">

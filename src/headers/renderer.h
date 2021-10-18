@@ -25,15 +25,12 @@ public:
     GLRenderer(SDL_Window* window, Viewport& viewport);
     ~GLRenderer();
 
-    void ImGui_Render();
-    void ImGui_NewFrame(SDL_Window* window);
-
-    void drawLine(glm::vec3 p1, glm::vec3 p2);
-    void drawBox(glm::vec3 min, glm::vec3 max, glm::mat4& m = glm::mat4(1.0f));
-
     void render(const Scene& scene, const Viewport& viewport);
     void createRenderTargets(const Viewport& viewport);
 
+    void addDebugLine(glm::vec3 p1, glm::vec3 p2);
+    void addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m = glm::mat4(1.0f));
+    
 public:
     std::unique_ptr<Bloom> bloom;
     std::unique_ptr<GBuffer> gbuffer;
@@ -52,13 +49,18 @@ private:
     SDL_GLContext context;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////
+// BELOW IS DEPRECATED //
+/////////////////////////
+
+
 
 enum class RenderAPI {
     OPENGL, DIRECTX11, VULKAN
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 class Renderer {
 public:

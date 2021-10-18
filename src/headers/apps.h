@@ -10,12 +10,13 @@
 
 namespace Raekor {
 
-class RayTraceApp : public WindowApplication {
+class RayTraceApp : public Application {
 public:
     RayTraceApp();
     virtual ~RayTraceApp() = default;
 
-    virtual void update(float dt) override;
+    virtual void onUpdate(float dt) override;
+    virtual void onEvent(const SDL_Event& ev) override {}
 
     bool drawSphereProperties(Sphere& sphere);
 

@@ -17,38 +17,32 @@
 namespace Raekor {
 
 Editor::Editor() :
-    WindowApplication(RendererFlags::OPENGL),
-    renderer(window, viewport) {
-    // gui stuff
-    gui::setFont(settings.font.c_str());
-    gui::setTheme(settings.themeColors);
+    Application(RendererFlags::OPENGL),
+    renderer(window, viewport) 
+{
+    GUI::setTheme(settings.themeColors);
+    GUI::setFont(settings.font.c_str());
 
     if (fs::exists(settings.defaultScene) && fs::path(settings.defaultScene).extension() == ".scene") {
         SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
         scene.openFromFile(assets, settings.defaultScene);
     }
 
-    widgets.emplace_back(std::make_shared<ConsoleWidget>(this));
     widgets.emplace_back(std::make_shared<AssetsWidget>(this));
+    widgets.emplace_back(std::make_shared<RandomWidget>(this));
+    widgets.emplace_back(std::make_shared<MenubarWidget>(this));
+    widgets.emplace_back(std::make_shared<ConsoleWidget>(this));
+    widgets.emplace_back(std::make_shared<ViewportWidget>(this));
     widgets.emplace_back(std::make_shared<InspectorWidget>(this));
     widgets.emplace_back(std::make_shared<HierarchyWidget>(this));
-    widgets.emplace_back(std::make_shared<MenubarWidget>(this));
-    widgets.emplace_back(std::make_shared<RandomWidget>(this));
-    widgets.emplace_back(std::make_shared<ViewportWidget>(this));
 
-    std::cout << "Initialization done." << std::endl;
+    std::cout << "Initialization done.\n";
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Editor::update(float dt) {
-    // poll and handle input
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        ImGui_ImplSDL2_ProcessEvent(&event);
-        onEvent(event);
-    }
 
+void Editor::onUpdate(float dt) {
+    // update keyboard WASD controls
     if (inAltMode) {
         viewport.getCamera().strafeWASD(dt);
     }
@@ -79,21 +73,15 @@ void Editor::update(float dt) {
     // draw the bounding box of the active entity
     if (active != entt::null && scene.all_of<Mesh>(active)) {
         const auto& [mesh, transform] = scene.get<Mesh, Transform>(active);
-        renderer.drawBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
+        renderer.addDebugBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
     }
 
-    // render scene
-    renderer.render(scene, viewport);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    renderer.ImGui_NewFrame(window);
+    // start ImGui
+    GUI::beginFrame(window);
 
     {
         // draw ImGui
-        gui::ScopedDockSpace dockspace;
+        GUI::ScopedDockSpace dockspace;
 
         for (auto widget : widgets) {
             if (widget->isVisible()) {
@@ -102,11 +90,21 @@ void Editor::update(float dt) {
         }
     }
 
-    renderer.ImGui_Render();
+    // end ImGui
+    GUI::endFrame();
+
+    // render scene
+    renderer.render(scene, viewport);
+
+    // swap the backbuffer
     SDL_GL_SwapWindow(window);
 }
 
+
+
 void Editor::onEvent(const SDL_Event& event) {
+    ImGui_ImplSDL2_ProcessEvent(&event);
+
     // free the mouse if the window loses focus
     auto flags = SDL_GetWindowFlags(window);
     if (!(flags & SDL_WINDOW_INPUT_FOCUS || flags & SDL_WINDOW_MINIMIZED) && inAltMode) {

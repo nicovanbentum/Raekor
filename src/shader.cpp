@@ -146,9 +146,9 @@ void glShader::compile() {
 bool glShader::glslangValidator(const char* vulkanSDK, const fs::directory_entry& file) {
     if (!file.is_regular_file()) return false;
 
-    const auto outfile = file.path().parent_path() / "bin" / file.path().filename();
+    const auto outfile = fs::absolute(file.path().parent_path()) / "bin" / file.path().filename();
     const auto compiler = vulkanSDK + std::string("\\Bin\\glslangValidator.exe -G ");
-    const auto command = compiler + file.path().string() + " -o " + std::string(outfile.string() + ".spv");
+    const auto command = compiler + fs::absolute(file.path()).string() + " -o " + std::string(outfile.string() + ".spv");
 
     if (system(command.c_str()) != 0) {
         return false;

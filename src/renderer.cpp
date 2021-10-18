@@ -26,7 +26,7 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -36,8 +36,11 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
+
+
     context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, context);
+    SDL_GL_SetSwapInterval(settings.vsync);
 
     // Load GL extensions using glad
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
@@ -78,20 +81,6 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
 
     Async::wait();
 
-    // initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-    ImGui_ImplSDL2_InitForOpenGL(window, &context);
-    ImGui_ImplOpenGL3_Init("#version 450");
-
-    // get GUI i/o and set a bunch of settings
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_NavNoCaptureKeyboard;
-    io.ConfigWindowsMoveFromTitleBarOnly = true;
-    io.ConfigDockingWithShift = true;
-
     // set debug callback
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -116,6 +105,21 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     unsigned int vertexArrayID;
     glGenVertexArrays(1, &vertexArrayID);
     glBindVertexArray(vertexArrayID);
+
+    // initialize ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+    ImGui_ImplSDL2_InitForOpenGL(window, &context);
+    ImGui_ImplOpenGL3_Init("#version 450");
+    ImGui_ImplOpenGL3_CreateDeviceObjects();
+
+    // get GUI i/o and set a bunch of settings
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_NavNoCaptureKeyboard;
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
+    io.ConfigDockingWithShift = true;
 
     glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
     glTextureStorage2D(blackTexture, 1, GL_RGBA8, 1, 1);
@@ -162,8 +166,8 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     glTextureParameteri(Material::Default.normals, GL_TEXTURE_WRAP_R, GL_REPEAT);
 
     skinning = std::make_unique<Skinning>();
-    voxelize = std::make_unique<Voxelize>(128);
-    shadows = std::make_unique<ShadowMap>(viewport, 4096, 4096);
+    voxelize = std::make_unique<Voxelize>(512);
+    shadows = std::make_unique<ShadowMap>(viewport);
     tonemap = std::make_unique<Tonemap>(viewport);
     gbuffer = std::make_unique<GBuffer>(viewport);
     shading = std::make_unique<DeferredShading>(viewport);
@@ -174,21 +178,14 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     sky = std::make_unique<Atmosphere>(viewport);
 }
 
+
+
 GLRenderer::~GLRenderer() {
     ImGui_ImplOpenGL3_DestroyDeviceObjects();
     SDL_GL_DeleteContext(context);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLRenderer::ImGui_NewFrame(SDL_Window* window) {
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplSDL2_NewFrame(window);
-    ImGui::NewFrame();
-    ImGuizmo::BeginFrame();
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     // skin all meshes in the scene
@@ -230,35 +227,48 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     }
 
     // render debug lines / shapes
-    lines->render(scene, viewport, tonemap->result, gbuffer->depthTexture);
+    lines->render(viewport, tonemap->result, gbuffer->depthTexture);
 
     // render 3D voxel texture size ^ 3 cubes
     if (settings.debugVoxels) {
         debugvoxels->render(viewport, tonemap->result, *voxelize);
     }
+
+    // build the imgui font texture
+    if (!ImGui::GetIO().Fonts->TexID) {
+        ImGui_ImplOpenGL3_CreateFontsTexture();
+    }
+
+    // bind and clear the window's swapchain
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // render ImGui
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void GLRenderer::drawLine(glm::vec3 p1, glm::vec3 p2) {
+void GLRenderer::addDebugLine(glm::vec3 p1, glm::vec3 p2) {
     lines->points.push_back(p1);
     lines->points.push_back(p2);
 }
 
-void GLRenderer::drawBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
-    drawLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
-    drawLine(glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
+void GLRenderer::addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
+    addDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
+    addDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void GLRenderer::createRenderTargets(const Viewport& viewport) {
     shading->destroyRenderTargets();
@@ -285,14 +295,7 @@ void GLRenderer::createRenderTargets(const Viewport& viewport) {
     shadows->updatePerspectiveConstants(viewport);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLRenderer::ImGui_Render() {
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Renderer::Init(SDL_Window* window) {
     switch (activeAPI) {
@@ -307,43 +310,43 @@ void Renderer::Init(SDL_Window* window) {
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Renderer::Clear(glm::vec4 color) {
     instance->impl_Clear(color);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Renderer::ImGuiRender() {
     instance->impl_ImGui_Render();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Renderer::ImGuiNewFrame(SDL_Window* window) {
     instance->impl_ImGui_NewFrame(window);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Renderer::DrawIndexed(unsigned int size) {
     instance->impl_DrawIndexed(size);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Renderer::SwapBuffers(bool vsync) {
     instance->impl_SwapBuffers(vsync);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 RenderAPI Renderer::getActiveAPI() {
     return activeAPI;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void Renderer::setAPI(const RenderAPI api) {
     activeAPI = api;

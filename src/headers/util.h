@@ -1,17 +1,22 @@
 #pragma once
 
-// message assert macro
 #ifndef NDEBUG
     #define m_assert(expr, msg) if(!expr) std::cout << msg << std::endl; assert(expr);
 #else 
     #define m_assert(expr, msg)
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+#define COUT_NC "\033[0m"
+#define COUT_RED(str) "\033[0;31m" str COUT_NC
+#define COUT_GREEN(str) "\033[1;32m" str COUT_NC
+
+
 
 #define LOG_CATCH(code) try { code; } catch(std::exception e) { std::cout << e.what() << '\n'; }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 namespace Raekor {
 
@@ -19,11 +24,11 @@ constexpr inline size_t align_up(size_t value, size_t alignment) noexcept {
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void printProgressBar(float fract);
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 template <typename Tpl, typename Fx, size_t... Indices>
 void for_each_tuple_element_impl(Tpl&& Tuple, Fx Func, std::index_sequence<Indices...>) {
@@ -38,7 +43,7 @@ void for_each_tuple_element(Tpl&& Tuple, Fx Func) { // call Func() on each eleme
         std::forward<Tpl>(Tuple), Func, std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<Tpl>>>{});
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 
 class FileWatcher {
@@ -52,7 +57,7 @@ private:
     std::filesystem::file_time_type last_write_time;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 template <typename T>
 constexpr ImVec2 ImVec(const glm::vec<2, T>& vec) {
@@ -67,7 +72,7 @@ inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) {
     return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 // std::string version of https://docs.microsoft.com/en-us/cpp/text/how-to-convert-between-various-string-types?view=msvc-160
 inline std::string wchar_to_std_string(wchar_t* wchars) {
@@ -78,17 +83,6 @@ inline std::string wchar_to_std_string(wchar_t* wchars) {
     wcstombs_s(&convertedChars, string.data(), string.size(), wchars, _TRUNCATE);
 
     return string.substr(0, len);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-inline VkTransformMatrixKHR VkTransformMatrix(const glm::mat4& matrix) {
-    glm::mat4 transpose = glm::transpose(matrix);
-    
-    VkTransformMatrixKHR result;
-    memcpy(&result, glm::value_ptr(transpose), sizeof(VkTransformMatrixKHR));
-
-    return result;
 }
 
 } // Namespace Raekor

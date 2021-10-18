@@ -91,7 +91,7 @@ void glVertexBuffer::loadVertices(const Vertex* vertices, size_t count) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void glVertexBuffer::loadVertices(float* vertices, size_t count) {
+void glVertexBuffer::loadVertices(const float* vertices, size_t count) {
     glCreateBuffers(1, &id);
     glNamedBufferData(id, sizeof(float) * count, vertices, GL_STATIC_DRAW);
 }

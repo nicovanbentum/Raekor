@@ -5,60 +5,52 @@
 
 namespace Raekor {
 
-class ApplicationSettings {
-public:
-    int display;
-    std::string name;
-    std::string font;
-    std::string defaultScene;
+struct ConfigSettings {
+    int display = 0;
+    std::string name = "Raekor";
+    std::string font = "resources/Roboto-Regular.ttf";
+    std::string defaultScene = "scenes/sponza.scene";
     std::array<std::array<float, 4>, ImGuiCol_COUNT> themeColors;
 
-    ApplicationSettings(const std::filesystem::path path);
-    ~ApplicationSettings();
-
-private:
-    template<class C>
-    void serialize(C& archive);
-
-    const std::filesystem::path path;
+    template<typename Archive> 
+    void serialize(Archive& archive) {
+        archive( CEREAL_NVP(name), CEREAL_NVP(display),
+            CEREAL_NVP(font), CEREAL_NVP(defaultScene), CEREAL_NVP(themeColors)
+        );
+    }
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 enum RendererFlags {
     OPENGL = SDL_WINDOW_OPENGL,
     VULKAN = SDL_WINDOW_VULKAN,
 };
 
-class WindowApplication {
+
+
+class Application {
 public:
     friend class InputHandler;
 
-    WindowApplication(RendererFlags flag);
-    virtual ~WindowApplication();
+    Application(RendererFlags flag);
+    virtual ~Application();
 
-    virtual void update(float dt)  = 0;
+    void run();
+
+    virtual void onUpdate(float dt)  = 0;
     virtual void onEvent(const SDL_Event& event) = 0;
 
     Viewport& getViewport() { return viewport; }
     SDL_Window* getWindow() { return window; }
 
+public:
+    bool running = true;
+
 protected:
     Viewport viewport;
-    SDL_Window* window;
-    ApplicationSettings settings;
-
-public:
-    bool running;
+    SDL_Window* window = nullptr;
+    ConfigSettings settings;
 };
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-template<class C>
-void ApplicationSettings::serialize(C& archive) {
-    archive( CEREAL_NVP(name), CEREAL_NVP(display),
-        CEREAL_NVP(font), CEREAL_NVP(defaultScene), CEREAL_NVP(themeColors)
-    );
-}
 
 } // Namespace Raekor

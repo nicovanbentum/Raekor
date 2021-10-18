@@ -1,14 +1,8 @@
 #include "pch.h"
 #include "gui.h"
-#include "systems.h"
-#include "platform/OS.h"
-#include "application.h"
-#include "mesh.h"
-#include "assimp.h"
-
 #include "IconsFontAwesome5.h"
 
-namespace Raekor::gui {
+namespace GUI {
 
 ScopedDockSpace::ScopedDockSpace() {
     ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
@@ -38,9 +32,28 @@ ScopedDockSpace::ScopedDockSpace() {
     }
 }
 
+
+
 ScopedDockSpace::~ScopedDockSpace() {
     ImGui::End();
 }
+
+
+
+void beginFrame(SDL_Window* window) {
+    ImGui_ImplSDL2_NewFrame(window);
+    ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
+}
+
+
+
+void endFrame() {
+    ImGui::EndFrame();
+    ImGui::Render();
+}
+
+
 
 void setTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data) {
     // load the UI's theme from config
@@ -62,6 +75,8 @@ void setTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data) {
     ImGui::GetStyle().FrameBorderSize = 0.0f;
 }
 
+
+
 void setFont(const std::string& filepath) {
     auto& io = ImGui::GetIO();
     ImFont* pFont = io.Fonts->AddFontFromFileTTF(filepath.c_str(), 15.0f);
@@ -74,9 +89,15 @@ void setFont(const std::string& filepath) {
     ImFontConfig icons_config; icons_config.MergeMode = true; icons_config.PixelSnapH = true;
     io.Fonts->AddFontFromFileTTF("resources/" FONT_ICON_FILE_NAME_FAS, 15.0f, &icons_config, icons_ranges);
     // use FONT_ICON_FILE_NAME_FAR if you want regular instead of solid
+    
+    // Build the font texture on the CPU, TexID set to NULL for the OpenGL backend
+    io.Fonts->Build();
+    io.Fonts->TexID = NULL;
 }
 
-glm::ivec2 getMousePosWindow(const Viewport& viewport, ImVec2 windowPos) {
+
+
+glm::ivec2 getMousePosWindow(const Raekor::Viewport& viewport, ImVec2 windowPos) {
     // get mouse position in window
     glm::ivec2 mousePosition;
     SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
