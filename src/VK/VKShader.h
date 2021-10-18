@@ -10,6 +10,7 @@ class Shader {
 
 public:
     static bool glslangValidator(const char* vulkanSDK, const fs::directory_entry& file);
+    static bool DXC(const fs::directory_entry& file);
     
     VkShaderModule getModule() const { return module; }
     VkShaderStageFlagBits getStage() const { return stage; }

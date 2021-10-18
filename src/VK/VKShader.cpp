@@ -6,16 +6,46 @@
 namespace Raekor::VK {
 
 bool Shader::glslangValidator(const char* vulkanSDK, const fs::directory_entry& file) {
-    if (!file.is_regular_file()) return false;
-
     const auto outfile = file.path().parent_path() / "bin" / file.path().filename();
-    const auto compiler = vulkanSDK + std::string("\\Bin\\glslangValidator.exe ");
-    const auto command = compiler + "--target-env vulkan1.2 -V " + file.path().string() + " -o " + std::string(outfile.string() + ".spv");
 
-    if (system(command.c_str()) != 0) {
+    std::stringstream command;
+    command // Call the compiler
+            << vulkanSDK << "\\Bin\\glslangValidator.exe --target-env vulkan1.2 -V " 
+            // glsl input text file
+            << file.path().string()
+            // compile to spirv binary file
+            << " -o " << std::string(outfile.string() + ".spv");
+
+    if (system(command.str().c_str()) != 0) {
         return false;
     } 
     
+    return true;
+}
+
+
+
+bool Shader::DXC(const fs::directory_entry& file) {
+    const auto outfile = file.path().parent_path() / "bin" / file.path().filename();
+
+    const auto name = file.path().stem().string();
+    auto type = name.substr(name.size() - 2, 2);
+    std::transform(type.begin(), type.end(), type.begin(), tolower);
+
+    std::stringstream command;
+    command // Call the compiler
+            << "dxc -spirv -E main -fvk-stage-io-order=decl -T " 
+            // stage type (e.g. ps_6_7, deduced from the last 2 characters of the file's stem
+            << type << "_6_7 " 
+            // hlsl input text file
+            << file.path().string() 
+            // compile to spirv binary file
+            << " -Fo " << std::string(outfile.string() + ".spv"); 
+    
+    if (system(command.str().c_str()) != 0) {
+        return false;
+    }
+
     return true;
 }
 
