@@ -11,7 +11,7 @@
 ### Windows
 This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build and link the big binaries. Make sure it is installed correctly and integrated user wide.
 
-Next make sure you have the _**latest**_ Vulkan SDK installed, you can get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe).
+Next make sure you have the _**latest**_ Vulkan SDK installed, you can get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe). Both glslangValidator and DXC need to be callable from the command line.
 
 Clone this repository using
  ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```  to also pull in all the submodules.
@@ -47,7 +47,7 @@ This project requires C++ 17 and OpenGL 4.6 for direct state access functions an
     - S3TC DXT5 texture compression
 
 ### Vulkan
-The Vulkan side of things is currently being rewritten to implement a GPU path tracer using the new vk_khr_ray_tracing extensions. It used to contain experiments with parallel command buffer recording, dynamic uniform buffers, and bindless textures. Also used to integrate [Scatter](https://github.com/nicovanbentum/Scatter) in a separate branch.
+The Vulkan side of things is currently being rewritten to implement a GPU path tracer using the vk_khr_ray_tracing extensions. It used to contain experiments with parallel command buffer recording, dynamic uniform buffers, and bindless textures. Also used to integrate [Scatter](https://github.com/nicovanbentum/Scatter) in a separate branch.
 
 ### Ray Tracing in One Weekend
 There's a third entry point that implements Ray Tracing in One Weekend by Peter Shirley in a GLSL Compute shader that accumulates over time. 
