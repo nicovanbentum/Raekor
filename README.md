@@ -6,6 +6,9 @@
 ![image2](https://i.imgur.com/htxWnRu.png)
 *Blender's splash screen scene.*
 
+![image3](https://i.imgur.com/EVhb0gh.png)
+*Dancing stormtrooper.*
+
 # Build
 
 ### Windows
