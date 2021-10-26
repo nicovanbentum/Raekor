@@ -58,6 +58,13 @@ void Async::dispatch(const Task& task) {
 
 
 
+void Async::lock(const Task& task) {
+    std::scoped_lock<std::mutex> lock(async->mutex);
+    task();
+}
+
+
+
 void Async::wait() {
     while (async->activeTaskCount.load() > 0) {}
 }

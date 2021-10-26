@@ -79,7 +79,7 @@ void ViewportWidget::draw() {
         }
     }
 
-    if (ImGui::Combo("##Render target", &rendertargetIndex, items.data(), int((items.size()))) {
+    if (ImGui::Combo("##Render target", &rendertargetIndex, items.data(), int(items.size()))) {
         rendertarget = targets[rendertargetIndex];
     }
 

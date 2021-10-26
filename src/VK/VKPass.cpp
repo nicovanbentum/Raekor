@@ -56,6 +56,10 @@ void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
+    if (!fs::exists("shaders/Vulkan/bin")) {
+        fs::create_directory("shaders/Vulkan/bin");
+    }
+
     fs::file_time_type timeOfMostRecentlyUpdatedIncludeFile;
 
     for (const auto& file : fs::directory_iterator("shaders/Vulkan/include")) {
@@ -87,11 +91,14 @@ void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
                     success = Shader::glslangValidator(vulkanSDK, file);
                 }
 
-                if (!success) {
-                    std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
-                } else {
-                    std::cout << "Compilation " << COUT_GREEN("finished") << " for shader: " << file.path().string() << '\n';
-                }
+                Async::lock([&]() {
+                    if (!success) {
+                        std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
+                    } else {
+                        std::cout << "Compilation " << COUT_GREEN("finished") << " for shader: " << file.path().string() << '\n';
+                    }
+                });
+
             }
         });
     }

@@ -11,6 +11,10 @@ public:
     ~Async();
 
     static void dispatch(const Task& task);
+    static void lock(const Task& task) {
+        std::scoped_lock<std::mutex> lock(async->mutex);
+        task();
+    }
     static void wait();
 
 private:
