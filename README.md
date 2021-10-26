@@ -16,6 +16,8 @@ This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build and 
 
 Next make sure you have the _**latest**_ Vulkan SDK installed, you can get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe). Both glslangValidator and DXC need to be callable from the command line.
 
+Python 3+ is required to run the bat file that sets up GLAD.
+
 Clone this repository using
  ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```  to also pull in all the submodules.
  
