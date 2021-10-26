@@ -18,6 +18,8 @@ Next make sure you have the _**latest**_ Vulkan SDK installed, you can get it [h
 
 Clone this repository using
  ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```  to also pull in all the submodules.
+ 
+ Run the ```glad.bat``` file to generate OpenGL bindings.
 
 Build using the supplied Visual Studio solution (re-target to newest if necessary).
 
