@@ -35,6 +35,11 @@ void NodeSystem::remove(entt::registry& registry, Node& node) {
     // handle first child case
     if (entt::to_entity(registry, node) == parent.firstChild) {
         parent.firstChild = node.nextSibling;
+
+        if (node.nextSibling != entt::null) {
+            auto& nextComp = registry.get<Node>(node.nextSibling);
+            nextComp.prevSibling = entt::null;
+        }
      // other cases
     } else {
         auto& prevComp = registry.get<Node>(node.prevSibling); 
