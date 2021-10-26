@@ -11,7 +11,7 @@ DXShader::DXShader(Stage* stages, size_t stageCount) {
         auto ww = std::wstring(fp.begin(), fp.end());
         LPCWSTR wstr = ww.c_str();
 
-        com_ptr<ID3D10Blob> buffer;
+        ComPtr<ID3D10Blob> buffer;
         auto hr = D3DReadFileToBlob(wstr, buffer.GetAddressOf());
         if (FAILED(hr)) throw std::runtime_error("failed to read DirectX file to blob");
 

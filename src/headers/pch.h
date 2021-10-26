@@ -32,6 +32,8 @@ extern bool PATHTRACE;
 #include "imgui_impl_vulkan.h"
 #include "imgui_internal.h"
 #include "misc/cpp/imgui_stdlib.h"
+#include "IconsFontAwesome5.h"
+
 
 #ifdef _WIN32
 #include "imgui_impl_dx11.h"
@@ -53,7 +55,7 @@ extern bool PATHTRACE;
     #include <Psapi.h>
 
     template<typename T>
-    using com_ptr = Microsoft::WRL::ComPtr<T>;
+    using ComPtr = Microsoft::WRL::ComPtr<T>;
     // DirectXTK Framework Header only 
     //#include "DirectXTK/DDSTextureLoader.h"
     //#include "DirectXTK/WICTextureLoader.h"

@@ -18,7 +18,7 @@ public:
 private:
     void* mappedData;
     D3D11_MAPPED_SUBRESOURCE resource;
-    com_ptr<ID3D11Buffer> buffer;
+    ComPtr<ID3D11Buffer> buffer;
 };
 
 } // namespace Raekor

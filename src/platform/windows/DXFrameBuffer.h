@@ -45,9 +45,9 @@ public:
 
 private:
     D3D11_VIEWPORT view_port;
-    com_ptr<ID3D11Texture2D> texture;
-    com_ptr<ID3D11RenderTargetView> target_view;
-    com_ptr<ID3D11ShaderResourceView> shader_view;
+    ComPtr<ID3D11Texture2D> texture;
+    ComPtr<ID3D11RenderTargetView> target_view;
+    ComPtr<ID3D11ShaderResourceView> shader_view;
 };
 
 } // Raekor

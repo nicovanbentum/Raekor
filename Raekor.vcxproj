@@ -268,7 +268,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\components.cpp" />
     <ClCompile Include="src\dds.cpp" />
     <ClCompile Include="src\editor.cpp" />
-    <ClCompile Include="src\entry.cpp" />
+    <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\gui.cpp" />
     <ClCompile Include="src\GUI\assetsWidget.cpp" />
     <ClCompile Include="src\gui\consoleWidget.cpp" />

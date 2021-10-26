@@ -13,10 +13,10 @@ public:
     void unbind() override;
 
 private:
-    com_ptr<ID3D11VertexShader> vertex_shader;
-    com_ptr<ID3D11PixelShader> pixel_shader;
-    com_ptr<ID3D11ComputeShader> compute_shader;
-    com_ptr<ID3D11GeometryShader> geo_shader;
+    ComPtr<ID3D11VertexShader> vertex_shader;
+    ComPtr<ID3D11PixelShader> pixel_shader;
+    ComPtr<ID3D11ComputeShader> compute_shader;
+    ComPtr<ID3D11GeometryShader> geo_shader;
 };
 
 } // namespace Raekor

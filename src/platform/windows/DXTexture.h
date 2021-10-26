@@ -11,9 +11,9 @@ public:
     virtual void bind(uint32_t slot) const;
 
 private:
-    com_ptr<ID3D11SamplerState> sampler_state;
-    com_ptr<ID3D11Texture2D> texture;
-    com_ptr<ID3D11ShaderResourceView> texture_resource;
+    ComPtr<ID3D11SamplerState> sampler_state;
+    ComPtr<ID3D11Texture2D> texture;
+    ComPtr<ID3D11ShaderResourceView> texture_resource;
 };
 
 class DXTextureCube {
@@ -22,8 +22,8 @@ public:
     virtual void bind(uint32_t slot) const;
 
 private:
-    com_ptr<ID3D11Texture2D> texture;
-    com_ptr<ID3D11ShaderResourceView> texture_resource;
+    ComPtr<ID3D11Texture2D> texture;
+    ComPtr<ID3D11ShaderResourceView> texture_resource;
 };
 
 } // namespace Raekor
