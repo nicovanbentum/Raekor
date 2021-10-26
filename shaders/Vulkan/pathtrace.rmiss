@@ -7,6 +7,15 @@
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 
+layout(push_constant) uniform pushConstants {
+    mat4 invViewProj;
+    vec4 cameraPosition;
+    vec4 lightDir;
+    uint frameCounter;
+    uint bounces;
+    float sunConeAngle;
+};
+
 vec3 sky(vec3 direction) {
     float t = 0.5 * (normalize(direction).y + 1.0);
     return mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t);
@@ -17,11 +26,9 @@ void main() {
     vec3 rayStart = gl_WorldRayOriginEXT;
     float rayLength = INFINITY;
 
-    vec3 lightDir = normalize(vec3(-0.1, -1, -0.2));
-
     vec3 transmittance;
-    vec3 color = IntegrateScattering(rayStart, rayDir, rayLength, lightDir, vec3(1.0), transmittance);
+    vec3 color = IntegrateScattering(rayStart, rayDir, rayLength, lightDir.xyz, vec3(1.0), transmittance);
 
 
-    payload.Lo += 0.1 * sky(gl_WorldRayDirectionEXT);
+    payload.L += color;
 }

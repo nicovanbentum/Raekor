@@ -23,6 +23,12 @@ vec2 uniformSampleDisk(vec2 u) {
     return vec2(r * cos(theta), r * sin(theta));
 }
 
+vec2 uniformSampleDisk(vec2 u, float radius) {
+    float r = radius * sqrt(u.x);
+    float theta = 2 * M_PI * u.y;
+    return vec2(r * cos(theta), r * sin(theta));
+}
+
 vec3 uniformSampleCone(const vec2 u, float cosThetaMax) {
     float cosTheta = (1.0 - u.x) + u.x * cosThetaMax;
     float sinTheta = sqrt(1.0 - cosTheta * cosTheta);

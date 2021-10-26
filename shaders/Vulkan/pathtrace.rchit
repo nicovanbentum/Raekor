@@ -10,10 +10,15 @@
 
 #include "include/structs.glsl"
 #include "include/random.glsl"
+#include "include/sky.glsl"
 
 layout(push_constant) uniform pushConstants {
     mat4 invViewProj;
     vec4 cameraPosition;
+    vec4 lightDir;
+    uint frameCounter;
+    uint maxBounces;
+    float sunConeAngle;
 };
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT TLAS;
@@ -145,7 +150,7 @@ vec3 evaluateLight(Surface surface, vec3 lightDirection, vec3 lightColor, inout 
     vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);
 
     vec3 nominator    = NDF * G * F;
-    float denominator = 4 * max(dot(surface.normal, V), 0.0) * max(dot(surface.normal, Li), 0.0) + 0.001; // 0.001 to prevent divide by zero.
+    float denominator = 4 * max(dot(surface.normal, V), 0.0) * max(dot(surface.normal, Li), 0.0) + 0.001;
     vec3 specular = nominator / denominator;
 
     vec3 kS = F;
@@ -168,6 +173,10 @@ vec3 importanceSample(float u, float v) {
 	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
 }
 
+float getPdf(vec3 wo, vec3 wi) {
+    return max(0.0, dot(wo, wi)) * (1.0 / M_PI);
+}
+
 void main() {
     Instance instance = instances[gl_InstanceCustomIndexEXT];
     IndexBuffer indices = IndexBuffer(instance.indexBufferDeviceAddress);
@@ -185,43 +194,42 @@ void main() {
 
     Surface surface = getSurface(instance, vertex);
 
-    uint rayFlags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
-    float tMin = 0.01;
-    float tMax = 1000.0;
-
-
-    vec3 lightDir = normalize(vec3(-0.1, -1, -0.2)); // TODO: buffer or push constant
-
     vec2 rng = vec2(pcg_float(payloadIn.rng), pcg_float(payloadIn.rng));
-    vec2 unitDiskOffset = uniformSampleDisk(rng.xy); // could also use cone to parameterize shadow penumbra
-    lightDir.xy += unitDiskOffset.xy;
-
-//    vec3 coneOffset = UniformSampleCone(rng, 0.01);
-//    lightDir.xy += coneOffset.xy;
+    vec2 diskPoint = uniformSampleDisk(rng.xy, sunConeAngle);
+    vec3 offsetLightDir = lightDir.xyz + vec3(diskPoint.x, 0.0, diskPoint.y);
     
     canReachLight = false; 
-    traceRayEXT(TLAS, rayFlags, 0xFF, 0, 0, 1, surface.pos, tMin, -lightDir, tMax, 1);
-   
-    vec3 directLight = evaluateLight(surface, lightDir, vec3(1.0), payloadIn.K);
+
+    float tMin = 0.01;
+    float tMax = 1000.0;
+    uint rayFlags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+    traceRayEXT(TLAS, rayFlags, 0xFF, 0, 0, 1, surface.pos, tMin, -offsetLightDir, tMax, 1);
+
+    vec3 directLight = evaluateLight(surface, offsetLightDir, vec3(1.0), payloadIn.beta);
 
     if(canReachLight) {
-        payloadIn.Lo += directLight;
+        payloadIn.L += payloadIn.beta * directLight;
     }
 
-    if((payloadIn.depth + 1) < 2) {
+    vec3 Wo = -gl_WorldRayDirectionEXT;
+    vec3 perfectWi = normalize(reflect(gl_WorldRayDirectionEXT, surface.normal));
+
+    //payloadIn.beta *= directLight * abs(dot(Wo, surface.normal)) / getPdf(Wo, perfectWi);
+
+    if((payloadIn.depth + 1) < maxBounces) {
         vec3 reflected = normalize(reflect(gl_WorldRayDirectionEXT, surface.normal));
-        reflected.xyz += pcg_vec3(payloadIn.rng) * surface.roughness;
+        //reflected.xyz += pcg_vec3(payloadIn.rng) * surface.roughness;
 
         vec3 Wi;
 
-        payloadOut.Lo = vec3(0.0);
+        payloadOut.L = vec3(0.0);
         payloadOut.depth = payloadIn.depth + 1;
         payloadOut.rng = payloadIn.rng;
-        payloadOut.K = payloadIn.K;
+        payloadOut.beta = payloadIn.beta;
 
         traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, surface.pos, tMin, reflected, tMax, 2);
 
-        payloadIn.Lo += payloadOut.Lo;
+        payloadIn.L += payloadOut.L;
     }
 
 
