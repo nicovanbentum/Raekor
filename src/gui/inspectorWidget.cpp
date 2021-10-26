@@ -180,6 +180,8 @@ void InspectorWidget::drawComponent(Transform& component, Assets& assets, Scene&
     if (ImGui::DragFloat3("Position", glm::value_ptr(component.position), 0.001f, FLT_MIN, FLT_MAX)) {
         component.compose();
     }
+
+    
 }
 
 

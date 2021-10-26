@@ -2,8 +2,6 @@
 #include "viewportWidget.h"
 #include "editor.h"
 
-#include "IconsFontAwesome5.h"
-
 namespace Raekor {
 
 ViewportWidget::ViewportWidget(Editor* editor) :
@@ -54,10 +52,12 @@ void ViewportWidget::draw() {
         "Albedo",
         "Normals",
         "Material",
+        "Velocity",
+        "TAA Resolve",
+        "Shading (Result)",
         "Bloom (Threshold)",
         "Bloom (Blur 1)",
         "Bloom (Final)",
-        "Shading (Result)"
     };
 
     const std::array targets = {
@@ -65,21 +65,22 @@ void ViewportWidget::draw() {
         renderer.gbuffer->albedoTexture,
         renderer.gbuffer->normalTexture,
         renderer.gbuffer->materialTexture,
-        renderer.shading->bloomHighlights,
+        renderer.gbuffer->velocityTexture,
+        renderer.taaResolve->resultBuffer,
+        renderer.deferShading->result,
+        renderer.deferShading->bloomHighlights,
         renderer.bloom->blurTexture,
         renderer.bloom->bloomTexture,
-        renderer.shading->result
     };
 
-    int currentItem = 0;
     for (int i = 0; i < targets.size(); i++) {
         if (rendertarget == targets[i]) {
-            currentItem = i;
+            rendertargetIndex = i;
         }
     }
 
-    if (ImGui::Combo("##Render target", &currentItem, items.data(), static_cast<int>(items.size()))) {
-        rendertarget = targets[currentItem];
+    if (ImGui::Combo("##Render target", &rendertargetIndex, items.data(), int((items.size()))) {
+        rendertarget = targets[rendertargetIndex];
     }
 
     // figure out if we need to resize the viewport
@@ -101,7 +102,7 @@ void ViewportWidget::draw() {
 
     // the viewport image is a drag and drop target for dropping materials onto meshes
     if (ImGui::BeginDragDropTarget()) {
-        auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
+        auto mousePos = GUI::getMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
         uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
         entt::entity picked = static_cast<entt::entity>(pixel);
 
@@ -141,7 +142,7 @@ void ViewportWidget::draw() {
 
     auto& io = ImGui::GetIO();
     if (io.MouseClicked[0] && mouseInViewport && !(editor->active != entt::null && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
-        auto mousePos = gui::getMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
+        auto mousePos = GUI::getMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
         uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
         entt::entity picked = static_cast<entt::entity>(pixel);
 
@@ -195,6 +196,7 @@ void ViewportWidget::draw() {
     ImGui::SetNextWindowBgAlpha(0.35f);
     ImGuiWindowFlags metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
     ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
+    ImGui::Text("Culled meshes: %i", renderer.gbuffer->culled);
     ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
     ImGui::Text("Product: %s", glGetString(GL_RENDERER));
     ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);

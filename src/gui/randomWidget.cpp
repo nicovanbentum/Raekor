@@ -15,9 +15,14 @@ void RandomWidget::draw() {
     ImGui::Begin(title.c_str());
     ImGui::SetItemDefaultFocus();
 
-    if (ImGui::RadioButton("Vsync", renderer.settings.vsync)) {
-        renderer.settings.vsync = !renderer.settings.vsync;
+    if (ImGui::Checkbox("Vsync", (bool*)(&renderer.settings.vsync))) {
         SDL_GL_SetSwapInterval(renderer.settings.vsync);
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Checkbox("TAA", (bool*)(&renderer.settings.enableTAA))) {
+        renderer.frameNr = 0;
     }
 
     ImGui::NewLine(); ImGui::Separator();
@@ -30,13 +35,13 @@ void RandomWidget::draw() {
     ImGui::Text("Shadow Mapping");
     ImGui::Separator();
 
-    if (ImGui::DragFloat("Bias constant", &renderer.shadows->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Bias slope factor", &renderer.shadows->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Cascade lambda", &renderer.shadows->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {
-        renderer.shadows->updatePerspectiveConstants(editor->getViewport());
+    if (ImGui::DragFloat("Bias constant", &renderer.shadowMaps->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    if (ImGui::DragFloat("Bias slope factor", &renderer.shadowMaps->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    if (ImGui::DragFloat("Cascade lambda", &renderer.shadowMaps->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {
+        renderer.shadowMaps->updatePerspectiveConstants(editor->getViewport());
     }
 
-    ImGui::DragFloat3("Bloom threshold", glm::value_ptr(renderer.shading->settings.bloomThreshold), 0.01f, 0.0f, 10.0f, "%.3f");
+    ImGui::DragFloat3("Bloom threshold", glm::value_ptr(renderer.deferShading->settings.bloomThreshold), 0.01f, 0.0f, 10.0f, "%.3f");
 
     float fov = editor->getViewport().getCamera().getFOV();
     if (ImGui::DragFloat("Camera FOV", &fov, 1.0f, 5.0f, 105.0f, "%.2f", 1.0f)) {

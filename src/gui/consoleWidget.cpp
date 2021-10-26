@@ -69,7 +69,7 @@ void ConsoleWidget::draw() {
         }
 
         inputBuffer.clear();
-        ImGui::SetKeyboardFocusHere(-1);
+        ImGui::SetKeyboardFocusHere();
     }
 
     if (!inputBuffer.empty()) {

@@ -14,6 +14,7 @@ public:
 
 protected:
     GLuint rendertarget;
+    int rendertargetIndex = 0;
     bool gizmoEnabled = true;
     bool mouseInViewport = false;
     ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
