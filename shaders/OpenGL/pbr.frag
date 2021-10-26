@@ -566,7 +566,7 @@ vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material, float s
     vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);
 
     vec3 nominator    = NDF * G * F;
-    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, Li), 0.0) + 0.001; // 0.001 to prevent divide by zero.
+    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, Li), 0.0) + 0.001;
     vec3 specular = nominator / denominator;
 
     vec3 kS = F;
@@ -577,12 +577,12 @@ vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material, float s
 
     float NdotL = max(dot(N, Li), 0.0);
 
-    vec3 radiance = light.color.rgb * NdotL * shadow;
+    vec3 diffuse = light.color.rgb * NdotL * shadow;
 
-    return (kD *  material.albedo / PI + specular) * radiance;
+    return (kD *  material.albedo / PI + (specular * shadow)) * diffuse;
 }
 
-vec3 ambient(DirectionalLight light, vec3 P,  vec3 N, vec3 V, Material material) {
+vec3 ambient(DirectionalLight light, vec3 P,  vec3 N, vec3 V, Material material, float shadow) {
 	vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
     vec3 F = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, material.roughness);
     
@@ -603,13 +603,13 @@ vec3 ambient(DirectionalLight light, vec3 P,  vec3 N, vec3 V, Material material)
     float occ;
     vec4 refl = coneTraceReflection(P, N, V, material.roughness, occ);
 
-    vec3 diffuse = irradiance.rgb * material.albedo;
+    vec3 diffuse = irradiance.rgb * material.albedo * occlusion;
 
     vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), material.roughness)).rg;
 
-    vec3 specular = refl.rgb * (F * brdf.x + brdf.y);
+    vec3 specular = refl.rgb * (F * brdf.x + brdf.y) * occlusion;
 
-    vec3 ambient = (kD * diffuse + specular) * occlusion;
+    vec3 ambient = (kD * diffuse + specular);
 
     return ambient;
 }
@@ -704,7 +704,7 @@ void main() {
     vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
     vec3 Lo = radiance(light, normal, V, material, shadowAmount);
 
-    vec3 ambient = ambient(light, position,  normal, V, material);
+    vec3 ambient = ambient(light, position,  normal, V, material, shadowAmount);
 
     float occlusion;
 

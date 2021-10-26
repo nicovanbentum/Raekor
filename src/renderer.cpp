@@ -65,18 +65,18 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
             continue;
         }
 
-        Async::dispatch([=]() {
+        //Async::dispatch([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
             if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time()) {
-                auto success = glShader::glslangValidator(vulkanSDK, file);
+                auto success = glShader::glslangValidator(vulkanSDK, file, outfile);
 
                 if (!success) {
                     std::cout << "failed to compile vulkan shader: " << file.path().string() << '\n';
                 }
             }
-        });
+        //});
     }
 
     Async::wait();
@@ -121,61 +121,46 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     io.ConfigWindowsMoveFromTitleBarOnly = true;
     io.ConfigDockingWithShift = true;
 
-    glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
-    glTextureStorage2D(blackTexture, 1, GL_RGBA8, 1, 1);
-    glTextureParameteri(blackTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(blackTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(blackTexture, GL_TEXTURE_WRAP_R, GL_REPEAT);
+    // initialise all the render passes
+    icons =         std::make_unique<Icons>(viewport);
+    bloom =         std::make_unique<Bloom>(viewport);
+    gbuffer =       std::make_unique<GBuffer>(viewport);
+    tonemap =       std::make_unique<Tonemap>(viewport);
+    skinning =      std::make_unique<Skinning>();
+    voxelize =      std::make_unique<Voxelize>(512);
+    taaResolve =    std::make_unique<TAAResolve>(viewport);
+    debugLines =    std::make_unique<DebugLines>();
+    atmosphere =    std::make_unique<Atmosphere>(viewport);
+    shadowMaps =    std::make_unique<ShadowMap>(viewport);
+    debugvoxels =   std::make_unique<VoxelizeDebug>(viewport);
+    deferShading =  std::make_unique<DeferredShading>(viewport);
 
-    // initialize default gpu resources
-    Material::Default = Material {
-        glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f
+    auto setDefaultTextureParams = [](GLuint& texture) {
+        glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTextureParameteri(texture, GL_TEXTURE_WRAP_R, GL_REPEAT);
     };
 
-    glm::vec4 color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    glCreateTextures(GL_TEXTURE_2D, 1, &Material::Default.albedo);
-    glTextureStorage2D(Material::Default.albedo, 1, GL_RGBA16F, 1, 1);
-    glTextureSubImage2D(Material::Default.albedo, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(color));
+    glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
+    glTextureStorage2D(blackTexture, 1, GL_RGBA8, 1, 1);
+    setDefaultTextureParams(blackTexture);
 
-    glTextureParameteri(Material::Default.albedo, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(Material::Default.albedo, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(Material::Default.albedo, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(Material::Default.albedo, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(Material::Default.albedo, GL_TEXTURE_WRAP_R, GL_REPEAT);
+    auto createDefaultMaterialTexture = [](GLuint& texture, const glm::vec4& value) {
+        glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+        glTextureStorage2D(texture, 1, GL_RGBA16F, 1, 1);
+        glTextureSubImage2D(texture, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(value));
+    };
 
-    auto metalRoughnessValue = glm::vec4(0.0f, 1.0, 1.0, 1.0f);
-    glCreateTextures(GL_TEXTURE_2D, 1, &Material::Default.metalrough);
-    glTextureStorage2D(Material::Default.metalrough, 1, GL_RGBA16F, 1, 1);
-    glTextureSubImage2D(Material::Default.metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
-    glTextureParameteri(Material::Default.metalrough, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(Material::Default.metalrough, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(Material::Default.metalrough, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(Material::Default.metalrough, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(Material::Default.metalrough, GL_TEXTURE_WRAP_R, GL_REPEAT);
+    createDefaultMaterialTexture(Material::Default.albedo, glm::vec4(1.0f));
+    setDefaultTextureParams(Material::Default.albedo);
 
-    constexpr auto tbnAxis = glm::vec<4, float>(0.5f, 0.5f, 1.0f, 1.0f);
-    glCreateTextures(GL_TEXTURE_2D, 1, &Material::Default.normals);
-    glTextureStorage2D(Material::Default.normals, 1, GL_RGBA16F, 1, 1);
-    glTextureSubImage2D(Material::Default.normals, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(tbnAxis));
-    glTextureParameteri(Material::Default.normals, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(Material::Default.normals, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(Material::Default.normals, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(Material::Default.normals, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(Material::Default.normals, GL_TEXTURE_WRAP_R, GL_REPEAT);
+    createDefaultMaterialTexture(Material::Default.metalrough, glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
+    setDefaultTextureParams(Material::Default.metalrough);
 
-    skinning = std::make_unique<Skinning>();
-    voxelize = std::make_unique<Voxelize>(512);
-    shadows = std::make_unique<ShadowMap>(viewport);
-    tonemap = std::make_unique<Tonemap>(viewport);
-    gbuffer = std::make_unique<GBuffer>(viewport);
-    shading = std::make_unique<DeferredShading>(viewport);
-    lines = std::make_unique<DebugLines>();
-    debugvoxels = std::make_unique<VoxelizeDebug>(viewport);
-    bloom = std::make_unique<Bloom>(viewport);
-    icons = std::make_unique<Icons>(viewport);
-    sky = std::make_unique<Atmosphere>(viewport);
+    createDefaultMaterialTexture(Material::Default.normals, glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
+    setDefaultTextureParams(Material::Default.normals);
 }
 
 
@@ -195,39 +180,53 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     });
 
     // render 4 * 4096 cascaded shadow maps
-    shadows->render(viewport, scene);
+    shadowMaps->render(viewport, scene);
 
     // voxelize the Scene to a 3D texture
-    if (settings.shouldVoxelize) {
-        voxelize->render(scene, viewport, *shadows);
+    static bool b = true;
+
+    if (b) {
+        voxelize->render(scene, viewport, *shadowMaps);
+        b = false;
     }
 
     // generate a geometry buffer with depth, normals, material and albedo
-    gbuffer->render(scene, viewport);
+    gbuffer->render(scene, viewport, frameNr);
 
     // render the sky using ray marching for atmospheric scattering
-    sky->render(viewport, scene, gbuffer->albedoTexture, gbuffer->depthTexture);
+    atmosphere->render(viewport, scene, gbuffer->albedoTexture, gbuffer->depthTexture);
 
     // fullscreen PBR deferred shading pass
-    shading->render(scene, viewport, *shadows, *gbuffer, *voxelize);
+    deferShading->render(scene, viewport, *shadowMaps, *gbuffer, *voxelize);
+
+    GLuint shadingResult = deferShading->result;
+
+    if (settings.enableTAA) {
+        shadingResult = taaResolve->render(viewport, *gbuffer, *deferShading, frameNr);
+    }
+    else {
+        // if the cvar is enabled through cvars it doesnt reset the frameNr,
+        // so we just do it here
+        // frameNr = 0;
+    }
 
     // render editor icons
-    icons->render(scene, viewport, shading->result, gbuffer->entityTexture);
+    icons->render(scene, viewport, shadingResult, gbuffer->entityTexture);
 
     // generate downsampled bloom and do ACES tonemapping
     if (settings.doBloom) {
-        bloom->render(viewport, shading->bloomHighlights);
-        tonemap->render(shading->result, bloom->bloomTexture);
+        bloom->render(viewport, deferShading->bloomHighlights);
+        tonemap->render(shadingResult, bloom->bloomTexture);
     } else {
-        tonemap->render(shading->result, blackTexture);
+        tonemap->render(shadingResult, blackTexture);
     }
 
     if (settings.debugCascades) {
-        shadows->renderCascade(viewport, tonemap->framebuffer);
+        shadowMaps->renderCascade(viewport, tonemap->framebuffer);
     }
 
     // render debug lines / shapes
-    lines->render(viewport, tonemap->result, gbuffer->depthTexture);
+    debugLines->render(viewport, tonemap->result, gbuffer->depthTexture);
 
     // render 3D voxel texture size ^ 3 cubes
     if (settings.debugVoxels) {
@@ -246,11 +245,14 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
 
     // render ImGui
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    // increment frame counter
+    frameNr = frameNr + 1;
 }
 
 void GLRenderer::addDebugLine(glm::vec3 p1, glm::vec3 p2) {
-    lines->points.push_back(p1);
-    lines->points.push_back(p2);
+    debugLines->points.push_back(p1);
+    debugLines->points.push_back(p2);
 }
 
 void GLRenderer::addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
@@ -271,8 +273,10 @@ void GLRenderer::addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
 
 
 void GLRenderer::createRenderTargets(const Viewport& viewport) {
-    shading->destroyRenderTargets();
-    shading->createRenderTargets(viewport);
+    frameNr = 0;
+
+    deferShading->destroyRenderTargets();
+    deferShading->createRenderTargets(viewport);
 
     debugvoxels->destroyRenderTargets();
     debugvoxels->createRenderTargets(viewport);
@@ -289,10 +293,13 @@ void GLRenderer::createRenderTargets(const Viewport& viewport) {
     icons->destroyRenderTargets();
     icons->createRenderTargets(viewport);
 
-    sky->destroyRenderTargets();
-    sky->createRenderTargets(viewport);
+    atmosphere->destroyRenderTargets();
+    atmosphere->createRenderTargets(viewport);
 
-    shadows->updatePerspectiveConstants(viewport);
+    taaResolve->destroyRenderTargets();
+    taaResolve->createRenderTargets(viewport);
+
+    shadowMaps->updatePerspectiveConstants(viewport);
 }
 
 

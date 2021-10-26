@@ -41,7 +41,7 @@ class ShadowMap {
          uint32_t nrOfCascades = 4;
          float depthBiasConstant = 1.25f;
          float depthBiasSlope = 3.0f; // 1.75f; 
-         float cascadeSplitLambda = 0.99f; // 0.98f;
+         float cascadeSplitLambda = 0.89f; // 0.98f;
      } settings;
 
      struct {
@@ -75,10 +75,13 @@ class GBuffer {
     friend class ViewportWidget;
 
     struct {
+        glm::mat4 prevViewProj;
         glm::mat4 projection;
         glm::mat4 view;
         glm::mat4 model;
         glm::vec4 colour;
+        glm::vec2 jitter;
+        glm::vec2 prevJitter;
         float metallic;
         float roughness;
         uint32_t entity;
@@ -92,7 +95,7 @@ public:
 
     uint32_t readEntity(GLint x, GLint y);
 
-    void render(const Scene& scene, const Viewport& viewport);
+    void render(const Scene& scene, const Viewport& viewport, uint32_t frameNr);
     void createRenderTargets(const Viewport& viewport);
     void destroyRenderTargets();
 
@@ -100,6 +103,7 @@ public:
     GLuint framebuffer;
     GLuint depthTexture;
     GLuint albedoTexture, normalTexture, materialTexture, entityTexture;
+    GLuint velocityTexture;
 
 private:
     glShader shader;
@@ -164,8 +168,6 @@ private:
     GLuint uniformBuffer;
 };
 
-
-
 class Tonemap {
     friend class GLRenderer;
     friend class ViewportWidget;
@@ -220,7 +222,7 @@ private:
 
 public:
     int size;
-    float worldSize = 150.0f;
+    float worldSize = 80.0f;
     GLuint result;
 };
 
@@ -384,6 +386,10 @@ public:
     void createRenderTargets(const Viewport& viewport);
     void destroyRenderTargets();
 
+public:
+    GLuint result;
+    GLuint bloomHighlights;
+
 private:
     glShader shader;
     GLuint framebuffer;
@@ -397,9 +403,6 @@ private:
 
     GLTimer timer;
 
-public:
-    GLuint result;
-    GLuint bloomHighlights;
 };
 
 
@@ -427,6 +430,23 @@ private:
     glShader shader;
     GLuint framebuffer;
     GLuint uniformBuffer;
+};
+
+
+
+class TAAResolve {
+public:
+    TAAResolve(const Viewport& viewport);
+
+    GLuint render(const Viewport& viewport, const GBuffer& gbuffer, const DeferredShading& shading, uint32_t frameNr);
+
+    void createRenderTargets(const Viewport& viewport);
+    void destroyRenderTargets();
+public:
+    GLuint resultBuffer, historyBuffer;
+
+private:
+    glShader shader;
 };
 
 } // raekor

@@ -48,7 +48,7 @@ void Editor::onUpdate(float dt) {
     }
 
     // update the camera
-    viewport.getCamera().update();
+    viewport.update();
 
     // update scene components
     scene.updateTransforms();

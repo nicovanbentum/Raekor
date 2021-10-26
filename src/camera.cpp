@@ -11,8 +11,6 @@ Camera::Camera(glm::vec3 position, glm::mat4 proj) :
     projection = proj;
 }
 
-
-
 void Camera::update() {
     auto dir = getForwardVector();
     view = glm::lookAtRH(position, position + dir, { 0, 1, 0 });
@@ -172,14 +170,57 @@ const Camera& Viewport::getCamera() const { return camera; }
 
 
 
+float haltonSequence(uint32_t i, uint32_t b) {
+    float f = 1.0f;
+    float r = 0.0f;
+
+    while (i > 0) {
+        f /= float(b);
+        r = r + f * float(i % b);
+        i = uint32_t(floorf(float(i) / float(b)));
+    }
+
+    return r;
+}
+
+
+
+void Viewport::update() {
+    camera.update();
+
+    jitterIndex = jitterIndex + 1;
+
+    const auto halton = glm::vec2(
+        2.0f * haltonSequence(jitterIndex + 1, 2) - 1.0f,
+        2.0f * haltonSequence(jitterIndex + 1, 3) - 1.0f
+    );
+
+    jitter = halton / glm::vec2(size);
+
+}
+
+
+
+glm::mat4 Viewport::getJitteredProjMatrix() const {
+    auto mat = camera.getProjection();
+    mat[2][0] = jitter[0];
+    mat[2][1] = jitter[1];
+    return mat;
+}
+
+
+
 void Viewport::resize(glm::vec2 newSize) {
     size = { newSize.x, newSize.y };
+    
     camera.getProjection() = glm::perspectiveRH(
         glm::radians(camera.getFOV()), 
         float(size.x) / float(size.y), 
         camera.getNear(), 
         camera.getFar()
     );
+
+    jitterIndex = 0;
 }
 
 }

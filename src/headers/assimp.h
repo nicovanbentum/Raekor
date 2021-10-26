@@ -28,8 +28,8 @@ private:
 
 private:
 	Scene& scene;
+	fs::path directory;
 	const aiScene* assimpScene;
-	std::filesystem::path directory;
 	std::vector<entt::entity> materials;
 };
 

@@ -114,6 +114,7 @@ void glShader::compile() {
     glLinkProgram(newProgramID);
 
     int shaderCompilationResult = 0, logMessageLength = 0;
+
     glGetProgramiv(newProgramID, GL_LINK_STATUS, &shaderCompilationResult);
 
     if (shaderCompilationResult == GL_FALSE) {
@@ -143,12 +144,11 @@ void glShader::compile() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool glShader::glslangValidator(const char* vulkanSDK, const fs::directory_entry& file) {
-    if (!file.is_regular_file()) return false;
+bool glShader::glslangValidator(const char* vulkanSDK, const fs::path& file, const fs::path& outfile) {
+    if (!fs::is_regular_file(file)) return false;
 
-    const auto outfile = fs::absolute(file.path().parent_path()) / "bin" / file.path().filename();
     const auto compiler = vulkanSDK + std::string("\\Bin\\glslangValidator.exe -G ");
-    const auto command = compiler + fs::absolute(file.path()).string() + " -o " + std::string(outfile.string() + ".spv");
+    const auto command = compiler + fs::absolute(file).string() + " -o " + std::string(outfile.string());
 
     if (system(command.c_str()) != 0) {
         return false;
@@ -165,7 +165,7 @@ void glShader::bind() {
             const auto sdk = getenv("VULKAN_SDK");
             assert(sdk);
 
-            glslangValidator(sdk, fs::directory_entry(stage.textfile));
+            glslangValidator(sdk, stage.textfile, stage.binfile);
 
             compile();
         }

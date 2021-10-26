@@ -303,8 +303,6 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
     glEnable(GL_CULL_FACE);
 }
 
-
-
 void ShadowMap::renderCascade(const Viewport& viewport, GLuint framebuffer) {
     glViewport(0, 0, viewport.size.x, viewport.size.y);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -314,8 +312,6 @@ void ShadowMap::renderCascade(const Viewport& viewport, GLuint framebuffer) {
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
-
-
 
 GBuffer::GBuffer(const Viewport& viewport) {
     shader.compile({
@@ -333,28 +329,42 @@ GBuffer::GBuffer(const Viewport& viewport) {
     createRenderTargets(viewport);
 }
 
-
-
 GBuffer::~GBuffer() {
     glDeleteBuffers(1, &uniformBuffer);
     destroyRenderTargets();
 }
 
-
-
-void GBuffer::render(const Scene& scene, const Viewport& viewport) {
+void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t frameNr) {
     glViewport(0, 0, viewport.size.x, viewport.size.y);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     entt::entity null = entt::null;
-    std::array clearColor = { float(entt::to_integral(null)), 0.0f, 0.0f, 1.0f };
+    
+    std::array clearColor = { 
+        float(entt::to_integral(null)),
+        0.0f, 0.0f, 1.0f 
+    };
+    
     glClearBufferfv(GL_COLOR, 3, clearColor.data());
 
-    shader.bind();
-    uniforms.projection = viewport.getCamera().getProjection();
+    if (frameNr == 0) {
+        uniforms.prevJitter = viewport.getJitter();
+    } else {
+        uniforms.prevJitter = uniforms.jitter;
+    }
+
+    uniforms.jitter = viewport.getJitter();
+
+    if (frameNr == 0) {
+        uniforms.prevViewProj = viewport.getJitteredProjMatrix() * viewport.getCamera().getView();
+    } else {
+        uniforms.prevViewProj = uniforms.projection * uniforms.view;
+    }
+
     uniforms.view = viewport.getCamera().getView();
+    uniforms.projection = viewport.getJitteredProjMatrix();
 
     Math::Frustrum frustrum;
     frustrum.update(viewport.getCamera().getProjection() * viewport.getCamera().getView(), false);
@@ -365,7 +375,7 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport) {
 
     const auto materials = scene.view<const Material>();
 
-    std::vector<uint64_t> handles;
+    shader.bind();
 
     for (const auto& [entity, mesh, transform] : view.each()) {
         // convert AABB from local to world space
@@ -481,6 +491,11 @@ void GBuffer::createRenderTargets(const Viewport& viewport) {
     glTextureParameteri(entityTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(entityTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+    glCreateTextures(GL_TEXTURE_2D, 1, &velocityTexture);
+    glTextureStorage2D(velocityTexture, 1, GL_RG16F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(velocityTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(velocityTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
     glCreateTextures(GL_TEXTURE_2D, 1, &depthTexture);
     glTextureStorage2D(depthTexture, 1, GL_DEPTH_COMPONENT32F, viewport.size.x, viewport.size.y);
     glTextureParameteri(depthTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -491,15 +506,22 @@ void GBuffer::createRenderTargets(const Viewport& viewport) {
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT1, albedoTexture, 0);
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT2, materialTexture, 0);
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT3, entityTexture, 0);
+    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT4, velocityTexture, 0);
 
-    std::array<GLenum, 4> colorAttachments = {
+    std::array colorAttachments = {
         GL_COLOR_ATTACHMENT0,
         GL_COLOR_ATTACHMENT1,
         GL_COLOR_ATTACHMENT2,
         GL_COLOR_ATTACHMENT3,
+        GL_COLOR_ATTACHMENT4,
     };
 
-    glNamedFramebufferDrawBuffers(framebuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
+    glNamedFramebufferDrawBuffers(
+        framebuffer,
+        (GLsizei) colorAttachments.size(),
+        (GLenum*) colorAttachments.data()
+    );
+
     glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, depthTexture, 0);
 }
 
@@ -511,10 +533,11 @@ void GBuffer::destroyRenderTargets() {
         normalTexture,
         materialTexture,
         depthTexture,
-        entityTexture
+        entityTexture,
+        velocityTexture
     };
 
-    glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
+    glDeleteTextures(GLsizei(textures.size()), textures.data());
     glDeleteFramebuffers(1, &framebuffer);
 }
 
@@ -578,7 +601,7 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
     timer.Begin();
 
     uniforms.view = viewport.getCamera().getView();
-    uniforms.projection = viewport.getCamera().getProjection();
+    uniforms.projection = viewport.getJitteredProjMatrix();
 
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
     // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -1, 0)
@@ -658,8 +681,8 @@ void DeferredShading::createRenderTargets(const Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &bloomHighlights);
     glTextureStorage2D(bloomHighlights, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
@@ -1558,6 +1581,68 @@ void Atmosphere::render(const Viewport& viewport, const Scene& scene, GLuint out
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+
+
+TAAResolve::TAAResolve(const Viewport& viewport) {
+    shader.compile({ { Shader::Type::COMPUTE, "shaders\\OpenGL\\taaResolve.comp" } });
+
+    createRenderTargets(viewport);
+}
+
+GLuint TAAResolve::render(const Viewport& viewport, const GBuffer& gbuffer, const DeferredShading& shading, uint32_t frameNr) {
+    shader.bind();
+
+    // on first frame it should bind the hdr shading result as history texture
+    if (frameNr == 0) {
+        glBindTextureUnit(0, shading.result);
+        glBindImageTexture(5, shading.result, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
+
+    }
+    else {
+        glBindTextureUnit(0, historyBuffer);
+        glBindImageTexture(5, historyBuffer, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
+    }
+
+    glBindImageTexture(1, resultBuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+    glBindTextureUnit(2, gbuffer.depthTexture);
+    glBindImageTexture(3, gbuffer.velocityTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG16F);
+    glBindImageTexture(4, shading.result, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
+
+    auto dispatch = [](uint32_t size) -> GLuint {
+        return GLuint(std::ceil(size / 8.0f));
+    };
+
+    glDispatchCompute(dispatch(viewport.size.x), dispatch(viewport.size.y), 1);
+
+    // swap the textures and return the one that contains this frame's result
+    std::swap(resultBuffer, historyBuffer);
+    return historyBuffer;
+}
+
+void TAAResolve::createRenderTargets(const Viewport& viewport) {
+    glCreateTextures(GL_TEXTURE_2D, 1, &resultBuffer);
+    glTextureStorage2D(resultBuffer, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(resultBuffer, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(resultBuffer, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(resultBuffer, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(resultBuffer, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(resultBuffer, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &historyBuffer);
+    glTextureStorage2D(historyBuffer, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
+    glTextureParameteri(historyBuffer, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(historyBuffer, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(historyBuffer, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(historyBuffer, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(historyBuffer, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+}
+
+void TAAResolve::destroyRenderTargets() {
+    GLuint textures[] = { resultBuffer, historyBuffer };
+    glDeleteTextures(2, textures);
 }
 
 } // namespace Raekor

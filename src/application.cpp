@@ -32,19 +32,21 @@ Application::Application(RendererFlags flag) {
 
     // if the config setting is higher than the nr of displays we pick the default display
     settings.display = settings.display > displays.size() - 1 ? 0 : settings.display;
+    const auto& rect = displays[settings.display];
+
+    const int width = int(rect.w * 0.9f);
+    const int height = int(rect.h * 0.9f);
     
     window = SDL_CreateWindow(
         settings.name.c_str(),
         SDL_WINDOWPOS_CENTERED_DISPLAY(settings.display),
         SDL_WINDOWPOS_CENTERED_DISPLAY(settings.display),
-        int(displays[settings.display].w * 0.9f),
-        int(displays[settings.display].h * 0.9f),
+        width, height,
         SDL_WINDOW_RESIZABLE | flag | SDL_WINDOW_ALLOW_HIGHDPI
     );
-
-    SDL_Rect rect;
-    SDL_GetDisplayBounds(SDL_GetWindowDisplayIndex(window), &rect);
-    viewport = Viewport(glm::vec2(rect.w, rect.h));
+    
+    SDL_SetWindowMinimumSize(window, width / 4, height / 4);
+    viewport = Viewport(glm::vec2(width, height));
 
     auto quit_function = [&]() {
         running = false;

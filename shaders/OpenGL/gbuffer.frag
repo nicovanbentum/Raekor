@@ -12,6 +12,7 @@ layout(location = 0) out vec4 gNormal;
 layout(location = 1) out vec4 gColor;
 layout(location = 2) out vec4 gMetallicRoughness;
 layout(location = 3) out vec4 gEntityID;
+layout(location = 4) out vec4 gVelocity;
 
 // constant mesh values
 layout(binding = 1) uniform sampler2D albedoTexture;
@@ -21,41 +22,22 @@ layout(binding = 3) uniform sampler2D metalroughTexture;
 layout(location = 0) in VS_OUT {
     vec2 uv;
     mat3 TBN;
+    vec4 prevPos;
+    vec4 currentPos;
 } vs_out;
 
 layout(binding = 0) uniform ubo {
-      mat4 projection;
-      mat4 view;
-      mat4 model;
-      vec4 colour;
-      float metallic;
-      float roughness;
-      uint entity;
+    mat4 prevViewProj;
+    mat4 projection;
+    mat4 view;
+    mat4 model;
+    vec4 colour;
+    vec2 jitter;
+    vec2 prevJitter;
+    float metallic;
+    float roughness;
+    uint entity;
 };
-
-// layout(binding = 0) uniform Instance {
-//     uint entityIndex;
-//     uint materialIndex;
-//     uint transformIndex;
-// } instance;
-
-// layout(std430, binding = 10) buffer Materials {
-//     Material materials[];
-// };
-
-// // layout(std430, binding = 9) buffer Textures {
-// //     sampler2D textures[];
-// // };
-
-
-// layout(std430, binding = 11) buffer Transforms {
-//     Transform transforms[];
-// };
-
-void doStuff() {
-    //Material material = materials[instance.materialIndex];
-    //vec4 albedo = texture(textures[material.albedo], uv);
-}
 
 void main() {
     vec4 color = texture(albedoTexture, vs_out.uv);
@@ -71,5 +53,11 @@ void main() {
 
     vec4 metalrough = texture(metalroughTexture, vs_out.uv);
     gMetallicRoughness = vec4(metalrough.r, metalrough.g * roughness, metalrough.b * metallic, 1.0);
+
+    vec3 prevPosNDC = (vs_out.prevPos.xyz / vs_out.prevPos.w);
+    vec3 currentPosNDC = (vs_out.currentPos.xyz / vs_out.currentPos.w);
+    
+    gVelocity = vec4(currentPosNDC.xy - prevPosNDC.xy, 0.0, 1.0);
+
     gEntityID = vec4(entity, 0, 0, 1.0);
 }

@@ -31,7 +31,7 @@ public:
     void compile(const std::initializer_list<Stage>& list);
     void compile();
 
-    static bool glslangValidator(const char* vulkanSDK, const fs::directory_entry& file);
+    static bool glslangValidator(const char* vulkanSDK, const fs::path& file, const fs::path& outfile);
 
     operator bool() { return programID != 0; };
 

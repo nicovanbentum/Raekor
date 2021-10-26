@@ -39,8 +39,10 @@ public:
     float getFar() const;
 
 private:
-    glm::vec3 position;
+    uint32_t jitterIndex = 0;
+    glm::vec2 jitter;
     glm::vec2 angle;
+    glm::vec3 position;
     glm::mat4 view;
     glm::mat4 projection;
 
@@ -60,6 +62,10 @@ public:
 
     Camera& getCamera();
     const Camera& getCamera() const;
+
+    void update();
+    glm::mat4 getJitteredProjMatrix() const;
+    const glm::vec2& getJitter() const { return jitter; }
     
     void setFov(float fov);
     void resize(glm::vec2 newSize);
@@ -71,8 +77,10 @@ private:
     Camera camera;
 
 public:
-    glm::uvec2 size;
-    glm::uvec2 offset;
+    uint32_t jitterIndex = 0;
+    glm::vec2 jitter = glm::vec2(0.0f);
+    glm::uvec2 size = glm::uvec2(0u);
+    glm::uvec2 offset = glm::uvec2(0u);
 };
 
 } // Namespace Raekor
