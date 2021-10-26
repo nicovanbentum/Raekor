@@ -52,6 +52,10 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     std::cout << "OpenGL version loaded: " << GLVersion.major << "."
               << GLVersion.minor << '\n';
 
+    if (!fs::exists("shaders/OpenGL/bin")) {
+        fs::create_directory("shaders/OpenGL/bin");
+    }
+
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
