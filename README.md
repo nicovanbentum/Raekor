@@ -12,18 +12,26 @@
 # Build
 
 ### Windows
-This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build and link the big binaries. Make sure it is installed correctly and integrated user wide.
+* This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build and link the big binaries. Make sure it is installed correctly and integrated user wide.
+    - ```git clone https://github.com/microsoft/vcpkg```
+    - ```.\vcpkg\bootstrap-vcpkg.bat```
+    - ```.\vcpkg\vcpkg integrate install```
 
-Next make sure you have the _**latest**_ Vulkan SDK installed, you can get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe). Both glslangValidator and DXC need to be callable from the command line.
 
-Python 3+ is required to run the bat file that sets up GLAD.
+* Make sure you have the _**latest**_ Vulkan SDK installed, you can get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe). Both glslangValidator and DXC need to be callable from the command line.
+    - last passing version was ```1.2.182.0```
 
-Clone this repository using
+* Python 3+ is required to setup GLAD.
+    - After installing Python run ```pip install glad```
+
+* Clone this repository using
  ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```  to also pull in all the submodules.
  
- Run the ```glad.bat``` file to generate OpenGL bindings.
+* Run the ```glad.bat``` file to generate OpenGL bindings.
 
-Build using the supplied Visual Studio solution (re-target to newest if necessary).
+* Build using the supplied Visual Studio solution (re-target to newest if necessary).
+
+>**_NOTE:_** Using ```raekor.exe -gl``` or ```raekor.exe -vk``` you can switch between the OpenGL editor and the Vulkan path tracer, hardcoded default for now is the Vulkan path tracer (working directory should be the root of the repo).
 
 ### Linux
 Used to work through the supplied makefile, but it's out of date. No Linux support for the forseeable future.
