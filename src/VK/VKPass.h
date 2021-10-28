@@ -20,7 +20,7 @@ public:
         glm::vec4 lightDir = glm::vec4(-0.1, -1, -0.2, 0.0);
         uint32_t frameCounter = 0;
         uint32_t bounces = 1;
-        float sunConeAngle = 1.0f;
+        float sunConeAngle = 0.2f;
     } pushConstants;
 
 public:

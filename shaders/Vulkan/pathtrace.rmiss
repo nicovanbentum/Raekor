@@ -29,6 +29,11 @@ void main() {
     vec3 transmittance;
     vec3 color = IntegrateScattering(rayStart, rayDir, rayLength, lightDir.xyz, vec3(1.0), transmittance);
 
+    if(payload.depth == 0) {
+        payload.L = color;
+    } else {
+        payload.L = vec3(0.01);
+    }
 
-    payload.L += color;
+    payload.depth = bounces + 1; // terminate
 }

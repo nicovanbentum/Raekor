@@ -75,11 +75,8 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
 
     std::vector<RTMaterial> materials(view.size());
 
-    auto raw = *view.raw();
-
-    for (int i = 0; i < view.size(); i++) {
-        auto& material = raw[i];
-
+    uint32_t i = 0;
+    for (const auto& [entity, material] : view.each()) {
         auto& buffer = materials[i];
         buffer.albedo = material.baseColour;
 
@@ -90,13 +87,15 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
         buffer.properties.x = material.metallic;
         buffer.properties.y = material.roughness;
         buffer.properties.z = 1.0f;
+        
+        i++;
     }
 
     const auto materialBufferSize = materials.size() * sizeof(materials[0]);
 
     materialBuffer = device.createBuffer(
         materialBufferSize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
@@ -142,9 +141,23 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
 
     auto materials = scene.view<Material>();
 
+    auto materialIndex = [&](entt::entity m) -> int32_t {
+        int32_t i = 0;
+
+        for (const auto& [entity, material] : materials.each()) {
+            if (entity == m) {
+                return i;
+            }
+
+            i++;
+        }
+
+        return 0;
+    };
+
     for (auto& [entity, mesh, transform, geometry] : meshes.each()) {
         Instance instance = {};
-        instance.materialIndex.x = int32_t(materials.raw_index(mesh.material));
+        instance.materialIndex.x = materialIndex(mesh.material);
         instance.localToWorldTransform = transform.worldTransform;
         instance.indexBufferAddress = device.getDeviceAddress(geometry.indices);
         instance.vertexBufferAddress = device.getDeviceAddress(geometry.vertices);

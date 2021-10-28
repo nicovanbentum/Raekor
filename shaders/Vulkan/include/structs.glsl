@@ -26,8 +26,10 @@ struct Instance {
 struct RayPayload {
     vec3 L;
     vec3 beta;
-    uint depth;
+    vec3 rayPos;
+    vec3 rayDir;
     uint rng;
+    uint depth;
 };
 
 struct Surface {

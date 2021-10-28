@@ -21,6 +21,10 @@ int main(int argc, char** argv) {
         PATHTRACE = true;
         app = new Raekor::VK::PathTracer();
     }
+    else {
+        PATHTRACE = true;
+        app =  new Raekor::VK::PathTracer();
+    }
 
     app->run();
 

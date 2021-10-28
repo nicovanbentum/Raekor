@@ -31,60 +31,49 @@ vec3 aces(vec3 x) {
 
 void main() {
     ivec2 pixelCoord = ivec2(gl_LaunchIDEXT.xy);
-    vec2 id = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+    vec2 gid = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 
-    payload.depth = 0;
     payload.rng = ((pixelCoord.y << 16) | pixelCoord.x) * (uint(0xffffffff) / (frameCounter + 1));
-    payload.L = vec3(0.0);
-    payload.beta = vec3(1.0);
+    
+    vec2 offsetGid = gid + pcg_vec3(payload.rng).xy;
 
-    vec3 result = vec3(
-        pcg_float(payload.rng),
-        pcg_float(payload.rng),
-        pcg_float(payload.rng)
-    );
-
-    id += result.xy;
-
-    vec2 uv = id / vec2(gl_LaunchSizeEXT.xy);
+    vec2 uv = offsetGid / vec2(gl_LaunchSizeEXT.xy);
     uv.y = 1.0 - uv.y;
     const vec2 clip = uv * 2.0 - 1.0;
     
     vec4 target = normalize(invViewProj * vec4(clip.x, clip.y, 0.0, 1.0));
     target /= target.w;
 
-    vec3 origin = cameraPosition.xyz;
-
-    vec3 direction = normalize(target.xyz - origin);
+    payload.L = vec3(0.0);
+    payload.beta = vec3(1.0);
+    payload.rayPos = cameraPosition.xyz;
+    payload.rayDir = normalize(target.xyz - payload.rayPos);
+    payload.depth = 0;
 
     uint rayFlags = gl_RayFlagsOpaqueEXT;
-    float tMin = 0.01;
-    float tMax = 1000.0;
+    float tMin = 0.001;
+    float tMax = 10000.0;
 
-    traceRayEXT(TLAS,
-        rayFlags, 
-        0xFF, 
-        0, 
-        0, 
-        0,
-        origin, 
-        tMin, 
-        direction, 
-        tMax, 
-        0 // payload location identifier
-    );
+    vec3 L = vec3(0.0);
+    vec3 beta = vec3(1.0);
 
-    if (frameCounter == 0) {
-        imageStore(accumTexture, pixelCoord, vec4(vec3(0.0), 1.0));
-        
-        vec3 color = aces(payload.L);
-        vec3 retColor = pow(color, vec3(1/2.2));
+    for(; payload.depth < bounces; payload.depth++) {
+        traceRayEXT(
+            TLAS, 
+            rayFlags, 0xFF,
+            0, 0, 0, 
+            payload.rayPos, tMin,
+            payload.rayDir, tMax,
+            0 // payload location 
+        );
 
-        imageStore(outTexture, pixelCoord, vec4(retColor, 1.0));
-    } 
-    else if (frameCounter < uint(0xffffffff)) { 
+        L += payload.L;
+        beta *= payload.beta;
+    }
+
+    if(frameCounter > 0) {
         vec4 stored = imageLoad(accumTexture, pixelCoord);
-        vec4 accumulated = stored + vec4(payload.L, 1.0);
+        vec4 accumulated = stored + vec4(L, 1.0);
 
         imageStore(accumTexture, pixelCoord, accumulated);
 
@@ -92,7 +81,13 @@ void main() {
         vec3 retColor = pow(color, vec3(1/2.2));
 
         imageStore(outTexture, pixelCoord, vec4(retColor, 1.0));
+    } 
+    else {
+        imageStore(accumTexture, pixelCoord, vec4(0.0));
+        
+        vec3 color = aces(L);
+        vec3 retColor = pow(color, vec3(1/2.2));
+
+        imageStore(outTexture, pixelCoord, vec4(retColor, 1.0));
     }
-
-
 }

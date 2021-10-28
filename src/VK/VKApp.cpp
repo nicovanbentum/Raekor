@@ -2,6 +2,7 @@
 #include "VKApp.h"
 
 #include "gui.h"
+#include "input.h"
 
 namespace Raekor::VK {
 
@@ -21,6 +22,8 @@ namespace Raekor::VK {
         SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
         scene.openFromFile(assets, settings.defaultScene);
     }
+
+    assert(!scene.empty());
 
     auto meshes = scene.view<Mesh>();
     for (auto& [entity, mesh] : meshes.each()) {
@@ -45,13 +48,12 @@ namespace Raekor::VK {
 
 
 void PathTracer::onUpdate(float dt) {
-    SDL_Event ev;
-    while (SDL_PollEvent(&ev)) {
-        onEvent(ev);
-        ImGui_ImplSDL2_ProcessEvent(&ev);
+    if (Input::isButtonPressed(3)) {
+        viewport.getCamera().strafeWASD(dt);
+        renderer.resetAccumulation();
     }
 
-    viewport.getCamera().update();
+    viewport.update();
 
     auto lightView = scene.view<DirectionalLight, Transform>();
     auto lookDirection = glm::vec3(0.25f, -0.9f, 0.0f);
@@ -86,14 +88,16 @@ void PathTracer::onUpdate(float dt) {
 
     bool open = true;
     ImGui::Begin("Path Trace Settings", &open, ImGuiWindowFlags_AlwaysAutoResize);
+    
     reset |= ImGui::SliderInt("Bounces", reinterpret_cast<int*>(&renderer.constants().bounces), 1, 8);
     reset |= ImGui::DragFloat("Sun Cone", &renderer.constants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
+    
     ImGui::End();
 
     ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
     ImGuizmo::SetRect(0, 0, float(viewport.size.x), float(viewport.size.y));
 
-    /*if (lightView.begin() != lightView.end()) {
+    if (lightView.begin() != lightView.end()) {
         auto& lightTransform = lightView.get<Transform>(lightView.front());
 
         bool manipulated = ImGuizmo::Manipulate(
@@ -108,7 +112,7 @@ void PathTracer::onUpdate(float dt) {
         }
 
         reset |= manipulated;
-    }*/
+    }
 
     GUI::endFrame();
 
@@ -122,6 +126,8 @@ void PathTracer::onUpdate(float dt) {
 
 
 void PathTracer::onEvent(const SDL_Event& ev) {
+    ImGui_ImplSDL2_ProcessEvent(&ev);
+
     if (viewport.getCamera().onEventEditor(ev)) {
         renderer.resetAccumulation();
     }

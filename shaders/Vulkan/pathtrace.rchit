@@ -41,9 +41,8 @@ layout(buffer_reference, scalar) buffer IndexBuffer {
     ivec3 data[];
 };
 
-layout(location = 0) rayPayloadInEXT RayPayload payloadIn;
+layout(location = 0) rayPayloadInEXT RayPayload rpd;
 layout(location = 1) rayPayloadEXT bool canReachLight;
-layout(location = 2) rayPayloadEXT RayPayload payloadOut;
 
 layout(set = 1, binding = 0) uniform sampler2D textures[];
 
@@ -76,7 +75,7 @@ Surface getSurface(Instance instance, Vertex vertex) {
     surface.albedo = material.albedo;
     surface.metallic = material.properties.x;
     surface.roughness = material.properties.y;
-    surface.pos = vec3(instance.localToWorldTransform * vec4(vertex.pos, 1.0));
+    surface.pos = vec3(gl_ObjectToWorldEXT * vec4(vertex.pos, 1.0));
 
     int albedoIndex = material.textures.x;
     int normalIndex = material.textures.y;
@@ -137,20 +136,20 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
 }
 
-vec3 evaluateLight(Surface surface, vec3 lightDirection, vec3 lightColor, inout vec3 K) {
+vec3 evaluateLight(Surface surface, vec3 lightDirection, vec3 lightColor) {
     vec3 V = normalize(-gl_WorldRayDirectionEXT);
 
-    vec3 Li = normalize(-lightDirection.xyz);
-    vec3 Lh = normalize(V + Li);
+    vec3 Wi = normalize(-lightDirection.xyz);
+    vec3 Wh = normalize(V + Wi);
 
     vec3 F0 = mix(vec3(0.04), surface.albedo.rgb, surface.metallic);
 
-    float NDF = DistributionGGX(surface.normal, Lh, surface.roughness);   
-    float G   = GeometrySmith(surface.normal, V, Li, surface.roughness);    
-    vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);
+    float NDF = DistributionGGX(surface.normal, Wh, surface.roughness);   
+    float G   = GeometrySmith(surface.normal, V, Wi, surface.roughness);    
+    vec3 F    = fresnelSchlick(max(dot(Wh, V), 0.0), F0);
 
     vec3 nominator    = NDF * G * F;
-    float denominator = 4 * max(dot(surface.normal, V), 0.0) * max(dot(surface.normal, Li), 0.0) + 0.001;
+    float denominator = 4 * max(dot(surface.normal, V), 0.0) * max(dot(surface.normal, Wi), 0.0) + 0.001;
     vec3 specular = nominator / denominator;
 
     vec3 kS = F;
@@ -159,22 +158,11 @@ vec3 evaluateLight(Surface surface, vec3 lightDirection, vec3 lightColor, inout 
 
     kD *= 1.0 - surface.metallic;
 
-    float NdotL = max(dot(surface.normal, Li), 0.0);
+    float NdotL = max(dot(surface.normal, Wi), 0.0);
 
     vec3 radiance = lightColor * NdotL;
 
-    return (kD *  surface.albedo.rgb / M_PI + specular) * radiance;
-}
-
-vec3 importanceSample(float u, float v) {
-	float phi = v * 2 * M_PI;
-	float cosTheta = sqrt(1 - u);
-	float sinTheta = sqrt(1 - cosTheta * cosTheta);
-	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
-}
-
-float getPdf(vec3 wo, vec3 wi) {
-    return max(0.0, dot(wo, wi)) * (1.0 / M_PI);
+    return (surface.albedo.rgb / M_PI) * radiance;
 }
 
 void main() {
@@ -194,43 +182,28 @@ void main() {
 
     Surface surface = getSurface(instance, vertex);
 
-    vec2 rng = vec2(pcg_float(payloadIn.rng), pcg_float(payloadIn.rng));
+    vec2 rng = vec2(pcg_float(rpd.rng), pcg_float(rpd.rng));
     vec2 diskPoint = uniformSampleDisk(rng.xy, sunConeAngle);
     vec3 offsetLightDir = lightDir.xyz + vec3(diskPoint.x, 0.0, diskPoint.y);
     
     canReachLight = false; 
 
-    float tMin = 0.01;
-    float tMax = 1000.0;
+    float tMin = 0.001;
+    float tMax = 10000.0;
     uint rayFlags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
     traceRayEXT(TLAS, rayFlags, 0xFF, 0, 0, 1, surface.pos, tMin, -offsetLightDir, tMax, 1);
 
-    vec3 directLight = evaluateLight(surface, offsetLightDir, vec3(1.0), payloadIn.beta);
+    vec3 brdf = evaluateLight(surface, offsetLightDir, vec3(1.0));
 
-    if(canReachLight) {
-        payloadIn.L += payloadIn.beta * directLight;
-    }
+    const float p = 1 / M_PI;
+    
+    float NdotL = max(dot(surface.normal, -gl_WorldRayDirectionEXT), 0.0);
 
-    vec3 Wo = -gl_WorldRayDirectionEXT;
-    vec3 perfectWi = normalize(reflect(gl_WorldRayDirectionEXT, surface.normal));
+    vec3 v = uniformSampleSphere(pcg_vec2(rpd.rng));
+    vec3 reflected = v * sign(dot(v, surface.normal));
 
-    //payloadIn.beta *= directLight * abs(dot(Wo, surface.normal)) / getPdf(Wo, perfectWi);
-
-    if((payloadIn.depth + 1) < maxBounces) {
-        vec3 reflected = normalize(reflect(gl_WorldRayDirectionEXT, surface.normal));
-        //reflected.xyz += pcg_vec3(payloadIn.rng) * surface.roughness;
-
-        vec3 Wi;
-
-        payloadOut.L = vec3(0.0);
-        payloadOut.depth = payloadIn.depth + 1;
-        payloadOut.rng = payloadIn.rng;
-        payloadOut.beta = payloadIn.beta;
-
-        traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, surface.pos, tMin, reflected, tMax, 2);
-
-        payloadIn.L += payloadOut.L;
-    }
-
-
+    rpd.L = brdf * uint(canReachLight);
+    rpd.beta = brdf * NdotL / 1.0;
+    rpd.rayPos = surface.pos;
+    rpd.rayDir = reflected;
 }
