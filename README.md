@@ -27,7 +27,7 @@
 * Clone this repository using
  ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```  to also pull in all the submodules.
  
-* Run the ```glad.bat``` file to generate OpenGL bindings.
+* Run the ```glad.bat``` file in the dependencies folder to generate OpenGL bindings.
 
 * Build using the supplied Visual Studio solution (re-target to newest if necessary).
 
