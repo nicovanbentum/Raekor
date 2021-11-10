@@ -8,10 +8,12 @@ namespace Raekor {
 
 AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, "Asset Browser") {}
 
-void AssetsWidget::draw() {
+void AssetsWidget::draw(float dt) {
     ImGui::Begin(title.c_str());
 
     auto materialView = IWidget::scene().view<Material, Name>();
+
+    auto& style = ImGui::GetStyle();
 
     if (ImGui::BeginTable("Assets", 24)) {
         for (auto entity : materialView) {
@@ -23,10 +25,29 @@ void AssetsWidget::draw() {
             if (editor->active == entity) {
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.2f)));
             }
+            
+            bool clicked = false;
+
+            if (material.albedo) {
+                clicked = ImGui::ImageButton(
+                    (void*)((intptr_t)material.albedo),
+                    ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()), 
+                    ImVec2(0, 0), ImVec2(1, 1), -1, 
+                    ImVec4(0, 1, 0, 1)
+                );
+            }
+            else {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec(material.baseColour));
+                clicked = ImGui::Button(
+                    std::string("##" + name.name).c_str(), 
+                    ImVec2(64 * ImGui::GetWindowDpiScale() + style.FramePadding.x * 2, 64 * ImGui::GetWindowDpiScale() + style.FramePadding.y * 2)
+                );
+                ImGui::PopStyleColor();
+            }
 
             ImGui::PushID(entt::to_integral(entity));
-            if (ImGui::ImageButton((void*)((intptr_t)material.albedo),
-                ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()), ImVec2(0, 0), ImVec2(1, 1), -1, ImVec4(0, 1, 0, 1))) {
+
+            if (clicked) {
                 editor->active = entity;
             }
 

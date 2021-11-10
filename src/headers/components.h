@@ -1,6 +1,5 @@
 #pragma once
 
-#include "buffer.h"
 #include "anim.h"
 #include "script.h"
 #include "assets.h"
@@ -25,8 +24,9 @@ struct Transform {
     glm::mat4 localTransform  = glm::mat4(1.0f);
     glm::mat4 worldTransform  = glm::mat4(1.0f);
 
-    void compose();
-    void decompose();
+    SCRIPT_INTERFACE void compose();
+    SCRIPT_INTERFACE void decompose();
+    SCRIPT_INTERFACE void print();
 };
 
 
@@ -62,8 +62,8 @@ struct Mesh {
 
     std::vector<uint32_t> indices;
 
-    glVertexBuffer vertexBuffer;
-    glIndexBuffer indexBuffer;
+    uint32_t vertexBuffer;
+    uint32_t indexBuffer;
 
     std::array<glm::vec3, 2> aabb;
 
@@ -72,10 +72,7 @@ struct Mesh {
     void generateTangents();
     void generateNormals();
     void generateAABB();
-    void uploadIndices();
-    void uploadVertices();
     std::vector<float> getInterleavedVertices();
-    void destroy();
 };
 
 
@@ -116,10 +113,10 @@ struct Skeleton {
 
     void destroy();
 
-    unsigned int boneIndexBuffer;
-    unsigned int boneWeightBuffer;
-    unsigned int boneTransformsBuffer;
-    glVertexBuffer skinnedVertexBuffer;
+    uint32_t boneIndexBuffer;
+    uint32_t boneWeightBuffer;
+    uint32_t boneTransformsBuffer;
+    uint32_t skinnedVertexBuffer;
 };
 
 
@@ -127,18 +124,12 @@ struct Skeleton {
 struct Material {
     glm::vec4 baseColour = { 1.0f, 1.0f, 1.0f, 1.0f };
     float metallic = 0.0f, roughness = 1.0f;
-    std::string albedoFile, normalFile, mrFile;
+    std::string albedoFile, normalFile, metalroughFile;
 
     // GPU resources
     unsigned int albedo = 0;
     unsigned int normals = 0;
     unsigned int metalrough = 0;
-
-    void createAlbedoTexture(std::shared_ptr<TextureAsset> texture);
-    void createNormalTexture(std::shared_ptr<TextureAsset> texture);
-    void createMetalRoughTexture(std::shared_ptr<TextureAsset> texture);
-
-    void destroy();
 
     static Material Default;
 };

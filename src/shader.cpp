@@ -9,41 +9,24 @@
 
 namespace Raekor {
 
-Shader* Shader::construct(Stage* stages, size_t stageCount) {
-    switch (Renderer::getActiveAPI()) {
-        case RenderAPI::OPENGL: {
-            return nullptr;
-
-        } break;
-#ifdef _WIN32
-        case RenderAPI::DIRECTX11: {
-            LOG_CATCH(return new DXShader(stages, stageCount));
-        } break;
-#endif
-    }
-    return nullptr;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 glShader::glShader(const std::initializer_list<Stage>& list) 
     : stages(list) 
 {}
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 glShader::~glShader() { 
     glDeleteProgram(programID); 
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void glShader::compile(const std::initializer_list<Stage>& list) {
     stages = list;
     compile();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void glShader::compile() {
     auto newProgramID = glCreateProgram();
@@ -142,7 +125,7 @@ void glShader::compile() {
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 bool glShader::glslangValidator(const char* vulkanSDK, const fs::path& file, const fs::path& outfile) {
     if (!fs::is_regular_file(file)) return false;
@@ -157,7 +140,7 @@ bool glShader::glslangValidator(const char* vulkanSDK, const fs::path& file, con
     return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void glShader::bind() { 
     for (auto& stage : stages) {
@@ -174,13 +157,13 @@ void glShader::bind() {
     glUseProgram(programID); 
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void glShader::unbind() { 
     glUseProgram(0); 
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 Shader::Stage::Stage(Type type, const fs::path& textfile) : 
     type(type), 

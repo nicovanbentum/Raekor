@@ -7,13 +7,13 @@
 
 namespace Raekor {
 
-class DXResourceBuffer : public ResourceBuffer {
+class DXResourceBuffer {
 public:
     ~DXResourceBuffer();
     DXResourceBuffer(size_t size);
 
-    void update(void* data, const size_t size) const override;
-    void bind(uint8_t slot) const override;
+    void update(void* data, const size_t size) const;
+    void bind(uint8_t slot) const;
 
 private:
     void* mappedData;

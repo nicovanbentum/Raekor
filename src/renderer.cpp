@@ -36,8 +36,6 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-
-
     context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, context);
     SDL_GL_SetSwapInterval(settings.vsync);
@@ -69,7 +67,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
             continue;
         }
 
-        //Async::dispatch([=]() {
+        Async::dispatch([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
@@ -80,7 +78,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
                     std::cout << "failed to compile vulkan shader: " << file.path().string() << '\n';
                 }
             }
-        //});
+        });
     }
 
     Async::wait();
@@ -254,10 +252,14 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     frameNr = frameNr + 1;
 }
 
+
+
 void GLRenderer::addDebugLine(glm::vec3 p1, glm::vec3 p2) {
     debugLines->points.push_back(p1);
     debugLines->points.push_back(p2);
 }
+
+
 
 void GLRenderer::addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
     addDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
@@ -272,6 +274,82 @@ void GLRenderer::addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
     addDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
     addDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
     addDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
+}
+
+
+
+void GLRenderer::uploadMeshBuffers(Mesh& mesh) {
+    auto vertices = mesh.getInterleavedVertices();
+
+    if (!PATHTRACE) {
+        glCreateBuffers(1, &mesh.vertexBuffer);
+        glNamedBufferData(mesh.vertexBuffer, sizeof(float) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
+    }
+
+    if (!PATHTRACE) {
+        glCreateBuffers(1, &mesh.indexBuffer);
+        glNamedBufferData(mesh.indexBuffer, sizeof(uint32_t) * mesh.indices.size(), mesh.indices.data(), GL_STATIC_DRAW);
+    }
+}
+
+
+
+void GLRenderer::destroyMeshBuffers(Mesh& mesh) {
+    glDeleteBuffers(1, &mesh.vertexBuffer);
+    glDeleteBuffers(1, &mesh.indexBuffer);
+    mesh.vertexBuffer = 0, mesh.indexBuffer = 0;
+}
+
+
+
+void GLRenderer::destroyMaterialTextures(Material& material, Assets& assets) {
+    glDeleteTextures(1, &material.albedo);
+    glDeleteTextures(1, &material.normals);
+    glDeleteTextures(1, &material.metalrough);
+    material.albedo = 0, material.normals = 0, material.metalrough = 0;
+}
+
+
+
+void GLRenderer::uploadMaterialTextures(Material& material, Assets& assets) {
+    if (auto asset = assets.get<TextureAsset>(material.albedoFile); asset) {
+        material.albedo = GLRenderer::uploadTextureFromAsset(asset, true);
+    }
+
+    if (auto asset = assets.get<TextureAsset>(material.normalFile); asset) {
+        material.normals = GLRenderer::uploadTextureFromAsset(asset);
+    }
+
+    if (auto asset = assets.get<TextureAsset>(material.metalroughFile); asset) {
+        material.metalrough = GLRenderer::uploadTextureFromAsset(asset);
+    }
+}
+
+
+
+GLuint GLRenderer::uploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB) {
+    assert(asset);
+
+    GLuint texture = 0;
+    auto headerPtr = asset->header();
+    auto dataPtr = asset->getData();
+
+    auto format = sRGB ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+    glTextureStorage2D(texture, headerPtr->dwMipMapCount, format, headerPtr->dwWidth, headerPtr->dwHeight);
+
+    for (unsigned int mip = 0; mip < headerPtr->dwMipMapCount; mip++) {
+        glm::ivec2 dimensions = { std::max(headerPtr->dwWidth >> mip, 1ul), std::max(headerPtr->dwHeight >> mip, 1ul) };
+        size_t dataSize = std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16;
+        glCompressedTextureSubImage2D(texture, mip, 0, 0, dimensions.x, dimensions.y, format, (GLsizei)dataSize, dataPtr);
+        dataPtr += dimensions.x * dimensions.y;
+    }
+
+    glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    return texture;
 }
 
 
@@ -304,63 +382,6 @@ void GLRenderer::createRenderTargets(const Viewport& viewport) {
     taaResolve->createRenderTargets(viewport);
 
     shadowMaps->updatePerspectiveConstants(viewport);
-}
-
-
-
-void Renderer::Init(SDL_Window* window) {
-    switch (activeAPI) {
-        case RenderAPI::OPENGL: {
-            instance = nullptr;
-        } break;
-#ifdef _WIN32
-        case RenderAPI::DIRECTX11: {
-            instance = new DXRenderer(window);
-        } break;
-#endif
-    }
-}
-
-
-
-void Renderer::Clear(glm::vec4 color) {
-    instance->impl_Clear(color);
-}
-
-
-
-void Renderer::ImGuiRender() {
-    instance->impl_ImGui_Render();
-}
-
-
-
-void Renderer::ImGuiNewFrame(SDL_Window* window) {
-    instance->impl_ImGui_NewFrame(window);
-}
-
-
-
-void Renderer::DrawIndexed(unsigned int size) {
-    instance->impl_DrawIndexed(size);
-}
-
-
-
-void Renderer::SwapBuffers(bool vsync) {
-    instance->impl_SwapBuffers(vsync);
-}
-
-
-
-RenderAPI Renderer::getActiveAPI() {
-    return activeAPI;
-}
-
-
-
-void Renderer::setAPI(const RenderAPI api) {
-    activeAPI = api;
 }
 
 } // namespace Raekor

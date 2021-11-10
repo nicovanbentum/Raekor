@@ -4,22 +4,7 @@
 
 namespace Raekor {
 
-FrameBuffer* FrameBuffer::construct(FrameBuffer::ConstructInfo* info) {
-    auto activeAPI = Renderer::getActiveAPI();
-    switch (activeAPI) {
-    case RenderAPI::OPENGL: {
-        return nullptr;
-    } break;
-#ifdef _WIN32
-    case RenderAPI::DIRECTX11: {
-        return new DXFrameBuffer(info);
-    } break;
-#endif
-    }
-    return nullptr;
-}
-
-DXFrameBuffer::DXFrameBuffer(FrameBuffer::ConstructInfo* info) {
+DXFrameBuffer::DXFrameBuffer(DXFrameBuffer::ConstructInfo* info) {
     this->size = info->size;
 
     D3D11_TEXTURE2D_DESC texture_desc = { 0 };

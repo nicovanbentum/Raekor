@@ -1,13 +1,14 @@
 #include "pch.h"
 #include "DXBuffer.h"
 #include "DXRenderer.h"
+#include "primitives.h"
 
 namespace Raekor {
 
 // TODO: Add support for most HLSL types
 std::string to_string(ShaderType type) {
     switch (type) {
-    case ShaderType::FLOAT1: return "float";
+    case ShaderType::FLOAT: return "float";
     case ShaderType::FLOAT2: return "float2";
     case ShaderType::FLOAT3: return "float3";
     case ShaderType::FLOAT4: return "float4";
@@ -16,7 +17,7 @@ std::string to_string(ShaderType type) {
 }
 
 // Filthy hack because I don't feel like implementing an entire pipeline using PSO's right now
-ID3D10Blob* fake_shader_bytecode(const InputLayout& layout) {
+ID3D10Blob* fake_shader_bytecode(const glVertexLayout& layout) {
     // open a filestream to a hardcoded named hlsl file 
     // We generate a struct in the shader based on the input layout
     {
@@ -51,7 +52,7 @@ ID3D10Blob* fake_shader_bytecode(const InputLayout& layout) {
 // TODO: Add support for most HLSL types
 DXGI_FORMAT get_format(ShaderType type) {
     switch (type) {
-    case ShaderType::FLOAT1: return DXGI_FORMAT::DXGI_FORMAT_R32_FLOAT;
+    case ShaderType::FLOAT: return DXGI_FORMAT::DXGI_FORMAT_R32_FLOAT;
     case ShaderType::FLOAT2: return DXGI_FORMAT::DXGI_FORMAT_R32G32_FLOAT;
     case ShaderType::FLOAT3: return DXGI_FORMAT::DXGI_FORMAT_R32G32B32_FLOAT;
     case ShaderType::FLOAT4: return DXGI_FORMAT::DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -83,7 +84,7 @@ void DXVertexBuffer::bind() const {
     D3D.context->IASetInputLayout(input_layout.Get());
 }
 
-void DXVertexBuffer::setLayout(const InputLayout& layout) const {
+void DXVertexBuffer::setLayout(const glVertexLayout& layout) {
     std::vector<D3D11_INPUT_ELEMENT_DESC> attributes;
     for (auto& element : layout) {
         attributes.push_back({ 

@@ -1,6 +1,6 @@
 #pragma once
 
-#define TIMER_SECTION_START() Timer timer; timer.start()
+#define TIMER_SECTION_START() { Timer timer; timer.start()
 #define TIMER_SECTION_END(s) timer.stop(); std::cout << s << timer.elapsedMs() << '\n'
 
 namespace Raekor {

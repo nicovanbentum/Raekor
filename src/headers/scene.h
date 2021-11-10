@@ -11,7 +11,7 @@ class Async;
 
 class Scene : public entt::registry {
 public:
-	Scene();
+	Scene() = default;
 	~Scene();
 	Scene(const Scene& rhs) = delete;
 

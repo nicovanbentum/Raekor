@@ -10,6 +10,12 @@
     #define RAEKOR_DEBUG 1
 #endif
 
+#ifdef RAEKOR_SCRIPT
+    #define SCRIPT_INTERFACE __declspec(dllimport)
+#else
+    #define SCRIPT_INTERFACE __declspec(dllexport)
+#endif
+
 extern bool PATHTRACE;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

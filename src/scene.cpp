@@ -1,22 +1,14 @@
 #include "pch.h"
 #include "scene.h"
 
-#include "mesh.h"
 #include "timer.h"
 #include "serial.h"
 #include "systems.h"
 #include "async.h"
+#include "renderer.h"
 
 namespace Raekor
 {
-
-Scene::Scene() {
-    /* on_destroy<Mesh>().connect<entt::invoke<&Mesh::destroy>>();
-    on_destroy<Material>().connect<entt::invoke<&Material::destroy>>();*/
-    on_destroy<Skeleton>().connect<entt::invoke<&Skeleton::destroy>>();
-}
-
-
 
 Scene::~Scene() {
     clear();
@@ -137,10 +129,9 @@ void Scene::updateNode(entt::entity node, entt::entity parent) {
 
 
 void Scene::updateTransforms() {
-    auto nodeView = view<Node, Transform>();
+    auto transforms = view<Node, Transform>();
 
-    for (auto entity : nodeView) {
-        auto& [node, transform] = nodeView.get<Node, Transform>(entity);
+    for (auto& [entity, node, transform] : transforms.each()) {
 
         if (node.parent == entt::null) {
             transform.compose();
@@ -180,29 +171,30 @@ void Scene::loadMaterialTextures(Assets& assets, const std::vector<entt::entity>
             auto& material = this->get<Material>(entity);
             assets.get<TextureAsset>(material.albedoFile);
             assets.get<TextureAsset>(material.normalFile);
-            assets.get<TextureAsset>(material.mrFile);
+            assets.get<TextureAsset>(material.metalroughFile);
         });
     }
 
     Async::wait();
 
     timer.stop();
-    std::cout << "Async texture time " << timer.elapsedMs() << std::endl;
+    std::cout << "Async texture time " << timer.elapsedMs() << '\n';
 
     timer.start();
     for (auto entity : materials) {
         auto& material = get<Material>(entity);
 
         if (!PATHTRACE) {
-            material.createAlbedoTexture(assets.get<TextureAsset>(material.albedoFile));
-            material.createNormalTexture(assets.get<TextureAsset>(material.normalFile));
-            material.createMetalRoughTexture(assets.get<TextureAsset>(material.mrFile));
+            GLRenderer::uploadMaterialTextures(material, assets);
         }
 
+        assets.release(material.albedoFile);
+        assets.release(material.normalFile);
+        assets.release(material.metalroughFile);
     }
 
     timer.stop();
-    std::cout << "Upload texture time " << timer.elapsedMs() << std::endl;
+    std::cout << "Upload texture time " << timer.elapsedMs() << '\n';
 }
 
 
@@ -247,7 +239,7 @@ void Scene::openFromFile(Assets& assets, const std::string& file) {
         DirectionalLight >(input);
 
     timer.stop();
-    std::cout << "Archive time " << timer.elapsedMs() << std::endl;
+    std::cout << "Archive time " << timer.elapsedMs() << '\n';
 
 
     // init material render data
@@ -259,16 +251,13 @@ void Scene::openFromFile(Assets& assets, const std::string& file) {
     timer.start();
 
     // init mesh render data
-    auto entities = view<Mesh>();
-    for (auto entity : entities) {
-        auto& mesh = entities.get<Mesh>(entity);
+    for (auto& [entity, mesh] : view<Mesh>().each()) {
         mesh.generateAABB();
-        mesh.uploadVertices();
-        mesh.uploadIndices();
+        GLRenderer::uploadMeshBuffers(mesh);
     }
 
     timer.stop();
-    std::cout << "Mesh time " << timer.elapsedMs() << std::endl << std::endl;
+    std::cout << "Mesh time " << timer.elapsedMs() << "\n\n";
 }
 
 } // Raekor

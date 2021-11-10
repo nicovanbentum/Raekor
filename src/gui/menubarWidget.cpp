@@ -4,7 +4,6 @@
 #include "../platform/OS.h"
 #include "assimp.h"
 #include "systems.h"
-#include "mesh.h"
 #include "scene.h"
 
 namespace Raekor {
@@ -16,7 +15,7 @@ MenubarWidget::MenubarWidget(Editor* editor) :
 
 
 
-void MenubarWidget::draw() {
+void MenubarWidget::draw(float dt) {
     auto& scene = IWidget::scene();
 
     if (ImGui::BeginMainMenuBar()) {
@@ -57,7 +56,9 @@ void MenubarWidget::draw() {
             if (ImGui::MenuItem("Compile script..")) {
                 std::string filepath = OS::openFileDialog("C++ Files (*.cpp)\0*.cpp\0");
                 if (!filepath.empty()) {
-                    ScriptAsset::convert(filepath);
+                    Async::dispatch([filepath]() {
+                        ScriptAsset::convert(filepath);
+                    });
                 }
             }
 
@@ -197,9 +198,8 @@ void MenubarWidget::draw() {
                     }
 
                     mesh.generateTangents();
-                    mesh.uploadVertices();
-                    mesh.uploadIndices();
                     mesh.generateAABB();
+                    GLRenderer::uploadMeshBuffers(mesh);
                 }
 
                 if (ImGui::MenuItem("Plane")) {
@@ -211,22 +211,21 @@ void MenubarWidget::draw() {
                         NodeSystem::append(scene, scene.get<Node>(active), node);
                     }
                     
-                    for (const auto& v : planeVertices) {
+                    for (const auto& v : UnitPlane::vertices) {
                         mesh.positions.push_back(v.pos);
                         mesh.uvs.push_back(v.uv);
                         mesh.normals.push_back(v.normal);
                     }
 
-                    for (const auto& triangle : planeIndices) {
+                    for (const auto& triangle : UnitPlane::indices) {
                         mesh.indices.push_back(triangle.p1);
                         mesh.indices.push_back(triangle.p2);
                         mesh.indices.push_back(triangle.p3);
                     }
 
                     mesh.generateTangents();
-                    mesh.uploadVertices();
-                    mesh.uploadIndices();
                     mesh.generateAABB();
+                    GLRenderer::uploadMeshBuffers(mesh);
                 }
 
                 if (ImGui::MenuItem("Cube")) {
@@ -238,22 +237,21 @@ void MenubarWidget::draw() {
                         NodeSystem::append(scene, scene.get<Node>(active), node);
                     }
 
-                    for (const auto& v : unitCubeVertices) {
+                    for (const auto& v : UnitCube::vertices) {
                         mesh.positions.push_back(v.pos);
                         mesh.uvs.push_back(v.uv);
                         mesh.normals.push_back(v.pos);
                     }
 
-                    for (const auto& index : cubeIndices) {
+                    for (const auto& index : UnitCube::indices) {
                         mesh.indices.push_back(index.p1);
                         mesh.indices.push_back(index.p2);
                         mesh.indices.push_back(index.p3);
                     }
 
                     mesh.generateTangents();
-                    mesh.uploadVertices();
-                    mesh.uploadIndices();
                     mesh.generateAABB();
+                    GLRenderer::uploadMeshBuffers(mesh);
                 }
 
                 ImGui::EndMenu();

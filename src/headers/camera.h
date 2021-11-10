@@ -48,8 +48,8 @@ private:
 
 public:
     float& sensitivity = ConVars::create("sensitivity", 2.0f);
-    float lookConstant = 1.0f, zoomConstant = 0.01f, moveConstant = 0.005f;
     float zoomSpeed = 1.0f, moveSpeed = 0.015f;
+    float lookConstant = 1.0f, zoomConstant = 0.01f, moveConstant = 0.005f;
 
 };
 

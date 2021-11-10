@@ -17,10 +17,11 @@ public:
         FileWatcher watcher;
     };
 
-    static Shader* construct(Stage* stages, size_t stageCount);
     virtual void bind() = 0;
     virtual void unbind() = 0;
 };
+
+
 
 class glShader : public Shader {
 public:

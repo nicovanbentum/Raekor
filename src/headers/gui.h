@@ -6,14 +6,10 @@
 
 namespace GUI {
 
-class ScopedDockSpace {
-public:
-    ScopedDockSpace();
-    ~ScopedDockSpace();
-};
+void beginDockSpace();
+void endDockSpace();
 
-void beginFrame(SDL_Window* window);
-
+void beginFrame();
 void endFrame();
     
 void setTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data);

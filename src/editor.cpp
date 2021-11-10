@@ -32,11 +32,13 @@ Editor::Editor() :
     widgets.emplace_back(std::make_shared<RandomWidget>(this));
     widgets.emplace_back(std::make_shared<MenubarWidget>(this));
     widgets.emplace_back(std::make_shared<ConsoleWidget>(this));
+    widgets.emplace_back(std::make_shared<MetricsWidget>(this));
     widgets.emplace_back(std::make_shared<ViewportWidget>(this));
     widgets.emplace_back(std::make_shared<InspectorWidget>(this));
     widgets.emplace_back(std::make_shared<HierarchyWidget>(this));
 
     std::cout << "Initialization done.\n";
+    auto sink = scene.on_destroy<Mesh>();
 }
 
 
@@ -55,18 +57,27 @@ void Editor::onUpdate(float dt) {
     scene.updateLights();
 
     // update animations in parallel
+    std::vector<Async::Handle> handles;
+
     scene.view<Skeleton>().each([&](Skeleton& skeleton) {
-        Async::dispatch([&]() {
+        handles.push_back(Async::dispatch([&]() {
             skeleton.boneTransform(dt);
-        });
+        }));
     });
 
-    Async::wait();
-    
+    for (const auto& handle : handles) {
+        Async::wait(handle);
+    }
+
     // update scripts
     scene.view<NativeScript>().each([&](NativeScript& component) {
         if (component.script) {
-            component.script->update(dt);
+            try {
+                component.script->update(dt);
+            }
+            catch (const std::exception& e) {
+                std::cerr << e.what() << '\n';
+            }
         }
     });
 
@@ -77,20 +88,18 @@ void Editor::onUpdate(float dt) {
     }
 
     // start ImGui
-    GUI::beginFrame(window);
+    GUI::beginFrame();
+    GUI::beginDockSpace();
 
-    {
-        // draw ImGui
-        GUI::ScopedDockSpace dockspace;
-
-        for (auto widget : widgets) {
-            if (widget->isVisible()) {
-                widget->draw();
-            }
+    // draw widgets
+    for (auto widget : widgets) {
+        if (widget->isVisible()) {
+            widget->draw(dt);
         }
     }
 
     // end ImGui
+    GUI::endDockSpace();
     GUI::endFrame();
 
     // render scene
@@ -181,12 +190,8 @@ void Editor::onEvent(const SDL_Event& event) {
         }
     }
 
-    if (ImGui::IsAnyItemActive()) {
-        for (const auto& widget : widgets) {
-            if (widget->isFocused()) {
-                widget->onEvent(event);
-            }
-        }
+    for (const auto& widget : widgets) {
+        widget->onEvent(event);
     }
 }
 

@@ -4,7 +4,7 @@ namespace Raekor {
 //
 // Function by Yann Collet @ https://github.com/Cyan4973/RygsDXTc
 //
-void rygCompress(unsigned char* dst, unsigned char* src, int w, int h, int isDxt5);
+void compressDXT(unsigned char* dst, unsigned char* src, int w, int h, int isDxt5);
 
 #ifndef MAKEFOURCC
 #define MAKEFOURCC(ch0, ch1, ch2, ch3)                              \

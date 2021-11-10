@@ -15,7 +15,7 @@ class GLRenderer;
 class IWidget {
 public:
     IWidget(Editor* editor, const std::string& title);
-    virtual void draw() = 0;
+    virtual void draw(float dt) = 0;
     virtual void onEvent(const SDL_Event& ev) = 0;
 
     void show() { visible = true; }

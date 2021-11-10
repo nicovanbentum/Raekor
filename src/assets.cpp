@@ -67,7 +67,7 @@ std::string TextureAsset::convert(const std::string& filepath) {
         ddsBuffer.resize(ddsBuffer.size() + curSize.x * curSize.y);
 
         // block compress
-        Raekor::rygCompress(ddsBuffer.data() + offset, mipChain[i], curSize.x, curSize.y, true);
+        Raekor::compressDXT(ddsBuffer.data() + offset, mipChain[i], curSize.x, curSize.y, true);
 
         offset += curSize.x * curSize.y;
     }

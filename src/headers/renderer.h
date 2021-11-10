@@ -31,6 +31,13 @@ public:
 
     void addDebugLine(glm::vec3 p1, glm::vec3 p2);
     void addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m = glm::mat4(1.0f));
+
+    static void uploadMeshBuffers(Mesh& mesh);
+    static void destroyMeshBuffers(Mesh& mesh);
+
+    static void uploadMaterialTextures(Material& material, Assets& assets);
+    static void destroyMaterialTextures(Material& material, Assets& assets);
+    static GLuint uploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB = false);
     
 public:
     std::unique_ptr<Bloom>              bloom;
@@ -50,51 +57,6 @@ private:
     uint32_t frameNr = 0;
     GLuint blackTexture;
     SDL_GLContext context;
-};
-
-
-/////////////////////////
-// BELOW IS DEPRECATED //
-/////////////////////////
-
-
-
-enum class RenderAPI {
-    OPENGL, DIRECTX11, VULKAN
-};
-
-
-
-class Renderer {
-public:
-    // Render API methods
-    static void Init(SDL_Window* window);
-    static void Clear(glm::vec4 color);
-    static void ImGuiRender();
-    static void ImGuiNewFrame(SDL_Window* window);
-    static void DrawIndexed(unsigned int size);
-    static void SwapBuffers(bool vsync);
-
-    // API methods to get and set the API used
-    static RenderAPI getActiveAPI();
-    static void setAPI(const RenderAPI api);
-    
-    virtual ~Renderer() {}
-
-private:
-    // interface functions 
-    virtual void impl_ImGui_Render()                                             = 0;
-    virtual void impl_ImGui_NewFrame(SDL_Window* window)                         = 0;
-    virtual void impl_Clear(glm::vec4 color)                                     = 0;
-    virtual void impl_DrawIndexed(unsigned int size)                             = 0;
-    virtual void impl_SwapBuffers(bool vsync) const                              = 0;
-
-protected:
-    SDL_Window* renderWindow;
-
-private:
-    inline static RenderAPI activeAPI = RenderAPI::OPENGL;
-    inline static Renderer* instance = nullptr;
 };
 
 } // namespace Raekor

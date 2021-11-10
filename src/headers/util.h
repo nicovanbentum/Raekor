@@ -26,7 +26,7 @@ constexpr inline size_t align_up(size_t value, size_t alignment) noexcept {
 
 
 
-void printProgressBar(float fract);
+void printProgressBar(const std::string& prepend, float fract);
 
 
 
@@ -64,6 +64,11 @@ constexpr ImVec2 ImVec(const glm::vec<2, T>& vec) {
     return ImVec2(static_cast<float>(vec.x), static_cast<float>(vec.y));
 }
 
+template<typename T>
+constexpr ImVec4 ImVec(const glm::vec<4, T>& vec) {
+    return ImVec4(static_cast<float>(vec.x), static_cast<float>(vec.y), static_cast<float>(vec.z), static_cast<float>(vec.w));
+}
+
 inline ImVec2 operator-(const ImVec2& lhs, const ImVec2& rhs) {
     return ImVec2(lhs.x - rhs.x, lhs.y - rhs.y);
 }
@@ -75,6 +80,8 @@ inline ImVec2 operator*(const ImVec2& lhs, const ImVec2& rhs) {
 inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) {
     return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y);
 }
+
+
 
 
 

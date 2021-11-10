@@ -11,8 +11,7 @@ ViewportWidget::ViewportWidget(Editor* editor) :
 
 
 
-void ViewportWidget::draw() {
-
+void ViewportWidget::draw(float dt) {
     auto& scene = IWidget::scene();
     auto& renderer = IWidget::renderer();
     auto& viewport = editor->getViewport();
@@ -209,6 +208,7 @@ void ViewportWidget::draw() {
 
 void ViewportWidget::onEvent(const SDL_Event& ev) {
     if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
+
         switch (ev.key.keysym.sym) {
             case SDLK_r: {
                 operation = ImGuizmo::OPERATION::ROTATE;

@@ -10,7 +10,7 @@ HierarchyWidget::HierarchyWidget(Editor* editor) : IWidget(editor, "Scene") {}
 
 
 
-void HierarchyWidget::draw() {
+void HierarchyWidget::draw(float dt) {
     ImGui::Begin(title.c_str());
 
     auto& scene = IWidget::scene();

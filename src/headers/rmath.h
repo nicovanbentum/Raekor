@@ -18,7 +18,7 @@ struct Ray {
     std::optional<float> hitsSphere(const glm::vec3& o, float radius, float t_min, float t_max);
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 struct Frustrum {
     enum Halfspace {
@@ -39,7 +39,7 @@ struct Frustrum {
     bool vsAABB(const glm::vec3& min, const glm::vec3& max);
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 bool pointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max);
 

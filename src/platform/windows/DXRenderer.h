@@ -27,17 +27,19 @@ struct COM_PTRS {
 
 extern COM_PTRS D3D;
 
-class DXRenderer : public Renderer {
+class DXRenderer {
 public:
     DXRenderer(SDL_Window* window);
     ~DXRenderer();
-    virtual void impl_ImGui_Render()                                     override;
-    virtual void impl_ImGui_NewFrame(SDL_Window* window)                 override;
-    virtual void impl_Clear(glm::vec4 color)                             override;
-    virtual void impl_DrawIndexed(unsigned int size)                     override;
-    virtual void impl_SwapBuffers(bool vsync) const                      override;
+    
+    void impl_ImGui_Render();
+    void impl_ImGui_NewFrame(SDL_Window* window);
+    void impl_Clear(glm::vec4 color);
+    void impl_DrawIndexed(unsigned int size);
+    void impl_SwapBuffers(bool vsync) const;
 
 private:
+    SDL_Window* renderWindow;
     ComPtr<ID3D11Texture2D> depth_stencil_buffer;
     ComPtr<ID3D11DepthStencilState> depth_stencil_state;
     ComPtr<ID3D11BlendState> blend_state;

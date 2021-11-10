@@ -23,7 +23,7 @@ public:
 private:
     GLuint64 time;
     GLuint index = 0;
-    GLuint queries[2];
+    std::array<GLuint, 4> queries;
 };
 
 
@@ -58,10 +58,13 @@ class ShadowMap {
     void renderCascade(const Viewport& viewport, GLuint framebuffer);
 
 private:
-    glShader shader;
-    glShader debugShader;
     GLuint framebuffer;
     GLuint uniformBuffer;
+
+    glShader shader;
+    glShader debugShader;
+    
+    glVertexLayout vertexLayout;
 
 public:
     GLuint texture;
@@ -102,12 +105,17 @@ public:
 public:
     GLuint framebuffer;
     GLuint depthTexture;
-    GLuint albedoTexture, normalTexture, materialTexture, entityTexture;
+    GLuint albedoTexture;
+    GLuint normalTexture;
+    GLuint materialTexture;
+    GLuint entityTexture;
     GLuint velocityTexture;
 
 private:
     glShader shader;
     GLuint uniformBuffer;
+
+    glVertexLayout vertexLayout;
 
     GLuint pbo;
     void* entity;
@@ -217,6 +225,8 @@ private:
     glShader shader;
     glShader mipmapShader;
     glShader opacityFixShader;
+    glVertexLayout vertexLayout;
+
     GLuint uniformBuffer;
     glm::mat4 px, py, pz;
 
@@ -256,8 +266,7 @@ private:
     GLuint uniformBuffer;
 
     uint32_t indexCount;
-    glIndexBuffer indexBuffer;
-    glVertexBuffer vertexBuffer;
+    uint32_t indexBuffer;
 };
 
 
@@ -280,7 +289,10 @@ private:
     glShader shader;
     GLuint frameBuffer;
     GLuint uniformBuffer;
-    glVertexBuffer vertexBuffer;
+
+    uint32_t vertexBuffer;
+    glVertexLayout vertexLayout;
+
     std::vector<glm::vec3> points;
 };
 
@@ -427,9 +439,15 @@ public:
     void render(const Viewport& viewport, const Scene& scene, GLuint out, GLuint depth);
 
 private:
-    glShader shader;
     GLuint framebuffer;
     GLuint uniformBuffer;
+
+    glShader shader;
+    glShader computeShader;
+    glShader convoluteShader;
+
+    GLuint environmentCubemap;
+    GLuint convolvedCubemap;
 };
 
 
@@ -442,6 +460,7 @@ public:
 
     void createRenderTargets(const Viewport& viewport);
     void destroyRenderTargets();
+
 public:
     GLuint resultBuffer, historyBuffer;
 

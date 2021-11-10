@@ -7,6 +7,7 @@ namespace Raekor {
 
 struct ConfigSettings {
     int display = 0;
+    bool vsync = true;
     std::string name = "Raekor";
     std::string font = "resources/Roboto-Regular.ttf";
     std::string defaultScene = "scenes/sponza.scene";
@@ -14,7 +15,7 @@ struct ConfigSettings {
 
     template<typename Archive> 
     void serialize(Archive& archive) {
-        archive( CEREAL_NVP(name), CEREAL_NVP(display),
+        archive( CEREAL_NVP(name), CEREAL_NVP(display), CEREAL_NVP(vsync),
             CEREAL_NVP(font), CEREAL_NVP(defaultScene), CEREAL_NVP(themeColors)
         );
     }

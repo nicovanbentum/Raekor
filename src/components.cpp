@@ -3,11 +3,13 @@
 #include "components.h"
 #include "assets.h"
 #include "systems.h"
+#include "primitives.h"
+#include "renderer.h"
 
 namespace Raekor
 {
 
-void Transform::compose() {
+SCRIPT_INTERFACE void Transform::compose() {
     localTransform = glm::translate(glm::mat4(1.0f), position);
     localTransform *= glm::eulerAngleXYZ(rotation.x, rotation.y, rotation.z);
     localTransform = glm::scale(localTransform, scale);
@@ -15,12 +17,18 @@ void Transform::compose() {
 
 
 
-void Transform::decompose() {
+SCRIPT_INTERFACE void Transform::decompose() {
     glm::vec3 skew;
     glm::quat quat;
     glm::vec4 perspective;
     glm::decompose(localTransform, scale, quat, position, skew, perspective);
     glm::extractEulerAngleXYZ(localTransform, rotation.x, rotation.y, rotation.z);
+}
+
+
+
+SCRIPT_INTERFACE void Transform::print() {
+    std::cout << glm::to_string(rotation) << '\n';
 }
 
 
@@ -67,7 +75,7 @@ void Mesh::generateTangents() {
 
 
 void Mesh::generateNormals() {
-    std::vector<glm::vec3> normals(positions.size(), glm::vec3(0.0f));
+    normals = decltype(normals)(positions.size(), glm::vec3(0.0f));
 
     for (auto i = 0; i < indices.size(); i += 3) {
         auto normal = glm::normalize(glm::cross(
@@ -143,46 +151,6 @@ std::vector<float> Mesh::getInterleavedVertices() {
 
 
 
-void Mesh::destroy() {
-    vertexBuffer.destroy();
-    indexBuffer.destroy();
-}
-
-
-
-void Mesh::uploadVertices() {
-    auto vertices = getInterleavedVertices();
-
-    std::vector<Element> layout;
-    if (!positions.empty()) {
-        layout.emplace_back("POSITION", ShaderType::FLOAT3);
-    }
-    if (!uvs.empty()) {
-        layout.emplace_back("TEXCOORD", ShaderType::FLOAT2);
-    }
-    if (!normals.empty()) {
-        layout.emplace_back("NORMAL", ShaderType::FLOAT3);
-    }
-    if (!tangents.empty()) {
-        layout.emplace_back("TANGENT", ShaderType::FLOAT3);
-    }
-
-    if (!PATHTRACE) {
-        vertexBuffer.loadVertices(vertices.data(), vertices.size());
-    }
-    vertexBuffer.setLayout(layout);
-}
-
-
-
-void Mesh::uploadIndices() {
-    if (!PATHTRACE) {
-        indexBuffer.loadIndices(indices.data(), indices.size());
-    }
-}
-
-
-
 void Skeleton::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform) {
     auto globalTransformation = glm::mat4(1.0f);
 
@@ -250,14 +218,10 @@ void Skeleton::uploadRenderData(Mesh& mesh) {
     glNamedBufferData(boneTransformsBuffer, boneTransforms.size() * sizeof(glm::mat4), boneTransforms.data(), GL_DYNAMIC_READ);
 
     auto originalMeshBuffer = mesh.getInterleavedVertices();
-    skinnedVertexBuffer.loadVertices(originalMeshBuffer.data(), originalMeshBuffer.size());
-    skinnedVertexBuffer.setLayout(
-        {
-            { "POSITION",    ShaderType::FLOAT3 },
-            { "UV",          ShaderType::FLOAT2 },
-            { "NORMAL",      ShaderType::FLOAT3 },
-            { "TANGENT",     ShaderType::FLOAT3 },
-        });
+
+    if (skinnedVertexBuffer) glDeleteBuffers(1, &skinnedVertexBuffer);
+    glCreateBuffers(1, &skinnedVertexBuffer);
+    glNamedBufferData(skinnedVertexBuffer, sizeof(Vertex) * originalMeshBuffer.size(), originalMeshBuffer.data(), GL_STATIC_DRAW);
 }
 
 
@@ -265,100 +229,8 @@ void Skeleton::uploadRenderData(Mesh& mesh) {
 void Skeleton::destroy() {
     glDeleteBuffers(1, &boneIndexBuffer);
     glDeleteBuffers(1, &boneWeightBuffer);
+    glDeleteBuffers(1, &skinnedVertexBuffer);
     glDeleteBuffers(1, &boneTransformsBuffer);
-    skinnedVertexBuffer.destroy();
-}
-
-
-
-void Material::createAlbedoTexture(std::shared_ptr<TextureAsset> texture) {
-    if (!texture) {
-        return;
-    }
-
-    auto header = texture->header();
-    auto dataPtr = texture->getData();
-    albedoFile = texture->path().string();
-
-    glDeleteTextures(1, &albedo);
-    glCreateTextures(GL_TEXTURE_2D, 1, &albedo);
-    glTextureStorage2D(albedo, header->dwMipMapCount, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, header->dwWidth, header->dwHeight);
-
-    for (unsigned int mip = 0; mip < header->dwMipMapCount; mip++) {
-        glm::ivec2 dimensions = { std::max(header->dwWidth >> mip, 1ul), std::max(header->dwHeight >> mip, 1ul) };
-        size_t dataSize = std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16;
-        glCompressedTextureSubImage2D(albedo, mip, 0, 0, dimensions.x, dimensions.y, GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
-        dataPtr += dimensions.x * dimensions.y;
-    }
-
-    glTextureParameteri(albedo, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(albedo, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-}
-
-
-
-void Material::createNormalTexture(std::shared_ptr<TextureAsset> texture) {
-    if (!texture) {
-        return;
-    }
-
-    glDeleteTextures(1, &normals);
-
-    auto headerPtr = texture->header();
-    auto dataPtr = texture->getData();
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &normals);
-    glTextureStorage2D(normals, headerPtr->dwMipMapCount, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, headerPtr->dwWidth, headerPtr->dwHeight);
-
-    for (unsigned int mip = 0; mip < headerPtr->dwMipMapCount; mip++) {
-        glm::ivec2 size = { headerPtr->dwWidth >> mip, headerPtr->dwHeight >> mip };
-        size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
-        glCompressedTextureSubImage2D(normals, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
-        dataPtr += size.x * size.y;
-    }
-
-    glTextureParameteri(normals, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(normals, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    normalFile = texture->path().string();
-}
-
-
-
-void Material::createMetalRoughTexture(std::shared_ptr<TextureAsset> texture) {
-    if (!texture) {
-        return;
-    }
-
-    glDeleteTextures(1, &metalrough);
-
-    auto headerPtr = texture->header();
-    auto dataPtr = texture->getData();
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &metalrough);
-    auto mipmapLevels = static_cast<GLsizei>(1 + std::floor(std::log2(std::max(headerPtr->dwWidth, headerPtr->dwHeight))));
-    glTextureStorage2D(metalrough, mipmapLevels, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, headerPtr->dwWidth, headerPtr->dwHeight);
-
-    for (unsigned int mip = 0; mip < headerPtr->dwMipMapCount; mip++) {
-        glm::ivec2 size = { headerPtr->dwWidth >> mip, headerPtr->dwHeight >> mip };
-        size_t dataSize = std::max(1, ((size.x + 3) / 4)) * std::max(1, ((size.y + 3) / 4)) * 16;
-        glCompressedTextureSubImage2D(metalrough, mip, 0, 0, size.x, size.y, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, (GLsizei)dataSize, dataPtr);
-        dataPtr += size.x * size.y;
-    }
-
-    glTextureParameteri(metalrough, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(metalrough, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    mrFile = texture->path().string();
-}
-
-
-
-void Material::destroy() {
-    glDeleteTextures(1, &albedo);
-    glDeleteTextures(1, &normals);
-    glDeleteTextures(1, &metalrough);
-    albedo = 0, normals = 0, metalrough = 0;
 }
 
 
@@ -399,8 +271,7 @@ template<>
 void clone<Mesh>(entt::registry& reg, entt::entity from, entt::entity to) {
     auto& from_component = reg.get<Mesh>(from);
     auto& to_component = reg.emplace<Mesh>(to, from_component);
-    to_component.uploadVertices();
-    to_component.uploadIndices();
+    GLRenderer::uploadMeshBuffers(to_component);
 }
 
 

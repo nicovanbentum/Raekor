@@ -8,7 +8,7 @@ ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor, "Console") {}
 
 
 
-void ConsoleWidget::draw() {
+void ConsoleWidget::draw(float dt) {
     ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 
     if (!ImGui::Begin(title.c_str(), &visible, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {

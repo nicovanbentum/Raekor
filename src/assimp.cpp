@@ -1,10 +1,12 @@
 #include "pch.h"
 #include "assimp.h"
 
+#include "util.h"
 #include "scene.h"
 #include "systems.h"
 #include "async.h"
 #include "timer.h"
+#include "renderer.h"
 
 namespace Assimp {
 
@@ -43,7 +45,7 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
 
     // error cases
     if (!assimpScene || (!assimpScene->HasMeshes() && !assimpScene->HasMaterials())) {
-        std::cerr << "[IMPORT] Error loading " << file << ": " << importer->GetErrorString() << '\n';
+        std::cerr << "[ASSIMP] Error loading " << file << ": " << importer->GetErrorString() << '\n';
         return false;
     }
 
@@ -55,7 +57,7 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
     timer.start();
 
     for (unsigned int i = 0; i < assimpScene->mNumMaterials; i++) {
-        printProgressBar(float(i) / assimpScene->mNumMaterials);
+        printProgressBar("Converting material textures: ", float(i) / assimpScene->mNumMaterials);
         parseMaterial(assimpScene->mMaterials[i], scene.create());
     }
 
@@ -72,6 +74,8 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
 return true;
 }
 
+
+
 void AssimpImporter::parseMaterial(aiMaterial* assimpMaterial, entt::entity entity) {
     // figure out the material name
     auto& nameComponent = scene.emplace<Name>(entity);
@@ -86,6 +90,8 @@ void AssimpImporter::parseMaterial(aiMaterial* assimpMaterial, entt::entity enti
     LoadMaterial(entity, assimpMaterial);
     materials.push_back(entity);
 }
+
+
 
 void AssimpImporter::parseNode(const aiNode* assimpNode, entt::entity parent, entt::entity new_entity) {
     // set the name
@@ -114,6 +120,8 @@ void AssimpImporter::parseNode(const aiNode* assimpNode, entt::entity parent, en
         parseNode(assimpNode->mChildren[i], new_entity, child);
     }
 }
+
+
 
 void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_entity, entt::entity parent) {
     for (uint32_t i = 0; i < assimpNode->mNumMeshes; i++) {
@@ -148,7 +156,7 @@ void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_enti
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
     auto& mesh = scene.emplace<Mesh>(entity);
@@ -190,13 +198,13 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
     }
 
     mesh.generateAABB();
-    mesh.uploadIndices();
-    mesh.uploadVertices();
+
+    GLRenderer::uploadMeshBuffers(mesh);
 
     mesh.material = materials[assimpMesh->mMaterialIndex];
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+
 
 void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
     if (!assimpScene->HasAnimations()) {
@@ -309,6 +317,8 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
     copyBoneNode(rootBone, skeleton.boneTreeRootNode);
 }
 
+
+
 void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpMaterial) {
     auto& material = scene.emplace<Material>(entity);
 
@@ -347,7 +357,7 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
     if (metalroughFile.length) {
         Async::dispatch([&]() {
             auto assetPath = TextureAsset::convert(directory.string() + metalroughFile.C_Str());
-            material.mrFile = assetPath;
+            material.metalroughFile = assetPath;
         });
     }
 

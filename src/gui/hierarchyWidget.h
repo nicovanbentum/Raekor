@@ -7,7 +7,7 @@ namespace Raekor {
 class HierarchyWidget : public IWidget {
 public:
     HierarchyWidget(Editor* editor);
-    virtual void draw() override;
+    virtual void draw(float dt) override;
     virtual void onEvent(const SDL_Event& ev) override {}
 
 private:

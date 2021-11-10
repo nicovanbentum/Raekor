@@ -4,20 +4,21 @@
 #include "camera.h"
 #include "timer.h"
 #include "scene.h"
-#include "mesh.h"
 
 namespace Raekor {
 
 GLTimer::GLTimer() {
-    glGenQueries(2, queries);
-    glBeginQuery(GL_TIME_ELAPSED, queries[1]);
-    glEndQuery(GL_TIME_ELAPSED);
+    glGenQueries(GLsizei(queries.size()), queries.data());
+    for (auto query : queries) {
+        glBeginQuery(GL_TIME_ELAPSED, query);
+        glEndQuery(GL_TIME_ELAPSED);
+    }
 }
 
 
 
 GLTimer::~GLTimer() {
-    glDeleteQueries(2, queries);
+    glDeleteQueries(GLsizei(queries.size()), queries.data());
 }
 
 
@@ -30,8 +31,14 @@ void GLTimer::Begin() {
 
 void GLTimer::End() {
     glEndQuery(GL_TIME_ELAPSED);
-    glGetQueryObjectui64v(queries[!index], GL_QUERY_RESULT_NO_WAIT, &time);
-    index = !index;
+    
+    // check all the queries for results, except the one that just ended
+    for (uint32_t i = 0; i < queries.size(); i++) {
+        if (i == index) continue;
+        glGetQueryObjectui64v(queries[i], GL_QUERY_RESULT_NO_WAIT, &time);
+    }
+
+    index = (index + 1) % queries.size();
 }
 
 
@@ -75,6 +82,12 @@ ShadowMap::ShadowMap(const Viewport& viewport) {
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
+
+    vertexLayout = glVertexLayout()
+        .attribute("POSITION", ShaderType::FLOAT3)
+        .attribute("TEXCOORD", ShaderType::FLOAT2)
+        .attribute("NORMAL",   ShaderType::FLOAT3)
+        .attribute("TANGENT",  ShaderType::FLOAT3);
 }
 
 
@@ -287,11 +300,14 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
 
             // determine if we use the original mesh vertices or GPU skinned vertices
             if (scene.all_of<Skeleton>(entity)) {
-                scene.get<Skeleton>(entity).skinnedVertexBuffer.bind();
+                glBindBuffer(GL_ARRAY_BUFFER, scene.get<Skeleton>(entity).skinnedVertexBuffer);
             } else {
-                mesh.vertexBuffer.bind();
+                glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBuffer);
             }
-            mesh.indexBuffer.bind();
+
+            vertexLayout.bind();
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 
             glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
 
@@ -327,6 +343,12 @@ GBuffer::GBuffer(const Viewport& viewport) {
     entity = glMapNamedBufferRange(pbo, 0, sizeof(float), GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
 
     createRenderTargets(viewport);
+
+    vertexLayout = glVertexLayout()
+        .attribute("POSITION", ShaderType::FLOAT3)
+        .attribute("TEXCOORD", ShaderType::FLOAT2)
+        .attribute("NORMAL",   ShaderType::FLOAT3)
+        .attribute("TANGENT",  ShaderType::FLOAT3);
 }
 
 GBuffer::~GBuffer() {
@@ -433,12 +455,14 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
 
         // determine if we use the original mesh vertices or GPU skinned vertices
         if (scene.all_of<Skeleton>(entity)) {
-            scene.get<Skeleton>(entity).skinnedVertexBuffer.bind();
+            glBindBuffer(GL_ARRAY_BUFFER, scene.get<Skeleton>(entity).skinnedVertexBuffer);
         } else {
-            mesh.vertexBuffer.bind();
+            glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBuffer);
         }
 
-        mesh.indexBuffer.bind();
+        vertexLayout.bind();
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 
         glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
 
@@ -912,6 +936,12 @@ Voxelize::Voxelize(uint32_t size) : size(size) {
     float borderColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
     glTextureParameterfv(result, GL_TEXTURE_BORDER_COLOR, borderColor);
     glGenerateTextureMipmap(result);
+
+    vertexLayout = glVertexLayout()
+        .attribute("POSITION", ShaderType::FLOAT3)
+        .attribute("TEXCOORD", ShaderType::FLOAT2)
+        .attribute("NORMAL",   ShaderType::FLOAT3)
+        .attribute("TANGENT",  ShaderType::FLOAT3);
 }
 
 
@@ -1003,12 +1033,14 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
 
         // determine if we use the original mesh vertices or GPU skinned vertices
         if (scene.all_of<Skeleton>(entity)) {
-            scene.get<Skeleton>(entity).skinnedVertexBuffer.bind();
+            glBindBuffer(GL_ARRAY_BUFFER, scene.get<Skeleton>(entity).skinnedVertexBuffer);
         } else {
-            mesh.vertexBuffer.bind();
+            glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBuffer);
         }
 
-        mesh.indexBuffer.bind();
+        vertexLayout.bind();
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 
         glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
@@ -1102,7 +1134,8 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize
         }
     });
 
-    indexBuffer.loadIndices(indexBufferData.data(), indexBufferData.size());
+    glCreateBuffers(1, &indexBuffer);
+    glNamedBufferData(indexBuffer, sizeof(uint32_t) * indexBufferData.size(), indexBufferData.data(), GL_STATIC_DRAW);
     indexCount = static_cast<uint32_t>(indexBufferData.size());
 }
 
@@ -1159,7 +1192,7 @@ void VoxelizeDebug::execute2(const Viewport& viewport, GLuint input, const Voxel
 
     glBindTextureUnit(0, voxels.result);
 
-    indexBuffer.bind();
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, nullptr);
 
     // unbind framebuffers
@@ -1202,9 +1235,7 @@ DebugLines::DebugLines() {
 
     glCreateFramebuffers(1, &frameBuffer);
 
-    vertexBuffer.setLayout( {
-        {"POSITION", ShaderType::FLOAT3}
-    });
+    vertexLayout = glVertexLayout().attribute("POSITION", ShaderType::FLOAT3);
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
@@ -1230,8 +1261,12 @@ void DebugLines::render(const Viewport& viewport, GLuint colorAttachment, GLuint
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
 
-    vertexBuffer.loadVertices(glm::value_ptr(points[0]), points.size() * 3);
-    vertexBuffer.bind();
+    if (vertexBuffer) glDeleteBuffers(1, &vertexBuffer);
+    glCreateBuffers(1, &vertexBuffer);
+    glNamedBufferData(vertexBuffer, sizeof(float) * points.size() * 3, glm::value_ptr(points[0]), GL_STATIC_DRAW);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+    vertexLayout.bind();
 
     glDrawArrays(GL_LINES, 0, (GLsizei)points.size());
 
@@ -1257,8 +1292,8 @@ void Skinning::compute(const Mesh& mesh, const Skeleton& anim) {
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, anim.boneIndexBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, anim.boneWeightBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, mesh.vertexBuffer.id);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, anim.skinnedVertexBuffer.id);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, mesh.vertexBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, anim.skinnedVertexBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, anim.boneTransformsBuffer);
 
     glDispatchCompute(static_cast<GLuint>(mesh.positions.size()), 1, 1);
@@ -1516,10 +1551,35 @@ Atmosphere::Atmosphere(const Viewport& viewport) {
         {Shader::Type::FRAG, "shaders\\OpenGL\\atmosphere.frag"}
     });
 
+    convoluteShader.compile({
+        {Shader::Type::COMPUTE, "shaders\\OpenGL\\convolute.comp"},
+    });
+
+
+    computeShader.compile({
+        {Shader::Type::COMPUTE, "shaders\\OpenGL\\atmosphere.comp"},
+        });
+
     createRenderTargets(viewport);
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
+
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &convolvedCubemap);
+    glTextureStorage2D(convolvedCubemap, 1, GL_RGBA16F, 32, 32);
+    glTextureParameteri(convolvedCubemap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(convolvedCubemap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(convolvedCubemap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(convolvedCubemap, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(convolvedCubemap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &environmentCubemap);
+    glTextureStorage2D(environmentCubemap, 1, GL_RGBA16F, 512, 512);
+    glTextureParameteri(environmentCubemap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(environmentCubemap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(environmentCubemap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(environmentCubemap, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(environmentCubemap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
 
@@ -1581,6 +1641,18 @@ void Atmosphere::render(const Viewport& viewport, const Scene& scene, GLuint out
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
+
+   /* computeShader.bind();
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
+    glBindImageTexture(0, environmentCubemap, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+    glDispatchCompute(512 / 8, 512 / 8, 6);
+
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    convoluteShader.bind();
+    glBindImageTexture(0, environmentCubemap, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F);
+    glBindImageTexture(1, convolvedCubemap, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+    glDispatchCompute(32 / 8, 32 / 8, 6);*/
 }
 
 

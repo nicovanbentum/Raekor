@@ -3,9 +3,9 @@
 
 namespace Raekor {
 
-void printProgressBar(float fract) {
+void printProgressBar(const std::string& prepend, float fract) {
     static std::string bar = "----------]";
-    std::string loading = "Loading textures: [";
+    std::string loading = prepend + "[";
     int index = int(fract * 10);
     if (index == 0) bar = "----------]";
     if (bar[index] == '-') bar[index] = '#';

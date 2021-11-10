@@ -4,7 +4,7 @@
 
 namespace GUI {
 
-ScopedDockSpace::ScopedDockSpace() {
+void beginDockSpace() {
     ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
     ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(imGuiViewport->Pos);
@@ -34,14 +34,14 @@ ScopedDockSpace::ScopedDockSpace() {
 
 
 
-ScopedDockSpace::~ScopedDockSpace() {
+void endDockSpace() {
     ImGui::End();
 }
 
 
 
-void beginFrame(SDL_Window* window) {
-    ImGui_ImplSDL2_NewFrame(window);
+void beginFrame() {
+    ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
     ImGuizmo::BeginFrame();
 }

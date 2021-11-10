@@ -74,6 +74,8 @@ private:
 
 class TextureAsset : public Asset {
 public:
+    using Ptr = std::shared_ptr<TextureAsset>;
+
     TextureAsset(const std::string& filepath);
 
     static std::string convert(const std::string& filepath);
@@ -91,6 +93,9 @@ private:
 
 class ScriptAsset : public Asset {
 public:
+    using Ptr = std::shared_ptr<ScriptAsset>;
+
+
     ScriptAsset(const std::string& filepath);
     virtual ~ScriptAsset();
 

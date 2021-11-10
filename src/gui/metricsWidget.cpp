@@ -8,12 +8,19 @@ MetricsWidget::MetricsWidget(Editor* editor) : IWidget(editor, "Metrics") {
 
 }
 
-void MetricsWidget::draw() {
+void MetricsWidget::draw(float dt) {
     if (!visible) return;
 
-    ImGui::Begin(title.c_str(), &visible);
+    accumTime += dt;
 
-    ImGui::Text("Deferred shading: %.3f", IWidget::renderer().deferShading->getTimeMs());
+    ImGui::Begin(title.c_str(), &visible);
+    
+    if (accumTime >= 100.0f /* every half second */) {
+        time = renderer().deferShading->getTimeMs();
+        accumTime = 0.0f;
+    }
+    
+    ImGui::Text("Deferred shading: %.3f", time);
 
     ImGui::End();
 }

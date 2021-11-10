@@ -51,7 +51,7 @@ void RayTraceApp::onUpdate(float dt) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     ImGui::NewFrame();
     ImGuizmo::BeginFrame();
-    ImGui_ImplSDL2_NewFrame(window);
+    ImGui_ImplSDL2_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();
 
     sceneChanged = false;

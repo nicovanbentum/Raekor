@@ -9,7 +9,7 @@ RandomWidget::RandomWidget(Editor* editor) :
     IWidget(editor, "Random")
 {}
 
-void RandomWidget::draw() {
+void RandomWidget::draw(float dt) {
     auto& renderer = IWidget::renderer();
 
     ImGui::Begin(title.c_str());

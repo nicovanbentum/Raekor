@@ -9,7 +9,7 @@ InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, "Inspector") 
 
 
 
-void InspectorWidget::draw() {
+void InspectorWidget::draw(float dt) {
     ImGui::Begin(title.c_str());
 
     if (editor->active == entt::null) {
@@ -127,7 +127,7 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
     const bool adjustedRoughness = ImGui::DragFloat("Roughness", &component.roughness, 0.001f, 0.0f, 1.0f);
 
     if (adjustedMetallic || adjustedRoughness) {
-        if (component.mrFile.empty() && component.metalrough) {
+        if (component.metalroughFile.empty() && component.metalrough) {
             auto metalRoughnessValue = glm::vec4(0.0f, component.roughness, component.metallic, 1.0f);
             glTextureSubImage2D(component.metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
         }
@@ -135,9 +135,7 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
 
     const char* fileFilters = "Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0";
 
-    using createTextureFnType = void(Material::*)(std::shared_ptr<TextureAsset> texture);
-
-    auto drawTextureInteraction = [=](GLuint texture,const char* name, Material* component, createTextureFnType create) {
+    auto drawTextureInteraction = [=](GLuint texture,const char* name, Material* component) {
         ImGui::PushID(texture);
 
         bool usingTexture = texture != 0;
@@ -154,7 +152,7 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
             auto filepath = OS::openFileDialog(fileFilters);
             if (!filepath.empty()) {
                 auto assetPath = TextureAsset::convert(filepath);
-                (component->*create)(IWidget::assets().get<TextureAsset>(assetPath));
+                GLRenderer::uploadTextureFromAsset(IWidget::assets().get<TextureAsset>(assetPath));
             }
         }
 
@@ -163,21 +161,91 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
         ImGui::Text(name);
     };
 
-    drawTextureInteraction(component.albedo, component.albedoFile.c_str(), &component, &Material::createAlbedoTexture);
-    drawTextureInteraction(component.normals, component.normalFile.c_str(), &component, &Material::createNormalTexture);
-    drawTextureInteraction(component.metalrough, component.mrFile.c_str(), &component, &Material::createMetalRoughTexture);
+    drawTextureInteraction(component.albedo, component.albedoFile.c_str(), &component);
+    drawTextureInteraction(component.normals, component.normalFile.c_str(), &component);
+    drawTextureInteraction(component.metalrough, component.metalroughFile.c_str(), &component);
 }
 
 
+bool dragVec3(const char* label, glm::vec3& v, float step, float min, float max, const char* format = "%.2f") {
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window->SkipItems)
+        return false;
+
+    ImGuiContext& g = *GImGui;
+    bool value_changed = false;
+    ImGui::PushID(label);
+    ImGui::PushMultiItemsWidths(v.length(), ImGui::CalcItemWidth());
+    
+    constexpr std::array chars = {
+        "X", "Y", "Z", "W"
+    };
+
+    const std::array colors = {
+        ImVec4{0.5f, 0.0f, 0.0f, 1.0f},
+        ImVec4{0.0f, 0.5f, 0.0f, 1.0f},
+        ImVec4{0.1f, 0.1f, 1.0f, 1.0f}
+    };
+
+    for (int i = 0; i < v.length(); i++) {
+        ImGui::PushID(i);
+
+        if (i > 0) {
+            ImGui::SameLine(0, ImGui::GetStyle().FramePadding.x);
+        }
+        
+        //ImGui::PushStyleColor(ImGuiCol_Button, colors[i]);
+        //
+        //if (ImGui::Button(chars[i])) {
+        //    v[i] = 0.0f;
+        //    value_changed = true;
+        //}
+
+        //ImGui::PopStyleColor();
+
+        //ImGui::SameLine(0, 1);
+        auto size = ImGui::CalcTextSize("12.456");
+        ImGui::PushItemWidth(size.x);
+
+        ImGuiDataType type = ImGuiDataType_Float;
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
+        ImGui::PushStyleColor(ImGuiCol_Border, colors[i]);
+        value_changed |= ImGui::DragScalar("", type, (void*)&v[i], step, &min, &max, format, 0);
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar();
+
+        /*ImGui::SameLine();  ImGui::Spacing();*/
+
+        ImGui::PopItemWidth();
+        
+        ImGui::PopItemWidth();
+        ImGui::PopID();
+    }
+    ImGui::PopID();
+
+    const char* label_end = ImGui::FindRenderedTextEnd(label);
+    if (label != label_end)
+    {
+        ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
+        ImGui::TextEx(label, label_end);
+    }
+
+    return value_changed;
+}
+
 
 void InspectorWidget::drawComponent(Transform& component, Assets& assets, Scene& scene, entt::entity& active) {
-    if (ImGui::DragFloat3("Scale", glm::value_ptr(component.scale), 0.001f, 0.0f, FLT_MAX)) {
+    if (dragVec3("Scale", component.scale, 0.001f, 0.0f, FLT_MAX)) {
         component.compose();
     }
-    if (ImGui::DragFloat3("Rotation", glm::value_ptr(component.rotation), 0.001f, static_cast<float>(-M_PI), static_cast<float>(M_PI))) {
+
+    auto degrees = glm::degrees(component.rotation);
+
+    if (dragVec3("Rotation", degrees, 0.1f, 0.0f, 360.0f)) {
+        component.rotation = glm::radians(degrees);
         component.compose();
     }
-    if (ImGui::DragFloat3("Position", glm::value_ptr(component.position), 0.001f, FLT_MIN, FLT_MAX)) {
+    if (dragVec3("Position", component.position, 0.001f, -FLT_MAX, FLT_MAX)) {
         component.compose();
     }
 

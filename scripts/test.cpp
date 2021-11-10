@@ -6,12 +6,15 @@ public:
     void update(float dt) override 
     {
         GetComponent<Name>().name = "I ROTATE";
+        GetComponent<Name>().name = "POTATO ROTATO";
 
         auto& transform = GetComponent<Transform>();
-        transform.rotation.y += 3.14159f / 10000.0f * dt;
-        if(transform.rotation.y > 3.14159f) {
-            transform.rotation.y = 0.0f;
-        }
+        transform.rotation.y = 33.14f;
+        transform.compose();
+
+        transform.print();
+        std::cout << transform.rotation.y << '\n';
+
         //transform.rotation.x += 3.14159f / 10000.0f * dt;
     }
 

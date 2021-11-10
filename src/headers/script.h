@@ -17,7 +17,7 @@ public:
     virtual void update(float dt) = 0;
 
     template<typename T>
-    T& GetComponent() { return scene->get<T>(entity); }
+    T& GetComponent();
 
 private:
     entt::entity entity;
@@ -36,5 +36,10 @@ public:
 };
 
 */
+
+template<typename T>
+T& INativeScript::GetComponent() {
+    return scene->get<T>(entity);
+}
 
 } // Raekor

@@ -15,7 +15,6 @@ public:
 private:
     const Uint8* keyboardState;
     inline static std::unique_ptr<Input> singleton = std::make_unique<Input>();
-
 };
 
 }

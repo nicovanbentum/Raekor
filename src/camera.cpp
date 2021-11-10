@@ -140,6 +140,7 @@ float& Viewport::getFov() { return fov; }
 
 void Viewport::setFov(float fov) {
     this->fov = fov;
+
     camera.getProjection() = glm::perspectiveRH(
         glm::radians(fov), 
         camera.getAspectRatio(), 
@@ -152,6 +153,7 @@ void Viewport::setFov(float fov) {
 
 void Viewport::setAspectRatio(float ratio) {
     this->aspectRatio = ratio;
+
     camera.getProjection() = glm::perspectiveRH(
         glm::radians(fov), 
         camera.getAspectRatio(), 
