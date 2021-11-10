@@ -91,14 +91,15 @@ void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
                     success = Shader::glslangValidator(vulkanSDK, file);
                 }
 
-                Async::lock([&]() {
+                {
+                    auto lock = Async::lock();
+
                     if (!success) {
                         std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
                     } else {
                         std::cout << "Compilation " << COUT_GREEN("finished") << " for shader: " << file.path().string() << '\n';
                     }
-                });
-
+                }
             }
         });
     }

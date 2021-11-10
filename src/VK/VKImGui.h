@@ -3,6 +3,8 @@
 #include "VKShader.h"
 #include "VKTexture.h"
 #include "VKStructs.h"
+#include "VKPipeline.h"
+#include "VKFrameBuffer.h"
 
 namespace Raekor::VK {
 
@@ -31,12 +33,11 @@ private:
     Sampler fontSampler;
     int32_t fontTextureID = -1;
 
-    VkPipeline pipeline;
+    GraphicsPipeline pipeline;
     VkPipelineLayout pipelineLayout;
 
-    VkRenderPass renderPass;
-    VkFramebuffer framebuffer;
-    VkImageView imageView;
+    FrameBuffer framebuffer;
+
 };
 
 

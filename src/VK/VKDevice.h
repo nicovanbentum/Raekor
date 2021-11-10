@@ -51,12 +51,16 @@ public:
     [[nodiscard]] Sampler createSampler(const Sampler::Desc& desc);
     [[nodiscard]] VkImageView createView(Texture& texture, uint32_t mipLevel = 0);
     [[nodiscard]] Buffer createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage);
-    [[nodiscard]] GraphicsPipeline createGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer);
+
+    [[nodiscard]] FrameBuffer createFrameBuffer(const FrameBuffer::Desc& desc);
+    [[nodiscard]] GraphicsPipeline createGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer, VkPipelineLayout layout);
 
     void destroyShader(Shader& shader);
     void destroySampler(Sampler& sampler);
     void destroyTexture(Texture& texture);
     void destroyBuffer(const Buffer& buffer);
+    void destroyFrameBuffer(const FrameBuffer& frameBuffer);
+    void destroyGraphicsPipeline(const GraphicsPipeline& pipeline);
 
     void setDebugName(const Texture& texture, const std::string& name);
     

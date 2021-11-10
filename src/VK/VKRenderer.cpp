@@ -82,7 +82,7 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
 
         buffer.textures.x = addBindlessTexture(device, assets.get<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_SRGB_BLOCK);
         buffer.textures.y = addBindlessTexture(device, assets.get<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
-        buffer.textures.z = addBindlessTexture(device, assets.get<TextureAsset>(material.mrFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.z = addBindlessTexture(device, assets.get<TextureAsset>(material.metalroughFile), VK_FORMAT_BC3_UNORM_BLOCK);
 
         buffer.properties.x = material.metallic;
         buffer.properties.y = material.roughness;
@@ -222,8 +222,50 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
     }
 
     pathTracePass.recordCommands(device, viewport, commandBuffer, bindlessTextures);
+
+    {
+        VkImageMemoryBarrier2KHR barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+        barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_READ_BIT_KHR | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT_KHR;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR;
+        barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT_KHR;
+        barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        barrier.image = pathTracePass.finalTexture.image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.layerCount = 1;
+
+        VkDependencyInfoKHR dep = {};
+        dep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
+        dep.imageMemoryBarrierCount = 1;
+        dep.pImageMemoryBarriers = &barrier;
+
+        EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
+    }
     
     imGuiPass.record(device, commandBuffer, ImGui::GetDrawData(), bindlessTextures, viewport.size.x, viewport.size.y, pathTracePass);
+
+    {
+        VkImageMemoryBarrier2KHR barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR;
+        barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT_KHR;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
+        barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.image = pathTracePass.finalTexture.image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.layerCount = 1;
+
+        VkDependencyInfoKHR dep = {};
+        dep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
+        dep.imageMemoryBarrierCount = 1;
+        dep.pImageMemoryBarriers = &barrier;
+
+        EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
+    }
 
     {
         VkImageMemoryBarrier2KHR barrier = {};
@@ -360,7 +402,7 @@ void Renderer::recreateSwapchain(SDL_Window* window) {
     imGuiPass.createFramebuffer(device, pathTracePass, uint32_t(w), uint32_t(h));
 }
 
-int32_t Renderer::addBindlessTexture(Device& device, const std::shared_ptr<TextureAsset>& asset, VkFormat format) {
+int32_t Renderer::addBindlessTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format) {
     if (!asset) {
         return -1;
     }
@@ -507,7 +549,7 @@ RTGeometry Renderer::createBLAS(Mesh& mesh) {
     triangles.indexType = VK_INDEX_TYPE_UINT32;
     triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
     triangles.maxVertex = uint32_t(mesh.positions.size());
-    triangles.vertexStride = uint32_t(mesh.vertexBuffer.getStride());
+    triangles.vertexStride = uint32_t(sizeof(Vertex));
     triangles.indexData.deviceAddress = device.getDeviceAddress(component.indices);
     triangles.vertexData.deviceAddress = device.getDeviceAddress(component.vertices);
 

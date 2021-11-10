@@ -52,7 +52,6 @@ bool Shader::DXC(const fs::directory_entry& file) {
 
 
 Shader Device::createShader(const std::string& filepath) {
-    
     std::ifstream file(filepath, std::ios::ate | std::ios::binary);
     if (!file.is_open()) return Shader(); // TODO: ptr type
 

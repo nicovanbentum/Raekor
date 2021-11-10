@@ -32,13 +32,12 @@ public:
 	};
 
 	struct Desc {
-		State state = State();
+		State* state;
 		Shader* vertexShader;
+		VertexInput* vertexInput;
 		Shader* pixelShader;
-		VertexInput vertexInput;
 	};
 
-private:
 	VkPipeline pipeline;
 	VkPipelineLayout layout;
 };

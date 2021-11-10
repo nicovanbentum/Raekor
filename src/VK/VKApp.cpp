@@ -32,6 +32,7 @@ namespace Raekor::VK {
     }
 
     // TODO: Figure this mess out
+    renderer.setVsync(settings.vsync);
     renderer.updateMaterials(assets, scene);
     renderer.updateAccelerationStructures(scene);
     renderer.initialize(scene);
@@ -84,14 +85,20 @@ void PathTracer::onUpdate(float dt) {
 
     bool reset = false;
 
-    GUI::beginFrame(window);
+    GUI::beginFrame();
 
     bool open = true;
     ImGui::Begin("Path Trace Settings", &open, ImGuiWindowFlags_AlwaysAutoResize);
     
+    if (ImGui::Checkbox("vsync", &settings.vsync)) {
+        renderer.setVsync(settings.vsync);
+        renderer.recreateSwapchain(window);
+        renderer.resetAccumulation();
+    }
+
     reset |= ImGui::SliderInt("Bounces", reinterpret_cast<int*>(&renderer.constants().bounces), 1, 8);
     reset |= ImGui::DragFloat("Sun Cone", &renderer.constants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
-    
+
     ImGui::End();
 
     ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());

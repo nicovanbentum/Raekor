@@ -9,4 +9,9 @@ struct Buffer {
     VmaAllocation allocation;
 };
 
+struct Pipeline {
+    VkPipeline pipeline;
+    VkPipelineLayout layout;
+};
+
 }

@@ -40,7 +40,7 @@ public:
     void setupSyncObjects();
     void recreateSwapchain(SDL_Window* window);
 
-    int32_t addBindlessTexture(Device& device, const std::shared_ptr<TextureAsset>& asset, VkFormat format);
+    int32_t addBindlessTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format);
 
     void reloadShaders();
     void setVsync(bool on);

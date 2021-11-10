@@ -63,13 +63,13 @@ GraphicsPipeline::VertexInput& GraphicsPipeline::VertexInput::binding(uint32_t b
 
 
 GraphicsPipeline::VertexInput& GraphicsPipeline::VertexInput::attribute(uint32_t location, VkFormat format, uint32_t offset) {
-	attributes.push_back({ location, 0, format, offset });
+	attributes.push_back({ location, bindings.back().binding, format, offset });
 	return *this;
 }
 
 
 
-GraphicsPipeline Device::createGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer) {
+GraphicsPipeline Device::createGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer, VkPipelineLayout layout) {
 	GraphicsPipeline pipeline = {};
 	
 	std::array stages = {
@@ -94,10 +94,10 @@ GraphicsPipeline Device::createGraphicsPipeline(const GraphicsPipeline::Desc& de
 
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = uint32_t(desc.vertexInput.bindings.size());
-	vertexInputInfo.pVertexBindingDescriptions = desc.vertexInput.bindings.data();
-	vertexInputInfo.vertexAttributeDescriptionCount = uint32_t(desc.vertexInput.attributes.size());
-	vertexInputInfo.pVertexAttributeDescriptions = desc.vertexInput.attributes.data();
+	vertexInputInfo.vertexBindingDescriptionCount = uint32_t(desc.vertexInput->bindings.size());
+	vertexInputInfo.pVertexBindingDescriptions = desc.vertexInput->bindings.data();
+	vertexInputInfo.vertexAttributeDescriptionCount = uint32_t(desc.vertexInput->attributes.size());
+	vertexInputInfo.pVertexAttributeDescriptions = desc.vertexInput->attributes.data();
 
 	VkPushConstantRange pushConstantRange = {};
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_ALL;
@@ -107,21 +107,30 @@ GraphicsPipeline Device::createGraphicsPipeline(const GraphicsPipeline::Desc& de
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.stageCount = uint32_t(stages.size());
 	pipelineInfo.pStages = stages.data();
-	pipelineInfo.layout = pipeline.layout;
+	pipelineInfo.layout = layout;
 	pipelineInfo.pViewportState = &viewport;
 	pipelineInfo.pVertexInputState = &vertexInputInfo;
-	pipelineInfo.pInputAssemblyState = &desc.state.inputAssembly;
-	pipelineInfo.pRasterizationState = &desc.state.rasterizer;
-	pipelineInfo.pMultisampleState = &desc.state.multisample;
-	pipelineInfo.pDepthStencilState = &desc.state.depthStencil;
-	pipelineInfo.pColorBlendState = &desc.state.colorBlend;
+	pipelineInfo.pInputAssemblyState = &desc.state->inputAssembly;
+	pipelineInfo.pRasterizationState = &desc.state->rasterizer;
+	pipelineInfo.pMultisampleState = &desc.state->multisample;
+	pipelineInfo.pDepthStencilState = &desc.state->depthStencil;
+	pipelineInfo.pColorBlendState = &desc.state->colorBlend;
 	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.renderPass = framebuffer.renderPass;
 	pipelineInfo.basePipelineIndex = -1;
 
 	vkCreateGraphicsPipelines(device, NULL, 1, &pipelineInfo, nullptr, &pipeline.pipeline);
 
+	//TODO: ResourceInput
+	pipeline.layout = layout;
+
 	return pipeline;
 }
 
+void Device::destroyGraphicsPipeline(const GraphicsPipeline& pipeline) {
+	vkDestroyPipeline(device, pipeline.pipeline, nullptr);
+	vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
 }
+
+
+} // raekor

@@ -74,58 +74,6 @@ void ImGuiPass::initialize(Device& device, const Swapchain& swapchain, PathTrace
 	fontTextureID = textures.append(device, imageInfo);
 	io.Fonts->TexID = &fontTextureID;
 
-
-	// setup the single subpass contents
-	VkAttachmentReference colorAttachmentRef = {};
-	colorAttachmentRef.attachment = 0;
-	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colorAttachmentRef;
-
-	VkAttachmentDescription description = {};
-	description.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	description.samples = VK_SAMPLE_COUNT_1_BIT;
-	description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	description.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
-	description.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-
-	VkSubpassDependency beginDep = {};
-	beginDep.srcSubpass = VK_SUBPASS_EXTERNAL;
-	beginDep.dstSubpass = 0;
-	beginDep.srcStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
-	beginDep.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-	beginDep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	beginDep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-	VkSubpassDependency endDep = {};
-	endDep.srcSubpass = 0;
-	endDep.dstSubpass = VK_SUBPASS_EXTERNAL;
-	endDep.srcStageMask = beginDep.dstStageMask;
-	endDep.srcAccessMask = beginDep.dstAccessMask;
-	endDep.dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	endDep.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-
-	std::array deps = { beginDep, endDep };
-
-	VkRenderPassCreateInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = 1;
-	renderPassInfo.pAttachments = &description;
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.dependencyCount = uint32_t(deps.size());
-	renderPassInfo.pDependencies = deps.data();
-
-	ThrowIfFailed(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
-
-	createFramebuffer(device, pathTracePass, swapchain.getExtent().width, swapchain.getExtent().height);
-
 	VkPushConstantRange pushConstantRange = {};
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
 	pushConstantRange.size = 128; // TODO: query size from physical device
@@ -139,79 +87,33 @@ void ImGuiPass::initialize(Device& device, const Swapchain& swapchain, PathTrace
 
 	ThrowIfFailed(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout));
 
-	VkVertexInputBindingDescription vertexBinding = {};
-	vertexBinding.binding = 0;
-	vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-	vertexBinding.stride = sizeof(ImDrawVert);
-
-
-
-	constexpr std::array vertexAttributes = {
-		VkVertexInputAttributeDescription {
-			0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, pos)
-		},
-		VkVertexInputAttributeDescription {
-			1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, uv)
-		},
-		VkVertexInputAttributeDescription {
-			2, 0, VK_FORMAT_R32_UINT, offsetof(ImDrawVert, col)
-		}
-	};
-
-
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
-	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 1;
-	vertexInputInfo.pVertexBindingDescriptions = &vertexBinding;
-	vertexInputInfo.vertexAttributeDescriptionCount = uint32_t(vertexAttributes.size());
-	vertexInputInfo.pVertexAttributeDescriptions = vertexAttributes.data();
-
-	VkPipelineViewportStateCreateInfo viewport = {};
-	viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	viewport.viewportCount = 1;
-	viewport.scissorCount = 1;
-
-	constexpr std::array dynamicStates = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_SCISSOR
-	};
-
-	VkPipelineDynamicStateCreateInfo dynamicState = {};
-	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	dynamicState.dynamicStateCount = uint32_t(dynamicStates.size());
-	dynamicState.pDynamicStates = dynamicStates.data();
+	auto vertexInput = GraphicsPipeline::VertexInput()
+		.binding(0, sizeof(ImDrawVert))
+		.attribute(0, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, pos))
+		.attribute(1, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, uv))
+		.attribute(2, VK_FORMAT_R32_UINT, offsetof(ImDrawVert, col));
 
 	pixelShader = device.createShader("shaders/Vulkan/bin/imguiPS.hlsl.spv");
 	vertexShader = device.createShader("shaders/Vulkan/bin/imguiVS.hlsl.spv");
-
-	std::array stages = {
-		pixelShader.getPipelineCreateInfo(),
-		vertexShader.getPipelineCreateInfo()
-	};
 
 	GraphicsPipeline::State state;
 	state.rasterizer.cullMode = VK_CULL_MODE_NONE;
 	state.colorBlend.attachmentCount = 1;
 
-	VkGraphicsPipelineCreateInfo pipelineInfo = {};
-	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipelineInfo.stageCount = uint32_t(stages.size());
-	pipelineInfo.pStages = stages.data();
-	pipelineInfo.layout = pipelineLayout;
-	pipelineInfo.pViewportState = &viewport;
-	pipelineInfo.pVertexInputState = &vertexInputInfo;
-	pipelineInfo.pInputAssemblyState = &state.inputAssembly;
-	pipelineInfo.pRasterizationState = &state.rasterizer;
-	pipelineInfo.pMultisampleState = &state.multisample;
-	pipelineInfo.pDepthStencilState = &state.depthStencil;
-	pipelineInfo.pColorBlendState = &state.colorBlend;
-	pipelineInfo.pDynamicState = &dynamicState;
-	pipelineInfo.renderPass = renderPass;
-	pipelineInfo.subpass = 0;
-	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-	pipelineInfo.basePipelineIndex = -1;
+	auto framebufferDesc = FrameBuffer::Desc();
+	framebufferDesc.width = swapchain.extent.width;
+	framebufferDesc.height = swapchain.extent.height;
+	framebufferDesc.colorAttachment(0, pathTracePass.finalTexture);
 
-	ThrowIfFailed(vkCreateGraphicsPipelines(device, NULL, 1, &pipelineInfo, nullptr, &pipeline));
+	framebuffer = device.createFrameBuffer(framebufferDesc);
+	
+	auto pipelineDesc = GraphicsPipeline::Desc();
+	pipelineDesc.state = &state;
+	pipelineDesc.vertexShader = &vertexShader;
+	pipelineDesc.vertexInput = &vertexInput;
+	pipelineDesc.pixelShader = &pixelShader;
+	
+	pipeline = device.createGraphicsPipeline(pipelineDesc, framebuffer, pipelineLayout);
 }
 
 
@@ -224,11 +126,9 @@ void ImGuiPass::destroy(Device& device) {
 	
 	device.destroyTexture(fontTexture);
 	device.destroySampler(fontSampler);
-	
-	vkDestroyRenderPass(device, renderPass, nullptr);
-	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-	vkDestroyPipeline(device, pipeline, nullptr);
-	destroyFramebuffer(device);
+
+	device.destroyFrameBuffer(framebuffer);
+	device.destroyGraphicsPipeline(pipeline);
 }
 
 
@@ -260,8 +160,8 @@ void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 
 	VkRenderPassBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	beginInfo.renderPass = renderPass;
-	beginInfo.framebuffer = framebuffer;
+	beginInfo.renderPass = framebuffer.renderPass;
+	beginInfo.framebuffer = framebuffer.framebuffer;
 	beginInfo.renderArea.offset = { 0, 0 };
 	beginInfo.renderArea.extent.width = width;
 	beginInfo.renderArea.extent.height = height;
@@ -278,7 +178,7 @@ void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 	VkDeviceSize offset[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offset);
 	
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &textures.getDescriptorSet(), 0, nullptr);
 
 	vtxOffset = 0;
@@ -336,24 +236,18 @@ void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 
 
 void ImGuiPass::createFramebuffer(Device& device, PathTracePass& pathTracePass, uint32_t width, uint32_t height) {
-	const VkImageView attachment = device.createView(pathTracePass.finalTexture);
+	auto framebufferDesc = FrameBuffer::Desc();
+	framebufferDesc.width = width;
+	framebufferDesc.height = height;
+	framebufferDesc.colorAttachment(0, pathTracePass.finalTexture);
 
-	VkFramebufferCreateInfo framebufferInfo = {};
-	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	framebufferInfo.renderPass = renderPass;
-	framebufferInfo.attachmentCount = 1u;
-	framebufferInfo.pAttachments = &attachment;
-	framebufferInfo.width = width;
-	framebufferInfo.height = height;
-	framebufferInfo.layers = 1;
-
-	ThrowIfFailed(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffer));
+	framebuffer = device.createFrameBuffer(framebufferDesc);
 }
 
 
 
 void ImGuiPass::destroyFramebuffer(Device& device) {
-	vkDestroyFramebuffer(device, framebuffer, nullptr);
+	device.destroyFrameBuffer(framebuffer);
 }
 
 }  // Raekor::VK
