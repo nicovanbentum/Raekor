@@ -9,7 +9,7 @@ Async::Async() : Async(std::thread::hardware_concurrency() - 1) {}
 
 Async::Async(int threadCount) {
     for (int i = 0; i < threadCount; i++) {
-        threads.push_back(std::thread(&Async::handler, this));
+        threads.push_back(std::thread(&Async::loop, this));
 
         // Do Windows-specific thread setup:
         HANDLE handle = (HANDLE)threads[i].native_handle();
@@ -46,21 +46,24 @@ Async::~Async() {
 
 
 
-void Async::dispatch(const Task& task) {
+Async::Handle Async::dispatch(const Task& task) {
+    auto dispatch = std::make_shared<Dispatch>(task);
+
     {
         std::scoped_lock<std::mutex> lock(async->mutex);
-        async->queue.push(task);
+        async->queue.push(dispatch);
     }
 
     async->activeTaskCount.fetch_add(1);
     async->cv.notify_one();
+
+    return dispatch;
 }
 
 
 
-void Async::lock(const Task& task) {
-    std::scoped_lock<std::mutex> lock(async->mutex);
-    task();
+std::scoped_lock<std::mutex> Async::lock() {
+    return std::scoped_lock<std::mutex>(async->mutex);
 }
 
 
@@ -71,9 +74,16 @@ void Async::wait() {
 
 
 
-void Async::handler() {
+void Async::wait(const Handle& dispatch) {
+    while (!dispatch->finished) {}
+}
+
+
+
+void Async::loop() {
     // take control of the mutex
-    std::unique_lock<std::mutex> lock(mutex);
+    auto lock = std::unique_lock<std::mutex>(mutex);
+    
 
     do {
         // wait releases the mutex and re-acquires when there's work available
@@ -82,18 +92,21 @@ void Async::handler() {
         });
 
         if (queue.size() && !quit) {
-            Task task = std::move(queue.front());
+            auto dispatch = std::move(queue.front());
             queue.pop();
 
             lock.unlock();
 
-            task();
+            dispatch->task();
 
-            if(activeTaskCount.load() > 0) activeTaskCount.fetch_sub(1);
+            dispatch->finished = true;
 
             // re-lock so wait doesn't unlock an unlocked mutex
             lock.lock();
+            
+            if(activeTaskCount.load() > 0) activeTaskCount.fetch_sub(1);
         }
+
     } while (!quit);
 }
 
