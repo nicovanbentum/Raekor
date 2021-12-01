@@ -187,10 +187,6 @@ void Scene::loadMaterialTextures(Assets& assets, const std::vector<entt::entity>
         if (!PATHTRACE) {
             GLRenderer::uploadMaterialTextures(material, assets);
         }
-
-        assets.release(material.albedoFile);
-        assets.release(material.normalFile);
-        assets.release(material.metalroughFile);
     }
 
     timer.stop();
@@ -199,44 +195,75 @@ void Scene::loadMaterialTextures(Assets& assets, const std::vector<entt::entity>
 
 
 
-void Scene::saveToFile(const std::string& file) {
-    std::ofstream outstream(file, std::ios::binary);
-    cereal::BinaryOutputArchive output(outstream);
-    entt::snapshot{ *this }.entities(output).component<
-        Name, Node, Transform,
-        Mesh, Material, PointLight,
-        DirectionalLight>(output);
+void Scene::saveToFile(Assets& assets, const std::string& file) {
+    std::stringstream bufferstream;
+    
+    {
+        cereal::BinaryOutputArchive output(bufferstream);
+        entt::snapshot{ *this }.entities(output).component<
+            Name, Node, Transform,
+            Mesh, Material, PointLight,
+            DirectionalLight>(output);
+
+        output(assets);
+    }
+
+    auto buffer = bufferstream.str();
+
+    auto bound = LZ4_compressBound(int(buffer.size()));
+
+    std::vector<char> compressed(bound);
+    Timer timer;
+    timer.start();
+
+    auto compressedSize = LZ4_compress_default(buffer.c_str(), compressed.data(), int(buffer.size()), bound);
+
+    timer.stop();
+    std::cout << "Compression time: " << timer.elapsedMs() << '\n';
+
+    std::ofstream filestream(file, std::ios::binary);
+    filestream.write(compressed.data(), compressedSize);
 }
 
 
 
 void Scene::openFromFile(Assets& assets, const std::string& file) {
     if (!std::filesystem::is_regular_file(file)) {
+        std::clog << "silent return in Scene::openFromFile : filepath " << file << " does not exist.";
         return;
     }
     std::ifstream storage(file, std::ios::binary);
 
-    // TODO: lz4 compression
-    ////Read file into buffer
-    //std::string buffer;
-    //storage.seekg(0, std::ios::end);
-    //buffer.resize(storage.tellg());
-    //storage.seekg(0, std::ios::beg);
-    //storage.read(&buffer[0], buffer.size());
+    //Read file into buffer
+    std::string buffer;
+    storage.seekg(0, std::ios::end);
+    buffer.resize(storage.tellg());
+    storage.seekg(0, std::ios::beg);
+    storage.read(&buffer[0], buffer.size());
 
-    //char* const regen_buffer = (char*)malloc(buffer.size());
-    //const int decompressed_size = LZ4_decompress_safe(buffer.data(), regen_buffer, buffer.size(), bound_size);
+    auto decompressed = std::string();
+    decompressed.resize(buffer.size() * 2);
+    const int decompressed_size = LZ4_decompress_safe(buffer.data(), decompressed.data(), int(buffer.size()), int(decompressed.size()));
 
     clear();
 
     Timer timer;
     timer.start();
 
-    cereal::BinaryInputArchive input(storage);
-    entt::snapshot_loader{ *this }.entities(input).component <
-        Name, Node, Transform,
-        Mesh, Material, PointLight,
-        DirectionalLight >(input);
+    // stringstream to serialise from char data back to scene/asset representation
+    {
+        auto bufferstream = std::stringstream(decompressed);
+        cereal::BinaryInputArchive input(bufferstream);
+    
+        // use cereal -> entt snapshot loader to load scene
+        entt::snapshot_loader{ *this }.entities(input).component <
+            Name, Node, Transform,
+            Mesh, Material, PointLight,
+            DirectionalLight >(input);
+
+        // load assets
+        input(assets);
+    }
 
     timer.stop();
     std::cout << "Archive time " << timer.elapsedMs() << '\n';
