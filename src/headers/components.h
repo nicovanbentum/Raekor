@@ -33,21 +33,21 @@ struct Transform {
 
 struct DirectionalLight {
     glm::vec4 direction = { 0.0f, -0.9f, 0.0f, 0.0f };
-    glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+    glm::vec4 colour    = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 
 
 struct PointLight {
     glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
-    glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+    glm::vec4 colour   = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 
 
 struct Node {
-    entt::entity parent = entt::null;
-    entt::entity firstChild = entt::null;
+    entt::entity parent      = entt::null;
+    entt::entity firstChild  = entt::null;
     entt::entity prevSibling = entt::null;
     entt::entity nextSibling = entt::null;
 };
@@ -59,7 +59,7 @@ struct Mesh {
     std::vector<glm::vec2> uvs;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec3> tangents;
-
+    
     std::vector<uint32_t> indices;
 
     uint32_t vertexBuffer;
@@ -122,15 +122,20 @@ struct Skeleton {
 
 
 struct Material {
-    glm::vec4 baseColour = { 1.0f, 1.0f, 1.0f, 1.0f };
+    // properties
+    glm::vec4 albedo = glm::vec4(1.0f);
+    glm::vec3 emissive = glm::vec3(1.0f);
     float metallic = 0.0f, roughness = 1.0f;
+
+    // texture file paths
     std::string albedoFile, normalFile, metalroughFile;
 
     // GPU resources
-    unsigned int albedo = 0;
-    unsigned int normals = 0;
-    unsigned int metalrough = 0;
+    uint32_t gpuAlbedoMap = 0;
+    uint32_t gpuNormalMap = 0;
+    uint32_t gpuMetallicRoughnessMap = 0;
 
+    // default material for newly spawned meshes
     static Material Default;
 };
 
@@ -138,9 +143,9 @@ struct Material {
 
 struct NativeScript {
     std::string file;
+    ScriptAsset::Ptr asset;
     std::string procAddress;
     INativeScript* script = nullptr;
-    std::shared_ptr<ScriptAsset> asset;
 };
 
 

@@ -329,7 +329,7 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
 
     aiColor4D diffuse;
     if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, &diffuse)) {
-        material.baseColour = { diffuse.r, diffuse.g, diffuse.b, diffuse.a };
+        material.albedo = { diffuse.r, diffuse.g, diffuse.b, diffuse.a };
     }
 
     float roughness, metallic;

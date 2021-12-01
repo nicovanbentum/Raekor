@@ -57,17 +57,13 @@ void Editor::onUpdate(float dt) {
     scene.updateLights();
 
     // update animations in parallel
-    std::vector<Async::Handle> handles;
-
     scene.view<Skeleton>().each([&](Skeleton& skeleton) {
-        handles.push_back(Async::dispatch([&]() {
+        Async::dispatch([&]() {
             skeleton.boneTransform(dt);
-        }));
+        });
     });
 
-    for (const auto& handle : handles) {
-        Async::wait(handle);
-    }
+    Async::wait();
 
     // update scripts
     scene.view<NativeScript>().each([&](NativeScript& component) {

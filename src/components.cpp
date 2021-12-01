@@ -221,7 +221,7 @@ void Skeleton::uploadRenderData(Mesh& mesh) {
 
     if (skinnedVertexBuffer) glDeleteBuffers(1, &skinnedVertexBuffer);
     glCreateBuffers(1, &skinnedVertexBuffer);
-    glNamedBufferData(skinnedVertexBuffer, sizeof(Vertex) * originalMeshBuffer.size(), originalMeshBuffer.data(), GL_STATIC_DRAW);
+    glNamedBufferData(skinnedVertexBuffer, sizeof(originalMeshBuffer[0]) * originalMeshBuffer.size(), originalMeshBuffer.data(), GL_STATIC_DRAW);
 }
 
 

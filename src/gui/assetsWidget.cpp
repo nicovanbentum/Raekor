@@ -28,16 +28,16 @@ void AssetsWidget::draw(float dt) {
             
             bool clicked = false;
 
-            if (material.albedo) {
+            if (material.gpuAlbedoMap) {
                 clicked = ImGui::ImageButton(
-                    (void*)((intptr_t)material.albedo),
+                    (void*)((intptr_t)material.gpuAlbedoMap),
                     ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()), 
                     ImVec2(0, 0), ImVec2(1, 1), -1, 
                     ImVec4(0, 1, 0, 1)
                 );
             }
             else {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec(material.baseColour));
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec(material.albedo));
                 clicked = ImGui::Button(
                     std::string("##" + name.name).c_str(), 
                     ImVec2(64 * ImGui::GetWindowDpiScale() + style.FramePadding.x * 2, 64 * ImGui::GetWindowDpiScale() + style.FramePadding.y * 2)

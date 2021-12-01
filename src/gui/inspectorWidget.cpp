@@ -78,9 +78,9 @@ void InspectorWidget::drawComponent(Mesh& component, Assets& assets, Scene& scen
     if (scene.valid(component.material) && scene.all_of<Material, Name>(component.material)) {
         auto& [material, name] = scene.get<Material, Name>(component.material);
 
-        const auto albedoTexture = (void*)((intptr_t)material.albedo);
+        const auto albedoTexture = (void*)((intptr_t)material.gpuAlbedoMap);
         const auto previewSize = ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale());
-        const auto tintColor = ImVec4(material.baseColour.r, material.baseColour.g, material.baseColour.b, material.baseColour.a);
+        const auto tintColor = ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a);
 
         if (ImGui::ImageButton(albedoTexture, previewSize, ImVec2(0, 0), ImVec2(1, 1), -1, ImVec4(0, 0, 0, 0), tintColor)) {
             active = component.material;
@@ -121,32 +121,23 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
     auto& style = ImGui::GetStyle();
     float lineHeight = io.FontDefault->FontSize;
 
-    ImGui::ColorEdit4("Base colour", glm::value_ptr(component.baseColour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+    ImGui::ColorEdit4("Albedo", glm::value_ptr(component.albedo), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+    ImGui::ColorEdit3("Emissive", glm::value_ptr(component.emissive), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 
     const bool adjustedMetallic = ImGui::DragFloat("Metallic", &component.metallic, 0.001f, 0.0f, 1.0f);
     const bool adjustedRoughness = ImGui::DragFloat("Roughness", &component.roughness, 0.001f, 0.0f, 1.0f);
 
     if (adjustedMetallic || adjustedRoughness) {
-        if (component.metalroughFile.empty() && component.metalrough) {
+        if (component.metalroughFile.empty() && component.gpuMetallicRoughnessMap) {
             auto metalRoughnessValue = glm::vec4(0.0f, component.roughness, component.metallic, 1.0f);
-            glTextureSubImage2D(component.metalrough, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
+            glTextureSubImage2D(component.gpuMetallicRoughnessMap, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(metalRoughnessValue));
         }
     }
 
     const char* fileFilters = "Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0";
 
-    auto drawTextureInteraction = [=](GLuint texture,const char* name, Material* component) {
-        ImGui::PushID(texture);
-
-        bool usingTexture = texture != 0;
-        if (ImGui::Checkbox("", &usingTexture)) {
-        }
-
-        ImGui::PopID();
-
-        ImGui::SameLine();
-
-        const GLuint image = texture ? texture : Material::Default.albedo;
+    auto drawTextureInteraction = [=](GLuint texture, const char* name, Material* component) {
+        const GLuint image = texture ? texture : Material::Default.gpuAlbedoMap;
 
         if (ImGui::ImageButton((void*)((intptr_t)image), ImVec2(lineHeight - 1, lineHeight - 1))) {
             auto filepath = OS::openFileDialog(fileFilters);
@@ -156,14 +147,25 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
             }
         }
 
-        ImGui::SameLine();
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text(name);
+        if (name) {
+            ImGui::SameLine();
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text(name);
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(name);
+            }
+        }
+
     };
 
-    drawTextureInteraction(component.albedo, component.albedoFile.c_str(), &component);
-    drawTextureInteraction(component.normals, component.normalFile.c_str(), &component);
-    drawTextureInteraction(component.metalrough, component.metalroughFile.c_str(), &component);
+
+    ImGui::AlignTextToFramePadding(); ImGui::Text("Albedo Map"); ImGui::SameLine();
+    drawTextureInteraction(component.gpuAlbedoMap, component.albedoFile.c_str(), &component);
+    ImGui::AlignTextToFramePadding(); ImGui::Text("Normal Map"); ImGui::SameLine();
+    drawTextureInteraction(component.gpuNormalMap, component.normalFile.c_str(), &component);
+    ImGui::AlignTextToFramePadding(); ImGui::Text("Material Map"); ImGui::SameLine();
+    drawTextureInteraction(component.gpuMetallicRoughnessMap, component.metalroughFile.c_str(), &component);
 }
 
 
@@ -241,7 +243,7 @@ void InspectorWidget::drawComponent(Transform& component, Assets& assets, Scene&
 
     auto degrees = glm::degrees(component.rotation);
 
-    if (dragVec3("Rotation", degrees, 0.1f, 0.0f, 360.0f)) {
+    if (dragVec3("Rotation", degrees, 0.1f, -360.0f, 360.0f)) {
         component.rotation = glm::radians(degrees);
         component.compose();
     }

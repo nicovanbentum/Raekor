@@ -4,6 +4,7 @@
 #include "camera.h"
 #include "timer.h"
 #include "scene.h"
+#include "VK\VKGBuffer.h"
 
 namespace Raekor {
 
@@ -23,13 +24,13 @@ GLTimer::~GLTimer() {
 
 
 
-void GLTimer::Begin() {
+void GLTimer::begin() {
     glBeginQuery(GL_TIME_ELAPSED, queries[index]);
 }
 
 
 
-void GLTimer::End() {
+void GLTimer::end() {
     glEndQuery(GL_TIME_ELAPSED);
     
     // check all the queries for results, except the one that just ended
@@ -43,7 +44,7 @@ void GLTimer::End() {
 
 
 
-float GLTimer::GetMilliseconds() {
+float GLTimer::getMilliseconds() const {
     return time * 0.000001f;
 }
 
@@ -418,33 +419,33 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
         }
 
         if (material) {
-            if (material->albedo) {
-                glBindTextureUnit(1, material->albedo);
+            if (material->gpuAlbedoMap) {
+                glBindTextureUnit(1, material->gpuAlbedoMap);
             } else {
-                glBindTextureUnit(1, Material::Default.albedo);
+                glBindTextureUnit(1, Material::Default.gpuAlbedoMap);
             }
 
-            if (material->normals) {
-                glBindTextureUnit(2, material->normals);
+            if (material->gpuNormalMap) {
+                glBindTextureUnit(2, material->gpuNormalMap);
             } else {
-                glBindTextureUnit(2, Material::Default.normals);
+                glBindTextureUnit(2, Material::Default.gpuNormalMap);
             }
 
-            if (material->metalrough) {
-                glBindTextureUnit(3, material->metalrough);
+            if (material->gpuMetallicRoughnessMap) {
+                glBindTextureUnit(3, material->gpuMetallicRoughnessMap);
             } else {
-                glBindTextureUnit(3, Material::Default.metalrough);
+                glBindTextureUnit(3, Material::Default.gpuMetallicRoughnessMap);
             }
 
-            uniforms.colour = material->baseColour;
+            uniforms.colour = material->albedo;
             uniforms.metallic = material->metallic;
             uniforms.roughness = material->roughness;
 
         } else {
-            glBindTextureUnit(1, Material::Default.albedo);
-            glBindTextureUnit(2, Material::Default.normals);
-            glBindTextureUnit(3, Material::Default.metalrough);
-            uniforms.colour = Material::Default.baseColour;
+            glBindTextureUnit(1, Material::Default.gpuAlbedoMap);
+            glBindTextureUnit(2, Material::Default.gpuNormalMap);
+            glBindTextureUnit(3, Material::Default.gpuMetallicRoughnessMap);
+            uniforms.colour = Material::Default.albedo;
             uniforms.metallic = Material::Default.metallic;
             uniforms.roughness = Material::Default.roughness;
         }
@@ -621,9 +622,7 @@ DeferredShading::DeferredShading(const Viewport& viewport) {
 
 
 void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
-                             const ShadowMap& shadowMap, const GBuffer& GBuffer, const Voxelize& voxels) {
-    timer.Begin();
-
+                             const ShadowMap& shadowMap, const GBuffer& GBuffer, const Atmosphere& atmosphere, const Voxelize& voxels) {
     uniforms.view = viewport.getCamera().getView();
     uniforms.projection = viewport.getJitteredProjMatrix();
 
@@ -688,6 +687,7 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
     glBindTextureUnit(7, GBuffer.materialTexture);
     glBindTextureUnit(8, GBuffer.depthTexture);
     glBindTextureUnit(9, brdfLUT);
+    glBindTextureUnit(10, atmosphere.environmentCubemap);
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, uniformBuffer2);
@@ -695,8 +695,6 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    timer.End();
 }
 
 
@@ -989,9 +987,9 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
     uniforms.view = viewport.getCamera().getView();
 
     // clear the entire voxel texture
-    constexpr auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    constexpr auto clearColour = glm::u8vec4(0.0f, 0.0f, 0.0f, 0.0f);
     for (uint32_t level = 0; level < std::log2(size); level++) {
-        glClearTexImage(result, level, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
+        glClearTexImage(result, level, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(clearColour));
     }
 
     // set GL state
@@ -1009,10 +1007,10 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
 
     const auto view = scene.view<const Mesh, const Transform>();
 
-    for (auto entity : view) {
-        const auto& [mesh, transform] = view.get<const Mesh, const Transform>(entity);
+    for (const auto& [entity, mesh, transform] : view.each()) {
 
         const Material* material = nullptr;
+        
         if (scene.valid(mesh.material)) {
             material = scene.try_get<Material>(mesh.material);
         }
@@ -1020,15 +1018,15 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
         uniforms.model = transform.worldTransform;
 
         if (material) {
-            if (material->albedo) {
-                glBindTextureUnit(0, material->albedo);
+            if (material->gpuAlbedoMap) {
+                glBindTextureUnit(0, material->gpuAlbedoMap);
             } else {
-                glBindTextureUnit(0, Material::Default.albedo);
+                glBindTextureUnit(0, Material::Default.gpuAlbedoMap);
             }
-            uniforms.colour = material->baseColour;
+            uniforms.colour = material->albedo;
         } else {
-            glBindTextureUnit(0, Material::Default.albedo);
-            uniforms.colour = Material::Default.baseColour;
+            glBindTextureUnit(0, Material::Default.gpuAlbedoMap);
+            uniforms.colour = Material::Default.albedo;
         }
 
         // determine if we use the original mesh vertices or GPU skinned vertices
@@ -1053,6 +1051,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
 
     // Run compute shaders
     computeMipmaps(result);
+    //correctOpacity(result);
     //glGenerateTextureMipmap(result);
 
     // reset OpenGL state

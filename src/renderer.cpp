@@ -20,8 +20,9 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
 
         switch (id) {
             case 131218: return; // shader state recompilation
-            default:
-                assert(false);
+            default: {
+                //breakpoint
+            }
         }
     }
 }
@@ -155,14 +156,14 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
         glTextureSubImage2D(texture, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(value));
     };
 
-    createDefaultMaterialTexture(Material::Default.albedo, glm::vec4(1.0f));
-    setDefaultTextureParams(Material::Default.albedo);
+    createDefaultMaterialTexture(Material::Default.gpuAlbedoMap, glm::vec4(1.0f));
+    setDefaultTextureParams(Material::Default.gpuAlbedoMap);
 
-    createDefaultMaterialTexture(Material::Default.metalrough, glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
-    setDefaultTextureParams(Material::Default.metalrough);
+    createDefaultMaterialTexture(Material::Default.gpuMetallicRoughnessMap, glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
+    setDefaultTextureParams(Material::Default.gpuMetallicRoughnessMap);
 
-    createDefaultMaterialTexture(Material::Default.normals, glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
-    setDefaultTextureParams(Material::Default.normals);
+    createDefaultMaterialTexture(Material::Default.gpuNormalMap, glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
+    setDefaultTextureParams(Material::Default.gpuNormalMap);
 }
 
 
@@ -175,36 +176,52 @@ GLRenderer::~GLRenderer() {
 
 
 void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
+    if (!timings.empty() && settings.disableTiming) {
+        timings.clear();
+    }
+
     // skin all meshes in the scene
-    scene.view<const Skeleton, const Mesh>()
-    .each([&](auto& animation, auto& mesh) {
-        skinning->compute(mesh, animation);
+    time("Skinning", [&]() {
+        scene.view<const Skeleton, const Mesh>()
+        .each([&](auto& animation, auto& mesh) {
+            skinning->compute(mesh, animation);
+        });
     });
 
     // render 4 * 4096 cascaded shadow maps
-    shadowMaps->render(viewport, scene);
+    time("Shadow cascades", [&]() {
+        shadowMaps->render(viewport, scene);
+    });
 
     // voxelize the Scene to a 3D texture
-    static bool b = true;
-
-    if (b) {
-        voxelize->render(scene, viewport, *shadowMaps);
-        b = false;
+    if (settings.shouldVoxelize) {
+        time("Voxelize", [&]() {
+            voxelize->render(scene, viewport, *shadowMaps);
+        });
     }
 
     // generate a geometry buffer with depth, normals, material and albedo
-    gbuffer->render(scene, viewport, frameNr);
+    time("GBuffer", [&]() {
+        gbuffer->render(scene, viewport, frameNr);
+    });
 
     // render the sky using ray marching for atmospheric scattering
-    atmosphere->render(viewport, scene, gbuffer->albedoTexture, gbuffer->depthTexture);
+    time("Atmosphere", [&]() {
+        atmosphere->computeCubemaps(viewport, scene);
+        atmosphere->renderSkybox(viewport, gbuffer->albedoTexture, gbuffer->depthTexture);
+    });
 
     // fullscreen PBR deferred shading pass
-    deferShading->render(scene, viewport, *shadowMaps, *gbuffer, *voxelize);
+    time("Deferred Shading", [&]() {
+        deferShading->render(scene, viewport, *shadowMaps, *gbuffer, *atmosphere, *voxelize);
+    });
 
     GLuint shadingResult = deferShading->result;
 
     if (settings.enableTAA) {
-        shadingResult = taaResolve->render(viewport, *gbuffer, *deferShading, frameNr);
+        time("TAA Resolve", [&]() {
+            shadingResult = taaResolve->render(viewport, *gbuffer, *deferShading, frameNr);
+        });
     }
     else {
         // if the cvar is enabled through cvars it doesnt reset the frameNr,
@@ -213,26 +230,41 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     }
 
     // render editor icons
-    icons->render(scene, viewport, shadingResult, gbuffer->entityTexture);
+    time("Icons", [&]() {
+        icons->render(scene, viewport, shadingResult, gbuffer->entityTexture);
+    });
 
     // generate downsampled bloom and do ACES tonemapping
+    GLuint bloomTexture = blackTexture;
+
     if (settings.doBloom) {
-        bloom->render(viewport, deferShading->bloomHighlights);
-        tonemap->render(shadingResult, bloom->bloomTexture);
-    } else {
-        tonemap->render(shadingResult, blackTexture);
+        time("Bloom", [&]() {
+            bloom->render(viewport, deferShading->bloomHighlights);
+        });
+
+        bloomTexture = bloom->bloomTexture;
     }
 
+    time("Tonemap", [&]() {
+        tonemap->render(shadingResult, bloomTexture);
+    });
+
     if (settings.debugCascades) {
-        shadowMaps->renderCascade(viewport, tonemap->framebuffer);
+        time("Debug cascade", [&]() {
+            shadowMaps->renderCascade(viewport, tonemap->framebuffer);
+        });
     }
 
     // render debug lines / shapes
-    debugLines->render(viewport, tonemap->result, gbuffer->depthTexture);
+    time("Debug lines", [&]() {
+        debugLines->render(viewport, tonemap->result, gbuffer->depthTexture);
+    });
 
     // render 3D voxel texture size ^ 3 cubes
     if (settings.debugVoxels) {
-        debugvoxels->render(viewport, tonemap->result, *voxelize);
+        time("Debug voxels", [&]() {
+            debugvoxels->render(viewport, tonemap->result, *voxelize);
+        });
     }
 
     // build the imgui font texture
@@ -246,7 +278,9 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // render ImGui
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    time("ImGui", [&]() {
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    });
 
     // increment frame counter
     frameNr = frameNr + 1;
@@ -276,7 +310,21 @@ void GLRenderer::addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
     addDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
 }
 
+template<typename Lambda>
+void GLRenderer::time(const std::string& name, Lambda&& lambda) {
+    if (!settings.disableTiming) {
+        timings.insert({ name, std::make_unique<GLTimer>() });
 
+        timings[name]->begin();
+
+        lambda();
+
+        timings[name]->end();
+    }
+    else {
+        lambda();
+    }
+}
 
 void GLRenderer::uploadMeshBuffers(Mesh& mesh) {
     auto vertices = mesh.getInterleavedVertices();
@@ -303,25 +351,25 @@ void GLRenderer::destroyMeshBuffers(Mesh& mesh) {
 
 
 void GLRenderer::destroyMaterialTextures(Material& material, Assets& assets) {
-    glDeleteTextures(1, &material.albedo);
-    glDeleteTextures(1, &material.normals);
-    glDeleteTextures(1, &material.metalrough);
-    material.albedo = 0, material.normals = 0, material.metalrough = 0;
+    glDeleteTextures(1, &material.gpuAlbedoMap);
+    glDeleteTextures(1, &material.gpuNormalMap);
+    glDeleteTextures(1, &material.gpuMetallicRoughnessMap);
+    material.gpuAlbedoMap = 0, material.gpuNormalMap = 0, material.gpuMetallicRoughnessMap = 0;
 }
 
 
 
 void GLRenderer::uploadMaterialTextures(Material& material, Assets& assets) {
     if (auto asset = assets.get<TextureAsset>(material.albedoFile); asset) {
-        material.albedo = GLRenderer::uploadTextureFromAsset(asset, true);
+        material.gpuAlbedoMap = GLRenderer::uploadTextureFromAsset(asset, true);
     }
 
     if (auto asset = assets.get<TextureAsset>(material.normalFile); asset) {
-        material.normals = GLRenderer::uploadTextureFromAsset(asset);
+        material.gpuNormalMap = GLRenderer::uploadTextureFromAsset(asset);
     }
 
     if (auto asset = assets.get<TextureAsset>(material.metalroughFile); asset) {
-        material.metalrough = GLRenderer::uploadTextureFromAsset(asset);
+        material.gpuMetallicRoughnessMap = GLRenderer::uploadTextureFromAsset(asset);
     }
 }
 

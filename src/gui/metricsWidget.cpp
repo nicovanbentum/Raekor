@@ -4,9 +4,7 @@
 
 namespace Raekor {
 
-MetricsWidget::MetricsWidget(Editor* editor) : IWidget(editor, "Metrics") {
-
-}
+MetricsWidget::MetricsWidget(Editor* editor) : IWidget(editor, "Metrics") {}
 
 void MetricsWidget::draw(float dt) {
     if (!visible) return;
@@ -15,12 +13,13 @@ void MetricsWidget::draw(float dt) {
 
     ImGui::Begin(title.c_str(), &visible);
     
-    if (accumTime >= 100.0f /* every half second */) {
-        time = renderer().deferShading->getTimeMs();
+    if (accumTime >= 100.0f /* update every 1/10th of a second */) {
         accumTime = 0.0f;
     }
-    
-    ImGui::Text("Deferred shading: %.3f", time);
+
+    for (const auto& kv : renderer().timings) {
+        ImGui::Text(std::string(kv.first + ": %.3f ms").c_str(), kv.second->getMilliseconds());
+    }
 
     ImGui::End();
 }

@@ -39,7 +39,7 @@ public:
     void bind() override;
     void unbind() override;
 
-    unsigned int programID = 0;
+    GLuint programID = 0;
     std::vector<Shader::Stage> stages;
 };
 

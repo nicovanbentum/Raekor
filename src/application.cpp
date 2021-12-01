@@ -24,10 +24,9 @@ Application::Application(RendererFlags flag) {
     Uint32 wflags = SDL_WINDOW_RESIZABLE | flag |
         SDL_WINDOW_ALLOW_HIGHDPI;
 
-    std::vector<SDL_Rect> displays;
-    for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
-        displays.push_back(SDL_Rect());
-        SDL_GetDisplayBounds(i, &displays.back());
+    std::vector<SDL_Rect> displays(SDL_GetNumVideoDisplays());
+    for (size_t i = 0; i < displays.size(); i++) {
+        SDL_GetDisplayBounds(int(i), &displays[i]);
     }
 
     // if the config setting is higher than the nr of displays we pick the default display
@@ -74,7 +73,6 @@ Application::~Application() {
         cereal::JSONOutputArchive archive(is);
         settings.serialize(archive);
     }
-
 }
 
 
@@ -84,12 +82,12 @@ void Application::run() {
     float dt = 0;
 
     while (running) {
+        timer.start();
+
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             onEvent(ev);
         }
-
-        timer.start();
 
         onUpdate(dt);
 
