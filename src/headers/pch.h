@@ -20,6 +20,8 @@ extern bool PATHTRACE;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // header only Cereal library
+#include "cereal/cereal.hpp"
+#include "cereal/macros.hpp"
 #include "cereal/archives/json.hpp"
 #include "cereal/archives/binary.hpp"
 #include "cereal/types/map.hpp"
@@ -28,6 +30,7 @@ extern bool PATHTRACE;
 #include "cereal/types/complex.hpp"
 #include "cereal/types/vector.hpp"
 #include "cereal/types/variant.hpp"
+#include "cereal/types/polymorphic.hpp"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // ImGui library

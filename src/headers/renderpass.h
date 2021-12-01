@@ -15,13 +15,13 @@ public:
     GLTimer();
     ~GLTimer();
 
-    void Begin();
-    void End();
+    void begin();
+    void end();
 
-    float GetMilliseconds();
+    float getMilliseconds() const;
 
 private:
-    GLuint64 time;
+    GLuint64 time = 0;
     GLuint index = 0;
     std::array<GLuint, 4> queries;
 };
@@ -355,6 +355,46 @@ public:
 
 
 
+class Atmosphere {
+    friend class GLRenderer;
+
+    struct {
+        glm::mat4 view;
+        glm::mat4 proj;
+        glm::mat4 invViewProj;
+        glm::vec4 cameraPos;
+        glm::vec4 sunlightDir;
+        glm::vec4 sunlightColor;
+    } uniforms;
+
+public:
+    Atmosphere(const Viewport& viewport);
+    ~Atmosphere();
+
+    void createRenderTargets(const Viewport& viewport);
+    void destroyRenderTargets();
+
+    void computeCubemaps(const Viewport& viewport, const Scene& scene);
+    void renderSkybox(const Viewport& viewport, GLuint out, GLuint depth);
+
+    GLuint environmentCubemap;
+    GLuint convolvedCubemap;
+
+private:
+    GLuint framebuffer;
+    GLuint uniformBuffer;
+    GLuint skyboxVertexBuffer;
+    GLuint skyboxIndexBuffer;
+
+    glShader shader;
+    glShader computeShader;
+    glShader convoluteShader;
+
+    glVertexLayout skyboxVertexLayout;
+};
+
+
+
 class DeferredShading {
     friend class GLRenderer;
 
@@ -391,9 +431,8 @@ public:
                 const Viewport& viewport, 
                 const ShadowMap& shadowMap,
                 const GBuffer& GBuffer, 
+                const Atmosphere& atmosphere,
                 const Voxelize& voxels);
-
-    float getTimeMs() { return timer.GetMilliseconds(); }
 
     void createRenderTargets(const Viewport& viewport);
     void destroyRenderTargets();
@@ -412,42 +451,6 @@ private:
     GLuint brdfLUT;
     glShader brdfLUTshader;
     GLuint brdfLUTframebuffer;
-
-    GLTimer timer;
-
-};
-
-
-
-class Atmosphere {
-    friend class GLRenderer;
-
-    struct {
-        glm::mat4 invViewProj;
-        glm::vec4 cameraPos;
-        glm::vec4 sunlightDir;
-        glm::vec4 sunlightColor;
-    } uniforms;
-
-public:
-    Atmosphere(const Viewport& viewport);
-    ~Atmosphere();
-
-    void createRenderTargets(const Viewport& viewport);
-    void destroyRenderTargets();
-
-    void render(const Viewport& viewport, const Scene& scene, GLuint out, GLuint depth);
-
-private:
-    GLuint framebuffer;
-    GLuint uniformBuffer;
-
-    glShader shader;
-    glShader computeShader;
-    glShader convoluteShader;
-
-    GLuint environmentCubemap;
-    GLuint convolvedCubemap;
 };
 
 

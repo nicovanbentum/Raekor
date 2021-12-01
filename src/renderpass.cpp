@@ -1547,18 +1547,18 @@ void Icons::render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
 
 Atmosphere::Atmosphere(const Viewport& viewport) {
     shader.compile({
-        {Shader::Type::VERTEX, "shaders\\OpenGL\\quad.vert"},
-        {Shader::Type::FRAG, "shaders\\OpenGL\\atmosphere.frag"}
+        { Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert" },
+        { Shader::Type::FRAG, "shaders\\OpenGL\\skybox.frag" }
     });
 
     convoluteShader.compile({
-        {Shader::Type::COMPUTE, "shaders\\OpenGL\\convolute.comp"},
+        { Shader::Type::COMPUTE, "shaders\\OpenGL\\convolute.comp" },
     });
 
 
     computeShader.compile({
-        {Shader::Type::COMPUTE, "shaders\\OpenGL\\atmosphere.comp"},
-        });
+        { Shader::Type::COMPUTE, "shaders\\OpenGL\\atmosphere.comp" },
+    });
 
     createRenderTargets(viewport);
 
@@ -1580,6 +1580,29 @@ Atmosphere::Atmosphere(const Viewport& viewport) {
     glTextureParameteri(environmentCubemap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glTextureParameteri(environmentCubemap, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(environmentCubemap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glCreateBuffers(1, &skyboxVertexBuffer);
+    glCreateBuffers(1, &skyboxIndexBuffer);
+
+    std::vector<float> vertices;
+    std::vector<uint32_t> indices;
+
+    for (const auto& v : UnitCube::vertices) {
+        vertices.push_back(v.pos.x);
+        vertices.push_back(v.pos.y);
+        vertices.push_back(v.pos.z);
+    }
+
+    for (const auto& index : UnitCube::indices) {
+        indices.push_back(index.p1);
+        indices.push_back(index.p2);
+        indices.push_back(index.p3);
+    }
+
+    glNamedBufferData(skyboxIndexBuffer, indices.size() * sizeof(indices[0]), indices.data(), GL_STATIC_DRAW);
+    glNamedBufferData(skyboxVertexBuffer, vertices.size() * sizeof(vertices[0]), vertices.data(), GL_STATIC_DRAW);
+
+    skyboxVertexLayout = glVertexLayout().attribute("POS", ShaderType::FLOAT3);
 }
 
 
@@ -1601,9 +1624,12 @@ void Atmosphere::destroyRenderTargets() {
     glDeleteFramebuffers(1, &framebuffer);
 }
 
+void Atmosphere::renderSkybox(const Viewport& viewport, GLuint out, GLuint depth) {
+    // draw the sky to the shading pass result
+    glDisable(GL_CULL_FACE);
+    glDepthMask(GL_FALSE);
 
-
-void Atmosphere::render(const Viewport& viewport, const Scene& scene, GLuint out, GLuint depth) {
+    shader.bind();
     glViewport(0, 0, viewport.size.x, viewport.size.y);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -1611,10 +1637,29 @@ void Atmosphere::render(const Viewport& viewport, const Scene& scene, GLuint out
     glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, depth, 0);
     glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
 
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
+    glBindTextureUnit(1, environmentCubemap);
+
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVertexBuffer);
+    skyboxVertexLayout.bind();
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, skyboxIndexBuffer);
+
+    glDrawElements(GL_TRIANGLES, GLsizei(UnitCube::indices.size() * 3), GL_UNSIGNED_INT, nullptr);
+
+    glEnable(GL_CULL_FACE);
+    glDepthMask(GL_TRUE);
+}
+
+
+
+void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& scene) {
+    uniforms.view = glm::mat3(viewport.getCamera().getView());
+    uniforms.proj = viewport.getCamera().getProjection();
+
     auto light = DirectionalLight();
     light.direction.y = -0.9f;
 
-    shader.bind();
     uniforms.invViewProj = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
     uniforms.cameraPos = glm::vec4(viewport.getCamera().getPosition(), 1.0);
 
@@ -1638,21 +1683,21 @@ void Atmosphere::render(const Viewport& viewport, const Scene& scene, GLuint out
     }
 
     glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
 
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-   /* computeShader.bind();
+    computeShader.bind();
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
     glBindImageTexture(0, environmentCubemap, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA16F);
     glDispatchCompute(512 / 8, 512 / 8, 6);
 
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
-    convoluteShader.bind();
-    glBindImageTexture(0, environmentCubemap, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F);
-    glBindImageTexture(1, convolvedCubemap, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA16F);
-    glDispatchCompute(32 / 8, 32 / 8, 6);*/
+    //convoluteShader.bind();
+    //glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
+    //glBindTextureUnit(0, environmentCubemap);
+    //glBindImageTexture(1, convolvedCubemap, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+    //glDispatchCompute(32 / 8, 32 / 8, 6);
+
+    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
 

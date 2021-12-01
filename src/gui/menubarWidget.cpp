@@ -29,9 +29,13 @@ void MenubarWidget::draw(float dt) {
                 std::string filepath = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
 
                 if (!filepath.empty()) {
+                    Timer timer;
+                    timer.start();
                     SDL_SetWindowTitle(editor->getWindow(), std::string(filepath + " - Raekor Renderer").c_str());
                     scene.openFromFile(IWidget::assets(), filepath);
                     editor->active = entt::null;
+                    timer.stop();
+                    std::cout << "Open scene time: " << timer.elapsedMs() << '\n';
                 }
             }
 
@@ -39,7 +43,7 @@ void MenubarWidget::draw(float dt) {
                 std::string filepath = OS::saveFileDialog("Scene File (*.scene)\0", "scene");
 
                 if (!filepath.empty()) {
-                    scene.saveToFile(filepath);
+                    scene.saveToFile(IWidget::assets(), filepath);
                 }
             }
 

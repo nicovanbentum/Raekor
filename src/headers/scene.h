@@ -30,7 +30,7 @@ public:
 	void loadMaterialTextures(Assets& assets, const std::vector<entt::entity>& materials);
 
 	// save to disk
-	void saveToFile(const std::string& file);
+	void saveToFile(Assets& assets, const std::string& file);
 	void openFromFile(Assets& assets, const std::string& file);
 };
 

@@ -105,14 +105,14 @@ void load(Archive& archive, Raekor::Mesh& mesh) {
 
 template<class Archive>
 void save(Archive& archive, const Raekor::Material& mat) {
-	archive(mat.albedoFile, mat.normalFile, mat.metalroughFile, mat.baseColour, mat.metallic, mat.roughness);
+	archive(mat.albedoFile, mat.normalFile, mat.metalroughFile, mat.albedo, mat.metallic, mat.roughness, mat.emissive);
 }
 
 
 
 template<class Archive>
 void load(Archive& archive, Raekor::Material& mat) {
-	archive(mat.albedoFile, mat.normalFile, mat.metalroughFile, mat.baseColour, mat.metallic, mat.roughness);
+	archive(mat.albedoFile, mat.normalFile, mat.metalroughFile, mat.albedo, mat.metallic, mat.roughness, mat.emissive);
 }
 
 
