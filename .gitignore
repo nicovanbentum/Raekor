@@ -3,6 +3,7 @@
 *.o
 *.exe
 *.spv
+build/
 /vcpkg_installed
 Debug/
 Release/

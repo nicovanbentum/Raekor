@@ -39,6 +39,7 @@ extern bool PATHTRACE;
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_stdlib.h"
+#include "imgui_internal.h"
 #include "IconsFontAwesome5.h"
 
 

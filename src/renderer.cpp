@@ -122,7 +122,8 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_NavNoCaptureKeyboard;
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    io.ConfigDockingWithShift = true;
+    // io.ConfigDockingWithShift = true;
+
 
     // initialise all the render passes
     icons =         std::make_unique<Icons>(viewport);
