@@ -10,9 +10,6 @@
 [submodule "dependencies/imgui"]
 	path = dependencies/imgui
 	url = https://github.com/ocornut/imgui
-[submodule "dependencies/ChaiScript"]
-	path = dependencies/ChaiScript
-	url = https://github.com/ChaiScript/ChaiScript/
 [submodule "dependencies/entt"]
 	path = dependencies/entt
 	url = https://github.com/nicovanbentum/entt
@@ -31,3 +28,6 @@
 [submodule "dependencies/SPIRV-Reflect"]
 	path = dependencies/SPIRV-Reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect
+[submodule "dependencies/vcpkg"]
+	path = dependencies/vcpkg
+	url = https://github.com/microsoft/vcpkg
