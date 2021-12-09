@@ -15,9 +15,19 @@
             "platform": "windows & static"
         },
         {
-          "name": "sdl2",
-          "features": [ "vulkan" ],
-          "platform": "windows & static"
+            "name": "sdl2",
+            "features": [ "vulkan" ],
+            "platform": "windows & static"
+        },
+        {
+            "name": "imgui",
+            "features": [
+                            "sdl2-binding", 
+                            "dx11-binding",
+                            "opengl3-binding", 
+                            "docking-experimental"
+                        ],
+            "platform": "windows & static"
         }
     ]
 }

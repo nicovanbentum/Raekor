@@ -5,10 +5,6 @@
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="DebugFast|x64">
-      <Configuration>DebugFast</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
@@ -31,12 +27,6 @@
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
@@ -52,20 +42,11 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <NMakeBuildCommandLine>/build</NMakeBuildCommandLine>
-    <NMakeReBuildCommandLine>/rebuild</NMakeReBuildCommandLine>
-    <NMakeCleanCommandLine>/clean</NMakeCleanCommandLine>
-    <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">
     <NMakeBuildCommandLine>/build</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>/rebuild</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>/clean</NMakeCleanCommandLine>
@@ -79,11 +60,9 @@
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
+    <VcpkgEnabled>true</VcpkgEnabled>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <VcpkgUseStatic>true</VcpkgUseStatic>
-  </PropertyGroup>
-  <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">
     <VcpkgUseStatic>true</VcpkgUseStatic>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -95,7 +74,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\backends;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;$(VcpkgCurrentInstalledDir)include\physx;$(SolutionDir)\dependencies\SPIRV-Reflect;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;$(VcpkgCurrentInstalledDir)include\physx;$(SolutionDir)\dependencies\SPIRV-Reflect;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /bigobj /EHsc %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ExceptionHandling>false</ExceptionHandling>
@@ -120,39 +99,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
     </Manifest>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\backends;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;$(VcpkgCurrentInstalledDir)include\physx;$(SolutionDir)\dependencies\SPIRV-Reflect;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /bigobj /EHsc %(AdditionalOptions)</AdditionalOptions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <ExceptionHandling>false</ExceptionHandling>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <Optimization>Full</Optimization>
-      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>%VULKAN_SDK%\Lib;$(VcpkgCurrentInstalledDir)$(VcpkgConfigSubdir)lib\manual-link\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2maind.lib;winmm.lib;imm32.lib;version.lib;Setupapi.lib;vulkan-1.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/NODEFAULTLIB:libcmt.lib;NODEFAULTLIB:libcmtd.lib;/NODEFAULTLIB:msvcrtd.lib %(AdditionalOptions)</AdditionalOptions>
-    </Link>
-    <PostBuildEvent>
-      <Command>
-      </Command>
-    </PostBuildEvent>
-    <PreBuildEvent>
-      <Command>copy "$(SolutionDir)\config.json" "$(TargetDir)"
-copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
-    </PreBuildEvent>
-    <Manifest>
-      <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
-    </Manifest>
-  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -162,7 +108,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\imgui;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\imgui\backends;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;$(VcpkgCurrentInstalledDir)include\physx;$(SolutionDir)\dependencies\SPIRV-Reflect;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\src\headers;%VULKAN_SDK%\Include;$(SolutionDir)\dependencies\stb;$(SolutionDir)\dependencies\glm\glm;$(SolutionDir)\dependencies\ImGuizmo;$(SolutionDir)\dependencies\gl3w\include;$(SolutionDir)\dependencies\cereal\include;$(SolutionDir)\dependencies\ChaiScript\include;$(SolutionDir)\dependencies\entt\src;$(SolutionDir)\dependencies\VulkanMemoryAllocator\src;$(SolutionDir)\dependencies\IconFontCppHeaders;$(VcpkgCurrentInstalledDir)include\SDL2;$(SolutionDir)\dependencies\glad\GL\include;$(VcpkgCurrentInstalledDir)include\physx;$(SolutionDir)\dependencies\SPIRV-Reflect;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/FS -DBT_USE_DOUBLE_PRECISION=1 /EHsc %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -175,7 +121,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>%VULKAN_SDK%\Lib;$(VcpkgCurrentInstalledDir)$(VcpkgConfigSubdir)lib\manual-link\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>SDL2main.lib;winmm.lib;imm32.lib;version.lib;Setupapi.lib;vulkan-1.lib;OpenGL32.lib;d3d11.lib;dxgi.lib;D3DCompiler.lib;DbgHelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -195,72 +140,18 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
   <ItemGroup>
     <ClCompile Include="dependencies\glad\GL\src\glad.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="dependencies\ImGuizmo\ImGuizmo.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\backends\imgui_impl_dx11.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\backends\imgui_impl_opengl3.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\backends\imgui_impl_sdl.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\backends\imgui_impl_vulkan.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\imgui.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\imgui_demo.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\imgui_draw.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\imgui_tables.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\imgui_widgets.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\misc\cpp\imgui_stdlib.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="dependencies\SPIRV-Reflect\spirv_reflect.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="scripts\test.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="src\anim.cpp" />
@@ -287,14 +178,13 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\gui\widget.cpp" />
     <ClCompile Include="src\input.cpp" />
     <ClCompile Include="src\physics.cpp" />
+    <ClCompile Include="src\platform\OS.cpp" />
     <ClCompile Include="src\rmath.cpp" />
     <ClCompile Include="src\renderpass.cpp" />
     <ClCompile Include="src\scene.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">pch.h</PrecompiledHeaderFile>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -304,7 +194,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\platform\windows\DXResourceBuffer.cpp" />
     <ClCompile Include="src\platform\windows\DXShader.cpp" />
     <ClCompile Include="src\platform\windows\DXTexture.cpp" />
-    <ClCompile Include="src\platform\windows\OS.cpp" />
     <ClCompile Include="src\renderer.cpp" />
     <ClCompile Include="src\script.cpp" />
     <ClCompile Include="src\shader.cpp" />
@@ -319,6 +208,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClCompile Include="src\VK\VKApp.cpp" />
     <ClCompile Include="src\VK\VKExtensions.cpp" />
     <ClCompile Include="src\VK\VKFrameBuffer.cpp" />
+    <ClCompile Include="src\VK\VKGBuffer.cpp" />
     <ClCompile Include="src\VK\VKImGui.cpp" />
     <ClCompile Include="src\VK\VKPass.cpp" />
     <ClCompile Include="src\VK\VKPipeline.cpp" />
@@ -330,14 +220,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
   <ItemGroup>
     <ClInclude Include="dependencies\glm\glm.hpp" />
     <ClInclude Include="dependencies\ImGuizmo\ImGuizmo.h" />
-    <ClInclude Include="dependencies\imgui\backends\imgui_impl_dx11.h" />
-    <ClInclude Include="dependencies\imgui\backends\imgui_impl_opengl3.h" />
-    <ClInclude Include="dependencies\imgui\backends\imgui_impl_sdl.h" />
-    <ClInclude Include="dependencies\imgui\backends\imgui_impl_vulkan.h" />
-    <ClInclude Include="dependencies\imgui\imgui.h" />
-    <ClInclude Include="dependencies\imgui\imgui_internal.h" />
-    <ClInclude Include="dependencies\imgui\misc\cpp\imgui_stdlib.h" />
-    <ClInclude Include="dependencies\NVDDS\nv_dds.h" />
     <ClInclude Include="dependencies\SPIRV-Reflect\spirv_reflect.h" />
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="resource.h" />
@@ -368,7 +250,6 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\headers\physics.h" />
     <ClInclude Include="src\headers\raekor.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="src\headers\rmath.h" />
@@ -399,6 +280,7 @@ copy "$(SolutionDir)\imgui.ini" "$(TargetDir)"</Command>
     <ClInclude Include="src\VK\VKApp.h" />
     <ClInclude Include="src\VK\VKExtensions.h" />
     <ClInclude Include="src\VK\VKFrameBuffer.h" />
+    <ClInclude Include="src\VK\VKGBuffer.h" />
     <ClInclude Include="src\VK\VKImGui.h" />
     <ClInclude Include="src\VK\VKPass.h" />
     <ClInclude Include="src\VK\VKPipeline.h" />

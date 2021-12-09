@@ -56,7 +56,7 @@
     "Editor": {
       "Projects": {
         "Raekor": {
-          "CommandLineArguments": "-gl"
+          "CommandLineArguments": ""
         }
       }
     },

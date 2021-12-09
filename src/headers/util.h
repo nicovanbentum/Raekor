@@ -45,7 +45,6 @@ void for_each_tuple_element(Tpl&& Tuple, Fx Func) { // call Func() on each eleme
 
 
 
-
 class FileWatcher {
 public:
     FileWatcher(const std::string& path);
@@ -80,8 +79,6 @@ inline ImVec2 operator*(const ImVec2& lhs, const ImVec2& rhs) {
 inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) {
     return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y);
 }
-
-
 
 
 

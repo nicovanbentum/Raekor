@@ -30,18 +30,6 @@
     <ClCompile Include="src\shader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="dependencies\imgui\imgui.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\imgui_demo.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\imgui_draw.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\imgui_widgets.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -102,9 +90,6 @@
     <ClCompile Include="src\gui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\platform\windows\OS.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\rmath.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -150,21 +135,6 @@
     <ClCompile Include="src\assets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="dependencies\imgui\imgui_tables.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\backends\imgui_impl_opengl3.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\backends\imgui_impl_sdl.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\backends\imgui_impl_dx11.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\backends\imgui_impl_vulkan.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\assimp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -193,9 +163,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\gui\metricsWidget.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dependencies\imgui\misc\cpp\imgui_stdlib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\VK\VKPass.cpp">
@@ -228,12 +195,15 @@
     <ClCompile Include="scripts\test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\VK\VKGBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\platform\OS.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dependencies\glm\glm.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dependencies\NVDDS\nv_dds.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\headers\pch.h">
@@ -279,12 +249,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\headers\timer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dependencies\imgui\imgui.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dependencies\imgui\imgui_internal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="dependencies\ImGuizmo\ImGuizmo.h">
@@ -371,18 +335,6 @@
     <ClInclude Include="src\headers\assets.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="dependencies\imgui\backends\imgui_impl_opengl3.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dependencies\imgui\backends\imgui_impl_sdl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dependencies\imgui\backends\imgui_impl_dx11.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dependencies\imgui\backends\imgui_impl_vulkan.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\headers\cvars.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -414,9 +366,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\gui\metricsWidget.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dependencies\imgui\misc\cpp\imgui_stdlib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\VK\VKPass.h">
@@ -456,6 +405,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\VK\VKPipeline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\VK\VKGBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
