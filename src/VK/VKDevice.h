@@ -51,6 +51,7 @@ public:
     [[nodiscard]] Sampler createSampler(const Sampler::Desc& desc);
     [[nodiscard]] VkImageView createView(Texture& texture, uint32_t mipLevel = 0);
     [[nodiscard]] Buffer createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage);
+    [[nodiscard]] AccelerationStructure createAccelerationStructure(VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount);
 
     [[nodiscard]] FrameBuffer createFrameBuffer(const FrameBuffer::Desc& desc);
     [[nodiscard]] GraphicsPipeline createGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer, VkPipelineLayout layout);
@@ -61,6 +62,7 @@ public:
     void destroyBuffer(const Buffer& buffer);
     void destroyFrameBuffer(const FrameBuffer& frameBuffer);
     void destroyGraphicsPipeline(const GraphicsPipeline& pipeline);
+    void destroyAccelerationStructure(AccelerationStructure& accelStruct);
 
     void setDebugName(const Texture& texture, const std::string& name);
     

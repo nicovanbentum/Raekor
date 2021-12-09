@@ -46,7 +46,7 @@ Renderer::~Renderer() {
     }
 
 
-    TLAS.destroy(device);
+    device.destroyAccelerationStructure(TLAS);
     swapchain.destroy(device);
     imGuiPass.destroy(device);
     pathTracePass.destroy(device);
@@ -78,7 +78,7 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
     uint32_t i = 0;
     for (const auto& [entity, material] : view.each()) {
         auto& buffer = materials[i];
-        buffer.albedo = material.baseColour;
+        buffer.albedo = material.albedo;
 
         buffer.textures.x = addBindlessTexture(device, assets.get<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_SRGB_BLOCK);
         buffer.textures.y = addBindlessTexture(device, assets.get<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
@@ -126,7 +126,7 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
         deviceInstances.push_back(instance);
     }
 
-    TLAS.destroy(device);
+    device.destroyAccelerationStructure(TLAS);
     TLAS = createTLAS(deviceInstances.data(), deviceInstances.size());
 
     struct Instance {
@@ -566,15 +566,16 @@ RTGeometry Renderer::createBLAS(Mesh& mesh) {
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geometry;
 
-    component.accelStruct.create(device, buildInfo, uint32_t(mesh.indices.size() / 3u));
+    component.accelStruct = device.createAccelerationStructure(buildInfo, uint32_t(mesh.indices.size() / 3u));
+
 
     return component;
 }
 
 void Renderer::destroyBLAS(RTGeometry& geometry) {
-    geometry.accelStruct.destroy(device);
     device.destroyBuffer(geometry.vertices);
     device.destroyBuffer(geometry.indices);
+    device.destroyAccelerationStructure(geometry.accelStruct);
 }
 
 AccelerationStructure Renderer::createTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count) {
@@ -608,8 +609,7 @@ AccelerationStructure Renderer::createTLAS(VkAccelerationStructureInstanceKHR* i
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geometry;
 
-    AccelerationStructure tlas = {};
-    tlas.create(device, buildInfo, uint32_t(count));
+    auto tlas = device.createAccelerationStructure(buildInfo, uint32_t(count));
 
     device.destroyBuffer(buffer);
 

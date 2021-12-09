@@ -12,18 +12,6 @@
 
 namespace Raekor::VK {
 
-struct RTGeometry {
-    Buffer vertices;
-    Buffer indices;
-    AccelerationStructure accelStruct;
-};
-
-struct RTMaterial {
-    glm::vec4 albedo;
-    glm::ivec4 textures; // x = albedo, y = normals, z = metalrough
-    glm::vec4 properties; // x = metalness, y = roughness, z = emissive
-};
-
 class Renderer {
 public:
     Renderer(SDL_Window* window);

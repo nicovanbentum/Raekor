@@ -3,6 +3,7 @@
 
 #include "gui.h"
 #include "input.h"
+#include "../platform/OS.h"
 
 namespace Raekor::VK {
 
@@ -18,12 +19,24 @@ namespace Raekor::VK {
 
     ImGui::GetIO().IniFilename = "";
 
-    if (fs::exists(settings.defaultScene) && fs::path(settings.defaultScene).extension() == ".scene") {
+    if (fs::exists(settings.defaultScene)) {
         SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
         scene.openFromFile(assets, settings.defaultScene);
     }
+    else {
+        std::string filepath;
 
-    assert(!scene.empty());
+        while (filepath.empty()) {
+            filepath = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
+            if (!filepath.empty()) {
+                SDL_SetWindowTitle(window, std::string(filepath + " - Raekor Renderer").c_str());
+                scene.openFromFile(assets, filepath);
+                break;
+            }
+        }
+    }
+
+    assert(!scene.empty() && "Scene cannot be empty when starting up the Vulkan path tracer!!");
 
     auto meshes = scene.view<Mesh>();
     for (auto& [entity, mesh] : meshes.each()) {
