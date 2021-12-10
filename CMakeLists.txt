@@ -6,14 +6,12 @@ set(VCPKG_TARGET_TRIPLET x64-windows-static)
 
 # The actual project
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
-project(Raekor CXX)
-
-# Generate and build GLAD using their CMake file
-add_subdirectory(dependencies/glad)
+project(Raekor C CXX)
 
 # Find all VCPKG packages and Vulkan
 find_package(Vulkan REQUIRED)
 find_package(lz4 CONFIG REQUIRED)
+find_package(glad CONFIG REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
@@ -71,13 +69,13 @@ find_library(PhysX_LIBRARY_DEBUG NAMES PhysX_64 PhysX_static_64 PATH_SUFFIXES li
 select_library_configurations(PhysX)
 
 # Link all the things
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE glad)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE DbgHelp)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES})
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE d3d11.lib dxgi.lib d3dcompiler.lib)
 
 # Link all the VCPKG packages
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE lz4::lz4)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE glad::glad)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE imgui::imgui)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE assimp::assimp)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2-static)
@@ -93,7 +91,6 @@ target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
     "dependencies/entt/src"
     "dependencies/VulkanMemoryAllocator/src"
     "dependencies/IconFontCppHeaders"
-    "dependencies/glad/GL/include"
     "dependencies/SPIRV-Reflect"
     ${Vulkan_INCLUDE_DIRS}
 )

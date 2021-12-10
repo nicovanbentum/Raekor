@@ -4,7 +4,6 @@
 #include "camera.h"
 #include "timer.h"
 #include "scene.h"
-#include "VK\VKGBuffer.h"
 
 namespace Raekor {
 

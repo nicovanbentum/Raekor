@@ -7,6 +7,11 @@
             "platform": "windows & static"
         },
         {
+            "name": "glad",
+            "features": [ "extensions" ],
+            "platform": "windows & static"
+        },
+        {
             "name": "assimp",
             "platform": "windows & static"
         },

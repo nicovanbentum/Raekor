@@ -3,7 +3,15 @@
 *.o
 *.exe
 *.spv
+*.sln
+*.log
+*.user
+*.cmake
+*.vcxproj
+*.vcxproj.filters
+CmakeCache.txt
 build/
+CMakeFiles/
 /vcpkg_installed
 Debug/
 Release/

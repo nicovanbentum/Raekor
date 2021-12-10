@@ -22,9 +22,6 @@
 [submodule "dependencies/IconFontCppHeaders"]
 	path = dependencies/IconFontCppHeaders
 	url = https://github.com/juliettef/IconFontCppHeaders
-[submodule "dependencies/glad"]
-	path = dependencies/glad
-	url = https://github.com/Dav1dde/glad
 [submodule "dependencies/SPIRV-Reflect"]
 	path = dependencies/SPIRV-Reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect
