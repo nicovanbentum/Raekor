@@ -54,5 +54,8 @@ This project requires C++ 17 and OpenGL 4.6 for direct state access functions an
 ### Vulkan
 The Vulkan side of things is currently being rewritten to implement a GPU path tracer using the vk_khr_ray_tracing extensions. It used to contain experiments with parallel command buffer recording, dynamic uniform buffers, and bindless textures. Also used to integrate [Scatter](https://github.com/nicovanbentum/Scatter) in a separate branch.
 
+![image](https://i.imgur.com/LgjcfKD.png)
+*Path tracer WIP - Very basic diffuse, 8 bounces*
+
 ### Ray Tracing in One Weekend
 There's a third entry point that implements Ray Tracing in One Weekend by Peter Shirley in a GLSL Compute shader that accumulates over time. 
