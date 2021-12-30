@@ -9,32 +9,22 @@
 ![image3](https://i.imgur.com/EVhb0gh.png)
 *Dancing stormtrooper.*
 
-# Build
+# Build (CMake - Windows)
 
-### Windows
-* This project relies on [VCPKG](https://github.com/microsoft/vcpkg) to build and link the big binaries. Make sure it is installed correctly and integrated user wide.
-    - ```git clone https://github.com/microsoft/vcpkg```
-    - ```.\vcpkg\bootstrap-vcpkg.bat```
-    - ```.\vcpkg\vcpkg integrate install```
+* The _**latest**_ Vulkan SDK needs to be installed, get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe).
+ >**_NOTE:_** Last passing version was ```1.2.182.0```
 
-
-* Make sure you have the _**latest**_ Vulkan SDK installed, you can get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe). Both glslangValidator and DXC need to be callable from the command line.
-    - last passing version was ```1.2.182.0```
-
-* Python 3+ is required to setup GLAD.
-    - After installing Python run ```pip install glad```
+* Python 3+ needs to be installed, get it [here](https://www.python.org/downloads/).
 
 * Clone this repository using
- ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```  to also pull in all the submodules.
+ ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```
+ >**_NOTE:_** If the path to the repository contains any whitespace the shaders will fail to compile.
  
-* Run the ```glad.bat``` file in the dependencies folder to generate OpenGL bindings.
+* Run ``` cmake . ``` from the root of the repository. This can take a while as it builds all the libraries.
 
-* Build using the supplied Visual Studio solution (re-target to newest if necessary).
+* Build using the generated ```Raekor.sln``` visual studio solution.
 
->**_NOTE:_** Using ```raekor.exe -gl``` or ```raekor.exe -vk``` you can switch between the OpenGL editor and the Vulkan path tracer, hardcoded default for now is the Vulkan path tracer (working directory should be the root of the repo).
-
-### Linux
-Used to work through the supplied makefile, but it's out of date. No Linux support for the forseeable future.
+>**_NOTE:_** Using the ```-gl``` or ```-vk``` command line arguments you can switch between the OpenGL editor and the Vulkan path tracer, defaults to the editor. The repository provides a json file that works with the [SwitchStartupProject](https://marketplace.visualstudio.com/items?itemName=vs-publisher-141975.SwitchStartupProject) Visual Studio extension.
 
 # Features
 This project requires C++ 17 and OpenGL 4.6 for direct state access functions and shader include directives. The project started out exploring switching between graphics APIs at runtime, which is why you will find a bunch of unfinished DirectX 11.
@@ -63,6 +53,9 @@ This project requires C++ 17 and OpenGL 4.6 for direct state access functions an
 
 ### Vulkan
 The Vulkan side of things is currently being rewritten to implement a GPU path tracer using the vk_khr_ray_tracing extensions. It used to contain experiments with parallel command buffer recording, dynamic uniform buffers, and bindless textures. Also used to integrate [Scatter](https://github.com/nicovanbentum/Scatter) in a separate branch.
+
+![image](https://i.imgur.com/LgjcfKD.png)
+*Path tracer WIP - Very basic diffuse, 8 bounces*
 
 ### Ray Tracing in One Weekend
 There's a third entry point that implements Ray Tracing in One Weekend by Peter Shirley in a GLSL Compute shader that accumulates over time. 
