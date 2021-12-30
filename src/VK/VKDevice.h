@@ -66,6 +66,8 @@ public:
 
     void setDebugName(const Texture& texture, const std::string& name);
     
+    void* mapPointer(const Texture& texture);
+    void unmapPointer(const Texture& texture);
     void* getMappedPointer(const Buffer& buffer);
 
     VkDeviceAddress getDeviceAddress(VkBuffer buffer) const;

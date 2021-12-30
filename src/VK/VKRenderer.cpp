@@ -353,6 +353,81 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
     }
 }
 
+void Renderer::screenshot(const std::string& filepath) {
+    Texture::Desc desc;
+    desc.width = swapchain.extent.width;
+    desc.height = swapchain.extent.height;
+    desc.format = VK_FORMAT_R8G8B8A8_UNORM;
+    desc.mappable = true;
+
+    auto linearTexture = device.createTexture(desc);
+
+    auto commands = device.startSingleSubmit();
+
+    {
+        VkImageMemoryBarrier2KHR srcBarrier = {};
+        srcBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
+        srcBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        srcBarrier.dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT_KHR;
+        srcBarrier.image = swapchain.images[imageIndex];
+        srcBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        srcBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        srcBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        srcBarrier.subresourceRange.levelCount = 1;
+        srcBarrier.subresourceRange.layerCount = 1;
+
+        VkImageMemoryBarrier2KHR dstBarrier = srcBarrier;
+        dstBarrier.image = linearTexture.image;
+        dstBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+        std::array barriers = { srcBarrier, dstBarrier };
+
+        VkDependencyInfoKHR dep = {};
+        dep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
+        dep.imageMemoryBarrierCount = barriers.size();
+        dep.pImageMemoryBarriers = barriers.data();
+
+        EXT::vkCmdPipelineBarrier2KHR(commands, &dep);
+    }
+
+    VkImageCopy copy = {};
+    copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.srcSubresource.layerCount = 1;
+    copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.dstSubresource.layerCount = 1;
+    copy.extent.width = desc.width;
+    copy.extent.height = desc.height;
+    copy.extent.depth = 1;
+
+    vkCmdCopyImage(
+        commands, 
+        swapchain.images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+        linearTexture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+        1, &copy
+    );
+
+    device.flushSingleSubmit(commands);
+
+    auto pixels = static_cast<uint8_t*>(device.mapPointer(linearTexture));
+
+    // BGR -> RGB channel flip
+    for (uint64_t i = 0; i < desc.width * desc.height * 4; i += 4) {
+        uint8_t temp = pixels[i];
+        pixels[i] = pixels[i + 2];
+        pixels[i + 2] = temp;
+    }
+
+    // Apparently the rows are 32 byte aligned, 10/10 guess work
+    const int strideInBytes = align_up(desc.width * 4, 32);
+
+    if (!stbi_write_png(filepath.c_str(), desc.width, desc.height, 4, pixels, strideInBytes)) {
+        std::cerr << "Failed to save screenshot. \n";
+    }
+
+    device.unmapPointer(linearTexture);
+    device.destroyTexture(linearTexture);
+}
+
 
 
 void Renderer::setupSyncObjects() {
@@ -401,6 +476,8 @@ void Renderer::recreateSwapchain(SDL_Window* window) {
     imGuiPass.destroyFramebuffer(device);
     imGuiPass.createFramebuffer(device, pathTracePass, uint32_t(w), uint32_t(h));
 }
+
+
 
 int32_t Renderer::addBindlessTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format) {
     if (!asset) {

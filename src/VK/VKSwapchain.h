@@ -8,7 +8,7 @@ class Swapchain {
 public:
     operator VkSwapchainKHR() const { return swapchain; }
 
-    void create(const Device& device, glm::ivec2 resolution, VkPresentModeKHR mode);
+    void create(const Device& device, glm::uvec2 resolution, VkPresentModeKHR mode);
     void destroy(VkDevice device);
 
     const VkExtent2D& getExtent() const;

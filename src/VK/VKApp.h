@@ -19,6 +19,8 @@ private:
     Scene scene;
     Assets assets;
     VK::Renderer renderer;
+    
+    bool isImGuiEnabled = true;
     bool shouldRecreateSwapchain = true;
 
 };

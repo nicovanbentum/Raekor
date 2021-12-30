@@ -474,6 +474,20 @@ void Device::setDebugName(const Texture& texture, const std::string& name) {
 
 
 
+void* Device::mapPointer(const Texture& texture) {
+    void* ptr = nullptr;
+    vmaMapMemory(allocator, texture.allocation, &ptr);
+    return ptr;
+}
+
+
+
+void Device::unmapPointer(const Texture& texture) {
+    vmaUnmapMemory(allocator, texture.allocation);
+}
+
+
+
 void* Device::getMappedPointer(const Buffer& buffer) {
     VmaAllocationInfo info = {};
     vmaGetAllocationInfo(allocator, buffer.allocation, &info);

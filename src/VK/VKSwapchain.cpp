@@ -6,7 +6,7 @@
 
 namespace Raekor::VK {
 
-void Swapchain::create(const Device& device, glm::ivec2 resolution, VkPresentModeKHR mode) {
+void Swapchain::create(const Device& device, glm::uvec2 resolution, VkPresentModeKHR mode) {
     struct SwapChainSupportDetails {
         VkSurfaceCapabilitiesKHR capabilities;
         std::vector<VkSurfaceFormatKHR> formats;
@@ -50,27 +50,16 @@ void Swapchain::create(const Device& device, glm::ivec2 resolution, VkPresentMod
         }
     }
 
-    if (details.capabilities.currentExtent.width != UINT32_MAX) {
-        extent = details.capabilities.currentExtent;
+    if (details.capabilities.currentExtent.width != 0xFFFFFFFF) {
+        extent.width = details.capabilities.currentExtent.width;
     } else {
-        VkExtent2D actualExtent = {
-            uint32_t(resolution.x),
-            uint32_t(resolution.y)
-        };
+        extent.width = std::min(resolution.x, details.capabilities.maxImageExtent.width);
+    }
 
-        actualExtent.width = std::clamp(
-            actualExtent.width, 
-            details.capabilities.minImageExtent.width, 
-            details.capabilities.maxImageExtent.width
-        );
-
-        actualExtent.height = std::clamp(
-            actualExtent.height, 
-            details.capabilities.minImageExtent.height, 
-            details.capabilities.maxImageExtent.height
-        );
-
-        extent = actualExtent;
+    if (details.capabilities.currentExtent.height != 0xFFFFFFFF) {
+        extent.height = details.capabilities.currentExtent.height;
+    } else {
+        extent.height = std::min(resolution.x, details.capabilities.maxImageExtent.height);
     }
 
     uint32_t imageCount = std::min(details.capabilities.minImageCount + 1, details.capabilities.maxImageCount);;

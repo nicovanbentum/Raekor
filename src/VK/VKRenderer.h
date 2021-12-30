@@ -25,6 +25,8 @@ public:
     void updateAccelerationStructures(Scene& scene);
     void render(SDL_Window* window, const Viewport& viewport, Scene& scene);
 
+    void screenshot(const std::string& filepath);
+
     void setupSyncObjects();
     void recreateSwapchain(SDL_Window* window);
 
@@ -41,10 +43,9 @@ public:
     AccelerationStructure createTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count);
 
 private:
-    VK::Device device;
+    Device device;
     
-    VK::ImGuiPass imgui;
-    VK::Swapchain swapchain;
+    Swapchain swapchain;
 
     PathTracePass pathTracePass;
     ImGuiPass imGuiPass;

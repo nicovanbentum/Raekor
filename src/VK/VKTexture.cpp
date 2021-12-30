@@ -34,6 +34,11 @@ Texture Device::createTexture(const Texture::Desc& desc) {
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
+    if (desc.mappable) {
+        imageInfo.tiling = VK_IMAGE_TILING_LINEAR;
+        allocInfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
+    }
+
     Texture texture;
     texture.description = desc;
 
@@ -55,8 +60,8 @@ void Device::destroyTexture(Texture& texture) {
 
 
 VkImageView Device::createView(Texture& texture, uint32_t mipLevel) {
-    const auto& desc = texture.description;
     auto& views = texture.viewsByMip;
+    const auto& desc = texture.description;
         
     if (views.find(mipLevel) != views.end()) {
         return views.at(mipLevel);

@@ -57,6 +57,8 @@ namespace Raekor::VK {
 
     SDL_ShowWindow(window);
     SDL_SetWindowInputFocus(window);
+
+    SDL_SetWindowSize(window, 1300, 1300);
 }
 
 
@@ -100,38 +102,41 @@ void PathTracer::onUpdate(float dt) {
 
     GUI::beginFrame();
 
-    bool open = true;
-    ImGui::Begin("Path Trace Settings", &open, ImGuiWindowFlags_AlwaysAutoResize);
+    if (isImGuiEnabled) {
+        ImGui::Begin("Path Trace Settings", &isImGuiEnabled, ImGuiWindowFlags_AlwaysAutoResize);
     
-    if (ImGui::Checkbox("vsync", &settings.vsync)) {
-        renderer.setVsync(settings.vsync);
-        renderer.recreateSwapchain(window);
-        renderer.resetAccumulation();
-    }
+        ImGui::Text("F2 - Screenshot");
 
-    reset |= ImGui::SliderInt("Bounces", reinterpret_cast<int*>(&renderer.constants().bounces), 1, 8);
-    reset |= ImGui::DragFloat("Sun Cone", &renderer.constants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
-
-    ImGui::End();
-
-    ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
-    ImGuizmo::SetRect(0, 0, float(viewport.size.x), float(viewport.size.y));
-
-    if (lightView.begin() != lightView.end()) {
-        auto& lightTransform = lightView.get<Transform>(lightView.front());
-
-        bool manipulated = ImGuizmo::Manipulate(
-            glm::value_ptr(viewport.getCamera().getView()),
-            glm::value_ptr(viewport.getCamera().getProjection()),
-            ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD,
-            glm::value_ptr(lightTransform.localTransform)
-        );
-
-        if (manipulated) {
-            lightTransform.decompose();
+        if (ImGui::Checkbox("vsync", &settings.vsync)) {
+            renderer.setVsync(settings.vsync);
+            renderer.recreateSwapchain(window);
+            renderer.resetAccumulation();
         }
 
-        reset |= manipulated;
+        reset |= ImGui::SliderInt("Bounces", reinterpret_cast<int*>(&renderer.constants().bounces), 1, 8);
+        reset |= ImGui::DragFloat("Sun Cone", &renderer.constants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
+
+        ImGui::End();
+
+        ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
+        ImGuizmo::SetRect(0, 0, float(viewport.size.x), float(viewport.size.y));
+
+        /*if (lightView.begin() != lightView.end()) {
+            auto& lightTransform = lightView.get<Transform>(lightView.front());
+
+            bool manipulated = ImGuizmo::Manipulate(
+                glm::value_ptr(viewport.getCamera().getView()),
+                glm::value_ptr(viewport.getCamera().getProjection()),
+                ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD,
+                glm::value_ptr(lightTransform.localTransform)
+            );
+
+            if (manipulated) {
+                lightTransform.decompose();
+            }
+
+            reset |= manipulated;
+        }*/
     }
 
     GUI::endFrame();
@@ -148,7 +153,11 @@ void PathTracer::onUpdate(float dt) {
 void PathTracer::onEvent(const SDL_Event& ev) {
     ImGui_ImplSDL2_ProcessEvent(&ev);
 
-    if (viewport.getCamera().onEventEditor(ev)) {
+    if (Input::isButtonPressed(3)) {
+        viewport.getCamera().strafeMouse(ev);
+        renderer.resetAccumulation();
+    }
+    else if(viewport.getCamera().onEventEditor(ev)) {
         renderer.resetAccumulation();
     }
 
@@ -175,10 +184,17 @@ void PathTracer::onEvent(const SDL_Event& ev) {
 
     if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
         switch (ev.key.keysym.sym) {
-        case SDLK_r: {
-            renderer.reloadShaders();
-            renderer.resetAccumulation();
-        } break;
+            case SDLK_r: {
+                renderer.reloadShaders();
+                renderer.resetAccumulation();
+            } break;
+            case SDLK_F2: {
+                std::string path = OS::saveFileDialog("Uncompressed PNG (*.png)\0", "png");
+
+                if (!path.empty()) {
+                    renderer.screenshot(path);
+                }
+            } break;
         }
     }
 }

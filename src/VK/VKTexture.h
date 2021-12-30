@@ -16,13 +16,14 @@ public:
         uint32_t mipLevels = 1;
         uint32_t arrayLayers = 1;
         bool shaderAccess = false;
+        bool mappable = false;
     };
 
     VkImage image;
+    Desc description;
+
 private:
     VmaAllocation allocation;
-
-    Desc description;
     std::unordered_map<uint32_t, VkImageView> viewsByMip;
 };
 
