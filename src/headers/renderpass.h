@@ -375,7 +375,6 @@ public:
     void destroyRenderTargets();
 
     void computeCubemaps(const Viewport& viewport, const Scene& scene);
-    void renderSkybox(const Viewport& viewport, GLuint out, GLuint depth);
 
     GLuint environmentCubemap;
     GLuint convolvedCubemap;
@@ -383,14 +382,9 @@ public:
 private:
     GLuint framebuffer;
     GLuint uniformBuffer;
-    GLuint skyboxVertexBuffer;
-    GLuint skyboxIndexBuffer;
 
-    glShader shader;
     glShader computeShader;
     glShader convoluteShader;
-
-    glVertexLayout skyboxVertexLayout;
 };
 
 

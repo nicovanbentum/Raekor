@@ -82,7 +82,7 @@ void InspectorWidget::drawComponent(Mesh& component, Assets& assets, Scene& scen
         const auto previewSize = ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale());
         const auto tintColor = ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a);
 
-        if (ImGui::ImageButton(albedoTexture, previewSize, ImVec2(0, 0), ImVec2(1, 1), -1, ImVec4(0, 0, 0, 0), tintColor)) {
+        if (ImGui::ImageButton(albedoTexture, previewSize)) {
             active = component.material;
         }
 
@@ -136,24 +136,25 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
 
     const char* fileFilters = "Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0";
 
-    auto drawTextureInteraction = [=](GLuint texture, const char* name, Material* component) {
-        const GLuint image = texture ? texture : Material::Default.gpuAlbedoMap;
+    auto drawTextureInteraction = [&](GLuint& gpuMap, std::string& file) {
+        const GLuint image = gpuMap ? gpuMap : Material::Default.gpuAlbedoMap;
 
         if (ImGui::ImageButton((void*)((intptr_t)image), ImVec2(lineHeight - 1, lineHeight - 1))) {
             auto filepath = OS::openFileDialog(fileFilters);
             if (!filepath.empty()) {
-                auto assetPath = TextureAsset::convert(filepath);
-                GLRenderer::uploadTextureFromAsset(IWidget::assets().get<TextureAsset>(assetPath));
+                file = filepath;
+                const auto assetHandle = TextureAsset::convert(filepath);
+                gpuMap = GLRenderer::uploadTextureFromAsset(assets.get<TextureAsset>(assetHandle));
             }
         }
 
-        if (name) {
+        if (!file.empty()) {
             ImGui::SameLine();
             ImGui::AlignTextToFramePadding();
-            ImGui::Text(name);
+            ImGui::Text(file.c_str());
 
             if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip(name);
+                ImGui::SetTooltip(file.c_str());
             }
         }
 
@@ -161,11 +162,11 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
 
 
     ImGui::AlignTextToFramePadding(); ImGui::Text("Albedo Map"); ImGui::SameLine();
-    drawTextureInteraction(component.gpuAlbedoMap, component.albedoFile.c_str(), &component);
+    drawTextureInteraction(component.gpuAlbedoMap, component.albedoFile);
     ImGui::AlignTextToFramePadding(); ImGui::Text("Normal Map"); ImGui::SameLine();
-    drawTextureInteraction(component.gpuNormalMap, component.normalFile.c_str(), &component);
+    drawTextureInteraction(component.gpuNormalMap, component.normalFile);
     ImGui::AlignTextToFramePadding(); ImGui::Text("Material Map"); ImGui::SameLine();
-    drawTextureInteraction(component.gpuMetallicRoughnessMap, component.metalroughFile.c_str(), &component);
+    drawTextureInteraction(component.gpuMetallicRoughnessMap, component.metalroughFile);
 }
 
 

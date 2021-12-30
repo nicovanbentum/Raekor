@@ -687,6 +687,7 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
     glBindTextureUnit(8, GBuffer.depthTexture);
     glBindTextureUnit(9, brdfLUT);
     glBindTextureUnit(10, atmosphere.environmentCubemap);
+    glBindTextureUnit(11, atmosphere.convolvedCubemap);
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, uniformBuffer2);
@@ -1544,11 +1545,6 @@ void Icons::render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
 
 
 Atmosphere::Atmosphere(const Viewport& viewport) {
-    shader.compile({
-        { Shader::Type::VERTEX, "shaders\\OpenGL\\skybox.vert" },
-        { Shader::Type::FRAG, "shaders\\OpenGL\\skybox.frag" }
-    });
-
     convoluteShader.compile({
         { Shader::Type::COMPUTE, "shaders\\OpenGL\\convolute.comp" },
     });
@@ -1578,29 +1574,6 @@ Atmosphere::Atmosphere(const Viewport& viewport) {
     glTextureParameteri(environmentCubemap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glTextureParameteri(environmentCubemap, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(environmentCubemap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glCreateBuffers(1, &skyboxVertexBuffer);
-    glCreateBuffers(1, &skyboxIndexBuffer);
-
-    std::vector<float> vertices;
-    std::vector<uint32_t> indices;
-
-    for (const auto& v : UnitCube::vertices) {
-        vertices.push_back(v.pos.x);
-        vertices.push_back(v.pos.y);
-        vertices.push_back(v.pos.z);
-    }
-
-    for (const auto& index : UnitCube::indices) {
-        indices.push_back(index.p1);
-        indices.push_back(index.p2);
-        indices.push_back(index.p3);
-    }
-
-    glNamedBufferData(skyboxIndexBuffer, indices.size() * sizeof(indices[0]), indices.data(), GL_STATIC_DRAW);
-    glNamedBufferData(skyboxVertexBuffer, vertices.size() * sizeof(vertices[0]), vertices.data(), GL_STATIC_DRAW);
-
-    skyboxVertexLayout = glVertexLayout().attribute("POS", ShaderType::FLOAT3);
 }
 
 
@@ -1620,33 +1593,6 @@ void Atmosphere::createRenderTargets(const Viewport& viewport) {
 
 void Atmosphere::destroyRenderTargets() {
     glDeleteFramebuffers(1, &framebuffer);
-}
-
-void Atmosphere::renderSkybox(const Viewport& viewport, GLuint out, GLuint depth) {
-    // draw the sky to the shading pass result
-    glDisable(GL_CULL_FACE);
-    glDepthMask(GL_FALSE);
-
-    shader.bind();
-    glViewport(0, 0, viewport.size.x, viewport.size.y);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, out, 0);
-    glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, depth, 0);
-    glNamedFramebufferDrawBuffer(framebuffer, GL_COLOR_ATTACHMENT0);
-
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
-    glBindTextureUnit(1, environmentCubemap);
-
-    glBindBuffer(GL_ARRAY_BUFFER, skyboxVertexBuffer);
-    skyboxVertexLayout.bind();
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, skyboxIndexBuffer);
-
-    glDrawElements(GL_TRIANGLES, GLsizei(UnitCube::indices.size() * 3), GL_UNSIGNED_INT, nullptr);
-
-    glEnable(GL_CULL_FACE);
-    glDepthMask(GL_TRUE);
 }
 
 

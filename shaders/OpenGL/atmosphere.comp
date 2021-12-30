@@ -18,9 +18,9 @@ layout(binding = 0) uniform ubo {
 #define EPS                 1e-6
 #define PI                  3.14159265359
 #define INFINITY            1.0 / 0.0
-#define PLANET_RADIUS       637100
+#define PLANET_RADIUS       6371000
 #define PLANET_CENTER       vec3(0, PLANET_RADIUS, 0)
-#define ATMOSPHERE_HEIGHT   500000
+#define ATMOSPHERE_HEIGHT   100000
 #define RAYLEIGH_HEIGHT     (ATMOSPHERE_HEIGHT * 0.08)
 #define MIE_HEIGHT          (ATMOSPHERE_HEIGHT * 0.012)
 
@@ -127,15 +127,6 @@ vec3 IntegrateOpticalDepth (vec3 rayStart, vec3 rayDir) // TODO: precompute
 	return opticalDepth;
 }
 
-// vec3 opticalDepth(vec3 origin, vec3 dir) {
-
-//     float height = length(PLANET_CENTER - origin) - PLANET_RADIUS;
-//     float u = height / (ATMOSPHERE_HEIGHT * 2.0 - PLANET_RADIUS);
-//     float v = (dot(normalize(PLANET_CENTER - origin), dir) * 0.5 + 0.5);
-
-//     return texture2D(opticalDepthTexture, vec2(u, v));
-// }
-
 // Calculate a luminance transmittance value from optical depth.
 vec3 Absorb (vec3 opticalDepth)
 {
@@ -150,7 +141,8 @@ vec3 IntegrateScattering (vec3 rayStart, vec3 rayDir, float rayLength, vec3 ligh
 	// We can reduce the number of atmospheric samples required to converge by spacing them exponentially closer to the camera.
 	// This breaks space view however, so let's compensate for that with an exponent that "fades" to 1 as we leave the atmosphere.
 	float  rayHeight = AtmosphereHeight(rayStart);
-	float  sampleDistributionExponent = 1 + clamp(1 - rayHeight / ATMOSPHERE_HEIGHT, 0, 1) * 8; // Slightly arbitrary max exponent of 9
+	//float  sampleDistributionExponent = 1 + clamp(1 - rayHeight / ATMOSPHERE_HEIGHT, 0, 1) * 8; // Slightly arbitrary max exponent of 9
+    float  sampleDistributionExponent = 5;
 
 	vec2 intersection = AtmosphereIntersection(rayStart, rayDir);
 	rayLength = min(rayLength, intersection.y);
@@ -178,7 +170,7 @@ vec3 IntegrateScattering (vec3 rayStart, vec3 rayDir, float rayLength, vec3 ligh
 		// Because we are distributing the samples exponentially, we have to calculate the step size per sample.
 		float  stepSize = (rayTime - prevRayTime);
 
-		vec3 localPosition = rayStart + rayDir * rayTime;
+		vec3 localPosition = rayStart + rayDir * mix(prevRayTime, rayTime, 0.5);
 		float  localHeight   = AtmosphereHeight(localPosition);
 		vec3 localDensity  = AtmosphereDensity(localHeight);
 
@@ -227,7 +219,7 @@ void main() {
     vec3 transmittance;
     
     vec3 color = IntegrateScattering (
-        cameraPos.xyz, 
+        vec3(0), 
         -normalize(dir), 
         INFINITY, 
         sunlightDir.xyz, 

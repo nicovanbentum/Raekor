@@ -209,7 +209,6 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     // render the sky using ray marching for atmospheric scattering
     time("Atmosphere", [&]() {
         atmosphere->computeCubemaps(viewport, scene);
-        atmosphere->renderSkybox(viewport, gbuffer->albedoTexture, gbuffer->depthTexture);
     });
 
     // fullscreen PBR deferred shading pass
@@ -311,6 +310,8 @@ void GLRenderer::addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
     addDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
 }
 
+
+
 template<typename Lambda>
 void GLRenderer::time(const std::string& name, Lambda&& lambda) {
     if (!settings.disableTiming) {
@@ -326,6 +327,8 @@ void GLRenderer::time(const std::string& name, Lambda&& lambda) {
         lambda();
     }
 }
+
+
 
 void GLRenderer::uploadMeshBuffers(Mesh& mesh) {
     auto vertices = mesh.getInterleavedVertices();

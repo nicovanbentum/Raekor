@@ -367,17 +367,17 @@ struct Material {
 };
 
 vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material, float shadow) {
-    vec3 Li = normalize(-light.direction.xyz);
-    vec3 Lh = normalize(V + Li);
+    vec3 Wi = normalize(-light.direction.xyz);
+    vec3 Lh = normalize(V + Wi);
 
 	vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
 
     float NDF = DistributionGGX(N, Lh, material.roughness);   
-    float G   = GeometrySmith(N, V, Li, material.roughness);    
+    float G   = GeometrySmith(N, V, Wi, material.roughness);    
     vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);
 
     vec3 nominator    = NDF * G * F;
-    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, Li), 0.0) + 0.001;
+    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, Wi), 0.0) + 0.001;
     vec3 specular = nominator / denominator;
 
     vec3 kS = F;
@@ -386,7 +386,7 @@ vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material, float s
 
     kD *= 1.0 - material.metallic;
 
-    float NdotL = max(dot(N, Li), 0.0);
+    float NdotL = max(dot(N, Wi), 0.0);
 
     vec3 diffuse = light.color.rgb * NdotL * shadow;
 
@@ -475,7 +475,10 @@ void main() {
 	vec4 albedo = texture(gColors, uv);
 
     if(depth >= 1.0) {
-        finalColor = albedo;
+        vec4 ray_clip = vec4(uv * 2.0 - 1.0, 1.0, 1.0);
+        vec3 ray_dir = (invViewProjection * ray_clip).xyz;
+        finalColor = texture(environmentCubemap, normalize(ray_dir));
+        
         float brightness = dot(finalColor.rgb, bloomThreshold.rgb);
         bloomColor = finalColor * min(brightness, 1.0);
         bloomColor.r = min(bloomColor.r, 1.0);
@@ -521,11 +524,7 @@ void main() {
 
     float I = max(dot(-light.direction.xyz, normal), 0);
 
-    //vec4 radiance = coneTraceRadiance(position, normal, 12, occlusion, light);
-
     finalColor = vec4(Lo + ambient, 1.0);
-
-    
 
     // switch(cascadeIndex) {
     //     case 0 : 
