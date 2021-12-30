@@ -67,9 +67,11 @@ void main() {
             0 // payload location 
         );
 
-        L += payload.L;
+        // update the total radiance and throughput
         beta *= payload.beta;
     }
+
+    L = beta;
 
     if(frameCounter > 0) {
         vec4 stored = imageLoad(accumTexture, pixelCoord);

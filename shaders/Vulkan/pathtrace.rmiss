@@ -16,11 +16,6 @@ layout(push_constant) uniform pushConstants {
     float sunConeAngle;
 };
 
-vec3 sky(vec3 direction) {
-    float t = 0.5 * (normalize(direction).y + 1.0);
-    return mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t);
-}
-
 void main() {
     vec3 rayDir = normalize(-gl_WorldRayDirectionEXT);
     vec3 rayStart = gl_WorldRayOriginEXT;
@@ -29,11 +24,15 @@ void main() {
     vec3 transmittance;
     vec3 color = IntegrateScattering(rayStart, rayDir, rayLength, lightDir.xyz, vec3(1.0), transmittance);
 
-    if(payload.depth == 0) {
-        payload.L = color;
+    const float y = normalize(gl_WorldRayDirectionEXT).y;
+    
+    if(y > 0.0) {
+        payload.beta = mix(vec3(1.0), vec3(0.25, 0.5, 1.0), y);
     } else {
-        payload.L = vec3(0.01);
+        payload.beta = vec3(0.03);
     }
 
+    //payload.L = vec3(1.0);
+    
     payload.depth = bounces + 1; // terminate
 }

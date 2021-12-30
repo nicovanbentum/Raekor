@@ -3,18 +3,29 @@
 
 #define M_PI 3.14159265358979323846
 
-vec3 uniformSampleSphere(vec2 u) {
-    float z = 1 - 2 * u.x;
-    float r = sqrt(max(0, 1 - z * z));
-    float phi = 2 * M_PI * u.y;
-    return vec3(r * cos(phi), r * sin(phi), z);
+// From Ray Tracing Gems chapter 6
+vec3 offsetRay(vec3 p, vec3 n) {
+    const float origin = 1.0f / 32.0f;
+    const float float_scale = 1.0f / 65536.0f;
+    const float int_scale = 256.0f;
+
+    ivec3 of_i = ivec3(int_scale * n.x, int_scale * n.y, int_scale * n.z);
+
+    vec3 p_i = vec3(
+        intBitsToFloat(floatBitsToInt(p.x) + ((p.x < 0) ? -of_i.x : of_i.x)),
+        intBitsToFloat(floatBitsToInt(p.y) + ((p.y < 0) ? -of_i.y : of_i.y)),
+        intBitsToFloat(floatBitsToInt(p.z) + ((p.z < 0) ? -of_i.z : of_i.z)));
+
+    return vec3(abs(p.x) < origin ? p.x + float_scale * n.x : p_i.x,
+        abs(p.y) < origin ? p.y + float_scale * n.y : p_i.y,
+        abs(p.z) < origin ? p.z + float_scale * n.z : p_i.z);
 }
 
-vec3 uniformSampleHemisphere(vec2 u) {
-    float z = u.x;
-    float r = sqrt(max(0.0, 1.0 - z * z));
-    float phi = 2 * M_PI * u.y;
-    return vec3(r * cos(phi), r * sin(phi), z);
+vec3 cosineWeightedSampleHemisphere(vec2 rng) {
+    const float theta = 6.2831853 * rng.x;
+    const float u = 2.0 * rng.y - 1.0;
+    const float r = sqrt(1.0 - u * u);
+    return vec3(r * cos(theta), r * sin(theta), u);
 }
 
 vec2 uniformSampleDisk(vec2 u) {
