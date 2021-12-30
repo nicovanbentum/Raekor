@@ -11,6 +11,8 @@ Camera::Camera(glm::vec3 position, glm::mat4 proj) :
     projection = proj;
 }
 
+
+
 void Camera::update() {
     auto dir = getForwardVector();
     view = glm::lookAtRH(position, position + dir, { 0, 1, 0 });
@@ -69,7 +71,7 @@ void Camera::strafeWASD(float dt) {
 
 void Camera::strafeMouse(const SDL_Event& event) {
     if (event.type == SDL_MOUSEMOTION) {
-        auto formula = glm::radians(0.022f * sensitivity);
+        auto formula = glm::radians(0.022f * sensitivity * 2.0f);
         look((event.motion.xrel * formula), event.motion.yrel * formula);
     }
 }
@@ -83,11 +85,7 @@ bool Camera::onEventEditor(const SDL_Event& event) {
     auto mouseState = SDL_GetMouseState(&x, &y);
 
     if (event.type == SDL_MOUSEMOTION) {
-        if (mouseState & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
-            auto formula = glm::radians(0.022f * sensitivity * 2.0f);
-            look(event.motion.xrel * formula, event.motion.yrel * formula);
-            moved = true;
-        } else if (mouseState & SDL_BUTTON(SDL_BUTTON_MIDDLE)) {
+        if (mouseState & SDL_BUTTON(SDL_BUTTON_MIDDLE)) {
             move({ event.motion.xrel * -moveSpeed, event.motion.yrel * moveSpeed });
             moved = true;
         }
@@ -126,7 +124,7 @@ float Camera::getFar() const {
 
 
 Viewport::Viewport(glm::vec2 size) : 
-    fov(65.0f), 
+    fov(45.0f), 
     aspectRatio(16.0f / 9.0f),
     camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 0.1f, 1000.0f)),
     size(size) 
@@ -198,7 +196,6 @@ void Viewport::update() {
     );
 
     jitter = halton / glm::vec2(size);
-
 }
 
 

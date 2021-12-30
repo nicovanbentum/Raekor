@@ -14,7 +14,7 @@ public:
 
     Editor();
     virtual ~Editor() = default;
-    
+
     void onUpdate(float dt) override;
     void onEvent(const SDL_Event& event) override;
 
@@ -28,8 +28,6 @@ private:
     Physics physics;
     GLRenderer renderer;
     std::vector<std::shared_ptr<IWidget>> widgets;
-
-    bool inAltMode = false;
 };
 
 } // raekor

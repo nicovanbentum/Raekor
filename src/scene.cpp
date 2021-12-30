@@ -210,7 +210,7 @@ void Scene::saveToFile(Assets& assets, const std::string& file) {
 
     auto buffer = bufferstream.str();
 
-    auto bound = LZ4_compressBound(int(buffer.size()));
+    const auto bound = LZ4_compressBound(int(buffer.size()));
 
     std::vector<char> compressed(bound);
     Timer timer;
@@ -228,7 +228,7 @@ void Scene::saveToFile(Assets& assets, const std::string& file) {
 
 
 void Scene::openFromFile(Assets& assets, const std::string& file) {
-    if (!std::filesystem::is_regular_file(file)) {
+    if (!fs::is_regular_file(file)) {
         std::clog << "silent return in Scene::openFromFile : filepath " << file << " does not exist.";
         return;
     }
@@ -242,7 +242,7 @@ void Scene::openFromFile(Assets& assets, const std::string& file) {
     storage.read(&buffer[0], buffer.size());
 
     auto decompressed = std::string();
-    decompressed.resize(buffer.size() * 2);
+    decompressed.resize(buffer.size() * 11); // TODO: store the uncompressed size somewhere
     const int decompressed_size = LZ4_decompress_safe(buffer.data(), decompressed.data(), int(buffer.size()), int(decompressed.size()));
 
     clear();

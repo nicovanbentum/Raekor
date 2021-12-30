@@ -6,11 +6,12 @@ namespace Raekor {
 namespace Math {
 
 struct Ray {
-    Ray() = default;
     Ray(Viewport& viewport, glm::vec2 coords);
+    Ray(const glm::vec3& origin, const glm::vec3& direction);
 
     glm::vec3 origin;
     glm::vec3 direction;
+    glm::vec3 rcpDirection;
 
     std::optional<float> hitsOBB(const glm::vec3& min, const glm::vec3& max, const glm::mat4& modelMatrix);
     std::optional<float> hitsAABB(const glm::vec3& min, const glm::vec3& max);

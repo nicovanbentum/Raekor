@@ -29,6 +29,20 @@ public:
     Assets& operator=(Assets&) = delete;
     Assets& operator=(Assets&&) = delete;
 
+    void collect_garbage() {
+        std::vector<std::string> keys;
+
+        for (const auto& [key, value] : *this) {
+            if (value.use_count() == 1) {
+                keys.push_back(key);
+            }
+        }
+
+        for (const auto& key : keys) {
+            release(key);
+        }
+    }
+
 
     template<typename T>
     std::shared_ptr<T> get(const std::string& filepath) {
@@ -61,7 +75,10 @@ public:
 
     void release(const std::string& filepath) {
         std::scoped_lock(releaseMutex);
-        erase(filepath);
+        
+        if (find(filepath) != end()) {
+            erase(filepath);
+        }
     }
 
 private:

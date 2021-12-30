@@ -44,8 +44,10 @@ Editor::Editor() :
 
 
 void Editor::onUpdate(float dt) {
+    assets.collect_garbage();
+
     // update keyboard WASD controls
-    if (inAltMode) {
+    if (Input::isButtonPressed(3)) {
         viewport.getCamera().strafeWASD(dt);
     }
 
@@ -110,21 +112,27 @@ void Editor::onUpdate(float dt) {
 void Editor::onEvent(const SDL_Event& event) {
     ImGui_ImplSDL2_ProcessEvent(&event);
 
+    const bool isMouseInViewport = ImGui::IsMouseHoveringRect(ImVec(viewport.offset), ImVec(viewport.size), false);
+
     // free the mouse if the window loses focus
     auto flags = SDL_GetWindowFlags(window);
-    if (!(flags & SDL_WINDOW_INPUT_FOCUS || flags & SDL_WINDOW_MINIMIZED) && inAltMode) {
-        inAltMode = false;
+    if (!(flags & SDL_WINDOW_INPUT_FOCUS || flags & SDL_WINDOW_MINIMIZED)) {
         SDL_SetRelativeMouseMode(SDL_FALSE);
         return;
+    }
+
+    if (event.button.button == 2 || event.button.button == 3) {
+        if (event.type == SDL_MOUSEBUTTONDOWN && isMouseInViewport) {
+            SDL_SetRelativeMouseMode(SDL_TRUE);
+        }
+        else if (event.type == SDL_MOUSEBUTTONUP) {
+            SDL_SetRelativeMouseMode(SDL_FALSE);
+        }
     }
 
     // key down and not repeating a hold
     if (event.type == SDL_KEYDOWN && !event.key.repeat) {
         switch (event.key.keysym.sym) {
-            case SDLK_LALT: {
-                inAltMode = !inAltMode;
-                SDL_SetRelativeMouseMode(static_cast<SDL_bool>(inAltMode));
-            } break;
             case SDLK_DELETE: {
                 if (active != entt::null) {
                     if (scene.all_of<Node>(active)) {
@@ -158,10 +166,10 @@ void Editor::onEvent(const SDL_Event& event) {
         }
     }
 
-    if (inAltMode) {
+    if (SDL_GetRelativeMouseMode() && Input::isButtonPressed(3)) {
         viewport.getCamera().strafeMouse(event);
     }
-    else if (ImGui::IsMouseHoveringRect(ImVec(viewport.offset), ImVec(viewport.size), false)) {
+    else {
         viewport.getCamera().onEventEditor(event);
     }
 

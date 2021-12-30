@@ -36,6 +36,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
     SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
 
     context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, context);
@@ -75,8 +76,14 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
             if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time()) {
                 auto success = glShader::glslangValidator(vulkanSDK, file, outfile);
 
-                if (!success) {
-                    std::cout << "failed to compile vulkan shader: " << file.path().string() << '\n';
+                {
+                    auto lock = Async::lock();
+
+                    if (!success) {
+                        std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
+                    } else {
+                        std::cout << "Compilation " << COUT_GREEN("finished") << " for shader: " << file.path().string() << '\n';
+                    }
                 }
             }
         });
@@ -359,6 +366,10 @@ void GLRenderer::destroyMaterialTextures(Material& material, Assets& assets) {
     glDeleteTextures(1, &material.gpuNormalMap);
     glDeleteTextures(1, &material.gpuMetallicRoughnessMap);
     material.gpuAlbedoMap = 0, material.gpuNormalMap = 0, material.gpuMetallicRoughnessMap = 0;
+
+    assets.release(material.albedoFile);
+    assets.release(material.normalFile);
+    assets.release(material.metalroughFile);
 }
 
 

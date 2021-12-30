@@ -118,7 +118,7 @@ void glShader::compile() {
     }
 
     if (failed) {
-        std::cerr << "failed to compile shader program" << std::endl;
+        std::cerr << "failed to compile shader program\n";
         glDeleteProgram(newProgramID);
     } else {
         programID = newProgramID;
