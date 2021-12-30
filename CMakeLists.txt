@@ -5,7 +5,7 @@ set(CMAKE_TOOLCHAIN_FILE "dependencies/vcpkg/scripts/buildsystems/vcpkg.cmake")
 set(VCPKG_TARGET_TRIPLET x64-windows-static)
 
 # The actual project
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
+set(CMAKE_CONFIGURATION_TYPES "Debug;RelWithDebInfo" CACHE STRING "" FORCE)
 project(Raekor C CXX)
 
 # Find all VCPKG packages and Vulkan
