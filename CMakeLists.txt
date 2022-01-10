@@ -71,7 +71,7 @@ select_library_configurations(PhysX)
 # Link all the things
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE DbgHelp)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES})
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE d3d11.lib dxgi.lib d3dcompiler.lib)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE d3d11.lib dxgi.lib d3dcompiler.lib d3d12.lib)
 
 # Link all the VCPKG packages
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE lz4::lz4)

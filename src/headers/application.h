@@ -24,6 +24,7 @@ struct ConfigSettings {
 
 
 enum RendererFlags {
+    NONE = 0,
     OPENGL = SDL_WINDOW_OPENGL,
     VULKAN = SDL_WINDOW_VULKAN,
 };

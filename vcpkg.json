@@ -33,6 +33,10 @@
                             "docking-experimental"
                         ],
             "platform": "windows & static"
+        },
+        {
+            "name": "directx-headers",
+            "platform": "windows & static"
         }
     ]
 }

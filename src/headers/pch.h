@@ -52,7 +52,10 @@ extern bool PATHTRACE;
 
 #ifdef _WIN32
     #include <Windows.h>
+    #include <directx/d3dx12.h>
     #include <d3d11.h>
+    #include <d3d12.h>
+    #include <dxgi1_6.h>
     #include <commdlg.h>
     #include <SDL2/SDL_syswm.h>
     #include <wrl.h>
@@ -64,9 +67,6 @@ extern bool PATHTRACE;
 
     template<typename T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
-    // DirectXTK Framework Header only 
-    //#include "DirectXTK/DDSTextureLoader.h"
-    //#include "DirectXTK/WICTextureLoader.h"
     
 #elif __linux__
     #include <GL/gl.h>
