@@ -16,7 +16,7 @@ void PathTracePass::initialize(Device& device, const Swapchain& swapchain, const
     createRenderTextures(device, glm::uvec2(swapchain.getExtent().width, swapchain.getExtent().height));
     createDescriptorSet(device, bindlessTextures);
     updateDescriptorSet(device, accelStruct, instanceBuffer, materialBuffer);
-    createPipeline(device, 8);
+    createPipeline(device);
     createShaderBindingTable(device);
 }
 
@@ -52,7 +52,7 @@ void PathTracePass::createRenderTextures(Device& device, const glm::uvec2& size)
 
 
 
-void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
+void PathTracePass::createPipeline(Device& device) {
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
@@ -149,7 +149,7 @@ void PathTracePass::createPipeline(Device& device, uint32_t maxRecursionDepth) {
     pipelineInfo.pGroups = shaderGroups.data();
     pipelineInfo.groupCount = uint32_t(shaderGroups.size());
     pipelineInfo.stageCount = uint32_t(shaderStages.size());
-    pipelineInfo.maxPipelineRayRecursionDepth = maxRecursionDepth;
+    pipelineInfo.maxPipelineRayRecursionDepth = 1;
 
     ThrowIfFailed(EXT::vkCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
 }
@@ -385,7 +385,7 @@ void PathTracePass::reloadShadersFromDisk(Device& device) {
     device.destroyShader(rchitShader);
     device.destroyShader(rmissShadowShader);
     
-    createPipeline(device, 8);
+    createPipeline(device);
 }
 
 

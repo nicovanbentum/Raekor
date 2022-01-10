@@ -28,7 +28,7 @@ public:
     void destroy(Device& device);
 
     void createRenderTextures(Device& device, const glm::uvec2& size);
-    void createPipeline(Device& device, uint32_t maxRecursionDepth);
+    void createPipeline(Device& device);
     void createDescriptorSet(Device& device, const BindlessDescriptorSet& bindlessTextures);
     void createShaderBindingTable(Device& device);
 

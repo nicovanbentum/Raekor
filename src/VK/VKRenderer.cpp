@@ -14,7 +14,7 @@ Renderer::Renderer(SDL_Window* window) :
     int w, h;
     SDL_GetWindowSize(window, &w, &h);
 
-    VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
+    VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_RELAXED_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
 
     swapchain.create(device, { w, h }, mode);
 
@@ -461,7 +461,7 @@ void Renderer::recreateSwapchain(SDL_Window* window) {
         while (SDL_PollEvent(&ev)) {}
     }
 
-    VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+    VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_RELAXED_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
     
     int w, h;
     SDL_GetWindowSize(window, &w, &h);
