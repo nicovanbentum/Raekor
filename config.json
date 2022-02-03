@@ -1,7 +1,7 @@
 {
     "name": "Raekor Renderer",
-    "display": 1,
-    "vsync": true,
+    "display": 0,
+    "vsync": false,
     "font": "resources/Roboto-Regular.ttf",
     "defaultScene": "",
     "themeColors": {
