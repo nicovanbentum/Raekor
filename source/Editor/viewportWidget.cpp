@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "viewportWidget.h"
 #include "editor.h"
-#include "IconsFontAwesome5.h"
 
 namespace Raekor {
 

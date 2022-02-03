@@ -1,7 +1,6 @@
 #pragma once
 
 #include "widget.h"
-#include "ImGuizmo.h"
 
 namespace Raekor {
 
