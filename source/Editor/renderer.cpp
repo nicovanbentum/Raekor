@@ -175,6 +175,8 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
 GLRenderer::~GLRenderer() {
     ImGui_ImplOpenGL3_DestroyDeviceObjects();
     SDL_GL_DeleteContext(context);
+    ImNodes::DestroyContext();
+    ImGui::DestroyContext();
 }
 
 
