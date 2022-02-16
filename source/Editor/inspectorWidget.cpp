@@ -104,14 +104,25 @@ void InspectorWidget::drawComponent(Mesh& component, Assets& assets, Scene& scen
 
 void InspectorWidget::drawComponent(Skeleton& component, Assets& assets, Scene& scene, entt::entity& active) {
     static bool playing = false;
-    const float currentTime = component.animation.getCurrentTime();
-    const float totalDuration = component.animation.getTotalDuration();
+    const float currentTime = component.animations[0].getCurrentTime();
+    const float totalDuration = component.animations[0].getTotalDuration();
 
     ImGui::ProgressBar(currentTime / totalDuration);
 
     if (ImGui::Button(playing ? "pause" : "play")) {
         playing = !playing;
     }
+
+    ImGui::SameLine();
+
+    if (ImGui::BeginCombo("Animation##InspectorWidget::drawComponent", component.animations[0].GetName().c_str())) {
+        for (auto& animation : component.animations) {
+            ImGui::Selectable(animation.GetName().c_str());
+        }
+
+        ImGui::EndCombo();
+    }
+
 }
 
 

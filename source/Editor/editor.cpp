@@ -66,7 +66,7 @@ void Editor::onUpdate(float dt) {
     // update animations in parallel
     scene.view<Skeleton>().each([&](Skeleton& skeleton) {
         Async::dispatch([&]() {
-            skeleton.boneTransform(dt);
+            skeleton.UpdateFromAnimation(skeleton.animations[0], dt);
         });
     });
 

@@ -53,12 +53,10 @@ void load(Archive& archive, Raekor::DirectionalLight& light) {
 }
 
 
-
 template<typename Archive>
 void serialize(Archive& archive, Raekor::PointLight light) {
 	archive(light.colour, light.colour);
 }
-
 
 
 template<class Archive>
@@ -67,19 +65,10 @@ void serialize(Archive& archive, Raekor::Node& node) {
 }
 
 
-
-template<class Archive>
-void serialize(Archive& archive, Raekor::BoneInfo& boneInfo) {
-	archive(boneInfo.boneOffset, boneInfo.finalTransformation);
-}
-
-
-
 template<class Archive>
 void serialize(Archive& archive, Raekor::Triangle& tri) {
 	archive(tri.p1, tri.p2, tri.p3);
 }
-
 
 
 template<class Archive>
@@ -88,19 +77,16 @@ void serialize(Archive& archive, Raekor::Vertex& v) {
 }
 
 
-
 template<class Archive>
 void save(Archive& archive, const Raekor::Mesh& mesh) {
 	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.indices, mesh.material);
 }
 
 
-
 template<class Archive>
 void load(Archive& archive, Raekor::Mesh& mesh) {
 	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.indices, mesh.material);
 }
-
 
 
 template<class Archive>

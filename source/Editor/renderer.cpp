@@ -47,14 +47,14 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     std::cout << "OpenGL version loaded: " << GLVersion.major << "."
               << GLVersion.minor << '\n';
 
-    if (!fs::exists("shaders/OpenGL/bin")) {
-        fs::create_directory("shaders/OpenGL/bin");
+    if (!fs::exists("assets/system/shaders/OpenGL/bin")) {
+        fs::create_directory("assets/system/shaders/OpenGL/bin");
     }
 
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
-    for (const auto& file : fs::directory_iterator("shaders/OpenGL")) {
+    for (const auto& file : fs::directory_iterator("assets/system/shaders/OpenGL")) {
         if (file.is_directory()) continue;
 
         // visual studio code glsl linter keeps compiling spirv files to the directory,
@@ -353,13 +353,13 @@ void GLRenderer::destroyMeshBuffers(Mesh& mesh) {
 
 void GLRenderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
     glCreateBuffers(1, &skeleton.boneIndexBuffer);
-    glNamedBufferData(skeleton.boneIndexBuffer, skeleton.boneIndices.size() * sizeof(glm::ivec4), skeleton.boneIndices.data(), GL_STATIC_COPY);
+    glNamedBufferData(skeleton.boneIndexBuffer, skeleton.m_BoneIndices.size() * sizeof(glm::ivec4), skeleton.m_BoneIndices.data(), GL_STATIC_COPY);
 
     glCreateBuffers(1, &skeleton.boneWeightBuffer);
-    glNamedBufferData(skeleton.boneWeightBuffer, skeleton.boneWeights.size() * sizeof(glm::vec4), skeleton.boneWeights.data(), GL_STATIC_COPY);
+    glNamedBufferData(skeleton.boneWeightBuffer, skeleton.m_BoneWeights.size() * sizeof(glm::vec4), skeleton.m_BoneWeights.data(), GL_STATIC_COPY);
 
     glCreateBuffers(1, &skeleton.boneTransformsBuffer);
-    glNamedBufferData(skeleton.boneTransformsBuffer, skeleton.boneTransforms.size() * sizeof(glm::mat4), skeleton.boneTransforms.data(), GL_DYNAMIC_READ);
+    glNamedBufferData(skeleton.boneTransformsBuffer, skeleton.m_BoneTransforms.size() * sizeof(glm::mat4), skeleton.m_BoneTransforms.data(), GL_DYNAMIC_READ);
 
     auto originalMeshBuffer = mesh.getInterleavedVertices();
 

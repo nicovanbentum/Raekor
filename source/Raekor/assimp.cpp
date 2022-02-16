@@ -212,86 +212,65 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
     
     auto& mesh = scene.get<Mesh>(entity);
     auto& skeleton = scene.emplace<Skeleton>(entity);
-    skeleton.animation = Animation(assimpScene->mAnimations[0]);
 
-    // extract bone structure
-    // TODO: figure this mess out
-    skeleton.boneWeights.resize(assimpMesh->mNumVertices);
-    skeleton.boneIndices.resize(assimpMesh->mNumVertices);
+    for (uint32_t anim_idx = 0; anim_idx < assimpScene->mNumAnimations; anim_idx++) {
+        skeleton.animations.emplace_back(assimpScene->mAnimations[anim_idx]);
+    }
 
-    for (size_t i = 0; i < assimpMesh->mNumBones; i++) {
-        auto bone = assimpMesh->mBones[i];
-        int boneIndex = 0;
+    skeleton.m_BoneWeights.resize(assimpMesh->mNumVertices);
+    skeleton.m_BoneIndices.resize(assimpMesh->mNumVertices);
+
+    for (uint32_t idx = 0; idx < assimpMesh->mNumBones; idx++) {
+        auto bone = assimpMesh->mBones[idx];
+        int bone_index = 0;
 
         if (skeleton.bonemapping.find(bone->mName.C_Str()) == skeleton.bonemapping.end()) {
-            boneIndex = skeleton.boneCount;
-            skeleton.boneCount++;
-            BoneInfo bi;
-            skeleton.boneInfos.push_back(bi);
-            skeleton.boneInfos[boneIndex].boneOffset = Assimp::toMat4(bone->mOffsetMatrix);
-            skeleton.bonemapping[bone->mName.C_Str()] = boneIndex;
-        } else {
-            std::puts("found existing bone in map");
-            boneIndex = skeleton.bonemapping[bone->mName.C_Str()];
+            skeleton.m_BoneOffsets.push_back(Assimp::toMat4(bone->mOffsetMatrix));
+            
+            bone_index = skeleton.m_BoneOffsets.size() - 1;
+            skeleton.bonemapping[bone->mName.C_Str()] = bone_index;
+        } 
+        else {
+            bone_index = skeleton.bonemapping[bone->mName.C_Str()];
         }
-
-        auto addBoneData = [](Skeleton& anim, uint32_t index, uint32_t boneID, float weight) {
-            for (int i = 0; i < 4; i++) {
-                if (anim.boneWeights[index][i] == 0.0f) {
-                    anim.boneIndices[index][i] = boneID;
-                    anim.boneWeights[index][i] = weight;
-                    return;
-                }
-            }
-
-            std::puts("Discarding excess bone data..");
-        };
 
         for (size_t j = 0; j < bone->mNumWeights; j++) {
-            int vertexID = assimpMesh->mBones[i]->mWeights[j].mVertexId;
-            float weight = assimpMesh->mBones[i]->mWeights[j].mWeight;
-            addBoneData(skeleton, vertexID, boneIndex, weight);
+            int vertexID = bone->mWeights[j].mVertexId;
+            float weight = bone->mWeights[j].mWeight;
+
+            for (int i = 0; i < 4; i++) {
+                if (skeleton.m_BoneWeights[vertexID][i] == 0.0f) {
+                    skeleton.m_BoneIndices[vertexID][i] = bone_index;
+                    skeleton.m_BoneWeights[vertexID][i] = weight;
+                    break;
+                }
+            }
         }
     }
 
-    skeleton.boneTransforms.resize(skeleton.boneCount);
-    for (int i = 0; i < skeleton.boneCount; i++) {
-        skeleton.boneInfos[i].finalTransformation = glm::mat4(1.0f);
-        skeleton.boneTransforms[i] = skeleton.boneInfos[i].finalTransformation;
-    }
+    skeleton.m_BoneTransforms.resize(skeleton.m_BoneOffsets.size());
 
     if (m_UploadSkeletonCallback) {
         m_UploadSkeletonCallback(skeleton, mesh);
     }
 
-    aiNode* rootBone = nullptr;
+    aiNode* root_bone = nullptr;
     std::stack<aiNode*> nodes;
     nodes.push(assimpScene->mRootNode);
-    while (!nodes.empty()) {
-        if (rootBone) {
-            break;
-        }
 
+    while (!nodes.empty() && !root_bone) {
         auto current = nodes.top();
         nodes.pop();
 
-        for (uint32_t b = 0; b < assimpMesh->mNumBones; b++) {
-            if (rootBone) {
-                break;
-            }
-            // check if current node is a bone
-            if (assimpMesh->mBones[b]->mName == current->mName) {
-                // check if its parent is a bone, if not it is the root bone
-                bool isRoot = true;
-                for (uint32_t parentIndex = 0; parentIndex < assimpMesh->mNumBones; parentIndex++) {
-                    if (current->mParent->mName == assimpMesh->mBones[parentIndex]->mName) {
-                        isRoot = false;
-                    }
-                }
+        const auto is_bone = skeleton.bonemapping.find(current->mName.C_Str()) != skeleton.bonemapping.end();
 
-                if (isRoot) {
-                    rootBone = current;
-                }
+        if (is_bone) {
+            assert(current->mParent);
+            const auto has_parent_bone = skeleton.bonemapping.find(current->mParent->mName.C_Str()) != skeleton.bonemapping.end();
+
+            if (!has_parent_bone) {
+                root_bone = current;
+                break;
             }
         }
 
@@ -300,22 +279,23 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
         }
     }
 
-    skeleton.boneTreeRootNode.name = rootBone->mName.C_Str();
+    assert(root_bone);
+    skeleton.m_Bones.name = root_bone->mName.C_Str();
 
-    std::function<void(aiNode* node, BoneTreeNode& boneNode)> copyBoneNode;
-    copyBoneNode = [&](aiNode* node, BoneTreeNode& boneNode) -> void {
+    // recursive lambda to loop over the node hierarchy
+    auto copyHierarchy = [&](auto&& copyHierarchy, aiNode* node, Bone& boneNode) -> void {
         for (unsigned int i = 0; i < node->mNumChildren; i++) {
             auto childNode = node->mChildren[i];
-            auto it = skeleton.bonemapping.find(childNode->mName.C_Str());
-            if (it != skeleton.bonemapping.end()) {
+
+            if (skeleton.bonemapping.find(childNode->mName.C_Str()) != skeleton.bonemapping.end()) {
                 auto& child = boneNode.children.emplace_back();
                 child.name = childNode->mName.C_Str();
-                copyBoneNode(childNode, child);
+                copyHierarchy(copyHierarchy, childNode, child);
             }
         }
     };
 
-    copyBoneNode(rootBone, skeleton.boneTreeRootNode);
+    copyHierarchy(copyHierarchy, root_bone, skeleton.m_Bones);
 }
 
 

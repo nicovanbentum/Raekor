@@ -76,41 +76,28 @@ struct Mesh {
 };
 
 
-
-// TODO: move these next two structs somewhere else
-struct BoneInfo {
-    glm::mat4 boneOffset;
-    glm::mat4 finalTransformation;
-};
-
-
-
-struct BoneTreeNode {
+struct Bone {
     std::string name;
-    std::vector<BoneTreeNode> children;
+    glm::mat4 offset;
+    std::vector<Bone> children;
 };
-
 
 
 struct Skeleton {
-    std::vector<glm::vec4> boneWeights;
-    std::vector<glm::ivec4> boneIndices;
-
-    int boneCount = 0;
-    std::vector<BoneInfo> boneInfos;
     glm::mat4 inverseGlobalTransform;
-    std::vector<glm::mat4> boneTransforms;
+    std::vector<glm::vec4> m_BoneWeights;
+    std::vector<glm::mat4> m_BoneOffsets;
+    std::vector<glm::ivec4> m_BoneIndices;
+    std::vector<glm::mat4> m_BoneTransforms;
     std::unordered_map<std::string, uint32_t> bonemapping;
 
-    Animation animation;
-    BoneTreeNode boneTreeRootNode;
+    Bone m_Bones;
+    std::vector<Animation> animations;
 
-    void ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform);
+    void UpdateFromAnimation(Animation& animation, float TimeInSeconds);
+    void UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform);
 
-    void boneTransform(float TimeInSeconds);
-
-    void destroy();
-
+    // Skinning GPU buffers
     uint32_t boneIndexBuffer;
     uint32_t boneWeightBuffer;
     uint32_t boneTransformsBuffer;

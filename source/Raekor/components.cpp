@@ -149,16 +149,16 @@ std::vector<float> Mesh::getInterleavedVertices() {
 
 
 
-void Skeleton::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const glm::mat4& parentTransform) {
+void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform) {
     auto globalTransformation = glm::mat4(1.0f);
 
     bool hasAnimation = animation.boneAnimations.find(pNode.name) != animation.boneAnimations.end();
 
-    if (bonemapping.find(pNode.name) != bonemapping.end() && pNode.name != boneTreeRootNode.name && hasAnimation) {
+    if (bonemapping.find(pNode.name) != bonemapping.end() && pNode.name != m_Bones.name && hasAnimation) {
 
         glm::mat4 nodeTransform = glm::mat4(1.0f);
 
-        auto& nodeAnim = animation.boneAnimations[pNode.name.c_str()];
+        const auto& nodeAnim = animation.boneAnimations.at(pNode.name);
 
         glm::vec3 translation = nodeAnim.getInterpolatedPosition(animationTime);
         glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(translation.x, translation.y, translation.z));
@@ -174,17 +174,17 @@ void Skeleton::ReadNodeHierarchy(float animationTime, BoneTreeNode& pNode, const
         globalTransformation = parentTransform * nodeTransform;
 
         unsigned int boneIndex = bonemapping[pNode.name];
-        boneInfos[boneIndex].finalTransformation = globalTransformation * boneInfos[boneIndex].boneOffset;
+        m_BoneTransforms[boneIndex] = globalTransformation * m_BoneOffsets[boneIndex];
     }
 
     for (auto& child : pNode.children) {
-        ReadNodeHierarchy(animationTime, child, globalTransformation);
+        UpdateBoneTransforms(animation, animationTime, child, globalTransformation);
     }
 }
 
 
 
-void Skeleton::boneTransform(float dt) {
+void Skeleton::UpdateFromAnimation(Animation& animation, float dt) {
     /*
         This is bugged, Assimp docs say totalDuration is in ticks, but the actual value is real world time in milliseconds
         see https://github.com/assimp/assimp/issues/2662
@@ -195,12 +195,7 @@ void Skeleton::boneTransform(float dt) {
     }
 
     auto identity = glm::mat4(1.0f);
-    ReadNodeHierarchy(animation.runningTime, boneTreeRootNode, identity);
-
-    boneTransforms.resize(boneCount);
-    for (int i = 0; i < boneCount; i++) {
-        boneTransforms[i] = boneInfos[i].finalTransformation;
-    }
+    UpdateBoneTransforms(animation, animation.runningTime, m_Bones, identity);
 }
 
 

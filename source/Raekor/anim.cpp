@@ -19,7 +19,7 @@ void BoneAnimation::loadFromAssimp(aiNodeAnim* nodeAnim) {
 
 
 
-glm::vec3 BoneAnimation::getInterpolatedPosition(float animationTime) {
+glm::vec3 BoneAnimation::getInterpolatedPosition(float animationTime) const {
 	if (positionKeys.size() == 1) {
 		// No interpolation necessary for single value
 		auto v = positionKeys[0].mValue;
@@ -49,7 +49,7 @@ glm::vec3 BoneAnimation::getInterpolatedPosition(float animationTime) {
 	
 
 
-glm::quat BoneAnimation::getInterpolatedRotation(float animationTime) {
+glm::quat BoneAnimation::getInterpolatedRotation(float animationTime) const {
 	if (rotationkeys.size() == 1) {
 		// No interpolation necessary for single value
 		auto v = rotationkeys[0].mValue;
@@ -80,7 +80,7 @@ glm::quat BoneAnimation::getInterpolatedRotation(float animationTime) {
 
 
 
-glm::vec3 BoneAnimation::getInterpolatedScale(float animationTime) {
+glm::vec3 BoneAnimation::getInterpolatedScale(float animationTime) const {
 	if (scaleKeys.size() == 1) {
 		// No interpolation necessary for single value
 		auto v = scaleKeys[0].mValue;
