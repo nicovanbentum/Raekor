@@ -3,7 +3,7 @@
  >**_NOTE:_** Last passing version was ```10.0.22```
 
 * To build the Vulkan project the _**latest**_ Vulkan SDK needs to be installed, get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe).
- >**_NOTE:_** Last passing version was ```1.2.182.0```
+ >**_NOTE:_** Last passing version was ```1.3.204.0```
 
 Clone this repository using
  ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```
