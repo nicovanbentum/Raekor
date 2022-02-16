@@ -12,7 +12,7 @@ set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/SPIRV-Reflect/spirv
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/SPIRV-Reflect/spirv_reflect.h ${CMAKE_SOURCE_DIR}/dependencies/SPIRV-Reflect/spirv_reflect.c)
 
 # Rule to build the actual exectuable and enable c++17
-add_executable(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/Raekor.rc)
+add_executable(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/assets/system/icon/Raekor.rc)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers
@@ -29,7 +29,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/source
     ${CMAKE_SOURCE_DIR}/dependencies
     ${CMAKE_SOURCE_DIR}/dependencies/SPIRV-Reflect
-    ${CMAKE_SOURCE_DIR}/dependencies/VulkanMemoryAllocator/src/
+    ${CMAKE_SOURCE_DIR}/dependencies/VulkanMemoryAllocator/include/
     ${Vulkan_INCLUDE_DIRS}
 )
 

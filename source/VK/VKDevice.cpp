@@ -93,21 +93,33 @@ Device::Device(SDL_Window* window) :
     sync2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
     sync2Features.synchronization2 = VK_TRUE;
 
+    VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures = {};
+    dynamicRenderingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;;
+    dynamicRenderingFeatures.dynamicRendering = VK_TRUE;
+
     VkPhysicalDeviceFeatures2 deviceFeatures2 = {};
     deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     deviceFeatures2.pNext = &bufferDeviceAddressFeatures;
     bufferDeviceAddressFeatures.pNext = &rayTracingPipelineFeatures;
     rayTracingPipelineFeatures.pNext = &accelerationStructureFeatures;
     accelerationStructureFeatures.pNext = &sync2Features;
+    sync2Features.pNext = &dynamicRenderingFeatures;
 
     vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures2);
 
     if (bufferDeviceAddressFeatures.bufferDeviceAddress) {
         descriptorFeatures.pNext = &bufferDeviceAddressFeatures;
-    } else {
-        throw std::runtime_error("Buffer Device Address extension not supported.");
+    } 
+    else {
+        throw std::runtime_error("Buffer Device Address extension not supported by this GPU.");
     }
 
+    //if (dynamicRenderingFeatures.dynamicRendering) {
+    //    bufferDeviceAddressFeatures.pNext = &dynamicRenderingFeatures;
+    //}
+    //else {
+    //    throw std::runtime_error("Dynamic Rendering extension not supported by this GPU.");
+    //}
 
     VkDeviceCreateInfo deviceInfo = {};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

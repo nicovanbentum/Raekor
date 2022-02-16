@@ -53,7 +53,11 @@ bool Shader::DXC(const fs::directory_entry& file) {
 
 Shader Device::createShader(const std::string& filepath) {
     std::ifstream file(filepath, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) return Shader(); // TODO: ptr type
+
+    if (!file.is_open()) {
+        std::cerr << "Could not open shader " << filepath << '\n';
+        return Shader(); // TODO: ptr type
+    }
 
     std::vector<uint32_t> spirv;
     const size_t filesize = size_t(file.tellg());

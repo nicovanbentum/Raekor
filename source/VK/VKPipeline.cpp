@@ -103,6 +103,13 @@ GraphicsPipeline Device::createGraphicsPipeline(const GraphicsPipeline::Desc& de
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_ALL;
 	pushConstantRange.size = physicalDevice.limits.maxPushConstantsSize;
 
+	const auto& colorAttachmentFormats = framebuffer.GetColorAttachmentFormats();
+
+	VkPipelineRenderingCreateInfo renderInfo = {};
+	renderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+	renderInfo.colorAttachmentCount = colorAttachmentFormats.size();
+	renderInfo.pColorAttachmentFormats = colorAttachmentFormats.data();
+
 	VkGraphicsPipelineCreateInfo pipelineInfo = {};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.stageCount = uint32_t(stages.size());
@@ -116,8 +123,9 @@ GraphicsPipeline Device::createGraphicsPipeline(const GraphicsPipeline::Desc& de
 	pipelineInfo.pDepthStencilState = &desc.state->depthStencil;
 	pipelineInfo.pColorBlendState = &desc.state->colorBlend;
 	pipelineInfo.pDynamicState = &dynamicState;
-	pipelineInfo.renderPass = framebuffer.renderPass;
 	pipelineInfo.basePipelineIndex = -1;
+
+	pipelineInfo.pNext = &renderInfo;
 
 	vkCreateGraphicsPipelines(device, NULL, 1, &pipelineInfo, nullptr, &pipeline.pipeline);
 

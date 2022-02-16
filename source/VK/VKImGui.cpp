@@ -93,8 +93,8 @@ void ImGuiPass::initialize(Device& device, const Swapchain& swapchain, PathTrace
 		.attribute(1, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, uv))
 		.attribute(2, VK_FORMAT_R32_UINT, offsetof(ImDrawVert, col));
 
-	pixelShader = device.createShader("shaders/Vulkan/bin/imguiPS.hlsl.spv");
-	vertexShader = device.createShader("shaders/Vulkan/bin/imguiVS.hlsl.spv");
+	pixelShader = device.createShader("assets/system/shaders/Vulkan/bin/imguiPS.hlsl.spv");
+	vertexShader = device.createShader("assets/system/shaders/Vulkan/bin/imguiVS.hlsl.spv");
 
 	GraphicsPipeline::State state;
 	state.rasterizer.cullMode = VK_CULL_MODE_NONE;
@@ -158,22 +158,29 @@ void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 
 	pushConstants.projection = glm::ortho(0.0f, data->DisplaySize.x, data->DisplaySize.y, 0.0f);
 
-	VkRenderPassBeginInfo beginInfo = {};
-	beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	beginInfo.renderPass = framebuffer.renderPass;
-	beginInfo.framebuffer = framebuffer.framebuffer;
-	beginInfo.renderArea.offset = { 0, 0 };
-	beginInfo.renderArea.extent.width = width;
-	beginInfo.renderArea.extent.height = height;
+	std::vector<VkRenderingAttachmentInfo> colorAttachments;
+	colorAttachments.reserve(framebuffer.description.colorAttachments.size());
 
-	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0].color = { 0.0f, 0.0f, 0.0f, 0.0f };
-	clearValues[1].depthStencil = { 1.0f, 0 };
+	for (const auto& texture : framebuffer.description.colorAttachments) {
+		if (texture) {
+			auto& attachment = colorAttachments.emplace_back();
+			attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+			attachment.imageView = device.createView(*texture);
+			attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+			attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		}
+	}
 
-	beginInfo.clearValueCount = (uint32_t)clearValues.size();
-	beginInfo.pClearValues = clearValues.data();
-
-	vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	VkRenderingInfo renderInfo = {};
+	renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderInfo.layerCount = 1;
+	renderInfo.colorAttachmentCount = 1;
+	renderInfo.renderArea.extent = VkExtent2D{ width, height };
+	renderInfo.pColorAttachments = colorAttachments.data();
+	renderInfo.colorAttachmentCount = colorAttachments.size();
+	
+	vkCmdBeginRendering(commandBuffer, &renderInfo);
 
 	VkDeviceSize offset[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offset);
@@ -230,7 +237,7 @@ void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 		vtxOffset += cmdList->VtxBuffer.Size;
 	}
 
-	vkCmdEndRenderPass(commandBuffer);
+	vkCmdEndRendering(commandBuffer);
 }
 
 

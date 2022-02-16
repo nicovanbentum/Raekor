@@ -47,9 +47,9 @@ Instance::Instance(SDL_Window* window) {
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pEngineName = "Raekor";
     appInfo.pApplicationName = "Raekor Editor";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 2, 0);
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 2, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_2;
+    appInfo.applicationVersion = VK_MAKE_VERSION(1, 3, 0);
+    appInfo.engineVersion = VK_MAKE_VERSION(1, 3, 0);
+    appInfo.apiVersion = VK_API_VERSION_1_3;
 
     VkInstanceCreateInfo instanceInfo = {};
     instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

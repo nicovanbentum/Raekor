@@ -56,13 +56,13 @@ void PathTracePass::createPipeline(Device& device) {
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
-    if (!fs::exists("shaders/Vulkan/bin")) {
-        fs::create_directory("shaders/Vulkan/bin");
+    if (!fs::exists("assets/system/shaders/Vulkan/bin")) {
+        fs::create_directory("assets/system/shaders/Vulkan/bin");
     }
 
     fs::file_time_type timeOfMostRecentlyUpdatedIncludeFile;
 
-    for (const auto& file : fs::directory_iterator("shaders/Vulkan/include")) {
+    for (const auto& file : fs::directory_iterator("assets/system/shaders/Vulkan/include")) {
         const auto updateTime = fs::last_write_time(file);
 
         if (updateTime > timeOfMostRecentlyUpdatedIncludeFile) {
@@ -70,7 +70,7 @@ void PathTracePass::createPipeline(Device& device) {
         }
     }
 
-    for (const auto& file : fs::directory_iterator("shaders/Vulkan")) {
+    for (const auto& file : fs::directory_iterator("assets/system/shaders/Vulkan")) {
         if (file.is_directory()) continue;
 
         Async::dispatch([=]() {
@@ -106,10 +106,10 @@ void PathTracePass::createPipeline(Device& device) {
 
     Async::wait();
 
-    rgenShader = device.createShader("shaders/Vulkan/bin/pathtrace.rgen.spv");
-    rmissShader = device.createShader("shaders/Vulkan/bin/pathtrace.rmiss.spv");
-    rchitShader = device.createShader("shaders/Vulkan/bin/pathtrace.rchit.spv");
-    rmissShadowShader = device.createShader("shaders/Vulkan/bin/shadow.rmiss.spv");
+    rgenShader = device.createShader("assets/system/shaders/Vulkan/bin/pathtrace.rgen.spv");
+    rmissShader = device.createShader("assets/system/shaders/Vulkan/bin/pathtrace.rmiss.spv");
+    rchitShader = device.createShader("assets/system/shaders/Vulkan/bin/pathtrace.rchit.spv");
+    rmissShadowShader = device.createShader("assets/system/shaders/Vulkan/bin/shadow.rmiss.spv");
 
     std::array shaderStages = {
         rgenShader.getPipelineCreateInfo(),

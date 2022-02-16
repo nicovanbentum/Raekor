@@ -91,8 +91,6 @@ void GBuffer::destroyRenderTargets(Device& device) {
 void GBuffer::record(Device& device, VkCommandBuffer commandBuffer, const Scene& scene) {
     VkRenderPassBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    beginInfo.renderPass = framebuffer.renderPass;
-    beginInfo.framebuffer = framebuffer.framebuffer;
     beginInfo.renderArea.offset = { 0, 0 };
     beginInfo.renderArea.extent.width = framebuffer.description.width;
     beginInfo.renderArea.extent.height = framebuffer.description.height;

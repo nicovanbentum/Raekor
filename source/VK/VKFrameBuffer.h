@@ -17,9 +17,10 @@ public:
 		std::array<Texture*, 8> colorAttachments;
 	};
 
+	uint32_t GetColorAttachmentCount() const;
+	std::vector<VkFormat> GetColorAttachmentFormats() const;
+
 	Desc description;
-	VkRenderPass renderPass;
-	VkFramebuffer framebuffer;
 };
 
 }
