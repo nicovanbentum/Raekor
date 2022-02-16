@@ -2,6 +2,8 @@
 #include "DXApp.h"
 #include "Raekor/OS.h"
 #include "Raekor/util.h"
+#include <locale>
+#include <codecvt>
 
 namespace Raekor::DX {
 
@@ -30,7 +32,6 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
     m_Scene.openFromFile(m_Assets, settings.defaultScene);
 
     assert(!m_Scene.empty() && "Scene cannot be empty when starting up DX12 renderer!!");
-
 
 #ifndef NDEBUG
     ComPtr<ID3D12Debug> mDebug;
@@ -77,6 +78,14 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
         desc.NumDescriptors = FrameCount;
 
         ThrowIfFailed(m_Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_RtvHeap)));
+    }
+
+    {
+        D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+        desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        desc.NumDescriptors = std::numeric_limits<uint16_t>::max();
+
+        ThrowIfFailed(m_Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_SrvCbvUavHeap)));
     }
 
     {
@@ -181,13 +190,13 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
         }
     }
 
-    if (!fs::exists("shaders/DirectX/bin")) {
-        fs::create_directory("shaders/DirectX/bin");
+    if (!fs::exists("assets/system/shaders/DirectX/bin")) {
+        fs::create_directory("assets/system/shaders/DirectX/bin");
     }
 
     fs::file_time_type timeOfMostRecentlyUpdatedIncludeFile;
 
-    for (const auto& file : fs::directory_iterator("shaders/DirectX/include")) {
+    for (const auto& file : fs::directory_iterator("assets/system/shaders/DirectX/include")) {
         const auto updateTime = fs::last_write_time(file);
 
         if (updateTime > timeOfMostRecentlyUpdatedIncludeFile) {
@@ -195,116 +204,109 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
         }
     }
 
-    for (const auto& file : fs::directory_iterator("shaders/DirectX")) {
+    for (const auto& file : fs::directory_iterator("assets/system/shaders/DirectX")) {
         if (file.is_directory()) continue;
 
-        //Async::dispatch([=]() {
+       // Async::dispatch([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(".blob");
 
             const auto textFileWriteTime = file.last_write_time();
 
-            if (!fs::exists(outfile) ||
-                fs::last_write_time(outfile) < textFileWriteTime ||
-                timeOfMostRecentlyUpdatedIncludeFile > fs::last_write_time(outfile)) {
+            bool success = false;
 
-                bool success = false;
+            if (file.path().extension() == ".hlsl") {
+                auto outfile = file.path().parent_path() / "bin" / file.path().filename().replace_extension(".blob");
 
-                if (file.path().extension() == ".hlsl") {
-                    auto outfile = file.path().parent_path() / "bin" / file.path().filename().replace_extension(".blob");
+                const auto name = file.path().stem().string();
+                auto type = name.substr(name.size() - 2, 2);
+                std::transform(type.begin(), type.end(), type.begin(), tolower);
 
-                    const auto name = file.path().stem().string();
-                    auto type = name.substr(name.size() - 2, 2);
-                    std::transform(type.begin(), type.end(), type.begin(), tolower);
+                ComPtr<IDxcLibrary> library;
+                ComPtr<IDxcCompiler3> pCompiler;
+                DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(library.GetAddressOf()));
+                DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(pCompiler.GetAddressOf()));
 
-                    std::ifstream ifs(file.path(), std::ios::ate | std::ios::binary);
+                uint32_t code_page = CP_UTF8;
+                ComPtr<IDxcBlobEncoding> blob;
+                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+                std::wstring file_path = converter.from_bytes(file.path().string());
+                ThrowIfFailed(library->CreateBlobFromFile(file_path.c_str(), &code_page, blob.GetAddressOf()));
 
-                    std::vector<uint32_t> shaderSource;
-                    const size_t filesize = size_t(ifs.tellg());
-                    shaderSource.resize(filesize);
-                    ifs.seekg(0);
-                    ifs.read((char*)&shaderSource[0], filesize);
-                    ifs.close();
+                std::vector<LPCWSTR> arguments;
+                //-E for the entry point (eg. PSMain)
+                arguments.push_back(L"-E");
+                arguments.push_back(L"main");
 
-                    ComPtr<IDxcUtils> pUtils;
-                    ComPtr<IDxcCompiler3> pCompiler;
-                    DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
-                    DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler));
+                //-T for the target profile (eg. ps_6_2)
+                arguments.push_back(L"-T");
 
-                    ComPtr<IDxcBlobEncoding> blob;
-                    pUtils->CreateBlob(shaderSource.data(), shaderSource.size(), CP_UTF8, blob.GetAddressOf());
+                if (type == "ps") {
+                    arguments.push_back(L"ps_6_6");
+                }
+                else if (type == "vs") {
+                    arguments.push_back(L"vs_6_6");
+                }
 
-                    std::vector<LPCWSTR> arguments;
-                    //-E for the entry point (eg. PSMain)
-                    arguments.push_back(L"-E");
-                    arguments.push_back(L"main");
+                arguments.push_back(L"-Qstrip_debug");
+                arguments.push_back(L"-Qstrip_reflect");
 
-                    //-T for the target profile (eg. ps_6_2)
-                    arguments.push_back(L"-T");
+                DxcBuffer sourceBuffer;
+                sourceBuffer.Ptr = blob->GetBufferPointer();
+                sourceBuffer.Size = blob->GetBufferSize();
+                sourceBuffer.Encoding = 0;
 
-                    if (type == "ps") {
-                        arguments.push_back(L"ps_6_6");
-                    }
-                    else if (type == "vs") {
-                        arguments.push_back(L"vs_6_6");
-                    }
+                ComPtr<IDxcResult> result;
+                ThrowIfFailed(pCompiler->Compile(&sourceBuffer, arguments.data(), uint32_t(arguments.size()), nullptr, IID_PPV_ARGS(result.GetAddressOf()))); 
+                assert(result);
 
-                    arguments.push_back(L"-Fo");
-                    arguments.push_back(outfile.wstring().c_str());
+                HRESULT hr;
+                result->GetStatus(&hr);
 
-                    DxcBuffer sourceBuffer;
-                    sourceBuffer.Ptr = blob->GetBufferPointer();
-                    sourceBuffer.Size = blob->GetBufferSize();
-                    sourceBuffer.Encoding = 0;
-
-                    ComPtr<IDxcResult> result;
-                    if (!SUCCEEDED(pCompiler->Compile(&sourceBuffer, arguments.data(), uint32_t(arguments.size()), nullptr, IID_PPV_ARGS(result.GetAddressOf())))) {
+                if(!SUCCEEDED(hr)) {
+                    ComPtr<IDxcBlobUtf8> errors;
+                    result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr);
                         
-                        ComPtr<IDxcBlobUtf8> errors;
-                        result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr);
-                        
-                        if (errors && errors->GetStringLength() > 0) {
-                            std::cout << errors->GetBufferPointer() << '\n';
-                        }
-                        
-                        std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
+                    if (errors && errors->GetStringLength() > 0) {
+                        std::cout << static_cast<char*>(errors->GetBufferPointer()) << '\n';
                     }
-                    else {
-                        ComPtr<IDxcBlob> blob;
-                        ComPtr<IDxcBlobUtf16> pDebugDataPath;
-                        result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&blob), pDebugDataPath.GetAddressOf());
-                        auto ofs = std::ofstream(outfile, std::ios::binary);
-                        ofs.write((char*)blob->GetBufferPointer(), blob->GetBufferSize());
+                        
+                    std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
+                }
+                else {
+                    ComPtr<IDxcBlob> shader;
+                    ComPtr<IDxcBlobUtf16> pDebugDataPath;
+                    result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(shader.GetAddressOf()), pDebugDataPath.GetAddressOf());
 
-                        std::cout << "Compilation " << "Finished" << " for shader: " << file.path().string() << '\n';
-                    }
+                    m_Shaders.insert(std::make_pair(file.path().filename().string(), shader));
+                    
+                    std::cout << "Compilation " << COUT_GREEN("Finished") << " for shader: " << file.path().string() << '\n';
                 }
             }
         //});
     }
 
-    ThrowIfFailed(D3DReadFileToBlob(L"shaders/DirectX/bin/gbufferVS.blob", m_VertexShader.GetAddressOf()));
-    ThrowIfFailed(D3DReadFileToBlob(L"shaders/DirectX/bin/gbufferPS.blob", m_PixelShader.GetAddressOf()));
-
-    std::vector<D3D12_INPUT_ELEMENT_DESC> vertexLayout =
-    {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+    constexpr std::array vertexLayout = {
+        D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        D3D12_INPUT_ELEMENT_DESC { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        D3D12_INPUT_ELEMENT_DESC { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC vrsd;
-    vrsd.Init_1_1(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    vrsd.Init_1_1(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED);
 
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
     ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&vrsd, D3D_ROOT_SIGNATURE_VERSION_1_1, &signature, &error));
     ThrowIfFailed(m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
 
+    const auto& vertexShader = m_Shaders.at("gbufferVS.hlsl");
+    const auto& pixelShader = m_Shaders.at("gbufferPS.hlsl");
+
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psd = {};
-    psd.VS = CD3DX12_SHADER_BYTECODE(m_VertexShader.Get());
-    psd.PS = CD3DX12_SHADER_BYTECODE(m_PixelShader.Get());
+    psd.VS = CD3DX12_SHADER_BYTECODE(vertexShader->GetBufferPointer(), vertexShader->GetBufferSize());
+    psd.PS = CD3DX12_SHADER_BYTECODE(pixelShader->GetBufferPointer(), pixelShader->GetBufferSize());
     psd.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     psd.InputLayout.NumElements = vertexLayout.size();
     psd.InputLayout.pInputElementDescs = vertexLayout.data();
@@ -396,7 +398,7 @@ void DXApp::onUpdate(float dt) {
     const std::array commandLists = { static_cast<ID3D12CommandList*>(cmdList.Get()) };
     m_Queue->ExecuteCommandLists(commandLists.size(), commandLists.data());
     
-    ThrowIfFailed(m_Swapchain->Present(1, 0));
+    ThrowIfFailed(m_Swapchain->Present(0, 0));
 
     m_FenceValues[m_FrameIndex] = currentFenceValue + 1;
 }
@@ -420,7 +422,7 @@ void DXApp::onEvent(const SDL_Event& event) {
             }
         }
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-          /*  const UINT64 currentFenceValue = m_FenceValues[m_FrameIndex];
+            const UINT64 currentFenceValue = m_FenceValues[m_FrameIndex];
 
             ThrowIfFailed(m_Queue->Signal(m_Fence.Get(), currentFenceValue));
 
@@ -446,7 +448,7 @@ void DXApp::onEvent(const SDL_Event& event) {
                 ThrowIfFailed(m_Swapchain->GetBuffer(i, IID_PPV_ARGS(&m_RenderTargets[i])));
                 m_Device->CreateRenderTargetView(m_RenderTargets[i].Get(), nullptr, heapPtr);
                 heapPtr.Offset(m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
-            }*/
+            }
         }
     }
 }

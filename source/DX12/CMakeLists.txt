@@ -7,7 +7,7 @@ file(GLOB_RECURSE HppFiles ${PROJECT_SOURCE_DIR}/*.h)
 file(GLOB_RECURSE CppFiles ${PROJECT_SOURCE_DIR}/*.cpp)
 
 # Rule to build the actual exectuable and enable c++17
-add_executable(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/Raekor.rc)
+add_executable(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/assets/system/icon/Raekor.rc)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers
@@ -22,6 +22,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Raekor)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${DXC_LIBRARY} d3d12.lib dxgi.lib d3dcompiler.lib)
 target_link_libraries(${PROJECT_NAME} PRIVATE Microsoft::DirectX-Guids Microsoft::DirectX-Headers)
 
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/dxc/dxil.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/dxc/dxcompiler.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/Agility-SDK/D3D12Core.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/Agility-SDK/d3d12SDKLayers.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 

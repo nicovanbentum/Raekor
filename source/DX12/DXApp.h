@@ -14,7 +14,7 @@ namespace Raekor::DX {
 template<typename T>
 class FreeVector : public std::vector<T> {
 public:
-    size_t push_back_or_insert(const T& t) {
+    virtual size_t push_back_or_insert(const T& t) {
         size_t index;
 
         if (free.empty()) {
@@ -30,14 +30,44 @@ public:
         return index;
     }
 
-    bool remove(size_t index) {
+    virtual bool remove(size_t index) {
+        if (index > size() - 1)
+            return false;
+
         free.push_back(index);
+        return true;
     }
 
 private:
     std::vector<size_t> free;
 };
 
+class DescriptorHeap : public FreeVector<ComPtr<ID3D12Resource>> {
+public:
+    using ResourceType = ComPtr<ID3D12Resource>;
+
+    void Init(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type) {
+        D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+        desc.Type = type;
+        desc.NumDescriptors = std::numeric_limits<uint16_t>::max();
+
+        ThrowIfFailed(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_Heap)));
+
+        m_HeapPtr = m_Heap->GetCPUDescriptorHandleForHeapStart();
+        m_HeapIncrement = device->GetDescriptorHandleIncrementSize(type);
+    }
+
+    virtual size_t push_back_or_insert(const ResourceType& t) {
+        auto index = FreeVector<ResourceType>::push_back_or_insert(t);
+
+
+    }
+
+private:
+    UINT m_HeapIncrement = 0;
+    ComPtr<ID3D12DescriptorHeap> m_Heap;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_HeapPtr;
+};
 
 class DXApp : public Application {
 public:
@@ -62,13 +92,13 @@ private:
     ComPtr<ID3D12CommandQueue> m_Queue;
     ComPtr<ID3D12DescriptorHeap> m_RtvHeap;
     ComPtr<ID3D12DescriptorHeap> m_DsvHeap;
+    ComPtr<ID3D12DescriptorHeap> m_SrvCbvUavHeap;
     ComPtr<ID3D12PipelineState> m_Pipeline;
 
-    ComPtr<ID3DBlob> m_PixelShader;
-    ComPtr<ID3DBlob> m_VertexShader;
     ComPtr<ID3D12RootSignature> m_RootSignature;
 
     FreeVector<ComPtr<ID3D12Resource>> m_Buffers;
+    std::unordered_map<std::string, ComPtr<IDxcBlob>> m_Shaders;
     
     uint32_t m_FrameIndex = 0;
     HANDLE m_FenceEvent;
