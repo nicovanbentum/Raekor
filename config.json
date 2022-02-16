@@ -3,7 +3,7 @@
     "display": 1,
     "vsync": false,
     "font": "assets/system/Roboto-Regular.ttf",
-    "defaultScene": "C:/VS-Projects/Raekor/assets/scenes/pica.scene",
+    "defaultScene": "assets/scenes/cornell.scene",
     "themeColors": {
         "value0": {
             "value0": 1.0,
