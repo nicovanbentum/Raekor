@@ -1,0 +1,269 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+#define PI 			3.1415926535
+#define MAXFLOAT	99999.99
+
+#define MAXDEPTH 	10
+#define NUMSAMPLES 	5
+
+#define RANGE uvec4(65535u)
+#define MAX_RANDOM float(RANGE-1u)
+
+layout(binding = 0, rgba32f) uniform image2D outputTexture;
+layout(binding = 1, rgba32f) uniform image2D finalTexture;
+
+vec2 iResolution = imageSize(outputTexture);
+ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
+
+
+layout(binding = 3) uniform ubo {
+    vec4 position;
+    mat4 projection;
+    mat4 view;
+    float iTime;
+    uint sphereCount;
+    uint doUpdate;
+};
+
+const uint ROUGH = 0;
+const uint REFLECT = 1;
+
+struct Material {
+    vec3 color;
+    uint type;
+};
+
+struct Sphere {
+    vec3 origin;
+    vec3 colour;
+    float roughness;
+    float metalness;
+    float radius;
+};
+
+// cpu side buffer of spheres
+layout(std430, binding = 2) buffer world {
+    Sphere spheres [];
+};
+
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
+bool hitSphere(Ray ray, Sphere sphere, float t_min, float t_max, out float t_out) {
+    // Geometric solution
+    float R2 = sphere.radius * sphere.radius;
+    vec3 L = sphere.origin - ray.origin;
+    float tca = dot(L, normalize(ray.direction));
+    if(tca < 0) return false;
+
+    float D2 = dot(L, L) - tca * tca;
+    if(D2 > R2) return false;
+    float thc = sqrt(R2 - D2);
+    float t0 = tca - thc;
+    float t1 = tca + thc;
+
+    float closest_t = min(t0, t1);
+
+    if(closest_t < t_max && closest_t > t_min) {
+        t_out = closest_t / length(ray.direction);
+        return true;
+    }
+
+    return false; 
+}
+
+
+// Noise generation from https://www.shadertoy.com/view/MtycWc
+// https://merlin3d.wordpress.com/2018/10/04/correlated-multi-jittered-sampling-on-gpu/
+// Generate an unsigned integer random vector in the range of [0..range-1]^3 
+// with uniform distribution from a linear seed using mixing functions.
+// Maximum valid value of range is 65535.
+uvec4 rand ( uvec4 s, uvec4 range ) {
+    s ^= uvec4(s.x >> 19, s.y >> 19, s.z >> 13, s.w >> 19);
+    s *= uvec4(1619700021, 3466831627, 923620057, 3466831627);
+    s ^= uvec4(s.x >> 16, s.y >> 12, s.z >> 18, s.w >> 17);
+    s *= uvec4(175973783, 2388179301, 3077236438, 2388179301);
+    s ^= uvec4(s.x >> 15, s.y >> 17, s.z >> 18, s.w >> 18);
+    
+    uvec4 f = s >> 16;
+    return (range * f + (s % range)) >> 16;    
+}
+
+uvec4 seed ( in vec2 fragCoord, in vec2 iResolution, in float iTime ) {
+    float fseed = fragCoord.x + fragCoord.y * iResolution.x + 1.0 + mod(iTime, 16.0f) * iResolution.x * iResolution.y;
+    return uvec4(fseed);
+}
+
+// return a random point on or inside the unit sphere
+vec3 sampleUnitSphere ( inout uvec4 useed ) {
+    useed = rand(useed, RANGE);
+    vec3 noise3 = vec3(useed.xyz) / MAX_RANDOM - .5;
+    float noise = float(useed.w) / MAX_RANDOM;
+    return normalize(noise3) * noise;
+}
+
+vec3 randomInHemisphere(vec3 n, inout uvec4 useed) {
+    vec3 inUnitSphere = sampleUnitSphere(useed);
+    if(dot(inUnitSphere, n) > 0.0) {
+        return inUnitSphere;
+    } else {
+        return -inUnitSphere;
+    }
+}
+
+// return a random point on a unit disk
+vec3 sampleUnitDisk ( inout uvec4 useed ) {
+    useed = rand(useed, RANGE);
+    vec3 noise3 = vec3(useed.xyz) / MAX_RANDOM - .5;
+    float noise = float(useed.w) / MAX_RANDOM;
+    return vec3((normalize(noise3) * noise).xy, 0);
+}
+
+Ray Camera_getRay(inout uvec4 useed) {
+    float aperture = 0.001;
+    float lens_radius = aperture / 2;
+    vec3 rd = lens_radius * sampleUnitDisk(useed);
+
+    // x axis, cross(up, z axis)
+    vec3 u = vec3(view[0][0], view[1][0], view[2][0]);
+
+    // yaxis, cross(z axis, x axis)
+    vec3 v = vec3(view[0][1], view[1][1], view[2][1]);
+
+    vec3 offset = u * rd.x + v * rd.y;
+    
+    vec3 rayNDC = vec3(
+        ((2.0f * fragCoord.x) / iResolution.x - 1.0f),
+        (1.0f - (2.0f * fragCoord.y) / iResolution.y),
+        1.0f
+    );
+
+    vec4 rayClip = vec4( rayNDC.x, rayNDC.y * -1, -1.0f, 1.0f );
+
+    vec4 rayCamera = inverse(projection) * rayClip;
+    rayCamera.z = -1.0f, rayCamera.w = 0.0f;
+
+    vec3 direction = normalize((inverse(view) * rayCamera).xyz);
+
+    return Ray(position.xyz + offset, direction - offset);
+}
+
+bool MaterialBsdf(Sphere sphere, float t, Ray wo, out Ray wi, out vec3 attenuation, inout uvec4 useed) {
+    vec3 p = wo.origin + wo.direction * t;
+    vec3 n = normalize(p - sphere.origin);
+
+    vec3 direction;
+    if(sphere.metalness >= 1.0f) {
+        vec3 reflected = reflect(normalize(wo.direction), n);
+        direction = n + reflected + sphere.roughness * sampleUnitSphere(useed);
+    } else {
+        direction = randomInHemisphere(n, useed);
+    }
+
+    wi.origin = p;
+    wi.direction = direction;
+    attenuation = sphere.colour;
+
+    return (dot(wi.direction, n) > 0.0);
+}
+
+bool get_closest_sphere_hit(Ray ray, float t_min, float t_max, out Sphere closest_sphere_hit, out float t_closest) {
+    float t_hit;
+    
+    t_closest = t_max;
+    bool hit_anything = false;
+
+    for(int i = 0; i < sphereCount; i++) {
+        if(hitSphere(ray, spheres[i], t_min, t_max, t_hit) && t_hit < t_closest) {
+            t_closest = t_hit;
+            closest_sphere_hit = spheres[i];
+            hit_anything = true;
+        }
+    }
+
+    return hit_anything;
+}
+
+vec3 sky_gradient(Ray ray) {
+    vec3 unit_direction = normalize(ray.direction);
+    float t = 0.5 * (unit_direction.y + 1.0);
+
+    return (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
+}
+
+vec3 rayTraceWorld(Ray ray, inout uvec4 useed) {
+    vec3 color = vec3(1.0, 1.0, 1.0);
+
+    float t;
+    Sphere closest_sphere_hit;
+
+    for(int i = 0; i < MAXDEPTH; i++) {
+        if(get_closest_sphere_hit(ray, 0.001, 10000.0, closest_sphere_hit, t)) {
+            Ray wi;
+            vec3 attenuation;
+            bool scattered = MaterialBsdf(closest_sphere_hit, t, ray, wi, attenuation, useed);
+
+            ray.origin = wi.origin;
+            ray.direction = wi.direction;
+
+            if(scattered) {
+                color *= attenuation;
+            } else {
+                color *= vec3(0, 0, 0);
+                break;
+            }
+
+        } else {
+            color *= sky_gradient(ray);
+            break;
+        }
+    }
+
+    return color;
+}
+
+void main() {
+    vec3 color = vec3(0, 0, 0);
+
+    uvec4 useed = seed(fragCoord, iResolution, iTime);
+    vec4 currentColor = imageLoad(outputTexture, fragCoord);
+
+    if(currentColor.a < 200) {
+        for(int s = 0; s < NUMSAMPLES; s++) {
+            useed = rand(useed, RANGE);
+
+            Ray ray = Camera_getRay(useed);
+            color += rayTraceWorld(ray, useed);
+        }
+
+        color /= float(NUMSAMPLES);
+
+        if(doUpdate == 1) {
+            imageStore(outputTexture, fragCoord, currentColor + vec4(color, 1.0));
+        } else {
+            imageStore(outputTexture, fragCoord, vec4(color, 1.0));
+        }
+
+        vec4 accumulatedColor = imageLoad(outputTexture, fragCoord);
+        imageStore(finalTexture, fragCoord, vec4(sqrt(accumulatedColor.rgb / accumulatedColor.w), 1.0));
+
+    } else {
+        if(doUpdate == 0) {
+            for(int s = 0; s < NUMSAMPLES; s++) {
+            useed = rand(useed, RANGE);
+
+            Ray ray = Camera_getRay(useed);
+            color += rayTraceWorld(ray, useed);
+            }
+
+            color /= float(NUMSAMPLES);
+            imageStore(outputTexture, fragCoord, vec4(color, 1.0));
+        }
+    }
+
+
+}

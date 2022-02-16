@@ -22,13 +22,8 @@ RelWithDebInfo/
 x64/Linux/GE
 x64/
 .clang-format
-resources/models/
-resources/textures/
-fake.hlsl
-/assets
-/scenes
 /screenshots
-/scripts/*.exp
-/scripts/*.dll
-/scripts/*.lib
-/scripts/*.pdb
+fake.hlsl
+!assets/
+assets/*
+!assets/system/

@@ -1,0 +1,82 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0) uniform samplerCube environmentCubemap;
+layout(binding = 1, rgba16f) uniform writeonly imageCube convolvedCubemap;
+
+const float M_PI = 3.14159265359;
+
+layout(binding = 0) uniform ubo {
+    mat4 view;
+    mat4 proj;
+    mat4 invViewProj;
+    vec4 cameraPos;
+    vec4 sunlightDir;
+    vec4 sunlightColor;
+};
+
+vec3 directionFromInvocationID(ivec3 id, ivec2 cubemapSize) {
+    vec2 clip = vec2(id.xy) / cubemapSize;
+    clip = clip * 2.0 - 1.0;
+
+    switch(id.z) {
+        case 0: return vec3(1.0, -clip.yx);
+        case 1: return vec3(-1.0, -clip.y, clip.x);
+        case 2: return vec3(clip.x, 1.0, clip.y);
+        case 3: return vec3(clip.x, -1.0, -clip.y);
+        case 4: return vec3(clip.x, -clip.y, 1.0);
+        case 5: return vec3(-clip, -1.0);
+    }
+
+    return vec3(0);
+}
+
+// from https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+uint pcg_hash(inout uint in_state)
+{
+    uint state = in_state * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    in_state = (word >> 22u) ^ word;
+    return in_state;
+}
+
+float pcg_float(inout uint in_state) {
+    return pcg_hash(in_state) / float(uint(0xffffffff));
+}
+
+vec2 pcg_vec2(inout uint in_state) {
+    return vec2(pcg_float(in_state), pcg_float(in_state));
+}
+
+vec3 pcg_vec3(inout uint in_state) {
+    return vec3(pcg_float(in_state), pcg_float(in_state), pcg_float(in_state));
+}
+
+vec3 uniformSampleHemisphere(vec2 u) {
+    float z = u.x;
+    float r = sqrt(max(0.0, 1.0 - z * z));
+    float phi = 2 * M_PI * u.y;
+    return vec3(r * cos(phi), r * sin(phi), z);
+}
+
+void main() {
+    ivec3 gid = ivec3(gl_GlobalInvocationID);
+
+    vec3 dir = normalize(directionFromInvocationID(gid, imageSize(convolvedCubemap)));
+
+    vec3 irradiance = vec3(0.0);
+
+    uint seed = ((gid.y << 16) | gid.x) * gid.z;
+
+    const uint nrofSamples = 32;
+
+    for(int i = 0; i < nrofSamples; i++) {
+        vec3 sampleDir = normalize(dir + uniformSampleHemisphere(pcg_vec2(seed)));
+        irradiance += texture(environmentCubemap, sampleDir).rgb;
+    }
+
+    irradiance = M_PI * irradiance * (1.0 / float(nrofSamples));
+
+    imageStore(convolvedCubemap, gid, vec4(irradiance, 1.0));
+}

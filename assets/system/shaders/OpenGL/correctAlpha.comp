@@ -1,0 +1,17 @@
+#version 440 core
+
+// Simple compute shader that corrects the alpha values inside the 3D voxel texture after using the alpha channel
+// of every voxel as atomic counter
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(binding = 0, rgba8) uniform image3D voxelTexture;
+
+void main() {
+
+    ivec3 pos = ivec3(gl_GlobalInvocationID);
+    vec4 value = imageLoad(voxelTexture, pos);
+    if(value.a > 0.0) {
+        value.a = 1.0;
+        imageStore(voxelTexture, pos, value);
+    }
+}

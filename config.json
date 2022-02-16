@@ -1,9 +1,9 @@
 {
     "name": "Raekor Renderer",
-    "display": 0,
+    "display": 1,
     "vsync": false,
-    "font": "resources/Roboto-Regular.ttf",
-    "defaultScene": "",
+    "font": "assets/system/Roboto-Regular.ttf",
+    "defaultScene": "C:/VS-Projects/Raekor/assets/scenes/pica.scene",
     "themeColors": {
         "value0": {
             "value0": 1.0,
