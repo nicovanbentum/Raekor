@@ -28,3 +28,6 @@
 [submodule "dependencies/vcpkg"]
 	path = dependencies/vcpkg
 	url = https://github.com/microsoft/vcpkg
+[submodule "dependencies/imnodes"]
+	path = dependencies/imnodes
+	url = https://github.com/Nelarius/imnodes

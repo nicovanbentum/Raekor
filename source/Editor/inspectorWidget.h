@@ -9,6 +9,8 @@ class Scene;
 
 class InspectorWidget : public IWidget {
 public:
+    TYPE_ID(InspectorWidget);
+
     InspectorWidget(Editor* editor);
     virtual void draw(float dt) override;
     virtual void onEvent(const SDL_Event& ev) override {}

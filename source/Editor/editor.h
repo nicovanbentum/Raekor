@@ -19,7 +19,18 @@ public:
     void onUpdate(float dt) override;
     void onEvent(const SDL_Event& event) override;
 
-    const std::vector<std::shared_ptr<IWidget>>& getWidgets() { return widgets; }
+    template<typename T>
+    std::shared_ptr<T> GetWidget() {
+        for (const auto& widget : widgets) {
+            if (widget->GetTypeID() == T::m_TypeID) {
+                return std::static_pointer_cast<T>(widget);
+            }
+        }
+        
+        return nullptr;
+    }
+
+    const std::vector<std::shared_ptr<IWidget>>& GetWidgets() { return widgets; }
 
     entt::entity active = entt::null;
 

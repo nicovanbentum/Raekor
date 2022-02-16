@@ -20,6 +20,19 @@
 
 namespace Raekor {
 
+constexpr uint32_t val_32_const = 0x811c9dc5;
+constexpr uint32_t prime_32_const = 0x1000193;
+constexpr uint64_t val_64_const = 0xcbf29ce484222325;
+constexpr uint64_t prime_64_const = 0x100000001b3;
+
+inline constexpr uint32_t Hash32Bit(const char* const str, const uint32_t value = val_32_const) noexcept {
+    return (str[0] == '\0') ? value : Hash32Bit(&str[1], (value ^ uint32_t(str[0])) * prime_32_const);
+}
+
+inline constexpr uint64_t Hash64Bit(const char* const str, const uint64_t value = val_64_const) noexcept {
+    return (str[0] == '\0') ? value : Hash64Bit(&str[1], (value ^ uint64_t(str[0])) * prime_64_const);
+}
+
 constexpr inline size_t align_up(size_t value, size_t alignment) noexcept {
     return (value + alignment - 1) & ~(alignment - 1);
 }
@@ -68,16 +81,8 @@ constexpr ImVec4 ImVec(const glm::vec<4, T>& vec) {
     return ImVec4(static_cast<float>(vec.x), static_cast<float>(vec.y), static_cast<float>(vec.z), static_cast<float>(vec.w));
 }
 
-inline ImVec2 operator-(const ImVec2& lhs, const ImVec2& rhs) {
-    return ImVec2(lhs.x - rhs.x, lhs.y - rhs.y);
-}
-
 inline ImVec2 operator*(const ImVec2& lhs, const ImVec2& rhs) {
     return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y);
-}
-
-inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) {
-    return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y);
 }
 
 

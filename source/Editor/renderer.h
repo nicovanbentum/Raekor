@@ -16,6 +16,7 @@ class GLRenderer {
     struct {
         int& vsync              = ConVars::create("r_vsync", 1);
         int& doBloom            = ConVars::create("r_bloom", 0);
+        int& paused             = ConVars::create("r_paused", 0);
         int& enableTAA          = ConVars::create("r_taa", 1);
         int& debugVoxels        = ConVars::create("r_voxelize_debug", 0);
         int& debugCascades      = ConVars::create("r_debug_cascades", 0);

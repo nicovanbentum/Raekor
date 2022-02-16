@@ -27,6 +27,7 @@
 #include "cereal/types/string.hpp"
 #include "cereal/types/complex.hpp"
 #include "cereal/types/vector.hpp"
+#include "cereal/types/utility.hpp"
 #include "cereal/types/variant.hpp"
 #include "cereal/types/polymorphic.hpp"
 
@@ -34,6 +35,8 @@
 // ImGui library
 #include "imconfig.h"
 #include "imgui.h"
+#include "imnodes.h"
+#include "imnodes_internal.h"
 #include "imgui_impl_sdl.h"
 #include "ImGuizmo.h"
 #include "imgui_stdlib.h"

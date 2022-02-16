@@ -7,7 +7,7 @@ file(GLOB_RECURSE HppFiles ${PROJECT_SOURCE_DIR}/*.h)
 file(GLOB_RECURSE CppFiles ${PROJECT_SOURCE_DIR}/*.cpp)
 
 # Rule to build the actual exectuable and enable c++17
-add_executable(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/Raekor.rc)
+add_executable(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/assets/system/icon/Raekor.rc)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers

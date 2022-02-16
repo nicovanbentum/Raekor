@@ -10,8 +10,11 @@ file(GLOB_RECURSE CppFiles ${PROJECT_SOURCE_DIR}/*.cpp)
 set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/ImGuizmo/ImGuizmo.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/ImGuizmo/ImGuizmo.cpp)
 
+set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/imnodes/imnodes.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/imnodes/imnodes.cpp)
+
 # Rule to build the actual exectuable and enable c++17
-add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/Raekor.rc)
+add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles})
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers
@@ -52,6 +55,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ${PhysXPvdSDK_LIBRARY} ${PhysXExte
 
 # include dependency directories 
 target_include_directories(${PROJECT_NAME} PUBLIC
+    ${CMAKE_SOURCE_DIR}/dependencies/imnodes
     ${CMAKE_SOURCE_DIR}/dependencies
     ${CMAKE_SOURCE_DIR}/dependencies/stb
     ${CMAKE_SOURCE_DIR}/dependencies/glm/glm

@@ -8,9 +8,13 @@ class Viewport;
 
 class ViewportWidget : public IWidget {
 public:
+    TYPE_ID(ViewportWidget);
+
     ViewportWidget(Editor* editor);
     virtual void draw(float dt) override;
     virtual void onEvent(const SDL_Event& ev) override;
+
+    void DisableGizmo() { gizmoEnabled = false; }
 
 protected:
     GLuint rendertarget;

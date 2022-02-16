@@ -13,6 +13,7 @@
 #include "viewportWidget.h"
 #include "inspectorWidget.h"
 #include "hierarchyWidget.h"
+#include "NodeGraphWidget.h"
 
 namespace Raekor {
 
@@ -36,6 +37,7 @@ Editor::Editor() :
     widgets.emplace_back(std::make_shared<MenubarWidget>(this));
     widgets.emplace_back(std::make_shared<ConsoleWidget>(this));
     widgets.emplace_back(std::make_shared<MetricsWidget>(this));
+    widgets.emplace_back(std::make_shared<NodeGraphWidget>(this));
     widgets.emplace_back(std::make_shared<ViewportWidget>(this));
     widgets.emplace_back(std::make_shared<InspectorWidget>(this));
     widgets.emplace_back(std::make_shared<HierarchyWidget>(this));
@@ -93,7 +95,7 @@ void Editor::onUpdate(float dt) {
     GUI::beginDockSpace();
 
     // draw widgets
-    for (auto widget : widgets) {
+    for (const auto& widget : widgets) {
         if (widget->isVisible()) {
             widget->draw(dt);
         }

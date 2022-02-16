@@ -12,7 +12,16 @@ class Scene;
 class Assets;
 class GLRenderer;
 
-class IWidget {
+#define TYPE_ID(Type) \
+constexpr static uint32_t m_TypeID = Hash32Bit(#Type); \
+virtual const uint32_t GetTypeID() const override { return m_TypeID; }
+
+class ITypeID {
+public:
+    virtual const uint32_t GetTypeID() const = 0;
+};
+
+class IWidget : public ITypeID {
 public:
     IWidget(Editor* editor, const std::string& title);
     virtual void draw(float dt) = 0;

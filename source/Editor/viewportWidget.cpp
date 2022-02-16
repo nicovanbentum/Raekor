@@ -18,7 +18,8 @@ void ViewportWidget::draw(float dt) {
 
     // renderer viewport
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4.0f));
-    ImGui::Begin(title.c_str(), NULL, ImGuiWindowFlags_AlwaysAutoResize);
+    bool isVisible = ImGui::Begin(title.c_str(), NULL, ImGuiWindowFlags_AlwaysAutoResize);
+    renderer.settings.paused = !isVisible;
 
     if (ImGui::Checkbox("Gizmo", &gizmoEnabled)) {
         ImGuizmo::Enable(gizmoEnabled);
@@ -187,21 +188,28 @@ void ViewportWidget::draw(float dt) {
 
     ImVec2 metricsPosition = ImGui::GetWindowPos();
     metricsPosition.y += ImGui::GetFrameHeightWithSpacing();
-    ImGui::SetNextWindowPos(metricsPosition);
+
+    if (!ImGui::GetCurrentWindow()->DockNode->IsHiddenTabBar()) {
+        metricsPosition.y += 25.0f;
+    }
 
     ImGui::End();
     ImGui::PopStyleVar();
 
-    ImGui::SetNextWindowBgAlpha(0.35f);
-    ImGuiWindowFlags metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
-    ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
-    ImGui::Text("Culled meshes: %i", renderer.gbuffer->culled);
-    ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
-    ImGui::Text("Product: %s", glGetString(GL_RENDERER));
-    ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
-    ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-    ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
-    ImGui::End();
+    if (isVisible) {
+        ImGui::SetNextWindowPos(metricsPosition);
+        ImGui::SetNextWindowBgAlpha(0.35f);
+        ImGuiWindowFlags metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
+        ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
+        ImGui::Text("Culled meshes: %i", renderer.gbuffer->culled);
+        ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
+        ImGui::Text("Product: %s", glGetString(GL_RENDERER));
+        ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
+        ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
+        ImGui::End();
+    }
+
 }
 
 

@@ -114,6 +114,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImNodes::CreateContext();
     ImGui::StyleColorsDark();
     ImGui_ImplSDL2_InitForOpenGL(window, &context);
     ImGui_ImplOpenGL3_Init("#version 450");
