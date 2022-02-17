@@ -1,9 +1,26 @@
 # Build (CMake - Windows)
-* To build the Raekor project <ins>**any**</ins> Windows 10 SDK needs to be installed, to build the DX12 project The _**latest**_ Windows 10 SDK needs to be installed. Configure either using the Visual Studio Installer.
- >**_NOTE:_** Last passing version was ```10.0.22```
 
-* To build the Vulkan project the _**latest**_ Vulkan SDK needs to be installed, get it [here](https://vulkan.lunarg.com/sdk/home#sdk/downloadConfirm/latest/windows/vulkan-sdk.exe).
- >**_NOTE:_** Last passing version was ```1.3.204.0```
+### Raekor - Static Library
+* Any Windows 10 SDK (configure using the Visual Studio Installer).
+
+### Editor - OpenGL Application
+* Requires Raekor.
+* Graphics card with OpenGL 4.6 support.
+
+### VK - Vulkan Application
+* Requires Raekor.
+* Up-to-date graphics drivers.
+* Graphics card with RTX support.
+* Vulkan SDK [1.3.204](https://sdk.lunarg.com/sdk/download/1.3.204.0/windows/VulkanSDK-1.3.204.0-Installer.exe) or higher.
+
+### DX - DirectX 12 Application
+* Requires Raekor.
+* Up-to-date graphics drivers.
+* Graphics card with RTX and Shader Model 6_6 support.
+* Windows 10 version with Agility SDK support (see Microsoft's [blog post](https://devblogs.microsoft.com/directx/gettingstarted-dx12agility/#OS)).
+* Windows SDK 10.0.20348 or higher (configure using the Visual Studio Installer).
+
+## Instructions
 
 Clone this repository using
  ```git clone --recursive https://github.com/nicovanbentum/Raekor.git```
