@@ -4,6 +4,7 @@
 #include "Raekor/OS.h"
 #include "Raekor/gui.h"
 #include "Raekor/input.h"
+#include "Raekor/timer.h"
 
 namespace Raekor::VK {
 
@@ -93,7 +94,7 @@ void PathTracer::onUpdate(float dt) {
         shouldRecreateSwapchain = false;
     }
 
-    SDL_SetWindowTitle(window, std::string(std::to_string(dt) + " ms.").c_str());
+    SDL_SetWindowTitle(window, std::string(std::to_string(Timer::ToMilliseconds(dt)) + " ms.").c_str());
 
     bool reset = false;
 

@@ -39,9 +39,13 @@ std::string TextureAsset::convert(const std::string& filepath) {
 
     mipChain.push_back(stbi_load(filepath.c_str(), &width, &height, &ch, 4));
 
-
     if (!mipChain[0]) {
-        std::cout << "stb failed " << filepath << std::endl;
+        std::cout << "stb failed " << filepath << '\n';
+        return {};
+    }
+
+    if (width % 2 != 0 || height % 2 != 0) {
+        std::cout << "Image " << fs::path(filepath).filename() << " with resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
         return {};
     }
 

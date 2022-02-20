@@ -311,6 +311,11 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
         material.albedo = { diffuse.r, diffuse.g, diffuse.b, diffuse.a };
     }
 
+    aiColor4D emissive;
+    if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_EMISSIVE, &emissive)) {
+        material.emissive = { emissive.r, emissive.g, emissive.b };
+    }
+
     float roughness, metallic;
     if (AI_SUCCESS == aiGetMaterialFloat(assimpMaterial, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLIC_FACTOR, &metallic)) {
         material.metallic = metallic;

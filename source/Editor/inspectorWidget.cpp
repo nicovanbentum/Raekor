@@ -145,17 +145,33 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
         }
     }
 
-    const char* fileFilters = "Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0";
+    if (ImGui::BeginPopupModal("Error", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+
+        ImGui::Text("Asset conversion failed. See console output log.\n");
+
+        if (ImGui::Button("OK")) {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
 
     auto drawTextureInteraction = [&](GLuint& gpuMap, std::string& file) {
         const GLuint image = gpuMap ? gpuMap : Material::Default.gpuAlbedoMap;
-
+        
         if (ImGui::ImageButton((void*)((intptr_t)image), ImVec2(lineHeight - 1, lineHeight - 1))) {
-            auto filepath = OS::openFileDialog(fileFilters);
+            auto filepath = OS::openFileDialog("Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0");
+
             if (!filepath.empty()) {
-                file = filepath;
                 const auto assetHandle = TextureAsset::convert(filepath);
-                gpuMap = GLRenderer::uploadTextureFromAsset(assets.get<TextureAsset>(assetHandle));
+
+                if (!assetHandle.empty()) {
+                    file = filepath;
+                    gpuMap = GLRenderer::uploadTextureFromAsset(assets.get<TextureAsset>(assetHandle));
+                }
+                else {
+                    ImGui::OpenPopup("Error");
+                }
             }
         }
 
@@ -168,7 +184,6 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
                 ImGui::SetTooltip(file.c_str());
             }
         }
-
     };
 
 

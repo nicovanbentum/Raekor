@@ -105,7 +105,11 @@ void MenubarWidget::draw(float dt) {
             ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
 
             for (const auto& widget : editor->GetWidgets()) {
-                if (ImGui::MenuItem(widget->getTitle().c_str(), "", &widget->isVisible())) {}
+                bool is_visible = widget->IsVisible();
+
+                if (ImGui::MenuItem(widget->GetTitle().c_str(), "", &is_visible)) {
+                    is_visible ? widget->Show() : widget->Hide();
+                }
             }
 
             ImGui::PopItemFlag();
