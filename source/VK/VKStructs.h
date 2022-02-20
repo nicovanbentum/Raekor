@@ -20,8 +20,9 @@ struct RTGeometry {
 
 struct RTMaterial {
     glm::vec4 albedo;
-    glm::ivec4 textures; // x = albedo, y = normals, z = metalrough
-    glm::vec4 properties; // x = metalness, y = roughness, z = emissive
+    glm::ivec4 textures; // texture indices:    x = albedo,    y = normals,   z = metalrough
+    glm::vec4 properties; // scalar properties: x = metalness, y = roughness
+    glm::vec4 emissive;
 };
 
 }

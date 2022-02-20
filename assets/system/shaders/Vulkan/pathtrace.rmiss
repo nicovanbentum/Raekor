@@ -27,12 +27,11 @@ void main() {
     const float y = normalize(gl_WorldRayDirectionEXT).y;
     
     if(y > 0.0) {
-        payload.beta = mix(vec3(1.0), vec3(0.25, 0.5, 1.0), y);
+        // set L to throughput * sky color so it gets added
+        payload.L = mix(vec3(1.0), vec3(0.25, 0.5, 1.0), y);
     } else {
-        payload.beta = vec3(0.03);
+        payload.L = vec3(0.03);
     }
 
-    //payload.L = vec3(1.0);
-    
     payload.depth = bounces + 1; // terminate
 }

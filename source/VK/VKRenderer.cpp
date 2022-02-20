@@ -87,6 +87,8 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
         buffer.properties.x = material.metallic;
         buffer.properties.y = material.roughness;
         buffer.properties.z = 1.0f;
+
+        buffer.emissive = glm::vec4(material.emissive, 0.0f);
         
         i++;
     }

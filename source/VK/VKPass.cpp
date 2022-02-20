@@ -149,7 +149,7 @@ void PathTracePass::createPipeline(Device& device) {
     pipelineInfo.pGroups = shaderGroups.data();
     pipelineInfo.groupCount = uint32_t(shaderGroups.size());
     pipelineInfo.stageCount = uint32_t(shaderStages.size());
-    pipelineInfo.maxPipelineRayRecursionDepth = 1;
+    pipelineInfo.maxPipelineRayRecursionDepth = 2;
 
     ThrowIfFailed(EXT::vkCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
 }

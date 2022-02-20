@@ -42,7 +42,7 @@ layout(buffer_reference, scalar) buffer IndexBuffer {
     ivec3 data[];
 };
 
-layout(location = 0) rayPayloadInEXT RayPayload rpd;
+layout(location = 0) rayPayloadInEXT RayPayload payload;
 layout(location = 1) rayPayloadEXT bool canReachLight;
 
 layout(set = 1, binding = 0) uniform sampler2D textures[];
@@ -76,6 +76,7 @@ Surface getSurface(Instance instance, Vertex vertex) {
     surface.albedo = material.albedo;
     surface.metallic = material.properties.x;
     surface.roughness = material.properties.y;
+    surface.emissive = material.emissive.rgb;
     surface.pos = vec3(gl_ObjectToWorldEXT * vec4(vertex.pos, 1.0));
 
     int albedoIndex = material.textures.x;
@@ -174,6 +175,10 @@ vec3 BRDF_Diffuse_Lambert(Surface surface) {
     return surface.albedo.rgb / M_PI;
 }
 
+bool isBlack(vec3 v) {
+    return v.x == 0.0 && v.y == 0.0 && v.z == 0.0;
+}
+
 void main() {
     Instance instance = instances[gl_InstanceCustomIndexEXT];
     IndexBuffer indices = IndexBuffer(instance.indexBufferDeviceAddress);
@@ -193,11 +198,6 @@ void main() {
 
     bool specularBounce = false;
 
-    // TODO: Add emissive
-    if(rpd.depth == 0 || specularBounce) {
-    
-    }
-
     // sample illumination from 1 random light
     // TODO: In this case, its just a single directional light
 
@@ -205,23 +205,31 @@ void main() {
     // sample BRDF to get the new ray direction
 
 
-//    vec2 rng = vec2(pcg_float(rpd.rng), pcg_float(rpd.rng));
-//    vec2 diskPoint = uniformSampleDisk(rng.xy, sunConeAngle);
-//    vec3 offsetLightDir = lightDir.xyz + vec3(diskPoint.x, 0.0, diskPoint.y);
-//    
-//    canReachLight = false; 
-//
-//    float tMin = 0.001;
-//    float tMax = 10000.0;
-//    uint rayFlags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
-//    traceRayEXT(TLAS, rayFlags, 0xFF, 0, 0, 1, surface.pos, tMin, -offsetLightDir, tMax, 1);
+    vec2 rng = vec2(pcg_float(payload.rng), pcg_float(payload.rng));
+    vec2 diskPoint = uniformSampleDisk(rng.xy, sunConeAngle);
+    vec3 offsetLightDir = lightDir.xyz + vec3(diskPoint.x, 0.0, diskPoint.y);
+    
+    canReachLight = false; 
+
+    float tMin = 0.001;
+    float tMax = 10000.0;
+    uint rayFlags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+    traceRayEXT(TLAS, rayFlags, 0xFF, 0, 0, 1, surface.pos, tMin, -offsetLightDir, tMax, 1);
 
     // flip the normal incase we hit a backface
     surface.normal = faceforward(surface.normal, gl_WorldRayDirectionEXT, surface.normal);
 
     // Importance sample the diffuse hemisphere
-    rpd.rayDir = normalize(surface.normal + cosineWeightedSampleHemisphere(pcg_vec2(rpd.rng)));
+    payload.rayDir = normalize(surface.normal + cosineWeightedSampleHemisphere(pcg_vec2(payload.rng)));
 
-    rpd.beta = surface.albedo.rgb;
-    rpd.rayPos = offsetRay(surface.pos, surface.normal);
+    float pdf = 1 / M_PI;
+    vec3 BRDF = surface.albedo.rgb / M_PI;
+    float cos_theta = dot(-gl_WorldRayDirectionEXT, surface.normal);
+
+
+    payload.L = surface.emissive;
+    payload.beta = surface.albedo.rgb;
+    payload.rayPos = offsetRay(surface.pos, surface.normal);
+
+    payload.L += vec3(1.0) * surface.albedo.rgb * uint(canReachLight) * max(0, dot(-offsetLightDir, surface.normal));
 }

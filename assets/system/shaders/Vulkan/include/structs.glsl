@@ -14,6 +14,7 @@ struct Material {
     vec4 albedo;
     ivec4 textures; // x = albedo, y = normals, z = metalroughness
     vec4 properties; // x = metallic, y = roughness, z = emissive
+    vec4 emissive;
 };
 
 struct Instance {
@@ -36,6 +37,7 @@ struct Surface {
     vec3 pos;
     vec3 normal;
     vec4 albedo;
+    vec3 emissive;
     float metallic, roughness;
 };
 

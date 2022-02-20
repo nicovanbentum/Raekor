@@ -29,12 +29,27 @@ vec3 aces(vec3 x) {
   return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
+uint tea(uint val0, uint val1) {
+  uint v0 = val0;
+  uint v1 = val1;
+  uint s0 = 0;
+
+  for(uint n = 0; n < 16; n++) {
+    s0 += 0x9e3779b9;
+    v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
+    v1 += ((v0 << 4) + 0xad90777d) ^ (v0 + s0) ^ ((v0 >> 5) + 0x7e95761e);
+  }
+
+  return v0;
+}
+
 void main() {
     ivec2 pixelCoord = ivec2(gl_LaunchIDEXT.xy);
     vec2 gid = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 
-    payload.rng = ((pixelCoord.y << 16) | pixelCoord.x) * (uint(0xffffffff) / (frameCounter + 1));
-    
+    //payload.rng = ((pixelCoord.y << 16) | pixelCoord.x) * (uint(0xffffffff) / (frameCounter + 1));
+    payload.rng = tea(((pixelCoord.y << 16) | pixelCoord.x), frameCounter + 1);
+
     vec2 offsetGid = gid + pcg_vec3(payload.rng).xy;
 
     vec2 uv = offsetGid / vec2(gl_LaunchSizeEXT.xy);
@@ -68,10 +83,9 @@ void main() {
         );
 
         // update the total radiance and throughput
+        L += payload.L * beta;
         beta *= payload.beta;
     }
-
-    L = beta;
 
     if(frameCounter > 0) {
         vec4 stored = imageLoad(accumTexture, pixelCoord);
