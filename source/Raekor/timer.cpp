@@ -3,36 +3,18 @@
 
 namespace Raekor {
 
-void Timer::start() {
-    running = true;
-    startTime = SDL_GetPerformanceCounter();
-    stopTime = SDL_GetPerformanceCounter();
-}
-
-
-
-double Timer::stop() {
-    running = false;
-    stopTime = SDL_GetPerformanceCounter();
-    return (double)((stopTime - startTime) * 1000 / (double)SDL_GetPerformanceFrequency() );
-}
-
-
-
-void Timer::restart() {
-    running = true;
+Timer::Timer() {
     startTime = SDL_GetPerformanceCounter();
 }
 
+float Timer::Restart() {
+    float time = GetElapsedTime();
+    startTime = SDL_GetPerformanceCounter();
+    return time;
+}
 
-
-double Timer::elapsedMs() {
-    if (running) {
-        return (double)((SDL_GetPerformanceCounter() - startTime) * 1000 / (double)SDL_GetPerformanceFrequency() );
-    }
-    else {
-        return (double)((stopTime - startTime) * 1000 / (double)SDL_GetPerformanceFrequency() );
-    }
+float Timer::GetElapsedTime() {
+    return (float)((SDL_GetPerformanceCounter() - startTime) / (float)SDL_GetPerformanceFrequency());
 }
 
 } // raekor

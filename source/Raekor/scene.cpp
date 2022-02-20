@@ -163,7 +163,6 @@ void Scene::updateLights() {
 
 void Scene::loadMaterialTextures(Assets& assets, const std::vector<entt::entity>& materials) {
     Timer timer;
-    timer.start();
 
     for (const auto& entity : materials) {
         Async::dispatch([&]() {
@@ -176,10 +175,8 @@ void Scene::loadMaterialTextures(Assets& assets, const std::vector<entt::entity>
 
     Async::wait();
 
-    timer.stop();
-    std::cout << "Async texture time " << timer.elapsedMs() << '\n';
+    std::cout << "Async texture time " << Timer::ToMilliseconds(timer.Restart()) << '\n';
 
-    timer.start();
     for (auto entity : materials) {
         auto& material = get<Material>(entity);
 
@@ -188,8 +185,7 @@ void Scene::loadMaterialTextures(Assets& assets, const std::vector<entt::entity>
         }
     }
 
-    timer.stop();
-    std::cout << "Upload texture time " << timer.elapsedMs() << '\n';
+    std::cout << "Upload texture time " << Timer::ToMilliseconds(timer.Restart()) << '\n';
 }
 
 
@@ -213,12 +209,10 @@ void Scene::saveToFile(Assets& assets, const std::string& file) {
 
     std::vector<char> compressed(bound);
     Timer timer;
-    timer.start();
 
     auto compressedSize = LZ4_compress_default(buffer.c_str(), compressed.data(), int(buffer.size()), bound);
 
-    timer.stop();
-    std::cout << "Compression time: " << timer.elapsedMs() << '\n';
+    std::cout << "Compression time: " << Timer::ToMilliseconds(timer.GetElapsedTime()) << '\n';
 
     std::ofstream filestream(file, std::ios::binary);
     filestream.write(compressed.data(), compressedSize);
@@ -247,7 +241,6 @@ void Scene::openFromFile(Assets& assets, const std::string& file) {
     clear();
 
     Timer timer;
-    timer.start();
 
     // stringstream to serialise from char data back to scene/asset representation
     {
@@ -264,8 +257,7 @@ void Scene::openFromFile(Assets& assets, const std::string& file) {
         input(assets);
     }
 
-    timer.stop();
-    std::cout << "Archive time " << timer.elapsedMs() << '\n';
+    std::cout << "Archive time " << Timer::ToMilliseconds(timer.GetElapsedTime()) << '\n';
 
 
     // init material render data
@@ -274,7 +266,7 @@ void Scene::openFromFile(Assets& assets, const std::string& file) {
     materialEntities.assign(materials.data(), materials.data() + materials.size());
     loadMaterialTextures(assets, materialEntities);
 
-    timer.start();
+    timer.Restart();
 
     // init mesh render data
     for (auto& [entity, mesh] : view<Mesh>().each()) {
@@ -284,8 +276,7 @@ void Scene::openFromFile(Assets& assets, const std::string& file) {
         }
     }
 
-    timer.stop();
-    std::cout << "Mesh time " << timer.elapsedMs() << "\n\n";
+    std::cout << "Mesh time " << Timer::ToMilliseconds(timer.GetElapsedTime()) << "\n\n";
 }
 
 } // Raekor

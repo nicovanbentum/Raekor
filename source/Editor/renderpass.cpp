@@ -1373,14 +1373,11 @@ RayTracingOneWeekend::RayTracingOneWeekend(const Viewport& viewport) {
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
-
-    rayTimer.start();
 }
 
 
 
 RayTracingOneWeekend::~RayTracingOneWeekend() {
-    rayTimer.stop();
     destroyRenderTargets();
     glDeleteBuffers(1, &sphereBuffer);
     glDeleteBuffers(1, &uniformBuffer);

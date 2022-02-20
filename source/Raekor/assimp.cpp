@@ -53,15 +53,13 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
 
     // pre-parse materials
     Timer timer;
-    timer.start();
 
     for (unsigned int i = 0; i < assimpScene->mNumMaterials; i++) {
         printProgressBar("Converting material textures: ", float(i) / assimpScene->mNumMaterials);
         parseMaterial(assimpScene->mMaterials[i], scene.create());
     }
 
-    timer.stop();
-    std::cout << "Texture conversion took " << timer.elapsedMs() << " ms. \n";
+    std::cout << "Texture conversion took " << Timer::ToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
 
     // preload material texture in parallel
     scene.loadMaterialTextures(assets, materials);

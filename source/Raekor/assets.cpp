@@ -214,11 +214,10 @@ std::string ScriptAsset::convert(const std::string& filepath) {
     std::cout << command << '\n';
 
     Timer timer;
-    timer.start();
 
     int result = system(std::string("\"" + command + "\"").c_str());
 
-    std::cout << "Script compile time of " << timer.stop() << " ms.\n";
+    std::cout << "Script compile time of " << Timer::ToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
 
     return result == 0 ? dll.string() : std::string();
 }

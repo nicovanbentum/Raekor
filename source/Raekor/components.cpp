@@ -1,11 +1,11 @@
 #include "pch.h"
 #include "components.h"
+#include "timer.h"
 #include "assets.h"
 #include "systems.h"
 #include "primitives.h"
 
-namespace Raekor
-{
+namespace Raekor {
 
 SCRIPT_INTERFACE void Transform::compose() {
     localTransform = glm::translate(glm::mat4(1.0f), position);
@@ -189,9 +189,9 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt) {
         This is bugged, Assimp docs say totalDuration is in ticks, but the actual value is real world time in milliseconds
         see https://github.com/assimp/assimp/issues/2662
     */
-    animation.runningTime += dt;
-    if (animation.runningTime > animation.totalDuration) {
-        animation.runningTime = 0;
+    animation.m_RunningTime += Timer::ToMilliseconds(dt);
+    if (animation.m_RunningTime > animation.m_TotalDuration) {
+        animation.m_RunningTime = 0;
     }
 
     auto identity = glm::mat4(1.0f);

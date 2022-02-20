@@ -30,12 +30,10 @@ void MenubarWidget::draw(float dt) {
 
                 if (!filepath.empty()) {
                     Timer timer;
-                    timer.start();
                     SDL_SetWindowTitle(editor->getWindow(), std::string(filepath + " - Raekor Renderer").c_str());
                     scene.openFromFile(IWidget::assets(), filepath);
                     editor->active = entt::null;
-                    timer.stop();
-                    std::cout << "Open scene time: " << timer.elapsedMs() << '\n';
+                    std::cout << "Open scene time: " << Timer::ToMilliseconds(timer.GetElapsedTime()) << '\n';
                 }
             }
 

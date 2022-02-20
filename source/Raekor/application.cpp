@@ -81,9 +81,7 @@ void Application::run() {
     Timer timer;
     float dt = 0;
 
-    while (running) {
-        timer.start();
-
+    while (m_Running) {
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             onEvent(ev);
@@ -91,7 +89,7 @@ void Application::run() {
 
         onUpdate(dt);
 
-        dt = float(timer.stop());
+        dt = timer.Restart();
     }
 }
 

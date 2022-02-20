@@ -2,6 +2,7 @@
 #include "DXApp.h"
 #include "Raekor/OS.h"
 #include "Raekor/util.h"
+#include "Raekor/timer.h"
 #include <locale>
 #include <codecvt>
 
@@ -337,7 +338,7 @@ DXApp::~DXApp() {
 
 
 void DXApp::onUpdate(float dt) {
-    SDL_SetWindowTitle(window, std::string("Raekor - " + std::to_string(dt) + " ms").c_str());
+    SDL_SetWindowTitle(window, std::string("Raekor - " + std::to_string(Timer::ToMilliseconds(dt)) + " ms").c_str());
 
     const UINT64 currentFenceValue = m_FenceValues[m_FrameIndex];
 
