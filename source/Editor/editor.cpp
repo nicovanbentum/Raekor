@@ -195,11 +195,11 @@ void Editor::onEvent(const SDL_Event& event) {
         }
         if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
             if (SDL_GetWindowID(window) == event.window.windowID) {
-                running = false;
+                m_Running = false;
             }
         }
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-            renderer.createRenderTargets(viewport);
+            renderer.createRenderTargets(m_Viewport);
         }
     }
 

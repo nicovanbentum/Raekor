@@ -101,8 +101,8 @@ ShadowMap::~ShadowMap() {
 
 
 void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
-    const float nearClip = viewport.getCamera().getNear();
-    const float farClip = viewport.getCamera().getFar();
+    const float nearClip = viewport.GetCamera().GetNear();
+    const float farClip = viewport.GetCamera().GetFar();
 
     const float clipRange = farClip - nearClip;
 
@@ -139,7 +139,7 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
             glm::vec3(-1.0f, -1.0f,  1.0f),
         };
 
-        const glm::mat4 inverse = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
+        const glm::mat4 inverse = glm::inverse(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView());
 
         for (auto& corner : frustumCorners) {
             glm::vec4 invCorner = inverse * glm::vec4(corner, 1.0f);
@@ -184,8 +184,8 @@ void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
 
     lookDirection = glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
 
-    const float nearClip = viewport.getCamera().getNear();
-    const float farClip = viewport.getCamera().getFar();
+    const float nearClip = viewport.GetCamera().GetNear();
+    const float farClip = viewport.GetCamera().GetFar();
     const float clipRange = farClip - nearClip;
 
     const float minZ = nearClip;
@@ -221,7 +221,7 @@ void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
             glm::vec3(-1.0f, -1.0f,  1.0f),
         };
 
-        const glm::mat4 inverse = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
+        const glm::mat4 inverse = glm::inverse(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView());
 
         for (auto& corner : frustumCorners) {
             glm::vec4 invCorner = inverse * glm::vec4(corner, 1.0f);
@@ -372,24 +372,24 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
     glClearBufferfv(GL_COLOR, 3, clearColor.data());
 
     if (frameNr == 0) {
-        uniforms.prevJitter = viewport.getJitter();
+        uniforms.prevJitter = viewport.GetJitter();
     } else {
         uniforms.prevJitter = uniforms.jitter;
     }
 
-    uniforms.jitter = viewport.getJitter();
+    uniforms.jitter = viewport.GetJitter();
 
     if (frameNr == 0) {
-        uniforms.prevViewProj = viewport.getJitteredProjMatrix() * viewport.getCamera().getView();
+        uniforms.prevViewProj = viewport.GetJitteredProjMatrix() * viewport.GetCamera().GetView();
     } else {
         uniforms.prevViewProj = uniforms.projection * uniforms.view;
     }
 
-    uniforms.view = viewport.getCamera().getView();
-    uniforms.projection = viewport.getJitteredProjMatrix();
+    uniforms.view = viewport.GetCamera().GetView();
+    uniforms.projection = viewport.GetJitteredProjMatrix();
 
     Math::Frustrum frustrum;
-    frustrum.update(viewport.getCamera().getProjection() * viewport.getCamera().getView(), false);
+    frustrum.update(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView(), false);
 
     culled = 0;
 
@@ -622,8 +622,8 @@ DeferredShading::DeferredShading(const Viewport& viewport) {
 
 void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
                              const ShadowMap& shadowMap, const GBuffer& GBuffer, const Atmosphere& atmosphere, const Voxelize& voxels) {
-    uniforms.view = viewport.getCamera().getView();
-    uniforms.projection = viewport.getJitteredProjMatrix();
+    uniforms.view = viewport.GetCamera().GetView();
+    uniforms.projection = viewport.GetJitteredProjMatrix();
 
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
     // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -1, 0)
@@ -657,7 +657,7 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
         uniforms.pointLights[i] = light;
     }
 
-    uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
+    uniforms.cameraPosition = glm::vec4(viewport.GetCamera().GetPosition(), 1.0);
     
     for (uint32_t cascade = 0; cascade < shadowMap.settings.nrOfCascades; cascade++) {
         uniforms.shadowMatrices[cascade] = shadowMap.cascades[cascade].matrix;
@@ -718,8 +718,8 @@ void DeferredShading::createRenderTargets(const Viewport& viewport) {
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT0, result, 0);
     glNamedFramebufferTexture(framebuffer, GL_COLOR_ATTACHMENT1, bloomHighlights, 0);
 
-    auto colorAttachments = std::array<GLenum, 4> {
-        GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1
+    std::array colorAttachments = {
+        GLenum(GL_COLOR_ATTACHMENT0), GLenum(GL_COLOR_ATTACHMENT1)
     };
 
     glNamedFramebufferDrawBuffers(framebuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
@@ -984,7 +984,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
         uniforms.shadowSplits[cascade] = shadowmap.cascades[cascade].split;
     }
 
-    uniforms.view = viewport.getCamera().getView();
+    uniforms.view = viewport.GetCamera().GetView();
 
     // clear the entire voxel texture
     constexpr auto clearColour = glm::u8vec4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -1150,8 +1150,8 @@ void VoxelizeDebug::render(const Viewport& viewport, GLuint input, const Voxeliz
 
     // bind shader and set uniforms
     shader.bind();
-    uniforms.p = viewport.getCamera().getProjection();
-    uniforms.mv = viewport.getCamera().getView() * modelMatrix;
+    uniforms.p = viewport.GetCamera().GetProjection();
+    uniforms.mv = viewport.GetCamera().GetView() * modelMatrix;
 
     glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
 
@@ -1181,9 +1181,9 @@ void VoxelizeDebug::execute2(const Viewport& viewport, GLuint input, const Voxel
 
     // bind shader and set uniforms
     shader.bind();
-    uniforms.p = viewport.getCamera().getProjection();
-    uniforms.mv = viewport.getCamera().getView() * modelMatrix;
-    uniforms.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
+    uniforms.p = viewport.GetCamera().GetProjection();
+    uniforms.mv = viewport.GetCamera().GetView() * modelMatrix;
+    uniforms.cameraPosition = glm::vec4(viewport.GetCamera().GetPosition(), 1.0);
 
     glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
 
@@ -1253,8 +1253,8 @@ void DebugLines::render(const Viewport& viewport, GLuint colorAttachment, GLuint
     glNamedFramebufferDrawBuffer(frameBuffer, GL_COLOR_ATTACHMENT0);
 
     shader.bind();
-    uniforms.projection = viewport.getCamera().getProjection();
-    uniforms.view = viewport.getCamera().getView();
+    uniforms.projection = viewport.GetCamera().GetProjection();
+    uniforms.view = viewport.GetCamera().GetView();
 
     glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
 
@@ -1399,10 +1399,10 @@ void RayTracingOneWeekend::compute(const Viewport& viewport, bool update) {
     glBindImageTexture(1, finalResult, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, sphereBuffer);
 
-    uniforms.iTime = static_cast<float>(rayTimer.elapsedMs() / 1000);
-    uniforms.position = glm::vec4(viewport.getCamera().getPosition(), 1.0);
-    uniforms.projection = viewport.getCamera().getProjection();
-    uniforms.view = viewport.getCamera().getView();
+    uniforms.iTime = rayTimer.GetElapsedTime();
+    uniforms.position = glm::vec4(viewport.GetCamera().GetPosition(), 1.0);
+    uniforms.projection = viewport.GetCamera().GetProjection();
+    uniforms.view = viewport.GetCamera().GetView();
     uniforms.doUpdate = update;
 
     const GLuint numberOfSpheres = static_cast<GLuint>(spheres.size());
@@ -1503,7 +1503,7 @@ void Icons::render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
 
     shader.bind();
 
-    const auto vp = viewport.getCamera().getProjection() * viewport.getCamera().getView();
+    const auto vp = viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView();
 
     const auto view = scene.view<const DirectionalLight, const Transform>();
 
@@ -1513,9 +1513,9 @@ void Icons::render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
         model = glm::translate(model, transform.position);
 
         glm::vec3 V;
-        V.x = viewport.getCamera().getPosition().x - transform.position.x;
+        V.x = viewport.GetCamera().GetPosition().x - transform.position.x;
         V.y = 0;
-        V.z = viewport.getCamera().getPosition().z - transform.position.z;
+        V.z = viewport.GetCamera().GetPosition().z - transform.position.z;
 
         auto Vnorm = glm::normalize(V);
 
@@ -1597,14 +1597,14 @@ void Atmosphere::destroyRenderTargets() {
 
 
 void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& scene) {
-    uniforms.view = glm::mat3(viewport.getCamera().getView());
-    uniforms.proj = viewport.getCamera().getProjection();
+    uniforms.view = glm::mat3(viewport.GetCamera().GetView());
+    uniforms.proj = viewport.GetCamera().GetProjection();
 
     auto light = DirectionalLight();
     light.direction.y = -0.9f;
 
-    uniforms.invViewProj = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
-    uniforms.cameraPos = glm::vec4(viewport.getCamera().getPosition(), 1.0);
+    uniforms.invViewProj = glm::inverse(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView());
+    uniforms.cameraPos = glm::vec4(viewport.GetCamera().GetPosition(), 1.0);
 
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
     // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -0.9, 0)

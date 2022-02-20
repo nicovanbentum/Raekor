@@ -152,21 +152,21 @@ std::vector<float> Mesh::getInterleavedVertices() {
 void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform) {
     auto globalTransformation = glm::mat4(1.0f);
 
-    bool hasAnimation = animation.boneAnimations.find(pNode.name) != animation.boneAnimations.end();
+    bool hasAnimation = animation.m_BoneAnimations.find(pNode.name) != animation.m_BoneAnimations.end();
 
     if (bonemapping.find(pNode.name) != bonemapping.end() && pNode.name != m_Bones.name && hasAnimation) {
 
         glm::mat4 nodeTransform = glm::mat4(1.0f);
 
-        const auto& nodeAnim = animation.boneAnimations.at(pNode.name);
+        const auto& nodeAnim = animation.m_BoneAnimations.at(pNode.name);
 
-        glm::vec3 translation = nodeAnim.getInterpolatedPosition(animationTime);
+        glm::vec3 translation = nodeAnim.GetInterpolatedPosition(animationTime);
         glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(translation.x, translation.y, translation.z));
 
-        glm::quat rotation = nodeAnim.getInterpolatedRotation(animationTime);
+        glm::quat rotation = nodeAnim.GetInterpolatedRotation(animationTime);
         glm::mat4 rotationMatrix = glm::toMat4(rotation);
 
-        glm::vec3 scale = nodeAnim.getInterpolatedScale(animationTime);
+        glm::vec3 scale = nodeAnim.GetInterpolatedScale(animationTime);
         glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(scale.x, scale.y, scale.z));
 
         nodeTransform = translationMatrix * rotationMatrix * scaleMatrix;
@@ -195,7 +195,7 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt) {
     }
 
     auto identity = glm::mat4(1.0f);
-    UpdateBoneTransforms(animation, animation.runningTime, m_Bones, identity);
+    UpdateBoneTransforms(animation, animation.m_RunningTime, m_Bones, identity);
 }
 
 

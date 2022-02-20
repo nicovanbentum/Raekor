@@ -39,18 +39,19 @@ public:
     virtual ~Application();
 
     void run();
+    void Terminate() { m_Running = false; }
 
     virtual void onUpdate(float dt)  = 0;
     virtual void onEvent(const SDL_Event& event) = 0;
 
-    Viewport& getViewport() { return viewport; }
     SDL_Window* getWindow() { return window; }
+    Viewport& getViewport() { return m_Viewport; }
 
 public:
-    bool running = true;
+    bool m_Running = true;
 
 protected:
-    Viewport viewport;
+    Viewport m_Viewport;
     SDL_Window* window = nullptr;
     ConfigSettings settings;
 };

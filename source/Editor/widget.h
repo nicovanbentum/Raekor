@@ -27,19 +27,20 @@ public:
     virtual void draw(float dt) = 0;
     virtual void onEvent(const SDL_Event& ev) = 0;
 
-    void show() { visible = true; }
-    void hide() { visible = false; }
-    bool& isVisible() { return visible; }
-    void setVisible(bool value) { visible = value; }
-    const std::string& getTitle() { return title; }
+    void Show() { visible = true; }
+    void Hide() { visible = false; }
+    
+    bool IsVisible() { return visible; }
     bool isFocused() { return focused; }
 
-    Scene& scene();
-    Assets& assets();
-    GLRenderer& renderer();
-
+    const std::string& GetTitle() { return title; }
 
 protected:
+    // Need to be defined in the cpp to avoid circular dependencies
+    Scene& GetScene();
+    Assets& GetAssets();
+    GLRenderer& GetRenderer();
+
     Editor* editor;
     std::string title;
     bool visible = true;

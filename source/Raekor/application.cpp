@@ -45,10 +45,10 @@ Application::Application(RendererFlags flag) {
     );
     
     SDL_SetWindowMinimumSize(window, width / 4, height / 4);
-    viewport = Viewport(glm::vec2(width, height));
+    m_Viewport = Viewport(glm::vec2(width, height));
 
     auto quit_function = [&]() {
-        running = false;
+        m_Running = false;
     };
 
     ConVars::func("quit", quit_function);

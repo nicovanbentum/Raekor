@@ -16,7 +16,7 @@ MenubarWidget::MenubarWidget(Editor* editor) :
 
 
 void MenubarWidget::draw(float dt) {
-    auto& scene = IWidget::scene();
+    auto& scene = IWidget::GetScene();
 
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
@@ -31,7 +31,7 @@ void MenubarWidget::draw(float dt) {
                 if (!filepath.empty()) {
                     Timer timer;
                     SDL_SetWindowTitle(editor->getWindow(), std::string(filepath + " - Raekor Renderer").c_str());
-                    scene.openFromFile(IWidget::assets(), filepath);
+                    scene.openFromFile(IWidget::GetAssets(), filepath);
                     editor->active = entt::null;
                     std::cout << "Open scene time: " << Timer::ToMilliseconds(timer.GetElapsedTime()) << '\n';
                 }
@@ -41,7 +41,7 @@ void MenubarWidget::draw(float dt) {
                 std::string filepath = OS::saveFileDialog("Scene File (*.scene)\0", "scene");
 
                 if (!filepath.empty()) {
-                    scene.saveToFile(IWidget::assets(), filepath);
+                    scene.saveToFile(IWidget::GetAssets(), filepath);
                 }
             }
 
@@ -53,7 +53,7 @@ void MenubarWidget::draw(float dt) {
                     importer.SetUploadMeshCallbackFunction(GLRenderer::uploadMeshBuffers);
                     importer.SetUploadMaterialCallbackFunction(GLRenderer::uploadMaterialTextures);
                     importer.SetUploadSkeletonCallbackFunction(GLRenderer::UploadSkeletonBuffers);
-                    importer.LoadFromFile(IWidget::assets(), filepath);
+                    importer.LoadFromFile(IWidget::GetAssets(), filepath);
                     active = entt::null;
                 }
             }
@@ -75,7 +75,7 @@ void MenubarWidget::draw(float dt) {
                     const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
                     
                     auto pixels = std::vector<unsigned char>(bufferSize);
-                    glGetTextureImage(IWidget::renderer().tonemap->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
+                    glGetTextureImage(IWidget::GetRenderer().tonemap->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
 
                     stbi_flip_vertically_on_write(true);
                     stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
@@ -83,7 +83,7 @@ void MenubarWidget::draw(float dt) {
             }
 
             if (ImGui::MenuItem("Exit", "Escape")) {
-                editor->running = false;
+                editor->m_Running = false;
             }
 
             ImGui::EndMenu();
@@ -93,7 +93,7 @@ void MenubarWidget::draw(float dt) {
 
             if (ImGui::MenuItem("Delete", "DEL")) {
                 if (active != entt::null) {
-                    IWidget::scene().destroyObject(active);
+                    IWidget::GetScene().destroyObject(active);
                     active = entt::null;
                 }
             }

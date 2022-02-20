@@ -4,12 +4,16 @@
 
 namespace Raekor {
 
- IWidget::IWidget(Editor* editor, const std::string& title) : editor(editor), title(title) {}
+ IWidget::IWidget(Editor* editor, const std::string& title) : 
+	 editor(editor), title(title) 
+ {
+	 assert(editor);
+ }
 
- Scene& IWidget::scene() { return editor->scene; }
+ Scene& IWidget::GetScene() { return editor->scene; }
 
- Assets& IWidget::assets() { return editor->assets; }
+ Assets& IWidget::GetAssets() { return editor->assets; }
 
- GLRenderer& IWidget::renderer() { return editor->renderer; }
+ GLRenderer& IWidget::GetRenderer() { return editor->renderer; }
 
 }

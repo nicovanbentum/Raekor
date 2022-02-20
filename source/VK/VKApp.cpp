@@ -92,7 +92,7 @@ void PathTracer::onUpdate(float dt) {
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
 
-        viewport.resize(glm::uvec2(w, h));
+        m_Viewport.Resize(glm::uvec2(w, h));
         renderer.recreateSwapchain(window);
         renderer.resetAccumulation();
         shouldRecreateSwapchain = false;
@@ -121,14 +121,14 @@ void PathTracer::onUpdate(float dt) {
         ImGui::End();
 
         ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
-        ImGuizmo::SetRect(0, 0, float(viewport.size.x), float(viewport.size.y));
+        ImGuizmo::SetRect(0, 0, float(m_Viewport.size.x), float(m_Viewport.size.y));
 
-        /*if (lightView.begin() != lightView.end()) {
+        if (lightView.begin() != lightView.end()) {
             auto& lightTransform = lightView.get<Transform>(lightView.front());
 
             bool manipulated = ImGuizmo::Manipulate(
-                glm::value_ptr(viewport.getCamera().getView()),
-                glm::value_ptr(viewport.getCamera().getProjection()),
+                glm::value_ptr(m_Viewport.GetCamera().GetView()),
+                glm::value_ptr(m_Viewport.GetCamera().GetProjection()),
                 ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD,
                 glm::value_ptr(lightTransform.localTransform)
             );
@@ -138,7 +138,7 @@ void PathTracer::onUpdate(float dt) {
             }
 
             reset |= manipulated;
-        }*/
+        }
     }
 
     GUI::endFrame();
@@ -147,7 +147,7 @@ void PathTracer::onUpdate(float dt) {
         renderer.resetAccumulation();
     }
 
-    renderer.render(window, viewport, scene);
+    renderer.render(window, m_Viewport, scene);
 }
 
 
@@ -176,7 +176,7 @@ void PathTracer::onEvent(const SDL_Event& ev) {
         }
         if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
             if (SDL_GetWindowID(window) == ev.window.windowID) {
-                running = false;
+                m_Running = false;
             }
         }
         if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {

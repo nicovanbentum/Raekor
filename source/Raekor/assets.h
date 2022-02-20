@@ -29,7 +29,7 @@ public:
     Assets& operator=(Assets&) = delete;
     Assets& operator=(Assets&&) = delete;
 
-    void collect_garbage() {
+    void CollectGarbage() {
         std::vector<std::string> keys;
 
         for (const auto& [key, value] : *this) {

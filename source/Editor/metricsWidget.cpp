@@ -17,7 +17,7 @@ void MetricsWidget::draw(float dt) {
         accumTime = 0.0f;
     }
 
-    for (const auto& kv : renderer().timings) {
+    for (const auto& kv : GetRenderer().timings) {
         ImGui::Text(std::string(kv.first + ": %.3f ms").c_str(), kv.second->getMilliseconds());
     }
 

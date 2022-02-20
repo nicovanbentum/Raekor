@@ -3,7 +3,7 @@
 
 namespace Raekor {
 
-void BoneAnimation::loadFromAssimp(aiNodeAnim* nodeAnim) {
+void KeyFrames::LoadFromAssimp(aiNodeAnim* nodeAnim) {
 	for (unsigned int i = 0; i < nodeAnim->mNumScalingKeys; i++) {
 		scaleKeys.push_back(nodeAnim->mScalingKeys[i]);
 	}
@@ -19,7 +19,7 @@ void BoneAnimation::loadFromAssimp(aiNodeAnim* nodeAnim) {
 
 
 
-glm::vec3 BoneAnimation::getInterpolatedPosition(float animationTime) const {
+glm::vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
 	if (positionKeys.size() == 1) {
 		// No interpolation necessary for single value
 		auto v = positionKeys[0].mValue;
@@ -49,7 +49,7 @@ glm::vec3 BoneAnimation::getInterpolatedPosition(float animationTime) const {
 	
 
 
-glm::quat BoneAnimation::getInterpolatedRotation(float animationTime) const {
+glm::quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
 	if (rotationkeys.size() == 1) {
 		// No interpolation necessary for single value
 		auto v = rotationkeys[0].mValue;
@@ -80,7 +80,7 @@ glm::quat BoneAnimation::getInterpolatedRotation(float animationTime) const {
 
 
 
-glm::vec3 BoneAnimation::getInterpolatedScale(float animationTime) const {
+glm::vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
 	if (scaleKeys.size() == 1) {
 		// No interpolation necessary for single value
 		auto v = scaleKeys[0].mValue;
@@ -110,24 +110,24 @@ glm::vec3 BoneAnimation::getInterpolatedScale(float animationTime) const {
 
 
 Animation::Animation(aiAnimation* anim) {
-	loadFromAssimp(anim);
+	LoadFromAssimp(anim);
 }
 
 
 
-void Animation::loadFromAssimp(aiAnimation* anim) {
-	name = anim->mName.C_Str();
-	ticksPerSecond = static_cast<float>(anim->mTicksPerSecond);
-	totalDuration = static_cast<float>(anim->mDuration);
-	runningTime = 0;
+void Animation::LoadFromAssimp(aiAnimation* anim) {
+	m_Name = anim->mName.C_Str();
+	m_TicksPerSecond = static_cast<float>(anim->mTicksPerSecond);
+	m_TotalDuration = static_cast<float>(anim->mDuration);
+	m_RunningTime = 0;
 
 	for (unsigned int ch = 0; ch < anim->mNumChannels; ch++) {
 		auto aiNodeAnim = anim->mChannels[ch];
 
-		boneAnimations[aiNodeAnim->mNodeName.C_Str()] = {};
-		auto& nodeAnim = boneAnimations[aiNodeAnim->mNodeName.C_Str()];
+		m_BoneAnimations[aiNodeAnim->mNodeName.C_Str()] = {};
+		auto& nodeAnim = m_BoneAnimations[aiNodeAnim->mNodeName.C_Str()];
 
-		nodeAnim.loadFromAssimp(aiNodeAnim);
+		nodeAnim.LoadFromAssimp(aiNodeAnim);
 	}
 }
 

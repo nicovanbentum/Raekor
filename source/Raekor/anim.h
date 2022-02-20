@@ -2,13 +2,13 @@
 
 namespace Raekor {
 
-class BoneAnimation {
+class KeyFrames {
 public:
-	void loadFromAssimp(aiNodeAnim* nodeAnim);
+	void LoadFromAssimp(aiNodeAnim* nodeAnim);
 
-	glm::vec3 getInterpolatedScale(float animationTime) const;
-	glm::quat getInterpolatedRotation(float animationTime) const;
-	glm::vec3 getInterpolatedPosition(float animationTime) const;
+	glm::vec3 GetInterpolatedScale(float animationTime) const;
+	glm::quat GetInterpolatedRotation(float animationTime) const;
+	glm::vec3 GetInterpolatedPosition(float animationTime) const;
 
 private:
 	std::vector<aiVectorKey> positionKeys;
@@ -16,27 +16,27 @@ private:
 	std::vector<aiVectorKey> scaleKeys;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
 class Animation {
-	friend struct Skeleton;;
+	friend struct Skeleton;
 
 public:
 	Animation() = default;
 	Animation(aiAnimation* anim);
 
-	std::string& GetName() { return name; }
-	inline float getCurrentTime() { return runningTime; }
-	inline float getTotalDuration() { return totalDuration; }
+	const std::string& GetName() const { return m_Name; }
+	inline float GetRunningTime() const { return m_RunningTime; }
+	inline float GetTotalDuration() const { return m_TotalDuration; }
 
-	void loadFromAssimp(aiAnimation* anim);
+	void LoadFromAssimp(aiAnimation* anim);
 
 private:
-	std::string name;
-	float ticksPerSecond;
-	float totalDuration;
-	float runningTime;
-	std::unordered_map<std::string, BoneAnimation> boneAnimations;
+	float m_RunningTime;
+	float m_TotalDuration;
+	float m_TicksPerSecond;
+
+	std::string m_Name;
+	std::unordered_map<std::string, KeyFrames> m_BoneAnimations;
 };
 
 } // raekor

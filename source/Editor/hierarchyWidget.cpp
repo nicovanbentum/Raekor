@@ -13,7 +13,7 @@ HierarchyWidget::HierarchyWidget(Editor* editor) : IWidget(editor, "Scene") {}
 void HierarchyWidget::draw(float dt) {
     ImGui::Begin(title.c_str());
 
-    auto& scene = IWidget::scene();
+    auto& scene = IWidget::GetScene();
     auto nodes = scene.view<Node>();
     
     for (auto& [entity, node] : nodes.each()) {

@@ -333,8 +333,8 @@ void PathTracePass::recordCommands(const Device& device, const Viewport& viewpor
                             0, nullptr
                            );
 
-    pushConstants.invViewProj = glm::inverse(viewport.getCamera().getProjection() * viewport.getCamera().getView());
-    pushConstants.cameraPosition = glm::vec4(viewport.getCamera().getPosition(), 1.0);
+    pushConstants.invViewProj = glm::inverse(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView());
+    pushConstants.cameraPosition = glm::vec4(viewport.GetCamera().GetPosition(), 1.0);
 
     constexpr VkShaderStageFlags stages = VK_SHADER_STAGE_RAYGEN_BIT_KHR |
                                           VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR |

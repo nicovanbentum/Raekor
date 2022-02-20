@@ -14,14 +14,14 @@ Ray::Ray(Viewport& viewport, glm::vec2 coords) {
 
     glm::vec4 rayClip = { rayNDC.x, rayNDC.y, -1.0f, 1.0f };
 
-    glm::vec4 rayCamera = glm::inverse(viewport.getCamera().getProjection()) * rayClip;
+    glm::vec4 rayCamera = glm::inverse(viewport.GetCamera().GetProjection()) * rayClip;
     rayCamera.z = -1.0f, rayCamera.w = 0.0f;
 
-    glm::vec3 rayWorld = glm::inverse(viewport.getCamera().getView()) * rayCamera;
+    glm::vec3 rayWorld = glm::inverse(viewport.GetCamera().GetView()) * rayCamera;
     rayWorld = glm::normalize(rayWorld);
 
     direction = rayWorld;
-    origin = viewport.getCamera().getPosition();
+    origin = viewport.GetCamera().GetPosition();
 }
 
 

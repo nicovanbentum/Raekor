@@ -19,8 +19,8 @@ void InspectorWidget::draw(float dt) {
 
     ImGui::Text("ID: %i", editor->active);
 
-    Scene& scene = IWidget::scene();
-    Assets& assets = IWidget::assets();
+    Scene& scene = IWidget::GetScene();
+    Assets& assets = IWidget::GetAssets();
     entt::entity& active = editor->active;
 
     // I much prefered the for_each_tuple_element syntax tbh
@@ -104,8 +104,8 @@ void InspectorWidget::drawComponent(Mesh& component, Assets& assets, Scene& scen
 
 void InspectorWidget::drawComponent(Skeleton& component, Assets& assets, Scene& scene, entt::entity& active) {
     static bool playing = false;
-    const float currentTime = component.animations[0].getCurrentTime();
-    const float totalDuration = component.animations[0].getTotalDuration();
+    const float currentTime = component.animations[0].GetRunningTime();
+    const float totalDuration = component.animations[0].GetTotalDuration();
 
     ImGui::ProgressBar(currentTime / totalDuration);
 

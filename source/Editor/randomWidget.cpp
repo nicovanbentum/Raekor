@@ -10,7 +10,7 @@ RandomWidget::RandomWidget(Editor* editor) :
 {}
 
 void RandomWidget::draw(float dt) {
-    auto& renderer = IWidget::renderer();
+    auto& renderer = IWidget::GetRenderer();
 
     ImGui::Begin(title.c_str());
     ImGui::SetItemDefaultFocus();

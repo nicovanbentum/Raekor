@@ -6,14 +6,14 @@ namespace Raekor {
 
 ViewportWidget::ViewportWidget(Editor* editor) :
     IWidget(editor, "Viewport"),
-    rendertarget(IWidget::renderer().tonemap->result)
+    rendertarget(IWidget::GetRenderer().tonemap->result)
 {}
 
 
 
 void ViewportWidget::draw(float dt) {
-    auto& scene = IWidget::scene();
-    auto& renderer = IWidget::renderer();
+    auto& scene = IWidget::GetScene();
+    auto& renderer = IWidget::GetRenderer();
     auto& viewport = editor->getViewport();
 
     // renderer viewport
@@ -87,7 +87,7 @@ void ViewportWidget::draw(float dt) {
     auto size = ImGui::GetContentRegionAvail();
     auto resized = false;
     if (viewport.size.x != size.x || viewport.size.y != size.y) {
-        viewport.resize({ size.x, size.y });
+        viewport.Resize({ size.x, size.y });
         renderer.createRenderTargets(viewport);
         resized = true;
     }
@@ -170,8 +170,8 @@ void ViewportWidget::draw(float dt) {
         ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
 
         bool manipulated = ImGuizmo::Manipulate(
-                               glm::value_ptr(viewport.getCamera().getView()),
-                               glm::value_ptr(viewport.getCamera().getProjection()),
+                               glm::value_ptr(viewport.GetCamera().GetView()),
+                               glm::value_ptr(viewport.GetCamera().GetProjection()),
                                operation, ImGuizmo::MODE::WORLD,
                                glm::value_ptr(transform.localTransform)
                            );

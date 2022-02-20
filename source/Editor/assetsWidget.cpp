@@ -11,7 +11,7 @@ AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, "Asset Browser") {}
 void AssetsWidget::draw(float dt) {
     ImGui::Begin(title.c_str());
 
-    auto materialView = IWidget::scene().view<Material, Name>();
+    auto materialView = IWidget::GetScene().view<Material, Name>();
 
     auto& style = ImGui::GetStyle();
 
