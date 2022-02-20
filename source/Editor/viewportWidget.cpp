@@ -97,6 +97,7 @@ void ViewportWidget::draw(float dt) {
     // render the active screen texture to the view port as an imgui image
     ImGui::Image((void*)((intptr_t)rendertarget), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0, 1 }, { 1, 0 });
 
+    mouseInViewport = ImGui::IsItemHovered();
     const ImVec2 viewportMin = ImGui::GetItemRectMin();
     const ImVec2 viewportMax = ImGui::GetItemRectMax();
 
@@ -138,7 +139,7 @@ void ViewportWidget::draw(float dt) {
     auto pos = ImGui::GetWindowPos();
     viewport.offset = { pos.x, pos.y };
 
-    mouseInViewport = ImGui::IsMouseHoveringRect(viewportMin, viewportMax);
+    //mouseInViewport = ImGui::IsMouseHoveringRect(viewportMin, viewportMax);
 
     auto& io = ImGui::GetIO();
     if (io.MouseClicked[0] && mouseInViewport && !(editor->active != entt::null && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {

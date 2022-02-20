@@ -8,38 +8,32 @@ class Camera {
     
 public:
     Camera(glm::vec3 position, glm::mat4 proj);
-    Camera(const Camera&) : Camera(getPosition(), projection) {}
+    Camera(const Camera&) : Camera(GetPosition(), projection) {}
     Camera& operator=(const Camera& rhs) { return *this; }
 
-    glm::vec3 getForwardVector();
+    void OnUpdate(float dt);
 
-    void look(float x, float y);
-    void zoom(float amount);
-    void move(glm::vec2 amount);
-
-    bool onEventEditor(const SDL_Event& event);
-
-    void strafeWASD(float dt);
-    void strafeMouse(const SDL_Event& event);
+    void Zoom(float amount);
+    void Look(glm::vec2 amount);
+    void Move(glm::vec2 amount);
     
-    void update();
+    glm::vec3 GetForwardVector();
 
-    inline glm::vec2& getAngle() { return angle; }
-    inline const glm::vec3& getPosition() const { return position; }
+    glm::vec2& GetAngle() { return angle; }
+    const glm::vec3& GetPosition() const { return position; }
 
-    inline glm::mat4& getView() { return view; }
-    inline const glm::mat4& getView() const { return view; }
+    glm::mat4& GetView() { return view; }
+    const glm::mat4& GetView() const { return view; }
 
-    inline glm::mat4& getProjection() { return projection; }
-    inline const glm::mat4& getProjection() const { return projection; }
+    glm::mat4& GetProjection() { return projection; }
+    const glm::mat4& GetProjection() const { return projection; }
 
-    float getFOV() const;
-    float getAspectRatio() const;
-    float getNear() const;
-    float getFar() const;
+    float GetFov() const;
+    float GetFar() const;
+    float GetNear() const;
+    float GetAspectRatio() const;
 
 private:
-    uint32_t jitterIndex = 0;
     glm::vec2 jitter;
     glm::vec2 angle;
     glm::vec3 position;
@@ -48,37 +42,37 @@ private:
 
 public:
     float& sensitivity = ConVars::create("sensitivity", 2.0f);
-    float zoomSpeed = 1.0f, moveSpeed = 0.015f;
-    float lookConstant = 1.0f, zoomConstant = 0.01f, moveConstant = 0.005f;
-
+    float zoomSpeed = 1.0f, moveSpeed = 1.0f;
+    float lookConstant = 1.0f, zoomConstant = 10.0f, moveConstant = 10.0f;
 };
-
 
 
 class Viewport {
 public:
     Viewport(glm::vec2 size = glm::vec2(0, 0));
-    float& getFov();
 
-    Camera& getCamera();
-    const Camera& getCamera() const;
-
-    void update();
-    glm::mat4 getJitteredProjMatrix() const;
-    const glm::vec2& getJitter() const { return jitter; }
+    void OnUpdate(float dt);
     
-    void setFov(float fov);
-    void resize(glm::vec2 newSize);
-    void setAspectRatio(float ratio);
+    float& GetFov() { return fov; }
+    Camera& GetCamera() { return camera; }
+    const Camera& GetCamera() const { return camera; }
+    
+    glm::mat4 GetJitteredProjMatrix() const;
+    const glm::vec2& GetJitter() const { return jitter; }
+
+    void SetFov(float fov);
+    void Resize(glm::vec2 newSize);
+    void SetAspectRatio(float ratio);
 
 private:
-    float fov;
-    float aspectRatio;
+    float fov = 45.0f;
+    float aspectRatio = 16.0f / 9.0f;
     Camera camera;
 
 public:
     uint32_t jitterIndex = 0;
     glm::vec2 jitter = glm::vec2(0.0f);
+
     glm::uvec2 size = glm::uvec2(0u);
     glm::uvec2 offset = glm::uvec2(0u);
 };

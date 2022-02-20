@@ -49,15 +49,10 @@ Editor::Editor() :
 
 
 void Editor::onUpdate(float dt) {
-    assets.collect_garbage();
-
-    // update keyboard WASD controls
-    if (Input::isButtonPressed(3)) {
-        viewport.getCamera().strafeWASD(dt);
-    }
+    assets.CollectGarbage();
 
     // update the camera
-    viewport.update();
+    m_Viewport.OnUpdate(dt);
 
     // update scene components
     scene.updateTransforms();
@@ -117,7 +112,7 @@ void Editor::onUpdate(float dt) {
 void Editor::onEvent(const SDL_Event& event) {
     ImGui_ImplSDL2_ProcessEvent(&event);
 
-    const bool isMouseInViewport = ImGui::IsMouseHoveringRect(ImVec(viewport.offset), ImVec(viewport.size), false);
+    const bool is_viewport_hovered = GetWidget<ViewportWidget>()->IsHovered();
 
     // free the mouse if the window loses focus
     auto flags = SDL_GetWindowFlags(window);
@@ -127,7 +122,7 @@ void Editor::onEvent(const SDL_Event& event) {
     }
 
     if (event.button.button == 2 || event.button.button == 3) {
-        if (event.type == SDL_MOUSEBUTTONDOWN && isMouseInViewport) {
+        if (event.type == SDL_MOUSEBUTTONDOWN && is_viewport_hovered) {
             SDL_SetRelativeMouseMode(SDL_TRUE);
         }
         else if (event.type == SDL_MOUSEBUTTONUP) {
@@ -135,7 +130,6 @@ void Editor::onEvent(const SDL_Event& event) {
         }
     }
 
-    // key down and not repeating a hold
     if (event.type == SDL_KEYDOWN && !event.key.repeat) {
         switch (event.key.keysym.sym) {
             case SDLK_DELETE: {
@@ -175,11 +169,19 @@ void Editor::onEvent(const SDL_Event& event) {
         }
     }
 
-    if (SDL_GetRelativeMouseMode() && Input::isButtonPressed(3)) {
-        viewport.getCamera().strafeMouse(event);
+    auto& camera = m_Viewport.GetCamera();
+
+    if (event.type == SDL_MOUSEMOTION) {
+        if (SDL_GetRelativeMouseMode() && Input::isButtonPressed(3)) {
+            auto formula = glm::radians(0.022f * camera.sensitivity * 2.0f);
+            camera.Look(glm::vec2(event.motion.xrel * formula, event.motion.yrel * formula));
+        }
+        else if (SDL_GetRelativeMouseMode() && Input::isButtonPressed(2)) {
+            camera.Move(glm::vec2(event.motion.xrel * 0.02f, event.motion.yrel * 0.02f));
+        }
     }
-    else {
-        viewport.getCamera().onEventEditor(event);
+    else if (event.type == SDL_MOUSEWHEEL && is_viewport_hovered) {
+        camera.Zoom(float(event.wheel.y));
     }
 
     if (event.type == SDL_WINDOWEVENT) {

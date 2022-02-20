@@ -66,12 +66,7 @@ namespace Raekor::VK {
 
 
 void PathTracer::onUpdate(float dt) {
-    if (Input::isButtonPressed(3)) {
-        viewport.getCamera().strafeWASD(dt);
-        renderer.resetAccumulation();
-    }
-
-    viewport.update();
+    m_Viewport.OnUpdate(dt);
 
     auto lightView = scene.view<DirectionalLight, Transform>();
     auto lookDirection = glm::vec3(0.25f, -0.9f, 0.0f);
@@ -155,11 +150,34 @@ void PathTracer::onUpdate(float dt) {
 void PathTracer::onEvent(const SDL_Event& ev) {
     ImGui_ImplSDL2_ProcessEvent(&ev);
 
-    if (Input::isButtonPressed(3)) {
-        viewport.getCamera().strafeMouse(ev);
+    if (ev.button.button == 2 || ev.button.button == 3) {
+        if (ev.type == SDL_MOUSEBUTTONDOWN) {
+            SDL_SetRelativeMouseMode(SDL_TRUE);
+        }
+        else if (ev.type == SDL_MOUSEBUTTONUP) {
+            SDL_SetRelativeMouseMode(SDL_FALSE);
+        }
+    }
+
+    auto& camera = m_Viewport.GetCamera();
+
+    const bool is_mouse_relative = SDL_GetRelativeMouseMode();
+
+    if (is_mouse_relative) {
         renderer.resetAccumulation();
     }
-    else if(viewport.getCamera().onEventEditor(ev)) {
+
+    if (ev.type == SDL_MOUSEMOTION) {
+        if (is_mouse_relative && Input::isButtonPressed(3)) {
+            auto formula = glm::radians(0.022f * camera.sensitivity * 2.0f);
+            camera.Look(glm::vec2(ev.motion.xrel * formula, ev.motion.yrel * formula));
+        }
+        else if (is_mouse_relative && Input::isButtonPressed(2)) {
+            camera.Move(glm::vec2(ev.motion.xrel * 0.02f, ev.motion.yrel * 0.02f));
+        }
+    }
+    else if (ev.type == SDL_MOUSEWHEEL) {
+        camera.Zoom(float(ev.wheel.y));
         renderer.resetAccumulation();
     }
 

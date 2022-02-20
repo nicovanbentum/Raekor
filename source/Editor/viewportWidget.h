@@ -15,6 +15,7 @@ public:
     virtual void onEvent(const SDL_Event& ev) override;
 
     void DisableGizmo() { gizmoEnabled = false; }
+    bool IsHovered() { return mouseInViewport; }
 
 protected:
     GLuint rendertarget;
