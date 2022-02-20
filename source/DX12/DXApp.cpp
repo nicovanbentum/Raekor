@@ -59,8 +59,8 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
 
     DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {};
     swapchainDesc.BufferCount = FrameCount;
-    swapchainDesc.Width = viewport.size.x;
-    swapchainDesc.Height = viewport.size.y;
+    swapchainDesc.Width = m_Viewport.size.x;
+    swapchainDesc.Height = m_Viewport.size.y;
     swapchainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     swapchainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapchainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
@@ -112,7 +112,7 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
         ThrowIfFailed(m_Device->CreateCommittedResource(
             &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
             D3D12_HEAP_FLAG_NONE,
-            &CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D24_UNORM_S8_UINT, viewport.size.x, viewport.size.y, 1u, 0, 1u, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL),
+            &CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D24_UNORM_S8_UINT, m_Viewport.size.x, m_Viewport.size.y, 1u, 0, 1u, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL),
             D3D12_RESOURCE_STATE_DEPTH_WRITE,
             nullptr,
             IID_PPV_ARGS(&m_RenderTargetDepths[i]))
@@ -370,7 +370,7 @@ void DXApp::onUpdate(float dt) {
     cmdList->SetGraphicsRootSignature(m_RootSignature.Get());
 
     // clear render target
-    cmdList->ClearRenderTargetView(rtvPtr, glm::value_ptr(clearColour), 1, &CD3DX12_RECT(0, 0, viewport.size.x, viewport.size.y));
+    cmdList->ClearRenderTargetView(rtvPtr, glm::value_ptr(clearColour), 1, &CD3DX12_RECT(0, 0, m_Viewport.size.x, m_Viewport.size.y));
 
     for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
         const auto& indexBuffer = m_Buffers[mesh.indexBuffer];
@@ -419,7 +419,7 @@ void DXApp::onEvent(const SDL_Event& event) {
         }
         if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
             if (SDL_GetWindowID(window) == event.window.windowID) {
-                running = false;
+                m_Running = false;
             }
         }
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
@@ -439,7 +439,7 @@ void DXApp::onEvent(const SDL_Event& event) {
             m_RenderTargets.resize(FrameCount);
 
             ThrowIfFailed(m_Swapchain->ResizeBuffers(
-                FrameCount, viewport.size.x, viewport.size.y, 
+                FrameCount, m_Viewport.size.x, m_Viewport.size.y, 
                 DXGI_FORMAT_B8G8R8A8_UNORM, 0
             ));
 

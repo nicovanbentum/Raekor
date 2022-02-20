@@ -19,7 +19,7 @@ namespace Raekor {
 
 Editor::Editor() :
     Application(RendererFlags::OPENGL),
-    renderer(window, viewport) 
+    renderer(window, m_Viewport) 
 {
     GUI::setTheme(settings.themeColors);
     GUI::setFont(settings.font.c_str());
@@ -91,7 +91,7 @@ void Editor::onUpdate(float dt) {
 
     // draw widgets
     for (const auto& widget : widgets) {
-        if (widget->isVisible()) {
+        if (widget->IsVisible()) {
             widget->draw(dt);
         }
     }
@@ -101,7 +101,7 @@ void Editor::onUpdate(float dt) {
     GUI::endFrame();
 
     // render scene
-    renderer.render(scene, viewport);
+    renderer.render(scene, m_Viewport);
 
     // swap the backbuffer
     SDL_GL_SwapWindow(window);
