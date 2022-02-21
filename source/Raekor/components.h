@@ -1,8 +1,8 @@
 #pragma once
 
-#include "anim.h"
 #include "script.h"
 #include "assets.h"
+#include "animation.h"
 
 namespace Raekor {
 
