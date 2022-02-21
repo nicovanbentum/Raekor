@@ -3,7 +3,7 @@
 
 namespace Raekor {
 
-void printProgressBar(const std::string& prepend, float fract) {
+void gPrintProgressBar(const std::string& prepend, float fract) {
     static std::string bar = "----------]";
     std::string loading = prepend + "[";
     int index = int(fract * 10);
@@ -14,16 +14,14 @@ void printProgressBar(const std::string& prepend, float fract) {
 }
 
 
-
-FileWatcher::FileWatcher(const std::string& path) : path(path) {
-    last_write_time = std::filesystem::last_write_time(path);
+FileWatcher::FileWatcher(const std::string& path) : m_Path(path) {
+    m_LastWriteTime = std::filesystem::last_write_time(path);
 }
 
 
-
-bool FileWatcher::wasModified() {
-    if (auto new_time = std::filesystem::last_write_time(path); new_time != last_write_time) {
-        last_write_time = new_time;
+bool FileWatcher::WasModified() {
+    if (auto new_time = std::filesystem::last_write_time(m_Path); new_time != m_LastWriteTime) {
+        m_LastWriteTime = new_time;
         return true;
     }
     return false;

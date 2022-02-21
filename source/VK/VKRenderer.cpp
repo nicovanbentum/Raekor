@@ -4,23 +4,37 @@
 #include "VKUtil.h"
 #include "VKDevice.h"
 #include "VKExtensions.h"
-#include "VKAccelerationStructure.h"
 
 namespace Raekor::VK {
 
 Renderer::Renderer(SDL_Window* window) : 
-    device(window) 
+    m_Device(window) 
 {
     int w, h;
     SDL_GetWindowSize(window, &w, &h);
 
-    VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_RELAXED_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+    VkPresentModeKHR mode = m_SyncInterval ? VK_PRESENT_MODE_FIFO_RELAXED_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
 
-    swapchain.create(device, { w, h }, mode);
+    m_Swapchain.Create(m_Device, { w, h }, mode);
 
-    setupSyncObjects();
+    m_ImageAcquiredSemaphores.resize(sMaxFramesInFlight);
+    m_RenderFinishedSemaphores.resize(sMaxFramesInFlight);
+    m_CommandsFinishedFences.resize(sMaxFramesInFlight);
 
-    bindlessTextures.create(device, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    VkFenceCreateInfo fenceInfo = {};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    VkSemaphoreCreateInfo semaphoreInfo = {};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    for (unsigned int i = 0; i < sMaxFramesInFlight; i++) {
+        vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_ImageAcquiredSemaphores[i]);
+        vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]);
+        vkCreateFence(m_Device, &fenceInfo, nullptr, &m_CommandsFinishedFences[i]);
+    }
+
+    m_BindlessTextureSet.Create(m_Device, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 }
 
 
@@ -29,48 +43,48 @@ Renderer::~Renderer() {
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
-    vkDeviceWaitIdle(device);
+    vkDeviceWaitIdle(m_Device);
 
-    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkDestroySemaphore(device, imageAcquiredSemaphores[i], nullptr);
-        vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(device, commandsFinishedFences[i], nullptr);
+    for (uint32_t i = 0; i < sMaxFramesInFlight; i++) {
+        vkDestroySemaphore(m_Device, m_ImageAcquiredSemaphores[i], nullptr);
+        vkDestroySemaphore(m_Device, m_RenderFinishedSemaphores[i], nullptr);
+        vkDestroyFence(m_Device, m_CommandsFinishedFences[i], nullptr);
     }
 
-    for (auto& texture : textures) {
-        device.destroyTexture(texture);
+    for (auto& texture : m_Textures) {
+        m_Device.DestroyTexture(texture);
     }
 
-    for (auto& sampler : samplers) {
-        device.destroySampler(sampler);
+    for (auto& sampler : m_Samplers) {
+        m_Device.DestroySampler(sampler);
     }
 
 
-    device.destroyAccelerationStructure(TLAS);
-    swapchain.destroy(device);
-    imGuiPass.destroy(device);
-    pathTracePass.destroy(device);
-    bindlessTextures.destroy(device);
-    device.destroyBuffer(instanceBuffer);
-    device.destroyBuffer(materialBuffer);
+    m_Device.DestroyBVH(m_TopLevelBVH);
+    m_Swapchain.Destroy(m_Device);
+    m_ImGuiPass.Destroy(m_Device);
+    m_PathTracePass.Destroy(m_Device);
+    m_BindlessTextureSet.Destroy(m_Device);
+    m_Device.DestroyBuffer(m_InstanceBuffer);
+    m_Device.DestroyBuffer(m_MaterialBuffer);
 }
 
 
 
-void Renderer::initialize(Scene& scene) {
-    pathTracePass.initialize(device, swapchain, TLAS, instanceBuffer, materialBuffer, bindlessTextures);
-    imGuiPass.initialize(device, swapchain, pathTracePass, bindlessTextures);
+void Renderer::Init(Scene& scene) {
+    m_PathTracePass.Init(m_Device, m_Swapchain, m_TopLevelBVH, m_InstanceBuffer, m_MaterialBuffer, m_BindlessTextureSet);
+    m_ImGuiPass.Init(m_Device, m_Swapchain, m_PathTracePass, m_BindlessTextureSet);
 }
 
 
 
-void Renderer::resetAccumulation() {
-    pathTracePass.pushConstants.frameCounter = 0;
+void Renderer::ResetAccumulation() {
+    m_PathTracePass.m_PushConstants.frameCounter = 0;
 }
 
 
 
-void Renderer::updateMaterials(Assets& assets, Scene& scene) {
+void Renderer::UpdateMaterials(Assets& assets, Scene& scene) {
     auto view = scene.view<Material>();
 
     std::vector<RTMaterial> materials(view.size());
@@ -80,9 +94,9 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
         auto& buffer = materials[i];
         buffer.albedo = material.albedo;
 
-        buffer.textures.x = addBindlessTexture(device, assets.get<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_SRGB_BLOCK);
-        buffer.textures.y = addBindlessTexture(device, assets.get<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
-        buffer.textures.z = addBindlessTexture(device, assets.get<TextureAsset>(material.metalroughFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.x = UploadTexture(m_Device, assets.Get<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_SRGB_BLOCK);
+        buffer.textures.y = UploadTexture(m_Device, assets.Get<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.z = UploadTexture(m_Device, assets.Get<TextureAsset>(material.metalroughFile), VK_FORMAT_BC3_UNORM_BLOCK);
 
         buffer.properties.x = material.metallic;
         buffer.properties.y = material.roughness;
@@ -95,17 +109,17 @@ void Renderer::updateMaterials(Assets& assets, Scene& scene) {
 
     const auto materialBufferSize = materials.size() * sizeof(materials[0]);
 
-    materialBuffer = device.createBuffer(
+    m_MaterialBuffer = m_Device.CreateBuffer(
         materialBufferSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    auto mappedPtr = device.getMappedPointer(materialBuffer);
+    auto mappedPtr = m_Device.GetMappedPointer(m_MaterialBuffer);
     memcpy(mappedPtr, materials.data(), materialBufferSize);
 }
 
-void Renderer::updateAccelerationStructures(Scene& scene) {
+void Renderer::UpdateBVH(Scene& scene) {
     auto meshes = scene.view<Mesh, Transform, VK::RTGeometry>();
 
     if (meshes.size_hint() < 1) return;
@@ -115,7 +129,7 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
 
     uint32_t customIndex = 0; 
     for (auto& [entity, mesh, transform, geometry] : meshes.each()) {
-        auto deviceAddress = device.getDeviceAddress(geometry.accelStruct.accelerationStructure);
+        auto deviceAddress = m_Device.GetDeviceAddress(geometry.bvh.accelerationStructure);
 
         VkAccelerationStructureInstanceKHR instance = {};
         instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
@@ -123,13 +137,13 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
         instance.instanceCustomIndex = customIndex++;
         instance.instanceShaderBindingTableRecordOffset = 0;
         instance.accelerationStructureReference = deviceAddress;
-        instance.transform = VkTransformMatrix(transform.worldTransform);
+        instance.transform = gVkTransformMatrix(transform.worldTransform);
 
         deviceInstances.push_back(instance);
     }
 
-    device.destroyAccelerationStructure(TLAS);
-    TLAS = createTLAS(deviceInstances.data(), deviceInstances.size());
+    m_Device.DestroyBVH(m_TopLevelBVH);
+    m_TopLevelBVH = CreateTopLevelBVH(deviceInstances.data(), deviceInstances.size());
 
     struct Instance {
         glm::ivec4 materialIndex;
@@ -161,34 +175,34 @@ void Renderer::updateAccelerationStructures(Scene& scene) {
         Instance instance = {};
         instance.materialIndex.x = materialIndex(mesh.material);
         instance.localToWorldTransform = transform.worldTransform;
-        instance.indexBufferAddress = device.getDeviceAddress(geometry.indices);
-        instance.vertexBufferAddress = device.getDeviceAddress(geometry.vertices);
+        instance.indexBufferAddress = m_Device.GetDeviceAddress(geometry.indices);
+        instance.vertexBufferAddress = m_Device.GetDeviceAddress(geometry.vertices);
 
         hostInstances.push_back(instance);
     }
 
-    instanceBuffer = device.createBuffer(
+    m_InstanceBuffer = m_Device.CreateBuffer(
         sizeof(Instance) * meshes.size_hint(), 
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    auto mappedPtr = device.getMappedPointer(instanceBuffer);
+    auto mappedPtr = m_Device.GetMappedPointer(m_InstanceBuffer);
 
     memcpy(mappedPtr, hostInstances.data(), hostInstances.size() * sizeof(Instance));
 }
 
 
 
-void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene) {
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-    vkWaitForFences(device, 1, &commandsFinishedFences[currentFrame], VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &commandsFinishedFences[currentFrame]);
+void Renderer::RenderScene(SDL_Window* window, const Viewport& viewport, Scene& scene) {
+    m_CurrentFrame = (m_CurrentFrame + 1) % sMaxFramesInFlight;
+    vkWaitForFences(m_Device, 1, &m_CommandsFinishedFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
+    vkResetFences(m_Device, 1, &m_CommandsFinishedFences[m_CurrentFrame]);
 
-    VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAcquiredSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(m_Device, m_Swapchain, UINT64_MAX, m_ImageAcquiredSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &m_ImageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        recreateSwapchain(window);
+        RecreateSwapchain(window);
         return;
     }
 
@@ -196,9 +210,9 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     
-    auto commandBuffer = swapchain.submitBuffers[currentFrame];
+    auto commandBuffer = m_Swapchain.submitBuffers[m_CurrentFrame];
 
-    ThrowIfFailed(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+    gThrowIfFailed(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
     {
         VkImageMemoryBarrier2KHR barrier = {};
@@ -216,14 +230,14 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
         dep.imageMemoryBarrierCount = 1;
         dep.pImageMemoryBarriers = &barrier;
 
-        barrier.image = pathTracePass.finalTexture.image;
+        barrier.image = m_PathTracePass.finalTexture.image;
         EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
 
-        barrier.image = pathTracePass.accumTexture.image;
+        barrier.image = m_PathTracePass.accumTexture.image;
         EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
     }
 
-    pathTracePass.recordCommands(device, viewport, commandBuffer, bindlessTextures);
+    m_PathTracePass.Record(m_Device, viewport, commandBuffer, m_BindlessTextureSet);
 
     {
         VkImageMemoryBarrier2KHR barrier = {};
@@ -233,7 +247,7 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
         barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR;
         barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT_KHR;
         barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        barrier.image = pathTracePass.finalTexture.image;
+        barrier.image = m_PathTracePass.finalTexture.image;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
@@ -246,7 +260,7 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
         EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
     }
     
-    imGuiPass.record(device, commandBuffer, ImGui::GetDrawData(), bindlessTextures, viewport.size.x, viewport.size.y, pathTracePass);
+    m_ImGuiPass.Record(m_Device, commandBuffer, ImGui::GetDrawData(), m_BindlessTextureSet, viewport.size.x, viewport.size.y, m_PathTracePass);
 
     {
         VkImageMemoryBarrier2KHR barrier = {};
@@ -256,7 +270,7 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
         barrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
         barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
         barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        barrier.image = pathTracePass.finalTexture.image;
+        barrier.image = m_PathTracePass.finalTexture.image;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
@@ -275,7 +289,7 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
         barrier.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
         barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
         barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.image = swapchain.images[imageIndex];
+        barrier.image = m_Swapchain.images[m_ImageIndex];
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.layerCount = 1;
@@ -298,14 +312,14 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
     region.dstSubresource.layerCount = 1;
     region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-    vkCmdBlitImage(commandBuffer, pathTracePass.finalTexture.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchain.images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_NEAREST);
+    vkCmdBlitImage(commandBuffer, m_PathTracePass.finalTexture.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_Swapchain.images[m_ImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_NEAREST);
 
     {
         VkImageMemoryBarrier2KHR barrier = {};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
         barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         barrier.dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT_KHR;
-        barrier.image = swapchain.images[imageIndex];
+        barrier.image = m_Swapchain.images[m_ImageIndex];
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -320,7 +334,7 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
         EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
     }
 
-    ThrowIfFailed(vkEndCommandBuffer(commandBuffer));
+    gThrowIfFailed(vkEndCommandBuffer(commandBuffer));
 
     VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR; // For now
 
@@ -329,49 +343,49 @@ void Renderer::render(SDL_Window* window, const Viewport& viewport, Scene& scene
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
     submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = &imageAcquiredSemaphores[currentFrame];
+    submitInfo.pWaitSemaphores = &m_ImageAcquiredSemaphores[m_CurrentFrame];
     submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &renderFinishedSemaphores[imageIndex];
+    submitInfo.pSignalSemaphores = &m_RenderFinishedSemaphores[m_ImageIndex];
     submitInfo.pWaitDstStageMask = &waitStages;
 
-    ThrowIfFailed(vkQueueSubmit(device.queue, 1, &submitInfo, commandsFinishedFences[currentFrame]));
+    gThrowIfFailed(vkQueueSubmit(m_Device.GetQueue(), 1, &submitInfo, m_CommandsFinishedFences[m_CurrentFrame]));
 
-    VkSwapchainKHR swapChains[] = { swapchain };
+    VkSwapchainKHR swapChains[] = { m_Swapchain };
 
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pImageIndices = &m_ImageIndex;
     presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &renderFinishedSemaphores[imageIndex];
+    presentInfo.pWaitSemaphores = &m_RenderFinishedSemaphores[m_ImageIndex];
 
-    result = vkQueuePresentKHR(device.queue, &presentInfo);
+    result = vkQueuePresentKHR(m_Device.GetQueue(), &presentInfo);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-        recreateSwapchain(window);
+        RecreateSwapchain(window);
     }  else {
-        ThrowIfFailed(result);
+        gThrowIfFailed(result);
     }
 }
 
-void Renderer::screenshot(const std::string& filepath) {
+void Renderer::Screenshot(const std::string& filepath) {
     Texture::Desc desc;
-    desc.width = swapchain.extent.width;
-    desc.height = swapchain.extent.height;
+    desc.width = m_Swapchain.extent.width;
+    desc.height = m_Swapchain.extent.height;
     desc.format = VK_FORMAT_R8G8B8A8_UNORM;
     desc.mappable = true;
 
-    auto linearTexture = device.createTexture(desc);
+    auto linearTexture = m_Device.CreateTexture(desc);
 
-    auto commands = device.startSingleSubmit();
+    auto commands = m_Device.StartSingleSubmit();
 
     {
         VkImageMemoryBarrier2KHR srcBarrier = {};
         srcBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
         srcBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         srcBarrier.dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT_KHR;
-        srcBarrier.image = swapchain.images[imageIndex];
+        srcBarrier.image = m_Swapchain.images[m_ImageIndex];
         srcBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         srcBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         srcBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -403,14 +417,14 @@ void Renderer::screenshot(const std::string& filepath) {
 
     vkCmdCopyImage(
         commands, 
-        swapchain.images[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+        m_Swapchain.images[m_ImageIndex], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
         linearTexture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
         1, &copy
     );
 
-    device.flushSingleSubmit(commands);
+    m_Device.FlushSingleSubmit(commands);
 
-    auto pixels = static_cast<uint8_t*>(device.mapPointer(linearTexture));
+    auto pixels = static_cast<uint8_t*>(m_Device.MapPointer(linearTexture));
 
     // BGR -> RGB channel flip
     for (uint64_t i = 0; i < desc.width * desc.height * 4; i += 4) {
@@ -420,41 +434,19 @@ void Renderer::screenshot(const std::string& filepath) {
     }
 
     // Apparently the rows are 32 byte aligned, 10/10 guess work
-    const int strideInBytes = align_up(desc.width * 4, 32);
+    const int strideInBytes = gAlignUp(desc.width * 4, 32);
 
     if (!stbi_write_png(filepath.c_str(), desc.width, desc.height, 4, pixels, strideInBytes)) {
         std::cerr << "Failed to save screenshot. \n";
     }
 
-    device.unmapPointer(linearTexture);
-    device.destroyTexture(linearTexture);
+    m_Device.UnmapPointer(linearTexture);
+    m_Device.DestroyTexture(linearTexture);
 }
 
 
-
-void Renderer::setupSyncObjects() {
-    imageAcquiredSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    commandsFinishedFences.resize(MAX_FRAMES_IN_FLIGHT);
-
-    VkFenceCreateInfo fenceInfo = {};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    VkSemaphoreCreateInfo semaphoreInfo = {};
-    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    for (unsigned int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAcquiredSemaphores[i]);
-        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]);
-        vkCreateFence(device, &fenceInfo, nullptr, &commandsFinishedFences[i]);
-    }
-}
-
-
-
-void Renderer::recreateSwapchain(SDL_Window* window) {
-    vkQueueWaitIdle(device.queue);
+void Renderer::RecreateSwapchain(SDL_Window* window) {
+    vkQueueWaitIdle(m_Device.GetQueue());
     
     uint32_t flags = SDL_GetWindowFlags(window);
     while (flags & SDL_WINDOW_MINIMIZED) {
@@ -463,37 +455,37 @@ void Renderer::recreateSwapchain(SDL_Window* window) {
         while (SDL_PollEvent(&ev)) {}
     }
 
-    VkPresentModeKHR mode = vsync ? VK_PRESENT_MODE_FIFO_RELAXED_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+    VkPresentModeKHR mode = m_SyncInterval ? VK_PRESENT_MODE_FIFO_RELAXED_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
     
     int w, h;
     SDL_GetWindowSize(window, &w, &h);
     
-    swapchain.destroy(device);
-    swapchain.create(device, { w, h }, mode);
+    m_Swapchain.Destroy(m_Device);
+    m_Swapchain.Create(m_Device, { w, h }, mode);
 
-    pathTracePass.destroyRenderTextures(device);
-    pathTracePass.createRenderTextures(device, glm::uvec2(w, h));
-    pathTracePass.updateDescriptorSet(device, TLAS, instanceBuffer, materialBuffer);
+    m_PathTracePass.DestroyRenderTargets(m_Device);
+    m_PathTracePass.CreateRenderTargets(m_Device, glm::uvec2(w, h));
+    m_PathTracePass.UpdateDescriptorSet(m_Device, m_TopLevelBVH, m_InstanceBuffer, m_MaterialBuffer);
 
-    imGuiPass.destroyFramebuffer(device);
-    imGuiPass.createFramebuffer(device, pathTracePass, uint32_t(w), uint32_t(h));
+    m_ImGuiPass.DestroyFramebuffer(m_Device);
+    m_ImGuiPass.CreateFramebuffer(m_Device, m_PathTracePass, uint32_t(w), uint32_t(h));
 }
 
 
 
-int32_t Renderer::addBindlessTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format) {
+int32_t Renderer::UploadTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format) {
     if (!asset) {
         return -1;
     }
 
     Texture::Desc desc;
     desc.format = format;
-    desc.width = asset->header()->dwWidth;
-    desc.height = asset->header()->dwHeight;
-    desc.mipLevels = asset->header()->dwMipMapCount;
+    desc.width = asset->GetHeader()->dwWidth;
+    desc.height = asset->GetHeader()->dwHeight;
+    desc.mipLevels = asset->GetHeader()->dwMipMapCount;
 
-    auto texture = device.createTexture(desc);
-    auto view = device.createView(texture);
+    auto texture = device.CreateTexture(desc);
+    auto view = device.CreateView(texture);
 
     Sampler::Desc samplerDesc;
     samplerDesc.minFilter = VK_FILTER_LINEAR;
@@ -501,19 +493,19 @@ int32_t Renderer::addBindlessTexture(Device& device, const TextureAsset::Ptr& as
     samplerDesc.anisotropy = 16.0f;
     samplerDesc.maxMipmap = float(desc.mipLevels);
 
-    auto sampler = samplers.emplace_back(device.createSampler(samplerDesc));
+    auto sampler = m_Samplers.emplace_back(device.CreateSampler(samplerDesc));
 
-    auto buffer = device.createBuffer(
-        align_up(asset->getDataSize(), 16), // the disk size is not aligned to 16
+    auto buffer = device.CreateBuffer(
+        gAlignUp(asset->GetDataSize(), 16), // the disk size is not aligned to 16
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
         VMA_MEMORY_USAGE_CPU_ONLY
     );
 
-    auto mappedPtr = device.getMappedPointer(buffer);
+    auto mappedPtr = device.GetMappedPointer(buffer);
 
-    memcpy(mappedPtr, asset->getData(), asset->getDataSize());
+    memcpy(mappedPtr, asset->GetData(), asset->GetDataSize());
 
-    device.transitionImageLayout(
+    device.TransitionImageLayout(
         texture,
         VK_IMAGE_LAYOUT_UNDEFINED, 
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
@@ -539,7 +531,7 @@ int32_t Renderer::addBindlessTexture(Device& device, const TextureAsset::Ptr& as
         bufferOffset +=  mipDimensions.x * mipDimensions.y;
     }
 
-    auto commandBuffer = device.startSingleSubmit();
+    auto commandBuffer = device.StartSingleSubmit();
 
     vkCmdCopyBufferToImage(
         commandBuffer, buffer.buffer, texture.image, 
@@ -547,68 +539,68 @@ int32_t Renderer::addBindlessTexture(Device& device, const TextureAsset::Ptr& as
         uint32_t(regions.size()), regions.data()
     );
 
-    device.flushSingleSubmit(commandBuffer);
+    device.FlushSingleSubmit(commandBuffer);
 
-    device.transitionImageLayout(
+    device.TransitionImageLayout(
         texture,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     );
 
-    device.destroyBuffer(buffer);
-    textures.push_back(texture);
+    device.DestroyBuffer(buffer);
+    m_Textures.push_back(texture);
 
     VkDescriptorImageInfo descriptorInfo = {};
     descriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     descriptorInfo.imageView = view;
-    descriptorInfo.sampler = sampler.native();
+    descriptorInfo.sampler = sampler.sampler;
 
-    return bindlessTextures.append(device, descriptorInfo);
+    return m_BindlessTextureSet.Insert(device, descriptorInfo);
 }
 
 
 
-void Renderer::reloadShaders() {
-    pathTracePass.reloadShadersFromDisk(device);
+void Renderer::ReloadShaders() {
+    m_PathTracePass.ReloadShaders(m_Device);
 }
 
 
 
-void Renderer::setVsync(bool on) { 
-    vsync = on; 
+void Renderer::SetSyncInterval(bool on) { 
+    m_SyncInterval = on; 
 }
 
 
 
-RTGeometry Renderer::createBLAS(Mesh& mesh) {
-    auto vertices = mesh.getInterleavedVertices();
+RTGeometry Renderer::CreateBottomLevelBVH(Mesh& mesh) {
+    auto vertices = mesh.GetInterleavedVertices();
     const auto sizeOfVertexBuffer = vertices.size() * sizeof(vertices[0]);
     const auto sizeOfIndexBuffer = mesh.indices.size() * sizeof(mesh.indices[0]);
 
-    auto vertexStageBuffer = device.createBuffer(sizeOfVertexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-    auto indexStageBuffer = device.createBuffer(sizeOfIndexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    auto vertexStageBuffer = m_Device.CreateBuffer(sizeOfVertexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    auto indexStageBuffer = m_Device.CreateBuffer(sizeOfIndexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
-    memcpy(device.getMappedPointer(vertexStageBuffer), vertices.data(), sizeOfVertexBuffer);
-    memcpy(device.getMappedPointer(indexStageBuffer), mesh.indices.data(), sizeOfIndexBuffer);
+    memcpy(m_Device.GetMappedPointer(vertexStageBuffer), vertices.data(), sizeOfVertexBuffer);
+    memcpy(m_Device.GetMappedPointer(indexStageBuffer), mesh.indices.data(), sizeOfIndexBuffer);
 
     constexpr auto bufferUsages = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | 
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     
     RTGeometry component = {};
 
-    component.vertices = device.createBuffer(
+    component.vertices = m_Device.CreateBuffer(
         sizeOfVertexBuffer, 
         bufferUsages | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
         VMA_MEMORY_USAGE_GPU_ONLY
     );
 
-    component.indices = device.createBuffer(
+    component.indices = m_Device.CreateBuffer(
         sizeOfIndexBuffer, 
         bufferUsages | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
         VMA_MEMORY_USAGE_GPU_ONLY
     );
 
-    VkCommandBuffer commandBuffer = device.startSingleSubmit();
+    VkCommandBuffer commandBuffer = m_Device.StartSingleSubmit();
 
     VkBufferCopy vertexRegion = {};
     vertexRegion.size = sizeOfVertexBuffer;
@@ -618,10 +610,10 @@ RTGeometry Renderer::createBLAS(Mesh& mesh) {
     indexRegion.size = sizeOfIndexBuffer;
     vkCmdCopyBuffer(commandBuffer, indexStageBuffer.buffer, component.indices.buffer, 1, &indexRegion);
 
-    device.flushSingleSubmit(commandBuffer);
+    m_Device.FlushSingleSubmit(commandBuffer);
 
-    device.destroyBuffer(indexStageBuffer);
-    device.destroyBuffer(vertexStageBuffer);
+    m_Device.DestroyBuffer(indexStageBuffer);
+    m_Device.DestroyBuffer(vertexStageBuffer);
 
     VkAccelerationStructureGeometryTrianglesDataKHR triangles = {};
     triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
@@ -629,8 +621,8 @@ RTGeometry Renderer::createBLAS(Mesh& mesh) {
     triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
     triangles.maxVertex = uint32_t(mesh.positions.size());
     triangles.vertexStride = uint32_t(sizeof(Vertex));
-    triangles.indexData.deviceAddress = device.getDeviceAddress(component.indices);
-    triangles.vertexData.deviceAddress = device.getDeviceAddress(component.vertices);
+    triangles.indexData.deviceAddress = m_Device.GetDeviceAddress(component.indices);
+    triangles.vertexData.deviceAddress = m_Device.GetDeviceAddress(component.vertices);
 
     VkAccelerationStructureGeometryKHR geometry = {};
     geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -645,35 +637,35 @@ RTGeometry Renderer::createBLAS(Mesh& mesh) {
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geometry;
 
-    component.accelStruct = device.createAccelerationStructure(buildInfo, uint32_t(mesh.indices.size() / 3u));
+    component.bvh = m_Device.CreateBVH(buildInfo, uint32_t(mesh.indices.size() / 3u));
 
 
     return component;
 }
 
-void Renderer::destroyBLAS(RTGeometry& geometry) {
-    device.destroyBuffer(geometry.vertices);
-    device.destroyBuffer(geometry.indices);
-    device.destroyAccelerationStructure(geometry.accelStruct);
+void Renderer::DestroyBottomLevelBVH(RTGeometry& geometry) {
+    m_Device.DestroyBuffer(geometry.vertices);
+    m_Device.DestroyBuffer(geometry.indices);
+    m_Device.DestroyBVH(geometry.bvh);
 }
 
-AccelerationStructure Renderer::createTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count) {
+BVH Renderer::CreateTopLevelBVH(VkAccelerationStructureInstanceKHR* instances, size_t count) {
     assert(instances);
     assert(count);
 
     const size_t bufferSize = sizeof(VkAccelerationStructureInstanceKHR) * count;
 
-    auto buffer = device.createBuffer(
+    auto buffer = m_Device.CreateBuffer(
         bufferSize,
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    std::memcpy(device.getMappedPointer(buffer), instances, bufferSize);
+    std::memcpy(m_Device.GetMappedPointer(buffer), instances, bufferSize);
 
     VkAccelerationStructureGeometryInstancesDataKHR instanceData = {};
     instanceData.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-    instanceData.data.deviceAddress = device.getDeviceAddress(buffer);
+    instanceData.data.deviceAddress = m_Device.GetDeviceAddress(buffer);
 
     VkAccelerationStructureGeometryKHR geometry = {};
     geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -688,9 +680,9 @@ AccelerationStructure Renderer::createTLAS(VkAccelerationStructureInstanceKHR* i
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geometry;
 
-    auto tlas = device.createAccelerationStructure(buildInfo, uint32_t(count));
+    auto tlas = m_Device.CreateBVH(buildInfo, uint32_t(count));
 
-    device.destroyBuffer(buffer);
+    m_Device.DestroyBuffer(buffer);
 
     return tlas;
 }

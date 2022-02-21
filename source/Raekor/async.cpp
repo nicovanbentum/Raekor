@@ -6,13 +6,12 @@ namespace Raekor {
 Async::Async() : Async(std::thread::hardware_concurrency() - 1) {}
 
 
-
 Async::Async(int threadCount) {
     for (int i = 0; i < threadCount; i++) {
-        threads.push_back(std::thread(&Async::loop, this));
+        m_Threads.push_back(std::thread(&Async::ThreadLoop, this));
 
         // Do Windows-specific thread setup:
-        HANDLE handle = (HANDLE)threads[i].native_handle();
+        HANDLE handle = (HANDLE)m_Threads[i].native_handle();
 
         // Put each thread on to dedicated core:
         DWORD_PTR affinityMask = 1ull << i;
@@ -26,74 +25,68 @@ Async::Async(int threadCount) {
 }
 
 
-
 Async::~Async() {
     // let every thread know they can exit their while loops
     {
-        std::scoped_lock<std::mutex> lock(mutex);
-        quit = true;
+        std::scoped_lock<std::mutex> lock(m_Mutex);
+        m_Quit = true;
     }
 
-    cv.notify_all();
+    m_CondVar.notify_all();
 
     // wait for all to finish up
-    for (int i = 0; i < threads.size(); i++) {
-        if (threads[i].joinable()) {
-            threads[i].join();
+    for (int i = 0; i < m_Threads.size(); i++) {
+        if (m_Threads[i].joinable()) {
+            m_Threads[i].join();
         }
     }
 }
 
 
-
-Async::Handle Async::dispatch(const Task& task) {
+Async::Handle Async::sDispatch(const Task& task) {
     auto dispatch = std::make_shared<Dispatch>(task);
 
     {
-        std::scoped_lock<std::mutex> lock(async->mutex);
-        async->queue.push(dispatch);
+        std::scoped_lock<std::mutex> lock(global->m_Mutex);
+        global->m_DispatchQueue.push(dispatch);
     }
 
-    async->activeTaskCount.fetch_add(1);
-    async->cv.notify_one();
+    global->m_ActiveDispatchCount.fetch_add(1);
+    global->m_CondVar.notify_one();
 
     return dispatch;
 }
 
 
-
-std::scoped_lock<std::mutex> Async::lock() {
-    return std::scoped_lock<std::mutex>(async->mutex);
+std::scoped_lock<std::mutex> Async::sLock() {
+    return std::scoped_lock<std::mutex>(global->m_Mutex);
 }
 
 
-
-void Async::wait() {
-    while (async->activeTaskCount.load() > 0) {}
+void Async::sWait() {
+    while (global->m_ActiveDispatchCount.load() > 0) {}
 }
 
 
-
-void Async::wait(const Handle& dispatch) {
+void Async::sWait(const Handle& dispatch) {
     while (!dispatch->finished) {}
 }
 
 
-
-void Async::loop() {
+void Async::ThreadLoop() {
     // take control of the mutex
-    auto lock = std::unique_lock<std::mutex>(mutex);
+    auto lock = std::unique_lock<std::mutex>(m_Mutex);
     
 
     do {
         // wait releases the mutex and re-acquires when there's work available
-        cv.wait(lock, [this] {
-            return queue.size() || quit;
+        m_CondVar.wait(lock, [this] {
+            return m_DispatchQueue.size() || m_Quit;
         });
 
-        if (queue.size() && !quit) {
-            auto dispatch = std::move(queue.front());
-            queue.pop();
+        if (m_DispatchQueue.size() && !m_Quit) {
+            auto dispatch = std::move(m_DispatchQueue.front());
+            m_DispatchQueue.pop();
 
             lock.unlock();
 
@@ -104,10 +97,10 @@ void Async::loop() {
             // re-lock so wait doesn't unlock an unlocked mutex
             lock.lock();
             
-            if(activeTaskCount.load() > 0) activeTaskCount.fetch_sub(1);
+            if(m_ActiveDispatchCount.load() > 0) m_ActiveDispatchCount.fetch_sub(1);
         }
 
-    } while (!quit);
+    } while (!m_Quit);
 }
 
 } // raekor

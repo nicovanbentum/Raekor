@@ -1,7 +1,6 @@
 #pragma once
 
-namespace Raekor {
-namespace ecs {
+namespace Raekor::ecs {
 /*
     Old entity component system pre-dating the integration of entt
     With this you can create a scene class that contains multiple ComponentManager's, like:
@@ -94,5 +93,4 @@ private:
 
 };
 
-} // ecs
 } // raekor

@@ -5,10 +5,10 @@
 
 namespace Raekor::VK {
 
-void BindlessDescriptorSet::create(const Device& device, VkDescriptorType type) {
-    const auto& descriptorIndexingProperties = device.getPhysicalProperties().descriptorIndexingProperties;
+void BindlessDescriptorSet::Create(const Device& device, VkDescriptorType type) {
+    const auto& descriptorIndexingProperties = device.GetPhysicalProperties().descriptorIndexingProperties;
 
-    this->type = type;
+    this->m_Type = type;
     uint32_t descriptorCount = 0;
 
     switch (type) {
@@ -56,7 +56,7 @@ void BindlessDescriptorSet::create(const Device& device, VkDescriptorType type) 
     layoutInfo.pBindings = &bindingDesc;
     layoutInfo.pNext = &setLayoutBindingFlags;
 
-    ThrowIfFailed(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &layout));
+    gThrowIfFailed(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &m_Layout));
 
     VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo = {};
     variableDescriptorCountAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
@@ -74,42 +74,42 @@ void BindlessDescriptorSet::create(const Device& device, VkDescriptorType type) 
     pool_info.poolSizeCount = 1;
     pool_info.pPoolSizes = &poolSize;
 
-    ThrowIfFailed(vkCreateDescriptorPool(device, &pool_info, nullptr, &pool));
+    gThrowIfFailed(vkCreateDescriptorPool(device, &pool_info, nullptr, &m_Pool));
 
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = pool;
+    allocInfo.descriptorPool = m_Pool;
     allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = &layout;
+    allocInfo.pSetLayouts = &m_Layout;
     allocInfo.pNext = &variableDescriptorCountAllocInfo;
 
-    ThrowIfFailed(vkAllocateDescriptorSets(device, &allocInfo, &set));
+    gThrowIfFailed(vkAllocateDescriptorSets(device, &allocInfo, &m_Set));
 }
 
 
 
-void BindlessDescriptorSet::destroy(const Device& device) {
-    vkFreeDescriptorSets(device, pool, 1, &set);
-    vkDestroyDescriptorSetLayout(device, layout, nullptr);
-    vkDestroyDescriptorPool(device, pool, nullptr);
+void BindlessDescriptorSet::Destroy(const Device& device) {
+    vkFreeDescriptorSets(device, m_Pool, 1, &m_Set);
+    vkDestroyDescriptorSetLayout(device, m_Layout, nullptr);
+    vkDestroyDescriptorPool(device, m_Pool, nullptr);
 }
 
 
 
-uint32_t BindlessDescriptorSet::append(const Device& device, const VkDescriptorImageInfo& imageInfo) {
+uint32_t BindlessDescriptorSet::Insert(const Device& device, const VkDescriptorImageInfo& imageInfo) {
     VkWriteDescriptorSet write = {};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.descriptorCount = 1;
-    write.descriptorType = type;
+    write.descriptorType = m_Type;
     write.dstBinding = 0;
-    write.dstSet = set;
+    write.dstSet = m_Set;
     write.pImageInfo = &imageInfo;
 
-    if (!freeIndices.empty()) {
-        write.dstArrayElement = freeIndices.back();
-        freeIndices.pop_back();
+    if (!m_FreeIndices.empty()) {
+        write.dstArrayElement = m_FreeIndices.back();
+        m_FreeIndices.pop_back();
     } else {
-        write.dstArrayElement = size++;
+        write.dstArrayElement = m_Size++;
     }
 
     vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);

@@ -14,7 +14,7 @@ ViewportWidget::ViewportWidget(Editor* editor) :
 void ViewportWidget::draw(float dt) {
     auto& scene = IWidget::GetScene();
     auto& renderer = IWidget::GetRenderer();
-    auto& viewport = editor->getViewport();
+    auto& viewport = editor->GetViewport();
 
     // renderer viewport
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4.0f));
@@ -103,7 +103,7 @@ void ViewportWidget::draw(float dt) {
 
     // the viewport image is a drag and drop target for dropping materials onto meshes
     if (ImGui::BeginDragDropTarget()) {
-        auto mousePos = GUI::getMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
+        auto mousePos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
         uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
         entt::entity picked = static_cast<entt::entity>(pixel);
 
@@ -116,7 +116,7 @@ void ViewportWidget::draw(float dt) {
 
             if (mesh) {
                 ImGui::Text(std::string(std::string("Apply to ") + scene.get<Name>(picked).name).c_str());
-                editor->active = picked;
+                editor->m_ActiveEntity = picked;
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
                 ImGui::Text("Invalid target");
@@ -129,7 +129,7 @@ void ViewportWidget::draw(float dt) {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
             if (mesh) {
                 mesh->material = *reinterpret_cast<const entt::entity*>(payload->Data);
-                editor->active = mesh->material;
+                editor->m_ActiveEntity = mesh->material;
             }
         }
 
@@ -142,26 +142,26 @@ void ViewportWidget::draw(float dt) {
     //mouseInViewport = ImGui::IsMouseHoveringRect(viewportMin, viewportMax);
 
     auto& io = ImGui::GetIO();
-    if (io.MouseClicked[0] && mouseInViewport && !(editor->active != entt::null && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
-        auto mousePos = GUI::getMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
+    if (io.MouseClicked[0] && mouseInViewport && !(editor->m_ActiveEntity != entt::null && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
+        auto mousePos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
         uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
         entt::entity picked = static_cast<entt::entity>(pixel);
 
         if (scene.valid(picked)) {
-            editor->active = editor->active == picked ? entt::null : picked;
+            editor->m_ActiveEntity = editor->m_ActiveEntity == picked ? entt::null : picked;
         } else {
-            editor->active = entt::null;
+            editor->m_ActiveEntity = entt::null;
         }
     }
 
 
-    if (editor->active != entt::null && scene.valid(editor->active) && scene.all_of<Transform>(editor->active) && gizmoEnabled) {
+    if (editor->m_ActiveEntity != entt::null && scene.valid(editor->m_ActiveEntity) && scene.all_of<Transform>(editor->m_ActiveEntity) && gizmoEnabled) {
         ImGuizmo::SetDrawlist();
         ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
 
         // temporarily transform to mesh space for gizmo use
-        Transform& transform = scene.get<Transform>(editor->active);
-        Mesh* mesh = scene.try_get<Mesh>(editor->active);
+        Transform& transform = scene.get<Transform>(editor->m_ActiveEntity);
+        Mesh* mesh = scene.try_get<Mesh>(editor->m_ActiveEntity);
 
         if (mesh) {
             transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
@@ -183,7 +183,7 @@ void ViewportWidget::draw(float dt) {
         }
 
         if (manipulated) {
-            transform.decompose();
+            transform.Decompose();
         }
     }
 

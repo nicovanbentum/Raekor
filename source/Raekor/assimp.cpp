@@ -19,126 +19,118 @@ glm::mat4 toMat4(const aiMatrix4x4& from) {
     return to;
 };
 
-} // assimp
+} // namespace Assimp
+
 
 namespace Raekor {
 
 bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
     constexpr unsigned int flags =
-        //aiProcess_PreTransformVertices |
-        aiProcess_FindInstances |
-        aiProcess_OptimizeGraph |
-        aiProcess_RemoveRedundantMaterials |
         aiProcess_GenNormals |
-        aiProcess_CalcTangentSpace |
+        aiProcess_GenUVCoords |
         aiProcess_Triangulate |
         aiProcess_SortByPType |
+        aiProcess_FindInstances |
+        aiProcess_OptimizeGraph |
+        aiProcess_CalcTangentSpace |
         aiProcess_LimitBoneWeights |
+        aiProcess_ValidateDataStructure |
         aiProcess_JoinIdenticalVertices |
-        aiProcess_GenUVCoords |
-        aiProcess_ValidateDataStructure;
+        aiProcess_RemoveRedundantMaterials;
 
     // the importer takes care of deleting the scene
     auto importer = std::make_shared<Assimp::Importer>();
-    assimpScene = importer->ReadFile(file, flags);
+    m_AiScene = importer->ReadFile(file, flags);
 
     // error cases
-    if (!assimpScene || (!assimpScene->HasMeshes() && !assimpScene->HasMaterials())) {
+    if (!m_AiScene || (!m_AiScene->HasMeshes() && !m_AiScene->HasMaterials())) {
         std::cerr << "[ASSIMP] Error loading " << file << ": " << importer->GetErrorString() << '\n';
         return false;
     }
 
-    auto path = fs::path(file);
-    directory = path.parent_path() / "";
+    Timer timer;
+    m_Directory = fs::path(file).parent_path() / "";
 
     // pre-parse materials
-    Timer timer;
-
-    for (unsigned int i = 0; i < assimpScene->mNumMaterials; i++) {
-        printProgressBar("Converting material textures: ", float(i) / assimpScene->mNumMaterials);
-        parseMaterial(assimpScene->mMaterials[i], scene.create());
+    for (unsigned int i = 0; i < m_AiScene->mNumMaterials; i++) {
+        gPrintProgressBar("Converting material textures: ", float(i) / m_AiScene->mNumMaterials);
+        parseMaterial(m_AiScene->mMaterials[i], m_Scene.create());
     }
 
-    std::cout << "Texture conversion took " << Timer::ToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
+    std::cout << "Texture conversion took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
 
     // preload material texture in parallel
-    scene.loadMaterialTextures(assets, materials);
+    m_Scene.LoadMaterialTextures(assets, m_Materials);
 
     // parse the node tree recursively
-    auto root = scene.createObject(assimpScene->mRootNode->mName.C_Str());
-    parseNode(assimpScene->mRootNode, entt::null, root);
+    auto root = m_Scene.CreateSpatialEntity(m_AiScene->mRootNode->mName.C_Str());
+    parseNode(m_AiScene->mRootNode, entt::null, root);
 
-return true;
+    return true;
 }
-
 
 
 void AssimpImporter::parseMaterial(aiMaterial* assimpMaterial, entt::entity entity) {
-    // figure out the material name
-    auto& nameComponent = scene.emplace<Name>(entity);
+    auto& nameComponent = m_Scene.emplace<Name>(entity);
 
-    if (strcmp(assimpMaterial->GetName().C_Str(), "") != 0) {
+    if (strcmp(assimpMaterial->GetName().C_Str(), "") != 0)
         nameComponent.name = assimpMaterial->GetName().C_Str();
-    } else {
+    else
         nameComponent.name = "Material " + std::to_string(entt::to_integral(entity));
-    }
 
-    // process the material
     LoadMaterial(entity, assimpMaterial);
-    materials.push_back(entity);
+    m_Materials.push_back(entity);
 }
-
 
 
 void AssimpImporter::parseNode(const aiNode* assimpNode, entt::entity parent, entt::entity new_entity) {
     // set the name
-    scene.get<Name>(new_entity).name = assimpNode->mName.C_Str();
+    m_Scene.get<Name>(new_entity).name = assimpNode->mName.C_Str();
 
     // set the new entity's parent
     if (parent != entt::null) {
-        NodeSystem::append(scene,
-            scene.get<Node>(parent),
-            scene.get<Node>(new_entity)
+        NodeSystem::sAppend(m_Scene,
+            m_Scene.get<Node>(parent),
+            m_Scene.get<Node>(new_entity)
         );
     }
 
     // translate assimp transformation to glm
     aiMatrix4x4 localTransform = assimpNode->mTransformation;
-    auto& transform = scene.get<Transform>(new_entity);
+    auto& transform = m_Scene.get<Transform>(new_entity);
     transform.localTransform = Assimp::toMat4(localTransform);
-    transform.decompose();
+    transform.Decompose();
 
     // process meshes
     parseMeshes(assimpNode, new_entity, parent);
 
     // process children
     for (uint32_t i = 0; i < assimpNode->mNumChildren; i++) {
-        auto child = scene.createObject(assimpNode->mChildren[i]->mName.C_Str());
+        auto child = m_Scene.CreateSpatialEntity(assimpNode->mChildren[i]->mName.C_Str());
         parseNode(assimpNode->mChildren[i], new_entity, child);
     }
 }
 
 
-
 void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_entity, entt::entity parent) {
     for (uint32_t i = 0; i < assimpNode->mNumMeshes; i++) {
         auto entity = new_entity;
-        const aiMesh* assimpMesh = assimpScene->mMeshes[assimpNode->mMeshes[i]];
+        const aiMesh* assimpMesh = m_AiScene->mMeshes[assimpNode->mMeshes[i]];
 
         // separate entities for multiple meshes
         if (assimpNode->mNumMeshes > 1) {
-            entity = scene.createObject(assimpMesh->mName.C_Str());
+            entity = m_Scene.CreateSpatialEntity(assimpMesh->mName.C_Str());
 
             aiMatrix4x4 localTransform = assimpNode->mTransformation;
-            auto& transform = scene.get<Transform>(entity);
+            auto& transform = m_Scene.get<Transform>(entity);
             transform.localTransform = Assimp::toMat4(localTransform);
-            transform.decompose();
+            transform.Decompose();
 
             auto p = parent != entt::null ? parent : new_entity;
-            NodeSystem::append(
-                scene,
-                scene.get<Node>(p),
-                scene.get<Node>(entity)
+            NodeSystem::sAppend(
+                m_Scene,
+                m_Scene.get<Node>(p),
+                m_Scene.get<Node>(entity)
             );
         }
 
@@ -154,9 +146,8 @@ void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_enti
 }
 
 
-
 void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
-    auto& mesh = scene.emplace<Mesh>(entity);
+    auto& mesh = m_Scene.emplace<Mesh>(entity);
 
     mesh.positions.reserve(assimpMesh->mNumVertices);
     mesh.uvs.reserve(assimpMesh->mNumVertices);
@@ -194,25 +185,24 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
         mesh.indices.push_back(assimpMesh->mFaces[i].mIndices[2]);
     }
 
-    mesh.generateAABB();
+    mesh.CalculateAABB();
 
     if(m_UploadMeshCallback) m_UploadMeshCallback(mesh);
 
-    mesh.material = materials[assimpMesh->mMaterialIndex];
+    mesh.material = m_Materials[assimpMesh->mMaterialIndex];
 }
 
 
-
 void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
-    if (!assimpScene->HasAnimations()) {
+    if (!m_AiScene->HasAnimations()) {
         return;
     }
     
-    auto& mesh = scene.get<Mesh>(entity);
-    auto& skeleton = scene.emplace<Skeleton>(entity);
+    auto& mesh = m_Scene.get<Mesh>(entity);
+    auto& skeleton = m_Scene.emplace<Skeleton>(entity);
 
-    for (uint32_t anim_idx = 0; anim_idx < assimpScene->mNumAnimations; anim_idx++) {
-        skeleton.animations.emplace_back(assimpScene->mAnimations[anim_idx]);
+    for (uint32_t anim_idx = 0; anim_idx < m_AiScene->mNumAnimations; anim_idx++) {
+        skeleton.animations.emplace_back(m_AiScene->mAnimations[anim_idx]);
     }
 
     skeleton.m_BoneWeights.resize(assimpMesh->mNumVertices);
@@ -254,7 +244,7 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
 
     aiNode* root_bone = nullptr;
     std::stack<aiNode*> nodes;
-    nodes.push(assimpScene->mRootNode);
+    nodes.push(m_AiScene->mRootNode);
 
     while (!nodes.empty() && !root_bone) {
         auto current = nodes.top();
@@ -297,9 +287,8 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
 }
 
 
-
 void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpMaterial) {
-    auto& material = scene.emplace<Material>(entity);
+    auto& material = m_Scene.emplace<Material>(entity);
 
     aiString albedoFile, normalmapFile, metalroughFile;
     assimpMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
@@ -327,25 +316,25 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
 
     std::error_code ec;
     if (albedoFile.length) {
-        Async::dispatch([&]() {
-            auto assetPath = TextureAsset::convert(directory.string() + albedoFile.C_Str());
+        Async::sDispatch([&]() {
+            auto assetPath = TextureAsset::sConvert(m_Directory.string() + albedoFile.C_Str());
             material.albedoFile = assetPath;
         });
     }
     if (normalmapFile.length) {
-        Async::dispatch([&]() {
-            auto assetPath = TextureAsset::convert(directory.string() + normalmapFile.C_Str());
+        Async::sDispatch([&]() {
+            auto assetPath = TextureAsset::sConvert(m_Directory.string() + normalmapFile.C_Str());
             material.normalFile = assetPath;
         });
     }
     if (metalroughFile.length) {
-        Async::dispatch([&]() {
-            auto assetPath = TextureAsset::convert(directory.string() + metalroughFile.C_Str());
+        Async::sDispatch([&]() {
+            auto assetPath = TextureAsset::sConvert(m_Directory.string() + metalroughFile.C_Str());
             material.metalroughFile = assetPath;
         });
     }
 
-    Async::wait();
+    Async::sWait();
 }
 
 } // raekor

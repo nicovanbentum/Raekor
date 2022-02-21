@@ -13,7 +13,7 @@ void NodeGraphWidget::draw(float dt) {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2.0f, 2.0f));
 	
 	if (ImGui::Button(ICON_FA_FOLDER_OPEN " Open")) {
-		std::string opened_file_path = OS::openFileDialog("All Files (*.json)\0*.json\0");
+		std::string opened_file_path = OS::sOpenFileDialog("All Files (*.json)\0*.json\0");
 
 		if (!opened_file_path.empty()) {
 			auto ofs = std::ifstream(opened_file_path);
@@ -39,7 +39,7 @@ void NodeGraphWidget::draw(float dt) {
 	ImGui::SameLine();
 
 	if (ImGui::Button(ICON_FA_SAVE " Save As..")) {
-		std::string file_path = OS::saveFileDialog("JSON File (*.json)\0", "json");
+		std::string file_path = OS::sSaveFileDialog("JSON File (*.json)\0", "json");
 
 		if (!file_path.empty()) {
 			auto ofs = std::ofstream(file_path);

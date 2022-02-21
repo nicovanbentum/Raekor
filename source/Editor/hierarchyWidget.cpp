@@ -19,12 +19,12 @@ void HierarchyWidget::draw(float dt) {
     for (auto& [entity, node] : nodes.each()) {
         if (node.parent == entt::null) {
             if (node.firstChild != entt::null) {
-                if (drawFamilyNode(scene, entity, editor->active)) {
-                    drawFamily(scene, entity, editor->active);
+                if (drawFamilyNode(scene, entity, editor->m_ActiveEntity)) {
+                    drawFamily(scene, entity, editor->m_ActiveEntity);
                     ImGui::TreePop();
                 }
             } else {
-                drawChildlessNode(scene, entity, editor->active);
+                drawChildlessNode(scene, entity, editor->m_ActiveEntity);
             }
         }
     }
@@ -96,8 +96,8 @@ void HierarchyWidget::dropTargetNode(entt::registry& scene, entt::entity entity)
                 auto& parentTransform = scene.get<Transform>(entity);
 
 
-                NodeSystem::remove(scene, scene.get<Node>(child));
-                NodeSystem::append(scene, node, scene.get<Node>(child));
+                NodeSystem::sRemove(scene, scene.get<Node>(child));
+                NodeSystem::sAppend(scene, node, scene.get<Node>(child));
             }
 
         }
@@ -116,9 +116,9 @@ void HierarchyWidget::dropTargetWindow(entt::registry& scene) {
             auto& transform = scene.get<Transform>(entity);
 
             transform.localTransform = transform.worldTransform;
-            transform.decompose();
+            transform.Decompose();
 
-            NodeSystem::remove(scene, node);
+            NodeSystem::sRemove(scene, node);
             node.parent = entt::null;
 
         }

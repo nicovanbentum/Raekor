@@ -10,7 +10,7 @@ namespace Raekor {
 
 MenubarWidget::MenubarWidget(Editor* editor) : 
     IWidget(editor, "Menubar"),
-    active(editor->active)
+    active(editor->m_ActiveEntity)
 {}
 
 
@@ -22,31 +22,31 @@ void MenubarWidget::draw(float dt) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New scene")) {
                 scene.clear();
-                editor->active = entt::null;
+                editor->m_ActiveEntity = entt::null;
             }
 
             if (ImGui::MenuItem("Open scene..")) {
-                std::string filepath = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
+                std::string filepath = OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0");
 
                 if (!filepath.empty()) {
                     Timer timer;
-                    SDL_SetWindowTitle(editor->getWindow(), std::string(filepath + " - Raekor Renderer").c_str());
-                    scene.openFromFile(IWidget::GetAssets(), filepath);
-                    editor->active = entt::null;
-                    std::cout << "Open scene time: " << Timer::ToMilliseconds(timer.GetElapsedTime()) << '\n';
+                    SDL_SetWindowTitle(editor->GetWindow(), std::string(filepath + " - Raekor Renderer").c_str());
+                    scene.OpenFromFile(IWidget::GetAssets(), filepath);
+                    editor->m_ActiveEntity = entt::null;
+                    std::cout << "Open scene time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
                 }
             }
 
             if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
-                std::string filepath = OS::saveFileDialog("Scene File (*.scene)\0", "scene");
+                std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
 
                 if (!filepath.empty()) {
-                    scene.saveToFile(IWidget::GetAssets(), filepath);
+                    scene.SaveToFile(IWidget::GetAssets(), filepath);
                 }
             }
 
             if (ImGui::MenuItem("Load model..")) {
-                std::string filepath = OS::openFileDialog("Supported Files(*.gltf, *.fbx, *.glb)\0*.gltf;*.fbx;*.glb\0");
+                std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.fbx, *.glb)\0*.gltf;*.fbx;*.glb\0");
                 
                 if (!filepath.empty()) {
                     AssimpImporter importer(scene);
@@ -59,19 +59,19 @@ void MenubarWidget::draw(float dt) {
             }
 
             if (ImGui::MenuItem("Compile script..")) {
-                std::string filepath = OS::openFileDialog("C++ Files (*.cpp)\0*.cpp\0");
+                std::string filepath = OS::sOpenFileDialog("C++ Files (*.cpp)\0*.cpp\0");
                 if (!filepath.empty()) {
-                    Async::dispatch([filepath]() {
-                        ScriptAsset::convert(filepath);
+                    Async::sDispatch([filepath]() {
+                        ScriptAsset::sConvert(filepath);
                     });
                 }
             }
 
             if (ImGui::MenuItem("Save screenshot..")) {
-                std::string savePath = OS::saveFileDialog("Uncompressed PNG (*.png)\0", "png");
+                std::string savePath = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
 
                 if (!savePath.empty()) {
-                    auto& viewport = editor->getViewport();
+                    auto& viewport = editor->GetViewport();
                     const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
                     
                     auto pixels = std::vector<unsigned char>(bufferSize);
@@ -93,7 +93,7 @@ void MenubarWidget::draw(float dt) {
 
             if (ImGui::MenuItem("Delete", "DEL")) {
                 if (active != entt::null) {
-                    IWidget::GetScene().destroyObject(active);
+                    IWidget::GetScene().DestroySpatialEntity(active);
                     active = entt::null;
                 }
             }
@@ -119,7 +119,7 @@ void MenubarWidget::draw(float dt) {
 
         if (ImGui::BeginMenu("Add")) {
             if (ImGui::MenuItem("Empty", "CTRL+E")) {
-                auto entity = scene.createObject("Empty");
+                auto entity = scene.CreateSpatialEntity("Empty");
                 active = entity;
             }
 
@@ -134,12 +134,12 @@ void MenubarWidget::draw(float dt) {
 
             if (ImGui::BeginMenu("Shapes")) {
                 if (ImGui::MenuItem("Sphere")) {
-                    auto entity = scene.createObject("Sphere");
+                    auto entity = scene.CreateSpatialEntity("Sphere");
                     auto& mesh = scene.emplace<Mesh>(entity);
 
                     if (active != entt::null) {
                         auto& node = scene.get<Node>(entity);
-                        NodeSystem::append(scene, scene.get<Node>(active), node);
+                        NodeSystem::sAppend(scene, scene.get<Node>(active), node);
                     }
 
                     const float radius = 2.0f;
@@ -206,18 +206,18 @@ void MenubarWidget::draw(float dt) {
                         }
                     }
 
-                    mesh.generateTangents();
-                    mesh.generateAABB();
+                    mesh.CalculateTangents();
+                    mesh.CalculateAABB();
                     GLRenderer::uploadMeshBuffers(mesh);
                 }
 
                 if (ImGui::MenuItem("Plane")) {
-                    auto entity = scene.createObject("Plane");
+                    auto entity = scene.CreateSpatialEntity("Plane");
                     auto& mesh = scene.emplace<Mesh>(entity);
                     
                     if (active != entt::null) {
                         auto& node = scene.get<Node>(entity);
-                        NodeSystem::append(scene, scene.get<Node>(active), node);
+                        NodeSystem::sAppend(scene, scene.get<Node>(active), node);
                     }
                     
                     for (const auto& v : UnitPlane::vertices) {
@@ -232,18 +232,18 @@ void MenubarWidget::draw(float dt) {
                         mesh.indices.push_back(triangle.p3);
                     }
 
-                    mesh.generateTangents();
-                    mesh.generateAABB();
+                    mesh.CalculateTangents();
+                    mesh.CalculateAABB();
                     GLRenderer::uploadMeshBuffers(mesh);
                 }
 
                 if (ImGui::MenuItem("Cube")) {
-                    auto entity = scene.createObject("Cube");
+                    auto entity = scene.CreateSpatialEntity("Cube");
                     auto& mesh = scene.emplace<Mesh>(entity);
 
                     if (active != entt::null) {
                         auto& node = scene.get<Node>(entity);
-                        NodeSystem::append(scene, scene.get<Node>(active), node);
+                        NodeSystem::sAppend(scene, scene.get<Node>(active), node);
                     }
 
                     for (const auto& v : UnitCube::vertices) {
@@ -258,8 +258,8 @@ void MenubarWidget::draw(float dt) {
                         mesh.indices.push_back(index.p3);
                     }
 
-                    mesh.generateTangents();
-                    mesh.generateAABB();
+                    mesh.CalculateTangents();
+                    mesh.CalculateAABB();
                     GLRenderer::uploadMeshBuffers(mesh);
                 }
 
@@ -268,13 +268,13 @@ void MenubarWidget::draw(float dt) {
 
             if (ImGui::BeginMenu("Light")) {
                 if (ImGui::MenuItem("Point Light")) {
-                    auto entity = scene.createObject("Point Light");
+                    auto entity = scene.CreateSpatialEntity("Point Light");
                     scene.emplace<PointLight>(entity);
                     active = entity;
                 }
 
                 if (ImGui::MenuItem("Directional Light")) {
-                    auto entity = scene.createObject("Directional Light");
+                    auto entity = scene.CreateSpatialEntity("Directional Light");
                     scene.emplace<DirectionalLight>(entity);
                     active = entity;
                 }

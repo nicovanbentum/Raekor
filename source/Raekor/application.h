@@ -8,9 +8,9 @@ namespace Raekor {
 struct ConfigSettings {
     int display = 0;
     bool vsync = true;
-    std::string name = "Raekor";
-    std::string font = "resources/Roboto-Regular.ttf";
-    std::string defaultScene = "scenes/sponza.scene";
+    std::string name = "";
+    std::string font = "";
+    std::string defaultScene = "";
     std::array<std::array<float, 4>, ImGuiCol_COUNT> themeColors;
 
     template<typename Archive> 
@@ -22,7 +22,6 @@ struct ConfigSettings {
 };
 
 
-
 enum RendererFlags {
     NONE = 0,
     OPENGL = SDL_WINDOW_OPENGL,
@@ -30,30 +29,29 @@ enum RendererFlags {
 };
 
 
-
 class Application {
 public:
     friend class InputHandler;
 
-    Application(RendererFlags flag);
+    Application(RendererFlags flags);
     virtual ~Application();
 
-    void run();
+    void Run();
     void Terminate() { m_Running = false; }
 
-    virtual void onUpdate(float dt)  = 0;
-    virtual void onEvent(const SDL_Event& event) = 0;
+    virtual void OnUpdate(float dt)  = 0;
+    virtual void OnEvent(const SDL_Event& event) = 0;
 
-    SDL_Window* getWindow() { return window; }
-    Viewport& getViewport() { return m_Viewport; }
+    SDL_Window* GetWindow() { return m_Window; }
+    Viewport& GetViewport() { return m_Viewport; }
 
 public:
     bool m_Running = true;
 
 protected:
     Viewport m_Viewport;
-    SDL_Window* window = nullptr;
-    ConfigSettings settings;
+    ConfigSettings m_Settings;
+    SDL_Window* m_Window = nullptr;
 };
 
 } // Namespace Raekor

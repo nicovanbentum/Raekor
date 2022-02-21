@@ -1,33 +1,32 @@
 #include "pch.h"
 #include "camera.h"
 #include "input.h"
-#include "cvars.h"
 
 namespace Raekor {
 
 Camera::Camera(glm::vec3 position, glm::mat4 proj) :
-    position(position),
-    angle(static_cast<float>(M_PI), 0.0f) {
-    projection = proj;
+    m_Position(position),
+    m_Angle(static_cast<float>(M_PI), 0.0f) {
+    m_Projection = proj;
 }
 
 
 void Camera::OnUpdate(float dt) {
     auto dir = GetForwardVector();
-    view = glm::lookAtRH(position, position + dir, { 0, 1, 0 });
+    m_View = glm::lookAtRH(m_Position, m_Position + dir, { 0, 1, 0 });
 
     if (SDL_GetRelativeMouseMode()) {
-        if (Input::isKeyPressed(SDL_SCANCODE_W)) {
+        if (Input::sIsKeyPressed(SDL_SCANCODE_W)) {
             Zoom(float(zoomConstant * dt));
         }
-        else if (Input::isKeyPressed(SDL_SCANCODE_S)) {
+        else if (Input::sIsKeyPressed(SDL_SCANCODE_S)) {
             Zoom(float(-zoomConstant * dt));
         }
 
-        if (Input::isKeyPressed(SDL_SCANCODE_A)) {
+        if (Input::sIsKeyPressed(SDL_SCANCODE_A)) {
             Move({ moveConstant * dt, 0.0f });
         }
-        else if (Input::isKeyPressed(SDL_SCANCODE_D)) {
+        else if (Input::sIsKeyPressed(SDL_SCANCODE_D)) {
             Move({ -moveConstant * dt, 0.0f });
         }
     }
@@ -36,50 +35,50 @@ void Camera::OnUpdate(float dt) {
 
 void Camera::Zoom(float amount) {
     auto dir = GetForwardVector();
-    position += dir * (amount * zoomSpeed);
+    m_Position += dir * (amount * zoomSpeed);
 }
 
 
 void Camera::Look(glm::vec2 amount) {
-    angle.x += float(amount.x * -1);
-    angle.y += float(amount.y * -1);
+    m_Angle.x += float(amount.x * -1);
+    m_Angle.y += float(amount.y * -1);
     // clamp to roughly half pi so we dont overshoot
-    angle.y = std::clamp(angle.y, -1.57078f, 1.57078f);
+    m_Angle.y = std::clamp(m_Angle.y, -1.57078f, 1.57078f);
 }
 
 
 void Camera::Move(glm::vec2 amount) {
     auto dir = GetForwardVector();
     // sideways
-    position += glm::normalize(glm::cross(dir, { 0.0f, 1.0f, 0.0f })) * (amount.x * -moveSpeed);
+    m_Position += glm::normalize(glm::cross(dir, { 0.0f, 1.0f, 0.0f })) * (amount.x * -moveSpeed);
     // up and down
-    position.y += float(amount.y * moveSpeed);
+    m_Position.y += float(amount.y * moveSpeed);
 }
 
 
 glm::vec3 Camera::GetForwardVector() {
-    return glm::vec3(cos(angle.y) * sin(angle.x),
-        sin(angle.y), cos(angle.y) * cos(angle.x));
+    return glm::vec3(cos(m_Angle.y) * sin(m_Angle.x),
+        sin(m_Angle.y), cos(m_Angle.y) * cos(m_Angle.x));
 }
 
 
 float Camera::GetFov() const {
-    return 2.0f * atan(1.0f / projection[1][1]) * 180.0f / (float)M_PI;
+    return 2.0f * atan(1.0f / m_Projection[1][1]) * 180.0f / (float)M_PI;
 }
 
 
 float Camera::GetFar() const { 
-    return projection[3][2] / (projection[2][2] + 1.0f); 
+    return m_Projection[3][2] / (m_Projection[2][2] + 1.0f);
 }
 
 
 float Camera::GetNear() const { 
-    return projection[3][2] / (projection[2][2] - 1.0f); 
+    return m_Projection[3][2] / (m_Projection[2][2] - 1.0f);
 }
 
 
 float Camera::GetAspectRatio() const {
-    return projection[1][1] / projection[0][0];
+    return m_Projection[1][1] / m_Projection[0][0];
 }
 
 

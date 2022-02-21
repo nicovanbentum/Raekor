@@ -21,30 +21,32 @@ public:
     Async(int threadCount);
     ~Async();
 
-    // queue up a random lambda of signature void(void)
-    static Handle dispatch(const Task& task);
+    /* Queue up a dispatch: lambda of signature void(void) */
+    static Handle sDispatch(const Task& task);
 
-    // wait for all tasks to finish or a specific dispatch
-    static void wait();
-    static void wait(const Handle& dispatch);
+    /* Wait for all dispatches to finish. */ 
+    static void sWait();
 
-    // scoped lock on the global mutex, 
-    // useful for ensuring thread safety inside a dispatch
-    [[nodiscard]] static std::scoped_lock<std::mutex> lock();
+    /* Wait for a specific dispatch to finish. */
+    static void sWait(const Handle& dispatch);
+
+    /* Scoped lock on the global mutex,
+        useful for ensuring thread safety inside a dispatch. */
+    [[nodiscard]] static std::scoped_lock<std::mutex> sLock();
 
 private:
     // per-thread function that waits on and executes tasks
-    void loop();
+    void ThreadLoop();
 
-    bool quit = false;
-    std::mutex mutex;
-    std::condition_variable cv;
-    std::vector<std::thread> threads;
-    std::atomic<uint32_t> activeTaskCount = 0;
-    std::queue<std::shared_ptr<Dispatch>> queue;
+    bool m_Quit = false;
+    std::mutex m_Mutex;
+    std::condition_variable m_CondVar;
+    std::vector<std::thread> m_Threads;
+    std::atomic<uint32_t> m_ActiveDispatchCount = 0;
+    std::queue<std::shared_ptr<Dispatch>> m_DispatchQueue;
 
-    // singleton
-    static inline std::unique_ptr<Async> async = std::make_unique<Async>();
+    // global singleton
+    static inline std::unique_ptr<Async> global = std::make_unique<Async>();
 };
 
 }

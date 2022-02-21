@@ -12,17 +12,16 @@ public:
     PathTracer();
     virtual ~PathTracer();
 
-    virtual void onUpdate(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override;
+    virtual void OnUpdate(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override;
 
 private:
-    Scene scene;
-    Assets assets;
-    VK::Renderer renderer;
+    Scene m_Scene;
+    Assets m_Assets;
+    VK::Renderer m_Renderer;
     
-    bool isImGuiEnabled = true;
-    bool shouldRecreateSwapchain = true;
-
+    bool m_IsImGuiEnabled = true;
+    bool m_IsSwapchainDirty = true;
 };
 
 }

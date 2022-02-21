@@ -9,34 +9,34 @@
 namespace Raekor::VK {
 
 class Device;
-class Swapchain;
+class SwapChain;
 class PathTracePass;
 class BindlessDescriptorSet;
 
 class ImGuiPass {
 public:
-    void initialize(Device& device, const Swapchain& swapchain, PathTracePass& pathTracePass, BindlessDescriptorSet& textures);
-    void destroy(Device& device);
+    void Init(Device& device, const SwapChain& swapchain, PathTracePass& pathTracePass, BindlessDescriptorSet& textures);
+    void Destroy(Device& device);
 
-    void record(Device& device, VkCommandBuffer commandBuffer, ImDrawData* data, BindlessDescriptorSet& textures, uint32_t width, uint32_t height, PathTracePass& pathTracePass);
-    void createFramebuffer(Device& device, PathTracePass& pathTracePass, uint32_t width, uint32_t height);
-    void destroyFramebuffer(Device& device);
+    void Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData* data, BindlessDescriptorSet& textures, uint32_t width, uint32_t height, PathTracePass& pathTracePass);
+    void CreateFramebuffer(Device& device, PathTracePass& pathTracePass, uint32_t width, uint32_t height);
+    void DestroyFramebuffer(Device& device);
 
 private:
-    Shader pixelShader;
-    Shader vertexShader;
+    Shader m_PixelShader;
+    Shader m_VertexShader;
 
-    Buffer vertexBuffer;
-    Buffer indexBuffer;
+    Buffer m_VertexBuffer;
+    Buffer m_IndexBuffer;
 
-    Texture fontTexture;
-    Sampler fontSampler;
-    int32_t fontTextureID = -1;
+    Texture m_FontTexture;
+    Sampler m_FontSampler;
+    int32_t m_FontTextureID = -1;
 
-    GraphicsPipeline pipeline;
-    VkPipelineLayout pipelineLayout;
+    FrameBuffer m_FrameBuffer;
+    GraphicsPipeline m_Pipeline;
+    VkPipelineLayout m_PipelineLayout;
 
-    FrameBuffer framebuffer;
 
 };
 

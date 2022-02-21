@@ -18,7 +18,7 @@ public:
     inline static PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
     inline static PFN_vkCmdPipelineBarrier2KHR vkCmdPipelineBarrier2KHR;
 
-    static void init(VkDevice device);
+    static void sInit(VkDevice device);
 };
 
 

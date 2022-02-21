@@ -13,7 +13,7 @@ class Assets;
 class GLRenderer;
 
 #define TYPE_ID(Type) \
-constexpr static uint32_t m_TypeID = Hash32Bit(#Type); \
+constexpr static uint32_t m_TypeID = gHash32Bit(#Type); \
 virtual const uint32_t GetTypeID() const override { return m_TypeID; }
 
 class ITypeID {

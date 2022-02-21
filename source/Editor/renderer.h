@@ -14,14 +14,14 @@ class GLRenderer {
     friend class ViewportWidget;
 
     struct {
-        int& vsync              = ConVars::create("r_vsync", 1);
-        int& doBloom            = ConVars::create("r_bloom", 0);
-        int& paused             = ConVars::create("r_paused", 0);
-        int& enableTAA          = ConVars::create("r_taa", 1);
-        int& debugVoxels        = ConVars::create("r_voxelize_debug", 0);
-        int& debugCascades      = ConVars::create("r_debug_cascades", 0);
-        int& disableTiming      = ConVars::create("r_disable_timings", 0);
-        int& shouldVoxelize     = ConVars::create("r_voxelize", 1);
+        int& vsync              = CVars::sCreate("r_vsync", 1);
+        int& doBloom            = CVars::sCreate("r_bloom", 0);
+        int& paused             = CVars::sCreate("r_paused", 0);
+        int& enableTAA          = CVars::sCreate("r_taa", 1);
+        int& debugVoxels        = CVars::sCreate("r_voxelize_debug", 0);
+        int& debugCascades      = CVars::sCreate("r_debug_cascades", 0);
+        int& disableTiming      = CVars::sCreate("r_disable_timings", 0);
+        int& shouldVoxelize     = CVars::sCreate("r_voxelize", 1);
     } settings;
 
 public:

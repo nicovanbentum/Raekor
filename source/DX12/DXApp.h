@@ -76,8 +76,8 @@ public:
     DXApp();
     ~DXApp();
 
-    virtual void onUpdate(float dt) override;
-    virtual void onEvent(const SDL_Event& event) override;
+    virtual void OnUpdate(float dt) override;
+    virtual void OnEvent(const SDL_Event& event) override;
 
 private:
     Scene m_Scene;

@@ -5,7 +5,7 @@
 
 namespace Raekor::VK {
 
-bool Shader::glslangValidator(const char* vulkanSDK, const fs::directory_entry& file) {
+bool Shader::sCompileGLSL(const char* vulkanSDK, const fs::directory_entry& file) {
     const auto outfile = file.path().parent_path() / "bin" / file.path().filename();
 
     std::stringstream command;
@@ -25,7 +25,7 @@ bool Shader::glslangValidator(const char* vulkanSDK, const fs::directory_entry& 
 
 
 
-bool Shader::DXC(const fs::directory_entry& file) {
+bool Shader::sCompileHLSL(const fs::directory_entry& file) {
     const auto outfile = file.path().parent_path() / "bin" / file.path().filename();
 
     const auto name = file.path().stem().string();
@@ -51,7 +51,7 @@ bool Shader::DXC(const fs::directory_entry& file) {
 
 
 
-Shader Device::createShader(const std::string& filepath) {
+Shader Device::CreateShader(const std::string& filepath) {
     std::ifstream file(filepath, std::ios::ate | std::ios::binary);
 
     if (!file.is_open()) {
@@ -73,7 +73,7 @@ Shader Device::createShader(const std::string& filepath) {
 
     Shader shader;
     shader.filepath = filepath;
-    ThrowIfFailed(vkCreateShaderModule(device, &createInfo, nullptr, &shader.module));
+    gThrowIfFailed(vkCreateShaderModule(m_Device, &createInfo, nullptr, &shader.module));
 
     SpvReflectResult result = spvReflectCreateShaderModule(spirv.size(), spirv.data(), &shader.reflectModule);
     assert(result == SPV_REFLECT_RESULT_SUCCESS);
@@ -101,9 +101,9 @@ Shader Device::createShader(const std::string& filepath) {
 
 
 
-void Device::destroyShader(Shader& shader) {
+void Device::DestroyShader(Shader& shader) {
     if (shader.module != VK_NULL_HANDLE) {
-        vkDestroyShaderModule(device, shader.module, nullptr);
+        vkDestroyShaderModule(m_Device, shader.module, nullptr);
         shader.module = VK_NULL_HANDLE;
     }
 
@@ -112,7 +112,7 @@ void Device::destroyShader(Shader& shader) {
 
 
 
-VkPipelineShaderStageCreateInfo Shader::getPipelineCreateInfo() const {
+VkPipelineShaderStageCreateInfo Shader::GetPipelineCreateInfo() const {
     VkPipelineShaderStageCreateInfo stage_info = {};
     stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stage_info.stage = stage;

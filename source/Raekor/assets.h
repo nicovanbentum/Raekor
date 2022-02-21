@@ -2,23 +2,22 @@
 
 #include "dds.h"
 
-
 namespace Raekor {
 
 class Asset {
 public:
     Asset() = default;
-    Asset(const std::string& filepath) : m_path(filepath) {}
+    Asset(const std::string& path) : m_Path(path) {}
     virtual ~Asset() = default;
 
-    inline fs::path path() { return m_path; }
+    fs::path GetPath() { return m_Path; }
+    const fs::path& GetPath() const { return m_Path; }
 
-    virtual bool load(const std::string& inpath) = 0;
+    virtual bool Load(const std::string& path) = 0;
 
-public:
-    fs::path m_path;
+protected:
+    fs::path m_Path;
 };
-
 
 
 class Assets : public std::unordered_map<std::string, std::shared_ptr<Asset>> {
@@ -29,63 +28,48 @@ public:
     Assets& operator=(Assets&) = delete;
     Assets& operator=(Assets&&) = delete;
 
-    void CollectGarbage() {
-        std::vector<std::string> keys;
-
-        for (const auto& [key, value] : *this) {
-            if (value.use_count() == 1) {
-                keys.push_back(key);
-            }
-        }
-
-        for (const auto& key : keys) {
-            release(key);
-        }
-    }
-
-
     template<typename T>
-    std::shared_ptr<T> get(const std::string& filepath) {
-        if (!fs::exists(filepath)) {
-            return nullptr;
-        }
+    std::shared_ptr<T> Get(const std::string& path);
+    void Release(const std::string& path);
 
-        {
-            std::scoped_lock lk(loadMutex);
-
-            // if it already has an asset pointer it means some other thread already added it,
-            // so just return whats already there, the thread that added it is responsible for loading.
-            if (find(filepath) != end()) {
-                return std::static_pointer_cast<T>(operator[](filepath));
-            } else {
-                operator[](filepath) = std::shared_ptr<Asset>(new T(filepath));
-            }
-
-            // only get here if this thread created the asset pointer, try to load it.
-            // if load success we return the asset pointer
-            if (operator[](filepath)->load(filepath)) {
-                return std::static_pointer_cast<T>(operator[](filepath));
-            } else {
-                // if load failed, lock -> remove asset pointer -> return nullptr
-                erase(filepath);
-                return nullptr;
-            }
-        }
-    }
-
-    void release(const std::string& filepath) {
-        std::scoped_lock(releaseMutex);
-        
-        if (find(filepath) != end()) {
-            erase(filepath);
-        }
-    }
+    void CollectGarbage();
 
 private:
-    std::mutex loadMutex;
-    std::mutex releaseMutex;
+    std::mutex m_LoadMutex;
+    std::mutex m_ReleaseMutex;
 };
 
+
+template<typename T>
+std::shared_ptr<T> Assets::Get(const std::string& path) {
+    if (!fs::exists(path)) {
+        return nullptr;
+    }
+
+    {
+        std::scoped_lock lk(m_LoadMutex);
+
+        // if it already has an asset pointer it means some other thread added it,
+        // so just return whats there, the thread that added it is responsible for loading.
+        if (find(path) != end()) {
+            return std::static_pointer_cast<T>(at(path));
+        }
+        else {
+            insert(std::make_pair(path, std::shared_ptr<Asset>(new T(path))));
+        }
+
+        // only get here if this thread created the asset pointer, try to load it.
+        // if load succeeds we return the asset pointer
+        if (at(path)->Load(path)) {
+            return std::static_pointer_cast<T>(at(path));
+        }
+        else {
+            // if load failed, lock -> remove asset pointer -> return nullptr
+            erase(path);
+            return nullptr;
+        }
+    }
+}
 
 
 class TextureAsset : public Asset {
@@ -93,24 +77,22 @@ public:
     using Ptr = std::shared_ptr<TextureAsset>;
 
     TextureAsset() = default;
-    TextureAsset(const std::string& filepath);
+    TextureAsset::TextureAsset(const std::string& filepath) : Asset(filepath) {}
+    virtual ~TextureAsset() = default;
 
-    static std::string convert(const std::string& filepath);
-    virtual bool load(const std::string& filepath) override;
+    static std::string sConvert(const std::string& path);
+    virtual bool Load(const std::string& path) override;
 
     template<class Archive> 
-    void serialize(Archive& archive) {
-        archive(data);
-    }
+    void serialize(Archive& archive) { archive(m_Data); }
 
-    const DDS_HEADER* header();
-    char* const getData();
-    uint32_t getDataSize() const;
+    char* const         GetData();
+    const DDS_HEADER*   GetHeader();
+    uint32_t            GetDataSize() const;
 
 private:
-    std::vector<char> data;
+    std::vector<char> m_Data;
 };
-
 
 
 class ScriptAsset : public Asset {
@@ -118,26 +100,23 @@ public:
     using Ptr = std::shared_ptr<ScriptAsset>;
 
     ScriptAsset() = default;
-    ScriptAsset(const std::string& filepath);
+    ScriptAsset::ScriptAsset(const std::string& filepath) : Asset(filepath) {}
     virtual ~ScriptAsset();
 
-    static std::string convert(const std::string& filepath);
-    virtual bool load(const std::string& filepath) override;
-
-    void enumerateSymbols();
+    static std::string sConvert(const std::string& filepath);
+    virtual bool Load(const std::string& filepath) override;
 
     template<class Archive> 
-    void serialize(Archive& archive) {
-    }
+    void serialize(Archive& archive) {}
 
-    HMODULE getModule() { return hmodule; }
+    void EnumerateSymbols();
+    HMODULE GetModule() { return m_HModule; }
 
 private:
-    HMODULE hmodule;
+    HMODULE m_HModule;
 };
 
-
-} // raekor
+} // namespace raekor
 
 CEREAL_REGISTER_TYPE(Raekor::ScriptAsset);
 CEREAL_REGISTER_TYPE(Raekor::TextureAsset);

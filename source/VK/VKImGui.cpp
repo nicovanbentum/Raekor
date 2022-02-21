@@ -10,34 +10,33 @@
 
 namespace Raekor::VK {
 
-void ImGuiPass::initialize(Device& device, const Swapchain& swapchain, PathTracePass& pathTracePass, BindlessDescriptorSet& textures) {
-	constexpr size_t maxVertices = sizeof(ImDrawVert) * 64000;
-	constexpr size_t maxIndices = sizeof(ImDrawIdx) * 40000;
+void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& pathTracePass, BindlessDescriptorSet& textures) {
+	constexpr size_t max_vertices = sizeof(ImDrawVert) * 64000;
+	constexpr size_t max_indices = sizeof(ImDrawIdx) * 40000;
 
-	vertexBuffer = device.createBuffer(
-		maxVertices, 
+	m_VertexBuffer = device.CreateBuffer(
+		max_vertices,
 		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
 		VMA_MEMORY_USAGE_CPU_TO_GPU
 	);
 
-	indexBuffer = device.createBuffer(
-		maxIndices, 
+	m_IndexBuffer = device.CreateBuffer(
+		max_indices,
 		VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
 		VMA_MEMORY_USAGE_CPU_TO_GPU
 	);
 
-	auto& io = ImGui::GetIO();
-	unsigned char* pixels;
 	int width, height;
-	io.Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
+	unsigned char* pixels;
+	ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
 	
-	Buffer stagingBuffer = device.createBuffer(
+	Buffer stagingBuffer = device.CreateBuffer(
 		width * height, 
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 		VMA_MEMORY_USAGE_CPU_ONLY
 	);
 
-	memcpy(device.getMappedPointer(stagingBuffer), pixels, width * height);
+	memcpy(device.GetMappedPointer(stagingBuffer), pixels, width * height);
 
 	{
 		Texture::Desc desc;
@@ -45,127 +44,126 @@ void ImGuiPass::initialize(Device& device, const Swapchain& swapchain, PathTrace
 		desc.width = width;
 		desc.height = height;
 
-		fontTexture = device.createTexture(desc);
+		m_FontTexture = device.CreateTexture(desc);
 	}
 
-	device.transitionImageLayout(
-		fontTexture,
+	device.TransitionImageLayout(
+		m_FontTexture,
 		VK_IMAGE_LAYOUT_UNDEFINED, 
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
 	);
 
-	device.copyBufferToImage(stagingBuffer, fontTexture, width, height);
+	device.CopyBufferToImage(stagingBuffer, m_FontTexture, width, height);
 
-	device.transitionImageLayout(
-		fontTexture,
+	device.TransitionImageLayout(
+		m_FontTexture,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 	);
 
-	device.destroyBuffer(stagingBuffer);
+	device.DestroyBuffer(stagingBuffer);
 
-	fontSampler = device.createSampler(Sampler::Desc());
+	m_FontSampler = device.CreateSampler(Sampler::Desc());
 
-	VkDescriptorImageInfo imageInfo = {};
-	imageInfo.imageView = device.createView(fontTexture);
-	imageInfo.sampler = fontSampler.native();
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	VkDescriptorImageInfo image_info = {};
+	image_info.imageView = device.CreateView(m_FontTexture);
+	image_info.sampler = m_FontSampler.sampler;
+	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	fontTextureID = textures.append(device, imageInfo);
-	io.Fonts->TexID = &fontTextureID;
+	m_FontTextureID = textures.Insert(device, image_info);
+	ImGui::GetIO().Fonts->TexID = &m_FontTextureID;
 
-	VkPushConstantRange pushConstantRange = {};
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
-	pushConstantRange.size = 128; // TODO: query size from physical device
+	VkPushConstantRange push_constant_range = {};
+	push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
+	push_constant_range.size = 128; // TODO: query size from physical device
 
-	VkPipelineLayoutCreateInfo layoutInfo = {};
-	layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layoutInfo.setLayoutCount = 1;
-	layoutInfo.pSetLayouts = &textures.getLayout();
-	layoutInfo.pushConstantRangeCount = 1;
-	layoutInfo.pPushConstantRanges = &pushConstantRange;
+	VkPipelineLayoutCreateInfo layout_info = {};
+	layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layout_info.setLayoutCount = 1;
+	layout_info.pSetLayouts = &textures.GetLayout();
+	layout_info.pushConstantRangeCount = 1;
+	layout_info.pPushConstantRanges = &push_constant_range;
 
-	ThrowIfFailed(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout));
+	gThrowIfFailed(vkCreatePipelineLayout(device, &layout_info, nullptr, &m_PipelineLayout));
 
-	auto vertexInput = GraphicsPipeline::VertexInput()
-		.binding(0, sizeof(ImDrawVert))
-		.attribute(0, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, pos))
-		.attribute(1, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, uv))
-		.attribute(2, VK_FORMAT_R32_UINT, offsetof(ImDrawVert, col));
+	auto vertex_input = GraphicsPipeline::VertexInput()
+		.Binding(0, sizeof(ImDrawVert))
+		.Attribute(0, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, pos))
+		.Attribute(1, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, uv))
+		.Attribute(2, VK_FORMAT_R32_UINT, offsetof(ImDrawVert, col));
 
-	pixelShader = device.createShader("assets/system/shaders/Vulkan/bin/imguiPS.hlsl.spv");
-	vertexShader = device.createShader("assets/system/shaders/Vulkan/bin/imguiVS.hlsl.spv");
+	m_PixelShader = device.CreateShader("assets/system/shaders/Vulkan/bin/imguiPS.hlsl.spv");
+	m_VertexShader = device.CreateShader("assets/system/shaders/Vulkan/bin/imguiVS.hlsl.spv");
 
-	GraphicsPipeline::State state;
-	state.rasterizer.cullMode = VK_CULL_MODE_NONE;
-	state.colorBlend.attachmentCount = 1;
+	GraphicsPipeline::State pipeline_state;
+	pipeline_state.rasterizer.cullMode = VK_CULL_MODE_NONE;
+	pipeline_state.colorBlend.attachmentCount = 1;
 
-	auto framebufferDesc = FrameBuffer::Desc();
-	framebufferDesc.width = swapchain.extent.width;
-	framebufferDesc.height = swapchain.extent.height;
-	framebufferDesc.colorAttachment(0, pathTracePass.finalTexture);
+	FrameBuffer::Desc framebuffer_desc;
+	framebuffer_desc.width = swapchain.extent.width;
+	framebuffer_desc.height = swapchain.extent.height;
+	framebuffer_desc.ColorAttachment(0, pathTracePass.finalTexture);
 
-	framebuffer = device.createFrameBuffer(framebufferDesc);
+	m_FrameBuffer = device.CreateFrameBuffer(framebuffer_desc);
 	
-	auto pipelineDesc = GraphicsPipeline::Desc();
-	pipelineDesc.state = &state;
-	pipelineDesc.vertexShader = &vertexShader;
-	pipelineDesc.vertexInput = &vertexInput;
-	pipelineDesc.pixelShader = &pixelShader;
+	GraphicsPipeline::Desc pipeline_desc;
+	pipeline_desc.state = &pipeline_state;
+	pipeline_desc.vertexShader = &m_VertexShader;
+	pipeline_desc.vertexInput = &vertex_input;
+	pipeline_desc.pixelShader = &m_PixelShader;
 	
-	pipeline = device.createGraphicsPipeline(pipelineDesc, framebuffer, pipelineLayout);
+	m_Pipeline = device.CreateGraphicsPipeline(pipeline_desc, m_FrameBuffer, m_PipelineLayout);
 }
 
 
-void ImGuiPass::destroy(Device& device) {
-	device.destroyBuffer(indexBuffer);
-	device.destroyBuffer(vertexBuffer);
+void ImGuiPass::Destroy(Device& device) {
+	device.DestroyBuffer(m_IndexBuffer);
+	device.DestroyBuffer(m_VertexBuffer);
 
-	device.destroyShader(pixelShader);
-	device.destroyShader(vertexShader);
+	device.DestroyShader(m_PixelShader);
+	device.DestroyShader(m_VertexShader);
 	
-	device.destroyTexture(fontTexture);
-	device.destroySampler(fontSampler);
+	device.DestroyTexture(m_FontTexture);
+	device.DestroySampler(m_FontSampler);
 
-	device.destroyFrameBuffer(framebuffer);
-	device.destroyGraphicsPipeline(pipeline);
+	device.DestroyFrameBuffer(m_FrameBuffer);
+	device.DestroyGraphicsPipeline(m_Pipeline);
 }
 
 
-
-void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData* data, BindlessDescriptorSet& textures, uint32_t width, uint32_t height, PathTracePass& pathTracePass) {
-	uint8_t* vertexData = static_cast<uint8_t*>(device.getMappedPointer(vertexBuffer));
-	uint8_t* indexData = static_cast<uint8_t*>(device.getMappedPointer(indexBuffer));
-	uint32_t vtxOffset = 0, idxOffset = 0;
+void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData* data, BindlessDescriptorSet& textures, uint32_t width, uint32_t height, PathTracePass& pathTracePass) {
+	uint8_t* vertices = static_cast<uint8_t*>(device.GetMappedPointer(m_VertexBuffer));
+	uint8_t* indices = static_cast<uint8_t*>(device.GetMappedPointer(m_IndexBuffer));
+	uint32_t vertex_offset = 0, index_offset = 0;
 
 
 	for (int n = 0; n < data->CmdListsCount; n++) {
 		const ImDrawList* cmdList = data->CmdLists[n];
 		
-		uint32_t vertexSize = cmdList->VtxBuffer.Size * sizeof(ImDrawVert);
-		memcpy(vertexData + vtxOffset, cmdList->VtxBuffer.Data, vertexSize);
-		vtxOffset += vertexSize;
+		uint32_t vertex_size = cmdList->VtxBuffer.Size * sizeof(ImDrawVert);
+		memcpy(vertices + vertex_offset, cmdList->VtxBuffer.Data, vertex_size);
+		vertex_offset += vertex_size;
 
-		uint32_t indexSize = cmdList->IdxBuffer.Size * sizeof(ImDrawIdx);
-		memcpy(indexData + idxOffset, cmdList->IdxBuffer.Data, indexSize);
-		idxOffset += indexSize;
+		uint32_t index_size = cmdList->IdxBuffer.Size * sizeof(ImDrawIdx);
+		memcpy(indices + index_offset, cmdList->IdxBuffer.Data, index_size);
+		index_offset += index_size;
 	}
 
 	struct PushConstants {
 		glm::mat4 projection;
 		int32_t textureIndex;
-	} pushConstants;
+	} push_constants;
 
-	pushConstants.projection = glm::ortho(0.0f, data->DisplaySize.x, data->DisplaySize.y, 0.0f);
+	push_constants.projection = glm::ortho(0.0f, data->DisplaySize.x, data->DisplaySize.y, 0.0f);
 
 	std::vector<VkRenderingAttachmentInfo> colorAttachments;
-	colorAttachments.reserve(framebuffer.description.colorAttachments.size());
+	colorAttachments.reserve(m_FrameBuffer.description.colorAttachments.size());
 
-	for (const auto& texture : framebuffer.description.colorAttachments) {
+	for (const auto& texture : m_FrameBuffer.description.colorAttachments) {
 		if (texture) {
 			auto& attachment = colorAttachments.emplace_back();
 			attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-			attachment.imageView = device.createView(*texture);
+			attachment.imageView = device.CreateView(*texture);
 			attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 			attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -183,27 +181,26 @@ void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 	vkCmdBeginRendering(commandBuffer, &renderInfo);
 
 	VkDeviceSize offset[] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offset);
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &m_VertexBuffer.buffer, offset);
 	
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &textures.getDescriptorSet(), 0, nullptr);
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline.pipeline);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &textures.GetDescriptorSet(), 0, nullptr);
 
-	vtxOffset = 0;
-	idxOffset = 0;
+	index_offset = 0;
+	vertex_offset = 0;
 
 	for (uint32_t list = 0; list < uint32_t(data->CmdListsCount); list++) {
-		const ImDrawList* cmdList = data->CmdLists[list];
+		const ImDrawList* cmd_list = data->CmdLists[list];
 
-		for (const auto& cmd : cmdList->CmdBuffer) {
-
+		for (const auto& cmd : cmd_list->CmdBuffer) {
 			if (cmd.ElemCount == 0) continue;
 
 			if (cmd.UserCallback)
 			{
-				cmd.UserCallback(cmdList, &cmd);
+				cmd.UserCallback(cmd_list, &cmd);
 			} else {
-				pushConstants.textureIndex = cmd.TextureId ? *static_cast<int32_t*>(cmd.TextureId) : -1;
-				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &pushConstants);
+				push_constants.textureIndex = cmd.TextureId ? *static_cast<int32_t*>(cmd.TextureId) : -1;
+				vkCmdPushConstants(commandBuffer, m_PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
 
 				ImVec4 clip = ImVec4(
 					cmd.ClipRect.x - data->DisplayPos.x,
@@ -227,14 +224,14 @@ void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 
 				vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 				vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-				vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, idxOffset, VK_INDEX_TYPE_UINT16);
-				vkCmdDrawIndexed(commandBuffer, cmd.ElemCount, 1, 0, vtxOffset, 0);
+				vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer.buffer, index_offset, VK_INDEX_TYPE_UINT16);
+				vkCmdDrawIndexed(commandBuffer, cmd.ElemCount, 1, 0, vertex_offset, 0);
 			}
 
-			idxOffset += cmd.ElemCount * sizeof(ImDrawIdx);
+			index_offset += cmd.ElemCount * sizeof(ImDrawIdx);
 		}
 
-		vtxOffset += cmdList->VtxBuffer.Size;
+		vertex_offset += cmd_list->VtxBuffer.Size;
 	}
 
 	vkCmdEndRendering(commandBuffer);
@@ -242,19 +239,19 @@ void ImGuiPass::record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 
 
 
-void ImGuiPass::createFramebuffer(Device& device, PathTracePass& pathTracePass, uint32_t width, uint32_t height) {
-	auto framebufferDesc = FrameBuffer::Desc();
-	framebufferDesc.width = width;
-	framebufferDesc.height = height;
-	framebufferDesc.colorAttachment(0, pathTracePass.finalTexture);
+void ImGuiPass::CreateFramebuffer(Device& device, PathTracePass& pathTracePass, uint32_t width, uint32_t height) {
+	FrameBuffer::Desc framebuffer_desc;
+	framebuffer_desc.width = width;
+	framebuffer_desc.height = height;
+	framebuffer_desc.ColorAttachment(0, pathTracePass.finalTexture);
 
-	framebuffer = device.createFrameBuffer(framebufferDesc);
+	m_FrameBuffer = device.CreateFrameBuffer(framebuffer_desc);
 }
 
 
 
-void ImGuiPass::destroyFramebuffer(Device& device) {
-	device.destroyFrameBuffer(framebuffer);
+void ImGuiPass::DestroyFramebuffer(Device& device) {
+	device.DestroyFrameBuffer(m_FrameBuffer);
 }
 
 }  // Raekor::VK

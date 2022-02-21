@@ -42,9 +42,6 @@ public:
         float maxMipmap = 1.0f;
     };
 
-    VkSampler native() { return sampler; }
-
-private:
     VkSampler sampler;
     Desc description;
 

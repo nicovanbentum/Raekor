@@ -64,7 +64,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
             continue;
         }
 
-        Async::dispatch([=]() {
+        Async::sDispatch([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
@@ -72,7 +72,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
                 auto success = glShader::glslangValidator(vulkanSDK, file, outfile);
 
                 {
-                    auto lock = Async::lock();
+                    auto lock = Async::sLock();
 
                     if (!success) {
                         std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
@@ -84,7 +84,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
         });
     }
 
-    Async::wait();
+    Async::sWait();
 
     // set debug callback
     glEnable(GL_DEBUG_OUTPUT);
@@ -336,7 +336,7 @@ void GLRenderer::time(const std::string& name, Lambda&& lambda) {
 
 
 void GLRenderer::uploadMeshBuffers(Mesh& mesh) {
-    auto vertices = mesh.getInterleavedVertices();
+    auto vertices = mesh.GetInterleavedVertices();
 
     glCreateBuffers(1, &mesh.vertexBuffer);
     glNamedBufferData(mesh.vertexBuffer, sizeof(float) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
@@ -363,7 +363,7 @@ void GLRenderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
     glCreateBuffers(1, &skeleton.boneTransformsBuffer);
     glNamedBufferData(skeleton.boneTransformsBuffer, skeleton.m_BoneTransforms.size() * sizeof(glm::mat4), skeleton.m_BoneTransforms.data(), GL_DYNAMIC_READ);
 
-    auto originalMeshBuffer = mesh.getInterleavedVertices();
+    auto originalMeshBuffer = mesh.GetInterleavedVertices();
 
     if (skeleton.skinnedVertexBuffer) glDeleteBuffers(1, &skeleton.skinnedVertexBuffer);
     glCreateBuffers(1, &skeleton.skinnedVertexBuffer);
@@ -386,23 +386,23 @@ void GLRenderer::destroyMaterialTextures(Material& material, Assets& assets) {
     glDeleteTextures(1, &material.gpuMetallicRoughnessMap);
     material.gpuAlbedoMap = 0, material.gpuNormalMap = 0, material.gpuMetallicRoughnessMap = 0;
 
-    assets.release(material.albedoFile);
-    assets.release(material.normalFile);
-    assets.release(material.metalroughFile);
+    assets.Release(material.albedoFile);
+    assets.Release(material.normalFile);
+    assets.Release(material.metalroughFile);
 }
 
 
 
 void GLRenderer::uploadMaterialTextures(Material& material, Assets& assets) {
-    if (auto asset = assets.get<TextureAsset>(material.albedoFile); asset) {
+    if (auto asset = assets.Get<TextureAsset>(material.albedoFile); asset) {
         material.gpuAlbedoMap = GLRenderer::uploadTextureFromAsset(asset, true);
     }
 
-    if (auto asset = assets.get<TextureAsset>(material.normalFile); asset) {
+    if (auto asset = assets.Get<TextureAsset>(material.normalFile); asset) {
         material.gpuNormalMap = GLRenderer::uploadTextureFromAsset(asset);
     }
 
-    if (auto asset = assets.get<TextureAsset>(material.metalroughFile); asset) {
+    if (auto asset = assets.Get<TextureAsset>(material.metalroughFile); asset) {
         material.gpuMetallicRoughnessMap = GLRenderer::uploadTextureFromAsset(asset);
     }
 }
@@ -413,8 +413,8 @@ GLuint GLRenderer::uploadTextureFromAsset(const TextureAsset::Ptr& asset, bool s
     assert(asset);
 
     GLuint texture = 0;
-    auto headerPtr = asset->header();
-    auto dataPtr = asset->getData();
+    auto headerPtr = asset->GetHeader();
+    auto dataPtr = asset->GetData();
 
     auto format = sRGB ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
 

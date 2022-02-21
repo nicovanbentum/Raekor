@@ -2,8 +2,7 @@
 
 #include "camera.h"
 
-namespace Raekor {
-namespace Math {
+namespace Raekor::Math {
 
 struct Ray {
     Ray(Viewport& viewport, glm::vec2 coords);
@@ -13,12 +12,11 @@ struct Ray {
     glm::vec3 direction;
     glm::vec3 rcpDirection;
 
-    std::optional<float> hitsOBB(const glm::vec3& min, const glm::vec3& max, const glm::mat4& modelMatrix);
-    std::optional<float> hitsAABB(const glm::vec3& min, const glm::vec3& max);
-    std::optional<float> hitsTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2);
-    std::optional<float> hitsSphere(const glm::vec3& o, float radius, float t_min, float t_max);
+    std::optional<float> HitsOBB(const glm::vec3& min, const glm::vec3& max, const glm::mat4& modelMatrix);
+    std::optional<float> HitsAABB(const glm::vec3& min, const glm::vec3& max);
+    std::optional<float> HitsTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2);
+    std::optional<float> HitsSphere(const glm::vec3& o, float radius, float t_min, float t_max);
 };
-
 
 
 struct Frustrum {
@@ -33,16 +31,14 @@ struct Frustrum {
     Frustrum() = default;
 
     Frustrum(const glm::mat4& vp, bool normalize) {
-        update(vp, normalize);
+        Create(vp, normalize);
     }
 
-    void update(const glm::mat4& vp, bool normalize);
-    bool vsAABB(const glm::vec3& min, const glm::vec3& max);
+    void Create(const glm::mat4& vp, bool normalize);
+    bool ContainsAABB(const glm::vec3& min, const glm::vec3& max);
 };
 
 
+bool gPointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max);
 
-bool pointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max);
-
-} // raekor
-} // math
+} // namespace Raekor::Math

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Raekor/util.h"
+
 namespace Raekor::VK {
 
 class Instance {
@@ -7,42 +9,30 @@ class Instance {
 
 public:
     Instance() = delete;
-    Instance(Instance&) = delete;
-    Instance(Instance&&) = delete;
-    Instance& operator=(Instance&) = delete;
-    Instance& operator=(Instance&&) = delete;
-
     explicit Instance(SDL_Window* window);
     ~Instance();
 
-    operator VkInstance() const { return instance; }
-    
-    inline VkSurfaceKHR getSurface() const { return surface; }
+    operator VkInstance() const { return m_Instance; }
+    VkSurfaceKHR GetSurface() const { return m_Surface; }
 
 private:
-    VkInstance instance = VK_NULL_HANDLE;
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
-    PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
+    VkInstance m_Instance = VK_NULL_HANDLE;
+    VkSurfaceKHR m_Surface = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT m_DebugMessenger = VK_NULL_HANDLE;
+    PFN_vkSetDebugUtilsObjectNameEXT m_VkSetDebugUtilsObjectNameEXT = nullptr;
 };
 
 
 
-class PhysicalDevice {
+class PhysicalDevice : public INoCopyNoMove {
     friend class Device;
 
-private:
-    PhysicalDevice() = delete;
-    PhysicalDevice(PhysicalDevice&) = delete;
-    PhysicalDevice(PhysicalDevice&&) = delete;
-    PhysicalDevice& operator=(PhysicalDevice&) = delete;
-    PhysicalDevice& operator=(PhysicalDevice&&) = delete;
-
 public:
+    PhysicalDevice() = delete;
     explicit PhysicalDevice(const Instance& instance);
-    operator VkPhysicalDevice() const { return gpu; }
-
-    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
+    
+    operator VkPhysicalDevice() const { return m_PhysicalDevice; }
+    VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
 
 private:
     struct Properties {
@@ -52,12 +42,11 @@ private:
         VkPhysicalDeviceDescriptorIndexingProperties descriptorIndexingProperties = {
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES
         };
+    };
 
-    } properties;
-
-    VkPhysicalDeviceLimits limits;
-
-    VkPhysicalDevice gpu = VK_NULL_HANDLE;
+    Properties m_Properties;
+    VkPhysicalDeviceLimits m_Limits;
+    VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
 };
 
 } // raekor

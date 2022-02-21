@@ -7,23 +7,22 @@ namespace Raekor::VK {
 
 class BindlessDescriptorSet {
 public:
-    void create(const Device& device, VkDescriptorType type);
-    void destroy(const Device& device);
+    void Create(const Device& device, VkDescriptorType type);
+    void Destroy(const Device& device);
 
-    uint32_t append(const Device& device, const VkDescriptorImageInfo& imageInfo);
+    uint32_t Insert(const Device& device, const VkDescriptorImageInfo& imageInfo);
 
-    const VkDescriptorSet& getDescriptorSet() const { return set; }
-    const VkDescriptorSetLayout& getLayout() const { return layout; }
+    const VkDescriptorSet& GetDescriptorSet() const { return m_Set; }
+    const VkDescriptorSetLayout& GetLayout() const { return m_Layout; }
 
 private:
-    uint32_t size = 0;
-    std::vector<uint32_t> freeIndices;
+    uint32_t m_Size = 0;
+    std::vector<uint32_t> m_FreeIndices;
     
-private:
-    VkDescriptorSet set;
-    VkDescriptorPool pool;
-    VkDescriptorType type;
-    VkDescriptorSetLayout layout;
+    VkDescriptorSet m_Set;
+    VkDescriptorPool m_Pool;
+    VkDescriptorType m_Type;
+    VkDescriptorSetLayout m_Layout;
 
 };
 

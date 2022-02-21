@@ -6,7 +6,7 @@
 
 namespace Raekor {
 
-void INativeScript::bind(entt::entity entity, entt::registry& scene) {
+void INativeScript::Bind(entt::entity entity, entt::registry& scene) {
     this->entity = entity;
     this->scene = &scene;
 }

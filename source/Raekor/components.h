@@ -9,11 +9,10 @@ namespace Raekor {
 struct Name {
     std::string name;
 
-    inline operator const std::string& () { return name; }
-    inline bool operator==(const std::string& rhs) { return name == rhs; }
-    inline Name& operator=(const std::string& rhs) { name = rhs; return *this; }
+    operator const std::string& () { return name; }
+    bool operator==(const std::string& rhs) { return name == rhs; }
+    Name& operator=(const std::string& rhs) { name = rhs; return *this; }
 };
-
 
 
 struct Transform {
@@ -24,11 +23,10 @@ struct Transform {
     glm::mat4 localTransform  = glm::mat4(1.0f);
     glm::mat4 worldTransform  = glm::mat4(1.0f);
 
-    SCRIPT_INTERFACE void compose();
-    SCRIPT_INTERFACE void decompose();
-    SCRIPT_INTERFACE void print();
+    SCRIPT_INTERFACE void Print();
+    SCRIPT_INTERFACE void Compose();
+    SCRIPT_INTERFACE void Decompose();
 };
-
 
 
 struct DirectionalLight {
@@ -37,12 +35,10 @@ struct DirectionalLight {
 };
 
 
-
 struct PointLight {
     glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
     glm::vec4 colour   = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
-
 
 
 struct Node {
@@ -51,7 +47,6 @@ struct Node {
     entt::entity prevSibling = entt::null;
     entt::entity nextSibling = entt::null;
 };
-
 
 
 struct Mesh {
@@ -69,10 +64,10 @@ struct Mesh {
 
     entt::entity material = entt::null;
 
-    void generateTangents();
-    void generateNormals();
-    void generateAABB();
-    std::vector<float> getInterleavedVertices();
+    void CalculateTangents();
+    void CalculateNormals();
+    void CalculateAABB();
+    std::vector<float> GetInterleavedVertices();
 };
 
 
@@ -105,7 +100,6 @@ struct Skeleton {
 };
 
 
-
 struct Material {
     // properties
     glm::vec4 albedo = glm::vec4(1.0f);
@@ -125,7 +119,6 @@ struct Material {
 };
 
 
-
 struct NativeScript {
     std::string file;
     ScriptAsset::Ptr asset;
@@ -134,13 +127,11 @@ struct NativeScript {
 };
 
 
-
 template<typename Component>
 struct ComponentDescription {
     const char* name;
     using type = Component;
 };
-
 
 
 static constexpr auto Components = std::make_tuple (

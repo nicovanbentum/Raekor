@@ -6,32 +6,32 @@
 
 namespace Raekor::VK {
 
-void Swapchain::create(const Device& device, glm::uvec2 resolution, VkPresentModeKHR mode) {
+void SwapChain::Create(const Device& device, glm::uvec2 resolution, VkPresentModeKHR mode) {
     struct SwapChainSupportDetails {
         VkSurfaceCapabilitiesKHR capabilities;
         std::vector<VkSurfaceFormatKHR> formats;
         std::vector<VkPresentModeKHR> presentModes;
     };
 
-    VkSurfaceKHR surface = device.instance.getSurface();
+    VkSurfaceKHR surface = device.m_Instance.GetSurface();
 
     SwapChainSupportDetails details;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physicalDevice, surface, &details.capabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.m_PhysicalDevice, surface, &details.capabilities);
 
     uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicalDevice, surface, &formatCount, nullptr);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device.m_PhysicalDevice, surface, &formatCount, nullptr);
 
     if (formatCount) {
         details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicalDevice, surface, &formatCount, details.formats.data());
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device.m_PhysicalDevice, surface, &formatCount, details.formats.data());
     }
 
     uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device.physicalDevice, surface, &presentModeCount, nullptr);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device.m_PhysicalDevice, surface, &presentModeCount, nullptr);
 
     if (presentModeCount) {
         details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device.physicalDevice, surface, &presentModeCount, details.presentModes.data());
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device.m_PhysicalDevice, surface, &presentModeCount, details.presentModes.data());
     }
 
     VkSurfaceFormatKHR surfaceFormat = details.formats[0];
@@ -78,18 +78,18 @@ void Swapchain::create(const Device& device, glm::uvec2 resolution, VkPresentMod
     swapchainInfo.presentMode = presentMode;
     swapchainInfo.clipped = VK_TRUE;
 
-    ThrowIfFailed(vkCreateSwapchainKHR(device, &swapchainInfo, nullptr, &swapchain));
+    gThrowIfFailed(vkCreateSwapchainKHR(device, &swapchainInfo, nullptr, &m_SwapChain));
 
-    vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
+    vkGetSwapchainImagesKHR(device, m_SwapChain, &imageCount, nullptr);
     images.resize(imageCount);
-    vkGetSwapchainImagesKHR(device, swapchain, &imageCount, images.data());
+    vkGetSwapchainImagesKHR(device, m_SwapChain, &imageCount, images.data());
     
     imageFormat = surfaceFormat.format;
 
     VkCommandBufferAllocateInfo cmdBufferInfo = {};
     cmdBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     cmdBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    cmdBufferInfo.commandPool = device.commandPool;
+    cmdBufferInfo.commandPool = device.m_CommandPool;
     cmdBufferInfo.commandBufferCount = imageCount;
 
     submitBuffers.resize(imageCount);
@@ -99,19 +99,19 @@ void Swapchain::create(const Device& device, glm::uvec2 resolution, VkPresentMod
 
 
 
-void Swapchain::destroy(VkDevice device) {
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
+void SwapChain::Destroy(VkDevice device) {
+    vkDestroySwapchainKHR(device, m_SwapChain, nullptr);
 }
 
 
 
-const VkExtent2D& Swapchain::getExtent() const { 
+const VkExtent2D& SwapChain::GetExtent() const { 
     return extent; 
 }
 
 
 
-const uint32_t Swapchain::getImageCount() const { 
+const uint32_t SwapChain::GetImageCount() const { 
     return uint32_t(images.size()); 
 }
 

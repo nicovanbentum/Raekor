@@ -140,7 +140,7 @@ bool glShader::glslangValidator(const char* vulkanSDK, const fs::path& file, con
 
 void glShader::bind() { 
     for (auto& stage : stages) {
-        if (stage.watcher.wasModified()) {
+        if (stage.watcher.WasModified()) {
             const auto sdk = getenv("VULKAN_SDK");
             assert(sdk);
 

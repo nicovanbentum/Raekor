@@ -5,7 +5,6 @@
 #include "VKDevice.h"
 #include "VKSwapchain.h"
 #include "VKDescriptor.h"
-#include "VKAccelerationStructure.h"
 
 #include "Raekor/scene.h"
 #include "Raekor/camera.h"
@@ -17,59 +16,52 @@ public:
     Renderer(SDL_Window* window);
     ~Renderer();
 
-    void initialize(Scene& scene);
+    void Init(Scene& scene);
+    void ResetAccumulation();
 
-    void resetAccumulation();
+    void UpdateBVH(Scene& scene);
+    void UpdateMaterials(Assets& assets, Scene& scene);
 
-    void updateMaterials(Assets& assets, Scene& scene);
-    void updateAccelerationStructures(Scene& scene);
-    void render(SDL_Window* window, const Viewport& viewport, Scene& scene);
+    void RenderScene(SDL_Window* window, const Viewport& viewport, Scene& scene);
 
-    void screenshot(const std::string& filepath);
+    void Screenshot(const std::string& path);
+    void RecreateSwapchain(SDL_Window* window);
 
-    void setupSyncObjects();
-    void recreateSwapchain(SDL_Window* window);
+    int32_t UploadTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format);
 
-    int32_t addBindlessTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format);
+    void ReloadShaders();
+    void SetSyncInterval(bool interval);
 
-    void reloadShaders();
-    void setVsync(bool on);
-
-    PathTracePass::PushConstants& constants() { return pathTracePass.pushConstants; }
-
-    RTGeometry createBLAS(Mesh& mesh);
-    void destroyBLAS(RTGeometry& geometry);
-
-    AccelerationStructure createTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count);
+    RTGeometry CreateBottomLevelBVH(Mesh& mesh);
+    void DestroyBottomLevelBVH(RTGeometry& geometry);
+    BVH CreateTopLevelBVH(VkAccelerationStructureInstanceKHR* instances, size_t count);
+    
+    PathTracePass::PushConstants& GetPushConstants() { return m_PathTracePass.m_PushConstants; }
 
 private:
-    Device device;
-    
-    Swapchain swapchain;
+    bool m_SyncInterval = false;
 
-    PathTracePass pathTracePass;
-    ImGuiPass imGuiPass;
+    Device m_Device;
+    SwapChain m_Swapchain;
 
-    bool enableValidationLayers;
-    std::vector<const char*> extensions;
+    ImGuiPass m_ImGuiPass;
+    PathTracePass m_PathTracePass;
 
-    bool vsync = false;
+    std::vector<VkFence> m_CommandsFinishedFences;
+    std::vector<VkSemaphore> m_ImageAcquiredSemaphores;
+    std::vector<VkSemaphore> m_RenderFinishedSemaphores;
 
-    std::vector<VkFence> commandsFinishedFences;
-    std::vector<VkSemaphore> imageAcquiredSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
+    std::vector<Texture> m_Textures;
+    std::vector<Sampler> m_Samplers;
+    BindlessDescriptorSet m_BindlessTextureSet;
 
-    std::vector<Texture> textures;
-    std::vector<Sampler> samplers;
-    BindlessDescriptorSet bindlessTextures;
+    uint32_t m_ImageIndex = 0;
+    uint32_t m_CurrentFrame = 0;
+    static constexpr uint32_t sMaxFramesInFlight = 3;
 
-    uint32_t imageIndex = 0;
-    uint32_t currentFrame = 0;
-    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
-
-    Buffer instanceBuffer;
-    Buffer materialBuffer;
-    AccelerationStructure TLAS;
+    BVH m_TopLevelBVH;
+    Buffer m_InstanceBuffer;
+    Buffer m_MaterialBuffer;
 };
 
 } // Raekor::VK

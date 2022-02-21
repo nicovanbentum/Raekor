@@ -9,12 +9,12 @@ class Shader {
     friend class Device;
 
 public:
-    static bool glslangValidator(const char* vulkanSDK, const fs::directory_entry& file);
-    static bool DXC(const fs::directory_entry& file);
+    static bool sCompileGLSL(const char* vulkanSDK, const fs::directory_entry& file);
+    static bool sCompileHLSL(const fs::directory_entry& file);
     
-    VkShaderModule getModule() const { return module; }
-    VkShaderStageFlagBits getStage() const { return stage; }
-    VkPipelineShaderStageCreateInfo getPipelineCreateInfo() const;
+    VkShaderModule GetModule() const { return module; }
+    VkShaderStageFlagBits GetStage() const { return stage; }
+    VkPipelineShaderStageCreateInfo GetPipelineCreateInfo() const;
 
 private:
     std::string filepath;

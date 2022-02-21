@@ -389,7 +389,7 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
     uniforms.projection = viewport.GetJitteredProjMatrix();
 
     Math::Frustrum frustrum;
-    frustrum.update(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView(), false);
+    frustrum.Create(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView(), false);
 
     culled = 0;
 
@@ -407,7 +407,7 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
         };
 
         // if the frustrum can't see the mesh's OBB we cull it
-        if (!frustrum.vsAABB(worldAABB[0], worldAABB[1])) {
+        if (!frustrum.ContainsAABB(worldAABB[0], worldAABB[1])) {
             culled += 1;
             continue;
         }

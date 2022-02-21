@@ -9,12 +9,12 @@ class FrameBuffer {
 
 public:
 	struct Desc {
-		Desc& colorAttachment(uint32_t index, Texture& texture);
-		Desc& depthAttachment(Texture& texture);
+		Desc& ColorAttachment(uint32_t index, Texture& texture);
+		Desc& DepthAttachment(Texture& texture);
 		
-		uint32_t width, height;
-		Texture* depthStencilAttachment;
-		std::array<Texture*, 8> colorAttachments;
+		uint32_t width = 0, height = 0;
+		Texture* depthStencilAttachment = nullptr;
+		std::array<Texture*, 8> colorAttachments = {};
 	};
 
 	uint32_t GetColorAttachmentCount() const;

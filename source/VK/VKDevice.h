@@ -10,7 +10,7 @@ namespace Raekor::VK {
  class Shader;
 
 class Device {
-    friend class Swapchain;
+    friend class SwapChain;
     friend class ImGuiPass;
 
     Device() = delete;
@@ -23,74 +23,81 @@ public:
     explicit Device(SDL_Window* window);
     ~Device();
 
-    operator VkDevice() const { return device; }
-
-    const PhysicalDevice& getPhysicalDevice() const { return physicalDevice; }
-
-    VkQueue getQueue() { return queue; }
-    uint32_t getQueueFamilyIndex() { return queueFamilyIndex; }
-
-    [[nodiscard]] VkCommandBuffer startSingleSubmit() const;
-    void flushSingleSubmit(VkCommandBuffer commandBuffer) const;
-
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
-
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
-    void copyBufferToImage(const Buffer& buffer, Texture& texture, uint32_t width, uint32_t height, uint32_t layerCount = 1) const;
+    /* Useful for passing our Device directly to Vulkan functions. */
+    operator VkDevice() const { return m_Device; }
     
-    void transitionImageLayout(const Texture& texture, VkImageLayout oldLayout, VkImageLayout newLayout) const;
-    void generateMipmaps(VkImage image, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) const;
+    VmaAllocator GetAllocator() { return m_Allocator; }
+    const PhysicalDevice& GetPhysicalDevice() const { return m_PhysicalDevice; }
 
-    void allocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets, const void* pNext = nullptr) const;
-    void freeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const;
+    VkQueue GetQueue() { return m_Queue; }
+    uint32_t GetQueueFamilyIndex() { return m_QueueFamilyIndex; }
 
-    VmaAllocator getAllocator() { return this->allocator; }
+    [[nodiscard]] VkCommandBuffer StartSingleSubmit() const;
+    void FlushSingleSubmit(VkCommandBuffer commandBuffer) const;
 
-    [[nodiscard]] Shader createShader(const std::string& filepath);
-    [[nodiscard]] Texture createTexture(const Texture::Desc& desc);
-    [[nodiscard]] Sampler createSampler(const Sampler::Desc& desc);
-    [[nodiscard]] VkImageView createView(Texture& texture, uint32_t mipLevel = 0);
-    [[nodiscard]] Buffer createBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage);
-    [[nodiscard]] AccelerationStructure createAccelerationStructure(VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount);
+    uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
-    [[nodiscard]] FrameBuffer createFrameBuffer(const FrameBuffer::Desc& desc);
-    [[nodiscard]] GraphicsPipeline createGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer, VkPipelineLayout layout);
-
-    void destroyShader(Shader& shader);
-    void destroySampler(Sampler& sampler);
-    void destroyTexture(Texture& texture);
-    void destroyBuffer(const Buffer& buffer);
-    void destroyFrameBuffer(const FrameBuffer& frameBuffer);
-    void destroyGraphicsPipeline(const GraphicsPipeline& pipeline);
-    void destroyAccelerationStructure(AccelerationStructure& accelStruct);
-
-    void setDebugName(const Texture& texture, const std::string& name);
+    void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
+    void CopyBufferToImage(const Buffer& buffer, Texture& texture, uint32_t width, uint32_t height, uint32_t layerCount = 1) const;
     
-    void* mapPointer(const Texture& texture);
-    void unmapPointer(const Texture& texture);
-    void* getMappedPointer(const Buffer& buffer);
+    void GenerateMipmaps(Texture& texture) const;
+    void TransitionImageLayout(const Texture& texture, VkImageLayout oldLayout, VkImageLayout newLayout) const;
 
-    VkDeviceAddress getDeviceAddress(VkBuffer buffer) const;
-    VkDeviceAddress getDeviceAddress(const Buffer& buffer) const;
-    VkDeviceAddress getDeviceAddress(VkAccelerationStructureKHR accelerationStructure) const;
+    void AllocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets, const void* pNext = nullptr) const;
+    void FreeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const;
 
-    const PhysicalDevice::Properties& getPhysicalProperties() const { return physicalDevice.properties; }
+    [[nodiscard]] Shader CreateShader(const std::string& filepath);
+    void DestroyShader(Shader& shader);
+    
+    [[nodiscard]] Texture CreateTexture(const Texture::Desc& desc);
+    void DestroyTexture(Texture& texture);
+    
+    [[nodiscard]] Sampler CreateSampler(const Sampler::Desc& desc);
+    void DestroySampler(Sampler& sampler);
+    
+    [[nodiscard]] Buffer CreateBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage);
+    void DestroyBuffer(const Buffer& buffer);
+    
+    [[nodiscard]] BVH CreateBVH(VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount);
+    void DestroyBVH(BVH& bvh);
+    
+    [[nodiscard]] FrameBuffer CreateFrameBuffer(const FrameBuffer::Desc& desc);
+    void DestroyFrameBuffer(const FrameBuffer& frameBuffer);
+    
+    [[nodiscard]] GraphicsPipeline CreateGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer, VkPipelineLayout layout);
+    void DestroyGraphicsPipeline(const GraphicsPipeline& pipeline);
+    
+    [[nodiscard]] VkImageView CreateView(Texture& texture, uint32_t mipLevel = 0);
+    /* Use vkDestroyImageView */
+
+    [[nodiscard]] VkBufferView CreateView(Buffer& buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize range = VK_WHOLE_SIZE);
+    /* Use vkDestroyBufferView */
+
+    void SetDebugName(const Texture& texture, const std::string& name);
+    
+    void* MapPointer(const Texture& texture);
+    void UnmapPointer(const Texture& texture);
+    void* GetMappedPointer(const Buffer& buffer);
+
+    VkDeviceAddress GetDeviceAddress(VkBuffer buffer) const;
+    VkDeviceAddress GetDeviceAddress(const Buffer& buffer) const;
+    VkDeviceAddress GetDeviceAddress(VkAccelerationStructureKHR accelerationStructure) const;
+
+    const PhysicalDevice::Properties& GetPhysicalProperties() const { return m_PhysicalDevice.m_Properties; }
 
 private:
-    Instance instance;
-    PhysicalDevice physicalDevice;
-    VkDevice device;
+    Instance m_Instance;
+    PhysicalDevice m_PhysicalDevice;
+    VkDevice m_Device;
 
-public:
-    VkQueue queue;
-    uint32_t queueFamilyIndex = 0;
-    
-    VkCommandPool commandPool;
-    VkDescriptorPool descriptorPool;
+    VkQueue m_Queue;
+    uint32_t m_QueueFamilyIndex = 0;
 
-private:
-    VmaAllocator allocator;
-    VkPhysicalDeviceMemoryProperties memProperties;
+    VkCommandPool m_CommandPool;
+    VkDescriptorPool m_DescriptorPool;
+
+    VmaAllocator m_Allocator;
+    VkPhysicalDeviceMemoryProperties m_MemoryProperties;
 };
 
 } // Raekor::VK

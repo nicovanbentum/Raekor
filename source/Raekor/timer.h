@@ -13,11 +13,11 @@ public:
     /* Returns the elapsed time in seconds. */
     float GetElapsedTime();
 
-    static float ToMilliseconds(float time) { return time * 1000; }
-    static float ToMicroseconds(float time) { return time * 1'000'000; }
+    static float sToMilliseconds(float time) { return time * 1000; }
+    static float sToMicroseconds(float time) { return time * 1'000'000; }
 
 private:
-    uint64_t startTime = 0;
+    uint64_t m_StartTime = 0;
 };
 
 } // namespace Raekor

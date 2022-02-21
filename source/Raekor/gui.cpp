@@ -5,7 +5,7 @@
 
 namespace GUI {
 
-void beginDockSpace() {
+void BeginDockSpace() {
     ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
     ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(imGuiViewport->Pos);
@@ -34,29 +34,44 @@ void beginDockSpace() {
 }
 
 
-
-void endDockSpace() {
+void EndDockSpace() {
     ImGui::End();
 }
 
 
-
-void beginFrame() {
+void BeginFrame() {
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
     ImGuizmo::BeginFrame();
 }
 
 
-
-void endFrame() {
+void EndFrame() {
     ImGui::EndFrame();
     ImGui::Render();
 }
 
 
+void SetFont(const std::string& filepath) {
+    auto& io = ImGui::GetIO();
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF(filepath.c_str(), 15.0f);
+    if (!io.Fonts->Fonts.empty()) {
+        io.FontDefault = io.Fonts->Fonts.back();
+    }
 
-void setTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data) {
+    // merge in icons from Font Awesome
+    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+    ImFontConfig icons_config; icons_config.MergeMode = true; icons_config.PixelSnapH = true;
+    io.Fonts->AddFontFromFileTTF("assets/system/" FONT_ICON_FILE_NAME_FAS, 15.0f, &icons_config, icons_ranges);
+    // use FONT_ICON_FILE_NAME_FAR if you want regular instead of solid
+
+    // Build the font texture on the CPU, TexID set to NULL for the OpenGL backend
+    io.Fonts->Build();
+    io.Fonts->TexID = NULL;
+}
+
+
+void SetTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data) {
     // load the UI's theme from config
     ImVec4* colors = ImGui::GetStyle().Colors;
     for (unsigned int i = 0; i < data.size(); i++) {
@@ -77,28 +92,7 @@ void setTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data) {
 }
 
 
-
-void setFont(const std::string& filepath) {
-    auto& io = ImGui::GetIO();
-    ImFont* pFont = io.Fonts->AddFontFromFileTTF(filepath.c_str(), 15.0f);
-    if (!io.Fonts->Fonts.empty()) {
-        io.FontDefault = io.Fonts->Fonts.back();
-    }
-
-    // merge in icons from Font Awesome
-    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-    ImFontConfig icons_config; icons_config.MergeMode = true; icons_config.PixelSnapH = true;
-    io.Fonts->AddFontFromFileTTF("assets/system/" FONT_ICON_FILE_NAME_FAS, 15.0f, &icons_config, icons_ranges);
-    // use FONT_ICON_FILE_NAME_FAR if you want regular instead of solid
-    
-    // Build the font texture on the CPU, TexID set to NULL for the OpenGL backend
-    io.Fonts->Build();
-    io.Fonts->TexID = NULL;
-}
-
-
-
-glm::ivec2 getMousePosWindow(const Raekor::Viewport& viewport, ImVec2 windowPos) {
+glm::ivec2 GetMousePosWindow(const Raekor::Viewport& viewport, ImVec2 windowPos) {
     // get mouse position in window
     glm::ivec2 mousePosition;
     SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
@@ -113,4 +107,4 @@ glm::ivec2 getMousePosWindow(const Raekor::Viewport& viewport, ImVec2 windowPos)
     return rendererMousePosition;
 }
 
-} // raekor
+} // namespace Raekor

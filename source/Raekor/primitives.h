@@ -22,7 +22,6 @@ struct Vertex {
 };
 
 
-
 struct Triangle {
     constexpr Triangle(
         uint32_t _p1 = {}, 
@@ -36,7 +35,6 @@ struct Triangle {
 
     uint32_t p1, p2, p3;
 };
-
 
 
 struct UnitCube {
@@ -60,7 +58,6 @@ struct UnitCube {
         Triangle{3, 2, 6}, Triangle{6, 7, 3}
     };
 };
-
 
 
 struct UnitPlane {

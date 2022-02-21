@@ -22,7 +22,7 @@ void AssetsWidget::draw(float dt) {
 
             ImGui::TableNextColumn();
 
-            if (editor->active == entity) {
+            if (editor->m_ActiveEntity == entity) {
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.2f)));
             }
             
@@ -48,7 +48,7 @@ void AssetsWidget::draw(float dt) {
             ImGui::PushID(entt::to_integral(entity));
 
             if (clicked) {
-                editor->active = entity;
+                editor->m_ActiveEntity = entity;
             }
 
             //if (ImGui::Button(ICON_FA_ARCHIVE, ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()))) {

@@ -6,7 +6,7 @@ namespace Raekor {
 
 #ifdef WIN32
 
-bool OS::RunMsBuild(const char* args) {
+bool OS::sRunMsBuild(const char* args) {
     LPSTARTUPINFOA startupInfo;
     PROCESS_INFORMATION procInfo;
     memset(&startupInfo, 0, sizeof(startupInfo));
@@ -26,8 +26,8 @@ bool OS::RunMsBuild(const char* args) {
     return dwExitCode == 0;
 }
 
-std::string OS::openFileDialog(const char* filters) {
 
+std::string OS::sOpenFileDialog(const char* filters) {
     OPENFILENAMEA ofn;
     CHAR szFile[260] = { 0 };
     ZeroMemory(&ofn, sizeof(OPENFILENAME));
@@ -48,7 +48,8 @@ std::string OS::openFileDialog(const char* filters) {
     return std::string();
 }
 
-std::string OS::saveFileDialog(const char* filters, const char* defaultExt) {
+
+std::string OS::sSaveFileDialog(const char* filters, const char* defaultExt) {
     OPENFILENAMEA ofn;
     CHAR szFile[260] = { 'u', 'n', 't', 'i', 't', 'l', 'e', 'd', '\0' };
     ZeroMemory(&ofn, sizeof(OPENFILENAME));

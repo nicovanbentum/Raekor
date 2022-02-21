@@ -6,7 +6,7 @@
 
 namespace Raekor::VK {
 
-Texture Device::createTexture(const Texture::Desc& desc) {
+Texture Device::CreateTexture(const Texture::Desc& desc) {
     VkImageCreateInfo imageInfo = {};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -42,24 +42,24 @@ Texture Device::createTexture(const Texture::Desc& desc) {
     Texture texture;
     texture.description = desc;
 
-    ThrowIfFailed(vmaCreateImage(allocator, &imageInfo, &allocInfo, &texture.image, &texture.allocation, nullptr));
+    gThrowIfFailed(vmaCreateImage(m_Allocator, &imageInfo, &allocInfo, &texture.image, &texture.allocation, nullptr));
         
     return texture;
 }
     
 
 
-void Device::destroyTexture(Texture& texture) {
+void Device::DestroyTexture(Texture& texture) {
     for (const auto& [mip, view] : texture.viewsByMip) {
-        vkDestroyImageView(device, view, nullptr);
+        vkDestroyImageView(m_Device, view, nullptr);
     }
 
-    vmaDestroyImage(allocator, texture.image, texture.allocation);
+    vmaDestroyImage(m_Allocator, texture.image, texture.allocation);
 }
 
 
 
-VkImageView Device::createView(Texture& texture, uint32_t mipLevel) {
+VkImageView Device::CreateView(Texture& texture, uint32_t mipLevel) {
     auto& views = texture.viewsByMip;
     const auto& desc = texture.description;
         
@@ -86,7 +86,7 @@ VkImageView Device::createView(Texture& texture, uint32_t mipLevel) {
     }
 
     VkImageView view;
-    vkCreateImageView(device, &viewInfo, nullptr, &view);
+    vkCreateImageView(m_Device, &viewInfo, nullptr, &view);
 
     views.insert({ mipLevel, view });
     
@@ -95,7 +95,7 @@ VkImageView Device::createView(Texture& texture, uint32_t mipLevel) {
 
 
 
-Sampler Device::createSampler(const Sampler::Desc& desc) {
+Sampler Device::CreateSampler(const Sampler::Desc& desc) {
     VkSamplerCreateInfo samplerInfo = {};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = desc.minFilter;
@@ -123,15 +123,15 @@ Sampler Device::createSampler(const Sampler::Desc& desc) {
     Sampler sampler;
     sampler.description = desc;
     
-    vkCreateSampler(device, &samplerInfo, nullptr, &sampler.sampler);
+    vkCreateSampler(m_Device, &samplerInfo, nullptr, &sampler.sampler);
 
     return sampler;
 }
 
 
 
-void Device::destroySampler(Sampler& sampler) {
-    vkDestroySampler(device, sampler.sampler, nullptr);
+void Device::DestroySampler(Sampler& sampler) {
+    vkDestroySampler(m_Device, sampler.sampler, nullptr);
 }
 
 } // Raekor::VK

@@ -55,26 +55,26 @@ GraphicsPipeline::State::State() {
 
 
 
-GraphicsPipeline::VertexInput& GraphicsPipeline::VertexInput::binding(uint32_t binding, uint32_t stride) {
+GraphicsPipeline::VertexInput& GraphicsPipeline::VertexInput::Binding(uint32_t binding, uint32_t stride) {
 	bindings.push_back({ binding, stride, VK_VERTEX_INPUT_RATE_VERTEX });
 	return *this;
 }
 
 
 
-GraphicsPipeline::VertexInput& GraphicsPipeline::VertexInput::attribute(uint32_t location, VkFormat format, uint32_t offset) {
+GraphicsPipeline::VertexInput& GraphicsPipeline::VertexInput::Attribute(uint32_t location, VkFormat format, uint32_t offset) {
 	attributes.push_back({ location, bindings.back().binding, format, offset });
 	return *this;
 }
 
 
 
-GraphicsPipeline Device::createGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer, VkPipelineLayout layout) {
+GraphicsPipeline Device::CreateGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer, VkPipelineLayout layout) {
 	GraphicsPipeline pipeline = {};
 	
 	std::array stages = {
-		desc.pixelShader->getPipelineCreateInfo(),
-		desc.vertexShader->getPipelineCreateInfo()
+		desc.pixelShader->GetPipelineCreateInfo(),
+		desc.vertexShader->GetPipelineCreateInfo()
 	};
 
 	VkPipelineViewportStateCreateInfo viewport = {};
@@ -101,7 +101,7 @@ GraphicsPipeline Device::createGraphicsPipeline(const GraphicsPipeline::Desc& de
 
 	VkPushConstantRange pushConstantRange = {};
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_ALL;
-	pushConstantRange.size = physicalDevice.limits.maxPushConstantsSize;
+	pushConstantRange.size = m_PhysicalDevice.m_Limits.maxPushConstantsSize;
 
 	const auto& colorAttachmentFormats = framebuffer.GetColorAttachmentFormats();
 
@@ -127,7 +127,7 @@ GraphicsPipeline Device::createGraphicsPipeline(const GraphicsPipeline::Desc& de
 
 	pipelineInfo.pNext = &renderInfo;
 
-	vkCreateGraphicsPipelines(device, NULL, 1, &pipelineInfo, nullptr, &pipeline.pipeline);
+	vkCreateGraphicsPipelines(m_Device, NULL, 1, &pipelineInfo, nullptr, &pipeline.pipeline);
 
 	//TODO: ResourceInput
 	pipeline.layout = layout;
@@ -135,9 +135,9 @@ GraphicsPipeline Device::createGraphicsPipeline(const GraphicsPipeline::Desc& de
 	return pipeline;
 }
 
-void Device::destroyGraphicsPipeline(const GraphicsPipeline& pipeline) {
-	vkDestroyPipeline(device, pipeline.pipeline, nullptr);
-	vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
+void Device::DestroyGraphicsPipeline(const GraphicsPipeline& pipeline) {
+	vkDestroyPipeline(m_Device, pipeline.pipeline, nullptr);
+	vkDestroyPipelineLayout(m_Device, pipeline.layout, nullptr);
 }
 
 

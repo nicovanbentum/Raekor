@@ -35,6 +35,7 @@ Physics::Physics() {
     std::cout << "PhysX initialized.\n";
 }
 
+
 Physics::~Physics() {
     scene->release();
     PxCloseExtensions();
@@ -42,6 +43,5 @@ Physics::~Physics() {
     foundation->release();
 }
 
-
-} // raekor
+} // namespace Raekor
 

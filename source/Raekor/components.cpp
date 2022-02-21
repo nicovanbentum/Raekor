@@ -7,15 +7,14 @@
 
 namespace Raekor {
 
-SCRIPT_INTERFACE void Transform::compose() {
+SCRIPT_INTERFACE void Transform::Compose() {
     localTransform = glm::translate(glm::mat4(1.0f), position);
     localTransform *= glm::eulerAngleXYZ(rotation.x, rotation.y, rotation.z);
     localTransform = glm::scale(localTransform, scale);
 }
 
 
-
-SCRIPT_INTERFACE void Transform::decompose() {
+SCRIPT_INTERFACE void Transform::Decompose() {
     glm::vec3 skew;
     glm::quat quat;
     glm::vec4 perspective;
@@ -25,13 +24,12 @@ SCRIPT_INTERFACE void Transform::decompose() {
 
 
 
-SCRIPT_INTERFACE void Transform::print() {
+SCRIPT_INTERFACE void Transform::Print() {
     std::cout << glm::to_string(rotation) << '\n';
 }
 
 
-
-void Mesh::generateTangents() {
+void Mesh::CalculateTangents() {
     tangents.resize(positions.size());
     for (size_t i = 0; i < indices.size(); i += 3) {
         auto v0 = positions[indices[i]];
@@ -71,8 +69,7 @@ void Mesh::generateTangents() {
 }
 
 
-
-void Mesh::generateNormals() {
+void Mesh::CalculateNormals() {
     normals = decltype(normals)(positions.size(), glm::vec3(0.0f));
 
     for (auto i = 0; i < indices.size(); i += 3) {
@@ -92,8 +89,7 @@ void Mesh::generateNormals() {
 }
 
 
-
-void Mesh::generateAABB() {
+void Mesh::CalculateAABB() {
     aabb[0] = positions[0];
     aabb[1] = positions[1];
     for (const auto& v : positions) {
@@ -103,8 +99,7 @@ void Mesh::generateAABB() {
 }
 
 
-
-std::vector<float> Mesh::getInterleavedVertices() {
+std::vector<float> Mesh::GetInterleavedVertices() {
     std::vector<float> vertices;
     vertices.reserve(
         3 * positions.size() +
@@ -148,7 +143,6 @@ std::vector<float> Mesh::getInterleavedVertices() {
 }
 
 
-
 void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform) {
     auto globalTransformation = glm::mat4(1.0f);
 
@@ -183,13 +177,12 @@ void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationT
 }
 
 
-
 void Skeleton::UpdateFromAnimation(Animation& animation, float dt) {
     /*
         This is bugged, Assimp docs say totalDuration is in ticks, but the actual value is real world time in milliseconds
         see https://github.com/assimp/assimp/issues/2662
     */
-    animation.m_RunningTime += Timer::ToMilliseconds(dt);
+    animation.m_RunningTime += Timer::sToMilliseconds(dt);
     if (animation.m_RunningTime > animation.m_TotalDuration) {
         animation.m_RunningTime = 0;
     }
@@ -209,17 +202,14 @@ void clone<Transform>(entt::registry& reg, entt::entity from, entt::entity to) {
 }
 
 
-
-
 template<>
 void clone<Node>(entt::registry& reg, entt::entity from, entt::entity to) {
     auto& fromNode = reg.get<Node>(from);
     auto& toNode = reg.emplace<Node>(to);
     if (fromNode.parent != entt::null) {
-        NodeSystem::append(reg, reg.get<Node>(fromNode.parent), toNode);
+        NodeSystem::sAppend(reg, reg.get<Node>(fromNode.parent), toNode);
     }
 }
-
 
 
 template<>
@@ -229,13 +219,11 @@ void clone<Name>(entt::registry& reg, entt::entity from, entt::entity to) {
 }
 
 
-
 template<>
 void clone<Mesh>(entt::registry& reg, entt::entity from, entt::entity to) {
     auto& from_component = reg.get<Mesh>(from);
     auto& to_component = reg.emplace<Mesh>(to, from_component);
 }
-
 
 
 template<>

@@ -9,10 +9,12 @@
 
 namespace Raekor::VK {
 
-class Swapchain;
-struct AccelerationStructure;
+class SwapChain;
+struct BVH;
 
 class PathTracePass {
+    friend class Renderer;
+
 public:
     struct PushConstants {
         glm::mat4 invViewProj;
@@ -21,41 +23,42 @@ public:
         uint32_t frameCounter = 0;
         uint32_t bounces = 8;
         float sunConeAngle = 0.2f;
-    } pushConstants;
+    };
 
 public:
-    void initialize(Device& device, const Swapchain& swapchain, const AccelerationStructure& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer, const BindlessDescriptorSet& bindlessTextures);
-    void destroy(Device& device);
+    void Init(Device& device, const SwapChain& swapchain, const BVH& bvh, const Buffer& instances, const Buffer& materials, const BindlessDescriptorSet& textures);
+    void Destroy(Device& device);
 
-    void createRenderTextures(Device& device, const glm::uvec2& size);
-    void createPipeline(Device& device);
-    void createDescriptorSet(Device& device, const BindlessDescriptorSet& bindlessTextures);
-    void createShaderBindingTable(Device& device);
+    void CreateRenderTargets(Device& device, const glm::uvec2& size);
+    void DestroyRenderTargets(Device& device);
+    
+    void CreatePipeline(Device& device);
+    void CreateDescriptorSet(Device& device, const BindlessDescriptorSet& bindlessTextures);
+    void CreateShaderBindingTable(Device& device);
 
-    void updateDescriptorSet(Device& device, const VK::AccelerationStructure& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer);
-    void recordCommands(const Device& context, const Viewport& viewport, VkCommandBuffer commandBuffer, const BindlessDescriptorSet& bindlessTextures);
+    void UpdateDescriptorSet(Device& device, const VK::BVH& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer);
+    void Record(const Device& context, const Viewport& viewport, VkCommandBuffer commandBuffer, const BindlessDescriptorSet& bindlessTextures);
 
-    void reloadShadersFromDisk(Device& device);
-
-    void destroyRenderTextures(Device& device);
+    void ReloadShaders(Device& device);
 
     Texture finalTexture;
     Texture accumTexture;
 
 private:
-    VkPipeline pipeline;
-    VkPipelineLayout pipelineLayout;
+    VkPipeline m_Pipeline;
+    VkPipelineLayout m_PipelineLayout;
 
-    VkDescriptorSet descriptorSet;
-    VkDescriptorSetLayout descriptorSetLayout; // TODO: move this somewhere else
+    PushConstants m_PushConstants;
+    VkDescriptorSet m_DescriptorSet;
+    VkDescriptorSetLayout m_DescriptorSetLayout;
 
-    Shader rgenShader;
-    Shader rmissShader;
-    Shader rchitShader;
-    Shader rmissShadowShader;
+    Shader m_MissShader;
+    Shader m_RayGenShader;
+    Shader m_MissShadowShader;
+    Shader m_ClosestHitShader;
 
-    Buffer shaderBindingTable;
-    std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
+    Buffer m_ShaderBindingTable;
+    std::vector<VkRayTracingShaderGroupCreateInfoKHR> m_ShaderGroups;
 };
 
 } // raekor

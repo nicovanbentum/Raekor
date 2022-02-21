@@ -132,15 +132,15 @@ Instance::Instance(SDL_Window* window) {
         instanceInfo.enabledLayerCount = 0;
 #endif
 
-    ThrowIfFailed(vkCreateInstance(&instanceInfo, nullptr, &instance));
+    gThrowIfFailed(vkCreateInstance(&instanceInfo, nullptr, &m_Instance));
 
 #if RAEKOR_DEBUG
-    ThrowIfFailed(CreateDebugUtilsMessengerEXT(instance, &debugInfo, nullptr, &debugMessenger));
+    gThrowIfFailed(CreateDebugUtilsMessengerEXT(m_Instance, &debugInfo, nullptr, &m_DebugMessenger));
 #endif
     
-    vkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT");
+    m_VkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(m_Instance, "vkSetDebugUtilsObjectNameEXT");
 
-    if (!SDL_Vulkan_CreateSurface(window, instance, &surface)) {
+    if (!SDL_Vulkan_CreateSurface(window, m_Instance, &m_Surface)) {
         throw std::runtime_error("Failed to create vulkan surface");
     }
 
@@ -148,19 +148,17 @@ Instance::Instance(SDL_Window* window) {
 }
 
 
-
 Instance::~Instance() {
 #if RAEKOR_DEBUG
-    DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+    DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
 #endif
-    vkDestroySurfaceKHR(instance, surface, nullptr);
-    vkDestroyInstance(instance, nullptr);
+    vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
+    vkDestroyInstance(m_Instance, nullptr);
 }
 
 
-
 PhysicalDevice::PhysicalDevice(const Instance& instance) : 
-    gpu(VK_NULL_HANDLE)
+    m_PhysicalDevice(VK_NULL_HANDLE)
 {
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
@@ -178,40 +176,37 @@ PhysicalDevice::PhysicalDevice(const Instance& instance) :
         
         // prefer dedicated GPU
         if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-            gpu = device;
+            m_PhysicalDevice = device;
         }
     }
 
     // else we just get the first adapter found
-    if (gpu == VK_NULL_HANDLE) {
-        gpu = devices[0];
+    if (m_PhysicalDevice == VK_NULL_HANDLE) {
+        m_PhysicalDevice = devices[0];
     }
 
     VkPhysicalDeviceProperties2 props2 = {};
     props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    props2.pNext = &properties.rayTracingPipelineProperties;
-    properties.rayTracingPipelineProperties.pNext = &properties.descriptorIndexingProperties;
+    props2.pNext = &m_Properties.rayTracingPipelineProperties;
+    m_Properties.rayTracingPipelineProperties.pNext = &m_Properties.descriptorIndexingProperties;
 
-    vkGetPhysicalDeviceProperties2(gpu, &props2);
-    limits = props2.properties.limits;
+    vkGetPhysicalDeviceProperties2(m_PhysicalDevice, &props2);
+    m_Limits = props2.properties.limits;
 }
 
 
-
-VkFormat PhysicalDevice::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const {
+VkFormat PhysicalDevice::FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const {
     for (VkFormat format : candidates) {
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(gpu, format, &props);
+        vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &props);
 
-        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
             return format;
-        }
-        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
             return format;
-        }
-}
-    throw std::runtime_error("Unable to find a supported format.");
-    return {};
+    }
+
+    return VK_FORMAT_UNDEFINED;
 };
 
 } // raekor

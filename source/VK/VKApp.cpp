@@ -10,66 +10,66 @@ namespace Raekor::VK {
 
     PathTracer::PathTracer() : 
     Application(RendererFlags::VULKAN), 
-    renderer(window) 
+    m_Renderer(m_Window) 
 {
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-    ImGui_ImplSDL2_InitForVulkan(window);
+    ImGui_ImplSDL2_InitForVulkan(m_Window);
 
     ImGui::GetIO().IniFilename = "";
 
-    if (fs::exists(settings.defaultScene)) {
-        SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
-        scene.openFromFile(assets, settings.defaultScene);
+    if (fs::exists(m_Settings.defaultScene)) {
+        SDL_SetWindowTitle(m_Window, std::string(m_Settings.defaultScene + " - Raekor Renderer").c_str());
+        m_Scene.OpenFromFile(m_Assets, m_Settings.defaultScene);
     }
     else {
         std::string filepath;
 
         while (filepath.empty()) {
-            filepath = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
+            filepath = OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0");
             if (!filepath.empty()) {
-                SDL_SetWindowTitle(window, std::string(filepath + " - Raekor Renderer").c_str());
-                scene.openFromFile(assets, filepath);
+                SDL_SetWindowTitle(m_Window, std::string(filepath + " - Raekor Renderer").c_str());
+                m_Scene.OpenFromFile(m_Assets, filepath);
                 break;
             }
         }
     }
 
-    assert(!scene.empty() && "Scene cannot be empty when starting up the Vulkan path tracer!!");
+    assert(!m_Scene.empty() && "Scene cannot be empty when starting up the Vulkan path tracer!!");
 
-    auto meshes = scene.view<Mesh>();
+    auto meshes = m_Scene.view<Mesh>();
     for (auto& [entity, mesh] : meshes.each()) {
-        auto component = renderer.createBLAS(mesh);
-        scene.emplace<VK::RTGeometry>(entity, component);
+        auto component = m_Renderer.CreateBottomLevelBVH(mesh);
+        m_Scene.emplace<VK::RTGeometry>(entity, component);
     }
 
-    assets.clear();
+    m_Assets.clear();
 
     // TODO: Figure this mess out
-    renderer.setVsync(settings.vsync);
-    renderer.updateMaterials(assets, scene);
-    renderer.updateAccelerationStructures(scene);
-    renderer.initialize(scene);
+    m_Renderer.SetSyncInterval(m_Settings.vsync);
+    m_Renderer.UpdateMaterials(m_Assets, m_Scene);
+    m_Renderer.UpdateBVH(m_Scene);
+    m_Renderer.Init(m_Scene);
 
     // gui stuff
-    GUI::setTheme(settings.themeColors);
+    GUI::SetTheme(m_Settings.themeColors);
 
-    std::puts("Job well done.");
+    std::cout << "Job well done.\n";
 
-    SDL_ShowWindow(window);
-    SDL_SetWindowInputFocus(window);
+    SDL_ShowWindow(m_Window);
+    SDL_SetWindowInputFocus(m_Window);
 
-    SDL_SetWindowSize(window, 1300, 1300);
+    SDL_SetWindowSize(m_Window, 1300, 1300);
 }
 
 
 
-void PathTracer::onUpdate(float dt) {
+void PathTracer::OnUpdate(float dt) {
     m_Viewport.OnUpdate(dt);
 
-    auto lightView = scene.view<DirectionalLight, Transform>();
+    auto lightView = m_Scene.view<DirectionalLight, Transform>();
     auto lookDirection = glm::vec3(0.25f, -0.9f, 0.0f);
 
     if (lightView.begin() != lightView.end()) {
@@ -82,37 +82,37 @@ void PathTracer::onUpdate(float dt) {
 
     lookDirection = glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
 
-    renderer.constants().lightDir = glm::vec4(lookDirection, 0);
+    m_Renderer.GetPushConstants().lightDir = glm::vec4(lookDirection, 0);
 
-    if (shouldRecreateSwapchain) {
+    if (m_IsSwapchainDirty) {
         int w, h;
-        SDL_GetWindowSize(window, &w, &h);
+        SDL_GetWindowSize(m_Window, &w, &h);
 
         m_Viewport.Resize(glm::uvec2(w, h));
-        renderer.recreateSwapchain(window);
-        renderer.resetAccumulation();
-        shouldRecreateSwapchain = false;
+        m_Renderer.RecreateSwapchain(m_Window);
+        m_Renderer.ResetAccumulation();
+        m_IsSwapchainDirty = false;
     }
 
-    SDL_SetWindowTitle(window, std::string(std::to_string(Timer::ToMilliseconds(dt)) + " ms.").c_str());
+    SDL_SetWindowTitle(m_Window, std::string(std::to_string(Timer::sToMilliseconds(dt)) + " ms.").c_str());
 
     bool reset = false;
 
-    GUI::beginFrame();
+    GUI::BeginFrame();
 
-    if (isImGuiEnabled) {
-        ImGui::Begin("Path Trace Settings", &isImGuiEnabled, ImGuiWindowFlags_AlwaysAutoResize);
+    if (m_IsImGuiEnabled) {
+        ImGui::Begin("Path Trace Settings", &m_IsImGuiEnabled, ImGuiWindowFlags_AlwaysAutoResize);
     
         ImGui::Text("F2 - Screenshot");
 
-        if (ImGui::Checkbox("vsync", &settings.vsync)) {
-            renderer.setVsync(settings.vsync);
-            renderer.recreateSwapchain(window);
-            renderer.resetAccumulation();
+        if (ImGui::Checkbox("vsync", &m_Settings.vsync)) {
+            m_Renderer.SetSyncInterval(m_Settings.vsync);
+            m_Renderer.RecreateSwapchain(m_Window);
+            m_Renderer.ResetAccumulation();
         }
 
-        reset |= ImGui::SliderInt("Bounces", reinterpret_cast<int*>(&renderer.constants().bounces), 1, 8);
-        reset |= ImGui::DragFloat("Sun Cone", &renderer.constants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
+        reset |= ImGui::SliderInt("Bounces", reinterpret_cast<int*>(&m_Renderer.GetPushConstants().bounces), 1, 8);
+        reset |= ImGui::DragFloat("Sun Cone", &m_Renderer.GetPushConstants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
 
         ImGui::End();
 
@@ -130,25 +130,25 @@ void PathTracer::onUpdate(float dt) {
             );
 
             if (manipulated) {
-                lightTransform.decompose();
+                lightTransform.Decompose();
             }
 
             reset |= manipulated;
         }
     }
 
-    GUI::endFrame();
+    GUI::EndFrame();
 
     if (reset) {
-        renderer.resetAccumulation();
+        m_Renderer.ResetAccumulation();
     }
 
-    renderer.render(window, m_Viewport, scene);
+    m_Renderer.RenderScene(m_Window, m_Viewport, m_Scene);
 }
 
 
 
-void PathTracer::onEvent(const SDL_Event& ev) {
+void PathTracer::OnEvent(const SDL_Event& ev) {
     ImGui_ImplSDL2_ProcessEvent(&ev);
 
     if (ev.button.button == 2 || ev.button.button == 3) {
@@ -165,21 +165,21 @@ void PathTracer::onEvent(const SDL_Event& ev) {
     const bool is_mouse_relative = SDL_GetRelativeMouseMode();
 
     if (is_mouse_relative) {
-        renderer.resetAccumulation();
+        m_Renderer.ResetAccumulation();
     }
 
     if (ev.type == SDL_MOUSEMOTION) {
-        if (is_mouse_relative && Input::isButtonPressed(3)) {
+        if (is_mouse_relative && Input::sIsButtonPressed(3)) {
             auto formula = glm::radians(0.022f * camera.sensitivity * 2.0f);
             camera.Look(glm::vec2(ev.motion.xrel * formula, ev.motion.yrel * formula));
         }
-        else if (is_mouse_relative && Input::isButtonPressed(2)) {
+        else if (is_mouse_relative && Input::sIsButtonPressed(2)) {
             camera.Move(glm::vec2(ev.motion.xrel * 0.02f, ev.motion.yrel * 0.02f));
         }
     }
     else if (ev.type == SDL_MOUSEWHEEL) {
         camera.Zoom(float(ev.wheel.y));
-        renderer.resetAccumulation();
+        m_Renderer.ResetAccumulation();
     }
 
     if (ev.type == SDL_WINDOWEVENT) {
@@ -194,26 +194,26 @@ void PathTracer::onEvent(const SDL_Event& ev) {
             }
         }
         if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
-            if (SDL_GetWindowID(window) == ev.window.windowID) {
+            if (SDL_GetWindowID(m_Window) == ev.window.windowID) {
                 m_Running = false;
             }
         }
         if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
-            shouldRecreateSwapchain = true;
+            m_IsSwapchainDirty = true;
         }
     }
 
     if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
         switch (ev.key.keysym.sym) {
             case SDLK_r: {
-                renderer.reloadShaders();
-                renderer.resetAccumulation();
+                m_Renderer.ReloadShaders();
+                m_Renderer.ResetAccumulation();
             } break;
             case SDLK_F2: {
-                std::string path = OS::saveFileDialog("Uncompressed PNG (*.png)\0", "png");
+                std::string path = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
 
                 if (!path.empty()) {
-                    renderer.screenshot(path);
+                    m_Renderer.Screenshot(path);
                 }
             } break;
         }
@@ -223,9 +223,9 @@ void PathTracer::onEvent(const SDL_Event& ev) {
 
 
 PathTracer::~PathTracer() {
-    auto view = scene.view<VK::RTGeometry>();
+    auto view = m_Scene.view<VK::RTGeometry>();
     for (auto& [entity, geometry] : view.each()) {
-        renderer.destroyBLAS(geometry);
+        m_Renderer.DestroyBottomLevelBVH(geometry);
     }
 }
 

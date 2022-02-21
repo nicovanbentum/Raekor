@@ -56,9 +56,9 @@ void ConsoleWidget::draw(float dt) {
             std::string name, value;
             stream >> name >> value;
 
-            bool success = ConVars::set(name, value);
+            bool success = CVars::sSetValue(name, value);
             if (!success) {
-                if (ConVars::get(name).empty()) {
+                if (CVars::sGetValue(name).empty()) {
                     items.emplace_back("cvar \"" + name + "\" does not exist.");
                 } else if(value.empty()) {
                     items.emplace_back("Please provide a value.");
@@ -84,9 +84,9 @@ void ConsoleWidget::draw(float dt) {
         ImGui::BeginTooltip();
 
         int count = 0;
-        for (const auto& mapping : ConVars::get()) {
+        for (const auto& mapping : CVars::sGet()) {
             if (filter.PassFilter(mapping.first.c_str())) {
-                std::string cvarText = mapping.first + " " + ConVars::get(mapping.first) + '\n';
+                std::string cvarText = mapping.first + " " + CVars::sGetValue(mapping.first) + '\n';
 
                 if (count == activeItem) {
                     ImGui::Selectable(cvarText.c_str(), true);
@@ -118,7 +118,7 @@ int ConsoleWidget::editCallback(ImGuiInputTextCallbackData* data) {
 
         int index = 0;
 
-        for (const auto& cvar : ConVars::get()) {
+        for (const auto& cvar : CVars::sGet()) {
             if (filter.PassFilter(cvar.first.c_str())) {
                 if (index == console->activeItem) {
                     data->DeleteChars(0, data->BufTextLen);

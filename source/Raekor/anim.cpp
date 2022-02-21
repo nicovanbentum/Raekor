@@ -18,7 +18,6 @@ void KeyFrames::LoadFromAssimp(aiNodeAnim* nodeAnim) {
 }
 
 
-
 glm::vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
 	if (positionKeys.size() == 1) {
 		// No interpolation necessary for single value
@@ -48,7 +47,6 @@ glm::vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
 }
 	
 
-
 glm::quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
 	if (rotationkeys.size() == 1) {
 		// No interpolation necessary for single value
@@ -62,8 +60,8 @@ glm::quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
 			RotationIndex = i;
 			break;
 		}
-
 	}
+
 	uint32_t NextRotationIndex = (RotationIndex + 1);
 
 	float DeltaTime = (float)(rotationkeys[NextRotationIndex].mTime - rotationkeys[RotationIndex].mTime);
@@ -77,7 +75,6 @@ glm::quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
 	q = q.Normalize();
 	return glm::quat(q.w, q.x, q.y, q.z);
 }
-
 
 
 glm::vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
@@ -94,6 +91,7 @@ glm::vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
 			break;
 		}
 	}
+
 	uint32_t nextIndex = (index + 1);
 
 	float deltaTime = (float)(scaleKeys[nextIndex].mTime - scaleKeys[index].mTime);
@@ -108,11 +106,9 @@ glm::vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
 }
 
 
-
 Animation::Animation(aiAnimation* anim) {
 	LoadFromAssimp(anim);
 }
-
 
 
 void Animation::LoadFromAssimp(aiAnimation* anim) {

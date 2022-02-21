@@ -4,13 +4,15 @@
 
 namespace Raekor {
 
-// Interface for OS specific tasks
-// Compile time decides which function definitions to pull in
+/*  
+    Interface for OS specific tasks.
+    Compile time decides which function definitions to pull in.
+*/
 class OS {
 public:
-    static bool RunMsBuild(const char* args);
-    static std::string openFileDialog(const char* filters);
-    static std::string saveFileDialog(const char* filters, const char* defaultExt);
+    static bool sRunMsBuild(const char* args);
+    static std::string sOpenFileDialog(const char* filters);
+    static std::string sSaveFileDialog(const char* filters, const char* defaultExt);
 };
 
 } // Namespace Raekor

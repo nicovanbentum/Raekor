@@ -12,16 +12,16 @@ InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, "Inspector") 
 void InspectorWidget::draw(float dt) {
     ImGui::Begin(title.c_str());
 
-    if (editor->active == entt::null) {
+    if (editor->m_ActiveEntity == entt::null) {
         ImGui::End();
         return;
     }
 
-    ImGui::Text("ID: %i", editor->active);
+    ImGui::Text("ID: %i", editor->m_ActiveEntity);
 
     Scene& scene = IWidget::GetScene();
     Assets& assets = IWidget::GetAssets();
-    entt::entity& active = editor->active;
+    entt::entity& active = editor->m_ActiveEntity;
 
     // I much prefered the for_each_tuple_element syntax tbh
     std::apply([&](const auto& ... components) {
@@ -160,14 +160,14 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
         const GLuint image = gpuMap ? gpuMap : Material::Default.gpuAlbedoMap;
         
         if (ImGui::ImageButton((void*)((intptr_t)image), ImVec2(lineHeight - 1, lineHeight - 1))) {
-            auto filepath = OS::openFileDialog("Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0");
+            auto filepath = OS::sOpenFileDialog("Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0");
 
             if (!filepath.empty()) {
-                const auto assetHandle = TextureAsset::convert(filepath);
+                const auto assetHandle = TextureAsset::sConvert(filepath);
 
                 if (!assetHandle.empty()) {
                     file = filepath;
-                    gpuMap = GLRenderer::uploadTextureFromAsset(assets.get<TextureAsset>(assetHandle));
+                    gpuMap = GLRenderer::uploadTextureFromAsset(assets.Get<TextureAsset>(assetHandle));
                 }
                 else {
                     ImGui::OpenPopup("Error");
@@ -265,17 +265,17 @@ bool dragVec3(const char* label, glm::vec3& v, float step, float min, float max,
 
 void InspectorWidget::drawComponent(Transform& component, Assets& assets, Scene& scene, entt::entity& active) {
     if (dragVec3("Scale", component.scale, 0.001f, 0.0f, FLT_MAX)) {
-        component.compose();
+        component.Compose();
     }
 
     auto degrees = glm::degrees(component.rotation);
 
     if (dragVec3("Rotation", degrees, 0.1f, -360.0f, 360.0f)) {
         component.rotation = glm::radians(degrees);
-        component.compose();
+        component.Compose();
     }
     if (dragVec3("Position", component.position, 0.001f, -FLT_MAX, FLT_MAX)) {
-        component.compose();
+        component.Compose();
     }
 
     
@@ -291,22 +291,22 @@ void InspectorWidget::drawComponent(PointLight& component, Assets& assets, Scene
 
 void InspectorWidget::drawComponent(NativeScript& component, Assets& assets, Scene& scene, entt::entity& active) {
     if (component.asset) {
-        ImGui::Text("Module: %i", component.asset->getModule());
+        ImGui::Text("Module: %i", component.asset->GetModule());
         ImGui::Text("File: %s", component.file.c_str());
     }
 
     if (ImGui::Button("Load..")) {
-        std::string filepath = OS::openFileDialog("DLL Files (*.dll)\0*.dll\0");
+        std::string filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
         if (!filepath.empty()) {
             component.file = fs::relative(filepath).string();
-            component.asset = assets.get<ScriptAsset>(component.file);
+            component.asset = assets.Get<ScriptAsset>(component.file);
         }
     }
 
     ImGui::SameLine();
 
     if (ImGui::Button("Release")) {
-        assets.release(component.file);
+        assets.Release(component.file);
         delete component.script;
         component = {};
     }
@@ -314,30 +314,30 @@ void InspectorWidget::drawComponent(NativeScript& component, Assets& assets, Sce
     ImGui::SameLine();
 
     if (ImGui::Button("Recompile")) {
-        std::string filepath = OS::openFileDialog("C++ Files (*.cpp)\0*.cpp\0");
+        std::string filepath = OS::sOpenFileDialog("C++ Files (*.cpp)\0*.cpp\0");
 
         if (!filepath.empty()) {
             std::string procAddress = component.procAddress;
             
             delete component.script;
-            assets.release(component.file);
+            assets.Release(component.file);
             component = NativeScript();
             
-            std::string asset =  ScriptAsset::convert(filepath);
+            std::string asset =  ScriptAsset::sConvert(filepath);
             
             if (!asset.empty()) {
                 component.file = asset;
                 component.procAddress = procAddress;
-                component.asset = assets.get<ScriptAsset>(asset);
+                component.asset = assets.Get<ScriptAsset>(asset);
 
-                scene.bindScript(active, component);
+                scene.BindScriptToEntity(active, component);
             }
         }
     }
 
     if (ImGui::InputText("Function", &component.procAddress, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue)) {
         if (component.asset) {
-            scene.bindScript(active, component);
+            scene.BindScriptToEntity(active, component);
         }
     }
 }

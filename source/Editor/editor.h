@@ -16,23 +16,14 @@ public:
     Editor();
     virtual ~Editor() = default;
 
-    void onUpdate(float dt) override;
-    void onEvent(const SDL_Event& event) override;
+    void OnUpdate(float dt) override;
+    void OnEvent(const SDL_Event& event) override;
 
     template<typename T>
-    std::shared_ptr<T> GetWidget() {
-        for (const auto& widget : widgets) {
-            if (widget->GetTypeID() == T::m_TypeID) {
-                return std::static_pointer_cast<T>(widget);
-            }
-        }
-        
-        return nullptr;
-    }
+    std::shared_ptr<T>  GetWidget();
+    const auto& GetWidgets() { return widgets; }
 
-    const std::vector<std::shared_ptr<IWidget>>& GetWidgets() { return widgets; }
-
-    entt::entity active = entt::null;
+    entt::entity m_ActiveEntity = entt::null;
 
 private:
     Scene scene;
@@ -41,5 +32,17 @@ private:
     GLRenderer renderer;
     std::vector<std::shared_ptr<IWidget>> widgets;
 };
+
+
+template<typename T>
+std::shared_ptr<T> Editor::GetWidget() {
+    for (const auto& widget : widgets) {
+        if (widget->GetTypeID() == T::m_TypeID) {
+            return std::static_pointer_cast<T>(widget);
+        }
+    }
+
+    return nullptr;
+}
 
 } // raekor

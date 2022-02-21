@@ -6,28 +6,26 @@
 
 namespace Raekor::VK {
 
-FrameBuffer::Desc& FrameBuffer::Desc::colorAttachment(uint32_t index, Texture& texture) {
+FrameBuffer::Desc& FrameBuffer::Desc::ColorAttachment(uint32_t index, Texture& texture) {
 	assert(index < colorAttachments.size());
 	colorAttachments[index] = &texture;
 	return *this;
 }
 
 
-
-FrameBuffer::Desc& FrameBuffer::Desc::depthAttachment(Texture& texture) {
+FrameBuffer::Desc& FrameBuffer::Desc::DepthAttachment(Texture& texture) {
 	depthStencilAttachment = &texture;
 	return *this;
 }
 
 
-
-FrameBuffer Device::createFrameBuffer(const FrameBuffer::Desc& desc) {
+FrameBuffer Device::CreateFrameBuffer(const FrameBuffer::Desc& desc) {
 	FrameBuffer framebuffer = {};
 	framebuffer.description = desc;
 	return framebuffer;
 }
 
-void Device::destroyFrameBuffer(const FrameBuffer& frameBuffer) {
+void Device::DestroyFrameBuffer(const FrameBuffer& frameBuffer) {
 }
 
 
@@ -44,10 +42,11 @@ uint32_t FrameBuffer::GetColorAttachmentCount() const {
 
 std::vector<VkFormat> FrameBuffer::GetColorAttachmentFormats() const {
 	std::vector<VkFormat> formats;
+	formats.reserve(description.colorAttachments.size());
 
 	for (const auto& texture : description.colorAttachments)
 		if (texture)
-			formats.push_back(texture->description.format);
+			formats.emplace_back(texture->description.format);
 
 	return formats;
 }

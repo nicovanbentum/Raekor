@@ -1,8 +1,8 @@
 #pragma once
 
 #define WIN32_LEAN_AND_MEAN
-
 #define M_PI 3.14159265358979323846
+
 
 #ifdef NDEBUG
     #define RAEKOR_DEBUG 0
@@ -10,13 +10,15 @@
     #define RAEKOR_DEBUG 1
 #endif
 
+
 #ifdef RAEKOR_SCRIPT
     #define SCRIPT_INTERFACE __declspec(dllimport)
 #else
     #define SCRIPT_INTERFACE __declspec(dllexport)
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////
 // header only Cereal library
 #include "cereal/cereal.hpp"
 #include "cereal/macros.hpp"
@@ -31,7 +33,8 @@
 #include "cereal/types/variant.hpp"
 #include "cereal/types/polymorphic.hpp"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////
 // ImGui library
 #include "imconfig.h"
 #include "imgui.h"
@@ -43,30 +46,30 @@
 #include "imgui_internal.h"
 #include "IconsFontAwesome5.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-// platform specific includes
 
+//////////////////////////////
+// platform specific includes
 #ifdef _WIN32
     #include <Windows.h>
     #include <commdlg.h>
     #include <SDL2/SDL_syswm.h>
     #include <wrl.h>
     #include <DbgHelp.h>
-    #include <Psapi.h>
-    
+    #include <Psapi.h>  
 #elif __linux__
     #include <GL/gl.h>
     #include <gtk/gtk.h>
-    
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////
 // Simple DirectMedia Layer
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_vulkan.h"
 #undef main //stupid sdl_main
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////
 // openGL math library
 #include "glm.hpp"
 #include "ext.hpp"
@@ -76,12 +79,14 @@
 #include "gtx/matrix_decompose.hpp"
 #include "gtx/euler_angles.hpp"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-// PhysX 
+
+/////////////////////////
+// PhysX physics library
 #define PX_PHYSX_STATIC_LIB
 #include "PxPhysicsAPI.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////
 // c++ (17) includes
 #include <set>
 #include <map>
@@ -92,9 +97,9 @@
 #include <future>
 #include <chrono>
 #include <bitset>
-#include <numeric>
 #include <random>
 #include <limits>
+#include <numeric>
 #include <variant>
 #include <fstream>
 #include <sstream>
@@ -108,14 +113,14 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////
 // include stb image
 #include "stb_image.h"
 #include "stb_image_write.h"
 #include "stb_image_resize.h"
 #include "stb_dxt.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////
 // include asset importer
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
@@ -123,10 +128,12 @@ namespace fs = std::filesystem;
 #include "assimp/pbrmaterial.h"
 #include "assimp/Exporter.hpp"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-// Entity-component system entt
+
+////////////////////////////////////////
+// EnTT entity-component system library
 #include "entt/entt.hpp"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-// lz4 compression
+
+///////////////////////////
+// lz4 compression library
 #include "lz4.h"

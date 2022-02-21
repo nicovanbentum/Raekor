@@ -4,17 +4,19 @@
 namespace Raekor {
 
 Timer::Timer() {
-    startTime = SDL_GetPerformanceCounter();
+    m_StartTime = SDL_GetPerformanceCounter();
 }
+
 
 float Timer::Restart() {
     float time = GetElapsedTime();
-    startTime = SDL_GetPerformanceCounter();
+    m_StartTime = SDL_GetPerformanceCounter();
     return time;
 }
 
+
 float Timer::GetElapsedTime() {
-    return (float)((SDL_GetPerformanceCounter() - startTime) / (float)SDL_GetPerformanceFrequency());
+    return (float)((SDL_GetPerformanceCounter() - m_StartTime) / (float)SDL_GetPerformanceFrequency());
 }
 
 } // raekor

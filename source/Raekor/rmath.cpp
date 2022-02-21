@@ -25,7 +25,6 @@ Ray::Ray(Viewport& viewport, glm::vec2 coords) {
 }
 
 
-
 Ray::Ray(const glm::vec3& origin, const glm::vec3& direction) : 
     origin(origin), 
     direction(direction), 
@@ -33,8 +32,7 @@ Ray::Ray(const glm::vec3& origin, const glm::vec3& direction) :
 {}
 
 
-
-std::optional<float> Ray::hitsOBB(const glm::vec3& min, const glm::vec3& max, const glm::mat4& transform) {
+std::optional<float> Ray::HitsOBB(const glm::vec3& min, const glm::vec3& max, const glm::mat4& transform) {
     float tMin = 0.0f;
     float tMax = 100000.0f;
 
@@ -111,9 +109,8 @@ std::optional<float> Ray::hitsOBB(const glm::vec3& min, const glm::vec3& max, co
     return tMin;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::optional<float> Ray::hitsAABB(const glm::vec3& min, const glm::vec3& max) {
+std::optional<float> Ray::HitsAABB(const glm::vec3& min, const glm::vec3& max) {
     auto t1 = (min.x - origin.x) * rcpDirection.x;
     auto t2 = (max.x - origin.x) * rcpDirection.x;
 
@@ -131,9 +128,8 @@ std::optional<float> Ray::hitsAABB(const glm::vec3& min, const glm::vec3& max) {
     return tmax > glm::max(tmin, 0.0f) ? std::make_optional(tmax) : std::nullopt;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::optional<float> Ray::hitsTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2) {
+std::optional<float> Ray::HitsTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2) {
     auto p1 = v1 - v0;
     auto p2 = v2 - v0;
     auto pvec = glm::cross(direction, p2);
@@ -154,8 +150,7 @@ std::optional<float> Ray::hitsTriangle(const glm::vec3& v0, const glm::vec3& v1,
 }
 
 
-
-std::optional<float> Ray::hitsSphere(const glm::vec3& o, float radius, float t_min, float t_max) {
+std::optional<float> Ray::HitsSphere(const glm::vec3& o, float radius, float t_min, float t_max) {
     float R2 = radius * radius;
     glm::vec3 L = o - origin;
     float tca = glm::dot(L, glm::normalize(direction));
@@ -177,20 +172,18 @@ std::optional<float> Ray::hitsSphere(const glm::vec3& o, float radius, float t_m
 }
 
 
-
-bool pointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max) {
+bool gPointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max) {
     return  (point.x >= min.x && point.x <= max.x) &&
         (point.y >= min.y && point.y <= max.y) &&
         (point.z >= min.z && point.z <= max.z);
 }
 
 
-
 /*
     Fast Extraction of Viewing Frustum Planes from the World-View-Projection Matrix by G. Gribb & K. Hartmann 
     https://www.gamedevs.org/uploads/fast-extraction-viewing-frustum-planes-from-world-view-projection-matrix.pdf
 */
-void Frustrum::update(const glm::mat4& vp, bool normalize) {
+void Frustrum::Create(const glm::mat4& vp, bool normalize) {
     planes[0].x = vp[0][3] + vp[0][0];
     planes[0].y = vp[1][3] + vp[1][0];
     planes[0].z = vp[2][3] + vp[2][0];
@@ -233,8 +226,7 @@ void Frustrum::update(const glm::mat4& vp, bool normalize) {
 }
 
 
-
-bool Frustrum::vsAABB(const glm::vec3& min, const glm::vec3& max) {
+bool Frustrum::ContainsAABB(const glm::vec3& min, const glm::vec3& max) {
     for (const auto& plane : planes) {
         int out = 0;
         out += ((glm::dot(plane, glm::vec4(min.x, min.y, min.z, 1.0f)) < 0.0) ? 1 : 0);

@@ -18,7 +18,7 @@ class Skeleton;
 
 class AssimpImporter {
 public:
-	AssimpImporter(Scene& scene) : scene(scene) {}
+	AssimpImporter(Scene& scene) : m_Scene(scene) {}
 	bool LoadFromFile(Assets& assets, const std::string& file);
 
 	template<typename Fn> void SetUploadMeshCallbackFunction(Fn&& fn) { m_UploadMeshCallback = fn; }
@@ -40,10 +40,10 @@ private:
 	std::function<void(Material&, Assets&)> m_UploadMaterialCallback = nullptr;
 	std::function<void(Skeleton& skeleton, Mesh& mesh)> m_UploadSkeletonCallback = nullptr;
 
-	Scene& scene;
-	fs::path directory;
-	const aiScene* assimpScene;
-	std::vector<entt::entity> materials;
+	Scene& m_Scene;
+	fs::path m_Directory;
+	const aiScene* m_AiScene;
+	std::vector<entt::entity> m_Materials;
 };
 
 } // raekor

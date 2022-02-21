@@ -8,7 +8,7 @@ class Camera {
     
 public:
     Camera(glm::vec3 position, glm::mat4 proj);
-    Camera(const Camera&) : Camera(GetPosition(), projection) {}
+    Camera(const Camera&) : Camera(m_Position, m_Projection) {}
     Camera& operator=(const Camera& rhs) { return *this; }
 
     void OnUpdate(float dt);
@@ -19,14 +19,14 @@ public:
     
     glm::vec3 GetForwardVector();
 
-    glm::vec2& GetAngle() { return angle; }
-    const glm::vec3& GetPosition() const { return position; }
+    glm::vec2& GetAngle() { return m_Angle; }
+    const glm::vec3& GetPosition() const { return m_Position; }
 
-    glm::mat4& GetView() { return view; }
-    const glm::mat4& GetView() const { return view; }
+    glm::mat4& GetView() { return m_View; }
+    const glm::mat4& GetView() const { return m_View; }
 
-    glm::mat4& GetProjection() { return projection; }
-    const glm::mat4& GetProjection() const { return projection; }
+    glm::mat4& GetProjection() { return m_Projection; }
+    const glm::mat4& GetProjection() const { return m_Projection; }
 
     float GetFov() const;
     float GetFar() const;
@@ -34,14 +34,14 @@ public:
     float GetAspectRatio() const;
 
 private:
-    glm::vec2 jitter;
-    glm::vec2 angle;
-    glm::vec3 position;
-    glm::mat4 view;
-    glm::mat4 projection;
+    glm::vec2 m_Angle;
+    glm::vec3 m_Position;
+
+    glm::mat4 m_View;
+    glm::mat4 m_Projection;
 
 public:
-    float& sensitivity = ConVars::create("sensitivity", 2.0f);
+    float& sensitivity = CVars::sCreate("sensitivity", 2.0f);
     float zoomSpeed = 1.0f, moveSpeed = 1.0f;
     float lookConstant = 1.0f, zoomConstant = 10.0f, moveConstant = 10.0f;
 };

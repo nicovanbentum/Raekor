@@ -39,7 +39,7 @@ void RandomWidget::draw(float dt) {
     if (ImGui::DragFloat("Bias constant", &renderer.shadowMaps->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
     if (ImGui::DragFloat("Bias slope factor", &renderer.shadowMaps->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
     if (ImGui::DragFloat("Split lambda", &renderer.shadowMaps->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {
-        renderer.shadowMaps->updatePerspectiveConstants(editor->getViewport());
+        renderer.shadowMaps->updatePerspectiveConstants(editor->GetViewport());
     }
 
     ImGui::NewLine(); ImGui::Separator();

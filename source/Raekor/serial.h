@@ -13,14 +13,12 @@ void serialize(Archive& archive, glm::vec<L, T>& v) {
 }
 
 
-
 template<class Archive, glm::length_t C, glm::length_t R, typename T>
 void serialize(Archive& archive, glm::mat<C, R, T>& mat) {
 	for (glm::length_t i = 0; i < mat.length(); i++) {
 		archive(mat[i]);
 	}
 }
-
 
 
 template<class Archive, typename T>
@@ -31,7 +29,6 @@ void serialize(Archive& archive, glm::qua<T>& quat) {
 }
 
 
-
 template<typename Archive>
 void serialize(Archive& archive, Raekor::Transform& transform) {
 	archive(transform.position, transform.rotation, transform.scale, 
@@ -39,12 +36,10 @@ void serialize(Archive& archive, Raekor::Transform& transform) {
 }
 
 
-
 template<typename Archive> 
 void save(Archive& archive, const Raekor::DirectionalLight& light) {
 	archive(light.colour, light.direction);
 }
-
 
 
 template<typename Archive>
@@ -95,12 +90,10 @@ void save(Archive& archive, const Raekor::Material& mat) {
 }
 
 
-
 template<class Archive>
 void load(Archive& archive, Raekor::Material& mat) {
 	archive(mat.albedoFile, mat.normalFile, mat.metalroughFile, mat.albedo, mat.metallic, mat.roughness, mat.emissive);
 }
-
 
 
 template<class Archive>
@@ -109,10 +102,8 @@ void serialize(Archive& archive, Raekor::Name& name) {
 }
 
 
-
 template<class Archive>
 void load(Archive& archive, std::function<void()>& fn) {}
-
 
 
 template<class Archive>

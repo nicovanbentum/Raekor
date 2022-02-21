@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "VKAccelerationStructure.h"
+#include "VKStructs.h"
 
 #include "VKUtil.h"
 #include "VKDevice.h"
@@ -7,16 +7,16 @@
 
 namespace Raekor::VK {
 
-AccelerationStructure Device::createAccelerationStructure(VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount) {
-    AccelerationStructure accelStruct;
+BVH Device::CreateBVH(VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount) {
+    BVH bvh;
     
     // get the acceleration structure sizes
     VkAccelerationStructureBuildSizesInfoKHR sizeInfo = {};
     sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
     
-    EXT::vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &primitiveCount, &sizeInfo);
+    EXT::vkGetAccelerationStructureBuildSizesKHR(m_Device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &primitiveCount, &sizeInfo);
 
-    accelStruct.buffer = createBuffer(
+    bvh.buffer = CreateBuffer(
         sizeInfo.accelerationStructureSize, 
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, 
         VMA_MEMORY_USAGE_GPU_ONLY
@@ -27,22 +27,22 @@ AccelerationStructure Device::createAccelerationStructure(VkAccelerationStructur
     asInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
     asInfo.type = buildInfo.type;
     asInfo.size = sizeInfo.accelerationStructureSize;
-    asInfo.buffer = accelStruct.buffer.buffer;
+    asInfo.buffer = bvh.buffer.buffer;
 
-    ThrowIfFailed(EXT::vkCreateAccelerationStructureKHR(device, &asInfo, nullptr, &accelStruct.accelerationStructure));
+    gThrowIfFailed(EXT::vkCreateAccelerationStructureKHR(m_Device, &asInfo, nullptr, &bvh.accelerationStructure));
 
-    buildInfo.dstAccelerationStructure = accelStruct.accelerationStructure;
+    buildInfo.dstAccelerationStructure = bvh.accelerationStructure;
 
-    Buffer scratchBuffer = createBuffer(
+    Buffer scratchBuffer = CreateBuffer(
         sizeInfo.buildScratchSize, 
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VMA_MEMORY_USAGE_GPU_ONLY
     );
 
-    buildInfo.scratchData.deviceAddress = getDeviceAddress(scratchBuffer);
+    buildInfo.scratchData.deviceAddress = GetDeviceAddress(scratchBuffer);
 
     // build the acceleration structure on the GPU
-    VkCommandBuffer commandBuffer = startSingleSubmit();
+    VkCommandBuffer commandBuffer = StartSingleSubmit();
 
     VkAccelerationStructureBuildRangeInfoKHR buildRange = {};
     buildRange.primitiveCount = primitiveCount;
@@ -51,21 +51,20 @@ AccelerationStructure Device::createAccelerationStructure(VkAccelerationStructur
 
     EXT::vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, buildRanges.data());
 
-    flushSingleSubmit(commandBuffer);
+    FlushSingleSubmit(commandBuffer);
 
-    destroyBuffer(scratchBuffer);
+    DestroyBuffer(scratchBuffer);
 
-    return accelStruct;
+    return bvh;
 }
 
 
-
-void Device::destroyAccelerationStructure(AccelerationStructure& accelStruct) {
+void Device::DestroyBVH(BVH& accelStruct) {
     if (accelStruct.accelerationStructure) {
-        EXT::vkDestroyAccelerationStructureKHR(device, accelStruct.accelerationStructure, nullptr);
+        EXT::vkDestroyAccelerationStructureKHR(m_Device, accelStruct.accelerationStructure, nullptr);
     }
 
-    destroyBuffer(accelStruct.buffer);
+    DestroyBuffer(accelStruct.buffer);
 }
 
 }

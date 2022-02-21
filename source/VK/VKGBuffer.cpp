@@ -7,10 +7,10 @@
 namespace Raekor::VK {
 
 GBuffer::GBuffer(Device& device, const Viewport& viewport) {
-    vertexShader = device.createShader("shaders\\Vulkan\\gbuffer.vert");
-    pixelShader = device.createShader("shaders\\Vulkan\\gbuffer.frag");
+    vertexShader = device.CreateShader("shaders\\Vulkan\\gbuffer.vert");
+    pixelShader = device.CreateShader("shaders\\Vulkan\\gbuffer.frag");
 
-    uniformBuffer = device.createBuffer(
+    uniformBuffer = device.CreateBuffer(
         sizeof(uniforms),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU
@@ -32,14 +32,14 @@ void GBuffer::createPipeline(Device& device) {
     layoutInfo.pushConstantRangeCount = 1;
     layoutInfo.pPushConstantRanges = &pushConstantRange;
 
-    ThrowIfFailed(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &layout));
+    gThrowIfFailed(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &layout));
 
     auto vertexInput = GraphicsPipeline::VertexInput()
-        .binding(0, sizeof(Vertex))
-        .attribute(0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos))
-        .attribute(1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv))
-        .attribute(2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal))
-        .attribute(3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, tangent));
+        .Binding(0, sizeof(Vertex))
+        .Attribute(0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos))
+        .Attribute(1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv))
+        .Attribute(2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal))
+        .Attribute(3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, tangent));
 
     auto state = GraphicsPipeline::State();
     state.colorBlend.attachmentCount = 3;
@@ -50,7 +50,7 @@ void GBuffer::createPipeline(Device& device) {
     pipeDesc.vertexInput = &vertexInput;
     pipeDesc.pixelShader = &pixelShader;
 
-    pipeline = device.createGraphicsPipeline(pipeDesc, framebuffer, layout);
+    pipeline = device.CreateGraphicsPipeline(pipeDesc, framebuffer, layout);
 }
 
 
@@ -61,30 +61,30 @@ void GBuffer::createRenderTargets(Device& device, const Viewport& viewport) {
     texDesc.width = viewport.size.x;
     texDesc.height = viewport.size.y;
 
-    albedoTexture = device.createTexture(texDesc);
-    normalTexture = device.createTexture(texDesc);
-    materialTexture = device.createTexture(texDesc);
+    albedoTexture = device.CreateTexture(texDesc);
+    normalTexture = device.CreateTexture(texDesc);
+    materialTexture = device.CreateTexture(texDesc);
 
     texDesc.format = VK_FORMAT_D32_SFLOAT;
-    depthTexture = device.createTexture(texDesc);
+    depthTexture = device.CreateTexture(texDesc);
 
     auto fbDesc = FrameBuffer::Desc()
-        .colorAttachment(0, albedoTexture)
-        .colorAttachment(1, normalTexture)
-        .colorAttachment(2, materialTexture)
-        .depthAttachment(depthTexture);
+        .ColorAttachment(0, albedoTexture)
+        .ColorAttachment(1, normalTexture)
+        .ColorAttachment(2, materialTexture)
+        .DepthAttachment(depthTexture);
 
-    framebuffer = device.createFrameBuffer(fbDesc);
+    framebuffer = device.CreateFrameBuffer(fbDesc);
 }
 
 
 
 void GBuffer::destroyRenderTargets(Device& device) {
-    device.destroyFrameBuffer(framebuffer);
-    device.destroyTexture(albedoTexture);
-    device.destroyTexture(normalTexture);
-    device.destroyTexture(materialTexture);
-    device.destroyTexture(depthTexture);
+    device.DestroyFrameBuffer(framebuffer);
+    device.DestroyTexture(albedoTexture);
+    device.DestroyTexture(normalTexture);
+    device.DestroyTexture(materialTexture);
+    device.DestroyTexture(depthTexture);
 }
 
 

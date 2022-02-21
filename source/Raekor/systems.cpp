@@ -3,7 +3,7 @@
 
 namespace Raekor {
 
-void NodeSystem::append(entt::registry& registry, Node& parent, Node& child) {
+void NodeSystem::sAppend(entt::registry& registry, Node& parent, Node& child) {
     auto view = registry.view<Node>();
     child.parent = entt::to_entity(registry, parent);
 
@@ -25,9 +25,8 @@ void NodeSystem::append(entt::registry& registry, Node& parent, Node& child) {
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-void NodeSystem::remove(entt::registry& registry, Node& node) {
+void NodeSystem::sRemove(entt::registry& registry, Node& node) {
     // decrement parent's child count
     if (node.parent == entt::null) return;
     auto& parent = registry.get<Node>(node.parent);
@@ -53,9 +52,8 @@ void NodeSystem::remove(entt::registry& registry, Node& node) {
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<entt::entity> NodeSystem::getFlatHierarchy(entt::registry& registry, Node& startingNode) {
+std::vector<entt::entity> NodeSystem::sGetFlatHierarchy(entt::registry& registry, Node& startingNode) {
     std::vector<entt::entity> result;
     std::queue<entt::entity> entities;
 
@@ -84,6 +82,4 @@ std::vector<entt::entity> NodeSystem::getFlatHierarchy(entt::registry& registry,
     return result;
 }
 
-
-
-} // raekor
+} // namespace Raekor

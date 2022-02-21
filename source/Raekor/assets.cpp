@@ -9,31 +9,22 @@
 namespace Raekor
 {
 
-TextureAsset::TextureAsset(const std::string& filepath)
-    : Asset(filepath) {
+const DDS_HEADER* TextureAsset::GetHeader() {
+    return reinterpret_cast<DDS_HEADER*>(m_Data.data() + sizeof(DWORD));
 }
 
 
-
-const DDS_HEADER* TextureAsset::header() {
-    return reinterpret_cast<DDS_HEADER*>(data.data() + sizeof(DWORD));
+char* const TextureAsset::GetData() {
+    return m_Data.data() + 128;
 }
 
 
-
-char* const TextureAsset::getData() {
-    return data.data() + 128;
+uint32_t TextureAsset::GetDataSize() const { 
+    return static_cast<uint32_t>(m_Data.size() - 128); 
 }
 
 
-
-uint32_t TextureAsset::getDataSize() const { 
-    return static_cast<uint32_t>(data.size() - 128); 
-}
-
-
-
-std::string TextureAsset::convert(const std::string& filepath) {
+std::string TextureAsset::sConvert(const std::string& filepath) {
     int width, height, ch;
     std::vector<stbi_uc*> mipChain;
 
@@ -71,7 +62,7 @@ std::string TextureAsset::convert(const std::string& filepath) {
         ddsBuffer.resize(ddsBuffer.size() + curSize.x * curSize.y);
 
         // block compress
-        Raekor::compressDXT(ddsBuffer.data() + offset, mipChain[i], curSize.x, curSize.y, true);
+        Raekor::CompressDXT(ddsBuffer.data() + offset, mipChain[i], curSize.x, curSize.y, true);
 
         offset += curSize.x * curSize.y;
     }
@@ -117,8 +108,7 @@ std::string TextureAsset::convert(const std::string& filepath) {
 }
 
 
-
-bool TextureAsset::load(const std::string& filepath) {
+bool TextureAsset::Load(const std::string& filepath) {
     if (filepath.empty() || !fs::exists(filepath)) {
         return false;
     }
@@ -129,12 +119,12 @@ bool TextureAsset::load(const std::string& filepath) {
     std::vector<char> scratch(twoMegabytes);
     file.rdbuf()->pubsetbuf(scratch.data(), scratch.size());
 
-    data.resize(file.tellg());
+    m_Data.resize(file.tellg());
     file.seekg(0, std::ios::beg);
-    file.read(data.data(), data.size());
+    file.read(m_Data.data(), m_Data.size());
 
     DWORD magicNumber;
-    memcpy(&magicNumber, data.data(), sizeof(DWORD));
+    memcpy(&magicNumber, m_Data.data(), sizeof(DWORD));
 
     if (magicNumber != DDS_MAGIC) {
         std::cerr << "File " << filepath << " not a DDS file!\n";;
@@ -145,27 +135,43 @@ bool TextureAsset::load(const std::string& filepath) {
 }
 
 
-
 Assets::Assets() {
-    if (!fs::exists("assets")) {
+    if (!fs::exists("assets"))
         fs::create_directory("assets");
-    }
 }
 
 
+void Assets::CollectGarbage() {
+    std::vector<std::string> keys;
 
-ScriptAsset::ScriptAsset(const std::string& filepath) : Asset(filepath) {}
+    for (const auto& [key, value] : *this) {
+        if (value.use_count() == 1) {
+            keys.push_back(key);
+        }
+    }
+
+    for (const auto& key : keys)
+        Release(key);
+}
+
+
+void Assets::Release(const std::string& filepath) {
+    std::scoped_lock(m_ReleaseMutex);
+
+    if (find(filepath) != end())
+        erase(filepath);
+}
 
 ScriptAsset::~ScriptAsset() {
-    if (hmodule) FreeLibrary(hmodule);
+    if (m_HModule) 
+        FreeLibrary(m_HModule);
 }
 
 
-
-std::string ScriptAsset::convert(const std::string& filepath) {
+std::string ScriptAsset::sConvert(const std::string& filepath) {
     Find_Result vswhere = find_visual_studio_and_windows_sdk();
     
-    std::string visualStudioPath = wchar_to_std_string(vswhere.vs_exe_path);
+    std::string visualStudioPath = gWCharToString(vswhere.vs_exe_path);
     std::cout << visualStudioPath << '\n';
     free_resources(&vswhere);
 
@@ -221,30 +227,28 @@ std::string ScriptAsset::convert(const std::string& filepath) {
 
     int result = system(std::string("\"" + command + "\"").c_str());
 
-    std::cout << "Script compile time of " << Timer::ToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
+    std::cout << "Script compile time of " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
 
     return result == 0 ? dll.string() : std::string();
 }
 
 
-
-bool ScriptAsset::load(const std::string& filepath) {
+bool ScriptAsset::Load(const std::string& filepath) {
     if (filepath.empty() || !fs::exists(filepath)) {
         return false;
     }
 
-    hmodule = LoadLibraryA(filepath.c_str());
+    m_HModule = LoadLibraryA(filepath.c_str());
 
-    return hmodule != NULL;
+    return m_HModule != NULL;
 }
 
 
-
-void ScriptAsset::enumerateSymbols() {
+void ScriptAsset::EnumerateSymbols() {
     MODULEINFO info;
-    GetModuleInformation(GetCurrentProcess(), hmodule, &info, sizeof(MODULEINFO));
+    GetModuleInformation(GetCurrentProcess(), m_HModule, &info, sizeof(MODULEINFO));
 
-    std::string pdbFile = m_path.replace_extension(".pdb").string();
+    std::string pdbFile = m_Path.replace_extension(".pdb").string();
 
     PSYM_ENUMERATESYMBOLS_CALLBACK processSymbol = [](PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID UserContext) -> BOOL {
         std::cout << "Symbol: " << pSymInfo->Name << '\n';
@@ -261,7 +265,7 @@ void ScriptAsset::enumerateSymbols() {
     }
 
 
-    DWORD64 result = SymLoadModuleEx(GetCurrentProcess(), NULL, pdbFile.c_str(), NULL, (DWORD64)hmodule, info.SizeOfImage, NULL, NULL);
+    DWORD64 result = SymLoadModuleEx(GetCurrentProcess(), NULL, pdbFile.c_str(), NULL, (DWORD64)m_HModule, info.SizeOfImage, NULL, NULL);
 
     if (result == 0 && GetLastError() != 0) {
         std::cout << "Failed" << std::endl;

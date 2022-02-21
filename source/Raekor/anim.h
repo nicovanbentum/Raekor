@@ -11,9 +11,9 @@ public:
 	glm::vec3 GetInterpolatedPosition(float animationTime) const;
 
 private:
-	std::vector<aiVectorKey> positionKeys;
-	std::vector<aiQuatKey> rotationkeys;
 	std::vector<aiVectorKey> scaleKeys;
+	std::vector<aiQuatKey> rotationkeys;
+	std::vector<aiVectorKey> positionKeys;
 };
 
 

@@ -21,16 +21,16 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-    ImGui_ImplSDL2_InitForVulkan(window);
+    ImGui_ImplSDL2_InitForVulkan(m_Window);
 
     ImGui::GetIO().IniFilename = "";
 
-    while (!fs::exists(settings.defaultScene)) {
-        settings.defaultScene = OS::openFileDialog("Scene Files (*.scene)\0*.scene\0");
+    while (!fs::exists(m_Settings.defaultScene)) {
+        m_Settings.defaultScene = OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0");
     }
 
-    SDL_SetWindowTitle(window, std::string(settings.defaultScene + " - Raekor Renderer").c_str());
-    m_Scene.openFromFile(m_Assets, settings.defaultScene);
+    SDL_SetWindowTitle(m_Window, std::string(m_Settings.defaultScene + " - Raekor Renderer").c_str());
+    m_Scene.OpenFromFile(m_Assets, m_Settings.defaultScene);
 
     assert(!m_Scene.empty() && "Scene cannot be empty when starting up DX12 renderer!!");
 
@@ -54,7 +54,7 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
 
     SDL_SysWMinfo wmInfo;
     SDL_VERSION(&wmInfo.version);
-    SDL_GetWindowWMInfo(window, &wmInfo);
+    SDL_GetWindowWMInfo(m_Window, &wmInfo);
     HWND hwnd = wmInfo.info.win.window;
 
     DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {};
@@ -142,7 +142,7 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
     }
 
     for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
-        const auto vertices = mesh.getInterleavedVertices();
+        const auto vertices = mesh.GetInterleavedVertices();
 
         {
             ComPtr<ID3D12Resource> vertexBuffer;
@@ -337,8 +337,8 @@ DXApp::~DXApp() {
 }
 
 
-void DXApp::onUpdate(float dt) {
-    SDL_SetWindowTitle(window, std::string("Raekor - " + std::to_string(Timer::ToMilliseconds(dt)) + " ms").c_str());
+void DXApp::OnUpdate(float dt) {
+    SDL_SetWindowTitle(m_Window, std::string("Raekor - " + std::to_string(Timer::sToMilliseconds(dt)) + " ms").c_str());
 
     const UINT64 currentFenceValue = m_FenceValues[m_FrameIndex];
 
@@ -405,7 +405,7 @@ void DXApp::onUpdate(float dt) {
 }
 
 
-void DXApp::onEvent(const SDL_Event& event) {
+void DXApp::OnEvent(const SDL_Event& event) {
     if (event.type == SDL_WINDOWEVENT) {
         if (event.window.event == SDL_WINDOWEVENT_MINIMIZED) {
             while (1) {
@@ -418,7 +418,7 @@ void DXApp::onEvent(const SDL_Event& event) {
             }
         }
         if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
-            if (SDL_GetWindowID(window) == event.window.windowID) {
+            if (SDL_GetWindowID(m_Window) == event.window.windowID) {
                 m_Running = false;
             }
         }

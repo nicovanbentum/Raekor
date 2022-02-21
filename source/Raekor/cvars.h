@@ -5,138 +5,121 @@
 
 namespace Raekor {
 
-typedef std::variant<int, float, std::string, std::function<void()>> cvar_t;
+typedef std::variant<int, float, std::string, std::function<void()>> CVar;
 
 template<class Archive>
-void serialize(Archive& archive, cvar_t& cvar) {
+void serialize(Archive& archive, CVar& cvar) {
 	archive(cvar);
 }
 
-class ConVars {
+class CVars {
 private:
 	struct GetVisitor {
 		template<typename T> 
-		std::string operator()(T& value) {
-			return std::to_string(value);
-		}
-
-		template<> std::string operator()(std::string& value) {
-			return value;
-		}
-
-		template<> std::string operator()(std::function<void()>& value) {
-			return {};
-		}
+		std::string operator()(T& value) { return std::to_string(value); }
+		template<> std::string operator()(std::string& value) { return value; }
+		template<> std::string operator()(std::function<void()>& value) { return {}; }
 	};
 
 
-	struct SetVisitor
-	{
-		SetVisitor(const std::string& value) : value(value) {}
+	struct SetVisitor {
+		SetVisitor(const std::string& value) : m_Value(value) {}
 
-		template<typename T> bool operator()(T& cvar) {
-			return false;
-		}
+		template<typename T> bool operator()(T& cvar) { return false; }
 
-		template<> bool operator()(std::function<void()>& cvar) {
-			cvar();
-			return true;
-		}
+		template<> bool operator()(int& cvar);
+		template<> bool operator()(float& cvar);
+		template<> bool operator()(std::string& cvar);
+		template<> bool operator()(std::function<void()>& cvar);
 
-		template<> bool operator()(std::string& cvar) {
-			cvar = value;
-			return true;
-		}
-
-		template<> bool operator()(int& cvar) {
-			cvar = std::stoi(value);
-			return true;
-		}
-
-		template<> bool operator()(float& cvar)  {
-			cvar = std::stof(value);
-			return true;
-		}
-
-		const std::string& value;
+		const std::string& m_Value;
 	};
 
 public:
-	ConVars() {
-		std::ifstream stream("cvars.json");
-		
-		if (!stream.is_open()) {
-			return;
-		}
-
-		cereal::JSONInputArchive archive(stream);
-		archive(cvars);
-	}
-
-	~ConVars() {
-		std::ofstream stream("cvars.json");
-		cereal::JSONOutputArchive archive(stream);
-		archive(cvars);
-	}
+	CVars();
+	~CVars();
 
 	template<typename T>
-	[[nodiscard]] static T& create(const std::string& name, T value, bool force = false) {
-		if (singleton->cvars.find(name) == singleton->cvars.end() || force) {
-			singleton->cvars[name] = value;
-		}
-
-		return std::get<T>(singleton->cvars[name]);
-	}
-
-	static void func(const std::string& name, std::function<void()> fn) {
-		auto ret = create(name, fn, true);
-	}
+	[[nodiscard]] static T& sCreate(const std::string& name, T value, bool force = false);
+	static void sCreateFn(const std::string& name, std::function<void()> fn);
 	
 	template<typename T>
-	[[nodiscard]] static T& getValue(const std::string& name) {
-		return std::get<T>(singleton->cvars[name]);
-	}
-
-	static std::string get(const std::string& name) {
-		if (singleton->cvars.find(name) == singleton->cvars.end()) {
-			return {};
-		}
-
-		try {
-			GetVisitor visitor;
-			return std::visit(visitor, singleton->cvars[name]);
-		}
-		catch (std::exception& e) {
-			UNREFERENCED_PARAMETER(e);
-			return {};
-		}
-	}
-
-	static bool set(std::string name, const std::string& value) {
-		if (singleton->cvars.find(name) == singleton->cvars.end()) {
-			return false;
-		}
-
-		try {
-			SetVisitor visitor(value);
-			return std::visit(visitor, singleton->cvars[name]);
-		}
-		catch (...) {
-			return false;
-		}
-	}
+	[[nodiscard]] static T& sGetValue(const std::string& name);
+	
+	static std::string sGetValue(const std::string& name);
+	static bool sSetValue(std::string name, const std::string& value);
 
 	inline auto end()    { return cvars.end();   }
 	inline auto begin()  { return cvars.begin(); }
 	inline size_t size() { return cvars.size();  }
 
-	static ConVars& get() { return *singleton.get(); }
+	static CVars& sGet() { return *global.get(); }
 
 private:
-	std::unordered_map<std::string, cvar_t> cvars;
+	std::unordered_map<std::string, CVar> cvars;
 
 private:
-	inline static std::unique_ptr<ConVars> singleton = std::make_unique<ConVars>();
+	inline static std::unique_ptr<CVars> global = std::make_unique<CVars>();
 };
+
+
+template<> bool CVars::SetVisitor::operator()(std::function<void()>& cvar) {
+	cvar();
+	return true;
+}
+
+
+template<> bool CVars::SetVisitor::operator()(std::string& cvar) {
+	cvar = m_Value;
+	return true;
+}
+
+
+template<> bool CVars::SetVisitor::operator()(int& cvar) {
+	cvar = std::stoi(m_Value);
+	return true;
+}
+
+
+template<> bool CVars::SetVisitor::operator()(float& cvar) {
+	cvar = std::stof(m_Value);
+	return true;
+}
+
+
+template<typename T>
+inline T& CVars::sCreate(const std::string& name, T value, bool force) {
+	if (global->cvars.find(name) == global->cvars.end() || force) {
+		global->cvars[name] = value;
+	}
+
+	return std::get<T>(global->cvars[name]);
+}
+
+
+inline void CVars::sCreateFn(const std::string& name, std::function<void()> fn) {
+	auto ret = sCreate(name, fn, true);
+}
+
+
+template<typename T>
+inline T& CVars::sGetValue(const std::string& name) {
+	return std::get<T>(global->cvars[name]);
+}
+
+
+inline bool CVars::sSetValue(std::string name, const std::string& value) {
+	if (global->cvars.find(name) == global->cvars.end()) {
+		return false;
+	}
+
+	try {
+		SetVisitor visitor(value);
+		return std::visit(visitor, global->cvars[name]);
+	}
+	catch (...) {
+		return false;
+	}
+}
 
 } // raekor

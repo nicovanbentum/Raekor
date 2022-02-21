@@ -24,8 +24,8 @@ public:
 	};
 
 	struct VertexInput {
-		VertexInput& binding(uint32_t binding, uint32_t stride);
-		VertexInput& attribute(uint32_t location, VkFormat format, uint32_t offset);
+		VertexInput& Binding(uint32_t binding, uint32_t stride);
+		VertexInput& Attribute(uint32_t location, VkFormat format, uint32_t offset);
 
 		std::vector<VkVertexInputBindingDescription> bindings;
 		std::vector<VkVertexInputAttributeDescription> attributes;

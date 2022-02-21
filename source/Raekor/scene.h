@@ -7,37 +7,36 @@
 
 namespace Raekor {
 
-class Async;
-
 class Scene : public entt::registry {
 public:
 	Scene() = default;
-	~Scene();
+	~Scene() { clear(); }
 	Scene(const Scene& rhs) = delete;
 
-	// object management
-	entt::entity	createObject(const std::string& name = "Empty");
-	void			destroyObject(entt::entity entity);
-	entt::entity	pickObject(Math::Ray& ray);
+	// Spatial entity management
+	entt::entity	PickSpatialEntity(Math::Ray& ray);
+	entt::entity	CreateSpatialEntity(const std::string& name);
+	void			DestroySpatialEntity(entt::entity entity);
 
-	void bindScript(entt::entity entity, NativeScript& script);
+	// Per frame systems
+	void UpdateNode(entt::entity node, entt::entity parent);
+	void UpdateTransforms();
+	void UpdateLights();
 
-	// per frame systems
-	void updateNode(entt::entity node, entt::entity parent);
-	void updateTransforms();
-	void updateLights();
+	/* Loads materials from disk in parallel, is used for both importing and scene loading. */
+	void LoadMaterialTextures(Assets& assets, const std::vector<entt::entity>& materials);
 
-	void loadMaterialTextures(Assets& assets, const std::vector<entt::entity>& materials);
-
-	// save to disk
-	void saveToFile(Assets& assets, const std::string& file);
-	void openFromFile(Assets& assets, const std::string& file);
+	// save Scene to disk
+	void SaveToFile(Assets& assets, const std::string& file);
+	void OpenFromFile(Assets& assets, const std::string& file);
 
 	template<typename Fn>
 	void SetUploadMeshCallbackFunction(Fn&& fn) { m_UploadMeshCallback = fn; }
 
 	template<typename Fn>
 	void SetUploadMaterialCallbackFunction(Fn&& fn) { m_UploadMaterialCallback = fn; }
+	
+	void BindScriptToEntity(entt::entity entity, NativeScript& script);
 
 private:
 	std::function<void(Mesh&)> m_UploadMeshCallback = nullptr;

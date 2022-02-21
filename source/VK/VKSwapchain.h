@@ -4,24 +4,23 @@ namespace Raekor::VK {
 
 class Device;
 
-class Swapchain {
+class SwapChain {
 public:
-    operator VkSwapchainKHR() const { return swapchain; }
+    operator VkSwapchainKHR() const { return m_SwapChain; }
 
-    void create(const Device& device, glm::uvec2 resolution, VkPresentModeKHR mode);
-    void destroy(VkDevice device);
+    void Create(const Device& device, glm::uvec2 resolution, VkPresentModeKHR mode);
+    void Destroy(VkDevice device);
 
-    const VkExtent2D& getExtent() const;
-    const uint32_t getImageCount() const;
+    const VkExtent2D& GetExtent() const;
+    const uint32_t GetImageCount() const;
 
 private:
-    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+    VkSwapchainKHR m_SwapChain = VK_NULL_HANDLE;
 
 public:
     VkExtent2D extent;
     VkFormat imageFormat;
     std::vector<VkImage> images;
-
     std::vector<VkCommandBuffer> submitBuffers;
     
 };

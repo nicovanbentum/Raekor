@@ -5,16 +5,15 @@
 
 namespace GUI {
 
-void beginDockSpace();
-void endDockSpace();
+void BeginDockSpace();
+void EndDockSpace();
 
-void beginFrame();
-void endFrame();
+void BeginFrame();
+void EndFrame();
     
-void setTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data);
+void SetFont(const std::string& filepath);
+void SetTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data);
 
-void setFont(const std::string& filepath);
+glm::ivec2 GetMousePosWindow(const Raekor::Viewport& viewport, ImVec2 windowPos);
 
-glm::ivec2 getMousePosWindow(const Raekor::Viewport& viewport, ImVec2 windowPos);
-
-} // GUI
+} // namespace GUI
