@@ -11,20 +11,19 @@ AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, "Asset Browser") {}
 void AssetsWidget::draw(float dt) {
     ImGui::Begin(title.c_str());
 
-    auto materialView = IWidget::GetScene().view<Material, Name>();
+    auto materials = IWidget::GetScene().view<Material, Name>();
 
     auto& style = ImGui::GetStyle();
 
     if (ImGui::BeginTable("Assets", 24)) {
-        for (auto entity : materialView) {
-            auto& [material, name] = materialView.get<Material, Name>(entity);
-            std::string selectableName = name.name.substr(0, 9).c_str() + std::string("...");
+        for (auto entity : materials) {
+            auto& [material, name] = materials.get<Material, Name>(entity);
+            auto selectable_name = name.name.substr(0, 9).c_str() + std::string("...");
 
             ImGui::TableNextColumn();
 
-            if (editor->m_ActiveEntity == entity) {
+            if (GetActiveEntity() == entity)
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.2f)));
-            }
             
             bool clicked = false;
 
@@ -47,9 +46,8 @@ void AssetsWidget::draw(float dt) {
 
             ImGui::PushID(entt::to_integral(entity));
 
-            if (clicked) {
-                editor->m_ActiveEntity = entity;
-            }
+            if (clicked)
+                GetActiveEntity() = entity;
 
             //if (ImGui::Button(ICON_FA_ARCHIVE, ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()))) {
             //    editor->active = entity;
@@ -64,7 +62,7 @@ void AssetsWidget::draw(float dt) {
 
             ImGui::PopID();
 
-            ImGui::Text(selectableName.c_str());
+            ImGui::Text(selectable_name.c_str());
         }
 
         ImGui::EndTable();

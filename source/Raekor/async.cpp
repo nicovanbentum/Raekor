@@ -43,7 +43,7 @@ Async::~Async() {
 }
 
 
-Async::Handle Async::sDispatch(const Task& task) {
+Async::Job Async::sDispatch(const Task& task) {
     auto dispatch = std::make_shared<Dispatch>(task);
 
     {
@@ -68,7 +68,7 @@ void Async::sWait() {
 }
 
 
-void Async::sWait(const Handle& dispatch) {
+void Async::sWait(const Job& dispatch) {
     while (!dispatch->finished) {}
 }
 

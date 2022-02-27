@@ -15,7 +15,7 @@ public:
     virtual void onEvent(const SDL_Event& ev) override {}
 
 private:
-    entt::entity& active;
+    entt::entity& m_ActiveEntity;
 };
 
 }

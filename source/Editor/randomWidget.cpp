@@ -27,7 +27,6 @@ void RandomWidget::draw(float dt) {
 
     ImGui::NewLine(); ImGui::Separator();
 
-
     ImGui::Text("VCTGI");
 
     ImGui::DragFloat("Radius", &renderer.voxelize->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");

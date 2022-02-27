@@ -10,7 +10,7 @@ namespace Raekor {
 
 MenubarWidget::MenubarWidget(Editor* editor) : 
     IWidget(editor, "Menubar"),
-    active(editor->m_ActiveEntity)
+    m_ActiveEntity(GetActiveEntity())
 {}
 
 
@@ -22,7 +22,7 @@ void MenubarWidget::draw(float dt) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New scene")) {
                 scene.clear();
-                editor->m_ActiveEntity = entt::null;
+                m_ActiveEntity = entt::null;
             }
 
             if (ImGui::MenuItem("Open scene..")) {
@@ -32,7 +32,7 @@ void MenubarWidget::draw(float dt) {
                     Timer timer;
                     SDL_SetWindowTitle(editor->GetWindow(), std::string(filepath + " - Raekor Renderer").c_str());
                     scene.OpenFromFile(IWidget::GetAssets(), filepath);
-                    editor->m_ActiveEntity = entt::null;
+                    m_ActiveEntity = entt::null;
                     std::cout << "Open scene time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
                 }
             }
@@ -46,7 +46,7 @@ void MenubarWidget::draw(float dt) {
             }
 
             if (ImGui::MenuItem("Load model..")) {
-                std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.fbx, *.glb)\0*.gltf;*.fbx;*.glb\0");
+                std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.fbx, *.glb, *.obj)\0*.gltf;*.fbx;*.glb;*.obj\0");
                 
                 if (!filepath.empty()) {
                     AssimpImporter importer(scene);
@@ -54,7 +54,7 @@ void MenubarWidget::draw(float dt) {
                     importer.SetUploadMaterialCallbackFunction(GLRenderer::uploadMaterialTextures);
                     importer.SetUploadSkeletonCallbackFunction(GLRenderer::UploadSkeletonBuffers);
                     importer.LoadFromFile(IWidget::GetAssets(), filepath);
-                    active = entt::null;
+                    m_ActiveEntity = sInvalidEntity;
                 }
             }
 
@@ -92,9 +92,9 @@ void MenubarWidget::draw(float dt) {
         if (ImGui::BeginMenu("Edit")) {
 
             if (ImGui::MenuItem("Delete", "DEL")) {
-                if (active != entt::null) {
-                    IWidget::GetScene().DestroySpatialEntity(active);
-                    active = entt::null;
+                if (m_ActiveEntity != sInvalidEntity) {
+                    IWidget::GetScene().DestroySpatialEntity(m_ActiveEntity);
+                    m_ActiveEntity = sInvalidEntity;
                 }
             }
 
@@ -120,7 +120,7 @@ void MenubarWidget::draw(float dt) {
         if (ImGui::BeginMenu("Add")) {
             if (ImGui::MenuItem("Empty", "CTRL+E")) {
                 auto entity = scene.CreateSpatialEntity("Empty");
-                active = entity;
+                m_ActiveEntity = entity;
             }
 
             ImGui::Separator();
@@ -129,7 +129,7 @@ void MenubarWidget::draw(float dt) {
                 auto entity = scene.create();
                 scene.emplace<Name>(entity, "New Material");
                 scene.emplace<Material>(entity);
-                active = entity;
+                m_ActiveEntity = entity;
             }
 
             if (ImGui::BeginMenu("Shapes")) {
@@ -137,9 +137,9 @@ void MenubarWidget::draw(float dt) {
                     auto entity = scene.CreateSpatialEntity("Sphere");
                     auto& mesh = scene.emplace<Mesh>(entity);
 
-                    if (active != entt::null) {
+                    if (m_ActiveEntity != sInvalidEntity) {
                         auto& node = scene.get<Node>(entity);
-                        NodeSystem::sAppend(scene, scene.get<Node>(active), node);
+                        NodeSystem::sAppend(scene, scene.get<Node>(m_ActiveEntity), node);
                     }
 
                     const float radius = 2.0f;
@@ -215,9 +215,9 @@ void MenubarWidget::draw(float dt) {
                     auto entity = scene.CreateSpatialEntity("Plane");
                     auto& mesh = scene.emplace<Mesh>(entity);
                     
-                    if (active != entt::null) {
+                    if (m_ActiveEntity != sInvalidEntity) {
                         auto& node = scene.get<Node>(entity);
-                        NodeSystem::sAppend(scene, scene.get<Node>(active), node);
+                        NodeSystem::sAppend(scene, scene.get<Node>(m_ActiveEntity), node);
                     }
                     
                     for (const auto& v : UnitPlane::vertices) {
@@ -241,9 +241,9 @@ void MenubarWidget::draw(float dt) {
                     auto entity = scene.CreateSpatialEntity("Cube");
                     auto& mesh = scene.emplace<Mesh>(entity);
 
-                    if (active != entt::null) {
+                    if (m_ActiveEntity != sInvalidEntity && scene.all_of<Node>(m_ActiveEntity)) {
                         auto& node = scene.get<Node>(entity);
-                        NodeSystem::sAppend(scene, scene.get<Node>(active), node);
+                        NodeSystem::sAppend(scene, scene.get<Node>(m_ActiveEntity), node);
                     }
 
                     for (const auto& v : UnitCube::vertices) {
@@ -261,6 +261,8 @@ void MenubarWidget::draw(float dt) {
                     mesh.CalculateTangents();
                     mesh.CalculateAABB();
                     GLRenderer::uploadMeshBuffers(mesh);
+
+                    m_ActiveEntity = entity;
                 }
 
                 ImGui::EndMenu();
@@ -270,13 +272,13 @@ void MenubarWidget::draw(float dt) {
                 if (ImGui::MenuItem("Point Light")) {
                     auto entity = scene.CreateSpatialEntity("Point Light");
                     scene.emplace<PointLight>(entity);
-                    active = entity;
+                    m_ActiveEntity = entity;
                 }
 
                 if (ImGui::MenuItem("Directional Light")) {
                     auto entity = scene.CreateSpatialEntity("Directional Light");
                     scene.emplace<DirectionalLight>(entity);
-                    active = entity;
+                    m_ActiveEntity = entity;
                 }
 
                 ImGui::EndMenu();

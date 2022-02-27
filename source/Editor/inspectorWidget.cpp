@@ -12,16 +12,18 @@ InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, "Inspector") 
 void InspectorWidget::draw(float dt) {
     ImGui::Begin(title.c_str());
 
-    if (editor->m_ActiveEntity == entt::null) {
+    auto& active_entity = GetActiveEntity();
+
+    if (active_entity == entt::null) {
         ImGui::End();
         return;
     }
 
-    ImGui::Text("ID: %i", editor->m_ActiveEntity);
+    ImGui::Text("ID: %i", active_entity);
 
-    Scene& scene = IWidget::GetScene();
-    Assets& assets = IWidget::GetAssets();
-    entt::entity& active = editor->m_ActiveEntity;
+    Scene& scene = GetScene();
+    Assets& assets = GetAssets();
+    entt::entity& active = active_entity;
 
     // I much prefered the for_each_tuple_element syntax tbh
     std::apply([&](const auto& ... components) {
@@ -32,7 +34,7 @@ void InspectorWidget::draw(float dt) {
                 bool isOpen = true;
                 if (ImGui::CollapsingHeader(components.name, &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
                     if (isOpen) {
-                        drawComponent(scene.get<ComponentType>(entity), assets, scene, entity);
+                        DrawComponent(scene.get<ComponentType>(entity), entity);
                     } else {
                         scene.remove<ComponentType>(entity);
                     }
@@ -59,21 +61,23 @@ void InspectorWidget::draw(float dt) {
 
 
 
-void InspectorWidget::drawComponent(Name& component, Assets& assets, Scene& scene, entt::entity& active) {
+void InspectorWidget::DrawComponent(Name& component, Entity& active) {
     ImGui::InputText("Name##1", &component.name, ImGuiInputTextFlags_AutoSelectAll);
 }
 
 
 
-void InspectorWidget::drawComponent(Node& component, Assets& assets, Scene& scene, entt::entity& active) {
+void InspectorWidget::DrawComponent(Node& component, Entity& active) {
     ImGui::Text("Parent entity: %i", component.parent);
     ImGui::Text("Siblings: %i, %i", component.prevSibling, component.nextSibling);
 }
 
 
 
-void InspectorWidget::drawComponent(Mesh& component, Assets& assets, Scene& scene, entt::entity& active) {
+void InspectorWidget::DrawComponent(Mesh& component, Entity& active) {
     ImGui::Text("Triangle count: %i", component.indices.size() / 3);
+
+    auto& scene = GetScene();
 
     if (scene.valid(component.material) && scene.all_of<Material, Name>(component.material)) {
         auto& [material, name] = scene.get<Material, Name>(component.material);
@@ -136,7 +140,7 @@ void InspectorWidget::DrawComponent(Skeleton& component, Entity& active) {
 
 
 
-void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& scene, entt::entity& active) {
+void InspectorWidget::DrawComponent(Material& component, Entity& active) {
     auto& io = ImGui::GetIO();
     auto& style = ImGui::GetStyle();
     float lineHeight = io.FontDefault->FontSize;
@@ -172,11 +176,11 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
             auto filepath = OS::sOpenFileDialog("Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0");
 
             if (!filepath.empty()) {
-                const auto assetHandle = TextureAsset::sConvert(filepath);
+                const auto asset_path = TextureAsset::sConvert(filepath);
 
-                if (!assetHandle.empty()) {
-                    file = filepath;
-                    gpuMap = GLRenderer::uploadTextureFromAsset(assets.Get<TextureAsset>(assetHandle));
+                if (!asset_path.empty()) {
+                    file = asset_path;
+                    gpuMap = GLRenderer::uploadTextureFromAsset(GetAssets().Get<TextureAsset>(asset_path));
                 }
                 else {
                     ImGui::OpenPopup("Error");
@@ -189,12 +193,10 @@ void InspectorWidget::drawComponent(Material& component, Assets& assets, Scene& 
             ImGui::AlignTextToFramePadding();
             ImGui::Text(file.c_str());
 
-            if (ImGui::IsItemHovered()) {
+            if (ImGui::IsItemHovered())
                 ImGui::SetTooltip(file.c_str());
-            }
         }
     };
-
 
     ImGui::AlignTextToFramePadding(); ImGui::Text("Albedo Map"); ImGui::SameLine();
     drawTextureInteraction(component.gpuAlbedoMap, component.albedoFile);
@@ -272,33 +274,31 @@ bool dragVec3(const char* label, glm::vec3& v, float step, float min, float max,
 }
 
 
-void InspectorWidget::drawComponent(Transform& component, Assets& assets, Scene& scene, entt::entity& active) {
-    if (dragVec3("Scale", component.scale, 0.001f, 0.0f, FLT_MAX)) {
+void InspectorWidget::DrawComponent(Transform& component, Entity& active) {
+    if (dragVec3("Scale", component.scale, 0.001f, 0.0f, FLT_MAX))
         component.Compose();
-    }
 
-    auto degrees = glm::degrees(component.rotation);
+    auto degrees = glm::degrees(glm::eulerAngles(component.rotation));
 
     if (dragVec3("Rotation", degrees, 0.1f, -360.0f, 360.0f)) {
-        component.rotation = glm::radians(degrees);
-        component.Compose();
-    }
-    if (dragVec3("Position", component.position, 0.001f, -FLT_MAX, FLT_MAX)) {
+        component.rotation = glm::quat(glm::radians(degrees));
         component.Compose();
     }
 
-    
+    if (dragVec3("Position", component.position, 0.001f, -FLT_MAX, FLT_MAX))
+        component.Compose();
 }
 
 
-
-void InspectorWidget::drawComponent(PointLight& component, Assets& assets, Scene& scene, entt::entity& active) {
+void InspectorWidget::DrawComponent(PointLight& component, Entity& active) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 }
 
 
+void InspectorWidget::DrawComponent(NativeScript& component, Entity& active) {
+    auto& scene = GetScene();
+    auto& assets = GetAssets();
 
-void InspectorWidget::drawComponent(NativeScript& component, Assets& assets, Scene& scene, entt::entity& active) {
     if (component.asset) {
         ImGui::Text("Module: %i", component.asset->GetModule());
         ImGui::Text("File: %s", component.file.c_str());
@@ -353,7 +353,7 @@ void InspectorWidget::drawComponent(NativeScript& component, Assets& assets, Sce
 
 
 
-void InspectorWidget::drawComponent(DirectionalLight& component, Assets& assets, Scene& scene, entt::entity& active) {
+void InspectorWidget::DrawComponent(DirectionalLight& component, Entity& active) {
     ImGui::ColorEdit4("Colour", glm::value_ptr(component.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
     ImGui::DragFloat3("Direction", glm::value_ptr(component.direction), 0.01f, -1.0f, 1.0f);
 }

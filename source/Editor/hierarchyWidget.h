@@ -13,12 +13,12 @@ public:
     virtual void onEvent(const SDL_Event& ev) override {}
 
 private:
-    void dropTargetWindow(entt::registry& scene);
-    void dropTargetNode(entt::registry& scene, entt::entity entity);
+    void dropTargetWindow(Scene& scene);
+    void dropTargetNode(Scene& scene, Entity entity);
 
-    void drawFamily(entt::registry& scene, entt::entity parent, entt::entity& active);
-    bool drawFamilyNode(entt::registry& scene, entt::entity entity, entt::entity& active);
-    void drawChildlessNode(entt::registry& scene, entt::entity entity, entt::entity& active);
+    void drawFamily(Scene& scene, Entity parent, Entity& active);
+    bool drawFamilyNode(Scene& scene, Entity entity, Entity& active);
+    void drawChildlessNode(Scene& scene, Entity entity, Entity& active);
 };
 
 }

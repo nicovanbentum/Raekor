@@ -21,22 +21,21 @@ public:
 
     template<typename T>
     std::shared_ptr<T>  GetWidget();
-    const auto& GetWidgets() { return widgets; }
-
-    entt::entity m_ActiveEntity = entt::null;
+    const auto& GetWidgets() { return m_Widgets; }
 
 private:
-    Scene scene;
-    Assets assets;
-    Physics physics;
-    GLRenderer renderer;
-    std::vector<std::shared_ptr<IWidget>> widgets;
+    Scene m_Scene;
+    Assets m_Assets;
+    Physics m_Physics;
+    GLRenderer m_Renderer;
+    Entity m_ActiveEntity = sInvalidEntity;
+    std::vector<std::shared_ptr<IWidget>> m_Widgets;
 };
 
 
 template<typename T>
 std::shared_ptr<T> Editor::GetWidget() {
-    for (const auto& widget : widgets) {
+    for (const auto& widget : m_Widgets) {
         if (widget->GetTypeID() == T::m_TypeID) {
             return std::static_pointer_cast<T>(widget);
         }

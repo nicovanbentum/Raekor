@@ -10,10 +10,15 @@ namespace Raekor {
 	 assert(editor);
  }
 
- Scene& IWidget::GetScene() { return editor->scene; }
+ Scene& IWidget::GetScene() { return editor->m_Scene; }
 
- Assets& IWidget::GetAssets() { return editor->assets; }
+ Assets& IWidget::GetAssets() { return editor->m_Assets; }
 
- GLRenderer& IWidget::GetRenderer() { return editor->renderer; }
+ Physics& IWidget::GetPhysics() { return editor->m_Physics; }
+
+ GLRenderer& IWidget::GetRenderer() { return editor->m_Renderer; }
+
+ entt::entity& IWidget::GetActiveEntity() { return editor->m_ActiveEntity; }
+
 
 }

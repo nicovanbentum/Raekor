@@ -134,12 +134,18 @@ void ViewportWidget::draw(float dt) {
 
     focused = ImGui::IsWindowFocused();
 
-    // render the active screen texture to the view port as an imgui image
-    ImGui::Image((void*)((intptr_t)rendertarget), ImVec2((float)viewport.size.x, (float)viewport.size.y), { 0, 1 }, { 1, 0 });
+    physics_state_text_colors[Physics::Idle] = ImVec4(0.0f, 0.0f, 0.0f, 0.01f);
+    std::swap(physics_state_text_colors[Physics::Paused], physics_state_text_colors[Physics::Stepping]);
+    const auto border_color = physics_state_text_colors[physics.settings.state];
+
+    const auto image_size = ImVec2(ImVec2((float)viewport.size.x, (float)viewport.size.y));
+    ImGui::Image((void*)((intptr_t)rendertarget), image_size, { 0, 1 }, { 1, 0 }, ImVec4(1, 1, 1, 1), border_color);
 
     mouseInViewport = ImGui::IsItemHovered();
     const ImVec2 viewportMin = ImGui::GetItemRectMin();
     const ImVec2 viewportMax = ImGui::GetItemRectMax();
+
+    auto& active_entity = GetActiveEntity();
 
     // the viewport image is a drag and drop target for dropping materials onto meshes
     if (ImGui::BeginDragDropTarget()) {
@@ -156,7 +162,7 @@ void ViewportWidget::draw(float dt) {
 
             if (mesh) {
                 ImGui::Text(std::string(std::string("Apply to ") + scene.get<Name>(picked).name).c_str());
-                editor->m_ActiveEntity = picked;
+                active_entity = picked;
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
                 ImGui::Text("Invalid target");
@@ -169,7 +175,7 @@ void ViewportWidget::draw(float dt) {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
             if (mesh) {
                 mesh->material = *reinterpret_cast<const entt::entity*>(payload->Data);
-                editor->m_ActiveEntity = mesh->material;
+                active_entity = mesh->material;
             }
         }
 
@@ -179,52 +185,45 @@ void ViewportWidget::draw(float dt) {
     auto pos = ImGui::GetWindowPos();
     viewport.offset = { pos.x, pos.y };
 
-    //mouseInViewport = ImGui::IsMouseHoveringRect(viewportMin, viewportMax);
-
-    auto& io = ImGui::GetIO();
-    if (io.MouseClicked[0] && mouseInViewport && !(editor->m_ActiveEntity != entt::null && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
+    if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !(active_entity != sInvalidEntity && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
         auto mousePos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
         uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
         entt::entity picked = static_cast<entt::entity>(pixel);
 
         if (scene.valid(picked)) {
-            editor->m_ActiveEntity = editor->m_ActiveEntity == picked ? entt::null : picked;
+            active_entity = active_entity == picked ? sInvalidEntity : picked;
         } else {
-            editor->m_ActiveEntity = entt::null;
+            active_entity = entt::null;
         }
     }
 
-
-    if (editor->m_ActiveEntity != entt::null && scene.valid(editor->m_ActiveEntity) && scene.all_of<Transform>(editor->m_ActiveEntity) && gizmoEnabled) {
+    if (active_entity != entt::null && scene.valid(active_entity) && scene.all_of<Transform>(active_entity) && gizmoEnabled) {
         ImGuizmo::SetDrawlist();
         ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
 
         // temporarily transform to mesh space for gizmo use
-        Transform& transform = scene.get<Transform>(editor->m_ActiveEntity);
-        Mesh* mesh = scene.try_get<Mesh>(editor->m_ActiveEntity);
+        auto& transform = scene.get<Transform>(active_entity);
+        auto mesh = scene.try_get<Mesh>(active_entity);
 
-        if (mesh) {
+        if (mesh)
             transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
-        }
 
         // prevent the gizmo from going outside of the viewport
         ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
 
         bool manipulated = ImGuizmo::Manipulate(
-                               glm::value_ptr(viewport.GetCamera().GetView()),
-                               glm::value_ptr(viewport.GetCamera().GetProjection()),
-                               operation, ImGuizmo::MODE::WORLD,
-                               glm::value_ptr(transform.localTransform)
-                           );
+            glm::value_ptr(viewport.GetCamera().GetView()),
+            glm::value_ptr(viewport.GetCamera().GetProjection()),
+            operation, ImGuizmo::MODE::LOCAL,
+            glm::value_ptr(transform.localTransform)
+        );
 
         // transform back to world space
-        if (mesh) {
+        if (mesh)
             transform.localTransform = glm::translate(transform.localTransform, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
-        }
 
-        if (manipulated) {
+        if (manipulated)
             transform.Decompose();
-        }
     }
 
     ImVec2 metricsPosition = ImGui::GetWindowPos();
@@ -237,7 +236,7 @@ void ViewportWidget::draw(float dt) {
     ImGui::End();
     ImGui::PopStyleVar();
 
-    if (isVisible) {
+    if (is_visible) {
         ImGui::SetNextWindowPos(metricsPosition);
         ImGui::SetNextWindowBgAlpha(0.35f);
         ImGuiWindowFlags metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
@@ -246,13 +245,12 @@ void ViewportWidget::draw(float dt) {
         ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
         ImGui::Text("Product: %s", glGetString(GL_RENDERER));
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
-        ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
     }
 
 }
-
 
 
 void ViewportWidget::onEvent(const SDL_Event& ev) {

@@ -8,6 +8,7 @@ private:
 
     struct Dispatch {
         Dispatch(const Task& task) : task(task) {}
+        void WaitCPU() const { while (!finished) {} }
 
         Task task;
         bool finished = false;
@@ -15,24 +16,26 @@ private:
 
 public:
     // type returned when dispatching a lambda
-    using Handle = std::shared_ptr<Dispatch>;
+    using Job = std::shared_ptr<Dispatch>;
 
     Async();
     Async(int threadCount);
     ~Async();
 
     /* Queue up a dispatch: lambda of signature void(void) */
-    static Handle sDispatch(const Task& task);
+    static Job sDispatch(const Task& task);
 
     /* Wait for all dispatches to finish. */ 
     static void sWait();
 
     /* Wait for a specific dispatch to finish. */
-    static void sWait(const Handle& dispatch);
+    static void sWait(const Job& job);
 
     /* Scoped lock on the global mutex,
         useful for ensuring thread safety inside a dispatch. */
     [[nodiscard]] static std::scoped_lock<std::mutex> sLock();
+
+    static uint32_t sNumberOfThreads() { return uint32_t(global->m_Threads.size()); }
 
 private:
     // per-thread function that waits on and executes tasks

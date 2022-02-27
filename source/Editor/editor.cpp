@@ -19,31 +19,35 @@ namespace Raekor {
 
 Editor::Editor() :
     Application(RendererFlags::OPENGL),
-    renderer(m_Window, m_Viewport) 
+    m_Renderer(m_Window, m_Viewport) 
 {
     GUI::SetTheme(m_Settings.themeColors);
     GUI::SetFont(m_Settings.font.c_str());
 
-    scene.SetUploadMeshCallbackFunction(GLRenderer::uploadMeshBuffers);
-    scene.SetUploadMaterialCallbackFunction(GLRenderer::uploadMaterialTextures);
+    m_Scene.SetUploadMeshCallbackFunction(GLRenderer::uploadMeshBuffers);
+    m_Scene.SetUploadMaterialCallbackFunction(GLRenderer::uploadMaterialTextures);
 
     if (fs::exists(m_Settings.defaultScene) && fs::path(m_Settings.defaultScene).extension() == ".scene") {
         SDL_SetWindowTitle(m_Window, std::string(m_Settings.defaultScene + " - Raekor Renderer").c_str());
-        scene.OpenFromFile(assets, m_Settings.defaultScene);
+        m_Scene.OpenFromFile(m_Assets, m_Settings.defaultScene);
     }
 
-    widgets.emplace_back(std::make_shared<AssetsWidget>(this));
-    widgets.emplace_back(std::make_shared<RandomWidget>(this));
-    widgets.emplace_back(std::make_shared<MenubarWidget>(this));
-    widgets.emplace_back(std::make_shared<ConsoleWidget>(this));
-    widgets.emplace_back(std::make_shared<MetricsWidget>(this));
-    widgets.emplace_back(std::make_shared<NodeGraphWidget>(this));
-    widgets.emplace_back(std::make_shared<ViewportWidget>(this));
-    widgets.emplace_back(std::make_shared<InspectorWidget>(this));
-    widgets.emplace_back(std::make_shared<HierarchyWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<AssetsWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<RandomWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<MenubarWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<ConsoleWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<MetricsWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<NodeGraphWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<ViewportWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<InspectorWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<HierarchyWidget>(this));
 
     std::cout << "Initialization done.\n";
-    auto sink = scene.on_destroy<Mesh>();
+    auto sink = m_Scene.on_destroy<Mesh>();
+
+    if (!m_Scene.empty()) {
+        m_Physics.InitFromScene(m_Scene);
+    }
 }
 
 
@@ -57,11 +61,11 @@ void Editor::OnUpdate(float dt) {
     m_Viewport.OnUpdate(dt);
 
     // update scene components
-    scene.UpdateTransforms();
-    scene.UpdateLights();
+    m_Scene.UpdateTransforms();
+    m_Scene.UpdateLights();
 
     // update animations in parallel
-    scene.view<Skeleton>().each([&](Skeleton& skeleton) {
+    m_Scene.view<Skeleton>().each([&](Skeleton& skeleton) {
         Async::sDispatch([&]() {
             skeleton.UpdateFromAnimation(skeleton.animations[0], dt);
         });
@@ -70,7 +74,7 @@ void Editor::OnUpdate(float dt) {
     Async::sWait();
 
     // update scripts
-    scene.view<NativeScript>().each([&](NativeScript& component) {
+    m_Scene.view<NativeScript>().each([&](NativeScript& component) {
         if (component.script) {
             try {
                 component.script->OnUpdate(dt);
@@ -82,9 +86,9 @@ void Editor::OnUpdate(float dt) {
     });
 
     // draw the bounding box of the active entity
-    if (m_ActiveEntity != entt::null && scene.all_of<Mesh>(m_ActiveEntity)) {
-        const auto& [mesh, transform] = scene.get<Mesh, Transform>(m_ActiveEntity);
-        renderer.addDebugBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
+    if (m_ActiveEntity != entt::null && m_Scene.all_of<Mesh>(m_ActiveEntity)) {
+        const auto& [mesh, transform] = m_Scene.get<Mesh, Transform>(m_ActiveEntity);
+        m_Renderer.addDebugBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
     }
 
     // start ImGui
@@ -92,7 +96,7 @@ void Editor::OnUpdate(float dt) {
     GUI::BeginDockSpace();
 
     // draw widgets
-    for (const auto& widget : widgets) {
+    for (const auto& widget : m_Widgets) {
         if (widget->IsVisible()) {
             widget->draw(dt);
         }
@@ -103,7 +107,7 @@ void Editor::OnUpdate(float dt) {
     GUI::EndFrame();
 
     // render scene
-    renderer.render(scene, m_Viewport);
+    m_Renderer.render(m_Scene, m_Viewport);
 
     // swap the backbuffer
     SDL_GL_SwapWindow(m_Window);
@@ -136,34 +140,34 @@ void Editor::OnEvent(const SDL_Event& event) {
         switch (event.key.keysym.sym) {
             case SDLK_DELETE: {
                 if (m_ActiveEntity != entt::null) {
-                    if (scene.all_of<Node>(m_ActiveEntity)) {
-                        auto tree = NodeSystem::sGetFlatHierarchy(scene, scene.get<Node>(m_ActiveEntity));
+                    if (m_Scene.all_of<Node>(m_ActiveEntity)) {
+                        auto tree = NodeSystem::sGetFlatHierarchy(m_Scene, m_Scene.get<Node>(m_ActiveEntity));
                         for (auto entity : tree) {
-                            NodeSystem::sRemove(scene, scene.get<Node>(entity));
-                            scene.destroy(entity);
+                            NodeSystem::sRemove(m_Scene, m_Scene.get<Node>(entity));
+                            m_Scene.destroy(entity);
                         }
 
-                        NodeSystem::sRemove(scene, scene.get<Node>(m_ActiveEntity));
+                        NodeSystem::sRemove(m_Scene, m_Scene.get<Node>(m_ActiveEntity));
                     }
 
-                    scene.destroy(m_ActiveEntity);
+                    m_Scene.destroy(m_ActiveEntity);
                     m_ActiveEntity = entt::null;
                 }
             } break;
             case SDLK_d: {
                 if (SDL_GetModState() & KMOD_LCTRL) {
-                    auto copy = scene.create();
+                    auto copy = m_Scene.create();
 
-                    scene.visit(m_ActiveEntity, [&](const entt::type_info info) {
+                    m_Scene.visit(m_ActiveEntity, [&](const entt::type_info info) {
                         gForEachTupleElement(Components, [&](auto component) {
                             using ComponentType = decltype(component)::type;
                             if (info.seq() == entt::type_seq<ComponentType>()) {
-                                clone<ComponentType>(scene, m_ActiveEntity, copy);
+                                clone<ComponentType>(m_Scene, m_ActiveEntity, copy);
                             }
                         });
                     });
 
-                    if (auto mesh = scene.try_get<Mesh>(copy); mesh) {
+                    if (auto mesh = m_Scene.try_get<Mesh>(copy); mesh) {
                         GLRenderer::uploadMeshBuffers(*mesh);
                     }
                 }
@@ -203,11 +207,11 @@ void Editor::OnEvent(const SDL_Event& event) {
             }
         }
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-            renderer.createRenderTargets(m_Viewport);
+            m_Renderer.createRenderTargets(m_Viewport);
         }
     }
 
-    for (const auto& widget : widgets) {
+    for (const auto& widget : m_Widgets) {
         widget->onEvent(event);
     }
 }

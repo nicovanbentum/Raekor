@@ -16,15 +16,16 @@ public:
     virtual void onEvent(const SDL_Event& ev) override {}
 
 private:
-    void drawComponent(Name& component, Assets& assets, Scene& scene, entt::entity& active);
-    void drawComponent(Node& component, Assets& assets, Scene& scene, entt::entity& active);
-    void drawComponent(Mesh& component, Assets& assets, Scene& scene, entt::entity& active);
-    void drawComponent(Skeleton& component, Assets& assets, Scene& scene, entt::entity& active);
-    void drawComponent(Material& component, Assets& assets, Scene& scene, entt::entity& active);
-    void drawComponent(Transform& component, Assets& assets, Scene& scene, entt::entity& active);
-    void drawComponent(PointLight& component, Assets& assets, Scene& scene, entt::entity& active);
-    void drawComponent(NativeScript& component, Assets& assets, Scene& scene, entt::entity& active);
-    void drawComponent(DirectionalLight& component, Assets& assets, Scene& scene, entt::entity& active);
+    void DrawComponent(Name& component, Entity& active);
+    void DrawComponent(Node& component, Entity& active);
+    void DrawComponent(Mesh& component, Entity& active);
+    void DrawComponent(Collider& component, Entity& active);
+    void DrawComponent(Skeleton& component, Entity& active);
+    void DrawComponent(Material& component, Entity& active);
+    void DrawComponent(Transform& component, Entity& active);
+    void DrawComponent(PointLight& component, Entity& active);
+    void DrawComponent(NativeScript& component, Entity& active);
+    void DrawComponent(DirectionalLight& component, Entity& active);
 };
 
 }

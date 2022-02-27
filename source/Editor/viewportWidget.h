@@ -4,8 +4,6 @@
 
 namespace Raekor {
 
-class Viewport;
-
 class ViewportWidget : public IWidget {
 public:
     TYPE_ID(ViewportWidget);

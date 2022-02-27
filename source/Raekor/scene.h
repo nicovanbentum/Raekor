@@ -7,6 +7,9 @@
 
 namespace Raekor {
 
+using Entity = entt::entity;
+static constexpr entt::null_t sInvalidEntity = entt::null;
+
 class Scene : public entt::registry {
 public:
 	Scene() = default;

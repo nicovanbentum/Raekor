@@ -42,6 +42,7 @@ protected:
     Assets& GetAssets();
     Physics& GetPhysics();
     GLRenderer& GetRenderer();
+    entt::entity& GetActiveEntity();
 
     Editor* editor;
     std::string title;
