@@ -26,7 +26,7 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
     ImGui::GetIO().IniFilename = "";
 
     while (!fs::exists(m_Settings.defaultScene)) {
-        m_Settings.defaultScene = OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0");
+        m_Settings.defaultScene = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
     }
 
     SDL_SetWindowTitle(m_Window, std::string(m_Settings.defaultScene + " - Raekor Renderer").c_str());
@@ -141,54 +141,57 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
         ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
     }
 
-    for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
-        const auto vertices = mesh.GetInterleavedVertices();
+    auto meshes = m_Scene.view<Mesh>();
 
-        {
-            ComPtr<ID3D12Resource> vertexBuffer;
-            const auto size = vertices.size() * sizeof(vertices[0]);
+    for (const auto entity : meshes) {
+        auto& mesh = meshes.get<Mesh>(entity);
+            const auto vertices = mesh.GetInterleavedVertices();
 
-            ThrowIfFailed(m_Device->CreateCommittedResource(
-                &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-                D3D12_HEAP_FLAG_NONE,
-                &CD3DX12_RESOURCE_DESC::Buffer(size),
-                D3D12_RESOURCE_STATE_GENERIC_READ,
-                nullptr,
-                IID_PPV_ARGS(&vertexBuffer))
-            );
+            {
+                ComPtr<ID3D12Resource> vertexBuffer;
+                const auto size = vertices.size() * sizeof(vertices[0]);
 
-            uint8_t* mappedPtr;
-            ThrowIfFailed(vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedPtr)));
+                ThrowIfFailed(m_Device->CreateCommittedResource(
+                    &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+                    D3D12_HEAP_FLAG_NONE,
+                    &CD3DX12_RESOURCE_DESC::Buffer(size),
+                    D3D12_RESOURCE_STATE_GENERIC_READ,
+                    nullptr,
+                    IID_PPV_ARGS(&vertexBuffer))
+                );
+
+                uint8_t* mappedPtr;
+                ThrowIfFailed(vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedPtr)));
         
-            memcpy(mappedPtr, vertices.data(), size);
+                memcpy(mappedPtr, vertices.data(), size);
         
-            vertexBuffer->Unmap(0, nullptr);
+                vertexBuffer->Unmap(0, nullptr);
 
-            mesh.vertexBuffer = m_Buffers.push_back_or_insert(vertexBuffer);
-        }
+                mesh.vertexBuffer = m_Buffers.push_back_or_insert(vertexBuffer);
+            }
 
-        {
-            ComPtr<ID3D12Resource> indexBuffer;
-            const auto size = mesh.indices.size() * sizeof(mesh.indices[0]);
+            {
+                ComPtr<ID3D12Resource> indexBuffer;
+                const auto size = mesh.indices.size() * sizeof(mesh.indices[0]);
 
-            ThrowIfFailed(m_Device->CreateCommittedResource(
-                &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-                D3D12_HEAP_FLAG_NONE,
-                &CD3DX12_RESOURCE_DESC::Buffer(size),
-                D3D12_RESOURCE_STATE_GENERIC_READ,
-                nullptr,
-                IID_PPV_ARGS(&indexBuffer))
-            );
+                ThrowIfFailed(m_Device->CreateCommittedResource(
+                    &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+                    D3D12_HEAP_FLAG_NONE,
+                    &CD3DX12_RESOURCE_DESC::Buffer(size),
+                    D3D12_RESOURCE_STATE_GENERIC_READ,
+                    nullptr,
+                    IID_PPV_ARGS(&indexBuffer))
+                );
 
-            uint8_t* mappedPtr;
-            ThrowIfFailed(indexBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedPtr)));
+                uint8_t* mappedPtr;
+                ThrowIfFailed(indexBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedPtr)));
 
-            memcpy(mappedPtr, mesh.indices.data(), size);
+                memcpy(mappedPtr, mesh.indices.data(), size);
 
-            indexBuffer->Unmap(0, nullptr);
+                indexBuffer->Unmap(0, nullptr);
 
-            mesh.indexBuffer = m_Buffers.push_back_or_insert(indexBuffer);
-        }
+                mesh.indexBuffer = m_Buffers.push_back_or_insert(indexBuffer);
+            }
     }
 
     if (!fs::exists("assets/system/shaders/DirectX/bin")) {
@@ -208,7 +211,7 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
     for (const auto& file : fs::directory_iterator("assets/system/shaders/DirectX")) {
         if (file.is_directory()) continue;
 
-       // Async::dispatch([=]() {
+        Async::sDispatch([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(".blob");
 
@@ -271,6 +274,8 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
                     if (errors && errors->GetStringLength() > 0) {
                         std::cout << static_cast<char*>(errors->GetBufferPointer()) << '\n';
                     }
+
+                    auto lock = Async::sLock();
                         
                     std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
                 }
@@ -279,12 +284,14 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
                     ComPtr<IDxcBlobUtf16> pDebugDataPath;
                     result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(shader.GetAddressOf()), pDebugDataPath.GetAddressOf());
 
+                    auto lock = Async::sLock();
+
                     m_Shaders.insert(std::make_pair(file.path().filename().string(), shader));
                     
                     std::cout << "Compilation " << COUT_GREEN("Finished") << " for shader: " << file.path().string() << '\n';
                 }
             }
-        //});
+        });
     }
 
     constexpr std::array vertexLayout = {
@@ -301,6 +308,8 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
     ComPtr<ID3DBlob> error;
     ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&vrsd, D3D_ROOT_SIGNATURE_VERSION_1_1, &signature, &error));
     ThrowIfFailed(m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
+
+    Async::sWait();
 
     const auto& vertexShader = m_Shaders.at("gbufferVS.hlsl");
     const auto& pixelShader = m_Shaders.at("gbufferPS.hlsl");
