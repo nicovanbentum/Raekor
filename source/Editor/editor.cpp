@@ -49,7 +49,9 @@ Editor::Editor() :
 
 
 void Editor::OnUpdate(float dt) {
-    assets.CollectGarbage();
+    if (m_Physics.settings.state == Physics::Stepping) {
+        m_Physics.Step(m_Scene, dt);
+    }
 
     // update the camera
     m_Viewport.OnUpdate(dt);

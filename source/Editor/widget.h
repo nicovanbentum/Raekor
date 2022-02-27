@@ -10,6 +10,7 @@ namespace Raekor {
 class Editor;
 class Scene;
 class Assets;
+class Physics;
 class GLRenderer;
 
 #define TYPE_ID(Type) \
@@ -39,6 +40,7 @@ protected:
     // Need to be defined in the cpp to avoid circular dependencies
     Scene& GetScene();
     Assets& GetAssets();
+    Physics& GetPhysics();
     GLRenderer& GetRenderer();
 
     Editor* editor;

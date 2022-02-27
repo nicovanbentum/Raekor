@@ -1,46 +1,148 @@
 #include "pch.h"
 #include "physics.h"
+#include "scene.h"
+
+#include <RegisterTypes.h>
+#include <Core/TempAllocator.h>
+#include <Core/JobSystemThreadPool.h>
+#include <Physics/PhysicsSettings.h>
+#include <Physics/PhysicsSystem.h>
+#include <Physics/Collision/Shape/BoxShape.h>
+#include <Physics/Collision/Shape/SphereShape.h>
+#include <Physics/Body/BodyCreationSettings.h>
+#include <Physics/Body/BodyActivationListener.h>
 
 namespace Raekor {
 
-Physics::Physics() {
-    foundation = PxCreateFoundation(PX_PHYSICS_VERSION, allocator,
-        errorCallback);
+static void TraceImpl(const char* inFMT, ...) {
+    // Format the message
+    va_list list;
+    va_start(list, inFMT);
+    char buffer[1024];
+    vsnprintf(buffer, sizeof(buffer), inFMT, list);
 
-    if (!foundation) {
-        std::cerr << "failed to create physx foundation\n";
-        return;
+    // Print to the TTY
+    std::cout << buffer << '\n';
+}
+
+// Callback for asserts, connect this to your own assert handler if you have one
+static bool AssertFailedImpl(const char* inExpression, const char* inMessage, const char* inFile, uint32_t inLine) {
+    // Print to the TTY
+    std::cout << inFile << ":" << inLine << ": (" << inExpression << ") " << (inMessage != nullptr ? inMessage : "") << '\n';
+
+    // Breakpoint
+    return true;
+};
+
+namespace Layers {
+    static constexpr uint8_t NON_MOVING = 0;
+    static constexpr uint8_t MOVING = 1;
+    static constexpr uint8_t NUM_LAYERS = 2;
+};
+
+// Function that determines if two object layers can collide
+static bool CanObjectsCollide(JPH::ObjectLayer inObject1, JPH::ObjectLayer inObject2) {
+    switch (inObject1)
+    {
+    case Layers::NON_MOVING:
+        return inObject2 == Layers::MOVING; // Non moving only collides with moving
+    case Layers::MOVING:
+        return true; // Moving collides with everything
+    default:
+        assert(false);
+        return false;
     }
+};
 
-    physics = PxCreatePhysics(PX_PHYSICS_VERSION, *foundation,
-        physx::PxTolerancesScale(), false, nullptr);
-    if (!physics) {
-        std::cerr << "failed to create physx physics\n";
-        return;
+namespace BroadPhaseLayers {
+    static constexpr JPH::BroadPhaseLayer NON_MOVING(0);
+    static constexpr JPH::BroadPhaseLayer MOVING(1);
+};
+
+// Function that determines if two broadphase layers can collide
+static bool CanBroadphaseCollide(JPH::ObjectLayer inLayer1, JPH::BroadPhaseLayer inLayer2) {
+    switch (inLayer1)
+    {
+    case Layers::NON_MOVING:
+        return inLayer2 == BroadPhaseLayers::MOVING;
+    case Layers::MOVING:
+        return true;
+    default:
+        assert(false);
+        return false;
     }
-
-    if (!PxInitExtensions(*physics, nullptr)) {
-        std::cerr << "failed to init physx extensions\n";
-        return;
-    }
-
-    // create the cpu dispatcher and scene
-    physx::PxSceneDesc sceneDesc(physics->getTolerancesScale());
-    sceneDesc.gravity = physx::PxVec3(0.0f, -9.81f, 0.0f);
-    dispatcher = physx::PxDefaultCpuDispatcherCreate(2);
-    sceneDesc.cpuDispatcher = dispatcher;
-    sceneDesc.filterShader = physx::PxDefaultSimulationFilterShader;
-    scene = physics->createScene(sceneDesc);
-
-    std::cout << "PhysX initialized.\n";
 }
 
 
+Physics::Physics() {
+    JPH::Trace = TraceImpl;
+#ifndef NDEBUG
+    JPH::AssertFailed = AssertFailedImpl;
+#endif
+    JPH::RegisterTypes();
+
+    // Create mapping table from object layer to broadphase layer
+    JPH::ObjectToBroadPhaseLayer object_to_broadphase;
+    object_to_broadphase.resize(Layers::NUM_LAYERS);
+    object_to_broadphase[Layers::NON_MOVING] = BroadPhaseLayers::NON_MOVING;
+    object_to_broadphase[Layers::MOVING] = BroadPhaseLayers::MOVING;
+
+    m_Physics.Init(1024, 0, 1024, 1024, object_to_broadphase, CanBroadphaseCollide, CanObjectsCollide);
+
+    m_TempAllocator = new JPH::TempAllocatorImpl(10 * 1024 * 1024);
+    m_JobSystem = new JPH::JobSystemThreadPool(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, std::thread::hardware_concurrency() - 1);
+    m_StateRecorder = new JPH::StateRecorderImpl();
+
+    std::cout << "JoltPhysics initialized.\n";
+}
+
+
+
+
 Physics::~Physics() {
-    scene->release();
-    PxCloseExtensions();
-    physics->release();
-    foundation->release();
+    delete m_TempAllocator;
+    delete m_JobSystem;
+}
+
+void Physics::InitFromScene(Scene& scene) {
+    auto& body_interface = m_Physics.GetBodyInterface();
+
+    for (const auto& [entity, transform, mesh] : scene.view<Transform, Mesh>().each()) {
+        auto half_extent = glm::abs(mesh.aabb[1] - mesh.aabb[0]) / 2.0f * transform.scale;
+        
+        auto settings = JPH::BodyCreationSettings(
+            new JPH::BoxShape(JPH::Vec3(half_extent.x, half_extent.y, half_extent.z)), 
+            JPH::Vec3(transform.position.x, transform.position.y, transform.position.z), 
+            JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+            JPH::EMotionType::Dynamic, 
+            Layers::MOVING
+        );
+
+        auto body = body_interface.CreateAndAddBody(settings, JPH::EActivation::Activate);
+        
+        auto& collider = scene.emplace<Collider>(entity);
+        collider.ID = body.GetIndex();
+        collider.sequence = body.GetSequenceNumber();
+    }
+}
+
+void Physics::Step(Scene& scene, float dt) {
+    m_Physics.Update(dt, 1, 1, m_TempAllocator, m_JobSystem);
+    auto& body_interface = m_Physics.GetBodyInterface();
+
+    for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, Collider>().each()) {
+        if (collider.ID == JPH::BodyID::cInvalidBodyID) 
+            continue;
+
+        auto body_id = JPH::BodyID(collider.ID, collider.sequence);
+
+        JPH::Vec3 position;
+        JPH::Quat rotation;
+        body_interface.GetPositionAndRotation(body_id, position, rotation);
+
+        transform.position = glm::vec3(position.GetX(), position.GetY(), position.GetZ());
+        transform.rotation = glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ());
+    }
 }
 
 } // namespace Raekor

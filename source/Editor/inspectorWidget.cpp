@@ -100,9 +100,18 @@ void InspectorWidget::drawComponent(Mesh& component, Assets& assets, Scene& scen
     }
 }
 
+void InspectorWidget::DrawComponent(Collider& component, Entity& active) {
+    if(ImGui::Checkbox("Static", &component.isStatic)) {
+        auto ID = JPH::BodyID(component.ID, component.sequence);
+        auto motion_type = component.isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic;
+        auto activation_mode = GetPhysics().GetSystem().GetBodyInterface().IsActive(ID) ? JPH::EActivation::Activate : JPH::EActivation::DontActivate;
+        GetPhysics().GetSystem().GetBodyInterface().SetMotionType(ID, motion_type, activation_mode);
+    }
+}
 
 
-void InspectorWidget::drawComponent(Skeleton& component, Assets& assets, Scene& scene, entt::entity& active) {
+
+void InspectorWidget::DrawComponent(Skeleton& component, Entity& active) {
     static bool playing = false;
     const float currentTime = component.animations[0].GetRunningTime();
     const float totalDuration = component.animations[0].GetTotalDuration();

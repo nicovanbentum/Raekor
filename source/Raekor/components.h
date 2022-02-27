@@ -16,9 +16,9 @@ struct Name {
 
 
 struct Transform {
-    glm::vec3 scale     = { 1.0f, 1.0f, 1.0f };
-    glm::vec3 position  = { 0.0f, 0.0f, 0.0f };
-    glm::vec3 rotation  = { 0.0f, 0.0f, 0.0f };
+    glm::vec3 scale     = glm::vec3(1.0f, 1.0f, 1.0f);
+    glm::vec3 position  = glm::vec3(0.0f, 0.0f, 0.0f);
+    glm::quat rotation  = glm::quat(glm::vec3(0.0f, 0.0f, 0.0f));
 
     glm::mat4 localTransform  = glm::mat4(1.0f);
     glm::mat4 worldTransform  = glm::mat4(1.0f);
@@ -67,7 +67,13 @@ struct Mesh {
     void CalculateTangents();
     void CalculateNormals();
     void CalculateAABB();
-    std::vector<float> GetInterleavedVertices();
+    std::vector<float> GetInterleavedVertices() const;
+};
+
+struct Collider {
+    bool isStatic = false;
+    uint32_t ID = 0xffffff;
+    uint32_t sequence = 0x000000;
 };
 
 
@@ -138,6 +144,7 @@ static constexpr auto Components = std::make_tuple (
     ComponentDescription<Name>{"Name"},
     ComponentDescription<Node>{"Node"},
     ComponentDescription<Mesh>{"Mesh"},
+    ComponentDescription<Collider>{"Collider"},
     ComponentDescription<Material>{"Material"},
     ComponentDescription<Transform>{"Transform"},
     ComponentDescription<PointLight>{"Point Light"},

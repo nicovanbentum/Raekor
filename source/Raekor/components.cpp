@@ -9,19 +9,25 @@ namespace Raekor {
 
 SCRIPT_INTERFACE void Transform::Compose() {
     localTransform = glm::translate(glm::mat4(1.0f), position);
-    localTransform *= glm::eulerAngleXYZ(rotation.x, rotation.y, rotation.z);
+    localTransform = localTransform * glm::toMat4(rotation);
     localTransform = glm::scale(localTransform, scale);
 }
 
 
 SCRIPT_INTERFACE void Transform::Decompose() {
-    glm::vec3 skew;
-    glm::quat quat;
-    glm::vec4 perspective;
-    glm::decompose(localTransform, scale, quat, position, skew, perspective);
-    glm::extractEulerAngleXYZ(localTransform, rotation.x, rotation.y, rotation.z);
-}
+    position = localTransform[3];
 
+    for (int i = 0; i < 3; i++)
+        scale[i] = glm::length(glm::vec3(localTransform[i]));
+
+    const auto rotation_matrix = glm::mat3(
+        glm::vec3(localTransform[0]) / scale[0],
+        glm::vec3(localTransform[1]) / scale[1],
+        glm::vec3(localTransform[2]) / scale[2]
+    );
+
+    rotation = glm::quat_cast(rotation_matrix);
+}
 
 
 SCRIPT_INTERFACE void Transform::Print() {
@@ -70,7 +76,7 @@ void Mesh::CalculateTangents() {
 
 
 void Mesh::CalculateNormals() {
-    normals = decltype(normals)(positions.size(), glm::vec3(0.0f));
+    normals.resize(positions.size(), glm::vec3(0.0f));
 
     for (auto i = 0; i < indices.size(); i += 3) {
         auto normal = glm::normalize(glm::cross(
@@ -99,7 +105,7 @@ void Mesh::CalculateAABB() {
 }
 
 
-std::vector<float> Mesh::GetInterleavedVertices() {
+std::vector<float> Mesh::GetInterleavedVertices() const {
     std::vector<float> vertices;
     vertices.reserve(
         3 * positions.size() +

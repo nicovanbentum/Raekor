@@ -31,3 +31,6 @@
 [submodule "dependencies/imnodes"]
 	path = dependencies/imnodes
 	url = https://github.com/Nelarius/imnodes
+[submodule "dependencies/JoltPhysics"]
+	path = dependencies/JoltPhysics
+	url = https://github.com/jrouwe/JoltPhysics

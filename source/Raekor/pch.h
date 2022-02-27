@@ -79,12 +79,20 @@
 #include "gtx/matrix_decompose.hpp"
 #include "gtx/euler_angles.hpp"
 
-
 /////////////////////////
-// PhysX physics library
-#define PX_PHYSX_STATIC_LIB
-#include "PxPhysicsAPI.h"
-
+// Jolt physics library
+#include "Jolt.h"
+#include "Physics/PhysicsSystem.h"
+#include "RegisterTypes.h"
+#include "Core/TempAllocator.h"
+#include "Core/JobSystemThreadPool.h"
+#include "Physics/PhysicsSettings.h"
+#include "Physics/PhysicsSystem.h"
+#include "Physics/StateRecorderImpl.h"
+#include "Physics/Collision/Shape/BoxShape.h"
+#include "Physics/Collision/Shape/SphereShape.h"
+#include "Physics/Body/BodyCreationSettings.h"
+#include "Physics/Body/BodyActivationListener.h"
 
 /////////////////////
 // c++ (17) includes

@@ -16,10 +16,6 @@
             "platform": "windows & static"
         },
         {
-            "name": "physx",
-            "platform": "windows & static"
-        },
-        {
             "name": "sdl2",
             "features": [ "vulkan" ],
             "platform": "windows & static"

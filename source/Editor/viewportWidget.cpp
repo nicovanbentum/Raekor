@@ -10,40 +10,80 @@ ViewportWidget::ViewportWidget(Editor* editor) :
 {}
 
 
-
 void ViewportWidget::draw(float dt) {
     auto& scene = IWidget::GetScene();
     auto& renderer = IWidget::GetRenderer();
     auto& viewport = editor->GetViewport();
+    auto& physics = IWidget::GetPhysics();
 
-    // renderer viewport
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4.0f));
-    bool isVisible = ImGui::Begin(title.c_str(), NULL, ImGuiWindowFlags_AlwaysAutoResize);
-    renderer.settings.paused = !isVisible;
+    const auto flags =  ImGuiWindowFlags_AlwaysAutoResize | 
+                        ImGuiWindowFlags_NoScrollWithMouse |
+                        ImGuiWindowFlags_NoScrollbar;
 
-    if (ImGui::Checkbox("Gizmo", &gizmoEnabled)) {
+    const bool is_visible = ImGui::Begin(title.c_str(), NULL, flags);
+    renderer.settings.paused = !is_visible;
+
+    if (ImGui::Checkbox("Gizmo", &gizmoEnabled))
         ImGuizmo::Enable(gizmoEnabled);
-    } ImGui::SameLine();
+    ImGui::SameLine();
 
-    if (ImGui::RadioButton("Move", operation == ImGuizmo::OPERATION::TRANSLATE)) {
+    if (ImGui::RadioButton("Move", operation == ImGuizmo::OPERATION::TRANSLATE))
         operation = ImGuizmo::OPERATION::TRANSLATE;
-    } ImGui::SameLine();
+    ImGui::SameLine();
 
-    if (ImGui::RadioButton("Rotate", operation == ImGuizmo::OPERATION::ROTATE)) {
+    if (ImGui::RadioButton("Rotate", operation == ImGuizmo::OPERATION::ROTATE))
         operation = ImGuizmo::OPERATION::ROTATE;
-    } ImGui::SameLine();
+    ImGui::SameLine();
 
-    if (ImGui::RadioButton("Scale", operation == ImGuizmo::OPERATION::SCALE)) {
+    if (ImGui::RadioButton("Scale", operation == ImGuizmo::OPERATION::SCALE))
         operation = ImGuizmo::OPERATION::SCALE;
-    }
 
     ImGui::SameLine((ImGui::GetContentRegionAvail().x / 2) - ImGui::GetFrameHeightWithSpacing() * 1.5f);
 
-    ImGui::Button(ICON_FA_HAMMER);
+    if (ImGui::Button(ICON_FA_HAMMER)) {}
+
     ImGui::SameLine();
-    ImGui::Button(ICON_FA_PLAY);
+
+    std::array physics_state_text_colors = {
+        ImGui::GetStyleColorVec4(ImGuiCol_Text),
+        ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
+        ImVec4(0.35f, 0.78f, 1.0f, 1.0f),
+    };
+
+    ImGui::PushStyleColor(ImGuiCol_Text, physics_state_text_colors[physics.settings.state]);
+    if (ImGui::Button(physics.settings.state == Physics::Stepping ? ICON_FA_PAUSE : ICON_FA_PLAY)) {
+        switch (physics.settings.state) {
+            case Physics::Idle: {
+                physics.SaveState();
+                physics.settings.state = Physics::Stepping;
+            } break;
+            case Physics::Paused: {
+                physics.settings.state = Physics::Stepping;
+            } break;
+            case Physics::Stepping: {
+                physics.settings.state = Physics::Paused;
+            } break;
+        }
+    }
+    ImGui::PopStyleColor();
+    
     ImGui::SameLine();
-    ImGui::Button(ICON_FA_STOP);
+
+    const auto current_physics_state = physics.settings.state;
+    if (current_physics_state != Physics::Idle)
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+    if (ImGui::Button(ICON_FA_STOP)) {
+        if (physics.settings.state != Physics::Idle) {
+            physics.RestoreState();
+            physics.Step(scene, dt); // Step once to trigger the restored state
+            physics.settings.state = Physics::Idle;
+        }
+    }
+
+    if (current_physics_state != Physics::Idle)
+        ImGui::PopStyleColor();
 
     ImGui::SameLine(ImGui::GetContentRegionAvail().x - 256.0f);
 

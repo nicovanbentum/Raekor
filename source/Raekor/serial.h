@@ -30,11 +30,16 @@ void serialize(Archive& archive, glm::qua<T>& quat) {
 
 
 template<typename Archive>
-void serialize(Archive& archive, Raekor::Transform& transform) {
+void save(Archive& archive, const Raekor::Transform& transform) {
 	archive(transform.position, transform.rotation, transform.scale, 
 		transform.localTransform, transform.worldTransform);
 }
 
+template<typename Archive>
+void load(Archive& archive, Raekor::Transform& transform) {
+	archive(transform.position, transform.rotation, transform.scale,
+		transform.localTransform, transform.worldTransform);
+}
 
 template<typename Archive> 
 void save(Archive& archive, const Raekor::DirectionalLight& light) {
