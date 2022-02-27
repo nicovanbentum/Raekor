@@ -69,8 +69,8 @@ This project requires OpenGL 4.6 for direct state access functions and shader in
 ### VK
 This project requires Vulkan 1.2 with support for descriptor indexing, device buffer address, and hardware ray tracing. It is currently being rewritten to implement a GPU path tracer using the vk_khr_ray_tracing extensions. It used to contain experiments with parallel command buffer recording, dynamic uniform buffers, and bindless textures. Also used to integrate [Scatter](https://github.com/nicovanbentum/Scatter) in a separate branch.
 
-![image](https://i.imgur.com/LgjcfKD.png)
-*Path tracer WIP - Very basic diffuse, 8 bounces*
+![image](https://i.imgur.com/OpRkiFc.png)
+*Path tracer WIP - Basic diffuse + emissive, 8 bounces. Converges in real time when stationary.*
 
 ### DX12
 *Soon(TM)*
