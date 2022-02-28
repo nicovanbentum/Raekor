@@ -3,7 +3,7 @@
     "display": 1,
     "vsync": false,
     "font": "assets/system/Roboto-Regular.ttf",
-    "defaultScene": "assets/scenes/cornell.scene",
+    "defaultScene": "",
     "themeColors": {
         "value0": {
             "value0": 1.0,
