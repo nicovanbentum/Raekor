@@ -144,7 +144,7 @@ static constexpr auto Components = std::make_tuple (
     ComponentDescription<Name>{"Name"},
     ComponentDescription<Node>{"Node"},
     ComponentDescription<Mesh>{"Mesh"},
-    ComponentDescription<BoxCollider>{"Collider"},
+    ComponentDescription<BoxCollider>{"Box Collider"},
     ComponentDescription<Material>{"Material"},
     ComponentDescription<Transform>{"Transform"},
     ComponentDescription<PointLight>{"Point Light"},
@@ -152,6 +152,7 @@ static constexpr auto Components = std::make_tuple (
     ComponentDescription<DirectionalLight>{"Directional Light"},
     ComponentDescription<NativeScript>{"Native Script"}
 );
+
 
 template<typename T>
 inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {}

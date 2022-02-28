@@ -13,7 +13,7 @@ public:
     ~Physics();
 
     void Step(Scene& scene, float dt);
-    void UpdateTransforms(Scene& scene);
+    void OnUpdate(Scene& scene);
 
     void SaveState() { m_Physics.SaveState(*m_StateRecorder); }
     void RestoreState() { m_Physics.RestoreState(*m_StateRecorder); };

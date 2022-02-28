@@ -107,7 +107,7 @@ void Physics::Step(Scene& scene, float dt) {
     auto& body_interface = m_Physics.GetBodyInterface();
 
     for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, BoxCollider>().each()) {
-        if (collider.bodyID.GetIndex() == JPH::BodyID::cInvalidBodyID)
+        if (collider.bodyID.IsInvalid())
             continue;
 
         JPH::Vec3 position;
@@ -120,7 +120,7 @@ void Physics::Step(Scene& scene, float dt) {
 }
 
 
-void Physics::UpdateTransforms(Scene& scene) {
+void Physics::OnUpdate(Scene& scene) {
     auto& body_interface = m_Physics.GetBodyInterface();
 
     for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, BoxCollider>().each()) {

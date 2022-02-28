@@ -50,7 +50,7 @@ Editor::Editor() :
 
 void Editor::OnUpdate(float dt) {
     // update physics
-    m_Physics.UpdateTransforms(m_Scene);
+    m_Physics.OnUpdate(m_Scene);
     if (m_Physics.settings.state == Physics::Stepping) {
         m_Physics.Step(m_Scene, dt);
     }
