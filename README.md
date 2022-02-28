@@ -37,7 +37,7 @@ This project requires C++ 17.
 
 * Simple Job system
 * Simple ConVar system
-* PhysX Integration (WIP)
+* Jolt Physics Integration
 * Hotloadable C++ Scripts (WIP)
 * Custom Scene Format
     - DCC import (Assimp)
