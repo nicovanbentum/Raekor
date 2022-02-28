@@ -41,7 +41,7 @@ namespace Raekor::VK {
 
     auto meshes = m_Scene.view<Mesh>();
     for (auto& [entity, mesh] : meshes.each()) {
-        auto component = m_Renderer.CreateBottomLevelBVH(mesh);
+        auto component = m_Renderer.CreateBLAS(mesh);
         m_Scene.emplace<VK::RTGeometry>(entity, component);
     }
 
@@ -225,7 +225,7 @@ void PathTracer::OnEvent(const SDL_Event& ev) {
 PathTracer::~PathTracer() {
     auto view = m_Scene.view<VK::RTGeometry>();
     for (auto& [entity, geometry] : view.each()) {
-        m_Renderer.DestroyBottomLevelBVH(geometry);
+        m_Renderer.DestroyBLAS(geometry);
     }
 }
 

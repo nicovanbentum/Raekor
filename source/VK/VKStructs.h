@@ -7,13 +7,13 @@ struct Buffer {
     VmaAllocation allocation;
 };
 
-struct BVH {
+struct AccelStruct {
     Buffer buffer = {};
     VkAccelerationStructureKHR accelerationStructure = VK_NULL_HANDLE;
 };
 
 struct RTGeometry {
-    BVH bvh;
+    AccelStruct accelStruct;
     Buffer vertices;
     Buffer indices;
 };

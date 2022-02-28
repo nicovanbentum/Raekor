@@ -60,7 +60,7 @@ Renderer::~Renderer() {
     }
 
 
-    m_Device.DestroyBVH(m_TopLevelBVH);
+    m_Device.DestroyAccelStruct(m_TLAS);
     m_Swapchain.Destroy(m_Device);
     m_ImGuiPass.Destroy(m_Device);
     m_PathTracePass.Destroy(m_Device);
@@ -72,7 +72,7 @@ Renderer::~Renderer() {
 
 
 void Renderer::Init(Scene& scene) {
-    m_PathTracePass.Init(m_Device, m_Swapchain, m_TopLevelBVH, m_InstanceBuffer, m_MaterialBuffer, m_BindlessTextureSet);
+    m_PathTracePass.Init(m_Device, m_Swapchain, m_TLAS, m_InstanceBuffer, m_MaterialBuffer, m_BindlessTextureSet);
     m_ImGuiPass.Init(m_Device, m_Swapchain, m_PathTracePass, m_BindlessTextureSet);
 }
 
@@ -129,7 +129,7 @@ void Renderer::UpdateBVH(Scene& scene) {
 
     uint32_t customIndex = 0; 
     for (auto& [entity, mesh, transform, geometry] : meshes.each()) {
-        auto deviceAddress = m_Device.GetDeviceAddress(geometry.bvh.accelerationStructure);
+        auto deviceAddress = m_Device.GetDeviceAddress(geometry.accelStruct.accelerationStructure);
 
         VkAccelerationStructureInstanceKHR instance = {};
         instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
@@ -142,8 +142,8 @@ void Renderer::UpdateBVH(Scene& scene) {
         deviceInstances.push_back(instance);
     }
 
-    m_Device.DestroyBVH(m_TopLevelBVH);
-    m_TopLevelBVH = CreateTopLevelBVH(deviceInstances.data(), deviceInstances.size());
+    m_Device.DestroyAccelStruct(m_TLAS);
+    m_TLAS = CreateTLAS(deviceInstances.data(), deviceInstances.size());
 
     struct Instance {
         glm::ivec4 materialIndex;
@@ -465,12 +465,11 @@ void Renderer::RecreateSwapchain(SDL_Window* window) {
 
     m_PathTracePass.DestroyRenderTargets(m_Device);
     m_PathTracePass.CreateRenderTargets(m_Device, glm::uvec2(w, h));
-    m_PathTracePass.UpdateDescriptorSet(m_Device, m_TopLevelBVH, m_InstanceBuffer, m_MaterialBuffer);
+    m_PathTracePass.UpdateDescriptorSet(m_Device, m_TLAS, m_InstanceBuffer, m_MaterialBuffer);
 
     m_ImGuiPass.DestroyFramebuffer(m_Device);
     m_ImGuiPass.CreateFramebuffer(m_Device, m_PathTracePass, uint32_t(w), uint32_t(h));
 }
-
 
 
 int32_t Renderer::UploadTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format) {
@@ -565,14 +564,12 @@ void Renderer::ReloadShaders() {
 }
 
 
-
 void Renderer::SetSyncInterval(bool on) { 
     m_SyncInterval = on; 
 }
 
 
-
-RTGeometry Renderer::CreateBottomLevelBVH(Mesh& mesh) {
+RTGeometry Renderer::CreateBLAS(Mesh& mesh) {
     auto vertices = mesh.GetInterleavedVertices();
     const auto sizeOfVertexBuffer = vertices.size() * sizeof(vertices[0]);
     const auto sizeOfIndexBuffer = mesh.indices.size() * sizeof(mesh.indices[0]);
@@ -637,19 +634,20 @@ RTGeometry Renderer::CreateBottomLevelBVH(Mesh& mesh) {
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geometry;
 
-    component.bvh = m_Device.CreateBVH(buildInfo, uint32_t(mesh.indices.size() / 3u));
-
+    component.accelStruct = m_Device.CreateAccelStruct(buildInfo, uint32_t(mesh.indices.size() / 3u));
 
     return component;
 }
 
-void Renderer::DestroyBottomLevelBVH(RTGeometry& geometry) {
+
+void Renderer::DestroyBLAS(RTGeometry& geometry) {
     m_Device.DestroyBuffer(geometry.vertices);
     m_Device.DestroyBuffer(geometry.indices);
-    m_Device.DestroyBVH(geometry.bvh);
+    m_Device.DestroyAccelStruct(geometry.accelStruct);
 }
 
-BVH Renderer::CreateTopLevelBVH(VkAccelerationStructureInstanceKHR* instances, size_t count) {
+
+AccelStruct Renderer::CreateTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count) {
     assert(instances);
     assert(count);
 
@@ -680,7 +678,7 @@ BVH Renderer::CreateTopLevelBVH(VkAccelerationStructureInstanceKHR* instances, s
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geometry;
 
-    auto tlas = m_Device.CreateBVH(buildInfo, uint32_t(count));
+    auto tlas = m_Device.CreateAccelStruct(buildInfo, uint32_t(count));
 
     m_Device.DestroyBuffer(buffer);
 

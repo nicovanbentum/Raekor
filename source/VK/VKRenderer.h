@@ -32,9 +32,9 @@ public:
     void ReloadShaders();
     void SetSyncInterval(bool interval);
 
-    RTGeometry CreateBottomLevelBVH(Mesh& mesh);
-    void DestroyBottomLevelBVH(RTGeometry& geometry);
-    BVH CreateTopLevelBVH(VkAccelerationStructureInstanceKHR* instances, size_t count);
+    RTGeometry CreateBLAS(Mesh& mesh);
+    void DestroyBLAS(RTGeometry& geometry);
+    AccelStruct CreateTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count);
     
     PathTracePass::PushConstants& GetPushConstants() { return m_PathTracePass.m_PushConstants; }
 
@@ -59,7 +59,7 @@ private:
     uint32_t m_CurrentFrame = 0;
     static constexpr uint32_t sMaxFramesInFlight = 3;
 
-    BVH m_TopLevelBVH;
+    AccelStruct m_TLAS;
     Buffer m_InstanceBuffer;
     Buffer m_MaterialBuffer;
 };

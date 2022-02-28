@@ -58,8 +58,8 @@ public:
     [[nodiscard]] Buffer CreateBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage);
     void DestroyBuffer(const Buffer& buffer);
     
-    [[nodiscard]] BVH CreateBVH(VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount);
-    void DestroyBVH(BVH& bvh);
+    [[nodiscard]] AccelStruct CreateAccelStruct(VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount);
+    void DestroyAccelStruct(AccelStruct& accelStruct);
     
     [[nodiscard]] FrameBuffer CreateFrameBuffer(const FrameBuffer::Desc& desc);
     void DestroyFrameBuffer(const FrameBuffer& frameBuffer);

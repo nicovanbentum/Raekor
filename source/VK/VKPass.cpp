@@ -11,7 +11,7 @@
 
 namespace Raekor::VK {
 
-void PathTracePass::Init(Device& device, const SwapChain& swapchain, const BVH& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer, const BindlessDescriptorSet& bindlessTextures) {
+void PathTracePass::Init(Device& device, const SwapChain& swapchain, const AccelStruct& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer, const BindlessDescriptorSet& bindlessTextures) {
     CreateRenderTargets(device, glm::uvec2(swapchain.GetExtent().width, swapchain.GetExtent().height));
     CreateDescriptorSet(device, bindlessTextures);
     UpdateDescriptorSet(device, accelStruct, instanceBuffer, materialBuffer);
@@ -218,7 +218,7 @@ void PathTracePass::CreateDescriptorSet(Device& device, const BindlessDescriptor
 
 
 
-void PathTracePass::UpdateDescriptorSet(Device& device, const BVH& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer) {
+void PathTracePass::UpdateDescriptorSet(Device& device, const AccelStruct& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer) {
     VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     imageInfo.imageView = device.CreateView(finalTexture);

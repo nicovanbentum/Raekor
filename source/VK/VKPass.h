@@ -26,7 +26,7 @@ public:
     };
 
 public:
-    void Init(Device& device, const SwapChain& swapchain, const BVH& bvh, const Buffer& instances, const Buffer& materials, const BindlessDescriptorSet& textures);
+    void Init(Device& device, const SwapChain& swapchain, const AccelStruct& accelStruct, const Buffer& instances, const Buffer& materials, const BindlessDescriptorSet& textures);
     void Destroy(Device& device);
 
     void CreateRenderTargets(Device& device, const glm::uvec2& size);
@@ -36,7 +36,7 @@ public:
     void CreateDescriptorSet(Device& device, const BindlessDescriptorSet& bindlessTextures);
     void CreateShaderBindingTable(Device& device);
 
-    void UpdateDescriptorSet(Device& device, const VK::BVH& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer);
+    void UpdateDescriptorSet(Device& device, const AccelStruct& accelStruct, const Buffer& instanceBuffer, const Buffer& materialBuffer);
     void Record(const Device& context, const Viewport& viewport, VkCommandBuffer commandBuffer, const BindlessDescriptorSet& bindlessTextures);
 
     void ReloadShaders(Device& device);
