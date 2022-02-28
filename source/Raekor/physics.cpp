@@ -25,6 +25,7 @@ static void TraceImpl(const char* inFMT, ...) {
     std::cout << buffer << '\n';
 }
 
+
 // Callback for asserts, connect this to your own assert handler if you have one
 static bool AssertFailedImpl(const char* inExpression, const char* inMessage, const char* inFile, uint32_t inLine) {
     // Print to the TTY
@@ -34,19 +35,14 @@ static bool AssertFailedImpl(const char* inExpression, const char* inMessage, co
     return true;
 };
 
-namespace Layers {
-    static constexpr uint8_t NON_MOVING = 0;
-    static constexpr uint8_t MOVING = 1;
-    static constexpr uint8_t NUM_LAYERS = 2;
-};
 
 // Function that determines if two object layers can collide
 static bool CanObjectsCollide(JPH::ObjectLayer inObject1, JPH::ObjectLayer inObject2) {
     switch (inObject1)
     {
-    case Layers::NON_MOVING:
-        return inObject2 == Layers::MOVING; // Non moving only collides with moving
-    case Layers::MOVING:
+    case Physics::Layers::NON_MOVING:
+        return inObject2 == Physics::Layers::MOVING; // Non moving only collides with moving
+    case Physics::Layers::MOVING:
         return true; // Moving collides with everything
     default:
         assert(false);
@@ -54,18 +50,20 @@ static bool CanObjectsCollide(JPH::ObjectLayer inObject1, JPH::ObjectLayer inObj
     }
 };
 
+
 namespace BroadPhaseLayers {
     static constexpr JPH::BroadPhaseLayer NON_MOVING(0);
     static constexpr JPH::BroadPhaseLayer MOVING(1);
 };
 
+
 // Function that determines if two broadphase layers can collide
 static bool CanBroadphaseCollide(JPH::ObjectLayer inLayer1, JPH::BroadPhaseLayer inLayer2) {
     switch (inLayer1)
     {
-    case Layers::NON_MOVING:
+    case Physics::Layers::NON_MOVING:
         return inLayer2 == BroadPhaseLayers::MOVING;
-    case Layers::MOVING:
+    case Physics::Layers::MOVING:
         return true;
     default:
         assert(false);
@@ -89,7 +87,7 @@ Physics::Physics() {
 
     m_Physics.Init(1024, 0, 1024, 1024, object_to_broadphase, CanBroadphaseCollide, CanObjectsCollide);
 
-    m_TempAllocator = new JPH::TempAllocatorImpl(10 * 1024 * 1024);
+    m_TempAllocator = new JPH::TempAllocatorImpl(100 * 1024 * 1024);
     m_JobSystem = new JPH::JobSystemThreadPool(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, std::thread::hardware_concurrency() - 1);
     m_StateRecorder = new JPH::StateRecorderImpl();
 
@@ -97,51 +95,55 @@ Physics::Physics() {
 }
 
 
-
-
 Physics::~Physics() {
     delete m_TempAllocator;
     delete m_JobSystem;
 }
 
-void Physics::InitFromScene(Scene& scene) {
-    auto& body_interface = m_Physics.GetBodyInterface();
-
-    for (const auto& [entity, transform, mesh] : scene.view<Transform, Mesh>().each()) {
-        auto half_extent = glm::abs(mesh.aabb[1] - mesh.aabb[0]) / 2.0f * transform.scale;
-        
-        auto settings = JPH::BodyCreationSettings(
-            new JPH::BoxShape(JPH::Vec3(half_extent.x, half_extent.y, half_extent.z)), 
-            JPH::Vec3(transform.position.x, transform.position.y, transform.position.z), 
-            JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-            JPH::EMotionType::Dynamic, 
-            Layers::MOVING
-        );
-
-        auto body = body_interface.CreateAndAddBody(settings, JPH::EActivation::Activate);
-        
-        auto& collider = scene.emplace<Collider>(entity);
-        collider.ID = body.GetIndex();
-        collider.sequence = body.GetSequenceNumber();
-    }
-}
 
 void Physics::Step(Scene& scene, float dt) {
     m_Physics.Update(dt, 1, 1, m_TempAllocator, m_JobSystem);
+
     auto& body_interface = m_Physics.GetBodyInterface();
 
-    for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, Collider>().each()) {
-        if (collider.ID == JPH::BodyID::cInvalidBodyID) 
+    for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, BoxCollider>().each()) {
+        if (collider.bodyID.GetIndex() == JPH::BodyID::cInvalidBodyID)
             continue;
-
-        auto body_id = JPH::BodyID(collider.ID, collider.sequence);
 
         JPH::Vec3 position;
         JPH::Quat rotation;
-        body_interface.GetPositionAndRotation(body_id, position, rotation);
+        body_interface.GetPositionAndRotation(collider.bodyID, position, rotation);
 
         transform.position = glm::vec3(position.GetX(), position.GetY(), position.GetZ());
         transform.rotation = glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ());
+    }
+}
+
+
+void Physics::UpdateTransforms(Scene& scene) {
+    auto& body_interface = m_Physics.GetBodyInterface();
+
+    for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, BoxCollider>().each()) {
+        if (collider.bodyID.IsInvalid()) {
+            auto settings = JPH::BodyCreationSettings(
+                &collider.settings,
+                JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
+                JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+                collider.motionType,
+                Physics::Layers::MOVING
+            );
+
+            collider.settings.SetEmbedded();
+
+            settings.mAllowDynamicOrKinematic = true;
+            collider.bodyID = body_interface.CreateAndAddBody(settings, JPH::EActivation::Activate);
+        }
+        else {
+            const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
+            const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+            body_interface.SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
+        }
+
     }
 }
 

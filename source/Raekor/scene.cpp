@@ -167,7 +167,7 @@ void Scene::SaveToFile(Assets& assets, const std::string& file) {
         entt::snapshot{ *this }.entities(output).component<
             Name, Node, Transform,
             Mesh, Material, PointLight,
-            DirectionalLight>(output);
+            DirectionalLight, BoxCollider>(output);
 
         output(assets);
     }
@@ -219,14 +219,13 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
         entt::snapshot_loader{ *this }.entities(input).component <
             Name, Node, Transform,
             Mesh, Material, PointLight,
-            DirectionalLight >(input);
+            DirectionalLight, BoxCollider >(input);
 
         // load assets
         input(assets);
     }
 
     std::cout << "Archive time " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
-
 
     // init material render data
     auto materials = view<Material>();

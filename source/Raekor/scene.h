@@ -4,6 +4,7 @@
 #include "components.h"
 #include "rmath.h"
 #include "assets.h"
+#include "physics.h"
 
 namespace Raekor {
 
@@ -33,11 +34,8 @@ public:
 	void SaveToFile(Assets& assets, const std::string& file);
 	void OpenFromFile(Assets& assets, const std::string& file);
 
-	template<typename Fn>
-	void SetUploadMeshCallbackFunction(Fn&& fn) { m_UploadMeshCallback = fn; }
-
-	template<typename Fn>
-	void SetUploadMaterialCallbackFunction(Fn&& fn) { m_UploadMaterialCallback = fn; }
+	template<typename Fn> void SetUploadMeshCallbackFunction(Fn&& fn) { m_UploadMeshCallback = fn; }
+	template<typename Fn> void SetUploadMaterialCallbackFunction(Fn&& fn) { m_UploadMaterialCallback = fn; }
 	
 	void BindScriptToEntity(entt::entity entity, NativeScript& script);
 

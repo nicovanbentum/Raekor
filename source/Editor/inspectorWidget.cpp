@@ -48,6 +48,18 @@ void InspectorWidget::draw(float dt) {
             scene.emplace<NativeScript>(active);
             ImGui::CloseCurrentPopup();
         }
+
+        if (scene.all_of<Transform, Mesh>(active)) {
+            if (ImGui::Selectable("Box Collider", false)) {
+                auto& collider = scene.emplace<BoxCollider>(active);
+                const auto& [transform, mesh] = scene.get<Transform, Mesh>(active);
+
+                const auto half_extent = glm::abs(mesh.aabb[1] - mesh.aabb[0]) / 2.0f * transform.scale;
+                collider.settings.mHalfExtent = JPH::Vec3(half_extent.x, half_extent.y, half_extent.z);
+                collider.settings.SetEmbedded();
+            }
+        }
+       
         ImGui::EndPopup();
     }
 
@@ -104,12 +116,19 @@ void InspectorWidget::DrawComponent(Mesh& component, Entity& active) {
     }
 }
 
-void InspectorWidget::DrawComponent(Collider& component, Entity& active) {
-    if(ImGui::Checkbox("Static", &component.isStatic)) {
-        auto ID = JPH::BodyID(component.ID, component.sequence);
-        auto motion_type = component.isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic;
-        auto activation_mode = GetPhysics().GetSystem().GetBodyInterface().IsActive(ID) ? JPH::EActivation::Activate : JPH::EActivation::DontActivate;
-        GetPhysics().GetSystem().GetBodyInterface().SetMotionType(ID, motion_type, activation_mode);
+void InspectorWidget::DrawComponent(BoxCollider& component, Entity& active) {
+    auto& body_interface = GetPhysics().GetSystem().GetBodyInterface();
+
+    ImGui::Text("Body ID: %i", component.bodyID.GetIndexAndSequenceNumber());
+
+    constexpr std::array items = {
+       "Static", "Kinematic", "Dynamic"
+    };
+
+    int index = int(component.motionType);
+    if (ImGui::Combo("##MotionType", &index, items.data(), int(items.size()))) {
+        component.motionType = JPH::EMotionType(index);
+        body_interface.SetMotionType(component.bodyID, component.motionType, JPH::EActivation::Activate);
     }
 }
 

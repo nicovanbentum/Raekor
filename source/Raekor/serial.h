@@ -88,6 +88,21 @@ void load(Archive& archive, Raekor::Mesh& mesh) {
 	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.indices, mesh.material);
 }
 
+template<class Archive>
+void serialize(Archive& archive, JPH::Vec3& vec) {
+	archive(vec.mF32);
+}
+
+template<class Archive>
+void serialize(Archive& archive, JPH::BoxShapeSettings& settings) {
+	archive(settings.mHalfExtent, settings.mConvexRadius);
+}
+
+template<class Archive>
+void serialize(Archive& archive, Raekor::BoxCollider& collider) {
+	archive(collider.motionType, collider.settings);
+}
+
 
 template<class Archive>
 void save(Archive& archive, const Raekor::Material& mat) {

@@ -44,15 +44,13 @@ Editor::Editor() :
 
     std::cout << "Initialization done.\n";
     auto sink = m_Scene.on_destroy<Mesh>();
-
-    if (!m_Scene.empty()) {
-        m_Physics.InitFromScene(m_Scene);
-    }
 }
 
 
 
 void Editor::OnUpdate(float dt) {
+    // update physics
+    m_Physics.UpdateTransforms(m_Scene);
     if (m_Physics.settings.state == Physics::Stepping) {
         m_Physics.Step(m_Scene, dt);
     }

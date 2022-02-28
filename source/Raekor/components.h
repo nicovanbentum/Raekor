@@ -70,10 +70,10 @@ struct Mesh {
     std::vector<float> GetInterleavedVertices() const;
 };
 
-struct Collider {
-    bool isStatic = false;
-    uint32_t ID = 0xffffff;
-    uint32_t sequence = 0x000000;
+struct BoxCollider {
+    JPH::BodyID bodyID;
+    JPH::EMotionType motionType;
+    JPH::BoxShapeSettings settings;
 };
 
 
@@ -144,7 +144,7 @@ static constexpr auto Components = std::make_tuple (
     ComponentDescription<Name>{"Name"},
     ComponentDescription<Node>{"Node"},
     ComponentDescription<Mesh>{"Mesh"},
-    ComponentDescription<Collider>{"Collider"},
+    ComponentDescription<BoxCollider>{"Collider"},
     ComponentDescription<Material>{"Material"},
     ComponentDescription<Transform>{"Transform"},
     ComponentDescription<PointLight>{"Point Light"},

@@ -19,7 +19,7 @@ private:
     void DrawComponent(Name& component, Entity& active);
     void DrawComponent(Node& component, Entity& active);
     void DrawComponent(Mesh& component, Entity& active);
-    void DrawComponent(Collider& component, Entity& active);
+    void DrawComponent(BoxCollider& component, Entity& active);
     void DrawComponent(Skeleton& component, Entity& active);
     void DrawComponent(Material& component, Entity& active);
     void DrawComponent(Transform& component, Entity& active);

@@ -12,8 +12,8 @@ public:
     Physics();
     ~Physics();
 
-    void InitFromScene(Scene& scene);
     void Step(Scene& scene, float dt);
+    void UpdateTransforms(Scene& scene);
 
     void SaveState() { m_Physics.SaveState(*m_StateRecorder); }
     void RestoreState() { m_Physics.RestoreState(*m_StateRecorder); };
@@ -30,6 +30,12 @@ public:
     struct {
         int& state = CVars::sCreate("physics_state", int(Idle), true);
     } settings;
+
+    enum Layers {
+        NON_MOVING = 0,
+        MOVING = 1,
+        NUM_LAYERS = 2,
+    };
 
 private:
     JPH::PhysicsSystem m_Physics;
