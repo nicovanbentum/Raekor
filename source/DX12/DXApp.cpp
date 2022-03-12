@@ -211,7 +211,7 @@ DXApp::DXApp() : Application(RendererFlags::NONE) {
     for (const auto& file : fs::directory_iterator("assets/system/shaders/DirectX")) {
         if (file.is_directory()) continue;
 
-        Async::sDispatch([=]() {
+        Async::sQueueJob([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(".blob");
 
