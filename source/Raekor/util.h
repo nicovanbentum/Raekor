@@ -66,7 +66,6 @@ void gForEachTupleElement(Tpl&& Tuple, Fx Func) { // call Func() on each element
 }
 
 
-
 class FileWatcher {
 public:
     FileWatcher(const std::string& path);
@@ -93,6 +92,14 @@ inline ImVec2 operator*(const ImVec2& lhs, const ImVec2& rhs) {
     return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y);
 }
 
+template<typename T>
+inline JPH::Vec3 FromGLM(const glm::vec<3, T>& vec) {
+    return JPH::Vec3(static_cast<float>(vec.x), static_cast<float>(vec.y), static_cast<float>(vec.z));
+}
+
+inline JPH::Quat FromGLM(const glm::quat& quat) {
+    return JPH::Quat(static_cast<float>(quat.x), static_cast<float>(quat.y), static_cast<float>(quat.z), static_cast<float>(quat.w));
+}
 
 // std::string version of https://docs.microsoft.com/en-us/cpp/text/how-to-convert-between-various-string-types?view=msvc-160
 inline std::string gWCharToString(wchar_t* wchars) {

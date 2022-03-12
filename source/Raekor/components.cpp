@@ -238,4 +238,14 @@ void clone<Material>(entt::registry& reg, entt::entity from, entt::entity to) {
     auto& to_component = reg.emplace<Material>(to, from_component);
 }
 
+
+template<>
+void clone<BoxCollider>(entt::registry& reg, entt::entity from, entt::entity to) {
+    auto& from_component = reg.get<BoxCollider>(from);
+    auto& to_component = reg.emplace<BoxCollider>(to, from_component);
+
+    // Invalidate the copied bodyID so it gets registered next update
+    to_component.bodyID = JPH::BodyID(); 
+}
+
 } // raekor

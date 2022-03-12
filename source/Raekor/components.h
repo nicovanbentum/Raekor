@@ -173,4 +173,7 @@ void clone<Mesh>(entt::registry& reg, entt::entity from, entt::entity to);
 template<>
 void clone<Material>(entt::registry& reg, entt::entity from, entt::entity to);
 
+template<>
+void clone<BoxCollider>(entt::registry& reg, entt::entity from, entt::entity to);
+
 } // raekor

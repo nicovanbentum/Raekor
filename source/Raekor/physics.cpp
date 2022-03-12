@@ -1,16 +1,8 @@
 #include "pch.h"
 #include "physics.h"
+#include "util.h"
 #include "scene.h"
-
-#include <RegisterTypes.h>
-#include <Core/TempAllocator.h>
-#include <Core/JobSystemThreadPool.h>
-#include <Physics/PhysicsSettings.h>
-#include <Physics/PhysicsSystem.h>
-#include <Physics/Collision/Shape/BoxShape.h>
-#include <Physics/Collision/Shape/SphereShape.h>
-#include <Physics/Body/BodyCreationSettings.h>
-#include <Physics/Body/BodyActivationListener.h>
+#include "async.h"
 
 namespace Raekor {
 
@@ -40,9 +32,9 @@ static bool AssertFailedImpl(const char* inExpression, const char* inMessage, co
 static bool CanObjectsCollide(JPH::ObjectLayer inObject1, JPH::ObjectLayer inObject2) {
     switch (inObject1)
     {
-    case Physics::Layers::NON_MOVING:
-        return inObject2 == Physics::Layers::MOVING; // Non moving only collides with moving
-    case Physics::Layers::MOVING:
+    case EPhysicsObjectLayers::NON_MOVING:
+        return inObject2 == EPhysicsObjectLayers::MOVING; // Non moving only collides with moving
+    case EPhysicsObjectLayers::MOVING:
         return true; // Moving collides with everything
     default:
         assert(false);
@@ -51,26 +43,19 @@ static bool CanObjectsCollide(JPH::ObjectLayer inObject1, JPH::ObjectLayer inObj
 };
 
 
-namespace BroadPhaseLayers {
-    static constexpr JPH::BroadPhaseLayer NON_MOVING(0);
-    static constexpr JPH::BroadPhaseLayer MOVING(1);
-};
-
-
 // Function that determines if two broadphase layers can collide
 static bool CanBroadphaseCollide(JPH::ObjectLayer inLayer1, JPH::BroadPhaseLayer inLayer2) {
     switch (inLayer1)
     {
-    case Physics::Layers::NON_MOVING:
+    case EPhysicsObjectLayers::NON_MOVING:
         return inLayer2 == BroadPhaseLayers::MOVING;
-    case Physics::Layers::MOVING:
+    case EPhysicsObjectLayers::MOVING:
         return true;
     default:
         assert(false);
         return false;
     }
 }
-
 
 Physics::Physics() {
     JPH::Trace = TraceImpl;
@@ -79,13 +64,7 @@ Physics::Physics() {
 #endif
     JPH::RegisterTypes();
 
-    // Create mapping table from object layer to broadphase layer
-    JPH::ObjectToBroadPhaseLayer object_to_broadphase;
-    object_to_broadphase.resize(Layers::NUM_LAYERS);
-    object_to_broadphase[Layers::NON_MOVING] = BroadPhaseLayers::NON_MOVING;
-    object_to_broadphase[Layers::MOVING] = BroadPhaseLayers::MOVING;
-
-    m_Physics.Init(1024, 0, 1024, 1024, object_to_broadphase, CanBroadphaseCollide, CanObjectsCollide);
+    m_Physics.Init(1024, 0, 1024, 1024, m_BroadPhaseLayers, CanBroadphaseCollide, CanObjectsCollide);
 
     m_TempAllocator = new JPH::TempAllocatorImpl(100 * 1024 * 1024);
     m_JobSystem = new JPH::JobSystemThreadPool(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, std::thread::hardware_concurrency() - 1);
@@ -121,30 +100,37 @@ void Physics::Step(Scene& scene, float dt) {
 
 
 void Physics::OnUpdate(Scene& scene) {
-    auto& body_interface = m_Physics.GetBodyInterface();
+    auto scene_view = scene.view<Transform, Mesh, BoxCollider>();
 
-    for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, BoxCollider>().each()) {
-        if (collider.bodyID.IsInvalid()) {
-            auto settings = JPH::BodyCreationSettings(
-                &collider.settings,
-                JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
-                JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-                collider.motionType,
-                Physics::Layers::MOVING
-            );
+    for (const auto& entity : scene_view) {
+        Async::sQueueJob([&]() {
+            auto& body_interface = m_Physics.GetBodyInterface();
+            auto& collider = scene_view.get<BoxCollider>(entity);
+            const auto& transform = scene_view.get<Transform>(entity);
 
-            collider.settings.SetEmbedded();
+            if (collider.bodyID.IsInvalid()) {
+                auto settings = JPH::BodyCreationSettings(
+                    &collider.settings,
+                    JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
+                    JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+                    collider.motionType,
+                    EPhysicsObjectLayers::MOVING
+                );
 
-            settings.mAllowDynamicOrKinematic = true;
-            collider.bodyID = body_interface.CreateAndAddBody(settings, JPH::EActivation::Activate);
-        }
-        else {
-            const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
-            const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-            body_interface.SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
-        }
+                collider.settings.SetEmbedded();
 
+                settings.mAllowDynamicOrKinematic = true;
+                collider.bodyID = body_interface.CreateAndAddBody(settings, JPH::EActivation::Activate);
+            }
+            else {
+                const auto position = FromGLM(transform.position);
+                const auto rotation = FromGLM(transform.rotation);
+                body_interface.SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
+            }
+        });
     }
+
+    Async::sWait();
 }
 
 } // namespace Raekor
