@@ -54,7 +54,7 @@ This project requires OpenGL 4.6 for direct state access functions and shader in
     - Bloom
     - ACES Tonemapping
     - Cook-Torrance BRDF
-    - Accurate Atmospheric Sky
+    - Temporal Anti-Aliasing
     - Cascaded Shadow Mapping
     - Voxel Cone Traced Ambient Occlusion
     - Voxel Cone Traced Specular Reflections
