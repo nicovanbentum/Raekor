@@ -60,6 +60,10 @@ This project requires OpenGL 4.6 for direct state access functions and shader in
     - Voxel Cone Traced Specular Reflections
     - Voxel Cone Traced Global Illumination (single bounce diffuse)
     - Ray Traced Hard Shadows using Vulkan interop (only availabe in the Scatter-integration branch, very outdated using the vk_nv_ray_tracing extension).
+* Scenes
+    - Simulate bounding box physics.
+    - Import models from GLTF, FBX and OBJ file formats.
+    - Edit, add, delete, duplicate, and transform entities/components.
 
 ![image](https://i.imgur.com/m8HLdED.png)
 
