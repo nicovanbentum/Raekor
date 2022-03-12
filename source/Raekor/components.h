@@ -111,6 +111,7 @@ struct Material {
     glm::vec4 albedo = glm::vec4(1.0f);
     glm::vec3 emissive = glm::vec3(0.0f);
     float metallic = 0.0f, roughness = 1.0f;
+    bool isTransparent = false;
 
     // texture file paths
     std::string albedoFile, normalFile, metalroughFile;

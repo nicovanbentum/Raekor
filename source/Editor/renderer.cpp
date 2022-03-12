@@ -64,7 +64,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
             continue;
         }
 
-        Async::sDispatch([=]() {
+        Async::sQueueJob([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
@@ -171,14 +171,12 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
 }
 
 
-
 GLRenderer::~GLRenderer() {
     ImGui_ImplOpenGL3_DestroyDeviceObjects();
     SDL_GL_DeleteContext(context);
     ImNodes::DestroyContext();
     ImGui::DestroyContext();
 }
-
 
 
 void GLRenderer::render(const Scene& scene, const Viewport& viewport) {

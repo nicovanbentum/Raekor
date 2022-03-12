@@ -3,7 +3,6 @@
 #include "Raekor/timer.h"
 #include "Raekor/components.h"
 #include "shader.h"
-#include "buffer.h"
 
 namespace Raekor {
 
@@ -63,8 +62,6 @@ private:
 
     glShader shader;
     glShader debugShader;
-    
-    glVertexLayout vertexLayout;
 
 public:
     GLuint texture;
@@ -114,8 +111,6 @@ public:
 private:
     glShader shader;
     GLuint uniformBuffer;
-
-    glVertexLayout vertexLayout;
 
     GLuint pbo;
     void* entity;
@@ -225,7 +220,6 @@ private:
     glShader shader;
     glShader mipmapShader;
     glShader opacityFixShader;
-    glVertexLayout vertexLayout;
 
     GLuint uniformBuffer;
     glm::mat4 px, py, pz;
@@ -291,8 +285,6 @@ private:
     GLuint uniformBuffer;
 
     uint32_t vertexBuffer;
-    glVertexLayout vertexLayout;
-
     std::vector<glm::vec3> points;
 };
 

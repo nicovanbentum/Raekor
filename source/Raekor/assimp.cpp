@@ -34,6 +34,8 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
         aiProcess_OptimizeGraph |
         aiProcess_CalcTangentSpace |
         aiProcess_LimitBoneWeights |
+        //aiProcess_OptimizeMeshes |
+        //aiProcess_PreTransformVertices |
         aiProcess_ValidateDataStructure |
         aiProcess_JoinIdenticalVertices |
         aiProcess_RemoveRedundantMaterials;
@@ -57,6 +59,8 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
         parseMaterial(m_AiScene->mMaterials[i], m_Scene.create());
     }
 
+    Async::sWait();
+
     std::cout << "Texture conversion took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
 
     // preload material texture in parallel
@@ -79,6 +83,7 @@ void AssimpImporter::parseMaterial(aiMaterial* assimpMaterial, entt::entity enti
         nameComponent.name = "Material " + std::to_string(entt::to_integral(entity));
 
     LoadMaterial(entity, assimpMaterial);
+
     m_Materials.push_back(entity);
 }
 
@@ -186,6 +191,12 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
     }
 
     mesh.CalculateAABB();
+
+    if (!assimpMesh->HasNormals() && !mesh.positions.empty())
+        mesh.CalculateNormals();
+
+    if (!assimpMesh->HasTangentsAndBitangents() && !mesh.uvs.empty())
+        mesh.CalculateTangents();
 
     if(m_UploadMeshCallback) m_UploadMeshCallback(mesh);
 
@@ -295,6 +306,13 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
     assimpMaterial->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
     assimpMaterial->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &metalroughFile);
 
+    aiString ai_alpha_mode;
+    if (assimpMaterial->Get(AI_MATKEY_GLTF_ALPHAMODE, ai_alpha_mode) == AI_SUCCESS) {
+        if (strcmp(ai_alpha_mode.C_Str(), "MASK") == 0 || strcmp(ai_alpha_mode.C_Str(), "BLEND") == 0) {
+            material.isTransparent = true;
+        }
+    }
+
     aiColor4D diffuse;
     if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, &diffuse)) {
         material.albedo = { diffuse.r, diffuse.g, diffuse.b, diffuse.a };
@@ -314,27 +332,26 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
         material.roughness = roughness;
     }
 
-    std::error_code ec;
     if (albedoFile.length) {
-        Async::sDispatch([&]() {
+        Async::sQueueJob([this, &material, albedoFile]() {
             auto assetPath = TextureAsset::sConvert(m_Directory.string() + albedoFile.C_Str());
             material.albedoFile = assetPath;
         });
     }
+
     if (normalmapFile.length) {
-        Async::sDispatch([&]() {
+        Async::sQueueJob([this, &material, normalmapFile]() {
             auto assetPath = TextureAsset::sConvert(m_Directory.string() + normalmapFile.C_Str());
             material.normalFile = assetPath;
         });
     }
+
     if (metalroughFile.length) {
-        Async::sDispatch([&]() {
+        Async::sQueueJob([this, &material, metalroughFile]() {
             auto assetPath = TextureAsset::sConvert(m_Directory.string() + metalroughFile.C_Str());
             material.metalroughFile = assetPath;
         });
     }
-
-    Async::sWait();
 }
 
 } // raekor

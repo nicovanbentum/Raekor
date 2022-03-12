@@ -61,7 +61,7 @@ void MenubarWidget::draw(float dt) {
             if (ImGui::MenuItem("Compile script..")) {
                 std::string filepath = OS::sOpenFileDialog("C++ Files (*.cpp)\0*.cpp\0");
                 if (!filepath.empty()) {
-                    Async::sDispatch([filepath]() {
+                    Async::sQueueJob([filepath]() {
                         ScriptAsset::sConvert(filepath);
                     });
                 }

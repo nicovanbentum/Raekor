@@ -49,8 +49,10 @@ Editor::Editor() :
 
 
 void Editor::OnUpdate(float dt) {
-    // update physics
+    // Check if any BoxCollider's are waiting to be registered
     m_Physics.OnUpdate(m_Scene);
+
+    // Step the physics simulation
     if (m_Physics.settings.state == Physics::Stepping) {
         m_Physics.Step(m_Scene, dt);
     }
@@ -64,7 +66,7 @@ void Editor::OnUpdate(float dt) {
 
     // update animations in parallel
     m_Scene.view<Skeleton>().each([&](Skeleton& skeleton) {
-        Async::sDispatch([&]() {
+        Async::sQueueJob([&]() {
             skeleton.UpdateFromAnimation(skeleton.animations[0], dt);
         });
     });
@@ -116,14 +118,14 @@ void Editor::OnUpdate(float dt) {
 void Editor::OnEvent(const SDL_Event& event) {
     ImGui_ImplSDL2_ProcessEvent(&event);
 
-    const bool is_viewport_hovered = GetWidget<ViewportWidget>()->IsHovered();
-
     // free the mouse if the window loses focus
     auto flags = SDL_GetWindowFlags(m_Window);
     if (!(flags & SDL_WINDOW_INPUT_FOCUS || flags & SDL_WINDOW_MINIMIZED)) {
         SDL_SetRelativeMouseMode(SDL_FALSE);
         return;
     }
+
+    const bool is_viewport_hovered = GetWidget<ViewportWidget>()->IsHovered();
 
     if (event.button.button == 2 || event.button.button == 3) {
         if (event.type == SDL_MOUSEBUTTONDOWN && is_viewport_hovered) {

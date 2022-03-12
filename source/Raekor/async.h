@@ -4,37 +4,36 @@ namespace Raekor {
 
 class Async {
 private:
-    using Task = std::function<void()>;
+    struct Job {
+        using Ptr = std::shared_ptr<Job>;
+        using Function = std::function<void()>;
 
-    struct Dispatch {
-        Dispatch(const Task& task) : task(task) {}
+        Job(const Function& function) : function(function) {}
         void WaitCPU() const { while (!finished) {} }
 
-        Task task;
+        Function function;
         bool finished = false;
     };
 
 public:
-    // type returned when dispatching a lambda
-    using Job = std::shared_ptr<Dispatch>;
-
     Async();
     Async(int threadCount);
     ~Async();
+    
+    /* Queue up a job: lambda of signature void(void) */
+    static Job::Ptr sQueueJob(const Job::Function& function);
 
-    /* Queue up a dispatch: lambda of signature void(void) */
-    static Job sDispatch(const Task& task);
-
-    /* Wait for all dispatches to finish. */ 
+    /* Wait for all jobs to finish. */ 
     static void sWait();
 
-    /* Wait for a specific dispatch to finish. */
-    static void sWait(const Job& job);
+    /* Wait for a specific job to finish. */
+    static void sWait(const Job::Ptr& job);
 
     /* Scoped lock on the global mutex,
-        useful for ensuring thread safety inside a dispatch. */
+        useful for ensuring thread safety inside a job function. */
     [[nodiscard]] static std::scoped_lock<std::mutex> sLock();
 
+    static int32_t sActiveJobCount() { return global->m_ActiveJobCount.load(); }
     static uint32_t sNumberOfThreads() { return uint32_t(global->m_Threads.size()); }
 
 private:
@@ -43,10 +42,10 @@ private:
 
     bool m_Quit = false;
     std::mutex m_Mutex;
-    std::condition_variable m_CondVar;
+    std::queue<Job::Ptr> m_JobQueue;
     std::vector<std::thread> m_Threads;
-    std::atomic<uint32_t> m_ActiveDispatchCount = 0;
-    std::queue<std::shared_ptr<Dispatch>> m_DispatchQueue;
+    std::atomic<int32_t> m_ActiveJobCount;
+    std::condition_variable m_ConditionVariable;
 
     // global singleton
     static inline std::unique_ptr<Async> global = std::make_unique<Async>();

@@ -7,6 +7,60 @@
 
 namespace Raekor {
 
+void BindInterleavedVertexLayout(const Mesh& mesh) {
+    const bool has_uvs       = !mesh.uvs.empty();
+    const bool has_normals   = !mesh.normals.empty();
+    const bool has_tangents  = !mesh.tangents.empty();
+
+    size_t uvs_offset = 0, normals_offset = 0, tangents_offset = 0;
+
+    uint32_t stride = sizeof(decltype(mesh.positions)::value_type);
+
+    if (has_uvs) { 
+        uvs_offset = stride; 
+        stride += sizeof(decltype(mesh.uvs)::value_type); 
+    }
+
+    if (has_normals) { 
+        normals_offset = stride; 
+        stride += sizeof(decltype(mesh.normals)::value_type); 
+    }
+
+    if (has_tangents) { 
+        tangents_offset = stride; 
+        stride += sizeof(decltype(mesh.tangents)::value_type); 
+    }
+
+    uint32_t attrib_id = 0;
+
+    glEnableVertexAttribArray(attrib_id);
+    glVertexAttribPointer(attrib_id++, decltype(mesh.positions)::value_type().length(),
+        GL_FLOAT, GL_FALSE, (GLsizei)stride, (const void*)((intptr_t)0)
+    );
+
+    if (has_uvs) {
+        glEnableVertexAttribArray(attrib_id);
+        glVertexAttribPointer(attrib_id++, decltype(mesh.uvs)::value_type().length(),
+            GL_FLOAT, GL_FALSE, (GLsizei)stride, (const void*)((intptr_t)uvs_offset)
+        );
+    }
+
+    if (has_normals) {
+        glEnableVertexAttribArray(attrib_id);
+        glVertexAttribPointer(attrib_id++, decltype(mesh.normals)::value_type().length(),
+            GL_FLOAT, GL_FALSE, (GLsizei)stride, (const void*)((intptr_t)normals_offset)
+        );
+    }
+
+    if (has_tangents) {
+        glEnableVertexAttribArray(attrib_id);
+        glVertexAttribPointer(attrib_id++, decltype(mesh.tangents)::value_type().length(),
+            GL_FLOAT, GL_FALSE, (GLsizei)stride, (const void*)((intptr_t)tangents_offset)
+        );
+    }
+}
+
+
 GLTimer::GLTimer() {
     glGenQueries(GLsizei(queries.size()), queries.data());
     for (auto query : queries) {
@@ -16,17 +70,14 @@ GLTimer::GLTimer() {
 }
 
 
-
 GLTimer::~GLTimer() {
     glDeleteQueries(GLsizei(queries.size()), queries.data());
 }
 
 
-
 void GLTimer::begin() {
     glBeginQuery(GL_TIME_ELAPSED, queries[index]);
 }
-
 
 
 void GLTimer::end() {
@@ -42,11 +93,9 @@ void GLTimer::end() {
 }
 
 
-
 float GLTimer::getMilliseconds() const {
     return time * 0.000001f;
 }
-
 
 
 ShadowMap::ShadowMap(const Viewport& viewport) {
@@ -82,14 +131,7 @@ ShadowMap::ShadowMap(const Viewport& viewport) {
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
-
-    vertexLayout = glVertexLayout()
-        .attribute("POSITION", ShaderType::FLOAT3)
-        .attribute("TEXCOORD", ShaderType::FLOAT2)
-        .attribute("NORMAL",   ShaderType::FLOAT3)
-        .attribute("TANGENT",  ShaderType::FLOAT3);
 }
-
 
 
 ShadowMap::~ShadowMap() {
@@ -97,7 +139,6 @@ ShadowMap::~ShadowMap() {
     glDeleteFramebuffers(1, &framebuffer);
     glDeleteBuffers(1, &uniformBuffer);
 }
-
 
 
 void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
@@ -167,7 +208,6 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
         cascades[i].radius = std::ceil(cascades[i].radius * 16.0f) / 16.0f;
     }
 }
-
 
 
 void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
@@ -271,7 +311,6 @@ void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
 }
 
 
-
 void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
     glViewport(0, 0, settings.resolution, settings.resolution);
 
@@ -305,7 +344,7 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
                 glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBuffer);
             }
 
-            vertexLayout.bind();
+            BindInterleavedVertexLayout(mesh);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 
@@ -319,6 +358,7 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
     glEnable(GL_CULL_FACE);
 }
 
+
 void ShadowMap::renderCascade(const Viewport& viewport, GLuint framebuffer) {
     glViewport(0, 0, viewport.size.x, viewport.size.y);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -328,6 +368,7 @@ void ShadowMap::renderCascade(const Viewport& viewport, GLuint framebuffer) {
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
+
 
 GBuffer::GBuffer(const Viewport& viewport) {
     shader.compile({
@@ -343,18 +384,14 @@ GBuffer::GBuffer(const Viewport& viewport) {
     entity = glMapNamedBufferRange(pbo, 0, sizeof(float), GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
 
     createRenderTargets(viewport);
-
-    vertexLayout = glVertexLayout()
-        .attribute("POSITION", ShaderType::FLOAT3)
-        .attribute("TEXCOORD", ShaderType::FLOAT2)
-        .attribute("NORMAL",   ShaderType::FLOAT3)
-        .attribute("TANGENT",  ShaderType::FLOAT3);
 }
+
 
 GBuffer::~GBuffer() {
     glDeleteBuffers(1, &uniformBuffer);
     destroyRenderTargets();
 }
+
 
 void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t frameNr) {
     glViewport(0, 0, viewport.size.x, viewport.size.y);
@@ -460,7 +497,7 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
             glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBuffer);
         }
 
-        vertexLayout.bind();
+        BindInterleavedVertexLayout(mesh);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 
@@ -473,7 +510,6 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
-
 
 
 uint32_t GBuffer::readEntity(GLint x, GLint y) {
@@ -491,7 +527,6 @@ uint32_t GBuffer::readEntity(GLint x, GLint y) {
 
     return static_cast<uint32_t>(*static_cast<float*>(entity));
 }
-
 
 
 void GBuffer::createRenderTargets(const Viewport& viewport) {
@@ -550,7 +585,6 @@ void GBuffer::createRenderTargets(const Viewport& viewport) {
 }
 
 
-
 void GBuffer::destroyRenderTargets() {
     std::array textures = {
         albedoTexture,
@@ -564,7 +598,6 @@ void GBuffer::destroyRenderTargets() {
     glDeleteTextures(GLsizei(textures.size()), textures.data());
     glDeleteFramebuffers(1, &framebuffer);
 }
-
 
 
 DeferredShading::~DeferredShading() {
@@ -934,12 +967,6 @@ Voxelize::Voxelize(uint32_t size) : size(size) {
     float borderColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
     glTextureParameterfv(result, GL_TEXTURE_BORDER_COLOR, borderColor);
     glGenerateTextureMipmap(result);
-
-    vertexLayout = glVertexLayout()
-        .attribute("POSITION", ShaderType::FLOAT3)
-        .attribute("TEXCOORD", ShaderType::FLOAT2)
-        .attribute("NORMAL",   ShaderType::FLOAT3)
-        .attribute("TANGENT",  ShaderType::FLOAT3);
 }
 
 
@@ -1036,7 +1063,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
             glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBuffer);
         }
 
-        vertexLayout.bind();
+        BindInterleavedVertexLayout(mesh);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 
@@ -1234,8 +1261,6 @@ DebugLines::DebugLines() {
 
     glCreateFramebuffers(1, &frameBuffer);
 
-    vertexLayout = glVertexLayout().attribute("POSITION", ShaderType::FLOAT3);
-
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
 }
@@ -1265,7 +1290,8 @@ void DebugLines::render(const Viewport& viewport, GLuint colorAttachment, GLuint
     glNamedBufferData(vertexBuffer, sizeof(float) * points.size() * 3, glm::value_ptr(points[0]), GL_STATIC_DRAW);
     
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-    vertexLayout.bind();
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (const void*)((intptr_t)0));
 
     glDrawArrays(GL_LINES, 0, (GLsizei)points.size());
 

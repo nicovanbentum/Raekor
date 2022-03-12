@@ -56,7 +56,7 @@ void InspectorWidget::draw(float dt) {
 
                 const auto half_extent = glm::abs(mesh.aabb[1] - mesh.aabb[0]) / 2.0f * transform.scale;
                 collider.settings.mHalfExtent = JPH::Vec3(half_extent.x, half_extent.y, half_extent.z);
-                collider.settings.SetEmbedded();
+                //collider.settings.SetEmbedded();
             }
         }
        
@@ -223,6 +223,8 @@ void InspectorWidget::DrawComponent(Material& component, Entity& active) {
     drawTextureInteraction(component.gpuNormalMap, component.normalFile);
     ImGui::AlignTextToFramePadding(); ImGui::Text("Material Map"); ImGui::SameLine();
     drawTextureInteraction(component.gpuMetallicRoughnessMap, component.metalroughFile);
+
+    ImGui::Checkbox("Is Transparent", &component.isTransparent);
 }
 
 

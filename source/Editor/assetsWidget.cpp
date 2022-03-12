@@ -26,6 +26,7 @@ void AssetsWidget::draw(float dt) {
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.2f)));
             
             bool clicked = false;
+            ImGui::PushID(entt::to_integral(entity));
 
             if (material.gpuAlbedoMap) {
                 clicked = ImGui::ImageButton(
@@ -37,6 +38,7 @@ void AssetsWidget::draw(float dt) {
             }
             else {
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec(material.albedo));
+
                 clicked = ImGui::Button(
                     std::string("##" + name.name).c_str(), 
                     ImVec2(64 * ImGui::GetWindowDpiScale() + style.FramePadding.x * 2, 64 * ImGui::GetWindowDpiScale() + style.FramePadding.y * 2)
@@ -44,7 +46,6 @@ void AssetsWidget::draw(float dt) {
                 ImGui::PopStyleColor();
             }
 
-            ImGui::PushID(entt::to_integral(entity));
 
             if (clicked)
                 GetActiveEntity() = entity;

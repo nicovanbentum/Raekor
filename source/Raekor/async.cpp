@@ -32,7 +32,7 @@ Async::~Async() {
         m_Quit = true;
     }
 
-    m_CondVar.notify_all();
+    m_ConditionVariable.notify_all();
 
     // wait for all to finish up
     for (int i = 0; i < m_Threads.size(); i++) {
@@ -43,18 +43,18 @@ Async::~Async() {
 }
 
 
-Async::Job Async::sDispatch(const Task& task) {
-    auto dispatch = std::make_shared<Dispatch>(task);
+Async::Job::Ptr Async::sQueueJob(const Job::Function& task) {
+    auto job = std::make_shared<Job>(task);
 
     {
         std::scoped_lock<std::mutex> lock(global->m_Mutex);
-        global->m_DispatchQueue.push(dispatch);
+        global->m_JobQueue.push(job);
     }
 
-    global->m_ActiveDispatchCount.fetch_add(1);
-    global->m_CondVar.notify_one();
+    global->m_ActiveJobCount.fetch_add(1);
+    global->m_ConditionVariable.notify_one();
 
-    return dispatch;
+    return job;
 }
 
 
@@ -64,40 +64,40 @@ std::scoped_lock<std::mutex> Async::sLock() {
 
 
 void Async::sWait() {
-    while (global->m_ActiveDispatchCount.load() > 0) {}
+    global->m_ConditionVariable.notify_all();
+    while (global->m_ActiveJobCount.load() > 0) {}
 }
 
 
-void Async::sWait(const Job& dispatch) {
-    while (!dispatch->finished) {}
+void Async::sWait(const Job::Ptr& job) {
+    while (!job->finished) {}
 }
 
 
 void Async::ThreadLoop() {
     // take control of the mutex
     auto lock = std::unique_lock<std::mutex>(m_Mutex);
-    
 
     do {
         // wait releases the mutex and re-acquires when there's work available
-        m_CondVar.wait(lock, [this] {
-            return m_DispatchQueue.size() || m_Quit;
+        m_ConditionVariable.wait(lock, [this] {
+            return m_JobQueue.size() || m_Quit;
         });
 
-        if (m_DispatchQueue.size() && !m_Quit) {
-            auto dispatch = std::move(m_DispatchQueue.front());
-            m_DispatchQueue.pop();
+        if (m_JobQueue.size() && !m_Quit) {
+            auto job = std::move(m_JobQueue.front());
+            m_JobQueue.pop();
 
             lock.unlock();
 
-            dispatch->task();
+            job->function();
 
-            dispatch->finished = true;
+            job->finished = true;
 
             // re-lock so wait doesn't unlock an unlocked mutex
             lock.lock();
             
-            if(m_ActiveDispatchCount.load() > 0) m_ActiveDispatchCount.fetch_sub(1);
+            m_ActiveJobCount.fetch_sub(1);
         }
 
     } while (!m_Quit);

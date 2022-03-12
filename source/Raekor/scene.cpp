@@ -101,10 +101,7 @@ void Scene::UpdateNode(entt::entity node, entt::entity parent) {
 
 
 void Scene::UpdateTransforms() {
-    auto transforms = view<Node, Transform>();
-
-    for (auto& [entity, node, transform] : transforms.each()) {
-
+    for (auto& [entity, node, transform] : view<Node,Transform>().each()) {
         if (node.parent == entt::null) {
             transform.Compose();
             UpdateNode(entity, node.parent);
@@ -136,7 +133,7 @@ void Scene::LoadMaterialTextures(Assets& assets, const std::vector<entt::entity>
     Timer timer;
 
     for (const auto& entity : materials) {
-        Async::sDispatch([&]() {
+        Async::sQueueJob([&]() {
             auto& material = this->get<Material>(entity);
             assets.Get<TextureAsset>(material.albedoFile);
             assets.Get<TextureAsset>(material.normalFile);
@@ -203,7 +200,8 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
     storage.read(&buffer[0], buffer.size());
 
     auto decompressed = std::string();
-    decompressed.resize(buffer.size() * 11); // TODO: store the uncompressed size somewhere
+    
+    decompressed.resize(glm::min(buffer.size() * 11, size_t(INT_MAX) - 1)); // TODO: store the uncompressed size somewhere
     const int decompressed_size = LZ4_decompress_safe(buffer.data(), decompressed.data(), int(buffer.size()), int(decompressed.size()));
 
     clear();
@@ -212,7 +210,8 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
 
     // stringstream to serialise from char data back to scene/asset representation
     {
-        auto bufferstream = std::stringstream(decompressed);
+        decompressed[decompressed.size() - 1] = '\0';
+        auto bufferstream = std::istringstream(decompressed);
         cereal::BinaryInputArchive input(bufferstream);
     
         // use cereal -> entt snapshot loader to load scene
