@@ -26,8 +26,9 @@ private:
     Shader m_PixelShader;
     Shader m_VertexShader;
 
-    Buffer m_VertexBuffer;
     Buffer m_IndexBuffer;
+    Buffer m_VertexBuffer;
+    std::vector<uint8_t> m_ScratchBuffer;
 
     Texture m_FontTexture;
     Sampler m_FontSampler;

@@ -11,19 +11,19 @@
 namespace Raekor::VK {
 
 void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& pathTracePass, BindlessDescriptorSet& textures) {
-	constexpr size_t max_vertices = sizeof(ImDrawVert) * 64000;
-	constexpr size_t max_indices = sizeof(ImDrawIdx) * 40000;
+	constexpr size_t max_buffer_size = 65536; // Max number of bytes for VkCmdUpdateBuffer
+	m_ScratchBuffer.resize(max_buffer_size);
 
 	m_VertexBuffer = device.CreateBuffer(
-		max_vertices,
-		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-		VMA_MEMORY_USAGE_CPU_TO_GPU
+		max_buffer_size,
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY
 	);
 
 	m_IndexBuffer = device.CreateBuffer(
-		max_indices,
-		VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
-		VMA_MEMORY_USAGE_CPU_TO_GPU
+		max_buffer_size,
+		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY
 	);
 
 	int width, height;
@@ -132,22 +132,33 @@ void ImGuiPass::Destroy(Device& device) {
 
 
 void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData* data, BindlessDescriptorSet& textures, uint32_t width, uint32_t height, PathTracePass& pathTracePass) {
-	uint8_t* vertices = static_cast<uint8_t*>(device.GetMappedPointer(m_VertexBuffer));
-	uint8_t* indices = static_cast<uint8_t*>(device.GetMappedPointer(m_IndexBuffer));
 	uint32_t vertex_offset = 0, index_offset = 0;
-
 
 	for (int n = 0; n < data->CmdListsCount; n++) {
 		const ImDrawList* cmdList = data->CmdLists[n];
 		
 		uint32_t vertex_size = cmdList->VtxBuffer.Size * sizeof(ImDrawVert);
-		memcpy(vertices + vertex_offset, cmdList->VtxBuffer.Data, vertex_size);
+		memcpy(m_ScratchBuffer.data() + vertex_offset, cmdList->VtxBuffer.Data, vertex_size);
 		vertex_offset += vertex_size;
+	}
+
+	assert(vertex_offset < m_ScratchBuffer.size());
+
+	if (vertex_offset)
+		vkCmdUpdateBuffer(commandBuffer, m_VertexBuffer.buffer, 0, gAlignUp(vertex_offset, 4), m_ScratchBuffer.data());
+
+	for (int n = 0; n < data->CmdListsCount; n++) {
+		const ImDrawList* cmdList = data->CmdLists[n];
 
 		uint32_t index_size = cmdList->IdxBuffer.Size * sizeof(ImDrawIdx);
-		memcpy(indices + index_offset, cmdList->IdxBuffer.Data, index_size);
+		memcpy(m_ScratchBuffer.data() + index_offset, cmdList->IdxBuffer.Data, index_size);
 		index_offset += index_size;
 	}
+
+	assert(index_offset < m_ScratchBuffer.size());
+
+	if (index_offset)
+		vkCmdUpdateBuffer(commandBuffer, m_IndexBuffer.buffer, 0, gAlignUp(index_offset, 4), m_ScratchBuffer.data());
 
 	struct PushConstants {
 		glm::mat4 projection;
