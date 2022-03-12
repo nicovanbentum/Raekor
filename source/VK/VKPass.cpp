@@ -25,6 +25,7 @@ void PathTracePass::Destroy(Device& device) {
     device.DestroyShader(m_MissShader);
     device.DestroyShader(m_ClosestHitShader);
     device.DestroyShader(m_MissShadowShader);
+    device.DestroyShader(m_AnyHitShader);
 
     DestroyRenderTargets(device);
     vkDestroyPipeline(device, m_Pipeline, nullptr);
@@ -73,7 +74,7 @@ void PathTracePass::CreatePipeline(Device& device) {
     for (const auto& file : fs::directory_iterator("assets/system/shaders/Vulkan")) {
         if (file.is_directory()) continue;
 
-        Async::sDispatch([=]() {
+        Async::sQueueJob([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
@@ -108,6 +109,7 @@ void PathTracePass::CreatePipeline(Device& device) {
 
     m_MissShader = device.CreateShader("assets/system/shaders/Vulkan/bin/pathtrace.rmiss.spv");
     m_RayGenShader = device.CreateShader("assets/system/shaders/Vulkan/bin/pathtrace.rgen.spv");
+    m_AnyHitShader = device.CreateShader("assets/system/shaders/Vulkan/bin/pathtrace.rahit.spv");
     m_MissShadowShader = device.CreateShader("assets/system/shaders/Vulkan/bin/shadow.rmiss.spv");
     m_ClosestHitShader = device.CreateShader("assets/system/shaders/Vulkan/bin/pathtrace.rchit.spv");
 
@@ -133,13 +135,15 @@ void PathTracePass::CreatePipeline(Device& device) {
 
     // closest hit
     m_ShaderGroups.emplace_back(group).closestHitShader = 3;
+    m_ShaderGroups.back().anyHitShader = 4;
     m_ShaderGroups.back().type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 
     std::array shader_stages = {
         m_RayGenShader.GetPipelineCreateInfo(),
         m_MissShader.GetPipelineCreateInfo(),
         m_MissShadowShader.GetPipelineCreateInfo(),
-        m_ClosestHitShader.GetPipelineCreateInfo()
+        m_ClosestHitShader.GetPipelineCreateInfo(),
+        m_AnyHitShader.GetPipelineCreateInfo()
     };
 
     VkRayTracingPipelineCreateInfoKHR pipelineInfo = {};
@@ -155,7 +159,6 @@ void PathTracePass::CreatePipeline(Device& device) {
 }
 
 
-
 void PathTracePass::CreateDescriptorSet(Device& device, const BindlessDescriptorSet& bindlessTextures) {
     VkDescriptorSetLayoutBinding binding0 = {};
     binding0.binding = 0;
@@ -167,19 +170,19 @@ void PathTracePass::CreateDescriptorSet(Device& device, const BindlessDescriptor
     binding1.binding = 1;
     binding1.descriptorCount = 1;
     binding1.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-    binding1.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    binding1.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
 
     VkDescriptorSetLayoutBinding binding2 = {};
     binding2.binding = 2;
     binding2.descriptorCount = 1;
     binding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    binding2.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    binding2.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
 
     VkDescriptorSetLayoutBinding binding3 = {};
     binding3.binding = 3;
     binding3.descriptorCount = 1;
     binding3.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    binding3.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    binding3.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
 
     VkDescriptorSetLayoutBinding binding4 = {};
     binding4.binding = 4;
@@ -200,8 +203,9 @@ void PathTracePass::CreateDescriptorSet(Device& device, const BindlessDescriptor
 
     VkPushConstantRange push_constant_range = {};
     push_constant_range.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR |
-                                   VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR |
-                                   VK_SHADER_STAGE_MISS_BIT_KHR;
+                                     VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR |
+                                     VK_SHADER_STAGE_MISS_BIT_KHR |
+                                     VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
     push_constant_range.size = sizeof(PushConstants); // TODO: query size from physical device
 
     std::array layouts = { m_DescriptorSetLayout, bindlessTextures.GetLayout() };
@@ -338,6 +342,7 @@ void PathTracePass::Record(const Device& device, const Viewport& viewport, VkCom
 
     constexpr VkShaderStageFlags stages = VK_SHADER_STAGE_RAYGEN_BIT_KHR |
                                           VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR |
+                                          VK_SHADER_STAGE_ANY_HIT_BIT_KHR |
                                           VK_SHADER_STAGE_MISS_BIT_KHR;
 
     vkCmdPushConstants(commandBuffer, m_PipelineLayout, stages, 0, sizeof(m_PushConstants), &m_PushConstants);
@@ -383,6 +388,7 @@ void PathTracePass::ReloadShaders(Device& device) {
     device.DestroyShader(m_MissShader);
     device.DestroyShader(m_ClosestHitShader);
     device.DestroyShader(m_MissShadowShader);
+    device.DestroyShader(m_AnyHitShader);
     
     CreatePipeline(device);
 }

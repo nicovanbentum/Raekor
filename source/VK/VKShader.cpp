@@ -94,11 +94,13 @@ Shader Device::CreateShader(const std::string& filepath) {
         case SpvExecutionModel::SpvExecutionModelRayGenerationKHR: {
             shader.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
         } break;
+        case SpvExecutionModel::SpvExecutionModelAnyHitKHR: {
+            shader.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+        } break;
     }
 
     return shader;
 }
-
 
 
 void Device::DestroyShader(Shader& shader) {
@@ -109,7 +111,6 @@ void Device::DestroyShader(Shader& shader) {
 
     spvReflectDestroyShaderModule(&shader.reflectModule);
 }
-
 
 
 VkPipelineShaderStageCreateInfo Shader::GetPipelineCreateInfo() const {

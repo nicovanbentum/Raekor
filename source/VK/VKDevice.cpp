@@ -173,12 +173,11 @@ Device::Device(SDL_Window* window) :
     allocInfo.physicalDevice = m_PhysicalDevice;
     allocInfo.device = m_Device;
     allocInfo.instance = m_Instance;
-    allocInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+    allocInfo.vulkanApiVersion = VK_API_VERSION_1_3;
     allocInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
     gThrowIfFailed(vmaCreateAllocator(&allocInfo, &m_Allocator));
 }
-
 
 
 Device::~Device() {
@@ -187,7 +186,6 @@ Device::~Device() {
     vmaDestroyAllocator(m_Allocator);
     vkDestroyDevice(m_Device, nullptr);
 }
-
 
 
 VkCommandBuffer Device::StartSingleSubmit() const {

@@ -6,7 +6,7 @@
 #define INFINITY            1.0 / 0.0
 #define PLANET_RADIUS       637100
 #define PLANET_CENTER       vec3(0, PLANET_RADIUS, 0)
-#define ATMOSPHERE_HEIGHT   500000
+#define ATMOSPHERE_HEIGHT   100000
 #define RAYLEIGH_HEIGHT     (ATMOSPHERE_HEIGHT * 0.08)
 #define MIE_HEIGHT          (ATMOSPHERE_HEIGHT * 0.012)
 
@@ -14,8 +14,8 @@
 #define C_MIE               (vec3(3.996,  3.996,  3.996) * EPS)
 #define C_OZONE             (vec3(0.650,  1.881,  0.085) * EPS)
 
-#define ATMOSPHERE_DENSITY  .25
-#define EXPOSURE            3
+#define ATMOSPHERE_DENSITY  1
+#define EXPOSURE            20
 
 vec2 SphereIntersection(vec3 rayStart, vec3 rayDir, vec3 sphereCenter, float sphereRadius) {
     rayStart -= sphereCenter;
@@ -100,7 +100,7 @@ vec3 IntegrateOpticalDepth (vec3 rayStart, vec3 rayDir)
 	for (int i = 0; i < sampleCount; i++)
 	{
 		vec3 localPosition = rayStart + rayDir * (i + 0.5) * stepSize;
-		float  localHeight   = AtmosphereHeight(localPosition);
+        float localHeight  = AtmosphereHeight(localPosition);
 		vec3 localDensity  = AtmosphereDensity(localHeight);
 
 		opticalDepth += localDensity * stepSize;
@@ -123,7 +123,7 @@ vec3 IntegrateScattering (vec3 rayStart, vec3 rayDir, float rayLength, vec3 ligh
 	// We can reduce the number of atmospheric samples required to converge by spacing them exponentially closer to the camera.
 	// This breaks space view however, so let's compensate for that with an exponent that "fades" to 1 as we leave the atmosphere.
 	float  rayHeight = AtmosphereHeight(rayStart);
-	float  sampleDistributionExponent = 1 + clamp(1 - rayHeight / ATMOSPHERE_HEIGHT, 0, 1) * 8; // Slightly arbitrary max exponent of 9
+    float  sampleDistributionExponent = 5;
 
 	vec2 intersection = AtmosphereIntersection(rayStart, rayDir);
 	rayLength = min(rayLength, intersection.y);

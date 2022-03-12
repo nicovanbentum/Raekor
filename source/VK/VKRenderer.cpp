@@ -43,6 +43,8 @@ Renderer::~Renderer() {
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
+    vkWaitForFences(m_Device, m_CommandsFinishedFences.size(), m_CommandsFinishedFences.data(), VK_TRUE, UINT64_MAX);
+    vkQueueWaitIdle(m_Device.GetQueue());
     vkDeviceWaitIdle(m_Device);
 
     for (uint32_t i = 0; i < sMaxFramesInFlight; i++) {
@@ -51,14 +53,11 @@ Renderer::~Renderer() {
         vkDestroyFence(m_Device, m_CommandsFinishedFences[i], nullptr);
     }
 
-    for (auto& texture : m_Textures) {
+    for (auto& texture : m_Textures)
         m_Device.DestroyTexture(texture);
-    }
 
-    for (auto& sampler : m_Samplers) {
+    for (auto& sampler : m_Samplers)
         m_Device.DestroySampler(sampler);
-    }
-
 
     m_Device.DestroyAccelStruct(m_TLAS);
     m_Swapchain.Destroy(m_Device);
@@ -70,18 +69,15 @@ Renderer::~Renderer() {
 }
 
 
-
 void Renderer::Init(Scene& scene) {
     m_PathTracePass.Init(m_Device, m_Swapchain, m_TLAS, m_InstanceBuffer, m_MaterialBuffer, m_BindlessTextureSet);
     m_ImGuiPass.Init(m_Device, m_Swapchain, m_PathTracePass, m_BindlessTextureSet);
 }
 
 
-
 void Renderer::ResetAccumulation() {
     m_PathTracePass.m_PushConstants.frameCounter = 0;
 }
-
 
 
 void Renderer::UpdateMaterials(Assets& assets, Scene& scene) {
@@ -118,6 +114,7 @@ void Renderer::UpdateMaterials(Assets& assets, Scene& scene) {
     auto mappedPtr = m_Device.GetMappedPointer(m_MaterialBuffer);
     memcpy(mappedPtr, materials.data(), materialBufferSize);
 }
+
 
 void Renderer::UpdateBVH(Scene& scene) {
     auto meshes = scene.view<Mesh, Transform, VK::RTGeometry>();
@@ -191,7 +188,6 @@ void Renderer::UpdateBVH(Scene& scene) {
 
     memcpy(mappedPtr, hostInstances.data(), hostInstances.size() * sizeof(Instance));
 }
-
 
 
 void Renderer::RenderScene(SDL_Window* window, const Viewport& viewport, Scene& scene) {
@@ -362,12 +358,12 @@ void Renderer::RenderScene(SDL_Window* window, const Viewport& viewport, Scene& 
 
     result = vkQueuePresentKHR(m_Device.GetQueue(), &presentInfo);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         RecreateSwapchain(window);
-    }  else {
+    else
         gThrowIfFailed(result);
-    }
 }
+
 
 void Renderer::Screenshot(const std::string& filepath) {
     Texture::Desc desc;
@@ -473,9 +469,8 @@ void Renderer::RecreateSwapchain(SDL_Window* window) {
 
 
 int32_t Renderer::UploadTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format) {
-    if (!asset) {
+    if (!asset)
         return -1;
-    }
 
     Texture::Desc desc;
     desc.format = format;
@@ -558,7 +553,6 @@ int32_t Renderer::UploadTexture(Device& device, const TextureAsset::Ptr& asset, 
 }
 
 
-
 void Renderer::ReloadShaders() {
     m_PathTracePass.ReloadShaders(m_Device);
 }
@@ -569,7 +563,7 @@ void Renderer::SetSyncInterval(bool on) {
 }
 
 
-RTGeometry Renderer::CreateBLAS(Mesh& mesh) {
+RTGeometry Renderer::CreateBLAS(Mesh& mesh, const Material& material) {
     auto vertices = mesh.GetInterleavedVertices();
     const auto sizeOfVertexBuffer = vertices.size() * sizeof(vertices[0]);
     const auto sizeOfIndexBuffer = mesh.indices.size() * sizeof(mesh.indices[0]);
@@ -582,7 +576,7 @@ RTGeometry Renderer::CreateBLAS(Mesh& mesh) {
 
     constexpr auto bufferUsages = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | 
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    
+
     RTGeometry component = {};
 
     component.vertices = m_Device.CreateBuffer(
@@ -626,6 +620,9 @@ RTGeometry Renderer::CreateBLAS(Mesh& mesh) {
     geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
     geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
     geometry.geometry.triangles = triangles;
+
+    if (material.isTransparent)
+        geometry.flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
 
     VkAccelerationStructureBuildGeometryInfoKHR buildInfo = {};
     buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;

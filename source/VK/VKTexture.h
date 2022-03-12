@@ -22,6 +22,8 @@ public:
     VkImage image;
     Desc description;
 
+    VkImageView GetView(uint32_t mip = 0) { return viewsByMip.at(mip); }
+
 private:
     VmaAllocation allocation;
     std::unordered_map<uint32_t, VkImageView> viewsByMip;

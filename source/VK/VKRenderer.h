@@ -32,7 +32,7 @@ public:
     void ReloadShaders();
     void SetSyncInterval(bool interval);
 
-    RTGeometry CreateBLAS(Mesh& mesh);
+    RTGeometry CreateBLAS(Mesh& mesh, const Material& material);
     void DestroyBLAS(RTGeometry& geometry);
     AccelStruct CreateTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count);
     

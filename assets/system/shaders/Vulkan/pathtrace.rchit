@@ -138,17 +138,38 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
 }
 
-vec3 evaluateLight(Surface surface, vec3 lightDirection, vec3 lightColor) {
-    vec3 V = normalize(-gl_WorldRayDirectionEXT);
+float luminance(vec3 rgb) {
+	return dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+}
 
-    vec3 Wi = normalize(-lightDirection.xyz);
-    vec3 Wh = normalize(V + Wi);
+vec3 BRDF_Diffuse_Lambert(Surface surface) {
+    return surface.albedo.rgb / M_PI;
+}
 
-    vec3 F0 = mix(vec3(0.04), surface.albedo.rgb, surface.metallic);
+bool isBlack(vec3 v) {
+    return v.x == 0.0 && v.y == 0.0 && v.z == 0.0;
+}
 
-    float NDF = DistributionGGX(surface.normal, Wh, surface.roughness);   
+vec3 BRDF_SampleGGX(Surface surface, vec2 rand) {
+    float a = surface.roughness;
+    float a2 = a * a;
+    float cos_theta = sqrt((1.0 - rand.x) / (1.0 + (a2 - 1.0) * rand.x));
+    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+    float phi = 2.0 * M_PI * rand.y;
+
+    return vec3(sin_theta * cos(phi), sin_theta * sin(phi), cos_theta);
+}
+
+vec3 radiance(Surface surface, vec3 lightDir) {
+    vec3 Wi = normalize(-lightDir);
+    vec3 V = -gl_WorldRayDirectionEXT;
+    vec3 Lh = normalize(V + Wi);
+
+	vec3 F0 = mix(vec3(0.04), surface.albedo.rgb, surface.metallic);
+
+    float NDF = DistributionGGX(surface.normal, Lh, surface.roughness);   
     float G   = GeometrySmith(surface.normal, V, Wi, surface.roughness);    
-    vec3 F    = fresnelSchlick(max(dot(Wh, V), 0.0), F0);
+    vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);
 
     vec3 nominator    = NDF * G * F;
     float denominator = 4 * max(dot(surface.normal, V), 0.0) * max(dot(surface.normal, Wi), 0.0) + 0.001;
@@ -160,23 +181,30 @@ vec3 evaluateLight(Surface surface, vec3 lightDirection, vec3 lightColor) {
 
     kD *= 1.0 - surface.metallic;
 
-    float NdotL = max(dot(Wi, surface.normal), 0.0);
+    float NdotL = max(dot(surface.normal, Wi), 0.0);
 
-    vec3 radiance = lightColor * NdotL;
+    vec3 diffuse = Absorb(IntegrateOpticalDepth(vec3(0.0), lightDir)) /* = light color */ * NdotL;
+    //diffuse = vec3(1.0) * NdotL;
 
-    return (surface.albedo.rgb / M_PI) * radiance;
+    return (kD *  surface.albedo.rgb + specular) * diffuse;
 }
 
-float luminance(vec3 rgb) {
-	return dot(rgb, vec3(0.2126, 0.7152, 0.0722));
-}
-
-vec3 BRDF_Diffuse_Lambert(Surface surface) {
-    return surface.albedo.rgb / M_PI;
-}
-
-bool isBlack(vec3 v) {
-    return v.x == 0.0 && v.y == 0.0 && v.z == 0.0;
+/* From Unreal Engine 4 https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf */
+vec3 ImportanceSampleGGX( vec2 Xi, float Roughness , vec3 N )
+{
+    float a = Roughness * Roughness;
+    float Phi = 2 * PI * Xi.x;
+    float CosTheta = sqrt( (1 - Xi.y) / ( 1 + (a*a - 1) * Xi.y ) );
+    float SinTheta = sqrt( 1 - CosTheta * CosTheta );
+    vec3 H;
+    H.x = SinTheta * cos( Phi );
+    H.y = SinTheta * sin( Phi );
+    H.z = CosTheta;
+    vec3 UpVector = abs(N.z) < 0.999 ? vec3(0,0,1) : vec3(1,0,0);
+    vec3 TangentX = normalize( cross( UpVector , N ) );
+    vec3 TangentY = cross( N, TangentX );
+    // Tangent to world space
+    return TangentX * H.x + TangentY * H.y + N * H.z;
 }
 
 void main() {
@@ -196,14 +224,7 @@ void main() {
 
     Surface surface = getSurface(instance, vertex);
 
-    bool specularBounce = false;
-
-    // sample illumination from 1 random light
-    // TODO: In this case, its just a single directional light
-
-
-    // sample BRDF to get the new ray direction
-
+    //surface.albedo = vec4(1.0);
 
     vec2 rng = vec2(pcg_float(payload.rng), pcg_float(payload.rng));
     vec2 diskPoint = uniformSampleDisk(rng.xy, sunConeAngle);
@@ -213,7 +234,7 @@ void main() {
 
     float tMin = 0.001;
     float tMax = 10000.0;
-    uint rayFlags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+    uint rayFlags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
     traceRayEXT(TLAS, rayFlags, 0xFF, 0, 0, 1, surface.pos, tMin, -offsetLightDir, tMax, 1);
 
     // flip the normal incase we hit a backface
@@ -226,10 +247,30 @@ void main() {
     vec3 BRDF = surface.albedo.rgb / M_PI;
     float cos_theta = dot(-gl_WorldRayDirectionEXT, surface.normal);
 
+    vec3 diffuse = surface.albedo.rgb * uint(canReachLight) * max(0, dot(-offsetLightDir, surface.normal));
+
+    // randomly decide if its a specular bounce
+    float rand = pcg_float(payload.rng);
+
+    if (rand > 0.5 && surface.roughness < 0.5) {
+        // importance sample the specular lobe using the UE4 function
+        payload.rayDir = normalize(reflect(gl_WorldRayDirectionEXT, ImportanceSampleGGX(pcg_vec2(payload.rng), surface.roughness, surface.normal)));
+    }
 
     payload.L = surface.emissive;
     payload.beta = surface.albedo.rgb;
     payload.rayPos = offsetRay(surface.pos, surface.normal);
 
-    payload.L += vec3(1.0) * surface.albedo.rgb * uint(canReachLight) * max(0, dot(-offsetLightDir, surface.normal));
+    payload.L += radiance(surface, offsetLightDir) * uint(canReachLight);
+
+    // Russian roulette
+    if (payload.depth > 3) {
+        const float r = pcg_float(payload.rng);
+        const float p = max(surface.albedo.r, max(surface.albedo.g, surface.albedo.b));
+        if(r > p) {
+            payload.depth = 100;
+        } else {
+            payload.beta = vec3(1.0 / p);
+        }
+    }
 }

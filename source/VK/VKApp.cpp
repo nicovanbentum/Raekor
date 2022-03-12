@@ -39,10 +39,11 @@ namespace Raekor::VK {
 
     assert(!m_Scene.empty() && "Scene cannot be empty when starting up the Vulkan path tracer!!");
 
-    auto meshes = m_Scene.view<Mesh>();
-    for (auto& [entity, mesh] : meshes.each()) {
-        auto component = m_Renderer.CreateBLAS(mesh);
-        m_Scene.emplace<VK::RTGeometry>(entity, component);
+    for (auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
+        if (mesh.material != sInvalidEntity) {
+            auto component = m_Renderer.CreateBLAS(mesh, m_Scene.get<Material>(mesh.material));
+            m_Scene.emplace<VK::RTGeometry>(entity, component);
+        }
     }
 
     m_Assets.clear();
@@ -60,7 +61,6 @@ namespace Raekor::VK {
 
     SDL_ShowWindow(m_Window);
     SDL_SetWindowInputFocus(m_Window);
-
     SDL_SetWindowSize(m_Window, 1300, 1300);
 }
 
@@ -114,7 +114,21 @@ void PathTracer::OnUpdate(float dt) {
         reset |= ImGui::SliderInt("Bounces", reinterpret_cast<int*>(&m_Renderer.GetPushConstants().bounces), 1, 8);
         reset |= ImGui::DragFloat("Sun Cone", &m_Renderer.GetPushConstants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
 
+        if (lightView.begin() != lightView.end()) {
+            auto& sun_transform = lightView.get<Transform>(lightView.front());
+        
+            auto sun_rotation_degrees = glm::degrees(glm::eulerAngles(sun_transform.rotation));
+
+            if (ImGui::DragFloat3("Sun Angle", glm::value_ptr(sun_rotation_degrees), 0.1f, -360.0f, 360.0f, "%.1f")) {
+                sun_transform.rotation = glm::quat(glm::radians(sun_rotation_degrees));
+                sun_transform.Compose();
+                reset = true;
+            }
+        }
+
         ImGui::End();
+
+
 
         ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
         ImGuizmo::SetRect(0, 0, float(m_Viewport.size.x), float(m_Viewport.size.y));
@@ -161,7 +175,6 @@ void PathTracer::OnEvent(const SDL_Event& ev) {
     }
 
     auto& camera = m_Viewport.GetCamera();
-
     const bool is_mouse_relative = SDL_GetRelativeMouseMode();
 
     if (is_mouse_relative) {
@@ -208,6 +221,9 @@ void PathTracer::OnEvent(const SDL_Event& ev) {
             case SDLK_r: {
                 m_Renderer.ReloadShaders();
                 m_Renderer.ResetAccumulation();
+            } break;
+            case SDLK_TAB: {
+                m_IsImGuiEnabled = !m_IsImGuiEnabled;
             } break;
             case SDLK_F2: {
                 std::string path = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");

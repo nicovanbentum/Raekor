@@ -22,7 +22,7 @@ public:
         glm::vec4 lightDir = glm::vec4(-0.1, -1, -0.2, 0.0);
         uint32_t frameCounter = 0;
         uint32_t bounces = 8;
-        float sunConeAngle = 0.2f;
+        float sunConeAngle = 0.05f;
     };
 
 public:
@@ -54,9 +54,10 @@ private:
 
     Shader m_MissShader;
     Shader m_RayGenShader;
+    Shader m_AnyHitShader;
     Shader m_MissShadowShader;
     Shader m_ClosestHitShader;
-
+    
     Buffer m_ShaderBindingTable;
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> m_ShaderGroups;
 };

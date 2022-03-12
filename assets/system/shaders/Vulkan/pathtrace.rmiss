@@ -25,13 +25,15 @@ void main() {
     vec3 color = IntegrateScattering(rayStart, rayDir, rayLength, lightDir.xyz, vec3(1.0), transmittance);
 
     const float y = normalize(gl_WorldRayDirectionEXT).y;
-    
+
     if(y > 0.0) {
         // set L to throughput * sky color so it gets added
         payload.L = mix(vec3(1.0), vec3(0.25, 0.5, 1.0), y);
     } else {
         payload.L = vec3(0.03);
     }
+
+    payload.L = color;
 
     payload.depth = bounces + 1; // terminate
 }
