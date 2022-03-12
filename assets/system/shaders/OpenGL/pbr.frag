@@ -85,8 +85,9 @@ vec4 coneTrace(in vec3 p, in vec3 n, in vec3 coneDirection, in float coneApertur
 
     float voxelSize = voxelsWorldSize / VoxelDimensions;
      // start one voxel away from the current vertex' position
-    float dist = voxelSize; 
-    vec3 startPos = p + n * voxelSize * 2 * sqrt(2); 
+    const float voxelOffset = 2 * sqrt(2);
+    float dist = voxelSize * voxelOffset; 
+    vec3 startPos = p + n * voxelSize * voxelOffset;
 
     while(dist < voxelsWorldSize && colour.a < 1.0) {
         
@@ -468,6 +469,125 @@ float ScreenSpaceShadow(vec3 worldPos, DirectionalLight light) {
 }
 
 
+#define EPS                 1e-6
+#define PI                  3.14159265359
+#define INFINITY            1.0 / 0.0
+#define PLANET_RADIUS       637100
+#define PLANET_CENTER       vec3(0, PLANET_RADIUS, 0)
+#define ATMOSPHERE_HEIGHT   100000
+#define RAYLEIGH_HEIGHT     (ATMOSPHERE_HEIGHT * 0.08)
+#define MIE_HEIGHT          (ATMOSPHERE_HEIGHT * 0.012)
+
+// -------------------------------------
+// Coefficients
+#define C_RAYLEIGH          (vec3(5.802, 13.558, 33.100) * EPS)
+#define C_MIE               (vec3(3.996,  3.996,  3.996) * EPS)
+#define C_OZONE             (vec3(0.650,  1.881,  0.085) * EPS)
+
+#define ATMOSPHERE_DENSITY  1
+#define EXPOSURE            20
+
+vec2 SphereIntersection(vec3 rayStart, vec3 rayDir, vec3 sphereCenter, float sphereRadius) {
+    rayStart -= sphereCenter;
+	float a = dot(rayDir, rayDir);
+	float b = 2.0 * dot(rayStart, rayDir);
+	float c = dot(rayStart, rayStart) - (sphereRadius * sphereRadius);
+	float d = b * b - 4 * a * c;
+	if (d < 0)
+	{
+		return vec2(-1, 0);
+	}
+	else
+	{
+		d = sqrt(d);
+		return vec2(-b - d, -b + d) / (2 * a);
+	}
+}
+
+vec2 PlanetIntersection (vec3 rayStart, vec3 rayDir) {
+	return SphereIntersection(rayStart, rayDir, PLANET_CENTER, PLANET_RADIUS);
+}
+vec2 AtmosphereIntersection (vec3 rayStart, vec3 rayDir) {
+	return SphereIntersection(rayStart, rayDir, PLANET_CENTER, PLANET_RADIUS + ATMOSPHERE_HEIGHT);
+}
+
+// -------------------------------------
+// Phase functions
+float PhaseRayleigh (float costh) {
+	return 3 * (1 + costh*costh) / (16 * PI);
+}
+
+float PhaseMie (float costh, float g) {
+	g = min(g, 0.9381);
+	float k = 1.55*g - 0.55*g*g*g;
+	float kcosth = k*costh;
+	return (1 - k*k) / ((4 * PI) * (1-kcosth) * (1-kcosth));
+}
+
+float PhaseMie(float costh) {
+    return PhaseMie(costh, 0.85);
+}
+
+// -------------------------------------
+// Atmosphere
+float AtmosphereHeight(vec3 pos) {
+    return distance(pos, PLANET_CENTER) - PLANET_RADIUS;
+}
+
+float DensityRayleigh (float h)
+{
+	return exp(-max(0, h / RAYLEIGH_HEIGHT));
+}
+float DensityMie (float h)
+{
+	return exp(-max(0, h / MIE_HEIGHT));
+}
+float DensityOzone (float h)
+{
+	// The ozone layer is represented as a tent function with a width of 30km, centered around an altitude of 25km.
+	return max(0, 1 - abs(h - 25000.0) / 15000.0);
+}
+
+vec3 AtmosphereDensity (float h)
+{
+	return vec3(DensityRayleigh(h), DensityMie(h), DensityOzone(h));
+}
+
+// Optical depth is a unitless measurement of the amount of absorption of a participating medium (such as the atmosphere).
+// This function calculates just that for our three atmospheric elements:
+// R: Rayleigh
+// G: Mie
+// B: Ozone
+// If you find the term "optical depth" confusing, you can think of it as "how much density was found along the ray in total".
+vec3 IntegrateOpticalDepth (vec3 rayStart, vec3 rayDir) // TODO: precompute
+{
+	vec2 intersection = AtmosphereIntersection(rayStart, rayDir);
+	float  rayLength    = intersection.y;
+
+	int    sampleCount  = 8;
+	float  stepSize     = rayLength / sampleCount;
+	
+	vec3 opticalDepth = vec3(0);
+
+	for (int i = 0; i < sampleCount; i++)
+	{
+		vec3 localPosition = rayStart + rayDir * (i + 0.5) * stepSize;
+		float  localHeight   = AtmosphereHeight(localPosition);
+		vec3 localDensity  = AtmosphereDensity(localHeight);
+
+		opticalDepth += localDensity * stepSize;
+	}
+
+	return opticalDepth;
+}
+
+// Calculate a luminance transmittance value from optical depth.
+vec3 Absorb (vec3 opticalDepth)
+{
+	// Note that Mie results in slightly more light absorption than scattering, about 10%
+	return exp(-(opticalDepth.x * C_RAYLEIGH + opticalDepth.y * C_MIE * 1.1 + opticalDepth.z * C_OZONE) * ATMOSPHERE_DENSITY);
+}
+
 void main() {
     float depth = texture(gDepth, uv).r;
     vec3 position = reconstructPosition(uv, depth, invViewProjection);
@@ -511,6 +631,7 @@ void main() {
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
 
     DirectionalLight light = ubo.dirLights[0];
+    light.color.rgb = Absorb(IntegrateOpticalDepth(vec3(0.0), light.direction.xyz));
 
     //float shadowAmount = texture(shadowMap, vec4(depthPosition.xy, cascadeIndex, (depthPosition.z)/depthPosition.w));
     float shadowAmount = 1.0 - getShadow(light, position);

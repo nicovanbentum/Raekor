@@ -73,7 +73,7 @@ void main() {
 		}
 	}
 
-    cascadeIndex = 1;
+    cascadeIndex = 2;
 
     vec4 depthPosition = shadowMatrices[cascadeIndex] * worldPosition;
     depthPosition.xyz = depthPosition.xyz * 0.5 + 0.5;
