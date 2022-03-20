@@ -18,5 +18,12 @@
 #include "dxc/dxcapi.h"
 #include "dxc/d3d12shader.h"
 
+// DIRECTX Memory Allocator
+#include "D3D12MemAlloc.h"
+
+// DirectStorage Library
+#include "dstorage.h"
+#include "dstorageerr.h"
+
 template<typename T>
 using ComPtr = Microsoft::WRL::ComPtr<T>;

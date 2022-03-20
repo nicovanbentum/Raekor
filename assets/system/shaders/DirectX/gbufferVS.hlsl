@@ -1,6 +1,9 @@
+
 struct VS_OUTPUT {
     float2 texcoord : TEXCOORD;
-    float4 pos : SV_Position;
+    float4 position : SV_Position;
+    float4 worldPosition : POSITIONT;
+    float3 normal : NORMAL;
 };
 
 struct VS_INPUT {
@@ -10,14 +13,21 @@ struct VS_INPUT {
     float3 tangent : TANGENT;
 };
 
-// #define GlobalRootSignature "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED )," \
-//                             "StaticSampler(s0, addressU = TEXTURE_ADDRESS_CLAMP, filter = FILTER_MIN_MAG_MIP_LINEAR)"
+struct RootConstants {
+    float4 albedo;
+    uint4 textures;
+    float4x4 view_proj;
+};
 
-// [RootSignature(GlobalRootSignature)]
+ConstantBuffer<RootConstants> root_constants : register(b0, space0);
+SamplerState static_sampler : register(s0);
+
 VS_OUTPUT main(in VS_INPUT input) {
     VS_OUTPUT output;
 
-    output.pos = float4(input.pos, 1.0); // TODO: matrix
+    output.position = mul(root_constants.view_proj, float4(input.pos, 1.0));
+    output.normal = input.normal;
+    output.worldPosition = float4(input.pos, 1.0);
 
     output.texcoord = input.texcoord;
 

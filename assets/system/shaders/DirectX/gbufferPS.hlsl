@@ -1,27 +1,34 @@
 struct VS_OUTPUT {
     float2 texcoord : TEXCOORD;
-    float4 pos : SV_Position;
-};
-
-struct VS_INPUT {
-    float3 pos : POSITION;
-    float2 texcoord : TEXCOORD;
+    float4 position : SV_Position;
+    float4 worldPosition : POSITIONT;
     float3 normal : NORMAL;
-    float3 tangent : TANGENT;
 };
 
 struct PS_OUTPUT {
     float4 albedo: SV_Target0;
 };
 
-// #define GlobalRootSignature "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED )," \
-//                             "StaticSampler(s0, addressU = TEXTURE_ADDRESS_CLAMP, filter = FILTER_MIN_MAG_MIP_LINEAR)"
+struct RootConstants {
+    float4 albedo;
+    uint4 textures;
+    float4x4 view_proj;
+};
 
-// [RootSignature(GlobalRootSignature)]
+ConstantBuffer<RootConstants> root_constants : register(b0, space0);
+SamplerState static_sampler : register(s0);
+
+//[RootSignature(GLOBAL_ROOT_SIGNATURE)]
 PS_OUTPUT main(in VS_OUTPUT input) {
     PS_OUTPUT output;
 
-    output.albedo = float4(1.0, 1.0, 1.0, 1.0);
+    Texture2D<float4> albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(root_constants.textures.x)];
+    float3 albedo = root_constants.albedo.rgb;
+
+     if(root_constants.textures.x > 0)
+         albedo *= albedo_texture.SampleLevel(static_sampler, input.texcoord, 0).rgb;
+
+    output.albedo = float4(albedo, 1.0);
 
     return output;
 }
