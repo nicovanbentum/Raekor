@@ -7,6 +7,11 @@
 
 #define ROOT_CONSTANTS(T, name) ConstantBuffer<T> name : register(b0, space0);
 
-SamplerState static_sampler : register(s0);
+SamplerState SamplerPointWrap       : register(s0);
+SamplerState SamplerPointClamp      : register(s1);
+SamplerState SamplerLinearWrap      : register(s2);
+SamplerState SamplerLinearClamp     : register(s3);
+SamplerState SamplerAnisoWrap       : register(s4);
+SamplerState SamplerAnisoClamp      : register(s5);
 
 #endif

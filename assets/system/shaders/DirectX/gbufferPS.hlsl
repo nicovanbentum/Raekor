@@ -1,12 +1,16 @@
+#include "include/common.hlsli"
+#include "include/packing.hlsli"
+
 struct VS_OUTPUT {
     float2 texcoord : TEXCOORD;
     float4 position : SV_Position;
-    float4 worldPosition : POSITIONT;
     float3 normal : NORMAL;
+    float3 tangent : TANGENT;
+    float3 binormal : BINORMAL;
 };
 
 struct PS_OUTPUT {
-    float4 albedo: SV_Target0;
+    float4 gbuffer: SV_Target0;
 };
 
 struct RootConstants {
@@ -15,20 +19,21 @@ struct RootConstants {
     float4x4 view_proj;
 };
 
-ConstantBuffer<RootConstants> root_constants : register(b0, space0);
-SamplerState static_sampler : register(s0);
+ROOT_CONSTANTS(RootConstants, root_constants)
 
 //[RootSignature(GLOBAL_ROOT_SIGNATURE)]
 PS_OUTPUT main(in VS_OUTPUT input) {
     PS_OUTPUT output;
 
-    Texture2D<float4> albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(root_constants.textures.x)];
-    float3 albedo = root_constants.albedo.rgb;
+    float4 albedo_sample = float4(1.0, 1.0, 1.0, 1.0);
 
-     if(root_constants.textures.x > 0)
-         albedo *= albedo_texture.SampleLevel(static_sampler, input.texcoord, 0).rgb;
+    Texture2D<float4> albedo_texture = ResourceDescriptorHeap[root_constants.textures.x];
+    float4 albedo = root_constants.albedo * albedo_texture.SampleLevel(SamplerPointWrap, input.texcoord, 0.0);
 
-    output.albedo = float4(albedo, 1.0);
+    uint4 packed = uint4(0, 0, 0, 0);
+    packed.x = Float4ToRGBA8(albedo);
+
+    output.gbuffer = asfloat(packed);
 
     return output;
 }

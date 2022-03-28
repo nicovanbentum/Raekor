@@ -4,9 +4,14 @@
 #include "Raekor/application.h"
 #include "Raekor/scene.h"
 
+#include "DXBlit.h"
+#include "DXGBuffer.h"
+
 namespace Raekor::DX {
 
 class DXApp : public Application {
+    using ShaderLibrary = std::unordered_map<std::string, ComPtr<IDxcBlob>>;
+
 public:
     struct {
         glm::vec4 albedo;
@@ -22,7 +27,7 @@ public:
     virtual void OnUpdate(float dt) override;
     virtual void OnEvent(const SDL_Event& event) override;
 
-    uint32_t RegisterTexture(const TextureAsset::Ptr& asset, const fs::path& path, DXGI_FORMAT format);
+    uint32_t UploadTextureFromFile(const TextureAsset::Ptr& asset, const fs::path& path, DXGI_FORMAT format);
 
 private:
     Scene m_Scene;
@@ -30,12 +35,14 @@ private:
 
     Device m_Device;
     ComPtr<IDXGISwapChain3> m_Swapchain;
-    ComPtr<ID3D12PipelineState> m_Pipeline;
-    ComPtr<ID3D12RootSignature> m_RootSignature;
-
     ComPtr<IDStorageQueue> m_StorageQueue;
 
-    std::unordered_map<std::string, ComPtr<IDxcBlob>> m_Shaders;
+    uint32_t m_DefaultWhiteTexture;
+    uint32_t m_DefaultBlackTexture;
+
+    BlitPass m_Blit;
+    GBufferPass m_GBuffer;
+    ShaderLibrary m_Shaders;
     std::vector<ComPtr<ID3D12GraphicsCommandList>> m_CommandLists;
     std::vector<ComPtr<ID3D12CommandAllocator>> m_CommnadAllocators;
     

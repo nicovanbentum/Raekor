@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "DXDevice.h"
+#include "DXSampler.h"
 #include "DXUtil.h"
 
 namespace Raekor::DX {
@@ -23,17 +24,41 @@ Device::Device(SDL_Window* window) {
 
     gThrowIfFailed(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m_Device)));
 
-    //D3D12MA::ALLOCATOR_DESC allocator_desc = {};
-    //allocator_desc.pAdapter = m_Adapter.Get();
-    //allocator_desc.pDevice = m_Device.Get();
-    //gThrowIfFailed(D3D12MA::CreateAllocator(&allocator_desc, &m_Allocator));
+    D3D12MA::ALLOCATOR_DESC allocator_desc = {};
+    allocator_desc.pAdapter = m_Adapter.Get();
+    allocator_desc.pDevice = m_Device.Get();
+    gThrowIfFailed(D3D12MA::CreateAllocator(&allocator_desc, &m_Allocator));
 
     const D3D12_COMMAND_QUEUE_DESC qd = {};
     gThrowIfFailed(m_Device->CreateCommandQueue(&qd, IID_PPV_ARGS(&m_Queue)));
 
-    m_RtvHeap.Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    m_DsvHeap.Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    m_CbvSrvUavHeap.Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_RtvHeap.Init(       m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_RTV,          std::numeric_limits<uint16_t>::max(),   D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_DsvHeap.Init(       m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_DSV,          std::numeric_limits<uint16_t>::max(),   D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_SamplerHeap.Init(   m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,      ESampler::Limit,                        D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_CbvSrvUavHeap.Init( m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,  std::numeric_limits<uint16_t>::max(),   D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+
+    for (size_t sampler_index = 0; sampler_index < ESampler::Count; sampler_index++)
+        m_Device->CreateSampler(&SAMPLER_DESC[sampler_index], m_SamplerHeap.GetCPUDescriptorHandle(sampler_index));
+
+    D3D12_ROOT_PARAMETER1 constants_param = {};
+    constants_param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    constants_param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    constants_param.Constants.ShaderRegister = 0;
+    constants_param.Constants.RegisterSpace = 0;
+    constants_param.Constants.Num32BitValues = 32;
+
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC vrsd;
+    vrsd.Init_1_1(1, &constants_param, ESampler::Count, STATIC_SAMPLER_DESC.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | 
+                                                                                    D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED  | 
+                                                                                    D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED);
+    ComPtr<ID3DBlob> signature, error;
+    auto serialize_vrs_hr = D3DX12SerializeVersionedRootSignature(&vrsd, D3D_ROOT_SIGNATURE_VERSION_1_1, &signature, &error);
+
+    if (error)
+        OutputDebugStringA((char*)error->GetBufferPointer());
+
+    gThrowIfFailed(serialize_vrs_hr);
+    gThrowIfFailed(m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_GlobalRootSignature)));
 }
 
 }

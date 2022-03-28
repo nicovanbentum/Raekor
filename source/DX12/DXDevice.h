@@ -11,6 +11,7 @@ public:
 	ID3D12Device* GetRaw() { return m_Device.Get(); }
 	ID3D12Device* operator-> () { return m_Device.Get(); }
 	ID3D12CommandQueue* GetQueue() { return m_Queue.Get(); }
+	ID3D12RootSignature* GetGlobalRootSignature() const { return m_GlobalRootSignature.Get(); }
 
 public:
 	ComPtr<ID3D12Device> m_Device;
@@ -18,10 +19,11 @@ public:
 	ComPtr<ID3D12CommandQueue> m_Queue;
 	ComPtr<D3D12MA::Allocator> m_Allocator;
 
-
-	DescriptorHeap<D3D12_DESCRIPTOR_HEAP_TYPE_RTV> m_RtvHeap;
-	DescriptorHeap<D3D12_DESCRIPTOR_HEAP_TYPE_DSV> m_DsvHeap;
-	DescriptorHeap<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV> m_CbvSrvUavHeap;
+	ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
+	DescriptorHeap m_RtvHeap;
+	DescriptorHeap m_DsvHeap;
+	DescriptorHeap m_SamplerHeap;
+	DescriptorHeap m_CbvSrvUavHeap;
 };
 
 }

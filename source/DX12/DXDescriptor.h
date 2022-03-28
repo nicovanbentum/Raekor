@@ -2,79 +2,25 @@
 
 namespace Raekor::DX {
 
-template<typename T>
-class FreeVector : public std::vector<T> {
+class DescriptorHeap : protected std::vector<ComPtr<ID3D12Resource>> {
+    using Base = std::vector<ComPtr<ID3D12Resource>>;
+
 public:
-    virtual size_t Add(const T& t);
-    virtual bool Remove(size_t index);
+    void Init(ID3D12Device* inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags);
+    size_t AddResource(const ComPtr<ID3D12Resource>& inResource);
+    bool RemoveResource(size_t inIndex);
 
-private:
-    std::vector<size_t> free;
-};
+    ComPtr<ID3D12Resource>& operator[](uint32_t index) { return Base::operator[](index); }
+    const ComPtr<ID3D12Resource>& operator[](uint32_t index) const { return Base::operator[](index); }
 
-
-template<D3D12_DESCRIPTOR_HEAP_TYPE Type>
-class DescriptorHeap : public FreeVector<ComPtr<ID3D12Resource>> {
-public:
-    using ResourceType = ComPtr<ID3D12Resource>;
-
-    void Init(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags);
-    virtual size_t Add(const ResourceType& t);
-
-    ComPtr<ID3D12DescriptorHeap> GetHeap()                             { return m_Heap; }
-    D3D12_CPU_DESCRIPTOR_HANDLE  GetCPUDescriptorHandle(size_t index)  { return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_HeapPtr, index, m_HeapIncrement); }
+    ID3D12DescriptorHeap* GetHeap() const { return m_Heap.Get(); }
+    D3D12_CPU_DESCRIPTOR_HANDLE  GetCPUDescriptorHandle(size_t index) const { return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_HeapPtr, index, m_HeapIncrement); }
 
 private:
     UINT m_HeapIncrement = 0;
+    std::vector<size_t> m_FreeIndices;
     ComPtr<ID3D12DescriptorHeap> m_Heap;
     D3D12_CPU_DESCRIPTOR_HANDLE m_HeapPtr;
 };
-
-template<typename T>
-inline size_t FreeVector<T>::Add(const T& t) {
-    size_t index;
-
-    if (free.empty()) {
-        emplace_back(t);
-        index = size() - 1;
-    }
-    else {
-        index = free.back();
-        (*this)[index] = t;
-        free.pop_back();
-    }
-
-    return index;
-}
-
-
-template<typename T>
-inline bool FreeVector<T>::Remove(size_t index) {
-    if (index > size() - 1)
-        return false;
-
-    free.push_back(index);
-    return true;
-}
-
-
-template<D3D12_DESCRIPTOR_HEAP_TYPE Type>
-inline void DescriptorHeap<Type>::Init(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags) {
-    D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-    desc.Type = Type;
-    desc.NumDescriptors = std::numeric_limits<uint16_t>::max();
-    desc.Flags = inFlags;
-
-    gThrowIfFailed(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_Heap)));
-
-    m_HeapPtr = m_Heap->GetCPUDescriptorHandleForHeapStart();
-    m_HeapIncrement = device->GetDescriptorHandleIncrementSize(Type);
-}
-
-
-template<D3D12_DESCRIPTOR_HEAP_TYPE Type>
-inline size_t DescriptorHeap<Type>::Add(const ResourceType& t) {
-    return FreeVector<ResourceType>::Add(t);
-}
 
 } // Raekor::DX
