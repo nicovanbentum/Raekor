@@ -3,6 +3,12 @@
 [[vk::push_constant]]
 ConstantBuffer<PushConstants> pc;
 
+[[vk::binding(0, 0)]]
+Texture2D textures[];
+
+[[vk::binding(0, 0)]]
+SamplerState samplers[];
+
 VS_OUTPUT main(in VS_INPUT input, out float4 pos : SV_Position) {
     pos = mul(pc.proj, float4(input.pos, 0.0, 1.0));
     pos.z = (pos.z / pos.w * 0.5 + 0.5) * pos.w;

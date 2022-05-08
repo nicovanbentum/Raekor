@@ -2,6 +2,7 @@
 #define RANDOM_GLSL
 
 #define M_PI 3.14159265358979323846
+#define M_PI_2 6.28318530718
 
 // From Ray Tracing Gems chapter 6
 vec3 offsetRay(vec3 p, vec3 n) {

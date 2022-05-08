@@ -35,7 +35,8 @@ struct RayPayload {
 
 struct Surface {
     vec3 pos;
-    vec3 normal;
+    vec3 shadingNormal;
+    vec3 triangleNormal;
     vec4 albedo;
     vec3 emissive;
     float metallic, roughness;

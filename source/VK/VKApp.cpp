@@ -62,6 +62,8 @@ namespace Raekor::VK {
     SDL_ShowWindow(m_Window);
     SDL_SetWindowInputFocus(m_Window);
     SDL_SetWindowSize(m_Window, 1300, 1300);
+
+    m_Viewport.SetFov(45.0f);
 }
 
 
@@ -127,8 +129,6 @@ void PathTracer::OnUpdate(float dt) {
         }
 
         ImGui::End();
-
-
 
         ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
         ImGuizmo::SetRect(0, 0, float(m_Viewport.size.x), float(m_Viewport.size.y));

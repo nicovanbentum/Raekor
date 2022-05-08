@@ -114,13 +114,6 @@ Device::Device(SDL_Window* window) :
         throw std::runtime_error("Buffer Device Address extension not supported by this GPU.");
     }
 
-    //if (dynamicRenderingFeatures.dynamicRendering) {
-    //    bufferDeviceAddressFeatures.pNext = &dynamicRenderingFeatures;
-    //}
-    //else {
-    //    throw std::runtime_error("Dynamic Rendering extension not supported by this GPU.");
-    //}
-
     VkDeviceCreateInfo deviceInfo = {};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     deviceInfo.queueCreateInfoCount = 1;

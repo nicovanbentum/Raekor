@@ -111,14 +111,10 @@ Sampler Device::CreateSampler(const Sampler::Desc& desc) {
         samplerInfo.anisotropyEnable = VK_TRUE;
     }
 
-
     if (desc.maxMipmap) {
         samplerInfo.maxLod = desc.maxMipmap;
         samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     }
-
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.maxLod = desc.maxMipmap;
 
     Sampler sampler;
     sampler.description = desc;

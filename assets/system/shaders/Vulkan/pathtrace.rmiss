@@ -33,7 +33,8 @@ void main() {
         payload.L = vec3(0.03);
     }
 
-    payload.L = color;
+    payload.L = min(color, vec3(1.0));
+    payload.depth = bounces + 10; // terminate
 
-    payload.depth = bounces + 1; // terminate
+    // payload.L = vec3(0); // temp
 }

@@ -190,9 +190,15 @@ void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 	renderInfo.colorAttachmentCount = colorAttachments.size();
 	
 	vkCmdBeginRendering(commandBuffer, &renderInfo);
+	vkCmdSetDepthBiasEnable(commandBuffer, false);
+	vkCmdSetPrimitiveRestartEnable(commandBuffer, false);
+	vkCmdSetRasterizerDiscardEnable(commandBuffer, false);
+	vkCmdSetPrimitiveTopology(commandBuffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
 
 	VkDeviceSize offset[] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &m_VertexBuffer.buffer, offset);
+	VkDeviceSize stride[] = { sizeof(ImDrawVert) };
+	vkCmdBindVertexBuffers2(commandBuffer, 0, 1, &m_VertexBuffer.buffer, offset, nullptr, stride);
 	
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline.pipeline);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &textures.GetDescriptorSet(), 0, nullptr);
@@ -235,6 +241,7 @@ void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 
 				vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 				vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
 				vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer.buffer, index_offset, VK_INDEX_TYPE_UINT16);
 				vkCmdDrawIndexed(commandBuffer, cmd.ElemCount, 1, 0, vertex_offset, 0);
 			}
