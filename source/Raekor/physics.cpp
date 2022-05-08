@@ -102,32 +102,28 @@ void Physics::Step(Scene& scene, float dt) {
 void Physics::OnUpdate(Scene& scene) {
     auto scene_view = scene.view<Transform, Mesh, BoxCollider>();
 
-    for (const auto& entity : scene_view) {
-        Async::sQueueJob([&]() {
-            auto& body_interface = m_Physics.GetBodyInterface();
-            auto& collider = scene_view.get<BoxCollider>(entity);
-            const auto& transform = scene_view.get<Transform>(entity);
+    auto& body_interface = m_Physics.GetBodyInterface();
 
-            if (collider.bodyID.IsInvalid()) {
-                auto settings = JPH::BodyCreationSettings(
-                    &collider.settings,
-                    JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
-                    JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-                    collider.motionType,
-                    EPhysicsObjectLayers::MOVING
-                );
+    for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, BoxCollider>().each()) {
+        if (collider.bodyID.IsInvalid()) {
+            auto settings = JPH::BodyCreationSettings(
+                &collider.settings,
+                JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
+                JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+                collider.motionType,
+                EPhysicsObjectLayers::MOVING
+            );
 
-                collider.settings.SetEmbedded();
+            collider.settings.SetEmbedded();
 
-                settings.mAllowDynamicOrKinematic = true;
-                collider.bodyID = body_interface.CreateAndAddBody(settings, JPH::EActivation::Activate);
-            }
-            else {
-                const auto position = FromGLM(transform.position);
-                const auto rotation = FromGLM(transform.rotation);
-                body_interface.SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
-            }
-        });
+            settings.mAllowDynamicOrKinematic = true;
+            collider.bodyID = body_interface.CreateAndAddBody(settings, JPH::EActivation::Activate);
+        }
+        else {
+            const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
+            const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+            body_interface.SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
+        }
     }
 
     Async::sWait();

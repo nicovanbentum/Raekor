@@ -44,6 +44,9 @@ Editor::Editor() :
 
     std::cout << "Initialization done.\n";
     auto sink = m_Scene.on_destroy<Mesh>();
+
+    m_Viewport.GetCamera().Zoom(-50.0f);
+    m_Viewport.GetCamera().Move(glm::vec2(0.0f, 10.0f));
 }
 
 

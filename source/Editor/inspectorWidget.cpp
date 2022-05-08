@@ -8,7 +8,6 @@ namespace Raekor {
 InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, "Inspector") {}
 
 
-
 void InspectorWidget::draw(float dt) {
     ImGui::Begin(title.c_str());
 
@@ -72,18 +71,19 @@ void InspectorWidget::draw(float dt) {
 };
 
 
-
 void InspectorWidget::DrawComponent(Name& component, Entity& active) {
     ImGui::InputText("Name##1", &component.name, ImGuiInputTextFlags_AutoSelectAll);
 }
 
 
-
 void InspectorWidget::DrawComponent(Node& component, Entity& active) {
-    ImGui::Text("Parent entity: %i", component.parent);
+    if (component.parent != sInvalidEntity)
+        ImGui::Text("Parent entity: %i", component.parent);
+    else
+        ImGui::Text("Parent entity: NULL");
+
     ImGui::Text("Siblings: %i, %i", component.prevSibling, component.nextSibling);
 }
-
 
 
 void InspectorWidget::DrawComponent(Mesh& component, Entity& active) {
@@ -116,10 +116,11 @@ void InspectorWidget::DrawComponent(Mesh& component, Entity& active) {
     }
 }
 
+
 void InspectorWidget::DrawComponent(BoxCollider& component, Entity& active) {
     auto& body_interface = GetPhysics().GetSystem().GetBodyInterface();
 
-    ImGui::Text("Body ID: %i", component.bodyID.GetIndexAndSequenceNumber());
+    ImGui::Text("Unique Body ID: %i", component.bodyID.GetIndexAndSequenceNumber());
 
     constexpr std::array items = {
        "Static", "Kinematic", "Dynamic"
@@ -131,7 +132,6 @@ void InspectorWidget::DrawComponent(BoxCollider& component, Entity& active) {
         body_interface.SetMotionType(component.bodyID, component.motionType, JPH::EActivation::Activate);
     }
 }
-
 
 
 void InspectorWidget::DrawComponent(Skeleton& component, Entity& active) {
@@ -156,7 +156,6 @@ void InspectorWidget::DrawComponent(Skeleton& component, Entity& active) {
     }
 
 }
-
 
 
 void InspectorWidget::DrawComponent(Material& component, Entity& active) {
@@ -371,7 +370,6 @@ void InspectorWidget::DrawComponent(NativeScript& component, Entity& active) {
         }
     }
 }
-
 
 
 void InspectorWidget::DrawComponent(DirectionalLight& component, Entity& active) {

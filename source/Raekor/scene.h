@@ -23,7 +23,7 @@ public:
 	void			DestroySpatialEntity(entt::entity entity);
 
 	// Per frame systems
-	void UpdateNode(entt::entity node, entt::entity parent);
+	void UpdateSelfAndChildNodes(entt::entity node, entt::entity parent);
 	void UpdateTransforms();
 	void UpdateLights();
 

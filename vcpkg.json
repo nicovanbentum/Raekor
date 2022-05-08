@@ -25,6 +25,7 @@
             "features": [
                             "sdl2-binding", 
                             "dx11-binding",
+                            "dx12-binding",
                             "opengl3-binding", 
                             "docking-experimental"
                         ],

@@ -49,6 +49,16 @@ constexpr inline size_t gAlignUp(size_t value, size_t alignment) noexcept {
 }
 
 
+#define TYPE_ID(Type) \
+constexpr static uint32_t m_TypeID = gHash32Bit(#Type); \
+virtual const uint32_t GetTypeID() const override { return m_TypeID; }
+
+class ITypeID {
+public:
+    virtual const uint32_t GetTypeID() const = 0;
+};
+
+
 void gPrintProgressBar(const std::string& prepend, float fract);
 
 

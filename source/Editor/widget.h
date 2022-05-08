@@ -13,15 +13,6 @@ class Assets;
 class Physics;
 class GLRenderer;
 
-#define TYPE_ID(Type) \
-constexpr static uint32_t m_TypeID = gHash32Bit(#Type); \
-virtual const uint32_t GetTypeID() const override { return m_TypeID; }
-
-class ITypeID {
-public:
-    virtual const uint32_t GetTypeID() const = 0;
-};
-
 class IWidget : public ITypeID {
 public:
     IWidget(Editor* editor, const std::string& title);
@@ -32,7 +23,7 @@ public:
     void Hide() { visible = false; }
     
     bool IsVisible() { return visible; }
-    bool isFocused() { return focused; }
+    bool IsFocused() { return focused; }
 
     const std::string& GetTitle() { return title; }
 

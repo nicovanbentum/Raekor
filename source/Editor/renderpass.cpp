@@ -400,10 +400,10 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     entt::entity null = entt::null;
+    float null_entity_value = float(entt::to_integral(null));
     
     std::array clearColor = { 
-        float(entt::to_integral(null)),
-        0.0f, 0.0f, 1.0f 
+        null_entity_value, 0.0f, 0.0f, 1.0f
     };
     
     glClearBufferfv(GL_COLOR, 3, clearColor.data());
@@ -1016,7 +1016,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
     // clear the entire voxel texture
     constexpr auto clearColour = glm::u8vec4(0.0f, 0.0f, 0.0f, 0.0f);
     for (uint32_t level = 0; level < std::log2(size); level++) {
-        glClearTexImage(result, level, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(clearColour));
+        //glClearTexImage(result, level, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(clearColour));
     }
 
     // set GL state

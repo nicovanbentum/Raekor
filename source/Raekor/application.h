@@ -54,4 +54,5 @@ protected:
     SDL_Window* m_Window = nullptr;
 };
 
+
 } // Namespace Raekor

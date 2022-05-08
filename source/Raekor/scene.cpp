@@ -80,7 +80,7 @@ void Scene::DestroySpatialEntity(entt::entity entity) {
 }
 
 
-void Scene::UpdateNode(entt::entity node, entt::entity parent) {
+void Scene::UpdateSelfAndChildNodes(entt::entity node, entt::entity parent) {
     auto& transform = get<Transform>(node);
     
     if (parent == entt::null) {
@@ -94,7 +94,7 @@ void Scene::UpdateNode(entt::entity node, entt::entity parent) {
 
     auto curr = comp.firstChild;
     while (curr != entt::null) {
-        UpdateNode(curr, node);
+        UpdateSelfAndChildNodes(curr, node);
         curr = get<Node>(curr).nextSibling;
     }
 }
@@ -102,9 +102,10 @@ void Scene::UpdateNode(entt::entity node, entt::entity parent) {
 
 void Scene::UpdateTransforms() {
     for (auto& [entity, node, transform] : view<Node,Transform>().each()) {
+        transform.Compose();
+        
         if (node.parent == entt::null) {
-            transform.Compose();
-            UpdateNode(entity, node.parent);
+            UpdateSelfAndChildNodes(entity, node.parent);
         }
     }
 }
@@ -236,6 +237,15 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
 
     // init mesh render data
     for (auto& [entity, mesh] : view<Mesh>().each()) {
+        //for (auto& pos : mesh.positions)
+        //    pos *= 0.05;
+
+        //for (auto& normal : mesh.normals)
+        //    normal *= 0.05;
+
+        //for (auto& tangent : mesh.tangents)
+        //    tangent *= 0.05;
+
         mesh.CalculateAABB();
         if (m_UploadMeshCallback) {
             m_UploadMeshCallback(mesh);

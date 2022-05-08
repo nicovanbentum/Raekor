@@ -48,7 +48,6 @@ struct Node {
     entt::entity nextSibling = entt::null;
 };
 
-
 struct Mesh {
     std::vector<glm::vec3> positions;
     std::vector<glm::vec2> uvs;

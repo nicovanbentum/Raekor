@@ -5,10 +5,15 @@
 namespace Raekor {
 
 class Asset {
+    friend class Assets;
+
 public:
     Asset() = default;
     Asset(const std::string& path) : m_Path(path) {}
     virtual ~Asset() = default;
+
+    template<class Archive>
+    void serialize(Archive& archive) { archive(m_Path); }
 
     fs::path GetPath() { return m_Path; }
     const fs::path& GetPath() const { return m_Path; }
@@ -32,7 +37,8 @@ public:
     std::shared_ptr<T> Get(const std::string& path);
     void Release(const std::string& path);
 
-    void CollectGarbage();
+    /* Releases any assets that are no longer referenced elsewhere. */
+    void ReleaseUnreferenced();
 
 private:
     std::mutex m_LoadMutex;
@@ -51,8 +57,8 @@ std::shared_ptr<T> Assets::Get(const std::string& path) {
 
         // if it already has an asset pointer it means some other thread added it,
         // so just return whats there, the thread that added it is responsible for loading.
-        if (find(path) != end()) {
-            return std::static_pointer_cast<T>(at(path));
+        if (auto asset = find(path); asset != end()) {
+            return std::static_pointer_cast<T>(asset->second);
         }
         else {
             insert(std::make_pair(path, std::shared_ptr<Asset>(new T(path))));
@@ -118,6 +124,7 @@ private:
 
 } // namespace raekor
 
+CEREAL_REGISTER_TYPE(Raekor::Asset);
 CEREAL_REGISTER_TYPE(Raekor::ScriptAsset);
 CEREAL_REGISTER_TYPE(Raekor::TextureAsset);
 CEREAL_REGISTER_POLYMORPHIC_RELATION(Raekor::Asset, Raekor::ScriptAsset);

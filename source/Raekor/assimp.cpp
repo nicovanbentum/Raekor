@@ -192,11 +192,11 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
 
     mesh.CalculateAABB();
 
-    if (!assimpMesh->HasNormals() && !mesh.positions.empty())
-        mesh.CalculateNormals();
+    //if (!assimpMesh->HasNormals() && !mesh.positions.empty())
+    //    mesh.CalculateNormals();
 
-    if (!assimpMesh->HasTangentsAndBitangents() && !mesh.uvs.empty())
-        mesh.CalculateTangents();
+    //if (!assimpMesh->HasTangentsAndBitangents() && !mesh.uvs.empty())
+    //    mesh.CalculateTangents();
 
     if(m_UploadMeshCallback) m_UploadMeshCallback(mesh);
 
