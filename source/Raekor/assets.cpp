@@ -4,7 +4,6 @@
 #include "dds.h"
 #include "util.h"
 #include "timer.h"
-#include "vswhere.h"
 
 namespace Raekor {
 
@@ -179,67 +178,13 @@ ScriptAsset::~ScriptAsset() {
 
 
 std::string ScriptAsset::sConvert(const std::string& filepath) {
-    Find_Result vswhere = find_visual_studio_and_windows_sdk();
+    // TODO: The plan is to have a seperate VS project in the solution dedicated to cpp scripts.
+    //          That should compile them down to a single DLL that we can load in as asset, 
+    //          possibly parsing PDB's to figure out the list of classes we can attach to entities.
     
-    std::string visualStudioPath = gWCharToString(vswhere.vs_exe_path);
-    std::cout << visualStudioPath << '\n';
-    free_resources(&vswhere);
-
-    std::string vcvarsall = "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat\" x64";
-    system(std::string('"' + vcvarsall + '"').c_str());
-
-    auto dll = fs::path(filepath);
-    dll.replace_extension(".dll");
-
-    auto wd = fs::current_path();
-
-    std::string includeDirs =
-        " /I\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\14.16.27023\\include\""
-        " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\ucrt\""
-        " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\um\""
-        " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\shared\""
-        " /I\"C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.19041.0\\winrt\""
-        " /I\"%VULKAN_SDK%\\Include\"";
-
-    includeDirs += std::string(" /I\"" + (wd / "src\\headers\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\stb\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\imgui\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\glm\\glm\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\ImGuizmo\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\gl3w\\include\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\cereal\\include\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\imgui\\backends\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\ChaiScript\\include\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\entt\\src\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\VulkanMemoryAllocator\\src\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\IconFontCppHeaders\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "vcpkg_installed\\x64-windows-static\\include\\SDL2\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\glad\\GL\\include\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "vcpkg_installed\\x64-windows-static\\include\\physx\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "dependencies\\SPIRV-Reflect\"").string());
-    includeDirs += std::string(" /I\"" + (wd / "vcpkg_installed\\x64-windows-static\\include\" ").string());
-
-#if RAEKOR_DEBUG
-    std::string clOptions = "/D_DEBUG /MDd ";
-#else
-    std::string clOptions = "/DNDEBUG /MD ";
-#endif
-    std::string command = "\"" + visualStudioPath +  "\\cl.exe\"" + includeDirs + clOptions + "/std:c++17 /GR- /EHsc \"" + filepath +
-        "\" /link "
-        "/LIBPATH:\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\14.29.30133\\lib\\x64\""
-        " /LIBPATH:\"C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\um\\x64\""
-        " /LIBPATH:\"C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.19041.0\\ucrt\\x64\""
-        " /DLL /OUT:\"" + dll.string() + "\"";
-
-    std::cout << command << '\n';
-
     Timer timer;
-
-    int result = system(std::string("\"" + command + "\"").c_str());
-
     std::cout << "Script compile time of " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
-
-    return result == 0 ? dll.string() : std::string();
+    return filepath;
 }
 
 
