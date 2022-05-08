@@ -15,6 +15,7 @@ public:
 
     ID3D12DescriptorHeap* GetHeap() const { return m_Heap.Get(); }
     D3D12_CPU_DESCRIPTOR_HANDLE  GetCPUDescriptorHandle(size_t index) const { return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_HeapPtr, index, m_HeapIncrement); }
+    D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(size_t index) const { return CD3DX12_GPU_DESCRIPTOR_HANDLE(m_Heap->GetGPUDescriptorHandleForHeapStart(), index, m_HeapIncrement); }
 
 private:
     UINT m_HeapIncrement = 0;

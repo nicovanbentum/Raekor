@@ -1,10 +1,12 @@
 
+#include "include/common.hlsli"
+
 struct VS_OUTPUT {
     float2 texcoord : TEXCOORD;
     float4 position : SV_Position;
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
-    float3 binormal : BINORMAL;
+    float3 bitangent : BINORMAL;
 };
 
 struct VS_INPUT {
@@ -17,17 +19,11 @@ struct VS_INPUT {
 struct RootConstants {
     float4 albedo;
     uint4 textures;
+    float4 properties;
     float4x4 view_proj;
 };
 
-ConstantBuffer<RootConstants> root_constants : register(b0, space0);
-
-SamplerState SamplerPointWrap       : register(s0);
-SamplerState SamplerPointClamp      : register(s1);
-SamplerState SamplerLinearWrap      : register(s2);
-SamplerState SamplerLinearClamp     : register(s3);
-SamplerState SamplerAnisoWrap       : register(s4);
-SamplerState SamplerAnisoClamp      : register(s5);
+ROOT_CONSTANTS(RootConstants, root_constants)
 
 VS_OUTPUT main(in VS_INPUT input) {
     VS_OUTPUT output;
@@ -37,7 +33,7 @@ VS_OUTPUT main(in VS_INPUT input) {
     output.normal = normalize(input.normal);
 	output.tangent = normalize(input.tangent);
     output.tangent = normalize(output.tangent - dot(output.tangent, output.normal) * output.normal);
-	output.binormal = cross(output.normal, output.tangent);
+	output.bitangent = cross(output.normal, output.tangent);
     output.texcoord = input.texcoord;
 
     return output;

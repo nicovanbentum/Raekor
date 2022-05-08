@@ -5,9 +5,9 @@
 
 namespace Raekor::DX {
 
-void BlitPass::Init(Device& inDevice, const ShaderLibrary& inShaders) {
-	const auto& vertexShader = inShaders.at("blitVS.hlsl");
-	const auto& pixelShader = inShaders.at("blitPS.hlsl");
+void PresentPass::Init(Device& inDevice, const ShaderLibrary& inShaders) {
+	const auto& vertexShader = inShaders.at("blitVS");
+	const auto& pixelShader = inShaders.at("blitPS");
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psd = {};
     psd.VS = CD3DX12_SHADER_BYTECODE(vertexShader->GetBufferPointer(), vertexShader->GetBufferSize());
@@ -22,16 +22,17 @@ void BlitPass::Init(Device& inDevice, const ShaderLibrary& inShaders) {
     psd.SampleMask = UINT_MAX;
     psd.SampleDesc.Count = 1;
     psd.NumRenderTargets = 1;
-    psd.RTVFormats[0] = DXGI_FORMAT_B8G8R8A8_UNORM;
+    psd.RTVFormats[0] = DXGI_FORMAT_B8G8R8A8_UNORM; // TODO: kinda hardcoded to the swapchain format, reconsider
     psd.pRootSignature = inDevice.GetGlobalRootSignature();
 
     gThrowIfFailed(inDevice->CreateGraphicsPipelineState(&psd, IID_PPV_ARGS(&m_Pipeline)));
 }
 
 
-void BlitPass::Render(Device& inDevice, ID3D12GraphicsCommandList* inCmdList, uint32_t inSrc, uint32_t inDst, ESampler inSampler) {
+void PresentPass::Render(Device& inDevice, ID3D12GraphicsCommandList* inCmdList, uint32_t inSrc, uint32_t inDst, uint32_t inGBuffer, ESampler inSampler) {
     mPushConstants.mSampleIndex = inSampler;
     mPushConstants.mSourceTextureIndex = inSrc;
+    mPushConstants.mGbufferTextureIndex = inGBuffer;
 
     const auto dest_texture = inDevice.m_RtvHeap[inDst];
     const auto render_target = inDevice.m_RtvHeap.GetCPUDescriptorHandle(inDst);

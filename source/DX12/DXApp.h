@@ -5,29 +5,35 @@
 #include "Raekor/scene.h"
 
 #include "DXBlit.h"
+#include "DXShadows.h"
 #include "DXGBuffer.h"
 
 namespace Raekor::DX {
+
+struct BackbufferData {
+    uint64_t                            mFenceValue;
+    uint32_t                            mBackbufferRTV;
+    ComPtr<ID3D12GraphicsCommandList4>  mCmdList;
+    ComPtr<ID3D12CommandAllocator>      mCmdAllocator;
+};
+
 
 class DXApp : public Application {
     using ShaderLibrary = std::unordered_map<std::string, ComPtr<IDxcBlob>>;
 
 public:
-    struct {
-        glm::vec4 albedo;
-        glm::uvec4 textures;
-        glm::mat4 mViewProj;
-    } m_RootConstants;
-
-    static constexpr uint32_t sFrameCount = 3;
+    static constexpr uint32_t sFrameCount = 2;
 
     DXApp();
     ~DXApp();
 
     virtual void OnUpdate(float dt) override;
     virtual void OnEvent(const SDL_Event& event) override;
+    
+    BackbufferData& GetBackbufferData() { return m_BackbufferData[m_FrameIndex]; }
+    BackbufferData& GetPrevBackbufferData() { return m_BackbufferData[!m_FrameIndex]; }
 
-    uint32_t UploadTextureFromFile(const TextureAsset::Ptr& asset, const fs::path& path, DXGI_FORMAT format);
+    uint32_t QueueDirectStorageLoad(const TextureAsset::Ptr& asset, const fs::path& path, DXGI_FORMAT format);
 
 private:
     Scene m_Scene;
@@ -37,19 +43,24 @@ private:
     ComPtr<IDXGISwapChain3> m_Swapchain;
     ComPtr<IDStorageQueue> m_StorageQueue;
 
+    uint32_t m_TLAS;
     uint32_t m_DefaultWhiteTexture;
     uint32_t m_DefaultBlackTexture;
 
-    BlitPass m_Blit;
+    PresentPass m_Blit;
+    ShadowPass m_Shadows;
     GBufferPass m_GBuffer;
     ShaderLibrary m_Shaders;
-    std::vector<ComPtr<ID3D12GraphicsCommandList>> m_CommandLists;
-    std::vector<ComPtr<ID3D12CommandAllocator>> m_CommnadAllocators;
     
-    uint32_t m_FrameIndex = 0;
     HANDLE m_FenceEvent;
+    uint32_t m_FrameIndex = 0;
     ComPtr<ID3D12Fence> m_Fence;
-    std::vector<UINT64> m_FenceValues;
+    std::array<BackbufferData, sFrameCount> m_BackbufferData;
+};
+
+
+struct AccelerationStructure {
+    uint32_t handle = 0;
 };
 
 

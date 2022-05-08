@@ -45,7 +45,7 @@ Device::Device(SDL_Window* window) {
     constants_param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     constants_param.Constants.ShaderRegister = 0;
     constants_param.Constants.RegisterSpace = 0;
-    constants_param.Constants.Num32BitValues = 32;
+    constants_param.Constants.Num32BitValues = sRootSignatureSize / sizeof(DWORD);
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC vrsd;
     vrsd.Init_1_1(1, &constants_param, ESampler::Count, STATIC_SAMPLER_DESC.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | 
@@ -59,6 +59,22 @@ Device::Device(SDL_Window* window) {
 
     gThrowIfFailed(serialize_vrs_hr);
     gThrowIfFailed(m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_GlobalRootSignature)));
+}
+
+void Device::CreateDepthStencilView(uint32_t inIndex, D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc) {
+    m_Device->CreateDepthStencilView(m_DsvHeap[inIndex].Get(), inDesc, m_DsvHeap.GetCPUDescriptorHandle(inIndex));
+}
+
+void Device::CreateRenderTargetView(uint32_t inIndex, D3D12_RENDER_TARGET_VIEW_DESC* inDesc) {
+    m_Device->CreateRenderTargetView(m_RtvHeap[inIndex].Get(), inDesc, m_RtvHeap.GetCPUDescriptorHandle(inIndex));
+}
+
+void Device::CreateShaderResourceView(uint32_t inIndex, D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc) {
+    m_Device->CreateShaderResourceView(m_CbvSrvUavHeap[inIndex].Get(), inDesc, m_CbvSrvUavHeap.GetCPUDescriptorHandle(inIndex));
+}
+
+void Device::CreateUnorderedAccessView(uint32_t inIndex, D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc) {
+    m_Device->CreateUnorderedAccessView(m_CbvSrvUavHeap[inIndex].Get(), nullptr, inDesc, m_CbvSrvUavHeap.GetCPUDescriptorHandle(inIndex));
 }
 
 }

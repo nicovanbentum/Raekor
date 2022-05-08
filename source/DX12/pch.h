@@ -25,5 +25,8 @@
 #include "dstorage.h"
 #include "dstorageerr.h"
 
+// ImGui DX12 backend
+#include "imgui_impl_dx12.h"
+
 template<typename T>
 using ComPtr = Microsoft::WRL::ComPtr<T>;

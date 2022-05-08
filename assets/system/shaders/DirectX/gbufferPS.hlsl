@@ -6,7 +6,7 @@ struct VS_OUTPUT {
     float4 position : SV_Position;
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
-    float3 binormal : BINORMAL;
+    float3 bitangent : BINORMAL;
 };
 
 struct PS_OUTPUT {
@@ -16,23 +16,36 @@ struct PS_OUTPUT {
 struct RootConstants {
     float4 albedo;
     uint4 textures;
+    float4 properties;
     float4x4 view_proj;
 };
 
 ROOT_CONSTANTS(RootConstants, root_constants)
 
+
 //[RootSignature(GLOBAL_ROOT_SIGNATURE)]
 PS_OUTPUT main(in VS_OUTPUT input) {
     PS_OUTPUT output;
 
-    float4 albedo_sample = float4(1.0, 1.0, 1.0, 1.0);
-
     Texture2D<float4> albedo_texture = ResourceDescriptorHeap[root_constants.textures.x];
-    float4 albedo = root_constants.albedo * albedo_texture.SampleLevel(SamplerPointWrap, input.texcoord, 0.0);
+    Texture2D<float4> normal_texture = ResourceDescriptorHeap[root_constants.textures.y];
+    Texture2D<float4> material_texture = ResourceDescriptorHeap[root_constants.textures.z];
+    
+    float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
+    float4 sampled_normal = normal_texture.Sample(SamplerPointWrap, input.texcoord);
+    float4 sampled_material = material_texture.Sample(SamplerPointWrap, input.texcoord);
+
+    float3x3 TBN = transpose(float3x3(input.tangent, input.bitangent, input.normal));
+    float3 normal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
+
+    float4 albedo = root_constants.albedo * sampled_albedo;
+    float metalness = root_constants.properties.x * sampled_material.b;
+    float roughness = root_constants.properties.y * sampled_material.g;
 
     uint4 packed = uint4(0, 0, 0, 0);
-    packed.x = Float4ToRGBA8(albedo);
-
+    packed.x = PackAlbedo(albedo);
+    packed.y = PackNormal(normal);
+    packed.z = PackMetallicRoughness(metalness, roughness);
     output.gbuffer = asfloat(packed);
 
     return output;
