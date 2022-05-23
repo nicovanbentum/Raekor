@@ -6,6 +6,7 @@
 ### Editor - OpenGL Application
 * Requires Raekor.
 * Graphics card with OpenGL 4.6 support.
+* Vulkan SDK accessible from PATH.
 
 ### VK - Vulkan Application
 * Requires Raekor.
