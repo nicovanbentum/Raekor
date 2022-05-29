@@ -19,7 +19,7 @@ public:
 
 	// Spatial entity management
 	entt::entity	PickSpatialEntity(Math::Ray& ray);
-	entt::entity	CreateSpatialEntity(const std::string& name);
+	entt::entity	CreateSpatialEntity(const std::string& name = "");
 	void			DestroySpatialEntity(entt::entity entity);
 
 	// Per frame systems

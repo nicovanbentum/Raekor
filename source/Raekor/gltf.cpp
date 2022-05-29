@@ -67,9 +67,39 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     // preload material texture in parallel
     m_Scene.LoadMaterialTextures(assets, Slice(m_Materials.data(), m_Materials.size()));
 
+    m_CreatedNodes.reserve(m_GltfData->nodes_count);
+    // This is where the magic happens, recursively go through the node graph and create our own
     for (const auto& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
         for (const auto& node : Slice(scene.nodes, scene.nodes_count))
-            parseNode(*node, entt::null, m_Scene.CreateSpatialEntity(""));
+            parseNode(*node, sInvalidEntity, m_CreatedNodes.emplace_back(m_Scene.CreateSpatialEntity()));
+    
+    // Update all the world transforms once so we can collapse
+    m_Scene.UpdateTransforms();
+
+    // Go through all the created nodes and collapse any that only have a transform
+    for (const auto& entity : m_CreatedNodes) {
+        auto& node = m_Scene.get<Node>(entity);
+
+        if(node.IsRoot() && node.HasChildren())
+            NodeSystem::sCollapseTransforms(m_Scene, m_Scene.get<Node>(entity), entity);
+    }
+
+    // Find any nodes that are no longer in the hierarchy and destroy them
+    for (auto& [entity, node] : m_Scene.view<Node>().each()) {
+        if (!node.IsConnected() && !m_Scene.all_of<Mesh>(entity)) {
+            m_Scene.destroy(entity);
+            m_CreatedNodes.erase(std::find(m_CreatedNodes.begin(), m_CreatedNodes.end(), entity));
+        }
+    }
+
+    const auto root_node = m_Scene.CreateSpatialEntity(fs::path(file).filename().string());
+    // Go through all the newly created nodes and parent the root nodes to a single new node
+    for (const auto& entity : m_CreatedNodes) {
+        auto& node = m_Scene.get<Node>(entity);
+
+        if(node.IsRoot())
+            NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(root_node), m_Scene.get<Node>(entity));
+    }
 
     return true;
 }
@@ -97,12 +127,8 @@ void GltfImporter::parseNode(const cgltf_node& node, entt::entity parent, entt::
         m_Scene.get<Name>(new_entity).name = node.mesh->name;
 
     // set the new entity's parent
-    if (parent != entt::null) {
-        NodeSystem::sAppend(m_Scene,
-            m_Scene.get<Node>(parent),
-            m_Scene.get<Node>(new_entity)
-        );
-    }
+    if (parent != entt::null)
+        NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(parent), m_Scene.get<Node>(new_entity));
 
     // gltf transformation to glm
     auto& transform = m_Scene.get<Transform>(new_entity);
@@ -113,10 +139,8 @@ void GltfImporter::parseNode(const cgltf_node& node, entt::entity parent, entt::
     parseMeshes(node, new_entity, parent);
 
     // process children
-    for (const auto& child : Slice(node.children, node.children_count)) {
-        auto entity = m_Scene.CreateSpatialEntity(""); // Empty name because parseNode should set it
-        parseNode(*child, new_entity, entity);
-    }
+    for (const auto& child : Slice(node.children, node.children_count))
+        parseNode(*child, new_entity, m_CreatedNodes.emplace_back(m_Scene.CreateSpatialEntity()));
 }
 
 
@@ -161,7 +185,7 @@ void GltfImporter::LoadMesh(entt::entity entity, const cgltf_mesh& gltfMesh) {
                         mesh.positions.emplace_back(data[0], data[1], data[2]);
                     } break;
                     case cgltf_attribute_type_texcoord: {
-                        mesh.uvs.emplace_back(data[0], data[1]);
+                        mesh.uvs.emplace_back(data[0], data[1] * -1.0f);
                     } break;
                     case cgltf_attribute_type_normal: {
                         mesh.normals.emplace_back(data[0], data[1], data[2]);

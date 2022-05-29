@@ -40,6 +40,7 @@ private:
 	fs::path m_Directory;
 	cgltf_data* m_GltfData = nullptr;
 	std::vector<entt::entity> m_Materials;
+	std::vector<entt::entity> m_CreatedNodes;
 };
 
 } // raekor

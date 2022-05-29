@@ -65,7 +65,7 @@ void NodeSystem::sRemove(entt::registry& registry, Node& node) {
 }
 
 
-void CollapseTransforms(entt::registry& registry, Node& node, entt::entity entity) {
+void NodeSystem::sCollapseTransforms(entt::registry& registry, Node& node, entt::entity entity) {
     // Remove will destroy the node but we still need to recurse to all its children,
     // so store it beforehand!
     const auto first_child = node.firstChild;
@@ -75,7 +75,7 @@ void CollapseTransforms(entt::registry& registry, Node& node, entt::entity entit
 
         for (auto it = node.firstChild; it != entt::null; it = registry.get<Node>(it).nextSibling) {
             auto& child_transform = registry.get<Transform>(it);
-            child_transform.localTransform *= transform.localTransform;
+            child_transform.localTransform *= transform.worldTransform;
             child_transform.Decompose();
         }
 
@@ -84,25 +84,8 @@ void CollapseTransforms(entt::registry& registry, Node& node, entt::entity entit
 
     for (auto it = first_child; it != entt::null; it = registry.get<Node>(it).nextSibling) {
         auto& child = registry.get<Node>(it);
-        CollapseTransforms(registry, child, it);
+        sCollapseTransforms(registry, child, it);
     }
-}
-
-
-void NodeSystem::sOptimize(entt::registry& registry) {
-    // collect all the root nodes we can recurse from
-    std::vector<entt::entity> root_entities;
-    
-    for (auto& [entity, node] : registry.view<Node>().each())
-        if (node.IsRoot() && node.firstChild != entt::null)
-            root_entities.push_back(entity);
-
-    for (const auto& entity : root_entities)
-        CollapseTransforms(registry, registry.get<Node>(entity), entity);
-
-    for (auto& [entity, node] : registry.view<Node>().each())
-        if (!node.IsConnected() && !registry.all_of<Mesh>(entity))
-            registry.destroy(entity);
 }
 
 
