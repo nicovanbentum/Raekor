@@ -92,57 +92,44 @@ DXApp::DXApp() : Application(RendererFlags::NONE), m_Device(m_Window) {
     if (!m_FenceEvent)
         gThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
 
-    auto meshes = m_Scene.view<Mesh>();
+    for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
+        const auto vertices = mesh.GetInterleavedVertices();
+        const auto vertices_size = vertices.size() * sizeof(vertices[0]);
+        const auto indices_size = mesh.indices.size() * sizeof(mesh.indices[0]);
 
-    for (const auto entity : meshes) {
-        auto& mesh = meshes.get<Mesh>(entity);
-            const auto vertices = mesh.GetInterleavedVertices();
+        ComPtr<ID3D12Resource> vertexBuffer, indexBuffer;
 
-            {
-                ComPtr<ID3D12Resource> vertexBuffer;
-                const auto size = vertices.size() * sizeof(vertices[0]);
+        gThrowIfFailed(m_Device->CreateCommittedResource(
+            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &CD3DX12_RESOURCE_DESC::Buffer(vertices_size),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&vertexBuffer))
+        );
 
-                gThrowIfFailed(m_Device->CreateCommittedResource(
-                    &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-                    D3D12_HEAP_FLAG_NONE,
-                    &CD3DX12_RESOURCE_DESC::Buffer(size),
-                    D3D12_RESOURCE_STATE_GENERIC_READ,
-                    nullptr,
-                    IID_PPV_ARGS(&vertexBuffer))
-                );
+        gThrowIfFailed(m_Device->CreateCommittedResource(
+            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &CD3DX12_RESOURCE_DESC::Buffer(indices_size),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&indexBuffer))
+        );
 
-                uint8_t* mappedPtr;
-                gThrowIfFailed(vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedPtr)));
-        
-                memcpy(mappedPtr, vertices.data(), size);
-        
-                vertexBuffer->Unmap(0, nullptr);
+        uint8_t* index_buffer_ptr;
+        uint8_t* vertex_buffer_ptr;
+        gThrowIfFailed(indexBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&index_buffer_ptr)));
+        gThrowIfFailed(vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&vertex_buffer_ptr)));
 
-                mesh.vertexBuffer = m_Device.m_CbvSrvUavHeap.AddResource(vertexBuffer);
-            }
+        memcpy(vertex_buffer_ptr, vertices.data(), vertices_size);
+        memcpy(index_buffer_ptr, mesh.indices.data(), indices_size);
 
-            {
-                ComPtr<ID3D12Resource> indexBuffer;
-                const auto size = mesh.indices.size() * sizeof(mesh.indices[0]);
+        vertexBuffer->Unmap(0, nullptr);
+        indexBuffer->Unmap(0, nullptr);
 
-                gThrowIfFailed(m_Device->CreateCommittedResource(
-                    &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-                    D3D12_HEAP_FLAG_NONE,
-                    &CD3DX12_RESOURCE_DESC::Buffer(size),
-                    D3D12_RESOURCE_STATE_GENERIC_READ,
-                    nullptr,
-                    IID_PPV_ARGS(&indexBuffer))
-                );
-
-                uint8_t* mappedPtr;
-                gThrowIfFailed(indexBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedPtr)));
-
-                memcpy(mappedPtr, mesh.indices.data(), size);
-
-                indexBuffer->Unmap(0, nullptr);
-
-                mesh.indexBuffer = m_Device.m_CbvSrvUavHeap.AddResource(indexBuffer);
-            }
+        mesh.indexBuffer = m_Device.m_CbvSrvUavHeap.AddResource(indexBuffer);
+        mesh.vertexBuffer = m_Device.m_CbvSrvUavHeap.AddResource(vertexBuffer);
     }
 
     const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
@@ -592,7 +579,8 @@ void DXApp::OnUpdate(float dt) {
         WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
     }
 
-    backbuffer_data.mCmdList->Reset(backbuffer_data.mCmdAllocator.Get(), nullptr);
+    gThrowIfFailed(backbuffer_data.mCmdAllocator->Reset());
+    gThrowIfFailed(backbuffer_data.mCmdList->Reset(backbuffer_data.mCmdAllocator.Get(), NULL));
 
     m_GBuffer.Render(m_Viewport, m_Scene, m_Device, backbuffer_data.mCmdList.Get());
 
@@ -615,7 +603,7 @@ void DXApp::OnUpdate(float dt) {
 
     backbuffer_data.mCmdList->ResourceBarrier(barriers.size(), barriers.data());
 
-    backbuffer_data.mCmdList->Close();
+    gThrowIfFailed(backbuffer_data.mCmdList->Close());
 
     const std::array commandLists = { static_cast<ID3D12CommandList*>(backbuffer_data.mCmdList.Get()) };
     m_Device.GetQueue()->ExecuteCommandLists(commandLists.size(), commandLists.data());

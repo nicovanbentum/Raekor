@@ -9,10 +9,10 @@
 #include "directx/d3dx12.h"
 
 // AGILITY SDK Version 600
-#include "Agility-SDK/d3d12.h"
-#include "Agility-SDK/d3d12sdklayers.h"
-#include "Agility-SDK/d3dcommon.h"
-#include "Agility-SDK/dxgiformat.h"
+#include "d3d12.h"
+#include "d3d12sdklayers.h"
+#include "d3dcommon.h"
+#include "dxgiformat.h"
 
 // DIRECTX Compiler 6_6 Supported
 #include "dxc/dxcapi.h"
