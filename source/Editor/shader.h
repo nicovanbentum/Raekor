@@ -17,10 +17,9 @@ public:
         FileWatcher watcher;
     };
 
-    virtual void bind() = 0;
-    virtual void unbind() = 0;
+    virtual void Bind() = 0;
+    virtual void Unbind() = 0;
 };
-
 
 
 class glShader : public Shader {
@@ -29,16 +28,17 @@ public:
     glShader(const std::initializer_list<Stage>& list);
     ~glShader();
 
-    void compile(const std::initializer_list<Stage>& list);
-    void compile();
+    void Compile(const std::initializer_list<Stage>& list);
+    void Compile();
 
-    static bool glslangValidator(const char* vulkanSDK, const fs::path& file, const fs::path& outfile);
+    static bool sGlslangValidator(const char* vulkanSDK, const fs::path& file, const fs::path& outfile);
 
     operator bool() { return programID != 0; };
 
-    void bind() override;
-    void unbind() override;
+    void Bind() override;
+    void Unbind() override;
 
+private:
     GLuint programID = 0;
     std::vector<Shader::Stage> stages;
 };

@@ -130,7 +130,7 @@ void Scene::UpdateLights() {
 }
 
 
-void Scene::LoadMaterialTextures(Assets& assets, const std::vector<entt::entity>& materials) {
+void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials) {
     Timer timer;
 
     for (const auto& entity : materials) {
@@ -229,9 +229,7 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
 
     // init material render data
     auto materials = view<Material>();
-    auto materialEntities = std::vector<entt::entity>();
-    materialEntities.assign(materials.data(), materials.data() + materials.size());
-    LoadMaterialTextures(assets, materialEntities);
+    LoadMaterialTextures(assets, Slice(materials.data(), materials.size()));
 
     timer.Restart();
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "async.h"
 #include "camera.h"
 
 namespace Raekor {

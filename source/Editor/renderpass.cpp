@@ -101,12 +101,12 @@ float GLTimer::getMilliseconds() const {
 ShadowMap::ShadowMap(const Viewport& viewport) {
     cascades.resize(settings.nrOfCascades);
 
-    shader.compile({
+    shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\depth.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\depth.frag"}
     });
 
-    debugShader.compile({
+    debugShader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\quad.frag"}
     });
@@ -322,7 +322,7 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
     glPolygonOffset(settings.depthBiasSlope, settings.depthBiasConstant);
     glDisable(GL_CULL_FACE);
 
-    shader.bind();
+    shader.Bind();
 
     const auto view = scene.view<const Mesh, const Transform>();
 
@@ -338,11 +338,8 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
             uniforms.modelMatrix = transform.worldTransform;
 
             // determine if we use the original mesh vertices or GPU skinned vertices
-            if (scene.all_of<Skeleton>(entity)) {
-                glBindBuffer(GL_ARRAY_BUFFER, scene.get<Skeleton>(entity).skinnedVertexBuffer);
-            } else {
-                glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBuffer);
-            }
+            auto skeleton = scene.try_get<Skeleton>(entity);
+            glBindBuffer(GL_ARRAY_BUFFER, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
             BindInterleavedVertexLayout(mesh);
 
@@ -362,7 +359,7 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
 void ShadowMap::renderCascade(const Viewport& viewport, GLuint framebuffer) {
     glViewport(0, 0, viewport.size.x, viewport.size.y);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    debugShader.bind();
+    debugShader.Bind();
 
     glBindTextureUnit(0, texture);
 
@@ -371,7 +368,7 @@ void ShadowMap::renderCascade(const Viewport& viewport, GLuint framebuffer) {
 
 
 GBuffer::GBuffer(const Viewport& viewport) {
-    shader.compile({
+    shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\gbuffer.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\gbuffer.frag"}
     });
@@ -430,13 +427,9 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
 
     culled = 0;
 
-    const auto view = scene.view<const Mesh, const Transform>();
+    shader.Bind();
 
-    const auto materials = scene.view<const Material>();
-
-    shader.bind();
-
-    for (const auto& [entity, mesh, transform] : view.each()) {
+    for (const auto& [entity, mesh, transform] : scene.view<const Mesh, const Transform>().each()) {
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB = {
             transform.worldTransform* glm::vec4(mesh.aabb[0], 1.0),
@@ -450,52 +443,24 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
         }
 
         const Material* material = nullptr;
-        if (scene.valid(mesh.material)) {
+
+        if (scene.valid(mesh.material))
             material = scene.try_get<Material>(mesh.material);
-        }
 
-        if (material) {
-            if (material->gpuAlbedoMap) {
-                glBindTextureUnit(1, material->gpuAlbedoMap);
-            } else {
-                glBindTextureUnit(1, Material::Default.gpuAlbedoMap);
-            }
+        uniforms.colour = material  ? material->albedo : Material::Default.albedo;
+        uniforms.metallic = material ? material->metallic : Material::Default.metallic;
+        uniforms.roughness = material ? material->roughness : Material::Default.roughness;
 
-            if (material->gpuNormalMap) {
-                glBindTextureUnit(2, material->gpuNormalMap);
-            } else {
-                glBindTextureUnit(2, Material::Default.gpuNormalMap);
-            }
-
-            if (material->gpuMetallicRoughnessMap) {
-                glBindTextureUnit(3, material->gpuMetallicRoughnessMap);
-            } else {
-                glBindTextureUnit(3, Material::Default.gpuMetallicRoughnessMap);
-            }
-
-            uniforms.colour = material->albedo;
-            uniforms.metallic = material->metallic;
-            uniforms.roughness = material->roughness;
-
-        } else {
-            glBindTextureUnit(1, Material::Default.gpuAlbedoMap);
-            glBindTextureUnit(2, Material::Default.gpuNormalMap);
-            glBindTextureUnit(3, Material::Default.gpuMetallicRoughnessMap);
-            uniforms.colour = Material::Default.albedo;
-            uniforms.metallic = Material::Default.metallic;
-            uniforms.roughness = Material::Default.roughness;
-        }
-
+        glBindTextureUnit(1, (material && material->gpuAlbedoMap) ? material->gpuAlbedoMap : Material::Default.gpuAlbedoMap);
+        glBindTextureUnit(2, (material && material->gpuNormalMap) ? material->gpuNormalMap : Material::Default.gpuNormalMap);
+        glBindTextureUnit(3, (material && material->gpuMetallicRoughnessMap) ? material->gpuMetallicRoughnessMap : Material::Default.gpuMetallicRoughnessMap);
+        
         uniforms.model = transform.worldTransform;
-
         uniforms.entity = entt::to_integral(entity);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.all_of<Skeleton>(entity)) {
-            glBindBuffer(GL_ARRAY_BUFFER, scene.get<Skeleton>(entity).skinnedVertexBuffer);
-        } else {
-            glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBuffer);
-        }
+        auto skeleton = scene.try_get<Skeleton>(entity);
+        glBindBuffer(GL_ARRAY_BUFFER, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
         BindInterleavedVertexLayout(mesh);
 
@@ -610,12 +575,12 @@ DeferredShading::~DeferredShading() {
 
 DeferredShading::DeferredShading(const Viewport& viewport) {
     // load shaders from disk
-    shader.compile({
+    shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\pbr.frag"}
     });
 
-    brdfLUTshader.compile({
+    brdfLUTshader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\brdfLUT.frag"}
     });
@@ -644,7 +609,7 @@ DeferredShading::DeferredShading(const Viewport& viewport) {
     glViewport(0, 0, 512, 512);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    brdfLUTshader.bind();
+    brdfLUTshader.Bind();
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -710,7 +675,7 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    shader.bind();
+    shader.Bind();
 
     glBindTextureUnit(0, shadowMap.texture);
     glBindTextureUnit(3, GBuffer.albedoTexture);
@@ -774,7 +739,7 @@ Bloom::~Bloom() {
 
 
 Bloom::Bloom(const Viewport& viewport) {
-    blurShader.compile({
+    blurShader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\gaussian.frag"}
     });
@@ -802,7 +767,7 @@ void Bloom::render(const Viewport& viewport, GLuint highlights) {
                            GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
     // horizontally blur 1/4th bloom to blur texture
-    blurShader.bind();
+    blurShader.Bind();
     glViewport(0, 0, quarter.x, quarter.y);
     glBindFramebuffer(GL_FRAMEBUFFER, blurFramebuffer);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -885,7 +850,7 @@ Tonemap::~Tonemap() {
 
 Tonemap::Tonemap(const Viewport& viewport) {
     // load shaders from disk
-    shader.compile({
+    shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\tonemap.frag"}
     });
@@ -906,7 +871,7 @@ void Tonemap::render(GLuint scene, GLuint bloom) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // bind shader and input texture
-    shader.bind();
+    shader.Bind();
     glBindTextureUnit(0, scene);
     glBindTextureUnit(1, bloom);
 
@@ -945,14 +910,14 @@ void Tonemap::destroyRenderTargets() {
 
 Voxelize::Voxelize(uint32_t size) : size(size) {
     // load shaders from disk
-    shader.compile({
+    shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\voxelize.vert"},
         {Shader::Type::GEO, "assets\\system\\shaders\\OpenGL\\voxelize.geom"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\voxelize.frag"}
     });
 
-    mipmapShader.compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\mipmap.comp"} });
-    opacityFixShader.compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\correctAlpha.comp"} });
+    mipmapShader.Compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\mipmap.comp"} });
+    opacityFixShader.Compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\correctAlpha.comp"} });
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
@@ -975,12 +940,12 @@ void Voxelize::computeMipmaps(GLuint texture) {
     int level = 0, texSize = size;
     while (texSize >= 1.0f) {
         texSize = static_cast<int>(texSize * 0.5f);
-        mipmapShader.bind();
+        mipmapShader.Bind();
         glBindImageTexture(0, texture, level, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA8);
         glBindImageTexture(1, texture, level + 1, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
         // TODO: query local work group size at startup
         glDispatchCompute(static_cast<GLuint>(size / 64), texSize, texSize);
-        mipmapShader.unbind();
+        mipmapShader.Unbind();
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
         level++;
     }
@@ -989,11 +954,11 @@ void Voxelize::computeMipmaps(GLuint texture) {
 
 
 void Voxelize::correctOpacity(GLuint texture) {
-    opacityFixShader.bind();
+    opacityFixShader.Bind();
     glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA8);
     // local work group size is 64
     glDispatchCompute(static_cast<GLuint>(size / 64), size, size);
-    opacityFixShader.unbind();
+    opacityFixShader.Unbind();
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
@@ -1016,7 +981,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
     // clear the entire voxel texture
     constexpr auto clearColour = glm::u8vec4(0.0f, 0.0f, 0.0f, 0.0f);
     for (uint32_t level = 0; level < std::log2(size); level++) {
-        //glClearTexImage(result, level, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(clearColour));
+        glClearTexImage(result, level, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(clearColour));
     }
 
     // set GL state
@@ -1028,7 +993,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
     //glEnable(GL_CONSERVATIVE_RASTERIZATION_NV);
 
     // bind shader and level 0 of the voxel volume
-    shader.bind();
+    shader.Bind();
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
     glBindTextureUnit(2, shadowmap.texture);
 
@@ -1038,30 +1003,17 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
 
         const Material* material = nullptr;
         
-        if (scene.valid(mesh.material)) {
+        if (scene.valid(mesh.material))
             material = scene.try_get<Material>(mesh.material);
-        }
-
+        
+        uniforms.colour = material ? material->albedo : Material::Default.albedo;
         uniforms.model = transform.worldTransform;
 
-        if (material) {
-            if (material->gpuAlbedoMap) {
-                glBindTextureUnit(0, material->gpuAlbedoMap);
-            } else {
-                glBindTextureUnit(0, Material::Default.gpuAlbedoMap);
-            }
-            uniforms.colour = material->albedo;
-        } else {
-            glBindTextureUnit(0, Material::Default.gpuAlbedoMap);
-            uniforms.colour = Material::Default.albedo;
-        }
+        glBindTextureUnit(0, (material && material->gpuAlbedoMap) ? material->gpuAlbedoMap : Material::Default.gpuAlbedoMap);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        if (scene.all_of<Skeleton>(entity)) {
-            glBindBuffer(GL_ARRAY_BUFFER, scene.get<Skeleton>(entity).skinnedVertexBuffer);
-        } else {
-            glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBuffer);
-        }
+        auto skeleton = scene.try_get<Skeleton>(entity);
+        glBindBuffer(GL_ARRAY_BUFFER, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
         BindInterleavedVertexLayout(mesh);
 
@@ -1101,7 +1053,7 @@ VoxelizeDebug::~VoxelizeDebug() {
 
 
 VoxelizeDebug::VoxelizeDebug(const Viewport& viewport) {
-    shader.compile({
+    shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\voxelDebug.vert"},
         {Shader::Type::GEO, "assets\\system\\shaders\\OpenGL\\voxelDebug.geom"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\voxelDebug.frag"}
@@ -1116,7 +1068,7 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport) {
 
 
 VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize) {
-    shader.compile({
+    shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\voxelDebugFast.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\voxelDebugFast.frag"}
     });
@@ -1176,7 +1128,7 @@ void VoxelizeDebug::render(const Viewport& viewport, GLuint input, const Voxeliz
     glm::mat4 modelMatrix = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(voxelSize)), glm::vec3(0, 0, 0));
 
     // bind shader and set uniforms
-    shader.bind();
+    shader.Bind();
     uniforms.p = viewport.GetCamera().GetProjection();
     uniforms.mv = viewport.GetCamera().GetView() * modelMatrix;
 
@@ -1207,7 +1159,7 @@ void VoxelizeDebug::execute2(const Viewport& viewport, GLuint input, const Voxel
     glm::mat4 modelMatrix = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(voxelSize)), glm::vec3(0, 0, 0));
 
     // bind shader and set uniforms
-    shader.bind();
+    shader.Bind();
     uniforms.p = viewport.GetCamera().GetProjection();
     uniforms.mv = viewport.GetCamera().GetView() * modelMatrix;
     uniforms.cameraPosition = glm::vec4(viewport.GetCamera().GetPosition(), 1.0);
@@ -1254,7 +1206,7 @@ DebugLines::~DebugLines() {
 
 
 DebugLines::DebugLines() {
-    shader.compile({
+    shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\aabb.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\aabb.frag"}
     });
@@ -1277,7 +1229,7 @@ void DebugLines::render(const Viewport& viewport, GLuint colorAttachment, GLuint
     glNamedFramebufferTexture(frameBuffer, GL_DEPTH_ATTACHMENT, depthAttachment, 0);
     glNamedFramebufferDrawBuffer(frameBuffer, GL_COLOR_ATTACHMENT0);
 
-    shader.bind();
+    shader.Bind();
     uniforms.projection = viewport.GetCamera().GetProjection();
     uniforms.view = viewport.GetCamera().GetView();
 
@@ -1304,7 +1256,7 @@ void DebugLines::render(const Viewport& viewport, GLuint colorAttachment, GLuint
 
 
 Skinning::Skinning() {
-    computeShader.compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\skinning.comp"} });
+    computeShader.Compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\skinning.comp"} });
 }
 
 
@@ -1313,7 +1265,7 @@ void Skinning::compute(const Mesh& mesh, const Skeleton& anim) {
 
     glNamedBufferData(anim.boneTransformsBuffer, anim.m_BoneTransforms.size() * sizeof(glm::mat4), anim.m_BoneTransforms.data(), GL_DYNAMIC_DRAW);
 
-    computeShader.bind();
+    computeShader.Bind();
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, anim.boneIndexBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, anim.boneWeightBuffer);
@@ -1357,7 +1309,7 @@ inline glm::vec3 random_color(double min, double max) {
 
 
 RayTracingOneWeekend::RayTracingOneWeekend(const Viewport& viewport) {
-    shader.compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\ray.comp"} });
+    shader.Compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\ray.comp"} });
 
     spheres.push_back(Sphere{ glm::vec3(0, -1000, 0), glm::vec3(0.5, 0.5, 0.5), 1.0f, 0.0f, 1000.0f });
 
@@ -1420,7 +1372,7 @@ void RayTracingOneWeekend::compute(const Viewport& viewport, bool update) {
         glNamedBufferStorage(sphereBuffer, spheres.size() * sizeof(Sphere), spheres.data(), GL_DYNAMIC_STORAGE_BIT);
     }
 
-    shader.bind();
+    shader.Bind();
     glBindImageTexture(0, result, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
     glBindImageTexture(1, finalResult, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, sphereBuffer);
@@ -1469,7 +1421,7 @@ void RayTracingOneWeekend::destroyRenderTargets() {
 
 
 Icons::Icons(const Viewport& viewport) {
-    shader.compile({
+    shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\billboard.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\billboard.frag"}
     });
@@ -1527,7 +1479,7 @@ void Icons::render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
 
     glBindTextureUnit(0, lightTexture);
 
-    shader.bind();
+    shader.Bind();
 
     const auto vp = viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView();
 
@@ -1570,12 +1522,12 @@ void Icons::render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
 
 
 Atmosphere::Atmosphere(const Viewport& viewport) {
-    convoluteShader.compile({
+    convoluteShader.Compile({
         { Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\convolute.comp" },
     });
 
 
-    computeShader.compile({
+    computeShader.Compile({
         { Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\atmosphere.comp" },
     });
 
@@ -1653,7 +1605,7 @@ void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& scene) {
 
     glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
 
-    computeShader.bind();
+    computeShader.Bind();
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
     glBindImageTexture(0, environmentCubemap, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA16F);
     glDispatchCompute(512 / 8, 512 / 8, 6);
@@ -1672,13 +1624,13 @@ void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& scene) {
 
 
 TAAResolve::TAAResolve(const Viewport& viewport) {
-    shader.compile({ { Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\taaResolve.comp" } });
+    shader.Compile({ { Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\taaResolve.comp" } });
 
     createRenderTargets(viewport);
 }
 
 GLuint TAAResolve::render(const Viewport& viewport, const GBuffer& gbuffer, const DeferredShading& shading, uint32_t frameNr) {
-    shader.bind();
+    shader.Bind();
 
     // on first frame it should bind the hdr shading result as history texture
     if (frameNr == 0) {

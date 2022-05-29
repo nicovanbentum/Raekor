@@ -136,6 +136,9 @@ namespace fs = std::filesystem;
 #include "assimp/pbrmaterial.h"
 #include "assimp/Exporter.hpp"
 
+//////////////////////////
+#include "cgltf.h"
+
 
 ////////////////////////////////////////
 // EnTT entity-component system library

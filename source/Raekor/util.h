@@ -122,4 +122,22 @@ inline std::string gWCharToString(wchar_t* wchars) {
     return string.substr(0, len);
 }
 
+
+template<typename T>
+class Slice {
+public:
+    Slice() = delete;
+    Slice(const T* start, uint64_t length) : start(start), length(length) {}
+    Slice(const T* start, const T* end) : start(start), length(end - start) {}
+
+    auto begin() { return start; }
+    auto end() { return (start + length); }
+    const auto begin() const { return start; }
+    const auto end() const { return (start + length); }
+
+private:
+    const T* start = nullptr;
+    uint64_t length = 0;
+};
+
 } // Namespace Raekor

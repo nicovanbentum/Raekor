@@ -2,6 +2,7 @@
 #include "menubarWidget.h"
 #include "editor.h"
 #include "Raekor/OS.h"
+#include "Raekor/gltf.h"
 #include "Raekor/assimp.h"
 #include "Raekor/systems.h"
 #include "Raekor/scene.h"
@@ -50,6 +51,19 @@ void MenubarWidget::draw(float dt) {
                 
                 if (!filepath.empty()) {
                     AssimpImporter importer(scene);
+                    importer.SetUploadMeshCallbackFunction(GLRenderer::uploadMeshBuffers);
+                    importer.SetUploadMaterialCallbackFunction(GLRenderer::uploadMaterialTextures);
+                    importer.SetUploadSkeletonCallbackFunction(GLRenderer::UploadSkeletonBuffers);
+                    importer.LoadFromFile(IWidget::GetAssets(), filepath);
+                    m_ActiveEntity = sInvalidEntity;
+                }
+            }
+
+            if (ImGui::MenuItem("Load GLTF..")) {
+                std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.glb)\0*.gltf;*.glb\0");
+
+                if (!filepath.empty()) {
+                    GltfImporter importer(scene);
                     importer.SetUploadMeshCallbackFunction(GLRenderer::uploadMeshBuffers);
                     importer.SetUploadMaterialCallbackFunction(GLRenderer::uploadMaterialTextures);
                     importer.SetUploadSkeletonCallbackFunction(GLRenderer::UploadSkeletonBuffers);

@@ -28,7 +28,7 @@ public:
 	void UpdateLights();
 
 	/* Loads materials from disk in parallel, is used for both importing and scene loading. */
-	void LoadMaterialTextures(Assets& assets, const std::vector<entt::entity>& materials);
+	void LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials);
 
 	// save Scene to disk
 	void SaveToFile(Assets& assets, const std::string& file);

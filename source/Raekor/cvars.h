@@ -3,6 +3,8 @@
 #include "pch.h"
 #include "serial.h"
 
+#define DECLARE_CVAR(type, name, value) type& name = CVars::sCreate(#name, value)
+
 namespace Raekor {
 
 typedef std::variant<int, float, std::string, std::function<void()>> CVar;

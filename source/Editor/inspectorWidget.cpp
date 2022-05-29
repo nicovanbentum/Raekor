@@ -32,11 +32,10 @@ void InspectorWidget::draw(float dt) {
             if (scene.all_of<ComponentType>(entity)) {
                 bool isOpen = true;
                 if (ImGui::CollapsingHeader(components.name, &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
-                    if (isOpen) {
+                    if (isOpen)
                         DrawComponent(scene.get<ComponentType>(entity), entity);
-                    } else {
+                    else
                         scene.remove<ComponentType>(entity);
-                    }
                 }
             }
         }(assets, scene, active));
@@ -98,9 +97,8 @@ void InspectorWidget::DrawComponent(Mesh& component, Entity& active) {
         const auto previewSize = ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale());
         const auto tintColor = ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a);
 
-        if (ImGui::ImageButton(albedoTexture, previewSize)) {
+        if (ImGui::ImageButton(albedoTexture, previewSize))
             active = component.material;
-        }
 
         ImGui::SameLine();
         ImGui::Text(name.name.c_str());
@@ -109,9 +107,9 @@ void InspectorWidget::DrawComponent(Mesh& component, Entity& active) {
     }
 
     if (ImGui::BeginDragDropTarget()) {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material"))
             component.material = *reinterpret_cast<const entt::entity*>(payload->Data);
-        }
+
         ImGui::EndDragDropTarget();
     }
 }
@@ -122,9 +120,7 @@ void InspectorWidget::DrawComponent(BoxCollider& component, Entity& active) {
 
     ImGui::Text("Unique Body ID: %i", component.bodyID.GetIndexAndSequenceNumber());
 
-    constexpr std::array items = {
-       "Static", "Kinematic", "Dynamic"
-    };
+    constexpr std::array items = { "Static", "Kinematic", "Dynamic" };
 
     int index = int(component.motionType);
     if (ImGui::Combo("##MotionType", &index, items.data(), int(items.size()))) {
@@ -141,9 +137,8 @@ void InspectorWidget::DrawComponent(Skeleton& component, Entity& active) {
 
     ImGui::ProgressBar(currentTime / totalDuration);
 
-    if (ImGui::Button(playing ? "pause" : "play")) {
+    if (ImGui::Button(playing ? "pause" : "play"))
         playing = !playing;
-    }
 
     ImGui::SameLine();
 
@@ -180,9 +175,8 @@ void InspectorWidget::DrawComponent(Material& component, Entity& active) {
 
         ImGui::Text("Asset conversion failed. See console output log.\n");
 
-        if (ImGui::Button("OK")) {
+        if (ImGui::Button("OK"))
             ImGui::CloseCurrentPopup();
-        }
 
         ImGui::EndPopup();
     }
@@ -237,9 +231,7 @@ bool dragVec3(const char* label, glm::vec3& v, float step, float min, float max,
     ImGui::PushID(label);
     ImGui::PushMultiItemsWidths(v.length(), ImGui::CalcItemWidth());
     
-    constexpr std::array chars = {
-        "X", "Y", "Z", "W"
-    };
+    constexpr std::array chars = { "X", "Y", "Z", "W" };
 
     const std::array colors = {
         ImVec4{0.5f, 0.0f, 0.0f, 1.0f},
@@ -250,9 +242,8 @@ bool dragVec3(const char* label, glm::vec3& v, float step, float min, float max,
     for (int i = 0; i < v.length(); i++) {
         ImGui::PushID(i);
 
-        if (i > 0) {
+        if (i > 0)
             ImGui::SameLine(0, ImGui::GetStyle().FramePadding.x);
-        }
         
         //ImGui::PushStyleColor(ImGuiCol_Button, colors[i]);
         //
@@ -284,8 +275,7 @@ bool dragVec3(const char* label, glm::vec3& v, float step, float min, float max,
     ImGui::PopID();
 
     const char* label_end = ImGui::FindRenderedTextEnd(label);
-    if (label != label_end)
-    {
+    if (label != label_end) {
         ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
         ImGui::TextEx(label, label_end);
     }

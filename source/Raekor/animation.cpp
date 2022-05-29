@@ -18,6 +18,9 @@ void KeyFrames::LoadFromAssimp(aiNodeAnim* nodeAnim) {
 }
 
 
+void KeyFrames::LoadFromGltf(cgltf_animation* nodeAnim) {}
+
+
 glm::vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
 	if (positionKeys.size() == 1) {
 		// No interpolation necessary for single value
@@ -111,6 +114,11 @@ Animation::Animation(aiAnimation* anim) {
 }
 
 
+Animation::Animation(cgltf_animation* anim) {
+	LoadFromGltf(anim);
+}
+
+
 void Animation::LoadFromAssimp(aiAnimation* anim) {
 	m_Name = anim->mName.C_Str();
 	m_TicksPerSecond = static_cast<float>(anim->mTicksPerSecond);
@@ -126,5 +134,8 @@ void Animation::LoadFromAssimp(aiAnimation* anim) {
 		nodeAnim.LoadFromAssimp(aiNodeAnim);
 	}
 }
+
+
+void Animation::LoadFromGltf(cgltf_animation* anim) {}
 
 } // raekor

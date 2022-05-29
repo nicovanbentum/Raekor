@@ -26,9 +26,8 @@ void ConsoleWidget::draw(float dt) {
     }
 
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
-    for (const auto& item : items) {
+    for (const auto& item : items)
         ImGui::TextUnformatted(item.c_str());
-    }
 
     if (ScrollToBottom || ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
         ImGui::SetScrollHereY(1.0f);
@@ -58,13 +57,14 @@ void ConsoleWidget::draw(float dt) {
 
             bool success = CVars::sSetValue(name, value);
             if (!success) {
-                if (CVars::sGetValue(name).empty()) {
+                if (CVars::sGetValue(name).empty())
                     items.emplace_back("cvar \"" + name + "\" does not exist.");
-                } else if(value.empty()) {
+
+                else if(value.empty())
                     items.emplace_back("Please provide a value.");
-                } else {
+
+                else
                     items.emplace_back("Failed to set cvar " + name + " to " + "\"" + value + "\"");
-                }
             }
         }
 
@@ -88,11 +88,10 @@ void ConsoleWidget::draw(float dt) {
             if (filter.PassFilter(mapping.first.c_str())) {
                 std::string cvarText = mapping.first + " " + CVars::sGetValue(mapping.first) + '\n';
 
-                if (count == activeItem) {
+                if (count == activeItem)
                     ImGui::Selectable(cvarText.c_str(), true);
-                } else {
+                else
                     ImGui::TextUnformatted(cvarText.c_str());
-                }
 
                 count++;
             }
@@ -131,15 +130,11 @@ int ConsoleWidget::editCallback(ImGuiInputTextCallbackData* data) {
         }
     }
 
-    if (data->EventKey == ImGuiKey_DownArrow) {
+    if (data->EventKey == ImGuiKey_DownArrow)
         console->activeItem++;
-    }
 
-    if (data->EventKey == ImGuiKey_UpArrow) {
-        if (console->activeItem) {
-            console->activeItem--;
-        }
-    }
+    if (data->EventKey == ImGuiKey_UpArrow && console->activeItem)
+        console->activeItem--;
 
     return 0;
 }

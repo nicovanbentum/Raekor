@@ -43,13 +43,7 @@ void Mesh::CalculateTangents() {
         auto v2 = positions[indices[i + 2]];
 
         glm::vec3 normal = glm::cross((v1 - v0), (v2 - v0));
-
-        glm::vec3 deltaPos;
-        if (v0 == v1) {
-            deltaPos = v2 - v0;
-        } else {
-            deltaPos = v1 - v0;
-        }
+        glm::vec3 deltaPos = v0 == v1 ? v2 - v0 : v1 - v0;
 
         glm::vec2 uv0 = uvs[indices[i]];
         glm::vec2 uv1 = uvs[indices[i + 1]];
@@ -60,11 +54,10 @@ void Mesh::CalculateTangents() {
 
         glm::vec3 tan;
 
-        if (deltaUV1.s != 0) {
+        if (deltaUV1.s != 0)
             tan = deltaPos / deltaUV1.s;
-        } else {
+        else
             tan = deltaPos / 1.0f;
-        }
 
         tan = glm::normalize(tan - glm::dot(normal, tan) * normal);
 
@@ -89,15 +82,18 @@ void Mesh::CalculateNormals() {
         normals[indices[i + 2]] += normal;
     }
 
-    for (auto& normal : normals) {
+    for (auto& normal : normals)
         normal = glm::normalize(normal / 3.0f);
-    }
 }
 
 
 void Mesh::CalculateAABB() {
+    if (positions.size() < 2)
+        return;
+
     aabb[0] = positions[0];
     aabb[1] = positions[1];
+
     for (const auto& v : positions) {
         aabb[0] = glm::min(aabb[0], v);
         aabb[1] = glm::max(aabb[1], v);
@@ -137,7 +133,7 @@ std::vector<float> Mesh::GetInterleavedVertices() const {
             vertices.push_back(normal.z);
         }
 
-        if (hasTangents) {
+        if (hasTangents && i < tangents.size()) {
             auto tangent = tangents[i];
             vertices.push_back(tangent.x);
             vertices.push_back(tangent.y);
@@ -177,9 +173,8 @@ void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationT
         m_BoneTransforms[boneIndex] = globalTransformation * m_BoneOffsets[boneIndex];
     }
 
-    for (auto& child : pNode.children) {
+    for (auto& child : pNode.children)
         UpdateBoneTransforms(animation, animationTime, child, globalTransformation);
-    }
 }
 
 
@@ -189,9 +184,9 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt) {
         see https://github.com/assimp/assimp/issues/2662
     */
     animation.m_RunningTime += Timer::sToMilliseconds(dt);
-    if (animation.m_RunningTime > animation.m_TotalDuration) {
+
+    if (animation.m_RunningTime > animation.m_TotalDuration)
         animation.m_RunningTime = 0;
-    }
 
     auto identity = glm::mat4(1.0f);
     UpdateBoneTransforms(animation, animation.m_RunningTime, m_Bones, identity);

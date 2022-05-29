@@ -16,12 +16,11 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
         switch (id) {
             case 131218: return; // shader state recompilation
             default: {
-                //breakpoint
+                __debugbreak();
             }
         }
     }
 }
-
 
 
 GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
@@ -55,7 +54,8 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     assert(vulkanSDK);
 
     for (const auto& file : fs::directory_iterator("assets/system/shaders/OpenGL")) {
-        if (file.is_directory()) continue;
+        if (file.is_directory()) 
+            continue;
 
         // visual studio code glsl linter keeps compiling spirv files to the directory,
         // delete em
@@ -69,16 +69,13 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
             if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time()) {
-                auto success = glShader::glslangValidator(vulkanSDK, file, outfile);
+                auto success = glShader::sGlslangValidator(vulkanSDK, file, outfile);
 
                 {
                     auto lock = Async::sLock();
 
-                    if (!success) {
-                        std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
-                    } else {
-                        std::cout << "Compilation " << COUT_GREEN("finished") << " for shader: " << file.path().string() << '\n';
-                    }
+                    std::string result_string = success ? COUT_GREEN("finished") : COUT_RED("failed");
+                    std::cout << "Compilation " << result_string << " for shader: " << file.path().string() << '\n';
                 }
             }
         });
@@ -271,9 +268,8 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     }
 
     // build the imgui font texture
-    if (!ImGui::GetIO().Fonts->TexID) {
+    if (!ImGui::GetIO().Fonts->TexID)
         ImGui_ImplOpenGL3_CreateFontsTexture();
-    }
 
     // bind and clear the window's swapchain
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

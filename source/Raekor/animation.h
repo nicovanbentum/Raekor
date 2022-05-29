@@ -5,6 +5,7 @@ namespace Raekor {
 class KeyFrames {
 public:
 	void LoadFromAssimp(aiNodeAnim* nodeAnim);
+	void LoadFromGltf(cgltf_animation* nodeAnim);
 
 	glm::vec3 GetInterpolatedScale(float animationTime) const;
 	glm::quat GetInterpolatedRotation(float animationTime) const;
@@ -23,12 +24,14 @@ class Animation {
 public:
 	Animation() = default;
 	Animation(aiAnimation* anim);
+	Animation(cgltf_animation* anim);
 
 	const std::string& GetName() const { return m_Name; }
 	inline float GetRunningTime() const { return m_RunningTime; }
 	inline float GetTotalDuration() const { return m_TotalDuration; }
 
 	void LoadFromAssimp(aiAnimation* anim);
+	void LoadFromGltf(cgltf_animation* anim);
 
 private:
 	float m_RunningTime;

@@ -40,6 +40,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SD
 target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/dependencies
     ${CMAKE_SOURCE_DIR}/dependencies/stb
+    ${CMAKE_SOURCE_DIR}/dependencies/cgltf
     ${CMAKE_SOURCE_DIR}/dependencies/imnodes
     ${CMAKE_SOURCE_DIR}/dependencies/glm/glm
     ${CMAKE_SOURCE_DIR}/dependencies/entt/src

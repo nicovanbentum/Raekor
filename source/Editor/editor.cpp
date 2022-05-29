@@ -17,6 +17,7 @@
 
 namespace Raekor {
 
+
 Editor::Editor() :
     Application(RendererFlags::OPENGL),
     m_Renderer(m_Window, m_Viewport) 

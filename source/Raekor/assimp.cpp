@@ -64,7 +64,7 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
     std::cout << "Texture conversion took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
 
     // preload material texture in parallel
-    m_Scene.LoadMaterialTextures(assets, m_Materials);
+    m_Scene.LoadMaterialTextures(assets, Slice(m_Materials.data(), m_Materials.size()));
 
     // parse the node tree recursively
     auto root = m_Scene.CreateSpatialEntity(m_AiScene->mRootNode->mName.C_Str());

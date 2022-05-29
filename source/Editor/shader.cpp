@@ -17,14 +17,14 @@ glShader::~glShader() {
 
 
 
-void glShader::compile(const std::initializer_list<Stage>& list) {
+void glShader::Compile(const std::initializer_list<Stage>& list) {
     stages = list;
-    compile();
+    Compile();
 }
 
 
 
-void glShader::compile() {
+void glShader::Compile() {
     auto newProgramID = glCreateProgram();
     bool failed = false;
 
@@ -84,7 +84,8 @@ void glShader::compile() {
         }
     }
 
-    if (shaders.empty()) return;
+    if (shaders.empty()) 
+        return;
 
     for (auto shader : shaders) {
         glAttachShader(newProgramID, shader);
@@ -100,7 +101,6 @@ void glShader::compile() {
         glGetProgramiv(newProgramID, GL_INFO_LOG_LENGTH, &logMessageLength);
         
         std::vector<char> errorMessage(logMessageLength);
-       
         glGetProgramInfoLog(newProgramID, logMessageLength, NULL, errorMessage.data());
         
         std::cerr << errorMessage.data() << '\n';
@@ -123,30 +123,30 @@ void glShader::compile() {
 
 
 
-bool glShader::glslangValidator(const char* vulkanSDK, const fs::path& file, const fs::path& outfile) {
-    if (!fs::is_regular_file(file)) return false;
+bool glShader::sGlslangValidator(const char* vulkanSDK, const fs::path& file, const fs::path& outfile) {
+    if (!fs::is_regular_file(file)) 
+        return false;
 
     const auto compiler = vulkanSDK + std::string("\\Bin\\glslangValidator.exe -G ");
     const auto command = compiler + fs::absolute(file).string() + " -o " + std::string(outfile.string());
 
-    if (system(command.c_str()) != 0) {
+    if (system(command.c_str()) != 0)
         return false;
-    }
 
     return true;
 }
 
 
 
-void glShader::bind() { 
+void glShader::Bind() { 
     for (auto& stage : stages) {
         if (stage.watcher.WasModified()) {
             const auto sdk = getenv("VULKAN_SDK");
             assert(sdk);
 
-            glslangValidator(sdk, stage.textfile, stage.binfile);
+            sGlslangValidator(sdk, stage.textfile, stage.binfile);
 
-            compile();
+            Compile();
         }
     }
 
@@ -155,7 +155,7 @@ void glShader::bind() {
 
 
 
-void glShader::unbind() { 
+void glShader::Unbind() { 
     glUseProgram(0); 
 }
 

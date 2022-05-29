@@ -37,3 +37,6 @@
 [submodule "dependencies/D3D12MemoryAllocator"]
 	path = dependencies/D3D12MemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator
+[submodule "dependencies/cgltf"]
+	path = dependencies/cgltf
+	url = https://github.com/jkuhlmann/cgltf
