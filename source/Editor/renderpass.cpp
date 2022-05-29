@@ -1,8 +1,5 @@
 #include "pch.h"
 #include "renderpass.h"
-#include "Raekor/ecs.h"
-#include "Raekor/camera.h"
-#include "Raekor/timer.h"
 #include "Raekor/scene.h"
 
 namespace Raekor {

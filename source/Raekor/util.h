@@ -11,9 +11,7 @@
 #define COUT_RED(str) "\033[0;31m" str COUT_NC
 #define COUT_GREEN(str) "\033[1;32m" str COUT_NC
 
-
 #define LOG_CATCH(code) try { code; } catch(std::exception e) { std::cout << e.what() << '\n'; }
-
 
 namespace Raekor {
 

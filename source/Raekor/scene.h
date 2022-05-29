@@ -23,9 +23,9 @@ public:
 	void			DestroySpatialEntity(entt::entity entity);
 
 	// Per frame systems
-	void UpdateSelfAndChildNodes(entt::entity node, entt::entity parent);
-	void UpdateTransforms();
 	void UpdateLights();
+	void UpdateTransforms();
+	void UpdateTransformsRecursively(entt::entity node, entt::entity parent);
 
 	/* Loads materials from disk in parallel, is used for both importing and scene loading. */
 	void LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials);

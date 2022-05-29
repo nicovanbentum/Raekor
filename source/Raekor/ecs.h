@@ -8,7 +8,7 @@ typedef uint32_t Entity;
 
 template<typename T>
 class SparseSet {
-    
+
     class Iterator {
     public:
         Iterator() = delete;
@@ -32,7 +32,6 @@ class SparseSet {
             ++* this;
             return tmp;
         }
-
 
         auto operator*() -> value_type {
             return std::forward_as_tuple(*e_iter, *t_iter);
@@ -68,7 +67,7 @@ public:
         if (sparse.size() <= entity)
             sparse.resize(entity + 1);
 
-        sparse[entity] = static_cast<uint32_t>(entities.size() - 1);
+        sparse[entity] = uint32_t(entities.size() - 1);
         return storage.emplace_back(t);
     }
 
@@ -115,13 +114,13 @@ public:
 
 
 class ECS {
-
 public:
-    Entity Create() {
-        return m_Entities.emplace_back(uint32_t(m_Entities.size()));
+    Entity Create() { 
+        return m_Entities.emplace_back(uint32_t(m_Entities.size())); 
     }
-
-    void Destroy(Entity entity) {
+    
+    void Destroy(Entity entity) { 
+        /* TODO */ 
     }
 
     template<typename Component>

@@ -53,7 +53,6 @@
     #include <Windows.h>
     #include <commdlg.h>
     #include <SDL2/SDL_syswm.h>
-    #include <wrl.h>
     #include <DbgHelp.h>
     #include <Psapi.h>  
 #elif __linux__
@@ -102,9 +101,7 @@
 #include <array>
 #include <cmath>
 #include <queue>
-#include <future>
 #include <chrono>
-#include <bitset>
 #include <random>
 #include <limits>
 #include <numeric>
@@ -142,7 +139,11 @@ namespace fs = std::filesystem;
 
 ////////////////////////////////////////
 // EnTT entity-component system library
-#include "entt/entt.hpp"
+#include "entt/entity/entity.hpp"
+#include "entt/entity/helper.hpp"
+#include "entt/entity/registry.hpp"
+#include "entt/entity/snapshot.hpp"
+#include "entt/entity/view.hpp"
 
 
 ///////////////////////////

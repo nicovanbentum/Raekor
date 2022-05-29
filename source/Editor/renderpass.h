@@ -1,8 +1,8 @@
 #pragma once
 
+#include "shader.h"
 #include "Raekor/timer.h"
 #include "Raekor/components.h"
-#include "shader.h"
 
 namespace Raekor {
 

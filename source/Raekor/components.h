@@ -46,6 +46,10 @@ struct Node {
     entt::entity firstChild  = entt::null;
     entt::entity prevSibling = entt::null;
     entt::entity nextSibling = entt::null;
+
+    bool IsRoot() const { return parent == entt::null; }
+    bool HasChildren() const { return firstChild != entt::null; }
+    bool IsConnected() const { return firstChild != entt::null && parent != entt::null; }
 };
 
 struct Mesh {

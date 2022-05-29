@@ -2,6 +2,7 @@
 #include "randomWidget.h"
 #include "editor.h"
 #include "renderer.h"
+#include "Raekor/systems.h"
 
 namespace Raekor {
 
@@ -15,6 +16,11 @@ void RandomWidget::draw(float dt) {
     ImGui::Begin(title.c_str());
     ImGui::SetItemDefaultFocus();
 
+    if (ImGui::Button("Optimize Scene Graph")) {
+        GetActiveEntity() = sInvalidEntity;
+        NodeSystem::sOptimize(GetScene());
+    }
+
     if (ImGui::Checkbox("VSync", (bool*)(&renderer.settings.vsync))) {
         SDL_GL_SetSwapInterval(renderer.settings.vsync);
     }
@@ -26,6 +32,7 @@ void RandomWidget::draw(float dt) {
     }
 
     ImGui::NewLine(); ImGui::Separator();
+
 
     ImGui::Text("VCTGI");
 

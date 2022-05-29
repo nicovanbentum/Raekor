@@ -2,9 +2,7 @@
 #include "scene.h"
 
 #include "timer.h"
-#include "serial.h"
 #include "systems.h"
-#include "async.h"
 
 namespace Raekor {
 
@@ -80,37 +78,6 @@ void Scene::DestroySpatialEntity(entt::entity entity) {
 }
 
 
-void Scene::UpdateSelfAndChildNodes(entt::entity node, entt::entity parent) {
-    auto& transform = get<Transform>(node);
-    
-    if (parent == entt::null) {
-        transform.worldTransform = transform.localTransform;
-    } else {
-        auto& parentTransform = get<Transform>(parent);
-        transform.worldTransform = parentTransform.worldTransform * transform.localTransform;
-    }
-
-    auto& comp = get<Node>(node);
-
-    auto curr = comp.firstChild;
-    while (curr != entt::null) {
-        UpdateSelfAndChildNodes(curr, node);
-        curr = get<Node>(curr).nextSibling;
-    }
-}
-
-
-void Scene::UpdateTransforms() {
-    for (auto& [entity, node, transform] : view<Node,Transform>().each()) {
-        transform.Compose();
-        
-        if (node.parent == entt::null) {
-            UpdateSelfAndChildNodes(entity, node.parent);
-        }
-    }
-}
-
-
 void Scene::UpdateLights() {
     auto dirLights = view<DirectionalLight, Transform>();
 
@@ -126,6 +93,37 @@ void Scene::UpdateLights() {
         auto& light = pointLights.get<PointLight>(entity);
         auto& transform = pointLights.get<Transform>(entity);
         light.position = glm::vec4(transform.position, 1.0f);
+    }
+}
+
+
+void Scene::UpdateTransforms() {
+    for (auto& [entity, node, transform] : view<Node, Transform>().each()) {
+        transform.Compose();
+
+        if (node.parent == entt::null) {
+            UpdateTransformsRecursively(entity, node.parent);
+        }
+    }
+}
+
+
+void Scene::UpdateTransformsRecursively(entt::entity node, entt::entity parent) {
+    auto& transform = get<Transform>(node);
+    
+    if (parent == entt::null) {
+        transform.worldTransform = transform.localTransform;
+    } else {
+        auto& parentTransform = get<Transform>(parent);
+        transform.worldTransform = parentTransform.worldTransform * transform.localTransform;
+    }
+
+    auto& comp = get<Node>(node);
+
+    auto curr = comp.firstChild;
+    while (curr != entt::null) {
+        UpdateTransformsRecursively(curr, node);
+        curr = get<Node>(curr).nextSibling;
     }
 }
 

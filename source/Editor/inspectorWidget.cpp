@@ -18,7 +18,7 @@ void InspectorWidget::draw(float dt) {
         return;
     }
 
-    ImGui::Text("ID: %i", active_entity);
+    ImGui::Text("Entity ID: %i", active_entity);
 
     Scene& scene = GetScene();
     Assets& assets = GetAssets();

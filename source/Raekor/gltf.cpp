@@ -7,7 +7,6 @@
 #include "async.h"
 #include "timer.h"
 
-
 namespace Raekor {
 
 constexpr std::array cgltf_result_strings = {
@@ -24,38 +23,38 @@ constexpr std::array cgltf_result_strings = {
     "cgltf_result_max_enum"
 };
 
+
+bool handle_cgltf_error(cgltf_result result) {
+    if (result != cgltf_result_success) {
+        std::cerr << "[clgtf] Result error: " << cgltf_result_strings[result] << '\n';
+        return false;
+    }
+
+    return true;
+}
+
+
 GltfImporter::~GltfImporter() { 
     if (m_GltfData) 
         cgltf_free(m_GltfData); 
 }
 
+
 bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     cgltf_options options = {};
-    cgltf_result result = cgltf_parse_file(&options, file.c_str(), &m_GltfData);
-
-    if (result != cgltf_result_success) {
-        std::cerr << "[GLTF] Error loading file " << file << " : " << cgltf_result_strings[result] << '\n';
+    if (!handle_cgltf_error(cgltf_parse_file(&options, file.c_str(), &m_GltfData)))
         return false;
-    }
 
-    result = cgltf_load_buffers(&options, m_GltfData, file.c_str());
-
-    if (result != cgltf_result_success) {
-        std::cerr << "[GLTF] Error loading buffers from " << file << " : " << cgltf_result_strings[result] << '\n';
+    if (!handle_cgltf_error(cgltf_load_buffers(&options, m_GltfData, file.c_str())))
         return false;
-    }
 
-    result = cgltf_validate(m_GltfData);
-
-    if (result != cgltf_result_success) {
-        std::cerr << "[GLTF] Validation error in " << file << " : " << cgltf_result_strings[result] << '\n';
+    if (!handle_cgltf_error(cgltf_validate(m_GltfData)))
         return false;
-    }
 
     Timer timer;
     m_Directory = fs::path(file).parent_path() / "";
 
-    // pre-parse materials
+    // pre-parse materials and convert textures in parallel
     for (unsigned int i = 0; i < m_GltfData->materials_count; i++) {
         gPrintProgressBar("Converting material textures: ", float(i) / m_GltfData->materials_count);
         parseMaterial(m_GltfData->materials[i], m_Scene.create());
@@ -70,7 +69,7 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
 
     for (const auto& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
         for (const auto& node : Slice(scene.nodes, scene.nodes_count))
-            parseNode(*node, entt::null, m_Scene.CreateSpatialEntity(node->name ? node->name : ""));
+            parseNode(*node, entt::null, m_Scene.CreateSpatialEntity(""));
 
     return true;
 }
@@ -105,7 +104,7 @@ void GltfImporter::parseNode(const cgltf_node& node, entt::entity parent, entt::
         );
     }
 
-    // translate gltf transformation to glm
+    // gltf transformation to glm
     auto& transform = m_Scene.get<Transform>(new_entity);
     memcpy(glm::value_ptr(transform.localTransform), node.matrix, sizeof(node.matrix));
     transform.Decompose();
@@ -114,9 +113,9 @@ void GltfImporter::parseNode(const cgltf_node& node, entt::entity parent, entt::
     parseMeshes(node, new_entity, parent);
 
     // process children
-    for (uint32_t i = 0; i < node.children_count; i++) {
-        auto child = m_Scene.CreateSpatialEntity(""); // Empty name because parseNode should set it
-        parseNode(*node.children[i], new_entity, child);
+    for (const auto& child : Slice(node.children, node.children_count)) {
+        auto entity = m_Scene.CreateSpatialEntity(""); // Empty name because parseNode should set it
+        parseNode(*child, new_entity, entity);
     }
 }
 
@@ -154,42 +153,26 @@ void GltfImporter::LoadMesh(entt::entity entity, const cgltf_mesh& gltfMesh) {
             cgltf_accessor_unpack_floats(attribute.data, accessor_data.data(), float_count);
             const auto num_components = cgltf_num_components(attribute.data->type);
 
-            if (attribute.type == cgltf_attribute_type_position) {
-                auto data = accessor_data.data();
-
-                for (uint32_t element_index = 0; element_index < attribute.data->count; element_index++) {
-                    mesh.positions.emplace_back(data[0], data[1], data[2]);
-                    data += num_components;
+            auto data = accessor_data.data();
+            
+            for (uint32_t element_index = 0; element_index < attribute.data->count; element_index++) {
+                switch (attribute.type) {
+                    case cgltf_attribute_type_position: {
+                        mesh.positions.emplace_back(data[0], data[1], data[2]);
+                    } break;
+                    case cgltf_attribute_type_texcoord: {
+                        mesh.uvs.emplace_back(data[0], data[1]);
+                    } break;
+                    case cgltf_attribute_type_normal: {
+                        mesh.normals.emplace_back(data[0], data[1], data[2]);
+                    } break;
+                    case cgltf_attribute_type_tangent: {
+                        mesh.tangents.emplace_back(data[0], data[1], data[2]);
+                    } break;
                 }
+
+                data += num_components;
             }
-
-            if (attribute.type == cgltf_attribute_type_texcoord) {
-                auto data = accessor_data.data();
-
-                for (uint32_t element_index = 0; element_index < attribute.data->count; element_index++) {
-                    mesh.uvs.emplace_back(data[0], data[1]);
-                    data += num_components;
-                }
-            }
-
-            if (attribute.type == cgltf_attribute_type_normal) {
-                auto data = accessor_data.data();
-
-                for (uint32_t element_index = 0; element_index < attribute.data->count; element_index++) {
-                    mesh.normals.emplace_back(data[0], data[1], data[2]);
-                    data += num_components;
-                }
-            }
-
-            if (attribute.type == cgltf_attribute_type_tangent) {
-                auto data = accessor_data.data();
-
-                for (uint32_t element_index = 0; element_index < attribute.data->count; element_index++) {
-                    mesh.tangents.emplace_back(data[0], data[1], data[2]);
-                    data += num_components;
-                }
-            }
-
             // TODO: flip tangents
         }
 
@@ -322,7 +305,6 @@ void GltfImporter::LoadMaterial(entt::entity entity, const cgltf_material& gltfM
     if (auto normal_texture = gltfMaterial.normal_texture.texture)
         material.normalFile = normal_texture->image->uri;
 
-    // TODO: we default to 1.0, but this might copy zeros
     memcpy(glm::value_ptr(material.emissive), gltfMaterial.emissive_factor, sizeof(material.emissive));
 
     if (!material.albedoFile.empty()) {

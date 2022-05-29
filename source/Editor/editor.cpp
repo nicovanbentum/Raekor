@@ -179,6 +179,16 @@ void Editor::OnEvent(const SDL_Event& event) {
         }
     }
 
+    if (event.type == SDL_KEYDOWN && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
+        m_Viewport.GetCamera().zoomConstant *= 20.0f;
+        m_Viewport.GetCamera().moveConstant *= 20.0f;
+    }
+
+    if (event.type == SDL_KEYUP && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
+        m_Viewport.GetCamera().zoomConstant /= 20.0f;
+        m_Viewport.GetCamera().moveConstant /= 20.0f;
+    }
+
     auto& camera = m_Viewport.GetCamera();
 
     if (event.type == SDL_MOUSEMOTION) {

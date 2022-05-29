@@ -6,6 +6,7 @@
 #include "Raekor/assimp.h"
 #include "Raekor/systems.h"
 #include "Raekor/scene.h"
+#include "Raekor/timer.h"
 
 namespace Raekor {
 

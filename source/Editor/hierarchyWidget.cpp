@@ -17,16 +17,17 @@ void HierarchyWidget::draw(float dt) {
     auto nodes = scene.view<Node>();
     
     for (auto& [entity, node] : nodes.each()) {
-        if (node.parent == entt::null) {
-            if (node.firstChild != entt::null) {
-                if (drawFamilyNode(scene, entity, active_entity)) {
-                    drawFamily(scene, entity, active_entity);
-                    ImGui::TreePop();
-                }
-            } else {
-                drawChildlessNode(scene, entity, active_entity);
+        if (!node.IsRoot())
+            continue;
+
+        if (node.HasChildren()) {
+            if (drawFamilyNode(scene, entity, active_entity)) {
+                drawFamily(scene, entity, active_entity);
+                ImGui::TreePop();
             }
-        }
+        } 
+        else 
+            drawChildlessNode(scene, entity, active_entity);
     }
 
     dropTargetWindow(scene);
@@ -42,9 +43,8 @@ bool HierarchyWidget::drawFamilyNode(Scene& scene, Entity entity, Entity& active
     
     bool opened = ImGui::TreeNodeEx(name.name.c_str(), treeNodeFlags);
     
-    if (ImGui::IsItemClicked()) {
+    if (ImGui::IsItemClicked())
         active = active == entity ? entt::null : entity;
-    }
 
     dropTargetNode(scene, entity);
 
@@ -56,9 +56,8 @@ void HierarchyWidget::drawChildlessNode(Scene& scene, Entity entity, Entity& act
     auto name = scene.get<Name>(entity);
     auto selectableName = name.name + "##" + std::to_string(entt::to_integral(entity));
 
-    if (ImGui::Selectable(selectableName.c_str(), entity == active)) {
+    if (ImGui::Selectable(selectableName.c_str(), entity == active))
         active = active == entity ? entt::null : entity;
-    }
 
     dropTargetNode(scene, entity);
 }
@@ -90,7 +89,6 @@ void HierarchyWidget::dropTargetNode(Scene& scene, Entity entity) {
             if (!childIsParent) {
                 auto& childTransform = scene.get<Transform>(entity);
                 auto& parentTransform = scene.get<Transform>(entity);
-
 
                 NodeSystem::sRemove(scene, scene.get<Node>(child));
                 NodeSystem::sAppend(scene, node, scene.get<Node>(child));
@@ -124,20 +122,20 @@ void HierarchyWidget::dropTargetWindow(Scene& scene) {
 
 
 void HierarchyWidget::drawFamily(Scene& scene, Entity entity, Entity& active) {
-    auto& node = scene.get<Node>(entity);
+    const auto& node = scene.get<Node>(entity);
 
-    if (node.firstChild != entt::null) {
+    if (node.HasChildren()) {
         for (auto it = node.firstChild; it != entt::null; it = scene.get<Node>(it).nextSibling) {
-            auto& itNode = scene.get<Node>(it);
+            const auto& child = scene.get<Node>(it);
 
-            if (itNode.firstChild != entt::null) {
+            if (child.HasChildren()) {
                 if (drawFamilyNode(scene, it, active)) {
                     drawFamily(scene, it, active);
                     ImGui::TreePop();
                 }
-            } else {
+            } 
+            else
                 drawChildlessNode(scene, it, active);
-            }
         }
     }
 }
