@@ -69,6 +69,9 @@ namespace Raekor::VK {
 
 
 void PathTracer::OnUpdate(float dt) {
+    if (SDL_GetRelativeMouseMode())
+        m_Renderer.ResetAccumulation();
+
     m_Viewport.OnUpdate(dt);
 
     auto lightView = m_Scene.view<DirectionalLight, Transform>();
@@ -84,7 +87,8 @@ void PathTracer::OnUpdate(float dt) {
 
     lookDirection = glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
 
-    m_Renderer.GetPushConstants().lightDir = glm::vec4(lookDirection, 0);
+    auto& sun_direction = m_Renderer.GetPushConstants().lightDir;
+    sun_direction = glm::vec4(lookDirection, sun_direction.w);
 
     if (m_IsSwapchainDirty) {
         int w, h;
@@ -113,7 +117,10 @@ void PathTracer::OnUpdate(float dt) {
             m_Renderer.ResetAccumulation();
         }
 
+        auto& push_constants = m_Renderer.GetPushConstants();
+
         reset |= ImGui::SliderInt("Bounces", reinterpret_cast<int*>(&m_Renderer.GetPushConstants().bounces), 1, 8);
+        reset |= ImGui::DragFloat("Sun Strength", &push_constants.lightDir.w, 0.1f, 1.0f, 100.0f, "%.1f");
         reset |= ImGui::DragFloat("Sun Cone", &m_Renderer.GetPushConstants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
 
         if (lightView.begin() != lightView.end()) {
@@ -185,9 +192,11 @@ void PathTracer::OnEvent(const SDL_Event& ev) {
         if (is_mouse_relative && Input::sIsButtonPressed(3)) {
             auto formula = glm::radians(0.022f * camera.sensitivity * 2.0f);
             camera.Look(glm::vec2(ev.motion.xrel * formula, ev.motion.yrel * formula));
+            m_Renderer.ResetAccumulation();
         }
         else if (is_mouse_relative && Input::sIsButtonPressed(2)) {
             camera.Move(glm::vec2(ev.motion.xrel * 0.02f, ev.motion.yrel * 0.02f));
+            m_Renderer.ResetAccumulation();
         }
     }
     else if (ev.type == SDL_MOUSEWHEEL) {

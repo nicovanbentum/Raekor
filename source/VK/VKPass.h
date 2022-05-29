@@ -19,7 +19,7 @@ public:
     struct PushConstants {
         glm::mat4 invViewProj;
         glm::vec4 cameraPosition;
-        glm::vec4 lightDir = glm::vec4(-0.1, -1, -0.2, 0.0);
+        glm::vec4 lightDir = glm::vec4(-0.1, -1, -0.2, 1.0);
         uint32_t frameCounter = 0;
         uint32_t bounces = 8;
         float sunConeAngle = 0.05f;

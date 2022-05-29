@@ -68,10 +68,10 @@ public:
     void DestroyGraphicsPipeline(const GraphicsPipeline& pipeline);
     
     [[nodiscard]] VkImageView CreateView(Texture& texture, uint32_t mipLevel = 0);
-    /* Use vkDestroyImageView */
+    /* Use vkDestroyImageView or let DestroyTexture clean up the views.*/
 
     [[nodiscard]] VkBufferView CreateView(Buffer& buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize range = VK_WHOLE_SIZE);
-    /* Use vkDestroyBufferView */
+    /* Use vkDestroyBufferView or let DestroyBuffer clean up the views. */
 
     void SetDebugName(const Texture& texture, const std::string& name);
     

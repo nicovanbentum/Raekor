@@ -97,27 +97,10 @@ void main() {
         vec4 accumulated = stored + vec4(total_radiance, 1.0);
 
         imageStore(accumTexture, pixelCoord, accumulated);
-
-        vec3 color = aces(accumulated.rgb / frameCounter);
-        vec3 retColor = pow(color, vec3(1/2.2));
-
-        imageStore(outTexture, pixelCoord, vec4(retColor, 1.0));
+        imageStore(outTexture, pixelCoord, vec4(tonemap(accumulated.rgb / frameCounter), 1.0));
     } 
     else {
         imageStore(accumTexture, pixelCoord, vec4(0.0));
-        
-        vec3 color = aces(total_radiance);
-        vec3 retColor = pow(color, vec3(1/2.2));
-
-        imageStore(outTexture, pixelCoord, vec4(retColor, 1.0));
+        imageStore(outTexture, pixelCoord, vec4(tonemap(total_radiance), 1.0));
     }
-
-    // vec4 current = vec4(tonemap(total_radiance), 1.0);
-    // vec4 prev = vec4(imageLoad(outTexture, pixelCoord).rgb, 8.0);
-
-    // float sample_cnt = current.w + prev.w;
-    // float factor = current.w / max(1.0, sample_cnt);
-    // current /= max(1.0, current.w);
-
-    // imageStore(outTexture, pixelCoord, vec4(max(vec3(0.0), mix(prev.rgb, current.rgb, factor)), max(1.0, sample_cnt)));
 }

@@ -102,7 +102,8 @@ Surface getSurface(Instance instance, Vertex vertex) {
     }
 
     // flip the normal incase we hit a backface
-    //surface.normal = faceforward(surface.normal, gl_WorldRayDirectionEXT, surface.normal);
+    surface.shadingNormal = faceforward(surface.shadingNormal, gl_WorldRayDirectionEXT, surface.shadingNormal);
+    surface.triangleNormal = faceforward(surface.triangleNormal, gl_WorldRayDirectionEXT, surface.triangleNormal);
 
     return surface;
 };
@@ -247,7 +248,7 @@ vec3 SampleSunlight(Surface surface, vec3 direction, out vec3 Wi) {
     canReachLight = false; 
     traceRayEXT(TLAS, rayFlags, 0xFF, 0, 0, 1, offset_surface_pos, tMin, Wi, tMax, 1);
 
-    vec3 light_color = Absorb(IntegrateOpticalDepth(vec3(0.0), direction));
+    vec3 light_color = Absorb(IntegrateOpticalDepth(vec3(0.0), direction)) * lightDir.w;
     return light_color * uint(canReachLight);
 }
 
@@ -269,7 +270,7 @@ void main() {
     // furnace test: surface.albedo = vec4(1.0);
 
     // emissive is just a flat addition to L
-    payload.L = surface.emissive;
+    payload.L = vec3(0.0);
 
     vec3 Wo = -gl_WorldRayDirectionEXT;
 
