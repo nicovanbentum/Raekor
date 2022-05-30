@@ -23,7 +23,7 @@ public:
 
 private:
 	void parseMaterial(cgltf_material& gltfMaterial, entt::entity entity);
-	void parseNode(const cgltf_node& gltfNode, entt::entity entity, entt::entity parent);
+	void parseNode(const cgltf_node& gltfNode, entt::entity entity, glm::mat4 transform);
 	void parseMeshes(const cgltf_node& gltfNode, entt::entity entity, entt::entity parent);
 
 	void LoadMesh(entt::entity entity, const cgltf_mesh& assimpMesh);
@@ -40,7 +40,7 @@ private:
 	fs::path m_Directory;
 	cgltf_data* m_GltfData = nullptr;
 	std::vector<entt::entity> m_Materials;
-	std::vector<entt::entity> m_CreatedNodes;
+	std::vector<entt::entity> m_CreatedNodeEntities;
 };
 
 } // raekor
