@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_TOOLCHAIN_FILE "dependencies/vcpkg/scripts/buildsystems/vcpkg.cmake")
 set(VCPKG_TARGET_TRIPLET x64-windows-static)
-set(CMAKE_CONFIGURATION_TYPES "Debug;RelWithDebInfo" CACHE STRING "" FORCE)
+set(CMAKE_CONFIGURATION_TYPES "Debug;RelWithDebInfo;Release" CACHE STRING "" FORCE)
 
 project(Solution)
 
