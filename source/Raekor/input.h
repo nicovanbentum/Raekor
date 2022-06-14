@@ -6,7 +6,7 @@ namespace Raekor {
 
 class Input {
 public:
-    Input::Input() : keyboardState(SDL_GetKeyboardState(NULL)) {}
+    Input() : keyboardState(SDL_GetKeyboardState(NULL)) {}
 
     /* Gets the current state of a keyboard key.
         @param code pass the desired key from SDL_SCANCODE_ */

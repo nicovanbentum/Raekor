@@ -5,10 +5,12 @@
 
 namespace cereal {
 
+constexpr auto xyzw = std::array { "x", "y", "z", "w" };
+
 template<class Archive, glm::length_t L, typename T>
 void serialize(Archive& archive, glm::vec<L, T>& v) {
 	for (glm::length_t i = 0; i < v.length(); i++) {
-		archive(v[i]);
+		archive(cereal::make_nvp(xyzw[i], v[i]));
 	}
 }
 
@@ -16,7 +18,7 @@ void serialize(Archive& archive, glm::vec<L, T>& v) {
 template<class Archive, glm::length_t C, glm::length_t R, typename T>
 void serialize(Archive& archive, glm::mat<C, R, T>& mat) {
 	for (glm::length_t i = 0; i < mat.length(); i++) {
-		archive(mat[i]);
+		archive(cereal::make_nvp(xyzw[i % xyzw.size()], mat[i]));
 	}
 }
 
@@ -24,7 +26,7 @@ void serialize(Archive& archive, glm::mat<C, R, T>& mat) {
 template<class Archive, typename T>
 void serialize(Archive& archive, glm::qua<T>& quat) {
 	for (glm::length_t i = 0; i < quat.length(); i++) {
-		archive(quat[i]);
+		archive(cereal::make_nvp(xyzw[i], quat[i]));
 	}
 }
 
@@ -73,19 +75,33 @@ void serialize(Archive& archive, Raekor::Triangle& tri) {
 
 template<class Archive>
 void serialize(Archive& archive, Raekor::Vertex& v) {
-	archive(v.pos, v.uv, v.normal, v.tangent, v.binormal);
+	archive(v.pos, v.uv, v.normal, v.tangent);
 }
 
 
 template<class Archive>
 void save(Archive& archive, const Raekor::Mesh& mesh) {
-	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.indices, mesh.material);
+	archive(
+		cereal::make_nvp("positions", mesh.positions),
+		cereal::make_nvp("uvs", mesh.uvs),
+		cereal::make_nvp("normals", mesh.normals),
+		cereal::make_nvp("tangents", mesh.tangents),
+		cereal::make_nvp("indices", mesh.indices),
+		cereal::make_nvp("material", mesh.material)
+	);
 }
 
 
 template<class Archive>
 void load(Archive& archive, Raekor::Mesh& mesh) {
-	archive(mesh.positions, mesh.uvs, mesh.normals, mesh.tangents, mesh.indices, mesh.material);
+	archive(
+		cereal::make_nvp("positions", mesh.positions),
+		cereal::make_nvp("uvs", mesh.uvs),
+		cereal::make_nvp("normals", mesh.normals),
+		cereal::make_nvp("tangents", mesh.tangents),
+		cereal::make_nvp("indices", mesh.indices),
+		cereal::make_nvp("material", mesh.material)
+	);
 }
 
 template<class Archive>
@@ -106,19 +122,37 @@ void serialize(Archive& archive, Raekor::BoxCollider& collider) {
 
 template<class Archive>
 void save(Archive& archive, const Raekor::Material& mat) {
-	archive(mat.albedoFile, mat.normalFile, mat.metalroughFile, mat.albedo, mat.metallic, mat.roughness, mat.emissive, mat.isTransparent);
+	archive(
+		cereal::make_nvp("Albedo Map", mat.albedoFile),
+		cereal::make_nvp("Normal Map", mat.normalFile),
+		cereal::make_nvp("Metallic-Roughness Map", mat.metalroughFile),
+		cereal::make_nvp("Base Color", mat.albedo),
+		cereal::make_nvp("Metallic", mat.metallic),
+		cereal::make_nvp("Roughness", mat.roughness),
+		cereal::make_nvp("emissive", mat.emissive),
+		cereal::make_nvp("Transparent", mat.isTransparent)
+	);
 }
 
 
 template<class Archive>
 void load(Archive& archive, Raekor::Material& mat) {
-	archive(mat.albedoFile, mat.normalFile, mat.metalroughFile, mat.albedo, mat.metallic, mat.roughness, mat.emissive, mat.isTransparent);
+	archive(
+		cereal::make_nvp("Albedo Map", mat.albedoFile),
+		cereal::make_nvp("Normal Map", mat.normalFile),
+		cereal::make_nvp("Metallic-Roughness Map", mat.metalroughFile),
+		cereal::make_nvp("Base Color", mat.albedo),
+		cereal::make_nvp("Metallic", mat.metallic),
+		cereal::make_nvp("Roughness", mat.roughness),
+		cereal::make_nvp("emissive", mat.emissive),
+		cereal::make_nvp("Transparent", mat.isTransparent)
+	);
 }
 
 
 template<class Archive>
 void serialize(Archive& archive, Raekor::Name& name) {
-    archive(name.name);
+	archive(cereal::make_nvp("name", name.name));
 }
 
 

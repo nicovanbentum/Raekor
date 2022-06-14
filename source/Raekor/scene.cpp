@@ -193,9 +193,7 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
 
     //Read file into buffer
     std::string buffer;
-    storage.seekg(0, std::ios::end);
-    buffer.resize(storage.tellg());
-    storage.seekg(0, std::ios::beg);
+    buffer.resize(fs::file_size(file));
     storage.read(&buffer[0], buffer.size());
 
     auto decompressed = std::string();

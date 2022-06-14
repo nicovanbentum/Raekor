@@ -5,23 +5,14 @@
 
 namespace Raekor {
 
-glShader::glShader(const std::initializer_list<Stage>& list) 
-    : stages(list) 
-{}
-
-
-
-glShader::~glShader() { 
-    glDeleteProgram(programID); 
-}
-
+glShader::glShader(const std::initializer_list<Stage>& list) : stages(list) {}
+glShader::~glShader() { glDeleteProgram(programID); }
 
 
 void glShader::Compile(const std::initializer_list<Stage>& list) {
     stages = list;
     Compile();
 }
-
 
 
 void glShader::Compile() {
@@ -31,13 +22,12 @@ void glShader::Compile() {
     std::vector<GLuint> shaders;
 
     for (const auto& stage : stages) {
-        std::ifstream file(stage.binfile, std::ios::ate | std::ios::binary);
-        if (!file.is_open()) return;
+        std::ifstream file(stage.binfile, std::ios::binary);
+        if (!file.is_open()) 
+            return;
 
-        const size_t filesize = static_cast<size_t>(file.tellg());
-        std::vector<unsigned char> spirv(filesize);
-        file.seekg(0);
-        file.read((char*)&spirv[0], filesize);
+        auto spirv = std::vector<unsigned char>(fs::file_size(stage.binfile));
+        file.read((char*)&spirv[0], spirv.size());
         file.close();
 
         GLenum type = NULL;
@@ -66,30 +56,24 @@ void glShader::Compile() {
 
         glGetShaderiv(shaderID, GL_COMPILE_STATUS, &shaderCompilationResult);
         
-        if (shaderCompilationResult) {
-
+        if (shaderCompilationResult)
             shaders.push_back(shaderID);
-
-        } else {
-
+        else {
             glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &logMessageLength);
 
-            std::vector<char> error_msg(logMessageLength);
-
+            auto error_msg = std::vector<char>(logMessageLength);
             glGetShaderInfoLog(shaderID, logMessageLength, NULL, error_msg.data());
 
-            std::cerr << error_msg.data() << '\n';
-
             failed = true;
+            std::cerr << error_msg.data() << '\n';
         }
     }
 
     if (shaders.empty()) 
         return;
 
-    for (auto shader : shaders) {
+    for (auto shader : shaders)
         glAttachShader(newProgramID, shader);
-    }
 
     glLinkProgram(newProgramID);
 
@@ -100,12 +84,11 @@ void glShader::Compile() {
     if (shaderCompilationResult == GL_FALSE) {
         glGetProgramiv(newProgramID, GL_INFO_LOG_LENGTH, &logMessageLength);
         
-        std::vector<char> errorMessage(logMessageLength);
-        glGetProgramInfoLog(newProgramID, logMessageLength, NULL, errorMessage.data());
-        
-        std::cerr << errorMessage.data() << '\n';
+        auto error_msg = std::vector<char>(logMessageLength);
+        glGetProgramInfoLog(newProgramID, logMessageLength, NULL, error_msg.data());
         
         failed = true;
+        std::cerr << error_msg.data() << '\n';
     }
 
     for (auto shader : shaders) {
@@ -149,16 +132,13 @@ void glShader::Bind() {
             Compile();
         }
     }
-
     glUseProgram(programID); 
 }
-
 
 
 void glShader::Unbind() { 
     glUseProgram(0); 
 }
-
 
 
 Shader::Stage::Stage(Type type, const fs::path& textfile) : 

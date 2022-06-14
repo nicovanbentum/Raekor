@@ -149,9 +149,9 @@ void ViewportWidget::draw(float dt) {
 
     // the viewport image is a drag and drop target for dropping materials onto meshes
     if (ImGui::BeginDragDropTarget()) {
-        auto mousePos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
-        uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
-        entt::entity picked = static_cast<entt::entity>(pixel);
+        const auto mousePos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
+        const auto pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
+        const auto picked = Entity(pixel);
 
         Mesh* mesh = nullptr;
 
@@ -172,11 +172,11 @@ void ViewportWidget::draw(float dt) {
             ImGui::EndTooltip();
         }
 
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material")) {
-            if (mesh) {
-                mesh->material = *reinterpret_cast<const entt::entity*>(payload->Data);
-                active_entity = mesh->material;
-            }
+        const auto payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material");
+
+        if (payload && mesh) {
+            mesh->material = *reinterpret_cast<const Entity*>(payload->Data);
+            active_entity = mesh->material;
         }
 
         ImGui::EndDragDropTarget();
@@ -186,15 +186,14 @@ void ViewportWidget::draw(float dt) {
     viewport.offset = { pos.x, pos.y };
 
     if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !(active_entity != sInvalidEntity && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
-        auto mousePos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
-        uint32_t pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
-        entt::entity picked = static_cast<entt::entity>(pixel);
+        const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
+        const auto pixel = renderer.gbuffer->readEntity(mouse_pos.x, mouse_pos.y);
+        const auto picked = Entity(pixel);
 
-        if (scene.valid(picked)) {
+        if (scene.valid(picked))
             active_entity = active_entity == picked ? sInvalidEntity : picked;
-        } else {
+        else
             active_entity = entt::null;
-        }
     }
 
     if (active_entity != entt::null && scene.valid(active_entity) && scene.all_of<Transform>(active_entity) && gizmoEnabled) {
@@ -203,7 +202,7 @@ void ViewportWidget::draw(float dt) {
 
         // temporarily transform to mesh space for gizmo use
         auto& transform = scene.get<Transform>(active_entity);
-        auto mesh = scene.try_get<Mesh>(active_entity);
+        const auto mesh = scene.try_get<Mesh>(active_entity);
 
         if (mesh)
             transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
@@ -211,7 +210,7 @@ void ViewportWidget::draw(float dt) {
         // prevent the gizmo from going outside of the viewport
         ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
 
-        bool manipulated = ImGuizmo::Manipulate(
+        const auto manipulated = ImGuizmo::Manipulate(
             glm::value_ptr(viewport.GetCamera().GetView()),
             glm::value_ptr(viewport.GetCamera().GetProjection()),
             operation, ImGuizmo::MODE::LOCAL,
@@ -226,7 +225,7 @@ void ViewportWidget::draw(float dt) {
             transform.Decompose();
     }
 
-    ImVec2 metricsPosition = ImGui::GetWindowPos();
+    auto metricsPosition = ImGui::GetWindowPos();
     metricsPosition.y += ImGui::GetFrameHeightWithSpacing();
 
     if (!ImGui::GetCurrentWindow()->DockNode->IsHiddenTabBar()) {
@@ -239,13 +238,17 @@ void ViewportWidget::draw(float dt) {
     if (is_visible) {
         ImGui::SetNextWindowPos(metricsPosition);
         ImGui::SetNextWindowBgAlpha(0.35f);
-        ImGuiWindowFlags metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
+
+        const auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
         ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
         ImGui::Text("Culled meshes: %i", renderer.gbuffer->culled);
+
         ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
         ImGui::Text("Product: %s", glGetString(GL_RENDERER));
+
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
         ImGui::Text("Graphics API: OpenGL %s", glGetString(GL_VERSION));
         ImGui::End();
     }
@@ -255,7 +258,6 @@ void ViewportWidget::draw(float dt) {
 
 void ViewportWidget::onEvent(const SDL_Event& ev) {
     if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
-
         switch (ev.key.keysym.sym) {
             case SDLK_r: {
                 operation = ImGuizmo::OPERATION::ROTATE;

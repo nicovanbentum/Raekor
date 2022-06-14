@@ -1,20 +1,27 @@
 #include "pch.h"
 #include "animation.h"
+#include "util.h"
 
 namespace Raekor {
 
 void KeyFrames::LoadFromAssimp(aiNodeAnim* nodeAnim) {
-	for (unsigned int i = 0; i < nodeAnim->mNumScalingKeys; i++) {
+	for (unsigned int i = 0; i < nodeAnim->mNumScalingKeys; i++)
 		scaleKeys.push_back(nodeAnim->mScalingKeys[i]);
-	}
 
-	for (unsigned int i = 0; i < nodeAnim->mNumRotationKeys; i++) {
+	for (unsigned int i = 0; i < nodeAnim->mNumRotationKeys; i++)
 		rotationkeys.push_back(nodeAnim->mRotationKeys[i]);
-	}
 
-	for (unsigned int i = 0; i < nodeAnim->mNumPositionKeys; i++) {
+	for (const auto& key : Slice(nodeAnim->mScalingKeys, nodeAnim->mNumScalingKeys))
+		scaleKeys.push_back(key);
+
+	for (const auto& key : Slice(nodeAnim->mPositionKeys, nodeAnim->mNumPositionKeys))
+		positionKeys.push_back(key);
+
+	for (const auto& key : Slice(nodeAnim->mRotationKeys, nodeAnim->mNumRotationKeys))
+		rotationkeys.push_back(key);
+
+	for (unsigned int i = 0; i < nodeAnim->mNumPositionKeys; i++)
 		positionKeys.push_back(nodeAnim->mPositionKeys[i]);
-	}
 }
 
 
@@ -69,7 +76,8 @@ glm::quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
 
 	float DeltaTime = (float)(rotationkeys[NextRotationIndex].mTime - rotationkeys[RotationIndex].mTime);
 	float Factor = (animationTime - (float)rotationkeys[RotationIndex].mTime) / DeltaTime;
-	if (Factor < 0.0f) Factor = 0.0f;
+	if (Factor < 0.0f) 
+		Factor = 0.0f;
 
 	const aiQuaternion& StartRotationQ = rotationkeys[RotationIndex].mValue;
 	const aiQuaternion& EndRotationQ = rotationkeys[NextRotationIndex].mValue;
@@ -121,9 +129,9 @@ Animation::Animation(cgltf_animation* anim) {
 
 void Animation::LoadFromAssimp(aiAnimation* anim) {
 	m_Name = anim->mName.C_Str();
-	m_TicksPerSecond = static_cast<float>(anim->mTicksPerSecond);
-	m_TotalDuration = static_cast<float>(anim->mDuration);
 	m_RunningTime = 0;
+	m_TotalDuration = float(anim->mDuration);
+	m_TicksPerSecond = float(anim->mTicksPerSecond);
 
 	for (unsigned int ch = 0; ch < anim->mNumChannels; ch++) {
 		auto aiNodeAnim = anim->mChannels[ch];

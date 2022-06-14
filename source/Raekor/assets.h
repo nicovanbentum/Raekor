@@ -48,32 +48,26 @@ private:
 
 template<typename T>
 std::shared_ptr<T> Assets::Get(const std::string& path) {
-    if (!fs::exists(path)) {
+    if (!fs::exists(path))
         return nullptr;
-    }
-
     {
         std::scoped_lock lk(m_LoadMutex);
 
         // if it already has an asset pointer it means some other thread added it,
         // so just return whats there, the thread that added it is responsible for loading.
-        if (auto asset = find(path); asset != end()) {
+        if (auto asset = find(path); asset != end())
             return std::static_pointer_cast<T>(asset->second);
-        }
-        else {
+        else
             insert(std::make_pair(path, std::shared_ptr<Asset>(new T(path))));
-        }
-
-        // only get here if this thread created the asset pointer, try to load it.
-        // if load succeeds we return the asset pointer
-        if (at(path)->Load(path)) {
-            return std::static_pointer_cast<T>(at(path));
-        }
-        else {
-            // if load failed, lock -> remove asset pointer -> return nullptr
-            erase(path);
-            return nullptr;
-        }
+    }
+    // only get here if this thread created the asset pointer, try to load it.
+    // if load succeeds we return the asset pointer
+    if (at(path)->Load(path))
+        return std::static_pointer_cast<T>(at(path));
+    else {
+        // if load failed, lock -> remove asset pointer -> return nullptr
+        erase(path);
+        return nullptr;
     }
 }
 
@@ -83,7 +77,7 @@ public:
     using Ptr = std::shared_ptr<TextureAsset>;
 
     TextureAsset() = default;
-    TextureAsset::TextureAsset(const std::string& filepath) : Asset(filepath) {}
+    TextureAsset(const std::string& filepath) : Asset(filepath) {}
     virtual ~TextureAsset() = default;
 
     static std::string sConvert(const std::string& path);
@@ -106,7 +100,7 @@ public:
     using Ptr = std::shared_ptr<ScriptAsset>;
 
     ScriptAsset() = default;
-    ScriptAsset::ScriptAsset(const std::string& filepath) : Asset(filepath) {}
+    ScriptAsset(const std::string& filepath) : Asset(filepath) {}
     virtual ~ScriptAsset();
 
     static std::string sConvert(const std::string& filepath);

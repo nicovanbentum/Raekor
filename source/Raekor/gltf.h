@@ -22,13 +22,12 @@ public:
 	template<typename Fn> void SetUploadSkeletonCallbackFunction(Fn&& fn) { m_UploadSkeletonCallback = fn; }
 
 private:
-	void parseMaterial(cgltf_material& gltfMaterial, entt::entity entity);
-	void parseNode(const cgltf_node& gltfNode, entt::entity entity, glm::mat4 transform);
-	void parseMeshes(const cgltf_node& gltfNode, entt::entity entity, entt::entity parent);
+	void parseMaterial(cgltf_material& gltfMaterial);
+	void parseNode(const cgltf_node& gltfNode, entt::entity parent, glm::mat4 transform);
 
-	void LoadMesh(entt::entity entity, const cgltf_mesh& assimpMesh);
-	void LoadBones(entt::entity entity, const cgltf_node& assimpMesh);
-	void LoadMaterial(entt::entity entity, const cgltf_material& assimpMaterial);
+	void ConvertMesh(Mesh& mesh, const cgltf_mesh& assimpMesh);
+	void ConvertBones(Skeleton& skeleton, const cgltf_node& assimpMesh);
+	void ConvertMaterial(Material& material, const cgltf_material& assimpMaterial);
 
 
 private:

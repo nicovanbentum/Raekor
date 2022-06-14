@@ -47,6 +47,34 @@ void MenubarWidget::draw(float dt) {
                 }
             }
 
+            if (ImGui::MenuItem("Serialize as JSON..", "CTRL + S")) {
+                auto folder = fs::path(OS::sSelectFolderDialog());
+
+                Timer timer;
+                if (!folder.empty()) {
+                    for (const auto& [entity, name, mesh] : scene.view<Name, Mesh>().each()) {
+                        // for the love of god C++ overlords, let me capture structured bindings
+                        Async::sQueueJob([&, name = &name, mesh = &mesh]() {
+                            auto ofs = std::ofstream((folder / name->name).replace_extension(".mesh"));
+                            cereal::JSONOutputArchive archive(ofs);
+                            archive(*mesh);
+                        });
+                    }
+
+                    for (const auto& [entity, name, material] : scene.view<Name, Material>().each()) {
+                        // for the love of god C++ overlords, let me capture structured bindings
+                        Async::sQueueJob([&, name = &name, material = &material]() {
+                            auto ofs = std::ofstream((folder / name->name).replace_extension(".material"));
+                            cereal::JSONOutputArchive archive(ofs);
+                            archive(*material);
+                        });
+                    }
+                    Async::sWait();
+                }
+
+                std::clog << "Serialize scene time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
+            }
+
             if (ImGui::MenuItem("Load model..")) {
                 std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.fbx, *.glb, *.obj)\0*.gltf;*.fbx;*.glb;*.obj\0");
                 

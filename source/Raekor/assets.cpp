@@ -124,14 +124,13 @@ bool TextureAsset::Load(const std::string& filepath) {
     if (filepath.empty() || !fs::exists(filepath))
         return false;
 
-    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+    std::ifstream file(filepath, std::ios::binary);
 
     constexpr size_t twoMegabytes = 2097152;
     std::vector<char> scratch(twoMegabytes);
     file.rdbuf()->pubsetbuf(scratch.data(), scratch.size());
 
-    m_Data.resize(file.tellg());
-    file.seekg(0, std::ios::beg);
+    m_Data.resize(fs::file_size(filepath));
     file.read(m_Data.data(), m_Data.size());
 
     DWORD magicNumber;

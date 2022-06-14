@@ -71,6 +71,32 @@ std::string OS::sSaveFileDialog(const char* filters, const char* defaultExt) {
     return std::string();
 }
 
+
+std::string OS::sSelectFolderDialog() {
+    IFileDialog* pfd;
+    if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd)))) {
+        DWORD dwOptions;
+
+        if (SUCCEEDED(pfd->GetOptions(&dwOptions))) 
+            pfd->SetOptions(dwOptions | FOS_PICKFOLDERS);
+
+        if (SUCCEEDED(pfd->Show(NULL))) {
+            IShellItem* psi;
+
+            if (SUCCEEDED(pfd->GetResult(&psi))) {
+                LPWSTR result;
+
+                if (SUCCEEDED(psi->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING, &result)))
+                    return gWCharToString(result);
+
+                psi->Release();
+            }
+        }
+        pfd->Release();
+    }
+    return std::string();
+}
+
 #else 
 
 std::string PlatformContext::openFileDialog(const std::vector<Ffilter>& filters) {

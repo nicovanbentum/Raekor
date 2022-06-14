@@ -55,6 +55,7 @@
     #include <SDL2/SDL_syswm.h>
     #include <DbgHelp.h>
     #include <Psapi.h>  
+    #include <ShObjIdl_core.h>
 #elif __linux__
     #include <GL/gl.h>
     #include <gtk/gtk.h>

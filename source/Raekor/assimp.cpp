@@ -34,7 +34,7 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
         aiProcess_OptimizeGraph |
         aiProcess_CalcTangentSpace |
         aiProcess_LimitBoneWeights |
-        //aiProcess_OptimizeMeshes |
+        aiProcess_OptimizeMeshes |
         //aiProcess_PreTransformVertices |
         aiProcess_ValidateDataStructure |
         aiProcess_JoinIdenticalVertices |
@@ -205,9 +205,8 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
 
 
 void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
-    if (!m_AiScene->HasAnimations()) {
+    if (!m_AiScene->HasAnimations())
         return;
-    }
     
     auto& mesh = m_Scene.get<Mesh>(entity);
     auto& skeleton = m_Scene.emplace<Skeleton>(entity);

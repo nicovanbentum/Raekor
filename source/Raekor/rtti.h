@@ -21,7 +21,7 @@ private:
 namespace std {
     template <> struct hash<Raekor::RTTI> {
         size_t operator()(const Raekor::RTTI& x) const {
-            return static_cast<size_t>(x.GetHash());
+            return size_t(x.GetHash());
         }
     };
 }

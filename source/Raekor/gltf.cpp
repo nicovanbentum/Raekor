@@ -41,6 +41,11 @@ GltfImporter::~GltfImporter() {
 
 
 bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
+    /*
+    * LOAD GLTF FROM DISK
+    */
+    m_Directory = fs::path(file).parent_path() / "";
+
     cgltf_options options = {};
     if (!handle_cgltf_error(cgltf_parse_file(&options, file.c_str(), &m_GltfData)))
         return false;
@@ -51,53 +56,48 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     if (!handle_cgltf_error(cgltf_validate(m_GltfData)))
         return false;
 
+    /*
+    * PARSE MATERIALS
+    */
     Timer timer;
-    m_Directory = fs::path(file).parent_path() / "";
+    for (unsigned int index = 0; index < m_GltfData->materials_count; index++) {
+        auto& gltf_material = m_GltfData->materials[index];
 
-    // pre-parse materials and convert textures in parallel
-    for (unsigned int i = 0; i < m_GltfData->materials_count; i++) {
-        gPrintProgressBar("Converting material textures: ", float(i) / m_GltfData->materials_count);
-        parseMaterial(m_GltfData->materials[i], m_Scene.create());
+        auto entity = m_Scene.create();
+        auto& nameComponent = m_Scene.emplace<Name>(entity);
+
+        if (gltf_material.name && strcmp(gltf_material.name, "") != 0)
+            nameComponent.name = gltf_material.name;
+        else
+            nameComponent.name = "Material " + std::to_string(entt::to_integral(entity));
+
+        ConvertMaterial(m_Scene.emplace<Material>(entity), gltf_material);
+        m_Materials.push_back(entity);
+        
+        gPrintProgressBar("DDS Conversion Progress: ", float(index) / m_GltfData->materials_count);
     }
 
     Async::sWait();
-
-    std::cout << "Texture conversion took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
-
-    // preload material texture in parallel
+    std::cout << "DDS Conversion: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
     m_Scene.LoadMaterialTextures(assets, Slice(m_Materials.data(), m_Materials.size()));
 
-    // This is where the magic happens, recursively go through the node graph and create our own
-    for (const auto& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count)) {
-        for (const auto& node : Slice(scene.nodes, scene.nodes_count)) {
+    /*
+    * PARSE NODES & MESHES
+    */
+    for (const auto& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
+        for (const auto& node : Slice(scene.nodes, scene.nodes_count))
             parseNode(*node, sInvalidEntity, glm::mat4(1.0f));
-        }
-    }
 
     const auto root_node = m_Scene.CreateSpatialEntity(fs::path(file).filename().string());
-    // Go through all the newly created nodes and parent the root nodes to a single new node
+    
     for (const auto& entity : m_CreatedNodeEntities) {
         auto& node = m_Scene.get<Node>(entity);
 
         if (node.IsRoot())
-            NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(root_node), m_Scene.get<Node>(entity));
+            NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(root_node), node);
     }
 
     return true;
-}
-
-
-void GltfImporter::parseMaterial(cgltf_material& assimpMaterial, entt::entity entity) {
-    auto& nameComponent = m_Scene.emplace<Name>(entity);
-
-    if (assimpMaterial.name && strcmp(assimpMaterial.name, "") != 0)
-        nameComponent.name = assimpMaterial.name;
-    else
-        nameComponent.name = "Material " + std::to_string(entt::to_integral(entity));
-
-    LoadMaterial(entity, assimpMaterial);
-
-    m_Materials.push_back(entity);
 }
 
 
@@ -114,6 +114,8 @@ void GltfImporter::parseNode(const cgltf_node& node, entt::entity parent, glm::m
             m_Scene.get<Name>(entity).name = node.name;
         else if (node.mesh && node.mesh->name)
             m_Scene.get<Name>(entity).name = node.mesh->name;
+        else 
+            m_Scene.get<Name>(entity).name = "Mesh " + std::to_string(entt::to_integral(entity));
 
         auto& mesh_transform = m_Scene.get<Transform>(entity);
         mesh_transform.localTransform = transform;
@@ -123,7 +125,10 @@ void GltfImporter::parseNode(const cgltf_node& node, entt::entity parent, glm::m
         if (parent != entt::null)
             NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(parent), m_Scene.get<Node>(entity));
 
-        parseMeshes(node, entity, parent);
+        ConvertMesh(m_Scene.emplace<Mesh>(entity), *node.mesh);
+
+        if (node.skin && node.weights_count)
+            ConvertBones(m_Scene.emplace<Skeleton>(entity), node);
     }
 
     for (const auto& child : Slice(node.children, node.children_count))
@@ -131,27 +136,25 @@ void GltfImporter::parseNode(const cgltf_node& node, entt::entity parent, glm::m
 }
 
 
-void GltfImporter::parseMeshes(const cgltf_node& node, entt::entity new_entity, entt::entity parent) {
-    if (node.mesh) {
-        LoadMesh(new_entity, *node.mesh);
-
-        if (node.weights_count)
-            LoadBones(new_entity, node);
-    }
-}
-
-
-void GltfImporter::LoadMesh(entt::entity entity, const cgltf_mesh& gltfMesh) {
-    auto& mesh = m_Scene.emplace<Mesh>(entity);
-
+void GltfImporter::ConvertMesh(Mesh& mesh, const cgltf_mesh& gltfMesh) {
     mesh.uvs.reserve(gltfMesh.primitives_count);
     mesh.normals.reserve(gltfMesh.primitives_count);
     mesh.tangents.reserve(gltfMesh.primitives_count);
     mesh.positions.reserve(gltfMesh.primitives_count);
     mesh.indices.reserve(gltfMesh.primitives_count * 3);
 
+    cgltf_material* material = nullptr;
+
     for(const auto& primitive : Slice(gltfMesh.primitives, gltfMesh.primitives_count)) {
         assert(primitive.type == cgltf_primitive_type_triangles);
+
+        if (!material && primitive.material != material) {
+            material = primitive.material;
+        }
+        else if (primitive.material != material) {
+            material = primitive.material;
+
+        }
 
         for (int i = 0; i < m_GltfData->materials_count; i++)
             if (primitive.material == &m_GltfData->materials[i])
@@ -161,11 +164,10 @@ void GltfImporter::LoadMesh(entt::entity entity, const cgltf_mesh& gltfMesh) {
             const auto float_count = cgltf_accessor_unpack_floats(attribute.data, NULL, 0);
             auto accessor_data = std::vector<float>(float_count); // TODO: allocate this once?
             
-            cgltf_accessor_unpack_floats(attribute.data, accessor_data.data(), float_count);
+            auto data = accessor_data.data();
+            cgltf_accessor_unpack_floats(attribute.data, data, float_count);
             const auto num_components = cgltf_num_components(attribute.data->type);
 
-            auto data = accessor_data.data();
-            
             for (uint32_t element_index = 0; element_index < attribute.data->count; element_index++) {
                 switch (attribute.type) {
                     case cgltf_attribute_type_position: {
@@ -204,13 +206,10 @@ void GltfImporter::LoadMesh(entt::entity entity, const cgltf_mesh& gltfMesh) {
 }
 
 
-void GltfImporter::LoadBones(entt::entity entity, const cgltf_node& assimpMesh) {
+void GltfImporter::ConvertBones(Skeleton& skeleton, const cgltf_node& assimpMesh) {
     if (!m_GltfData->animations_count)
         return;
     
-    auto& mesh = m_Scene.get<Mesh>(entity);
-    auto& skeleton = m_Scene.emplace<Skeleton>(entity);
-
     for (uint32_t anim_idx = 0; anim_idx < m_GltfData->animations_count; anim_idx++) {
         skeleton.animations.emplace_back(&m_GltfData->animations[anim_idx]);
     }
@@ -297,8 +296,7 @@ void GltfImporter::LoadBones(entt::entity entity, const cgltf_node& assimpMesh) 
 }
 
 
-void GltfImporter::LoadMaterial(entt::entity entity, const cgltf_material& gltfMaterial) {
-    auto& material = m_Scene.emplace<Material>(entity);
+void GltfImporter::ConvertMaterial(Material& material, const cgltf_material& gltfMaterial) {
     material.isTransparent = gltfMaterial.alpha_mode != cgltf_alpha_mode_opaque;
 
     if (gltfMaterial.has_pbr_metallic_roughness) {

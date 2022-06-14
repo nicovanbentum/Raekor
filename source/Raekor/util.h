@@ -88,12 +88,12 @@ private:
 
 template <typename T>
 constexpr ImVec2 ImVec(const glm::vec<2, T>& vec) {
-    return ImVec2(static_cast<float>(vec.x), static_cast<float>(vec.y));
+    return ImVec2(float(vec.x), float(vec.y));
 }
 
 template<typename T>
 constexpr ImVec4 ImVec(const glm::vec<4, T>& vec) {
-    return ImVec4(static_cast<float>(vec.x), static_cast<float>(vec.y), static_cast<float>(vec.z), static_cast<float>(vec.w));
+    return ImVec4(float(vec.x), float(vec.y), float(vec.z), float(vec.w));
 }
 
 inline ImVec2 operator*(const ImVec2& lhs, const ImVec2& rhs) {
@@ -102,11 +102,11 @@ inline ImVec2 operator*(const ImVec2& lhs, const ImVec2& rhs) {
 
 template<typename T>
 inline JPH::Vec3 FromGLM(const glm::vec<3, T>& vec) {
-    return JPH::Vec3(static_cast<float>(vec.x), static_cast<float>(vec.y), static_cast<float>(vec.z));
+    return JPH::Vec3(float(vec.x), float(vec.y), float(vec.z));
 }
 
 inline JPH::Quat FromGLM(const glm::quat& quat) {
-    return JPH::Quat(static_cast<float>(quat.x), static_cast<float>(quat.y), static_cast<float>(quat.z), static_cast<float>(quat.w));
+    return JPH::Quat(float(quat.x), float(quat.y), float(quat.z), float(quat.w));
 }
 
 // std::string version of https://docs.microsoft.com/en-us/cpp/text/how-to-convert-between-various-string-types?view=msvc-160
@@ -128,14 +128,82 @@ public:
     Slice(const T* start, uint64_t length) : start(start), length(length) {}
     Slice(const T* start, const T* end) : start(start), length(end - start) {}
 
+    const T& operator[](size_t index) const {
+        const auto ptr = start + index;
+        assert(ptr != nullptr && ptr < start + length);
+        return *ptr;
+    }
+
     auto begin() { return start; }
     auto end() { return (start + length); }
     const auto begin() const { return start; }
     const auto end() const { return (start + length); }
 
+    const uint64_t Length() const { return length; }
+
 private:
     const T* start = nullptr;
     uint64_t length = 0;
+};
+
+
+template<typename T>
+class RTID {
+public:
+    RTID() : index(UINT32_MAX) {}
+    explicit RTID(uint32_t inIndex) : index(inIndex) {}
+
+    uint32_t ToIndex() const { return index; }
+    bool Isvalid() const { return index != UINT32_MAX; }
+
+private:
+    uint32_t index;
+};
+
+
+template<typename T>
+class FreeVector {
+public:
+    using ID = RTID<T>;
+    virtual ~FreeVector() = default;
+
+    virtual ID Add(const T& inT) {
+        size_t t_index;
+
+        if (m_FreeIndices.empty()) {
+            m_Storage.emplace_back(inT);
+            t_index = m_Storage.size() - 1;
+        }
+        else {
+            t_index = m_FreeIndices.back();
+            m_Storage[t_index] = inT;
+            m_FreeIndices.pop_back();
+        }
+
+        return ID(t_index);
+    }
+
+    virtual bool Remove(ID inID) {
+        if (inID.ToIndex() > m_Storage.size() - 1)
+            return false;
+
+        m_FreeIndices.push_back(inID.ToIndex());
+        return true;
+    }
+
+    virtual T& Get(ID inRTID) {
+        assert(!m_Storage.empty() && inRTID.ToIndex() < m_Storage.size());
+        return m_Storage[inRTID.ToIndex()];
+    }
+
+    virtual const T& Get(ID inRTID) const {
+        assert(!m_Storage.empty() && inRTID.ToIndex() < m_Storage.size());
+        return m_Storage[inRTID.ToIndex()];
+    }
+
+private:
+    std::vector<T> m_Storage;
+    std::vector<size_t> m_FreeIndices;
 };
 
 } // Namespace Raekor

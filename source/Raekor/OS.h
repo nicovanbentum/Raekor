@@ -13,6 +13,7 @@ public:
     static bool sRunMsBuild(const char* args);
     static std::string sOpenFileDialog(const char* filters);
     static std::string sSaveFileDialog(const char* filters, const char* defaultExt);
+    static std::string sSelectFolderDialog();
 };
 
 } // Namespace Raekor
