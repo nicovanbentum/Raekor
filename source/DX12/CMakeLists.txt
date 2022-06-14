@@ -10,9 +10,9 @@ file(GLOB_RECURSE CppFiles ${PROJECT_SOURCE_DIR}/*.cpp)
 set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp)
 
-# Rule to build the actual exectuable and enable c++17
+# Rule to build the actual exectuable and enable c++20
 add_executable(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/assets/system/icon/Raekor.rc)
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 
 
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers

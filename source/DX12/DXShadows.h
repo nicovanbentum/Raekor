@@ -2,8 +2,11 @@
 
 #include "pch.h"
 #include "DXDevice.h"
-#include "Raekor/scene.h"
-#include "Raekor/camera.h"
+
+namespace Raekor {
+	class Scene;
+	class Viewport;
+}
 
 namespace Raekor::DX {
 
@@ -20,9 +23,10 @@ class ShadowPass {
 
 public:
 	void Init(const Viewport& inViewport, const ShaderLibrary& inShaders, Device& inDevice);
-	void Render(const Viewport& inViewport, const Device& inDevice, const Scene& scene, uint32_t inTLAS, uint32_t inGBuffer, uint32_t inGBufferDepth, ID3D12GraphicsCommandList* inCmdList);
+	void Render(const Viewport& inViewport, const Device& inDevice, const Scene& scene, ResourceID inTLAS, TextureID inGBuffer, TextureID inGBufferDepth, ID3D12GraphicsCommandList* inCmdList);
 
-	uint32_t m_ResultTexture;
+	TextureID m_ResultTexture;
+
 private:
 	ComPtr<ID3D12PipelineState> m_Pipeline;
 };

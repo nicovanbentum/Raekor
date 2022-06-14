@@ -10,8 +10,6 @@ struct RootConstants {
 
 ROOT_CONSTANTS(RootConstants, rc)
 
-globallycoherent RWStructuredBuffer<uint> globalAtomic = ResourceDescriptorHeap[rc.globalAtomicIndex];
-
 #define A_GPU
 #define A_HLSL
 #include "include/ffx_a.h"
@@ -25,12 +23,12 @@ groupshared AF1 spdIntermediateA[16][16];
 
 AF4 SpdLoadSourceImage(AF2 tex, AU1 slice) {
     globallycoherent RWTexture2D<float4> imgDst = ResourceDescriptorHeap[rc.destImageIndices[0]];
-    return imgDst[float3(tex, slice)];
+    return imgDst[float2(tex)];
 }
 
 AF4 SpdLoad(ASU2 tex, AU1 slice) {
     globallycoherent RWTexture2D<float4> imgDst = ResourceDescriptorHeap[rc.destImageIndices[6]];
-    return imgDst[uint3(tex, slice)];
+    return imgDst[uint2(tex)];
 }
 
 void SpdStore(ASU2 pix, AF4 outValue, AU1 mip, AU1 slice) {
@@ -39,6 +37,7 @@ void SpdStore(ASU2 pix, AF4 outValue, AU1 mip, AU1 slice) {
 }
 
 void SpdIncreaseAtomicCounter(AU1 slice) {
+    globallycoherent RWStructuredBuffer<uint> globalAtomic = ResourceDescriptorHeap[rc.globalAtomicIndex];
     InterlockedAdd(globalAtomic[0], 1, spdCounter);
 }
 
@@ -47,6 +46,7 @@ AU1 SpdGetAtomicCounter() {
 }
 
 void SpdResetAtomicCounter(AU1 slice) {
+    globallycoherent RWStructuredBuffer<uint> globalAtomic = ResourceDescriptorHeap[rc.globalAtomicIndex];
     globalAtomic[0] = 0;
 }
 
@@ -72,6 +72,6 @@ AF4 SpdReduce4(AF4 v0, AF4 v1, AF4 v2, AF4 v3) {
 #include "include/ffx_spd.h"
 
 [numthreads(256, 1, 1)]
-void main(uint3 group_id, uint group_index : SV_GroupIndex) {
+void main(uint3 group_id : SV_GroupID, uint group_index : SV_GroupIndex) {
     SpdDownsample(group_id.xy, group_index, rc.mips, rc.numWorkGroups, 0);
 }

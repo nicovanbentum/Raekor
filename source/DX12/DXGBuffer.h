@@ -1,9 +1,12 @@
 #pragma once
 
-#include "pch.h"
 #include "DXUtil.h"
 #include "DXDevice.h"
-#include "Raekor/scene.h"
+
+namespace Raekor {
+	class Scene;
+	class Viewport;
+}
 
 namespace Raekor::DX {
 
@@ -23,10 +26,10 @@ public:
 	void Init(const Viewport& viewport, const ShaderLibrary& shaders, Device& inDevice);
 	void Render(const Viewport& inViewport, const Scene& inScene, const Device& inDevice, ID3D12GraphicsCommandList* inCmdList);
 
-	uint32_t m_RenderTarget;
-	uint32_t m_RenderTargetSRV;
-	uint32_t m_DepthStencil;
-	uint32_t m_DepthSRV;
+	TextureID m_RenderTarget;
+	TextureID m_RenderTargetSRV;
+	TextureID m_DepthStencil;
+	TextureID m_DepthStencilSRV;
 
 private:
 	ComPtr<ID3D12PipelineState> m_Pipeline;

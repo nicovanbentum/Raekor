@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Raekor/pch.h"
+#include "Raekor/raekor.h"
 
 #include <dxgi1_6.h>
 #include <d3dcompiler.h>

@@ -29,23 +29,37 @@ void PresentPass::Init(Device& inDevice, const ShaderLibrary& inShaders) {
 }
 
 
-void PresentPass::Render(Device& inDevice, ID3D12GraphicsCommandList* inCmdList, uint32_t inSrc, uint32_t inDst, uint32_t inGBuffer, ESampler inSampler) {
-    mPushConstants.mSampleIndex = inSampler;
-    mPushConstants.mSourceTextureIndex = inSrc;
-    mPushConstants.mGbufferTextureIndex = inGBuffer;
+void PresentPass::Render(Device& inDevice, ID3D12GraphicsCommandList* inCmdList, TextureID inSrc, ResourceID inDst, TextureID inGBuffer, ESampler inSampler) {
+    const auto& rtv_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    const auto& srv_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    const auto dest_texture = inDevice.m_RtvHeap[inDst];
-    const auto render_target = inDevice.m_RtvHeap.GetCPUDescriptorHandle(inDst);
-    const std::array heaps = { inDevice.m_CbvSrvUavHeap.GetHeap(), inDevice.m_SamplerHeap.GetHeap() };
+    auto& src_texture = inDevice.GetTexture(inSrc);
+    auto& gbuffer_texture = inDevice.GetTexture(inGBuffer);
+    
+    mPushConstants.mSampleIndex = inSampler;
+    mPushConstants.mSourceTextureIndex = src_texture.GetHeapIndex();
+    mPushConstants.mGbufferTextureIndex = gbuffer_texture.GetHeapIndex();
+
+    const std::array heaps = { 
+        inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetHeap(),
+        inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER).GetHeap(),
+    };
 
     inCmdList->SetPipelineState(m_Pipeline.Get());
     inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    inCmdList->RSSetViewports(1, &CD3DX12_VIEWPORT(dest_texture.Get()));
-    inCmdList->RSSetScissorRects(1, &CD3DX12_RECT(0, 0, dest_texture->GetDesc().Width, dest_texture->GetDesc().Height));
+
+    const auto render_target = rtv_heap.GetCPUDescriptorHandle(inDst);
+    const auto viewport = CD3DX12_VIEWPORT(src_texture.GetResource().Get());
+    const auto scissor  = CD3DX12_RECT(0, 0, src_texture->GetDesc().Width, src_texture->GetDesc().Height);
+    
+    inCmdList->RSSetViewports(1, &viewport);
+    inCmdList->RSSetScissorRects(1, &scissor);
     inCmdList->OMSetRenderTargets(1, &render_target, FALSE, nullptr);
-    inCmdList->SetGraphicsRootSignature(inDevice.GetGlobalRootSignature());
+
     inCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
+    inCmdList->SetGraphicsRootSignature(inDevice.GetGlobalRootSignature());
     inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(mPushConstants) / sizeof(DWORD), &mPushConstants, 0);
+    
     inCmdList->DrawInstanced(6, 1, 0, 0);
 }
 

@@ -5,19 +5,18 @@
 
 namespace Raekor::DX {
 
-void Downsample::Init(Device& inDevice, const ShaderLibrary& inShaders) {
-    ComPtr<ID3D12Resource> global_atomic_buffer;
-    gThrowIfFailed(inDevice->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-        D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(sizeof(uint32_t)),
-        D3D12_RESOURCE_STATE_COMMON,
-        nullptr,
-        IID_PPV_ARGS(global_atomic_buffer.GetAddressOf()))
-    );
+void DownsamplePass::Init(Device& inDevice, const ShaderLibrary& inShaders) {
+    m_GlobalAtomicBuffer = inDevice.CreateBuffer(Buffer::Desc{
+        .size = sizeof(uint32_t),
+        .usage = Buffer::Usage::GENERAL
+    });
 
-    m_GlobalAtomicBuffer = inDevice.m_CbvSrvUavHeap.AddResource(global_atomic_buffer);
-    inDevice.CreateShaderResourceView(m_GlobalAtomicBuffer);
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+    srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srv_desc.Buffer.NumElements = 1;
+    srv_desc.Buffer.StructureByteStride = sizeof(uint32_t);
 
     const auto& compute_shader = inShaders.at("spdCS");
 
@@ -28,8 +27,12 @@ void Downsample::Init(Device& inDevice, const ShaderLibrary& inShaders) {
     gThrowIfFailed(inDevice->CreateComputePipelineState(&desc, IID_PPV_ARGS(m_Pipeline.GetAddressOf())));
 }
 
-void Downsample::Render(Device& inDevice, ID3D12GraphicsCommandList* inCmdList, uint32_t inTextureHandle, uint32_t inMips) {
-    const auto& texture = inDevice.m_CbvSrvUavHeap[inTextureHandle];
+
+void DownsamplePass::Render(Device& inDevice, ID3D12GraphicsCommandList* inCmdList, Slice<ResourceID> mipSrvs) {
+    const auto mip_count = mipSrvs.Length();
+    const auto& resource_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    const auto& texture = resource_heap.Get(mipSrvs[0]);
     const auto rect_info = glm::uvec4(0u, 0u, texture->GetDesc().Width, texture->GetDesc().Height);
 
     glm::uvec2 work_group_offset, dispatchThreadGroupCountXY, numWorkGroupsAndMips;
@@ -44,8 +47,8 @@ void Downsample::Render(Device& inDevice, ID3D12GraphicsCommandList* inCmdList, 
 
     numWorkGroupsAndMips[0] = (dispatchThreadGroupCountXY[0]) * (dispatchThreadGroupCountXY[1]);
 
-    if (inMips >= 0) {
-        numWorkGroupsAndMips[1] = inMips;
+    if (mip_count >= 0) {
+        numWorkGroupsAndMips[1] = mip_count;
     }
     else { // calculate based on rect width and height
         auto resolution = glm::max(rect_info[2], rect_info[3]);
@@ -55,13 +58,15 @@ void Downsample::Render(Device& inDevice, ID3D12GraphicsCommandList* inCmdList, 
     mRootConstants.mips = numWorkGroupsAndMips[1];
     mRootConstants.numWorkGroups = numWorkGroupsAndMips[0];
     mRootConstants.workGroupoffset = work_group_offset;
-    mRootConstants.destImageIndices[0] = inTextureHandle;
-    mRootConstants.globalAtomicIndex = m_GlobalAtomicBuffer;
+    mRootConstants.globalAtomicIndex = inDevice.GetBuffer(m_GlobalAtomicBuffer).GetView().ToIndex();
+
+    for (uint32_t i = 0; i < mip_count; i++)
+        mRootConstants.destImageIndices[i] = mipSrvs[i].ToIndex();
 
     inCmdList->SetPipelineState(m_Pipeline.Get());
     inCmdList->SetComputeRootSignature(inDevice.GetGlobalRootSignature());
 
-    const std::array heaps = { inDevice.m_CbvSrvUavHeap.GetHeap() };
+    const std::array heaps = { resource_heap.GetHeap()};
     inCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
     
     inCmdList->SetComputeRoot32BitConstants(0, sizeof(mRootConstants) / sizeof(DWORD), &mRootConstants, 0);

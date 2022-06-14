@@ -1,8 +1,9 @@
 #pragma once
 
-#include "DXDevice.h"
 #include "Raekor/application.h"
 #include "Raekor/scene.h"
+#include "Raekor/assets.h"
+#include "DXDevice.h"
 
 #include "DXBlit.h"
 #include "DXShadows.h"
@@ -12,7 +13,7 @@ namespace Raekor::DX {
 
 struct BackbufferData {
     uint64_t                            mFenceValue;
-    uint32_t                            mBackbufferRTV;
+    ResourceID                          mBackbufferRTV;
     ComPtr<ID3D12GraphicsCommandList4>  mCmdList;
     ComPtr<ID3D12CommandAllocator>      mCmdAllocator;
 };
@@ -33,19 +34,20 @@ public:
     BackbufferData& GetBackbufferData() { return m_BackbufferData[m_FrameIndex]; }
     BackbufferData& GetPrevBackbufferData() { return m_BackbufferData[!m_FrameIndex]; }
 
-    uint32_t QueueDirectStorageLoad(const TextureAsset::Ptr& asset, const fs::path& path, DXGI_FORMAT format);
+    ResourceID QueueDirectStorageLoad(const TextureAsset::Ptr& asset, const fs::path& path, DXGI_FORMAT format);
 
 private:
     Scene m_Scene;
     Assets m_Assets;
 
     Device m_Device;
+    StagingHeap m_StagingHeap;
     ComPtr<IDXGISwapChain3> m_Swapchain;
     ComPtr<IDStorageQueue> m_StorageQueue;
 
-    uint32_t m_TLAS;
-    uint32_t m_DefaultWhiteTexture;
-    uint32_t m_DefaultBlackTexture;
+    ResourceID m_TLAS;
+    ResourceID m_DefaultWhiteTexture;
+    ResourceID m_DefaultBlackTexture;
 
     PresentPass m_Blit;
     ShadowPass m_Shadows;
@@ -60,7 +62,7 @@ private:
 
 
 struct AccelerationStructure {
-    uint32_t handle = 0;
+    BufferID buffer;
 };
 
 

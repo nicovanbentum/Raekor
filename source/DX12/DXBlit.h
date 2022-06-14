@@ -16,7 +16,7 @@ class PresentPass {
 
 public:
 	void Init(Device& inDevice, const ShaderLibrary& inShaders);
-	void Render(Device& inDevice, ID3D12GraphicsCommandList* inCmdList, uint32_t inSrc, uint32_t inDst, uint32_t inGBuffer, ESampler inSampler);
+	void Render(Device& inDevice, ID3D12GraphicsCommandList* inCmdList, TextureID inSrc, ResourceID inDst, TextureID inGBuffer, ESampler inSampler);
 
 private:
 	ComPtr<ID3D12PipelineState> m_Pipeline;

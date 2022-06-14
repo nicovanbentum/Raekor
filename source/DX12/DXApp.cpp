@@ -19,7 +19,11 @@ constexpr std::array shaderEntryName = {
     L"VSMain", L"PSMain", L"CSMain"
 };
 
-DXApp::DXApp() : Application(RendererFlags::NONE), m_Device(m_Window) {
+DXApp::DXApp() : 
+    Application(RendererFlags::NONE), 
+    m_Device(m_Window), 
+    m_StagingHeap(m_Device) 
+{
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -76,10 +80,9 @@ DXApp::DXApp() : Application(RendererFlags::NONE), m_Device(m_Window) {
     for (uint32_t i = 0; i < sFrameCount; i++) {
         auto& backbuffer_data = m_BackbufferData[i];
 
-        ComPtr<ID3D12Resource> rtv;
-        gThrowIfFailed(m_Swapchain->GetBuffer(i, IID_PPV_ARGS(&rtv)));
-        backbuffer_data.mBackbufferRTV = m_Device.m_RtvHeap.AddResource(rtv);
-        m_Device.CreateRenderTargetView(i);
+        ResourceRef rtv_resource;
+        gThrowIfFailed(m_Swapchain->GetBuffer(i, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
+        backbuffer_data.mBackbufferRTV = m_Device.CreateRenderTargetView(rtv_resource);
         
         gThrowIfFailed(m_Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&backbuffer_data.mCmdAllocator)));
         gThrowIfFailed(m_Device->CreateCommandList(0x00, D3D12_COMMAND_LIST_TYPE_DIRECT, backbuffer_data.mCmdAllocator.Get(), nullptr, IID_PPV_ARGS(&backbuffer_data.mCmdList)));
@@ -92,45 +95,42 @@ DXApp::DXApp() : Application(RendererFlags::NONE), m_Device(m_Window) {
     if (!m_FenceEvent)
         gThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
 
+    auto& backbuffer_data = GetBackbufferData();
+    backbuffer_data.mCmdList->Reset(backbuffer_data.mCmdAllocator.Get(), nullptr);
+
     for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
         const auto vertices = mesh.GetInterleavedVertices();
         const auto vertices_size = vertices.size() * sizeof(vertices[0]);
         const auto indices_size = mesh.indices.size() * sizeof(mesh.indices[0]);
 
-        ComPtr<ID3D12Resource> vertexBuffer, indexBuffer;
+        mesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc{
+            .size = indices_size,
+            .stride = sizeof(mesh.indices[0]),
+            .usage = Buffer::Usage::INDEX_BUFFER
+        }).ToIndex();
 
-        gThrowIfFailed(m_Device->CreateCommittedResource(
-            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-            D3D12_HEAP_FLAG_NONE,
-            &CD3DX12_RESOURCE_DESC::Buffer(vertices_size),
-            D3D12_RESOURCE_STATE_GENERIC_READ,
-            nullptr,
-            IID_PPV_ARGS(&vertexBuffer))
-        );
+        mesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc{
+            .size = vertices_size,
+            .stride = sizeof(Vertex),
+            .usage = Buffer::Usage::VERTEX_BUFFER
+        }).ToIndex();
 
-        gThrowIfFailed(m_Device->CreateCommittedResource(
-            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-            D3D12_HEAP_FLAG_NONE,
-            &CD3DX12_RESOURCE_DESC::Buffer(indices_size),
-            D3D12_RESOURCE_STATE_GENERIC_READ,
-            nullptr,
-            IID_PPV_ARGS(&indexBuffer))
-        );
-
-        uint8_t* index_buffer_ptr;
-        uint8_t* vertex_buffer_ptr;
-        gThrowIfFailed(indexBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&index_buffer_ptr)));
-        gThrowIfFailed(vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&vertex_buffer_ptr)));
-
-        memcpy(vertex_buffer_ptr, vertices.data(), vertices_size);
-        memcpy(index_buffer_ptr, mesh.indices.data(), indices_size);
-
-        vertexBuffer->Unmap(0, nullptr);
-        indexBuffer->Unmap(0, nullptr);
-
-        mesh.indexBuffer = m_Device.m_CbvSrvUavHeap.AddResource(indexBuffer);
-        mesh.vertexBuffer = m_Device.m_CbvSrvUavHeap.AddResource(vertexBuffer);
+        auto& index_buffer  = m_Device.GetBuffer(BufferID(mesh.indexBuffer));
+        m_StagingHeap.StageBuffer(backbuffer_data.mCmdList.Get(), index_buffer.GetResource(),  0, mesh.indices.data(), indices_size);
+        
+        auto& vertex_buffer = m_Device.GetBuffer(BufferID(mesh.vertexBuffer));
+        m_StagingHeap.StageBuffer(backbuffer_data.mCmdList.Get(), vertex_buffer.GetResource(), 0, vertices.data(), vertices_size);
     }
+
+    backbuffer_data.mCmdList->Close();
+
+    const std::array cmd_lists = { (ID3D12CommandList*)backbuffer_data.mCmdList.Get() };
+    m_Device.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
+    
+    backbuffer_data.mFenceValue++;
+    gThrowIfFailed(m_Device.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
+    gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
+    WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
 
     const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
     const auto white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
@@ -141,19 +141,19 @@ DXApp::DXApp() : Application(RendererFlags::NONE), m_Device(m_Window) {
 
     for (const auto& [entity, material] : m_Scene.view<Material>().each()) {
         if (fs::exists(material.albedoFile))
-            material.gpuAlbedoMap = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(material.albedoFile), material.albedoFile, DXGI_FORMAT_BC3_UNORM_SRGB);
+            material.gpuAlbedoMap = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(material.albedoFile), material.albedoFile, DXGI_FORMAT_BC3_UNORM_SRGB).ToIndex();
         else
-            material.gpuAlbedoMap = m_DefaultWhiteTexture;
+            material.gpuAlbedoMap = m_DefaultWhiteTexture.ToIndex();
 
         if (fs::exists(material.normalFile))
-            material.gpuNormalMap = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(material.normalFile), material.normalFile, DXGI_FORMAT_BC3_UNORM);
+            material.gpuNormalMap = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(material.normalFile), material.normalFile, DXGI_FORMAT_BC3_UNORM).ToIndex();
         else
-            material.gpuNormalMap = default_normal_texture;
+            material.gpuNormalMap = default_normal_texture.ToIndex();
 
         if (fs::exists(material.metalroughFile))
-            material.gpuMetallicRoughnessMap = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(material.metalroughFile), material.metalroughFile, DXGI_FORMAT_BC3_UNORM);
+            material.gpuMetallicRoughnessMap = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(material.metalroughFile), material.metalroughFile, DXGI_FORMAT_BC3_UNORM).ToIndex();
         else
-            material.gpuMetallicRoughnessMap = m_DefaultWhiteTexture;
+            material.gpuMetallicRoughnessMap = m_DefaultWhiteTexture.ToIndex();
     }
 
     if (!fs::exists("assets/system/shaders/DirectX/bin"))
@@ -278,19 +278,22 @@ DXApp::DXApp() : Application(RendererFlags::NONE), m_Device(m_Window) {
     }
 
     for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
+        const auto& gpu_index_buffer  = m_Device.GetBuffer(BufferID(mesh.indexBuffer));
+        const auto& gpu_vertex_buffer = m_Device.GetBuffer(BufferID(mesh.vertexBuffer));
+
         D3D12_RAYTRACING_GEOMETRY_DESC geom = {};
         geom.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
         geom.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
 
-        geom.Triangles.IndexBuffer = m_Device.m_CbvSrvUavHeap[mesh.indexBuffer]->GetGPUVirtualAddress();
+        geom.Triangles.IndexBuffer = gpu_index_buffer->GetGPUVirtualAddress();
         geom.Triangles.IndexCount = mesh.indices.size();
         geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
 
         D3D12_GPU_VIRTUAL_ADDRESS_AND_STRIDE vertex_info = {};
-        vertex_info.StartAddress = m_Device.m_CbvSrvUavHeap[mesh.vertexBuffer]->GetGPUVirtualAddress();
+        vertex_info.StartAddress = gpu_vertex_buffer->GetGPUVirtualAddress();
         vertex_info.StrideInBytes = 44;
 
-        geom.Triangles.VertexBuffer.StartAddress = m_Device.m_CbvSrvUavHeap[mesh.vertexBuffer]->GetGPUVirtualAddress();
+        geom.Triangles.VertexBuffer.StartAddress = gpu_vertex_buffer->GetGPUVirtualAddress();
         geom.Triangles.VertexBuffer.StrideInBytes = 44;
         geom.Triangles.VertexCount = mesh.positions.size();
         geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
@@ -304,35 +307,24 @@ DXApp::DXApp() : Application(RendererFlags::NONE), m_Device(m_Window) {
 
         D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
         m_Device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
-
-        ComPtr<ID3D12Resource> scratch_buffer;
-        gThrowIfFailed(m_Device->CreateCommittedResource(
-            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-            D3D12_HEAP_FLAG_NONE,
-            &CD3DX12_RESOURCE_DESC::Buffer(prebuild_info.ScratchDataSizeInBytes),
-            D3D12_RESOURCE_STATE_COMMON,
-            nullptr,
-            IID_PPV_ARGS(scratch_buffer.GetAddressOf()))
-        );
-
-        ComPtr<ID3D12Resource> accel_struct;
-        gThrowIfFailed(m_Device->CreateCommittedResource(
-            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-            D3D12_HEAP_FLAG_NONE,
-            &CD3DX12_RESOURCE_DESC::Buffer(prebuild_info.ResultDataMaxSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
-            D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
-            nullptr,
-            IID_PPV_ARGS(accel_struct.GetAddressOf()))
-        );
-
+        
         auto& component = m_Scene.emplace<AccelerationStructure>(entity);
-        component.handle = m_Device.m_CbvSrvUavHeap.AddResource(accel_struct);
+        component.buffer = m_Device.CreateBuffer(Buffer::Desc{ 
+            .size = prebuild_info.ResultDataMaxSizeInBytes, 
+            .usage = Buffer::Usage::ACCELERATION_STRUCTURE 
+        });
 
+        const auto scratch_buffer_id = m_Device.CreateBuffer(Buffer::Desc{ 
+            .size = prebuild_info.ScratchDataSizeInBytes 
+        });
+
+        auto& scratch_buffer = m_Device.GetBuffer(scratch_buffer_id);
+        auto& result_buffer  = m_Device.GetBuffer(component.buffer);
+        
         D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
         desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();
-        desc.DestAccelerationStructureData = accel_struct->GetGPUVirtualAddress();
+        desc.DestAccelerationStructureData = result_buffer->GetGPUVirtualAddress();
         desc.Inputs = inputs;
-
 
         auto& backbuffer_data = GetBackbufferData();
         backbuffer_data.mCmdList->Reset(backbuffer_data.mCmdAllocator.Get(), nullptr);
@@ -346,39 +338,37 @@ DXApp::DXApp() : Application(RendererFlags::NONE), m_Device(m_Window) {
         gThrowIfFailed(m_Device.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
         gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
         WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
+
+        m_Device.ReleaseBuffer(scratch_buffer_id);
     }
 
     uint32_t instance_id = 0;
     std::vector<D3D12_RAYTRACING_INSTANCE_DESC> instances;
 
     for (const auto& [entity, accel_struct, transform] : m_Scene.view<AccelerationStructure, Transform>().each()) {
+        const auto& blas_buffer = m_Device.GetBuffer(accel_struct.buffer);
+
         D3D12_RAYTRACING_INSTANCE_DESC instance = {};
         instance.InstanceMask = 0xFF;
         instance.InstanceID = instance_id++;
         instance.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE | D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_FRONT_COUNTERCLOCKWISE;
-        instance.AccelerationStructure = m_Device.m_CbvSrvUavHeap[accel_struct.handle]->GetGPUVirtualAddress();
+        instance.AccelerationStructure = blas_buffer->GetGPUVirtualAddress();
 
-        glm::mat4 transpose = glm::transpose(glm::mat4(1.0f)); // TODO: transform buffer
+        glm::mat4 transpose = glm::transpose(transform.worldTransform); // TODO: transform buffer
         memcpy(instance.Transform, glm::value_ptr(transpose), sizeof(instance.Transform));
 
         instances.push_back(instance);
     }
 
-    ComPtr<ID3D12Resource> instance_buffer;
-    gThrowIfFailed(m_Device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-        D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(instances.size() * sizeof(instances[0])),
-        D3D12_RESOURCE_STATE_COMMON,
-        nullptr,
-        IID_PPV_ARGS(instance_buffer.GetAddressOf()))
-    );
+    auto instance_buffer = m_Device.GetBuffer(m_Device.CreateBuffer(Buffer::Desc{
+        .size = instances.size() * sizeof(instances[0]),
+        .usage = Buffer::UPLOAD,
+    }));
 
-    uint8_t* mappedPtr;
-    gThrowIfFailed(instance_buffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedPtr)));
-
-    memcpy(mappedPtr, instances.data(), instances.size() * sizeof(instances[0]));
-
+    uint8_t* mapped_ptr;
+    auto buffer_range = CD3DX12_RANGE(0, 0);
+    gThrowIfFailed(instance_buffer->Map(0, &buffer_range, reinterpret_cast<void**>(&mapped_ptr)));
+    memcpy(mapped_ptr, instances.data(), instances.size() * sizeof(instances[0]));
     instance_buffer->Unmap(0, nullptr);
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
@@ -391,55 +381,35 @@ DXApp::DXApp() : Application(RendererFlags::NONE), m_Device(m_Window) {
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
     m_Device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
 
-    ComPtr<ID3D12Resource> scratch_buffer;
-    gThrowIfFailed(m_Device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-        D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(prebuild_info.ScratchDataSizeInBytes),
-        D3D12_RESOURCE_STATE_COMMON,
-        nullptr,
-        IID_PPV_ARGS(scratch_buffer.GetAddressOf()))
-    );
+    const auto scratch_desc = Buffer::Desc{ .size = prebuild_info.ScratchDataSizeInBytes };
+    const auto result_desc  = Buffer::Desc{ .size = prebuild_info.ResultDataMaxSizeInBytes, .usage = Buffer::Usage::ACCELERATION_STRUCTURE };
 
-    ComPtr<ID3D12Resource> accel_struct;
-    gThrowIfFailed(m_Device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-        D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(prebuild_info.ResultDataMaxSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
-        D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
-        nullptr,
-        IID_PPV_ARGS(accel_struct.GetAddressOf()))
-    );
-
-    accel_struct->SetName(L"TLAS_FULL_SCENE");
-    m_TLAS = m_Device.m_CbvSrvUavHeap.AddResource(accel_struct);
+    auto scratch_buffer = m_Device.GetBuffer(m_Device.CreateBuffer(scratch_desc, L"TLAS_SCRATCH_BUFFER"));
+    auto result_buffer = m_Device.GetBuffer(m_Device.CreateBuffer(result_desc, L"TLAS_FULL_SCENE"));
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
     srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-    srv_desc.RaytracingAccelerationStructure.Location = accel_struct->GetGPUVirtualAddress();
+    srv_desc.RaytracingAccelerationStructure.Location = result_buffer->GetGPUVirtualAddress();
 
-    m_Device->CreateShaderResourceView(nullptr, &srv_desc, m_Device.m_CbvSrvUavHeap.GetCPUDescriptorHandle(m_TLAS));
+    // pResource must be NULL, since the resource location comes from a GPUVA in pDesc
+    m_TLAS = m_Device.CreateShaderResourceView(nullptr, &srv_desc);
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
     desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();
-    desc.DestAccelerationStructureData = accel_struct->GetGPUVirtualAddress();
+    desc.DestAccelerationStructureData = result_buffer->GetGPUVirtualAddress();
     desc.Inputs = inputs;
 
-
-    auto& backbuffer_data = GetBackbufferData();
     backbuffer_data.mCmdList->Reset(backbuffer_data.mCmdAllocator.Get(), nullptr);
     backbuffer_data.mCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
     backbuffer_data.mCmdList->Close();
 
-    const std::array cmd_lists = { static_cast<ID3D12CommandList*>(backbuffer_data.mCmdList.Get()) };
     m_Device.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
 
     backbuffer_data.mFenceValue++;
     gThrowIfFailed(m_Device.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
     gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
     WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
-
 
     m_Blit.Init(m_Device, m_Shaders);
     m_GBuffer.Init(m_Viewport, m_Shaders, m_Device);
@@ -449,67 +419,23 @@ DXApp::DXApp() : Application(RendererFlags::NONE), m_Device(m_Window) {
     unsigned char* pixels;
     ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
 
-    ComPtr<ID3D12Resource> font_texture;
+    auto font_texture = m_Device.GetTexture(
+        m_Device.CreateTexture(Texture::Desc{ 
+            .format = DXGI_FORMAT_R8_UNORM, 
+            .width = uint32_t(width), 
+            .height = uint32_t(height),
+            .usage = Texture::SHADER_SAMPLE
+    }));
 
-    auto font_texture_desc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8_UNORM, width, height);
-
-    gThrowIfFailed(m_Device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-        D3D12_HEAP_FLAG_NONE,
-        &font_texture_desc,
-        D3D12_RESOURCE_STATE_COPY_DEST,
-        nullptr,
-        IID_PPV_ARGS(font_texture.GetAddressOf()))
-    );
-
-
-    UINT rows; 
-    UINT64 row_size, total_size;
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT font_texture_footprint;
-    m_Device->GetCopyableFootprints(&font_texture_desc, 0, 1, 0, &font_texture_footprint, &rows, &row_size, &total_size);
-
-    ComPtr<ID3D12Resource> font_upload_buffer;
-    
-    gThrowIfFailed(m_Device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-        D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(total_size),
-        D3D12_RESOURCE_STATE_COPY_SOURCE,
-        nullptr,
-        IID_PPV_ARGS(font_upload_buffer.GetAddressOf()))
-    );
-
-    {
-        void* mappedPtr;
-        gThrowIfFailed(font_upload_buffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedPtr)));
-        memcpy(mappedPtr, pixels, gAlignUp(font_texture_footprint.Footprint.RowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT));
-    }
-
-    const auto dest = CD3DX12_TEXTURE_COPY_LOCATION(font_texture.Get(), 0);
-    const auto source = CD3DX12_TEXTURE_COPY_LOCATION(font_upload_buffer.Get(), font_texture_footprint);
-
-    backbuffer_data.mCmdList->Reset(backbuffer_data.mCmdAllocator.Get(), nullptr);
-    backbuffer_data.mCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
-    backbuffer_data.mCmdList->Close();
-
-    m_Device.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
-
-    backbuffer_data.mFenceValue++;
-    gThrowIfFailed(m_Device.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
-    gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
-    WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
-
-
-    const auto font_texture_id = m_Device.m_CbvSrvUavHeap.AddResource(font_texture);
-    m_Device.CreateShaderResourceView(font_texture_id);
+    const auto& descriptor_heap = m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     ImGui_ImplDX12_Init(
         m_Device,
         sFrameCount,
         swapchainDesc.Format,
-        m_Device.m_CbvSrvUavHeap.GetHeap(),
-        m_Device.m_CbvSrvUavHeap.GetCPUDescriptorHandle(font_texture_id),
-        m_Device.m_CbvSrvUavHeap.GetGPUDescriptorHandle(font_texture_id)
+        descriptor_heap.GetHeap(),
+        descriptor_heap.GetCPUDescriptorHandle(font_texture.GetView()),
+        descriptor_heap.GetGPUDescriptorHandle(font_texture.GetView())
     );
 }
 
@@ -564,9 +490,8 @@ void DXApp::OnUpdate(float dt) {
             glm::value_ptr(sun_transform.localTransform)
         );
 
-        if (manipulated) {
+        if (manipulated)
             sun_transform.Decompose();
-        }
     }
 
     GUI::EndFrame();
@@ -584,22 +509,24 @@ void DXApp::OnUpdate(float dt) {
 
     m_GBuffer.Render(m_Viewport, m_Scene, m_Device, backbuffer_data.mCmdList.Get());
 
+    const auto& rtv_heap = m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
     std::array barriers = {
-        CD3DX12_RESOURCE_BARRIER::Transition(m_Device.m_RtvHeap[m_GBuffer.m_RenderTarget].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ),
-        CD3DX12_RESOURCE_BARRIER::Transition(m_Device.m_RtvHeap[m_FrameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET)
+        CD3DX12_RESOURCE_BARRIER::Transition(m_Device.GetTexture(m_GBuffer.m_RenderTarget).GetResource().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ),
+        CD3DX12_RESOURCE_BARRIER::Transition(rtv_heap.Get(backbuffer_data.mBackbufferRTV).Get(), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET)
     };
 
     backbuffer_data.mCmdList->ResourceBarrier(barriers.size(), barriers.data());
 
-    m_Shadows.Render(m_Viewport, m_Device, m_Scene, m_TLAS, m_GBuffer.m_RenderTargetSRV, m_GBuffer.m_DepthSRV, backbuffer_data.mCmdList.Get());
+    m_Shadows.Render(m_Viewport, m_Device, m_Scene, m_TLAS, m_GBuffer.m_RenderTargetSRV, m_GBuffer.m_DepthStencilSRV, backbuffer_data.mCmdList.Get());
 
-    m_Blit.Render(m_Device, backbuffer_data.mCmdList.Get(), m_Shadows.m_ResultTexture, m_FrameIndex, m_GBuffer.m_RenderTargetSRV, ESampler::MIN_MAG_MIP_POINT_CLAMP);
+    m_Blit.Render(m_Device, backbuffer_data.mCmdList.Get(), m_Shadows.m_ResultTexture, backbuffer_data.mBackbufferRTV, m_GBuffer.m_RenderTargetSRV, ESampler::MIN_MAG_MIP_POINT_CLAMP);
 
     // TODO: ImGui's DX12 impl is sub-optimal and costs over half a millisecond, should integrate it ourselves
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), backbuffer_data.mCmdList.Get());
 
-    barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_Device.m_RtvHeap[m_GBuffer.m_RenderTarget].Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET);
-    barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_Device.m_RtvHeap[m_FrameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON);
+    barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_Device.GetTexture(m_GBuffer.m_RenderTarget).GetResource().Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(rtv_heap.Get(backbuffer_data.mBackbufferRTV).Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON);
 
     backbuffer_data.mCmdList->ResourceBarrier(barriers.size(), barriers.data());
 
@@ -672,17 +599,15 @@ void DXApp::OnEvent(const SDL_Event& event) {
                 WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
             }
 
-            for (uint32_t i = 0; i < sFrameCount; i++) {
-                m_Device.m_RtvHeap.RemoveResource(i);
-                m_Device.m_RtvHeap[i].Reset();
-            }
+            for (auto& bb_data : m_BackbufferData)
+                m_Device.ReleaseShaderResourceView(bb_data.mBackbufferRTV);
 
             gThrowIfFailed(m_Swapchain->ResizeBuffers(
                 sFrameCount, m_Viewport.size.x, m_Viewport.size.y, 
                 DXGI_FORMAT_B8G8R8A8_UNORM, 0
             ));
 
-            for (uint32_t i = 0; i < sFrameCount; i++) {
+            /*for (uint32_t i = 0; i < sFrameCount; i++) {
                 gThrowIfFailed(m_Swapchain->GetBuffer(i, IID_PPV_ARGS(&m_Device.m_RtvHeap[i])));
 
                 gThrowIfFailed(m_Device->CreateCommittedResource(
@@ -698,12 +623,12 @@ void DXApp::OnEvent(const SDL_Event& event) {
             for (uint32_t i = 0; i < sFrameCount; i++) {
                 m_Device.CreateRenderTargetView(i);
                 m_Device.CreateDepthStencilView(i);
-            }
+            }*/
         }
     }
 }
 
-uint32_t DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, const fs::path& path, DXGI_FORMAT format) {
+ResourceID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, const fs::path& path, DXGI_FORMAT format) {
     if (!asset || !fs::exists(path))
         return m_DefaultWhiteTexture;
 
@@ -724,34 +649,24 @@ uint32_t DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, const fs:
     // TODO: only load in the main mip and kick off a FidelityFX downsample pass on a separate compute queue,
     auto mipmap_levels = std::min(header->dwMipMapCount, 5ul);
 
-    ComPtr<ID3D12Resource> texture_resource;
-    const auto texture_desc = CD3DX12_RESOURCE_DESC::Tex2D(format, header->dwWidth, header->dwHeight, 1u, mipmap_levels, 1u, 0, D3D12_RESOURCE_FLAG_NONE, D3D12_TEXTURE_LAYOUT_UNKNOWN);
-
-    gThrowIfFailed(m_Device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-        D3D12_HEAP_FLAG_NONE,
-        &texture_desc,
-        D3D12_RESOURCE_STATE_COMMON,
-        nullptr,
-        IID_PPV_ARGS(&texture_resource))
-    );
-
-    UINT64 total_uncompressed_size = 0;
-
-    for (uint32_t mip = 0; mip< mipmap_levels; mip++) {
-        UINT64 uncompressed_size;
-        m_Device->GetCopyableFootprints(&texture_desc, mip, 1, 0, nullptr, nullptr, nullptr, &uncompressed_size);
-        total_uncompressed_size += uncompressed_size;
-    }
+    auto texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc{ 
+        .format = format, 
+        .width = header->dwWidth, 
+        .height = header->dwHeight, 
+        .mipLevels = 1,
+        .usage = Texture::SHADER_SAMPLE
+    }, path.wstring().c_str()));
 
     DSTORAGE_REQUEST request = {};
     request.Options.SourceType = DSTORAGE_REQUEST_SOURCE_FILE;
-    request.Options.DestinationType = DSTORAGE_REQUEST_DESTINATION_MULTIPLE_SUBRESOURCES;
+    request.Options.DestinationType = DSTORAGE_REQUEST_DESTINATION_TEXTURE_REGION;
     request.Source.File.Source = file.Get();
-    request.Source.File.Offset = sizeof(DDS_MAGIC) + sizeof(DDS_HEADER);
-    request.Source.File.Size = asset->GetDataSize();
-    request.Destination.MultipleSubresources.Resource = texture_resource.Get();
-    request.Destination.MultipleSubresources.FirstSubresource = 0;
+    request.Source.File.Offset = 128; // DDS header offset
+    request.Source.File.Size = header->dwWidth * header->dwHeight;
+    request.UncompressedSize = fileSize;
+    request.Destination.Texture.Region = CD3DX12_BOX(0, 0, header->dwWidth, header->dwHeight);
+    request.Destination.Texture.Resource = texture.GetResource().Get();
+    request.Destination.Texture.SubresourceIndex = 0;
     request.Name = path.string().c_str();
 
     m_StorageQueue->EnqueueRequest(&request);
@@ -772,12 +687,7 @@ uint32_t DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, const fs:
     WaitForSingleObject(fenceEvent, INFINITE);
     CloseHandle(fenceEvent);
 
-    texture_resource->SetName(path.wstring().c_str());
-
-    auto index = m_Device.m_CbvSrvUavHeap.AddResource(texture_resource);
-    m_Device.CreateShaderResourceView(index);
-
-    return index;
+    return texture.GetView();
 }
 
 
