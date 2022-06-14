@@ -201,7 +201,6 @@ VkCommandBuffer Device::StartSingleSubmit() const {
 };
 
 
-
 void Device::FlushSingleSubmit(VkCommandBuffer commandBuffer) const {
     vkEndCommandBuffer(commandBuffer);
 
@@ -225,7 +224,6 @@ void Device::FlushSingleSubmit(VkCommandBuffer commandBuffer) const {
 }
 
 
-
 uint32_t Device::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
     for (uint32_t i = 0; i < m_MemoryProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) && 
@@ -237,7 +235,6 @@ uint32_t Device::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags prope
 };
 
 
-
 void Device::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const {
     VkCommandBuffer commandBuffer = StartSingleSubmit();
 
@@ -247,7 +244,6 @@ void Device::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
 
     FlushSingleSubmit(commandBuffer);
 };
-
 
 
 void Device::CopyBufferToImage(const Buffer& buffer, Texture& texture, uint32_t width, uint32_t height, uint32_t layerCount) const {
@@ -270,7 +266,6 @@ void Device::CopyBufferToImage(const Buffer& buffer, Texture& texture, uint32_t 
 
     FlushSingleSubmit(commandBuffer);
 };
-
 
 
 void Device::GenerateMipmaps(Texture& texture) const {
@@ -350,7 +345,6 @@ void Device::GenerateMipmaps(Texture& texture) const {
 }
 
 
-
 void Device::TransitionImageLayout(const Texture& texture, VkImageLayout oldLayout, VkImageLayout newLayout) const {
     const auto& desc = texture.description;
     
@@ -415,7 +409,6 @@ void Device::TransitionImageLayout(const Texture& texture, VkImageLayout oldLayo
 };
 
 
-
 void Device::AllocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets, const void* pNext) const {
     VkDescriptorSetAllocateInfo descInfo = {};
     descInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -428,12 +421,10 @@ void Device::AllocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layout
 }
 
 
-
 void Device::FreeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const {
     if (count <= 0) return;
     vkFreeDescriptorSets(m_Device, m_DescriptorPool, count, sets);
 }
-
 
 
 Buffer Device::CreateBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage) {
@@ -458,11 +449,9 @@ Buffer Device::CreateBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemo
 }
 
 
-
 void Device::DestroyBuffer(const Buffer& buffer) {
     vmaDestroyBuffer(m_Allocator, buffer.buffer, buffer.allocation);
 }
-
 
 
 void Device::SetDebugName(const Texture& texture, const std::string& name) {
@@ -476,7 +465,6 @@ void Device::SetDebugName(const Texture& texture, const std::string& name) {
 }
 
 
-
 void* Device::MapPointer(const Texture& texture) {
     void* ptr = nullptr;
     vmaMapMemory(m_Allocator, texture.allocation, &ptr);
@@ -484,19 +472,9 @@ void* Device::MapPointer(const Texture& texture) {
 }
 
 
-
 void Device::UnmapPointer(const Texture& texture) {
     vmaUnmapMemory(m_Allocator, texture.allocation);
 }
-
-
-
-void* Device::GetMappedPointer(const Buffer& buffer) {
-    VmaAllocationInfo info = {};
-    vmaGetAllocationInfo(m_Allocator, buffer.allocation, &info);
-    return info.pMappedData;
-}
-
 
 
 VkDeviceAddress Device::GetDeviceAddress(VkBuffer buffer) const {
@@ -507,11 +485,9 @@ VkDeviceAddress Device::GetDeviceAddress(VkBuffer buffer) const {
 }
 
 
-
 VkDeviceAddress Device::GetDeviceAddress(const Buffer& buffer) const {
     return GetDeviceAddress(buffer.buffer);
 }
-
 
 
 VkDeviceAddress Device::GetDeviceAddress(VkAccelerationStructureKHR accelerationStructure) const {

@@ -2,11 +2,9 @@
 #include "VKApp.h"
 
 int main(int argc, char** argv) {
-    auto app = new Raekor::VK::PathTracer();
+    auto app = Raekor::VK::PathTracer();
 
-    app->Run();
-
-    delete app;
+    app.Run();
 
     return 0;
 }

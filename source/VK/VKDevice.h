@@ -77,7 +77,13 @@ public:
     
     void* MapPointer(const Texture& texture);
     void UnmapPointer(const Texture& texture);
-    void* GetMappedPointer(const Buffer& buffer);
+
+    template<typename T>
+    T GetMappedPointer(const Buffer& buffer) {
+        VmaAllocationInfo info = {};
+        vmaGetAllocationInfo(m_Allocator, buffer.allocation, &info);
+        return static_cast<T>(info.pMappedData);
+    }
 
     VkDeviceAddress GetDeviceAddress(VkBuffer buffer) const;
     VkDeviceAddress GetDeviceAddress(const Buffer& buffer) const;

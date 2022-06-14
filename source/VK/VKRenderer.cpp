@@ -111,8 +111,7 @@ void Renderer::UpdateMaterials(Assets& assets, Scene& scene) {
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    auto mappedPtr = m_Device.GetMappedPointer(m_MaterialBuffer);
-    memcpy(mappedPtr, materials.data(), materialBufferSize);
+    memcpy(m_Device.GetMappedPointer<void*>(m_MaterialBuffer), materials.data(), materialBufferSize);
 }
 
 
@@ -184,8 +183,7 @@ void Renderer::UpdateBVH(Scene& scene) {
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    auto mappedPtr = m_Device.GetMappedPointer(m_InstanceBuffer);
-
+    auto mappedPtr = m_Device.GetMappedPointer<void*>(m_InstanceBuffer);
     memcpy(mappedPtr, hostInstances.data(), hostInstances.size() * sizeof(Instance));
 }
 
@@ -482,11 +480,6 @@ int32_t Renderer::UploadTexture(Device& device, const TextureAsset::Ptr& asset, 
     auto view = device.CreateView(texture);
 
     Sampler::Desc samplerDesc;
-    samplerDesc.minFilter = VK_FILTER_LINEAR;
-    samplerDesc.magFilter = VK_FILTER_LINEAR;
-    samplerDesc.anisotropy = 16.0f;
-    samplerDesc.maxMipmap = float(desc.mipLevels);
-
     auto sampler = m_Samplers.emplace_back(device.CreateSampler(samplerDesc));
 
     auto buffer = device.CreateBuffer(
@@ -495,8 +488,7 @@ int32_t Renderer::UploadTexture(Device& device, const TextureAsset::Ptr& asset, 
         VMA_MEMORY_USAGE_CPU_ONLY
     );
 
-    auto mappedPtr = device.GetMappedPointer(buffer);
-
+    auto mappedPtr = device.GetMappedPointer<void*>(buffer);
     memcpy(mappedPtr, asset->GetData(), asset->GetDataSize());
 
     device.TransitionImageLayout(
@@ -571,8 +563,8 @@ RTGeometry Renderer::CreateBLAS(Mesh& mesh, const Material& material) {
     auto vertexStageBuffer = m_Device.CreateBuffer(sizeOfVertexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
     auto indexStageBuffer = m_Device.CreateBuffer(sizeOfIndexBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
-    memcpy(m_Device.GetMappedPointer(vertexStageBuffer), vertices.data(), sizeOfVertexBuffer);
-    memcpy(m_Device.GetMappedPointer(indexStageBuffer), mesh.indices.data(), sizeOfIndexBuffer);
+    memcpy(m_Device.GetMappedPointer<void*>(vertexStageBuffer), vertices.data(), sizeOfVertexBuffer);
+    memcpy(m_Device.GetMappedPointer<void*>(indexStageBuffer), mesh.indices.data(), sizeOfIndexBuffer);
 
     constexpr auto bufferUsages = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | 
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -657,7 +649,7 @@ AccelStruct Renderer::CreateTLAS(VkAccelerationStructureInstanceKHR* instances, 
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    std::memcpy(m_Device.GetMappedPointer(buffer), instances, bufferSize);
+    memcpy(m_Device.GetMappedPointer<void*>(buffer), instances, bufferSize);
 
     VkAccelerationStructureGeometryInstancesDataKHR instanceData = {};
     instanceData.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;

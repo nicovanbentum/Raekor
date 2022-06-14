@@ -36,7 +36,7 @@ void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& 
 		VMA_MEMORY_USAGE_CPU_ONLY
 	);
 
-	memcpy(device.GetMappedPointer(stagingBuffer), pixels, width * height);
+	memcpy(device.GetMappedPointer<void*>(stagingBuffer), pixels, width * height);
 
 	{
 		Texture::Desc desc;

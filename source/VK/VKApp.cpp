@@ -61,6 +61,8 @@ namespace Raekor::VK {
 
     SDL_ShowWindow(m_Window);
     SDL_SetWindowInputFocus(m_Window);
+
+    m_Viewport.Resize({ 1300, 1300 });
     SDL_SetWindowSize(m_Window, 1300, 1300);
 
     m_Viewport.SetFov(45.0f);
@@ -79,11 +81,10 @@ void PathTracer::OnUpdate(float dt) {
 
     if (lightView.begin() != lightView.end()) {
         auto& lightTransform = lightView.get<Transform>(lightView.front());
-        lookDirection = static_cast<glm::quat>(lightTransform.rotation) * lookDirection;
-    } else {
-        // we rotate default light a little or else we get nan values in our view matrix
-        lookDirection = static_cast<glm::quat>(glm::vec3(glm::radians(15.0f), 0, 0)) * lookDirection;
-    }
+        lookDirection = glm::quat(lightTransform.rotation) * lookDirection;
+    } 
+    else // we rotate default light a little or else we get nan values in our view matrix
+        lookDirection = glm::quat(glm::vec3(glm::radians(15.0f), 0, 0)) * lookDirection;
 
     lookDirection = glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
 
@@ -150,9 +151,8 @@ void PathTracer::OnUpdate(float dt) {
                 glm::value_ptr(lightTransform.localTransform)
             );
 
-            if (manipulated) {
+            if (manipulated)
                 lightTransform.Decompose();
-            }
 
             reset |= manipulated;
         }
@@ -160,9 +160,8 @@ void PathTracer::OnUpdate(float dt) {
 
     GUI::EndFrame();
 
-    if (reset) {
+    if (reset)
         m_Renderer.ResetAccumulation();
-    }
 
     m_Renderer.RenderScene(m_Window, m_Viewport, m_Scene);
 }
@@ -173,20 +172,17 @@ void PathTracer::OnEvent(const SDL_Event& ev) {
     ImGui_ImplSDL2_ProcessEvent(&ev);
 
     if (ev.button.button == 2 || ev.button.button == 3) {
-        if (ev.type == SDL_MOUSEBUTTONDOWN) {
+        if (ev.type == SDL_MOUSEBUTTONDOWN)
             SDL_SetRelativeMouseMode(SDL_TRUE);
-        }
-        else if (ev.type == SDL_MOUSEBUTTONUP) {
+        else if (ev.type == SDL_MOUSEBUTTONUP)
             SDL_SetRelativeMouseMode(SDL_FALSE);
-        }
     }
 
     auto& camera = m_Viewport.GetCamera();
     const bool is_mouse_relative = SDL_GetRelativeMouseMode();
 
-    if (is_mouse_relative) {
+    if (is_mouse_relative)
         m_Renderer.ResetAccumulation();
-    }
 
     if (ev.type == SDL_MOUSEMOTION) {
         if (is_mouse_relative && Input::sIsButtonPressed(3)) {
@@ -210,19 +206,15 @@ void PathTracer::OnEvent(const SDL_Event& ev) {
                 SDL_Event ev;
                 SDL_PollEvent(&ev);
 
-                if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
+                if (ev.window.event == SDL_WINDOWEVENT_RESTORED)
                     break;
-                }
             }
         }
-        if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
-            if (SDL_GetWindowID(m_Window) == ev.window.windowID) {
-                m_Running = false;
-            }
-        }
-        if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
+        if (ev.window.event == SDL_WINDOWEVENT_CLOSE && SDL_GetWindowID(m_Window) == ev.window.windowID)
+            m_Running = false;
+
+        if (ev.window.event == SDL_WINDOWEVENT_RESIZED)
             m_IsSwapchainDirty = true;
-        }
     }
 
     if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
@@ -249,9 +241,8 @@ void PathTracer::OnEvent(const SDL_Event& ev) {
 
 PathTracer::~PathTracer() {
     auto view = m_Scene.view<VK::RTGeometry>();
-    for (auto& [entity, geometry] : view.each()) {
+    for (auto& [entity, geometry] : view.each())
         m_Renderer.DestroyBLAS(geometry);
-    }
 }
 
 } // raekor

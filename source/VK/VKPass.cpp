@@ -36,19 +36,17 @@ void PathTracePass::Destroy(Device& device) {
 
 
 void PathTracePass::CreateRenderTargets(Device& device, const glm::uvec2& size) {
-    {
-        Texture::Desc desc;
-        desc.width = size.x;
-        desc.height = size.y;
-        desc.shaderAccess = true;
-        desc.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    Texture::Desc desc;
+    desc.width = size.x;
+    desc.height = size.y;
+    desc.shaderAccess = true;
+    desc.format = VK_FORMAT_R32G32B32A32_SFLOAT;
 
-        finalTexture = device.CreateTexture(desc);
-        accumTexture = device.CreateTexture(desc);
+    finalTexture = device.CreateTexture(desc);
+    accumTexture = device.CreateTexture(desc);
 
-        device.SetDebugName(finalTexture, "finalTexture");
-        device.SetDebugName(accumTexture, "accumTexture");
-    }
+    device.SetDebugName(finalTexture, "finalTexture");
+    device.SetDebugName(accumTexture, "accumTexture");
 }
 
 
@@ -138,7 +136,7 @@ void PathTracePass::CreatePipeline(Device& device) {
     m_ShaderGroups.back().anyHitShader = 4;
     m_ShaderGroups.back().type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 
-    std::array shader_stages = {
+    auto shader_stages = std::array {
         m_RayGenShader.GetPipelineCreateInfo(),
         m_MissShader.GetPipelineCreateInfo(),
         m_MissShadowShader.GetPipelineCreateInfo(),
@@ -190,7 +188,7 @@ void PathTracePass::CreateDescriptorSet(Device& device, const BindlessDescriptor
     binding4.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     binding4.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
-    std::array bindings = { binding0, binding1, binding2, binding3, binding4 };
+    const auto bindings = std::array { binding0, binding1, binding2, binding3, binding4 };
 
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo = {};
     descriptorSetLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -208,7 +206,7 @@ void PathTracePass::CreateDescriptorSet(Device& device, const BindlessDescriptor
                                      VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
     push_constant_range.size = sizeof(PushConstants); // TODO: query size from physical device
 
-    std::array layouts = { m_DescriptorSetLayout, bindlessTextures.GetLayout() };
+    const auto layouts = std::array { m_DescriptorSetLayout, bindlessTextures.GetLayout() };
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -294,14 +292,14 @@ void PathTracePass::UpdateDescriptorSet(Device& device, const AccelStruct& accel
 void PathTracePass::CreateShaderBindingTable(Device& device) {
     const auto& ray_tracing_properties = device.GetPhysicalProperties().rayTracingPipelineProperties;
 
-    const uint32_t group_count = uint32_t(m_ShaderGroups.size());
+    const auto group_count = uint32_t(m_ShaderGroups.size());
 
-    const uint32_t aligned_group_size = uint32_t(gAlignUp(
+    const auto aligned_group_size = uint32_t(gAlignUp(
                                           ray_tracing_properties.shaderGroupHandleSize,
                                           ray_tracing_properties.shaderGroupBaseAlignment
                                       ));
 
-    const uint32_t table_size = group_count * aligned_group_size;
+    const auto table_size = group_count * aligned_group_size;
 
     m_ShaderBindingTable = device.CreateBuffer(
                 table_size,
@@ -309,11 +307,11 @@ void PathTracePass::CreateShaderBindingTable(Device& device) {
                 VMA_MEMORY_USAGE_CPU_ONLY
             );
 
-    std::vector<uint8_t> shader_handle_storage(table_size);
+    auto shader_handle_storage = std::vector<uint8_t>(table_size);
 
     gThrowIfFailed(EXT::vkGetRayTracingShaderGroupHandlesKHR(device, m_Pipeline, 0, group_count, table_size, shader_handle_storage.data()));
 
-    auto mapped_ptr = static_cast<uint8_t*>(device.GetMappedPointer(m_ShaderBindingTable));
+    auto mapped_ptr = device.GetMappedPointer<uint8_t*>(m_ShaderBindingTable);
 
     for (uint32_t group = 0; group < group_count; group++) {
         const auto data_ptr = shader_handle_storage.data() + group * ray_tracing_properties.shaderGroupHandleSize;

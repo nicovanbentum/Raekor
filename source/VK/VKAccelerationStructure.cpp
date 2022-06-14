@@ -60,9 +60,8 @@ AccelStruct Device::CreateAccelStruct(VkAccelerationStructureBuildGeometryInfoKH
 
 
 void Device::DestroyAccelStruct(AccelStruct& accelStruct) {
-    if (accelStruct.accelerationStructure) {
+    if (accelStruct.accelerationStructure)
         EXT::vkDestroyAccelerationStructureKHR(m_Device, accelStruct.accelerationStructure, nullptr);
-    }
 
     DestroyBuffer(accelStruct.buffer);
 }

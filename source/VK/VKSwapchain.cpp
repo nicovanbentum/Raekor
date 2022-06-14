@@ -37,30 +37,24 @@ void SwapChain::Create(const Device& device, glm::uvec2 resolution, VkPresentMod
     VkSurfaceFormatKHR surfaceFormat = details.formats[0];
     VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
 
-    for (const auto& availableFormat : details.formats) {
-        if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM && 
-            availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+    for (const auto& availableFormat : details.formats)
+        if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
             surfaceFormat = availableFormat;
-        }
-    }
 
-    for (const auto& availablePresentMode : details.presentModes) {
-        if (availablePresentMode == mode) {
+    for (const auto& availablePresentMode : details.presentModes)
+        if (availablePresentMode == mode)
             presentMode = availablePresentMode;
-        }
-    }
 
-    if (details.capabilities.currentExtent.width != 0xFFFFFFFF) {
+    if (details.capabilities.currentExtent.width != 0xFFFFFFFF)
         extent.width = details.capabilities.currentExtent.width;
-    } else {
+    else
         extent.width = std::min(resolution.x, details.capabilities.maxImageExtent.width);
-    }
 
-    if (details.capabilities.currentExtent.height != 0xFFFFFFFF) {
+    if (details.capabilities.currentExtent.height != 0xFFFFFFFF)
         extent.height = details.capabilities.currentExtent.height;
-    } else {
+    else
         extent.height = std::min(resolution.x, details.capabilities.maxImageExtent.height);
-    }
+    
 
     uint32_t imageCount = std::min(details.capabilities.minImageCount + 1, details.capabilities.maxImageCount);;
 
@@ -98,17 +92,14 @@ void SwapChain::Create(const Device& device, glm::uvec2 resolution, VkPresentMod
 }
 
 
-
 void SwapChain::Destroy(VkDevice device) {
     vkDestroySwapchainKHR(device, m_SwapChain, nullptr);
 }
 
 
-
 const VkExtent2D& SwapChain::GetExtent() const { 
     return extent; 
 }
-
 
 
 const uint32_t SwapChain::GetImageCount() const { 
