@@ -59,9 +59,11 @@ Shader Device::CreateShader(const std::string& filepath) {
         return Shader(); // TODO: ptr type
     }
 
-    std::vector<uint32_t> spirv(fs::file_size(filepath));
-    file.read((char*)&spirv[0], spirv.size() / sizeof(uint32_t));
-    file.close();
+    std::vector<uint32_t> spirv;
+    const size_t filesize = size_t(file.tellg());
+    spirv.resize(filesize);
+    file.seekg(0);
+    file.read((char*)&spirv[0], filesize);
 
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
