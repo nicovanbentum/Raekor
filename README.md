@@ -70,8 +70,7 @@ This project requires OpenGL 4.6 for direct state access functions and shader in
 
 ### VK
 Requires Vulkan 1.2 with support for descriptor indexing, device buffer address, and hardware ray tracing. 
-* GPU path tracer using the vk_khr_ray_tracing extensions.
-   - Uni-directional Path Tracing
+* Uni-Directional GPU Path Tracer using the vk_khr_ray_tracing extensions.
    - Progressive real-time rendering
    - Importance sampled diffuse and specular BRDF
    
