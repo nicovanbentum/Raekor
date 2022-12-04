@@ -32,8 +32,8 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
 
-    context = SDL_GL_CreateContext(window);
-    SDL_GL_MakeCurrent(window, context);
+    m_GLContext = SDL_GL_CreateContext(window);
+    SDL_GL_MakeCurrent(window, m_GLContext);
     SDL_GL_SetSwapInterval(settings.vsync);
 
     // Load GL extensions using glad
@@ -46,14 +46,13 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     std::cout << "OpenGL version loaded: " << GLVersion.major << "."
               << GLVersion.minor << '\n';
 
-    if (!fs::exists("assets/system/shaders/OpenGL/bin")) {
-        fs::create_directory("assets/system/shaders/OpenGL/bin");
-    }
+    if (!FileSystem::exists("assets/system/shaders/OpenGL/bin"))
+        FileSystem::create_directory("assets/system/shaders/OpenGL/bin");
 
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
-    for (const auto& file : fs::directory_iterator("assets/system/shaders/OpenGL")) {
+    for (const auto& file : FileSystem::directory_iterator("assets/system/shaders/OpenGL")) {
         if (file.is_directory()) 
             continue;
 
@@ -68,8 +67,8 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
-            if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time()) {
-                auto success = glShader::sGlslangValidator(vulkanSDK, file, outfile);
+            if (!FileSystem::exists(outfile) || FileSystem::last_write_time(outfile) < file.last_write_time()) {
+                auto success = GLShader::sGlslangValidator(vulkanSDK, file, outfile);
 
                 {
                     auto lock = Async::sLock();
@@ -113,7 +112,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     ImGui::CreateContext();
     ImNodes::CreateContext();
     ImGui::StyleColorsDark();
-    ImGui_ImplSDL2_InitForOpenGL(window, &context);
+    ImGui_ImplSDL2_InitForOpenGL(window, &m_GLContext);
     ImGui_ImplOpenGL3_Init("#version 450");
     ImGui_ImplOpenGL3_CreateDeviceObjects();
 
@@ -124,20 +123,32 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     io.ConfigWindowsMoveFromTitleBarOnly = true;
     // io.ConfigDockingWithShift = true;
 
-
     // initialise all the render passes
-    icons =         std::make_unique<Icons>(viewport);
-    bloom =         std::make_unique<Bloom>(viewport);
-    gbuffer =       std::make_unique<GBuffer>(viewport);
-    tonemap =       std::make_unique<Tonemap>(viewport);
-    skinning =      std::make_unique<Skinning>();
-    voxelize =      std::make_unique<Voxelize>(512);
-    taaResolve =    std::make_unique<TAAResolve>(viewport);
-    debugLines =    std::make_unique<DebugLines>();
-    atmosphere =    std::make_unique<Atmosphere>(viewport);
-    shadowMaps =    std::make_unique<ShadowMap>(viewport);
-    debugvoxels =   std::make_unique<VoxelizeDebug>(viewport);
-    deferShading =  std::make_unique<DeferredShading>(viewport);
+    m_Icons =         std::make_shared<Icons>(viewport);
+    m_Bloom =         std::make_shared<Bloom>(viewport);
+    m_GBuffer =       std::make_shared<GBuffer>(viewport);
+    m_Tonemap =       std::make_shared<Tonemap>(viewport);
+    m_Skinning =      std::make_shared<Skinning>();
+    m_Voxelize =      std::make_shared<Voxelize>(512);
+    m_ResolveTAA =    std::make_shared<TAAResolve>(viewport);
+    m_DebugLines =    std::make_shared<DebugLines>();
+    m_Atmosphere =    std::make_shared<Atmosphere>(viewport);
+    m_ShadowMaps =    std::make_shared<ShadowMap>(viewport);
+    m_DebugVoxels =   std::make_shared<VoxelizeDebug>(viewport);
+    m_DeferredShading =  std::make_shared<DeferredShading>(viewport);
+
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Icons));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Bloom));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_GBuffer));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Tonemap));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Skinning));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Voxelize));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_ResolveTAA));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_DebugLines));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Atmosphere));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_ShadowMaps));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_DebugVoxels));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_DeferredShading));
 
     auto setDefaultTextureParams = [](GLuint& texture) {
         glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -147,9 +158,9 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
         glTextureParameteri(texture, GL_TEXTURE_WRAP_R, GL_REPEAT);
     };
 
-    glCreateTextures(GL_TEXTURE_2D, 1, &blackTexture);
-    glTextureStorage2D(blackTexture, 1, GL_RGBA8, 1, 1);
-    setDefaultTextureParams(blackTexture);
+    glCreateTextures(GL_TEXTURE_2D, 1, &m_DefaultBlackTexture);
+    glTextureStorage2D(m_DefaultBlackTexture, 1, GL_RGBA8, 1, 1);
+    setDefaultTextureParams(m_DefaultBlackTexture);
 
     auto createDefaultMaterialTexture = [](GLuint& texture, const glm::vec4& value) {
         glCreateTextures(GL_TEXTURE_2D, 1, &texture);
@@ -170,57 +181,56 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
 
 GLRenderer::~GLRenderer() {
     ImGui_ImplOpenGL3_DestroyDeviceObjects();
-    SDL_GL_DeleteContext(context);
+    SDL_GL_DeleteContext(m_GLContext);
     ImNodes::DestroyContext();
     ImGui::DestroyContext();
 }
 
 
-void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
-    if (!timings.empty() && settings.disableTiming) {
-        timings.clear();
-    }
+void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
+    if (!m_Timings.empty() && settings.disableTiming)
+        m_Timings.clear();
 
     // skin all meshes in the scene
-    time("Skinning", [&]() {
+    TimeOpenGL("Skinning", [&]() {
         scene.view<const Skeleton, const Mesh>()
         .each([&](auto& animation, auto& mesh) {
-            skinning->compute(mesh, animation);
+            m_Skinning->compute(mesh, animation);
         });
     });
 
     // render 4 * 4096 cascaded shadow maps
-    time("Shadow cascades", [&]() {
-        shadowMaps->render(viewport, scene);
+    TimeOpenGL("Shadow cascades", [&]() {
+        m_ShadowMaps->Render(viewport, scene);
     });
 
     // voxelize the Scene to a 3D texture
     if (settings.shouldVoxelize) {
-        time("Voxelize", [&]() {
-            voxelize->render(scene, viewport, *shadowMaps);
+        TimeOpenGL("Voxelize", [&]() {
+            m_Voxelize->Render(scene, viewport, *m_ShadowMaps);
         });
     }
 
     // generate a geometry buffer with depth, normals, material and albedo
-    time("GBuffer", [&]() {
-        gbuffer->render(scene, viewport, frameNr);
+    TimeOpenGL("GBuffer", [&]() {
+        m_GBuffer->Render(scene, viewport, m_FrameNr);
     });
 
     // render the sky using ray marching for atmospheric scattering
-    time("Atmosphere", [&]() {
-        atmosphere->computeCubemaps(viewport, scene);
+    TimeOpenGL("Atmosphere", [&]() {
+        m_Atmosphere->computeCubemaps(viewport, scene);
     });
 
     // fullscreen PBR deferred shading pass
-    time("Deferred Shading", [&]() {
-        deferShading->render(scene, viewport, *shadowMaps, *gbuffer, *atmosphere, *voxelize);
+    TimeOpenGL("Deferred Shading", [&]() {
+        m_DeferredShading->Render(scene, viewport, *m_ShadowMaps, *m_GBuffer, *m_Atmosphere, *m_Voxelize);
     });
 
-    GLuint shadingResult = deferShading->result;
+    GLuint shadingResult = m_DeferredShading->result;
 
     if (settings.enableTAA) {
-        time("TAA Resolve", [&]() {
-            shadingResult = taaResolve->render(viewport, *gbuffer, *deferShading, frameNr);
+        TimeOpenGL("TAA Resolve", [&]() {
+            shadingResult = m_ResolveTAA->Render(viewport, *m_GBuffer, *m_DeferredShading, m_FrameNr);
         });
     }
     else {
@@ -230,40 +240,40 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     }
 
     // render editor icons
-    time("Icons", [&]() {
-        icons->render(scene, viewport, shadingResult, gbuffer->entityTexture);
+    TimeOpenGL("Icons", [&]() {
+        m_Icons->Render(scene, viewport, shadingResult, m_GBuffer->entityTexture);
     });
 
     // generate downsampled bloom and do ACES tonemapping
-    GLuint bloomTexture = blackTexture;
+    GLuint bloomTexture = m_DefaultBlackTexture;
 
     if (settings.doBloom) {
-        time("Bloom", [&]() {
-            bloom->render(viewport, deferShading->bloomHighlights);
+        TimeOpenGL("Bloom", [&]() {
+            m_Bloom->Render(viewport, m_DeferredShading->bloomHighlights);
         });
 
-        bloomTexture = bloom->bloomTexture;
+        bloomTexture = m_Bloom->bloomTexture;
     }
 
-    time("Tonemap", [&]() {
-        tonemap->render(shadingResult, bloomTexture);
+    TimeOpenGL("Tonemap", [&]() {
+        m_Tonemap->Render(shadingResult, bloomTexture);
     });
 
     if (settings.debugCascades) {
-        time("Debug cascade", [&]() {
-            shadowMaps->renderCascade(viewport, tonemap->framebuffer);
+        TimeOpenGL("Debug cascade", [&]() {
+            m_ShadowMaps->renderCascade(viewport, m_Tonemap->framebuffer);
         });
     }
 
     // render debug lines / shapes
-    time("Debug lines", [&]() {
-        debugLines->render(viewport, tonemap->result, gbuffer->depthTexture);
+    TimeOpenGL("Debug lines", [&]() {
+        m_DebugLines->Render(viewport, m_Tonemap->result, m_GBuffer->depthTexture);
     });
 
     // render 3D voxel texture size ^ 3 cubes
     if (settings.debugVoxels) {
-        time("Debug voxels", [&]() {
-            debugvoxels->render(viewport, tonemap->result, *voxelize);
+        TimeOpenGL("Debug voxels", [&]() {
+            m_DebugVoxels->Render(viewport, m_Tonemap->result, *m_Voxelize);
         });
     }
 
@@ -277,59 +287,55 @@ void GLRenderer::render(const Scene& scene, const Viewport& viewport) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // render ImGui
-    time("ImGui", [&]() {
+    TimeOpenGL("ImGui", [&]() {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     });
 
     // increment frame counter
-    frameNr = frameNr + 1;
+    m_FrameNr = m_FrameNr + 1;
 }
 
 
 
-void GLRenderer::addDebugLine(glm::vec3 p1, glm::vec3 p2) {
-    debugLines->points.push_back(p1);
-    debugLines->points.push_back(p2);
+void GLRenderer::AddDebugLine(glm::vec3 p1, glm::vec3 p2) {
+    m_DebugLines->points.push_back(p1);
+    m_DebugLines->points.push_back(p2);
 }
 
 
 
-void GLRenderer::addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
-    addDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
-    addDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
+void GLRenderer::AddDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
 }
 
 
 
 template<typename Lambda>
-void GLRenderer::time(const std::string& name, Lambda&& lambda) {
+void GLRenderer::TimeOpenGL(const std::string& name, Lambda&& lambda) {
     if (!settings.disableTiming) {
-        timings.insert({ name, std::make_unique<GLTimer>() });
-
-        timings[name]->begin();
-
+        m_Timings.insert({ name, std::make_unique<GLTimer>() });
+        m_Timings[name]->begin();
         lambda();
-
-        timings[name]->end();
+        m_Timings[name]->end();
     }
-    else {
+    else
         lambda();
-    }
 }
 
 
 
-void GLRenderer::uploadMeshBuffers(Mesh& mesh) {
+void GLRenderer::sUploadMeshBuffers(Mesh& mesh) {
     auto vertices = mesh.GetInterleavedVertices();
 
     glCreateBuffers(1, &mesh.vertexBuffer);
@@ -341,21 +347,23 @@ void GLRenderer::uploadMeshBuffers(Mesh& mesh) {
 
 
 
-void GLRenderer::destroyMeshBuffers(Mesh& mesh) {
+void GLRenderer::sDestroyMeshBuffers(Mesh& mesh) {
     glDeleteBuffers(1, &mesh.vertexBuffer);
     glDeleteBuffers(1, &mesh.indexBuffer);
     mesh.vertexBuffer = 0, mesh.indexBuffer = 0;
 }
 
-void GLRenderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
+
+
+void GLRenderer::sUploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
     glCreateBuffers(1, &skeleton.boneIndexBuffer);
-    glNamedBufferData(skeleton.boneIndexBuffer, skeleton.m_BoneIndices.size() * sizeof(glm::ivec4), skeleton.m_BoneIndices.data(), GL_STATIC_COPY);
+    glNamedBufferData(skeleton.boneIndexBuffer, skeleton.boneIndices.size() * sizeof(glm::ivec4), skeleton.boneIndices.data(), GL_STATIC_COPY);
 
     glCreateBuffers(1, &skeleton.boneWeightBuffer);
-    glNamedBufferData(skeleton.boneWeightBuffer, skeleton.m_BoneWeights.size() * sizeof(glm::vec4), skeleton.m_BoneWeights.data(), GL_STATIC_COPY);
+    glNamedBufferData(skeleton.boneWeightBuffer, skeleton.boneWeights.size() * sizeof(glm::vec4), skeleton.boneWeights.data(), GL_STATIC_COPY);
 
     glCreateBuffers(1, &skeleton.boneTransformsBuffer);
-    glNamedBufferData(skeleton.boneTransformsBuffer, skeleton.m_BoneTransforms.size() * sizeof(glm::mat4), skeleton.m_BoneTransforms.data(), GL_DYNAMIC_READ);
+    glNamedBufferData(skeleton.boneTransformsBuffer, skeleton.boneTransformMatrices.size() * sizeof(glm::mat4), skeleton.boneTransformMatrices.data(), GL_DYNAMIC_READ);
 
     auto originalMeshBuffer = mesh.GetInterleavedVertices();
 
@@ -365,7 +373,8 @@ void GLRenderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
 }
 
 
-void GLRenderer::DestroySkeletonBuffers(Skeleton& skeleton) {
+
+void GLRenderer::sDestroySkeletonBuffers(Skeleton& skeleton) {
     glDeleteBuffers(1, &skeleton.boneIndexBuffer);
     glDeleteBuffers(1, &skeleton.boneWeightBuffer);
     glDeleteBuffers(1, &skeleton.skinnedVertexBuffer);
@@ -374,7 +383,7 @@ void GLRenderer::DestroySkeletonBuffers(Skeleton& skeleton) {
 
 
 
-void GLRenderer::destroyMaterialTextures(Material& material, Assets& assets) {
+void GLRenderer::sDestroyMaterialTextures(Material& material, Assets& assets) {
     glDeleteTextures(1, &material.gpuAlbedoMap);
     glDeleteTextures(1, &material.gpuNormalMap);
     glDeleteTextures(1, &material.gpuMetallicRoughnessMap);
@@ -387,38 +396,34 @@ void GLRenderer::destroyMaterialTextures(Material& material, Assets& assets) {
 
 
 
-void GLRenderer::uploadMaterialTextures(Material& material, Assets& assets) {
-    if (auto asset = assets.Get<TextureAsset>(material.albedoFile); asset) {
-        material.gpuAlbedoMap = GLRenderer::uploadTextureFromAsset(asset, true);
-    }
+void GLRenderer::sUploadMaterialTextures(Material& material, Assets& assets) {
+    if (auto asset = assets.Get<TextureAsset>(material.albedoFile); asset)
+        material.gpuAlbedoMap = GLRenderer::sUploadTextureFromAsset(asset, true);
 
-    if (auto asset = assets.Get<TextureAsset>(material.normalFile); asset) {
-        material.gpuNormalMap = GLRenderer::uploadTextureFromAsset(asset);
-    }
+    if (auto asset = assets.Get<TextureAsset>(material.normalFile); asset)
+        material.gpuNormalMap = GLRenderer::sUploadTextureFromAsset(asset);
 
-    if (auto asset = assets.Get<TextureAsset>(material.metalroughFile); asset) {
-        material.gpuMetallicRoughnessMap = GLRenderer::uploadTextureFromAsset(asset);
-    }
+    if (auto asset = assets.Get<TextureAsset>(material.metalroughFile); asset)
+        material.gpuMetallicRoughnessMap = GLRenderer::sUploadTextureFromAsset(asset);
 }
 
 
 
-GLuint GLRenderer::uploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB) {
+GLuint GLRenderer::sUploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB) {
     assert(asset);
-
-    GLuint texture = 0;
-    auto headerPtr = asset->GetHeader();
     auto dataPtr = asset->GetData();
+    auto headerPtr = asset->GetHeader();
 
-    auto format = sRGB ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-
+    auto texture = 0u;
     glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+    
+    auto format = sRGB ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
     glTextureStorage2D(texture, headerPtr->dwMipMapCount, format, headerPtr->dwWidth, headerPtr->dwHeight);
 
-    for (unsigned int mip = 0; mip < headerPtr->dwMipMapCount; mip++) {
-        glm::ivec2 dimensions = { std::max(headerPtr->dwWidth >> mip, 1ul), std::max(headerPtr->dwHeight >> mip, 1ul) };
-        size_t dataSize = std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16;
-        glCompressedTextureSubImage2D(texture, mip, 0, 0, dimensions.x, dimensions.y, format, (GLsizei)dataSize, dataPtr);
+    for (auto mip = 0u; mip < headerPtr->dwMipMapCount; mip++) {
+        const auto dimensions = glm::ivec2(std::max(headerPtr->dwWidth >> mip, 1ul), std::max(headerPtr->dwHeight >> mip, 1ul));
+        const auto data_size = GLsizei(std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16);
+        glCompressedTextureSubImage2D(texture, mip, 0, 0, dimensions.x, dimensions.y, format, data_size, dataPtr);
         dataPtr += dimensions.x * dimensions.y;
     }
 
@@ -430,34 +435,15 @@ GLuint GLRenderer::uploadTextureFromAsset(const TextureAsset::Ptr& asset, bool s
 
 
 
-void GLRenderer::createRenderTargets(const Viewport& viewport) {
-    frameNr = 0;
+void GLRenderer::CreateRenderTargets(const Viewport& viewport) {
+    m_FrameNr = 0;
 
-    deferShading->destroyRenderTargets();
-    deferShading->createRenderTargets(viewport);
+    for (auto& pass : m_RenderPasses) {
+        pass->DestroyRenderTargets();
+        pass->CreateRenderTargets(viewport);
+    }
 
-    debugvoxels->destroyRenderTargets();
-    debugvoxels->createRenderTargets(viewport);
-
-    tonemap->destroyRenderTargets();
-    tonemap->createRenderTargets(viewport);
-
-    gbuffer->destroyRenderTargets();
-    gbuffer->createRenderTargets(viewport);
-
-    bloom->destroyRenderTargets();
-    bloom->createRenderTargets(viewport);
-
-    icons->destroyRenderTargets();
-    icons->createRenderTargets(viewport);
-
-    atmosphere->destroyRenderTargets();
-    atmosphere->createRenderTargets(viewport);
-
-    taaResolve->destroyRenderTargets();
-    taaResolve->createRenderTargets(viewport);
-
-    shadowMaps->updatePerspectiveConstants(viewport);
+    m_ShadowMaps->updatePerspectiveConstants(viewport);
 }
 
 } // namespace Raekor

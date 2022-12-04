@@ -2,7 +2,6 @@
 #include "physics.h"
 #include "util.h"
 #include "scene.h"
-#include "async.h"
 
 namespace Raekor {
 
@@ -125,8 +124,6 @@ void Physics::OnUpdate(Scene& scene) {
             body_interface.SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
         }
     }
-
-    Async::sWait();
 }
 
 } // namespace Raekor

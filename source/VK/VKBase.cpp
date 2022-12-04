@@ -18,24 +18,21 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBits
 static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
     auto func = PFN_vkDestroyDebugUtilsMessengerEXT(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
     
-    if (func != nullptr) {
+    if (func != nullptr)
         func(instance, debugMessenger, pAllocator);
-    }
 }
 
 
 
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
-    const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) 
-{
-    auto func = PFN_vkCreateDebugUtilsMessengerEXT(vkGetInstanceProcAddr(instance,
-        "vkCreateDebugUtilsMessengerEXT"));
-    if (func != nullptr) {
+    const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+    auto func = PFN_vkCreateDebugUtilsMessengerEXT(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+    
+    if (func != nullptr)
         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-    } 	else 	{
+  	else
         return VK_ERROR_EXTENSION_NOT_PRESENT;
-    }
 }
 
 
@@ -56,9 +53,8 @@ Instance::Instance(SDL_Window* window) {
     instanceInfo.pApplicationInfo = &appInfo;
 
     unsigned int count;
-    if (!SDL_Vulkan_GetInstanceExtensions(window, &count, nullptr)) {
+    if (!SDL_Vulkan_GetInstanceExtensions(window, &count, nullptr))
         throw std::runtime_error("failed to get vulkan instance extensions");
-    }
 
     std::vector<const char*> extensions = { 
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
@@ -69,9 +65,8 @@ Instance::Instance(SDL_Window* window) {
     const size_t additionalExtensionCount = extensions.size();
     extensions.resize(additionalExtensionCount + count);
 
-    if (!SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data() + additionalExtensionCount)) {
+    if (!SDL_Vulkan_GetInstanceExtensions(window, &count, extensions.data() + additionalExtensionCount))
         throw std::runtime_error("failed to get instance extensions");
-    }
     
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
@@ -102,7 +97,8 @@ Instance::Instance(SDL_Window* window) {
                 }
             }
 
-            if (!found) throw std::runtime_error("requested validation layer not supported");
+            if (!found) 
+                throw std::runtime_error("requested validation layer not supported");
         }
 
         instanceInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugInfo;
@@ -140,11 +136,8 @@ Instance::Instance(SDL_Window* window) {
     
     m_VkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(m_Instance, "vkSetDebugUtilsObjectNameEXT");
 
-    if (!SDL_Vulkan_CreateSurface(window, m_Instance, &m_Surface)) {
+    if (!SDL_Vulkan_CreateSurface(window, m_Instance, &m_Surface))
         throw std::runtime_error("Failed to create vulkan surface");
-    }
-
-
 }
 
 
@@ -175,15 +168,13 @@ PhysicalDevice::PhysicalDevice(const Instance& instance) :
         vkGetPhysicalDeviceFeatures(device, &features);
         
         // prefer dedicated GPU
-        if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             m_PhysicalDevice = device;
-        }
     }
 
     // else we just get the first adapter found
-    if (m_PhysicalDevice == VK_NULL_HANDLE) {
+    if (m_PhysicalDevice == VK_NULL_HANDLE)
         m_PhysicalDevice = devices[0];
-    }
 
     VkPhysicalDeviceProperties2 props2 = {};
     props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
@@ -196,7 +187,7 @@ PhysicalDevice::PhysicalDevice(const Instance& instance) :
 
 
 VkFormat PhysicalDevice::FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const {
-    for (VkFormat format : candidates) {
+    for (const auto& format : candidates) {
         VkFormatProperties props;
         vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &props);
 

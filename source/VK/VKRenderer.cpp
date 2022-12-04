@@ -13,7 +13,7 @@ Renderer::Renderer(SDL_Window* window) :
     int w, h;
     SDL_GetWindowSize(window, &w, &h);
 
-    VkPresentModeKHR mode = m_SyncInterval ? VK_PRESENT_MODE_FIFO_RELAXED_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+    VkPresentModeKHR mode = m_SyncInterval ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
 
     m_Swapchain.Create(m_Device, { w, h }, mode);
 
@@ -139,7 +139,7 @@ void Renderer::UpdateBVH(Scene& scene) {
     }
 
     m_Device.DestroyAccelStruct(m_TLAS);
-    m_TLAS = CreateTLAS(deviceInstances.data(), deviceInstances.size());
+    m_TLAS = CreateTLAS(deviceInstances);
 
     struct Instance {
         glm::ivec4 materialIndex;
@@ -430,9 +430,8 @@ void Renderer::Screenshot(const std::string& filepath) {
     // Apparently the rows are 32 byte aligned, 10/10 guess work
     const int strideInBytes = gAlignUp(desc.width * 4, 32);
 
-    if (!stbi_write_png(filepath.c_str(), desc.width, desc.height, 4, pixels, strideInBytes)) {
+    if (!stbi_write_png(filepath.c_str(), desc.width, desc.height, 4, pixels, strideInBytes))
         std::cerr << "Failed to save screenshot. \n";
-    }
 
     m_Device.UnmapPointer(linearTexture);
     m_Device.DestroyTexture(linearTexture);
@@ -449,7 +448,7 @@ void Renderer::RecreateSwapchain(SDL_Window* window) {
         while (SDL_PollEvent(&ev)) {}
     }
 
-    VkPresentModeKHR mode = m_SyncInterval ? VK_PRESENT_MODE_FIFO_RELAXED_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+    VkPresentModeKHR mode = m_SyncInterval ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
     
     int w, h;
     SDL_GetWindowSize(window, &w, &h);
@@ -637,11 +636,9 @@ void Renderer::DestroyBLAS(RTGeometry& geometry) {
 }
 
 
-AccelStruct Renderer::CreateTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count) {
-    assert(instances);
-    assert(count);
-
-    const size_t bufferSize = sizeof(VkAccelerationStructureInstanceKHR) * count;
+AccelStruct Renderer::CreateTLAS(Slice<VkAccelerationStructureInstanceKHR> inInstances) {
+    const size_t bufferSize = sizeof(VkAccelerationStructureInstanceKHR) * inInstances.Length();
+    assert(bufferSize != 0);
 
     auto buffer = m_Device.CreateBuffer(
         bufferSize,
@@ -649,7 +646,7 @@ AccelStruct Renderer::CreateTLAS(VkAccelerationStructureInstanceKHR* instances, 
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    memcpy(m_Device.GetMappedPointer<void*>(buffer), instances, bufferSize);
+    memcpy(m_Device.GetMappedPointer<void*>(buffer), &inInstances[0], bufferSize);
 
     VkAccelerationStructureGeometryInstancesDataKHR instanceData = {};
     instanceData.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
@@ -669,7 +666,7 @@ AccelStruct Renderer::CreateTLAS(VkAccelerationStructureInstanceKHR* instances, 
     buildInfo.geometryCount = 1;
     buildInfo.pGeometries = &geometry;
 
-    auto tlas = m_Device.CreateAccelStruct(buildInfo, uint32_t(count));
+    auto tlas = m_Device.CreateAccelStruct(buildInfo, uint32_t(inInstances.Length()));
 
     m_Device.DestroyBuffer(buffer);
 

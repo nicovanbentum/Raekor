@@ -14,6 +14,8 @@ void serialize(Archive& archive, CVar& cvar) {
 	archive(cvar);
 }
 
+
+
 class CVars {
 private:
 	struct GetVisitor {
@@ -47,6 +49,9 @@ public:
 	
 	template<typename T>
 	[[nodiscard]] static T& sGetValue(const std::string& name);
+
+	template<typename T>
+	[[nodiscard]] static T* sTryGetValue(const std::string& name);
 	
 	static std::string sGetValue(const std::string& name);
 	static bool sSetValue(std::string name, const std::string& value);
@@ -65,23 +70,21 @@ private:
 };
 
 
+
 template<> bool CVars::SetVisitor::operator()(std::function<void()>& cvar) {
 	cvar();
 	return true;
 }
-
 
 template<> bool CVars::SetVisitor::operator()(std::string& cvar) {
 	cvar = m_Value;
 	return true;
 }
 
-
 template<> bool CVars::SetVisitor::operator()(int& cvar) {
 	cvar = std::stoi(m_Value);
 	return true;
 }
-
 
 template<> bool CVars::SetVisitor::operator()(float& cvar) {
 	cvar = std::stof(m_Value);
@@ -89,11 +92,11 @@ template<> bool CVars::SetVisitor::operator()(float& cvar) {
 }
 
 
+
 template<typename T>
 inline T& CVars::sCreate(const std::string& name, T value, bool force) {
-	if (global->cvars.find(name) == global->cvars.end() || force) {
+	if (global->cvars.find(name) == global->cvars.end() || force)
 		global->cvars[name] = value;
-	}
 
 	return std::get<T>(global->cvars[name]);
 }
@@ -109,11 +112,18 @@ inline T& CVars::sGetValue(const std::string& name) {
 	return std::get<T>(global->cvars[name]);
 }
 
+template<typename T>
+inline T* CVars::sTryGetValue(const std::string& name) {
+	if (global->cvars.find(name) == global->cvars.end())
+		return nullptr;
+
+	return &std::get<T>(global->cvars[name]);
+}
+
 
 inline bool CVars::sSetValue(std::string name, const std::string& value) {
-	if (global->cvars.find(name) == global->cvars.end()) {
+	if (global->cvars.find(name) == global->cvars.end())
 		return false;
-	}
 
 	try {
 		SetVisitor visitor(value);

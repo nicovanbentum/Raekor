@@ -4,59 +4,6 @@
 
 namespace Raekor {
 
-void BindInterleavedVertexLayout(const Mesh& mesh) {
-    const bool has_uvs       = !mesh.uvs.empty();
-    const bool has_normals   = !mesh.normals.empty();
-    const bool has_tangents  = !mesh.tangents.empty();
-
-    size_t uvs_offset = 0, normals_offset = 0, tangents_offset = 0;
-
-    uint32_t stride = sizeof(decltype(mesh.positions)::value_type);
-
-    if (has_uvs) { 
-        uvs_offset = stride; 
-        stride += sizeof(decltype(mesh.uvs)::value_type); 
-    }
-
-    if (has_normals) { 
-        normals_offset = stride; 
-        stride += sizeof(decltype(mesh.normals)::value_type); 
-    }
-
-    if (has_tangents) { 
-        tangents_offset = stride; 
-        stride += sizeof(decltype(mesh.tangents)::value_type); 
-    }
-
-    uint32_t attrib_id = 0;
-
-    glEnableVertexAttribArray(attrib_id);
-    glVertexAttribPointer(attrib_id++, decltype(mesh.positions)::value_type().length(),
-        GL_FLOAT, GL_FALSE, (GLsizei)stride, (const void*)((intptr_t)0)
-    );
-
-    if (has_uvs) {
-        glEnableVertexAttribArray(attrib_id);
-        glVertexAttribPointer(attrib_id++, decltype(mesh.uvs)::value_type().length(),
-            GL_FLOAT, GL_FALSE, (GLsizei)stride, (const void*)((intptr_t)uvs_offset)
-        );
-    }
-
-    if (has_normals) {
-        glEnableVertexAttribArray(attrib_id);
-        glVertexAttribPointer(attrib_id++, decltype(mesh.normals)::value_type().length(),
-            GL_FLOAT, GL_FALSE, (GLsizei)stride, (const void*)((intptr_t)normals_offset)
-        );
-    }
-
-    if (has_tangents) {
-        glEnableVertexAttribArray(attrib_id);
-        glVertexAttribPointer(attrib_id++, decltype(mesh.tangents)::value_type().length(),
-            GL_FLOAT, GL_FALSE, (GLsizei)stride, (const void*)((intptr_t)tangents_offset)
-        );
-    }
-}
-
 
 GLTimer::GLTimer() {
     glGenQueries(GLsizei(queries.size()), queries.data());
@@ -82,7 +29,8 @@ void GLTimer::end() {
     
     // check all the queries for results, except the one that just ended
     for (uint32_t i = 0; i < queries.size(); i++) {
-        if (i == index) continue;
+        if (i == index) 
+            continue;
         glGetQueryObjectui64v(queries[i], GL_QUERY_RESULT_NO_WAIT, &time);
     }
 
@@ -191,9 +139,9 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
         }
 
         glm::vec3 frustumCenter = glm::vec3(0.0f);
-        for (const auto& corner : frustumCorners) {
+        for (const auto& corner : frustumCorners)
             frustumCenter += corner;
-        }
+
         frustumCenter /= 8.0f;
 
         cascades[i].radius = 0.0f;
@@ -308,7 +256,7 @@ void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
 }
 
 
-void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
+void ShadowMap::Render(const Viewport& viewport, const Scene& scene) {
     glViewport(0, 0, settings.resolution, settings.resolution);
 
     updateCascades(scene, viewport);
@@ -336,9 +284,7 @@ void ShadowMap::render(const Viewport& viewport, const Scene& scene) {
 
             // determine if we use the original mesh vertices or GPU skinned vertices
             auto skeleton = scene.try_get<Skeleton>(entity);
-            glBindBuffer(GL_ARRAY_BUFFER, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
-
-            BindInterleavedVertexLayout(mesh);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 
@@ -377,17 +323,17 @@ GBuffer::GBuffer(const Viewport& viewport) {
     glNamedBufferStorage(pbo, sizeof(float), NULL, GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
     entity = glMapNamedBufferRange(pbo, 0, sizeof(float), GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
 
-    createRenderTargets(viewport);
+    CreateRenderTargets(viewport);
 }
 
 
 GBuffer::~GBuffer() {
     glDeleteBuffers(1, &uniformBuffer);
-    destroyRenderTargets();
+    DestroyRenderTargets();
 }
 
 
-void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t frameNr) {
+void GBuffer::Render(const Scene& scene, const Viewport& viewport, uint32_t m_FrameNr) {
     glViewport(0, 0, viewport.size.x, viewport.size.y);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -402,7 +348,7 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
     
     glClearBufferfv(GL_COLOR, 3, clearColor.data());
 
-    if (frameNr == 0) {
+    if (m_FrameNr == 0) {
         uniforms.prevJitter = viewport.GetJitter();
     } else {
         uniforms.prevJitter = uniforms.jitter;
@@ -410,7 +356,7 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
 
     uniforms.jitter = viewport.GetJitter();
 
-    if (frameNr == 0) {
+    if (m_FrameNr == 0) {
         uniforms.prevViewProj = viewport.GetJitteredProjMatrix() * viewport.GetCamera().GetView();
     } else {
         uniforms.prevViewProj = uniforms.projection * uniforms.view;
@@ -434,7 +380,7 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
         };
 
         // if the frustrum can't see the mesh's OBB we cull it
-        if (!frustrum.ContainsAABB(worldAABB[0], worldAABB[1])) {
+        if (false && !frustrum.ContainsAABB(worldAABB[0], worldAABB[1])) {
             culled += 1;
             continue;
         }
@@ -457,9 +403,7 @@ void GBuffer::render(const Scene& scene, const Viewport& viewport, uint32_t fram
 
         // determine if we use the original mesh vertices or GPU skinned vertices
         auto skeleton = scene.try_get<Skeleton>(entity);
-        glBindBuffer(GL_ARRAY_BUFFER, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
-
-        BindInterleavedVertexLayout(mesh);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 
@@ -491,7 +435,7 @@ uint32_t GBuffer::readEntity(GLint x, GLint y) {
 }
 
 
-void GBuffer::createRenderTargets(const Viewport& viewport) {
+void GBuffer::CreateRenderTargets(const Viewport& viewport) {
     glCreateTextures(GL_TEXTURE_2D, 1, &albedoTexture);
     glTextureStorage2D(albedoTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
     glTextureParameteri(albedoTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -547,7 +491,7 @@ void GBuffer::createRenderTargets(const Viewport& viewport) {
 }
 
 
-void GBuffer::destroyRenderTargets() {
+void GBuffer::DestroyRenderTargets() {
     std::array textures = {
         albedoTexture,
         normalTexture,
@@ -563,11 +507,10 @@ void GBuffer::destroyRenderTargets() {
 
 
 DeferredShading::~DeferredShading() {
-    destroyRenderTargets();
+    DestroyRenderTargets();
     glDeleteBuffers(1, &uniformBuffer);
     glDeleteBuffers(1, &uniformBuffer2);
 }
-
 
 
 DeferredShading::DeferredShading(const Viewport& viewport) {
@@ -583,7 +526,7 @@ DeferredShading::DeferredShading(const Viewport& viewport) {
     });
 
     // init resources
-    createRenderTargets(viewport);
+    CreateRenderTargets(viewport);
 
     // init uniform buffer
     glCreateBuffers(1, &uniformBuffer);
@@ -614,9 +557,8 @@ DeferredShading::DeferredShading(const Viewport& viewport) {
 }
 
 
-
-void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
-                             const ShadowMap& shadowMap, const GBuffer& GBuffer, const Atmosphere& atmosphere, const Voxelize& voxels) {
+void DeferredShading::Render(const Scene& sscene, const Viewport& viewport,
+                             const ShadowMap& shadowMap, const GBuffer& GBuffer, const Atmosphere& m_Atmosphere, const Voxelize& voxels) {
     uniforms.view = viewport.GetCamera().GetView();
     uniforms.projection = viewport.GetJitteredProjMatrix();
 
@@ -645,9 +587,8 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
 
         i++;
 
-        if (i >= ARRAYSIZE(uniforms.pointLights)) {
+        if (i >= ARRAYSIZE(uniforms.pointLights))
             break;
-        }
 
         uniforms.pointLights[i] = light;
     }
@@ -681,8 +622,8 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
     glBindTextureUnit(7, GBuffer.materialTexture);
     glBindTextureUnit(8, GBuffer.depthTexture);
     glBindTextureUnit(9, brdfLUT);
-    glBindTextureUnit(10, atmosphere.environmentCubemap);
-    glBindTextureUnit(11, atmosphere.convolvedCubemap);
+    glBindTextureUnit(10, m_Atmosphere.environmentCubemap);
+    glBindTextureUnit(11, m_Atmosphere.convolvedCubemap);
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, uniformBuffer2);
@@ -693,8 +634,7 @@ void DeferredShading::render(const Scene& sscene, const Viewport& viewport,
 }
 
 
-
-void DeferredShading::createRenderTargets(const Viewport& viewport) {
+void DeferredShading::CreateRenderTargets(const Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
@@ -720,19 +660,18 @@ void DeferredShading::createRenderTargets(const Viewport& viewport) {
     glNamedFramebufferDrawBuffers(framebuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
 }
 
-void DeferredShading::destroyRenderTargets() {
+
+void DeferredShading::DestroyRenderTargets() {
     glDeleteTextures(1, &result);
     glDeleteTextures(1, &bloomHighlights);
     glDeleteFramebuffers(1, &framebuffer);
 }
 
 
-
 Bloom::~Bloom() {
-    destroyRenderTargets();
+    DestroyRenderTargets();
     glDeleteBuffers(1, &uniformBuffer);
 }
-
 
 
 Bloom::Bloom(const Viewport& viewport) {
@@ -741,18 +680,16 @@ Bloom::Bloom(const Viewport& viewport) {
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\gaussian.frag"}
     });
 
-    createRenderTargets(viewport);
+    CreateRenderTargets(viewport);
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
 }
 
 
-
-void Bloom::render(const Viewport& viewport, GLuint highlights) {
-    if (viewport.size.x < 16.0f || viewport.size.y < 16.0f) {
+void Bloom::Render(const Viewport& viewport, GLuint highlights) {
+    if (viewport.size.x < 16.0f || viewport.size.y < 16.0f)
         return;
-    }
 
     auto quarter = glm::ivec2(viewport.size.x / 4, viewport.size.y / 4);
 
@@ -793,12 +730,11 @@ void Bloom::render(const Viewport& viewport, GLuint highlights) {
 }
 
 
-
-void Bloom::createRenderTargets(const Viewport& viewport) {
+void Bloom::CreateRenderTargets(const Viewport& viewport) {
     auto quarterRes = glm::ivec2(
-                          std::max(viewport.size.x / 4, 1u),
-                          std::max(viewport.size.y / 4, 1u)
-                      );
+        std::max(viewport.size.x / 4, 1u),
+        std::max(viewport.size.y / 4, 1u)
+    );
 
     glCreateTextures(GL_TEXTURE_2D, 1, &bloomTexture);
     glTextureStorage2D(bloomTexture, 1, GL_RGBA16F, quarterRes.x, quarterRes.y);
@@ -829,8 +765,7 @@ void Bloom::createRenderTargets(const Viewport& viewport) {
 }
 
 
-
-void Bloom::destroyRenderTargets() {
+void Bloom::DestroyRenderTargets() {
     glDeleteFramebuffers(1, &bloomFramebuffer);
     glDeleteFramebuffers(1, &blurFramebuffer);
     glDeleteTextures(1, &bloomTexture);
@@ -838,11 +773,9 @@ void Bloom::destroyRenderTargets() {
 }
 
 
-
 Tonemap::~Tonemap() {
-    destroyRenderTargets();
+    DestroyRenderTargets();
 }
-
 
 
 Tonemap::Tonemap(const Viewport& viewport) {
@@ -853,7 +786,7 @@ Tonemap::Tonemap(const Viewport& viewport) {
     });
 
     // init render targets
-    createRenderTargets(viewport);
+    CreateRenderTargets(viewport);
 
     // init uniform buffer
     glCreateBuffers(1, &uniformBuffer);
@@ -861,8 +794,7 @@ Tonemap::Tonemap(const Viewport& viewport) {
 }
 
 
-
-void Tonemap::render(GLuint scene, GLuint bloom) {
+void Tonemap::Render(GLuint scene, GLuint m_Bloom) {
     // bind and clear render target
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -870,7 +802,7 @@ void Tonemap::render(GLuint scene, GLuint bloom) {
     // bind shader and input texture
     shader.Bind();
     glBindTextureUnit(0, scene);
-    glBindTextureUnit(1, bloom);
+    glBindTextureUnit(1, m_Bloom);
 
     // update uniform buffer GPU side
     glNamedBufferSubData(uniformBuffer, 0, sizeof(settings), &settings);
@@ -883,8 +815,7 @@ void Tonemap::render(GLuint scene, GLuint bloom) {
 }
 
 
-
-void Tonemap::createRenderTargets(const Viewport& viewport) {
+void Tonemap::CreateRenderTargets(const Viewport& viewport) {
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGB8, viewport.size.x, viewport.size.y);
@@ -897,12 +828,10 @@ void Tonemap::createRenderTargets(const Viewport& viewport) {
 }
 
 
-
-void Tonemap::destroyRenderTargets() {
+void Tonemap::DestroyRenderTargets() {
     glDeleteTextures(1, &result);
     glDeleteFramebuffers(1, &framebuffer);
 }
-
 
 
 Voxelize::Voxelize(uint32_t size) : size(size) {
@@ -920,48 +849,50 @@ Voxelize::Voxelize(uint32_t size) : size(size) {
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
 
     glCreateTextures(GL_TEXTURE_3D, 1, &result);
-    glTextureStorage3D(result, static_cast<GLsizei>(std::log2(size)), GL_RGBA8, size, size, size);
+    glTextureStorage3D(result, GLsizei(std::log2(size)) - 3, GL_RGBA8, size, size, size);
     glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTextureParameteri(result, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTextureParameteri(result, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTextureParameteri(result, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+
     float borderColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
     glTextureParameterfv(result, GL_TEXTURE_BORDER_COLOR, borderColor);
     glGenerateTextureMipmap(result);
 }
 
 
-
 void Voxelize::computeMipmaps(GLuint texture) {
-    int level = 0, texSize = size;
-    while (texSize >= 1.0f) {
-        texSize = static_cast<int>(texSize * 0.5f);
-        mipmapShader.Bind();
+    auto level = 0, mip_size = size;
+    auto mipmap_count = GLsizei(std::log2(size)) - 3;
+
+    mipmapShader.Bind();
+
+    while (level < mipmap_count) {
+        mip_size *= 0.5f;
+        
         glBindImageTexture(0, texture, level, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA8);
-        glBindImageTexture(1, texture, level + 1, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
-        // TODO: query local work group size at startup
-        glDispatchCompute(static_cast<GLuint>(size / 64), texSize, texSize);
-        mipmapShader.Unbind();
+        glBindImageTexture(1, texture, ++level, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
+        
+        auto dispatch_size = mip_size / 4;
+        glDispatchCompute(dispatch_size, dispatch_size, dispatch_size);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-        level++;
     }
 }
-
 
 
 void Voxelize::correctOpacity(GLuint texture) {
     opacityFixShader.Bind();
     glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA8);
-    // local work group size is 64
-    glDispatchCompute(static_cast<GLuint>(size / 64), size, size);
-    opacityFixShader.Unbind();
+    
+    const auto dispatch_size = size / 4;
+    glDispatchCompute(dispatch_size, dispatch_size, dispatch_size);
+    
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
 
-
-void Voxelize::render(const Scene& scene, const Viewport& viewport, const ShadowMap& shadowmap) {
+void Voxelize::Render(const Scene& scene, const Viewport& viewport, const ShadowMap& shadowmap) {
     // left, right, bottom, top, zNear, zFar
     auto projectionMatrix = glm::ortho(-worldSize * 0.5f, worldSize * 0.5f, -worldSize * 0.5f, worldSize * 0.5f, worldSize * 0.5f, worldSize * 1.5f);
     uniforms.px = projectionMatrix * glm::lookAt(glm::vec3(worldSize, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
@@ -975,19 +906,19 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
 
     uniforms.view = viewport.GetCamera().GetView();
 
-    // clear the entire voxel texture
+    // clear the first mip of the 3D texture, the other mips are filled by the mipmap shader
     constexpr auto clearColour = glm::u8vec4(0.0f, 0.0f, 0.0f, 0.0f);
-    for (uint32_t level = 0; level < std::log2(size); level++) {
-        glClearTexImage(result, level, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(clearColour));
-    }
+    glClearTexImage(result, 0, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(clearColour));
 
-    // set GL state
+    // set OpenGL state
     glViewport(0, 0, size, size);
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
-    //glEnable(GL_CONSERVATIVE_RASTERIZATION_NV);
+
+    if(GLAD_GL_NV_conservative_raster)
+        glEnable(GL_CONSERVATIVE_RASTERIZATION_NV);
 
     // bind shader and level 0 of the voxel volume
     shader.Bind();
@@ -997,7 +928,6 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
     const auto view = scene.view<const Mesh, const Transform>();
 
     for (const auto& [entity, mesh, transform] : view.each()) {
-
         const Material* material = nullptr;
         
         if (scene.valid(mesh.material))
@@ -1010,9 +940,7 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
 
         // determine if we use the original mesh vertices or GPU skinned vertices
         auto skeleton = scene.try_get<Skeleton>(entity);
-        glBindBuffer(GL_ARRAY_BUFFER, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
-
-        BindInterleavedVertexLayout(mesh);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 
@@ -1020,30 +948,29 @@ void Voxelize::render(const Scene& scene, const Viewport& viewport, const Shadow
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
 
         glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
+        
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
 
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
-    // Run compute shaders
-    computeMipmaps(result);
-    //correctOpacity(result);
-    //glGenerateTextureMipmap(result);
-
-    // reset OpenGL state
+    // restore OpenGL state
     glViewport(0, 0, viewport.size.x, viewport.size.y);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    //glDisable(GL_CONSERVATIVE_RASTERIZATION_NV);
 
+    if (GLAD_GL_NV_conservative_raster)
+        glDisable(GL_CONSERVATIVE_RASTERIZATION_NV);
+
+    computeMipmaps(result);
 }
 
 
 
 VoxelizeDebug::~VoxelizeDebug() {
-    destroyRenderTargets();
+    DestroyRenderTargets();
     glDeleteBuffers(1, &uniformBuffer);
 }
 
@@ -1056,7 +983,7 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport) {
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\voxelDebug.frag"}
     });
 
-    createRenderTargets(viewport);
+    CreateRenderTargets(viewport);
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
@@ -1071,7 +998,7 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize
     });
 
     // init resources
-    createRenderTargets(viewport);
+    CreateRenderTargets(viewport);
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
@@ -1114,7 +1041,7 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize
     indexCount = static_cast<uint32_t>(indexBufferData.size());
 }
 
-void VoxelizeDebug::render(const Viewport& viewport, GLuint input, const Voxelize& voxels) {
+void VoxelizeDebug::Render(const Viewport& viewport, GLuint input, const Voxelize& voxels) {
     // bind the input framebuffer, we draw the debug vertices on top
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
     glNamedFramebufferTexture(frameBuffer, GL_COLOR_ATTACHMENT0, input, 0);
@@ -1178,7 +1105,7 @@ void VoxelizeDebug::execute2(const Viewport& viewport, GLuint input, const Voxel
 
 
 
-void VoxelizeDebug::createRenderTargets(const Viewport& viewport) {
+void VoxelizeDebug::CreateRenderTargets(const Viewport& viewport) {
     glCreateRenderbuffers(1, &renderBuffer);
     glNamedRenderbufferStorage(renderBuffer, GL_DEPTH32F_STENCIL8, viewport.size.x, viewport.size.y);
 
@@ -1188,7 +1115,7 @@ void VoxelizeDebug::createRenderTargets(const Viewport& viewport) {
 
 
 
-void VoxelizeDebug::destroyRenderTargets() {
+void VoxelizeDebug::DestroyRenderTargets() {
     glDeleteRenderbuffers(1, &renderBuffer);
     glDeleteFramebuffers(1, &frameBuffer);
 }
@@ -1216,7 +1143,7 @@ DebugLines::DebugLines() {
 
 
 
-void DebugLines::render(const Viewport& viewport, GLuint colorAttachment, GLuint depthAttachment) {
+void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint depthAttachment) {
     if (points.size() < 2) return;
 
     glEnable(GL_LINE_SMOOTH);
@@ -1260,7 +1187,7 @@ Skinning::Skinning() {
 
 void Skinning::compute(const Mesh& mesh, const Skeleton& anim) {
 
-    glNamedBufferData(anim.boneTransformsBuffer, anim.m_BoneTransforms.size() * sizeof(glm::mat4), anim.m_BoneTransforms.data(), GL_DYNAMIC_DRAW);
+    glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransformMatrices.size() * sizeof(glm::mat4), anim.boneTransformMatrices.data(), GL_DYNAMIC_DRAW);
 
     computeShader.Bind();
 
@@ -1342,7 +1269,7 @@ RayTracingOneWeekend::RayTracingOneWeekend(const Viewport& viewport) {
     spheres.push_back(Sphere{ glm::vec3(-4, 1, 0), glm::vec3(0.4, 0.2, 0.1), 1.0f, 0.0f, 1.0f });
     spheres.push_back(Sphere{ glm::vec3(4, 1, 0), glm::vec3(0.7, 0.6, 0.5), 0.0f, 1.0f, 1.0f });
 
-    createRenderTargets(viewport);
+    CreateRenderTargets(viewport);
     auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
     glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
 
@@ -1353,7 +1280,7 @@ RayTracingOneWeekend::RayTracingOneWeekend(const Viewport& viewport) {
 
 
 RayTracingOneWeekend::~RayTracingOneWeekend() {
-    destroyRenderTargets();
+    DestroyRenderTargets();
     glDeleteBuffers(1, &sphereBuffer);
     glDeleteBuffers(1, &uniformBuffer);
 
@@ -1393,7 +1320,7 @@ void RayTracingOneWeekend::compute(const Viewport& viewport, bool update) {
 
 
 
-void RayTracingOneWeekend::createRenderTargets(const Viewport& viewport) {
+void RayTracingOneWeekend::CreateRenderTargets(const Viewport& viewport) {
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
     glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -1410,7 +1337,7 @@ void RayTracingOneWeekend::createRenderTargets(const Viewport& viewport) {
 
 
 
-void RayTracingOneWeekend::destroyRenderTargets() {
+void RayTracingOneWeekend::DestroyRenderTargets() {
     glDeleteTextures(1, &result);
     glDeleteTextures(1, &finalResult);
 }
@@ -1438,33 +1365,33 @@ Icons::Icons(const Viewport& viewport) {
     glTextureParameteri(lightTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(lightTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glGenerateTextureMipmap(lightTexture);
-    createRenderTargets(viewport);
+    CreateRenderTargets(viewport);
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
 }
 
 Icons::~Icons() {
-    destroyRenderTargets();
+    DestroyRenderTargets();
     glDeleteBuffers(1, &uniformBuffer);
 
 }
 
 
 
-void Icons::createRenderTargets(const Viewport& viewport) {
+void Icons::CreateRenderTargets(const Viewport& viewport) {
     glCreateFramebuffers(1, &framebuffer);
 }
 
 
 
-void Icons::destroyRenderTargets() {
+void Icons::DestroyRenderTargets() {
     glDeleteFramebuffers(1, &framebuffer);
 }
 
 
 
-void Icons::render(const Scene& scene, const Viewport& viewport, GLuint colorAttachment, GLuint entityAttachment) {
+void Icons::Render(const Scene& scene, const Viewport& viewport, GLuint colorAttachment, GLuint entityAttachment) {
     glDisable(GL_CULL_FACE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -1528,7 +1455,7 @@ Atmosphere::Atmosphere(const Viewport& viewport) {
         { Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\atmosphere.comp" },
     });
 
-    createRenderTargets(viewport);
+    CreateRenderTargets(viewport);
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
@@ -1553,19 +1480,19 @@ Atmosphere::Atmosphere(const Viewport& viewport) {
 
 
 Atmosphere::~Atmosphere() {
-    destroyRenderTargets();
+    DestroyRenderTargets();
     glDeleteBuffers(1, &uniformBuffer);
 }
 
 
 
-void Atmosphere::createRenderTargets(const Viewport& viewport) {
+void Atmosphere::CreateRenderTargets(const Viewport& viewport) {
     glCreateFramebuffers(1, &framebuffer);
 }
 
 
 
-void Atmosphere::destroyRenderTargets() {
+void Atmosphere::DestroyRenderTargets() {
     glDeleteFramebuffers(1, &framebuffer);
 }
 
@@ -1623,14 +1550,14 @@ void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& scene) {
 TAAResolve::TAAResolve(const Viewport& viewport) {
     shader.Compile({ { Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\taaResolve.comp" } });
 
-    createRenderTargets(viewport);
+    CreateRenderTargets(viewport);
 }
 
-GLuint TAAResolve::render(const Viewport& viewport, const GBuffer& gbuffer, const DeferredShading& shading, uint32_t frameNr) {
+GLuint TAAResolve::Render(const Viewport& viewport, const GBuffer& m_GBuffer, const DeferredShading& shading, uint32_t m_FrameNr) {
     shader.Bind();
 
     // on first frame it should bind the hdr shading result as history texture
-    if (frameNr == 0) {
+    if (m_FrameNr == 0) {
         glBindTextureUnit(0, shading.result);
         glBindImageTexture(5, shading.result, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
 
@@ -1641,8 +1568,8 @@ GLuint TAAResolve::render(const Viewport& viewport, const GBuffer& gbuffer, cons
     }
 
     glBindImageTexture(1, resultBuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
-    glBindTextureUnit(2, gbuffer.depthTexture);
-    glBindImageTexture(3, gbuffer.velocityTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG16F);
+    glBindTextureUnit(2, m_GBuffer.depthTexture);
+    glBindImageTexture(3, m_GBuffer.velocityTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG16F);
     glBindImageTexture(4, shading.result, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
 
     auto dispatch = [](uint32_t size) -> GLuint {
@@ -1656,7 +1583,7 @@ GLuint TAAResolve::render(const Viewport& viewport, const GBuffer& gbuffer, cons
     return historyBuffer;
 }
 
-void TAAResolve::createRenderTargets(const Viewport& viewport) {
+void TAAResolve::CreateRenderTargets(const Viewport& viewport) {
     glCreateTextures(GL_TEXTURE_2D, 1, &resultBuffer);
     glTextureStorage2D(resultBuffer, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
     glTextureParameteri(resultBuffer, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -1674,7 +1601,7 @@ void TAAResolve::createRenderTargets(const Viewport& viewport) {
     glTextureParameteri(historyBuffer, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 }
 
-void TAAResolve::destroyRenderTargets() {
+void TAAResolve::DestroyRenderTargets() {
     GLuint textures[] = { resultBuffer, historyBuffer };
     glDeleteTextures(2, textures);
 }

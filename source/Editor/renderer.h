@@ -25,48 +25,49 @@ class GLRenderer {
     } settings;
 
 public:
-    GLRenderer(SDL_Window* window, Viewport& viewport);
+    GLRenderer(SDL_Window* ioWindow, Viewport& ioViewport);
     ~GLRenderer();
 
-    void render(const Scene& scene, const Viewport& viewport);
-    void createRenderTargets(const Viewport& viewport);
+    void Render(const Scene& inScene, const Viewport& inViewport);
+    void CreateRenderTargets(const Viewport& inViewport);
 
-    void addDebugLine(glm::vec3 p1, glm::vec3 p2);
-    void addDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m = glm::mat4(1.0f));
+    void AddDebugLine(glm::vec3 inP1, glm::vec3 inP2);
+    void AddDebugBox(glm::vec3 inMin, glm::vec3 inMax, glm::mat4& inTransform = glm::mat4(1.0f));
 
     template<typename Lambda>
-    void time(const std::string& name, Lambda&& lambda);
+    void TimeOpenGL(const std::string& inName, Lambda&& inLambda);
 
-    static void uploadMeshBuffers(Mesh& mesh);
-    static void destroyMeshBuffers(Mesh& mesh);
+    static void sUploadMeshBuffers(Mesh& inMesh);
+    static void sDestroyMeshBuffers(Mesh& inMesh);
 
-    static void UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh);
-    static void DestroySkeletonBuffers(Skeleton& skeleton);
+    static void sUploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh);
+    static void sDestroySkeletonBuffers(Skeleton& inSkeleton);
 
-    static void uploadMaterialTextures(Material& material, Assets& assets);
-    static void destroyMaterialTextures(Material& material, Assets& assets);
-    static GLuint uploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB = false);
+    static void sUploadMaterialTextures(Material& inMaterial, Assets& inAssets);
+    static void sDestroyMaterialTextures(Material& inMaterial, Assets& inAssets);
+    static GLuint sUploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false);
 
 public:
-    std::unique_ptr<Bloom>              bloom;
-    std::unique_ptr<Icons>              icons;
-    std::unique_ptr<Tonemap>            tonemap;
-    std::unique_ptr<GBuffer>            gbuffer;
-    std::unique_ptr<Voxelize>           voxelize;
-    std::unique_ptr<Skinning>           skinning;
-    std::unique_ptr<ShadowMap>          shadowMaps;
-    std::unique_ptr<Atmosphere>         atmosphere;
-    std::unique_ptr<TAAResolve>         taaResolve;
-    std::unique_ptr<DebugLines>         debugLines;
-    std::unique_ptr<VoxelizeDebug>      debugvoxels;
-    std::unique_ptr<DeferredShading>    deferShading;
+    std::shared_ptr<Bloom>                      m_Bloom;
+    std::shared_ptr<Icons>                      m_Icons;
+    std::shared_ptr<Tonemap>                    m_Tonemap;
+    std::shared_ptr<GBuffer>                    m_GBuffer;
+    std::shared_ptr<Voxelize>                   m_Voxelize;
+    std::shared_ptr<Skinning>                   m_Skinning;
+    std::shared_ptr<ShadowMap>                  m_ShadowMaps;
+    std::shared_ptr<Atmosphere>                 m_Atmosphere;
+    std::shared_ptr<TAAResolve>                 m_ResolveTAA;
+    std::shared_ptr<DebugLines>                 m_DebugLines;
+    std::shared_ptr<VoxelizeDebug>              m_DebugVoxels;
+    std::shared_ptr<DeferredShading>            m_DeferredShading;
+    std::vector<std::shared_ptr<RenderPass>>    m_RenderPasses;
 
-    std::map<std::string, std::unique_ptr<GLTimer>> timings;
+    std::map<std::string, std::unique_ptr<GLTimer>> m_Timings;
 
 private:
-    uint32_t frameNr = 0;
-    GLuint blackTexture;
-    SDL_GLContext context;
+    uint32_t m_FrameNr = 0;
+    GLuint m_DefaultBlackTexture = 0;
+    SDL_GLContext m_GLContext = nullptr;
 };
 
 } // namespace Raekor

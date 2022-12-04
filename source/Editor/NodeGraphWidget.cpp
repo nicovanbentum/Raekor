@@ -22,7 +22,7 @@ void NodeGraphWidget::draw(float dt) {
 			for (auto& node : m_Nodes) {
 				node.Build();
 			}
-			m_OpenFilePath = fs::relative(opened_file_path).string();
+			m_OpenFilePath = FileSystem::relative(opened_file_path).string();
 		}
 	} 
 	
@@ -45,7 +45,7 @@ void NodeGraphWidget::draw(float dt) {
 			auto ofs = std::ofstream(file_path);
 			auto archive = cereal::JSONOutputArchive(ofs);
 			archive(*this);
-			m_OpenFilePath = fs::relative(file_path).string();
+			m_OpenFilePath = FileSystem::relative(file_path).string();
 		}
 	} 
 	
@@ -226,9 +226,8 @@ void NodeGraphWidget::draw(float dt) {
 
 
 void NodeGraphWidget::onEvent(const SDL_Event& ev) {
-	if (ev.type == SDL_MOUSEBUTTONUP && ev.button.button == SDL_BUTTON_RIGHT) {
-		m_WasRightClicked = true;
-	}
+	if (ev.type == SDL_MOUSEBUTTONUP && ev.button.button == SDL_BUTTON_RIGHT)
+		m_WasRightClicked = true;}
 
 	if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
 		switch (ev.key.keysym.scancode) {

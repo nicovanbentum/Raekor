@@ -48,29 +48,31 @@ class Scene;
 
 class Physics final : public INoCopyNoMove {
 public:
+    enum EState {
+        Idle = 0,
+        Paused = 1,
+        Stepping = 2
+    };
+    
     Physics();
     ~Physics();
 
     void Step(Scene& scene, float dt);
     void OnUpdate(Scene& scene);
 
-    void SaveState() { m_Physics.SaveState(*m_StateRecorder); }
+    void SaveState()    { m_Physics.SaveState(*m_StateRecorder); }
     void RestoreState() { m_Physics.RestoreState(*m_StateRecorder); };
+
+    EState GetState() const         { return EState(m_Settings.state); }
+    void   SetState(EState inState) { m_Settings.state = inState; }
 
     JPH::PhysicsSystem& GetSystem() { return m_Physics; }
 
-public:
-    enum EState {
-        Idle = 0,
-        Paused = 1,
-        Stepping = 2
-    };
-
+private:
     struct {
         int& state = CVars::sCreate("physics_state", int(Idle), true);
-    } settings;
+    } m_Settings;
 
-private:
     JPH::PhysicsSystem          m_Physics;
     JPH::JobSystem*             m_JobSystem;
     JPH::TempAllocator*         m_TempAllocator;

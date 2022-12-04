@@ -9,6 +9,8 @@ namespace Raekor {
 class Scene;
 class Viewport;
 
+
+
 class GLTimer {
 public:
     GLTimer();
@@ -27,7 +29,15 @@ private:
 
 
 
-class ShadowMap {
+class RenderPass {
+public:
+    virtual void CreateRenderTargets(const Viewport& inViewport) = 0;
+    virtual void DestroyRenderTargets() = 0;
+};
+
+
+
+class ShadowMap final : public RenderPass {
     struct Cascade {
         float split;
         float radius;
@@ -51,17 +61,20 @@ class ShadowMap {
     ~ShadowMap();
     ShadowMap(const Viewport& viewport);
 
+    virtual void CreateRenderTargets(const Viewport& viewport) override {}
+    virtual void DestroyRenderTargets() override {}
+
     void updatePerspectiveConstants(const Viewport& viewport);
     void updateCascades(const Scene& scene, const Viewport& viewport);
-    void render(const Viewport& viewport, const Scene& scene);
+    void Render(const Viewport& viewport, const Scene& scene);
     void renderCascade(const Viewport& viewport, GLuint framebuffer);
 
 private:
     GLuint framebuffer;
     GLuint uniformBuffer;
 
-    glShader shader;
-    glShader debugShader;
+    GLShader shader;
+    GLShader debugShader;
 
 public:
     GLuint texture;
@@ -70,7 +83,7 @@ public:
 
 
 
-class GBuffer {
+class GBuffer final : public RenderPass {
     friend class GLRenderer;
     friend class ViewportWidget;
 
@@ -95,9 +108,9 @@ public:
 
     uint32_t readEntity(GLint x, GLint y);
 
-    void render(const Scene& scene, const Viewport& viewport, uint32_t frameNr);
-    void createRenderTargets(const Viewport& viewport);
-    void destroyRenderTargets();
+    void Render(const Scene& scene, const Viewport& viewport, uint32_t m_FrameNr);
+    virtual void CreateRenderTargets(const Viewport& viewport) override;
+    virtual void DestroyRenderTargets() override;
 
 public:
     GLuint framebuffer;
@@ -109,7 +122,7 @@ public:
     GLuint velocityTexture;
 
 private:
-    glShader shader;
+    GLShader shader;
     GLuint uniformBuffer;
 
     GLuint pbo;
@@ -119,7 +132,7 @@ private:
 
 
 
-class Icons {
+class Icons final : public RenderPass {
     friend class GLRenderer;
 
     struct {
@@ -132,13 +145,13 @@ public:
     Icons(const Viewport& viewport);
     ~Icons();
 
-    void createRenderTargets(const Viewport& viewport);
-    void destroyRenderTargets();
+    void CreateRenderTargets(const Viewport& viewport);
+    void DestroyRenderTargets();
 
-    void render(const Scene& scene, const Viewport& viewport, GLuint screenTexture, GLuint entityTexture);
+    void Render(const Scene& scene, const Viewport& viewport, GLuint screenTexture, GLuint entityTexture);
 
 private:
-    glShader shader;
+    GLShader shader;
     GLuint framebuffer;
     GLuint lightTexture;
     GLuint uniformBuffer;
@@ -146,7 +159,7 @@ private:
 
 
 
-class Bloom {
+class Bloom : public RenderPass {
     friend class GLRenderer;
 
     struct {
@@ -156,9 +169,9 @@ class Bloom {
 public:
     ~Bloom();
     Bloom(const Viewport& viewport);
-    void render(const Viewport& viewport, GLuint highlights);
-    void createRenderTargets(const Viewport& viewport);
-    void destroyRenderTargets();
+    void Render(const Viewport& viewport, GLuint highlights);
+    void CreateRenderTargets(const Viewport& viewport);
+    void DestroyRenderTargets();
 
     GLuint blurTexture;
     GLuint bloomTexture;
@@ -167,11 +180,11 @@ public:
     GLuint highlightsFramebuffer;
 
 private:
-    glShader blurShader;
+    GLShader blurShader;
     GLuint uniformBuffer;
 };
 
-class Tonemap {
+class Tonemap final : public RenderPass {
     friend class GLRenderer;
     friend class ViewportWidget;
 
@@ -183,13 +196,13 @@ public:
 
     ~Tonemap();
     Tonemap(const Viewport& viewport);
-    void render(GLuint scene, GLuint bloom);
+    void Render(GLuint scene, GLuint m_Bloom);
 
-    void createRenderTargets(const Viewport& viewport);
-    void destroyRenderTargets();
+    void CreateRenderTargets(const Viewport& viewport);
+    void DestroyRenderTargets();
 
 private:
-    glShader shader;
+    GLShader shader;
     GLuint framebuffer;
     GLuint uniformBuffer;
 
@@ -199,7 +212,7 @@ public:
 
 
 
-class Voxelize {
+class Voxelize final : public RenderPass {
     struct Uniforms {
         glm::mat4 px, py, pz;
         std::array<glm::mat4, 4> shadowMatrices;
@@ -211,15 +224,18 @@ class Voxelize {
 
 public:
     Voxelize(uint32_t size);
-    void render(const Scene& scene, const Viewport& viewport, const ShadowMap& shadowmap);
+    void Render(const Scene& scene, const Viewport& viewport, const ShadowMap& shadowmap);
+
+    virtual void CreateRenderTargets(const Viewport& inViewport) override {}
+    virtual void DestroyRenderTargets() override {}
 
 private:
     void computeMipmaps(GLuint texture);
     void correctOpacity(GLuint texture);
 
-    glShader shader;
-    glShader mipmapShader;
-    glShader opacityFixShader;
+    GLShader shader;
+    GLShader mipmapShader;
+    GLShader opacityFixShader;
 
     GLuint uniformBuffer;
     glm::mat4 px, py, pz;
@@ -232,7 +248,7 @@ public:
 
 
 
-class VoxelizeDebug {
+class VoxelizeDebug final : public RenderPass {
     struct {
         glm::mat4 p;
         glm::mat4 mv;
@@ -248,14 +264,14 @@ public:
     // fast cube rendering from https://twitter.com/SebAaltonen/status/1315982782439591938/photo/1
     VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize);
     
-    void render(const Viewport& viewport, GLuint input, const Voxelize& voxels);
+    void Render(const Viewport& viewport, GLuint input, const Voxelize& voxels);
     void execute2(const Viewport& viewport, GLuint input, const Voxelize& voxels);
 
-    void createRenderTargets(const Viewport& viewport);
-    void destroyRenderTargets();
+    void CreateRenderTargets(const Viewport& viewport);
+    void DestroyRenderTargets();
 
 private:
-    glShader shader;
+    GLShader shader;
     GLuint frameBuffer, renderBuffer;
     GLuint uniformBuffer;
 
@@ -265,7 +281,7 @@ private:
 
 
 
-class DebugLines {
+class DebugLines final : public RenderPass {
     friend class GLRenderer;
 
     struct {
@@ -277,10 +293,13 @@ public:
     DebugLines();
     ~DebugLines();
 
-    void render(const Viewport& viewport, GLuint colorAttachment, GLuint depthAttachment);
+    virtual void CreateRenderTargets(const Viewport& inViewport) override {}
+    virtual void DestroyRenderTargets() override {}
+
+    void Render(const Viewport& viewport, GLuint colorAttachment, GLuint depthAttachment);
 
 private:
-    glShader shader;
+    GLShader shader;
     GLuint frameBuffer;
     GLuint uniformBuffer;
 
@@ -290,15 +309,19 @@ private:
 
 
 
-class Skinning {
+class Skinning final : public RenderPass {
     friend class GLRenderer;
 
 public:
     Skinning();
+
+    virtual void CreateRenderTargets(const Viewport& inViewport) override {}
+    virtual void DestroyRenderTargets() override {}
+
     void compute(const Mesh& mesh, const Skeleton& anim);
 
 private:
-    glShader computeShader;
+    GLShader computeShader;
 };
 
 
@@ -311,7 +334,7 @@ struct Sphere {
     alignas(4) float radius;
 };
 
-class RayTracingOneWeekend {
+class RayTracingOneWeekend final : public RenderPass {
     struct {
         glm::vec4 position;
         glm::mat4 projection;
@@ -327,8 +350,8 @@ public:
 
     void compute(const Viewport& viewport, bool shouldClear);
 
-    void createRenderTargets(const Viewport& viewport);
-    void destroyRenderTargets();
+    void CreateRenderTargets(const Viewport& viewport);
+    void DestroyRenderTargets();
 
     bool shaderChanged() { return true; }
 
@@ -336,7 +359,7 @@ public:
 
 private:
     Timer rayTimer;
-    glShader shader;
+    GLShader shader;
 
     GLuint sphereBuffer;
     GLuint uniformBuffer;
@@ -347,7 +370,7 @@ public:
 
 
 
-class Atmosphere {
+class Atmosphere final : public RenderPass {
     friend class GLRenderer;
 
     struct {
@@ -363,8 +386,8 @@ public:
     Atmosphere(const Viewport& viewport);
     ~Atmosphere();
 
-    void createRenderTargets(const Viewport& viewport);
-    void destroyRenderTargets();
+    void CreateRenderTargets(const Viewport& viewport);
+    void DestroyRenderTargets();
 
     void computeCubemaps(const Viewport& viewport, const Scene& scene);
 
@@ -375,13 +398,13 @@ private:
     GLuint framebuffer;
     GLuint uniformBuffer;
 
-    glShader computeShader;
-    glShader convoluteShader;
+    GLShader computeShader;
+    GLShader convoluteShader;
 };
 
 
 
-class DeferredShading {
+class DeferredShading final : public RenderPass {
     friend class GLRenderer;
 
 private:
@@ -413,48 +436,48 @@ public:
     ~DeferredShading();
     DeferredShading(const Viewport& viewport);
 
-    void render(const Scene& sscene, 
+    void Render(const Scene& sscene, 
                 const Viewport& viewport, 
                 const ShadowMap& shadowMap,
                 const GBuffer& GBuffer, 
-                const Atmosphere& atmosphere,
+                const Atmosphere& m_Atmosphere,
                 const Voxelize& voxels);
 
-    void createRenderTargets(const Viewport& viewport);
-    void destroyRenderTargets();
+    void CreateRenderTargets(const Viewport& viewport);
+    void DestroyRenderTargets();
 
 public:
     GLuint result;
     GLuint bloomHighlights;
 
 private:
-    glShader shader;
+    GLShader shader;
     GLuint framebuffer;
 
     GLuint uniformBuffer;
     GLuint uniformBuffer2;
 
     GLuint brdfLUT;
-    glShader brdfLUTshader;
+    GLShader brdfLUTshader;
     GLuint brdfLUTframebuffer;
 };
 
 
 
-class TAAResolve {
+class TAAResolve final : public RenderPass {
 public:
     TAAResolve(const Viewport& viewport);
 
-    GLuint render(const Viewport& viewport, const GBuffer& gbuffer, const DeferredShading& shading, uint32_t frameNr);
+    GLuint Render(const Viewport& viewport, const GBuffer& m_GBuffer, const DeferredShading& shading, uint32_t m_FrameNr);
 
-    void createRenderTargets(const Viewport& viewport);
-    void destroyRenderTargets();
+    void CreateRenderTargets(const Viewport& viewport);
+    void DestroyRenderTargets();
 
 public:
     GLuint resultBuffer, historyBuffer;
 
 private:
-    glShader shader;
+    GLShader shader;
 };
 
 } // raekor

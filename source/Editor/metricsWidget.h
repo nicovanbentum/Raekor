@@ -15,8 +15,8 @@ public:
     virtual void onEvent(const SDL_Event& ev) override {}
 
 private:
-    float accumTime = 0.0f;
-    std::unordered_map<std::string, float> times;
+    float m_UpdateInterval = 0.0f;
+    std::unordered_map<std::string, float> m_Times;
 };
 
 }

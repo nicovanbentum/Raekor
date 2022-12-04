@@ -1,7 +1,12 @@
 #pragma once
 
+#include "json.h"
 #include "components.h"
 #include "primitives.h"
+
+namespace Raekor {
+
+}
 
 namespace cereal {
 
@@ -9,25 +14,22 @@ constexpr auto xyzw = std::array { "x", "y", "z", "w" };
 
 template<class Archive, glm::length_t L, typename T>
 void serialize(Archive& archive, glm::vec<L, T>& v) {
-	for (glm::length_t i = 0; i < v.length(); i++) {
+	for (glm::length_t i = 0; i < v.length(); i++)
 		archive(cereal::make_nvp(xyzw[i], v[i]));
-	}
 }
 
 
 template<class Archive, glm::length_t C, glm::length_t R, typename T>
 void serialize(Archive& archive, glm::mat<C, R, T>& mat) {
-	for (glm::length_t i = 0; i < mat.length(); i++) {
+	for (glm::length_t i = 0; i < mat.length(); i++)
 		archive(cereal::make_nvp(xyzw[i % xyzw.size()], mat[i]));
-	}
 }
 
 
 template<class Archive, typename T>
 void serialize(Archive& archive, glm::qua<T>& quat) {
-	for (glm::length_t i = 0; i < quat.length(); i++) {
+	for (glm::length_t i = 0; i < quat.length(); i++)
 		archive(cereal::make_nvp(xyzw[i], quat[i]));
-	}
 }
 
 
@@ -56,7 +58,7 @@ void load(Archive& archive, Raekor::DirectionalLight& light) {
 
 
 template<typename Archive>
-void serialize(Archive& archive, Raekor::PointLight light) {
+void serialize(Archive& archive, Raekor::PointLight& light) {
 	archive(light.colour, light.colour);
 }
 

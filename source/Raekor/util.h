@@ -47,16 +47,6 @@ constexpr inline size_t gAlignUp(size_t value, size_t alignment) noexcept {
 }
 
 
-#define TYPE_ID(Type) \
-constexpr static uint32_t m_TypeID = gHash32Bit(#Type); \
-virtual const uint32_t GetTypeID() const override { return m_TypeID; }
-
-class ITypeID {
-public:
-    virtual const uint32_t GetTypeID() const = 0;
-};
-
-
 void gPrintProgressBar(const std::string& prepend, float fract);
 
 
@@ -128,6 +118,26 @@ public:
     Slice(const T* start, uint64_t length) : start(start), length(length) {}
     Slice(const T* start, const T* end) : start(start), length(end - start) {}
 
+    Slice(const std::vector<T>& inVec) : start(inVec.data()), length(inVec.size()) {}
+
+    using value_type = T;
+    using reference = T&;
+
+    struct iterator
+    {
+        using reference = T&;
+        using value_type = T;
+        
+        const T* start = nullptr;
+        uint64_t length = 0;
+        bool operator != (const iterator& other) const { return start != other.start; }
+        bool operator == (const iterator& other) const { return start == other.start; }
+        void operator ++ () { ++start; }
+        auto operator *() const { return *start; }
+    };
+
+    using const_iterator = iterator;
+
     const T& operator[](size_t index) const {
         const auto ptr = start + index;
         assert(ptr != nullptr && ptr < start + length);
@@ -139,7 +149,10 @@ public:
     const auto begin() const { return start; }
     const auto end() const { return (start + length); }
 
-    const uint64_t Length() const { return length; }
+    bool IsEmpty() const { return start == nullptr || length == 0; }
+    uint64_t Length() const { return length; }
+
+    Slice<T> Sub(size_t inOffset, size_t inCount) { return Slice(start + inOffset, inCount); }
 
 private:
     const T* start = nullptr;
@@ -154,7 +167,10 @@ public:
     explicit RTID(uint32_t inIndex) : index(inIndex) {}
 
     uint32_t ToIndex() const { return index; }
-    bool Isvalid() const { return index != UINT32_MAX; }
+    [[nodiscard]] bool Isvalid() const { return index != UINT32_MAX; }
+
+    bool operator==(const RTID<T>& inOther) { return ToIndex() == inOther.ToIndex(); }
+    bool operator!=(const RTID<T>& inOther) { return ToIndex() != inOther.ToIndex(); }
 
 private:
     uint32_t index;
@@ -167,7 +183,7 @@ public:
     using ID = RTID<T>;
     virtual ~FreeVector() = default;
 
-    virtual ID Add(const T& inT) {
+    [[nodiscard]] virtual ID Add(const T& inT) {
         size_t t_index;
 
         if (m_FreeIndices.empty()) {
@@ -183,7 +199,7 @@ public:
         return ID(t_index);
     }
 
-    virtual bool Remove(ID inID) {
+    bool Remove(ID inID) {
         if (inID.ToIndex() > m_Storage.size() - 1)
             return false;
 
@@ -191,12 +207,12 @@ public:
         return true;
     }
 
-    virtual T& Get(ID inRTID) {
+    T& Get(ID inRTID) {
         assert(!m_Storage.empty() && inRTID.ToIndex() < m_Storage.size());
         return m_Storage[inRTID.ToIndex()];
     }
 
-    virtual const T& Get(ID inRTID) const {
+    const T& Get(ID inRTID) const {
         assert(!m_Storage.empty() && inRTID.ToIndex() < m_Storage.size());
         return m_Storage[inRTID.ToIndex()];
     }
@@ -205,5 +221,31 @@ private:
     std::vector<T> m_Storage;
     std::vector<size_t> m_FreeIndices;
 };
+
+
+
+template <typename T,
+    typename TIter = decltype(std::begin(std::declval<T>())),
+    typename = decltype(std::end(std::declval<T>()))>
+constexpr auto gEnumerate(T&& iterable)
+{
+    struct iterator
+    {
+        size_t i;
+        TIter iter;
+        bool operator != (const iterator& other) const { return iter != other.iter; }
+        void operator ++ () { ++i; ++iter; }
+        auto operator * () const { return std::tie(i, *iter); }
+    };
+    struct iterable_wrapper
+    {
+        T iterable;
+        auto begin() { return iterator{ 0, std::begin(iterable) }; }
+        auto end() { return iterator{ 0, std::end(iterable) }; }
+    };
+    return iterable_wrapper{ std::forward<T>(iterable) };
+}
+
+#define gWarn(inStr) std::cout << "Warning in File " << __FILE__ << " at Line " << __LINE__ << " from function " << __FUNCTION__ << ": " << inStr << '\n';
 
 } // Namespace Raekor

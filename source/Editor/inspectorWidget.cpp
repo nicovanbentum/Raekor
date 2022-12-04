@@ -87,9 +87,12 @@ void InspectorWidget::DrawComponent(Node& component, Entity& active) {
 
 void InspectorWidget::DrawComponent(Mesh& component, Entity& active) {
     ImGui::Text("Triangle count: %i", component.indices.size() / 3);
+    ImGui::Text("Position count: %i", component.positions.size());
+    ImGui::Text("TexCoord count: %i", component.uvs.size());
+    ImGui::Text("Normals count: %i", component.normals.size());
+    ImGui::Text("Tangents count: %i", component.tangents.size());
 
     auto& scene = GetScene();
-
     if (scene.valid(component.material) && scene.all_of<Material, Name>(component.material)) {
         auto& [material, name] = scene.get<Material, Name>(component.material);
 
@@ -192,7 +195,7 @@ void InspectorWidget::DrawComponent(Material& component, Entity& active) {
 
                 if (!asset_path.empty()) {
                     file = asset_path;
-                    gpuMap = GLRenderer::uploadTextureFromAsset(GetAssets().Get<TextureAsset>(asset_path));
+                    gpuMap = GLRenderer::sUploadTextureFromAsset(GetAssets().Get<TextureAsset>(asset_path));
                 }
                 else {
                     ImGui::OpenPopup("Error");
@@ -317,7 +320,7 @@ void InspectorWidget::DrawComponent(NativeScript& component, Entity& active) {
     if (ImGui::Button("Load..")) {
         std::string filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
         if (!filepath.empty()) {
-            component.file = fs::relative(filepath).string();
+            component.file = FileSystem::relative(filepath).string();
             component.asset = assets.Get<ScriptAsset>(component.file);
         }
     }

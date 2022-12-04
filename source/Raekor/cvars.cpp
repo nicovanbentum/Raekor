@@ -3,33 +3,27 @@
 
 namespace Raekor {
 	CVars::CVars() {
-		std::ifstream stream("cvars.json");
-
-		if (!stream.is_open()) {
+		auto stream = std::ifstream("cvars.json");
+		if (!stream.is_open())
 			return;
-		}
 
-		cereal::JSONInputArchive archive(stream);
+		auto archive = cereal::JSONInputArchive(stream);
 		archive(cvars);
 	}
 
 
 	CVars::~CVars() {
-		std::ofstream stream("cvars.json");
-		cereal::JSONOutputArchive archive(stream);
+		auto stream = std::ofstream("cvars.json");
+		auto archive = cereal::JSONOutputArchive(stream);
 		archive(cvars);
 	}
 
 
 	std::string CVars::sGetValue(const std::string& name) {
-		if (global->cvars.find(name) == global->cvars.end()) {
+		if (global->cvars.find(name) == global->cvars.end())
 			return {};
-		}
 
-		try {
-			GetVisitor visitor;
-			return std::visit(visitor, global->cvars[name]);
-		}
+		try { return std::visit(GetVisitor(), global->cvars[name]); }
 		catch (std::exception& e) {
 			UNREFERENCED_PARAMETER(e);
 			return {};

@@ -16,7 +16,6 @@ MenubarWidget::MenubarWidget(Editor* editor) :
 {}
 
 
-
 void MenubarWidget::draw(float dt) {
     auto& scene = IWidget::GetScene();
 
@@ -48,7 +47,7 @@ void MenubarWidget::draw(float dt) {
             }
 
             if (ImGui::MenuItem("Serialize as JSON..", "CTRL + S")) {
-                auto folder = fs::path(OS::sSelectFolderDialog());
+                auto folder = Path(OS::sSelectFolderDialog());
 
                 Timer timer;
                 if (!folder.empty()) {
@@ -76,14 +75,14 @@ void MenubarWidget::draw(float dt) {
             }
 
             if (ImGui::MenuItem("Load model..")) {
-                std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.fbx, *.glb, *.obj)\0*.gltf;*.fbx;*.glb;*.obj\0");
+                std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.fbx, *.glb, *.obj, *.blend)\0*.gltf;*.fbx;*.glb;*.obj;*.blend\0");
                 
                 if (!filepath.empty()) {
                     AssimpImporter importer(scene);
-                    importer.SetUploadMeshCallbackFunction(GLRenderer::uploadMeshBuffers);
-                    importer.SetUploadMaterialCallbackFunction(GLRenderer::uploadMaterialTextures);
-                    importer.SetUploadSkeletonCallbackFunction(GLRenderer::UploadSkeletonBuffers);
-                    importer.LoadFromFile(IWidget::GetAssets(), filepath);
+                    importer.SetUploadMeshCallbackFunction(GLRenderer::sUploadMeshBuffers);
+                    importer.SetUploadMaterialCallbackFunction(GLRenderer::sUploadMaterialTextures);
+                    importer.SetUploadSkeletonCallbackFunction(GLRenderer::sUploadSkeletonBuffers);
+                    importer.LoadFromFile(GetAssets(), filepath);
                     m_ActiveEntity = sInvalidEntity;
                 }
             }
@@ -93,9 +92,9 @@ void MenubarWidget::draw(float dt) {
 
                 if (!filepath.empty()) {
                     GltfImporter importer(scene);
-                    importer.SetUploadMeshCallbackFunction(GLRenderer::uploadMeshBuffers);
-                    importer.SetUploadMaterialCallbackFunction(GLRenderer::uploadMaterialTextures);
-                    importer.SetUploadSkeletonCallbackFunction(GLRenderer::UploadSkeletonBuffers);
+                    importer.SetUploadMeshCallbackFunction(GLRenderer::sUploadMeshBuffers);
+                    importer.SetUploadMaterialCallbackFunction(GLRenderer::sUploadMaterialTextures);
+                    importer.SetUploadSkeletonCallbackFunction(GLRenderer::sUploadSkeletonBuffers);
                     importer.LoadFromFile(IWidget::GetAssets(), filepath);
                     m_ActiveEntity = sInvalidEntity;
                 }
@@ -118,7 +117,7 @@ void MenubarWidget::draw(float dt) {
                     const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
                     
                     auto pixels = std::vector<unsigned char>(bufferSize);
-                    glGetTextureImage(IWidget::GetRenderer().tonemap->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
+                    glGetTextureImage(IWidget::GetRenderer().m_Tonemap->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
 
                     stbi_flip_vertically_on_write(true);
                     stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
@@ -251,7 +250,7 @@ void MenubarWidget::draw(float dt) {
 
                     mesh.CalculateTangents();
                     mesh.CalculateAABB();
-                    GLRenderer::uploadMeshBuffers(mesh);
+                    GLRenderer::sUploadMeshBuffers(mesh);
                 }
 
                 if (ImGui::MenuItem("Plane")) {
@@ -277,7 +276,7 @@ void MenubarWidget::draw(float dt) {
 
                     mesh.CalculateTangents();
                     mesh.CalculateAABB();
-                    GLRenderer::uploadMeshBuffers(mesh);
+                    GLRenderer::sUploadMeshBuffers(mesh);
                 }
 
                 if (ImGui::MenuItem("Cube")) {
@@ -303,7 +302,7 @@ void MenubarWidget::draw(float dt) {
 
                     mesh.CalculateTangents();
                     mesh.CalculateAABB();
-                    GLRenderer::uploadMeshBuffers(mesh);
+                    GLRenderer::sUploadMeshBuffers(mesh);
 
                     m_ActiveEntity = entity;
                 }

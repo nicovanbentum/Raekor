@@ -34,7 +34,7 @@ public:
 
     RTGeometry CreateBLAS(Mesh& mesh, const Material& material);
     void DestroyBLAS(RTGeometry& geometry);
-    AccelStruct CreateTLAS(VkAccelerationStructureInstanceKHR* instances, size_t count);
+    AccelStruct CreateTLAS(Slice<VkAccelerationStructureInstanceKHR> inInstances);
     
     PathTracePass::PushConstants& GetPushConstants() { return m_PathTracePass.m_PushConstants; }
 

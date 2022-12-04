@@ -9,7 +9,7 @@ public:
     enum class Type { VERTEX, FRAG, GEO, COMPUTE };
 
     struct Stage {
-        Stage(Type type, const fs::path& textfile);
+        Stage(Type type, const Path& inSrcFile);
 
         Type type;
         std::string textfile;
@@ -22,16 +22,14 @@ public:
 };
 
 
-class glShader : public Shader {
+class GLShader : public Shader {
 public:
-    glShader() = default;
-    glShader(const std::initializer_list<Stage>& list);
-    ~glShader();
+    ~GLShader();
 
     void Compile(const std::initializer_list<Stage>& list);
     void Compile();
 
-    static bool sGlslangValidator(const char* vulkanSDK, const fs::path& file, const fs::path& outfile);
+    static bool sGlslangValidator(const char* inVulkanSDK, const Path& inSrcPath, const Path& inDstPath);
 
     operator bool() { return programID != 0; };
 

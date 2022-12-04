@@ -55,21 +55,21 @@ void PathTracePass::CreatePipeline(Device& device) {
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
-    if (!fs::exists("assets/system/shaders/Vulkan/bin")) {
-        fs::create_directory("assets/system/shaders/Vulkan/bin");
+    if (!FileSystem::exists("assets/system/shaders/Vulkan/bin")) {
+        FileSystem::create_directory("assets/system/shaders/Vulkan/bin");
     }
 
-    fs::file_time_type timeOfMostRecentlyUpdatedIncludeFile;
+    FileSystem::file_time_type timeOfMostRecentlyUpdatedIncludeFile;
 
-    for (const auto& file : fs::directory_iterator("assets/system/shaders/Vulkan/include")) {
-        const auto updateTime = fs::last_write_time(file);
+    for (const auto& file : FileSystem::directory_iterator("assets/system/shaders/Vulkan/include")) {
+        const auto updateTime = FileSystem::last_write_time(file);
 
         if (updateTime > timeOfMostRecentlyUpdatedIncludeFile) {
             timeOfMostRecentlyUpdatedIncludeFile = updateTime;
         }
     }
 
-    for (const auto& file : fs::directory_iterator("assets/system/shaders/Vulkan")) {
+    for (const auto& file : FileSystem::directory_iterator("assets/system/shaders/Vulkan")) {
         if (file.is_directory()) continue;
 
         Async::sQueueJob([=]() {
@@ -78,26 +78,24 @@ void PathTracePass::CreatePipeline(Device& device) {
 
             const auto textFileWriteTime = file.last_write_time();
 
-            if (!fs::exists(outfile) ||
-                fs::last_write_time(outfile) < textFileWriteTime ||
-                timeOfMostRecentlyUpdatedIncludeFile > fs::last_write_time(outfile)) {
+            if (!FileSystem::exists(outfile) ||
+                FileSystem::last_write_time(outfile) < textFileWriteTime ||
+                timeOfMostRecentlyUpdatedIncludeFile > FileSystem::last_write_time(outfile)) {
 
                 bool success = false;
 
-                if (file.path().extension() == ".hlsl") {
+                if (file.path().extension() == ".hlsl")
                     success = Shader::sCompileHLSL(file);
-                } else {
+                else
                     success = Shader::sCompileGLSL(vulkanSDK, file);
-                }
 
                 {
                     auto lock = Async::sLock();
 
-                    if (!success) {
+                    if (!success)
                         std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
-                    } else {
+                    else
                         std::cout << "Compilation " << COUT_GREEN("finished") << " for shader: " << file.path().string() << '\n';
-                    }
                 }
             }
         });

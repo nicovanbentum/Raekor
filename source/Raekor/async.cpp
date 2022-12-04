@@ -35,11 +35,9 @@ Async::~Async() {
     m_ConditionVariable.notify_all();
 
     // wait for all to finish up
-    for (int i = 0; i < m_Threads.size(); i++) {
-        if (m_Threads[i].joinable()) {
+    for (int i = 0; i < m_Threads.size(); i++)
+        if (m_Threads[i].joinable())
             m_Threads[i].join();
-        }
-    }
 }
 
 

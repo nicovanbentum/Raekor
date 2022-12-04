@@ -185,19 +185,18 @@ void Scene::SaveToFile(Assets& assets, const std::string& file) {
 
 
 void Scene::OpenFromFile(Assets& assets, const std::string& file) {
-    if (!fs::is_regular_file(file)) {
-        std::clog << "silent return in Scene::openFromFile : filepath " << file << " does not exist.";
+    if (!FileSystem::is_regular_file(file)) {
+        std::cout << "Scene::openFromFile : filepath " << file << " does not exist.";
         return;
     }
-    std::ifstream storage(file, std::ios::binary);
 
     //Read file into buffer
+    std::ifstream storage(file, std::ios::binary);
     std::string buffer;
-    buffer.resize(fs::file_size(file));
+    buffer.resize(FileSystem::file_size(file));
     storage.read(&buffer[0], buffer.size());
 
     auto decompressed = std::string();
-    
     decompressed.resize(glm::min(buffer.size() * 11, size_t(INT_MAX) - 1)); // TODO: store the uncompressed size somewhere
     const int decompressed_size = LZ4_decompress_safe(buffer.data(), decompressed.data(), int(buffer.size()), int(decompressed.size()));
 
@@ -223,6 +222,11 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
 
     std::cout << "Archive time " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
 
+    // temp fix for paths not being serialized
+    for (auto& [path, asset] : assets)
+        if (asset->GetPath() != path)
+            asset->SetPath(path);
+
     // init material render data
     auto materials = view<Material>();
     LoadMaterialTextures(assets, Slice(materials.data(), materials.size()));
@@ -231,19 +235,9 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
 
     // init mesh render data
     for (auto& [entity, mesh] : view<Mesh>().each()) {
-        //for (auto& pos : mesh.positions)
-        //    pos *= 0.05;
-
-        //for (auto& normal : mesh.normals)
-        //    normal *= 0.05;
-
-        //for (auto& tangent : mesh.tangents)
-        //    tangent *= 0.05;
-
         mesh.CalculateAABB();
-        if (m_UploadMeshCallback) {
+        if (m_UploadMeshCallback)
             m_UploadMeshCallback(mesh);
-        }
     }
 
     std::cout << "Mesh time " << Timer::sToMilliseconds(timer.GetElapsedTime()) << "\n\n";
@@ -258,10 +252,9 @@ void Scene::BindScriptToEntity(entt::entity entity, NativeScript& script) {
         script.script->Bind(entity, *this);
     }
     else {
-        std::clog << "Failed to "
-            "bind script " << script.file <<
-            " to entity " << entt::to_integral(entity) <<
-            " from class " << script.procAddress << '\n';
+        std::clog << "Failed to bind script" << script.file <<
+                     " to entity " << entt::to_integral(entity) <<
+                     " from class " << script.procAddress << '\n';
     }
 }
 

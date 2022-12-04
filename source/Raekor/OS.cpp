@@ -27,6 +27,35 @@ bool OS::sRunMsBuild(const char* args) {
 }
 
 
+void OS::CopyToClipboard(const char* inText) {
+    const size_t len = strlen(inText) + 1;
+    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, len);
+    memcpy(GlobalLock(hMem), inText, len);
+    GlobalUnlock(hMem);
+    OpenClipboard(0);
+    EmptyClipboard();
+    SetClipboardData(CF_TEXT, hMem);
+    CloseClipboard();
+}
+
+
+bool OS::sSetDarkTitleBar(SDL_Window* inWindow) {
+    SDL_SysWMinfo wmInfo;
+    SDL_VERSION(&wmInfo.version);
+    SDL_GetWindowWMInfo(inWindow, &wmInfo);
+    HWND hwnd = wmInfo.info.win.window;
+    
+    BOOL dark = TRUE;
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+    DwmGetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+    // This is to trigger an instant update of the window's title bar
+    SDL_HideWindow(inWindow);
+    SDL_ShowWindow(inWindow);
+
+    return dark == TRUE;
+}
+
+
 std::string OS::sOpenFileDialog(const char* filters) {
     OPENFILENAMEA ofn;
     CHAR szFile[260] = { 0 };

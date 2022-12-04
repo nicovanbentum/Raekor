@@ -35,7 +35,7 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
     }
 
     if (width % 4 != 0 || height % 4 != 0) {
-        std::cout << "Image " << fs::path(filepath).filename() << " with resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
+        std::cout << "Image " << Path(filepath).filename() << " with resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
         return {};
     }
 
@@ -51,7 +51,7 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
         glm::ivec2 curSize = { width >> i, height >> i };
 
         if (curSize.x % 4 != 0 || curSize.y % 4 != 0) {
-            std::cout << "Image " << fs::path(filepath).filename() << " with MIP resolution " << curSize.x << 'x' << curSize.y << " is not a power of 2 resolution.\n";
+            std::cout << "Image " << Path(filepath).filename() << " with MIP resolution " << curSize.x << 'x' << curSize.y << " is not a power of 2 resolution.\n";
             actual_mip_count = i;
             break;
         }
@@ -67,7 +67,7 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
         glm::ivec2 curSize = { width >> i, height >> i };
 
         if (curSize.x % 4 != 0 || curSize.y % 4 != 0) {
-            std::cout << "Image " << fs::path(filepath).filename() << " with MIP resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
+            std::cout << "Image " << Path(filepath).filename() << " with MIP resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
             break;
         }
 
@@ -121,16 +121,16 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
 
 
 bool TextureAsset::Load(const std::string& filepath) {
-    if (filepath.empty() || !fs::exists(filepath))
+    if (filepath.empty() || !FileSystem::exists(filepath))
         return false;
 
     std::ifstream file(filepath, std::ios::binary);
 
-    constexpr size_t twoMegabytes = 2097152;
-    std::vector<char> scratch(twoMegabytes);
-    file.rdbuf()->pubsetbuf(scratch.data(), scratch.size());
+    //constexpr size_t twoMegabytes = 2097152;
+    //std::vector<char> scratch(twoMegabytes);
+    //file.rdbuf()->pubsetbuf(scratch.data(), scratch.size());
 
-    m_Data.resize(fs::file_size(filepath));
+    m_Data.resize(FileSystem::file_size(filepath));
     file.read(m_Data.data(), m_Data.size());
 
     DWORD magicNumber;
@@ -146,8 +146,8 @@ bool TextureAsset::Load(const std::string& filepath) {
 
 
 Assets::Assets() {
-    if (!fs::exists("assets"))
-        fs::create_directory("assets");
+    if (!FileSystem::exists("assets"))
+        FileSystem::create_directory("assets");
 }
 
 
@@ -164,7 +164,7 @@ void Assets::ReleaseUnreferenced() {
 
 
 void Assets::Release(const std::string& filepath) {
-    std::scoped_lock(m_ReleaseMutex);
+    std::scoped_lock(m_Mutex);
 
     if (find(filepath) != end())
         erase(filepath);
@@ -188,7 +188,7 @@ std::string ScriptAsset::sConvert(const std::string& filepath) {
 
 
 bool ScriptAsset::Load(const std::string& filepath) {
-    if (filepath.empty() || !fs::exists(filepath))
+    if (filepath.empty() || !FileSystem::exists(filepath))
         return false;
 
     m_HModule = LoadLibraryA(filepath.c_str());
@@ -203,7 +203,7 @@ void ScriptAsset::EnumerateSymbols() {
     MODULEINFO info;
     GetModuleInformation(current_process, m_HModule, &info, sizeof(MODULEINFO));
 
-    std::string pdbFile = fs::path(m_Path).replace_extension(".pdb").string();
+    std::string pdbFile = m_Path.replace_extension(".pdb").string();
 
     PSYM_ENUMERATESYMBOLS_CALLBACK processSymbol = [](PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID UserContext) -> BOOL {
         std::cout << "Symbol: " << pSymInfo->Name << '\n';

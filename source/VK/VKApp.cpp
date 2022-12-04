@@ -20,7 +20,7 @@ namespace Raekor::VK {
 
     ImGui::GetIO().IniFilename = "";
 
-    if (fs::exists(m_Settings.defaultScene)) {
+    if (FileSystem::exists(m_Settings.defaultScene)) {
         SDL_SetWindowTitle(m_Window, std::string(m_Settings.defaultScene + " - Raekor Renderer").c_str());
         m_Scene.OpenFromFile(m_Assets, m_Settings.defaultScene);
     }
@@ -46,13 +46,14 @@ namespace Raekor::VK {
         }
     }
 
-    m_Assets.clear();
-
     // TODO: Figure this mess out
     m_Renderer.SetSyncInterval(m_Settings.vsync);
     m_Renderer.UpdateMaterials(m_Assets, m_Scene);
     m_Renderer.UpdateBVH(m_Scene);
     m_Renderer.Init(m_Scene);
+    
+    // saves a bit of memory at runtime, as we no longer need the textures on the CPU after uploading them to the GPU
+    m_Assets.clear();
 
     // gui stuff
     GUI::SetTheme(m_Settings.themeColors);
@@ -120,7 +121,12 @@ void PathTracer::OnUpdate(float dt) {
 
         auto& push_constants = m_Renderer.GetPushConstants();
 
-        reset |= ImGui::SliderInt("Bounces", reinterpret_cast<int*>(&m_Renderer.GetPushConstants().bounces), 1, 8);
+        auto bounces = int(m_Renderer.GetPushConstants().bounces - 1);
+        if (ImGui::SliderInt("Bounces", &bounces, 0, 7)) {
+            m_Renderer.GetPushConstants().bounces = bounces + 1;
+            reset = true;
+        }
+
         reset |= ImGui::DragFloat("Sun Strength", &push_constants.lightDir.w, 0.1f, 1.0f, 100.0f, "%.1f");
         reset |= ImGui::DragFloat("Sun Cone", &m_Renderer.GetPushConstants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
 
@@ -229,9 +235,8 @@ void PathTracer::OnEvent(const SDL_Event& ev) {
             case SDLK_F2: {
                 std::string path = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
 
-                if (!path.empty()) {
+                if (!path.empty())
                     m_Renderer.Screenshot(path);
-                }
             } break;
         }
     }

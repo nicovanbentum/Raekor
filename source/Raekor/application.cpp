@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "application.h"
 
+#include "OS.h"
 #include "util.h"
 #include "timer.h"
 #include "camera.h"
@@ -41,9 +42,11 @@ Application::Application(RendererFlags flag) {
         SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
         SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
         width, height,
-        SDL_WINDOW_RESIZABLE | flag | SDL_WINDOW_ALLOW_HIGHDPI
+        SDL_WINDOW_RESIZABLE | flag | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS
     );
-    
+
+    OS::sSetDarkTitleBar(m_Window);
+
     SDL_SetWindowMinimumSize(m_Window, width / 4, height / 4);
     m_Viewport = Viewport(glm::vec2(width, height));
 
@@ -59,6 +62,7 @@ Application::Application(RendererFlags flag) {
         cereal::JSONOutputArchive archive(is);
         m_Settings.serialize(archive);
     }
+
 }
 
 

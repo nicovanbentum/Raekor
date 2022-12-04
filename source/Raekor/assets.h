@@ -9,19 +9,23 @@ class Asset {
 
 public:
     Asset() = default;
-    Asset(const std::string& path) : m_Path(path) {}
+    Asset(const std::string& inPath) : m_Path(inPath) {}
     virtual ~Asset() = default;
 
     template<class Archive>
-    void serialize(Archive& archive) { archive(m_Path); }
+    void serialize(Archive& inArchive) { inArchive(m_Path); }
 
-    fs::path GetPath() { return m_Path; }
-    const fs::path& GetPath() const { return m_Path; }
+    Path& GetPath() { return m_Path; }
+    const Path& GetPath() const { return m_Path; }
 
-    virtual bool Load(const std::string& path) = 0;
+    // ONLY USE FOR FIXING UP OLD SCENES WHERE m_Path WASN'T SERIALIZED!!
+    void SetPath(const std::string& inPath) { m_Path = inPath; }
+
+    virtual bool Load(const std::string& inPath) = 0;
 
 protected:
-    fs::path m_Path;
+
+    Path m_Path;
 };
 
 
@@ -33,43 +37,18 @@ public:
     Assets& operator=(Assets&) = delete;
     Assets& operator=(Assets&&) = delete;
 
+    /* Request an asset given inPath. Will load the asset from disk if it wasn't already. This function is thread-safe (so you can load assets in parallel). */
     template<typename T>
-    std::shared_ptr<T> Get(const std::string& path);
-    void Release(const std::string& path);
+    std::shared_ptr<T> Get(const std::string& inPath);
+
+    void Release(const std::string& inPath);
 
     /* Releases any assets that are no longer referenced elsewhere. */
     void ReleaseUnreferenced();
 
 private:
-    std::mutex m_LoadMutex;
-    std::mutex m_ReleaseMutex;
+    std::mutex m_Mutex;
 };
-
-
-template<typename T>
-std::shared_ptr<T> Assets::Get(const std::string& path) {
-    if (!fs::exists(path))
-        return nullptr;
-    {
-        std::scoped_lock lk(m_LoadMutex);
-
-        // if it already has an asset pointer it means some other thread added it,
-        // so just return whats there, the thread that added it is responsible for loading.
-        if (auto asset = find(path); asset != end())
-            return std::static_pointer_cast<T>(asset->second);
-        else
-            insert(std::make_pair(path, std::shared_ptr<Asset>(new T(path))));
-    }
-    // only get here if this thread created the asset pointer, try to load it.
-    // if load succeeds we return the asset pointer
-    if (at(path)->Load(path))
-        return std::static_pointer_cast<T>(at(path));
-    else {
-        // if load failed, lock -> remove asset pointer -> return nullptr
-        erase(path);
-        return nullptr;
-    }
-}
 
 
 class TextureAsset : public Asset {
@@ -77,14 +56,14 @@ public:
     using Ptr = std::shared_ptr<TextureAsset>;
 
     TextureAsset() = default;
-    TextureAsset(const std::string& filepath) : Asset(filepath) {}
+    TextureAsset(const std::string& inPath) : Asset(inPath) {}
     virtual ~TextureAsset() = default;
 
-    static std::string sConvert(const std::string& path);
-    virtual bool Load(const std::string& path) override;
+    static std::string sConvert(const std::string& inPath);
+    virtual bool Load(const std::string& inPath) override;
 
     template<class Archive> 
-    void serialize(Archive& archive) { archive(m_Data); }
+    void serialize(Archive& ioArchive) { ioArchive(m_Data); }
 
     char* const         GetData();
     const DDS_HEADER*   GetHeader();
@@ -100,14 +79,14 @@ public:
     using Ptr = std::shared_ptr<ScriptAsset>;
 
     ScriptAsset() = default;
-    ScriptAsset(const std::string& filepath) : Asset(filepath) {}
+    ScriptAsset(const std::string& inPath) : Asset(inPath) {}
     virtual ~ScriptAsset();
 
-    static std::string sConvert(const std::string& filepath);
-    virtual bool Load(const std::string& filepath) override;
+    static std::string sConvert(const std::string& inPath);
+    virtual bool Load(const std::string& inPath) override;
 
     template<class Archive> 
-    void serialize(Archive& archive) {}
+    void serialize(Archive& ioArchive) {}
 
     void EnumerateSymbols();
     HMODULE GetModule() { return m_HModule; }
@@ -118,8 +97,42 @@ private:
 
 } // namespace raekor
 
+
 CEREAL_REGISTER_TYPE(Raekor::Asset);
 CEREAL_REGISTER_TYPE(Raekor::ScriptAsset);
 CEREAL_REGISTER_TYPE(Raekor::TextureAsset);
 CEREAL_REGISTER_POLYMORPHIC_RELATION(Raekor::Asset, Raekor::ScriptAsset);
 CEREAL_REGISTER_POLYMORPHIC_RELATION(Raekor::Asset, Raekor::TextureAsset);
+
+
+namespace Raekor {
+
+template<typename T>
+std::shared_ptr<T> Assets::Get(const std::string& inPath) {
+    {
+        auto lock = std::scoped_lock(m_Mutex);
+
+        // if it already has an asset pointer it means some other thread added it,
+        // so just return whats there, the thread that added it is responsible for loading.
+        if (auto asset = find(inPath); asset != end())
+            return std::static_pointer_cast<T>(asset->second);
+        // if there is no asset pointer already and the file path exists on disk, insert it
+        else if (FileSystem::exists(inPath))
+            insert(std::make_pair(inPath, std::shared_ptr<Asset>(new T(inPath))));
+        else
+            // can't load anything if it doesn't exist on disk
+            return nullptr;
+    }
+    // only get here if this thread created the asset pointer, try to load it.
+    // if load succeeds we return the asset pointer
+    const auto& asset = at(inPath);
+    if (asset->Load(inPath))
+        return std::static_pointer_cast<T>(asset);
+    else {
+        // if load failed, lock -> remove asset pointer -> return nullptr
+        Release(inPath);
+        return nullptr;
+    }
+}
+
+}

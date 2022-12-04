@@ -9,9 +9,9 @@ Timer::Timer() {
 
 
 float Timer::Restart() {
-    float time = GetElapsedTime();
+    float TimeOpenGL = GetElapsedTime();
     m_StartTime = SDL_GetPerformanceCounter();
-    return time;
+    return TimeOpenGL;
 }
 
 

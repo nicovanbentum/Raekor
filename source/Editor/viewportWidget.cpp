@@ -6,7 +6,7 @@ namespace Raekor {
 
 ViewportWidget::ViewportWidget(Editor* editor) :
     IWidget(editor, "Viewport"),
-    rendertarget(IWidget::GetRenderer().tonemap->result)
+    rendertarget(IWidget::GetRenderer().m_Tonemap->result)
 {}
 
 
@@ -51,34 +51,35 @@ void ViewportWidget::draw(float dt) {
         ImVec4(0.35f, 0.78f, 1.0f, 1.0f),
     };
 
-    ImGui::PushStyleColor(ImGuiCol_Text, physics_state_text_colors[physics.settings.state]);
-    if (ImGui::Button(physics.settings.state == Physics::Stepping ? ICON_FA_PAUSE : ICON_FA_PLAY)) {
-        switch (physics.settings.state) {
+    const auto physics_state = physics.GetState();
+    ImGui::PushStyleColor(ImGuiCol_Text, physics_state_text_colors[physics_state]);
+    if (ImGui::Button(physics_state == Physics::Stepping ? ICON_FA_PAUSE : ICON_FA_PLAY)) {
+        switch (physics_state) {
             case Physics::Idle: {
                 physics.SaveState();
-                physics.settings.state = Physics::Stepping;
+                physics.SetState(Physics::Stepping);
             } break;
             case Physics::Paused: {
-                physics.settings.state = Physics::Stepping;
+                physics.SetState(Physics::Stepping);
             } break;
             case Physics::Stepping: {
-                physics.settings.state = Physics::Paused;
+                physics.SetState(Physics::Paused);
             } break;
         }
     }
+
     ImGui::PopStyleColor();
-    
     ImGui::SameLine();
 
-    const auto current_physics_state = physics.settings.state;
+    const auto current_physics_state = physics_state;
     if (current_physics_state != Physics::Idle)
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
 
     if (ImGui::Button(ICON_FA_STOP)) {
-        if (physics.settings.state != Physics::Idle) {
+        if (physics_state != Physics::Idle) {
             physics.RestoreState();
             physics.Step(scene, dt); // Step once to trigger the restored state
-            physics.settings.state = Physics::Idle;
+            physics.SetState(Physics::Idle);
         }
     }
 
@@ -101,34 +102,31 @@ void ViewportWidget::draw(float dt) {
     };
 
     const std::array targets = {
-        renderer.tonemap->result,
-        renderer.gbuffer->albedoTexture,
-        renderer.gbuffer->normalTexture,
-        renderer.gbuffer->materialTexture,
-        renderer.gbuffer->velocityTexture,
-        renderer.taaResolve->resultBuffer,
-        renderer.deferShading->result,
-        renderer.deferShading->bloomHighlights,
-        renderer.bloom->blurTexture,
-        renderer.bloom->bloomTexture,
+        renderer.m_Tonemap->result,
+        renderer.m_GBuffer->albedoTexture,
+        renderer.m_GBuffer->normalTexture,
+        renderer.m_GBuffer->materialTexture,
+        renderer.m_GBuffer->velocityTexture,
+        renderer.m_ResolveTAA->resultBuffer,
+        renderer.m_DeferredShading->result,
+        renderer.m_DeferredShading->bloomHighlights,
+        renderer.m_Bloom->blurTexture,
+        renderer.m_Bloom->bloomTexture,
     };
 
-    for (int i = 0; i < targets.size(); i++) {
-        if (rendertarget == targets[i]) {
+    for (int i = 0; i < targets.size(); i++)
+        if (rendertarget == targets[i])
             rendertargetIndex = i;
-        }
-    }
 
-    if (ImGui::Combo("##Render target", &rendertargetIndex, items.data(), int(items.size()))) {
+    if (ImGui::Combo("##Render target", &rendertargetIndex, items.data(), int(items.size())))
         rendertarget = targets[rendertargetIndex];
-    }
 
     // figure out if we need to resize the viewport
     auto size = ImGui::GetContentRegionAvail();
     auto resized = false;
     if (viewport.size.x != size.x || viewport.size.y != size.y) {
         viewport.Resize({ size.x, size.y });
-        renderer.createRenderTargets(viewport);
+        renderer.CreateRenderTargets(viewport);
         resized = true;
     }
 
@@ -136,7 +134,7 @@ void ViewportWidget::draw(float dt) {
 
     physics_state_text_colors[Physics::Idle] = ImVec4(0.0f, 0.0f, 0.0f, 0.01f);
     std::swap(physics_state_text_colors[Physics::Paused], physics_state_text_colors[Physics::Stepping]);
-    const auto border_color = physics_state_text_colors[physics.settings.state];
+    const auto border_color = physics_state_text_colors[physics.GetState()];
 
     const auto image_size = ImVec2(ImVec2((float)viewport.size.x, (float)viewport.size.y));
     ImGui::Image((void*)((intptr_t)rendertarget), image_size, { 0, 1 }, { 1, 0 }, ImVec4(1, 1, 1, 1), border_color);
@@ -150,7 +148,7 @@ void ViewportWidget::draw(float dt) {
     // the viewport image is a drag and drop target for dropping materials onto meshes
     if (ImGui::BeginDragDropTarget()) {
         const auto mousePos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
-        const auto pixel = renderer.gbuffer->readEntity(mousePos.x, mousePos.y);
+        const auto pixel = renderer.m_GBuffer->readEntity(mousePos.x, mousePos.y);
         const auto picked = Entity(pixel);
 
         Mesh* mesh = nullptr;
@@ -187,7 +185,7 @@ void ViewportWidget::draw(float dt) {
 
     if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !(active_entity != sInvalidEntity && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
         const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
-        const auto pixel = renderer.gbuffer->readEntity(mouse_pos.x, mouse_pos.y);
+        const auto pixel = renderer.m_GBuffer->readEntity(mouse_pos.x, mouse_pos.y);
         const auto picked = Entity(pixel);
 
         if (scene.valid(picked))
@@ -228,9 +226,8 @@ void ViewportWidget::draw(float dt) {
     auto metricsPosition = ImGui::GetWindowPos();
     metricsPosition.y += ImGui::GetFrameHeightWithSpacing();
 
-    if (!ImGui::GetCurrentWindow()->DockNode->IsHiddenTabBar()) {
+    if (!ImGui::GetCurrentWindow()->DockNode->IsHiddenTabBar())
         metricsPosition.y += 25.0f;
-    }
 
     ImGui::End();
     ImGui::PopStyleVar();
@@ -241,7 +238,7 @@ void ViewportWidget::draw(float dt) {
 
         const auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
         ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
-        ImGui::Text("Culled meshes: %i", renderer.gbuffer->culled);
+        ImGui::Text("Culled meshes: %i", renderer.m_GBuffer->culled);
 
         ImGui::Text("Vendor: %s", glGetString(GL_VENDOR));
         ImGui::Text("Product: %s", glGetString(GL_RENDERER));

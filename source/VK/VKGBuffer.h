@@ -31,8 +31,8 @@ public:
     void record(Device& device, VkCommandBuffer commandBuffer, const Scene& scene);
 
     void createPipeline(Device& device);
-    void createRenderTargets(Device& device, const Viewport& viewport);
-    void destroyRenderTargets(Device& device);
+    void CreateRenderTargets(Device& device, const Viewport& viewport);
+    void DestroyRenderTargets(Device& device);
 
 public:
     FrameBuffer framebuffer;

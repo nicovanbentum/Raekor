@@ -13,8 +13,8 @@ public:
     /* Returns the elapsed time in seconds. */
     float GetElapsedTime();
 
-    static float sToMilliseconds(float time) { return time * 1000; }
-    static float sToMicroseconds(float time) { return time * 1'000'000; }
+    static float sToMilliseconds(float inTime) { return inTime * 1000; }
+    static float sToMicroseconds(float inTime) { return inTime * 1'000'000; }
 
 private:
     uint64_t m_StartTime = 0;

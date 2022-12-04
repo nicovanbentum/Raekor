@@ -25,10 +25,10 @@ Editor::Editor() :
     GUI::SetTheme(m_Settings.themeColors);
     GUI::SetFont(m_Settings.font.c_str());
 
-    m_Scene.SetUploadMeshCallbackFunction(GLRenderer::uploadMeshBuffers);
-    m_Scene.SetUploadMaterialCallbackFunction(GLRenderer::uploadMaterialTextures);
+    m_Scene.SetUploadMeshCallbackFunction(GLRenderer::sUploadMeshBuffers);
+    m_Scene.SetUploadMaterialCallbackFunction(GLRenderer::sUploadMaterialTextures);
 
-    if (fs::exists(m_Settings.defaultScene) && fs::path(m_Settings.defaultScene).extension() == ".scene") {
+    if (FileSystem::exists(m_Settings.defaultScene) && Path(m_Settings.defaultScene).extension() == ".scene") {
         SDL_SetWindowTitle(m_Window, std::string(m_Settings.defaultScene + " - Raekor Renderer").c_str());
         m_Scene.OpenFromFile(m_Assets, m_Settings.defaultScene);
     }
@@ -57,9 +57,8 @@ void Editor::OnUpdate(float dt) {
     m_Physics.OnUpdate(m_Scene);
 
     // Step the physics simulation
-    if (m_Physics.settings.state == Physics::Stepping) {
+    if (m_Physics.GetState() == Physics::Stepping)
         m_Physics.Step(m_Scene, dt);
-    }
 
     // update the camera
     m_Viewport.OnUpdate(dt);
@@ -69,6 +68,8 @@ void Editor::OnUpdate(float dt) {
     m_Scene.UpdateLights();
 
     // update animations in parallel
+
+
     m_Scene.view<Skeleton>().each([&](Skeleton& skeleton) {
         Async::sQueueJob([&]() {
             skeleton.UpdateFromAnimation(skeleton.animations[0], dt);
@@ -92,7 +93,7 @@ void Editor::OnUpdate(float dt) {
     // draw the bounding box of the active entity
     if (m_ActiveEntity != entt::null && m_Scene.all_of<Mesh>(m_ActiveEntity)) {
         const auto& [mesh, transform] = m_Scene.get<Mesh, Transform>(m_ActiveEntity);
-        m_Renderer.addDebugBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
+        m_Renderer.AddDebugBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
     }
 
     // start ImGui
@@ -100,18 +101,16 @@ void Editor::OnUpdate(float dt) {
     GUI::BeginDockSpace();
 
     // draw widgets
-    for (const auto& widget : m_Widgets) {
-        if (widget->IsVisible()) {
+    for (const auto& widget : m_Widgets)
+        if (widget->IsVisible())
             widget->draw(dt);
-        }
-    }
 
     // end ImGui
     GUI::EndDockSpace();
     GUI::EndFrame();
 
     // render scene
-    m_Renderer.render(m_Scene, m_Viewport);
+    m_Renderer.Render(m_Scene, m_Viewport);
 
     // swap the backbuffer
     SDL_GL_SwapWindow(m_Window);
@@ -132,12 +131,10 @@ void Editor::OnEvent(const SDL_Event& event) {
     const bool is_viewport_hovered = GetWidget<ViewportWidget>()->IsHovered();
 
     if (event.button.button == 2 || event.button.button == 3) {
-        if (event.type == SDL_MOUSEBUTTONDOWN && is_viewport_hovered) {
+        if (event.type == SDL_MOUSEBUTTONDOWN && is_viewport_hovered)
             SDL_SetRelativeMouseMode(SDL_TRUE);
-        }
-        else if (event.type == SDL_MOUSEBUTTONUP) {
+        else if (event.type == SDL_MOUSEBUTTONUP)
             SDL_SetRelativeMouseMode(SDL_FALSE);
-        }
     }
 
     if (event.type == SDL_KEYDOWN && !event.key.repeat) {
@@ -165,15 +162,13 @@ void Editor::OnEvent(const SDL_Event& event) {
                     m_Scene.visit(m_ActiveEntity, [&](const entt::type_info info) {
                         gForEachTupleElement(Components, [&](auto component) {
                             using ComponentType = decltype(component)::type;
-                            if (info.seq() == entt::type_seq<ComponentType>()) {
+                            if (info.seq() == entt::type_seq<ComponentType>())
                                 clone<ComponentType>(m_Scene, m_ActiveEntity, copy);
-                            }
                         });
                     });
 
-                    if (auto mesh = m_Scene.try_get<Mesh>(copy); mesh) {
-                        GLRenderer::uploadMeshBuffers(*mesh);
-                    }
+                    if (auto mesh = m_Scene.try_get<Mesh>(copy); mesh)
+                        GLRenderer::sUploadMeshBuffers(*mesh);
                 }
             } break;
         }
@@ -196,13 +191,11 @@ void Editor::OnEvent(const SDL_Event& event) {
             auto formula = glm::radians(0.022f * camera.sensitivity * 2.0f);
             camera.Look(glm::vec2(event.motion.xrel * formula, event.motion.yrel * formula));
         }
-        else if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(2)) {
+        else if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(2))
             camera.Move(glm::vec2(event.motion.xrel * 0.02f, event.motion.yrel * 0.02f));
-        }
     }
-    else if (event.type == SDL_MOUSEWHEEL && is_viewport_hovered) {
+    else if (event.type == SDL_MOUSEWHEEL && is_viewport_hovered)
         camera.Zoom(float(event.wheel.y));
-    }
 
     if (event.type == SDL_WINDOWEVENT) {
         if (event.window.event == SDL_WINDOWEVENT_MINIMIZED) {
@@ -210,19 +203,17 @@ void Editor::OnEvent(const SDL_Event& event) {
                 SDL_Event ev;
                 SDL_PollEvent(&ev);
 
-                if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
+                if (ev.window.event == SDL_WINDOWEVENT_RESTORED)
                     break;
-                }
             }
         }
-        if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
-            if (SDL_GetWindowID(m_Window) == event.window.windowID) {
+     
+        if (event.window.event == SDL_WINDOWEVENT_CLOSE)
+            if (SDL_GetWindowID(m_Window) == event.window.windowID)
                 m_Running = false;
-            }
-        }
-        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-            m_Renderer.createRenderTargets(m_Viewport);
-        }
+        
+        if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+            m_Renderer.CreateRenderTargets(m_Viewport);
     }
 
     for (const auto& widget : m_Widgets) {

@@ -53,6 +53,7 @@
     #include <Windows.h>
     #include <commdlg.h>
     #include <SDL2/SDL_syswm.h>
+    #include <dwmapi.h>
     #include <DbgHelp.h>
     #include <Psapi.h>  
     #include <ShObjIdl_core.h>
@@ -117,7 +118,8 @@
 #include <unordered_map>
 
 #include <filesystem>
-namespace fs = std::filesystem;
+namespace FileSystem = std::filesystem;
+using Path = FileSystem::path;
 
 /////////////////////
 // include stb image

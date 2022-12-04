@@ -16,7 +16,7 @@ GBuffer::GBuffer(Device& device, const Viewport& viewport) {
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
-    createRenderTargets(device, viewport);
+    CreateRenderTargets(device, viewport);
     createPipeline(device);
 }
 
@@ -55,7 +55,7 @@ void GBuffer::createPipeline(Device& device) {
 
 
 
-void GBuffer::createRenderTargets(Device& device, const Viewport& viewport) {
+void GBuffer::CreateRenderTargets(Device& device, const Viewport& viewport) {
     Texture::Desc texDesc;
     texDesc.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     texDesc.width = viewport.size.x;
@@ -79,7 +79,7 @@ void GBuffer::createRenderTargets(Device& device, const Viewport& viewport) {
 
 
 
-void GBuffer::destroyRenderTargets(Device& device) {
+void GBuffer::DestroyRenderTargets(Device& device) {
     device.DestroyFrameBuffer(framebuffer);
     device.DestroyTexture(albedoTexture);
     device.DestroyTexture(normalTexture);

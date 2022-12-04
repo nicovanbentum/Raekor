@@ -5,17 +5,20 @@
 
 namespace Raekor {
 
-glShader::glShader(const std::initializer_list<Stage>& list) : stages(list) {}
-glShader::~glShader() { glDeleteProgram(programID); }
+GLShader::~GLShader() { 
+    glDeleteProgram(programID); 
+}
 
 
-void glShader::Compile(const std::initializer_list<Stage>& list) {
+
+void GLShader::Compile(const std::initializer_list<Stage>& list) {
     stages = list;
     Compile();
 }
 
 
-void glShader::Compile() {
+
+void GLShader::Compile() {
     auto newProgramID = glCreateProgram();
     bool failed = false;
 
@@ -26,7 +29,7 @@ void glShader::Compile() {
         if (!file.is_open()) 
             return;
 
-        auto spirv = std::vector<unsigned char>(fs::file_size(stage.binfile));
+        auto spirv = std::vector<unsigned char>(FileSystem::file_size(stage.binfile));
         file.read((char*)&spirv[0], spirv.size());
         file.close();
 
@@ -99,19 +102,18 @@ void glShader::Compile() {
     if (failed) {
         std::cerr << "failed to compile shader program\n";
         glDeleteProgram(newProgramID);
-    } else {
+    } else
         programID = newProgramID;
-    }
 }
 
 
 
-bool glShader::sGlslangValidator(const char* vulkanSDK, const fs::path& file, const fs::path& outfile) {
-    if (!fs::is_regular_file(file)) 
+bool GLShader::sGlslangValidator(const char* inVulkanSDK, const Path& inSrcPath, const Path& inDstPath) {
+    if (!FileSystem::is_regular_file(inSrcPath)) 
         return false;
 
-    const auto compiler = vulkanSDK + std::string("\\Bin\\glslangValidator.exe -G ");
-    const auto command = compiler + fs::absolute(file).string() + " -o " + std::string(outfile.string());
+    const auto compiler = inVulkanSDK + std::string("\\Bin\\glslangValidator.exe -G ");
+    const auto command = compiler + FileSystem::absolute(inSrcPath).string() + " -o " + inDstPath.string();
 
     if (system(command.c_str()) != 0)
         return false;
@@ -121,7 +123,7 @@ bool glShader::sGlslangValidator(const char* vulkanSDK, const fs::path& file, co
 
 
 
-void glShader::Bind() { 
+void GLShader::Bind() { 
     for (auto& stage : stages) {
         if (stage.watcher.WasModified()) {
             const auto sdk = getenv("VULKAN_SDK");
@@ -136,22 +138,22 @@ void glShader::Bind() {
 }
 
 
-void glShader::Unbind() { 
+void GLShader::Unbind() { 
     glUseProgram(0); 
 }
 
 
-Shader::Stage::Stage(Type type, const fs::path& textfile) : 
+Shader::Stage::Stage(Type type, const Path& inSrcFile) : 
     type(type), 
-    textfile(textfile.string()),
-    watcher(textfile.string()) 
+    textfile(inSrcFile.string()),
+    watcher(inSrcFile.string())
 {
-    if (!std::filesystem::exists(textfile)) {
+    if (!FileSystem::exists(inSrcFile)) {
         std::cerr << "file does not exist on disk\n";
         return;
     }
 
-    auto outfile = textfile.parent_path() / "bin" / textfile.filename();
+    auto outfile = inSrcFile.parent_path() / "bin" / inSrcFile.filename();
     outfile.replace_extension(outfile.extension().string() + ".spv");
     binfile = outfile.string().c_str();
 }
