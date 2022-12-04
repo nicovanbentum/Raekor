@@ -5,41 +5,66 @@
 
 namespace Raekor::DX {
 
-class Device {
+class CommandList;
+class IRenderPass;
+
+class Device : public INoCopyNoMove {
 public:
-	Device(SDL_Window* window);
+	Device(SDL_Window* window, uint32_t inFrameCount);
 
-	ID3D12Device5* operator-> () { return m_Device.Get(); }
-	operator ID3D12Device5*() const { return m_Device.Get(); }
+	operator ID3D12Device5*()					{ return m_Device.Get(); }
+	operator const ID3D12Device5* () const		{ return m_Device.Get(); }
+	ID3D12Device5* operator-> ()				{ return m_Device.Get(); }
+	const ID3D12Device5* operator-> () const	{ return m_Device.Get(); }
 
-	ID3D12CommandQueue*  GetQueue() { return m_Queue.Get(); }
-	ID3D12RootSignature* GetGlobalRootSignature() const { return m_GlobalRootSignature.Get(); }
-	const DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType) const { return m_Heaps[inType]; }
+	[[nodiscard]] ID3D12CommandQueue*  GetQueue() const												{ return m_Queue.Get(); }
+	[[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() const								{ return m_GlobalRootSignature.Get(); }
+	[[nodiscard]] const DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType) const	{ return m_Heaps[inType]; }
 
-	[[nodiscard]] BufferID  CreateBuffer(const Buffer::Desc& desc, const std::wstring& name = std::wstring());
-	[[nodiscard]] TextureID CreateTexture(const Texture::Desc& desc, const std::wstring& name = std::wstring());
+	void BindDrawDefaults(CommandList& inCmdList);
+	void Submit(const Slice<CommandList>& inCmdLists);
 
-	[[nodiscard]] BufferID CreateBufferView(BufferID inTextureID, const Buffer::Desc& desc);
-	[[nodiscard]] TextureID CreateTextureView(TextureID inTextureID, const Texture::Desc& desc);
+	[[nodiscard]] BufferID  CreateBuffer(const Buffer::Desc& inDesc, const std::wstring& inName = std::wstring());
+	[[nodiscard]] TextureID CreateTexture(const Texture::Desc& inDesc, const std::wstring& inName = std::wstring());
 
-	void ReleaseBuffer(BufferID inID)   { m_Buffers.Remove(inID);  }
-	void ReleaseTexture(TextureID inID) { m_Textures.Remove(inID); }
+	[[nodiscard]] BufferID  CreateBufferView(BufferID inTextureID, const Buffer::Desc& inDesc);
+	[[nodiscard]] TextureID CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc);
+	[[nodiscard]] TextureID CreateTextureView(ResourceRef inResource, const Texture::Desc& inDesc);
+
+	void ReleaseBuffer(BufferID inID)   { assert(inID.Isvalid()); m_Buffers.Remove(inID);  }
+	void ReleaseTexture(TextureID inID) { assert(inID.Isvalid()); m_Textures.Remove(inID); }
 	
-	Buffer& GetBuffer(BufferID inID) { return m_Buffers.Get(inID); }
-	const Buffer& GetBuffer(BufferID inID) const { return m_Buffers.Get(inID); }
+	[[nodiscard]] Buffer& GetBuffer(BufferID inID) { assert(inID.Isvalid()); return m_Buffers.Get(inID); }
+	[[nodiscard]] const Buffer& GetBuffer(BufferID inID) const { assert(inID.Isvalid()); return m_Buffers.Get(inID); }
 
-	Texture& GetTexture(TextureID inID) { return m_Textures.Get(inID); }
-	const Texture& GetTexture(TextureID inID) const { return m_Textures.Get(inID); }
+	[[nodiscard]] Texture& GetTexture(TextureID inID) { assert(inID.Isvalid()); return m_Textures.Get(inID); }
+	[[nodiscard]] const Texture& GetTexture(TextureID inID) const { assert(inID.Isvalid()); return m_Textures.Get(inID); }
 
-	ResourceID CreateDepthStencilView(ResourceRef inResourceID, D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
-	ResourceID CreateRenderTargetView(ResourceRef inResourceID, D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);
-	ResourceID CreateShaderResourceView(ResourceRef inResourceID, D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc = nullptr);
-	ResourceID CreateUnorderedAccessView(ResourceRef inResourceID, D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] ID3D12Resource* GetResourcePtr(BufferID inID)  { return GetBuffer(inID).GetResource().Get(); }
+	[[nodiscard]] ID3D12Resource* GetResourcePtr(TextureID inID) { return GetTexture(inID).GetResource().Get(); }
 
-	void ReleaseDepthStencilView(ResourceID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Remove(inResourceID); }
-	void ReleaseRenderTargetView(ResourceID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Remove(inResourceID); }
-	void ReleaseShaderResourceView(ResourceID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
+	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(BufferID inID);
+	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(TextureID inID);
+
+	[[nodiscard]] ResourceID CreateDepthStencilView(ResourceRef inResourceID, D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] ResourceID CreateRenderTargetView(ResourceRef inResourceID, D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] ResourceID CreateShaderResourceView(ResourceRef inResourceID, D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] ResourceID CreateUnorderedAccessView(ResourceRef inResourceID, D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc = nullptr);
+
+	void ReleaseDepthStencilView(ResourceID inResourceID)	 { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Remove(inResourceID); }
+	void ReleaseRenderTargetView(ResourceID inResourceID)    { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Remove(inResourceID); }
+	void ReleaseShaderResourceView(ResourceID inResourceID)  { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
 	void ReleaseUnorderedAccessView(ResourceID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
+
+	[[nodiscard]] D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inComputeShader);
+	[[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inVertexShader, const std::string& inPixelShader);
+
+	[[nodiscard]] uint32_t GetBindlessHeapIndex(ResourceID inResource)	{ return inResource.ToIndex(); }
+	[[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inBuffer)		{ return GetBindlessHeapIndex(GetBuffer(inBuffer).GetView());   }
+	[[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inTexture)	{ return GetBindlessHeapIndex(GetTexture(inTexture).GetView()); }
+
+private:
+	void CreateDescriptor(TextureID inID, const Texture::Desc& inDesc);
 
 public:
 	ComPtr<ID3D12Device5> m_Device;
@@ -49,10 +74,12 @@ public:
 	ComPtr<D3D12MA::Allocator> m_Allocator;
 	ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
 	std::array<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
+	std::unordered_map<std::string, ComPtr<IDxcBlob>> m_Shaders;
 
 private:
-	Buffer::Pool	m_Buffers;
-	Texture::Pool	m_Textures;
+	uint32_t m_NumFrames;
+	Buffer::Pool m_Buffers;
+	Texture::Pool m_Textures;
 };
 
 

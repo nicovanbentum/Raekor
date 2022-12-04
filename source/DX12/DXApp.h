@@ -3,19 +3,17 @@
 #include "Raekor/application.h"
 #include "Raekor/scene.h"
 #include "Raekor/assets.h"
-#include "DXDevice.h"
 
-#include "DXBlit.h"
-#include "DXShadows.h"
-#include "DXGBuffer.h"
+#include "DXDevice.h"
+#include "DXCommandList.h"
+#include "DXRenderGraph.h"
 
 namespace Raekor::DX {
 
 struct BackbufferData {
     uint64_t                            mFenceValue;
-    ResourceID                          mBackbufferRTV;
-    ComPtr<ID3D12GraphicsCommandList4>  mCmdList;
-    ComPtr<ID3D12CommandAllocator>      mCmdAllocator;
+    TextureID                           mBackBuffer;
+    CommandList                         mCmdList;
 };
 
 
@@ -34,13 +32,25 @@ public:
     BackbufferData& GetBackbufferData() { return m_BackbufferData[m_FrameIndex]; }
     BackbufferData& GetPrevBackbufferData() { return m_BackbufferData[!m_FrameIndex]; }
 
-    ResourceID QueueDirectStorageLoad(const TextureAsset::Ptr& asset, const fs::path& path, DXGI_FORMAT format);
+    void CompileShaders();
+    void UploadSceneToGPU();
+    void UploadBvhToGPU();
+
+    ResourceID QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_FORMAT format);
+    ResourceID UploadMaterialTexture(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat);
 
 private:
     Scene m_Scene;
     Assets m_Assets;
 
     Device m_Device;
+    RenderGraph m_RenderGraph;
+    
+    FfxFsr2Context m_Fsr2;
+    uint32_t m_FsrFrameCounter = 0;
+    TextureID m_FsrOutputTexture;
+    std::vector<uint8_t> m_FsrScratchMemory;
+
     StagingHeap m_StagingHeap;
     ComPtr<IDXGISwapChain3> m_Swapchain;
     ComPtr<IDStorageQueue> m_StorageQueue;
@@ -49,11 +59,8 @@ private:
     ResourceID m_DefaultWhiteTexture;
     ResourceID m_DefaultBlackTexture;
 
-    PresentPass m_Blit;
-    ShadowPass m_Shadows;
-    GBufferPass m_GBuffer;
     ShaderLibrary m_Shaders;
-    
+
     HANDLE m_FenceEvent;
     uint32_t m_FrameIndex = 0;
     ComPtr<ID3D12Fence> m_Fence;

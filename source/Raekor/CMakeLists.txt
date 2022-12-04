@@ -30,6 +30,7 @@ set_property(TARGET Jolt PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:
 
 # Link all the things
 target_link_libraries(${PROJECT_NAME} PRIVATE Jolt)
+target_link_libraries(${PROJECT_NAME} PRIVATE Dwmapi)
 target_link_libraries(${PROJECT_NAME} PRIVATE DbgHelp) # Windows SDK helper library for parsing PDB files
 target_link_libraries(${PROJECT_NAME} PRIVATE lz4::lz4)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui::imgui)

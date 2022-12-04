@@ -20,13 +20,21 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CM
 set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 target_precompile_headers(${PROJECT_NAME} PRIVATE pch.h)
 
-# Link the DirectX Compiler
+find_library(FSR2 NAMES ffx_fsr2_api_x64 PATHS ${CMAKE_SOURCE_DIR}/dependencies/FSR2/lib NO_DEFAULT_PATH REQUIRED)
+find_library(FSR2d NAMES ffx_fsr2_api_x64d PATHS ${CMAKE_SOURCE_DIR}/dependencies/FSR2/lib NO_DEFAULT_PATH REQUIRED)
+
+find_library(FSR2DX12 NAMES ffx_fsr2_api_dx12_x64 PATHS ${CMAKE_SOURCE_DIR}/dependencies/FSR2/lib NO_DEFAULT_PATH REQUIRED)
+find_library(FSR2DX12d NAMES ffx_fsr2_api_dx12_x64d PATHS ${CMAKE_SOURCE_DIR}/dependencies/FSR2/lib NO_DEFAULT_PATH REQUIRED)
+
+find_library(PIX NAMES WinPixEventRuntime PATHS ${CMAKE_SOURCE_DIR}/dependencies/PIX/bin/x64 NO_DEFAULT_PATH REQUIRED)
+
 find_library(DXC_LIBRARY NAMES dxcompiler lib PATHS ${CMAKE_SOURCE_DIR}/dependencies/dxc NO_DEFAULT_PATH REQUIRED)
 find_library(DIRECT_STORAGE_LIBRARY NAMES dstorage lib PATHS ${CMAKE_SOURCE_DIR}/dependencies/DirectStorage NO_DEFAULT_PATH REQUIRED)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Raekor)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${DXC_LIBRARY} ${DIRECT_STORAGE_LIBRARY} d3d12.lib dxgi.lib d3dcompiler.lib)
-target_link_libraries(${PROJECT_NAME} PRIVATE Microsoft::DirectX-Guids Microsoft::DirectX-Headers)
+target_link_libraries(${PROJECT_NAME} PRIVATE debug ${FSR2d} optimized ${FSR2})
+target_link_libraries(${PROJECT_NAME} PRIVATE debug ${FSR2DX12d} optimized ${FSR2DX12})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${DXC_LIBRARY} ${DIRECT_STORAGE_LIBRARY} ${PIX} d3d12.lib dxgi.lib d3dcompiler.lib)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/dxc/dxil.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/dxc/dxcompiler.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
@@ -37,10 +45,14 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/Agility-SDK/D3D12Core.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/Agility-SDK/d3d12SDKLayers.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/PIX/bin/x64/WinPixEventRuntime.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+
 # include dependency directories 
 target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/source
     ${CMAKE_SOURCE_DIR}/dependencies
+    ${CMAKE_SOURCE_DIR}/dependencies/FSR2/src
     ${CMAKE_SOURCE_DIR}/dependencies/DirectStorage
     ${CMAKE_SOURCE_DIR}/dependencies/D3D12MemoryAllocator/include
+    ${CMAKE_SOURCE_DIR}/dependencies/PIX/Include/WinPixEventRuntime
 )

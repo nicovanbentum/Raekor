@@ -2,25 +2,29 @@
 #include "DXDevice.h"
 #include "DXSampler.h"
 #include "DXUtil.h"
+#include "DXCommandList.h"
+#include "DXRenderGraph.h"
 
 namespace Raekor::DX {
 
-Device::Device(SDL_Window* window) {
+Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameCount) {
     UINT device_creation_flags = 0;
 
 #ifndef NDEBUG
-    ComPtr<ID3D12Debug1> mDebug;
-    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&mDebug)))) {
-        mDebug->EnableDebugLayer();
+    ComPtr<ID3D12Debug1> debug;
+    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)))) {
+        debug->EnableDebugLayer();
+        debug->SetEnableGPUBasedValidation(TRUE);
+        debug->SetEnableSynchronizedCommandQueueValidation(TRUE);
     }
 
     device_creation_flags |= DXGI_CREATE_FACTORY_DEBUG;
 #endif
 
-    ComPtr<IDXGIFactory4> factory;
+    ComPtr<IDXGIFactory6> factory;
     gThrowIfFailed(CreateDXGIFactory2(device_creation_flags, IID_PPV_ARGS(&factory)));
 
-    gThrowIfFailed(factory->EnumAdapters1(0, &m_Adapter));
+    factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&m_Adapter));
 
     gThrowIfFailed(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m_Device)));
 
@@ -36,23 +40,49 @@ Device::Device(SDL_Window* window) {
     qd.Type = D3D12_COMMAND_LIST_TYPE_COPY;
     gThrowIfFailed(m_Device->CreateCommandQueue(&qd, IID_PPV_ARGS(&m_CopyQueue)));
 
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Init(   m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, std::numeric_limits<uint16_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Init(       m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_DSV, std::numeric_limits<uint16_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Init(   m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, ESampler::Limit, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Init( m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, std::numeric_limits<uint16_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, std::numeric_limits<uint16_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Init(m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_DSV, std::numeric_limits<uint16_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Init(m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, ESamplerIndex::SAMPLER_LIMIT, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Init(m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, std::numeric_limits<uint16_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
-    for (size_t sampler_index = 0; sampler_index < ESampler::Count; sampler_index++)
+    for (size_t sampler_index = 0; sampler_index < ESamplerIndex::SAMPLER_COUNT; sampler_index++)
         m_Device->CreateSampler(&SAMPLER_DESC[sampler_index], m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].GetCPUDescriptorHandle(ResourceID(sampler_index)));
 
-    D3D12_ROOT_PARAMETER1 constants_param = {};
-    constants_param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-    constants_param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    constants_param.Constants.ShaderRegister = 0;
-    constants_param.Constants.RegisterSpace = 0;
-    constants_param.Constants.Num32BitValues = sRootSignatureSize / sizeof(DWORD);
+    std::vector<D3D12_ROOT_PARAMETER1> root_params;
+
+    D3D12_ROOT_PARAMETER1 constants_parameter = {};
+    constants_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    constants_parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    constants_parameter.Constants.RegisterSpace = 0;
+    constants_parameter.Constants.ShaderRegister = 0;
+    constants_parameter.Constants.Num32BitValues = sMaxRootConstantsSize / sizeof(DWORD);
+    root_params.push_back(constants_parameter);
+
+    // start at 1 because the index is mapped to the shader registers, where 0 is occupied by constants
+    for (size_t param_index = 1; param_index < EBindSlot::Count; param_index++) {
+        D3D12_ROOT_PARAMETER1 param = {};
+        param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+        param.Descriptor.RegisterSpace = 0;
+        param.Descriptor.ShaderRegister = param_index;
+
+        switch (param_index) {
+            case EBindSlot::CBV0: case EBindSlot::CBV1: case EBindSlot::CBV2: case EBindSlot::CBV3:
+                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; break;
+
+            case EBindSlot::SRV0: case EBindSlot::SRV1: case EBindSlot::SRV2: case EBindSlot::SRV3:
+                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; break;
+
+            case EBindSlot::UAV0: case EBindSlot::UAV1: case EBindSlot::UAV2: case EBindSlot::UAV3:
+                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; break;
+
+            default: assert(false);
+        }
+
+        root_params.push_back(param);
+    }
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC vrsd;
-    vrsd.Init_1_1(1, &constants_param, ESampler::Count, STATIC_SAMPLER_DESC.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | 
+    vrsd.Init_1_1(root_params.size(), root_params.data(), ESamplerIndex::SAMPLER_COUNT, STATIC_SAMPLER_DESC.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
                                                                                     D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED  | 
                                                                                     D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED);
     ComPtr<ID3DBlob> signature, error;
@@ -64,6 +94,22 @@ Device::Device(SDL_Window* window) {
     gThrowIfFailed(serialize_vrs_hr);
     gThrowIfFailed(m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_GlobalRootSignature)));
 }
+
+
+
+void Device::BindDrawDefaults(CommandList& inCmdList) {
+    inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    const auto heaps = std::array {
+        GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER).GetHeap(),
+        GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetHeap()
+    };
+
+    inCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
+    inCmdList->SetComputeRootSignature(GetGlobalRootSignature());
+    inCmdList->SetGraphicsRootSignature(GetGlobalRootSignature());
+}
+
 
 
 BufferID Device::CreateBuffer(const Buffer::Desc& desc, const std::wstring& name) {
@@ -116,33 +162,117 @@ BufferID Device::CreateBuffer(const Buffer::Desc& desc, const std::wstring& name
 }
 
 
-TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& desc) {
+
+TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc) {
     // make a copy of the texture
     const auto& texture = GetTexture(inTextureID);
     Texture new_texture = texture;
-    new_texture.m_Description.usage = desc.usage;
-    new_texture.m_Description.viewDesc = desc.viewDesc;
+    new_texture.m_Description.usage = inDesc.usage;
+    new_texture.m_Description.viewDesc = inDesc.viewDesc;
 
-    switch (desc.usage) {
+    const auto texture_id = m_Textures.Add(new_texture);
+    CreateDescriptor(texture_id, inDesc);
+
+    return texture_id;
+}
+
+
+
+[[nodiscard]] TextureID Device::CreateTextureView(ResourceRef inResource, const Texture::Desc& inDesc) {
+    auto temp_texture = Texture(inDesc);
+    temp_texture.m_Resource = inResource;
+    const auto texture_id = m_Textures.Add(temp_texture);
+    
+    auto& texture = GetTexture(texture_id);
+    texture.m_Description.format = texture.GetResource()->GetDesc().Format;
+    texture.m_Description.usage = inDesc.usage;
+    texture.m_Description.viewDesc = inDesc.viewDesc;
+    CreateDescriptor(texture_id, inDesc);
+
+    return texture_id;
+}
+
+
+
+D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inVertexShader, const std::string& inPixelShader)
+{
+    const auto& pixelShader  = m_Shaders.at(inPixelShader);
+    const auto& vertexShader = m_Shaders.at(inVertexShader);
+
+    static constexpr std::array vertex_layout = {
+        D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        D3D12_INPUT_ELEMENT_DESC { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        D3D12_INPUT_ELEMENT_DESC { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+    };
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC state = {};
+    state.VS                                      = CD3DX12_SHADER_BYTECODE(vertexShader->GetBufferPointer(), vertexShader->GetBufferSize());
+    state.PS                                      = CD3DX12_SHADER_BYTECODE(pixelShader->GetBufferPointer(), pixelShader->GetBufferSize());
+    state.PrimitiveTopologyType                   = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    state.InputLayout.NumElements                 = vertex_layout.size();
+    state.InputLayout.pInputElementDescs          = vertex_layout.data();
+    state.BlendState                              = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    state.RasterizerState                         = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    state.RasterizerState.FrontCounterClockwise   = TRUE;
+    state.DepthStencilState                       = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    state.SampleMask                              = UINT_MAX;
+    state.SampleDesc.Count                        = 1;
+    state.pRootSignature                          = GetGlobalRootSignature();
+
+    for (const auto& texture_id : inRenderPass->m_WrittenTextures) {
+        const auto& texture = GetTexture(texture_id);
+
+        switch (texture.GetDesc().usage) {
+            case Texture::RENDER_TARGET:
+                state.RTVFormats[state.NumRenderTargets++] = texture.GetDesc().format;
+                break;
+            case Texture::DEPTH_STENCIL_TARGET:
+                assert(state.DSVFormat == DXGI_FORMAT_UNKNOWN); // If you define multiple depth targets, I got bad news for you
+                state.DSVFormat = texture.GetDesc().format;
+                break;
+        }
+    }
+
+    return state;
+}
+
+D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inComputeShader) {
+    const auto& compute_shader = m_Shaders.at(inComputeShader);
+
+    D3D12_COMPUTE_PIPELINE_STATE_DESC state = {};
+    state.CS = CD3DX12_SHADER_BYTECODE(compute_shader->GetBufferPointer(), compute_shader->GetBufferSize());
+    state.pRootSignature = GetGlobalRootSignature();
+
+    return state;
+ }
+
+
+
+void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc) {
+    auto& texture = GetTexture(inID);
+    texture.m_Description.usage = inDesc.usage;
+    texture.m_Description.viewDesc = inDesc.viewDesc;
+
+    switch (inDesc.usage) {
     case Texture::DEPTH_STENCIL_TARGET: {
-        new_texture.m_View = CreateDepthStencilView(texture.m_Resource, static_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>(desc.viewDesc));
+        texture.m_View = CreateDepthStencilView(texture.m_Resource, static_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>(inDesc.viewDesc));
     } break;
     case Texture::RENDER_TARGET:
-        new_texture.m_View = CreateRenderTargetView(texture.m_Resource, static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>(desc.viewDesc));
+        texture.m_View = CreateRenderTargetView(texture.m_Resource, static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>(inDesc.viewDesc));
         break;
     case Texture::SHADER_SAMPLE:
-        new_texture.m_View = CreateShaderResourceView(texture.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(desc.viewDesc));
+        texture.m_View = CreateShaderResourceView(texture.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
         break;
     case Texture::SHADER_READ:
     case Texture::SHADER_WRITE:
-        new_texture.m_View = CreateUnorderedAccessView(texture.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>(desc.viewDesc));
+        texture.m_View = CreateUnorderedAccessView(texture.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>(inDesc.viewDesc));
         break;
     default:
         assert(false); // should not be able to get here
     }
-
-    return m_Textures.Add(new_texture);
 }
+
 
 
 BufferID Device::CreateBufferView(BufferID inBufferID, const Buffer::Desc& desc) {
@@ -162,7 +292,8 @@ BufferID Device::CreateBufferView(BufferID inBufferID, const Buffer::Desc& desc)
 }
 
 
-TextureID Device::CreateTexture(const Texture::Desc& desc, const std::wstring& name) {
+
+TextureID Device::CreateTexture(const Texture::Desc& desc, const std::wstring& inName) {
     auto texture = Texture(desc);
     auto resource_desc = D3D12_RESOURCE_DESC(CD3DX12_RESOURCE_DESC::Tex2D(
         desc.format, desc.width, desc.height, 1u, desc.mipLevels, 1u, 0, D3D12_RESOURCE_FLAG_NONE, D3D12_TEXTURE_LAYOUT_UNKNOWN)
@@ -199,7 +330,7 @@ TextureID Device::CreateTexture(const Texture::Desc& desc, const std::wstring& n
         } break;
 
         case Texture::SHADER_WRITE: {
-            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;;
+            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
             initial_state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
         } break;
     }
@@ -213,29 +344,37 @@ TextureID Device::CreateTexture(const Texture::Desc& desc, const std::wstring& n
         IID_PPV_ARGS(&texture.m_Resource)
     ));
 
-    switch (desc.usage) {
-        case Texture::DEPTH_STENCIL_TARGET: {
-            texture.m_View = CreateDepthStencilView(texture.m_Resource, static_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>(desc.viewDesc));
-        } break;
+    if (!inName.empty())
+        texture.m_Resource->SetName(inName.c_str());
+
+    const auto texture_id = m_Textures.Add(texture);
+    CreateDescriptor(texture_id, desc);
+
+    return texture_id;
+}
+
+
+
+D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(TextureID inID) {
+    auto& texture = GetTexture(inID);
+
+    switch (texture.GetDesc().usage) {
         case Texture::RENDER_TARGET:
-            texture.m_View = CreateRenderTargetView(texture.m_Resource, static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>(desc.viewDesc));
-            break;
-        case Texture::SHADER_SAMPLE:
-            texture.m_View = CreateShaderResourceView(texture.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(desc.viewDesc));
-            break;
+            return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV).GetCPUDescriptorHandle(texture.GetView());
+        case Texture::DEPTH_STENCIL_TARGET:
+            return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV).GetCPUDescriptorHandle(texture.GetView());
         case Texture::SHADER_READ:
         case Texture::SHADER_WRITE:
-            texture.m_View = CreateUnorderedAccessView(texture.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>(desc.viewDesc));
-            break;
+        case Texture::SHADER_SAMPLE:
+            return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetCPUDescriptorHandle(texture.GetView());
         default:
-            assert(false); // should not be able to get here
+            assert(false);
     }
-    
-    if (!name.empty())
-        texture.m_Resource->SetName(name.c_str());
 
-    return m_Textures.Add(texture);
+    assert(false);
+    return CD3DX12_CPU_DESCRIPTOR_HANDLE();
 }
+
 
 
 ResourceID Device::CreateDepthStencilView(ResourceRef inResource, D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc) {
@@ -246,12 +385,14 @@ ResourceID Device::CreateDepthStencilView(ResourceRef inResource, D3D12_DEPTH_ST
 }
 
 
+
 ResourceID Device::CreateRenderTargetView(ResourceRef inResource, D3D12_RENDER_TARGET_VIEW_DESC* inDesc) {
     auto& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV];
     const auto descriptor_id = heap.Add(inResource);
     m_Device->CreateRenderTargetView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor_id));
     return descriptor_id;
 }
+
 
 
 ResourceID Device::CreateShaderResourceView(ResourceRef inResource, D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc) {
@@ -262,6 +403,7 @@ ResourceID Device::CreateShaderResourceView(ResourceRef inResource, D3D12_SHADER
 }
 
 
+
 ResourceID Device::CreateUnorderedAccessView(ResourceRef inResource, D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc) {
     auto& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     const auto descriptor_id = heap.Add(inResource);
@@ -270,10 +412,13 @@ ResourceID Device::CreateUnorderedAccessView(ResourceRef inResource, D3D12_UNORD
 }
 
 
+
 StagingHeap::~StagingHeap() {
     for (auto& buffer_view : m_Buffers)
         m_Device.GetBuffer(buffer_view.mBufferID)->Unmap(0, nullptr);
 }
+
+
 
 void StagingHeap::StageBuffer(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, size_t inOffset, const void* inData, size_t inSize) {
     for (auto& buffer : m_Buffers) {
@@ -292,7 +437,7 @@ void StagingHeap::StageBuffer(ID3D12GraphicsCommandList* inCmdList, ResourceRef 
     auto buffer_id = m_Device.CreateBuffer(Buffer::Desc{
         .size = inSize,
         .usage = Buffer::Usage::UPLOAD
-        });
+    });
 
     auto& buffer = m_Device.GetBuffer(buffer_id);
 
@@ -312,6 +457,8 @@ void StagingHeap::StageBuffer(ID3D12GraphicsCommandList* inCmdList, ResourceRef 
         .mBufferID = buffer_id
     });
 }
+
+
 
 void StagingHeap::StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, size_t inSubResource, const void* inData) {
     auto desc = inResource->GetDesc();

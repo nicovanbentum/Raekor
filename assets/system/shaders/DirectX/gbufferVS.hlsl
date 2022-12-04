@@ -25,6 +25,10 @@ struct RootConstants {
 
 ROOT_CONSTANTS(RootConstants, root_constants)
 
+struct Transform {
+    float4x4 mat;
+};
+
 VS_OUTPUT main(in VS_INPUT input) {
     VS_OUTPUT output;
 

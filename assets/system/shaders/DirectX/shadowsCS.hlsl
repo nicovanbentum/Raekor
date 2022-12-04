@@ -76,8 +76,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
 
 
     RayDesc ray;
-    ray.TMin = 0.001;
-    ray.TMax = 10000.0;
+    ray.TMin = 0.1;
+    ray.TMax = 1000.0;
     ray.Origin = position + normal * 0.01; // TODO: find a more robust method? offsetRay from ray tracing gems 
                                             // expects a geometric normal, which most deferred renderers dont write out
     ray.Direction = -normalize(rc.mLightDir.xyz);

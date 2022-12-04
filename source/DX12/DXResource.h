@@ -27,7 +27,9 @@ public:
 
 	struct Desc {
 		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
-		uint32_t width = 1, height = 1, depth = 1;
+		uint32_t width = 1;
+		uint32_t height = 1;
+		uint32_t depth = 1;
 		uint32_t mipLevels = 1;
 		uint32_t arrayLayers = 1;
 		bool shaderAccess = false;
@@ -39,12 +41,14 @@ public:
 	Texture() = default;
 	Texture(const Desc& inDesc) : m_Description(inDesc) {}
 
-	ResourceID GetView() const { return m_View; }
-	ResourceRef& GetResource() { return m_Resource; }
-	ResourceRef& operator-> () { return m_Resource; }
-	const Desc& GetDesc() const { return m_Description; }
-	uint32_t   GetHeapIndex() const { return m_View.ToIndex(); }
-	const ResourceRef& GetResource() const { return m_Resource; }
+	ResourceID GetView() const		{ return m_View; }
+	const Desc& GetDesc() const		{ return m_Description; }
+	uint32_t GetHeapIndex() const	{ return m_View.ToIndex(); }
+
+	ResourceRef& operator-> ()				{ return m_Resource; }
+	const ResourceRef& operator-> () const	{ return m_Resource; }
+	ResourceRef&		GetResource()		{ return m_Resource; }
+	const ResourceRef&	GetResource() const	{ return m_Resource; }
 
 private:
 	Desc m_Description = {};
@@ -52,6 +56,7 @@ private:
 	ResourceRef m_Resource = nullptr;
 	AllocationRef m_Allocation = nullptr;
 };
+
 
 class Buffer {
 	friend class Device;
@@ -78,10 +83,11 @@ public:
 	Buffer(const Desc& inDesc) : m_Description(inDesc) {}
 
 	ResourceID GetView() const { return m_View; }
+	const Desc& GetDesc() const { return m_Description; }
+	ResourceRef& GetResource() { return m_Resource; }
+
 	ResourceRef& operator-> () { return m_Resource; }
 	const ResourceRef& operator-> () const { return m_Resource; }
-	ResourceRef& GetResource() { return m_Resource; }
-	const Desc& GetDesc() const { return m_Description; }
 
 private:
 	Desc m_Description = {};
@@ -89,6 +95,7 @@ private:
 	ResourceRef m_Resource = nullptr;
 	AllocationRef m_Allocation = nullptr;
 };
+
 
 typedef Buffer::Pool::ID BufferID;
 typedef Texture::Pool::ID TextureID;

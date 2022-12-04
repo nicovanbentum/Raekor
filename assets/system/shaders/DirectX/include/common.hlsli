@@ -7,6 +7,21 @@
 
 #define ROOT_CONSTANTS(T, name) ConstantBuffer<T> name : register(b0, space0);
 
+#define CBV0(T, name) ConstantBuffer<T> name : register(b1, space0);
+#define CBV1(T, name) ConstantBuffer<T> name : register(b2, space0);
+#define CBV2(T, name) ConstantBuffer<T> name : register(b3, space0);
+#define CBV3(T, name) ConstantBuffer<T> name : register(b4, space0);
+
+#define SRV0(T, name) StructuredBuffer<T> name : register(b5, space0);
+#define SRV1(T, name) StructuredBuffer<T> name : register(b6, space0);
+#define SRV2(T, name) StructuredBuffer<T> name : register(b7, space0);
+#define SRV3(T, name) StructuredBuffer<T> name : register(b8, space0);
+
+#define UAV0(T, name) RWStructuredBuffer<T> name : register(b9, space0);
+#define UAV1(T, name) RWStructuredBuffer<T> name : register(b10, space0);
+#define UAV2(T, name) RWStructuredBuffer<T> name : register(b11, space0);
+#define UAV3(T, name) RWStructuredBuffer<T> name : register(b12, space0);
+
 SamplerState SamplerPointWrap       : register(s0);
 SamplerState SamplerPointClamp      : register(s1);
 SamplerState SamplerLinearWrap      : register(s2);

@@ -29,5 +29,12 @@
 // ImGui DX12 backend
 #include "imgui_impl_dx12.h"
 
+// AMD Fidelity-FX Super Resolution 2.1
+#include "ffx_fsr2.h"
+#include "dx12/ffx_fsr2_dx12.h"
+
+// PIX Runtime Events
+#include "pix3.h"
+
 template<typename T>
 using ComPtr = Microsoft::WRL::ComPtr<T>;

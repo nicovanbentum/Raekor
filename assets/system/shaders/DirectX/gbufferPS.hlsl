@@ -37,6 +37,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
 
     float3x3 TBN = transpose(float3x3(input.tangent, input.bitangent, input.normal));
     float3 normal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
+    normal = normalize(input.normal);
 
     float4 albedo = root_constants.albedo * sampled_albedo;
     float metalness = root_constants.properties.x * sampled_material.b;
