@@ -7,6 +7,7 @@
 
 namespace Raekor {
 
+
 SCRIPT_INTERFACE void Transform::Compose() {
     localTransform = glm::translate(glm::mat4(1.0f), position);
     localTransform = localTransform * glm::toMat4(rotation);
@@ -146,35 +147,31 @@ std::vector<float> Mesh::GetInterleavedVertices() const {
 
 
 void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform) {
-    auto globalTransformation = glm::mat4(1.0f);
+    auto global_transform = glm::mat4(1.0f);
 
-    bool hasAnimation = animation.m_BoneAnimations.find(pNode.name) != animation.m_BoneAnimations.end();
+    bool has_animation = animation.m_BoneAnimations.find(pNode.index) != animation.m_BoneAnimations.end();
 
-    if (bonemapping.find(pNode.name) != bonemapping.end() && pNode.name != m_Bones.name && hasAnimation) {
+    if (pNode.index != boneHierarchy.index && has_animation) {
+        const auto& node_anim = animation.m_BoneAnimations.at(pNode.index);
 
-        glm::mat4 nodeTransform = glm::mat4(1.0f);
+        auto translation = node_anim.GetInterpolatedPosition(animationTime);
+        auto translation_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(translation.x, translation.y, translation.z));
 
-        const auto& nodeAnim = animation.m_BoneAnimations.at(pNode.name);
+        auto rotation = node_anim.GetInterpolatedRotation(animationTime);
+        auto rotation_matrix = glm::toMat4(rotation);
 
-        glm::vec3 translation = nodeAnim.GetInterpolatedPosition(animationTime);
-        glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(translation.x, translation.y, translation.z));
+        auto scale = node_anim.GetInterpolatedScale(animationTime);
+        auto scale_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(scale.x, scale.y, scale.z));
 
-        glm::quat rotation = nodeAnim.GetInterpolatedRotation(animationTime);
-        glm::mat4 rotationMatrix = glm::toMat4(rotation);
+        auto nodeTransform = translation_matrix * rotation_matrix * scale_matrix;
 
-        glm::vec3 scale = nodeAnim.GetInterpolatedScale(animationTime);
-        glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(scale.x, scale.y, scale.z));
-
-        nodeTransform = translationMatrix * rotationMatrix * scaleMatrix;
-
-        globalTransformation = parentTransform * nodeTransform;
-
-        unsigned int boneIndex = bonemapping[pNode.name];
-        m_BoneTransforms[boneIndex] = globalTransformation * m_BoneOffsets[boneIndex];
+        global_transform = parentTransform * nodeTransform;
+        
+        boneTransformMatrices[pNode.index] = global_transform * boneOffsetMatrices[pNode.index];
     }
 
     for (auto& child : pNode.children)
-        UpdateBoneTransforms(animation, animationTime, child, globalTransformation);
+        UpdateBoneTransforms(animation, animationTime, child, global_transform);
 }
 
 
@@ -189,7 +186,7 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt) {
         animation.m_RunningTime = 0;
 
     auto identity = glm::mat4(1.0f);
-    UpdateBoneTransforms(animation, animation.m_RunningTime, m_Bones, identity);
+    UpdateBoneTransforms(animation, animation.m_RunningTime, boneHierarchy, identity);
 }
 
 RTTI_CLASS_CPP(Material) {

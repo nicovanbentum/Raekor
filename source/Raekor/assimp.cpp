@@ -34,10 +34,10 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
         aiProcess_OptimizeGraph |
         aiProcess_CalcTangentSpace |
         aiProcess_LimitBoneWeights |
-        aiProcess_OptimizeMeshes |
-        //aiProcess_PreTransformVertices |
+        // aiProcess_OptimizeMeshes |
+        // aiProcess_PreTransformVertices |
         aiProcess_ValidateDataStructure |
-        aiProcess_JoinIdenticalVertices |
+        // aiProcess_JoinIdenticalVertices |
         aiProcess_RemoveRedundantMaterials;
 
     // the importer takes care of deleting the scene
@@ -51,7 +51,7 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
     }
 
     Timer timer;
-    m_Directory = fs::path(file).parent_path() / "";
+    m_Directory = Path(file).parent_path() / "";
 
     // pre-parse materials
     for (unsigned int i = 0; i < m_AiScene->mNumMaterials; i++) {
@@ -120,11 +120,11 @@ void AssimpImporter::parseNode(const aiNode* assimpNode, entt::entity parent, en
 void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_entity, entt::entity parent) {
     for (uint32_t i = 0; i < assimpNode->mNumMeshes; i++) {
         auto entity = new_entity;
-        const aiMesh* assimpMesh = m_AiScene->mMeshes[assimpNode->mMeshes[i]];
+        const auto assimp_mesh = m_AiScene->mMeshes[assimpNode->mMeshes[i]];
 
         // separate entities for multiple meshes
         if (assimpNode->mNumMeshes > 1) {
-            entity = m_Scene.CreateSpatialEntity(assimpMesh->mName.C_Str());
+            entity = m_Scene.CreateSpatialEntity(assimp_mesh->mName.C_Str());
 
             aiMatrix4x4 localTransform = assimpNode->mTransformation;
             auto& transform = m_Scene.get<Transform>(entity);
@@ -132,21 +132,15 @@ void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_enti
             transform.Decompose();
 
             auto p = parent != entt::null ? parent : new_entity;
-            NodeSystem::sAppend(
-                m_Scene,
-                m_Scene.get<Node>(p),
-                m_Scene.get<Node>(entity)
-            );
+            NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(p), m_Scene.get<Node>(entity));
         }
 
         // process mesh
-        LoadMesh(entity, assimpMesh);
+        LoadMesh(entity, assimp_mesh);
 
         // process bones
-        if (assimpMesh->HasBones()) {
-            LoadBones(entity, assimpMesh);
-        }
-
+        if (assimp_mesh->HasBones())
+            LoadBones(entity, assimp_mesh);
     }
 }
 
@@ -162,22 +156,24 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
     for (size_t i = 0; i < assimpMesh->mNumVertices; i++) {
         mesh.positions.emplace_back(assimpMesh->mVertices[i].x, assimpMesh->mVertices[i].y, assimpMesh->mVertices[i].z);
 
-        if (assimpMesh->HasTextureCoords(0)) {
+        if (assimpMesh->HasTextureCoords(0))
             mesh.uvs.emplace_back(assimpMesh->mTextureCoords[0][i].x, assimpMesh->mTextureCoords[0][i].y);
-        }
+        else
+            mesh.uvs.emplace_back(0.0f, 0.0f);
 
-        if (assimpMesh->HasNormals()) {
+        if (assimpMesh->HasNormals())
             mesh.normals.emplace_back(assimpMesh->mNormals[i].x, assimpMesh->mNormals[i].y, assimpMesh->mNormals[i].z);
-        }
 
         if (assimpMesh->HasTangentsAndBitangents()) {
             auto& tangent = mesh.tangents.emplace_back(assimpMesh->mTangents[i].x, assimpMesh->mTangents[i].y, assimpMesh->mTangents[i].z);
 
             glm::vec3 bitangent = glm::vec3(assimpMesh->mBitangents[i].x, assimpMesh->mBitangents[i].y, assimpMesh->mBitangents[i].z);
 
-            if (glm::dot(glm::cross(mesh.normals[i],glm::vec3(tangent)), bitangent) < 0.0f) {
+            if (glm::dot(glm::cross(mesh.normals[i], glm::vec3(tangent)), bitangent) < 0.0f)
                 tangent *= -1.0f;
-            }
+        }
+        else {
+            mesh.tangents.emplace_back(0.0f, 0.0f, 0.0f);
         }
     }
 
@@ -196,9 +192,10 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
     //    mesh.CalculateNormals();
 
     //if (!assimpMesh->HasTangentsAndBitangents() && !mesh.uvs.empty())
-    //    mesh.CalculateTangents();
+        //mesh.CalculateTangents();
 
-    if(m_UploadMeshCallback) m_UploadMeshCallback(mesh);
+    if(m_UploadMeshCallback) 
+        m_UploadMeshCallback(mesh);
 
     mesh.material = m_Materials[assimpMesh->mMaterialIndex];
 }
@@ -207,50 +204,48 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
 void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
     if (!m_AiScene->HasAnimations())
         return;
-    
+
     auto& mesh = m_Scene.get<Mesh>(entity);
     auto& skeleton = m_Scene.emplace<Skeleton>(entity);
 
-    for (uint32_t anim_idx = 0; anim_idx < m_AiScene->mNumAnimations; anim_idx++) {
-        skeleton.animations.emplace_back(m_AiScene->mAnimations[anim_idx]);
-    }
+    std::cout << "Assimp mesh: " << assimpMesh->mName.C_Str() << '\n';
 
-    skeleton.m_BoneWeights.resize(assimpMesh->mNumVertices);
-    skeleton.m_BoneIndices.resize(assimpMesh->mNumVertices);
 
-    for (uint32_t idx = 0; idx < assimpMesh->mNumBones; idx++) {
-        auto bone = assimpMesh->mBones[idx];
-        int bone_index = 0;
+    skeleton.boneWeights.resize(assimpMesh->mNumVertices);
+    skeleton.boneIndices.resize(assimpMesh->mNumVertices);
 
-        if (skeleton.bonemapping.find(bone->mName.C_Str()) == skeleton.bonemapping.end()) {
-            skeleton.m_BoneOffsets.push_back(Assimp::toMat4(bone->mOffsetMatrix));
-            
-            bone_index = skeleton.m_BoneOffsets.size() - 1;
-            skeleton.bonemapping[bone->mName.C_Str()] = bone_index;
-        } 
-        else {
-            bone_index = skeleton.bonemapping[bone->mName.C_Str()];
-        }
+    auto bone_map = std::unordered_map<std::string, uint32_t>();
 
-        for (size_t j = 0; j < bone->mNumWeights; j++) {
-            int vertexID = bone->mWeights[j].mVertexId;
-            float weight = bone->mWeights[j].mWeight;
+    auto IsBone = [&](const std::string& inBoneName) {
+        return bone_map.find(inBoneName) != bone_map.end();
+    };
 
-            for (int i = 0; i < 4; i++) {
-                if (skeleton.m_BoneWeights[vertexID][i] == 0.0f) {
-                    skeleton.m_BoneIndices[vertexID][i] = bone_index;
-                    skeleton.m_BoneWeights[vertexID][i] = weight;
+    for (const auto& [index, bone] : gEnumerate(Slice(assimpMesh->mBones, assimpMesh->mNumBones))) {
+        std::cout << "Assimp bone: " << bone->mName.C_Str() << '\n';
+        bone_map.insert({ bone->mName.C_Str(), uint32_t(index) });
+        skeleton.boneOffsetMatrices.push_back(Assimp::toMat4(bone->mOffsetMatrix));
+
+        for (const auto& assimp_weight : Slice(bone->mWeights, bone->mNumWeights)) {
+            auto& weight = skeleton.boneWeights[assimp_weight.mVertexId];
+            auto& indices = skeleton.boneIndices[assimp_weight.mVertexId];
+
+            for (int i = 0; i < weight.length(); i++) {
+                if (weight[i] == 0.0f) {
+                    weight[i] = assimp_weight.mWeight;
+                    indices[i] = index;
                     break;
                 }
+                // vertex weights are stored as vec4, so if we were unable to use the last component, 
+                // it means assimp somehow didn't limit vertex weights to 4 and we have excess weights.
+                assert(i != 3);
             }
         }
     }
 
-    skeleton.m_BoneTransforms.resize(skeleton.m_BoneOffsets.size());
+    skeleton.boneTransformMatrices.resize(skeleton.boneOffsetMatrices.size());
 
-    if (m_UploadSkeletonCallback) {
+    if (m_UploadSkeletonCallback)
         m_UploadSkeletonCallback(skeleton, mesh);
-    }
 
     aiNode* root_bone = nullptr;
     std::stack<aiNode*> nodes;
@@ -260,40 +255,46 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
         auto current = nodes.top();
         nodes.pop();
 
-        const auto is_bone = skeleton.bonemapping.find(current->mName.C_Str()) != skeleton.bonemapping.end();
-
-        if (is_bone) {
+        if (IsBone(current->mName.C_Str())) {
             assert(current->mParent);
-            const auto has_parent_bone = skeleton.bonemapping.find(current->mParent->mName.C_Str()) != skeleton.bonemapping.end();
 
-            if (!has_parent_bone) {
+            if (!IsBone(current->mParent->mName.C_Str())) {
                 root_bone = current;
                 break;
             }
         }
 
-        for (uint32_t i = 0; i < current->mNumChildren; i++) {
+        for (uint32_t i = 0; i < current->mNumChildren; i++)
             nodes.push(current->mChildren[i]);
-        }
     }
 
     assert(root_bone);
-    skeleton.m_Bones.name = root_bone->mName.C_Str();
+    skeleton.boneHierarchy.name = root_bone->mName.C_Str();
+    skeleton.boneHierarchy.index = bone_map[skeleton.boneHierarchy.name];
 
-    // recursive lambda to loop over the node hierarchy
-    auto copyHierarchy = [&](auto&& copyHierarchy, aiNode* node, Bone& boneNode) -> void {
-        for (unsigned int i = 0; i < node->mNumChildren; i++) {
-            auto childNode = node->mChildren[i];
+    // recursive lambda to loop over the node hierarchy, dear lord help us all
+    auto copyHierarchy = [&](auto&& copyHierarchy, aiNode* inNode, Bone& boneNode) -> void
+    {
+        for (auto node : Slice(inNode->mChildren, inNode->mNumChildren)) {
 
-            if (skeleton.bonemapping.find(childNode->mName.C_Str()) != skeleton.bonemapping.end()) {
+            if (IsBone(node->mName.C_Str())) {
                 auto& child = boneNode.children.emplace_back();
-                child.name = childNode->mName.C_Str();
-                copyHierarchy(copyHierarchy, childNode, child);
+                child.name = node->mName.C_Str();
+                child.index = bone_map[child.name];
+
+                copyHierarchy(copyHierarchy, node, child);
             }
         }
     };
 
-    copyHierarchy(copyHierarchy, root_bone, skeleton.m_Bones);
+    copyHierarchy(copyHierarchy, root_bone, skeleton.boneHierarchy);
+
+    for (const auto& ai_animation : Slice(m_AiScene->mAnimations, m_AiScene->mNumAnimations)) {
+        auto& animation = skeleton.animations.emplace_back(ai_animation);
+
+        for (const auto& channel : Slice(ai_animation->mChannels, ai_animation->mNumChannels))
+            animation.LoadKeyframes(bone_map[channel->mNodeName.C_Str()], channel);
+    }
 }
 
 
@@ -306,30 +307,24 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
     assimpMaterial->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &metalroughFile);
 
     aiString ai_alpha_mode;
-    if (assimpMaterial->Get(AI_MATKEY_GLTF_ALPHAMODE, ai_alpha_mode) == AI_SUCCESS) {
-        if (strcmp(ai_alpha_mode.C_Str(), "MASK") == 0 || strcmp(ai_alpha_mode.C_Str(), "BLEND") == 0) {
+    if (assimpMaterial->Get(AI_MATKEY_GLTF_ALPHAMODE, ai_alpha_mode) == AI_SUCCESS)
+        if (strcmp(ai_alpha_mode.C_Str(), "MASK") == 0 || strcmp(ai_alpha_mode.C_Str(), "BLEND") == 0)
             material.isTransparent = true;
-        }
-    }
 
     aiColor4D diffuse;
-    if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, &diffuse)) {
+    if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_DIFFUSE, &diffuse))
         material.albedo = { diffuse.r, diffuse.g, diffuse.b, diffuse.a };
-    }
 
     aiColor4D emissive;
-    if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_EMISSIVE, &emissive)) {
+    if (AI_SUCCESS == aiGetMaterialColor(assimpMaterial, AI_MATKEY_COLOR_EMISSIVE, &emissive))
         material.emissive = { emissive.r, emissive.g, emissive.b };
-    }
 
     float roughness, metallic;
-    if (AI_SUCCESS == aiGetMaterialFloat(assimpMaterial, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLIC_FACTOR, &metallic)) {
+    if (AI_SUCCESS == aiGetMaterialFloat(assimpMaterial, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLIC_FACTOR, &metallic))
         material.metallic = metallic;
-    }
 
-    if (AI_SUCCESS == aiGetMaterialFloat(assimpMaterial, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_ROUGHNESS_FACTOR, &roughness)) {
+    if (AI_SUCCESS == aiGetMaterialFloat(assimpMaterial, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_ROUGHNESS_FACTOR, &roughness))
         material.roughness = roughness;
-    }
 
     if (albedoFile.length) {
         Async::sQueueJob([this, &material, albedoFile]() {

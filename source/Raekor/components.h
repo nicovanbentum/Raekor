@@ -82,21 +82,20 @@ struct BoxCollider {
 
 
 struct Bone {
+    uint32_t index;
     std::string name;
-    glm::mat4 offset;
     std::vector<Bone> children;
 };
 
 
 struct Skeleton {
     glm::mat4 inverseGlobalTransform;
-    std::vector<glm::vec4> m_BoneWeights;
-    std::vector<glm::mat4> m_BoneOffsets;
-    std::vector<glm::ivec4> m_BoneIndices;
-    std::vector<glm::mat4> m_BoneTransforms;
-    std::unordered_map<std::string, uint32_t> bonemapping;
+    std::vector<glm::vec4> boneWeights;
+    std::vector<glm::ivec4> boneIndices;
+    std::vector<glm::mat4> boneOffsetMatrices;
+    std::vector<glm::mat4> boneTransformMatrices;
 
-    Bone m_Bones;
+    Bone boneHierarchy;
     std::vector<Animation> animations;
 
     void UpdateFromAnimation(Animation& animation, float TimeInSeconds);

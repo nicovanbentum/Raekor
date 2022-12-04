@@ -1,8 +1,9 @@
 #pragma once
 
+#include "scene.h"
+
 namespace Raekor {
 
-class Scene;
 class Async;
 class Assets;
 
@@ -22,13 +23,13 @@ public:
 	template<typename Fn> void SetUploadSkeletonCallbackFunction(Fn&& fn) { m_UploadSkeletonCallback = fn; }
 
 private:
-	void parseMaterial(cgltf_material& gltfMaterial);
-	void parseNode(const cgltf_node& gltfNode, entt::entity parent, glm::mat4 transform);
+	void ParseNode(const cgltf_node& gltfNode, entt::entity parent, glm::mat4 transform);
 
-	void ConvertMesh(Mesh& mesh, const cgltf_mesh& assimpMesh);
-	void ConvertBones(Skeleton& skeleton, const cgltf_node& assimpMesh);
-	void ConvertMaterial(Material& material, const cgltf_material& assimpMaterial);
+	void ConvertMesh(Entity inEntity, const cgltf_mesh& assimpMesh);
+	void ConvertBones(Entity inEntity, const cgltf_node& assimpMesh);
+	void ConvertMaterial(Entity inEntity, const cgltf_material& assimpMaterial);
 
+	int GetJointIndex(const cgltf_node* inSkinNode, const cgltf_node* inJointNode);
 
 private:
 	std::function<void(Mesh&)> m_UploadMeshCallback = nullptr;
@@ -36,7 +37,7 @@ private:
 	std::function<void(Skeleton& skeleton, Mesh& mesh)> m_UploadSkeletonCallback = nullptr;
 
 	Scene& m_Scene;
-	fs::path m_Directory;
+	Path m_Directory;
 	cgltf_data* m_GltfData = nullptr;
 	std::vector<entt::entity> m_Materials;
 	std::vector<entt::entity> m_CreatedNodeEntities;

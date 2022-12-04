@@ -41,7 +41,7 @@ private:
 	std::function<void(Skeleton& skeleton, Mesh& mesh)> m_UploadSkeletonCallback = nullptr;
 
 	Scene& m_Scene;
-	fs::path m_Directory;
+	Path m_Directory;
 	const aiScene* m_AiScene;
 	std::vector<entt::entity> m_Materials;
 };

@@ -25,12 +25,11 @@ constexpr std::array cgltf_result_strings = {
 
 
 bool handle_cgltf_error(cgltf_result result) {
-    if (result != cgltf_result_success) {
-        std::cerr << "[clgtf] Result error: " << cgltf_result_strings[result] << '\n';
-        return false;
-    }
+    if (result == cgltf_result_success)
+        return true;
 
-    return true;
+    gWarn(cgltf_result_strings[result]);
+    return false;
 }
 
 
@@ -44,7 +43,7 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     /*
     * LOAD GLTF FROM DISK
     */
-    m_Directory = fs::path(file).parent_path() / "";
+    m_Directory = Path(file).parent_path() / "";
 
     cgltf_options options = {};
     if (!handle_cgltf_error(cgltf_parse_file(&options, file.c_str(), &m_GltfData)))
@@ -71,7 +70,7 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
         else
             nameComponent.name = "Material " + std::to_string(entt::to_integral(entity));
 
-        ConvertMaterial(m_Scene.emplace<Material>(entity), gltf_material);
+        ConvertMaterial(entity, gltf_material);
         m_Materials.push_back(entity);
         
         gPrintProgressBar("DDS Conversion Progress: ", float(index) / m_GltfData->materials_count);
@@ -86,9 +85,9 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     */
     for (const auto& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
         for (const auto& node : Slice(scene.nodes, scene.nodes_count))
-            parseNode(*node, sInvalidEntity, glm::mat4(1.0f));
+            ParseNode(*node, sInvalidEntity, glm::mat4(1.0f));
 
-    const auto root_node = m_Scene.CreateSpatialEntity(fs::path(file).filename().string());
+    const auto root_node = m_Scene.CreateSpatialEntity(Path(file).filename().string());
     
     for (const auto& entity : m_CreatedNodeEntities) {
         auto& node = m_Scene.get<Node>(entity);
@@ -101,7 +100,7 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
 }
 
 
-void GltfImporter::parseNode(const cgltf_node& node, entt::entity parent, glm::mat4 transform) {
+void GltfImporter::ParseNode(const cgltf_node& node, entt::entity parent, glm::mat4 transform) {
     glm::mat4 local_transform;
     memcpy(glm::value_ptr(local_transform), node.matrix, sizeof(node.matrix));
     transform *= local_transform;
@@ -125,36 +124,36 @@ void GltfImporter::parseNode(const cgltf_node& node, entt::entity parent, glm::m
         if (parent != entt::null)
             NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(parent), m_Scene.get<Node>(entity));
 
-        ConvertMesh(m_Scene.emplace<Mesh>(entity), *node.mesh);
+        ConvertMesh(entity, *node.mesh);
 
-        if (node.skin && node.weights_count)
-            ConvertBones(m_Scene.emplace<Skeleton>(entity), node);
+        if (node.skin)
+            ConvertBones(entity, node);
     }
 
     for (const auto& child : Slice(node.children, node.children_count))
-        parseNode(*child, parent, transform);
+        ParseNode(*child, parent, transform);
 }
 
 
-void GltfImporter::ConvertMesh(Mesh& mesh, const cgltf_mesh& gltfMesh) {
+void GltfImporter::ConvertMesh(Entity inEntity, const cgltf_mesh& gltfMesh) {
+    auto& mesh = m_Scene.emplace<Mesh>(inEntity);
+
     mesh.uvs.reserve(gltfMesh.primitives_count);
     mesh.normals.reserve(gltfMesh.primitives_count);
     mesh.tangents.reserve(gltfMesh.primitives_count);
     mesh.positions.reserve(gltfMesh.primitives_count);
     mesh.indices.reserve(gltfMesh.primitives_count * 3);
 
-    cgltf_material* material = nullptr;
+    std::unordered_set<cgltf_material*> material_ptrs;
+
+    for (const auto& primitive : Slice(gltfMesh.primitives, gltfMesh.primitives_count))
+        material_ptrs.insert(primitive.material);
+
+    if (material_ptrs.size() > 1)
+        gWarn("Gltf mesh uses different materials per primitive which is currently not supported.");
 
     for(const auto& primitive : Slice(gltfMesh.primitives, gltfMesh.primitives_count)) {
         assert(primitive.type == cgltf_primitive_type_triangles);
-
-        if (!material && primitive.material != material) {
-            material = primitive.material;
-        }
-        else if (primitive.material != material) {
-            material = primitive.material;
-
-        }
 
         for (int i = 0; i < m_GltfData->materials_count; i++)
             if (primitive.material == &m_GltfData->materials[i])
@@ -205,102 +204,215 @@ void GltfImporter::ConvertMesh(Mesh& mesh, const cgltf_mesh& gltfMesh) {
         m_UploadMeshCallback(mesh);
 }
 
-
-void GltfImporter::ConvertBones(Skeleton& skeleton, const cgltf_node& assimpMesh) {
+void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
     if (!m_GltfData->animations_count)
         return;
+
+    if (!inNode.mesh || !inNode.skin)
+        return;
+
+    auto& mesh = m_Scene.get<Mesh>(inEntity);
+    auto& skeleton = m_Scene.emplace<Skeleton>(inEntity);
     
-    for (uint32_t anim_idx = 0; anim_idx < m_GltfData->animations_count; anim_idx++) {
-        skeleton.animations.emplace_back(&m_GltfData->animations[anim_idx]);
+
+    for (const auto& [index, primitive] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count))) {
+        
+        assert(primitive.type == cgltf_primitive_type_triangles);
+
+        for (const auto& attribute : Slice(primitive.attributes, primitive.attributes_count)) {
+            
+            if (attribute.type == cgltf_attribute_type_weights) {
+                const auto float_count = cgltf_accessor_unpack_floats(attribute.data, NULL, 0);
+                auto accessor_data = std::vector<float>(float_count);
+
+                auto data = accessor_data.data();
+                cgltf_accessor_unpack_floats(attribute.data, data, float_count);
+                const auto num_components = cgltf_num_components(attribute.data->type);
+
+                for (uint32_t element_index = 0; element_index < attribute.data->count; element_index++) {
+                    skeleton.boneWeights.emplace_back(data[0], data[1], data[2], data[3]);
+                    data += num_components;
+                }
+            }
+
+            else if (attribute.type == cgltf_attribute_type_joints) {
+                const auto num_components = cgltf_num_components(attribute.data->type);
+                uint32_t buffer[4]; // lets assume for now that its typically a vec4 of uint's
+
+                // TODO: change bone indices from 'ivec4' to 'uvec4' as it makes more sense and we can pass it to read_uint directly
+                for (uint32_t i = 0; i < attribute.data->count; i++) {
+                    auto& indices = skeleton.boneIndices.emplace_back();
+                    cgltf_accessor_read_uint(attribute.data, i, buffer, num_components);
+
+                    for (uint32_t j = 0; j < num_components; j++)
+                        indices[j] = buffer[j];
+                }
+            }
+        }
     }
 
-    skeleton.m_BoneWeights.resize(assimpMesh.weights_count);
-    skeleton.m_BoneIndices.resize(assimpMesh.skin->joints_count);
+    auto accessor          = inNode.skin->inverse_bind_matrices;
+    const auto float_count = cgltf_accessor_unpack_floats(accessor, NULL, 0);
+    auto bind_matrix_data  = std::vector<float>(float_count);
+    auto data_ptr          = bind_matrix_data.data();
+    cgltf_accessor_unpack_floats(accessor, data_ptr, float_count);
+    const auto num_components = cgltf_num_components(accessor->type);
 
-    //for (uint32_t idx = 0; idx < assimpMesh->mNumBones; idx++) {
-    //    auto bone = assimpMesh->mBones[idx];
-    //    int bone_index = 0;
+    for (uint32_t n = 0; n < accessor->count; n++) {
+        auto& matrix = skeleton.boneOffsetMatrices.emplace_back(1.0f);
+        memcpy(glm::value_ptr(matrix), data_ptr + n * num_components, num_components * sizeof(float));
+    }
 
-    //    if (skeleton.bonemapping.find(bone->mName.C_Str()) == skeleton.bonemapping.end()) {
-    //        skeleton.m_BoneOffsets.push_back(Assimp::toMat4(bone->mOffsetMatrix));
-    //        
-    //        bone_index = skeleton.m_BoneOffsets.size() - 1;
-    //        skeleton.bonemapping[bone->mName.C_Str()] = bone_index;
-    //    } 
-    //    else {
-    //        bone_index = skeleton.bonemapping[bone->mName.C_Str()];
-    //    }
+    skeleton.boneTransformMatrices.resize(skeleton.boneOffsetMatrices.size());
 
-    //    for (size_t j = 0; j < bone->mNumWeights; j++) {
-    //        int vertexID = bone->mWeights[j].mVertexId;
-    //        float weight = bone->mWeights[j].mWeight;
+    if (m_UploadSkeletonCallback)
+        m_UploadSkeletonCallback(skeleton, mesh);
 
-    //        for (int i = 0; i < 4; i++) {
-    //            if (skeleton.m_BoneWeights[vertexID][i] == 0.0f) {
-    //                skeleton.m_BoneIndices[vertexID][i] = bone_index;
-    //                skeleton.m_BoneWeights[vertexID][i] = weight;
-    //                break;
-    //            }
-    //        }
-    //    }
-    //}
+    auto root_bone = inNode.skin->skeleton;
+    skeleton.boneHierarchy.name = root_bone->name;
+    skeleton.boneHierarchy.index = GetJointIndex(&inNode, root_bone);
 
-    //skeleton.m_BoneTransforms.resize(skeleton.m_BoneOffsets.size());
+    // recursive lambda to loop over the node hierarchy, dear lord help us all
+    auto copyHierarchy = [&](auto&& copyHierarchy, cgltf_node* inCurrentNode, Bone& boneNode) -> void
+    {
+        for (auto node : Slice(inCurrentNode->children, inCurrentNode->children_count)) {
+            const auto index = GetJointIndex(&inNode, node);
 
-    //if (m_UploadSkeletonCallback) {
-    //    m_UploadSkeletonCallback(skeleton, mesh);
-    //}
+            if (index != -1) {
+                auto& child = boneNode.children.emplace_back();
+                child.name = node->name;
+                child.index = index;
 
-    //aiNode* root_bone = nullptr;
-    //std::stack<aiNode*> nodes;
-    //nodes.push(m_AiScene->mRootNode);
+                copyHierarchy(copyHierarchy, node, child);
+            }
+        }
+    };
 
-    //while (!nodes.empty() && !root_bone) {
-    //    auto current = nodes.top();
-    //    nodes.pop();
+    copyHierarchy(copyHierarchy, root_bone, skeleton.boneHierarchy);
 
-    //    const auto is_bone = skeleton.bonemapping.find(current->mName.C_Str()) != skeleton.bonemapping.end();
+    for (const auto& gltf_animation : Slice(m_GltfData->animations, m_GltfData->animations_count)) {
+        auto& animation = skeleton.animations.emplace_back(&gltf_animation);
+    
+        for (const auto& channel : Slice(gltf_animation.channels, gltf_animation.channels_count)) {
+            const auto joint_index = GetJointIndex(&inNode, channel.target_node);
 
-    //    if (is_bone) {
-    //        assert(current->mParent);
-    //        const auto has_parent_bone = skeleton.bonemapping.find(current->mParent->mName.C_Str()) != skeleton.bonemapping.end();
+            if (animation.m_BoneAnimations.find(joint_index) == animation.m_BoneAnimations.end())
+                animation.m_BoneAnimations[joint_index] = KeyFrames(joint_index);
 
-    //        if (!has_parent_bone) {
-    //            root_bone = current;
-    //            break;
-    //        }
-    //    }
+            auto& keyframes = animation.m_BoneAnimations[joint_index];
 
-    //    for (uint32_t i = 0; i < current->mNumChildren; i++) {
-    //        nodes.push(current->mChildren[i]);
-    //    }
-    //}
+            animation.m_TotalDuration = glm::max(animation.m_TotalDuration, Timer::sToMilliseconds(channel.sampler->input->max[0]));
 
-    //assert(root_bone);
-    //skeleton.m_Bones.name = root_bone->mName.C_Str();
+            assert(channel.sampler->interpolation == cgltf_interpolation_type_linear);
+            float buffer[4]; // covers time (scalar float values), pos and scale (vec3) and rotation (quat)
+            
+            switch (channel.target_path) {
+            case cgltf_animation_path_type_translation: {
+                for (uint32_t index = 0; index < channel.sampler->input->count; index++) {
+                    auto& key = keyframes.positionKeys.emplace_back();
 
-    //// recursive lambda to loop over the node hierarchy
-    //auto copyHierarchy = [&](auto&& copyHierarchy, aiNode* node, Bone& boneNode) -> void {
-    //    for (unsigned int i = 0; i < node->mNumChildren; i++) {
-    //        auto childNode = node->mChildren[i];
+                    const auto num_components = cgltf_num_components(channel.sampler->input->type);
+                    assert(num_components == 1);
 
-    //        if (skeleton.bonemapping.find(childNode->mName.C_Str()) != skeleton.bonemapping.end()) {
-    //            auto& child = boneNode.children.emplace_back();
-    //            child.name = childNode->mName.C_Str();
-    //            copyHierarchy(copyHierarchy, childNode, child);
-    //        }
-    //    }
-    //};
+                    cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
+                    key.mTime = Timer::sToMilliseconds(buffer[0]);
+                }
 
-    //copyHierarchy(copyHierarchy, root_bone, skeleton.m_Bones);
+                for (uint32_t index = 0; index < channel.sampler->output->count; index++) {
+                    assert(index < keyframes.positionKeys.size());
+                    auto& key = keyframes.positionKeys[index];
+
+                    const auto num_components = cgltf_num_components(channel.sampler->output->type);
+                    assert(num_components == 3);
+
+                    cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
+                    key.mValue = aiVector3D(buffer[0], buffer[1], buffer[2]);
+                }
+
+            } break;
+            case cgltf_animation_path_type_rotation: {
+                for (uint32_t index = 0; index < channel.sampler->input->count; index++) {
+                    auto& key = keyframes.rotationkeys.emplace_back();
+
+                    const auto num_components = cgltf_num_components(channel.sampler->input->type);
+                    assert(num_components == 1);
+
+                    cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
+                    key.mTime = Timer::sToMilliseconds(buffer[0]);
+                }
+
+                for (uint32_t index = 0; index < channel.sampler->output->count; index++) {
+                    assert(index < keyframes.rotationkeys.size());
+                    auto& key = keyframes.rotationkeys[index];
+
+                    const auto num_components = cgltf_num_components(channel.sampler->output->type);
+                    assert(num_components == 4);
+
+                    cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
+                    key.mValue = aiQuaternion(buffer[3], buffer[0], buffer[1], buffer[2]);
+                }
+            } break;
+            case cgltf_animation_path_type_scale: {
+                for (uint32_t index = 0; index < channel.sampler->input->count; index++) {
+                    auto& key = keyframes.scaleKeys.emplace_back();
+
+                    const auto num_components = cgltf_num_components(channel.sampler->input->type);
+                    assert(num_components == 1);
+
+                    cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
+                    key.mTime = Timer::sToMilliseconds(buffer[0]);
+                }
+
+                for (uint32_t index = 0; index < channel.sampler->output->count; index++) {
+                    assert(index < keyframes.scaleKeys.size());
+                    auto& key = keyframes.scaleKeys[index];
+
+                    const auto num_components = cgltf_num_components(channel.sampler->output->type);
+                    assert(num_components == 3);
+
+                    cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
+                    key.mValue = aiVector3D(buffer[0], buffer[1], buffer[2]);
+                }
+            } break;
+            }
+        }
+    }
+
+    for (auto& animation : skeleton.animations) {
+        for (auto& [joint_index, keyframes] : animation.m_BoneAnimations) {
+            const auto max = glm::max(glm::max(keyframes.positionKeys.size(), keyframes.rotationkeys.size()), keyframes.scaleKeys.size());
+
+            if (max > 0) {
+                if (keyframes.positionKeys.empty()) 
+                    keyframes.positionKeys.emplace_back();
+
+                if (keyframes.rotationkeys.empty()) 
+                    keyframes.rotationkeys.emplace_back();
+
+                if (keyframes.scaleKeys.empty()) 
+                    keyframes.scaleKeys.emplace_back();
+            }
+        }
+    }
 }
 
 
-void GltfImporter::ConvertMaterial(Material& material, const cgltf_material& gltfMaterial) {
+int GltfImporter::GetJointIndex(const cgltf_node* inSkinNode, const cgltf_node* inJointNode) {
+    for (int index = 0; index < inSkinNode->skin->joints_count; index++) {
+        if (inSkinNode->skin->joints[index] == inJointNode)
+            return index;
+    }
+    
+    return -1;
+}
+
+
+void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMaterial) {
+    auto& material = m_Scene.emplace<Material>(inEntity);
     material.isTransparent = gltfMaterial.alpha_mode != cgltf_alpha_mode_opaque;
 
     if (gltfMaterial.has_pbr_metallic_roughness) {
-        material.metallic = gltfMaterial.pbr_metallic_roughness.metallic_factor;
+        material.metallic  = gltfMaterial.pbr_metallic_roughness.metallic_factor;
         material.roughness = gltfMaterial.pbr_metallic_roughness.roughness_factor;
         memcpy(glm::value_ptr(material.albedo), gltfMaterial.pbr_metallic_roughness.base_color_factor, sizeof(material.albedo));
 

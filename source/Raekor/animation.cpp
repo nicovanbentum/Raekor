@@ -4,13 +4,7 @@
 
 namespace Raekor {
 
-void KeyFrames::LoadFromAssimp(aiNodeAnim* nodeAnim) {
-	for (unsigned int i = 0; i < nodeAnim->mNumScalingKeys; i++)
-		scaleKeys.push_back(nodeAnim->mScalingKeys[i]);
-
-	for (unsigned int i = 0; i < nodeAnim->mNumRotationKeys; i++)
-		rotationkeys.push_back(nodeAnim->mRotationKeys[i]);
-
+void KeyFrames::LoadFromAssimp(const aiNodeAnim* nodeAnim) {
 	for (const auto& key : Slice(nodeAnim->mScalingKeys, nodeAnim->mNumScalingKeys))
 		scaleKeys.push_back(key);
 
@@ -19,13 +13,12 @@ void KeyFrames::LoadFromAssimp(aiNodeAnim* nodeAnim) {
 
 	for (const auto& key : Slice(nodeAnim->mRotationKeys, nodeAnim->mNumRotationKeys))
 		rotationkeys.push_back(key);
-
-	for (unsigned int i = 0; i < nodeAnim->mNumPositionKeys; i++)
-		positionKeys.push_back(nodeAnim->mPositionKeys[i]);
 }
 
 
-void KeyFrames::LoadFromGltf(cgltf_animation* nodeAnim) {}
+void KeyFrames::LoadFromGltf(const cgltf_animation* nodeAnim) {
+
+}
 
 
 glm::vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
@@ -116,34 +109,29 @@ glm::vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
 	return { aiVec.x, aiVec.y, aiVec.z };
 }
 
-
-Animation::Animation(aiAnimation* anim) {
-	LoadFromAssimp(anim);
-}
-
-
-Animation::Animation(cgltf_animation* anim) {
-	LoadFromGltf(anim);
-}
-
-
-void Animation::LoadFromAssimp(aiAnimation* anim) {
-	m_Name = anim->mName.C_Str();
+Animation::Animation(const aiAnimation* inAnimation) {
+	m_Name = inAnimation->mName.C_Str();
 	m_RunningTime = 0;
-	m_TotalDuration = float(anim->mDuration);
-	m_TicksPerSecond = float(anim->mTicksPerSecond);
+	m_TotalDuration = float(inAnimation->mDuration);
+}
 
-	for (unsigned int ch = 0; ch < anim->mNumChannels; ch++) {
-		auto aiNodeAnim = anim->mChannels[ch];
-
-		m_BoneAnimations[aiNodeAnim->mNodeName.C_Str()] = {};
-		auto& nodeAnim = m_BoneAnimations[aiNodeAnim->mNodeName.C_Str()];
-
-		nodeAnim.LoadFromAssimp(aiNodeAnim);
-	}
+Animation::Animation(const cgltf_animation* inAnimation) {
+	m_Name = inAnimation->name;
+	m_RunningTime = 0;
+	m_TotalDuration = 0;
 }
 
 
-void Animation::LoadFromGltf(cgltf_animation* anim) {}
+void Animation::LoadKeyframes(uint32_t inBoneIndex, const aiNodeAnim* inAnimation) {
+	m_BoneAnimations[inBoneIndex] = KeyFrames(inBoneIndex);
+	m_BoneAnimations[inBoneIndex].LoadFromAssimp(inAnimation);
+}
+
+
+void Animation::LoadKeyframes(uint32_t inBoneIndex, const cgltf_animation* inAnimation) {
+	m_BoneAnimations[inBoneIndex] = KeyFrames(inBoneIndex);
+	m_BoneAnimations[inBoneIndex].LoadFromGltf(inAnimation);
+}
+
 
 } // raekor
