@@ -6,7 +6,7 @@ namespace Raekor {
 
 class ViewportWidget : public IWidget {
 public:
-    TYPE_ID(ViewportWidget);
+    RTTI_CLASS_HEADER(ViewportWidget);
 
     ViewportWidget(Editor* editor);
     virtual void draw(float dt) override;

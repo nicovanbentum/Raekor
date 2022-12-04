@@ -4,8 +4,10 @@
 
 namespace Raekor {
 
-ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor, "Console") {}
+RTTI_CLASS_CPP_NO_FACTORY(ConsoleWidget) {}
 
+
+ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor, "Console") {}
 
 
 void ConsoleWidget::draw(float dt) {
@@ -106,7 +108,6 @@ void ConsoleWidget::draw(float dt) {
     ImGui::Separator();
     ImGui::End();
 }
-
 
 
 int ConsoleWidget::editCallback(ImGuiInputTextCallbackData* data) {

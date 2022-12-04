@@ -5,6 +5,9 @@
 
 namespace Raekor {
 
+RTTI_CLASS_CPP_NO_FACTORY(InspectorWidget) {}
+
+
 InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, "Inspector") {}
 
 
@@ -151,6 +154,27 @@ void InspectorWidget::DrawComponent(Skeleton& component, Entity& active) {
         }
 
         ImGui::EndCombo();
+    }
+
+    if (ImGui::Button("Save as graph..")) {
+        std::string file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
+
+        if (!file_path.empty()) {
+            auto ofs = std::ofstream(file_path);
+
+            ofs << "digraph G {\n";
+
+            auto traverse = [&](auto&& traverse, const Bone& boneNode) -> void
+            {
+                for (const auto& child : boneNode.children) {
+                    ofs << "\"" << boneNode.name << "\" -> \"" << child.name << "\";\n";
+                    traverse(traverse, child);
+                }
+            };
+
+            traverse(traverse, component.boneHierarchy);
+            ofs << "}";
+        }
     }
 
 }

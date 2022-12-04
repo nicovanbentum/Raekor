@@ -6,6 +6,9 @@
 
 namespace Raekor {
 
+RTTI_CLASS_CPP_NO_FACTORY(HierarchyWidget) {}
+
+
 HierarchyWidget::HierarchyWidget(Editor* editor) : IWidget(editor, "Scene") {}
 
 

@@ -59,7 +59,7 @@ struct Link {
 
 class NodeGraphWidget : public IWidget {
 public:
-    TYPE_ID(NodeGraphWidget);
+    RTTI_CLASS_HEADER(NodeGraphWidget);
 
     NodeGraphWidget(Editor* editor);
     

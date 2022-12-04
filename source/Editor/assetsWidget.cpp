@@ -6,6 +6,8 @@
 
 namespace Raekor {
 
+RTTI_CLASS_CPP_NO_FACTORY(AssetsWidget) {}
+
 AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, "Asset Browser") {}
 
 void AssetsWidget::draw(float dt) {

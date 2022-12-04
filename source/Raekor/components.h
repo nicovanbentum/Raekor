@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rtti.h"
 #include "script.h"
 #include "assets.h"
 #include "animation.h"
@@ -110,14 +111,19 @@ struct Skeleton {
 
 
 struct Material {
+    RTTI_CLASS_HEADER(Material);
+
     // properties
     glm::vec4 albedo = glm::vec4(1.0f);
     glm::vec3 emissive = glm::vec3(0.0f);
-    float metallic = 0.0f, roughness = 1.0f;
+    float metallic = 0.0f;
+    float roughness = 1.0f;
     bool isTransparent = false;
 
     // texture file paths
-    std::string albedoFile, normalFile, metalroughFile;
+    std::string albedoFile;
+    std::string normalFile; 
+    std::string metalroughFile;
 
     // GPU resources
     uint32_t gpuAlbedoMap = 0;

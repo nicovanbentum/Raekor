@@ -4,6 +4,8 @@
 
 namespace Raekor {
 
+RTTI_CLASS_CPP_NO_FACTORY(IWidget) {}
+
  IWidget::IWidget(Editor* editor, const std::string& title) : 
 	 editor(editor), title(title) 
  {

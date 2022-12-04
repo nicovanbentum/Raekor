@@ -6,7 +6,7 @@ namespace Raekor {
 
 class HierarchyWidget : public IWidget {
 public:
-    TYPE_ID(HierarchyWidget);
+    RTTI_CLASS_HEADER(HierarchyWidget);
 
     HierarchyWidget(Editor* editor);
     virtual void draw(float dt) override;

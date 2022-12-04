@@ -192,6 +192,16 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt) {
     UpdateBoneTransforms(animation, animation.m_RunningTime, m_Bones, identity);
 }
 
+RTTI_CLASS_CPP(Material) {
+    RTTI_MEMBER_CPP(Material, "Base Color",             albedo);
+    RTTI_MEMBER_CPP(Material, "Base Emissive",          emissive);
+    RTTI_MEMBER_CPP(Material, "Metallic",               metallic);
+    RTTI_MEMBER_CPP(Material, "Roughness",              roughness);
+    RTTI_MEMBER_CPP(Material, "Alpha Cutout",           isTransparent);
+    RTTI_MEMBER_CPP(Material, "Albedo Map",             albedoFile);
+    RTTI_MEMBER_CPP(Material, "Normal Map",             normalFile);
+    RTTI_MEMBER_CPP(Material, "Metallic-Roughness Map", metalroughFile);
+}
 
 Material Material::Default;
 

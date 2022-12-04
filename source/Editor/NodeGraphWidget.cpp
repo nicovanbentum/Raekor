@@ -5,6 +5,8 @@
 
 namespace Raekor {
 
+RTTI_CLASS_CPP_NO_FACTORY(NodeGraphWidget) {}
+
 NodeGraphWidget::NodeGraphWidget(Editor* editor) : IWidget(editor, "Node Graph") {}
 
 void NodeGraphWidget::draw(float dt) {

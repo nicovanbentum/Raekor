@@ -8,7 +8,7 @@ class GLRenderer;
 
 class RandomWidget : public IWidget {
 public:
-    TYPE_ID(RandomWidget);
+    RTTI_CLASS_HEADER(RandomWidget);
 
     RandomWidget(Editor* editor);
     virtual void draw(float dt) override;

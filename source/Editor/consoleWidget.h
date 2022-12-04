@@ -6,7 +6,7 @@ namespace Raekor {
 
 class ConsoleWidget : public IWidget {
 public:
-    TYPE_ID(ConsoleWidget);
+    RTTI_CLASS_HEADER(ConsoleWidget);
 
     ConsoleWidget(Editor* editor);
     virtual void draw(float dt) override;

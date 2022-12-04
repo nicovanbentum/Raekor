@@ -8,7 +8,7 @@ class Scene;
 
 class MetricsWidget : public IWidget {
 public:
-    TYPE_ID(MetricsWidget);
+    RTTI_CLASS_HEADER(MetricsWidget);
 
     MetricsWidget(Editor* editor);
     virtual void draw(float dt) override;

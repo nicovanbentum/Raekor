@@ -9,7 +9,7 @@ class Scene;
 
 class InspectorWidget : public IWidget {
 public:
-    TYPE_ID(InspectorWidget);
+    RTTI_CLASS_HEADER(InspectorWidget);
 
     InspectorWidget(Editor* editor);
     virtual void draw(float dt) override;

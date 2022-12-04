@@ -4,6 +4,8 @@
 
 namespace Raekor {
 
+RTTI_CLASS_CPP_NO_FACTORY(MetricsWidget) {}
+
 MetricsWidget::MetricsWidget(Editor* editor) : IWidget(editor, "Metrics") {}
 
 void MetricsWidget::draw(float dt) {

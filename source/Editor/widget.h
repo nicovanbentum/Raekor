@@ -13,7 +13,9 @@ class Assets;
 class Physics;
 class GLRenderer;
 
-class IWidget : public ITypeID {
+class IWidget {
+    RTTI_CLASS_HEADER(IWidget);
+
 public:
     IWidget(Editor* editor, const std::string& title);
     virtual void draw(float dt) = 0;

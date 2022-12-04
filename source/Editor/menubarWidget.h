@@ -7,8 +7,8 @@ namespace Raekor {
 class Scene;
 
 class MenubarWidget : public IWidget {
+    RTTI_CLASS_HEADER(MenubarWidget);
 public:
-    TYPE_ID(MenubarWidget);
 
     MenubarWidget(Editor* editor);
     virtual void draw(float dt) override;

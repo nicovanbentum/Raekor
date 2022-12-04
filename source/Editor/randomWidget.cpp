@@ -6,6 +6,8 @@
 
 namespace Raekor {
 
+RTTI_CLASS_CPP_NO_FACTORY(RandomWidget) {}
+
 RandomWidget::RandomWidget(Editor* editor) :
     IWidget(editor, "Random")
 {}

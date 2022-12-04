@@ -4,6 +4,8 @@
 
 namespace Raekor {
 
+RTTI_CLASS_CPP_NO_FACTORY(ViewportWidget) {}
+
 ViewportWidget::ViewportWidget(Editor* editor) :
     IWidget(editor, "Viewport"),
     rendertarget(IWidget::GetRenderer().m_Tonemap->result)

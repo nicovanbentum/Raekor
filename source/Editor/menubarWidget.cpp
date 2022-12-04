@@ -10,6 +10,8 @@
 
 namespace Raekor {
 
+RTTI_CLASS_CPP_NO_FACTORY(MenubarWidget) {}
+
 MenubarWidget::MenubarWidget(Editor* editor) : 
     IWidget(editor, "Menubar"),
     m_ActiveEntity(GetActiveEntity())
