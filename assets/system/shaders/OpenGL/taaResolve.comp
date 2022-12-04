@@ -154,16 +154,15 @@ void main() {
     vec3 kernelSum = vec3(0.0);
     vec3 kernelSumSquared = vec3(0.0);
     float closestDepth = 1.0;
-    ivec2 closestDepthPixelPos = ivec2(0.0);
+    ivec2 closestDepthPixelPos = ivec2(gid);
 
-    vec4 curr = imageLoad(source, gid);
-    vec4 hist = imageLoad(historyBuffer, gid);
-    imageStore(resultBuffer, gid, mix(hist, curr, 0.45));
-    return;
+    // vec4 curr = imageLoad(source, gid);
+    // vec4 hist = imageLoad(historyBuffer, gid);
+    // imageStore(resultBuffer, gid, mix(hist, curr, 0.45));
+    // return;
 
     // kernel over the current pixel
     for (int x = -1; x <= 1; x++) {
-
         for (int y = -1; y <= 1; y++) {
 
             ivec2 pos = gid + ivec2(x, y);
@@ -192,7 +191,7 @@ void main() {
         }
     }
 
-    vec2 motionVector = imageLoad(velocityTexture, closestDepthPixelPos).xy * 0.5;
+    vec2 motionVector = imageLoad(velocityTexture, closestDepthPixelPos).xy * 0.5 + 0.5;
 
     vec2 prevUV = uv - motionVector;
     vec3 sourceSample = sourceSampleTotal / sourceSampleWeight;
@@ -203,7 +202,6 @@ void main() {
     }
 
     vec3 prevSample = SampleTextureCatmullRom(prevResult, prevUV + (1.0 / resolution), resolution).rgb;
-
 
     float kernelAreaRcp = 1.0 / 9.0;
     vec3 kernelAvg = kernelSum * kernelAreaRcp;

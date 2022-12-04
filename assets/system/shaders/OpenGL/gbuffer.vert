@@ -1,11 +1,5 @@
 #version 460 core
 
-// vertex buffer data
-layout(location = 0) in vec3 v_pos;
-layout(location = 1) in vec2 v_uv;
-layout(location = 2) in vec3 v_normal;
-layout(location = 3) in vec3 v_tangent;
-
 layout(binding = 0) uniform ubo {
     mat4 prevViewProj;    
     mat4 projection;
@@ -19,6 +13,17 @@ layout(binding = 0) uniform ubo {
     uint entity;
 };
 
+struct Vertex {
+    float pos[3];
+    float uv[2];
+    float normal[3];
+    float tangent[3];
+};
+
+layout(std430, binding = 1) buffer VertexBuffer {
+    Vertex vertices[];
+};
+
 layout(location = 0) out VS_OUT {
     vec2 uv;
     mat3 TBN;
@@ -27,6 +32,11 @@ layout(location = 0) out VS_OUT {
 } vs_out;
 
 void main() {
+    Vertex v = vertices[gl_VertexID];
+    vec3 v_pos = vec3(v.pos[0], v.pos[1], v.pos[2]);
+    vec3 v_normal = vec3(v.normal[0], v.normal[1], v.normal[2]);
+    vec3 v_tangent = vec3(v.tangent[0], v.tangent[1], v.tangent[2]);
+
     vs_out.currentPos = model * vec4(v_pos, 1.0);
 	vs_out.currentPos = projection * view * vs_out.currentPos;
     // TODO: previous model matrix
@@ -43,5 +53,5 @@ void main() {
 	vec3 B = cross(N, T);
 	vs_out.TBN = mat3(T, B, N);
 
-	vs_out.uv = v_uv;
+	vs_out.uv = vec2(v.uv[0], v.uv[1]);
 }

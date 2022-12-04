@@ -1,8 +1,15 @@
 #version 440 core
 
-layout(location = 0) in vec3 v_pos;
-layout(location = 1) in vec2 v_uv;
-layout(location = 2) in vec3 v_normal;
+struct Vertex {
+    float pos[3];
+    float uv[2];
+    float normal[3];
+    float tangent[3];
+};
+
+layout(std430, binding = 1) buffer VertexBuffer {
+    Vertex vertices[];
+};
 
 layout(binding = 0) uniform ubo {
     mat4 px, py, pz;
@@ -17,7 +24,11 @@ layout(location = 0) out vec2 uvs;
 layout(location = 1) out vec4 worldPositions;
 
 void main() {
+    Vertex v = vertices[gl_VertexID];
+    vec3 v_pos = vec3(v.pos[0], v.pos[1], v.pos[2]);
+
     worldPositions = model * vec4(v_pos ,1);
     gl_Position = worldPositions;
-    uvs = v_uv;
+
+    uvs = vec2(v.uv[0], v.uv[1]);
 }

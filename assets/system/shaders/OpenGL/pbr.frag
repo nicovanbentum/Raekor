@@ -287,57 +287,6 @@ float getShadow(DirectionalLight light, vec3 position) {
     return shadow;
 }
 
-// GGX/Towbridge-Reitz normal distribution function.
-// Uses Disney's reparametrization of alpha = roughness^2
-float ndfGGX(float cosLh, float roughness) {
-	float alpha = roughness * roughness;
-	float alphaSq = alpha * alpha;
-
-	float denom = (cosLh * cosLh) * (alphaSq - 1.0) + 1.0;
-	return alphaSq / (PI * denom * denom);
-}
-
-// Single term for separable Schlick-GGX below.
-float gaSchlickG1(float cosTheta, float k) {
-	return cosTheta / (cosTheta * (1.0 - k) + k);
-}
-
-// Schlick-GGX approximation of geometric attenuation function using Smith's method.
-float gaSchlickGGX(float cosLi, float NdotV, float roughness) {
-	float r = roughness + 1.0;
-	float k = (r * r) / 8.0; // Epic suggests using this roughness remapping for analytic lights.
-	return gaSchlickG1(cosLi, k) * gaSchlickG1(NdotV, k);
-}
-
-float GeometrySchlickGGX(float NdotV, float roughness) {
-    float r = (roughness + 1.0);
-    float k = (r*r) / 8.0;
-
-    float nom   = NdotV;
-    float denom = NdotV * (1.0 - k) + k;
-
-    return nom / denom;
-}
-
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
-{
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
-    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
-
-    return ggx1 * ggx2;
-}
-
-// Shlick's approximation of the Fresnel factor.
-vec3 fresnelSchlick(float cosTheta, vec3 F0) {
-    return F0 + (1.0 - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
-}
-
-vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
-    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(max(1.0 - cosTheta, 0.0), 5.0);
-}  
-
 vec3 reconstructPosition(in vec2 uv, in float depth, in mat4 InvVP) {
   float x = uv.x * 2.0f - 1.0f;
   float y = (uv.y) * 2.0f - 1.0f; // uv.y * -1 for d3d
@@ -348,76 +297,117 @@ vec3 reconstructPosition(in vec2 uv, in float depth, in mat4 InvVP) {
   return div;
 }
 
+struct Surface {
+    vec3 pos;
+    vec3 shadingNormal;
+    vec3 triangleNormal;
+    vec4 albedo;
+    vec3 emissive;
+    float metallic, roughness;
+};
+
 float DistributionGGX(vec3 N, vec3 H, float roughness) {
-    float a = roughness*roughness;
-    float a2 = a*a;
+    float a = roughness * roughness;
+    float a2 = a * a;
     float NdotH = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH*NdotH;
+    float NdotH2 = NdotH * NdotH;
 
     float nom   = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
 
-    return nom / denom;
+    return nom / (denom + 0.001);
 }
 
-struct Material {
-    vec3 albedo;
-    float metallic;
-    float roughness;
-};
+float GeometrySchlickGGX(float NdotV, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
 
-vec3 radiance(DirectionalLight light, vec3 N, vec3 V, Material material, float shadow) {
-    vec3 Wi = normalize(-light.direction.xyz);
-    vec3 Lh = normalize(V + Wi);
+    float nom   = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
 
-	vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
+    return nom / (denom + 0.001);
+}
 
-    float NDF = DistributionGGX(N, Lh, material.roughness);   
-    float G   = GeometrySmith(N, V, Wi, material.roughness);    
-    vec3 F    = fresnelSchlick(max(dot(Lh, V), 0.0), F0);
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+
+    return ggx1 * ggx2;
+}
+
+/* From https://google.github.io/filament/Filament.html#materialsystem/specularbrdf/fresnel(specularf) */
+vec3 F_Schlick(float u, vec3 f0) {
+    float f = pow(1.0 - u, 5.0);
+    return f + f0 * (1.0 - f);
+}
+
+/* Evaluates diffuse + specular BRDF */
+vec3 BRDF_Eval(Surface surface, vec3 Wo, vec3 Wi, vec3 Wh) {
+    // these aliases are here just so my brain can follow along
+    vec3 V = Wo;
+    vec3 L = Wi;
+    vec3 H = Wh;
+    vec3 N = surface.shadingNormal;
+
+    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotH = max(dot(N, H), 0.0);
+    float VdotH = max(dot(V, H), 0.0);
+
+	vec3 F0 = mix(vec3(0.04), surface.albedo.rgb, surface.metallic);
+    vec3 F    = F_Schlick(VdotH, F0);
+
+    float NDF = DistributionGGX(N, Wh, surface.roughness);   
+    float G   = GeometrySmith(N, V, L, surface.roughness);    
 
     vec3 nominator    = NDF * G * F;
-    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, Wi), 0.0) + 0.001;
+    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;
+
+    // lambertian diffuse, the whole equation cancels out to just albedo
+    vec3 diffuse = ((1.0 - surface.metallic) * surface.albedo.rgb);
     vec3 specular = nominator / denominator;
 
-    vec3 kS = F;
-
-    vec3 kD = vec3(1.0) - kS;
-
-    kD *= 1.0 - material.metallic;
-
-    float NdotL = max(dot(N, Wi), 0.0);
-
-    vec3 diffuse = light.color.rgb * NdotL * shadow;
-
-    return (kD *  material.albedo / PI + (specular * shadow)) * diffuse;
+    return (1.0 - F) * diffuse + specular;
 }
 
-vec3 ambient(DirectionalLight light, vec3 P,  vec3 N, vec3 V, Material material, float shadow) {
-	vec3 F0 = mix(vec3(0.04), material.albedo, material.metallic);
-    vec3 F = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, material.roughness);
+vec3 ambient(Surface surface, vec3 Wo, vec3 Wi, vec3 Wh) {
+    // these aliases are here just so my brain can follow along
+    vec3 V = Wo;
+    vec3 L = Wi;
+    vec3 H = Wh;
+    vec3 N = surface.shadingNormal;
+
+    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotH = max(dot(N, H), 0.0);
+    float VdotH = max(dot(V, H), 0.0);
+
+	vec3 F0 = mix(vec3(0.04), surface.albedo.rgb, surface.metallic);
+    vec3 F    = F_Schlick(VdotH, F0);
     
     vec3 kS = F;
     vec3 kD = 1.0 - kS;
-    kD *= 1.0 - material.metallic;	  
+    kD *= 1.0 - surface.metallic;	  
     
-    vec3 R = reflect(-V, N);
+    // vec3 R = reflect(-V, N);
 
-    float d = clamp(dot(N, vec3(0, 1, 0)), 0.0, 1);
+    //float d = clamp(dot(N, vec3(0, 1, 0)), 0.0, 1);
 
     // vec3 transmittance;
     // vec3 scattered = IntegrateScattering(P, vec3(0, -1, 0), INFINITY, light.direction.xyz, light.color.rgb, transmittance);
 
     float occlusion;
-    vec4 irradiance = coneTraceRadiance(P, N, 8, occlusion);
+    vec4 irradiance = coneTraceRadiance(surface.pos, N, 8, occlusion);
 
     float occ;
-    vec4 refl = coneTraceReflection(P, N, V, material.roughness, occ);
+    vec4 refl = coneTraceReflection(surface.pos, N, V, surface.roughness, occ);
 
-    vec3 diffuse = irradiance.rgb * material.albedo * occlusion;
+    vec3 diffuse = irradiance.rgb * surface.albedo.rgb * occlusion;
 
-    vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), material.roughness)).rg;
+    vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), surface.roughness)).rg;
 
     vec3 specular = refl.rgb * (F * brdf.x + brdf.y) * occlusion;
 
@@ -426,8 +416,7 @@ vec3 ambient(DirectionalLight light, vec3 P,  vec3 N, vec3 V, Material material,
     return ambient;
 }
 
-float linearize_depth(float d,float zNear,float zFar)
-{
+float linearize_depth(float d,float zNear,float zFar) {
     float z_n = 2.0 * d - 1.0;
     return 2.0 * zNear * zFar / (zFar + zNear - z_n * (zFar - zNear));
 }
@@ -534,22 +523,20 @@ float AtmosphereHeight(vec3 pos) {
     return distance(pos, PLANET_CENTER) - PLANET_RADIUS;
 }
 
-float DensityRayleigh (float h)
-{
+float DensityRayleigh (float h) {
 	return exp(-max(0, h / RAYLEIGH_HEIGHT));
 }
-float DensityMie (float h)
-{
+
+float DensityMie (float h) {
 	return exp(-max(0, h / MIE_HEIGHT));
 }
-float DensityOzone (float h)
-{
+
+float DensityOzone (float h) {
 	// The ozone layer is represented as a tent function with a width of 30km, centered around an altitude of 25km.
 	return max(0, 1 - abs(h - 25000.0) / 15000.0);
 }
 
-vec3 AtmosphereDensity (float h)
-{
+vec3 AtmosphereDensity (float h) {
 	return vec3(DensityRayleigh(h), DensityMie(h), DensityOzone(h));
 }
 
@@ -559,8 +546,7 @@ vec3 AtmosphereDensity (float h)
 // G: Mie
 // B: Ozone
 // If you find the term "optical depth" confusing, you can think of it as "how much density was found along the ray in total".
-vec3 IntegrateOpticalDepth (vec3 rayStart, vec3 rayDir) // TODO: precompute
-{
+vec3 IntegrateOpticalDepth (vec3 rayStart, vec3 rayDir) {
 	vec2 intersection = AtmosphereIntersection(rayStart, rayDir);
 	float  rayLength    = intersection.y;
 
@@ -582,8 +568,7 @@ vec3 IntegrateOpticalDepth (vec3 rayStart, vec3 rayDir) // TODO: precompute
 }
 
 // Calculate a luminance transmittance value from optical depth.
-vec3 Absorb (vec3 opticalDepth)
-{
+vec3 Absorb (vec3 opticalDepth) {
 	// Note that Mie results in slightly more light absorption than scattering, about 10%
 	return exp(-(opticalDepth.x * C_RAYLEIGH + opticalDepth.y * C_MIE * 1.1 + opticalDepth.z * C_OZONE) * ATMOSPHERE_DENSITY);
 }
@@ -592,8 +577,6 @@ void main() {
     float depth = texture(gDepth, uv).r;
     vec3 position = reconstructPosition(uv, depth, invViewProjection);
     
-	vec4 albedo = texture(gColors, uv);
-
     if(depth >= 1.0) {
         vec4 ray_clip = vec4(uv * 2.0 - 1.0, 1.0, 1.0);
         vec3 ray_dir = (invViewProjection * ray_clip).xyz;
@@ -609,15 +592,15 @@ void main() {
 
     vec4 metallicRoughness = texture(gMetallicRoughness, uv);
 
-    Material material;
-    material.albedo = albedo.rgb;
-    material.metallic = metallicRoughness.b;
-    material.roughness = metallicRoughness.g;
+    Surface surface;
+    surface.albedo = texture(gColors, uv);
+    surface.metallic = metallicRoughness.b;
+    surface.roughness = metallicRoughness.g;
 
     float metalness = metallicRoughness.r;
     float roughness = metallicRoughness.g;
 
-	vec3 normal = normalize(texture(gNormals, uv).xyz);
+	surface.shadingNormal = normalize(texture(gNormals, uv).xyz);
 
     uint cascadeIndex = 0;
     vec4 viewPos = ubo.view * vec4(position, 1.0);
@@ -636,16 +619,19 @@ void main() {
     //float shadowAmount = texture(shadowMap, vec4(depthPosition.xy, cascadeIndex, (depthPosition.z)/depthPosition.w));
     float shadowAmount = 1.0 - getShadow(light, position);
 
-    vec3 V = normalize(ubo.cameraPosition.xyz - position.xyz);
-    vec3 Lo = radiance(light, normal, V, material, shadowAmount);
+    vec3 total_radiance = vec3(0.0);
 
-    vec3 ambient = ambient(light, position,  normal, V, material, shadowAmount);
+    const vec3 Wo = normalize(ubo.cameraPosition.xyz - position.xyz);
+    const vec3 Wi = normalize(-light.direction.xyz);
+    const vec3 Wh = normalize(Wo + Wi);
+    const vec3 brdf = BRDF_Eval(surface, Wo, Wi, Wh);
 
-    float occlusion;
+    const float NdotL = max(dot(surface.shadingNormal, Wi), 0.0);
+    total_radiance += brdf * NdotL * (light.color.rgb * shadowAmount);
 
-    float I = max(dot(-light.direction.xyz, normal), 0);
+    total_radiance += ambient(surface, Wo, Wi, Wh);
 
-    finalColor = vec4(Lo + ambient, 1.0);
+    finalColor = vec4(total_radiance, 1.0);
 
     // switch(cascadeIndex) {
     //     case 0 : 
