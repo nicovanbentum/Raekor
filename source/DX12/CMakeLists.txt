@@ -34,7 +34,7 @@ find_library(DIRECT_STORAGE_LIBRARY NAMES dstorage lib PATHS ${CMAKE_SOURCE_DIR}
 target_link_libraries(${PROJECT_NAME} PRIVATE Raekor)
 target_link_libraries(${PROJECT_NAME} PRIVATE debug ${FSR2d} optimized ${FSR2})
 target_link_libraries(${PROJECT_NAME} PRIVATE debug ${FSR2DX12d} optimized ${FSR2DX12})
-target_link_libraries(${PROJECT_NAME} PRIVATE ${DXC_LIBRARY} ${DIRECT_STORAGE_LIBRARY} ${PIX} d3d12.lib dxgi.lib d3dcompiler.lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${DXC_LIBRARY} ${DIRECT_STORAGE_LIBRARY} ${PIX} d3d12.lib dxgi.lib d3dcompiler.lib dxguid.lib)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/dxc/dxil.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/dxc/dxcompiler.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
@@ -46,6 +46,8 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/Agility-SDK/d3d12SDKLayers.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/dependencies/PIX/bin/x64/WinPixEventRuntime.dll" $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/source/DX12/shared.h" "${CMAKE_SOURCE_DIR}/assets/system/shaders/DirectX/include")
 
 # include dependency directories 
 target_include_directories(${PROJECT_NAME} PUBLIC

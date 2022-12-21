@@ -4,6 +4,7 @@
 #include "DXUtil.h"
 #include "DXCommandList.h"
 #include "DXRenderGraph.h"
+#include "Raekor/timer.h"
 
 namespace Raekor::DX {
 
@@ -46,7 +47,7 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Init(m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, std::numeric_limits<uint16_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
     for (size_t sampler_index = 0; sampler_index < ESamplerIndex::SAMPLER_COUNT; sampler_index++)
-        m_Device->CreateSampler(&SAMPLER_DESC[sampler_index], m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].GetCPUDescriptorHandle(ResourceID(sampler_index)));
+        m_Device->CreateSampler(&SAMPLER_DESC[sampler_index], m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].GetCPUDescriptorHandle(DescriptorID(sampler_index)));
 
     std::vector<D3D12_ROOT_PARAMETER1> root_params;
 
@@ -137,7 +138,7 @@ BufferID Device::CreateBuffer(const Buffer::Desc& desc, const std::wstring& name
             buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
         } break;
     }
-    
+
     gThrowIfFailed(m_Allocator->CreateResource(
         &alloc_desc, 
         &buffer_desc,
@@ -167,8 +168,8 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
     // make a copy of the texture
     const auto& texture = GetTexture(inTextureID);
     Texture new_texture = texture;
-    new_texture.m_Description.usage = inDesc.usage;
-    new_texture.m_Description.viewDesc = inDesc.viewDesc;
+    new_texture.m_Desc.usage = inDesc.usage;
+    new_texture.m_Desc.viewDesc = inDesc.viewDesc;
 
     const auto texture_id = m_Textures.Add(new_texture);
     CreateDescriptor(texture_id, inDesc);
@@ -184,9 +185,9 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
     const auto texture_id = m_Textures.Add(temp_texture);
     
     auto& texture = GetTexture(texture_id);
-    texture.m_Description.format = texture.GetResource()->GetDesc().Format;
-    texture.m_Description.usage = inDesc.usage;
-    texture.m_Description.viewDesc = inDesc.viewDesc;
+    texture.m_Desc.format = texture.GetResource()->GetDesc().Format;
+    texture.m_Desc.usage = inDesc.usage;
+    texture.m_Desc.viewDesc = inDesc.viewDesc;
     CreateDescriptor(texture_id, inDesc);
 
     return texture_id;
@@ -220,8 +221,8 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
     state.SampleDesc.Count                        = 1;
     state.pRootSignature                          = GetGlobalRootSignature();
 
-    for (const auto& texture_id : inRenderPass->m_WrittenTextures) {
-        const auto& texture = GetTexture(texture_id);
+    for (const auto& resource : inRenderPass->m_WrittenTextures) {
+        const auto& texture = GetTexture(resource.mResourceTexture);
 
         switch (texture.GetDesc().usage) {
             case Texture::RENDER_TARGET:
@@ -251,8 +252,8 @@ D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* i
 
 void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc) {
     auto& texture = GetTexture(inID);
-    texture.m_Description.usage = inDesc.usage;
-    texture.m_Description.viewDesc = inDesc.viewDesc;
+    texture.m_Desc.usage = inDesc.usage;
+    texture.m_Desc.viewDesc = inDesc.viewDesc;
 
     switch (inDesc.usage) {
     case Texture::DEPTH_STENCIL_TARGET: {
@@ -261,11 +262,10 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc) {
     case Texture::RENDER_TARGET:
         texture.m_View = CreateRenderTargetView(texture.m_Resource, static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>(inDesc.viewDesc));
         break;
-    case Texture::SHADER_SAMPLE:
+    case Texture::SHADER_READ_ONLY:
         texture.m_View = CreateShaderResourceView(texture.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
         break;
-    case Texture::SHADER_READ:
-    case Texture::SHADER_WRITE:
+    case Texture::SHADER_READ_WRITE:
         texture.m_View = CreateUnorderedAccessView(texture.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>(inDesc.viewDesc));
         break;
     default:
@@ -278,7 +278,7 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc) {
 BufferID Device::CreateBufferView(BufferID inBufferID, const Buffer::Desc& desc) {
     const auto& buffer = GetBuffer(inBufferID);
     Buffer new_buffer = buffer;
-    new_buffer.m_Description.usage = desc.usage;
+    new_buffer.m_Desc.usage = desc.usage;
 
     if (desc.stride) {
         D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
@@ -307,8 +307,9 @@ TextureID Device::CreateTexture(const Texture::Desc& desc, const std::wstring& i
 
     switch (desc.usage) {
         case Texture::DEPTH_STENCIL_TARGET: {
+            initial_state       = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+            alloc_desc.Flags    = D3D12MA::ALLOCATION_FLAG_COMMITTED;
             resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-            initial_state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 
             clear_value = new CD3DX12_CLEAR_VALUE(desc.format, 1.0f, 0.0f);
             if (desc.viewDesc)
@@ -316,8 +317,9 @@ TextureID Device::CreateTexture(const Texture::Desc& desc, const std::wstring& i
         } break;
 
         case Texture::RENDER_TARGET: {
+            initial_state       = D3D12_RESOURCE_STATE_RENDER_TARGET;
+            alloc_desc.Flags    = D3D12MA::ALLOCATION_FLAG_COMMITTED;
             resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-            initial_state = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
             float color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
             clear_value = new CD3DX12_CLEAR_VALUE(desc.format, color);
@@ -325,13 +327,13 @@ TextureID Device::CreateTexture(const Texture::Desc& desc, const std::wstring& i
                 clear_value->Format = static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>(desc.viewDesc)->Format;
         } break;
 
-        case Texture::SHADER_SAMPLE: {
+        case Texture::SHADER_READ_ONLY: {
             initial_state = D3D12_RESOURCE_STATE_COPY_DEST;
         } break;
 
-        case Texture::SHADER_WRITE: {
+        case Texture::SHADER_READ_WRITE: {
+            initial_state       = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
             resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-            initial_state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
         } break;
     }
 
@@ -363,9 +365,8 @@ D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(TextureID inID) {
             return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV).GetCPUDescriptorHandle(texture.GetView());
         case Texture::DEPTH_STENCIL_TARGET:
             return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV).GetCPUDescriptorHandle(texture.GetView());
-        case Texture::SHADER_READ:
-        case Texture::SHADER_WRITE:
-        case Texture::SHADER_SAMPLE:
+        case Texture::SHADER_READ_ONLY:
+        case Texture::SHADER_READ_WRITE:
             return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetCPUDescriptorHandle(texture.GetView());
         default:
             assert(false);
@@ -375,9 +376,14 @@ D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(TextureID inID) {
     return CD3DX12_CPU_DESCRIPTOR_HANDLE();
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE Device::GetHeapPtr(TextureResource inResource)
+{
+    return GetCPUDescriptorHandle(inResource.mResourceTexture);
+}
 
 
-ResourceID Device::CreateDepthStencilView(ResourceRef inResource, D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc) {
+
+DescriptorID Device::CreateDepthStencilView(ResourceRef inResource, D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc) {
     auto& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV];
     const auto descriptor_id = heap.Add(inResource);
     m_Device->CreateDepthStencilView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor_id));
@@ -386,16 +392,17 @@ ResourceID Device::CreateDepthStencilView(ResourceRef inResource, D3D12_DEPTH_ST
 
 
 
-ResourceID Device::CreateRenderTargetView(ResourceRef inResource, D3D12_RENDER_TARGET_VIEW_DESC* inDesc) {
+DescriptorID Device::CreateRenderTargetView(ResourceRef inResource, D3D12_RENDER_TARGET_VIEW_DESC* inDesc) {
     auto& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV];
     const auto descriptor_id = heap.Add(inResource);
+    Timer timer;
     m_Device->CreateRenderTargetView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor_id));
     return descriptor_id;
 }
 
 
 
-ResourceID Device::CreateShaderResourceView(ResourceRef inResource, D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc) {
+DescriptorID Device::CreateShaderResourceView(ResourceRef inResource, D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc) {
     auto& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     const auto descriptor_id = heap.Add(inResource);
     m_Device->CreateShaderResourceView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor_id));
@@ -404,7 +411,7 @@ ResourceID Device::CreateShaderResourceView(ResourceRef inResource, D3D12_SHADER
 
 
 
-ResourceID Device::CreateUnorderedAccessView(ResourceRef inResource, D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc) {
+DescriptorID Device::CreateUnorderedAccessView(ResourceRef inResource, D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc) {
     auto& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     const auto descriptor_id = heap.Add(inResource);
     m_Device->CreateUnorderedAccessView(inResource.Get(), nullptr, inDesc, heap.GetCPUDescriptorHandle(descriptor_id));

@@ -69,17 +69,6 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
 	}
 }
 
-void CommandList::SubmitBarriers() {
-}
-
-void CommandList::BeginPixEvent(UINT inColor, const std::string& inEventName) {
-	PIXBeginEvent(m_CommandLists[m_CurrentCmdListIndex].Get(), inColor, inEventName.c_str());
-
-}
-
-void CommandList::EndPixEvent() {
-	PIXEndEvent();
-}
 
 void CommandList::SetViewportScissorRect(const Viewport& inViewport) {
 	const auto scissor = CD3DX12_RECT(0, 0, inViewport.size.x, inViewport.size.y);

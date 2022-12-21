@@ -18,10 +18,10 @@
 namespace Raekor::DX {
 
 DXApp::DXApp() : 
-    Application(RendererFlags::NONE), 
+    Application(WindowFlags::NONE), 
     m_Device(m_Window, sFrameCount), 
     m_StagingHeap(m_Device),
-    m_RenderGraph(m_Viewport)
+    m_Renderer(m_Device, m_Viewport, m_Window)
 {
     // initialize ImGui
     IMGUI_CHECKVERSION();
@@ -39,8 +39,8 @@ DXApp::DXApp() :
 
     assert(!m_Scene.empty() && "Scene cannot be empty when starting up DX12 renderer!!");
 
-    m_Viewport.GetCamera().Zoom(-50.0f);
-    m_Viewport.GetCamera().Move(glm::vec2(0.0f, 10.0f));
+    //m_Viewport.GetCamera().Zoom(-50.0f);
+    //m_Viewport.GetCamera().Move(glm::vec2(0.0f, 10.0f));
 
     // Pre-transform the scene, we don't support matrix transformations yet
     for (auto [entity, transform, mesh] : m_Scene.view<Transform, Mesh>().each()) {
@@ -65,118 +65,20 @@ DXApp::DXApp() :
 
     gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_StorageQueue)));
 
-    SDL_SysWMinfo wmInfo;
-    SDL_VERSION(&wmInfo.version);
-    SDL_GetWindowWMInfo(m_Window, &wmInfo);
-    HWND hwnd = wmInfo.info.win.window;
-
-    DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {};
-    swapchainDesc.BufferCount = sFrameCount;
-    swapchainDesc.Width = m_Viewport.size.x;
-    swapchainDesc.Height = m_Viewport.size.y;
-    swapchainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-    swapchainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapchainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    swapchainDesc.SampleDesc.Count = 1;
-
-    ComPtr<IDXGIFactory4> factory;
-    gThrowIfFailed(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&factory)));
-
-    ComPtr<IDXGISwapChain1> swapchain;
-    gThrowIfFailed(factory->CreateSwapChainForHwnd(m_Device.GetQueue(), wmInfo.info.win.window, &swapchainDesc, nullptr, nullptr, &swapchain));
-    gThrowIfFailed(swapchain.As(&m_Swapchain));
-
-    m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
-
-    for (const auto& [index, backbuffer_data] : gEnumerate(m_BackbufferData)) {
-        ResourceRef rtv_resource;
-        gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
-        backbuffer_data.mBackBuffer = m_Device.CreateTextureView(rtv_resource, Texture::Desc{ .usage = Texture::Usage::RENDER_TARGET });
-        
-        backbuffer_data.mCmdList = CommandList(m_Device);
-        backbuffer_data.mCmdList->SetName(L"backbuffer-cmdlist");
-    }
-
-    m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_Fence));
-    m_FenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-
-    if (!m_FenceEvent)
-        gThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
-
-
     UploadSceneToGPU();
+    
     CompileShaders();
+
     UploadBvhToGPU();
 
-    auto fsr2_desc = FfxFsr2ContextDescription{};
-    fsr2_desc.flags = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_DISPLAY_RESOLUTION_MOTION_VECTORS | FFX_FSR2_ENABLE_AUTO_EXPOSURE;
-    fsr2_desc.displaySize = { m_Viewport.size.x, m_Viewport.size.y };
-    fsr2_desc.maxRenderSize = { m_Viewport.size.x, m_Viewport.size.y };
-    fsr2_desc.device = ffxGetDeviceDX12(m_Device);
+    m_Renderer.CompileGraph(m_Device, m_Scene, m_TLAS);
 
-    m_FsrScratchMemory.resize(ffxFsr2GetScratchMemorySizeDX12());
-    auto ffx_error = ffxFsr2GetInterfaceDX12(&fsr2_desc.callbacks, m_Device, m_FsrScratchMemory.data(), m_FsrScratchMemory.size());
-
-    if (ffx_error != FFX_OK) {
-        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "Raekor Error", "Failed to get FSR2 interface..", m_Window);
-        abort();
-    }
-
-    ffx_error = ffxFsr2ContextCreate(&m_Fsr2, &fsr2_desc);
-
-    if (ffx_error != FFX_OK) {
-        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "Raekor Error", "Failed to create FSR2 context..", m_Window);
-        abort();
-    }
-
-    int width, height;
-    unsigned char* pixels;
-    ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
-
-    auto font_texture = m_Device.GetTexture(
-        m_Device.CreateTexture(Texture::Desc{ 
-            .format = DXGI_FORMAT_R8_UNORM, 
-            .width = uint32_t(width), 
-            .height = uint32_t(height),
-            .usage = Texture::SHADER_SAMPLE
-    }));
-
-    const auto& descriptor_heap = m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-    ImGui_ImplDX12_Init(
-        m_Device,
-        sFrameCount,
-        swapchainDesc.Format,
-        descriptor_heap.GetHeap(),
-        descriptor_heap.GetCPUDescriptorHandle(font_texture.GetView()),
-        descriptor_heap.GetGPUDescriptorHandle(font_texture.GetView())
-    );
-
-    m_FsrOutputTexture = m_Device.CreateTexture(Texture::Desc{
-        .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-        .width = m_Viewport.size.x,
-        .height = m_Viewport.size.y,
-        .usage = Texture::SHADER_WRITE,
-    }, L"FSR2-Output");
-
-    const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, m_Device, m_Scene);
-    const auto& shadow_data = AddShadowMaskPass(m_RenderGraph, m_Device, m_Scene, gbuffer_data, m_TLAS);
-    const auto& compose_data = AddComposePass(m_RenderGraph, m_Device, gbuffer_data, GetBackbufferData().mBackBuffer);
-
-    m_RenderGraph.Compile(m_Device);
-
+    std::cout << "Render Size: " << m_Viewport.size.x << " , " << m_Viewport.size.y << '\n';
 }
 
 
 DXApp::~DXApp() {
-    for (const auto& backbuffer_data : m_BackbufferData) {
-        gThrowIfFailed(m_Device.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
-
-        if (m_Fence->GetCompletedValue() < backbuffer_data.mFenceValue) {
-            gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
-            WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
-        }
-    }
+    m_Renderer.WaitForIdle(m_Device);
 }
 
 
@@ -185,7 +87,7 @@ void DXApp::OnUpdate(float inDeltaTime) {
 
     GUI::BeginFrame();
     ImGui_ImplDX12_NewFrame();
-    
+
     ImGui::Begin("Settings", (bool*)true, ImGuiWindowFlags_AlwaysAutoResize);
 
     ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -200,6 +102,15 @@ void DXApp::OnUpdate(float inDeltaTime) {
         if (ImGui::DragFloat3("Sun Angle", glm::value_ptr(sun_rotation_degrees), 0.1f, -360.0f, 360.0f, "%.1f")) {
             sun_transform.rotation = glm::quat(glm::radians(sun_rotation_degrees));
             sun_transform.Compose();
+        }
+    }
+
+    if (ImGui::Button("Save As GraphViz..")) {
+        const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
+
+        if (!file_path.empty()) {
+            auto ofs = std::ofstream(file_path);
+            ofs << m_Renderer.GetGraph().GetGraphViz(m_Device);
         }
     }
 
@@ -224,38 +135,7 @@ void DXApp::OnUpdate(float inDeltaTime) {
 
     GUI::EndFrame();
 
-    auto& backbuffer_data = GetBackbufferData();
-    auto  completed_value = m_Fence->GetCompletedValue();
-
-    if (completed_value < backbuffer_data.mFenceValue) {
-        gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
-        WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
-    }
-
-    // This will reset both the allocator and command lists, call this once per frame!!
-    backbuffer_data.mCmdList.Reset();
-
-    // Update the backbuffer texture ID to the current one, not the greatest part of the API..
-    if (auto compose_pass = m_RenderGraph.GetPass<ComposeData>()) {
-        auto& data = compose_pass->GetData();
-        compose_pass->Replace(data.mOutputTexture, backbuffer_data.mBackBuffer);
-        data.mOutputTexture = backbuffer_data.mBackBuffer;
-    }
-
-    // RENDER THE WHOLE THING WEEEEEEEEE
-    m_RenderGraph.Execute(m_Device, backbuffer_data.mCmdList);
-
-    backbuffer_data.mCmdList.Close();
-
-    const auto commandLists = std::array { static_cast<ID3D12CommandList*>(backbuffer_data.mCmdList) };
-    m_Device.GetQueue()->ExecuteCommandLists(commandLists.size(), commandLists.data());
-    
-    gThrowIfFailed(m_Swapchain->Present(0, 0));
-
-    backbuffer_data.mFenceValue++;
-    m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
-    gThrowIfFailed(m_Device.GetQueue()->Signal(m_Fence.Get(), GetBackbufferData().mFenceValue));
-
+    m_Renderer.OnRender(m_Device, inDeltaTime);
 }
 
 
@@ -304,41 +184,7 @@ void DXApp::OnEvent(const SDL_Event& event) {
             int w, h;
             SDL_GetWindowSize(m_Window, &w, &h);
             m_Viewport.Resize(glm::uvec2(w, h));
-
-            const auto currentFenceValue = GetBackbufferData().mFenceValue;
-
-            gThrowIfFailed(m_Device.GetQueue()->Signal(m_Fence.Get(), currentFenceValue));
-
-            if (m_Fence->GetCompletedValue() < GetBackbufferData().mFenceValue) {
-                gThrowIfFailed(m_Fence->SetEventOnCompletion(GetBackbufferData().mFenceValue, m_FenceEvent));
-                WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
-            }
-
-            for (auto& bb_data : m_BackbufferData)
-                m_Device.ReleaseTexture(bb_data.mBackBuffer);
-
-            gThrowIfFailed(m_Swapchain->ResizeBuffers(
-                sFrameCount, m_Viewport.size.x, m_Viewport.size.y, 
-                DXGI_FORMAT_B8G8R8A8_UNORM, 0
-            ));
-
-            /*for (uint32_t i = 0; i < sFrameCount; i++) {
-                gThrowIfFailed(m_Swapchain->GetBuffer(i, IID_PPV_ARGS(&m_Device.m_RtvHeap[i])));
-
-                gThrowIfFailed(m_Device->CreateCommittedResource(
-                    &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-                    D3D12_HEAP_FLAG_NONE,
-                    &CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D24_UNORM_S8_UINT, m_Viewport.size.x, m_Viewport.size.y, 1u, 0, 1u, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL),
-                    D3D12_RESOURCE_STATE_DEPTH_WRITE,
-                    &CD3DX12_CLEAR_VALUE(DXGI_FORMAT_D24_UNORM_S8_UINT, 1.0f, 0u),
-                    IID_PPV_ARGS(&m_Device.m_DsvHeap[i]))
-                );
-            }
-
-            for (uint32_t i = 0; i < sFrameCount; i++) {
-                m_Device.CreateRenderTargetView(i);
-                m_Device.CreateDepthStencilView(i);
-            }*/
+            m_Renderer.OnResize(m_Device, m_Viewport);
         }
     }
 }
@@ -449,8 +295,7 @@ void DXApp::CompileShaders() {
 
 
 void DXApp::UploadSceneToGPU() {
-    auto& backbuffer_data = GetBackbufferData();
-    backbuffer_data.mCmdList.Begin();
+    auto& cmd_list = m_Renderer.StartSingleSubmit();
 
     for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
         const auto vertices = mesh.GetInterleavedVertices();
@@ -458,33 +303,25 @@ void DXApp::UploadSceneToGPU() {
         const auto indices_size = mesh.indices.size() * sizeof(mesh.indices[0]);
 
         mesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc{
-            .size = indices_size,
+            .size   = indices_size,
             .stride = sizeof(mesh.indices[0]),
-            .usage = Buffer::Usage::INDEX_BUFFER
-            }).ToIndex();
+            .usage  = Buffer::Usage::INDEX_BUFFER
+        }).ToIndex();
 
         mesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc{
-            .size = vertices_size,
+            .size   = vertices_size,
             .stride = sizeof(Vertex),
-            .usage = Buffer::Usage::VERTEX_BUFFER
-            }).ToIndex();
+            .usage  = Buffer::Usage::VERTEX_BUFFER
+        }).ToIndex();
 
         auto& index_buffer = m_Device.GetBuffer(BufferID(mesh.indexBuffer));
-        m_StagingHeap.StageBuffer(backbuffer_data.mCmdList, index_buffer.GetResource(), 0, mesh.indices.data(), indices_size);
+        m_StagingHeap.StageBuffer(cmd_list, index_buffer.GetResource(), 0, mesh.indices.data(), indices_size);
 
         auto& vertex_buffer = m_Device.GetBuffer(BufferID(mesh.vertexBuffer));
-        m_StagingHeap.StageBuffer(backbuffer_data.mCmdList, vertex_buffer.GetResource(), 0, vertices.data(), vertices_size);
+        m_StagingHeap.StageBuffer(cmd_list, vertex_buffer.GetResource(), 0, vertices.data(), vertices_size);
     }
 
-    backbuffer_data.mCmdList.Close();
-
-    const auto cmd_lists = std::array{ (ID3D12CommandList*)backbuffer_data.mCmdList };
-    m_Device.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
-
-    backbuffer_data.mFenceValue++;
-    gThrowIfFailed(m_Device.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
-    gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
-    WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
+    m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
 
     const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
     const auto white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
@@ -512,7 +349,7 @@ void DXApp::UploadSceneToGPU() {
 }
 
 
-ResourceID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_FORMAT format) {
+DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_FORMAT format) {
     if (!asset || !FileSystem::exists(asset->GetPath()))
         return m_DefaultWhiteTexture;
 
@@ -536,7 +373,7 @@ ResourceID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_FO
         .width = header->dwWidth, 
         .height = header->dwHeight, 
         .mipLevels = mipmap_levels,
-        .usage = Texture::SHADER_SAMPLE
+        .usage = Texture::SHADER_READ_ONLY
     }, asset->GetPath().wstring().c_str()));
 
     auto width = header->dwWidth, height = header->dwHeight;
@@ -561,7 +398,6 @@ ResourceID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_FO
         m_StorageQueue->EnqueueRequest(&request);
     }
 
-
     ComPtr<ID3D12Fence> fence;
     gThrowIfFailed(m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())));
 
@@ -583,8 +419,6 @@ ResourceID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_FO
 
 
 void DXApp::UploadBvhToGPU() {
-    auto& backbuffer_data = GetBackbufferData();
-
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
     gThrowIfFailed(m_Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
 
@@ -642,18 +476,11 @@ void DXApp::UploadBvhToGPU() {
         desc.DestAccelerationStructureData = result_buffer->GetGPUVirtualAddress();
         desc.Inputs = inputs;
 
-        auto& backbuffer_data = GetBackbufferData();
-        backbuffer_data.mCmdList.Begin();
-        backbuffer_data.mCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
-        backbuffer_data.mCmdList.Close();
+        auto& cmd_list = m_Renderer.StartSingleSubmit();
 
-        const std::array cmd_lists = { (ID3D12CommandList*)backbuffer_data.mCmdList };
-        m_Device.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
+        cmd_list->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
 
-        backbuffer_data.mFenceValue++;
-        gThrowIfFailed(m_Device.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
-        gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
-        WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
+        m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
 
         m_Device.ReleaseBuffer(scratch_buffer_id);
     }
@@ -716,17 +543,11 @@ void DXApp::UploadBvhToGPU() {
     desc.DestAccelerationStructureData = result_buffer->GetGPUVirtualAddress();
     desc.Inputs = inputs;
 
-    backbuffer_data.mCmdList.Begin();
-    backbuffer_data.mCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
-    backbuffer_data.mCmdList.Close();
-    
-    const auto cmd_lists = std::array{ (ID3D12CommandList*)backbuffer_data.mCmdList };
-    m_Device.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
+    auto& cmd_list = m_Renderer.StartSingleSubmit();
 
-    backbuffer_data.mFenceValue++;
-    gThrowIfFailed(m_Device.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
-    gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
-    WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
+    cmd_list->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
+
+    m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
 }
 
 

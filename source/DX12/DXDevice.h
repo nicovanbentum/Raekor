@@ -7,6 +7,7 @@ namespace Raekor::DX {
 
 class CommandList;
 class IRenderPass;
+struct TextureResource;
 
 class Device : public INoCopyNoMove {
 public:
@@ -45,23 +46,23 @@ public:
 
 	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(BufferID inID);
 	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(TextureID inID);
+	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetHeapPtr(TextureResource inResource);
 
-	[[nodiscard]] ResourceID CreateDepthStencilView(ResourceRef inResourceID, D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
-	[[nodiscard]] ResourceID CreateRenderTargetView(ResourceRef inResourceID, D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);
-	[[nodiscard]] ResourceID CreateShaderResourceView(ResourceRef inResourceID, D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc = nullptr);
-	[[nodiscard]] ResourceID CreateUnorderedAccessView(ResourceRef inResourceID, D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc = nullptr);
 
-	void ReleaseDepthStencilView(ResourceID inResourceID)	 { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Remove(inResourceID); }
-	void ReleaseRenderTargetView(ResourceID inResourceID)    { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Remove(inResourceID); }
-	void ReleaseShaderResourceView(ResourceID inResourceID)  { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
-	void ReleaseUnorderedAccessView(ResourceID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
+	[[nodiscard]] DescriptorID CreateDepthStencilView(ResourceRef inResourceID, D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] DescriptorID CreateRenderTargetView(ResourceRef inResourceID, D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] DescriptorID CreateShaderResourceView(ResourceRef inResourceID, D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] DescriptorID CreateUnorderedAccessView(ResourceRef inResourceID, D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc = nullptr);
+
+	void ReleaseDepthStencilView(DescriptorID inResourceID)	 { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Remove(inResourceID); }
+	void ReleaseRenderTargetView(DescriptorID inResourceID)    { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Remove(inResourceID); }
+	void ReleaseShaderResourceView(DescriptorID inResourceID)  { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
+	void ReleaseUnorderedAccessView(DescriptorID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
 
 	[[nodiscard]] D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inComputeShader);
 	[[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inVertexShader, const std::string& inPixelShader);
 
-	[[nodiscard]] uint32_t GetBindlessHeapIndex(ResourceID inResource)	{ return inResource.ToIndex(); }
-	[[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inBuffer)		{ return GetBindlessHeapIndex(GetBuffer(inBuffer).GetView());   }
-	[[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inTexture)	{ return GetBindlessHeapIndex(GetTexture(inTexture).GetView()); }
+	[[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inResource)	{ return inResource.ToIndex(); }
 
 private:
 	void CreateDescriptor(TextureID inID, const Texture::Desc& inDesc);

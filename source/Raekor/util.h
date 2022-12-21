@@ -6,12 +6,26 @@
     #define m_assert(expr, msg)
 #endif
 
+#define ALIGN(x) __declspec(align(x))
 
 #define COUT_NC "\033[0m"
 #define COUT_RED(str) "\033[0;31m" str COUT_NC
 #define COUT_GREEN(str) "\033[1;32m" str COUT_NC
 
 #define LOG_CATCH(code) try { code; } catch(std::exception e) { std::cout << e.what() << '\n'; }
+
+// From https://en.cppreference.com/w/cpp/utility/unreachable
+[[noreturn]] constexpr inline void gUnreachableCode() {
+    assert(false);
+    // Uses compiler specific extensions if possible.
+    // Even if no extension is used, undefined behavior is still raised by
+    // an empty function body and the noreturn attribute.
+#ifdef __GNUC__ // GCC, Clang, ICC
+    __builtin_unreachable();
+    #elifdef _MSC_VER // MSVC
+        __assume(false);
+#endif
+}
 
 namespace Raekor {
 
@@ -163,14 +177,16 @@ private:
 template<typename T>
 class RTID {
 public:
-    RTID() : index(UINT32_MAX) {}
+    static inline uint32_t INVALID = UINT32_MAX;
+
+    RTID() : index(INVALID) {}
     explicit RTID(uint32_t inIndex) : index(inIndex) {}
+    
+    bool operator==(const RTID<T>& inOther) const { return ToIndex() == inOther.ToIndex(); }
+    bool operator!=(const RTID<T>& inOther) const { return ToIndex() != inOther.ToIndex(); }
 
     uint32_t ToIndex() const { return index; }
-    [[nodiscard]] bool Isvalid() const { return index != UINT32_MAX; }
-
-    bool operator==(const RTID<T>& inOther) { return ToIndex() == inOther.ToIndex(); }
-    bool operator!=(const RTID<T>& inOther) { return ToIndex() != inOther.ToIndex(); }
+    [[nodiscard]] bool Isvalid() const { return index != INVALID; }
 
 private:
     uint32_t index;
@@ -248,4 +264,11 @@ constexpr auto gEnumerate(T&& iterable)
 
 #define gWarn(inStr) std::cout << "Warning in File " << __FILE__ << " at Line " << __LINE__ << " from function " << __FUNCTION__ << ": " << inStr << '\n';
 
+
 } // Namespace Raekor
+
+template<typename T> struct std::hash<Raekor::RTID<T>> {
+    std::size_t operator()(const Raekor::RTID<T>& inID) const noexcept {
+        return size_t(inID.ToIndex());
+    }
+};

@@ -4,10 +4,10 @@
 
 namespace Raekor::DX {
 
-typedef ComPtr<ID3D12Resource>          ResourceRef;
-typedef ComPtr<D3D12MA::Allocation>     AllocationRef;
-typedef RTID<ResourceRef>               ResourceID;
-typedef FreeVector<ResourceRef>         ResourcePool;
+using ResourceRef		= ComPtr<ID3D12Resource>;
+using AllocationRef		= ComPtr<D3D12MA::Allocation>;
+using DescriptorID		= RTID<ResourceRef>;
+using ResourcePool		= FreeVector<ResourceRef>;
 
 class Texture {
 	friend class Device;
@@ -18,9 +18,8 @@ public:
 
 	enum Usage {
 		GENERAL,
-		SHADER_READ,
-		SHADER_WRITE,
-		SHADER_SAMPLE,
+		SHADER_READ_ONLY,
+		SHADER_READ_WRITE,
 		RENDER_TARGET,
 		DEPTH_STENCIL_TARGET
 	};
@@ -39,10 +38,10 @@ public:
 	};
 
 	Texture() = default;
-	Texture(const Desc& inDesc) : m_Description(inDesc) {}
+	Texture(const Desc& inDesc) : m_Desc(inDesc) {}
 
-	ResourceID GetView() const		{ return m_View; }
-	const Desc& GetDesc() const		{ return m_Description; }
+	const Desc& GetDesc() const		{ return m_Desc; }
+	DescriptorID GetView() const	{ return m_View; }
 	uint32_t GetHeapIndex() const	{ return m_View.ToIndex(); }
 
 	ResourceRef& operator-> ()				{ return m_Resource; }
@@ -51,8 +50,8 @@ public:
 	const ResourceRef&	GetResource() const	{ return m_Resource; }
 
 private:
-	Desc m_Description = {};
-	ResourceID m_View;
+	Desc m_Desc = {};
+	DescriptorID m_View;
 	ResourceRef m_Resource = nullptr;
 	AllocationRef m_Allocation = nullptr;
 };
@@ -70,33 +69,40 @@ public:
 		GENERAL,
 		INDEX_BUFFER,
 		VERTEX_BUFFER,
-		ACCELERATION_STRUCTURE
+		SHADER_READ_ONLY,
+		SHADER_READ_WRITE,
+		ACCELERATION_STRUCTURE,
 	};
 
 	struct Desc {
 		size_t size = 0;
 		size_t stride = 0;
 		Usage usage = Usage::GENERAL;
+		void* viewDesc = nullptr;
 	};
 
 	Buffer() = default;
-	Buffer(const Desc& inDesc) : m_Description(inDesc) {}
+	Buffer(const Desc& inDesc) : m_Desc(inDesc) {}
 
-	ResourceID GetView() const { return m_View; }
-	const Desc& GetDesc() const { return m_Description; }
+	const Desc& GetDesc() const { return m_Desc; }
+	DescriptorID GetView() const { return m_View; }
 	ResourceRef& GetResource() { return m_Resource; }
 
 	ResourceRef& operator-> () { return m_Resource; }
 	const ResourceRef& operator-> () const { return m_Resource; }
 
 private:
-	Desc m_Description = {};
-	ResourceID m_View;
+	Desc m_Desc = {};
+	DescriptorID m_View;
 	ResourceRef m_Resource = nullptr;
 	AllocationRef m_Allocation = nullptr;
 };
 
+using BufferID = Buffer::Pool::ID;
+using TextureID = Texture::Pool::ID;
 
-typedef Buffer::Pool::ID BufferID;
-typedef Texture::Pool::ID TextureID;
+
+D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage);
+D3D12_RESOURCE_STATES gGetResourceStates(Texture::Usage inUsage);
+
 }

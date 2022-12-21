@@ -37,19 +37,12 @@ public:
 
 	template<typename T> // omg c++ 20 concepts, much wow so cool
 		requires (sizeof(T) < sMaxRootConstantsSize && std::default_initializable<T>)
-	void PushConstants(const T& inT);
+	void PushConstants(const T& inValue) {
+		m_CommandLists[m_CurrentCmdListIndex]->SetGraphicsRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);
+	}
 
 	/* Only buffers are allowed to be used as root descriptor. */
 	void BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset);
-
-	/* Submits any pending resource barriers. */
-	void SubmitBarriers();
-
-	/* Begin a PIX event, don't forget to call EndPixEvent! */
-	void BeginPixEvent(UINT inColor, const std::string& inEventName);
-
-	/* End a PIX event, don't forget to call BeginPixEvent! */
-	void EndPixEvent();
 
 	/* Sets both the viewport and scissor to the size defined by inViewport. */
 	void SetViewportScissorRect(const Viewport& inViewport);

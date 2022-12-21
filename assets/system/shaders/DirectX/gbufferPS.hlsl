@@ -11,6 +11,7 @@ struct VS_OUTPUT {
 
 struct PS_OUTPUT {
     float4 gbuffer: SV_Target0;
+    float2 motionvectors : SV_Target1;
 };
 
 struct RootConstants {
@@ -47,7 +48,9 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     packed.x = PackAlbedo(albedo);
     packed.y = PackNormal(normal);
     packed.z = PackMetallicRoughness(metalness, roughness);
+    
     output.gbuffer = asfloat(packed);
+    output.motionvectors = float2(0.0, 0.0);
 
     return output;
 }

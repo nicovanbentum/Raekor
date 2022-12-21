@@ -27,5 +27,13 @@ inline void gThrowIfFailed(FfxErrorCode inErrCode) {
         __debugbreak();
 }
 
+
+inline std::string GetDebugName(ID3D12Resource* inResource) {
+	wchar_t name[128] = {};
+	UINT size = sizeof(name);
+	inResource->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
+	return gWCharToString(name);
 }
+
+} // namespace Raekor::DX
 
