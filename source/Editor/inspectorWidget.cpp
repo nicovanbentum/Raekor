@@ -157,7 +157,7 @@ void InspectorWidget::DrawComponent(Skeleton& component, Entity& active) {
     }
 
     if (ImGui::Button("Save as graph..")) {
-        std::string file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
+        const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
 
         if (!file_path.empty()) {
             auto ofs = std::ofstream(file_path);

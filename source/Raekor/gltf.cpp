@@ -85,7 +85,8 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     */
     for (const auto& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
         for (const auto& node : Slice(scene.nodes, scene.nodes_count))
-            ParseNode(*node, sInvalidEntity, glm::mat4(1.0f));
+            if (!node->parent)
+                ParseNode(*node, sInvalidEntity, glm::mat4(1.0f));
 
     const auto root_node = m_Scene.CreateSpatialEntity(Path(file).filename().string());
     
@@ -100,59 +101,62 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
 }
 
 
-void GltfImporter::ParseNode(const cgltf_node& node, entt::entity parent, glm::mat4 transform) {
+void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, glm::mat4 inTransform) {
     glm::mat4 local_transform;
-    memcpy(glm::value_ptr(local_transform), node.matrix, sizeof(node.matrix));
-    transform *= local_transform;
+    memcpy(glm::value_ptr(local_transform), inNode.matrix, sizeof(inNode.matrix));
+    inTransform *= local_transform;
 
-    if (node.mesh) {
+    if (inNode.mesh) {
         auto entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
 
         // name it after the node or its mesh
-        if (node.name)
-            m_Scene.get<Name>(entity).name = node.name;
-        else if (node.mesh && node.mesh->name)
-            m_Scene.get<Name>(entity).name = node.mesh->name;
+        if (inNode.name)
+            m_Scene.get<Name>(entity).name = inNode.name;
+        else if (inNode.mesh && inNode.mesh->name)
+            m_Scene.get<Name>(entity).name = inNode.mesh->name;
         else 
             m_Scene.get<Name>(entity).name = "Mesh " + std::to_string(entt::to_integral(entity));
 
         auto& mesh_transform = m_Scene.get<Transform>(entity);
-        mesh_transform.localTransform = transform;
+        mesh_transform.localTransform = inTransform;
         mesh_transform.Decompose();
 
         // set the new entity's parent
-        if (parent != entt::null)
-            NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(parent), m_Scene.get<Node>(entity));
+        if (inParent != entt::null)
+            NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(inParent), m_Scene.get<Node>(entity));
 
-        ConvertMesh(entity, *node.mesh);
+        ConvertMesh(entity, *inNode.mesh);
 
-        if (node.skin)
-            ConvertBones(entity, node);
+        if (inNode.skin)
+            ConvertBones(entity, inNode);
     }
 
-    for (const auto& child : Slice(node.children, node.children_count))
-        ParseNode(*child, parent, transform);
+    for (const auto& child : Slice(inNode.children, inNode.children_count))
+        ParseNode(*child, inParent, inTransform);
 }
 
 
-void GltfImporter::ConvertMesh(Entity inEntity, const cgltf_mesh& gltfMesh) {
+void GltfImporter::ConvertMesh(Entity inEntity, const cgltf_mesh& inMesh) {
     auto& mesh = m_Scene.emplace<Mesh>(inEntity);
 
-    mesh.uvs.reserve(gltfMesh.primitives_count);
-    mesh.normals.reserve(gltfMesh.primitives_count);
-    mesh.tangents.reserve(gltfMesh.primitives_count);
-    mesh.positions.reserve(gltfMesh.primitives_count);
-    mesh.indices.reserve(gltfMesh.primitives_count * 3);
+    mesh.uvs.reserve(inMesh.primitives_count);
+    mesh.normals.reserve(inMesh.primitives_count);
+    mesh.tangents.reserve(inMesh.primitives_count);
+    mesh.positions.reserve(inMesh.primitives_count);
+    mesh.indices.reserve(inMesh.primitives_count * 3);
+
+    if (inMesh.primitives_count > 1)
+        gWarn("Gltf mesh contains multiple primitive definitions, this may lead to incorrect results in Raekor..");
 
     std::unordered_set<cgltf_material*> material_ptrs;
 
-    for (const auto& primitive : Slice(gltfMesh.primitives, gltfMesh.primitives_count))
+    for (const auto& primitive : Slice(inMesh.primitives, inMesh.primitives_count))
         material_ptrs.insert(primitive.material);
 
     if (material_ptrs.size() > 1)
         gWarn("Gltf mesh uses different materials per primitive which is currently not supported.");
 
-    for(const auto& primitive : Slice(gltfMesh.primitives, gltfMesh.primitives_count)) {
+    for(const auto& primitive : Slice(inMesh.primitives, inMesh.primitives_count)) {
         assert(primitive.type == cgltf_primitive_type_triangles);
 
         for (int i = 0; i < m_GltfData->materials_count; i++)
@@ -213,14 +217,11 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
 
     auto& mesh = m_Scene.get<Mesh>(inEntity);
     auto& skeleton = m_Scene.emplace<Skeleton>(inEntity);
-    
 
     for (const auto& [index, primitive] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count))) {
-        
         assert(primitive.type == cgltf_primitive_type_triangles);
 
         for (const auto& attribute : Slice(primitive.attributes, primitive.attributes_count)) {
-            
             if (attribute.type == cgltf_attribute_type_weights) {
                 const auto float_count = cgltf_accessor_unpack_floats(attribute.data, NULL, 0);
                 auto accessor_data = std::vector<float>(float_count);
@@ -382,6 +383,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
         for (auto& [joint_index, keyframes] : animation.m_BoneAnimations) {
             const auto max = glm::max(glm::max(keyframes.positionKeys.size(), keyframes.rotationkeys.size()), keyframes.scaleKeys.size());
 
+            // if at least 1 of the 3 key channels has key data, the other 2 channels need at least 1 key
             if (max > 0) {
                 if (keyframes.positionKeys.empty()) 
                     keyframes.positionKeys.emplace_back();

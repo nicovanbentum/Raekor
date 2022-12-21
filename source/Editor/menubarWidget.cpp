@@ -22,6 +22,8 @@ void MenubarWidget::draw(float dt) {
     auto& scene = IWidget::GetScene();
 
     if (ImGui::BeginMainMenuBar()) {
+        ImGui::Text(ICON_FA_ADDRESS_BOOK);
+
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New scene")) {
                 scene.clear();
@@ -43,9 +45,8 @@ void MenubarWidget::draw(float dt) {
             if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
                 std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
 
-                if (!filepath.empty()) {
+                if (!filepath.empty())
                     scene.SaveToFile(IWidget::GetAssets(), filepath);
-                }
             }
 
             if (ImGui::MenuItem("Serialize as JSON..", "CTRL + S")) {
@@ -126,9 +127,8 @@ void MenubarWidget::draw(float dt) {
                 }
             }
 
-            if (ImGui::MenuItem("Exit", "Escape")) {
-                editor->m_Running = false;
-            }
+            if (ImGui::MenuItem("Exit", "Escape"))
+                editor->Terminate();
 
             ImGui::EndMenu();
         }
@@ -151,9 +151,8 @@ void MenubarWidget::draw(float dt) {
             for (const auto& widget : editor->GetWidgets()) {
                 bool is_visible = widget->IsVisible();
 
-                if (ImGui::MenuItem(widget->GetTitle().c_str(), "", &is_visible)) {
+                if (ImGui::MenuItem(widget->GetTitle().c_str(), "", &is_visible))
                     is_visible ? widget->Show() : widget->Hide();
-                }
             }
 
             ImGui::PopItemFlag();

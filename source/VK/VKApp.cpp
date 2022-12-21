@@ -9,7 +9,7 @@
 namespace Raekor::VK {
 
     PathTracer::PathTracer() : 
-    Application(RendererFlags::VULKAN), 
+    Application(WindowFlags::VULKAN), 
     m_Renderer(m_Window) 
 {
     // initialize ImGui

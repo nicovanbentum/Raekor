@@ -121,6 +121,7 @@ private:
 };
 
 
+
 class ObjectBuilder {
 public:
 	ObjectBuilder();
@@ -138,6 +139,7 @@ private:
 
 	std::stringstream m_Stream;
 };
+
 
 
 inline void ToJSONValue(JSON::Value& ioValue, std::string& inString) {

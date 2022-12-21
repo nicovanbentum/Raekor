@@ -57,7 +57,11 @@ Value& Parser::GetCurrentValue() {
 			return m_Objects.back().at(m_Key);
 		case Scope::ARRAY:  
 			return m_Objects.back().at(m_Key).mArray.back();
+		default:
+			gUnreachableCode();
 	}
+
+	gUnreachableCode();
 }
 
 

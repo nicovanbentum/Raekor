@@ -21,10 +21,11 @@ struct ConfigSettings {
 };
 
 
-enum RendererFlags {
+enum WindowFlags {
     NONE = 0,
     OPENGL = SDL_WINDOW_OPENGL,
     VULKAN = SDL_WINDOW_VULKAN,
+    BORDERLESS = SDL_WINDOW_BORDERLESS,
 };
 
 
@@ -32,7 +33,7 @@ class Application {
 public:
     friend class InputHandler;
 
-    Application(RendererFlags flags);
+    Application(WindowFlags flags);
     virtual ~Application();
 
     void Run();

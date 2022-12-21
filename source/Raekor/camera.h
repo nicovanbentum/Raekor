@@ -53,14 +53,17 @@ public:
 
     void OnUpdate(float dt);
     
-    float& GetFov() { return fov; }
-    Camera& GetCamera() { return camera; }
+    float& GetFov()                 { return fov; }
+    const float& GetFov() const     { return fov; }
+
+    Camera& GetCamera()             { return camera; }
     const Camera& GetCamera() const { return camera; }
     
-    glm::mat4 GetJitteredProjMatrix() const;
     const glm::vec2& GetJitter() const { return jitter; }
+    glm::mat4 GetJitteredProjMatrix(const glm::vec2& inJitter) const;
+    glm::mat4 GetJitteredProjMatrix() const { return GetJitteredProjMatrix(GetJitter()); }
 
-    void SetFov(float fov);
+    void SetFov(float inFov);
     void Resize(glm::vec2 newSize);
     void SetAspectRatio(float ratio);
 

@@ -21,6 +21,7 @@ struct Pin {
 
     Type type;
     int id;
+    std::string name;
     GraphNode* node;
 };
 
@@ -29,12 +30,25 @@ public:
     friend class NodeGraphWidget;
 
     void Build();
-    bool IsRootNode() const { return inputPins.empty() || outputPins.empty(); }
+    bool IsRootNode() const { return inputPins.empty(); }
     const Pin* FindPin(int id) const;
 
     template<class Archive>
     void serialize(Archive& archive) {
         archive(CEREAL_NVP(id), CEREAL_NVP(name), CEREAL_NVP(inputPins), CEREAL_NVP(outputPins));
+    }
+
+    template<Pin::Type pinType>
+    Pin& AddPin(int inPinID);
+
+    template<> 
+    Pin& AddPin<Pin::Type::INPUT>(int inPinID) {
+        return inputPins.emplace_back(Pin::Type::INPUT, inPinID);
+    }
+
+    template<>
+    Pin& AddPin<Pin::Type::OUTPUT>(int inPinID) {
+        return outputPins.emplace_back(Pin::Type::OUTPUT, inPinID);
     }
 
 protected:

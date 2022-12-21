@@ -18,12 +18,37 @@ void NodeGraphWidget::draw(float dt) {
 		std::string opened_file_path = OS::sOpenFileDialog("All Files (*.json)\0*.json\0");
 
 		if (!opened_file_path.empty()) {
-			auto ofs = std::ifstream(opened_file_path);
-			auto archive = cereal::JSONInputArchive(ofs);
-			archive(*this);
-			for (auto& node : m_Nodes) {
-				node.Build();
+			auto ifs = std::ifstream(opened_file_path);
+
+			auto buffer = std::stringstream();
+			buffer << ifs.rdbuf();
+
+			auto json = JSON::Parser(buffer.str());
+
+			if (json.Parse()) {
+				for (const auto& object : json) {
+					if (!json.Contains(object, "Type"))
+						continue;
+
+					const auto& type_value = json.GetValue(object, "Type");
+					const auto& type_string = type_value.As<JSON::String>().ToString();
+					
+					auto& node = m_Nodes.emplace_back();
+					node.id = GetNextNodeID();
+					node.name = type_string;
+
+					for (const auto& [name, value] : object) {
+						if (name == "Type" || name == "Name")
+							continue;
+
+						auto& pin = node.AddPin<Pin::OUTPUT>(GetNextPinID());
+						pin.name = name;
+					}
+						
+					node.Build();
+				}
 			}
+
 			m_OpenFilePath = FileSystem::relative(opened_file_path).string();
 		}
 	} 
@@ -54,20 +79,17 @@ void NodeGraphWidget::draw(float dt) {
 	ImGui::SameLine();
 
 	if (ImGui::Button(ICON_FA_ADJUST " Auto Layout"))  {
-		std::queue<GraphNode*> node_stack;
-		for (auto& node : m_Nodes) {
-			if (node.IsRootNode()) {
-				node_stack.push(&node);
-				break;
-			}
-		}
+		auto node_fifo = std::queue<GraphNode*>();
+		for (auto& node : m_Nodes)
+			if (node.IsRootNode())
+				node_fifo.push(&node);
 
 		auto cursor = ImVec2(0, 0);
-		int depth_size = node_stack.size();
+		int depth_size = node_fifo.size();
 
-		while (!node_stack.empty()) {
-			auto current_node = node_stack.front();
-			node_stack.pop();
+		while (!node_fifo.empty()) {
+			auto current_node = node_fifo.front();
+			node_fifo.pop();
 			depth_size--;
 
 			ImNodes::SetNodeGridSpacePos(current_node->id, cursor);
@@ -77,7 +99,7 @@ void NodeGraphWidget::draw(float dt) {
 					if (link.start_id == outPin.id) {
 						for (auto& node : m_Nodes) {
 							if (node.FindPin(link.end_id)) {
-								node_stack.push(&node);
+								node_fifo.push(&node);
 								break;
 							}
 						}
@@ -87,13 +109,12 @@ void NodeGraphWidget::draw(float dt) {
 
 			const auto dimensions = ImNodes::GetNodeDimensions(current_node->id);
 			if (depth_size == 0) {
-				depth_size = node_stack.size();
+				depth_size = node_fifo.size();
 				cursor.x += dimensions.x + 50.0f;
 				cursor.y = 0.0f - ((depth_size * 0.5f) * (dimensions.y + 50.0f));
 			}
-			else {
+			else
 				cursor.y += dimensions.y + 50.0f;
-			}
 		}
 	}
 
@@ -127,27 +148,16 @@ void NodeGraphWidget::draw(float dt) {
 	if (panning.x == 0.0f && panning.y == 0.0f) 
 		ImNodes::EditorContextResetPanning(ImNodes::GetCurrentContext()->CanvasRectScreenSpace.GetCenter());
 
+
+
 	if (ImGui::BeginPopup("New Node")) {
-		if (ImGui::Selectable("Root Node", false)) {
-			auto& node = m_Nodes.emplace_back();
-			node.id = GetNextNodeID();
-			node.outputPins.emplace_back(Pin::Type::INPUT, GetNextPinID());
-			node.name = "Root " + std::to_string(node.id);
-			node.Build();
-			ImNodes::SetNodeScreenSpacePos(node.id, ImGui::GetMousePos());
-			ImGui::CloseCurrentPopup();
+		for (const auto& registered_type : RTTIFactory::GetAllTypesIter()) {
+			if (ImGui::Selectable(registered_type.second->GetTypeName(), false)) {
+
+				ImGui::CloseCurrentPopup();
+			}
 		}
 
-		if (ImGui::Selectable("Node", false)) {
-			auto& node = m_Nodes.emplace_back();
-			node.id = GetNextNodeID();
-			node.inputPins.emplace_back(Pin::Type::INPUT, GetNextPinID());
-			node.outputPins.emplace_back(Pin::Type::OUTPUT, GetNextPinID());
-			node.name = "Node " + std::to_string(node.id);
-			node.Build();
-			ImNodes::SetNodeScreenSpacePos(node.id, ImGui::GetMousePos());
-			ImGui::CloseCurrentPopup();
-		}
 		ImGui::EndPopup();
 	}
 
@@ -178,6 +188,7 @@ void NodeGraphWidget::draw(float dt) {
 
 		for (auto& pin : node.outputPins) {
 			ImNodes::BeginOutputAttribute(pin.id);
+			ImGui::Text(pin.name.c_str());
 			ImNodes::EndOutputAttribute();
 		}
 
@@ -189,9 +200,8 @@ void NodeGraphWidget::draw(float dt) {
 		}
 	}
 	
-	for (const auto& link : m_Links) {
+	for (const auto& link : m_Links)
 		ImNodes::Link(link.id, link.start_id, link.end_id);
-	}
 
 	ImNodes::MiniMap();
 	ImNodes::PopColorStyle();
@@ -229,7 +239,7 @@ void NodeGraphWidget::draw(float dt) {
 
 void NodeGraphWidget::onEvent(const SDL_Event& ev) {
 	if (ev.type == SDL_MOUSEBUTTONUP && ev.button.button == SDL_BUTTON_RIGHT)
-		m_WasRightClicked = true;}
+		m_WasRightClicked = true;
 
 	if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
 		switch (ev.key.keysym.scancode) {

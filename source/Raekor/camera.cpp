@@ -140,7 +140,7 @@ void Viewport::OnUpdate(float dt) {
 }
 
 
-glm::mat4 Viewport::GetJitteredProjMatrix() const {
+glm::mat4 Viewport::GetJitteredProjMatrix(const glm::vec2& inJitter) const {
     auto mat = camera.GetProjection();
     mat[2][0] = jitter[0];
     mat[2][1] = jitter[1];

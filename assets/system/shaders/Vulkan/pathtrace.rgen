@@ -44,7 +44,7 @@ uint tea(uint val0, uint val1) {
 }
 
 vec3 tonemap(vec3 L) {
-    return pow(aces(L), vec3(1.0 / 2.2));
+    return pow(L, vec3(1.0 / 2.2));
 }
 
 void main() {

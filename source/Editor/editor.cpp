@@ -31,7 +31,7 @@ RTTI_CLASS_CPP(MyPtrThing) {
 }
 
 Editor::Editor() :
-    Application(RendererFlags::OPENGL),
+    Application(WindowFlags::OPENGL),
     m_Renderer(m_Window, m_Viewport) 
 {
     GUI::SetTheme(m_Settings.themeColors);
@@ -45,9 +45,10 @@ Editor::Editor() :
         m_Scene.OpenFromFile(m_Assets, m_Settings.defaultScene);
     }
 
+
     Timer timer;
 
-   /* RTTIFactory::Register(RTTI_OF(MyThing));
+    RTTIFactory::Register(RTTI_OF(MyThing));
     RTTIFactory::Register(RTTI_OF(MyPtrThing));
     RTTIFactory::Register(RTTI_OF(Material));
 
@@ -135,7 +136,7 @@ Editor::Editor() :
     for (Material* material : materials)
         std::cout << material->albedoFile << std::endl;
 
-    std::cout << "JSON Parser took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";*/
+    std::cout << "JSON Parser took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
 
 
     m_Widgets.emplace_back(std::make_shared<AssetsWidget>(this));

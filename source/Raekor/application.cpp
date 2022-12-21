@@ -8,7 +8,7 @@
 
 namespace Raekor {
 
-Application::Application(RendererFlags flag) {
+Application::Application(WindowFlags inFlags) {
     {   // scoped to make sure it flushes
         std::ifstream is("config.json");
         cereal::JSONInputArchive archive(is);
@@ -22,27 +22,25 @@ Application::Application(RendererFlags flag) {
         abort();
     }
 
-    Uint32 wflags = SDL_WINDOW_RESIZABLE | flag |
-        SDL_WINDOW_ALLOW_HIGHDPI;
+    Uint32 window_flags = inFlags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS;
 
-    std::vector<SDL_Rect> displays(SDL_GetNumVideoDisplays());
-    for (size_t i = 0; i < displays.size(); i++) {
-        SDL_GetDisplayBounds(int(i), &displays[i]);
-    }
+    auto displays = std::vector<SDL_Rect>(SDL_GetNumVideoDisplays());
+    for (auto& [index, display] : gEnumerate(displays))
+        SDL_GetDisplayBounds(index, &display);
 
     // if the config setting is higher than the nr of displays we pick the default display
     m_Settings.display = m_Settings.display > displays.size() - 1 ? 0 : m_Settings.display;
     const auto& rect = displays[m_Settings.display];
 
-    const int width = int(rect.w * 0.9f);
-    const int height = int(rect.h * 0.9f);
-    
+    int width = int(rect.w * 0.9f);
+    int height = int(rect.h * 0.9f);
+
     m_Window = SDL_CreateWindow(
         m_Settings.name.c_str(),
         SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
         SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
         width, height,
-        SDL_WINDOW_RESIZABLE | flag | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS
+        window_flags
     );
 
     OS::sSetDarkTitleBar(m_Window);
@@ -62,7 +60,6 @@ Application::Application(RendererFlags flag) {
         cereal::JSONOutputArchive archive(is);
         m_Settings.serialize(archive);
     }
-
 }
 
 

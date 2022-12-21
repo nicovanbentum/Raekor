@@ -1,6 +1,8 @@
 #pragma once
 
 #include "json.h"
+#include "archive.h"
+
 namespace Raekor {
 
 class Member;
@@ -93,6 +95,8 @@ public:
     static RTTI* GetRTTI(const char* inType);
 
     static void* Construct(const char* inType);
+
+    static auto GetAllTypesIter() { return global->m_RegisteredTypes; }
 
 private:
     std::unordered_map<uint32_t, RTTI*> m_RegisteredTypes;
