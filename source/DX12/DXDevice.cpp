@@ -195,6 +195,43 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
 
 
 
+void Device::ReleaseBuffer(BufferID inBufferID) { 
+    assert(inBufferID.IsValid());
+    m_Buffers.Remove(inBufferID);
+    // ReleaseDescriptor(inBufferID);
+}
+
+
+void Device::ReleaseTexture(TextureID inTextureID) { 
+    assert(inTextureID.IsValid());
+    m_Textures.Remove(inTextureID);
+    ReleaseDescriptor(inTextureID);
+}
+
+
+void Device::ReleaseBufferImmediate(BufferID inBufferID) {
+    assert(inBufferID.IsValid());
+
+    auto& buffer = GetBuffer(inBufferID);
+    buffer.m_Resource = nullptr;
+
+    m_Buffers.Remove(inBufferID);
+    // ReleaseDescriptorImmediate(inBufferID);
+}
+
+
+void Device::ReleaseTextureImmediate(TextureID inTextureID) {
+    assert(inTextureID.IsValid());
+
+    auto& texture = GetTexture(inTextureID);
+    texture.m_Resource = nullptr;
+
+    m_Textures.Remove(inTextureID);
+    ReleaseDescriptorImmediate(inTextureID);
+}
+
+
+
 D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inVertexShader, const std::string& inPixelShader)
 {
     const auto& pixelShader  = m_Shaders.at(inPixelShader);
@@ -271,6 +308,21 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc) {
     default:
         assert(false); // should not be able to get here
     }
+}
+
+
+
+void Device::ReleaseDescriptor(TextureID inTextureID) {
+    auto& texture = GetTexture(inTextureID);
+    m_Heaps[gGetHeapType(texture.m_Desc.usage)].Remove(texture.m_View);
+}
+
+
+
+void Device::ReleaseDescriptorImmediate(TextureID inTextureID) {
+    auto& texture = GetTexture(inTextureID);
+    m_Heaps[gGetHeapType(texture.m_Desc.usage)].Get(texture.m_View) = nullptr;
+    ReleaseDescriptor(inTextureID);
 }
 
 

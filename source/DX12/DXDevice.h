@@ -32,14 +32,19 @@ public:
 	[[nodiscard]] TextureID CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc);
 	[[nodiscard]] TextureID CreateTextureView(ResourceRef inResource, const Texture::Desc& inDesc);
 
-	void ReleaseBuffer(BufferID inID)   { assert(inID.Isvalid()); m_Buffers.Remove(inID);  }
-	void ReleaseTexture(TextureID inID) { assert(inID.Isvalid()); m_Textures.Remove(inID); }
+	void ReleaseBuffer(BufferID inID);
+	void ReleaseTexture(TextureID inID);
 	
-	[[nodiscard]] Buffer& GetBuffer(BufferID inID) { assert(inID.Isvalid()); return m_Buffers.Get(inID); }
-	[[nodiscard]] const Buffer& GetBuffer(BufferID inID) const { assert(inID.Isvalid()); return m_Buffers.Get(inID); }
+	/* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
+	void ReleaseBufferImmediate(BufferID inID);
+	/* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
+	void ReleaseTextureImmediate(TextureID inID);
+	
+	[[nodiscard]] Buffer& GetBuffer(BufferID inID) { assert(inID.IsValid()); return m_Buffers.Get(inID); }
+	[[nodiscard]] const Buffer& GetBuffer(BufferID inID) const { assert(inID.IsValid()); return m_Buffers.Get(inID); }
 
-	[[nodiscard]] Texture& GetTexture(TextureID inID) { assert(inID.Isvalid()); return m_Textures.Get(inID); }
-	[[nodiscard]] const Texture& GetTexture(TextureID inID) const { assert(inID.Isvalid()); return m_Textures.Get(inID); }
+	[[nodiscard]] Texture& GetTexture(TextureID inID) { assert(inID.IsValid()); return m_Textures.Get(inID); }
+	[[nodiscard]] const Texture& GetTexture(TextureID inID) const { assert(inID.IsValid()); return m_Textures.Get(inID); }
 
 	[[nodiscard]] ID3D12Resource* GetResourcePtr(BufferID inID)  { return GetBuffer(inID).GetResource().Get(); }
 	[[nodiscard]] ID3D12Resource* GetResourcePtr(TextureID inID) { return GetTexture(inID).GetResource().Get(); }
@@ -65,7 +70,15 @@ public:
 	[[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inResource)	{ return inResource.ToIndex(); }
 
 private:
-	void CreateDescriptor(TextureID inID, const Texture::Desc& inDesc);
+	void CreateDescriptor(BufferID inBufferID, const Buffer::Desc& inDesc);
+	void CreateDescriptor(TextureID inTextureID, const Texture::Desc& inDesc);
+	void ReleaseDescriptor(Buffer inBufferID);
+	void ReleaseDescriptor(TextureID inTextureID);
+
+	/* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
+	void ReleaseDescriptorImmediate(BufferID inBufferID);
+	/* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
+	void ReleaseDescriptorImmediate(TextureID inTextureID);
 
 public:
 	ComPtr<ID3D12Device5> m_Device;

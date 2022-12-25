@@ -24,8 +24,8 @@ VS_OUTPUT main(uint vertex_id : SV_VertexID) {
     float x = float(((uint(vertex_id) + 2u) / 3u) % 2u);
     float y = float(((uint(vertex_id) + 1u) / 3u) % 2u);
 
-    output.pos = float4(-1.0f + x * 2.0f, -1.0f + y * 2.0f, 1.0f, 1.0f);
-    output.uv = float2(x, y);
+    output.pos = float4(x * 2.0 - 1.0, y * 2.0 - 1.0, 1.0f, 1.0f);
+    output.uv = float2(x, 1.0 - y);
 
     return output;
 }

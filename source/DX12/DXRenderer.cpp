@@ -14,7 +14,7 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     swapchainDesc.BufferCount = sFrameCount;
     swapchainDesc.Width = inViewport.size.x;
     swapchainDesc.Height = inViewport.size.y;
-    swapchainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    swapchainDesc.Format = sSwapchainFormat;
     swapchainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapchainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapchainDesc.SampleDesc.Count = 1;
@@ -99,50 +99,32 @@ void Renderer::OnRender(Device& inDevice, float inDeltaTime) {
 
 
 void Renderer::OnResize(Device& inDevice, const Viewport& inViewport) {
-    const auto currentFenceValue = GetBackBufferData().mFenceValue;
-
-    gThrowIfFailed(inDevice.GetQueue()->Signal(m_Fence.Get(), currentFenceValue));
-
-    if (m_Fence->GetCompletedValue() < GetBackBufferData().mFenceValue) {
-        gThrowIfFailed(m_Fence->SetEventOnCompletion(GetBackBufferData().mFenceValue, m_FenceEvent));
-        WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
-    }
+    WaitForIdle(inDevice);
 
     for (auto& bb_data : m_BackBufferData)
-        inDevice.ReleaseTexture(bb_data.mBackBuffer);
+        inDevice.ReleaseTextureImmediate(bb_data.mBackBuffer);
 
-    gThrowIfFailed(m_Swapchain->ResizeBuffers(
-        sFrameCount, inViewport.size.x, inViewport.size.y,
-        DXGI_FORMAT_B8G8R8A8_UNORM, 0
-    ));
+    gThrowIfFailed(m_Swapchain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0));
 
-    /*for (uint32_t i = 0; i < sFrameCount; i++) {
-        gThrowIfFailed(m_Swapchain->GetBuffer(i, IID_PPV_ARGS(&m_Device.m_RtvHeap[i])));
+    for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData)) {
+        auto rtv_resource = ResourceRef(nullptr);
+        gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
 
-        gThrowIfFailed(m_Device->CreateCommittedResource(
-            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-            D3D12_HEAP_FLAG_NONE,
-            &CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D24_UNORM_S8_UINT, m_Viewport.size.x, m_Viewport.size.y, 1u, 0, 1u, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL),
-            D3D12_RESOURCE_STATE_DEPTH_WRITE,
-            &CD3DX12_CLEAR_VALUE(DXGI_FORMAT_D24_UNORM_S8_UINT, 1.0f, 0u),
-            IID_PPV_ARGS(&m_Device.m_DsvHeap[i]))
-        );
+        backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{ .usage = Texture::Usage::RENDER_TARGET });
+        rtv_resource->SetName(L"BACKBUFFER");
     }
 
-    for (uint32_t i = 0; i < sFrameCount; i++) {
-        m_Device.CreateRenderTargetView(i);
-        m_Device.CreateDepthStencilView(i);
-    }*/
+    m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
 }
 
 
-void Renderer::CompileGraph(Device& inDevice, const Scene& inScene, DescriptorID inTLAS) {
+void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS) {
+    m_RenderGraph.Clear(inDevice);
     m_RenderGraph.SetBackBuffer(GetBackBufferData().mBackBuffer);
-    m_ImGuiFontTexture = InitImGui(m_RenderGraph, inDevice, sFrameCount);
 
     const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
-    const auto& shadow_data = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data, inTLAS);
-    const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data);
+    const auto& shadow_data  = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data, inTLAS);
+    const auto& light_data   = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data);
     
     auto compose_input = light_data.mOutputTexture;
 
@@ -400,8 +382,8 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, FfxFsr2
         }, L"FSR2_OUTPUT");
 
         inRenderPass->Create(output_texture);
+        inData.mOutputTexture = inRenderPass->Write(output_texture);
 
-        inData.mOutputTexture       = inRenderPass->Write(output_texture);
         inData.mColorTexture        = inRenderPass->Read(inColorTexture);
         inData.mDepthTexture        = inRenderPass->Read(inGBufferData.mDepthTexture);
         inData.mMotionVectorTexture = inRenderPass->Read(inGBufferData.mMotionVectorTexture);
@@ -411,25 +393,30 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, FfxFsr2
     {
         auto& vp = inRenderGraph.GetViewport();
 
+        const auto color_texture_ptr  = inDevice.GetResourcePtr(inData.mColorTexture.mCreatedTexture);
+        const auto depth_texture_ptr  = inDevice.GetResourcePtr(inData.mDepthTexture.mCreatedTexture);
+        const auto movec_texture_ptr  = inDevice.GetResourcePtr(inData.mMotionVectorTexture.mCreatedTexture);
+        const auto output_texture_ptr = inDevice.GetResourcePtr(inData.mOutputTexture.mCreatedTexture);
+
         auto fsr2_dispatch_desc = FfxFsr2DispatchDescription();
-        fsr2_dispatch_desc.commandList = ffxGetCommandListDX12(inCmdList);
-        fsr2_dispatch_desc.color = ffxGetResourceDX12(&inContext, inDevice.GetResourcePtr(inData.mColorTexture.mCreatedTexture));
-        fsr2_dispatch_desc.depth = ffxGetResourceDX12(&inContext, inDevice.GetResourcePtr(inData.mDepthTexture.mCreatedTexture));
-        fsr2_dispatch_desc.motionVectors = ffxGetResourceDX12(&inContext, inDevice.GetResourcePtr(inData.mMotionVectorTexture.mCreatedTexture));
-        fsr2_dispatch_desc.output = ffxGetResourceDX12(&inContext, inDevice.GetResourcePtr(inData.mOutputTexture.mCreatedTexture));
-        fsr2_dispatch_desc.exposure = ffxGetResourceDX12(&inContext, nullptr);
-        fsr2_dispatch_desc.motionVectorScale.x = float(vp.size.x);
-        fsr2_dispatch_desc.motionVectorScale.y = float(vp.size.y);
-        fsr2_dispatch_desc.reset = false;
-        fsr2_dispatch_desc.enableSharpening = false;
-        fsr2_dispatch_desc.sharpness = 0.0f;
-        fsr2_dispatch_desc.frameTimeDelta = Timer::sToMilliseconds(inData.mDeltaTime);
-        fsr2_dispatch_desc.preExposure = 1.0f;
-        fsr2_dispatch_desc.renderSize.width = vp.size.x;
-        fsr2_dispatch_desc.renderSize.height = vp.size.y;
-        fsr2_dispatch_desc.cameraFar = vp.GetCamera().GetFar();
-        fsr2_dispatch_desc.cameraNear = vp.GetCamera().GetNear();
-        fsr2_dispatch_desc.cameraFovAngleVertical = glm::radians(vp.GetFov());
+        fsr2_dispatch_desc.commandList              = ffxGetCommandListDX12(inCmdList);
+        fsr2_dispatch_desc.color                    = ffxGetResourceDX12(&inContext, color_texture_ptr,  nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
+        fsr2_dispatch_desc.depth                    = ffxGetResourceDX12(&inContext, depth_texture_ptr,  nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
+        fsr2_dispatch_desc.motionVectors            = ffxGetResourceDX12(&inContext, movec_texture_ptr,  nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
+        fsr2_dispatch_desc.output                   = ffxGetResourceDX12(&inContext, output_texture_ptr, nullptr, FFX_RESOURCE_STATE_UNORDERED_ACCESS);
+        fsr2_dispatch_desc.exposure                 = ffxGetResourceDX12(&inContext, nullptr);
+        fsr2_dispatch_desc.motionVectorScale.x      = float(vp.size.x);
+        fsr2_dispatch_desc.motionVectorScale.y      = float(vp.size.y);
+        fsr2_dispatch_desc.reset                    = false;
+        fsr2_dispatch_desc.enableSharpening         = false;
+        fsr2_dispatch_desc.sharpness                = 0.0f;
+        fsr2_dispatch_desc.frameTimeDelta           = Timer::sToMilliseconds(inData.mDeltaTime);
+        fsr2_dispatch_desc.preExposure              = 1.0f;
+        fsr2_dispatch_desc.renderSize.width         = vp.size.x;
+        fsr2_dispatch_desc.renderSize.height        = vp.size.y;
+        fsr2_dispatch_desc.cameraFar                = vp.GetCamera().GetFar();
+        fsr2_dispatch_desc.cameraNear               = vp.GetCamera().GetNear();
+        fsr2_dispatch_desc.cameraFovAngleVertical   = glm::radians(vp.GetFov());
 
         const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(vp.size.x, vp.size.x);
         ffxFsr2GetJitterOffset(&fsr2_dispatch_desc.jitterOffset.x, &fsr2_dispatch_desc.jitterOffset.y, inData.mFrameCounter, jitter_phase_count);
@@ -464,19 +451,29 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         } root_constants;
 
         root_constants.mInputTexture = inData.mInputTexture.GetBindlessIndex(inDevice);
+        const auto backbuffer_id = inRenderGraph.GetBackBuffer();
 
         {   // manual barriers around the imported backbuffer resource, the rendergraph doesn't handle this kind of state
-            auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(inRenderGraph.GetBackBuffer()), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
+            auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(backbuffer_id), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
             inCmdList->ResourceBarrier(1, &backbuffer_barrier);
         }
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList.SetViewportScissorRect(inRenderGraph.GetViewport());
+
+        const auto& backbuffer_texture = inDevice.GetTexture(backbuffer_id);
+        const auto bb_width = backbuffer_texture.GetResource()->GetDesc().Width;
+        const auto bb_height = backbuffer_texture.GetResource()->GetDesc().Height;
+
+        const auto scissor = CD3DX12_RECT(0, 0, bb_width, bb_height);
+        const auto viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(bb_width), float(bb_height));
+        inCmdList->RSSetViewports(1, &viewport);
+        inCmdList->RSSetScissorRects(1, &scissor);
+        
         inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
         inCmdList->DrawInstanced(6, 1, 0, 0);
 
         {
-            auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(inRenderGraph.GetBackBuffer()), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON);
+            auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(backbuffer_id), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON);
             inCmdList->ResourceBarrier(1, &backbuffer_barrier);
         }
     });
@@ -484,7 +481,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 
 
-TextureID InitImGui(RenderGraph& inRenderGraph, Device& inDevice,  uint32_t inFrameCount) {
+TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameCount) {
     int width, height;
     unsigned char* pixels;
     ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
@@ -494,17 +491,15 @@ TextureID InitImGui(RenderGraph& inRenderGraph, Device& inDevice,  uint32_t inFr
         .width  = uint32_t(width),
         .height = uint32_t(height),
         .usage  = Texture::SHADER_READ_ONLY
-    });
+    }, L"IMGUI_FONT_TEXTURE");
 
     auto font_texture_view = inDevice.GetTexture(font_texture_id).GetView();
     const auto& descriptor_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    assert(inRenderGraph.GetBackBuffer().Isvalid() && "No valid backbuffer set, did you forget to call RenderGraph::SetBackBuffer ?");
-
     ImGui_ImplDX12_Init(
         inDevice,
         inFrameCount,
-        inDevice.GetTexture(inRenderGraph.GetBackBuffer()).GetDesc().format,
+        inRtvFormat,
         descriptor_heap.GetHeap(),
         descriptor_heap.GetCPUDescriptorHandle(font_texture_view),
         descriptor_heap.GetGPUDescriptorHandle(font_texture_view)

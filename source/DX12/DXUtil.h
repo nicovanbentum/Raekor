@@ -28,7 +28,7 @@ inline void gThrowIfFailed(FfxErrorCode inErrCode) {
 }
 
 
-inline std::string GetDebugName(ID3D12Resource* inResource) {
+inline std::string gGetDebugName(ID3D12Resource* inResource) {
 	wchar_t name[128] = {};
 	UINT size = sizeof(name);
 	inResource->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);

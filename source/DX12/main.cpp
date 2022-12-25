@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
 
 	auto app = new Raekor::DX::DXApp();
 
-	std::cout << "Constructor time: " << timer.GetElapsedTime() << " seconds.";
+	std::cout << std::format("App creation took {} seconds.\n", timer.GetElapsedTime());
 
 	app->Run();
 

@@ -10,29 +10,23 @@ namespace Raekor {
 
 namespace Raekor::DX {
 
+struct TextureResource {
+	TextureID mCreatedTexture;
+	TextureID mResourceTexture;
+
+	/* The returned index can be used directly in HLSL using ResourceDescriptorHeap. */
+	inline uint32_t GetBindlessIndex(Device& inDevice) {
+		return inDevice.GetBindlessHeapIndex(inDevice.GetTexture(mResourceTexture).GetView());
+	}
+};
+
+
 struct ResourceBarrier {
 	union {
 		BufferID mBuffer;
 		TextureID mTexture;
 	};
-	std::string mDebugName;
 	D3D12_RESOURCE_BARRIER mBarrier = {};
-};
-
-
-enum class RenderPassType {
-	GRAPHICS_PASS,
-	COMPUTE_PASS
-};
-
-
-struct TextureResource {
-	TextureID mCreatedTexture;
-	TextureID mResourceTexture;
-
-	uint32_t GetBindlessIndex(Device& inDevice) {
-		return inDevice.GetBindlessHeapIndex(inDevice.GetTexture(mResourceTexture).GetView());
-	}
 };
 
 
@@ -51,22 +45,31 @@ public:
 
 	IRenderPass(const std::string& inName) : m_Name(inName) {}
 
-	virtual RenderPassType GetRenderPassType() const = 0;
+	virtual bool IsCompute() = 0;
+	virtual bool IsGraphics() = 0;
 	
 	virtual void Setup(Device& inDevice) = 0;
 	virtual void Execute(CommandList& inCmdList) = 0;
 
+	/* Tell the graph that inTexture was created this render pass. */
 	virtual void Create(TextureID inTexture) = 0;
+	/* Tell the graph that inTexture will be read this render pass. The graph will create resource views and add barriers for it. */
 	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) = 0;
+	/* Tell the graph that inTexture will be written to this render pass. The graph will create resource views and add barriers for it. 
+	If it's a graphics pass, the graph will automatically deduce render/depth targets and bind them. */
 	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) = 0;
-
+	/* Tell the graph that inTexture will be read this render pass. The graph will create resource views and add barriers for it. */
 	[[nodiscard]] TextureResource Read(TextureResource inTexture)  { return Read(inTexture.mCreatedTexture);  }
+	/* Tell the graph that inTexture will be written to this render pass. The graph will create resource views and add barriers for it.
+	If it's a graphics pass, the graph will automatically deduce render/depth targets and bind them. */
 	[[nodiscard]] TextureResource Write(TextureResource inTexture) { return Write(inTexture.mCreatedTexture); }
 
 	bool IsRead(TextureID inTexture);
 	bool IsWritten(TextureID inTexture);
 	bool IsCreated(TextureID inTexture);
 
+	/* AddExitBarrier is exposed to the user to add manual barriers around resources they have no control over (external code like FSR2). 
+	D3D12_RESOURCE_TRANSITION_BARRIER::StateAfter could be overwritten by the graph if it finds a better match during graph compilation. */
 	void AddExitBarrier(const ResourceBarrier& inBarrier)  { m_ExitBarriers.push_back(inBarrier);  }
 	void AddEntryBarrier(const ResourceBarrier& inBarrier) { m_EntryBarriers.push_back(inBarrier); }
 
@@ -121,65 +124,17 @@ public:
 		m_Device(inDevice)
 	{}
 
-	virtual RenderPassType GetRenderPassType() const override { return RenderPassType::GRAPHICS_PASS; }
+	virtual bool IsCompute() override { return false; }
+	virtual bool IsGraphics() override { return true; }
 
-
-	/* Returns either the original handle or a new one pointing at a newly created texture view. */
-	[[nodiscard]] TextureID GetViewForUsage(TextureID inTexture, Texture::Usage inUsage) {
-		auto& texture = m_Device.GetTexture(inTexture);
-
-		if (texture.GetDesc().usage == inUsage)
-			return inTexture;
-		
-		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-		auto new_desc = Texture::Desc{ .usage = inUsage };
-
-		if (texture.GetDesc().format == DXGI_FORMAT_D32_FLOAT) {
-			srv_desc.Format = DXGI_FORMAT_R32_FLOAT;
-			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-			srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			srv_desc.Texture2D.MipLevels = -1;
-
-			new_desc.viewDesc = &srv_desc;
-		}
-
-		return m_Device.CreateTextureView(inTexture, new_desc);
-	}
-
-	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) override {
-		auto result = GetViewForUsage(inTexture, Texture::SHADER_READ_ONLY);
-		
-		auto resource = TextureResource { 
-			.mCreatedTexture = inTexture, 
-			.mResourceTexture = result 
-		};
-
-		IRenderPass::m_ReadTextures.push_back(resource);
-		return resource;
-	}
-
-	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) override {
-		auto usage = Texture::RENDER_TARGET;
-
-		if (m_Device.GetTexture(inTexture).GetDesc().format == DXGI_FORMAT_D32_FLOAT)
-			usage = Texture::DEPTH_STENCIL_TARGET;
-
-		auto result = GetViewForUsage(inTexture, usage);
-
-		auto resource = TextureResource {
-			.mCreatedTexture = inTexture,
-			.mResourceTexture = result
-		};
-
-		IRenderPass::m_WrittenTextures.push_back(resource);
-		return resource;
-	}
-
-	virtual void Create(TextureID inTexture) override { 
-		IRenderPass::m_CreatedTextures.push_back(inTexture);
-	}
+	virtual void Create(TextureID inTexture) override;
+	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) override;
+	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) override;
 
 private:
+	/* Returns either the original handle or a new one pointing at a newly created texture view. */
+	[[nodiscard]] TextureID GetViewForUsage(TextureID inTexture, Texture::Usage inUsage);
+
 	Device& m_Device;
 };
 
@@ -193,59 +148,17 @@ public:
 		m_Device(inDevice)
 	{}
 
-	virtual RenderPassType GetRenderPassType() const override { return RenderPassType::COMPUTE_PASS; }
+	virtual bool IsCompute() override { return true; }
+	virtual bool IsGraphics() override { return false; }
 
-	/* Returns either the original handle or a new one pointing at a newly created texture view. */
-	[[nodiscard]] TextureID GetViewForUsage(TextureID inTexture, Texture::Usage inUsage) {
-		auto& texture = m_Device.GetTexture(inTexture);
-
-		if (texture.GetDesc().usage == inUsage)
-			return inTexture;
-
-		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-		auto new_desc = Texture::Desc{ .usage = inUsage };
-			
-		if (texture.GetDesc().format == DXGI_FORMAT_D32_FLOAT) {
-			srv_desc.Format = DXGI_FORMAT_R32_FLOAT;
-			srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-			srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			srv_desc.Texture2D.MipLevels = -1;
-
-			new_desc.viewDesc = &srv_desc;
-		}
-			
-		return m_Device.CreateTextureView(inTexture, new_desc);
-	}
-
-	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) override {
-		auto result = GetViewForUsage(inTexture, Texture::SHADER_READ_ONLY);
-
-		auto resource = TextureResource{
-			.mCreatedTexture = inTexture,
-			.mResourceTexture = result
-		};
-
-		IRenderPass::m_ReadTextures.push_back(resource);
-		return resource;
-	}
-
-	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) override {
-		auto result = GetViewForUsage(inTexture, Texture::SHADER_READ_WRITE);
-
-		auto resource = TextureResource {
-			.mCreatedTexture = inTexture,
-			.mResourceTexture = result
-		};
-
-		IRenderPass::m_WrittenTextures.push_back(resource);
-		return resource;
-	}
-
-	virtual void Create(TextureID inTexture) override {
-		IRenderPass::m_CreatedTextures.push_back(inTexture);
-	}
+	virtual void Create(TextureID inTexture) override;
+	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) override;
+	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) override;
 
 private:
+	/* Returns either the original handle or a new one pointing at a newly created texture view. */
+	[[nodiscard]] TextureID GetViewForUsage(TextureID inTexture, Texture::Usage inUsage);
+
 	Device& m_Device;
 };
 
@@ -256,48 +169,189 @@ public:
 	RenderGraph(Device& inDevice, const Viewport& inViewport);
 
 	template<typename T>
-	const T& AddGraphicsPass(const std::string& inName, Device& inDevice, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute) {
-		auto& pass = m_RenderPasses.emplace_back(std::make_unique<GraphicsRenderPass<T>>(inDevice, inName, inExecute));
-		inSetup(pass.get(), static_cast<RenderPass<T>*>(pass.get())->GetData());
-		return static_cast<RenderPass<T>*>(pass.get())->GetData();
-	}
+	const T& AddGraphicsPass(const std::string& inName, Device& inDevice, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
 
 	template<typename T>
-	const T& AddComputePass(const std::string& inName, Device& inDevice, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute) {
-		auto& pass = m_RenderPasses.emplace_back(std::make_unique<ComputeRenderPass<T>>(inDevice, inName, inExecute));
-		inSetup(pass.get(), static_cast<RenderPass<T>*>(pass.get())->GetData());
-		return static_cast<RenderPass<T>*>(pass.get())->GetData();
-	}
-
+	const T& AddComputePass(const std::string& inName, Device& inDevice, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
 
 	template<typename T>
-	RenderPass<T>* GetPass() {
-		for (auto& renderpass : m_RenderPasses) {
-			if(auto base = static_cast<RenderPass<T>*>(renderpass.get()))
-				if (base->GetData().GetRTTI() == gGetRTTI<T>())
-					return base;
-		}
+	RenderPass<T>* GetPass();
 
-		return nullptr;
-	}
+	/* Clears the graph by destroying all the render passes and their associated resources. After clearing the user is free to call Compile again. */
+	void Clear(Device& inDevice);
 
-	void				Clear(Device& inDevice);
-	bool				Compile(Device& inDevice);
-	void				Execute(Device& inDevice, CommandList& inCmdList, bool isFirstFrame);
+	/* Compiles the entire graph, performs validity checks, and calculates optimal barriers. */
+	bool Compile(Device& inDevice);
 
-	/* Sets the active backbuffer. Call this once before adding any passes and once every frame!! */
-	const Viewport&	GetViewport() { return m_Viewport; }
-	void			SetBackBuffer(TextureID inTexture);
-	TextureID		GetBackBuffer() const { return m_BackBuffer; }
+	/* Execute the entire graph into inCmdList. inCmdList should be open (.Begin() called) already. */
+	void Execute(Device& inDevice, CommandList& inCmdList, bool isFirstFrame);
 
-	std::string		GetGraphViz(const Device& inDevice) const;
+	/* Sets the active backbuffer. Call this once before adding any passes and once every frame!! TODO: external resource tracking functionality. */
+	void SetBackBuffer(TextureID inTexture);
+	
+	/* Dump the entire graph to GraphViz text, can be written directly to a file and opened using the Visual Studio Code extension. */
+	std::string	ToGraphVizText(const Device& inDevice) const;
+
+	TextureID GetBackBuffer() const { return m_BackBuffer; }
+
+	const Viewport&	GetViewport() const { return m_Viewport; }
 
 private:
 	const Viewport& m_Viewport;
 
 	TextureID m_BackBuffer;
-	BufferID m_FrameConstantsBuffer;
+	BufferID  m_FrameConstantsBuffer;
 	std::vector<std::unique_ptr<IRenderPass>> m_RenderPasses;
 };
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+template<typename T>
+void GraphicsRenderPass<T>::Create(TextureID inTexture) {
+	IRenderPass::m_CreatedTextures.push_back(inTexture);
+}
+
+
+template<typename T>
+TextureResource GraphicsRenderPass<T>::Read(TextureID inTexture) {
+	auto result = GetViewForUsage(inTexture, Texture::SHADER_READ_ONLY);
+
+	auto resource = TextureResource{
+		.mCreatedTexture = inTexture,
+		.mResourceTexture = result
+	};
+
+	IRenderPass::m_ReadTextures.push_back(resource);
+	return resource;
+}
+
+
+template<typename T> 
+TextureResource GraphicsRenderPass<T>::Write(TextureID inTexture) {
+	auto usage = Texture::RENDER_TARGET;
+
+	if (m_Device.GetTexture(inTexture).GetDesc().format == DXGI_FORMAT_D32_FLOAT)
+		usage = Texture::DEPTH_STENCIL_TARGET;
+
+	auto result = GetViewForUsage(inTexture, usage);
+
+	auto resource = TextureResource{
+		.mCreatedTexture = inTexture,
+		.mResourceTexture = result
+	};
+
+	IRenderPass::m_WrittenTextures.push_back(resource);
+	return resource;
+}
+
+
+template<typename T>
+TextureID GraphicsRenderPass<T>::GetViewForUsage(TextureID inTexture, Texture::Usage inUsage) {
+	auto& texture = m_Device.GetTexture(inTexture);
+
+	if (texture.GetDesc().usage == inUsage)
+		return inTexture;
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+	auto new_desc = Texture::Desc{ .usage = inUsage };
+
+	if (texture.GetDesc().format == DXGI_FORMAT_D32_FLOAT) {
+		srv_desc.Format = DXGI_FORMAT_R32_FLOAT;
+		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srv_desc.Texture2D.MipLevels = -1;
+
+		new_desc.viewDesc = &srv_desc;
+	}
+
+	return m_Device.CreateTextureView(inTexture, new_desc);
+}
+
+
+template<typename T>
+void ComputeRenderPass<T>::Create(TextureID inTexture) {
+	IRenderPass::m_CreatedTextures.push_back(inTexture);
+}
+
+
+template<typename T>
+TextureResource ComputeRenderPass<T>::Read(TextureID inTexture) {
+	auto result = GetViewForUsage(inTexture, Texture::SHADER_READ_ONLY);
+
+	auto resource = TextureResource{
+		.mCreatedTexture = inTexture,
+		.mResourceTexture = result
+	};
+
+	IRenderPass::m_ReadTextures.push_back(resource);
+	return resource;
+}
+
+
+template<typename T>
+TextureResource ComputeRenderPass<T>::Write(TextureID inTexture) {
+	auto result = GetViewForUsage(inTexture, Texture::SHADER_READ_WRITE);
+
+	auto resource = TextureResource{
+		.mCreatedTexture = inTexture,
+		.mResourceTexture = result
+	};
+
+	IRenderPass::m_WrittenTextures.push_back(resource);
+	return resource;
+}
+
+
+template<typename T>
+TextureID ComputeRenderPass<T>::GetViewForUsage(TextureID inTexture, Texture::Usage inUsage) {
+	auto& texture = m_Device.GetTexture(inTexture);
+
+	if (texture.GetDesc().usage == inUsage)
+		return inTexture;
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+	auto new_desc = Texture::Desc{ .usage = inUsage };
+
+	if (texture.GetDesc().format == DXGI_FORMAT_D32_FLOAT) {
+		srv_desc.Format = DXGI_FORMAT_R32_FLOAT;
+		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srv_desc.Texture2D.MipLevels = -1;
+
+		new_desc.viewDesc = &srv_desc;
+	}
+
+	return m_Device.CreateTextureView(inTexture, new_desc);
+}
+
+
+template<typename T>
+const T& RenderGraph::AddGraphicsPass(const std::string& inName, Device& inDevice, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute) {
+	auto& pass = m_RenderPasses.emplace_back(std::make_unique<GraphicsRenderPass<T>>(inDevice, inName, inExecute));
+	inSetup(pass.get(), static_cast<RenderPass<T>*>(pass.get())->GetData());
+	return static_cast<RenderPass<T>*>(pass.get())->GetData();
+}
+
+
+template<typename T>
+const T& RenderGraph::AddComputePass(const std::string& inName, Device& inDevice, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute) {
+	auto& pass = m_RenderPasses.emplace_back(std::make_unique<ComputeRenderPass<T>>(inDevice, inName, inExecute));
+	inSetup(pass.get(), static_cast<RenderPass<T>*>(pass.get())->GetData());
+	return static_cast<RenderPass<T>*>(pass.get())->GetData();
+}
+
+
+template<typename T>
+RenderPass<T>* RenderGraph::GetPass() {
+	for (auto& renderpass : m_RenderPasses) {
+		if (auto base = static_cast<RenderPass<T>*>(renderpass.get()))
+			if (base->GetData().GetRTTI() == gGetRTTI<T>())
+				return base;
+	}
+
+	return nullptr;
+}
 
 }

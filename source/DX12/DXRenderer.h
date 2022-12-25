@@ -28,11 +28,12 @@ public:
     void OnRender(Device& inDevice, float inDeltaTime);
     void OnResize(Device& inDevice, const Viewport& inViewport);
 
-    void WaitForIdle(Device& inDevice);
-    void CompileGraph(Device& inDevice, const Scene& inScene, DescriptorID inTLAS);
+    void Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS);
 
     CommandList& StartSingleSubmit();
     void FlushSingleSubmit(Device& inDevice, CommandList& inCommandList);
+    
+    void WaitForIdle(Device& inDevice);
 
     const RenderGraph&  GetGraph()              { return m_RenderGraph; }
     BackBufferData&     GetBackBufferData()     { return m_BackBufferData[m_FrameIndex];  }
@@ -40,10 +41,10 @@ public:
 
 public:
     static constexpr uint32_t sFrameCount = 2;
+    static constexpr DXGI_FORMAT sSwapchainFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
 
 private:
     uint32_t                m_FrameIndex;
-    TextureID               m_ImGuiFontTexture;
     ComPtr<ID3D12Fence>     m_Fence;
     ComPtr<IDXGISwapChain3> m_Swapchain;
     HANDLE                  m_FenceEvent;
@@ -153,8 +154,8 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice,
 /// Note: the ImGui init and render functions really don't like being put in the RenderGraph (capturing lambdas) so manual functions are provided.
 ////////////////////////////////////////
 
-/* Initializes ImGui and returns the font texture ID. inRenderGraph must have a valid backbuffer set! */
-[[nodiscard]] TextureID InitImGui(RenderGraph& inRenderGraph, Device& inDevice, uint32_t inFrameCount);
+/* Initializes ImGui and returns the font texture ID. */
+[[nodiscard]] TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameCount);
 
 /* Renders ImGui directly to the backbuffer. */
 void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCmdList);

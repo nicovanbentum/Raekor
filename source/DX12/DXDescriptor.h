@@ -4,7 +4,7 @@
 
 namespace Raekor::DX {
 
-class DescriptorHeap : public ResourcePool {
+class DescriptorHeap : public DescriptorPool {
 public:
     void Init(ID3D12Device* inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags);
 

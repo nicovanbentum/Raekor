@@ -48,45 +48,45 @@ void RenderGraph::Clear(Device& inDevice) {
 
 
 bool RenderGraph::Compile(Device& inDevice) {
-	assert(m_BackBuffer.Isvalid());
-
-	////////////////////////
-	// GRAPH VALIDATION
-	// Does not do much at the moment, it validates: 
-	// that we're not doing read_only and read_write for a resource in the same pass.
-	// that we're not creating and reading from a resource in the same pass (I can't think of a use case in favor of allowing it).
-	////////////////////////
+	assert(m_BackBuffer.IsValid());
+/*
+	PASS VALIDATION
+	Does not do much at the moment, it validates: 
+	that we're not doing read_only and read_write for a resource in the same pass.
+	that we're not creating and reading from a resource in the same pass (I can't think of a use case in favor of allowing it).
+*/
 	for (auto& renderpass : m_RenderPasses) {
 		for (const auto& resource : renderpass->m_WrittenTextures) {
 			if (renderpass->IsRead(resource.mCreatedTexture)) {
-				std::cout << std::format("RenderGraph Error: Texture {} is both written to and read from in renderpass {}\n", resource.mCreatedTexture.ToIndex(), renderpass->GetName());
+				std::cout << std::format("RenderGraph Error: Texture {} is both written to and read from in renderpass {}\n", gGetDebugName(inDevice.GetResourcePtr(resource.mCreatedTexture)), renderpass->GetName());
 				return false;
 			}
 		}
 
 		for (const auto& resource : renderpass->m_ReadTextures) {
 			if (renderpass->IsCreated(resource.mCreatedTexture)) {
-				std::cout << std::format("RenderGraph Error: Texture {} is both created and read from in renderpass {}\n", resource.mCreatedTexture.ToIndex(), renderpass->GetName());
+				std::cout << std::format("RenderGraph Error: Texture {} is both created and read from in renderpass {}\n", gGetDebugName(inDevice.GetResourcePtr(resource.mCreatedTexture)), renderpass->GetName());
 				return false;
 			}
 		}
 	}
 
-	////////////////////////
-	// GRAPH CONSTRUCTION
-	// The render graph is structured as follows:
-	// resources like textures and buffers are vertices
-	// Edges go from resources to render passes (which aren't actually vertices, so fake graph theory!)
-	// an edge also describes the state the resource should be in during the corresponding render pass
-	// example:
-	//						 WRITE
-	// GBUFFER_DEPTH_TEXTURE ----> GBUFFER RENDER PASS
-	// 
-	//						 READ
-	// GBUFFER_DEPTH_TEXTURE ----> SHADOW RENDER PASS
-	// 
-	// The order is guaranteed to follow the graph from start to finish as we linearly loop through it, there's no pass re-ordering.
-	////////////////////////
+/*
+	GRAPH CONSTRUCTION
+	The render graph is structured as follows:
+	resources like textures and buffers are vertices
+	Edges go from vertices to render passes (which aren't also  vertices, so fake graph theory!)
+	an edge also describes the state the resource should be in during the corresponding render pass
+	example:
+							RENDER TARGET
+	GBUFFER_DEPTH_TEXTURE ------edge------> GBUFFER RENDER PASS
+		
+		
+							SHADER READ ONLY
+	GBUFFER_DEPTH_TEXTURE ------edge------> SHADOW RENDER PASS
+		
+	The order of the node's edge array is guaranteed to follow the graph from start to finish as we linearly loop through it, there's no pass re-ordering.
+*/
 	struct GraphEdge {
 		Texture::Usage mUsage;
 		uint32_t mRenderPassIndex;
@@ -102,29 +102,28 @@ bool RenderGraph::Compile(Device& inDevice) {
 		for (const auto& resource : renderpass->m_WrittenTextures) {
 			auto& node = graph[resource.mCreatedTexture];
 			const auto usage = inDevice.GetTexture(resource.mResourceTexture).GetDesc().usage;
-			node.mEdges.emplace_back(GraphEdge{ .mUsage = usage, .mRenderPassIndex = uint32_t(renderpass_index) });
+			node.mEdges.emplace_back(GraphEdge { .mUsage = usage, .mRenderPassIndex = uint32_t(renderpass_index) });
 		}
 
 		for (const auto& resource : renderpass->m_ReadTextures) {
 			auto& node = graph[resource.mCreatedTexture];
 			const auto usage = inDevice.GetTexture(resource.mResourceTexture).GetDesc().usage;
-			node.mEdges.emplace_back(GraphEdge{ .mUsage = usage, .mRenderPassIndex = uint32_t(renderpass_index) });
+			node.mEdges.emplace_back(GraphEdge { .mUsage = usage, .mRenderPassIndex = uint32_t(renderpass_index) });
 		}
 	}
 
-	////////////////////////
-	// BARRIER GENERATION
-	// The state tracking algorithm here is quite dumb:
-	// 
-	// Go through all the resources in the graph.
-	// if a resource has 1 edge the initial state should match the edge state, no barriers needed. TODO: add validation for single edge case.
-	// else loop linearly through all the edges, if state changes look up the previous edge's render pass and add an end-of render pass barrier.
-	// at the end of the loop we're left with the resource's final state for the graph
-	// if final state differs from the state in which it was created, add a begin-of render pass barrier (which are skipped the first frame).
-	// 
-	// TODO: Ideally we refactor this to use aliasing as that would reset the state of the resource, so we wouldn't need the begin-of render pass barriers.
-	////////////////////////
-
+/*
+	BARRIER GENERATION
+	The state tracking algorithm here is quite dumb:
+	
+	Go through all the resources in the graph.
+	if a resource has 1 edge the initial state should match the edge state, no barriers needed. TODO: add validation for this single edge case.
+	else loop linearly through all the edges, if state changes look up the previous edge's render pass and add an end-of render pass barrier.
+	at the end of the loop we're left with the resource's final state for the graph
+	if final state differs from the state in which it was created, add a begin-of render pass barrier to the pass that creates it. These barriers are skipped the first frame.
+	
+	TODO: Ideally we refactor this to use aliasing as that would reset the state of the resource, so we wouldn't need the begin-of render pass barriers.
+*/
 	for (const auto& [resource_id, node] : graph) {
 		if (node.mEdges.size() < 2)
 			continue;
@@ -141,7 +140,6 @@ bool RenderGraph::Compile(Device& inDevice) {
 
 			prev_pass->AddExitBarrier(ResourceBarrier {
 				.mTexture = resource_id,
-				.mDebugName = GetDebugName(inDevice.GetResourcePtr(resource_id)),
 				.mBarrier = D3D12_RESOURCE_BARRIER {
 					.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
 					.Transition = D3D12_RESOURCE_TRANSITION_BARRIER {
@@ -166,7 +164,6 @@ bool RenderGraph::Compile(Device& inDevice) {
 
 			pass->AddEntryBarrier(ResourceBarrier {
 				.mTexture = resource_id,
-				.mDebugName = GetDebugName(inDevice.GetResourcePtr(resource_id)),
 				.mBarrier = D3D12_RESOURCE_BARRIER {
 					.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
 					.Transition = D3D12_RESOURCE_TRANSITION_BARRIER {
@@ -214,13 +211,13 @@ void IRenderPass::SetRenderTargets(Device& inDevice, CommandList& inCmdList) con
 				rtv_handles[rtv_handle_count++] = rtv_heap.GetCPUDescriptorHandle(texture.GetView());
 			} break;
 			case Texture::DEPTH_STENCIL_TARGET: {
-				assert(!dsv_descriptor.Isvalid()); // if you define multiple depth targets for a renderpass you're going to have a bad time, mmkay
+				assert(!dsv_descriptor.IsValid()); // if you define multiple depth targets for a renderpass you're going to have a bad time, mmkay
 				dsv_descriptor = texture.GetView();
 			} break;
 		}
 	}
 
-	if (dsv_descriptor.Isvalid()) {
+	if (dsv_descriptor.IsValid()) {
 		auto dsv_handle = dsv_heap.GetCPUDescriptorHandle(dsv_descriptor);
 		inCmdList->OMSetRenderTargets(rtv_handle_count, rtv_handles.data(), FALSE, &dsv_handle);
 	}
@@ -236,7 +233,7 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, bool isFirst
 	for (const auto& renderpass : m_RenderPasses) {
 		PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>(inCmdList), PIX_COLOR(0, 255, 0), renderpass->GetName().c_str());
 
-		if (renderpass->GetRenderPassType() == RenderPassType::GRAPHICS_PASS)
+		if (renderpass->IsGraphics())
 			renderpass->SetRenderTargets(inDevice, inCmdList);
 
 		if (!isFirstFrame)
@@ -261,7 +258,7 @@ void RenderGraph::SetBackBuffer(TextureID inTexture) {
 
 
 
-std::string RenderGraph::GetGraphViz(const Device& inDevice) const {
+std::string RenderGraph::ToGraphVizText(const Device& inDevice) const {
 	auto ofs = std::stringstream();
 	ofs << R"(digraph G {
 bgcolor="#181A1B"
@@ -292,10 +289,10 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 	/* Stringify the graph logic, basically all the connections e.g "pass" -> "write1" */
 	for (const auto& pass : m_RenderPasses) {
 		for (const auto& resource : pass->m_WrittenTextures)
-			ofs << '\"' << pass->GetName() << "\" -> \"" << GetDebugName(inDevice.GetTexture(resource.mCreatedTexture).GetResource().Get()) << "\" [color=\"red\"][penwidth=3]\n";
+			ofs << '\"' << pass->GetName() << "\" -> \"" << gGetDebugName(inDevice.GetTexture(resource.mCreatedTexture).GetResource().Get()) << "\" [color=\"red\"][penwidth=3]\n";
 
 		for (const auto& resource : pass->m_ReadTextures)
-			ofs << '\"' << GetDebugName(inDevice.GetTexture(resource.mCreatedTexture).GetResource().Get()) << "\" -> \"" << pass->GetName() << "\" [color=\"green\"][penwidth=3]\n";
+			ofs << '\"' << gGetDebugName(inDevice.GetTexture(resource.mCreatedTexture).GetResource().Get()) << "\" -> \"" << pass->GetName() << "\" [color=\"green\"][penwidth=3]\n";
 	}
 
 	/* Stringify final groupings, e.g. "pass" -> {"write1" "write2" "write3" } */

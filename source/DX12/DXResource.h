@@ -4,10 +4,11 @@
 
 namespace Raekor::DX {
 
-using ResourceRef		= ComPtr<ID3D12Resource>;
-using AllocationRef		= ComPtr<D3D12MA::Allocation>;
-using DescriptorID		= RTID<ResourceRef>;
-using ResourcePool		= FreeVector<ResourceRef>;
+using ResourceRef	 = ComPtr<ID3D12Resource>;
+using AllocationRef	 = ComPtr<D3D12MA::Allocation>;
+
+using DescriptorPool = FreeVector<ResourceRef>;
+using DescriptorID	 = DescriptorPool::ID;
 
 class Texture {
 	friend class Device;
@@ -98,11 +99,16 @@ private:
 	AllocationRef m_Allocation = nullptr;
 };
 
+
 using BufferID = Buffer::Pool::ID;
 using TextureID = Texture::Pool::ID;
 
 
 D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage);
 D3D12_RESOURCE_STATES gGetResourceStates(Texture::Usage inUsage);
+
+
+D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Buffer::Usage inUsage);
+D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage);
 
 }

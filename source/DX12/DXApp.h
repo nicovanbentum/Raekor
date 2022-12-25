@@ -41,6 +41,7 @@ private:
 
     Device m_Device;
     Renderer m_Renderer;
+    TextureID m_ImGuiFontTextureID;
 
     StagingHeap m_StagingHeap;
     ComPtr<IDXGISwapChain3> m_Swapchain;

@@ -177,7 +177,7 @@ private:
 template<typename T>
 class RTID {
 public:
-    static inline uint32_t INVALID = UINT32_MAX;
+    static inline uint32_t INVALID = 0xFFFFF;
 
     RTID() : index(INVALID) {}
     explicit RTID(uint32_t inIndex) : index(inIndex) {}
@@ -185,11 +185,12 @@ public:
     bool operator==(const RTID<T>& inOther) const { return ToIndex() == inOther.ToIndex(); }
     bool operator!=(const RTID<T>& inOther) const { return ToIndex() != inOther.ToIndex(); }
 
-    uint32_t ToIndex() const { return index; }
-    [[nodiscard]] bool Isvalid() const { return index != INVALID; }
+    inline uint32_t ToIndex() const { return index; }
+    [[nodiscard]] bool IsValid() const { return index != INVALID; }
 
 private:
-    uint32_t index;
+    uint32_t index : 20;
+    uint32_t generation : 12;
 };
 
 
@@ -219,6 +220,10 @@ public:
         if (inID.ToIndex() > m_Storage.size() - 1)
             return false;
 
+        for (auto free_index : m_FreeIndices)
+            if (free_index == inID.ToIndex())
+                return false;
+
         m_FreeIndices.push_back(inID.ToIndex());
         return true;
     }
@@ -234,8 +239,9 @@ public:
     }
 
 private:
-    std::vector<T> m_Storage;
+    std::vector<uint16_t> m_Generations;
     std::vector<size_t> m_FreeIndices;
+    std::vector<T> m_Storage;
 };
 
 
@@ -263,7 +269,6 @@ constexpr auto gEnumerate(T&& iterable)
 }
 
 #define gWarn(inStr) std::cout << "Warning in File " << __FILE__ << " at Line " << __LINE__ << " from function " << __FUNCTION__ << ": " << inStr << '\n';
-
 
 } // Namespace Raekor
 

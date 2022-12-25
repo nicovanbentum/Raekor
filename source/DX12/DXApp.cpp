@@ -31,6 +31,8 @@ DXApp::DXApp() :
     ImGui::GetIO().IniFilename = "";
     GUI::SetTheme(m_Settings.themeColors);
 
+    m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, Renderer::sFrameCount);
+
     while (!FileSystem::exists(m_Settings.defaultScene))
         m_Settings.defaultScene = FileSystem::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
 
@@ -71,7 +73,7 @@ DXApp::DXApp() :
 
     UploadBvhToGPU();
 
-    m_Renderer.CompileGraph(m_Device, m_Scene, m_TLAS);
+    m_Renderer.Recompile(m_Device, m_Scene, m_TLAS);
 
     std::cout << "Render Size: " << m_Viewport.size.x << " , " << m_Viewport.size.y << '\n';
 }
@@ -79,6 +81,7 @@ DXApp::DXApp() :
 
 DXApp::~DXApp() {
     m_Renderer.WaitForIdle(m_Device);
+    m_Device.ReleaseTextureImmediate(m_ImGuiFontTextureID);
 }
 
 
@@ -110,7 +113,7 @@ void DXApp::OnUpdate(float inDeltaTime) {
 
         if (!file_path.empty()) {
             auto ofs = std::ofstream(file_path);
-            ofs << m_Renderer.GetGraph().GetGraphViz(m_Device);
+            ofs << m_Renderer.GetGraph().ToGraphVizText(m_Device);
         }
     }
 
@@ -185,6 +188,7 @@ void DXApp::OnEvent(const SDL_Event& event) {
             SDL_GetWindowSize(m_Window, &w, &h);
             m_Viewport.Resize(glm::uvec2(w, h));
             m_Renderer.OnResize(m_Device, m_Viewport);
+            m_Renderer.Recompile(m_Device, m_Scene, m_TLAS);
         }
     }
 }
@@ -506,7 +510,7 @@ void DXApp::UploadBvhToGPU() {
     auto instance_buffer = m_Device.GetBuffer(m_Device.CreateBuffer(Buffer::Desc{
         .size = instances.size() * sizeof(instances[0]),
         .usage = Buffer::UPLOAD,
-        }));
+    }));
 
     uint8_t* mapped_ptr;
     auto buffer_range = CD3DX12_RANGE(0, 0);

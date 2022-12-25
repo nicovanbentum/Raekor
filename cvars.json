@@ -1,6 +1,13 @@
 {
     "value0": [
         {
+            "key": "r_taa",
+            "value": {
+                "index": 0,
+                "data": 0
+            }
+        },
+        {
             "key": "sensitivity",
             "value": {
                 "index": 1,
@@ -15,14 +22,7 @@
             }
         },
         {
-            "key": "sv_wireframe",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "sv_cheats",
+            "key": "r_voxelize",
             "value": {
                 "index": 0,
                 "data": 0
@@ -33,34 +33,6 @@
             "value": {
                 "index": 0,
                 "data": 0
-            }
-        },
-        {
-            "key": "r_voxelize",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "mat_postprocess_enable",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "r_debugCascades",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "r_lockCascadeRadius",
-            "value": {
-                "index": 0,
-                "data": 1
             }
         },
         {
@@ -75,6 +47,55 @@
             "value": {
                 "index": 3,
                 "data": {}
+            }
+        },
+        {
+            "key": "r_vsync",
+            "value": {
+                "index": 0,
+                "data": 1
+            }
+        },
+        {
+            "key": "r_debug_cascades",
+            "value": {
+                "index": 0,
+                "data": 0
+            }
+        },
+        {
+            "key": "r_disable_timings",
+            "value": {
+                "index": 0,
+                "data": 0
+            }
+        },
+        {
+            "key": "r_paused",
+            "value": {
+                "index": 0,
+                "data": 0
+            }
+        },
+        {
+            "key": "physics_step_enabled",
+            "value": {
+                "index": 0,
+                "data": 0
+            }
+        },
+        {
+            "key": "physics_state",
+            "value": {
+                "index": 0,
+                "data": 0
+            }
+        },
+        {
+            "key": "r_enable_fsr2",
+            "value": {
+                "index": 0,
+                "data": 1
             }
         }
     ]
