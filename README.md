@@ -80,7 +80,13 @@ Older versions of this project contained rasterized experiments with parallel co
 *Path tracer WIP - 8 bounces. Converges in real time when stationary.*
 
 ### DX12
-*Coming Soon(TM)*
+*Currently In-Progress*
+
+Nothing fancy yet, so far its mostly a basic Render Graph (automatically creates resource views and handles resource transitions) on top of DirectX 12. Heavily relies on shader model 6.6 bindless. DirectStorage 1.0 integration. The graph currently describes:
+- Deferred Shading
+- Ray traced hard shadows
+- AMD FSR 2.1
+
 
 ### DX11
 Raekor started out as an experiment on switching between graphics APIs at runtime, which is why you will find a bunch of unfinished DirectX 11. Source only.
