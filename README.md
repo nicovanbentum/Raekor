@@ -76,7 +76,7 @@ Requires Vulkan 1.2 with support for descriptor indexing, device buffer address,
    
 Older versions of this project contained rasterized experiments with parallel command buffer recording, dynamic uniform buffers, and bindless textures.
 
-![image](https://i.imgur.com/0dYlU8P.jpg)
+![image](https://i.imgur.com/S4l11hb.jpg)
 *Path tracer WIP - 8 bounces. Converges in real time when stationary.*
 
 ### DX12
