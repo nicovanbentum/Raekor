@@ -51,31 +51,35 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 
     std::vector<D3D12_ROOT_PARAMETER1> root_params;
 
+    uint32_t cbv_registers = 0, srv_registers = 0, uav_register = 0;
+
     D3D12_ROOT_PARAMETER1 constants_parameter = {};
     constants_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
     constants_parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     constants_parameter.Constants.RegisterSpace = 0;
-    constants_parameter.Constants.ShaderRegister = 0;
+    constants_parameter.Constants.ShaderRegister = cbv_registers++;
     constants_parameter.Constants.Num32BitValues = sMaxRootConstantsSize / sizeof(DWORD);
     root_params.push_back(constants_parameter);
 
     // start at 1 because the index is mapped to the shader registers, where 0 is occupied by constants
-    for (size_t param_index = 1; param_index < EBindSlot::Count; param_index++) {
+    for (size_t bind_slot = 1; bind_slot < EBindSlot::Count; bind_slot++) {
         D3D12_ROOT_PARAMETER1 param = {};
         param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
         param.Descriptor.RegisterSpace = 0;
-        param.Descriptor.ShaderRegister = param_index;
 
-        switch (param_index) {
+        switch (bind_slot) {
             case EBindSlot::CBV0: case EBindSlot::CBV1: case EBindSlot::CBV2: case EBindSlot::CBV3:
-                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; break;
-
+                param.Descriptor.ShaderRegister = cbv_registers++;
+                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; 
+                break;
             case EBindSlot::SRV0: case EBindSlot::SRV1: case EBindSlot::SRV2: case EBindSlot::SRV3:
-                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; break;
-
+                param.Descriptor.ShaderRegister = srv_registers++;
+                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; 
+                break;
             case EBindSlot::UAV0: case EBindSlot::UAV1: case EBindSlot::UAV2: case EBindSlot::UAV3:
-                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; break;
-
+                param.Descriptor.ShaderRegister = uav_register++;
+                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; 
+                break;
             default: assert(false);
         }
 
@@ -122,21 +126,22 @@ BufferID Device::CreateBuffer(const Buffer::Desc& desc, const std::wstring& name
     auto buffer_desc    = D3D12_RESOURCE_DESC(CD3DX12_RESOURCE_DESC::Buffer(desc.size));
 
     switch (desc.usage) {
-        case Buffer::VERTEX_BUFFER : {
+        case Buffer::VERTEX_BUFFER:
             initial_state = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
             buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-        } break;
-        case Buffer::INDEX_BUFFER: {
+            break;
+        case Buffer::INDEX_BUFFER:
             initial_state = D3D12_RESOURCE_STATE_INDEX_BUFFER;
             buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-        } break;
-        case Buffer::UPLOAD: {
+            break;
+        case Buffer::UPLOAD:
+        case Buffer::SHADER_READ_ONLY:
             alloc_desc.HeapType = D3D12_HEAP_TYPE_UPLOAD;
-        } break;
-        case Buffer::ACCELERATION_STRUCTURE: {
+            break;
+        case Buffer::ACCELERATION_STRUCTURE:            
             initial_state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
             buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-        } break;
+            break;
     }
 
     gThrowIfFailed(m_Allocator->CreateResource(
@@ -575,4 +580,28 @@ void StagingHeap::StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef
 }
 
 
+void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity) {
+    m_TotalCapacity = inCapacity;
+
+    m_Buffer = inDevice.CreateBuffer(Buffer::Desc{
+        .size = inCapacity,
+        .usage = Buffer::Usage::UPLOAD
+    });
+
+    auto buffer_range = CD3DX12_RANGE(0, 0);
+    gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, &buffer_range, reinterpret_cast<void**>(&m_DataPtr)));
 }
+
+
+void RingAllocator::DestroyBuffer(Device& inDevice) {
+    if (!m_Buffer.IsValid())
+        return;
+
+    auto& buffer = inDevice.GetBuffer(m_Buffer);
+
+    buffer->Unmap(0, nullptr);
+
+    inDevice.ReleaseBuffer(m_Buffer);
+}
+
+} // namespace::Raekor

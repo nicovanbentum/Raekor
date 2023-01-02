@@ -74,6 +74,23 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice,
 
 
 ////////////////////////////////////////
+/// Grass Pass
+////////////////////////////////////////
+struct GrassData {
+    RTTI_CLASS_HEADER(GrassData);
+
+    BufferID mPerBladeIndexBuffer;
+    TextureResource mDepthTexture;
+    TextureResource mRenderTexture;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, 
+    const GBufferData& inGBufferData
+);
+
+
+////////////////////////////////////////
 /// Ray-traced Shadow Mask Render Pass
 ////////////////////////////////////////
 struct ShadowMaskData {
@@ -107,6 +124,7 @@ struct LightingData {
 };
 
 const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, 
+    const Scene& inScene,
     const GBufferData& inGBufferData, 
     const ShadowMaskData& inShadowMaskData
 );

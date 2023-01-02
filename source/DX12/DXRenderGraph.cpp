@@ -28,9 +28,13 @@ bool IRenderPass::IsCreated(TextureID inTexture) {
 }
 
 
-RenderGraph::RenderGraph(Device& inDevice, const Viewport& inViewport) : 
-	m_Viewport(inViewport)
+RenderGraph::RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t inFrameCount) : 
+	m_Viewport(inViewport),
+	m_FrameCount(inFrameCount)
 {}
+
+
+RenderGraph::~RenderGraph() {}
 
 
 void RenderGraph::Clear(Device& inDevice) {
@@ -44,6 +48,8 @@ void RenderGraph::Clear(Device& inDevice) {
 	}
 
 	m_RenderPasses.clear();
+	m_PerPassAllocator.DestroyBuffer(inDevice);
+	m_PerFrameAllocator.DestroyBuffer(inDevice);
 }
 
 
@@ -176,6 +182,13 @@ bool RenderGraph::Compile(Device& inDevice) {
 		}
 	}
 
+	auto total_constants_size = 0;
+	for (const auto& pass : m_RenderPasses)
+		total_constants_size += pass->m_ConstantsSize;
+
+	m_PerPassAllocator.CreateBuffer(inDevice, total_constants_size * sFrameCount);
+	m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants) * sFrameCount);
+
 	return true;
 }
 	
@@ -227,8 +240,10 @@ void IRenderPass::SetRenderTargets(Device& inDevice, CommandList& inCmdList) con
 
 
 	
-void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, bool isFirstFrame) {
+void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inFrameCounter) {
 	inDevice.BindDrawDefaults(inCmdList);
+	inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::SRV0, m_PerFrameAllocatorOffset);
+	inCmdList.BindToSlot(inDevice.GetBuffer(m_PerPassAllocator.GetBuffer()),  EBindSlot::SRV1);
 
 	for (const auto& renderpass : m_RenderPasses) {
 		PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>(inCmdList), PIX_COLOR(0, 255, 0), renderpass->GetName().c_str());
@@ -236,7 +251,7 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, bool isFirst
 		if (renderpass->IsGraphics())
 			renderpass->SetRenderTargets(inDevice, inCmdList);
 
-		if (!isFirstFrame)
+		if (inFrameCounter > 0)
 			renderpass->FlushBarriers(inDevice, inCmdList, renderpass->m_EntryBarriers);
 
 		renderpass->Execute(inCmdList);

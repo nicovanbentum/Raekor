@@ -8,7 +8,7 @@
 namespace Raekor::DX {
 
 Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow) : 
-    m_RenderGraph(inDevice, inViewport) 
+    m_RenderGraph(inDevice, inViewport, sFrameCount) 
 {
     DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {};
     swapchainDesc.BufferCount = sFrameCount;
@@ -74,13 +74,18 @@ void Renderer::OnRender(Device& inDevice, float inDeltaTime) {
         WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
     }
 
-    backbuffer_data.mCmdList.Reset();
-
+    // Update any per pass data
     if (auto fsr_pass = m_RenderGraph.GetPass<FSR2Data>())
         fsr_pass->GetData().mDeltaTime = inDeltaTime;
 
+    // Reset the command list
+    backbuffer_data.mCmdList.Reset();
+
+    // Update the render graph's internal backbuffer reference
     m_RenderGraph.SetBackBuffer(backbuffer_data.mBackBuffer);
-    m_RenderGraph.Execute(inDevice, backbuffer_data.mCmdList, m_FrameCounter == 0);
+
+    m_RenderGraph.Execute(inDevice, backbuffer_data.mCmdList, m_FrameCounter);
+
     RenderImGui(m_RenderGraph, inDevice, backbuffer_data.mCmdList);
 
     backbuffer_data.mCmdList.Close();
@@ -123,13 +128,18 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
     m_RenderGraph.SetBackBuffer(GetBackBufferData().mBackBuffer);
 
     const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
+
+    const auto& grass_data   = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
+    
     const auto& shadow_data  = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data, inTLAS);
-    const auto& light_data   = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data);
+    
+    const auto& light_data   = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_data, shadow_data);
     
     auto compose_input = light_data.mOutputTexture;
 
-    if (m_Settings.mEnableFsr2)
+    if (m_Settings.mEnableFsr2) {
         compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+    }
 
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, compose_input);
 
@@ -174,6 +184,7 @@ void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList) {
 
 
 RTTI_CLASS_CPP(GBufferData)	    {}
+RTTI_CLASS_CPP(GrassData)       {}
 RTTI_CLASS_CPP(ShadowMaskData)  {}
 RTTI_CLASS_CPP(LightingData)    {}
 RTTI_CLASS_CPP(FSR2Data)        {}
@@ -215,10 +226,22 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "gbufferVS", "gbufferPS");
         inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
-    },
+        },
 
     [&](GBufferData& inData, CommandList& inCmdList)
     {
+        const auto& camera = inRenderGraph.GetViewport().GetCamera();
+
+        auto frame_constants = FrameConstants{};
+        frame_constants.mSunDirection = glm::vec4(inScene.GetSunLightDirection(), 0.0f);
+        frame_constants.mCameraPosition = glm::vec4(camera.GetPosition(), 1.0f);
+        frame_constants.mViewMatrix = camera.GetView();
+        frame_constants.mProjectionMatrix = camera.GetProjection();
+        frame_constants.mViewProjectionMatrix = camera.GetProjection() * camera.GetView();
+        frame_constants.mInvViewProjectionMatrix = glm::inverse(camera.GetProjection() * camera.GetView());
+
+        inRenderGraph.GetPerFrameAllocator().AllocAndCopy(frame_constants, inRenderGraph.GetPerFrameAllocatorOffset());
+
         const auto& viewport = inRenderGraph.GetViewport();
         inCmdList.SetViewportScissorRect(viewport);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
@@ -230,7 +253,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->ClearDepthStencilView(inDevice.GetHeapPtr(inData.mDepthTexture), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 1, &clear_rect);
 
         auto root_constants = GbufferRootConstants{};
-        root_constants.mViewProj = viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView();
+        root_constants.mViewProj = viewport.GetCamera().GetProjection()  * viewport.GetCamera().GetView();
         inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(GbufferRootConstants) / sizeof(DWORD), &root_constants, 0);
 
         for (const auto& [entity, mesh] : inScene.view<Mesh>().each()) {
@@ -300,26 +323,11 @@ const ShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDe
         root_constants.mTextures.w = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure);
 
         auto& vp = inRenderGraph.GetViewport();
-        root_constants.invViewProj = glm::inverse(vp.GetCamera().GetProjection() * vp.GetCamera().GetView());
-        root_constants.mDispatchSize = vp.size;
+        root_constants.invViewProj   = glm::inverse(vp.GetCamera().GetProjection() * vp.GetCamera().GetView());
+        root_constants.mLightDir     = glm::vec4(inScene.GetSunLightDirection(), 0);
+        
         root_constants.mFrameCounter++;
-
-        auto lightView = inScene.view<const DirectionalLight, const Transform>();
-        auto lookDirection = glm::vec3(0.25f, -0.9f, 0.0f);
-
-        // TODO: BUGGED?
-        if (lightView.begin() != lightView.end()) {
-            const auto& lightTransform = lightView.get<const Transform>(lightView.front());
-            lookDirection = static_cast<glm::quat>(lightTransform.rotation) * lookDirection;
-        }
-        else {
-            // we rotate default light a little or else we get nan values in our view matrix
-            lookDirection = static_cast<glm::quat>(glm::vec3(glm::radians(15.0f), 0, 0)) * lookDirection;
-        }
-
-        lookDirection = glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
-
-        root_constants.mLightDir = glm::vec4(lookDirection, 0);
+        root_constants.mDispatchSize = vp.size;
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList->SetComputeRoot32BitConstants(0, sizeof(ShadowMaskRootConstants) / sizeof(DWORD), &root_constants, 0);
@@ -329,7 +337,33 @@ const ShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, const ShadowMaskData& inShadowMaskData) {
+const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, const GBufferData& inGBufferData)
+{
+    return inGraph.AddGraphicsPass<GrassData>("GRASS DRAW PASS", inDevice,
+    [&](IRenderPass* inRenderPass, GrassData& inData)
+    {
+        inData.mDepthTexture  = inRenderPass->Write(inGBufferData.mDepthTexture);
+        inData.mRenderTexture = inRenderPass->Write(inGBufferData.mRenderTexture);
+
+        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "GrassRenderVS", "GrassRenderPS");
+        state.InputLayout = {};
+        state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+        inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+    },
+    [&](GrassData& inData, CommandList& inCmdList)
+    {
+        const auto blade_vertex_count = 15;
+
+        inCmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->DrawInstanced(blade_vertex_count, 1, 0, 0);
+    });
+}
+
+
+
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, const GBufferData& inGBufferData, const ShadowMaskData& inShadowMaskData) {
     return inRenderGraph.AddGraphicsPass<LightingData>("LIGHT PASS", inDevice,
     [&](IRenderPass* inRenderPass, LightingData& inData)
     {
@@ -353,10 +387,12 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
         inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+
+        inRenderPass->ReserveMemory(sizeof(FrameConstants));
     },
     [&](LightingData& inData, CommandList& inCmdList)
     {
-        LightingRootConstants root_constants = {};
+        auto root_constants = LightingRootConstants{};
         root_constants.mShadowMaskTexture      = inData.mShadowMaskTexture.GetBindlessIndex(inDevice);
         root_constants.mGbufferDepthTexture    = inData.mGBufferDepthTexture.GetBindlessIndex(inDevice);
         root_constants.mGbufferRenderTexture   = inData.mGBufferRenderTexture.GetBindlessIndex(inDevice);
@@ -387,6 +423,8 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, FfxFsr2
         inData.mColorTexture        = inRenderPass->Read(inColorTexture);
         inData.mDepthTexture        = inRenderPass->Read(inGBufferData.mDepthTexture);
         inData.mMotionVectorTexture = inRenderPass->Read(inGBufferData.mMotionVectorTexture);
+
+        inRenderPass->SetExternal(true);
     },
 
     [&](FSR2Data& inData, CommandList& inCmdList)

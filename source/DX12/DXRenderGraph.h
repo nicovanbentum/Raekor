@@ -53,13 +53,17 @@ public:
 
 	/* Tell the graph that inTexture was created this render pass. */
 	virtual void Create(TextureID inTexture) = 0;
+	
 	/* Tell the graph that inTexture will be read this render pass. The graph will create resource views and add barriers for it. */
 	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) = 0;
+	
 	/* Tell the graph that inTexture will be written to this render pass. The graph will create resource views and add barriers for it. 
 	If it's a graphics pass, the graph will automatically deduce render/depth targets and bind them. */
 	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) = 0;
+	
 	/* Tell the graph that inTexture will be read this render pass. The graph will create resource views and add barriers for it. */
 	[[nodiscard]] TextureResource Read(TextureResource inTexture)  { return Read(inTexture.mCreatedTexture);  }
+	
 	/* Tell the graph that inTexture will be written to this render pass. The graph will create resource views and add barriers for it.
 	If it's a graphics pass, the graph will automatically deduce render/depth targets and bind them. */
 	[[nodiscard]] TextureResource Write(TextureResource inTexture) { return Write(inTexture.mCreatedTexture); }
@@ -67,6 +71,12 @@ public:
 	bool IsRead(TextureID inTexture);
 	bool IsWritten(TextureID inTexture);
 	bool IsCreated(TextureID inTexture);
+
+	bool IsExternal() const			{ return m_IsExternal; }
+	void SetExternal(bool inValue)	{ m_IsExternal = inValue; }
+
+	/* Reserve memory in the frame-based ring allocator. The render graph uses this reserved size to pre-allocate the ring buffer. */
+	void ReserveMemory(uint32_t inSize) { m_ConstantsSize += inSize; }
 
 	/* AddExitBarrier is exposed to the user to add manual barriers around resources they have no control over (external code like FSR2). 
 	D3D12_RESOURCE_TRANSITION_BARRIER::StateAfter could be overwritten by the graph if it finds a better match during graph compilation. */
@@ -81,6 +91,8 @@ private:
 
 protected:
 	std::string					  m_Name;
+	uint32_t					  m_ConstantsSize = 0;
+	bool						  m_IsExternal = false;
 
 	std::vector<TextureResource>  m_ReadTextures;
 	std::vector<TextureResource>  m_WrittenTextures;
@@ -166,7 +178,8 @@ private:
 
 class RenderGraph {
 public:
-	RenderGraph(Device& inDevice, const Viewport& inViewport);
+	RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t inFrameCount);
+	~RenderGraph();
 
 	template<typename T>
 	const T& AddGraphicsPass(const std::string& inName, Device& inDevice, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
@@ -184,7 +197,7 @@ public:
 	bool Compile(Device& inDevice);
 
 	/* Execute the entire graph into inCmdList. inCmdList should be open (.Begin() called) already. */
-	void Execute(Device& inDevice, CommandList& inCmdList, bool isFirstFrame);
+	void Execute(Device& inDevice, CommandList& inCmdList, uint64_t inFrameCounter);
 
 	/* Sets the active backbuffer. Call this once before adding any passes and once every frame!! TODO: external resource tracking functionality. */
 	void SetBackBuffer(TextureID inTexture);
@@ -192,15 +205,22 @@ public:
 	/* Dump the entire graph to GraphViz text, can be written directly to a file and opened using the Visual Studio Code extension. */
 	std::string	ToGraphVizText(const Device& inDevice) const;
 
-	TextureID GetBackBuffer() const { return m_BackBuffer; }
+	const Viewport&	GetViewport() const		{ return m_Viewport; }
+	TextureID		GetBackBuffer() const	{ return m_BackBuffer; }
 
-	const Viewport&	GetViewport() const { return m_Viewport; }
+	uint32_t& GetPerFrameAllocatorOffset()  { return m_PerFrameAllocatorOffset; }
+	RingAllocator&  GetPerPassAllocator()	{ return m_PerPassAllocator; }
+	RingAllocator&  GetPerFrameAllocator()	{ return m_PerFrameAllocator; }
 
 private:
-	const Viewport& m_Viewport;
-
 	TextureID m_BackBuffer;
-	BufferID  m_FrameConstantsBuffer;
+	const Viewport& m_Viewport;
+	const uint32_t m_FrameCount;
+
+	uint32_t m_PerFrameAllocatorOffset = 0;
+	RingAllocator m_PerFrameAllocator;
+	RingAllocator m_PerPassAllocator;
+	
 	std::vector<std::unique_ptr<IRenderPass>> m_RenderPasses;
 };
 

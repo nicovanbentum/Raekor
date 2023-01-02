@@ -4,6 +4,7 @@
 *.exe
 *.spv
 *.sln
+*.pdb
 *.log
 *.user
 *.cmake

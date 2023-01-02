@@ -84,6 +84,7 @@ public:
 
 	Buffer() = default;
 	Buffer(const Desc& inDesc) : m_Desc(inDesc) {}
+	~Buffer() { if (m_MappedPtr) m_Resource->Unmap(0, nullptr); }
 
 	const Desc& GetDesc() const { return m_Desc; }
 	DescriptorID GetView() const { return m_View; }
@@ -94,6 +95,7 @@ public:
 
 private:
 	Desc m_Desc = {};
+	void* m_MappedPtr = nullptr;
 	DescriptorID m_View;
 	ResourceRef m_Resource = nullptr;
 	AllocationRef m_Allocation = nullptr;
@@ -111,4 +113,6 @@ D3D12_RESOURCE_STATES gGetResourceStates(Texture::Usage inUsage);
 D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Buffer::Usage inUsage);
 D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage);
 
-}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+} // namespace::Raekor

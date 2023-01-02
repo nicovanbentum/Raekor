@@ -21,8 +21,6 @@ class DXApp : public Application {
     using ShaderLibrary = std::unordered_map<std::string, ComPtr<IDxcBlob>>;
 
 public:
-    static constexpr uint32_t sFrameCount = 2;
-
     DXApp();
     ~DXApp();
 
@@ -36,24 +34,24 @@ public:
     DescriptorID QueueDirectStorageLoad(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat);
 
 private:
-    Scene m_Scene;
+    Scene  m_Scene;
     Assets m_Assets;
 
-    Device m_Device;
-    Renderer m_Renderer;
+    Device    m_Device;
+    Renderer  m_Renderer;
     TextureID m_ImGuiFontTextureID;
 
-    StagingHeap m_StagingHeap;
+    StagingHeap             m_StagingHeap;
     ComPtr<IDXGISwapChain3> m_Swapchain;
-    ComPtr<IDStorageQueue> m_StorageQueue;
+    ComPtr<IDStorageQueue>  m_StorageQueue;
 
-    DescriptorID m_TLAS;
+    DescriptorID  m_TLAS;
     ShaderLibrary m_Shaders;
-    DescriptorID m_DefaultWhiteTexture;
-    DescriptorID m_DefaultBlackTexture;
+    DescriptorID  m_DefaultWhiteTexture;
+    DescriptorID  m_DefaultBlackTexture;
 };
 
-
+/* Runtime ECS component to attach acceleration structures to entities. */
 struct AccelerationStructure {
     BufferID buffer;
 };

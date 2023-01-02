@@ -33,12 +33,12 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     Texture2D<float4> material_texture = ResourceDescriptorHeap[root_constants.textures.z];
     
     float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
-    float4 sampled_normal = normal_texture.Sample(SamplerPointWrap, input.texcoord);
-    float4 sampled_material = material_texture.Sample(SamplerPointWrap, input.texcoord);
+    float4 sampled_normal = normal_texture.Sample(SamplerAnisoWrap, input.texcoord);
+    float4 sampled_material = material_texture.Sample(SamplerAnisoWrap, input.texcoord);
 
     float3x3 TBN = transpose(float3x3(input.tangent, input.bitangent, input.normal));
     float3 normal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
-    normal = normalize(input.normal);
+    //normal = normalize(input.normal);
 
     float4 albedo = root_constants.albedo * sampled_albedo;
     float metalness = root_constants.properties.x * sampled_material.b;

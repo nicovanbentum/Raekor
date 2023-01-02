@@ -23,12 +23,12 @@ public:
 	void Begin();
 	void Close();
 
+	void Push();
+	void Pop();
+
 	/* Resource API. Typically used for updating resources that are in GPU memory. */
 	void UpdateBuffer(Buffer& inDstBuffer, uint32_t inDstOffset, uint32_t inDstSize, void* inDataPtr);
 	void UpdateTexture(Texture& inDstTexture, uint32_t inDstMip, void* inDataPtr);
-
-	void ClearBuffer(float inValue);
-	void Cleartexture(const glm::vec4& inColor);
 
 	/* Execute API. */
 	void Draw();
@@ -42,16 +42,16 @@ public:
 	}
 
 	/* Only buffers are allowed to be used as root descriptor. */
-	void BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset);
+	void BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset = 0);
 
 	/* Sets both the viewport and scissor to the size defined by inViewport. */
 	void SetViewportScissorRect(const Viewport& inViewport);
 
+	void Submit(Device& inDevice);
+
 private:
 	uint32_t m_CurrentCmdListIndex = 0;
 	ComPtr<ID3D12Fence> m_Fence = nullptr;
-
-	std::vector<ResourceRef> m_ResourcesInUse;
 	std::vector<ComPtr<ID3D12GraphicsCommandList4>> m_CommandLists;
 	std::vector<ComPtr<ID3D12CommandAllocator>> m_CommandAllocators;
 };

@@ -27,14 +27,20 @@ void CommandList::Close() {
 	gThrowIfFailed(cmd_list->Close());
 }
 
+void CommandList::Push() {
+
+}
+
+void CommandList::Pop() {
+
+}
+
 
 void CommandList::UpdateBuffer(Buffer& inDstBuffer, uint32_t inDstOffset, uint32_t inDstSize, void* inDataPtr) {
-	m_ResourcesInUse.push_back(inDstBuffer.GetResource());
 }
 
 
 void CommandList::UpdateTexture(Texture& inDstTexture, uint32_t inDstMip, void* inDataPtr) {
-	m_ResourcesInUse.push_back(inDstTexture.GetResource());
 }
 
 
@@ -51,8 +57,6 @@ void CommandList::DispatchRays(uint32_t inSizeX, uint32_t inSizeY) {
 
 
 void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset) {
-	m_ResourcesInUse.push_back(inBuffer.GetResource());
-
 	auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
 
 	switch (inSlot) {

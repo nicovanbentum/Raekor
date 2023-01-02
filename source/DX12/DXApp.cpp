@@ -31,7 +31,7 @@ DXApp::DXApp() :
     ImGui::GetIO().IniFilename = "";
     GUI::SetTheme(m_Settings.themeColors);
 
-    m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, Renderer::sFrameCount);
+    m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
 
     while (!FileSystem::exists(m_Settings.defaultScene))
         m_Settings.defaultScene = FileSystem::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
@@ -88,6 +88,8 @@ DXApp::~DXApp() {
 void DXApp::OnUpdate(float inDeltaTime) {
     m_Viewport.OnUpdate(inDeltaTime);
 
+    m_Scene.UpdateLights();
+
     GUI::BeginFrame();
     ImGui_ImplDX12_NewFrame();
 
@@ -118,7 +120,7 @@ void DXApp::OnUpdate(float inDeltaTime) {
     }
 
     ImGui::End();
-
+    /*
     ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
     ImGuizmo::SetRect(0, 0, float(m_Viewport.size.x), float(m_Viewport.size.y));
 
@@ -134,7 +136,8 @@ void DXApp::OnUpdate(float inDeltaTime) {
 
         if (manipulated)
             sun_transform.Decompose();
-    }
+    } 
+    */
 
     GUI::EndFrame();
 
@@ -211,7 +214,7 @@ void DXApp::CompileShaders() {
         if (file.is_directory() || file.path().extension() != ".hlsl")
             continue;
 
-        //Async::sQueueJob([=]() {
+        Async::sQueueJob([=]() {
         const auto name = file.path().stem().string();
         auto type = name.substr(name.size() - 2, 2);
         std::transform(type.begin(), type.end(), type.begin(), tolower);
@@ -253,6 +256,9 @@ void DXApp::CompileShaders() {
         arguments.push_back(L"-I");
         arguments.push_back(L"assets/system/shaders/DirectX");
 
+        arguments.push_back(L"-HV");
+        arguments.push_back(L"2021");
+
         DxcBuffer sourceBuffer;
         sourceBuffer.Ptr = blob->GetBufferPointer();
         sourceBuffer.Size = blob->GetBufferSize();
@@ -264,8 +270,10 @@ void DXApp::CompileShaders() {
         ComPtr<IDxcBlobUtf8> errors;
         result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr);
 
-        if (errors && errors->GetStringLength() > 0)
+        if (errors && errors->GetStringLength() > 0) {
+            auto lock = Async::sLock();
             std::cerr << static_cast<char*>(errors->GetBufferPointer()) << '\n';
+        }
 
         HRESULT hr;
         result->GetStatus(&hr);
@@ -290,7 +298,7 @@ void DXApp::CompileShaders() {
 
             std::cout << "Compilation " << COUT_GREEN("Finished") << " for shader: " << file.path().string() << '\n';
         }
-        // });
+        });
     }
 
     // Wait for shader compilation to finish before continuing on with pipeline creation

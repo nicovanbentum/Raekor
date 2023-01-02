@@ -1,3 +1,6 @@
+#ifndef SHARED_H
+#define SHARED_H
+
 #ifdef __cplusplus
     #include "pch.h"
     using uint      = uint32_t;
@@ -24,27 +27,29 @@ struct FrameConstants {
     float4x4  mProjectionMatrix;
     float4x4  mViewProjectionMatrix;
     float4x4  mInvViewProjectionMatrix;
-    float4x4  mPRevViewProjectionmatrix;
+    float4x4  mPrevViewProjectionMatrix;
 };
 
 struct GbufferRootConstants {
-    float4	    mAlbedo;
-    uint4	    mTextures;
-    float4	    mProperties;
-    float4x4	mViewProj;
+    float4	 mAlbedo;
+    uint4	 mTextures;
+    float4	 mProperties;
+    float4x4 mViewProj;
 };
 
 struct ShadowMaskRootConstants {
-    float4x4	invViewProj;
-    float4	    mLightDir;
-    uint4	    mTextures;
-    uint2       mDispatchSize;
-    uint	    mFrameCounter;
+    float4x4 invViewProj;
+    float4	 mLightDir;
+    uint4	 mTextures;
+    uint2    mDispatchSize;
+    uint	 mFrameCounter;
 };
 
 struct LightingRootConstants {
     uint mShadowMaskTexture;
     uint mGbufferDepthTexture;
     uint mGbufferRenderTexture;
-    uint pad0;
+    uint mFrameConstantsBufferOffset;
 };
+
+#endif // SHARED_H
