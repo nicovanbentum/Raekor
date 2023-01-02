@@ -78,6 +78,23 @@ void Scene::DestroySpatialEntity(entt::entity entity) {
 }
 
 
+glm::vec3 Scene::GetSunLightDirection() const {
+    auto lightView = view<const DirectionalLight, const Transform>();
+    auto lookDirection = glm::vec3(0.25f, -0.9f, 0.0f);
+
+    if (lightView.begin() != lightView.end()) {
+        const auto& lightTransform = lightView.get<const Transform>(lightView.front());
+        lookDirection = static_cast<glm::quat>(lightTransform.rotation) * lookDirection;
+    }
+    else {
+        // we rotate default light a little or else we get nan values in our view matrix
+        lookDirection = static_cast<glm::quat>(glm::vec3(glm::radians(15.0f), 0, 0)) * lookDirection;
+    }
+
+    return glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
+}
+
+
 void Scene::UpdateLights() {
     auto dirLights = view<DirectionalLight, Transform>();
 

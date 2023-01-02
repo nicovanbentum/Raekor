@@ -22,6 +22,9 @@ public:
 	entt::entity	CreateSpatialEntity(const std::string& name = "");
 	void			DestroySpatialEntity(entt::entity entity);
 
+	// TODO: kinda hacky, pls fix
+	glm::vec3 GetSunLightDirection() const;
+
 	// Per frame systems
 	void UpdateLights();
 	void UpdateTransforms();

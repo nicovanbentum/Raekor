@@ -260,7 +260,7 @@ bool Parser::ParseValue(Value* outValue) {
 
 bool Parser::Parse() {
 	if (m_Source.empty())
-		return false;
+		return true;
 
 	char c;
 	m_Index = -1;

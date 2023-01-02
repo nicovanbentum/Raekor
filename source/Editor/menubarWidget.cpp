@@ -258,7 +258,7 @@ void MenubarWidget::draw(float dt) {
                     auto entity = scene.CreateSpatialEntity("Plane");
                     auto& mesh = scene.emplace<Mesh>(entity);
                     
-                    if (m_ActiveEntity != sInvalidEntity) {
+                    if (m_ActiveEntity != sInvalidEntity && scene.any_of<Node>(m_ActiveEntity)) {
                         auto& node = scene.get<Node>(entity);
                         NodeSystem::sAppend(scene, scene.get<Node>(m_ActiveEntity), node);
                     }

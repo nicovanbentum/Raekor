@@ -150,16 +150,16 @@ struct ComponentDescription {
 
 
 static constexpr auto Components = std::make_tuple (
-    ComponentDescription<Name>{"Name"},
-    ComponentDescription<Node>{"Node"},
-    ComponentDescription<Mesh>{"Mesh"},
-    ComponentDescription<BoxCollider>{"Box Collider"},
-    ComponentDescription<Material>{"Material"},
-    ComponentDescription<Transform>{"Transform"},
-    ComponentDescription<PointLight>{"Point Light"},
-    ComponentDescription<Skeleton>{"Skeleton"},
-    ComponentDescription<DirectionalLight>{"Directional Light"},
-    ComponentDescription<NativeScript>{"Native Script"}
+    ComponentDescription<Name>              {"Name"},
+    ComponentDescription<Node>              {"Node"},
+    ComponentDescription<Transform>         {"Transform"},
+    ComponentDescription<Mesh>              {"Mesh"},
+    ComponentDescription<Material>          {"Material"},
+    ComponentDescription<PointLight>        {"Point Light"},
+    ComponentDescription<DirectionalLight>  {"Directional Light"},
+    ComponentDescription<BoxCollider>       {"Box Collider"},
+    ComponentDescription<Skeleton>          {"Skeleton"},
+    ComponentDescription<NativeScript>      {"Native Script"}
 );
 
 
