@@ -47,12 +47,6 @@ Renderer::~Renderer() {
     vkQueueWaitIdle(m_Device.GetQueue());
     vkDeviceWaitIdle(m_Device);
 
-    for (uint32_t i = 0; i < sMaxFramesInFlight; i++) {
-        vkDestroySemaphore(m_Device, m_ImageAcquiredSemaphores[i], nullptr);
-        vkDestroySemaphore(m_Device, m_RenderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(m_Device, m_CommandsFinishedFences[i], nullptr);
-    }
-
     for (auto& texture : m_Textures)
         m_Device.DestroyTexture(texture);
 
@@ -66,6 +60,12 @@ Renderer::~Renderer() {
     m_BindlessTextureSet.Destroy(m_Device);
     m_Device.DestroyBuffer(m_InstanceBuffer);
     m_Device.DestroyBuffer(m_MaterialBuffer);
+
+    for (uint32_t i = 0; i < sMaxFramesInFlight; i++) {
+        vkDestroySemaphore(m_Device, m_ImageAcquiredSemaphores[i], nullptr);
+        vkDestroySemaphore(m_Device, m_RenderFinishedSemaphores[i], nullptr);
+        vkDestroyFence(m_Device, m_CommandsFinishedFences[i], nullptr);
+    }
 }
 
 
@@ -371,6 +371,7 @@ void Renderer::Screenshot(const std::string& filepath) {
     desc.mappable = true;
 
     auto linearTexture = m_Device.CreateTexture(desc);
+    m_Device.SetDebugName(linearTexture, "SCREENSHOT_IMAGE");
 
     auto commands = m_Device.StartSingleSubmit();
 
