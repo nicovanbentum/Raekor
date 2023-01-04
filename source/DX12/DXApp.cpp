@@ -90,58 +90,7 @@ void DXApp::OnUpdate(float inDeltaTime) {
 
     m_Scene.UpdateLights();
 
-    GUI::BeginFrame();
-    ImGui_ImplDX12_NewFrame();
-
-    ImGui::Begin("Settings", (bool*)true, ImGuiWindowFlags_AlwaysAutoResize);
-
-    ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-
-    auto lightView = m_Scene.view<DirectionalLight, Transform>();
-
-    if (lightView.begin() != lightView.end()) {
-        auto& sun_transform = lightView.get<Transform>(lightView.front());
-
-        auto sun_rotation_degrees = glm::degrees(glm::eulerAngles(sun_transform.rotation));
-
-        if (ImGui::DragFloat3("Sun Angle", glm::value_ptr(sun_rotation_degrees), 0.1f, -360.0f, 360.0f, "%.1f")) {
-            sun_transform.rotation = glm::quat(glm::radians(sun_rotation_degrees));
-            sun_transform.Compose();
-        }
-    }
-
-    if (ImGui::Button("Save As GraphViz..")) {
-        const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
-
-        if (!file_path.empty()) {
-            auto ofs = std::ofstream(file_path);
-            ofs << m_Renderer.GetGraph().ToGraphVizText(m_Device);
-        }
-    }
-
-    ImGui::End();
-    /*
-    ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
-    ImGuizmo::SetRect(0, 0, float(m_Viewport.size.x), float(m_Viewport.size.y));
-
-    if (lightView.begin() != lightView.end()) {
-        auto& sun_transform = lightView.get<Transform>(lightView.front());
-
-        bool manipulated = ImGuizmo::Manipulate(
-            glm::value_ptr(m_Viewport.GetCamera().GetView()),
-            glm::value_ptr(m_Viewport.GetCamera().GetProjection()),
-            ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD,
-            glm::value_ptr(sun_transform.localTransform)
-        );
-
-        if (manipulated)
-            sun_transform.Decompose();
-    } 
-    */
-
-    GUI::EndFrame();
-
-    m_Renderer.OnRender(m_Device, inDeltaTime);
+    m_Renderer.OnRender(m_Device, m_Scene, inDeltaTime);
 }
 
 

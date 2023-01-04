@@ -1,5 +1,6 @@
 #pragma once
 
+#include "shared.h"
 #include "DXResource.h"
 #include "DXRenderGraph.h"
 
@@ -19,14 +20,15 @@ struct BackBufferData {
 class Renderer {
 private:
     struct Settings {
-        int& mEnableFsr2 = CVars::sCreate("r_enable_fsr2", 0);
+        int& mEnableFsr2  = CVars::sCreate("r_enable_fsr2", 0);
+        int& mEnableVsync = CVars::sCreate("r_vsync", 1);
     } m_Settings;
 
 public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
-    void OnRender(Device& inDevice, float inDeltaTime);
     void OnResize(Device& inDevice, const Viewport& inViewport);
+    void OnRender(Device& inDevice, Scene& inScene, float inDeltaTime);
 
     void Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS);
 
@@ -82,6 +84,7 @@ struct GrassData {
     BufferID mPerBladeIndexBuffer;
     TextureResource mDepthTexture;
     TextureResource mRenderTexture;
+    GrassRenderConstants mRenderConstants;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 

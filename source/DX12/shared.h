@@ -49,7 +49,12 @@ struct LightingRootConstants {
     uint mShadowMaskTexture;
     uint mGbufferDepthTexture;
     uint mGbufferRenderTexture;
-    uint mFrameConstantsBufferOffset;
+};
+
+struct GrassRenderConstants {
+    float  mBend;
+    float  mTilt;
+    float2 mWindDirection;
 };
 
 #endif // SHARED_H

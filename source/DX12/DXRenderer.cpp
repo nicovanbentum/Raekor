@@ -4,6 +4,7 @@
 #include "DXRenderGraph.h"
 #include "Raekor/timer.h"
 #include "Raekor/gui.h"
+#include "Raekor/OS.h"
 
 namespace Raekor::DX {
 
@@ -65,7 +66,87 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 }
 
 
-void Renderer::OnRender(Device& inDevice, float inDeltaTime) {
+void Renderer::OnResize(Device& inDevice, const Viewport& inViewport) {
+    WaitForIdle(inDevice);
+
+    for (auto& bb_data : m_BackBufferData)
+        inDevice.ReleaseTextureImmediate(bb_data.mBackBuffer);
+
+    gThrowIfFailed(m_Swapchain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0));
+
+    for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData)) {
+        auto rtv_resource = ResourceRef(nullptr);
+        gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
+
+        backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{ .usage = Texture::Usage::RENDER_TARGET });
+        rtv_resource->SetName(L"BACKBUFFER");
+    }
+
+    m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
+}
+
+
+void Renderer::OnRender(Device& inDevice, Scene& inScene, float inDeltaTime) {
+    GUI::BeginFrame();
+    ImGui_ImplDX12_NewFrame();
+
+    ImGui::Begin("Settings", (bool*)true, ImGuiWindowFlags_AlwaysAutoResize);
+
+    ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+    ImGui::Checkbox("Enable V-Sync", (bool*)&m_Settings.mEnableVsync);
+
+    auto lightView = inScene.view<DirectionalLight, Transform>();
+
+    if (lightView.begin() != lightView.end()) {
+        auto& sun_transform = lightView.get<Transform>(lightView.front());
+
+        auto sun_rotation_degrees = glm::degrees(glm::eulerAngles(sun_transform.rotation));
+
+        if (ImGui::DragFloat3("Sun Angle", glm::value_ptr(sun_rotation_degrees), 0.1f, -360.0f, 360.0f, "%.1f")) {
+            sun_transform.rotation = glm::quat(glm::radians(sun_rotation_degrees));
+            sun_transform.Compose();
+        }
+    }
+
+    if (auto grass_pass = m_RenderGraph.GetPass<GrassData>()) {
+        ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
+        ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -1.0f, 1.0f, "%1.f");
+    }
+
+    if (ImGui::Button("Save As GraphViz..")) {
+        const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
+
+        if (!file_path.empty()) {
+            auto ofs = std::ofstream(file_path);
+            ofs << m_RenderGraph.ToGraphVizText(inDevice);
+        }
+    }
+
+    ImGui::End();
+
+    /*
+    ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
+    ImGuizmo::SetRect(0, 0, float(m_Viewport.size.x), float(m_Viewport.size.y));
+
+    if (lightView.begin() != lightView.end()) {
+        auto& sun_transform = lightView.get<Transform>(lightView.front());
+
+        bool manipulated = ImGuizmo::Manipulate(
+            glm::value_ptr(m_Viewport.GetCamera().GetView()),
+            glm::value_ptr(m_Viewport.GetCamera().GetProjection()),
+            ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD,
+            glm::value_ptr(sun_transform.localTransform)
+        );
+
+        if (manipulated)
+            sun_transform.Decompose();
+    }
+    */
+
+    GUI::EndFrame();
+
     auto& backbuffer_data = GetBackBufferData();
     auto  completed_value = m_Fence->GetCompletedValue();
 
@@ -93,33 +174,13 @@ void Renderer::OnRender(Device& inDevice, float inDeltaTime) {
     const auto commandLists = std::array{ static_cast<ID3D12CommandList*>(backbuffer_data.mCmdList) };
     inDevice.GetQueue()->ExecuteCommandLists(commandLists.size(), commandLists.data());
 
-    gThrowIfFailed(m_Swapchain->Present(0, 0));
+    gThrowIfFailed(m_Swapchain->Present(m_Settings.mEnableVsync, 0));
 
     backbuffer_data.mFenceValue++;
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
     gThrowIfFailed(inDevice.GetQueue()->Signal(m_Fence.Get(), GetBackBufferData().mFenceValue));
 
     m_FrameCounter++;
-}
-
-
-void Renderer::OnResize(Device& inDevice, const Viewport& inViewport) {
-    WaitForIdle(inDevice);
-
-    for (auto& bb_data : m_BackBufferData)
-        inDevice.ReleaseTextureImmediate(bb_data.mBackBuffer);
-
-    gThrowIfFailed(m_Swapchain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0));
-
-    for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData)) {
-        auto rtv_resource = ResourceRef(nullptr);
-        gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
-
-        backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{ .usage = Texture::Usage::RENDER_TARGET });
-        rtv_resource->SetName(L"BACKBUFFER");
-    }
-
-    m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
 }
 
 
@@ -350,14 +411,22 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
         state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
         inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+
+        inData.mRenderConstants = GrassRenderConstants{
+            .mBend          = 0.0f,
+            .mTilt          = 0.0f,
+            .mWindDirection = glm::vec2(1.0f, 0.0f)
+        };
     },
     [&](GrassData& inData, CommandList& inCmdList)
     {
         const auto blade_vertex_count = 15;
 
+        inCmdList.PushConstants(inData.mRenderConstants);
+
         inCmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList->DrawInstanced(blade_vertex_count, 1, 0, 0);
+        inCmdList->DrawInstanced(blade_vertex_count, 65536, 0, 0);
     });
 }
 
