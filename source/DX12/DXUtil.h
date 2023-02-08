@@ -2,7 +2,7 @@
 
 #include "Raekor/util.h"
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 /* explicit bindings to root descriptors hardcoded into the root signature. */
 enum EBindSlot {
@@ -37,5 +37,5 @@ inline std::string gGetDebugName(ID3D12Resource* inResource) {
 	return gWCharToString(name);
 }
 
-} // namespace Raekor::DX
+} // namespace Raekor::DX12
 

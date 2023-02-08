@@ -1,46 +1,50 @@
 #include "pch.h"
 #include "DXRenderer.h"
+
 #include "shared.h"
 #include "DXRenderGraph.h"
-#include "Raekor/timer.h"
-#include "Raekor/gui.h"
-#include "Raekor/OS.h"
 
-namespace Raekor::DX {
+#include "Raekor/OS.h"
+#include "Raekor/gui.h"
+#include "Raekor/timer.h"
+#include "Raekor/application.h"
+
+namespace Raekor::DX12 {
 
 Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow) : 
     m_RenderGraph(inDevice, inViewport, sFrameCount) 
 {
-    DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {};
-    swapchainDesc.BufferCount = sFrameCount;
-    swapchainDesc.Width = inViewport.size.x;
-    swapchainDesc.Height = inViewport.size.y;
-    swapchainDesc.Format = sSwapchainFormat;
-    swapchainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapchainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    swapchainDesc.SampleDesc.Count = 1;
+    const auto swapchainDesc = DXGI_SWAP_CHAIN_DESC1 {
+        .Width = inViewport.size.x,
+        .Height = inViewport.size.y,
+        .Format      = sSwapchainFormat,
+        .SampleDesc  = DXGI_SAMPLE_DESC {.Count = 1 },
+        .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
+        .BufferCount = sFrameCount,
+        .SwapEffect  = DXGI_SWAP_EFFECT_FLIP_DISCARD,
+    };
 
-    ComPtr<IDXGIFactory4> factory;
+    auto factory = ComPtr<IDXGIFactory4>{};
     gThrowIfFailed(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&factory)));
 
-    SDL_SysWMinfo wmInfo;
+    auto wmInfo = SDL_SysWMinfo{};
     SDL_VERSION(&wmInfo.version);
     SDL_GetWindowWMInfo(inWindow, &wmInfo);
-    HWND hwnd = wmInfo.info.win.window;
+    auto hwnd = wmInfo.info.win.window;
 
-    ComPtr<IDXGISwapChain1> swapchain;
+    auto swapchain = ComPtr<IDXGISwapChain1>{};
     gThrowIfFailed(factory->CreateSwapChainForHwnd(inDevice.GetQueue(), hwnd, &swapchainDesc, nullptr, nullptr, &swapchain));
     gThrowIfFailed(swapchain.As(&m_Swapchain));
 
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData)) {
-        ResourceRef rtv_resource;
+        auto rtv_resource = ResourceRef{};
         gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
         backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{ .usage = Texture::Usage::RENDER_TARGET });
 
         backbuffer_data.mCmdList = CommandList(inDevice);
-        backbuffer_data.mCmdList->SetName(L"Raekor::DX::CommandList");
+        backbuffer_data.mCmdList->SetName(L"Raekor::DX12::CommandList");
 
         rtv_resource->SetName(L"BACKBUFFER");
     }
@@ -51,11 +55,12 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     if (!m_FenceEvent)
         gThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
 
-    auto fsr2_desc = FfxFsr2ContextDescription{};
-    fsr2_desc.flags = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_DISPLAY_RESOLUTION_MOTION_VECTORS | FFX_FSR2_ENABLE_AUTO_EXPOSURE;
-    fsr2_desc.displaySize = { inViewport.size.x, inViewport.size.y };
-    fsr2_desc.maxRenderSize = { inViewport.size.x, inViewport.size.y };
-    fsr2_desc.device = ffxGetDeviceDX12(inDevice);
+    auto fsr2_desc = FfxFsr2ContextDescription {
+        .flags          = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE,
+        .maxRenderSize  = { inViewport.size.x, inViewport.size.y },
+        .displaySize    = { inViewport.size.x, inViewport.size.y },
+        .device         = ffxGetDeviceDX12(inDevice),
+    };
 
     m_FsrScratchMemory.resize(ffxFsr2GetScratchMemorySizeDX12());
     auto ffx_error = ffxFsr2GetInterfaceDX12(&fsr2_desc.callbacks, inDevice, m_FsrScratchMemory.data(), m_FsrScratchMemory.size());
@@ -83,10 +88,45 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport) {
     }
 
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
+
+    ffxFsr2ContextDestroy(&m_Fsr2Context);
+
+    auto fsr2_desc = FfxFsr2ContextDescription{
+        .flags          = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE,
+        .maxRenderSize  = { inViewport.size.x, inViewport.size.y },
+        .displaySize    = { inViewport.size.x, inViewport.size.y },
+        .device         = ffxGetDeviceDX12(inDevice),
+    };
+
+    auto ffx_error = ffxFsr2ContextCreate(&m_Fsr2Context, &fsr2_desc);
+    assert(ffx_error == FFX_OK);
 }
 
 
-void Renderer::OnRender(Device& inDevice, Scene& inScene, float inDeltaTime) {
+void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, DescriptorID inTLAS, float inDeltaTime) {
+    bool need_recompile = false;
+
+    for (auto& [filename, shader_entry] : inDevice.m_Shaders) {
+        auto error_code = std::error_code();
+        auto timestamp = FileSystem::last_write_time(shader_entry.mPath, error_code);
+
+        while (error_code)
+            timestamp = FileSystem::last_write_time(shader_entry.mPath, error_code);
+
+        if (timestamp > shader_entry.mLastWriteTime) {
+            if (auto new_blob = sCompileShaderDXC(shader_entry.mPath))
+                shader_entry.mBlob = new_blob;
+
+            shader_entry.mLastWriteTime = FileSystem::last_write_time(shader_entry.mPath);
+            need_recompile = true;
+        }
+    }
+
+    if (need_recompile) {
+        WaitForIdle(inDevice);
+        Recompile(inDevice, inScene, inTLAS);
+    }
+
     GUI::BeginFrame();
     ImGui_ImplDX12_NewFrame();
 
@@ -95,6 +135,11 @@ void Renderer::OnRender(Device& inDevice, Scene& inScene, float inDeltaTime) {
     ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
     ImGui::Checkbox("Enable V-Sync", (bool*)&m_Settings.mEnableVsync);
+
+    if (ImGui::Checkbox("Enable FSR 2.1", (bool*)&m_Settings.mEnableFsr2)) {
+        WaitForIdle(inDevice);
+        Recompile(inDevice, inScene, inTLAS);
+    }
 
     auto lightView = inScene.view<DirectionalLight, Transform>();
 
@@ -112,7 +157,7 @@ void Renderer::OnRender(Device& inDevice, Scene& inScene, float inDeltaTime) {
     if (auto grass_pass = m_RenderGraph.GetPass<GrassData>()) {
         ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
         ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
-        ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -1.0f, 1.0f, "%1.f");
+        ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
     }
 
     if (ImGui::Button("Save As GraphViz..")) {
@@ -126,16 +171,15 @@ void Renderer::OnRender(Device& inDevice, Scene& inScene, float inDeltaTime) {
 
     ImGui::End();
 
-    /*
     ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
-    ImGuizmo::SetRect(0, 0, float(m_Viewport.size.x), float(m_Viewport.size.y));
+    ImGuizmo::SetRect(0, 0, float(inViewport.size.x), float(inViewport.size.y));
 
     if (lightView.begin() != lightView.end()) {
         auto& sun_transform = lightView.get<Transform>(lightView.front());
 
-        bool manipulated = ImGuizmo::Manipulate(
-            glm::value_ptr(m_Viewport.GetCamera().GetView()),
-            glm::value_ptr(m_Viewport.GetCamera().GetProjection()),
+        const auto manipulated = ImGuizmo::Manipulate(
+            glm::value_ptr(inViewport.GetCamera().GetView()),
+            glm::value_ptr(inViewport.GetCamera().GetProjection()),
             ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD,
             glm::value_ptr(sun_transform.localTransform)
         );
@@ -143,7 +187,6 @@ void Renderer::OnRender(Device& inDevice, Scene& inScene, float inDeltaTime) {
         if (manipulated)
             sun_transform.Decompose();
     }
-    */
 
     GUI::EndFrame();
 
@@ -155,14 +198,39 @@ void Renderer::OnRender(Device& inDevice, Scene& inScene, float inDeltaTime) {
         WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
     }
 
+    m_ElapsedTime += inDeltaTime;
+    const auto& camera = m_RenderGraph.GetViewport().GetCamera();
+
+    const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(m_RenderGraph.GetViewport().size.x, m_RenderGraph.GetViewport().size.y);
+
+    float jitter_offset_x = 0;
+    float jitter_offset_y = 0;
+    ffxFsr2GetJitterOffset(&jitter_offset_x, &jitter_offset_y, m_FrameCounter, jitter_phase_count);
+
+    // Calculate the jittered projection matrix.
+    const auto jitter_x = 2.0f * jitter_offset_x / (float)m_RenderGraph.GetViewport().size.x;
+    const auto jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().size.y;
+    const auto offset_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(jitter_x, jitter_y, 0));
+    const auto jittered_proj_matrix = offset_matrix * camera.GetProjection();
+
+    m_FrameConstants.mTime                       = m_ElapsedTime;
+    m_FrameConstants.mDeltaTime                  = inDeltaTime;
+    m_FrameConstants.mSunDirection               = glm::vec4(inScene.GetSunLightDirection(), 0.0f);
+    m_FrameConstants.mCameraPosition             = glm::vec4(camera.GetPosition(), 1.0f);
+    m_FrameConstants.mViewMatrix                 = camera.GetView();
+    m_FrameConstants.mProjectionMatrix           = jittered_proj_matrix;
+    m_FrameConstants.mPrevViewProjectionMatrix   = m_FrameConstants.mViewProjectionMatrix;
+    m_FrameConstants.mViewProjectionMatrix       = jittered_proj_matrix * camera.GetView();
+    m_FrameConstants.mInvViewProjectionMatrix    = glm::inverse(jittered_proj_matrix * camera.GetView());
+
+    m_RenderGraph.GetPerFrameAllocator().AllocAndCopy(m_FrameConstants, m_RenderGraph.GetPerFrameAllocatorOffset());
+
     // Update any per pass data
     if (auto fsr_pass = m_RenderGraph.GetPass<FSR2Data>())
         fsr_pass->GetData().mDeltaTime = inDeltaTime;
 
-    // Reset the command list
     backbuffer_data.mCmdList.Reset();
 
-    // Update the render graph's internal backbuffer reference
     m_RenderGraph.SetBackBuffer(backbuffer_data.mBackBuffer);
 
     m_RenderGraph.Execute(inDevice, backbuffer_data.mCmdList, m_FrameCounter);
@@ -190,11 +258,11 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
 
     const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
 
-    const auto& grass_data   = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
+    // const auto& grass_data   = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
     
     const auto& shadow_data  = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data, inTLAS);
     
-    const auto& light_data   = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_data, shadow_data);
+    const auto& light_data   = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data);
     
     auto compose_input = light_data.mOutputTexture;
 
@@ -209,14 +277,19 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
 
 
 void Renderer::WaitForIdle(Device& inDevice) {
-    for (const auto& backbuffer_data : m_BackBufferData) {
+    for (auto& backbuffer_data : m_BackBufferData) {
         gThrowIfFailed(inDevice.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
 
         if (m_Fence->GetCompletedValue() < backbuffer_data.mFenceValue) {
             gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
             WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
         }
+
+        backbuffer_data.mFenceValue = 0;
     }
+
+    m_Fence->Signal(0);
+    m_FrameCounter = 0;
 }
 
 
@@ -244,12 +317,24 @@ void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-RTTI_CLASS_CPP(GBufferData)	    {}
-RTTI_CLASS_CPP(GrassData)       {}
-RTTI_CLASS_CPP(ShadowMaskData)  {}
-RTTI_CLASS_CPP(LightingData)    {}
-RTTI_CLASS_CPP(FSR2Data)        {}
-RTTI_CLASS_CPP(ComposeData)     {}
+RTTI_CLASS_CPP(GBufferData)	        {}
+RTTI_CLASS_CPP(GrassData)           {}
+RTTI_CLASS_CPP(RTShadowMaskData)    {}
+RTTI_CLASS_CPP(ReflectionsData)     {}
+RTTI_CLASS_CPP(LightingData)        {}
+RTTI_CLASS_CPP(FSR2Data)            {}
+RTTI_CLASS_CPP(ProbeTraceData)      {}
+RTTI_CLASS_CPP(ComposeData)         {}
+
+/*
+
+const T& AddPass(RenderGraph& inRenderGraph, Device& inDevice) {
+    return inRenderGraph.AddGraphicsPass<T>(pass_name, inDevice,
+    [&](IRenderPass* inRenderPass, T& inData) {  },
+    [](T& inData, CommandList& inCmdList) {   });
+}  
+
+*/
 
 
 const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene) {
@@ -285,24 +370,12 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inData.mRenderTexture       = inRenderPass->Write(render_texture);       // SV_TARGET0
         inData.mMotionVectorTexture = inRenderPass->Write(movec_texture); // SV_TARGET1
 
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "gbufferVS", "gbufferPS");
-        inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
-        },
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "gbufferVS", "gbufferPS");
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
+    },
 
-    [&](GBufferData& inData, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inScene](GBufferData& inData, CommandList& inCmdList)
     {
-        const auto& camera = inRenderGraph.GetViewport().GetCamera();
-
-        auto frame_constants = FrameConstants{};
-        frame_constants.mSunDirection = glm::vec4(inScene.GetSunLightDirection(), 0.0f);
-        frame_constants.mCameraPosition = glm::vec4(camera.GetPosition(), 1.0f);
-        frame_constants.mViewMatrix = camera.GetView();
-        frame_constants.mProjectionMatrix = camera.GetProjection();
-        frame_constants.mViewProjectionMatrix = camera.GetProjection() * camera.GetView();
-        frame_constants.mInvViewProjectionMatrix = glm::inverse(camera.GetProjection() * camera.GetView());
-
-        inRenderGraph.GetPerFrameAllocator().AllocAndCopy(frame_constants, inRenderGraph.GetPerFrameAllocatorOffset());
-
         const auto& viewport = inRenderGraph.GetViewport();
         inCmdList.SetViewportScissorRect(viewport);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
@@ -313,34 +386,36 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->ClearRenderTargetView(inDevice.GetHeapPtr(inData.mMotionVectorTexture), glm::value_ptr(clear_color), 1, &clear_rect);
         inCmdList->ClearDepthStencilView(inDevice.GetHeapPtr(inData.mDepthTexture), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 1, &clear_rect);
 
-        auto root_constants = GbufferRootConstants{};
-        root_constants.mViewProj = viewport.GetCamera().GetProjection()  * viewport.GetCamera().GetView();
-        inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(GbufferRootConstants) / sizeof(DWORD), &root_constants, 0);
-
-        for (const auto& [entity, mesh] : inScene.view<Mesh>().each()) {
+        for (const auto& [entity, transform, mesh] : inScene.view<Transform, Mesh>().each()) {
             const auto& indexBuffer = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
             const auto& vertexBuffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
 
-            auto index_view = D3D12_INDEX_BUFFER_VIEW{};
-            index_view.BufferLocation = indexBuffer->GetGPUVirtualAddress();
-            index_view.Format = DXGI_FORMAT_R32_UINT;
-            index_view.SizeInBytes = mesh.indices.size() * sizeof(mesh.indices[0]);
+            const auto index_view = D3D12_INDEX_BUFFER_VIEW {
+                .BufferLocation = indexBuffer->GetGPUVirtualAddress(),
+                .SizeInBytes    = uint32_t(mesh.indices.size() * sizeof(mesh.indices[0])),
+                .Format         = DXGI_FORMAT_R32_UINT,
+            };
 
-            auto vertex_view = D3D12_VERTEX_BUFFER_VIEW{};
-            vertex_view.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-            vertex_view.SizeInBytes = vertexBuffer->GetDesc().Width;
-            vertex_view.StrideInBytes = 44; // TODO: derive from input layout since its all tightly packed
+            const auto vertex_view = D3D12_VERTEX_BUFFER_VIEW {
+                .BufferLocation = vertexBuffer->GetGPUVirtualAddress(),
+                .SizeInBytes    = uint32_t(vertexBuffer->GetDesc().Width),
+                .StrideInBytes  = 44u // TODO: derive from input layout since its all tightly packed
+            };
 
             auto material = inScene.try_get<Material>(mesh.material);
             if (material == nullptr)
                 material = &Material::Default;
 
-            root_constants.mAlbedo = material->albedo;
+            auto root_constants = GbufferRootConstants {};
+            root_constants.mAlbedo       = material->albedo;
             root_constants.mProperties.x = material->metallic;
             root_constants.mProperties.y = material->roughness;
-            root_constants.mTextures.x = material->gpuAlbedoMap;
-            root_constants.mTextures.y = material->gpuNormalMap;
-            root_constants.mTextures.z = material->gpuMetallicRoughnessMap;
+            root_constants.mTextures.x   = material->gpuAlbedoMap;
+            root_constants.mTextures.y   = material->gpuNormalMap;
+            root_constants.mTextures.z   = material->gpuMetallicRoughnessMap;
+
+            root_constants.mWorldTransform = transform.worldTransform;
+
             inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
 
             inCmdList->IASetIndexBuffer(&index_view);
@@ -353,9 +428,9 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 
 
-const ShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, const GBufferData& inGBufferData, DescriptorID inTLAS) {
-    return inRenderGraph.AddComputePass<ShadowMaskData>("SHADOW PASS", inDevice,
-    [&](IRenderPass* inRenderPass, ShadowMaskData& inData)
+const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, const GBufferData& inGBufferData, DescriptorID inTLAS) {
+    return inRenderGraph.AddComputePass<RTShadowMaskData>("SHADOW PASS", inDevice,
+    [&](IRenderPass* inRenderPass, RTShadowMaskData& inData)
     {
         const auto output_texture = inDevice.CreateTexture(Texture::Desc{
             .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
@@ -375,24 +450,21 @@ const ShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDe
         gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(&inData.mPipeline)));
     },
 
-    [&](ShadowMaskData& inData, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice](RTShadowMaskData& inData, CommandList& inCmdList)
     {
-        ShadowMaskRootConstants root_constants = {};
-        root_constants.mTextures.x = inData.mGBufferRenderTexture.GetBindlessIndex(inDevice);
-        root_constants.mTextures.y = inData.mGbufferDepthTexture.GetBindlessIndex(inDevice);
-        root_constants.mTextures.z = inData.mOutputTexture.GetBindlessIndex(inDevice);
-        root_constants.mTextures.w = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure);
+        auto& viewport = inRenderGraph.GetViewport();
 
-        auto& vp = inRenderGraph.GetViewport();
-        root_constants.invViewProj   = glm::inverse(vp.GetCamera().GetProjection() * vp.GetCamera().GetView());
-        root_constants.mLightDir     = glm::vec4(inScene.GetSunLightDirection(), 0);
-        
-        root_constants.mFrameCounter++;
-        root_constants.mDispatchSize = vp.size;
+        const auto root_constants = ShadowMaskRootConstants {
+            .mGbufferRenderTexture  = inData.mGBufferRenderTexture.GetBindlessIndex(inDevice),
+            .mGbufferDepthTexture   = inData.mGbufferDepthTexture.GetBindlessIndex(inDevice),
+            .mShadowMaskTexture     = inData.mOutputTexture.GetBindlessIndex(inDevice),
+            .mTLAS                  = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure),
+            .mDispatchSize          = viewport.size
+        };
 
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList->SetComputeRoot32BitConstants(0, sizeof(ShadowMaskRootConstants) / sizeof(DWORD), &root_constants, 0);
-        inCmdList->Dispatch(vp.size.x / 8, vp.size.y / 8, 1);
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
 }
 
@@ -412,17 +484,17 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
 
         inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
 
-        inData.mRenderConstants = GrassRenderConstants{
+        inData.mRenderConstants = GrassRenderRootConstants {
             .mBend          = 0.0f,
             .mTilt          = 0.0f,
-            .mWindDirection = glm::vec2(1.0f, 0.0f)
+            .mWindDirection = glm::vec2(0.0f, -1.0f)
         };
     },
-    [&](GrassData& inData, CommandList& inCmdList)
+    [](GrassData& inData, CommandList& inCmdList)
     {
         const auto blade_vertex_count = 15;
 
-        inCmdList.PushConstants(inData.mRenderConstants);
+        inCmdList.PushGraphicsConstants(inData.mRenderConstants);
 
         inCmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
@@ -432,12 +504,95 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
 
 
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, const GBufferData& inGBufferData, const ShadowMaskData& inShadowMaskData) {
+const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, DescriptorID inTLAS, DescriptorID inInstanceBuffer) {
+    return inRenderGraph.AddGraphicsPass<ReflectionsData>("RT REFLECTION PASS", inDevice,
+    [&](IRenderPass* inRenderPass, ReflectionsData& inData)
+    {
+        const auto result_texture = inDevice.CreateTexture(Texture::Desc{
+            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::Usage::SHADER_READ_WRITE
+        }, L"RT_REFLECTIONS");
+
+        inRenderPass->Create(result_texture);
+
+        inData.mOutputTexture = inRenderPass->Write(result_texture);
+        inData.mGBufferDepthTexture = inRenderPass->Write(inGBufferData.mDepthTexture);
+        inData.mGbufferRenderTexture = inRenderPass->Write(inGBufferData.mRenderTexture);
+
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "ReflectionsCS");
+        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline)));
+    },
+    [&inRenderGraph, &inDevice](ReflectionsData& inData, CommandList& inCmdList) 
+    {
+        auto& viewport = inRenderGraph.GetViewport();
+
+        const auto root_constants = ReflectionsRootConstants {
+            .mGbufferRenderTexture  = inData.mGbufferRenderTexture.GetBindlessIndex(inDevice),
+            .mGbufferDepthTexture   = inData.mGBufferDepthTexture.GetBindlessIndex(inDevice),
+            .mShadowMaskTexture     = inData.mOutputTexture.GetBindlessIndex(inDevice),
+            .mTLAS                  = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure),
+            .mDispatchSize          = viewport.size
+        };
+
+        inCmdList->SetComputeRoot32BitConstants(0, sizeof(ReflectionsRootConstants) / sizeof(DWORD), &root_constants, 0);
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
+    });
+}
+
+
+
+const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice, DescriptorID inTLAS) {
+    return inRenderGraph.AddComputePass<ProbeTraceData>("GI TRACE PROBES PASS", inDevice,
+    [&](IRenderPass* inRenderPass, ProbeTraceData& inData) 
+    {
+        const auto depth_texture = inDevice.CreateTexture(Texture::Desc{
+            .format = DXGI_FORMAT_R16G16_FLOAT,
+            .width  = 16,
+            .height = 16,
+            .usage  = Texture::Usage::SHADER_READ_WRITE
+        }, L"GI_PROBE_DEPTH");
+
+        const auto irradiance_texture = inDevice.CreateTexture(Texture::Desc{
+            .format = DXGI_FORMAT_R11G11B10_FLOAT,
+            .width  = 6,
+            .height = 6,
+            .usage  = Texture::Usage::SHADER_READ_WRITE
+        }, L"GI_PROBE_IRRADIANCE");
+
+        inRenderPass->Create(depth_texture);
+        inRenderPass->Create(irradiance_texture);
+        inData.mDepthTexture = inRenderPass->Write(depth_texture);
+        inData.mIrradianceTexture = inRenderPass->Write(irradiance_texture);
+
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeTraceCS");
+        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline)));
+
+    },
+    [&inDevice, inTLAS](ProbeTraceData& inData, CommandList& inCmdList) 
+    {   
+        const auto constants = ProbeTraceRootConstants{
+            .mTLAS          = inDevice.GetBindlessHeapIndex(inTLAS),
+            .mDispatchSize  = { 1, DDGI_RAYS_PER_WAVE, 1 },
+            .mProbeWorldPos = inData.mProbeWorldPos
+        };
+
+        inCmdList.PushComputeConstants(constants);
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->Dispatch(constants.mDispatchSize.x, constants.mDispatchSize.y, constants.mDispatchSize.z);
+    });
+}
+
+
+
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, const RTShadowMaskData& inShadowMaskData) {
     return inRenderGraph.AddGraphicsPass<LightingData>("LIGHT PASS", inDevice,
     [&](IRenderPass* inRenderPass, LightingData& inData)
     {
         const auto output_texture = inDevice.CreateTexture({
-            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET
@@ -456,19 +611,18 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
         inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
-
-        inRenderPass->ReserveMemory(sizeof(FrameConstants));
     },
-    [&](LightingData& inData, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice](LightingData& inData, CommandList& inCmdList)
     {
-        auto root_constants = LightingRootConstants{};
-        root_constants.mShadowMaskTexture      = inData.mShadowMaskTexture.GetBindlessIndex(inDevice);
-        root_constants.mGbufferDepthTexture    = inData.mGBufferDepthTexture.GetBindlessIndex(inDevice);
-        root_constants.mGbufferRenderTexture   = inData.mGBufferRenderTexture.GetBindlessIndex(inDevice);
+        const auto root_constants = LightingRootConstants{
+            .mShadowMaskTexture    = inData.mShadowMaskTexture.GetBindlessIndex(inDevice),
+            .mGbufferDepthTexture  = inData.mGBufferDepthTexture.GetBindlessIndex(inDevice),
+            .mGbufferRenderTexture = inData.mGBufferRenderTexture.GetBindlessIndex(inDevice)
+        };
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportScissorRect(inRenderGraph.GetViewport());
-        inCmdList.PushConstants(root_constants);
+        inCmdList.PushGraphicsConstants(root_constants);
         inCmdList->DrawInstanced(6, 1, 0, 0);
     });
 }
@@ -496,7 +650,7 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, FfxFsr2
         inRenderPass->SetExternal(true);
     },
 
-    [&](FSR2Data& inData, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inContext](FSR2Data& inData, CommandList& inCmdList)
     {
         auto& vp = inRenderGraph.GetViewport();
 
@@ -505,7 +659,7 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, FfxFsr2
         const auto movec_texture_ptr  = inDevice.GetResourcePtr(inData.mMotionVectorTexture.mCreatedTexture);
         const auto output_texture_ptr = inDevice.GetResourcePtr(inData.mOutputTexture.mCreatedTexture);
 
-        auto fsr2_dispatch_desc = FfxFsr2DispatchDescription();
+        auto fsr2_dispatch_desc = FfxFsr2DispatchDescription{};
         fsr2_dispatch_desc.commandList              = ffxGetCommandListDX12(inCmdList);
         fsr2_dispatch_desc.color                    = ffxGetResourceDX12(&inContext, color_texture_ptr,  nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
         fsr2_dispatch_desc.depth                    = ffxGetResourceDX12(&inContext, depth_texture_ptr,  nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
@@ -551,7 +705,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
     },
 
-    [&](ComposeData& inData, CommandList& inCmdList) 
+    [&inRenderGraph, &inDevice](ComposeData& inData, CommandList& inCmdList)
     {
         struct {
             uint32_t mInputTexture;
@@ -589,8 +743,8 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 
 TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameCount) {
-    int width, height;
-    unsigned char* pixels;
+    auto width = 0, height = 0;
+    auto pixels = static_cast<unsigned char*>(nullptr);
     ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
 
     auto font_texture_id = inDevice.CreateTexture(Texture::Desc{

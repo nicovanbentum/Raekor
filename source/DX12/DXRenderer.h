@@ -4,7 +4,13 @@
 #include "DXResource.h"
 #include "DXRenderGraph.h"
 
-namespace Raekor::DX {
+namespace Raekor {
+
+class Application;
+
+}
+
+namespace Raekor::DX12 {
 
 class Device;
 class RenderGraph;
@@ -17,6 +23,11 @@ struct BackBufferData {
     CommandList mCmdList;
 };
 
+/*
+    Fun TODO's:
+    - shader hotloading
+    - timestamp queries per render pass for profiling
+*/
 class Renderer {
 private:
     struct Settings {
@@ -28,7 +39,7 @@ public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
     void OnResize(Device& inDevice, const Viewport& inViewport);
-    void OnRender(Device& inDevice, Scene& inScene, float inDeltaTime);
+    void OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, DescriptorID inTLAS, float inDeltaTime);
 
     void Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS);
 
@@ -37,7 +48,7 @@ public:
     
     void WaitForIdle(Device& inDevice);
 
-    const RenderGraph&  GetGraph()              { return m_RenderGraph; }
+    const RenderGraph&  GetRenderGraph()        { return m_RenderGraph; }
     BackBufferData&     GetBackBufferData()     { return m_BackBufferData[m_FrameIndex];  }
     BackBufferData&     GetPrevBackBufferData() { return m_BackBufferData[!m_FrameIndex]; }
 
@@ -47,16 +58,17 @@ public:
 
 private:
     uint32_t                m_FrameIndex;
-    ComPtr<ID3D12Fence>     m_Fence;
+    float                   m_ElapsedTime = 0;
     ComPtr<IDXGISwapChain3> m_Swapchain;
+    ComPtr<ID3D12Fence>     m_Fence;
     HANDLE                  m_FenceEvent;
     uint64_t                m_FrameCounter = 0;
     BackBufferData          m_BackBufferData[sFrameCount];
-    RenderGraph             m_RenderGraph;
+    FrameConstants          m_FrameConstants;
     FfxFsr2Context          m_Fsr2Context;
     std::vector<uint8_t>    m_FsrScratchMemory;
+    RenderGraph             m_RenderGraph;
 };
-
 
 ////////////////////////////////////////
 /// GBuffer Render Pass
@@ -84,7 +96,7 @@ struct GrassData {
     BufferID mPerBladeIndexBuffer;
     TextureResource mDepthTexture;
     TextureResource mRenderTexture;
-    GrassRenderConstants mRenderConstants;
+    GrassRenderRootConstants mRenderConstants;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -96,8 +108,8 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice,
 ////////////////////////////////////////
 /// Ray-traced Shadow Mask Render Pass
 ////////////////////////////////////////
-struct ShadowMaskData {
-    RTTI_CLASS_HEADER(ShadowMaskData);
+struct RTShadowMaskData {
+    RTTI_CLASS_HEADER(RTShadowMaskData);
 
     TextureResource mOutputTexture;
     TextureResource mGbufferDepthTexture;
@@ -106,11 +118,44 @@ struct ShadowMaskData {
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
-const ShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDevice, 
+const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDevice, 
     const Scene& inScene,
     const GBufferData& inGBufferData,
     DescriptorID inTLAS
 );
+
+
+////////////////////////////////////////
+/// Ray-traced Reflections Render Pass
+////////////////////////////////////////
+struct ReflectionsData {
+    RTTI_CLASS_HEADER(ReflectionsData);
+
+    TextureResource mOutputTexture;
+    TextureResource mGBufferDepthTexture;
+    TextureResource mGbufferRenderTexture;
+    DescriptorID mTopLevelAccelerationStructure;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice,
+    const GBufferData& inGBufferData,
+    DescriptorID inTLAS
+);
+
+
+////////////////////////////////////////
+/// GI Probe Trace Compute Pass
+////////////////////////////////////////
+struct ProbeTraceData {
+    RTTI_CLASS_HEADER(ProbeTraceData);
+
+    glm::vec4 mProbeWorldPos;
+    TextureResource mDepthTexture;
+    TextureResource mIrradianceTexture;
+    DescriptorID mTopLevelAccelerationStructure;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
 
 
 ////////////////////////////////////////
@@ -127,9 +172,8 @@ struct LightingData {
 };
 
 const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, 
-    const Scene& inScene,
     const GBufferData& inGBufferData, 
-    const ShadowMaskData& inShadowMaskData
+    const RTShadowMaskData& inShadowMaskData
 );
 
 

@@ -2,7 +2,9 @@
 #include "include/packing.hlsli"
 
 struct VS_OUTPUT {
-    float4 position : SV_Position;
+    float4 mPos : SV_Position;
+    float3 mPrevPos : PrevPosition;
+    float3 mNormal : NORMAL;
     float height : Field0;
 };
 
@@ -18,7 +20,7 @@ PS_OUTPUT main(VS_OUTPUT input) {
     float4 albedo = float4(0.0, lerp(0, 1, input.height), 0.0, 1.0);
     
     packed.x = PackAlbedo(albedo);
-    packed.y = PackNormal(float3(1.0, 0.0, 0.0));
+    packed.y = PackNormal(input.mNormal);
     packed.z = PackMetallicRoughness(0, 1.0);
     
     output.gbuffer = asfloat(packed);

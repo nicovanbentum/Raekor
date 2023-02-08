@@ -3,7 +3,7 @@
 #include "pch.h"
 #include "DXResource.h"
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 class Device;
 
@@ -37,8 +37,14 @@ public:
 
 	template<typename T> // omg c++ 20 concepts, much wow so cool
 		requires (sizeof(T) < sMaxRootConstantsSize && std::default_initializable<T>)
-	void PushConstants(const T& inValue) {
+	void PushGraphicsConstants(const T& inValue) {
 		m_CommandLists[m_CurrentCmdListIndex]->SetGraphicsRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);
+	}
+
+	template<typename T> // omg c++ 20 concepts, much wow so cool
+		requires (sizeof(T) < sMaxRootConstantsSize&& std::default_initializable<T>)
+	void PushComputeConstants(const T& inValue) {
+		m_CommandLists[m_CurrentCmdListIndex]->SetComputeRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);
 	}
 
 	/* Only buffers are allowed to be used as root descriptor. */

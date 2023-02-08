@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 enum ESamplerIndex {
     MIN_MAG_MIP_POINT_WRAP,

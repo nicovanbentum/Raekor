@@ -2,7 +2,7 @@
 
 #include "DXUtil.h"
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 using ResourceRef	 = ComPtr<ID3D12Resource>;
 using AllocationRef	 = ComPtr<D3D12MA::Allocation>;
@@ -76,8 +76,8 @@ public:
 	};
 
 	struct Desc {
-		size_t size = 0;
-		size_t stride = 0;
+		uint64_t size = 0;
+		uint64_t stride = 0;
 		Usage usage = Usage::GENERAL;
 		void* viewDesc = nullptr;
 	};

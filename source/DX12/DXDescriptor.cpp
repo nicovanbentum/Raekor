@@ -2,7 +2,7 @@
 #include "DXDescriptor.h"
 #include "DXUtil.h"
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 constexpr auto gHeapTypeDebugNames = std::array {
     L"CBV_SRV_UAV_HEAP",
@@ -12,10 +12,11 @@ constexpr auto gHeapTypeDebugNames = std::array {
 };
 
 void DescriptorHeap::Init(ID3D12Device* inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags) {
-    D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-    desc.Type = inType;
-    desc.Flags = inFlags;
-    desc.NumDescriptors = inCount;
+    const auto desc = D3D12_DESCRIPTOR_HEAP_DESC {
+        .Type           = inType,
+        .NumDescriptors = inCount,
+        .Flags          = inFlags
+    };
 
     gThrowIfFailed(inDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_Heap)));
     m_Heap->SetName(gHeapTypeDebugNames[inType]);
@@ -24,4 +25,4 @@ void DescriptorHeap::Init(ID3D12Device* inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inT
     m_HeapIncrement = inDevice->GetDescriptorHandleIncrementSize(inType);
 }
 
-} // Raekor::DX
+} // Raekor::DX12

@@ -4,6 +4,7 @@
 #include "Raekor/raekor.h"
 
 #include <dxgi1_6.h>
+#include <shellapi.h>
 #include <d3dcompiler.h>
 
 // DirectX-Headers helper library

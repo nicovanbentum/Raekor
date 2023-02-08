@@ -8,7 +8,7 @@ namespace Raekor {
 	class Viewport;
 }
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 struct TextureResource {
 	TextureID mCreatedTexture;
@@ -115,7 +115,7 @@ public:
 	{}
 
 	virtual void Setup(Device& inDevice) override { m_Setup(this, m_Data); }
-	virtual void Execute( CommandList& inCmdList) override { m_Execute(m_Data, inCmdList); }
+	virtual void Execute(CommandList& inCmdList) override { m_Execute(m_Data, inCmdList); }
 
 	T& GetData() { return m_Data; }
 

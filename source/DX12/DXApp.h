@@ -8,7 +8,7 @@
 #include "DXCommandList.h"
 #include "DXRenderer.h"
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 struct BackbufferData {
     uint64_t                            mFenceValue;
@@ -18,8 +18,6 @@ struct BackbufferData {
 
 
 class DXApp : public Application {
-    using ShaderLibrary = std::unordered_map<std::string, ComPtr<IDxcBlob>>;
-
 public:
     DXApp();
     ~DXApp();
@@ -46,7 +44,6 @@ private:
     ComPtr<IDStorageQueue>  m_StorageQueue;
 
     DescriptorID  m_TLAS;
-    ShaderLibrary m_Shaders;
     DescriptorID  m_DefaultWhiteTexture;
     DescriptorID  m_DefaultBlackTexture;
 };

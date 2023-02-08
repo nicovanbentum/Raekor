@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "DXResource.h"
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage) {
 	return D3D12_RESOURCE_STATES();
@@ -52,4 +52,4 @@ D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage) {
 }
 
 
-} // namespace Raekor::DX
+} // namespace Raekor::DX12

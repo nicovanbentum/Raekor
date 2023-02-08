@@ -2,8 +2,10 @@
 #include "include/packing.hlsli"
 
 struct VS_OUTPUT {
+    float4 sv_position : SV_Position;
+    float4 curr_position : POS0;
+    float4 prev_position : POS1;
     float2 texcoord : TEXCOORD;
-    float4 position : SV_Position;
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
     float3 bitangent : BINORMAL;
@@ -18,7 +20,6 @@ struct RootConstants {
     float4 albedo;
     uint4 textures;
     float4 properties;
-    float4x4 view_proj;
 };
 
 ROOT_CONSTANTS(RootConstants, root_constants)
@@ -49,8 +50,12 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     packed.y = PackNormal(normal);
     packed.z = PackMetallicRoughness(metalness, roughness);
     
+    float2 prev_pos = (input.prev_position.xyz / input.prev_position.w).xy;
+    float2 curr_pos = (input.curr_position.xyz / input.prev_position.w).xy;
+    
     output.gbuffer = asfloat(packed);
-    output.motionvectors = float2(0.0, 0.0);
-
+    output.motionvectors = (input.prev_position.xy / input.prev_position.w) - (input.curr_position.xy / input.curr_position.w);
+    output.motionvectors *= float2(0.5, -0.5);
+    
     return output;
 }

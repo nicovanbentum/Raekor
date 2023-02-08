@@ -2,7 +2,7 @@
 #include "DXRenderGraph.h"
 #include "shared.h"
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 bool IRenderPass::IsRead(TextureID inTexture) {
 	for (const auto& texture : m_ReadTextures)
@@ -40,9 +40,12 @@ RenderGraph::~RenderGraph() {}
 void RenderGraph::Clear(Device& inDevice) {
 	for (auto& pass : m_RenderPasses) {
 		for (auto resource_id : pass->m_WrittenTextures)
-			inDevice.ReleaseTexture(resource_id.mResourceTexture);
+			if (resource_id.mResourceTexture != m_BackBuffer)
+				inDevice.ReleaseTexture(resource_id.mResourceTexture);
+		
 		for (auto resource_id : pass->m_ReadTextures)
 			inDevice.ReleaseTexture(resource_id.mResourceTexture);
+		
 		for (auto texture_id : pass->m_CreatedTextures)
 			inDevice.ReleaseTexture(texture_id);
 	}
@@ -186,7 +189,7 @@ bool RenderGraph::Compile(Device& inDevice) {
 	for (const auto& pass : m_RenderPasses)
 		total_constants_size += pass->m_ConstantsSize;
 
-	m_PerPassAllocator.CreateBuffer(inDevice, total_constants_size * sFrameCount);
+	m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size * sFrameCount, 1u));
 	m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants) * sFrameCount);
 
 	return true;

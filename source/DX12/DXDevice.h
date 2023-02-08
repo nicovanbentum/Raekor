@@ -3,11 +3,12 @@
 #include "DXResource.h"
 #include "DXDescriptor.h"
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 class CommandList;
 class IRenderPass;
 struct TextureResource;
+
 
 class Device : public INoCopyNoMove {
 public:
@@ -54,10 +55,10 @@ public:
 	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetHeapPtr(TextureResource inResource);
 
 
-	[[nodiscard]] DescriptorID CreateDepthStencilView(ResourceRef inResourceID, D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
-	[[nodiscard]] DescriptorID CreateRenderTargetView(ResourceRef inResourceID, D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);
-	[[nodiscard]] DescriptorID CreateShaderResourceView(ResourceRef inResourceID, D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc = nullptr);
-	[[nodiscard]] DescriptorID CreateUnorderedAccessView(ResourceRef inResourceID, D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] DescriptorID CreateDepthStencilView(ResourceRef inResourceID, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] DescriptorID CreateRenderTargetView(ResourceRef inResourceID, const D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] DescriptorID CreateShaderResourceView(ResourceRef inResourceID, const D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc = nullptr);
+	[[nodiscard]] DescriptorID CreateUnorderedAccessView(ResourceRef inResourceID, const D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc = nullptr);
 
 	void ReleaseDepthStencilView(DescriptorID inResourceID)	   { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Remove(inResourceID); }
 	void ReleaseRenderTargetView(DescriptorID inResourceID)    { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Remove(inResourceID); }
@@ -66,6 +67,11 @@ public:
 
 	[[nodiscard]] D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inComputeShader);
 	[[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inVertexShader, const std::string& inPixelShader);
+
+	[[nodiscard]] D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader);
+	[[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader);
+
+
 
 	[[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inResource)	{ return inResource.ToIndex(); }
 
@@ -88,7 +94,16 @@ public:
 	ComPtr<D3D12MA::Allocator> m_Allocator;
 	ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
 	std::array<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
-	std::unordered_map<std::string, ComPtr<IDxcBlob>> m_Shaders;
+
+	struct ShaderEntry {
+		inline bool IsNull() { return mBlob != nullptr; }
+
+		FileSystem::path mPath;
+		ComPtr<IDxcBlob> mBlob = nullptr;
+		FileSystem::file_time_type mLastWriteTime;
+	};
+
+	std::unordered_map<std::string, ShaderEntry> m_Shaders;
 
 private:
 	uint32_t m_NumFrames;
@@ -111,8 +126,8 @@ public:
 	StagingHeap(Device& inDevice) : m_Device(inDevice) {}
 	~StagingHeap();
 
-	void StageBuffer(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, size_t inOffset, const void* inData, size_t inSize);
-	void StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, size_t inSubResource, const void* inData);
+	void StageBuffer(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, uint32_t inOffset, const void* inData, uint32_t inSize);
+	void StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, uint32_t inSubResource, const void* inData);
 
 private:
 	Device& m_Device;
@@ -153,5 +168,12 @@ private:
 	uint8_t* m_DataPtr = nullptr;
 	uint32_t m_TotalCapacity = 0;
 };
+
+
+ComPtr<IDxcBlob> sCompileShaderDXC(const FileSystem::path& inFilePath);
+
+
+
+
 
 } // namespace::Raekor

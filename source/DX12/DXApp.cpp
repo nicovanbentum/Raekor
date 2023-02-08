@@ -15,7 +15,7 @@
 #include "DXRenderGraph.h"
 
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 DXApp::DXApp() : 
     Application(WindowFlags::NONE), 
@@ -49,20 +49,26 @@ DXApp::DXApp() :
         for (auto& p : mesh.positions)
             p = transform.worldTransform * glm::vec4(p, 1.0);
 
-        for (auto& n : mesh.normals)
-            n = transform.worldTransform * glm::vec4(n, 1.0);
-
         for (auto& t : mesh.tangents)
             t = transform.worldTransform * glm::vec4(t, 1.0);
     }
 
-    DSTORAGE_QUEUE_DESC queue_desc = {};
-    queue_desc.Capacity = DSTORAGE_MAX_QUEUE_CAPACITY;
-    queue_desc.Priority = DSTORAGE_PRIORITY_NORMAL;
-    queue_desc.SourceType = DSTORAGE_REQUEST_SOURCE_FILE;
-    queue_desc.Device = m_Device;
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
+    gThrowIfFailed(m_Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
 
-    ComPtr<IDStorageFactory> storage_factory;
+    if (options5.RaytracingTier < D3D12_RAYTRACING_TIER_1_1) {
+        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX12 Error", "GPU does not support D3D12_RAYTRACING_TIER_1_1.", m_Window);
+        abort();
+    }
+
+    const auto queue_desc = DSTORAGE_QUEUE_DESC {
+        .SourceType = DSTORAGE_REQUEST_SOURCE_FILE,
+        .Capacity   = DSTORAGE_MAX_QUEUE_CAPACITY,
+        .Priority   = DSTORAGE_PRIORITY_NORMAL,
+        .Device     = m_Device,
+    };
+
+    auto storage_factory = ComPtr<IDStorageFactory>{};
     gThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&storage_factory)));
 
     gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_StorageQueue)));
@@ -90,7 +96,7 @@ void DXApp::OnUpdate(float inDeltaTime) {
 
     m_Scene.UpdateLights();
 
-    m_Renderer.OnRender(m_Device, m_Scene, inDeltaTime);
+    m_Renderer.OnRender(m_Device, m_Viewport, m_Scene, m_TLAS, inDeltaTime);
 }
 
 
@@ -124,10 +130,10 @@ void DXApp::OnEvent(const SDL_Event& event) {
     if (event.type == SDL_WINDOWEVENT) {
         if (event.window.event == SDL_WINDOWEVENT_MINIMIZED) {
             while (1) {
-                SDL_Event ev;
-                SDL_PollEvent(&ev);
+                auto temp_event = SDL_Event{};
+                SDL_PollEvent(&temp_event);
 
-                if (ev.window.event == SDL_WINDOWEVENT_RESTORED)
+                if (temp_event.window.event == SDL_WINDOWEVENT_RESTORED)
                     break;
             }
         }
@@ -136,7 +142,7 @@ void DXApp::OnEvent(const SDL_Event& event) {
                 m_Running = false;
         }
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-            int w, h;
+            auto w = 0, h = 0;
             SDL_GetWindowSize(m_Window, &w, &h);
             m_Viewport.Resize(glm::uvec2(w, h));
             m_Renderer.OnResize(m_Device, m_Viewport);
@@ -150,7 +156,7 @@ void DXApp::CompileShaders() {
     if (!FileSystem::exists("assets/system/shaders/DirectX/bin"))
         FileSystem::create_directory("assets/system/shaders/DirectX/bin");
 
-    FileSystem::file_time_type timeOfMostRecentlyUpdatedIncludeFile;
+    auto timeOfMostRecentlyUpdatedIncludeFile = FileSystem::file_time_type{};
 
     for (const auto& file : FileSystem::directory_iterator("assets/system/shaders/DirectX/include")) {
         const auto updateTime = FileSystem::last_write_time(file);
@@ -163,91 +169,13 @@ void DXApp::CompileShaders() {
         if (file.is_directory() || file.path().extension() != ".hlsl")
             continue;
 
-        Async::sQueueJob([=]() {
-        const auto name = file.path().stem().string();
-        auto type = name.substr(name.size() - 2, 2);
-        std::transform(type.begin(), type.end(), type.begin(), tolower);
-
-        ComPtr<IDxcUtils> utils;
-        DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.GetAddressOf()));
-        ComPtr<IDxcLibrary> library;
-        DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(library.GetAddressOf()));
-        ComPtr<IDxcCompiler3> pCompiler;
-        DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(pCompiler.GetAddressOf()));
-        ComPtr<IDxcIncludeHandler> include_handler;
-        utils->CreateDefaultIncludeHandler(include_handler.GetAddressOf());
-
-        uint32_t code_page = CP_UTF8;
-        ComPtr<IDxcBlobEncoding> blob;
-        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-        std::wstring file_path = converter.from_bytes(file.path().string());
-        gThrowIfFailed(library->CreateBlobFromFile(file_path.c_str(), &code_page, blob.GetAddressOf()));
-
-        std::vector<LPCWSTR> arguments;
-        //-E for the entry point (eg. PSMain)
-        arguments.push_back(L"-E");
-        arguments.push_back(L"main");
-
-        //-T for the target profile (eg. ps_6_2)
-        arguments.push_back(L"-T");
-
-        if (type == "ps")
-            arguments.push_back(L"ps_6_6");
-        else if (type == "vs")
-            arguments.push_back(L"vs_6_6");
-        else if (type == "cs")
-            arguments.push_back(L"cs_6_6");
-
-        arguments.push_back(L"-Zi");
-        arguments.push_back(L"-Qembed_debug");
-        arguments.push_back(L"-Od");
-
-        arguments.push_back(L"-I");
-        arguments.push_back(L"assets/system/shaders/DirectX");
-
-        arguments.push_back(L"-HV");
-        arguments.push_back(L"2021");
-
-        DxcBuffer sourceBuffer;
-        sourceBuffer.Ptr = blob->GetBufferPointer();
-        sourceBuffer.Size = blob->GetBufferSize();
-        sourceBuffer.Encoding = 0;
-
-        ComPtr<IDxcResult> result;
-        gThrowIfFailed(pCompiler->Compile(&sourceBuffer, arguments.data(), uint32_t(arguments.size()), include_handler.Get(), IID_PPV_ARGS(result.GetAddressOf())));
-
-        ComPtr<IDxcBlobUtf8> errors;
-        result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr);
-
-        if (errors && errors->GetStringLength() > 0) {
-            auto lock = Async::sLock();
-            std::cerr << static_cast<char*>(errors->GetBufferPointer()) << '\n';
-        }
-
-        HRESULT hr;
-        result->GetStatus(&hr);
-
-        if (!SUCCEEDED(hr)) {
-            auto lock = Async::sLock();
-            std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
-        }
-        else {
-            ComPtr<IDxcBlob> shader, pdb;
-            ComPtr<IDxcBlobUtf16> pDebugDataPath;
-            result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(shader.GetAddressOf()), pDebugDataPath.GetAddressOf());
-            result->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(pdb.GetAddressOf()), pDebugDataPath.GetAddressOf());
-
-            auto pdb_file = std::ofstream(file.path().parent_path() / file.path().filename().replace_extension(".pdb"));
-            pdb_file.write((char*)pdb->GetBufferPointer(), pdb->GetBufferSize());
-
-            auto lock = Async::sLock();
-
-            m_Shaders.insert(std::make_pair(file.path().stem().string(), shader));
-            m_Device.m_Shaders.insert(std::make_pair(file.path().stem().string(), shader));
-
-            std::cout << "Compilation " << COUT_GREEN("Finished") << " for shader: " << file.path().string() << '\n';
-        }
-        });
+        //Async::sQueueJob([&]() {
+            m_Device.m_Shaders[file.path().stem().string()] = Device::ShaderEntry {
+                .mPath = file.path(),
+                .mBlob = sCompileShaderDXC(file.path()),
+                .mLastWriteTime = FileSystem::last_write_time(file)
+            };
+        //});
     }
 
     // Wait for shader compilation to finish before continuing on with pipeline creation
@@ -264,13 +192,13 @@ void DXApp::UploadSceneToGPU() {
         const auto indices_size = mesh.indices.size() * sizeof(mesh.indices[0]);
 
         mesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc{
-            .size   = indices_size,
+            .size   = uint32_t(indices_size),
             .stride = sizeof(mesh.indices[0]),
             .usage  = Buffer::Usage::INDEX_BUFFER
         }).ToIndex();
 
         mesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc{
-            .size   = vertices_size,
+            .size   = uint32_t(vertices_size),
             .stride = sizeof(Vertex),
             .usage  = Buffer::Usage::VERTEX_BUFFER
         }).ToIndex();
@@ -314,22 +242,18 @@ DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_
     if (!asset || !FileSystem::exists(asset->GetPath()))
         return m_DefaultWhiteTexture;
 
-    ComPtr<IDStorageFactory> factory;
+    auto factory = ComPtr<IDStorageFactory>();
     gThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&factory)));
 
-    ComPtr<IDStorageFile> file;
+    auto file = ComPtr<IDStorageFile>();
     gThrowIfFailed(factory->OpenFile(asset->GetPath().wstring().c_str(), IID_PPV_ARGS(&file)));
-
-    BY_HANDLE_FILE_INFORMATION info{};
-    gThrowIfFailed(file->GetFileInformation(&info));
-    uint32_t fileSize = info.nFileSizeLow;
 
     const auto data = asset->GetData();
     const auto header = asset->GetHeader();
     // I think DirectStorage doesnt do proper texture data alignment for its upload buffers as we get garbage past the 5th mip
     const auto mipmap_levels = std::min(header->dwMipMapCount, 5ul);
 
-    auto texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc{ 
+    auto texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc { 
         .format = format, 
         .width = header->dwWidth, 
         .height = header->dwHeight, 
@@ -342,16 +266,27 @@ DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_
     auto requests = std::vector<DSTORAGE_REQUEST>(mipmap_levels);
 
     for (auto [mip, request] : gEnumerate(requests)) {
-        DSTORAGE_REQUEST request = {};
-        request.Options.SourceType = DSTORAGE_REQUEST_SOURCE_FILE;
-        request.Options.DestinationType = DSTORAGE_REQUEST_DESTINATION_TEXTURE_REGION;
-        request.Source.File.Source = file.Get();
-        request.Source.File.Offset = data_offset;
-        request.Source.File.Size = width * height;
-        request.Destination.Texture.Region = CD3DX12_BOX(0, 0, width, height);
-        request.Destination.Texture.Resource = texture.GetResource().Get();
-        request.Destination.Texture.SubresourceIndex = mip;
-        request.Name = asset->GetPath().string().c_str();
+        const auto request = DSTORAGE_REQUEST {
+            .Options = DSTORAGE_REQUEST_OPTIONS {
+                .SourceType = DSTORAGE_REQUEST_SOURCE_FILE,
+                .DestinationType = DSTORAGE_REQUEST_DESTINATION_TEXTURE_REGION,
+            },
+            .Source = DSTORAGE_SOURCE {
+                .File = DSTORAGE_SOURCE_FILE {
+                    .Source = file.Get(),
+                    .Offset = data_offset,
+                    .Size = width * height,
+                }
+            },
+            .Destination = DSTORAGE_DESTINATION {
+                .Texture = DSTORAGE_DESTINATION_TEXTURE_REGION {
+                    .Resource = texture.GetResource().Get(),
+                    .SubresourceIndex = uint32_t(mip),
+                    .Region = CD3DX12_BOX(0, 0, width, height),
+                }
+            },
+            .Name = asset->GetPath().string().c_str()
+        };
 
         width /= 2, height /= 2;
         data_offset += request.Source.File.Size;
@@ -359,21 +294,21 @@ DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_
         m_StorageQueue->EnqueueRequest(&request);
     }
 
-    ComPtr<ID3D12Fence> fence;
+    auto fence = ComPtr<ID3D12Fence>{};
     gThrowIfFailed(m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())));
 
-    HANDLE fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    constexpr uint64_t fenceValue = 1;
-    gThrowIfFailed(fence->SetEventOnCompletion(fenceValue, fenceEvent));
-    m_StorageQueue->EnqueueSignal(fence.Get(), fenceValue);
+    auto fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    constexpr auto fence_value = 1ul;
+    gThrowIfFailed(fence->SetEventOnCompletion(fence_value, fence_event));
+    m_StorageQueue->EnqueueSignal(fence.Get(), fence_value);
 
     // Tell DirectStorage to start executing all queued items.
     m_StorageQueue->Submit();
 
     // Wait for the submitted work to complete
     std::cout << "Waiting for the DirectStorage request to complete...\n";
-    WaitForSingleObject(fenceEvent, INFINITE);
-    CloseHandle(fenceEvent);
+    WaitForSingleObject(fence_event, INFINITE);
+    CloseHandle(fence_event);
 
     return texture.GetView();
 }
@@ -427,7 +362,7 @@ void DXApp::UploadBvhToGPU() {
 
         const auto scratch_buffer_id = m_Device.CreateBuffer(Buffer::Desc{
             .size = prebuild_info.ScratchDataSizeInBytes
-            });
+        });
 
         auto& scratch_buffer = m_Device.GetBuffer(scratch_buffer_id);
         auto& result_buffer = m_Device.GetBuffer(component.buffer);

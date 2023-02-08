@@ -2,7 +2,7 @@
 
 #include "DXResource.h"
 
-namespace Raekor::DX {
+namespace Raekor::DX12 {
 
 class DescriptorHeap : public DescriptorPool {
 public:
@@ -24,4 +24,4 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_HeapPtr;
 };
 
-} // Raekor::DX
+} // Raekor::DX12
