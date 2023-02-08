@@ -4,6 +4,8 @@
 
 namespace Raekor {
 
+struct Frustum;
+
 class Camera {
     
 public:
@@ -32,6 +34,8 @@ public:
     float GetFar() const;
     float GetNear() const;
     float GetAspectRatio() const;
+
+    Frustum GetFrustum() const;
 
 private:
     glm::vec2 m_Angle;

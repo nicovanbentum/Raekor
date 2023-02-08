@@ -15,14 +15,12 @@ Application::Application(WindowFlags inFlags) {
         m_Settings.serialize(archive);
     }
 
-    int sdlError = SDL_Init(SDL_INIT_VIDEO);
-    
-    if (sdlError != 0) {
-        std::cout << SDL_GetError() << '\n';
-        abort();
-    }
+    SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
 
-    Uint32 window_flags = inFlags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS;
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        std::cout << SDL_GetError() << '\n';
+        std::abort();
+    }
 
     auto displays = std::vector<SDL_Rect>(SDL_GetNumVideoDisplays());
     for (auto& [index, display] : gEnumerate(displays))
@@ -35,12 +33,14 @@ Application::Application(WindowFlags inFlags) {
     int width = int(rect.w * 0.9f);
     int height = int(rect.h * 0.9f);
 
+    width = 1920, height = 1080;
+
     m_Window = SDL_CreateWindow(
         m_Settings.name.c_str(),
         SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
         SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
         width, height,
-        window_flags
+        inFlags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS
     );
 
     OS::sSetDarkTitleBar(m_Window);

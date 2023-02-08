@@ -42,6 +42,9 @@ public:
     virtual void OnUpdate(float dt)  = 0;
     virtual void OnEvent(const SDL_Event& event) = 0;
 
+    ConfigSettings& GetSettings() { return m_Settings; }
+    const ConfigSettings& GetSettings() const { return m_Settings; }
+
     SDL_Window* GetWindow() { return m_Window; }
     Viewport& GetViewport() { return m_Viewport; }
 

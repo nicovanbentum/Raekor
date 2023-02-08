@@ -21,6 +21,10 @@ void BeginDockSpace() {
         dockWindowFlags |= ImGuiWindowFlags_NoBackground;
     }
 
+    auto window_class = ImGuiWindowClass();
+    window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoCloseButton;
+    ImGui::SetNextWindowClass(&window_class);
+
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::Begin("DockSpace", (bool*)true, dockWindowFlags);
     ImGui::PopStyleVar();
@@ -29,8 +33,10 @@ void BeginDockSpace() {
     ImGuiIO& io = ImGui::GetIO();
     if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
         ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags, &window_class);
     }
+
+    ImGui::SetNextWindowClass(&window_class);
 }
 
 
@@ -62,7 +68,7 @@ void SetFont(const std::string& filepath) {
     // merge in icons from Font Awesome
     static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
     ImFontConfig icons_config; icons_config.MergeMode = true; icons_config.PixelSnapH = true;
-    io.Fonts->AddFontFromFileTTF("assets/system/" FONT_ICON_FILE_NAME_FAS, 15.0f, &icons_config, icons_ranges);
+    io.Fonts->AddFontFromFileTTF("assets/system/" FONT_ICON_FILE_NAME_FAS, 14.0f, &icons_config, icons_ranges);
     // use FONT_ICON_FILE_NAME_FAR if you want regular instead of solid
 
     // Build the font texture on the CPU, TexID set to NULL for the OpenGL backend
@@ -89,6 +95,8 @@ void SetTheme(const std::array<std::array<float, 4>, ImGuiCol_COUNT>& data) {
     ImGui::GetStyle().WindowBorderSize = 0.0f;
     ImGui::GetStyle().ChildBorderSize = 0.0f;
     ImGui::GetStyle().FrameBorderSize = 0.0f;
+
+    ImGui::GetStyle().TabRounding = 2.0f;
 }
 
 

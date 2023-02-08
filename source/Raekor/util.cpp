@@ -3,14 +3,23 @@
 
 namespace Raekor {
 
-void gPrintProgressBar(const std::string& prepend, float fract) {
-    static std::string bar = "----------]";
-    std::string loading = prepend + "[";
-    int index = int(fract * 10);
-    if (index == 0) bar = "----------]";
-    if (bar[index] == '-') bar[index] = '#';
-    std::cout << '\r' << loading << bar;
-    if (index == 10) std::cout << '\n';
+static constexpr auto sProgressStrings = std::array {
+    "----------",
+    "#---------",
+    "##--------",
+    "###-------",
+    "####------",
+    "#####-----",
+    "######----",
+    "#######---",
+    "########--",
+    "#########-",
+    "##########"
+};
+
+const char* gAsciiProgressBar(float inFraction) {
+    assert(inFraction >= 0.0f && inFraction <= 1.0f);
+    return sProgressStrings[int(inFraction * 10)];
 }
 
 

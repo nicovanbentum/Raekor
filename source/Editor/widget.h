@@ -21,13 +21,13 @@ public:
     virtual void draw(float dt) = 0;
     virtual void onEvent(const SDL_Event& ev) = 0;
 
-    void Show() { visible = true; }
-    void Hide() { visible = false; }
+    void Show() { m_Visible = true; }
+    void Hide() { m_Visible = false; }
     
-    bool IsVisible() { return visible; }
-    bool IsFocused() { return focused; }
+    bool IsVisible() { return m_Visible; }
+    bool IsFocused() { return m_Focused; }
 
-    const std::string& GetTitle() { return title; }
+    const std::string& GetTitle() { return m_Title; }
 
 protected:
     // Need to be defined in the cpp to avoid circular dependencies
@@ -37,10 +37,10 @@ protected:
     Entity& GetActiveEntity();
     GLRenderer& GetRenderer();
 
-    Editor* editor;
-    std::string title;
-    bool visible = true;
-    bool focused = false;
+    Editor* m_Editor;
+    std::string m_Title;
+    bool m_Visible = true;
+    bool m_Focused = false;
 };
 
 }

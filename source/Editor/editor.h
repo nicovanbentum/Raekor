@@ -24,7 +24,6 @@ public:
     const auto& GetWidgets() { return m_Widgets; }
 
 private:
-    Scene m_Scene;
     Assets m_Assets;
     Physics m_Physics;
     GLRenderer m_Renderer;

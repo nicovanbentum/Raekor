@@ -61,7 +61,7 @@ constexpr inline size_t gAlignUp(size_t value, size_t alignment) noexcept {
 }
 
 
-void gPrintProgressBar(const std::string& prepend, float fract);
+const char* gAsciiProgressBar(float fract);
 
 
 template <typename Tpl, typename Fx, size_t... Indices>
@@ -240,7 +240,7 @@ public:
 
 private:
     std::vector<uint16_t> m_Generations;
-    std::vector<size_t> m_FreeIndices;
+    std::vector<uint32_t> m_FreeIndices;
     std::vector<T> m_Storage;
 };
 

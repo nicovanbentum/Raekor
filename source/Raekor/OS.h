@@ -16,6 +16,9 @@ public:
     static std::string sOpenFileDialog(const char* filters);
     static std::string sSaveFileDialog(const char* filters, const char* defaultExt);
     static std::string sSelectFolderDialog();
+
+    static FileSystem::path sGetExecutablePath();
+    static FileSystem::path sGetExecutableDirectoryPath();
 };
 
 } // Namespace Raekor

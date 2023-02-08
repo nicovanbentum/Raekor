@@ -61,8 +61,8 @@ struct Mesh {
     
     std::vector<uint32_t> indices;
 
-    uint32_t vertexBuffer;
-    uint32_t indexBuffer;
+    uint32_t vertexBuffer = 0;
+    uint32_t indexBuffer = 0;
 
     std::array<glm::vec3, 2> aabb;
 
@@ -72,6 +72,15 @@ struct Mesh {
     void CalculateNormals();
     void CalculateAABB();
     std::vector<float> GetInterleavedVertices() const;
+
+    void Clear() {
+        positions.clear();
+        uvs.clear();
+        normals.clear();
+        tangents.clear();
+        indices.clear();
+
+    }
 };
 
 struct BoxCollider {

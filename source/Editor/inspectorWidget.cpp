@@ -8,11 +8,11 @@ namespace Raekor {
 RTTI_CLASS_CPP_NO_FACTORY(InspectorWidget) {}
 
 
-InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, "Inspector") {}
+InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, ICON_FA_INFO_CIRCLE " Inspector ") {}
 
 
 void InspectorWidget::draw(float dt) {
-    ImGui::Begin(title.c_str());
+    ImGui::Begin(m_Title.c_str(), &m_Visible);
 
     auto& active_entity = GetActiveEntity();
 
@@ -44,6 +44,8 @@ void InspectorWidget::draw(float dt) {
         }(assets, scene, active));
     }, Components);
 
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f);
     if (ImGui::BeginPopup("Components")) {
         if (ImGui::Selectable("Native Script", false)) {
             scene.emplace<NativeScript>(active);
@@ -68,6 +70,9 @@ void InspectorWidget::draw(float dt) {
     if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0))) {
         ImGui::OpenPopup("Components");
     }
+    
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar();
 
     ImGui::End();
 };
@@ -108,9 +113,8 @@ void InspectorWidget::DrawComponent(Mesh& component, Entity& active) {
 
         ImGui::SameLine();
         ImGui::Text(name.name.c_str());
-    } else {
+    } else
         ImGui::Text("No material");
-    }
 
     if (ImGui::BeginDragDropTarget()) {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material"))
@@ -126,9 +130,9 @@ void InspectorWidget::DrawComponent(BoxCollider& component, Entity& active) {
 
     ImGui::Text("Unique Body ID: %i", component.bodyID.GetIndexAndSequenceNumber());
 
-    constexpr std::array items = { "Static", "Kinematic", "Dynamic" };
+    constexpr auto items = std::array { "Static", "Kinematic", "Dynamic" };
 
-    int index = int(component.motionType);
+    auto index = int(component.motionType);
     if (ImGui::Combo("##MotionType", &index, items.data(), int(items.size()))) {
         component.motionType = JPH::EMotionType(index);
         body_interface.SetMotionType(component.bodyID, component.motionType, JPH::EActivation::Activate);
@@ -137,9 +141,9 @@ void InspectorWidget::DrawComponent(BoxCollider& component, Entity& active) {
 
 
 void InspectorWidget::DrawComponent(Skeleton& component, Entity& active) {
-    static bool playing = false;
-    const float currentTime = component.animations[0].GetRunningTime();
-    const float totalDuration = component.animations[0].GetTotalDuration();
+    static auto playing = false;
+    const  auto currentTime = component.animations[0].GetRunningTime();
+    const  auto totalDuration = component.animations[0].GetTotalDuration();
 
     ImGui::ProgressBar(currentTime / totalDuration);
 
@@ -149,9 +153,8 @@ void InspectorWidget::DrawComponent(Skeleton& component, Entity& active) {
     ImGui::SameLine();
 
     if (ImGui::BeginCombo("Animation##InspectorWidget::drawComponent", component.animations[0].GetName().c_str())) {
-        for (auto& animation : component.animations) {
+        for (auto& animation : component.animations)
             ImGui::Selectable(animation.GetName().c_str());
-        }
 
         ImGui::EndCombo();
     }
@@ -183,13 +186,13 @@ void InspectorWidget::DrawComponent(Skeleton& component, Entity& active) {
 void InspectorWidget::DrawComponent(Material& component, Entity& active) {
     auto& io = ImGui::GetIO();
     auto& style = ImGui::GetStyle();
-    float lineHeight = io.FontDefault->FontSize;
+    const auto lineHeight = io.FontDefault->FontSize;
 
     ImGui::ColorEdit4("Albedo", glm::value_ptr(component.albedo), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
     ImGui::ColorEdit3("Emissive", glm::value_ptr(component.emissive), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 
-    const bool adjustedMetallic = ImGui::DragFloat("Metallic", &component.metallic, 0.001f, 0.0f, 1.0f);
-    const bool adjustedRoughness = ImGui::DragFloat("Roughness", &component.roughness, 0.001f, 0.0f, 1.0f);
+    const auto adjustedMetallic = ImGui::DragFloat("Metallic", &component.metallic, 0.001f, 0.0f, 1.0f);
+    const auto adjustedRoughness = ImGui::DragFloat("Roughness", &component.roughness, 0.001f, 0.0f, 1.0f);
 
     if (adjustedMetallic || adjustedRoughness) {
         if (component.metalroughFile.empty() && component.gpuMetallicRoughnessMap) {
@@ -209,7 +212,7 @@ void InspectorWidget::DrawComponent(Material& component, Entity& active) {
     }
 
     auto drawTextureInteraction = [&](GLuint& gpuMap, std::string& file) {
-        const GLuint image = gpuMap ? gpuMap : Material::Default.gpuAlbedoMap;
+        const auto image = gpuMap ? gpuMap : Material::Default.gpuAlbedoMap;
         
         if (ImGui::ImageButton((void*)((intptr_t)image), ImVec2(lineHeight - 1, lineHeight - 1))) {
             auto filepath = OS::sOpenFileDialog("Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0");
@@ -221,9 +224,8 @@ void InspectorWidget::DrawComponent(Material& component, Entity& active) {
                     file = asset_path;
                     gpuMap = GLRenderer::sUploadTextureFromAsset(GetAssets().Get<TextureAsset>(asset_path));
                 }
-                else {
+                else
                     ImGui::OpenPopup("Error");
-                }
             }
         }
 
@@ -249,18 +251,18 @@ void InspectorWidget::DrawComponent(Material& component, Entity& active) {
 
 
 bool dragVec3(const char* label, glm::vec3& v, float step, float min, float max, const char* format = "%.2f") {
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    const auto window = ImGui::GetCurrentWindow();
     if (window->SkipItems)
         return false;
 
-    ImGuiContext& g = *GImGui;
-    bool value_changed = false;
+    const auto& g = *GImGui;
+    auto value_changed = false;
     ImGui::PushID(label);
     ImGui::PushMultiItemsWidths(v.length(), ImGui::CalcItemWidth());
     
-    constexpr std::array chars = { "X", "Y", "Z", "W" };
+    constexpr auto chars = std::array { "X", "Y", "Z", "W" };
 
-    const std::array colors = {
+    static const auto colors = std::array {
         ImVec4{0.5f, 0.0f, 0.0f, 1.0f},
         ImVec4{0.0f, 0.5f, 0.0f, 1.0f},
         ImVec4{0.1f, 0.1f, 1.0f, 1.0f}
@@ -285,7 +287,7 @@ bool dragVec3(const char* label, glm::vec3& v, float step, float min, float max,
         auto size = ImGui::CalcTextSize("12.456");
         ImGui::PushItemWidth(size.x);
 
-        ImGuiDataType type = ImGuiDataType_Float;
+        const auto type = ImGuiDataType_Float;
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
         ImGui::PushStyleColor(ImGuiCol_Border, colors[i]);
         value_changed |= ImGui::DragScalar("", type, (void*)&v[i], step, &min, &max, format, 0);
@@ -301,7 +303,7 @@ bool dragVec3(const char* label, glm::vec3& v, float step, float min, float max,
     }
     ImGui::PopID();
 
-    const char* label_end = ImGui::FindRenderedTextEnd(label);
+    const auto label_end = ImGui::FindRenderedTextEnd(label);
     if (label != label_end) {
         ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
         ImGui::TextEx(label, label_end);
@@ -342,9 +344,9 @@ void InspectorWidget::DrawComponent(NativeScript& component, Entity& active) {
     }
 
     if (ImGui::Button("Load..")) {
-        std::string filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
+        const auto filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
         if (!filepath.empty()) {
-            component.file = FileSystem::relative(filepath).string();
+            component.file  = FileSystem::relative(filepath).string();
             component.asset = assets.Get<ScriptAsset>(component.file);
         }
     }
@@ -360,21 +362,21 @@ void InspectorWidget::DrawComponent(NativeScript& component, Entity& active) {
     ImGui::SameLine();
 
     if (ImGui::Button("Recompile")) {
-        std::string filepath = OS::sOpenFileDialog("C++ Files (*.cpp)\0*.cpp\0");
+        const auto filepath = OS::sOpenFileDialog("C++ Files (*.cpp)\0*.cpp\0");
 
         if (!filepath.empty()) {
-            std::string procAddress = component.procAddress;
+            const auto procAddress = component.procAddress;
             
             delete component.script;
             assets.Release(component.file);
             component = NativeScript();
             
-            std::string asset =  ScriptAsset::sConvert(filepath);
+            const auto asset_path =  ScriptAsset::sConvert(filepath);
             
-            if (!asset.empty()) {
-                component.file = asset;
+            if (!asset_path.empty()) {
+                component.file = asset_path;
                 component.procAddress = procAddress;
-                component.asset = assets.Get<ScriptAsset>(asset);
+                component.asset = assets.Get<ScriptAsset>(asset_path);
 
                 scene.BindScriptToEntity(active, component);
             }
@@ -382,9 +384,8 @@ void InspectorWidget::DrawComponent(NativeScript& component, Entity& active) {
     }
 
     if (ImGui::InputText("Function", &component.procAddress, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue)) {
-        if (component.asset) {
+        if (component.asset)
             scene.BindScriptToEntity(active, component);
-        }
     }
 }
 

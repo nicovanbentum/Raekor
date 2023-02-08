@@ -7,23 +7,24 @@ namespace Raekor {
 RTTI_CLASS_CPP_NO_FACTORY(ViewportWidget) {}
 
 ViewportWidget::ViewportWidget(Editor* editor) :
-    IWidget(editor, "Viewport"),
+    IWidget(editor, ICON_FA_VIDEO " Viewport "),
     rendertarget(IWidget::GetRenderer().m_Tonemap->result)
 {}
 
 
 void ViewportWidget::draw(float dt) {
     auto& scene = IWidget::GetScene();
+    auto& physics  = IWidget::GetPhysics();
+    auto& viewport = m_Editor->GetViewport();
     auto& renderer = IWidget::GetRenderer();
-    auto& viewport = editor->GetViewport();
-    auto& physics = IWidget::GetPhysics();
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4.0f));
     const auto flags =  ImGuiWindowFlags_AlwaysAutoResize | 
                         ImGuiWindowFlags_NoScrollWithMouse |
                         ImGuiWindowFlags_NoScrollbar;
 
-    const bool is_visible = ImGui::Begin(title.c_str(), NULL, flags);
+    ImGui::SetNextWindowSize(ImVec2(160, 90), ImGuiCond_FirstUseEver);
+    const bool is_visible = ImGui::Begin(m_Title.c_str(), &m_Visible, flags);
     renderer.settings.paused = !is_visible;
 
     if (ImGui::Checkbox("Gizmo", &gizmoEnabled))
@@ -41,56 +42,9 @@ void ViewportWidget::draw(float dt) {
     if (ImGui::RadioButton("Scale", operation == ImGuizmo::OPERATION::SCALE))
         operation = ImGuizmo::OPERATION::SCALE;
 
-    ImGui::SameLine((ImGui::GetContentRegionAvail().x / 2) - ImGui::GetFrameHeightWithSpacing() * 1.5f);
-
-    if (ImGui::Button(ICON_FA_HAMMER)) {}
-
-    ImGui::SameLine();
-
-    std::array physics_state_text_colors = {
-        ImGui::GetStyleColorVec4(ImGuiCol_Text),
-        ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
-        ImVec4(0.35f, 0.78f, 1.0f, 1.0f),
-    };
-
-    const auto physics_state = physics.GetState();
-    ImGui::PushStyleColor(ImGuiCol_Text, physics_state_text_colors[physics_state]);
-    if (ImGui::Button(physics_state == Physics::Stepping ? ICON_FA_PAUSE : ICON_FA_PLAY)) {
-        switch (physics_state) {
-            case Physics::Idle: {
-                physics.SaveState();
-                physics.SetState(Physics::Stepping);
-            } break;
-            case Physics::Paused: {
-                physics.SetState(Physics::Stepping);
-            } break;
-            case Physics::Stepping: {
-                physics.SetState(Physics::Paused);
-            } break;
-        }
-    }
-
-    ImGui::PopStyleColor();
-    ImGui::SameLine();
-
-    const auto current_physics_state = physics_state;
-    if (current_physics_state != Physics::Idle)
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
-
-    if (ImGui::Button(ICON_FA_STOP)) {
-        if (physics_state != Physics::Idle) {
-            physics.RestoreState();
-            physics.Step(scene, dt); // Step once to trigger the restored state
-            physics.SetState(Physics::Idle);
-        }
-    }
-
-    if (current_physics_state != Physics::Idle)
-        ImGui::PopStyleColor();
-
     ImGui::SameLine(ImGui::GetContentRegionAvail().x - 256.0f);
 
-    constexpr std::array items = {
+    static constexpr auto items = std::array {
         "Final",
         "Albedo",
         "Normals",
@@ -103,7 +57,7 @@ void ViewportWidget::draw(float dt) {
         "Bloom (Final)",
     };
 
-    const std::array targets = {
+    const auto targets = std::array {
         renderer.m_Tonemap->result,
         renderer.m_GBuffer->albedoTexture,
         renderer.m_GBuffer->normalTexture,
@@ -125,6 +79,8 @@ void ViewportWidget::draw(float dt) {
 
     // figure out if we need to resize the viewport
     auto size = ImGui::GetContentRegionAvail();
+    size.x = glm::max(size.x, 160.0f);
+    size.y = glm::max(size.y, 90.0f);
     auto resized = false;
     if (viewport.size.x != size.x || viewport.size.y != size.y) {
         viewport.Resize({ size.x, size.y });
@@ -132,14 +88,12 @@ void ViewportWidget::draw(float dt) {
         resized = true;
     }
 
-    focused = ImGui::IsWindowFocused();
-
-    physics_state_text_colors[Physics::Idle] = ImVec4(0.0f, 0.0f, 0.0f, 0.01f);
-    std::swap(physics_state_text_colors[Physics::Paused], physics_state_text_colors[Physics::Stepping]);
-    const auto border_color = physics_state_text_colors[physics.GetState()];
+    m_Focused = ImGui::IsWindowFocused();
 
     const auto image_size = ImVec2(ImVec2((float)viewport.size.x, (float)viewport.size.y));
+    const auto border_color = GetPhysics().GetState() != Physics::Idle ? GetPhysics().GetStateColor() : ImVec4(0, 0, 0, 1);
     ImGui::Image((void*)((intptr_t)rendertarget), image_size, { 0, 1 }, { 1, 0 }, ImVec4(1, 1, 1, 1), border_color);
+
 
     mouseInViewport = ImGui::IsItemHovered();
     const ImVec2 viewportMin = ImGui::GetItemRectMin();
@@ -228,8 +182,9 @@ void ViewportWidget::draw(float dt) {
     auto metricsPosition = ImGui::GetWindowPos();
     metricsPosition.y += ImGui::GetFrameHeightWithSpacing();
 
-    if (!ImGui::GetCurrentWindow()->DockNode->IsHiddenTabBar())
-        metricsPosition.y += 25.0f;
+    if (auto dock_node = ImGui::GetCurrentWindow()->DockNode)
+        if (!dock_node->IsHiddenTabBar())
+            metricsPosition.y += 25.0f;
 
     ImGui::End();
     ImGui::PopStyleVar();

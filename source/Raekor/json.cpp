@@ -160,6 +160,9 @@ bool Parser::ParseArray() {
 		else
 			return false;
 
+		if (c == ']')
+			continue;
+
 		if (!ParseValue())
 			return false;
 
@@ -297,14 +300,17 @@ void ObjectBuilder::WriteValue(const Value& inValue) {
 	} break;
 	case ValueType::Array: {
 		m_Stream << "[ ";
-
 		for (int i = 0; i < inValue.mArray.size(); i++) {
+			m_Stream << m_ArrayElementSeparator;
+			
 			WriteValue(inValue.mArray[i]);
 			
 			if (i != inValue.mArray.size() - 1)
 				m_Stream << ", ";
+
 		}
 
+		m_Stream << m_ArrayElementSeparator;
 		m_Stream << " ]";
 	} break;
 	default:

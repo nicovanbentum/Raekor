@@ -365,8 +365,7 @@ void GBuffer::Render(const Scene& scene, const Viewport& viewport, uint32_t m_Fr
     uniforms.view = viewport.GetCamera().GetView();
     uniforms.projection = viewport.GetJitteredProjMatrix();
 
-    Math::Frustrum frustrum;
-    frustrum.Create(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView(), false);
+    const auto frustum = viewport.GetCamera().GetFrustum();
 
     culled = 0;
 
@@ -378,9 +377,11 @@ void GBuffer::Render(const Scene& scene, const Viewport& viewport, uint32_t m_Fr
             transform.worldTransform* glm::vec4(mesh.aabb[0], 1.0),
             transform.worldTransform* glm::vec4(mesh.aabb[1], 1.0)
         };
+        const auto bounding_box = BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform);
 
         // if the frustrum can't see the mesh's OBB we cull it
-        if (false && !frustrum.ContainsAABB(worldAABB[0], worldAABB[1])) {
+        // TODO: disabled for now, lots of imported scenes from SketchFab and other websites have weird BB/triangle issues. Re-enable?
+        if (false && !frustum.ContainsAABB(bounding_box)) {
             culled += 1;
             continue;
         }

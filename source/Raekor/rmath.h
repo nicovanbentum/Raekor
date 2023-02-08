@@ -2,43 +2,63 @@
 
 #include "camera.h"
 
-namespace Raekor::Math {
+namespace Raekor {
 
-struct Ray {
-    Ray(Viewport& viewport, glm::vec2 coords);
-    Ray(const glm::vec3& origin, const glm::vec3& direction);
+using Mat4x4 = glm::mat4x4;
+using Mat4x3 = glm::mat4x3;
+using Vec2 = glm::vec2;
+using Vec3 = glm::vec3;
+using Vec4 = glm::vec4;
+using UVec3 = glm::uvec3;
 
-    glm::vec3 origin;
-    glm::vec3 direction;
-    glm::vec3 rcpDirection;
 
-    std::optional<float> HitsOBB(const glm::vec3& min, const glm::vec3& max, const glm::mat4& modelMatrix);
-    std::optional<float> HitsAABB(const glm::vec3& min, const glm::vec3& max);
-    std::optional<float> HitsTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2);
-    std::optional<float> HitsSphere(const glm::vec3& o, float radius, float t_min, float t_max);
+struct BBox3D {
+    BBox3D() = default;
+    BBox3D(const Vec3& inMin, const Vec3& inMax) : mMin(inMin), mMax(inMax) {}
+
+    const Vec3& GetMin() const { return mMin; }
+    const Vec3& GetMax() const { return mMax; }
+
+    bool IsValid() const { return glm::all(glm::greaterThan(mMax, mMin)); }
+
+    BBox3D& Transform(const Mat4x4& inTransform);
+
+    Vec3 mMin = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+    Vec3 mMax = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
 };
 
 
-struct Frustrum {
+struct Ray {
+    Ray(Viewport& viewport, Vec2 coords);
+    Ray(const Vec3& origin, const Vec3& direction);
+
+    Vec3 m_Origin;
+    Vec3 m_Direction;
+    Vec3 m_RcpDirection;
+
+    std::optional<float> HitsOBB(const BBox3D& inOBB, const Mat4x4& modelMatrix) const;
+    std::optional<float> HitsAABB(const BBox3D& inABB) const;
+    std::optional<float> HitsTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2) const;
+    std::optional<float> HitsSphere(const Vec3& inPosition, float inRadius, float inTmin, float inTmax) const;
+};
+
+
+struct Frustum {
     enum Halfspace {
         NEGATIVE = -1,
         ON_PLANE = 0,
         POSITIVE = 1
     };
 
-    std::array<glm::vec4, 6> planes;
+    std::array<Vec4, 6> m_Planes;
 
-    Frustrum() = default;
+    Frustum() = default;
+    Frustum(const glm::mat4& inViewProjMatrix, bool inShouldNormalize);
 
-    Frustrum(const glm::mat4& vp, bool normalize) {
-        Create(vp, normalize);
-    }
-
-    void Create(const glm::mat4& vp, bool normalize);
-    bool ContainsAABB(const glm::vec3& min, const glm::vec3& max);
+    bool ContainsAABB(const BBox3D& inAABB)const ;
 };
 
 
-bool gPointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max);
+bool gPointInAABB(const Vec3& inPoint, const BBox3D& inAABB);
 
-} // namespace Raekor::Math
+} // namespace Raekor

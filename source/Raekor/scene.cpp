@@ -6,9 +6,9 @@
 
 namespace Raekor {
 
-entt::entity Scene::PickSpatialEntity(Math::Ray& ray) {
-    entt::entity pickedEntity = entt::null;
-    std::map<float, entt::entity> boxesHit;
+entt::entity Scene::PickSpatialEntity(Ray& inRay) {
+    auto picked_entity = entt::entity(entt::null);
+    auto boxes_hit = std::map<float, entt::entity>{};
 
     auto entities = view<Mesh, Transform>();
     for (auto entity : entities) {
@@ -16,40 +16,39 @@ entt::entity Scene::PickSpatialEntity(Math::Ray& ray) {
         auto& transform = entities.get<Transform>(entity);
 
         // convert AABB from local to world space
-        std::array<glm::vec3, 2> worldAABB =
+        auto world_aabb = std::array<glm::vec3, 2>
         {
             transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
             transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
         };
 
         // check for ray hit
-        auto scaledMin = mesh.aabb[0] * transform.scale;
-        auto scaledMax = mesh.aabb[1] * transform.scale;
-        auto hitResult = ray.HitsOBB(scaledMin, scaledMax, transform.worldTransform);
+        const auto bounding_box = BBox3D(mesh.aabb[0] * transform.scale, mesh.aabb[1] * transform.scale);
+        const auto hit_result = inRay.HitsOBB(bounding_box, transform.worldTransform);
 
-        if (hitResult.has_value()) {
-            boxesHit[hitResult.value()] = entity;
-        }
+        if (hit_result.has_value())
+            boxes_hit[hit_result.value()] = entity;
     }
 
-    for (auto& pair : boxesHit) {
+    for (auto& pair : boxes_hit) {
         auto& mesh = entities.get<Mesh>(pair.second);
         auto& transform = entities.get<Transform>(pair.second);
 
-        for (unsigned int i = 0; i < mesh.indices.size(); i += 3) {
-            auto v0 = glm::vec3(transform.worldTransform * glm::vec4(mesh.positions[mesh.indices[i]], 1.0));
-            auto v1 = glm::vec3(transform.worldTransform * glm::vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
-            auto v2 = glm::vec3(transform.worldTransform * glm::vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
+        for (auto i = 0u; i < mesh.indices.size(); i += 3) {
+            const auto v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
+            const auto v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
+            const auto v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
 
-            auto triangleHitResult = ray.HitsTriangle(v0, v1, v2);
-            if (triangleHitResult.has_value()) {
-                pickedEntity = pair.second;
-                return pickedEntity;
+            const auto hit_result = inRay.HitsTriangle(v0, v1, v2);
+
+            if (hit_result.has_value()) {
+                picked_entity = pair.second;
+                return picked_entity;
             }
         }
     }
 
-    return pickedEntity;
+    return picked_entity;
 }
 
 
@@ -189,14 +188,14 @@ void Scene::SaveToFile(Assets& assets, const std::string& file) {
 
     const auto bound = LZ4_compressBound(int(buffer.size()));
 
-    std::vector<char> compressed(bound);
+    auto compressed =std::vector<char>(bound);
     Timer timer;
 
     auto compressedSize = LZ4_compress_default(buffer.c_str(), compressed.data(), int(buffer.size()), bound);
 
     std::cout << "Compression time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
 
-    std::ofstream filestream(file, std::ios::binary);
+    auto filestream = std::ofstream(file, std::ios::binary);
     filestream.write(compressed.data(), compressedSize);
 }
 
@@ -215,7 +214,7 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
 
     auto decompressed = std::string();
     decompressed.resize(glm::min(buffer.size() * 11, size_t(INT_MAX) - 1)); // TODO: store the uncompressed size somewhere
-    const int decompressed_size = LZ4_decompress_safe(buffer.data(), decompressed.data(), int(buffer.size()), int(decompressed.size()));
+    const auto decompressed_size = LZ4_decompress_safe(buffer.data(), decompressed.data(), int(buffer.size()), int(decompressed.size()));
 
     clear();
 

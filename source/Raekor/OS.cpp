@@ -101,6 +101,18 @@ std::string OS::sSaveFileDialog(const char* filters, const char* defaultExt) {
 }
 
 
+FileSystem::path OS::sGetExecutablePath() {
+    char filepath[MAX_PATH];
+    GetModuleFileNameA(NULL, filepath, MAX_PATH);
+    return FileSystem::path(filepath);
+}
+
+
+FileSystem::path OS::sGetExecutableDirectoryPath() {
+    return sGetExecutablePath().parent_path();
+}
+
+
 std::string OS::sSelectFolderDialog() {
     IFileDialog* pfd;
     if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd)))) {

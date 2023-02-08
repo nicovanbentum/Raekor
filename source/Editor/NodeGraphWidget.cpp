@@ -7,10 +7,10 @@ namespace Raekor {
 
 RTTI_CLASS_CPP_NO_FACTORY(NodeGraphWidget) {}
 
-NodeGraphWidget::NodeGraphWidget(Editor* editor) : IWidget(editor, "Node Graph") {}
+NodeGraphWidget::NodeGraphWidget(Editor* editor) : IWidget(editor, ICON_FA_SITEMAP "  Node Graph ") {}
 
 void NodeGraphWidget::draw(float dt) {
-	ImGui::Begin(title.c_str());
+	ImGui::Begin(m_Title.c_str(), &m_Visible);
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2.0f, 2.0f));
 	

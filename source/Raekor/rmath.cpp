@@ -3,123 +3,130 @@
 #include "camera.h"
 
 namespace Raekor {
-namespace Math {
 
-Ray::Ray(Viewport& viewport, glm::vec2 coords) {
-    glm::vec3 rayNDC = {
-        (2.0f * coords.x) / viewport.size.x - 1.0f,
-        1.0f - (2.0f * coords.y) / viewport.size.y,
+BBox3D& BBox3D::Transform(const Mat4x4& inTransform) {
+    mMin = inTransform * Vec4(mMin, 1.0);
+    mMax = inTransform * Vec4(mMax, 1.0);
+    return *this;
+}
+
+
+
+Ray::Ray(Viewport& inViewport, Vec2 inCoords) {
+    Vec3 ray_ndc = {
+        (2.0f * inCoords.x) / inViewport.size.x - 1.0f,
+        1.0f - (2.0f * inCoords.y) / inViewport.size.y,
         1.0f
     };
 
-    glm::vec4 rayClip = { rayNDC.x, rayNDC.y, -1.0f, 1.0f };
+    const auto clip_ray = Vec4 { ray_ndc.x, ray_ndc.y, -1.0f, 1.0f };
 
-    glm::vec4 rayCamera = glm::inverse(viewport.GetCamera().GetProjection()) * rayClip;
-    rayCamera.z = -1.0f, rayCamera.w = 0.0f;
+    auto camera_ray = glm::inverse(inViewport.GetCamera().GetProjection()) * clip_ray;
+    camera_ray.z = -1.0f, camera_ray.w = 0.0f;
 
-    glm::vec3 rayWorld = glm::inverse(viewport.GetCamera().GetView()) * rayCamera;
-    rayWorld = glm::normalize(rayWorld);
+    auto world_ray = glm::inverse(inViewport.GetCamera().GetView()) * camera_ray;
+    world_ray = glm::normalize(world_ray);
 
-    direction = rayWorld;
-    origin = viewport.GetCamera().GetPosition();
+    m_Direction = world_ray;
+    m_Origin = inViewport.GetCamera().GetPosition();
 }
 
 
-Ray::Ray(const glm::vec3& origin, const glm::vec3& direction) : 
-    origin(origin), 
-    direction(direction), 
-    rcpDirection(1.0f / direction) 
+Ray::Ray(const glm::vec3& inOrigin, const glm::vec3& inDirection) : 
+    m_Origin(inOrigin),
+    m_Direction(inDirection),
+    m_RcpDirection(1.0f / inDirection)
 {}
 
 
-std::optional<float> Ray::HitsOBB(const glm::vec3& min, const glm::vec3& max, const glm::mat4& transform) {
-    float tMin = 0.0f;
-    float tMax = 100000.0f;
+std::optional<float> Ray::HitsOBB(const BBox3D& inOBB, const Mat4x4& inTransform) const {
+    float t_min = 0.0f;
+    float t_max = 100000.0f;
 
-    glm::vec3 OBBposition_worldspace(transform[3]);
-    glm::vec3 delta = OBBposition_worldspace - origin;
+    const auto obb_pos_ws = glm::vec3(inTransform[3]);
+    const auto delta = obb_pos_ws - m_Origin;
 
     {
-        glm::vec3 xaxis(transform[0]);
-        float e = glm::dot(xaxis, delta);
-        float f = glm::dot(direction, xaxis);
+        const auto xaxis = glm::vec3(inTransform[0]);
+        const auto e = glm::dot(xaxis, delta);
+        const auto f = glm::dot(m_Direction, xaxis);
 
         if (fabs(f) > 0.001f) {
-            float t1 = (e + min.x) / f;
-            float t2 = (e + max.x) / f;
+            auto t1 = (e + inOBB.mMin.x) / f;
+            auto t2 = (e + inOBB.mMax.x) / f;
 
             if (t1 > t2) std::swap(t1, t2);
 
-            if (t2 < tMax) tMax = t2;
-            if (t1 > tMin) tMin = t1;
-            if (tMin > tMax) return std::nullopt;
+            if (t2 < t_max) t_max = t2;
+            if (t1 > t_min) t_min = t1;
+            if (t_min > t_max) return std::nullopt;
 
         }
         else {
-            //if (-e + min.x > 0.0f || -e + max.x < 0.0f) return std::nullopt;
+            //if (-e + inMin.x > 0.0f || -e + inMax.x < 0.0f) return std::nullopt;
         }
     }
 
 
     {
-        glm::vec3 yaxis(transform[1]);
+        glm::vec3 yaxis(inTransform[1]);
         float e = glm::dot(yaxis, delta);
-        float f = glm::dot(direction, yaxis);
+        float f = glm::dot(m_Direction, yaxis);
 
         if (fabs(f) > 0.001f) {
 
-            float t1 = (e + min.y) / f;
-            float t2 = (e + max.y) / f;
+            float t1 = (e + inOBB.mMin.y) / f;
+            float t2 = (e + inOBB.mMax.y) / f;
 
             if (t1 > t2) std::swap(t1, t2);
 
-            if (t2 < tMax) tMax = t2;
-            if (t1 > tMin) tMin = t1;
-            if (tMin > tMax) return std::nullopt;
+            if (t2 < t_max) t_max = t2;
+            if (t1 > t_min) t_min = t1;
+            if (t_min > t_max) return std::nullopt;
 
         }
         else {
-            //if (-e + min.y > 0.0f || -e + max.y < 0.0f) return std::nullopt;
+            //if (-e + inMin.y > 0.0f || -e + inMax.y < 0.0f) return std::nullopt;
         }
     }
 
 
     {
-        glm::vec3 zaxis(transform[2]);
+        glm::vec3 zaxis(inTransform[2]);
         float e = glm::dot(zaxis, delta);
-        float f = glm::dot(direction, zaxis);
+        float f = glm::dot(m_Direction, zaxis);
 
         if (fabs(f) > 0.001f) {
 
-            float t1 = (e + min.z) / f;
-            float t2 = (e + max.z) / f;
+            float t1 = (e + inOBB.mMin.z) / f;
+            float t2 = (e + inOBB.mMax.z) / f;
 
             if (t1 > t2) std::swap(t1, t2);
 
-            if (t2 < tMax) tMax = t2;
-            if (t1 > tMin) tMin = t1;
-            if (tMin > tMax) return std::nullopt;
+            if (t2 < t_max) t_max = t2;
+            if (t1 > t_min) t_min = t1;
+            if (t_min > t_max) return std::nullopt;
 
         }
         else {
-            //if (-e + min.z > 0.0f || -e + max.z < 0.0f) return std::nullopt;
+            //if (-e + inMin.z > 0.0f || -e + inMax.z < 0.0f) return std::nullopt;
         }
     }
 
-    return tMin;
+    return t_min;
 }
 
 
-std::optional<float> Ray::HitsAABB(const glm::vec3& min, const glm::vec3& max) {
-    auto t1 = (min.x - origin.x) * rcpDirection.x;
-    auto t2 = (max.x - origin.x) * rcpDirection.x;
+std::optional<float> Ray::HitsAABB(const BBox3D& inAABB) const {
+    auto t1 = (inAABB.mMin.x - m_Origin.x) * m_RcpDirection.x;
+    auto t2 = (inAABB.mMax.x - m_Origin.x) * m_RcpDirection.x;
 
     auto tmin = glm::min(t1, t2);
     auto tmax = glm::max(t1, t2);
 
     for (int i = 1; i < 3; i++) {
-        t1 = (min[i] - origin[i]) * rcpDirection[i];
-        t1 = (max[i] - origin[i]) * rcpDirection[i];
+        t1 = (inAABB.mMin[i] - m_Origin[i]) * m_RcpDirection[i];
+        t1 = (inAABB.mMax[i] - m_Origin[i]) * m_RcpDirection[i];
 
         tmin = glm::max(tmin, glm::min(glm::min(t1, t2), tmax));
         tmax = glm::min(tmax, glm::max(glm::max(t1, t2), tmin));
@@ -129,31 +136,31 @@ std::optional<float> Ray::HitsAABB(const glm::vec3& min, const glm::vec3& max) {
 }
 
 
-std::optional<float> Ray::HitsTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2) {
-    auto p1 = v1 - v0;
-    auto p2 = v2 - v0;
-    auto pvec = glm::cross(direction, p2);
+std::optional<float> Ray::HitsTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2) const {
+    auto p1 = inV1 - inV0;
+    auto p2 = inV2 - inV0;
+    auto pvec = glm::cross(m_Direction, p2);
     float det = glm::dot(p1, pvec);
 
     if (fabs(det) < std::numeric_limits<float>::epsilon()) return std::nullopt;
 
     float invDet = 1 / det;
-    auto tvec = origin - v0;
+    auto tvec = m_Origin - inV0;
     auto u = glm::dot(tvec, pvec) * invDet;
     if (u < 0 || u > 1) return std::nullopt;
 
     auto qvec = glm::cross(tvec, p1);
-    auto v = glm::dot(direction, qvec) * invDet;
+    auto v = glm::dot(m_Direction, qvec) * invDet;
     if (v < 0 || u + v > 1) return std::nullopt;
 
     return glm::dot(p2, qvec) * invDet;
 }
 
 
-std::optional<float> Ray::HitsSphere(const glm::vec3& o, float radius, float t_min, float t_max) {
-    float R2 = radius * radius;
-    glm::vec3 L = o - origin;
-    float tca = glm::dot(L, glm::normalize(direction));
+std::optional<float> Ray::HitsSphere(const Vec3& inPosition, float inRadius, float inTmin, float inTmax) const {
+    auto R2 = inRadius * inRadius;
+    glm::vec3 L = inPosition - m_Origin;
+    float tca = glm::dot(L, glm::normalize(m_Direction));
     if (tca < 0) return std::nullopt;
 
     float D2 = dot(L, L) - tca * tca;
@@ -164,18 +171,18 @@ std::optional<float> Ray::HitsSphere(const glm::vec3& o, float radius, float t_m
 
     float closest_t = std::min(t0, t1);
 
-    if (closest_t < t_max && closest_t > t_min) {
-        return closest_t / glm::length(direction);
+    if (closest_t < inTmax && closest_t > inTmin) {
+        return closest_t / glm::length(m_Direction);
     }
 
     return std::nullopt;
 }
 
 
-bool gPointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3& max) {
-    return  (point.x >= min.x && point.x <= max.x) &&
-        (point.y >= min.y && point.y <= max.y) &&
-        (point.z >= min.z && point.z <= max.z);
+bool gPointInAABB(const Vec3& inPoint, const BBox3D& inAABB) {
+    return (inPoint.x >= inAABB.mMin.x && inPoint.x <= inAABB.mMax.x) &&
+           (inPoint.y >= inAABB.mMin.y && inPoint.y <= inAABB.mMax.y) &&
+           (inPoint.z >= inAABB.mMin.z && inPoint.z <= inAABB.mMax.z);
 }
 
 
@@ -183,40 +190,40 @@ bool gPointInAABB(const glm::vec3& point, const glm::vec3& min, const glm::vec3&
     Fast Extraction of Viewing Frustum Planes from the World-View-Projection Matrix by G. Gribb & K. Hartmann 
     https://www.gamedevs.org/uploads/fast-extraction-viewing-frustum-planes-from-world-view-projection-matrix.pdf
 */
-void Frustrum::Create(const glm::mat4& vp, bool normalize) {
-    planes[0].x = vp[0][3] + vp[0][0];
-    planes[0].y = vp[1][3] + vp[1][0];
-    planes[0].z = vp[2][3] + vp[2][0];
-    planes[0].w = vp[3][3] + vp[3][0];
+Frustum::Frustum(const glm::mat4& inViewProjMatrix, bool inShouldNormalize) {
+    m_Planes[0].x = inViewProjMatrix[0][3] + inViewProjMatrix[0][0];
+    m_Planes[0].y = inViewProjMatrix[1][3] + inViewProjMatrix[1][0];
+    m_Planes[0].z = inViewProjMatrix[2][3] + inViewProjMatrix[2][0];
+    m_Planes[0].w = inViewProjMatrix[3][3] + inViewProjMatrix[3][0];
 
-    planes[1].x = vp[0][3] - vp[0][0];
-    planes[1].y = vp[1][3] - vp[1][0];
-    planes[1].z = vp[2][3] - vp[2][0];
-    planes[1].w = vp[3][3] - vp[3][0];
+    m_Planes[1].x = inViewProjMatrix[0][3] - inViewProjMatrix[0][0];
+    m_Planes[1].y = inViewProjMatrix[1][3] - inViewProjMatrix[1][0];
+    m_Planes[1].z = inViewProjMatrix[2][3] - inViewProjMatrix[2][0];
+    m_Planes[1].w = inViewProjMatrix[3][3] - inViewProjMatrix[3][0];
 
-    planes[2].x = vp[0][3] - vp[0][1];
-    planes[2].y = vp[1][3] - vp[1][1];
-    planes[2].z = vp[2][3] - vp[2][1];
-    planes[2].w = vp[3][3] - vp[3][1];
+    m_Planes[2].x = inViewProjMatrix[0][3] - inViewProjMatrix[0][1];
+    m_Planes[2].y = inViewProjMatrix[1][3] - inViewProjMatrix[1][1];
+    m_Planes[2].z = inViewProjMatrix[2][3] - inViewProjMatrix[2][1];
+    m_Planes[2].w = inViewProjMatrix[3][3] - inViewProjMatrix[3][1];
 
-    planes[3].x = vp[0][3] + vp[0][1];
-    planes[3].y = vp[1][3] + vp[1][1];
-    planes[3].z = vp[2][3] + vp[2][1];
-    planes[3].w = vp[3][3] + vp[3][1];
+    m_Planes[3].x = inViewProjMatrix[0][3] + inViewProjMatrix[0][1];
+    m_Planes[3].y = inViewProjMatrix[1][3] + inViewProjMatrix[1][1];
+    m_Planes[3].z = inViewProjMatrix[2][3] + inViewProjMatrix[2][1];
+    m_Planes[3].w = inViewProjMatrix[3][3] + inViewProjMatrix[3][1];
 
-    planes[4].x = vp[0][3] + vp[0][2];
-    planes[4].y = vp[1][3] + vp[1][2];
-    planes[4].z = vp[2][3] + vp[2][2];
-    planes[4].w = vp[3][3] + vp[3][2];
+    m_Planes[4].x = inViewProjMatrix[0][3] + inViewProjMatrix[0][2];
+    m_Planes[4].y = inViewProjMatrix[1][3] + inViewProjMatrix[1][2];
+    m_Planes[4].z = inViewProjMatrix[2][3] + inViewProjMatrix[2][2];
+    m_Planes[4].w = inViewProjMatrix[3][3] + inViewProjMatrix[3][2];
 
-    planes[5].x = vp[0][3] - vp[0][2];
-    planes[5].y = vp[1][3] - vp[1][2];
-    planes[5].z = vp[2][3] - vp[2][2];
-    planes[5].w = vp[3][3] - vp[3][2];
+    m_Planes[5].x = inViewProjMatrix[0][3] - inViewProjMatrix[0][2];
+    m_Planes[5].y = inViewProjMatrix[1][3] - inViewProjMatrix[1][2];
+    m_Planes[5].z = inViewProjMatrix[2][3] - inViewProjMatrix[2][2];
+    m_Planes[5].w = inViewProjMatrix[3][3] - inViewProjMatrix[3][2];
 
-    if (normalize) {
-        for (auto& plane : planes) {
-            const float mag = sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
+    if (inShouldNormalize) {
+        for (auto& plane : m_Planes) {
+            const auto mag = sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
             plane.x = plane.x / mag;
             plane.y = plane.y / mag;
             plane.z = plane.z / mag;
@@ -226,22 +233,24 @@ void Frustrum::Create(const glm::mat4& vp, bool normalize) {
 }
 
 
-bool Frustrum::ContainsAABB(const glm::vec3& min, const glm::vec3& max) {
-    for (const auto& plane : planes) {
+bool Frustum::ContainsAABB(const BBox3D& inAABB) const {
+    for (const auto& plane : m_Planes) {
         int out = 0;
-        out += ((glm::dot(plane, glm::vec4(min.x, min.y, min.z, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(plane, glm::vec4(max.x, min.y, min.z, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(plane, glm::vec4(min.x, max.y, min.z, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(plane, glm::vec4(max.x, max.y, min.z, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(plane, glm::vec4(min.x, min.y, max.z, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(plane, glm::vec4(max.x, min.y, max.z, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(plane, glm::vec4(min.x, max.y, max.z, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(plane, glm::vec4(max.x, max.y, max.z, 1.0f)) < 0.0) ? 1 : 0);
-        if (out == 8) return false;
+        out += ((glm::dot(plane, glm::vec4(inAABB.mMin.x, inAABB.mMin.y, inAABB.mMin.z, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(plane, glm::vec4(inAABB.mMax.x, inAABB.mMin.y, inAABB.mMin.z, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(plane, glm::vec4(inAABB.mMin.x, inAABB.mMax.y, inAABB.mMin.z, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(plane, glm::vec4(inAABB.mMax.x, inAABB.mMax.y, inAABB.mMin.z, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(plane, glm::vec4(inAABB.mMin.x, inAABB.mMin.y, inAABB.mMax.z, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(plane, glm::vec4(inAABB.mMax.x, inAABB.mMin.y, inAABB.mMax.z, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(plane, glm::vec4(inAABB.mMin.x, inAABB.mMax.y, inAABB.mMax.z, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(plane, glm::vec4(inAABB.mMax.x, inAABB.mMax.y, inAABB.mMax.z, 1.0f)) < 0.0) ? 1 : 0);
+
+        if (out == 8) 
+            return false;
     }
 
     return true;
 }
 
+
 } // raekor
-} // math

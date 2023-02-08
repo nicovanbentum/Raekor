@@ -9,11 +9,11 @@ namespace Raekor {
 RTTI_CLASS_CPP_NO_FACTORY(HierarchyWidget) {}
 
 
-HierarchyWidget::HierarchyWidget(Editor* editor) : IWidget(editor, "Scene") {}
+HierarchyWidget::HierarchyWidget(Editor* editor) : IWidget(editor, ICON_FA_STREAM " Scene ") {}
 
 
 void HierarchyWidget::draw(float dt) {
-    ImGui::Begin(title.c_str());
+    ImGui::Begin(m_Title.c_str(), &m_Visible);
 
     auto& scene = GetScene();
     auto& active_entity = GetActiveEntity();
@@ -40,11 +40,11 @@ void HierarchyWidget::draw(float dt) {
 
 
 bool HierarchyWidget::drawFamilyNode(Scene& scene, Entity entity, Entity& active) {
-    auto name = scene.get<Name>(entity);
-    auto selected = active == entity ? ImGuiTreeNodeFlags_Selected : 0;
-    auto treeNodeFlags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
+    const auto name = scene.get<Name>(entity);
+    const auto selected = active == entity ? ImGuiTreeNodeFlags_Selected : 0;
+    const auto tree_flags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
     
-    bool opened = ImGui::TreeNodeEx(name.name.c_str(), treeNodeFlags);
+    bool opened = ImGui::TreeNodeEx(std::string(ICON_FA_CUBE "   " + name.name).c_str(), tree_flags);
     
     if (ImGui::IsItemClicked())
         active = active == entity ? entt::null : entity;
@@ -57,9 +57,9 @@ bool HierarchyWidget::drawFamilyNode(Scene& scene, Entity entity, Entity& active
 
 void HierarchyWidget::drawChildlessNode(Scene& scene, Entity entity, Entity& active) {
     auto name = scene.get<Name>(entity);
-    auto selectableName = name.name + "##" + std::to_string(entt::to_integral(entity));
+    auto selectable_name = name.name + "##" + std::to_string(entt::to_integral(entity));
 
-    if (ImGui::Selectable(selectableName.c_str(), entity == active))
+    if (ImGui::Selectable(std::string(ICON_FA_CUBE "   " + selectable_name).c_str(), entity == active))
         active = active == entity ? entt::null : entity;
 
     dropTargetNode(scene, entity);

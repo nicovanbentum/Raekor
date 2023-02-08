@@ -35,6 +35,7 @@ Editor::Editor() :
     m_Renderer(m_Window, m_Viewport) 
 {
     GUI::SetTheme(m_Settings.themeColors);
+    ImGui::GetStyle().ScaleAllSizes(1.33333333f);
     GUI::SetFont(m_Settings.font.c_str());
 
     m_Scene.SetUploadMeshCallbackFunction(GLRenderer::sUploadMeshBuffers);
@@ -59,6 +60,8 @@ Editor::Editor() :
 
         for (auto& [entity, name, material] : m_Scene.view<Name, Material>().each()) {
             auto obj = JSON::ObjectBuilder();
+            obj.SetArrayElementSeparator("");
+
             auto& rtti = material.GetRTTI();
 
             obj.WritePair("Type", rtti.GetTypeName());
@@ -208,8 +211,13 @@ void Editor::OnUpdate(float dt) {
 
     // draw widgets
     for (const auto& widget : m_Widgets)
-        if (widget->IsVisible())
+        if (widget->IsVisible()) {
+            auto window_class = ImGuiWindowClass();
+            window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoCloseButton;
+            ImGui::SetNextWindowClass(&window_class);
+
             widget->draw(dt);
+        }
 
     // end ImGui
     GUI::EndDockSpace();

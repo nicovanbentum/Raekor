@@ -54,10 +54,12 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
     m_Directory = Path(file).parent_path() / "";
 
     // pre-parse materials
-    for (unsigned int i = 0; i < m_AiScene->mNumMaterials; i++) {
-        gPrintProgressBar("Converting material textures: ", float(i) / m_AiScene->mNumMaterials);
-        parseMaterial(m_AiScene->mMaterials[i], m_Scene.create());
+    for (const auto& [index, material] : gEnumerate(Slice(m_AiScene->mMaterials, m_AiScene->mNumMaterials))) {
+        std::cout << "\rConverting material textures: [" << gAsciiProgressBar(float(index + 1) / m_AiScene->mNumMaterials) << ']';
+        parseMaterial(material, m_Scene.create());
     }
+
+    std::cout << '\n';
 
     Async::sWait();
 

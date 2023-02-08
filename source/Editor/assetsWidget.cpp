@@ -8,10 +8,10 @@ namespace Raekor {
 
 RTTI_CLASS_CPP_NO_FACTORY(AssetsWidget) {}
 
-AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, "Asset Browser") {}
+AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, ICON_FA_PALETTE "  Materials ") {}
 
 void AssetsWidget::draw(float dt) {
-    ImGui::Begin(title.c_str());
+    ImGui::Begin(m_Title.c_str(), &m_Visible);
 
     auto materials = IWidget::GetScene().view<Material, Name>();
 

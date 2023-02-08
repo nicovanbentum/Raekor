@@ -1,12 +1,13 @@
 #include "pch.h"
 #include "camera.h"
 #include "input.h"
+#include "rmath.h"
 
 namespace Raekor {
 
 Camera::Camera(glm::vec3 position, glm::mat4 proj) :
     m_Position(position),
-    m_Angle(static_cast<float>(M_PI), 0.0f) {
+    m_Angle(0.0f, 0.0f) {
     m_Projection = proj;
 }
 
@@ -57,8 +58,8 @@ void Camera::Move(glm::vec2 amount) {
 
 
 glm::vec3 Camera::GetForwardVector() {
-    return glm::vec3(cos(m_Angle.y) * sin(m_Angle.x),
-        sin(m_Angle.y), cos(m_Angle.y) * cos(m_Angle.x));
+    return glm::normalize(glm::vec3(cos(m_Angle.y) * sin(m_Angle.x),
+        sin(m_Angle.y), cos(m_Angle.y) * cos(m_Angle.x)));
 }
 
 
@@ -82,8 +83,13 @@ float Camera::GetAspectRatio() const {
 }
 
 
+Frustum Camera::GetFrustum() const {
+    return Frustum(m_Projection * m_View, false);
+}
+
+
 Viewport::Viewport(glm::vec2 size) : 
-    camera(glm::vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 0.1f, 1000.0f)),
+    camera(glm::vec3(0, 0.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 0.1f, 1000.0f)),
     size(size) 
 {}
 

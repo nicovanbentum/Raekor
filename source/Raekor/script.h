@@ -12,6 +12,7 @@ public:
 };
 
 */
+
 class INativeScript {
 public:
     typedef INativeScript* (__cdecl* FactoryType)();

@@ -23,7 +23,6 @@ struct String {
 struct Value {
 	using Array = std::vector<Value>;
 
-public:
 	Value() = default;
 	Value(ValueType inType) : mType(inType) {}
 
@@ -70,8 +69,9 @@ public:
 	Parser(const std::string& inSrc) : m_Source(inSrc) {}
 
 	bool			Parse();
-	const Value&	GetValue(const Object& inObj, const std::string& inKey) const { return inObj.at(inKey); }
-	bool			Contains(const Object& inObj, const std::string& inKey) const { return inObj.find(inKey) != inObj.end(); }
+	const Value&	GetValue(const Object& inObject, const std::string& inKey) const { return inObject.at(inKey); }
+	bool			Contains(const Object& inObject, const std::string& inKey) const { return inObject.find(inKey) != inObject.end(); }
+	bool			IsEmpty (const Object& inObject, const std::string& inKey) const { return Contains(inObject, inKey) && true; }
 
 	const auto end() const { return m_Objects.end(); }
 	const auto begin() const { return m_Objects.begin(); }
@@ -134,9 +134,12 @@ public:
 
 	std::string Build();
 
+	void SetArrayElementSeparator(const char* inChar) { m_ArrayElementSeparator = inChar; }
+
 private:
 	void WriteValue(const Value& inValue);
 
+	const char* m_ArrayElementSeparator = "\n";
 	std::stringstream m_Stream;
 };
 
@@ -209,7 +212,6 @@ template<typename T>
 inline void FromJSONValue(const JSON::Value& ioValue, T* inPtr) {
 
 }
-
 
 template<typename T>
 inline void ToJSONValue(JSON::Value& ioValue, T* inPtr) {

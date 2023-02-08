@@ -35,7 +35,7 @@ void MenubarWidget::draw(float dt) {
 
                 if (!filepath.empty()) {
                     Timer timer;
-                    SDL_SetWindowTitle(editor->GetWindow(), std::string(filepath + " - Raekor Renderer").c_str());
+                    SDL_SetWindowTitle(m_Editor->GetWindow(), std::string(filepath + " - Raekor Renderer").c_str());
                     scene.OpenFromFile(IWidget::GetAssets(), filepath);
                     m_ActiveEntity = entt::null;
                     std::cout << "Open scene time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
@@ -116,7 +116,7 @@ void MenubarWidget::draw(float dt) {
                 std::string savePath = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
 
                 if (!savePath.empty()) {
-                    auto& viewport = editor->GetViewport();
+                    auto& viewport = m_Editor->GetViewport();
                     const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
                     
                     auto pixels = std::vector<unsigned char>(bufferSize);
@@ -128,7 +128,7 @@ void MenubarWidget::draw(float dt) {
             }
 
             if (ImGui::MenuItem("Exit", "Escape"))
-                editor->Terminate();
+                m_Editor->Terminate();
 
             ImGui::EndMenu();
         }
@@ -148,10 +148,13 @@ void MenubarWidget::draw(float dt) {
         if (ImGui::BeginMenu("View")) {
             ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
 
-            for (const auto& widget : editor->GetWidgets()) {
+            for (const auto& widget : m_Editor->GetWidgets()) {
+                if (widget.get() == this)
+                    continue;
+
                 bool is_visible = widget->IsVisible();
 
-                if (ImGui::MenuItem(widget->GetTitle().c_str(), "", &is_visible))
+                if (ImGui::MenuItem(std::string(widget->GetTitle() + "Window").c_str(), "", &is_visible))
                     is_visible ? widget->Show() : widget->Hide();
             }
 
@@ -185,72 +188,8 @@ void MenubarWidget::draw(float dt) {
                         NodeSystem::sAppend(scene, scene.get<Node>(m_ActiveEntity), node);
                     }
 
-                    const float radius = 2.0f;
-                    float x, y, z, xy;                              // vertex position
-                    float nx, ny, nz, lengthInv = 1.0f / radius;    // vertex normal
-                    float s, t;                                     // vertex texCoord
+                    gGenerateCube(mesh, 1.0f, 16, 16);
 
-                    const int sectorCount = 36;
-                    const int stackCount = 18;
-                    const float PI = static_cast<float>(M_PI);
-                    float sectorStep = 2 * PI / sectorCount;
-                    float stackStep = PI / stackCount;
-                    float sectorAngle, stackAngle;
-
-                    for (int i = 0; i <= stackCount; ++i) {
-                        stackAngle = PI / 2 - i * stackStep;        // starting from pi/2 to -pi/2
-                        xy = radius * cosf(stackAngle);             // r * cos(u)
-                        z = radius * sinf(stackAngle);              // r * sin(u)
-
-                        // add (sectorCount+1) vertices per stack
-                        // the first and last vertices have same position and normal, but different tex coords
-                        for (int j = 0; j <= sectorCount; ++j) {
-                            sectorAngle = j * sectorStep;           // starting from 0 to 2pi
-
-                            // vertex position (x, y, z)
-                            x = xy * cosf(sectorAngle);             // r * cos(u) * cos(v)
-                            y = xy * sinf(sectorAngle);             // r * cos(u) * sin(v)
-                            mesh.positions.emplace_back(x, y, z);
-
-                            // normalized vertex normal (nx, ny, nz)
-                            nx = x * lengthInv;
-                            ny = y * lengthInv;
-                            nz = z * lengthInv;
-                            mesh.normals.emplace_back(nx, ny, nz);
-
-                            // vertex tex coord (s, t) range between [0, 1]
-                            s = (float)j / sectorCount;
-                            t = (float)i / stackCount;
-                            mesh.uvs.emplace_back(s, t);
-
-                        }
-                    }
-
-                    int k1, k2;
-                    for (int i = 0; i < stackCount; ++i) {
-                        k1 = i * (sectorCount + 1);     // beginning of current stack
-                        k2 = k1 + sectorCount + 1;      // beginning of next stack
-
-                        for (int j = 0; j < sectorCount; ++j, ++k1, ++k2) {
-                            // 2 triangles per sector excluding first and last stacks
-                            // k1 => k2 => k1+1
-                            if (i != 0) {
-                                mesh.indices.push_back(k1);
-                                mesh.indices.push_back(k2);
-                                mesh.indices.push_back(k1 + 1);
-                            }
-
-                            // k1+1 => k2 => k2+1
-                            if (i != (stackCount - 1)) {
-                                mesh.indices.push_back(k1 + 1);
-                                mesh.indices.push_back(k2);
-                                mesh.indices.push_back(k2 + 1);
-                            }
-                        }
-                    }
-
-                    mesh.CalculateTangents();
-                    mesh.CalculateAABB();
                     GLRenderer::sUploadMeshBuffers(mesh);
                 }
 
@@ -330,6 +269,54 @@ void MenubarWidget::draw(float dt) {
             ImGui::EndMenu();
         }
 
+        ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x / 2));
+
+        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_CheckMark));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+
+        if (ImGui::Button(ICON_FA_HAMMER)) {}
+
+        ImGui::SameLine();
+
+        const auto physics_state = GetPhysics().GetState();
+        ImGui::PushStyleColor(ImGuiCol_Text, GetPhysics().GetStateColor());
+        if (ImGui::Button(physics_state == Physics::Stepping ? ICON_FA_PAUSE : ICON_FA_PLAY)) {
+            switch (physics_state) {
+                case Physics::Idle: {
+                    GetPhysics().SaveState();
+                    GetPhysics().SetState(Physics::Stepping);
+                } break;
+                case Physics::Paused: {
+                    GetPhysics().SetState(Physics::Stepping);
+                } break;
+                case Physics::Stepping: {
+                    GetPhysics().SetState(Physics::Paused);
+                } break;
+            }
+        }
+
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+
+        const auto current_physics_state = physics_state;
+        if (current_physics_state != Physics::Idle)
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+        if (ImGui::Button(ICON_FA_STOP)) {
+            if (physics_state != Physics::Idle) {
+                GetPhysics().RestoreState();
+                GetPhysics().Step(scene, dt); // Step once to trigger the restored state
+                GetPhysics().SetState(Physics::Idle);
+            }
+        }
+
+        if (current_physics_state != Physics::Idle)
+            ImGui::PopStyleColor();
+
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor();
+        ImGui::PopStyleColor();
         ImGui::EndMainMenuBar();
     }
 }

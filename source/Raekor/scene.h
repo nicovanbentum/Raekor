@@ -18,7 +18,7 @@ public:
 	Scene(const Scene& rhs) = delete;
 
 	// Spatial entity management
-	entt::entity	PickSpatialEntity(Math::Ray& ray);
+	entt::entity	PickSpatialEntity(Ray& inRay);
 	entt::entity	CreateSpatialEntity(const std::string& name = "");
 	void			DestroySpatialEntity(entt::entity entity);
 

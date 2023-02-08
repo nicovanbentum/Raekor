@@ -7,13 +7,13 @@ namespace Raekor {
 RTTI_CLASS_CPP_NO_FACTORY(ConsoleWidget) {}
 
 
-ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor, "Console") {}
+ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor, ICON_FA_TERMINAL "  Console ") {}
 
 
 void ConsoleWidget::draw(float dt) {
     ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 
-    if (!ImGui::Begin(title.c_str(), &visible, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+    if (!ImGui::Begin(m_Title.c_str(), &m_Visible, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
         ImGui::End();
         return;
     }

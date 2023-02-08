@@ -73,8 +73,10 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
         ConvertMaterial(entity, gltf_material);
         m_Materials.push_back(entity);
         
-        gPrintProgressBar("DDS Conversion Progress: ", float(index) / m_GltfData->materials_count);
+        std::cout << "\rDDS Conversion Progress: [" << gAsciiProgressBar(float(index) / m_GltfData->materials_count - 1) << "]";
     }
+
+    std::cout << '\n';
 
     Async::sWait();
     std::cout << "DDS Conversion: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms. \n";

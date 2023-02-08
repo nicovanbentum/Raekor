@@ -53,7 +53,7 @@ public:
         Paused = 1,
         Stepping = 2
     };
-    
+
     Physics();
     ~Physics();
 
@@ -66,7 +66,10 @@ public:
     EState GetState() const         { return EState(m_Settings.state); }
     void   SetState(EState inState) { m_Settings.state = inState; }
 
+    const ImVec4& GetStateColor();
+
     JPH::PhysicsSystem& GetSystem() { return m_Physics; }
+
 
 private:
     struct {
