@@ -43,7 +43,11 @@ private:
     ComPtr<IDXGISwapChain3> m_Swapchain;
     ComPtr<IDStorageQueue>  m_StorageQueue;
 
-    DescriptorID  m_TLAS;
+    BufferID      m_TLASBuffer;
+    BufferID      m_InstancesBuffer;
+    BufferID      m_MaterialsBuffer;
+    DescriptorID  m_TLASDescriptor;
+
     DescriptorID  m_DefaultWhiteTexture;
     DescriptorID  m_DefaultBlackTexture;
 };

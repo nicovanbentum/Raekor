@@ -47,7 +47,7 @@ struct BRDF {
     float3 mNormal;
     float mMetallic;
     float mRoughness;
-
+    
     void Unpack(uint4 inPacked) {
         mAlbedo = UnpackAlbedo(inPacked.x);
         mNormal = UnpackNormal(inPacked.y);

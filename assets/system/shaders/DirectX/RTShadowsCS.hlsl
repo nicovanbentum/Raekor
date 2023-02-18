@@ -5,15 +5,6 @@
 
 ROOT_CONSTANTS(ShadowMaskRootConstants, rc)
 
-float3 ReconstructPosFromDepth(float2 uv, float depth, float4x4 InvVP) {
-    float x = uv.x * 2.0f - 1.0f;
-    float y = (1.0 - uv.y) * 2.0f - 1.0f;
-    float4 position_s = float4(x, y, depth, 1.0f);
-    float4 position_v = mul(InvVP, position_s);
-    return position_v.xyz / position_v.w;
-}
-
-
 [numthreads(8,8,1)]
 void main(uint3 threadID : SV_DispatchThreadID) {
     Texture2D<float4> gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
@@ -37,7 +28,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
 
     const float2 offset = uniformSampleDisk(pcg_float2(rng), 0.02);
     const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]).y);
-    const float3 position = ReconstructPosFromDepth(screen_uv, depth, fc.mInvViewProjectionMatrix);
+    const float3 position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
     
     RayDesc ray;
     ray.TMin = 0.1;
@@ -51,11 +42,11 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         return;
     }
 
-    uint ray_flags =  RAY_FLAG_FORCE_OPAQUE |
-             RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
+    uint ray_flags =  RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;
     
     RayQuery< RAY_FLAG_FORCE_OPAQUE |
-             RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
+                RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | 
+                RAY_FLAG_SKIP_CLOSEST_HIT_SHADER > query;
 
     query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
     query.Proceed();

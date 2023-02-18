@@ -52,6 +52,10 @@ public:
 
 	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(BufferID inID);
 	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(TextureID inID);
+
+	[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(BufferID inID);
+	[[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(TextureID inID);
+	
 	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetHeapPtr(TextureResource inResource);
 
 
@@ -71,9 +75,9 @@ public:
 	[[nodiscard]] D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader);
 	[[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader);
 
-
-
-	[[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inResource)	{ return inResource.ToIndex(); }
+	[[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inID)  { return inID.ToIndex(); }
+	[[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inID)		{ return GetBindlessHeapIndex(GetBuffer(inID).GetView()); }
+	[[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inID)		{ return GetBindlessHeapIndex(GetTexture(inID).GetView()); }
 
 private:
 	void CreateDescriptor(BufferID inBufferID, const Buffer::Desc& inDesc);

@@ -76,6 +76,7 @@ public:
 	};
 
 	struct Desc {
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
 		uint64_t size = 0;
 		uint64_t stride = 0;
 		Usage usage = Usage::GENERAL;
@@ -86,12 +87,14 @@ public:
 	Buffer(const Desc& inDesc) : m_Desc(inDesc) {}
 	~Buffer() { if (m_MappedPtr) m_Resource->Unmap(0, nullptr); }
 
-	const Desc& GetDesc() const { return m_Desc; }
-	DescriptorID GetView() const { return m_View; }
-	ResourceRef& GetResource() { return m_Resource; }
+	const Desc& GetDesc() const		{ return m_Desc; }
+	DescriptorID GetView() const	{ return m_View; }
+	uint32_t GetHeapIndex() const	{ return m_View.ToIndex(); }
 
-	ResourceRef& operator-> () { return m_Resource; }
-	const ResourceRef& operator-> () const { return m_Resource; }
+	ResourceRef& operator-> ()				{ return m_Resource; }
+	const ResourceRef& operator-> () const	{ return m_Resource; }
+	ResourceRef&		GetResource()		{ return m_Resource; }
+	const ResourceRef&	GetResource() const	{ return m_Resource; }
 
 private:
 	Desc m_Desc = {};

@@ -126,12 +126,14 @@ bool RenderGraph::Compile(Device& inDevice) {
 	The state tracking algorithm here is quite dumb:
 	
 	Go through all the resources in the graph.
+	if current pass usage and prev pass usage were both unordered access state, add an exit UAV barrier to prev pass.
 	if a resource has 1 edge the initial state should match the edge state, no barriers needed. TODO: add validation for this single edge case.
 	else loop linearly through all the edges, if state changes look up the previous edge's render pass and add an end-of render pass barrier.
 	at the end of the loop we're left with the resource's final state for the graph
 	if final state differs from the state in which it was created, add a begin-of render pass barrier to the pass that creates it. These barriers are skipped the first frame.
-	
+
 	TODO: Ideally we refactor this to use aliasing as that would reset the state of the resource, so we wouldn't need the begin-of render pass barriers.
+			Probably also a good idea to submit begin-of barriers earlier, either all batched together at the end of the frame 
 */
 	for (const auto& [resource_id, node] : graph) {
 		if (node.mEdges.size() < 2)
@@ -141,22 +143,21 @@ bool RenderGraph::Compile(Device& inDevice) {
 
 		for (auto edge_index = 1; edge_index < node.mEdges.size(); edge_index++) {
 			auto new_state = gGetResourceStates(node.mEdges[edge_index].mUsage);
-
-			if (tracked_state == new_state)
-				continue;
-
 			auto& prev_pass = m_RenderPasses[node.mEdges[edge_index - 1].mRenderPassIndex];
+
+			if ( (tracked_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS) && (new_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS) ) {
+				prev_pass->AddExitBarrier(ResourceBarrier {
+					.mTexture = resource_id,
+					.mBarrier = CD3DX12_RESOURCE_BARRIER::UAV(inDevice.GetResourcePtr(resource_id))
+				});
+			}
+
+			if ( tracked_state == new_state )
+				continue;
 
 			prev_pass->AddExitBarrier(ResourceBarrier {
 				.mTexture = resource_id,
-				.mBarrier = D3D12_RESOURCE_BARRIER {
-					.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-					.Transition = D3D12_RESOURCE_TRANSITION_BARRIER {
-						.pResource = inDevice.GetResourcePtr(resource_id),
-						.StateBefore = tracked_state,
-						.StateAfter = new_state
-					}
-				}
+				.mBarrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(resource_id), tracked_state, new_state)
 			});
 
 			tracked_state = new_state;
@@ -171,16 +172,9 @@ bool RenderGraph::Compile(Device& inDevice) {
 			if (tracked_state == edge_state)
 				continue;
 
-			pass->AddEntryBarrier(ResourceBarrier {
+			pass->AddEntryBarrier(ResourceBarrier{
 				.mTexture = resource_id,
-				.mBarrier = D3D12_RESOURCE_BARRIER {
-					.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-					.Transition = D3D12_RESOURCE_TRANSITION_BARRIER {
-						.pResource = inDevice.GetResourcePtr(resource_id),
-						.StateBefore = tracked_state,
-						.StateAfter = edge_state
-					}
-				}
+				.mBarrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(resource_id), tracked_state, edge_state)
 			});
 		}
 	}

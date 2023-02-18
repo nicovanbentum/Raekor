@@ -21,6 +21,17 @@ struct TextureResource {
 };
 
 
+struct BufferResource {
+	BufferID mCreatedBuffer;
+	BufferID mResourceBuffer;
+
+	/* The returned index can be used directly in HLSL using ResourceDescriptorHeap. */
+	inline uint32_t GetBindlessIndex(Device& inDevice) {
+		return inDevice.GetBindlessHeapIndex(inDevice.GetBuffer(mResourceBuffer).GetView());
+	}
+};
+
+
 struct ResourceBarrier {
 	union {
 		BufferID mBuffer;
@@ -53,7 +64,7 @@ public:
 
 	/* Tell the graph that inTexture was created this render pass. */
 	virtual void Create(TextureID inTexture) = 0;
-	
+
 	/* Tell the graph that inTexture will be read this render pass. The graph will create resource views and add barriers for it. */
 	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) = 0;
 	
@@ -314,7 +325,7 @@ template<typename T>
 TextureResource ComputeRenderPass<T>::Write(TextureID inTexture) {
 	auto result = GetViewForUsage(inTexture, Texture::SHADER_READ_WRITE);
 
-	auto resource = TextureResource{
+	auto resource = TextureResource {
 		.mCreatedTexture = inTexture,
 		.mResourceTexture = result
 	};

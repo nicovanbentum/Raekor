@@ -21,7 +21,7 @@ float3 offsetRay(float3 p, float3 n) {
                   abs(p.z) < origin ? p.z + float_scale * n.z : p_i.z);
 }
 
-float3 cosineWeightedSampleHemisphere(float2 rng) {
+float3 SampleCosineWeightedHemisphere(float2 rng) {
     const float theta = 6.2831853 * rng.x;
     const float u = 2.0 * rng.y - 1.0;
     const float r = sqrt(1.0 - u * u);

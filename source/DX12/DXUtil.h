@@ -15,7 +15,7 @@ static constexpr uint32_t sFrameCount = 2;
 static constexpr uint32_t sConstantBufferAlignment = 256;
 static constexpr uint32_t sByteAddressBufferAlignment = 4;
 static constexpr uint32_t sRootSignatureSize = 64 * sizeof(DWORD);
-static constexpr uint32_t sMaxRootConstantsSize = 32 * sizeof(DWORD);
+static constexpr uint32_t sMaxRootConstantsSize = 32 * sizeof(DWORD); // Just following the min spec of Vulkan here
 
 
 inline void gThrowIfFailed(HRESULT inResult) {
@@ -35,6 +35,12 @@ inline std::string gGetDebugName(ID3D12Resource* inResource) {
 	UINT size = sizeof(name);
 	inResource->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
 	return gWCharToString(name);
+}
+
+
+inline uint32_t gSpdCaculateMipCount(const uint32_t inWidth, const uint32_t inHeight) {
+	uint32_t max_res = glm::max(inWidth, inHeight);
+	return uint32_t((glm::min(glm::floor(glm::log2(float(max_res))), float(12))));
 }
 
 } // namespace Raekor::DX12

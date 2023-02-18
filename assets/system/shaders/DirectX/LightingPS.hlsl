@@ -1,25 +1,9 @@
 #include "include/bindless.hlsli"
+#include "include/common.hlsli"
 #include "include/brdf.hlsli"
 #include "include/sky.hlsli"
 
-struct VS_OUTPUT {
-    float4 pos : SV_Position;
-    float2 uv : TEXCOORD;
-};
-
 ROOT_CONSTANTS(LightingRootConstants, rc)
-
-float map(float value, float start1, float stop1, float start2, float stop2) {
-    return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1));
-}
-
-float3 ReconstructPosFromDepth(float2 uv, float depth, float4x4 InvVP) {
-    float x = uv.x * 2.0f - 1.0f;
-    float y = (1.0 - uv.y) * 2.0f - 1.0f;
-    float4 position_s = float4(x, y, depth, 1.0f);
-    float4 position_v = mul(InvVP, position_s);
-    return position_v.xyz / position_v.w;
-}
 
 float3 ApplyFog(in float3 rgb, // original color of the pixel
                in float distance, // camera to point distance
@@ -34,24 +18,24 @@ float3 ApplyFog(in float3 rgb, // original color of the pixel
     return lerp(rgb, fogColor, fogAmount);
 }
 
-float4 main(in VS_OUTPUT input) : SV_Target0 {
+float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
+    Texture2D<float>    ao_texture      = ResourceDescriptorHeap[rc.mAmbientOcclusionTexture];
     Texture2D<float>    depth_texture   = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
     Texture2D<float4>   shadow_texture  = ResourceDescriptorHeap[rc.mShadowMaskTexture];
     Texture2D<uint4>    gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
+    Texture2D<float4>   reflections_texture = ResourceDescriptorHeap[rc.mReflectionsTexture];
     
-    float shadow_mask = shadow_texture[input.pos.xy].x;
 
     BRDF brdf;
-    brdf.Unpack(asuint(gbuffer_texture[input.pos.xy]));
+    brdf.Unpack(asuint(gbuffer_texture[inParams.mPixelCoords.xy]));
     
     float3 total_radiance = float3(0.0, 0.0, 0.0);
 
-    float depth = depth_texture[input.pos.xy];
+    float depth = depth_texture[inParams.mPixelCoords.xy];
     FrameConstants fc = gGetFrameConstants();
-    const float3 position = ReconstructPosFromDepth(input.uv, depth, fc.mInvViewProjectionMatrix);
+    const float3 position = ReconstructWorldPosition(inParams.mScreenUV, depth, fc.mInvViewProjectionMatrix);
     
     const float3 light_color = float3(1.0, 1.0, 1.0); // TODO: sky calculations
-    
     
     if (depth == 1.0) {
         float3 transmittance;
@@ -67,11 +51,19 @@ float4 main(in VS_OUTPUT input) : SV_Target0 {
 
     const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
     float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi));
+    float shadow_mask   = shadow_texture[inParams.mPixelCoords.xy].x;
     total_radiance += l * NdotL * shadow_mask;
+    
+    if (brdf.mRoughness < 0.3)
+    {
+        float4 specular = reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, lerp(0, 5, brdf.mRoughness));
+        total_radiance += specular.rgb * shadow_mask;
+    }
+    
+    
+    float ao = ao_texture[inParams.mPixelCoords.xy];
     
     // total_radiance = ApplyFog(total_radiance, distance(fc.mCameraPosition.xyz, position.xyz), fc.mCameraPosition.xyz, -Wo);
     
-    //total_radiance += brdf.mAlbedo.rgb * 0.22;
-    
-    return float4(total_radiance, 1.0);
+    return float4(ao.xxx, 1.0);
 }

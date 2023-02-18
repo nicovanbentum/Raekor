@@ -19,39 +19,43 @@
     using float3x3  = glm::mat3;
     using float4x4  = glm::mat4;
 
+#define OUT_PARAM
+#define ALIGN_16 __declspec(align(16))
 #define STATIC_ASSERT(cond) static_assert(cond);
 
 #else
 
+#define OUT_PARAM out
+#define ALIGN_16
 #define STATIC_ASSERT(cond) 
 
 #endif
 
 #define DDGI_WAVE_SIZE 64 // sorry AMD, I'm running a 3080
 #define DDGI_RAYS_PER_WAVE 3
-#define MAX_ROOT_CONSTANTS_SIZE 256 // 64 DWORD's as per the DX12 spec
+#define MAX_ROOT_CONSTANTS_SIZE 128 // Following the Vulkan spec here
 
 
-struct Instance {
-    uint mIndexBuffer;
-    uint mVertexBuffer;
-    uint mMaterialIndex;
+struct RTGeometry {
+    uint     mIndexBuffer;
+    uint     mVertexBuffer;
+    uint     mMaterialIndex;
     float4x4 mLocalToWorldTransform;
 };
 
 
-struct Material {
-    float mMetallic;
-    float mRoughness;
-    uint mAlbedoTexture;
-    uint mNormalsTexture;
-    uint mMetalRoughTexture;
+struct RTMaterial {
+    float  mMetallic;
+    float  mRoughness;
+    uint   mAlbedoTexture;
+    uint   mNormalsTexture;
+    uint   mMetalRoughTexture;
     float4 mAlbedo;
     float4 mEmissive;
 };
 
 
-struct Vertex {
+struct RTVertex {
     float3 mPos;
     float2 mTexCoord;
     float3 mNormal;
@@ -62,7 +66,8 @@ struct Vertex {
 struct FrameConstants {
     float     mTime;
     float     mDeltaTime;
-    float2    mPad0;
+    uint      mFrameIndex;
+    uint      mFrameCounter;
     float4    mSunDirection;
     float4    mCameraPosition;
     float4x4  mViewMatrix;
@@ -83,31 +88,64 @@ STATIC_ASSERT(sizeof(GbufferRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ShadowMaskRootConstants {
-    uint mGbufferRenderTexture;
-    uint mGbufferDepthTexture;
-    uint mShadowMaskTexture;
-    uint mTLAS;
+    uint  mGbufferRenderTexture;
+    uint  mGbufferDepthTexture;
+    uint  mShadowMaskTexture;
+    uint  mTLAS;
     uint2 mDispatchSize;
 }; 
 STATIC_ASSERT(sizeof(ShadowMaskRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+struct AmbientOcclusionRootConstants {
+    uint  mGbufferRenderTexture;
+    uint  mGbufferDepthTexture;
+    uint  mAOmaskTexture;
+    uint  mTLAS;
+    uint2 mDispatchSize;
+};
+STATIC_ASSERT(sizeof(AmbientOcclusionRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
 struct ReflectionsRootConstants {
-    uint mGbufferRenderTexture;
-    uint mGbufferDepthTexture;
-    uint mShadowMaskTexture;
-    uint mTLAS;
-    uint mInstancesBuffer;
-    uint mMaterialsBuffer;
+    uint  mGbufferRenderTexture;
+    uint  mGbufferDepthTexture;
+    uint  mShadowMaskTexture;
+    uint  mTLAS;
+    uint  mInstancesBuffer;
+    uint  mMaterialsBuffer;
     uint2 mDispatchSize;
 }; 
 STATIC_ASSERT(sizeof(ReflectionsRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
+struct SpdRootConstants {
+    uint   mNrOfMips;
+    uint   mNrOfWorkGroups;
+    uint   mGlobalAtomicBuffer;
+    uint   mTextureMip0;
+    uint   mTextureMip1;
+    uint   mTextureMip2;
+    uint   mTextureMip3;
+    uint   mTextureMip4;
+    uint   mTextureMip5;
+    uint   mTextureMip6;
+    uint   mTextureMip7;
+    uint   mTextureMip8;
+    uint   mTextureMip9;
+    uint   mTextureMip10;
+    uint   mTextureMip11;
+    uint   mTextureMip12;
+    uint   mTextureMip13;
+    uint2  mWorkGroupOffset;
+};
+STATIC_ASSERT(sizeof(SpdRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
 
 struct LightingRootConstants {
     uint mShadowMaskTexture;
+    uint mReflectionsTexture;
     uint mGbufferDepthTexture;
     uint mGbufferRenderTexture;
+    uint mAmbientOcclusionTexture;
 }; 
 STATIC_ASSERT(sizeof(LightingRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
@@ -128,11 +166,10 @@ STATIC_ASSERT(sizeof(GrassRenderRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ProbeTraceRootConstants {
-    uint mTLAS;
-    uint3 mDispatchSize;
+    uint   mTLAS;
+    uint3  mDispatchSize;
     float4 mProbeWorldPos;
 };
 STATIC_ASSERT(sizeof(ProbeTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
-
 
 #endif // SHARED_H

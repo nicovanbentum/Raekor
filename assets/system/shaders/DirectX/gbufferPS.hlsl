@@ -1,4 +1,4 @@
-#include "include/common.hlsli"
+#include "include/bindless.hlsli"
 #include "include/packing.hlsli"
 
 struct VS_OUTPUT {
@@ -39,16 +39,16 @@ PS_OUTPUT main(in VS_OUTPUT input) {
 
     float3x3 TBN = transpose(float3x3(input.tangent, input.bitangent, input.normal));
     float3 normal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
-    //normal = normalize(input.normal);
+    // normal = normalize(input.normal);
 
     float4 albedo = root_constants.albedo * sampled_albedo;
     float metalness = root_constants.properties.x * sampled_material.b;
     float roughness = root_constants.properties.y * sampled_material.g;
 
     uint4 packed = uint4(0, 0, 0, 0);
-    packed.x = PackAlbedo(albedo);
-    packed.y = PackNormal(normal);
-    packed.z = PackMetallicRoughness(metalness, roughness);
+    PackAlbedo(albedo, packed);
+    PackNormal(normal, packed);
+    PackMetallicRoughness(metalness, roughness, packed);
     
     float2 prev_pos = (input.prev_position.xyz / input.prev_position.w).xy;
     float2 curr_pos = (input.curr_position.xyz / input.prev_position.w).xy;

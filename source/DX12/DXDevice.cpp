@@ -213,6 +213,10 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const std::wstring& in
         case Buffer::SHADER_READ_ONLY:
             alloc_desc.HeapType = D3D12_HEAP_TYPE_UPLOAD;
             break;
+        case Buffer::SHADER_READ_WRITE:
+            initial_state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+            buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+            break;
         case Buffer::ACCELERATION_STRUCTURE:
             initial_state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
             buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
@@ -318,6 +322,8 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID) {
 
 
 D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inVertexShader, const std::string& inPixelShader) {
+    assert(m_Shaders.contains(inPixelShader));
+    assert(m_Shaders.contains(inVertexShader));
     const auto& pixelShader  = m_Shaders.at(inPixelShader);
     const auto& vertexShader = m_Shaders.at(inVertexShader);
 
@@ -328,6 +334,8 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
 
 
 D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader) {
+    assert(inRenderPass->IsGraphics() && "Cannot create a Graphics PSO description for a Compute renderpass");
+    
     static constexpr auto vertex_layout = std::array {
         D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -379,6 +387,7 @@ D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* i
 
 
 D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader) {
+    assert(inRenderPass->IsCompute() && "Cannot create a Compute PSO description for a Graphics renderpass");
     return D3D12_COMPUTE_PIPELINE_STATE_DESC {
         .pRootSignature = GetGlobalRootSignature(),
         .CS = inComputeShader
@@ -397,7 +406,20 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc) {
         buffer.m_View = CreateShaderResourceView(buffer.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
         break;
     case Buffer::SHADER_READ_WRITE:
-        buffer.m_View = CreateUnorderedAccessView(buffer.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>(inDesc.viewDesc));
+        if (inDesc.viewDesc == nullptr) {
+            auto desc = D3D12_UNORDERED_ACCESS_VIEW_DESC{};
+            desc.Format = inDesc.format;
+            desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+
+            if (inDesc.stride > 0) {
+                desc.Buffer.StructureByteStride = inDesc.stride;
+                desc.Buffer.NumElements = inDesc.size / inDesc.stride;
+            }
+
+            buffer.m_View = CreateUnorderedAccessView(buffer.m_Resource, &desc);
+        } 
+        else 
+            buffer.m_View = CreateUnorderedAccessView(buffer.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>(inDesc.viewDesc));
         break;
     case Buffer::ACCELERATION_STRUCTURE:
         if (inDesc.viewDesc)
@@ -407,7 +429,18 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc) {
     case Buffer::GENERAL:
     case Buffer::INDEX_BUFFER:
     case Buffer::VERTEX_BUFFER:
-        buffer.m_View = DescriptorID(DescriptorID::INVALID);
+        if (inDesc.viewDesc)
+            buffer.m_View = CreateShaderResourceView(buffer.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
+        else if (inDesc.stride) {
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+            srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            srv_desc.Buffer.StructureByteStride = inDesc.stride;
+            srv_desc.Buffer.NumElements = inDesc.size / inDesc.stride;
+
+            buffer.m_View = CreateShaderResourceView(buffer.m_Resource, &srv_desc);
+
+        }
         break;
     default:
         assert(false); // should not be able to get here
@@ -474,6 +507,22 @@ D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(TextureID inID) {
     assert(false);
     return CD3DX12_CPU_DESCRIPTOR_HANDLE{};
 }
+
+
+
+D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(BufferID inID) {
+    auto& buffer = GetBuffer(inID);
+    return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetCPUDescriptorHandle(buffer.GetView());
+}
+
+
+
+D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(BufferID inID) {
+    auto& buffer = GetBuffer(inID);
+    return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(buffer.GetView());
+}
+
+
 
 D3D12_CPU_DESCRIPTOR_HANDLE Device::GetHeapPtr(TextureResource inResource)
 {

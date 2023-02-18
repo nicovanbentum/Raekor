@@ -25,8 +25,8 @@ struct BackBufferData {
 
 /*
     Fun TODO's:
-    - shader hotloading
     - timestamp queries per render pass for profiling
+    - debug UI to reroute any intermediate texture to screen
 */
 class Renderer {
 private:
@@ -39,9 +39,9 @@ public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
     void OnResize(Device& inDevice, const Viewport& inViewport);
-    void OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, DescriptorID inTLAS, float inDeltaTime);
+    void OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer,  float inDeltaTime);
 
-    void Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS);
+    void Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer);
 
     CommandList& StartSingleSubmit();
     void FlushSingleSubmit(Device& inDevice, CommandList& inCommandList);
@@ -119,7 +119,25 @@ struct RTShadowMaskData {
 };
 
 const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDevice, 
-    const Scene& inScene,
+    const GBufferData& inGBufferData,
+    DescriptorID inTLAS
+);
+
+
+////////////////////////////////////////
+/// Ray-traced Shadow Mask Render Pass
+////////////////////////////////////////
+struct RTAOData {
+    RTTI_CLASS_HEADER(RTAOData);
+
+    TextureResource mOutputTexture;
+    TextureResource mGbufferDepthTexture;
+    TextureResource mGBufferRenderTexture;
+    DescriptorID mTopLevelAccelerationStructure;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice,
     const GBufferData& inGBufferData,
     DescriptorID inTLAS
 );
@@ -135,12 +153,33 @@ struct ReflectionsData {
     TextureResource mGBufferDepthTexture;
     TextureResource mGbufferRenderTexture;
     DescriptorID mTopLevelAccelerationStructure;
+    DescriptorID mInstancesBuffer;
+    DescriptorID mMaterialBuffer;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice,
     const GBufferData& inGBufferData,
-    DescriptorID inTLAS
+    DescriptorID inTLAS,
+    DescriptorID inInstancesBuffer,
+    DescriptorID inMaterialsBuffer
+);
+
+
+////////////////////////////////////////
+/// Ray-traced Reflections Render Pass
+////////////////////////////////////////
+struct DownsampleData {
+    RTTI_CLASS_HEADER(DownsampleData);
+
+    TextureID mTextureMips[12];
+    BufferID mGlobalAtomicBuffer;
+    TextureResource mSourceTexture;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDevice,
+    const TextureResource& inSourceTexture
 );
 
 
@@ -166,14 +205,18 @@ struct LightingData {
 
     TextureResource mOutputTexture;
     TextureResource mShadowMaskTexture;
+    TextureResource mReflectionsTexture;
     TextureResource mGBufferDepthTexture;
     TextureResource mGBufferRenderTexture;
+    TextureResource mAmbientOcclusionTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, 
     const GBufferData& inGBufferData, 
-    const RTShadowMaskData& inShadowMaskData
+    const RTShadowMaskData& inShadowMaskData,
+    const ReflectionsData& inReflectionsData,
+    const RTAOData& inAmbientOcclusionData
 );
 
 

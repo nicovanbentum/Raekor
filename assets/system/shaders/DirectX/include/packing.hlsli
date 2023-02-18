@@ -53,28 +53,28 @@ float3 UintToFloat3(uint val) {
     return unpacked / uint3(bitmask11, bitmask11, bitmask10);
 }
 
-uint PackAlbedo(float4 albedo) {
-    return Float4ToRGBA8(albedo);
+void PackAlbedo(float4 inAlbedo, inout uint4 ioPacked) {
+    ioPacked.x = Float4ToRGBA8(inAlbedo);
 }
 
-uint PackNormal(float3 normal) {
-    return Float3ToUint(normalize(normal) * 0.5 + 0.5);
+void PackNormal(float3 inNormal, inout uint4 ioPacked) {
+    ioPacked.y = Float3ToUint(normalize(inNormal) * 0.5 + 0.5);
 }
 
-uint PackMetallicRoughness(float metalness, float roughness) {
-    return Float16x2ToUint(float2(metalness, roughness));
+void PackMetallicRoughness(float metalness, float roughness, inout uint4 ioPacked) {
+    ioPacked.z = Float16x2ToUint(float2(metalness, roughness));
 }
 
-float4 UnpackAlbedo(uint packed) {
-    return RGBA8ToFloat4(packed);
+float4 UnpackAlbedo(uint4 inPacked) {
+    return RGBA8ToFloat4(inPacked.x);
 }
 
-float3 UnpackNormal(uint packed) {
-    return UintToFloat3(packed) * 2.0 - 1.0;
+float3 UnpackNormal(uint4 inPacked) {
+    return UintToFloat3(inPacked.y) * 2.0 - 1.0;
 }
 
-void UnpackMetallicRoughness(uint packed, out float metalness, out float roughness) {
-    float2 mr = UintToFloat16x2(packed);
+void UnpackMetallicRoughness(uint4 inPacked, out float metalness, out float roughness) {
+    float2 mr = UintToFloat16x2(inPacked.z);
     metalness = mr.r;
     roughness = mr.g;
 }
