@@ -11,10 +11,14 @@ CommandList::CommandList(Device& inDevice) {
 	gThrowIfFailed(inDevice->CreateCommandList1(0x00, D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_LIST_FLAG_NONE, IID_PPV_ARGS(&command_list)));
 }
 
+
+
 void CommandList::Begin() {
 	auto& cmd_list = m_CommandLists.back();
 	gThrowIfFailed(cmd_list->Reset(m_CommandAllocators.back().Get(), nullptr));
 }
+
+
 
 void CommandList::Reset() {
 	auto& cmd_list = m_CommandLists.back();
@@ -22,38 +26,50 @@ void CommandList::Reset() {
 	gThrowIfFailed(cmd_list->Reset(m_CommandAllocators.back().Get(), nullptr));
 }
 
+
+
 void CommandList::Close() {
 	auto& cmd_list = m_CommandLists.back();
 	gThrowIfFailed(cmd_list->Close());
 }
 
+
+
 void CommandList::Push() {
 
 }
+
+
 
 void CommandList::Pop() {
 
 }
 
 
+
 void CommandList::UpdateBuffer(Buffer& inDstBuffer, uint32_t inDstOffset, uint32_t inDstSize, void* inDataPtr) {
 }
+
 
 
 void CommandList::UpdateTexture(Texture& inDstTexture, uint32_t inDstMip, void* inDataPtr) {
 }
 
 
+
 void CommandList::Draw() {
 }
+
 
 
 void CommandList::Dispatch(uint32_t inSizeX, uint32_t inSizeY, uint32_t inSizeZ) {
 }
 
 
+
 void CommandList::DispatchRays(uint32_t inSizeX, uint32_t inSizeY) {
 }
+
 
 
 void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset) {
@@ -75,6 +91,29 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
 	default: assert(false);
 	}
 }
+
+
+
+void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh) {
+	const auto& indexBuffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
+	const auto& vertexBuffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
+
+	const auto index_view = D3D12_INDEX_BUFFER_VIEW{
+		.BufferLocation = indexBuffer->GetGPUVirtualAddress(),
+		.SizeInBytes = uint32_t(inMesh.indices.size() * sizeof(inMesh.indices[0])),
+		.Format = DXGI_FORMAT_R32_UINT,
+	};
+
+	const auto vertex_view = D3D12_VERTEX_BUFFER_VIEW{
+		.BufferLocation = vertexBuffer->GetGPUVirtualAddress(),
+		.SizeInBytes = uint32_t(vertexBuffer->GetDesc().Width),
+		.StrideInBytes = inMesh.GetInterleavedStride()
+	};
+
+	m_CommandLists[m_CurrentCmdListIndex]->IASetIndexBuffer(&index_view);
+	m_CommandLists[m_CurrentCmdListIndex]->IASetVertexBuffers(0, 1, &vertex_view);
+}
+
 
 
 void CommandList::SetViewportScissorRect(const Viewport& inViewport) {

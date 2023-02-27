@@ -1,6 +1,8 @@
  #ifndef COMMON_HLSLI
  #define COMMON_HLSLI
 
+#define M_PI 3.14159265358979323846
+
 struct FULLSCREEN_TRIANGLE_VS_OUT {
     float4 mPixelCoords : SV_Position;
     float2 mScreenUV    : TEXCOORD;

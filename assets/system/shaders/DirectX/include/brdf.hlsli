@@ -1,7 +1,9 @@
 #ifndef BRDF_HLSLI
 #define BRDF_HLSLI
 
+#include "shared.h"
 #include "packing.hlsli"
+#include "bindless.hlsli"
 #include "random.hlsli"
 
 float DistributionGGX(float3 N, float3 H, float roughness) {
@@ -49,9 +51,28 @@ struct BRDF {
     float mRoughness;
     
     void Unpack(uint4 inPacked) {
-        mAlbedo = UnpackAlbedo(inPacked.x);
-        mNormal = UnpackNormal(inPacked.y);
-        UnpackMetallicRoughness(inPacked.z, mMetallic, mRoughness);
+        mAlbedo = UnpackAlbedo(inPacked);
+        mNormal = UnpackNormal(inPacked);
+        UnpackMetallicRoughness(inPacked, mMetallic, mRoughness);
+    }
+    
+    void FromHit(RTVertex inVertex, RTMaterial inMaterial) {
+        Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mAlbedoTexture)];
+        Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mNormalsTexture)];
+        Texture2D metalrough_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mMetalRoughTexture)];
+    
+        float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, inVertex.mTexCoord);
+        float4 sampled_normal = normals_texture.Sample(SamplerAnisoWrap, inVertex.mTexCoord);
+        float4 sampled_metalrough = metalrough_texture.Sample(SamplerAnisoWrap, inVertex.mTexCoord);
+        
+        float3 bitangent = cross(inVertex.mNormal, inVertex.mTangent);
+        float3x3 TBN = transpose(float3x3(inVertex.mTangent, bitangent, inVertex.mNormal));
+        float3 normal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
+        
+        mAlbedo = inMaterial.mAlbedo * sampled_albedo;
+        mNormal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
+        mMetallic = inMaterial.mMetallic * sampled_metalrough.b;
+        mRoughness = inMaterial.mRoughness * sampled_metalrough.g;
     }
 
     float3 Evaluate(float3 Wo, float3 Wi, float3 Wh) {

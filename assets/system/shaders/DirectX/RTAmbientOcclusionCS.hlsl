@@ -26,18 +26,17 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     }
     
     float occlusion = 0;
-    const uint nr_of_samples = 32;
     
-    for (uint i = 0; i < nr_of_samples; i++)
+    for (uint i = 0; i < rc.mParams.mSampleCount; i++)
     {
         const float3 random_offset = SampleCosineWeightedHemisphere(pcg_float2(rng));
         const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
         const float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
     
         RayDesc ray;
-        ray.TMin = 0.01;
-        ray.TMax = 10.0;
-        ray.Origin = ws_position + normal * 0.01; // TODO: find a more robust method? offsetRay from ray tracing gems 
+        ray.TMin = rc.mParams.mNormalBias;
+        ray.TMax = rc.mParams.mRadius;
+        ray.Origin = ws_position + normal * rc.mParams.mNormalBias; // TODO: find a more robust method? offsetRay from ray tracing gems 
                                                 // expects a geometric normal, which most deferred renderers dont write out
         ray.Direction = normalize(normal + random_offset);
 
@@ -53,7 +52,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         occlusion += float(query.CommittedStatus() != COMMITTED_TRIANGLE_HIT);
     }
     
-    occlusion /= nr_of_samples;
+    occlusion /= rc.mParams.mSampleCount;
     
-    result_texture[threadID.xy] = occlusion;
+    result_texture[threadID.xy] = lerp(occlusion, 1.0, (1.0 - rc.mParams.mIntensity));
+
 }

@@ -22,6 +22,7 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
         .BufferCount = sFrameCount,
         .SwapEffect  = DXGI_SWAP_EFFECT_FLIP_DISCARD,
+        .Flags       = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING
     };
 
     auto factory = ComPtr<IDXGIFactory4>{};
@@ -91,7 +92,7 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport) {
 
     ffxFsr2ContextDestroy(&m_Fsr2Context);
 
-    auto fsr2_desc = FfxFsr2ContextDescription{
+    auto fsr2_desc = FfxFsr2ContextDescription {
         .flags          = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE,
         .maxRenderSize  = { inViewport.size.x, inViewport.size.y },
         .displaySize    = { inViewport.size.x, inViewport.size.y },
@@ -122,11 +123,6 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
         }
     }
 
-    if (need_recompile) {
-        WaitForIdle(inDevice);
-        Recompile(inDevice, inScene, inTLAS, inInstancesBuffer, inMaterialsBuffer);
-    }
-
     GUI::BeginFrame();
     ImGui_ImplDX12_NewFrame();
     
@@ -137,7 +133,11 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
 
     ImGui::Checkbox("Enable V-Sync", (bool*)&m_Settings.mEnableVsync);
 
-    if (ImGui::Checkbox("Enable FSR 2.1", (bool*)&m_Settings.mEnableFsr2)) {
+    need_recompile |= ImGui::Checkbox("Enable FSR 2.1", (bool*)&m_Settings.mEnableFsr2);
+    need_recompile |= ImGui::Checkbox("Enable DDGI", (bool*)&m_Settings.mEnableDDGI);
+    need_recompile |= ImGui::Checkbox("Debug Probe GI", (bool*)&m_Settings.mProbeDebug);
+
+    if (need_recompile) {
         WaitForIdle(inDevice);
         Recompile(inDevice, inScene, inTLAS, inInstancesBuffer, inMaterialsBuffer);
     }
@@ -155,11 +155,47 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
         }
     }
 
+    ImGui::NewLine(); ImGui::Separator();
+
     if (auto grass_pass = m_RenderGraph.GetPass<GrassData>()) {
+        ImGui::Text("Grass Settings");
         ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
         ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
         ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
+        ImGui::NewLine(); ImGui::Separator();
     }
+
+
+    if (auto rtao_pass = m_RenderGraph.GetPass<RTAOData>()) {
+        auto& params = rtao_pass->GetData().mParams;
+        ImGui::Text("RTAO Settings");
+        ImGui::DragFloat("Radius", &params.mRadius, 0.01f, 0.0f, 20.0f, "%.2f");
+        ImGui::DragFloat("Intensity", &params.mIntensity, 0.01f, 0.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("Normal Bias", &params.mNormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
+        ImGui::SliderInt("Sample Count", (int*)&params.mSampleCount, 1u, 32u);
+        ImGui::NewLine(); ImGui::Separator();
+    }
+
+    if (auto ddgi_debug_pass = m_RenderGraph.GetPass<ProbeTraceData>()) {
+        auto& data = ddgi_debug_pass->GetData();
+        ImGui::Text("DDGI Settings");
+        if (ImGui::DragFloat3("BBox Min", &data.mExtent.mMin[0], 0.01f, -1000.0f, 1000.0f, "%.3f"))
+            data.mExtent.mMin = glm::clamp(data.mExtent.GetMin(), Vec3(-1000.0f), data.mExtent.GetMax());
+        
+        if (ImGui::DragFloat3("BBox Max", &data.mExtent.mMax[0], 0.01f, -1000.0f, 1000.0f, "%.3f"))
+            data.mExtent.mMax = glm::clamp(data.mExtent.GetMax(), data.mExtent.GetMin(), Vec3(1000.0f));
+
+        ImGui::DragInt3("Probe Count", &data.mProbeCount[0], 1, 1, 40);
+    }
+
+    ImGui::NewLine(); ImGui::Separator();
+
+    ImGui::Text("RenderGraph Settings");
+    for (const auto& pass : m_RenderGraph.GetPasses()) {
+        ImGui::Text(pass->GetName().c_str());
+    }
+
+    ImGui::NewLine(); ImGui::Separator(); ImGui::NewLine();
 
     if (ImGui::Button("Save As GraphViz..")) {
         const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
@@ -213,7 +249,7 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
     const auto jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().size.y;
     const auto offset_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(jitter_x, jitter_y, 0));
     const auto jittered_proj_matrix = camera.GetProjection();
-    // const auto jittered_proj_matrix = offset_matrix * camera.GetProjection();
+    //const auto jittered_proj_matrix = offset_matrix * camera.GetProjection();
 
 
     m_FrameConstants.mTime                       = m_ElapsedTime;
@@ -247,7 +283,8 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
     const auto commandLists = std::array{ static_cast<ID3D12CommandList*>(backbuffer_data.mCmdList) };
     inDevice.GetQueue()->ExecuteCommandLists(commandLists.size(), commandLists.data());
 
-    gThrowIfFailed(m_Swapchain->Present(m_Settings.mEnableVsync, 0));
+    const auto flags = m_Settings.mEnableVsync ? 0 : DXGI_PRESENT_ALLOW_TEARING;
+    gThrowIfFailed(m_Swapchain->Present(m_Settings.mEnableVsync, flags));
 
     backbuffer_data.mFenceValue++;
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
@@ -273,13 +310,18 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
 
     const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
     
-    const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data);
-    
-    auto compose_input = light_data.mOutputTexture;
+    const auto& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inTLAS, inInstancesBuffer, inMaterialsBuffer);
 
-    if (m_Settings.mEnableFsr2) {
+    const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, ddgi_trace_data);
+    
+    const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data, ddgi_update_data);
+    
+    const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+
+    auto compose_input = light_data.mOutputTexture;
+    
+    if (m_Settings.mEnableFsr2)
         compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
-    }
 
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, compose_input);
 
@@ -337,6 +379,8 @@ RTTI_CLASS_CPP(DownsampleData)      {}
 RTTI_CLASS_CPP(LightingData)        {}
 RTTI_CLASS_CPP(FSR2Data)            {}
 RTTI_CLASS_CPP(ProbeTraceData)      {}
+RTTI_CLASS_CPP(ProbeUpdateData)     {}
+RTTI_CLASS_CPP(ProbeDebugData)      {}
 RTTI_CLASS_CPP(ComposeData)         {}
 
 /*
@@ -446,7 +490,7 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
     [&](IRenderPass* inRenderPass, RTShadowMaskData& inData)
     {
         const auto output_texture = inDevice.CreateTexture(Texture::Desc{
-            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .format = DXGI_FORMAT_R32_FLOAT,
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::Usage::SHADER_READ_WRITE
@@ -501,6 +545,11 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mGBufferRenderTexture            = inRenderPass->Read(inGbufferData.mRenderTexture);
         inData.mTopLevelAccelerationStructure   = inTLAS;
 
+        inData.mParams.mRadius      = 2.0;
+        inData.mParams.mIntensity   = 1.0;
+        inData.mParams.mNormalBias  = 0.01;
+        inData.mParams.mSampleCount = 4u;
+
         auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTAmbientOcclusionCS");
         gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(&inData.mPipeline)));
     },
@@ -508,10 +557,11 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        const auto root_constants = ShadowMaskRootConstants {
+        const auto root_constants = AmbientOcclusionRootConstants {
+            .mParams                = inData.mParams,
             .mGbufferRenderTexture  = inData.mGBufferRenderTexture.GetBindlessIndex(inDevice),
             .mGbufferDepthTexture   = inData.mGbufferDepthTexture.GetBindlessIndex(inDevice),
-            .mShadowMaskTexture     = inData.mOutputTexture.GetBindlessIndex(inDevice),
+            .mAOmaskTexture         = inData.mOutputTexture.GetBindlessIndex(inDevice),
             .mTLAS                  = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure),
             .mDispatchSize          = viewport.size
         };
@@ -693,50 +743,181 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
-const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice, DescriptorID inTLAS) {
-    return inRenderGraph.AddComputePass<ProbeTraceData>("GI TRACE PROBES PASS", inDevice,
-    [&](IRenderPass* inRenderPass, ProbeTraceData& inData) 
+const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer) {
+    return inRenderGraph.AddComputePass<ProbeTraceData>("GI PROBE TRACE PASS", inDevice,
+    [&](IRenderPass* inRenderPass, ProbeTraceData& inData)
     {
         const auto depth_texture = inDevice.CreateTexture(Texture::Desc{
-            .format = DXGI_FORMAT_R16G16_FLOAT,
-            .width  = 16,
-            .height = 16,
+            .format = DXGI_FORMAT_R16_FLOAT,
+            .width  = DDGI_RAYS_PER_PROBE,
+            .height = uint32_t(inData.mProbeCount.x * inData.mProbeCount.y * inData.mProbeCount.z), 
             .usage  = Texture::Usage::SHADER_READ_WRITE
-        }, L"GI_PROBE_DEPTH");
+        }, L"DDGI_TRACE_DEPTH");
 
         const auto irradiance_texture = inDevice.CreateTexture(Texture::Desc{
             .format = DXGI_FORMAT_R11G11B10_FLOAT,
-            .width  = 6,
-            .height = 6,
+            .width  = DDGI_RAYS_PER_PROBE,
+            .height = uint32_t(inData.mProbeCount.x * inData.mProbeCount.y * inData.mProbeCount.z), 
             .usage  = Texture::Usage::SHADER_READ_WRITE
-        }, L"GI_PROBE_IRRADIANCE");
+        }, L"DDGI_TRACE_IRRADIANCE");
 
-        inRenderPass->Create(depth_texture);
-        inRenderPass->Create(irradiance_texture);
-        inData.mDepthTexture = inRenderPass->Write(depth_texture);
-        inData.mIrradianceTexture = inRenderPass->Write(irradiance_texture);
+        inData.mRaysDepthTexture = inRenderPass->CreateAndWrite(depth_texture);
+        inData.mRaysIrradianceTexture = inRenderPass->CreateAndWrite(irradiance_texture);
+        inData.mInstancesBuffer = inInstancesBuffer;
+        inData.mMaterialBuffer = inMaterialsBuffer;
+        inData.mTopLevelAccelerationStructure = inTLAS;
 
         auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeTraceCS");
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline)));
-
     },
-    [&inDevice, inTLAS](ProbeTraceData& inData, CommandList& inCmdList) 
-    {   
-        const auto constants = ProbeTraceRootConstants{
-            .mTLAS          = inDevice.GetBindlessHeapIndex(inTLAS),
-            .mDispatchSize  = { 1, DDGI_RAYS_PER_WAVE, 1 },
-            .mProbeWorldPos = inData.mProbeWorldPos
+    [&inRenderGraph, &inDevice](ProbeTraceData& inData, CommandList& inCmdList)
+    {
+        const auto constants = ProbeTraceRootConstants {
+            .mInstancesBuffer       = inDevice.GetBindlessHeapIndex(inData.mInstancesBuffer),
+            .mMaterialsBuffer       = inDevice.GetBindlessHeapIndex(inData.mMaterialBuffer),
+            .mRaysDepthTexture      = inData.mRaysDepthTexture.GetBindlessIndex(inDevice),
+            .mRaysIrradianceTexture = inData.mRaysIrradianceTexture.GetBindlessIndex(inDevice),
+            .mTLAS                  = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure),
+            .mDispatchSize          = IVec4(DDGI_RAYS_PER_PROBE, 1, 1, 0),
+            .mProbeCount            = IVec4(inData.mProbeCount, 0),
+            .mBBmin                 = Vec4(inData.mExtent.GetMin(), 0),
+            .mBBmax                 = Vec4(inData.mExtent.GetMax(), 0),
         };
 
+        const auto total_probe_count = inData.mProbeCount.x * inData.mProbeCount.y * inData.mProbeCount.z;
+        
         inCmdList.PushComputeConstants(constants);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList->Dispatch(constants.mDispatchSize.x, constants.mDispatchSize.y, constants.mDispatchSize.z);
+        inCmdList->Dispatch(DDGI_RAYS_PER_PROBE, total_probe_count, 1);
     });
 }
 
 
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, const RTShadowMaskData& inShadowMaskData, const ReflectionsData& inReflectionsData, const RTAOData& inAmbientOcclusionData) {
+const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice, const ProbeTraceData& inTraceData) {
+    return inRenderGraph.AddComputePass<ProbeUpdateData>("GI PROBE UPDATE PASS", inDevice,
+    [&](IRenderPass* inRenderPass, ProbeUpdateData& inData) 
+    {
+        const auto depth_texture = inDevice.CreateTexture(Texture::Desc{
+            .format = DXGI_FORMAT_R16G16_FLOAT,
+            .width  = DDGI_PROBE_DEPTH_RESOLUTION,
+            .height = DDGI_PROBE_DEPTH_RESOLUTION,
+            .usage  = Texture::Usage::SHADER_READ_WRITE
+        }, L"DDGI_UPDATE_DEPTH");
+
+        const auto irradiance_texture = inDevice.CreateTexture(Texture::Desc{
+            .format      = DXGI_FORMAT_R11G11B10_FLOAT,
+            .width       = uint32_t(DDGI_PROBE_IRRADIANCE_RESOLUTION * inTraceData.mProbeCount.x),
+            .height      = uint32_t(DDGI_PROBE_IRRADIANCE_RESOLUTION * inTraceData.mProbeCount.z),
+            .arrayLayers = uint32_t(inTraceData.mProbeCount.y),
+            .usage       = Texture::Usage::SHADER_READ_WRITE
+        }, L"DDGI_UPDATE_IRRADIANCE");
+
+        inData.mProbesDepthTexture = inRenderPass->CreateAndWrite(depth_texture);
+        inData.mProbesIrradianceTexture = inRenderPass->CreateAndWrite(irradiance_texture);
+
+        inData.mRaysDepthTexture = inRenderPass->Read(inTraceData.mRaysDepthTexture);
+        inData.mRaysIrradianceTexture = inRenderPass->Read(inTraceData.mRaysIrradianceTexture);
+
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeUpdateCS");
+        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline)));
+    },
+    [&inDevice, &inTraceData](ProbeUpdateData& inData, CommandList& inCmdList) 
+    {   
+        const auto constants = ProbeUpdateRootConstants {
+            .mRaysDepthTexture          = inData.mRaysDepthTexture.GetBindlessIndex(inDevice),
+            .mRaysIrradianceTexture     = inData.mRaysIrradianceTexture.GetBindlessIndex(inDevice),
+            .mProbesDepthTexture        = inData.mProbesDepthTexture.GetBindlessIndex(inDevice),
+            .mProbesIrradianceTexture   = inData.mProbesIrradianceTexture.GetBindlessIndex(inDevice),
+            .mDispatchSize              = { DDGI_PROBE_IRRADIANCE_RESOLUTION, DDGI_PROBE_IRRADIANCE_RESOLUTION, 1 },
+        };
+
+        inCmdList.PushComputeConstants(constants);
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->Dispatch(
+            (DDGI_PROBE_IRRADIANCE_RESOLUTION * inTraceData.mProbeCount.x), 
+            (DDGI_PROBE_IRRADIANCE_RESOLUTION * inTraceData.mProbeCount.z), 
+            uint32_t(inTraceData.mProbeCount.y)
+        );
+    });
+}
+
+
+
+const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDevice, const ProbeTraceData& inTraceData, const ProbeUpdateData& inUpdateData, TextureResource inRenderTarget, TextureResource inDepthTarget) {
+    return inRenderGraph.AddGraphicsPass<ProbeDebugData>("GI PROBE DEBUG PASS", inDevice,
+    [&](IRenderPass* inRenderPass, ProbeDebugData& inData)
+    {
+        gGenerateSphere(inData.mProbeMesh, 0.5f, 8u, 8u);
+
+        const auto vertices = inData.mProbeMesh.GetInterleavedVertices();
+        const auto vertices_size = vertices.size() * sizeof(vertices[0]);
+        const auto indices_size = inData.mProbeMesh.indices.size() * sizeof(inData.mProbeMesh.indices[0]);
+
+        inData.mProbeMesh.indexBuffer = inDevice.CreateBuffer(Buffer::Desc{
+            .size     = uint32_t(indices_size),
+            .stride   = sizeof(uint32_t) * 3,
+            .usage    = Buffer::Usage::INDEX_BUFFER,
+            .mappable = true
+        }).ToIndex();
+
+        inData.mProbeMesh.vertexBuffer = inDevice.CreateBuffer(Buffer::Desc{
+            .size     = uint32_t(vertices_size),
+            .stride   = sizeof(Vertex),
+            .usage    = Buffer::Usage::VERTEX_BUFFER,
+            .mappable = true
+        }).ToIndex();
+
+        {
+            auto& index_buffer  = inDevice.GetBuffer(BufferID(inData.mProbeMesh.indexBuffer));
+            void* mapped_ptr = nullptr;
+            index_buffer->Map(0, nullptr, &mapped_ptr);
+            memcpy(mapped_ptr, inData.mProbeMesh.indices.data(), indices_size);
+            index_buffer->Unmap(0, nullptr);
+        }
+
+        {
+            auto& vertex_buffer = inDevice.GetBuffer(BufferID(inData.mProbeMesh.vertexBuffer));
+            void* mapped_ptr = nullptr;
+            vertex_buffer->Map(0, nullptr, &mapped_ptr);
+            memcpy(mapped_ptr, vertices.data(), vertices_size);
+            vertex_buffer->Unmap(0, nullptr);
+        }
+
+        inData.mDepthTarget  = inRenderPass->Write(inDepthTarget);
+        inData.mRenderTarget = inRenderPass->Write(inRenderTarget);
+
+        inData.mProbesDepthTexture = inRenderPass->Read(inUpdateData.mProbesDepthTexture);
+        inData.mProbesIrradianceTexture = inRenderPass->Read(inUpdateData.mProbesIrradianceTexture);
+
+        auto pso_desc = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeDebugVS", "ProbeDebugPS");
+        gThrowIfFailed(inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
+    },
+    [&inRenderGraph, &inDevice, &inTraceData](ProbeDebugData& inData, CommandList& inCmdList) 
+    {
+        const auto& viewport = inRenderGraph.GetViewport();
+        inCmdList.SetViewportScissorRect(viewport);
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+
+        auto root_constants = ProbeDebugRootConstants {
+            .mProbesDepthTexture = inData.mProbesDepthTexture.GetBindlessIndex(inDevice),
+            .mProbesIrradianceTexture = inData.mProbesIrradianceTexture.GetBindlessIndex(inDevice),
+            .mBBmin = Vec4(inTraceData.mExtent.GetMin(), 0),
+            .mBBmax = Vec4(inTraceData.mExtent.GetMax(), 0),
+            .mProbeCount = IVec4(inTraceData.mProbeCount, 0)
+        };
+
+        auto total_probe_count = inTraceData.mProbeCount.x * inTraceData.mProbeCount.y * inTraceData.mProbeCount.z;
+
+        inCmdList.PushGraphicsConstants(root_constants);
+        inCmdList.BindVertexAndIndexBuffers(inDevice, inData.mProbeMesh);
+        inCmdList->DrawIndexedInstanced(inData.mProbeMesh.indices.size(), total_probe_count, 0, 0, 0);
+    });
+}
+
+
+
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, const RTShadowMaskData& inShadowMaskData, const ReflectionsData& inReflectionsData, const RTAOData& inAmbientOcclusionData, const ProbeUpdateData& inProbeData) {
     return inRenderGraph.AddGraphicsPass<LightingData>("LIGHT PASS", inDevice,
     [&](IRenderPass* inRenderPass, LightingData& inData)
     {
@@ -755,6 +936,8 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mGBufferDepthTexture     = inRenderPass->Read(inGBufferData.mDepthTexture);
         inData.mGBufferRenderTexture    = inRenderPass->Read(inGBufferData.mRenderTexture);
         inData.mAmbientOcclusionTexture = inRenderPass->Read(inAmbientOcclusionData.mOutputTexture);
+        inData.mProbesDepthTexture      = inRenderPass->Read(inProbeData.mProbesDepthTexture);
+        inData.mProbesIrradianceTexture = inRenderPass->Read(inProbeData.mProbesIrradianceTexture);
 
         auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "FullscreenTriangleVS", "LightingPS");
         state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
@@ -771,6 +954,8 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
             .mGbufferDepthTexture     = inData.mGBufferDepthTexture.GetBindlessIndex(inDevice),
             .mGbufferRenderTexture    = inData.mGBufferRenderTexture.GetBindlessIndex(inDevice),
             .mAmbientOcclusionTexture = inData.mAmbientOcclusionTexture.GetBindlessIndex(inDevice),
+            .mProbesDepthTexture      = inData.mProbesDepthTexture.GetBindlessIndex(inDevice),
+            .mProbesIrradianceTexture = inData.mProbesIrradianceTexture.GetBindlessIndex(inDevice)
         };
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());

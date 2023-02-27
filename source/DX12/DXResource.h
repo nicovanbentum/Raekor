@@ -66,13 +66,13 @@ public:
 	using Pool = FreeVector<Buffer>;
 
 	enum Usage {
-		UPLOAD,
-		GENERAL,
-		INDEX_BUFFER,
-		VERTEX_BUFFER,
-		SHADER_READ_ONLY,
-		SHADER_READ_WRITE,
-		ACCELERATION_STRUCTURE,
+		UPLOAD					= 1 << 0,
+		GENERAL					= 1 << 1,
+		INDEX_BUFFER			= 1 << 2,
+		VERTEX_BUFFER			= 1 << 3,
+		SHADER_READ_ONLY		= 1 << 4,
+		SHADER_READ_WRITE		= 1 << 5,
+		ACCELERATION_STRUCTURE	= 1 << 6
 	};
 
 	struct Desc {
@@ -80,6 +80,7 @@ public:
 		uint64_t size = 0;
 		uint64_t stride = 0;
 		Usage usage = Usage::GENERAL;
+		bool mappable = false;
 		void* viewDesc = nullptr;
 	};
 

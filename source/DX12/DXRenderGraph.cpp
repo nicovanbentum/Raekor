@@ -172,7 +172,7 @@ bool RenderGraph::Compile(Device& inDevice) {
 			if (tracked_state == edge_state)
 				continue;
 
-			pass->AddEntryBarrier(ResourceBarrier{
+			pass->AddEntryBarrier(ResourceBarrier {
 				.mTexture = resource_id,
 				.mBarrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(resource_id), tracked_state, edge_state)
 			});

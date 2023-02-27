@@ -18,12 +18,22 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     auto debug_interface = ComPtr<ID3D12Debug1>{};
 
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_interface)))) {
-        debug_interface->EnableDebugLayer();
-        debug_interface->SetEnableGPUBasedValidation(TRUE);
-        debug_interface->SetEnableSynchronizedCommandQueueValidation(TRUE);
+        if (CVars::sCreate("debug_layer", 0)) 
+            debug_interface->EnableDebugLayer();
+
+
+        if (CVars::sCreate("gpu_validation", 0)) {
+            debug_interface->SetEnableGPUBasedValidation(TRUE);
+            debug_interface->SetEnableSynchronizedCommandQueueValidation(TRUE);
+        }
     }
 
     device_creation_flags |= DXGI_CREATE_FACTORY_DEBUG;
+
+    if (CVars::sCreate("hook_pix", 0)) {
+        auto pix_module = PIXLoadLatestWinPixGpuCapturerLibrary();
+        assert(pix_module);
+    }
 #endif
 
     auto factory = ComPtr<IDXGIFactory6>{};
@@ -125,7 +135,7 @@ void Device::BindDrawDefaults(CommandList& inCmdList) {
 TextureID Device::CreateTexture(const Texture::Desc& inDesc, const std::wstring& inName) {
     auto texture = Texture(inDesc);
     auto resource_desc = D3D12_RESOURCE_DESC(CD3DX12_RESOURCE_DESC::Tex2D(
-        inDesc.format, inDesc.width, inDesc.height, 1u, inDesc.mipLevels, 1u, 0, D3D12_RESOURCE_FLAG_NONE, D3D12_TEXTURE_LAYOUT_UNKNOWN)
+        inDesc.format, inDesc.width, inDesc.height, inDesc.arrayLayers, inDesc.mipLevels, 1u, 0, D3D12_RESOURCE_FLAG_NONE, D3D12_TEXTURE_LAYOUT_UNKNOWN)
     );
 
     auto alloc_desc = D3D12MA::ALLOCATION_DESC{};
@@ -194,7 +204,7 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc, const std::wstring&
 
 BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const std::wstring& inName) {
     auto alloc_desc     = D3D12MA::ALLOCATION_DESC{};
-    alloc_desc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
+    alloc_desc.HeapType = inDesc.mappable ? D3D12_HEAP_TYPE_UPLOAD : D3D12_HEAP_TYPE_DEFAULT;
 
     auto buffer         = Buffer(inDesc);
     auto initial_state  = D3D12_RESOURCE_STATE_COMMON;
@@ -203,11 +213,13 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const std::wstring& in
     switch (inDesc.usage) {
         case Buffer::VERTEX_BUFFER:
             initial_state = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-            buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+            if (!inDesc.mappable)
+                buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
             break;
         case Buffer::INDEX_BUFFER:
             initial_state = D3D12_RESOURCE_STATE_INDEX_BUFFER;
-            buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+            if (!inDesc.mappable)
+                buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
             break;
         case Buffer::UPLOAD:
         case Buffer::SHADER_READ_ONLY:
@@ -522,7 +534,10 @@ D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(BufferID inID) {
     return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(buffer.GetView());
 }
 
-
+D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(TextureID inID) {
+    auto& texture = GetTexture(inID);
+    return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(texture.GetView());
+}
 
 D3D12_CPU_DESCRIPTOR_HANDLE Device::GetHeapPtr(TextureResource inResource)
 {
@@ -765,7 +780,7 @@ ComPtr<IDxcBlob> sCompileShaderDXC(const FileSystem::path& inFilePath) {
     auto errors = ComPtr<IDxcBlobUtf8>{};
     result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr);
 
-    if (!SUCCEEDED(hr_status) && errors && errors->GetStringLength() > 0) {
+    if (errors && errors->GetStringLength() > 0) {
         auto lock = Async::sLock();
         auto error_c_str = static_cast<char*>(errors->GetBufferPointer());
         std::cout << error_c_str << '\n';
@@ -789,6 +804,9 @@ ComPtr<IDxcBlob> sCompileShaderDXC(const FileSystem::path& inFilePath) {
 
         OutputDebugStringA(std::format("{}({}): Error: {}", FileSystem::absolute(inFilePath).string(), line_nr, error_msg).c_str());
 
+    }
+
+    if (!SUCCEEDED(hr_status)) {
         std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << inFilePath.string() << '\n';
         return nullptr;
     }

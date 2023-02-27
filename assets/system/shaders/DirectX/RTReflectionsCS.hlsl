@@ -38,12 +38,14 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         result_texture[threadID.xy] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }
+
+    const uint4 gbuffer_sample = asuint(gbuffer_texture[threadID.xy]);
     
-    const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]).y);
-    const float4 gbuffer_albedo = UnpackAlbedo(asuint(gbuffer_texture[threadID.xy]).x);
+    const float3 normal = UnpackNormal(gbuffer_sample);
+    const float4 gbuffer_albedo = UnpackAlbedo(gbuffer_sample);
     
     float metallic, roughness;
-    UnpackMetallicRoughness(asuint(gbuffer_texture[threadID.xy]).z, metallic, roughness);
+    UnpackMetallicRoughness(gbuffer_sample, metallic, roughness);
     
     if (roughness >= 0.3) {
         result_texture[threadID.xy] = float4(0.0, 0.0, 0.0, 1.0);
@@ -115,7 +117,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
 
         const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
         float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi));
-        float3 total_radiance = l * NdotL * 1.0;
+        float3 total_radiance = l * NdotL * sunlight_luminance;
         
         if (NdotL != 0.0) {
             RayDesc shadow_ray;

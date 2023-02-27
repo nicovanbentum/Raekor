@@ -31,7 +31,10 @@ struct BackBufferData {
 class Renderer {
 private:
     struct Settings {
+        int& mProbeDebug  = CVars::sCreate("r_debug_gi_probes", 1);
+        int& mEnableRTAO  = CVars::sCreate("r_enable_rtao", 1);
         int& mEnableFsr2  = CVars::sCreate("r_enable_fsr2", 0);
+        int& mEnableDDGI  = CVars::sCreate("r_enable_ddgi", 1);
         int& mEnableVsync = CVars::sCreate("r_vsync", 1);
     } m_Settings;
 
@@ -130,10 +133,11 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
 struct RTAOData {
     RTTI_CLASS_HEADER(RTAOData);
 
+    AmbientOcclusionParams mParams;
     TextureResource mOutputTexture;
     TextureResource mGbufferDepthTexture;
     TextureResource mGBufferRenderTexture;
-    DescriptorID mTopLevelAccelerationStructure;
+    DescriptorID mTopLevelAccelerationStructure;    
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -189,12 +193,60 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 struct ProbeTraceData {
     RTTI_CLASS_HEADER(ProbeTraceData);
 
-    glm::vec4 mProbeWorldPos;
-    TextureResource mDepthTexture;
-    TextureResource mIrradianceTexture;
+    BBox3D mExtent = BBox3D(Vec3(-64, 2, -30), Vec3(75, 64, 30)); // for sponza
+    IVec3 mProbeCount = IVec3(9, 9, 9);
+    //BBox3D mExtent = BBox3D(Vec3(-1, 2, -22), Vec3(2, 4, 2)); // single probe for debug
+    //IVec3 mProbeCount = IVec3(1, 1, 1);
+    TextureResource mRaysDepthTexture;
+    TextureResource mRaysIrradianceTexture;
+    DescriptorID mTopLevelAccelerationStructure;
+    DescriptorID mInstancesBuffer;
+    DescriptorID mMaterialBuffer;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer);
+
+
+////////////////////////////////////////
+/// GI Probe Update Compute Pass
+////////////////////////////////////////
+struct ProbeUpdateData {
+    RTTI_CLASS_HEADER(ProbeUpdateData);
+
+    TextureResource mProbesDepthTexture;
+    TextureResource mProbesIrradianceTexture;
+    TextureResource mRaysDepthTexture;
+    TextureResource mRaysIrradianceTexture;
     DescriptorID mTopLevelAccelerationStructure;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
+
+const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice, 
+    const ProbeTraceData& inTraceData
+);
+
+
+////////////////////////////////////////
+/// GI Probe Debug Render Pass
+////////////////////////////////////////
+struct ProbeDebugData {
+    RTTI_CLASS_HEADER(ProbeDebugData);
+
+    Mesh mProbeMesh;
+    TextureResource mRenderTarget;
+    TextureResource mDepthTarget;
+    TextureResource mProbesDepthTexture;
+    TextureResource mProbesIrradianceTexture;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDevice, 
+    const ProbeTraceData& inTraceData,
+    const ProbeUpdateData& inUpdateData,
+    TextureResource inRenderTarget, 
+    TextureResource inDepthTarget
+);
 
 
 ////////////////////////////////////////
@@ -209,6 +261,8 @@ struct LightingData {
     TextureResource mGBufferDepthTexture;
     TextureResource mGBufferRenderTexture;
     TextureResource mAmbientOcclusionTexture;
+    TextureResource mProbesDepthTexture;
+    TextureResource mProbesIrradianceTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -216,7 +270,8 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
     const GBufferData& inGBufferData, 
     const RTShadowMaskData& inShadowMaskData,
     const ReflectionsData& inReflectionsData,
-    const RTAOData& inAmbientOcclusionData
+    const RTAOData& inAmbientOcclusionData,
+    const ProbeUpdateData& inProbeData
 );
 
 

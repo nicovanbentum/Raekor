@@ -41,7 +41,8 @@ private:
 
     StagingHeap             m_StagingHeap;
     ComPtr<IDXGISwapChain3> m_Swapchain;
-    ComPtr<IDStorageQueue>  m_StorageQueue;
+    ComPtr<IDStorageQueue>  m_FileStorageQueue;
+    ComPtr<IDStorageQueue>  m_MemoryStorageQueue;
 
     BufferID      m_TLASBuffer;
     BufferID      m_InstancesBuffer;

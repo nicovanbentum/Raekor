@@ -31,10 +31,14 @@
 
 #endif
 
-#define DDGI_WAVE_SIZE 64 // sorry AMD, I'm running a 3080
-#define DDGI_RAYS_PER_WAVE 3
-#define MAX_ROOT_CONSTANTS_SIZE 128 // Following the Vulkan spec here
+#define MAX_ROOT_CONSTANTS_SIZE 128 // Following the Vulkan spec here, we need some space for root descriptors
 
+/* DDGI DEFINITIONS */
+#define DDGI_WAVE_SIZE 64 // Thread group size for the Trace shader. Sorry AMD, I'm running a 3080
+#define DDGI_RAYS_PER_WAVE 3 // This is the number of rays per probe (192) divided by the thread group size (64)
+#define DDGI_PROBE_DEPTH_RESOLUTION 16 // Depth is stored as 16x16 FORMAT_R32F texels
+#define DDGI_PROBE_IRRADIANCE_RESOLUTION  8 // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
+#define DDGI_RAYS_PER_PROBE DDGI_WAVE_SIZE * DDGI_RAYS_PER_WAVE // Trace 192 rays in total 
 
 struct RTGeometry {
     uint     mIndexBuffer;
@@ -97,7 +101,16 @@ struct ShadowMaskRootConstants {
 STATIC_ASSERT(sizeof(ShadowMaskRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+struct AmbientOcclusionParams {
+    float mRadius;
+    float mIntensity;
+    float mNormalBias;
+    uint  mSampleCount;
+};
+
+
 struct AmbientOcclusionRootConstants {
+    AmbientOcclusionParams mParams;
     uint  mGbufferRenderTexture;
     uint  mGbufferDepthTexture;
     uint  mAOmaskTexture;
@@ -105,6 +118,7 @@ struct AmbientOcclusionRootConstants {
     uint2 mDispatchSize;
 };
 STATIC_ASSERT(sizeof(AmbientOcclusionRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
 
 struct ReflectionsRootConstants {
     uint  mGbufferRenderTexture;
@@ -116,6 +130,7 @@ struct ReflectionsRootConstants {
     uint2 mDispatchSize;
 }; 
 STATIC_ASSERT(sizeof(ReflectionsRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
 
 struct SpdRootConstants {
     uint   mNrOfMips;
@@ -146,6 +161,8 @@ struct LightingRootConstants {
     uint mGbufferDepthTexture;
     uint mGbufferRenderTexture;
     uint mAmbientOcclusionTexture;
+    uint mProbesDepthTexture;
+    uint mProbesIrradianceTexture;
 }; 
 STATIC_ASSERT(sizeof(LightingRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
@@ -164,12 +181,42 @@ struct GrassRenderRootConstants {
 };
 STATIC_ASSERT(sizeof(GrassRenderRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
-
 struct ProbeTraceRootConstants {
+    uint   mInstancesBuffer;
+    uint   mMaterialsBuffer;
+    uint   mRaysDepthTexture;
+    uint   mRaysIrradianceTexture;
     uint   mTLAS;
-    uint3  mDispatchSize;
-    float4 mProbeWorldPos;
+    uint   pad0;
+    uint   pad1;
+    uint   pad2;
+    uint4  mDispatchSize;
+    uint4  mProbeCount;
+    float4 mBBmin;
+    float4 mBBmax;
 };
 STATIC_ASSERT(sizeof(ProbeTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+struct ProbeUpdateRootConstants {
+    uint   mRaysDepthTexture;
+    uint   mRaysIrradianceTexture;
+    uint   mProbesDepthTexture;
+    uint   mProbesIrradianceTexture;
+    uint3  mDispatchSize;
+};
+STATIC_ASSERT(sizeof(ProbeUpdateRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
+struct ProbeDebugRootConstants {
+    uint   mProbesDepthTexture;
+    uint   mProbesIrradianceTexture;
+    uint   pad0;
+    uint   pad1;
+    float4 mBBmin;
+    float4 mBBmax;
+    uint4  mProbeCount;
+};
+STATIC_ASSERT(sizeof(ProbeDebugRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
 
 #endif // SHARED_H

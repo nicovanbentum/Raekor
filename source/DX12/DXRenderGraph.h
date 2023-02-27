@@ -65,6 +65,9 @@ public:
 	/* Tell the graph that inTexture was created this render pass. */
 	virtual void Create(TextureID inTexture) = 0;
 
+	/* Tell the graph that inTexture was created this render pass. */
+	virtual TextureResource CreateAndWrite(TextureID inTexture) = 0;
+
 	/* Tell the graph that inTexture will be read this render pass. The graph will create resource views and add barriers for it. */
 	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) = 0;
 	
@@ -151,6 +154,7 @@ public:
 	virtual bool IsGraphics() override { return true; }
 
 	virtual void Create(TextureID inTexture) override;
+	virtual TextureResource CreateAndWrite(TextureID inTexture) override;
 	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) override;
 	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) override;
 
@@ -175,6 +179,7 @@ public:
 	virtual bool IsGraphics() override { return false; }
 
 	virtual void Create(TextureID inTexture) override;
+	virtual TextureResource CreateAndWrite(TextureID inTexture) override;
 	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) override;
 	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) override;
 
@@ -212,6 +217,8 @@ public:
 
 	/* Sets the active backbuffer. Call this once before adding any passes and once every frame!! TODO: external resource tracking functionality. */
 	void SetBackBuffer(TextureID inTexture);
+
+	inline Slice<std::unique_ptr<IRenderPass>> GetPasses() const { return Slice(m_RenderPasses); }
 	
 	/* Dump the entire graph to GraphViz text, can be written directly to a file and opened using the Visual Studio Code extension. */
 	std::string	ToGraphVizText(const Device& inDevice) const;
@@ -244,6 +251,12 @@ void GraphicsRenderPass<T>::Create(TextureID inTexture) {
 	IRenderPass::m_CreatedTextures.push_back(inTexture);
 }
 
+
+template<typename T>
+TextureResource GraphicsRenderPass<T>::CreateAndWrite(TextureID inTexture) {
+	IRenderPass::m_CreatedTextures.push_back(inTexture);
+	return Write(inTexture);
+}
 
 template<typename T>
 TextureResource GraphicsRenderPass<T>::Read(TextureID inTexture) {
@@ -304,6 +317,13 @@ TextureID GraphicsRenderPass<T>::GetViewForUsage(TextureID inTexture, Texture::U
 template<typename T>
 void ComputeRenderPass<T>::Create(TextureID inTexture) {
 	IRenderPass::m_CreatedTextures.push_back(inTexture);
+}
+
+
+template<typename T>
+TextureResource ComputeRenderPass<T>::CreateAndWrite(TextureID inTexture) {
+	IRenderPass::m_CreatedTextures.push_back(inTexture);
+	return Write(inTexture);
 }
 
 

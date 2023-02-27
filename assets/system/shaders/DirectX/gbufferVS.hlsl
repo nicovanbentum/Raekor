@@ -1,20 +1,20 @@
 #include "include/bindless.hlsli"
 
 struct VS_OUTPUT {
-    float4 sv_position : SV_Position;
-    float4 curr_position : POS0;
-    float4 prev_position : POS1;
-    float2 texcoord : TEXCOORD;
-    float3 normal : NORMAL;
-    float3 tangent : TANGENT;
-    float3 bitangent : BINORMAL;
+    float4 sv_position      : SV_Position;
+    float4 curr_position    : POS0;
+    float4 prev_position    : POS1;
+    float2 texcoord         : TEXCOORD;
+    float3 normal           : NORMAL;
+    float3 tangent          : TANGENT;
+    float3 bitangent        : BINORMAL;
 };
 
 struct VS_INPUT {
-    float3 pos : POSITION;
+    float3 pos      : POSITION;
     float2 texcoord : TEXCOORD;
-    float3 normal : NORMAL;
-    float3 tangent : TANGENT;
+    float3 normal   : NORMAL;
+    float3 tangent  : TANGENT;
 };
 
 struct RootConstants {
@@ -37,7 +37,7 @@ VS_OUTPUT main(in VS_INPUT input) {
     output.normal = normalize(input.normal);
 	output.tangent = normalize(input.tangent);
     output.tangent = normalize(output.tangent - dot(output.tangent, output.normal) * output.normal);
-	output.bitangent = cross(output.normal, output.tangent);
+    output.bitangent = normalize(cross(output.normal, output.tangent));
     output.texcoord = input.texcoord;
 
     output.curr_position = mul(fc.mViewProjectionMatrix, float4(input.pos, 1.0));

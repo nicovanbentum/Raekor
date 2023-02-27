@@ -50,8 +50,11 @@ DXApp::DXApp() :
         for (auto& p : mesh.positions)
             p = transform.worldTransform * glm::vec4(p, 1.0);
 
+        for (auto& n : mesh.normals)
+            n = glm::normalize(glm::mat3(glm::transpose(glm::inverse(transform.worldTransform))) * n);
+
         for (auto& t : mesh.tangents)
-            t = transform.worldTransform * glm::vec4(t, 1.0);
+            t = glm::normalize(transform.worldTransform * glm::vec4(t, 0.0));
     }
 
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
@@ -62,7 +65,7 @@ DXApp::DXApp() :
         abort();
     }
 
-    const auto queue_desc = DSTORAGE_QUEUE_DESC {
+    auto queue_desc = DSTORAGE_QUEUE_DESC {
         .SourceType = DSTORAGE_REQUEST_SOURCE_FILE,
         .Capacity   = DSTORAGE_MAX_QUEUE_CAPACITY,
         .Priority   = DSTORAGE_PRIORITY_NORMAL,
@@ -72,7 +75,10 @@ DXApp::DXApp() :
     auto storage_factory = ComPtr<IDStorageFactory>{};
     gThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&storage_factory)));
 
-    gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_StorageQueue)));
+    gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_FileStorageQueue)));
+
+    queue_desc.SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY;
+    gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_MemoryStorageQueue)));
 
     UploadSceneToGPU();
     
@@ -83,6 +89,10 @@ DXApp::DXApp() :
     m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
 
     std::cout << "Render Size: " << m_Viewport.size.x << " , " << m_Viewport.size.y << '\n';
+
+    m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
+    m_Viewport.GetCamera().Zoom(5.0f);
+    m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
 }
 
 
@@ -220,6 +230,10 @@ void DXApp::UploadSceneToGPU() {
     m_DefaultWhiteTexture = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(white_texture_file), DXGI_FORMAT_BC3_UNORM);
     const auto default_normal_texture = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(normal_texture_file), DXGI_FORMAT_BC3_UNORM);
 
+    Material::Default.gpuAlbedoMap = m_DefaultWhiteTexture.ToIndex();
+    Material::Default.gpuNormalMap = default_normal_texture.ToIndex();
+    Material::Default.gpuMetallicRoughnessMap = m_DefaultWhiteTexture.ToIndex();
+
     for (const auto& [entity, material] : m_Scene.view<Material>().each()) {
         if (const auto asset = m_Assets.Get<TextureAsset>(material.albedoFile))
             material.gpuAlbedoMap = QueueDirectStorageLoad(asset, DXGI_FORMAT_BC3_UNORM_SRGB).ToIndex();
@@ -239,35 +253,36 @@ void DXApp::UploadSceneToGPU() {
 }
 
 
-DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_FORMAT format) {
-    if (!asset || !FileSystem::exists(asset->GetPath()))
-        return m_DefaultWhiteTexture;
-
+DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat) {
     auto factory = ComPtr<IDStorageFactory>();
     gThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&factory)));
 
     auto file = ComPtr<IDStorageFile>();
-    gThrowIfFailed(factory->OpenFile(asset->GetPath().wstring().c_str(), IID_PPV_ARGS(&file)));
+    if (FileSystem::exists(inAsset->GetPath()))
+        gThrowIfFailed(factory->OpenFile(inAsset->GetPath().wstring().c_str(), IID_PPV_ARGS(&file)));
 
-    const auto data = asset->GetData();
-    const auto header = asset->GetHeader();
-    // I think DirectStorage doesnt do proper texture data alignment for its upload buffers as we get garbage past the 5th mip
-    const auto mipmap_levels = std::min(header->dwMipMapCount, 5ul);
+    const auto queue = FileSystem::exists(inAsset->GetPath()) ? m_FileStorageQueue : m_MemoryStorageQueue;
+
+    auto data_ptr = inAsset->GetData();
+    const auto header_ptr = inAsset->GetHeader();
+    // I think DirectStorage doesnt do proper texture data alignment for its upload buffers as we get garbage past the 4th mip
+    const auto mipmap_levels = std::min(header_ptr->dwMipMapCount, 4ul);
+    // const auto mipmap_levels = header->dwMipMapCount;
 
     auto texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc { 
-        .format = format, 
-        .width = header->dwWidth, 
-        .height = header->dwHeight, 
+        .format = inFormat, 
+        .width = header_ptr->dwWidth,
+        .height = header_ptr->dwHeight,
         .mipLevels = mipmap_levels,
         .usage = Texture::SHADER_READ_ONLY
-    }, asset->GetPath().wstring().c_str()));
+    }, inAsset->GetPath().wstring().c_str()));
 
-    auto width = header->dwWidth, height = header->dwHeight;
+    auto width = header_ptr->dwWidth, height = header_ptr->dwHeight;
     auto data_offset = sizeof(DDS_MAGIC) + sizeof(DDS_HEADER);
     auto requests = std::vector<DSTORAGE_REQUEST>(mipmap_levels);
 
     for (auto [mip, request] : gEnumerate(requests)) {
-        const auto request = DSTORAGE_REQUEST {
+        request = DSTORAGE_REQUEST {
             .Options = DSTORAGE_REQUEST_OPTIONS {
                 .SourceType = DSTORAGE_REQUEST_SOURCE_FILE,
                 .DestinationType = DSTORAGE_REQUEST_DESTINATION_TEXTURE_REGION,
@@ -277,7 +292,7 @@ DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_
                     .Source = file.Get(),
                     .Offset = data_offset,
                     .Size = width * height,
-                }
+                },
             },
             .Destination = DSTORAGE_DESTINATION {
                 .Texture = DSTORAGE_DESTINATION_TEXTURE_REGION {
@@ -286,13 +301,29 @@ DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_
                     .Region = CD3DX12_BOX(0, 0, width, height),
                 }
             },
-            .Name = asset->GetPath().string().c_str()
+            .Name = inAsset->GetPath().string().c_str()
         };
+
+        if (!FileSystem::exists(inAsset->GetPath())) {
+            request.Options.SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY;
+
+            const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
+            const auto data_size = std::max(1u, ((dimensions.x + 3u) / 4u)) * std::max(1u, ((dimensions.y + 3u) / 4u)) * 16u;
+
+            request.Source = DSTORAGE_SOURCE { 
+                DSTORAGE_SOURCE_MEMORY {
+                    .Source = data_ptr,
+                    .Size = data_size
+            }};
+
+            data_ptr += dimensions.x * dimensions.y;
+        }
+
 
         width /= 2, height /= 2;
         data_offset += request.Source.File.Size;
         
-        m_StorageQueue->EnqueueRequest(&request);
+        queue->EnqueueRequest(&request);
     }
 
     auto fence = ComPtr<ID3D12Fence>{};
@@ -301,10 +332,10 @@ DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& asset, DXGI_
     auto fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     constexpr auto fence_value = 1ul;
     gThrowIfFailed(fence->SetEventOnCompletion(fence_value, fence_event));
-    m_StorageQueue->EnqueueSignal(fence.Get(), fence_value);
+    queue->EnqueueSignal(fence.Get(), fence_value);
 
     // Tell DirectStorage to start executing all queued items.
-    m_StorageQueue->Submit();
+    queue->Submit();
 
     // Wait for the submitted work to complete
     std::cout << "Waiting for the DirectStorage request to complete...\n";
