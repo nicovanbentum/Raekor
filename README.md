@@ -62,7 +62,7 @@ This project requires OpenGL 4.6 for direct state access functions and shader in
     - Voxel Cone Traced Global Illumination (single bounce diffuse)
     - Ray Traced Hard Shadows using Vulkan interop (only availabe in the [Scatter](https://github.com/nicovanbentum/Scatter)-integration branch, very outdated using the vk_nv_ray_tracing extension).
 * Scenes
-    - Simulate bounding box physics.
+    - Simulate basic physics shapes.
     - Import models from GLTF, FBX and OBJ file formats.
     - Edit, add, delete, duplicate, and transform entities/components.
 
@@ -95,7 +95,7 @@ Nothing fancy yet, so far its mostly a basic Render Graph (automatically creates
 
 
 ### DX11
-Raekor started out as an experiment on switching between graphics APIs at runtime, which is why you will find a bunch of unfinished DirectX 11. Source only.
+Raekor started out 4 years ago as an experiment on switching between graphics APIs at runtime (I had no idea what I was doing lol), which is why you will find a bunch of unfinished DirectX 11. Source only.
 
 ### Ray Tracing in One Weekend
 ![image](https://i.imgur.com/7haNfzV.png)
