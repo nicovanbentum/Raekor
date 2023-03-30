@@ -62,7 +62,7 @@ This project requires OpenGL 4.6 for direct state access functions and shader in
     - Voxel Cone Traced Global Illumination (single bounce diffuse)
     - Ray Traced Hard Shadows using Vulkan interop (only availabe in the [Scatter](https://github.com/nicovanbentum/Scatter)-integration branch, very outdated using the vk_nv_ray_tracing extension).
 * Scenes
-    - Simulate bounding box physics.
+    - Simulate basic physics shapes.
     - Import models from GLTF, FBX and OBJ file formats.
     - Edit, add, delete, duplicate, and transform entities/components.
 
@@ -82,14 +82,20 @@ Older versions of this project contained rasterized experiments with parallel co
 ### DX12
 *Currently In-Progress*
 
-Nothing fancy yet, so far its mostly a basic Render Graph (automatically creates resource views and handles resource transitions) on top of DirectX 12. Heavily relies on shader model 6.6 bindless. DirectStorage 1.0 integration. The graph currently describes:
+Nothing fancy yet, so far its mostly a basic Render Graph (automatically creates resource views and handles resource transitions) on top of DirectX 12. Heavily relies on shader model 6_6 bindless. DirectStorage 1.0 integration. The graph currently describes:
+
+- Geometry Buffer
+- WIP Procedural Grass (from Ghost of Tsushima)
+- WIP Ray Traced Shadows
+- WIP Ray Traced Ambient Occlusion
+- WIP Ray Traced Reflections
+- WIP Dynamic Diffuse Global Illumination
 - Deferred Shading
-- Ray traced hard shadows
-- AMD FSR 2.1
+- AMD FidelityFX Super Resolution 2.1
 
 
 ### DX11
-Raekor started out as an experiment on switching between graphics APIs at runtime, which is why you will find a bunch of unfinished DirectX 11. Source only.
+Raekor started out 4 years ago as an experiment on switching between graphics APIs at runtime (I had no idea what I was doing lol), which is why you will find a bunch of unfinished DirectX 11. Source only.
 
 ### Ray Tracing in One Weekend
 ![image](https://i.imgur.com/7haNfzV.png)
