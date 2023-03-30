@@ -72,6 +72,7 @@ struct Mesh {
     void CalculateNormals();
     void CalculateAABB();
     std::vector<float> GetInterleavedVertices() const;
+    uint32_t GetInterleavedStride() const;
 
     void Clear() {
         positions.clear();
@@ -87,6 +88,7 @@ struct BoxCollider {
     JPH::BodyID bodyID;
     JPH::EMotionType motionType;
     JPH::BoxShapeSettings settings;
+    JPH::MeshShapeSettings meshSettings;
 };
 
 

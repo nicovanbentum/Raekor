@@ -1,6 +1,7 @@
 #include "include/bindless.hlsli"
 #include "include/common.hlsli"
 #include "include/brdf.hlsli"
+#include "include/ddgi.hlsli"
 #include "include/sky.hlsli"
 
 ROOT_CONSTANTS(LightingRootConstants, rc)
@@ -24,8 +25,8 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     Texture2D<float>    shadow_texture  = ResourceDescriptorHeap[rc.mShadowMaskTexture];
     Texture2D<uint4>    gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
     Texture2D<float4>   reflections_texture = ResourceDescriptorHeap[rc.mReflectionsTexture];
-    Texture2D<float2>   probes_depth_texture = ResourceDescriptorHeap[rc.mProbesDepthTexture];
-    Texture2D<float3>   probes_irradiance_texture = ResourceDescriptorHeap[rc.mProbesIrradianceTexture];
+    Texture2D<float2>   probes_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesDepthTexture];
+    Texture2D           probes_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
 
     BRDF brdf;
     brdf.Unpack(asuint(gbuffer_texture[inParams.mPixelCoords.xy]));
@@ -55,35 +56,22 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     float shadow_mask   = shadow_texture[inParams.mPixelCoords.xy];
     total_radiance += l * NdotL * sunlight_luminance * shadow_mask;
     
-    if (brdf.mRoughness < 0.3)
-    {
-        float4 specular = reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
-        total_radiance += specular.rgb;
-    }
+    //if (brdf.mRoughness < 0.3)
+    //{
+    //    float4 specular = reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
+    //    total_radiance += specular.rgb;
+    //}
     
     float ao = ao_texture[inParams.mPixelCoords.xy];
     //ao = 1.0;
     
     // total_radiance = ApplyFog(total_radiance, distance(fc.mCameraPosition.xyz, position.xyz), fc.mCameraPosition.xyz, -Wo);
     
-    //float4 irradiance = 0.0.xxxx;
-    //for (uint i = 0; i < 8; i++)
-    //{
-    //    float3 probe_ws_pos;
-    //    float3 dir = probe_ws_pos - ws_pos;
-    //    float r = length(dir);
-    //    dir *= 1.0 / r;
-        
-    //    float weight = (dot(dir, brdf.mNormal) + 1) * 0.5;
-        
-    //    //weight *= trilinear(ws_pos, probe_ws_pos); 
+    float3 offset_ws_pos = ws_pos + brdf.mNormal * 0.01;
+    float3 irradiance = DDGISampleIrradiance(offset_ws_pos, brdf.mNormal, rc.mDDGIData);
     
-    //    uint3 start_probe_coord = ws_pos / DDGI_PROBE_IRRADIANCE_RE
-        
-    //    irradiance += float4(sqrt(sampled_irradiance) * weight, weight);
-    //}
+    total_radiance += irradiance * brdf.mAlbedo.rgb;
     
-    //irradiance = pow(irradiance.rgb / irradiance.w, 2);
-    
-    return float4((total_radiance + brdf.mAlbedo.rgb * 0.22) * ao, 1.0);
+    return float4(irradiance, 1.0);
+    return float4(total_radiance * ao, 1.0);
 }

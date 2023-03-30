@@ -66,6 +66,9 @@ public:
     EState GetState() const         { return EState(m_Settings.state); }
     void   SetState(EState inState) { m_Settings.state = inState; }
 
+    void SpawnBalls(Scene& inScene, uint32_t inBallCount);
+    void GenerateRigidBodiesEntireScene(Scene& inScene);
+
     const ImVec4& GetStateColor();
 
     JPH::PhysicsSystem& GetSystem() { return m_Physics; }

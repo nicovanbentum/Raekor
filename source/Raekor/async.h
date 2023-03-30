@@ -33,6 +33,8 @@ public:
         useful for ensuring thread safety inside a job function. */
     [[nodiscard]] static std::scoped_lock<std::mutex> sLock();
 
+    static std::mutex& sGetMutex() { return global->m_Mutex; }
+
     static int32_t sActiveJobCount() { return global->m_ActiveJobCount.load(); }
     static uint32_t sNumberOfThreads() { return uint32_t(global->m_Threads.size()); }
 

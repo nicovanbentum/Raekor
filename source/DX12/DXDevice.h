@@ -109,6 +109,9 @@ public:
 
 	std::unordered_map<std::string, ShaderEntry> m_Shaders;
 
+	bool IsTearingSupported() const { return mIsTearingSupported; }
+	BOOL mIsTearingSupported;
+
 private:
 	uint32_t m_NumFrames;
 	Buffer::Pool m_Buffers;

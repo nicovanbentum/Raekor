@@ -31,6 +31,7 @@ struct BackBufferData {
 class Renderer {
 private:
     struct Settings {
+        int& mDebugLines  = CVars::sCreate("r_debug_lines", 1);
         int& mProbeDebug  = CVars::sCreate("r_debug_gi_probes", 1);
         int& mEnableRTAO  = CVars::sCreate("r_enable_rtao", 1);
         int& mEnableFsr2  = CVars::sCreate("r_enable_fsr2", 0);
@@ -66,6 +67,7 @@ private:
     ComPtr<ID3D12Fence>     m_Fence;
     HANDLE                  m_FenceEvent;
     uint64_t                m_FrameCounter = 0;
+    bool                    m_ShouldCaptureNextFrame = false;
     BackBufferData          m_BackBufferData[sFrameCount];
     FrameConstants          m_FrameConstants;
     FfxFsr2Context          m_Fsr2Context;
@@ -193,15 +195,21 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 struct ProbeTraceData {
     RTTI_CLASS_HEADER(ProbeTraceData);
 
-    BBox3D mExtent = BBox3D(Vec3(-64, 2, -30), Vec3(75, 64, 30)); // for sponza
-    IVec3 mProbeCount = IVec3(9, 9, 9);
-    //BBox3D mExtent = BBox3D(Vec3(-1, 2, -22), Vec3(2, 4, 2)); // single probe for debug
-    //IVec3 mProbeCount = IVec3(1, 1, 1);
+    ProbeTraceData() {
+        mDDGIData.mCornerPosition = Vec3(-65, -2, -28.5);
+        mDDGIData.mProbeCount     = IVec3(22, 22, 22);
+        mDDGIData.mProbeSpacing   = Vec3(6.4, 2.8, 2.8);
+    }
+
+    IVec3           mDebugProbe = IVec3(10, 10, 5);
+    DDGIData        mDDGIData;
+    DescriptorID    mMaterialBuffer;
+    DescriptorID    mInstancesBuffer;
+    TextureResource mProbesDepthTexture;
+    TextureResource mProbesIrradianceTexture;
     TextureResource mRaysDepthTexture;
     TextureResource mRaysIrradianceTexture;
-    DescriptorID mTopLevelAccelerationStructure;
-    DescriptorID mInstancesBuffer;
-    DescriptorID mMaterialBuffer;
+    DescriptorID    mTopLevelAccelerationStructure;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -214,17 +222,20 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
 struct ProbeUpdateData {
     RTTI_CLASS_HEADER(ProbeUpdateData);
 
+    DDGIData        mDDGIData;
     TextureResource mProbesDepthTexture;
     TextureResource mProbesIrradianceTexture;
     TextureResource mRaysDepthTexture;
     TextureResource mRaysIrradianceTexture;
     DescriptorID mTopLevelAccelerationStructure;
-    ComPtr<ID3D12PipelineState> mPipeline;
+    ComPtr<ID3D12PipelineState> mDepthPipeline;
+    ComPtr<ID3D12PipelineState> mIrradiancePipeline;
 };
 
 const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice, 
     const ProbeTraceData& inTraceData
 );
+
 
 
 ////////////////////////////////////////
@@ -233,7 +244,8 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
 struct ProbeDebugData {
     RTTI_CLASS_HEADER(ProbeDebugData);
 
-    Mesh mProbeMesh;
+    Mesh            mProbeMesh;
+    DDGIData        mDDGIData;
     TextureResource mRenderTarget;
     TextureResource mDepthTarget;
     TextureResource mProbesDepthTexture;
@@ -250,11 +262,30 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 
 
 ////////////////////////////////////////
+/// Debug Lines Render Pass
+////////////////////////////////////////
+struct DebugLinesData {
+    RTTI_CLASS_HEADER(DebugLinesData);
+
+    BufferResource mVertexBuffer;
+    BufferResource mIndirectArgsBuffer;
+    ComPtr<ID3D12PipelineState> mPipeline;
+    ComPtr<ID3D12CommandSignature> mCommandSignature;
+};
+
+const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDevice, 
+    TextureResource inRenderTarget, 
+    TextureResource inDepthTarget
+);
+
+
+////////////////////////////////////////
 /// Deferred Lighting Render Pass
 ////////////////////////////////////////
 struct LightingData {
     RTTI_CLASS_HEADER(LightingData);
 
+    DDGIData        mDDGIData;
     TextureResource mOutputTexture;
     TextureResource mShadowMaskTexture;
     TextureResource mReflectionsTexture;
@@ -305,7 +336,7 @@ struct FSR2Data {
 };
 
 const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, 
-    FfxFsr2Context& inFsr,
+    FfxFsr2Context& inContext,
     TextureResource inColorTexture,
     const GBufferData& inGBufferData
 );

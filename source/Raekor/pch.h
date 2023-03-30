@@ -92,6 +92,7 @@
 #include "Physics/StateRecorderImpl.h"
 #include "Physics/Collision/Shape/BoxShape.h"
 #include "Physics/Collision/Shape/SphereShape.h"
+#include "Physics/Collision/Shape/MeshShape.h"
 #include "Physics/Body/BodyCreationSettings.h"
 #include "Physics/Body/BodyActivationListener.h"
 

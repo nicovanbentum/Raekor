@@ -113,6 +113,8 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 
     gThrowIfFailed(serialize_vrs_hr);
     gThrowIfFailed(m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_GlobalRootSignature)));
+
+    gThrowIfFailed(factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &mIsTearingSupported, sizeof(mIsTearingSupported)));
 }
 
 
@@ -346,7 +348,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
 
 
 D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader) {
-    assert(inRenderPass->IsGraphics() && "Cannot create a Graphics PSO description for a Compute renderpass");
+    assert(inRenderPass->IsGraphics() && "Cannot create a Graphics PSO description for a Compute RenderPass");
     
     static constexpr auto vertex_layout = std::array {
         D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -690,7 +692,7 @@ void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity) {
     m_TotalCapacity = inCapacity;
 
     m_Buffer = inDevice.CreateBuffer(Buffer::Desc{
-        .size = inCapacity,
+        .size  = inCapacity,
         .usage = Buffer::Usage::UPLOAD
     });
 

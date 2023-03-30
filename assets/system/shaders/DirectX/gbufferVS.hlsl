@@ -39,7 +39,7 @@ VS_OUTPUT main(in VS_INPUT input) {
     output.tangent = normalize(output.tangent - dot(output.tangent, output.normal) * output.normal);
     output.bitangent = normalize(cross(output.normal, output.tangent));
     output.texcoord = input.texcoord;
-
+    
     output.curr_position = mul(fc.mViewProjectionMatrix, float4(input.pos, 1.0));
     output.prev_position = mul(fc.mPrevViewProjectionMatrix, float4(input.pos, 1.0));
     output.sv_position = output.curr_position;

@@ -42,7 +42,7 @@ public:
 	}
 
 	template<typename T> // omg c++ 20 concepts, much wow so cool
-		requires (sizeof(T) < sMaxRootConstantsSize&& std::default_initializable<T>)
+		requires (sizeof(T) < sMaxRootConstantsSize && std::default_initializable<T>)
 	void PushComputeConstants(const T& inValue) {
 		m_CommandLists[m_CurrentCmdListIndex]->SetComputeRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);
 	}
@@ -50,6 +50,7 @@ public:
 	/* Only buffers are allowed to be used as root descriptor. */
 	void BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset = 0);
 
+    /* Helper function to bind a mesh. */
 	void BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh);
 
 	/* Sets both the viewport and scissor to the size defined by inViewport. */

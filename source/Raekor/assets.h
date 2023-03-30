@@ -41,6 +41,8 @@ public:
     template<typename T>
     std::shared_ptr<T> Get(const std::string& inPath);
 
+    [[nodiscard]] inline bool Contains(const std::string& inPath) const { return find(inPath) != end(); }
+
     void Release(const std::string& inPath);
 
     /* Releases any assets that are no longer referenced elsewhere. */

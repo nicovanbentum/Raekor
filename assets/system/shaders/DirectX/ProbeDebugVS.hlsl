@@ -15,7 +15,7 @@ struct VS_INPUT {
     float3 tangent  : TANGENT;
 };
 
-ROOT_CONSTANTS(ProbeDebugRootConstants, rc)
+ROOT_CONSTANTS(DDGIData, rc)
 
 VS_OUTPUT main (in VS_INPUT input, uint instance_id : SV_InstanceID) {
     VS_OUTPUT output;
@@ -23,12 +23,12 @@ VS_OUTPUT main (in VS_INPUT input, uint instance_id : SV_InstanceID) {
     
     FrameConstants fc = gGetFrameConstants();
     
-    float3 probe_ws_pos = GetDDGIProbeWorldPos(instance_id, rc.mProbeCount.xyz, rc.mBBmin.xyz, rc.mBBmax.xyz);
+    uint3 probe_coord = Index1DTo3D(instance_id, rc.mProbeCount);
+    float3 probe_ws_pos = rc.mCornerPosition + rc.mProbeSpacing * probe_coord;
     
     output.position = mul(fc.mViewProjectionMatrix, float4(input.pos + probe_ws_pos, 1.0));
     output.normal = normalize(input.normal);
     
-    // output.color = SampleIrradianceProbes(rc.IrradianceProbesParams, position, normal);
     output.color = max(dot(input.normal, -fc.mSunDirection.xyz), 0).xxx;
     
     return output;

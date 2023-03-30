@@ -4,6 +4,10 @@
 
 namespace Raekor {
 
+static std::default_random_engine sDefaultRandomEngine;
+static std::uniform_real_distribution<float> sUniformDistribution01(0.0, 1.0);
+
+
 BBox3D& BBox3D::Transform(const Mat4x4& inTransform) {
     mMin = inTransform * Vec4(mMin, 1.0);
     mMax = inTransform * Vec4(mMax, 1.0);
@@ -183,6 +187,61 @@ bool gPointInAABB(const Vec3& inPoint, const BBox3D& inAABB) {
     return (inPoint.x >= inAABB.mMin.x && inPoint.x <= inAABB.mMax.x) &&
            (inPoint.y >= inAABB.mMin.y && inPoint.y <= inAABB.mMax.y) &&
            (inPoint.z >= inAABB.mMin.z && inPoint.z <= inAABB.mMax.z);
+}
+
+
+float gRandomFloat01() {
+    return sUniformDistribution01(sDefaultRandomEngine);
+}
+
+
+ /* "Fast Random Rotation Matrices" - James Arvo, Graphics Gems 3 */
+Mat3x3 gRandomRotationMatrix() {
+    float x[3] = { gRandomFloat01(), gRandomFloat01(), gRandomFloat01() };
+    
+    constexpr float PITIMES2 = M_PI * 2;
+    float theta = x[0] * PITIMES2;  /* Rotation about the pole (Z).      */
+    float phi = x[1] * PITIMES2;    /* For direction of pole deflection. */
+    float z = x[2] * 2.f;           /* For magnitude of pole deflection. */
+
+    /* Compute a vector V used for distributing points over the sphere  */
+    /* via the reflection I - V Transpose(V).  This formulation of V    */
+    /* will guarantee that if x[1] and x[2] are uniformly distributed,  */
+    /* the reflected points will be uniform on the sphere.  Note that V */
+    /* has length sqrt(2) to eliminate the 2 in the Householder matrix. */
+
+    float r = sqrtf(z);
+    float Vx = sinf(phi) * r;
+    float Vy = cosf(phi) * r;
+    float Vz = sqrtf(2.f - z);
+
+    /* Compute the row vector S = Transpose(V) * R, where R is a simple */
+    /* rotation by theta about the z-axis.  No need to compute Sz since */
+    /* it's just Vz.                                                    */
+
+    float st = sinf(theta);
+    float ct = cosf(theta);
+    float Sx = Vx * ct - Vy * st;
+    float Sy = Vx * st + Vy * ct;
+
+    /* Construct the rotation matrix  ( V Transpose(V) - I ) R, which   */
+    /* is equivalent to V S - R.                                        */
+
+    auto matrix = Mat3x3(1.0f);
+
+    matrix[0][0] = Vx * Sx - ct;
+    matrix[0][1] = Vx * Sy - st;
+    matrix[0][2] = Vx * Vz;
+
+    matrix[1][0] = Vy * Sx + st;
+    matrix[1][1] = Vy * Sy - ct;
+    matrix[1][2] = Vy * Vz;
+
+    matrix[2][0] = Vz * Sx;
+    matrix[2][1] = Vz * Sy;
+    matrix[2][2] = 1.0 - z;   /* This equals Vz * Vz - 1.0 */
+
+    return glm::transpose(matrix);
 }
 
 

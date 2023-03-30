@@ -146,6 +146,18 @@ std::vector<float> Mesh::GetInterleavedVertices() const {
 }
 
 
+
+uint32_t Mesh::GetInterleavedStride() const {
+    auto stride = 0u;
+    stride += sizeof(glm::vec3) * !positions.empty();
+    stride += sizeof(glm::vec2) * !uvs.empty();
+    stride += sizeof(glm::vec3) * !normals.empty();
+    stride += sizeof(glm::vec3) * !tangents.empty();
+    return stride;
+}
+
+
+
 void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform) {
     auto global_transform = glm::mat4(1.0f);
 

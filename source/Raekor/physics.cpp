@@ -128,6 +128,52 @@ void Physics::OnUpdate(Scene& scene) {
 }
 
 
+void Physics::GenerateRigidBodiesEntireScene(Scene& inScene) {
+
+    for (const auto& [sb_entity, sb_transform, sb_mesh] : inScene.view<Transform, Mesh>().each())
+        inScene.emplace<BoxCollider>(sb_entity);
+
+    for (const auto& [sb_entity, sb_transform, sb_mesh, sb_collider] : inScene.view<Transform, Mesh, BoxCollider>().each()) {
+        auto entity = sb_entity;
+        auto& transform = sb_transform;
+        auto& mesh = sb_mesh;
+        auto& collider = sb_collider;
+
+        Async::sQueueJob([&]() {
+            JPH::TriangleList triangles;
+
+            for (int i = 0; i < mesh.indices.size(); i += 3) {
+                auto v0 = mesh.positions[mesh.indices[i]];
+                auto v1 = mesh.positions[mesh.indices[i + 1]];
+                auto v2 = mesh.positions[mesh.indices[i + 2]];
+
+                v0 *= transform.scale;
+                v1 *= transform.scale;
+                v2 *= transform.scale;
+
+                triangles.push_back(JPH::Triangle(JPH::Float3(v0.x, v0.y, v0.z), JPH::Float3(v1.x, v1.y, v1.z), JPH::Float3(v2.x, v2.y, v2.z)));
+            }
+
+            collider.motionType = JPH::EMotionType::Static;
+            JPH::Ref<JPH::ShapeSettings> settings = new JPH::MeshShapeSettings(triangles);
+
+            auto body_settings = JPH::BodyCreationSettings(
+                settings,
+                JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
+                JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+                collider.motionType,
+                EPhysicsObjectLayers::MOVING
+            );
+
+            auto& body_interface = m_Physics.GetBodyInterface();
+            collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
+       });
+    }
+
+   Async::sWait();
+}
+
+
 const ImVec4& Physics::GetStateColor() {
     static const auto colors = std::array {
         ImGui::GetStyleColorVec4(ImGuiCol_Text),

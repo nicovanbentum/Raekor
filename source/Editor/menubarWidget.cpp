@@ -188,7 +188,7 @@ void MenubarWidget::draw(float dt) {
                         NodeSystem::sAppend(scene, scene.get<Node>(m_ActiveEntity), node);
                     }
 
-                    gGenerateCube(mesh, 1.0f, 16, 16);
+                    gGenerateSphere(mesh, 1.0f, 6, 6);
 
                     GLRenderer::sUploadMeshBuffers(mesh);
                 }
@@ -231,7 +231,7 @@ void MenubarWidget::draw(float dt) {
                     for (const auto& v : UnitCube::vertices) {
                         mesh.positions.push_back(v.pos);
                         mesh.uvs.push_back(v.uv);
-                        mesh.normals.push_back(v.pos);
+                        mesh.normals.push_back(v.normal);
                     }
 
                     for (const auto& index : UnitCube::indices) {
@@ -240,6 +240,7 @@ void MenubarWidget::draw(float dt) {
                         mesh.indices.push_back(index.p3);
                     }
 
+                    //mesh.CalculateNormals();
                     mesh.CalculateTangents();
                     mesh.CalculateAABB();
                     GLRenderer::sUploadMeshBuffers(mesh);

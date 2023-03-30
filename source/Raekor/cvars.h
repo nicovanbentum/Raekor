@@ -20,14 +20,14 @@ class CVars {
 private:
 	struct GetVisitor {
 		template<typename T> 
-		std::string operator()(T& value) { return std::to_string(value); }
+		inline std::string operator()(T& value) { return std::to_string(value); }
 		template<> std::string operator()(std::string& value) { return value; }
 		template<> std::string operator()(std::function<void()>& value) { return {}; }
 	};
 
 
 	struct SetVisitor {
-		SetVisitor(const std::string& value) : m_Value(value) {}
+		inline SetVisitor(const std::string& value) : m_Value(value) {}
 
 		template<typename T> bool operator()(T& cvar) { return false; }
 
@@ -56,6 +56,8 @@ public:
 	static std::string sGetValue(const std::string& name);
 	static bool sSetValue(std::string name, const std::string& value);
 
+	static void ParseCommandLine(int argc, char** argv);
+
 	inline auto end()    { return cvars.end();   }
 	inline auto begin()  { return cvars.begin(); }
 	inline size_t size() { return cvars.size();  }
@@ -71,22 +73,22 @@ private:
 
 
 
-template<> bool CVars::SetVisitor::operator()(std::function<void()>& cvar) {
+template<> inline bool CVars::SetVisitor::operator()(std::function<void()>& cvar) {
 	cvar();
 	return true;
 }
 
-template<> bool CVars::SetVisitor::operator()(std::string& cvar) {
+template<> inline bool CVars::SetVisitor::operator()(std::string& cvar) {
 	cvar = m_Value;
 	return true;
 }
 
-template<> bool CVars::SetVisitor::operator()(int& cvar) {
+template<> inline bool CVars::SetVisitor::operator()(int& cvar) {
 	cvar = std::stoi(m_Value);
 	return true;
 }
 
-template<> bool CVars::SetVisitor::operator()(float& cvar) {
+template<> inline bool CVars::SetVisitor::operator()(float& cvar) {
 	cvar = std::stof(m_Value);
 	return true;
 }
@@ -131,6 +133,24 @@ inline bool CVars::sSetValue(std::string name, const std::string& value) {
 	}
 	catch (...) {
 		return false;
+	}
+}
+
+
+inline void CVars::ParseCommandLine(int argc, char** argv) {
+	for (int i = 0; i < argc; i++) {
+		if (argv[i][0] == '-') {
+			const auto string = std::string(argv[i]);
+			const auto equals_pos = string.find('=');
+
+			if (equals_pos != std::string::npos) {
+				const auto cvar = string.substr(1, equals_pos - 1);
+				const auto value = string.substr(equals_pos + 1);
+
+				if (!CVars::sSetValue(cvar, value))
+					std::cout << "Failed to set cvar \"" << cvar << "\" to " << value << '\n';
+			}
+		}
 	}
 }
 

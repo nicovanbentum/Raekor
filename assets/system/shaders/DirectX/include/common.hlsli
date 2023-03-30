@@ -1,6 +1,9 @@
  #ifndef COMMON_HLSLI
  #define COMMON_HLSLI
 
+#include "bindless.hlsli"
+#include "packing.hlsli"
+
 #define M_PI 3.14159265358979323846
 
 struct FULLSCREEN_TRIANGLE_VS_OUT {
@@ -20,6 +23,37 @@ float3 ReconstructWorldPosition(float2 inUV, float inDepth, float4x4 inClipToWor
 
 float MapRange(float value, float start1, float stop1, float start2, float stop2) {
     return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1));
+}
+
+
+template<typename T>
+T square(T inValue) {
+    return inValue * inValue;
+}
+
+
+void ResetDebugLineCount() {
+    FrameConstants fc = gGetFrameConstants();
+    RWByteAddressBuffer args_buffer = ResourceDescriptorHeap[fc.mDebugLinesIndirectArgsBuffer];
+
+    uint original_value;
+    args_buffer.InterlockedExchange(0, 0, original_value); // sets VertexCountPerInstance to 0
+    args_buffer.InterlockedExchange(4, 1, original_value); // sets InstanceCount to 1
+}
+
+
+void AddDebugLine(float3 inP1, float3 inP2, float4 inColor1, float4 inColor2) {
+    FrameConstants fc = gGetFrameConstants();
+    
+    RWByteAddressBuffer args_buffer = ResourceDescriptorHeap[fc.mDebugLinesIndirectArgsBuffer];
+    RWStructuredBuffer<float4> vertex_buffer = ResourceDescriptorHeap[fc.mDebugLinesVertexBuffer];
+    
+    uint vertex_offset;
+    args_buffer.InterlockedAdd(0, 2, vertex_offset);
+    
+    vertex_buffer[vertex_offset] = float4(inP1, Float4ToRGBA8(inColor1));
+    vertex_buffer[vertex_offset + 1] = float4(inP2, Float4ToRGBA8(inColor2));
+    
 }
 
 #endif // COMMON_HLSLI

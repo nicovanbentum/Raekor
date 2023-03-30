@@ -6,6 +6,7 @@ namespace Raekor {
 
 using Mat4x4 = glm::mat4x4;
 using Mat4x3 = glm::mat4x3;
+using Mat3x3 = glm::mat3x3;
 using Vec2 = glm::vec2;
 using Vec3 = glm::vec3;
 using Vec4 = glm::vec4;
@@ -62,5 +63,8 @@ struct Frustum {
 
 
 bool gPointInAABB(const Vec3& inPoint, const BBox3D& inAABB);
+
+float gRandomFloat01();
+Mat3x3 gRandomRotationMatrix();
 
 } // namespace Raekor

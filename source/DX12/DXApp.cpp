@@ -115,28 +115,37 @@ void DXApp::OnEvent(const SDL_Event& event) {
     ImGui_ImplSDL2_ProcessEvent(&event);
 
     if (event.button.button == 2 || event.button.button == 3) {
-        if (event.type == SDL_MOUSEBUTTONDOWN) {
+        if (event.type == SDL_MOUSEBUTTONDOWN)
             SDL_SetRelativeMouseMode(SDL_TRUE);
-        }
-        else if (event.type == SDL_MOUSEBUTTONUP) {
+        else if (event.type == SDL_MOUSEBUTTONUP)
             SDL_SetRelativeMouseMode(SDL_FALSE);
-        }
     }
 
-    auto& camera = m_Viewport.GetCamera();
+    if (event.type == SDL_KEYDOWN && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
+        m_Viewport.GetCamera().zoomConstant *= 20.0f;
+        m_Viewport.GetCamera().moveConstant *= 20.0f;
+    }
 
-    if (event.type == SDL_MOUSEMOTION) {
-        if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(3)) {
-            auto formula = glm::radians(0.022f * camera.sensitivity * 2.0f);
-            camera.Look(glm::vec2(event.motion.xrel * formula, event.motion.yrel * formula));
-        }
-        else if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(2)) {
-            camera.Move(glm::vec2(event.motion.xrel * 0.02f, event.motion.yrel * 0.02f));
-        }
+    if (event.type == SDL_KEYUP && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
+        m_Viewport.GetCamera().zoomConstant /= 20.0f;
+        m_Viewport.GetCamera().moveConstant /= 20.0f;
     }
-    else if (event.type == SDL_MOUSEWHEEL) {
-        camera.Zoom(float(event.wheel.y));
+
+    if (!ImGui::GetIO().WantCaptureMouse) {
+        auto& camera = m_Viewport.GetCamera();
+
+        if (event.type == SDL_MOUSEMOTION) {
+            if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(3)) {
+                auto formula = glm::radians(0.022f * camera.sensitivity * 2.0f);
+                camera.Look(glm::vec2(event.motion.xrel * formula, event.motion.yrel * formula));
+            }
+            else if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(2))
+                camera.Move(glm::vec2(event.motion.xrel * 0.02f, event.motion.yrel * 0.02f));
+        }
+        else if (event.type == SDL_MOUSEWHEEL)
+            camera.Zoom(float(event.wheel.y));
     }
+
 
     if (event.type == SDL_WINDOWEVENT) {
         if (event.window.event == SDL_WINDOWEVENT_MINIMIZED) {

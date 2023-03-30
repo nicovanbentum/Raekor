@@ -15,7 +15,7 @@ struct TextureResource {
 	TextureID mResourceTexture;
 
 	/* The returned index can be used directly in HLSL using ResourceDescriptorHeap. */
-	inline uint32_t GetBindlessIndex(Device& inDevice) {
+	inline uint32_t GetBindlessIndex(Device& inDevice) const {
 		return inDevice.GetBindlessHeapIndex(inDevice.GetTexture(mResourceTexture).GetView());
 	}
 };
@@ -26,7 +26,7 @@ struct BufferResource {
 	BufferID mResourceBuffer;
 
 	/* The returned index can be used directly in HLSL using ResourceDescriptorHeap. */
-	inline uint32_t GetBindlessIndex(Device& inDevice) {
+	inline uint32_t GetBindlessIndex(Device& inDevice) const {
 		return inDevice.GetBindlessHeapIndex(inDevice.GetBuffer(mResourceBuffer).GetView());
 	}
 };
@@ -46,8 +46,6 @@ public:
 	friend class Device;
 	friend class RenderGraph;
 
-	using CreationID = uint32_t;
-	
 	template<typename T>
 	using SetupFn = std::function<void(IRenderPass* inRenderPass, T& inData)>;
 	
@@ -62,29 +60,56 @@ public:
 	virtual void Setup(Device& inDevice) = 0;
 	virtual void Execute(CommandList& inCmdList) = 0;
 
+	/* Tell the graph that inBuffer was created this render pass. */
+	virtual void Create(BufferID inBuffer) = 0;
+
+	/* Tell the graph that inBuffer was created and is going to be written to this render pass. */
+	virtual BufferResource CreateAndWrite(BufferID inBuffer) = 0;
+
+	/* Tell the graph that inBuffer was created and is going to be read this render pass. */
+	virtual BufferResource CreateAndRead(BufferID inBuffer) = 0;
+
+	/* Tell the graph that inBuffer will be read this render pass. The graph will create resource views and add barriers for it. */
+	virtual [[nodiscard]] BufferResource Read(BufferID inBuffer) = 0;
+
+	/* Tell the graph that inBuffer will be written to this render pass. The graph will create resource views and add barriers for it.
+	If it's a graphics pass, the graph will automatically deduce render/depth targets and bind them. */
+	virtual [[nodiscard]] BufferResource Write(BufferID inBuffer) = 0;
+
+	/* Tell the graph that inBuffer will be read this render pass. The graph will create resource views and add barriers for it. */
+	[[nodiscard]] BufferResource Read(BufferResource inBuffer) { return Read(inBuffer.mCreatedBuffer); }
+
+	/* Tell the graph that inBuffer will be written to this render pass. The graph will create resource views and add barriers for it. */
+	[[nodiscard]] BufferResource Write(BufferResource inBuffer) { return Write(inBuffer.mCreatedBuffer); }
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 	/* Tell the graph that inTexture was created this render pass. */
 	virtual void Create(TextureID inTexture) = 0;
 
-	/* Tell the graph that inTexture was created this render pass. */
+	/* Tell the graph that inTexture was created and is going to be written to this render pass. */
 	virtual TextureResource CreateAndWrite(TextureID inTexture) = 0;
 
+	/* Tell the graph that inTexture was created and is going to be read this render pass. */
+	virtual TextureResource CreateAndRead(TextureID inTexture) = 0;
+
 	/* Tell the graph that inTexture will be read this render pass. The graph will create resource views and add barriers for it. */
-	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) = 0;
+	virtual TextureResource Read(TextureID inTexture) = 0;
 	
 	/* Tell the graph that inTexture will be written to this render pass. The graph will create resource views and add barriers for it. 
 	If it's a graphics pass, the graph will automatically deduce render/depth targets and bind them. */
-	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) = 0;
+	virtual TextureResource Write(TextureID inTexture) = 0;
 	
 	/* Tell the graph that inTexture will be read this render pass. The graph will create resource views and add barriers for it. */
-	[[nodiscard]] TextureResource Read(TextureResource inTexture)  { return Read(inTexture.mCreatedTexture);  }
+	TextureResource Read(TextureResource inTexture)  { return Read(inTexture.mCreatedTexture);  }
 	
 	/* Tell the graph that inTexture will be written to this render pass. The graph will create resource views and add barriers for it.
 	If it's a graphics pass, the graph will automatically deduce render/depth targets and bind them. */
-	[[nodiscard]] TextureResource Write(TextureResource inTexture) { return Write(inTexture.mCreatedTexture); }
+	TextureResource Write(TextureResource inTexture) { return Write(inTexture.mCreatedTexture); }
 
-	bool IsRead(TextureID inTexture);
-	bool IsWritten(TextureID inTexture);
-	bool IsCreated(TextureID inTexture);
+	bool IsRead(TextureID inTexture) const;
+	bool IsWritten(TextureID inTexture) const;
+	bool IsCreated(TextureID inTexture) const;
 
 	bool IsExternal() const			{ return m_IsExternal; }
 	void SetExternal(bool inValue)	{ m_IsExternal = inValue; }
@@ -111,6 +136,10 @@ protected:
 	std::vector<TextureResource>  m_ReadTextures;
 	std::vector<TextureResource>  m_WrittenTextures;
 	std::vector<TextureID>		  m_CreatedTextures;
+
+	std::vector<BufferResource>	  m_ReadBuffers;
+	std::vector<BufferResource>   m_WrittenBuffers;
+	std::vector<BufferID>		  m_CreatedBuffers;
 
 	std::vector<ResourceBarrier>  m_ExitBarriers;
 	std::vector<ResourceBarrier>  m_EntryBarriers;
@@ -153,7 +182,14 @@ public:
 	virtual bool IsCompute() override { return false; }
 	virtual bool IsGraphics() override { return true; }
 
+	virtual void Create(BufferID inBuffer) override;
+	virtual BufferResource CreateAndRead(BufferID inBuffer) override;
+	virtual BufferResource CreateAndWrite(BufferID inBuffer) override;
+	virtual [[nodiscard]] BufferResource Read(BufferID inBuffer) override;
+	virtual [[nodiscard]] BufferResource Write(BufferID inBuffer) override;
+
 	virtual void Create(TextureID inTexture) override;
+	virtual TextureResource CreateAndRead(TextureID inTexture) override;
 	virtual TextureResource CreateAndWrite(TextureID inTexture) override;
 	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) override;
 	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) override;
@@ -178,7 +214,14 @@ public:
 	virtual bool IsCompute() override { return true; }
 	virtual bool IsGraphics() override { return false; }
 
+	virtual void Create(BufferID inBuffer) override;
+	virtual BufferResource CreateAndRead(BufferID inBuffer) override;
+	virtual BufferResource CreateAndWrite(BufferID inBuffer) override;
+	virtual [[nodiscard]] BufferResource Read(BufferID inBuffer) override;
+	virtual [[nodiscard]] BufferResource Write(BufferID inBuffer) override;
+
 	virtual void Create(TextureID inTexture) override;
+	virtual TextureResource CreateAndRead(TextureID inTexture) override;
 	virtual TextureResource CreateAndWrite(TextureID inTexture) override;
 	virtual [[nodiscard]] TextureResource Read(TextureID inTexture) override;
 	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) override;
@@ -247,10 +290,56 @@ private:
 
 
 template<typename T>
+void GraphicsRenderPass<T>::Create(BufferID inBuffer) {
+	IRenderPass::m_CreatedBuffers.push_back(inBuffer);
+}
+
+template<typename T>
+BufferResource GraphicsRenderPass<T>::CreateAndRead(BufferID inBuffer) {
+	IRenderPass::m_CreatedBuffers.push_back(inBuffer);
+	return Read(inBuffer);
+}
+
+template<typename T>
+BufferResource GraphicsRenderPass<T>::CreateAndWrite(BufferID inBuffer) {
+	IRenderPass::m_CreatedBuffers.push_back(inBuffer);
+	return Write(inBuffer);
+}
+
+template<typename T>
+BufferResource GraphicsRenderPass<T>::Read(BufferID inBuffer) {
+	auto resource = BufferResource {
+		.mCreatedBuffer = inBuffer,
+		.mResourceBuffer = inBuffer
+	};
+
+	IRenderPass::m_ReadBuffers.push_back(resource);
+	return resource;
+}
+
+
+template<typename T>
+BufferResource GraphicsRenderPass<T>::Write(BufferID inBuffer) {
+	auto resource = BufferResource {
+		.mCreatedBuffer = inBuffer,
+		.mResourceBuffer = inBuffer
+	};
+
+	IRenderPass::m_WrittenBuffers.push_back(resource);
+	return resource;
+}
+
+
+template<typename T>
 void GraphicsRenderPass<T>::Create(TextureID inTexture) {
 	IRenderPass::m_CreatedTextures.push_back(inTexture);
 }
 
+template<typename T>
+TextureResource GraphicsRenderPass<T>::CreateAndRead(TextureID inTexture) {
+	IRenderPass::m_CreatedTextures.push_back(inTexture);
+	return Read(inTexture);
+}
 
 template<typename T>
 TextureResource GraphicsRenderPass<T>::CreateAndWrite(TextureID inTexture) {
@@ -313,10 +402,56 @@ TextureID GraphicsRenderPass<T>::GetViewForUsage(TextureID inTexture, Texture::U
 	return m_Device.CreateTextureView(inTexture, new_desc);
 }
 
+template<typename T>
+void ComputeRenderPass<T>::Create(BufferID inBuffer) {
+	IRenderPass::m_CreatedBuffers.push_back(inBuffer);
+}
+
+template<typename T>
+BufferResource ComputeRenderPass<T>::CreateAndRead(BufferID inBuffer) {
+	IRenderPass::m_CreatedBuffers.push_back(inBuffer);
+	return Read(inBuffer);
+}
+
+template<typename T>
+BufferResource ComputeRenderPass<T>::CreateAndWrite(BufferID inBuffer) {
+	IRenderPass::m_CreatedBuffers.push_back(inBuffer);
+	return Write(inBuffer);
+}
+
+template<typename T>
+BufferResource ComputeRenderPass<T>::Read(BufferID inBuffer) {
+	auto resource = BufferResource{
+		.mCreatedBuffer = inBuffer,
+		.mResourceBuffer = inBuffer
+	};
+
+	IRenderPass::m_ReadBuffers.push_back(resource);
+	return resource;
+}
+
+
+template<typename T>
+BufferResource ComputeRenderPass<T>::Write(BufferID inBuffer) {
+	auto resource = BufferResource{
+		.mCreatedBuffer = inBuffer,
+		.mResourceBuffer = inBuffer
+	};
+
+	IRenderPass::m_WrittenBuffers.push_back(resource);
+	return resource;
+}
 
 template<typename T>
 void ComputeRenderPass<T>::Create(TextureID inTexture) {
 	IRenderPass::m_CreatedTextures.push_back(inTexture);
+}
+
+
+template<typename T>
+TextureResource ComputeRenderPass<T>::CreateAndRead(TextureID inTexture) {
+	IRenderPass::m_CreatedTextures.push_back(inTexture);
+	return Read(inTexture);
 }
 
 

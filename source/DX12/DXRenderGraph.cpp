@@ -4,7 +4,7 @@
 
 namespace Raekor::DX12 {
 
-bool IRenderPass::IsRead(TextureID inTexture) {
+bool IRenderPass::IsRead(TextureID inTexture) const {
 	for (const auto& texture : m_ReadTextures)
 		if (texture.mCreatedTexture == inTexture)
 			return true;
@@ -12,7 +12,7 @@ bool IRenderPass::IsRead(TextureID inTexture) {
 }
 
 
-bool IRenderPass::IsWritten(TextureID inTexture) {
+bool IRenderPass::IsWritten(TextureID inTexture) const {
 	for (const auto& texture : m_WrittenTextures)
 		if (texture.mCreatedTexture == inTexture)
 			return true;
@@ -20,7 +20,7 @@ bool IRenderPass::IsWritten(TextureID inTexture) {
 }
 
 
-bool IRenderPass::IsCreated(TextureID inTexture) {
+bool IRenderPass::IsCreated(TextureID inTexture) const {
 	for (const auto& texture : m_CreatedTextures)
 		if (texture == inTexture)
 			return true;
@@ -62,19 +62,11 @@ bool RenderGraph::Compile(Device& inDevice) {
 	PASS VALIDATION
 	Does not do much at the moment, it validates: 
 	that we're not doing read_only and read_write for a resource in the same pass.
-	that we're not creating and reading from a resource in the same pass (I can't think of a use case in favor of allowing it).
 */
 	for (auto& renderpass : m_RenderPasses) {
 		for (const auto& resource : renderpass->m_WrittenTextures) {
 			if (renderpass->IsRead(resource.mCreatedTexture)) {
 				std::cout << std::format("RenderGraph Error: Texture {} is both written to and read from in renderpass {}\n", gGetDebugName(inDevice.GetResourcePtr(resource.mCreatedTexture)), renderpass->GetName());
-				return false;
-			}
-		}
-
-		for (const auto& resource : renderpass->m_ReadTextures) {
-			if (renderpass->IsCreated(resource.mCreatedTexture)) {
-				std::cout << std::format("RenderGraph Error: Texture {} is both created and read from in renderpass {}\n", gGetDebugName(inDevice.GetResourcePtr(resource.mCreatedTexture)), renderpass->GetName());
 				return false;
 			}
 		}
