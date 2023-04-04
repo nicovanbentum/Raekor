@@ -40,7 +40,7 @@ namespace Raekor::VK {
     assert(!m_Scene.empty() && "Scene cannot be empty when starting up the Vulkan path tracer!!");
 
     for (auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
-        if (mesh.material != sInvalidEntity) {
+        if (mesh.material != sInvalidEntity && (mesh.positions.size() > 0 && mesh.indices.size() > 0)) {
             auto component = m_Renderer.CreateBLAS(mesh, m_Scene.get<Material>(mesh.material));
             m_Scene.emplace<VK::RTGeometry>(entity, component);
         }
@@ -66,7 +66,7 @@ namespace Raekor::VK {
     m_Viewport.Resize({ 1300, 1300 });
     SDL_SetWindowSize(m_Window, 1300, 1300);
 
-    m_Viewport.SetFov(45.0f);
+    m_Viewport.SetFov(65.0f);
 }
 
 

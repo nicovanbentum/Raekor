@@ -60,8 +60,6 @@ Editor::Editor() :
 
         for (auto& [entity, name, material] : m_Scene.view<Name, Material>().each()) {
             auto obj = JSON::ObjectBuilder();
-            obj.SetArrayElementSeparator("");
-
             auto& rtti = material.GetRTTI();
 
             obj.WritePair("Type", rtti.GetTypeName());
@@ -80,8 +78,6 @@ Editor::Editor() :
             ofstream << obj.Build() << "\n\n";
         }
     }
-
-
 
     std::ifstream ifs("materials.json");
     std::stringstream buffer;
@@ -136,9 +132,6 @@ Editor::Editor() :
         materials.push_back((Material*)ptr);
     }
 
-    for (Material* material : materials)
-        std::cout << material->albedoFile << std::endl;
-
     std::cout << "JSON Parser took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
 
 
@@ -177,8 +170,6 @@ void Editor::OnUpdate(float dt) {
     m_Scene.UpdateLights();
 
     // update animations in parallel
-
-
     m_Scene.view<Skeleton>().each([&](Skeleton& skeleton) {
         Async::sQueueJob([&]() {
             skeleton.UpdateFromAnimation(skeleton.animations[0], dt);
@@ -330,9 +321,8 @@ void Editor::OnEvent(const SDL_Event& event) {
             m_Renderer.CreateRenderTargets(m_Viewport);
     }
 
-    for (const auto& widget : m_Widgets) {
+    for (const auto& widget : m_Widgets)
         widget->onEvent(event);
-    }
 }
 
 } // raekor

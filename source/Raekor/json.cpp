@@ -284,7 +284,7 @@ ObjectBuilder::ObjectBuilder() {
 	m_Stream << "{\n";
 }
 
-void ObjectBuilder::WriteValue(const Value& inValue) {
+void ObjectBuilder::WriteValue(const Value& inValue, uint32_t inIndentLevel) {
 	switch (inValue.mType) {
 	case ValueType::Null: {
 		m_Stream << "\"null\"";
@@ -300,18 +300,37 @@ void ObjectBuilder::WriteValue(const Value& inValue) {
 	} break;
 	case ValueType::Array: {
 		m_Stream << "[ ";
-		for (int i = 0; i < inValue.mArray.size(); i++) {
-			m_Stream << m_ArrayElementSeparator;
-			
-			WriteValue(inValue.mArray[i]);
+
+		if (!inValue.mArray.empty() && inValue.mArray[0].mType == JSON::ValueType::Array) {
+			inIndentLevel++;
+			m_Stream << "\n";
+			for (int i = 0; i < inIndentLevel; i++)
+				m_Stream << "\t";
+		}
+
+		for (int i = 0; i < inValue.mArray.size(); i++) {			
+			WriteValue(inValue.mArray[i], inIndentLevel);
 			
 			if (i != inValue.mArray.size() - 1)
 				m_Stream << ", ";
 
+			if (i != inValue.mArray.size() - 1 && inValue.mArray[i].mType == JSON::ValueType::Array) {
+				m_Stream << "\n";
+				for (int i = 0; i < inIndentLevel; i++)
+					m_Stream << "\t";
+			}
 		}
 
-		m_Stream << m_ArrayElementSeparator;
-		m_Stream << " ]";
+		if (!inValue.mArray.empty() && inValue.mArray[0].mType == JSON::ValueType::Array) {
+			m_Stream << '\n';
+			for (int i = 0; i < inIndentLevel - 1; i++)
+				m_Stream << "\t";
+			m_Stream << "]";
+		}
+		else {
+			m_Stream << " ]";
+		}
+
 	} break;
 	default:
 		assert(false);

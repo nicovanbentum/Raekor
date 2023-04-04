@@ -25,7 +25,7 @@ public:
 private:
 	void ParseNode(const cgltf_node& gltfNode, entt::entity parent, glm::mat4 transform);
 
-	void ConvertMesh(Entity inEntity, const cgltf_mesh& assimpMesh);
+	void ConvertMesh(Entity inEntity, const cgltf_primitive& assimpMesh);
 	void ConvertBones(Entity inEntity, const cgltf_node& assimpMesh);
 	void ConvertMaterial(Entity inEntity, const cgltf_material& assimpMaterial);
 

@@ -134,12 +134,10 @@ public:
 
 	std::string Build();
 
-	void SetArrayElementSeparator(const char* inChar) { m_ArrayElementSeparator = inChar; }
-
 private:
-	void WriteValue(const Value& inValue);
+	void WriteValue(const Value& inValue, uint32_t inIndentLevel = 1);
 
-	const char* m_ArrayElementSeparator = "\n";
+	uint32_t m_CurrentLineLength = 0;
 	std::stringstream m_Stream;
 };
 
@@ -194,7 +192,7 @@ inline void FromJSONValue(const JSON::Value& inValue, int& inInt) {
 template<glm::length_t L, typename T>
 inline void ToJSONValue(JSON::Value& ioValue, glm::vec<L, T>& inVec) {
 	ioValue.mType = JSON::ValueType::Array;
-	ioValue.mArray.resize(L); // oof, TODO: optimize
+	ioValue.mArray.insert(ioValue.mArray.end(), L, JSON::Value(JSON::ValueType::Number));
 
 	for (glm::length_t i = 0; i < L; i++)
 		ToJSONValue(ioValue.mArray[i], inVec[i]);
@@ -207,6 +205,67 @@ inline void FromJSONValue(const JSON::Value& ioValue, glm::vec<L, T>& inVec) {
 	for (glm::length_t i = 0; i < L; i++)
 		FromJSONValue(ioValue.mArray[i], inVec[i]);
 }
+
+
+inline void FromJSONValue(const JSON::Value& inValue, glm::quat& inQuat) {
+	for (glm::length_t i = 0; i < glm::quat::length(); i++)
+		FromJSONValue(inValue.mArray[i], inQuat[i]);
+}
+
+
+inline void ToJSONValue(JSON::Value& ioValue, glm::quat& inQuat) {
+	ioValue.mType = JSON::ValueType::Array;
+	ioValue.mArray.insert(ioValue.mArray.end(), glm::quat::length(), JSON::Value(JSON::ValueType::Number));
+	for (glm::length_t i = 0; i < glm::quat::length(); i++)
+		ToJSONValue(ioValue.mArray[i], inQuat[i]);
+}
+
+
+inline void ToJSONValue(JSON::Value& ioValue, glm::mat4& inMatrix) {
+	ioValue.mType = JSON::ValueType::Array;
+	ioValue.mArray.insert(ioValue.mArray.end(), glm::mat4::length(), JSON::Value(JSON::ValueType::Array));
+
+	for (glm::length_t i = 0; i < glm::mat4::length(); i++)
+		ToJSONValue(ioValue.mArray[i], inMatrix[i]);
+}
+
+inline void FromJSONValue(const JSON::Value& ioValue, glm::mat4& inMatrix) {
+	for (glm::length_t i = 0; i < glm::mat4::length(); i++)
+		FromJSONValue(ioValue.mArray[i], inMatrix[i]);
+}
+
+template<unsigned int Count, typename T>
+inline void FromJSONValue(const JSON::Value& ioValue, std::array<T, Count>& inArray) {
+	for (uint64_t i = 0; i < inArray.size(); i++)
+		FromJSONValue(ioValue.mArray[i], inArray[i]);
+}
+
+
+template<unsigned int Count, typename T>
+inline void ToJSONValue(JSON::Value& ioValue, std::array<T, Count>& inArray) {
+	ioValue.mType = JSON::ValueType::Array;
+	ioValue.mArray.resize(inArray.size());
+	for (uint64_t i = 0; i < inArray.size(); i++)
+		ToJSONValue(ioValue.mArray[i], inArray[i]);
+}
+
+
+template<typename T>
+inline void FromJSONValue(const JSON::Value& ioValue, std::vector<T>& inVector) {
+	inVector.resize(ioValue.mArray.size());
+	for (uint64_t i = 0; i < inVector.size(); i++)
+		FromJSONValue(ioValue.mArray[i], inVector[i]);
+}
+
+
+template<typename T>
+inline void ToJSONValue(JSON::Value& ioValue, std::vector<T>& inVector) {
+	ioValue.mType = JSON::ValueType::Array;
+	ioValue.mArray.resize(inVector.size());
+	for (uint64_t i = 0; i < inVector.size(); i++)
+		ToJSONValue(ioValue.mArray[i], inVector[i]);
+}
+
 
 template<typename T>
 inline void FromJSONValue(const JSON::Value& ioValue, T* inPtr) {

@@ -24,9 +24,9 @@ AccelStruct Device::CreateAccelStruct(VkAccelerationStructureBuildGeometryInfoKH
 
     // create the acceleration structure buffer
     VkAccelerationStructureCreateInfoKHR asInfo = {};
-    asInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-    asInfo.type = buildInfo.type;
-    asInfo.size = sizeInfo.accelerationStructureSize;
+    asInfo.sType  = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+    asInfo.type   = buildInfo.type;
+    asInfo.size   = sizeInfo.accelerationStructureSize;
     asInfo.buffer = accelStruct.buffer.buffer;
 
     gThrowIfFailed(EXT::vkCreateAccelerationStructureKHR(m_Device, &asInfo, nullptr, &accelStruct.accelerationStructure));
@@ -42,14 +42,14 @@ AccelStruct Device::CreateAccelStruct(VkAccelerationStructureBuildGeometryInfoKH
     buildInfo.scratchData.deviceAddress = GetDeviceAddress(scratchBuffer);
 
     // build the acceleration structure on the GPU
-    VkCommandBuffer commandBuffer = StartSingleSubmit();
+    auto commandBuffer = StartSingleSubmit();
 
-    VkAccelerationStructureBuildRangeInfoKHR buildRange = {};
-    buildRange.primitiveCount = primitiveCount;
+    auto build_range = VkAccelerationStructureBuildRangeInfoKHR {};
+    build_range.primitiveCount = primitiveCount;
 
-    const std::array buildRanges = { &buildRange };
+    const auto build_ranges = std::array { &build_range };
 
-    EXT::vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, buildRanges.data());
+    EXT::vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, build_ranges.data());
 
     FlushSingleSubmit(commandBuffer);
 

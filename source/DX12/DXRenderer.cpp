@@ -338,7 +338,7 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
     if (m_ShouldCaptureNextFrame) {
         PIXCaptureParameters capture_params = {};
         capture_params.GpuCaptureParameters.FileName = L"temp_pix_capture.wpix";
-        PIXBeginCapture(PIX_CAPTURE_GPU, &capture_params);
+        gThrowIfFailed(PIXBeginCapture(PIX_CAPTURE_GPU, &capture_params));
     }
 
     backbuffer_data.mCmdList.Reset();
@@ -369,7 +369,7 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
     m_FrameCounter++;
 
     if (m_ShouldCaptureNextFrame) {
-        PIXEndCapture(FALSE);
+        gThrowIfFailed(PIXEndCapture(FALSE));
         m_ShouldCaptureNextFrame = false;
         ShellExecute(0, 0, "temp_pix_capture.wpix", 0, 0, SW_SHOW);
     }
@@ -548,6 +548,9 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 .SizeInBytes    = uint32_t(vertexBuffer->GetDesc().Width),
                 .StrideInBytes  = 44u // TODO: derive from input layout since its all tightly packed
             };
+
+            if (mesh.material == sInvalidEntity)
+                continue;
 
             auto material = inScene.try_get<Material>(mesh.material);
             if (material == nullptr)

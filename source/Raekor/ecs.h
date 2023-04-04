@@ -9,25 +9,25 @@ typedef uint32_t Entity;
 template<typename T>
 class SparseSet {
 
-    class Iterator {
+    class EachIterator {
     public:
-        Iterator() = delete;
-        Iterator(typename std::vector<T>::iterator t_iter, typename std::vector<Entity>::iterator e_iter)
+        EachIterator() = delete;
+        EachIterator(typename std::vector<T>::iterator t_iter, typename std::vector<Entity>::iterator e_iter)
             : t_iter(t_iter), e_iter(e_iter) {}
 
         using value_type = std::tuple<Entity, T&>;
         using iterator_category = std::forward_iterator_tag;
 
-        bool operator==(const Iterator& rhs) { return (t_iter == rhs.t_iter) && (e_iter == rhs.e_iter); }
-        bool operator!=(const Iterator& rhs) { return (t_iter != rhs.t_iter) && (e_iter != rhs.e_iter); }
+        bool operator==(const EachIterator& rhs) { return (t_iter == rhs.t_iter) && (e_iter == rhs.e_iter); }
+        bool operator!=(const EachIterator& rhs) { return (t_iter != rhs.t_iter) && (e_iter != rhs.e_iter); }
         
-        Iterator& operator++() {
+        EachIterator& operator++() {
             t_iter++;
             e_iter++;
             return *this;
         }
 
-        Iterator operator++(int) {
+        EachIterator operator++(int) {
             auto tmp = *this;
             ++* this;
             return tmp;
@@ -47,8 +47,8 @@ class SparseSet {
         View(SparseSet<T>& set) : set(set) {}
         View(View& rhs) { set = rhs.set; }
 
-        auto begin() { return Iterator(set.storage.begin(), set.entities.begin()); }
-        auto end() { return Iterator(set.storage.end(), set.entities.end()); }
+        auto begin() { return EachIterator(set.storage.begin(), set.entities.begin()); }
+        auto end() { return EachIterator(set.storage.end(), set.entities.end()); }
 
     private:
         SparseSet<T>& set;
@@ -64,8 +64,12 @@ public:
 
         entities.push_back(entity);
 
-        if (sparse.size() <= entity)
+        // grow the sparse vector exponentially when we need to make room
+        if (sparse.size() <= entity) {
+            auto sparse_temp = sparse;
             sparse.resize(entity + 1);
+            memcpy(sparse.data(), sparse_temp.data(), sparse_temp.size());
+        }
 
         sparse[entity] = uint32_t(entities.size() - 1);
         return storage.emplace_back(t);
@@ -79,17 +83,21 @@ public:
         if (!Contains(entity))
             return;
 
+        // set the current component to whatever is in the back of the storage
         Get(entity) = storage.back();
+        // set the current entity (packed) to whatever is in the back of the packed entities
         entities[sparse[entity]] = entities.back();
+        sparse[entities.back()] = sparse[entity];
 
         storage.pop_back();
         entities.pop_back();
-
-        sparse[entities[sparse[entity]]] = sparse[entity];
     }
 
     bool Contains(Entity entity) {
         if (entity >= sparse.size())
+            return false;
+
+        if (sparse[entity] >= entities.size())
             return false;
 
         return entities[sparse[entity]] == entity;
@@ -104,8 +112,8 @@ public:
     View Each() { return View(*this); }
     size_t Length() { return storage.size(); }
 
-    auto begin() { return Iterator(storage.begin(), entities.begin()); }
-    auto end() { return Iterator(storage.end(), entities.end()); }
+    auto begin() { return EachIterator(storage.begin(), entities.begin()); }
+    auto end() { return EachIterator(storage.end(), entities.end()); }
 
     std::vector<T> storage;
     std::vector<Entity> entities;
@@ -125,26 +133,26 @@ public:
 
     template<typename Component>
     Component& Add(Entity entity) {
-        if (!m_Components.contains(Component::sGetRTTI()))
-            m_Components.insert({ Component::sGetRTTI(), new SparseSet<Component>() });
+        if (m_Components.find(RTTI_OF(Component).GetHash()) == m_Components.end())
+            m_Components[RTTI_OF(Component).GetHash()] = new SparseSet<Component>();
 
-        auto set = static_cast<SparseSet<Component>*>(m_Components.at(Component::sGetRTTI()));
+        auto set = static_cast<SparseSet<Component>*>(m_Components.at(RTTI_OF(Component).GetHash()));
         return set->Insert(entity, Component());
     }
 
     template<typename Component>
     auto& _GetInternal(Entity entity) {
-        assert(m_Components.contains(Component::sGetRTTI()));
-        auto set = static_cast<SparseSet<Component>*>(m_Components.at(Component::sGetRTTI()));
+        assert(m_Components.find(RTTI_OF(Component).GetHash()) != m_Components.end());
+        auto set = static_cast<SparseSet<Component>*>(m_Components.at(RTTI_OF(Component).GetHash()));
         return set->Get(entity);
     }
 
     template<typename ...Components>
-    auto&& Get(Entity entity) {
+    auto Get(Entity entity) {
         if constexpr (sizeof...(Components) == 1)
             return _GetInternal<Components...>(entity);
         else
-            return std::forward_as_tuple(_GetInternal<Components>(entity)...);
+            return std::tie(_GetInternal<Components>(entity)...);
     }
 
     void Clear() {
@@ -157,8 +165,8 @@ public:
         bool has_all = true;
 
         (..., [&]() {
-            if (m_Components.contains(Components::sGetRTTI())) {
-                auto set = static_cast<SparseSet<Components>*>(m_Components.at(Components::sGetRTTI()));
+            if (m_Components.find(RTTI_OF(Components).GetHash()) != m_Components.end()) {
+                auto set = static_cast<SparseSet<Components>*>(m_Components.at(RTTI_OF(Components).GetHash()));
 
                 if (!set->Contains(entity))
                     has_all = false;
@@ -172,32 +180,33 @@ public:
 
     template<typename Component>
     void Remove(Entity entity) {
-        if (m_Components.contains(Component::sGetRTTI())) {
-            auto set = static_cast<SparseSet<Component>*>(m_Components.at(Component::sGetRTTI()));
+        if (m_Components.find(RTTI_OF(Component).GetHash()) != m_Components.end()) {
+            auto set = static_cast<SparseSet<Component>*>(m_Components.at(RTTI_OF(Component).GetHash()));
             set->Remove(entity);
         }
     }
 
-    friend class Iterator;
+    friend class EachIterator;
+
     template <typename ...Components> 
-    class Iterator {
+    class EachIterator {
     public:
-        Iterator() = delete;
-        Iterator(ECS& ecs, std::vector<Entity>::iterator inIter) : ecs(ecs), it(inIter) {
+        EachIterator() = delete;
+        EachIterator(ECS& ecs, std::vector<Entity>::iterator inIter) : ecs(ecs), it(inIter) {
             while (it != ecs.m_Entities.end() && !ecs.Has<Components...>(*it))
                 it++;
         }
 
-        Iterator(Iterator& rhs) { ecs = rhs.ecs; it = rhs.it; }
-        Iterator(Iterator&& rhs) { ecs = rhs.ecs; it = rhs.it; }
+        EachIterator(EachIterator& rhs) { ecs = rhs.ecs; it = rhs.it; }
+        EachIterator(EachIterator&& rhs) { ecs = rhs.ecs; it = rhs.it; }
 
         using iterator_category = std::forward_iterator_tag;
         using value_type = std::tuple<Entity, Components&...>;
 
-        bool operator==(const Iterator& rhs) { return it == rhs.it; }
-        bool operator!=(const Iterator& rhs) { return it != rhs.it; }
+        bool operator==(const EachIterator& rhs) { return it == rhs.it; }
+        bool operator!=(const EachIterator& rhs) { return it != rhs.it; }
 
-        Iterator& operator++() {
+        EachIterator& operator++() {
             do {
                 it++;
             } while (it != ecs.m_Entities.end() && !ecs.Has<Components...>(*it));
@@ -205,13 +214,13 @@ public:
             return *this;
         }
 
-        Iterator operator++(int) {
+        EachIterator operator++(int) {
             auto tmp = *this;
             ++* this;
             return tmp;
         }
 
-        auto operator*() -> value_type {
+        auto operator*() -> std::tuple<Entity, Components&...> {
             return std::tuple_cat(std::make_tuple(*it), ecs.Get<Components...>(*it));
         }
 
@@ -226,8 +235,8 @@ public:
         ComponentView(ECS& ecs) : ecs(ecs) {}
         ComponentView(ComponentView& rhs) { ecs = rhs.ecs; }
 
-        auto begin() { return Iterator<Components...>(ecs, ecs.m_Entities.begin()); }
-        auto end() { return Iterator<Components...>(ecs, ecs.m_Entities.end()); }
+        auto begin() { return EachIterator<Components...>(ecs, ecs.m_Entities.begin()); }
+        auto end() { return EachIterator<Components...>(ecs, ecs.m_Entities.end()); }
 
     private:
         ECS& ecs;
@@ -236,14 +245,14 @@ public:
     template<typename ...Components>
     auto Each() {
         if constexpr (sizeof...(Components) == 1)
-            return static_cast<SparseSet<Components...>*>(m_Components.at(Components::sGetRTTI()...))->Each();
+            return static_cast<SparseSet<Components...>*>(m_Components.at(RTTI_OF(Components).GetHash()...))->Each();
         else
             return ComponentView<Components...>(*this);
     }
 
 private:
     std::vector<Entity> m_Entities;
-    std::unordered_map<RTTI, void*> m_Components;
+    std::unordered_map<uint32_t, void*> m_Components;
 };
 
 } // raekor

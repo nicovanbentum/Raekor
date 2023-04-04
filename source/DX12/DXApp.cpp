@@ -211,6 +211,9 @@ void DXApp::UploadSceneToGPU() {
         const auto vertices_size = vertices.size() * sizeof(vertices[0]);
         const auto indices_size = mesh.indices.size() * sizeof(mesh.indices[0]);
 
+        if (!vertices_size || !indices_size)
+            continue;
+
         mesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc{
             .size   = uint32_t(indices_size),
             .stride = sizeof(uint32_t) * 3,

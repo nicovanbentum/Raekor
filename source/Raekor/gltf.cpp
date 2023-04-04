@@ -73,7 +73,7 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
         ConvertMaterial(entity, gltf_material);
         m_Materials.push_back(entity);
         
-        std::cout << "\rDDS Conversion Progress: [" << gAsciiProgressBar(float(index) / m_GltfData->materials_count - 1) << "]";
+        // std::cout << "\rDDS Conversion Progress: [" << gAsciiProgressBar(float(index) / m_GltfData->materials_count - 1) << "]";
     }
 
     std::cout << '\n';
@@ -104,10 +104,26 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
 
 
 void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, glm::mat4 inTransform) {
-    glm::mat4 local_transform;
-    memcpy(glm::value_ptr(local_transform), inNode.matrix, sizeof(inNode.matrix));
-    inTransform *= local_transform;
+    auto local_transform = glm::mat4(1.0f);
 
+    if (inNode.has_matrix) {
+        static_assert(sizeof(inNode.matrix) == sizeof(local_transform));
+        memcpy(glm::value_ptr(local_transform), inNode.matrix, sizeof(inNode.matrix));
+    }
+    else {
+        if (inNode.has_translation)
+            local_transform = glm::translate(local_transform, Vec3(inNode.translation[0], inNode.translation[1], inNode.translation[2]));
+
+        if (inNode.has_rotation)
+            local_transform = local_transform * glm::toMat4(glm::quat(inNode.rotation[3], inNode.rotation[0], inNode.rotation[1], inNode.rotation[2]));
+
+        if (inNode.has_scale)
+            local_transform = glm::scale(local_transform, Vec3(inNode.scale[0], inNode.scale[1], inNode.scale[2]));
+    }
+
+    // Calculate global transform
+    inTransform *= local_transform;
+    
     if (inNode.mesh) {
         auto entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
 
@@ -127,8 +143,18 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, gl
         if (inParent != entt::null)
             NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(inParent), m_Scene.get<Node>(entity));
 
-        ConvertMesh(entity, *inNode.mesh);
+        if (inNode.mesh->primitives_count == 1)
+            ConvertMesh(entity, inNode.mesh->primitives[0]);
 
+        else if (inNode.mesh->primitives_count > 1)
+            for (auto& [index, prim] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count))) {
+                auto clone = m_Scene.Clone(entity);
+                ConvertMesh(clone, prim);
+
+                if (inParent != entt::null)
+                    NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(inParent), m_Scene.get<Node>(clone));
+            }
+        
         if (inNode.skin)
             ConvertBones(entity, inNode);
     }
@@ -138,65 +164,61 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, gl
 }
 
 
-void GltfImporter::ConvertMesh(Entity inEntity, const cgltf_mesh& inMesh) {
+void GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh) {
     auto& mesh = m_Scene.emplace<Mesh>(inEntity);
 
-    mesh.uvs.reserve(inMesh.primitives_count);
-    mesh.normals.reserve(inMesh.primitives_count);
-    mesh.tangents.reserve(inMesh.primitives_count);
-    mesh.positions.reserve(inMesh.primitives_count);
-    mesh.indices.reserve(inMesh.primitives_count * 3);
+    if (!inMesh.indices)
+        return;
 
-    if (inMesh.primitives_count > 1)
-        gWarn("Gltf mesh contains multiple primitive definitions, this may lead to incorrect results in Raekor..");
+    assert(inMesh.type == cgltf_primitive_type_triangles);
 
-    std::unordered_set<cgltf_material*> material_ptrs;
+    for (int i = 0; i < m_GltfData->materials_count; i++)
+        if (inMesh.material == &m_GltfData->materials[i])
+            mesh.material = m_Materials[i];
 
-    for (const auto& primitive : Slice(inMesh.primitives, inMesh.primitives_count))
-        material_ptrs.insert(primitive.material);
+    bool seen_uv0 = false;
 
-    if (material_ptrs.size() > 1)
-        gWarn("Gltf mesh uses different materials per primitive which is currently not supported.");
-
-    for(const auto& primitive : Slice(inMesh.primitives, inMesh.primitives_count)) {
-        assert(primitive.type == cgltf_primitive_type_triangles);
-
-        for (int i = 0; i < m_GltfData->materials_count; i++)
-            if (primitive.material == &m_GltfData->materials[i])
-                mesh.material = m_Materials[i];
-
-        for(const auto& attribute : Slice(primitive.attributes, primitive.attributes_count)) {
-            const auto float_count = cgltf_accessor_unpack_floats(attribute.data, NULL, 0);
-            auto accessor_data = std::vector<float>(float_count); // TODO: allocate this once?
+    for(const auto& attribute : Slice(inMesh.attributes, inMesh.attributes_count)) {
+        const auto float_count = cgltf_accessor_unpack_floats(attribute.data, NULL, 0);
+        auto accessor_data = std::vector<float>(float_count); // TODO: allocate this once?
             
-            auto data = accessor_data.data();
-            cgltf_accessor_unpack_floats(attribute.data, data, float_count);
-            const auto num_components = cgltf_num_components(attribute.data->type);
+        auto data = accessor_data.data();
+        cgltf_accessor_unpack_floats(attribute.data, data, float_count);
+        const auto num_components = cgltf_num_components(attribute.data->type);
 
-            for (uint32_t element_index = 0; element_index < attribute.data->count; element_index++) {
-                switch (attribute.type) {
-                    case cgltf_attribute_type_position: {
-                        mesh.positions.emplace_back(data[0], data[1], data[2]);
-                    } break;
-                    case cgltf_attribute_type_texcoord: {
-                        mesh.uvs.emplace_back(data[0], data[1] * -1.0f);
-                    } break;
-                    case cgltf_attribute_type_normal: {
-                        mesh.normals.emplace_back(data[0], data[1], data[2]);
-                    } break;
-                    case cgltf_attribute_type_tangent: {
-                        mesh.tangents.emplace_back(data[0], data[1], data[2]);
-                    } break;
-                }
+        // Skip any additional uv sets, we only support one set at the moment
+        if (attribute.type == cgltf_attribute_type_texcoord && seen_uv0)
+            continue;
+        else if (attribute.type == cgltf_attribute_type_texcoord)
+            seen_uv0 = true;
 
-                data += num_components;
+        for (uint32_t element_index = 0; element_index < attribute.data->count; element_index++) {
+            switch (attribute.type) {
+                case cgltf_attribute_type_position: {
+                    mesh.positions.emplace_back(data[0], data[1], data[2]);
+                } break;
+                case cgltf_attribute_type_texcoord: {
+                    mesh.uvs.emplace_back(data[0], data[1] * -1.0f);
+                } break;
+                case cgltf_attribute_type_normal: {
+                    mesh.normals.emplace_back(data[0], data[1], data[2]);
+                } break;
+                case cgltf_attribute_type_tangent: {
+                    mesh.tangents.emplace_back(data[0], data[1], data[2]);
+                } break;
             }
-            // TODO: flip tangents
-        }
 
-        for (uint32_t i = 0; i < primitive.indices->count; i++)
-            mesh.indices.emplace_back(uint32_t(cgltf_accessor_read_index(primitive.indices, i)));
+            data += num_components;
+        }
+        // TODO: flip tangents
     }
+
+    assert(mesh.positions.size() == mesh.uvs.size() && 
+            mesh.positions.size() == mesh.normals.size() && 
+                mesh.positions.size() == mesh.tangents.size());
+
+    for (uint32_t i = 0; i < inMesh.indices->count; i++)
+        mesh.indices.emplace_back(uint32_t(cgltf_accessor_read_index(inMesh.indices, i)));
 
     mesh.CalculateAABB();
 
@@ -209,6 +231,7 @@ void GltfImporter::ConvertMesh(Entity inEntity, const cgltf_mesh& inMesh) {
     if(m_UploadMeshCallback) 
         m_UploadMeshCallback(mesh);
 }
+
 
 void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
     if (!m_GltfData->animations_count)

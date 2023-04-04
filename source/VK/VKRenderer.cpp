@@ -168,6 +168,9 @@ void Renderer::UpdateBVH(Scene& scene) {
     };
 
     for (auto& [entity, mesh, transform, geometry] : meshes.each()) {
+        if (mesh.material == entt::null)
+            continue;
+
         Instance instance = {};
         instance.materialIndex.x = materialIndex(mesh.material);
         instance.localToWorldTransform = transform.worldTransform;

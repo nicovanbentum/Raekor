@@ -52,9 +52,11 @@ entt::entity Scene::PickSpatialEntity(Ray& inRay) {
 }
 
 
-entt::entity Scene::CreateSpatialEntity(const std::string& name) {
+entt::entity Scene::CreateSpatialEntity(const std::string& inName) {
     auto entity = create();
-    emplace<Name>(entity, name);
+    auto& name = emplace<Name>(entity);
+    name.name = inName;
+
     emplace<Node>(entity);
     emplace<Transform>(entity);
     return entity;
@@ -117,9 +119,8 @@ void Scene::UpdateTransforms() {
     for (auto& [entity, node, transform] : view<Node, Transform>().each()) {
         transform.Compose();
 
-        if (node.parent == entt::null) {
+        if (node.parent == entt::null)
             UpdateTransformsRecursively(entity, node.parent);
-        }
     }
 }
 
@@ -141,6 +142,21 @@ void Scene::UpdateTransformsRecursively(entt::entity node, entt::entity parent) 
         UpdateTransformsRecursively(curr, node);
         curr = get<Node>(curr).nextSibling;
     }
+}
+
+
+Entity Scene::Clone(Entity inEntity) {
+    auto copy = create();
+    visit(inEntity, [&](const entt::type_info info) {
+        gForEachTupleElement(Components, [&](auto component) {
+            using ComponentType = decltype(component)::type;
+
+            if (info.seq() == entt::type_seq<ComponentType>())
+                clone<ComponentType>(*this, inEntity, copy);
+            });
+        }
+    );
+    return copy;
 }
 
 
