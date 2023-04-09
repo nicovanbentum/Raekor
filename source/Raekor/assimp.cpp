@@ -322,10 +322,10 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
         material.emissive = { emissive.r, emissive.g, emissive.b };
 
     float roughness, metallic;
-    if (AI_SUCCESS == aiGetMaterialFloat(assimpMaterial, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLIC_FACTOR, &metallic))
+    if (AI_SUCCESS == aiGetMaterialFloat(assimpMaterial, AI_MATKEY_METALLIC_FACTOR, &metallic))
         material.metallic = metallic;
 
-    if (AI_SUCCESS == aiGetMaterialFloat(assimpMaterial, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_ROUGHNESS_FACTOR, &roughness))
+    if (AI_SUCCESS == aiGetMaterialFloat(assimpMaterial, AI_MATKEY_ROUGHNESS_FACTOR, &roughness))
         material.roughness = roughness;
 
     if (albedoFile.length) {
