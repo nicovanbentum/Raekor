@@ -40,7 +40,7 @@ Application::Application(WindowFlags inFlags) {
         SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
         SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
         width, height,
-        inFlags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS
+        inFlags | SDL_WINDOW_INPUT_FOCUS
     );
 
     OS::sSetDarkTitleBar(m_Window);
@@ -85,6 +85,9 @@ void Application::Run() {
         while (SDL_PollEvent(&ev)) {
             OnEvent(ev);
         }
+
+        if (!m_Running)
+            break;
 
         OnUpdate(dt);
 

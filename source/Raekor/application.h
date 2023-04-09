@@ -21,19 +21,23 @@ struct ConfigSettings {
 };
 
 
-enum WindowFlags {
+enum WindowFlag {
     NONE = 0,
+    RESIZE = SDL_WINDOW_RESIZABLE,
+    HIDDEN = SDL_WINDOW_HIDDEN,
     OPENGL = SDL_WINDOW_OPENGL,
     VULKAN = SDL_WINDOW_VULKAN,
     BORDERLESS = SDL_WINDOW_BORDERLESS,
 };
+
+using WindowFlags = uint32_t;
 
 
 class Application {
 public:
     friend class InputHandler;
 
-    Application(WindowFlags flags);
+    Application(WindowFlags inFlags);
     virtual ~Application();
 
     void Run();

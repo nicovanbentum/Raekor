@@ -3,12 +3,13 @@
 #include "Raekor/pch.h"
 #include "Raekor/raekor.h"
 
+// DirectX-Headers helper library
+#include "directx/d3dx12.h"
+
+#include <dxgi.h>
 #include <dxgi1_6.h>
 #include <shellapi.h>
 #include <d3dcompiler.h>
-
-// DirectX-Headers helper library
-#include "directx/d3dx12.h"
 
 // AGILITY SDK Version 600
 #include "d3d12.h"

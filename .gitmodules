@@ -30,7 +30,7 @@
 	url = https://github.com/microsoft/vcpkg
 [submodule "dependencies/imnodes"]
 	path = dependencies/imnodes
-	url = https://github.com/Nelarius/imnodes
+	url = https://github.com/nicovanbentum/imnodes
 [submodule "dependencies/JoltPhysics"]
 	path = dependencies/JoltPhysics
 	url = https://github.com/jrouwe/JoltPhysics

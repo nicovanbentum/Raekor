@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "gui.h"
-#include "ImGuizmo.h"
 #include "IconsFontAwesome5.h"
 
 namespace GUI {

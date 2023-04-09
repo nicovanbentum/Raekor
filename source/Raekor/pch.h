@@ -36,11 +36,14 @@
 
 /////////////////
 // ImGui library
+#ifndef IMGUI_DEFINE_MATH_OPERATORS
+#define IMGUI_DEFINE_MATH_OPERATORS
+#endif
 #include "imconfig.h"
 #include "imgui.h"
 #include "imnodes.h"
 #include "imnodes_internal.h"
-#include "imgui_impl_sdl.h"
+#include "imgui_impl_sdl2.h"
 #include "ImGuizmo.h"
 #include "imgui_stdlib.h"
 #include "imgui_internal.h"
@@ -66,6 +69,7 @@
 ////////////////////////////
 // Simple DirectMedia Layer
 #include "SDL2/SDL.h"
+#include "SDL2/SDL_render.h"
 #include "SDL2/SDL_vulkan.h"
 #undef main //stupid sdl_main
 

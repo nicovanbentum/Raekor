@@ -19,7 +19,7 @@
 namespace Raekor::DX12 {
 
 DXApp::DXApp() : 
-    Application(WindowFlags::NONE), 
+    Application(WindowFlag::RESIZE), 
     m_Device(m_Window, sFrameCount), 
     m_StagingHeap(m_Device),
     m_Renderer(m_Device, m_Viewport, m_Window)

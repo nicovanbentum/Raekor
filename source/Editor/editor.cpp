@@ -31,7 +31,7 @@ RTTI_CLASS_CPP(MyPtrThing) {
 }
 
 Editor::Editor() :
-    Application(WindowFlags::OPENGL),
+    Application(WindowFlag::OPENGL | WindowFlag::RESIZE),
     m_Renderer(m_Window, m_Viewport) 
 {
     GUI::SetTheme(m_Settings.themeColors);
