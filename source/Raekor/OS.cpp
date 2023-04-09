@@ -48,10 +48,6 @@ bool OS::sSetDarkTitleBar(SDL_Window* inWindow) {
     BOOL dark = TRUE;
     DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
     DwmGetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
-    // This is to trigger an instant update of the window's title bar
-    SDL_HideWindow(inWindow);
-    SDL_ShowWindow(inWindow);
-
     return dark == TRUE;
 }
 

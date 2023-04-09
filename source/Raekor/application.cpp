@@ -40,7 +40,7 @@ Application::Application(WindowFlags inFlags) {
         SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
         SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
         width, height,
-        inFlags | SDL_WINDOW_INPUT_FOCUS
+        inFlags | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_HIDDEN
     );
 
     OS::sSetDarkTitleBar(m_Window);
@@ -60,6 +60,9 @@ Application::Application(WindowFlags inFlags) {
         cereal::JSONOutputArchive archive(is);
         m_Settings.serialize(archive);
     }
+
+    if (inFlags != WindowFlag::HIDDEN)
+        SDL_ShowWindow(m_Window);
 }
 
 

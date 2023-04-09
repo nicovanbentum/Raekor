@@ -44,6 +44,7 @@
 #include "imnodes.h"
 #include "imnodes_internal.h"
 #include "imgui_impl_sdl2.h"
+#include "imgui_impl_sdlrenderer.h"
 #include "ImGuizmo.h"
 #include "imgui_stdlib.h"
 #include "imgui_internal.h"

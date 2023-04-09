@@ -3,13 +3,26 @@
 #include "Raekor/util.h"
 #include "Raekor/timer.h"
 #include "Raekor/cvars.h"
+#include "Raekor/launcher.h"
 
 using namespace Raekor;
 
 int main(int argc, char** argv) {
-	Timer timer;
-
 	CVars::ParseCommandLine(argc, argv);
+
+	auto should_launch = true;
+	
+	if (CVars::sCreate("enable_launcher", 0)) {
+		Launcher launcher;
+		launcher.Run();
+
+		should_launch = launcher.ShouldLaunch();
+	}
+	
+	if (!should_launch)
+		return 0;
+
+	Timer timer;
 
 	auto app = new DX12::DXApp();
 
