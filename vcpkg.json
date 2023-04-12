@@ -4,24 +4,29 @@
     "dependencies": [
         {
             "name": "lz4",
+            "version>=": "1.9.4#1",
             "platform": "windows & static"
         },
         {
             "name": "glad",
+            "version>=": "0.1.36",
             "features": [ "extensions" ],
             "platform": "windows & static"
         },
         {
             "name": "assimp",
+            "version>=": "5.2.5",
             "platform": "windows & static"
         },
         {
             "name": "sdl2",
+            "version>=": "2.26.5",
             "features": [ "vulkan" ],
             "platform": "windows & static"
         },
         {
             "name": "imgui",
+            "version>=": "1.89.4",
             "features": [
                             "sdl2-binding", 
                             "sdl2-renderer-binding",
@@ -34,7 +39,9 @@
         },
         {
             "name": "directx-headers",
+            "version>=": "1.608.2#1",
             "platform": "windows & static"
         }
-    ]
+    ],
+    "builtin-baseline": "217194cea7e3491c14779c763beec50b6a4575d6"
 }
