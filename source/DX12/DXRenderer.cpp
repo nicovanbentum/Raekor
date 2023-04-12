@@ -39,6 +39,9 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     gThrowIfFailed(factory->CreateSwapChainForHwnd(inDevice.GetQueue(), hwnd, &swapchain_desc, nullptr, nullptr, &swapchain));
     gThrowIfFailed(swapchain.As(&m_Swapchain));
 
+    // Disables DXGI's automatic ALT+ENTER and PRINTSCREEN
+    factory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_WINDOW_CHANGES);
+
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData)) {
@@ -74,14 +77,13 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 }
 
 
-void Renderer::OnResize(Device& inDevice, const Viewport& inViewport) {
-    WaitForIdle(inDevice);
-
+void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFullScreen) {
     for (auto& bb_data : m_BackBufferData)
         inDevice.ReleaseTextureImmediate(bb_data.mBackBuffer);
 
-    const auto swapchain_flags = inDevice.IsTearingSupported() ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
-    gThrowIfFailed(m_Swapchain->ResizeBuffers(sFrameCount, inViewport.size.x, inViewport.size.y, sSwapchainFormat, swapchain_flags));
+    auto desc = DXGI_SWAP_CHAIN_DESC {};
+    m_Swapchain->GetDesc(&desc);
+    gThrowIfFailed(m_Swapchain->ResizeBuffers(desc.BufferCount, inViewport.size.x, inViewport.size.y, desc.BufferDesc.Format, desc.Flags));
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData)) {
         auto rtv_resource = ResourceRef(nullptr);
@@ -108,6 +110,8 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport) {
 
     ffx_error = ffxFsr2ContextCreate(&m_Fsr2Context, &fsr2_desc);
     assert(ffx_error == FFX_OK);
+
+    std::cout << "Render Size: " << inViewport.size.x << " , " << inViewport.size.y << '\n';
 }
 
 
@@ -132,7 +136,7 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
 
     GUI::BeginFrame();
     ImGui_ImplDX12_NewFrame();
-    
+
     static bool open = true;
     ImGui::SetNextWindowBgAlpha(0.95f);
     ImGui::Begin("Settings", &open, ImGuiWindowFlags_AlwaysAutoResize);
@@ -192,7 +196,7 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
         ImGui::DragFloat("Radius", &params.mRadius, 0.01f, 0.0f, 20.0f, "%.2f");
         ImGui::DragFloat("Intensity", &params.mIntensity, 0.01f, 0.0f, 1.0f, "%.2f");
         ImGui::DragFloat("Normal Bias", &params.mNormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
-        ImGui::SliderInt("Sample Count", (int*)&params.mSampleCount, 1u, 32u);
+        ImGui::SliderInt("Sample Count", (int*)&params.mSampleCount, 1u, 128u);
         ImGui::NewLine(); ImGui::Separator();
     }
 

@@ -30,15 +30,15 @@ DXApp::DXApp() :
     ImGui::StyleColorsDark();
     ImGui_ImplSDL2_InitForD3D(m_Window);
     ImGui::GetIO().IniFilename = "";
-    GUI::SetTheme(m_Settings.themeColors);
+    GUI::SetTheme();
 
     m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
 
-    while (!FileSystem::exists(m_Settings.defaultScene))
-        m_Settings.defaultScene = FileSystem::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
+    while (!FileSystem::exists(m_Settings.mSceneFile))
+        m_Settings.mSceneFile = FileSystem::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
 
-    SDL_SetWindowTitle(m_Window, std::string(m_Settings.defaultScene + " - Raekor Renderer").c_str());
-    m_Scene.OpenFromFile(m_Assets, m_Settings.defaultScene);
+    SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
+    m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
 
     assert(!m_Scene.empty() && "Scene cannot be empty when starting up DX12 renderer!!");
 
@@ -146,6 +146,25 @@ void DXApp::OnEvent(const SDL_Event& event) {
             camera.Zoom(float(event.wheel.y));
     }
 
+    if (event.type == SDL_KEYDOWN && !event.key.repeat) {
+        if (event.key.keysym.sym == SDLK_RETURN && SDL_GetModState() & KMOD_LALT) {
+
+            if (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_FULLSCREEN_DESKTOP)
+                SDL_SetWindowFullscreen(m_Window, 0);
+            else
+                SDL_SetWindowFullscreen(m_Window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+
+            auto width = 0, height = 0;
+            SDL_GetWindowSize(m_Window, &width, &height);
+            const auto new_size = UVec2(width, height);
+
+            m_Renderer.WaitForIdle(m_Device);
+            m_Viewport.Resize(new_size);
+            m_Renderer.OnResize(m_Device, m_Viewport);
+            m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
+        }
+    }
+
 
     if (event.type == SDL_WINDOWEVENT) {
         if (event.window.event == SDL_WINDOWEVENT_MINIMIZED) {
@@ -162,6 +181,7 @@ void DXApp::OnEvent(const SDL_Event& event) {
                 m_Running = false;
         }
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+            m_Renderer.WaitForIdle(m_Device);
             auto w = 0, h = 0;
             SDL_GetWindowSize(m_Window, &w, &h);
             m_Viewport.Resize(glm::uvec2(w, h));

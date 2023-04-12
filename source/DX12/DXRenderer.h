@@ -42,7 +42,7 @@ private:
 public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
-    void OnResize(Device& inDevice, const Viewport& inViewport);
+    void OnResize(Device& inDevice, const Viewport& inViewport, bool inExclusiveFullscreen = false);
     void OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer,  float inDeltaTime);
 
     void Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer);
