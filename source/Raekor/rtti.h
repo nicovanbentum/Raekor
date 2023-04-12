@@ -1,7 +1,6 @@
 #pragma once
 
 #include "json.h"
-#include "archive.h"
 
 namespace Raekor {
 
@@ -42,9 +41,10 @@ private:
 class Member {
 public:
     Member() = delete;
-    Member(const char* inName) : m_Name(inName) {}
+    Member(const char* inName, const char* inCustomName) : m_Name(inName), m_CustomName(inCustomName){}
 
     const char*     GetName() const { return m_Name; }
+    const char*     GetCustomName() const { return m_CustomName; }
     virtual void*   GetMember(void* inClass) = 0;
 
     virtual void ToJSON(JSON::Value& ioValue, void* inClass) {}
@@ -53,11 +53,9 @@ public:
     virtual bool IsPtr() { return false; }
     virtual void SetPtr() {}
 
-    virtual void Load(ArchiveIn* ioArchive, void* inClass) {}
-    virtual void Save(ArchiveOut* ioArchive, void* inClass) {}
-
-private:
+protected:
     const char* m_Name;
+    const char* m_CustomName;
 };
 
 
@@ -65,11 +63,8 @@ template<typename Class, typename T>
 class ClassMember : public Member {
 public:
     ClassMember() = delete;
-    ClassMember(const char* inName, T Class::* inMember) : Member(inName), m_Member(inMember) {}
+    ClassMember(const char* inName, const char* inCustomName, T Class::* inMember) : Member(inName, inCustomName), m_Member(inMember) {}
     
-    virtual void Load(ArchiveIn* ioArchive, void* inClass) override {}
-    virtual void Save(ArchiveOut* ioArchive, void* inClass) override {}
-
     virtual bool IsPtr() { return std::is_pointer_v<T>; }
 
     void ToJSON(JSON::Value& ioValue, void* inInstance) override { 
@@ -159,7 +154,7 @@ public:                                                                         
 
 
 #define RTTI_MEMBER_CPP(class_name, custom_name, member_name)                                                           \
-    inRTTI.AddMember(new ClassMember<class_name, decltype(class_name::member_name)>(#member_name, &class_name::member_name))
+    inRTTI.AddMember(new ClassMember<class_name, decltype(class_name::member_name)>(#member_name, custom_name, &class_name::member_name))
     
 
 #define RTTI_OF(name) sGetRTTI((name*)nullptr)

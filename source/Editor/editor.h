@@ -27,6 +27,7 @@ private:
     Scene m_Scene;
     Assets m_Assets;
     Physics m_Physics;
+    ImGuiID m_DockSpaceID;
     GLRenderer m_Renderer;
     Entity m_ActiveEntity = sInvalidEntity;
     std::vector<std::shared_ptr<IWidget>> m_Widgets;
@@ -41,27 +42,6 @@ std::shared_ptr<T> Editor::GetWidget() {
 
     return nullptr;
 }
-
-
-class MyThing {
-    RTTI_CLASS_HEADER(MyThing);
-
-public:
-    int m_MyInt = 0;
-    float m_MyFloat = 0.0f;
-    bool m_MyBool = false;
-    std::string m_MyString = "";
-    glm::vec4 m_Vec = glm::vec4(0.0f);
-    std::vector<int> m_Vector;
-};
-
-
-class MyPtrThing {
-    RTTI_CLASS_HEADER(MyPtrThing);
-
-public:
-    MyThing* m_Ptr;
-};
 
 
 } // raekor

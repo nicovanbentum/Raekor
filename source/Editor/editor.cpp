@@ -18,122 +18,22 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP(MyThing) {
-    RTTI_MEMBER_CPP(MyThing, "Float",   m_MyFloat);
-    RTTI_MEMBER_CPP(MyThing, "Integer", m_MyInt);
-    RTTI_MEMBER_CPP(MyThing, "Boolean", m_MyBool);
-    RTTI_MEMBER_CPP(MyThing, "String",  m_MyString);
-    RTTI_MEMBER_CPP(MyThing, "Vec4",    m_Vec);
-}
-
-RTTI_CLASS_CPP(MyPtrThing) {
-    RTTI_MEMBER_CPP(MyPtrThing, "Ptr", m_Ptr);
-}
-
 Editor::Editor() :
     Application(WindowFlag::OPENGL | WindowFlag::RESIZE),
     m_Renderer(m_Window, m_Viewport) 
 {
-    GUI::SetTheme(m_Settings.themeColors);
+    GUI::SetTheme();
     ImGui::GetStyle().ScaleAllSizes(1.33333333f);
-    GUI::SetFont(m_Settings.font.c_str());
+    if (!m_Settings.mFontFile.empty())
+        GUI::SetFont(m_Settings.mFontFile.c_str());
 
     m_Scene.SetUploadMeshCallbackFunction(GLRenderer::sUploadMeshBuffers);
     m_Scene.SetUploadMaterialCallbackFunction(GLRenderer::sUploadMaterialTextures);
 
-    if (FileSystem::exists(m_Settings.defaultScene) && Path(m_Settings.defaultScene).extension() == ".scene") {
-        SDL_SetWindowTitle(m_Window, std::string(m_Settings.defaultScene + " - Raekor Renderer").c_str());
-        m_Scene.OpenFromFile(m_Assets, m_Settings.defaultScene);
+    if (FileSystem::exists(m_Settings.mSceneFile) && Path(m_Settings.mSceneFile).extension() == ".scene") {
+        SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
+        m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
     }
-
-
-    Timer timer;
-
-    RTTIFactory::Register(RTTI_OF(MyThing));
-    RTTIFactory::Register(RTTI_OF(MyPtrThing));
-    RTTIFactory::Register(RTTI_OF(Material));
-
-
-        
-    {
-        auto ofstream = std::ofstream("materials.json");
-
-        for (auto& [entity, name, material] : m_Scene.view<Name, Material>().each()) {
-            auto obj = JSON::ObjectBuilder();
-            auto& rtti = material.GetRTTI();
-
-            obj.WritePair("Type", rtti.GetTypeName());
-            obj.WritePair("Name", name);
-
-            for (int i = 0; i < rtti.GetMemberCount(); i++) {
-                auto member = rtti.GetMember(i);
-
-                if (member) {
-                    JSON::Value value;
-                    member->ToJSON(value, &material);
-                    obj.WritePair(member->GetName(), value);
-                }
-            }
-
-            ofstream << obj.Build() << "\n\n";
-        }
-    }
-
-    std::ifstream ifs("materials.json");
-    std::stringstream buffer;
-    buffer << ifs.rdbuf();
-
-    auto json = JSON::Parser(buffer.str());
-
-    if (!json.Parse())
-        std::abort();
-
-    for (const auto& object : json) {
-        assert(json.Contains(object, "Type"));
-        assert(json.Contains(object, "Name"));
-    }
-
-    std::vector<Material*> materials;
-
-    std::vector<std::string> unresolved_objects;
-    std::unordered_map<std::string, void*> resolved_objects;
-
-    for (const auto& object : json) {
-        const auto& type_value = json.GetValue(object, "Type");
-        const auto& type_string = type_value.As<JSON::String>().ToString();
-        auto ptr = RTTIFactory::Construct(type_string.c_str());
-
-        auto rtti = RTTIFactory::GetRTTI(type_string.c_str());
-
-        if (!rtti) continue;
-
-        for (uint32_t i = 0; i < rtti->GetMemberCount(); i++) {
-            auto member = rtti->GetMember(i);
-            assert(member);
-
-            if (object.find(member->GetName()) != object.end()) {
-
-                if (member->IsPtr()) {
-                    auto& json_value = object.at(member->GetName());
-                    assert(json_value.mType == JSON::ValueType::String);
-                    auto path = json_value.As<JSON::String>().ToString();
-
-                    if (resolved_objects.find(path) != resolved_objects.end()) {
-                        auto member_ptr = (void**)member->GetMember(ptr);
-                        *member_ptr = resolved_objects.at(path);
-                    }
-
-                }
-                else 
-                    member->FromJSON(object.at(member->GetName()), ptr);
-            }
-        }
-
-        materials.push_back((Material*)ptr);
-    }
-
-    std::cout << "JSON Parser took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
-
 
     m_Widgets.emplace_back(std::make_shared<AssetsWidget>(this));
     m_Widgets.emplace_back(std::make_shared<RandomWidget>(this));

@@ -5,19 +5,13 @@
 namespace Raekor {
 
 struct ConfigSettings {
-    int display = 0;
-    bool vsync = true;
-    std::string name = "";
-    std::string font = "";
-    std::string defaultScene = "";
-    std::array<std::array<float, 4>, ImGuiCol_COUNT> themeColors;
+    RTTI_CLASS_HEADER(ConfigSettings);
 
-    template<typename Archive> 
-    void serialize(Archive& archive) {
-        archive( CEREAL_NVP(name), CEREAL_NVP(display), CEREAL_NVP(vsync),
-            CEREAL_NVP(font), CEREAL_NVP(defaultScene), CEREAL_NVP(themeColors)
-        );
-    }
+    int mDisplayIndex = 0;
+    bool mVsyncEnabled = true;
+    std::string mAppName = "";
+    std::string mFontFile = "";
+    std::string mSceneFile = "";
 };
 
 
@@ -29,7 +23,6 @@ enum WindowFlag {
     VULKAN = SDL_WINDOW_VULKAN,
     BORDERLESS = SDL_WINDOW_BORDERLESS,
 };
-
 using WindowFlags = uint32_t;
 
 
@@ -52,13 +45,12 @@ public:
     SDL_Window* GetWindow() { return m_Window; }
     Viewport& GetViewport() { return m_Viewport; }
 
-public:
-    bool m_Running = true;
-
 protected:
+    bool m_Running = true;
+    SDL_Window* m_Window = nullptr;
+
     Viewport m_Viewport;
     ConfigSettings m_Settings;
-    SDL_Window* m_Window = nullptr;
 };
 
 

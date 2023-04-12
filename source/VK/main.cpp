@@ -1,8 +1,12 @@
 #include "pch.h"
 #include "VKApp.h"
 
+using namespace Raekor;
+
 int main(int argc, char** argv) {
-    auto app = Raekor::VK::PathTracer();
+    RTTIFactory::Register(RTTI_OF(ConfigSettings));
+
+    auto app = VK::PathTracer();
 
     app.Run();
 

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "util.h"
-#include "archive.h"
 
 namespace Raekor::JSON {
 
@@ -69,9 +68,11 @@ public:
 	Parser(const std::string& inSrc) : m_Source(inSrc) {}
 
 	bool			Parse();
+	const Object&	Get(uint32_t inIndex)									   const { return m_Objects[inIndex]; }
+	uint32_t		Count()													   const { return uint32_t(m_Objects.size()); }
 	const Value&	GetValue(const Object& inObject, const std::string& inKey) const { return inObject.at(inKey); }
 	bool			Contains(const Object& inObject, const std::string& inKey) const { return inObject.find(inKey) != inObject.end(); }
-	bool			IsEmpty (const Object& inObject, const std::string& inKey) const { return Contains(inObject, inKey) && true; }
+	bool			IsEmpty (const Object& inObject, const std::string& inKey) const { return Contains(inObject, inKey); }
 
 	const auto end() const { return m_Objects.end(); }
 	const auto begin() const { return m_Objects.begin(); }

@@ -20,9 +20,9 @@ namespace Raekor::VK {
 
     ImGui::GetIO().IniFilename = "";
 
-    if (FileSystem::exists(m_Settings.defaultScene)) {
-        SDL_SetWindowTitle(m_Window, std::string(m_Settings.defaultScene + " - Raekor Renderer").c_str());
-        m_Scene.OpenFromFile(m_Assets, m_Settings.defaultScene);
+    if (FileSystem::exists(m_Settings.mSceneFile)) {
+        SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
+        m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
     }
     else {
         std::string filepath;
@@ -47,7 +47,7 @@ namespace Raekor::VK {
     }
 
     // TODO: Figure this mess out
-    m_Renderer.SetSyncInterval(m_Settings.vsync);
+    m_Renderer.SetSyncInterval(m_Settings.mVsyncEnabled);
     m_Renderer.UpdateMaterials(m_Assets, m_Scene);
     m_Renderer.UpdateBVH(m_Scene);
     m_Renderer.Init(m_Scene);
@@ -56,7 +56,7 @@ namespace Raekor::VK {
     m_Assets.clear();
 
     // gui stuff
-    GUI::SetTheme(m_Settings.themeColors);
+    GUI::SetTheme();
 
     std::cout << "Job well done.\n";
 
@@ -113,8 +113,8 @@ void PathTracer::OnUpdate(float dt) {
     
         ImGui::Text("F2 - Screenshot");
 
-        if (ImGui::Checkbox("vsync", &m_Settings.vsync)) {
-            m_Renderer.SetSyncInterval(m_Settings.vsync);
+        if (ImGui::Checkbox("vsync", &m_Settings.mVsyncEnabled)) {
+            m_Renderer.SetSyncInterval(m_Settings.mVsyncEnabled);
             m_Renderer.RecreateSwapchain(m_Window);
             m_Renderer.ResetAccumulation();
         }

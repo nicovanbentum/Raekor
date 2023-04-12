@@ -36,6 +36,13 @@
             }
         },
         {
+            "key": "debug_layer",
+            "value": {
+                "index": 0,
+                "data": 1
+            }
+        },
+        {
             "key": "quit",
             "value": {
                 "index": 3,
@@ -53,7 +60,7 @@
             "key": "r_vsync",
             "value": {
                 "index": 0,
-                "data": 1
+                "data": 0
             }
         },
         {
@@ -85,6 +92,13 @@
             }
         },
         {
+            "key": "enable_launcher",
+            "value": {
+                "index": 0,
+                "data": 1
+            }
+        },
+        {
             "key": "physics_state",
             "value": {
                 "index": 0,
@@ -96,6 +110,48 @@
             "value": {
                 "index": 0,
                 "data": 1
+            }
+        },
+        {
+            "key": "r_enable_rtao",
+            "value": {
+                "index": 0,
+                "data": 1
+            }
+        },
+        {
+            "key": "hook_pix",
+            "value": {
+                "index": 0,
+                "data": 1
+            }
+        },
+        {
+            "key": "gpu_validation",
+            "value": {
+                "index": 0,
+                "data": 1
+            }
+        },
+        {
+            "key": "r_debug_gi_probes",
+            "value": {
+                "index": 0,
+                "data": 0
+            }
+        },
+        {
+            "key": "r_enable_ddgi",
+            "value": {
+                "index": 0,
+                "data": 1
+            }
+        },
+        {
+            "key": "r_debug_lines",
+            "value": {
+                "index": 0,
+                "data": 0
             }
         }
     ]

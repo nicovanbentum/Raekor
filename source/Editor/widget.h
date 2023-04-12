@@ -17,7 +17,7 @@ class IWidget {
     RTTI_CLASS_HEADER(IWidget);
 
 public:
-    IWidget(Editor* editor, const std::string& title);
+    IWidget(Editor* editor, const std::string& inTitle);
     virtual void draw(float dt) = 0;
     virtual void onEvent(const SDL_Event& ev) = 0;
 

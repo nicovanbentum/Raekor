@@ -5,14 +5,23 @@
 #include "util.h"
 #include "timer.h"
 #include "camera.h"
+#include "archive.h"
 
 namespace Raekor {
 
+RTTI_CLASS_CPP(ConfigSettings) {
+    RTTI_MEMBER_CPP(ConfigSettings, "Display",    mDisplayIndex);
+    RTTI_MEMBER_CPP(ConfigSettings, "Vsync",      mVsyncEnabled);
+    RTTI_MEMBER_CPP(ConfigSettings, "App Name",   mAppName);
+    RTTI_MEMBER_CPP(ConfigSettings, "Font File",  mFontFile);
+    RTTI_MEMBER_CPP(ConfigSettings, "Scene File", mSceneFile);
+}
+
+
 Application::Application(WindowFlags inFlags) {
-    {   // scoped to make sure it flushes
-        std::ifstream is("config.json");
-        cereal::JSONInputArchive archive(is);
-        m_Settings.serialize(archive);
+    {
+        auto archive = JSON::ReadArchive("config.json");
+        archive >> m_Settings;
     }
 
     SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
@@ -27,8 +36,8 @@ Application::Application(WindowFlags inFlags) {
         SDL_GetDisplayBounds(index, &display);
 
     // if the config setting is higher than the nr of displays we pick the default display
-    m_Settings.display = m_Settings.display > displays.size() - 1 ? 0 : m_Settings.display;
-    const auto& rect = displays[m_Settings.display];
+    m_Settings.mDisplayIndex = m_Settings.mDisplayIndex > displays.size() - 1 ? 0 : m_Settings.mDisplayIndex;
+    const auto& rect = displays[m_Settings.mDisplayIndex];
 
     int width = int(rect.w * 0.9f);
     int height = int(rect.h * 0.9f);
@@ -36,9 +45,9 @@ Application::Application(WindowFlags inFlags) {
     width = 1920, height = 1080;
 
     m_Window = SDL_CreateWindow(
-        m_Settings.name.c_str(),
-        SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
-        SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.display),
+        m_Settings.mAppName.c_str(),
+        SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.mDisplayIndex),
+        SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.mDisplayIndex),
         width, height,
         inFlags | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_HIDDEN
     );
@@ -55,27 +64,18 @@ Application::Application(WindowFlags inFlags) {
     CVars::sCreateFn("quit", quit_function);
     CVars::sCreateFn("exit", quit_function);
 
-    {
-        std::ofstream is("config.json");
-        cereal::JSONOutputArchive archive(is);
-        m_Settings.serialize(archive);
-    }
-
     if (inFlags != WindowFlag::HIDDEN)
         SDL_ShowWindow(m_Window);
 }
 
 
 Application::~Application() {
-    m_Settings.display = SDL_GetWindowDisplayIndex(m_Window);
+    m_Settings.mDisplayIndex = SDL_GetWindowDisplayIndex(m_Window);
+    auto archive = JSON::WriteArchive("config.json");
+    archive << m_Settings;
+
     SDL_DestroyWindow(m_Window);
     SDL_Quit();
-
-    {   // scoped to make sure it flushes
-        std::ofstream is("config.json");
-        cereal::JSONOutputArchive archive(is);
-        m_Settings.serialize(archive);
-    }
 }
 
 
