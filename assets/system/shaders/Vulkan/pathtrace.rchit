@@ -214,7 +214,11 @@ vec3 BRDF_Sample(Surface surface, vec3 Wo, out vec3 Wi, out vec3 weight) {
     // randomly decide to specular bounce
     if (rand > 0.5 && surface.roughness < 0.5) {
         // Importance sample the specular lobe using UE4's example to get the half vector
-        Wh = ImportanceSampleGGX(pcg_vec2(payload.rng), surface.roughness, surface.shadingNormal);
+        if (surface.roughness == 0.0)
+            Wh = surface.shadingNormal; // roughness 0 is a perfect reflection, so we can just reflect around the normal
+        else
+            Wh = ImportanceSampleGGX(pcg_vec2(payload.rng), surface.roughness, surface.shadingNormal);
+
         Wi = normalize(reflect(-Wo, Wh));
 
         float VdotH = clamp(dot(Wo, Wh), 0.0001, 1.0);
