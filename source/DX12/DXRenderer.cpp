@@ -538,19 +538,13 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->ClearDepthStencilView(inDevice.GetHeapPtr(inData.mDepthTexture), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 1, &clear_rect);
 
         for (const auto& [entity, transform, mesh] : inScene.view<Transform, Mesh>().each()) {
-            const auto& indexBuffer = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
-            const auto& vertexBuffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
+            const auto& index_buffer = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
+            const auto& vertex_buffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
 
             const auto index_view = D3D12_INDEX_BUFFER_VIEW {
-                .BufferLocation = indexBuffer->GetGPUVirtualAddress(),
+                .BufferLocation = index_buffer->GetGPUVirtualAddress(),
                 .SizeInBytes    = uint32_t(mesh.indices.size() * sizeof(mesh.indices[0])),
                 .Format         = DXGI_FORMAT_R32_UINT,
-            };
-
-            const auto vertex_view = D3D12_VERTEX_BUFFER_VIEW {
-                .BufferLocation = vertexBuffer->GetGPUVirtualAddress(),
-                .SizeInBytes    = uint32_t(vertexBuffer->GetDesc().Width),
-                .StrideInBytes  = 44u // TODO: derive from input layout since its all tightly packed
             };
 
             if (mesh.material == sInvalidEntity)
@@ -560,20 +554,22 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             if (material == nullptr)
                 material = &Material::Default;
 
-            auto root_constants = GbufferRootConstants {};
-            root_constants.mAlbedo       = material->albedo;
-            root_constants.mProperties.x = material->metallic;
-            root_constants.mProperties.y = material->roughness;
-            root_constants.mTextures.x   = material->gpuAlbedoMap;
-            root_constants.mTextures.y   = material->gpuNormalMap;
-            root_constants.mTextures.z   = material->gpuMetallicRoughnessMap;
+            auto root_constants = GbufferRootConstants {
+            .mVertexBuffer        = vertex_buffer.GetHeapIndex(),
+            .mAlbedoTexture       = material->gpuAlbedoMap,
+            .mNormalTexture       = material->gpuNormalMap,
+            .mMetalRoughTexture   = material->gpuMetallicRoughnessMap,
+            .mAlbedo              = material->albedo,
+            .mRoughness           = material->roughness,
+            .mMetallic            = material->metallic,
+            
+            };
 
             root_constants.mWorldTransform = transform.worldTransform;
 
             inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
 
             inCmdList->IASetIndexBuffer(&index_view);
-            inCmdList->IASetVertexBuffers(0, 1, &vertex_view);
 
             inCmdList->DrawIndexedInstanced(mesh.indices.size(), 1, 0, 0, 0);
         }

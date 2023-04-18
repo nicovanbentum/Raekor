@@ -106,9 +106,15 @@ STATIC_ASSERT(sizeof(DDGIData) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct GbufferRootConstants {
+    uint     mVertexBuffer;
+    uint     mAlbedoTexture;
+    uint     mNormalTexture;
+    uint     mMetalRoughTexture;
     float4	 mAlbedo;
-    uint4	 mTextures;
-    float4	 mProperties;
+    float    mRoughness;
+    float    mMetallic;
+    float    pad0;
+    float    pad1;
     float4x4 mWorldTransform;
 }; 
 STATIC_ASSERT(sizeof(GbufferRootConstants) < MAX_ROOT_CONSTANTS_SIZE);

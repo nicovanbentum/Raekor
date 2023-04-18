@@ -16,21 +16,15 @@ struct PS_OUTPUT {
     float2 motionvectors : SV_Target1;
 };
 
-struct RootConstants {
-    float4 albedo;
-    uint4 textures;
-    float4 properties;
-};
-
-ROOT_CONSTANTS(RootConstants, root_constants)
+ROOT_CONSTANTS(GbufferRootConstants, rc)
 
 
 PS_OUTPUT main(in VS_OUTPUT input) {
     PS_OUTPUT output;
 
-    Texture2D<float4> albedo_texture = ResourceDescriptorHeap[root_constants.textures.x];
-    Texture2D<float4> normal_texture = ResourceDescriptorHeap[root_constants.textures.y];
-    Texture2D<float4> material_texture = ResourceDescriptorHeap[root_constants.textures.z];
+    Texture2D<float4> albedo_texture = ResourceDescriptorHeap[rc.mAlbedoTexture];
+    Texture2D<float4> normal_texture = ResourceDescriptorHeap[rc.mNormalTexture];
+    Texture2D<float4> material_texture = ResourceDescriptorHeap[rc.mMetalRoughTexture];
     
     float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
     float4 sampled_normal = normal_texture.Sample(SamplerAnisoWrap, input.texcoord);
@@ -40,9 +34,9 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     float3 normal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
     normal = normalize(input.normal);
 
-    float4 albedo = root_constants.albedo * sampled_albedo;
-    float metalness = root_constants.properties.x * sampled_material.b;
-    float roughness = root_constants.properties.y * sampled_material.g;
+    float4 albedo = rc.mAlbedo * sampled_albedo;
+    float metalness = rc.mMetallic * sampled_material.b;
+    float roughness = rc.mRoughness * sampled_material.g;
     
     uint4 packed = uint4(0, 0, 0, 0);
     PackAlbedo(albedo, packed);
