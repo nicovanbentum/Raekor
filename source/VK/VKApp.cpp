@@ -63,10 +63,10 @@ namespace Raekor::VK {
     SDL_ShowWindow(m_Window);
     SDL_SetWindowInputFocus(m_Window);
 
-    m_Viewport.Resize({ 1300, 1300 });
+    m_Viewport.SetSize({ 1300, 1300 });
     SDL_SetWindowSize(m_Window, 1300, 1300);
 
-    m_Viewport.SetFov(65.0f);
+    m_Viewport.SetFieldOfView(65.0f);
 }
 
 
@@ -96,7 +96,7 @@ void PathTracer::OnUpdate(float dt) {
         int w, h;
         SDL_GetWindowSize(m_Window, &w, &h);
 
-        m_Viewport.Resize(glm::uvec2(w, h));
+        m_Viewport.SetSize(glm::uvec2(w, h));
         m_Renderer.RecreateSwapchain(m_Window);
         m_Renderer.ResetAccumulation();
         m_IsSwapchainDirty = false;
@@ -142,10 +142,12 @@ void PathTracer::OnUpdate(float dt) {
             }
         }
 
+        ImGui::Text("Sample Count: %i", (int)m_Renderer.GetFrameCounter());
+
         ImGui::End();
 
         ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
-        ImGuizmo::SetRect(0, 0, float(m_Viewport.size.x), float(m_Viewport.size.y));
+        ImGuizmo::SetRect(0, 0, float(m_Viewport.GetSize().x), float(m_Viewport.GetSize().y));
 
         if (lightView.begin() != lightView.end()) {
             auto& lightTransform = lightView.get<Transform>(lightView.front());
@@ -192,7 +194,7 @@ void PathTracer::OnEvent(const SDL_Event& ev) {
 
     if (ev.type == SDL_MOUSEMOTION) {
         if (is_mouse_relative && Input::sIsButtonPressed(3)) {
-            auto formula = glm::radians(0.022f * camera.sensitivity * 2.0f);
+            auto formula = glm::radians(0.022f * camera.mSensitivity * 2.0f);
             camera.Look(glm::vec2(ev.motion.xrel * formula, ev.motion.yrel * formula));
             m_Renderer.ResetAccumulation();
         }

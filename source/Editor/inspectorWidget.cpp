@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "inspectorWidget.h"
+#include "viewportWidget.h"
+#include "NodeGraphWidget.h"
 #include "editor.h"
 #include "Raekor/OS.h"
 
@@ -12,14 +14,28 @@ InspectorWidget::InspectorWidget(Editor* editor) : IWidget(editor, ICON_FA_INFO_
 
 
 void InspectorWidget::draw(float dt) {
-    ImGui::Begin(m_Title.c_str(), &m_Visible);
+    ImGui::Begin(m_Title.c_str(), &m_Open);
+    m_Visible = ImGui::IsWindowAppearing();
 
+    auto viewport_widget  = m_Editor->GetWidget<ViewportWidget>();
+    auto nodegraph_widget = m_Editor->GetWidget<NodeGraphWidget>();
+
+    if (viewport_widget && viewport_widget->IsVisible()) {
+        DrawEntityInspector();
+    }
+    else if (nodegraph_widget && nodegraph_widget->IsVisible()) {
+        DrawJSONInspector();
+    }
+
+    ImGui::End();
+};
+
+
+void InspectorWidget::DrawEntityInspector() {
     auto& active_entity = GetActiveEntity();
 
-    if (active_entity == entt::null) {
-        ImGui::End();
+    if (active_entity == entt::null)
         return;
-    }
 
     ImGui::Text("Entity ID: %i", active_entity);
 
@@ -32,17 +48,17 @@ void InspectorWidget::draw(float dt) {
         (..., [&](Assets& assets, Scene& scene, entt::entity& entity) {
             using ComponentType = typename std::decay<decltype(components)>::type::type;
 
-            if (scene.all_of<ComponentType>(entity)) {
-                bool isOpen = true;
-                if (ImGui::CollapsingHeader(components.name, &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
-                    if (isOpen)
-                        DrawComponent(scene.get<ComponentType>(entity), entity);
-                    else
-                        scene.remove<ComponentType>(entity);
-                }
-            }
-        }(assets, scene, active));
-    }, Components);
+    if (scene.all_of<ComponentType>(entity)) {
+        bool isOpen = true;
+        if (ImGui::CollapsingHeader(components.name, &isOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (isOpen)
+                DrawComponent(scene.get<ComponentType>(entity), entity);
+            else
+                scene.remove<ComponentType>(entity);
+        }
+    }
+            }(assets, scene, active));
+        }, Components);
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f);
@@ -62,7 +78,7 @@ void InspectorWidget::draw(float dt) {
                 //collider.settings.SetEmbedded();
             }
         }
-       
+
         ImGui::EndPopup();
     }
 
@@ -70,12 +86,43 @@ void InspectorWidget::draw(float dt) {
     if (ImGui::Button("Add Component", ImVec2(ImGui::GetWindowWidth(), 0))) {
         ImGui::OpenPopup("Components");
     }
-    
-    ImGui::PopStyleVar();
-    ImGui::PopStyleVar();
 
-    ImGui::End();
-};
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar();
+}
+
+
+void InspectorWidget::DrawJSONInspector() {
+    ImGui::Text("JSON Inspector");
+
+    auto nodegraph_widget = m_Editor->GetWidget<NodeGraphWidget>();
+    if (!nodegraph_widget)
+        return;
+
+    auto json_object = nodegraph_widget->GetSelectedObject();
+    if (!json_object)
+        return;
+
+    for (auto& [name, value] : *json_object) {
+        if (name == "Type")
+            continue;
+
+        switch (value.mType) {
+            case JSON::ValueType::Bool: {
+                auto& bool_value = value.As<bool>();
+                ImGui::Checkbox(name.c_str(), &bool_value);
+            } break;
+            case JSON::ValueType::String: {
+                auto string_value = value.As<JSON::String>().ToString();
+                ImGui::InputText(name.c_str(), &string_value);
+            } break;
+            case JSON::ValueType::Number: {
+                auto& float_value = value.As<float>();
+                ImGui::InputFloat(name.c_str(), &float_value);
+            } break;
+        }
+    }
+}
 
 
 void InspectorWidget::DrawComponent(Name& component, Entity& active) {
@@ -240,11 +287,11 @@ void InspectorWidget::DrawComponent(Material& component, Entity& active) {
     };
 
     ImGui::AlignTextToFramePadding(); ImGui::Text("Albedo Map"); ImGui::SameLine();
-    drawTextureInteraction(component.gpuAlbedoMap, component.albedoFile);
+    drawTextureInteraction(component.gpuAlbedoMap ? component.gpuAlbedoMap : Material::Default.gpuAlbedoMap, component.albedoFile);
     ImGui::AlignTextToFramePadding(); ImGui::Text("Normal Map"); ImGui::SameLine();
-    drawTextureInteraction(component.gpuNormalMap, component.normalFile);
+    drawTextureInteraction(component.gpuNormalMap ? component.gpuNormalMap : Material::Default.gpuNormalMap, component.normalFile);
     ImGui::AlignTextToFramePadding(); ImGui::Text("Material Map"); ImGui::SameLine();
-    drawTextureInteraction(component.gpuMetallicRoughnessMap, component.metalroughFile);
+    drawTextureInteraction(component.gpuMetallicRoughnessMap ? component.gpuMetallicRoughnessMap : Material::Default.gpuMetallicRoughnessMap, component.metalroughFile);
 
     ImGui::Checkbox("Is Transparent", &component.isTransparent);
 }

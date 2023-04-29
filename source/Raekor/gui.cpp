@@ -2,7 +2,7 @@
 #include "gui.h"
 #include "IconsFontAwesome5.h"
 
-namespace GUI {
+namespace Raekor::GUI {
 
 void BeginDockSpace() {
     ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
@@ -57,9 +57,9 @@ void EndFrame() {
 }
 
 
-void SetFont(const std::string& filepath) {
+void SetFont(const std::string& inPath) {
     auto& io = ImGui::GetIO();
-    ImFont* pFont = io.Fonts->AddFontFromFileTTF(filepath.c_str(), 15.0f);
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF(inPath.c_str(), 15.0f);
     if (!io.Fonts->Fonts.empty()) {
         io.FontDefault = io.Fonts->Fonts.back();
     }
@@ -148,7 +148,7 @@ void SetTheme() {
 }
 
 
-glm::ivec2 GetMousePosWindow(const Raekor::Viewport& viewport, ImVec2 windowPos) {
+glm::ivec2 GetMousePosWindow(const Viewport& viewport, ImVec2 windowPos) {
     // get mouse position in window
     glm::ivec2 mousePosition;
     SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
@@ -157,7 +157,7 @@ glm::ivec2 GetMousePosWindow(const Raekor::Viewport& viewport, ImVec2 windowPos)
     glm::ivec2 rendererMousePosition = { (mousePosition.x - windowPos.x), (mousePosition.y - windowPos.y) };
 
     // flip mouse coords for opengl
-    rendererMousePosition.y = std::max(viewport.size.y - rendererMousePosition.y, 0u);
+    rendererMousePosition.y = std::max(viewport.GetSize().y - rendererMousePosition.y, 0u);
     rendererMousePosition.x = std::max(rendererMousePosition.x, 0);
 
     return rendererMousePosition;

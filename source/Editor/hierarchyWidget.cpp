@@ -13,7 +13,8 @@ HierarchyWidget::HierarchyWidget(Editor* editor) : IWidget(editor, ICON_FA_STREA
 
 
 void HierarchyWidget::draw(float dt) {
-    ImGui::Begin(m_Title.c_str(), &m_Visible);
+    ImGui::Begin(m_Title.c_str(), &m_Open);
+    m_Visible = ImGui::IsWindowAppearing();
 
     auto& scene = GetScene();
     auto& active_entity = GetActiveEntity();

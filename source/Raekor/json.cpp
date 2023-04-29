@@ -355,7 +355,7 @@ ObjectBuilder& ObjectBuilder::WritePair(const std::string& inKey, const std::str
 }
 
 
-std::string ObjectBuilder::Build() {
+std::string ObjectBuilder::AsString() {
 	m_Stream.seekp(-2, m_Stream.cur);
 	m_Stream << "\n}";
 	return m_Stream.str();

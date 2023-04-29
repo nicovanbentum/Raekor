@@ -152,7 +152,7 @@ void MenubarWidget::draw(float dt) {
                 if (widget.get() == this)
                     continue;
 
-                bool is_visible = widget->IsVisible();
+                bool is_visible = widget->IsOpen();
 
                 if (ImGui::MenuItem(std::string(widget->GetTitle() + "Window").c_str(), "", &is_visible))
                     is_visible ? widget->Show() : widget->Hide();

@@ -16,7 +16,8 @@ void RandomWidget::draw(float dt) {
     auto& scene = IWidget::GetScene();
     auto& renderer = IWidget::GetRenderer();
 
-    ImGui::Begin(m_Title.c_str(), &m_Visible);
+    ImGui::Begin(m_Title.c_str(), &m_Open);
+    m_Visible = ImGui::IsWindowAppearing();
     ImGui::SetItemDefaultFocus();
 
     if (ImGui::Checkbox("VSync", (bool*)(&renderer.settings.vsync))) {

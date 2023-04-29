@@ -100,7 +100,7 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
 
     std::vector<float> dists(settings.nrOfCascades);
 
-    // Calculate split depths based on view camera frustum
+    // Calculate split depths based on view m_Camera frustum
     // Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
     for (uint32_t i = 0; i < settings.nrOfCascades; i++) {
         const float p = (i + 1) / float(settings.nrOfCascades);
@@ -181,7 +181,7 @@ void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
 
     std::vector<float> dists(settings.nrOfCascades);
 
-    // Calculate split depths based on view camera frustum
+    // Calculate split depths based on view m_Camera frustum
     // Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
     for (uint32_t i = 0; i < settings.nrOfCascades; i++) {
         const float p = (i + 1) / float(settings.nrOfCascades);
@@ -1290,7 +1290,7 @@ RayTracingOneWeekend::~RayTracingOneWeekend() {
 
 
 void RayTracingOneWeekend::compute(const Viewport& viewport, bool update) {
-    // if the shader changed or we moved the camera we clear the result
+    // if the shader changed or we moved the m_Camera we clear the result
     if (!update) {
         glDeleteBuffers(1, &sphereBuffer);
         glCreateBuffers(1, &sphereBuffer);

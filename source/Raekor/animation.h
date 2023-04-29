@@ -10,18 +10,18 @@ public:
 	KeyFrames() = default;
 	KeyFrames(uint32_t inBoneIndex) : m_BoneIndex(inBoneIndex) {}
 
-	void LoadFromAssimp(const aiNodeAnim* nodeAnim);
-	void LoadFromGltf(const cgltf_animation* nodeAnim);
+	void LoadFromAssimp(const aiNodeAnim* inNodeAnim);
+	void LoadFromGltf(const cgltf_animation* inNodeAnim);
 
 	glm::vec3 GetInterpolatedScale(float animationTime) const;
 	glm::quat GetInterpolatedRotation(float animationTime) const;
 	glm::vec3 GetInterpolatedPosition(float animationTime) const;
 
 private:
-	uint32_t m_BoneIndex;
-	std::vector<aiVectorKey> positionKeys;
-	std::vector<aiQuatKey> rotationkeys;
-	std::vector<aiVectorKey> scaleKeys;
+	uint32_t				 m_BoneIndex;
+	std::vector<aiVectorKey> m_ScaleKeys;
+	std::vector<aiVectorKey> m_PositionKeys;
+	std::vector<aiQuatKey>	 m_RotationKeys;
 };
 
 

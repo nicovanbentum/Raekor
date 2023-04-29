@@ -335,7 +335,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
             switch (channel.target_path) {
             case cgltf_animation_path_type_translation: {
                 for (uint32_t index = 0; index < channel.sampler->input->count; index++) {
-                    auto& key = keyframes.positionKeys.emplace_back();
+                    auto& key = keyframes.m_PositionKeys.emplace_back();
 
                     const auto num_components = cgltf_num_components(channel.sampler->input->type);
                     assert(num_components == 1);
@@ -345,8 +345,8 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
                 }
 
                 for (uint32_t index = 0; index < channel.sampler->output->count; index++) {
-                    assert(index < keyframes.positionKeys.size());
-                    auto& key = keyframes.positionKeys[index];
+                    assert(index < keyframes.m_PositionKeys.size());
+                    auto& key = keyframes.m_PositionKeys[index];
 
                     const auto num_components = cgltf_num_components(channel.sampler->output->type);
                     assert(num_components == 3);
@@ -358,7 +358,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
             } break;
             case cgltf_animation_path_type_rotation: {
                 for (uint32_t index = 0; index < channel.sampler->input->count; index++) {
-                    auto& key = keyframes.rotationkeys.emplace_back();
+                    auto& key = keyframes.m_RotationKeys.emplace_back();
 
                     const auto num_components = cgltf_num_components(channel.sampler->input->type);
                     assert(num_components == 1);
@@ -368,8 +368,8 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
                 }
 
                 for (uint32_t index = 0; index < channel.sampler->output->count; index++) {
-                    assert(index < keyframes.rotationkeys.size());
-                    auto& key = keyframes.rotationkeys[index];
+                    assert(index < keyframes.m_RotationKeys.size());
+                    auto& key = keyframes.m_RotationKeys[index];
 
                     const auto num_components = cgltf_num_components(channel.sampler->output->type);
                     assert(num_components == 4);
@@ -380,7 +380,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
             } break;
             case cgltf_animation_path_type_scale: {
                 for (uint32_t index = 0; index < channel.sampler->input->count; index++) {
-                    auto& key = keyframes.scaleKeys.emplace_back();
+                    auto& key = keyframes.m_ScaleKeys.emplace_back();
 
                     const auto num_components = cgltf_num_components(channel.sampler->input->type);
                     assert(num_components == 1);
@@ -390,8 +390,8 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
                 }
 
                 for (uint32_t index = 0; index < channel.sampler->output->count; index++) {
-                    assert(index < keyframes.scaleKeys.size());
-                    auto& key = keyframes.scaleKeys[index];
+                    assert(index < keyframes.m_ScaleKeys.size());
+                    auto& key = keyframes.m_ScaleKeys[index];
 
                     const auto num_components = cgltf_num_components(channel.sampler->output->type);
                     assert(num_components == 3);
@@ -406,18 +406,18 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
 
     for (auto& animation : skeleton.animations) {
         for (auto& [joint_index, keyframes] : animation.m_BoneAnimations) {
-            const auto max = glm::max(glm::max(keyframes.positionKeys.size(), keyframes.rotationkeys.size()), keyframes.scaleKeys.size());
+            const auto max = glm::max(glm::max(keyframes.m_PositionKeys.size(), keyframes.m_RotationKeys.size()), keyframes.m_ScaleKeys.size());
 
             // if at least 1 of the 3 key channels has key data, the other 2 channels need at least 1 key
             if (max > 0) {
-                if (keyframes.positionKeys.empty()) 
-                    keyframes.positionKeys.emplace_back();
+                if (keyframes.m_PositionKeys.empty()) 
+                    keyframes.m_PositionKeys.emplace_back();
 
-                if (keyframes.rotationkeys.empty()) 
-                    keyframes.rotationkeys.emplace_back();
+                if (keyframes.m_RotationKeys.empty()) 
+                    keyframes.m_RotationKeys.emplace_back();
 
-                if (keyframes.scaleKeys.empty()) 
-                    keyframes.scaleKeys.emplace_back();
+                if (keyframes.m_ScaleKeys.empty()) 
+                    keyframes.m_ScaleKeys.emplace_back();
             }
         }
     }

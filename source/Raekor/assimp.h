@@ -18,21 +18,21 @@ class Skeleton;
 
 class AssimpImporter {
 public:
-	AssimpImporter(Scene& scene) : m_Scene(scene) {}
-	bool LoadFromFile(Assets& assets, const std::string& file);
+	AssimpImporter(Scene& inScene) : m_Scene(inScene) {}
+	bool LoadFromFile(Assets& inAssets, const std::string& inFile);
 
-	template<typename Fn> void SetUploadMeshCallbackFunction(Fn&& fn) { m_UploadMeshCallback = fn; }
-	template<typename Fn> void SetUploadMaterialCallbackFunction(Fn&& fn) { m_UploadMaterialCallback = fn; }
-	template<typename Fn> void SetUploadSkeletonCallbackFunction(Fn&& fn) { m_UploadSkeletonCallback = fn; }
+	template<typename Fn> void SetUploadMeshCallbackFunction(Fn&& inFunction)	  { m_UploadMeshCallback = inFunction; }
+	template<typename Fn> void SetUploadMaterialCallbackFunction(Fn&& inFunction) { m_UploadMaterialCallback = inFunction; }
+	template<typename Fn> void SetUploadSkeletonCallbackFunction(Fn&& inFunction) { m_UploadSkeletonCallback = inFunction; }
 
 private:
-	void parseMaterial(aiMaterial* assimpMaterial, entt::entity entity);
-	void parseNode(const aiNode* assimpNode, entt::entity entity, entt::entity parent);
-	void parseMeshes(const aiNode* assimpNode, entt::entity entity, entt::entity parent);
+	void ParseMaterial(aiMaterial* inAssimpMaterial, entt::entity inEntity);
+	void ParseNode(const aiNode* inAssimpNode, entt::entity inEntity, entt::entity inParent);
+	void ParseMeshes(const aiNode* inAssimpNode, entt::entity inEntity, entt::entity inParent);
 
-	void LoadMesh(entt::entity entity, const aiMesh* assimpMesh);
-	void LoadBones(entt::entity entity, const aiMesh* assimpMesh);
-	void LoadMaterial(entt::entity entity, const aiMaterial* assimpMaterial);
+	void LoadMesh(entt::entity inEntity, const aiMesh* inAssimpMesh);
+	void LoadBones(entt::entity inEntity, const aiMesh* inAssimpMesh);
+	void LoadMaterial(entt::entity inEntity, const aiMaterial* inAssimpMaterial);
 
 
 private:

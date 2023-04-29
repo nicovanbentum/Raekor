@@ -62,7 +62,7 @@ void Editor::OnUpdate(float dt) {
     if (m_Physics.GetState() == Physics::Stepping)
         m_Physics.Step(m_Scene, dt);
 
-    // update the camera
+    // update the m_Camera
     m_Viewport.OnUpdate(dt);
 
     // update scene components
@@ -102,7 +102,7 @@ void Editor::OnUpdate(float dt) {
 
     // draw widgets
     for (const auto& widget : m_Widgets)
-        if (widget->IsVisible()) {
+        if (widget->IsOpen()) {
             auto window_class = ImGuiWindowClass();
             window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoCloseButton;
             ImGui::SetNextWindowClass(&window_class);
@@ -180,20 +180,20 @@ void Editor::OnEvent(const SDL_Event& event) {
     }
 
     if (event.type == SDL_KEYDOWN && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
-        m_Viewport.GetCamera().zoomConstant *= 20.0f;
-        m_Viewport.GetCamera().moveConstant *= 20.0f;
+        m_Viewport.GetCamera().mZoomConstant *= 20.0f;
+        m_Viewport.GetCamera().mMoveConstant *= 20.0f;
     }
 
     if (event.type == SDL_KEYUP && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
-        m_Viewport.GetCamera().zoomConstant /= 20.0f;
-        m_Viewport.GetCamera().moveConstant /= 20.0f;
+        m_Viewport.GetCamera().mZoomConstant /= 20.0f;
+        m_Viewport.GetCamera().mMoveConstant /= 20.0f;
     }
 
     auto& camera = m_Viewport.GetCamera();
 
     if (event.type == SDL_MOUSEMOTION) {
         if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(3)) {
-            auto formula = glm::radians(0.022f * camera.sensitivity * 2.0f);
+            auto formula = glm::radians(0.022f * camera.mSensitivity * 2.0f);
             camera.Look(glm::vec2(event.motion.xrel * formula, event.motion.yrel * formula));
         }
         else if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(2))

@@ -11,7 +11,8 @@ RTTI_CLASS_CPP_NO_FACTORY(AssetsWidget) {}
 AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, ICON_FA_PALETTE "  Materials ") {}
 
 void AssetsWidget::draw(float dt) {
-    ImGui::Begin(m_Title.c_str(), &m_Visible);
+    ImGui::Begin(m_Title.c_str(), &m_Open);
+    m_Visible = ImGui::IsWindowAppearing();
 
     auto materials = IWidget::GetScene().view<Material, Name>();
 

@@ -31,6 +31,12 @@ struct Value {
 	template<> const Array&	 As() const { assert(mType == ValueType::Array);  return mArray;		}
 	template<> const String& As() const { assert(mType == ValueType::String); return mData.mString; }
 
+	template<typename T> T& As();
+	template<> bool& As()   { assert(mType == ValueType::Bool);   return mData.mBool;	}
+	template<> float& As()  { assert(mType == ValueType::Number); return mData.mNumber; }
+	template<> Array& As()  { assert(mType == ValueType::Array);  return mArray;		}
+	template<> String& As() { assert(mType == ValueType::String); return mData.mString; }
+
 	union Data {
 		bool	mBool;
 		float	mNumber;
@@ -68,8 +74,9 @@ public:
 	Parser(const std::string& inSrc) : m_Source(inSrc) {}
 
 	bool			Parse();
-	const Object&	Get(uint32_t inIndex)									   const { return m_Objects[inIndex]; }
-	uint32_t		Count()													   const { return uint32_t(m_Objects.size()); }
+	Object&		    Get(uint32_t inIndex)											 { return m_Objects[inIndex]; }
+	const Object&   Get(uint32_t inIndex) const										 { return m_Objects[inIndex]; }
+	uint32_t		Count()	const													 { return uint32_t(m_Objects.size()); }
 	const Value&	GetValue(const Object& inObject, const std::string& inKey) const { return inObject.at(inKey); }
 	bool			Contains(const Object& inObject, const std::string& inKey) const { return inObject.find(inKey) != inObject.end(); }
 	bool			IsEmpty (const Object& inObject, const std::string& inKey) const { return Contains(inObject, inKey); }
@@ -133,7 +140,8 @@ public:
 	/* Writes a JSON key-value pair to the stream directly from strings. */
 	ObjectBuilder& WritePair(const std::string& inKey, const std::string& inValue);
 
-	std::string Build();
+	std::string AsString();
+
 
 private:
 	void WriteValue(const Value& inValue, uint32_t inIndentLevel = 1);

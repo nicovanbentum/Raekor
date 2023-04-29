@@ -5,7 +5,8 @@
 namespace Raekor {
 
 static std::default_random_engine sDefaultRandomEngine;
-static std::uniform_real_distribution<float> sUniformDistribution01(0.0, 1.0);
+static std::uniform_real_distribution<float> sUniformDistributionZO(0.0, 1.0);
+static std::uniform_real_distribution<float> sUniformDistributionNO(-1.0, 1.0);
 
 
 BBox3D& BBox3D::Transform(const Mat4x4& inTransform) {
@@ -18,8 +19,8 @@ BBox3D& BBox3D::Transform(const Mat4x4& inTransform) {
 
 Ray::Ray(Viewport& inViewport, Vec2 inCoords) {
     Vec3 ray_ndc = {
-        (2.0f * inCoords.x) / inViewport.size.x - 1.0f,
-        1.0f - (2.0f * inCoords.y) / inViewport.size.y,
+        (2.0f * inCoords.x) / inViewport.GetSize().x - 1.0f,
+        1.0f - (2.0f * inCoords.y) / inViewport.GetSize().y,
         1.0f
     };
 
@@ -190,14 +191,24 @@ bool gPointInAABB(const Vec3& inPoint, const BBox3D& inAABB) {
 }
 
 
-float gRandomFloat01() {
-    return sUniformDistribution01(sDefaultRandomEngine);
+float gRandomFloatZO() {
+    return sUniformDistributionZO(sDefaultRandomEngine);
+}
+
+float gRandomFloatNO() {
+    return sUniformDistributionNO(sDefaultRandomEngine);
+}
+
+Mat3x3 gRandomOrientation() {
+    return glm::mat3_cast(
+        glm::angleAxis(gRandomFloatZO() * (float(M_PI) * 2.0f), 
+            glm::normalize(glm::vec3(gRandomFloatNO(), gRandomFloatNO(), gRandomFloatNO()))));
 }
 
 
  /* "Fast Random Rotation Matrices" - James Arvo, Graphics Gems 3 */
 Mat3x3 gRandomRotationMatrix() {
-    float x[3] = { gRandomFloat01(), gRandomFloat01(), gRandomFloat01() };
+    float x[3] = { gRandomFloatZO(), gRandomFloatZO(), gRandomFloatZO() };
     
     constexpr float PITIMES2 = M_PI * 2;
     float theta = x[0] * PITIMES2;  /* Rotation about the pole (Z).      */

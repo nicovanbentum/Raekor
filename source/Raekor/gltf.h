@@ -13,21 +13,21 @@ class Skeleton;
 
 class GltfImporter {
 public:
-	GltfImporter(Scene& scene) : m_Scene(scene) {}
+	GltfImporter(Scene& inScene) : m_Scene(inScene) {}
 	~GltfImporter();
 
-	bool LoadFromFile(Assets& assets, const std::string& file);
+	bool LoadFromFile(Assets& inAssets, const std::string& inFile);
 
-	template<typename Fn> void SetUploadMeshCallbackFunction(Fn&& fn) { m_UploadMeshCallback = fn; }
-	template<typename Fn> void SetUploadMaterialCallbackFunction(Fn&& fn) { m_UploadMaterialCallback = fn; }
-	template<typename Fn> void SetUploadSkeletonCallbackFunction(Fn&& fn) { m_UploadSkeletonCallback = fn; }
+	template<typename Fn> void SetUploadMeshCallbackFunction(Fn&& inFunction) { m_UploadMeshCallback = inFunction; }
+	template<typename Fn> void SetUploadMaterialCallbackFunction(Fn&& inFunction) { m_UploadMaterialCallback = inFunction; }
+	template<typename Fn> void SetUploadSkeletonCallbackFunction(Fn&& inFunction) { m_UploadSkeletonCallback = inFunction; }
 
 private:
 	void ParseNode(const cgltf_node& gltfNode, entt::entity parent, glm::mat4 transform);
 
-	void ConvertMesh(Entity inEntity, const cgltf_primitive& assimpMesh);
-	void ConvertBones(Entity inEntity, const cgltf_node& assimpMesh);
-	void ConvertMaterial(Entity inEntity, const cgltf_material& assimpMaterial);
+	void ConvertMesh(Entity inEntity, const cgltf_primitive& inAssimpMesh);
+	void ConvertBones(Entity inEntity, const cgltf_node& inAssimpMesh);
+	void ConvertMaterial(Entity inEntity, const cgltf_material& inAssimpMaterial);
 
 	int GetJointIndex(const cgltf_node* inSkinNode, const cgltf_node* inJointNode);
 

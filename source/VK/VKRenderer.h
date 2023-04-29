@@ -18,6 +18,7 @@ public:
 
     void Init(Scene& scene);
     void ResetAccumulation();
+    uint32_t GetFrameCounter();
 
     void UpdateBVH(Scene& scene);
     void UpdateMaterials(Assets& assets, Scene& scene);

@@ -4,30 +4,31 @@ namespace Raekor {
 
 class Async {
 private:
-    struct Job {
+    class Job {
+    public:
         using Ptr = std::shared_ptr<Job>;
         using Function = std::function<void()>;
 
-        Job(const Function& function) : function(function) {}
-        void WaitCPU() const { while (!finished) {} }
+        Job(const Function& inFunction) : m_Function(inFunction) {}
+        void Run() { m_Function(); m_Finished = true; }
+        void WaitCPU() const { while (!m_Finished) {} }
 
-        Function function;
-        bool finished = false;
+    private:
+        Function m_Function;
+        bool m_Finished = false;
     };
 
 public:
     Async();
-    Async(int threadCount);
+    Async(uint32_t threadCount);
     ~Async();
     
+    using JobPtr = Job::Ptr;
     /* Queue up a job: lambda of signature void(void) */
-    static Job::Ptr sQueueJob(const Job::Function& function);
+    static JobPtr sQueueJob(const Job::Function& inJobFunction);
 
     /* Wait for all jobs to finish. */ 
     static void sWait();
-
-    /* Wait for a specific job to finish. */
-    static void sWait(const Job::Ptr& job);
 
     /* Scoped lock on the global mutex,
         useful for ensuring thread safety inside a job function. */
@@ -44,7 +45,7 @@ private:
 
     bool m_Quit = false;
     std::mutex m_Mutex;
-    std::queue<Job::Ptr> m_JobQueue;
+    std::queue<JobPtr> m_JobQueue;
     std::vector<std::thread> m_Threads;
     std::atomic<int32_t> m_ActiveJobCount;
     std::condition_variable m_ConditionVariable;

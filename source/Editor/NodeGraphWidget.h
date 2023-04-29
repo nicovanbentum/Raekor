@@ -1,6 +1,7 @@
 #pragma once
 
 #include "widget.h"
+#include "Raekor/json.h"
 
 namespace Raekor {
 
@@ -31,11 +32,11 @@ public:
 
     void Build();
     bool IsRootNode() const { return inputPins.empty(); }
-    const Pin* FindPin(int id) const;
+    const Pin* FindPin(int id) const { return nullptr; }
 
     template<class Archive>
     void serialize(Archive& archive) {
-        archive(CEREAL_NVP(id), CEREAL_NVP(name), CEREAL_NVP(inputPins), CEREAL_NVP(outputPins));
+        archive(CEREAL_NVP(inputPins), CEREAL_NVP(outputPins));
     }
 
     template<Pin::Type pinType>
@@ -52,8 +53,8 @@ public:
     }
 
 protected:
-    int id;
-    std::string name;
+    int mIndex;
+    std::string mName;
     std::vector<Pin> inputPins;
     std::vector<Pin> outputPins;
 };
@@ -81,6 +82,8 @@ public:
     virtual void onEvent(const SDL_Event& ev) override;
     const GraphNode* FindNode(int id) const;
 
+    JSON::Object* GetSelectedObject() { return m_SelectedObject == -1 ? nullptr : &m_JSON.Get(m_SelectedObject); }
+
     template<class Archive>
     void serialize(Archive& archive) {
         archive(CEREAL_NVP(_pin_id), CEREAL_NVP(_node_id), CEREAL_NVP(_link_id), CEREAL_NVP(m_Links), CEREAL_NVP(m_Nodes));
@@ -96,6 +99,9 @@ private:
     int _link_id = 1;
     std::vector<Link> m_Links;
     std::vector<GraphNode> m_Nodes;
+
+    JSON::Parser m_JSON;
+    int m_SelectedObject = -1;
 
     std::string m_OpenFilePath;
     bool m_WasRightClicked = false;

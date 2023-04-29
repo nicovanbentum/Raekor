@@ -56,7 +56,7 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
     // pre-parse materials
     for (const auto& [index, material] : gEnumerate(Slice(m_AiScene->mMaterials, m_AiScene->mNumMaterials))) {
         std::cout << "\rConverting material textures: [" << gAsciiProgressBar(float(index + 1) / m_AiScene->mNumMaterials) << ']';
-        parseMaterial(material, m_Scene.create());
+        ParseMaterial(material, m_Scene.create());
     }
 
     std::cout << '\n';
@@ -70,13 +70,13 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
 
     // parse the node tree recursively
     auto root = m_Scene.CreateSpatialEntity(m_AiScene->mRootNode->mName.C_Str());
-    parseNode(m_AiScene->mRootNode, entt::null, root);
+    ParseNode(m_AiScene->mRootNode, entt::null, root);
 
     return true;
 }
 
 
-void AssimpImporter::parseMaterial(aiMaterial* assimpMaterial, entt::entity entity) {
+void AssimpImporter::ParseMaterial(aiMaterial* assimpMaterial, entt::entity entity) {
     auto& nameComponent = m_Scene.emplace<Name>(entity);
 
     if (strcmp(assimpMaterial->GetName().C_Str(), "") != 0)
@@ -90,7 +90,7 @@ void AssimpImporter::parseMaterial(aiMaterial* assimpMaterial, entt::entity enti
 }
 
 
-void AssimpImporter::parseNode(const aiNode* assimpNode, entt::entity parent, entt::entity new_entity) {
+void AssimpImporter::ParseNode(const aiNode* assimpNode, entt::entity parent, entt::entity new_entity) {
     // set the name
     m_Scene.get<Name>(new_entity).name = assimpNode->mName.C_Str();
 
@@ -109,17 +109,17 @@ void AssimpImporter::parseNode(const aiNode* assimpNode, entt::entity parent, en
     transform.Decompose();
 
     // process meshes
-    parseMeshes(assimpNode, new_entity, parent);
+    ParseMeshes(assimpNode, new_entity, parent);
 
     // process children
     for (uint32_t i = 0; i < assimpNode->mNumChildren; i++) {
         auto child = m_Scene.CreateSpatialEntity(assimpNode->mChildren[i]->mName.C_Str());
-        parseNode(assimpNode->mChildren[i], new_entity, child);
+        ParseNode(assimpNode->mChildren[i], new_entity, child);
     }
 }
 
 
-void AssimpImporter::parseMeshes(const aiNode* assimpNode, entt::entity new_entity, entt::entity parent) {
+void AssimpImporter::ParseMeshes(const aiNode* assimpNode, entt::entity new_entity, entt::entity parent) {
     for (uint32_t i = 0; i < assimpNode->mNumMeshes; i++) {
         auto entity = new_entity;
         const auto assimp_mesh = m_AiScene->mMeshes[assimpNode->mMeshes[i]];

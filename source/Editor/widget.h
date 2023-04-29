@@ -21,9 +21,10 @@ public:
     virtual void draw(float dt) = 0;
     virtual void onEvent(const SDL_Event& ev) = 0;
 
-    void Show() { m_Visible = true; }
-    void Hide() { m_Visible = false; }
+    void Show() { m_Open = true; }
+    void Hide() { m_Open = false; }
     
+    bool IsOpen()    { return m_Open; }
     bool IsVisible() { return m_Visible; }
     bool IsFocused() { return m_Focused; }
 
@@ -39,7 +40,8 @@ protected:
 
     Editor* m_Editor;
     std::string m_Title;
-    bool m_Visible = true;
+    bool m_Open = true;
+    bool m_Visible = false;
     bool m_Focused = false;
 };
 

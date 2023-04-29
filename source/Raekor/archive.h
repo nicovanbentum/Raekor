@@ -63,7 +63,7 @@ public:
 			}
 		}
 
-		m_Ofs << obj.Build() << "\n\n";
+		m_Ofs << obj.AsString() << "\n\n";
 
 		return *this;
 	}

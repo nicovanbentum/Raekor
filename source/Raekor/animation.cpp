@@ -6,13 +6,13 @@ namespace Raekor {
 
 void KeyFrames::LoadFromAssimp(const aiNodeAnim* nodeAnim) {
 	for (const auto& key : Slice(nodeAnim->mScalingKeys, nodeAnim->mNumScalingKeys))
-		scaleKeys.push_back(key);
+		m_ScaleKeys.push_back(key);
 
 	for (const auto& key : Slice(nodeAnim->mPositionKeys, nodeAnim->mNumPositionKeys))
-		positionKeys.push_back(key);
+		m_PositionKeys.push_back(key);
 
 	for (const auto& key : Slice(nodeAnim->mRotationKeys, nodeAnim->mNumRotationKeys))
-		rotationkeys.push_back(key);
+		m_RotationKeys.push_back(key);
 }
 
 
@@ -22,15 +22,15 @@ void KeyFrames::LoadFromGltf(const cgltf_animation* nodeAnim) {
 
 
 glm::vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
-	if (positionKeys.size() == 1) {
+	if (m_PositionKeys.size() == 1) {
 		// No interpolation necessary for single value
-		auto v = positionKeys[0].mValue;
+		auto v = m_PositionKeys[0].mValue;
 		return { v.x, v.y, v.z };
 	}
 
 	uint32_t PositionIndex = 0;
-	for (unsigned int i = 0; i < positionKeys.size() - 1; i++) {
-		if (animationTime < (float)positionKeys[i + 1].mTime) {
+	for (unsigned int i = 0; i < m_PositionKeys.size() - 1; i++) {
+		if (animationTime < (float)m_PositionKeys[i + 1].mTime) {
 			PositionIndex = i;
 			break;
 		}
@@ -38,12 +38,12 @@ glm::vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
 
 	uint32_t NextPositionIndex = (PositionIndex + 1);
 
-	float DeltaTime = (float)(positionKeys[NextPositionIndex].mTime - positionKeys[PositionIndex].mTime);
-	float Factor = (animationTime - (float)positionKeys[PositionIndex].mTime) / DeltaTime;
+	float DeltaTime = (float)(m_PositionKeys[NextPositionIndex].mTime - m_PositionKeys[PositionIndex].mTime);
+	float Factor = (animationTime - (float)m_PositionKeys[PositionIndex].mTime) / DeltaTime;
 	if (Factor < 0.0f) Factor = 0.0f;
 
-	const aiVector3D& Start = positionKeys[PositionIndex].mValue;
-	const aiVector3D& End = positionKeys[NextPositionIndex].mValue;
+	const aiVector3D& Start = m_PositionKeys[PositionIndex].mValue;
+	const aiVector3D& End = m_PositionKeys[NextPositionIndex].mValue;
 	aiVector3D Delta = End - Start;
 	auto aiVec = Start + Factor * Delta;
 	return { aiVec.x, aiVec.y, aiVec.z };
@@ -51,15 +51,15 @@ glm::vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
 	
 
 glm::quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
-	if (rotationkeys.size() == 1) {
+	if (m_RotationKeys.size() == 1) {
 		// No interpolation necessary for single value
-		auto v = rotationkeys[0].mValue;
+		auto v = m_RotationKeys[0].mValue;
 		return glm::quat(v.w, v.x, v.y, v.z);
 	}
 
 	uint32_t RotationIndex = 0;
-	for (unsigned int i = 0; i < rotationkeys.size() - 1; i++) {
-		if (animationTime < (float)rotationkeys[i + 1].mTime) {
+	for (unsigned int i = 0; i < m_RotationKeys.size() - 1; i++) {
+		if (animationTime < (float)m_RotationKeys[i + 1].mTime) {
 			RotationIndex = i;
 			break;
 		}
@@ -67,13 +67,13 @@ glm::quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
 
 	uint32_t NextRotationIndex = (RotationIndex + 1);
 
-	float DeltaTime = (float)(rotationkeys[NextRotationIndex].mTime - rotationkeys[RotationIndex].mTime);
-	float Factor = (animationTime - (float)rotationkeys[RotationIndex].mTime) / DeltaTime;
+	float DeltaTime = (float)(m_RotationKeys[NextRotationIndex].mTime - m_RotationKeys[RotationIndex].mTime);
+	float Factor = (animationTime - (float)m_RotationKeys[RotationIndex].mTime) / DeltaTime;
 	if (Factor < 0.0f) 
 		Factor = 0.0f;
 
-	const aiQuaternion& StartRotationQ = rotationkeys[RotationIndex].mValue;
-	const aiQuaternion& EndRotationQ = rotationkeys[NextRotationIndex].mValue;
+	const aiQuaternion& StartRotationQ = m_RotationKeys[RotationIndex].mValue;
+	const aiQuaternion& EndRotationQ = m_RotationKeys[NextRotationIndex].mValue;
 	auto q = aiQuaternion();
 	aiQuaternion::Interpolate(q, StartRotationQ, EndRotationQ, Factor);
 	q = q.Normalize();
@@ -82,15 +82,15 @@ glm::quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
 
 
 glm::vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
-	if (scaleKeys.size() == 1) {
+	if (m_ScaleKeys.size() == 1) {
 		// No interpolation necessary for single value
-		auto v = scaleKeys[0].mValue;
+		auto v = m_ScaleKeys[0].mValue;
 		return { v.x, v.y, v.z };
 	}
 
 	uint32_t index = 0;
-	for (unsigned int i = 0; i < scaleKeys.size() - 1; i++) {
-		if (animationTime < (float)scaleKeys[i + 1].mTime) {
+	for (unsigned int i = 0; i < m_ScaleKeys.size() - 1; i++) {
+		if (animationTime < (float)m_ScaleKeys[i + 1].mTime) {
 			index = i;
 			break;
 		}
@@ -98,12 +98,12 @@ glm::vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
 
 	uint32_t nextIndex = (index + 1);
 
-	float deltaTime = (float)(scaleKeys[nextIndex].mTime - scaleKeys[index].mTime);
-	float factor = (animationTime - (float)scaleKeys[index].mTime) / deltaTime;
+	float deltaTime = (float)(m_ScaleKeys[nextIndex].mTime - m_ScaleKeys[index].mTime);
+	float factor = (animationTime - (float)m_ScaleKeys[index].mTime) / deltaTime;
 	if (factor < 0.0f) factor = 0.0f;
 
-	const auto& start = scaleKeys[index].mValue;
-	const auto& end = scaleKeys[nextIndex].mValue;
+	const auto& start = m_ScaleKeys[index].mValue;
+	const auto& end = m_ScaleKeys[nextIndex].mValue;
 	auto delta = end - start;
 	auto aiVec = start + factor * delta;
 	return { aiVec.x, aiVec.y, aiVec.z };

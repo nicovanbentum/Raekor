@@ -371,7 +371,7 @@ void PathTracePass::Record(const Device& device, const Viewport& viewport, VkCom
 
     VkStridedDeviceAddressRegionKHR callable_region = {};
 
-    EXT::vkCmdTraceRaysKHR(commandBuffer, &raygen_region, &miss_region, &hit_region, &callable_region, viewport.size.x, viewport.size.y, 1);
+    EXT::vkCmdTraceRaysKHR(commandBuffer, &raygen_region, &miss_region, &hit_region, &callable_region, viewport.GetSize().x, viewport.GetSize().y, 1);
 }
 
 

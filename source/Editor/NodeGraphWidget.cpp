@@ -10,7 +10,7 @@ RTTI_CLASS_CPP_NO_FACTORY(NodeGraphWidget) {}
 NodeGraphWidget::NodeGraphWidget(Editor* editor) : IWidget(editor, ICON_FA_SITEMAP "  Node Graph ") {}
 
 void NodeGraphWidget::draw(float dt) {
-	ImGui::Begin(m_Title.c_str(), &m_Visible);
+	m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open);
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2.0f, 2.0f));
 	
@@ -23,32 +23,8 @@ void NodeGraphWidget::draw(float dt) {
 			auto buffer = std::stringstream();
 			buffer << ifs.rdbuf();
 
-			auto json = JSON::Parser(buffer.str());
-
-			if (json.Parse()) {
-				for (const auto& object : json) {
-					if (!json.Contains(object, "Type"))
-						continue;
-
-					const auto& type_value = json.GetValue(object, "Type");
-					const auto& type_string = type_value.As<JSON::String>().ToString();
-					
-					auto& node = m_Nodes.emplace_back();
-					node.id = GetNextNodeID();
-					node.name = type_string;
-
-					for (const auto& [name, value] : object) {
-						if (name == "Type" || name == "Name")
-							continue;
-
-						auto& pin = node.AddPin<Pin::OUTPUT>(GetNextPinID());
-						pin.name = name;
-					}
-						
-					node.Build();
-				}
-			}
-
+			m_JSON = JSON::Parser(buffer.str());
+			m_JSON.Parse();
 			m_OpenFilePath = FileSystem::relative(opened_file_path).string();
 		}
 	} 
@@ -92,7 +68,7 @@ void NodeGraphWidget::draw(float dt) {
 			node_fifo.pop();
 			depth_size--;
 
-			ImNodes::SetNodeGridSpacePos(current_node->id, cursor);
+			//ImNodes::SetNodeGridSpacePos(current_node->id, cursor);
 			
 			for (const auto& outPin : current_node->outputPins) {
 				for (const auto& link : m_Links) {
@@ -107,14 +83,14 @@ void NodeGraphWidget::draw(float dt) {
 				}
 			}
 
-			const auto dimensions = ImNodes::GetNodeDimensions(current_node->id);
+			//const auto dimensions = ImNodes::GetNodeDimensions(current_node->id);
 			if (depth_size == 0) {
 				depth_size = node_fifo.size();
-				cursor.x += dimensions.x + 50.0f;
-				cursor.y = 0.0f - ((depth_size * 0.5f) * (dimensions.y + 50.0f));
+				//cursor.x += dimensions.x + 50.0f;
+				//cursor.y = 0.0f - ((depth_size * 0.5f) * (dimensions.y + 50.0f));
 			}
-			else
-				cursor.y += dimensions.y + 50.0f;
+			//else
+				//cursor.y += dimensions.y + 50.0f;
 		}
 	}
 
@@ -122,10 +98,6 @@ void NodeGraphWidget::draw(float dt) {
 	ImGui::Text("Current File: \"%s\"", m_OpenFilePath.c_str());
 
 	ImGui::PopStyleVar();
-
-	auto selected_nodes = std::vector<int>(ImNodes::NumSelectedNodes());
-	if(!selected_nodes.empty())
-		ImNodes::GetSelectedNodes(selected_nodes.data());
 
 	ImNodes::BeginNodeEditor();
 	ImNodes::PushColorStyle(ImNodesCol_TitleBar, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_Button)));
@@ -150,7 +122,7 @@ void NodeGraphWidget::draw(float dt) {
 
 
 
-	if (ImGui::BeginPopup("New Node")) {
+	if (ImGui::BeginPopup("New Type")) {
 		for (const auto& registered_type : RTTIFactory::GetAllTypesIter()) {
 			if (ImGui::Selectable(registered_type.second->GetTypeName(), false)) {
 
@@ -162,51 +134,57 @@ void NodeGraphWidget::draw(float dt) {
 	}
 
 	if (m_WasRightClicked && ImNodes::IsEditorHovered()) {
-		ImGui::OpenPopup("New Node");
+		ImGui::OpenPopup("New Type");
 		m_WasRightClicked = false;
 	}
 
-	for (auto& node : m_Nodes) {
-		const auto is_selected = std::find(selected_nodes.begin(), selected_nodes.end(), node.id) != selected_nodes.end();
+	for (uint32_t index = 0; index < m_JSON.Count(); index++) {
+		auto& object = m_JSON.Get(index);
+		if (!m_JSON.Contains(object, "Type"))
+			continue;
 
-		if (is_selected) {
+		const auto& type_value = m_JSON.GetValue(object, "Type");
+		const auto& type_string = type_value.As<JSON::String>().ToString();
+
+		if (index == m_SelectedObject) {
 			ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 1.5f);
 			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
 		}
 
-		ImNodes::BeginNode(node.id);
+		ImNodes::BeginNode(index);
 
-		ImNodes::BeginNodeTitleBar();
-		ImGui::SetNextItemWidth(ImGui::CalcTextSize(node.name.c_str()).x + ImGui::GetFontSize());
-		ImGui::InputText("##", &node.name);
-		ImNodes::EndNodeTitleBar();
+		uint32_t pin_index = 0;
+		for (const auto& [name, value] : object) {
+			if (name == "Type" || name == "Name")
+				continue;
 
-		for (auto& pin : node.inputPins) {
-			ImNodes::BeginInputAttribute(pin.id);
-			ImNodes::EndInputAttribute();
-		}
-
-		for (auto& pin : node.outputPins) {
-			ImNodes::BeginOutputAttribute(pin.id);
-			ImGui::Text(pin.name.c_str());
+			ImNodes::BeginOutputAttribute(pin_index++);
+			ImGui::Text(name.c_str());
 			ImNodes::EndOutputAttribute();
 		}
 
 		ImNodes::EndNode();
 
-		if (is_selected) {
+		if (index == m_SelectedObject) {
 			ImNodes::PopStyleVar();
 			ImNodes::PopColorStyle();
 		}
+
 	}
-	
-	for (const auto& link : m_Links)
-		ImNodes::Link(link.id, link.start_id, link.end_id);
 
 	ImNodes::MiniMap();
 	ImNodes::PopColorStyle();
 	ImNodes::PopColorStyle();
 	ImNodes::EndNodeEditor();
+
+	if (ImNodes::NumSelectedNodes() > 0) {
+		auto selected_nodes = std::vector<int>(ImNodes::NumSelectedNodes());
+		ImNodes::GetSelectedNodes(selected_nodes.data());
+		m_SelectedObject = selected_nodes[0];
+	}
+	else {
+		m_SelectedObject = -1;
+	}
 
 	int start_id, end_id;
 	if (ImNodes::IsLinkCreated(&start_id, &end_id)) {
@@ -225,7 +203,7 @@ void NodeGraphWidget::draw(float dt) {
 
 	int base_attr_id = 0;
 	if (ImNodes::IsLinkDropped(&base_attr_id, false)) {
-		ImGui::OpenPopup("New Node");
+		ImGui::OpenPopup("New Type");
 		/*auto& node = m_Nodes.back();
 		if (!node.inputPins.empty()) {
 			m_Links.emplace_back(GetNextLinkID(), base_attr_id, node.inputPins[0].id);
@@ -250,64 +228,9 @@ void NodeGraphWidget::onEvent(const SDL_Event& ev) {
 					ImNodes::GetSelectedNodes(selected_nodes.data());
 				if(!selected_links.empty())
 					ImNodes::GetSelectedLinks(selected_links.data());
-
-				for (const auto& node_id : selected_nodes) {
-					auto it = std::find_if(m_Nodes.begin(), m_Nodes.end(), [node_id](const auto& node) { return node.id == node_id; });
-					if (it != m_Nodes.end()) {
-						std::vector<std::vector<Link>::iterator> links_to_delete;
-						for (auto link = m_Links.begin(); link != m_Links.end(); link++) {
-							if (link->start_id == it->id || link->end_id == it->id)
-								links_to_delete.push_back(link);
-						}
-
-						for (const auto& link_it : links_to_delete)
-							m_Links.erase(link_it);
-
-						m_Nodes.erase(it);
-					}
-				}
-
-				for (const auto& link_id : selected_links) {
-					auto it = std::find_if(m_Links.begin(), m_Links.end(), [link_id](const Link& link) { return link.id == link_id; });
-					if (it != m_Links.end())
-						m_Links.erase(it);
-				}
 			} break;
 		}
 	}
-}
-
-const GraphNode* NodeGraphWidget::FindNode(int id) const {
-	for (const auto& node : m_Nodes)
-		if (node.id == id)
-			return &node;
-
-	return nullptr;
-}
-
-
-void GraphNode::Build() {
-	for (auto& pin : inputPins) {
-		pin.type = Pin::Type::INPUT;
-		pin.node = this;
-	}
-
-	for (auto& pin : outputPins) {
-		pin.type = Pin::Type::OUTPUT;
-		pin.node = this;
-	}
-}
-
-const Pin* GraphNode::FindPin(int id) const {
-	for (const auto& pin : inputPins)
-		if (pin.id == id)
-			return &pin;
-
-	for (const auto& pin : outputPins)
-		if (pin.id == id)
-			return &pin;
-
-	return nullptr;
 }
 
 }

@@ -13,10 +13,12 @@ ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor, ICON_FA_TERMINAL 
 void ConsoleWidget::draw(float dt) {
     ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 
-    if (!ImGui::Begin(m_Title.c_str(), &m_Visible, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+    if (!ImGui::Begin(m_Title.c_str(), &m_Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
         ImGui::End();
         return;
     }
+
+    m_Visible = ImGui::IsWindowAppearing();
 
     const float footerHeight = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
 

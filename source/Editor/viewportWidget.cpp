@@ -24,8 +24,8 @@ void ViewportWidget::draw(float dt) {
                         ImGuiWindowFlags_NoScrollbar;
 
     ImGui::SetNextWindowSize(ImVec2(160, 90), ImGuiCond_FirstUseEver);
-    const bool is_visible = ImGui::Begin(m_Title.c_str(), &m_Visible, flags);
-    renderer.settings.paused = !is_visible;
+    m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open, flags);
+    renderer.settings.paused = !m_Visible;
 
     if (ImGui::Checkbox("Gizmo", &gizmoEnabled))
         ImGuizmo::Enable(gizmoEnabled);
@@ -83,7 +83,7 @@ void ViewportWidget::draw(float dt) {
     size.y = glm::max(size.y, 90.0f);
     auto resized = false;
     if (viewport.size.x != size.x || viewport.size.y != size.y) {
-        viewport.Resize({ size.x, size.y });
+        viewport.SetSize({ size.x, size.y });
         renderer.CreateRenderTargets(viewport);
         resized = true;
     }
@@ -189,7 +189,7 @@ void ViewportWidget::draw(float dt) {
     ImGui::End();
     ImGui::PopStyleVar();
 
-    if (is_visible) {
+    if (m_Visible) {
         ImGui::SetNextWindowPos(metricsPosition);
         ImGui::SetNextWindowBgAlpha(0.35f);
 

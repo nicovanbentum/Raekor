@@ -23,13 +23,13 @@ uint32_t TextureAsset::GetDataSize() const {
 
 
 std::string TextureAsset::sConvert(const std::string& filepath) {
-    int width, height, ch;
-    std::vector<stbi_uc*> mipChain;
+    auto width = 0, height = 0, ch = 0;
+    auto mip_chain = std::vector<stbi_uc*>();
 
-    stbi_uc* pixels = stbi_load(filepath.c_str(), &width, &height, &ch, 4);
-    mipChain.push_back(pixels);
+    auto pixels = stbi_load(filepath.c_str(), &width, &height, &ch, 4);
+    mip_chain.push_back(pixels);
 
-    if (!mipChain[0]) {
+    if (!mip_chain[0]) {
         std::cout << "stb failed " << filepath << '\n';
         return {};
     }
@@ -42,62 +42,61 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
     // TODO: gpu mip mapping, cant right now because assets are loaded in parallel but OpenGL can't do multithreading
 
     // mips down to 2x2 but DXT works on 4x4 so we subtract one level
-    int mipmapLevels = (int)std::max(std::floor(std::log2(std::max(width, height))) - 1, 0.0);
+    auto nr_of_mips = (int)std::max(std::floor(std::log2(std::max(width, height))) - 1, 0.0);
+    auto actual_mip_count = nr_of_mips;
 
-    int actual_mip_count = mipmapLevels;
+    for (uint32_t i = 1; i < nr_of_mips; i++) {
+        const auto mip_size      = glm::ivec2 (width >> i, height >> i);
+        const auto prev_mip_size = glm::ivec2 (width >> (i - 1), height >> (i - 1));
 
-    for (size_t i = 1; i < mipmapLevels; i++) {
-        glm::ivec2 prevSize = { width >> (i - 1), height >> (i - 1) };
-        glm::ivec2 curSize = { width >> i, height >> i };
-
-        if (curSize.x % 4 != 0 || curSize.y % 4 != 0) {
-            std::cout << "Image " << Path(filepath).filename() << " with MIP resolution " << curSize.x << 'x' << curSize.y << " is not a power of 2 resolution.\n";
+        if (mip_size.x % 4 != 0 || mip_size.y % 4 != 0) {
+            std::cout << "Image " << Path(filepath).filename() << " with MIP resolution " << mip_size.x << 'x' << mip_size.y << " is not a power of 2 resolution.\n";
             actual_mip_count = i;
             break;
         }
 
-        mipChain.push_back((stbi_uc*)malloc(curSize.x * curSize.y * 4));
-        stbir_resize_uint8(mipChain[i - 1], prevSize.x, prevSize.y, 0, mipChain[i], curSize.x, curSize.y, 0, 4);
+        mip_chain.push_back((stbi_uc*)malloc(mip_size.x * mip_size.y * 4));
+        stbir_resize_uint8(mip_chain[i - 1], prev_mip_size.x, prev_mip_size.y, 0, mip_chain[i], mip_size.x, mip_size.y, 0, 4);
     }
 
-    std::vector<unsigned char> ddsBuffer(128);
-    size_t offset = 128;
+    std::vector<unsigned char> dds_buffer(128);
+    uint32_t offset = 128;
 
-    for (size_t i = 0; i < actual_mip_count; i++) {
-        glm::ivec2 curSize = { width >> i, height >> i };
+    for (uint32_t i = 0; i < actual_mip_count; i++) {
+        const auto mip_dimensions = glm::ivec2(width >> i, height >> i);
 
-        if (curSize.x % 4 != 0 || curSize.y % 4 != 0) {
+        if (mip_dimensions.x % 4 != 0 || mip_dimensions.y % 4 != 0) {
             std::cout << "Image " << Path(filepath).filename() << " with MIP resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
             break;
         }
 
         // make room for the new dxt mip
-        ddsBuffer.resize(ddsBuffer.size() + curSize.x * curSize.y);
+        dds_buffer.resize(dds_buffer.size() + mip_dimensions.x * mip_dimensions.y);
 
         // block compress
-        Raekor::CompressDXT(ddsBuffer.data() + offset, mipChain[i], curSize.x, curSize.y, true);
+        Raekor::CompressDXT(dds_buffer.data() + offset, mip_chain[i], mip_dimensions.x, mip_dimensions.y, true);
 
-        offset += curSize.x * curSize.y;
+        offset += mip_dimensions.x * mip_dimensions.y;
     }
 
-    for (auto mip : mipChain)
+    for (auto mip : mip_chain)
         stbi_image_free(mip);
 
     // copy the magic number
-    memcpy(ddsBuffer.data(), &DDS_MAGIC, sizeof(DDS_MAGIC));
+    memcpy(dds_buffer.data(), &DDS_MAGIC, sizeof(DDS_MAGIC));
 
-    DDS_PIXELFORMAT pixelFormat;
-    pixelFormat.dwSize = 32;
-    pixelFormat.dwFlags = 0x4;
-    pixelFormat.dwFourCC = MAKEFOURCC('D', 'X', 'T', '5');
-    pixelFormat.dwRGBBitCount = 32;
-    pixelFormat.dwRBitMask = 0xff000000;
-    pixelFormat.dwGBitMask = 0x00ff0000;
-    pixelFormat.dwBBitMask = 0x0000ff00;
-    pixelFormat.dwABitMask = 0x000000ff;
+    DDS_PIXELFORMAT pixel_format;
+    pixel_format.dwSize = 32;
+    pixel_format.dwFlags = 0x4;
+    pixel_format.dwFourCC = MAKEFOURCC('D', 'X', 'T', '5');
+    pixel_format.dwRGBBitCount = 32;
+    pixel_format.dwRBitMask = 0xff000000;
+    pixel_format.dwGBitMask = 0x00ff0000;
+    pixel_format.dwBBitMask = 0x0000ff00;
+    pixel_format.dwABitMask = 0x000000ff;
     
     // fill out the header
-    DDS_HEADER header;
+    DDS_HEADER header = {0};
     header.dwSize = 124;
     header.dwFlags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT | DDSD_MIPMAPCOUNT | DDSD_LINEARSIZE;
     header.dwHeight = height;
@@ -105,18 +104,18 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
     header.dwPitchOrLinearSize = std::max(1, ((width + 3) / 4)) * std::max(1, ((height + 3) / 4)) * 16;
     header.dwDepth = 0;
     header.dwMipMapCount = actual_mip_count;
-    header.ddspf = pixelFormat;
+    header.ddspf = pixel_format;
     header.dwCaps = DDSCAPS_TEXTURE |DDSCAPS_COMPLEX | DDSCAPS_MIPMAP;
 
     // copy the header
-    memcpy(ddsBuffer.data() + 4, &header, sizeof(DDS_HEADER));
+    memcpy(dds_buffer.data() + 4, &header, sizeof(DDS_HEADER));
 
     // write to disk
-    std::string outFileName = "assets/" + std::filesystem::path(filepath).stem().string() + ".dds";
-    std::ofstream outFile(outFileName, std::ios::binary | std::ios::ate);
-    outFile.write((const char*)ddsBuffer.data(), ddsBuffer.size());
+    const auto dds_file_path = "assets/" + Path(filepath).stem().string() + ".dds";
+    auto dds_file = std::ofstream(dds_file_path, std::ios::binary | std::ios::ate);
+    dds_file.write((const char*)dds_buffer.data(), dds_buffer.size());
 
-    return outFileName;
+    return dds_file_path;
 }
 
 
@@ -124,7 +123,7 @@ bool TextureAsset::Load(const std::string& filepath) {
     if (filepath.empty() || !FileSystem::exists(filepath))
         return false;
 
-    std::ifstream file(filepath, std::ios::binary);
+    auto file = std::ifstream(filepath, std::ios::binary);
 
     //constexpr size_t twoMegabytes = 2097152;
     //std::vector<char> scratch(twoMegabytes);
@@ -133,10 +132,10 @@ bool TextureAsset::Load(const std::string& filepath) {
     m_Data.resize(FileSystem::file_size(filepath));
     file.read(m_Data.data(), m_Data.size());
 
-    DWORD magicNumber;
-    memcpy(&magicNumber, m_Data.data(), sizeof(DWORD));
+    DWORD magic_number;
+    memcpy(&magic_number, m_Data.data(), sizeof(DWORD));
 
-    if (magicNumber != DDS_MAGIC) {
+    if (magic_number != DDS_MAGIC) {
         std::cerr << "File " << filepath << " not a DDS file!\n";;
         return false;
     }
@@ -158,13 +157,17 @@ void Assets::ReleaseUnreferenced() {
         if (value.use_count() == 1)
             keys.push_back(key);
 
-    for (const auto& key : keys)
-        Release(key);
+    {
+        std::scoped_lock lock(m_Mutex);
+        for (const auto& key : keys)
+                erase(key);
+
+    }
 }
 
 
 void Assets::Release(const std::string& filepath) {
-    std::scoped_lock(m_Mutex);
+    std::scoped_lock lock(m_Mutex);
 
     if (find(filepath) != end())
         erase(filepath);

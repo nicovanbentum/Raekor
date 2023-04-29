@@ -18,17 +18,17 @@ void Camera::OnUpdate(float dt) {
 
     if (SDL_GetRelativeMouseMode()) {
         if (Input::sIsKeyPressed(SDL_SCANCODE_W)) {
-            Zoom(float(zoomConstant * dt));
+            Zoom(float(mZoomConstant * dt));
         }
         else if (Input::sIsKeyPressed(SDL_SCANCODE_S)) {
-            Zoom(float(-zoomConstant * dt));
+            Zoom(float(-mZoomConstant * dt));
         }
 
         if (Input::sIsKeyPressed(SDL_SCANCODE_A)) {
-            Move({ moveConstant * dt, 0.0f });
+            Move({ mMoveConstant * dt, 0.0f });
         }
         else if (Input::sIsKeyPressed(SDL_SCANCODE_D)) {
-            Move({ -moveConstant * dt, 0.0f });
+            Move({ -mMoveConstant * dt, 0.0f });
         }
     }
 }
@@ -36,7 +36,7 @@ void Camera::OnUpdate(float dt) {
 
 void Camera::Zoom(float amount) {
     auto dir = GetForwardVector();
-    m_Position += dir * (amount * zoomSpeed);
+    m_Position += dir * (amount * mZoomSpeed);
 }
 
 
@@ -51,9 +51,9 @@ void Camera::Look(glm::vec2 amount) {
 void Camera::Move(glm::vec2 amount) {
     auto dir = GetForwardVector();
     // sideways
-    m_Position += glm::normalize(glm::cross(dir, { 0.0f, 1.0f, 0.0f })) * (amount.x * -moveSpeed);
+    m_Position += glm::normalize(glm::cross(dir, { 0.0f, 1.0f, 0.0f })) * (amount.x * -mMoveSpeed);
     // up and down
-    m_Position.y += float(amount.y * moveSpeed);
+    m_Position.y += float(amount.y * mMoveSpeed);
 }
 
 
@@ -88,32 +88,18 @@ Frustum Camera::GetFrustum() const {
 }
 
 
-Viewport::Viewport(glm::vec2 size) : 
-    camera(glm::vec3(0, 0.0, 0), glm::perspectiveRH(glm::radians(fov), aspectRatio, 0.1f, 1000.0f)),
-    size(size) 
+Viewport::Viewport(glm::vec2 inSize) : 
+    m_Camera(glm::vec3(0, 0.0, 0), glm::perspectiveRH(glm::radians(m_FieldOfView), m_AspectRatio, 0.1f, 1000.0f)),
+    size(inSize) 
 {}
 
 
-void Viewport::SetFov(float fov) {
-    this->fov = fov;
-
-    camera.GetProjection() = glm::perspectiveRH(
-        glm::radians(fov), 
-        camera.GetAspectRatio(), 
-        camera.GetNear(), 
-        camera.GetFar()
-    );
-}
-
-
-void Viewport::SetAspectRatio(float ratio) {
-    this->aspectRatio = ratio;
-
-    camera.GetProjection() = glm::perspectiveRH(
-        glm::radians(fov), 
-        camera.GetAspectRatio(), 
-        camera.GetNear(), 
-        camera.GetFar()
+void Viewport::UpdateProjectionMatrix() {
+    m_Camera.GetProjection() = glm::perspectiveRH(
+        glm::radians(m_FieldOfView),
+        float(size.x) / float(size.y),
+        m_Camera.GetNear(),
+        m_Camera.GetFar()
     );
 }
 
@@ -133,38 +119,24 @@ float haltonSequence(uint32_t i, uint32_t b) {
 
 
 void Viewport::OnUpdate(float dt) {
-    camera.OnUpdate(dt);
+    m_Camera.OnUpdate(dt);
 
-    jitterIndex = jitterIndex + 1;
+    m_JitterIndex = m_JitterIndex + 1;
 
     const auto halton = glm::vec2(
-        2.0f * haltonSequence(jitterIndex + 1, 2) - 1.0f,
-        2.0f * haltonSequence(jitterIndex + 1, 3) - 1.0f
+        2.0f * haltonSequence(m_JitterIndex + 1, 2) - 1.0f,
+        2.0f * haltonSequence(m_JitterIndex + 1, 3) - 1.0f
     );
 
-    jitter = halton / glm::vec2(size);
+    m_Jitter = halton / glm::vec2(size);
 }
 
 
 glm::mat4 Viewport::GetJitteredProjMatrix(const glm::vec2& inJitter) const {
-    auto mat = camera.GetProjection();
-    mat[2][0] = jitter[0];
-    mat[2][1] = jitter[1];
+    auto mat = m_Camera.GetProjection();
+    mat[2][0] = m_Jitter[0];
+    mat[2][1] = m_Jitter[1];
     return mat;
 }
 
-
-void Viewport::Resize(glm::vec2 newSize) {
-    size = { newSize.x, newSize.y };
-    
-    camera.GetProjection() = glm::perspectiveRH(
-        glm::radians(camera.GetFov()), 
-        float(size.x) / float(size.y), 
-        camera.GetNear(), 
-        camera.GetFar()
-    );
-
-    jitterIndex = 0;
-}
-
-}
+} // namespace::Raekor

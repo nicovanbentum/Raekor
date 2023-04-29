@@ -65,7 +65,9 @@ struct Frustum {
 
 bool gPointInAABB(const Vec3& inPoint, const BBox3D& inAABB);
 
-float gRandomFloat01();
+float gRandomFloatZO();
+float gRandomFloatNO();
+Mat3x3 gRandomOrientation();
 Mat3x3 gRandomRotationMatrix();
 
 } // namespace Raekor

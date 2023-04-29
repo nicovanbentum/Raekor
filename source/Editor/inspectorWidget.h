@@ -16,6 +16,9 @@ public:
     virtual void onEvent(const SDL_Event& ev) override {}
 
 private:
+    void DrawJSONInspector();
+    void DrawEntityInspector();
+
     void DrawComponent(Name& component, Entity& active);
     void DrawComponent(Node& component, Entity& active);
     void DrawComponent(Mesh& component, Entity& active);

@@ -1,9 +1,9 @@
 #pragma once
 
 #ifndef NDEBUG
-    #define m_assert(expr, msg) if(!expr) std::cout << msg << std::endl; assert(expr);
+    #define RK_ASSERT(expr, msg) if(!expr) std::cout << msg << std::endl; assert(expr);
 #else 
-    #define m_assert(expr, msg)
+    #define RK_ASSERT(expr, msg)
 #endif
 
 #define ALIGN(x) __declspec(align(x))

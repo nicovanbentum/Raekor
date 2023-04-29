@@ -9,7 +9,7 @@ RTTI_CLASS_CPP_NO_FACTORY(MetricsWidget) {}
 MetricsWidget::MetricsWidget(Editor* editor) : IWidget(editor, ICON_FA_CHART_BAR " Metrics ") {}
 
 void MetricsWidget::draw(float dt) {
-    if (!IsVisible()) 
+    if (!IsOpen()) 
         return;
 
     if(m_Times.empty())
@@ -18,7 +18,8 @@ void MetricsWidget::draw(float dt) {
 
     m_UpdateInterval += dt;
 
-    ImGui::Begin(m_Title.c_str(), &m_Visible);
+    ImGui::Begin(m_Title.c_str(), &m_Open);
+    m_Visible = ImGui::IsWindowAppearing();
     
     if (m_UpdateInterval >= 0.1f /* Update timings every 1/10th of a second */) {
         m_UpdateInterval = 0.0f;
