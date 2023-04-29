@@ -40,6 +40,8 @@
 #define DDGI_PROBES_PER_ROW 40                   // Number of probes per row for the final probe texture
 #define DDGI_RAYS_PER_PROBE 192                  // Basically wave size * rays per wave
 
+#define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 1
+
 struct LineVertex {
     float4 mPosition;
     float4 mColor;

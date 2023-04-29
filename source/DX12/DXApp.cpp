@@ -15,6 +15,7 @@
 #include "DXRenderer.h"
 #include "DXRenderGraph.h"
 
+extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension);
 
 namespace Raekor::DX12 {
 
@@ -24,6 +25,37 @@ DXApp::DXApp() :
     m_StagingHeap(m_Device),
     m_Renderer(m_Device, m_Viewport, m_Window)
 {
+    // Creating the SRV for the blue noise texture at heap index 0 results in a 4x4 black square in the top left of the texture,
+    // this is a hacky workaround. at least we get the added benefit of 0 being an 'invalid' index :D
+    (void)m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Add(nullptr);
+    
+    auto blue_noise_samples = std::vector<Vec4>();
+    blue_noise_samples.reserve(128 * 128);
+
+    for (auto y = 0u; y < 128; y++) {
+        for (auto x = 0u; x < 128; x++) {
+            auto& sample = blue_noise_samples.emplace_back();
+         
+            for (auto i = 0u; i < sample.length(); i++)
+                sample[i] = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(x, y, 0, i);
+        }
+    }
+
+    auto bluenoise_texture = m_Device.CreateTexture(Texture::Desc{
+        .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+        .width  = 128,
+        .height = 128,
+        .usage  = Texture::Usage::SHADER_READ_ONLY
+    }, L"BLUENOISE128x1spp");
+
+    assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
+
+    auto cmd_list = m_Renderer.StartSingleSubmit();
+
+    m_StagingHeap.StageTexture(cmd_list, m_Device.GetTexture(bluenoise_texture).GetResource(), 0, blue_noise_samples.data());
+
+    m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
+
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

@@ -1,7 +1,17 @@
 #ifndef RANDOM_HLSLI
 #define RANDOM_HLSLI
 
+#include "shared.h"
+
 #define M_PI 3.14159265358979323846
+#define GOLDEN_RATIO 0.61803398875
+
+// Animation over time from https://www.shadertoy.com/view/XtGBDc
+float4 SampleBlueNoise(uint2 inCoord, uint inFrameCounter) {
+    Texture2D<float4> blue_noise_texture = ResourceDescriptorHeap[BINDLESS_BLUE_NOISE_TEXTURE_INDEX];
+    float4 blue_noise = blue_noise_texture[inCoord.xy % 128];
+    return frac(blue_noise + (GOLDEN_RATIO * (inFrameCounter & 255)));
+}
 
 // From Ray Tracing Gems chapter 6
 float3 offsetRay(float3 p, float3 n) {
@@ -48,8 +58,7 @@ float3 uniformSampleCone(const float2 u, float cosThetaMax) {
 }
 
 // from https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
-uint pcg_hash(inout uint in_state)
-{
+uint pcg_hash(inout uint in_state) {
     uint state = in_state * 747796405u + 2891336453u;
     uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
     in_state = (word >> 22u) ^ word;
@@ -89,5 +98,8 @@ uint TeaHash(uint val0, uint val1) {
 
     return v0;
 }
+
+
+
 
 #endif // RANDOM_HLSLI
