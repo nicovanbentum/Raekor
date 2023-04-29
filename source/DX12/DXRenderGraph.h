@@ -267,6 +267,7 @@ public:
 	std::string	ToGraphVizText(const Device& inDevice) const;
 
 	const Viewport&	GetViewport() const		{ return m_Viewport; }
+	const UVec2&	GetRenderSize() const   { return m_Viewport.GetSize(); }
 	TextureID		GetBackBuffer() const	{ return m_BackBuffer; }
 
 	uint32_t& GetPerFrameAllocatorOffset()  { return m_PerFrameAllocatorOffset; }

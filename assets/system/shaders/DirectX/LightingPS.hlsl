@@ -20,13 +20,14 @@ float3 ApplyFog(in float3 rgb, // original color of the pixel
 }
 
 float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
-    Texture2D<float>    ao_texture      = ResourceDescriptorHeap[rc.mAmbientOcclusionTexture];
-    Texture2D<float>    depth_texture   = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
-    Texture2D<float>    shadow_texture  = ResourceDescriptorHeap[rc.mShadowMaskTexture];
-    Texture2D<uint4>    gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
-    Texture2D<float4>   reflections_texture = ResourceDescriptorHeap[rc.mReflectionsTexture];
-    Texture2D<float2>   probes_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesDepthTexture];
+    Texture2D<float>    ao_texture                = ResourceDescriptorHeap[rc.mAmbientOcclusionTexture];
+    Texture2D<float>    depth_texture             = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
+    Texture2D<float>    shadow_texture            = ResourceDescriptorHeap[rc.mShadowMaskTexture];
+    Texture2D<uint4>    gbuffer_texture           = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
+    Texture2D<float4>   reflections_texture       = ResourceDescriptorHeap[rc.mReflectionsTexture];
+    Texture2D<float2>   probes_depth_texture      = ResourceDescriptorHeap[rc.mDDGIData.mProbesDepthTexture];
     Texture2D           probes_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
+    // Texture2D<float4>   diffuse_gi_texture        = ResourceDescriptorHeap[rc.mIndirectDiffuseTexture];
 
     BRDF brdf;
     brdf.Unpack(asuint(gbuffer_texture[inParams.mPixelCoords.xy]));
@@ -37,10 +38,10 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     FrameConstants fc = gGetFrameConstants();
     const float3 ws_pos = ReconstructWorldPosition(inParams.mScreenUV, depth, fc.mInvViewProjectionMatrix);
     
-    const float3 light_color = float3(1.0, 1.0, 1.0); // TODO: sky calculations
     
     if (depth == 1.0) {
         float3 transmittance;
+        const float3 light_color = float3(1.0, 1.0, 1.0);
         float3 sky_color = IntegrateScattering(ws_pos, normalize(fc.mCameraPosition.xyz - ws_pos), 1.#INF, fc.mSunDirection.xyz, light_color, transmittance);
         //sky_color = ApplyFog(sky_color, distance(fc.mCameraPosition.xyz, position.xyz), fc.mCameraPosition.xyz, normalize(fc.mCameraPosition.xyz - position.xyz));
         return float4(pow(sky_color, 1.0 / 2.2), 1.0);
@@ -52,9 +53,11 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     const float3 l = brdf.Evaluate(Wo, Wi, Wh);
 
     const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
-    float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, fc.mSunDirection.xyz)) * 5.0;
+    float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, fc.mSunDirection.xyz));
     float shadow_mask   = shadow_texture[inParams.mPixelCoords.xy];
     total_radiance += l * NdotL * sunlight_luminance * shadow_mask;
+    
+    // float4 diffuse_gi = diffuse_gi_texture[inParams.mPixelCoords.xy];
     
     //if (brdf.mRoughness < 0.3)
     //{
@@ -70,8 +73,9 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     float3 offset_ws_pos = ws_pos + brdf.mNormal * 0.01;
     float3 irradiance = DDGISampleIrradiance(offset_ws_pos, brdf.mNormal, rc.mDDGIData);
     
-    total_radiance += irradiance * brdf.mAlbedo.rgb;
+    total_radiance += irradiance.rgb * brdf.mAlbedo.rgb;
     
-    return float4(irradiance, 1.0);
+    // return float4(ao, ao, ao, 1.0);
+    // return float4(irradiance.rgb, 1.0);
     return float4(total_radiance * ao, 1.0);
 }

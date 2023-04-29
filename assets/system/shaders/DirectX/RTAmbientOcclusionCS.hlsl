@@ -2,6 +2,7 @@
 #include "include/packing.hlsli"
 #include "include/common.hlsli"
 #include "include/random.hlsli"
+#include "include/shared.h"
 
 ROOT_CONSTANTS(AmbientOcclusionRootConstants, rc)
 
@@ -13,11 +14,11 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[rc.mTLAS];
     
     FrameConstants fc = gGetFrameConstants();
+    
+    float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
 
     const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;
-
-    uint rng = TeaHash(((threadID.y << 16) | threadID.x), fc.mFrameCounter);
 
     float depth = gbuffer_depth_texture[threadID.xy];
     if (depth >= 1.0) {
@@ -29,7 +30,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     
     for (uint i = 0; i < rc.mParams.mSampleCount; i++)
     {
-        const float3 random_offset = SampleCosineWeightedHemisphere(pcg_float2(rng));
+        const float3 random_offset = SampleCosineWeightedHemisphere(blue_noise.xy);
         const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
         const float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
     

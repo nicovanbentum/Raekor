@@ -20,8 +20,8 @@ public:
 
 private:
     UINT m_HeapIncrement = 0;
-    ComPtr<ID3D12DescriptorHeap> m_Heap;
-    D3D12_CPU_DESCRIPTOR_HANDLE m_HeapPtr;
+    ComPtr<ID3D12DescriptorHeap> m_Heap = nullptr;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_HeapPtr = { .ptr = 0 };
 };
 
 } // Raekor::DX12

@@ -116,6 +116,7 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
 
 
 void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, float inDeltaTime) {
+    // Check if any of the shader sources were updated and recompile them if necessary
     bool need_recompile = false;
 
     for (auto& [filename, shader_entry] : inDevice.m_Shaders) {
@@ -134,6 +135,7 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
         }
     }
 
+    // Start the ImGui frame / work
     GUI::BeginFrame();
     ImGui_ImplDX12_NewFrame();
 
@@ -297,33 +299,44 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
 
     GUI::EndFrame();
 
-    auto& backbuffer_data = GetBackBufferData();
-    auto  completed_value = m_Fence->GetCompletedValue();
 
-    if (completed_value < backbuffer_data.mFenceValue) {
-        gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
-        WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
+    if (m_FrameCounter > 0) {
+        // At this point in the frame we really need to previous frame's present job to have finished
+        if (m_PresentJobPtr)
+            m_PresentJobPtr->WaitCPU();
+
+        auto& backbuffer_data = GetBackBufferData();
+        auto  completed_value = m_Fence->GetCompletedValue();
+
+        // make sure the backbuffer data we're about to use is no longer being used by the GPU
+        if (completed_value < backbuffer_data.mFenceValue) {
+            gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
+            WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
+        }
     }
 
-    m_ElapsedTime += inDeltaTime;
-    const auto& camera = m_RenderGraph.GetViewport().GetCamera();
 
+    // Update the total running time of the application / renderer
+    m_ElapsedTime += inDeltaTime;
+
+    // Calculate a jittered projection matrix for FSR2
+    const auto& camera = m_RenderGraph.GetViewport().GetCamera();
     const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(m_RenderGraph.GetViewport().size.x, m_RenderGraph.GetViewport().size.y);
 
     float jitter_offset_x = 0;
     float jitter_offset_y = 0;
     ffxFsr2GetJitterOffset(&jitter_offset_x, &jitter_offset_y, m_FrameCounter, jitter_phase_count);
 
-    // Calculate the jittered projection matrix.
     const auto jitter_x = 2.0f * jitter_offset_x / (float)m_RenderGraph.GetViewport().size.x;
     const auto jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().size.y;
     const auto offset_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(jitter_x, jitter_y, 0));
     const auto jittered_proj_matrix = camera.GetProjection();
-    //const auto jittered_proj_matrix = offset_matrix * camera.GetProjection();
+    //const auto jittered_proj_matrix = offset_matrix * m_Camera.GetProjection();
 
+    // Update all the frame constants and copy it in into the GPU ring buffer
     m_FrameConstants.mTime                       = m_ElapsedTime;
     m_FrameConstants.mDeltaTime                  = inDeltaTime;
-    m_FrameConstants.mFrameIndex                 = 0; // TODO: not used anywhere yet, mainly for padding atm
+    m_FrameConstants.mFrameIndex                 = m_FrameCounter % sFrameCount;
     m_FrameConstants.mFrameCounter               = m_FrameCounter;
     m_FrameConstants.mSunDirection               = glm::vec4(inScene.GetSunLightDirection(), 0.0f);
     m_FrameConstants.mCameraPosition             = glm::vec4(camera.GetPosition(), 1.0f);
@@ -345,34 +358,45 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
         gThrowIfFailed(PIXBeginCapture(PIX_CAPTURE_GPU, &capture_params));
     }
 
+    auto& backbuffer_data = GetBackBufferData();
     backbuffer_data.mCmdList.Reset();
 
+    // Its kind of annoying that we have to set this every frame instead of once, TODO: pls fix
     m_RenderGraph.SetBackBuffer(backbuffer_data.mBackBuffer);
 
+    // Record the entire frame into the command list
     m_RenderGraph.Execute(inDevice, backbuffer_data.mCmdList, m_FrameCounter);
 
+    // Record the ImGui commands last
     RenderImGui(m_RenderGraph, inDevice, backbuffer_data.mCmdList);
 
     backbuffer_data.mCmdList.Close();
 
-    const auto commandLists = std::array { static_cast<ID3D12CommandList*>(backbuffer_data.mCmdList) };
-    inDevice.GetQueue()->ExecuteCommandLists(commandLists.size(), commandLists.data());
+    // Run command list execution and present in a job so it can overlap a bit with the start of the next frame
+    // m_PresentJobPtr = Async::sQueueJob([&inDevice, this]() {
+        const auto cmd_lists = std::array { static_cast<ID3D12CommandList*>(GetBackBufferData().mCmdList)};
+        inDevice.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
 
-    auto sync_interval = m_Settings.mEnableVsync;
-    auto present_flags = 0u;
+        auto sync_interval = m_Settings.mEnableVsync;
+        auto present_flags = 0u;
 
-    if (!m_Settings.mEnableVsync && inDevice.IsTearingSupported())
-        present_flags = DXGI_PRESENT_ALLOW_TEARING;
+        if (!m_Settings.mEnableVsync && inDevice.IsTearingSupported())
+            present_flags = DXGI_PRESENT_ALLOW_TEARING;
 
-    gThrowIfFailed(m_Swapchain->Present(sync_interval, present_flags));
+        gThrowIfFailed(m_Swapchain->Present(sync_interval, present_flags));
 
-    backbuffer_data.mFenceValue++;
-    m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
-    gThrowIfFailed(inDevice.GetQueue()->Signal(m_Fence.Get(), GetBackBufferData().mFenceValue));
+        GetBackBufferData().mFenceValue++;
+        m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
+        gThrowIfFailed(inDevice.GetQueue()->Signal(m_Fence.Get(), GetBackBufferData().mFenceValue));
+    // });
 
     m_FrameCounter++;
 
     if (m_ShouldCaptureNextFrame) {
+        // Wait for the present job here to make sure we capture everything
+        if (m_PresentJobPtr)
+            m_PresentJobPtr->WaitCPU();
+
         gThrowIfFailed(PIXEndCapture(FALSE));
         m_ShouldCaptureNextFrame = false;
         ShellExecute(0, 0, "temp_pix_capture.wpix", 0, 0, SW_SHOW);
@@ -386,9 +410,9 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
 
     const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
 
-    // const auto& grass_data   = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
+    // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
     
-    const auto& shadow_data  = AddShadowMaskPass(m_RenderGraph, inDevice, gbuffer_data, inTLAS);
+    const auto& shadow_data = AddShadowMaskPass(m_RenderGraph, inDevice, gbuffer_data, inTLAS);
 
     const auto& rtao_data = AddAmbientOcclusionPass(m_RenderGraph, inDevice, gbuffer_data, inTLAS);
 
@@ -399,6 +423,8 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
     const auto& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inTLAS, inInstancesBuffer, inMaterialsBuffer);
 
     const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, ddgi_trace_data);
+
+    // const auto& diffuse_gi_data = AddIndirectDiffusePass(m_RenderGraph, inDevice, gbuffer_data, inTLAS, inInstancesBuffer, inMaterialsBuffer);
     
     const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data, ddgi_update_data);
     
@@ -423,6 +449,9 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
 
 
 void Renderer::WaitForIdle(Device& inDevice) {
+    if (m_PresentJobPtr)
+        m_PresentJobPtr->WaitCPU();
+
     for (auto& backbuffer_data : m_BackBufferData) {
         gThrowIfFailed(inDevice.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
 
@@ -473,6 +502,7 @@ RTTI_CLASS_CPP(LightingData)        {}
 RTTI_CLASS_CPP(FSR2Data)            {}
 RTTI_CLASS_CPP(ProbeTraceData)      {}
 RTTI_CLASS_CPP(ProbeUpdateData)     {}
+RTTI_CLASS_CPP(IndirectDiffuseData) {}
 RTTI_CLASS_CPP(ProbeDebugData)      {}
 RTTI_CLASS_CPP(DebugLinesData)      {}
 RTTI_CLASS_CPP(ComposeData)         {}
@@ -641,7 +671,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mParams.mRadius      = 2.0;
         inData.mParams.mIntensity   = 1.0;
         inData.mParams.mNormalBias  = 0.01;
-        inData.mParams.mSampleCount = 4u;
+        inData.mParams.mSampleCount = 1u;
 
         auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTAmbientOcclusionCS");
         gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(&inData.mPipeline)));
@@ -693,9 +723,10 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
 
         inCmdList.PushGraphicsConstants(inData.mRenderConstants);
 
-        inCmdList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList->DrawInstanced(blade_vertex_count, 65536, 0, 0);
+        inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     });
 }
 
@@ -748,6 +779,50 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
     });
 }
 
+
+const IndirectDiffuseData& AddIndirectDiffusePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer) {
+    return inRenderGraph.AddComputePass<IndirectDiffuseData>("RT DIFFUSE GI PASS", inDevice,
+    [&](IRenderPass* inRenderPass, IndirectDiffuseData& inData)
+    {
+        const auto result_texture = inDevice.CreateTexture(Texture::Desc {
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::Usage::SHADER_READ_WRITE
+        }, L"RT_INDIRECT_DIFFUSE");
+
+        inRenderPass->Create(result_texture);
+
+        inData.mOutputTexture                   = inRenderPass->Write(result_texture);
+        inData.mGBufferDepthTexture             = inRenderPass->Read(inGBufferData.mDepthTexture);
+        inData.mGbufferRenderTexture            = inRenderPass->Read(inGBufferData.mRenderTexture);
+        inData.mTopLevelAccelerationStructure   = inTLAS;
+        inData.mInstancesBuffer                 = inInstancesBuffer;
+        inData.mMaterialBuffer                  = inMaterialsBuffer;
+
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTIndirectDiffuseCS");
+
+        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
+    },
+    [&inRenderGraph, &inDevice](IndirectDiffuseData& inData, CommandList& inCmdList)
+    {
+        auto& viewport = inRenderGraph.GetViewport();
+
+        const auto root_constants = IndirectGIRootConstants {
+            .mGbufferRenderTexture  = inData.mGbufferRenderTexture.GetBindlessIndex(inDevice),
+            .mGbufferDepthTexture   = inData.mGBufferDepthTexture.GetBindlessIndex(inDevice),
+            .mShadowMaskTexture     = inData.mOutputTexture.GetBindlessIndex(inDevice),
+            .mTLAS                  = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure),
+            .mInstancesBuffer       = inDevice.GetBindlessHeapIndex(inData.mInstancesBuffer),
+            .mMaterialsBuffer       = inDevice.GetBindlessHeapIndex(inData.mMaterialBuffer),
+            .mDispatchSize          = viewport.size
+        };
+
+        inCmdList->SetComputeRoot32BitConstants(0, sizeof(IndirectGIRootConstants) / sizeof(DWORD), &root_constants, 0);
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
+    });
+}
 
 
 const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDevice, const TextureResource& inSourceTexture) {
@@ -884,7 +959,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             .mTLAS                  = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure),
             .mDebugProbeIndex       = Index3Dto1D(inData.mDebugProbe, inData.mDDGIData.mProbeCount),
             .mDDGIData              = inData.mDDGIData,
-            .mRandomRotationMatrix  = gRandomRotationMatrix()
+            .mRandomRotationMatrix  = gRandomOrientation()
         };
 
         const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
@@ -1132,6 +1207,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mAmbientOcclusionTexture = inRenderPass->Read(inAmbientOcclusionData.mOutputTexture);
         inData.mProbesDepthTexture      = inRenderPass->Read(inProbeData.mProbesDepthTexture);
         inData.mProbesIrradianceTexture = inRenderPass->Read(inProbeData.mProbesIrradianceTexture);
+        // inData.mIndirectDiffuseTexture  = inRenderPass->Read(inDiffuseGIData.mOutputTexture);
 
         auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "FullscreenTriangleVS", "LightingPS");
         state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
@@ -1143,12 +1219,13 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
     [&inRenderGraph, &inDevice, &inProbeData](LightingData& inData, CommandList& inCmdList)
     {
         auto root_constants = LightingRootConstants {
-            .mShadowMaskTexture = inData.mShadowMaskTexture.GetBindlessIndex(inDevice),
-            .mReflectionsTexture = inData.mReflectionsTexture.GetBindlessIndex(inDevice),
-            .mGbufferDepthTexture = inData.mGBufferDepthTexture.GetBindlessIndex(inDevice),
-            .mGbufferRenderTexture = inData.mGBufferRenderTexture.GetBindlessIndex(inDevice),
-            .mAmbientOcclusionTexture = inData.mAmbientOcclusionTexture.GetBindlessIndex(inDevice),
-            .mDDGIData = inProbeData.mDDGIData
+            .mShadowMaskTexture         = inData.mShadowMaskTexture.GetBindlessIndex(inDevice),
+            .mReflectionsTexture        = inData.mReflectionsTexture.GetBindlessIndex(inDevice),
+            .mGbufferDepthTexture       = inData.mGBufferDepthTexture.GetBindlessIndex(inDevice),
+            .mGbufferRenderTexture      = inData.mGBufferRenderTexture.GetBindlessIndex(inDevice),
+            .mAmbientOcclusionTexture   = inData.mAmbientOcclusionTexture.GetBindlessIndex(inDevice),
+            // .mIndirectDiffuseTexture    = inData.mIndirectDiffuseTexture.GetBindlessIndex(inDevice),
+            .mDDGIData                  = inProbeData.mDDGIData
         };
 
         root_constants.mDDGIData.mProbesDepthTexture = inData.mProbesDepthTexture.GetBindlessIndex(inDevice);
@@ -1211,7 +1288,7 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, FfxFsr2
         fsr2_dispatch_desc.renderSize.height        = viewport.size.y;
         fsr2_dispatch_desc.cameraFar                = viewport.GetCamera().GetFar();
         fsr2_dispatch_desc.cameraNear               = viewport.GetCamera().GetNear();
-        fsr2_dispatch_desc.cameraFovAngleVertical   = glm::radians(viewport.GetFov());
+        fsr2_dispatch_desc.cameraFovAngleVertical   = glm::radians(viewport.GetFieldOfView());
 
         const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.size.x, viewport.size.x);
         ffxFsr2GetJitterOffset(&fsr2_dispatch_desc.jitterOffset.x, &fsr2_dispatch_desc.jitterOffset.y, inData.mFrameCounter, jitter_phase_count);

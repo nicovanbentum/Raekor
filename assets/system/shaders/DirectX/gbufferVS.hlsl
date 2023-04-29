@@ -13,10 +13,6 @@ struct VS_OUTPUT {
 
 ROOT_CONSTANTS(GbufferRootConstants, rc)
 
-struct Transform {
-    float4x4 mat;
-};
-
 VS_OUTPUT main(in uint inVertexID : SV_VertexID)
 {
     FrameConstants fc = gGetFrameConstants();

@@ -50,12 +50,15 @@ struct BRDF {
     float mMetallic;
     float mRoughness;
     
+    /* Fills in the BRDF fields from a sample of the (packed) GBuffer. */
     void Unpack(uint4 inPacked) {
         mAlbedo = UnpackAlbedo(inPacked);
         mNormal = UnpackNormal(inPacked);
         UnpackMetallicRoughness(inPacked, mMetallic, mRoughness);
     }
     
+    
+    /* Fills in the BRDF fields from a given vertex and its material. */
     void FromHit(RTVertex inVertex, RTMaterial inMaterial) {
         Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mAlbedoTexture)];
         Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mNormalsTexture)];

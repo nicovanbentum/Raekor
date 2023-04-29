@@ -25,7 +25,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     uint2 ray_texture_index = uint2(ray_index, probe_index);
     
     float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-    //ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
+    // ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
     
     float3 probe_ws_pos = DDGIGetProbeWorldPos(Index1DTo3D(probe_index, rc.mDDGIData.mProbeCount), rc.mDDGIData);
     

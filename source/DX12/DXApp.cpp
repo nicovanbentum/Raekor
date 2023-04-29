@@ -112,13 +112,23 @@ DXApp::DXApp() :
     queue_desc.SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY;
     gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_MemoryStorageQueue)));
 
+    Timer timer;
+
     UploadSceneToGPU();
     
+    std::cout << std::format("[CPU] Upload Scene to GPU took {:3f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
+
     CompileShaders();
+
+    std::cout << std::format("[CPU] Shader Compilation took {:3f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
 
     UploadBvhToGPU();
 
+    std::cout << std::format("[CPU] Upload BVH to GPU took {:3f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
+
     m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
+
+    std::cout << std::format("[CPU] RenderGraph Compilation took {:3f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
 
     std::cout << "Render Size: " << m_Viewport.size.x << " , " << m_Viewport.size.y << '\n';
 
@@ -154,13 +164,13 @@ void DXApp::OnEvent(const SDL_Event& event) {
     }
 
     if (event.type == SDL_KEYDOWN && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
-        m_Viewport.GetCamera().zoomConstant *= 20.0f;
-        m_Viewport.GetCamera().moveConstant *= 20.0f;
+        m_Viewport.GetCamera().mZoomConstant *= 20.0f;
+        m_Viewport.GetCamera().mMoveConstant *= 20.0f;
     }
 
     if (event.type == SDL_KEYUP && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
-        m_Viewport.GetCamera().zoomConstant /= 20.0f;
-        m_Viewport.GetCamera().moveConstant /= 20.0f;
+        m_Viewport.GetCamera().mZoomConstant /= 20.0f;
+        m_Viewport.GetCamera().mMoveConstant /= 20.0f;
     }
 
     if (!ImGui::GetIO().WantCaptureMouse) {
@@ -168,7 +178,7 @@ void DXApp::OnEvent(const SDL_Event& event) {
 
         if (event.type == SDL_MOUSEMOTION) {
             if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(3)) {
-                auto formula = glm::radians(0.022f * camera.sensitivity * 2.0f);
+                auto formula = glm::radians(0.022f * camera.mSensitivity * 2.0f);
                 camera.Look(glm::vec2(event.motion.xrel * formula, event.motion.yrel * formula));
             }
             else if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(2))
@@ -191,7 +201,7 @@ void DXApp::OnEvent(const SDL_Event& event) {
             const auto new_size = UVec2(width, height);
 
             m_Renderer.WaitForIdle(m_Device);
-            m_Viewport.Resize(new_size);
+            m_Viewport.SetSize(new_size);
             m_Renderer.OnResize(m_Device, m_Viewport);
             m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
         }
@@ -216,7 +226,7 @@ void DXApp::OnEvent(const SDL_Event& event) {
             m_Renderer.WaitForIdle(m_Device);
             auto w = 0, h = 0;
             SDL_GetWindowSize(m_Window, &w, &h);
-            m_Viewport.Resize(glm::uvec2(w, h));
+            m_Viewport.SetSize(glm::uvec2(w, h));
             m_Renderer.OnResize(m_Device, m_Viewport);
             m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
         }
@@ -241,13 +251,16 @@ void DXApp::CompileShaders() {
         if (file.is_directory() || file.path().extension() != ".hlsl")
             continue;
 
-        //Async::sQueueJob([&]() {
-            m_Device.m_Shaders[file.path().stem().string()] = Device::ShaderEntry {
-                .mPath = file.path(),
-                .mBlob = sCompileShaderDXC(file.path()),
-                .mLastWriteTime = FileSystem::last_write_time(file)
-            };
-        //});
+        m_Device.m_Shaders[file.path().stem().string()] = Device::ShaderEntry {
+            .mPath = file.path(),
+            .mLastWriteTime = FileSystem::last_write_time(file)
+        };
+    }
+
+    for (auto& [path, shader] : m_Device.m_Shaders) {
+        Async::sQueueJob([&]() {
+            shader.mBlob = sCompileShaderDXC(shader.mPath);
+        });
     }
 
     // Wait for shader compilation to finish before continuing on with pipeline creation
@@ -256,8 +269,10 @@ void DXApp::CompileShaders() {
 
 
 void DXApp::UploadSceneToGPU() {
+    // TODO: using the renderer's command list here is not great, pls fix
     auto& cmd_list = m_Renderer.StartSingleSubmit();
 
+    /// MESH DATA ///
     for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
         const auto vertices = mesh.GetInterleavedVertices();
         const auto vertices_size = vertices.size() * sizeof(vertices[0]);
@@ -287,6 +302,8 @@ void DXApp::UploadSceneToGPU() {
 
     m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
 
+    /// TEXTURE DATA ///
+    Timer timer;
     const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
     const auto white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
     const auto normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");

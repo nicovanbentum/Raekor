@@ -61,6 +61,7 @@ public:
     static constexpr DXGI_FORMAT sSwapchainFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
 
 private:
+    Async::JobPtr           m_PresentJobPtr;
     uint32_t                m_FrameIndex;
     float                   m_ElapsedTime = 0;
     ComPtr<IDXGISwapChain3> m_Swapchain;
@@ -173,7 +174,30 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 
 
 ////////////////////////////////////////
-/// Ray-traced Reflections Render Pass
+/// Ray-traced Indirect Diffuse Render Pass
+////////////////////////////////////////
+struct IndirectDiffuseData {
+    RTTI_CLASS_HEADER(IndirectDiffuseData);
+
+    TextureResource mOutputTexture;
+    TextureResource mGBufferDepthTexture;
+    TextureResource mGbufferRenderTexture;
+    DescriptorID mTopLevelAccelerationStructure;
+    DescriptorID mInstancesBuffer;
+    DescriptorID mMaterialBuffer;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const IndirectDiffuseData& AddIndirectDiffusePass(RenderGraph& inRenderGraph, Device& inDevice,
+    const GBufferData& inGBufferData,
+    DescriptorID inTLAS,
+    DescriptorID inInstancesBuffer,
+    DescriptorID inMaterialsBuffer
+);
+
+
+////////////////////////////////////////
+/// Downsample Render Pass
 ////////////////////////////////////////
 struct DownsampleData {
     RTTI_CLASS_HEADER(DownsampleData);
@@ -294,6 +318,7 @@ struct LightingData {
     TextureResource mAmbientOcclusionTexture;
     TextureResource mProbesDepthTexture;
     TextureResource mProbesIrradianceTexture;
+    TextureResource mIndirectDiffuseTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 

@@ -117,8 +117,8 @@ void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh
 
 
 void CommandList::SetViewportScissorRect(const Viewport& inViewport) {
-	const auto scissor = CD3DX12_RECT(0, 0, inViewport.size.x, inViewport.size.y);
-	const auto viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(inViewport.size.x), float(inViewport.size.y));
+	const auto scissor = CD3DX12_RECT(0, 0, inViewport.GetSize().x, inViewport.GetSize().y);
+	const auto viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(inViewport.GetSize().x), float(inViewport.GetSize().y));
 
 	m_CommandLists[m_CurrentCmdListIndex]->RSSetViewports(1, &viewport);
 	m_CommandLists[m_CurrentCmdListIndex]->RSSetScissorRects(1, &scissor);

@@ -45,7 +45,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         
         float3 prev_irradiance = probes_irradiance_texture[threadID.xy];
         
-        float hysteresis = 0.0;
+        float hysteresis = fc.mFrameCounter == 0 ? 0.0 : 0.965;
+        hysteresis = 0.0;
         probes_irradiance_texture[threadID.xy] = lerp(irradiance.rgb, prev_irradiance, hysteresis);
         
         // probes_irradiance_texture[threadID.xy] = float3(octahedral_uv * 0.5 + 0.5, 0.0);

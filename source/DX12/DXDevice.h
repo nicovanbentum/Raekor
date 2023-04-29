@@ -19,9 +19,9 @@ public:
 	ID3D12Device5* operator-> ()				{ return m_Device.Get(); }
 	const ID3D12Device5* operator-> () const	{ return m_Device.Get(); }
 
-	[[nodiscard]] ID3D12CommandQueue*  GetQueue() const												{ return m_Queue.Get(); }
-	[[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() const								{ return m_GlobalRootSignature.Get(); }
-	[[nodiscard]] const DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType) const	{ return m_Heaps[inType]; }
+	[[nodiscard]] ID3D12CommandQueue*  GetQueue() const									{ return m_Queue.Get(); }
+	[[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() const					{ return m_GlobalRootSignature.Get(); }
+	[[nodiscard]] DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType)	{ return m_Heaps[inType]; }
 
 	void BindDrawDefaults(CommandList& inCmdList);
 	void Submit(const Slice<CommandList>& inCmdLists);
@@ -177,7 +177,7 @@ private:
 };
 
 
-ComPtr<IDxcBlob> sCompileShaderDXC(const FileSystem::path& inFilePath);
+ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath);
 
 
 

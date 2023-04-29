@@ -49,10 +49,10 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     gThrowIfFailed(m_Device->CreateCommandQueue(&copy_queue_desc, IID_PPV_ARGS(&m_CopyQueue)));
     gThrowIfFailed(m_Device->CreateCommandQueue(&direct_queue_desc, IID_PPV_ARGS(&m_Queue)));
 
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Init(m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, std::numeric_limits<uint16_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Init(m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, ESamplerIndex::SAMPLER_LIMIT, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
     m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, std::numeric_limits<uint8_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Init(m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_DSV, std::numeric_limits<uint8_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Init(m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, ESamplerIndex::SAMPLER_LIMIT, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Init(m_Device.Get(),  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, std::numeric_limits<uint16_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
     for (size_t sampler_index = 0; sampler_index < ESamplerIndex::SAMPLER_COUNT; sampler_index++)
         m_Device->CreateSampler(&SAMPLER_DESC[sampler_index], m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].GetCPUDescriptorHandle(DescriptorID(sampler_index)));
@@ -633,17 +633,16 @@ void StagingHeap::StageBuffer(ID3D12GraphicsCommandList* inCmdList, ResourceRef 
 
 
 void StagingHeap::StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, uint32_t inSubResource, const void* inData) {
-    auto desc = inResource->GetDesc();
-    auto font_texture_desc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8_UNORM, desc.Width, desc.Height);
-
-    auto rows = 0u;
+    auto nr_of_rows = 0u;
     auto row_size = 0ull, total_size = 0ull;
-    auto font_texture_footprint = D3D12_PLACED_SUBRESOURCE_FOOTPRINT {};
-    m_Device->GetCopyableFootprints(&font_texture_desc, 0, 1, 0, &font_texture_footprint, &rows, &row_size, &total_size);
+    auto footprint = D3D12_PLACED_SUBRESOURCE_FOOTPRINT {};
+    
+    auto desc = inResource->GetDesc();
+    m_Device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
 
-    const auto aligned_size = gAlignUp(font_texture_footprint.Footprint.RowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+    const auto aligned_row_size = gAlignUp(row_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
-    for (auto& buffer : m_Buffers) {
+    /*for (auto& buffer : m_Buffers) {
         if (buffer.mRetired && total_size < buffer.mCapacity - buffer.mSize) {
             memcpy(buffer.mPtr + buffer.mSize, inData, aligned_size);
 
@@ -658,7 +657,7 @@ void StagingHeap::StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef
 
             return;
         }
-    }
+    }*/
 
     auto buffer_id = m_Device.CreateBuffer( Buffer::Desc {
         .size  = uint32_t(total_size),
@@ -671,15 +670,22 @@ void StagingHeap::StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef
     const auto range = CD3DX12_RANGE(0, 0);
     gThrowIfFailed(buffer->Map(0, &range, reinterpret_cast<void**>(&mapped_ptr)));
 
-    memcpy(mapped_ptr, inData, aligned_size);
+    mapped_ptr += footprint.Offset;
+    auto data_ptr = static_cast<const uint8_t*>(inData);
+
+    for (uint32_t row = 0u; row < nr_of_rows; row++) {
+        const auto copy_src = data_ptr + row * row_size;
+        const auto copy_dst = mapped_ptr + row * aligned_row_size;
+        memcpy(copy_dst, copy_src, row_size);
+    }
 
     const auto dest   = CD3DX12_TEXTURE_COPY_LOCATION(inResource.Get(), inSubResource);
-    const auto source = CD3DX12_TEXTURE_COPY_LOCATION(buffer.GetResource().Get(), font_texture_footprint);
+    const auto source = CD3DX12_TEXTURE_COPY_LOCATION(buffer.GetResource().Get(), footprint);
 
     inCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
 
     m_Buffers.emplace_back( StagingBuffer {
-        .mSize      = aligned_size,
+        .mSize      = total_size,
         .mCapacity  = total_size,
         .mRetired   = false,
         .mPtr       = mapped_ptr,
@@ -705,16 +711,13 @@ void RingAllocator::DestroyBuffer(Device& inDevice) {
     if (!m_Buffer.IsValid())
         return;
 
-    auto& buffer = inDevice.GetBuffer(m_Buffer);
-
-    buffer->Unmap(0, nullptr);
-
+    inDevice.GetBuffer(m_Buffer)->Unmap(0, nullptr);
     inDevice.ReleaseBuffer(m_Buffer);
 }
 
 
 
-ComPtr<IDxcBlob> sCompileShaderDXC(const FileSystem::path& inFilePath) {
+ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath) {
     const auto name = inFilePath.stem().string();
     auto type = name.substr(name.size() - 2, 2);
     std::transform(type.begin(), type.end(), type.begin(), tolower);

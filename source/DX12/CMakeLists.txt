@@ -9,6 +9,7 @@ file(GLOB_RECURSE CppFiles ${PROJECT_SOURCE_DIR}/*.cpp)
 # Add ImGuizmo and SPIRV Reflect to the cpp files list, disable PCH for .c files
 set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp)
+list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/samplerCPP/samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp.cpp)
 
 # Rule to build the actual exectuable and enable c++20
 add_executable(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/assets/system/icon/Raekor.rc)

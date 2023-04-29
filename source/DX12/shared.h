@@ -163,6 +163,18 @@ struct ReflectionsRootConstants {
 STATIC_ASSERT(sizeof(ReflectionsRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+struct IndirectGIRootConstants {
+    uint  mGbufferRenderTexture;
+    uint  mGbufferDepthTexture;
+    uint  mShadowMaskTexture;
+    uint  mTLAS;
+    uint  mInstancesBuffer;
+    uint  mMaterialsBuffer;
+    uint2 mDispatchSize;
+};
+STATIC_ASSERT(sizeof(IndirectGIRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
 struct SpdRootConstants {
     uint   mNrOfMips;
     uint   mNrOfWorkGroups;
@@ -192,7 +204,8 @@ struct LightingRootConstants {
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
     uint  mAmbientOcclusionTexture;
-    uint3 pad3;
+    uint  mIndirectDiffuseTexture;
+    uint2 pad2;
     DDGIData mDDGIData;
 }; 
 STATIC_ASSERT(sizeof(LightingRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
