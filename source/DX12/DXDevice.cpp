@@ -29,12 +29,12 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     }
 
     device_creation_flags |= DXGI_CREATE_FACTORY_DEBUG;
-
+#endif
+    
     if (CVars::sCreate("hook_pix", 0)) {
         auto pix_module = PIXLoadLatestWinPixGpuCapturerLibrary();
         assert(pix_module);
     }
-#endif
 
     auto factory = ComPtr<IDXGIFactory6>{};
     gThrowIfFailed(CreateDXGIFactory2(device_creation_flags, IID_PPV_ARGS(&factory)));

@@ -136,7 +136,7 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
 struct RTAOData {
     RTTI_CLASS_HEADER(RTAOData);
 
-    AmbientOcclusionParams mParams;
+    AmbientOcclusionParams mParams = { .mRadius = 2.0, .mIntensity = 1.0, .mNormalBias = 0.01, .mSampleCount = 1u };
     TextureResource mOutputTexture;
     TextureResource mGbufferDepthTexture;
     TextureResource mGBufferRenderTexture;

@@ -25,7 +25,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     uint2 ray_texture_index = uint2(ray_index, probe_index);
     
     float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-    // ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
+    ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
     
     float3 probe_ws_pos = DDGIGetProbeWorldPos(Index1DTo3D(probe_index, rc.mDDGIData.mProbeCount), rc.mDDGIData);
     
@@ -63,7 +63,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         const float3 l = brdf.Evaluate(Wo, Wi, Wh);
 
         const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
-        float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi));
+        float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * 2.0;
         irradiance = l * NdotL * sunlight_luminance;
         
         if (NdotL != 0.0)
@@ -85,7 +85,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         }
         
         // Infinite bounces!
-        //irradiance += DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
+        // irradiance += DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
     }
     else
     {
@@ -109,4 +109,5 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     
     depth_texture[ray_texture_index] = hitT;
     irradiance_texture[ray_texture_index] = irradiance;
+    // irradiance_texture[ray_texture_index] = DDGIGetProbeDebugColor(probe_index, rc.mDDGIData.mProbeCount).rgb;
 }

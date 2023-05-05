@@ -299,7 +299,6 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
 
     GUI::EndFrame();
 
-
     if (m_FrameCounter > 0) {
         // At this point in the frame we really need to previous frame's present job to have finished
         if (m_PresentJobPtr)
@@ -373,7 +372,8 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
     backbuffer_data.mCmdList.Close();
 
     // Run command list execution and present in a job so it can overlap a bit with the start of the next frame
-    // m_PresentJobPtr = Async::sQueueJob([&inDevice, this]() {
+    //m_PresentJobPtr = Async::sQueueJob([&inDevice, this]() {
+
         const auto cmd_lists = std::array { static_cast<ID3D12CommandList*>(GetBackBufferData().mCmdList)};
         inDevice.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
 
@@ -384,11 +384,11 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
             present_flags = DXGI_PRESENT_ALLOW_TEARING;
 
         gThrowIfFailed(m_Swapchain->Present(sync_interval, present_flags));
-
+     
         GetBackBufferData().mFenceValue++;
         m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
         gThrowIfFailed(inDevice.GetQueue()->Signal(m_Fence.Get(), GetBackBufferData().mFenceValue));
-    // });
+    //});
 
     m_FrameCounter++;
 
@@ -667,11 +667,6 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mGbufferDepthTexture             = inRenderPass->Read(inGbufferData.mDepthTexture);
         inData.mGBufferRenderTexture            = inRenderPass->Read(inGbufferData.mRenderTexture);
         inData.mTopLevelAccelerationStructure   = inTLAS;
-
-        inData.mParams.mRadius      = 2.0;
-        inData.mParams.mIntensity   = 1.0;
-        inData.mParams.mNormalBias  = 0.01;
-        inData.mParams.mSampleCount = 1u;
 
         auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTAmbientOcclusionCS");
         gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(&inData.mPipeline)));
@@ -959,7 +954,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             .mTLAS                  = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure),
             .mDebugProbeIndex       = Index3Dto1D(inData.mDebugProbe, inData.mDDGIData.mProbeCount),
             .mDDGIData              = inData.mDDGIData,
-            .mRandomRotationMatrix  = gRandomOrientation()
+            .mRandomRotationMatrix  = gRandomRotationMatrix()
         };
 
         const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
@@ -987,7 +982,7 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         }, L"DDGI_UPDATE_DEPTH");
 
         const auto probes_irradiance_texture = inDevice.CreateTexture(Texture::Desc{
-            .format = DXGI_FORMAT_R11G11B10_FLOAT,
+            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
             .width  = uint32_t(DDGI_IRRADIANCE_TEXELS * DDGI_PROBES_PER_ROW),
             .height = uint32_t(DDGI_IRRADIANCE_TEXELS * (total_probe_count / DDGI_PROBES_PER_ROW)),
             .usage  = Texture::Usage::SHADER_READ_WRITE
@@ -1031,7 +1026,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
     return inRenderGraph.AddGraphicsPass<ProbeDebugData>("GI PROBE DEBUG PASS", inDevice,
     [&](IRenderPass* inRenderPass, ProbeDebugData& inData)
     {
-        gGenerateSphere(inData.mProbeMesh, .5f, 8u, 8u);
+        gGenerateSphere(inData.mProbeMesh, .25f, 8u, 8u);
 
         const auto vertices = inData.mProbeMesh.GetInterleavedVertices();
         const auto vertices_size = vertices.size() * sizeof(vertices[0]);

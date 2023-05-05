@@ -9,7 +9,7 @@ ROOT_CONSTANTS(DDGIData, rc)
 [numthreads(DDGI_IRRADIANCE_TEXELS, DDGI_IRRADIANCE_TEXELS, 1)]
 void main(uint3 threadID : SV_DispatchThreadID) {
     Texture2D<float3> rays_irradiance_texture = ResourceDescriptorHeap[rc.mRaysIrradianceTexture];
-    RWTexture2D<float3> probes_irradiance_texture = ResourceDescriptorHeap[rc.mProbesIrradianceTexture];
+    RWTexture2D<float4> probes_irradiance_texture = ResourceDescriptorHeap[rc.mProbesIrradianceTexture];
     
     FrameConstants fc = gGetFrameConstants();
     
@@ -43,11 +43,12 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         if (irradiance.w > 0.0)
             irradiance.rgb /= irradiance.w;
         
-        float3 prev_irradiance = probes_irradiance_texture[threadID.xy];
+        float3 prev_irradiance = probes_irradiance_texture[threadID.xy].rgb;
         
         float hysteresis = fc.mFrameCounter == 0 ? 0.0 : 0.965;
-        hysteresis = 0.0;
-        probes_irradiance_texture[threadID.xy] = lerp(irradiance.rgb, prev_irradiance, hysteresis);
+        
+        //hysteresis = 1.0;
+        probes_irradiance_texture[threadID.xy] = float4(lerp(irradiance.rgb, prev_irradiance, hysteresis), 1.0);
         
         // probes_irradiance_texture[threadID.xy] = float3(octahedral_uv * 0.5 + 0.5, 0.0);
         

@@ -108,8 +108,8 @@ T DDGISampleProbe(uint inProbeIndex, float3 inDir, uint inProbeTexels, uint inTo
 }
 
 
-float3 DDGISampleIrradianceProbe(uint inProbeIndex, float3 inDir, Texture2D<float3> inTexture) {
-    return DDGISampleProbe(inProbeIndex, inDir, DDGI_IRRADIANCE_TEXELS_NO_BORDER, DDGI_IRRADIANCE_TEXELS, inTexture);
+float3 DDGISampleIrradianceProbe(uint inProbeIndex, float3 inDir, Texture2D<float4> inTexture) {
+    return DDGISampleProbe(inProbeIndex, inDir, DDGI_IRRADIANCE_TEXELS_NO_BORDER, DDGI_IRRADIANCE_TEXELS, inTexture).rgb;
 }
 
 
@@ -125,7 +125,7 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
     float3 ws_pos_01 = clamp((inWsPos - start_probe_ws_pos) / inData.mProbeSpacing, 0.0, 1.0);
     
     Texture2D<float2> depth_texture = ResourceDescriptorHeap[inData.mProbesDepthTexture];
-    Texture2D<float3> irradiance_texture = ResourceDescriptorHeap[inData.mProbesIrradianceTexture];
+    Texture2D<float4> irradiance_texture = ResourceDescriptorHeap[inData.mProbesIrradianceTexture];
     
     float4 irradiance = 0.0.xxxx;
     
@@ -164,7 +164,7 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
         uint3 debug_color = current_probe_coord & 1;
         
         // Accumulate weighted irradiance
-        irradiance += float4(sampled_irradiance * weight, weight);
+        irradiance += float4(sampled_irradiance.rgb * weight, weight);
     }
     
     return irradiance.rgb / irradiance.w;

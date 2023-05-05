@@ -18,7 +18,7 @@ ROOT_CONSTANTS(DDGIData, rc)
 
 PS_OUTPUT main(in VS_OUTPUT input) {
     Texture2D<float2> probes_depth_texture = ResourceDescriptorHeap[rc.mProbesDepthTexture];
-    Texture2D<float3> probes_irradiance_texture = ResourceDescriptorHeap[rc.mProbesIrradianceTexture];
+    Texture2D<float4> probes_irradiance_texture = ResourceDescriptorHeap[rc.mProbesIrradianceTexture];
     
     float3 irradiance = DDGISampleIrradianceProbe(input.index, input.normal, probes_irradiance_texture);
     

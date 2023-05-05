@@ -135,6 +135,7 @@ DXApp::DXApp() :
     m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
     m_Viewport.GetCamera().Zoom(5.0f);
     m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
+    m_Viewport.SetFieldOfView(65.0f);
 }
 
 
@@ -188,6 +189,9 @@ void DXApp::OnEvent(const SDL_Event& event) {
             camera.Zoom(float(event.wheel.y));
     }
 
+
+    static bool alt_enter_pressed = false;
+
     if (event.type == SDL_KEYDOWN && !event.key.repeat) {
         if (event.key.keysym.sym == SDLK_RETURN && SDL_GetModState() & KMOD_LALT) {
 
@@ -204,6 +208,8 @@ void DXApp::OnEvent(const SDL_Event& event) {
             m_Viewport.SetSize(new_size);
             m_Renderer.OnResize(m_Device, m_Viewport);
             m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
+        
+            alt_enter_pressed = true;
         }
     }
 
@@ -223,12 +229,17 @@ void DXApp::OnEvent(const SDL_Event& event) {
                 m_Running = false;
         }
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-            m_Renderer.WaitForIdle(m_Device);
-            auto w = 0, h = 0;
-            SDL_GetWindowSize(m_Window, &w, &h);
-            m_Viewport.SetSize(glm::uvec2(w, h));
-            m_Renderer.OnResize(m_Device, m_Viewport);
-            m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
+            if (!alt_enter_pressed) {
+                m_Renderer.WaitForIdle(m_Device);
+                auto w = 0, h = 0;
+                SDL_GetWindowSize(m_Window, &w, &h);
+                m_Viewport.SetSize(glm::uvec2(w, h));
+                m_Renderer.OnResize(m_Device, m_Viewport);
+                m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
+            }
+            else
+                alt_enter_pressed = false;
+
         }
     }
 }

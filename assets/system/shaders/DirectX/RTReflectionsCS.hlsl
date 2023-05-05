@@ -125,7 +125,10 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             shadow_ray.Direction = Wi;
             shadow_ray.TMin = 0.1;
             shadow_ray.TMax = 1000.0;
-        
+            
+            float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
+            shadow_ray.Direction.xz += uniformSampleDisk(blue_noise.xy, 0.05);
+            
             uint shadow_ray_flags = RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;
     
             RayQuery <RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER> shadow_query;
