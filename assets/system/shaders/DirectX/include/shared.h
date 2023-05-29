@@ -237,4 +237,11 @@ struct ProbeTraceRootConstants {
 STATIC_ASSERT(sizeof(ProbeTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+struct ProbeUpdateRootConstants {
+    DDGIData mDDGIData;
+    float3x3 mRandomRotationMatrix;
+};
+STATIC_ASSERT(sizeof(ProbeUpdateRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
 #endif // SHARED_H

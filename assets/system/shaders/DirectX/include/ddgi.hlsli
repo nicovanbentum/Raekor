@@ -7,9 +7,7 @@
 
 /*
 TODO: 
-    - blend prev values using hysterises
-    - random rotation per ray
-    - recursive irradiance
+    - Sample irradiance when calculating current irradiance to get some form of infinite bounces 
 */
 
 uint Index2DTo1D(uint2 inCoord, uint inWidth) {
@@ -142,16 +140,16 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
         float wrap_shade = (dot(dir, inNormal) + 1) * 0.5;
         float weight = (wrap_shade*wrap_shade) + 0.2;
                 
-        // Chebyshev visibility test
-        float2 depth = DDGISampleDepthProbe(probe_index, -dir, depth_texture);
-        float r = length(probe_ws_pos - inWsPos);
-        float mean = depth.r, mean2 = depth.g;
+        //// Chebyshev visibility test
+        //float2 depth = DDGISampleDepthProbe(probe_index, -dir, depth_texture);
+        //float r = length(probe_ws_pos - inWsPos);
+        //float mean = depth.r, mean2 = depth.g;
         
-        if (r < mean)
-        {
-            float variance = abs(square(mean) - mean2);
-            weight *= variance / (variance + square(r - mean));
-        }
+        //if (r < mean)
+        //{
+        //    float variance = abs(square(mean) - mean2);
+        //    weight *= variance / (variance + square(r - mean));
+        //}
 
         // Calculate trilinear interpolation weight
         float3 tri = lerp(1.0 - ws_pos_01, ws_pos_01, cube_indices);

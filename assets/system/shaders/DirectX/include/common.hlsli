@@ -51,8 +51,8 @@ void AddDebugLine(float3 inP1, float3 inP2, float4 inColor1, float4 inColor2) {
     uint vertex_offset;
     args_buffer.InterlockedAdd(0, 2, vertex_offset);
     
-    vertex_buffer[vertex_offset] = float4(inP1, Float4ToRGBA8(inColor1));
-    vertex_buffer[vertex_offset + 1] = float4(inP2, Float4ToRGBA8(inColor2));
+    vertex_buffer[vertex_offset] = float4(inP1, asfloat(Float4ToRGBA8(inColor1)));
+    vertex_buffer[vertex_offset + 1] = float4(inP2, asfloat(Float4ToRGBA8(inColor2)));
     
 }
 

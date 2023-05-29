@@ -82,8 +82,8 @@ DXApp::DXApp() :
         for (auto& p : mesh.positions)
             p = transform.worldTransform * glm::vec4(p, 1.0);
 
-        for (auto& n : mesh.normals)
-            n = glm::normalize(glm::mat3(glm::transpose(glm::inverse(transform.worldTransform))) * n);
+        //for (auto& n : mesh.normals)
+            //n = glm::normalize(glm::mat3(glm::transpose(glm::inverse(transform.worldTransform))) * n);
 
         for (auto& t : mesh.tangents)
             t = glm::normalize(transform.worldTransform * glm::vec4(t, 0.0));
@@ -154,93 +154,43 @@ void DXApp::OnUpdate(float inDeltaTime) {
 }
 
 
-void DXApp::OnEvent(const SDL_Event& event) {
-    ImGui_ImplSDL2_ProcessEvent(&event);
+void DXApp::OnEvent(const SDL_Event& inEvent) {
+    ImGui_ImplSDL2_ProcessEvent(&inEvent);
 
-    if (event.button.button == 2 || event.button.button == 3) {
-        if (event.type == SDL_MOUSEBUTTONDOWN)
-            SDL_SetRelativeMouseMode(SDL_TRUE);
-        else if (event.type == SDL_MOUSEBUTTONUP)
-            SDL_SetRelativeMouseMode(SDL_FALSE);
-    }
+    if (!ImGui::GetIO().WantCaptureMouse)
+        CameraController::OnEvent(m_Viewport.GetCamera(), inEvent);
 
-    if (event.type == SDL_KEYDOWN && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
-        m_Viewport.GetCamera().mZoomConstant *= 20.0f;
-        m_Viewport.GetCamera().mMoveConstant *= 20.0f;
-    }
-
-    if (event.type == SDL_KEYUP && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
-        m_Viewport.GetCamera().mZoomConstant /= 20.0f;
-        m_Viewport.GetCamera().mMoveConstant /= 20.0f;
-    }
-
-    if (!ImGui::GetIO().WantCaptureMouse) {
-        auto& camera = m_Viewport.GetCamera();
-
-        if (event.type == SDL_MOUSEMOTION) {
-            if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(3)) {
-                auto formula = glm::radians(0.022f * camera.mSensitivity * 2.0f);
-                camera.Look(glm::vec2(event.motion.xrel * formula, event.motion.yrel * formula));
-            }
-            else if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(2))
-                camera.Move(glm::vec2(event.motion.xrel * 0.02f, event.motion.yrel * 0.02f));
-        }
-        else if (event.type == SDL_MOUSEWHEEL)
-            camera.Zoom(float(event.wheel.y));
-    }
-
-
-    static bool alt_enter_pressed = false;
-
-    if (event.type == SDL_KEYDOWN && !event.key.repeat) {
-        if (event.key.keysym.sym == SDLK_RETURN && SDL_GetModState() & KMOD_LALT) {
-
+    if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat) {
+        // ALT + ENTER event (Windowed <-> Fullscreen toggle)
+        if (inEvent.key.keysym.sym == SDLK_RETURN && SDL_GetModState() & KMOD_LALT) {
+            // This only toggles between windowed and borderless fullscreen, exclusive fullscreen needs to be set from the menu
             if (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_FULLSCREEN_DESKTOP)
                 SDL_SetWindowFullscreen(m_Window, 0);
             else
                 SDL_SetWindowFullscreen(m_Window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 
+            // SDL2 should have updated the window by now, so get the new size
             auto width = 0, height = 0;
             SDL_GetWindowSize(m_Window, &width, &height);
-            const auto new_size = UVec2(width, height);
 
-            m_Renderer.WaitForIdle(m_Device);
-            m_Viewport.SetSize(new_size);
-            m_Renderer.OnResize(m_Device, m_Viewport);
-            m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
-        
-            alt_enter_pressed = true;
+            // Updat the viewport and tell the renderer to resize to the viewport
+            m_Viewport.SetSize(UVec2(width, height));
+            m_Renderer.SetShouldResize(true);
+
+            SDL_DisplayMode mode;
+            SDL_GetWindowDisplayMode(m_Window, &mode);
+            std::cout << std::format("SDL Display Mode: {}x{}@{}Hz \n", mode.w, mode.h, mode.refresh_rate);
+
         }
     }
 
-
-    if (event.type == SDL_WINDOWEVENT) {
-        if (event.window.event == SDL_WINDOWEVENT_MINIMIZED) {
-            while (1) {
-                auto temp_event = SDL_Event{};
-                SDL_PollEvent(&temp_event);
-
-                if (temp_event.window.event == SDL_WINDOWEVENT_RESTORED)
-                    break;
-            }
-        }
-        if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
-            if (SDL_GetWindowID(m_Window) == event.window.windowID)
-                m_Running = false;
-        }
-        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-            if (!alt_enter_pressed) {
-                m_Renderer.WaitForIdle(m_Device);
-                auto w = 0, h = 0;
-                SDL_GetWindowSize(m_Window, &w, &h);
-                m_Viewport.SetSize(glm::uvec2(w, h));
-                m_Renderer.OnResize(m_Device, m_Viewport);
-                m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
-            }
-            else
-                alt_enter_pressed = false;
-
-        }
+    if (inEvent.type == SDL_WINDOWEVENT && inEvent.window.event == SDL_WINDOWEVENT_RESIZED) {
+        auto width = 0, height = 0;
+        SDL_GetWindowSize(m_Window, &width, &height);
+                
+        // Updat the viewport and tell the renderer to resize to the viewport
+        m_Viewport.SetSize(UVec2(width, height));
+        m_Renderer.SetShouldResize(true);
     }
 }
 
@@ -262,19 +212,10 @@ void DXApp::CompileShaders() {
         if (file.is_directory() || file.path().extension() != ".hlsl")
             continue;
 
-        m_Device.m_Shaders[file.path().stem().string()] = Device::ShaderEntry {
-            .mPath = file.path(),
-            .mLastWriteTime = FileSystem::last_write_time(file)
-        };
+        m_Device.QueueShader(file.path());
     }
 
-    for (auto& [path, shader] : m_Device.m_Shaders) {
-        Async::sQueueJob([&]() {
-            shader.mBlob = sCompileShaderDXC(shader.mPath);
-        });
-    }
-
-    // Wait for shader compilation to finish before continuing on with pipeline creation
+    // Wait for all the shaders to compile before continuing with renderer init
     Async::sWait();
 }
 
@@ -318,26 +259,26 @@ void DXApp::UploadSceneToGPU() {
     const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
     const auto white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
     const auto normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
-    m_DefaultBlackTexture = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(black_texture_file), DXGI_FORMAT_BC3_UNORM);
-    m_DefaultWhiteTexture = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(white_texture_file), DXGI_FORMAT_BC3_UNORM);
-    const auto default_normal_texture = QueueDirectStorageLoad(m_Assets.Get<TextureAsset>(normal_texture_file), DXGI_FORMAT_BC3_UNORM);
+    m_DefaultBlackTexture = QueueDirectStorageLoad(m_Assets.GetAsset<TextureAsset>(black_texture_file), DXGI_FORMAT_BC3_UNORM);
+    m_DefaultWhiteTexture = QueueDirectStorageLoad(m_Assets.GetAsset<TextureAsset>(white_texture_file), DXGI_FORMAT_BC3_UNORM);
+    const auto default_normal_texture = QueueDirectStorageLoad(m_Assets.GetAsset<TextureAsset>(normal_texture_file), DXGI_FORMAT_BC3_UNORM);
 
     Material::Default.gpuAlbedoMap = m_DefaultWhiteTexture.ToIndex();
     Material::Default.gpuNormalMap = default_normal_texture.ToIndex();
     Material::Default.gpuMetallicRoughnessMap = m_DefaultWhiteTexture.ToIndex();
 
     for (const auto& [entity, material] : m_Scene.view<Material>().each()) {
-        if (const auto asset = m_Assets.Get<TextureAsset>(material.albedoFile))
+        if (const auto asset = m_Assets.GetAsset<TextureAsset>(material.albedoFile))
             material.gpuAlbedoMap = QueueDirectStorageLoad(asset, DXGI_FORMAT_BC3_UNORM_SRGB).ToIndex();
         else
             material.gpuAlbedoMap = m_DefaultWhiteTexture.ToIndex();
 
-        if (const auto asset = m_Assets.Get<TextureAsset>(material.normalFile))
+        if (const auto asset = m_Assets.GetAsset<TextureAsset>(material.normalFile))
             material.gpuNormalMap = QueueDirectStorageLoad(asset, DXGI_FORMAT_BC3_UNORM).ToIndex();
         else
             material.gpuNormalMap = default_normal_texture.ToIndex();
 
-        if (const auto asset = m_Assets.Get<TextureAsset>(material.metalroughFile))
+        if (const auto asset = m_Assets.GetAsset<TextureAsset>(material.metalroughFile))
             material.gpuMetallicRoughnessMap = QueueDirectStorageLoad(asset, DXGI_FORMAT_BC3_UNORM).ToIndex();
         else
             material.gpuMetallicRoughnessMap = m_DefaultWhiteTexture.ToIndex();
@@ -348,12 +289,6 @@ void DXApp::UploadSceneToGPU() {
 DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat) {
     auto factory = ComPtr<IDStorageFactory>();
     gThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&factory)));
-
-    auto file = ComPtr<IDStorageFile>();
-    if (FileSystem::exists(inAsset->GetPath()))
-        gThrowIfFailed(factory->OpenFile(inAsset->GetPath().wstring().c_str(), IID_PPV_ARGS(&file)));
-
-    const auto queue = FileSystem::exists(inAsset->GetPath()) ? m_FileStorageQueue : m_MemoryStorageQueue;
 
     auto data_ptr = inAsset->GetData();
     const auto header_ptr = inAsset->GetHeader();
@@ -369,53 +304,36 @@ DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& inAsset, DXG
         .usage = Texture::SHADER_READ_ONLY
     }, inAsset->GetPath().wstring().c_str()));
 
-    auto width = header_ptr->dwWidth, height = header_ptr->dwHeight;
-    auto data_offset = sizeof(DDS_MAGIC) + sizeof(DDS_HEADER);
     auto requests = std::vector<DSTORAGE_REQUEST>(mipmap_levels);
 
     for (auto [mip, request] : gEnumerate(requests)) {
+        const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
+        const auto data_size = std::max(1u, ((dimensions.x + 3u) / 4u)) * std::max(1u, ((dimensions.y + 3u) / 4u)) * 16u;
+
         request = DSTORAGE_REQUEST {
             .Options = DSTORAGE_REQUEST_OPTIONS {
-                .SourceType = DSTORAGE_REQUEST_SOURCE_FILE,
+                .SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY,
                 .DestinationType = DSTORAGE_REQUEST_DESTINATION_TEXTURE_REGION,
             },
-            .Source = DSTORAGE_SOURCE {
-                .File = DSTORAGE_SOURCE_FILE {
-                    .Source = file.Get(),
-                    .Offset = data_offset,
-                    .Size = width * height,
-                },
-            },
+            .Source = DSTORAGE_SOURCE { 
+                DSTORAGE_SOURCE_MEMORY {
+                    .Source = data_ptr,
+                    .Size = data_size
+            }},
+
             .Destination = DSTORAGE_DESTINATION {
                 .Texture = DSTORAGE_DESTINATION_TEXTURE_REGION {
                     .Resource = texture.GetResource().Get(),
                     .SubresourceIndex = uint32_t(mip),
-                    .Region = CD3DX12_BOX(0, 0, width, height),
+                    .Region = CD3DX12_BOX(0, 0, dimensions.x, dimensions.y),
                 }
             },
             .Name = inAsset->GetPath().string().c_str()
         };
 
-        if (!FileSystem::exists(inAsset->GetPath())) {
-            request.Options.SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY;
+        data_ptr += dimensions.x * dimensions.y;
 
-            const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
-            const auto data_size = std::max(1u, ((dimensions.x + 3u) / 4u)) * std::max(1u, ((dimensions.y + 3u) / 4u)) * 16u;
-
-            request.Source = DSTORAGE_SOURCE { 
-                DSTORAGE_SOURCE_MEMORY {
-                    .Source = data_ptr,
-                    .Size = data_size
-            }};
-
-            data_ptr += dimensions.x * dimensions.y;
-        }
-
-
-        width /= 2, height /= 2;
-        data_offset += request.Source.File.Size;
-        
-        queue->EnqueueRequest(&request);
+        m_MemoryStorageQueue->EnqueueRequest(&request);
     }
 
     auto fence = ComPtr<ID3D12Fence>{};
@@ -424,10 +342,10 @@ DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& inAsset, DXG
     auto fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     constexpr auto fence_value = 1ul;
     gThrowIfFailed(fence->SetEventOnCompletion(fence_value, fence_event));
-    queue->EnqueueSignal(fence.Get(), fence_value);
+    m_MemoryStorageQueue->EnqueueSignal(fence.Get(), fence_value);
 
     // Tell DirectStorage to start executing all queued items.
-    queue->Submit();
+    m_MemoryStorageQueue->Submit();
 
     // Wait for the submitted work to complete
     std::cout << "Waiting for the DirectStorage request to complete...\n";
@@ -436,6 +354,7 @@ DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& inAsset, DXG
 
     return texture.GetView();
 }
+
 
 
 void DXApp::UploadBvhToGPU() {

@@ -31,12 +31,14 @@ struct BackBufferData {
 class Renderer {
 private:
     struct Settings {
-        int& mDebugLines  = CVars::sCreate("r_debug_lines", 1);
-        int& mProbeDebug  = CVars::sCreate("r_debug_gi_probes", 1);
-        int& mEnableRTAO  = CVars::sCreate("r_enable_rtao", 1);
-        int& mEnableFsr2  = CVars::sCreate("r_enable_fsr2", 0);
-        int& mEnableDDGI  = CVars::sCreate("r_enable_ddgi", 1);
-        int& mEnableVsync = CVars::sCreate("r_vsync", 1);
+        int& mEnableVsync = CVars::sCreate("r_vsync",               1);
+        int& mDebugLines  = CVars::sCreate("r_debug_lines",         1);
+        int& mEnableRTAO  = CVars::sCreate("r_enable_rtao",         1);
+        int& mProbeDebug  = CVars::sCreate("r_debug_gi_probes",     1);
+        int& mEnableDDGI  = CVars::sCreate("r_enable_ddgi",         1);
+        int& mFullscreen  = CVars::sCreate("r_fullscreen",          0);
+        int& mEnableFsr2  = CVars::sCreate("r_enable_fsr2",         0);
+        int& mDisplayRes  = CVars::sCreate("r_display_resolution",  0);
     } m_Settings;
 
 public:
@@ -52,6 +54,8 @@ public:
     
     void WaitForIdle(Device& inDevice);
 
+    void SetShouldResize(bool inShouldResize) { m_ShouldResize = inShouldResize; }
+
     const RenderGraph&  GetRenderGraph()        { return m_RenderGraph; }
     BackBufferData&     GetBackBufferData()     { return m_BackBufferData[m_FrameIndex];  }
     BackBufferData&     GetPrevBackBufferData() { return m_BackBufferData[!m_FrameIndex]; }
@@ -61,6 +65,7 @@ public:
     static constexpr DXGI_FORMAT sSwapchainFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
 
 private:
+    SDL_Window*             m_Window;
     Async::JobPtr           m_PresentJobPtr;
     uint32_t                m_FrameIndex;
     float                   m_ElapsedTime = 0;
@@ -68,6 +73,7 @@ private:
     ComPtr<ID3D12Fence>     m_Fence;
     HANDLE                  m_FenceEvent;
     uint64_t                m_FrameCounter = 0;
+    bool                    m_ShouldResize = false;
     bool                    m_ShouldCaptureNextFrame = false;
     BackBufferData          m_BackBufferData[sFrameCount];
     FrameConstants          m_FrameConstants;
@@ -131,7 +137,7 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
 
 
 ////////////////////////////////////////
-/// Ray-traced Shadow Mask Render Pass
+/// Ray-traced Ambient Occlusion Render Pass
 ////////////////////////////////////////
 struct RTAOData {
     RTTI_CLASS_HEADER(RTAOData);
@@ -227,6 +233,7 @@ struct ProbeTraceData {
 
     IVec3           mDebugProbe = IVec3(10, 10, 5);
     DDGIData        mDDGIData;
+    Mat3x3          mRandomRotationMatrix;
     DescriptorID    mMaterialBuffer;
     DescriptorID    mInstancesBuffer;
     TextureResource mProbesDepthTexture;

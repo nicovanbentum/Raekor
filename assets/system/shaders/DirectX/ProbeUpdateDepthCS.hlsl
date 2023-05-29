@@ -4,12 +4,12 @@
 #include "include/random.hlsli"
 #include "include/ddgi.hlsli"
 
-ROOT_CONSTANTS(DDGIData, rc)
+ROOT_CONSTANTS(ProbeUpdateRootConstants, rc)
 
 [numthreads(DDGI_DEPTH_TEXELS, DDGI_DEPTH_TEXELS, 1)]
 void main(uint3 threadID : SV_DispatchThreadID) {
-    Texture2D<float> rays_depth_texture = ResourceDescriptorHeap[rc.mRaysDepthTexture];
-    RWTexture2D<float2> probes_depth_texture = ResourceDescriptorHeap[rc.mProbesDepthTexture];
+    Texture2D<float> rays_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
+    RWTexture2D<float2> probes_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesDepthTexture];
     
     FrameConstants fc = gGetFrameConstants();
     
@@ -34,10 +34,11 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) {
             float ray_depth = rays_depth_texture[uint2(ray_index, probe_index)];
             // limit the depth to the max distance between probes, if its further we would have picked a different probe anyway
-            ray_depth = min(ray_depth, length(rc.mProbeSpacing)); 
+            ray_depth = min(ray_depth, length(rc.mDDGIData.mProbeSpacing));
         
-            float3 trace_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-            float weight = max(dot(octahedral_dir, trace_dir), 0);
+            float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
+            ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
+            float weight = max(dot(octahedral_dir, ray_dir), 0);
         
             depth += float3(ray_depth * weight, ray_depth*ray_depth * weight, weight);
         }

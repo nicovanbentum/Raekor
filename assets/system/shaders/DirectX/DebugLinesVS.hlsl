@@ -15,7 +15,7 @@ VS_OUTPUT main(in float4 inVertex : POSITION)
     FrameConstants fc = gGetFrameConstants();
     
     output.mWorldPos = mul(fc.mViewProjectionMatrix, float4(inVertex.xyz, 1.0));
-    output.mColor = RGBA8ToFloat4(inVertex.w);
+    output.mColor = RGBA8ToFloat4(asuint(inVertex.w));
     
     return output;
 }

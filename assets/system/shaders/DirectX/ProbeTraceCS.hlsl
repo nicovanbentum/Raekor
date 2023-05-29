@@ -19,6 +19,9 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     RWTexture2D<float3> irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
 
     FrameConstants fc = gGetFrameConstants();
+    
+    //if (fc.mFrameCounter > 192)
+    //    return;
 
     uint ray_index = threadID.x;
     uint probe_index = threadID.y;
@@ -54,7 +57,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         
         BRDF brdf;
         brdf.FromHit(vertex, material);
-        brdf.mNormal = vertex.mNormal; // use the vertex normal, texture based detail is lost anyway
+        //brdf.mNormal = vertex.mNormal; // use the vertex normal, texture based detail is lost anyway
         
         const float3 Wo = -ray_dir;
         const float3 Wi = normalize(-fc.mSunDirection.xyz);
@@ -89,8 +92,9 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     }
     else
     {
-        float3 transmittance;
-        irradiance = IntegrateScattering(ray.Origin, ray.Direction, 1.#INF, fc.mSunDirection.xyz, float3(1, 1, 1), transmittance);
+        //float3 transmittance;
+        //irradiance = IntegrateScattering(ray.Origin, ray.Direction, 1.#INF, fc.mSunDirection.xyz, float3(1, 1, 1), transmittance);
+        hitT = ray.TMax;
     }
     
     if (probe_index == rc.mDebugProbeIndex) {
@@ -99,7 +103,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             ResetDebugLineCount();
         
         float4 debug_ray_color = float4(irradiance, 1.0);
-        float3 debug_ray_start = ray.Origin + ray.Direction * 0.5;
+        float3 debug_ray_start = ray.Origin + ray.Direction * 0.25;
         float3 debug_ray_end   = ray.Origin + ray.Direction * hitT;
         
         // InterlockedAdd( 2 ) to the VertexCount, use the original value as write index into the line vertex buffer

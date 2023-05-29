@@ -12,7 +12,7 @@ float4 RGBA8ToFloat4(uint val) {
 
 uint Float4ToRGBA8(float4 val) {
     uint packed = 0;
-    packed += uint(val.x * 255);
+    packed += uint(val.r * 255);
     packed += uint(val.g * 255) << 8;
     packed += uint(val.b * 255) << 16;
     packed += uint(val.a * 255) << 24;

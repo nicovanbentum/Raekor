@@ -238,7 +238,6 @@ private:
 class RenderGraph {
 public:
 	RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t inFrameCount);
-	~RenderGraph();
 
 	template<typename T>
 	const T& AddGraphicsPass(const std::string& inName, Device& inDevice, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);

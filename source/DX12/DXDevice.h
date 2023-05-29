@@ -19,9 +19,11 @@ public:
 	ID3D12Device5* operator-> ()				{ return m_Device.Get(); }
 	const ID3D12Device5* operator-> () const	{ return m_Device.Get(); }
 
-	[[nodiscard]] ID3D12CommandQueue*  GetQueue() const									{ return m_Queue.Get(); }
-	[[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() const					{ return m_GlobalRootSignature.Get(); }
-	[[nodiscard]] DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType)	{ return m_Heaps[inType]; }
+	bool IsTearingSupported() const { return mIsTearingSupported; }
+
+	[[nodiscard]] ID3D12CommandQueue*  GetQueue() const										{ return m_Queue.Get(); }
+	[[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() const						{ return m_GlobalRootSignature.Get(); }
+	[[nodiscard]] DescriptorHeap&	   GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType)	{ return m_Heaps[inType]; }
 
 	void BindDrawDefaults(CommandList& inCmdList);
 	void Submit(const Slice<CommandList>& inCmdLists);
@@ -58,7 +60,6 @@ public:
 	
 	[[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetHeapPtr(TextureResource inResource);
 
-
 	[[nodiscard]] DescriptorID CreateDepthStencilView(ResourceRef inResourceID, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
 	[[nodiscard]] DescriptorID CreateRenderTargetView(ResourceRef inResourceID, const D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);
 	[[nodiscard]] DescriptorID CreateShaderResourceView(ResourceRef inResourceID, const D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc = nullptr);
@@ -79,6 +80,19 @@ public:
 	[[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inID)		{ return GetBindlessHeapIndex(GetBuffer(inID).GetView()); }
 	[[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inID)		{ return GetBindlessHeapIndex(GetTexture(inID).GetView()); }
 
+	void QueueShader(const Path& inPath);
+
+	struct ShaderEntry {
+		inline bool IsNull() { return mBlob != nullptr; }
+
+		FileSystem::path mPath;
+		ComPtr<IDxcBlob> mBlob = nullptr;
+		FileSystem::file_time_type mLastWriteTime;
+	};
+
+	std::mutex m_ShadersLock;
+	std::unordered_map<std::string, ShaderEntry> m_Shaders;
+
 private:
 	void CreateDescriptor(BufferID inBufferID, const Buffer::Desc& inDesc);
 	void CreateDescriptor(TextureID inTextureID, const Texture::Desc& inDesc);
@@ -90,7 +104,8 @@ private:
 	/* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
 	void ReleaseDescriptorImmediate(TextureID inTextureID);
 
-public:
+private:
+	BOOL mIsTearingSupported;
 	ComPtr<ID3D12Device5> m_Device;
 	ComPtr<IDXGIAdapter1> m_Adapter;
 	ComPtr<ID3D12CommandQueue> m_Queue;
@@ -98,19 +113,6 @@ public:
 	ComPtr<D3D12MA::Allocator> m_Allocator;
 	ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
 	std::array<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
-
-	struct ShaderEntry {
-		inline bool IsNull() { return mBlob != nullptr; }
-
-		FileSystem::path mPath;
-		ComPtr<IDxcBlob> mBlob = nullptr;
-		FileSystem::file_time_type mLastWriteTime;
-	};
-
-	std::unordered_map<std::string, ShaderEntry> m_Shaders;
-
-	bool IsTearingSupported() const { return mIsTearingSupported; }
-	BOOL mIsTearingSupported;
 
 private:
 	uint32_t m_NumFrames;
@@ -178,9 +180,6 @@ private:
 
 
 ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath);
-
-
-
 
 
 } // namespace::Raekor

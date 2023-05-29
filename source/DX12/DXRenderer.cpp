@@ -12,6 +12,7 @@
 namespace Raekor::DX12 {
 
 Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow) : 
+    m_Window(inWindow),
     m_RenderGraph(inDevice, inViewport, sFrameCount) 
 {
     auto swapchain_desc = DXGI_SWAP_CHAIN_DESC1 {
@@ -41,6 +42,10 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
     // Disables DXGI's automatic ALT+ENTER and PRINTSCREEN
     factory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_WINDOW_CHANGES);
+
+    SDL_DisplayMode mode;
+    SDL_GetDisplayMode(SDL_GetWindowDisplayIndex(m_Window), m_Settings.mDisplayRes, &mode);
+    SDL_SetWindowDisplayMode(m_Window, &mode);
 
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
 
@@ -77,12 +82,14 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 }
 
 
+
 void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFullScreen) {
     for (auto& bb_data : m_BackBufferData)
         inDevice.ReleaseTextureImmediate(bb_data.mBackBuffer);
 
     auto desc = DXGI_SWAP_CHAIN_DESC {};
-    m_Swapchain->GetDesc(&desc);
+    gThrowIfFailed(m_Swapchain->GetDesc(&desc));
+
     gThrowIfFailed(m_Swapchain->ResizeBuffers(desc.BufferCount, inViewport.size.x, inViewport.size.y, desc.BufferDesc.Format, desc.Flags));
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData)) {
@@ -111,8 +118,10 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
     ffx_error = ffxFsr2ContextCreate(&m_Fsr2Context, &fsr2_desc);
     assert(ffx_error == FFX_OK);
 
+    m_Settings.mFullscreen = inFullScreen;
     std::cout << "Render Size: " << inViewport.size.x << " , " << inViewport.size.y << '\n';
 }
+
 
 
 void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, float inDeltaTime) {
@@ -141,12 +150,103 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
 
     static bool open = true;
     ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
     ImGui::Begin("Settings", &open, ImGuiWindowFlags_AlwaysAutoResize);
 
     ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
     if (ImGui::Button("PIX GPU Capture")) 
         m_ShouldCaptureNextFrame = true;
+
+    static constexpr auto modes = std::array { 0u /* Windowed */, (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP, (uint32_t)SDL_WINDOW_FULLSCREEN};
+    static constexpr auto mode_strings = std::array { "Windowed", "Borderless", "Fullscreen" };
+
+    auto mode = 0u; // Windowed
+    const auto window_flags = SDL_GetWindowFlags(m_Window);
+    if (SDL_IsWindowBorderless(m_Window))
+        mode = 1u;
+    else if (SDL_IsWindowExclusiveFullscreen(m_Window))
+        mode = 2u;
+
+    if (ImGui::BeginCombo("Mode", mode_strings[mode])) {
+        for (const auto& [index, string] : gEnumerate(mode_strings)) {
+            const auto is_selected = index == mode;
+            if (ImGui::Selectable(string, &is_selected)) {
+                bool to_fullscreen = modes[index] == 2u;
+                SDL_SetWindowFullscreen(m_Window, modes[index]);
+                if (to_fullscreen) {
+                    while (!SDL_IsWindowExclusiveFullscreen(m_Window))
+                        SDL_Delay(10);
+                }
+
+                SetShouldResize(true);
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    auto display_names = std::vector<std::string>(SDL_GetNumVideoDisplays());
+    for (const auto& [index, name] : gEnumerate(display_names))
+        name = SDL_GetDisplayName(index);
+
+    const auto display_index = SDL_GetWindowDisplayIndex(m_Window);
+    if (ImGui::BeginCombo("Monitor", display_names[display_index].c_str())) {
+        for (const auto& [index, name] : gEnumerate(display_names)) {
+            const auto is_selected = index == display_index;
+            if (ImGui::Selectable(name.c_str(), &is_selected)) {
+                if (m_Settings.mFullscreen) {
+                    SDL_SetWindowFullscreen(m_Window, 0);
+                    SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
+                    SDL_SetWindowFullscreen(m_Window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                }
+                else {
+                    SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
+                }
+
+                SetShouldResize(true);
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    const auto current_display_index = SDL_GetWindowDisplayIndex(m_Window);
+    const auto num_display_modes = SDL_GetNumDisplayModes(current_display_index);
+    
+    std::vector<SDL_DisplayMode> display_modes(num_display_modes);
+    std::vector<std::string> display_mode_strings(num_display_modes);
+    
+    SDL_DisplayMode* new_display_mode = nullptr;
+
+    if (m_Settings.mFullscreen) {
+        for (const auto& [index, display_mode] : gEnumerate(display_modes))
+            SDL_GetDisplayMode(current_display_index, index, &display_mode);
+
+        for (const auto& [index, display_mode] : gEnumerate(display_modes))
+            display_mode_strings[index] = std::format("{}x{}@{}Hz", display_mode.w, display_mode.h, display_mode.refresh_rate);
+
+        SDL_DisplayMode current_display_mode;
+        SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(m_Window), &current_display_mode);
+
+        if (ImGui::BeginCombo("Resolution", display_mode_strings[m_Settings.mDisplayRes].c_str())) {
+            for (int index = 0; index < display_mode_strings.size(); index++) {
+                bool is_selected = index == m_Settings.mDisplayRes;
+                if (ImGui::Selectable(display_mode_strings[index].c_str(), &is_selected)) {
+                    m_Settings.mDisplayRes = index;
+                    new_display_mode = &display_modes[index];
+                    if (SDL_SetWindowDisplayMode(m_Window, new_display_mode) != 0) {
+
+                        std::cout << SDL_GetError();
+                    }
+                    std::cout << std::format("SDL_SetWindowDisplayMode with {}x{} @ {}Hz\n", new_display_mode->w, new_display_mode->h, new_display_mode->refresh_rate);
+                    SetShouldResize(true);
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+    }
 
     ImGui::Checkbox("Enable V-Sync", (bool*)&m_Settings.mEnableVsync);
 
@@ -190,7 +290,6 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
         ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
         ImGui::NewLine(); ImGui::Separator();
     }
-
 
     if (auto rtao_pass = m_RenderGraph.GetPass<RTAOData>()) {
         auto& params = rtao_pass->GetData().mParams;
@@ -299,6 +398,20 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
 
     GUI::EndFrame();
 
+    if (m_ShouldResize) {
+        // Make sure nothing is using render targets anymore
+        WaitForIdle(inDevice);
+
+        // Resize the renderer, which recreates the swapchain backbuffers and re-inits FSR2
+        OnResize(inDevice, inViewport, SDL_IsWindowExclusiveFullscreen(m_Window));
+
+        // Recompile the renderer, probably a bit overkill. TODO: pls fix
+        Recompile(inDevice, inScene, inTLAS, inInstancesBuffer, inMaterialsBuffer);
+
+        // Unflag
+        m_ShouldResize = false;
+    }
+
     if (m_FrameCounter > 0) {
         // At this point in the frame we really need to previous frame's present job to have finished
         if (m_PresentJobPtr)
@@ -313,7 +426,6 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
             WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
         }
     }
-
 
     // Update the total running time of the application / renderer
     m_ElapsedTime += inDeltaTime;
@@ -404,6 +516,7 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
 }
 
 
+
 void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer) {
     m_RenderGraph.Clear(inDevice);
     m_RenderGraph.SetBackBuffer(GetBackBufferData().mBackBuffer);
@@ -448,6 +561,7 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
 }
 
 
+
 void Renderer::WaitForIdle(Device& inDevice) {
     if (m_PresentJobPtr)
         m_PresentJobPtr->WaitCPU();
@@ -463,9 +577,10 @@ void Renderer::WaitForIdle(Device& inDevice) {
         backbuffer_data.mFenceValue = 0;
     }
 
-    m_Fence->Signal(0);
+    gThrowIfFailed(m_Fence->Signal(0));
     m_FrameCounter = 0;
 }
+
 
 
 CommandList& Renderer::StartSingleSubmit() {
@@ -473,6 +588,7 @@ CommandList& Renderer::StartSingleSubmit() {
     cmd_list.Begin();
     return cmd_list;
 }
+
 
 
 void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList) {
@@ -775,6 +891,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 }
 
 
+
 const IndirectDiffuseData& AddIndirectDiffusePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer) {
     return inRenderGraph.AddComputePass<IndirectDiffuseData>("RT DIFFUSE GI PASS", inDevice,
     [&](IRenderPass* inRenderPass, IndirectDiffuseData& inData)
@@ -818,6 +935,7 @@ const IndirectDiffuseData& AddIndirectDiffusePass(RenderGraph& inRenderGraph, De
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
 }
+
 
 
 const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDevice, const TextureResource& inSourceTexture) {
@@ -945,6 +1063,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             return inIndex.x + inIndex.y * inCount.x + inIndex.z * inCount.x * inCount.y;
         };
         
+        inData.mRandomRotationMatrix              = gRandomOrientation();
         inData.mDDGIData.mRaysDepthTexture        = inData.mRaysDepthTexture.GetBindlessIndex(inDevice);
         inData.mDDGIData.mRaysIrradianceTexture   = inData.mRaysIrradianceTexture.GetBindlessIndex(inDevice);
 
@@ -954,7 +1073,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             .mTLAS                  = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure),
             .mDebugProbeIndex       = Index3Dto1D(inData.mDebugProbe, inData.mDDGIData.mProbeCount),
             .mDDGIData              = inData.mDDGIData,
-            .mRandomRotationMatrix  = gRandomRotationMatrix()
+            .mRandomRotationMatrix  = inData.mRandomRotationMatrix
         };
 
         const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
@@ -1008,7 +1127,12 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         inData.mDDGIData.mRaysDepthTexture        = inData.mRaysDepthTexture.GetBindlessIndex(inDevice);
         inData.mDDGIData.mRaysIrradianceTexture   = inData.mRaysIrradianceTexture.GetBindlessIndex(inDevice);
 
-        inCmdList.PushComputeConstants(inData.mDDGIData);
+        const auto root_constants = ProbeUpdateRootConstants {
+            .mDDGIData             = inData.mDDGIData,
+            .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix
+        };
+
+        inCmdList.PushComputeConstants(root_constants);
 
         inCmdList->SetPipelineState(inData.mDepthPipeline.Get());
         const auto depth_texture = inDevice.GetTexture(inData.mProbesDepthTexture.mCreatedTexture);

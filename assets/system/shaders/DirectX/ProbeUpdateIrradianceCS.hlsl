@@ -4,14 +4,17 @@
 #include "include/random.hlsli"
 #include "include/ddgi.hlsli"
 
-ROOT_CONSTANTS(DDGIData, rc)
+ROOT_CONSTANTS(ProbeUpdateRootConstants, rc)
 
 [numthreads(DDGI_IRRADIANCE_TEXELS, DDGI_IRRADIANCE_TEXELS, 1)]
 void main(uint3 threadID : SV_DispatchThreadID) {
-    Texture2D<float3> rays_irradiance_texture = ResourceDescriptorHeap[rc.mRaysIrradianceTexture];
-    RWTexture2D<float4> probes_irradiance_texture = ResourceDescriptorHeap[rc.mProbesIrradianceTexture];
+    Texture2D<float3> rays_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
+    RWTexture2D<float4> probes_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
     
     FrameConstants fc = gGetFrameConstants();
+    
+    //if (fc.mFrameCounter > 192)
+    //    return;
     
     // The 2D pixel coordinate on the probe's total texel area (with border)
     uint2 probe_pixel = threadID.xy % DDGI_IRRADIANCE_TEXELS.xx;
@@ -34,8 +37,10 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) {
             float3 ray_irradiance = rays_irradiance_texture[uint2(ray_index, probe_index)];
         
-            float3 trace_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-            float weight = max(dot(octahedral_dir, trace_dir), 0);
+            // TODO: RANDOM ROTATION!!
+            float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
+            ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
+            float weight = max(dot(octahedral_dir, ray_dir), 0);
         
             irradiance += float4(ray_irradiance * weight, weight);
         }
@@ -45,7 +50,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         
         float3 prev_irradiance = probes_irradiance_texture[threadID.xy].rgb;
         
-        float hysteresis = fc.mFrameCounter == 0 ? 0.0 : 0.965;
+        float hysteresis = fc.mFrameCounter == 0 ? 0.0 : 0.975;
         
         //hysteresis = 1.0;
         probes_irradiance_texture[threadID.xy] = float4(lerp(irradiance.rgb, prev_irradiance, hysteresis), 1.0);

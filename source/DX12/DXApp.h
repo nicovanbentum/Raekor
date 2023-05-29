@@ -29,6 +29,8 @@ public:
     void UploadSceneToGPU();
     void UploadBvhToGPU();
 
+
+private:
     DescriptorID QueueDirectStorageLoad(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat);
 
 private:

@@ -255,6 +255,8 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const std::wstring& in
     return buffer_id;
 }
 
+
+
 BufferID Device::CreateBufferView(BufferID inBufferID, const Buffer::Desc& inDesc) {
     // make a copy of the texture
     const auto& buffer = GetBuffer(inBufferID);
@@ -267,6 +269,8 @@ BufferID Device::CreateBufferView(BufferID inBufferID, const Buffer::Desc& inDes
 
     return buffer_id;
 }
+
+
 
 TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc) {
     // make a copy of the texture
@@ -306,11 +310,13 @@ void Device::ReleaseBuffer(BufferID inBufferID) {
 }
 
 
+
 void Device::ReleaseTexture(TextureID inTextureID) { 
     assert(inTextureID.IsValid());
     m_Textures.Remove(inTextureID);
     ReleaseDescriptor(inTextureID);
 }
+
 
 
 void Device::ReleaseBufferImmediate(BufferID inBufferID) {
@@ -324,6 +330,7 @@ void Device::ReleaseBufferImmediate(BufferID inBufferID) {
 }
 
 
+
 void Device::ReleaseTextureImmediate(TextureID inTextureID) {
     assert(inTextureID.IsValid());
 
@@ -333,6 +340,7 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID) {
     m_Textures.Remove(inTextureID);
     ReleaseDescriptorImmediate(inTextureID);
 }
+
 
 
 D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inVertexShader, const std::string& inPixelShader) {
@@ -345,6 +353,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
         CD3DX12_SHADER_BYTECODE(vertexShader.mBlob->GetBufferPointer(), vertexShader.mBlob->GetBufferSize()),
         CD3DX12_SHADER_BYTECODE(pixelShader.mBlob->GetBufferPointer(),  pixelShader.mBlob->GetBufferSize()));
 }
+
 
 
 D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader) {
@@ -400,12 +409,29 @@ D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* i
  }
 
 
+
 D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader) {
     assert(inRenderPass->IsCompute() && "Cannot create a Compute PSO description for a Graphics renderpass");
     return D3D12_COMPUTE_PIPELINE_STATE_DESC {
         .pRootSignature = GetGlobalRootSignature(),
         .CS = inComputeShader
     };
+}
+
+
+
+void Device::QueueShader(const Path& inPath) {
+    Async::sQueueJob([this, inPath]() {
+        auto compiled_blob = sCompileShaderDXC(inPath);
+
+        std::scoped_lock(m_ShadersLock);
+
+        m_Shaders[inPath.stem().string()] = ShaderEntry{
+            .mPath = inPath,
+            .mBlob = compiled_blob,
+            .mLastWriteTime = FileSystem::last_write_time(inPath),
+        };
+    });
 }
 
 
@@ -536,10 +562,14 @@ D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(BufferID inID) {
     return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(buffer.GetView());
 }
 
+
+
 D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(TextureID inID) {
     auto& texture = GetTexture(inID);
     return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(texture.GetView());
 }
+
+
 
 D3D12_CPU_DESCRIPTOR_HANDLE Device::GetHeapPtr(TextureResource inResource)
 {
@@ -694,6 +724,7 @@ void StagingHeap::StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef
 }
 
 
+
 void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity) {
     m_TotalCapacity = inCapacity;
 
@@ -705,6 +736,7 @@ void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity) {
     auto buffer_range = CD3DX12_RANGE(0, 0);
     gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, &buffer_range, reinterpret_cast<void**>(&m_DataPtr)));
 }
+
 
 
 void RingAllocator::DestroyBuffer(Device& inDevice) {
@@ -741,11 +773,9 @@ ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath) {
     gThrowIfFailed(library->CreateBlobWithEncodingFromPinned(source_str.c_str(), source_str.size(), CP_UTF8, blob.GetAddressOf()));
 
     auto arguments = std::vector<LPCWSTR>{};
-    //-E for the entry point (eg. PSMain)
     arguments.push_back(L"-E");
     arguments.push_back(L"main");
 
-    //-T for the target profile (eg. ps_6_2)
     arguments.push_back(L"-T");
 
     if (type == "ps")
@@ -756,8 +786,10 @@ ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath) {
         arguments.push_back(L"cs_6_6");
 
     arguments.push_back(L"-Zi");
+#ifndef NDEBUG
     arguments.push_back(L"-Qembed_debug");
     arguments.push_back(L"-Od");
+#endif
 
     arguments.push_back(L"-I");
     arguments.push_back(L"assets/system/shaders/DirectX");

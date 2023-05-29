@@ -12,12 +12,14 @@ bool IRenderPass::IsRead(TextureID inTexture) const {
 }
 
 
+
 bool IRenderPass::IsWritten(TextureID inTexture) const {
 	for (const auto& texture : m_WrittenTextures)
 		if (texture.mCreatedTexture == inTexture)
 			return true;
 	return false;
 }
+
 
 
 bool IRenderPass::IsCreated(TextureID inTexture) const {
@@ -28,13 +30,12 @@ bool IRenderPass::IsCreated(TextureID inTexture) const {
 }
 
 
+
 RenderGraph::RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t inFrameCount) : 
 	m_Viewport(inViewport),
 	m_FrameCount(inFrameCount)
 {}
 
-
-RenderGraph::~RenderGraph() {}
 
 
 void RenderGraph::Clear(Device& inDevice) {
@@ -54,6 +55,7 @@ void RenderGraph::Clear(Device& inDevice) {
 	m_PerPassAllocator.DestroyBuffer(inDevice);
 	m_PerFrameAllocator.DestroyBuffer(inDevice);
 }
+
 
 
 bool RenderGraph::Compile(Device& inDevice) {
