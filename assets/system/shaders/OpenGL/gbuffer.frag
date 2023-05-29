@@ -37,11 +37,34 @@ layout(binding = 0) uniform ubo {
     float metallic;
     float roughness;
     uint entity;
+    float mLODFade;
 };
+
+float InterleavedGradientNoise(vec2 pixel) {
+  vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);
+  return fract(magic.z * fract(dot(pixel, magic.xy)));
+}
+
+// From UE4's MaterialTemplate.ush
+void  ClipLODTransition(vec2 SvPosition,  float DitherFactor) {
+     if  (abs(DitherFactor) > 0.001) {
+        float  RandCos = cos(dot(floor(SvPosition.xy), vec2( 347.83451793 , 3343.28371963 )));
+        //float  RandomVal = fract(RandCos *  1000.0 );
+        float RandomVal = InterleavedGradientNoise(SvPosition);
+        bool  RetVal = (DitherFactor <  0.0 ) ? (DitherFactor  +  1.0  >  RandomVal) : (DitherFactor < RandomVal);
+
+
+        if ((float(RetVal) - 0.001) < 0)
+            discard;
+    }
+}
 
 void main() {
     vec4 color = texture(albedoTexture, vs_out.uv);
     if(color.a < 0.5) discard;
+
+    ClipLODTransition(gl_FragCoord.xy, mLODFade);
+
 	// write the color to the color texture of the gbuffer
 	gColor = color * colour;
 

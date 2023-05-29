@@ -11,6 +11,7 @@ layout(binding = 0) uniform ubo {
     float metallic;
     float roughness;
     uint entity;
+    float mLODFade;
 };
 
 struct Vertex {
