@@ -18,6 +18,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
 add_subdirectory(source/VK)
+add_subdirectory(source/DX11)
 add_subdirectory(source/DX12)
 add_subdirectory(source/Editor)
 add_subdirectory(source/Raekor)

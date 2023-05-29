@@ -4,37 +4,77 @@
 
 namespace Raekor {
 
-DXShader::DXShader(Stage* stages, size_t stageCount) {
-    for (unsigned int i = 0; i < stageCount; i++) {
-        Stage& stage = stages[i];
-        auto fp = std::string(stage.textfile);
-        auto ww = std::wstring(fp.begin(), fp.end());
-        LPCWSTR wstr = ww.c_str();
+DXShader::DXShader(const Stage* stages, size_t stageCount) {
+    m_stages.resize(stageCount);
 
-        ComPtr<ID3D10Blob> buffer;
-        auto hr = D3DReadFileToBlob(wstr, buffer.GetAddressOf());
-        if (FAILED(hr)) throw std::runtime_error("failed to read DirectX file to blob");
+    for (uint32_t i = 0; i < stageCount; i++) {
+        m_stages[i] = stages[i];
+        CompileStage(m_stages[i]);
 
-
-        switch (stage.type) {
-            case Type::VERTEX: {
-                hr = D3D.device->CreateVertexShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, vertex_shader.GetAddressOf());
-            } break;
-            case Type::FRAG: {
-                hr = D3D.device->CreatePixelShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, pixel_shader.GetAddressOf());
-            } break;
-            case Type::GEO: {
-                hr = D3D.device->CreateGeometryShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, geo_shader.GetAddressOf());
-            } break;
-            case Type::COMPUTE: {
-                hr = D3D.device->CreateComputeShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, compute_shader.GetAddressOf());
-            } break;
-        }
-        if (FAILED(hr)) throw std::runtime_error("failed to create DX shader");
+        auto error_code = std::error_code();
+        m_stages[i].updatetime = FileSystem::last_write_time(m_stages[i].textfile, error_code);
     }
 }
 
-void DXShader::bind() {
+
+void DXShader::CheckForReload() {
+    for (auto& stage : m_stages) {
+        auto error_code = std::error_code();
+        auto timestamp = FileSystem::last_write_time(stage.textfile, error_code);
+
+        while (error_code)
+            timestamp = FileSystem::last_write_time(stage.textfile, error_code);
+
+        if (timestamp > stage.updatetime) {
+            CompileStage(stage);
+            stage.updatetime = timestamp;
+        }
+    }
+}
+
+
+bool DXShader::CompileStage(const Stage& inStage) {
+    const auto fp = std::string(inStage.textfile);
+    const auto ww = std::wstring(fp.begin(), fp.end());
+    const auto wstr = ww.c_str();
+
+    ComPtr<ID3D10Blob> buffer, errors;
+    auto hr = D3DCompileFromFile(wstr, nullptr, nullptr, "main", sTypeTargets[inStage.type], 0, 0, buffer.GetAddressOf(), errors.GetAddressOf());
+
+    if (FAILED(hr)) {
+        if (errors)
+            OutputDebugStringA((char*)errors->GetBufferPointer());
+        
+        std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << fp << '\n';
+        return false;
+    }
+
+    switch (inStage.type) {
+        case Type::VERTEX: {
+            hr = D3D.device->CreateVertexShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, vertex_shader.GetAddressOf());
+        } break;
+        case Type::FRAG: {
+            hr = D3D.device->CreatePixelShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, pixel_shader.GetAddressOf());
+        } break;
+        case Type::GEO: {
+            hr = D3D.device->CreateGeometryShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, geo_shader.GetAddressOf());
+        } break;
+        case Type::COMPUTE: {
+            hr = D3D.device->CreateComputeShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, compute_shader.GetAddressOf());
+        } break;
+    }
+
+    if (!SUCCEEDED(hr)) {
+        std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << fp << '\n';
+        return false;
+    }
+ 
+    std::cout << "Compilation " << COUT_GREEN("succeeded") << " for shader: " << fp << '\n';
+    return true;
+}
+
+
+void DXShader::Bind() {
     if (vertex_shader)
         D3D.context->VSSetShader(vertex_shader.Get(), NULL, 0);
     if (pixel_shader)
@@ -44,14 +84,6 @@ void DXShader::bind() {
     if (compute_shader)
         D3D.context->CSSetShader(compute_shader.Get(), NULL, 0);
 }
-
-void DXShader::unbind() {
-    D3D.context->VSSetShader(NULL, NULL, 0);
-    D3D.context->PSSetShader(NULL, NULL, 0);
-    D3D.context->GSSetShader(NULL, NULL, 0);
-    D3D.context->CSSetShader(NULL, NULL, 0);
-}
-
 
 
 } // namespace Raekor

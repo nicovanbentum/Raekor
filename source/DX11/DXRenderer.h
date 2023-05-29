@@ -1,18 +1,23 @@
 #pragma once
 
 #include "pch.h"
-#include "renderer.h"
 
 namespace Raekor {
+
+inline void gThrowIfFailed(HRESULT inResult) {
+    if (FAILED(inResult))
+        __debugbreak();
+}
+
 // TODO: This should probably be moved to the DXRenderer class as static members
 struct COM_PTRS {
-    ComPtr<IDXGISwapChain> swap_chain;
-    ComPtr<ID3D11Device> device;
-    ComPtr<ID3D11DeviceContext> context;
-    ComPtr<ID3D11RenderTargetView> back_buffer;
-    ComPtr<ID3D11RasterizerState> rasterize_state;
-    ComPtr<ID3D11DepthStencilView> depth_stencil_view;
-    ComPtr<ID3D11RenderTargetView> render_target_view;
+    ComPtr<IDXGISwapChain> swap_chain = nullptr;
+    ComPtr<ID3D11Device> device = nullptr;
+    ComPtr<ID3D11DeviceContext> context = nullptr;
+    ComPtr<ID3D11RenderTargetView> back_buffer = nullptr;
+    ComPtr<ID3D11RasterizerState> rasterize_state = nullptr;
+    ComPtr<ID3D11DepthStencilView> depth_stencil_view = nullptr;
+    ComPtr<ID3D11RenderTargetView> render_target_view = nullptr;
 
     void Release() {
         swap_chain->Release();
@@ -29,14 +34,14 @@ extern COM_PTRS D3D;
 
 class DXRenderer {
 public:
-    DXRenderer(SDL_Window* window);
+    DXRenderer(const Viewport& inViewport, SDL_Window* window);
     ~DXRenderer();
     
-    void impl_ImGui_Render();
-    void impl_ImGui_NewFrame(SDL_Window* window);
-    void impl_Clear(glm::vec4 color);
-    void impl_DrawIndexed(unsigned int size);
-    void impl_SwapBuffers(bool vsync) const;
+    void ImGui_Render();
+    void ImGui_NewFrame(SDL_Window* window);
+    void Clear(glm::vec4 color);
+    void BindPipeline();
+    void SwapBuffers(bool vsync) const;
 
 private:
     SDL_Window* renderWindow;

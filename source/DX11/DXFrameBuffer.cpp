@@ -33,14 +33,14 @@ DXFrameBuffer::DXFrameBuffer(DXFrameBuffer::ConstructInfo* info) {
     texture_desc.MiscFlags = 0;
 
     auto hr = D3D.device->CreateTexture2D(&texture_desc, NULL, texture.GetAddressOf());
-    m_assert(SUCCEEDED(hr), "failed to create 2d texture");
+    assert(SUCCEEDED(hr) && "failed to create 2d texture");
 
     target_desc.Format = texture_desc.Format;
     target_desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
     target_desc.Texture2D.MipSlice = 0;
 
     hr = D3D.device->CreateRenderTargetView(texture.Get(), &target_desc, target_view.GetAddressOf());
-    m_assert(SUCCEEDED(hr), "failed to create render target view");
+    assert(SUCCEEDED(hr) && "failed to create render target view");
 
     res_desc.Format = texture_desc.Format;
     res_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
@@ -71,7 +71,7 @@ void DXFrameBuffer::Image() const {
 void DXFrameBuffer::resize(const glm::vec2& new_size) {
     if (size == new_size) return;
     size = new_size;
-    D3D11_TEXTURE2D_DESC texture_desc;
+    D3D11_TEXTURE2D_DESC texture_desc = {};
     texture->GetDesc(&texture_desc);
     texture_desc.Width = (UINT)size.x;
     texture_desc.Height = (UINT)size.y;

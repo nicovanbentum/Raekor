@@ -4,7 +4,7 @@
 namespace Raekor {
 
 DXResourceBuffer::~DXResourceBuffer() {
-    D3D.context->Unmap(buffer.Get(), 0);
+    //D3D.context->Unmap(buffer.Get(), 0);
 }
 
 DXResourceBuffer::DXResourceBuffer(size_t size) {
@@ -15,7 +15,7 @@ DXResourceBuffer::DXResourceBuffer(size_t size) {
     cbdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     cbdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     cbdesc.MiscFlags = 0;
-    cbdesc.ByteWidth = static_cast<UINT>(size + (16 - (size % 16)));
+    cbdesc.ByteWidth = gAlignUp(size, 16);
     cbdesc.StructureByteStride = 0;
 
     D3D11_SUBRESOURCE_DATA cbdata;
@@ -23,16 +23,19 @@ DXResourceBuffer::DXResourceBuffer(size_t size) {
     cbdata.SysMemPitch = 0;
     cbdata.SysMemSlicePitch = 0;
     auto hr = D3D.device->CreateBuffer(&cbdesc, &cbdata, buffer.GetAddressOf());
-    m_assert(SUCCEEDED(hr), "failed to create dx constant buffer");
-    D3D.context->Map(buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &resource);
+    assert(SUCCEEDED(hr) && "failed to create dx constant buffer");
+
 }
 
-void DXResourceBuffer::update(void* data, const size_t size) const {
+void DXResourceBuffer::Update(void* data, const size_t size) {
+    auto hr = D3D.context->Map(buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &resource);
+    assert(SUCCEEDED(hr) && "failed to map dx constant buffer");
+
     // update the buffer's data on the GPU by memcpying from the mapped CPU memory to VRAM
     memcpy(resource.pData, data, size);
+
+    // Unmap is required in DX11 to allow it to be bound to a shader
+    D3D.context->Unmap(buffer.Get(), 0);
 }
 
-void DXResourceBuffer::bind(uint8_t slot) const {
-    D3D.context->VSSetConstantBuffers(slot, 1, buffer.GetAddressOf());
-}
 }

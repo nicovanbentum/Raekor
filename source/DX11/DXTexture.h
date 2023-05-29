@@ -1,7 +1,5 @@
 #pragma once
 
-#include "util.h"
-
 namespace Raekor {
 
 class DXTexture {

@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "DXTexture.h"
 #include "DXRenderer.h"
-#include "timer.h"
+#include "Raekor/timer.h"
 
 namespace Raekor {
 
@@ -10,7 +10,7 @@ DXTexture::DXTexture(const std::string& filepath) {
     stbi_set_flip_vertically_on_load(true);
 
     //describe our 2d texture
-    D3D11_TEXTURE2D_DESC desc;
+    D3D11_TEXTURE2D_DESC desc = {};
     desc.MipLevels = 0;
     desc.ArraySize = 1;
     desc.SampleDesc.Count = 1;
@@ -25,11 +25,9 @@ DXTexture::DXTexture(const std::string& filepath) {
     D3D11_SUBRESOURCE_DATA image_data;
     int width, height, channels;
     Timer timer;
-    timer.start();
     auto image = stbi_load(filepath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
-    m_assert(image, "failed to load directx texture using stbi");
-    timer.stop();
-    std::cout << "DirectX stb texture load time : " << timer.elapsedMs() << " ms" << '\n';
+    assert(image && "failed to load directx texture using stbi");
+    std::cout << "DirectX stb texture load time : " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms" << '\n';
 
     // point the directx resource to the stb image data
     image_data.pSysMem = (const void*)image;
@@ -38,7 +36,7 @@ DXTexture::DXTexture(const std::string& filepath) {
     desc.Height = height;
 
     auto hr = D3D.device->CreateTexture2D(&desc, nullptr, texture.GetAddressOf());
-    m_assert(SUCCEEDED(hr), "failed to create 2d texture object");
+    assert(SUCCEEDED(hr) && "failed to create 2d texture object");
 
     // describe the shader resource view
     D3D11_SHADER_RESOURCE_VIEW_DESC resource = {};
@@ -47,7 +45,7 @@ DXTexture::DXTexture(const std::string& filepath) {
     resource.TextureCube.MipLevels = -1;
 
     hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
-    m_assert(SUCCEEDED(hr), "failed to create shader resource view for dx texture");
+    assert(SUCCEEDED(hr) && "failed to create shader resource view for dx texture");
 
     D3D.context->UpdateSubresource(texture.Get(), 0, 0, (const void*)image, image_data.SysMemPitch, 0);
     D3D.context->GenerateMips(texture_resource.Get());
@@ -67,7 +65,7 @@ DXTexture::DXTexture(const std::string& filepath) {
 
 DXTexture::DXTexture(uint32_t width, uint32_t height, const void* pixels) {
     //describe our 2d texture
-    D3D11_TEXTURE2D_DESC desc;
+    D3D11_TEXTURE2D_DESC desc = {};
     desc.MipLevels = 0;
     desc.ArraySize = 1;
     desc.SampleDesc.Count = 1;
@@ -121,7 +119,7 @@ void DXTexture::bind(uint32_t slot) const {
 
 DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files) {
     stbi_set_flip_vertically_on_load(false);
-    D3D11_TEXTURE2D_DESC desc;
+    D3D11_TEXTURE2D_DESC desc = {};
     desc.MipLevels = 1;
     desc.ArraySize = 6;
     desc.SampleDesc.Count = 1;
