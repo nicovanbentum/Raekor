@@ -39,7 +39,7 @@ public:
 
     /* Request an asset given inPath. Will load the asset from disk if it wasn't already. This function is thread-safe (so you can load assets in parallel). */
     template<typename T>
-    std::shared_ptr<T> Get(const std::string& inPath);
+    std::shared_ptr<T> GetAsset(const std::string& inPath);
 
     [[nodiscard]] inline bool Contains(const std::string& inPath) const { return find(inPath) != end(); }
 
@@ -110,7 +110,7 @@ CEREAL_REGISTER_POLYMORPHIC_RELATION(Raekor::Asset, Raekor::TextureAsset);
 namespace Raekor {
 
 template<typename T>
-std::shared_ptr<T> Assets::Get(const std::string& inPath) {
+std::shared_ptr<T> Assets::GetAsset(const std::string& inPath) {
     {
         auto lock = std::scoped_lock(m_Mutex);
 

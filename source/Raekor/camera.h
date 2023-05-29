@@ -51,6 +51,15 @@ public:
 };
 
 
+
+class CameraController {
+public:
+    /* Returns true if the camera moved. */
+    static bool OnEvent(Camera& inCamera, const SDL_Event& inEvent);
+};
+
+
+
 class Viewport {
 public:
     Viewport(glm::vec2 inSize = glm::vec2(0, 0));

@@ -126,6 +126,7 @@
 #include <filesystem>
 namespace FileSystem = std::filesystem;
 using Path = FileSystem::path;
+using File = std::fstream;
 
 /////////////////////
 // include stb image

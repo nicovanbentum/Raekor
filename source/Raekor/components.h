@@ -54,12 +54,12 @@ struct Node {
 };
 
 struct Mesh {
-    std::vector<glm::vec3> positions;
-    std::vector<glm::vec2> uvs;
-    std::vector<glm::vec3> normals;
-    std::vector<glm::vec3> tangents;
+    std::vector<glm::vec3> positions; // ptr
+    std::vector<glm::vec2> uvs; // ptr
+    std::vector<glm::vec3> normals; // ptr
+    std::vector<glm::vec3> tangents; // ptr
     
-    std::vector<uint32_t> indices;
+    std::vector<uint32_t> indices; // ptr
 
     uint32_t vertexBuffer = 0;
     uint32_t indexBuffer = 0;
@@ -67,6 +67,8 @@ struct Mesh {
     std::array<glm::vec3, 2> aabb;
 
     entt::entity material = entt::null;
+
+    float mLODFade = 0.0f;
 
     void CalculateTangents();
     void CalculateNormals();
@@ -101,13 +103,13 @@ struct Bone {
 
 struct Skeleton {
     glm::mat4 inverseGlobalTransform;
-    std::vector<glm::vec4> boneWeights;
-    std::vector<glm::ivec4> boneIndices;
-    std::vector<glm::mat4> boneOffsetMatrices;
-    std::vector<glm::mat4> boneTransformMatrices;
+    std::vector<glm::vec4> boneWeights; // ptr
+    std::vector<glm::ivec4> boneIndices; // ptr
+    std::vector<glm::mat4> boneOffsetMatrices; // ptr
+    std::vector<glm::mat4> boneTransformMatrices; // ptr
 
     Bone boneHierarchy;
-    std::vector<Animation> animations;
+    std::vector<Animation> animations; // ptr
 
     void UpdateFromAnimation(Animation& animation, float TimeInSeconds);
     void UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform);
@@ -131,9 +133,9 @@ struct Material {
     bool isTransparent = false;
 
     // texture file paths
-    std::string albedoFile;
-    std::string normalFile; 
-    std::string metalroughFile;
+    std::string albedoFile; // ptr
+    std::string normalFile;  // ptr
+    std::string metalroughFile; // ptr
 
     // GPU resources
     uint32_t gpuAlbedoMap = 0;
@@ -146,9 +148,9 @@ struct Material {
 
 
 struct NativeScript {
-    std::string file;
+    std::string file; // ptr
     ScriptAsset::Ptr asset;
-    std::string procAddress;
+    std::string procAddress; // ptr
     INativeScript* script = nullptr;
 };
 

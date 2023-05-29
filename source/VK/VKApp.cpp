@@ -176,57 +176,22 @@ void PathTracer::OnUpdate(float dt) {
 
 
 
-void PathTracer::OnEvent(const SDL_Event& ev) {
-    ImGui_ImplSDL2_ProcessEvent(&ev);
+void PathTracer::OnEvent(const SDL_Event& inEvent) {
+    ImGui_ImplSDL2_ProcessEvent(&inEvent);
 
-    if (ev.button.button == 2 || ev.button.button == 3) {
-        if (ev.type == SDL_MOUSEBUTTONDOWN)
-            SDL_SetRelativeMouseMode(SDL_TRUE);
-        else if (ev.type == SDL_MOUSEBUTTONUP)
-            SDL_SetRelativeMouseMode(SDL_FALSE);
+    if (!ImGui::GetIO().WantCaptureMouse) {
+        if (CameraController::OnEvent(m_Viewport.GetCamera(), inEvent))
+            m_Renderer.ResetAccumulation();
     }
 
-    auto& camera = m_Viewport.GetCamera();
-    const bool is_mouse_relative = SDL_GetRelativeMouseMode();
-
-    if (is_mouse_relative)
+    if (SDL_GetRelativeMouseMode())
         m_Renderer.ResetAccumulation();
 
-    if (ev.type == SDL_MOUSEMOTION) {
-        if (is_mouse_relative && Input::sIsButtonPressed(3)) {
-            auto formula = glm::radians(0.022f * camera.mSensitivity * 2.0f);
-            camera.Look(glm::vec2(ev.motion.xrel * formula, ev.motion.yrel * formula));
-            m_Renderer.ResetAccumulation();
-        }
-        else if (is_mouse_relative && Input::sIsButtonPressed(2)) {
-            camera.Move(glm::vec2(ev.motion.xrel * 0.02f, ev.motion.yrel * 0.02f));
-            m_Renderer.ResetAccumulation();
-        }
-    }
-    else if (ev.type == SDL_MOUSEWHEEL) {
-        camera.Zoom(float(ev.wheel.y));
-        m_Renderer.ResetAccumulation();
-    }
+    if (inEvent.window.event == SDL_WINDOWEVENT_RESIZED)
+        m_IsSwapchainDirty = true;
 
-    if (ev.type == SDL_WINDOWEVENT) {
-        if (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) {
-            while (1) {
-                SDL_Event ev;
-                SDL_PollEvent(&ev);
-
-                if (ev.window.event == SDL_WINDOWEVENT_RESTORED)
-                    break;
-            }
-        }
-        if (ev.window.event == SDL_WINDOWEVENT_CLOSE && SDL_GetWindowID(m_Window) == ev.window.windowID)
-            m_Running = false;
-
-        if (ev.window.event == SDL_WINDOWEVENT_RESIZED)
-            m_IsSwapchainDirty = true;
-    }
-
-    if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
-        switch (ev.key.keysym.sym) {
+    if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat) {
+        switch (inEvent.key.keysym.sym) {
             case SDLK_r: {
                 m_Renderer.ReloadShaders();
                 m_Renderer.ResetAccumulation();

@@ -29,6 +29,9 @@
 
 namespace Raekor {
 
+bool SDL_IsWindowBorderless(SDL_Window* inWindow);
+bool SDL_IsWindowExclusiveFullscreen(SDL_Window* inWindow);
+
 class INoCopyNoMove {
 public:
     INoCopyNoMove() = default;
@@ -133,6 +136,7 @@ public:
     Slice(const T* start, const T* end) : start(start), length(end - start) {}
 
     Slice(const std::vector<T>& inVec) : start(inVec.data()), length(inVec.size()) {}
+    Slice(const std::string& inString) : start(inString.c_str()), length(inString.size()) {}
 
     using value_type = T;
     using reference = T&;
@@ -165,6 +169,8 @@ public:
 
     bool IsEmpty() const { return start == nullptr || length == 0; }
     uint64_t Length() const { return length; }
+
+    const T* GetPtr() const { return start; }
 
     Slice<T> Sub(size_t inOffset, size_t inCount) { return Slice(start + inOffset, inCount); }
 
@@ -270,6 +276,52 @@ constexpr auto gEnumerate(T&& iterable)
 
 #define gWarn(inStr) std::cout << "Warning in File " << __FILE__ << " at Line " << __LINE__ << " from function " << __FUNCTION__ << ": " << inStr << '\n';
 
+template<typename T>
+void WriteFileData(File& ioFile, const T& inData) {
+    ioFile.write((const char*)&inData, sizeof(T));
+}
+
+template<typename T>
+void WriteFileSlice(File& ioFile, Slice<T> inData) {
+    ioFile.write((const char*)inData.GetPtr(), inData.Length() * sizeof(T));
+}
+
+template<typename T>
+inline void WriteFileBinary(File& ioFile, const std::vector<T>& inData) {
+    WriteFileData(ioFile, inData.size());
+    WriteFileSlice(ioFile, Slice(inData));
+}
+
+inline void WriteFileBinary(File& ioFile, const std::string& inData) {
+    WriteFileData(ioFile, inData.size());
+    WriteFileSlice(ioFile, Slice<char>(inData));
+}
+
+template<typename T>
+void ReadFileData(File& ioFile, T& ioData) {
+    ioFile.read((char*)&ioData, sizeof(T));
+}
+
+template<typename T>
+void ReadFileSlice(File& ioFile, Slice<T> inData) {
+    ioFile.read((char*)inData.GetPtr(), inData.Length() * sizeof(T));
+}
+
+template<typename T>
+inline void ReadFileBinary(File& ioFile, std::vector<T>& ioData) {
+    size_t size;
+    ReadFileData(ioFile, size);
+    ioData.resize(size);
+    ReadFileSlice(ioFile, Slice(ioData));
+}
+
+inline void ReadFileBinary(File& ioFile, std::string& ioData) {
+    size_t size;
+    ReadFileData(ioFile, size);
+    ioData.resize(size);
+    ReadFileSlice(ioFile, Slice<char>(ioData));
+}
+
 } // Namespace Raekor
 
 template<typename T> struct std::hash<Raekor::RTID<T>> {
@@ -277,3 +329,5 @@ template<typename T> struct std::hash<Raekor::RTID<T>> {
         return size_t(inID.ToIndex());
     }
 };
+
+

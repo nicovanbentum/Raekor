@@ -3,6 +3,17 @@
 
 namespace Raekor {
 
+bool SDL_IsWindowBorderless(SDL_Window* inWindow) {
+    const auto window_flags = SDL_GetWindowFlags(inWindow);
+    return ((window_flags & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP);
+}
+
+
+bool SDL_IsWindowExclusiveFullscreen(SDL_Window* inWindow) {
+    const auto window_flags = SDL_GetWindowFlags(inWindow);
+    return ((window_flags & SDL_WINDOW_FULLSCREEN) && !SDL_IsWindowBorderless(inWindow));
+}
+
 static constexpr auto sProgressStrings = std::array {
     "----------",
     "#---------",

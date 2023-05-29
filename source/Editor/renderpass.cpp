@@ -391,6 +391,8 @@ void GBuffer::Render(const Scene& scene, const Viewport& viewport, uint32_t m_Fr
         if (scene.valid(mesh.material))
             material = scene.try_get<Material>(mesh.material);
 
+        uniforms.mLODFade = mesh.mLODFade;
+
         uniforms.colour = material  ? material->albedo : Material::Default.albedo;
         uniforms.metallic = material ? material->metallic : Material::Default.metallic;
         uniforms.roughness = material ? material->roughness : Material::Default.roughness;
@@ -1201,146 +1203,6 @@ void Skinning::compute(const Mesh& mesh, const Skeleton& anim) {
     glDispatchCompute(static_cast<GLuint>(mesh.positions.size()), 1, 1);
 
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-}
-
-
-
-inline double random_double() {
-    static std::uniform_real_distribution<double> distribution(0.0, 1.0);
-    static std::mt19937 generator;
-    return distribution(generator);
-}
-
-
-
-inline double random_double(double min, double max) {
-    static std::uniform_real_distribution<double> distribution(min, max);
-    static std::mt19937 generator;
-    return distribution(generator);
-}
-
-
-
-inline glm::vec3 random_color() {
-    return glm::vec3(random_double(), random_double(), random_double());
-}
-
-
-
-inline glm::vec3 random_color(double min, double max) {
-    return glm::vec3(random_double(min, max), random_double(min, max), random_double(min, max));
-}
-
-
-
-RayTracingOneWeekend::RayTracingOneWeekend(const Viewport& viewport) {
-    shader.Compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\ray.comp"} });
-
-    spheres.push_back(Sphere{ glm::vec3(0, -1000, 0), glm::vec3(0.5, 0.5, 0.5), 1.0f, 0.0f, 1000.0f });
-
-    int count = 3;
-    for (int a = -count; a < count; a++) {
-        for (int b = -count; b < count; b++) {
-            auto choose_mat = random_double();
-            glm::vec3 center(a + 0.9 * random_double(), 0.2, b + 0.9 * random_double());
-
-            if ((center - glm::vec3(4, 0.2, 0)).length() > 0.9) {
-                Sphere sphere;
-
-                if (choose_mat < 0.8) {
-                    // diffuse
-                    sphere.colour = random_color() * random_color();
-                    sphere.metalness = 0.0f;
-                    sphere.radius = 0.2f;
-                    sphere.origin = center;
-                    spheres.push_back(sphere);
-                } else if (choose_mat < 0.95) {
-                    // metal
-                    sphere.colour = random_color(0.5, 1);
-                    sphere.roughness = static_cast<float>(random_double(0, 0.5));
-                    sphere.metalness = 1.0f;
-                    sphere.radius = 0.2f;
-                    sphere.origin = center;
-                    spheres.push_back(sphere);
-                }
-            }
-        }
-    }
-
-    spheres.push_back(Sphere{ glm::vec3(-4, 1, 0), glm::vec3(0.4, 0.2, 0.1), 1.0f, 0.0f, 1.0f });
-    spheres.push_back(Sphere{ glm::vec3(4, 1, 0), glm::vec3(0.7, 0.6, 0.5), 0.0f, 1.0f, 1.0f });
-
-    CreateRenderTargets(viewport);
-    auto clearColour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    glClearTexImage(result, 0, GL_RGBA, GL_FLOAT, glm::value_ptr(clearColour));
-
-    glCreateBuffers(1, &uniformBuffer);
-    glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
-}
-
-
-
-RayTracingOneWeekend::~RayTracingOneWeekend() {
-    DestroyRenderTargets();
-    glDeleteBuffers(1, &sphereBuffer);
-    glDeleteBuffers(1, &uniformBuffer);
-
-}
-
-
-
-void RayTracingOneWeekend::compute(const Viewport& viewport, bool update) {
-    // if the shader changed or we moved the m_Camera we clear the result
-    if (!update) {
-        glDeleteBuffers(1, &sphereBuffer);
-        glCreateBuffers(1, &sphereBuffer);
-        glNamedBufferStorage(sphereBuffer, spheres.size() * sizeof(Sphere), spheres.data(), GL_DYNAMIC_STORAGE_BIT);
-    }
-
-    shader.Bind();
-    glBindImageTexture(0, result, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
-    glBindImageTexture(1, finalResult, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, sphereBuffer);
-
-    uniforms.iTime = rayTimer.GetElapsedTime();
-    uniforms.position = glm::vec4(viewport.GetCamera().GetPosition(), 1.0);
-    uniforms.projection = viewport.GetCamera().GetProjection();
-    uniforms.view = viewport.GetCamera().GetView();
-    uniforms.doUpdate = update;
-
-    const GLuint numberOfSpheres = static_cast<GLuint>(spheres.size());
-    uniforms.sphereCount = numberOfSpheres;
-
-    glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 3, uniformBuffer);
-
-    glDispatchCompute(viewport.size.x / 16, viewport.size.y / 16, 1);
-
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-}
-
-
-
-void RayTracingOneWeekend::CreateRenderTargets(const Viewport& viewport) {
-    glCreateTextures(GL_TEXTURE_2D, 1, &result);
-    glTextureStorage2D(result, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(result, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(result, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &finalResult);
-    glTextureStorage2D(finalResult, 1, GL_RGBA32F, viewport.size.x, viewport.size.y);
-    glTextureParameteri(finalResult, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(finalResult, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glCreateBuffers(1, &sphereBuffer);
-    glNamedBufferStorage(sphereBuffer, spheres.size() * sizeof(Sphere), spheres.data(), GL_DYNAMIC_STORAGE_BIT);
-}
-
-
-
-void RayTracingOneWeekend::DestroyRenderTargets() {
-    glDeleteTextures(1, &result);
-    glDeleteTextures(1, &finalResult);
 }
 
 

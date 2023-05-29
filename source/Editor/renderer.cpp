@@ -397,13 +397,13 @@ void GLRenderer::sDestroyMaterialTextures(Material& material, Assets& assets) {
 
 
 void GLRenderer::sUploadMaterialTextures(Material& material, Assets& assets) {
-    if (auto asset = assets.Get<TextureAsset>(material.albedoFile); asset)
+    if (auto asset = assets.GetAsset<TextureAsset>(material.albedoFile); asset)
         material.gpuAlbedoMap = GLRenderer::sUploadTextureFromAsset(asset, true);
 
-    if (auto asset = assets.Get<TextureAsset>(material.normalFile); asset)
+    if (auto asset = assets.GetAsset<TextureAsset>(material.normalFile); asset)
         material.gpuNormalMap = GLRenderer::sUploadTextureFromAsset(asset);
 
-    if (auto asset = assets.Get<TextureAsset>(material.metalroughFile); asset)
+    if (auto asset = assets.GetAsset<TextureAsset>(material.metalroughFile); asset)
         material.gpuMetallicRoughnessMap = GLRenderer::sUploadTextureFromAsset(asset);
 }
 

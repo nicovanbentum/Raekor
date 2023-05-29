@@ -159,12 +159,8 @@ void Launcher::OnUpdate(float inDeltaTime) {
 void Launcher::OnEvent(const SDL_Event& inEvent) {
     ImGui_ImplSDL2_ProcessEvent(&inEvent);
 
-    if (inEvent.type == SDL_WINDOWEVENT) {
-        if (inEvent.window.event == SDL_WINDOWEVENT_CLOSE) {
-            m_Running = false;
+    if (inEvent.type == SDL_WINDOWEVENT && inEvent.window.event == SDL_WINDOWEVENT_CLOSE)
             m_WasClosed = true;
-        }
-    }
 }
 
 } // raekor

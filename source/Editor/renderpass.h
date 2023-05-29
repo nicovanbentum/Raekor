@@ -98,6 +98,7 @@ class GBuffer final : public RenderPass {
         float metallic;
         float roughness;
         uint32_t entity;
+        float mLODFade = 0.0f;
     } uniforms;
 
 public:
@@ -332,40 +333,6 @@ struct Sphere {
     alignas(4) float roughness;
     alignas(4) float metalness;
     alignas(4) float radius;
-};
-
-class RayTracingOneWeekend final : public RenderPass {
-    struct {
-        glm::vec4 position;
-        glm::mat4 projection;
-        glm::mat4 view;
-        float iTime;
-        uint32_t sphereCount;
-        uint32_t doUpdate;
-    } uniforms;
-
-public:
-    RayTracingOneWeekend(const Viewport& viewport);
-    ~RayTracingOneWeekend();
-
-    void compute(const Viewport& viewport, bool shouldClear);
-
-    void CreateRenderTargets(const Viewport& viewport);
-    void DestroyRenderTargets();
-
-    bool shaderChanged() { return true; }
-
-    std::vector<Sphere> spheres;
-
-private:
-    Timer rayTimer;
-    GLShader shader;
-
-    GLuint sphereBuffer;
-    GLuint uniformBuffer;
-
-public:
-    GLuint result, finalResult;
 };
 
 

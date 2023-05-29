@@ -166,9 +166,9 @@ void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials)
     for (const auto& entity : materials) {
         Async::sQueueJob([&]() {
             auto& material = this->get<Material>(entity);
-            assets.Get<TextureAsset>(material.albedoFile);
-            assets.Get<TextureAsset>(material.normalFile);
-            assets.Get<TextureAsset>(material.metalroughFile);
+            assets.GetAsset<TextureAsset>(material.albedoFile);
+            assets.GetAsset<TextureAsset>(material.normalFile);
+            assets.GetAsset<TextureAsset>(material.metalroughFile);
         });
     }
 

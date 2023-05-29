@@ -126,21 +126,8 @@ void Editor::OnUpdate(float dt) {
 void Editor::OnEvent(const SDL_Event& event) {
     ImGui_ImplSDL2_ProcessEvent(&event);
 
-    // free the mouse if the window loses focus
-    auto flags = SDL_GetWindowFlags(m_Window);
-    if (!(flags & SDL_WINDOW_INPUT_FOCUS || flags & SDL_WINDOW_MINIMIZED)) {
-        SDL_SetRelativeMouseMode(SDL_FALSE);
-        return;
-    }
-
-    const bool is_viewport_hovered = GetWidget<ViewportWidget>()->IsHovered();
-
-    if (event.button.button == 2 || event.button.button == 3) {
-        if (event.type == SDL_MOUSEBUTTONDOWN && is_viewport_hovered)
-            SDL_SetRelativeMouseMode(SDL_TRUE);
-        else if (event.type == SDL_MOUSEBUTTONUP)
-            SDL_SetRelativeMouseMode(SDL_FALSE);
-    }
+    if (GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode())
+        CameraController::OnEvent(m_Viewport.GetCamera(), event);
 
     if (event.type == SDL_KEYDOWN && !event.key.repeat) {
         switch (event.key.keysym.sym) {
@@ -179,47 +166,8 @@ void Editor::OnEvent(const SDL_Event& event) {
         }
     }
 
-    if (event.type == SDL_KEYDOWN && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
-        m_Viewport.GetCamera().mZoomConstant *= 20.0f;
-        m_Viewport.GetCamera().mMoveConstant *= 20.0f;
-    }
-
-    if (event.type == SDL_KEYUP && !event.key.repeat && event.key.keysym.sym == SDLK_LSHIFT) {
-        m_Viewport.GetCamera().mZoomConstant /= 20.0f;
-        m_Viewport.GetCamera().mMoveConstant /= 20.0f;
-    }
-
-    auto& camera = m_Viewport.GetCamera();
-
-    if (event.type == SDL_MOUSEMOTION) {
-        if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(3)) {
-            auto formula = glm::radians(0.022f * camera.mSensitivity * 2.0f);
-            camera.Look(glm::vec2(event.motion.xrel * formula, event.motion.yrel * formula));
-        }
-        else if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(2))
-            camera.Move(glm::vec2(event.motion.xrel * 0.02f, event.motion.yrel * 0.02f));
-    }
-    else if (event.type == SDL_MOUSEWHEEL && is_viewport_hovered)
-        camera.Zoom(float(event.wheel.y));
-
-    if (event.type == SDL_WINDOWEVENT) {
-        if (event.window.event == SDL_WINDOWEVENT_MINIMIZED) {
-            while (1) {
-                SDL_Event ev;
-                SDL_PollEvent(&ev);
-
-                if (ev.window.event == SDL_WINDOWEVENT_RESTORED)
-                    break;
-            }
-        }
-     
-        if (event.window.event == SDL_WINDOWEVENT_CLOSE)
-            if (SDL_GetWindowID(m_Window) == event.window.windowID)
-                m_Running = false;
-        
-        if (event.window.event == SDL_WINDOWEVENT_RESIZED)
-            m_Renderer.CreateRenderTargets(m_Viewport);
-    }
+    if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+        m_Renderer.CreateRenderTargets(m_Viewport);
 
     for (const auto& widget : m_Widgets)
         widget->onEvent(event);

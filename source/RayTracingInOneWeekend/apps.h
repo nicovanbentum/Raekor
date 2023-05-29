@@ -1,22 +1,23 @@
 #pragma once
 
-#include "gui.h"
-#include "application.h"
 
-#include "timer.h"
-#include "../VK/VKRenderer.h"
-
-#include "gui/widget.h"
+#include "Editor/pch.h"
+#include "Raekor/gui.h"
+#include "Raekor/application.h"
+#include "Raekor/timer.h"
+#include "Editor/widget.h"
 
 namespace Raekor {
+
+class RayTracingOneWeekend;
 
 class RayTraceApp : public Application {
 public:
     RayTraceApp();
     virtual ~RayTraceApp() = default;
 
-    virtual void onUpdate(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override {}
+    virtual void OnUpdate(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override {}
 
     bool drawSphereProperties(Sphere& sphere);
 
@@ -29,6 +30,41 @@ private:
     GLRenderer renderer;
     std::vector<std::shared_ptr<IWidget>> widgets;
     std::unique_ptr<RayTracingOneWeekend> rayTracePass;
+};
+
+
+class RayTracingOneWeekend final : public RenderPass {
+    struct {
+        glm::vec4 position;
+        glm::mat4 projection;
+        glm::mat4 view;
+        float iTime;
+        uint32_t sphereCount;
+        uint32_t doUpdate;
+    } uniforms;
+
+public:
+    RayTracingOneWeekend(const Viewport& viewport);
+    ~RayTracingOneWeekend();
+
+    void compute(const Viewport& viewport, bool shouldClear);
+
+    void CreateRenderTargets(const Viewport& viewport);
+    void DestroyRenderTargets();
+
+    bool shaderChanged() { return true; }
+
+    std::vector<Sphere> spheres;
+
+private:
+    Timer rayTimer;
+    GLShader shader;
+
+    GLuint sphereBuffer;
+    GLuint uniformBuffer;
+
+public:
+    GLuint result, finalResult;
 };
 
 } // raekor

@@ -95,9 +95,9 @@ void Renderer::UpdateMaterials(Assets& assets, Scene& scene) {
         auto& buffer = materials[i];
         buffer.albedo = material.albedo;
 
-        buffer.textures.x = UploadTexture(m_Device, assets.Get<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_SRGB_BLOCK);
-        buffer.textures.y = UploadTexture(m_Device, assets.Get<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
-        buffer.textures.z = UploadTexture(m_Device, assets.Get<TextureAsset>(material.metalroughFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.x = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_SRGB_BLOCK);
+        buffer.textures.y = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
+        buffer.textures.z = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.metalroughFile), VK_FORMAT_BC3_UNORM_BLOCK);
 
         buffer.properties.x = material.metallic;
         buffer.properties.y = material.roughness;

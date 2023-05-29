@@ -79,6 +79,7 @@ Application::~Application() {
 }
 
 
+
 void Application::Run() {
     Timer timer;
     float dt = 0;
@@ -87,6 +88,22 @@ void Application::Run() {
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             OnEvent(ev);
+
+            if (ev.type == SDL_WINDOWEVENT) {
+                if (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+                    for (;;) {
+                        auto temp_event = SDL_Event{};
+                        SDL_PollEvent(&temp_event);
+
+                        if (temp_event.window.event == SDL_WINDOWEVENT_RESTORED)
+                            break;
+                    }
+                }
+                if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
+                    if (SDL_GetWindowID(m_Window) == ev.window.windowID)
+                        m_Running = false;
+                }
+            }
         }
 
         if (!m_Running)

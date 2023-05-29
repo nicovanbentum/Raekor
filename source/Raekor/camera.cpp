@@ -88,6 +88,45 @@ Frustum Camera::GetFrustum() const {
 }
 
 
+bool CameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent) {
+    bool camera_changed = false;
+
+    if (inEvent.button.button == 2 || inEvent.button.button == 3) {
+        if (inEvent.type == SDL_MOUSEBUTTONDOWN)
+            SDL_SetRelativeMouseMode(SDL_TRUE);
+        else if (inEvent.type == SDL_MOUSEBUTTONUP)
+            SDL_SetRelativeMouseMode(SDL_FALSE);
+    }
+
+    if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat && inEvent.key.keysym.sym == SDLK_LSHIFT) {
+        inCamera.mZoomConstant *= 20.0f;
+        inCamera.mMoveConstant *= 20.0f;
+    }
+
+    if (inEvent.type == SDL_KEYUP && !inEvent.key.repeat && inEvent.key.keysym.sym == SDLK_LSHIFT) {
+        inCamera.mZoomConstant /= 20.0f;
+        inCamera.mMoveConstant /= 20.0f;
+    }
+
+    if (inEvent.type == SDL_MOUSEMOTION) {
+        if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(3)) {
+            auto formula = glm::radians(0.022f * inCamera.mSensitivity * 2.0f);
+            inCamera.Look(glm::vec2(inEvent.motion.xrel * formula, inEvent.motion.yrel * formula));
+            camera_changed = true;
+        }
+        else if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(2)) {
+            inCamera.Move(glm::vec2(inEvent.motion.xrel * 0.02f, inEvent.motion.yrel * 0.02f));
+            camera_changed = true;
+        }
+    }
+    else if (inEvent.type == SDL_MOUSEWHEEL) {
+        inCamera.Zoom(float(inEvent.wheel.y));
+        camera_changed = true;
+    }
+
+    return camera_changed;
+}
+
 Viewport::Viewport(glm::vec2 inSize) : 
     m_Camera(glm::vec3(0, 0.0, 0), glm::perspectiveRH(glm::radians(m_FieldOfView), m_AspectRatio, 0.1f, 1000.0f)),
     size(inSize) 
