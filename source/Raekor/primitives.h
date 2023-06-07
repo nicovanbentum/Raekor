@@ -89,14 +89,14 @@ inline void gGenerateSphere(Mesh& ioMesh, float inRadius, uint32_t inSectorCount
     float stackStep = PI / inStackCount;
     float sectorAngle, stackAngle;
 
-    for (int i = 0; i <= inStackCount; ++i) {
+    for (uint32_t i = 0; i <= inStackCount; ++i) {
         stackAngle = PI / 2 - i * stackStep;        // starting from pi/2 to -pi/2
         xy = inRadius * cosf(stackAngle);             // r * cos(u)
         z = inRadius * sinf(stackAngle);              // r * sin(u)
 
         // add (sectorCount+1) vertices per stack
         // the first and last vertices have same position and normal, but different tex coords
-        for (int j = 0; j <= inSectorCount; ++j) {
+        for (uint32_t j = 0; j <= inSectorCount; ++j) {
             sectorAngle = j * sectorStep;           // starting from 0 to 2pi
 
             // vertex position (x, y, z)
@@ -119,11 +119,11 @@ inline void gGenerateSphere(Mesh& ioMesh, float inRadius, uint32_t inSectorCount
     }
 
     int k1, k2;
-    for (int i = 0; i < inStackCount; ++i) {
+    for (uint32_t i = 0; i < inStackCount; ++i) {
         k1 = i * (inSectorCount + 1);     // beginning of current stack
         k2 = k1 + inSectorCount + 1;      // beginning of next stack
 
-        for (int j = 0; j < inSectorCount; ++j, ++k1, ++k2) {
+        for (uint32_t j = 0; j < inSectorCount; ++j, ++k1, ++k2) {
             // 2 triangles per sector excluding first and last stacks
             // k1 => k2 => k1+1
             if (i != 0) {

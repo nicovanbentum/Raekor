@@ -151,11 +151,10 @@ private:
 };
 
 
-
 inline void ToJSONValue(JSON::Value& ioValue, std::string& inString) {
 	ioValue.mType = JSON::ValueType::String;
 	ioValue.mData.mString.mPtr = inString.c_str();
-	ioValue.mData.mString.mLength = inString.size();
+	ioValue.mData.mString.mLength = int32_t(inString.size());
 }
 
 inline void ToJSONValue(JSON::Value& ioValue, float& inFloat) {

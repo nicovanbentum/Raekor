@@ -19,7 +19,7 @@ public:
     
     void            AddMember(Member* inName);
     Member*         GetMember(uint32_t inIndex);
-    uint32_t        GetMemberCount() const { return m_Members.size();   }
+    uint32_t        GetMemberCount() const { return uint32_t(m_Members.size());   }
 
     bool operator==(const RTTI& rhs) const { return m_Hash == rhs.m_Hash; }
     bool operator!=(const RTTI& rhs) const { return m_Hash != rhs.m_Hash; }
