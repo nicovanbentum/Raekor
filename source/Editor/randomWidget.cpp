@@ -32,7 +32,12 @@ void RandomWidget::draw(float dt) {
 
     if (ImGui::Button("Generate Rigid Bodies")) {
         Timer timer;
+        for (const auto& [sb_entity, sb_transform, sb_mesh] : scene.view<Transform, Mesh>().each())
+            scene.emplace<BoxCollider>(sb_entity);
+
         GetPhysics().GenerateRigidBodiesEntireScene(GetScene());
+
+        Async::sWait();
         std::cout << "Rigid Body Generation took " <<  Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
     }
 

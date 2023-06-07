@@ -42,7 +42,7 @@ DXTexture::DXTexture(const std::string& filepath) {
     D3D11_SHADER_RESOURCE_VIEW_DESC resource = {};
     resource.Format = desc.Format;
     resource.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    resource.TextureCube.MipLevels = -1;
+    resource.TextureCube.MipLevels = (UINT)-1; // intentional overflow? microsoft please..
 
     hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
     assert(SUCCEEDED(hr) && "failed to create shader resource view for dx texture");
@@ -91,7 +91,7 @@ DXTexture::DXTexture(uint32_t width, uint32_t height, const void* pixels) {
     D3D11_SHADER_RESOURCE_VIEW_DESC resource = {};
     resource.Format = desc.Format;
     resource.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    resource.TextureCube.MipLevels = -1;
+    resource.TextureCube.MipLevels = (UINT)-1;
 
     hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
     m_assert(SUCCEEDED(hr), "failed to create shader resource view for dx texture");
@@ -134,7 +134,7 @@ DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files) {
     stbi_uc* images[6];
 
     // for every face file we generate an OpenGL texture image
-    int width, height, n_channels;
+    int width = -1, height = -1, n_channels = -1;
     for (unsigned int i = 0; i < face_files.size(); i++) {
         auto image = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
         images[i] = image;

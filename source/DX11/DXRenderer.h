@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pch.h"
+#include "DXShader.h"
 
 namespace Raekor {
 
@@ -36,17 +37,18 @@ class DXRenderer {
 public:
     DXRenderer(const Viewport& inViewport, SDL_Window* window);
     ~DXRenderer();
-    
+
     void ImGui_Render();
     void ImGui_NewFrame(SDL_Window* window);
     void Clear(glm::vec4 color);
-    void BindPipeline();
+    void BindPipeline(D3D11_COMPARISON_FUNC inDepthFunc = D3D11_COMPARISON_LESS);
     void SwapBuffers(bool vsync) const;
 
 private:
     SDL_Window* renderWindow;
     ComPtr<ID3D11Texture2D> depth_stencil_buffer;
     ComPtr<ID3D11DepthStencilState> depth_stencil_state;
+    ComPtr<ID3D11DepthStencilState> depth_stencil_state_equal;
     ComPtr<ID3D11BlendState> blend_state;
 };
 

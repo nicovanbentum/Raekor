@@ -2,6 +2,8 @@
 #include "DXRenderer.h"
 #include "Raekor/gui.h"
 
+#define DEPTH_BIAS_D32_FLOAT(d) (d/(1/pow(2,23)))
+
 namespace Raekor {
 
 // TODO: globals are bad mkay
@@ -55,13 +57,13 @@ DXRenderer::DXRenderer(const Viewport& inViewport, SDL_Window* window) {
     D3D.swap_chain->GetBuffer(0, IID_PPV_ARGS(backbuffer.GetAddressOf()));
     gThrowIfFailed(D3D.device->CreateRenderTargetView(backbuffer.Get(), NULL, D3D.back_buffer.GetAddressOf()));
 
-    const auto viewport = CD3D11_VIEWPORT(0.0f, 0.0f, inViewport.GetSize().x, inViewport.GetSize().y);
+    const auto viewport = CD3D11_VIEWPORT(0.0f, 0.0f, (FLOAT)inViewport.GetSize().x, (FLOAT)inViewport.GetSize().y);
     D3D.context->RSSetViewports(1, &viewport);
 
     auto blend_desc = CD3D11_BLEND_DESC(CD3D11_DEFAULT());
     D3D.device->CreateBlendState(&blend_desc, &blend_state);
 
-    auto depth_target_desc = CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_D24_UNORM_S8_UINT, inViewport.GetSize().x, inViewport.GetSize().y, 1u, 1u, D3D11_BIND_DEPTH_STENCIL);
+    auto depth_target_desc = CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_D32_FLOAT, inViewport.GetSize().x, inViewport.GetSize().y, 1u, 1u, D3D11_BIND_DEPTH_STENCIL);
     gThrowIfFailed(D3D.device->CreateTexture2D(&depth_target_desc, NULL, depth_stencil_buffer.GetAddressOf()));
 
     gThrowIfFailed(D3D.device->CreateDepthStencilView(depth_stencil_buffer.Get(), NULL, D3D.depth_stencil_view.GetAddressOf()));
@@ -71,10 +73,14 @@ DXRenderer::DXRenderer(const Viewport& inViewport, SDL_Window* window) {
     auto depth_stencil_desc = CD3D11_DEPTH_STENCIL_DESC(CD3D11_DEFAULT());
     gThrowIfFailed(D3D.device->CreateDepthStencilState(&depth_stencil_desc, depth_stencil_state.GetAddressOf()));
 
+    depth_stencil_desc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+    gThrowIfFailed(D3D.device->CreateDepthStencilState(&depth_stencil_desc, depth_stencil_state_equal.GetAddressOf()));
+
     // fill out the raster description struct and create a rasterizer state
     auto raster_desc = CD3D11_RASTERIZER_DESC(CD3D11_DEFAULT());
     raster_desc.FrontCounterClockwise = TRUE;
     gThrowIfFailed(D3D.device->CreateRasterizerState(&raster_desc, D3D.rasterize_state.GetAddressOf()));
+
     D3D.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     D3D.context->RSSetState(D3D.rasterize_state.Get());
 
@@ -106,8 +112,12 @@ void DXRenderer::ImGui_Render() {
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
-void DXRenderer::BindPipeline() {
-    D3D.context->OMSetDepthStencilState(depth_stencil_state.Get(), 0);
+void DXRenderer::BindPipeline(D3D11_COMPARISON_FUNC inDepthFunc) {
+    if (inDepthFunc == D3D11_COMPARISON_LESS)
+        D3D.context->OMSetDepthStencilState(depth_stencil_state.Get(), 0);
+    else if (inDepthFunc == D3D11_COMPARISON_EQUAL)
+        D3D.context->OMSetDepthStencilState(depth_stencil_state_equal.Get(), 0);
+
     float blendFactor[] = { 0, 0, 0, 0 };
     UINT sampleMask = 0xffffffff;
     D3D.context->OMSetBlendState(blend_state.Get(), blendFactor, sampleMask);

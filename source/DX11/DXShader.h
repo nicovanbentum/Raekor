@@ -4,9 +4,6 @@
 
 namespace Raekor {
 
-
-
-
 class DXShader {
 public:
 enum Type {
@@ -19,25 +16,25 @@ inline static auto sTypeTargets = std::array {
     
 struct Stage {
     Type type;
-    std::string textfile;
-    FileSystem::file_time_type updatetime;
+    std::string mTextFile;
+    FileSystem::file_time_type mUpdateTime;
 };
 
 
 public:
     DXShader() = default;
     DXShader(const Stage* stages, size_t stageCount);
-    void Bind();
+    void Bind(ID3D11DeviceContext* inContext);
 
     void CheckForReload();
     bool CompileStage(const Stage& inStage);
 
 private:
-    std::vector<Stage> m_stages;
-    ComPtr<ID3D11VertexShader> vertex_shader;
-    ComPtr<ID3D11PixelShader> pixel_shader;
-    ComPtr<ID3D11ComputeShader> compute_shader;
-    ComPtr<ID3D11GeometryShader> geo_shader;
+    std::vector<Stage> m_Stages;
+    ComPtr<ID3D11VertexShader> m_VertexShader;
+    ComPtr<ID3D11PixelShader> m_PixelShader;
+    ComPtr<ID3D11ComputeShader> m_ComputeShader;
+    ComPtr<ID3D11GeometryShader> m_GeometryShader;
 };
 
 } // namespace Raekor

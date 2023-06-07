@@ -100,12 +100,8 @@ void Physics::Step(Scene& scene, float dt) {
 
 
 void Physics::OnUpdate(Scene& scene) {
-    auto scene_view = scene.view<Transform, Mesh, BoxCollider>();
-
-    auto& body_interface = m_Physics.GetBodyInterface();
-
     for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, BoxCollider>().each()) {
-        if (collider.bodyID.IsInvalid()) {
+        if (collider.bodyID.IsInvalid() && collider.settings.GetRefCount()) {
             auto settings = JPH::BodyCreationSettings(
                 &collider.settings,
                 JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
@@ -117,22 +113,18 @@ void Physics::OnUpdate(Scene& scene) {
             collider.settings.SetEmbedded();
 
             settings.mAllowDynamicOrKinematic = true;
-            collider.bodyID = body_interface.CreateAndAddBody(settings, JPH::EActivation::Activate);
+            collider.bodyID = m_Physics.GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
         }
         else {
             const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
             const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-            body_interface.SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
+            m_Physics.GetBodyInterface().SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
         }
     }
 }
 
 
 void Physics::GenerateRigidBodiesEntireScene(Scene& inScene) {
-
-    for (const auto& [sb_entity, sb_transform, sb_mesh] : inScene.view<Transform, Mesh>().each())
-        inScene.emplace<BoxCollider>(sb_entity);
-
     for (const auto& [sb_entity, sb_transform, sb_mesh, sb_collider] : inScene.view<Transform, Mesh, BoxCollider>().each()) {
         auto entity = sb_entity;
         auto& transform = sb_transform;
@@ -169,8 +161,6 @@ void Physics::GenerateRigidBodiesEntireScene(Scene& inScene) {
             collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
        });
     }
-
-   Async::sWait();
 }
 
 

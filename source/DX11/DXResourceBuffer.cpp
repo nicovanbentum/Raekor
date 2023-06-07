@@ -15,7 +15,7 @@ DXResourceBuffer::DXResourceBuffer(size_t size) {
     cbdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     cbdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     cbdesc.MiscFlags = 0;
-    cbdesc.ByteWidth = gAlignUp(size, 16);
+    cbdesc.ByteWidth = (UINT)gAlignUp(size, 16);
     cbdesc.StructureByteStride = 0;
 
     D3D11_SUBRESOURCE_DATA cbdata;
