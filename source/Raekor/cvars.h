@@ -60,9 +60,9 @@ public:
 
 	inline auto end()    { return cvars.end();   }
 	inline auto begin()  { return cvars.begin(); }
-	inline size_t size() { return cvars.size();  }
 
 	static CVars& sGet() { return *global.get(); }
+	static size_t sGetCount() { return global->cvars.size(); }
 
 private:
 	std::unordered_map<std::string, CVar> cvars;

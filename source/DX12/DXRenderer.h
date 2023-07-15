@@ -4,6 +4,8 @@
 #include "DXResource.h"
 #include "DXRenderGraph.h"
 
+#include "Raekor/application.h"
+
 namespace Raekor {
 
 class Application;
@@ -45,7 +47,7 @@ public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
     void OnResize(Device& inDevice, const Viewport& inViewport, bool inExclusiveFullscreen = false);
-    void OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer,  float inDeltaTime);
+    void OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, StagingHeap& inStagingHeap, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer,  float inDeltaTime);
 
     void Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer);
 
@@ -54,8 +56,11 @@ public:
     
     void WaitForIdle(Device& inDevice);
 
-    void SetShouldResize(bool inShouldResize) { m_ShouldResize = inShouldResize; }
+    void SetShouldResize(bool inValue) { m_ShouldResize = inValue; }
+    void SetShouldCaptureNextFrame(bool inValue) { m_ShouldCaptureNextFrame = inValue; }
 
+    SDL_Window*         GetWindow()             { return m_Window;}
+    Settings&           GetSettings()           { return m_Settings;}
     const RenderGraph&  GetRenderGraph()        { return m_RenderGraph; }
     BackBufferData&     GetBackBufferData()     { return m_BackBufferData[m_FrameIndex];  }
     BackBufferData&     GetPrevBackBufferData() { return m_BackBufferData[!m_FrameIndex]; }
@@ -81,6 +86,37 @@ private:
     std::vector<uint8_t>    m_FsrScratchMemory;
     RenderGraph             m_RenderGraph;
 };
+
+
+class RenderInterface : public IRenderer {
+public:
+    RenderInterface(Device& inDevice, Renderer& inRenderer, StagingHeap& inStagingHeap);
+
+    uint64_t GetDisplayTexture() override;
+    uint64_t GetImGuiTextureID(uint32_t inTextureID) override;
+    
+    uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) { return 0; /* TODO: FIXME */ }
+    uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) override { return 0; /* TODO: FIXME */ }
+
+    void UploadMeshBuffers(Mesh& inMesh);
+    void DestroyMeshBuffers(Mesh& inMesh) { /* TODO: FIXME */ }
+
+    void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) { /* TODO: FIXME */ }
+    void DestroySkeletonBuffers(Skeleton& inSkeleton) { /* TODO: FIXME */ }
+
+    void DestroyMaterialTextures(Material& inMaterial, Assets& inAssets) override {}
+
+    uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = true);
+
+    void OnResize(const Viewport& inViewport) { m_Renderer.SetShouldResize(true); }
+    void DrawImGui(Scene& inScene, const Viewport& inViewport);
+
+private:
+    Device& m_Device;
+    Renderer& m_Renderer;
+    StagingHeap& m_StagingHeap;
+};
+
 
 ////////////////////////////////////////
 /// GBuffer Render Pass
@@ -339,21 +375,6 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 
 
 ////////////////////////////////////////
-/// Final Compose Render Pass
-////////////////////////////////////////
-struct ComposeData {
-    RTTI_CLASS_HEADER(ComposeData);
-
-    TextureResource mInputTexture;
-    ComPtr<ID3D12PipelineState> mPipeline;
-};
-
-const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
-    TextureResource inInputTexture
-);
-
-
-////////////////////////////////////////
 /// AMD FSR 2.1 Render Pass
 ////////////////////////////////////////
 struct FSR2Data {
@@ -374,11 +395,55 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice,
 );
 
 
+////////////////////////////////////////
+/// Final Compose Render Pass
+////////////////////////////////////////
+struct ComposeData {
+    RTTI_CLASS_HEADER(ComposeData);
+
+    TextureResource mInputTexture;
+    TextureResource mOutputTexture;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice,
+    TextureResource inInputTexture
+);
+
+
+////////////////////////////////////////
+/// Pre-ImGui Pass
+////////////////////////////////////////
+struct PreImGuiData {
+    RTTI_CLASS_HEADER(PreImGuiData);
+
+    TextureResource mDisplayTexture;
+};
+
+const PreImGuiData& AddPreImGuiPass(RenderGraph& inRenderGraph, Device& inDevice,
+    TextureResource ioDisplayTexture
+);
+
 
 ////////////////////////////////////////
 /// ImGui Render Pass
 /// Note: the ImGui init and render functions really don't like being put in the RenderGraph (capturing lambdas) so manual functions are provided.
 ////////////////////////////////////////
+struct ImGuiData {
+    RTTI_CLASS_HEADER(ImGuiData);
+
+    BufferID mIndexBuffer;
+    BufferID mVertexBuffer;
+    TextureResource mInputTexture;
+    std::vector<uint8_t> mIndexScratchBuffer;
+    std::vector<uint8_t> mVertexScratchBuffer;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, 
+    StagingHeap& inStagingHeap,
+    TextureResource inInputTexture
+);
 
 /* Initializes ImGui and returns the font texture ID. */
 [[nodiscard]] TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameCount);

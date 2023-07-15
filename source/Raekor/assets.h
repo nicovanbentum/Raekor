@@ -8,6 +8,8 @@ class Asset {
     friend class Assets;
 
 public:
+    using Ptr = Asset*;
+
     Asset() = default;
     Asset(const std::string& inPath) : m_Path(inPath) {}
     virtual ~Asset() = default;
@@ -76,6 +78,25 @@ private:
 };
 
 
+class ShaderAsset : public Asset {
+public:
+    using Ptr = std::shared_ptr<ShaderAsset>;
+
+    ShaderAsset() = default;
+    ShaderAsset(const std::string& inPath) : Asset(inPath) {}
+    virtual ~ShaderAsset() = default;
+
+    static std::string sConvert(const std::string& inPath);
+    virtual bool Load(const std::string& inPath) override;
+
+    template<class Archive>
+    void serialize(Archive& ioArchive) {  }
+
+private:
+    int f;
+};
+
+
 class ScriptAsset : public Asset {
 public:
     using Ptr = std::shared_ptr<ScriptAsset>;
@@ -96,6 +117,7 @@ public:
 private:
     HMODULE m_HModule;
 };
+
 
 } // namespace raekor
 

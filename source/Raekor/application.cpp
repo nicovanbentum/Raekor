@@ -27,7 +27,7 @@ Application::Application(WindowFlags inFlags) {
     SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
 
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        std::cout << SDL_GetError() << '\n';
+        LogMessage(SDL_GetError());
         std::abort();
     }
 

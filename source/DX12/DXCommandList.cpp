@@ -76,17 +76,9 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
 	auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
 
 	switch (inSlot) {
-	case EBindSlot::CBV0: case EBindSlot::CBV1: case EBindSlot::CBV2: case EBindSlot::CBV3:
-		command_list->SetGraphicsRootConstantBufferView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
-		command_list->SetComputeRootConstantBufferView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
-		break;
-	case EBindSlot::SRV0: case EBindSlot::SRV1: case EBindSlot::SRV2: case EBindSlot::SRV3:
+	case EBindSlot::SRV0: case EBindSlot::SRV1:
 		command_list->SetGraphicsRootShaderResourceView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
 		command_list->SetComputeRootShaderResourceView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
-		break;
-	case EBindSlot::UAV0: case EBindSlot::UAV1: case EBindSlot::UAV2: case EBindSlot::UAV3:
-		command_list->SetGraphicsRootUnorderedAccessView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
-		command_list->SetComputeRootUnorderedAccessView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
 		break;
 	default: assert(false);
 	}

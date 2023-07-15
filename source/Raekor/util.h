@@ -59,6 +59,16 @@ inline constexpr uint64_t gHash64Bit(const char* const str, const uint64_t value
 }
 
 
+inline uint64_t gHashFNV1a(const char* const inData, uint64_t inLength) {
+    auto hash = val_64_const;
+
+    for (uint32_t i = 0; i < inLength; i++)
+        hash = (hash ^ inData[i]) * prime_64_const;
+
+    return hash;
+}
+
+
 constexpr inline size_t gAlignUp(size_t value, size_t alignment) noexcept {
     return (value + alignment - 1) & ~(alignment - 1);
 }
@@ -205,6 +215,10 @@ class FreeVector {
 public:
     using ID = RTID<T>;
     virtual ~FreeVector() = default;
+
+    void Reserve(size_t inSizeInBytes) {
+        m_Storage.reserve(inSizeInBytes);
+    }
 
     [[nodiscard]] virtual ID Add(const T& inT) {
         size_t t_index;

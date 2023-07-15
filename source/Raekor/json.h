@@ -2,6 +2,10 @@
 
 #include "util.h"
 
+namespace Raekor {
+
+}
+
 namespace Raekor::JSON {
 
 enum class ValueType {
@@ -84,6 +88,8 @@ public:
 	const auto end() const { return m_Objects.end(); }
 	const auto begin() const { return m_Objects.begin(); }
 
+	Object& AddObject() { return m_Objects.emplace_back(); }
+
 private:
 	/* Returns the character at current cursor position. */
 	char CurrChar();
@@ -117,6 +123,7 @@ private:
 	
 	/* Calls any of the other Parse* Functions based on the character at the cursor. Returns the value it parsed as out parameter (can be nullptr). */
 	bool ParseValue(Value* outValue = nullptr);
+
 
 private:
 	Value& GetCurrentValue();
@@ -284,5 +291,6 @@ template<typename T>
 inline void ToJSONValue(JSON::Value& ioValue, T* inPtr) {
 
 }
+
 
 }

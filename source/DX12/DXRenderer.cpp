@@ -90,7 +90,10 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
     auto desc = DXGI_SWAP_CHAIN_DESC {};
     gThrowIfFailed(m_Swapchain->GetDesc(&desc));
 
-    gThrowIfFailed(m_Swapchain->ResizeBuffers(desc.BufferCount, inViewport.size.x, inViewport.size.y, desc.BufferDesc.Format, desc.Flags));
+
+    auto window_width = 0, window_height = 0;
+    SDL_GetWindowSize(m_Window, &window_width, &window_height);
+    gThrowIfFailed(m_Swapchain->ResizeBuffers(desc.BufferCount, window_width, window_height, desc.BufferDesc.Format, desc.Flags));
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData)) {
         auto rtv_resource = ResourceRef(nullptr);
@@ -124,7 +127,7 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
 
 
 
-void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, float inDeltaTime) {
+void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, StagingHeap& inStagingHeap, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, float inDeltaTime) {
     // Check if any of the shader sources were updated and recompile them if necessary
     bool need_recompile = false;
 
@@ -144,260 +147,6 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
         }
     }
 
-    // Start the ImGui frame / work
-    GUI::BeginFrame();
-    ImGui_ImplDX12_NewFrame();
-
-    static bool open = true;
-    ImGui::SetNextWindowBgAlpha(0.95f);
-    ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
-    ImGui::Begin("Settings", &open, ImGuiWindowFlags_AlwaysAutoResize);
-
-    ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-
-    if (ImGui::Button("PIX GPU Capture")) 
-        m_ShouldCaptureNextFrame = true;
-
-    static constexpr auto modes = std::array { 0u /* Windowed */, (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP, (uint32_t)SDL_WINDOW_FULLSCREEN};
-    static constexpr auto mode_strings = std::array { "Windowed", "Borderless", "Fullscreen" };
-
-    auto mode = 0u; // Windowed
-    const auto window_flags = SDL_GetWindowFlags(m_Window);
-    if (SDL_IsWindowBorderless(m_Window))
-        mode = 1u;
-    else if (SDL_IsWindowExclusiveFullscreen(m_Window))
-        mode = 2u;
-
-    if (ImGui::BeginCombo("Mode", mode_strings[mode])) {
-        for (const auto& [index, string] : gEnumerate(mode_strings)) {
-            const auto is_selected = index == mode;
-            if (ImGui::Selectable(string, &is_selected)) {
-                bool to_fullscreen = modes[index] == 2u;
-                SDL_SetWindowFullscreen(m_Window, modes[index]);
-                if (to_fullscreen) {
-                    while (!SDL_IsWindowExclusiveFullscreen(m_Window))
-                        SDL_Delay(10);
-                }
-
-                SetShouldResize(true);
-            }
-        }
-
-        ImGui::EndCombo();
-    }
-
-    auto display_names = std::vector<std::string>(SDL_GetNumVideoDisplays());
-    for (const auto& [index, name] : gEnumerate(display_names))
-        name = SDL_GetDisplayName(index);
-
-    const auto display_index = SDL_GetWindowDisplayIndex(m_Window);
-    if (ImGui::BeginCombo("Monitor", display_names[display_index].c_str())) {
-        for (const auto& [index, name] : gEnumerate(display_names)) {
-            const auto is_selected = index == display_index;
-            if (ImGui::Selectable(name.c_str(), &is_selected)) {
-                if (m_Settings.mFullscreen) {
-                    SDL_SetWindowFullscreen(m_Window, 0);
-                    SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
-                    SDL_SetWindowFullscreen(m_Window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-                }
-                else {
-                    SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
-                }
-
-                SetShouldResize(true);
-            }
-        }
-
-        ImGui::EndCombo();
-    }
-
-    const auto current_display_index = SDL_GetWindowDisplayIndex(m_Window);
-    const auto num_display_modes = SDL_GetNumDisplayModes(current_display_index);
-    
-    std::vector<SDL_DisplayMode> display_modes(num_display_modes);
-    std::vector<std::string> display_mode_strings(num_display_modes);
-    
-    SDL_DisplayMode* new_display_mode = nullptr;
-
-    if (m_Settings.mFullscreen) {
-        for (const auto& [index, display_mode] : gEnumerate(display_modes))
-            SDL_GetDisplayMode(current_display_index, index, &display_mode);
-
-        for (const auto& [index, display_mode] : gEnumerate(display_modes))
-            display_mode_strings[index] = std::format("{}x{}@{}Hz", display_mode.w, display_mode.h, display_mode.refresh_rate);
-
-        SDL_DisplayMode current_display_mode;
-        SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(m_Window), &current_display_mode);
-
-        if (ImGui::BeginCombo("Resolution", display_mode_strings[m_Settings.mDisplayRes].c_str())) {
-            for (int index = 0; index < display_mode_strings.size(); index++) {
-                bool is_selected = index == m_Settings.mDisplayRes;
-                if (ImGui::Selectable(display_mode_strings[index].c_str(), &is_selected)) {
-                    m_Settings.mDisplayRes = index;
-                    new_display_mode = &display_modes[index];
-                    if (SDL_SetWindowDisplayMode(m_Window, new_display_mode) != 0) {
-
-                        std::cout << SDL_GetError();
-                    }
-                    std::cout << std::format("SDL_SetWindowDisplayMode with {}x{} @ {}Hz\n", new_display_mode->w, new_display_mode->h, new_display_mode->refresh_rate);
-                    SetShouldResize(true);
-                }
-            }
-
-            ImGui::EndCombo();
-        }
-    }
-
-    ImGui::Checkbox("Enable V-Sync", (bool*)&m_Settings.mEnableVsync);
-
-    enum EGizmo { SUNLIGHT_DIR, DDGI_POS };
-    constexpr auto items = std::array{ "Sunlight Direction", "DDGI Position", };
-    static auto gizmo = EGizmo::SUNLIGHT_DIR;
-
-    auto index = int(gizmo);
-    if (ImGui::Combo("##EGizmo", &index, items.data(), int(items.size())))
-        gizmo = EGizmo(index);
-
-    need_recompile |= ImGui::Checkbox("Enable FSR 2.1", (bool*)&m_Settings.mEnableFsr2);
-    need_recompile |= ImGui::Checkbox("Enable DDGI", (bool*)&m_Settings.mEnableDDGI);
-    need_recompile |= ImGui::Checkbox("Show GI Probe Grid", (bool*)&m_Settings.mProbeDebug);
-    need_recompile |= ImGui::Checkbox("Show GI Probe Rays", (bool*)&m_Settings.mDebugLines);
-
-    if (need_recompile) {
-        WaitForIdle(inDevice);
-        Recompile(inDevice, inScene, inTLAS, inInstancesBuffer, inMaterialsBuffer);
-    }
-
-    auto lightView = inScene.view<DirectionalLight, Transform>();
-
-    if (lightView.begin() != lightView.end()) {
-        auto& sun_transform = lightView.get<Transform>(lightView.front());
-
-        auto sun_rotation_degrees = glm::degrees(glm::eulerAngles(sun_transform.rotation));
-
-        if (ImGui::DragFloat3("Sun Angle", glm::value_ptr(sun_rotation_degrees), 0.1f, -360.0f, 360.0f, "%.1f")) {
-            sun_transform.rotation = glm::quat(glm::radians(sun_rotation_degrees));
-            sun_transform.Compose();
-        }
-    }
-
-    ImGui::NewLine(); ImGui::Separator();
-
-    if (auto grass_pass = m_RenderGraph.GetPass<GrassData>()) {
-        ImGui::Text("Grass Settings");
-        ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
-        ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
-        ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
-        ImGui::NewLine(); ImGui::Separator();
-    }
-
-    if (auto rtao_pass = m_RenderGraph.GetPass<RTAOData>()) {
-        auto& params = rtao_pass->GetData().mParams;
-        ImGui::Text("RTAO Settings");
-        ImGui::DragFloat("Radius", &params.mRadius, 0.01f, 0.0f, 20.0f, "%.2f");
-        ImGui::DragFloat("Intensity", &params.mIntensity, 0.01f, 0.0f, 1.0f, "%.2f");
-        ImGui::DragFloat("Normal Bias", &params.mNormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
-        ImGui::SliderInt("Sample Count", (int*)&params.mSampleCount, 1u, 128u);
-        ImGui::NewLine(); ImGui::Separator();
-    }
-
-    if (auto ddgi_pass = m_RenderGraph.GetPass<ProbeTraceData>()) {
-        auto& data = ddgi_pass->GetData();
-        ImGui::Text("DDGI Settings");
-        ImGui::DragInt3("Debug Probe", glm::value_ptr(data.mDebugProbe));
-        ImGui::DragFloat3("Probe Spacing", glm::value_ptr(data.mDDGIData.mProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
-        ImGui::DragInt3("Probe Count", glm::value_ptr(data.mDDGIData.mProbeCount), 1, 1, 40);
-        ImGui::DragFloat3("Grid Position", glm::value_ptr(data.mDDGIData.mCornerPosition), 0.01f, -1000.0f, 1000.0f, "%.3f");
-    }
-
-    auto debug_textures = std::vector<TextureID>{};
-
-    if (auto ddgi_pass = m_RenderGraph.GetPass<ProbeUpdateData>()) {
-        debug_textures.push_back(ddgi_pass->GetData().mRaysDepthTexture.mResourceTexture);
-        debug_textures.push_back(ddgi_pass->GetData().mRaysIrradianceTexture.mResourceTexture);
-    }
-
-    if (auto ddgi_pass = m_RenderGraph.GetPass<ProbeDebugData>()) {
-        debug_textures.push_back(ddgi_pass->GetData().mProbesDepthTexture.mResourceTexture);
-        debug_textures.push_back(ddgi_pass->GetData().mProbesIrradianceTexture.mResourceTexture);
-    }
-
-    auto texture_strs = std::vector<std::string>(debug_textures.size());
-    auto texture_cstrs = std::vector<const char*>(debug_textures.size());
-
-    static auto texture_index = glm::min(3, int(debug_textures.size() -1 ));
-    texture_index = glm::min(texture_index, int(debug_textures.size() -1 ));
-
-    for (auto [index, texture] : gEnumerate(debug_textures)) {
-        texture_strs[index] = gGetDebugName(inDevice.GetTexture(texture).GetResource().Get());
-        texture_cstrs[index] = texture_strs[index].c_str();
-    }
-
-    ImGui::Combo("Debug View", &texture_index, texture_cstrs.data(), texture_cstrs.size());
-
-    auto texture = inDevice.GetTexture(debug_textures[texture_index]);
-    auto gpu_handle = inDevice.GetGPUDescriptorHandle(debug_textures[texture_index]);
-
-    ImGui::Image((void*)((intptr_t)gpu_handle.ptr), ImVec2(texture.GetDesc().width, texture.GetDesc().height));
-
-    ImGui::NewLine(); ImGui::Separator();
-
-    if (ImGui::Button("Save As GraphViz..")) {
-        const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
-
-        if (!file_path.empty()) {
-            auto ofs = std::ofstream(file_path);
-            ofs << m_RenderGraph.ToGraphVizText(inDevice);
-        }
-    }
-
-    ImGui::End();
-
-    ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
-    ImGuizmo::SetRect(0, 0, float(inViewport.size.x), float(inViewport.size.y));
-
-    switch (gizmo) {
-        case EGizmo::SUNLIGHT_DIR: {
-            if (lightView.begin() != lightView.end()) {
-                auto& sun_transform = lightView.get<Transform>(lightView.front());
-
-                const auto manipulated = ImGuizmo::Manipulate(
-                    glm::value_ptr(inViewport.GetCamera().GetView()),
-                    glm::value_ptr(inViewport.GetCamera().GetProjection()),
-                    ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD,
-                    glm::value_ptr(sun_transform.localTransform)
-                );
-
-                if (manipulated)
-                    sun_transform.Decompose();
-        } break;
-        case EGizmo::DDGI_POS: {
-            if (auto ddgi = m_RenderGraph.GetPass<ProbeTraceData>()) {
-                auto transform = glm::translate(glm::mat4(1.0f), ddgi->GetData().mDDGIData.mCornerPosition);
-
-                const auto manipulated = ImGuizmo::Manipulate(
-                    glm::value_ptr(inViewport.GetCamera().GetView()),
-                    glm::value_ptr(inViewport.GetCamera().GetProjection()),
-                    ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::WORLD,
-                    glm::value_ptr(transform)
-                );
-
-                if (manipulated) {
-                    Vec3 scale, translation, skew;
-                    glm::quat rotation;
-                    Vec4 perspective;
-                    glm::decompose(transform, scale, rotation, translation, skew, perspective);
-
-                    ddgi->GetData().mDDGIData.mCornerPosition = translation;
-                }
-            }
-        } break;
-    }
-
-    }
-
-    GUI::EndFrame();
-
     if (m_ShouldResize) {
         // Make sure nothing is using render targets anymore
         WaitForIdle(inDevice);
@@ -410,6 +159,8 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
 
         // Unflag
         m_ShouldResize = false;
+
+        return;
     }
 
     if (m_FrameCounter > 0) {
@@ -478,7 +229,7 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
     // Record the entire frame into the command list
     m_RenderGraph.Execute(inDevice, backbuffer_data.mCmdList, m_FrameCounter);
 
-    // Record the ImGui commands last
+    // Render ImGui to the backbuffer
     RenderImGui(m_RenderGraph, inDevice, backbuffer_data.mCmdList);
 
     backbuffer_data.mCmdList.Close();
@@ -557,6 +308,10 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
 
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, compose_input);
 
+    const auto& pre_imgui_data = AddPreImGuiPass(m_RenderGraph, inDevice, compose_data.mOutputTexture);
+
+    // const auto& imgui_data = AddImGuiPass(m_RenderGraph, inDevice, inStagingHeap, compose_data.mOutputTexture);
+
     m_RenderGraph.Compile(inDevice);
 }
 
@@ -579,6 +334,372 @@ void Renderer::WaitForIdle(Device& inDevice) {
 
     gThrowIfFailed(m_Fence->Signal(0));
     m_FrameCounter = 0;
+}
+
+
+
+RenderInterface::RenderInterface(Device& inDevice, Renderer& inRenderer, StagingHeap& inStagingHeap) :
+    IRenderer(GraphicsAPI::DirectX12), m_Device(inDevice), m_Renderer(inRenderer), m_StagingHeap(inStagingHeap)
+{
+    DXGI_ADAPTER_DESC adapter_desc = {};
+    m_Device.GetAdapter()->GetDesc(&adapter_desc);
+
+    GPUInfo gpu_info = {};
+    switch (adapter_desc.VendorId) {
+        case 0x000010de: gpu_info.mVendor = "NVIDIA Corporation";           break;
+        case 0x00001002: gpu_info.mVendor = "Advanced Micro Devices, Inc."; break;
+        case 0x00008086: gpu_info.mVendor = "Intel Corporation";            break;
+        case 0x00001414: gpu_info.mVendor = "Microsoft Corporation";        break;
+    }
+
+    gpu_info.mProduct = gWCharToString(adapter_desc.Description);
+    gpu_info.mActiveAPI = "DirectX 12 Ultimate";
+
+    SetGPUInfo(gpu_info);
+}
+
+
+
+uint64_t RenderInterface::GetDisplayTexture() {
+    if (auto pre_imgui_pass = m_Renderer.GetRenderGraph().GetPass<PreImGuiData>())
+        return m_Device.GetGPUDescriptorHandle(pre_imgui_pass->GetData().mDisplayTexture.mResourceTexture).ptr;
+    else
+        return uint64_t(TextureID::INVALID);
+}
+
+
+
+uint64_t RenderInterface::GetImGuiTextureID(uint32_t inHandle)
+{
+    const auto& resource_heap = m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetHeap();
+    const auto heap_ptr = resource_heap->GetGPUDescriptorHandleForHeapStart().ptr + inHandle * m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    return heap_ptr;
+}
+
+
+
+void RenderInterface::UploadMeshBuffers(Mesh& inMesh) { 
+    m_Renderer.WaitForIdle(m_Device);
+
+    const auto vertices = inMesh.GetInterleavedVertices();
+    const auto vertices_size = vertices.size() * sizeof(vertices[0]);
+    const auto indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
+
+    if (!vertices_size || !indices_size)
+        return;
+
+    inMesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc{
+        .size   = uint32_t(indices_size),
+        .stride = sizeof(uint32_t) * 3,
+        .usage  = Buffer::Usage::INDEX_BUFFER
+    }, L"INDEX_BUFFER").ToIndex();
+
+    inMesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc{
+        .size   = uint32_t(vertices_size),
+        .stride = sizeof(Vertex),
+        .usage  = Buffer::Usage::VERTEX_BUFFER
+    }, L"VERTEX_BUFFER").ToIndex();
+
+    D3D12_RAYTRACING_GEOMETRY_DESC geom = {};
+    geom.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+    geom.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+
+    geom.Triangles.IndexBuffer = m_Device.GetBuffer(BufferID(inMesh.indexBuffer))->GetGPUVirtualAddress();
+    geom.Triangles.IndexCount = inMesh.indices.size();
+    geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
+
+    geom.Triangles.VertexBuffer.StartAddress = m_Device.GetBuffer(BufferID(inMesh.vertexBuffer))->GetGPUVirtualAddress();
+    geom.Triangles.VertexBuffer.StrideInBytes = sizeof(Vertex);
+    geom.Triangles.VertexCount = inMesh.positions.size();
+    geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
+    inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+    inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+    inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+    inputs.pGeometryDescs = &geom;
+    inputs.NumDescs = 1;
+
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
+    m_Device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
+
+    const auto blas_buffer_id = m_Device.CreateBuffer(Buffer::Desc {
+        .size = prebuild_info.ResultDataMaxSizeInBytes,
+        .usage = Buffer::Usage::ACCELERATION_STRUCTURE
+    }, L"BLAS_BUFFER");
+
+    inMesh.BottomLevelAS = blas_buffer_id.ToIndex();
+
+    const auto scratch_buffer_id = m_Device.CreateBuffer(Buffer::Desc{
+        .size = prebuild_info.ScratchDataSizeInBytes
+    }, L"SCRATCH_BUFFER_BLAS_RT");
+
+    auto& blas_buffer = m_Device.GetBuffer(blas_buffer_id);
+    auto& scratch_buffer = m_Device.GetBuffer(scratch_buffer_id);
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
+    desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();
+    desc.DestAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
+    desc.Inputs = inputs;
+
+    auto& cmd_list = m_Renderer.StartSingleSubmit();
+
+    {
+        const auto& gpu_index_buffer  = m_Device.GetBuffer(BufferID(inMesh.indexBuffer));
+        const auto& gpu_vertex_buffer = m_Device.GetBuffer(BufferID(inMesh.vertexBuffer));
+
+        m_StagingHeap.StageBuffer(cmd_list, gpu_index_buffer.GetResource(), 0, inMesh.indices.data(), indices_size);
+        m_StagingHeap.StageBuffer(cmd_list, gpu_vertex_buffer.GetResource(), 0, vertices.data(), vertices_size);
+    }
+
+    {
+        const auto& gpu_index_buffer  = m_Device.GetBuffer(BufferID(inMesh.indexBuffer));
+        const auto& gpu_vertex_buffer = m_Device.GetBuffer(BufferID(inMesh.vertexBuffer));
+
+        const auto barriers = std::array {
+            CD3DX12_RESOURCE_BARRIER::Transition(gpu_index_buffer.GetResource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
+            CD3DX12_RESOURCE_BARRIER::Transition(gpu_vertex_buffer.GetResource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
+        };
+
+        cmd_list->ResourceBarrier(barriers.size(), barriers.data());
+    }
+
+    cmd_list->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
+
+    m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
+    
+    // m_Device.ReleaseBuffer(scratch_buffer_id);
+}
+
+
+
+uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB) { 
+    auto data_ptr = inAsset->GetData();
+    const auto header_ptr = inAsset->GetHeader();
+    // I think DirectStorage doesnt do proper texture data alignment for its upload buffers as we get garbage past the 4th mip
+    ///const auto mipmap_levels = std::min(header_ptr->dwMipMapCount, 4ul);
+    const auto mipmap_levels = header_ptr->dwMipMapCount;
+
+    auto texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc{
+        .format     = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM,
+        .width      = header_ptr->dwWidth,
+        .height     = header_ptr->dwHeight,
+        .mipLevels  = mipmap_levels,
+        .usage      = Texture::SHADER_READ_ONLY
+    }, inAsset->GetPath().wstring().c_str()));
+
+    auto& cmd_list = m_Renderer.StartSingleSubmit();
+
+    for (uint32_t mip = 0; mip < mipmap_levels; mip++) {
+        const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
+
+        m_StagingHeap.StageTexture(cmd_list, texture.GetResource(), mip, data_ptr);
+
+        data_ptr += dimensions.x * dimensions.y;
+    }
+
+    m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
+
+    return texture.GetView().ToIndex();
+}
+
+
+
+void RenderInterface::DrawImGui(Scene& inScene, const Viewport& inViewport) {
+
+    if (ImGui::Button("PIX GPU Capture"))
+        m_Renderer.SetShouldCaptureNextFrame(true);
+
+    if (ImGui::Button("Save As GraphViz..")) {
+        const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
+
+        if (!file_path.empty()) {
+            auto ofs = std::ofstream(file_path);
+            ofs << m_Renderer.GetRenderGraph().ToGraphVizText(m_Device);
+        }
+    }
+
+    static constexpr auto modes = std::array { 0u /* Windowed */, (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP, (uint32_t)SDL_WINDOW_FULLSCREEN};
+    static constexpr auto mode_strings = std::array { "Windowed", "Borderless", "Fullscreen" };
+
+    auto mode = 0u; // Windowed
+    auto window = m_Renderer.GetWindow();
+    const auto window_flags = SDL_GetWindowFlags(window);
+    if (SDL_IsWindowBorderless(window))
+        mode = 1u;
+    else if (SDL_IsWindowExclusiveFullscreen(window))
+        mode = 2u;
+
+    if (ImGui::BeginCombo("Mode", mode_strings[mode])) {
+        for (const auto& [index, string] : gEnumerate(mode_strings)) {
+            const auto is_selected = index == mode;
+            if (ImGui::Selectable(string, &is_selected)) {
+                bool to_fullscreen = modes[index] == 2u;
+                SDL_SetWindowFullscreen(window, modes[index]);
+                if (to_fullscreen) {
+                    while (!SDL_IsWindowExclusiveFullscreen(window))
+                        SDL_Delay(10);
+                }
+
+                m_Renderer.SetShouldResize(true);
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    auto display_names = std::vector<std::string>(SDL_GetNumVideoDisplays());
+    for (const auto& [index, name] : gEnumerate(display_names))
+        name = SDL_GetDisplayName(index);
+
+    const auto display_index = SDL_GetWindowDisplayIndex(m_Renderer.GetWindow());
+    if (ImGui::BeginCombo("Monitor", display_names[display_index].c_str())) {
+        for (const auto& [index, name] : gEnumerate(display_names)) {
+            const auto is_selected = index == display_index;
+            if (ImGui::Selectable(name.c_str(), &is_selected)) {
+                if (m_Renderer.GetSettings().mFullscreen) {
+                    SDL_SetWindowFullscreen(window, 0);
+                    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
+                    SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                }
+                else {
+                    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
+                }
+
+                m_Renderer.SetShouldResize(true);
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    const auto current_display_index = SDL_GetWindowDisplayIndex(window);
+    const auto num_display_modes = SDL_GetNumDisplayModes(current_display_index);
+    
+    std::vector<SDL_DisplayMode> display_modes(num_display_modes);
+    std::vector<std::string> display_mode_strings(num_display_modes);
+    
+    SDL_DisplayMode* new_display_mode = nullptr;
+
+    if (m_Renderer.GetSettings().mFullscreen) {
+        for (const auto& [index, display_mode] : gEnumerate(display_modes))
+            SDL_GetDisplayMode(current_display_index, index, &display_mode);
+
+        for (const auto& [index, display_mode] : gEnumerate(display_modes))
+            display_mode_strings[index] = std::format("{}x{}@{}Hz", display_mode.w, display_mode.h, display_mode.refresh_rate);
+
+        SDL_DisplayMode current_display_mode;
+        SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &current_display_mode);
+
+        if (ImGui::BeginCombo("Resolution", display_mode_strings[m_Renderer.GetSettings().mDisplayRes].c_str())) {
+            for (int index = 0; index < display_mode_strings.size(); index++) {
+                bool is_selected = index == m_Renderer.GetSettings().mDisplayRes;
+                if (ImGui::Selectable(display_mode_strings[index].c_str(), &is_selected)) {
+                    m_Renderer.GetSettings().mDisplayRes = index;
+                    new_display_mode = &display_modes[index];
+                    if (SDL_SetWindowDisplayMode(window, new_display_mode) != 0) {
+
+                        std::cout << SDL_GetError();
+                    }
+                    std::cout << std::format("SDL_SetWindowDisplayMode with {}x{} @ {}Hz\n", new_display_mode->w, new_display_mode->h, new_display_mode->refresh_rate);
+                    m_Renderer.SetShouldResize(true);
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+    }
+
+    ImGui::Checkbox("Enable V-Sync", (bool*)&m_Renderer.GetSettings().mEnableVsync);
+
+    enum EGizmo { SUNLIGHT_DIR, DDGI_POS };
+    constexpr auto items = std::array{ "Sunlight Direction", "DDGI Position", };
+    static auto gizmo = EGizmo::SUNLIGHT_DIR;
+
+    auto index = int(gizmo);
+    if (ImGui::Combo("##EGizmo", &index, items.data(), int(items.size())))
+        gizmo = EGizmo(index);
+
+    bool need_recompile = false;
+    need_recompile |= ImGui::Checkbox("Enable FSR 2.1", (bool*)&m_Renderer.GetSettings().mEnableFsr2);
+    need_recompile |= ImGui::Checkbox("Enable DDGI", (bool*)&m_Renderer.GetSettings().mEnableDDGI);
+    need_recompile |= ImGui::Checkbox("Show GI Probe Grid", (bool*)&m_Renderer.GetSettings().mProbeDebug);
+    need_recompile |= ImGui::Checkbox("Show GI Probe Rays", (bool*)&m_Renderer.GetSettings().mDebugLines);
+
+    if (need_recompile)
+        m_Renderer.SetShouldResize(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
+
+    auto lightView = inScene.view<DirectionalLight, Transform>();
+
+    if (lightView.begin() != lightView.end()) {
+        auto& sun_transform = lightView.get<Transform>(lightView.front());
+
+        auto sun_rotation_degrees = glm::degrees(glm::eulerAngles(sun_transform.rotation));
+
+        if (ImGui::DragFloat3("Sun Angle", glm::value_ptr(sun_rotation_degrees), 0.1f, -360.0f, 360.0f, "%.1f")) {
+            sun_transform.rotation = glm::quat(glm::radians(sun_rotation_degrees));
+            sun_transform.Compose();
+        }
+    }
+
+    ImGui::NewLine(); ImGui::Separator();
+
+    if (auto grass_pass = m_Renderer.GetRenderGraph().GetPass<GrassData>()) {
+        ImGui::Text("Grass Settings");
+        ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
+        ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
+        ImGui::NewLine(); ImGui::Separator();
+    }
+
+    if (auto rtao_pass = m_Renderer.GetRenderGraph().GetPass<RTAOData>()) {
+        auto& params = rtao_pass->GetData().mParams;
+        ImGui::Text("RTAO Settings");
+        ImGui::DragFloat("Radius", &params.mRadius, 0.01f, 0.0f, 20.0f, "%.2f");
+        ImGui::DragFloat("Intensity", &params.mIntensity, 0.01f, 0.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("Normal Bias", &params.mNormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
+        ImGui::SliderInt("Sample Count", (int*)&params.mSampleCount, 1u, 128u);
+        ImGui::NewLine(); ImGui::Separator();
+    }
+
+    if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeTraceData>()) {
+        auto& data = ddgi_pass->GetData();
+        ImGui::Text("DDGI Settings");
+        ImGui::DragInt3("Debug Probe", glm::value_ptr(data.mDebugProbe));
+        ImGui::DragFloat3("Probe Spacing", glm::value_ptr(data.mDDGIData.mProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
+        ImGui::DragInt3("Probe Count", glm::value_ptr(data.mDDGIData.mProbeCount), 1, 1, 40);
+        ImGui::DragFloat3("Grid Position", glm::value_ptr(data.mDDGIData.mCornerPosition), 0.01f, -1000.0f, 1000.0f, "%.3f");
+    }
+
+    /*auto debug_textures = std::vector<TextureID>{};
+
+    if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeUpdateData>()) {
+        debug_textures.push_back(ddgi_pass->GetData().mRaysDepthTexture.mResourceTexture);
+        debug_textures.push_back(ddgi_pass->GetData().mRaysIrradianceTexture.mResourceTexture);
+    }
+
+    if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeDebugData>()) {
+        debug_textures.push_back(ddgi_pass->GetData().mProbesDepthTexture.mResourceTexture);
+        debug_textures.push_back(ddgi_pass->GetData().mProbesIrradianceTexture.mResourceTexture);
+    }
+
+    auto texture_strs = std::vector<std::string>(debug_textures.size());
+    auto texture_cstrs = std::vector<const char*>(debug_textures.size());
+
+    static auto texture_index = glm::min(3, int(debug_textures.size() -1 ));
+    texture_index = glm::min(texture_index, int(debug_textures.size() -1 ));
+
+    for (auto [index, texture] : gEnumerate(debug_textures)) {
+        texture_strs[index] = gGetDebugName(m_Device.GetTexture(texture).GetResource().Get());
+        texture_cstrs[index] = texture_strs[index].c_str();
+    }
+
+    ImGui::Combo("Debug View", &texture_index, texture_cstrs.data(), texture_cstrs.size());
+
+    auto texture = m_Device.GetTexture(debug_textures[texture_index]);
+    auto gpu_handle = m_Device.GetGPUDescriptorHandle(debug_textures[texture_index]);
+
+    ImGui::Image((void*)((intptr_t)gpu_handle.ptr), ImVec2(texture.GetDesc().width, texture.GetDesc().height));*/
 }
 
 
@@ -622,6 +743,8 @@ RTTI_CLASS_CPP(IndirectDiffuseData) {}
 RTTI_CLASS_CPP(ProbeDebugData)      {}
 RTTI_CLASS_CPP(DebugLinesData)      {}
 RTTI_CLASS_CPP(ComposeData)         {}
+RTTI_CLASS_CPP(PreImGuiData)        {}
+RTTI_CLASS_CPP(ImGuiData)           {}
 
 /*
 
@@ -669,6 +792,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "GBufferVS", "GBufferPS");
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
+        inData.mPipeline->SetName(L"PSO_GBUFFER");
     },
 
     [&inRenderGraph, &inDevice, &inScene](GBufferData& inData, CommandList& inCmdList)
@@ -701,17 +825,16 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 material = &Material::Default;
 
             auto root_constants = GbufferRootConstants {
-            .mVertexBuffer        = vertex_buffer.GetHeapIndex(),
-            .mAlbedoTexture       = material->gpuAlbedoMap,
-            .mNormalTexture       = material->gpuNormalMap,
-            .mMetalRoughTexture   = material->gpuMetallicRoughnessMap,
-            .mAlbedo              = material->albedo,
-            .mRoughness           = material->roughness,
-            .mMetallic            = material->metallic,
-            
+                .mVertexBuffer       = vertex_buffer.GetHeapIndex(),
+                .mAlbedoTexture      = material->gpuAlbedoMap,
+                .mNormalTexture      = material->gpuNormalMap,
+                .mMetalRoughTexture  = material->gpuMetallicRoughnessMap,
+                .mAlbedo             = material->albedo,
+                .mRoughness          = material->roughness,
+                .mMetallic           = material->metallic,
+                .mWorldTransform     = transform.worldTransform,
+                .mInvWorldTransform  = glm::inverse(transform.worldTransform)
             };
-
-            root_constants.mWorldTransform = transform.worldTransform;
 
             inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
 
@@ -744,6 +867,7 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
 
         auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTShadowsCS");
         gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(&inData.mPipeline)));
+        inData.mPipeline->SetName(L"PSO_RT_SHADOWS");
     },
 
     [&inRenderGraph, &inDevice](RTShadowMaskData& inData, CommandList& inCmdList)
@@ -786,6 +910,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 
         auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTAmbientOcclusionCS");
         gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(&inData.mPipeline)));
+        inData.mPipeline->SetName(L"PSO_RTAO");
     },
     [&inRenderGraph, &inDevice](RTAOData& inData, CommandList& inCmdList) 
     {
@@ -821,6 +946,7 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
         state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
         inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline->SetName(L"PSO_GRASS_DRAW");
 
         inData.mRenderConstants = GrassRenderRootConstants {
             .mBend          = 0.0f,
@@ -868,6 +994,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
         
         Timer timer;
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
+        inData.mPipeline->SetName(L"PSO_RT_REFLECTIONS");
         std::cout << std::format("CreateComputePipelineState took {} ms.\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
     },
     [&inRenderGraph, &inDevice](ReflectionsData& inData, CommandList& inCmdList) 
@@ -915,6 +1042,7 @@ const IndirectDiffuseData& AddIndirectDiffusePass(RenderGraph& inRenderGraph, De
         auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTIndirectDiffuseCS");
 
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
+        inData.mPipeline->SetName(L"PSO_RT_INDIRECT_DIFFUSE");
     },
     [&inRenderGraph, &inDevice](IndirectDiffuseData& inData, CommandList& inCmdList)
     {
@@ -970,6 +1098,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
         auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "DownsampleCS");
         inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
+        inData.mPipeline->SetName(L"PSO_DOWNSAMPLE");
     },
     [&inRenderGraph, &inDevice](DownsampleData& inData, CommandList& inCmdList)
     {
@@ -1056,6 +1185,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
 
         auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeTraceCS");
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline)));
+        inData.mPipeline->SetName(L"PSO_PROBE_TRACE");
     },
     [&inRenderGraph, &inDevice](ProbeTraceData& inData, CommandList& inCmdList)
     {
@@ -1096,7 +1226,7 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         const auto probes_depth_texture = inDevice.CreateTexture(Texture::Desc{
             .format = DXGI_FORMAT_R16G16_FLOAT,
             .width  = uint32_t(DDGI_DEPTH_TEXELS * DDGI_PROBES_PER_ROW),
-            .height = uint32_t(DDGI_DEPTH_TEXELS * (total_probe_count / DDGI_PROBES_PER_ROW + 1)),
+            .height = uint32_t(DDGI_DEPTH_TEXELS * (total_probe_count / DDGI_PROBES_PER_ROW)),
             .usage  = Texture::Usage::SHADER_READ_WRITE
         }, L"DDGI_UPDATE_DEPTH");
 
@@ -1114,10 +1244,11 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
 
         auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeUpdateDepthCS");
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mDepthPipeline)));
+        inData.mDepthPipeline->SetName(L"PSO_PROBE_UPDATE_DEPTH");
 
         pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeUpdateIrradianceCS");
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mIrradiancePipeline)));
-        
+        inData.mIrradiancePipeline->SetName(L"PSO_PROBE_UPDATE_IRRADIANCE");
     },
     [&inDevice, &inTraceData](ProbeUpdateData& inData, CommandList& inCmdList)
     {
@@ -1138,6 +1269,8 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         const auto depth_texture = inDevice.GetTexture(inData.mProbesDepthTexture.mCreatedTexture);
         inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
         
+        inCmdList.PushComputeConstants(root_constants);
+
         inCmdList->SetPipelineState(inData.mIrradiancePipeline.Get());
         const auto irradiance_texture = inDevice.GetTexture(inData.mProbesIrradianceTexture.mCreatedTexture);
         inCmdList->Dispatch(irradiance_texture.GetDesc().width / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetDesc().height / DDGI_IRRADIANCE_TEXELS, 1);
@@ -1195,6 +1328,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 
         auto pso_desc = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeDebugVS", "ProbeDebugPS");
         gThrowIfFailed(inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
+        inData.mPipeline->SetName(L"PSO_PROBE_DEBUG");
     },
     [&inRenderGraph, &inDevice, &inUpdateData](ProbeDebugData& inData, CommandList& inCmdList)
     {
@@ -1270,6 +1404,7 @@ const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDe
         pso_state.InputLayout.pInputElementDescs = vertex_layout.data();
 
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
+        inData.mPipeline->SetName(L"PSO_DEBUG_LINES");
     },
     [&inDevice](DebugLinesData& inData, CommandList& inCmdList) 
     {   
@@ -1334,6 +1469,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
         inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline->SetName(L"PSO_DEFERRED_LIGHTING");
     },
     [&inRenderGraph, &inDevice, &inProbeData](LightingData& inData, CommandList& inCmdList)
     {
@@ -1423,9 +1559,16 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
     return inRenderGraph.AddGraphicsPass<ComposeData>("COMPOSE PASS", inDevice,
     [&](IRenderPass* inRenderPass, ComposeData& inData)
     {
+        const auto output_texture = inDevice.CreateTexture(Texture::Desc{
+            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::RENDER_TARGET,
+        }, L"COMPOSE_OUTPUT");
+
+        inRenderPass->Create(output_texture);
+        inData.mOutputTexture = inRenderPass->Write(output_texture);
         inData.mInputTexture  = inRenderPass->Read(inInputTexture);
-        const auto backbuffer = inRenderPass->Write(inRenderGraph.GetBackBuffer()); 
-        assert(backbuffer.mResourceTexture == inRenderGraph.GetBackBuffer()); // backbuffer created with RTV, so Write should just return that
 
         auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "FullscreenTriangleVS", "FinalComposePS");
         state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
@@ -1433,6 +1576,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
         inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline->SetName(L"PSO_COMPOSE");
     },
 
     [&inRenderGraph, &inDevice](ComposeData& inData, CommandList& inCmdList)
@@ -1442,6 +1586,110 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         } root_constants;
 
         root_constants.mInputTexture = inData.mInputTexture.GetBindlessIndex(inDevice);
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+
+        inCmdList.SetViewportScissorRect(inRenderGraph.GetViewport());
+        
+        inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
+        inCmdList->DrawInstanced(6, 1, 0, 0);
+    });
+}
+
+
+const PreImGuiData& AddPreImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, TextureResource ioDisplayTexture) {
+    return inRenderGraph.AddGraphicsPass<PreImGuiData>("COMPOSE PASS", inDevice,
+        [&](IRenderPass* inRenderPass, PreImGuiData& inData)
+        {
+            // this pass only exists to transition the final texture to a read state so ImGui can access it TODO: FIXME: pls fix
+            inData.mDisplayTexture = inRenderPass->Read(ioDisplayTexture);
+        },
+
+        [&inRenderGraph, &inDevice](PreImGuiData& inData, CommandList& inCmdList) { /* nothing to do. */ });
+}
+
+
+static void ImGui_ImplDX12_SetupRenderState(ImDrawData* draw_data, CommandList& inCmdList, const Buffer& inVertexBuffer, const Buffer& inIndexBuffer, ImGuiRootConstants& inRootConstants)
+{
+    // Setup orthographic projection matrix
+    inRootConstants.mProjection = glm::ortho (
+        draw_data->DisplayPos.x,
+        draw_data->DisplayPos.x + draw_data->DisplaySize.x,
+        draw_data->DisplayPos.y + draw_data->DisplaySize.y,
+        draw_data->DisplayPos.y
+    );
+
+    // Setup viewport
+    const auto vp = CD3DX12_VIEWPORT(0.0f, 0.0f, draw_data->DisplaySize.x, draw_data->DisplaySize.y);
+    inCmdList->RSSetViewports(1, &vp);
+
+    // Bind shader and vertex buffers
+    unsigned int stride = sizeof(ImDrawVert);
+    unsigned int offset = 0;
+    
+    D3D12_VERTEX_BUFFER_VIEW vbv;
+    memset(&vbv, 0, sizeof(D3D12_VERTEX_BUFFER_VIEW));
+    vbv.BufferLocation = inVertexBuffer->GetGPUVirtualAddress() + offset;
+    vbv.SizeInBytes = inVertexBuffer.GetDesc().size;
+    vbv.StrideInBytes = stride;
+    inCmdList->IASetVertexBuffers(0, 1, &vbv);
+    
+    D3D12_INDEX_BUFFER_VIEW ibv;
+    memset(&ibv, 0, sizeof(D3D12_INDEX_BUFFER_VIEW));
+    ibv.BufferLocation = inIndexBuffer->GetGPUVirtualAddress();
+    ibv.SizeInBytes = inIndexBuffer.GetDesc().size;
+    ibv.Format = sizeof(ImDrawIdx) == 2 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
+    inCmdList->IASetIndexBuffer(&ibv);
+
+    // Setup blend factor
+    const float blend_factor[4] = { 0.f, 0.f, 0.f, 0.f };
+    inCmdList->OMSetBlendFactor(blend_factor);
+}
+
+
+const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, StagingHeap& inStagingHeap, TextureResource inInputTexture) {
+    return inRenderGraph.AddGraphicsPass<ImGuiData>("IMGUI PASS", inDevice,
+    [&](IRenderPass* inRenderPass, ImGuiData& inData)
+    {
+        constexpr size_t max_buffer_size = 65536; // Taken from Vulkan's ImGuiPass
+        inData.mIndexScratchBuffer.resize(max_buffer_size);
+        inData.mVertexScratchBuffer.resize(max_buffer_size);
+
+        inData.mIndexBuffer = inDevice.CreateBuffer(Buffer::Desc{
+            .size   = max_buffer_size,
+            .stride = sizeof(uint16_t),
+            .usage  = Buffer::Usage::INDEX_BUFFER
+        }, L"IMGUI_INDEX_BUFFER");
+
+        inData.mVertexBuffer = inDevice.CreateBuffer(Buffer::Desc{
+            .size   = max_buffer_size,
+            .stride = sizeof(ImDrawVert),
+            .usage  = Buffer::Usage::VERTEX_BUFFER
+        }, L"IMGUI_VERTEX_BUFFER");
+
+        inData.mInputTexture = inRenderPass->Read(inInputTexture);
+        const auto backbuffer = inRenderPass->Write(inRenderGraph.GetBackBuffer());
+        assert(backbuffer.mResourceTexture == inRenderGraph.GetBackBuffer()); // backbuffer created with RTV, so Write should just return that
+
+        static constexpr auto input_layout = std::array {
+            D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(ImDrawVert, pos), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(ImDrawVert, uv),  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            D3D12_INPUT_ELEMENT_DESC { "COLOR",    0, DXGI_FORMAT_R32_UINT,     0, offsetof(ImDrawVert, col), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        };
+
+        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "ImGuiVS", "ImGuiPS");
+        state.InputLayout = D3D12_INPUT_LAYOUT_DESC {
+            .pInputElementDescs = input_layout.data(),
+            .NumElements = input_layout.size(),
+        };
+        state.DepthStencilState.DepthEnable = FALSE;
+        state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+        inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline->SetName(L"PSO_IMGUI");
+    },
+
+    [&inRenderGraph, &inDevice, &inStagingHeap](ImGuiData& inData, CommandList& inCmdList)
+    {
         const auto backbuffer_id = inRenderGraph.GetBackBuffer();
 
         {   // manual barriers around the imported backbuffer resource, the rendergraph doesn't handle this kind of state
@@ -1451,25 +1699,95 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
 
-        const auto& backbuffer_texture = inDevice.GetTexture(backbuffer_id);
-        const auto bb_width  = backbuffer_texture.GetResource()->GetDesc().Width;
-        const auto bb_height = backbuffer_texture.GetResource()->GetDesc().Height;
+        auto draw_data = ImGui::GetDrawData();
+        auto idx_dst = (ImDrawIdx*)inData.mIndexScratchBuffer.data();
+        auto vtx_dst = (ImDrawVert*)inData.mVertexScratchBuffer.data();
 
-        const auto scissor  = CD3DX12_RECT(0, 0, bb_width, bb_height);
-        const auto viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(bb_width), float(bb_height));
-        inCmdList->RSSetViewports(1, &viewport);
-        inCmdList->RSSetScissorRects(1, &scissor);
+        for (auto& cmd_list : Slice(draw_data->CmdLists, draw_data->CmdListsCount)) {
+            memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+            memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+            vtx_dst += cmd_list->VtxBuffer.Size;
+            idx_dst += cmd_list->IdxBuffer.Size;
+        }
+
+        const auto index_buffer_size = (uint8_t*)idx_dst - inData.mIndexScratchBuffer.data();
+        const auto vertex_buffer_size = (uint8_t*)vtx_dst - inData.mVertexScratchBuffer.data();
+
+        assert(index_buffer_size < inData.mIndexScratchBuffer.size());
+        assert(vertex_buffer_size < inData.mVertexScratchBuffer.size());
+
+        auto nr_of_barriers = 0;
+        auto barriers = std::array {
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mIndexBuffer).GetResource().Get(), D3D12_RESOURCE_STATE_INDEX_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST)),
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mVertexBuffer).GetResource().Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST))
+        };
+
+        if (index_buffer_size) nr_of_barriers++;
+        if (vertex_buffer_size) nr_of_barriers++;
+
+        if (nr_of_barriers)
+            inCmdList->ResourceBarrier(nr_of_barriers, barriers.data());
+
+        if (vertex_buffer_size)
+            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mVertexBuffer).GetResource(), 0, inData.mVertexScratchBuffer.data(), vertex_buffer_size);
+
+        if (index_buffer_size)
+            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mIndexBuffer).GetResource(), 0, inData.mIndexScratchBuffer.data(), index_buffer_size);
+
+        if (nr_of_barriers) {
+            for (auto& barrier : barriers)
+                std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+            inCmdList->ResourceBarrier(nr_of_barriers, barriers.data());
+        }
         
-        inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
-        inCmdList->DrawInstanced(6, 1, 0, 0);
+        auto root_constants = ImGuiRootConstants{};
+        root_constants.mBindlessTextureIndex = 1;
+        ImGui_ImplDX12_SetupRenderState(draw_data, inCmdList, inDevice.GetBuffer(inData.mVertexBuffer), inDevice.GetBuffer(inData.mIndexBuffer), root_constants);
+
+        int global_vtx_offset = 0;
+        int global_idx_offset = 0;
+        ImVec2 clip_off = draw_data->DisplayPos;
+
+        for (auto& cmd_list : Slice(draw_data->CmdLists, draw_data->CmdListsCount)) {
+            for (const auto& cmd : cmd_list->CmdBuffer) {
+                if (cmd.UserCallback) {
+                    if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
+                        ImGui_ImplDX12_SetupRenderState(draw_data, inCmdList, inDevice.GetBuffer(inData.mVertexBuffer), inDevice.GetBuffer(inData.mIndexBuffer), root_constants);
+                    else
+                        cmd.UserCallback(cmd_list, &cmd);
+                }
+                else {
+                    // IRenderer::GetImGuiTextureID writes out the bindless index into the ResourceDescriptorHeap, so we can assign that directly here
+                    if (cmd.TextureId)
+                        root_constants.mBindlessTextureIndex = 1; 
+                    else
+                        root_constants.mBindlessTextureIndex = 1; // set 0 to make debugging easier (should be the blue noise texture I think)
+
+                    inCmdList.PushGraphicsConstants(root_constants);
+
+                    // Project scissor/clipping rectangles into framebuffer space
+                    auto clip_min = ImVec2(cmd.ClipRect.x - clip_off.x, cmd.ClipRect.y - clip_off.y);
+                    auto clip_max = ImVec2(cmd.ClipRect.z - clip_off.x, cmd.ClipRect.w - clip_off.y);
+                    if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
+                        continue;
+
+                    const D3D12_RECT scissor_rect = { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
+                    inCmdList->RSSetScissorRects(1, &scissor_rect);
+                    
+                    inCmdList->DrawIndexedInstanced(cmd.ElemCount, 1, cmd.IdxOffset + global_idx_offset, cmd.VtxOffset + global_vtx_offset, 0);
+                }
+            }
+            global_idx_offset += cmd_list->IdxBuffer.Size;
+            global_vtx_offset += cmd_list->VtxBuffer.Size;
+        }
 
         {
             auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(backbuffer_id), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON);
             inCmdList->ResourceBarrier(1, &backbuffer_barrier);
         }
+
     });
 }
-
 
 
 TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameCount) {
@@ -1496,13 +1814,16 @@ TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameC
         descriptor_heap.GetGPUDescriptorHandle(font_texture_view)
     );
 
+    //auto imgui_id = (void*)(intptr_t)inDevice.GetBindlessHeapIndex(font_texture_id);
+    //ImGui::GetIO().Fonts->SetTexID(imgui_id);
+
     return font_texture_id;
 }
 
 
 
 void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCmdList) {
-    PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>(inCmdList), PIX_COLOR(0, 255, 0), "IMGUI PASS");
+    PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>(inCmdList), PIX_COLOR(0, 255, 0), "IMGUI BACKEND PASS");
 
     // Just in-case we did some external pass like FSR2 before this that sets its own descriptor heaps
     inDevice.BindDrawDefaults(inCmdList);
@@ -1512,8 +1833,15 @@ void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCm
         inCmdList->ResourceBarrier(1, &backbuffer_barrier);
     }
 
+    const auto bb_viewport = CD3DX12_VIEWPORT(inDevice.GetTexture(inRenderGraph.GetBackBuffer()).GetResource().Get());
+    const auto bb_scissor = CD3DX12_RECT(bb_viewport.TopLeftX, bb_viewport.TopLeftY, bb_viewport.Width, bb_viewport.Height);
+
+    inCmdList->RSSetViewports(1, &bb_viewport);
+    inCmdList->RSSetScissorRects(1, &bb_scissor);
+
     const auto& rtv_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     const auto rtv = std::array { rtv_heap.GetCPUDescriptorHandle(inDevice.GetTexture(inRenderGraph.GetBackBuffer()).GetView()) };
+
     inCmdList->OMSetRenderTargets(rtv.size(), rtv.data(), FALSE, nullptr);
 
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), inCmdList);

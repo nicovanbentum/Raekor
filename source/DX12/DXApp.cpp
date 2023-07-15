@@ -15,15 +15,30 @@
 #include "DXRenderer.h"
 #include "DXRenderGraph.h"
 
+#include "Editor/assetsWidget.h"
+#include "Editor/randomWidget.h"
+#include "Editor/metricsWidget.h"
+#include "Editor/menubarWidget.h"
+#include "Editor/consoleWidget.h"
+#include "Editor/viewportWidget.h"
+#include "Editor/inspectorWidget.h"
+#include "Editor/hierarchyWidget.h"
+#include "Editor/NodeGraphWidget.h"
+
 extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension);
 
 namespace Raekor::DX12 {
+
+RTTI_CLASS_CPP(SystemShadersDX12) {
+}
 
 DXApp::DXApp() : 
     Application(WindowFlag::RESIZE), 
     m_Device(m_Window, sFrameCount), 
     m_StagingHeap(m_Device),
-    m_Renderer(m_Device, m_Viewport, m_Window)
+    m_Renderer(m_Device, m_Viewport, m_Window),
+    m_RenderInterface(m_Device, m_Renderer, m_StagingHeap),
+    m_Scene(&m_RenderInterface)
 {
     // Creating the SRV for the blue noise texture at heap index 0 results in a 4x4 black square in the top left of the texture,
     // this is a hacky workaround. at least we get the added benefit of 0 being an 'invalid' index :D
@@ -56,16 +71,51 @@ DXApp::DXApp() :
 
     m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
 
+    // Create default textures / assets
+    const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
+    const auto white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
+    const auto normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
+    m_DefaultBlackTexture = DescriptorID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(black_texture_file)));
+    m_DefaultWhiteTexture = DescriptorID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(white_texture_file)));
+    m_DefaultNormalTexture = DescriptorID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(normal_texture_file)));
+
+    Material::Default.gpuAlbedoMap = m_DefaultWhiteTexture.ToIndex();
+    Material::Default.gpuNormalMap = m_DefaultNormalTexture.ToIndex();
+    Material::Default.gpuMetallicRoughnessMap = m_DefaultWhiteTexture.ToIndex();
+
     // initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImNodes::CreateContext();
     ImGui::StyleColorsDark();
     ImGui_ImplSDL2_InitForD3D(m_Window);
-    ImGui::GetIO().IniFilename = "";
+
+    // get GUI i/o and set a bunch of settings
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_NavNoCaptureKeyboard;
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
+    // io.ConfigDockingWithShift = true;
+
     GUI::SetTheme();
+    ImGui::GetStyle().ScaleAllSizes(1.33333333f);
+    if (!m_Settings.mFontFile.empty())
+        GUI::SetFont(m_Settings.mFontFile.c_str());
 
     m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
 
+    // initialize all the imgui widgets
+    m_Widgets.emplace_back(std::make_shared<AssetsWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<RandomWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<MenubarWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<ConsoleWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<MetricsWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<NodeGraphWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<ViewportWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<InspectorWidget>(this));
+    m_Widgets.emplace_back(std::make_shared<HierarchyWidget>(this));
+
+    // Pick a scene file and load it
     while (!FileSystem::exists(m_Settings.mSceneFile))
         m_Settings.mSceneFile = FileSystem::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
 
@@ -77,18 +127,7 @@ DXApp::DXApp() :
     //m_Viewport.GetCamera().Zoom(-50.0f);
     //m_Viewport.GetCamera().Move(glm::vec2(0.0f, 10.0f));
 
-    // Pre-transform the scene, we don't support matrix transformations yet
-    for (auto [entity, transform, mesh] : m_Scene.view<Transform, Mesh>().each()) {
-        for (auto& p : mesh.positions)
-            p = transform.worldTransform * glm::vec4(p, 1.0);
-
-        //for (auto& n : mesh.normals)
-            //n = glm::normalize(glm::mat3(glm::transpose(glm::inverse(transform.worldTransform))) * n);
-
-        for (auto& t : mesh.tangents)
-            t = glm::normalize(transform.worldTransform * glm::vec4(t, 0.0));
-    }
-
+    // check for ray-tracing support
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
     gThrowIfFailed(m_Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
 
@@ -97,6 +136,7 @@ DXApp::DXApp() :
         abort();
     }
 
+    // initialize DirectStorage 1.0
     auto queue_desc = DSTORAGE_QUEUE_DESC {
         .SourceType = DSTORAGE_REQUEST_SOURCE_FILE,
         .Capacity   = DSTORAGE_MAX_QUEUE_CAPACITY,
@@ -114,28 +154,24 @@ DXApp::DXApp() :
 
     Timer timer;
 
-    UploadSceneToGPU();
-    
-    std::cout << std::format("[CPU] Upload Scene to GPU took {:3f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
-
     CompileShaders();
 
-    std::cout << std::format("[CPU] Shader Compilation took {:3f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
+    LogMessage(std::format("[CPU] Shader Compilation took {:3f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     UploadBvhToGPU();
 
-    std::cout << std::format("[CPU] Upload BVH to GPU took {:3f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
+    LogMessage(std::format("[CPU] Upload BVH to GPU took {:3f} ms.", Timer::sToMilliseconds(timer.Restart())));
 
     m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
 
-    std::cout << std::format("[CPU] RenderGraph Compilation took {:3f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
-
-    std::cout << "Render Size: " << m_Viewport.size.x << " , " << m_Viewport.size.y << '\n';
+    LogMessage(std::format("[CPU] RenderGraph Compilation took {:3f} ms.", Timer::sToMilliseconds(timer.Restart())));
 
     m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
     m_Viewport.GetCamera().Zoom(5.0f);
     m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
     m_Viewport.SetFieldOfView(65.0f);
+
+    LogMessage(std::format("Render Size: {}", glm::to_string(m_Viewport.GetSize())));
 }
 
 
@@ -146,18 +182,61 @@ DXApp::~DXApp() {
 
 
 void DXApp::OnUpdate(float inDeltaTime) {
+    // Check if any BoxCollider's are waiting to be registered
+    m_Physics.OnUpdate(m_Scene);
+
+    // Step the physics simulation
+    if (m_Physics.GetState() == Physics::Stepping)
+        m_Physics.Step(m_Scene, inDeltaTime);
+
     m_Viewport.OnUpdate(inDeltaTime);
 
     m_Scene.UpdateLights();
+    
+    m_Scene.UpdateTransforms();
 
-    m_Renderer.OnRender(m_Device, m_Viewport, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView(), inDeltaTime);
+    // patch up any missing textures
+    for (const auto& [entity, material] : m_Scene.view<Material>().each()) {
+        if (material.IsLoaded())
+            continue;
+
+        if (!m_Assets.contains(material.albedoFile))
+            material.gpuAlbedoMap = m_DefaultWhiteTexture.ToIndex();
+
+        if (!m_Assets.contains(material.normalFile))
+            material.gpuNormalMap = m_DefaultNormalTexture.ToIndex();
+
+        if (!m_Assets.contains(material.metalroughFile))
+            material.gpuMetallicRoughnessMap = m_DefaultWhiteTexture.ToIndex();
+    }
+
+    // start ImGui
+    GUI::BeginFrame();
+    ImGui_ImplDX12_NewFrame();
+    GUI::BeginDockSpace();
+
+    // draw widgets
+    for (const auto& widget : m_Widgets)
+        if (widget->IsOpen()) {
+            auto window_class = ImGuiWindowClass();
+            window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoCloseButton;
+            ImGui::SetNextWindowClass(&window_class);
+
+            widget->Draw(inDeltaTime);
+        }
+
+    // end ImGui
+    GUI::EndDockSpace();
+    GUI::EndFrame();
+
+    m_Renderer.OnRender(m_Device, m_Viewport, m_Scene, m_StagingHeap, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView(), inDeltaTime);
 }
 
 
 void DXApp::OnEvent(const SDL_Event& inEvent) {
     ImGui_ImplSDL2_ProcessEvent(&inEvent);
 
-    if (!ImGui::GetIO().WantCaptureMouse)
+    if (GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode())
         CameraController::OnEvent(m_Viewport.GetCamera(), inEvent);
 
     if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat) {
@@ -184,14 +263,11 @@ void DXApp::OnEvent(const SDL_Event& inEvent) {
         }
     }
 
-    if (inEvent.type == SDL_WINDOWEVENT && inEvent.window.event == SDL_WINDOWEVENT_RESIZED) {
-        auto width = 0, height = 0;
-        SDL_GetWindowSize(m_Window, &width, &height);
-                
-        // Updat the viewport and tell the renderer to resize to the viewport
-        m_Viewport.SetSize(UVec2(width, height));
+    if (inEvent.window.event == SDL_WINDOWEVENT_RESIZED)
         m_Renderer.SetShouldResize(true);
-    }
+
+    for (const auto& widget : m_Widgets)
+        widget->OnEvent(inEvent);
 }
 
 
@@ -220,73 +296,7 @@ void DXApp::CompileShaders() {
 }
 
 
-void DXApp::UploadSceneToGPU() {
-    // TODO: using the renderer's command list here is not great, pls fix
-    auto& cmd_list = m_Renderer.StartSingleSubmit();
-
-    /// MESH DATA ///
-    for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
-        const auto vertices = mesh.GetInterleavedVertices();
-        const auto vertices_size = vertices.size() * sizeof(vertices[0]);
-        const auto indices_size = mesh.indices.size() * sizeof(mesh.indices[0]);
-
-        if (!vertices_size || !indices_size)
-            continue;
-
-        mesh.indexBuffer = m_Device.CreateBuffer(Buffer::Desc{
-            .size   = uint32_t(indices_size),
-            .stride = sizeof(uint32_t) * 3,
-            .usage  = Buffer::Usage::INDEX_BUFFER
-        }).ToIndex();
-
-        mesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc{
-            .size   = uint32_t(vertices_size),
-            .stride = sizeof(Vertex),
-            .usage  = Buffer::Usage::VERTEX_BUFFER
-        }).ToIndex();
-
-        auto& index_buffer = m_Device.GetBuffer(BufferID(mesh.indexBuffer));
-        m_StagingHeap.StageBuffer(cmd_list, index_buffer.GetResource(), 0, mesh.indices.data(), indices_size);
-
-        auto& vertex_buffer = m_Device.GetBuffer(BufferID(mesh.vertexBuffer));
-        m_StagingHeap.StageBuffer(cmd_list, vertex_buffer.GetResource(), 0, vertices.data(), vertices_size);
-    }
-
-    m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
-
-    /// TEXTURE DATA ///
-    Timer timer;
-    const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
-    const auto white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
-    const auto normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
-    m_DefaultBlackTexture = QueueDirectStorageLoad(m_Assets.GetAsset<TextureAsset>(black_texture_file), DXGI_FORMAT_BC3_UNORM);
-    m_DefaultWhiteTexture = QueueDirectStorageLoad(m_Assets.GetAsset<TextureAsset>(white_texture_file), DXGI_FORMAT_BC3_UNORM);
-    const auto default_normal_texture = QueueDirectStorageLoad(m_Assets.GetAsset<TextureAsset>(normal_texture_file), DXGI_FORMAT_BC3_UNORM);
-
-    Material::Default.gpuAlbedoMap = m_DefaultWhiteTexture.ToIndex();
-    Material::Default.gpuNormalMap = default_normal_texture.ToIndex();
-    Material::Default.gpuMetallicRoughnessMap = m_DefaultWhiteTexture.ToIndex();
-
-    for (const auto& [entity, material] : m_Scene.view<Material>().each()) {
-        if (const auto asset = m_Assets.GetAsset<TextureAsset>(material.albedoFile))
-            material.gpuAlbedoMap = QueueDirectStorageLoad(asset, DXGI_FORMAT_BC3_UNORM_SRGB).ToIndex();
-        else
-            material.gpuAlbedoMap = m_DefaultWhiteTexture.ToIndex();
-
-        if (const auto asset = m_Assets.GetAsset<TextureAsset>(material.normalFile))
-            material.gpuNormalMap = QueueDirectStorageLoad(asset, DXGI_FORMAT_BC3_UNORM).ToIndex();
-        else
-            material.gpuNormalMap = default_normal_texture.ToIndex();
-
-        if (const auto asset = m_Assets.GetAsset<TextureAsset>(material.metalroughFile))
-            material.gpuMetallicRoughnessMap = QueueDirectStorageLoad(asset, DXGI_FORMAT_BC3_UNORM).ToIndex();
-        else
-            material.gpuMetallicRoughnessMap = m_DefaultWhiteTexture.ToIndex();
-    }
-}
-
-
-DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat) {
+DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat) {
     auto factory = ComPtr<IDStorageFactory>();
     gThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&factory)));
 
@@ -358,76 +368,14 @@ DescriptorID DXApp::QueueDirectStorageLoad(const TextureAsset::Ptr& inAsset, DXG
 
 
 void DXApp::UploadBvhToGPU() {
-    D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
-    gThrowIfFailed(m_Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
-
-    if (options5.RaytracingTier < D3D12_RAYTRACING_TIER_1_1) {
-        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "Raekor Error", "GPU does not support D3D12_RAYTRACING_TIER_1_1.", m_Window);
-        abort();
-    }
-
-    for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
-        const auto& gpu_index_buffer = m_Device.GetBuffer(BufferID(mesh.indexBuffer));
-        const auto& gpu_vertex_buffer = m_Device.GetBuffer(BufferID(mesh.vertexBuffer));
-
-        D3D12_RAYTRACING_GEOMETRY_DESC geom = {};
-        geom.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-        geom.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
-
-        geom.Triangles.IndexBuffer = gpu_index_buffer->GetGPUVirtualAddress();
-        geom.Triangles.IndexCount = mesh.indices.size();
-        geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
-
-        geom.Triangles.VertexBuffer.StartAddress = gpu_vertex_buffer->GetGPUVirtualAddress();
-        geom.Triangles.VertexBuffer.StrideInBytes = sizeof(Vertex);
-        geom.Triangles.VertexCount = mesh.positions.size();
-        geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-
-        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
-        inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
-        inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-        inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-        inputs.pGeometryDescs = &geom;
-        inputs.NumDescs = 1;
-
-        D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
-        m_Device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
-
-        auto& component = m_Scene.emplace<AccelerationStructure>(entity);
-        component.buffer = m_Device.CreateBuffer(Buffer::Desc{
-            .size = prebuild_info.ResultDataMaxSizeInBytes,
-            .usage = Buffer::Usage::ACCELERATION_STRUCTURE
-        });
-
-        const auto scratch_buffer_id = m_Device.CreateBuffer(Buffer::Desc{
-            .size = prebuild_info.ScratchDataSizeInBytes
-        });
-
-        auto& scratch_buffer = m_Device.GetBuffer(scratch_buffer_id);
-        auto& result_buffer = m_Device.GetBuffer(component.buffer);
-
-        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
-        desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();
-        desc.DestAccelerationStructureData = result_buffer->GetGPUVirtualAddress();
-        desc.Inputs = inputs;
-
-        auto& cmd_list = m_Renderer.StartSingleSubmit();
-
-        cmd_list->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
-
-        m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
-
-        m_Device.ReleaseBuffer(scratch_buffer_id);
-    }
-
-    auto meshes = m_Scene.view<Mesh, Transform, AccelerationStructure>();
+    auto meshes = m_Scene.view<Mesh, Transform>();
 
     std::vector<D3D12_RAYTRACING_INSTANCE_DESC> deviceInstances;
     deviceInstances.reserve(meshes.size_hint());
 
     uint32_t customIndex = 0;
-    for (const auto& [entity, mesh, transform, accel_struct] : meshes.each()) {
-        const auto& blas_buffer = m_Device.GetBuffer(accel_struct.buffer);
+    for (const auto& [entity, mesh, transform] : meshes.each()) {
+        const auto& blas_buffer = m_Device.GetBuffer(BufferID(mesh.BottomLevelAS));
 
         D3D12_RAYTRACING_INSTANCE_DESC instance = {};
         instance.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE;
@@ -435,7 +383,7 @@ void DXApp::UploadBvhToGPU() {
         instance.InstanceID = customIndex++;
         instance.AccelerationStructure = blas_buffer->GetGPUVirtualAddress();
 
-        glm::mat4 transpose = glm::transpose(glm::mat4(1.0f)); // TODO: transform buffer
+        glm::mat4 transpose = glm::transpose(transform.worldTransform); // TODO: transform buffer
         memcpy(instance.Transform, glm::value_ptr(transpose), sizeof(instance.Transform));
 
         deviceInstances.push_back(instance);
@@ -496,7 +444,7 @@ void DXApp::UploadBvhToGPU() {
 
     m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
 
-    m_Device.ReleaseBuffer(scratch_buffer);
+    // m_Device.ReleaseBuffer(scratch_buffer);
 
     auto materials = m_Scene.view<Material>();
 
@@ -517,7 +465,10 @@ void DXApp::UploadBvhToGPU() {
     std::vector<RTGeometry> rt_geometries;
     rt_geometries.reserve(meshes.size_hint());
 
-    for (const auto& [entity, mesh, transform, blas] : meshes.each()) {
+    for (const auto& [entity, mesh, transform] : meshes.each()) {
+        if (!BufferID(mesh.BottomLevelAS).IsValid())
+            continue;
+
         rt_geometries.emplace_back(RTGeometry {
             .mIndexBuffer           = m_Device.GetBindlessHeapIndex(m_Device.GetBuffer(BufferID(mesh.indexBuffer)).GetView()),
             .mVertexBuffer          = m_Device.GetBindlessHeapIndex(m_Device.GetBuffer(BufferID(mesh.vertexBuffer)).GetView()),
@@ -583,6 +534,27 @@ void DXApp::UploadBvhToGPU() {
         gThrowIfFailed(m_Device.GetBuffer(m_MaterialsBuffer)->Map(0, &buffer_range, reinterpret_cast<void**>(&mapped_ptr)));
         memcpy(mapped_ptr, rt_materials.data(), rt_materials.size() * sizeof(rt_materials[0]));
         m_Device.GetBuffer(m_MaterialsBuffer)->Unmap(0, nullptr);
+    }
+}
+
+
+
+void DXApp::LogMessage(const std::string& inMessage) {
+    Application::LogMessage(inMessage);
+
+    auto console_widget = GetWidget<ConsoleWidget>();
+
+    if (console_widget) {
+        // Flush any pending messages
+        if (!m_Messages.empty())
+            for (const auto& message : m_Messages)
+                console_widget->LogMessage(message);
+
+        m_Messages.clear();
+        console_widget->LogMessage(inMessage);
+    }
+    else {
+        m_Messages.push_back(inMessage);
     }
 }
 

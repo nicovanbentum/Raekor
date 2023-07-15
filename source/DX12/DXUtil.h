@@ -6,16 +6,14 @@ namespace Raekor::DX12 {
 
 /* explicit bindings to root descriptors hardcoded into the root signature. */
 enum EBindSlot {
-	    CBV0 = 1, CBV1, CBV2, CBV3,
-		SRV0, SRV1, SRV2, SRV3,
-		UAV0, UAV1, UAV2, UAV3, Count
+		SRV0 = 1, SRV1, Count
 };
 
 static constexpr uint32_t sFrameCount = 2;
 static constexpr uint32_t sConstantBufferAlignment = 256;
 static constexpr uint32_t sByteAddressBufferAlignment = 4;
 static constexpr uint32_t sRootSignatureSize = 64 * sizeof(DWORD);
-static constexpr uint32_t sMaxRootConstantsSize = 32 * sizeof(DWORD); // Just following the min spec of Vulkan here
+static constexpr uint32_t sMaxRootConstantsSize = sRootSignatureSize - (EBindSlot::Count * 2 * sizeof(DWORD));
 
 
 inline void gThrowIfFailed(HRESULT inResult) {

@@ -8,9 +8,9 @@ class HierarchyWidget : public IWidget {
 public:
     RTTI_CLASS_HEADER(HierarchyWidget);
 
-    HierarchyWidget(Editor* editor);
-    virtual void draw(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override {}
+    HierarchyWidget(Application* inApp);
+    virtual void Draw(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override {}
 
 private:
     void dropTargetWindow(Scene& scene);

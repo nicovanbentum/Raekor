@@ -1,4 +1,7 @@
 .vs/Tine/v15/.suo
+*.ark
+*.ark_server
+*.ark_ignore
 *.db
 *.o
 *.exe

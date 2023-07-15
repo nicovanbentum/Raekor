@@ -7,6 +7,17 @@
 
 namespace Raekor {
 
+RTTI_CLASS_CPP(Name) {
+    RTTI_MEMBER_CPP(Name, "Name", name);
+}
+
+
+RTTI_CLASS_CPP(Transform) {
+    RTTI_MEMBER_CPP(Transform, "Scale", scale);
+    RTTI_MEMBER_CPP(Transform, "Position", position);
+    RTTI_MEMBER_CPP(Transform, "Rotation", rotation);
+}
+
 
 SCRIPT_INTERFACE void Transform::Compose() {
     localTransform = glm::translate(glm::mat4(1.0f), position);
@@ -215,6 +226,13 @@ RTTI_CLASS_CPP(Material) {
 Material Material::Default;
 
 
+void gRegisterComponentTypes() {
+    RTTIFactory::Register(RTTI_OF(Name));
+    RTTIFactory::Register(RTTI_OF(Transform));
+    RTTIFactory::Register(RTTI_OF(Material));
+}
+
+
 template<>
 void clone<Transform>(entt::registry& reg, entt::entity from, entt::entity to) {
     auto& component = reg.get<Transform>(from);
@@ -227,7 +245,7 @@ void clone<Node>(entt::registry& reg, entt::entity from, entt::entity to) {
     auto& fromNode = reg.get<Node>(from);
     auto& toNode = reg.emplace<Node>(to);
     if (fromNode.parent != entt::null) {
-        NodeSystem::sAppend(reg, reg.get<Node>(fromNode.parent), toNode);
+        NodeSystem::sAppend(reg, fromNode.parent, reg.get<Node>(fromNode.parent), to, toNode);
     }
 }
 

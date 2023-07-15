@@ -1,33 +1,34 @@
 #include "pch.h"
 #include "menubarWidget.h"
-#include "editor.h"
 #include "Raekor/OS.h"
 #include "Raekor/gltf.h"
 #include "Raekor/assimp.h"
 #include "Raekor/systems.h"
 #include "Raekor/scene.h"
 #include "Raekor/timer.h"
+#include "Raekor/application.h"
+#include "IconsFontAwesome5.h"
+
 
 namespace Raekor {
 
 RTTI_CLASS_CPP_NO_FACTORY(MenubarWidget) {}
 
-MenubarWidget::MenubarWidget(Editor* editor) : 
-    IWidget(editor, "Menubar"),
-    m_ActiveEntity(GetActiveEntity())
+MenubarWidget::MenubarWidget(Application* inApp) : 
+    IWidget(inApp, "Menubar")
 {}
 
 
-void MenubarWidget::draw(float dt) {
+void MenubarWidget::Draw(float dt) {
     auto& scene = IWidget::GetScene();
 
     if (ImGui::BeginMainMenuBar()) {
-        ImGui::Text(ICON_FA_ADDRESS_BOOK);
+        ImGui::Text(reinterpret_cast<const char*>(ICON_FA_ADDRESS_BOOK));
 
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New scene")) {
                 scene.clear();
-                m_ActiveEntity = entt::null;
+                m_Editor->SetActiveEntity(sInvalidEntity);
             }
 
             if (ImGui::MenuItem("Open scene..")) {
@@ -37,16 +38,22 @@ void MenubarWidget::draw(float dt) {
                     Timer timer;
                     SDL_SetWindowTitle(m_Editor->GetWindow(), std::string(filepath + " - Raekor Renderer").c_str());
                     scene.OpenFromFile(IWidget::GetAssets(), filepath);
-                    m_ActiveEntity = entt::null;
-                    std::cout << "Open scene time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
+                    m_Editor->SetActiveEntity(sInvalidEntity);
+
+                    m_Editor->LogMessage("Open scene time: " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())));
                 }
             }
 
             if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
                 std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
 
-                if (!filepath.empty())
-                    scene.SaveToFile(IWidget::GetAssets(), filepath);
+                if (!filepath.empty()) {
+                    Async::sQueueJob([this, filepath]() {
+                        m_Editor->LogMessage("Saving scene...");
+                        GetScene().SaveToFile(IWidget::GetAssets(), filepath);
+                        m_Editor->LogMessage("Scene saved to " + FileSystem::relative(filepath).string() + "");
+                    });
+                }
             }
 
             if (ImGui::MenuItem("Serialize as JSON..", "CTRL + S")) {
@@ -81,12 +88,9 @@ void MenubarWidget::draw(float dt) {
                 std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.fbx, *.glb, *.obj, *.blend)\0*.gltf;*.fbx;*.glb;*.obj;*.blend\0");
                 
                 if (!filepath.empty()) {
-                    AssimpImporter importer(scene);
-                    importer.SetUploadMeshCallbackFunction(GLRenderer::sUploadMeshBuffers);
-                    importer.SetUploadMaterialCallbackFunction(GLRenderer::sUploadMaterialTextures);
-                    importer.SetUploadSkeletonCallbackFunction(GLRenderer::sUploadSkeletonBuffers);
+                    AssimpImporter importer(scene, m_Editor->GetRenderer());
                     importer.LoadFromFile(GetAssets(), filepath);
-                    m_ActiveEntity = sInvalidEntity;
+                    m_Editor->SetActiveEntity(sInvalidEntity);
                 }
             }
 
@@ -94,12 +98,9 @@ void MenubarWidget::draw(float dt) {
                 std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.glb)\0*.gltf;*.glb\0");
 
                 if (!filepath.empty()) {
-                    GltfImporter importer(scene);
-                    importer.SetUploadMeshCallbackFunction(GLRenderer::sUploadMeshBuffers);
-                    importer.SetUploadMaterialCallbackFunction(GLRenderer::sUploadMaterialTextures);
-                    importer.SetUploadSkeletonCallbackFunction(GLRenderer::sUploadSkeletonBuffers);
-                    importer.LoadFromFile(IWidget::GetAssets(), filepath);
-                    m_ActiveEntity = sInvalidEntity;
+                    GltfImporter importer(scene, m_Editor->GetRenderer());
+                    importer.LoadFromFile(GetAssets(), filepath);
+                    m_Editor->SetActiveEntity(sInvalidEntity);
                 }
             }
 
@@ -117,10 +118,12 @@ void MenubarWidget::draw(float dt) {
 
                 if (!savePath.empty()) {
                     auto& viewport = m_Editor->GetViewport();
-                    const auto bufferSize = 4 * viewport.size.x * viewport.size.y;
-                    
-                    auto pixels = std::vector<unsigned char>(bufferSize);
-                    glGetTextureImage(IWidget::GetRenderer().m_Tonemap->result, 0, GL_RGBA, GL_UNSIGNED_BYTE, bufferSize * sizeof(unsigned char), pixels.data());
+
+                    const auto buffer_size = m_Editor->GetRenderer()->GetScreenshotBuffer(nullptr);
+
+                    auto pixels = std::vector<unsigned char>(buffer_size);
+
+                    m_Editor->GetRenderer()->GetScreenshotBuffer(pixels.data());
 
                     stbi_flip_vertically_on_write(true);
                     stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
@@ -136,9 +139,9 @@ void MenubarWidget::draw(float dt) {
         if (ImGui::BeginMenu("Edit")) {
 
             if (ImGui::MenuItem("Delete", "DEL")) {
-                if (m_ActiveEntity != sInvalidEntity) {
-                    IWidget::GetScene().DestroySpatialEntity(m_ActiveEntity);
-                    m_ActiveEntity = sInvalidEntity;
+                if (m_Editor->GetActiveEntity() != sInvalidEntity) {
+                    IWidget::GetScene().DestroySpatialEntity(m_Editor->GetActiveEntity());
+                    m_Editor->SetActiveEntity(sInvalidEntity);
                 }
             }
 
@@ -148,7 +151,8 @@ void MenubarWidget::draw(float dt) {
         if (ImGui::BeginMenu("View")) {
             ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
 
-            for (const auto& widget : m_Editor->GetWidgets()) {
+            // TODO: PLS FIX
+           /* for (const auto& widget : m_Editor->GetWidgets()) {
                 if (widget.get() == this)
                     continue;
 
@@ -156,7 +160,7 @@ void MenubarWidget::draw(float dt) {
 
                 if (ImGui::MenuItem(std::string(widget->GetTitle() + "Window").c_str(), "", &is_visible))
                     is_visible ? widget->Show() : widget->Hide();
-            }
+            }*/
 
             ImGui::PopItemFlag();
 
@@ -166,16 +170,16 @@ void MenubarWidget::draw(float dt) {
         if (ImGui::BeginMenu("Add")) {
             if (ImGui::MenuItem("Empty", "CTRL+E")) {
                 auto entity = scene.CreateSpatialEntity("Empty");
-                m_ActiveEntity = entity;
+                m_Editor->SetActiveEntity(entity);
             }
 
             ImGui::Separator();
 
             if (ImGui::MenuItem("Material")) {
                 auto entity = scene.create();
-                scene.emplace<Name>(entity, "New Material");
+                scene.emplace<Name>(entity).name =  "New Material";
                 scene.emplace<Material>(entity);
-                m_ActiveEntity = entity;
+                m_Editor->SetActiveEntity(entity);
             }
 
             if (ImGui::BeginMenu("Shapes")) {
@@ -183,23 +187,22 @@ void MenubarWidget::draw(float dt) {
                     auto entity = scene.CreateSpatialEntity("Sphere");
                     auto& mesh = scene.emplace<Mesh>(entity);
 
-                    if (m_ActiveEntity != sInvalidEntity) {
+                    if (m_Editor->GetActiveEntity() != sInvalidEntity) {
                         auto& node = scene.get<Node>(entity);
-                        NodeSystem::sAppend(scene, scene.get<Node>(m_ActiveEntity), node);
+                        NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.get<Node>(m_Editor->GetActiveEntity()), entity, node);
                     }
 
-                    gGenerateSphere(mesh, 1.0f, 6, 6);
-
-                    GLRenderer::sUploadMeshBuffers(mesh);
+                    gGenerateSphere(mesh, 2.5f, 16, 16);
+                    m_Editor->GetRenderer()->UploadMeshBuffers(mesh);
                 }
 
                 if (ImGui::MenuItem("Plane")) {
                     auto entity = scene.CreateSpatialEntity("Plane");
                     auto& mesh = scene.emplace<Mesh>(entity);
                     
-                    if (m_ActiveEntity != sInvalidEntity && scene.any_of<Node>(m_ActiveEntity)) {
+                    if (m_Editor->GetActiveEntity() != sInvalidEntity && scene.any_of<Node>(m_Editor->GetActiveEntity())) {
                         auto& node = scene.get<Node>(entity);
-                        NodeSystem::sAppend(scene, scene.get<Node>(m_ActiveEntity), node);
+                        NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.get<Node>(m_Editor->GetActiveEntity()), entity, node);
                     }
                     
                     for (const auto& v : UnitPlane::vertices) {
@@ -216,16 +219,17 @@ void MenubarWidget::draw(float dt) {
 
                     mesh.CalculateTangents();
                     mesh.CalculateAABB();
-                    GLRenderer::sUploadMeshBuffers(mesh);
+
+                    m_Editor->GetRenderer()->UploadMeshBuffers(mesh);
                 }
 
                 if (ImGui::MenuItem("Cube")) {
                     auto entity = scene.CreateSpatialEntity("Cube");
                     auto& mesh = scene.emplace<Mesh>(entity);
 
-                    if (m_ActiveEntity != sInvalidEntity && scene.all_of<Node>(m_ActiveEntity)) {
+                    if (m_Editor->GetActiveEntity() != sInvalidEntity && scene.all_of<Node>(m_Editor->GetActiveEntity())) {
                         auto& node = scene.get<Node>(entity);
-                        NodeSystem::sAppend(scene, scene.get<Node>(m_ActiveEntity), node);
+                        NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.get<Node>(m_Editor->GetActiveEntity()), entity, node);
                     }
 
                     for (const auto& v : UnitCube::vertices) {
@@ -243,9 +247,9 @@ void MenubarWidget::draw(float dt) {
                     //mesh.CalculateNormals();
                     mesh.CalculateTangents();
                     mesh.CalculateAABB();
-                    GLRenderer::sUploadMeshBuffers(mesh);
-
-                    m_ActiveEntity = entity;
+                    
+                    m_Editor->GetRenderer()->UploadMeshBuffers(mesh);
+                    m_Editor->SetActiveEntity(entity);
                 }
 
                 ImGui::EndMenu();
@@ -255,13 +259,13 @@ void MenubarWidget::draw(float dt) {
                 if (ImGui::MenuItem("Point Light")) {
                     auto entity = scene.CreateSpatialEntity("Point Light");
                     scene.emplace<PointLight>(entity);
-                    m_ActiveEntity = entity;
+                    m_Editor->SetActiveEntity(entity);
                 }
 
                 if (ImGui::MenuItem("Directional Light")) {
                     auto entity = scene.CreateSpatialEntity("Directional Light");
                     scene.emplace<DirectionalLight>(entity);
-                    m_ActiveEntity = entity;
+                    m_Editor->SetActiveEntity(entity);
                 }
 
                 ImGui::EndMenu();
@@ -276,13 +280,13 @@ void MenubarWidget::draw(float dt) {
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_CheckMark));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
 
-        if (ImGui::Button(ICON_FA_HAMMER)) {}
+        if (ImGui::Button((const char*)ICON_FA_HAMMER)) {}
 
         ImGui::SameLine();
 
         const auto physics_state = GetPhysics().GetState();
         ImGui::PushStyleColor(ImGuiCol_Text, GetPhysics().GetStateColor());
-        if (ImGui::Button(physics_state == Physics::Stepping ? ICON_FA_PAUSE : ICON_FA_PLAY)) {
+        if (ImGui::Button(physics_state == Physics::Stepping ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY)) {
             switch (physics_state) {
                 case Physics::Idle: {
                     GetPhysics().SaveState();
@@ -304,7 +308,7 @@ void MenubarWidget::draw(float dt) {
         if (current_physics_state != Physics::Idle)
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
 
-        if (ImGui::Button(ICON_FA_STOP)) {
+        if (ImGui::Button((const char*)ICON_FA_STOP)) {
             if (physics_state != Physics::Idle) {
                 GetPhysics().RestoreState();
                 GetPhysics().Step(scene, dt); // Step once to trigger the restored state

@@ -3,9 +3,10 @@
 
 #include "util.h"
 #include "scene.h"
-#include "systems.h"
 #include "async.h"
 #include "timer.h"
+#include "systems.h"
+#include "application.h"
 
 namespace Raekor {
 
@@ -43,6 +44,8 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     /*
     * LOAD GLTF FROM DISK
     */
+    Timer timer;
+
     m_Directory = Path(file).parent_path() / "";
 
     cgltf_options options = {};
@@ -55,10 +58,11 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     if (!handle_cgltf_error(cgltf_validate(m_GltfData)))
         return false;
 
+    std::cout << "[GLTF Import] File load took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+
     /*
     * PARSE MATERIALS
     */
-    Timer timer;
     for (unsigned int index = 0; index < m_GltfData->materials_count; index++) {
         auto& gltf_material = m_GltfData->materials[index];
 
@@ -76,11 +80,11 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
         // std::cout << "\rDDS Conversion Progress: [" << gAsciiProgressBar(float(index) / m_GltfData->materials_count - 1) << "]";
     }
 
-    std::cout << '\n';
+    if (m_GltfData->materials_count > 0)
+        std::cout << '\n';
 
     Async::sWait();
-    std::cout << "DDS Conversion: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
-    m_Scene.LoadMaterialTextures(assets, Slice(m_Materials.data(), m_Materials.size()));
+    std::cout << "[GLTF Import] Texture Conversion took " << Timer::sToMilliseconds(timer.Restart()) << " ms. \n";
 
     /*
     * PARSE NODES & MESHES
@@ -90,14 +94,20 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
             if (!node->parent)
                 ParseNode(*node, sInvalidEntity, glm::mat4(1.0f));
 
-    const auto root_node = m_Scene.CreateSpatialEntity(Path(file).filename().string());
+    const auto root_entity = m_Scene.CreateSpatialEntity(Path(file).filename().string());
+    auto& root_node = m_Scene.get<Node>(root_entity);
     
     for (const auto& entity : m_CreatedNodeEntities) {
         auto& node = m_Scene.get<Node>(entity);
 
         if (node.IsRoot())
-            NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(root_node), node);
+            NodeSystem::sAppend(m_Scene, root_entity, root_node, entity, node);
     }
+
+    std::cout << "[GLTF Import] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+
+    // Load the converted textures from disk and upload them to the GPU
+    m_Scene.LoadMaterialTextures(assets, Slice(m_Materials.data(), m_Materials.size()));
 
     return true;
 }
@@ -141,7 +151,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, gl
 
         // set the new entity's parent
         if (inParent != entt::null)
-            NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(inParent), m_Scene.get<Node>(entity));
+            NodeSystem::sAppend(m_Scene, inParent, m_Scene.get<Node>(inParent), entity, m_Scene.get<Node>(entity));
 
         if (inNode.mesh->primitives_count == 1)
             ConvertMesh(entity, inNode.mesh->primitives[0]);
@@ -152,7 +162,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, gl
                 ConvertMesh(clone, prim);
 
                 if (inParent != entt::null)
-                    NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(inParent), m_Scene.get<Node>(clone));
+                    NodeSystem::sAppend(m_Scene, inParent, m_Scene.get<Node>(inParent), clone, m_Scene.get<Node>(clone));
             }
         
         if (inNode.skin)
@@ -213,10 +223,6 @@ void GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh) {
         // TODO: flip tangents
     }
 
-    assert(mesh.positions.size() == mesh.uvs.size() && 
-            mesh.positions.size() == mesh.normals.size() && 
-                mesh.positions.size() == mesh.tangents.size());
-
     for (uint32_t i = 0; i < inMesh.indices->count; i++)
         mesh.indices.emplace_back(uint32_t(cgltf_accessor_read_index(inMesh.indices, i)));
 
@@ -228,8 +234,8 @@ void GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh) {
     if (mesh.tangents.empty() && !mesh.uvs.empty())
         mesh.CalculateTangents();
 
-    if(m_UploadMeshCallback) 
-        m_UploadMeshCallback(mesh);
+    if(m_Renderer) 
+        m_Renderer->UploadMeshBuffers(mesh);
 }
 
 
@@ -291,8 +297,8 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
 
     skeleton.boneTransformMatrices.resize(skeleton.boneOffsetMatrices.size());
 
-    if (m_UploadSkeletonCallback)
-        m_UploadSkeletonCallback(skeleton, mesh);
+    if (m_Renderer)
+        m_Renderer->UploadSkeletonBuffers(skeleton, mesh);
 
     auto root_bone = inNode.skin->skeleton;
     skeleton.boneHierarchy.name = root_bone->name;

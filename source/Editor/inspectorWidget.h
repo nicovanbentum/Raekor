@@ -1,34 +1,43 @@
 #pragma once
 
 #include "widget.h"
-#include "Raekor/components.h"
 
 namespace Raekor {
 
 class Scene;
+struct Name;
+struct Node;
+struct Mesh;
+struct Skeleton;
+struct Material;
+struct Transform;
+struct PointLight;
+struct BoxCollider;
+struct NativeScript;
+struct DirectionalLight;
 
 class InspectorWidget : public IWidget {
 public:
     RTTI_CLASS_HEADER(InspectorWidget);
 
-    InspectorWidget(Editor* editor);
-    virtual void draw(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override {}
+    InspectorWidget(Application* inApp);
+    virtual void Draw(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override {}
 
 private:
     void DrawJSONInspector();
     void DrawEntityInspector();
 
-    void DrawComponent(Name& component, Entity& active);
-    void DrawComponent(Node& component, Entity& active);
-    void DrawComponent(Mesh& component, Entity& active);
-    void DrawComponent(Skeleton& component, Entity& active);
-    void DrawComponent(Material& component, Entity& active);
-    void DrawComponent(Transform& component, Entity& active);
-    void DrawComponent(PointLight& component, Entity& active);
-    void DrawComponent(BoxCollider& component, Entity& active);
-    void DrawComponent(NativeScript& component, Entity& active);
-    void DrawComponent(DirectionalLight& component, Entity& active);
+    void DrawComponent(Name& component);
+    void DrawComponent(Node& component);
+    void DrawComponent(Mesh& component);
+    void DrawComponent(Skeleton& component);
+    void DrawComponent(Material& component);
+    void DrawComponent(Transform& component);
+    void DrawComponent(PointLight& component);
+    void DrawComponent(BoxCollider& component);
+    void DrawComponent(NativeScript& component);
+    void DrawComponent(DirectionalLight& component);
 };
 
 }

@@ -4,23 +4,26 @@
 
 namespace Raekor {
 
+class Application;
+
 RTTI_CLASS_CPP_NO_FACTORY(IWidget) {}
 
- IWidget::IWidget(Editor* editor, const std::string& title) : 
-	 m_Editor(editor), m_Title(title) 
+ IWidget::IWidget(Application* inApp, const std::string& title) : 
+	 m_Editor(inApp), m_Title(title)
  {
-	 assert(editor);
+	 assert(m_Editor);
  }
 
- Scene& IWidget::GetScene() { return m_Editor->m_Scene; }
+ Entity IWidget::GetActiveEntity() { return m_Editor->GetActiveEntity(); }
 
- Assets& IWidget::GetAssets() { return m_Editor->m_Assets; }
+ void IWidget::SetActiveEntity(Entity inEntity) { m_Editor->SetActiveEntity(inEntity); }
 
- Physics& IWidget::GetPhysics() { return m_Editor->m_Physics; }
+ Scene& IWidget::GetScene() { return *m_Editor->GetScene(); }
 
- GLRenderer& IWidget::GetRenderer() { return m_Editor->m_Renderer; }
+ Assets& IWidget::GetAssets() { return *m_Editor->GetAssets(); }
 
- entt::entity& IWidget::GetActiveEntity() { return m_Editor->m_ActiveEntity; }
+ Physics& IWidget::GetPhysics() { return *m_Editor->GetPhysics(); }
 
+ IRenderer& IWidget::GetRenderer() { return *m_Editor->GetRenderer(); }
 
 }

@@ -8,18 +8,22 @@ class ConsoleWidget : public IWidget {
 public:
     RTTI_CLASS_HEADER(ConsoleWidget);
 
-    ConsoleWidget(Editor* editor);
-    virtual void draw(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override {}
+    ConsoleWidget(Application* inApp);
+    virtual void Draw(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override {}
+
+    void LogMessage(const std::string& inMessage);
 
 private:
-    static int editCallback(ImGuiInputTextCallbackData* data);
+    static int sEditCallback(ImGuiInputTextCallbackData* data);
 
 public:
-    int activeItem = 0;
-    bool ScrollToBottom = false;
-    std::string inputBuffer;
-    std::vector<std::string> items;
+    int m_ActiveItem = 0;
+    bool m_ShouldScrollToBottom = false;
+
+    std::string m_InputBuffer;
+    std::mutex  m_ItemsMutex;
+    std::vector<std::string> m_Items;
 };
 
 } // raekor

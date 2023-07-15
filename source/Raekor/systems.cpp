@@ -3,24 +3,27 @@
 
 namespace Raekor {
 
-void NodeSystem::sAppend(entt::registry& registry, Node& parent, Node& child) {
+void NodeSystem::sAppend(entt::registry& registry, entt::entity parentEntity, Node& parent, entt::entity childEntity, Node& child) {
     auto view = registry.view<Node>();
-    child.parent = entt::to_entity(registry, parent);
+    child.parent = parentEntity;
 
     // if its the parent's first child we simply assign it
     if (parent.firstChild == entt::null) {
-        parent.firstChild = entt::to_entity(registry, child);
+        parent.firstChild = childEntity;
         return;
     } else {
         // ensure we can get the first child's node
-        auto lastChild = parent.firstChild;
+        auto last_child  = parent.firstChild;
+        assert(view.get<Node>(last_child).prevSibling == entt::null);
 
         // traverse to the end of the sibling chain
-        while (view.get<Node>(lastChild).nextSibling != entt::null)
-            lastChild = view.get<Node>(lastChild).nextSibling;
+         while (view.get<Node>(last_child).nextSibling != entt::null)
+            last_child = view.get<Node>(last_child).nextSibling;
 
-        view.get<Node>(lastChild).nextSibling = entt::to_entity(registry, child);
-        child.prevSibling = lastChild;
+        // update siblings
+        auto& last_node = view.get<Node>(last_child);
+        last_node.nextSibling = childEntity;
+        child.prevSibling = last_child;
     }
 }
 
@@ -112,6 +115,18 @@ std::vector<entt::entity> NodeSystem::sGetFlatHierarchy(entt::registry& registry
     result.pop_back();
 
     return result;
+}
+
+
+void RenderUtil::sUploadMaterialTextures(IRenderer* inRenderer, Assets& inAssets, Material& inMaterial) {
+    if (auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.albedoFile); asset)
+        inMaterial.gpuAlbedoMap = inRenderer->UploadTextureFromAsset(asset, true);
+
+    if (auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.normalFile); asset)
+        inMaterial.gpuNormalMap = inRenderer->UploadTextureFromAsset(asset);
+
+    if (auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.metalroughFile); asset)
+        inMaterial.gpuMetallicRoughnessMap = inRenderer->UploadTextureFromAsset(asset);
 }
 
 } // namespace Raekor

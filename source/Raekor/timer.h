@@ -13,6 +13,9 @@ public:
     /* Returns the elapsed time in seconds. */
     float GetElapsedTime();
 
+    /* Returns the elapsed time in seconds. */
+    std::string GetElapsedFormatted();
+
     static float sToMilliseconds(float inTime) { return inTime * 1000; }
     static float sToMicroseconds(float inTime) { return inTime * 1'000'000; }
 

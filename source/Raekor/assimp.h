@@ -11,6 +11,7 @@ namespace Raekor {
 class Scene;
 class Async;
 class Assets;
+class IRenderer;
 
 class Mesh;
 class Material;
@@ -18,12 +19,8 @@ class Skeleton;
 
 class AssimpImporter {
 public:
-	AssimpImporter(Scene& inScene) : m_Scene(inScene) {}
+	AssimpImporter(Scene& inScene, IRenderer* inRenderer) : m_Scene(inScene), m_Renderer(inRenderer) {}
 	bool LoadFromFile(Assets& inAssets, const std::string& inFile);
-
-	template<typename Fn> void SetUploadMeshCallbackFunction(Fn&& inFunction)	  { m_UploadMeshCallback = inFunction; }
-	template<typename Fn> void SetUploadMaterialCallbackFunction(Fn&& inFunction) { m_UploadMaterialCallback = inFunction; }
-	template<typename Fn> void SetUploadSkeletonCallbackFunction(Fn&& inFunction) { m_UploadSkeletonCallback = inFunction; }
 
 private:
 	void ParseMaterial(aiMaterial* inAssimpMaterial, entt::entity inEntity);
@@ -36,13 +33,11 @@ private:
 
 
 private:
-	std::function<void(Mesh&)> m_UploadMeshCallback = nullptr;
-	std::function<void(Material&, Assets&)> m_UploadMaterialCallback = nullptr;
-	std::function<void(Skeleton& skeleton, Mesh& mesh)> m_UploadSkeletonCallback = nullptr;
-
 	Scene& m_Scene;
+	IRenderer* m_Renderer = nullptr;
+
 	Path m_Directory;
-	const aiScene* m_AiScene;
+	const aiScene* m_AiScene = nullptr;
 	std::vector<entt::entity> m_Materials;
 };
 

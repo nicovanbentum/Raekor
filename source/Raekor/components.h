@@ -8,6 +8,8 @@
 namespace Raekor {
 
 struct Name {
+    RTTI_CLASS_HEADER(Name);
+
     std::string name;
 
     operator const std::string& () { return name; }
@@ -17,6 +19,8 @@ struct Name {
 
 
 struct Transform {
+    RTTI_CLASS_HEADER(Transform);
+
     glm::vec3 scale     = glm::vec3(1.0f, 1.0f, 1.0f);
     glm::vec3 position  = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::quat rotation  = glm::quat(glm::vec3(0.0f, 0.0f, 0.0f));
@@ -61,8 +65,10 @@ struct Mesh {
     
     std::vector<uint32_t> indices; // ptr
 
-    uint32_t vertexBuffer = 0;
-    uint32_t indexBuffer = 0;
+    // GPU resources
+    uint32_t vertexBuffer   = 0;
+    uint32_t indexBuffer    = 0;
+    uint32_t BottomLevelAS  = 0;
 
     std::array<glm::vec3, 2> aabb;
 
@@ -142,6 +148,8 @@ struct Material {
     uint32_t gpuNormalMap = 0;
     uint32_t gpuMetallicRoughnessMap = 0;
 
+    bool IsLoaded() const { return gpuAlbedoMap != 0 && gpuNormalMap != 0 && gpuMetallicRoughnessMap != 0; }
+
     // default material for newly spawned meshes
     static Material Default;
 };
@@ -175,6 +183,7 @@ static constexpr auto Components = std::make_tuple (
     ComponentDescription<NativeScript>      {"Native Script"}
 );
 
+void gRegisterComponentTypes();
 
 template<typename T>
 inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {}

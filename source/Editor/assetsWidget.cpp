@@ -1,16 +1,15 @@
 #include "pch.h"
 #include "assetsWidget.h"
-#include "editor.h"
-
 #include "IconsFontAwesome5.h"
+#include "Raekor/application.h"
 
 namespace Raekor {
 
 RTTI_CLASS_CPP_NO_FACTORY(AssetsWidget) {}
 
-AssetsWidget::AssetsWidget(Editor* editor) : IWidget(editor, ICON_FA_PALETTE "  Materials ") {}
+AssetsWidget::AssetsWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_PALETTE "  Materials ")) {}
 
-void AssetsWidget::draw(float dt) {
+void AssetsWidget::Draw(float dt) {
     ImGui::Begin(m_Title.c_str(), &m_Open);
     m_Visible = ImGui::IsWindowAppearing();
 
@@ -20,12 +19,12 @@ void AssetsWidget::draw(float dt) {
 
     if (ImGui::BeginTable("Assets", 24)) {
         for (auto entity : materials) {
-            auto& [material, name] = materials.get<Material, Name>(entity);
+            auto [material, name] = materials.get<Material, Name>(entity);
             auto selectable_name = name.name.substr(0, 9).c_str() + std::string("...");
 
             ImGui::TableNextColumn();
 
-            if (GetActiveEntity() == entity)
+            if (m_Editor->GetActiveEntity() == entity)
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.2f)));
             
             bool clicked = false;
@@ -33,7 +32,7 @@ void AssetsWidget::draw(float dt) {
 
             if (material.gpuAlbedoMap) {
                 clicked = ImGui::ImageButton(
-                    (void*)((intptr_t)material.gpuAlbedoMap),
+                    (void*)((intptr_t)m_Editor->GetRenderer()->GetImGuiTextureID(material.gpuAlbedoMap)),
                     ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()), 
                     ImVec2(0, 0), ImVec2(1, 1), -1, 
                     ImVec4(0, 1, 0, 1)
@@ -51,7 +50,7 @@ void AssetsWidget::draw(float dt) {
 
 
             if (clicked)
-                GetActiveEntity() = entity;
+                m_Editor->SetActiveEntity(entity);
 
             //if (ImGui::Button(ICON_FA_ARCHIVE, ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()))) {
             //    editor->active = entity;

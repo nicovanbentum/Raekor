@@ -20,19 +20,18 @@ namespace Raekor {
 
 Editor::Editor() :
     Application(WindowFlag::OPENGL | WindowFlag::RESIZE),
-    m_Renderer(m_Window, m_Viewport) 
+    m_Renderer(m_Window, m_Viewport),
+    m_Scene(&m_Renderer)
 {
     GUI::SetTheme();
     ImGui::GetStyle().ScaleAllSizes(1.33333333f);
     if (!m_Settings.mFontFile.empty())
         GUI::SetFont(m_Settings.mFontFile.c_str());
 
-    m_Scene.SetUploadMeshCallbackFunction(GLRenderer::sUploadMeshBuffers);
-    m_Scene.SetUploadMaterialCallbackFunction(GLRenderer::sUploadMaterialTextures);
-
     if (FileSystem::exists(m_Settings.mSceneFile) && Path(m_Settings.mSceneFile).extension() == ".scene") {
         SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
         m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
+        LogMessage("Loaded scene from file: " + m_Settings.mSceneFile);
     }
 
     m_Widgets.emplace_back(std::make_shared<AssetsWidget>(this));
@@ -45,7 +44,7 @@ Editor::Editor() :
     m_Widgets.emplace_back(std::make_shared<InspectorWidget>(this));
     m_Widgets.emplace_back(std::make_shared<HierarchyWidget>(this));
 
-    std::cout << "Initialization done.\n";
+    LogMessage("Initialization done.");
     auto sink = m_Scene.on_destroy<Mesh>();
 
     m_Viewport.GetCamera().Zoom(-50.0f);
@@ -54,44 +53,31 @@ Editor::Editor() :
 
 
 
-void Editor::OnUpdate(float dt) {
-    // Check if any BoxCollider's are waiting to be registered
+void Editor::OnUpdate(float inDeltaTime) {
+    // check if any BoxCollider's are waiting to be registered
     m_Physics.OnUpdate(m_Scene);
 
-    // Step the physics simulation
+    // step the physics simulation
     if (m_Physics.GetState() == Physics::Stepping)
-        m_Physics.Step(m_Scene, dt);
+        m_Physics.Step(m_Scene, inDeltaTime);
 
-    // update the m_Camera
-    m_Viewport.OnUpdate(dt);
+    // update camera matrices
+    m_Viewport.OnUpdate(inDeltaTime);
 
-    // update scene components
+    // update Transform components
     m_Scene.UpdateTransforms();
+    
+    // update PointLight and DirectionalLight components
     m_Scene.UpdateLights();
+    
+    // update Skeleton and Animation components
+    m_Scene.UpdateAnimations(inDeltaTime);
+    
+    // update NativeScript components
+    m_Scene.UpdateNativeScripts(inDeltaTime);
 
-    // update animations in parallel
-    m_Scene.view<Skeleton>().each([&](Skeleton& skeleton) {
-        Async::sQueueJob([&]() {
-            skeleton.UpdateFromAnimation(skeleton.animations[0], dt);
-        });
-    });
-
-    Async::sWait();
-
-    // update scripts
-    m_Scene.view<NativeScript>().each([&](NativeScript& component) {
-        if (component.script) {
-            try {
-                component.script->OnUpdate(dt);
-            }
-            catch (const std::exception& e) {
-                std::cerr << e.what() << '\n';
-            }
-        }
-    });
-
-    // draw the bounding box of the active entity
-    if (m_ActiveEntity != entt::null && m_Scene.all_of<Mesh>(m_ActiveEntity)) {
+    // add debug geometry around a selected mesh
+    if (GetActiveEntity() != sInvalidEntity && m_Scene.all_of<Mesh>(m_ActiveEntity)) {
         const auto& [mesh, transform] = m_Scene.get<Mesh, Transform>(m_ActiveEntity);
         m_Renderer.AddDebugBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
     }
@@ -107,7 +93,7 @@ void Editor::OnUpdate(float dt) {
             window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoCloseButton;
             ImGui::SetNextWindowClass(&window_class);
 
-            widget->draw(dt);
+            widget->Draw(inDeltaTime);
         }
 
     // end ImGui
@@ -116,9 +102,6 @@ void Editor::OnUpdate(float dt) {
 
     // render scene
     m_Renderer.Render(m_Scene, m_Viewport);
-
-    // swap the backbuffer
-    SDL_GL_SwapWindow(m_Window);
 }
 
 
@@ -159,18 +142,39 @@ void Editor::OnEvent(const SDL_Event& event) {
                         });
                     });
 
-                    if (auto mesh = m_Scene.try_get<Mesh>(copy); mesh)
-                        GLRenderer::sUploadMeshBuffers(*mesh);
+                    if (auto mesh = m_Scene.try_get<Mesh>(copy))
+                        m_Renderer.UploadMeshBuffers(*mesh);
                 }
             } break;
         }
     }
 
-    if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+    if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
         m_Renderer.CreateRenderTargets(m_Viewport);
+    }
 
     for (const auto& widget : m_Widgets)
-        widget->onEvent(event);
+        widget->OnEvent(event);
+}
+
+
+void Editor::LogMessage(const std::string& inMessage) {
+    Application::LogMessage(inMessage);
+
+    auto console_widget = GetWidget<ConsoleWidget>();
+
+    if (console_widget) {
+        // Flush any pending messages
+        if (!m_Messages.empty())
+            for (const auto& message : m_Messages)
+                console_widget->LogMessage(message);
+
+        m_Messages.clear();
+        console_widget->LogMessage(inMessage);
+    }
+    else {
+        m_Messages.push_back(inMessage);
+    }
 }
 
 } // raekor

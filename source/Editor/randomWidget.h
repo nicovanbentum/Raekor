@@ -10,9 +10,9 @@ class RandomWidget : public IWidget {
 public:
     RTTI_CLASS_HEADER(RandomWidget);
 
-    RandomWidget(Editor* editor);
-    virtual void draw(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override {}
+    RandomWidget(Application* inApp);
+    virtual void Draw(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override {}
 };
 
 } // raekor

@@ -1,20 +1,20 @@
 #include "pch.h"
 #include "NodeGraphWidget.h"
-#include "editor.h"
 #include "Raekor/OS.h"
+#include "Raekor/application.h"
 
 namespace Raekor {
 
 RTTI_CLASS_CPP_NO_FACTORY(NodeGraphWidget) {}
 
-NodeGraphWidget::NodeGraphWidget(Editor* editor) : IWidget(editor, ICON_FA_SITEMAP "  Node Graph ") {}
+NodeGraphWidget::NodeGraphWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_SITEMAP "  Node Graph ")) {}
 
-void NodeGraphWidget::draw(float dt) {
+void NodeGraphWidget::Draw(float dt) {
 	m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open);
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2.0f, 2.0f));
 	
-	if (ImGui::Button(ICON_FA_FOLDER_OPEN " Open")) {
+	if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_FOLDER_OPEN " Open"))) {
 		std::string opened_file_path = OS::sOpenFileDialog("All Files (*.json)\0*.json\0");
 
 		if (!opened_file_path.empty()) {
@@ -23,15 +23,30 @@ void NodeGraphWidget::draw(float dt) {
 			auto buffer = std::stringstream();
 			buffer << ifs.rdbuf();
 
-			m_JSON = JSON::Parser(buffer.str());
-			m_JSON.Parse();
+			auto str_buffer = buffer.str();
+			/*m_JSON = JSON::Parser(str_buffer);
+			m_JSON.Parse();*/
 			m_OpenFilePath = FileSystem::relative(opened_file_path).string();
+
+			jsmn_parser parser;
+			jsmn_init(&parser);
+			const auto nr_of_tokens = jsmn_parse(&parser, str_buffer.c_str(), str_buffer.size(), NULL, 0);
+			
+			jsmn_init(&parser);
+			std::vector<jsmntok_t> tokens(nr_of_tokens);
+			jsmnerr err = (jsmnerr)jsmn_parse(&parser, str_buffer.c_str(), str_buffer.size(), tokens.data(), tokens.size());
+
+			for (const auto& token : tokens) {
+				if (token.parent == -1) {
+
+				}
+			}
 		}
 	} 
 	
 	ImGui::SameLine();
 
-	if (ImGui::Button(ICON_FA_SAVE " Save")) {
+	if (ImGui::Button((const char*)ICON_FA_SAVE " Save")) {
 		if (!m_OpenFilePath.empty()) {
 			auto ofs = std::ofstream(m_OpenFilePath);
 			auto archive = cereal::JSONOutputArchive(ofs);
@@ -41,7 +56,7 @@ void NodeGraphWidget::draw(float dt) {
 	
 	ImGui::SameLine();
 
-	if (ImGui::Button(ICON_FA_SAVE " Save As..")) {
+	if (ImGui::Button((const char*)ICON_FA_SAVE " Save As..")) {
 		std::string file_path = OS::sSaveFileDialog("JSON File (*.json)\0", "json");
 
 		if (!file_path.empty()) {
@@ -54,7 +69,7 @@ void NodeGraphWidget::draw(float dt) {
 	
 	ImGui::SameLine();
 
-	if (ImGui::Button(ICON_FA_ADJUST " Auto Layout"))  {
+	if (ImGui::Button((const char*)ICON_FA_ADJUST " Auto Layout"))  {
 		auto node_fifo = std::queue<GraphNode*>();
 		for (auto& node : m_Nodes)
 			if (node.IsRootNode())
@@ -126,6 +141,23 @@ void NodeGraphWidget::draw(float dt) {
 		for (const auto& registered_type : RTTIFactory::GetAllTypesIter()) {
 			if (ImGui::Selectable(registered_type.second->GetTypeName(), false)) {
 
+				auto& object = m_JSON.AddObject();
+				auto& type_field = object["Type"];
+				type_field.mType = JSON::ValueType::String;
+				type_field.mData.mString.mPtr = registered_type.second->GetTypeName();
+				type_field.mData.mString.mLength = strlen(registered_type.second->GetTypeName());
+				
+				std::string temp;
+				JSON::ToJSONValue(object["Name"], temp);
+				
+				auto rtti = RTTIFactory::GetRTTI(registered_type.second->GetTypeName());
+				auto instance = RTTIFactory::Construct(registered_type.second->GetTypeName());
+				
+				for (uint32_t member_index = 0; member_index < rtti->GetMemberCount(); member_index++) {
+					auto member = rtti->GetMember(member_index);
+					member->ToJSON(object[member->GetName()], instance);
+				}
+
 				ImGui::CloseCurrentPopup();
 			}
 		}
@@ -152,6 +184,10 @@ void NodeGraphWidget::draw(float dt) {
 		}
 
 		ImNodes::BeginNode(index);
+
+		ImNodes::BeginNodeTitleBar();
+		ImGui::Text(type_string.c_str());
+		ImNodes::EndNodeTitleBar();
 
 		uint32_t pin_index = 0;
 		for (const auto& [name, value] : object) {
@@ -215,7 +251,7 @@ void NodeGraphWidget::draw(float dt) {
 }
 
 
-void NodeGraphWidget::onEvent(const SDL_Event& ev) {
+void NodeGraphWidget::OnEvent(const SDL_Event& ev) {
 	if (ev.type == SDL_MOUSEBUTTONUP && ev.button.button == SDL_BUTTON_RIGHT)
 		m_WasRightClicked = true;
 

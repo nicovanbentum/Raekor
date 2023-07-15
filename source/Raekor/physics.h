@@ -7,6 +7,9 @@
 
 namespace Raekor {
 
+class Scene;
+class Application;
+
 enum EPhysicsObjectLayers {
     NON_MOVING = 0,
     MOVING = 1,

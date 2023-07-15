@@ -29,7 +29,8 @@
 
 #endif
 
-#define MAX_ROOT_CONSTANTS_SIZE 128 // Following the Vulkan spec here, we need some space for root descriptors
+// NEEDS TO MATCH DXUtil.h , its 256 - 2 SRV root descriptors (which are 2 DWORDs each)
+#define MAX_ROOT_CONSTANTS_SIZE 232
 
 #define DDGI_WAVE_SIZE 64                        // Thread group size for the ray trace shader. Sorry AMD, I'm running a 3080
 #define DDGI_RAYS_PER_WAVE 3                     // This is the number of rays per probe (192) divided by the thread group size (64)
@@ -118,6 +119,7 @@ struct GbufferRootConstants {
     float    pad0;
     float    pad1;
     float4x4 mWorldTransform;
+    float4x4 mInvWorldTransform;
 }; 
 STATIC_ASSERT(sizeof(GbufferRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
@@ -242,6 +244,13 @@ struct ProbeUpdateRootConstants {
     float3x3 mRandomRotationMatrix;
 };
 STATIC_ASSERT(sizeof(ProbeUpdateRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
+struct ImGuiRootConstants {
+    float4x4 mProjection;
+    uint mBindlessTextureIndex;
+};
+STATIC_ASSERT(sizeof(ImGuiRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 #endif // SHARED_H

@@ -76,10 +76,10 @@ class NodeGraphWidget : public IWidget {
 public:
     RTTI_CLASS_HEADER(NodeGraphWidget);
 
-    NodeGraphWidget(Editor* editor);
+    NodeGraphWidget(Application* inApp);
     
-    virtual void draw(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override;
+    virtual void Draw(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override;
     const GraphNode* FindNode(int id) const;
 
     JSON::Object* GetSelectedObject() { return m_SelectedObject == -1 ? nullptr : &m_JSON.Get(m_SelectedObject); }

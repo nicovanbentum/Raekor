@@ -1,16 +1,16 @@
 #include "pch.h"
 #include "consoleWidget.h"
-#include "editor.h"
+#include "Raekor/application.h"
 
 namespace Raekor {
 
 RTTI_CLASS_CPP_NO_FACTORY(ConsoleWidget) {}
 
 
-ConsoleWidget::ConsoleWidget(Editor* editor) : IWidget(editor, ICON_FA_TERMINAL "  Console ") {}
+ConsoleWidget::ConsoleWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_TERMINAL "  Console ")) {}
 
 
-void ConsoleWidget::draw(float dt) {
+void ConsoleWidget::Draw(float inDeltaTime) {
     ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 
     if (!ImGui::Begin(m_Title.c_str(), &m_Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
@@ -20,28 +20,28 @@ void ConsoleWidget::draw(float dt) {
 
     m_Visible = ImGui::IsWindowAppearing();
 
-    const float footerHeight = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
+    const float footer_height = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
 
-    ImGui::BeginChild("##LOG", ImVec2(ImGui::GetContentRegionAvail().x, -footerHeight), false, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild("##LOG", ImVec2(ImGui::GetContentRegionAvail().x, -footer_height), false, ImGuiWindowFlags_HorizontalScrollbar);
 
     if (ImGui::BeginPopupContextWindow()) {
-        if (ImGui::Selectable("clear")) items.clear();
+        if (ImGui::Selectable("clear")) m_Items.clear();
         ImGui::EndPopup();
     }
 
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
-    for (const auto& item : items)
+    for (const auto& item : m_Items)
         ImGui::TextUnformatted(item.c_str());
 
-    if (ScrollToBottom || ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
+    if (m_ShouldScrollToBottom || ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
         ImGui::SetScrollHereY(1.0f);
-        ScrollToBottom = false;
+        m_ShouldScrollToBottom = false;
     }
 
     ImGui::PopStyleVar();
     ImGui::EndChild();
 
-    ImVec2 cursorAfterLog = ImGui::GetCursorScreenPos();
+    const auto cursor_after_log = ImGui::GetCursorScreenPos();
 
     ImGui::Separator();
 
@@ -50,58 +50,57 @@ void ConsoleWidget::draw(float dt) {
     ImGui::PushItemWidth(ImGui::GetWindowWidth());
     auto flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory;
 
-    if (ImGui::InputText("##Input", &inputBuffer, flags, editCallback, (void*)this)) {
-        if (!inputBuffer.empty()) {
-            items.push_back(inputBuffer);
-            ScrollToBottom = true;
+    if (ImGui::InputText("##Input", &m_InputBuffer, flags, sEditCallback, (void*)this)) {
+        if (!m_InputBuffer.empty()) {
+            m_Items.push_back(m_InputBuffer);
+            m_ShouldScrollToBottom = true;
 
-            std::istringstream stream(inputBuffer);
+            auto stream = std::istringstream(m_InputBuffer);
             std::string name, value;
             stream >> name >> value;
 
             bool success = CVars::sSetValue(name, value);
             if (!success) {
                 if (CVars::sGetValue(name).empty())
-                    items.emplace_back("cvar \"" + name + "\" does not exist.");
+                    m_Items.emplace_back("cvar \"" + name + "\" does not exist.");
 
                 else if(value.empty())
-                    items.emplace_back("Please provide a value.");
+                    m_Items.emplace_back("Please provide a value.");
 
                 else
-                    items.emplace_back("Failed to set cvar " + name + " to " + "\"" + value + "\"");
+                    m_Items.emplace_back("Failed to set cvar " + name + " to " + "\"" + value + "\"");
             }
         }
 
-        inputBuffer.clear();
+        m_InputBuffer.clear();
         ImGui::SetKeyboardFocusHere();
     }
 
-    if (!inputBuffer.empty()) {
-        ImGuiTextFilter filter(inputBuffer.c_str());
+    if (!m_InputBuffer.empty()) {
+        const auto suggestion_count  = int(ImGui::GetWindowHeight() * (2.0f / 3.0f) / ImGui::GetTextLineHeightWithSpacing());
+        const auto suggestion_width  = ImGui::GetItemRectSize().x - ImGui::GetStyle().FramePadding.x * 2;
+        const auto suggestion_height = ImGui::GetTextLineHeightWithSpacing() * suggestion_count;
 
-        const int suggestionCount = static_cast<int>(ImGui::GetWindowHeight() * (2.0f / 3.0f) / ImGui::GetTextLineHeightWithSpacing());
-        const float suggestionWidth = ImGui::GetItemRectSize().x - ImGui::GetStyle().FramePadding.x * 2;
-        const float suggestionHeight = ImGui::GetTextLineHeightWithSpacing() * suggestionCount;
-
-        ImGui::SetNextWindowSize(ImVec2(suggestionWidth, suggestionHeight));
-        ImGui::SetNextWindowPos(ImVec2(cursorAfterLog.x, cursorAfterLog.y - suggestionHeight));
+        ImGui::SetNextWindowSize(ImVec2(suggestion_width, suggestion_height));
+        ImGui::SetNextWindowPos(ImVec2(cursor_after_log.x, cursor_after_log.y - suggestion_height));
         ImGui::BeginTooltip();
 
-        int count = 0;
-        for (const auto& mapping : CVars::sGet()) {
-            if (filter.PassFilter(mapping.first.c_str())) {
-                std::string cvarText = mapping.first + " " + CVars::sGetValue(mapping.first) + '\n';
+        const auto filter = ImGuiTextFilter(m_InputBuffer.c_str());
+    
+        for (const auto& [index, mapping] : gEnumerate(CVars::sGet())) {
+            if (!filter.PassFilter(mapping.first.c_str()))
+                continue;
 
-                if (count == activeItem)
-                    ImGui::Selectable(cvarText.c_str(), true);
-                else
-                    ImGui::TextUnformatted(cvarText.c_str());
+            const auto cvar_text = mapping.first + " " + CVars::sGetValue(mapping.first) + '\n';
 
-                count++;
-            }
+            if (index == m_ActiveItem)
+                ImGui::Selectable(cvar_text.c_str(), true);
+            else
+                ImGui::TextUnformatted(cvar_text.c_str());
         }
 
-        activeItem = activeItem > count ? count : activeItem;
+        const auto nr_of_cvars = CVars::sGetCount();
+        m_ActiveItem = m_ActiveItem > nr_of_cvars ? nr_of_cvars : m_ActiveItem;
 
         ImGui::EndTooltip();
     }
@@ -112,32 +111,35 @@ void ConsoleWidget::draw(float dt) {
 }
 
 
-int ConsoleWidget::editCallback(ImGuiInputTextCallbackData* data) {
+void ConsoleWidget::LogMessage(const std::string& inMessage) {
+    auto lock = std::scoped_lock(m_ItemsMutex);
+    m_Items.push_back(inMessage);
+}
+
+
+int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data) {
     ConsoleWidget* console = (ConsoleWidget*)data->UserData;
 
     if (data->EventKey == ImGuiKey_Tab && data->BufTextLen) {
-        ImGuiTextFilter filter(data->Buf);
+        auto filter = ImGuiTextFilter(data->Buf);
 
-        int index = 0;
+        for (const auto& [index, cvar] : gEnumerate(CVars::sGet())) {
+            if (!filter.PassFilter(cvar.first.c_str()))
+                continue;
 
-        for (const auto& cvar : CVars::sGet()) {
-            if (filter.PassFilter(cvar.first.c_str())) {
-                if (index == console->activeItem) {
-                    data->DeleteChars(0, data->BufTextLen);
-                    data->InsertChars(0, std::string(cvar.first + ' ').c_str());
-                    break;
-                }
-
-                index++;
+            if (index == console->m_ActiveItem) {
+                data->DeleteChars(0, data->BufTextLen);
+                data->InsertChars(0, std::string(cvar.first + ' ').c_str());
+                break;
             }
         }
     }
 
     if (data->EventKey == ImGuiKey_DownArrow)
-        console->activeItem++;
+        console->m_ActiveItem++;
 
-    if (data->EventKey == ImGuiKey_UpArrow && console->activeItem)
-        console->activeItem--;
+    if (data->EventKey == ImGuiKey_UpArrow && console->m_ActiveItem)
+        console->m_ActiveItem--;
 
     return 0;
 }

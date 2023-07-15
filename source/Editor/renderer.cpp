@@ -23,7 +23,10 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
 }
 
 
-GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
+GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) : 
+    IRenderer(GraphicsAPI::OpenGL4_6),
+    m_Window(window) 
+{
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -34,7 +37,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
 
     m_GLContext = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, m_GLContext);
-    SDL_GL_SetSwapInterval(settings.vsync);
+    SDL_GL_SetSwapInterval(mSettings.vsync);
 
     // Load GL extensions using glad
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
@@ -45,6 +48,12 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     // Loaded OpenGL successfully.
     std::cout << "OpenGL version loaded: " << GLVersion.major << "."
               << GLVersion.minor << '\n';
+
+    GPUInfo gpu_info = {};
+    gpu_info.mVendor = (const char*)glGetString(GL_VENDOR);
+    gpu_info.mProduct = (const char*)glGetString(GL_RENDERER);
+    gpu_info.mActiveAPI = std::string("OpenGL " + std::string((const char*)glGetString(GL_VERSION)));
+    SetGPUInfo(gpu_info);
 
     if (!FileSystem::exists("assets/system/shaders/OpenGL/bin"))
         FileSystem::create_directory("assets/system/shaders/OpenGL/bin");
@@ -124,6 +133,8 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) {
     // io.ConfigDockingWithShift = true;
 
     // initialise all the render passes
+    viewport.SetSize(UVec2(2560, 1440));
+
     m_Icons =         std::make_shared<Icons>(viewport);
     m_Bloom =         std::make_shared<Bloom>(viewport);
     m_GBuffer =       std::make_shared<GBuffer>(viewport);
@@ -188,7 +199,7 @@ GLRenderer::~GLRenderer() {
 
 
 void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
-    if (!m_Timings.empty() && settings.disableTiming)
+    if (!m_Timings.empty() && mSettings.disableTiming)
         m_Timings.clear();
 
     // skin all meshes in the scene
@@ -205,7 +216,7 @@ void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
     });
 
     // voxelize the Scene to a 3D texture
-    if (settings.shouldVoxelize) {
+    if (mSettings.shouldVoxelize) {
         TimeOpenGL("Voxelize", [&]() {
             m_Voxelize->Render(scene, viewport, *m_ShadowMaps);
         });
@@ -228,7 +239,7 @@ void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
 
     GLuint shadingResult = m_DeferredShading->result;
 
-    if (settings.enableTAA) {
+    if (mSettings.enableTAA) {
         TimeOpenGL("TAA Resolve", [&]() {
             shadingResult = m_ResolveTAA->Render(viewport, *m_GBuffer, *m_DeferredShading, m_FrameNr);
         });
@@ -247,7 +258,7 @@ void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
     // generate downsampled bloom and do ACES tonemapping
     GLuint bloomTexture = m_DefaultBlackTexture;
 
-    if (settings.doBloom) {
+    if (mSettings.doBloom) {
         TimeOpenGL("Bloom", [&]() {
             m_Bloom->Render(viewport, m_DeferredShading->bloomHighlights);
         });
@@ -259,7 +270,7 @@ void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
         m_Tonemap->Render(shadingResult, bloomTexture);
     });
 
-    if (settings.debugCascades) {
+    if (mSettings.debugCascades) {
         TimeOpenGL("Debug cascade", [&]() {
             m_ShadowMaps->renderCascade(viewport, m_Tonemap->framebuffer);
         });
@@ -271,7 +282,7 @@ void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
     });
 
     // render 3D voxel texture size ^ 3 cubes
-    if (settings.debugVoxels) {
+    if (mSettings.debugVoxels) {
         TimeOpenGL("Debug voxels", [&]() {
             m_DebugVoxels->Render(viewport, m_Tonemap->result, *m_Voxelize);
         });
@@ -293,6 +304,10 @@ void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
 
     // increment frame counter
     m_FrameNr = m_FrameNr + 1;
+
+    // swap the backbuffer
+    assert(m_Window);
+    SDL_GL_SwapWindow(m_Window);
 }
 
 
@@ -304,7 +319,7 @@ void GLRenderer::AddDebugLine(glm::vec3 p1, glm::vec3 p2) {
 
 
 
-void GLRenderer::AddDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
+void GLRenderer::AddDebugBox(glm::vec3 min, glm::vec3 max, const glm::mat4& m) {
     AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
     AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
     AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
@@ -323,7 +338,7 @@ void GLRenderer::AddDebugBox(glm::vec3 min, glm::vec3 max, glm::mat4& m) {
 
 template<typename Lambda>
 void GLRenderer::TimeOpenGL(const std::string& name, Lambda&& lambda) {
-    if (!settings.disableTiming) {
+    if (!mSettings.disableTiming) {
         m_Timings.insert({ name, std::make_unique<GLTimer>() });
         m_Timings[name]->begin();
         lambda();
@@ -335,7 +350,40 @@ void GLRenderer::TimeOpenGL(const std::string& name, Lambda&& lambda) {
 
 
 
-void GLRenderer::sUploadMeshBuffers(Mesh& mesh) {
+void GLRenderer::DrawImGui(Scene& inScene, const Viewport& inViewport) {
+    if (ImGui::Checkbox("VSync", (bool*)(&mSettings.vsync)))
+        SDL_GL_SetSwapInterval(mSettings.vsync);
+
+    ImGui::SameLine();
+
+    if (ImGui::Checkbox("TAA", (bool*)(&mSettings.enableTAA)))
+        m_FrameNr = 0;
+
+    ImGui::NewLine();
+    ImGui::Text("VCTGI");
+    ImGui::Separator();
+
+    ImGui::DragFloat("Radius", &m_Voxelize->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
+
+    ImGui::NewLine();
+    ImGui::Text("CSM");
+    ImGui::Separator();
+
+    if (ImGui::DragFloat("Bias constant", &m_ShadowMaps->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    if (ImGui::DragFloat("Bias slope factor", &m_ShadowMaps->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+    if (ImGui::DragFloat("Split lambda", &m_ShadowMaps->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {
+        m_ShadowMaps->updatePerspectiveConstants(inViewport);
+    }
+
+    ImGui::NewLine();
+    ImGui::Text("Bloom");
+    ImGui::Separator();
+    ImGui::DragFloat3("Threshold", glm::value_ptr(m_DeferredShading->settings.bloomThreshold), 0.01f, 0.0f, 10.0f, "%.3f");
+}
+
+
+
+void GLRenderer::UploadMeshBuffers(Mesh& mesh) {
     auto vertices = mesh.GetInterleavedVertices();
 
     glCreateBuffers(1, &mesh.vertexBuffer);
@@ -347,7 +395,7 @@ void GLRenderer::sUploadMeshBuffers(Mesh& mesh) {
 
 
 
-void GLRenderer::sDestroyMeshBuffers(Mesh& mesh) {
+void GLRenderer::DestroyMeshBuffers(Mesh& mesh) {
     glDeleteBuffers(1, &mesh.vertexBuffer);
     glDeleteBuffers(1, &mesh.indexBuffer);
     mesh.vertexBuffer = 0, mesh.indexBuffer = 0;
@@ -355,7 +403,7 @@ void GLRenderer::sDestroyMeshBuffers(Mesh& mesh) {
 
 
 
-void GLRenderer::sUploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
+void GLRenderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
     glCreateBuffers(1, &skeleton.boneIndexBuffer);
     glNamedBufferData(skeleton.boneIndexBuffer, skeleton.boneIndices.size() * sizeof(glm::ivec4), skeleton.boneIndices.data(), GL_STATIC_COPY);
 
@@ -374,7 +422,7 @@ void GLRenderer::sUploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
 
 
 
-void GLRenderer::sDestroySkeletonBuffers(Skeleton& skeleton) {
+void GLRenderer::DestroySkeletonBuffers(Skeleton& skeleton) {
     glDeleteBuffers(1, &skeleton.boneIndexBuffer);
     glDeleteBuffers(1, &skeleton.boneWeightBuffer);
     glDeleteBuffers(1, &skeleton.skinnedVertexBuffer);
@@ -383,7 +431,7 @@ void GLRenderer::sDestroySkeletonBuffers(Skeleton& skeleton) {
 
 
 
-void GLRenderer::sDestroyMaterialTextures(Material& material, Assets& assets) {
+void GLRenderer::DestroyMaterialTextures(Material& material, Assets& assets) {
     glDeleteTextures(1, &material.gpuAlbedoMap);
     glDeleteTextures(1, &material.gpuNormalMap);
     glDeleteTextures(1, &material.gpuMetallicRoughnessMap);
@@ -396,20 +444,7 @@ void GLRenderer::sDestroyMaterialTextures(Material& material, Assets& assets) {
 
 
 
-void GLRenderer::sUploadMaterialTextures(Material& material, Assets& assets) {
-    if (auto asset = assets.GetAsset<TextureAsset>(material.albedoFile); asset)
-        material.gpuAlbedoMap = GLRenderer::sUploadTextureFromAsset(asset, true);
-
-    if (auto asset = assets.GetAsset<TextureAsset>(material.normalFile); asset)
-        material.gpuNormalMap = GLRenderer::sUploadTextureFromAsset(asset);
-
-    if (auto asset = assets.GetAsset<TextureAsset>(material.metalroughFile); asset)
-        material.gpuMetallicRoughnessMap = GLRenderer::sUploadTextureFromAsset(asset);
-}
-
-
-
-GLuint GLRenderer::sUploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB) {
+GLuint GLRenderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB) {
     assert(asset);
     auto dataPtr = asset->GetData();
     auto headerPtr = asset->GetHeader();
@@ -433,6 +468,19 @@ GLuint GLRenderer::sUploadTextureFromAsset(const TextureAsset::Ptr& asset, bool 
     return texture;
 }
 
+
+uint32_t GLRenderer::GetScreenshotBuffer(uint8_t* ioBuffer) {
+    int width = 0, height = 0;
+    glGetTextureLevelParameteriv(GetDisplayTexture(), 0, GL_TEXTURE_WIDTH, &width);
+    glGetTextureLevelParameteriv(GetDisplayTexture(), 0, GL_TEXTURE_HEIGHT, &height);
+    
+    const auto buffer_size = width * height * 4 * sizeof(uint8_t);
+
+    if (ioBuffer)
+        glGetTextureImage(GetDisplayTexture(), 0, GL_RGBA, GL_UNSIGNED_BYTE, width * height * 4 * sizeof(uint8_t), ioBuffer);
+
+    return buffer_size;
+}
 
 
 void GLRenderer::CreateRenderTargets(const Viewport& viewport) {

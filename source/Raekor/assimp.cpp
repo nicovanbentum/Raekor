@@ -2,10 +2,11 @@
 #include "assimp.h"
 
 #include "util.h"
-#include "scene.h"
-#include "systems.h"
 #include "async.h"
 #include "timer.h"
+#include "scene.h"
+#include "systems.h"
+#include "application.h"
 
 namespace Assimp {
 
@@ -97,7 +98,9 @@ void AssimpImporter::ParseNode(const aiNode* assimpNode, entt::entity parent, en
     // set the new entity's parent
     if (parent != entt::null) {
         NodeSystem::sAppend(m_Scene,
+            parent,
             m_Scene.get<Node>(parent),
+            new_entity,
             m_Scene.get<Node>(new_entity)
         );
     }
@@ -134,7 +137,7 @@ void AssimpImporter::ParseMeshes(const aiNode* assimpNode, entt::entity new_enti
             transform.Decompose();
 
             auto p = parent != entt::null ? parent : new_entity;
-            NodeSystem::sAppend(m_Scene, m_Scene.get<Node>(p), m_Scene.get<Node>(entity));
+            NodeSystem::sAppend(m_Scene, p, m_Scene.get<Node>(p), entity, m_Scene.get<Node>(entity));
         }
 
         // process mesh
@@ -196,8 +199,8 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
     //if (!assimpMesh->HasTangentsAndBitangents() && !mesh.uvs.empty())
         //mesh.CalculateTangents();
 
-    if(m_UploadMeshCallback) 
-        m_UploadMeshCallback(mesh);
+    if(m_Renderer) 
+        m_Renderer->UploadMeshBuffers(mesh);
 
     mesh.material = m_Materials[assimpMesh->mMaterialIndex];
 }
@@ -246,8 +249,8 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
 
     skeleton.boneTransformMatrices.resize(skeleton.boneOffsetMatrices.size());
 
-    if (m_UploadSkeletonCallback)
-        m_UploadSkeletonCallback(skeleton, mesh);
+    if (m_Renderer)
+        m_Renderer->UploadSkeletonBuffers(skeleton, mesh);
 
     aiNode* root_bone = nullptr;
     std::stack<aiNode*> nodes;

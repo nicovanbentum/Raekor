@@ -36,7 +36,17 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
 
     if (width % 4 != 0 || height % 4 != 0) {
         std::cout << "Image " << Path(filepath).filename() << " with resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
-        return {};
+        const auto aw = gAlignUp(width, 4), ah = gAlignUp(height, 4);
+
+        mip_chain.push_back((stbi_uc*)malloc(aw * ah * 4));
+        stbir_resize_uint8(mip_chain[0], width, height, 0, mip_chain[1], aw, ah, 0, 4);
+
+        stbi_image_free(mip_chain[0]);
+        mip_chain[0] = mip_chain[1];
+        mip_chain.pop_back();
+        width = aw, height = ah;
+
+        // return {};
     }
 
     // TODO: gpu mip mapping, cant right now because assets are loaded in parallel but OpenGL can't do multithreading

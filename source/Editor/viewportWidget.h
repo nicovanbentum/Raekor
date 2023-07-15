@@ -8,15 +8,15 @@ class ViewportWidget : public IWidget {
 public:
     RTTI_CLASS_HEADER(ViewportWidget);
 
-    ViewportWidget(Editor* editor);
-    virtual void draw(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override;
+    ViewportWidget(Application* inApp);
+    virtual void Draw(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override;
 
     void DisableGizmo() { gizmoEnabled = false; }
     bool IsHovered() { return mouseInViewport; }
 
 protected:
-    GLuint rendertarget;
+    uint64_t m_DisplayTexture;
     int rendertargetIndex = 0;
     bool gizmoEnabled = true;
     bool mouseInViewport = false;

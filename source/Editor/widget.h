@@ -3,7 +3,7 @@
 #include "Raekor/async.h"
 #include "Raekor/scene.h"
 #include "Raekor/assets.h"
-#include "renderer.h"
+#include "Raekor/application.h"
 
 namespace Raekor {
 
@@ -17,9 +17,9 @@ class IWidget {
     RTTI_CLASS_HEADER(IWidget);
 
 public:
-    IWidget(Editor* editor, const std::string& inTitle);
-    virtual void draw(float dt) = 0;
-    virtual void onEvent(const SDL_Event& ev) = 0;
+    IWidget(Application* inApp, const std::string& inTitle);
+    virtual void Draw(float inDeltaTime) = 0;
+    virtual void OnEvent(const SDL_Event& inEvent) = 0;
 
     void Show() { m_Open = true; }
     void Hide() { m_Open = false; }
@@ -35,10 +35,12 @@ protected:
     Scene& GetScene();
     Assets& GetAssets();
     Physics& GetPhysics();
-    Entity& GetActiveEntity();
-    GLRenderer& GetRenderer();
+    IRenderer& GetRenderer();
 
-    Editor* m_Editor;
+    Entity GetActiveEntity();
+    void   SetActiveEntity(Entity inEntity);
+
+    Application* m_Editor;
     std::string m_Title;
     bool m_Open = true;
     bool m_Visible = false;

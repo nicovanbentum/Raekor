@@ -1,34 +1,24 @@
 #include "pch.h"
 #include "randomWidget.h"
-#include "editor.h"
-#include "renderer.h"
+#include "Raekor/timer.h"
 #include "Raekor/systems.h"
+#include "Raekor/application.h"
 
 namespace Raekor {
 
 RTTI_CLASS_CPP_NO_FACTORY(RandomWidget) {}
 
-RandomWidget::RandomWidget(Editor* editor) :
-    IWidget(editor, " Random ")
+RandomWidget::RandomWidget(Application* inApp) :
+    IWidget(inApp, " Random ")
 {}
 
-void RandomWidget::draw(float dt) {
+void RandomWidget::Draw(float dt) {
     auto& scene = IWidget::GetScene();
-    auto& renderer = IWidget::GetRenderer();
+    auto& render_settings = m_Editor->GetRenderer()->GetSettings();
 
     ImGui::Begin(m_Title.c_str(), &m_Open);
     m_Visible = ImGui::IsWindowAppearing();
     ImGui::SetItemDefaultFocus();
-
-    if (ImGui::Checkbox("VSync", (bool*)(&renderer.settings.vsync))) {
-        SDL_GL_SetSwapInterval(renderer.settings.vsync);
-    }
-
-    ImGui::SameLine();
-
-    if (ImGui::Checkbox("TAA", (bool*)(&renderer.settings.enableTAA))) {
-        renderer.m_FrameNr = 0;
-    }
 
     if (ImGui::Button("Generate Rigid Bodies")) {
         Timer timer;
@@ -38,7 +28,7 @@ void RandomWidget::draw(float dt) {
         GetPhysics().GenerateRigidBodiesEntireScene(GetScene());
 
         Async::sWait();
-        std::cout << "Rigid Body Generation took " <<  Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
+        m_Editor->LogMessage("Rigid Body Generation took " + timer.GetElapsedFormatted() + " seconds.");
     }
 
     if (ImGui::Button("Spawn/Reset Balls")) {
@@ -47,7 +37,9 @@ void RandomWidget::draw(float dt) {
         material_name = "Ball Material";
         auto& ball_material = scene.emplace<Material>(material_entity);
         ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
-        GLRenderer::sUploadMaterialTextures(ball_material, GetAssets());
+
+        if (auto renderer = m_Editor->GetRenderer())
+            RenderUtil::sUploadMaterialTextures(renderer, GetAssets(), ball_material);
 
         for (uint32_t i = 0; i < 64; i++) {
             auto entity = scene.CreateSpatialEntity("ball");
@@ -55,9 +47,10 @@ void RandomWidget::draw(float dt) {
             auto& mesh = scene.emplace<Mesh>(entity);
 
             mesh.material = material_entity;
+            
             constexpr auto radius = 2.5f;
             gGenerateSphere(mesh, radius, 16, 16);
-            GLRenderer::sUploadMeshBuffers(mesh);
+            GetRenderer().UploadMeshBuffers(mesh);
 
             transform.position = Vec3(-65.0f, 85.0f + i * (radius * 2.0f), 0.0f);
             transform.Compose();
@@ -84,26 +77,8 @@ void RandomWidget::draw(float dt) {
         }
     }
 
-    ImGui::NewLine(); 
-    ImGui::Text("VCTGI");
-    ImGui::Separator();
-
-    ImGui::DragFloat("Radius", &renderer.m_Voxelize->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
-
-    ImGui::NewLine(); 
-    ImGui::Text("CSM");
-    ImGui::Separator();
-
-    if (ImGui::DragFloat("Bias constant", &renderer.m_ShadowMaps->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Bias slope factor", &renderer.m_ShadowMaps->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Split lambda", &renderer.m_ShadowMaps->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {
-        renderer.m_ShadowMaps->updatePerspectiveConstants(m_Editor->GetViewport());
-    }
-
-    ImGui::NewLine(); 
-    ImGui::Text("Bloom");
-    ImGui::Separator();
-    ImGui::DragFloat3("Threshold", glm::value_ptr(renderer.m_DeferredShading->settings.bloomThreshold), 0.01f, 0.0f, 10.0f, "%.3f");
+    // Draw all the renderer debug UI
+    m_Editor->GetRenderer()->DrawImGui(GetScene(), m_Editor->GetViewport());
 
     ImGui::End();
 }

@@ -66,6 +66,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             RTVertex vertex = CalculateVertexFromGeometry(geometry, query.CommittedPrimitiveIndex(), query.CommittedTriangleBarycentrics());
             RTMaterial material = materials[geometry.mMaterialIndex];
         
+            TransformToWorldSpace(vertex, geometry.mLocalToWorldTransform);
+            
             // Setup the BRDF
             BRDF brdf;
             brdf.FromHit(vertex, material);

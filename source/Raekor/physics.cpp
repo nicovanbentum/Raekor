@@ -2,6 +2,7 @@
 #include "physics.h"
 #include "util.h"
 #include "scene.h"
+#include "application.h"
 
 namespace Raekor {
 

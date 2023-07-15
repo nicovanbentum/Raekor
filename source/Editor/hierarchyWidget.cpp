@@ -1,6 +1,6 @@
 #include "pch.h"
-#include "editor.h"
 #include "hierarchyWidget.h"
+#include "Raekor/application.h"
 #include "Raekor/systems.h"
 #include "Raekor/input.h"
 
@@ -8,19 +8,20 @@ namespace Raekor {
 
 RTTI_CLASS_CPP_NO_FACTORY(HierarchyWidget) {}
 
+HierarchyWidget::HierarchyWidget(Application* inApp) : 
+    IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_STREAM " Scene "))
+{}
 
-HierarchyWidget::HierarchyWidget(Editor* editor) : IWidget(editor, ICON_FA_STREAM " Scene ") {}
 
-
-void HierarchyWidget::draw(float dt) {
+void HierarchyWidget::Draw(float dt) {
     ImGui::Begin(m_Title.c_str(), &m_Open);
     m_Visible = ImGui::IsWindowAppearing();
 
     auto& scene = GetScene();
-    auto& active_entity = GetActiveEntity();
+    auto active_entity = m_Editor->GetActiveEntity();
     auto nodes = scene.view<Node>();
     
-    for (auto& [entity, node] : nodes.each()) {
+    for (auto [entity, node] : nodes.each()) {
         if (!node.IsRoot())
             continue;
 
@@ -45,10 +46,10 @@ bool HierarchyWidget::drawFamilyNode(Scene& scene, Entity entity, Entity& active
     const auto selected = active == entity ? ImGuiTreeNodeFlags_Selected : 0;
     const auto tree_flags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
     
-    bool opened = ImGui::TreeNodeEx(std::string(ICON_FA_CUBE "   " + name.name).c_str(), tree_flags);
+    bool opened = ImGui::TreeNodeEx(std::string((const char*)ICON_FA_CUBE "   " + name.name).c_str(), tree_flags);
     
     if (ImGui::IsItemClicked())
-        active = active == entity ? entt::null : entity;
+        m_Editor->SetActiveEntity(active == entity ? entt::null : entity);
 
     dropTargetNode(scene, entity);
 
@@ -60,8 +61,8 @@ void HierarchyWidget::drawChildlessNode(Scene& scene, Entity entity, Entity& act
     auto name = scene.get<Name>(entity);
     auto selectable_name = name.name + "##" + std::to_string(entt::to_integral(entity));
 
-    if (ImGui::Selectable(std::string(ICON_FA_CUBE "   " + selectable_name).c_str(), entity == active))
-        active = active == entity ? entt::null : entity;
+    if (ImGui::Selectable(std::string((const char*)ICON_FA_CUBE "   " + selectable_name).c_str(), entity == active))
+        m_Editor->SetActiveEntity(active == entity ? entt::null : entity);
 
     dropTargetNode(scene, entity);
 }
@@ -95,7 +96,7 @@ void HierarchyWidget::dropTargetNode(Scene& scene, Entity entity) {
                 auto& parentTransform = scene.get<Transform>(entity);
 
                 NodeSystem::sRemove(scene, scene.get<Node>(child));
-                NodeSystem::sAppend(scene, node, scene.get<Node>(child));
+                NodeSystem::sAppend(scene, entity, node, child, scene.get<Node>(child));
             }
 
         }

@@ -8,14 +8,16 @@
 
 namespace Raekor {
 
+class IRenderer;
+
 using Entity = entt::entity;
 static constexpr entt::null_t sInvalidEntity = entt::null;
 
 class Scene : public entt::registry {
 public:
-	Scene() = default;
+	Scene(IRenderer* inRenderer) : m_Renderer(inRenderer) {}
+	Scene(const Scene& inOther) = delete;
 	~Scene() { clear(); }
-	Scene(const Scene& rhs) = delete;
 
 	// Spatial entity management
 	entt::entity	PickSpatialEntity(Ray& inRay);
@@ -28,7 +30,8 @@ public:
 	// Per frame systems
 	void UpdateLights();
 	void UpdateTransforms();
-	void UpdateTransformsRecursively(entt::entity node, entt::entity parent);
+	void UpdateAnimations(float inDeltaTime);
+	void UpdateNativeScripts(float inDeltaTime);
 
 	Entity Clone(Entity inEntity);
 
@@ -39,14 +42,10 @@ public:
 	void SaveToFile(Assets& assets, const std::string& file);
 	void OpenFromFile(Assets& assets, const std::string& file);
 
-	template<typename Fn> void SetUploadMeshCallbackFunction(Fn&& fn) { m_UploadMeshCallback = fn; }
-	template<typename Fn> void SetUploadMaterialCallbackFunction(Fn&& fn) { m_UploadMaterialCallback = fn; }
-	
 	void BindScriptToEntity(entt::entity entity, NativeScript& script);
 
 private:
-	std::function<void(Mesh&)> m_UploadMeshCallback = nullptr;
-	std::function<void(Material&, Assets&)> m_UploadMaterialCallback = nullptr;
+	IRenderer* m_Renderer;
 };
 
 } // Namespace Raekor

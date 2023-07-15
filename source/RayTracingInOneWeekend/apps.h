@@ -7,29 +7,15 @@
 #include "Raekor/timer.h"
 #include "Editor/widget.h"
 
+
 namespace Raekor {
 
-class RayTracingOneWeekend;
-
-class RayTraceApp : public Application {
-public:
-    RayTraceApp();
-    virtual ~RayTraceApp() = default;
-
-    virtual void OnUpdate(float dt) override;
-    virtual void OnEvent(const SDL_Event& ev) override {}
-
-    bool drawSphereProperties(Sphere& sphere);
-
-private:
-    bool sceneChanged = false;
-
-    unsigned int activeSphere = 0;
-    unsigned int activeScreenTexture = 0;
-
-    GLRenderer renderer;
-    std::vector<std::shared_ptr<IWidget>> widgets;
-    std::unique_ptr<RayTracingOneWeekend> rayTracePass;
+struct Sphere {
+    alignas(16) glm::vec3 origin;
+    alignas(16) glm::vec3 colour;
+    alignas(4) float roughness;
+    alignas(4) float metalness;
+    alignas(4) float radius;
 };
 
 
@@ -66,5 +52,28 @@ private:
 public:
     GLuint result, finalResult;
 };
+
+
+class RayTraceApp : public Application {
+public:
+    RayTraceApp();
+    virtual ~RayTraceApp() = default;
+
+    virtual void OnUpdate(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override {}
+
+    bool drawSphereProperties(Sphere& sphere);
+
+private:
+    bool sceneChanged = false;
+
+    unsigned int activeSphere = 0;
+    unsigned int activeScreenTexture = 0;
+
+    //GLRenderer renderer;
+    std::vector<std::shared_ptr<IWidget>> widgets;
+    std::unique_ptr<RayTracingOneWeekend> rayTracePass;
+};
+
 
 } // raekor

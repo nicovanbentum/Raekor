@@ -245,8 +245,8 @@ public:
 	template<typename T>
 	const T& AddComputePass(const std::string& inName, Device& inDevice, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute);
 
-	template<typename T>
-	RenderPass<T>* GetPass();
+	template<typename T> RenderPass<T>* GetPass();
+	template<typename T> RenderPass<T>* GetPass() const;
 
 	/* Clears the graph by destroying all the render passes and their associated resources. After clearing the user is free to call Compile again. */
 	void Clear(Device& inDevice);
@@ -531,6 +531,17 @@ const T& RenderGraph::AddComputePass(const std::string& inName, Device& inDevice
 
 template<typename T>
 RenderPass<T>* RenderGraph::GetPass() {
+	for (auto& renderpass : m_RenderPasses) {
+		if (auto base = static_cast<RenderPass<T>*>(renderpass.get()))
+			if (base->GetData().GetRTTI() == gGetRTTI<T>())
+				return base;
+	}
+
+	return nullptr;
+}
+
+template<typename T>
+RenderPass<T>* RenderGraph::GetPass() const {
 	for (auto& renderpass : m_RenderPasses) {
 		if (auto base = static_cast<RenderPass<T>*>(renderpass.get()))
 			if (base->GetData().GetRTTI() == gGetRTTI<T>())

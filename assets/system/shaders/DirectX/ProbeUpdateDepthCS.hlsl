@@ -11,8 +11,6 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     Texture2D<float> rays_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
     RWTexture2D<float2> probes_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesDepthTexture];
     
-    FrameConstants fc = gGetFrameConstants();
-    
     // The 2D pixel coordinate on the probe's total texel area (with border)
     uint2 probe_pixel = threadID.xy % DDGI_DEPTH_TEXELS.xx;
     

@@ -1,4 +1,4 @@
-#include "include/bindless.hlsli"
+#include "include/common.hlsli"
 
 struct VS_OUTPUT {
     float4 sv_position      : SV_Position;
@@ -20,6 +20,7 @@ VS_OUTPUT main(in uint inVertexID : SV_VertexID)
     StructuredBuffer<RTVertex> vertex_buffer = ResourceDescriptorHeap[rc.mVertexBuffer];
     
     RTVertex vertex = vertex_buffer[inVertexID];
+    TransformToWorldSpace(vertex, rc.mWorldTransform);
 
     VS_OUTPUT output;
     output.normal = normalize(vertex.mNormal);
@@ -33,3 +34,4 @@ VS_OUTPUT main(in uint inVertexID : SV_VertexID)
     output.sv_position = output.curr_position;
     return output;
 }
+

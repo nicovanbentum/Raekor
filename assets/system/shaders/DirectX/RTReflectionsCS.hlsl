@@ -89,6 +89,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         float2 hit_bary = query.CommittedTriangleBarycentrics();
         const float3 barycentrics = float3(1.0 - hit_bary.x - hit_bary.y, hit_bary.x, hit_bary.y);
         RTVertex vertex = InterpolateVertices(v0, v1, v2, barycentrics);
+        TransformToWorldSpace(vertex, geometry.mLocalToWorldTransform);
         
         RTMaterial material = materials[geometry.mMaterialIndex];
         Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mAlbedoTexture)];

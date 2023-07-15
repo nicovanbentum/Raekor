@@ -19,4 +19,8 @@ float Timer::GetElapsedTime() {
     return (float)((SDL_GetPerformanceCounter() - m_StartTime) / (float)SDL_GetPerformanceFrequency());
 }
 
+std::string Timer::GetElapsedFormatted() {
+    return std::to_string((float)((SDL_GetPerformanceCounter() - m_StartTime) / (float)SDL_GetPerformanceFrequency()));
+}
+
 } // raekor

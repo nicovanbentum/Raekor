@@ -82,6 +82,8 @@ public:
 
 	void QueueShader(const Path& inPath);
 
+	IDXGIAdapter1* GetAdapter() { return m_Adapter.Get(); }
+
 	struct ShaderEntry {
 		inline bool IsNull() { return mBlob != nullptr; }
 

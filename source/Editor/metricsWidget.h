@@ -10,9 +10,9 @@ class MetricsWidget : public IWidget {
 public:
     RTTI_CLASS_HEADER(MetricsWidget);
 
-    MetricsWidget(Editor* editor);
-    virtual void draw(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override {}
+    MetricsWidget(Application* inApp);
+    virtual void Draw(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override {}
 
 private:
     float m_UpdateInterval = 0.0f;

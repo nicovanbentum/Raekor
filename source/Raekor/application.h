@@ -1,8 +1,79 @@
 #pragma once
 
+#include "scene.h"
 #include "camera.h"
 
 namespace Raekor {
+
+class Scene;
+class Assets;
+class Physics;
+
+struct GPUInfo {
+    std::string mVendor;
+    std::string mProduct;
+    std::string mActiveAPI;
+};
+
+enum GraphicsAPI : uint8_t {
+    OpenGL4_6 = 0b0001,
+    Vulkan    = 0b0010,
+    DirectX11 = 0b0100,
+    DirectX12 = 0b1000,
+
+    DirectX = DirectX11 | DirectX12
+};
+
+class IRenderer {
+public:
+    struct Settings {
+        int& vsync              = CVars::sCreate("r_vsync", 1);
+        int& doBloom            = CVars::sCreate("r_bloom", 0);
+        int& paused             = CVars::sCreate("r_paused", 0);
+        int& enableTAA          = CVars::sCreate("r_taa", 1);
+        int& debugVoxels        = CVars::sCreate("r_voxelize_debug", 0);
+        int& debugCascades      = CVars::sCreate("r_debug_cascades", 0);
+        int& disableTiming      = CVars::sCreate("r_disable_timings", 0);
+        int& shouldVoxelize     = CVars::sCreate("r_voxelize", 1);
+    } mSettings;
+
+    IRenderer(GraphicsAPI inAPI) : m_GraphicsAPI(inAPI) {}
+
+    GraphicsAPI GetGraphicsAPI() const { return m_GraphicsAPI; }
+
+    Settings& GetSettings() { return mSettings; }
+
+    const GPUInfo& GetGPUInfo() const { return m_GPUInfo; }
+    void SetGPUInfo(const GPUInfo& inInfo) { m_GPUInfo = inInfo; }
+
+    virtual uint64_t GetDisplayTexture() = 0;
+
+    /* OpenGL: Does nothing, returns inHandle. 
+       DX12: Expects a ResourceID (index into the resource heap). Returns a GPU descriptor handle ptr. */
+    virtual uint64_t GetImGuiTextureID(uint32_t inHandle) = 0;
+
+    virtual uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) = 0;
+    virtual uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) = 0;
+
+    virtual void UploadMeshBuffers(Mesh& inMesh) = 0;
+    virtual void DestroyMeshBuffers(Mesh& inMesh) = 0;
+
+    virtual void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) = 0;
+    virtual void DestroySkeletonBuffers(Skeleton& inSkeleton) = 0;
+
+    virtual void DestroyMaterialTextures(Material& inMaterial, Assets& inAssets) = 0;
+
+    virtual uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false) = 0;
+
+    virtual void OnResize(const Viewport& inViewport) = 0;
+    virtual void DrawImGui(Scene& inScene, const Viewport& inViewport) = 0;
+
+protected:
+    GPUInfo m_GPUInfo;
+    GraphicsAPI m_GraphicsAPI;
+};
+
+
 
 struct ConfigSettings {
     RTTI_CLASS_HEADER(ConfigSettings);
@@ -14,7 +85,6 @@ struct ConfigSettings {
     std::string mSceneFile = "";
 };
 
-
 enum WindowFlag {
     NONE = 0,
     HIDDEN = SDL_WINDOW_HIDDEN,
@@ -24,7 +94,6 @@ enum WindowFlag {
     BORDERLESS = SDL_WINDOW_BORDERLESS,
 };
 using WindowFlags = uint32_t;
-
 
 class Application {
 public:
@@ -38,6 +107,16 @@ public:
 
     virtual void OnUpdate(float dt)  = 0;
     virtual void OnEvent(const SDL_Event& event) = 0;
+
+    virtual Scene* GetScene() { return nullptr; }
+    virtual Assets* GetAssets() { return nullptr; }
+    virtual Physics* GetPhysics() { return nullptr; }
+    virtual IRenderer* GetRenderer() { return nullptr; }
+
+    virtual void SetActiveEntity(Entity inEntity) { }
+    virtual Entity GetActiveEntity() { return sInvalidEntity; }
+
+    virtual void LogMessage(const std::string& inMessage) { std::cout << inMessage << '\n'; }
 
     ConfigSettings& GetSettings() { return m_Settings; }
     const ConfigSettings& GetSettings() const { return m_Settings; }

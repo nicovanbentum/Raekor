@@ -10,12 +10,9 @@ class MenubarWidget : public IWidget {
     RTTI_CLASS_HEADER(MenubarWidget);
 public:
 
-    MenubarWidget(Editor* editor);
-    virtual void draw(float dt) override;
-    virtual void onEvent(const SDL_Event& ev) override {}
-
-private:
-    entt::entity& m_ActiveEntity;
+    MenubarWidget(Application* inApp);
+    virtual void Draw(float dt) override;
+    virtual void OnEvent(const SDL_Event& ev) override {}
 };
 
 }

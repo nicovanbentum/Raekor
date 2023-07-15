@@ -3,6 +3,7 @@
 
 #include "timer.h"
 #include "systems.h"
+#include "application.h"
 
 namespace Raekor {
 
@@ -116,33 +117,72 @@ void Scene::UpdateLights() {
 
 
 void Scene::UpdateTransforms() {
-    for (auto& [entity, node, transform] : view<Node, Transform>().each()) {
+    const auto components = view<Node, Transform>();
+
+    for (auto& [entity, node, transform] : components.each()) {
         transform.Compose();
 
-        if (node.parent == entt::null)
-            UpdateTransformsRecursively(entity, node.parent);
+        if (node.parent != entt::null)
+            continue;
+
+        if (node.parent == entt::null) {
+            std::stack<Entity> nodes;
+            nodes.push(entity);
+
+            while (!nodes.empty()) {
+                auto& [current_node, current_transform] = components.get(nodes.top());
+                nodes.pop();
+
+                if (current_node.parent == entt::null) {
+                    current_transform.worldTransform = current_transform.localTransform;
+                } else {
+                    auto& [parent_node, parent_transform] = components.get(current_node.parent);
+                    current_transform.worldTransform = parent_transform.worldTransform * current_transform.localTransform;
+                }
+
+                auto child = current_node.firstChild;
+                while (child != entt::null) {
+                    nodes.push(child);
+                    child = get<Node>(child).nextSibling;
+                }
+
+            }
+        }
     }
 }
 
 
-void Scene::UpdateTransformsRecursively(entt::entity node, entt::entity parent) {
-    auto& transform = get<Transform>(node);
-    
-    if (parent == entt::null) {
-        transform.worldTransform = transform.localTransform;
-    } else {
-        auto& parentTransform = get<Transform>(parent);
-        transform.worldTransform = parentTransform.worldTransform * transform.localTransform;
-    }
+void Scene::UpdateAnimations(float inDeltaTime) {
+    auto skeleton_view = view<Skeleton>();
+    auto skeleton_job_ptrs = std::vector<Async::JobPtr>();
+    skeleton_job_ptrs.reserve(skeleton_view.size());
 
-    auto& comp = get<Node>(node);
+    skeleton_view.each([&](Skeleton& skeleton) {
+        auto job_ptr = Async::sQueueJob([&]() {
+            skeleton.UpdateFromAnimation(skeleton.animations[0], inDeltaTime);
+        });
 
-    auto curr = comp.firstChild;
-    while (curr != entt::null) {
-        UpdateTransformsRecursively(curr, node);
-        curr = get<Node>(curr).nextSibling;
-    }
+        skeleton_job_ptrs.push_back(job_ptr);
+    });
+
+    for (const auto& job_ptr : skeleton_job_ptrs)
+        job_ptr->WaitCPU();
 }
+
+
+void Scene::UpdateNativeScripts(float inDeltaTime) {
+    view<NativeScript>().each([&](NativeScript& component) {
+        if (component.script) {
+            try {
+                component.script->OnUpdate(inDeltaTime);
+            }
+            catch (const std::exception& e) {
+                std::cerr << e.what() << '\n';
+            }
+        }
+    });
+}
+
 
 
 Entity Scene::Clone(Entity inEntity) {
@@ -163,27 +203,33 @@ Entity Scene::Clone(Entity inEntity) {
 void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials) {
     Timer timer;
 
+    auto job_ptrs = std::vector<Async::JobPtr>();
+    job_ptrs.reserve(materials.Length());
+
     for (const auto& entity : materials) {
-        Async::sQueueJob([&]() {
+        auto job_ptr = Async::sQueueJob([&]() {
             auto& material = this->get<Material>(entity);
             assets.GetAsset<TextureAsset>(material.albedoFile);
             assets.GetAsset<TextureAsset>(material.normalFile);
             assets.GetAsset<TextureAsset>(material.metalroughFile);
         });
+
+        job_ptrs.push_back(job_ptr);
     }
 
-    Async::sWait();
+    for (const auto& job_ptr : job_ptrs)
+        job_ptr->WaitCPU();
 
-    std::cout << "Async texture time " << Timer::sToMilliseconds(timer.Restart()) << '\n';
+    std::cout << "[Scene] Load textures to RAM took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
 
     for (auto entity : materials) {
         auto& material = get<Material>(entity);
 
-        if (m_UploadMaterialCallback)
-            m_UploadMaterialCallback(material, assets);
+        if (m_Renderer)
+            RenderUtil::sUploadMaterialTextures(m_Renderer, assets, material);
     }
 
-    std::cout << "Upload texture time " << Timer::sToMilliseconds(timer.Restart()) << '\n';
+    std::cout << "[Scene] Upload textures to GPU took  " << Timer::sToMilliseconds(timer.Restart()) << " .ms\n";
 }
 
 
@@ -268,8 +314,9 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
     // init mesh render data
     for (auto& [entity, mesh] : view<Mesh>().each()) {
         mesh.CalculateAABB();
-        if (m_UploadMeshCallback)
-            m_UploadMeshCallback(mesh);
+     
+        if (m_Renderer)
+            m_Renderer->UploadMeshBuffers(mesh);
     }
 
     std::cout << "Mesh time " << Timer::sToMilliseconds(timer.GetElapsedTime()) << "\n\n";

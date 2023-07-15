@@ -7,7 +7,24 @@ namespace Raekor::ecs {
 typedef uint32_t Entity;
 
 template<typename T>
-class SparseSet {
+class SparseSet;
+
+class ISparseSet {
+public:
+    virtual ~ISparseSet() = default;
+
+    virtual void    Clear() = 0;
+    virtual size_t  Length() = 0;
+    virtual void    Remove(Entity inEntity) = 0;
+    virtual bool    Contains(Entity inEntity) const = 0;
+
+    template<typename T> SparseSet<T>* GetDerived()       { return static_cast<SparseSet<T>*>(this); }
+    template<typename T> SparseSet<T>* GetDerived() const { return static_cast<SparseSet<T>*>(this); }
+
+};
+
+template<typename T>
+class SparseSet : public ISparseSet {
 
     class EachIterator {
     public:
@@ -55,6 +72,8 @@ class SparseSet {
     };
 
 public:
+    virtual ~SparseSet() { Clear(); }
+
     T& Insert(Entity entity, const T& t) {
         if (Contains(entity)) {
             auto& existing_t = Get(entity);
@@ -79,7 +98,7 @@ public:
         return storage[sparse[entity]];
     }
 
-    void Remove(Entity entity) {
+    void Remove(Entity entity) override final {
         if (!Contains(entity))
             return;
 
@@ -93,7 +112,7 @@ public:
         entities.pop_back();
     }
 
-    bool Contains(Entity entity) {
+    bool Contains(Entity entity) const override final {
         if (entity >= sparse.size())
             return false;
 
@@ -103,14 +122,15 @@ public:
         return entities[sparse[entity]] == entity;
     }
 
-    void Clear() {
+    void Clear() override final {
         sparse.clear();
         storage.clear();
         entities.clear();
     }
 
+    size_t Length() override final { return storage.size(); }
+    
     View Each() { return View(*this); }
-    size_t Length() { return storage.size(); }
 
     auto begin() { return EachIterator(storage.begin(), entities.begin()); }
     auto end() { return EachIterator(storage.end(), entities.end()); }
@@ -123,12 +143,18 @@ public:
 
 class ECS {
 public:
+    template<typename Component>
+    SparseSet<Component>* GetSparseSet() { return m_Components.at(RTTI_OF(Component).GetHash())->GetDerived<Component>(); }
+
     Entity Create() { 
         return m_Entities.emplace_back(uint32_t(m_Entities.size())); 
     }
     
-    void Destroy(Entity entity) { 
-        /* TODO */ 
+    void Destroy(Entity inEntity) {
+        for (auto& [type_id, components] : m_Components) {
+            if (components->Contains(inEntity))
+                components->Remove(inEntity);
+        }
     }
 
     template<typename Component>
@@ -136,15 +162,13 @@ public:
         if (m_Components.find(RTTI_OF(Component).GetHash()) == m_Components.end())
             m_Components[RTTI_OF(Component).GetHash()] = new SparseSet<Component>();
 
-        auto set = static_cast<SparseSet<Component>*>(m_Components.at(RTTI_OF(Component).GetHash()));
-        return set->Insert(entity, Component());
+        return GetSparseSet<Component>()->Insert(entity, Component());
     }
 
     template<typename Component>
     auto& _GetInternal(Entity entity) {
         assert(m_Components.find(RTTI_OF(Component).GetHash()) != m_Components.end());
-        auto set = static_cast<SparseSet<Component>*>(m_Components.at(RTTI_OF(Component).GetHash()));
-        return set->Get(entity);
+        return GetSparseSet<Component>()->Get(entity);
     }
 
     template<typename ...Components>
@@ -166,9 +190,7 @@ public:
 
         (..., [&]() {
             if (m_Components.find(RTTI_OF(Components).GetHash()) != m_Components.end()) {
-                auto set = static_cast<SparseSet<Components>*>(m_Components.at(RTTI_OF(Components).GetHash()));
-
-                if (!set->Contains(entity))
+                if (!GetSparseSet<Components>()->Contains(entity))
                     has_all = false;
             }
             else
@@ -180,10 +202,8 @@ public:
 
     template<typename Component>
     void Remove(Entity entity) {
-        if (m_Components.find(RTTI_OF(Component).GetHash()) != m_Components.end()) {
-            auto set = static_cast<SparseSet<Component>*>(m_Components.at(RTTI_OF(Component).GetHash()));
-            set->Remove(entity);
-        }
+        if (m_Components.find(RTTI_OF(Component).GetHash()) != m_Components.end())
+            GetSparseSet<Component>()->Remove(entity);
     }
 
     friend class EachIterator;
@@ -245,14 +265,23 @@ public:
     template<typename ...Components>
     auto Each() {
         if constexpr (sizeof...(Components) == 1)
-            return static_cast<SparseSet<Components...>*>(m_Components.at(RTTI_OF(Components).GetHash()...))->Each();
+            return GetSparseSet<Components...>()->Each();
         else
             return ComponentView<Components...>(*this);
     }
 
+    template<typename Fn>
+    void Visit(Entity inEntity, Fn&& inVisitFunc) {
+        for (const auto& [type_id, sparse_set] : m_Components) {
+            if (sparse_set->Contains(inEntity))
+                inVisitFunc(type_id);
+        }
+    }
+
 private:
     std::vector<Entity> m_Entities;
-    std::unordered_map<uint32_t, void*> m_Components;
+    std::unordered_map<uint32_t, ISparseSet*> m_Components;
 };
+
 
 } // raekor

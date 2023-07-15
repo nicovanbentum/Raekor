@@ -326,17 +326,6 @@ private:
 };
 
 
-
-struct Sphere {
-    alignas(16) glm::vec3 origin;
-    alignas(16) glm::vec3 colour;
-    alignas(4) float roughness;
-    alignas(4) float metalness;
-    alignas(4) float radius;
-};
-
-
-
 class Atmosphere final : public RenderPass {
     friend class GLRenderer;
 

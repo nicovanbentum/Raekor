@@ -36,6 +36,9 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
         assert(pix_module);
     }
 
+    m_Buffers.Reserve(UINT16_MAX);
+    m_Textures.Reserve(UINT16_MAX);
+
     auto factory = ComPtr<IDXGIFactory6>{};
     gThrowIfFailed(CreateDXGIFactory2(device_creation_flags, IID_PPV_ARGS(&factory)));
     factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&m_Adapter));
@@ -58,43 +61,35 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
         m_Device->CreateSampler(&SAMPLER_DESC[sampler_index], m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].GetCPUDescriptorHandle(DescriptorID(sampler_index)));
 
     auto root_params = std::vector<D3D12_ROOT_PARAMETER1>{};
-    auto cbv_registers = 0u, srv_registers = 0u, uav_register = 0u;
+    auto b_registers = 0u, t_registers = 0u;
 
     root_params.emplace_back(D3D12_ROOT_PARAMETER1 {
         .ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
         .Constants = D3D12_ROOT_CONSTANTS {
-            .ShaderRegister = cbv_registers++,
+            .ShaderRegister = b_registers++,
             .RegisterSpace = 0u,
-            .Num32BitValues = sMaxRootConstantsSize / sizeof(DWORD),
+            .Num32BitValues = sMaxRootConstantsSize / (uint32_t)sizeof(DWORD),
         },
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL,
     });
 
-    // start at 1 because the index is mapped to the shader registers, where 0 is occupied by constants
-    for (auto bind_slot = 1u; bind_slot < EBindSlot::Count; bind_slot++) {
+    for (uint32_t bind_slot = EBindSlot::SRV0; bind_slot < EBindSlot::Count; bind_slot++) {
         auto param = D3D12_ROOT_PARAMETER1 {
             .Descriptor = D3D12_ROOT_DESCRIPTOR1 { .RegisterSpace = 0 },
             .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL,
         };
 
         switch (bind_slot) {
-            case EBindSlot::CBV0: case EBindSlot::CBV1: case EBindSlot::CBV2: case EBindSlot::CBV3:
-                param.Descriptor.ShaderRegister = cbv_registers++;
-                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; 
-                break;
-            case EBindSlot::SRV0: case EBindSlot::SRV1: case EBindSlot::SRV2: case EBindSlot::SRV3:
-                param.Descriptor.ShaderRegister = srv_registers++;
+            case EBindSlot::SRV0: case EBindSlot::SRV1:
+                param.Descriptor.ShaderRegister = t_registers++;
                 param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; 
-                break;
-            case EBindSlot::UAV0: case EBindSlot::UAV1: case EBindSlot::UAV2: case EBindSlot::UAV3:
-                param.Descriptor.ShaderRegister = uav_register++;
-                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; 
                 break;
             default: assert(false);
         }
 
         root_params.push_back(param);
     }
+
 
     auto vrsd = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC{};
     vrsd.Init_1_1(
@@ -123,8 +118,8 @@ void Device::BindDrawDefaults(CommandList& inCmdList) {
     inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     const auto heaps = std::array {
-        GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER).GetHeap(),
-        GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetHeap()
+        GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetHeap(),
+        GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER).GetHeap()
     };
 
     inCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
@@ -668,7 +663,7 @@ void StagingHeap::StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef
     auto footprint = D3D12_PLACED_SUBRESOURCE_FOOTPRINT {};
     
     auto desc = inResource->GetDesc();
-    m_Device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
+    m_Device->GetCopyableFootprints(&desc, inSubResource, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
 
     const auto aligned_row_size = gAlignUp(row_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
@@ -721,6 +716,9 @@ void StagingHeap::StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef
         .mPtr       = mapped_ptr,
         .mBufferID  = buffer_id
     });
+
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(inResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, inSubResource);
+    inCmdList->ResourceBarrier(1, &barrier);
 }
 
 
