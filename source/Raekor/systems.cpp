@@ -118,15 +118,24 @@ std::vector<entt::entity> NodeSystem::sGetFlatHierarchy(entt::registry& registry
 }
 
 
-void RenderUtil::sUploadMaterialTextures(IRenderer* inRenderer, Assets& inAssets, Material& inMaterial) {
+void IRenderer::UploadMaterialTextures(Material& inMaterial, Assets& inAssets) {
+    assert(Material::Default.IsLoaded() && "Default material not loaded, did you forget to initialize its gpu maps before opening a scene?");
+
     if (auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.albedoFile); asset)
-        inMaterial.gpuAlbedoMap = inRenderer->UploadTextureFromAsset(asset, true);
+        inMaterial.gpuAlbedoMap = UploadTextureFromAsset(asset, true);
+    else
+        inMaterial.gpuAlbedoMap = Material::Default.gpuAlbedoMap;
 
     if (auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.normalFile); asset)
-        inMaterial.gpuNormalMap = inRenderer->UploadTextureFromAsset(asset);
+        inMaterial.gpuNormalMap = UploadTextureFromAsset(asset);
+    else
+        inMaterial.gpuNormalMap = Material::Default.gpuNormalMap;
 
     if (auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.metalroughFile); asset)
-        inMaterial.gpuMetallicRoughnessMap = inRenderer->UploadTextureFromAsset(asset);
+        inMaterial.gpuMetallicRoughnessMap = UploadTextureFromAsset(asset);
+    else
+        inMaterial.gpuMetallicRoughnessMap = Material::Default.gpuMetallicRoughnessMap;
+
 }
 
 } // namespace Raekor

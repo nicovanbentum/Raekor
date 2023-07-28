@@ -10,7 +10,7 @@ RTTI_CLASS_CPP_NO_FACTORY(ConsoleWidget) {}
 ConsoleWidget::ConsoleWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_TERMINAL "  Console ")) {}
 
 
-void ConsoleWidget::Draw(float inDeltaTime) {
+void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
     ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 
     if (!ImGui::Begin(m_Title.c_str(), &m_Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
@@ -59,9 +59,9 @@ void ConsoleWidget::Draw(float inDeltaTime) {
             std::string name, value;
             stream >> name >> value;
 
-            bool success = CVars::sSetValue(name, value);
+            bool success = g_CVars.SetValue(name, value);
             if (!success) {
-                if (CVars::sGetValue(name).empty())
+                if (!g_CVars.Exists(name))
                     m_Items.emplace_back("cvar \"" + name + "\" does not exist.");
 
                 else if(value.empty())
@@ -87,11 +87,11 @@ void ConsoleWidget::Draw(float inDeltaTime) {
 
         const auto filter = ImGuiTextFilter(m_InputBuffer.c_str());
     
-        for (const auto& [index, mapping] : gEnumerate(CVars::sGet())) {
+        for (const auto& [index, mapping] : gEnumerate(g_CVars)) {
             if (!filter.PassFilter(mapping.first.c_str()))
                 continue;
 
-            const auto cvar_text = mapping.first + " " + CVars::sGetValue(mapping.first) + '\n';
+            const auto cvar_text = mapping.first + " " + g_CVars.GetValue(mapping.first) + '\n';
 
             if (index == m_ActiveItem)
                 ImGui::Selectable(cvar_text.c_str(), true);
@@ -99,7 +99,7 @@ void ConsoleWidget::Draw(float inDeltaTime) {
                 ImGui::TextUnformatted(cvar_text.c_str());
         }
 
-        const auto nr_of_cvars = CVars::sGetCount();
+        const auto nr_of_cvars = g_CVars.GetCount();
         m_ActiveItem = m_ActiveItem > nr_of_cvars ? nr_of_cvars : m_ActiveItem;
 
         ImGui::EndTooltip();
@@ -123,7 +123,7 @@ int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data) {
     if (data->EventKey == ImGuiKey_Tab && data->BufTextLen) {
         auto filter = ImGuiTextFilter(data->Buf);
 
-        for (const auto& [index, cvar] : gEnumerate(CVars::sGet())) {
+        for (const auto& [index, cvar] : gEnumerate(g_CVars)) {
             if (!filter.PassFilter(cvar.first.c_str()))
                 continue;
 

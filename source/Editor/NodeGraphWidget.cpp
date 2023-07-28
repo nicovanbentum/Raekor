@@ -9,7 +9,7 @@ RTTI_CLASS_CPP_NO_FACTORY(NodeGraphWidget) {}
 
 NodeGraphWidget::NodeGraphWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_SITEMAP "  Node Graph ")) {}
 
-void NodeGraphWidget::Draw(float dt) {
+void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 	m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open);
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2.0f, 2.0f));
@@ -251,7 +251,7 @@ void NodeGraphWidget::Draw(float dt) {
 }
 
 
-void NodeGraphWidget::OnEvent(const SDL_Event& ev) {
+void NodeGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev) {
 	if (ev.type == SDL_MOUSEBUTTONUP && ev.button.button == SDL_BUTTON_RIGHT)
 		m_WasRightClicked = true;
 

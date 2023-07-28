@@ -98,7 +98,7 @@ public:
 private:
 	void CreateDescriptor(BufferID inBufferID, const Buffer::Desc& inDesc);
 	void CreateDescriptor(TextureID inTextureID, const Texture::Desc& inDesc);
-	void ReleaseDescriptor(Buffer inBufferID);
+	void ReleaseDescriptor(BufferID inBufferID);
 	void ReleaseDescriptor(TextureID inTextureID);
 
 	/* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */

@@ -1,14 +1,15 @@
 #include "pch.h"
 #include "script.h"
 #include "input.h"
+#include "scene.h"
 
 // this once contained chaiscript, but in the future I'll mainly support native code or integrate Mono for C#
 
 namespace Raekor {
 
-void INativeScript::Bind(entt::entity entity, entt::registry& scene) {
-    this->entity = entity;
-    this->scene = &scene;
+void INativeScript::Bind(Entity inEntity, Scene* inScene) {
+    m_Entity = inEntity;
+    m_Scene = inScene;
 }
 
 /*

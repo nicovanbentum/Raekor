@@ -62,7 +62,7 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
 
     std::cout << '\n';
 
-    Async::sWait();
+    g_ThreadPool.WaitForJobs();
 
     std::cout << "Texture conversion took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
 
@@ -332,21 +332,21 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
         material.roughness = roughness;
 
     if (albedoFile.length) {
-        Async::sQueueJob([this, &material, albedoFile]() {
+        g_ThreadPool.QueueJob([this, &material, albedoFile]() {
             auto assetPath = TextureAsset::sConvert(m_Directory.string() + albedoFile.C_Str());
             material.albedoFile = assetPath;
         });
     }
 
     if (normalmapFile.length) {
-        Async::sQueueJob([this, &material, normalmapFile]() {
+        g_ThreadPool.QueueJob([this, &material, normalmapFile]() {
             auto assetPath = TextureAsset::sConvert(m_Directory.string() + normalmapFile.C_Str());
             material.normalFile = assetPath;
         });
     }
 
     if (metalroughFile.length) {
-        Async::sQueueJob([this, &material, metalroughFile]() {
+        g_ThreadPool.QueueJob([this, &material, metalroughFile]() {
             auto assetPath = TextureAsset::sConvert(m_Directory.string() + metalroughFile.C_Str());
             material.metalroughFile = assetPath;
         });

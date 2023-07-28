@@ -4,6 +4,7 @@
 #include "DXResource.h"
 #include "DXRenderGraph.h"
 
+#include "Raekor/async.h"
 #include "Raekor/application.h"
 
 namespace Raekor {
@@ -17,7 +18,6 @@ namespace Raekor::DX12 {
 class Device;
 class RenderGraph;
 class CommandList;
-
 
 struct BackBufferData {
     uint64_t    mFenceValue;
@@ -33,14 +33,14 @@ struct BackBufferData {
 class Renderer {
 private:
     struct Settings {
-        int& mEnableVsync = CVars::sCreate("r_vsync",               1);
-        int& mDebugLines  = CVars::sCreate("r_debug_lines",         1);
-        int& mEnableRTAO  = CVars::sCreate("r_enable_rtao",         1);
-        int& mProbeDebug  = CVars::sCreate("r_debug_gi_probes",     1);
-        int& mEnableDDGI  = CVars::sCreate("r_enable_ddgi",         1);
-        int& mFullscreen  = CVars::sCreate("r_fullscreen",          0);
-        int& mEnableFsr2  = CVars::sCreate("r_enable_fsr2",         0);
-        int& mDisplayRes  = CVars::sCreate("r_display_resolution",  0);
+        int& mEnableVsync = g_CVars.Create("r_vsync",               1);
+        int& mDebugLines  = g_CVars.Create("r_debug_lines",         1);
+        int& mEnableRTAO  = g_CVars.Create("r_enable_rtao",         1);
+        int& mProbeDebug  = g_CVars.Create("r_debug_gi_probes",     1);
+        int& mEnableDDGI  = g_CVars.Create("r_enable_ddgi",         1);
+        int& mFullscreen  = g_CVars.Create("r_fullscreen",          0);
+        int& mEnableFsr2  = g_CVars.Create("r_enable_fsr2",         0);
+        int& mDisplayRes  = g_CVars.Create("r_display_resolution",  0);
     } m_Settings;
 
 public:
@@ -59,9 +59,10 @@ public:
     void SetShouldResize(bool inValue) { m_ShouldResize = inValue; }
     void SetShouldCaptureNextFrame(bool inValue) { m_ShouldCaptureNextFrame = inValue; }
 
-    SDL_Window*         GetWindow()             { return m_Window;}
+    SDL_Window*         GetWindow()       const { return m_Window;}
     Settings&           GetSettings()           { return m_Settings;}
-    const RenderGraph&  GetRenderGraph()        { return m_RenderGraph; }
+    const RenderGraph&  GetRenderGraph()  const { return m_RenderGraph; }
+    uint64_t            GetFrameCounter() const { return m_FrameCounter; }
     BackBufferData&     GetBackBufferData()     { return m_BackBufferData[m_FrameIndex];  }
     BackBufferData&     GetPrevBackBufferData() { return m_BackBufferData[!m_FrameIndex]; }
 
@@ -71,7 +72,7 @@ public:
 
 private:
     SDL_Window*             m_Window;
-    Async::JobPtr           m_PresentJobPtr;
+    Job::Ptr                m_PresentJobPtr;
     uint32_t                m_FrameIndex;
     float                   m_ElapsedTime = 0;
     ComPtr<IDXGISwapChain3> m_Swapchain;
@@ -106,7 +107,7 @@ public:
 
     void DestroyMaterialTextures(Material& inMaterial, Assets& inAssets) override {}
 
-    uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = true);
+    uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false);
 
     void OnResize(const Viewport& inViewport) { m_Renderer.SetShouldResize(true); }
     void DrawImGui(Scene& inScene, const Viewport& inViewport);

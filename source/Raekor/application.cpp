@@ -3,6 +3,7 @@
 
 #include "OS.h"
 #include "util.h"
+#include "async.h"
 #include "timer.h"
 #include "camera.h"
 #include "archive.h"
@@ -59,10 +60,11 @@ Application::Application(WindowFlags inFlags) {
 
     auto quit_function = [&]() {
         m_Running = false;
+        g_ThreadPool.WaitForJobs();
     };
 
-    CVars::sCreateFn("quit", quit_function);
-    CVars::sCreateFn("exit", quit_function);
+    g_CVars.CreateFn("quit", quit_function);
+    g_CVars.CreateFn("exit", quit_function);
 
     if (inFlags != WindowFlag::HIDDEN)
         SDL_ShowWindow(m_Window);

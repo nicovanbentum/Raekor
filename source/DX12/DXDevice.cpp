@@ -1,10 +1,13 @@
 #include "pch.h"
 #include "DXDevice.h"
-#include "DXSampler.h"
+
 #include "DXUtil.h"
+#include "DXSampler.h"
 #include "DXCommandList.h"
 #include "DXRenderGraph.h"
+
 #include "Raekor/timer.h"
+#include "Raekor/async.h"
 
 #include <locale>
 #include <codecvt>
@@ -18,11 +21,11 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     auto debug_interface = ComPtr<ID3D12Debug1>{};
 
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_interface)))) {
-        if (CVars::sCreate("debug_layer", 0)) 
+        if (g_CVars.Create("debug_layer", 0))
             debug_interface->EnableDebugLayer();
 
 
-        if (CVars::sCreate("gpu_validation", 0)) {
+        if (g_CVars.Create("gpu_validation", 0)) {
             debug_interface->SetEnableGPUBasedValidation(TRUE);
             debug_interface->SetEnableSynchronizedCommandQueueValidation(TRUE);
         }
@@ -31,7 +34,7 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     device_creation_flags |= DXGI_CREATE_FACTORY_DEBUG;
 #endif
     
-    if (CVars::sCreate("hook_pix", 0)) {
+    if (g_CVars.Create("hook_pix", 0)) {
         auto pix_module = PIXLoadLatestWinPixGpuCapturerLibrary();
         assert(pix_module);
     }
@@ -301,7 +304,7 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
 void Device::ReleaseBuffer(BufferID inBufferID) { 
     assert(inBufferID.IsValid());
     m_Buffers.Remove(inBufferID);
-    // ReleaseDescriptor(inBufferID);
+    ReleaseDescriptor(inBufferID);
 }
 
 
@@ -416,7 +419,7 @@ D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* i
 
 
 void Device::QueueShader(const Path& inPath) {
-    Async::sQueueJob([this, inPath]() {
+    g_ThreadPool.QueueJob([this, inPath]() {
         auto compiled_blob = sCompileShaderDXC(inPath);
 
         std::scoped_lock(m_ShadersLock);
@@ -508,12 +511,16 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc) {
 }
 
 
+void Device::ReleaseDescriptor(BufferID inBufferID) {
+    auto& buffer = GetBuffer(inBufferID);
+    m_Heaps[gGetHeapType(buffer.m_Desc.usage)].Remove(buffer.m_View);
+}
+
 
 void Device::ReleaseDescriptor(TextureID inTextureID) {
     auto& texture = GetTexture(inTextureID);
     m_Heaps[gGetHeapType(texture.m_Desc.usage)].Remove(texture.m_View);
 }
-
 
 
 void Device::ReleaseDescriptorImmediate(TextureID inTextureID) {
@@ -816,7 +823,7 @@ ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath) {
     result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr);
 
     if (errors && errors->GetStringLength() > 0) {
-        auto lock = Async::sLock();
+        auto lock = g_ThreadPool.GetGlobalLock();
         auto error_c_str = static_cast<char*>(errors->GetBufferPointer());
         std::cout << error_c_str << '\n';
 
@@ -854,7 +861,7 @@ ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath) {
     auto pdb_file = std::ofstream(inFilePath.parent_path() / inFilePath.filename().replace_extension(".pdb"));
     pdb_file.write((char*)pdb->GetBufferPointer(), pdb->GetBufferSize());
 
-    auto lock = Async::sLock();
+    auto lock = g_ThreadPool.GetGlobalLock();
     std::cout << "Compilation " << COUT_GREEN("Finished") << " for shader: " << inFilePath.string() << '\n';
  
     return shader;

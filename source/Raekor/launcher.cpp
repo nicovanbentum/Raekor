@@ -95,7 +95,7 @@ void Launcher::OnUpdate(float inDeltaTime) {
 
     ImGui::BeginTable("Configuration Settings", 2);
 
-    for (auto& cvar : CVars::sGet()) {
+    for (auto& cvar : g_CVars) {
         switch (cvar.second.index()) {
             case 0: { // int
                 auto value = bool(std::get<0>(cvar.second));

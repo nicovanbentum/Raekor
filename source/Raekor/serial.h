@@ -6,6 +6,31 @@
 
 namespace Raekor {
 
+enum EPakCompressionType {
+	COMPRESS_NONE,
+	COMPRESS_LZ4,
+	COMPRESS_GDEFLATE
+};
+
+constexpr auto PAK_VERSION = 1u;
+
+struct PakHeader {
+	uint32_t mMagicNumber = 'PAK';
+	uint32_t mVersionNumber = PAK_VERSION;
+	uint32_t mContentVersionNumber = 1;
+	uint32_t mOffset = 0;
+	uint32_t mEntryCount = 0;
+};
+
+struct PakEntry {
+	char mNameOrPath[255];
+	EPakCompressionType mCompressionType;
+	uint32_t mOffset = 0;
+	uint32_t mSize = 0;
+	uint32_t mUncompressedSize = 0;
+};
+
+
 }
 
 namespace cereal {

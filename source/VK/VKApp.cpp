@@ -10,7 +10,8 @@ namespace Raekor::VK {
 
     PathTracer::PathTracer() : 
     Application(WindowFlag::VULKAN | WindowFlag::RESIZE), 
-    m_Renderer(m_Window) 
+    m_Renderer(m_Window),
+    m_Scene(nullptr)
 {
     // initialize ImGui
     IMGUI_CHECKVERSION();
@@ -127,8 +128,14 @@ void PathTracer::OnUpdate(float dt) {
             reset = true;
         }
 
-        reset |= ImGui::DragFloat("Sun Strength", &push_constants.lightDir.w, 0.1f, 1.0f, 100.0f, "%.1f");
+        reset |= ImGui::DragFloat("Sun Strength", &push_constants.lightDir.w, 0.1f, 0.0f, 100.0f, "%.1f");
         reset |= ImGui::DragFloat("Sun Cone", &m_Renderer.GetPushConstants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
+
+        auto field_of_view = m_Viewport.GetFieldOfView();
+        if (ImGui::DragFloat("Camera Fov", &field_of_view, 0.1f, 65.0f, 120.0f, "%.3f")) {
+            m_Viewport.SetFieldOfView(field_of_view);
+            reset = true;
+        }
 
         if (lightView.begin() != lightView.end()) {
             auto& sun_transform = lightView.get<Transform>(lightView.front());

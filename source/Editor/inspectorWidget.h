@@ -21,23 +21,23 @@ public:
     RTTI_CLASS_HEADER(InspectorWidget);
 
     InspectorWidget(Application* inApp);
-    virtual void Draw(float dt) override;
-    virtual void OnEvent(const SDL_Event& ev) override {}
+    virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;
+    virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) override {}
 
 private:
-    void DrawJSONInspector();
-    void DrawEntityInspector();
+    void DrawJSONInspector(Widgets* inWidgets);
+    void DrawEntityInspector(Widgets* inWidgets);
 
-    void DrawComponent(Name& component);
-    void DrawComponent(Node& component);
-    void DrawComponent(Mesh& component);
-    void DrawComponent(Skeleton& component);
-    void DrawComponent(Material& component);
-    void DrawComponent(Transform& component);
-    void DrawComponent(PointLight& component);
-    void DrawComponent(BoxCollider& component);
-    void DrawComponent(NativeScript& component);
-    void DrawComponent(DirectionalLight& component);
+    void DrawComponent(Name& ioName);
+    void DrawComponent(Node& ioNode);
+    void DrawComponent(Mesh& ioMesh);
+    void DrawComponent(Skeleton& ioSkeleton);
+    void DrawComponent(Material& ioMaterial);
+    void DrawComponent(Transform& ioTransform);
+    void DrawComponent(PointLight& ioPointLight);
+    void DrawComponent(BoxCollider& ioBoxCollider);
+    void DrawComponent(NativeScript& ioNativeScript);
+    void DrawComponent(DirectionalLight& ioDirectionalLight);
 };
 
 }

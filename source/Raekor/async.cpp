@@ -3,12 +3,15 @@
 
 namespace Raekor {
 
-Async::Async() : Async(std::thread::hardware_concurrency() - 1) {}
+ThreadPool g_ThreadPool;
 
 
-Async::Async(uint32_t inThreadCount) {
+ThreadPool::ThreadPool() : ThreadPool(std::thread::hardware_concurrency() - 1) {}
+
+
+ThreadPool::ThreadPool(uint32_t inThreadCount) {
     for (int i = 0; i < inThreadCount; i++) {
-        m_Threads.push_back(std::thread(&Async::ThreadLoop, this));
+        m_Threads.push_back(std::thread(&ThreadPool::ThreadLoop, this));
 
         // Do Windows-specific thread setup:
         HANDLE handle = (HANDLE)m_Threads[i].native_handle();
@@ -28,7 +31,7 @@ Async::Async(uint32_t inThreadCount) {
 }
 
 
-Async::~Async() {
+ThreadPool::~ThreadPool() {
     // let every thread know they can exit their while loops
     {
         auto lock = std::scoped_lock<std::mutex>(m_Mutex);
@@ -44,33 +47,33 @@ Async::~Async() {
 }
 
 
-Async::Job::Ptr Async::sQueueJob(const Job::Function& inFunction) {
+Job::Ptr ThreadPool::QueueJob(const Job::Function& inFunction) {
     auto job = std::make_shared<Job>(inFunction);
 
     {
-        auto lock = std::scoped_lock<std::mutex>(global->m_Mutex);
-        global->m_JobQueue.push(job);
+        auto lock = std::scoped_lock<std::mutex>(m_Mutex);
+        m_JobQueue.push(job);
     }
 
-    global->m_ActiveJobCount.fetch_add(1);
-    global->m_ConditionVariable.notify_one();
+    m_ActiveJobCount.fetch_add(1);
+    m_ConditionVariable.notify_one();
 
     return job;
 }
 
 
-std::scoped_lock<std::mutex> Async::sLock() {
-    return std::scoped_lock<std::mutex>(global->m_Mutex);
+std::scoped_lock<std::mutex> ThreadPool::GetGlobalLock() {
+    return std::scoped_lock<std::mutex>(m_Mutex);
 }
 
 
-void Async::sWait() {
-    global->m_ConditionVariable.notify_all();
-    while (global->m_ActiveJobCount.load() > 0) {}
+void ThreadPool::WaitForJobs() {
+    m_ConditionVariable.notify_all();
+    while (m_ActiveJobCount.load() > 0) {}
 }
 
 
-void Async::ThreadLoop() {
+void ThreadPool::ThreadLoop() {
     // take control of the mutex
     auto lock = std::unique_lock<std::mutex>(m_Mutex);
 

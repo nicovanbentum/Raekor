@@ -79,7 +79,7 @@ public:
 
 private:
     struct {
-        int& state = CVars::sCreate("physics_state", int(Idle), true);
+        int& state = g_CVars.Create("physics_state", int(Idle), true);
     } m_Settings;
 
     JPH::PhysicsSystem          m_Physics;

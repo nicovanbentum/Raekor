@@ -43,6 +43,9 @@ public:
     template<typename T>
     std::shared_ptr<T> GetAsset(const std::string& inPath);
 
+    template<typename T>
+    std::shared_ptr<T> GetAsset(const Path& inPath) { return GetAsset<T>(inPath.string()); }
+
     [[nodiscard]] inline bool Contains(const std::string& inPath) const { return find(inPath) != end(); }
 
     void Release(const std::string& inPath);
@@ -105,7 +108,7 @@ public:
     ScriptAsset(const std::string& inPath) : Asset(inPath) {}
     virtual ~ScriptAsset();
 
-    static std::string sConvert(const std::string& inPath);
+    static Path sConvert(const Path& inPath);
     virtual bool Load(const std::string& inPath) override;
 
     template<class Archive> 

@@ -1,6 +1,8 @@
 #pragma once
 
-#define RAEKOR_SCRIPT_CLASS(x) extern "C" __declspec(dllexport) Raekor::INativeScript * __cdecl x() { return new class x(); }
+#include "scene.h"
+
+#define RAEKOR_SCRIPT_CLASS(x) extern "C" __declspec(dllexport) Raekor::INativeScript * __cdecl Create##x() { return new class x(); }
 
 namespace Raekor {
 
@@ -19,7 +21,7 @@ public:
 
     virtual ~INativeScript() = default;
 
-    void Bind(entt::entity entity, entt::registry& scene);
+    void Bind(Raekor::Entity inEntity, Raekor::Scene* inScene);
 
     virtual void OnUpdate(float dt) = 0;
 
@@ -27,14 +29,14 @@ public:
     T& GetComponent();
 
 private:
-    entt::entity entity;
-    entt::registry* scene;
+    Raekor::Scene* m_Scene = nullptr;
+    Raekor::Entity m_Entity;
 };
 
 
 template<typename T>
 T& INativeScript::GetComponent() {
-    return scene->get<T>(entity);
+    return m_Scene->get<T>(m_Entity);
 }
 
 } // Raekor

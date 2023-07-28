@@ -4,6 +4,7 @@
 #include "Raekor/timer.h"
 #include "Raekor/input.h"
 #include "Raekor/rtti.h"
+#include "Raekor/physics.h"
 #include "Raekor/launcher.h"
 #include "DXShader.h"
 #include "DXRenderer.h"
@@ -162,7 +163,7 @@ public:
         return true;
     }
 
-    DX11App() : Application(WindowFlag::RESIZE), m_Renderer(m_Viewport, m_Window) {
+    DX11App() : Application(WindowFlag::RESIZE), m_Renderer(m_Viewport, m_Window), m_Scene(nullptr) {
         while (!FileSystem::exists(m_Settings.mSceneFile))
             m_Settings.mSceneFile = FileSystem::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
 
@@ -181,7 +182,7 @@ public:
                 //mesh.mLODFade = 1.0f;
         }
 
-        Async::sQueueJob([this]() {
+        g_ThreadPool.QueueJob([this]() {
             const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
             const auto white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
             const auto normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
@@ -206,7 +207,7 @@ public:
             }
         });
 
-        std::cout << std::format("Scene Upload took {:3f} ms.\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
+        std::cout << std::format("Scene Upload took {:.2f} ms\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
 
         const auto gbuffer_stages = std::array {
             DXShader::Stage { .type = DXShader::Type::VERTEX, .mTextFile = "assets/system/shaders/DirectX/old/simple_vertex.hlsl" },
@@ -277,7 +278,7 @@ public:
         }
 
         if (ImGui::SmallButton("Reset Mesh Fade")) {
-            Async::sQueueJob([this]() {
+            g_ThreadPool.QueueJob([this]() {
                 for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
                     mesh.mLODFade = 1.0f;
                     Sleep(rand() % 100);
@@ -296,7 +297,7 @@ public:
                 auto& transform = sb_transform;
                 auto& collider  = sb_collider;
 
-                Async::sQueueJob([&]() {
+                g_ThreadPool.QueueJob([&]() {
                     JPH::TriangleList triangles;
 
                     for (int i = 0; i < mesh.indices.size(); i += 3) {
@@ -330,7 +331,7 @@ public:
             }
         }
 
-        if (Async::sActiveJobCount() == 0 && ImGui::Button("Spawn/Reset Balls")) {
+        if (g_ThreadPool.GetActiveJobCount() == 0 && ImGui::Button("Spawn/Reset Balls")) {
             const auto material_entity = m_Scene.create();
             
             auto& material_name = m_Scene.emplace<Name>(material_entity);
@@ -542,12 +543,12 @@ public:
         }
 
         if (inEvent.type == SDL_WINDOWEVENT && inEvent.window.event == SDL_WINDOWEVENT_CLOSE)
-            Async::sWait(); // Wait for streaming to finish
+            g_ThreadPool.WaitForJobs(); // Wait for streaming to finish
     }
 
 private:
     struct {
-        int& mEnableMeshFading = CVars::sCreate("r_mesh_fading", 1);
+        int& mEnableMeshFading = g_CVars.Create("r_mesh_fading", 1);
     } m_CustomSettings;
 
     ComPtr<ID3D11SamplerState> m_SamplerAnisoWrap;
@@ -579,11 +580,11 @@ using namespace Raekor;
 int main(int argc, char** argv) {
     RTTIFactory::Register(RTTI_OF(ConfigSettings));
 
-    CVars::ParseCommandLine(argc, argv);
+    g_CVars.ParseCommandLine(argc, argv);
 
     auto should_launch = true;
 
-    if (CVars::sCreate("enable_launcher", 0)) {
+    if (g_CVars.Create("enable_launcher", 0)) {
         Launcher launcher;
         launcher.Run();
 

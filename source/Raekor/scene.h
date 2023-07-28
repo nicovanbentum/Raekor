@@ -1,14 +1,13 @@
 #pragma once
 
-#include "ecs.h"
-#include "components.h"
-#include "rmath.h"
-#include "assets.h"
-#include "physics.h"
+#include "util.h"
 
 namespace Raekor {
 
+class Ray;
+class Assets;
 class IRenderer;
+class NativeScript;
 
 using Entity = entt::entity;
 static constexpr entt::null_t sInvalidEntity = entt::null;
@@ -21,8 +20,8 @@ public:
 
 	// Spatial entity management
 	entt::entity	PickSpatialEntity(Ray& inRay);
-	entt::entity	CreateSpatialEntity(const std::string& name = "");
-	void			DestroySpatialEntity(entt::entity entity);
+	entt::entity	CreateSpatialEntity(const std::string& inName = "");
+	void			DestroySpatialEntity(entt::entity inEntity);
 
 	// TODO: kinda hacky, pls fix
 	glm::vec3 GetSunLightDirection() const;
@@ -36,16 +35,17 @@ public:
 	Entity Clone(Entity inEntity);
 
 	/* Loads materials from disk in parallel, is used for both importing and scene loading. */
-	void LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials);
+	void LoadMaterialTextures(Assets& ioAssets, const Slice<Entity>& inMaterials);
 
 	// save Scene to disk
-	void SaveToFile(Assets& assets, const std::string& file);
-	void OpenFromFile(Assets& assets, const std::string& file);
+	void SaveToFile(Assets& ioAssets, const std::string& inFile);
+	void OpenFromFile(Assets& ioAssets, const std::string& inFile);
 
-	void BindScriptToEntity(entt::entity entity, NativeScript& script);
+	void BindScriptToEntity(Entity inEntity, NativeScript& inScript);
 
 private:
 	IRenderer* m_Renderer;
+	std::stack<Entity> m_Nodes;
 };
 
 } // Namespace Raekor

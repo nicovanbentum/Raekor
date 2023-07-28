@@ -1,11 +1,12 @@
 #include "pch.h"
 #include "renderer.h"
+#include "Raekor/rmath.h"
 #include "Raekor/scene.h"
 #include "Raekor/async.h"
 #include "Raekor/camera.h"
 #include "renderpass.h"
 
-namespace Raekor {
+namespace Raekor::GL {
 
 void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
@@ -23,7 +24,7 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
 }
 
 
-GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) : 
+Renderer::Renderer(SDL_Window* window, Viewport& viewport) : 
     IRenderer(GraphicsAPI::OpenGL4_6),
     m_Window(window) 
 {
@@ -72,7 +73,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) :
             continue;
         }
 
-        Async::sQueueJob([=]() {
+        g_ThreadPool.QueueJob([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
@@ -80,7 +81,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) :
                 auto success = GLShader::sGlslangValidator(vulkanSDK, file, outfile);
 
                 {
-                    auto lock = Async::sLock();
+                    auto lock = g_ThreadPool.GetGlobalLock();
 
                     std::string result_string = success ? COUT_GREEN("finished") : COUT_RED("failed");
                     std::cout << "Compilation " << result_string << " for shader: " << file.path().string() << '\n';
@@ -89,7 +90,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) :
         });
     }
 
-    Async::sWait();
+    g_ThreadPool.WaitForJobs();
 
     // set debug callback
     glEnable(GL_DEBUG_OUTPUT);
@@ -135,18 +136,19 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) :
     // initialise all the render passes
     viewport.SetSize(UVec2(2560, 1440));
 
-    m_Icons =         std::make_shared<Icons>(viewport);
-    m_Bloom =         std::make_shared<Bloom>(viewport);
-    m_GBuffer =       std::make_shared<GBuffer>(viewport);
-    m_Tonemap =       std::make_shared<Tonemap>(viewport);
-    m_Skinning =      std::make_shared<Skinning>();
-    m_Voxelize =      std::make_shared<Voxelize>(512);
-    m_ResolveTAA =    std::make_shared<TAAResolve>(viewport);
-    m_DebugLines =    std::make_shared<DebugLines>();
-    m_Atmosphere =    std::make_shared<Atmosphere>(viewport);
-    m_ShadowMaps =    std::make_shared<ShadowMap>(viewport);
-    m_DebugVoxels =   std::make_shared<VoxelizeDebug>(viewport);
-    m_DeferredShading =  std::make_shared<DeferredShading>(viewport);
+    m_Icons             = std::make_shared<Icons>(viewport);
+    m_Bloom             = std::make_shared<Bloom>(viewport);
+    m_GBuffer           = std::make_shared<GBuffer>(viewport);
+    m_Tonemap           = std::make_shared<Tonemap>(viewport);
+    m_Skinning          = std::make_shared<Skinning>();
+    m_Voxelize          = std::make_shared<Voxelize>(512);
+    m_ImGuiPass         = std::make_shared<ImGuiPass>();
+    m_ResolveTAA        = std::make_shared<TAAResolve>(viewport);
+    m_DebugLines        = std::make_shared<DebugLines>();
+    m_Atmosphere        = std::make_shared<Atmosphere>(viewport);
+    m_ShadowMaps        = std::make_shared<ShadowMap>(viewport);
+    m_DebugVoxels       = std::make_shared<VoxelizeDebug>(viewport);
+    m_DeferredShading   = std::make_shared<DeferredShading>(viewport);
 
     m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Icons));
     m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Bloom));
@@ -154,6 +156,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) :
     m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Tonemap));
     m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Skinning));
     m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Voxelize));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_ImGuiPass));
     m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_ResolveTAA));
     m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_DebugLines));
     m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Atmosphere));
@@ -190,7 +193,7 @@ GLRenderer::GLRenderer(SDL_Window* window, Viewport& viewport) :
 }
 
 
-GLRenderer::~GLRenderer() {
+Renderer::~Renderer() {
     ImGui_ImplOpenGL3_DestroyDeviceObjects();
     SDL_GL_DeleteContext(m_GLContext);
     ImNodes::DestroyContext();
@@ -198,51 +201,49 @@ GLRenderer::~GLRenderer() {
 }
 
 
-void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
-    if (!m_Timings.empty() && mSettings.disableTiming)
-        m_Timings.clear();
-
+void Renderer::Render(const Scene& scene, const Viewport& viewport) {
     // skin all meshes in the scene
-    TimeOpenGL("Skinning", [&]() {
-        scene.view<const Skeleton, const Mesh>()
-        .each([&](auto& animation, auto& mesh) {
-            m_Skinning->compute(mesh, animation);
-        });
-    });
+    {
+        const auto timer = RenderPass::ScopedTimer("Skinning", m_Skinning.get(), !mSettings.disableTiming);
+        for (const auto& [entity, mesh, skeleton] : scene.view<Mesh, Skeleton>().each())
+            m_Skinning->compute(mesh, skeleton);
+    }
 
     // render 4 * 4096 cascaded shadow maps
-    TimeOpenGL("Shadow cascades", [&]() {
-        m_ShadowMaps->Render(viewport, scene);
-    });
+    {
+        const auto timer = RenderPass::ScopedTimer("Shadow Cascades", m_ShadowMaps.get(), !mSettings.disableTiming);
+       m_ShadowMaps->Render(viewport, scene);
+    }
 
     // voxelize the Scene to a 3D texture
     if (mSettings.shouldVoxelize) {
-        TimeOpenGL("Voxelize", [&]() {
-            m_Voxelize->Render(scene, viewport, *m_ShadowMaps);
-        });
+        const auto timer = RenderPass::ScopedTimer("Voxelize", m_Voxelize.get(), !mSettings.disableTiming);
+        m_Voxelize->Render(scene, viewport, *m_ShadowMaps);
     }
 
     // generate a geometry buffer with depth, normals, material and albedo
-    TimeOpenGL("GBuffer", [&]() {
+    {
+        const auto timer = RenderPass::ScopedTimer("GBuffer", m_GBuffer.get(), !mSettings.disableTiming);
         m_GBuffer->Render(scene, viewport, m_FrameNr);
-    });
-
+    }
+    
     // render the sky using ray marching for atmospheric scattering
-    TimeOpenGL("Atmosphere", [&]() {
+    {
+        const auto timer = RenderPass::ScopedTimer("Atmosphere", m_Atmosphere.get(), !mSettings.disableTiming);
         m_Atmosphere->computeCubemaps(viewport, scene);
-    });
+    }
 
     // fullscreen PBR deferred shading pass
-    TimeOpenGL("Deferred Shading", [&]() {
+    {
+        const auto timer = RenderPass::ScopedTimer("Deferred Shading", m_DeferredShading.get(), !mSettings.disableTiming);
         m_DeferredShading->Render(scene, viewport, *m_ShadowMaps, *m_GBuffer, *m_Atmosphere, *m_Voxelize);
-    });
+    }
 
-    GLuint shadingResult = m_DeferredShading->result;
+    auto shading_result = m_DeferredShading->result;
 
     if (mSettings.enableTAA) {
-        TimeOpenGL("TAA Resolve", [&]() {
-            shadingResult = m_ResolveTAA->Render(viewport, *m_GBuffer, *m_DeferredShading, m_FrameNr);
-        });
+        const auto timer = RenderPass::ScopedTimer("TAA Resolve", m_ResolveTAA.get(), !mSettings.disableTiming);
+        shading_result = m_ResolveTAA->Render(viewport, *m_GBuffer, *m_DeferredShading, m_FrameNr);
     }
     else {
         // if the cvar is enabled through cvars it doesnt reset the frameNr,
@@ -251,41 +252,38 @@ void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
     }
 
     // render editor icons
-    TimeOpenGL("Icons", [&]() {
-        m_Icons->Render(scene, viewport, shadingResult, m_GBuffer->entityTexture);
-    });
+    {
+        const auto timer = RenderPass::ScopedTimer("Icons", m_Icons.get(), !mSettings.disableTiming);
+        m_Icons->Render(scene, viewport, shading_result, m_GBuffer->entityTexture);
+    }
 
     // generate downsampled bloom and do ACES tonemapping
-    GLuint bloomTexture = m_DefaultBlackTexture;
+    auto bloomTexture = m_DefaultBlackTexture;
 
     if (mSettings.doBloom) {
-        TimeOpenGL("Bloom", [&]() {
-            m_Bloom->Render(viewport, m_DeferredShading->bloomHighlights);
-        });
-
+        const auto timer = RenderPass::ScopedTimer("Bloom", m_Bloom.get(), !mSettings.disableTiming);
+        m_Bloom->Render(viewport, m_DeferredShading->bloomHighlights);
         bloomTexture = m_Bloom->bloomTexture;
     }
 
-    TimeOpenGL("Tonemap", [&]() {
-        m_Tonemap->Render(shadingResult, bloomTexture);
-    });
-
-    if (mSettings.debugCascades) {
-        TimeOpenGL("Debug cascade", [&]() {
-            m_ShadowMaps->renderCascade(viewport, m_Tonemap->framebuffer);
-        });
+    {
+        const auto timer = RenderPass::ScopedTimer("Tonemap", m_Tonemap.get(), !mSettings.disableTiming);
+        m_Tonemap->Render(shading_result, bloomTexture);
     }
 
+    if (mSettings.debugCascades)
+        m_ShadowMaps->renderCascade(viewport, m_Tonemap->framebuffer);
+
     // render debug lines / shapes
-    TimeOpenGL("Debug lines", [&]() {
+    {
+        const auto timer = RenderPass::ScopedTimer("Debug Primitives", m_DebugLines.get(), !mSettings.disableTiming);
         m_DebugLines->Render(viewport, m_Tonemap->result, m_GBuffer->depthTexture);
-    });
+    }
 
     // render 3D voxel texture size ^ 3 cubes
     if (mSettings.debugVoxels) {
-        TimeOpenGL("Debug voxels", [&]() {
-            m_DebugVoxels->Render(viewport, m_Tonemap->result, *m_Voxelize);
-        });
+        const auto timer = RenderPass::ScopedTimer("Debug Voxels", m_DebugVoxels.get(), !mSettings.disableTiming);
+        m_DebugVoxels->Render(viewport, m_Tonemap->result, *m_Voxelize);
     }
 
     // build the imgui font texture
@@ -298,9 +296,10 @@ void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // render ImGui
-    TimeOpenGL("ImGui", [&]() {
+    {
+        const auto timer = RenderPass::ScopedTimer("ImGui", m_ImGuiPass.get(), !mSettings.disableTiming);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    });
+    }
 
     // increment frame counter
     m_FrameNr = m_FrameNr + 1;
@@ -312,14 +311,14 @@ void GLRenderer::Render(const Scene& scene, const Viewport& viewport) {
 
 
 
-void GLRenderer::AddDebugLine(glm::vec3 p1, glm::vec3 p2) {
+void Renderer::AddDebugLine(glm::vec3 p1, glm::vec3 p2) {
     m_DebugLines->points.push_back(p1);
     m_DebugLines->points.push_back(p2);
 }
 
 
 
-void GLRenderer::AddDebugBox(glm::vec3 min, glm::vec3 max, const glm::mat4& m) {
+void Renderer::AddDebugBox(glm::vec3 min, glm::vec3 max, const glm::mat4& m) {
     AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
     AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
     AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
@@ -336,21 +335,7 @@ void GLRenderer::AddDebugBox(glm::vec3 min, glm::vec3 max, const glm::mat4& m) {
 
 
 
-template<typename Lambda>
-void GLRenderer::TimeOpenGL(const std::string& name, Lambda&& lambda) {
-    if (!mSettings.disableTiming) {
-        m_Timings.insert({ name, std::make_unique<GLTimer>() });
-        m_Timings[name]->begin();
-        lambda();
-        m_Timings[name]->end();
-    }
-    else
-        lambda();
-}
-
-
-
-void GLRenderer::DrawImGui(Scene& inScene, const Viewport& inViewport) {
+void Renderer::DrawImGui(Scene& inScene, const Viewport& inViewport) {
     if (ImGui::Checkbox("VSync", (bool*)(&mSettings.vsync)))
         SDL_GL_SetSwapInterval(mSettings.vsync);
 
@@ -383,7 +368,7 @@ void GLRenderer::DrawImGui(Scene& inScene, const Viewport& inViewport) {
 
 
 
-void GLRenderer::UploadMeshBuffers(Mesh& mesh) {
+void Renderer::UploadMeshBuffers(Mesh& mesh) {
     auto vertices = mesh.GetInterleavedVertices();
 
     glCreateBuffers(1, &mesh.vertexBuffer);
@@ -395,7 +380,7 @@ void GLRenderer::UploadMeshBuffers(Mesh& mesh) {
 
 
 
-void GLRenderer::DestroyMeshBuffers(Mesh& mesh) {
+void Renderer::DestroyMeshBuffers(Mesh& mesh) {
     glDeleteBuffers(1, &mesh.vertexBuffer);
     glDeleteBuffers(1, &mesh.indexBuffer);
     mesh.vertexBuffer = 0, mesh.indexBuffer = 0;
@@ -403,7 +388,7 @@ void GLRenderer::DestroyMeshBuffers(Mesh& mesh) {
 
 
 
-void GLRenderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
+void Renderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
     glCreateBuffers(1, &skeleton.boneIndexBuffer);
     glNamedBufferData(skeleton.boneIndexBuffer, skeleton.boneIndices.size() * sizeof(glm::ivec4), skeleton.boneIndices.data(), GL_STATIC_COPY);
 
@@ -422,7 +407,7 @@ void GLRenderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
 
 
 
-void GLRenderer::DestroySkeletonBuffers(Skeleton& skeleton) {
+void Renderer::DestroySkeletonBuffers(Skeleton& skeleton) {
     glDeleteBuffers(1, &skeleton.boneIndexBuffer);
     glDeleteBuffers(1, &skeleton.boneWeightBuffer);
     glDeleteBuffers(1, &skeleton.skinnedVertexBuffer);
@@ -431,7 +416,7 @@ void GLRenderer::DestroySkeletonBuffers(Skeleton& skeleton) {
 
 
 
-void GLRenderer::DestroyMaterialTextures(Material& material, Assets& assets) {
+void Renderer::DestroyMaterialTextures(Material& material, Assets& assets) {
     glDeleteTextures(1, &material.gpuAlbedoMap);
     glDeleteTextures(1, &material.gpuNormalMap);
     glDeleteTextures(1, &material.gpuMetallicRoughnessMap);
@@ -444,7 +429,7 @@ void GLRenderer::DestroyMaterialTextures(Material& material, Assets& assets) {
 
 
 
-GLuint GLRenderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB) {
+GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB) {
     assert(asset);
     auto dataPtr = asset->GetData();
     auto headerPtr = asset->GetHeader();
@@ -469,7 +454,7 @@ GLuint GLRenderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool s
 }
 
 
-uint32_t GLRenderer::GetScreenshotBuffer(uint8_t* ioBuffer) {
+uint32_t Renderer::GetScreenshotBuffer(uint8_t* ioBuffer) {
     int width = 0, height = 0;
     glGetTextureLevelParameteriv(GetDisplayTexture(), 0, GL_TEXTURE_WIDTH, &width);
     glGetTextureLevelParameteriv(GetDisplayTexture(), 0, GL_TEXTURE_HEIGHT, &height);
@@ -483,7 +468,7 @@ uint32_t GLRenderer::GetScreenshotBuffer(uint8_t* ioBuffer) {
 }
 
 
-void GLRenderer::CreateRenderTargets(const Viewport& viewport) {
+void Renderer::CreateRenderTargets(const Viewport& viewport) {
     m_FrameNr = 0;
 
     for (auto& pass : m_RenderPasses) {

@@ -9,7 +9,7 @@ RTTI_CLASS_CPP_NO_FACTORY(AssetsWidget) {}
 
 AssetsWidget::AssetsWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_PALETTE "  Materials ")) {}
 
-void AssetsWidget::Draw(float dt) {
+void AssetsWidget::Draw(Widgets* inWidgets, float dt) {
     ImGui::Begin(m_Title.c_str(), &m_Open);
     m_Visible = ImGui::IsWindowAppearing();
 
@@ -20,7 +20,6 @@ void AssetsWidget::Draw(float dt) {
     if (ImGui::BeginTable("Assets", 24)) {
         for (auto entity : materials) {
             auto [material, name] = materials.get<Material, Name>(entity);
-            auto selectable_name = name.name.substr(0, 9).c_str() + std::string("...");
 
             ImGui::TableNextColumn();
 
@@ -65,7 +64,7 @@ void AssetsWidget::Draw(float dt) {
 
             ImGui::PopID();
 
-            ImGui::Text(selectable_name.c_str());
+            ImGui::Text(name.name.c_str());
         }
 
         ImGui::EndTable();

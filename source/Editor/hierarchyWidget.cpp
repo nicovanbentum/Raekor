@@ -13,7 +13,7 @@ HierarchyWidget::HierarchyWidget(Application* inApp) :
 {}
 
 
-void HierarchyWidget::Draw(float dt) {
+void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
     ImGui::Begin(m_Title.c_str(), &m_Open);
     m_Visible = ImGui::IsWindowAppearing();
 
@@ -26,77 +26,85 @@ void HierarchyWidget::Draw(float dt) {
             continue;
 
         if (node.HasChildren()) {
-            if (drawFamilyNode(scene, entity, active_entity)) {
-                drawFamily(scene, entity, active_entity);
+            if (DrawFamilyNode(scene, entity, active_entity)) {
+                DrawFamily(scene, entity, active_entity);
                 ImGui::TreePop();
             }
         } 
         else 
-            drawChildlessNode(scene, entity, active_entity);
+            DrawChildlessNode(scene, entity, active_entity);
     }
 
-    dropTargetWindow(scene);
+    DropTargetWindow(scene);
 
     ImGui::End();
 }
 
 
-bool HierarchyWidget::drawFamilyNode(Scene& scene, Entity entity, Entity& active) {
-    const auto name = scene.get<Name>(entity);
-    const auto selected = active == entity ? ImGuiTreeNodeFlags_Selected : 0;
-    const auto tree_flags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
+bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity, Entity& inActive) {
+    const auto& name = inScene.get<Name>(inEntity);
+    const auto  selected = inActive == inEntity ? ImGuiTreeNodeFlags_Selected : 0;
+    const auto  tree_flags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
     
-    bool opened = ImGui::TreeNodeEx(std::string((const char*)ICON_FA_CUBE "   " + name.name).c_str(), tree_flags);
+    const auto font_size = ImGui::GetFontSize();
+    if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", inActive == inEntity, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {
+
+    }
+
+    ImGui::SameLine();
+    bool opened = ImGui::TreeNodeEx(name.name.c_str(), tree_flags);
     
     if (ImGui::IsItemClicked())
-        m_Editor->SetActiveEntity(active == entity ? entt::null : entity);
+        m_Editor->SetActiveEntity(inActive == inEntity ? entt::null : inEntity);
 
-    dropTargetNode(scene, entity);
+    DropTargetNode(inScene, inEntity);
 
     return opened;
 }
 
 
-void HierarchyWidget::drawChildlessNode(Scene& scene, Entity entity, Entity& active) {
-    auto name = scene.get<Name>(entity);
-    auto selectable_name = name.name + "##" + std::to_string(entt::to_integral(entity));
+void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity, Entity& inActive) {
+    auto& name = inScene.get<Name>(inEntity);
+    ImGui::PushID(entt::to_integral(inEntity));
 
-    if (ImGui::Selectable(std::string((const char*)ICON_FA_CUBE "   " + selectable_name).c_str(), entity == active))
-        m_Editor->SetActiveEntity(active == entity ? entt::null : entity);
+    const auto font_size = ImGui::GetFontSize();
+    if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", inActive == inEntity, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
 
-    dropTargetNode(scene, entity);
+    ImGui::SameLine();
+
+    if (ImGui::Selectable(name.name.c_str(), inEntity == inActive))
+        m_Editor->SetActiveEntity(inActive == inEntity ? entt::null : inEntity);
+
+    ImGui::PopID();
+
+    DropTargetNode(inScene, inEntity);
 }
 
 
-void HierarchyWidget::dropTargetNode(Scene& scene, Entity entity) {
-    ImGuiDragDropFlags src_flags = ImGuiDragDropFlags_SourceNoDisableHover;
-    src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers;
-    if (ImGui::BeginDragDropSource(src_flags)) {
-        ImGui::SetDragDropPayload("drag_drop_hierarchy_entity", &entity, sizeof(entt::entity));
+void HierarchyWidget::DropTargetNode(Scene& inScene, Entity inEntity) {
+    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoDisableHover | ImGuiDragDropFlags_SourceNoHoldToOpenOthers)) {
+        ImGui::SetDragDropPayload("drag_drop_hierarchy_entity", &inEntity, sizeof(entt::entity));
         ImGui::EndDragDropSource();
     }
     
-    auto& node = scene.get<Node>(entity);
+    auto& node = inScene.get<Node>(inEntity);
 
     if (ImGui::BeginDragDropTarget()) {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_hierarchy_entity")) {
-            entt::entity child = *reinterpret_cast<const entt::entity*>(payload->Data);
+        if (const auto payload = ImGui::AcceptDragDropPayload("drag_drop_hierarchy_entity")) {
+            const auto child = *reinterpret_cast<const entt::entity*>(payload->Data);
 
-            bool childIsParent = false;
+            bool child_is_parent = false;
 
-            for (auto parent = node.parent; parent != entt::null; parent = scene.get<Node>(parent).parent) {
+            for (auto parent = node.parent; parent != entt::null; parent = inScene.get<Node>(parent).parent) {
                 if (child == parent) {
-                    childIsParent = true;
+                    child_is_parent = true;
                     break;
                 }
             }
 
-            if (!childIsParent) {
-                auto& childTransform = scene.get<Transform>(entity);
-                auto& parentTransform = scene.get<Transform>(entity);
-
-                NodeSystem::sRemove(scene, scene.get<Node>(child));
-                NodeSystem::sAppend(scene, entity, node, child, scene.get<Node>(child));
+            if (!child_is_parent) {
+                NodeSystem::sRemove(inScene, inScene.get<Node>(child));
+                NodeSystem::sAppend(inScene, inEntity, node, child, inScene.get<Node>(child));
             }
 
         }
@@ -106,17 +114,17 @@ void HierarchyWidget::dropTargetNode(Scene& scene, Entity entity) {
 }
 
 
-void HierarchyWidget::dropTargetWindow(Scene& scene) {
+void HierarchyWidget::DropTargetWindow(Scene& inScene) {
     if (ImGui::BeginDragDropTargetCustom(ImGui::GetCurrentWindow()->InnerRect, ImGui::GetCurrentWindow()->ID)) {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_hierarchy_entity")) {
-            entt::entity entity = *reinterpret_cast<const entt::entity*>(payload->Data);
-            auto& node = scene.get<Node>(entity);
-            auto& transform = scene.get<Transform>(entity);
+        if (const auto payload = ImGui::AcceptDragDropPayload("drag_drop_hierarchy_entity")) {
+            const auto entity = *reinterpret_cast<const entt::entity*>(payload->Data);
+            auto& node = inScene.get<Node>(entity);
+            auto& transform = inScene.get<Transform>(entity);
 
             transform.localTransform = transform.worldTransform;
             transform.Decompose();
 
-            NodeSystem::sRemove(scene, node);
+            NodeSystem::sRemove(inScene, node);
             node.parent = entt::null;
 
         }
@@ -126,21 +134,21 @@ void HierarchyWidget::dropTargetWindow(Scene& scene) {
 }
 
 
-void HierarchyWidget::drawFamily(Scene& scene, Entity entity, Entity& active) {
-    const auto& node = scene.get<Node>(entity);
+void HierarchyWidget::DrawFamily(Scene& inScene, Entity inEntity, Entity& inActive) {
+    const auto& node = inScene.get<Node>(inEntity);
 
     if (node.HasChildren()) {
-        for (auto it = node.firstChild; it != entt::null; it = scene.get<Node>(it).nextSibling) {
-            const auto& child = scene.get<Node>(it);
+        for (auto it = node.firstChild; it != entt::null; it = inScene.get<Node>(it).nextSibling) {
+            const auto& child = inScene.get<Node>(it);
 
             if (child.HasChildren()) {
-                if (drawFamilyNode(scene, it, active)) {
-                    drawFamily(scene, it, active);
+                if (DrawFamilyNode(inScene, it, inActive)) {
+                    DrawFamily(inScene, it, inActive);
                     ImGui::TreePop();
                 }
             } 
             else
-                drawChildlessNode(scene, it, active);
+                DrawChildlessNode(inScene, it, inActive);
         }
     }
 }

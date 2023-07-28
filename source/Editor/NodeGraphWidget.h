@@ -78,8 +78,8 @@ public:
 
     NodeGraphWidget(Application* inApp);
     
-    virtual void Draw(float dt) override;
-    virtual void OnEvent(const SDL_Event& ev) override;
+    virtual void Draw(Widgets* inWidgets, float dt) override;
+    virtual void OnEvent(Widgets* inWidgets, const SDL_Event& ev) override;
     const GraphNode* FindNode(int id) const;
 
     JSON::Object* GetSelectedObject() { return m_SelectedObject == -1 ? nullptr : &m_JSON.Get(m_SelectedObject); }

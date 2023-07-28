@@ -1,11 +1,12 @@
 #pragma once
 
 #include "rtti.h"
-#include "script.h"
 #include "assets.h"
 #include "animation.h"
 
 namespace Raekor {
+
+class INativeScript;
 
 struct Name {
     RTTI_CLASS_HEADER(Name);
@@ -18,7 +19,7 @@ struct Name {
 };
 
 
-struct Transform {
+struct SCRIPT_INTERFACE Transform {
     RTTI_CLASS_HEADER(Transform);
 
     glm::vec3 scale     = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -28,9 +29,9 @@ struct Transform {
     glm::mat4 localTransform  = glm::mat4(1.0f);
     glm::mat4 worldTransform  = glm::mat4(1.0f);
 
-    SCRIPT_INTERFACE void Print();
-    SCRIPT_INTERFACE void Compose();
-    SCRIPT_INTERFACE void Decompose();
+    void Print();
+    void Compose();
+    void Decompose();
 };
 
 

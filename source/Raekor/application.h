@@ -3,11 +3,14 @@
 #include "scene.h"
 #include "camera.h"
 
+extern std::atomic_uint64_t sAllocationsPerFrame;
+
 namespace Raekor {
 
 class Scene;
 class Assets;
 class Physics;
+class IWidget;
 
 struct GPUInfo {
     std::string mVendor;
@@ -27,14 +30,14 @@ enum GraphicsAPI : uint8_t {
 class IRenderer {
 public:
     struct Settings {
-        int& vsync              = CVars::sCreate("r_vsync", 1);
-        int& doBloom            = CVars::sCreate("r_bloom", 0);
-        int& paused             = CVars::sCreate("r_paused", 0);
-        int& enableTAA          = CVars::sCreate("r_taa", 1);
-        int& debugVoxels        = CVars::sCreate("r_voxelize_debug", 0);
-        int& debugCascades      = CVars::sCreate("r_debug_cascades", 0);
-        int& disableTiming      = CVars::sCreate("r_disable_timings", 0);
-        int& shouldVoxelize     = CVars::sCreate("r_voxelize", 1);
+        int& vsync              = g_CVars.Create("r_vsync", 1);
+        int& doBloom            = g_CVars.Create("r_bloom", 0);
+        int& paused             = g_CVars.Create("r_paused", 0);
+        int& enableTAA          = g_CVars.Create("r_taa", 1);
+        int& debugVoxels        = g_CVars.Create("r_voxelize_debug", 0);
+        int& debugCascades      = g_CVars.Create("r_debug_cascades", 0);
+        int& disableTiming      = g_CVars.Create("r_disable_timings", 0);
+        int& shouldVoxelize     = g_CVars.Create("r_voxelize", 1);
     } mSettings;
 
     IRenderer(GraphicsAPI inAPI) : m_GraphicsAPI(inAPI) {}
@@ -61,12 +64,15 @@ public:
     virtual void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) = 0;
     virtual void DestroySkeletonBuffers(Skeleton& inSkeleton) = 0;
 
+    /* Implementation resides in Systems.cpp to avoid conflicts. */
+    virtual void UploadMaterialTextures(Material& inMaterial, Assets& inAssets);
     virtual void DestroyMaterialTextures(Material& inMaterial, Assets& inAssets) = 0;
 
     virtual uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false) = 0;
 
     virtual void OnResize(const Viewport& inViewport) = 0;
     virtual void DrawImGui(Scene& inScene, const Viewport& inViewport) = 0;
+
 
 protected:
     GPUInfo m_GPUInfo;
@@ -118,7 +124,6 @@ public:
 
     virtual void LogMessage(const std::string& inMessage) { std::cout << inMessage << '\n'; }
 
-    ConfigSettings& GetSettings() { return m_Settings; }
     const ConfigSettings& GetSettings() const { return m_Settings; }
 
     SDL_Window* GetWindow() { return m_Window; }

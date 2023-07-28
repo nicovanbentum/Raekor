@@ -72,7 +72,7 @@ void PathTracePass::CreatePipeline(Device& device) {
     for (const auto& file : FileSystem::directory_iterator("assets/system/shaders/Vulkan")) {
         if (file.is_directory()) continue;
 
-        Async::sQueueJob([=]() {
+        g_ThreadPool.QueueJob([=]() {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
@@ -90,7 +90,7 @@ void PathTracePass::CreatePipeline(Device& device) {
                     success = Shader::sCompileGLSL(vulkanSDK, file);
 
                 {
-                    auto lock = Async::sLock();
+                    auto lock = g_ThreadPool.GetGlobalLock();
 
                     if (!success)
                         std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';
@@ -101,7 +101,7 @@ void PathTracePass::CreatePipeline(Device& device) {
         });
     }
 
-    Async::sWait();
+    g_ThreadPool.WaitForJobs();
 
     m_MissShader = device.CreateShader("assets/system/shaders/Vulkan/bin/pathtrace.rmiss.spv");
     m_RayGenShader = device.CreateShader("assets/system/shaders/Vulkan/bin/pathtrace.rgen.spv");

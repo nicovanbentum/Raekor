@@ -19,14 +19,14 @@ RTTI_CLASS_CPP(Transform) {
 }
 
 
-SCRIPT_INTERFACE void Transform::Compose() {
+void Transform::Compose() {
     localTransform = glm::translate(glm::mat4(1.0f), position);
     localTransform = localTransform * glm::toMat4(rotation);
     localTransform = glm::scale(localTransform, scale);
 }
 
 
-SCRIPT_INTERFACE void Transform::Decompose() {
+void Transform::Decompose() {
     position = localTransform[3];
 
     for (int i = 0; i < 3; i++)
@@ -42,7 +42,7 @@ SCRIPT_INTERFACE void Transform::Decompose() {
 }
 
 
-SCRIPT_INTERFACE void Transform::Print() {
+void Transform::Print() {
     std::cout << glm::to_string(rotation) << '\n';
 }
 

@@ -45,7 +45,7 @@ private:
     glm::mat4 m_Projection;
 
 public:
-    float& mSensitivity = CVars::sCreate("sensitivity", 2.0f);
+    float& mSensitivity = g_CVars.Create("sensitivity", 2.0f);
     float mZoomSpeed = 1.0f, mMoveSpeed = 1.0f;
     float mLookConstant = 1.0f, mZoomConstant = 10.0f, mMoveConstant = 10.0f;
 };

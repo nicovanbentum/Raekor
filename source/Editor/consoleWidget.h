@@ -9,8 +9,8 @@ public:
     RTTI_CLASS_HEADER(ConsoleWidget);
 
     ConsoleWidget(Application* inApp);
-    virtual void Draw(float dt) override;
-    virtual void OnEvent(const SDL_Event& ev) override {}
+    virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;
+    virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) override {}
 
     void LogMessage(const std::string& inMessage);
 

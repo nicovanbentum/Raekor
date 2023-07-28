@@ -14,6 +14,7 @@
 
 #define LOG_CATCH(code) try { code; } catch(std::exception e) { std::cout << e.what() << '\n'; }
 
+
 // From https://en.cppreference.com/w/cpp/utility/unreachable
 [[noreturn]] constexpr inline void gUnreachableCode() {
     assert(false);
@@ -98,7 +99,7 @@ public:
     bool WasModified();
 
 private:
-    std::string m_Path;
+    Path m_Path;
     std::filesystem::file_time_type m_LastWriteTime;
 };
 

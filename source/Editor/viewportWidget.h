@@ -9,8 +9,8 @@ public:
     RTTI_CLASS_HEADER(ViewportWidget);
 
     ViewportWidget(Application* inApp);
-    virtual void Draw(float dt) override;
-    virtual void OnEvent(const SDL_Event& ev) override;
+    virtual void Draw(Widgets* inWidgets, float dt) override;
+    virtual void OnEvent(Widgets* inWidgets, const SDL_Event& ev) override;
 
     void DisableGizmo() { gizmoEnabled = false; }
     bool IsHovered() { return mouseInViewport; }

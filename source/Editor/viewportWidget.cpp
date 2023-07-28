@@ -2,6 +2,7 @@
 #include "viewportWidget.h"
 #include "Raekor/scene.h"
 #include "Raekor/gui.h"
+#include "Raekor/physics.h"
 #include "Raekor/application.h"
 
 namespace Raekor {
@@ -14,7 +15,7 @@ ViewportWidget::ViewportWidget(Application* inApp) :
 {}
 
 
-void ViewportWidget::Draw(float dt) {
+void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
     auto& scene = IWidget::GetScene();
     auto& physics  = IWidget::GetPhysics();
     auto& viewport = m_Editor->GetViewport();
@@ -88,7 +89,7 @@ void ViewportWidget::Draw(float dt) {
     if (viewport.size.x != size.x || viewport.size.y != size.y) {
         viewport.SetSize({ size.x, size.y });
         m_Editor->GetRenderer()->OnResize(viewport);
-        m_Editor->LogMessage("Render Size: " + glm::to_string(viewport.GetSize()));
+        // m_Editor->LogMessage("Render Size: " + glm::to_string(viewport.GetSize()));
         resized = true;
     }
 
@@ -210,7 +211,6 @@ void ViewportWidget::Draw(float dt) {
         const auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
         ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
         // ImGui::Text("Culled meshes: %i", renderer.m_GBuffer->culled);
-
         const auto& gpu_info = m_Editor->GetRenderer()->GetGPUInfo();
 
         ImGui::Text("Vendor: %s", gpu_info.mVendor.c_str());
@@ -226,7 +226,7 @@ void ViewportWidget::Draw(float dt) {
 }
 
 
-void ViewportWidget::OnEvent(const SDL_Event& ev) {
+void ViewportWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev) {
     if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
         switch (ev.key.keysym.sym) {
             case SDLK_r: {

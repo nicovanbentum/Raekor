@@ -29,8 +29,7 @@ D3D12_RESOURCE_STATES gGetResourceStates(Texture::Usage inUsage) {
 
 
 D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Buffer::Usage inUsage) {
-	assert(false); // TODO: implement
-	return D3D12_DESCRIPTOR_HEAP_TYPE();
+	return D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 }
 
 

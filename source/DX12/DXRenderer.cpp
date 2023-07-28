@@ -306,6 +306,8 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
     if (m_Settings.mEnableFsr2)
         compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
 
+
+
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, compose_input);
 
     const auto& pre_imgui_data = AddPreImGuiPass(m_RenderGraph, inDevice, compose_data.mOutputTexture);
@@ -995,7 +997,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
         Timer timer;
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
         inData.mPipeline->SetName(L"PSO_RT_REFLECTIONS");
-        std::cout << std::format("CreateComputePipelineState took {} ms.\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
+        std::cout << std::format("CreateComputePipelineState took {:.2f} ms.\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
     },
     [&inRenderGraph, &inDevice](ReflectionsData& inData, CommandList& inCmdList) 
     {
@@ -1265,11 +1267,9 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
 
         inCmdList.PushComputeConstants(root_constants);
 
-        inCmdList->SetPipelineState(inData.mDepthPipeline.Get());
-        const auto depth_texture = inDevice.GetTexture(inData.mProbesDepthTexture.mCreatedTexture);
-        inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
-        
-        inCmdList.PushComputeConstants(root_constants);
+        //inCmdList->SetPipelineState(inData.mDepthPipeline.Get());
+        //const auto depth_texture = inDevice.GetTexture(inData.mProbesDepthTexture.mCreatedTexture);
+        //inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
 
         inCmdList->SetPipelineState(inData.mIrradiancePipeline.Get());
         const auto irradiance_texture = inDevice.GetTexture(inData.mProbesIrradianceTexture.mCreatedTexture);

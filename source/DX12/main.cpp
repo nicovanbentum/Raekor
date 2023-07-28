@@ -10,11 +10,11 @@ using namespace Raekor;
 int main(int argc, char** argv) {
 	RTTIFactory::Register(RTTI_OF(ConfigSettings));
 
-	CVars::ParseCommandLine(argc, argv);
+	g_CVars.ParseCommandLine(argc, argv);
 
 	auto should_launch = true;
 	
-	if (CVars::sCreate("enable_launcher", 0)) {
+	if (g_CVars.Create("enable_launcher", 0)) {
 		Launcher launcher;
 		launcher.Run();
 
@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
 
 	auto app = new DX12::DXApp();
 
-	std::cout << std::format("App creation took {} seconds.\n", timer.GetElapsedTime());
+	app->LogMessage(std::format("App creation took {:.2f} seconds", timer.GetElapsedTime()));
 
 	app->Run();
 

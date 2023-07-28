@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "widget.h"
-#include "editor.h"
+#include "app.h"
 
 namespace Raekor {
 
@@ -25,5 +25,25 @@ RTTI_CLASS_CPP_NO_FACTORY(IWidget) {}
  Physics& IWidget::GetPhysics() { return *m_Editor->GetPhysics(); }
 
  IRenderer& IWidget::GetRenderer() { return *m_Editor->GetRenderer(); }
+
+
+ void Widgets::Draw(float inDeltaTime) {
+     for (const auto& widget : m_Widgets) {
+         if (widget->IsOpen()) {
+             auto window_class = ImGuiWindowClass();
+             window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoCloseButton;
+             ImGui::SetNextWindowClass(&window_class);
+
+             widget->Draw(this, inDeltaTime);
+         }
+     }
+ }
+
+
+ void Widgets::OnEvent(const SDL_Event& inEvent) {
+     for (const auto& widget : m_Widgets)
+         if (widget->IsOpen())
+             widget->OnEvent(this, inEvent);
+ }
 
 }

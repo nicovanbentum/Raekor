@@ -132,7 +132,7 @@ void Physics::GenerateRigidBodiesEntireScene(Scene& inScene) {
         auto& mesh = sb_mesh;
         auto& collider = sb_collider;
 
-        Async::sQueueJob([&]() {
+        g_ThreadPool.QueueJob([&]() {
             JPH::TriangleList triangles;
 
             for (int i = 0; i < mesh.indices.size(); i += 3) {

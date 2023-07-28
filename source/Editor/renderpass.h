@@ -5,11 +5,11 @@
 #include "Raekor/components.h"
 
 namespace Raekor {
+    class Scene;
+    class Viewport;
+}
 
-class Scene;
-class Viewport;
-
-
+namespace Raekor::GL {
 
 class GLTimer {
 public:
@@ -31,8 +31,24 @@ private:
 
 class RenderPass {
 public:
+    class ScopedTimer {
+    public:
+        ScopedTimer(const char* inName, RenderPass* inThis, bool inEnabled) : m_This(inThis), m_Enabled(inEnabled) { 
+            if (m_Enabled) m_This->m_Timer.begin(); 
+        }
+        ~ScopedTimer() { if (m_Enabled) m_This->m_Timer.end(); }
+
+    private:
+        bool m_Enabled = false;
+        RenderPass* m_This = nullptr;
+    };
+
     virtual void CreateRenderTargets(const Viewport& inViewport) = 0;
     virtual void DestroyRenderTargets() = 0;
+
+private:
+    const char* m_Name;
+    GLTimer m_Timer;
 };
 
 
@@ -45,6 +61,8 @@ class ShadowMap final : public RenderPass {
     };
 
  public:
+     static constexpr auto MAX_NR_OF_CASCADES = 4u;
+
      struct {
          uint32_t resolution = 4096;
          uint32_t nrOfCascades = 4;
@@ -84,8 +102,7 @@ public:
 
 
 class GBuffer final : public RenderPass {
-    friend class GLRenderer;
-    friend class ViewportWidget;
+    friend class Renderer;
 
     struct {
         glm::mat4 prevViewProj;
@@ -134,7 +151,7 @@ private:
 
 
 class Icons final : public RenderPass {
-    friend class GLRenderer;
+    friend class Renderer;
 
     struct {
         glm::mat4 mvp;
@@ -161,7 +178,7 @@ private:
 
 
 class Bloom : public RenderPass {
-    friend class GLRenderer;
+    friend class Renderer;
 
     struct {
         glm::vec2 direction;
@@ -186,8 +203,7 @@ private:
 };
 
 class Tonemap final : public RenderPass {
-    friend class GLRenderer;
-    friend class ViewportWidget;
+    friend class Renderer;
 
 public:
     struct {
@@ -283,7 +299,7 @@ private:
 
 
 class DebugLines final : public RenderPass {
-    friend class GLRenderer;
+    friend class Renderer;
 
     struct {
         glm::mat4 projection;
@@ -311,7 +327,7 @@ private:
 
 
 class Skinning final : public RenderPass {
-    friend class GLRenderer;
+    friend class Renderer;
 
 public:
     Skinning();
@@ -327,7 +343,7 @@ private:
 
 
 class Atmosphere final : public RenderPass {
-    friend class GLRenderer;
+    friend class Renderer;
 
     struct {
         glm::mat4 view;
@@ -361,7 +377,7 @@ private:
 
 
 class DeferredShading final : public RenderPass {
-    friend class GLRenderer;
+    friend class Renderer;
 
 private:
     struct Uniforms {
@@ -435,5 +451,12 @@ public:
 private:
     GLShader shader;
 };
+
+
+class ImGuiPass final : public RenderPass {
+    void CreateRenderTargets(const Viewport& viewport) {}
+    void DestroyRenderTargets() {}
+}; // Just so we can time it
+
 
 } // raekor

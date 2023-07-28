@@ -2,7 +2,11 @@
 #include "scene.h"
 
 #include "timer.h"
+#include "async.h"
+#include "rmath.h"
+#include "script.h"
 #include "systems.h"
+#include "components.h"
 #include "application.h"
 
 namespace Raekor {
@@ -11,11 +15,7 @@ entt::entity Scene::PickSpatialEntity(Ray& inRay) {
     auto picked_entity = entt::entity(entt::null);
     auto boxes_hit = std::map<float, entt::entity>{};
 
-    auto entities = view<Mesh, Transform>();
-    for (auto entity : entities) {
-        auto& mesh = entities.get<Mesh>(entity);
-        auto& transform = entities.get<Transform>(entity);
-
+    for (auto [entity, transform, mesh] : view<Transform, Mesh>().each()) {
         // convert AABB from local to world space
         auto world_aabb = std::array<glm::vec3, 2>
         {
@@ -24,7 +24,7 @@ entt::entity Scene::PickSpatialEntity(Ray& inRay) {
         };
 
         // check for ray hit
-        const auto bounding_box = BBox3D(mesh.aabb[0] * transform.scale, mesh.aabb[1] * transform.scale);
+        const auto bounding_box = BBox3D(mesh.aabb[0], mesh.aabb[1]);
         const auto hit_result = inRay.HitsOBB(bounding_box, transform.worldTransform);
 
         if (hit_result.has_value())
@@ -32,8 +32,8 @@ entt::entity Scene::PickSpatialEntity(Ray& inRay) {
     }
 
     for (auto& pair : boxes_hit) {
-        auto& mesh = entities.get<Mesh>(pair.second);
-        auto& transform = entities.get<Transform>(pair.second);
+        auto& mesh = get<Mesh>(pair.second);
+        auto& transform = get<Transform>(pair.second);
 
         for (auto i = 0u; i < mesh.indices.size(); i += 3) {
             const auto v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
@@ -120,18 +120,15 @@ void Scene::UpdateTransforms() {
     const auto components = view<Node, Transform>();
 
     for (auto& [entity, node, transform] : components.each()) {
-        transform.Compose();
-
         if (node.parent != entt::null)
             continue;
 
         if (node.parent == entt::null) {
-            std::stack<Entity> nodes;
-            nodes.push(entity);
+            m_Nodes.push(entity);
 
-            while (!nodes.empty()) {
-                auto& [current_node, current_transform] = components.get(nodes.top());
-                nodes.pop();
+            while (!m_Nodes.empty()) {
+                auto& [current_node, current_transform] = components.get(m_Nodes.top());
+                m_Nodes.pop();
 
                 if (current_node.parent == entt::null) {
                     current_transform.worldTransform = current_transform.localTransform;
@@ -142,23 +139,28 @@ void Scene::UpdateTransforms() {
 
                 auto child = current_node.firstChild;
                 while (child != entt::null) {
-                    nodes.push(child);
+                    m_Nodes.push(child);
                     child = get<Node>(child).nextSibling;
                 }
 
             }
         }
     }
+
+    assert(m_Nodes.empty());
 }
 
 
 void Scene::UpdateAnimations(float inDeltaTime) {
     auto skeleton_view = view<Skeleton>();
-    auto skeleton_job_ptrs = std::vector<Async::JobPtr>();
+    if (skeleton_view.empty())
+        return;
+
+    auto skeleton_job_ptrs = std::vector<Job::Ptr>();
     skeleton_job_ptrs.reserve(skeleton_view.size());
 
     skeleton_view.each([&](Skeleton& skeleton) {
-        auto job_ptr = Async::sQueueJob([&]() {
+        auto job_ptr = g_ThreadPool.QueueJob([&]() {
             skeleton.UpdateFromAnimation(skeleton.animations[0], inDeltaTime);
         });
 
@@ -203,11 +205,11 @@ Entity Scene::Clone(Entity inEntity) {
 void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials) {
     Timer timer;
 
-    auto job_ptrs = std::vector<Async::JobPtr>();
+    auto job_ptrs = std::vector<Job::Ptr>();
     job_ptrs.reserve(materials.Length());
 
     for (const auto& entity : materials) {
-        auto job_ptr = Async::sQueueJob([&]() {
+        auto job_ptr = g_ThreadPool.QueueJob([&]() {
             auto& material = this->get<Material>(entity);
             assets.GetAsset<TextureAsset>(material.albedoFile);
             assets.GetAsset<TextureAsset>(material.normalFile);
@@ -226,7 +228,7 @@ void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials)
         auto& material = get<Material>(entity);
 
         if (m_Renderer)
-            RenderUtil::sUploadMaterialTextures(m_Renderer, assets, material);
+            m_Renderer->UploadMaterialTextures(material, assets);
     }
 
     std::cout << "[Scene] Upload textures to GPU took  " << Timer::sToMilliseconds(timer.Restart()) << " .ms\n";
@@ -253,12 +255,12 @@ void Scene::SaveToFile(Assets& assets, const std::string& file) {
     auto compressed =std::vector<char>(bound);
     Timer timer;
 
-    auto compressedSize = LZ4_compress_default(buffer.c_str(), compressed.data(), int(buffer.size()), bound);
+    auto compressed_size = LZ4_compress_default(buffer.c_str(), compressed.data(), int(buffer.size()), bound);
 
     std::cout << "Compression time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
 
     auto filestream = std::ofstream(file, std::ios::binary);
-    filestream.write(compressed.data(), compressedSize);
+    filestream.write(compressed.data(), compressed_size);
 }
 
 
@@ -323,12 +325,12 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
 }
 
 
-void Scene::BindScriptToEntity(entt::entity entity, NativeScript& script) {
+void Scene::BindScriptToEntity(Entity entity, NativeScript& script) {
     auto address = GetProcAddress(script.asset->GetModule(), script.procAddress.c_str());
     if (address) {
         auto function = reinterpret_cast<INativeScript::FactoryType>(address);
         script.script = function();
-        script.script->Bind(entity, *this);
+        script.script->Bind(entity, this);
     }
     else {
         std::clog << "Failed to bind script" << script.file <<

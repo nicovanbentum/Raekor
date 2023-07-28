@@ -8,7 +8,7 @@ RTTI_CLASS_CPP_NO_FACTORY(MetricsWidget) {}
 
 MetricsWidget::MetricsWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_CHART_BAR " Metrics ")) {}
 
-void MetricsWidget::Draw(float dt) {
+void MetricsWidget::Draw(Widgets* inWidgets, float dt) {
     if (!IsOpen()) 
         return;
 

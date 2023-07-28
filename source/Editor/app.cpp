@@ -1,8 +1,9 @@
 #include "pch.h"
-#include "editor.h"
+#include "app.h"
 #include "Raekor/OS.h"
 #include "Raekor/json.h"
 #include "Raekor/input.h"
+#include "Raekor/rmath.h"
 #include "Raekor/cvars.h"
 #include "Raekor/systems.h"
 
@@ -16,9 +17,9 @@
 #include "hierarchyWidget.h"
 #include "NodeGraphWidget.h"
 
-namespace Raekor {
+namespace Raekor::GL {
 
-Editor::Editor() :
+GLApp::GLApp() :
     Application(WindowFlag::OPENGL | WindowFlag::RESIZE),
     m_Renderer(m_Window, m_Viewport),
     m_Scene(&m_Renderer)
@@ -34,26 +35,31 @@ Editor::Editor() :
         LogMessage("Loaded scene from file: " + m_Settings.mSceneFile);
     }
 
-    m_Widgets.emplace_back(std::make_shared<AssetsWidget>(this));
-    m_Widgets.emplace_back(std::make_shared<RandomWidget>(this));
-    m_Widgets.emplace_back(std::make_shared<MenubarWidget>(this));
-    m_Widgets.emplace_back(std::make_shared<ConsoleWidget>(this));
-    m_Widgets.emplace_back(std::make_shared<MetricsWidget>(this));
-    m_Widgets.emplace_back(std::make_shared<NodeGraphWidget>(this));
-    m_Widgets.emplace_back(std::make_shared<ViewportWidget>(this));
-    m_Widgets.emplace_back(std::make_shared<InspectorWidget>(this));
-    m_Widgets.emplace_back(std::make_shared<HierarchyWidget>(this));
+    m_Widgets.Register<AssetsWidget>(this);
+    m_Widgets.Register<RandomWidget>(this);
+    m_Widgets.Register<MenubarWidget>(this);
+    m_Widgets.Register<ConsoleWidget>(this);
+    m_Widgets.Register<MetricsWidget>(this);
+    m_Widgets.Register<NodeGraphWidget>(this);
+    m_Widgets.Register<ViewportWidget>(this);
+    m_Widgets.Register<InspectorWidget>(this);
+    m_Widgets.Register<HierarchyWidget>(this);
 
     LogMessage("Initialization done.");
     auto sink = m_Scene.on_destroy<Mesh>();
 
-    m_Viewport.GetCamera().Zoom(-50.0f);
-    m_Viewport.GetCamera().Move(glm::vec2(0.0f, 10.0f));
+    //m_Viewport.GetCamera().Zoom(-50.0f);
+    //m_Viewport.GetCamera().Move(glm::vec2(0.0f, 10.0f));
+
+    // sponza specific
+    m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
+    m_Viewport.GetCamera().Zoom(5.0f);
+    m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
 }
 
 
 
-void Editor::OnUpdate(float inDeltaTime) {
+void GLApp::OnUpdate(float inDeltaTime) {
     // check if any BoxCollider's are waiting to be registered
     m_Physics.OnUpdate(m_Scene);
 
@@ -87,14 +93,7 @@ void Editor::OnUpdate(float inDeltaTime) {
     GUI::BeginDockSpace();
 
     // draw widgets
-    for (const auto& widget : m_Widgets)
-        if (widget->IsOpen()) {
-            auto window_class = ImGuiWindowClass();
-            window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoCloseButton;
-            ImGui::SetNextWindowClass(&window_class);
-
-            widget->Draw(inDeltaTime);
-        }
+    m_Widgets.Draw(inDeltaTime);
 
     // end ImGui
     GUI::EndDockSpace();
@@ -106,10 +105,10 @@ void Editor::OnUpdate(float inDeltaTime) {
 
 
 
-void Editor::OnEvent(const SDL_Event& event) {
+void GLApp::OnEvent(const SDL_Event& event) {
     ImGui_ImplSDL2_ProcessEvent(&event);
 
-    if (GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode())
+    if (m_Widgets.GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode())
         CameraController::OnEvent(m_Viewport.GetCamera(), event);
 
     if (event.type == SDL_KEYDOWN && !event.key.repeat) {
@@ -153,16 +152,14 @@ void Editor::OnEvent(const SDL_Event& event) {
         m_Renderer.CreateRenderTargets(m_Viewport);
     }
 
-    for (const auto& widget : m_Widgets)
-        widget->OnEvent(event);
+    m_Widgets.OnEvent(event);
 }
 
 
-void Editor::LogMessage(const std::string& inMessage) {
+void GLApp::LogMessage(const std::string& inMessage) {
     Application::LogMessage(inMessage);
 
-    auto console_widget = GetWidget<ConsoleWidget>();
-
+    auto console_widget = m_Widgets.GetWidget<ConsoleWidget>();
     if (console_widget) {
         // Flush any pending messages
         if (!m_Messages.empty())

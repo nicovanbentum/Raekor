@@ -1,7 +1,9 @@
 #include "pch.h"
 #include "randomWidget.h"
 #include "Raekor/timer.h"
+#include "Raekor/rmath.h"
 #include "Raekor/systems.h"
+#include "Raekor/physics.h"
 #include "Raekor/application.h"
 
 namespace Raekor {
@@ -12,7 +14,7 @@ RandomWidget::RandomWidget(Application* inApp) :
     IWidget(inApp, " Random ")
 {}
 
-void RandomWidget::Draw(float dt) {
+void RandomWidget::Draw(Widgets* inWidgets, float dt) {
     auto& scene = IWidget::GetScene();
     auto& render_settings = m_Editor->GetRenderer()->GetSettings();
 
@@ -27,7 +29,7 @@ void RandomWidget::Draw(float dt) {
 
         GetPhysics().GenerateRigidBodiesEntireScene(GetScene());
 
-        Async::sWait();
+        g_ThreadPool.WaitForJobs();
         m_Editor->LogMessage("Rigid Body Generation took " + timer.GetElapsedFormatted() + " seconds.");
     }
 
@@ -39,7 +41,7 @@ void RandomWidget::Draw(float dt) {
         ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
 
         if (auto renderer = m_Editor->GetRenderer())
-            RenderUtil::sUploadMaterialTextures(renderer, GetAssets(), ball_material);
+            renderer->UploadMaterialTextures(ball_material, GetAssets());
 
         for (uint32_t i = 0; i < 64; i++) {
             auto entity = scene.CreateSpatialEntity("ball");
@@ -49,7 +51,7 @@ void RandomWidget::Draw(float dt) {
             mesh.material = material_entity;
             
             constexpr auto radius = 2.5f;
-            gGenerateSphere(mesh, radius, 16, 16);
+            gGenerateSphere(mesh, radius, 32, 32);
             GetRenderer().UploadMeshBuffers(mesh);
 
             transform.position = Vec3(-65.0f, 85.0f + i * (radius * 2.0f), 0.0f);

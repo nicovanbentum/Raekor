@@ -1,8 +1,10 @@
 #include "pch.h"
 #include "renderpass.h"
 #include "Raekor/scene.h"
+#include "Raekor/rmath.h"
+#include "Raekor/camera.h"
 
-namespace Raekor {
+namespace Raekor::GL {
 
 
 GLTimer::GLTimer() {
@@ -179,7 +181,7 @@ void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
     const float range = maxZ - minZ;
     const float ratio = maxZ / minZ;
 
-    std::vector<float> dists(settings.nrOfCascades);
+    auto dists = std::array<float, MAX_NR_OF_CASCADES>();
 
     // Calculate split depths based on view m_Camera frustum
     // Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html

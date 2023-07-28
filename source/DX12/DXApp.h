@@ -2,6 +2,7 @@
 
 #include "Raekor/application.h"
 #include "Raekor/scene.h"
+#include "Raekor/physics.h"
 #include "Raekor/assets.h"
 
 #include "Editor/widget.h"
@@ -45,9 +46,6 @@ public:
     virtual void OnUpdate(float inDeltaTime) override;
     virtual void OnEvent(const SDL_Event& inEvent) override;
 
-    template<typename T> std::shared_ptr<T>  GetWidget();
-    const auto& GetWidgets() { return m_Widgets; }
-
     virtual Scene* GetScene() { return &m_Scene; }
     virtual Assets* GetAssets() { return &m_Assets; }
     virtual Physics* GetPhysics() { return &m_Physics; }
@@ -59,7 +57,8 @@ public:
     virtual Entity GetActiveEntity() { return m_ActiveEntity; }
 
     void CompileShaders();
-    void UploadBvhToGPU();
+    void UploadTopLevelBVH(CommandList& inCmdList);
+    void UploadBindlessSceneBuffers(CommandList& inCmdList);
 
 
 
@@ -70,6 +69,7 @@ private:
     Scene  m_Scene;
     Assets m_Assets;
     Physics m_Physics;
+    Widgets m_Widgets;
 
     Device          m_Device;
     Renderer        m_Renderer;
@@ -93,18 +93,7 @@ private:
     DescriptorID  m_DefaultNormalTexture;
 
     std::vector<std::string> m_Messages;
-    std::vector<std::shared_ptr<IWidget>> m_Widgets;
 };
-
-
-template<typename T>
-std::shared_ptr<T> DXApp::GetWidget() {
-    for (const auto& widget : m_Widgets)
-        if (widget->GetRTTI() == gGetRTTI<T>())
-            return std::static_pointer_cast<T>(widget);
-
-    return nullptr;
-}
 
 
 }

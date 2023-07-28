@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "editor.h"
+#include "app.h"
 #include "Raekor/ecs.h"
 #include "Raekor/launcher.h"
 
@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
     gRegisterComponentTypes();
     RTTIFactory::Register(RTTI_OF(ConfigSettings));
 
-	CVars::ParseCommandLine(argc, argv);
+    g_CVars.ParseCommandLine(argc, argv);
 
     ECS ecs;
     Raekor::ecs::Entity entity = ecs.Create();
@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
 
 	auto should_launch = true;
 
-	if (CVars::sCreate("enable_launcher", 0)) {
+	if (g_CVars.Create("enable_launcher", 0)) {
 		Launcher launcher;
 		launcher.Run();
 
@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 		return 0;
 
 
-    auto app =  new Editor();
+    auto app =  new GL::GLApp();
 
     app->Run();
 

@@ -5,6 +5,7 @@
 #include "scene.h"
 #include "async.h"
 #include "timer.h"
+#include "rmath.h"
 #include "systems.h"
 #include "application.h"
 
@@ -83,7 +84,7 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     if (m_GltfData->materials_count > 0)
         std::cout << '\n';
 
-    Async::sWait();
+    g_ThreadPool.WaitForJobs();
     std::cout << "[GLTF Import] Texture Conversion took " << Timer::sToMilliseconds(timer.Restart()) << " ms. \n";
 
     /*
@@ -462,21 +463,21 @@ void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMa
     memcpy(glm::value_ptr(material.emissive), gltfMaterial.emissive_factor, sizeof(material.emissive));
 
     if (!material.albedoFile.empty()) {
-        Async::sQueueJob([this, &material]() {
+        g_ThreadPool.QueueJob([this, &material]() {
             auto assetPath = TextureAsset::sConvert(m_Directory.string() + material.albedoFile);
             material.albedoFile = assetPath;
         });
     }
 
     if (!material.normalFile.empty()) {
-        Async::sQueueJob([this, &material]() {
+        g_ThreadPool.QueueJob([this, &material]() {
             auto assetPath = TextureAsset::sConvert(m_Directory.string() + material.normalFile);
             material.normalFile = assetPath;
         });
     }
 
     if (!material.metalroughFile.empty()) {
-        Async::sQueueJob([this, &material]() {
+        g_ThreadPool.QueueJob([this, &material]() {
             auto assetPath = TextureAsset::sConvert(m_Directory.string() + material.metalroughFile);
             material.metalroughFile = assetPath;
         });

@@ -189,22 +189,25 @@ ScriptAsset::~ScriptAsset() {
 }
 
 
-std::string ScriptAsset::sConvert(const std::string& filepath) {
+Path ScriptAsset::sConvert(const Path& inPath) {
     // TODO: The plan is to have a seperate VS project in the solution dedicated to cpp scripts.
     //          That should compile them down to a single DLL that we can load in as asset, 
     //          possibly parsing PDB's to figure out the list of classes we can attach to entities.
-    
-    Timer timer;
-    std::cout << "Script compile time of " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
-    return filepath;
+    auto abs_path = inPath;
+    const auto dest = "assets" / abs_path.filename();
+    const auto pdb_path = abs_path.replace_extension(".pdb");
+
+    FileSystem::copy(inPath, "assets" / abs_path.filename());
+    FileSystem::copy(pdb_path, "assets" / pdb_path.filename());
+    return dest;
 }
 
 
-bool ScriptAsset::Load(const std::string& filepath) {
-    if (filepath.empty() || !FileSystem::exists(filepath))
+bool ScriptAsset::Load(const std::string& inPath) {
+    if (inPath.empty() || !FileSystem::exists(inPath))
         return false;
 
-    m_HModule = LoadLibraryA(filepath.c_str());
+    m_HModule = LoadLibraryA(inPath.c_str());
 
     return m_HModule != NULL;
 }

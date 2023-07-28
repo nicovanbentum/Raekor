@@ -15,9 +15,4 @@ public:
     static std::vector<entt::entity> sGetFlatHierarchy(entt::registry& registry, Node& node);
 };
 
-class RenderUtil {
-public:
-    static void sUploadMaterialTextures(IRenderer* inRenderer, Assets& inAssets, Material& inMaterial);
-};
-
 }

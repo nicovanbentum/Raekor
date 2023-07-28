@@ -6,6 +6,7 @@
 #include "Raekor/systems.h"
 #include "Raekor/scene.h"
 #include "Raekor/timer.h"
+#include "Raekor/physics.h"
 #include "Raekor/application.h"
 #include "IconsFontAwesome5.h"
 
@@ -19,7 +20,7 @@ MenubarWidget::MenubarWidget(Application* inApp) :
 {}
 
 
-void MenubarWidget::Draw(float dt) {
+void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
     auto& scene = IWidget::GetScene();
 
     if (ImGui::BeginMainMenuBar()) {
@@ -40,7 +41,7 @@ void MenubarWidget::Draw(float dt) {
                     scene.OpenFromFile(IWidget::GetAssets(), filepath);
                     m_Editor->SetActiveEntity(sInvalidEntity);
 
-                    m_Editor->LogMessage("Open scene time: " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())));
+                    m_Editor->LogMessage("[Scene] Open from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
                 }
             }
 
@@ -48,10 +49,10 @@ void MenubarWidget::Draw(float dt) {
                 std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
 
                 if (!filepath.empty()) {
-                    Async::sQueueJob([this, filepath]() {
+                    g_ThreadPool.QueueJob([this, filepath]() {
                         m_Editor->LogMessage("Saving scene...");
                         GetScene().SaveToFile(IWidget::GetAssets(), filepath);
-                        m_Editor->LogMessage("Scene saved to " + FileSystem::relative(filepath).string() + "");
+                        m_Editor->LogMessage("[Scene] Saved to " + FileSystem::relative(filepath).string() + "");
                     });
                 }
             }
@@ -63,8 +64,8 @@ void MenubarWidget::Draw(float dt) {
                 if (!folder.empty()) {
                     for (const auto& [entity, name, mesh] : scene.view<Name, Mesh>().each()) {
                         // for the love of god C++ overlords, let me capture structured bindings
-                        Async::sQueueJob([&, name = &name, mesh = &mesh]() {
-                            auto ofs = std::ofstream((folder / name->name).replace_extension(".mesh"));
+                        g_ThreadPool.QueueJob([&, name = &name, mesh = &mesh]() {
+                            auto ofs = std::ofstream((folder / "sponza").replace_extension(".meshes"));
                             cereal::JSONOutputArchive archive(ofs);
                             archive(*mesh);
                         });
@@ -72,51 +73,53 @@ void MenubarWidget::Draw(float dt) {
 
                     for (const auto& [entity, name, material] : scene.view<Name, Material>().each()) {
                         // for the love of god C++ overlords, let me capture structured bindings
-                        Async::sQueueJob([&, name = &name, material = &material]() {
+                        g_ThreadPool.QueueJob([&, name = &name, material = &material]() {
                             auto ofs = std::ofstream((folder / name->name).replace_extension(".material"));
                             cereal::JSONOutputArchive archive(ofs);
                             archive(*material);
                         });
                     }
-                    Async::sWait();
+                    g_ThreadPool.WaitForJobs();
                 }
 
-                std::clog << "Serialize scene time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms.\n";
+                m_Editor->LogMessage("[Scene] Serialize as JSON took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
             }
 
             if (ImGui::MenuItem("Load model..")) {
-                std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.fbx, *.glb, *.obj, *.blend)\0*.gltf;*.fbx;*.glb;*.obj;*.blend\0");
+                const auto filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.fbx, *.glb, *.obj, *.blend)\0*.gltf;*.fbx;*.glb;*.obj;*.blend\0");
                 
                 if (!filepath.empty()) {
-                    AssimpImporter importer(scene, m_Editor->GetRenderer());
+                    auto importer = AssimpImporter(scene, m_Editor->GetRenderer());
                     importer.LoadFromFile(GetAssets(), filepath);
                     m_Editor->SetActiveEntity(sInvalidEntity);
                 }
             }
 
             if (ImGui::MenuItem("Load GLTF..")) {
-                std::string filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.glb)\0*.gltf;*.glb\0");
+                const auto filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.glb)\0*.gltf;*.glb\0");
 
                 if (!filepath.empty()) {
-                    GltfImporter importer(scene, m_Editor->GetRenderer());
+                    auto importer = GltfImporter(scene, m_Editor->GetRenderer());
                     importer.LoadFromFile(GetAssets(), filepath);
+
                     m_Editor->SetActiveEntity(sInvalidEntity);
+                    m_Editor->LogMessage("[Scene] Loaded " + Path(filepath).filename().string());
                 }
             }
 
             if (ImGui::MenuItem("Compile script..")) {
-                std::string filepath = OS::sOpenFileDialog("C++ Files (*.cpp)\0*.cpp\0");
+                const auto filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
                 if (!filepath.empty()) {
-                    Async::sQueueJob([filepath]() {
+                    //g_ThreadPool.QueueJob([filepath]() {
                         ScriptAsset::sConvert(filepath);
-                    });
+                   // });
                 }
             }
 
             if (ImGui::MenuItem("Save screenshot..")) {
-                std::string savePath = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
+                const auto save_path = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
 
-                if (!savePath.empty()) {
+                if (!save_path.empty()) {
                     auto& viewport = m_Editor->GetViewport();
 
                     const auto buffer_size = m_Editor->GetRenderer()->GetScreenshotBuffer(nullptr);
@@ -126,7 +129,9 @@ void MenubarWidget::Draw(float dt) {
                     m_Editor->GetRenderer()->GetScreenshotBuffer(pixels.data());
 
                     stbi_flip_vertically_on_write(true);
-                    stbi_write_png(savePath.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
+                    stbi_write_png(save_path.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
+
+                    m_Editor->LogMessage("[System] Screenshot saved to " + save_path);
                 }
             }
 
@@ -151,16 +156,16 @@ void MenubarWidget::Draw(float dt) {
         if (ImGui::BeginMenu("View")) {
             ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
 
-            // TODO: PLS FIX
-           /* for (const auto& widget : m_Editor->GetWidgets()) {
+           for (const auto& widget : *inWidgets) {
+               // skip the menu bar widget itself
                 if (widget.get() == this)
                     continue;
 
-                bool is_visible = widget->IsOpen();
-
+                auto is_visible = widget->IsOpen();
+                
                 if (ImGui::MenuItem(std::string(widget->GetTitle() + "Window").c_str(), "", &is_visible))
                     is_visible ? widget->Show() : widget->Hide();
-            }*/
+            }
 
             ImGui::PopItemFlag();
 
@@ -311,7 +316,7 @@ void MenubarWidget::Draw(float dt) {
         if (ImGui::Button((const char*)ICON_FA_STOP)) {
             if (physics_state != Physics::Idle) {
                 GetPhysics().RestoreState();
-                GetPhysics().Step(scene, dt); // Step once to trigger the restored state
+                GetPhysics().Step(scene, inDeltaTime); // Step once to trigger the restored state
                 GetPhysics().SetState(Physics::Idle);
             }
         }

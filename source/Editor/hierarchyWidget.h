@@ -9,16 +9,16 @@ public:
     RTTI_CLASS_HEADER(HierarchyWidget);
 
     HierarchyWidget(Application* inApp);
-    virtual void Draw(float dt) override;
-    virtual void OnEvent(const SDL_Event& ev) override {}
+    virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;
+    virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) override {}
 
 private:
-    void dropTargetWindow(Scene& scene);
-    void dropTargetNode(Scene& scene, Entity entity);
+    void DropTargetWindow(Scene& inScene);
+    void DropTargetNode(Scene& inScene, Entity inEntity);
 
-    void drawFamily(Scene& scene, Entity parent, Entity& active);
-    bool drawFamilyNode(Scene& scene, Entity entity, Entity& active);
-    void drawChildlessNode(Scene& scene, Entity entity, Entity& active);
+    void DrawFamily(Scene& inScene, Entity inParent, Entity& inActive);
+    bool DrawFamilyNode(Scene& inScene, Entity inEntity, Entity& inActive);
+    void DrawChildlessNode(Scene& inScene, Entity inEntity, Entity& inActive);
 };
 
 }
