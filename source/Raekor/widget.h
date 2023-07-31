@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Raekor/async.h"
-#include "Raekor/scene.h"
-#include "Raekor/assets.h"
-#include "Raekor/application.h"
+#include "../Raekor/async.h"
+#include "../Raekor/scene.h"
+#include "../Raekor/assets.h"
+#include "../Raekor/application.h"
 
 namespace Raekor {
 

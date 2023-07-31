@@ -1,13 +1,14 @@
 #include "pch.h"
 #include "menubarWidget.h"
-#include "Raekor/OS.h"
-#include "Raekor/gltf.h"
-#include "Raekor/assimp.h"
-#include "Raekor/systems.h"
-#include "Raekor/scene.h"
-#include "Raekor/timer.h"
-#include "Raekor/physics.h"
-#include "Raekor/application.h"
+
+#include "OS.h"
+#include "gltf.h"
+#include "scene.h"
+#include "timer.h"
+#include "assimp.h"
+#include "physics.h"
+#include "systems.h"
+#include "application.h"
 #include "IconsFontAwesome5.h"
 
 

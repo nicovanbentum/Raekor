@@ -17,7 +17,7 @@ public:
 
 protected:
     uint64_t m_DisplayTexture;
-    int rendertargetIndex = 0;
+    int m_RenderTargetIndex = 0;
     bool gizmoEnabled = true;
     bool mouseInViewport = false;
     ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;

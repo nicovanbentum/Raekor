@@ -8,6 +8,19 @@
 
 namespace Raekor::GL {
 
+static constexpr auto sDebugTextureNames = std::array {
+    "Final",
+    "Albedo",
+    "Normals",
+    "Material",
+    "Velocity",
+    "TAA Resolve",
+    "Shading (Result)",
+    "Bloom (Threshold)",
+    "Bloom (Blur 1)",
+    "Bloom (Final)",
+};
+
 void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
         fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
@@ -117,11 +130,6 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     glGenVertexArrays(1, &vertexArrayID);
     glBindVertexArray(vertexArrayID);
 
-    // initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImNodes::CreateContext();
-    ImGui::StyleColorsDark();
     ImGui_ImplSDL2_InitForOpenGL(window, &m_GLContext);
     ImGui_ImplOpenGL3_Init("#version 450");
     ImGui_ImplOpenGL3_CreateDeviceObjects();
@@ -335,6 +343,26 @@ void Renderer::AddDebugBox(glm::vec3 min, glm::vec3 max, const glm::mat4& m) {
 
 
 
+uint64_t Renderer::GetDisplayTexture() { 
+    const auto targets = std::array {
+        m_Tonemap->result,
+        m_GBuffer->albedoTexture,
+        m_GBuffer->normalTexture,
+        m_GBuffer->materialTexture,
+        m_GBuffer->velocityTexture,
+        m_ResolveTAA->resultBuffer,
+        m_DeferredShading->result,
+        m_DeferredShading->bloomHighlights,
+        m_Bloom->blurTexture,
+        m_Bloom->bloomTexture,
+    };
+
+    assert(targets.size() == sDebugTextureNames.size());
+    return targets[mSettings.mDebugTexture]; 
+}
+
+
+
 void Renderer::DrawImGui(Scene& inScene, const Viewport& inViewport) {
     if (ImGui::Checkbox("VSync", (bool*)(&mSettings.vsync)))
         SDL_GL_SetSwapInterval(mSettings.vsync);
@@ -452,6 +480,18 @@ GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRG
 
     return texture;
 }
+
+
+
+uint32_t Renderer::GetDebugTextureCount() const {
+    return sDebugTextureNames.size();
+}
+
+const char* Renderer::GetDebugTextureName(uint32_t inIndex) const {
+    assert(inIndex < sDebugTextureNames.size());
+    return sDebugTextureNames[inIndex];
+}
+
 
 
 uint32_t Renderer::GetScreenshotBuffer(uint8_t* ioBuffer) {

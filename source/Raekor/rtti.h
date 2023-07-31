@@ -18,7 +18,7 @@ public:
     RTTI(RTTI&&) = delete;
     
     void            AddMember(Member* inName);
-    Member*         GetMember(uint32_t inIndex);
+    Member*         GetMember(uint32_t inIndex) const;
     uint32_t        GetMemberCount() const { return uint32_t(m_Members.size());   }
 
     bool operator==(const RTTI& rhs) const { return m_Hash == rhs.m_Hash; }

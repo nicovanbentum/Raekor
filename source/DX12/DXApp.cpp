@@ -9,37 +9,38 @@
 #include "Raekor/util.h"
 #include "Raekor/timer.h"
 #include "Raekor/input.h"
+#include "Raekor/archive.h"
 
 #include "shared.h"
 #include "DXUtil.h"
+#include "DXShader.h"
 #include "DXRenderer.h"
 #include "DXRenderGraph.h"
-
-#include "Editor/assetsWidget.h"
-#include "Editor/randomWidget.h"
-#include "Editor/metricsWidget.h"
-#include "Editor/menubarWidget.h"
-#include "Editor/consoleWidget.h"
-#include "Editor/viewportWidget.h"
-#include "Editor/inspectorWidget.h"
-#include "Editor/hierarchyWidget.h"
-#include "Editor/NodeGraphWidget.h"
 
 extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension);
 
 namespace Raekor::DX12 {
 
-RTTI_CLASS_CPP(SystemShadersDX12) {
-}
 
 DXApp::DXApp() : 
-    Application(WindowFlag::RESIZE), 
+    IEditor(WindowFlag::RESIZE, &m_RenderInterface),
     m_Device(m_Window, sFrameCount), 
     m_StagingHeap(m_Device),
     m_Renderer(m_Device, m_Viewport, m_Window),
-    m_RenderInterface(m_Device, m_Renderer, m_StagingHeap),
-    m_Scene(&m_RenderInterface)
+    m_RenderInterface(m_Device, m_Renderer, m_StagingHeap)
 {
+    RTTIFactory::Register(RTTI_OF(ShaderProgram));
+    RTTIFactory::Register(RTTI_OF(SystemShadersDX12));
+
+    auto archive = JSON::ReadArchive("shaders.json");
+    archive >> g_SystemShaders;
+
+    ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugDepthShader);
+    ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugAlbedoShader);
+    ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugNormalsShader);
+    ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugMetallicShader);
+    ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugRoughnessShader);
+
     // Creating the SRV for the blue noise texture at heap index 0 results in a 4x4 black square in the top left of the texture,
     // this is a hacky workaround. at least we get the added benefit of 0 being an 'invalid' index :D
     (void)m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Add(nullptr);
@@ -90,36 +91,8 @@ DXApp::DXApp() :
     Material::Default.gpuMetallicRoughnessMap = m_DefaultWhiteTexture.ToIndex();
 
     // initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImNodes::CreateContext();
-    ImGui::StyleColorsDark();
     ImGui_ImplSDL2_InitForD3D(m_Window);
-
-    // get GUI i/o and set a bunch of settings
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_NavNoCaptureKeyboard;
-    io.ConfigWindowsMoveFromTitleBarOnly = true;
-    // io.ConfigDockingWithShift = true;
-
-    GUI::SetTheme();
-    ImGui::GetStyle().ScaleAllSizes(1.33333333f);
-    if (!m_Settings.mFontFile.empty())
-        GUI::SetFont(m_Settings.mFontFile.c_str());
-
     m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
-
-    // initialize all the imgui widgets
-    m_Widgets.Register<AssetsWidget>(this);
-    m_Widgets.Register<RandomWidget>(this);
-    m_Widgets.Register<MenubarWidget>(this);
-    m_Widgets.Register<ConsoleWidget>(this);
-    m_Widgets.Register<MetricsWidget>(this);
-    m_Widgets.Register<NodeGraphWidget>(this);
-    m_Widgets.Register<ViewportWidget>(this);
-    m_Widgets.Register<InspectorWidget>(this);
-    m_Widgets.Register<HierarchyWidget>(this);
 
     // Pick a scene file and load it
     while (!FileSystem::exists(m_Settings.mSceneFile))
@@ -129,9 +102,6 @@ DXApp::DXApp() :
     m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
 
     assert(!m_Scene.empty() && "Scene cannot be empty when starting up DX12 renderer!!");
-
-    //m_Viewport.GetCamera().Zoom(-50.0f);
-    //m_Viewport.GetCamera().Move(glm::vec2(0.0f, 10.0f));
 
     // check for ray-tracing support
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
@@ -176,14 +146,12 @@ DXApp::DXApp() :
 
     LogMessage(std::format("[CPU] Upload BVH to GPU took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
-    m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView());
+    const auto debug_texture = EDebugTexture(m_RenderInterface.GetSettings().mDebugTexture);
+    const auto instances_buffer = m_Device.GetBuffer(m_InstancesBuffer).GetView();
+    const auto materials_buffer = m_Device.GetBuffer(m_MaterialsBuffer).GetView();
+    m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, instances_buffer, materials_buffer, debug_texture);
 
     LogMessage(std::format("[CPU] RenderGraph compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
-
-    m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
-    m_Viewport.GetCamera().Zoom(5.0f);
-    m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
-    m_Viewport.SetFieldOfView(65.0f);
 
     LogMessage(std::format("Render Size: {}", glm::to_string(m_Viewport.GetSize())));
 }
@@ -196,42 +164,19 @@ DXApp::~DXApp() {
 
 
 void DXApp::OnUpdate(float inDeltaTime) {
-    // Check if any BoxCollider's are waiting to be registered
-    m_Physics.OnUpdate(m_Scene);
-
-    // Step the physics simulation
-    if (m_Physics.GetState() == Physics::Stepping)
-        m_Physics.Step(m_Scene, inDeltaTime);
-
-    m_Viewport.OnUpdate(inDeltaTime);
-
-    m_Scene.UpdateLights();
-    
-    m_Scene.UpdateTransforms();
-
-    // start ImGui
-    GUI::BeginFrame();
-    ImGui_ImplDX12_NewFrame();
-    GUI::BeginDockSpace();
-
-    // draw widgets
-    m_Widgets.Draw(inDeltaTime);
-
-    // end ImGui
-    GUI::EndDockSpace();
-    GUI::EndFrame();
+    IEditor::OnUpdate(inDeltaTime);
 
     //UploadTopLevelBVH(m_Renderer.GetBackBufferData().mCmdList);
 
-    m_Renderer.OnRender(m_Device, m_Viewport, m_Scene, m_StagingHeap, m_TLASDescriptor, m_Device.GetBuffer(m_InstancesBuffer).GetView(), m_Device.GetBuffer(m_MaterialsBuffer).GetView(), inDeltaTime);
+    const auto debug_texture = EDebugTexture(m_RenderInterface.GetSettings().mDebugTexture);
+    const auto instances_buffer = m_Device.GetBuffer(m_InstancesBuffer).GetView();
+    const auto materials_buffer = m_Device.GetBuffer(m_MaterialsBuffer).GetView();
+    m_Renderer.OnRender(m_Device, m_Viewport, m_Scene, m_StagingHeap, m_TLASDescriptor, instances_buffer, materials_buffer, debug_texture, inDeltaTime);
 }
 
 
 void DXApp::OnEvent(const SDL_Event& inEvent) {
-    ImGui_ImplSDL2_ProcessEvent(&inEvent);
-
-    if (m_Widgets.GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode())
-        CameraController::OnEvent(m_Viewport.GetCamera(), inEvent);
+    IEditor::OnEvent(inEvent);
 
     if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat) {
         // ALT + ENTER event (Windowed <-> Fullscreen toggle)
@@ -537,27 +482,6 @@ void DXApp::UploadTopLevelBVH(CommandList& inCmdList) {
 
     m_Device.ReleaseBuffer(scratch_buffer);
     m_Device.ReleaseBuffer(instance_buffer_id);
-}
-
-
-
-void DXApp::LogMessage(const std::string& inMessage) {
-    Application::LogMessage(inMessage);
-
-    auto console_widget = m_Widgets.GetWidget<ConsoleWidget>();
-
-    if (console_widget) {
-        // Flush any pending messages
-        if (!m_Messages.empty())
-            for (const auto& message : m_Messages)
-                console_widget->LogMessage(message);
-
-        m_Messages.clear();
-        console_widget->LogMessage(inMessage);
-    }
-    else {
-        m_Messages.push_back(inMessage);
-    }
 }
 
 

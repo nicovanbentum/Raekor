@@ -38,6 +38,8 @@ public:
         int& debugCascades      = g_CVars.Create("r_debug_cascades", 0);
         int& disableTiming      = g_CVars.Create("r_disable_timings", 0);
         int& shouldVoxelize     = g_CVars.Create("r_voxelize", 1);
+        int& mDebugTexture      = g_CVars.Create("r_debug_texture", 0, true);
+
     } mSettings;
 
     IRenderer(GraphicsAPI inAPI) : m_GraphicsAPI(inAPI) {}
@@ -50,6 +52,9 @@ public:
     void SetGPUInfo(const GPUInfo& inInfo) { m_GPUInfo = inInfo; }
 
     virtual uint64_t GetDisplayTexture() = 0;
+
+    virtual uint32_t    GetDebugTextureCount() const = 0;
+    virtual const char* GetDebugTextureName(uint32_t inIndex) const = 0;
 
     /* OpenGL: Does nothing, returns inHandle. 
        DX12: Expects a ResourceID (index into the resource heap). Returns a GPU descriptor handle ptr. */
@@ -72,7 +77,6 @@ public:
 
     virtual void OnResize(const Viewport& inViewport) = 0;
     virtual void DrawImGui(Scene& inScene, const Viewport& inViewport) = 0;
-
 
 protected:
     GPUInfo m_GPUInfo;

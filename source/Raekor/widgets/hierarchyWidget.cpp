@@ -1,8 +1,8 @@
 #include "pch.h"
 #include "hierarchyWidget.h"
-#include "Raekor/application.h"
-#include "Raekor/systems.h"
-#include "Raekor/input.h"
+#include "application.h"
+#include "systems.h"
+#include "input.h"
 
 namespace Raekor {
 

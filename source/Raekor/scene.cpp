@@ -198,6 +198,10 @@ Entity Scene::Clone(Entity inEntity) {
             });
         }
     );
+
+    if (auto mesh = try_get<Mesh>(copy))
+        m_Renderer->UploadMeshBuffers(*mesh);
+
     return copy;
 }
 
@@ -321,7 +325,7 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
             m_Renderer->UploadMeshBuffers(mesh);
     }
 
-    std::cout << "Mesh time " << Timer::sToMilliseconds(timer.GetElapsedTime()) << "\n\n";
+    std::cout << "Mesh time " << Timer::sToMilliseconds(timer.GetElapsedTime()) << "\n";
 }
 
 

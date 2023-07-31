@@ -15,7 +15,7 @@ void RTTI::AddMember(Member* inMember) {
 }
 
 
- Member* RTTI::GetMember(uint32_t inIndex) { 
+ Member* RTTI::GetMember(uint32_t inIndex) const { 
     return m_Members[inIndex].get(); 
 }
 

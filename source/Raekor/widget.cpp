@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "widget.h"
-#include "app.h"
+#include "application.h"
 
 namespace Raekor {
 
@@ -41,6 +41,9 @@ RTTI_CLASS_CPP_NO_FACTORY(IWidget) {}
 
 
  void Widgets::OnEvent(const SDL_Event& inEvent) {
+     if (ImGui::GetIO().WantCaptureKeyboard)
+         return;
+
      for (const auto& widget : m_Widgets)
          if (widget->IsOpen())
              widget->OnEvent(this, inEvent);

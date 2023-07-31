@@ -148,15 +148,13 @@ bool Parser::ParseNumber() {
 
 
 bool Parser::ParseArray() {
-	auto& token = m_Objects.back().at(m_Key);
-	token.mType = ValueType::Array;
-
+	GetCurrentValue().mType = ValueType::Array;
 	m_CurrentScope = Scope::ARRAY;
 
 	char c;
 	while (CurrChar() != ']') {
 		if (NextChar(c))
-			token.mArray.emplace_back();
+			m_Objects.back().at(m_Key).mArray.emplace_back();
 		else
 			return false;
 
@@ -174,7 +172,6 @@ bool Parser::ParseArray() {
 	if (!NextChar(c))
 		return false;
 
-	m_CurrentScope = Scope::OBJECT;
 	return true;
 }
 
@@ -214,10 +211,15 @@ bool Parser::ParseLiteral() {
 
 bool Parser::ParseObject() {
 	m_Objects.emplace_back();
+	auto object_index = m_Objects.size() - 1;
+	m_CurrentScope = Scope::OBJECT;
 
 	char c;
 	while (CurrChar() != '}') {
 	
+		if (PeekChar(c) && c == '}')
+			break;
+
 		// opening curly brace should always be followed by the start of a string (key)
 		if (!NextChar(c) || c != '"') {
 			m_Objects.pop_back();
@@ -226,7 +228,7 @@ bool Parser::ParseObject() {
 
 		// parse the key
 		ParseString(m_Key);
-		m_Objects.back().insert({m_Key, ValueType::Null});
+		m_Objects[object_index].insert({m_Key, ValueType::Object});
 
 		// make sure the key is delimited by a colon
 		// everything after the colon is just another JSON value
@@ -286,6 +288,9 @@ ObjectBuilder::ObjectBuilder() {
 
 void ObjectBuilder::WriteValue(const Value& inValue, uint32_t inIndentLevel) {
 	switch (inValue.mType) {
+	case ValueType::Object: {
+
+	} break;
 	case ValueType::Null: {
 		m_Stream << "\"null\"";
 	} break;

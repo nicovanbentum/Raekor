@@ -1,17 +1,16 @@
 #include "pch.h"
 #include "viewportWidget.h"
-#include "Raekor/scene.h"
-#include "Raekor/gui.h"
-#include "Raekor/physics.h"
-#include "Raekor/application.h"
+#include "scene.h"
+#include "gui.h"
+#include "physics.h"
+#include "application.h"
 
 namespace Raekor {
 
 RTTI_CLASS_CPP_NO_FACTORY(ViewportWidget) {}
 
 ViewportWidget::ViewportWidget(Application* inApp) :
-    IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_VIDEO " Viewport ")),
-    m_DisplayTexture(inApp->GetRenderer()->GetDisplayTexture())
+    IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_VIDEO " Viewport "))
 {}
 
 
@@ -76,9 +75,17 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
     //    if (rendertarget == targets[i])
     //        rendertargetIndex = i;
 
-    if (ImGui::Combo("##Render target", &rendertargetIndex, items.data(), int(items.size()))) {
-    
-    }
+    auto& current_debug_texture = m_Editor->GetRenderer()->GetSettings().mDebugTexture;
+    const auto debug_texture_count = m_Editor->GetRenderer()->GetDebugTextureCount();
+
+    auto GetDebugTexture = [](void* data, int idx, const char** out_text) -> bool {
+        auto this_ptr = (ViewportWidget*)data;
+        out_text[0] = this_ptr->m_Editor->GetRenderer()->GetDebugTextureName(idx);
+        return true;
+    };
+
+    if (ImGui::Combo("##Render target", &current_debug_texture, GetDebugTexture, this, int(debug_texture_count)))
+        m_Editor->GetRenderer()->OnResize(viewport); // not an actual resize, just to recreate render targets
 
     // figure out if we need to resize the viewport
     auto size = ImGui::GetContentRegionAvail();
@@ -89,7 +96,6 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
     if (viewport.size.x != size.x || viewport.size.y != size.y) {
         viewport.SetSize({ size.x, size.y });
         m_Editor->GetRenderer()->OnResize(viewport);
-        // m_Editor->LogMessage("Render Size: " + glm::to_string(viewport.GetSize()));
         resized = true;
     }
 

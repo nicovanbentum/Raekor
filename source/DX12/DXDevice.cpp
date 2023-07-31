@@ -754,7 +754,7 @@ void RingAllocator::DestroyBuffer(Device& inDevice) {
 
 
 
-ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath) {
+ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath, const std::string& inDefines) {
     const auto name = inFilePath.stem().string();
     auto type = name.substr(name.size() - 2, 2);
     std::transform(type.begin(), type.end(), type.begin(), tolower);
@@ -771,6 +771,7 @@ ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath) {
 
     auto ifs = std::ifstream(inFilePath);
     auto buffer = std::stringstream();
+    buffer << inDefines;
     buffer << ifs.rdbuf();
     const auto source_str = buffer.str();
 

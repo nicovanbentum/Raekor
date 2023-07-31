@@ -181,7 +181,7 @@ private:
 };
 
 
-ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath);
+ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath, const std::string& inDefines = "");
 
 
 } // namespace::Raekor

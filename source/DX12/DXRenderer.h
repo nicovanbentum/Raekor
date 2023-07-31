@@ -25,6 +25,21 @@ struct BackBufferData {
     CommandList mCmdList;
 };
 
+enum EDebugTexture {
+    DEBUG_TEXTURE_NONE                  = 0,
+    DEBUG_TEXTURE_GBUFFER_DEPTH         = 1,
+    DEBUG_TEXTURE_GBUFFER_ALBEDO        = 2,
+    DEBUG_TEXTURE_GBUFFER_NORMALS       = 3,
+    DEBUG_TEXTURE_GBUFFER_VELOCITY      = 4,
+    DEBUG_TEXTURE_GBUFFER_METALLIC      = 5,
+    DEBUG_TEXTURE_GBUFFER_ROUGHNESS     = 6,
+    DEBUG_TEXTURE_RT_SHADOWS            = 7,
+    DEBUG_TEXTURE_RT_AMBIENT_OCCLUSION  = 8,
+    DEBUG_TEXTURE_RT_REFLECTIONS        = 9,
+    DEBUG_TEXTURE_LIGHTING              = 10,
+    DEBUG_TEXTURE_COUNT
+};
+
 /*
     Fun TODO's:
     - timestamp queries per render pass for profiling
@@ -33,23 +48,23 @@ struct BackBufferData {
 class Renderer {
 private:
     struct Settings {
-        int& mEnableVsync = g_CVars.Create("r_vsync",               1);
-        int& mDebugLines  = g_CVars.Create("r_debug_lines",         1);
-        int& mEnableRTAO  = g_CVars.Create("r_enable_rtao",         1);
-        int& mProbeDebug  = g_CVars.Create("r_debug_gi_probes",     1);
-        int& mEnableDDGI  = g_CVars.Create("r_enable_ddgi",         1);
-        int& mFullscreen  = g_CVars.Create("r_fullscreen",          0);
-        int& mEnableFsr2  = g_CVars.Create("r_enable_fsr2",         0);
-        int& mDisplayRes  = g_CVars.Create("r_display_resolution",  0);
+        int& mEnableVsync  = g_CVars.Create("r_vsync",               1);
+        int& mDebugLines   = g_CVars.Create("r_debug_lines",         1);
+        int& mEnableRTAO   = g_CVars.Create("r_enable_rtao",         1);
+        int& mProbeDebug   = g_CVars.Create("r_debug_gi_probes",     1);
+        int& mEnableDDGI   = g_CVars.Create("r_enable_ddgi",         1);
+        int& mFullscreen   = g_CVars.Create("r_fullscreen",          0);
+        int& mEnableFsr2   = g_CVars.Create("r_enable_fsr2",         0);
+        int& mDisplayRes   = g_CVars.Create("r_display_resolution",  0);
     } m_Settings;
 
 public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
     void OnResize(Device& inDevice, const Viewport& inViewport, bool inExclusiveFullscreen = false);
-    void OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, StagingHeap& inStagingHeap, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer,  float inDeltaTime);
+    void OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, StagingHeap& inStagingHeap, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, EDebugTexture inDebugTexture, float inDeltaTime);
 
-    void Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer);
+    void Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, EDebugTexture inDebugTexture);
 
     CommandList& StartSingleSubmit();
     void FlushSingleSubmit(Device& inDevice, CommandList& inCommandList);
@@ -95,6 +110,9 @@ public:
 
     uint64_t GetDisplayTexture() override;
     uint64_t GetImGuiTextureID(uint32_t inTextureID) override;
+
+    virtual uint32_t    GetDebugTextureCount() const override { return DEBUG_TEXTURE_COUNT; }
+    virtual const char* GetDebugTextureName(uint32_t inIndex) const;
     
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) { return 0; /* TODO: FIXME */ }
     uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) override { return 0; /* TODO: FIXME */ }
@@ -109,7 +127,7 @@ public:
 
     uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false);
 
-    void OnResize(const Viewport& inViewport) { m_Renderer.SetShouldResize(true); }
+    void OnResize(const Viewport& inViewport);
     void DrawImGui(Scene& inScene, const Viewport& inViewport);
 
 private:
@@ -133,6 +151,23 @@ struct GBufferData {
 
 const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
     const Scene& inScene
+);
+
+
+////////////////////////////////////////
+/// GBuffer Debug Pass
+////////////////////////////////////////
+struct GBufferDebugData {
+    RTTI_CLASS_HEADER(GBufferDebugData);
+
+    GBufferData mGBufferData;
+    TextureResource mInputTexture;
+    TextureResource mOutputTexture;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& inDevice,
+    const GBufferData& inGBufferData, EDebugTexture inDebugTexture
 );
 
 
@@ -336,6 +371,7 @@ struct DebugLinesData {
     RTTI_CLASS_HEADER(DebugLinesData);
 
     BufferResource mVertexBuffer;
+    D3D12_DRAW_ARGUMENTS* mMappedPtr;
     BufferResource mIndirectArgsBuffer;
     ComPtr<ID3D12PipelineState> mPipeline;
     ComPtr<ID3D12CommandSignature> mCommandSignature;

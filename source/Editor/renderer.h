@@ -24,8 +24,11 @@ public:
     void AddDebugLine(glm::vec3 inP1, glm::vec3 inP2);
     void AddDebugBox(glm::vec3 inMin, glm::vec3 inMax, const glm::mat4& inTransform = glm::mat4(1.0f));
 
-    uint64_t GetDisplayTexture() { return m_Tonemap ? m_Tonemap->result : entt::null; }
+    uint64_t GetDisplayTexture();
     uint64_t GetImGuiTextureID(uint32_t inTextureID) { return inTextureID; }
+
+    uint32_t    GetDebugTextureCount() const override;
+    const char* GetDebugTextureName(uint32_t inIndex) const override;
 
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer);
     uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) { return m_GBuffer ? m_GBuffer->readEntity(inScreenPosX, inScreenPosY) : entt::null; }

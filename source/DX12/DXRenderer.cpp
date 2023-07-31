@@ -127,7 +127,7 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
 
 
 
-void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, StagingHeap& inStagingHeap, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, float inDeltaTime) {
+void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, StagingHeap& inStagingHeap, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, EDebugTexture inDebugTexture, float inDeltaTime) {
     // Check if any of the shader sources were updated and recompile them if necessary
     bool need_recompile = false;
 
@@ -155,7 +155,7 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
         OnResize(inDevice, inViewport, SDL_IsWindowExclusiveFullscreen(m_Window));
 
         // Recompile the renderer, probably a bit overkill. TODO: pls fix
-        Recompile(inDevice, inScene, inTLAS, inInstancesBuffer, inMaterialsBuffer);
+        Recompile(inDevice, inScene, inTLAS, inInstancesBuffer, inMaterialsBuffer, inDebugTexture);
 
         // Unflag
         m_ShouldResize = false;
@@ -268,7 +268,7 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
 
 
 
-void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer) {
+void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, EDebugTexture inDebugTexture) {
     m_RenderGraph.Clear(inDevice);
     m_RenderGraph.SetBackBuffer(GetBackBufferData().mBackBuffer);
 
@@ -306,11 +306,42 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
     if (m_Settings.mEnableFsr2)
         compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
 
-
-
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, compose_input);
 
-    const auto& pre_imgui_data = AddPreImGuiPass(m_RenderGraph, inDevice, compose_data.mOutputTexture);
+    auto final_output = compose_data.mOutputTexture;
+
+    switch (inDebugTexture) {
+        case DEBUG_TEXTURE_NONE:
+            break;
+        case DEBUG_TEXTURE_GBUFFER_ALBEDO:
+        case DEBUG_TEXTURE_GBUFFER_NORMALS:
+        case DEBUG_TEXTURE_GBUFFER_METALLIC:
+        case DEBUG_TEXTURE_GBUFFER_ROUGHNESS:
+            //AddGBufferDebugPass();
+            break;
+        case DEBUG_TEXTURE_GBUFFER_DEPTH:
+            final_output = gbuffer_data.mDepthTexture;
+            break;
+        case DEBUG_TEXTURE_GBUFFER_VELOCITY:
+            final_output = gbuffer_data.mMotionVectorTexture;
+            break;
+        case DEBUG_TEXTURE_RT_SHADOWS:
+            final_output = shadow_data.mOutputTexture; 
+            break;
+        case DEBUG_TEXTURE_RT_AMBIENT_OCCLUSION:
+            final_output = rtao_data.mOutputTexture;
+            break;
+        case DEBUG_TEXTURE_RT_REFLECTIONS:
+            final_output = reflection_data.mOutputTexture;
+            break;
+        case DEBUG_TEXTURE_LIGHTING:
+            final_output = light_data.mOutputTexture;
+            break;
+        default:
+            assert(false);
+    }
+
+    const auto& pre_imgui_data = AddPreImGuiPass(m_RenderGraph, inDevice, final_output);
 
     // const auto& imgui_data = AddImGuiPass(m_RenderGraph, inDevice, inStagingHeap, compose_data.mOutputTexture);
 
@@ -376,6 +407,29 @@ uint64_t RenderInterface::GetImGuiTextureID(uint32_t inHandle)
     const auto& resource_heap = m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetHeap();
     const auto heap_ptr = resource_heap->GetGPUDescriptorHandleForHeapStart().ptr + inHandle * m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     return heap_ptr;
+}
+
+
+
+const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const {
+    constexpr auto names = std::array {
+        "Final",
+        "Depth",
+        "Albedo",
+        "Normals",
+        "Velocity",
+        "Metallic",
+        "Roughness",
+        "RT Shadows",
+        "RT Ambient Occlusion",
+        "RT Reflections",
+        "Lighting"
+    };
+
+    static_assert(names.size() == DEBUG_TEXTURE_COUNT);
+
+    assert(inIndex < DEBUG_TEXTURE_COUNT);
+    return names[inIndex];
 }
 
 
@@ -505,6 +559,10 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     return texture.GetView().ToIndex();
 }
 
+
+void RenderInterface::OnResize(const Viewport& inViewport) { 
+    m_Renderer.SetShouldResize(true); 
+}
 
 
 void RenderInterface::DrawImGui(Scene& inScene, const Viewport& inViewport) {
@@ -732,6 +790,7 @@ void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList) {
 
 
 RTTI_CLASS_CPP(GBufferData)	        {}
+RTTI_CLASS_CPP(GBufferDebugData)    {}
 RTTI_CLASS_CPP(GrassData)           {}
 RTTI_CLASS_CPP(RTShadowMaskData)    {}
 RTTI_CLASS_CPP(RTAOData)            {}
@@ -844,6 +903,66 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             inCmdList->DrawIndexedInstanced(mesh.indices.size(), 1, 0, 0, 0);
         }
+    });
+}
+
+
+
+const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, EDebugTexture inDebugTexture) {
+    return inRenderGraph.AddGraphicsPass<GBufferDebugData>("GBUFFER DEBUG PASS", inDevice,
+    [&](IRenderPass* inRenderPass, GBufferDebugData& inData) 
+    {
+        const auto render_texture = inDevice.CreateTexture(Texture::Desc{
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::RENDER_TARGET,
+        }, L"GBUFFER_DEBUG");
+
+        inData.mOutputTexture = inRenderPass->CreateAndWrite(render_texture);
+
+        switch (inDebugTexture) {
+            case DEBUG_TEXTURE_GBUFFER_DEPTH:     inData.mInputTexture = inGBufferData.mDepthTexture;  break;
+            case DEBUG_TEXTURE_GBUFFER_ALBEDO:    inData.mInputTexture = inGBufferData.mRenderTexture; break;
+            case DEBUG_TEXTURE_GBUFFER_NORMALS:    inData.mInputTexture = inGBufferData.mRenderTexture; break;
+            case DEBUG_TEXTURE_GBUFFER_METALLIC:  inData.mInputTexture = inGBufferData.mRenderTexture; break;
+            case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: inData.mInputTexture = inGBufferData.mRenderTexture; break;
+            default: assert(false);
+        }
+
+        inData.mInputTexture = inRenderPass->Read(inData.mInputTexture);
+
+        auto pixel_shader = (const char*)nullptr;
+
+        switch (inDebugTexture) {
+            case DEBUG_TEXTURE_GBUFFER_DEPTH:     pixel_shader = "GBufferDebugDepthPS";     break;
+            case DEBUG_TEXTURE_GBUFFER_ALBEDO:    pixel_shader = "GBufferDebugAlbedoPS";    break;
+            case DEBUG_TEXTURE_GBUFFER_NORMALS:    pixel_shader = "GBufferDebugNormalsPS";   break;
+            case DEBUG_TEXTURE_GBUFFER_METALLIC:  pixel_shader = "GBufferDebugMetallicPS";  break;
+            case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: pixel_shader = "GBufferDebugRoughnessPS"; break;
+            default: assert(false);
+        }
+
+        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "FullscreenTriangleVS", "GBufferDebugPS");
+        state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
+        state.DepthStencilState.DepthEnable = FALSE;
+        state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+        inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline->SetName(L"PSO_GBUFFER_DEBUG");
+    },
+    [&inRenderGraph, &inDevice](GBufferDebugData& inData, CommandList& inCmdList) 
+    {   
+            const auto root_constants = GbufferDebugRootConstants{
+                .mTexture   = inData.mOutputTexture.GetBindlessIndex(inDevice),
+                .mFarPlane  = inRenderGraph.GetViewport().GetCamera().GetFar(),
+                .mNearPlane = inRenderGraph.GetViewport().GetCamera().GetNear(),
+            };
+
+            inCmdList->SetPipelineState(inData.mPipeline.Get());
+            inCmdList.SetViewportScissorRect(inRenderGraph.GetViewport());
+            inCmdList.PushGraphicsConstants(root_constants);
+            inCmdList->DrawInstanced(6, 1, 0, 0);
     });
 }
 
@@ -997,7 +1116,6 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
         Timer timer;
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
         inData.mPipeline->SetName(L"PSO_RT_REFLECTIONS");
-        std::cout << std::format("CreateComputePipelineState took {:.2f} ms.\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
     },
     [&inRenderGraph, &inDevice](ReflectionsData& inData, CommandList& inCmdList) 
     {
@@ -1283,7 +1401,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
     return inRenderGraph.AddGraphicsPass<ProbeDebugData>("GI PROBE DEBUG PASS", inDevice,
     [&](IRenderPass* inRenderPass, ProbeDebugData& inData)
     {
-        gGenerateSphere(inData.mProbeMesh, .25f, 8u, 8u);
+        gGenerateSphere(inData.mProbeMesh, .25f, 16u, 16u);
 
         const auto vertices = inData.mProbeMesh.GetInterleavedVertices();
         const auto vertices_size = vertices.size() * sizeof(vertices[0]);
@@ -1813,6 +1931,8 @@ TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameC
         descriptor_heap.GetCPUDescriptorHandle(font_texture_view),
         descriptor_heap.GetGPUDescriptorHandle(font_texture_view)
     );
+
+    ImGui_ImplDX12_CreateDeviceObjects();
 
     //auto imgui_id = (void*)(intptr_t)inDevice.GetBindlessHeapIndex(font_texture_id);
     //ImGui::GetIO().Fonts->SetTexID(imgui_id);

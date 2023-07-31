@@ -1,10 +1,10 @@
 #include "pch.h"
 #include "randomWidget.h"
-#include "Raekor/timer.h"
-#include "Raekor/rmath.h"
-#include "Raekor/systems.h"
-#include "Raekor/physics.h"
-#include "Raekor/application.h"
+#include "timer.h"
+#include "rmath.h"
+#include "systems.h"
+#include "physics.h"
+#include "application.h"
 
 namespace Raekor {
 

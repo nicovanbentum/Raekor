@@ -13,7 +13,8 @@ enum class ValueType {
 	Bool,
 	Number,
 	String,
-	Array
+	Array,
+	Object
 };
 
 struct String {
@@ -157,7 +158,6 @@ private:
 	std::stringstream m_Stream;
 };
 
-
 inline void ToJSONValue(JSON::Value& ioValue, std::string& inString) {
 	ioValue.mType = JSON::ValueType::String;
 	ioValue.mData.mString.mPtr = inString.c_str();
@@ -282,6 +282,18 @@ inline void ToJSONValue(JSON::Value& ioValue, std::vector<T>& inVector) {
 }
 
 
+inline void FromJSONValue(const JSON::Value& ioValue, Path& inPath) {
+	std::string value;
+	FromJSONValue(ioValue, value);
+	inPath = Path(value);
+}
+
+
+inline void ToJSONValue(JSON::Value& ioValue, Path& inPath) {
+	std::string value = inPath.string();
+	ToJSONValue(ioValue, value);
+}
+
 template<typename T>
 inline void FromJSONValue(const JSON::Value& ioValue, T* inPtr) {
 
@@ -292,5 +304,24 @@ inline void ToJSONValue(JSON::Value& ioValue, T* inPtr) {
 
 }
 
+template<typename T>
+inline void ToJSONValue(JSON::Value& ioValue, T& inMember) {
+	ioValue.mType = JSON::ValueType::Object;
+	auto& rtti = gGetRTTI<T>();
+	for (uint32_t i = 0; i < rtti.GetMemberCount(); i++) {
+		auto& member_value = ioValue.mArray.emplace_back();
+		rtti.GetMember(i)->ToJSON(member_value, &inMember);
+	}
+}
+
+template<typename T>
+inline void FromJSONValue(const JSON::Value& inValue, T& inMember) {
+	auto& rtti = gGetRTTI<T>();
+	assert(inValue.mType == JSON::ValueType::Object);
+	assert(inValue.mArray.size() == rtti.GetMemberCount());
+	
+	for (uint32_t i = 0; i < rtti.GetMemberCount(); i++)
+		rtti.GetMember(i)->FromJSON(inValue.mArray[i], &inMember);
+}
 
 }
