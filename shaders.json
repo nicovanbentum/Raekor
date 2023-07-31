@@ -1,0 +1,27 @@
+{
+	"SystemShadersDX12":
+    {
+        "GBuffer Debug Depth Shader": 
+        { 
+            "Define": "#define DEBUG_TEXTURE_GBUFFER_DEPTH",
+            "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
+            "Compute Shader File": ""
+        },
+        "GBuffer Debug Albedo Shader": 
+        { 
+            "Define": "#define DEBUG_TEXTURE_GBUFFER_ALBEDO",
+            "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
+            "Compute Shader File": ""
+        },
+        "GBuffer Debug Normals Shader": 
+        { 
+            "Define": "#define DEBUG_TEXTURE_GBUFFER_NORMALS",
+            "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
+            "Compute Shader File": ""
+        }
+    }
+}
+
