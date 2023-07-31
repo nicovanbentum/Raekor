@@ -8,11 +8,13 @@
 *.spv
 *.sln
 *.pdb
+*.wpix
 *.log
 *.user
 *.cmake
 *.vcxproj
 *.vcxproj.filters
+test.*
 CmakeCache.txt
 Raekor.dir/
 build/
