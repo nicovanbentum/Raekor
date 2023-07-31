@@ -1,9 +1,11 @@
 {
-	"Type": "ConfigSettings",
-	"Display": 1,
-	"Vsync": true,
-	"App Name": "Raekor Renderer",
-	"Font File": "assets/system/Inter-Medium.ttf",
-	"Scene File": "assets/scenes/sponza.scene"
+    "ConfigSettings":
+    {
+        "Display": 1,
+        "Vsync": false,
+        "App Name": "Raekor Renderer",
+        "Font File": "assets/system/Inter-Medium.ttf",
+        "Scene File": "assets/scenes/sponza.scene"
+    }
 }
 
