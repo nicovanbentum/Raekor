@@ -14,7 +14,8 @@ set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/imnodes/imnodes.cpp
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/imnodes/imnodes.cpp)
 
 # Rule to build the actual exectuable and enable c++17
-add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/config.json)
+
+add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles} raekor.natvis ${CMAKE_SOURCE_DIR}/config.json)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers

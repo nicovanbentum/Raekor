@@ -24,11 +24,8 @@ public:
 
     int GetSelectedObjectIndex() { return m_SelectedObject; }
     void SelectObject(int inIndex) { m_SelectedObject = inIndex; ImNodes::ClearNodeSelection(); ImNodes::SelectNode(m_SelectedObject); }
-    JSON::Object* GetSelectedObject() { return m_SelectedObject == -1 ? nullptr : &m_JSON.Get(m_SelectedObject); }
-    JSON::Object* GetObjectByIndex(uint32_t inIndex) { return inIndex < m_JSON.Count() ? &m_JSON.Get(inIndex) : nullptr; }
 
 private:
-    JSON::Parser m_JSON;
     int m_SelectedObject = -1;
     int m_LinkPinDropped = -1;
     std::string m_OpenFilePath;

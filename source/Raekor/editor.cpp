@@ -34,6 +34,8 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderer* inRenderer) :
 
     GUI::SetTheme();
     ImGui::GetStyle().ScaleAllSizes(1.33333333f);
+    ImNodes::StyleColorsDark();
+
     if (!m_Settings.mFontFile.empty())
         GUI::SetFont(m_Settings.mFontFile.c_str());
 

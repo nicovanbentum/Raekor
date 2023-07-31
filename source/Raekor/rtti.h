@@ -19,7 +19,8 @@ public:
     
     void            AddMember(Member* inName);
     Member*         GetMember(uint32_t inIndex) const;
-    uint32_t        GetMemberCount() const { return uint32_t(m_Members.size());   }
+    Member*         GetMember(const std::string& inName) const; // Expensive!
+    uint32_t        GetMemberCount() const { return uint32_t(m_Members.size()); }
 
     bool operator==(const RTTI& rhs) const { return m_Hash == rhs.m_Hash; }
     bool operator!=(const RTTI& rhs) const { return m_Hash != rhs.m_Hash; }
@@ -47,8 +48,8 @@ public:
     const char*     GetCustomName() const { return m_CustomName; }
     virtual void*   GetMember(void* inClass) = 0;
 
-    virtual void ToJSON(JSON::Value& ioValue, void* inClass) {}
-    virtual void FromJSON(const JSON::Value& inValue, void* inClass) {}
+    virtual uint32_t ToJSON(std::string& inJSON, void* inClass) { return 0; }
+    virtual uint32_t FromJSON(const std::string& inJSON, Slice<jsmntok_t> inTokens, void* inClass) { return 0; }
 
     virtual bool IsPtr() { return false; }
     virtual void SetPtr() {}
@@ -67,12 +68,13 @@ public:
     
     virtual bool IsPtr() { return std::is_pointer_v<T>; }
 
-    void ToJSON(JSON::Value& ioValue, void* inInstance) override { 
-        ToJSONValue(ioValue, *static_cast<T*>(GetMember(inInstance)));
+    uint32_t ToJSON(std::string& inJSON, void* inInstance) override {
+        JSON::ToJSONValue(inJSON, *static_cast<T*>(GetMember(inInstance)));
+        return 0; // TODO
     }
 
-    void FromJSON(const JSON::Value& inValue, void* inInstance) override {
-        FromJSONValue(inValue, *static_cast<T*>(GetMember(inInstance)));
+    uint32_t FromJSON(const std::string& inJSON, Slice<jsmntok_t> inTokens, void* inInstance) override {
+        return JSON::FromJSONValue(inJSON, inTokens, *static_cast<T*>(GetMember(inInstance)));
     }
 
     virtual void* GetMember(void* inClass) override { return &(static_cast<Class*>(inClass)->*m_Member); }
@@ -98,15 +100,6 @@ private:
 
     // global singleton
     static inline std::unique_ptr<RTTIFactory> global = std::make_unique<RTTIFactory>();
-};
-
-
-class InArchive {
-
-};
-
-class OutArchive {
-
 };
 
 } // namespace Raekor
@@ -140,9 +133,9 @@ public:                                                                         
     void name::sImplRTTI(RTTI& inRTTI)    
 
 
-#define RTTI_CLASS_CPP_NO_FACTORY(name)                                                                                            \
+#define RTTI_CLASS_CPP_NO_FACTORY(name)                                                                                 \
     RTTI& sGetRTTI(name* inName) {                                                                                      \
-        static auto rtti = RTTI(#name, &name::sImplRTTI, []() -> void* { return nullptr; });                           \
+        static auto rtti = RTTI(#name, &name::sImplRTTI, []() -> void* { return nullptr; });                            \
         return rtti;                                                                                                    \
     }                                                                                                                   \
                                                                                                                         \

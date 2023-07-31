@@ -143,6 +143,7 @@ template<typename T>
 class Slice {
 public:
     Slice() = delete;
+    Slice(const T* start) : start(start), length(1) {}
     Slice(const T* start, uint64_t length) : start(start), length(length) {}
     Slice(const T* start, const T* end) : start(start), length(end - start) {}
 

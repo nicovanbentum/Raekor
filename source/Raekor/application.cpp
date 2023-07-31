@@ -21,7 +21,7 @@ RTTI_CLASS_CPP(ConfigSettings) {
 
 Application::Application(WindowFlags inFlags) {
     {
-        auto archive = JSON::ReadArchive("config.json");
+        auto archive = JSON::JSONArchive("config.json");
         archive >> m_Settings;
     }
 
@@ -73,8 +73,6 @@ Application::Application(WindowFlags inFlags) {
 
 Application::~Application() {
     m_Settings.mDisplayIndex = SDL_GetWindowDisplayIndex(m_Window);
-    auto archive = JSON::WriteArchive("config.json");
-    archive << m_Settings;
 
     SDL_DestroyWindow(m_Window);
     SDL_Quit();

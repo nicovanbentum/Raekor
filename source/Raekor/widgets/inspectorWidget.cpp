@@ -94,54 +94,7 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets) {
 
 
 void InspectorWidget::DrawJSONInspector(Widgets* inWidgets) {
-    auto json_object = (JSON::Object*)nullptr;
-    auto nodegraph_widget = inWidgets->GetWidget<NodeGraphWidget>();
-
-    if (nodegraph_widget)
-        json_object = nodegraph_widget->GetSelectedObject();
-    
-    if (json_object == nullptr)
-        return;
-
-    auto type_string = json_object->at("Type").As<JSON::String>().ToString();
-
-    ImGui::CollapsingHeader(type_string.c_str(), ImGuiTreeNodeFlags_Leaf);
-
-    auto child_object_offset = 0;
-    auto selected_object_index = nodegraph_widget->GetSelectedObjectIndex();
-
-    for (auto& [name, value] : *json_object) {
-        if (name == "Type")
-            continue;
-
-        if (value.mType == JSON::ValueType::Object) {
-                ImGui::PushID(++child_object_offset);
-                if (ImGui::ArrowButton("##JSON::ValueType::Object", ImGuiDir_Right))
-                    nodegraph_widget->SelectObject(selected_object_index + child_object_offset);
-                ImGui::PopID();
-                ImGui::SameLine();
-        }
-
-        ImGui::Text(name.c_str());
-
-        switch (value.mType) {
-            case JSON::ValueType::Bool: {
-                auto& bool_value = value.As<bool>();
-                ImGui::SameLine();
-                ImGui::Checkbox(name.c_str(), &bool_value);
-            } break;
-            case JSON::ValueType::String: {
-                auto string_value = value.As<JSON::String>().ToString();
-                ImGui::SameLine();
-                ImGui::InputText("##JSON::ValueType::String", &string_value, ImGuiInputTextFlags_NoHorizontalScroll);
-            } break;
-            case JSON::ValueType::Number: {
-                auto& float_value = value.As<float>();
-                ImGui::SameLine();
-                ImGui::InputFloat(name.c_str(), &float_value);
-            } break;
-        }
-    }
+    ImGui::Text("JSON Inspector");
 }
 
 

@@ -2,6 +2,7 @@
 #include "NodeGraphWidget.h"
 #include "OS.h"
 #include "application.h"
+#include "archive.h"
 
 namespace Raekor {
 
@@ -18,29 +19,8 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 		std::string opened_file_path = OS::sOpenFileDialog("All Files (*.json)\0*.json\0");
 
 		if (!opened_file_path.empty()) {
-			auto ifs = std::ifstream(opened_file_path);
-
-			auto buffer = std::stringstream();
-			buffer << ifs.rdbuf();
-
-			auto str_buffer = buffer.str();
-			m_JSON = JSON::Parser(str_buffer);
-			m_JSON.Parse();
+			auto json = JSON::JSONArchive(opened_file_path);
 			m_OpenFilePath = FileSystem::relative(opened_file_path).string();
-
-		/*	jsmn_parser parser;
-			jsmn_init(&parser);
-			const auto nr_of_tokens = jsmn_parse(&parser, str_buffer.c_str(), str_buffer.size(), NULL, 0);
-			
-			jsmn_init(&parser);
-			std::vector<jsmntok_t> tokens(nr_of_tokens);
-			jsmnerr err = (jsmnerr)jsmn_parse(&parser, str_buffer.c_str(), str_buffer.size(), tokens.data(), tokens.size());
-
-			for (const auto& token : tokens) {
-				if (token.parent == -1) {
-
-				}
-			}*/
 		}
 	}
 
@@ -48,7 +28,6 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 
 	if (ImGui::Button((const char*)ICON_FA_SAVE " Save")) {
 		if (!m_OpenFilePath.empty()) {
-			JSON::ObjectBuilder builder;
 			
 		}
 	}
@@ -82,14 +61,6 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 
 			ImNodes::SetNodeGridSpacePos(object_index, cursor);
 
-			const auto& object = m_JSON.Get(object_index);
-
-			auto child_index = 0u;
-			for (const auto& [name, value] : object) {
-				if (value.mType == JSON::ValueType::Object)
-					queue.push(object_index + ++child_index);
-			}
-
 			const auto dimensions = ImNodes::GetNodeDimensions(object_index);
 			if (depth_size == 0) {
 				depth_size = queue.size();
@@ -107,22 +78,22 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 		ImGui::PopStyleVar();
 
 		ImNodes::BeginNodeEditor();
-		ImNodes::PushColorStyle(ImNodesCol_TitleBar, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
-		ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
-		ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
-		ImNodes::PushColorStyle(ImNodesCol_NodeBackground, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
-		ImNodes::PushColorStyle(ImNodesCol_GridBackground, ImGui::ColorConvertFloat4ToU32(ImVec4(0.22f, 0.22f, 0.22f, 1.0f)));
-		//ImNodes::PushColorStyle(ImNodesCol_GridLine, ImGui::ColorConvertFloat4ToU32(ImVec4(0.16f, 0.16f, 0.16f, 0.35f)));
-		ImNodes::PushColorStyle(ImNodesCol_GridLinePrimary, ImGui::ColorConvertFloat4ToU32(ImVec4(0.56f, 0.16f, 0.16f, 0.35f)));
-		ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundHovered, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
-		ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundSelected, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
-		ImNodes::PushColorStyle(ImNodesCol_Link, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-		ImNodes::PushColorStyle(ImNodesCol_MiniMapLink, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-		ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-		ImNodes::PushColorStyle(ImNodesCol_PinHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
-		ImNodes::PushColorStyle(ImNodesCol_LinkHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
-		ImNodes::PushColorStyle(ImNodesCol_LinkSelected, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
-		ImNodes::PushColorStyle(ImNodesCol_BoxSelectorOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
+		//ImNodes::PushColorStyle(ImNodesCol_TitleBar, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
+		//ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
+		//ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
+		//ImNodes::PushColorStyle(ImNodesCol_NodeBackground, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
+		//ImNodes::PushColorStyle(ImNodesCol_GridBackground, ImGui::ColorConvertFloat4ToU32(ImVec4(0.22f, 0.22f, 0.22f, 1.0f)));
+		////ImNodes::PushColorStyle(ImNodesCol_GridLine, ImGui::ColorConvertFloat4ToU32(ImVec4(0.16f, 0.16f, 0.16f, 0.35f)));
+		//ImNodes::PushColorStyle(ImNodesCol_GridLinePrimary, ImGui::ColorConvertFloat4ToU32(ImVec4(0.56f, 0.16f, 0.16f, 0.35f)));
+		//ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundHovered, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
+		//ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundSelected, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
+		//ImNodes::PushColorStyle(ImNodesCol_Link, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
+		//ImNodes::PushColorStyle(ImNodesCol_MiniMapLink, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
+		//ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
+		//ImNodes::PushColorStyle(ImNodesCol_PinHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
+		//ImNodes::PushColorStyle(ImNodesCol_LinkHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
+		//ImNodes::PushColorStyle(ImNodesCol_LinkSelected, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
+		//ImNodes::PushColorStyle(ImNodesCol_BoxSelectorOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
 
 		// Reset to center of the canvas if we started at 0,0
 		const auto panning = ImNodes::EditorContextGetPanning();
@@ -135,19 +106,12 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 		if (ImGui::BeginPopup("New Type")) {
 			for (const auto& registered_type : RTTIFactory::GetAllTypesIter()) {
 				if (ImGui::Selectable(registered_type.second->GetTypeName(), false)) {
-
-					auto& object = m_JSON.AddObject();
-					auto& type_field = object["Type"];
-					type_field.mType = JSON::ValueType::String;
-					type_field.mData.mString.mPtr = registered_type.second->GetTypeName();
-					type_field.mData.mString.mLength = strlen(registered_type.second->GetTypeName());
-
 					auto rtti = RTTIFactory::GetRTTI(registered_type.second->GetTypeName());
 					auto instance = RTTIFactory::Construct(registered_type.second->GetTypeName());
 
 					for (uint32_t member_index = 0; member_index < rtti->GetMemberCount(); member_index++) {
 						auto member = rtti->GetMember(member_index);
-						member->ToJSON(object[member->GetCustomName()], instance);
+						// member->ToJSON(object[member->GetCustomName()], instance);
 					}
 
 					ImGui::CloseCurrentPopup();
@@ -167,13 +131,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 
 		std::queue<uint32_t> child_pins;
 
-		for (uint32_t index = 0; index < m_JSON.Count(); index++) {
-			auto& object = m_JSON.Get(index);
-			if (!m_JSON.Contains(object, "Type"))
-				continue;
-
-			const auto& type_value = m_JSON.GetValue(object, "Type");
-			const auto& type_string = type_value.As<JSON::String>().ToString();
+		for (uint32_t index = 0; index < 0; index++) {
 
 			if (index == m_SelectedObject) {
 				ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 1.5f);
@@ -191,50 +149,51 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 				input_pin_index = pin_index;
 				ImNodes::BeginInputAttribute(pin_index++);
 
-				ImGui::Text(type_string.c_str());
+				//ImGui::Text(type_string.c_str());
 				ImNodes::EndInputAttribute();
 			}
 			else {
-				ImGui::Text(type_string.c_str());
+				//ImGui::Text(type_string.c_str());
 			}
 
 			ImGui::PopStyleColor();
 
 			ImNodes::EndNodeTitleBar();
 
-			const auto rtti = RTTIFactory::GetRTTI(type_string.c_str());
+			// const auto rtti = RTTIFactory::GetRTTI(type_string.c_str());
 			
-			for (auto member_index = 0u; member_index < rtti->GetMemberCount(); member_index++) {
-				auto member = rtti->GetMember(member_index);
+			for (auto member_index = 0u; member_index < 0; member_index++) {
+				// auto member = rtti->GetMember(member_index);
 				
-				if (object.find(member->GetCustomName()) != object.end()) {
-					const auto& value = object.at(member->GetCustomName());
+				if (false) {
+					// const auto& value = object.at(member->GetCustomName());
 
 					if (pin_index == m_LinkPinDropped) {
 						// auto& new_object = m_JSON.AddObject();
 					}
 
-					if (value.mType == JSON::ValueType::Object) {
+					if (false) {
+					//if (value.mType == JSON::ValueType::Object) {
 						child_pins.push(pin_index);
 						ImNodes::BeginOutputAttribute(pin_index++);
-						ImGui::Text(member->GetCustomName());
+						//ImGui::Text(member->GetCustomName());
 						ImNodes::EndOutputAttribute();
 
 					}
 					else {
 						ImNodes::BeginStaticAttribute(pin_index++);
-						ImGui::Text(member->GetCustomName());
+						//ImGui::Text(member->GetCustomName());
 						ImNodes::EndStaticAttribute();
 					}
 				}
 				else {
 					if (m_WasLinkConnected && (pin_index == start_pin_id || pin_index == end_pin_id)) {
-						auto& new_value = object[member->GetCustomName()];
-						new_value.mType = JSON::ValueType::Object;
+						//auto& new_value = object[member->GetCustomName()];
+						//new_value.mType = JSON::ValueType::Object;
 					}
 
 					ImNodes::BeginOutputAttribute(pin_index++);
-					ImGui::Text(member->GetCustomName());
+					//ImGui::Text(member->GetCustomName());
 					ImNodes::EndOutputAttribute();
 				}
 			}
@@ -254,8 +213,8 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 		}
 
 		ImNodes::MiniMap();
-		ImNodes::PopColorStyle();
-		ImNodes::PopColorStyle();
+		//ImNodes::PopColorStyle();
+		//ImNodes::PopColorStyle();
 		ImNodes::EndNodeEditor();
 
 		if (ImNodes::NumSelectedNodes() > 0) {

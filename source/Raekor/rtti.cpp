@@ -20,6 +20,15 @@ void RTTI::AddMember(Member* inMember) {
 }
 
 
+ Member* RTTI::GetMember(const std::string& inName) const {
+     for (const auto& member : m_Members)
+         if (member->GetName() == inName || member->GetCustomName() == inName)
+             return member.get();
+
+    return nullptr;
+ }
+
+
 void RTTIFactory::Register(RTTI& inRTTI) {
     assert(global->m_RegisteredTypes.find(inRTTI.GetHash()) == global->m_RegisteredTypes.end());
     global->m_RegisteredTypes[inRTTI.GetHash()] = &inRTTI;
@@ -47,14 +56,6 @@ void* RTTIFactory::Construct(const char* inType) {
 
     return rtti->m_Constructor();
 }
-
-
-void OutWriteData(OutArchive& ioArchive, const std::string& inData) {
-    
-}
-
-
-
 
 } // namespace Raekor
 
