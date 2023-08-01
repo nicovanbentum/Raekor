@@ -49,6 +49,9 @@ public:
     const char*     GetCustomName() const { return m_CustomName; }
     virtual void*   GetMember(void* inClass) = 0;
 
+    template<typename T>
+    T& GetMemberRef(void* inClass) { return *static_cast<T*>(GetMember(inClass)); }
+
     virtual void     ToJSON(std::string& inJSON, void* inClass) { }
     virtual uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inClass) { return 0; }
 

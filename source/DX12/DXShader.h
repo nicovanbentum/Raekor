@@ -53,6 +53,8 @@ struct SystemShadersDX12 {
     ShaderProgram mGBufferDebugNormalsShader;
     ShaderProgram mGBufferDebugMetallicShader;
     ShaderProgram mGBufferDebugRoughnessShader;
+
+    void CompileShaders();
 };
 
 

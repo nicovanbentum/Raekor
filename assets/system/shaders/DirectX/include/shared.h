@@ -128,7 +128,6 @@ struct GbufferDebugRootConstants {
     uint     mTexture;
     float    mFarPlane;
     float    mNearPlane;
-    float    pad0;
 };
 STATIC_ASSERT(sizeof(GbufferDebugRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 

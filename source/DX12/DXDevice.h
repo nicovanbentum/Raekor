@@ -7,6 +7,7 @@ namespace Raekor::DX12 {
 
 class CommandList;
 class IRenderPass;
+class ShaderProgram;
 struct TextureResource;
 
 

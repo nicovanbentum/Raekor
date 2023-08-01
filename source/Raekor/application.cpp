@@ -45,7 +45,7 @@ Application::Application(WindowFlags inFlags) {
     int width = int(rect.w * 0.9f);
     int height = int(rect.h * 0.9f);
 
-    width = 1920, height = 1080;
+    //width = 1920, height = 1080;
 
     m_Window = SDL_CreateWindow(
         m_Settings.mAppName.c_str(),

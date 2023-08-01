@@ -37,11 +37,9 @@ DXApp::DXApp() :
     if (!json_data.IsEmpty())
         read_archive >> g_SystemShaders;
 
-    ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugDepthShader);
-    ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugAlbedoShader);
-    ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugNormalsShader);
-    ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugMetallicShader);
-    ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugRoughnessShader);
+    // Wait for all the shaders to compile before continuing with renderer init
+    g_SystemShaders.CompileShaders();
+    g_ThreadPool.WaitForJobs();
 
     // Creating the SRV for the blue noise texture at heap index 0 results in a 4x4 black square in the top left of the texture,
     // this is a hacky workaround. at least we get the added benefit of 0 being an 'invalid' index :D

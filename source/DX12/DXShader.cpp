@@ -188,4 +188,14 @@ bool ShaderCompiler::CompileShaderProgram(ShaderProgram& inShaderProgram) {
     return false;
 }
 
+
+void SystemShadersDX12::CompileShaders() {
+    for (const auto& member : GetRTTI()) {
+        g_ThreadPool.QueueJob([this, &member]() {
+            auto& shader_program = member->GetMemberRef<ShaderProgram>(this);
+            ShaderCompiler::CompileShaderProgram(shader_program);
+        });
+    }
+}
+
 } // Raekor::DX12

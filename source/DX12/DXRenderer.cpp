@@ -2,6 +2,7 @@
 #include "DXRenderer.h"
 
 #include "shared.h"
+#include "DXShader.h"
 #include "DXRenderGraph.h"
 
 #include "Raekor/OS.h"
@@ -313,14 +314,12 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
     switch (inDebugTexture) {
         case DEBUG_TEXTURE_NONE:
             break;
+        case DEBUG_TEXTURE_GBUFFER_DEPTH:
         case DEBUG_TEXTURE_GBUFFER_ALBEDO:
         case DEBUG_TEXTURE_GBUFFER_NORMALS:
         case DEBUG_TEXTURE_GBUFFER_METALLIC:
         case DEBUG_TEXTURE_GBUFFER_ROUGHNESS:
-            //AddGBufferDebugPass();
-            break;
-        case DEBUG_TEXTURE_GBUFFER_DEPTH:
-            final_output = gbuffer_data.mDepthTexture;
+            final_output = AddGBufferDebugPass(m_RenderGraph, inDevice, gbuffer_data, inDebugTexture).mOutputTexture;
             break;
         case DEBUG_TEXTURE_GBUFFER_VELOCITY:
             final_output = gbuffer_data.mMotionVectorTexture;
@@ -924,7 +923,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
         switch (inDebugTexture) {
             case DEBUG_TEXTURE_GBUFFER_DEPTH:     inData.mInputTexture = inGBufferData.mDepthTexture;  break;
             case DEBUG_TEXTURE_GBUFFER_ALBEDO:    inData.mInputTexture = inGBufferData.mRenderTexture; break;
-            case DEBUG_TEXTURE_GBUFFER_NORMALS:    inData.mInputTexture = inGBufferData.mRenderTexture; break;
+            case DEBUG_TEXTURE_GBUFFER_NORMALS:   inData.mInputTexture = inGBufferData.mRenderTexture; break;
             case DEBUG_TEXTURE_GBUFFER_METALLIC:  inData.mInputTexture = inGBufferData.mRenderTexture; break;
             case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: inData.mInputTexture = inGBufferData.mRenderTexture; break;
             default: assert(false);
@@ -932,18 +931,17 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 
         inData.mInputTexture = inRenderPass->Read(inData.mInputTexture);
 
-        auto pixel_shader = (const char*)nullptr;
-
+        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         switch (inDebugTexture) {
-            case DEBUG_TEXTURE_GBUFFER_DEPTH:     pixel_shader = "GBufferDebugDepthPS";     break;
-            case DEBUG_TEXTURE_GBUFFER_ALBEDO:    pixel_shader = "GBufferDebugAlbedoPS";    break;
-            case DEBUG_TEXTURE_GBUFFER_NORMALS:    pixel_shader = "GBufferDebugNormalsPS";   break;
-            case DEBUG_TEXTURE_GBUFFER_METALLIC:  pixel_shader = "GBufferDebugMetallicPS";  break;
-            case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: pixel_shader = "GBufferDebugRoughnessPS"; break;
+            case DEBUG_TEXTURE_GBUFFER_DEPTH:     g_SystemShaders.mGBufferDebugDepthShader.GetGraphicsProgram(vertex_shader, pixel_shader);      break;
+            case DEBUG_TEXTURE_GBUFFER_ALBEDO:    g_SystemShaders.mGBufferDebugAlbedoShader.GetGraphicsProgram(vertex_shader, pixel_shader);     break;
+            case DEBUG_TEXTURE_GBUFFER_NORMALS:   g_SystemShaders.mGBufferDebugNormalsShader.GetGraphicsProgram(vertex_shader, pixel_shader);    break;
+            case DEBUG_TEXTURE_GBUFFER_METALLIC:  g_SystemShaders.mGBufferDebugMetallicShader.GetGraphicsProgram(vertex_shader, pixel_shader);   break;
+            case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: g_SystemShaders.mGBufferDebugRoughnessShader.GetGraphicsProgram(vertex_shader, pixel_shader);  break;
             default: assert(false);
         }
 
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "FullscreenTriangleVS", "GBufferDebugPS");
+        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
         state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
         state.DepthStencilState.DepthEnable = FALSE;
         state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
@@ -953,8 +951,8 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
     },
     [&inRenderGraph, &inDevice](GBufferDebugData& inData, CommandList& inCmdList) 
     {   
-            const auto root_constants = GbufferDebugRootConstants{
-                .mTexture   = inData.mOutputTexture.GetBindlessIndex(inDevice),
+            const auto root_constants = GbufferDebugRootConstants {
+                .mTexture   = inData.mInputTexture.GetBindlessIndex(inDevice),
                 .mFarPlane  = inRenderGraph.GetViewport().GetCamera().GetFar(),
                 .mNearPlane = inRenderGraph.GetViewport().GetCamera().GetNear(),
             };

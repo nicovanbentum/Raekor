@@ -10,13 +10,13 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     float4 output_color = gbuffer_texture[int2(inParams.mPixelCoords.xy)];
     
 #ifdef DEBUG_TEXTURE_GBUFFER_DEPTH
-    float linear_depth = rc.mNearPlane * rc.mFarPlane / (rc.mFarPlane + output_color.z * (rc.mNearPlane - rc.mFarPlane));
-    output_color = linear_depth.xxxx;
+    float depth = gbuffer_texture.Sample(SamplerPointClamp, inParams.mScreenUV).r;
+    float linear_depth = rc.mNearPlane * rc.mFarPlane / (rc.mFarPlane + depth * (rc.mNearPlane - rc.mFarPlane));
+    output_color = float4(linear_depth.xxx, 1.0);
 #endif
    
-    
     BRDF brdf;
-    brdf.Unpack(output_color);
+    brdf.Unpack(asuint(output_color));
     
 #if defined(DEBUG_TEXTURE_GBUFFER_ALBEDO)
     output_color = brdf.mAlbedo;

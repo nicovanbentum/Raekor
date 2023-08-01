@@ -21,6 +21,20 @@
             "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
             "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
             "Compute Shader File": ""
+        },
+        "GBuffer Debug Metallic Shader": 
+        { 
+            "Define": "#define DEBUG_TEXTURE_GBUFFER_METALLIC",
+            "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
+            "Compute Shader File": ""
+        },
+        "GBuffer Debug Roughness Shader": 
+        { 
+            "Define": "#define DEBUG_TEXTURE_GBUFFER_ROUGHNESS",
+            "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
+            "Compute Shader File": ""
         }
     }
 }
