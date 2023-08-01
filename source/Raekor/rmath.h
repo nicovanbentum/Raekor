@@ -1,19 +1,32 @@
 #pragma once
 
-#include "camera.h"
-
 namespace Raekor {
 
-using Mat4x4 = glm::mat4x4;
-using Mat4x3 = glm::mat4x3;
-using Mat3x3 = glm::mat3x3;
-using Vec2 = glm::vec2;
-using Vec3 = glm::vec3;
-using Vec4 = glm::vec4;
-using UVec2 = glm::uvec2;
-using UVec3 = glm::uvec3;
-using IVec3 = glm::ivec3;
-using IVec4 = glm::ivec4;
+class Viewport;
+
+
+using Vec2      = glm::vec2;
+using Vec3      = glm::vec3;
+using Vec4      = glm::vec4;
+using UVec2     = glm::uvec2;
+using UVec3     = glm::uvec3;
+using IVec3     = glm::ivec3;
+using IVec4     = glm::ivec4;
+using Mat3x3    = glm::mat3x3;
+using Mat4x3    = glm::mat4x3;
+using Mat4x4    = glm::mat4x4;
+
+template<glm::length_t L, typename T>
+std::string gToString(const glm::vec<L, T>& inValue);
+
+template<glm::length_t C, glm::length_t R, typename T>
+std::string gToString(const glm::mat<C, R, T>& inValue);
+
+template<glm::length_t L, typename T>
+inline glm::vec < L, T> gFromString(const std::string& inValue);
+
+template<glm::length_t C, glm::length_t R, typename T>
+inline glm::mat<C, R, T> gFromString(const std::string& inValue);
 
 
 struct BBox3D {
@@ -69,5 +82,67 @@ float gRandomFloatZO();
 float gRandomFloatNO();
 Mat3x3 gRandomOrientation();
 Mat3x3 gRandomRotationMatrix();
+
+
+template<glm::length_t L, typename T>
+inline std::string gToString(const glm::vec<L, T>& inValue) {
+    std::stringstream ss;
+    ss << "(";
+    for (int i = 0; i < L; i++) {
+        ss << inValue[i];
+        if (i != L - 1) ss << " ";
+    }
+    ss << ")";
+    return ss.str();
+}
+
+
+template<glm::length_t C, glm::length_t R, typename T>
+inline std::string gToString(const glm::mat<C, R, T>& inValue) {
+    std::stringstream ss;
+    ss << "((";
+    for (int i = 0; i < C; ++i) {
+        for (int j = 0; j < R; ++j) {
+            ss << inValue[i][j];
+            if (j != R - 1) ss << " ";
+        }
+        if (i != C - 1) ss << ") (";
+    }
+    ss << "))";
+
+    return ss.str();
+}
+
+template<glm::length_t L, typename T>
+inline glm::vec < L, T> gFromString(const std::string& inValue) {
+    glm::vec < L, T> result;
+    std::stringstream ss(inValue);
+
+    char delim;
+    ss >> delim;
+
+    for (int i = 0; i < L; i++)
+        ss >> result[i];
+
+    return result;
+}
+
+template<glm::length_t C, glm::length_t R, typename T>
+inline glm::mat<C, R, T> gFromString(const std::string& inValue) {
+    glm::mat<C, R, T> result;
+    std::stringstream ss(inValue);
+
+    char delim;
+    ss >> delim >> delim; // eat ((
+
+    for (int i = 0; i < C; ++i) {
+        for (int j = 0; j < R; ++j) {
+            ss >> result[i][j];
+        }
+        ss >> delim >> delim; // eat )( and ))
+    }
+
+    return result;
+}
 
 } // namespace Raekor

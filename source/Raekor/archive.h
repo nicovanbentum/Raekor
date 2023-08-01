@@ -5,108 +5,140 @@
 
 namespace Raekor::JSON {
 
-class JSONArchive {
+class ReadArchive {
 public:
-	JSONArchive() = default;
-	JSONArchive(const Path& inPath);
-
-	const std::string& GetStringBuffer() const { return m_StrBuffer; }
+	ReadArchive() = default;
+	ReadArchive(JSONData& inJSON) : m_JSON(inJSON) {}
 
 	template<typename T>
-	JSONArchive& operator>> (T& ioRHS) {
-		auto token_index = 0;
-		if (m_Tokens[token_index].type != JSMN_OBJECT) // Any JSON document should start with a root object
-			return *this;
-		
-		token_index++;
-		if (!IsKeyObjectPair(token_index))
-			return *this;
-
-		const auto& rtti = gGetRTTI<T>();
-
-		// Keep skipping objects until we find a type match or hit EOF
-		while (m_Strings[token_index] != rtti.GetTypeName()) {
-			token_index = SkipToken(m_Tokens, token_index); // advance to the the first token after the end of the current one
-
-			if (token_index == -1) // hit end-of-file
-				return *this;
-
-			if (!IsKeyObjectPair(token_index)) // wrong format up ahead
-				return *this;
-		}
-
-		// We only get here if we found a matching type
-		assert(m_Tokens[token_index].type == JSMN_STRING);  // token index is on the key
-		const auto& object_token = m_Tokens[++token_index]; // increment index to object
-
-		for (auto key_index = 0; key_index < object_token.size; key_index++) {
-			const auto& key = m_Strings[++token_index]; // increment index to key
-
-			token_index++; // increment index to value
-			if (const auto member = rtti.GetMember(key)) {
-				const auto& value_token = m_Tokens[token_index];
-
-				// Object and Array values can span multiple tokens
-				if (value_token.type == JSMN_OBJECT || value_token.type == JSMN_ARRAY) {
-					auto token_index_end = SkipToken(m_Tokens, token_index);
-					if (token_index_end == -1) // hit EOF?
-						token_index_end = m_Tokens.size();
-
-					const auto value_tokens = Slice(&m_Tokens[token_index], token_index_end - token_index);
-
-					member->FromJSON(m_StrBuffer, value_tokens, &ioRHS);
-
-					token_index = SkipToken(m_Tokens, token_index) - 1;
-				} 
-				else {
-					// Primitives, Strings and null are just 1 token
-					member->FromJSON(m_StrBuffer, Slice(&m_Tokens[token_index]), &ioRHS);
-				}
-			} 
-			else { // key is not a valid member, skip the value to get to the next key
-				token_index = SkipToken(m_Tokens, token_index) - 1;
-			}
-		}
-
-		return *this;
-	}
+	ReadArchive& operator>> (T& ioRHS);
 
 private:
-	/* Check if the current and next token conform to the following JSON: "key" : { } */
-	inline bool IsKeyObjectPair(int inIdx) { return m_Tokens[inIdx].type == JSMN_STRING && m_Tokens[inIdx + 1].type == JSMN_OBJECT; }
-
-private:
-	std::string m_StrBuffer;
-	std::vector<jsmntok_t> m_Tokens;
-	std::vector<double> m_Primitives;
-	std::vector<std::string> m_Strings;
+	JSONData& m_JSON;
 };
-
 
 
 
 class WriteArchive {
 public:
-	WriteArchive(const Path& inPath);
+	WriteArchive();
+	WriteArchive(const Path& inPath) : m_Ofs(inPath) {}
 
 	template<typename T>
-	WriteArchive& operator<< (T& rhs) {
-		
-		auto& rtti = RTTI_OF(T);
+	WriteArchive& operator<< (T& inRHS) {
+		RTTI& rtti = gGetRTTI<T>();
+		m_SS << "\"" << rtti.GetTypeName() << "\":";
+		m_SS << "{";
+		m_Indent++;
 
-		for (int i = 0; i < rtti.GetMemberCount(); i++) {
-			auto member = rtti.GetMember(i);
+		for (uint32_t i = 0; i < rtti.GetMemberCount(); i++) {
+			std::string json;
+			rtti.GetMember(i)->ToJSON(json, &inRHS);
+			m_SS << json;
+
+			if (i < rtti.GetMemberCount() - 1)
+				m_SS << ",";
 		}
 
-		// m_Ofs << obj.AsString() << "\n\n";
+		m_Indent--;
+		while (m_Indent >= 0) {
+			m_SS << "}";
+			m_Indent--;
+		}
+
+		const auto json_str = m_SS.str();
+
+
+		m_Ofs << "{\n";
+		
+		auto indent = 1;
+		for (auto i = 0; i < indent; i++)
+			m_Ofs << "    ";
+
+		for (uint64_t index = 0; index < json_str.size(); index++) {
+			auto c = json_str[index];
+			if (c == '{') {
+				m_Ofs << "\n";
+				for (auto i = 0; i < indent; i++)
+					m_Ofs << "    ";
+				m_Ofs << c << "\n";
+				indent++;
+				for (auto i = 0; i < indent; i++)
+					m_Ofs << "    ";
+			}
+			else if (c == '}') {
+				m_Ofs << "\n";
+				indent--;
+				for (auto i = 0; i < indent; i++)
+					m_Ofs << "    ";
+				m_Ofs << c;
+
+				if (index != json_str.size() - 1) {
+					auto next_c = json_str[index];
+
+					if (next_c != ',' && next_c != '}')
+						m_Ofs << "\n";
+				}
+			}
+			else if (c == ',') {
+				m_Ofs << c << "\n";
+				for (auto i = 0; i < indent; i++)
+					m_Ofs << "    ";
+			}
+			else {
+				m_Ofs << c;
+			}
+		}
+
+		m_Ofs << "\n}";
 
 		return *this;
 	}
 
+
+
 private:
+	int32_t m_Indent = 0;
+	Path m_FilePath;
 	std::ofstream m_Ofs;
+	std::stringstream m_SS;
 };
 
 
+
+template<typename T>
+ReadArchive& ReadArchive::operator>> (T& ioRHS) {
+	// Any JSON document should start with a root object
+	auto token_index = 0;
+	if (m_JSON.GetToken(token_index).type != JSMN_OBJECT)
+		return *this;
+
+	token_index++;
+	if (!m_JSON.IsKeyObjectPair(token_index)) // wrong format up ahead
+		return *this;
+
+	const auto& rtti = gGetRTTI<T>();
+
+	// Keep skipping objects until we find a type match or hit EOF
+	while (m_JSON.GetString(token_index) !=  rtti.GetTypeName()) {
+		token_index = m_JSON.SkipToken(token_index);
+
+		if (token_index == -1) // hit end-of-file
+			return *this;
+
+		if (!m_JSON.IsKeyObjectPair(token_index)) // wrong format up ahead
+			return *this;
+	}
+
+	// We only get here if we found a matching type
+	assert(m_JSON.GetToken(token_index).type == JSMN_STRING);  // token index is on the type key
+	token_index++; // increment index to type object
+
+	// This nees to be calling the T& version of GetTokenToValue, 
+	// which it should because we're calling gGetRTTI<T> so it has to be a registered complex type.. right?
+	m_JSON.GetTokenToValue(token_index, ioRHS);
+
+	return *this;
+}
 
 } // Raekor::JSON

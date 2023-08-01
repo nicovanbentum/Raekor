@@ -11,4 +11,12 @@
 		</Expand>
 	</Type>
 
+	<Type Name="Raekor::RTTI">
+		<DisplayString>{{ Name = {m_Name}, Members : {m_Members.size()} }}</DisplayString>
+	</Type>
+
+	<Type Name="Raekor::Member">
+		<DisplayString>{{ Name = {m_Name} }}</DisplayString>
+	</Type>
+
 </AutoVisualizer>

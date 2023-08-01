@@ -328,7 +328,7 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
         case DEBUG_TEXTURE_RT_SHADOWS:
             final_output = shadow_data.mOutputTexture; 
             break;
-        case DEBUG_TEXTURE_RT_AMBIENT_OCCLUSION:
+        case DEBUG_TEXTURE_RT_AO:
             final_output = rtao_data.mOutputTexture;
             break;
         case DEBUG_TEXTURE_RT_REFLECTIONS:
@@ -420,8 +420,8 @@ const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const {
         "Velocity",
         "Metallic",
         "Roughness",
+        "RT AO",
         "RT Shadows",
-        "RT Ambient Occlusion",
         "RT Reflections",
         "Lighting"
     };

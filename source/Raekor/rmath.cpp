@@ -183,7 +183,6 @@ std::optional<float> Ray::HitsSphere(const Vec3& inPosition, float inRadius, flo
     return std::nullopt;
 }
 
-
 bool gPointInAABB(const Vec3& inPoint, const BBox3D& inAABB) {
     return (inPoint.x >= inAABB.mMin.x && inPoint.x <= inAABB.mMax.x) &&
            (inPoint.y >= inAABB.mMin.y && inPoint.y <= inAABB.mMax.y) &&
@@ -321,6 +320,5 @@ bool Frustum::ContainsAABB(const BBox3D& inAABB) const {
 
     return true;
 }
-
 
 } // raekor

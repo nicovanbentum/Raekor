@@ -19,8 +19,8 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 		std::string opened_file_path = OS::sOpenFileDialog("All Files (*.json)\0*.json\0");
 
 		if (!opened_file_path.empty()) {
-			auto json = JSON::JSONArchive(opened_file_path);
-			m_OpenFilePath = FileSystem::relative(opened_file_path).string();
+			m_JSON = JSON::JSONData(opened_file_path);
+			m_OpenFilePath = FileSystem::relative(opened_file_path);
 		}
 	}
 
@@ -78,22 +78,22 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 		ImGui::PopStyleVar();
 
 		ImNodes::BeginNodeEditor();
-		//ImNodes::PushColorStyle(ImNodesCol_TitleBar, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
-		//ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
-		//ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
-		//ImNodes::PushColorStyle(ImNodesCol_NodeBackground, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
-		//ImNodes::PushColorStyle(ImNodesCol_GridBackground, ImGui::ColorConvertFloat4ToU32(ImVec4(0.22f, 0.22f, 0.22f, 1.0f)));
-		////ImNodes::PushColorStyle(ImNodesCol_GridLine, ImGui::ColorConvertFloat4ToU32(ImVec4(0.16f, 0.16f, 0.16f, 0.35f)));
-		//ImNodes::PushColorStyle(ImNodesCol_GridLinePrimary, ImGui::ColorConvertFloat4ToU32(ImVec4(0.56f, 0.16f, 0.16f, 0.35f)));
-		//ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundHovered, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
-		//ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundSelected, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
-		//ImNodes::PushColorStyle(ImNodesCol_Link, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-		//ImNodes::PushColorStyle(ImNodesCol_MiniMapLink, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-		//ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-		//ImNodes::PushColorStyle(ImNodesCol_PinHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
-		//ImNodes::PushColorStyle(ImNodesCol_LinkHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
-		//ImNodes::PushColorStyle(ImNodesCol_LinkSelected, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
-		//ImNodes::PushColorStyle(ImNodesCol_BoxSelectorOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
+		ImNodes::PushColorStyle(ImNodesCol_TitleBar, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
+		ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
+		ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
+		ImNodes::PushColorStyle(ImNodesCol_NodeBackground, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
+		ImNodes::PushColorStyle(ImNodesCol_GridBackground, ImGui::ColorConvertFloat4ToU32(ImVec4(0.22f, 0.22f, 0.22f, 1.0f)));
+		//ImNodes::PushColorStyle(ImNodesCol_GridLine, ImGui::ColorConvertFloat4ToU32(ImVec4(0.16f, 0.16f, 0.16f, 0.35f)));
+		ImNodes::PushColorStyle(ImNodesCol_GridLinePrimary, ImGui::ColorConvertFloat4ToU32(ImVec4(0.56f, 0.16f, 0.16f, 0.35f)));
+		ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundHovered, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
+		ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundSelected, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
+		ImNodes::PushColorStyle(ImNodesCol_Link, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
+		ImNodes::PushColorStyle(ImNodesCol_MiniMapLink, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
+		ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
+		ImNodes::PushColorStyle(ImNodesCol_PinHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
+		ImNodes::PushColorStyle(ImNodesCol_LinkHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
+		ImNodes::PushColorStyle(ImNodesCol_LinkSelected, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
+		ImNodes::PushColorStyle(ImNodesCol_BoxSelectorOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
 
 		// Reset to center of the canvas if we started at 0,0
 		const auto panning = ImNodes::EditorContextGetPanning();
@@ -128,10 +128,51 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 
 		uint32_t pin_index = 0;
 		uint32_t link_index = 0;
+		std::queue<int> tokens;
+		
+		if (!m_JSON.IsEmpty() && m_JSON.GetToken(0).type == JSMN_OBJECT && m_JSON.IsKeyObjectPair(1))
+			tokens.push(1);
+
+		while (!tokens.empty()) {
+			auto token_index = tokens.front();
+			tokens.pop();
+
+			const auto rtti = RTTIFactory::GetRTTI(m_JSON.GetString(token_index).c_str());
+			if (rtti == nullptr)
+				break;
+
+			token_index++;
+
+			if (token_index == m_SelectedObject) {
+				ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 1.5f);
+				ImNodes::PushColorStyle(ImNodesCol_NodeOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
+			}
+
+			ImNodes::BeginNode(token_index);
+			ImNodes::BeginNodeTitleBar();
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 1));
+
+			int input_pin_index = -1;
+
+			if (m_JSON.GetToken(token_index).parent > 0) {
+				input_pin_index = pin_index;
+				ImNodes::BeginInputAttribute(pin_index++);
+				ImGui::Text(rtti->GetTypeName());
+				ImNodes::EndInputAttribute();
+			}
+			else {
+				ImGui::Text(rtti->GetTypeName());
+			}
+
+			ImGui::PopStyleColor();
+			ImNodes::EndNodeTitleBar();
+			ImNodes::EndNode();
+		}
 
 		std::queue<uint32_t> child_pins;
 
 		for (uint32_t index = 0; index < 0; index++) {
+
 
 			if (index == m_SelectedObject) {
 				ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 1.5f);
@@ -187,7 +228,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 					}
 				}
 				else {
-					if (m_WasLinkConnected && (pin_index == start_pin_id || pin_index == end_pin_id)) {
+					if (m_WasLinkConnected && (pin_index == m_StartPinID || pin_index == m_EndPinID)) {
 						//auto& new_value = object[member->GetCustomName()];
 						//new_value.mType = JSON::ValueType::Object;
 					}
@@ -226,7 +267,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 			m_SelectedObject = -1;
 		}
 
-		m_WasLinkConnected = ImNodes::IsLinkCreated(&start_node_id, &start_pin_id, &end_node_id, &start_node_id);
+		m_WasLinkConnected = ImNodes::IsLinkCreated(&m_StartNodeID, &m_StartPinID, &m_EndNodeID, &m_StartNodeID);
 
 		ImNodes::IsLinkDropped(&m_LinkPinDropped, false);
 

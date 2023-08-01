@@ -18,6 +18,11 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/imnodes/imnodes.cpp)
 add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles} raekor.natvis ${CMAKE_SOURCE_DIR}/config.json)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
+# Natvis files
+target_sources(${PROJECT_NAME} PRIVATE raekor.natvis)
+target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/glm/util/glm.natvis)
+target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/JoltPhysics/Jolt/Jolt.natvis)
+
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

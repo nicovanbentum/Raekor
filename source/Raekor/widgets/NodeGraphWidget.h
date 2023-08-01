@@ -5,14 +5,6 @@
 
 namespace Raekor {
 
-struct Link {
-    Link() = default;
-    Link(int id, int start_id, int end_id) : id(id), start_id(start_id), end_id(end_id) {}
-
-    int id;
-    int start_id, end_id;
-};
-
 class NodeGraphWidget : public IWidget {
 public:
     RTTI_CLASS_HEADER(NodeGraphWidget);
@@ -28,11 +20,16 @@ public:
 private:
     int m_SelectedObject = -1;
     int m_LinkPinDropped = -1;
-    std::string m_OpenFilePath;
+    
     bool m_WasRightClicked = false;
     bool m_WasLinkConnected = false;
-    int start_node_id, start_pin_id, end_node_id, end_pin_id;
 
+    int m_StartNodeID, m_StartPinID; 
+    int m_EndNodeID, m_EndPinID;
+
+    Path m_OpenFilePath;
+    JSON::JSONData m_JSON;
+    std::unordered_map<const char*, void*> m_Objects;
 };
 
 }

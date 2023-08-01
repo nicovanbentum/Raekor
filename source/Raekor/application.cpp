@@ -18,12 +18,14 @@ RTTI_CLASS_CPP(ConfigSettings) {
     RTTI_MEMBER_CPP(ConfigSettings, "Scene File", mSceneFile);
 }
 
+static constexpr auto CONFIG_FILE_STR = "config.json";
 
 Application::Application(WindowFlags inFlags) {
-    {
-        auto archive = JSON::JSONArchive("config.json");
-        archive >> m_Settings;
-    }
+    auto json_data = JSON::JSONData(CONFIG_FILE_STR);
+    auto read_archive = JSON::ReadArchive(json_data);
+    
+    if (!json_data.IsEmpty())
+        read_archive >> m_Settings;
 
     SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
 
@@ -73,6 +75,8 @@ Application::Application(WindowFlags inFlags) {
 
 Application::~Application() {
     m_Settings.mDisplayIndex = SDL_GetWindowDisplayIndex(m_Window);
+    auto write_archive = JSON::WriteArchive(CONFIG_FILE_STR);
+    write_archive << m_Settings;
 
     SDL_DestroyWindow(m_Window);
     SDL_Quit();

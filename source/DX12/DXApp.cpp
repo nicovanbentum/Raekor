@@ -32,8 +32,10 @@ DXApp::DXApp() :
     RTTIFactory::Register(RTTI_OF(ShaderProgram));
     RTTIFactory::Register(RTTI_OF(SystemShadersDX12));
 
-    auto archive = JSON::JSONArchive("shaders.json");
-    archive >> g_SystemShaders;
+    auto json_data = JSON::JSONData("shaders.json");
+    auto read_archive = JSON::ReadArchive(json_data);
+    if (!json_data.IsEmpty())
+        read_archive >> g_SystemShaders;
 
     ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugDepthShader);
     ShaderCompiler::CompileShaderProgram(g_SystemShaders.mGBufferDebugAlbedoShader);

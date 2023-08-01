@@ -22,6 +22,7 @@ public:
     Member*         GetMember(const std::string& inName) const; // Expensive!
     uint32_t        GetMemberCount() const { return uint32_t(m_Members.size()); }
 
+
     bool operator==(const RTTI& rhs) const { return m_Hash == rhs.m_Hash; }
     bool operator!=(const RTTI& rhs) const { return m_Hash != rhs.m_Hash; }
 
@@ -48,8 +49,8 @@ public:
     const char*     GetCustomName() const { return m_CustomName; }
     virtual void*   GetMember(void* inClass) = 0;
 
-    virtual uint32_t ToJSON(std::string& inJSON, void* inClass) { return 0; }
-    virtual uint32_t FromJSON(const std::string& inJSON, Slice<jsmntok_t> inTokens, void* inClass) { return 0; }
+    virtual void     ToJSON(std::string& inJSON, void* inClass) { }
+    virtual uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inClass) { return 0; }
 
     virtual bool IsPtr() { return false; }
     virtual void SetPtr() {}
@@ -68,13 +69,13 @@ public:
     
     virtual bool IsPtr() { return std::is_pointer_v<T>; }
 
-    uint32_t ToJSON(std::string& inJSON, void* inInstance) override {
-        JSON::ToJSONValue(inJSON, *static_cast<T*>(GetMember(inInstance)));
-        return 0; // TODO
+    void ToJSON(std::string& inJSON, void* inInstance) override {
+        inJSON += std::string("\"" + std::string(m_CustomName) + "\": ");
+        JSON::GetValueToJSON(inJSON, *static_cast<T*>(GetMember(inInstance)));
     }
 
-    uint32_t FromJSON(const std::string& inJSON, Slice<jsmntok_t> inTokens, void* inInstance) override {
-        return JSON::FromJSONValue(inJSON, inTokens, *static_cast<T*>(GetMember(inInstance)));
+    uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inInstance) override {
+        return inJSON.GetTokenToValue(inTokenIdx, *static_cast<T*>(GetMember(inInstance)));
     }
 
     virtual void* GetMember(void* inClass) override { return &(static_cast<Class*>(inClass)->*m_Member); }
@@ -154,3 +155,4 @@ public:                                                                         
 
 template<typename T>
 Raekor::RTTI& gGetRTTI() { return sGetRTTI((T*)nullptr); }
+

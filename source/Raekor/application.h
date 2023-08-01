@@ -93,6 +93,8 @@ struct ConfigSettings {
     std::string mAppName = "";
     std::string mFontFile = "";
     std::string mSceneFile = "";
+    glm::vec4 mVec4 = glm::vec4(0.34f, 0.11f, 0.384f, 1.0f);
+    glm::mat4x4 mMatrix = glm::mat4(1.0f);
 };
 
 enum WindowFlag {

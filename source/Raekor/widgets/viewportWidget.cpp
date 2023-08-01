@@ -45,47 +45,20 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
 
     ImGui::SameLine(ImGui::GetContentRegionAvail().x - 256.0f);
 
-    static constexpr auto items = std::array {
-        "Final",
-        "Albedo",
-        "Normals",
-        "Material",
-        "Velocity",
-        "TAA Resolve",
-        "Shading (Result)",
-        "Bloom (Threshold)",
-        "Bloom (Blur 1)",
-        "Bloom (Final)",
-    };
-
-    //const auto targets = std::array {
-    //    renderer.m_Tonemap->result,
-    //    renderer.m_GBuffer->albedoTexture,
-    //    renderer.m_GBuffer->normalTexture,
-    //    renderer.m_GBuffer->materialTexture,
-    //    renderer.m_GBuffer->velocityTexture,
-    //    renderer.m_ResolveTAA->resultBuffer,
-    //    renderer.m_DeferredShading->result,
-    //    renderer.m_DeferredShading->bloomHighlights,
-    //    renderer.m_Bloom->blurTexture,
-    //    renderer.m_Bloom->bloomTexture,
-    //};
-
-    //for (int i = 0; i < targets.size(); i++)
-    //    if (rendertarget == targets[i])
-    //        rendertargetIndex = i;
-
     auto& current_debug_texture = m_Editor->GetRenderer()->GetSettings().mDebugTexture;
     const auto debug_texture_count = m_Editor->GetRenderer()->GetDebugTextureCount();
+    const auto preview = std::string("Render Output: " + std::string(m_Editor->GetRenderer()->GetDebugTextureName(current_debug_texture))); // allocs, BLEH TODO: FIXME
+    
+    if (ImGui::BeginCombo("##RenderTarget", preview.c_str())) {
+        for (auto texture_idx = 0u; texture_idx < debug_texture_count; texture_idx++) {
+            if (ImGui::Selectable(m_Editor->GetRenderer()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx)) {
+                current_debug_texture = texture_idx;
+                m_Editor->GetRenderer()->OnResize(viewport); // not an actual resize, just to recreate render targets
+            }
+        }
 
-    auto GetDebugTexture = [](void* data, int idx, const char** out_text) -> bool {
-        auto this_ptr = (ViewportWidget*)data;
-        out_text[0] = this_ptr->m_Editor->GetRenderer()->GetDebugTextureName(idx);
-        return true;
-    };
-
-    if (ImGui::Combo("##Render target", &current_debug_texture, GetDebugTexture, this, int(debug_texture_count)))
-        m_Editor->GetRenderer()->OnResize(viewport); // not an actual resize, just to recreate render targets
+        ImGui::EndCombo();
+    }
 
     // figure out if we need to resize the viewport
     auto size = ImGui::GetContentRegionAvail();
