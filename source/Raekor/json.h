@@ -3,6 +3,17 @@
 #include "util.h"
 #include "rmath.h"
 
+namespace Raekor {
+
+enum ESerializeType {
+	SERIALIZE_NONE		= 0 << 0,
+	SERIALIZE_JSON		= 1 << 0,
+	SERIALIZE_BINARY	= 1 << 1,
+	SERIALIZE_ALL		= SERIALIZE_JSON | SERIALIZE_BINARY
+};
+
+}
+
 namespace Raekor::JSON {
 
 class JSONData {

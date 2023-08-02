@@ -43,7 +43,8 @@ private:
 class Member {
 public:
     Member() = delete;
-    Member(const char* inName, const char* inCustomName) : m_Name(inName), m_CustomName(inCustomName){}
+    Member(const char* inName, const char* inCustomName, ESerializeType inSerializeType = SERIALIZE_JSON) 
+        : m_Name(inName), m_CustomName(inCustomName) {}
 
     const char*     GetName() const { return m_Name; }
     const char*     GetCustomName() const { return m_CustomName; }
@@ -61,6 +62,7 @@ public:
 protected:
     const char* m_Name;
     const char* m_CustomName;
+    ESerializeType m_SerializeType;
 };
 
 
@@ -68,7 +70,8 @@ template<typename Class, typename T>
 class ClassMember : public Member {
 public:
     ClassMember() = delete;
-    ClassMember(const char* inName, const char* inCustomName, T Class::* inMember) : Member(inName, inCustomName), m_Member(inMember) {}
+    ClassMember(const char* inName, const char* inCustomName, T Class::* inMember, ESerializeType inSerializeType = SERIALIZE_JSON) 
+        : Member(inName, inCustomName, inSerializeType), m_Member(inMember) {}
     
     virtual bool IsPtr() { return std::is_pointer_v<T>; }
 
@@ -150,9 +153,9 @@ public:                                                                         
     void name::sImplRTTI(RTTI& inRTTI)   
 
 
-#define RTTI_MEMBER_CPP(class_name, custom_name, member_name)                                                           \
-    inRTTI.AddMember(new ClassMember<class_name, decltype(class_name::member_name)>(#member_name, custom_name, &class_name::member_name))
-    
+#define RTTI_MEMBER_CPP(class_name, serial_type, custom_name, member_name)                                              \
+    inRTTI.AddMember(new ClassMember<class_name, decltype(class_name::member_name)>(#member_name, custom_name, &class_name::member_name, serial_type))
+
 
 #define RTTI_OF(name) sGetRTTI((name*)nullptr)
 

@@ -8,14 +8,14 @@
 namespace Raekor {
 
 RTTI_CLASS_CPP(Name) {
-    RTTI_MEMBER_CPP(Name, "Name", name);
+    RTTI_MEMBER_CPP(Name, SERIALIZE_ALL, "Name", name);
 }
 
 
 RTTI_CLASS_CPP(Transform) {
-    RTTI_MEMBER_CPP(Transform, "Scale", scale);
-    RTTI_MEMBER_CPP(Transform, "Position", position);
-    RTTI_MEMBER_CPP(Transform, "Rotation", rotation);
+    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Scale", scale);
+    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Position", position);
+    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Rotation", rotation);
 }
 
 
@@ -213,14 +213,14 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt) {
 }
 
 RTTI_CLASS_CPP(Material) {
-    RTTI_MEMBER_CPP(Material, "Base Color",             albedo);
-    RTTI_MEMBER_CPP(Material, "Base Emissive",          emissive);
-    RTTI_MEMBER_CPP(Material, "Metallic",               metallic);
-    RTTI_MEMBER_CPP(Material, "Roughness",              roughness);
-    RTTI_MEMBER_CPP(Material, "Alpha Cutout",           isTransparent);
-    RTTI_MEMBER_CPP(Material, "Albedo Map",             albedoFile);
-    RTTI_MEMBER_CPP(Material, "Normal Map",             normalFile);
-    RTTI_MEMBER_CPP(Material, "Metallic-Roughness Map", metalroughFile);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Base Color",             albedo);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Base Emissive",          emissive);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Metallic",               metallic);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Roughness",              roughness);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Alpha Cutout",           isTransparent);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Albedo Map",             albedoFile);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Normal Map",             normalFile);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Metallic-Roughness Map", metalroughFile);
 }
 
 Material Material::Default;
