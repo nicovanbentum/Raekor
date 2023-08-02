@@ -1,40 +1,121 @@
 {
 	"SystemShadersDX12":
     {
+        "ImGui Shader":
+        {
+            "Vertex Shader File": "assets/system/shaders/DirectX/ImGuiVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/ImGuiPS.hlsl"
+        },
+
+        "Grass Shader":
+        {
+            "Vertex Shader File": "assets/system/shaders/DirectX/GrassRenderVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/GrassRenderPS.hlsl"
+        },
+        
+        "GBuffer Shader":
+        {
+            "Vertex Shader File": "assets/system/shaders/DirectX/GBufferVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferPS.hlsl"
+        },
+
+        "Lighting Shader":
+        {
+            "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/LightingPS.hlsl"
+        },
+
+        "Downsample Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/DownsampleCS.hlsl"
+        },
+
+        "Debug Lines Shader":
+        {
+            "Vertex Shader File": "assets/system/shaders/DirectX/DebugLinesVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/DebugLinesPS.hlsl"
+        },
+
+        "Final Compose Shader":
+        {
+            "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/FinalComposePS.hlsl"
+        },
+
+        "Probe Debug Shader":
+        {
+            "Vertex Shader File": "assets/system/shaders/DirectX/ProbeDebugVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/ProbeDebugPS.hlsl"
+        },
+
+        "Probe Trace Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/ProbeTraceCS.hlsl"
+        },
+
+        "Probe Update Depth Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/ProbeUpdateDepthCS.hlsl"
+        },
+
+        "Probe Update Irradiance Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/ProbeUpdateIrradianceCS.hlsl"
+        },
+
+        "RT Shadows Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/RTShadowsCS.hlsl"
+        },
+        
+        "RT Reflections Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/RTReflectionsCS.hlsl"
+        },
+
+        "RT Indirect Diffuse Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/RTIndirectDiffuseCS.hlsl"
+        },
+
+        "RT Ambient Occlusion Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/RTAmbientOcclusionCS.hlsl"
+        },
+
         "GBuffer Debug Depth Shader": 
         { 
-            "Define": "#define DEBUG_TEXTURE_GBUFFER_DEPTH",
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_DEPTH",
             "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
-            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
-            "Compute Shader File": ""
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl"
         },
+
         "GBuffer Debug Albedo Shader": 
         { 
-            "Define": "#define DEBUG_TEXTURE_GBUFFER_ALBEDO",
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_ALBEDO",
             "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
-            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
-            "Compute Shader File": ""
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl"
         },
+
         "GBuffer Debug Normals Shader": 
         { 
-            "Define": "#define DEBUG_TEXTURE_GBUFFER_NORMALS",
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_NORMALS",
             "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
-            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
-            "Compute Shader File": ""
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl"
         },
+
         "GBuffer Debug Metallic Shader": 
         { 
-            "Define": "#define DEBUG_TEXTURE_GBUFFER_METALLIC",
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_METALLIC",
             "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
-            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
-            "Compute Shader File": ""
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl"
         },
+
         "GBuffer Debug Roughness Shader": 
         { 
-            "Define": "#define DEBUG_TEXTURE_GBUFFER_ROUGHNESS",
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_ROUGHNESS",
             "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
-            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl",
-            "Compute Shader File": ""
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl"
         }
     }
 }

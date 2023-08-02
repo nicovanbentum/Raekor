@@ -62,11 +62,6 @@ Job::Ptr ThreadPool::QueueJob(const Job::Function& inFunction) {
 }
 
 
-std::scoped_lock<std::mutex> ThreadPool::GetGlobalLock() {
-    return std::scoped_lock<std::mutex>(m_Mutex);
-}
-
-
 void ThreadPool::WaitForJobs() {
     m_ConditionVariable.notify_all();
     while (m_ActiveJobCount.load() > 0) {}

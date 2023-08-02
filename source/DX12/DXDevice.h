@@ -71,9 +71,6 @@ public:
 	void ReleaseShaderResourceView(DescriptorID inResourceID)  { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
 	void ReleaseUnorderedAccessView(DescriptorID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
 
-	[[nodiscard]] D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inComputeShader);
-	[[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inVertexShader, const std::string& inPixelShader);
-
 	[[nodiscard]] D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader);
 	[[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader);
 
@@ -84,17 +81,6 @@ public:
 	void QueueShader(const Path& inPath);
 
 	IDXGIAdapter1* GetAdapter() { return m_Adapter.Get(); }
-
-	struct ShaderEntry {
-		inline bool IsNull() { return mBlob != nullptr; }
-
-		FileSystem::path mPath;
-		ComPtr<IDxcBlob> mBlob = nullptr;
-		FileSystem::file_time_type mLastWriteTime;
-	};
-
-	std::mutex m_ShadersLock;
-	std::unordered_map<std::string, ShaderEntry> m_Shaders;
 
 private:
 	void CreateDescriptor(BufferID inBufferID, const Buffer::Desc& inDesc);
@@ -180,9 +166,5 @@ private:
 	uint8_t* m_DataPtr = nullptr;
 	uint32_t m_TotalCapacity = 0;
 };
-
-
-ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath, const std::string& inDefines = "");
-
 
 } // namespace::Raekor

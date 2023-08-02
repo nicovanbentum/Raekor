@@ -32,6 +32,8 @@ DXApp::DXApp() :
     RTTIFactory::Register(RTTI_OF(ShaderProgram));
     RTTIFactory::Register(RTTI_OF(SystemShadersDX12));
 
+    Timer timer;
+
     auto json_data = JSON::JSONData("shaders.json");
     auto read_archive = JSON::ReadArchive(json_data);
     if (!json_data.IsEmpty())
@@ -40,6 +42,8 @@ DXApp::DXApp() :
     // Wait for all the shaders to compile before continuing with renderer init
     g_SystemShaders.CompileShaders();
     g_ThreadPool.WaitForJobs();
+
+    LogMessage(std::format("[CPU] Shader compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     // Creating the SRV for the blue noise texture at heap index 0 results in a 4x4 black square in the top left of the texture,
     // this is a hacky workaround. at least we get the added benefit of 0 being an 'invalid' index :D
@@ -128,12 +132,6 @@ DXApp::DXApp() :
     queue_desc.SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY;
     gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_MemoryStorageQueue)));
 
-    Timer timer;
-
-    CompileShaders();
-
-    LogMessage(std::format("[CPU] Shader compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
-
     {
         auto& cmd_list = m_Renderer.StartSingleSubmit();
 
@@ -205,31 +203,6 @@ void DXApp::OnEvent(const SDL_Event& inEvent) {
         m_Renderer.SetShouldResize(true);
 
     m_Widgets.OnEvent(inEvent);
-}
-
-
-void DXApp::CompileShaders() {
-    if (!FileSystem::exists("assets/system/shaders/DirectX/bin"))
-        FileSystem::create_directory("assets/system/shaders/DirectX/bin");
-
-    auto timeOfMostRecentlyUpdatedIncludeFile = FileSystem::file_time_type{};
-
-    for (const auto& file : FileSystem::directory_iterator("assets/system/shaders/DirectX/include")) {
-        const auto updateTime = FileSystem::last_write_time(file);
-
-        if (updateTime > timeOfMostRecentlyUpdatedIncludeFile)
-            timeOfMostRecentlyUpdatedIncludeFile = updateTime;
-    }
-
-    for (const auto& file : FileSystem::directory_iterator("assets/system/shaders/DirectX")) {
-        if (file.is_directory() || file.path().extension() != ".hlsl")
-            continue;
-
-        m_Device.QueueShader(file.path());
-    }
-
-    // Wait for all the shaders to compile before continuing with renderer init
-    g_ThreadPool.WaitForJobs();
 }
 
 

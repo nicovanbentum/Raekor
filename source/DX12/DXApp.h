@@ -28,7 +28,6 @@ public:
 
     virtual IRenderer* GetRenderer() { return &m_RenderInterface; }
 
-    void CompileShaders();
     void UploadTopLevelBVH(CommandList& inCmdList);
     void UploadBindlessSceneBuffers(CommandList& inCmdList);
 

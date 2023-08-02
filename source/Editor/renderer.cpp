@@ -94,7 +94,7 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
                 auto success = GLShader::sGlslangValidator(vulkanSDK, file, outfile);
 
                 {
-                    auto lock = g_ThreadPool.GetGlobalLock();
+                    auto lock = std::scoped_lock(g_ThreadPool.GetMutex());
 
                     std::string result_string = success ? COUT_GREEN("finished") : COUT_RED("failed");
                     std::cout << "Compilation " << result_string << " for shader: " << file.path().string() << '\n';

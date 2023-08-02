@@ -5,22 +5,47 @@
 
 namespace Raekor::DX12 {
 
+ShaderCompiler g_ShaderCompiler;
 SystemShadersDX12 g_SystemShaders;
 
 RTTI_CLASS_CPP(ShaderProgram) {
-    RTTI_MEMBER_CPP(ShaderProgram, "Define", mDefine);
-    RTTI_MEMBER_CPP(ShaderProgram, "Vertex Shader File", mVertexShaderFilePath);
-    RTTI_MEMBER_CPP(ShaderProgram, "Pixel Shader File", mPixelShaderFilePath);
-    RTTI_MEMBER_CPP(ShaderProgram, "Compute Shader File", mComputeShaderFilePath);
+    RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Defines",               mDefines);
+    RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Vertex Shader File",    mVertexShaderFilePath);
+    RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Pixel Shader File",     mPixelShaderFilePath);
+    RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Compute Shader File",   mComputeShaderFilePath);
+
+    //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Program Type",    mProgramType);
+    //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Vertex Shader",   mVertexShader);
+    //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Pixel Shader",    mPixelShader);
+    //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Compute Shader",  mComputeShader);
 }
 
 
 RTTI_CLASS_CPP(SystemShadersDX12) {
-    RTTI_MEMBER_CPP(SystemShadersDX12, "GBuffer Debug Depth Shader", mGBufferDebugDepthShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, "GBuffer Debug Albedo Shader", mGBufferDebugAlbedoShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, "GBuffer Debug Normals Shader", mGBufferDebugNormalsShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, "GBuffer Debug Metallic Shader", mGBufferDebugMetallicShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, "GBuffer Debug Roughness Shader", mGBufferDebugRoughnessShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "ImGui Shader",          mImGuiShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Grass Shader",          mGrassShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Shader",        mGBufferShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Lighting Shader",       mLightingShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Downsample Shader",     mDownsampleShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Debug Lines Shader",    mDebugLinesShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Final Compose Shader",  mFinalComposeShader);
+
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Probe Debug Shader",             mProbeDebugShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Probe Trace Shader",             mProbeTraceShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Probe Update Depth Shader",      mProbeUpdateDepthShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Probe Update Irradiance Shader", mProbeUpdateIrradianceShader);
+
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "RT Shadows Shader",            mRTShadowsShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "RT Reflections Shader",        mRTReflectionsShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "RT Indirect Diffuse Shader",   mRTIndirectDiffuseShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "RT Ambient Occlusion Shader",  mRTAmbientOcclusionShader);
+
+
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Depth Shader",     mGBufferDebugDepthShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Albedo Shader",    mGBufferDebugAlbedoShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Normals Shader",   mGBufferDebugNormalsShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Metallic Shader",  mGBufferDebugMetallicShader);
+    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Roughness Shader", mGBufferDebugRoughnessShader);
 }
 
 
@@ -50,6 +75,13 @@ bool ShaderProgram::IsCompiled() const {
 
 
 ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines) {
+    const auto shader_key = inPath.string() + inDefines;
+    {
+        auto lock = std::scoped_lock(m_ShaderCompilationMutex);
+        if (m_ShaderCache.contains(shader_key))
+            return m_ShaderCache.at(shader_key);
+    }
+
     auto utils = ComPtr<IDxcUtils>{};
     auto library = ComPtr<IDxcLibrary>{};
     auto compiler = ComPtr<IDxcCompiler3>{};
@@ -115,7 +147,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
     result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr);
 
     if (errors && errors->GetStringLength() > 0) {
-        auto lock = g_ThreadPool.GetGlobalLock();
+        auto lock = std::scoped_lock(m_ShaderCompilationMutex);
         auto error_c_str = static_cast<char*>(errors->GetBufferPointer());
         std::cout << error_c_str << '\n';
 
@@ -153,7 +185,9 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
     auto pdb_file = std::ofstream(inPath.parent_path() / inPath.filename().replace_extension(".pdb"));
     pdb_file.write((char*)pdb->GetBufferPointer(), pdb->GetBufferSize());
 
-    auto lock = g_ThreadPool.GetGlobalLock();
+    auto lock = std::scoped_lock(m_ShaderCompilationMutex);
+    m_ShaderCache.insert({ shader_key , shader });
+
     std::cout << "Compilation " << COUT_GREEN("Finished") << " for shader: " << inPath.string() << '\n';
 
     return shader;
@@ -173,12 +207,12 @@ bool ShaderCompiler::CompileShaderProgram(ShaderProgram& inShaderProgram) {
 
     switch (inShaderProgram.mProgramType) {
     case SHADER_PROGRAM_GRAPHICS: {
-        inShaderProgram.mVertexShader = CompileShader(inShaderProgram.mVertexShaderFilePath, SHADER_TYPE_VERTEX, inShaderProgram.mDefine);
-        inShaderProgram.mPixelShader = CompileShader(inShaderProgram.mPixelShaderFilePath, SHADER_TYPE_PIXEL, inShaderProgram.mDefine);
+        inShaderProgram.mVertexShader = CompileShader(inShaderProgram.mVertexShaderFilePath, SHADER_TYPE_VERTEX, inShaderProgram.mDefines);
+        inShaderProgram.mPixelShader = CompileShader(inShaderProgram.mPixelShaderFilePath, SHADER_TYPE_PIXEL, inShaderProgram.mDefines);
         return inShaderProgram.mVertexShader != nullptr && inShaderProgram.mPixelShader != nullptr;
     }
     case SHADER_PROGRAM_COMPUTE: {
-        inShaderProgram.mComputeShader = CompileShader(inShaderProgram.mComputeShaderFilePath, SHADER_TYPE_COMPUTE, inShaderProgram.mDefine);
+        inShaderProgram.mComputeShader = CompileShader(inShaderProgram.mComputeShaderFilePath, SHADER_TYPE_COMPUTE, inShaderProgram.mDefines);
         return inShaderProgram.mComputeShader != nullptr;
     }
     default:
@@ -193,7 +227,7 @@ void SystemShadersDX12::CompileShaders() {
     for (const auto& member : GetRTTI()) {
         g_ThreadPool.QueueJob([this, &member]() {
             auto& shader_program = member->GetMemberRef<ShaderProgram>(this);
-            ShaderCompiler::CompileShaderProgram(shader_program);
+            g_ShaderCompiler.CompileShaderProgram(shader_program);
         });
     }
 }

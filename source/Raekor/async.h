@@ -34,7 +34,7 @@ public:
 
     /* Scoped lock on the global mutex,
         useful for ensuring thread safety inside a job function. */
-    [[nodiscard]] std::scoped_lock<std::mutex> GetGlobalLock();
+    std::mutex& GetMutex() { return m_Mutex; }
 
     uint32_t GetThreadCount() { return uint32_t(m_Threads.size()); }
     int32_t  GetActiveJobCount() { return m_ActiveJobCount.load(); }

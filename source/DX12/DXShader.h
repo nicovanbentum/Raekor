@@ -2,7 +2,10 @@
 
 namespace Raekor::DX12 {
 
+class ShaderCompiler;
 class SystemShadersDX12;
+
+extern ShaderCompiler g_ShaderCompiler;
 extern SystemShadersDX12 g_SystemShaders;
 
 
@@ -31,22 +34,53 @@ public:
     EShaderProgramType GetProgramType() const { return mProgramType; }
 
 private:
-    // Serialized fields
-    std::string mDefine;
+    // JSON fields
+    std::string mDefines = "";
     Path mVertexShaderFilePath;
     Path mPixelShaderFilePath;
     Path mComputeShaderFilePath;
 
-    // Runtime fields
+    // Binary fields
     EShaderProgramType mProgramType;
     ComPtr<IDxcBlob> mVertexShader = nullptr;
     ComPtr<IDxcBlob> mPixelShader = nullptr;
     ComPtr<IDxcBlob> mComputeShader = nullptr;
 };
 
+
+class ShaderCompiler {
+public:
+    bool CompileShaderProgram(ShaderProgram& inShaderProgram);
+
+private:
+    ComPtr<IDxcBlob> CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines);
+
+    std::mutex m_ShaderCompilationMutex;
+    std::unordered_map<std::string, ComPtr<IDxcBlob>> m_ShaderCache;
+};
+
+
 struct SystemShadersDX12 {
     RTTI_CLASS_HEADER(SystemShadersDX12);
     friend class ShaderCompiler;
+
+    ShaderProgram mImGuiShader;
+    ShaderProgram mGrassShader;
+    ShaderProgram mGBufferShader;
+    ShaderProgram mLightingShader;
+    ShaderProgram mDownsampleShader;
+    ShaderProgram mDebugLinesShader;
+    ShaderProgram mFinalComposeShader;
+
+    ShaderProgram mProbeDebugShader;
+    ShaderProgram mProbeTraceShader;
+    ShaderProgram mProbeUpdateDepthShader;
+    ShaderProgram mProbeUpdateIrradianceShader;
+
+    ShaderProgram mRTShadowsShader;
+    ShaderProgram mRTReflectionsShader;
+    ShaderProgram mRTIndirectDiffuseShader;
+    ShaderProgram mRTAmbientOcclusionShader;
 
     ShaderProgram mGBufferDebugDepthShader;
     ShaderProgram mGBufferDebugAlbedoShader;
@@ -58,12 +92,5 @@ struct SystemShadersDX12 {
 };
 
 
-class ShaderCompiler {
-public:
-    static bool CompileShaderProgram(ShaderProgram& inShaderProgram);
-
-private:
-    static ComPtr<IDxcBlob> CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines);
-};
 
 } // Raekor::DX12

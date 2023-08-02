@@ -341,19 +341,6 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID) {
 
 
 
-D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inVertexShader, const std::string& inPixelShader) {
-    assert(m_Shaders.contains(inPixelShader));
-    assert(m_Shaders.contains(inVertexShader));
-    const auto& pixelShader  = m_Shaders.at(inPixelShader);
-    const auto& vertexShader = m_Shaders.at(inVertexShader);
-
-    return CreatePipelineStateDesc(inRenderPass,
-        CD3DX12_SHADER_BYTECODE(vertexShader.mBlob->GetBufferPointer(), vertexShader.mBlob->GetBufferSize()),
-        CD3DX12_SHADER_BYTECODE(pixelShader.mBlob->GetBufferPointer(),  pixelShader.mBlob->GetBufferSize()));
-}
-
-
-
 D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader) {
     assert(inRenderPass->IsGraphics() && "Cannot create a Graphics PSO description for a Compute RenderPass");
     
@@ -401,35 +388,12 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
 
 
 
-D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const std::string& inComputeShader) {
-    const auto& compute_shader = m_Shaders.at(inComputeShader);
-    return CreatePipelineStateDesc(inRenderPass, CD3DX12_SHADER_BYTECODE(compute_shader.mBlob->GetBufferPointer(), compute_shader.mBlob->GetBufferSize()));
- }
-
-
-
 D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader) {
     assert(inRenderPass->IsCompute() && "Cannot create a Compute PSO description for a Graphics renderpass");
     return D3D12_COMPUTE_PIPELINE_STATE_DESC {
         .pRootSignature = GetGlobalRootSignature(),
         .CS = inComputeShader
     };
-}
-
-
-
-void Device::QueueShader(const Path& inPath) {
-    g_ThreadPool.QueueJob([this, inPath]() {
-        auto compiled_blob = sCompileShaderDXC(inPath);
-
-        std::scoped_lock(m_ShadersLock);
-
-        m_Shaders[inPath.stem().string()] = ShaderEntry{
-            .mPath = inPath,
-            .mBlob = compiled_blob,
-            .mLastWriteTime = FileSystem::last_write_time(inPath),
-        };
-    });
 }
 
 
@@ -752,120 +716,5 @@ void RingAllocator::DestroyBuffer(Device& inDevice) {
     inDevice.ReleaseBuffer(m_Buffer);
 }
 
-
-
-ComPtr<IDxcBlob> sCompileShaderDXC(const Path& inFilePath, const std::string& inDefines) {
-    const auto name = inFilePath.stem().string();
-    auto type = name.substr(name.size() - 2, 2);
-    std::transform(type.begin(), type.end(), type.begin(), tolower);
-
-    auto utils = ComPtr<IDxcUtils>{};
-    auto library = ComPtr<IDxcLibrary>{};
-    auto compiler = ComPtr<IDxcCompiler3>{};
-    DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.GetAddressOf()));
-    DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(library.GetAddressOf()));
-    DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(compiler.GetAddressOf()));
-
-    auto include_handler = ComPtr<IDxcIncludeHandler>{};
-    utils->CreateDefaultIncludeHandler(include_handler.GetAddressOf());
-
-    auto ifs = std::ifstream(inFilePath);
-    auto buffer = std::stringstream();
-    buffer << inDefines;
-    buffer << ifs.rdbuf();
-    const auto source_str = buffer.str();
-
-    auto blob = ComPtr<IDxcBlobEncoding>();
-    gThrowIfFailed(library->CreateBlobWithEncodingFromPinned(source_str.c_str(), source_str.size(), CP_UTF8, blob.GetAddressOf()));
-
-    auto arguments = std::vector<LPCWSTR>{};
-    arguments.push_back(L"-E");
-    arguments.push_back(L"main");
-
-    arguments.push_back(L"-T");
-
-    if (type == "ps")
-        arguments.push_back(L"ps_6_6");
-    else if (type == "vs")
-        arguments.push_back(L"vs_6_6");
-    else if (type == "cs")
-        arguments.push_back(L"cs_6_6");
-
-    arguments.push_back(L"-Zi");
-#ifndef NDEBUG
-    arguments.push_back(L"-Qembed_debug");
-    arguments.push_back(L"-Od");
-#endif
-
-    arguments.push_back(L"-I");
-    arguments.push_back(L"assets/system/shaders/DirectX");
-
-    arguments.push_back(L"-HV");
-    arguments.push_back(L"2021");
-
-    auto str_filepath = inFilePath.string();
-    auto wstr_filepath = std::wstring(str_filepath.begin(), str_filepath.end());
-    arguments.push_back(DXC_ARG_DEBUG_NAME_FOR_SOURCE);
-    arguments.push_back(wstr_filepath.c_str());
-
-    const auto source_buffer = DxcBuffer {
-        .Ptr      = blob->GetBufferPointer(),
-        .Size     = blob->GetBufferSize(),
-        .Encoding = 0
-    };
-
-    auto result = ComPtr<IDxcResult>{};
-    gThrowIfFailed(compiler->Compile(&source_buffer, arguments.data(), uint32_t(arguments.size()), include_handler.Get(), IID_PPV_ARGS(result.GetAddressOf())));
-
-    auto hr_status = HRESULT{};
-    result->GetStatus(&hr_status);
-
-    auto errors = ComPtr<IDxcBlobUtf8>{};
-    result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr);
-
-    if (errors && errors->GetStringLength() > 0) {
-        auto lock = g_ThreadPool.GetGlobalLock();
-        auto error_c_str = static_cast<char*>(errors->GetBufferPointer());
-        std::cout << error_c_str << '\n';
-
-        auto error_str = std::string();
-        auto line_nr = 0, char_nr = 0;
-
-        auto token = strtok(error_c_str, ":"); 
-
-        if (strncmp(token, "error", strlen("error")) != 0) {
-            token = strtok(NULL, ":"); // File path/name is ignored
-            line_nr = atoi(token);
-            token = strtok(NULL, ":");
-            char_nr = atoi(token);
-            token = strtok(NULL, ":");
-            error_str = std::string(token);
-        }
-
-        token = strtok(NULL, ":");
-        const auto error_msg = std::string(token);
-
-        OutputDebugStringA(std::format("{}({}): Error: {}", FileSystem::absolute(inFilePath).string(), line_nr, error_msg).c_str());
-
-    }
-
-    if (!SUCCEEDED(hr_status)) {
-        std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << inFilePath.string() << '\n';
-        return nullptr;
-    }
-
-    auto shader = ComPtr<IDxcBlob>{}, pdb = ComPtr<IDxcBlob>{};
-    auto debug_data = ComPtr<IDxcBlobUtf16>{};
-    result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(shader.GetAddressOf()), debug_data.GetAddressOf());
-    result->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(pdb.GetAddressOf()), debug_data.GetAddressOf());
-
-    auto pdb_file = std::ofstream(inFilePath.parent_path() / inFilePath.filename().replace_extension(".pdb"));
-    pdb_file.write((char*)pdb->GetBufferPointer(), pdb->GetBufferSize());
-
-    auto lock = g_ThreadPool.GetGlobalLock();
-    std::cout << "Compilation " << COUT_GREEN("Finished") << " for shader: " << inFilePath.string() << '\n';
- 
-    return shader;
-}
 
 } // namespace::Raekor

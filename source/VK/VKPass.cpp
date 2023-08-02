@@ -90,7 +90,7 @@ void PathTracePass::CreatePipeline(Device& device) {
                     success = Shader::sCompileGLSL(vulkanSDK, file);
 
                 {
-                    auto lock = g_ThreadPool.GetGlobalLock();
+                    auto lock = std::scoped_lock(g_ThreadPool.GetMutex());
 
                     if (!success)
                         std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << file.path().string() << '\n';

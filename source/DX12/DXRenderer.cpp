@@ -132,22 +132,6 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
     // Check if any of the shader sources were updated and recompile them if necessary
     bool need_recompile = false;
 
-    for (auto& [filename, shader_entry] : inDevice.m_Shaders) {
-        auto error_code = std::error_code();
-        auto timestamp = FileSystem::last_write_time(shader_entry.mPath, error_code);
-
-        while (error_code)
-            timestamp = FileSystem::last_write_time(shader_entry.mPath, error_code);
-
-        if (timestamp > shader_entry.mLastWriteTime) {
-            if (auto new_blob = sCompileShaderDXC(shader_entry.mPath))
-                shader_entry.mBlob = new_blob;
-
-            shader_entry.mLastWriteTime = FileSystem::last_write_time(shader_entry.mPath);
-            need_recompile = true;
-        }
-    }
-
     if (m_ShouldResize) {
         // Make sure nothing is using render targets anymore
         WaitForIdle(inDevice);
@@ -850,7 +834,10 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inData.mRenderTexture       = inRenderPass->Write(render_texture);       // SV_TARGET0
         inData.mMotionVectorTexture = inRenderPass->Write(movec_texture); // SV_TARGET1
 
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "GBufferVS", "GBufferPS");
+        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        g_SystemShaders.mGBufferShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
         inData.mPipeline->SetName(L"PSO_GBUFFER");
     },
@@ -984,7 +971,10 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
         inData.mGBufferRenderTexture            = inRenderPass->Read(inGBufferData.mRenderTexture);
         inData.mTopLevelAccelerationStructure   = inTLAS;
 
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTShadowsCS");
+        CD3DX12_SHADER_BYTECODE compute_shader;
+        g_SystemShaders.mRTShadowsShader.GetComputeProgram(compute_shader);
+        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
+
         gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(&inData.mPipeline)));
         inData.mPipeline->SetName(L"PSO_RT_SHADOWS");
     },
@@ -1027,7 +1017,10 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mGBufferRenderTexture            = inRenderPass->Read(inGbufferData.mRenderTexture);
         inData.mTopLevelAccelerationStructure   = inTLAS;
 
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTAmbientOcclusionCS");
+        CD3DX12_SHADER_BYTECODE compute_shader;
+        g_SystemShaders.mRTAmbientOcclusionShader.GetComputeProgram(compute_shader);
+        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
+
         gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(&inData.mPipeline)));
         inData.mPipeline->SetName(L"PSO_RTAO");
     },
@@ -1060,11 +1053,14 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
         inData.mDepthTexture  = inRenderPass->Write(inGBufferData.mDepthTexture);
         inData.mRenderTexture = inRenderPass->Write(inGBufferData.mRenderTexture);
 
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "GrassRenderVS", "GrassRenderPS");
-        state.InputLayout = {};
-        state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        g_SystemShaders.mGrassShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        
+        pso_state.InputLayout = {};
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
         inData.mPipeline->SetName(L"PSO_GRASS_DRAW");
 
         inData.mRenderConstants = GrassRenderRootConstants {
@@ -1109,10 +1105,12 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
         inData.mInstancesBuffer = inInstancesBuffer;
         inData.mMaterialBuffer = inMaterialsBuffer;
 
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTReflectionsCS");
+        CD3DX12_SHADER_BYTECODE compute_shader;
+        g_SystemShaders.mRTReflectionsShader.GetComputeProgram(compute_shader);
+        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
         
         Timer timer;
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
+        gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
         inData.mPipeline->SetName(L"PSO_RT_REFLECTIONS");
     },
     [&inRenderGraph, &inDevice](ReflectionsData& inData, CommandList& inCmdList) 
@@ -1157,9 +1155,12 @@ const IndirectDiffuseData& AddIndirectDiffusePass(RenderGraph& inRenderGraph, De
         inData.mInstancesBuffer                 = inInstancesBuffer;
         inData.mMaterialBuffer                  = inMaterialsBuffer;
 
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "RTIndirectDiffuseCS");
 
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
+        CD3DX12_SHADER_BYTECODE compute_shader;
+        g_SystemShaders.mRTIndirectDiffuseShader.GetComputeProgram(compute_shader);
+        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
+
+        gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
         inData.mPipeline->SetName(L"PSO_RT_INDIRECT_DIFFUSE");
     },
     [&inRenderGraph, &inDevice](IndirectDiffuseData& inData, CommandList& inCmdList)
@@ -1214,8 +1215,11 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
             inData.mTextureMips[mip] = inDevice.CreateTextureView(inSourceTexture.mResourceTexture, texture_desc);
         }
 
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "DownsampleCS");
-        inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
+        CD3DX12_SHADER_BYTECODE compute_shader;
+        g_SystemShaders.mDownsampleShader.GetComputeProgram(compute_shader);
+        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
+
+        inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
         inData.mPipeline->SetName(L"PSO_DOWNSAMPLE");
     },
     [&inRenderGraph, &inDevice](DownsampleData& inData, CommandList& inCmdList)
@@ -1301,7 +1305,10 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
         inData.mMaterialBuffer = inMaterialsBuffer;
         inData.mTopLevelAccelerationStructure = inTLAS;
 
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeTraceCS");
+        CD3DX12_SHADER_BYTECODE compute_shader;
+        g_SystemShaders.mProbeTraceShader.GetComputeProgram(compute_shader);
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
+
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline)));
         inData.mPipeline->SetName(L"PSO_PROBE_TRACE");
     },
@@ -1360,13 +1367,24 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         inData.mRaysDepthTexture        = inRenderPass->Read(inTraceData.mRaysDepthTexture);
         inData.mRaysIrradianceTexture   = inRenderPass->Read(inTraceData.mRaysIrradianceTexture);
 
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeUpdateDepthCS");
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mDepthPipeline)));
-        inData.mDepthPipeline->SetName(L"PSO_PROBE_UPDATE_DEPTH");
+        {
+            CD3DX12_SHADER_BYTECODE compute_shader;
+            g_SystemShaders.mProbeUpdateDepthShader.GetComputeProgram(compute_shader);
+            auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
+            
+            gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mDepthPipeline)));
+            inData.mDepthPipeline->SetName(L"PSO_PROBE_UPDATE_DEPTH");
+        }
 
-        pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeUpdateIrradianceCS");
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mIrradiancePipeline)));
-        inData.mIrradiancePipeline->SetName(L"PSO_PROBE_UPDATE_IRRADIANCE");
+        {
+            CD3DX12_SHADER_BYTECODE compute_shader;
+            g_SystemShaders.mProbeUpdateIrradianceShader.GetComputeProgram(compute_shader);
+            auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
+
+            gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mIrradiancePipeline)));
+            inData.mIrradiancePipeline->SetName(L"PSO_PROBE_UPDATE_IRRADIANCE");
+        }
+
     },
     [&inDevice, &inTraceData](ProbeUpdateData& inData, CommandList& inCmdList)
     {
@@ -1442,7 +1460,10 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mProbesDepthTexture      = inRenderPass->Read(inUpdateData.mProbesDepthTexture);
         inData.mProbesIrradianceTexture = inRenderPass->Read(inUpdateData.mProbesIrradianceTexture);
 
-        auto pso_desc = inDevice.CreatePipelineStateDesc(inRenderPass, "ProbeDebugVS", "ProbeDebugPS");
+        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        g_SystemShaders.mProbeDebugShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+        auto pso_desc = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        
         gThrowIfFailed(inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
         inData.mPipeline->SetName(L"PSO_PROBE_DEBUG");
     },
@@ -1512,7 +1533,10 @@ const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDe
             D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         };
 
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, "DebugLinesVS", "DebugLinesPS");
+        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        g_SystemShaders.mDebugLinesShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+
         pso_state.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
         pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
         pso_state.RasterizerState.AntialiasedLineEnable = true;
@@ -1579,12 +1603,15 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mProbesIrradianceTexture = inRenderPass->Read(inProbeData.mProbesIrradianceTexture);
         // inData.mIndirectDiffuseTexture  = inRenderPass->Read(inDiffuseGIData.mOutputTexture);
 
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "FullscreenTriangleVS", "LightingPS");
-        state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
-        state.DepthStencilState.DepthEnable = FALSE;
-        state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        g_SystemShaders.mLightingShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
-        inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+        pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
+        pso_state.DepthStencilState.DepthEnable = FALSE;
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
         inData.mPipeline->SetName(L"PSO_DEFERRED_LIGHTING");
     },
     [&inRenderGraph, &inDevice, &inProbeData](LightingData& inData, CommandList& inCmdList)
@@ -1686,12 +1713,15 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inData.mOutputTexture = inRenderPass->Write(output_texture);
         inData.mInputTexture  = inRenderPass->Read(inInputTexture);
 
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "FullscreenTriangleVS", "FinalComposePS");
-        state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
-        state.DepthStencilState.DepthEnable = FALSE;
-        state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        g_SystemShaders.mFinalComposeShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
-        inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+        pso_state.InputLayout = {}; // clear the input layout, we generate the fullscreen triangle inside the vertex shader
+        pso_state.DepthStencilState.DepthEnable = FALSE;
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
         inData.mPipeline->SetName(L"PSO_COMPOSE");
     },
 
@@ -1792,15 +1822,18 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
             D3D12_INPUT_ELEMENT_DESC { "COLOR",    0, DXGI_FORMAT_R32_UINT,     0, offsetof(ImDrawVert, col), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
         };
 
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, "ImGuiVS", "ImGuiPS");
-        state.InputLayout = D3D12_INPUT_LAYOUT_DESC {
+        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        g_SystemShaders.mImGuiShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+
+        pso_state.InputLayout = D3D12_INPUT_LAYOUT_DESC {
             .pInputElementDescs = input_layout.data(),
             .NumElements = input_layout.size(),
         };
-        state.DepthStencilState.DepthEnable = FALSE;
-        state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        pso_state.DepthStencilState.DepthEnable = FALSE;
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&state, IID_PPV_ARGS(&inData.mPipeline));
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
         inData.mPipeline->SetName(L"PSO_IMGUI");
     },
 
