@@ -93,6 +93,8 @@ struct ConfigSettings {
     std::string mAppName = "";
     std::string mFontFile = "";
     std::string mSceneFile = "";
+    std::array<int, 3> mArray = {};
+    std::vector<std::string> mVector = {};
 };
 
 enum WindowFlag {

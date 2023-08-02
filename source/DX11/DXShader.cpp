@@ -45,7 +45,7 @@ bool DXShader::CompileStage(const Stage& inStage) {
         if (errors)
             OutputDebugStringA((char*)errors->GetBufferPointer());
         
-        std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << fp << '\n';
+        std::cout << std::format("Compilation {} for shader: {} \n", COUT_RED("failed"), fp);
         return false;
     }
 
@@ -65,11 +65,11 @@ bool DXShader::CompileStage(const Stage& inStage) {
     }
 
     if (!SUCCEEDED(hr)) {
-        std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << fp << '\n';
+        std::cout << std::format("Compilation {} for shader: {} \n", COUT_RED("failed"), fp);
         return false;
     }
- 
-    std::cout << "Compilation " << COUT_GREEN("succeeded") << " for shader: " << fp << '\n';
+
+    std::cout << std::format("Compilation {} for shader: {} \n", COUT_GREEN("succeeded"), fp);
     return true;
 }
 

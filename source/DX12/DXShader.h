@@ -14,6 +14,8 @@ enum EShaderProgramType {
     SHADER_PROGRAM_GRAPHICS,
     SHADER_PROGRAM_COMPUTE
 };
+RTTI_ENUM_HEADER(EShaderProgramType);
+RTTI_ENUM_STRING_CONVERSIONS(EShaderProgramType);
 
 
 enum EShaderType {

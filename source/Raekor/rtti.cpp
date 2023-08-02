@@ -20,14 +20,28 @@ void RTTI::AddMember(Member* inMember) {
 }
 
 
- Member* RTTI::GetMember(const std::string& inName) const {
+ Member* RTTI::GetMember(const char* inName) const {
+     const auto name_hash = gHash32Bit(inName);
      for (const auto& member : m_Members)
-         if (member->GetName() == inName || member->GetCustomName() == inName)
+         if (name_hash == member->GetNameHash() || name_hash == member->GetCustomNameHash())
              return member.get();
 
-    return nullptr;
+     return nullptr;
  }
 
+
+int32_t RTTI::GetMemberIndex(const char* inName) const {
+    const auto name_hash = gHash32Bit(inName);
+     for (const auto& [index, member] : gEnumerate(m_Members))
+         if (name_hash == member->GetNameHash() || name_hash == member->GetCustomNameHash())
+             return index;
+
+     return -1;
+ }
+
+
+ Member::Member(const char* inName, const char* inCustomName, ESerializeType inSerializeType)
+     : m_NameHash(gHash32Bit(inName)), m_CustomNameHash(gHash32Bit(inCustomName)), m_Name(inName), m_CustomName(inCustomName) {}
 
 void RTTIFactory::Register(RTTI& inRTTI) {
     assert(global->m_RegisteredTypes.find(inRTTI.GetHash()) == global->m_RegisteredTypes.end());

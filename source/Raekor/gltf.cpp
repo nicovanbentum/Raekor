@@ -158,7 +158,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, gl
             ConvertMesh(entity, inNode.mesh->primitives[0]);
 
         else if (inNode.mesh->primitives_count > 1)
-            for (auto& [index, prim] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count))) {
+            for (const auto& [index, prim] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count))) {
                 auto clone = m_Scene.Clone(entity);
                 ConvertMesh(clone, prim);
 

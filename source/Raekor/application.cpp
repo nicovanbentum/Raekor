@@ -16,6 +16,8 @@ RTTI_CLASS_CPP(ConfigSettings) {
     RTTI_MEMBER_CPP(ConfigSettings, SERIALIZE_ALL, "App Name",   mAppName);
     RTTI_MEMBER_CPP(ConfigSettings, SERIALIZE_ALL, "Font File",  mFontFile);
     RTTI_MEMBER_CPP(ConfigSettings, SERIALIZE_ALL, "Scene File", mSceneFile);
+    RTTI_MEMBER_CPP(ConfigSettings, SERIALIZE_ALL, "My Array",   mArray);
+    RTTI_MEMBER_CPP(ConfigSettings, SERIALIZE_ALL, "My Vector",  mVector);
 }
 
 static constexpr auto CONFIG_FILE_STR = "config.json";
@@ -35,7 +37,7 @@ Application::Application(WindowFlags inFlags) {
     }
 
     auto displays = std::vector<SDL_Rect>(SDL_GetNumVideoDisplays());
-    for (auto& [index, display] : gEnumerate(displays))
+    for (const auto& [index, display] : gEnumerate(displays))
         SDL_GetDisplayBounds(index, &display);
 
     // if the config setting is higher than the nr of displays we pick the default display

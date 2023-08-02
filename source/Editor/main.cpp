@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
 
     auto app =  new GL::GLApp();
 
-    app->Run();
+    // app->Run();
 
     delete app;
 

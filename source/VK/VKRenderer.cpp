@@ -129,7 +129,7 @@ void Renderer::UpdateBVH(Scene& scene) {
     deviceInstances.reserve(meshes.size_hint());
 
     uint32_t customIndex = 0; 
-    for (auto& [entity, mesh, transform, geometry] : meshes.each()) {
+    for (const auto& [entity, mesh, transform, geometry] : meshes.each()) {
         auto deviceAddress = m_Device.GetDeviceAddress(geometry.accelStruct.accelerationStructure);
 
         VkAccelerationStructureInstanceKHR instance = {};
@@ -172,7 +172,7 @@ void Renderer::UpdateBVH(Scene& scene) {
         return 0;
     };
 
-    for (auto& [entity, mesh, transform, geometry] : meshes.each()) {
+    for (const auto& [entity, mesh, transform, geometry] : meshes.each()) {
         if (mesh.material == entt::null)
             continue;
 

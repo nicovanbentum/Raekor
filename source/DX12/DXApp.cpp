@@ -31,6 +31,13 @@ DXApp::DXApp() :
 {
     RTTIFactory::Register(RTTI_OF(ShaderProgram));
     RTTIFactory::Register(RTTI_OF(SystemShadersDX12));
+    RTTIFactory::Register(RTTI_OF(EShaderProgramType));
+
+    EShaderProgramType program_type = EShaderProgramType::SHADER_PROGRAM_GRAPHICS;
+    std::cout << gToString(program_type) << '\n';
+
+    program_type = gFromString("SHADER_PROGRAM_COMPUTE");
+    std::cout << gToString(program_type) << '\n';
 
     Timer timer;
 

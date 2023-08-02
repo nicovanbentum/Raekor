@@ -8,13 +8,20 @@ namespace Raekor::DX12 {
 ShaderCompiler g_ShaderCompiler;
 SystemShadersDX12 g_SystemShaders;
 
+RTTI_ENUM_CPP(EShaderProgramType) {
+    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "SHADER_PROGRAM_INVALID",  SHADER_PROGRAM_INVALID);
+    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "SHADER_PROGRAM_GRAPHICS", SHADER_PROGRAM_GRAPHICS);
+    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "SHADER_PROGRAM_COMPUTE",  SHADER_PROGRAM_COMPUTE);
+}
+
+
 RTTI_CLASS_CPP(ShaderProgram) {
     RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Defines",               mDefines);
     RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Vertex Shader File",    mVertexShaderFilePath);
     RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Pixel Shader File",     mPixelShaderFilePath);
     RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Compute Shader File",   mComputeShaderFilePath);
 
-    //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Program Type",    mProgramType);
+    RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Program Type",    mProgramType);
     //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Vertex Shader",   mVertexShader);
     //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Pixel Shader",    mPixelShader);
     //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Compute Shader",  mComputeShader);
@@ -173,7 +180,8 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
     }
 
     if (!SUCCEEDED(hr_status)) {
-        std::cout << "Compilation " << COUT_RED("failed") << " for shader: " << inPath.string() << '\n';
+        std::cout << std::format("Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
+
         return nullptr;
     }
 
@@ -188,7 +196,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
     auto lock = std::scoped_lock(m_ShaderCompilationMutex);
     m_ShaderCache.insert({ shader_key , shader });
 
-    std::cout << "Compilation " << COUT_GREEN("Finished") << " for shader: " << inPath.string() << '\n';
+    std::cout << std::format("Compilation {} for shader: {} \n", COUT_GREEN("finished"), inPath.string());
 
     return shader;
 }
@@ -226,7 +234,7 @@ bool ShaderCompiler::CompileShaderProgram(ShaderProgram& inShaderProgram) {
 void SystemShadersDX12::CompileShaders() {
     for (const auto& member : GetRTTI()) {
         g_ThreadPool.QueueJob([this, &member]() {
-            auto& shader_program = member->GetMemberRef<ShaderProgram>(this);
+            auto& shader_program = member->GetRef<ShaderProgram>(this);
             g_ShaderCompiler.CompileShaderProgram(shader_program);
         });
     }

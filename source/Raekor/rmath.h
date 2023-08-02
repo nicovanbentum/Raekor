@@ -113,6 +113,20 @@ inline std::string gToString(const glm::mat<C, R, T>& inValue) {
     return ss.str();
 }
 
+
+inline std::string gToString(const glm::quat& inValue) {
+    std::stringstream ss;
+    ss << "(";
+    for (int i = 0; i < glm::quat::length(); i++) {
+        ss << inValue[i];
+        if (i != glm::quat::length() - 1) ss << " ";
+    }
+    ss << ")";
+    return ss.str();
+}
+
+
+
 template<glm::length_t L, typename T>
 inline glm::vec < L, T> gFromString(const std::string& inValue) {
     glm::vec < L, T> result;
@@ -141,6 +155,20 @@ inline glm::mat<C, R, T> gFromString(const std::string& inValue) {
         }
         ss >> delim >> delim; // eat )( and ))
     }
+
+    return result;
+}
+
+
+inline glm::quat gFromString(const std::string& inValue) {
+    glm::quat result;
+    std::stringstream ss(inValue);
+
+    char delim;
+    ss >> delim;
+
+    for (int i = 0; i < glm::quat::length(); i++)
+        ss >> result[i];
 
     return result;
 }

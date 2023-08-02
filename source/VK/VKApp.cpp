@@ -40,7 +40,7 @@ namespace Raekor::VK {
 
     assert(!m_Scene.empty() && "Scene cannot be empty when starting up the Vulkan path tracer!!");
 
-    for (auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
+    for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
         if (mesh.material != sInvalidEntity && (mesh.positions.size() > 0 && mesh.indices.size() > 0)) {
             auto component = m_Renderer.CreateBLAS(mesh, m_Scene.get<Material>(mesh.material));
             m_Scene.emplace<VK::RTGeometry>(entity, component);
@@ -220,7 +220,7 @@ void PathTracer::OnEvent(const SDL_Event& inEvent) {
 
 PathTracer::~PathTracer() {
     auto view = m_Scene.view<VK::RTGeometry>();
-    for (auto& [entity, geometry] : view.each())
+    for (const auto& [entity, geometry] : view.each())
         m_Renderer.DestroyBLAS(geometry);
 }
 

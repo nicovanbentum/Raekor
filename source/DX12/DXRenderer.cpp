@@ -123,7 +123,7 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
     assert(ffx_error == FFX_OK);
 
     m_Settings.mFullscreen = inFullScreen;
-    std::cout << "Render Size: " << inViewport.size.x << " , " << inViewport.size.y << '\n';
+    std::cout << std::format("Render Size: {}, {} \n", inViewport.size.x, inViewport.size.y);
 }
 
 

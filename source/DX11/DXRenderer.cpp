@@ -10,7 +10,7 @@ namespace Raekor {
 COM_PTRS D3D;
 
 DXRenderer::DXRenderer(const Viewport& inViewport, SDL_Window* window) {
-    std::cout << "Active Rendering API: DirectX11  No device/context information available." << std::endl;
+    std::cout << "Active Rendering API: DirectX11  No device/context information available.\n";
 
     // initialize ImGui
     IMGUI_CHECKVERSION();

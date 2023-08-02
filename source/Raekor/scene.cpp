@@ -119,7 +119,7 @@ void Scene::UpdateLights() {
 void Scene::UpdateTransforms() {
     const auto components = view<Node, Transform>();
 
-    for (auto& [entity, node, transform] : components.each()) {
+    for (const auto& [entity, node, transform] : components.each()) {
         if (node.parent != entt::null)
             continue;
 
@@ -127,13 +127,13 @@ void Scene::UpdateTransforms() {
             m_Nodes.push(entity);
 
             while (!m_Nodes.empty()) {
-                auto& [current_node, current_transform] = components.get(m_Nodes.top());
+                const auto& [current_node, current_transform] = components.get(m_Nodes.top());
                 m_Nodes.pop();
 
                 if (current_node.parent == entt::null) {
                     current_transform.worldTransform = current_transform.localTransform;
                 } else {
-                    auto& [parent_node, parent_transform] = components.get(current_node.parent);
+                    const auto& [parent_node, parent_transform] = components.get(current_node.parent);
                     current_transform.worldTransform = parent_transform.worldTransform * current_transform.localTransform;
                 }
 
@@ -318,7 +318,7 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
     timer.Restart();
 
     // init mesh render data
-    for (auto& [entity, mesh] : view<Mesh>().each()) {
+    for (const auto& [entity, mesh] : view<Mesh>().each()) {
         mesh.CalculateAABB();
      
         if (m_Renderer)

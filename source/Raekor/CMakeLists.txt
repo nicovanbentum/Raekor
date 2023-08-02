@@ -13,10 +13,10 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/ImGuizmo/ImGuizmo.cpp)
 set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/imnodes/imnodes.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/imnodes/imnodes.cpp)
 
-# Rule to build the actual exectuable and enable c++17
+# Rule to build the actual exectuable and enable c++20
 
 add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles} raekor.natvis ${CMAKE_SOURCE_DIR}/config.json)
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 
 # Natvis files
 target_sources(${PROJECT_NAME} PRIVATE raekor.natvis)

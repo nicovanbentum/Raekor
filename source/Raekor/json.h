@@ -5,6 +5,9 @@
 
 namespace Raekor {
 
+template<typename E>
+concept EnumType = std::is_enum_v<E>;
+
 enum ESerializeType {
 	SERIALIZE_NONE		= 0 << 0,
 	SERIALIZE_JSON		= 1 << 0,
@@ -33,9 +36,14 @@ public:
 	double				GetPrimitive(uint32_t inTokenIdx) { return m_Primitives[inTokenIdx]; }
 
 public:
-	// Generic T and primitive types
+	// Generics
 	template<typename T> 
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, T& inValue);
+
+	template<typename T> requires std::is_enum_v<T>
+	uint32_t GetTokenToValue(uint32_t inTokenIdx, T& inValue);
+
+	// Primitives
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, int& inValue);
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, bool& inValue);
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, float& inValue);
@@ -67,6 +75,27 @@ private:
 
 
 
+class JSONWriter {
+public:
+	template<typename T>
+	JSONWriter& Write(T& inValue) { m_SS << inValue; }
+
+	JSONWriter& WriteIndent() {
+		for (uint32_t i = 0; i < m_Indent; i++)
+			m_SS << "    ";
+	}
+
+	JSONWriter& PopIndent() { m_Indent--; }
+	JSONWriter& PushIndent() { m_Indent++; }
+
+	std::string GetString() const { return m_SS.str(); }
+
+private:
+	int32_t m_Indent;
+	std::stringstream m_SS;
+};
+
+
 template<typename T>
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIdx, T& inValue) {
 	const auto& object_token = m_Tokens[inTokenIdx]; // index to object
@@ -78,10 +107,10 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIdx, T& inValue) {
 	inTokenIdx++; // increment index to first key (name of the first class member)
 
 	for (auto key_index = 0; key_index < object_token.size; key_index++) {
-		 auto key_string = GetString(inTokenIdx); // member name
+		 const auto& key_string = GetString(inTokenIdx); // member name
 
 		 inTokenIdx++; // increment index to value
-		if (const auto member = gGetRTTI<T>().GetMember(key_string)) {
+		if (const auto member = gGetRTTI<T>().GetMember(key_string.c_str())) {
 			// parse the current value, increment the token index by how many we have parsed
 			inTokenIdx = member->FromJSON(*this, inTokenIdx, &inValue);
 		}
@@ -93,6 +122,10 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIdx, T& inValue) {
 	return inTokenIdx;
 }
 
+template<typename T> requires std::is_enum_v<T>
+uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, T& inValue) {
+	inValue = (T)GetPrimitive(inTokenIndex++); return inTokenIndex;
+}
 
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, int& ioInt) {
 	ioInt = GetPrimitive(inTokenIndex++); return inTokenIndex;
@@ -120,7 +153,8 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, glm::vec<L, T>&
 }
 
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, glm::quat& inQuat) {
-	return 0; // TODO
+	inQuat = gFromString(GetString(inTokenIndex++)); return inTokenIndex;
+
 }
 
 template<glm::length_t C, glm::length_t R, typename T>
@@ -131,12 +165,33 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, glm::mat<C, R, 
 
 template<typename T>
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::vector<T>& inVector) {
-	return 0; // TODO
+	const auto& object_token = m_Tokens[inTokenIndex]; // index to object
+	// T& can only deal with JSMN_ARRAY
+	if (object_token.type != JSMN_ARRAY)
+		return SkipToken(inTokenIndex);
+
+	// allocate storage
+	inVector.resize(object_token.size);
+
+	inTokenIndex++; // increment index to vector[0]
+	for (auto key_index = 0; key_index < object_token.size; key_index++)
+		inTokenIndex = GetTokenToValue(inTokenIndex, inVector[key_index]);
+
+	return inTokenIndex;
 }
 
 template<typename T, uint32_t N>
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::array<T, N>& inArray) {
-	return 0; // TODO
+	const auto& object_token = m_Tokens[inTokenIndex]; // index to object
+	// T& can only deal with JSMN_ARRAY
+	if (object_token.type != JSMN_ARRAY || object_token.size != N)
+		return SkipToken(inTokenIndex);
+
+	inTokenIndex++; // increment index to array[0]
+	for (auto key_index = 0; key_index < object_token.size; key_index++)
+		inTokenIndex = GetTokenToValue(inTokenIndex, inArray[key_index]);
+
+	return inTokenIndex;
 }
 
 
@@ -161,6 +216,12 @@ inline void GetValueToJSON(std::string& inJSON, T& inMember) {
 	}
 
 	inJSON += "}";
+}
+
+template<typename T>
+requires std::is_enum_v<T>
+inline void GetValueToJSON(std::string& inJSON, T& inMember) {
+	inJSON += std::to_string((int)inMember);
 }
 
 
@@ -190,7 +251,7 @@ inline void GetValueToJSON(std::string& ioJSON, glm::vec<L, T>& inVec) {
 }
 
 inline void GetValueToJSON(std::string& ioJSON, glm::quat& inQuat) {
-	ioJSON += "\"" + glm::to_string(inQuat) + "\"";
+	ioJSON += "\"" + gToString(inQuat) + "\"";
 
 }
 
@@ -202,12 +263,31 @@ inline void GetValueToJSON(std::string& ioJSON, glm::mat<C, R, T>& inMatrix) {
 
 template<typename T>
 inline void GetValueToJSON(std::string& ioJSON, std::vector<T>& inVector) {
-	// TODO
+	ioJSON += "[";
+	const auto count = inVector.size();
+
+	for (const auto& [index, value] : gEnumerate(inVector)) {
+		GetValueToJSON(ioJSON, value);
+
+		if (index != count - 1)
+			ioJSON += ",";
+	}
+
+	ioJSON += "]";
 }
 
 template<unsigned int Count, typename T>
 inline void GetValueToJSON(std::string& ioJSON, std::array<T, Count>& inArray) {
-	// TODO
+	ioJSON += "[";
+	for (const auto& [index, value] : gEnumerate(inArray)) {
+		GetValueToJSON(ioJSON, value);
+
+		if (index != Count - 1)
+			ioJSON += ",";
+	}
+
+	ioJSON += "]";
+
 }
 
 

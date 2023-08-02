@@ -17,9 +17,11 @@ public:
     RTTI(RTTI&) = delete;
     RTTI(RTTI&&) = delete;
     
+
     void            AddMember(Member* inName);
     Member*         GetMember(uint32_t inIndex) const;
-    Member*         GetMember(const std::string& inName) const; // Expensive!
+    Member*         GetMember(const char* inName) const; // O(n) Expensive!
+    int32_t         GetMemberIndex(const char* inName) const; // O(n) expensive!
     uint32_t        GetMemberCount() const { return uint32_t(m_Members.size()); }
 
 
@@ -43,23 +45,23 @@ private:
 class Member {
 public:
     Member() = delete;
-    Member(const char* inName, const char* inCustomName, ESerializeType inSerializeType = SERIALIZE_JSON) 
-        : m_Name(inName), m_CustomName(inCustomName) {}
+    Member(const char* inName, const char* inCustomName, ESerializeType inSerializeType = SERIALIZE_JSON);
 
     const char*     GetName() const { return m_Name; }
+    uint32_t        GetNameHash() const { return m_NameHash; }
     const char*     GetCustomName() const { return m_CustomName; }
-    virtual void*   GetMember(void* inClass) = 0;
+    uint32_t        GetCustomNameHash() const { return m_CustomNameHash; }
 
     template<typename T>
-    T& GetMemberRef(void* inClass) { return *static_cast<T*>(GetMember(inClass)); }
+    T&              GetRef(void* inClass) { return *static_cast<T*>(GetPtr(inClass)); }
+    virtual void*   GetPtr(void* inClass) = 0;
 
     virtual void     ToJSON(std::string& inJSON, void* inClass) { }
     virtual uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inClass) { return 0; }
 
-    virtual bool IsPtr() { return false; }
-    virtual void SetPtr() {}
-
 protected:
+    uint32_t m_NameHash;;
+    uint32_t m_CustomNameHash;
     const char* m_Name;
     const char* m_CustomName;
     ESerializeType m_SerializeType;
@@ -73,21 +75,28 @@ public:
     ClassMember(const char* inName, const char* inCustomName, T Class::* inMember, ESerializeType inSerializeType = SERIALIZE_JSON) 
         : Member(inName, inCustomName, inSerializeType), m_Member(inMember) {}
     
-    virtual bool IsPtr() { return std::is_pointer_v<T>; }
-
     void ToJSON(std::string& inJSON, void* inInstance) override {
         inJSON += std::string("\"" + std::string(m_CustomName) + "\": ");
-        JSON::GetValueToJSON(inJSON, *static_cast<T*>(GetMember(inInstance)));
+        JSON::GetValueToJSON(inJSON, GetRef<T>(inInstance));
     }
 
     uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inInstance) override {
-        return inJSON.GetTokenToValue(inTokenIdx, *static_cast<T*>(GetMember(inInstance)));
+        return inJSON.GetTokenToValue(inTokenIdx, GetRef<T>(inInstance));
     }
 
-    virtual void* GetMember(void* inClass) override { return &(static_cast<Class*>(inClass)->*m_Member); }
+    virtual void* GetPtr(void* inClass) override { return &(static_cast<Class*>(inClass)->*m_Member); }
 
 private:
     T Class::*m_Member;
+};
+
+
+class EnumMember : public Member {
+public:
+    EnumMember(const char* inName, const char* inCustomName, ESerializeType inSerializeType = SERIALIZE_JSON) 
+        : Member(inName, inCustomName, inSerializeType) {}
+
+    virtual void* GetPtr(void* inClass) { return inClass; }
 };
 
 
@@ -119,6 +128,37 @@ namespace std {
         }
     };
 }
+
+
+
+#define RTTI_ENUM_HEADER(name)                                  \
+RTTI& sGetRTTI(name* inName);                                   \
+namespace name##Namespace { void sImplRTTI(RTTI& inRTTI); };    \
+
+
+#define RTTI_ENUM_CPP(name)                                                                              \
+    RTTI& sGetRTTI(name* inName) {                                                                       \
+        static auto rtti = RTTI(#name, &name##Namespace::sImplRTTI, []() -> void* { return new name; }); \
+        return rtti;                                                                                     \
+    }                                                                                                    \
+    void EShaderProgramTypeNamespace::sImplRTTI(RTTI& inRTTI)                                            \
+
+
+#define RTTI_ENUM_MEMBER_CPP(enum_name, serial_type, custom_name, member_name) \
+    inRTTI.AddMember(new EnumMember(#member_name, #custom_name, serial_type))
+
+#define RTTI_ENUM_STRING_CONVERSIONS(enum_name)                              \
+    inline enum_name gFromString(const char* inString) {                     \
+        auto& rtti = RTTI_OF(enum_name);                                     \
+        const auto index = rtti.GetMemberIndex(inString);                    \
+        return index != -1 ? (enum_name)index : (enum_name)0;                \
+    }                                                                        \
+                                                                             \
+inline const char* gToString(enum_name inType) {                             \
+    auto& rtti = RTTI_OF(enum_name);                                         \
+    return rtti.GetMember((uint32_t)inType)->GetName();                      \
+}                                                                            \
+
 
 #define RTTI_CLASS_HEADER(name)                                                                                         \
 public:                                                                                                                 \
