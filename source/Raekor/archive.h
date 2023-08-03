@@ -21,76 +21,26 @@ private:
 
 class WriteArchive {
 public:
-	WriteArchive();
-	WriteArchive(const Path& inPath) : m_Ofs(inPath) {}
+	WriteArchive() = default;
+	WriteArchive(const Path& inPath) : m_JSON(inPath), m_FilePath(inPath) {}
 
 	template<typename T>
 	WriteArchive& operator<< (T& inRHS) {
-		RTTI& rtti = gGetRTTI<T>();
-		m_SS << "\"" << rtti.GetTypeName() << "\":";
-		m_SS << "{";
-		m_Indent++;
+		auto ofs = std::ofstream(m_FilePath);
 
-		for (uint32_t i = 0; i < rtti.GetMemberCount(); i++) {
-			std::string json;
-			rtti.GetMember(i)->ToJSON(json, &inRHS);
-			m_SS << json;
+		m_Writer.Write("{\n").PushIndent();
 
-			if (i < rtti.GetMemberCount() - 1)
-				m_SS << ",";
-		}
+		const auto& rtti = gGetRTTI<T>();
 
-		m_Indent--;
-		while (m_Indent >= 0) {
-			m_SS << "}";
-			m_Indent--;
-		}
+		// write the type
+		m_Writer.IndentAndWrite("\"" + std::string(rtti.GetTypeName()) + "\":");
 
-		const auto json_str = m_SS.str();
+		// Convert and write the object to write to JSON
+		m_Writer.GetValueToJSON(inRHS);
 
+		m_Writer.Write("\n").PopIndent().Write("}");
 
-		m_Ofs << "{\n";
-		
-		auto indent = 1;
-		for (auto i = 0; i < indent; i++)
-			m_Ofs << "    ";
-
-		for (uint64_t index = 0; index < json_str.size(); index++) {
-			auto c = json_str[index];
-			if (c == '{') {
-				m_Ofs << "\n";
-				for (auto i = 0; i < indent; i++)
-					m_Ofs << "    ";
-				m_Ofs << c << "\n";
-				indent++;
-				for (auto i = 0; i < indent; i++)
-					m_Ofs << "    ";
-			}
-			else if (c == '}') {
-				m_Ofs << "\n";
-				indent--;
-				for (auto i = 0; i < indent; i++)
-					m_Ofs << "    ";
-				m_Ofs << c;
-
-				if (index != json_str.size() - 1) {
-					auto next_c = json_str[index];
-
-					if (next_c != ',' && next_c != '}')
-						m_Ofs << "\n";
-				}
-			}
-			else if (c == ',') {
-				m_Ofs << c << "\n";
-				for (auto i = 0; i < indent; i++)
-					m_Ofs << "    ";
-			}
-			else {
-				m_Ofs << c;
-			}
-		}
-
-		m_Ofs << "\n}";
+		ofs << m_Writer.GetString();
 
 		return *this;
 	}
@@ -98,10 +48,9 @@ public:
 
 
 private:
-	int32_t m_Indent = 0;
 	Path m_FilePath;
-	std::ofstream m_Ofs;
-	std::stringstream m_SS;
+	JSONData& m_JSON;
+	JSONWriter m_Writer;
 };
 
 

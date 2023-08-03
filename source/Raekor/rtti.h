@@ -52,11 +52,16 @@ public:
     const char*     GetCustomName() const { return m_CustomName; }
     uint32_t        GetCustomNameHash() const { return m_CustomNameHash; }
 
-    template<typename T>
-    T&              GetRef(void* inClass) { return *static_cast<T*>(GetPtr(inClass)); }
-    virtual void*   GetPtr(void* inClass) = 0;
+    virtual void* GetPtr(void* inClass) = 0;
+    virtual const void* GetPtr(const void* inClass) = 0;
 
-    virtual void     ToJSON(std::string& inJSON, void* inClass) { }
+    template<typename T>
+    T&  GetRef(void* inClass) { return *static_cast<T*>(GetPtr(inClass)); }
+    template<typename T>
+    const T&  GetRef(const void* inClass) { return *static_cast<const T*>(GetPtr(inClass)); }
+
+
+    virtual void     ToJSON(JSON::JSONWriter& inJSON, const void* inClass) { }
     virtual uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inClass) { return 0; }
 
 protected:
@@ -75,16 +80,17 @@ public:
     ClassMember(const char* inName, const char* inCustomName, T Class::* inMember, ESerializeType inSerializeType = SERIALIZE_JSON) 
         : Member(inName, inCustomName, inSerializeType), m_Member(inMember) {}
     
-    void ToJSON(std::string& inJSON, void* inInstance) override {
-        inJSON += std::string("\"" + std::string(m_CustomName) + "\": ");
-        JSON::GetValueToJSON(inJSON, GetRef<T>(inInstance));
+    void ToJSON(JSON::JSONWriter& inJSON, const void* inClass) override {
+        inJSON.GetValueToJSON(GetRef<T>(inClass));
     }
 
-    uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inInstance) override {
-        return inJSON.GetTokenToValue(inTokenIdx, GetRef<T>(inInstance));
+    uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inClass) override {
+        return inJSON.GetTokenToValue(inTokenIdx, GetRef<T>(inClass));
     }
 
     virtual void* GetPtr(void* inClass) override { return &(static_cast<Class*>(inClass)->*m_Member); }
+    virtual const void* GetPtr(const void* inClass) override { return &(static_cast<const Class*>(inClass)->*m_Member); }
+
 
 private:
     T Class::*m_Member;
@@ -96,7 +102,8 @@ public:
     EnumMember(const char* inName, const char* inCustomName, ESerializeType inSerializeType = SERIALIZE_JSON) 
         : Member(inName, inCustomName, inSerializeType) {}
 
-    virtual void* GetPtr(void* inClass) { return inClass; }
+    virtual void* GetPtr(void* inClass) override { return inClass; }
+    virtual const void* GetPtr(const void* inClass) override { return inClass; }
 };
 
 

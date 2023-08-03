@@ -59,6 +59,8 @@ struct Node {
 };
 
 struct Mesh {
+    RTTI_CLASS_HEADER(Mesh);
+    
     std::vector<glm::vec3> positions; // ptr
     std::vector<glm::vec2> uvs; // ptr
     std::vector<glm::vec3> normals; // ptr

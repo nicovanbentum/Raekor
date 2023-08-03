@@ -13,10 +13,43 @@ RTTI_CLASS_CPP(Name) {
 
 
 RTTI_CLASS_CPP(Transform) {
-    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Scale", scale);
+    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Scale",    scale);
     RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Position", position);
     RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Rotation", rotation);
 }
+
+
+RTTI_CLASS_CPP(Mesh) {
+    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Positions",    positions);
+    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Normals",      normals);
+    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Texcoords",    uvs);
+    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Tangents",     tangents);
+    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Indices",      indices);
+    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Bounding Box", aabb);
+}
+
+
+RTTI_CLASS_CPP(Material) {
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Base Color",             albedo);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Base Emissive",          emissive);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Metallic",               metallic);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Roughness",              roughness);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Alpha Cutout",           isTransparent);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Albedo Map",             albedoFile);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Normal Map",             normalFile);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Metallic-Roughness Map", metalroughFile);
+}
+
+
+void gRegisterComponentTypes() {
+    RTTIFactory::Register(RTTI_OF(Name));
+    RTTIFactory::Register(RTTI_OF(Transform));
+    RTTIFactory::Register(RTTI_OF(Mesh));
+    RTTIFactory::Register(RTTI_OF(Material));
+}
+
+
+Material Material::Default;
 
 
 void Transform::Compose() {
@@ -212,25 +245,6 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt) {
     UpdateBoneTransforms(animation, animation.m_RunningTime, boneHierarchy, identity);
 }
 
-RTTI_CLASS_CPP(Material) {
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Base Color",             albedo);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Base Emissive",          emissive);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Metallic",               metallic);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Roughness",              roughness);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Alpha Cutout",           isTransparent);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Albedo Map",             albedoFile);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Normal Map",             normalFile);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Metallic-Roughness Map", metalroughFile);
-}
-
-Material Material::Default;
-
-
-void gRegisterComponentTypes() {
-    RTTIFactory::Register(RTTI_OF(Name));
-    RTTIFactory::Register(RTTI_OF(Transform));
-    RTTIFactory::Register(RTTI_OF(Material));
-}
 
 
 template<>

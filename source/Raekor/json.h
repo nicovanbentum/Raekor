@@ -78,20 +78,69 @@ private:
 class JSONWriter {
 public:
 	template<typename T>
-	JSONWriter& Write(T& inValue) { m_SS << inValue; }
+	JSONWriter& IndentAndWrite(const T& inValue) { 
+		WriteIndent();
+		m_SS << inValue; 
+		return *this;
+	}
+
+	template<typename T>
+	JSONWriter& Write(const T& inValue) {
+		m_SS << inValue;
+		return *this;
+	}
 
 	JSONWriter& WriteIndent() {
 		for (uint32_t i = 0; i < m_Indent; i++)
 			m_SS << "    ";
+		return *this;
 	}
 
-	JSONWriter& PopIndent() { m_Indent--; }
-	JSONWriter& PushIndent() { m_Indent++; }
+	JSONWriter& PopIndent() { m_Indent--; return *this; }
+	JSONWriter& PushIndent() { m_Indent++; return *this; }
 
 	std::string GetString() const { return m_SS.str(); }
 
+	void WriteToFile(const Path& inPath) {
+		auto ofs = std::ofstream(inPath);
+		ofs << GetString();
+	}
+
+public:
+	// Generics
+	template<typename T>
+	void GetValueToJSON(const T& inValue);
+
+	template<typename T> requires std::is_enum_v<T>
+	void GetValueToJSON(const T& inValue);
+
+	// Primitives
+	void GetValueToJSON(const int& inValue);
+	void GetValueToJSON(const bool& inValue);
+	void GetValueToJSON(const float& inValue);
+	void GetValueToJSON(const uint32_t& inValue);
+	void GetValueToJSON(const std::string& inValue);
+
+	// Math Types 
+	template<glm::length_t L, typename T>
+	void GetValueToJSON(const glm::vec<L, T>& inValue);
+
+	template<glm::length_t C, glm::length_t R, typename T>
+	void GetValueToJSON(const glm::mat<C, R, T>& inValue);
+
+	void GetValueToJSON(const glm::quat& inValue);
+
+	// Containers
+	template<typename T>
+	void GetValueToJSON(const std::vector<T>& inValue);
+	template<typename T, uint32_t N>
+	void GetValueToJSON(const std::array<T, N>& inValue);
+
+	// Other
+	void GetValueToJSON(const Path& inValue);
+
 private:
-	int32_t m_Indent;
+	int32_t m_Indent = 0;
 	std::stringstream m_SS;
 };
 
@@ -205,95 +254,100 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, Path& inPath) {
 
 
 template<typename T>
-inline void GetValueToJSON(std::string& inJSON, T& inMember) {
-	inJSON += "{";
+inline void JSONWriter::GetValueToJSON(const T& inMember) {
+	Write("\n").IndentAndWrite("{\n").PushIndent();
+
 	auto& rtti = gGetRTTI<T>();
 	for (uint32_t i = 0; i < rtti.GetMemberCount(); i++) {
-		rtti.GetMember(i)->ToJSON(inJSON, &inMember);
-
+		// write key
+		IndentAndWrite("\"").Write(rtti.GetMember(i)->GetCustomName()).Write("\": ");
+		// write value
+		rtti.GetMember(i)->ToJSON(*this, &inMember);
+		// write delimiter
 		if (i != rtti.GetMemberCount() - 1)
-			inJSON += ",";
+			Write(",\n");
 	}
 
-	inJSON += "}";
+	Write("\n").PopIndent().IndentAndWrite("}");
 }
 
 template<typename T>
 requires std::is_enum_v<T>
-inline void GetValueToJSON(std::string& inJSON, T& inMember) {
-	inJSON += std::to_string((int)inMember);
+inline void JSONWriter::GetValueToJSON(const T& inMember) {
+	Write(std::to_string((int)inMember));
 }
 
 
-inline void GetValueToJSON(std::string& inJSON, int& inInt) {
-	inJSON += std::to_string(inInt);
+inline void JSONWriter::GetValueToJSON(const int& inInt) {
+	Write(std::to_string(inInt));
 }
 
-inline void GetValueToJSON(std::string& inJSON, float& inFloat) {
-	inJSON += std::to_string(inFloat);
+inline void JSONWriter::GetValueToJSON(const float& inFloat) {
+	Write(std::to_string(inFloat));
 }
 
-inline void GetValueToJSON(std::string& inJSON, bool& inBool) {
-	inJSON += inBool ? "true" : "false";
+inline void JSONWriter::GetValueToJSON(const bool& inBool) {
+	Write(inBool ? "true" : "false");
 }
 
-inline void GetValueToJSON(std::string& inJSON, uint32_t& inInt) {
-	inJSON += std::to_string(inInt);
+inline void JSONWriter::GetValueToJSON(const uint32_t& inInt) {
+	Write(std::to_string(inInt));
 }
 
-inline void GetValueToJSON(std::string& inJSON, std::string& inString) {
-	inJSON += "\"" + inString + "\"";
+inline void JSONWriter::GetValueToJSON(const std::string& inString) {
+	Write("\"" + inString + "\"");
 }
 
 template<glm::length_t L, typename T>
-inline void GetValueToJSON(std::string& ioJSON, glm::vec<L, T>& inVec) {
-	ioJSON += "\"" + gToString(inVec) + "\"";
+inline void JSONWriter::GetValueToJSON(const glm::vec<L, T>& inVec) {
+	Write("\"" + gToString(inVec) + "\"");
 }
 
-inline void GetValueToJSON(std::string& ioJSON, glm::quat& inQuat) {
-	ioJSON += "\"" + gToString(inQuat) + "\"";
+inline void JSONWriter::GetValueToJSON(const glm::quat& inQuat) {
+	Write("\"" + gToString(inQuat) + "\"");
 
 }
 
 template<glm::length_t C, glm::length_t R, typename T>
-inline void GetValueToJSON(std::string& ioJSON, glm::mat<C, R, T>& inMatrix) {
-	ioJSON += "\"" + gToString(inMatrix) + "\"";
+inline void JSONWriter::GetValueToJSON(const glm::mat<C, R, T>& inMatrix) {
+	Write("\"" + gToString(inMatrix) + "\"");
 }
 
 
 template<typename T>
-inline void GetValueToJSON(std::string& ioJSON, std::vector<T>& inVector) {
-	ioJSON += "[";
+inline void JSONWriter::GetValueToJSON(const std::vector<T>& inVector) {
+	Write("\n").IndentAndWrite("[\n").PushIndent();
+
 	const auto count = inVector.size();
 
 	for (const auto& [index, value] : gEnumerate(inVector)) {
-		GetValueToJSON(ioJSON, value);
+		WriteIndent();
+		GetValueToJSON(value);
 
 		if (index != count - 1)
-			ioJSON += ",";
+			Write(",\n");
 	}
 
-	ioJSON += "]";
+	Write("\n").PopIndent().IndentAndWrite("]");
 }
 
-template<unsigned int Count, typename T>
-inline void GetValueToJSON(std::string& ioJSON, std::array<T, Count>& inArray) {
-	ioJSON += "[";
+template<typename T, uint32_t N>
+inline void JSONWriter::GetValueToJSON(const std::array<T, N>& inArray) {
+	Write("\n").IndentAndWrite("[\n").PushIndent();
 	for (const auto& [index, value] : gEnumerate(inArray)) {
-		GetValueToJSON(ioJSON, value);
+		WriteIndent();
+		GetValueToJSON(value);
 
-		if (index != Count - 1)
-			ioJSON += ",";
+		if (index != N - 1)
+			Write(",\n");
 	}
 
-	ioJSON += "]";
-
+	Write("\n").PopIndent().IndentAndWrite("]");
 }
 
 
-inline void GetValueToJSON(std::string& ioJSON, Path& inPath) {
-	std::string value = inPath.string();
-	GetValueToJSON(ioJSON, value);
+inline void JSONWriter::GetValueToJSON(const Path& inPath) {
+	GetValueToJSON(inPath.string());
 }
 
 } // Raekor::JSON
