@@ -8,6 +8,7 @@
 #include "Raekor/OS.h"
 #include "Raekor/gui.h"
 #include "Raekor/timer.h"
+#include "Raekor/primitives.h"
 #include "Raekor/application.h"
 
 namespace Raekor::DX12 {
@@ -130,9 +131,11 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
 
 void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, StagingHeap& inStagingHeap, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, EDebugTexture inDebugTexture, float inDeltaTime) {
     // Check if any of the shader sources were updated and recompile them if necessary
-    bool need_recompile = false;
+    bool need_recompile = g_SystemShaders.HotLoad();
+    if (need_recompile)
+        std::cout << std::format("Hotloaded system shaders.\n");
 
-    if (m_ShouldResize) {
+    if (m_ShouldResize || need_recompile) {
         // Make sure nothing is using render targets anymore
         WaitForIdle(inDevice);
 

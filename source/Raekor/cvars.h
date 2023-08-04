@@ -1,7 +1,17 @@
 #pragma once
 
 #include "pch.h"
-#include "serial.h"
+
+namespace cereal {
+
+template<class Archive>
+void load(Archive& archive, std::function<void()>& fn) {}
+
+
+template<class Archive>
+void save(Archive& archive, const std::function<void()>& fn) {}
+
+} // namespace cereal
 
 namespace Raekor {
 

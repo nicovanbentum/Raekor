@@ -6,6 +6,7 @@
 #include "Raekor/rtti.h"
 #include "Raekor/physics.h"
 #include "Raekor/launcher.h"
+#include "Raekor/primitives.h"
 #include "DXShader.h"
 #include "DXRenderer.h"
 #include "DXResourceBuffer.h"

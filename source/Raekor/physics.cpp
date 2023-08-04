@@ -3,6 +3,7 @@
 #include "util.h"
 #include "scene.h"
 #include "application.h"
+#include "components.h"
 
 namespace Raekor {
 
@@ -96,6 +97,8 @@ void Physics::Step(Scene& scene, float dt) {
 
         transform.position = glm::vec3(position.GetX(), position.GetY(), position.GetZ());
         transform.rotation = glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ());
+
+        transform.Compose();
     }
 }
 

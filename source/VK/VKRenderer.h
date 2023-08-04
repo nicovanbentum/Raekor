@@ -8,6 +8,7 @@
 
 #include "Raekor/scene.h"
 #include "Raekor/camera.h"
+#include "Raekor/components.h"
 
 namespace Raekor::VK {
 

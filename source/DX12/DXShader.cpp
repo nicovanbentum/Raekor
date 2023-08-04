@@ -9,22 +9,27 @@ ShaderCompiler g_ShaderCompiler;
 SystemShadersDX12 g_SystemShaders;
 
 RTTI_ENUM_CPP(EShaderProgramType) {
-    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "SHADER_PROGRAM_INVALID",  SHADER_PROGRAM_INVALID);
-    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "SHADER_PROGRAM_GRAPHICS", SHADER_PROGRAM_GRAPHICS);
-    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "SHADER_PROGRAM_COMPUTE",  SHADER_PROGRAM_COMPUTE);
+    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "Invalid",  SHADER_PROGRAM_INVALID);
+    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "Graphics", SHADER_PROGRAM_GRAPHICS);
+    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "Compute",  SHADER_PROGRAM_COMPUTE);
 }
 
+RTTI_CLASS_CPP(IResource) {
+    // Base class interface only
+}
 
 RTTI_CLASS_CPP(ShaderProgram) {
+    RTTI_BASE_CLASS_CPP(ShaderProgram, IResource);
+
     RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Defines",               mDefines);
     RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Vertex Shader File",    mVertexShaderFilePath);
     RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Pixel Shader File",     mPixelShaderFilePath);
     RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Compute Shader File",   mComputeShaderFilePath);
 
-    RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Program Type",    mProgramType);
-    //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Vertex Shader",   mVertexShader);
-    //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Pixel Shader",    mPixelShader);
-    //RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Compute Shader",  mComputeShader);
+   RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Program Type",    mProgramType);
+   RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Vertex Shader",   mVertexShader);
+   RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Pixel Shader",    mPixelShader);
+   RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Compute Shader",   mComputeShader);
 }
 
 
@@ -57,24 +62,78 @@ RTTI_CLASS_CPP(SystemShadersDX12) {
 
 
 bool ShaderProgram::GetGraphicsProgram(CD3DX12_SHADER_BYTECODE& ioVertexShaderByteCode, CD3DX12_SHADER_BYTECODE& ioPixelShaderByteCode) const {
-    ioVertexShaderByteCode = CD3DX12_SHADER_BYTECODE(mVertexShader->GetBufferPointer(), mVertexShader->GetBufferSize());
-    ioPixelShaderByteCode = CD3DX12_SHADER_BYTECODE(mPixelShader->GetBufferPointer(), mPixelShader->GetBufferSize());
+    ioVertexShaderByteCode = CD3DX12_SHADER_BYTECODE(mVertexShader.data(), mVertexShader.size());
+    ioPixelShaderByteCode = CD3DX12_SHADER_BYTECODE(mPixelShader.data(), mPixelShader.size());
     return mProgramType == SHADER_PROGRAM_GRAPHICS;
 }
 
 
 bool ShaderProgram::GetComputeProgram(CD3DX12_SHADER_BYTECODE& ioComputeShaderByteCode) const {
-    ioComputeShaderByteCode = CD3DX12_SHADER_BYTECODE(mComputeShader->GetBufferPointer(), mComputeShader->GetBufferSize());
+    ioComputeShaderByteCode = CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size());
     return mProgramType == SHADER_PROGRAM_COMPUTE;
 }
 
 
-bool ShaderProgram::IsCompiled() const {
+bool ShaderProgram::OnCompile() {
+    if (!mVertexShaderFilePath.empty() && !mPixelShaderFilePath.empty() && mComputeShaderFilePath.empty()) {
+        mProgramType = SHADER_PROGRAM_GRAPHICS;
+    }
+    else if (mVertexShaderFilePath.empty() && mPixelShaderFilePath.empty() && !mComputeShaderFilePath.empty()) {
+        mProgramType = SHADER_PROGRAM_COMPUTE;
+    }
+
+    if (mProgramType == SHADER_PROGRAM_INVALID)
+        return false;
+
+    auto CopyByteCode = [](const ComPtr<IDxcBlob>& inByteCode, std::vector<uint8_t>& ioResult) {
+        if (inByteCode) {
+            ioResult.resize(inByteCode->GetBufferSize());
+            std::memcpy(ioResult.data(), inByteCode->GetBufferPointer(), inByteCode->GetBufferSize());
+        }
+    };
+
+    switch (mProgramType) {
+    case SHADER_PROGRAM_GRAPHICS: {
+        mVertexShaderFileTime = FileSystem::last_write_time(mVertexShaderFilePath);
+        mPixelShaderFileTime = FileSystem::last_write_time(mPixelShaderFilePath);
+
+        auto vertex_shader_blob = g_ShaderCompiler.CompileShader(mVertexShaderFilePath, SHADER_TYPE_VERTEX, mDefines);
+        auto pixel_shader_blob = g_ShaderCompiler.CompileShader(mPixelShaderFilePath, SHADER_TYPE_PIXEL, mDefines);
+
+        if (!vertex_shader_blob || !pixel_shader_blob)
+            return false;
+
+        CopyByteCode(vertex_shader_blob, mVertexShader);
+        CopyByteCode(pixel_shader_blob, mPixelShader);
+
+        return !mVertexShader.empty() && !mPixelShader.empty();
+    }
+    case SHADER_PROGRAM_COMPUTE: {
+        mComputeShaderFileTime = FileSystem::last_write_time(mComputeShaderFilePath);
+        
+        auto compute_shader_blob = g_ShaderCompiler.CompileShader(mComputeShaderFilePath, SHADER_TYPE_COMPUTE, mDefines);
+
+        if (!compute_shader_blob)
+            return false;
+
+        CopyByteCode(compute_shader_blob, mComputeShader);
+
+        return !mComputeShader.empty();
+    }
+    default:
+        return false;
+    }
+
+    return true;
+}
+
+
+bool ShaderProgram::IsCompiled() {
     switch (mProgramType) {
     case SHADER_PROGRAM_GRAPHICS:
-        return mVertexShader != nullptr && mPixelShader != nullptr;
+        return !mVertexShader.empty() && !mPixelShader.empty();
     case SHADER_PROGRAM_COMPUTE:
-        return mComputeShader != nullptr;
+        return !mComputeShader.empty();
     default:
         return false;
     }
@@ -82,12 +141,6 @@ bool ShaderProgram::IsCompiled() const {
 
 
 ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines) {
-    const auto shader_key = inPath.string() + inDefines;
-    {
-        auto lock = std::scoped_lock(m_ShaderCompilationMutex);
-        if (m_ShaderCache.contains(shader_key))
-            return m_ShaderCache.at(shader_key);
-    }
 
     auto utils = ComPtr<IDxcUtils>{};
     auto library = ComPtr<IDxcLibrary>{};
@@ -138,20 +191,46 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
     arguments.push_back(DXC_ARG_DEBUG_NAME_FOR_SOURCE);
     arguments.push_back(wstr_filepath.c_str());
 
-    const auto source_buffer = DxcBuffer {
+    auto source_buffer = DxcBuffer {
         .Ptr = blob->GetBufferPointer(),
         .Size = blob->GetBufferSize(),
+        .Encoding = 0
+    };
+
+    arguments.push_back(L"-P");
+    auto pp_result = ComPtr<IDxcResult>{};
+    gThrowIfFailed(compiler->Compile(&source_buffer, arguments.data(), uint32_t(arguments.size()), include_handler.Get(), IID_PPV_ARGS(pp_result.GetAddressOf())));
+
+    auto hr_status = HRESULT{};
+    gThrowIfFailed(pp_result->GetStatus(&hr_status));
+
+    auto preprocessed_hlsl = ComPtr<IDxcBlobUtf8>();
+    gThrowIfFailed(pp_result->GetOutput(DXC_OUT_HLSL, IID_PPV_ARGS(preprocessed_hlsl.GetAddressOf()), nullptr));
+
+    auto hash_key = 0ui64;
+
+    if (m_EnableCache) {
+        hash_key = gHashFNV1a((const char*)preprocessed_hlsl->GetBufferPointer(), preprocessed_hlsl->GetBufferSize());
+        {
+            auto lock = std::scoped_lock(m_ShaderCompilationMutex);
+            if (m_ShaderCache.contains(hash_key))
+                return m_ShaderCache.at(hash_key);
+        }
+    }
+
+    arguments.pop_back(); // pop -P preprocessor flag
+
+    source_buffer = DxcBuffer {
+        .Ptr = preprocessed_hlsl->GetBufferPointer(),
+        .Size = preprocessed_hlsl->GetBufferSize(),
         .Encoding = 0
     };
 
     auto result = ComPtr<IDxcResult>{};
     gThrowIfFailed(compiler->Compile(&source_buffer, arguments.data(), uint32_t(arguments.size()), include_handler.Get(), IID_PPV_ARGS(result.GetAddressOf())));
 
-    auto hr_status = HRESULT{};
-    result->GetStatus(&hr_status);
-
     auto errors = ComPtr<IDxcBlobUtf8>{};
-    result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr);
+    gThrowIfFailed(result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr));
 
     if (errors && errors->GetStringLength() > 0) {
         auto lock = std::scoped_lock(m_ShaderCompilationMutex);
@@ -187,14 +266,16 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
 
     auto shader = ComPtr<IDxcBlob>{}, pdb = ComPtr<IDxcBlob>{};
     auto debug_data = ComPtr<IDxcBlobUtf16>{};
-    result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(shader.GetAddressOf()), debug_data.GetAddressOf());
-    result->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(pdb.GetAddressOf()), debug_data.GetAddressOf());
+    gThrowIfFailed(result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(shader.GetAddressOf()), debug_data.GetAddressOf()));
+    gThrowIfFailed(result->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(pdb.GetAddressOf()), debug_data.GetAddressOf()));
 
     auto pdb_file = std::ofstream(inPath.parent_path() / inPath.filename().replace_extension(".pdb"));
     pdb_file.write((char*)pdb->GetBufferPointer(), pdb->GetBufferSize());
 
-    auto lock = std::scoped_lock(m_ShaderCompilationMutex);
-    m_ShaderCache.insert({ shader_key , shader });
+    if (m_EnableCache) {
+        auto lock = std::scoped_lock(m_ShaderCompilationMutex);
+        m_ShaderCache.insert({ hash_key , shader });
+    }
 
     std::cout << std::format("Compilation {} for shader: {} \n", COUT_GREEN("finished"), inPath.string());
 
@@ -202,42 +283,66 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
 }
 
 
-bool ShaderCompiler::CompileShaderProgram(ShaderProgram& inShaderProgram) {
-    if (!inShaderProgram.mVertexShaderFilePath.empty() && !inShaderProgram.mPixelShaderFilePath.empty() && inShaderProgram.mComputeShaderFilePath.empty()) {
-        inShaderProgram.mProgramType = SHADER_PROGRAM_GRAPHICS;
-    }
-    else if (inShaderProgram.mVertexShaderFilePath.empty() && inShaderProgram.mPixelShaderFilePath.empty() && !inShaderProgram.mComputeShaderFilePath.empty()) {
-        inShaderProgram.mProgramType = SHADER_PROGRAM_COMPUTE;
+bool SystemShadersDX12::HotLoad() {
+    auto should_hotload = false;
+    // g_ShaderCompiler.DisableShaderCache();
+    
+    for (const auto& member : GetRTTI()) {
+        auto& program = member->GetRef<ShaderProgram>(this);
+
+        auto GetFileTimeStamp = [](const Path& inPath) {
+            auto error_code = std::error_code();
+            auto timestamp = FileSystem::last_write_time(inPath, error_code);
+
+            while (error_code)
+                timestamp = FileSystem::last_write_time(inPath, error_code);
+
+            return timestamp;
+        };
+
+        auto should_recompile = false;
+        
+        if (!program.mVertexShaderFilePath.empty() && program.mVertexShaderFileTime < GetFileTimeStamp(program.mVertexShaderFilePath))
+            should_recompile = true;
+
+        if (!program.mPixelShaderFilePath.empty() && program.mPixelShaderFileTime < GetFileTimeStamp(program.mPixelShaderFilePath))
+            should_recompile = true;
+
+        if (!program.mComputeShaderFilePath.empty() && program.mComputeShaderFileTime < GetFileTimeStamp(program.mComputeShaderFilePath))
+            should_recompile = true;
+
+        if (should_recompile) {
+            should_hotload = true;
+            if (!program.OnCompile())
+                return false;
+
+        }
     }
 
-    if (inShaderProgram.mProgramType == SHADER_PROGRAM_INVALID)
-        return false;
-
-    switch (inShaderProgram.mProgramType) {
-    case SHADER_PROGRAM_GRAPHICS: {
-        inShaderProgram.mVertexShader = CompileShader(inShaderProgram.mVertexShaderFilePath, SHADER_TYPE_VERTEX, inShaderProgram.mDefines);
-        inShaderProgram.mPixelShader = CompileShader(inShaderProgram.mPixelShaderFilePath, SHADER_TYPE_PIXEL, inShaderProgram.mDefines);
-        return inShaderProgram.mVertexShader != nullptr && inShaderProgram.mPixelShader != nullptr;
-    }
-    case SHADER_PROGRAM_COMPUTE: {
-        inShaderProgram.mComputeShader = CompileShader(inShaderProgram.mComputeShaderFilePath, SHADER_TYPE_COMPUTE, inShaderProgram.mDefines);
-        return inShaderProgram.mComputeShader != nullptr;
-    }
-    default:
-        return false;
-    }
-
-    return false;
+    // g_ShaderCompiler.EnableShaderCache();
+    return should_hotload;
 }
 
 
-void SystemShadersDX12::CompileShaders() {
+bool SystemShadersDX12::OnCompile() {
     for (const auto& member : GetRTTI()) {
         g_ThreadPool.QueueJob([this, &member]() {
             auto& shader_program = member->GetRef<ShaderProgram>(this);
-            g_ShaderCompiler.CompileShaderProgram(shader_program);
+            shader_program.OnCompile();
         });
     }
+
+    return true;
 }
+
+
+bool SystemShadersDX12::IsCompiled() {
+    auto is_compiled = true;
+    for (const auto& member : GetRTTI())
+        is_compiled &= member->GetRef<ShaderProgram>(this).IsCompiled();
+
+    return is_compiled;
+}
+
 
 } // Raekor::DX12

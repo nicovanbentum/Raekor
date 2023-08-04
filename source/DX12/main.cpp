@@ -8,8 +8,6 @@
 using namespace Raekor;
 
 int main(int argc, char** argv) {
-	RTTIFactory::Register(RTTI_OF(ConfigSettings));
-
 	g_CVars.ParseCommandLine(argc, argv);
 
 	auto should_launch = true;

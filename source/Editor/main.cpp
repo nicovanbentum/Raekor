@@ -2,14 +2,12 @@
 #include "app.h"
 #include "Raekor/ecs.h"
 #include "Raekor/launcher.h"
+#include "Raekor/compiler.h"
 
 using namespace Raekor;
 using namespace Raekor::ecs;
 
 int main(int argc, char** argv) {
-    gRegisterComponentTypes();
-    RTTIFactory::Register(RTTI_OF(ConfigSettings));
-
     g_CVars.ParseCommandLine(argc, argv);
 
     ECS ecs;
@@ -52,10 +50,14 @@ int main(int argc, char** argv) {
 	if (!should_launch)
 		return 0;
 
+    Application* app = nullptr;
 
-    auto app =  new GL::GLApp();
+    if (g_CVars.Create("compiler_app", 0))
+        app = new CompilerApp();
+    else
+        app = new GL::GLApp();
 
-    // app->Run();
+    app->Run();
 
     delete app;
 

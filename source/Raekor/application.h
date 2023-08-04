@@ -1,16 +1,22 @@
 #pragma once
 
+#include "rtti.h"
 #include "scene.h"
 #include "camera.h"
+#include "assets.h"
 
 extern std::atomic_uint64_t sAllocationsPerFrame;
 
 namespace Raekor {
 
+class Mesh;
 class Scene;
 class Assets;
 class Physics;
 class IWidget;
+class Skeleton;
+class Material;
+class Application;
 
 struct GPUInfo {
     std::string mVendor;
@@ -84,7 +90,6 @@ protected:
 };
 
 
-
 struct ConfigSettings {
     RTTI_CLASS_HEADER(ConfigSettings);
 
@@ -93,8 +98,6 @@ struct ConfigSettings {
     std::string mAppName = "";
     std::string mFontFile = "";
     std::string mSceneFile = "";
-    std::array<int, 3> mArray = {};
-    std::vector<std::string> mVector = {};
 };
 
 enum WindowFlag {
@@ -142,6 +145,5 @@ protected:
     Viewport m_Viewport;
     ConfigSettings m_Settings;
 };
-
 
 } // Namespace Raekor

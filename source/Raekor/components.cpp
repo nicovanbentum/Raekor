@@ -20,12 +20,12 @@ RTTI_CLASS_CPP(Transform) {
 
 
 RTTI_CLASS_CPP(Mesh) {
+    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Bounding Box", aabb);
     RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Positions",    positions);
     RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Normals",      normals);
     RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Texcoords",    uvs);
     RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Tangents",     tangents);
     RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Indices",      indices);
-    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Bounding Box", aabb);
 }
 
 

@@ -21,7 +21,6 @@ extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1sp
 
 namespace Raekor::DX12 {
 
-
 DXApp::DXApp() : 
     IEditor(WindowFlag::RESIZE, &m_RenderInterface),
     m_Device(m_Window, sFrameCount), 
@@ -47,8 +46,25 @@ DXApp::DXApp() :
         read_archive >> g_SystemShaders;
 
     // Wait for all the shaders to compile before continuing with renderer init
-    g_SystemShaders.CompileShaders();
+    g_SystemShaders.OnCompile();
     g_ThreadPool.WaitForJobs();
+
+    //{
+    //    auto write_archive = BinaryWriteArchive("shaders.bin");
+    //    write_archive << g_SystemShaders;
+    //}
+
+    //g_SystemShaders = {};
+
+    //{
+    //    auto read_archive = BinaryReadArchive("shaders.bin");
+    //    read_archive >> g_SystemShaders;
+    //}
+
+    if (!g_SystemShaders.IsCompiled()) {
+        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX12 Error", "Failed to compile system shaders", m_Window);
+        std::abort();
+    }
 
     LogMessage(std::format("[CPU] Shader compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 

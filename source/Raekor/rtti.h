@@ -1,5 +1,7 @@
 #pragma once
 
+#include "util.h"
+#include "serial.h"
 #include "json.h"
 
 namespace Raekor {
@@ -17,13 +19,17 @@ public:
     RTTI(RTTI&) = delete;
     RTTI(RTTI&&) = delete;
     
-
     void            AddMember(Member* inName);
     Member*         GetMember(uint32_t inIndex) const;
     Member*         GetMember(const char* inName) const; // O(n) Expensive!
     int32_t         GetMemberIndex(const char* inName) const; // O(n) expensive!
     uint32_t        GetMemberCount() const { return uint32_t(m_Members.size()); }
 
+    void            AddBaseClass(RTTI& inRTTI);
+    RTTI*           GetBaseClass(uint32_t inIndex) const;
+    uint32_t        GetBaseClassCount() const { return uint32_t(m_BaseClasses.size()); }
+
+    bool            IsDerivedFrom(RTTI* inRTTI) const;
 
     bool operator==(const RTTI& rhs) const { return m_Hash == rhs.m_Hash; }
     bool operator!=(const RTTI& rhs) const { return m_Hash != rhs.m_Hash; }
@@ -38,6 +44,7 @@ private:
     uint32_t m_Hash;
     std::string m_Name;
     Constructor m_Constructor;
+    std::vector<RTTI*> m_BaseClasses;;
     std::vector<std::unique_ptr<Member>> m_Members;
 };
 
@@ -51,21 +58,26 @@ public:
     uint32_t        GetNameHash() const { return m_NameHash; }
     const char*     GetCustomName() const { return m_CustomName; }
     uint32_t        GetCustomNameHash() const { return m_CustomNameHash; }
+    ESerializeType  GetSerializeType() const { return m_SerializeType; }
 
     virtual void* GetPtr(void* inClass) = 0;
     virtual const void* GetPtr(const void* inClass) = 0;
+
+    virtual RTTI* GetRTTI() { return nullptr; }
 
     template<typename T>
     T&  GetRef(void* inClass) { return *static_cast<T*>(GetPtr(inClass)); }
     template<typename T>
     const T&  GetRef(const void* inClass) { return *static_cast<const T*>(GetPtr(inClass)); }
 
+    virtual void ToBinary(File& inFile, const void* inClass) {}
+    virtual void FromBinary(File& inFile, void* inClass) {}
 
     virtual void     ToJSON(JSON::JSONWriter& inJSON, const void* inClass) { }
     virtual uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inClass) { return 0; }
 
 protected:
-    uint32_t m_NameHash;;
+    uint32_t m_NameHash;
     uint32_t m_CustomNameHash;
     const char* m_Name;
     const char* m_CustomName;
@@ -86,6 +98,14 @@ public:
 
     uint32_t FromJSON(JSON::JSONData& inJSON, uint32_t inTokenIdx, void* inClass) override {
         return inJSON.GetTokenToValue(inTokenIdx, GetRef<T>(inClass));
+    }
+
+    void ToBinary(File& inFile, const void* inClass) override {
+        WriteFileBinary(inFile, GetRef<T>(inClass));
+    }
+
+    void FromBinary(File& inFile, void* inClass) override {
+        ReadFileBinary(inFile, GetRef<T>(inClass));
     }
 
     virtual void* GetPtr(void* inClass) override { return &(static_cast<Class*>(inClass)->*m_Member); }
@@ -148,7 +168,7 @@ namespace name##Namespace { void sImplRTTI(RTTI& inRTTI); };    \
         static auto rtti = RTTI(#name, &name##Namespace::sImplRTTI, []() -> void* { return new name; }); \
         return rtti;                                                                                     \
     }                                                                                                    \
-    void EShaderProgramTypeNamespace::sImplRTTI(RTTI& inRTTI)                                            \
+    void name##Namespace::sImplRTTI(RTTI& inRTTI)                                                        \
 
 
 #define RTTI_ENUM_MEMBER_CPP(enum_name, serial_type, custom_name, member_name) \
@@ -199,13 +219,17 @@ public:                                                                         
                                                                                                                         \
     void name::sImplRTTI(RTTI& inRTTI)   
 
+#define RTTI_OF(name) sGetRTTI((name*)nullptr)
+
+template<typename T>
+Raekor::RTTI& gGetRTTI() { return sGetRTTI((T*)nullptr); }
+
+#define RTTI_BASE_CLASS_CPP(derived_class_name, base_class_name) \
+    inRTTI.AddBaseClass(RTTI_OF(base_class_name))
 
 #define RTTI_MEMBER_CPP(class_name, serial_type, custom_name, member_name)                                              \
     inRTTI.AddMember(new ClassMember<class_name, decltype(class_name::member_name)>(#member_name, custom_name, &class_name::member_name, serial_type))
 
 
-#define RTTI_OF(name) sGetRTTI((name*)nullptr)
 
-template<typename T>
-Raekor::RTTI& gGetRTTI() { return sGetRTTI((T*)nullptr); }
 

@@ -3,7 +3,7 @@
 
 namespace Raekor::JSON {
 
-JSONData::JSONData(const Path& inPath) {
+JSONData::JSONData(const Path& inPath, bool inTokenizeOnly) {
 	auto ifs = std::ifstream(inPath);
 	std::stringstream buffer;
 	buffer << ifs.rdbuf();
@@ -18,12 +18,13 @@ JSONData::JSONData(const Path& inPath) {
 
 	jsmn_init(&parser);
 	m_Tokens.resize(nr_of_tokens);
-	m_Strings.resize(nr_of_tokens);
-	m_Primitives.resize(nr_of_tokens);
 	const auto parse_result = jsmn_parse(&parser, m_StrBuffer.c_str(), m_StrBuffer.size(), m_Tokens.data(), m_Tokens.size());
 
-	if (parse_result != nr_of_tokens)
+	if (parse_result != nr_of_tokens || inTokenizeOnly)
 		return;
+
+	m_Strings.resize(nr_of_tokens);
+	m_Primitives.resize(nr_of_tokens);
 
 	for (const auto& [index, token] : gEnumerate(m_Tokens)) {
 		auto c = m_StrBuffer[token.start];

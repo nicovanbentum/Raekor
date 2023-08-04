@@ -1,12 +1,12 @@
 #include "pch.h"
 #include "scene.h"
 
+#include "components.h"
 #include "timer.h"
 #include "async.h"
 #include "rmath.h"
 #include "script.h"
 #include "systems.h"
-#include "components.h"
 #include "application.h"
 
 namespace Raekor {
@@ -118,7 +118,6 @@ void Scene::UpdateLights() {
 
 void Scene::UpdateTransforms() {
     const auto components = view<Node, Transform>();
-
     for (const auto& [entity, node, transform] : components.each()) {
         if (node.parent != entt::null)
             continue;

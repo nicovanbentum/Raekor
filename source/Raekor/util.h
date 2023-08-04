@@ -30,6 +30,11 @@
 
 namespace Raekor {
 
+template<typename T>
+concept HasRTTI = requires (T t) {
+    t.GetRTTI();
+};
+
 bool SDL_IsWindowBorderless(SDL_Window* inWindow);
 bool SDL_IsWindowExclusiveFullscreen(SDL_Window* inWindow);
 
@@ -291,52 +296,6 @@ constexpr auto gEnumerate(T&& iterable)
 }
 
 #define gWarn(inStr) std::cout << "Warning in File " << __FILE__ << " at Line " << __LINE__ << " from function " << __FUNCTION__ << ": " << inStr << '\n';
-
-template<typename T>
-void WriteFileData(File& ioFile, const T& inData) {
-    ioFile.write((const char*)&inData, sizeof(T));
-}
-
-template<typename T>
-void WriteFileSlice(File& ioFile, Slice<T> inData) {
-    ioFile.write((const char*)inData.GetPtr(), inData.Length() * sizeof(T));
-}
-
-template<typename T>
-inline void WriteFileBinary(File& ioFile, const std::vector<T>& inData) {
-    WriteFileData(ioFile, inData.size());
-    WriteFileSlice(ioFile, Slice(inData));
-}
-
-inline void WriteFileBinary(File& ioFile, const std::string& inData) {
-    WriteFileData(ioFile, inData.size());
-    WriteFileSlice(ioFile, Slice<char>(inData));
-}
-
-template<typename T>
-void ReadFileData(File& ioFile, T& ioData) {
-    ioFile.read((char*)&ioData, sizeof(T));
-}
-
-template<typename T>
-void ReadFileSlice(File& ioFile, Slice<T> inData) {
-    ioFile.read((char*)inData.GetPtr(), inData.Length() * sizeof(T));
-}
-
-template<typename T>
-inline void ReadFileBinary(File& ioFile, std::vector<T>& ioData) {
-    size_t size;
-    ReadFileData(ioFile, size);
-    ioData.resize(size);
-    ReadFileSlice(ioFile, Slice(ioData));
-}
-
-inline void ReadFileBinary(File& ioFile, std::string& ioData) {
-    size_t size;
-    ReadFileData(ioFile, size);
-    ioData.resize(size);
-    ReadFileSlice(ioFile, Slice<char>(ioData));
-}
 
 } // Namespace Raekor
 

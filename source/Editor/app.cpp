@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "app.h"
+#include "archive.h"
 
 namespace Raekor::GL {
 

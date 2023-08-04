@@ -4,6 +4,7 @@
 #include "gui.h"
 #include "physics.h"
 #include "application.h"
+#include "components.h"
 
 namespace Raekor {
 

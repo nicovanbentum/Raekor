@@ -41,12 +41,35 @@ int32_t RTTI::GetMemberIndex(const char* inName) const {
 
 
  Member::Member(const char* inName, const char* inCustomName, ESerializeType inSerializeType)
-     : m_NameHash(gHash32Bit(inName)), m_CustomNameHash(gHash32Bit(inCustomName)), m_Name(inName), m_CustomName(inCustomName) {}
+     : m_NameHash(gHash32Bit(inName)), m_CustomNameHash(gHash32Bit(inCustomName)), m_Name(inName), m_CustomName(inCustomName), m_SerializeType(inSerializeType) {}
 
 void RTTIFactory::Register(RTTI& inRTTI) {
-    assert(global->m_RegisteredTypes.find(inRTTI.GetHash()) == global->m_RegisteredTypes.end());
-    global->m_RegisteredTypes[inRTTI.GetHash()] = &inRTTI;
+    if (global->m_RegisteredTypes.find(inRTTI.GetHash()) == global->m_RegisteredTypes.end())
+        global->m_RegisteredTypes[inRTTI.GetHash()] = &inRTTI;
 }
+
+
+void RTTI::AddBaseClass(RTTI& inRTTI) {
+    m_BaseClasses.push_back(&inRTTI);
+}
+
+
+RTTI* RTTI::GetBaseClass(uint32_t inIndex) const {
+    return m_BaseClasses[inIndex];
+}
+
+
+bool RTTI::IsDerivedFrom(RTTI* inRTTI) const {
+    if (this == inRTTI)
+        return true;
+
+    for (auto base_class : m_BaseClasses)
+        if (base_class->IsDerivedFrom(inRTTI))
+            return true;
+
+    return false;
+}
+
 
 
 RTTI* RTTIFactory::GetRTTI(uint32_t inHash) {

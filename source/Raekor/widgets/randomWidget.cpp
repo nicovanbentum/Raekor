@@ -4,6 +4,7 @@
 #include "rmath.h"
 #include "systems.h"
 #include "physics.h"
+#include "primitives.h"
 #include "application.h"
 
 namespace Raekor {

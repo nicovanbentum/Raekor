@@ -8,6 +8,8 @@
 #include "assimp.h"
 #include "physics.h"
 #include "systems.h"
+#include "primitives.h"
+#include "components.h"
 #include "application.h"
 #include "IconsFontAwesome5.h"
 

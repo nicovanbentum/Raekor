@@ -4,6 +4,7 @@
 #include "NodeGraphWidget.h"
 #include "OS.h"
 #include "physics.h"
+#include "components.h"
 #include "application.h"
 
 

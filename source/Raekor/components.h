@@ -209,4 +209,120 @@ void clone<Material>(entt::registry& reg, entt::entity from, entt::entity to);
 template<>
 void clone<BoxCollider>(entt::registry& reg, entt::entity from, entt::entity to);
 
-} // raekor
+} // Raekor
+
+namespace cereal {
+
+template<typename Archive>
+void save(Archive& archive, const Raekor::Transform& transform) {
+    archive(transform.position, transform.rotation, transform.scale,
+        transform.localTransform, transform.worldTransform);
+}
+
+template<typename Archive>
+void load(Archive& archive, Raekor::Transform& transform) {
+    archive(transform.position, transform.rotation, transform.scale,
+        transform.localTransform, transform.worldTransform);
+}
+
+template<typename Archive>
+void save(Archive& archive, const Raekor::DirectionalLight& light) {
+    archive(light.colour, light.direction);
+}
+
+
+template<typename Archive>
+void load(Archive& archive, Raekor::DirectionalLight& light) {
+    archive(light.colour, light.direction);
+}
+
+
+template<typename Archive>
+void serialize(Archive& archive, Raekor::PointLight& light) {
+    archive(light.colour, light.colour);
+}
+
+
+template<class Archive>
+void serialize(Archive& archive, Raekor::Node& node) {
+    archive(node.parent, node.firstChild, node.nextSibling, node.prevSibling);
+}
+
+
+template<class Archive>
+void save(Archive& archive, const Raekor::Mesh& mesh) {
+    archive(
+        cereal::make_nvp("positions", mesh.positions),
+        cereal::make_nvp("uvs", mesh.uvs),
+        cereal::make_nvp("normals", mesh.normals),
+        cereal::make_nvp("tangents", mesh.tangents),
+        cereal::make_nvp("indices", mesh.indices),
+        cereal::make_nvp("material", mesh.material)
+    );
+}
+
+
+template<class Archive>
+void load(Archive& archive, Raekor::Mesh& mesh) {
+    archive(
+        cereal::make_nvp("positions", mesh.positions),
+        cereal::make_nvp("uvs", mesh.uvs),
+        cereal::make_nvp("normals", mesh.normals),
+        cereal::make_nvp("tangents", mesh.tangents),
+        cereal::make_nvp("indices", mesh.indices),
+        cereal::make_nvp("material", mesh.material)
+    );
+}
+
+template<class Archive>
+void serialize(Archive& archive, JPH::Vec3& vec) {
+    archive(vec.mF32);
+}
+
+template<class Archive>
+void serialize(Archive& archive, JPH::BoxShapeSettings& settings) {
+    archive(settings.mHalfExtent, settings.mConvexRadius);
+}
+
+template<class Archive>
+void serialize(Archive& archive, Raekor::BoxCollider& collider) {
+    archive(collider.motionType, collider.settings);
+}
+
+
+template<class Archive>
+void save(Archive& archive, const Raekor::Material& mat) {
+    archive(
+        cereal::make_nvp("Albedo Map", mat.albedoFile),
+        cereal::make_nvp("Normal Map", mat.normalFile),
+        cereal::make_nvp("Metallic-Roughness Map", mat.metalroughFile),
+        cereal::make_nvp("Base Color", mat.albedo),
+        cereal::make_nvp("Metallic", mat.metallic),
+        cereal::make_nvp("Roughness", mat.roughness),
+        cereal::make_nvp("emissive", mat.emissive),
+        cereal::make_nvp("Transparent", mat.isTransparent)
+    );
+}
+
+
+template<class Archive>
+void load(Archive& archive, Raekor::Material& mat) {
+    archive(
+        cereal::make_nvp("Albedo Map", mat.albedoFile),
+        cereal::make_nvp("Normal Map", mat.normalFile),
+        cereal::make_nvp("Metallic-Roughness Map", mat.metalroughFile),
+        cereal::make_nvp("Base Color", mat.albedo),
+        cereal::make_nvp("Metallic", mat.metallic),
+        cereal::make_nvp("Roughness", mat.roughness),
+        cereal::make_nvp("emissive", mat.emissive),
+        cereal::make_nvp("Transparent", mat.isTransparent)
+    );
+}
+
+
+template<class Archive>
+void serialize(Archive& archive, Raekor::Name& name) {
+    archive(cereal::make_nvp("name", name.name));
+}
+
+} // cereal

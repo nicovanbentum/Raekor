@@ -59,6 +59,7 @@
     #include <SDL2/SDL_syswm.h>
     #include <dwmapi.h>
     #include <DbgHelp.h>
+    #include <shellapi.h>
     #include <Psapi.h>  
     #include <ShObjIdl_core.h>
 #elif __linux__

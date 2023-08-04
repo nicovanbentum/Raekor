@@ -24,16 +24,27 @@ enum EShaderType {
     SHADER_TYPE_COMPUTE
 };
 
+class IResource {
+    RTTI_CLASS_HEADER(IResource);
 
-class ShaderProgram {
+public:
+    virtual bool OnCompile() { return true; }
+    virtual bool IsCompiled() { return true; }
+};
+
+
+class ShaderProgram : public IResource {
     RTTI_CLASS_HEADER(ShaderProgram);
-    friend class ShaderCompiler;
+    friend class SystemShadersDX12;
+
 public:
     bool GetGraphicsProgram(CD3DX12_SHADER_BYTECODE& ioVertexShaderByteCode, CD3DX12_SHADER_BYTECODE& ioPixelShaderByteCode) const;
     bool GetComputeProgram(CD3DX12_SHADER_BYTECODE& ioComputeShaderByteCode) const;
 
-    bool IsCompiled() const;
     EShaderProgramType GetProgramType() const { return mProgramType; }
+
+    bool OnCompile() override;
+    bool IsCompiled() override;
 
 private:
     // JSON fields
@@ -44,27 +55,33 @@ private:
 
     // Binary fields
     EShaderProgramType mProgramType;
-    ComPtr<IDxcBlob> mVertexShader = nullptr;
-    ComPtr<IDxcBlob> mPixelShader = nullptr;
-    ComPtr<IDxcBlob> mComputeShader = nullptr;
+    std::vector<unsigned char> mVertexShader;
+    std::vector<unsigned char> mPixelShader;
+    std::vector<unsigned char> mComputeShader;
+
+    // runtime fields
+    FileSystem::file_time_type mVertexShaderFileTime;
+    FileSystem::file_time_type mPixelShaderFileTime;
+    FileSystem::file_time_type mComputeShaderFileTime;
 };
 
 
 class ShaderCompiler {
 public:
-    bool CompileShaderProgram(ShaderProgram& inShaderProgram);
-
-private:
     ComPtr<IDxcBlob> CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines);
-
+    
+    void EnableShaderCache() { m_EnableCache.store(true); }
+    void DisableShaderCache() { m_EnableCache.store(false); }
+    
+private:
     std::mutex m_ShaderCompilationMutex;
-    std::unordered_map<std::string, ComPtr<IDxcBlob>> m_ShaderCache;
+    std::atomic_bool m_EnableCache = true;
+    std::unordered_map<uint64_t, ComPtr<IDxcBlob>> m_ShaderCache;
 };
 
 
-struct SystemShadersDX12 {
+struct SystemShadersDX12 : public IResource {
     RTTI_CLASS_HEADER(SystemShadersDX12);
-    friend class ShaderCompiler;
 
     ShaderProgram mImGuiShader;
     ShaderProgram mGrassShader;
@@ -90,7 +107,9 @@ struct SystemShadersDX12 {
     ShaderProgram mGBufferDebugMetallicShader;
     ShaderProgram mGBufferDebugRoughnessShader;
 
-    void CompileShaders();
+    bool HotLoad();
+    bool OnCompile() override;
+    bool IsCompiled() override;
 };
 
 

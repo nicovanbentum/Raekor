@@ -1,6 +1,5 @@
 #pragma once
 
-#include "pch.h"
 #include "components.h"
 #include "application.h"
 

@@ -2,34 +2,23 @@
 
 #include "util.h"
 #include "rmath.h"
-
-namespace Raekor {
-
-template<typename E>
-concept EnumType = std::is_enum_v<E>;
-
-enum ESerializeType {
-	SERIALIZE_NONE		= 0 << 0,
-	SERIALIZE_JSON		= 1 << 0,
-	SERIALIZE_BINARY	= 1 << 1,
-	SERIALIZE_ALL		= SERIALIZE_JSON | SERIALIZE_BINARY
-};
-
-}
+#include "serial.h"
 
 namespace Raekor::JSON {
 
 class JSONData {
 public:
 	JSONData() = default;
-	JSONData(const Path& inPath);
-
-	bool IsEmpty() const { return m_StrBuffer.empty() || m_Tokens.empty(); }
-	uint32_t GetTokenCount() const { return m_Tokens.size(); }
-	Slice<jsmntok_t> GetTokens() const { return Slice(m_Tokens); }
+	JSONData(const Path& inPath, bool inTokenizeOnly = false);
 
 	bool IsKeyObjectPair(uint32_t inTokenIdx);
 	uint32_t SkipToken(uint32_t inTokenIdx);
+
+	uint32_t GetTokenCount() const { return m_Tokens.size(); }
+	Slice<jsmntok_t> GetTokens() const { return Slice(m_Tokens); }
+
+	bool IsEmpty() const { return m_StrBuffer.empty() || m_Tokens.empty(); }
+	bool HasRootObject() const { return m_Tokens.size() > 0 && m_Tokens[0].type == JSMN_OBJECT; }
 
 	const jsmntok_t&	GetToken(uint32_t inTokenIdx) { return m_Tokens[inTokenIdx]; }
 	const std::string&	GetString(uint32_t inTokenIdx) { return m_Strings[inTokenIdx]; }
@@ -37,17 +26,17 @@ public:
 
 public:
 	// Generics
-	template<typename T> 
+	template<typename T> requires HasRTTI<T>
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, T& inValue);
 
 	template<typename T> requires std::is_enum_v<T>
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, T& inValue);
 
+	template<typename T> requires std::is_arithmetic_v<T>
+	uint32_t GetTokenToValue(uint32_t inTokenIdx, T& inValue);
+
 	// Primitives
-	uint32_t GetTokenToValue(uint32_t inTokenIdx, int& inValue);
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, bool& inValue);
-	uint32_t GetTokenToValue(uint32_t inTokenIdx, float& inValue);
-	uint32_t GetTokenToValue(uint32_t inTokenIdx, uint32_t& inValue);
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::string& inValue);
 
 	// Math Types 
@@ -101,6 +90,8 @@ public:
 
 	std::string GetString() const { return m_SS.str(); }
 
+	void Clear() { m_SS = {}; }
+
 	void WriteToFile(const Path& inPath) {
 		auto ofs = std::ofstream(inPath);
 		ofs << GetString();
@@ -108,17 +99,17 @@ public:
 
 public:
 	// Generics
-	template<typename T>
+	template<typename T> requires HasRTTI<T>
 	void GetValueToJSON(const T& inValue);
 
 	template<typename T> requires std::is_enum_v<T>
 	void GetValueToJSON(const T& inValue);
 
+	template<typename T> requires std::is_arithmetic_v<T>
+	void GetValueToJSON(const T& inValue);
+
 	// Primitives
-	void GetValueToJSON(const int& inValue);
 	void GetValueToJSON(const bool& inValue);
-	void GetValueToJSON(const float& inValue);
-	void GetValueToJSON(const uint32_t& inValue);
 	void GetValueToJSON(const std::string& inValue);
 
 	// Math Types 
@@ -133,6 +124,10 @@ public:
 	// Containers
 	template<typename T>
 	void GetValueToJSON(const std::vector<T>& inValue);
+
+	template<typename T> requires std::is_integral_v<T> // integer arrays print 6 values on the same line
+	void GetValueToJSON(const std::vector<T>& inValue);
+
 	template<typename T, uint32_t N>
 	void GetValueToJSON(const std::array<T, N>& inValue);
 
@@ -145,7 +140,7 @@ private:
 };
 
 
-template<typename T>
+template<typename T> requires HasRTTI<T>
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIdx, T& inValue) {
 	const auto& object_token = m_Tokens[inTokenIdx]; // index to object
 	// T& can only deal with JSMN_OBJECT
@@ -176,20 +171,13 @@ uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, T& inValue) {
 	inValue = (T)GetPrimitive(inTokenIndex++); return inTokenIndex;
 }
 
-inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, int& ioInt) {
-	ioInt = GetPrimitive(inTokenIndex++); return inTokenIndex;
+template<typename T> requires std::is_arithmetic_v<T>
+inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, T& inValue) {
+	inValue = GetPrimitive(inTokenIndex++); return inTokenIndex;
 }
 
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, bool& ioBool) {
 	ioBool = GetPrimitive(inTokenIndex++); return inTokenIndex;
-}
-
-inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, float& ioFloat) {
-	ioFloat = GetPrimitive(inTokenIndex++); return inTokenIndex;
-}
-
-inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, uint32_t& ioInt) {
-	ioInt = GetPrimitive(inTokenIndex++); return inTokenIndex;
 }
 
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::string& ioString) {
@@ -253,12 +241,15 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, Path& inPath) {
 
 
 
-template<typename T>
+template<typename T> requires HasRTTI<T>
 inline void JSONWriter::GetValueToJSON(const T& inMember) {
 	Write("\n").IndentAndWrite("{\n").PushIndent();
 
 	auto& rtti = gGetRTTI<T>();
 	for (uint32_t i = 0; i < rtti.GetMemberCount(); i++) {
+		// potentially skip
+		if ((rtti.GetMember(i)->GetSerializeType() & SERIALIZE_JSON) == 0)
+			continue;
 		// write key
 		IndentAndWrite("\"").Write(rtti.GetMember(i)->GetCustomName()).Write("\": ");
 		// write value
@@ -271,27 +262,18 @@ inline void JSONWriter::GetValueToJSON(const T& inMember) {
 	Write("\n").PopIndent().IndentAndWrite("}");
 }
 
-template<typename T>
-requires std::is_enum_v<T>
+template<typename T> requires std::is_enum_v<T>
 inline void JSONWriter::GetValueToJSON(const T& inMember) {
 	Write(std::to_string((int)inMember));
 }
 
-
-inline void JSONWriter::GetValueToJSON(const int& inInt) {
-	Write(std::to_string(inInt));
-}
-
-inline void JSONWriter::GetValueToJSON(const float& inFloat) {
-	Write(std::to_string(inFloat));
+template<typename T> requires std::is_arithmetic_v<T>
+inline void JSONWriter::GetValueToJSON(const T& inValue) {
+	Write(std::to_string(inValue));
 }
 
 inline void JSONWriter::GetValueToJSON(const bool& inBool) {
 	Write(inBool ? "true" : "false");
-}
-
-inline void JSONWriter::GetValueToJSON(const uint32_t& inInt) {
-	Write(std::to_string(inInt));
 }
 
 inline void JSONWriter::GetValueToJSON(const std::string& inString) {
@@ -300,7 +282,7 @@ inline void JSONWriter::GetValueToJSON(const std::string& inString) {
 
 template<glm::length_t L, typename T>
 inline void JSONWriter::GetValueToJSON(const glm::vec<L, T>& inVec) {
-	Write("\"" + gToString(inVec) + "\"");
+	Write("\"").Write(gToString(inVec)).Write("\"");
 }
 
 inline void JSONWriter::GetValueToJSON(const glm::quat& inQuat) {
@@ -320,12 +302,39 @@ inline void JSONWriter::GetValueToJSON(const std::vector<T>& inVector) {
 
 	const auto count = inVector.size();
 
-	for (const auto& [index, value] : gEnumerate(inVector)) {
+	for (uint64_t index = 0; index < count; index++) {
 		WriteIndent();
-		GetValueToJSON(value);
+		GetValueToJSON(inVector[index]);
 
 		if (index != count - 1)
 			Write(",\n");
+	}
+
+	Write("\n").PopIndent().IndentAndWrite("]");
+}
+
+template<typename T> requires std::is_integral_v<T>
+inline void JSONWriter::GetValueToJSON(const std::vector<T>& inVector) {
+	Write("\n").IndentAndWrite("[\n").PushIndent();
+
+	const auto count = inVector.size();
+	auto same_line = 9;
+
+	for (uint64_t index = 0; index < count; index++) {
+		if (same_line == 9)
+			WriteIndent();
+
+		GetValueToJSON(inVector[index]);
+
+		if (index != count - 1) {
+			Write(", ");
+
+			same_line--;
+			if (same_line == 0) {
+				Write("\n");
+				same_line = 9;
+			}
+		}
 	}
 
 	Write("\n").PopIndent().IndentAndWrite("]");

@@ -7,6 +7,7 @@
 #include "timer.h"
 #include "camera.h"
 #include "archive.h"
+#include "components.h"
 
 namespace Raekor {
 
@@ -21,6 +22,9 @@ RTTI_CLASS_CPP(ConfigSettings) {
 static constexpr auto CONFIG_FILE_STR = "config.json";
 
 Application::Application(WindowFlags inFlags) {
+    gRegisterComponentTypes();
+    RTTIFactory::Register(RTTI_OF(ConfigSettings));
+
     auto json_data = JSON::JSONData(CONFIG_FILE_STR);
     auto read_archive = JSON::ReadArchive(json_data);
     

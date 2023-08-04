@@ -3,6 +3,8 @@
 #include "VKDevice.h"
 #include "VKUtil.h"
 #include "VKStructs.h"
+#include "Raekor/primitives.h"
+#include "Raekor/components.h"
 
 namespace Raekor::VK {
 

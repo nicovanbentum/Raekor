@@ -2,6 +2,7 @@
 
 #include "widget.h"
 #include "json.h"
+#include "serial.h"
 
 namespace Raekor {
 
