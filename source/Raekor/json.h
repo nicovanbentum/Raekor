@@ -51,9 +51,13 @@ public:
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::vector<T>& inValue);
 	template<typename T, uint32_t N>
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::array<T, N>& inValue);
+	template<typename K, typename V>
+	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::unordered_map<K, V>& inValue);
 
 	// Other
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, Path& inValue);
+	template<typename ...Types>
+	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::variant<Types...>& inValue);
 
 private:
 	std::string m_StrBuffer;
@@ -130,6 +134,9 @@ public:
 
 	template<typename T, uint32_t N>
 	void GetValueToJSON(const std::array<T, N>& inValue);
+
+	template<typename K, typename V>
+	void GetValueToJSON(const std::unordered_map<K, V>& inValue);
 
 	// Other
 	void GetValueToJSON(const Path& inValue);
@@ -231,6 +238,27 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::array<T, N
 	return inTokenIndex;
 }
 
+template<typename K, typename V>
+uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::unordered_map<K, V>& inValue) {
+	const auto& object_token = m_Tokens[inTokenIndex]; // index to object
+	// T& can only deal with JSMN_OBJECT
+	if (object_token.type != JSMN_OBJECT)
+		return SkipToken(inTokenIndex);
+
+	inTokenIndex++; // increment index to first key
+	for (auto key_index = 0; key_index < object_token.size; key_index++) {
+		K key;
+		inTokenIndex = GetTokenToValue(inTokenIndex, key);
+
+		V value;
+		inTokenIndex = GetTokenToValue(inTokenIndex, value);
+
+		inValue[key] = value;
+	}
+
+	return inTokenIndex;
+}
+
 
 inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, Path& inPath) {
 	std::string value;
@@ -239,6 +267,10 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, Path& inPath) {
 	return result;
 }
 
+template<typename ...Types>
+inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIdx, std::variant<Types...>& inValue) {
+	// TODO
+}
 
 
 template<typename T> requires HasRTTI<T>
@@ -354,6 +386,27 @@ inline void JSONWriter::GetValueToJSON(const std::array<T, N>& inArray) {
 	Write("\n").PopIndent().IndentAndWrite("]");
 }
 
+template<typename K, typename V>
+void JSONWriter::GetValueToJSON(const std::unordered_map<K, V>& inValue) {
+	Write("\n").IndentAndWrite("{\n").PushIndent();
+
+	auto index = 0u;
+	const auto count = inValue.size();
+
+	for (const auto& [key, value] : inValue) {
+		WriteIndent();
+		GetValueToJSON(key);
+		Write(": ");
+		GetValueToJSON(value);
+
+		if (index != count - 1)
+			Write(",\n");
+
+		index++;
+	}
+
+	Write("\n").PopIndent().IndentAndWrite("}");
+}
 
 inline void JSONWriter::GetValueToJSON(const Path& inPath) {
 	GetValueToJSON(inPath.string());

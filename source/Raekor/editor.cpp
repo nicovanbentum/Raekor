@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "editor.h"
 
+#include "OS.h"
 #include "rmath.h"
 #include "systems.h"
 
@@ -56,6 +57,35 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderer* inRenderer) :
     m_Viewport.GetCamera().Zoom(5.0f);
     m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
     m_Viewport.SetFieldOfView(65.0f);
+
+    // launch the asset compiler  app to the system tray
+    // Make sure we don't try this when we are the the compiler app 
+    // (I've had to restart my PC 3 times already because of recursive process creation lol)
+    if (OS::sCheckCommandLineOption("-asset_compiler")) {
+        Application::Terminate();
+        assert(false);
+        return;
+    }
+   
+    if (g_CVars.Create("launch_asset_compiler_on_startup", 0)) {
+        auto compiler_app_cmd_line = OS::sGetExecutablePath().string() + " -asset_compiler";
+
+        PROCESS_INFORMATION pi = {};
+        STARTUPINFO si = { sizeof(si) };
+
+        if (CreateProcessA(NULL, &compiler_app_cmd_line[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+            m_CompilerProcess = pi.hProcess;
+        else
+            LogMessage("Failed to start asset compiler process.");
+    }
+}
+
+
+IEditor::~IEditor() {
+    if (m_CompilerProcess) {
+        TerminateProcess(m_CompilerProcess, 0);
+        CloseHandle(m_CompilerProcess);
+    }
 }
 
 
@@ -103,6 +133,18 @@ void IEditor::OnEvent(const SDL_Event& event) {
 
     if (m_Widgets.GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode())
         CameraController::OnEvent(m_Viewport.GetCamera(), event);
+
+    if (event.type == SDL_WINDOWEVENT) {
+        if (event.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+            for (;;) {
+                auto temp_event = SDL_Event{};
+                SDL_PollEvent(&temp_event);
+
+                if (temp_event.window.event == SDL_WINDOWEVENT_RESTORED)
+                    break;
+            }
+        }
+    }
 
     if (event.type == SDL_KEYDOWN && !event.key.repeat) {
         switch (event.key.keysym.sym) {

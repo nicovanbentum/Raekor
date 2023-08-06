@@ -36,18 +36,21 @@ public:
         useful for ensuring thread safety inside a job function. */
     std::mutex& GetMutex() { return m_Mutex; }
 
+    void SetActiveThreadCount(uint32_t inValue) { m_ActiveThreadCount = std::min(inValue, GetThreadCount()); }
+
     uint32_t GetThreadCount() { return uint32_t(m_Threads.size()); }
     int32_t  GetActiveJobCount() { return m_ActiveJobCount.load(); }
 
 private:
     // per-thread function that waits on and executes tasks
-    void ThreadLoop();
+    void ThreadLoop(uint32_t inThreadIndex);
 
     bool m_Quit = false;
     std::mutex m_Mutex;
     std::queue<JobPtr> m_JobQueue;
     std::vector<std::thread> m_Threads;
     std::atomic<int32_t> m_ActiveJobCount;
+    std::atomic<uint8_t> m_ActiveThreadCount;
     std::condition_variable m_ConditionVariable;
 };
 

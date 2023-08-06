@@ -62,6 +62,7 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN) {
     ImGui_ImplSDL2_InitForSDLRenderer(m_Window, m_Renderer);
     ImGui_ImplSDLRenderer_Init(m_Renderer);
     SDL_SetWindowTitle(m_Window, "Launcher");
+    SDL_SetWindowMinimumSize(m_Window, 420, 90);
 
     //if (!m_BgImage.Load(m_Renderer, "assets/system/doom.jpg"))
     //    assert(false);
@@ -93,19 +94,28 @@ void Launcher::OnUpdate(float inDeltaTime) {
 
     ImGui::Begin("##launcher", (bool*)1, window_flags);
 
-    ImGui::BeginTable("Configuration Settings", 2);
+    ImGui::BeginTable("Configuration Settings", 2, ImGuiTableFlags_SizingFixedFit);
 
-    for (auto& cvar : g_CVars) {
-        switch (cvar.second.index()) {
-            case 0: { // int
-                auto value = bool(std::get<0>(cvar.second));
-                auto string = "##" + cvar.first;
-                if (ImGui::Checkbox(string.c_str(), &value)) {
-                    cvar.second = value;
-                }
+    auto index = 0u;
+
+    for (auto& [name, cvar] : g_CVars) {
+        switch (cvar.GetType()) {
+            case CVAR_TYPE_INT: {
+               /* if (index % 2 == 0)
+                    ImGui::TableNextRow();*/
+
+                auto value = bool(cvar.GetValue<int>());
+                auto string = "##" + name;
+                
+                if (ImGui::Checkbox(string.c_str(), &value))
+                    cvar = ConVar(int(value));
+                
                 ImGui::SameLine();
-                ImGui::Text(cvar.first.c_str());
+                ImGui::Text(name.c_str());
                 ImGui::TableNextColumn();
+
+
+                index++;
             }
         }
     }

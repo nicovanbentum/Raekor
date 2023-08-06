@@ -34,7 +34,7 @@ RTTI_CLASS_CPP(Material) {
     RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Base Emissive",          emissive);
     RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Metallic",               metallic);
     RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Roughness",              roughness);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Alpha Cutout",           isTransparent);
+    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Transparency",           isTransparent);
     RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Albedo Map",             albedoFile);
     RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Normal Map",             normalFile);
     RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Metallic-Roughness Map", metalroughFile);

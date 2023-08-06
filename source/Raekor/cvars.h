@@ -1,187 +1,108 @@
 #pragma once
 
 #include "pch.h"
-
-namespace cereal {
-
-template<class Archive>
-void load(Archive& archive, std::function<void()>& fn) {}
-
-
-template<class Archive>
-void save(Archive& archive, const std::function<void()>& fn) {}
-
-} // namespace cereal
+#include "rtti.h"
 
 namespace Raekor {
 
-typedef std::variant<int, float, std::string, std::function<void()>> CVar;
-
-template<class Archive>
-void serialize(Archive& archive, CVar& cvar) {
-	archive(cvar);
-}
-
-class CVars {
-private:
-	struct GetVisitor {
-		template<typename T> 
-		inline std::string operator()(T& value) { return std::to_string(value); }
-		template<> std::string operator()(std::string& value) { return value; }
-		template<> std::string operator()(std::function<void()>& value) { return {}; }
-	};
-
-
-	struct SetVisitor {
-		inline SetVisitor(const std::string& value) : m_Value(value) {}
-
-		template<typename T> bool operator()(T& cvar) { return false; }
-
-		template<> bool operator()(int& cvar);
-		template<> bool operator()(float& cvar);
-		template<> bool operator()(std::string& cvar);
-		template<> bool operator()(std::function<void()>& cvar);
-
-		const std::string& m_Value;
-	};
-
-public:
-	CVars() {
-		auto stream = std::ifstream("cvars.json");
-		if (!stream.is_open())
-			return;
-
-		auto archive = cereal::JSONInputArchive(stream);
-		archive(m_CVars);
-	}
-
-
-	~CVars() {
-		auto stream = std::ofstream("cvars.json");
-		auto archive = cereal::JSONOutputArchive(stream);
-		archive(m_CVars);
-	}
-
-
-	std::string GetValue(const std::string& name) {
-		if (m_CVars.find(name) == m_CVars.end())
-			return {};
-
-		try { return std::visit(GetVisitor(), m_CVars[name]); }
-		catch (std::exception& e) {
-			UNREFERENCED_PARAMETER(e);
-			return {};
-		}
-	}
-
-	template<typename T>
-	[[nodiscard]] T& Create(const std::string& name, T value, bool force = false);
-	void CreateFn(const std::string& name, std::function<void()> fn);
-	
-	template<typename T>
-	[[nodiscard]] T& GetValue(const std::string& name);
-
-	bool Exists(const std::string& inName) const { return m_CVars.find(inName) != m_CVars.end(); }
-
-	template<typename T>
-	[[nodiscard]] T* TryGetValue(const std::string& name);
-	
-	bool SetValue(const std::string& inName, const std::string& value);
-
-	void ParseCommandLine(int argc, char** argv);
-
-	inline auto end()    { return m_CVars.end();   }
-	inline auto begin()  { return m_CVars.begin(); }
-
-	size_t GetCount() { return m_CVars.size(); }
-
-private:
-	std::unordered_map<std::string, CVar> m_CVars;
+enum EConVarType {
+	CVAR_TYPE_ERROR,
+	CVAR_TYPE_INT,
+	CVAR_TYPE_FLOAT,
+	CVAR_TYPE_STRING
 };
 
 
+class ConVar {
+	RTTI_CLASS_HEADER(ConVar);
 
-template<> inline bool CVars::SetVisitor::operator()(std::function<void()>& cvar) {
-	cvar();
-	return true;
-}
+public:
+	ConVar() : mType(CVAR_TYPE_ERROR) {}
+	ConVar(int inValue) : mType(CVAR_TYPE_INT), mIntValue(inValue) {}
+	ConVar(float inValue) : mType(CVAR_TYPE_FLOAT), mFloatValue(inValue) {}
+	ConVar(const std::string& inValue) : mType(CVAR_TYPE_STRING), mStringValue(inValue) {}
+	ConVar(std::function<void(void)> inValue) : mType(CVAR_TYPE_ERROR), mFuncValue(inValue) {}
 
-template<> inline bool CVars::SetVisitor::operator()(std::string& cvar) {
-	cvar = m_Value;
-	return true;
-}
+	template<typename T> T&	GetValue();
+	template<> int&	GetValue() { return mIntValue; }
+	template<> float& GetValue() { return mFloatValue; }
+	template<> std::string&	GetValue() { return mStringValue; }
+	template<> std::function<void(void)>& GetValue() { return mFuncValue; }
 
-template<> inline bool CVars::SetVisitor::operator()(int& cvar) {
-	cvar = std::stoi(m_Value);
-	return true;
-}
+	inline EConVarType GetType() const { return mType; }
 
-template<> inline bool CVars::SetVisitor::operator()(float& cvar) {
-	cvar = std::stof(m_Value);
-	return true;
-}
+	std::string ToString() const;
+	bool SetValue(const std::string& inValue);
 
+public:
+	EConVarType mType;
+	int mIntValue = 0;
+	float mFloatValue = 0;
+	std::string mStringValue;
+	std::function<void(void)> mFuncValue; // not serialized
+};
+
+
+class ConVars {
+	RTTI_CLASS_HEADER(ConVars);
+
+public:
+	ConVars();
+	~ConVars();
+
+	bool Exists(const std::string& inName) const;
+
+	std::string GetValue(const std::string& inName);
+
+	template<typename T>
+	inline T& Create(const std::string& inName, T inValue, bool inForce = false);
+
+	void CreateFn(const std::string& inName, std::function<void()> fn);
+
+	template<typename T>
+	inline T& GetValue(const std::string& inName);
+
+	template<typename T>
+	inline T* TryGetValue(const std::string& inName);
+
+	bool SetValue(const std::string& inName, const std::string& inValue);
+
+	void ParseCommandLine(int inArgc, char** inArgv);
+
+	size_t GetCount() { return m_ConVars.size(); }
+
+	inline auto end() { return m_ConVars.end(); }
+	inline auto begin() { return m_ConVars.begin(); }
+
+private:
+	std::unordered_map<std::string, ConVar> m_ConVars;
+};
+
+
+extern ConVars g_CVars;
 
 
 template<typename T>
-inline T& CVars::Create(const std::string& name, T value, bool force) {
-	if (m_CVars.find(name) == m_CVars.end() || force)
-		m_CVars[name] = value;
+inline T& ConVars::Create(const std::string& inName, T value, bool force) {
+	if (m_ConVars.find(inName) == m_ConVars.end() || force)
+		m_ConVars[inName] = ConVar(value);
 
-	return std::get<T>(m_CVars[name]);
-}
-
-
-inline void CVars::CreateFn(const std::string& name, std::function<void()> fn) {
-	auto ret = Create(name, fn, true);
+	return m_ConVars[inName].GetValue<T>();
 }
 
 
 template<typename T>
-inline T& CVars::GetValue(const std::string& name) {
-	return std::get<T>(m_CVars[name]);
+inline T& ConVars::GetValue(const std::string& inName) {
+	return m_ConVars[inName].GetValue<T>();
 }
 
+
 template<typename T>
-inline T* CVars::TryGetValue(const std::string& name) {
-	if (m_CVars.find(name) == m_CVars.end())
+inline T* ConVars::TryGetValue(const std::string& inName) {
+	if (m_ConVars.find(inName) == m_ConVars.end())
 		return nullptr;
 
-	return &std::get<T>(m_CVars[name]);
+	return &m_ConVars[inName].GetValue<T>();
 }
-
-
-inline bool CVars::SetValue(const std::string& inName, const std::string& inValue) {
-	if (m_CVars.find(inName) == m_CVars.end())
-		return false;
-
-	try {
-		SetVisitor visitor(inValue);
-		return std::visit(visitor, m_CVars[inName]);
-	}
-	catch (...) {
-		return false;
-	}
-}
-
-
-inline void CVars::ParseCommandLine(int argc, char** argv) {
-	for (int i = 0; i < argc; i++) {
-		if (argv[i][0] == '-') {
-			const auto string = std::string(argv[i]);
-			const auto equals_pos = string.find('=');
-
-			if (equals_pos != std::string::npos) {
-				const auto cvar = string.substr(1, equals_pos - 1);
-				const auto value = string.substr(equals_pos + 1);
-
-				if (!SetValue(cvar, value))
-					std::cout << "Failed to set cvar \"" << cvar << "\" to " << value << '\n';
-			}
-		}
-	}
-}
-
-extern CVars g_CVars;
 
 } // raekor

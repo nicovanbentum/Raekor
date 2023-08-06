@@ -30,7 +30,7 @@ void AssetsWidget::Draw(Widgets* inWidgets, float dt) {
             bool clicked = false;
             ImGui::PushID(entt::to_integral(entity));
 
-            if (material.gpuAlbedoMap) {
+            if (material.gpuAlbedoMap && !material.albedoFile.empty()) {
                 clicked = ImGui::ImageButton(
                     (void*)((intptr_t)m_Editor->GetRenderer()->GetImGuiTextureID(material.gpuAlbedoMap)),
                     ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()), 

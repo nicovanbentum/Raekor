@@ -6,6 +6,7 @@
 #include "scene.h"
 #include "gui.h"
 #include "widget.h"
+#include "compiler.h"
 
 namespace Raekor {
 
@@ -14,7 +15,7 @@ public:
     friend class IWidget;
 
     IEditor(WindowFlags inWindowFlags, IRenderer* inRenderer);
-    virtual ~IEditor() = default;
+    virtual ~IEditor();
 
     void OnUpdate(float dt) override;
     void OnEvent(const SDL_Event& event) override;
@@ -34,6 +35,7 @@ protected:
     Physics m_Physics;
     Widgets m_Widgets;
 
+    void* m_CompilerProcess = nullptr;
     ImGuiID m_DockSpaceID;
     Entity m_ActiveEntity = sInvalidEntity;
 

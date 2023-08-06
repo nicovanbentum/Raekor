@@ -25,7 +25,7 @@ glm::mat4 toMat4(const aiMatrix4x4& from) {
 
 namespace Raekor {
 
-bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
+bool AssimpImporter::LoadFromFile(const std::string& file, Assets* inAssets) {
     constexpr unsigned int flags =
         aiProcess_GenNormals |
         aiProcess_GenUVCoords |
@@ -42,12 +42,12 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
         aiProcess_RemoveRedundantMaterials;
 
     // the importer takes care of deleting the scene
-    auto importer = std::make_shared<Assimp::Importer>();
-    m_AiScene = importer->ReadFile(file, flags);
+    m_Importer = std::make_shared<Assimp::Importer>();
+    m_AiScene = m_Importer->ReadFile(file, flags);
 
     // error cases
     if (!m_AiScene || (!m_AiScene->HasMeshes() && !m_AiScene->HasMaterials())) {
-        std::cerr << "[ASSIMP] Error loading " << file << ": " << importer->GetErrorString() << '\n';
+        std::cerr << "[ASSIMP] Error loading " << file << ": " << m_Importer->GetErrorString() << '\n';
         return false;
     }
 
@@ -67,7 +67,8 @@ bool AssimpImporter::LoadFromFile(Assets& assets, const std::string& file) {
     std::cout << "Texture conversion took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
 
     // preload material texture in parallel
-    m_Scene.LoadMaterialTextures(assets, Slice(m_Materials.data(), m_Materials.size()));
+    if (inAssets != nullptr)
+        m_Scene.LoadMaterialTextures(*inAssets, Slice(m_Materials.data(), m_Materials.size()));
 
     // parse the node tree recursively
     auto root = m_Scene.CreateSpatialEntity(m_AiScene->mRootNode->mName.C_Str());
@@ -331,23 +332,32 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
     if (AI_SUCCESS == aiGetMaterialFloat(assimpMaterial, AI_MATKEY_ROUGHNESS_FACTOR, &roughness))
         material.roughness = roughness;
 
+    if (albedoFile.length)
+        material.albedoFile = m_Directory.string() + albedoFile.C_Str();
+
+    if (normalmapFile.length)
+        material.normalFile = m_Directory.string() + normalmapFile.C_Str();
+
+    if (metalroughFile.length)
+        material.metalroughFile = m_Directory.string() + metalroughFile.C_Str();
+
     if (albedoFile.length) {
         g_ThreadPool.QueueJob([this, &material, albedoFile]() {
-            auto assetPath = TextureAsset::sConvert(m_Directory.string() + albedoFile.C_Str());
+            auto assetPath = TextureAsset::sConvert(material.albedoFile);
             material.albedoFile = assetPath;
         });
     }
 
     if (normalmapFile.length) {
         g_ThreadPool.QueueJob([this, &material, normalmapFile]() {
-            auto assetPath = TextureAsset::sConvert(m_Directory.string() + normalmapFile.C_Str());
+            auto assetPath = TextureAsset::sConvert(material.normalFile);
             material.normalFile = assetPath;
         });
     }
 
     if (metalroughFile.length) {
         g_ThreadPool.QueueJob([this, &material, metalroughFile]() {
-            auto assetPath = TextureAsset::sConvert(m_Directory.string() + metalroughFile.C_Str());
+            auto assetPath = TextureAsset::sConvert(material.metalroughFile);
             material.metalroughFile = assetPath;
         });
     }

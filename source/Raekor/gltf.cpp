@@ -159,11 +159,18 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, gl
 
         else if (inNode.mesh->primitives_count > 1)
             for (const auto& [index, prim] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count))) {
-                auto clone = m_Scene.Clone(entity);
+                auto clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(entity));
                 ConvertMesh(clone, prim);
 
-                if (inParent != entt::null)
-                    NodeSystem::sAppend(m_Scene, inParent, m_Scene.get<Node>(inParent), clone, m_Scene.get<Node>(clone));
+                auto& name = m_Scene.get<Name>(clone);
+                name.name += "-" + std::to_string(index);
+
+                // multiple mesh entities of the same node all get parented to that node's transform, so their local transform can just be identity
+                auto& transform = m_Scene.get<Transform>(clone);
+                transform.localTransform = glm::mat4(1.0f);
+
+                NodeSystem::sAppend(m_Scene, entity, m_Scene.get<Node>(entity), clone, m_Scene.get<Node>(clone));
+             
             }
         
         if (inNode.skin)

@@ -111,10 +111,10 @@ enum WindowFlag {
 using WindowFlags = uint32_t;
 
 class Application {
-public:
-    friend class InputHandler;
-
+protected:
     Application(WindowFlags inFlags);
+
+public:
     virtual ~Application();
 
     void Run();

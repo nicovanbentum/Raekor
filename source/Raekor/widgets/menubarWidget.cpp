@@ -93,7 +93,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                 
                 if (!filepath.empty()) {
                     auto importer = AssimpImporter(scene, m_Editor->GetRenderer());
-                    importer.LoadFromFile(GetAssets(), filepath);
+                    importer.LoadFromFile(filepath, &GetAssets());
                     m_Editor->SetActiveEntity(sInvalidEntity);
                 }
             }

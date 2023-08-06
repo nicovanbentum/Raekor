@@ -123,7 +123,7 @@ DXApp::DXApp() :
 
     // Pick a scene file and load it
     while (!FileSystem::exists(m_Settings.mSceneFile))
-        m_Settings.mSceneFile = FileSystem::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
+        m_Settings.mSceneFile = FileSystem::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).make_preferred().string();
 
     SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
     m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);

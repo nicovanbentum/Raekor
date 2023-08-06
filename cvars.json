@@ -1,158 +1,113 @@
 {
-    "value0": [
+    "ConVars":
+    {
+        "Variables": 
         {
-            "key": "r_taa",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "sensitivity",
-            "value": {
-                "index": 1,
-                "data": 2.0
-            }
-        },
-        {
-            "key": "r_bloom",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "r_voxelize",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "r_voxelize_debug",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "debug_layer",
-            "value": {
-                "index": 0,
-                "data": 1
-            }
-        },
-        {
-            "key": "quit",
-            "value": {
-                "index": 3,
-                "data": {}
-            }
-        },
-        {
-            "key": "exit",
-            "value": {
-                "index": 3,
-                "data": {}
-            }
-        },
-        {
-            "key": "r_vsync",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "r_debug_cascades",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "r_disable_timings",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "r_paused",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "physics_step_enabled",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "enable_launcher",
-            "value": {
-                "index": 0,
-                "data": 1
-            }
-        },
-        {
-            "key": "physics_state",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "r_enable_fsr2",
-            "value": {
-                "index": 0,
-                "data": 1
-            }
-        },
-        {
-            "key": "r_enable_rtao",
-            "value": {
-                "index": 0,
-                "data": 1
-            }
-        },
-        {
-            "key": "hook_pix",
-            "value": {
-                "index": 0,
-                "data": 1
-            }
-        },
-        {
-            "key": "gpu_validation",
-            "value": {
-                "index": 0,
-                "data": 1
-            }
-        },
-        {
-            "key": "r_debug_gi_probes",
-            "value": {
-                "index": 0,
-                "data": 0
-            }
-        },
-        {
-            "key": "r_enable_ddgi",
-            "value": {
-                "index": 0,
-                "data": 1
-            }
-        },
-        {
-            "key": "r_debug_lines",
-            "value": {
-                "index": 0,
-                "data": 0
+            "r_vsync": 
+            {
+                "Type": 1,
+                "Int": 1,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "enable_launcher": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "sensitivity": 
+            {
+                "Type": 2,
+                "Int": 0,
+                "Float": 2.000000,
+                "String": ""
+            },
+            "quit": 
+            {
+                "Type": 0,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "exit": 
+            {
+                "Type": 0,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "physics_state": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "launch_asset_compiler_on_startup": 
+            {
+                "Type": 1,
+                "Int": 1,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_bloom": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_paused": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_taa": 
+            {
+                "Type": 1,
+                "Int": 1,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_voxelize_debug": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_debug_cascades": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_disable_timings": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_voxelize": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_debug_texture": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
             }
         }
-    ]
+    }
 }

@@ -20,7 +20,11 @@ class Skeleton;
 class AssimpImporter {
 public:
 	AssimpImporter(Scene& inScene, IRenderer* inRenderer) : m_Scene(inScene), m_Renderer(inRenderer) {}
-	bool LoadFromFile(Assets& inAssets, const std::string& inFile);
+	bool LoadFromFile(const std::string& inFile, Assets* inAssets);
+
+	const Path& GetDirectory() { return m_Directory; }
+	const aiScene* GetAiScene() { return m_AiScene; }
+	const std::vector<entt::entity>& GetMaterials() { return m_Materials; }
 
 private:
 	void ParseMaterial(aiMaterial* inAssimpMaterial, entt::entity inEntity);
@@ -31,13 +35,13 @@ private:
 	void LoadBones(entt::entity inEntity, const aiMesh* inAssimpMesh);
 	void LoadMaterial(entt::entity inEntity, const aiMaterial* inAssimpMaterial);
 
-
 private:
 	Scene& m_Scene;
 	IRenderer* m_Renderer = nullptr;
 
 	Path m_Directory;
 	const aiScene* m_AiScene = nullptr;
+	std::shared_ptr<Assimp::Importer> m_Importer;
 	std::vector<entt::entity> m_Materials;
 };
 

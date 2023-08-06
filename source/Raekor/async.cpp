@@ -9,9 +9,9 @@ ThreadPool g_ThreadPool;
 ThreadPool::ThreadPool() : ThreadPool(std::thread::hardware_concurrency() - 1) {}
 
 
-ThreadPool::ThreadPool(uint32_t inThreadCount) {
+ThreadPool::ThreadPool(uint32_t inThreadCount) : m_ActiveThreadCount(inThreadCount) {
     for (int i = 0; i < inThreadCount; i++) {
-        m_Threads.push_back(std::thread(&ThreadPool::ThreadLoop, this));
+        m_Threads.push_back(std::thread(&ThreadPool::ThreadLoop, this, i));
 
         // Do Windows-specific thread setup:
         HANDLE handle = (HANDLE)m_Threads[i].native_handle();
@@ -37,6 +37,8 @@ ThreadPool::~ThreadPool() {
         auto lock = std::scoped_lock<std::mutex>(m_Mutex);
         m_Quit = true;
     }
+
+    SetActiveThreadCount(m_Threads.size());
 
     m_ConditionVariable.notify_all();
 
@@ -68,14 +70,16 @@ void ThreadPool::WaitForJobs() {
 }
 
 
-void ThreadPool::ThreadLoop() {
+void ThreadPool::ThreadLoop(uint32_t inThreadIndex) {
     // take control of the mutex
     auto lock = std::unique_lock<std::mutex>(m_Mutex);
 
+    auto thread_index = inThreadIndex;
+
     do {
         // wait releases the mutex and re-acquires when there's work available
-        m_ConditionVariable.wait(lock, [this] {
-            return m_JobQueue.size() || m_Quit;
+        m_ConditionVariable.wait(lock, [this, thread_index] {
+            return (m_JobQueue.size() || m_Quit) && thread_index < m_ActiveThreadCount.load();
         });
 
         if (m_JobQueue.size() && !m_Quit) {

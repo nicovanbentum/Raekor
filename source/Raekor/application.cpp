@@ -72,7 +72,7 @@ Application::Application(WindowFlags inFlags) {
     g_CVars.CreateFn("quit", quit_function);
     g_CVars.CreateFn("exit", quit_function);
 
-    if (inFlags != WindowFlag::HIDDEN)
+    if ((inFlags & WindowFlag::HIDDEN) == 0)
         SDL_ShowWindow(m_Window);
 }
 
@@ -97,21 +97,10 @@ void Application::Run() {
         while (SDL_PollEvent(&ev)) {
             OnEvent(ev);
 
-            if (ev.type == SDL_WINDOWEVENT) {
-                if (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) {
-                    for (;;) {
-                        auto temp_event = SDL_Event{};
-                        SDL_PollEvent(&temp_event);
-
-                        if (temp_event.window.event == SDL_WINDOWEVENT_RESTORED)
-                            break;
-                    }
-                }
-                if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
+            if (ev.type == SDL_WINDOWEVENT)
+                if (ev.window.event == SDL_WINDOWEVENT_CLOSE)
                     if (SDL_GetWindowID(m_Window) == ev.window.windowID)
                         m_Running = false;
-                }
-            }
         }
 
         if (!m_Running)

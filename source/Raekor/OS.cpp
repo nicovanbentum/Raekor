@@ -52,6 +52,18 @@ bool OS::sSetDarkTitleBar(SDL_Window* inWindow) {
 }
 
 
+void* OS::sGetFunctionPointer(const char* inName) {
+    return GetProcAddress(GetModuleHandleA(NULL), inName);
+}
+
+
+bool OS::sCheckCommandLineOption(const char* inOption) {
+    static const char* cmd_line = GetCommandLineA();
+    return strstr(cmd_line, inOption) != nullptr;
+}
+
+
+
 std::string OS::sOpenFileDialog(const char* filters) {
     OPENFILENAMEA ofn;
     CHAR szFile[260] = { 0 };
