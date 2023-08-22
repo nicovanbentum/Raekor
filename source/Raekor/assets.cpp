@@ -130,7 +130,7 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
 
 
 bool TextureAsset::Load(const std::string& filepath) {
-    if (filepath.empty() || !FileSystem::exists(filepath))
+    if (filepath.empty() || !fs::exists(filepath))
         return false;
 
     auto file = std::ifstream(filepath, std::ios::binary);
@@ -139,7 +139,7 @@ bool TextureAsset::Load(const std::string& filepath) {
     //std::vector<char> scratch(twoMegabytes);
     //file.rdbuf()->pubsetbuf(scratch.data(), scratch.size());
 
-    m_Data.resize(FileSystem::file_size(filepath));
+    m_Data.resize(fs::file_size(filepath));
     file.read(m_Data.data(), m_Data.size());
 
     DWORD magic_number;
@@ -155,8 +155,8 @@ bool TextureAsset::Load(const std::string& filepath) {
 
 
 Assets::Assets() {
-    if (!FileSystem::exists("assets"))
-        FileSystem::create_directory("assets");
+    if (!fs::exists("assets"))
+        fs::create_directory("assets");
 }
 
 
@@ -197,14 +197,14 @@ Path ScriptAsset::sConvert(const Path& inPath) {
     const auto dest = "assets" / abs_path.filename();
     const auto pdb_path = abs_path.replace_extension(".pdb");
 
-    FileSystem::copy(inPath, "assets" / abs_path.filename());
-    FileSystem::copy(pdb_path, "assets" / pdb_path.filename());
+    fs::copy(inPath, "assets" / abs_path.filename());
+    fs::copy(pdb_path, "assets" / pdb_path.filename());
     return dest;
 }
 
 
 bool ScriptAsset::Load(const std::string& inPath) {
-    if (inPath.empty() || !FileSystem::exists(inPath))
+    if (inPath.empty() || !fs::exists(inPath))
         return false;
 
     m_HModule = LoadLibraryA(inPath.c_str());

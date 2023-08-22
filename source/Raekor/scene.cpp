@@ -268,7 +268,7 @@ void Scene::SaveToFile(Assets& assets, const std::string& file) {
 
 
 void Scene::OpenFromFile(Assets& assets, const std::string& file) {
-    if (!FileSystem::is_regular_file(file)) {
+    if (!fs::is_regular_file(file)) {
         std::cout << "Scene::openFromFile : filepath " << file << " does not exist.";
         return;
     }
@@ -276,7 +276,7 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
     //Read file into buffer
     std::ifstream storage(file, std::ios::binary);
     std::string buffer;
-    buffer.resize(FileSystem::file_size(file));
+    buffer.resize(fs::file_size(file));
     storage.read(&buffer[0], buffer.size());
 
     auto decompressed = std::string();

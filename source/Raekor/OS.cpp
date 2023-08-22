@@ -27,7 +27,7 @@ bool OS::sRunMsBuild(const char* args) {
 }
 
 
-void OS::CopyToClipboard(const char* inText) {
+void OS::sCopyToClipboard(const char* inText) {
     const size_t len = strlen(inText) + 1;
     HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, len);
     memcpy(GlobalLock(hMem), inText, len);
@@ -109,14 +109,14 @@ std::string OS::sSaveFileDialog(const char* filters, const char* defaultExt) {
 }
 
 
-FileSystem::path OS::sGetExecutablePath() {
+fs::path OS::sGetExecutablePath() {
     char filepath[MAX_PATH];
     GetModuleFileNameA(NULL, filepath, MAX_PATH);
-    return FileSystem::path(filepath);
+    return fs::path(filepath);
 }
 
 
-FileSystem::path OS::sGetExecutableDirectoryPath() {
+fs::path OS::sGetExecutableDirectoryPath() {
     return sGetExecutablePath().parent_path();
 }
 

@@ -34,6 +34,8 @@ public:
 
 	Entity Clone(Entity inEntity);
 
+	void Merge(const Scene& inScene);
+
 	/* Loads materials from disk in parallel, is used for both importing and scene loading. */
 	void LoadMaterialTextures(Assets& ioAssets, const Slice<Entity>& inMaterials);
 

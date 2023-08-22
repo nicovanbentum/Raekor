@@ -21,7 +21,7 @@ namespace Raekor::VK {
 
     ImGui::GetIO().IniFilename = "";
 
-    if (FileSystem::exists(m_Settings.mSceneFile)) {
+    if (fs::exists(m_Settings.mSceneFile)) {
         SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
         m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
     }

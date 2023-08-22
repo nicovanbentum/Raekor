@@ -26,6 +26,7 @@ target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/JoltPhys
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 target_precompile_headers(${PROJECT_NAME} PRIVATE pch.h)
 
 # Add Jolt Physics library using their CMake file
@@ -33,6 +34,7 @@ set(PHYSICS_REPO_ROOT ${CMAKE_SOURCE_DIR}/dependencies/JoltPhysics)
 include(${PHYSICS_REPO_ROOT}/Jolt/Jolt.cmake)
 target_compile_features(Jolt PUBLIC cxx_std_17)
 set_property(TARGET Jolt PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+target_compile_definitions(Jolt PUBLIC "$<$<CONFIG:RelWithDebInfo>:JPH_DEBUG_RENDERER>")
 
 # Link all the things
 target_link_libraries(${PROJECT_NAME} PRIVATE Jolt)
@@ -54,7 +56,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/dependencies/entt/src
     ${CMAKE_SOURCE_DIR}/dependencies/ImGuizmo
     ${CMAKE_SOURCE_DIR}/dependencies/cereal/include
-    ${CMAKE_SOURCE_DIR}/dependencies/JoltPhysics/Jolt
+    ${CMAKE_SOURCE_DIR}/dependencies/JoltPhysics
     ${CMAKE_SOURCE_DIR}/dependencies/IconFontCppHeaders
     ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include
 )

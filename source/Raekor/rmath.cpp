@@ -18,18 +18,18 @@ BBox3D& BBox3D::Transform(const Mat4x4& inTransform) {
 
 
 Ray::Ray(Viewport& inViewport, Vec2 inCoords) {
-    Vec3 ray_ndc = {
-        (2.0f * inCoords.x) / inViewport.GetSize().x - 1.0f,
-        1.0f - (2.0f * inCoords.y) / inViewport.GetSize().y,
+    auto ndc_to_clip = Vec3 {
+       (inCoords.x / inViewport.GetSize().x) * 2.0f - 1.0f,
+       (inCoords.y / inViewport.GetSize().y) * 2.0f - 1.0f,
         1.0f
     };
 
-    const auto clip_ray = Vec4 { ray_ndc.x, ray_ndc.y, -1.0f, 1.0f };
+    auto clip_ray = Vec4 { ndc_to_clip.x, ndc_to_clip.y, -1.0f, 1.0f };
 
-    auto camera_ray = glm::inverse(inViewport.GetCamera().GetProjection()) * clip_ray;
-    camera_ray.z = -1.0f, camera_ray.w = 0.0f;
+    auto view_ray = glm::inverse(inViewport.GetCamera().GetProjection()) * clip_ray;
+    view_ray.z = -1.0f, view_ray.w = 0.0f;
 
-    auto world_ray = glm::inverse(inViewport.GetCamera().GetView()) * camera_ray;
+    auto world_ray = glm::inverse(inViewport.GetCamera().GetView()) * view_ray;
     world_ray = glm::normalize(world_ray);
 
     m_Direction = world_ray;

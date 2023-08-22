@@ -33,7 +33,8 @@ class RenderPass {
 public:
     class ScopedTimer {
     public:
-        ScopedTimer(const char* inName, RenderPass* inThis, bool inEnabled) : m_This(inThis), m_Enabled(inEnabled) { 
+        ScopedTimer(const char* inName, RenderPass* inThis, bool inEnabled) : m_This(inThis), m_Enabled(inEnabled) {
+            m_This->m_Name = inName;
             if (m_Enabled) m_This->m_Timer.begin(); 
         }
         ~ScopedTimer() { if (m_Enabled) m_This->m_Timer.end(); }
@@ -43,11 +44,14 @@ public:
         RenderPass* m_This = nullptr;
     };
 
+    const char* GetName() const { return m_Name; }
+    float GetElapsedTime() const { return m_Timer.getMilliseconds(); }
+
     virtual void CreateRenderTargets(const Viewport& inViewport) = 0;
     virtual void DestroyRenderTargets() = 0;
 
 private:
-    const char* m_Name;
+    const char* m_Name = nullptr;
     GLTimer m_Timer;
 };
 

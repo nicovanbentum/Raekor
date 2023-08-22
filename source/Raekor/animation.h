@@ -13,9 +13,9 @@ public:
 	void LoadFromAssimp(const aiNodeAnim* inNodeAnim);
 	void LoadFromGltf(const cgltf_animation* inNodeAnim);
 
-	glm::vec3 GetInterpolatedScale(float animationTime) const;
-	glm::quat GetInterpolatedRotation(float animationTime) const;
-	glm::vec3 GetInterpolatedPosition(float animationTime) const;
+	Vec3 GetInterpolatedScale(float animationTime) const;
+	Quat GetInterpolatedRotation(float animationTime) const;
+	Vec3 GetInterpolatedPosition(float animationTime) const;
 
 private:
 	uint32_t				 m_BoneIndex;

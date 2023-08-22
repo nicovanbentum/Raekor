@@ -139,10 +139,44 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
         const auto pixel = m_Editor->GetRenderer()->GetSelectedEntity(mouse_pos.x, mouse_pos.y);
         auto picked = Entity(pixel);
 
-        if (scene.valid(picked))
-            SetActiveEntity(GetActiveEntity() == picked ? sInvalidEntity : picked);
+        if (GetActiveEntity() == picked) {
+            if (auto soft_body = scene.try_get<SoftBody>(GetActiveEntity())) {
+                if (auto body = GetPhysics().GetSystem()->GetBodyLockInterface().TryGetBody(soft_body->mBodyID)) {
+                    const auto ray = Ray(viewport, mouse_pos);
+                    const auto& mesh = scene.get<Mesh>(GetActiveEntity());
+                    const auto& transform = scene.get<Transform>(GetActiveEntity());
+
+                    auto hit_dist = FLT_MAX;
+                    auto triangle_index = -1;
+
+                    for (auto i = 0u; i < mesh.indices.size(); i += 3) {
+                        const auto v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
+                        const auto v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
+                        const auto v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
+
+                        const auto hit_result = ray.HitsTriangle(v0, v1, v2);
+
+                        if (hit_result.has_value() && hit_result.value() < hit_dist) {
+                            hit_dist = hit_result.value();
+                            triangle_index = i;
+                        }
+                    }
+                    
+                    if (triangle_index > -1) {
+                        auto props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties();
+                        props->GetVertex(mesh.indices[triangle_index]).mInvMass = 0.0f;
+                        props->GetVertex(mesh.indices[triangle_index + 1]).mInvMass = 0.0f;
+                        props->GetVertex(mesh.indices[triangle_index + 2]).mInvMass = 0.0f;
+                        
+                        m_Editor->LogMessage(std::format("Soft Body triangle hit: {}", triangle_index));
+                    }
+                }
+            }
+            else
+                SetActiveEntity(sInvalidEntity);
+        }
         else
-            SetActiveEntity(sInvalidEntity);
+            SetActiveEntity(picked);
     }
 
     if (GetActiveEntity() != entt::null && scene.valid(GetActiveEntity()) && scene.all_of<Transform>(GetActiveEntity()) && gizmoEnabled) {

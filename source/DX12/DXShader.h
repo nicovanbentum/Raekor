@@ -29,7 +29,7 @@ class IResource {
 
 public:
     virtual bool OnCompile() { return true; }
-    virtual bool IsCompiled() { return true; }
+    virtual bool IsCompiled() const { return true; }
 };
 
 
@@ -44,7 +44,7 @@ public:
     EShaderProgramType GetProgramType() const { return mProgramType; }
 
     bool OnCompile() override;
-    bool IsCompiled() override;
+    bool IsCompiled() const override;
 
 private:
     // JSON fields
@@ -60,9 +60,9 @@ private:
     std::vector<unsigned char> mComputeShader;
 
     // runtime fields
-    FileSystem::file_time_type mVertexShaderFileTime;
-    FileSystem::file_time_type mPixelShaderFileTime;
-    FileSystem::file_time_type mComputeShaderFileTime;
+    fs::file_time_type mVertexShaderFileTime;
+    fs::file_time_type mPixelShaderFileTime;
+    fs::file_time_type mComputeShaderFileTime;
 };
 
 
@@ -109,7 +109,7 @@ struct SystemShadersDX12 : public IResource {
 
     bool HotLoad();
     bool OnCompile() override;
-    bool IsCompiled() override;
+    bool IsCompiled() const override;
 };
 
 

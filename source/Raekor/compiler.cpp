@@ -9,6 +9,9 @@
 
 #define WIN_TRAY_MESSAGE WM_USER + 1
 #define IDI_ICON1 102
+#define IDM_MENUITEM1 1
+#define IDM_MENUITEM2 2
+#define IDM_EXIT 100
 
 
 namespace Raekor {
@@ -61,7 +64,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 
     SDL_SetWindowTitle(m_Window, "Raekor Asset Compiler");
 
-    for (const auto& file : FileSystem::recursive_directory_iterator("assets")) {
+    for (const auto& file : fs::recursive_directory_iterator("assets")) {
         if (!file.is_regular_file())
             continue;
 
@@ -82,17 +85,18 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
     g_ThreadPool.SetActiveThreadCount(g_ThreadPool.GetThreadCount() / 4);
 
     stbi_set_flip_vertically_on_load(true);
+
+    const auto assets_folder = fs::absolute("assets").string();
+    auto change_notifs = FindFirstChangeNotificationA(assets_folder.c_str(), true, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE);
+    assert(change_notifs != INVALID_HANDLE_VALUE);
+
 }
 
 
 
 CompilerApp::~CompilerApp() {
-    SDL_SysWMinfo wminfo;
-    SDL_VERSION(&wminfo.version);
-    SDL_GetWindowWMInfo(m_Window, &wminfo);
-
     NOTIFYICONDATA nid = { sizeof(NOTIFYICONDATA) };
-    nid.hWnd = wminfo.info.win.window;
+    nid.hWnd = GetWindowHandle();
     nid.uID = 1;
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = WM_USER + 1;
@@ -155,6 +159,11 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
     auto compile_textures = m_CompileTextures.load();
     if (ImGui::Checkbox("Convert Textures", &compile_textures))
         m_CompileTextures.store(compile_textures);
+
+    if (m_FilesInFlight.size() > 0) {
+        ImGui::SameLine();
+        ImGui::Spinner("##filesinflightspinner", ImGui::GetFontSize() / 2.0f, 2, ImGui::GetColorU32(ImGuiCol_CheckMark));
+    }
 
     auto flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable;
     ImGui::PushStyleColor(ImGuiCol_TableRowBg, ImVec4(0.15, 0.15, 0.15, 1.0));
@@ -230,7 +239,7 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
                 m_SelectedIndex = index;
 
                 if (ImGui::MenuItem("Open..")) {
-                    if (FileSystem::exists(file.mCachePath))
+                    if (fs::exists(file.mCachePath))
                         ShellExecute(NULL, "open", file.mCachePath.c_str(), NULL, NULL, SW_RESTORE);
                     else
                         ShellExecute(NULL, "open", file.mAssetPath.c_str(), NULL, NULL, SW_RESTORE);
@@ -240,12 +249,12 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
                     const auto& file = m_Files[m_SelectedIndex];
 
                     auto error_code = std::error_code();
-                    if (FileSystem::exists(file.mCachePath, error_code))
-                        FileSystem::remove(file.mCachePath);
+                    if (fs::exists(file.mCachePath, error_code))
+                        fs::remove(file.mCachePath);
                 }
 
                 if (ImGui::MenuItem("Open Containing Folder..")) {
-                    auto& filepath = FileSystem::exists(file.mCachePath) ? file.mCachePath : file.mAssetPath;
+                    auto& filepath = fs::exists(file.mCachePath) ? file.mCachePath : file.mAssetPath;
                     auto folder = Path(filepath).parent_path().string();
                     ShellExecute(NULL, "open", folder.c_str(), NULL, NULL, SW_RESTORE);
                 }
@@ -255,7 +264,7 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
             else if (ImGui::IsItemHovered())
             {
                 if (ImGui::IsMouseDoubleClicked(0)) {
-                    if (FileSystem::exists(file.mCachePath))
+                    if (fs::exists(file.mCachePath))
                         ShellExecute(NULL, "open", file.mCachePath.c_str(), NULL, NULL, SW_RESTORE);
                     else
                         ShellExecute(NULL, "open", file.mAssetPath.c_str(), NULL, NULL, SW_RESTORE);
@@ -269,7 +278,7 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
             ImGui::SameLine();
 
             auto error_code = std::error_code();
-            if (FileSystem::exists(file.mCachePath, error_code))
+            if (fs::exists(file.mCachePath, error_code))
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 1, 0, 1));
             else {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
@@ -309,6 +318,8 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
         ImGui::EndTable();
     }
 
+    ImGui::NewLine();
+
     ImGui::PopStyleColor();
     ImGui::PopStyleColor();
 
@@ -330,7 +341,7 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
     SDL_RenderPresent(m_Renderer);
 
     for (auto [index, file] : gEnumerate(m_Files)) {
-        if (FileSystem::exists(file.mCachePath) || m_FilesInFlight.contains(index))
+        if (fs::exists(file.mCachePath) || m_FilesInFlight.contains(index))
             continue;
 
         if (file.mAssetType == ASSET_TYPE_IMAGE && m_CompileTextures) {
@@ -338,8 +349,8 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
 
            g_ThreadPool.QueueJob([this, index, &file]() {
                 auto asset_path = TextureAsset::sConvert(file.mAssetPath);
-                FileSystem::create_directories(Path(file.mCachePath).parent_path());
-                FileSystem::copy_file(asset_path, file.mCachePath);
+                fs::create_directories(Path(file.mCachePath).parent_path());
+                fs::copy_file(asset_path, file.mCachePath);
 
                 file.UpdateWriteTime();
 
@@ -358,35 +369,7 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
 
                 const auto file_dir = importer.GetDirectory().string();
 
-               // patch materials, ugh, bleh, todo: fixme
-               if (const auto ai_scene = importer.GetAiScene()) {
-                   for (auto [index, ai_material] : gEnumerate(Slice(ai_scene->mMaterials, ai_scene->mNumMaterials))) {
-                       aiString albedoFile, normalmapFile, metalroughFile;
-                       ai_material->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
-                       ai_material->GetTexture(aiTextureType_NORMALS, 0, &normalmapFile);
-                       ai_material->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &metalroughFile);
-
-                       auto& material = scene.get<Material>(importer.GetMaterials()[index]);
-
-                       if (albedoFile.length) {
-                           material.albedoFile = file_dir + albedoFile.C_Str();
-                            material.albedoFile = FileSystem::relative(material.albedoFile).replace_extension(".dds").string().replace(0, 6, "cached");
-                       }
-
-                       if (normalmapFile.length) {
-                           material.normalFile = file_dir + normalmapFile.C_Str();
-                            material.normalFile = FileSystem::relative(material.normalFile).replace_extension(".dds").string().replace(0, 6, "cached");
-                       }
-
-                       if (metalroughFile.length) {
-                           material.metalroughFile = file_dir + metalroughFile.C_Str();
-                           material.metalroughFile = FileSystem::relative(material.metalroughFile).replace_extension(".dds").string().replace(0, 6, "cached");
-                       }
-
-                    }
-               }
-
-               FileSystem::create_directories(Path(file.mCachePath).parent_path());
+               fs::create_directories(Path(file.mCachePath).parent_path());
                scene.SaveToFile(assets, file.mCachePath);
 
                std::scoped_lock lock(m_FilesInFlightMutex);
@@ -410,29 +393,41 @@ void CompilerApp::OnEvent(const SDL_Event& inEvent) {
     if (inEvent.type == SDL_SYSWMEVENT) {
         auto& win_msg = inEvent.syswm.msg->msg.win;
 
-        switch (win_msg.msg)
-        {
-        case WIN_TRAY_MESSAGE:
-            switch (win_msg.lParam)
-            {
-            case WM_LBUTTONDBLCLK: {
-                SDL_ShowWindow(m_Window);
-                SDL_RestoreWindow(m_Window);
-                SDL_RaiseWindow(m_Window);  
+        switch (win_msg.msg) {
+            case WM_COMMAND: {
+                switch (LOWORD(win_msg.wParam)) {
+                    case IDM_MENUITEM1: {
+                        OpenFromTray();
+                    } break;
 
-                SDL_SysWMinfo wminfo;
-                SDL_VERSION(&wminfo.version);
-                SDL_GetWindowWMInfo(m_Window, &wminfo);
+                    case IDM_EXIT: {
+                        m_Running = false;
+                    } break;
+                }
+            } break;
 
-                ShowWindow(wminfo.info.win.window, SW_RESTORE);
-                break;
+            case WIN_TRAY_MESSAGE: {
+                switch (win_msg.lParam)
+                {
+                    case WM_LBUTTONDBLCLK: {
+                        OpenFromTray();
+                    } break;
+
+                    case WM_RBUTTONDOWN:
+                    case WM_CONTEXTMENU: {
+                        POINT pt;
+                        GetCursorPos(&pt);
+
+                        HMENU hMenu = CreatePopupMenu();
+                        AppendMenuA(hMenu, MF_STRING, IDM_MENUITEM1, "Open");
+                        AppendMenuA(hMenu, MF_SEPARATOR, 0, NULL);
+                        AppendMenuA(hMenu, MF_STRING, IDM_EXIT, "Exit");
+
+                        TrackPopupMenu(hMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, GetWindowHandle(), NULL);
+                        DestroyMenu(hMenu);
+                    } break;
+                }
             }
-            case WM_RBUTTONDOWN:
-            case WM_CONTEXTMENU:
-                break;
-                //ShowContextMenu(hWnd);
-            }
-            break;
         }
     }
 
@@ -444,14 +439,30 @@ void CompilerApp::OnEvent(const SDL_Event& inEvent) {
                 const auto& file = m_Files[m_SelectedIndex];
 
                 auto error_code = std::error_code();
-                if (FileSystem::exists(file.mCachePath, error_code))
-                    FileSystem::remove(file.mCachePath);
+                if (fs::exists(file.mCachePath, error_code))
+                    fs::remove(file.mCachePath);
             }
 
         } break;
         }
     }
 
+}
+
+
+void CompilerApp::OpenFromTray() {
+    SDL_ShowWindow(m_Window);
+    SDL_RestoreWindow(m_Window);
+    SDL_RaiseWindow(m_Window);
+    ShowWindow(GetWindowHandle(), SW_RESTORE);
+}
+
+
+HWND CompilerApp::GetWindowHandle() {
+    SDL_SysWMinfo wminfo;
+    SDL_VERSION(&wminfo.version);
+    SDL_GetWindowWMInfo(m_Window, &wminfo);
+    return wminfo.info.win.window;
 }
 
 }

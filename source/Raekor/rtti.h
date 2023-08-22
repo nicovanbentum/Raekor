@@ -44,7 +44,7 @@ private:
     uint32_t m_Hash;
     std::string m_Name;
     Constructor m_Constructor;
-    std::vector<RTTI*> m_BaseClasses;;
+    std::vector<RTTI*> m_BaseClasses;
     std::vector<std::unique_ptr<Member>> m_Members;
 };
 
@@ -189,18 +189,18 @@ inline const char* gToString(enum_name inType) {                             \
 
 #define RTTI_CLASS_HEADER(name)                                                                                         \
 public:                                                                                                                 \
-    virtual RTTI& GetRTTI();                                                                                            \
-    friend RTTI& sGetRTTI(name* inName);                                                                                \
+    virtual RTTI& GetRTTI() const;                                                                                      \
+    friend RTTI& sGetRTTI(const name* inName);                                                                          \
     static void sImplRTTI(RTTI& inRTTI)            
 
 
 #define RTTI_CLASS_CPP(name)                                                                                            \
-    RTTI& sGetRTTI(name* inName) {                                                                                      \
+    RTTI& sGetRTTI(const name* inName) {                                                                                \
         static auto rtti = RTTI(#name, &name::sImplRTTI, []() -> void* { return new name; });                           \
         return rtti;                                                                                                    \
     }                                                                                                                   \
                                                                                                                         \
-    RTTI& name::GetRTTI() {                                                                                             \
+    RTTI& name::GetRTTI() const {                                                                                       \
         return sGetRTTI(this);                                                                                          \
     }                                                                                                                   \
                                                                                                                         \
@@ -208,12 +208,12 @@ public:                                                                         
 
 
 #define RTTI_CLASS_CPP_NO_FACTORY(name)                                                                                 \
-    RTTI& sGetRTTI(name* inName) {                                                                                      \
+    RTTI& sGetRTTI(const name* inName) {                                                                                \
         static auto rtti = RTTI(#name, &name::sImplRTTI, []() -> void* { return nullptr; });                            \
         return rtti;                                                                                                    \
     }                                                                                                                   \
                                                                                                                         \
-    RTTI& name::GetRTTI() {                                                                                             \
+    RTTI& name::GetRTTI() const {                                                                                       \
         return sGetRTTI(this);                                                                                          \
     }                                                                                                                   \
                                                                                                                         \

@@ -64,13 +64,13 @@ RTTI_CLASS_CPP(SystemShadersDX12) {
 bool ShaderProgram::GetGraphicsProgram(CD3DX12_SHADER_BYTECODE& ioVertexShaderByteCode, CD3DX12_SHADER_BYTECODE& ioPixelShaderByteCode) const {
     ioVertexShaderByteCode = CD3DX12_SHADER_BYTECODE(mVertexShader.data(), mVertexShader.size());
     ioPixelShaderByteCode = CD3DX12_SHADER_BYTECODE(mPixelShader.data(), mPixelShader.size());
-    return mProgramType == SHADER_PROGRAM_GRAPHICS;
+    return IsCompiled();
 }
 
 
 bool ShaderProgram::GetComputeProgram(CD3DX12_SHADER_BYTECODE& ioComputeShaderByteCode) const {
     ioComputeShaderByteCode = CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size());
-    return mProgramType == SHADER_PROGRAM_COMPUTE;
+    return IsCompiled();
 }
 
 
@@ -94,8 +94,8 @@ bool ShaderProgram::OnCompile() {
 
     switch (mProgramType) {
     case SHADER_PROGRAM_GRAPHICS: {
-        mVertexShaderFileTime = FileSystem::last_write_time(mVertexShaderFilePath);
-        mPixelShaderFileTime = FileSystem::last_write_time(mPixelShaderFilePath);
+        mVertexShaderFileTime = fs::last_write_time(mVertexShaderFilePath);
+        mPixelShaderFileTime = fs::last_write_time(mPixelShaderFilePath);
 
         auto vertex_shader_blob = g_ShaderCompiler.CompileShader(mVertexShaderFilePath, SHADER_TYPE_VERTEX, mDefines);
         auto pixel_shader_blob = g_ShaderCompiler.CompileShader(mPixelShaderFilePath, SHADER_TYPE_PIXEL, mDefines);
@@ -109,7 +109,7 @@ bool ShaderProgram::OnCompile() {
         return !mVertexShader.empty() && !mPixelShader.empty();
     }
     case SHADER_PROGRAM_COMPUTE: {
-        mComputeShaderFileTime = FileSystem::last_write_time(mComputeShaderFilePath);
+        mComputeShaderFileTime = fs::last_write_time(mComputeShaderFilePath);
         
         auto compute_shader_blob = g_ShaderCompiler.CompileShader(mComputeShaderFilePath, SHADER_TYPE_COMPUTE, mDefines);
 
@@ -128,7 +128,7 @@ bool ShaderProgram::OnCompile() {
 }
 
 
-bool ShaderProgram::IsCompiled() {
+bool ShaderProgram::IsCompiled() const {
     switch (mProgramType) {
     case SHADER_PROGRAM_GRAPHICS:
         return !mVertexShader.empty() && !mPixelShader.empty();
@@ -254,20 +254,24 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
         token = strtok(NULL, ":");
         const auto error_msg = std::string(token);
 
-        OutputDebugStringA(std::format("{}({}): Error: {}", FileSystem::absolute(inPath).string(), line_nr, error_msg).c_str());
+        OutputDebugStringA(std::format("{}({}): Error: {}", fs::absolute(inPath).string(), line_nr, error_msg).c_str());
 
     }
 
     if (!SUCCEEDED(hr_status)) {
         std::cout << std::format("Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
-
         return nullptr;
     }
 
     auto shader = ComPtr<IDxcBlob>{}, pdb = ComPtr<IDxcBlob>{};
     auto debug_data = ComPtr<IDxcBlobUtf16>{};
-    gThrowIfFailed(result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(shader.GetAddressOf()), debug_data.GetAddressOf()));
-    gThrowIfFailed(result->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(pdb.GetAddressOf()), debug_data.GetAddressOf()));
+    hr_status = result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(shader.GetAddressOf()), debug_data.GetAddressOf());
+    hr_status = result->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(pdb.GetAddressOf()), debug_data.GetAddressOf());
+
+    if (!SUCCEEDED(hr_status)) {
+        std::cout << std::format("Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
+        return nullptr;
+    }
 
     auto pdb_file = std::ofstream(inPath.parent_path() / inPath.filename().replace_extension(".pdb"));
     pdb_file.write((char*)pdb->GetBufferPointer(), pdb->GetBufferSize());
@@ -292,10 +296,10 @@ bool SystemShadersDX12::HotLoad() {
 
         auto GetFileTimeStamp = [](const Path& inPath) {
             auto error_code = std::error_code();
-            auto timestamp = FileSystem::last_write_time(inPath, error_code);
+            auto timestamp = fs::last_write_time(inPath, error_code);
 
             while (error_code)
-                timestamp = FileSystem::last_write_time(inPath, error_code);
+                timestamp = fs::last_write_time(inPath, error_code);
 
             return timestamp;
         };
@@ -336,7 +340,7 @@ bool SystemShadersDX12::OnCompile() {
 }
 
 
-bool SystemShadersDX12::IsCompiled() {
+bool SystemShadersDX12::IsCompiled() const {
     auto is_compiled = true;
     for (const auto& member : GetRTTI())
         is_compiled &= member->GetRef<ShaderProgram>(this).IsCompiled();

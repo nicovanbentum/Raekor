@@ -29,7 +29,7 @@ void GLShader::Compile() {
         if (!file.is_open()) 
             return;
 
-        auto spirv = std::vector<unsigned char>(FileSystem::file_size(stage.binfile));
+        auto spirv = std::vector<unsigned char>(fs::file_size(stage.binfile));
         file.read((char*)&spirv[0], spirv.size());
         file.close();
 
@@ -109,11 +109,11 @@ void GLShader::Compile() {
 
 
 bool GLShader::sGlslangValidator(const char* inVulkanSDK, const Path& inSrcPath, const Path& inDstPath) {
-    if (!FileSystem::is_regular_file(inSrcPath)) 
+    if (!fs::is_regular_file(inSrcPath)) 
         return false;
 
     const auto compiler = inVulkanSDK + std::string("\\Bin\\glslangValidator.exe -G ");
-    const auto command = compiler + FileSystem::absolute(inSrcPath).string() + " -o " + inDstPath.string();
+    const auto command = compiler + fs::absolute(inSrcPath).string() + " -o " + inDstPath.string();
 
     if (system(command.c_str()) != 0)
         return false;
@@ -148,7 +148,7 @@ Shader::Stage::Stage(Type type, const Path& inSrcFile) :
     textfile(inSrcFile.string()),
     watcher(inSrcFile.string())
 {
-    if (!FileSystem::exists(inSrcFile)) {
+    if (!fs::exists(inSrcFile)) {
         std::cerr << "file does not exist on disk\n";
         return;
     }

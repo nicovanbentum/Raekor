@@ -4,27 +4,29 @@
 
 namespace Raekor {
 
-using FuncPtrVoidNoArgs = void (*)();
-
-
 /*  
     Interface for OS specific tasks.
     Compile time decides which function definitions to pull in.
 */
-class OS {
-public:
-    static bool  sRunMsBuild(const char* args);
-    static void  CopyToClipboard(const char* inText);
-    static bool  sSetDarkTitleBar(SDL_Window* inWindow);
-    static void* sGetFunctionPointer(const char* inName);
-    static bool  sCheckCommandLineOption(const char* inOption);
+namespace OS {
+    enum class EDirectoryChange {
+        FILE_CREATED
+    };
 
-    static std::string sOpenFileDialog(const char* filters);
-    static std::string sSaveFileDialog(const char* filters, const char* defaultExt);
-    static std::string sSelectFolderDialog();
+    bool sWatchDirectory(const Path& inDirPath, EDirectoryChange& outChange, Path& outFilePath);
 
-    static FileSystem::path sGetExecutablePath();
-    static FileSystem::path sGetExecutableDirectoryPath();
+    bool  sRunMsBuild(const char* args);
+    void  sCopyToClipboard(const char* inText);
+    bool  sSetDarkTitleBar(SDL_Window* inWindow);
+    void* sGetFunctionPointer(const char* inName);
+    bool  sCheckCommandLineOption(const char* inOption);
+
+    std::string sOpenFileDialog(const char* filters);
+    std::string sSaveFileDialog(const char* filters, const char* defaultExt);
+    std::string sSelectFolderDialog();
+
+    fs::path sGetExecutablePath();
+    fs::path sGetExecutableDirectoryPath();
 };
 
 } // Namespace Raekor

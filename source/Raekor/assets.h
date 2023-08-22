@@ -144,7 +144,7 @@ std::shared_ptr<T> Assets::GetAsset(const std::string& inPath) {
         if (auto asset = find(inPath); asset != end())
             return std::static_pointer_cast<T>(asset->second);
         // if there is no asset pointer already and the file path exists on disk, insert it
-        else if (FileSystem::exists(inPath))
+        else if (fs::exists(inPath))
             insert(std::make_pair(inPath, std::shared_ptr<Asset>(new T(inPath))));
         else
             // can't load anything if it doesn't exist on disk

@@ -4,18 +4,6 @@ namespace Raekor {
 
 class Viewport;
 
-
-using Vec2      = glm::vec2;
-using Vec3      = glm::vec3;
-using Vec4      = glm::vec4;
-using UVec2     = glm::uvec2;
-using UVec3     = glm::uvec3;
-using IVec3     = glm::ivec3;
-using IVec4     = glm::ivec4;
-using Mat3x3    = glm::mat3x3;
-using Mat4x3    = glm::mat4x3;
-using Mat4x4    = glm::mat4x4;
-
 template<glm::length_t L, typename T>
 std::string gToString(const glm::vec<L, T>& inValue);
 

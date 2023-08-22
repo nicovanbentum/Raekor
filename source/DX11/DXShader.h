@@ -17,7 +17,7 @@ inline static auto sTypeTargets = std::array {
 struct Stage {
     Type type;
     std::string mTextFile;
-    FileSystem::file_time_type mUpdateTime;
+    fs::file_time_type mUpdateTime;
 };
 
 

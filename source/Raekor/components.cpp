@@ -294,4 +294,8 @@ void clone<BoxCollider>(entt::registry& reg, entt::entity from, entt::entity to)
     to_component.bodyID = JPH::BodyID(); 
 }
 
+void SoftBody::CreateFromMesh(const Mesh& inMesh) {
+
+}
+
 } // raekor

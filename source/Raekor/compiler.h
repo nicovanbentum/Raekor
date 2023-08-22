@@ -39,7 +39,7 @@ struct FileEntry {
     FileEntry(const Path& inAssetPath) 
         : mAssetPath(inAssetPath.string()), mAssetType(GetCacheFileExtension(inAssetPath)) 
     {
-        mCachePath = FileSystem::relative(inAssetPath).replace_extension(sAssetTypeExtensions[(int)mAssetType]).string().replace(0, 6, "cached");
+        mCachePath = fs::relative(inAssetPath).replace_extension(sAssetTypeExtensions[(int)mAssetType]).string().replace(0, 6, "cached");
     }
 
     void UpdateFileHash() {
@@ -54,8 +54,8 @@ struct FileEntry {
     }
 
     void UpdateWriteTime() {
-        auto& write_path = FileSystem::exists(mCachePath) ? mCachePath : mAssetPath;
-        mWriteTime = std::chrono::system_clock::to_time_t(std::chrono::clock_cast<std::chrono::system_clock>(FileSystem::last_write_time(write_path)));
+        auto& write_path = fs::exists(mCachePath) ? mCachePath : mAssetPath;
+        mWriteTime = std::chrono::system_clock::to_time_t(std::chrono::clock_cast<std::chrono::system_clock>(fs::last_write_time(write_path)));
     }
 
     void ReadMetadata() {
@@ -82,11 +82,15 @@ public:
     virtual void OnUpdate(float inDeltaTime) override;
     virtual void OnEvent(const SDL_Event& inEvent) override;
 
+    void OpenFromTray();
+    HWND GetWindowHandle();
+
 private:
     bool m_WasClosed = false;
     int m_ResizeCounter = 0;
     int m_SelectedIndex = -1;
     SDL_Renderer* m_Renderer;
+    uint32_t m_NrOfFilesInFlight = 0;
     std::mutex m_FilesInFlightMutex;
     std::set<uint32_t> m_FilesInFlight;
     std::vector<FileEntry> m_Files;

@@ -86,21 +86,47 @@
 #include "gtx/matrix_decompose.hpp"
 #include "gtx/euler_angles.hpp"
 
+namespace Raekor {
+using Quat   = glm::quat;
+using Vec2   = glm::vec2;
+using Vec3   = glm::vec3;
+using Vec4   = glm::vec4;
+using UVec2  = glm::uvec2;
+using UVec3  = glm::uvec3;
+using IVec3  = glm::ivec3;
+using IVec4  = glm::ivec4;
+using Mat3x3 = glm::mat3x3;
+using Mat4x3 = glm::mat4x3;
+using Mat4x4 = glm::mat4x4;
+}
+
+
 /////////////////////////
 // Jolt physics library
-#include "Jolt.h"
-#include "Physics/PhysicsSystem.h"
-#include "RegisterTypes.h"
-#include "Core/TempAllocator.h"
-#include "Core/JobSystemThreadPool.h"
-#include "Physics/PhysicsSettings.h"
-#include "Physics/PhysicsSystem.h"
-#include "Physics/StateRecorderImpl.h"
-#include "Physics/Collision/Shape/BoxShape.h"
-#include "Physics/Collision/Shape/SphereShape.h"
-#include "Physics/Collision/Shape/MeshShape.h"
-#include "Physics/Body/BodyCreationSettings.h"
-#include "Physics/Body/BodyActivationListener.h"
+#ifndef JPH_DEBUG_RENDERER
+#define JPH_DEBUG_RENDERER
+#endif
+
+#include "Jolt/Jolt.h"
+#include "Jolt/Physics/PhysicsSystem.h"
+#include "Jolt/RegisterTypes.h"
+#include "Jolt/Core/TempAllocator.h"
+#include "Jolt/Physics/Collision/RayCast.h"
+#include "Jolt/Physics/Collision/CastResult.h"
+#include "Jolt/Renderer/DebugRenderer.h"
+#include "Jolt/Core/JobSystemThreadPool.h"
+#include "Jolt/Physics/PhysicsSettings.h"
+#include "Jolt/Physics/PhysicsSystem.h"
+#include "Jolt/Physics/StateRecorderImpl.h"
+#include "Jolt/Physics/Collision/Shape/BoxShape.h"
+#include "Jolt/Physics/Collision/Shape/SphereShape.h"
+#include "Jolt/Physics/Collision/Shape/MeshShape.h"
+#include "Jolt/Physics/Body/BodyCreationSettings.h"
+#include "Jolt/Physics/Body/BodyActivationListener.h"
+#include "Jolt/Physics/SoftBody/SoftBodyShape.h"
+#include "Jolt/Physics/SoftBody/SoftBodyCreationSettings.h"
+#include "Jolt/Physics/SoftBody/SoftBodyMotionProperties.h"
+
 
 /////////////////////
 // c++ (17) includes
@@ -124,11 +150,13 @@
 #include <algorithm>
 #include <type_traits>
 #include <unordered_map>
-
 #include <filesystem>
-namespace FileSystem = std::filesystem;
-using Path = FileSystem::path;
+
+namespace fs = std::filesystem;
+namespace Raekor {
+using Path = fs::path;
 using File = std::fstream;
+}
 
 /////////////////////
 // include stb image

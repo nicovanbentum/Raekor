@@ -35,6 +35,8 @@ bool AssimpImporter::LoadFromFile(const std::string& file, Assets* inAssets) {
         aiProcess_OptimizeGraph |
         aiProcess_CalcTangentSpace |
         aiProcess_LimitBoneWeights |
+        aiProcess_FindDegenerates |
+        aiProcess_FindInvalidData |
         // aiProcess_OptimizeMeshes |
         // aiProcess_PreTransformVertices |
         aiProcess_ValidateDataStructure |

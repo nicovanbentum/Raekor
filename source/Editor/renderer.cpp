@@ -69,13 +69,13 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     gpu_info.mActiveAPI = std::string("OpenGL " + std::string((const char*)glGetString(GL_VERSION)));
     SetGPUInfo(gpu_info);
 
-    if (!FileSystem::exists("assets/system/shaders/OpenGL/bin"))
-        FileSystem::create_directory("assets/system/shaders/OpenGL/bin");
+    if (!fs::exists("assets/system/shaders/OpenGL/bin"))
+        fs::create_directory("assets/system/shaders/OpenGL/bin");
 
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
-    for (const auto& file : FileSystem::directory_iterator("assets/system/shaders/OpenGL")) {
+    for (const auto& file : fs::directory_iterator("assets/system/shaders/OpenGL")) {
         if (file.is_directory()) 
             continue;
 
@@ -90,7 +90,7 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
-            if (!FileSystem::exists(outfile) || FileSystem::last_write_time(outfile) < file.last_write_time()) {
+            if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time()) {
                 auto success = GLShader::sGlslangValidator(vulkanSDK, file, outfile);
 
                 {
@@ -319,14 +319,14 @@ void Renderer::Render(const Scene& scene, const Viewport& viewport) {
 
 
 
-void Renderer::AddDebugLine(glm::vec3 p1, glm::vec3 p2) {
+void Renderer::AddDebugLine(Vec3 p1, Vec3 p2) {
     m_DebugLines->points.push_back(p1);
     m_DebugLines->points.push_back(p2);
 }
 
 
 
-void Renderer::AddDebugBox(glm::vec3 min, glm::vec3 max, const glm::mat4& m) {
+void Renderer::AddDebugBox(Vec3 min, Vec3 max, const Mat4x4& m) {
     AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
     AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
     AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
@@ -392,6 +392,10 @@ void Renderer::DrawImGui(Scene& inScene, const Viewport& inViewport) {
     ImGui::Text("Bloom");
     ImGui::Separator();
     ImGui::DragFloat3("Threshold", glm::value_ptr(m_DeferredShading->settings.bloomThreshold), 0.01f, 0.0f, 10.0f, "%.3f");
+
+    for (const auto& render_pass : m_RenderPasses)
+        if (render_pass->GetName())
+            ImGui::Text("%s : %.3f ms", render_pass->GetName(), render_pass->GetElapsedTime());
 }
 
 

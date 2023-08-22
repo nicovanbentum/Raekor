@@ -165,8 +165,8 @@ public:
     }
 
     DX11App() : Application(WindowFlag::RESIZE), m_Renderer(m_Viewport, m_Window), m_Scene(nullptr) {
-        while (!FileSystem::exists(m_Settings.mSceneFile))
-            m_Settings.mSceneFile = FileSystem::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
+        while (!fs::exists(m_Settings.mSceneFile))
+            m_Settings.mSceneFile = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
 
         SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
         m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
@@ -324,7 +324,7 @@ public:
                         EPhysicsObjectLayers::MOVING
                     );
 
-                    auto& body_interface = m_Physics.GetSystem().GetBodyInterface();
+                    auto& body_interface = m_Physics.GetSystem()->GetBodyInterface();
                     collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
 
                     m_StreamingJobsFinished.fetch_add(1);

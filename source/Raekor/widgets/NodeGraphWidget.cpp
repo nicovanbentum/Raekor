@@ -20,7 +20,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt) {
 
 		if (!opened_file_path.empty()) {
 			m_JSON = JSON::JSONData(opened_file_path);
-			m_OpenFilePath = FileSystem::relative(opened_file_path);
+			m_OpenFilePath = fs::relative(opened_file_path);
 		}
 	}
 

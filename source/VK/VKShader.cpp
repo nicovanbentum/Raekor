@@ -5,7 +5,7 @@
 
 namespace Raekor::VK {
 
-bool Shader::sCompileGLSL(const char* vulkanSDK, const FileSystem::directory_entry& file) {
+bool Shader::sCompileGLSL(const char* vulkanSDK, const fs::directory_entry& file) {
     const auto outfile = file.path().parent_path() / "bin" / file.path().filename();
 
     std::stringstream command;
@@ -25,7 +25,7 @@ bool Shader::sCompileGLSL(const char* vulkanSDK, const FileSystem::directory_ent
 
 
 
-bool Shader::sCompileHLSL(const FileSystem::directory_entry& file) {
+bool Shader::sCompileHLSL(const fs::directory_entry& file) {
     const auto outfile = file.path().parent_path() / "bin" / file.path().filename();
 
     const auto name = file.path().stem().string();

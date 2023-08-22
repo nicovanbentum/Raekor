@@ -19,7 +19,8 @@ namespace Raekor {
 
 IEditor::IEditor(WindowFlags inWindowFlags, IRenderer* inRenderer) :
     Application(inWindowFlags),
-    m_Scene(inRenderer)
+    m_Scene(inRenderer),
+    m_Physics(inRenderer)
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -108,6 +109,7 @@ void IEditor::OnUpdate(float inDeltaTime) {
 
     // update Skeleton and Animation components
     m_Scene.UpdateAnimations(inDeltaTime);
+
 
     // update NativeScript components
     m_Scene.UpdateNativeScripts(inDeltaTime);

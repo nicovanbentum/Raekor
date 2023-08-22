@@ -34,6 +34,13 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
     ImGui::End();
 };
 
+struct EdgeHash {
+public:
+    std::size_t operator()(const std::pair<uint32_t, uint32_t>& x) const
+    {
+        return std::size_t(x.first) & std::size_t(x.second) << 32;
+    }
+};
 
 void InspectorWidget::DrawEntityInspector(Widgets* inWidgets) {
     auto active_entity = m_Editor->GetActiveEntity();
@@ -72,13 +79,95 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets) {
         }
 
         if (scene.all_of<Transform, Mesh>(active_entity)) {
+            const auto& [transform, mesh] = scene.get<Transform, Mesh>(active_entity);
+
             if (ImGui::Selectable("Box Collider", false)) {
                 auto& collider = scene.emplace<BoxCollider>(active_entity);
-                const auto& [transform, mesh] = scene.get<Transform, Mesh>(active_entity);
 
                 const auto half_extent = glm::abs(mesh.aabb[1] - mesh.aabb[0]) / 2.0f * transform.scale;
                 collider.settings.mHalfExtent = JPH::Vec3(half_extent.x, half_extent.y, half_extent.z);
                 //collider.settings.SetEmbedded();
+            }
+
+            if (ImGui::Selectable("Soft Body", false)) {
+                auto& soft_body = scene.emplace<SoftBody>(active_entity);
+                auto& transform = scene.get<Transform>(active_entity);
+
+                // verts
+                for (const auto& [index, pos] : gEnumerate(mesh.positions)) {
+                    const auto wpos = pos * transform.scale;
+
+                    JPH::SoftBodySharedSettings::Vertex v;
+                    v.mPosition = JPH::Float3(wpos.x, wpos.y, wpos.z);
+
+                    soft_body.mSharedSettings.mVertices.push_back(v);
+                }
+
+                // faces
+                for (auto index = 0u; index < mesh.indices.size(); index += 3) {
+                    JPH::SoftBodySharedSettings::Face face;
+                    face.mVertex[0] = mesh.indices[index];
+                    face.mVertex[1] = mesh.indices[index + 1];
+                    face.mVertex[2] = mesh.indices[index + 2];
+
+                    soft_body.mSharedSettings.AddFace(face);
+                }
+
+                const auto ntriangles = mesh.indices.size() / 3;
+                int		maxidx = 0;
+                int i, j, ni;
+
+                for (auto index : mesh.indices)
+                    maxidx = glm::max((int)index, maxidx);
+                ++maxidx;
+
+                std::vector<bool> chks;
+                chks.resize(maxidx * maxidx, false);
+                
+                for (int i = 0, ni = ntriangles * 3; i < ni; i += 3)
+                {
+                    const int idx[] = { (int)mesh.indices[i], (int)mesh.indices[i + 1], (int)mesh.indices[i + 2] };
+#define IDX(_x_,_y_) ((_y_)*maxidx+(_x_))
+                    for (int j = 2, k = 0; k < 3; j = k++)
+                    {
+                        if (!chks[IDX(idx[j], idx[k])])
+                        {
+                            chks[IDX(idx[j], idx[k])] = true;
+                            chks[IDX(idx[k], idx[j])] = true;
+                            soft_body.mSharedSettings.mEdgeConstraints.push_back(JPH::SoftBodySharedSettings::Edge(idx[j], idx[k], 0.00001f));
+                        }
+                    }
+#undef IDX
+                }
+
+                //// edges
+                //for (auto index = 0u; index < 24; index += 3) {
+                //    JPH::SoftBodySharedSettings::Edge edge;
+                //    edge.mCompliance = 0.00001f;
+                //    
+                //    edge.mVertex[0] = mesh.indices[index];
+                //    edge.mVertex[1] = mesh.indices[index + 1];
+                //    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
+
+                //    edge.mVertex[0] = mesh.indices[index];
+                //    edge.mVertex[1] = mesh.indices[index + 2];
+                //    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
+
+                //    edge.mVertex[0] = mesh.indices[index + 1];
+                //    edge.mVertex[1] = mesh.indices[index + 2];
+                //    soft_body.mSharedSettings.mEdgeConstraints.push_back(edge);
+                //}
+
+              
+
+                soft_body.mSharedSettings.CalculateEdgeLengths();
+
+                soft_body.mCreationSettings.mUpdatePosition = false;
+                soft_body.mCreationSettings.mGravityFactor = 0.0f;
+                soft_body.mCreationSettings.mLinearDamping = 0.0f;
+                soft_body.mCreationSettings.mMaxLinearVelocity = 5.0f;
+
+                soft_body.mSharedSettings.SetEmbedded();
             }
         }
 
@@ -115,10 +204,10 @@ void InspectorWidget::DrawComponent(Node& ioNode) {
 
 
 void InspectorWidget::DrawComponent(Mesh& ioMesh) {
-    ImGui::Text("Triangle count: %i", ioMesh.indices.size() / 3);
-
     const auto byte_size = sizeof(Mesh) + ioMesh.GetInterleavedStride() * ioMesh.positions.size();
-    ImGui::Text("Size in Kb: %.1f", float(byte_size) / 1024);
+    ImGui::Text("%.1f Kb", float(byte_size) / 1024);
+
+    ImGui::Text("%i Triangles", ioMesh.indices.size() / 3);
 
     ImGui::DragFloat("LOD Fade", &ioMesh.mLODFade, 0.001f, -1.0f, 1.0f, "%.3f");
 
@@ -147,8 +236,19 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh) {
 }
 
 
+void InspectorWidget::DrawComponent(SoftBody& ioSoftBody) {
+    auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
+
+    ImGui::Text("Unique Body ID: %i", ioSoftBody.mBodyID.GetIndexAndSequenceNumber());
+
+    if (ImGui::Button("Add Impulse")) {
+        GetPhysics().GetSystem()->GetBodyInterface().AddImpulse(ioSoftBody.mBodyID, JPH::Vec3(0.0f, 0.0f, 1.0f));
+    }
+}
+
+
 void InspectorWidget::DrawComponent(BoxCollider& inBoxCollider) {
-    auto& body_interface = GetPhysics().GetSystem().GetBodyInterface();
+    auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 
     ImGui::Text("Unique Body ID: %i", inBoxCollider.bodyID.GetIndexAndSequenceNumber());
 
@@ -362,7 +462,7 @@ void InspectorWidget::DrawComponent(NativeScript& inNativeScript) {
     if (ImGui::Button("Load..")) {
         const auto filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
         if (!filepath.empty()) {
-            inNativeScript.file  = FileSystem::relative(filepath).string();
+            inNativeScript.file  = fs::relative(filepath).string();
             inNativeScript.asset = assets.GetAsset<ScriptAsset>(inNativeScript.file);
         }
 

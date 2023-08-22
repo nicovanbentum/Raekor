@@ -25,8 +25,10 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
 
     if (ImGui::Button("Generate Rigid Bodies")) {
         Timer timer;
-        for (const auto& [sb_entity, sb_transform, sb_mesh] : scene.view<Transform, Mesh>().each())
-            scene.emplace<BoxCollider>(sb_entity);
+        for (const auto& [sb_entity, sb_transform, sb_mesh] : scene.view<Transform, Mesh>().each()) {
+            if (!scene.all_of<SoftBody>(sb_entity))
+                scene.emplace<BoxCollider>(sb_entity);
+        }
 
         GetPhysics().GenerateRigidBodiesEntireScene(GetScene());
 
@@ -60,7 +62,7 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
 
             auto& collider = scene.emplace<BoxCollider>(entity);
             collider.motionType = JPH::EMotionType::Dynamic;
-            JPH::Ref<JPH::ShapeSettings> settings = new JPH::SphereShapeSettings(radius);
+            JPH::ShapeSettings* settings = new JPH::SphereShapeSettings(radius);
 
             auto body_settings = JPH::BodyCreationSettings(
                 settings,
@@ -73,12 +75,16 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
             body_settings.mFriction = 0.1;
             body_settings.mRestitution = 0.35;
 
-            auto& body_interface = GetPhysics().GetSystem().GetBodyInterface();
+            auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
             collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
 
             //body_interface.AddImpulse(collider.bodyID, JPH::Vec3Arg(50.0f, -2.0f, 50.0f));
         }
     }
+
+    auto debug_physics = GetPhysics().GetDebugRendering();
+    if (ImGui::Checkbox("Debug Physics", &debug_physics))
+        GetPhysics().SetDebugRendering(debug_physics);
 
     // Draw all the renderer debug UI
     m_Editor->GetRenderer()->DrawImGui(GetScene(), m_Editor->GetViewport());

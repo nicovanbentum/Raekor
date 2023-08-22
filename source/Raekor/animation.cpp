@@ -21,91 +21,97 @@ void KeyFrames::LoadFromGltf(const cgltf_animation* nodeAnim) {
 }
 
 
-glm::vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
+Vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
 	if (m_PositionKeys.size() == 1) {
 		// No interpolation necessary for single value
 		auto v = m_PositionKeys[0].mValue;
 		return { v.x, v.y, v.z };
 	}
 
-	uint32_t PositionIndex = 0;
-	for (unsigned int i = 0; i < m_PositionKeys.size() - 1; i++) {
+	auto pos_index = 0u;
+	for (auto i = 0u; i < m_PositionKeys.size() - 1; i++) {
 		if (animationTime < (float)m_PositionKeys[i + 1].mTime) {
-			PositionIndex = i;
+			pos_index = i;
 			break;
 		}
 	}
 
-	uint32_t NextPositionIndex = (PositionIndex + 1);
+	auto NextPositionIndex = (pos_index + 1);
+	auto delta_time = (float)(m_PositionKeys[NextPositionIndex].mTime - m_PositionKeys[pos_index].mTime);
+	
+	auto factor = (animationTime - (float)m_PositionKeys[pos_index].mTime) / delta_time;
+	if (factor < 0.0f) 
+		factor = 0.0f;
 
-	float DeltaTime = (float)(m_PositionKeys[NextPositionIndex].mTime - m_PositionKeys[PositionIndex].mTime);
-	float Factor = (animationTime - (float)m_PositionKeys[PositionIndex].mTime) / DeltaTime;
-	if (Factor < 0.0f) Factor = 0.0f;
+	const auto& start = m_PositionKeys[pos_index].mValue;
+	const auto& end = m_PositionKeys[NextPositionIndex].mValue;
+	auto delta = end - start;
+	auto ai_vec = start + factor * delta;
 
-	const aiVector3D& Start = m_PositionKeys[PositionIndex].mValue;
-	const aiVector3D& End = m_PositionKeys[NextPositionIndex].mValue;
-	aiVector3D Delta = End - Start;
-	auto aiVec = Start + Factor * Delta;
-	return { aiVec.x, aiVec.y, aiVec.z };
+	return { ai_vec.x, ai_vec.y, ai_vec.z };
 }
 	
 
-glm::quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
+Quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
 	if (m_RotationKeys.size() == 1) {
 		// No interpolation necessary for single value
 		auto v = m_RotationKeys[0].mValue;
 		return glm::quat(v.w, v.x, v.y, v.z);
 	}
 
-	uint32_t RotationIndex = 0;
-	for (unsigned int i = 0; i < m_RotationKeys.size() - 1; i++) {
+	auto rotation_index = 0u;
+	for (auto i = 0u; i < m_RotationKeys.size() - 1; i++) {
 		if (animationTime < (float)m_RotationKeys[i + 1].mTime) {
-			RotationIndex = i;
+			rotation_index = i;
 			break;
 		}
 	}
 
-	uint32_t NextRotationIndex = (RotationIndex + 1);
+	auto next_rotation_index = (rotation_index + 1);
 
-	float DeltaTime = (float)(m_RotationKeys[NextRotationIndex].mTime - m_RotationKeys[RotationIndex].mTime);
-	float Factor = (animationTime - (float)m_RotationKeys[RotationIndex].mTime) / DeltaTime;
-	if (Factor < 0.0f) 
-		Factor = 0.0f;
+	auto delta_time = (float)(m_RotationKeys[next_rotation_index].mTime - m_RotationKeys[rotation_index].mTime);
+	auto factor = (animationTime - (float)m_RotationKeys[rotation_index].mTime) / delta_time;
+	if (factor < 0.0f) 
+		factor = 0.0f;
 
-	const aiQuaternion& StartRotationQ = m_RotationKeys[RotationIndex].mValue;
-	const aiQuaternion& EndRotationQ = m_RotationKeys[NextRotationIndex].mValue;
+	const auto& start_rotation_quat = m_RotationKeys[rotation_index].mValue;
+	const auto& end_rotation_quat = m_RotationKeys[next_rotation_index].mValue;
+
 	auto q = aiQuaternion();
-	aiQuaternion::Interpolate(q, StartRotationQ, EndRotationQ, Factor);
+	aiQuaternion::Interpolate(q, start_rotation_quat, end_rotation_quat, factor);
 	q = q.Normalize();
+	
 	return glm::quat(q.w, q.x, q.y, q.z);
 }
 
 
-glm::vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
+Vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
 	if (m_ScaleKeys.size() == 1) {
 		// No interpolation necessary for single value
 		auto v = m_ScaleKeys[0].mValue;
 		return { v.x, v.y, v.z };
 	}
 
-	uint32_t index = 0;
-	for (unsigned int i = 0; i < m_ScaleKeys.size() - 1; i++) {
+	auto index = 0u;
+	for (auto i = 0u; i < m_ScaleKeys.size() - 1; i++) {
 		if (animationTime < (float)m_ScaleKeys[i + 1].mTime) {
 			index = i;
 			break;
 		}
 	}
 
-	uint32_t nextIndex = (index + 1);
-
-	float deltaTime = (float)(m_ScaleKeys[nextIndex].mTime - m_ScaleKeys[index].mTime);
-	float factor = (animationTime - (float)m_ScaleKeys[index].mTime) / deltaTime;
-	if (factor < 0.0f) factor = 0.0f;
+	auto next_index = (index + 1);
+	auto delta_time = (float)(m_ScaleKeys[next_index].mTime - m_ScaleKeys[index].mTime);
+	
+	auto factor = (animationTime - (float)m_ScaleKeys[index].mTime) / delta_time;
+	if (factor < 0.0f) 
+		factor = 0.0f;
 
 	const auto& start = m_ScaleKeys[index].mValue;
-	const auto& end = m_ScaleKeys[nextIndex].mValue;
+	const auto& end = m_ScaleKeys[next_index].mValue;
 	auto delta = end - start;
 	auto aiVec = start + factor * delta;
+
 	return { aiVec.x, aiVec.y, aiVec.z };
 }
 

@@ -48,6 +48,18 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                 }
             }
 
+            if (ImGui::MenuItem("Import scene..")) {
+                std::string filepath = OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0");
+
+                if (!filepath.empty()) {
+                    Timer timer;
+
+                    m_Editor->SetActiveEntity(sInvalidEntity);
+
+                    m_Editor->LogMessage("[Scene] Import from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
+                }
+            }
+
             if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
                 std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
 
@@ -55,7 +67,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                     g_ThreadPool.QueueJob([this, filepath]() {
                         m_Editor->LogMessage("Saving scene...");
                         GetScene().SaveToFile(IWidget::GetAssets(), filepath);
-                        m_Editor->LogMessage("[Scene] Saved to " + FileSystem::relative(filepath).string() + "");
+                        m_Editor->LogMessage("[Scene] Saved to " + fs::relative(filepath).string() + "");
                     });
                 }
             }
@@ -86,28 +98,6 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                 }
 
                 m_Editor->LogMessage("[Scene] Serialize as JSON took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
-            }
-
-            if (ImGui::MenuItem("Load model..")) {
-                const auto filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.fbx, *.glb, *.obj, *.blend)\0*.gltf;*.fbx;*.glb;*.obj;*.blend\0");
-                
-                if (!filepath.empty()) {
-                    auto importer = AssimpImporter(scene, m_Editor->GetRenderer());
-                    importer.LoadFromFile(filepath, &GetAssets());
-                    m_Editor->SetActiveEntity(sInvalidEntity);
-                }
-            }
-
-            if (ImGui::MenuItem("Load GLTF..")) {
-                const auto filepath = OS::sOpenFileDialog("Supported Files(*.gltf, *.glb)\0*.gltf;*.glb\0");
-
-                if (!filepath.empty()) {
-                    auto importer = GltfImporter(scene, m_Editor->GetRenderer());
-                    importer.LoadFromFile(GetAssets(), filepath);
-
-                    m_Editor->SetActiveEntity(sInvalidEntity);
-                    m_Editor->LogMessage("[Scene] Loaded " + Path(filepath).filename().string());
-                }
             }
 
             if (ImGui::MenuItem("Compile script..")) {

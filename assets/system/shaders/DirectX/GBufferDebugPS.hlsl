@@ -22,7 +22,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     output_color = brdf.mAlbedo;
 
 #elif defined(DEBUG_TEXTURE_GBUFFER_NORMALS)
-    output_color.rgb = brdf.mNormal;
+    output_color.rgb = brdf.mNormal * 0.5 + 0.5;
 
 #elif defined(DEBUG_TEXTURE_GBUFFER_METALLIC)
     output_color = brdf.mMetallic.xxxx;

@@ -9,8 +9,8 @@ class Shader {
     friend class Device;
 
 public:
-    static bool sCompileGLSL(const char* vulkanSDK, const FileSystem::directory_entry& inFile);
-    static bool sCompileHLSL(const FileSystem::directory_entry& inFile);
+    static bool sCompileGLSL(const char* vulkanSDK, const fs::directory_entry& inFile);
+    static bool sCompileHLSL(const fs::directory_entry& inFile);
     
     VkShaderModule GetModule() const { return module; }
     VkShaderStageFlagBits GetStage() const { return stage; }

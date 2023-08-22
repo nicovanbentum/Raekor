@@ -122,8 +122,8 @@ DXApp::DXApp() :
     m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
 
     // Pick a scene file and load it
-    while (!FileSystem::exists(m_Settings.mSceneFile))
-        m_Settings.mSceneFile = FileSystem::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).make_preferred().string();
+    while (!fs::exists(m_Settings.mSceneFile))
+        m_Settings.mSceneFile = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).make_preferred().string();
 
     SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
     m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
@@ -400,20 +400,21 @@ void DXApp::UploadBindlessSceneBuffers(CommandList& inCmdList) {
 void DXApp::UploadTopLevelBVH(CommandList& inCmdList) {
     auto meshes = m_Scene.view<Mesh, Transform>();
 
-    std::vector<D3D12_RAYTRACING_INSTANCE_DESC> rt_instances;
+    auto rt_instances = std::vector<D3D12_RAYTRACING_INSTANCE_DESC> {};
     rt_instances.reserve(meshes.size_hint());
 
     auto instance_id = 0u;
     for (const auto& [entity, mesh, transform] : meshes.each()) {
         const auto& blas_buffer = m_Device.GetBuffer(BufferID(mesh.BottomLevelAS));
 
-        D3D12_RAYTRACING_INSTANCE_DESC instance = {};
-        instance.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE;
-        instance.InstanceMask = 0xFF;
-        instance.InstanceID = instance_id++;
-        instance.AccelerationStructure = blas_buffer->GetGPUVirtualAddress();
+        auto instance = D3D12_RAYTRACING_INSTANCE_DESC {
+            .InstanceID = instance_id++,
+            .InstanceMask = 0xFF,
+            .Flags = D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE,
+            .AccelerationStructure = blas_buffer->GetGPUVirtualAddress(),
+        };
 
-        glm::mat4 transpose = glm::transpose(transform.worldTransform); // TODO: transform buffer
+        const auto transpose = glm::transpose(transform.worldTransform); // TODO: transform buffer
         memcpy(instance.Transform, glm::value_ptr(transpose), sizeof(instance.Transform));
 
         rt_instances.push_back(instance);
@@ -427,21 +428,22 @@ void DXApp::UploadTopLevelBVH(CommandList& inCmdList) {
     auto& instance_buffer = m_Device.GetBuffer(instance_buffer_id);
 
     {
-        uint8_t* mapped_ptr;
+        auto mapped_ptr = (uint8_t*)nullptr;
         auto buffer_range = CD3DX12_RANGE(0, 0);
         gThrowIfFailed(instance_buffer->Map(0, &buffer_range, reinterpret_cast<void**>(&mapped_ptr)));
         memcpy(mapped_ptr, rt_instances.data(), rt_instances.size() * sizeof(rt_instances[0]));
         instance_buffer->Unmap(0, nullptr);
     }
 
-    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
-    inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
-    inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
-    inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-    inputs.InstanceDescs = instance_buffer->GetGPUVirtualAddress(); // not used in GetRaytracingAccelerationStructurePrebuildInfo
-    inputs.NumDescs = rt_instances.size();
+    const auto inputs = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS {
+        .Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL,
+        .Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE,
+        .NumDescs = uint32_t(rt_instances.size()),
+        .DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY,
+        .InstanceDescs = instance_buffer->GetGPUVirtualAddress(),
+    };
 
-    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
+    auto prebuild_info = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO {};
     m_Device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
 
     auto scratch_buffer = m_Device.CreateBuffer(Buffer::Desc {

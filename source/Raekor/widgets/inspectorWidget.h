@@ -9,6 +9,7 @@ struct Name;
 struct Node;
 struct Mesh;
 struct Skeleton;
+struct SoftBody;
 struct Material;
 struct Transform;
 struct PointLight;
@@ -31,6 +32,7 @@ private:
     void DrawComponent(Name& ioName);
     void DrawComponent(Node& ioNode);
     void DrawComponent(Mesh& ioMesh);
+    void DrawComponent(SoftBody& ioSoftBody);
     void DrawComponent(Skeleton& ioSkeleton);
     void DrawComponent(Material& ioMaterial);
     void DrawComponent(Transform& ioTransform);

@@ -21,7 +21,7 @@ ConVars g_CVars;
 
 ConVars::ConVars() {
 	auto stream = std::ifstream("cvars.json");
-	if (!stream.is_open() || FileSystem::file_size("cvars.json") == 0)
+	if (!stream.is_open() || fs::file_size("cvars.json") == 0)
 		return;
 
 	auto json_data = JSON::JSONData("cvars.json");

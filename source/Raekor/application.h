@@ -84,6 +84,9 @@ public:
     virtual void OnResize(const Viewport& inViewport) = 0;
     virtual void DrawImGui(Scene& inScene, const Viewport& inViewport) = 0;
 
+    virtual void AddDebugLine(Vec3 inP1, Vec3 inP2) {}
+    virtual void AddDebugBox(Vec3 inMin, Vec3 inMax, const Mat4x4& inTransform = Mat4x4(1.0f)) {}
+
 protected:
     GPUInfo m_GPUInfo;
     GraphicsAPI m_GraphicsAPI;

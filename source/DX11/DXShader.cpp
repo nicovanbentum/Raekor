@@ -12,7 +12,7 @@ DXShader::DXShader(const Stage* stages, size_t stageCount) {
         CompileStage(m_Stages[i]);
 
         auto error_code = std::error_code();
-        m_Stages[i].mUpdateTime = FileSystem::last_write_time(m_Stages[i].mTextFile, error_code);
+        m_Stages[i].mUpdateTime = fs::last_write_time(m_Stages[i].mTextFile, error_code);
     }
 }
 
@@ -20,10 +20,10 @@ DXShader::DXShader(const Stage* stages, size_t stageCount) {
 void DXShader::CheckForReload() {
     for (auto& stage : m_Stages) {
         auto error_code = std::error_code();
-        auto timestamp = FileSystem::last_write_time(stage.mTextFile, error_code);
+        auto timestamp = fs::last_write_time(stage.mTextFile, error_code);
 
         while (error_code)
-            timestamp = FileSystem::last_write_time(stage.mTextFile, error_code);
+            timestamp = fs::last_write_time(stage.mTextFile, error_code);
 
         if (timestamp > stage.mUpdateTime) {
             CompileStage(stage);

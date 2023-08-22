@@ -168,6 +168,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, gl
                 // multiple mesh entities of the same node all get parented to that node's transform, so their local transform can just be identity
                 auto& transform = m_Scene.get<Transform>(clone);
                 transform.localTransform = glm::mat4(1.0f);
+                transform.Decompose();
 
                 NodeSystem::sAppend(m_Scene, entity, m_Scene.get<Node>(entity), clone, m_Scene.get<Node>(clone));
              

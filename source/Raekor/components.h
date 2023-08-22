@@ -100,8 +100,18 @@ struct BoxCollider {
     JPH::EMotionType motionType;
     JPH::BoxShapeSettings settings;
     JPH::MeshShapeSettings meshSettings;
+
+    void CreateFromMesh(const Mesh& inMesh);
 };
 
+
+struct SoftBody {
+    JPH::BodyID mBodyID;
+    JPH::SoftBodySharedSettings mSharedSettings;
+    JPH::SoftBodyCreationSettings mCreationSettings;
+
+    void CreateFromMesh(const Mesh& inMesh);
+};
 
 struct Bone {
     uint32_t index;
@@ -178,6 +188,7 @@ static constexpr auto Components = std::make_tuple (
     ComponentDescription<Node>              {"Node"},
     ComponentDescription<Transform>         {"Transform"},
     ComponentDescription<Mesh>              {"Mesh"},
+    ComponentDescription<SoftBody>          {"Soft Body"},
     ComponentDescription<Material>          {"Material"},
     ComponentDescription<PointLight>        {"Point Light"},
     ComponentDescription<DirectionalLight>  {"Directional Light"},
