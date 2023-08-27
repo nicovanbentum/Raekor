@@ -50,7 +50,7 @@ Physics::Physics(IRenderer* inRenderer) {
     m_JobSystem = new JPH::JobSystemThreadPool(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, std::thread::hardware_concurrency() - 1);
     m_StateRecorder = new JPH::StateRecorderImpl();
 
-    std::cout << "JoltPhysics initialized.\n";
+    std::cout << "[Physics] JoltPhysics initialized.\n";
 }
 
 
@@ -68,7 +68,7 @@ void Physics::Step(Scene& scene, float dt) {
 
     auto& body_interface = m_Physics->GetBodyInterface();
 
-    for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, BoxCollider>().each()) {
+    for (const auto& [entity, transform, mesh, collider] : scene.Each<Transform, Mesh, BoxCollider>()) {
         if (collider.bodyID.IsInvalid())
             continue;
 
@@ -85,7 +85,7 @@ void Physics::Step(Scene& scene, float dt) {
 
 
 void Physics::OnUpdate(Scene& scene) {
-    for (const auto& [entity, transform, mesh, collider] : scene.view<Transform, Mesh, BoxCollider>().each()) {
+    for (const auto& [entity, transform, mesh, collider] : scene.Each<Transform, Mesh, BoxCollider>()) {
         if (collider.bodyID.IsInvalid() && collider.settings.GetRefCount()) {
             auto settings = JPH::BodyCreationSettings(
                 &collider.settings,
@@ -107,7 +107,7 @@ void Physics::OnUpdate(Scene& scene) {
         }
     }
 
-    for (const auto& [entity, transform, mesh, soft_body] : scene.view<Transform, Mesh, SoftBody>().each()) {
+    for (const auto& [entity, transform, mesh, soft_body] : scene.Each<Transform, Mesh, SoftBody>()) {
         if (soft_body.mBodyID.IsInvalid() && soft_body.mSharedSettings.GetRefCount()) {
             auto settings = JPH::SoftBodyCreationSettings(
                 &soft_body.mSharedSettings, 
@@ -151,7 +151,7 @@ void Physics::OnUpdate(Scene& scene) {
 
 
 void Physics::GenerateRigidBodiesEntireScene(Scene& inScene) {
-    for (const auto& [sb_entity, sb_transform, sb_mesh, sb_collider] : inScene.view<Transform, Mesh, BoxCollider>().each()) {
+    for (const auto& [sb_entity, sb_transform, sb_mesh, sb_collider] : inScene.Each<Transform, Mesh, BoxCollider>()) {
         auto entity = sb_entity;
         auto& transform = sb_transform;
         auto& mesh = sb_mesh;

@@ -38,12 +38,14 @@ namespace Raekor::VK {
         }
     }
 
-    assert(!m_Scene.empty() && "Scene cannot be empty when starting up the Vulkan path tracer!!");
+    assert(!m_Scene.IsEmpty() && "Scene cannot be empty when starting up the Vulkan path tracer!!");
 
-    for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
-        if (mesh.material != sInvalidEntity && (mesh.positions.size() > 0 && mesh.indices.size() > 0)) {
-            auto component = m_Renderer.CreateBLAS(mesh, m_Scene.get<Material>(mesh.material));
-            m_Scene.emplace<VK::RTGeometry>(entity, component);
+    m_Scene.UpdateTransforms();
+
+    for (const auto& [entity, mesh] : m_Scene.Each<Mesh>()) {
+        if (mesh.material != NULL_ENTITY && (mesh.positions.size() > 0 && mesh.indices.size() > 0)) {
+            auto component = m_Renderer.CreateBLAS(mesh, m_Scene.Get<Material>(mesh.material));
+            m_Scene.Add<VK::RTGeometry>(entity, component);
         }
     }
 
@@ -78,20 +80,8 @@ void PathTracer::OnUpdate(float dt) {
 
     m_Viewport.OnUpdate(dt);
 
-    auto lightView = m_Scene.view<DirectionalLight, Transform>();
-    auto lookDirection = glm::vec3(0.25f, -0.9f, 0.0f);
-
-    if (lightView.begin() != lightView.end()) {
-        auto& lightTransform = lightView.get<Transform>(lightView.front());
-        lookDirection = glm::quat(lightTransform.rotation) * lookDirection;
-    } 
-    else // we rotate default light a little or else we get nan values in our view matrix
-        lookDirection = glm::quat(glm::vec3(glm::radians(15.0f), 0, 0)) * lookDirection;
-
-    lookDirection = glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
-
     auto& sun_direction = m_Renderer.GetPushConstants().lightDir;
-    sun_direction = glm::vec4(lookDirection, sun_direction.w);
+    sun_direction = glm::vec4(m_Scene.GetSunLightDirection(), sun_direction.w);
 
     if (m_IsSwapchainDirty) {
         int w, h;
@@ -137,18 +127,6 @@ void PathTracer::OnUpdate(float dt) {
             reset = true;
         }
 
-        if (lightView.begin() != lightView.end()) {
-            auto& sun_transform = lightView.get<Transform>(lightView.front());
-        
-            auto sun_rotation_degrees = glm::degrees(glm::eulerAngles(sun_transform.rotation));
-
-            if (ImGui::DragFloat3("Sun Angle", glm::value_ptr(sun_rotation_degrees), 0.1f, -360.0f, 360.0f, "%.1f")) {
-                sun_transform.rotation = glm::quat(glm::radians(sun_rotation_degrees));
-                sun_transform.Compose();
-                reset = true;
-            }
-        }
-
         ImGui::Text("Sample Count: %i", (int)m_Renderer.GetFrameCounter());
 
         ImGui::End();
@@ -156,18 +134,19 @@ void PathTracer::OnUpdate(float dt) {
         ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
         ImGuizmo::SetRect(0, 0, float(m_Viewport.GetSize().x), float(m_Viewport.GetSize().y));
 
-        if (lightView.begin() != lightView.end()) {
-            auto& lightTransform = lightView.get<Transform>(lightView.front());
+        if (auto sunlight = m_Scene.GetSunLight()) {
+            // if we have a sunlight it means at least 1 entity has a DirectionalLight,  so [0] access is safe
+            auto& transform = m_Scene.Get<Transform>(m_Scene.GetEntities<DirectionalLight>()[0]);
 
             bool manipulated = ImGuizmo::Manipulate(
                 glm::value_ptr(m_Viewport.GetCamera().GetView()),
                 glm::value_ptr(m_Viewport.GetCamera().GetProjection()),
                 ImGuizmo::OPERATION::ROTATE, ImGuizmo::MODE::WORLD,
-                glm::value_ptr(lightTransform.localTransform)
+                glm::value_ptr(transform.localTransform)
             );
 
             if (manipulated)
-                lightTransform.Decompose();
+                transform.Decompose();
 
             reset |= manipulated;
         }
@@ -219,8 +198,7 @@ void PathTracer::OnEvent(const SDL_Event& inEvent) {
 
 
 PathTracer::~PathTracer() {
-    auto view = m_Scene.view<VK::RTGeometry>();
-    for (const auto& [entity, geometry] : view.each())
+    for (const auto& [entity, geometry] : m_Scene.Each<VK::RTGeometry>())
         m_Renderer.DestroyBLAS(geometry);
 }
 

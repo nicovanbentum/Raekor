@@ -132,7 +132,7 @@ public:
     virtual IRenderer* GetRenderer() { return nullptr; }
 
     virtual void SetActiveEntity(Entity inEntity) { }
-    virtual Entity GetActiveEntity() { return sInvalidEntity; }
+    virtual Entity GetActiveEntity() { return NULL_ENTITY; }
 
     virtual void LogMessage(const std::string& inMessage) { std::cout << inMessage << '\n'; }
 

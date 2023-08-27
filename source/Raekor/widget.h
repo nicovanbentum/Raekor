@@ -1,9 +1,6 @@
 #pragma once
 
-#include "../Raekor/async.h"
-#include "../Raekor/scene.h"
-#include "../Raekor/assets.h"
-#include "../Raekor/application.h"
+#include "rtti.h"
 
 namespace Raekor {
 
@@ -12,6 +9,9 @@ class Scene;
 class Assets;
 class Physics;
 class Widgets;
+class IRenderer;
+class Application;
+using Entity = uint32_t;
 
 class IWidget {
     RTTI_CLASS_HEADER(IWidget);

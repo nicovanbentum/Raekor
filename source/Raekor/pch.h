@@ -18,22 +18,6 @@
 #endif
 
 
-//////////////////////////////
-// header only Cereal library
-#include "cereal/cereal.hpp"
-#include "cereal/macros.hpp"
-#include "cereal/archives/json.hpp"
-#include "cereal/archives/binary.hpp"
-#include "cereal/types/map.hpp"
-#include "cereal/types/array.hpp"
-#include "cereal/types/string.hpp"
-#include "cereal/types/complex.hpp"
-#include "cereal/types/vector.hpp"
-#include "cereal/types/utility.hpp"
-#include "cereal/types/variant.hpp"
-#include "cereal/types/polymorphic.hpp"
-
-
 /////////////////
 // ImGui library
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
@@ -175,16 +159,6 @@ using File = std::fstream;
 
 //////////////////////////
 #include "cgltf.h"
-
-
-////////////////////////////////////////
-// EnTT entity-component system library
-#include "entt/entity/entity.hpp"
-#include "entt/entity/helper.hpp"
-#include "entt/entity/registry.hpp"
-#include "entt/entity/snapshot.hpp"
-#include "entt/entity/view.hpp"
-
 
 ///////////////////////////
 // lz4 compression library

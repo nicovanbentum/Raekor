@@ -128,7 +128,7 @@ DXApp::DXApp() :
     SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
     m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
 
-    assert(!m_Scene.empty() && "Scene cannot be empty when starting up DX12 renderer!!");
+    assert(!m_Scene.IsEmpty() && "Scene cannot be empty when starting up DX12 renderer!!");
 
     // check for ray-tracing support
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
@@ -301,12 +301,10 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
 
 
 void DXApp::UploadBindlessSceneBuffers(CommandList& inCmdList) {
-    auto materials = m_Scene.view<Material>();
-
-    auto MaterialIndex = [&](entt::entity m) -> uint32_t {
+    auto MaterialIndex = [&](Entity m) -> uint32_t {
         uint32_t i = 0;
 
-        for (const auto& [entity, material] : materials.each()) {
+        for (const auto& [entity, material] : m_Scene.Each<Material>()) {
             if (entity == m) {
                 return i;
             }
@@ -317,11 +315,11 @@ void DXApp::UploadBindlessSceneBuffers(CommandList& inCmdList) {
         return 0;
     };
 
+    const auto nr_of_meshes = m_Scene.Count<Mesh>();
     std::vector<RTGeometry> rt_geometries;
-    auto meshes = m_Scene.view<Mesh, Transform>();
-    rt_geometries.reserve(meshes.size_hint());
+    rt_geometries.reserve(nr_of_meshes);
 
-    for (const auto& [entity, mesh, transform] : meshes.each()) {
+    for (const auto& [entity, mesh, transform] : m_Scene.Each<Mesh, Transform>()) {
         if (!BufferID(mesh.BottomLevelAS).IsValid())
             continue;
 
@@ -335,7 +333,7 @@ void DXApp::UploadBindlessSceneBuffers(CommandList& inCmdList) {
 
     {
         m_InstancesBuffer = m_Device.CreateBuffer(Buffer::Desc {
-            .size   = sizeof(RTGeometry) * meshes.size_hint(),
+            .size   = sizeof(RTGeometry) * nr_of_meshes,
             .stride = sizeof(RTGeometry),
             .usage  = Buffer::Usage::UPLOAD,
         }, L"RT_INSTANCE_BUFFER");
@@ -349,10 +347,10 @@ void DXApp::UploadBindlessSceneBuffers(CommandList& inCmdList) {
         m_Device.GetBuffer(m_InstancesBuffer)->Unmap(0, nullptr);
     }
 
-    std::vector<RTMaterial> rt_materials(materials.size());
+    std::vector<RTMaterial> rt_materials(m_Scene.Count<Material>());
 
     auto i = 0u;
-    for (const auto& [entity, material] : materials.each()) {
+    for (const auto& [entity, material] : m_Scene.Each<Material>()) {
         auto& rt_material = rt_materials[i];
         rt_material.mAlbedo = material.albedo;
         
@@ -398,13 +396,11 @@ void DXApp::UploadBindlessSceneBuffers(CommandList& inCmdList) {
 
 
 void DXApp::UploadTopLevelBVH(CommandList& inCmdList) {
-    auto meshes = m_Scene.view<Mesh, Transform>();
-
     auto rt_instances = std::vector<D3D12_RAYTRACING_INSTANCE_DESC> {};
-    rt_instances.reserve(meshes.size_hint());
+    rt_instances.reserve(m_Scene.Count<Mesh>());
 
     auto instance_id = 0u;
-    for (const auto& [entity, mesh, transform] : meshes.each()) {
+    for (const auto& [entity, mesh, transform] : m_Scene.Each<Mesh, Transform>()) {
         const auto& blas_buffer = m_Device.GetBuffer(BufferID(mesh.BottomLevelAS));
 
         auto instance = D3D12_RAYTRACING_INSTANCE_DESC {

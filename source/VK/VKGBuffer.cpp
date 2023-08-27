@@ -108,11 +108,9 @@ void GBuffer::record(Device& device, VkCommandBuffer commandBuffer, const Scene&
     vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
 
-    const auto view = scene.view<const RTGeometry, const Transform>();
-
-    for (const auto& [entity, mesh, transform] : view.each()) {
+    for (const auto& [entity, rt_geometry, transform] : scene.Each<RTGeometry, Transform>()) {
         VkDeviceSize offset[] = { 0 };
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &mesh.vertices.buffer, offset);
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &rt_geometry.vertices.buffer, offset);
     }
 }
 

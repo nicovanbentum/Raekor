@@ -87,12 +87,10 @@ uint32_t Renderer::GetFrameCounter() {
 
 
 void Renderer::UpdateMaterials(Assets& assets, Scene& scene) {
-    auto view = scene.view<Material>();
-
-    std::vector<RTMaterial> materials(view.size());
+    std::vector<RTMaterial> materials(scene.Count<Material>());
 
     uint32_t i = 0;
-    for (const auto& [entity, material] : view.each()) {
+    for (const auto& [entity, material] : scene.Each<Material>()) {
         auto& buffer = materials[i];
         buffer.albedo = material.albedo;
 
@@ -122,15 +120,15 @@ void Renderer::UpdateMaterials(Assets& assets, Scene& scene) {
 
 
 void Renderer::UpdateBVH(Scene& scene) {
-    auto meshes = scene.view<Mesh, Transform, VK::RTGeometry>();
-
-    if (meshes.size_hint() < 1) return;
+    const auto nr_of_meshes = scene.Count<VK::RTGeometry>();
+    if (nr_of_meshes < 1) 
+        return;
 
     std::vector<VkAccelerationStructureInstanceKHR> deviceInstances;
-    deviceInstances.reserve(meshes.size_hint());
+    deviceInstances.reserve(nr_of_meshes);
 
     uint32_t customIndex = 0; 
-    for (const auto& [entity, mesh, transform, geometry] : meshes.each()) {
+    for (const auto& [entity, mesh, transform, geometry] : scene.Each<Mesh, Transform, RTGeometry>()) {
         auto deviceAddress = m_Device.GetDeviceAddress(geometry.accelStruct.accelerationStructure);
 
         VkAccelerationStructureInstanceKHR instance = {};
@@ -155,14 +153,12 @@ void Renderer::UpdateBVH(Scene& scene) {
     };
 
     std::vector<Instance> hostInstances;
-    hostInstances.reserve(meshes.size_hint());
+    hostInstances.reserve(nr_of_meshes);
 
-    auto materials = scene.view<Material>();
-
-    auto materialIndex = [&](entt::entity m) -> int32_t {
+    auto materialIndex = [&](Entity m) -> int32_t {
         int32_t i = 0;
 
-        for (const auto& [entity, material] : materials.each()) {
+        for (const auto& [entity, material] : scene.Each<Material>()) {
             if (entity == m) {
                 return i;
             }
@@ -173,8 +169,8 @@ void Renderer::UpdateBVH(Scene& scene) {
         return 0;
     };
 
-    for (const auto& [entity, mesh, transform, geometry] : meshes.each()) {
-        if (mesh.material == entt::null)
+    for (const auto& [entity, mesh, transform, geometry] : scene.Each<Mesh, Transform, RTGeometry>()) {
+        if (mesh.material == NULL_ENTITY)
             continue;
 
         Instance instance = {};
@@ -187,7 +183,7 @@ void Renderer::UpdateBVH(Scene& scene) {
     }
 
     m_InstanceBuffer = m_Device.CreateBuffer(
-        sizeof(Instance) * meshes.size_hint(), 
+        sizeof(Instance) * nr_of_meshes, 
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );

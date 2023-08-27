@@ -60,7 +60,7 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     }
 
     // Loaded OpenGL successfully.
-    std::cout << "OpenGL version loaded: " << GLVersion.major << "."
+    std::cout << "[Renderer] OpenGL version loaded: " << GLVersion.major << "."
               << GLVersion.minor << '\n';
 
     GPUInfo gpu_info = {};
@@ -213,7 +213,7 @@ void Renderer::Render(const Scene& scene, const Viewport& viewport) {
     // skin all meshes in the scene
     {
         const auto timer = RenderPass::ScopedTimer("Skinning", m_Skinning.get(), !mSettings.disableTiming);
-        for (const auto& [entity, mesh, skeleton] : scene.view<Mesh, Skeleton>().each())
+        for (const auto& [entity, mesh, skeleton] : scene.Each<Mesh, Skeleton>())
             m_Skinning->compute(mesh, skeleton);
     }
 
@@ -462,7 +462,6 @@ void Renderer::DestroyMaterialTextures(Material& material, Assets& assets) {
 
 
 GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB) {
-    assert(asset);
     auto dataPtr = asset->GetData();
     auto headerPtr = asset->GetHeader();
 

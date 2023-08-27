@@ -114,9 +114,9 @@ void ConVars::ParseCommandLine(int argc, char** argv) {
 		const auto value = string.substr(equals_pos + 1);
 
 		if (!SetValue(cvar, value))
-			std::cout << "Failed to set cvar \"" << cvar << "\" to " << value << '\n';
+			std::cout << "[Engine] Failed to set cvar \"" << cvar << "\" to " << value << '\n';
 		else {
-			std::cout << "Succesfully set cvar \"" << cvar << "\" to " << value << '\n';
+			std::cout << "[Engine] Succesfully set cvar \"" << cvar << "\" to " << value << '\n';
 		}
 	}
 }

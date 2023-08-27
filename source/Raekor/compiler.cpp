@@ -3,6 +3,7 @@
 #include "gui.h"
 #include "archive.h"
 #include "timer.h"
+#include "gltf.h"
 #include "async.h"
 #include "assimp.h"
 #include "components.h"
@@ -96,12 +97,8 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 
 CompilerApp::~CompilerApp() {
     NOTIFYICONDATA nid = { sizeof(NOTIFYICONDATA) };
-    nid.hWnd = GetWindowHandle();
     nid.uID = 1;
-    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-    nid.uCallbackMessage = WM_USER + 1;
-    nid.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-    strcpy(nid.szTip, "Raekor Compiler App");
+    nid.hWnd = GetWindowHandle();
     Shell_NotifyIcon(NIM_DELETE, &nid);
 
     ImGui_ImplSDL2_Shutdown();
@@ -123,6 +120,9 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
         ImGui::Text(reinterpret_cast<const char*>(ICON_FA_ADDRESS_BOOK));
 
         if (ImGui::BeginMenu("File")) {
+
+            if (ImGui::MenuItem("Clear"))
+                fs::remove_all(fs::current_path() / "cached");
 
             if (ImGui::MenuItem("Exit"))
                 m_Running = false;
@@ -356,25 +356,33 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
 
                 std::scoped_lock lock(m_FilesInFlightMutex);
                 m_FilesInFlight.erase(index);
+                LogMessage(std::format("[Assets] Converted {}", file.mAssetPath));
             });
         }
         else if (file.mAssetType == ASSET_TYPE_SCENE && m_CompileScenes) {
             m_FilesInFlight.insert(index);
 
-            //g_ThreadPool.QueueJob([this, index, &file]() {
+            g_ThreadPool.QueueJob([this, index, &file]() {
                 auto assets = Assets();
                 auto scene = Scene(nullptr); // nullptr, dont need a renderer
-                auto importer = AssimpImporter(scene, nullptr); // nullptr, dont need a renderer
-                importer.LoadFromFile(file.mAssetPath, nullptr); // nullptr, don't need assets
 
-                const auto file_dir = importer.GetDirectory().string();
+                if (Path(file.mAssetPath).extension() == ".gltf") {
+                    auto importer = GltfImporter(scene, nullptr);
+                    importer.LoadFromFile(file.mAssetPath, nullptr);
+                }
+                else {
+                    auto importer = AssimpImporter(scene, nullptr); 
+                    importer.LoadFromFile(file.mAssetPath, nullptr); 
+                }
+
 
                fs::create_directories(Path(file.mCachePath).parent_path());
                scene.SaveToFile(assets, file.mCachePath);
 
                std::scoped_lock lock(m_FilesInFlightMutex);
                m_FilesInFlight.erase(index);
-            //});
+               LogMessage(std::format("[Assets] Converted {}", file.mAssetPath));
+            });
         }
     }
 }

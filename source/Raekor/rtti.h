@@ -186,13 +186,18 @@ inline const char* gToString(enum_name inType) {                             \
     return rtti.GetMember((uint32_t)inType)->GetName();                      \
 }                                                                            \
 
+#define RTTI_CLASS_HEADER_NO_VIRTUAL(name)                                                                                         \
+public:                                                                                                                 \
+    RTTI& GetRTTI() const;                                                                                      \
+    friend RTTI& sGetRTTI(const name* inName);                                                                          \
+    static void sImplRTTI(RTTI& inRTTI)  
 
 #define RTTI_CLASS_HEADER(name)                                                                                         \
 public:                                                                                                                 \
     virtual RTTI& GetRTTI() const;                                                                                      \
     friend RTTI& sGetRTTI(const name* inName);                                                                          \
     static void sImplRTTI(RTTI& inRTTI)            
-
+  
 
 #define RTTI_CLASS_CPP(name)                                                                                            \
     RTTI& sGetRTTI(const name* inName) {                                                                                \
@@ -206,6 +211,17 @@ public:                                                                         
                                                                                                                         \
     void name::sImplRTTI(RTTI& inRTTI)    
 
+#define RTTI_CLASS_CPP_INLINE(name)                                                                                     \
+    inline RTTI& sGetRTTI(const name* inName) {                                                                         \
+        static auto rtti = RTTI(#name, &name::sImplRTTI, []() -> void* { return new name; });                           \
+        return rtti;                                                                                                    \
+    }                                                                                                                   \
+                                                                                                                        \
+    inline RTTI& name::GetRTTI() const {                                                                                \
+        return sGetRTTI(this);                                                                                          \
+    }                                                                                                                   \
+                                                                                                                        \
+    inline void name::sImplRTTI(RTTI& inRTTI) 
 
 #define RTTI_CLASS_CPP_NO_FACTORY(name)                                                                                 \
     RTTI& sGetRTTI(const name* inName) {                                                                                \
@@ -222,7 +238,10 @@ public:                                                                         
 #define RTTI_OF(name) sGetRTTI((name*)nullptr)
 
 template<typename T>
-Raekor::RTTI& gGetRTTI() { return sGetRTTI((T*)nullptr); }
+Raekor::RTTI& gGetRTTI() { return sGetRTTI((std::remove_cv_t<T>*)nullptr); }
+
+template<typename T>
+uint32_t gGetTypeHash() { return gGetRTTI<T>().GetHash(); }
 
 #define RTTI_BASE_CLASS_CPP(derived_class_name, base_class_name) \
     inRTTI.AddBaseClass(RTTI_OF(base_class_name))

@@ -14,16 +14,21 @@
 namespace Raekor {
 
 struct DXMesh {
+    RTTI_CLASS_HEADER(DXMesh);
+
     ComPtr<ID3D11Buffer> mIndexBuffer = nullptr;
     ComPtr<ID3D11Buffer> mVertexBuffer = nullptr;
     ComPtr<ID3D11ShaderResourceView> mVertexSRV = nullptr;
 
     bool IsReady() const { return mIndexBuffer && mVertexBuffer && mVertexSRV; }
 };
+RTTI_CLASS_CPP(DXMesh) {}
 
 
 
 struct DXMaterial {
+    RTTI_CLASS_HEADER(DXMaterial);
+
     ComPtr<ID3D11Texture2D> mAlbedoTexture = nullptr;
     ComPtr<ID3D11ShaderResourceView> mAlbedoSRV = nullptr;
     ComPtr<ID3D11Texture2D> mNormalTexture = nullptr;
@@ -33,6 +38,10 @@ struct DXMaterial {
 
     bool IsReady() const { return mAlbedoTexture && mAlbedoSRV && mNormalTexture && mNormalSRV && mMetalRoughTexture && mMetalRoughSRV; }
 };
+RTTI_CLASS_CPP(DXMaterial) {}
+
+
+
 
 struct GBufferConstants {
     float mLODFade = 1.0f;
@@ -172,11 +181,11 @@ public:
         m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
 
         Timer timer;
-        for (const auto& [entity, material] : m_Scene.view<Material>().each())
-            m_Scene.emplace<DXMaterial>(entity);
+        for (const auto& [entity, material] : m_Scene.Each<Material>())
+            m_Scene.Add<DXMaterial>(entity);
 
-        for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
-            m_Scene.emplace<DXMesh>(entity);
+        for (const auto& [entity, mesh] : m_Scene.Each<Mesh>()) {
+            m_Scene.Add<DXMesh>(entity);
             m_StreamingJobsPending++;
 
             //if (m_CustomSettings.mEnableMeshFading)
@@ -194,11 +203,11 @@ public:
             m_DefaultNormalTexture = UploadTexture(m_Assets.GetAsset<TextureAsset>(normal_texture_file), DXGI_FORMAT_BC3_UNORM);
             D3D.device->CreateShaderResourceView(m_DefaultNormalTexture.Get(), nullptr, m_DefaultNormalTextureSRV.GetAddressOf());
 
-            for (const auto& [entity, mesh, geometry] : m_Scene.view<Mesh, DXMesh>().each()) {
+            for (const auto& [entity, mesh, geometry] : m_Scene.Each<Mesh, DXMesh>()) {
                 UploadMesh(mesh, geometry);
 
-                if (m_Scene.valid(mesh.material)) {
-                    const auto& [material, dx_material] = m_Scene.get<Material, DXMaterial>(mesh.material);
+                if (m_Scene.IsValid(mesh.material)) {
+                    const auto& [material, dx_material] = m_Scene.Get<Material, DXMaterial>(mesh.material);
                     if (!dx_material.IsReady())
                         UploadMaterial(m_Assets, material, dx_material);
                 }
@@ -280,7 +289,7 @@ public:
 
         if (ImGui::SmallButton("Reset Mesh Fade")) {
             g_ThreadPool.QueueJob([this]() {
-                for (const auto& [entity, mesh] : m_Scene.view<Mesh>().each()) {
+                for (const auto& [entity, mesh] : m_Scene.Each<Mesh>()) {
                     mesh.mLODFade = 1.0f;
                     Sleep(rand() % 100);
                 }
@@ -288,12 +297,12 @@ public:
         }
 
         if (ImGui::SmallButton("Generate Rigid Bodies")) {
-            for (const auto& [sb_entity, sb_transform, sb_mesh] : m_Scene.view<Transform, Mesh>().each()) {
-                m_Scene.emplace<BoxCollider>(sb_entity);
+            for (const auto& [sb_entity, sb_transform, sb_mesh] : m_Scene.Each<Transform, Mesh>()) {
+                m_Scene.Add<BoxCollider>(sb_entity);
                 m_StreamingJobsPending++;
             }
 
-            for (const auto& [entity, sb_transform, sb_mesh, sb_collider] : m_Scene.view<Transform, Mesh, BoxCollider>().each()) {
+            for (const auto& [entity, sb_transform, sb_mesh, sb_collider] : m_Scene.Each<Transform, Mesh, BoxCollider>()) {
                 auto& mesh      = sb_mesh;
                 auto& transform = sb_transform;
                 auto& collider  = sb_collider;
@@ -333,30 +342,30 @@ public:
         }
 
         if (g_ThreadPool.GetActiveJobCount() == 0 && ImGui::Button("Spawn/Reset Balls")) {
-            const auto material_entity = m_Scene.create();
+            const auto material_entity = m_Scene.Create();
             
-            auto& material_name = m_Scene.emplace<Name>(material_entity);
+            auto& material_name = m_Scene.Add<Name>(material_entity);
             material_name = "Ball Material";
             
-            auto& ball_material = m_Scene.emplace<Material>(material_entity);
+            auto& ball_material = m_Scene.Add<Material>(material_entity);
             ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
 
-            UploadMaterial(m_Assets, ball_material, m_Scene.emplace<DXMaterial>(material_entity));
+            UploadMaterial(m_Assets, ball_material, m_Scene.Add<DXMaterial>(material_entity));
 
             for (uint32_t i = 0; i < 64; i++) {
                 auto entity = m_Scene.CreateSpatialEntity("ball");
-                auto& transform = m_Scene.get<Transform>(entity);
-                auto& mesh = m_Scene.emplace<Mesh>(entity);
+                auto& transform = m_Scene.Get<Transform>(entity);
+                auto& mesh = m_Scene.Add<Mesh>(entity);
 
                 mesh.material = material_entity;
                 constexpr auto radius = 2.5f;
                 gGenerateSphere(mesh, radius, 16, 16);
-                UploadMesh(mesh, m_Scene.emplace<DXMesh>(entity));
+                UploadMesh(mesh, m_Scene.Add<DXMesh>(entity));
 
                 transform.position = Vec3(-65.0f, 85.0f + i * (radius * 2.0f), 0.0f);
                 transform.Compose();
 
-                auto& collider = m_Scene.emplace<BoxCollider>(entity);
+                auto& collider = m_Scene.Add<BoxCollider>(entity);
                 collider.motionType = JPH::EMotionType::Dynamic;
                 JPH::Ref<JPH::ShapeSettings> settings = new JPH::SphereShapeSettings(radius);
 
@@ -371,7 +380,7 @@ public:
                 body_settings.mFriction = 0.1f;
                 body_settings.mRestitution = 0.35f;
 
-                auto& body_interface = m_Physics.GetSystem().GetBodyInterface();
+                auto& body_interface = m_Physics.GetSystem()->GetBodyInterface();
                 collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
 
                 //body_interface.AddImpulse(collider.bodyID, JPH::Vec3Arg(50.0f, -2.0f, 50.0f));
@@ -441,11 +450,11 @@ public:
         m_GbufferDepthShader.Bind(D3D.context.Get());
         D3D.context->OMSetRenderTargets(0, nullptr, D3D.depth_stencil_view.Get());
         
-        for (const auto& [entity, transform, mesh, geometry] : m_Scene.view<Transform, Mesh, DXMesh>().each()) {
+        for (const auto& [entity, transform, mesh, geometry] : m_Scene.Each<Transform, Mesh, DXMesh>()) {
             if (!geometry.IsReady())
                 continue;
 
-            auto dx_material = m_Scene.try_get<DXMaterial>(mesh.material);
+            auto dx_material = m_Scene.GetPtr<DXMaterial>(mesh.material);
             if (dx_material && !dx_material->IsReady())
                 continue;
 
@@ -481,11 +490,11 @@ public:
         const auto samplers = std::array { m_SamplerAnisoWrap.Get() };
         D3D.context->PSSetSamplers(0, uint32_t(samplers.size()), samplers.data());
 
-        for (const auto& [entity, transform, mesh, geometry] : m_Scene.view<Transform, Mesh, DXMesh>().each()) {
+        for (const auto& [entity, transform, mesh, geometry] : m_Scene.Each<Transform, Mesh, DXMesh>()) {
             if (!geometry.IsReady())
                 continue;
 
-            auto dx_material = m_Scene.try_get<DXMaterial>(mesh.material);
+            auto dx_material = m_Scene.GetPtr<DXMaterial>(mesh.material);
             if (dx_material && !dx_material->IsReady())
                 continue;
 
@@ -494,7 +503,7 @@ public:
             else
                 m_Renderer.BindPipeline(D3D11_COMPARISON_EQUAL);
 
-            auto& material = m_Scene.get<Material>(mesh.material);
+            auto& material = m_Scene.Get<Material>(mesh.material);
 
             m_GBufferConstants.mAlbedo = material.albedo;
             m_GBufferConstants.mLODFade = mesh.mLODFade;

@@ -157,20 +157,14 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
 }
 
 
-void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
-    const auto lightView = scene.view<const DirectionalLight, const Transform>();
-    auto lookDirection = glm::vec3(0.25f, -0.9f, 0.0f);
+void ShadowMap::updateCascades(const Scene& inScene, const Viewport& viewport) {
+    auto view_dir = glm::vec3(0.25f, -0.9f, 0.0f);
+    
+    if (auto sunlight = inScene.GetSunLight())
+        view_dir = Vec3(glm::normalize(sunlight->GetDirection()));
 
-    if (lightView.begin() != lightView.end()) {
-        const auto& lightTransform = lightView.get<const Transform>(lightView.front());
-        lookDirection = static_cast<glm::quat>(lightTransform.rotation) * lookDirection;
-    } else {
-        // we rotate default light a little or else we get nan values in our view matrix
-        lookDirection = static_cast<glm::quat>(glm::vec3(glm::radians(15.0f), 0, 0)) * lookDirection;
-    }
-
-    lookDirection = glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
-
+    view_dir = glm::clamp(view_dir, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
+    
     const float nearClip = viewport.GetCamera().GetNear();
     const float farClip = viewport.GetCamera().GetFar();
     const float clipRange = farClip - nearClip;
@@ -230,7 +224,7 @@ void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
         glm::vec3 maxExtents = glm::vec3(cascades[cascade].radius);
         glm::vec3 minExtents = -maxExtents;
 
-        glm::vec3 lightDir = glm::normalize(lookDirection);
+        glm::vec3 lightDir = glm::normalize(view_dir);
 
         glm::mat4 lightViewMatrix = glm::lookAtRH(frustumCenter + lightDir * minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 lightOrthoMatrix = glm::orthoRH_ZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
@@ -258,10 +252,10 @@ void ShadowMap::updateCascades(const Scene& scene, const Viewport& viewport) {
 }
 
 
-void ShadowMap::Render(const Viewport& viewport, const Scene& scene) {
+void ShadowMap::Render(const Viewport& inViewport, const Scene& inScene) {
     glViewport(0, 0, settings.resolution, settings.resolution);
 
-    updateCascades(scene, viewport);
+    updateCascades(inScene, inViewport);
 
     // setup for rendering
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -271,8 +265,6 @@ void ShadowMap::Render(const Viewport& viewport, const Scene& scene) {
 
     shader.Bind();
 
-    const auto view = scene.view<const Mesh, const Transform>();
-
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
     
     for (uint32_t i = 0; i < settings.nrOfCascades; i++) {
@@ -281,11 +273,11 @@ void ShadowMap::Render(const Viewport& viewport, const Scene& scene) {
 
         uniforms.lightMatrix = cascades[i].matrix;
 
-        for (const auto& [entity, mesh, transform] : view.each()) {
+        for (const auto& [entity, mesh, transform] : inScene.Each<Mesh, Transform>()) {
             uniforms.modelMatrix = transform.worldTransform;
 
             // determine if we use the original mesh vertices or GPU skinned vertices
-            auto skeleton = scene.try_get<Skeleton>(entity);
+            auto skeleton = inScene.GetPtr<Skeleton>(entity);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
@@ -301,8 +293,8 @@ void ShadowMap::Render(const Viewport& viewport, const Scene& scene) {
 }
 
 
-void ShadowMap::renderCascade(const Viewport& viewport, GLuint framebuffer) {
-    glViewport(0, 0, viewport.size.x, viewport.size.y);
+void ShadowMap::renderCascade(const Viewport& inViewport, GLuint framebuffer) {
+    glViewport(0, 0, inViewport.size.x, inViewport.size.y);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     debugShader.Bind();
 
@@ -312,7 +304,7 @@ void ShadowMap::renderCascade(const Viewport& viewport, GLuint framebuffer) {
 }
 
 
-GBuffer::GBuffer(const Viewport& viewport) {
+GBuffer::GBuffer(const Viewport& inViewport) {
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\gbuffer.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\gbuffer.frag"}
@@ -325,7 +317,7 @@ GBuffer::GBuffer(const Viewport& viewport) {
     glNamedBufferStorage(pbo, sizeof(float), NULL, GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
     entity = glMapNamedBufferRange(pbo, 0, sizeof(float), GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
 
-    CreateRenderTargets(viewport);
+    CreateRenderTargets(inViewport);
 }
 
 
@@ -335,45 +327,39 @@ GBuffer::~GBuffer() {
 }
 
 
-void GBuffer::Render(const Scene& scene, const Viewport& viewport, uint32_t m_FrameNr) {
-    glViewport(0, 0, viewport.size.x, viewport.size.y);
+void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_FrameNr) {
+    glViewport(0, 0, inViewport.size.x, inViewport.size.y);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    entt::entity null = entt::null;
-    float null_entity_value = float(entt::to_integral(null));
-    
-    std::array clearColor = { 
-        null_entity_value, 0.0f, 0.0f, 1.0f
-    };
-    
-    glClearBufferfv(GL_COLOR, 3, clearColor.data());
+    constexpr auto clear_color = std::array { float(NULL_ENTITY), 0.0f, 0.0f, 1.0f };
+    glClearBufferfv(GL_COLOR, 3, clear_color.data());
 
     if (m_FrameNr == 0) {
-        uniforms.prevJitter = viewport.GetJitter();
+        uniforms.prevJitter = inViewport.GetJitter();
     } else {
         uniforms.prevJitter = uniforms.jitter;
     }
 
-    uniforms.jitter = viewport.GetJitter();
+    uniforms.jitter = inViewport.GetJitter();
 
     if (m_FrameNr == 0) {
-        uniforms.prevViewProj = viewport.GetJitteredProjMatrix() * viewport.GetCamera().GetView();
+        uniforms.prevViewProj = inViewport.GetJitteredProjMatrix() * inViewport.GetCamera().GetView();
     } else {
         uniforms.prevViewProj = uniforms.projection * uniforms.view;
     }
 
-    uniforms.view = viewport.GetCamera().GetView();
-    uniforms.projection = viewport.GetJitteredProjMatrix();
+    uniforms.view = inViewport.GetCamera().GetView();
+    uniforms.projection = inViewport.GetJitteredProjMatrix();
 
-    const auto frustum = viewport.GetCamera().GetFrustum();
+    const auto frustum = inViewport.GetCamera().GetFrustum();
 
     culled = 0;
 
     shader.Bind();
 
-    for (const auto& [entity, mesh, transform] : scene.view<const Mesh, const Transform>().each()) {
+    for (const auto& [entity, mesh, transform] : scene.Each<Mesh, Transform>()) {
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB = {
             transform.worldTransform* glm::vec4(mesh.aabb[0], 1.0),
@@ -390,8 +376,8 @@ void GBuffer::Render(const Scene& scene, const Viewport& viewport, uint32_t m_Fr
 
         const Material* material = nullptr;
 
-        if (scene.valid(mesh.material))
-            material = scene.try_get<Material>(mesh.material);
+        if (scene.IsValid(mesh.material))
+            material = scene.GetPtr<Material>(mesh.material);
 
         uniforms.mLODFade = mesh.mLODFade;
 
@@ -404,10 +390,10 @@ void GBuffer::Render(const Scene& scene, const Viewport& viewport, uint32_t m_Fr
         glBindTextureUnit(3, (material && material->gpuMetallicRoughnessMap) ? material->gpuMetallicRoughnessMap : Material::Default.gpuMetallicRoughnessMap);
         
         uniforms.model = transform.worldTransform;
-        uniforms.entity = entt::to_integral(entity);
+        uniforms.entity = uint32_t(entity);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        auto skeleton = scene.try_get<Skeleton>(entity);
+        auto skeleton = scene.GetPtr<Skeleton>(entity);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
@@ -423,12 +409,12 @@ void GBuffer::Render(const Scene& scene, const Viewport& viewport, uint32_t m_Fr
 }
 
 
-uint32_t GBuffer::readEntity(GLint x, GLint y) {
+uint32_t GBuffer::readEntity(GLint inX, GLint inY) {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glReadBuffer(GL_COLOR_ATTACHMENT3);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
 
-    glReadPixels(x, y, 1, 1, GL_RED, GL_FLOAT, 0);
+    glReadPixels(inX, inY, 1, 1, GL_RED, GL_FLOAT, 0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
@@ -562,33 +548,16 @@ DeferredShading::DeferredShading(const Viewport& viewport) {
 }
 
 
-void DeferredShading::Render(const Scene& sscene, const Viewport& viewport,
+void DeferredShading::Render(const Scene& inScene, const Viewport& viewport,
                              const ShadowMap& shadowMap, const GBuffer& GBuffer, const Atmosphere& m_Atmosphere, const Voxelize& voxels) {
     uniforms.view = viewport.GetCamera().GetView();
     uniforms.projection = viewport.GetJitteredProjMatrix();
 
-    // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
-    // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -1, 0)
-    {
-        const auto view = sscene.view<const DirectionalLight, const Transform>();
-        auto entity = view.front();
-        if (entity != entt::null) {
-            const auto& light = view.get<const DirectionalLight>(entity);
-            const auto& transform = view.get<const Transform>(entity);
-            uniforms.dirLight = light;
-        } else {
-            auto light = DirectionalLight();
-            light.direction.y = -0.9f;
-            uniforms.dirLight = light;
-        }
-    }
-
-    const auto posView = sscene.view<const PointLight, const Transform>();
+    if (auto sunlight = inScene.GetSunLight())
+        uniforms.dirLight = *sunlight;
 
     unsigned int i = 0;
-    for (auto entity : posView) {
-        const auto& light = posView.get<const PointLight>(entity);
-        const auto& transform = posView.get<const Transform>(entity);
+    for (auto [entity, transform, light] : inScene.Each<Transform, PointLight>()) {
 
         i++;
 
@@ -606,8 +575,8 @@ void DeferredShading::Render(const Scene& sscene, const Viewport& viewport,
     }
 
     uniforms2.bloomThreshold = glm::vec4(settings.bloomThreshold, 0.0f);
-    uniforms2.pointLightCount = static_cast<uint32_t>(sscene.size<PointLight>());
-    uniforms2.directionalLightCount = static_cast<uint32_t>(sscene.size<DirectionalLight>());;
+    uniforms2.pointLightCount = static_cast<uint32_t>(inScene.Count<PointLight>());
+    uniforms2.directionalLightCount = static_cast<uint32_t>(inScene.Count<DirectionalLight>());;
     uniforms2.voxelWorldSize = voxels.worldSize;
     uniforms2.invViewProjection = glm::inverse(uniforms.projection * uniforms.view);
 
@@ -863,7 +832,6 @@ Voxelize::Voxelize(uint32_t size) : size(size) {
 
     float borderColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
     glTextureParameterfv(result, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glGenerateTextureMipmap(result);
 }
 
 
@@ -930,13 +898,11 @@ void Voxelize::Render(const Scene& scene, const Viewport& viewport, const Shadow
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
     glBindTextureUnit(2, shadowmap.texture);
 
-    const auto view = scene.view<const Mesh, const Transform>();
-
-    for (const auto& [entity, mesh, transform] : view.each()) {
+    for (const auto& [entity, mesh, transform] : scene.Each<Mesh, Transform>()) {
         const Material* material = nullptr;
         
-        if (scene.valid(mesh.material))
-            material = scene.try_get<Material>(mesh.material);
+        if (scene.IsValid(mesh.material))
+            material = scene.GetPtr<Material>(mesh.material);
         
         uniforms.colour = material ? material->albedo : Material::Default.albedo;
         uniforms.model = transform.worldTransform;
@@ -944,7 +910,7 @@ void Voxelize::Render(const Scene& scene, const Viewport& viewport, const Shadow
         glBindTextureUnit(0, (material && material->gpuAlbedoMap) ? material->gpuAlbedoMap : Material::Default.gpuAlbedoMap);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
-        auto skeleton = scene.try_get<Skeleton>(entity);
+        auto skeleton = scene.GetPtr<Skeleton>(entity);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, skeleton ? skeleton->skinnedVertexBuffer : mesh.vertexBuffer);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
@@ -1272,9 +1238,7 @@ void Icons::Render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
 
     const auto vp = viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView();
 
-    const auto view = scene.view<const DirectionalLight, const Transform>();
-
-    for (const auto& [entity, light, transform] : view.each()) {
+    for (const auto& [entity, light, transform] : scene.Each<DirectionalLight, Transform>()) {
 
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, transform.position);
@@ -1296,7 +1260,7 @@ void Icons::Render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
         model = glm::scale(model, glm::vec3(glm::length(V) * 0.05f));
 
         uniforms.mvp = vp * model;
-        uniforms.entity = entt::to_integral(entity);
+        uniforms.entity = uint32_t(entity);
         uniforms.world_position = glm::vec4(transform.position, 1.0);
 
         glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
@@ -1345,6 +1309,10 @@ Atmosphere::Atmosphere(const Viewport& viewport) {
 
 
 Atmosphere::~Atmosphere() {
+    DirectionalLight light;
+    uniforms.sunlightDir = light.direction;
+    uniforms.sunlightColor = light.colour;
+
     DestroyRenderTargets();
     glDeleteBuffers(1, &uniformBuffer);
 }
@@ -1363,33 +1331,18 @@ void Atmosphere::DestroyRenderTargets() {
 
 
 
-void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& scene) {
+void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& inScene) {
     uniforms.view = glm::mat3(viewport.GetCamera().GetView());
     uniforms.proj = viewport.GetCamera().GetProjection();
-
-    auto light = DirectionalLight();
-    light.direction.y = -0.9f;
 
     uniforms.invViewProj = glm::inverse(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView());
     uniforms.cameraPos = glm::vec4(viewport.GetCamera().GetPosition(), 1.0);
 
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
     // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -0.9, 0)
-    {
-        const auto view = scene.view<const DirectionalLight, const Transform>();
-        const auto entity = view.front();
-        if (entity != entt::null) {
-            const auto& light = view.get<const DirectionalLight>(entity);
-            const auto& transform = view.get<const Transform>(entity);
-
-            uniforms.sunlightDir = light.direction;
-            uniforms.sunlightColor = light.colour;
-        } else {
-            auto light = DirectionalLight();
-            light.direction.y = -0.9f;
-            uniforms.sunlightDir = light.direction;
-            uniforms.sunlightColor = light.colour;
-        }
+    if (auto sunlight = inScene.GetSunLight()) {
+        uniforms.sunlightDir = sunlight->GetDirection();
+        uniforms.sunlightColor = sunlight->GetColor();
     }
 
     glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);

@@ -6,7 +6,7 @@
             "r_vsync": 
             {
                 "Type": 1,
-                "Int": 1,
+                "Int": 0,
                 "Float": 0.000000,
                 "String": ""
             },
@@ -22,6 +22,13 @@
                 "Type": 2,
                 "Int": 0,
                 "Float": 2.000000,
+                "String": ""
+            },
+            "debug_layer": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
                 "String": ""
             },
             "quit": 
@@ -48,7 +55,7 @@
             "launch_asset_compiler_on_startup": 
             {
                 "Type": 1,
-                "Int": 1,
+                "Int": 0,
                 "Float": 0.000000,
                 "String": ""
             },
@@ -102,6 +109,76 @@
                 "String": ""
             },
             "r_debug_texture": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "gpu_validation": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "hook_pix": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_debug_lines": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_enable_rtao": 
+            {
+                "Type": 1,
+                "Int": 1,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_debug_gi_probes": 
+            {
+                "Type": 1,
+                "Int": 1,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_enable_ddgi": 
+            {
+                "Type": 1,
+                "Int": 1,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_fullscreen": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_enable_fsr2": 
+            {
+                "Type": 1,
+                "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_mesh_fading": 
+            {
+                "Type": 1,
+                "Int": 1,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_display_resolution": 
             {
                 "Type": 1,
                 "Int": 0,

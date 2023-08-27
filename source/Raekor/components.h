@@ -1,6 +1,8 @@
 #pragma once
 
+#include "ecs.h"
 #include "rtti.h"
+#include "rmath.h"
 #include "assets.h"
 #include "animation.h"
 
@@ -9,7 +11,7 @@ namespace Raekor {
 class INativeScript;
 
 struct Name {
-    RTTI_CLASS_HEADER(Name);
+    RTTI_CLASS_HEADER_NO_VIRTUAL(Name);
 
     std::string name;
 
@@ -20,7 +22,7 @@ struct Name {
 
 
 struct SCRIPT_INTERFACE Transform {
-    RTTI_CLASS_HEADER(Transform);
+    RTTI_CLASS_HEADER_NO_VIRTUAL(Transform);
 
     glm::vec3 scale     = glm::vec3(1.0f, 1.0f, 1.0f);
     glm::vec3 position  = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -29,6 +31,10 @@ struct SCRIPT_INTERFACE Transform {
     glm::mat4 localTransform  = glm::mat4(1.0f);
     glm::mat4 worldTransform  = glm::mat4(1.0f);
 
+    Vec3 GetScaleWorldSpace() const;
+    Vec3 GetPositionWorldSpace() const;
+    Quat GetRotationWorldSpace() const;
+
     void Print();
     void Compose();
     void Decompose();
@@ -36,30 +42,46 @@ struct SCRIPT_INTERFACE Transform {
 
 
 struct DirectionalLight {
-    glm::vec4 direction = { 0.0f, -0.9f, 0.0f, 0.0f };
+    RTTI_CLASS_HEADER_NO_VIRTUAL(DirectionalLight);
+
+    const Vec4& GetColor() const { return colour; }
+    const Vec4& GetDirection() const { return direction; }
+
+
+    glm::vec4 direction = { 0.25f, -0.9f, 0.0f, 0.0f };
     glm::vec4 colour    = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 
 struct PointLight {
+    RTTI_CLASS_HEADER_NO_VIRTUAL(PointLight);
+
     glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
     glm::vec4 colour   = { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
+struct Light {
+
+    glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
+    glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+};
+
 
 struct Node {
-    entt::entity parent      = entt::null;
-    entt::entity firstChild  = entt::null;
-    entt::entity prevSibling = entt::null;
-    entt::entity nextSibling = entt::null;
+    RTTI_CLASS_HEADER_NO_VIRTUAL(Node);
 
-    bool IsRoot() const { return parent == entt::null; }
-    bool HasChildren() const { return firstChild != entt::null; }
-    bool IsConnected() const { return firstChild != entt::null && parent != entt::null; }
+    Entity parent      = NULL_ENTITY;
+    Entity firstChild  = NULL_ENTITY;
+    Entity prevSibling = NULL_ENTITY;
+    Entity nextSibling = NULL_ENTITY;
+
+    bool IsRoot() const { return parent == NULL_ENTITY; }
+    bool HasChildren() const { return firstChild != NULL_ENTITY; }
+    bool IsConnected() const { return firstChild != NULL_ENTITY && parent != NULL_ENTITY; }
 };
 
 struct Mesh {
-    RTTI_CLASS_HEADER(Mesh);
+    RTTI_CLASS_HEADER_NO_VIRTUAL(Mesh);
     
     std::vector<glm::vec3> positions; // ptr
     std::vector<glm::vec2> uvs; // ptr
@@ -75,7 +97,9 @@ struct Mesh {
 
     std::array<glm::vec3, 2> aabb;
 
-    entt::entity material = entt::null;
+
+
+    Entity material = NULL_ENTITY;
 
     float mLODFade = 0.0f;
 
@@ -96,6 +120,8 @@ struct Mesh {
 };
 
 struct BoxCollider {
+    RTTI_CLASS_HEADER_NO_VIRTUAL(BoxCollider);
+
     JPH::BodyID bodyID;
     JPH::EMotionType motionType;
     JPH::BoxShapeSettings settings;
@@ -106,6 +132,8 @@ struct BoxCollider {
 
 
 struct SoftBody {
+    RTTI_CLASS_HEADER_NO_VIRTUAL(SoftBody);
+
     JPH::BodyID mBodyID;
     JPH::SoftBodySharedSettings mSharedSettings;
     JPH::SoftBodyCreationSettings mCreationSettings;
@@ -114,6 +142,8 @@ struct SoftBody {
 };
 
 struct Bone {
+    RTTI_CLASS_HEADER_NO_VIRTUAL(Bone);
+
     uint32_t index;
     std::string name;
     std::vector<Bone> children;
@@ -121,6 +151,8 @@ struct Bone {
 
 
 struct Skeleton {
+    RTTI_CLASS_HEADER_NO_VIRTUAL(Skeleton);
+
     glm::mat4 inverseGlobalTransform;
     std::vector<glm::vec4> boneWeights; // ptr
     std::vector<glm::ivec4> boneIndices; // ptr
@@ -142,7 +174,7 @@ struct Skeleton {
 
 
 struct Material {
-    RTTI_CLASS_HEADER(Material);
+    RTTI_CLASS_HEADER_NO_VIRTUAL(Material);
 
     // properties
     glm::vec4 albedo = glm::vec4(1.0f);
@@ -169,6 +201,8 @@ struct Material {
 
 
 struct NativeScript {
+    RTTI_CLASS_HEADER_NO_VIRTUAL(NativeScript);
+
     std::string file; // ptr
     ScriptAsset::Ptr asset;
     std::string procAddress; // ptr
@@ -200,140 +234,24 @@ static constexpr auto Components = std::make_tuple (
 void gRegisterComponentTypes();
 
 template<typename T>
-inline void clone(entt::registry& reg, entt::entity from, entt::entity to) {}
+inline void clone(ecs::ECS& reg, Entity from, Entity to) {}
 
 template<>
-void clone<Transform>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<Transform>(ecs::ECS& reg, Entity from, Entity to);
 
 template<>
-void clone<Node>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<Node>(ecs::ECS& reg, Entity from, Entity to);
 
 template<>
-void clone<Name>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<Name>(ecs::ECS& reg, Entity from, Entity to);
 
 template<>
-void clone<Mesh>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<Mesh>(ecs::ECS& reg, Entity from, Entity to);
 
 template<>
-void clone<Material>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<Material>(ecs::ECS& reg, Entity from, Entity to);
 
 template<>
-void clone<BoxCollider>(entt::registry& reg, entt::entity from, entt::entity to);
+void clone<BoxCollider>(ecs::ECS& reg, Entity from, Entity to);
 
 } // Raekor
-
-namespace cereal {
-
-template<typename Archive>
-void save(Archive& archive, const Raekor::Transform& transform) {
-    archive(transform.position, transform.rotation, transform.scale,
-        transform.localTransform, transform.worldTransform);
-}
-
-template<typename Archive>
-void load(Archive& archive, Raekor::Transform& transform) {
-    archive(transform.position, transform.rotation, transform.scale,
-        transform.localTransform, transform.worldTransform);
-}
-
-template<typename Archive>
-void save(Archive& archive, const Raekor::DirectionalLight& light) {
-    archive(light.colour, light.direction);
-}
-
-
-template<typename Archive>
-void load(Archive& archive, Raekor::DirectionalLight& light) {
-    archive(light.colour, light.direction);
-}
-
-
-template<typename Archive>
-void serialize(Archive& archive, Raekor::PointLight& light) {
-    archive(light.colour, light.colour);
-}
-
-
-template<class Archive>
-void serialize(Archive& archive, Raekor::Node& node) {
-    archive(node.parent, node.firstChild, node.nextSibling, node.prevSibling);
-}
-
-
-template<class Archive>
-void save(Archive& archive, const Raekor::Mesh& mesh) {
-    archive(
-        cereal::make_nvp("positions", mesh.positions),
-        cereal::make_nvp("uvs", mesh.uvs),
-        cereal::make_nvp("normals", mesh.normals),
-        cereal::make_nvp("tangents", mesh.tangents),
-        cereal::make_nvp("indices", mesh.indices),
-        cereal::make_nvp("material", mesh.material)
-    );
-}
-
-
-template<class Archive>
-void load(Archive& archive, Raekor::Mesh& mesh) {
-    archive(
-        cereal::make_nvp("positions", mesh.positions),
-        cereal::make_nvp("uvs", mesh.uvs),
-        cereal::make_nvp("normals", mesh.normals),
-        cereal::make_nvp("tangents", mesh.tangents),
-        cereal::make_nvp("indices", mesh.indices),
-        cereal::make_nvp("material", mesh.material)
-    );
-}
-
-template<class Archive>
-void serialize(Archive& archive, JPH::Vec3& vec) {
-    archive(vec.mF32);
-}
-
-template<class Archive>
-void serialize(Archive& archive, JPH::BoxShapeSettings& settings) {
-    archive(settings.mHalfExtent, settings.mConvexRadius);
-}
-
-template<class Archive>
-void serialize(Archive& archive, Raekor::BoxCollider& collider) {
-    archive(collider.motionType, collider.settings);
-}
-
-
-template<class Archive>
-void save(Archive& archive, const Raekor::Material& mat) {
-    archive(
-        cereal::make_nvp("Albedo Map", mat.albedoFile),
-        cereal::make_nvp("Normal Map", mat.normalFile),
-        cereal::make_nvp("Metallic-Roughness Map", mat.metalroughFile),
-        cereal::make_nvp("Base Color", mat.albedo),
-        cereal::make_nvp("Metallic", mat.metallic),
-        cereal::make_nvp("Roughness", mat.roughness),
-        cereal::make_nvp("emissive", mat.emissive),
-        cereal::make_nvp("Transparent", mat.isTransparent)
-    );
-}
-
-
-template<class Archive>
-void load(Archive& archive, Raekor::Material& mat) {
-    archive(
-        cereal::make_nvp("Albedo Map", mat.albedoFile),
-        cereal::make_nvp("Normal Map", mat.normalFile),
-        cereal::make_nvp("Metallic-Roughness Map", mat.metalroughFile),
-        cereal::make_nvp("Base Color", mat.albedo),
-        cereal::make_nvp("Metallic", mat.metallic),
-        cereal::make_nvp("Roughness", mat.roughness),
-        cereal::make_nvp("emissive", mat.emissive),
-        cereal::make_nvp("Transparent", mat.isTransparent)
-    );
-}
-
-
-template<class Archive>
-void serialize(Archive& archive, Raekor::Name& name) {
-    archive(cereal::make_nvp("name", name.name));
-}
-
-} // cereal

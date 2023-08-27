@@ -31,7 +31,7 @@ public:
     const char* GetDebugTextureName(uint32_t inIndex) const override;
 
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer);
-    uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) { return m_GBuffer ? m_GBuffer->readEntity(inScreenPosX, inScreenPosY) : entt::null; }
+    uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) { return m_GBuffer ? m_GBuffer->readEntity(inScreenPosX, inScreenPosY) : NULL_ENTITY; }
     
     void OnResize(const Viewport& inViewport) { 
         CreateRenderTargets(inViewport);

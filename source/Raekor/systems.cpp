@@ -1,110 +1,114 @@
 #include "pch.h"
 #include "systems.h"
+#include "components.h"
+#include "application.h"
 
 namespace Raekor {
 
-void NodeSystem::sAppend(entt::registry& registry, entt::entity parentEntity, Node& parent, entt::entity childEntity, Node& child) {
-    auto view = registry.view<Node>();
+void NodeSystem::sAppend(ecs::ECS& inECS, Entity parentEntity, Node& parent, Entity childEntity, Node& child) {
     child.parent = parentEntity;
 
     // if its the parent's first child we simply assign it
-    if (parent.firstChild == entt::null) {
+    if (parent.firstChild == NULL_ENTITY) {
         parent.firstChild = childEntity;
         return;
     } else {
         // ensure we can get the first child's node
         auto last_child  = parent.firstChild;
-        assert(view.get<Node>(last_child).prevSibling == entt::null);
+        assert(inECS.Get<Node>(last_child).prevSibling == NULL_ENTITY);
 
         // traverse to the end of the sibling chain
-         while (view.get<Node>(last_child).nextSibling != entt::null)
-            last_child = view.get<Node>(last_child).nextSibling;
+         while (inECS.Get<Node>(last_child).nextSibling != NULL_ENTITY)
+            last_child = inECS.Get<Node>(last_child).nextSibling;
 
         // update siblings
-        auto& last_node = view.get<Node>(last_child);
+        auto& last_node = inECS.Get<Node>(last_child);
         last_node.nextSibling = childEntity;
         child.prevSibling = last_child;
     }
 }
 
 
-void NodeSystem::sRemove(entt::registry& registry, Node& node) {
-    for (auto it = node.firstChild; it != entt::null; it = registry.get<Node>(it).nextSibling) {
-        auto& child = registry.get<Node>(it);
+void NodeSystem::sRemove(ecs::ECS& inECS, Node& node) {
+    for (auto it = node.firstChild; it != NULL_ENTITY; it = inECS.Get<Node>(it).nextSibling) {
+        auto& child = inECS.Get<Node>(it);
         // this will either hook it up to the node's parent or set it to null, 
         // node's parent is the desired outcome when collapsing transforms
         child.parent = node.parent;
     }
 
     // handle first child case, example: node | sibling1 | sibling2 | etc.
-    if (node.prevSibling == entt::null) {
+    if (node.prevSibling == NULL_ENTITY) {
         // set sibling1's previous sibling to null (since it is now the first child)
-        if (node.nextSibling != entt::null) {
-            auto& next_sibling = registry.get<Node>(node.nextSibling);
-            next_sibling.prevSibling = entt::null;
+        if (node.nextSibling != NULL_ENTITY) {
+            auto& next_sibling = inECS.Get<Node>(node.nextSibling);
+            next_sibling.prevSibling = NULL_ENTITY;
         }
 
         // set the parent's first child to sibling1 (node's next sibling)
         if (!node.IsRoot())
-            registry.get<Node>(node.parent).firstChild = node.nextSibling;
+            inECS.Get<Node>(node.parent).firstChild = node.nextSibling;
     }
     // any other child case, example: | sibling1 | node | sibling2 | , 
     // remove the node by setting sibling1's next sibling to sibling2 and
     // settings sibling2's previous sibling to sibling1
     else {
-        auto& prev_sibling = registry.get<Node>(node.prevSibling);
+        auto& prev_sibling = inECS.Get<Node>(node.prevSibling);
         prev_sibling.nextSibling = node.nextSibling;
 
-        if (node.nextSibling != entt::null) {
-            auto& next_sibling = registry.get<Node>(node.nextSibling);
+        if (node.nextSibling != NULL_ENTITY) {
+            auto& next_sibling = inECS.Get<Node>(node.nextSibling);
             next_sibling.prevSibling = node.prevSibling;
         }
     }
 
     // nullifying parent and first child detaches it from the node hierarchy.
     // also, nextSibling is used by CollapseTransforms to loop to the next child
-    node.parent = entt::null;
-    node.firstChild = entt::null;
+    node.parent = NULL_ENTITY;
+    node.firstChild = NULL_ENTITY;
 }
 
 
-void NodeSystem::sCollapseTransforms(entt::registry& registry, Node& node, entt::entity entity) {
+void NodeSystem::sCollapseTransforms(ecs::ECS& inECS, Node& node, Entity inEntity) {
     // Remove will destroy the node but we still need to recurse to all its children,
     // so store it beforehand!
     const auto first_child = node.firstChild;
     
-    if (!registry.all_of<Mesh>(entity)) {
-        auto& transform = registry.get<Transform>(entity);
+    if (!inECS.Has<Mesh>(inEntity)) {
+        auto& transform = inECS.Get<Transform>(inEntity);
 
-        for (auto it = node.firstChild; it != entt::null; it = registry.get<Node>(it).nextSibling) {
-            auto& child_transform = registry.get<Transform>(it);
+        for (auto it = node.firstChild; it != NULL_ENTITY; it = inECS.Get<Node>(it).nextSibling) {
+            auto& child_transform = inECS.Get<Transform>(it);
             child_transform.localTransform *= transform.worldTransform;
             child_transform.Decompose();
         }
 
-        NodeSystem::sRemove(registry, node);
+        NodeSystem::sRemove(inECS, node);
     }
 
-    for (auto it = first_child; it != entt::null; it = registry.get<Node>(it).nextSibling) {
-        auto& child = registry.get<Node>(it);
-        sCollapseTransforms(registry, child, it);
+    for (auto it = first_child; it != NULL_ENTITY; it = inECS.Get<Node>(it).nextSibling) {
+        auto& child = inECS.Get<Node>(it);
+        sCollapseTransforms(inECS, child, it);
     }
 }
 
 
-std::vector<entt::entity> NodeSystem::sGetFlatHierarchy(entt::registry& registry, Node& startingNode) {
-    std::vector<entt::entity> result;
-    std::queue<entt::entity> entities;
+std::vector<Entity> NodeSystem::sGetFlatHierarchy(ecs::ECS& inECS, Entity inEntity) {
+    if (!inECS.Has<Node>(inEntity))
+        return {};
 
-    entities.push(entt::to_entity(registry, startingNode));
+    std::vector<Entity> result;
+    std::queue<Entity> entities;
+
+    entities.push(inEntity);
 
     while (!entities.empty()) {
-        auto& current = registry.get<Node>(entities.front());
+        auto& current = inECS.Get<Node>(entities.front());
         result.push_back(entities.front());
         entities.pop();
 
         if (current.HasChildren())
-            for (auto it = current.firstChild; it != entt::null; it = registry.get<Node>(it).nextSibling)
+            for (auto it = current.firstChild; it != NULL_ENTITY; it = inECS.Get<Node>(it).nextSibling)
                 entities.push(it);
     }
 

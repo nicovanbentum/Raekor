@@ -4,6 +4,7 @@
 #include "OS.h"
 #include "rmath.h"
 #include "systems.h"
+#include "components.h"
 
 #include "widgets/assetsWidget.h"
 #include "widgets/randomWidget.h"
@@ -51,12 +52,12 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderer* inRenderer) :
     m_Widgets.Register<InspectorWidget>(this);
     m_Widgets.Register<HierarchyWidget>(this);
 
-    LogMessage("Initialization done.");
+    LogMessage("[Editor] initialization done.");
 
     // sponza specific
-    m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
-    m_Viewport.GetCamera().Zoom(5.0f);
-    m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
+    //m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
+    //m_Viewport.GetCamera().Zoom(5.0f);
+    //m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
     m_Viewport.SetFieldOfView(65.0f);
 
     // launch the asset compiler  app to the system tray
@@ -151,24 +152,24 @@ void IEditor::OnEvent(const SDL_Event& event) {
     if (event.type == SDL_KEYDOWN && !event.key.repeat) {
         switch (event.key.keysym.sym) {
         case SDLK_DELETE: {
-            if (m_ActiveEntity != entt::null) {
-                if (m_Scene.all_of<Node>(m_ActiveEntity)) {
-                    auto tree = NodeSystem::sGetFlatHierarchy(m_Scene, m_Scene.get<Node>(m_ActiveEntity));
+            if (m_ActiveEntity != NULL_ENTITY) {
+                if (m_Scene.Has<Node>(m_ActiveEntity)) {
+                    auto tree = NodeSystem::sGetFlatHierarchy(m_Scene, m_ActiveEntity);
                     for (auto entity : tree) {
-                        NodeSystem::sRemove(m_Scene, m_Scene.get<Node>(entity));
-                        m_Scene.destroy(entity);
+                        NodeSystem::sRemove(m_Scene, m_Scene.Get<Node>(entity));
+                        m_Scene.Destroy(entity);
                     }
 
-                    NodeSystem::sRemove(m_Scene, m_Scene.get<Node>(m_ActiveEntity));
+                    NodeSystem::sRemove(m_Scene, m_Scene.Get<Node>(m_ActiveEntity));
                 }
 
-                m_Scene.destroy(m_ActiveEntity);
-                m_ActiveEntity = entt::null;
+                m_Scene.Destroy(m_ActiveEntity);
+                m_ActiveEntity = NULL_ENTITY;
             }
         } break;
         case SDLK_d: {
             if (SDL_GetModState() & KMOD_LCTRL)
-                m_Scene.Clone(m_Scene.create());
+                m_Scene.Clone(m_Scene.Create());
         } break;
         }
     }

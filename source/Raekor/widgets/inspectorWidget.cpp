@@ -1,10 +1,10 @@
 #include "pch.h"
 #include "inspectorWidget.h"
+#include "components.h"
 #include "viewportWidget.h"
 #include "NodeGraphWidget.h"
 #include "OS.h"
 #include "physics.h"
-#include "components.h"
 #include "application.h"
 
 
@@ -44,7 +44,7 @@ public:
 
 void InspectorWidget::DrawEntityInspector(Widgets* inWidgets) {
     auto active_entity = m_Editor->GetActiveEntity();
-    if (active_entity == entt::null)
+    if (active_entity == NULL_ENTITY)
         return;
 
     ImGui::Text("Entity ID: %i", active_entity);
@@ -54,16 +54,16 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets) {
 
     // I much prefered the for_each_tuple_element syntax tbh
     std::apply([&](const auto& ... components) {
-        (..., [&](Assets& assets, Scene& scene, entt::entity& entity) {
+        (..., [&](Assets& assets, Scene& scene, Entity& entity) {
             using ComponentType = typename std::decay<decltype(components)>::type::type;
 
-    if (scene.all_of<ComponentType>(entity)) {
+    if (scene.Has<ComponentType>(entity)) {
         bool is_open = true;
         if (ImGui::CollapsingHeader(components.name, &is_open, ImGuiTreeNodeFlags_DefaultOpen)) {
             if (is_open)
-                DrawComponent(scene.get<ComponentType>(entity));
+                DrawComponent(scene.Get<ComponentType>(entity));
             else
-                scene.remove<ComponentType>(entity);
+                scene.Remove<ComponentType>(entity);
         }
     }
             }(assets, scene, active_entity));
@@ -74,15 +74,15 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets) {
 
     if (ImGui::BeginPopup("Components")) {
         if (ImGui::Selectable("Native Script", false)) {
-            scene.emplace<NativeScript>(active_entity);
+            scene.Add<NativeScript>(active_entity);
             ImGui::CloseCurrentPopup();
         }
 
-        if (scene.all_of<Transform, Mesh>(active_entity)) {
-            const auto& [transform, mesh] = scene.get<Transform, Mesh>(active_entity);
+        if (scene.Has<Transform, Mesh>(active_entity)) {
+            const auto& [transform, mesh] = scene.Get<Transform, Mesh>(active_entity);
 
             if (ImGui::Selectable("Box Collider", false)) {
-                auto& collider = scene.emplace<BoxCollider>(active_entity);
+                auto& collider = scene.Add<BoxCollider>(active_entity);
 
                 const auto half_extent = glm::abs(mesh.aabb[1] - mesh.aabb[0]) / 2.0f * transform.scale;
                 collider.settings.mHalfExtent = JPH::Vec3(half_extent.x, half_extent.y, half_extent.z);
@@ -90,8 +90,8 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets) {
             }
 
             if (ImGui::Selectable("Soft Body", false)) {
-                auto& soft_body = scene.emplace<SoftBody>(active_entity);
-                auto& transform = scene.get<Transform>(active_entity);
+                auto& soft_body = scene.Add<SoftBody>(active_entity);
+                auto& transform = scene.Get<Transform>(active_entity);
 
                 // verts
                 for (const auto& [index, pos] : gEnumerate(mesh.positions)) {
@@ -194,7 +194,7 @@ void InspectorWidget::DrawComponent(Name& inName) {
 
 
 void InspectorWidget::DrawComponent(Node& ioNode) {
-    if (ioNode.parent != sInvalidEntity)
+    if (ioNode.parent != NULL_ENTITY)
         ImGui::Text("Parent entity: %i", ioNode.parent);
     else
         ImGui::Text("Parent entity: NULL");
@@ -212,8 +212,8 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh) {
     ImGui::DragFloat("LOD Fade", &ioMesh.mLODFade, 0.001f, -1.0f, 1.0f, "%.3f");
 
     auto& scene = GetScene();
-    if (scene.valid(ioMesh.material) && scene.all_of<Material, Name>(ioMesh.material)) {
-        auto [material, name] = scene.get<Material, Name>(ioMesh.material);
+    if (scene.IsValid(ioMesh.material) && scene.Has<Material, Name>(ioMesh.material)) {
+        auto [material, name] = scene.Get<Material, Name>(ioMesh.material);
 
         const auto albedo_imgui_id = m_Editor->GetRenderer()->GetImGuiTextureID(material.gpuAlbedoMap);
         const auto preview_size = ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale());
@@ -229,7 +229,7 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh) {
 
     if (ImGui::BeginDragDropTarget()) {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material"))
-            ioMesh.material = *reinterpret_cast<const entt::entity*>(payload->Data);
+            ioMesh.material = *reinterpret_cast<const Entity*>(payload->Data);
 
         ImGui::EndDragDropTarget();
     }

@@ -25,6 +25,9 @@ public:
 		return *this;
 	}
 
+	bool IsEOF() { return m_File.peek() != EOF; }
+
+	File& GetFile() { return m_File; }
 
 private:
 	File m_File;
@@ -36,7 +39,13 @@ public:
 	BinaryWriteArchive(const Path& inPath) : m_File(inPath, std::ios::binary | std::ios::out) {}
 
 	template<typename T>
-	BinaryWriteArchive& operator<< (T& ioRHS) {
+	BinaryWriteArchive& operator<< (const T& ioRHS) {
+		WriteFileBinary(m_File, ioRHS);
+		return *this;
+	}
+
+	template<typename T> requires HasRTTI<T>
+	BinaryWriteArchive& operator<< (const T& ioRHS) {
 		auto& rtti = gGetRTTI<T>();
 		auto type = std::string(rtti.GetTypeName());
 
@@ -49,6 +58,8 @@ public:
 
 		return *this;
 	}
+
+	File& GetFile() { return m_File; }
 
 private:
 	File m_File;

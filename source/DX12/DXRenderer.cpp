@@ -188,8 +188,9 @@ void Renderer::OnRender(Device& inDevice, const Viewport& inViewport, Scene& inS
     m_FrameConstants.mDeltaTime                  = inDeltaTime;
     m_FrameConstants.mFrameIndex                 = m_FrameCounter % sFrameCount;
     m_FrameConstants.mFrameCounter               = m_FrameCounter;
-    m_FrameConstants.mSunDirection               = glm::vec4(inScene.GetSunLightDirection(), 0.0f);
-    m_FrameConstants.mCameraPosition             = glm::vec4(camera.GetPosition(), 1.0f);
+    m_FrameConstants.mSunColor                   = inScene.GetSunLight() ? inScene.GetSunLight()->GetColor() : Vec4(1.0f);
+    m_FrameConstants.mSunDirection               = Vec4(inScene.GetSunLightDirection(), 0.0f);
+    m_FrameConstants.mCameraPosition             = Vec4(camera.GetPosition(), 1.0f);
     m_FrameConstants.mViewMatrix                 = camera.GetView();
     m_FrameConstants.mProjectionMatrix           = jittered_proj_matrix;
     m_FrameConstants.mPrevViewProjectionMatrix   = m_FrameConstants.mViewProjectionMatrix;
@@ -514,7 +515,6 @@ void RenderInterface::UploadMeshBuffers(Mesh& inMesh) {
 }
 
 
-
 uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB) { 
     auto data_ptr = inAsset->GetData();
     const auto header_ptr = inAsset->GetHeader();
@@ -544,6 +544,7 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
 
     return texture.GetView().ToIndex();
 }
+
 
 
 void RenderInterface::OnResize(const Viewport& inViewport) { 
@@ -674,19 +675,6 @@ void RenderInterface::DrawImGui(Scene& inScene, const Viewport& inViewport) {
 
     if (need_recompile)
         m_Renderer.SetShouldResize(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
-
-    auto lightView = inScene.view<DirectionalLight, Transform>();
-
-    if (lightView.begin() != lightView.end()) {
-        auto& sun_transform = lightView.get<Transform>(lightView.front());
-
-        auto sun_rotation_degrees = glm::degrees(glm::eulerAngles(sun_transform.rotation));
-
-        if (ImGui::DragFloat3("Sun Angle", glm::value_ptr(sun_rotation_degrees), 0.1f, -360.0f, 360.0f, "%.1f")) {
-            sun_transform.rotation = glm::quat(glm::radians(sun_rotation_degrees));
-            sun_transform.Compose();
-        }
-    }
 
     ImGui::NewLine(); ImGui::Separator();
 
@@ -857,7 +845,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->ClearRenderTargetView(inDevice.GetHeapPtr(inData.mMotionVectorTexture), glm::value_ptr(clear_color), 1, &clear_rect);
         inCmdList->ClearDepthStencilView(inDevice.GetHeapPtr(inData.mDepthTexture), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 1, &clear_rect);
 
-        for (const auto& [entity, transform, mesh] : inScene.view<Transform, Mesh>().each()) {
+        for (const auto& [entity, transform, mesh] : inScene.Each<Transform, Mesh>()) {
             const auto& index_buffer = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
             const auto& vertex_buffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
 
@@ -867,10 +855,10 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 .Format         = DXGI_FORMAT_R32_UINT,
             };
 
-            if (mesh.material == sInvalidEntity)
+            if (mesh.material == NULL_ENTITY)
                 continue;
 
-            auto material = inScene.try_get<Material>(mesh.material);
+            auto material = inScene.GetPtr<Material>(mesh.material);
             if (material == nullptr)
                 material = &Material::Default;
 

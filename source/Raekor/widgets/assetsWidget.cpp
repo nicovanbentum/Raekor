@@ -14,21 +14,17 @@ void AssetsWidget::Draw(Widgets* inWidgets, float dt) {
     ImGui::Begin(m_Title.c_str(), &m_Open);
     m_Visible = ImGui::IsWindowAppearing();
 
-    auto materials = IWidget::GetScene().view<Material, Name>();
-
     auto& style = ImGui::GetStyle();
 
     if (ImGui::BeginTable("Assets", 24)) {
-        for (auto entity : materials) {
-            auto [material, name] = materials.get<Material, Name>(entity);
-
+        for (auto [entity, material, name] : GetScene().Each<Material, Name>()) {
             ImGui::TableNextColumn();
 
             if (m_Editor->GetActiveEntity() == entity)
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.2f)));
             
             bool clicked = false;
-            ImGui::PushID(entt::to_integral(entity));
+            ImGui::PushID(uint32_t(entity));
 
             if (material.gpuAlbedoMap && !material.albedoFile.empty()) {
                 clicked = ImGui::ImageButton(
@@ -59,7 +55,7 @@ void AssetsWidget::Draw(Widgets* inWidgets, float dt) {
             ImGuiDragDropFlags src_flags = ImGuiDragDropFlags_SourceNoDisableHover;
             src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers;
             if (ImGui::BeginDragDropSource(src_flags)) {
-                ImGui::SetDragDropPayload("drag_drop_mesh_material", &entity, sizeof(entt::entity));
+                ImGui::SetDragDropPayload("drag_drop_mesh_material", &entity, sizeof(Entity));
                 ImGui::EndDragDropSource();
             }
 

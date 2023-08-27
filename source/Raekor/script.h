@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ecs.h"
 #include "scene.h"
 
 #define RAEKOR_SCRIPT_CLASS(x) extern "C" __declspec(dllexport) Raekor::INativeScript * __cdecl Create##x() { return new class x(); }
@@ -36,7 +37,7 @@ private:
 
 template<typename T>
 T& INativeScript::GetComponent() {
-    return m_Scene->get<T>(m_Entity);
+    return m_Scene->Get<T>(m_Entity);
 }
 
 } // Raekor

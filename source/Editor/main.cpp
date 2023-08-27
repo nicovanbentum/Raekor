@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
 	else
 		app = new GL::GLApp();
 
-    app->LogMessage(std::format("App creation took {:.2f} seconds", timer.GetElapsedTime()));
+    app->LogMessage(std::format("[App] startup took {:.2f} seconds", timer.GetElapsedTime()));
 
     app->Run();
 

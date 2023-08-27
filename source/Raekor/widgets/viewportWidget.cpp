@@ -104,13 +104,11 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
 
         Mesh* mesh = nullptr;
 
-        if (scene.valid(picked)) {
+        if (scene.IsValid(picked)) {
             ImGui::BeginTooltip();
 
-            mesh = scene.try_get<Mesh>(picked);
-
-            if (mesh) {
-                ImGui::Text(std::string(std::string("Apply to ") + scene.get<Name>(picked).name).c_str());
+            if (scene.Has<Mesh>(picked)) {
+                ImGui::Text(std::string(std::string("Apply to ") + scene.Get<Name>(picked).name).c_str());
                 SetActiveEntity(picked);
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
@@ -134,17 +132,17 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
     auto pos = ImGui::GetWindowPos();
     viewport.offset = { pos.x, pos.y };
 
-    if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !(GetActiveEntity() != sInvalidEntity && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
+    if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !(GetActiveEntity() != NULL_ENTITY && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
         const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
         const auto pixel = m_Editor->GetRenderer()->GetSelectedEntity(mouse_pos.x, mouse_pos.y);
         auto picked = Entity(pixel);
 
         if (GetActiveEntity() == picked) {
-            if (auto soft_body = scene.try_get<SoftBody>(GetActiveEntity())) {
+            if (auto soft_body = scene.GetPtr<SoftBody>(GetActiveEntity())) {
                 if (auto body = GetPhysics().GetSystem()->GetBodyLockInterface().TryGetBody(soft_body->mBodyID)) {
                     const auto ray = Ray(viewport, mouse_pos);
-                    const auto& mesh = scene.get<Mesh>(GetActiveEntity());
-                    const auto& transform = scene.get<Transform>(GetActiveEntity());
+                    const auto& mesh = scene.Get<Mesh>(GetActiveEntity());
+                    const auto& transform = scene.Get<Transform>(GetActiveEntity());
 
                     auto hit_dist = FLT_MAX;
                     auto triangle_index = -1;
@@ -173,22 +171,24 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
                 }
             }
             else
-                SetActiveEntity(sInvalidEntity);
+                SetActiveEntity(NULL_ENTITY);
         }
         else
             SetActiveEntity(picked);
     }
 
-    if (GetActiveEntity() != entt::null && scene.valid(GetActiveEntity()) && scene.all_of<Transform>(GetActiveEntity()) && gizmoEnabled) {
+    if (GetActiveEntity() != NULL_ENTITY && scene.IsValid(GetActiveEntity()) && scene.Has<Transform>(GetActiveEntity()) && gizmoEnabled) {
         ImGuizmo::SetDrawlist();
         ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
 
         // temporarily transform to mesh space for gizmo use
-        auto& transform = scene.get<Transform>(GetActiveEntity());
-        const auto mesh = scene.try_get<Mesh>(GetActiveEntity());
+        auto& transform = scene.Get<Transform>(GetActiveEntity());
+        const auto mesh = scene.GetPtr<Mesh>(GetActiveEntity());
 
-        if (mesh)
-            transform.localTransform = glm::translate(transform.localTransform, ((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+        if (mesh) {
+            const auto bounds = BBox3D(mesh->aabb[0], mesh->aabb[1]).Scale(transform.GetScaleWorldSpace());
+            transform.localTransform = glm::translate(transform.localTransform, bounds.GetCenter());
+        }
 
         // prevent the gizmo from going outside of the viewport
         ImGui::GetWindowDrawList()->PushClipRect(viewportMin, viewportMax);
@@ -196,13 +196,15 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
         const auto manipulated = ImGuizmo::Manipulate(
             glm::value_ptr(viewport.GetCamera().GetView()),
             glm::value_ptr(viewport.GetCamera().GetProjection()),
-            operation, ImGuizmo::MODE::LOCAL,
+            operation, ImGuizmo::MODE::WORLD,
             glm::value_ptr(transform.localTransform)
         );
 
         // transform back to world space
-        if (mesh)
-            transform.localTransform = glm::translate(transform.localTransform, -((mesh->aabb[0] + mesh->aabb[1]) / 2.0f));
+        if (mesh) {
+            const auto bounds = BBox3D(mesh->aabb[0], mesh->aabb[1]).Scale(transform.GetScaleWorldSpace());
+            transform.localTransform = glm::translate(transform.localTransform, -bounds.GetCenter());
+        }
 
         if (manipulated)
             transform.Decompose();

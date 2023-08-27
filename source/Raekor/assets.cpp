@@ -60,7 +60,7 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
         const auto prev_mip_size = glm::ivec2 (width >> (i - 1), height >> (i - 1));
 
         if (mip_size.x % 4 != 0 || mip_size.y % 4 != 0) {
-            std::cout << "Image " << Path(filepath).filename() << " with MIP resolution " << mip_size.x << 'x' << mip_size.y << " is not a power of 2 resolution.\n";
+            std::cout << "[Assets] Image " << Path(filepath).filename() << " with MIP resolution " << mip_size.x << 'x' << mip_size.y << " is not a power of 2 resolution.\n";
             actual_mip_count = i;
             break;
         }
@@ -76,7 +76,7 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
         const auto mip_dimensions = glm::ivec2(width >> i, height >> i);
 
         if (mip_dimensions.x % 4 != 0 || mip_dimensions.y % 4 != 0) {
-            std::cout << "Image " << Path(filepath).filename() << " with MIP resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
+            std::cout << "[Assets] Image " << Path(filepath).filename() << " with MIP resolution " << width << 'x' << height << " is not a power of 2 resolution.\n";
             break;
         }
 

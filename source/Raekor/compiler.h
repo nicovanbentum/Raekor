@@ -94,7 +94,7 @@ private:
     std::mutex m_FilesInFlightMutex;
     std::set<uint32_t> m_FilesInFlight;
     std::vector<FileEntry> m_Files;
-    std::atomic<bool> m_CompileScenes = false;
+    std::atomic<bool> m_CompileScenes = true;
     std::atomic<bool> m_CompileTextures = true;
     
 };

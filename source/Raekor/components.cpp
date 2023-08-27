@@ -2,7 +2,6 @@
 #include "components.h"
 #include "timer.h"
 #include "assets.h"
-#include "systems.h"
 #include "primitives.h"
 
 namespace Raekor {
@@ -16,17 +15,45 @@ RTTI_CLASS_CPP(Transform) {
     RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Scale",    scale);
     RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Position", position);
     RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Rotation", rotation);
+    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Local Transform", localTransform);
+    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "World Transform", worldTransform);
+}
+
+
+RTTI_CLASS_CPP(DirectionalLight) {
+    RTTI_MEMBER_CPP(DirectionalLight, SERIALIZE_ALL, "Direction", direction);
+    RTTI_MEMBER_CPP(DirectionalLight, SERIALIZE_ALL, "Color",     colour);
+}
+
+
+RTTI_CLASS_CPP(PointLight) {
+    RTTI_MEMBER_CPP(PointLight, SERIALIZE_ALL, "Position", position);
+    RTTI_MEMBER_CPP(PointLight, SERIALIZE_ALL, "Color", colour);
+}
+
+
+RTTI_CLASS_CPP(Node) {
+    RTTI_MEMBER_CPP(Node, SERIALIZE_ALL, "Parent",       parent);
+    RTTI_MEMBER_CPP(Node, SERIALIZE_ALL, "First Child",  firstChild);
+    RTTI_MEMBER_CPP(Node, SERIALIZE_ALL, "Prev Sibling", prevSibling);
+    RTTI_MEMBER_CPP(Node, SERIALIZE_ALL, "Next Sibling", nextSibling);
 }
 
 
 RTTI_CLASS_CPP(Mesh) {
-    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Bounding Box", aabb);
     RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Positions",    positions);
-    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Normals",      normals);
     RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Texcoords",    uvs);
+    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Normals",      normals);
     RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Tangents",     tangents);
     RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Indices",      indices);
+    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Material",     material);
 }
+
+RTTI_CLASS_CPP(BoxCollider)  {}
+RTTI_CLASS_CPP(SoftBody)     {}
+RTTI_CLASS_CPP(Bone)         {}
+RTTI_CLASS_CPP(Skeleton)     {}
+RTTI_CLASS_CPP(NativeScript) {}
 
 
 RTTI_CLASS_CPP(Material) {
@@ -45,7 +72,15 @@ void gRegisterComponentTypes() {
     RTTIFactory::Register(RTTI_OF(Name));
     RTTIFactory::Register(RTTI_OF(Transform));
     RTTIFactory::Register(RTTI_OF(Mesh));
+    RTTIFactory::Register(RTTI_OF(Node));
     RTTIFactory::Register(RTTI_OF(Material));
+    RTTIFactory::Register(RTTI_OF(BoxCollider));
+    RTTIFactory::Register(RTTI_OF(DirectionalLight));
+    RTTIFactory::Register(RTTI_OF(PointLight));
+    RTTIFactory::Register(RTTI_OF(SoftBody));
+    RTTIFactory::Register(RTTI_OF(Bone));
+    RTTIFactory::Register(RTTI_OF(Skeleton));
+    RTTIFactory::Register(RTTI_OF(NativeScript));
 }
 
 
@@ -72,6 +107,33 @@ void Transform::Decompose() {
     );
 
     rotation = glm::quat_cast(rotation_matrix);
+}
+
+
+Vec3 Transform::GetScaleWorldSpace() const {  
+    auto result = Vec3(1.0f);
+
+    for (int i = 0; i < 3; i++)
+        result[i] = glm::length(glm::vec3(worldTransform[i]));
+
+    return result;
+}
+
+
+Vec3 Transform::GetPositionWorldSpace() const {
+    return worldTransform[3];
+}
+
+
+Quat Transform::GetRotationWorldSpace() const
+{
+    const auto rotation_matrix = glm::mat3(
+        glm::vec3(worldTransform[0]) / scale[0],
+        glm::vec3(worldTransform[1]) / scale[1],
+        glm::vec3(worldTransform[2]) / scale[2]
+    );
+
+    return glm::quat_cast(rotation_matrix);
 }
 
 
@@ -248,47 +310,47 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt) {
 
 
 template<>
-void clone<Transform>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& component = reg.get<Transform>(from);
-    reg.emplace<Transform>(to, component);
+void clone<Transform>(ecs::ECS& reg, Entity from, Entity to) {
+    auto& component = reg.Get<Transform>(from);
+    reg.Add<Transform>(to, component);
 }
 
 
 template<>
-void clone<Node>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& fromNode = reg.get<Node>(from);
-    auto& toNode = reg.emplace<Node>(to);
-    if (fromNode.parent != entt::null) {
-        NodeSystem::sAppend(reg, fromNode.parent, reg.get<Node>(fromNode.parent), to, toNode);
-    }
+void clone<Node>(ecs::ECS& reg, Entity from, Entity to) {
+    auto& fromNode = reg.Get<Node>(from);
+    auto& toNode = reg.Add<Node>(to);
+    /*if (fromNode.parent != NULL_ENTITY) {
+        NodeSystem::sAppend(reg, fromNode.parent, reg.Get<Node>(fromNode.parent), to, toNode);
+    } TODO: FIXME: pls fix */
 }
 
 
 template<>
-void clone<Name>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& component = reg.get<Name>(from);
-    reg.emplace<Name>(to, component);
+void clone<Name>(ecs::ECS& reg, Entity from, Entity to) {
+    auto& component = reg.Get<Name>(from);
+    reg.Add<Name>(to, component);
 }
 
 
 template<>
-void clone<Mesh>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& from_component = reg.get<Mesh>(from);
-    auto& to_component = reg.emplace<Mesh>(to, from_component);
+void clone<Mesh>(ecs::ECS& reg, Entity from, Entity to) {
+    auto& from_component = reg.Get<Mesh>(from);
+    auto& to_component = reg.Add<Mesh>(to, from_component);
 }
 
 
 template<>
-void clone<Material>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& from_component = reg.get<Material>(from);
-    auto& to_component = reg.emplace<Material>(to, from_component);
+void clone<Material>(ecs::ECS& reg, Entity from, Entity to) {
+    auto& from_component = reg.Get<Material>(from);
+    auto& to_component = reg.Add<Material>(to, from_component);
 }
 
 
 template<>
-void clone<BoxCollider>(entt::registry& reg, entt::entity from, entt::entity to) {
-    auto& from_component = reg.get<BoxCollider>(from);
-    auto& to_component = reg.emplace<BoxCollider>(to, from_component);
+void clone<BoxCollider>(ecs::ECS& reg, Entity from, Entity to) {
+    auto& from_component = reg.Get<BoxCollider>(from);
+    auto& to_component = reg.Add<BoxCollider>(to, from_component);
 
     // Invalidate the copied bodyID so it gets registered next update
     to_component.bodyID = JPH::BodyID(); 

@@ -11,11 +11,11 @@
 
 namespace Raekor {
 
-entt::entity Scene::PickSpatialEntity(Ray& inRay) {
-    auto picked_entity = entt::entity(entt::null);
-    auto boxes_hit = std::map<float, entt::entity>{};
+Entity Scene::PickSpatialEntity(Ray& inRay) {
+    auto picked_entity = NULL_ENTITY;
+    auto boxes_hit = std::map<float, Entity>{};
 
-    for (auto [entity, transform, mesh] : view<Transform, Mesh>().each()) {
+    for (auto [entity, transform, mesh] : Each<Transform, Mesh>()) {
         // convert AABB from local to world space
         auto world_aabb = std::array<glm::vec3, 2>
         {
@@ -32,8 +32,8 @@ entt::entity Scene::PickSpatialEntity(Ray& inRay) {
     }
 
     for (auto& pair : boxes_hit) {
-        auto& mesh = get<Mesh>(pair.second);
-        auto& transform = get<Transform>(pair.second);
+        const auto& mesh = Get<Mesh>(pair.second);
+        const auto& transform = Get<Transform>(pair.second);
 
         for (auto i = 0u; i < mesh.indices.size(); i += 3) {
             const auto v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
@@ -53,93 +53,90 @@ entt::entity Scene::PickSpatialEntity(Ray& inRay) {
 }
 
 
-entt::entity Scene::CreateSpatialEntity(const std::string& inName) {
-    auto entity = create();
-    auto& name = emplace<Name>(entity);
+Entity Scene::CreateSpatialEntity(const std::string& inName) {
+    auto entity = Create();
+    auto& name = Add<Name>(entity);
     name.name = inName;
 
-    emplace<Node>(entity);
-    emplace<Transform>(entity);
+    Add<Node>(entity);
+    Add<Transform>(entity);
     return entity;
 }
 
 
-void Scene::DestroySpatialEntity(entt::entity entity) {
-    if (all_of<Node>(entity)) {
-        auto tree = NodeSystem::sGetFlatHierarchy(*this, get<Node>(entity));
+void Scene::DestroySpatialEntity(Entity inEntity) {
+    if (Has<Node>(inEntity)) {
+        auto tree = NodeSystem::sGetFlatHierarchy(*this, inEntity);
 
         for (auto member : tree) {
-            NodeSystem::sRemove(*this, get<Node>(member));
-            destroy(member);
+            NodeSystem::sRemove(*this, Get<Node>(member));
+            Destroy(member);
         }
 
-        NodeSystem::sRemove(*this, get<Node>(entity));
+        NodeSystem::sRemove(*this, Get<Node>(inEntity));
     }
 
-    destroy(entity);
+    Destroy(inEntity);
 }
 
 
-glm::vec3 Scene::GetSunLightDirection() const {
-    auto lightView = view<const DirectionalLight, const Transform>();
-    auto lookDirection = glm::vec3(0.25f, -0.9f, 0.0f);
+Vec3 Scene::GetSunLightDirection() const {
+    auto lookDirection = Vec3(0.25f, -0.9f, 0.0f);
 
-    if (lightView.begin() != lightView.end()) {
-        const auto& lightTransform = lightView.get<const Transform>(lightView.front());
-        lookDirection = static_cast<glm::quat>(lightTransform.rotation) * lookDirection;
+    if (Count<DirectionalLight>() == 1) {
+        auto dir_light_entity = GetEntities<DirectionalLight>()[0];
+        auto& transform = Get<Transform>(dir_light_entity);
+        lookDirection = static_cast<Quat>(transform.rotation) * lookDirection;
     }
     else {
         // we rotate default light a little or else we get nan values in our view matrix
-        lookDirection = static_cast<glm::quat>(glm::vec3(glm::radians(15.0f), 0, 0)) * lookDirection;
+        lookDirection = static_cast<Quat>(Vec3(glm::radians(15.0f), 0, 0)) * lookDirection;
     }
 
     return glm::clamp(lookDirection, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
 }
 
 
+const DirectionalLight* Scene::GetSunLight() const {
+    if (Count<DirectionalLight>() == 1)
+        return &GetStorage<DirectionalLight>()[0];
+    else
+        return nullptr;
+}
+
+
 void Scene::UpdateLights() {
-    auto dirLights = view<DirectionalLight, Transform>();
+    for (auto [entity, light, transform] : Each<DirectionalLight, Transform>())
+        light.direction = Vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
 
-    for (auto entity : dirLights) {
-        auto& light = dirLights.get<DirectionalLight>(entity);
-        auto& transform = dirLights.get<Transform>(entity);
-        light.direction = glm::vec4(static_cast<glm::quat>(transform.rotation) * glm::vec3(0, -1, 0), 1.0);
-    }
-
-    auto pointLights = view<PointLight, Transform>();
-
-    for (auto entity : pointLights) {
-        auto& light = pointLights.get<PointLight>(entity);
-        auto& transform = pointLights.get<Transform>(entity);
-        light.position = glm::vec4(transform.position, 1.0f);
-    }
+    for (auto [entity, light, transform] : Each<PointLight, Transform>())
+        light.position = Vec4(transform.position, 1.0f);
 }
 
 
 void Scene::UpdateTransforms() {
-    const auto components = view<Node, Transform>();
-    for (const auto& [entity, node, transform] : components.each()) {
-        if (node.parent != entt::null)
+    for (const auto& [entity, node, transform] : Each<Node, Transform>()) {
+        if (node.parent != NULL_ENTITY)
             continue;
 
-        if (node.parent == entt::null) {
+        if (node.parent == NULL_ENTITY) {
             m_Nodes.push(entity);
 
             while (!m_Nodes.empty()) {
-                const auto& [current_node, current_transform] = components.get(m_Nodes.top());
+                const auto& [current_node, current_transform] = Get<Node, Transform>(m_Nodes.top());
                 m_Nodes.pop();
 
-                if (current_node.parent == entt::null) {
+                if (current_node.parent == NULL_ENTITY) {
                     current_transform.worldTransform = current_transform.localTransform;
                 } else {
-                    const auto& [parent_node, parent_transform] = components.get(current_node.parent);
+                    const auto& [parent_node, parent_transform] = Get<Node, Transform>(current_node.parent);
                     current_transform.worldTransform = parent_transform.worldTransform * current_transform.localTransform;
                 }
 
                 auto child = current_node.firstChild;
-                while (child != entt::null) {
+                while (child != NULL_ENTITY) {
                     m_Nodes.push(child);
-                    child = get<Node>(child).nextSibling;
+                    child = Get<Node>(child).nextSibling;
                 }
 
             }
@@ -151,20 +148,20 @@ void Scene::UpdateTransforms() {
 
 
 void Scene::UpdateAnimations(float inDeltaTime) {
-    auto skeleton_view = view<Skeleton>();
-    if (skeleton_view.empty())
+    auto skeleton_count = Count<Skeleton>();
+    if (!skeleton_count)
         return;
 
     auto skeleton_job_ptrs = std::vector<Job::Ptr>();
-    skeleton_job_ptrs.reserve(skeleton_view.size());
+    skeleton_job_ptrs.reserve(skeleton_count);
 
-    skeleton_view.each([&](Skeleton& skeleton) {
+    for (auto [entity, skeleton] : Each<Skeleton>()) {
         auto job_ptr = g_ThreadPool.QueueJob([&]() {
             skeleton.UpdateFromAnimation(skeleton.animations[0], inDeltaTime);
         });
 
         skeleton_job_ptrs.push_back(job_ptr);
-    });
+    }
 
     for (const auto& job_ptr : skeleton_job_ptrs)
         job_ptr->WaitCPU();
@@ -172,34 +169,34 @@ void Scene::UpdateAnimations(float inDeltaTime) {
 
 
 void Scene::UpdateNativeScripts(float inDeltaTime) {
-    view<NativeScript>().each([&](NativeScript& component) {
-        if (component.script) {
+    for (auto [entity, script] : Each<NativeScript>()) {
+        if (script.script) {
             try {
-                component.script->OnUpdate(inDeltaTime);
+                script.script->OnUpdate(inDeltaTime);
             }
             catch (const std::exception& e) {
                 std::cerr << e.what() << '\n';
             }
         }
-    });
+    }
 }
 
 
 
 Entity Scene::Clone(Entity inEntity) {
-    auto copy = create();
-    visit(inEntity, [&](const entt::type_info info) {
+    auto copy = Create();
+    Visit(inEntity, [&](uint32_t inTypeHash) {
         gForEachTupleElement(Components, [&](auto component) {
             using ComponentType = decltype(component)::type;
 
-            if (info.seq() == entt::type_seq<ComponentType>())
+            if (gGetRTTI<ComponentType>().GetHash() == inTypeHash)
                 clone<ComponentType>(*this, inEntity, copy);
             });
         }
     );
 
-    if (auto mesh = try_get<Mesh>(copy))
-        m_Renderer->UploadMeshBuffers(*mesh);
+    if (Has<Mesh>(copy))
+        m_Renderer->UploadMeshBuffers(Get<Mesh>(copy));
 
     return copy;
 }
@@ -208,62 +205,54 @@ Entity Scene::Clone(Entity inEntity) {
 void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials) {
     Timer timer;
 
-    auto job_ptrs = std::vector<Job::Ptr>();
-    job_ptrs.reserve(materials.Length());
-
     for (const auto& entity : materials) {
-        auto job_ptr = g_ThreadPool.QueueJob([&]() {
-            auto& material = this->get<Material>(entity);
+        g_ThreadPool.QueueJob([&]() {
+            auto& material = Get<Material>(entity);
             assets.GetAsset<TextureAsset>(material.albedoFile);
             assets.GetAsset<TextureAsset>(material.normalFile);
             assets.GetAsset<TextureAsset>(material.metalroughFile);
         });
-
-        job_ptrs.push_back(job_ptr);
     }
 
-    for (const auto& job_ptr : job_ptrs)
-        job_ptr->WaitCPU();
+    g_ThreadPool.WaitForJobs();
 
-    std::cout << "[Scene] Load textures to RAM took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+    std::cout << std::format("[Scene] Load textures to RAM took {:.3f} seconds.\n", timer.Restart());
 
     for (auto entity : materials) {
-        auto& material = get<Material>(entity);
+        auto& material = Get<Material>(entity);
 
         if (m_Renderer)
             m_Renderer->UploadMaterialTextures(material, assets);
     }
 
-    std::cout << "[Scene] Upload textures to GPU took  " << Timer::sToMilliseconds(timer.Restart()) << " .ms\n";
+    std::cout << std::format("[Scene] Upload textures to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
 }
 
 
 void Scene::SaveToFile(Assets& assets, const std::string& file) {
-    std::stringstream bufferstream;
-    
-    {
-        cereal::BinaryOutputArchive output(bufferstream);
-        entt::snapshot{ *this }.entities(output).component<
-            Name, Node, Transform,
-            Mesh, Material, PointLight,
-            DirectionalLight, BoxCollider>(output);
+    auto archive = BinaryWriteArchive(file);
+    WriteFileBinary(archive.GetFile(), m_Entities);
 
-        output(assets);
-    }
+    gForEachTupleElement(Components, [&](auto component) {
+        using ComponentType = decltype(component)::type;
+        const auto type_hash = gGetTypeHash<ComponentType>();
 
-    auto buffer = bufferstream.str();
+        GetSparseSet<ComponentType>()->Write(archive);
+    });
 
-    const auto bound = LZ4_compressBound(int(buffer.size()));
+    //auto buffer = bufferstream.str();
 
-    auto compressed =std::vector<char>(bound);
-    Timer timer;
+    //const auto bound = LZ4_compressBound(int(buffer.size()));
 
-    auto compressed_size = LZ4_compress_default(buffer.c_str(), compressed.data(), int(buffer.size()), bound);
+    //auto compressed =std::vector<char>(bound);
+    //Timer timer;
 
-    std::cout << "Compression time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
+    //auto compressed_size = LZ4_compress_default(buffer.c_str(), compressed.data(), int(buffer.size()), bound);
 
-    auto filestream = std::ofstream(file, std::ios::binary);
-    filestream.write(compressed.data(), compressed_size);
+    //std::cout << "Compression time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
+
+    //auto filestream = std::ofstream(file, std::ios::binary);
+    //filestream.write(compressed.data(), compressed_size);
 }
 
 
@@ -274,57 +263,43 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
     }
 
     //Read file into buffer
-    std::ifstream storage(file, std::ios::binary);
-    std::string buffer;
-    buffer.resize(fs::file_size(file));
-    storage.read(&buffer[0], buffer.size());
+    //std::ifstream storage(file, std::ios::binary);
+    //std::string buffer;
+    //buffer.resize(fs::file_size(file));
+    //storage.read(&buffer[0], buffer.size());
 
-    auto decompressed = std::string();
-    decompressed.resize(glm::min(buffer.size() * 11, size_t(INT_MAX) - 1)); // TODO: store the uncompressed size somewhere
-    const auto decompressed_size = LZ4_decompress_safe(buffer.data(), decompressed.data(), int(buffer.size()), int(decompressed.size()));
+    //auto decompressed = std::string();
+    //decompressed.resize(glm::min(buffer.size() * 11, size_t(INT_MAX) - 1)); // TODO: store the uncompressed size somewhere
+    //const auto decompressed_size = LZ4_decompress_safe(buffer.data(), decompressed.data(), int(buffer.size()), int(decompressed.size()));
 
-    clear();
+    Clear();
 
     Timer timer;
 
-    // stringstream to serialise from char data back to scene/asset representation
-    {
-        decompressed[decompressed.size() - 1] = '\0';
-        auto bufferstream = std::istringstream(decompressed);
-        cereal::BinaryInputArchive input(bufferstream);
-    
-        // use cereal -> entt snapshot loader to load scene
-        entt::snapshot_loader{ *this }.entities(input).component <
-            Name, Node, Transform,
-            Mesh, Material, PointLight,
-            DirectionalLight, BoxCollider >(input);
+    auto archive = BinaryReadArchive(file);
+    ReadFileBinary(archive.GetFile(), m_Entities);
 
-        // load assets
-        input(assets);
-    }
+    gForEachTupleElement(Components, [&](auto inVar) {
+        using Component = decltype(inVar)::type;
+        GetSparseSet<Component>()->Read(archive);
+    });
 
-    std::cout << "Archive time " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
-
-    // temp fix for paths not being serialized
-    for (auto& [path, asset] : assets)
-        if (asset->GetPath() != path)
-            asset->SetPath(path);
+    std::cout << std::format("[Scene] Load ECS data took {:.3f} seconds.\n", timer.GetElapsedTime());
 
     // init material render data
-    auto materials = view<Material>();
-    LoadMaterialTextures(assets, Slice(materials.data(), materials.size()));
+    LoadMaterialTextures(assets, GetEntities<Material>());
 
     timer.Restart();
 
     // init mesh render data
-    for (const auto& [entity, mesh] : view<Mesh>().each()) {
+    for (const auto& [entity, mesh] : Each<Mesh>()) {
         mesh.CalculateAABB();
      
         if (m_Renderer)
             m_Renderer->UploadMeshBuffers(mesh);
     }
 
-    std::cout << "Mesh time " << Timer::sToMilliseconds(timer.GetElapsedTime()) << "\n";
+    std::cout << std::format("[Scene] Upload mesh data to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
 }
 
 
@@ -337,7 +312,7 @@ void Scene::BindScriptToEntity(Entity entity, NativeScript& script) {
     }
     else {
         std::clog << "Failed to bind script" << script.file <<
-                     " to entity " << entt::to_integral(entity) <<
+                     " to entity " << uint32_t(entity) <<
                      " from class " << script.procAddress << '\n';
     }
 }

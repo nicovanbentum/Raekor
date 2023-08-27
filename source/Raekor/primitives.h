@@ -78,15 +78,3 @@ struct UnitPlane {
 void gGenerateSphere(Mesh& ioMesh, float inRadius, uint32_t inSectorCount, uint32_t inStackCount);
 
 }
-
-namespace Cereal {
-    template<class Archive>
-    void serialize(Archive& archive, Raekor::Vertex& v) {
-        archive(v.pos, v.uv, v.normal, v.tangent);
-    }
-
-    template<class Archive>
-    void serialize(Archive& archive, Raekor::Triangle& tri) {
-        archive(tri.p1, tri.p2, tri.p3);
-    }
-}

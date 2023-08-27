@@ -5,6 +5,7 @@
 #include "systems.h"
 #include "physics.h"
 #include "primitives.h"
+#include "components.h"
 #include "application.h"
 
 namespace Raekor {
@@ -25,9 +26,9 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
 
     if (ImGui::Button("Generate Rigid Bodies")) {
         Timer timer;
-        for (const auto& [sb_entity, sb_transform, sb_mesh] : scene.view<Transform, Mesh>().each()) {
-            if (!scene.all_of<SoftBody>(sb_entity))
-                scene.emplace<BoxCollider>(sb_entity);
+        for (const auto& [sb_entity, sb_transform, sb_mesh] : scene.Each<Transform, Mesh>()) {
+            if (!scene.Has<SoftBody>(sb_entity))
+                scene.Add<BoxCollider>(sb_entity);
         }
 
         GetPhysics().GenerateRigidBodiesEntireScene(GetScene());
@@ -37,10 +38,10 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
     }
 
     if (ImGui::Button("Spawn/Reset Balls")) {
-        const auto material_entity = scene.create();
-        auto& material_name = scene.emplace<Name>(material_entity);
+        const auto material_entity = scene.Create();
+        auto& material_name = scene.Add<Name>(material_entity);
         material_name = "Ball Material";
-        auto& ball_material = scene.emplace<Material>(material_entity);
+        auto& ball_material = scene.Add<Material>(material_entity);
         ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
 
         if (auto renderer = m_Editor->GetRenderer())
@@ -48,8 +49,8 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
 
         for (uint32_t i = 0; i < 64; i++) {
             auto entity = scene.CreateSpatialEntity("ball");
-            auto& transform = scene.get<Transform>(entity);
-            auto& mesh = scene.emplace<Mesh>(entity);
+            auto& transform = scene.Get<Transform>(entity);
+            auto& mesh = scene.Add<Mesh>(entity);
 
             mesh.material = material_entity;
             
@@ -60,7 +61,7 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
             transform.position = Vec3(-65.0f, 85.0f + i * (radius * 2.0f), 0.0f);
             transform.Compose();
 
-            auto& collider = scene.emplace<BoxCollider>(entity);
+            auto& collider = scene.Add<BoxCollider>(entity);
             collider.motionType = JPH::EMotionType::Dynamic;
             JPH::ShapeSettings* settings = new JPH::SphereShapeSettings(radius);
 

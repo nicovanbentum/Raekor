@@ -16,6 +16,7 @@ class IRenderer;
 class Mesh;
 class Material;
 class Skeleton;
+typedef uint32_t Entity;
 
 class AssimpImporter {
 public:
@@ -24,16 +25,16 @@ public:
 
 	const Path& GetDirectory() { return m_Directory; }
 	const aiScene* GetAiScene() { return m_AiScene; }
-	const std::vector<entt::entity>& GetMaterials() { return m_Materials; }
+	const std::vector<Entity>& GetMaterials() { return m_Materials; }
 
 private:
-	void ParseMaterial(aiMaterial* inAssimpMaterial, entt::entity inEntity);
-	void ParseNode(const aiNode* inAssimpNode, entt::entity inEntity, entt::entity inParent);
-	void ParseMeshes(const aiNode* inAssimpNode, entt::entity inEntity, entt::entity inParent);
+	void ParseMaterial(aiMaterial* inAssimpMaterial, Entity inEntity);
+	void ParseNode(const aiNode* inAssimpNode, Entity inEntity, Entity inParent);
+	void ParseMeshes(const aiNode* inAssimpNode, Entity inEntity, Entity inParent);
 
-	void LoadMesh(entt::entity inEntity, const aiMesh* inAssimpMesh);
-	void LoadBones(entt::entity inEntity, const aiMesh* inAssimpMesh);
-	void LoadMaterial(entt::entity inEntity, const aiMaterial* inAssimpMaterial);
+	void LoadMesh(Entity inEntity, const aiMesh* inAssimpMesh);
+	void LoadBones(Entity inEntity, const aiMesh* inAssimpMesh);
+	void LoadMaterial(Entity inEntity, const aiMaterial* inAssimpMaterial);
 
 private:
 	Scene& m_Scene;
@@ -42,7 +43,7 @@ private:
 	Path m_Directory;
 	const aiScene* m_AiScene = nullptr;
 	std::shared_ptr<Assimp::Importer> m_Importer;
-	std::vector<entt::entity> m_Materials;
+	std::vector<Entity> m_Materials;
 };
 
 } // raekor

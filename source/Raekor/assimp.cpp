@@ -6,6 +6,7 @@
 #include "timer.h"
 #include "scene.h"
 #include "systems.h"
+#include "components.h"
 #include "application.h"
 
 namespace Assimp {
@@ -58,15 +59,15 @@ bool AssimpImporter::LoadFromFile(const std::string& file, Assets* inAssets) {
 
     // pre-parse materials
     for (const auto& [index, material] : gEnumerate(Slice(m_AiScene->mMaterials, m_AiScene->mNumMaterials))) {
-        std::cout << "\rConverting material textures: [" << gAsciiProgressBar(float(index + 1) / m_AiScene->mNumMaterials) << ']';
-        ParseMaterial(material, m_Scene.create());
+        auto entity = m_Scene.Create();
+        m_Scene.Add<Name>(entity);
+        m_Scene.Add<Material>(entity);
+        m_Materials.push_back(entity);
     }
 
-    std::cout << '\n';
-
-    g_ThreadPool.WaitForJobs();
-
-    std::cout << "Texture conversion took " << Timer::sToMilliseconds(timer.GetElapsedTime()) << " ms. \n";
+    for (const auto& [index, material] : gEnumerate(Slice(m_AiScene->mMaterials, m_AiScene->mNumMaterials))) {
+        ParseMaterial(material, m_Materials[index]);
+    }
 
     // preload material texture in parallel
     if (inAssets != nullptr)
@@ -74,43 +75,41 @@ bool AssimpImporter::LoadFromFile(const std::string& file, Assets* inAssets) {
 
     // parse the node tree recursively
     auto root = m_Scene.CreateSpatialEntity(m_AiScene->mRootNode->mName.C_Str());
-    ParseNode(m_AiScene->mRootNode, entt::null, root);
+    ParseNode(m_AiScene->mRootNode, NULL_ENTITY, root);
 
     return true;
 }
 
 
-void AssimpImporter::ParseMaterial(aiMaterial* assimpMaterial, entt::entity entity) {
-    auto& nameComponent = m_Scene.emplace<Name>(entity);
+void AssimpImporter::ParseMaterial(aiMaterial* assimpMaterial, Entity entity) {
+    auto& nameComponent = m_Scene.Get<Name>(entity);
 
     if (strcmp(assimpMaterial->GetName().C_Str(), "") != 0)
         nameComponent.name = assimpMaterial->GetName().C_Str();
     else
-        nameComponent.name = "Material " + std::to_string(entt::to_integral(entity));
+        nameComponent.name = "Material " + std::to_string(uint32_t(entity));
 
     LoadMaterial(entity, assimpMaterial);
-
-    m_Materials.push_back(entity);
 }
 
 
-void AssimpImporter::ParseNode(const aiNode* assimpNode, entt::entity parent, entt::entity new_entity) {
+void AssimpImporter::ParseNode(const aiNode* assimpNode, Entity parent, Entity new_entity) {
     // set the name
-    m_Scene.get<Name>(new_entity).name = assimpNode->mName.C_Str();
+    m_Scene.Get<Name>(new_entity).name = assimpNode->mName.C_Str();
 
     // set the new entity's parent
-    if (parent != entt::null) {
+    if (parent != NULL_ENTITY) {
         NodeSystem::sAppend(m_Scene,
             parent,
-            m_Scene.get<Node>(parent),
+            m_Scene.Get<Node>(parent),
             new_entity,
-            m_Scene.get<Node>(new_entity)
+            m_Scene.Get<Node>(new_entity)
         );
     }
 
     // translate assimp transformation to glm
     aiMatrix4x4 localTransform = assimpNode->mTransformation;
-    auto& transform = m_Scene.get<Transform>(new_entity);
+    auto& transform = m_Scene.Get<Transform>(new_entity);
     transform.localTransform = Assimp::toMat4(localTransform);
     transform.Decompose();
 
@@ -125,7 +124,7 @@ void AssimpImporter::ParseNode(const aiNode* assimpNode, entt::entity parent, en
 }
 
 
-void AssimpImporter::ParseMeshes(const aiNode* assimpNode, entt::entity new_entity, entt::entity parent) {
+void AssimpImporter::ParseMeshes(const aiNode* assimpNode, Entity new_entity, Entity parent) {
     for (uint32_t i = 0; i < assimpNode->mNumMeshes; i++) {
         auto entity = new_entity;
         const auto assimp_mesh = m_AiScene->mMeshes[assimpNode->mMeshes[i]];
@@ -135,12 +134,12 @@ void AssimpImporter::ParseMeshes(const aiNode* assimpNode, entt::entity new_enti
             entity = m_Scene.CreateSpatialEntity(assimp_mesh->mName.C_Str());
 
             aiMatrix4x4 localTransform = assimpNode->mTransformation;
-            auto& transform = m_Scene.get<Transform>(entity);
+            auto& transform = m_Scene.Get<Transform>(entity);
             transform.localTransform = Assimp::toMat4(localTransform);
             transform.Decompose();
 
-            auto p = parent != entt::null ? parent : new_entity;
-            NodeSystem::sAppend(m_Scene, p, m_Scene.get<Node>(p), entity, m_Scene.get<Node>(entity));
+            auto p = parent != NULL_ENTITY ? parent : new_entity;
+            NodeSystem::sAppend(m_Scene, p, m_Scene.Get<Node>(p), entity, m_Scene.Get<Node>(entity));
         }
 
         // process mesh
@@ -153,8 +152,8 @@ void AssimpImporter::ParseMeshes(const aiNode* assimpNode, entt::entity new_enti
 }
 
 
-void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
-    auto& mesh = m_Scene.emplace<Mesh>(entity);
+void AssimpImporter::LoadMesh(Entity entity, const aiMesh* assimpMesh) {
+    auto& mesh = m_Scene.Add<Mesh>(entity);
 
     mesh.positions.reserve(assimpMesh->mNumVertices);
     mesh.uvs.reserve(assimpMesh->mNumVertices);
@@ -209,15 +208,12 @@ void AssimpImporter::LoadMesh(entt::entity entity, const aiMesh* assimpMesh) {
 }
 
 
-void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
+void AssimpImporter::LoadBones(Entity entity, const aiMesh* assimpMesh) {
     if (!m_AiScene->HasAnimations())
         return;
 
-    auto& mesh = m_Scene.get<Mesh>(entity);
-    auto& skeleton = m_Scene.emplace<Skeleton>(entity);
-
-    std::cout << "Assimp mesh: " << assimpMesh->mName.C_Str() << '\n';
-
+    auto& mesh = m_Scene.Get<Mesh>(entity);
+    auto& skeleton = m_Scene.Add<Skeleton>(entity);
 
     skeleton.boneWeights.resize(assimpMesh->mNumVertices);
     skeleton.boneIndices.resize(assimpMesh->mNumVertices);
@@ -229,7 +225,6 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
     };
 
     for (const auto& [index, bone] : gEnumerate(Slice(assimpMesh->mBones, assimpMesh->mNumBones))) {
-        std::cout << "Assimp bone: " << bone->mName.C_Str() << '\n';
         bone_map.insert({ bone->mName.C_Str(), uint32_t(index) });
         skeleton.boneOffsetMatrices.push_back(Assimp::toMat4(bone->mOffsetMatrix));
 
@@ -306,8 +301,8 @@ void AssimpImporter::LoadBones(entt::entity entity, const aiMesh* assimpMesh) {
 }
 
 
-void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpMaterial) {
-    auto& material = m_Scene.emplace<Material>(entity);
+void AssimpImporter::LoadMaterial(Entity entity, const aiMaterial* assimpMaterial) {
+    auto& material = m_Scene.Get<Material>(entity);
 
     aiString albedoFile, normalmapFile, metalroughFile;
     assimpMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &albedoFile);
@@ -335,34 +330,13 @@ void AssimpImporter::LoadMaterial(entt::entity entity, const aiMaterial* assimpM
         material.roughness = roughness;
 
     if (albedoFile.length)
-        material.albedoFile = m_Directory.string() + albedoFile.C_Str();
+        material.albedoFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + albedoFile.C_Str());
 
     if (normalmapFile.length)
-        material.normalFile = m_Directory.string() + normalmapFile.C_Str();
+        material.normalFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + normalmapFile.C_Str());
 
     if (metalroughFile.length)
-        material.metalroughFile = m_Directory.string() + metalroughFile.C_Str();
-
-    if (albedoFile.length) {
-        g_ThreadPool.QueueJob([this, &material, albedoFile]() {
-            auto assetPath = TextureAsset::sConvert(material.albedoFile);
-            material.albedoFile = assetPath;
-        });
-    }
-
-    if (normalmapFile.length) {
-        g_ThreadPool.QueueJob([this, &material, normalmapFile]() {
-            auto assetPath = TextureAsset::sConvert(material.normalFile);
-            material.normalFile = assetPath;
-        });
-    }
-
-    if (metalroughFile.length) {
-        g_ThreadPool.QueueJob([this, &material, metalroughFile]() {
-            auto assetPath = TextureAsset::sConvert(material.metalroughFile);
-            material.metalroughFile = assetPath;
-        });
-    }
+        material.metalroughFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + metalroughFile.C_Str());
 }
 
 } // raekor

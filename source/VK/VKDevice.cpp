@@ -445,7 +445,11 @@ Buffer Device::CreateBuffer(size_t size, VkBufferUsageFlags bufferUsage, VmaMemo
 
     gThrowIfFailed(vmaCreateBuffer(m_Allocator, &bufferInfo, &allocCreateInfo, &buffer, &allocation, nullptr));
 
-    return { buffer, allocation };
+    VK::Buffer result;
+    result.buffer = buffer;
+    result.allocation = allocation;
+
+    return result;
 }
 
 

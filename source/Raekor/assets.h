@@ -25,6 +25,12 @@ public:
 
     virtual bool Load(const std::string& inPath) = 0;
 
+    static std::string sAssetsToCachedPath(const std::string& inAssetPath, const char* inExtension) {
+        return fs::relative(inAssetPath).replace_extension(inExtension).string().replace(0, 6, "cached");
+    }
+
+
+
 protected:
 
     Path m_Path;
@@ -71,6 +77,10 @@ public:
 
     template<class Archive> 
     void serialize(Archive& ioArchive) { ioArchive(m_Data); }
+
+    static std::string sAssetsToCachedPath(const std::string& inAssetPath) {
+        return Asset::sAssetsToCachedPath(inAssetPath, ".dds");
+    }
 
     char* const         GetData();
     const DDS_HEADER*   GetHeader();
@@ -123,13 +133,6 @@ private:
 
 
 } // namespace raekor
-
-
-CEREAL_REGISTER_TYPE(Raekor::Asset);
-CEREAL_REGISTER_TYPE(Raekor::ScriptAsset);
-CEREAL_REGISTER_TYPE(Raekor::TextureAsset);
-CEREAL_REGISTER_POLYMORPHIC_RELATION(Raekor::Asset, Raekor::ScriptAsset);
-CEREAL_REGISTER_POLYMORPHIC_RELATION(Raekor::Asset, Raekor::TextureAsset);
 
 
 namespace Raekor {

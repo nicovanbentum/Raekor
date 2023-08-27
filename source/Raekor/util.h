@@ -14,6 +14,13 @@
 
 #define LOG_CATCH(code) try { code; } catch(std::exception e) { std::cout << e.what() << '\n'; }
 
+#ifndef PRAGMA_OPTIMIZE_OFF
+#define PRAGMA_OPTIMIZE_OFF __pragma( optimize( "", off ) )
+#endif
+
+#ifndef PRAGMA_OPTIMIZE_ON
+#define PRAGMA_OPTIMIZE_ON __pragma( optimize( "", on ) )
+#endif
 
 // From https://en.cppreference.com/w/cpp/utility/unreachable
 [[noreturn]] constexpr inline void gUnreachableCode() {

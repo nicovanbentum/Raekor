@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Raekor/application.h"
+#include "Raekor/physics.h"
 #include "Raekor/scene.h"
 #include "Raekor/assets.h"
 #include "VKRenderer.h"
@@ -18,6 +19,7 @@ public:
 private:
     Scene m_Scene;
     Assets m_Assets;
+    Physics m_Physics;
     VK::Renderer m_Renderer;
     
     bool m_IsImGuiEnabled = true;

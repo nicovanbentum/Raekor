@@ -53,7 +53,6 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/dependencies/cgltf
     ${CMAKE_SOURCE_DIR}/dependencies/imnodes
     ${CMAKE_SOURCE_DIR}/dependencies/glm/glm
-    ${CMAKE_SOURCE_DIR}/dependencies/entt/src
     ${CMAKE_SOURCE_DIR}/dependencies/ImGuizmo
     ${CMAKE_SOURCE_DIR}/dependencies/cereal/include
     ${CMAKE_SOURCE_DIR}/dependencies/JoltPhysics

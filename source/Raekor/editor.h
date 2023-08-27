@@ -37,7 +37,7 @@ protected:
 
     void* m_CompilerProcess = nullptr;
     ImGuiID m_DockSpaceID;
-    Entity m_ActiveEntity = sInvalidEntity;
+    Entity m_ActiveEntity = NULL_ENTITY;
 
     std::vector<std::string> m_Messages;
 };

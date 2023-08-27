@@ -7,6 +7,7 @@
 #include "timer.h"
 #include "rmath.h"
 #include "systems.h"
+#include "components.h"
 #include "application.h"
 
 namespace Raekor {
@@ -41,19 +42,19 @@ GltfImporter::~GltfImporter() {
 }
 
 
-bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
+bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets) {
     /*
     * LOAD GLTF FROM DISK
     */
     Timer timer;
 
-    m_Directory = Path(file).parent_path() / "";
+    m_Directory = Path(inFile).parent_path() / "";
 
     cgltf_options options = {};
-    if (!handle_cgltf_error(cgltf_parse_file(&options, file.c_str(), &m_GltfData)))
+    if (!handle_cgltf_error(cgltf_parse_file(&options, inFile.c_str(), &m_GltfData)))
         return false;
 
-    if (!handle_cgltf_error(cgltf_load_buffers(&options, m_GltfData, file.c_str())))
+    if (!handle_cgltf_error(cgltf_load_buffers(&options, m_GltfData, inFile.c_str())))
         return false;
 
     if (!handle_cgltf_error(cgltf_validate(m_GltfData)))
@@ -67,25 +68,19 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     for (unsigned int index = 0; index < m_GltfData->materials_count; index++) {
         auto& gltf_material = m_GltfData->materials[index];
 
-        auto entity = m_Scene.create();
-        auto& nameComponent = m_Scene.emplace<Name>(entity);
+        auto entity = m_Scene.Create();
+        auto& nameComponent = m_Scene.Add<Name>(entity);
 
         if (gltf_material.name && strcmp(gltf_material.name, "") != 0)
             nameComponent.name = gltf_material.name;
         else
-            nameComponent.name = "Material " + std::to_string(entt::to_integral(entity));
+            nameComponent.name = "Material " + std::to_string(uint32_t(entity));
 
         ConvertMaterial(entity, gltf_material);
+
         m_Materials.push_back(entity);
-        
-        // std::cout << "\rDDS Conversion Progress: [" << gAsciiProgressBar(float(index) / m_GltfData->materials_count - 1) << "]";
+        m_MaterialRefs.push_back(0);
     }
-
-    if (m_GltfData->materials_count > 0)
-        std::cout << '\n';
-
-    g_ThreadPool.WaitForJobs();
-    std::cout << "[GLTF Import] Texture Conversion took " << Timer::sToMilliseconds(timer.Restart()) << " ms. \n";
 
     /*
     * PARSE NODES & MESHES
@@ -93,13 +88,13 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
     for (const auto& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
         for (const auto& node : Slice(scene.nodes, scene.nodes_count))
             if (!node->parent)
-                ParseNode(*node, sInvalidEntity, glm::mat4(1.0f));
+                ParseNode(*node, NULL_ENTITY, glm::mat4(1.0f));
 
-    const auto root_entity = m_Scene.CreateSpatialEntity(Path(file).filename().string());
-    auto& root_node = m_Scene.get<Node>(root_entity);
+    const auto root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
+    auto& root_node = m_Scene.Get<Node>(root_entity);
     
     for (const auto& entity : m_CreatedNodeEntities) {
-        auto& node = m_Scene.get<Node>(entity);
+        auto& node = m_Scene.Get<Node>(entity);
 
         if (node.IsRoot())
             NodeSystem::sAppend(m_Scene, root_entity, root_node, entity, node);
@@ -107,14 +102,20 @@ bool GltfImporter::LoadFromFile(Assets& assets, const std::string& file) {
 
     std::cout << "[GLTF Import] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
 
+    /*for (const auto& [index, entity] : m_Materials) {
+        if (m_MaterialRefs[index] < 1)
+            m_Scene.Destroy(entity);
+    }*/
+
     // Load the converted textures from disk and upload them to the GPU
-    m_Scene.LoadMaterialTextures(assets, Slice(m_Materials.data(), m_Materials.size()));
+    if (inAssets != nullptr)
+        m_Scene.LoadMaterialTextures(*inAssets, Slice(m_Materials.data(), m_Materials.size()));
 
     return true;
 }
 
 
-void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, glm::mat4 inTransform) {
+void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat4 inTransform) {
     auto local_transform = glm::mat4(1.0f);
 
     if (inNode.has_matrix) {
@@ -140,19 +141,19 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, gl
 
         // name it after the node or its mesh
         if (inNode.name)
-            m_Scene.get<Name>(entity).name = inNode.name;
+            m_Scene.Get<Name>(entity).name = inNode.name;
         else if (inNode.mesh && inNode.mesh->name)
-            m_Scene.get<Name>(entity).name = inNode.mesh->name;
+            m_Scene.Get<Name>(entity).name = inNode.mesh->name;
         else 
-            m_Scene.get<Name>(entity).name = "Mesh " + std::to_string(entt::to_integral(entity));
+            m_Scene.Get<Name>(entity).name = "Mesh " + std::to_string(uint32_t(entity));
 
-        auto& mesh_transform = m_Scene.get<Transform>(entity);
+        auto& mesh_transform = m_Scene.Get<Transform>(entity);
         mesh_transform.localTransform = inTransform;
         mesh_transform.Decompose();
 
         // set the new entity's parent
-        if (inParent != entt::null)
-            NodeSystem::sAppend(m_Scene, inParent, m_Scene.get<Node>(inParent), entity, m_Scene.get<Node>(entity));
+        if (inParent != NULL_ENTITY)
+            NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), entity, m_Scene.Get<Node>(entity));
 
         if (inNode.mesh->primitives_count == 1)
             ConvertMesh(entity, inNode.mesh->primitives[0]);
@@ -162,15 +163,15 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, gl
                 auto clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(entity));
                 ConvertMesh(clone, prim);
 
-                auto& name = m_Scene.get<Name>(clone);
+                auto& name = m_Scene.Get<Name>(clone);
                 name.name += "-" + std::to_string(index);
 
                 // multiple mesh entities of the same node all get parented to that node's transform, so their local transform can just be identity
-                auto& transform = m_Scene.get<Transform>(clone);
+                auto& transform = m_Scene.Get<Transform>(clone);
                 transform.localTransform = glm::mat4(1.0f);
                 transform.Decompose();
 
-                NodeSystem::sAppend(m_Scene, entity, m_Scene.get<Node>(entity), clone, m_Scene.get<Node>(clone));
+                NodeSystem::sAppend(m_Scene, entity, m_Scene.Get<Node>(entity), clone, m_Scene.Get<Node>(clone));
              
             }
         
@@ -184,17 +185,19 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, entt::entity inParent, gl
 
 
 void GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh) {
-    auto& mesh = m_Scene.emplace<Mesh>(inEntity);
+    auto& mesh = m_Scene.Add<Mesh>(inEntity);
 
     if (!inMesh.indices)
         return;
 
     assert(inMesh.type == cgltf_primitive_type_triangles);
 
-    for (int i = 0; i < m_GltfData->materials_count; i++)
-        if (inMesh.material == &m_GltfData->materials[i])
+    for (int i = 0; i < m_GltfData->materials_count; i++) {
+        if (inMesh.material == &m_GltfData->materials[i]) {
             mesh.material = m_Materials[i];
-
+            m_MaterialRefs[i]++;
+        }
+    }
     bool seen_uv0 = false;
 
     for(const auto& attribute : Slice(inMesh.attributes, inMesh.attributes_count)) {
@@ -255,8 +258,8 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
     if (!inNode.mesh || !inNode.skin)
         return;
 
-    auto& mesh = m_Scene.get<Mesh>(inEntity);
-    auto& skeleton = m_Scene.emplace<Skeleton>(inEntity);
+    auto& mesh = m_Scene.Get<Mesh>(inEntity);
+    auto& skeleton = m_Scene.Add<Skeleton>(inEntity);
 
     for (const auto& [index, primitive] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count))) {
         assert(primitive.type == cgltf_primitive_type_triangles);
@@ -450,7 +453,7 @@ int GltfImporter::GetJointIndex(const cgltf_node* inSkinNode, const cgltf_node* 
 
 
 void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMaterial) {
-    auto& material = m_Scene.emplace<Material>(inEntity);
+    auto& material = m_Scene.Add<Material>(inEntity);
     material.isTransparent = gltfMaterial.alpha_mode != cgltf_alpha_mode_opaque;
 
     if (gltfMaterial.has_pbr_metallic_roughness) {
@@ -459,37 +462,16 @@ void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMa
         memcpy(glm::value_ptr(material.albedo), gltfMaterial.pbr_metallic_roughness.base_color_factor, sizeof(material.albedo));
 
         if (auto texture = gltfMaterial.pbr_metallic_roughness.base_color_texture.texture)
-            material.albedoFile = texture->image->uri;
+            material.albedoFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + texture->image->uri);
 
         if (auto texture = gltfMaterial.pbr_metallic_roughness.metallic_roughness_texture.texture)
-            material.metalroughFile = texture->image->uri;
+            material.metalroughFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + texture->image->uri);
     }
 
     if (auto normal_texture = gltfMaterial.normal_texture.texture)
-        material.normalFile = normal_texture->image->uri;
+        material.normalFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + normal_texture->image->uri);
 
     memcpy(glm::value_ptr(material.emissive), gltfMaterial.emissive_factor, sizeof(material.emissive));
-
-    if (!material.albedoFile.empty()) {
-        g_ThreadPool.QueueJob([this, &material]() {
-            auto assetPath = TextureAsset::sConvert(m_Directory.string() + material.albedoFile);
-            material.albedoFile = assetPath;
-        });
-    }
-
-    if (!material.normalFile.empty()) {
-        g_ThreadPool.QueueJob([this, &material]() {
-            auto assetPath = TextureAsset::sConvert(m_Directory.string() + material.normalFile);
-            material.normalFile = assetPath;
-        });
-    }
-
-    if (!material.metalroughFile.empty()) {
-        g_ThreadPool.QueueJob([this, &material]() {
-            auto assetPath = TextureAsset::sConvert(m_Directory.string() + material.metalroughFile);
-            material.metalroughFile = assetPath;
-        });
-    }
 }
 
 } // raekor

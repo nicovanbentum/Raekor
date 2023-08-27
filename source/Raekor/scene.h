@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ecs.h"
 #include "util.h"
 
 namespace Raekor {
@@ -8,23 +9,22 @@ class Ray;
 class Assets;
 class IRenderer;
 class NativeScript;
+struct DirectionalLight;
 
-using Entity = entt::entity;
-static constexpr entt::null_t sInvalidEntity = entt::null;
-
-class Scene : public entt::registry {
+class Scene : public ecs::ECS {
 public:
 	Scene(IRenderer* inRenderer) : m_Renderer(inRenderer) {}
 	Scene(const Scene& inOther) = delete;
-	~Scene() { clear(); }
+	~Scene() { Clear(); }
 
 	// Spatial entity management
-	entt::entity	PickSpatialEntity(Ray& inRay);
-	entt::entity	CreateSpatialEntity(const std::string& inName = "");
-	void			DestroySpatialEntity(entt::entity inEntity);
+	Entity		PickSpatialEntity(Ray& inRay);
+	Entity 	CreateSpatialEntity(const std::string& inName = "");
+	void			DestroySpatialEntity(Entity inEntity);
 
 	// TODO: kinda hacky, pls fix
-	glm::vec3 GetSunLightDirection() const;
+	Vec3 GetSunLightDirection() const;
+	const DirectionalLight* GetSunLight() const;
 
 	// Per frame systems
 	void UpdateLights();

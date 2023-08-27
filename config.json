@@ -5,6 +5,6 @@
         "Vsync": true,
         "App Name": "Raekor Renderer",
         "Font File": "assets/system/Inter-Medium.ttf",
-        "Scene File": "assets/scenes/sponza.scene"
+        "Scene File": ""
     }
 }

@@ -31,8 +31,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
 
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New scene")) {
-                scene.clear();
-                m_Editor->SetActiveEntity(sInvalidEntity);
+                scene.Clear();
+                m_Editor->SetActiveEntity(NULL_ENTITY);
             }
 
             if (ImGui::MenuItem("Open scene..")) {
@@ -42,7 +42,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                     Timer timer;
                     SDL_SetWindowTitle(m_Editor->GetWindow(), std::string(filepath + " - Raekor Renderer").c_str());
                     scene.OpenFromFile(IWidget::GetAssets(), filepath);
-                    m_Editor->SetActiveEntity(sInvalidEntity);
+                    m_Editor->SetActiveEntity(NULL_ENTITY);
 
                     m_Editor->LogMessage("[Scene] Open from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
                 }
@@ -54,7 +54,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                 if (!filepath.empty()) {
                     Timer timer;
 
-                    m_Editor->SetActiveEntity(sInvalidEntity);
+                    m_Editor->SetActiveEntity(NULL_ENTITY);
 
                     m_Editor->LogMessage("[Scene] Import from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
                 }
@@ -65,9 +65,9 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
 
                 if (!filepath.empty()) {
                     g_ThreadPool.QueueJob([this, filepath]() {
-                        m_Editor->LogMessage("Saving scene...");
+                        m_Editor->LogMessage("[Editor] Saving scene...");
                         GetScene().SaveToFile(IWidget::GetAssets(), filepath);
-                        m_Editor->LogMessage("[Scene] Saved to " + fs::relative(filepath).string() + "");
+                        m_Editor->LogMessage("[Editor] Saved scene to " + fs::relative(filepath).string() + "");
                     });
                 }
             }
@@ -77,21 +77,18 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
 
                 Timer timer;
                 if (!folder.empty()) {
-                    for (const auto& [entity, name, mesh] : scene.view<Name, Mesh>().each()) {
+                    for (const auto& [entity, name, mesh] : scene.Each<Name, Mesh>()) {
                         // for the love of god C++ overlords, let me capture structured bindings
                         g_ThreadPool.QueueJob([&, name = &name, mesh = &mesh]() {
                             auto ofs = std::ofstream((folder / "sponza").replace_extension(".meshes"));
-                            cereal::JSONOutputArchive archive(ofs);
-                            archive(*mesh);
+                            
                         });
                     }
 
-                    for (const auto& [entity, name, material] : scene.view<Name, Material>().each()) {
+                    for (const auto& [entity, name, material] : scene.Each<Name, Material>()) {
                         // for the love of god C++ overlords, let me capture structured bindings
                         g_ThreadPool.QueueJob([&, name = &name, material = &material]() {
                             auto ofs = std::ofstream((folder / name->name).replace_extension(".material"));
-                            cereal::JSONOutputArchive archive(ofs);
-                            archive(*material);
                         });
                     }
                     g_ThreadPool.WaitForJobs();
@@ -137,9 +134,9 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
         if (ImGui::BeginMenu("Edit")) {
 
             if (ImGui::MenuItem("Delete", "DEL")) {
-                if (m_Editor->GetActiveEntity() != sInvalidEntity) {
+                if (m_Editor->GetActiveEntity() != NULL_ENTITY) {
                     IWidget::GetScene().DestroySpatialEntity(m_Editor->GetActiveEntity());
-                    m_Editor->SetActiveEntity(sInvalidEntity);
+                    m_Editor->SetActiveEntity(NULL_ENTITY);
                 }
             }
 
@@ -174,20 +171,20 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
             ImGui::Separator();
 
             if (ImGui::MenuItem("Material")) {
-                auto entity = scene.create();
-                scene.emplace<Name>(entity).name =  "New Material";
-                scene.emplace<Material>(entity);
+                auto entity = scene.Create();
+                scene.Add<Name>(entity).name =  "New Material";
+                scene.Add<Material>(entity);
                 m_Editor->SetActiveEntity(entity);
             }
 
             if (ImGui::BeginMenu("Shapes")) {
                 if (ImGui::MenuItem("Sphere")) {
                     auto entity = scene.CreateSpatialEntity("Sphere");
-                    auto& mesh = scene.emplace<Mesh>(entity);
+                    auto& mesh = scene.Add<Mesh>(entity);
 
-                    if (m_Editor->GetActiveEntity() != sInvalidEntity) {
-                        auto& node = scene.get<Node>(entity);
-                        NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.get<Node>(m_Editor->GetActiveEntity()), entity, node);
+                    if (m_Editor->GetActiveEntity() != NULL_ENTITY) {
+                        auto& node = scene.Get<Node>(entity);
+                        NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.Get<Node>(m_Editor->GetActiveEntity()), entity, node);
                     }
 
                     gGenerateSphere(mesh, 2.5f, 16, 16);
@@ -196,11 +193,11 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
 
                 if (ImGui::MenuItem("Plane")) {
                     auto entity = scene.CreateSpatialEntity("Plane");
-                    auto& mesh = scene.emplace<Mesh>(entity);
+                    auto& mesh = scene.Add<Mesh>(entity);
                     
-                    if (m_Editor->GetActiveEntity() != sInvalidEntity && scene.any_of<Node>(m_Editor->GetActiveEntity())) {
-                        auto& node = scene.get<Node>(entity);
-                        NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.get<Node>(m_Editor->GetActiveEntity()), entity, node);
+                    if (m_Editor->GetActiveEntity() != NULL_ENTITY && scene.Has<Node>(m_Editor->GetActiveEntity())) {
+                        auto& node = scene.Get<Node>(entity);
+                        NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.Get<Node>(m_Editor->GetActiveEntity()), entity, node);
                     }
                     
                     for (const auto& v : UnitPlane::vertices) {
@@ -223,11 +220,11 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
 
                 if (ImGui::MenuItem("Cube")) {
                     auto entity = scene.CreateSpatialEntity("Cube");
-                    auto& mesh = scene.emplace<Mesh>(entity);
+                    auto& mesh = scene.Add<Mesh>(entity);
 
-                    if (m_Editor->GetActiveEntity() != sInvalidEntity && scene.all_of<Node>(m_Editor->GetActiveEntity())) {
-                        auto& node = scene.get<Node>(entity);
-                        NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.get<Node>(m_Editor->GetActiveEntity()), entity, node);
+                    if (m_Editor->GetActiveEntity() != NULL_ENTITY && scene.Has<Node>(m_Editor->GetActiveEntity())) {
+                        auto& node = scene.Get<Node>(entity);
+                        NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.Get<Node>(m_Editor->GetActiveEntity()), entity, node);
                     }
 
                     for (const auto& v : UnitCube::vertices) {
@@ -256,13 +253,14 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
             if (ImGui::BeginMenu("Light")) {
                 if (ImGui::MenuItem("Point Light")) {
                     auto entity = scene.CreateSpatialEntity("Point Light");
-                    scene.emplace<PointLight>(entity);
+                    scene.Add<PointLight>(entity);
                     m_Editor->SetActiveEntity(entity);
                 }
 
                 if (ImGui::MenuItem("Directional Light")) {
                     auto entity = scene.CreateSpatialEntity("Directional Light");
-                    scene.emplace<DirectionalLight>(entity);
+                    scene.Add<DirectionalLight>(entity);
+                    scene.Get<Transform>(entity).rotation.x = 0.1;
                     m_Editor->SetActiveEntity(entity);
                 }
 

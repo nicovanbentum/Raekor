@@ -9,6 +9,15 @@ static std::uniform_real_distribution<float> sUniformDistributionZO(0.0, 1.0);
 static std::uniform_real_distribution<float> sUniformDistributionNO(-1.0, 1.0);
 
 
+
+BBox3D& BBox3D::Scale(const Vec3& inScale) {
+    mMin *= inScale;
+    mMax *= inScale;
+    return *this;
+}
+
+
+
 BBox3D& BBox3D::Transform(const Mat4x4& inTransform) {
     mMin = inTransform * Vec4(mMin, 1.0);
     mMax = inTransform * Vec4(mMax, 1.0);
