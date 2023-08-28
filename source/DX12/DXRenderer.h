@@ -141,7 +141,7 @@ private:
 /// GBuffer Render Pass
 ////////////////////////////////////////
 struct GBufferData {
-    RTTI_CLASS_HEADER(GBufferData);
+    RTTI_DECLARE_TYPE(GBufferData);
 
     TextureResource mDepthTexture;
     TextureResource mRenderTexture;
@@ -158,7 +158,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice,
 /// GBuffer Debug Pass
 ////////////////////////////////////////
 struct GBufferDebugData {
-    RTTI_CLASS_HEADER(GBufferDebugData);
+    RTTI_DECLARE_TYPE(GBufferDebugData);
 
     GBufferData mGBufferData;
     TextureResource mInputTexture;
@@ -175,7 +175,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 /// Grass Pass
 ////////////////////////////////////////
 struct GrassData {
-    RTTI_CLASS_HEADER(GrassData);
+    RTTI_DECLARE_TYPE(GrassData);
 
     BufferID mPerBladeIndexBuffer;
     TextureResource mDepthTexture;
@@ -193,7 +193,7 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice,
 /// Ray-traced Shadow Mask Render Pass
 ////////////////////////////////////////
 struct RTShadowMaskData {
-    RTTI_CLASS_HEADER(RTShadowMaskData);
+    RTTI_DECLARE_TYPE(RTShadowMaskData);
 
     TextureResource mOutputTexture;
     TextureResource mGbufferDepthTexture;
@@ -212,7 +212,7 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
 /// Ray-traced Ambient Occlusion Render Pass
 ////////////////////////////////////////
 struct RTAOData {
-    RTTI_CLASS_HEADER(RTAOData);
+    RTTI_DECLARE_TYPE(RTAOData);
 
     AmbientOcclusionParams mParams = { .mRadius = 2.0, .mIntensity = 1.0, .mNormalBias = 0.01, .mSampleCount = 1u };
     TextureResource mOutputTexture;
@@ -232,7 +232,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 /// Ray-traced Reflections Render Pass
 ////////////////////////////////////////
 struct ReflectionsData {
-    RTTI_CLASS_HEADER(ReflectionsData);
+    RTTI_DECLARE_TYPE(ReflectionsData);
 
     TextureResource mOutputTexture;
     TextureResource mGBufferDepthTexture;
@@ -255,7 +255,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 /// Ray-traced Indirect Diffuse Render Pass
 ////////////////////////////////////////
 struct IndirectDiffuseData {
-    RTTI_CLASS_HEADER(IndirectDiffuseData);
+    RTTI_DECLARE_TYPE(IndirectDiffuseData);
 
     TextureResource mOutputTexture;
     TextureResource mGBufferDepthTexture;
@@ -278,7 +278,7 @@ const IndirectDiffuseData& AddIndirectDiffusePass(RenderGraph& inRenderGraph, De
 /// Downsample Render Pass
 ////////////////////////////////////////
 struct DownsampleData {
-    RTTI_CLASS_HEADER(DownsampleData);
+    RTTI_DECLARE_TYPE(DownsampleData);
 
     TextureID mTextureMips[12];
     BufferID mGlobalAtomicBuffer;
@@ -295,7 +295,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 /// GI Probe Trace Compute Pass
 ////////////////////////////////////////
 struct ProbeTraceData {
-    RTTI_CLASS_HEADER(ProbeTraceData);
+    RTTI_DECLARE_TYPE(ProbeTraceData);
 
     ProbeTraceData() {
         mDDGIData.mCornerPosition = Vec3(-65, -2, -28.5);
@@ -323,7 +323,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
 /// GI Probe Update Compute Pass
 ////////////////////////////////////////
 struct ProbeUpdateData {
-    RTTI_CLASS_HEADER(ProbeUpdateData);
+    RTTI_DECLARE_TYPE(ProbeUpdateData);
 
     DDGIData        mDDGIData;
     TextureResource mProbesDepthTexture;
@@ -345,7 +345,7 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
 /// GI Probe Debug Render Pass
 ////////////////////////////////////////
 struct ProbeDebugData {
-    RTTI_CLASS_HEADER(ProbeDebugData);
+    RTTI_DECLARE_TYPE(ProbeDebugData);
 
     Mesh            mProbeMesh;
     DDGIData        mDDGIData;
@@ -368,7 +368,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 /// Debug Lines Render Pass
 ////////////////////////////////////////
 struct DebugLinesData {
-    RTTI_CLASS_HEADER(DebugLinesData);
+    RTTI_DECLARE_TYPE(DebugLinesData);
 
     BufferResource mVertexBuffer;
     D3D12_DRAW_ARGUMENTS* mMappedPtr;
@@ -387,7 +387,7 @@ const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDe
 /// Deferred Lighting Render Pass
 ////////////////////////////////////////
 struct LightingData {
-    RTTI_CLASS_HEADER(LightingData);
+    RTTI_DECLARE_TYPE(LightingData);
 
     DDGIData        mDDGIData;
     TextureResource mOutputTexture;
@@ -415,7 +415,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 /// AMD FSR 2.1 Render Pass
 ////////////////////////////////////////
 struct FSR2Data {
-    RTTI_CLASS_HEADER(FSR2Data);
+    RTTI_DECLARE_TYPE(FSR2Data);
 
     TextureResource mColorTexture;
     TextureResource mDepthTexture;
@@ -436,7 +436,7 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice,
 /// Final Compose Render Pass
 ////////////////////////////////////////
 struct ComposeData {
-    RTTI_CLASS_HEADER(ComposeData);
+    RTTI_DECLARE_TYPE(ComposeData);
 
     TextureResource mInputTexture;
     TextureResource mOutputTexture;
@@ -452,7 +452,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice,
 /// Pre-ImGui Pass
 ////////////////////////////////////////
 struct PreImGuiData {
-    RTTI_CLASS_HEADER(PreImGuiData);
+    RTTI_DECLARE_TYPE(PreImGuiData);
 
     TextureResource mDisplayTexture;
 };
@@ -467,7 +467,7 @@ const PreImGuiData& AddPreImGuiPass(RenderGraph& inRenderGraph, Device& inDevice
 /// Note: the ImGui init and render functions really don't like being put in the RenderGraph (capturing lambdas) so manual functions are provided.
 ////////////////////////////////////////
 struct ImGuiData {
-    RTTI_CLASS_HEADER(ImGuiData);
+    RTTI_DECLARE_TYPE(ImGuiData);
 
     BufferID mIndexBuffer;
     BufferID mVertexBuffer;

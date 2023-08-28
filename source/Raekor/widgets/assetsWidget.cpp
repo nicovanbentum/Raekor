@@ -6,7 +6,7 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP_NO_FACTORY(AssetsWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(AssetsWidget) {}
 
 AssetsWidget::AssetsWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_PALETTE "  Materials ")) {}
 

@@ -14,7 +14,7 @@ enum EShaderProgramType {
     SHADER_PROGRAM_GRAPHICS,
     SHADER_PROGRAM_COMPUTE
 };
-RTTI_ENUM_HEADER(EShaderProgramType);
+RTTI_DECLARE_ENUM(EShaderProgramType);
 RTTI_ENUM_STRING_CONVERSIONS(EShaderProgramType);
 
 
@@ -25,7 +25,7 @@ enum EShaderType {
 };
 
 class IResource {
-    RTTI_CLASS_HEADER(IResource);
+    RTTI_DECLARE_TYPE(IResource);
 
 public:
     virtual bool OnCompile() { return true; }
@@ -34,7 +34,7 @@ public:
 
 
 class ShaderProgram : public IResource {
-    RTTI_CLASS_HEADER(ShaderProgram);
+    RTTI_DECLARE_TYPE(ShaderProgram);
     friend class SystemShadersDX12;
 
 public:
@@ -81,7 +81,7 @@ private:
 
 
 struct SystemShadersDX12 : public IResource {
-    RTTI_CLASS_HEADER(SystemShadersDX12);
+    RTTI_DECLARE_TYPE(SystemShadersDX12);
 
     ShaderProgram mImGuiShader;
     ShaderProgram mGrassShader;

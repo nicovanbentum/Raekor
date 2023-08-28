@@ -11,7 +11,7 @@ namespace Raekor {
 class INativeScript;
 
 struct Name {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(Name);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(Name);
 
     std::string name;
 
@@ -22,7 +22,7 @@ struct Name {
 
 
 struct SCRIPT_INTERFACE Transform {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(Transform);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(Transform);
 
     glm::vec3 scale     = glm::vec3(1.0f, 1.0f, 1.0f);
     glm::vec3 position  = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -42,7 +42,7 @@ struct SCRIPT_INTERFACE Transform {
 
 
 struct DirectionalLight {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(DirectionalLight);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(DirectionalLight);
 
     const Vec4& GetColor() const { return colour; }
     const Vec4& GetDirection() const { return direction; }
@@ -54,7 +54,7 @@ struct DirectionalLight {
 
 
 struct PointLight {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(PointLight);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(PointLight);
 
     glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
     glm::vec4 colour   = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -68,7 +68,7 @@ struct Light {
 
 
 struct Node {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(Node);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(Node);
 
     Entity parent      = NULL_ENTITY;
     Entity firstChild  = NULL_ENTITY;
@@ -81,7 +81,7 @@ struct Node {
 };
 
 struct Mesh {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(Mesh);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(Mesh);
     
     std::vector<glm::vec3> positions; // ptr
     std::vector<glm::vec2> uvs; // ptr
@@ -96,8 +96,6 @@ struct Mesh {
     uint32_t BottomLevelAS  = 0;
 
     std::array<glm::vec3, 2> aabb;
-
-
 
     Entity material = NULL_ENTITY;
 
@@ -120,7 +118,7 @@ struct Mesh {
 };
 
 struct BoxCollider {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(BoxCollider);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(BoxCollider);
 
     JPH::BodyID bodyID;
     JPH::EMotionType motionType;
@@ -132,7 +130,7 @@ struct BoxCollider {
 
 
 struct SoftBody {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(SoftBody);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(SoftBody);
 
     JPH::BodyID mBodyID;
     JPH::SoftBodySharedSettings mSharedSettings;
@@ -142,7 +140,7 @@ struct SoftBody {
 };
 
 struct Bone {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(Bone);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(Bone);
 
     uint32_t index;
     std::string name;
@@ -151,7 +149,7 @@ struct Bone {
 
 
 struct Skeleton {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(Skeleton);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(Skeleton);
 
     glm::mat4 inverseGlobalTransform;
     std::vector<glm::vec4> boneWeights; // ptr
@@ -174,7 +172,7 @@ struct Skeleton {
 
 
 struct Material {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(Material);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(Material);
 
     // properties
     glm::vec4 albedo = glm::vec4(1.0f);
@@ -201,7 +199,7 @@ struct Material {
 
 
 struct NativeScript {
-    RTTI_CLASS_HEADER_NO_VIRTUAL(NativeScript);
+    RTTI_DECLARE_TYPE_NO_VIRTUAL(NativeScript);
 
     std::string file; // ptr
     ScriptAsset::Ptr asset;

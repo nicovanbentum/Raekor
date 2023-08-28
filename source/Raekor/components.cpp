@@ -6,65 +6,65 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP(Name) {
-    RTTI_MEMBER_CPP(Name, SERIALIZE_ALL, "Name", name);
+RTTI_DEFINE_TYPE(Name) {
+    RTTI_DEFINE_MEMBER(Name, SERIALIZE_ALL, "Name", name);
 }
 
 
-RTTI_CLASS_CPP(Transform) {
-    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Scale",    scale);
-    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Position", position);
-    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Rotation", rotation);
-    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "Local Transform", localTransform);
-    RTTI_MEMBER_CPP(Transform, SERIALIZE_ALL, "World Transform", worldTransform);
+RTTI_DEFINE_TYPE(Transform) {
+    RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "Scale",    scale);
+    RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "Position", position);
+    RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "Rotation", rotation);
+    RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "Local Transform", localTransform);
+    RTTI_DEFINE_MEMBER(Transform, SERIALIZE_ALL, "World Transform", worldTransform);
 }
 
 
-RTTI_CLASS_CPP(DirectionalLight) {
-    RTTI_MEMBER_CPP(DirectionalLight, SERIALIZE_ALL, "Direction", direction);
-    RTTI_MEMBER_CPP(DirectionalLight, SERIALIZE_ALL, "Color",     colour);
+RTTI_DEFINE_TYPE(DirectionalLight) {
+    RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Direction", direction);
+    RTTI_DEFINE_MEMBER(DirectionalLight, SERIALIZE_ALL, "Color",     colour);
 }
 
 
-RTTI_CLASS_CPP(PointLight) {
-    RTTI_MEMBER_CPP(PointLight, SERIALIZE_ALL, "Position", position);
-    RTTI_MEMBER_CPP(PointLight, SERIALIZE_ALL, "Color", colour);
+RTTI_DEFINE_TYPE(PointLight) {
+    RTTI_DEFINE_MEMBER(PointLight, SERIALIZE_ALL, "Position", position);
+    RTTI_DEFINE_MEMBER(PointLight, SERIALIZE_ALL, "Color", colour);
 }
 
 
-RTTI_CLASS_CPP(Node) {
-    RTTI_MEMBER_CPP(Node, SERIALIZE_ALL, "Parent",       parent);
-    RTTI_MEMBER_CPP(Node, SERIALIZE_ALL, "First Child",  firstChild);
-    RTTI_MEMBER_CPP(Node, SERIALIZE_ALL, "Prev Sibling", prevSibling);
-    RTTI_MEMBER_CPP(Node, SERIALIZE_ALL, "Next Sibling", nextSibling);
+RTTI_DEFINE_TYPE(Node) {
+    RTTI_DEFINE_MEMBER(Node, SERIALIZE_ALL, "Parent",       parent);
+    RTTI_DEFINE_MEMBER(Node, SERIALIZE_ALL, "First Child",  firstChild);
+    RTTI_DEFINE_MEMBER(Node, SERIALIZE_ALL, "Prev Sibling", prevSibling);
+    RTTI_DEFINE_MEMBER(Node, SERIALIZE_ALL, "Next Sibling", nextSibling);
 }
 
 
-RTTI_CLASS_CPP(Mesh) {
-    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Positions",    positions);
-    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Texcoords",    uvs);
-    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Normals",      normals);
-    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Tangents",     tangents);
-    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Indices",      indices);
-    RTTI_MEMBER_CPP(Mesh, SERIALIZE_ALL, "Material",     material);
+RTTI_DEFINE_TYPE(Mesh) {
+    RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Positions",    positions);
+    RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Texcoords",    uvs);
+    RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Normals",      normals);
+    RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Tangents",     tangents);
+    RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Indices",      indices);
+    RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Material",     material);
 }
 
-RTTI_CLASS_CPP(BoxCollider)  {}
-RTTI_CLASS_CPP(SoftBody)     {}
-RTTI_CLASS_CPP(Bone)         {}
-RTTI_CLASS_CPP(Skeleton)     {}
-RTTI_CLASS_CPP(NativeScript) {}
+RTTI_DEFINE_TYPE(BoxCollider)  {}
+RTTI_DEFINE_TYPE(SoftBody)     {}
+RTTI_DEFINE_TYPE(Bone)         {}
+RTTI_DEFINE_TYPE(Skeleton)     {}
+RTTI_DEFINE_TYPE(NativeScript) {}
 
 
-RTTI_CLASS_CPP(Material) {
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Base Color",             albedo);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Base Emissive",          emissive);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Metallic",               metallic);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Roughness",              roughness);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Transparency",           isTransparent);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Albedo Map",             albedoFile);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Normal Map",             normalFile);
-    RTTI_MEMBER_CPP(Material, SERIALIZE_ALL, "Metallic-Roughness Map", metalroughFile);
+RTTI_DEFINE_TYPE(Material) {
+    RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Base Color",             albedo);
+    RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Base Emissive",          emissive);
+    RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Metallic",               metallic);
+    RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Roughness",              roughness);
+    RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Transparency",           isTransparent);
+    RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Albedo Map",             albedoFile);
+    RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Normal Map",             normalFile);
+    RTTI_DEFINE_MEMBER(Material, SERIALIZE_ALL, "Metallic-Roughness Map", metalroughFile);
 }
 
 

@@ -14,7 +14,7 @@ class Application;
 using Entity = uint32_t;
 
 class IWidget {
-    RTTI_CLASS_HEADER(IWidget);
+    RTTI_DECLARE_TYPE(IWidget);
 
 public:
     IWidget(Application* inApp, const std::string& inTitle);

@@ -19,7 +19,7 @@ struct DirectionalLight;
 
 class InspectorWidget : public IWidget {
 public:
-    RTTI_CLASS_HEADER(InspectorWidget);
+    RTTI_DECLARE_TYPE(InspectorWidget);
 
     InspectorWidget(Application* inApp);
     virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;

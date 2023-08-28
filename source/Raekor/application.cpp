@@ -11,12 +11,12 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP(ConfigSettings) {
-    RTTI_MEMBER_CPP(ConfigSettings, SERIALIZE_ALL, "Display",    mDisplayIndex);
-    RTTI_MEMBER_CPP(ConfigSettings, SERIALIZE_ALL, "Vsync",      mVsyncEnabled);
-    RTTI_MEMBER_CPP(ConfigSettings, SERIALIZE_ALL, "App Name",   mAppName);
-    RTTI_MEMBER_CPP(ConfigSettings, SERIALIZE_ALL, "Font File",  mFontFile);
-    RTTI_MEMBER_CPP(ConfigSettings, SERIALIZE_ALL, "Scene File", mSceneFile);
+RTTI_DEFINE_TYPE(ConfigSettings) {
+    RTTI_DEFINE_MEMBER(ConfigSettings, SERIALIZE_ALL, "Display",    mDisplayIndex);
+    RTTI_DEFINE_MEMBER(ConfigSettings, SERIALIZE_ALL, "Vsync",      mVsyncEnabled);
+    RTTI_DEFINE_MEMBER(ConfigSettings, SERIALIZE_ALL, "App Name",   mAppName);
+    RTTI_DEFINE_MEMBER(ConfigSettings, SERIALIZE_ALL, "Font File",  mFontFile);
+    RTTI_DEFINE_MEMBER(ConfigSettings, SERIALIZE_ALL, "Scene File", mSceneFile);
 }
 
 static constexpr auto CONFIG_FILE_STR = "config.json";

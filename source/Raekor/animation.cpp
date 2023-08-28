@@ -6,13 +6,13 @@ namespace Raekor {
 
 void KeyFrames::LoadFromAssimp(const aiNodeAnim* nodeAnim) {
 	for (const auto& key : Slice(nodeAnim->mScalingKeys, nodeAnim->mNumScalingKeys))
-		m_ScaleKeys.push_back(key);
+		m_ScaleKeys.push_back(Vec3Key(key.mTime, Vec3(key.mValue.x, key.mValue.y, key.mValue.z)));
 
 	for (const auto& key : Slice(nodeAnim->mPositionKeys, nodeAnim->mNumPositionKeys))
-		m_PositionKeys.push_back(key);
+		m_PositionKeys.push_back(Vec3Key(key.mTime, Vec3(key.mValue.x, key.mValue.y, key.mValue.z)));
 
 	for (const auto& key : Slice(nodeAnim->mRotationKeys, nodeAnim->mNumRotationKeys))
-		m_RotationKeys.push_back(key);
+		m_RotationKeys.push_back(QuatKey(key.mTime, Quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z)));
 }
 
 
@@ -77,11 +77,7 @@ Quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
 	const auto& start_rotation_quat = m_RotationKeys[rotation_index].mValue;
 	const auto& end_rotation_quat = m_RotationKeys[next_rotation_index].mValue;
 
-	auto q = aiQuaternion();
-	aiQuaternion::Interpolate(q, start_rotation_quat, end_rotation_quat, factor);
-	q = q.Normalize();
-	
-	return glm::quat(q.w, q.x, q.y, q.z);
+	return glm::normalize(glm::lerp(start_rotation_quat, end_rotation_quat, factor));
 }
 
 

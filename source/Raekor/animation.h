@@ -6,11 +6,31 @@ class KeyFrames {
 	friend class GltfImporter;
 	friend class AssimpImporter;
 
+	template<typename T>
+	struct Key {
+		double mTime = 0.0f;
+		T mValue = {};
+
+		Key() = default;
+		Key(double inTime, const T& inValue) : mTime(inTime), mValue(inValue) {}
+
+		inline bool operator==(const T& inOther) const { return inOther.mValue == mValue; }
+		inline bool operator!=(const T& inOther) const { return inOther.mValue != mValue; }
+
+		inline bool operator<(const T& inOther) const { return mTime < inOther.mTime; }
+		inline bool operator>(const T& inOther) const { return mTime > inOther.mTime; }
+	};
+
+	using Vec3Key = Key<Vec3>;
+	using QuatKey = Key<Quat>;
+
 public:
 	KeyFrames() = default;
 	KeyFrames(uint32_t inBoneIndex) : m_BoneIndex(inBoneIndex) {}
 
+#ifndef DEPRECATE_ASSIMP
 	void LoadFromAssimp(const aiNodeAnim* inNodeAnim);
+#endif
 	void LoadFromGltf(const cgltf_animation* inNodeAnim);
 
 	Vec3 GetInterpolatedScale(float animationTime) const;
@@ -18,10 +38,10 @@ public:
 	Vec3 GetInterpolatedPosition(float animationTime) const;
 
 private:
-	uint32_t				 m_BoneIndex;
-	std::vector<aiVectorKey> m_ScaleKeys;
-	std::vector<aiVectorKey> m_PositionKeys;
-	std::vector<aiQuatKey>	 m_RotationKeys;
+	uint32_t			 m_BoneIndex;
+	std::vector<Vec3Key> m_ScaleKeys;
+	std::vector<Vec3Key> m_PositionKeys;
+	std::vector<QuatKey> m_RotationKeys;
 };
 
 
@@ -31,14 +51,18 @@ class Animation {
 	friend class AssimpImporter;
 
 public:
+#ifndef DEPRECATE_ASSIMP
 	Animation(const aiAnimation* inAnimation);
+#endif
 	Animation(const cgltf_animation* inAnimation);
 
 	const std::string& GetName() const { return m_Name; }
 	inline float GetRunningTime() const { return m_RunningTime; }
 	inline float GetTotalDuration() const { return m_TotalDuration; }
 
+#ifndef DEPRECATE_ASSIMP
 	void LoadKeyframes(uint32_t inBoneIndex, const aiNodeAnim* inAnimation);
+#endif
 	void LoadKeyframes(uint32_t inBoneIndex, const cgltf_animation* inAnimation);
 
 private:

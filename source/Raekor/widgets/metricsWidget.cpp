@@ -4,7 +4,7 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP_NO_FACTORY(MetricsWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(MetricsWidget) {}
 
 MetricsWidget::MetricsWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_CHART_BAR " Metrics ")) {}
 

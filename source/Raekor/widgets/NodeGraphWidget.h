@@ -8,7 +8,7 @@ namespace Raekor {
 
 class NodeGraphWidget : public IWidget {
 public:
-    RTTI_CLASS_HEADER(NodeGraphWidget);
+    RTTI_DECLARE_TYPE(NodeGraphWidget);
 
     NodeGraphWidget(Application* inApp);
     

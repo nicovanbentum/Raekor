@@ -8,7 +8,7 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP_NO_FACTORY(ViewportWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(ViewportWidget) {}
 
 ViewportWidget::ViewportWidget(Application* inApp) :
     IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_VIDEO " Viewport "))

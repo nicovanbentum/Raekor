@@ -130,7 +130,7 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
 
 
 bool TextureAsset::Load(const std::string& filepath) {
-    if (filepath.empty() || !fs::exists(filepath))
+    if (filepath.empty() || !fs::exists(filepath) || !fs::is_regular_file(filepath))
         return false;
 
     auto file = std::ifstream(filepath, std::ios::binary);

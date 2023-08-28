@@ -16,7 +16,7 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP_NO_FACTORY(MenubarWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(MenubarWidget) {}
 
 MenubarWidget::MenubarWidget(Application* inApp) : 
     IWidget(inApp, "Menubar")
@@ -26,6 +26,10 @@ MenubarWidget::MenubarWidget(Application* inApp) :
 void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
     auto& scene = IWidget::GetScene();
 
+    // workaround for not being able to create a modal popup from the main menu bar scope
+    // see also https://github.com/ocornut/imgui/issues/331
+    ImGuiID import_settings_popup_id = ImHashStr("IMPORT_SETTINGS_POPUP");
+    
     if (ImGui::BeginMainMenuBar()) {
         ImGui::Text(reinterpret_cast<const char*>(ICON_FA_ADDRESS_BOOK));
 
@@ -47,6 +51,18 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                     m_Editor->LogMessage("[Scene] Open from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
                 }
             }
+            
+            if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
+                std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
+
+                if (!filepath.empty()) {
+                    g_ThreadPool.QueueJob([this, filepath]() { 
+                        m_Editor->LogMessage("[Editor] Saving scene...");
+                        GetScene().SaveToFile(IWidget::GetAssets(), filepath);
+                        m_Editor->LogMessage("[Editor] Saved scene to " + fs::relative(filepath).string() + "");
+                    });
+                }
+            }
 
             if (ImGui::MenuItem("Import scene..")) {
                 std::string filepath = OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0");
@@ -56,19 +72,16 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
 
                     m_Editor->SetActiveEntity(NULL_ENTITY);
 
+                    auto importer = SceneImporter(GetScene(), m_Editor->GetRenderer());
+                    importer.LoadFromFile(filepath, m_Editor->GetAssets());
+
+                    /*ImGui::PushOverrideID(import_settings_popup_id);
+
+                    ImGui::OpenPopup("Import Settings");
+
+                    ImGui::PopID();*/
+
                     m_Editor->LogMessage("[Scene] Import from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
-                }
-            }
-
-            if (ImGui::MenuItem("Save scene..", "CTRL + S")) {
-                std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
-
-                if (!filepath.empty()) {
-                    g_ThreadPool.QueueJob([this, filepath]() {
-                        m_Editor->LogMessage("[Editor] Saving scene...");
-                        GetScene().SaveToFile(IWidget::GetAssets(), filepath);
-                        m_Editor->LogMessage("[Editor] Saved scene to " + fs::relative(filepath).string() + "");
-                    });
                 }
             }
 
@@ -269,6 +282,27 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
 
             ImGui::EndMenu();
         }
+
+        ImGui::PushOverrideID(import_settings_popup_id);
+
+        if (ImGui::BeginPopupModal("Import Settings", 0, ImGuiWindowFlags_AlwaysAutoResize)) {
+            static auto import_meshes = true;
+            static auto import_lights = false;
+            ImGui::Checkbox("Import Lights", &import_lights);
+            ImGui::Checkbox("Import Meshes", &import_meshes);
+
+            if (ImGui::Button("Import"))
+                ImGui::CloseCurrentPopup();
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("Cancel"))
+                ImGui::CloseCurrentPopup();
+
+            ImGui::EndPopup();
+        }
+
+        ImGui::PopID();
 
         ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x / 2));
 

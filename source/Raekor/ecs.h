@@ -459,7 +459,7 @@ public:
     }
 
     template<typename Fn>
-    void Visit(Entity inEntity, Fn&& inVisitFunc) {
+    void Visit(Entity inEntity, Fn&& inVisitFunc) const {
         for (const auto& [type_id, sparse_set] : m_Components) {
             if (sparse_set->Contains(inEntity))
                 inVisitFunc(type_id);

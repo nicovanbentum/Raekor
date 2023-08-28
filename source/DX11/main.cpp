@@ -14,7 +14,7 @@
 namespace Raekor {
 
 struct DXMesh {
-    RTTI_CLASS_HEADER(DXMesh);
+    RTTI_DECLARE_TYPE(DXMesh);
 
     ComPtr<ID3D11Buffer> mIndexBuffer = nullptr;
     ComPtr<ID3D11Buffer> mVertexBuffer = nullptr;
@@ -22,12 +22,12 @@ struct DXMesh {
 
     bool IsReady() const { return mIndexBuffer && mVertexBuffer && mVertexSRV; }
 };
-RTTI_CLASS_CPP(DXMesh) {}
+RTTI_DEFINE_TYPE(DXMesh) {}
 
 
 
 struct DXMaterial {
-    RTTI_CLASS_HEADER(DXMaterial);
+    RTTI_DECLARE_TYPE(DXMaterial);
 
     ComPtr<ID3D11Texture2D> mAlbedoTexture = nullptr;
     ComPtr<ID3D11ShaderResourceView> mAlbedoSRV = nullptr;
@@ -38,7 +38,7 @@ struct DXMaterial {
 
     bool IsReady() const { return mAlbedoTexture && mAlbedoSRV && mNormalTexture && mNormalSRV && mMetalRoughTexture && mMetalRoughSRV; }
 };
-RTTI_CLASS_CPP(DXMaterial) {}
+RTTI_DEFINE_TYPE(DXMaterial) {}
 
 
 

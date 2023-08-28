@@ -7,7 +7,7 @@ namespace Raekor {
 class Scene;
 
 class MenubarWidget : public IWidget {
-    RTTI_CLASS_HEADER(MenubarWidget);
+    RTTI_DECLARE_TYPE(MenubarWidget);
 public:
 
     MenubarWidget(Application* inApp);

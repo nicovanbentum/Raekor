@@ -10,7 +10,7 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP_NO_FACTORY(InspectorWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(InspectorWidget) {}
 
 
 InspectorWidget::InspectorWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_INFO_CIRCLE " Inspector ")) {}

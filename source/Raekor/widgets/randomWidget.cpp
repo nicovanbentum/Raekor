@@ -10,7 +10,7 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP_NO_FACTORY(RandomWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(RandomWidget) {}
 
 RandomWidget::RandomWidget(Application* inApp) :
     IWidget(inApp, " Random ")

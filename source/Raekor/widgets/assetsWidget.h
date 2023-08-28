@@ -5,7 +5,7 @@
 namespace Raekor {
     
 class AssetsWidget : public IWidget {
-    RTTI_CLASS_HEADER(AssetsWidget);
+    RTTI_DECLARE_TYPE(AssetsWidget);
 public:
     AssetsWidget(Application* inApp);
     virtual void Draw(Widgets* inWidgets, float dt) override;

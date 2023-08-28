@@ -8,56 +8,56 @@ namespace Raekor::DX12 {
 ShaderCompiler g_ShaderCompiler;
 SystemShadersDX12 g_SystemShaders;
 
-RTTI_ENUM_CPP(EShaderProgramType) {
-    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "Invalid",  SHADER_PROGRAM_INVALID);
-    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "Graphics", SHADER_PROGRAM_GRAPHICS);
-    RTTI_ENUM_MEMBER_CPP(EShaderProgramType, SERIALIZE_ALL, "Compute",  SHADER_PROGRAM_COMPUTE);
+RTTI_DEFINE_ENUM(EShaderProgramType) {
+    RTTI_DEFINE_ENUM_MEMBER(EShaderProgramType, SERIALIZE_ALL, "Invalid",  SHADER_PROGRAM_INVALID);
+    RTTI_DEFINE_ENUM_MEMBER(EShaderProgramType, SERIALIZE_ALL, "Graphics", SHADER_PROGRAM_GRAPHICS);
+    RTTI_DEFINE_ENUM_MEMBER(EShaderProgramType, SERIALIZE_ALL, "Compute",  SHADER_PROGRAM_COMPUTE);
 }
 
-RTTI_CLASS_CPP(IResource) {
+RTTI_DEFINE_TYPE(IResource) {
     // Base class interface only
 }
 
-RTTI_CLASS_CPP(ShaderProgram) {
-    RTTI_BASE_CLASS_CPP(ShaderProgram, IResource);
+RTTI_DEFINE_TYPE(ShaderProgram) {
+    RTTI_DEFINE_TYPE_INHERITANCE(ShaderProgram, IResource);
 
-    RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Defines",               mDefines);
-    RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Vertex Shader File",    mVertexShaderFilePath);
-    RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Pixel Shader File",     mPixelShaderFilePath);
-    RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_JSON, "Compute Shader File",   mComputeShaderFilePath);
+    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_JSON, "Defines",               mDefines);
+    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_JSON, "Vertex Shader File",    mVertexShaderFilePath);
+    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_JSON, "Pixel Shader File",     mPixelShaderFilePath);
+    RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_JSON, "Compute Shader File",   mComputeShaderFilePath);
 
-   RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Program Type",    mProgramType);
-   RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Vertex Shader",   mVertexShader);
-   RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Pixel Shader",    mPixelShader);
-   RTTI_MEMBER_CPP(ShaderProgram, SERIALIZE_BINARY, "Compute Shader",   mComputeShader);
+   RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_BINARY, "Program Type",    mProgramType);
+   RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_BINARY, "Vertex Shader",   mVertexShader);
+   RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_BINARY, "Pixel Shader",    mPixelShader);
+   RTTI_DEFINE_MEMBER(ShaderProgram, SERIALIZE_BINARY, "Compute Shader",   mComputeShader);
 }
 
 
-RTTI_CLASS_CPP(SystemShadersDX12) {
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "ImGui Shader",          mImGuiShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Grass Shader",          mGrassShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Shader",        mGBufferShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Lighting Shader",       mLightingShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Downsample Shader",     mDownsampleShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Debug Lines Shader",    mDebugLinesShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Final Compose Shader",  mFinalComposeShader);
+RTTI_DEFINE_TYPE(SystemShadersDX12) {
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "ImGui Shader",          mImGuiShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Grass Shader",          mGrassShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Shader",        mGBufferShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Lighting Shader",       mLightingShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Downsample Shader",     mDownsampleShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Debug Lines Shader",    mDebugLinesShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Final Compose Shader",  mFinalComposeShader);
 
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Probe Debug Shader",             mProbeDebugShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Probe Trace Shader",             mProbeTraceShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Probe Update Depth Shader",      mProbeUpdateDepthShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "Probe Update Irradiance Shader", mProbeUpdateIrradianceShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Debug Shader",             mProbeDebugShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Trace Shader",             mProbeTraceShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Update Depth Shader",      mProbeUpdateDepthShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Update Irradiance Shader", mProbeUpdateIrradianceShader);
 
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "RT Shadows Shader",            mRTShadowsShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "RT Reflections Shader",        mRTReflectionsShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "RT Indirect Diffuse Shader",   mRTIndirectDiffuseShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "RT Ambient Occlusion Shader",  mRTAmbientOcclusionShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "RT Shadows Shader",            mRTShadowsShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "RT Reflections Shader",        mRTReflectionsShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "RT Indirect Diffuse Shader",   mRTIndirectDiffuseShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "RT Ambient Occlusion Shader",  mRTAmbientOcclusionShader);
 
 
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Depth Shader",     mGBufferDebugDepthShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Albedo Shader",    mGBufferDebugAlbedoShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Normals Shader",   mGBufferDebugNormalsShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Metallic Shader",  mGBufferDebugMetallicShader);
-    RTTI_MEMBER_CPP(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Roughness Shader", mGBufferDebugRoughnessShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Depth Shader",     mGBufferDebugDepthShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Albedo Shader",    mGBufferDebugAlbedoShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Normals Shader",   mGBufferDebugNormalsShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Metallic Shader",  mGBufferDebugMetallicShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Roughness Shader", mGBufferDebugRoughnessShader);
 }
 
 

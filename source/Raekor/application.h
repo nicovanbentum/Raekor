@@ -94,7 +94,7 @@ protected:
 
 
 struct ConfigSettings {
-    RTTI_CLASS_HEADER(ConfigSettings);
+    RTTI_DECLARE_TYPE(ConfigSettings);
 
     int mDisplayIndex = 0;
     bool mVsyncEnabled = true;

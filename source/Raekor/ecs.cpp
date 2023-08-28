@@ -4,29 +4,29 @@
 namespace Raekor::ecs {
 
 struct TestName {
-    RTTI_CLASS_HEADER(TestName);
+    RTTI_DECLARE_TYPE(TestName);
 
     std::string name;
 };
 
-RTTI_CLASS_CPP(TestName) {}
+RTTI_DEFINE_TYPE(TestName) {}
 
 struct TestTransform {
-    RTTI_CLASS_HEADER(TestTransform);
+    RTTI_DECLARE_TYPE(TestTransform);
 
     Vec3 pos;
 };
 
-RTTI_CLASS_CPP(TestTransform) {}
+RTTI_DEFINE_TYPE(TestTransform) {}
 
 
 struct TestMaterial {
-    RTTI_CLASS_HEADER(TestMaterial);
+    RTTI_DECLARE_TYPE(TestMaterial);
 
     Vec4 color;
 };
 
-RTTI_CLASS_CPP(TestMaterial) {}
+RTTI_DEFINE_TYPE(TestMaterial) {}
 
 
 void RunTests() {

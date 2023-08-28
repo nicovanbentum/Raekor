@@ -7,7 +7,7 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP_NO_FACTORY(HierarchyWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(HierarchyWidget) {}
 
 HierarchyWidget::HierarchyWidget(Application* inApp) : 
     IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_STREAM " Scene "))

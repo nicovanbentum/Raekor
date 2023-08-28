@@ -8,7 +8,7 @@ class Renderer;
 
 class RandomWidget : public IWidget {
 public:
-    RTTI_CLASS_HEADER(RandomWidget);
+    RTTI_DECLARE_TYPE(RandomWidget);
 
     RandomWidget(Application* inApp);
     virtual void Draw(Widgets* inWidgets, float dt) override;

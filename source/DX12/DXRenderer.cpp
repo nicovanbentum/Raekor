@@ -763,23 +763,23 @@ void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-RTTI_CLASS_CPP(GBufferData)	        {}
-RTTI_CLASS_CPP(GBufferDebugData)    {}
-RTTI_CLASS_CPP(GrassData)           {}
-RTTI_CLASS_CPP(RTShadowMaskData)    {}
-RTTI_CLASS_CPP(RTAOData)            {}
-RTTI_CLASS_CPP(ReflectionsData)     {}
-RTTI_CLASS_CPP(DownsampleData)      {}
-RTTI_CLASS_CPP(LightingData)        {}
-RTTI_CLASS_CPP(FSR2Data)            {}
-RTTI_CLASS_CPP(ProbeTraceData)      {}
-RTTI_CLASS_CPP(ProbeUpdateData)     {}
-RTTI_CLASS_CPP(IndirectDiffuseData) {}
-RTTI_CLASS_CPP(ProbeDebugData)      {}
-RTTI_CLASS_CPP(DebugLinesData)      {}
-RTTI_CLASS_CPP(ComposeData)         {}
-RTTI_CLASS_CPP(PreImGuiData)        {}
-RTTI_CLASS_CPP(ImGuiData)           {}
+RTTI_DEFINE_TYPE(GBufferData)	      {}
+RTTI_DEFINE_TYPE(GBufferDebugData)    {}
+RTTI_DEFINE_TYPE(GrassData)           {}
+RTTI_DEFINE_TYPE(RTShadowMaskData)    {}
+RTTI_DEFINE_TYPE(RTAOData)            {}
+RTTI_DEFINE_TYPE(ReflectionsData)     {}
+RTTI_DEFINE_TYPE(DownsampleData)      {}
+RTTI_DEFINE_TYPE(LightingData)        {}
+RTTI_DEFINE_TYPE(FSR2Data)            {}
+RTTI_DEFINE_TYPE(ProbeTraceData)      {}
+RTTI_DEFINE_TYPE(ProbeUpdateData)     {}
+RTTI_DEFINE_TYPE(IndirectDiffuseData) {}
+RTTI_DEFINE_TYPE(ProbeDebugData)      {}
+RTTI_DEFINE_TYPE(DebugLinesData)      {}
+RTTI_DEFINE_TYPE(ComposeData)         {}
+RTTI_DEFINE_TYPE(PreImGuiData)        {}
+RTTI_DEFINE_TYPE(ImGuiData)           {}
 
 /*
 

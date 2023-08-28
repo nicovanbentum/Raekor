@@ -6,7 +6,7 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP_NO_FACTORY(NodeGraphWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(NodeGraphWidget) {}
 
 NodeGraphWidget::NodeGraphWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_SITEMAP "  Node Graph ")) {}
 

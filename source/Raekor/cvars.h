@@ -14,7 +14,7 @@ enum EConVarType {
 
 
 class ConVar {
-	RTTI_CLASS_HEADER(ConVar);
+	RTTI_DECLARE_TYPE(ConVar);
 
 public:
 	ConVar() : mType(CVAR_TYPE_ERROR) {}
@@ -44,7 +44,7 @@ public:
 
 
 class ConVars {
-	RTTI_CLASS_HEADER(ConVars);
+	RTTI_DECLARE_TYPE(ConVars);
 
 public:
 	ConVars();

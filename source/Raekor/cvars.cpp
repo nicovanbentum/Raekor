@@ -4,15 +4,15 @@
 
 namespace Raekor {
 
-RTTI_CLASS_CPP(ConVar) {
-	RTTI_MEMBER_CPP(ConVar, SERIALIZE_ALL, "Type",   mType);
-	RTTI_MEMBER_CPP(ConVar, SERIALIZE_ALL, "Int",    mIntValue);
-	RTTI_MEMBER_CPP(ConVar, SERIALIZE_ALL, "Float",  mFloatValue);
-	RTTI_MEMBER_CPP(ConVar, SERIALIZE_ALL, "String", mStringValue);
+RTTI_DEFINE_TYPE(ConVar) {
+	RTTI_DEFINE_MEMBER(ConVar, SERIALIZE_ALL, "Type",   mType);
+	RTTI_DEFINE_MEMBER(ConVar, SERIALIZE_ALL, "Int",    mIntValue);
+	RTTI_DEFINE_MEMBER(ConVar, SERIALIZE_ALL, "Float",  mFloatValue);
+	RTTI_DEFINE_MEMBER(ConVar, SERIALIZE_ALL, "String", mStringValue);
 }
 
-RTTI_CLASS_CPP(ConVars) {
-	RTTI_MEMBER_CPP(ConVars, SERIALIZE_ALL, "Variables", m_ConVars);
+RTTI_DEFINE_TYPE(ConVars) {
+	RTTI_DEFINE_MEMBER(ConVars, SERIALIZE_ALL, "Variables", m_ConVars);
 }
 
 

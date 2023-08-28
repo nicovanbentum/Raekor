@@ -6,7 +6,7 @@ namespace Raekor {
 
 class Application;
 
-RTTI_CLASS_CPP_NO_FACTORY(IWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(IWidget) {}
 
  IWidget::IWidget(Application* inApp, const std::string& title) : 
 	 m_Editor(inApp), m_Title(title)

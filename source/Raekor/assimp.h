@@ -1,5 +1,7 @@
 #pragma once
 
+#ifndef DEPRECATE_ASSIMP
+
 namespace Assimp {
 
 glm::mat4 toMat4(const aiMatrix4x4& from);
@@ -47,3 +49,5 @@ private:
 };
 
 } // raekor
+
+#endif // DEPRECATE_ASSIMP

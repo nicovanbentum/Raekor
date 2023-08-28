@@ -370,7 +370,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
                     assert(num_components == 3);
 
                     cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
-                    key.mValue = aiVector3D(buffer[0], buffer[1], buffer[2]);
+                    key.mValue = Vec3(buffer[0], buffer[1], buffer[2]);
                 }
 
             } break;
@@ -393,7 +393,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
                     assert(num_components == 4);
 
                     cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
-                    key.mValue = aiQuaternion(buffer[3], buffer[0], buffer[1], buffer[2]);
+                    key.mValue = Quat(buffer[3], buffer[0], buffer[1], buffer[2]);
                 }
             } break;
             case cgltf_animation_path_type_scale: {
@@ -415,7 +415,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode) {
                     assert(num_components == 3);
 
                     cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
-                    key.mValue = aiVector3D(buffer[0], buffer[1], buffer[2]);
+                    key.mValue = Vec3(buffer[0], buffer[1], buffer[2]);
                 }
             } break;
             }

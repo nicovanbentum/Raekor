@@ -5,7 +5,7 @@
 namespace Raekor::VK {
 
 struct Buffer {
-    RTTI_CLASS_HEADER(Buffer);
+    RTTI_DECLARE_TYPE(Buffer);
 
     VkBuffer buffer;
     VmaAllocation allocation;
@@ -13,7 +13,7 @@ struct Buffer {
 
 
 struct AccelStruct {
-    RTTI_CLASS_HEADER(AccelStruct);
+    RTTI_DECLARE_TYPE(AccelStruct);
 
     Buffer buffer = {};
     VkAccelerationStructureKHR accelerationStructure = VK_NULL_HANDLE;
@@ -21,7 +21,7 @@ struct AccelStruct {
 
 
 struct RTGeometry {
-    RTTI_CLASS_HEADER(RTGeometry);
+    RTTI_DECLARE_TYPE(RTGeometry);
 
     AccelStruct accelStruct;
     Buffer vertices;
@@ -37,8 +37,8 @@ struct RTMaterial {
 };
 
 
-RTTI_CLASS_CPP_INLINE(Buffer) {}
-RTTI_CLASS_CPP_INLINE(RTGeometry) {}
-RTTI_CLASS_CPP_INLINE(AccelStruct) {}
+RTTI_DEFINE_TYPE_INLINE(Buffer) {}
+RTTI_DEFINE_TYPE_INLINE(RTGeometry) {}
+RTTI_DEFINE_TYPE_INLINE(AccelStruct) {}
 
 }

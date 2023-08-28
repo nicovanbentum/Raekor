@@ -8,7 +8,7 @@ class Scene;
 
 class MetricsWidget : public IWidget {
 public:
-    RTTI_CLASS_HEADER(MetricsWidget);
+    RTTI_DECLARE_TYPE(MetricsWidget);
 
     MetricsWidget(Application* inApp);
     virtual void Draw(Widgets* inWidgets, float dt) override;

@@ -239,20 +239,6 @@ void Scene::SaveToFile(Assets& assets, const std::string& file) {
 
         GetSparseSet<ComponentType>()->Write(archive);
     });
-
-    //auto buffer = bufferstream.str();
-
-    //const auto bound = LZ4_compressBound(int(buffer.size()));
-
-    //auto compressed =std::vector<char>(bound);
-    //Timer timer;
-
-    //auto compressed_size = LZ4_compress_default(buffer.c_str(), compressed.data(), int(buffer.size()), bound);
-
-    //std::cout << "Compression time: " << Timer::sToMilliseconds(timer.GetElapsedTime()) << '\n';
-
-    //auto filestream = std::ofstream(file, std::ios::binary);
-    //filestream.write(compressed.data(), compressed_size);
 }
 
 
@@ -261,16 +247,6 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file) {
         std::cout << "Scene::openFromFile : filepath " << file << " does not exist.";
         return;
     }
-
-    //Read file into buffer
-    //std::ifstream storage(file, std::ios::binary);
-    //std::string buffer;
-    //buffer.resize(fs::file_size(file));
-    //storage.read(&buffer[0], buffer.size());
-
-    //auto decompressed = std::string();
-    //decompressed.resize(glm::min(buffer.size() * 11, size_t(INT_MAX) - 1)); // TODO: store the uncompressed size somewhere
-    //const auto decompressed_size = LZ4_decompress_safe(buffer.data(), decompressed.data(), int(buffer.size()), int(decompressed.size()));
 
     Clear();
 
@@ -316,5 +292,138 @@ void Scene::BindScriptToEntity(Entity entity, NativeScript& script) {
                      " from class " << script.procAddress << '\n';
     }
 }
+
+
+bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets) {
+    /*
+    * LOAD GLTF FROM DISK
+    */
+    Timer timer;
+
+    // TODO: make passing in assets optional
+    m_ImportedScene.OpenFromFile(*inAssets, inFile);
+
+    if (!m_ImportedScene.Count<Mesh>() || !m_ImportedScene.Count<Material>()) {
+        std::cout << std::format("[Scene] Error loading {} \n", inFile);
+        return false;
+    }
+
+    std::cout << "[Scene Import] File load took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+
+    /*
+    * PARSE MATERIALS
+    */
+    for (const auto& [entity, material] : m_ImportedScene.Each<Material>()) {
+        auto new_entity = m_OutputScene.Create();
+        
+        auto& name = m_OutputScene.Add<Name>(new_entity, m_ImportedScene.Get<Name>(entity));
+        
+        ConvertMaterial(new_entity, m_ImportedScene.Get<Material>(entity));
+
+        m_MaterialMapping[entity] = new_entity;
+    }
+
+    std::cout << "[Scene Import] Materials took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+
+    /*
+    * PARSE NODES & MESHES
+    */
+    for (const auto& [entity, node] : m_ImportedScene.Each<Node>()) {
+            if (node.IsRoot())
+                ParseNode(entity, NULL_ENTITY);
+    }
+
+    const auto root_entity = m_OutputScene.CreateSpatialEntity(Path(inFile).filename().string());
+    auto& root_node = m_OutputScene.Get<Node>(root_entity);
+
+    for (const auto& entity : m_CreatedNodeEntities) {
+        auto& node = m_OutputScene.Get<Node>(entity);
+
+        if (node.IsRoot())
+            NodeSystem::sAppend(m_OutputScene, root_entity, root_node, entity, node);
+    }
+
+    std::cout << "[Scene Import] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+
+    // Load the converted textures from disk and upload them to the GPU
+    if (inAssets != nullptr) {
+        auto materials = std::vector<Entity>();
+        materials.reserve(m_MaterialMapping.size());
+
+        for (const auto& [imported_entity, output_entity] : m_MaterialMapping)
+            materials.push_back(output_entity);
+
+        m_OutputScene.LoadMaterialTextures(*inAssets, Slice(materials.data(), materials.size()));
+    }
+
+    return true;
+}
+
+
+void SceneImporter::ParseNode(Entity inEntity, Entity inParent) {
+    // Create new entity
+    auto new_entity = m_CreatedNodeEntities.emplace_back(m_OutputScene.CreateSpatialEntity());
+
+    // Copy over transform
+    if (m_ImportedScene.Has<Transform>(inEntity))
+        m_OutputScene.Add<Transform>(new_entity, m_ImportedScene.Get<Transform>(inEntity));
+    else
+        m_OutputScene.Add<Transform>(new_entity);
+
+    // Copy over name
+    if (m_ImportedScene.Has<Name>(inEntity))
+        m_OutputScene.Add<Name>(new_entity, m_ImportedScene.Get<Name>(inEntity));
+    else 
+        m_OutputScene.Add<Name>(new_entity);
+
+    // set the new entity's parent
+    if (inParent != NULL_ENTITY)
+        NodeSystem::sAppend(m_OutputScene, inParent, m_OutputScene.Get<Node>(inParent), new_entity, m_OutputScene.Get<Node>(new_entity));
+
+    // Copy over mesh
+    if (m_ImportedScene.Has<Mesh>(inEntity))
+        ConvertMesh(new_entity, m_ImportedScene.Get<Mesh>(inEntity));
+
+    // Copy over skeleton
+    if (m_ImportedScene.Has<Skeleton>(inEntity))
+        ConvertBones(new_entity, m_ImportedScene.Get<Skeleton>(inEntity));
+
+    // recurse into children
+    auto child = m_ImportedScene.Get<Node>(inEntity).firstChild;
+    while (child != NULL_ENTITY) {
+        ParseNode(child, inParent);
+        child = m_ImportedScene.Get<Node>(child).nextSibling;
+    }
+}
+
+
+void SceneImporter::ConvertMesh(Entity inEntity, const Mesh& inMesh) {
+    auto& mesh = m_OutputScene.Add<Mesh>(inEntity, inMesh);
+
+    mesh.material = m_MaterialMapping[mesh.material];
+
+    if (m_Renderer)
+        m_Renderer->UploadMeshBuffers(mesh);
+}
+
+
+void SceneImporter::ConvertBones(Entity inEntity, const Skeleton& inSkeleton) {
+    auto& mesh = m_OutputScene.Get<Mesh>(inEntity);
+    auto& skeleton = m_OutputScene.Add<Skeleton>(inEntity, inSkeleton);
+
+    if (m_Renderer)
+        m_Renderer->UploadSkeletonBuffers(skeleton, mesh);
+}
+
+
+void SceneImporter::ConvertMaterial(Entity inEntity, const Material& inMaterial) {
+    auto& material = m_OutputScene.Add<Material>(inEntity, inMaterial);
+
+    material.gpuAlbedoMap = 0;
+    material.gpuNormalMap = 0;
+    material.gpuMetallicRoughnessMap = 0;
+}
+
+
 
 } // Raekor
