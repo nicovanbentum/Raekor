@@ -3,7 +3,7 @@
 #include "application.h"
 
 constexpr auto sImageFileExtensions = std::array {
-    ".jpg", ".jpeg", ".tga", ".png"
+    ".jpg", ".jpeg", ".tga", ".png", ".dds"
 };
 
 constexpr auto sModelFileExtensions = std::array {
@@ -86,6 +86,7 @@ public:
     HWND GetWindowHandle();
 
 private:
+    Path m_CurrentPath;
     bool m_WasClosed = false;
     int m_ResizeCounter = 0;
     int m_SelectedIndex = -1;

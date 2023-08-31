@@ -13,6 +13,9 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/ImGuizmo/ImGuizmo.cpp)
 set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/imnodes/imnodes.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/imnodes/imnodes.cpp)
 
+set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/ufbx/ufbx.c PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/ufbx/ufbx.c)
+
 # Rule to build the actual exectuable and enable c++20
 
 add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles} raekor.natvis ${CMAKE_SOURCE_DIR}/config.json)
@@ -21,6 +24,7 @@ target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 # Natvis files
 target_sources(${PROJECT_NAME} PRIVATE raekor.natvis)
 target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/glm/util/glm.natvis)
+target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/ufbx/misc/ufbx.natvis)
 target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/JoltPhysics/Jolt/Jolt.natvis)
 
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers
@@ -50,11 +54,11 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${PROJECT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/dependencies
     ${CMAKE_SOURCE_DIR}/dependencies/stb
+    ${CMAKE_SOURCE_DIR}/dependencies/ufbx
     ${CMAKE_SOURCE_DIR}/dependencies/cgltf
     ${CMAKE_SOURCE_DIR}/dependencies/imnodes
     ${CMAKE_SOURCE_DIR}/dependencies/glm/glm
     ${CMAKE_SOURCE_DIR}/dependencies/ImGuizmo
-    ${CMAKE_SOURCE_DIR}/dependencies/cereal/include
     ${CMAKE_SOURCE_DIR}/dependencies/JoltPhysics
     ${CMAKE_SOURCE_DIR}/dependencies/IconFontCppHeaders
     ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include

@@ -49,16 +49,29 @@ public:
 
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript);
 
+	void Optimize();
+
 private:
 	IRenderer* m_Renderer;
 	std::stack<Entity> m_Nodes;
 };
 
 
-class SceneImporter {
+class Importer {
 public:
-	SceneImporter(Scene& inScene, IRenderer* inRenderer) : m_OutputScene(inScene), m_ImportedScene(inRenderer), m_Renderer(inRenderer) {}
-	bool LoadFromFile(const std::string& inFile, Assets* inAssets);
+	Importer(Scene& inScene, IRenderer* inRenderer) : m_Scene(inScene), m_Renderer(inRenderer) {}
+	virtual bool LoadFromFile(const std::string& inFile, Assets* inAssets) = 0;
+
+protected:
+	Scene& m_Scene;
+	IRenderer* m_Renderer = nullptr;
+};
+
+
+class SceneImporter : public Importer {
+public:
+	SceneImporter(Scene& inScene, IRenderer* inRenderer) : Importer(inScene, inRenderer), m_ImportedScene(inRenderer) {}
+	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
 
 private:
 	void ParseNode(Entity inEntity, Entity inParent);
@@ -67,9 +80,7 @@ private:
 	void ConvertMaterial(Entity inEntity, const Material& inAssimpMaterial);
 
 private:
-	Scene& m_OutputScene;
 	Scene m_ImportedScene;
-	IRenderer* m_Renderer = nullptr;
 	std::vector<Entity> m_CreatedNodeEntities;
 	std::unordered_map<Entity, Entity> m_MaterialMapping;
 };

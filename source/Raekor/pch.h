@@ -151,13 +151,26 @@ using File = std::fstream;
 
 //////////////////////////
 // include asset importer
+#ifndef DEPRECATE_ASSIMP
+#define DEPRECATE_ASSIMP
+#endif
+
+#ifndef DEPRECATE_ASSIMP
+
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 #include "assimp/Importer.hpp"
 #include "assimp/GltfMaterial.h"
 #include "assimp/Exporter.hpp"
 
+#endif // DEPRECATE_ASSIMP
+
 //////////////////////////
+// FBX import library
+#include "ufbx.h"
+
+//////////////////////////
+// GLTF import library
 #include "cgltf.h"
 
 ///////////////////////////

@@ -4,6 +4,8 @@
 
 namespace Raekor {
 
+#ifndef DEPRECATE_ASSIMP
+
 void KeyFrames::LoadFromAssimp(const aiNodeAnim* nodeAnim) {
 	for (const auto& key : Slice(nodeAnim->mScalingKeys, nodeAnim->mNumScalingKeys))
 		m_ScaleKeys.push_back(Vec3Key(key.mTime, Vec3(key.mValue.x, key.mValue.y, key.mValue.z)));
@@ -15,6 +17,7 @@ void KeyFrames::LoadFromAssimp(const aiNodeAnim* nodeAnim) {
 		m_RotationKeys.push_back(QuatKey(key.mTime, Quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z)));
 }
 
+#endif
 
 void KeyFrames::LoadFromGltf(const cgltf_animation* nodeAnim) {
 
@@ -111,11 +114,15 @@ Vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
 	return { aiVec.x, aiVec.y, aiVec.z };
 }
 
+#ifndef DEPRECATE_ASSIMP
+
 Animation::Animation(const aiAnimation* inAnimation) {
 	m_Name = inAnimation->mName.C_Str();
 	m_RunningTime = 0;
 	m_TotalDuration = float(inAnimation->mDuration);
 }
+
+#endif
 
 Animation::Animation(const cgltf_animation* inAnimation) {
 	m_Name = inAnimation->name;
@@ -123,12 +130,14 @@ Animation::Animation(const cgltf_animation* inAnimation) {
 	m_TotalDuration = 0;
 }
 
+#ifndef DEPRECATE_ASSIMP
 
 void Animation::LoadKeyframes(uint32_t inBoneIndex, const aiNodeAnim* inAnimation) {
 	m_BoneAnimations[inBoneIndex] = KeyFrames(inBoneIndex);
 	m_BoneAnimations[inBoneIndex].LoadFromAssimp(inAnimation);
 }
 
+#endif
 
 void Animation::LoadKeyframes(uint32_t inBoneIndex, const cgltf_animation* inAnimation) {
 	m_BoneAnimations[inBoneIndex] = KeyFrames(inBoneIndex);

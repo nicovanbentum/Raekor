@@ -121,7 +121,9 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
     memcpy(dds_buffer.data() + 4, &header, sizeof(DDS_HEADER));
 
     // write to disk
-    const auto dds_file_path = "assets/" + Path(filepath).stem().string() + ".dds";
+    const auto dds_file_path = sAssetsToCachedPath(filepath);
+    fs::create_directories(Path(dds_file_path).parent_path());
+
     auto dds_file = std::ofstream(dds_file_path, std::ios::binary | std::ios::ate);
     dds_file.write((const char*)dds_buffer.data(), dds_buffer.size());
 

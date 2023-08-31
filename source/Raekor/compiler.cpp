@@ -3,6 +3,7 @@
 #include "gui.h"
 #include "archive.h"
 #include "timer.h"
+#include "fbx.h"
 #include "gltf.h"
 #include "async.h"
 #include "assimp.h"
@@ -76,8 +77,8 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
         if (new_extension == ASSET_TYPE_NONE)
             continue;
 
-        //if (m_Files.size() > 65)
-            //return;
+       // if (m_Files.size() > 65)
+       //     return;
 
         auto& file_entry = m_Files.emplace_back(file);
         file_entry.ReadMetadata();
@@ -348,9 +349,13 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
             m_FilesInFlight.insert(index);
 
            g_ThreadPool.QueueJob([this, index, &file]() {
-                auto asset_path = TextureAsset::sConvert(file.mAssetPath);
-                fs::create_directories(Path(file.mCachePath).parent_path());
-                fs::copy_file(asset_path, file.mCachePath);
+               if (Path(file.mAssetPath).extension() != ".dds") {
+                    TextureAsset::sConvert(file.mAssetPath);
+               } 
+               else {
+                   fs::create_directories(Path(file.mCachePath).parent_path());
+                   fs::copy_file(file.mAssetPath, file.mCachePath);
+               }
 
                 file.UpdateWriteTime();
 
@@ -366,22 +371,29 @@ void CompilerApp::OnUpdate(float inDeltaTime) {
                 auto assets = Assets();
                 auto scene = Scene(nullptr); // nullptr, dont need a renderer
 
-                if (Path(file.mAssetPath).extension() == ".gltf") {
+                const auto extension = Path(file.mAssetPath).extension();
+
+                if (extension == ".fbx") {
+                    auto importer = FBXImporter(scene, nullptr);
+                    importer.LoadFromFile(file.mAssetPath, nullptr);
+                }
+                else if (extension == ".gltf") {
                     auto importer = GltfImporter(scene, nullptr);
                     importer.LoadFromFile(file.mAssetPath, nullptr);
                 }
+#ifndef DEPRECATE_ASSIMP
                 else {
                     auto importer = AssimpImporter(scene, nullptr); 
                     importer.LoadFromFile(file.mAssetPath, nullptr); 
                 }
+#endif
+                
+                fs::create_directories(Path(file.mCachePath).parent_path());
+                scene.SaveToFile(assets, file.mCachePath);
 
-
-               fs::create_directories(Path(file.mCachePath).parent_path());
-               scene.SaveToFile(assets, file.mCachePath);
-
-               std::scoped_lock lock(m_FilesInFlightMutex);
-               m_FilesInFlight.erase(index);
-               LogMessage(std::format("[Assets] Converted {}", file.mAssetPath));
+                std::scoped_lock lock(m_FilesInFlightMutex);
+                m_FilesInFlight.erase(index);
+                LogMessage(std::format("[Assets] Converted {}", file.mAssetPath));
             });
         }
     }

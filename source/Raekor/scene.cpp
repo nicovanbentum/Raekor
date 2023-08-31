@@ -294,6 +294,22 @@ void Scene::BindScriptToEntity(Entity entity, NativeScript& script) {
 }
 
 
+void Scene::Optimize() {
+    for (const auto& [material_entity, material] : Each<Material>()) {
+        Mesh merged_mesh;
+        merged_mesh.material = material_entity;
+
+        for (const auto& [mesh_entity, mesh] : Each<Mesh>()) {
+            if (mesh.material != material_entity)
+                continue;
+
+
+        }
+
+    }
+}
+
+
 bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets) {
     /*
     * LOAD GLTF FROM DISK
@@ -314,9 +330,9 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets) {
     * PARSE MATERIALS
     */
     for (const auto& [entity, material] : m_ImportedScene.Each<Material>()) {
-        auto new_entity = m_OutputScene.Create();
+        auto new_entity = m_Scene.Create();
         
-        auto& name = m_OutputScene.Add<Name>(new_entity, m_ImportedScene.Get<Name>(entity));
+        auto& name = m_Scene.Add<Name>(new_entity, m_ImportedScene.Get<Name>(entity));
         
         ConvertMaterial(new_entity, m_ImportedScene.Get<Material>(entity));
 
@@ -333,14 +349,14 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets) {
                 ParseNode(entity, NULL_ENTITY);
     }
 
-    const auto root_entity = m_OutputScene.CreateSpatialEntity(Path(inFile).filename().string());
-    auto& root_node = m_OutputScene.Get<Node>(root_entity);
+    const auto root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
+    auto& root_node = m_Scene.Get<Node>(root_entity);
 
     for (const auto& entity : m_CreatedNodeEntities) {
-        auto& node = m_OutputScene.Get<Node>(entity);
+        auto& node = m_Scene.Get<Node>(entity);
 
         if (node.IsRoot())
-            NodeSystem::sAppend(m_OutputScene, root_entity, root_node, entity, node);
+            NodeSystem::sAppend(m_Scene, root_entity, root_node, entity, node);
     }
 
     std::cout << "[Scene Import] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
@@ -353,7 +369,7 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets) {
         for (const auto& [imported_entity, output_entity] : m_MaterialMapping)
             materials.push_back(output_entity);
 
-        m_OutputScene.LoadMaterialTextures(*inAssets, Slice(materials.data(), materials.size()));
+        m_Scene.LoadMaterialTextures(*inAssets, Slice(materials.data(), materials.size()));
     }
 
     return true;
@@ -362,23 +378,23 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets) {
 
 void SceneImporter::ParseNode(Entity inEntity, Entity inParent) {
     // Create new entity
-    auto new_entity = m_CreatedNodeEntities.emplace_back(m_OutputScene.CreateSpatialEntity());
+    auto new_entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
 
     // Copy over transform
     if (m_ImportedScene.Has<Transform>(inEntity))
-        m_OutputScene.Add<Transform>(new_entity, m_ImportedScene.Get<Transform>(inEntity));
+        m_Scene.Add<Transform>(new_entity, m_ImportedScene.Get<Transform>(inEntity));
     else
-        m_OutputScene.Add<Transform>(new_entity);
+        m_Scene.Add<Transform>(new_entity);
 
     // Copy over name
     if (m_ImportedScene.Has<Name>(inEntity))
-        m_OutputScene.Add<Name>(new_entity, m_ImportedScene.Get<Name>(inEntity));
+        m_Scene.Add<Name>(new_entity, m_ImportedScene.Get<Name>(inEntity));
     else 
-        m_OutputScene.Add<Name>(new_entity);
+        m_Scene.Add<Name>(new_entity);
 
     // set the new entity's parent
     if (inParent != NULL_ENTITY)
-        NodeSystem::sAppend(m_OutputScene, inParent, m_OutputScene.Get<Node>(inParent), new_entity, m_OutputScene.Get<Node>(new_entity));
+        NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), new_entity, m_Scene.Get<Node>(new_entity));
 
     // Copy over mesh
     if (m_ImportedScene.Has<Mesh>(inEntity))
@@ -398,7 +414,7 @@ void SceneImporter::ParseNode(Entity inEntity, Entity inParent) {
 
 
 void SceneImporter::ConvertMesh(Entity inEntity, const Mesh& inMesh) {
-    auto& mesh = m_OutputScene.Add<Mesh>(inEntity, inMesh);
+    auto& mesh = m_Scene.Add<Mesh>(inEntity, inMesh);
 
     mesh.material = m_MaterialMapping[mesh.material];
 
@@ -408,8 +424,8 @@ void SceneImporter::ConvertMesh(Entity inEntity, const Mesh& inMesh) {
 
 
 void SceneImporter::ConvertBones(Entity inEntity, const Skeleton& inSkeleton) {
-    auto& mesh = m_OutputScene.Get<Mesh>(inEntity);
-    auto& skeleton = m_OutputScene.Add<Skeleton>(inEntity, inSkeleton);
+    auto& mesh = m_Scene.Get<Mesh>(inEntity);
+    auto& skeleton = m_Scene.Add<Skeleton>(inEntity, inSkeleton);
 
     if (m_Renderer)
         m_Renderer->UploadSkeletonBuffers(skeleton, mesh);
@@ -417,7 +433,7 @@ void SceneImporter::ConvertBones(Entity inEntity, const Skeleton& inSkeleton) {
 
 
 void SceneImporter::ConvertMaterial(Entity inEntity, const Material& inMaterial) {
-    auto& material = m_OutputScene.Add<Material>(inEntity, inMaterial);
+    auto& material = m_Scene.Add<Material>(inEntity, inMaterial);
 
     material.gpuAlbedoMap = 0;
     material.gpuNormalMap = 0;

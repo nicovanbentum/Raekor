@@ -37,3 +37,6 @@
 [submodule "dependencies/D3D12MemoryAllocator"]
 	path = dependencies/D3D12MemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator
+[submodule "dependencies/ufbx"]
+	path = dependencies/ufbx
+	url = https://github.com/ufbx/ufbx

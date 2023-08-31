@@ -1,0 +1,26 @@
+#pragma once
+
+#include "scene.h"
+
+namespace Raekor {
+
+class FBXImporter : Importer {
+public:
+	FBXImporter(Scene& inScene, IRenderer* inRenderer) : Importer(inScene, inRenderer) {}
+	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
+
+private:
+	void ParseNode(const ufbx_node* inNode, Entity inParent, glm::mat4 inTransform);
+
+	void ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const ufbx_mesh_material& inMaterial);
+	void ConvertBones(Entity inEntity, const ufbx_bone_list* inSkeleton);
+	void ConvertMaterial(Entity inEntity, const ufbx_material* inMaterial);
+
+private:
+	Path m_Directory;
+	ufbx_scene* m_FbxScene;
+	std::vector<Entity> m_Materials;
+	std::vector<Entity> m_CreatedNodeEntities;
+};
+
+}

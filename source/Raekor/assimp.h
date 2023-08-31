@@ -2,6 +2,8 @@
 
 #ifndef DEPRECATE_ASSIMP
 
+#include "scene.h"
+
 namespace Assimp {
 
 glm::mat4 toMat4(const aiMatrix4x4& from);
@@ -20,14 +22,10 @@ class Material;
 class Skeleton;
 typedef uint32_t Entity;
 
-class AssimpImporter {
+class AssimpImporter : public Importer {
 public:
-	AssimpImporter(Scene& inScene, IRenderer* inRenderer) : m_Scene(inScene), m_Renderer(inRenderer) {}
-	bool LoadFromFile(const std::string& inFile, Assets* inAssets);
-
-	const Path& GetDirectory() { return m_Directory; }
-	const aiScene* GetAiScene() { return m_AiScene; }
-	const std::vector<Entity>& GetMaterials() { return m_Materials; }
+	AssimpImporter(Scene& inScene, IRenderer* inRenderer) : Importer(inScene, inRenderer) {}
+	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
 
 private:
 	void ParseMaterial(aiMaterial* inAssimpMaterial, Entity inEntity);
@@ -39,9 +37,6 @@ private:
 	void LoadMaterial(Entity inEntity, const aiMaterial* inAssimpMaterial);
 
 private:
-	Scene& m_Scene;
-	IRenderer* m_Renderer = nullptr;
-
 	Path m_Directory;
 	const aiScene* m_AiScene = nullptr;
 	std::shared_ptr<Assimp::Importer> m_Importer;

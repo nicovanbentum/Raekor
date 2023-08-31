@@ -232,6 +232,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
         ImGui::Text("Vendor: %s", gpu_info.mVendor.c_str());
         ImGui::Text("Product: %s", gpu_info.mProduct.c_str());
 
+        ImGui::Text("Draw calls: %i", GetScene().Count<Mesh>());
         ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
         ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
