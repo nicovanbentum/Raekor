@@ -98,8 +98,7 @@ std::string TextureAsset::sConvert(const std::string& filepath) {
     DDS_PIXELFORMAT pixel_format;
     pixel_format.dwSize = 32;
     pixel_format.dwFlags = 0x4;
-    pixel_format.dwFourCC = MAKEFOURCC('D', 'X', 'T', '5');
-    pixel_format.dwRGBBitCount = 32;
+    pixel_format.dwFourCC = DDS_FORMAT_DXT5;
     pixel_format.dwRBitMask = 0xff000000;
     pixel_format.dwGBitMask = 0x00ff0000;
     pixel_format.dwBBitMask = 0x0000ff00;

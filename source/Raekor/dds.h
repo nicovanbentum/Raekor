@@ -15,6 +15,25 @@ void CompressDXT(unsigned char* dst, unsigned char* src, int w, int h, int isDxt
 #endif /* defined(MAKEFOURCC) */
 
 
+enum EDDSFormat {
+    DDS_FORMAT_DXT1 = MAKEFOURCC('D', 'X', 'T', '1'),
+    DDS_FORMAT_DXT2 = MAKEFOURCC('D', 'X', 'T', '2'),
+    DDS_FORMAT_DXT3 = MAKEFOURCC('D', 'X', 'T', '3'),
+    DDS_FORMAT_DXT4 = MAKEFOURCC('D', 'X', 'T', '4'),
+    DDS_FORMAT_DXT5 = MAKEFOURCC('D', 'X', 'T', '5'),
+    DDS_FORMAT_ATI1 = MAKEFOURCC('A', 'T', 'I', '1'),
+    DDS_FORMAT_ATI2 = MAKEFOURCC('A', 'T', 'I', '2')
+};
+
+enum EDDSPixelFormatFlags {
+    DDPF_ALPHAPIXELS = 0x1,
+    DDPF_ALPHA       = 0x2,
+    DDPF_FOURCC      = 0x4,
+    DDPF_RGB         = 0x40,
+    DDPF_YUV         = 0x200,
+    DDPF_LUMINANCE   = 0x20000
+};
+
 constexpr DWORD DDS_MAGIC = 0x20534444;
 
 struct DDS_PIXELFORMAT {

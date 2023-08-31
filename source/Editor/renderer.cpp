@@ -465,16 +465,43 @@ GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRG
     auto dataPtr = asset->GetData();
     auto headerPtr = asset->GetHeader();
 
+    auto alpha = headerPtr->ddspf.dwABitMask != 0;
+    auto gl_format = sRGB ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+    auto dds_format = (EDDSFormat)headerPtr->ddspf.dwFourCC;
+    
+    switch (dds_format) {
+        case EDDSFormat::DDS_FORMAT_DXT1: gl_format = sRGB ? alpha ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT : GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : alpha ? GL_COMPRESSED_RGBA_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+            break;
+        case EDDSFormat::DDS_FORMAT_DXT3: gl_format = sRGB ? alpha ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : NULL                             : alpha ? GL_COMPRESSED_RGBA_S3TC_DXT3_EXT : NULL;
+            break;
+        case EDDSFormat::DDS_FORMAT_DXT5: gl_format = sRGB ? alpha ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT : alpha ? GL_COMPRESSED_RGBA_S3TC_DXT5_EXT : NULL;
+            break;
+        case EDDSFormat::DDS_FORMAT_ATI2:
+            gl_format = GL_COMPRESSED_RED_GREEN_RGTC2_EXT;
+            break;
+        case EDDSFormat::DDS_FORMAT_ATI1:
+            gl_format = GL_COMPRESSED_RED_RGTC1_EXT;
+            break;
+        case EDDSFormat::DDS_FORMAT_DXT2:
+        case EDDSFormat::DDS_FORMAT_DXT4:
+
+        default:
+        assert(false);
+    }
+
+    assert(dds_format != NULL);
+
     auto texture = 0u;
     glCreateTextures(GL_TEXTURE_2D, 1, &texture);
     
-    auto format = sRGB ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-    glTextureStorage2D(texture, headerPtr->dwMipMapCount, format, headerPtr->dwWidth, headerPtr->dwHeight);
+    glTextureStorage2D(texture, headerPtr->dwMipMapCount, gl_format, headerPtr->dwWidth, headerPtr->dwHeight);
+
+    auto block_size = dds_format == DDS_FORMAT_DXT1 ? 8 : 16;
 
     for (auto mip = 0u; mip < headerPtr->dwMipMapCount; mip++) {
         const auto dimensions = glm::ivec2(std::max(headerPtr->dwWidth >> mip, 1ul), std::max(headerPtr->dwHeight >> mip, 1ul));
-        const auto data_size = GLsizei(std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * 16);
-        glCompressedTextureSubImage2D(texture, mip, 0, 0, dimensions.x, dimensions.y, format, data_size, dataPtr);
+        const auto data_size = GLsizei(std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * block_size);
+        glCompressedTextureSubImage2D(texture, mip, 0, 0, dimensions.x, dimensions.y, gl_format, data_size, dataPtr);
         dataPtr += dimensions.x * dimensions.y;
     }
 
