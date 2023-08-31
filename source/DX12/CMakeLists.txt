@@ -6,8 +6,6 @@ project(DX12 C CXX)
 file(GLOB_RECURSE HppFiles ${PROJECT_SOURCE_DIR}/*.h ${Editor_SOURCE_DIR}/*Widget.h)
 file(GLOB_RECURSE CppFiles ${PROJECT_SOURCE_DIR}/*.cpp ${Editor_SOURCE_DIR}/*Widget.cpp)
 
-message(${Raekor_SOURCE_DIR})
-
 # Add ImGuizmo and SPIRV Reflect to the cpp files list, disable PCH for .c files
 set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp)

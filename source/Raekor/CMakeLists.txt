@@ -46,7 +46,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Dwmapi)
 target_link_libraries(${PROJECT_NAME} PRIVATE DbgHelp) # Windows SDK helper library for parsing PDB files
 target_link_libraries(${PROJECT_NAME} PRIVATE lz4::lz4)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui::imgui)
-target_link_libraries(${PROJECT_NAME} PRIVATE assimp::assimp)
 target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2-static)
 
 # include dependency directories 

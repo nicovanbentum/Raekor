@@ -12,10 +12,6 @@
             "platform": "windows & static"
         },
         {
-            "name": "assimp",
-            "platform": "windows & static"
-        },
-        {
             "name": "sdl2",
             "features": [ "vulkan" ],
             "platform": "windows & static"
@@ -41,7 +37,6 @@
     "overrides": [
         { "name": "lz4", "version": "1.9.4#1" },
         { "name": "glad", "version": "0.1.36" },
-        { "name": "assimp", "version": "5.2.5" },
         { "name": "sdl2", "version": "2.26.5" },
         { "name": "imgui", "version": "1.89.4" },
         { "name": "directx-headers", "version": "1.608.2#1" }
