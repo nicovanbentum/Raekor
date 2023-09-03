@@ -79,7 +79,10 @@ Surface getSurface(Instance instance, Vertex vertex) {
     surface.metallic = material.properties.x;
     surface.roughness = material.properties.y;
     surface.emissive = material.emissive.rgb;
+    
     surface.pos = vec3(gl_ObjectToWorldEXT * vec4(vertex.pos, 1.0));
+    surface.triangleNormal = normalize(mat3(transpose(inverse(instance.localToWorldTransform))) * vertex.normal);
+    surface.shadingNormal = surface.triangleNormal;
 
     int albedoIndex = material.textures.x;
     int normalIndex = material.textures.y;
@@ -91,8 +94,6 @@ Surface getSurface(Instance instance, Vertex vertex) {
 
     if(normalIndex > -1) {
         surface.shadingNormal = getNormalFromTexture(instance, vertex, texture(textures[normalIndex], vertex.uv));
-    } else {
-        surface.shadingNormal = normalize(mat3(transpose(inverse(instance.localToWorldTransform))) * vertex.normal);
     }
 
     if(metalRoughIndex > -1) {
@@ -102,8 +103,8 @@ Surface getSurface(Instance instance, Vertex vertex) {
     }
 
     // flip the normal incase we hit a backface
-    surface.shadingNormal = faceforward(surface.shadingNormal, gl_WorldRayDirectionEXT, surface.shadingNormal);
-    surface.triangleNormal = faceforward(surface.triangleNormal, gl_WorldRayDirectionEXT, surface.triangleNormal);
+    //surface.shadingNormal = faceforward(surface.shadingNormal, gl_WorldRayDirectionEXT, surface.shadingNormal);
+    //surface.triangleNormal = faceforward(surface.triangleNormal, gl_WorldRayDirectionEXT, surface.triangleNormal);
 
     return surface;
 };
@@ -270,11 +271,10 @@ void main() {
 
     const Vertex vertex = getInterpolatedVertex(v0, v1, v2, barycentrics);
     Surface surface = getSurface(instance, vertex);
-    surface.triangleNormal = normalize(cross(v0.pos - v1.pos, v0.pos - v2.pos));
     // furnace test: surface.albedo = vec4(1.0);
 
     // emissive is just a flat addition to L
-    payload.L = vec3(0.0);
+    payload.L = surface.emissive;
 
     vec3 Wo = -gl_WorldRayDirectionEXT;
 

@@ -73,7 +73,7 @@ void main() {
         alpha = texture(textures[material.textures.x], vertex.uv).a;
     }
 
-    if (alpha < 0.5) {
+    if (alpha < 0.9) {
         ignoreIntersectionEXT;
     }
 }

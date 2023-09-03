@@ -35,6 +35,7 @@ void main() {
 
     payload.L = min(color, vec3(1.0)) * lightDir.w;
     payload.depth = bounces + 10; // terminate
+    
 
     // payload.L = vec3(0); // temp
 }

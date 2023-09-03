@@ -29,6 +29,18 @@ vec3 aces(vec3 x) {
   return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
+float luminance(vec3 v)
+{
+    return dot(v, vec3(0.2126, 0.7152, 0.0722));
+}
+
+vec3 reinhard_jodie(vec3 v)
+{
+    float l = luminance(v);
+    vec3 tv = v / (1.0f + v);
+    return mix(v / (1.0f + l), tv, tv);
+}
+
 uint tea(uint val0, uint val1) {
   uint v0 = val0;
   uint v1 = val1;
@@ -44,7 +56,7 @@ uint tea(uint val0, uint val1) {
 }
 
 vec3 tonemap(vec3 L) {
-    return pow(L, vec3(1.0 / 2.2));
+    return pow(aces(L), vec3(1.0 / 2.4));
 }
 
 void main() {
