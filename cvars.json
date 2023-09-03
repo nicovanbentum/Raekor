@@ -146,7 +146,7 @@
             "r_debug_gi_probes": 
             {
                 "Type": 1,
-                "Int": 1,
+                "Int": 0,
                 "Float": 0.000000,
                 "String": ""
             },
@@ -182,6 +182,13 @@
             {
                 "Type": 1,
                 "Int": 0,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_path_trace": 
+            {
+                "Type": 1,
+                "Int": 1,
                 "Float": 0.000000,
                 "String": ""
             }

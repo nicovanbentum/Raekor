@@ -26,7 +26,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         return;
     }
 
-    const float radius = 0.00;
+    const float radius = 0.01;
     const float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
     const float2 offset = uniformSampleDisk(blue_noise.xy, radius);
     const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));

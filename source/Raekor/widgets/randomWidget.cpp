@@ -18,11 +18,15 @@ RandomWidget::RandomWidget(Application* inApp) :
 
 void RandomWidget::Draw(Widgets* inWidgets, float dt) {
     auto& scene = IWidget::GetScene();
-    auto& render_settings = m_Editor->GetRenderer()->GetSettings();
+    auto& render_settings = m_Editor->GetRenderInterface()->GetSettings();
 
     ImGui::Begin(m_Title.c_str(), &m_Open);
     m_Visible = ImGui::IsWindowAppearing();
     ImGui::SetItemDefaultFocus();
+
+    auto debug_physics = GetPhysics().GetDebugRendering();
+    if (ImGui::Checkbox("Debug Physics", &debug_physics))
+        GetPhysics().SetDebugRendering(debug_physics);
 
     if (ImGui::Button("Generate Rigid Bodies")) {
         Timer timer;
@@ -37,6 +41,8 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
         m_Editor->LogMessage("Rigid Body Generation took " + timer.GetElapsedFormatted() + " seconds.");
     }
 
+    ImGui::SameLine();
+
     if (ImGui::Button("Spawn/Reset Balls")) {
         const auto material_entity = scene.Create();
         auto& material_name = scene.Add<Name>(material_entity);
@@ -44,7 +50,7 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
         auto& ball_material = scene.Add<Material>(material_entity);
         ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
 
-        if (auto renderer = m_Editor->GetRenderer())
+        if (auto renderer = m_Editor->GetRenderInterface())
             renderer->UploadMaterialTextures(ball_material, GetAssets());
 
         for (uint32_t i = 0; i < 64; i++) {
@@ -56,7 +62,7 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
             
             constexpr auto radius = 2.5f;
             gGenerateSphere(mesh, radius, 32, 32);
-            GetRenderer().UploadMeshBuffers(mesh);
+            GetRenderInterface().UploadMeshBuffers(mesh);
 
             transform.position = Vec3(-65.0f, 85.0f + i * (radius * 2.0f), 0.0f);
             transform.Compose();
@@ -83,12 +89,8 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt) {
         }
     }
 
-    auto debug_physics = GetPhysics().GetDebugRendering();
-    if (ImGui::Checkbox("Debug Physics", &debug_physics))
-        GetPhysics().SetDebugRendering(debug_physics);
-
     // Draw all the renderer debug UI
-    m_Editor->GetRenderer()->DrawImGui(GetScene(), m_Editor->GetViewport());
+    m_Editor->GetRenderInterface()->DrawImGui(GetScene(), m_Editor->GetViewport());
 
     ImGui::End();
 }

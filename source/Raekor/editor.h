@@ -14,7 +14,7 @@ class IEditor : public Application {
 public:
     friend class IWidget;
 
-    IEditor(WindowFlags inWindowFlags, IRenderer* inRenderer);
+    IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer);
     virtual ~IEditor();
 
     void OnUpdate(float dt) override;

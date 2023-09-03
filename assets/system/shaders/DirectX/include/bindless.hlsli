@@ -24,12 +24,13 @@
 #define UAV2(T, name) RWStructuredBuffer<T> name : register(u2, space0);
 #define UAV3(T, name) RWStructuredBuffer<T> name : register(b3, space0);
 
-SamplerState SamplerPointWrap   : register(s0);
-SamplerState SamplerPointClamp  : register(s1);
-SamplerState SamplerLinearWrap  : register(s2);
-SamplerState SamplerLinearClamp : register(s3);
-SamplerState SamplerAnisoWrap   : register(s4);
-SamplerState SamplerAnisoClamp  : register(s5);
+SamplerState SamplerPointWrapNoMips   : register(s0);
+SamplerState SamplerPointWrap         : register(s1);
+SamplerState SamplerPointClamp        : register(s2);
+SamplerState SamplerLinearWrap        : register(s3);
+SamplerState SamplerLinearClamp       : register(s4);
+SamplerState SamplerAnisoWrap         : register(s5);
+SamplerState SamplerAnisoClamp        : register(s6);
 
 SRV0(FrameConstantsBuffer)
 SRV1(PassConstantsBuffer)

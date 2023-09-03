@@ -48,10 +48,11 @@ enum EDebugTexture {
 class Renderer {
 private:
     struct Settings {
+        int& mDoPathTrace  = g_CVars.Create("r_path_trace",          0);
         int& mEnableVsync  = g_CVars.Create("r_vsync",               1);
         int& mDebugLines   = g_CVars.Create("r_debug_lines",         1);
         int& mEnableRTAO   = g_CVars.Create("r_enable_rtao",         1);
-        int& mProbeDebug   = g_CVars.Create("r_debug_gi_probes",     1);
+        int& mProbeDebug   = g_CVars.Create("r_debug_gi_probes",     0);
         int& mEnableDDGI   = g_CVars.Create("r_enable_ddgi",         1);
         int& mFullscreen   = g_CVars.Create("r_fullscreen",          0);
         int& mEnableFsr2   = g_CVars.Create("r_enable_fsr2",         0);
@@ -104,7 +105,7 @@ private:
 };
 
 
-class RenderInterface : public IRenderer {
+class RenderInterface : public IRenderInterface {
 public:
     RenderInterface(Device& inDevice, Renderer& inRenderer, StagingHeap& inStagingHeap);
 
@@ -128,7 +129,7 @@ public:
     uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false);
 
     void OnResize(const Viewport& inViewport);
-    void DrawImGui(Scene& inScene, const Viewport& inViewport);
+    void DrawImGui(Scene& inScene, const Viewport& inViewport) {}
 
 private:
     Device& m_Device;
@@ -254,9 +255,10 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 ////////////////////////////////////////
 /// Ray-traced Indirect Diffuse Render Pass
 ////////////////////////////////////////
-struct IndirectDiffuseData {
-    RTTI_DECLARE_TYPE(IndirectDiffuseData);
+struct PathTraceData {
+    RTTI_DECLARE_TYPE(PathTraceData);
 
+    uint32_t mBounces = 3;
     TextureResource mOutputTexture;
     TextureResource mGBufferDepthTexture;
     TextureResource mGbufferRenderTexture;
@@ -266,7 +268,7 @@ struct IndirectDiffuseData {
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
-const IndirectDiffuseData& AddIndirectDiffusePass(RenderGraph& inRenderGraph, Device& inDevice,
+const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice,
     const GBufferData& inGBufferData,
     DescriptorID inTLAS,
     DescriptorID inInstancesBuffer,

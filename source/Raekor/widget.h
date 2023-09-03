@@ -9,7 +9,7 @@ class Scene;
 class Assets;
 class Physics;
 class Widgets;
-class IRenderer;
+class IRenderInterface;
 class Application;
 using Entity = uint32_t;
 
@@ -35,7 +35,7 @@ protected:
     Scene& GetScene();
     Assets& GetAssets();
     Physics& GetPhysics();
-    IRenderer& GetRenderer();
+    IRenderInterface& GetRenderInterface();
 
     Entity GetActiveEntity();
     void   SetActiveEntity(Entity inEntity);

@@ -38,7 +38,7 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
 
 
 Renderer::Renderer(SDL_Window* window, Viewport& viewport) : 
-    IRenderer(GraphicsAPI::OpenGL4_6),
+    IRenderInterface(GraphicsAPI::OpenGL4_6),
     m_Window(window) 
 {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);

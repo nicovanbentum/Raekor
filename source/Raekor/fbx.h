@@ -6,7 +6,7 @@ namespace Raekor {
 
 class FBXImporter : Importer {
 public:
-	FBXImporter(Scene& inScene, IRenderer* inRenderer) : Importer(inScene, inRenderer) {}
+	FBXImporter(Scene& inScene, IRenderInterface* inRenderer) : Importer(inScene, inRenderer) {}
 	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
 
 private:

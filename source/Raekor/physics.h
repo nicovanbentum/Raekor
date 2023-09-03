@@ -14,7 +14,7 @@ namespace JPH {
 namespace Raekor {
 
 class Scene;
-class IRenderer;
+class IRenderInterface;
 class Application;
 
 enum EPhysicsObjectLayers {
@@ -73,7 +73,7 @@ class ObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter {
 
 class DebugRenderer final : public JPH::DebugRenderer {
 public:
-    DebugRenderer(IRenderer* inRenderer) : m_Renderer(inRenderer) {}
+    DebugRenderer(IRenderInterface* inRenderer) : m_Renderer(inRenderer) {}
 
     void DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor);
     void DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow inCastShadow = ECastShadow::Off);
@@ -85,7 +85,7 @@ public:
     void DrawText3D(JPH::RVec3Arg inPosition, const std::string_view& inString, JPH::ColorArg inColor = JPH::Color::sWhite, float inHeight = 0.5f) {}
 
 private:
-    IRenderer* m_Renderer;
+    IRenderInterface* m_Renderer;
 };
 
 
@@ -97,7 +97,7 @@ public:
         Stepping = 2
     };
 
-    Physics(IRenderer* inRenderer = nullptr);
+    Physics(IRenderInterface* inRenderer = nullptr);
     ~Physics();
 
     void Step(Scene& scene, float dt);

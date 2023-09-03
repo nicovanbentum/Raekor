@@ -122,7 +122,7 @@ std::vector<Entity> NodeSystem::sGetFlatHierarchy(ecs::ECS& inECS, Entity inEnti
 }
 
 
-void IRenderer::UploadMaterialTextures(Material& inMaterial, Assets& inAssets) {
+void IRenderInterface::UploadMaterialTextures(Material& inMaterial, Assets& inAssets) {
     assert(Material::Default.IsLoaded() && "Default material not loaded, did you forget to initialize its gpu maps before opening a scene?");
 
     if (auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.albedoFile); asset)

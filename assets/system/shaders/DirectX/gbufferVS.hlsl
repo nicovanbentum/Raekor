@@ -20,7 +20,7 @@ VS_OUTPUT main(in uint inVertexID : SV_VertexID)
     StructuredBuffer<RTVertex> vertex_buffer = ResourceDescriptorHeap[rc.mVertexBuffer];
     
     RTVertex vertex = vertex_buffer[inVertexID];
-    TransformToWorldSpace(vertex, rc.mWorldTransform);
+    TransformToWorldSpace(vertex, rc.mWorldTransform, rc.mInvWorldTransform);
 
     VS_OUTPUT output;
     output.normal = normalize(vertex.mNormal);

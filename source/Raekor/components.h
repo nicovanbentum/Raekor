@@ -101,7 +101,7 @@ struct Mesh {
 
     float mLODFade = 0.0f;
 
-    void CalculateTangents();
+    void CalculateTangents(float inTangentSign = 1.0f);
     void CalculateNormals();
     void CalculateAABB();
     std::vector<float> GetInterleavedVertices() const;

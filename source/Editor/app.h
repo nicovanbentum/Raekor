@@ -19,7 +19,7 @@ public:
     void OnUpdate(float dt) override;
     void OnEvent(const SDL_Event& event) override;
 
-    IRenderer* GetRenderer() { return &m_Renderer; }
+    IRenderInterface* GetRenderInterface() { return &m_Renderer; }
 
 private:
     Renderer m_Renderer;

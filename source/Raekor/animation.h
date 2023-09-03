@@ -1,8 +1,35 @@
 #pragma once
 
+#include "rtti.h"
+
 namespace Raekor {
 
+template<typename T>
+struct Key {
+	double mTime = 0.0f;
+	T mValue = {};
+
+	Key() = default;
+	Key(double inTime, const T& inValue) : mTime(inTime), mValue(inValue) {}
+
+	inline bool operator==(const T& inOther) const { return inOther.mValue == mValue; }
+	inline bool operator!=(const T& inOther) const { return inOther.mValue != mValue; }
+
+	inline bool operator<(const T& inOther) const { return mTime < inOther.mTime; }
+	inline bool operator>(const T& inOther) const { return mTime > inOther.mTime; }
+};
+
+struct Vec3Key : public Key<Vec3> {
+	RTTI_DECLARE_TYPE(Vec3Key);
+};
+
+struct QuatKey : public Key<Quat> {
+	RTTI_DECLARE_TYPE(QuatKey);
+};
+
 class KeyFrames {
+	RTTI_DECLARE_TYPE(KeyFrames);
+
 	friend class GltfImporter;
 	friend class AssimpImporter;
 
@@ -21,8 +48,6 @@ class KeyFrames {
 		inline bool operator>(const T& inOther) const { return mTime > inOther.mTime; }
 	};
 
-	using Vec3Key = Key<Vec3>;
-	using QuatKey = Key<Quat>;
 
 public:
 	KeyFrames() = default;
@@ -46,11 +71,14 @@ private:
 
 
 class Animation {
+	RTTI_DECLARE_TYPE(Animation);
+
 	friend struct Skeleton;
 	friend class GltfImporter;
 	friend class AssimpImporter;
 
 public:
+	Animation() = default;
 #ifndef DEPRECATE_ASSIMP
 	Animation(const aiAnimation* inAnimation);
 #endif
@@ -68,10 +96,10 @@ public:
 private:
 	/* Elapsed time in milliseconds. */
 	float m_RunningTime = 0.0f;
-	/* Total duration of the animation.*/
-	float m_TotalDuration = 0.0f;
 	/* Name of the animation. */
 	std::string m_Name;
+	/* Total duration of the animation.*/
+	float m_TotalDuration = 0.0f;
 	/* Arrays of keyframes mapped to bone/joint indices. */
 	std::unordered_map<uint32_t, KeyFrames> m_BoneAnimations;
 };

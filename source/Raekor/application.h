@@ -33,7 +33,7 @@ enum GraphicsAPI : uint8_t {
     DirectX = DirectX11 | DirectX12
 };
 
-class IRenderer {
+class IRenderInterface {
 public:
     struct Settings {
         int& vsync              = g_CVars.Create("r_vsync", 1);
@@ -48,7 +48,7 @@ public:
 
     } mSettings;
 
-    IRenderer(GraphicsAPI inAPI) : m_GraphicsAPI(inAPI) {}
+    IRenderInterface(GraphicsAPI inAPI) : m_GraphicsAPI(inAPI) {}
 
     GraphicsAPI GetGraphicsAPI() const { return m_GraphicsAPI; }
 
@@ -129,7 +129,7 @@ public:
     virtual Scene* GetScene() { return nullptr; }
     virtual Assets* GetAssets() { return nullptr; }
     virtual Physics* GetPhysics() { return nullptr; }
-    virtual IRenderer* GetRenderer() { return nullptr; }
+    virtual IRenderInterface* GetRenderInterface() { return nullptr; }
 
     virtual void SetActiveEntity(Entity inEntity) { }
     virtual Entity GetActiveEntity() { return NULL_ENTITY; }

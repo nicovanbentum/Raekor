@@ -41,7 +41,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     
     if (depth == 1.0) {
         float3 transmittance;
-        const float3 light_color = float3(1.0, 1.0, 1.0);
+        const float3 light_color = fc.mSunColor.rgb;
         float3 sky_color = IntegrateScattering(ws_pos, normalize(fc.mCameraPosition.xyz - ws_pos), 1.#INF, fc.mSunDirection.xyz, light_color, transmittance);
         //sky_color = ApplyFog(sky_color, distance(fc.mCameraPosition.xyz, position.xyz), fc.mCameraPosition.xyz, normalize(fc.mCameraPosition.xyz - position.xyz));
         return float4(pow(sky_color, 1.0 / 2.2), 1.0);
@@ -53,7 +53,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     const float3 l = brdf.Evaluate(Wo, Wi, Wh);
 
     const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
-    float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, fc.mSunDirection.xyz)) * 2.0;
+    float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(ws_pos.xyz, fc.mSunDirection.xyz)) * fc.mSunColor.a;
     float shadow_mask   = shadow_texture[inParams.mPixelCoords.xy];
     total_radiance += l * NdotL * sunlight_luminance * shadow_mask;
     
@@ -72,11 +72,13 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     float3 offset_ws_pos = ws_pos + brdf.mNormal * 0.01;
     float3 irradiance = DDGISampleIrradiance(offset_ws_pos, brdf.mNormal, rc.mDDGIData);
     
+    //total_radiance += brdf.mAlbedo.rgb * 0.25;
+    
     total_radiance += irradiance.rgb * brdf.mAlbedo.rgb;
     
     //total_radiance = ApplyFog(total_radiance, distance(fc.mCameraPosition.xyz, ws_pos), fc.mCameraPosition.xyz, -Wo);
     
     //return float4(ao, ao, ao, 1.0);
-    return float4(irradiance.rgb, 1.0);
+    //return float4(irradiance.rgb, 1.0);
     return float4(total_radiance * ao, 1.0);
 }

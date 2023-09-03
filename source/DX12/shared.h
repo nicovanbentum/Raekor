@@ -54,6 +54,7 @@ struct RTGeometry {
     uint     mVertexBuffer;
     uint     mMaterialIndex;
     float4x4 mLocalToWorldTransform;
+    float4x4 mInvLocalToWorldTransform;
 };
 
 
@@ -83,6 +84,7 @@ struct FrameConstants {
     uint      mFrameCounter;
     uint      mDebugLinesVertexBuffer;
     uint      mDebugLinesIndirectArgsBuffer;
+    float4    mSunColor;
     float4    mSunDirection;
     float4    mCameraPosition;
     float4x4  mViewMatrix;
@@ -173,16 +175,17 @@ struct ReflectionsRootConstants {
 STATIC_ASSERT(sizeof(ReflectionsRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
-struct IndirectGIRootConstants {
-    uint  mGbufferRenderTexture;
-    uint  mGbufferDepthTexture;
-    uint  mShadowMaskTexture;
+struct PathTraceRootConstants {
     uint  mTLAS;
+    uint  mBounces;
     uint  mInstancesBuffer;
     uint  mMaterialsBuffer;
     uint2 mDispatchSize;
+    uint  mResultTexture;
+    uint  mPad0;
 };
-STATIC_ASSERT(sizeof(IndirectGIRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+STATIC_ASSERT(sizeof(PathTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
 
 
 struct SpdRootConstants {

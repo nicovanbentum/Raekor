@@ -72,7 +72,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
 
                     m_Editor->SetActiveEntity(NULL_ENTITY);
 
-                    auto importer = SceneImporter(GetScene(), m_Editor->GetRenderer());
+                    auto importer = SceneImporter(GetScene(), m_Editor->GetRenderInterface());
                     importer.LoadFromFile(filepath, m_Editor->GetAssets());
 
                     /*ImGui::PushOverrideID(import_settings_popup_id);
@@ -125,11 +125,11 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                 if (!save_path.empty()) {
                     auto& viewport = m_Editor->GetViewport();
 
-                    const auto buffer_size = m_Editor->GetRenderer()->GetScreenshotBuffer(nullptr);
+                    const auto buffer_size = m_Editor->GetRenderInterface()->GetScreenshotBuffer(nullptr);
 
                     auto pixels = std::vector<unsigned char>(buffer_size);
 
-                    m_Editor->GetRenderer()->GetScreenshotBuffer(pixels.data());
+                    m_Editor->GetRenderInterface()->GetScreenshotBuffer(pixels.data());
 
                     stbi_flip_vertically_on_write(true);
                     stbi_write_png(save_path.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
@@ -201,7 +201,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                     }
 
                     gGenerateSphere(mesh, 2.5f, 16, 16);
-                    m_Editor->GetRenderer()->UploadMeshBuffers(mesh);
+                    m_Editor->GetRenderInterface()->UploadMeshBuffers(mesh);
                 }
 
                 if (ImGui::MenuItem("Plane")) {
@@ -228,7 +228,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                     mesh.CalculateTangents();
                     mesh.CalculateAABB();
 
-                    m_Editor->GetRenderer()->UploadMeshBuffers(mesh);
+                    m_Editor->GetRenderInterface()->UploadMeshBuffers(mesh);
                 }
 
                 if (ImGui::MenuItem("Cube")) {
@@ -256,7 +256,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
                     mesh.CalculateTangents();
                     mesh.CalculateAABB();
                     
-                    m_Editor->GetRenderer()->UploadMeshBuffers(mesh);
+                    m_Editor->GetRenderInterface()->UploadMeshBuffers(mesh);
                     m_Editor->SetActiveEntity(entity);
                 }
 

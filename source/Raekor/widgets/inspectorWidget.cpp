@@ -215,7 +215,7 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh) {
     if (scene.IsValid(ioMesh.material) && scene.Has<Material, Name>(ioMesh.material)) {
         auto [material, name] = scene.Get<Material, Name>(ioMesh.material);
 
-        const auto albedo_imgui_id = m_Editor->GetRenderer()->GetImGuiTextureID(material.gpuAlbedoMap);
+        const auto albedo_imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap);
         const auto preview_size = ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale());
         const auto tint_color = ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a);
 
@@ -327,7 +327,7 @@ void InspectorWidget::DrawComponent(Material& inMaterial) {
     }
 
     auto DrawTextureInteraction = [&](uint32_t& inGpuMap, std::string& inFile) {
-        const auto imgui_id = m_Editor->GetRenderer()->GetImGuiTextureID(inGpuMap);
+        const auto imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(inGpuMap);
         
         if (ImGui::ImageButton((void*)((intptr_t)imgui_id), ImVec2(line_height - 1, line_height - 1))) {
             auto filepath = OS::sOpenFileDialog("Image Files(*.jpg, *.jpeg, *.png)\0*.jpg;*.jpeg;*.png\0");
@@ -338,7 +338,7 @@ void InspectorWidget::DrawComponent(Material& inMaterial) {
                 if (!asset_path.empty()) {
                     inFile = asset_path;
                     const auto is_srgb = inGpuMap == inMaterial.gpuAlbedoMap;
-                    inGpuMap = m_Editor->GetRenderer()->UploadTextureFromAsset(GetAssets().GetAsset<TextureAsset>(asset_path), is_srgb);
+                    inGpuMap = m_Editor->GetRenderInterface()->UploadTextureFromAsset(GetAssets().GetAsset<TextureAsset>(asset_path), is_srgb);
                 }
                 else
                     ImGui::OpenPopup("Error");

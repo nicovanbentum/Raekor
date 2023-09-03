@@ -26,7 +26,9 @@ public:
     virtual void OnUpdate(float inDeltaTime) override;
     virtual void OnEvent(const SDL_Event& inEvent) override;
 
-    virtual IRenderer* GetRenderer() { return &m_RenderInterface; }
+    Device& GetDevice()                     { return m_Device; }
+    Renderer& GetRenderer()                 { return m_Renderer; }
+    IRenderInterface* GetRenderInterface()  { return &m_RenderInterface; }
 
     void UploadTopLevelBVH(CommandList& inCmdList);
     void UploadBindlessSceneBuffers(CommandList& inCmdList);
@@ -54,6 +56,21 @@ private:
     DescriptorID  m_DefaultWhiteTexture;
     DescriptorID  m_DefaultBlackTexture;
     DescriptorID  m_DefaultNormalTexture;
+};
+
+
+class DebugWidget : public IWidget {
+public:
+    RTTI_DECLARE_TYPE(DebugWidget);
+
+    DebugWidget(Application* inApp);
+
+    virtual void Draw(Widgets* inWidgets, float dt) override;
+    virtual void OnEvent(Widgets* inWidgets, const SDL_Event& ev) override;
+
+private:
+    Device& m_Device;
+    Renderer& m_Renderer;
 };
 
 

@@ -34,8 +34,8 @@
 
 #define DDGI_WAVE_SIZE 64                        // Thread group size for the ray trace shader. Sorry AMD, I'm running a 3080
 #define DDGI_RAYS_PER_WAVE 3                     // This is the number of rays per probe (192) divided by the thread group size (64)
-#define DDGI_DEPTH_TEXELS 18                     // Depth is stored as 16x16 FORMAT_R32F texels
-#define DDGI_DEPTH_TEXELS_NO_BORDER 16           // Depth is stored as 16x16 FORMAT_R32F texels
+#define DDGI_DEPTH_TEXELS 16                     // Depth is stored as 16x16 FORMAT_R32F texels
+#define DDGI_DEPTH_TEXELS_NO_BORDER 14           // Depth is stored as 16x16 FORMAT_R32F texels
 #define DDGI_IRRADIANCE_TEXELS 8                 // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
 #define DDGI_IRRADIANCE_TEXELS_NO_BORDER 6       // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
 #define DDGI_PROBES_PER_ROW 40                   // Number of probes per row for the final probe texture
@@ -54,6 +54,7 @@ struct RTGeometry {
     uint     mVertexBuffer;
     uint     mMaterialIndex;
     float4x4 mLocalToWorldTransform;
+    float4x4 mInvLocalToWorldTransform;
 };
 
 
@@ -83,6 +84,7 @@ struct FrameConstants {
     uint      mFrameCounter;
     uint      mDebugLinesVertexBuffer;
     uint      mDebugLinesIndirectArgsBuffer;
+    float4    mSunColor;
     float4    mSunDirection;
     float4    mCameraPosition;
     float4x4  mViewMatrix;
@@ -173,16 +175,17 @@ struct ReflectionsRootConstants {
 STATIC_ASSERT(sizeof(ReflectionsRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
-struct IndirectGIRootConstants {
-    uint  mGbufferRenderTexture;
-    uint  mGbufferDepthTexture;
-    uint  mShadowMaskTexture;
+struct PathTraceRootConstants {
     uint  mTLAS;
+    uint  mBounces;
     uint  mInstancesBuffer;
     uint  mMaterialsBuffer;
     uint2 mDispatchSize;
+    uint  mResultTexture;
+    uint  mPad0;
 };
-STATIC_ASSERT(sizeof(IndirectGIRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+STATIC_ASSERT(sizeof(PathTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
 
 
 struct SpdRootConstants {

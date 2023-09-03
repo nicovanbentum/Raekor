@@ -24,7 +24,7 @@ RTVertex CalculateVertexFromGeometry(RTGeometry inGeometry, uint inPrimitiveInde
     const RTVertex v1 = vertex_buffer[indices.y];
     const RTVertex v2 = vertex_buffer[indices.z];
         
-    float3 vert_normal = normalize(cross(v0.mPos - v1.mPos, v0.mPos - v2.mPos));
+    // float3 vert_normal = normalize(cross(v0.mPos - v1.mPos, v0.mPos - v2.mPos));
         
     const float3 barycentrics = float3(1.0 - inBaryCentrics.x - inBaryCentrics.y, inBaryCentrics.x, inBaryCentrics.y);
     return InterpolateVertices(v0, v1, v2, barycentrics);

@@ -10,7 +10,7 @@ class Assets;
 struct Mesh;
 struct Skeleton;
 struct Material;
-class IRenderer;
+class IRenderInterface;
 class NativeScript;
 class SceneImporter;
 struct DirectionalLight;
@@ -18,7 +18,7 @@ struct DirectionalLight;
 
 class Scene : public ecs::ECS {
 public:
-	Scene(IRenderer* inRenderer) : m_Renderer(inRenderer) {}
+	Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer) {}
 	Scene(const Scene& inOther) = delete;
 	~Scene() { Clear(); }
 
@@ -52,25 +52,25 @@ public:
 	void Optimize();
 
 private:
-	IRenderer* m_Renderer;
+	IRenderInterface* m_Renderer;
 	std::stack<Entity> m_Nodes;
 };
 
 
 class Importer {
 public:
-	Importer(Scene& inScene, IRenderer* inRenderer) : m_Scene(inScene), m_Renderer(inRenderer) {}
+	Importer(Scene& inScene, IRenderInterface* inRenderer) : m_Scene(inScene), m_Renderer(inRenderer) {}
 	virtual bool LoadFromFile(const std::string& inFile, Assets* inAssets) = 0;
 
 protected:
 	Scene& m_Scene;
-	IRenderer* m_Renderer = nullptr;
+	IRenderInterface* m_Renderer = nullptr;
 };
 
 
 class SceneImporter : public Importer {
 public:
-	SceneImporter(Scene& inScene, IRenderer* inRenderer) : Importer(inScene, inRenderer), m_ImportedScene(inRenderer) {}
+	SceneImporter(Scene& inScene, IRenderInterface* inRenderer) : Importer(inScene, inRenderer), m_ImportedScene(inRenderer) {}
 	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
 
 private:

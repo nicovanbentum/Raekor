@@ -15,7 +15,6 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     
     FrameConstants fc = gGetFrameConstants();
     
-    float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
 
     const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;
@@ -30,6 +29,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     
     for (uint i = 0; i < rc.mParams.mSampleCount; i++)
     {
+        float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter + i);
         const float3 random_offset = SampleCosineWeightedHemisphere(blue_noise.xy);
         const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
         const float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);

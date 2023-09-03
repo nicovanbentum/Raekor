@@ -27,7 +27,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
 
     ImGui::SetNextWindowSize(ImVec2(160, 90), ImGuiCond_FirstUseEver);
     m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open, flags);
-    m_Editor->GetRenderer()->GetSettings().paused = !m_Visible;
+    m_Editor->GetRenderInterface()->GetSettings().paused = !m_Visible;
 
     if (ImGui::Checkbox("Gizmo", &gizmoEnabled))
         ImGuizmo::Enable(gizmoEnabled);
@@ -46,15 +46,15 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
 
     ImGui::SameLine(ImGui::GetContentRegionAvail().x - 256.0f);
 
-    auto& current_debug_texture = m_Editor->GetRenderer()->GetSettings().mDebugTexture;
-    const auto debug_texture_count = m_Editor->GetRenderer()->GetDebugTextureCount();
-    const auto preview = std::string("Render Output: " + std::string(m_Editor->GetRenderer()->GetDebugTextureName(current_debug_texture))); // allocs, BLEH TODO: FIXME
+    auto& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
+    const auto debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
+    const auto preview = std::string("Render Output: " + std::string(m_Editor->GetRenderInterface()->GetDebugTextureName(current_debug_texture))); // allocs, BLEH TODO: FIXME
     
     if (ImGui::BeginCombo("##RenderTarget", preview.c_str())) {
         for (auto texture_idx = 0u; texture_idx < debug_texture_count; texture_idx++) {
-            if (ImGui::Selectable(m_Editor->GetRenderer()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx)) {
+            if (ImGui::Selectable(m_Editor->GetRenderInterface()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx)) {
                 current_debug_texture = texture_idx;
-                m_Editor->GetRenderer()->OnResize(viewport); // not an actual resize, just to recreate render targets
+                m_Editor->GetRenderInterface()->OnResize(viewport); // not an actual resize, just to recreate render targets
             }
         }
 
@@ -69,7 +69,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
     auto resized = false;
     if (viewport.size.x != size.x || viewport.size.y != size.y) {
         viewport.SetSize({ size.x, size.y });
-        m_Editor->GetRenderer()->OnResize(viewport);
+        m_Editor->GetRenderInterface()->OnResize(viewport);
         resized = true;
     }
 
@@ -77,14 +77,14 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
     m_Focused = ImGui::IsWindowFocused();
 
     // Update the display texture incase it changed
-    m_DisplayTexture = m_Editor->GetRenderer()->GetDisplayTexture();
+    m_DisplayTexture = m_Editor->GetRenderInterface()->GetDisplayTexture();
 
     // calculate display UVs
     auto uv0 = ImVec2(0, 0);
     auto uv1 = ImVec2(1, 1);
 
     // Flip the Y uv for OpenGL and Vulkan
-    if ((m_Editor->GetRenderer()->GetGraphicsAPI() & GraphicsAPI::DirectX) == 0)
+    if ((m_Editor->GetRenderInterface()->GetGraphicsAPI() & GraphicsAPI::DirectX) == 0)
        std::swap(uv0.y, uv1.y);
 
     // Render the display image
@@ -99,7 +99,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
     // the viewport image is a drag and drop target for dropping materials onto meshes
     if (ImGui::BeginDragDropTarget()) {
         const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
-        const auto pixel = m_Editor->GetRenderer()->GetSelectedEntity(mouse_pos.x, mouse_pos.y);
+        const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(mouse_pos.x, mouse_pos.y);
         const auto picked = Entity(pixel);
 
         Mesh* mesh = nullptr;
@@ -134,7 +134,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
 
     if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !(GetActiveEntity() != NULL_ENTITY && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
         const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
-        const auto pixel = m_Editor->GetRenderer()->GetSelectedEntity(mouse_pos.x, mouse_pos.y);
+        const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(mouse_pos.x, mouse_pos.y);
         auto picked = Entity(pixel);
 
         if (GetActiveEntity() == picked) {
@@ -227,7 +227,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
         const auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
         ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
         // ImGui::Text("Culled meshes: %i", renderer.m_GBuffer->culled);
-        const auto& gpu_info = m_Editor->GetRenderer()->GetGPUInfo();
+        const auto& gpu_info = m_Editor->GetRenderInterface()->GetGPUInfo();
 
         ImGui::Text("Vendor: %s", gpu_info.mVendor.c_str());
         ImGui::Text("Product: %s", gpu_info.mProduct.c_str());

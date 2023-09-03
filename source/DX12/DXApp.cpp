@@ -21,6 +21,9 @@ extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1sp
 
 namespace Raekor::DX12 {
 
+RTTI_DEFINE_TYPE_NO_FACTORY(DebugWidget) {}
+
+
 DXApp::DXApp() : 
     IEditor(WindowFlag::RESIZE, &m_RenderInterface),
     m_Device(m_Window, sFrameCount), 
@@ -32,11 +35,7 @@ DXApp::DXApp() :
     RTTIFactory::Register(RTTI_OF(SystemShadersDX12));
     RTTIFactory::Register(RTTI_OF(EShaderProgramType));
 
-    EShaderProgramType program_type = EShaderProgramType::SHADER_PROGRAM_GRAPHICS;
-    std::cout << gToString(program_type) << '\n';
-
-    program_type = gFromString("SHADER_PROGRAM_COMPUTE");
-    std::cout << gToString(program_type) << '\n';
+    m_Widgets.Register<DebugWidget>(this);
 
     Timer timer;
 
@@ -48,18 +47,6 @@ DXApp::DXApp() :
     // Wait for all the shaders to compile before continuing with renderer init
     g_SystemShaders.OnCompile();
     g_ThreadPool.WaitForJobs();
-
-    //{
-    //    auto write_archive = BinaryWriteArchive("shaders.bin");
-    //    write_archive << g_SystemShaders;
-    //}
-
-    //g_SystemShaders = {};
-
-    //{
-    //    auto read_archive = BinaryReadArchive("shaders.bin");
-    //    read_archive >> g_SystemShaders;
-    //}
 
     if (!g_SystemShaders.IsCompiled()) {
         SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX12 Error", "Failed to compile system shaders", m_Window);
@@ -324,10 +311,11 @@ void DXApp::UploadBindlessSceneBuffers(CommandList& inCmdList) {
             continue;
 
         rt_geometries.emplace_back(RTGeometry {
-            .mIndexBuffer           = m_Device.GetBindlessHeapIndex(m_Device.GetBuffer(BufferID(mesh.indexBuffer)).GetView()),
-            .mVertexBuffer          = m_Device.GetBindlessHeapIndex(m_Device.GetBuffer(BufferID(mesh.vertexBuffer)).GetView()),
-            .mMaterialIndex         = MaterialIndex(mesh.material),
-            .mLocalToWorldTransform = transform.worldTransform
+            .mIndexBuffer = m_Device.GetBindlessHeapIndex(m_Device.GetBuffer(BufferID(mesh.indexBuffer)).GetView()),
+            .mVertexBuffer = m_Device.GetBindlessHeapIndex(m_Device.GetBuffer(BufferID(mesh.vertexBuffer)).GetView()),
+            .mMaterialIndex = MaterialIndex(mesh.material),
+            .mLocalToWorldTransform = transform.worldTransform,
+            .mInvLocalToWorldTransform = glm::inverse(transform.worldTransform)
         });
     }
 
@@ -479,4 +467,209 @@ void DXApp::UploadTopLevelBVH(CommandList& inCmdList) {
 }
 
 
+DebugWidget::DebugWidget(Application* inApp) : 
+    IWidget(inApp, reinterpret_cast<const char*>(ICON_FA_SLIDERS_H "  DX12 Settings ")),
+    m_Device(static_cast<DXApp*>(inApp)->GetDevice()),
+    m_Renderer(static_cast<DXApp*>(inApp)->GetRenderer())
+{}
+
+
+void DebugWidget::Draw(Widgets* inWidgets, float dt) {
+    m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open);
+
+    if (ImGui::Button("PIX GPU Capture"))
+        m_Renderer.SetShouldCaptureNextFrame(true);
+
+    if (ImGui::Button("Save As GraphViz..")) {
+        const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
+
+        if (!file_path.empty()) {
+            auto ofs = std::ofstream(file_path);
+            ofs << m_Renderer.GetRenderGraph().ToGraphVizText(m_Device);
+        }
+    }
+
+    static constexpr auto modes = std::array { 0u /* Windowed */, (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP, (uint32_t)SDL_WINDOW_FULLSCREEN};
+    static constexpr auto mode_strings = std::array { "Windowed", "Borderless", "Fullscreen" };
+
+    auto mode = 0u; // Windowed
+    auto window = m_Editor->GetWindow();
+    const auto window_flags = SDL_GetWindowFlags(window);
+    if (SDL_IsWindowBorderless(window))
+        mode = 1u;
+    else if (SDL_IsWindowExclusiveFullscreen(window))
+        mode = 2u;
+
+    if (ImGui::BeginCombo("Mode", mode_strings[mode])) {
+        for (const auto& [index, string] : gEnumerate(mode_strings)) {
+            const auto is_selected = index == mode;
+            if (ImGui::Selectable(string, &is_selected)) {
+                bool to_fullscreen = modes[index] == 2u;
+                SDL_SetWindowFullscreen(window, modes[index]);
+                if (to_fullscreen) {
+                    while (!SDL_IsWindowExclusiveFullscreen(window))
+                        SDL_Delay(10);
+                }
+
+                m_Renderer.SetShouldResize(true);
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    auto display_names = std::vector<std::string>(SDL_GetNumVideoDisplays());
+    for (const auto& [index, name] : gEnumerate(display_names))
+        name = SDL_GetDisplayName(index);
+
+    const auto display_index = SDL_GetWindowDisplayIndex(m_Editor->GetWindow());
+    if (ImGui::BeginCombo("Monitor", display_names[display_index].c_str())) {
+        for (const auto& [index, name] : gEnumerate(display_names)) {
+            const auto is_selected = index == display_index;
+            if (ImGui::Selectable(name.c_str(), &is_selected)) {
+                if (m_Renderer.GetSettings().mFullscreen) {
+                    SDL_SetWindowFullscreen(window, 0);
+                    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
+                    SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                }
+                else {
+                    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
+                }
+
+                m_Renderer.SetShouldResize(true);
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    const auto current_display_index = SDL_GetWindowDisplayIndex(window);
+    const auto num_display_modes = SDL_GetNumDisplayModes(current_display_index);
+
+    std::vector<SDL_DisplayMode> display_modes(num_display_modes);
+    std::vector<std::string> display_mode_strings(num_display_modes);
+
+    SDL_DisplayMode* new_display_mode = nullptr;
+
+    if (m_Renderer.GetSettings().mFullscreen) {
+        for (const auto& [index, display_mode] : gEnumerate(display_modes))
+            SDL_GetDisplayMode(current_display_index, index, &display_mode);
+
+        for (const auto& [index, display_mode] : gEnumerate(display_modes))
+            display_mode_strings[index] = std::format("{}x{}@{}Hz", display_mode.w, display_mode.h, display_mode.refresh_rate);
+
+        SDL_DisplayMode current_display_mode;
+        SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &current_display_mode);
+
+        if (ImGui::BeginCombo("Resolution", display_mode_strings[m_Renderer.GetSettings().mDisplayRes].c_str())) {
+            for (int index = 0; index < display_mode_strings.size(); index++) {
+                bool is_selected = index == m_Renderer.GetSettings().mDisplayRes;
+                if (ImGui::Selectable(display_mode_strings[index].c_str(), &is_selected)) {
+                    m_Renderer.GetSettings().mDisplayRes = index;
+                    new_display_mode = &display_modes[index];
+                    if (SDL_SetWindowDisplayMode(window, new_display_mode) != 0) {
+
+                        std::cout << SDL_GetError();
+                    }
+                    std::cout << std::format("SDL_SetWindowDisplayMode with {}x{} @ {}Hz\n", new_display_mode->w, new_display_mode->h, new_display_mode->refresh_rate);
+                    m_Renderer.SetShouldResize(true);
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+    }
+
+    ImGui::Checkbox("Enable V-Sync", (bool*)&m_Renderer.GetSettings().mEnableVsync);
+
+    enum EGizmo { SUNLIGHT_DIR, DDGI_POS };
+    constexpr auto items = std::array{ "Sunlight Direction", "DDGI Position", };
+    static auto gizmo = EGizmo::SUNLIGHT_DIR;
+
+    auto index = int(gizmo);
+    if (ImGui::Combo("##EGizmo", &index, items.data(), int(items.size())))
+        gizmo = EGizmo(index);
+
+    bool need_recompile = false;
+    need_recompile |= ImGui::Checkbox("Enable FSR 2.1", (bool*)&m_Renderer.GetSettings().mEnableFsr2);
+    need_recompile |= ImGui::Checkbox("Enable Path Tracer", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
+    need_recompile |= ImGui::Checkbox("Enable DDGI", (bool*)&m_Renderer.GetSettings().mEnableDDGI);
+    need_recompile |= ImGui::Checkbox("Show GI Probe Grid", (bool*)&m_Renderer.GetSettings().mProbeDebug);
+    need_recompile |= ImGui::Checkbox("Show GI Probe Rays", (bool*)&m_Renderer.GetSettings().mDebugLines);
+
+    if (need_recompile)
+        m_Renderer.SetShouldResize(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
+
+    ImGui::NewLine(); ImGui::Separator();
+
+    if (auto path_trace_pass = m_Renderer.GetRenderGraph().GetPass<PathTraceData>()) {
+        ImGui::Text("Path Trace Settings");
+        ImGui::SliderInt("Bounces", (int*)&path_trace_pass->GetData().mBounces, 1, 8);
+    }
+
+    if (auto grass_pass = m_Renderer.GetRenderGraph().GetPass<GrassData>()) {
+        ImGui::Text("Grass Settings");
+        ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
+        ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
+        ImGui::NewLine(); ImGui::Separator();
+    }
+
+    if (auto rtao_pass = m_Renderer.GetRenderGraph().GetPass<RTAOData>()) {
+        auto& params = rtao_pass->GetData().mParams;
+        ImGui::Text("RTAO Settings");
+        ImGui::DragFloat("Radius", &params.mRadius, 0.01f, 0.0f, 20.0f, "%.2f");
+        ImGui::DragFloat("Intensity", &params.mIntensity, 0.01f, 0.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("Normal Bias", &params.mNormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
+        ImGui::SliderInt("Sample Count", (int*)&params.mSampleCount, 1u, 128u);
+        ImGui::NewLine(); ImGui::Separator();
+    }
+
+    if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeTraceData>()) {
+        auto& data = ddgi_pass->GetData();
+        ImGui::Text("DDGI Settings");
+        ImGui::DragInt3("Debug Probe", glm::value_ptr(data.mDebugProbe));
+        ImGui::DragFloat3("Probe Spacing", glm::value_ptr(data.mDDGIData.mProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
+        ImGui::DragInt3("Probe Count", glm::value_ptr(data.mDDGIData.mProbeCount), 1, 1, 40);
+        ImGui::DragFloat3("Grid Position", glm::value_ptr(data.mDDGIData.mCornerPosition), 0.01f, -1000.0f, 1000.0f, "%.3f");
+    }
+
+    /*auto debug_textures = std::vector<TextureID>{};
+
+    if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeUpdateData>()) {
+        debug_textures.push_back(ddgi_pass->GetData().mRaysDepthTexture.mResourceTexture);
+        debug_textures.push_back(ddgi_pass->GetData().mRaysIrradianceTexture.mResourceTexture);
+    }
+
+    if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeDebugData>()) {
+        debug_textures.push_back(ddgi_pass->GetData().mProbesDepthTexture.mResourceTexture);
+        debug_textures.push_back(ddgi_pass->GetData().mProbesIrradianceTexture.mResourceTexture);
+    }
+
+    auto texture_strs = std::vector<std::string>(debug_textures.size());
+    auto texture_cstrs = std::vector<const char*>(debug_textures.size());
+
+    static auto texture_index = glm::min(3, int(debug_textures.size() -1 ));
+    texture_index = glm::min(texture_index, int(debug_textures.size() -1 ));
+
+    for (auto [index, texture] : gEnumerate(debug_textures)) {
+        texture_strs[index] = gGetDebugName(m_Device.GetTexture(texture).GetResource().Get());
+        texture_cstrs[index] = texture_strs[index].c_str();
+    }
+
+    ImGui::Combo("Debug View", &texture_index, texture_cstrs.data(), texture_cstrs.size());
+
+    auto texture = m_Device.GetTexture(debug_textures[texture_index]);
+    auto gpu_handle = m_Device.GetGPUDescriptorHandle(debug_textures[texture_index]);
+
+    ImGui::Image((void*)((intptr_t)gpu_handle.ptr), ImVec2(texture.GetDesc().width, texture.GetDesc().height));*/
+
+    ImGui::End();
 }
+
+
+void DebugWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev) {
+}
+
+
+} // namespace::Raekor

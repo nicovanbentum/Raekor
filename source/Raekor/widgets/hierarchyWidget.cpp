@@ -93,20 +93,21 @@ void HierarchyWidget::DropTargetNode(Scene& inScene, Entity inEntity) {
         if (const auto payload = ImGui::AcceptDragDropPayload("drag_drop_hierarchy_entity")) {
             const auto child = *reinterpret_cast<const Entity*>(payload->Data);
 
-            bool child_is_parent = false;
+            if (child != inEntity) {
+                bool child_is_parent = false;
 
-            for (auto parent = node.parent; parent != NULL_ENTITY; parent = inScene.Get<Node>(parent).parent) {
-                if (child == parent) {
-                    child_is_parent = true;
-                    break;
+                for (auto parent = node.parent; parent != NULL_ENTITY; parent = inScene.Get<Node>(parent).parent) {
+                    if (child == parent) {
+                        child_is_parent = true;
+                        break;
+                    }
+                }
+
+                if (!child_is_parent) {
+                    NodeSystem::sRemove(inScene, inScene.Get<Node>(child));
+                    NodeSystem::sAppend(inScene, inEntity, node, child, inScene.Get<Node>(child));
                 }
             }
-
-            if (!child_is_parent) {
-                NodeSystem::sRemove(inScene, inScene.Get<Node>(child));
-                NodeSystem::sAppend(inScene, inEntity, node, child, inScene.Get<Node>(child));
-            }
-
         }
 
         ImGui::EndDragDropTarget();
@@ -126,7 +127,6 @@ void HierarchyWidget::DropTargetWindow(Scene& inScene) {
 
             NodeSystem::sRemove(inScene, node);
             node.parent = NULL_ENTITY;
-
         }
 
         ImGui::EndDragDropTarget();

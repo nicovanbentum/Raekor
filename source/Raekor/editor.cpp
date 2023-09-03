@@ -18,7 +18,7 @@
 
 namespace Raekor {
 
-IEditor::IEditor(WindowFlags inWindowFlags, IRenderer* inRenderer) :
+IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer) :
     Application(inWindowFlags),
     m_Scene(inRenderer),
     m_Physics(inRenderer)
@@ -55,9 +55,9 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderer* inRenderer) :
     LogMessage("[Editor] initialization done.");
 
     // sponza specific
-    //m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
-    //m_Viewport.GetCamera().Zoom(5.0f);
-    //m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
+    m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
+    m_Viewport.GetCamera().Zoom(5.0f);
+    m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
     m_Viewport.SetFieldOfView(65.0f);
 
     // launch the asset compiler  app to the system tray

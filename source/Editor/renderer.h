@@ -13,7 +13,7 @@ namespace Raekor {
 namespace Raekor::GL {
 
 
-class Renderer : public IRenderer {
+class Renderer : public IRenderInterface {
 public:
     Renderer(SDL_Window* inWindow, Viewport& ioViewport);
     ~Renderer();

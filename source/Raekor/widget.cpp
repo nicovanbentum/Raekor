@@ -24,7 +24,7 @@ RTTI_DEFINE_TYPE_NO_FACTORY(IWidget) {}
 
  Physics& IWidget::GetPhysics() { return *m_Editor->GetPhysics(); }
 
- IRenderer& IWidget::GetRenderer() { return *m_Editor->GetRenderer(); }
+ IRenderInterface& IWidget::GetRenderInterface() { return *m_Editor->GetRenderInterface(); }
 
 
  void Widgets::Draw(float inDeltaTime) {

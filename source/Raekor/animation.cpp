@@ -4,6 +4,33 @@
 
 namespace Raekor {
 
+RTTI_DEFINE_TYPE(Vec3Key) {
+	RTTI_DEFINE_MEMBER(Vec3Key, SERIALIZE_ALL, "Time", mTime);
+	RTTI_DEFINE_MEMBER(Vec3Key, SERIALIZE_ALL, "Value", mValue);
+}
+
+
+RTTI_DEFINE_TYPE(QuatKey) {
+	RTTI_DEFINE_MEMBER(Vec3Key, SERIALIZE_ALL, "Time", mTime);
+	RTTI_DEFINE_MEMBER(Vec3Key, SERIALIZE_ALL, "Value", mValue);
+}
+
+
+RTTI_DEFINE_TYPE(KeyFrames) {
+	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Bone Index", m_BoneIndex);
+	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Scale Keys", m_ScaleKeys);
+	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Position Keys", m_PositionKeys);
+	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Rotation Keys", m_RotationKeys);
+}
+
+
+RTTI_DEFINE_TYPE(Animation) {
+	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Name", m_Name);
+	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Duration", m_TotalDuration);
+	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Bone Keyframe Map", m_BoneAnimations);
+}
+
+
 #ifndef DEPRECATE_ASSIMP
 
 void KeyFrames::LoadFromAssimp(const aiNodeAnim* nodeAnim) {

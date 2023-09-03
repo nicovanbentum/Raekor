@@ -51,8 +51,26 @@ RTTI_DEFINE_TYPE(Mesh) {
 
 RTTI_DEFINE_TYPE(BoxCollider)  {}
 RTTI_DEFINE_TYPE(SoftBody)     {}
-RTTI_DEFINE_TYPE(Bone)         {}
-RTTI_DEFINE_TYPE(Skeleton)     {}
+
+
+RTTI_DEFINE_TYPE(Bone) {
+    RTTI_DEFINE_MEMBER(Bone, SERIALIZE_ALL, "Index",        index);
+    RTTI_DEFINE_MEMBER(Bone, SERIALIZE_ALL, "Name",         name);
+    RTTI_DEFINE_MEMBER(Bone, SERIALIZE_ALL, "Children",     children);
+}
+
+
+RTTI_DEFINE_TYPE(Skeleton) {
+    RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Inv Global Transform",     inverseGlobalTransform);
+    RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Weights",             boneWeights);
+    RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Indices",             boneIndices);
+    RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Offset Matrices",     boneOffsetMatrices);
+    RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Transform Matrices",  boneTransformMatrices);
+    RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Hierarchy",           boneHierarchy);
+    RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Animations",               animations);
+}
+
+
 RTTI_DEFINE_TYPE(NativeScript) {}
 
 
@@ -142,35 +160,71 @@ void Transform::Print() {
 }
 
 
-void Mesh::CalculateTangents() {
+void Mesh::CalculateTangents(float inTangentSign) {
     tangents.resize(positions.size());
+
+    //// calculate the tangent and bitangent for every face
     for (size_t i = 0; i < indices.size(); i += 3) {
-        auto v0 = positions[indices[i]];
-        auto v1 = positions[indices[i + 1]];
-        auto v2 = positions[indices[i + 2]];
+        auto p0 = indices[i];
+        auto p1 = indices[i + 1];
+        auto p2 = indices[i + 2];
 
-        glm::vec3 normal = glm::cross((v1 - v0), (v2 - v0));
-        glm::vec3 deltaPos = v0 == v1 ? v2 - v0 : v1 - v0;
+        // position differences p1->p2 and p1->p3
+        Vec3 v = positions[p1] - positions[p0], w = positions[p2] - positions[p0];
 
-        glm::vec2 uv0 = uvs[indices[i]];
-        glm::vec2 uv1 = uvs[indices[i + 1]];
-        glm::vec2 uv2 = uvs[indices[i + 2]];
+        // texture offset p1->p2 and p1->p3
+        float sx = uvs[p1].x - uvs[p0].x, sy = uvs[p1].y - uvs[p0].y;
+        float tx = uvs[p2].x - uvs[p0].x, ty = uvs[p2].y - uvs[p0].y;
+        float dirCorrection = (tx * sy - ty * sx) < 0.0f ? -1.0f : 1.0f;
+        // when t1, t2, t3 in same position in UV space, just use default UV direction.
+        if (sx * ty == sy * tx) {
+            sx = 0.0;
+            sy = 1.0;
+            tx = 1.0;
+            ty = 0.0;
+        }
 
-        glm::vec2 deltaUV1 = uv1 - uv0;
-        glm::vec2 deltaUV2 = uv2 - uv0;
+        // tangent points in the direction where to positive X axis of the texture coord's would point in model space
+        // bitangent's points along the positive Y axis of the texture coord's, respectively
+        Vec3 tangent, bitangent;
+        tangent.x = (w.x * sy - v.x * ty) * dirCorrection;
+        tangent.y = (w.y * sy - v.y * ty) * dirCorrection;
+        tangent.z = (w.z * sy - v.z * ty) * dirCorrection;
+        bitangent.x = (-w.x * sx + v.x * tx) * dirCorrection;
+        bitangent.y = (-w.y * sx + v.y * tx) * dirCorrection;
+        bitangent.z = (-w.z * sx + v.z * tx) * dirCorrection;
 
-        glm::vec3 tan;
+        // store for every vertex of that face
+        for (unsigned int b = 0; b < 3; ++b) {
+            auto p = indices[i + b];
 
-        if (deltaUV1.s != 0)
-            tan = deltaPos / deltaUV1.s;
-        else
-            tan = deltaPos / 1.0f;
+            // project tangent and bitangent into the plane formed by the vertex' normal
+            glm::vec3 localTangent = tangent - normals[p] * (tangent * normals[p]);
+            glm::vec3 localBitangent = bitangent - normals[p] * (bitangent * normals[p]) - localTangent * (bitangent * localTangent);
+            localTangent = glm::normalize(localTangent);
+            localBitangent = glm::normalize(localBitangent);
 
-        tan = glm::normalize(tan - glm::dot(normal, tan) * normal);
+            auto is_special_float = [](float inValue) {return std::isnan(inValue) || std::isinf(inValue); };
 
-        tangents[indices[i]] = glm::vec4(tan, 1.0f);
-        tangents[indices[i + 1]] = glm::vec4(tan, 1.0f);
-        tangents[indices[i + 2]] = glm::vec4(tan, 1.0f);
+            // reconstruct tangent/bitangent according to normal and bitangent/tangent when it's infinite or NaN.
+            bool invalid_tangent = is_special_float(localTangent.x) || is_special_float(localTangent.y) || is_special_float(localTangent.z);
+            bool invalid_bitangent = is_special_float(localBitangent.x) || is_special_float(localBitangent.y) || is_special_float(localBitangent.z);
+            if (invalid_tangent != invalid_bitangent) {
+                if (invalid_tangent) {
+                    localTangent = glm::normalize(localTangent);
+                }
+                else {
+                    localBitangent = glm::normalize(localBitangent);
+                }
+            }
+
+            // and write it into the mesh.
+            tangents[p] = localTangent;
+
+            if (glm::dot(glm::cross(normals[p], tangents[p]), localBitangent) * inTangentSign < 0.0f) {
+                tangents[p] = tangents[p] * -1.0f;
+            }
+        }
     }
 }
 

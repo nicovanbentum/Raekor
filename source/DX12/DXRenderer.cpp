@@ -262,7 +262,7 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
     m_RenderGraph.SetBackBuffer(GetBackBufferData().mBackBuffer);
 
     const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
-
+    
     // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
     
     const auto& shadow_data = AddShadowMaskPass(m_RenderGraph, inDevice, gbuffer_data, inTLAS);
@@ -277,7 +277,6 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
 
     const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, ddgi_trace_data);
 
-    // const auto& diffuse_gi_data = AddIndirectDiffusePass(m_RenderGraph, inDevice, gbuffer_data, inTLAS, inInstancesBuffer, inMaterialsBuffer);
     
     const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data, ddgi_update_data);
     
@@ -294,6 +293,9 @@ void Renderer::Recompile(Device& inDevice, const Scene& inScene, DescriptorID in
     
     if (m_Settings.mEnableFsr2)
         compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+
+    if (m_Settings.mDoPathTrace)
+        compose_input = AddPathTracePass(m_RenderGraph, inDevice, gbuffer_data, inTLAS, inInstancesBuffer, inMaterialsBuffer).mOutputTexture;
 
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, compose_input);
 
@@ -359,7 +361,7 @@ void Renderer::WaitForIdle(Device& inDevice) {
 
 
 RenderInterface::RenderInterface(Device& inDevice, Renderer& inRenderer, StagingHeap& inStagingHeap) :
-    IRenderer(GraphicsAPI::DirectX12), m_Device(inDevice), m_Renderer(inRenderer), m_StagingHeap(inStagingHeap)
+    IRenderInterface(GraphicsAPI::DirectX12), m_Device(inDevice), m_Renderer(inRenderer), m_StagingHeap(inStagingHeap)
 {
     DXGI_ADAPTER_DESC adapter_desc = {};
     m_Device.GetAdapter()->GetDesc(&adapter_desc);
@@ -551,193 +553,6 @@ void RenderInterface::OnResize(const Viewport& inViewport) {
     m_Renderer.SetShouldResize(true); 
 }
 
-
-void RenderInterface::DrawImGui(Scene& inScene, const Viewport& inViewport) {
-
-    if (ImGui::Button("PIX GPU Capture"))
-        m_Renderer.SetShouldCaptureNextFrame(true);
-
-    if (ImGui::Button("Save As GraphViz..")) {
-        const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
-
-        if (!file_path.empty()) {
-            auto ofs = std::ofstream(file_path);
-            ofs << m_Renderer.GetRenderGraph().ToGraphVizText(m_Device);
-        }
-    }
-
-    static constexpr auto modes = std::array { 0u /* Windowed */, (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP, (uint32_t)SDL_WINDOW_FULLSCREEN};
-    static constexpr auto mode_strings = std::array { "Windowed", "Borderless", "Fullscreen" };
-
-    auto mode = 0u; // Windowed
-    auto window = m_Renderer.GetWindow();
-    const auto window_flags = SDL_GetWindowFlags(window);
-    if (SDL_IsWindowBorderless(window))
-        mode = 1u;
-    else if (SDL_IsWindowExclusiveFullscreen(window))
-        mode = 2u;
-
-    if (ImGui::BeginCombo("Mode", mode_strings[mode])) {
-        for (const auto& [index, string] : gEnumerate(mode_strings)) {
-            const auto is_selected = index == mode;
-            if (ImGui::Selectable(string, &is_selected)) {
-                bool to_fullscreen = modes[index] == 2u;
-                SDL_SetWindowFullscreen(window, modes[index]);
-                if (to_fullscreen) {
-                    while (!SDL_IsWindowExclusiveFullscreen(window))
-                        SDL_Delay(10);
-                }
-
-                m_Renderer.SetShouldResize(true);
-            }
-        }
-
-        ImGui::EndCombo();
-    }
-
-    auto display_names = std::vector<std::string>(SDL_GetNumVideoDisplays());
-    for (const auto& [index, name] : gEnumerate(display_names))
-        name = SDL_GetDisplayName(index);
-
-    const auto display_index = SDL_GetWindowDisplayIndex(m_Renderer.GetWindow());
-    if (ImGui::BeginCombo("Monitor", display_names[display_index].c_str())) {
-        for (const auto& [index, name] : gEnumerate(display_names)) {
-            const auto is_selected = index == display_index;
-            if (ImGui::Selectable(name.c_str(), &is_selected)) {
-                if (m_Renderer.GetSettings().mFullscreen) {
-                    SDL_SetWindowFullscreen(window, 0);
-                    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
-                    SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-                }
-                else {
-                    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
-                }
-
-                m_Renderer.SetShouldResize(true);
-            }
-        }
-
-        ImGui::EndCombo();
-    }
-
-    const auto current_display_index = SDL_GetWindowDisplayIndex(window);
-    const auto num_display_modes = SDL_GetNumDisplayModes(current_display_index);
-    
-    std::vector<SDL_DisplayMode> display_modes(num_display_modes);
-    std::vector<std::string> display_mode_strings(num_display_modes);
-    
-    SDL_DisplayMode* new_display_mode = nullptr;
-
-    if (m_Renderer.GetSettings().mFullscreen) {
-        for (const auto& [index, display_mode] : gEnumerate(display_modes))
-            SDL_GetDisplayMode(current_display_index, index, &display_mode);
-
-        for (const auto& [index, display_mode] : gEnumerate(display_modes))
-            display_mode_strings[index] = std::format("{}x{}@{}Hz", display_mode.w, display_mode.h, display_mode.refresh_rate);
-
-        SDL_DisplayMode current_display_mode;
-        SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &current_display_mode);
-
-        if (ImGui::BeginCombo("Resolution", display_mode_strings[m_Renderer.GetSettings().mDisplayRes].c_str())) {
-            for (int index = 0; index < display_mode_strings.size(); index++) {
-                bool is_selected = index == m_Renderer.GetSettings().mDisplayRes;
-                if (ImGui::Selectable(display_mode_strings[index].c_str(), &is_selected)) {
-                    m_Renderer.GetSettings().mDisplayRes = index;
-                    new_display_mode = &display_modes[index];
-                    if (SDL_SetWindowDisplayMode(window, new_display_mode) != 0) {
-
-                        std::cout << SDL_GetError();
-                    }
-                    std::cout << std::format("SDL_SetWindowDisplayMode with {}x{} @ {}Hz\n", new_display_mode->w, new_display_mode->h, new_display_mode->refresh_rate);
-                    m_Renderer.SetShouldResize(true);
-                }
-            }
-
-            ImGui::EndCombo();
-        }
-    }
-
-    ImGui::Checkbox("Enable V-Sync", (bool*)&m_Renderer.GetSettings().mEnableVsync);
-
-    enum EGizmo { SUNLIGHT_DIR, DDGI_POS };
-    constexpr auto items = std::array{ "Sunlight Direction", "DDGI Position", };
-    static auto gizmo = EGizmo::SUNLIGHT_DIR;
-
-    auto index = int(gizmo);
-    if (ImGui::Combo("##EGizmo", &index, items.data(), int(items.size())))
-        gizmo = EGizmo(index);
-
-    bool need_recompile = false;
-    need_recompile |= ImGui::Checkbox("Enable FSR 2.1", (bool*)&m_Renderer.GetSettings().mEnableFsr2);
-    need_recompile |= ImGui::Checkbox("Enable DDGI", (bool*)&m_Renderer.GetSettings().mEnableDDGI);
-    need_recompile |= ImGui::Checkbox("Show GI Probe Grid", (bool*)&m_Renderer.GetSettings().mProbeDebug);
-    need_recompile |= ImGui::Checkbox("Show GI Probe Rays", (bool*)&m_Renderer.GetSettings().mDebugLines);
-
-    if (need_recompile)
-        m_Renderer.SetShouldResize(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
-
-    ImGui::NewLine(); ImGui::Separator();
-
-    if (auto grass_pass = m_Renderer.GetRenderGraph().GetPass<GrassData>()) {
-        ImGui::Text("Grass Settings");
-        ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
-        ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
-        ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
-        ImGui::NewLine(); ImGui::Separator();
-    }
-
-    if (auto rtao_pass = m_Renderer.GetRenderGraph().GetPass<RTAOData>()) {
-        auto& params = rtao_pass->GetData().mParams;
-        ImGui::Text("RTAO Settings");
-        ImGui::DragFloat("Radius", &params.mRadius, 0.01f, 0.0f, 20.0f, "%.2f");
-        ImGui::DragFloat("Intensity", &params.mIntensity, 0.01f, 0.0f, 1.0f, "%.2f");
-        ImGui::DragFloat("Normal Bias", &params.mNormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
-        ImGui::SliderInt("Sample Count", (int*)&params.mSampleCount, 1u, 128u);
-        ImGui::NewLine(); ImGui::Separator();
-    }
-
-    if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeTraceData>()) {
-        auto& data = ddgi_pass->GetData();
-        ImGui::Text("DDGI Settings");
-        ImGui::DragInt3("Debug Probe", glm::value_ptr(data.mDebugProbe));
-        ImGui::DragFloat3("Probe Spacing", glm::value_ptr(data.mDDGIData.mProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
-        ImGui::DragInt3("Probe Count", glm::value_ptr(data.mDDGIData.mProbeCount), 1, 1, 40);
-        ImGui::DragFloat3("Grid Position", glm::value_ptr(data.mDDGIData.mCornerPosition), 0.01f, -1000.0f, 1000.0f, "%.3f");
-    }
-
-    /*auto debug_textures = std::vector<TextureID>{};
-
-    if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeUpdateData>()) {
-        debug_textures.push_back(ddgi_pass->GetData().mRaysDepthTexture.mResourceTexture);
-        debug_textures.push_back(ddgi_pass->GetData().mRaysIrradianceTexture.mResourceTexture);
-    }
-
-    if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeDebugData>()) {
-        debug_textures.push_back(ddgi_pass->GetData().mProbesDepthTexture.mResourceTexture);
-        debug_textures.push_back(ddgi_pass->GetData().mProbesIrradianceTexture.mResourceTexture);
-    }
-
-    auto texture_strs = std::vector<std::string>(debug_textures.size());
-    auto texture_cstrs = std::vector<const char*>(debug_textures.size());
-
-    static auto texture_index = glm::min(3, int(debug_textures.size() -1 ));
-    texture_index = glm::min(texture_index, int(debug_textures.size() -1 ));
-
-    for (auto [index, texture] : gEnumerate(debug_textures)) {
-        texture_strs[index] = gGetDebugName(m_Device.GetTexture(texture).GetResource().Get());
-        texture_cstrs[index] = texture_strs[index].c_str();
-    }
-
-    ImGui::Combo("Debug View", &texture_index, texture_cstrs.data(), texture_cstrs.size());
-
-    auto texture = m_Device.GetTexture(debug_textures[texture_index]);
-    auto gpu_handle = m_Device.GetGPUDescriptorHandle(debug_textures[texture_index]);
-
-    ImGui::Image((void*)((intptr_t)gpu_handle.ptr), ImVec2(texture.GetDesc().width, texture.GetDesc().height));*/
-}
-
-
-
 CommandList& Renderer::StartSingleSubmit() {
     auto& cmd_list = GetBackBufferData().mCmdList;
     cmd_list.Begin();
@@ -774,7 +589,7 @@ RTTI_DEFINE_TYPE(LightingData)        {}
 RTTI_DEFINE_TYPE(FSR2Data)            {}
 RTTI_DEFINE_TYPE(ProbeTraceData)      {}
 RTTI_DEFINE_TYPE(ProbeUpdateData)     {}
-RTTI_DEFINE_TYPE(IndirectDiffuseData) {}
+RTTI_DEFINE_TYPE(PathTraceData) {}
 RTTI_DEFINE_TYPE(ProbeDebugData)      {}
 RTTI_DEFINE_TYPE(DebugLinesData)      {}
 RTTI_DEFINE_TYPE(ComposeData)         {}
@@ -1126,9 +941,9 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 
 
 
-const IndirectDiffuseData& AddIndirectDiffusePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer) {
-    return inRenderGraph.AddComputePass<IndirectDiffuseData>("RT DIFFUSE GI PASS", inDevice,
-    [&](IRenderPass* inRenderPass, IndirectDiffuseData& inData)
+const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer) {
+    return inRenderGraph.AddComputePass<PathTraceData>("RT DIFFUSE GI PASS", inDevice,
+    [&](IRenderPass* inRenderPass, PathTraceData& inData)
     {
         const auto result_texture = inDevice.CreateTexture(Texture::Desc {
             .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
@@ -1154,21 +969,20 @@ const IndirectDiffuseData& AddIndirectDiffusePass(RenderGraph& inRenderGraph, De
         gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
         inData.mPipeline->SetName(L"PSO_RT_INDIRECT_DIFFUSE");
     },
-    [&inRenderGraph, &inDevice](IndirectDiffuseData& inData, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice](PathTraceData& inData, CommandList& inCmdList)
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        const auto root_constants = IndirectGIRootConstants {
-            .mGbufferRenderTexture  = inData.mGbufferRenderTexture.GetBindlessIndex(inDevice),
-            .mGbufferDepthTexture   = inData.mGBufferDepthTexture.GetBindlessIndex(inDevice),
-            .mShadowMaskTexture     = inData.mOutputTexture.GetBindlessIndex(inDevice),
-            .mTLAS                  = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure),
-            .mInstancesBuffer       = inDevice.GetBindlessHeapIndex(inData.mInstancesBuffer),
-            .mMaterialsBuffer       = inDevice.GetBindlessHeapIndex(inData.mMaterialBuffer),
-            .mDispatchSize          = viewport.size
+        const auto root_constants = PathTraceRootConstants {
+            .mTLAS              = inDevice.GetBindlessHeapIndex(inData.mTopLevelAccelerationStructure),
+            .mBounces           = inData.mBounces,
+            .mInstancesBuffer   = inDevice.GetBindlessHeapIndex(inData.mInstancesBuffer),
+            .mMaterialsBuffer   = inDevice.GetBindlessHeapIndex(inData.mMaterialBuffer),
+            .mDispatchSize      = viewport.size,
+            .mResultTexture     = inData.mOutputTexture.GetBindlessIndex(inDevice)
         };
 
-        inCmdList->SetComputeRoot32BitConstants(0, sizeof(IndirectGIRootConstants) / sizeof(DWORD), &root_constants, 0);
+        inCmdList.PushComputeConstants(root_constants);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });

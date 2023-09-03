@@ -30,7 +30,7 @@ static bool AssertFailedImpl(const char* inExpression, const char* inMessage, co
 
 
 
-Physics::Physics(IRenderer* inRenderer) {
+Physics::Physics(IRenderInterface* inRenderer) {
     JPH::RegisterDefaultAllocator();
 
     JPH::Trace = TraceImpl;

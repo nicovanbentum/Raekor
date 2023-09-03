@@ -13,7 +13,7 @@ class Skeleton;
 
 class GltfImporter : public Importer {
 public:
-	GltfImporter(Scene& inScene, IRenderer* inRenderer) : Importer(inScene, inRenderer) {}
+	GltfImporter(Scene& inScene, IRenderInterface* inRenderer) : Importer(inScene, inRenderer) {}
 	~GltfImporter();
 
 	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
