@@ -36,15 +36,15 @@ Clone this repository using
 ### Raekor
 This project requires C++ 17.
 
-* Simple Job system
-* Simple ConVar system
-* Jolt Physics Integration
-* Hotloadable C++ Scripts (WIP)
+* Simple Job System
+* Simple CVar system
+* JoltPhysics Integration
+* Hotloadable C++ scripts (WIP)
 * Custom Scene Format
-    - DCC import (Assimp)
-    - Serialisation (Cereal)
-    - Entity component system (EnTT)
-    - S3TC DXT5 texture compression
+    - GLTF / FBX / OBJ import (cgltf, ufbx, assimp)
+    - RTTI-based Serialisation
+    - Entity Component System
+    - S3TC DXT5 Texture conversion
 
 
 ### Editor
@@ -95,6 +95,7 @@ Nothing fancy yet, so far its mostly a basic Render Graph (automatically creates
 
 
 ### DX11
+Currently a small demo of async GPU resource creation and dithered mesh fading.
 Raekor started out 4 years ago as an experiment on switching between graphics APIs at runtime (I had no idea what I was doing lol), which is why you will find a bunch of unfinished DirectX 11. Source only.
 
 ### Ray Tracing in One Weekend
