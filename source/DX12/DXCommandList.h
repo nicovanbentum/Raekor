@@ -7,19 +7,20 @@ namespace Raekor::DX12 {
 
 class Device;
 
-class CommandList {
+class CommandList
+{
 public:
 	CommandList() = default;
 	CommandList(Device& inDevice);
 
-	operator ID3D12GraphicsCommandList* ()					{ return m_CommandLists[m_CurrentCmdListIndex].Get(); }
-	operator const ID3D12GraphicsCommandList* () const		{ return m_CommandLists[m_CurrentCmdListIndex].Get(); }
-	ID3D12GraphicsCommandList4* operator-> ()				{ return m_CommandLists[m_CurrentCmdListIndex].Get(); }
-	const ID3D12GraphicsCommandList4* operator-> () const	{ return m_CommandLists[m_CurrentCmdListIndex].Get(); }
+	operator ID3D12GraphicsCommandList* ( )				  { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
+	operator const ID3D12GraphicsCommandList* ( ) const   { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
+	ID3D12GraphicsCommandList4* operator-> ()			  { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
+	const ID3D12GraphicsCommandList4* operator-> () const { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
 
 	/* This will reset both the allocator and command lists, call this once per frame!! */
 	void Reset();
-	
+
 	void Begin();
 	void Close();
 
@@ -36,21 +37,23 @@ public:
 	void DispatchRays(uint32_t inSizeX, uint32_t inSizeY);
 
 	template<typename T> // omg c++ 20 concepts, much wow so cool
-		requires (sizeof(T) < sMaxRootConstantsSize && std::default_initializable<T>)
-	void PushGraphicsConstants(const T& inValue) {
+		requires ( sizeof(T) < sMaxRootConstantsSize && std::default_initializable<T> )
+	void PushGraphicsConstants(const T& inValue)
+	{
 		m_CommandLists[m_CurrentCmdListIndex]->SetGraphicsRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);
 	}
 
 	template<typename T> // omg c++ 20 concepts, much wow so cool
-		requires (sizeof(T) < sMaxRootConstantsSize && std::default_initializable<T>)
-	void PushComputeConstants(const T& inValue) {
+		requires ( sizeof(T) < sMaxRootConstantsSize && std::default_initializable<T> )
+	void PushComputeConstants(const T& inValue)
+	{
 		m_CommandLists[m_CurrentCmdListIndex]->SetComputeRoot32BitConstants(0, sizeof(T) / sizeof(DWORD), &inValue, 0);
 	}
 
 	/* Only buffers are allowed to be used as root descriptor. */
 	void BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset = 0);
 
-    /* Helper function to bind a mesh. */
+	/* Helper function to bind a mesh. */
 	void BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh);
 
 	/* Sets both the viewport and scissor to the size defined by inViewport. */

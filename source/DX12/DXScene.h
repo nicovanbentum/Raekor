@@ -13,14 +13,15 @@ class Application;
 
 namespace Raekor::DX12 {
 
-class RayTracedScene {
+class RayTracedScene
+{
 public:
 	NO_COPY_NO_MOVE(RayTracedScene);
-	
+
 	explicit RayTracedScene(Scene& inScene) : m_Scene(inScene) {}
-	
+
 	inline operator Scene& ()				{ return m_Scene; }
-	inline operator const Scene& () const	{ return m_Scene; }
+	inline operator const Scene& () const   { return m_Scene; }
 	Scene* operator-> ()					{ return &m_Scene; }
 	const Scene* operator-> () const		{ return &m_Scene; }
 
@@ -40,5 +41,5 @@ private:
 	BufferID m_InstancesBuffer;
 	BufferID m_MaterialsBuffer;
 };
-	
+
 }

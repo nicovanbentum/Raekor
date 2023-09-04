@@ -7,18 +7,21 @@
 
 using namespace Raekor;
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
 	g_CVars.ParseCommandLine(argc, argv);
 
 	auto should_launch = true;
-	
-	if (g_CVars.Create("enable_launcher", 0) && !OS::sCheckCommandLineOption("-asset_compiler")) {
+	auto is_asset_compiler = OS::sCheckCommandLineOption("-asset_compiler");
+
+	if (g_CVars.Create("enable_launcher", 0) && !is_asset_compiler)
+	{
 		Launcher launcher;
 		launcher.Run();
 
 		should_launch = launcher.ShouldLaunch();
 	}
-	
+
 	if (!should_launch)
 		return 0;
 
@@ -26,7 +29,7 @@ int main(int argc, char** argv) {
 
 	Application* app = nullptr;
 
-	if (OS::sCheckCommandLineOption("-asset_compiler"))
+	if (is_asset_compiler)
 		app = new CompilerApp(IsDebuggerPresent() ? WindowFlag::NONE : WindowFlag::HIDDEN);
 	else
 		app = new DX12::DXApp();

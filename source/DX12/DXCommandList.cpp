@@ -4,7 +4,8 @@
 
 namespace Raekor::DX12 {
 
-CommandList::CommandList(Device& inDevice) {
+CommandList::CommandList(Device& inDevice)
+{
 	auto& command_list = m_CommandLists.emplace_back();
 	auto& command_allocator = m_CommandAllocators.emplace_back();
 	gThrowIfFailed(inDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&command_allocator)));
@@ -13,14 +14,16 @@ CommandList::CommandList(Device& inDevice) {
 
 
 
-void CommandList::Begin() {
+void CommandList::Begin()
+{
 	auto& cmd_list = m_CommandLists.back();
 	gThrowIfFailed(cmd_list->Reset(m_CommandAllocators.back().Get(), nullptr));
 }
 
 
 
-void CommandList::Reset() {
+void CommandList::Reset()
+{
 	auto& cmd_list = m_CommandLists.back();
 	m_CommandAllocators.back()->Reset();
 	gThrowIfFailed(cmd_list->Reset(m_CommandAllocators.back().Get(), nullptr));
@@ -28,75 +31,86 @@ void CommandList::Reset() {
 
 
 
-void CommandList::Close() {
+void CommandList::Close()
+{
 	auto& cmd_list = m_CommandLists.back();
 	gThrowIfFailed(cmd_list->Close());
 }
 
 
 
-void CommandList::Push() {
-
+void CommandList::Push()
+{
 }
 
 
 
-void CommandList::Pop() {
-
+void CommandList::Pop()
+{
 }
 
 
 
-void CommandList::UpdateBuffer(Buffer& inDstBuffer, uint32_t inDstOffset, uint32_t inDstSize, void* inDataPtr) {
+void CommandList::UpdateBuffer(Buffer& inDstBuffer, uint32_t inDstOffset, uint32_t inDstSize, void* inDataPtr)
+{
 }
 
 
 
-void CommandList::UpdateTexture(Texture& inDstTexture, uint32_t inDstMip, void* inDataPtr) {
+void CommandList::UpdateTexture(Texture& inDstTexture, uint32_t inDstMip, void* inDataPtr)
+{
 }
 
 
 
-void CommandList::Draw() {
+void CommandList::Draw()
+{
 }
 
 
 
-void CommandList::Dispatch(uint32_t inSizeX, uint32_t inSizeY, uint32_t inSizeZ) {
+void CommandList::Dispatch(uint32_t inSizeX, uint32_t inSizeY, uint32_t inSizeZ)
+{
 }
 
 
 
-void CommandList::DispatchRays(uint32_t inSizeX, uint32_t inSizeY) {
+void CommandList::DispatchRays(uint32_t inSizeX, uint32_t inSizeY)
+{
 }
 
 
 
-void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset) {
+void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset)
+{
 	auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
 
-	switch (inSlot) {
-	case EBindSlot::SRV0: case EBindSlot::SRV1:
-		command_list->SetGraphicsRootShaderResourceView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
-		command_list->SetComputeRootShaderResourceView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
-		break;
-	default: assert(false);
+	switch (inSlot)
+	{
+		case EBindSlot::SRV0: case EBindSlot::SRV1:
+			command_list->SetGraphicsRootShaderResourceView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
+			command_list->SetComputeRootShaderResourceView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
+			break;
+		default: assert(false);
 	}
 }
 
 
 
-void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh) {
+void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh)
+{
 	const auto& indexBuffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
 	const auto& vertexBuffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
 
-	const auto index_view = D3D12_INDEX_BUFFER_VIEW{
+	const auto index_view = D3D12_INDEX_BUFFER_VIEW 
+	{
 		.BufferLocation = indexBuffer->GetGPUVirtualAddress(),
 		.SizeInBytes = uint32_t(inMesh.indices.size() * sizeof(inMesh.indices[0])),
 		.Format = DXGI_FORMAT_R32_UINT,
 	};
 
-	const auto vertex_view = D3D12_VERTEX_BUFFER_VIEW{
+	const auto vertex_view = D3D12_VERTEX_BUFFER_VIEW 
+	{
 		.BufferLocation = vertexBuffer->GetGPUVirtualAddress(),
 		.SizeInBytes = uint32_t(vertexBuffer->GetDesc().Width),
 		.StrideInBytes = inMesh.GetInterleavedStride()
@@ -108,7 +122,8 @@ void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh
 
 
 
-void CommandList::SetViewportScissorRect(const Viewport& inViewport) {
+void CommandList::SetViewportScissorRect(const Viewport& inViewport)
+{
 	const auto scissor = CD3DX12_RECT(0, 0, inViewport.GetSize().x, inViewport.GetSize().y);
 	const auto viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(inViewport.GetSize().x), float(inViewport.GetSize().y));
 
@@ -117,9 +132,10 @@ void CommandList::SetViewportScissorRect(const Viewport& inViewport) {
 }
 
 
-void CommandList::Submit(Device& inDevice) {
+void CommandList::Submit(Device& inDevice)
+{
 	auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
-	const auto cmd_lists = std::array { static_cast<ID3D12CommandList*>(command_list.Get())};
+	const auto cmd_lists = std::array { static_cast<ID3D12CommandList*>( command_list.Get() )};
 	inDevice.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
 }
 
