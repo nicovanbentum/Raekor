@@ -5,14 +5,16 @@
 
 namespace Raekor {
 
-enum ESerializeType {
-    SERIALIZE_NONE = 0 << 0,
-    SERIALIZE_JSON = 1 << 0,
-    SERIALIZE_BINARY = 1 << 1,
-    SERIALIZE_ALL = SERIALIZE_JSON | SERIALIZE_BINARY
+enum ESerializeType
+{
+	SERIALIZE_NONE = 0 << 0,
+	SERIALIZE_JSON = 1 << 0,
+	SERIALIZE_BINARY = 1 << 1,
+	SERIALIZE_ALL = SERIALIZE_JSON | SERIALIZE_BINARY
 };
 
-enum EPakCompressionType {
+enum EPakCompressionType
+{
 	COMPRESS_NONE,
 	COMPRESS_LZ4,
 	COMPRESS_GDEFLATE
@@ -20,7 +22,8 @@ enum EPakCompressionType {
 
 constexpr auto PAK_VERSION = 1u;
 
-struct PakHeader {
+struct PakHeader
+{
 	uint32_t mMagicNumber = 'PAK';
 	uint32_t mVersionNumber = PAK_VERSION;
 	uint32_t mContentVersionNumber = 1;
@@ -28,7 +31,8 @@ struct PakHeader {
 	uint32_t mEntryCount = 0;
 };
 
-struct PakEntry {
+struct PakEntry
+{
 	char mNameOrPath[255];
 	EPakCompressionType mCompressionType;
 	uint32_t mOffset = 0;
@@ -45,46 +49,52 @@ inline void WriteFileData(File& ioFile, const T& inData) { ioFile.write((const c
 
 
 template<typename T>
-void WriteFileSlice(File& ioFile, Slice<T> inData) { ioFile.write((const char*)inData.GetPtr(), inData.Length() * sizeof(T));  }
+void WriteFileSlice(File& ioFile, Slice<T> inData) { ioFile.write((const char*)inData.GetPtr(), inData.Length() * sizeof(T)); }
 template<typename T>
-void ReadFileSlice(File& ioFile, Slice<T> inData) { ioFile.read((char*)inData.GetPtr(), inData.Length() * sizeof(T));  }
+void ReadFileSlice(File& ioFile, Slice<T> inData) { ioFile.read((char*)inData.GetPtr(), inData.Length() * sizeof(T)); }
 
 
 template<typename T>
-inline void WriteFileBinary(File& ioFile, const T& inData) { WriteFileData(ioFile, inData);  }
+inline void WriteFileBinary(File& ioFile, const T& inData) { WriteFileData(ioFile, inData); }
 template<typename T>
 inline void ReadFileBinary(File& ioFile, T& ioData) { ReadFileData(ioFile, ioData); }
 
 
-inline void ReadFileBinary(File& ioFile, Path& ioData) {
+inline void ReadFileBinary(File& ioFile, Path& ioData)
+{
 	std::string value;
 	ReadFileBinary(ioFile, value);
 	ioData = std::move(value);
 }
-inline void WriteFileBinary(File& ioFile, const Path& inData) { 
-	WriteFileBinary(ioFile, inData.string()); 
+inline void WriteFileBinary(File& ioFile, const Path& inData)
+{
+	WriteFileBinary(ioFile, inData.string());
 }
 
 
-inline void ReadFileBinary(File& ioFile, std::string& ioData) {
+inline void ReadFileBinary(File& ioFile, std::string& ioData)
+{
 	size_t size = 0;
 	ReadFileData(ioFile, size);
 	ioData.resize(size);
 	ReadFileSlice(ioFile, Slice<char>(ioData));
 }
-inline void WriteFileBinary(File& ioFile, const std::string& inData) {
+inline void WriteFileBinary(File& ioFile, const std::string& inData)
+{
 	WriteFileData(ioFile, inData.size());
 	WriteFileSlice(ioFile, Slice<char>(inData));
 }
 
 
 template<typename T>
-inline void WriteFileBinary(File& ioFile, const std::vector<T>& inData) {
+inline void WriteFileBinary(File& ioFile, const std::vector<T>& inData)
+{
 	WriteFileData(ioFile, inData.size());
 	WriteFileSlice(ioFile, Slice(inData));
 }
 template<typename T>
-inline void ReadFileBinary(File& ioFile, std::vector<T>& ioData) {
+inline void ReadFileBinary(File& ioFile, std::vector<T>& ioData)
+{
 	size_t size;
 	ReadFileData(ioFile, size);
 	ioData.resize(size);
@@ -93,17 +103,21 @@ inline void ReadFileBinary(File& ioFile, std::vector<T>& ioData) {
 
 
 template<typename T> requires HasRTTI<T>
-inline void ReadFileBinary(File& ioFile, T& ioData) {
+inline void ReadFileBinary(File& ioFile, T& ioData)
+{
 	auto& rtti = gGetRTTI<T>();
-	for (const auto& member : rtti) {
+	for (const auto& member : rtti)
+	{
 		if (member->GetSerializeType() & SERIALIZE_BINARY)
 			member->FromBinary(ioFile, &ioData);
 	}
 }
 template<typename T> requires HasRTTI<T>
-inline void WriteFileBinary(File& ioFile, const T& inData) {
+inline void WriteFileBinary(File& ioFile, const T& inData)
+{
 	auto& rtti = gGetRTTI<T>();
-	for (const auto& member : rtti) {
+	for (const auto& member : rtti)
+	{
 		if (member->GetSerializeType() & SERIALIZE_BINARY)
 			member->ToBinary(ioFile, &inData);
 	}

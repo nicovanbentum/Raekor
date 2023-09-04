@@ -2,25 +2,26 @@
 
 namespace Raekor {
 
-class Timer {
+class Timer
+{
 public:
-    /* Creates and starts a Timer. */
-    Timer();
+	/* Creates and starts a Timer. */
+	Timer();
 
-    /* Restarts the timer and returns the elapsed time in seconds. */
-    float Restart();
+	/* Restarts the timer and returns the elapsed time in seconds. */
+	float Restart();
 
-    /* Returns the elapsed time in seconds. */
-    float GetElapsedTime();
+	/* Returns the elapsed time in seconds. */
+	float GetElapsedTime();
 
-    /* Returns the elapsed time in seconds. */
-    std::string GetElapsedFormatted();
+	/* Returns the elapsed time in seconds. */
+	std::string GetElapsedFormatted();
 
-    static float sToMilliseconds(float inTime) { return inTime * 1000; }
-    static float sToMicroseconds(float inTime) { return inTime * 1'000'000; }
+	static float sToMilliseconds(float inTime) { return inTime * 1000; }
+	static float sToMicroseconds(float inTime) { return inTime * 1'000'000; }
 
 private:
-    uint64_t m_StartTime = 0;
+	uint64_t m_StartTime = 0;
 };
 
 } // namespace Raekor

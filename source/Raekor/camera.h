@@ -6,99 +6,102 @@ namespace Raekor {
 
 struct Frustum;
 
-class Camera {
-    
+class Camera
+{
+
 public:
-    Camera(glm::vec3 inPosition, glm::mat4 inProjMatrix);
-    Camera(const Camera&) : Camera(m_Position, m_Projection) {}
-    Camera& operator=(const Camera& rhs) { return *this; }
+	Camera(glm::vec3 inPosition, glm::mat4 inProjMatrix);
+	Camera(const Camera&) : Camera(m_Position, m_Projection) {}
+	Camera& operator=(const Camera& rhs) { return *this; }
 
-    void OnUpdate(float inDeltaTime);
+	void OnUpdate(float inDeltaTime);
 
-    void Zoom(float inAmount);
-    void Look(glm::vec2 inAmount);
-    void Move(glm::vec2 inAmount);
-    
-    glm::vec3 GetForwardVector();
+	void Zoom(float inAmount);
+	void Look(glm::vec2 inAmount);
+	void Move(glm::vec2 inAmount);
 
-    glm::vec2& GetAngle() { return m_Angle; }
-    const glm::vec3& GetPosition() const { return m_Position; }
+	glm::vec3 GetForwardVector();
 
-    glm::mat4& GetView() { return m_View; }
-    const glm::mat4& GetView() const { return m_View; }
+	glm::vec2& GetAngle() { return m_Angle; }
+	const glm::vec3& GetPosition() const { return m_Position; }
 
-    glm::mat4& GetProjection() { return m_Projection; }
-    const glm::mat4& GetProjection() const { return m_Projection; }
+	glm::mat4& GetView() { return m_View; }
+	const glm::mat4& GetView() const { return m_View; }
 
-    float GetFov() const;
-    float GetFar() const;
-    float GetNear() const;
-    float GetAspectRatio() const;
+	glm::mat4& GetProjection() { return m_Projection; }
+	const glm::mat4& GetProjection() const { return m_Projection; }
 
-    Frustum GetFrustum() const;
+	float GetFov() const;
+	float GetFar() const;
+	float GetNear() const;
+	float GetAspectRatio() const;
+
+	Frustum GetFrustum() const;
 
 private:
-    glm::vec2 m_Angle;
-    glm::vec3 m_Position;
+	glm::vec2 m_Angle;
+	glm::vec3 m_Position;
 
-    glm::mat4 m_View;
-    glm::mat4 m_Projection;
+	glm::mat4 m_View;
+	glm::mat4 m_Projection;
 
 public:
-    float& mSensitivity = g_CVars.Create("sensitivity", 2.0f);
-    float mZoomSpeed = 1.0f, mMoveSpeed = 1.0f;
-    float mLookConstant = 1.0f, mZoomConstant = 10.0f, mMoveConstant = 10.0f;
+	float& mSensitivity = g_CVars.Create("sensitivity", 2.0f);
+	float mZoomSpeed = 1.0f, mMoveSpeed = 1.0f;
+	float mLookConstant = 1.0f, mZoomConstant = 10.0f, mMoveConstant = 10.0f;
 };
 
 
 
-class CameraController {
+class CameraController
+{
 public:
-    /* Returns true if the camera moved. */
-    static bool OnEvent(Camera& inCamera, const SDL_Event& inEvent);
+	/* Returns true if the camera moved. */
+	static bool OnEvent(Camera& inCamera, const SDL_Event& inEvent);
 };
 
 
 
-class Viewport {
+class Viewport
+{
 public:
-    Viewport(glm::vec2 inSize = glm::vec2(0, 0));
+	Viewport(glm::vec2 inSize = glm::vec2(0, 0));
 
-    void OnUpdate(float inDeltaTime);
-    
-    Camera& GetCamera() { return m_Camera; }
-    const Camera& GetCamera() const { return m_Camera; }
-    
-    float GetFieldOfView() const { return m_FieldOfView; }
-    void SetFieldOfView(float inFieldOfView) { m_FieldOfView = inFieldOfView; UpdateProjectionMatrix(); }
+	void OnUpdate(float inDeltaTime);
 
-    float GetAspectRatio() const { return m_AspectRatio; }
-    void SetAspectRatio(float inAspectRatio) { m_AspectRatio = inAspectRatio; UpdateProjectionMatrix(); }
+	Camera& GetCamera() { return m_Camera; }
+	const Camera& GetCamera() const { return m_Camera; }
 
-    glm::vec2 GetJitter() const { return m_Jitter; }
-    void SetJitter(const glm::vec2& inJitter) { m_Jitter = inJitter; }
+	float GetFieldOfView() const { return m_FieldOfView; }
+	void SetFieldOfView(float inFieldOfView) { m_FieldOfView = inFieldOfView; UpdateProjectionMatrix(); }
 
-    inline const glm::uvec2& GetSize() const { return size; }
-    void SetSize(const glm::uvec2& inSize) { size = inSize; UpdateProjectionMatrix(); m_JitterIndex = 0; }
+	float GetAspectRatio() const { return m_AspectRatio; }
+	void SetAspectRatio(float inAspectRatio) { m_AspectRatio = inAspectRatio; UpdateProjectionMatrix(); }
 
-    glm::mat4 GetJitteredProjMatrix(const glm::vec2& inJitter) const;
-    glm::mat4 GetJitteredProjMatrix() const { return GetJitteredProjMatrix(GetJitter()); }
+	glm::vec2 GetJitter() const { return m_Jitter; }
+	void SetJitter(const glm::vec2& inJitter) { m_Jitter = inJitter; }
+
+	inline const glm::uvec2& GetSize() const { return size; }
+	void SetSize(const glm::uvec2& inSize) { size = inSize; UpdateProjectionMatrix(); m_JitterIndex = 0; }
+
+	glm::mat4 GetJitteredProjMatrix(const glm::vec2& inJitter) const;
+	glm::mat4 GetJitteredProjMatrix() const { return GetJitteredProjMatrix(GetJitter()); }
 
 public:
-    // These two are public out of convenience
-    glm::uvec2 size   = glm::uvec2(0u);
-    glm::uvec2 offset = glm::uvec2(0u);
+	// These two are public out of convenience
+	glm::uvec2 size = glm::uvec2(0u);
+	glm::uvec2 offset = glm::uvec2(0u);
 
 private:
-    void UpdateProjectionMatrix();
+	void UpdateProjectionMatrix();
 
-    float m_FieldOfView = 45.0f;
-    float m_AspectRatio = 16.0f / 9.0f;
-    
-    uint32_t m_JitterIndex = 0;
-    glm::vec2 m_Jitter = glm::vec2(0.0f);
+	float m_FieldOfView = 45.0f;
+	float m_AspectRatio = 16.0f / 9.0f;
 
-    Camera m_Camera;
+	uint32_t m_JitterIndex = 0;
+	glm::vec2 m_Jitter = glm::vec2(0.0f);
+
+	Camera m_Camera;
 };
 
 } // Namespace Raekor

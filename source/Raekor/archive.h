@@ -6,22 +6,25 @@
 
 namespace Raekor {
 
-class BinaryReadArchive {
+class BinaryReadArchive
+{
 public:
 	BinaryReadArchive(const Path& inPath) : m_File(inPath, std::ios::binary | std::ios::in) {}
 
 	template<typename T>
-	BinaryReadArchive& operator>> (T& ioRHS) {
+	BinaryReadArchive& operator>> (T& ioRHS)
+	{
 		std::string type;
 		ReadFileBinary(m_File, type);
 
 		if (auto rtti = RTTIFactory::GetRTTI(type.c_str()))
-			for (const auto& member : *rtti) {
+			for (const auto& member : *rtti)
+			{
 				if (member->GetSerializeType() & SERIALIZE_BINARY)
 					member->FromBinary(m_File, &ioRHS);
 			}
 
-		
+
 		return *this;
 	}
 
@@ -34,24 +37,28 @@ private:
 };
 
 
-class BinaryWriteArchive {
+class BinaryWriteArchive
+{
 public:
 	BinaryWriteArchive(const Path& inPath) : m_File(inPath, std::ios::binary | std::ios::out) {}
 
 	template<typename T>
-	BinaryWriteArchive& operator<< (const T& ioRHS) {
+	BinaryWriteArchive& operator<< (const T& ioRHS)
+	{
 		WriteFileBinary(m_File, ioRHS);
 		return *this;
 	}
 
 	template<typename T> requires HasRTTI<T>
-	BinaryWriteArchive& operator<< (const T& ioRHS) {
+	BinaryWriteArchive& operator<< (const T& ioRHS)
+	{
 		auto& rtti = gGetRTTI<T>();
 		auto type = std::string(rtti.GetTypeName());
 
 		WriteFileBinary(m_File, type);
 
-		for (const auto& member : rtti) {
+		for (const auto& member : rtti)
+		{
 			if (member->GetSerializeType() & SERIALIZE_BINARY)
 				member->ToBinary(m_File, &ioRHS);
 		}
@@ -69,7 +76,8 @@ private:
 
 namespace Raekor::JSON {
 
-class ReadArchive {
+class ReadArchive
+{
 public:
 	ReadArchive() = default;
 	ReadArchive(JSONData& inJSON) : m_JSON(inJSON) {}
@@ -83,13 +91,16 @@ private:
 };
 
 
-class WriteArchive {
+class WriteArchive
+{
 public:
 	WriteArchive() = default;
-	WriteArchive(const Path& inPath) : m_JSON(inPath, true), m_Ofs(inPath) {
+	WriteArchive(const Path& inPath) : m_JSON(inPath, true), m_Ofs(inPath)
+	{
 		m_Ofs << "{\n"; m_Writer.PushIndent();
 	}
-	~WriteArchive() {
+	~WriteArchive()
+	{
 		m_Ofs << "\n}";
 	}
 
@@ -107,7 +118,8 @@ private:
 
 
 template<typename T>
-ReadArchive& ReadArchive::operator>> (T& ioRHS) {
+ReadArchive& ReadArchive::operator>> (T& ioRHS)
+{
 	// Any JSON document should start with a root object
 	auto token_index = 0;
 	if (m_JSON.GetToken(token_index).type != JSMN_OBJECT)
@@ -120,7 +132,8 @@ ReadArchive& ReadArchive::operator>> (T& ioRHS) {
 	const auto& rtti = gGetRTTI<T>();
 
 	// Keep skipping objects until we find a type match or hit EOF
-	while (m_JSON.GetString(token_index) !=  rtti.GetTypeName()) {
+	while (m_JSON.GetString(token_index) != rtti.GetTypeName())
+	{
 		token_index = m_JSON.SkipToken(token_index);
 
 		if (token_index == -1) // hit end-of-file
@@ -143,10 +156,12 @@ ReadArchive& ReadArchive::operator>> (T& ioRHS) {
 
 
 template<typename T>
-WriteArchive& WriteArchive::operator<< (T& inRHS) {
+WriteArchive& WriteArchive::operator<< (T& inRHS)
+{
 	const auto& rtti = gGetRTTI<T>();
 
-	for (const auto& type_name : m_Types) {
+	for (const auto& type_name : m_Types)
+	{
 		if (type_name == rtti.GetTypeName()) // ptr compare
 			return *this;
 	}

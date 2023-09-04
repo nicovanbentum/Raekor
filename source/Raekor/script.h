@@ -11,33 +11,35 @@ namespace Raekor {
 
 class MoveCubeScript : public NativeScript {
 public:
-    void update(float dt) override;
+	void update(float dt) override;
 };
 
 */
 
-class INativeScript {
+class INativeScript
+{
 public:
-    typedef INativeScript* (__cdecl* FactoryType)();
+	typedef INativeScript* ( __cdecl* FactoryType )( );
 
-    virtual ~INativeScript() = default;
+	virtual ~INativeScript() = default;
 
-    void Bind(Raekor::Entity inEntity, Raekor::Scene* inScene);
+	void Bind(Raekor::Entity inEntity, Raekor::Scene* inScene);
 
-    virtual void OnUpdate(float dt) = 0;
+	virtual void OnUpdate(float dt) = 0;
 
-    template<typename T>
-    T& GetComponent();
+	template<typename T>
+	T& GetComponent();
 
 private:
-    Raekor::Scene* m_Scene = nullptr;
-    Raekor::Entity m_Entity;
+	Raekor::Scene* m_Scene = nullptr;
+	Raekor::Entity m_Entity;
 };
 
 
 template<typename T>
-T& INativeScript::GetComponent() {
-    return m_Scene->Get<T>(m_Entity);
+T& INativeScript::GetComponent()
+{
+	return m_Scene->Get<T>(m_Entity);
 }
 
 } // Raekor

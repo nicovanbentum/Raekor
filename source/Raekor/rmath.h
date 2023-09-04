@@ -17,53 +17,57 @@ template<glm::length_t C, glm::length_t R, typename T>
 inline glm::mat<C, R, T> gFromString(const std::string& inValue);
 
 
-struct BBox3D {
-    BBox3D() = default;
-    BBox3D(const Vec3& inMin, const Vec3& inMax) : mMin(inMin), mMax(inMax) {}
+struct BBox3D
+{
+	BBox3D() = default;
+	BBox3D(const Vec3& inMin, const Vec3& inMax) : mMin(inMin), mMax(inMax) {}
 
-    const Vec3& GetMin() const { return mMin; }
-    const Vec3& GetMax() const { return mMax; }
+	const Vec3& GetMin() const { return mMin; }
+	const Vec3& GetMax() const { return mMax; }
 
-    BBox3D& Scale(const Vec3& inScale);
-    BBox3D& Transform(const Mat4x4& inTransform);
-    
-    Vec3 GetCenter() const { return mMin + ((mMax - mMin) * 0.5f); }
+	BBox3D& Scale(const Vec3& inScale);
+	BBox3D& Transform(const Mat4x4& inTransform);
 
-    bool IsValid() const { return glm::all(glm::greaterThan(mMax, mMin)); }
+	Vec3 GetCenter() const { return mMin + ( ( mMax - mMin ) * 0.5f ); }
 
-    Vec3 mMin = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
-    Vec3 mMax = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
+	bool IsValid() const { return glm::all(glm::greaterThan(mMax, mMin)); }
+
+	Vec3 mMin = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+	Vec3 mMax = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
 };
 
 
-struct Ray {
-    Ray(Viewport& viewport, Vec2 coords);
-    Ray(const Vec3& origin, const Vec3& direction);
+struct Ray
+{
+	Ray(Viewport& viewport, Vec2 coords);
+	Ray(const Vec3& origin, const Vec3& direction);
 
-    Vec3 m_Origin;
-    Vec3 m_Direction;
-    Vec3 m_RcpDirection;
+	Vec3 m_Origin;
+	Vec3 m_Direction;
+	Vec3 m_RcpDirection;
 
-    std::optional<float> HitsOBB(const BBox3D& inOBB, const Mat4x4& modelMatrix) const;
-    std::optional<float> HitsAABB(const BBox3D& inABB) const;
-    std::optional<float> HitsTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2) const;
-    std::optional<float> HitsSphere(const Vec3& inPosition, float inRadius, float inTmin, float inTmax) const;
+	std::optional<float> HitsOBB(const BBox3D& inOBB, const Mat4x4& modelMatrix) const;
+	std::optional<float> HitsAABB(const BBox3D& inABB) const;
+	std::optional<float> HitsTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2) const;
+	std::optional<float> HitsSphere(const Vec3& inPosition, float inRadius, float inTmin, float inTmax) const;
 };
 
 
-struct Frustum {
-    enum Halfspace {
-        NEGATIVE = -1,
-        ON_PLANE = 0,
-        POSITIVE = 1
-    };
+struct Frustum
+{
+	enum Halfspace
+	{
+		NEGATIVE = -1,
+		ON_PLANE = 0,
+		POSITIVE = 1
+	};
 
-    std::array<Vec4, 6> m_Planes;
+	std::array<Vec4, 6> m_Planes;
 
-    Frustum() = default;
-    Frustum(const glm::mat4& inViewProjMatrix, bool inShouldNormalize);
+	Frustum() = default;
+	Frustum(const glm::mat4& inViewProjMatrix, bool inShouldNormalize);
 
-    bool ContainsAABB(const BBox3D& inAABB)const ;
+	bool ContainsAABB(const BBox3D& inAABB)const;
 };
 
 
@@ -76,92 +80,104 @@ Mat3x3 gRandomRotationMatrix();
 
 
 template<glm::length_t L, typename T>
-inline std::string gToString(const glm::vec<L, T>& inValue) {
-    std::stringstream ss;
-    ss << "(";
-    for (int i = 0; i < L; i++) {
-        ss << inValue[i];
-        if (i != L - 1) ss << " ";
-    }
-    ss << ")";
-    return ss.str();
+inline std::string gToString(const glm::vec<L, T>& inValue)
+{
+	std::stringstream ss;
+	ss << "(";
+	for (int i = 0; i < L; i++)
+	{
+		ss << inValue[i];
+		if (i != L - 1) ss << " ";
+	}
+	ss << ")";
+	return ss.str();
 }
 
 
 template<glm::length_t C, glm::length_t R, typename T>
-inline std::string gToString(const glm::mat<C, R, T>& inValue) {
-    std::stringstream ss;
-    ss << "((";
-    for (int i = 0; i < C; ++i) {
-        for (int j = 0; j < R; ++j) {
-            ss << inValue[i][j];
-            if (j != R - 1) ss << " ";
-        }
-        if (i != C - 1) ss << ") (";
-    }
-    ss << "))";
+inline std::string gToString(const glm::mat<C, R, T>& inValue)
+{
+	std::stringstream ss;
+	ss << "((";
+	for (int i = 0; i < C; ++i)
+	{
+		for (int j = 0; j < R; ++j)
+		{
+			ss << inValue[i][j];
+			if (j != R - 1) ss << " ";
+		}
+		if (i != C - 1) ss << ") (";
+	}
+	ss << "))";
 
-    return ss.str();
+	return ss.str();
 }
 
 
-inline std::string gToString(const glm::quat& inValue) {
-    std::stringstream ss;
-    ss << "(";
-    for (int i = 0; i < glm::quat::length(); i++) {
-        ss << inValue[i];
-        if (i != glm::quat::length() - 1) ss << " ";
-    }
-    ss << ")";
-    return ss.str();
+inline std::string gToString(const glm::quat& inValue)
+{
+	std::stringstream ss;
+	ss << "(";
+	for (int i = 0; i < glm::quat::length(); i++)
+	{
+		ss << inValue[i];
+		if (i != glm::quat::length() - 1) ss << " ";
+	}
+	ss << ")";
+	return ss.str();
 }
 
 
 
 template<glm::length_t L, typename T>
-inline glm::vec < L, T> gFromString(const std::string& inValue) {
-    glm::vec < L, T> result;
-    std::stringstream ss(inValue);
+inline glm::vec < L, T> gFromString(const std::string& inValue)
+{
+	glm::vec < L, T> result;
+	std::stringstream ss(inValue);
 
-    char delim;
-    ss >> delim;
+	char delim;
+	ss >> delim;
 
-    for (int i = 0; i < L; i++)
-        ss >> result[i];
+	for (int i = 0; i < L; i++)
+		ss >> result[i];
 
-    return result;
+	return result;
 }
 
 template<glm::length_t C, glm::length_t R, typename T>
-inline glm::mat<C, R, T> gFromString(const std::string& inValue) {
-    glm::mat<C, R, T> result;
-    std::stringstream ss(inValue);
+inline glm::mat<C, R, T> gFromString(const std::string& inValue)
+{
+	glm::mat<C, R, T> result;
+	std::stringstream ss(inValue);
 
-    char delim;
-    ss >> delim >> delim; // eat ((
+	char delim;
+	ss >> delim >> delim; // eat ((
 
-    for (int i = 0; i < C; ++i) {
-        for (int j = 0; j < R; ++j) {
-            ss >> result[i][j];
-        }
-        ss >> delim >> delim; // eat )( and ))
-    }
+	for (int i = 0; i < C; ++i)
+	{
+		for (int j = 0; j < R; ++j)
+		{
+			ss >> result[i][j];
+		}
+		ss >> delim >> delim; // eat )( and ))
+	}
 
-    return result;
+	return result;
 }
 
 
-inline glm::quat gFromString(const std::string& inValue) {
-    glm::quat result;
-    std::stringstream ss(inValue);
+inline glm::quat gFromString(const std::string& inValue)
+{
+	glm::quat result;
+	std::stringstream ss(inValue);
 
-    char delim;
-    ss >> delim;
+	char delim;
+	ss >> delim;
 
-    for (int i = 0; i < glm::quat::length(); i++)
-        ss >> result[i];
+	for (int i = 0; i < glm::quat::length(); i++)
+		ss >> result[i];
 
-    return result;
+	return result;
 }
 
 } // namespace Raekor

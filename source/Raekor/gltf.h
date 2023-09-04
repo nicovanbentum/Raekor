@@ -11,7 +11,8 @@ class Mesh;
 class Material;
 class Skeleton;
 
-class GltfImporter : public Importer {
+class GltfImporter : public Importer
+{
 public:
 	GltfImporter(Scene& inScene, IRenderInterface* inRenderer) : Importer(inScene, inRenderer) {}
 	~GltfImporter();

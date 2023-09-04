@@ -3,7 +3,8 @@
 
 namespace Raekor::JSON {
 
-JSONData::JSONData(const Path& inPath, bool inTokenizeOnly) {
+JSONData::JSONData(const Path& inPath, bool inTokenizeOnly)
+{
 	auto ifs = std::ifstream(inPath);
 	std::stringstream buffer;
 	buffer << ifs.rdbuf();
@@ -26,11 +27,14 @@ JSONData::JSONData(const Path& inPath, bool inTokenizeOnly) {
 	m_Strings.resize(nr_of_tokens);
 	m_Primitives.resize(nr_of_tokens);
 
-	for (const auto& [index, token] : gEnumerate(m_Tokens)) {
+	for (const auto& [index, token] : gEnumerate(m_Tokens))
+	{
 		auto c = m_StrBuffer[token.start];
 
-		if (token.type == JSMN_PRIMITIVE) {
-			if (std::isdigit(c) || c == '.' || c == '-' || c == 'e') {
+		if (token.type == JSMN_PRIMITIVE)
+		{
+			if (std::isdigit(c) || c == '.' || c == '-' || c == 'e')
+			{
 				std::from_chars(&m_StrBuffer[m_Tokens[index].start], &m_StrBuffer[m_Tokens[index].end], m_Primitives[index]);
 			}
 			else if (c == 't' || c == 'f')
@@ -43,18 +47,21 @@ JSONData::JSONData(const Path& inPath, bool inTokenizeOnly) {
 }
 
 
-bool JSONData::IsKeyObjectPair(uint32_t inIdx) {
+bool JSONData::IsKeyObjectPair(uint32_t inIdx)
+{
 	return m_Tokens[inIdx].type == JSMN_STRING && m_Tokens[inIdx + 1].type == JSMN_OBJECT;
 }
 
 
-uint32_t JSONData::SkipToken(uint32_t inTokenIdx) {
-	if (!(inTokenIdx < m_Tokens.size()))
+uint32_t JSONData::SkipToken(uint32_t inTokenIdx)
+{
+	if (!( inTokenIdx < m_Tokens.size() ))
 		return inTokenIdx;
 
 	const auto token_end = m_Tokens[inTokenIdx].end;
 
-	while (m_Tokens[inTokenIdx].start < token_end) {
+	while (m_Tokens[inTokenIdx].start < token_end)
+	{
 		inTokenIdx++;
 
 		if (inTokenIdx >= m_Tokens.size())

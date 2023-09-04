@@ -10,7 +10,7 @@ void EndDockSpace();
 
 void BeginFrame();
 void EndFrame();
-    
+
 void SetFont(const std::string& inFilePath);
 void SetTheme();
 

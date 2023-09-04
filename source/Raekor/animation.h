@@ -5,7 +5,8 @@
 namespace Raekor {
 
 template<typename T>
-struct Key {
+struct Key
+{
 	double mTime = 0.0f;
 	T mValue = {};
 
@@ -19,22 +20,26 @@ struct Key {
 	inline bool operator>(const T& inOther) const { return mTime > inOther.mTime; }
 };
 
-struct Vec3Key : public Key<Vec3> {
+struct Vec3Key : public Key<Vec3>
+{
 	RTTI_DECLARE_TYPE(Vec3Key);
 };
 
-struct QuatKey : public Key<Quat> {
+struct QuatKey : public Key<Quat>
+{
 	RTTI_DECLARE_TYPE(QuatKey);
 };
 
-class KeyFrames {
+class KeyFrames
+{
 	RTTI_DECLARE_TYPE(KeyFrames);
 
 	friend class GltfImporter;
 	friend class AssimpImporter;
 
 	template<typename T>
-	struct Key {
+	struct Key
+	{
 		double mTime = 0.0f;
 		T mValue = {};
 
@@ -70,7 +75,8 @@ private:
 };
 
 
-class Animation {
+class Animation
+{
 	RTTI_DECLARE_TYPE(Animation);
 
 	friend struct Skeleton;

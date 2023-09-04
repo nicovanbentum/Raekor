@@ -5,7 +5,8 @@
 
 namespace Raekor {
 
-enum EConVarType {
+enum EConVarType
+{
 	CVAR_TYPE_ERROR,
 	CVAR_TYPE_INT,
 	CVAR_TYPE_FLOAT,
@@ -13,7 +14,8 @@ enum EConVarType {
 };
 
 
-class ConVar {
+class ConVar
+{
 	RTTI_DECLARE_TYPE(ConVar);
 
 public:
@@ -23,10 +25,10 @@ public:
 	ConVar(const std::string& inValue) : mType(CVAR_TYPE_STRING), mStringValue(inValue) {}
 	ConVar(std::function<void(void)> inValue) : mType(CVAR_TYPE_ERROR), mFuncValue(inValue) {}
 
-	template<typename T> T&	GetValue();
-	template<> int&	GetValue() { return mIntValue; }
+	template<typename T> T& GetValue();
+	template<> int& GetValue() { return mIntValue; }
 	template<> float& GetValue() { return mFloatValue; }
-	template<> std::string&	GetValue() { return mStringValue; }
+	template<> std::string& GetValue() { return mStringValue; }
 	template<> std::function<void(void)>& GetValue() { return mFuncValue; }
 
 	inline EConVarType GetType() const { return mType; }
@@ -43,7 +45,8 @@ public:
 };
 
 
-class ConVars {
+class ConVars
+{
 	RTTI_DECLARE_TYPE(ConVars);
 
 public:
@@ -83,7 +86,8 @@ extern ConVars g_CVars;
 
 
 template<typename T>
-inline T& ConVars::Create(const std::string& inName, T value, bool force) {
+inline T& ConVars::Create(const std::string& inName, T value, bool force)
+{
 	if (m_ConVars.find(inName) == m_ConVars.end() || force)
 		m_ConVars[inName] = ConVar(value);
 
@@ -92,13 +96,15 @@ inline T& ConVars::Create(const std::string& inName, T value, bool force) {
 
 
 template<typename T>
-inline T& ConVars::GetValue(const std::string& inName) {
+inline T& ConVars::GetValue(const std::string& inName)
+{
 	return m_ConVars[inName].GetValue<T>();
 }
 
 
 template<typename T>
-inline T* ConVars::TryGetValue(const std::string& inName) {
+inline T* ConVars::TryGetValue(const std::string& inName)
+{
 	if (m_ConVars.find(inName) == m_ConVars.end())
 		return nullptr;
 

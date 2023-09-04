@@ -4,19 +4,22 @@
 
 namespace Raekor {
 
-RTTI_DEFINE_TYPE(Vec3Key) {
+RTTI_DEFINE_TYPE(Vec3Key)
+{
 	RTTI_DEFINE_MEMBER(Vec3Key, SERIALIZE_ALL, "Time", mTime);
 	RTTI_DEFINE_MEMBER(Vec3Key, SERIALIZE_ALL, "Value", mValue);
 }
 
 
-RTTI_DEFINE_TYPE(QuatKey) {
+RTTI_DEFINE_TYPE(QuatKey)
+{
 	RTTI_DEFINE_MEMBER(Vec3Key, SERIALIZE_ALL, "Time", mTime);
 	RTTI_DEFINE_MEMBER(Vec3Key, SERIALIZE_ALL, "Value", mValue);
 }
 
 
-RTTI_DEFINE_TYPE(KeyFrames) {
+RTTI_DEFINE_TYPE(KeyFrames)
+{
 	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Bone Index", m_BoneIndex);
 	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Scale Keys", m_ScaleKeys);
 	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Position Keys", m_PositionKeys);
@@ -24,7 +27,8 @@ RTTI_DEFINE_TYPE(KeyFrames) {
 }
 
 
-RTTI_DEFINE_TYPE(Animation) {
+RTTI_DEFINE_TYPE(Animation)
+{
 	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Name", m_Name);
 	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Duration", m_TotalDuration);
 	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Bone Keyframe Map", m_BoneAnimations);
@@ -33,7 +37,8 @@ RTTI_DEFINE_TYPE(Animation) {
 
 #ifndef DEPRECATE_ASSIMP
 
-void KeyFrames::LoadFromAssimp(const aiNodeAnim* nodeAnim) {
+void KeyFrames::LoadFromAssimp(const aiNodeAnim* nodeAnim)
+{
 	for (const auto& key : Slice(nodeAnim->mScalingKeys, nodeAnim->mNumScalingKeys))
 		m_ScaleKeys.push_back(Vec3Key(key.mTime, Vec3(key.mValue.x, key.mValue.y, key.mValue.z)));
 
@@ -46,31 +51,35 @@ void KeyFrames::LoadFromAssimp(const aiNodeAnim* nodeAnim) {
 
 #endif
 
-void KeyFrames::LoadFromGltf(const cgltf_animation* nodeAnim) {
-
+void KeyFrames::LoadFromGltf(const cgltf_animation* nodeAnim)
+{
 }
 
 
-Vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
-	if (m_PositionKeys.size() == 1) {
+Vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const
+{
+	if (m_PositionKeys.size() == 1)
+	{
 		// No interpolation necessary for single value
 		auto v = m_PositionKeys[0].mValue;
 		return { v.x, v.y, v.z };
 	}
 
 	auto pos_index = 0u;
-	for (auto i = 0u; i < m_PositionKeys.size() - 1; i++) {
-		if (animationTime < (float)m_PositionKeys[i + 1].mTime) {
+	for (auto i = 0u; i < m_PositionKeys.size() - 1; i++)
+	{
+		if (animationTime < (float)m_PositionKeys[i + 1].mTime)
+		{
 			pos_index = i;
 			break;
 		}
 	}
 
-	auto NextPositionIndex = (pos_index + 1);
-	auto delta_time = (float)(m_PositionKeys[NextPositionIndex].mTime - m_PositionKeys[pos_index].mTime);
-	
-	auto factor = (animationTime - (float)m_PositionKeys[pos_index].mTime) / delta_time;
-	if (factor < 0.0f) 
+	auto NextPositionIndex = ( pos_index + 1 );
+	auto delta_time = (float)( m_PositionKeys[NextPositionIndex].mTime - m_PositionKeys[pos_index].mTime );
+
+	auto factor = ( animationTime - (float)m_PositionKeys[pos_index].mTime ) / delta_time;
+	if (factor < 0.0f)
 		factor = 0.0f;
 
 	const auto& start = m_PositionKeys[pos_index].mValue;
@@ -80,28 +89,32 @@ Vec3 KeyFrames::GetInterpolatedPosition(float animationTime) const {
 
 	return { ai_vec.x, ai_vec.y, ai_vec.z };
 }
-	
 
-Quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
-	if (m_RotationKeys.size() == 1) {
+
+Quat KeyFrames::GetInterpolatedRotation(float animationTime) const
+{
+	if (m_RotationKeys.size() == 1)
+	{
 		// No interpolation necessary for single value
 		auto v = m_RotationKeys[0].mValue;
 		return glm::quat(v.w, v.x, v.y, v.z);
 	}
 
 	auto rotation_index = 0u;
-	for (auto i = 0u; i < m_RotationKeys.size() - 1; i++) {
-		if (animationTime < (float)m_RotationKeys[i + 1].mTime) {
+	for (auto i = 0u; i < m_RotationKeys.size() - 1; i++)
+	{
+		if (animationTime < (float)m_RotationKeys[i + 1].mTime)
+		{
 			rotation_index = i;
 			break;
 		}
 	}
 
-	auto next_rotation_index = (rotation_index + 1);
+	auto next_rotation_index = ( rotation_index + 1 );
 
-	auto delta_time = (float)(m_RotationKeys[next_rotation_index].mTime - m_RotationKeys[rotation_index].mTime);
-	auto factor = (animationTime - (float)m_RotationKeys[rotation_index].mTime) / delta_time;
-	if (factor < 0.0f) 
+	auto delta_time = (float)( m_RotationKeys[next_rotation_index].mTime - m_RotationKeys[rotation_index].mTime );
+	auto factor = ( animationTime - (float)m_RotationKeys[rotation_index].mTime ) / delta_time;
+	if (factor < 0.0f)
 		factor = 0.0f;
 
 	const auto& start_rotation_quat = m_RotationKeys[rotation_index].mValue;
@@ -111,26 +124,30 @@ Quat KeyFrames::GetInterpolatedRotation(float animationTime) const {
 }
 
 
-Vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
-	if (m_ScaleKeys.size() == 1) {
+Vec3 KeyFrames::GetInterpolatedScale(float animationTime) const
+{
+	if (m_ScaleKeys.size() == 1)
+	{
 		// No interpolation necessary for single value
 		auto v = m_ScaleKeys[0].mValue;
 		return { v.x, v.y, v.z };
 	}
 
 	auto index = 0u;
-	for (auto i = 0u; i < m_ScaleKeys.size() - 1; i++) {
-		if (animationTime < (float)m_ScaleKeys[i + 1].mTime) {
+	for (auto i = 0u; i < m_ScaleKeys.size() - 1; i++)
+	{
+		if (animationTime < (float)m_ScaleKeys[i + 1].mTime)
+		{
 			index = i;
 			break;
 		}
 	}
 
-	auto next_index = (index + 1);
-	auto delta_time = (float)(m_ScaleKeys[next_index].mTime - m_ScaleKeys[index].mTime);
-	
-	auto factor = (animationTime - (float)m_ScaleKeys[index].mTime) / delta_time;
-	if (factor < 0.0f) 
+	auto next_index = ( index + 1 );
+	auto delta_time = (float)( m_ScaleKeys[next_index].mTime - m_ScaleKeys[index].mTime );
+
+	auto factor = ( animationTime - (float)m_ScaleKeys[index].mTime ) / delta_time;
+	if (factor < 0.0f)
 		factor = 0.0f;
 
 	const auto& start = m_ScaleKeys[index].mValue;
@@ -143,7 +160,8 @@ Vec3 KeyFrames::GetInterpolatedScale(float animationTime) const {
 
 #ifndef DEPRECATE_ASSIMP
 
-Animation::Animation(const aiAnimation* inAnimation) {
+Animation::Animation(const aiAnimation* inAnimation)
+{
 	m_Name = inAnimation->mName.C_Str();
 	m_RunningTime = 0;
 	m_TotalDuration = float(inAnimation->mDuration);
@@ -151,7 +169,8 @@ Animation::Animation(const aiAnimation* inAnimation) {
 
 #endif
 
-Animation::Animation(const cgltf_animation* inAnimation) {
+Animation::Animation(const cgltf_animation* inAnimation)
+{
 	m_Name = inAnimation->name;
 	m_RunningTime = 0;
 	m_TotalDuration = 0;
@@ -159,14 +178,16 @@ Animation::Animation(const cgltf_animation* inAnimation) {
 
 #ifndef DEPRECATE_ASSIMP
 
-void Animation::LoadKeyframes(uint32_t inBoneIndex, const aiNodeAnim* inAnimation) {
+void Animation::LoadKeyframes(uint32_t inBoneIndex, const aiNodeAnim* inAnimation)
+{
 	m_BoneAnimations[inBoneIndex] = KeyFrames(inBoneIndex);
 	m_BoneAnimations[inBoneIndex].LoadFromAssimp(inAnimation);
 }
 
 #endif
 
-void Animation::LoadKeyframes(uint32_t inBoneIndex, const cgltf_animation* inAnimation) {
+void Animation::LoadKeyframes(uint32_t inBoneIndex, const cgltf_animation* inAnimation)
+{
 	m_BoneAnimations[inBoneIndex] = KeyFrames(inBoneIndex);
 	m_BoneAnimations[inBoneIndex].LoadFromGltf(inAnimation);
 }

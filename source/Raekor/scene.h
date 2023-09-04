@@ -16,7 +16,8 @@ class SceneImporter;
 struct DirectionalLight;
 
 
-class Scene : public ecs::ECS {
+class Scene : public ecs::ECS
+{
 public:
 	Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer) {}
 	Scene(const Scene& inOther) = delete;
@@ -57,7 +58,8 @@ protected:
 };
 
 
-class Importer {
+class Importer
+{
 public:
 	Importer(Scene& inScene, IRenderInterface* inRenderer) : m_Scene(inScene), m_Renderer(inRenderer) {}
 	virtual bool LoadFromFile(const std::string& inFile, Assets* inAssets) = 0;
@@ -68,7 +70,8 @@ protected:
 };
 
 
-class SceneImporter : public Importer {
+class SceneImporter : public Importer
+{
 public:
 	SceneImporter(Scene& inScene, IRenderInterface* inRenderer) : Importer(inScene, inRenderer), m_ImportedScene(inRenderer) {}
 	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;

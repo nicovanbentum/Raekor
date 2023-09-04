@@ -4,23 +4,24 @@
 
 namespace Raekor {
 
-class Input {
+class Input
+{
 public:
-    Input() : keyboardState(SDL_GetKeyboardState(NULL)) {}
+	Input() : keyboardState(SDL_GetKeyboardState(NULL)) {}
 
-    /* Gets the current state of a keyboard key.
-        @param code pass the desired key from SDL_SCANCODE_ */
-    static bool sIsKeyPressed(SDL_Keycode code);
+	/* Gets the current state of a keyboard key.
+		@param code pass the desired key from SDL_SCANCODE_ */
+	static bool sIsKeyPressed(SDL_Keycode code);
 
-    /* Gets the current state of a mouse button.
-       @param button 0 = LMB, 1 = MMB, 2 = RMB */
-    static bool sIsButtonPressed(uint32_t button);
+	/* Gets the current state of a mouse button.
+	   @param button 0 = LMB, 1 = MMB, 2 = RMB */
+	static bool sIsButtonPressed(uint32_t button);
 
-    static void sSetCallback(uint32_t type, const std::function<void()>& callback);
+	static void sSetCallback(uint32_t type, const std::function<void()>& callback);
 
 private:
-    const Uint8* keyboardState;
-    inline static std::unique_ptr<Input> global = std::make_unique<Input>();
+	const Uint8* keyboardState;
+	inline static std::unique_ptr<Input> global = std::make_unique<Input>();
 };
 
 }

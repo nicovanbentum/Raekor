@@ -22,7 +22,8 @@ class Material;
 class Skeleton;
 typedef uint32_t Entity;
 
-class AssimpImporter : public Importer {
+class AssimpImporter : public Importer
+{
 public:
 	AssimpImporter(Scene& inScene, IRenderer* inRenderer) : Importer(inScene, inRenderer) {}
 	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;

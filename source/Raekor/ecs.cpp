@@ -3,71 +3,75 @@
 
 namespace Raekor::ecs {
 
-struct TestName {
-    RTTI_DECLARE_TYPE(TestName);
+struct TestName
+{
+	RTTI_DECLARE_TYPE(TestName);
 
-    std::string name;
+	std::string name;
 };
 
 RTTI_DEFINE_TYPE(TestName) {}
 
-struct TestTransform {
-    RTTI_DECLARE_TYPE(TestTransform);
+struct TestTransform
+{
+	RTTI_DECLARE_TYPE(TestTransform);
 
-    Vec3 pos;
+	Vec3 pos;
 };
 
 RTTI_DEFINE_TYPE(TestTransform) {}
 
 
-struct TestMaterial {
-    RTTI_DECLARE_TYPE(TestMaterial);
+struct TestMaterial
+{
+	RTTI_DECLARE_TYPE(TestMaterial);
 
-    Vec4 color;
+	Vec4 color;
 };
 
 RTTI_DEFINE_TYPE(TestMaterial) {}
 
 
-void RunTests() {
-    ECS ecs;
-    Entity entity = ecs.Create();
-    {
-        TestName& name = ecs.Add<TestName>(entity);
-        name.name = "FirstEntity";
-    }
+void RunTests()
+{
+	ECS ecs;
+	Entity entity = ecs.Create();
+	{
+		TestName& name = ecs.Add<TestName>(entity);
+		name.name = "FirstEntity";
+	}
 
-    assert(ecs.IsValid(entity));
-    assert(ecs.Has<TestName>(entity));
-    assert(ecs.Get<TestName>(entity).name == "FirstEntity");
-    assert(ecs.Count<TestName>() == 1);
-    assert(ecs.GetPtr<TestName>(entity) != nullptr);
-    assert(ecs.GetStorage<TestName>().Length() == 1);
-    assert(ecs.GetEntities<TestName>().Length() == 1);
+	assert(ecs.IsValid(entity));
+	assert(ecs.Has<TestName>(entity));
+	assert(ecs.Get<TestName>(entity).name == "FirstEntity");
+	assert(ecs.Count<TestName>() == 1);
+	assert(ecs.GetPtr<TestName>(entity) != nullptr);
+	assert(ecs.GetStorage<TestName>().Length() == 1);
+	assert(ecs.GetEntities<TestName>().Length() == 1);
 
-    ecs.Add<TestTransform>(entity);
-    {
-        TestMaterial& material = ecs.Add<TestMaterial>(entity);
-    }
+	ecs.Add<TestTransform>(entity);
+	{
+		TestMaterial& material = ecs.Add<TestMaterial>(entity);
+	}
 
-    for (const auto& [entity, name, transform] : ecs.Each<TestName, TestTransform>())
-        name.name = "NotFirstEntity";
+	for (const auto& [entity, name, transform] : ecs.Each<TestName, TestTransform>())
+		name.name = "NotFirstEntity";
 
-    for (const auto& [entity, name, transform] : ecs.Each<TestName, TestTransform>())
-        assert(name.name == "NotFirstEntity");
-    
-    ecs.Remove<TestName>(entity);
-    assert(!ecs.Has<TestName>(entity));
-    
-    {
-        TestName& name = ecs.Add<TestName>(entity);
-        name.name = "SecondEntity";
-    }
+	for (const auto& [entity, name, transform] : ecs.Each<TestName, TestTransform>())
+		assert(name.name == "NotFirstEntity");
 
-    assert(ecs.Get<TestName>(entity).name == "SecondEntity");
+	ecs.Remove<TestName>(entity);
+	assert(!ecs.Has<TestName>(entity));
 
-    for (const auto& [entity, name, transform] : ecs.Each<TestName, TestTransform>())
-        std::cout << name.name << std::endl;
+	{
+		TestName& name = ecs.Add<TestName>(entity);
+		name.name = "SecondEntity";
+	}
+
+	assert(ecs.Get<TestName>(entity).name == "SecondEntity");
+
+	for (const auto& [entity, name, transform] : ecs.Each<TestName, TestTransform>())
+		std::cout << name.name << std::endl;
 }
 
 }

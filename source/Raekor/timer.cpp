@@ -3,24 +3,28 @@
 
 namespace Raekor {
 
-Timer::Timer() {
-    m_StartTime = SDL_GetPerformanceCounter();
+Timer::Timer()
+{
+	m_StartTime = SDL_GetPerformanceCounter();
 }
 
 
-float Timer::Restart() {
-    float TimeOpenGL = GetElapsedTime();
-    m_StartTime = SDL_GetPerformanceCounter();
-    return TimeOpenGL;
+float Timer::Restart()
+{
+	float TimeOpenGL = GetElapsedTime();
+	m_StartTime = SDL_GetPerformanceCounter();
+	return TimeOpenGL;
 }
 
 
-float Timer::GetElapsedTime() {
-    return (float)((SDL_GetPerformanceCounter() - m_StartTime) / (float)SDL_GetPerformanceFrequency());
+float Timer::GetElapsedTime()
+{
+	return (float)( ( SDL_GetPerformanceCounter() - m_StartTime ) / (float)SDL_GetPerformanceFrequency() );
 }
 
-std::string Timer::GetElapsedFormatted() {
-    return std::to_string((float)((SDL_GetPerformanceCounter() - m_StartTime) / (float)SDL_GetPerformanceFrequency()));
+std::string Timer::GetElapsedFormatted()
+{
+	return std::to_string((float)( ( SDL_GetPerformanceCounter() - m_StartTime ) / (float)SDL_GetPerformanceFrequency() ));
 }
 
 } // raekor
