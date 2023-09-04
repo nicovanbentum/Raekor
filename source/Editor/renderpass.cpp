@@ -7,56 +7,64 @@
 namespace Raekor::GL {
 
 
-GLTimer::GLTimer() {
+GLTimer::GLTimer()
+{
     glGenQueries(GLsizei(queries.size()), queries.data());
-    for (auto query : queries) {
+    for (auto query : queries)
+    {
         glBeginQuery(GL_TIME_ELAPSED, query);
         glEndQuery(GL_TIME_ELAPSED);
     }
 }
 
 
-GLTimer::~GLTimer() {
+GLTimer::~GLTimer()
+{
     glDeleteQueries(GLsizei(queries.size()), queries.data());
 }
 
 
-void GLTimer::begin() {
+void GLTimer::begin()
+{
     glBeginQuery(GL_TIME_ELAPSED, queries[index]);
 }
 
 
-void GLTimer::end() {
+void GLTimer::end()
+{
     glEndQuery(GL_TIME_ELAPSED);
-    
+
     // check all the queries for results, except the one that just ended
-    for (uint32_t i = 0; i < queries.size(); i++) {
-        if (i == index) 
+    for (uint32_t i = 0; i < queries.size(); i++)
+    {
+        if (i == index)
             continue;
         glGetQueryObjectui64v(queries[i], GL_QUERY_RESULT_NO_WAIT, &time);
     }
 
-    index = (index + 1) % queries.size();
+    index = ( index + 1 ) % queries.size();
 }
 
 
-float GLTimer::getMilliseconds() const {
+float GLTimer::getMilliseconds() const
+{
     return time * 0.000001f;
 }
 
 
-ShadowMap::ShadowMap(const Viewport& viewport) {
+ShadowMap::ShadowMap(const Viewport& viewport)
+{
     cascades.resize(settings.nrOfCascades);
 
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\depth.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\depth.frag"}
-    });
+        });
 
     debugShader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\quad.frag"}
-    });
+        });
 
     glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &texture);
     glTextureStorage3D(texture, 1, GL_DEPTH_COMPONENT32F, settings.resolution, settings.resolution, settings.nrOfCascades);
@@ -81,14 +89,16 @@ ShadowMap::ShadowMap(const Viewport& viewport) {
 }
 
 
-ShadowMap::~ShadowMap() {
+ShadowMap::~ShadowMap()
+{
     glDeleteTextures(1, &texture);
     glDeleteFramebuffers(1, &framebuffer);
     glDeleteBuffers(1, &uniformBuffer);
 }
 
 
-void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
+void ShadowMap::updatePerspectiveConstants(const Viewport& viewport)
+{
     const float nearClip = viewport.GetCamera().GetNear();
     const float farClip = viewport.GetCamera().GetFar();
 
@@ -104,40 +114,44 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
 
     // Calculate split depths based on view m_Camera frustum
     // Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
-    for (uint32_t i = 0; i < settings.nrOfCascades; i++) {
-        const float p = (i + 1) / float(settings.nrOfCascades);
+    for (uint32_t i = 0; i < settings.nrOfCascades; i++)
+    {
+        const float p = ( i + 1 ) / float(settings.nrOfCascades);
         const float log = minZ * std::pow(ratio, p);
         const float uniform = minZ + range * p;
-        const float d = settings.cascadeSplitLambda * (log - uniform) + uniform;
-        dists[i] = (d - nearClip) / clipRange;
+        const float d = settings.cascadeSplitLambda * ( log - uniform ) + uniform;
+        dists[i] = ( d - nearClip ) / clipRange;
     }
 
     float lastSplitDist = 0.0;
-    for (uint32_t i = 0; i < settings.nrOfCascades; i++) {
+    for (uint32_t i = 0; i < settings.nrOfCascades; i++)
+    {
         float splitDist = dists[i];
 
         std::array frustumCorners = {
             glm::vec3(-1.0f,  1.0f, -1.0f),
-            glm::vec3( 1.0f,  1.0f, -1.0f),
-            glm::vec3( 1.0f, -1.0f, -1.0f),
+            glm::vec3(1.0f,  1.0f, -1.0f),
+            glm::vec3(1.0f, -1.0f, -1.0f),
             glm::vec3(-1.0f, -1.0f, -1.0f),
             glm::vec3(-1.0f,  1.0f,  1.0f),
-            glm::vec3( 1.0f,  1.0f,  1.0f),
-            glm::vec3( 1.0f, -1.0f,  1.0f),
+            glm::vec3(1.0f,  1.0f,  1.0f),
+            glm::vec3(1.0f, -1.0f,  1.0f),
             glm::vec3(-1.0f, -1.0f,  1.0f),
         };
 
         const glm::mat4 inverse = glm::inverse(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView());
 
-        for (auto& corner : frustumCorners) {
+        for (auto& corner : frustumCorners)
+        {
             glm::vec4 invCorner = inverse * glm::vec4(corner, 1.0f);
             corner = invCorner / invCorner.w;
         }
 
-        for (uint32_t i = 0; i < 4; i++) {
+        for (uint32_t i = 0; i < 4; i++)
+        {
             const glm::vec3 dist = frustumCorners[i + 4] - frustumCorners[i];
-            frustumCorners[i + 4] = frustumCorners[i] + (dist * splitDist);
-            frustumCorners[i] = frustumCorners[i] + (dist * lastSplitDist);
+            frustumCorners[i + 4] = frustumCorners[i] + ( dist * splitDist );
+            frustumCorners[i] = frustumCorners[i] + ( dist * lastSplitDist );
         }
 
         glm::vec3 frustumCenter = glm::vec3(0.0f);
@@ -147,7 +161,8 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
         frustumCenter /= 8.0f;
 
         cascades[i].radius = 0.0f;
-        for (uint32_t j = 0; j < 8; j++) {
+        for (uint32_t j = 0; j < 8; j++)
+        {
             float distance = glm::length(frustumCorners[j] - frustumCenter);
             cascades[i].radius = glm::max(cascades[i].radius, distance);
         }
@@ -157,14 +172,15 @@ void ShadowMap::updatePerspectiveConstants(const Viewport& viewport) {
 }
 
 
-void ShadowMap::updateCascades(const Scene& inScene, const Viewport& viewport) {
+void ShadowMap::updateCascades(const Scene& inScene, const Viewport& viewport)
+{
     auto view_dir = glm::vec3(0.25f, -0.9f, 0.0f);
-    
+
     if (auto sunlight = inScene.GetSunLight())
         view_dir = Vec3(glm::normalize(sunlight->GetDirection()));
 
     view_dir = glm::clamp(view_dir, { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
-    
+
     const float nearClip = viewport.GetCamera().GetNear();
     const float farClip = viewport.GetCamera().GetFar();
     const float clipRange = farClip - nearClip;
@@ -179,44 +195,49 @@ void ShadowMap::updateCascades(const Scene& inScene, const Viewport& viewport) {
 
     // Calculate split depths based on view m_Camera frustum
     // Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
-    for (uint32_t i = 0; i < settings.nrOfCascades; i++) {
-        const float p = (i + 1) / float(settings.nrOfCascades);
+    for (uint32_t i = 0; i < settings.nrOfCascades; i++)
+    {
+        const float p = ( i + 1 ) / float(settings.nrOfCascades);
         const float log = minZ * std::pow(ratio, p);
         const float uniform = minZ + range * p;
-        const float d = settings.cascadeSplitLambda * (log - uniform) + uniform;
-        dists[i] = (d - nearClip) / clipRange;
+        const float d = settings.cascadeSplitLambda * ( log - uniform ) + uniform;
+        dists[i] = ( d - nearClip ) / clipRange;
     }
 
     float lastSplitDist = 0.0;
-    for (uint32_t cascade = 0; cascade < settings.nrOfCascades; cascade++) {
+    for (uint32_t cascade = 0; cascade < settings.nrOfCascades; cascade++)
+    {
         float splitDist = dists[cascade];
 
         std::array frustumCorners = {
             glm::vec3(-1.0f,  1.0f, -1.0f),
-            glm::vec3( 1.0f,  1.0f, -1.0f),
-            glm::vec3( 1.0f, -1.0f, -1.0f),
+            glm::vec3(1.0f,  1.0f, -1.0f),
+            glm::vec3(1.0f, -1.0f, -1.0f),
             glm::vec3(-1.0f, -1.0f, -1.0f),
             glm::vec3(-1.0f,  1.0f,  1.0f),
-            glm::vec3( 1.0f,  1.0f,  1.0f),
-            glm::vec3( 1.0f, -1.0f,  1.0f),
+            glm::vec3(1.0f,  1.0f,  1.0f),
+            glm::vec3(1.0f, -1.0f,  1.0f),
             glm::vec3(-1.0f, -1.0f,  1.0f),
         };
 
         const glm::mat4 inverse = glm::inverse(viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView());
 
-        for (auto& corner : frustumCorners) {
+        for (auto& corner : frustumCorners)
+        {
             glm::vec4 invCorner = inverse * glm::vec4(corner, 1.0f);
             corner = invCorner / invCorner.w;
         }
 
-        for (uint32_t i = 0; i < 4; i++) {
+        for (uint32_t i = 0; i < 4; i++)
+        {
             const glm::vec3 dist = frustumCorners[i + 4] - frustumCorners[i];
-            frustumCorners[i + 4] = frustumCorners[i] + (dist * splitDist);
-            frustumCorners[i] = frustumCorners[i] + (dist * lastSplitDist);
+            frustumCorners[i + 4] = frustumCorners[i] + ( dist * splitDist );
+            frustumCorners[i] = frustumCorners[i] + ( dist * lastSplitDist );
         }
 
         glm::vec3 frustumCenter = glm::vec3(0.0f);
-        for (const auto& corner : frustumCorners) {
+        for (const auto& corner : frustumCorners)
+        {
             frustumCenter += corner;
         }
         frustumCenter /= 8.0f;
@@ -244,7 +265,7 @@ void ShadowMap::updateCascades(const Scene& inScene, const Viewport& viewport) {
         shadowProj[3] += roundOffset;
         lightOrthoMatrix = shadowProj;
 
-        cascades[cascade].split = (nearClip + splitDist * clipRange) * -1.0f;
+        cascades[cascade].split = ( nearClip + splitDist * clipRange ) * -1.0f;
         cascades[cascade].matrix = lightOrthoMatrix * lightViewMatrix;
 
         lastSplitDist = dists[cascade];
@@ -252,7 +273,8 @@ void ShadowMap::updateCascades(const Scene& inScene, const Viewport& viewport) {
 }
 
 
-void ShadowMap::Render(const Viewport& inViewport, const Scene& inScene) {
+void ShadowMap::Render(const Viewport& inViewport, const Scene& inScene)
+{
     glViewport(0, 0, settings.resolution, settings.resolution);
 
     updateCascades(inScene, inViewport);
@@ -266,14 +288,16 @@ void ShadowMap::Render(const Viewport& inViewport, const Scene& inScene) {
     shader.Bind();
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
-    
-    for (uint32_t i = 0; i < settings.nrOfCascades; i++) {
+
+    for (uint32_t i = 0; i < settings.nrOfCascades; i++)
+    {
         glNamedFramebufferTextureLayer(framebuffer, GL_DEPTH_ATTACHMENT, texture, 0, i);
         glClear(GL_DEPTH_BUFFER_BIT);
 
         uniforms.lightMatrix = cascades[i].matrix;
 
-        for (const auto& [entity, mesh, transform] : inScene.Each<Mesh, Transform>()) {
+        for (const auto& [entity, mesh, transform] : inScene.Each<Mesh, Transform>())
+        {
             uniforms.modelMatrix = transform.worldTransform;
 
             // determine if we use the original mesh vertices or GPU skinned vertices
@@ -293,7 +317,8 @@ void ShadowMap::Render(const Viewport& inViewport, const Scene& inScene) {
 }
 
 
-void ShadowMap::renderCascade(const Viewport& inViewport, GLuint framebuffer) {
+void ShadowMap::renderCascade(const Viewport& inViewport, GLuint framebuffer)
+{
     glViewport(0, 0, inViewport.size.x, inViewport.size.y);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     debugShader.Bind();
@@ -304,11 +329,12 @@ void ShadowMap::renderCascade(const Viewport& inViewport, GLuint framebuffer) {
 }
 
 
-GBuffer::GBuffer(const Viewport& inViewport) {
+GBuffer::GBuffer(const Viewport& inViewport)
+{
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\gbuffer.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\gbuffer.frag"}
-    });
+        });
 
     glCreateBuffers(1, &uniformBuffer);
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
@@ -321,13 +347,15 @@ GBuffer::GBuffer(const Viewport& inViewport) {
 }
 
 
-GBuffer::~GBuffer() {
+GBuffer::~GBuffer()
+{
     glDeleteBuffers(1, &uniformBuffer);
     DestroyRenderTargets();
 }
 
 
-void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_FrameNr) {
+void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_FrameNr)
+{
     glViewport(0, 0, inViewport.size.x, inViewport.size.y);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -336,17 +364,23 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
     constexpr auto clear_color = std::array { float(NULL_ENTITY), 0.0f, 0.0f, 1.0f };
     glClearBufferfv(GL_COLOR, 3, clear_color.data());
 
-    if (m_FrameNr == 0) {
+    if (m_FrameNr == 0)
+    {
         uniforms.prevJitter = inViewport.GetJitter();
-    } else {
+    }
+    else
+    {
         uniforms.prevJitter = uniforms.jitter;
     }
 
     uniforms.jitter = inViewport.GetJitter();
 
-    if (m_FrameNr == 0) {
+    if (m_FrameNr == 0)
+    {
         uniforms.prevViewProj = inViewport.GetJitteredProjMatrix() * inViewport.GetCamera().GetView();
-    } else {
+    }
+    else
+    {
         uniforms.prevViewProj = uniforms.projection * uniforms.view;
     }
 
@@ -359,17 +393,19 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
 
     shader.Bind();
 
-    for (const auto& [entity, mesh, transform] : scene.Each<Mesh, Transform>()) {
+    for (const auto& [entity, mesh, transform] : scene.Each<Mesh, Transform>())
+    {
         // convert AABB from local to world space
         std::array<glm::vec3, 2> worldAABB = {
-            transform.worldTransform* glm::vec4(mesh.aabb[0], 1.0),
-            transform.worldTransform* glm::vec4(mesh.aabb[1], 1.0)
+            transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
+            transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
         };
         const auto bounding_box = BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform);
 
         // if the frustrum can't see the mesh's OBB we cull it
         // TODO: disabled for now, lots of imported scenes from SketchFab and other websites have weird BB/triangle issues. Re-enable?
-        if (false && !frustum.ContainsAABB(bounding_box)) {
+        if (false && !frustum.ContainsAABB(bounding_box))
+        {
             culled += 1;
             continue;
         }
@@ -381,14 +417,14 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
 
         uniforms.mLODFade = mesh.mLODFade;
 
-        uniforms.colour = material  ? material->albedo : Material::Default.albedo;
+        uniforms.colour = material ? material->albedo : Material::Default.albedo;
         uniforms.metallic = material ? material->metallic : Material::Default.metallic;
         uniforms.roughness = material ? material->roughness : Material::Default.roughness;
 
-        glBindTextureUnit(1, (material && material->gpuAlbedoMap) ? material->gpuAlbedoMap : Material::Default.gpuAlbedoMap);
-        glBindTextureUnit(2, (material && material->gpuNormalMap) ? material->gpuNormalMap : Material::Default.gpuNormalMap);
-        glBindTextureUnit(3, (material && material->gpuMetallicRoughnessMap) ? material->gpuMetallicRoughnessMap : Material::Default.gpuMetallicRoughnessMap);
-        
+        glBindTextureUnit(1, ( material && material->gpuAlbedoMap ) ? material->gpuAlbedoMap : Material::Default.gpuAlbedoMap);
+        glBindTextureUnit(2, ( material && material->gpuNormalMap ) ? material->gpuNormalMap : Material::Default.gpuNormalMap);
+        glBindTextureUnit(3, ( material && material->gpuMetallicRoughnessMap ) ? material->gpuMetallicRoughnessMap : Material::Default.gpuMetallicRoughnessMap);
+
         uniforms.model = transform.worldTransform;
         uniforms.entity = uint32_t(entity);
 
@@ -409,7 +445,8 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
 }
 
 
-uint32_t GBuffer::readEntity(GLint inX, GLint inY) {
+uint32_t GBuffer::readEntity(GLint inX, GLint inY)
+{
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glReadBuffer(GL_COLOR_ATTACHMENT3);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
@@ -419,14 +456,15 @@ uint32_t GBuffer::readEntity(GLint inX, GLint inY) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
-    GLsync sync =  glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    GLsync sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     glClientWaitSync(sync, 0, UINT64_MAX);
 
-    return static_cast<uint32_t>(*static_cast<float*>(entity));
+    return static_cast<uint32_t>( *static_cast<float*>( entity ) );
 }
 
 
-void GBuffer::CreateRenderTargets(const Viewport& viewport) {
+void GBuffer::CreateRenderTargets(const Viewport& viewport)
+{
     glCreateTextures(GL_TEXTURE_2D, 1, &albedoTexture);
     glTextureStorage2D(albedoTexture, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
     glTextureParameteri(albedoTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -474,15 +512,16 @@ void GBuffer::CreateRenderTargets(const Viewport& viewport) {
 
     glNamedFramebufferDrawBuffers(
         framebuffer,
-        (GLsizei) colorAttachments.size(),
-        (GLenum*) colorAttachments.data()
+        (GLsizei)colorAttachments.size(),
+        (GLenum*)colorAttachments.data()
     );
 
     glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, depthTexture, 0);
 }
 
 
-void GBuffer::DestroyRenderTargets() {
+void GBuffer::DestroyRenderTargets()
+{
     std::array textures = {
         albedoTexture,
         normalTexture,
@@ -497,24 +536,26 @@ void GBuffer::DestroyRenderTargets() {
 }
 
 
-DeferredShading::~DeferredShading() {
+DeferredShading::~DeferredShading()
+{
     DestroyRenderTargets();
     glDeleteBuffers(1, &uniformBuffer);
     glDeleteBuffers(1, &uniformBuffer2);
 }
 
 
-DeferredShading::DeferredShading(const Viewport& viewport) {
+DeferredShading::DeferredShading(const Viewport& viewport)
+{
     // load shaders from disk
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\pbr.frag"}
-    });
+        });
 
     brdfLUTshader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\brdfLUT.frag"}
-    });
+        });
 
     // init resources
     CreateRenderTargets(viewport);
@@ -549,7 +590,8 @@ DeferredShading::DeferredShading(const Viewport& viewport) {
 
 
 void DeferredShading::Render(const Scene& inScene, const Viewport& viewport,
-                             const ShadowMap& shadowMap, const GBuffer& GBuffer, const Atmosphere& m_Atmosphere, const Voxelize& voxels) {
+    const ShadowMap& shadowMap, const GBuffer& GBuffer, const Atmosphere& m_Atmosphere, const Voxelize& voxels)
+{
     uniforms.view = viewport.GetCamera().GetView();
     uniforms.projection = viewport.GetJitteredProjMatrix();
 
@@ -557,7 +599,8 @@ void DeferredShading::Render(const Scene& inScene, const Viewport& viewport,
         uniforms.dirLight = *sunlight;
 
     unsigned int i = 0;
-    for (auto [entity, transform, light] : inScene.Each<Transform, PointLight>()) {
+    for (auto [entity, transform, light] : inScene.Each<Transform, PointLight>())
+    {
 
         i++;
 
@@ -568,15 +611,16 @@ void DeferredShading::Render(const Scene& inScene, const Viewport& viewport,
     }
 
     uniforms.cameraPosition = glm::vec4(viewport.GetCamera().GetPosition(), 1.0);
-    
-    for (uint32_t cascade = 0; cascade < shadowMap.settings.nrOfCascades; cascade++) {
+
+    for (uint32_t cascade = 0; cascade < shadowMap.settings.nrOfCascades; cascade++)
+    {
         uniforms.shadowMatrices[cascade] = shadowMap.cascades[cascade].matrix;
         uniforms.shadowSplits[cascade] = shadowMap.cascades[cascade].split;
     }
 
     uniforms2.bloomThreshold = glm::vec4(settings.bloomThreshold, 0.0f);
-    uniforms2.pointLightCount = static_cast<uint32_t>(inScene.Count<PointLight>());
-    uniforms2.directionalLightCount = static_cast<uint32_t>(inScene.Count<DirectionalLight>());;
+    uniforms2.pointLightCount = static_cast<uint32_t>( inScene.Count<PointLight>() );
+    uniforms2.directionalLightCount = static_cast<uint32_t>( inScene.Count<DirectionalLight>() );;
     uniforms2.voxelWorldSize = voxels.worldSize;
     uniforms2.invViewProjection = glm::inverse(uniforms.projection * uniforms.view);
 
@@ -608,7 +652,8 @@ void DeferredShading::Render(const Scene& inScene, const Viewport& viewport,
 }
 
 
-void DeferredShading::CreateRenderTargets(const Viewport& viewport) {
+void DeferredShading::CreateRenderTargets(const Viewport& viewport)
+{
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
@@ -631,28 +676,31 @@ void DeferredShading::CreateRenderTargets(const Viewport& viewport) {
         GLenum(GL_COLOR_ATTACHMENT0), GLenum(GL_COLOR_ATTACHMENT1)
     };
 
-    glNamedFramebufferDrawBuffers(framebuffer, static_cast<GLsizei>(colorAttachments.size()), colorAttachments.data());
+    glNamedFramebufferDrawBuffers(framebuffer, static_cast<GLsizei>( colorAttachments.size() ), colorAttachments.data());
 }
 
 
-void DeferredShading::DestroyRenderTargets() {
+void DeferredShading::DestroyRenderTargets()
+{
     glDeleteTextures(1, &result);
     glDeleteTextures(1, &bloomHighlights);
     glDeleteFramebuffers(1, &framebuffer);
 }
 
 
-Bloom::~Bloom() {
+Bloom::~Bloom()
+{
     DestroyRenderTargets();
     glDeleteBuffers(1, &uniformBuffer);
 }
 
 
-Bloom::Bloom(const Viewport& viewport) {
+Bloom::Bloom(const Viewport& viewport)
+{
     blurShader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\gaussian.frag"}
-    });
+        });
 
     CreateRenderTargets(viewport);
 
@@ -661,7 +709,8 @@ Bloom::Bloom(const Viewport& viewport) {
 }
 
 
-void Bloom::Render(const Viewport& viewport, GLuint highlights) {
+void Bloom::Render(const Viewport& viewport, GLuint highlights)
+{
     if (viewport.size.x < 16.0f || viewport.size.y < 16.0f)
         return;
 
@@ -670,9 +719,9 @@ void Bloom::Render(const Viewport& viewport, GLuint highlights) {
     glNamedFramebufferTexture(highlightsFramebuffer, GL_COLOR_ATTACHMENT0, highlights, 0);
 
     glBlitNamedFramebuffer(highlightsFramebuffer, bloomFramebuffer,
-                           0, 0, viewport.size.x, viewport.size.y,
-                           0, 0, quarter.x, quarter.y,
-                           GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        0, 0, viewport.size.x, viewport.size.y,
+        0, 0, quarter.x, quarter.y,
+        GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
     // horizontally blur 1/4th bloom to blur texture
     blurShader.Bind();
@@ -704,7 +753,8 @@ void Bloom::Render(const Viewport& viewport, GLuint highlights) {
 }
 
 
-void Bloom::CreateRenderTargets(const Viewport& viewport) {
+void Bloom::CreateRenderTargets(const Viewport& viewport)
+{
     auto quarterRes = glm::ivec2(
         std::max(viewport.size.x / 4, 1u),
         std::max(viewport.size.y / 4, 1u)
@@ -739,7 +789,8 @@ void Bloom::CreateRenderTargets(const Viewport& viewport) {
 }
 
 
-void Bloom::DestroyRenderTargets() {
+void Bloom::DestroyRenderTargets()
+{
     glDeleteFramebuffers(1, &bloomFramebuffer);
     glDeleteFramebuffers(1, &blurFramebuffer);
     glDeleteTextures(1, &bloomTexture);
@@ -747,17 +798,19 @@ void Bloom::DestroyRenderTargets() {
 }
 
 
-Tonemap::~Tonemap() {
+Tonemap::~Tonemap()
+{
     DestroyRenderTargets();
 }
 
 
-Tonemap::Tonemap(const Viewport& viewport) {
+Tonemap::Tonemap(const Viewport& viewport)
+{
     // load shaders from disk
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\quad.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\tonemap.frag"}
-    });
+        });
 
     // init render targets
     CreateRenderTargets(viewport);
@@ -768,7 +821,8 @@ Tonemap::Tonemap(const Viewport& viewport) {
 }
 
 
-void Tonemap::Render(GLuint scene, GLuint m_Bloom) {
+void Tonemap::Render(GLuint scene, GLuint m_Bloom)
+{
     // bind and clear render target
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -789,7 +843,8 @@ void Tonemap::Render(GLuint scene, GLuint m_Bloom) {
 }
 
 
-void Tonemap::CreateRenderTargets(const Viewport& viewport) {
+void Tonemap::CreateRenderTargets(const Viewport& viewport)
+{
     // init render targets
     glCreateTextures(GL_TEXTURE_2D, 1, &result);
     glTextureStorage2D(result, 1, GL_RGB8, viewport.size.x, viewport.size.y);
@@ -802,19 +857,21 @@ void Tonemap::CreateRenderTargets(const Viewport& viewport) {
 }
 
 
-void Tonemap::DestroyRenderTargets() {
+void Tonemap::DestroyRenderTargets()
+{
     glDeleteTextures(1, &result);
     glDeleteFramebuffers(1, &framebuffer);
 }
 
 
-Voxelize::Voxelize(uint32_t size) : size(size) {
+Voxelize::Voxelize(uint32_t size) : size(size)
+{
     // load shaders from disk
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\voxelize.vert"},
         {Shader::Type::GEO, "assets\\system\\shaders\\OpenGL\\voxelize.geom"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\voxelize.frag"}
-    });
+        });
 
     mipmapShader.Compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\mipmap.comp"} });
     opacityFixShader.Compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\correctAlpha.comp"} });
@@ -835,18 +892,20 @@ Voxelize::Voxelize(uint32_t size) : size(size) {
 }
 
 
-void Voxelize::computeMipmaps(GLuint texture) {
+void Voxelize::computeMipmaps(GLuint texture)
+{
     auto level = 0, mip_size = size;
     auto mipmap_count = GLsizei(std::log2(size)) - 3;
 
     mipmapShader.Bind();
 
-    while (level < mipmap_count) {
+    while (level < mipmap_count)
+    {
         mip_size *= 0.5f;
-        
+
         glBindImageTexture(0, texture, level, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA8);
         glBindImageTexture(1, texture, ++level, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
-        
+
         auto dispatch_size = mip_size / 4;
         glDispatchCompute(dispatch_size, dispatch_size, dispatch_size);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -854,25 +913,28 @@ void Voxelize::computeMipmaps(GLuint texture) {
 }
 
 
-void Voxelize::correctOpacity(GLuint texture) {
+void Voxelize::correctOpacity(GLuint texture)
+{
     opacityFixShader.Bind();
     glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA8);
-    
+
     const auto dispatch_size = size / 4;
     glDispatchCompute(dispatch_size, dispatch_size, dispatch_size);
-    
+
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
 
-void Voxelize::Render(const Scene& scene, const Viewport& viewport, const ShadowMap& shadowmap) {
+void Voxelize::Render(const Scene& scene, const Viewport& viewport, const ShadowMap& shadowmap)
+{
     // left, right, bottom, top, zNear, zFar
     auto projectionMatrix = glm::ortho(-worldSize * 0.5f, worldSize * 0.5f, -worldSize * 0.5f, worldSize * 0.5f, worldSize * 0.5f, worldSize * 1.5f);
     uniforms.px = projectionMatrix * glm::lookAt(glm::vec3(worldSize, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
     uniforms.py = projectionMatrix * glm::lookAt(glm::vec3(0, worldSize, 0), glm::vec3(0, 0, 0), glm::vec3(0, 0, -1));
     uniforms.pz = projectionMatrix * glm::lookAt(glm::vec3(0, 0, worldSize), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
-    for (uint32_t cascade = 0; cascade < shadowmap.settings.nrOfCascades; cascade++) {
+    for (uint32_t cascade = 0; cascade < shadowmap.settings.nrOfCascades; cascade++)
+    {
         uniforms.shadowMatrices[cascade] = shadowmap.cascades[cascade].matrix;
         uniforms.shadowSplits[cascade] = shadowmap.cascades[cascade].split;
     }
@@ -890,7 +952,7 @@ void Voxelize::Render(const Scene& scene, const Viewport& viewport, const Shadow
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
 
-    if(GLAD_GL_NV_conservative_raster)
+    if (GLAD_GL_NV_conservative_raster)
         glEnable(GL_CONSERVATIVE_RASTERIZATION_NV);
 
     // bind shader and level 0 of the voxel volume
@@ -898,16 +960,17 @@ void Voxelize::Render(const Scene& scene, const Viewport& viewport, const Shadow
     glBindImageTexture(1, result, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
     glBindTextureUnit(2, shadowmap.texture);
 
-    for (const auto& [entity, mesh, transform] : scene.Each<Mesh, Transform>()) {
+    for (const auto& [entity, mesh, transform] : scene.Each<Mesh, Transform>())
+    {
         const Material* material = nullptr;
-        
+
         if (scene.IsValid(mesh.material))
             material = scene.GetPtr<Material>(mesh.material);
-        
+
         uniforms.colour = material ? material->albedo : Material::Default.albedo;
         uniforms.model = transform.worldTransform;
 
-        glBindTextureUnit(0, (material && material->gpuAlbedoMap) ? material->gpuAlbedoMap : Material::Default.gpuAlbedoMap);
+        glBindTextureUnit(0, ( material && material->gpuAlbedoMap ) ? material->gpuAlbedoMap : Material::Default.gpuAlbedoMap);
 
         // determine if we use the original mesh vertices or GPU skinned vertices
         auto skeleton = scene.GetPtr<Skeleton>(entity);
@@ -919,7 +982,7 @@ void Voxelize::Render(const Scene& scene, const Viewport& viewport, const Shadow
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
 
         glDrawElements(GL_TRIANGLES, (GLsizei)mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
-        
+
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
 
@@ -940,19 +1003,21 @@ void Voxelize::Render(const Scene& scene, const Viewport& viewport, const Shadow
 
 
 
-VoxelizeDebug::~VoxelizeDebug() {
+VoxelizeDebug::~VoxelizeDebug()
+{
     DestroyRenderTargets();
     glDeleteBuffers(1, &uniformBuffer);
 }
 
 
 
-VoxelizeDebug::VoxelizeDebug(const Viewport& viewport) {
+VoxelizeDebug::VoxelizeDebug(const Viewport& viewport)
+{
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\voxelDebug.vert"},
         {Shader::Type::GEO, "assets\\system\\shaders\\OpenGL\\voxelDebug.geom"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\voxelDebug.frag"}
-    });
+        });
 
     CreateRenderTargets(viewport);
 
@@ -962,11 +1027,12 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport) {
 
 
 
-VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize) {
+VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize)
+{
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\voxelDebugFast.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\voxelDebugFast.frag"}
-    });
+        });
 
     // init resources
     CreateRenderTargets(viewport);
@@ -988,7 +1054,7 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize
         7, 1, 3, 7, 5, 1
     };
 
-    const size_t numIndices = static_cast<size_t>(std::pow(voxelTextureSize, 3u) * NUM_CUBE_INDICES);
+    const size_t numIndices = static_cast<size_t>( std::pow(voxelTextureSize, 3u) * NUM_CUBE_INDICES );
 
     std::vector<uint32_t> indexBufferData(numIndices);
 
@@ -996,23 +1062,26 @@ VoxelizeDebug::VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize
     const size_t CHUNK_SIZE = numIndices / chunks.size();
 
 
-    std::for_each(std::execution::par_unseq, chunks.begin(), chunks.end(), [&](const int chunk) {
-        const size_t start = (chunk - 1) * CHUNK_SIZE;
+    std::for_each(std::execution::par_unseq, chunks.begin(), chunks.end(), [&](const int chunk)
+    {
+        const size_t start = ( chunk - 1 ) * CHUNK_SIZE;
         const size_t end = chunk * CHUNK_SIZE;
 
-        for (size_t i = start; i < end; i++) {
+        for (size_t i = start; i < end; i++)
+        {
             auto cube = i / NUM_CUBE_INDICES;
             auto cube_local = i % NUM_CUBE_INDICES;
-            indexBufferData[i] = static_cast<uint32_t>(cubeIndices[cube_local] + cube * NUM_CUBE_VERTICES);
+            indexBufferData[i] = static_cast<uint32_t>( cubeIndices[cube_local] + cube * NUM_CUBE_VERTICES );
         }
     });
 
     glCreateBuffers(1, &indexBuffer);
     glNamedBufferData(indexBuffer, sizeof(uint32_t) * indexBufferData.size(), indexBufferData.data(), GL_STATIC_DRAW);
-    indexCount = static_cast<uint32_t>(indexBufferData.size());
+    indexCount = static_cast<uint32_t>( indexBufferData.size() );
 }
 
-void VoxelizeDebug::Render(const Viewport& viewport, GLuint input, const Voxelize& voxels) {
+void VoxelizeDebug::Render(const Viewport& viewport, GLuint input, const Voxelize& voxels)
+{
     // bind the input framebuffer, we draw the debug vertices on top
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
     glNamedFramebufferTexture(frameBuffer, GL_COLOR_ATTACHMENT0, input, 0);
@@ -1033,7 +1102,7 @@ void VoxelizeDebug::Render(const Viewport& viewport, GLuint input, const Voxeliz
 
     glBindTextureUnit(0, voxels.result);
 
-    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(std::pow(voxels.size, 3)));
+    glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>( std::pow(voxels.size, 3) ));
 
     // unbind framebuffers
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1041,7 +1110,8 @@ void VoxelizeDebug::Render(const Viewport& viewport, GLuint input, const Voxeliz
 
 
 
-void VoxelizeDebug::execute2(const Viewport& viewport, GLuint input, const Voxelize& voxels) {
+void VoxelizeDebug::execute2(const Viewport& viewport, GLuint input, const Voxelize& voxels)
+{
     // bind the input framebuffer, we draw the debug vertices on top
     glDisable(GL_CULL_FACE);
 
@@ -1076,7 +1146,8 @@ void VoxelizeDebug::execute2(const Viewport& viewport, GLuint input, const Voxel
 
 
 
-void VoxelizeDebug::CreateRenderTargets(const Viewport& viewport) {
+void VoxelizeDebug::CreateRenderTargets(const Viewport& viewport)
+{
     glCreateRenderbuffers(1, &renderBuffer);
     glNamedRenderbufferStorage(renderBuffer, GL_DEPTH32F_STENCIL8, viewport.size.x, viewport.size.y);
 
@@ -1086,25 +1157,28 @@ void VoxelizeDebug::CreateRenderTargets(const Viewport& viewport) {
 
 
 
-void VoxelizeDebug::DestroyRenderTargets() {
+void VoxelizeDebug::DestroyRenderTargets()
+{
     glDeleteRenderbuffers(1, &renderBuffer);
     glDeleteFramebuffers(1, &frameBuffer);
 }
 
 
 
-DebugLines::~DebugLines() {
+DebugLines::~DebugLines()
+{
     glDeleteFramebuffers(1, &frameBuffer);
     glDeleteBuffers(1, &uniformBuffer);
 }
 
 
 
-DebugLines::DebugLines() {
+DebugLines::DebugLines()
+{
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\aabb.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\aabb.frag"}
-    });
+        });
 
     glCreateFramebuffers(1, &frameBuffer);
 
@@ -1114,7 +1188,8 @@ DebugLines::DebugLines() {
 
 
 
-void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint depthAttachment) {
+void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint depthAttachment)
+{
     if (points.size() < 2) return;
 
     glEnable(GL_LINE_SMOOTH);
@@ -1135,10 +1210,10 @@ void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint
     if (vertexBuffer) glDeleteBuffers(1, &vertexBuffer);
     glCreateBuffers(1, &vertexBuffer);
     glNamedBufferData(vertexBuffer, sizeof(float) * points.size() * 3, glm::value_ptr(points[0]), GL_STATIC_DRAW);
-    
+
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (const void*)((intptr_t)0));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (const void*)( (intptr_t)0 ));
 
     glDrawArrays(GL_LINES, 0, (GLsizei)points.size());
 
@@ -1150,13 +1225,15 @@ void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint
 
 
 
-Skinning::Skinning() {
+Skinning::Skinning()
+{
     computeShader.Compile({ {Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\skinning.comp"} });
 }
 
 
 
-void Skinning::compute(const Mesh& mesh, const Skeleton& anim) {
+void Skinning::compute(const Mesh& mesh, const Skeleton& anim)
+{
 
     glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransformMatrices.size() * sizeof(glm::mat4), anim.boneTransformMatrices.data(), GL_DYNAMIC_DRAW);
 
@@ -1168,22 +1245,23 @@ void Skinning::compute(const Mesh& mesh, const Skeleton& anim) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, anim.skinnedVertexBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, anim.boneTransformsBuffer);
 
-    glDispatchCompute(static_cast<GLuint>(mesh.positions.size()), 1, 1);
+    glDispatchCompute(static_cast<GLuint>( mesh.positions.size() ), 1, 1);
 
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
 
 
-Icons::Icons(const Viewport& viewport) {
+Icons::Icons(const Viewport& viewport)
+{
     shader.Compile({
         {Shader::Type::VERTEX, "assets\\system\\shaders\\OpenGL\\billboard.vert"},
         {Shader::Type::FRAG, "assets\\system\\shaders\\OpenGL\\billboard.frag"}
-    });
+        });
 
     int w, h, ch;
     stbi_set_flip_vertically_on_load(true);
-    
+
     auto img = stbi_load("assets/system/light.png", &w, &h, &ch, 4);
     assert(img);
 
@@ -1202,7 +1280,8 @@ Icons::Icons(const Viewport& viewport) {
     glNamedBufferStorage(uniformBuffer, sizeof(uniforms), NULL, GL_DYNAMIC_STORAGE_BIT);
 }
 
-Icons::~Icons() {
+Icons::~Icons()
+{
     DestroyRenderTargets();
     glDeleteBuffers(1, &uniformBuffer);
 
@@ -1210,19 +1289,22 @@ Icons::~Icons() {
 
 
 
-void Icons::CreateRenderTargets(const Viewport& viewport) {
+void Icons::CreateRenderTargets(const Viewport& viewport)
+{
     glCreateFramebuffers(1, &framebuffer);
 }
 
 
 
-void Icons::DestroyRenderTargets() {
+void Icons::DestroyRenderTargets()
+{
     glDeleteFramebuffers(1, &framebuffer);
 }
 
 
 
-void Icons::Render(const Scene& scene, const Viewport& viewport, GLuint colorAttachment, GLuint entityAttachment) {
+void Icons::Render(const Scene& scene, const Viewport& viewport, GLuint colorAttachment, GLuint entityAttachment)
+{
     glDisable(GL_CULL_FACE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -1238,7 +1320,8 @@ void Icons::Render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
 
     const auto vp = viewport.GetCamera().GetProjection() * viewport.GetCamera().GetView();
 
-    for (const auto& [entity, light, transform] : scene.Each<DirectionalLight, Transform>()) {
+    for (const auto& [entity, light, transform] : scene.Each<DirectionalLight, Transform>())
+    {
 
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, transform.position);
@@ -1274,15 +1357,16 @@ void Icons::Render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
 
 
 
-Atmosphere::Atmosphere(const Viewport& viewport) {
+Atmosphere::Atmosphere(const Viewport& viewport)
+{
     convoluteShader.Compile({
         { Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\convolute.comp" },
-    });
+        });
 
 
     computeShader.Compile({
         { Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\atmosphere.comp" },
-    });
+        });
 
     CreateRenderTargets(viewport);
 
@@ -1308,7 +1392,8 @@ Atmosphere::Atmosphere(const Viewport& viewport) {
 
 
 
-Atmosphere::~Atmosphere() {
+Atmosphere::~Atmosphere()
+{
     DirectionalLight light;
     uniforms.sunlightDir = light.direction;
     uniforms.sunlightColor = light.colour;
@@ -1319,19 +1404,22 @@ Atmosphere::~Atmosphere() {
 
 
 
-void Atmosphere::CreateRenderTargets(const Viewport& viewport) {
+void Atmosphere::CreateRenderTargets(const Viewport& viewport)
+{
     glCreateFramebuffers(1, &framebuffer);
 }
 
 
 
-void Atmosphere::DestroyRenderTargets() {
+void Atmosphere::DestroyRenderTargets()
+{
     glDeleteFramebuffers(1, &framebuffer);
 }
 
 
 
-void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& inScene) {
+void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& inScene)
+{
     uniforms.view = glm::mat3(viewport.GetCamera().GetView());
     uniforms.proj = viewport.GetCamera().GetProjection();
 
@@ -1340,7 +1428,8 @@ void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& inScene)
 
     // TODO: figure out this directional light crap, I only really want to support a single one or figure out a better way to deal with this
     // For now we send only the first directional light to the GPU for everything, if none are present we send a buffer with a direction of (0, -0.9, 0)
-    if (auto sunlight = inScene.GetSunLight()) {
+    if (auto sunlight = inScene.GetSunLight())
+    {
         uniforms.sunlightDir = sunlight->GetDirection();
         uniforms.sunlightColor = sunlight->GetColor();
     }
@@ -1365,22 +1454,26 @@ void Atmosphere::computeCubemaps(const Viewport& viewport, const Scene& inScene)
 
 
 
-TAAResolve::TAAResolve(const Viewport& viewport) {
+TAAResolve::TAAResolve(const Viewport& viewport)
+{
     shader.Compile({ { Shader::Type::COMPUTE, "assets\\system\\shaders\\OpenGL\\taaResolve.comp" } });
 
     CreateRenderTargets(viewport);
 }
 
-GLuint TAAResolve::Render(const Viewport& viewport, const GBuffer& m_GBuffer, const DeferredShading& shading, uint32_t m_FrameNr) {
+GLuint TAAResolve::Render(const Viewport& viewport, const GBuffer& m_GBuffer, const DeferredShading& shading, uint32_t m_FrameNr)
+{
     shader.Bind();
 
     // on first frame it should bind the hdr shading result as history texture
-    if (m_FrameNr == 0) {
+    if (m_FrameNr == 0)
+    {
         glBindTextureUnit(0, shading.result);
         glBindImageTexture(5, shading.result, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
 
     }
-    else {
+    else
+    {
         glBindTextureUnit(0, historyBuffer);
         glBindImageTexture(5, historyBuffer, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
     }
@@ -1390,7 +1483,8 @@ GLuint TAAResolve::Render(const Viewport& viewport, const GBuffer& m_GBuffer, co
     glBindImageTexture(3, m_GBuffer.velocityTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG16F);
     glBindImageTexture(4, shading.result, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
 
-    auto dispatch = [](uint32_t size) -> GLuint {
+    auto dispatch = [](uint32_t size) -> GLuint
+    {
         return GLuint(std::ceil(size / 8.0f));
     };
 
@@ -1401,7 +1495,8 @@ GLuint TAAResolve::Render(const Viewport& viewport, const GBuffer& m_GBuffer, co
     return historyBuffer;
 }
 
-void TAAResolve::CreateRenderTargets(const Viewport& viewport) {
+void TAAResolve::CreateRenderTargets(const Viewport& viewport)
+{
     glCreateTextures(GL_TEXTURE_2D, 1, &resultBuffer);
     glTextureStorage2D(resultBuffer, 1, GL_RGBA16F, viewport.size.x, viewport.size.y);
     glTextureParameteri(resultBuffer, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -1419,7 +1514,8 @@ void TAAResolve::CreateRenderTargets(const Viewport& viewport) {
     glTextureParameteri(historyBuffer, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 }
 
-void TAAResolve::DestroyRenderTargets() {
+void TAAResolve::DestroyRenderTargets()
+{
     GLuint textures[] = { resultBuffer, historyBuffer };
     glDeleteTextures(2, textures);
 }

@@ -5,13 +5,14 @@
 #include "Raekor/components.h"
 
 namespace Raekor {
-    class Scene;
-    class Viewport;
+class Scene;
+class Viewport;
 }
 
 namespace Raekor::GL {
 
-class GLTimer {
+class GLTimer
+{
 public:
     GLTimer();
     ~GLTimer();
@@ -29,13 +30,16 @@ private:
 
 
 
-class RenderPass {
+class RenderPass
+{
 public:
-    class ScopedTimer {
+    class ScopedTimer
+    {
     public:
-        ScopedTimer(const char* inName, RenderPass* inThis, bool inEnabled) : m_This(inThis), m_Enabled(inEnabled) {
+        ScopedTimer(const char* inName, RenderPass* inThis, bool inEnabled) : m_This(inThis), m_Enabled(inEnabled)
+        {
             m_This->m_Name = inName;
-            if (m_Enabled) m_This->m_Timer.begin(); 
+            if (m_Enabled) m_This->m_Timer.begin();
         }
         ~ScopedTimer() { if (m_Enabled) m_This->m_Timer.end(); }
 
@@ -57,28 +61,32 @@ private:
 
 
 
-class ShadowMap final : public RenderPass {
-    struct Cascade {
+class ShadowMap final : public RenderPass
+{
+    struct Cascade
+    {
         float split;
         float radius;
         glm::mat4 matrix;
     };
 
- public:
-     static constexpr auto MAX_NR_OF_CASCADES = 4u;
+public:
+    static constexpr auto MAX_NR_OF_CASCADES = 4u;
 
-     struct {
-         uint32_t resolution = 4096;
-         uint32_t nrOfCascades = 4;
-         float depthBiasConstant = 1.25f;
-         float depthBiasSlope = 3.0f; // 1.75f; 
-         float cascadeSplitLambda = 0.89f; // 0.98f;
-     } settings;
+    struct
+    {
+        uint32_t resolution = 4096;
+        uint32_t nrOfCascades = 4;
+        float depthBiasConstant = 1.25f;
+        float depthBiasSlope = 3.0f; // 1.75f; 
+        float cascadeSplitLambda = 0.89f; // 0.98f;
+    } settings;
 
-     struct {
-         glm::mat4 lightMatrix;
-         glm::mat4 modelMatrix;
-     } uniforms;
+    struct
+    {
+        glm::mat4 lightMatrix;
+        glm::mat4 modelMatrix;
+    } uniforms;
 
     ~ShadowMap();
     ShadowMap(const Viewport& viewport);
@@ -105,10 +113,12 @@ public:
 
 
 
-class GBuffer final : public RenderPass {
+class GBuffer final : public RenderPass
+{
     friend class Renderer;
 
-    struct {
+    struct
+    {
         glm::mat4 prevViewProj;
         glm::mat4 projection;
         glm::mat4 view;
@@ -149,15 +159,17 @@ private:
 
     GLuint pbo;
     void* entity;
-  
+
 };
 
 
 
-class Icons final : public RenderPass {
+class Icons final : public RenderPass
+{
     friend class Renderer;
 
-    struct {
+    struct
+    {
         glm::mat4 mvp;
         glm::vec4 world_position;
         uint32_t entity;
@@ -181,10 +193,12 @@ private:
 
 
 
-class Bloom : public RenderPass {
+class Bloom : public RenderPass
+{
     friend class Renderer;
 
-    struct {
+    struct
+    {
         glm::vec2 direction;
     } uniforms;
 
@@ -206,11 +220,13 @@ private:
     GLuint uniformBuffer;
 };
 
-class Tonemap final : public RenderPass {
+class Tonemap final : public RenderPass
+{
     friend class Renderer;
 
 public:
-    struct {
+    struct
+    {
         float exposure = 1.0f;
         float gamma = 2.2f;
     } settings;
@@ -233,8 +249,10 @@ public:
 
 
 
-class Voxelize final : public RenderPass {
-    struct Uniforms {
+class Voxelize final : public RenderPass
+{
+    struct Uniforms
+    {
         glm::mat4 px, py, pz;
         std::array<glm::mat4, 4> shadowMatrices;
         glm::mat4 view;
@@ -269,8 +287,10 @@ public:
 
 
 
-class VoxelizeDebug final : public RenderPass {
-    struct {
+class VoxelizeDebug final : public RenderPass
+{
+    struct
+    {
         glm::mat4 p;
         glm::mat4 mv;
         glm::vec4 cameraPosition;
@@ -278,13 +298,13 @@ class VoxelizeDebug final : public RenderPass {
 
 public:
     ~VoxelizeDebug();
-    
+
     // naive geometry shader impl
     VoxelizeDebug(const Viewport& viewport); // naive geometry shader impl
-    
+
     // fast cube rendering from https://twitter.com/SebAaltonen/status/1315982782439591938/photo/1
     VoxelizeDebug(const Viewport& viewport, uint32_t voxelTextureSize);
-    
+
     void Render(const Viewport& viewport, GLuint input, const Voxelize& voxels);
     void execute2(const Viewport& viewport, GLuint input, const Voxelize& voxels);
 
@@ -302,10 +322,12 @@ private:
 
 
 
-class DebugLines final : public RenderPass {
+class DebugLines final : public RenderPass
+{
     friend class Renderer;
 
-    struct {
+    struct
+    {
         glm::mat4 projection;
         glm::mat4 view;
     } uniforms;
@@ -330,7 +352,8 @@ private:
 
 
 
-class Skinning final : public RenderPass {
+class Skinning final : public RenderPass
+{
     friend class Renderer;
 
 public:
@@ -346,10 +369,12 @@ private:
 };
 
 
-class Atmosphere final : public RenderPass {
+class Atmosphere final : public RenderPass
+{
     friend class Renderer;
 
-    struct {
+    struct
+    {
         glm::mat4 view;
         glm::mat4 proj;
         glm::mat4 invViewProj;
@@ -380,11 +405,13 @@ private:
 
 
 
-class DeferredShading final : public RenderPass {
+class DeferredShading final : public RenderPass
+{
     friend class Renderer;
 
 private:
-    struct Uniforms {
+    struct Uniforms
+    {
         glm::mat4 view, projection;
         std::array<glm::mat4, 4> shadowMatrices;
         glm::vec4 shadowSplits;
@@ -393,7 +420,8 @@ private:
         PointLight pointLights[10];
     } uniforms;
 
-    struct Uniforms2 {
+    struct Uniforms2
+    {
         glm::mat4 invViewProjection;
         glm::vec4 bloomThreshold;
         float voxelWorldSize;
@@ -402,22 +430,23 @@ private:
     } uniforms2;
 
 public:
-    struct {
+    struct
+    {
         float farPlane = 25.0f;
         float minBias = 0.000f, maxBias = 0.0f;
         glm::vec4 sunColor{ 1.0f, 1.0f, 1.0f, 1.0f };
-        glm::vec3 bloomThreshold{ 0.2126f , 0.7152f , 0.0722f };
+        glm::vec3 bloomThreshold{ 0.2126f, 0.7152f, 0.0722f };
     } settings;
 
     ~DeferredShading();
     DeferredShading(const Viewport& viewport);
 
-    void Render(const Scene& sscene, 
-                const Viewport& viewport, 
-                const ShadowMap& shadowMap,
-                const GBuffer& GBuffer, 
-                const Atmosphere& m_Atmosphere,
-                const Voxelize& voxels);
+    void Render(const Scene& sscene,
+        const Viewport& viewport,
+        const ShadowMap& shadowMap,
+        const GBuffer& GBuffer,
+        const Atmosphere& m_Atmosphere,
+        const Voxelize& voxels);
 
     void CreateRenderTargets(const Viewport& viewport);
     void DestroyRenderTargets();
@@ -440,7 +469,8 @@ private:
 
 
 
-class TAAResolve final : public RenderPass {
+class TAAResolve final : public RenderPass
+{
 public:
     TAAResolve(const Viewport& viewport);
 
@@ -457,7 +487,8 @@ private:
 };
 
 
-class ImGuiPass final : public RenderPass {
+class ImGuiPass final : public RenderPass
+{
     void CreateRenderTargets(const Viewport& viewport) {}
     void DestroyRenderTargets() {}
 }; // Just so we can time it

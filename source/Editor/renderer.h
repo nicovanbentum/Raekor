@@ -6,14 +6,15 @@
 #include "renderpass.h"
 
 namespace Raekor {
-    class Scene;
-    class Async;
+class Scene;
+class Async;
 }
 
 namespace Raekor::GL {
 
 
-class Renderer : public IRenderInterface {
+class Renderer : public IRenderInterface
+{
 public:
     Renderer(SDL_Window* inWindow, Viewport& ioViewport);
     ~Renderer();
@@ -32,8 +33,9 @@ public:
 
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer);
     uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) { return m_GBuffer ? m_GBuffer->readEntity(inScreenPosX, inScreenPosY) : NULL_ENTITY; }
-    
-    void OnResize(const Viewport& inViewport) { 
+
+    void OnResize(const Viewport& inViewport)
+    {
         CreateRenderTargets(inViewport);
     }
 
@@ -68,7 +70,7 @@ public:
 private:
     uint32_t      m_FrameNr = 0;
     uint32_t      m_DefaultBlackTexture = 0;
-    SDL_Window*   m_Window = nullptr;
+    SDL_Window* m_Window = nullptr;
     SDL_GLContext m_GLContext = nullptr;
 };
 

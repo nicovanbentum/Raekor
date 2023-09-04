@@ -11,7 +11,8 @@
 
 namespace Raekor::GL {
 
-class GLApp : public IEditor {
+class GLApp : public IEditor
+{
 public:
     GLApp();
     virtual ~GLApp() = default;

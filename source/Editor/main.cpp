@@ -8,31 +8,33 @@
 using namespace Raekor;
 using namespace Raekor::ecs;
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     g_CVars.ParseCommandLine(argc, argv);
 
-	auto should_launch = true;
+    auto should_launch = true;
 
-	if (g_CVars.Create("enable_launcher", 0) && !OS::sCheckCommandLineOption("-asset_compiler")) {
-		Launcher launcher;
-		launcher.Run();
+    if (g_CVars.Create("enable_launcher", 0) && !OS::sCheckCommandLineOption("-asset_compiler"))
+    {
+        Launcher launcher;
+        launcher.Run();
 
-		should_launch = launcher.ShouldLaunch();
-	}
+        should_launch = launcher.ShouldLaunch();
+    }
 
-	std::string s;
+    std::string s;
 
-	if (!should_launch)
-		return 0;
+    if (!should_launch)
+        return 0;
 
     Timer timer;
 
     Application* app = nullptr;
 
-	if (OS::sCheckCommandLineOption("-asset_compiler"))
-		app = new CompilerApp(IsDebuggerPresent() ? WindowFlag::NONE : WindowFlag::HIDDEN);
-	else
-		app = new GL::GLApp();
+    if (OS::sCheckCommandLineOption("-asset_compiler"))
+        app = new CompilerApp(IsDebuggerPresent() ? WindowFlag::NONE : WindowFlag::HIDDEN);
+    else
+        app = new GL::GLApp();
 
     app->LogMessage(std::format("[App] startup took {:.2f} seconds", timer.GetElapsedTime()));
 

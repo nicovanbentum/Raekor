@@ -10,26 +10,30 @@ namespace Raekor::GL {
 
 static constexpr auto sDebugTextureNames = std::array {
     "Final",
-    "Albedo",
-    "Normals",
-    "Material",
-    "Velocity",
-    "TAA Resolve",
-    "Shading (Result)",
-    "Bloom (Threshold)",
-    "Bloom (Blur 1)",
-    "Bloom (Final)",
+        "Albedo",
+        "Normals",
+        "Material",
+        "Velocity",
+        "TAA Resolve",
+        "Shading (Result)",
+        "Bloom (Threshold)",
+        "Bloom (Blur 1)",
+        "Bloom (Final)",
 };
 
-void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
-    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
+void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
+{
+    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+    {
         fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
-                (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
-                type, severity, message);
+            ( type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "" ),
+            type, severity, message);
 
-        switch (id) {
+        switch (id)
+        {
             case 131218: return; // shader state recompilation
-            default: {
+            default:
+            {
                 __debugbreak();
             }
         }
@@ -37,9 +41,9 @@ void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLs
 }
 
 
-Renderer::Renderer(SDL_Window* window, Viewport& viewport) : 
+Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     IRenderInterface(GraphicsAPI::OpenGL4_6),
-    m_Window(window) 
+    m_Window(window)
 {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
@@ -54,14 +58,15 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     SDL_GL_SetSwapInterval(mSettings.vsync);
 
     // Load GL extensions using glad
-    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
+    {
         std::cerr << "Failed to initialize the OpenGL context.\n";
         return;
     }
 
     // Loaded OpenGL successfully.
     std::cout << "[Renderer] OpenGL version loaded: " << GLVersion.major << "."
-              << GLVersion.minor << '\n';
+        << GLVersion.minor << '\n';
 
     GPUInfo gpu_info = {};
     gpu_info.mVendor = (const char*)glGetString(GL_VENDOR);
@@ -75,22 +80,26 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     const auto vulkanSDK = getenv("VULKAN_SDK");
     assert(vulkanSDK);
 
-    for (const auto& file : fs::directory_iterator("assets/system/shaders/OpenGL")) {
-        if (file.is_directory()) 
+    for (const auto& file : fs::directory_iterator("assets/system/shaders/OpenGL"))
+    {
+        if (file.is_directory())
             continue;
 
         // visual studio code glsl linter keeps compiling spirv files to the directory,
         // delete em
-        if (file.path().extension() == ".spv") {
+        if (file.path().extension() == ".spv")
+        {
             remove(file.path().string().c_str());
             continue;
         }
 
-        g_ThreadPool.QueueJob([=]() {
+        g_ThreadPool.QueueJob([=]()
+        {
             auto outfile = file.path().parent_path() / "bin" / file.path().filename();
             outfile.replace_extension(outfile.extension().string() + ".spv");
 
-            if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time()) {
+            if (!fs::exists(outfile) || fs::last_write_time(outfile) < file.last_write_time())
+            {
                 auto success = GLShader::sGlslangValidator(vulkanSDK, file, outfile);
 
                 {
@@ -144,35 +153,36 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     // initialise all the render passes
     viewport.SetSize(UVec2(2560, 1440));
 
-    m_Icons             = std::make_shared<Icons>(viewport);
-    m_Bloom             = std::make_shared<Bloom>(viewport);
-    m_GBuffer           = std::make_shared<GBuffer>(viewport);
-    m_Tonemap           = std::make_shared<Tonemap>(viewport);
-    m_Skinning          = std::make_shared<Skinning>();
-    m_Voxelize          = std::make_shared<Voxelize>(512);
-    m_ImGuiPass         = std::make_shared<ImGuiPass>();
-    m_ResolveTAA        = std::make_shared<TAAResolve>(viewport);
-    m_DebugLines        = std::make_shared<DebugLines>();
-    m_Atmosphere        = std::make_shared<Atmosphere>(viewport);
-    m_ShadowMaps        = std::make_shared<ShadowMap>(viewport);
-    m_DebugVoxels       = std::make_shared<VoxelizeDebug>(viewport);
-    m_DeferredShading   = std::make_shared<DeferredShading>(viewport);
+    m_Icons = std::make_shared<Icons>(viewport);
+    m_Bloom = std::make_shared<Bloom>(viewport);
+    m_GBuffer = std::make_shared<GBuffer>(viewport);
+    m_Tonemap = std::make_shared<Tonemap>(viewport);
+    m_Skinning = std::make_shared<Skinning>();
+    m_Voxelize = std::make_shared<Voxelize>(512);
+    m_ImGuiPass = std::make_shared<ImGuiPass>();
+    m_ResolveTAA = std::make_shared<TAAResolve>(viewport);
+    m_DebugLines = std::make_shared<DebugLines>();
+    m_Atmosphere = std::make_shared<Atmosphere>(viewport);
+    m_ShadowMaps = std::make_shared<ShadowMap>(viewport);
+    m_DebugVoxels = std::make_shared<VoxelizeDebug>(viewport);
+    m_DeferredShading = std::make_shared<DeferredShading>(viewport);
 
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Icons));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Bloom));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_GBuffer));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Tonemap));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Skinning));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Voxelize));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_ImGuiPass));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_ResolveTAA));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_DebugLines));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_Atmosphere));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_ShadowMaps));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_DebugVoxels));
-    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>(m_DeferredShading));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_Icons ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_Bloom ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_GBuffer ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_Tonemap ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_Skinning ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_Voxelize ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_ImGuiPass ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_ResolveTAA ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_DebugLines ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_Atmosphere ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_ShadowMaps ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_DebugVoxels ));
+    m_RenderPasses.push_back(std::static_pointer_cast<RenderPass>( m_DeferredShading ));
 
-    auto setDefaultTextureParams = [](GLuint& texture) {
+    auto setDefaultTextureParams = [](GLuint& texture)
+    {
         glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -184,7 +194,8 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     glTextureStorage2D(m_DefaultBlackTexture, 1, GL_RGBA8, 1, 1);
     setDefaultTextureParams(m_DefaultBlackTexture);
 
-    auto createDefaultMaterialTexture = [](GLuint& texture, const glm::vec4& value) {
+    auto createDefaultMaterialTexture = [](GLuint& texture, const glm::vec4& value)
+    {
         glCreateTextures(GL_TEXTURE_2D, 1, &texture);
         glTextureStorage2D(texture, 1, GL_RGBA16F, 1, 1);
         glTextureSubImage2D(texture, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, glm::value_ptr(value));
@@ -201,7 +212,8 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
 }
 
 
-Renderer::~Renderer() {
+Renderer::~Renderer()
+{
     ImGui_ImplOpenGL3_DestroyDeviceObjects();
     SDL_GL_DeleteContext(m_GLContext);
     ImNodes::DestroyContext();
@@ -209,7 +221,8 @@ Renderer::~Renderer() {
 }
 
 
-void Renderer::Render(const Scene& scene, const Viewport& viewport) {
+void Renderer::Render(const Scene& scene, const Viewport& viewport)
+{
     // skin all meshes in the scene
     {
         const auto timer = RenderPass::ScopedTimer("Skinning", m_Skinning.get(), !mSettings.disableTiming);
@@ -220,11 +233,12 @@ void Renderer::Render(const Scene& scene, const Viewport& viewport) {
     // render 4 * 4096 cascaded shadow maps
     {
         const auto timer = RenderPass::ScopedTimer("Shadow Cascades", m_ShadowMaps.get(), !mSettings.disableTiming);
-       m_ShadowMaps->Render(viewport, scene);
+        m_ShadowMaps->Render(viewport, scene);
     }
 
     // voxelize the Scene to a 3D texture
-    if (mSettings.shouldVoxelize) {
+    if (mSettings.shouldVoxelize)
+    {
         const auto timer = RenderPass::ScopedTimer("Voxelize", m_Voxelize.get(), !mSettings.disableTiming);
         m_Voxelize->Render(scene, viewport, *m_ShadowMaps);
     }
@@ -234,7 +248,7 @@ void Renderer::Render(const Scene& scene, const Viewport& viewport) {
         const auto timer = RenderPass::ScopedTimer("GBuffer", m_GBuffer.get(), !mSettings.disableTiming);
         m_GBuffer->Render(scene, viewport, m_FrameNr);
     }
-    
+
     // render the sky using ray marching for atmospheric scattering
     {
         const auto timer = RenderPass::ScopedTimer("Atmosphere", m_Atmosphere.get(), !mSettings.disableTiming);
@@ -249,11 +263,13 @@ void Renderer::Render(const Scene& scene, const Viewport& viewport) {
 
     auto shading_result = m_DeferredShading->result;
 
-    if (mSettings.enableTAA) {
+    if (mSettings.enableTAA)
+    {
         const auto timer = RenderPass::ScopedTimer("TAA Resolve", m_ResolveTAA.get(), !mSettings.disableTiming);
         shading_result = m_ResolveTAA->Render(viewport, *m_GBuffer, *m_DeferredShading, m_FrameNr);
     }
-    else {
+    else
+    {
         // if the cvar is enabled through cvars it doesnt reset the frameNr,
         // so we just do it here
         // frameNr = 0;
@@ -268,7 +284,8 @@ void Renderer::Render(const Scene& scene, const Viewport& viewport) {
     // generate downsampled bloom and do ACES tonemapping
     auto bloomTexture = m_DefaultBlackTexture;
 
-    if (mSettings.doBloom) {
+    if (mSettings.doBloom)
+    {
         const auto timer = RenderPass::ScopedTimer("Bloom", m_Bloom.get(), !mSettings.disableTiming);
         m_Bloom->Render(viewport, m_DeferredShading->bloomHighlights);
         bloomTexture = m_Bloom->bloomTexture;
@@ -289,7 +306,8 @@ void Renderer::Render(const Scene& scene, const Viewport& viewport) {
     }
 
     // render 3D voxel texture size ^ 3 cubes
-    if (mSettings.debugVoxels) {
+    if (mSettings.debugVoxels)
+    {
         const auto timer = RenderPass::ScopedTimer("Debug Voxels", m_DebugVoxels.get(), !mSettings.disableTiming);
         m_DebugVoxels->Render(viewport, m_Tonemap->result, *m_Voxelize);
     }
@@ -319,14 +337,16 @@ void Renderer::Render(const Scene& scene, const Viewport& viewport) {
 
 
 
-void Renderer::AddDebugLine(Vec3 p1, Vec3 p2) {
+void Renderer::AddDebugLine(Vec3 p1, Vec3 p2)
+{
     m_DebugLines->points.push_back(p1);
     m_DebugLines->points.push_back(p2);
 }
 
 
 
-void Renderer::AddDebugBox(Vec3 min, Vec3 max, const Mat4x4& m) {
+void Renderer::AddDebugBox(Vec3 min, Vec3 max, const Mat4x4& m)
+{
     AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
     AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
     AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
@@ -343,33 +363,35 @@ void Renderer::AddDebugBox(Vec3 min, Vec3 max, const Mat4x4& m) {
 
 
 
-uint64_t Renderer::GetDisplayTexture() { 
+uint64_t Renderer::GetDisplayTexture()
+{
     const auto targets = std::array {
         m_Tonemap->result,
-        m_GBuffer->albedoTexture,
-        m_GBuffer->normalTexture,
-        m_GBuffer->materialTexture,
-        m_GBuffer->velocityTexture,
-        m_ResolveTAA->resultBuffer,
-        m_DeferredShading->result,
-        m_DeferredShading->bloomHighlights,
-        m_Bloom->blurTexture,
-        m_Bloom->bloomTexture,
+            m_GBuffer->albedoTexture,
+            m_GBuffer->normalTexture,
+            m_GBuffer->materialTexture,
+            m_GBuffer->velocityTexture,
+            m_ResolveTAA->resultBuffer,
+            m_DeferredShading->result,
+            m_DeferredShading->bloomHighlights,
+            m_Bloom->blurTexture,
+            m_Bloom->bloomTexture,
     };
 
     assert(targets.size() == sDebugTextureNames.size());
-    return targets[mSettings.mDebugTexture]; 
+    return targets[mSettings.mDebugTexture];
 }
 
 
 
-void Renderer::DrawImGui(Scene& inScene, const Viewport& inViewport) {
-    if (ImGui::Checkbox("VSync", (bool*)(&mSettings.vsync)))
+void Renderer::DrawImGui(Scene& inScene, const Viewport& inViewport)
+{
+    if (ImGui::Checkbox("VSync", (bool*)( &mSettings.vsync )))
         SDL_GL_SetSwapInterval(mSettings.vsync);
 
     ImGui::SameLine();
 
-    if (ImGui::Checkbox("TAA", (bool*)(&mSettings.enableTAA)))
+    if (ImGui::Checkbox("TAA", (bool*)( &mSettings.enableTAA )))
         m_FrameNr = 0;
 
     ImGui::NewLine();
@@ -384,7 +406,8 @@ void Renderer::DrawImGui(Scene& inScene, const Viewport& inViewport) {
 
     if (ImGui::DragFloat("Bias constant", &m_ShadowMaps->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
     if (ImGui::DragFloat("Bias slope factor", &m_ShadowMaps->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Split lambda", &m_ShadowMaps->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f")) {
+    if (ImGui::DragFloat("Split lambda", &m_ShadowMaps->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f"))
+    {
         m_ShadowMaps->updatePerspectiveConstants(inViewport);
     }
 
@@ -400,7 +423,8 @@ void Renderer::DrawImGui(Scene& inScene, const Viewport& inViewport) {
 
 
 
-void Renderer::UploadMeshBuffers(Mesh& mesh) {
+void Renderer::UploadMeshBuffers(Mesh& mesh)
+{
     auto vertices = mesh.GetInterleavedVertices();
 
     glCreateBuffers(1, &mesh.vertexBuffer);
@@ -412,7 +436,8 @@ void Renderer::UploadMeshBuffers(Mesh& mesh) {
 
 
 
-void Renderer::DestroyMeshBuffers(Mesh& mesh) {
+void Renderer::DestroyMeshBuffers(Mesh& mesh)
+{
     glDeleteBuffers(1, &mesh.vertexBuffer);
     glDeleteBuffers(1, &mesh.indexBuffer);
     mesh.vertexBuffer = 0, mesh.indexBuffer = 0;
@@ -420,7 +445,8 @@ void Renderer::DestroyMeshBuffers(Mesh& mesh) {
 
 
 
-void Renderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
+void Renderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh)
+{
     glCreateBuffers(1, &skeleton.boneIndexBuffer);
     glNamedBufferData(skeleton.boneIndexBuffer, skeleton.boneIndices.size() * sizeof(glm::ivec4), skeleton.boneIndices.data(), GL_STATIC_COPY);
 
@@ -439,7 +465,8 @@ void Renderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh) {
 
 
 
-void Renderer::DestroySkeletonBuffers(Skeleton& skeleton) {
+void Renderer::DestroySkeletonBuffers(Skeleton& skeleton)
+{
     glDeleteBuffers(1, &skeleton.boneIndexBuffer);
     glDeleteBuffers(1, &skeleton.boneWeightBuffer);
     glDeleteBuffers(1, &skeleton.skinnedVertexBuffer);
@@ -448,7 +475,8 @@ void Renderer::DestroySkeletonBuffers(Skeleton& skeleton) {
 
 
 
-void Renderer::DestroyMaterialTextures(Material& material, Assets& assets) {
+void Renderer::DestroyMaterialTextures(Material& material, Assets& assets)
+{
     glDeleteTextures(1, &material.gpuAlbedoMap);
     glDeleteTextures(1, &material.gpuNormalMap);
     glDeleteTextures(1, &material.gpuMetallicRoughnessMap);
@@ -461,18 +489,20 @@ void Renderer::DestroyMaterialTextures(Material& material, Assets& assets) {
 
 
 
-GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB) {
+GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB)
+{
     auto dataPtr = asset->GetData();
     auto headerPtr = asset->GetHeader();
 
     auto alpha = headerPtr->ddspf.dwABitMask != 0;
     auto gl_format = sRGB ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
     auto dds_format = (EDDSFormat)headerPtr->ddspf.dwFourCC;
-    
-    switch (dds_format) {
+
+    switch (dds_format)
+    {
         case EDDSFormat::DDS_FORMAT_DXT1: gl_format = sRGB ? alpha ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT : GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : alpha ? GL_COMPRESSED_RGBA_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
             break;
-        case EDDSFormat::DDS_FORMAT_DXT3: gl_format = sRGB ? alpha ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : NULL                             : alpha ? GL_COMPRESSED_RGBA_S3TC_DXT3_EXT : NULL;
+        case EDDSFormat::DDS_FORMAT_DXT3: gl_format = sRGB ? alpha ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : NULL : alpha ? GL_COMPRESSED_RGBA_S3TC_DXT3_EXT : NULL;
             break;
         case EDDSFormat::DDS_FORMAT_DXT5: gl_format = sRGB ? alpha ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT : alpha ? GL_COMPRESSED_RGBA_S3TC_DXT5_EXT : NULL;
             break;
@@ -486,21 +516,22 @@ GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRG
         case EDDSFormat::DDS_FORMAT_DXT4:
 
         default:
-        assert(false);
+            assert(false);
     }
 
     assert(dds_format != NULL);
 
     auto texture = 0u;
     glCreateTextures(GL_TEXTURE_2D, 1, &texture);
-    
+
     glTextureStorage2D(texture, headerPtr->dwMipMapCount, gl_format, headerPtr->dwWidth, headerPtr->dwHeight);
 
     auto block_size = dds_format == DDS_FORMAT_DXT1 ? 8 : 16;
 
-    for (auto mip = 0u; mip < headerPtr->dwMipMapCount; mip++) {
+    for (auto mip = 0u; mip < headerPtr->dwMipMapCount; mip++)
+    {
         const auto dimensions = glm::ivec2(std::max(headerPtr->dwWidth >> mip, 1ul), std::max(headerPtr->dwHeight >> mip, 1ul));
-        const auto data_size = GLsizei(std::max(1, ((dimensions.x + 3) / 4)) * std::max(1, ((dimensions.y + 3) / 4)) * block_size);
+        const auto data_size = GLsizei(std::max(1, ( ( dimensions.x + 3 ) / 4 )) * std::max(1, ( ( dimensions.y + 3 ) / 4 )) * block_size);
         glCompressedTextureSubImage2D(texture, mip, 0, 0, dimensions.x, dimensions.y, gl_format, data_size, dataPtr);
         dataPtr += dimensions.x * dimensions.y;
     }
@@ -513,22 +544,25 @@ GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRG
 
 
 
-uint32_t Renderer::GetDebugTextureCount() const {
+uint32_t Renderer::GetDebugTextureCount() const
+{
     return sDebugTextureNames.size();
 }
 
-const char* Renderer::GetDebugTextureName(uint32_t inIndex) const {
+const char* Renderer::GetDebugTextureName(uint32_t inIndex) const
+{
     assert(inIndex < sDebugTextureNames.size());
     return sDebugTextureNames[inIndex];
 }
 
 
 
-uint32_t Renderer::GetScreenshotBuffer(uint8_t* ioBuffer) {
+uint32_t Renderer::GetScreenshotBuffer(uint8_t* ioBuffer)
+{
     int width = 0, height = 0;
     glGetTextureLevelParameteriv(GetDisplayTexture(), 0, GL_TEXTURE_WIDTH, &width);
     glGetTextureLevelParameteriv(GetDisplayTexture(), 0, GL_TEXTURE_HEIGHT, &height);
-    
+
     const auto buffer_size = width * height * 4 * sizeof(uint8_t);
 
     if (ioBuffer)
@@ -538,10 +572,12 @@ uint32_t Renderer::GetScreenshotBuffer(uint8_t* ioBuffer) {
 }
 
 
-void Renderer::CreateRenderTargets(const Viewport& viewport) {
+void Renderer::CreateRenderTargets(const Viewport& viewport)
+{
     m_FrameNr = 0;
 
-    for (auto& pass : m_RenderPasses) {
+    for (auto& pass : m_RenderPasses)
+    {
         pass->DestroyRenderTargets();
         pass->CreateRenderTargets(viewport);
     }

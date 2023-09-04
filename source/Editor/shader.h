@@ -4,11 +4,13 @@
 
 namespace Raekor {
 
-class Shader {
+class Shader
+{
 public:
     enum class Type { VERTEX, FRAG, GEO, COMPUTE };
 
-    struct Stage {
+    struct Stage
+    {
         Stage(Type type, const Path& inSrcFile);
 
         Type type;
@@ -22,7 +24,8 @@ public:
 };
 
 
-class GLShader : public Shader {
+class GLShader : public Shader
+{
 public:
     ~GLShader();
 
