@@ -16,13 +16,15 @@ class Application;
 namespace Raekor::DX12 {
 
 class Device;
-class RenderGraph;
 class CommandList;
+class RenderGraph;
+class RayTracedScene;
 
 struct BackBufferData {
     uint64_t    mFenceValue;
     TextureID   mBackBuffer;
-    CommandList mCmdList;
+    CommandList mCopyCmdList;
+    CommandList mDirectCmdList;
 };
 
 enum EDebugTexture {
@@ -63,9 +65,9 @@ public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
     void OnResize(Device& inDevice, const Viewport& inViewport, bool inExclusiveFullscreen = false);
-    void OnRender(Device& inDevice, const Viewport& inViewport, Scene& inScene, StagingHeap& inStagingHeap, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, EDebugTexture inDebugTexture, float inDeltaTime);
+    void OnRender(Application* inApp, Device& inDevice, const Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterfacee, float inDeltaTime);
 
-    void Recompile(Device& inDevice, const Scene& inScene, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer, EDebugTexture inDebugTexture);
+    void Recompile(Device& inDevice, const RayTracedScene& inScene, IRenderInterface* inRenderInterface);
 
     CommandList& StartSingleSubmit();
     void FlushSingleSubmit(Device& inDevice, CommandList& inCommandList);
@@ -116,7 +118,7 @@ public:
     virtual const char* GetDebugTextureName(uint32_t inIndex) const;
     
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) { return 0; /* TODO: FIXME */ }
-    uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) override { return 0; /* TODO: FIXME */ }
+    uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) override { return NULL_ENTITY; /* TODO: FIXME */ }
 
     void UploadMeshBuffers(Mesh& inMesh);
     void DestroyMeshBuffers(Mesh& inMesh) { /* TODO: FIXME */ }
@@ -144,6 +146,7 @@ private:
 struct GBufferData {
     RTTI_DECLARE_TYPE(GBufferData);
 
+    Entity mActiveEntity = NULL_ENTITY;
     TextureResource mDepthTexture;
     TextureResource mRenderTexture;
     TextureResource mMotionVectorTexture;
@@ -168,7 +171,8 @@ struct GBufferDebugData {
 };
 
 const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferData& inGBufferData, EDebugTexture inDebugTexture
+    const GBufferData& inGBufferData, 
+    EDebugTexture inDebugTexture
 );
 
 
@@ -204,8 +208,8 @@ struct RTShadowMaskData {
 };
 
 const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDevice, 
-    const GBufferData& inGBufferData,
-    DescriptorID inTLAS
+    const RayTracedScene& inScene,
+    const GBufferData& inGBufferData
 );
 
 
@@ -224,8 +228,8 @@ struct RTAOData {
 };
 
 const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferData& inGBufferData,
-    DescriptorID inTLAS
+    const RayTracedScene& inScene,
+    const GBufferData& inGBufferData
 );
 
 
@@ -245,10 +249,8 @@ struct ReflectionsData {
 };
 
 const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferData& inGBufferData,
-    DescriptorID inTLAS,
-    DescriptorID inInstancesBuffer,
-    DescriptorID inMaterialsBuffer
+    const RayTracedScene& inScene,
+    const GBufferData& inGBufferData
 );
 
 
@@ -269,10 +271,8 @@ struct PathTraceData {
 };
 
 const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferData& inGBufferData,
-    DescriptorID inTLAS,
-    DescriptorID inInstancesBuffer,
-    DescriptorID inMaterialsBuffer
+    const RayTracedScene& inScene,
+    const GBufferData& inGBufferData
 );
 
 
@@ -318,7 +318,9 @@ struct ProbeTraceData {
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
-const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice, DescriptorID inTLAS, DescriptorID inInstancesBuffer, DescriptorID inMaterialsBuffer);
+const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice, 
+    const RayTracedScene& inScene
+);
 
 
 ////////////////////////////////////////

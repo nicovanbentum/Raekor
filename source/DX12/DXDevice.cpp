@@ -222,7 +222,6 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const std::wstring& in
                 buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
             break;
         case Buffer::UPLOAD:
-        case Buffer::SHADER_READ_ONLY:
             alloc_desc.HeapType = D3D12_HEAP_TYPE_UPLOAD;
             break;
         case Buffer::SHADER_READ_WRITE:
@@ -404,9 +403,6 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc) {
     buffer.m_Desc.viewDesc = inDesc.viewDesc;
 
     switch (inDesc.usage) {
-    case Buffer::SHADER_READ_ONLY:
-        buffer.m_View = CreateShaderResourceView(buffer.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
-        break;
     case Buffer::SHADER_READ_WRITE:
         if (inDesc.viewDesc == nullptr) {
             auto desc = D3D12_UNORDERED_ACCESS_VIEW_DESC{};
@@ -418,21 +414,30 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc) {
                 desc.Buffer.NumElements = inDesc.size / inDesc.stride;
             }
 
-            buffer.m_View = CreateUnorderedAccessView(buffer.m_Resource, &desc);
+            buffer.m_Descriptor = CreateUnorderedAccessView(buffer.m_Resource, &desc);
         } 
         else 
-            buffer.m_View = CreateUnorderedAccessView(buffer.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>(inDesc.viewDesc));
+            buffer.m_Descriptor = CreateUnorderedAccessView(buffer.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>(inDesc.viewDesc));
         break;
     case Buffer::ACCELERATION_STRUCTURE:
         if (inDesc.viewDesc)
-            buffer.m_View = CreateShaderResourceView(nullptr, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
+            buffer.m_Descriptor = CreateShaderResourceView(nullptr, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
+        else {
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+            srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srv_desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+            srv_desc.RaytracingAccelerationStructure.Location = buffer->GetGPUVirtualAddress();
+
+            buffer.m_Descriptor = CreateShaderResourceView(nullptr,&srv_desc);
+        }
         break;
     case Buffer::UPLOAD:
     case Buffer::GENERAL:
     case Buffer::INDEX_BUFFER:
     case Buffer::VERTEX_BUFFER:
+    case Buffer::SHADER_READ_ONLY:
         if (inDesc.viewDesc)
-            buffer.m_View = CreateShaderResourceView(buffer.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
+            buffer.m_Descriptor = CreateShaderResourceView(buffer.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
         else if (inDesc.stride) {
             D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
             srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -440,7 +445,7 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc) {
             srv_desc.Buffer.StructureByteStride = inDesc.stride;
             srv_desc.Buffer.NumElements = inDesc.size / inDesc.stride;
 
-            buffer.m_View = CreateShaderResourceView(buffer.m_Resource, &srv_desc);
+            buffer.m_Descriptor = CreateShaderResourceView(buffer.m_Resource, &srv_desc);
 
         }
         break;
@@ -458,16 +463,16 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc) {
 
     switch (inDesc.usage) {
     case Texture::DEPTH_STENCIL_TARGET: {
-        texture.m_View = CreateDepthStencilView(texture.m_Resource, static_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>(inDesc.viewDesc));
+        texture.m_Descriptor = CreateDepthStencilView(texture.m_Resource, static_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>(inDesc.viewDesc));
     } break;
     case Texture::RENDER_TARGET:
-        texture.m_View = CreateRenderTargetView(texture.m_Resource, static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>(inDesc.viewDesc));
+        texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>(inDesc.viewDesc));
         break;
     case Texture::SHADER_READ_ONLY:
-        texture.m_View = CreateShaderResourceView(texture.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
+        texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>(inDesc.viewDesc));
         break;
     case Texture::SHADER_READ_WRITE:
-        texture.m_View = CreateUnorderedAccessView(texture.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>(inDesc.viewDesc));
+        texture.m_Descriptor = CreateUnorderedAccessView(texture.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>(inDesc.viewDesc));
         break;
     default:
         assert(false); // should not be able to get here
@@ -477,19 +482,19 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc) {
 
 void Device::ReleaseDescriptor(BufferID inBufferID) {
     auto& buffer = GetBuffer(inBufferID);
-    m_Heaps[gGetHeapType(buffer.m_Desc.usage)].Remove(buffer.m_View);
+    m_Heaps[gGetHeapType(buffer.m_Desc.usage)].Remove(buffer.m_Descriptor);
 }
 
 
 void Device::ReleaseDescriptor(TextureID inTextureID) {
     auto& texture = GetTexture(inTextureID);
-    m_Heaps[gGetHeapType(texture.m_Desc.usage)].Remove(texture.m_View);
+    m_Heaps[gGetHeapType(texture.m_Desc.usage)].Remove(texture.m_Descriptor);
 }
 
 
 void Device::ReleaseDescriptorImmediate(TextureID inTextureID) {
     auto& texture = GetTexture(inTextureID);
-    m_Heaps[gGetHeapType(texture.m_Desc.usage)].Get(texture.m_View) = nullptr;
+    m_Heaps[gGetHeapType(texture.m_Desc.usage)].Get(texture.m_Descriptor) = nullptr;
     ReleaseDescriptor(inTextureID);
 }
 
@@ -518,14 +523,14 @@ D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(TextureID inID) {
 
 D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(BufferID inID) {
     auto& buffer = GetBuffer(inID);
-    return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetCPUDescriptorHandle(buffer.GetView());
+    return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetCPUDescriptorHandle(buffer.GetDescriptor());
 }
 
 
 
 D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(BufferID inID) {
     auto& buffer = GetBuffer(inID);
-    return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(buffer.GetView());
+    return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(buffer.GetDescriptor());
 }
 
 

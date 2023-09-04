@@ -22,6 +22,12 @@
 #define PRAGMA_OPTIMIZE_ON __pragma( optimize( "", on ) )
 #endif
 
+#define NO_COPY_NO_MOVE(Type) \
+    Type(Type&) = delete; \
+    Type(Type&&) = delete; \
+    Type& operator=(Type&) = delete; \
+    Type& operator=(Type&&) = delete \
+
 // From https://en.cppreference.com/w/cpp/utility/unreachable
 [[noreturn]] constexpr inline void gUnreachableCode() {
     assert(false);

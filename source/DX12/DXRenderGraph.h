@@ -27,7 +27,7 @@ struct BufferResource {
 
 	/* The returned index can be used directly in HLSL using ResourceDescriptorHeap. */
 	inline uint32_t GetBindlessIndex(Device& inDevice) const {
-		return inDevice.GetBindlessHeapIndex(inDevice.GetBuffer(mResourceBuffer).GetView());
+		return inDevice.GetBindlessHeapIndex(inDevice.GetBuffer(mResourceBuffer).GetDescriptor());
 	}
 };
 
@@ -162,11 +162,13 @@ public:
 
 	T& GetData() { return m_Data; }
 
+
+
 protected:
 	T			m_Data;
 	SetupFn<T>	m_Setup;
 	ExecFn<T>	m_Execute;
-	uint32_t	m_RefCount;
+	uint32_t	m_RefCount = 0;
 };
 
 
@@ -195,8 +197,8 @@ public:
 	virtual [[nodiscard]] TextureResource Write(TextureID inTexture) override;
 
 private:
-	/* Returns either the original handle or a new one pointing at a newly created texture view. */
-	[[nodiscard]] TextureID GetViewForUsage(TextureID inTexture, Texture::Usage inUsage);
+	/* Returns either the original handle or a new one pointing at a newly created texture descriptor. */
+	[[nodiscard]] TextureID GetDescriptorForUsage(TextureID inTexture, Texture::Usage inUsage);
 
 	Device& m_Device;
 };
@@ -228,7 +230,7 @@ public:
 
 private:
 	/* Returns either the original handle or a new one pointing at a newly created texture view. */
-	[[nodiscard]] TextureID GetViewForUsage(TextureID inTexture, Texture::Usage inUsage);
+	[[nodiscard]] TextureID GetDescriptorForUsage(TextureID inTexture, Texture::Usage inUsage);
 
 	Device& m_Device;
 };
@@ -349,7 +351,7 @@ TextureResource GraphicsRenderPass<T>::CreateAndWrite(TextureID inTexture) {
 
 template<typename T>
 TextureResource GraphicsRenderPass<T>::Read(TextureID inTexture) {
-	auto result = GetViewForUsage(inTexture, Texture::SHADER_READ_ONLY);
+	auto result = GetDescriptorForUsage(inTexture, Texture::SHADER_READ_ONLY);
 
 	auto resource = TextureResource{
 		.mCreatedTexture = inTexture,
@@ -365,13 +367,13 @@ template<typename T>
 TextureResource GraphicsRenderPass<T>::Write(TextureID inTexture) {
 	auto usage = Texture::RENDER_TARGET;
 
-	if (m_Device.GetTexture(inTexture).GetDesc().format == DXGI_FORMAT_D32_FLOAT)
+	if (gIsDepthFormat(m_Device.GetTexture(inTexture).GetDesc().format))
 		usage = Texture::DEPTH_STENCIL_TARGET;
 
-	auto result = GetViewForUsage(inTexture, usage);
+	auto result = GetDescriptorForUsage(inTexture, usage);
 
-	auto resource = TextureResource{
-		.mCreatedTexture = inTexture,
+	auto resource = TextureResource {
+		.mCreatedTexture  = inTexture,
 		.mResourceTexture = result
 	};
 
@@ -381,7 +383,7 @@ TextureResource GraphicsRenderPass<T>::Write(TextureID inTexture) {
 
 
 template<typename T>
-TextureID GraphicsRenderPass<T>::GetViewForUsage(TextureID inTexture, Texture::Usage inUsage) {
+TextureID GraphicsRenderPass<T>::GetDescriptorForUsage(TextureID inTexture, Texture::Usage inUsage) {
 	auto& texture = m_Device.GetTexture(inTexture);
 
 	if (texture.GetDesc().usage == inUsage)
@@ -390,8 +392,10 @@ TextureID GraphicsRenderPass<T>::GetViewForUsage(TextureID inTexture, Texture::U
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 	auto new_desc = Texture::Desc{ .usage = inUsage };
 
-	if (texture.GetDesc().format == DXGI_FORMAT_D32_FLOAT) {
-		srv_desc.Format = DXGI_FORMAT_R32_FLOAT;
+	const auto dxgi_format = texture.GetDesc().format;
+
+	if (gIsDepthFormat(dxgi_format)) {
+		srv_desc.Format = gGetDepthFormatSRV(dxgi_format);
 		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srv_desc.Texture2D.MipLevels = -1;
@@ -464,7 +468,7 @@ TextureResource ComputeRenderPass<T>::CreateAndWrite(TextureID inTexture) {
 
 template<typename T>
 TextureResource ComputeRenderPass<T>::Read(TextureID inTexture) {
-	auto result = GetViewForUsage(inTexture, Texture::SHADER_READ_ONLY);
+	auto result = GetDescriptorForUsage(inTexture, Texture::SHADER_READ_ONLY);
 
 	auto resource = TextureResource{
 		.mCreatedTexture = inTexture,
@@ -478,7 +482,7 @@ TextureResource ComputeRenderPass<T>::Read(TextureID inTexture) {
 
 template<typename T>
 TextureResource ComputeRenderPass<T>::Write(TextureID inTexture) {
-	auto result = GetViewForUsage(inTexture, Texture::SHADER_READ_WRITE);
+	auto result = GetDescriptorForUsage(inTexture, Texture::SHADER_READ_WRITE);
 
 	auto resource = TextureResource {
 		.mCreatedTexture = inTexture,
@@ -491,7 +495,7 @@ TextureResource ComputeRenderPass<T>::Write(TextureID inTexture) {
 
 
 template<typename T>
-TextureID ComputeRenderPass<T>::GetViewForUsage(TextureID inTexture, Texture::Usage inUsage) {
+TextureID ComputeRenderPass<T>::GetDescriptorForUsage(TextureID inTexture, Texture::Usage inUsage) {
 	auto& texture = m_Device.GetTexture(inTexture);
 
 	if (texture.GetDesc().usage == inUsage)
@@ -500,8 +504,10 @@ TextureID ComputeRenderPass<T>::GetViewForUsage(TextureID inTexture, Texture::Us
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 	auto new_desc = Texture::Desc{ .usage = inUsage };
 
-	if (texture.GetDesc().format == DXGI_FORMAT_D32_FLOAT) {
-		srv_desc.Format = DXGI_FORMAT_R32_FLOAT;
+	const auto dxgi_format = texture.GetDesc().format;
+
+	if (gIsDepthFormat(dxgi_format)) {
+		srv_desc.Format = gGetDepthFormatSRV(dxgi_format);
 		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srv_desc.Texture2D.MipLevels = -1;

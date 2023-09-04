@@ -74,6 +74,8 @@ bool RenderGraph::Compile(Device& inDevice) {
 		}
 	}
 
+
+
 /*
 	GRAPH CONSTRUCTION
 	The render graph is structured as follows:
@@ -114,6 +116,24 @@ bool RenderGraph::Compile(Device& inDevice) {
 			node.mEdges.emplace_back(GraphEdge { .mUsage = usage, .mRenderPassIndex = uint32_t(renderpass_index) });
 		}
 	}
+
+/*
+	RENDER PASS REMOVAL
+*/
+
+	/*std::set<uint32_t> renderpass_indices_to_delete;
+	for (const auto& [renderpass_index, renderpass] : gEnumerate(m_RenderPasses)) {
+		auto should_delete = true;
+
+		for (const auto& resource : renderpass->m_WrittenTextures) {
+			const auto& node = graph[resource.mCreatedTexture];
+
+			for (const auto& edge : node.mEdges) {
+				if (edge.mUsage)
+			}
+		}
+	}*/
+
 
 /*
 	BARRIER GENERATION
@@ -290,6 +310,18 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 			else
 				ofs << '\"' << str_name << R"("[color="#1B4958"][group=g)" << std::to_string(index) << "]\n";
 		}
+
+		for (const auto& resource : pass->m_WrittenTextures) {
+			wchar_t name[128] = {};
+			UINT size = sizeof(name);
+			inDevice.GetTexture(resource.mCreatedTexture).GetResource()->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
+			auto str_name = gWCharToString(name);
+
+			if (resource.mCreatedTexture == GetBackBuffer())
+				ofs << '\"' << str_name << R"("[color="red"][group=g)" << std::to_string(index) << "]\n";
+			else
+				ofs << '\"' << str_name << R"("[color="#1B4958"][group=g)" << std::to_string(index) << "]\n";
+		}
 	}
 
 	/* Stringify the graph logic, basically all the connections e.g "pass" -> "write1" */
@@ -297,13 +329,19 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 		for (const auto& resource : pass->m_WrittenTextures)
 			ofs << '\"' << pass->GetName() << "\" -> \"" << gGetDebugName(inDevice.GetTexture(resource.mCreatedTexture).GetResource().Get()) << "\" [color=\"red\"][penwidth=3]\n";
 
+		for (const auto& resource : pass->m_WrittenBuffers)
+			ofs << '\"' << pass->GetName() << "\" -> \"" << gGetDebugName(inDevice.GetBuffer(resource.mCreatedBuffer).GetResource().Get()) << "\" [color=\"red\"][penwidth=3]\n";
+
 		for (const auto& resource : pass->m_ReadTextures)
 			ofs << '\"' << gGetDebugName(inDevice.GetTexture(resource.mCreatedTexture).GetResource().Get()) << "\" -> \"" << pass->GetName() << "\" [color=\"green\"][penwidth=3]\n";
+
+		for (const auto& resource : pass->m_ReadBuffers)
+			ofs << '\"' << gGetDebugName(inDevice.GetBuffer(resource.mCreatedBuffer).GetResource().Get()) << "\" -> \"" << pass->GetName() << "\" [color=\"green\"][penwidth=3]\n";
 	}
 
 	/* Stringify final groupings, e.g. "pass" -> {"write1" "write2" "write3" } */
 	for (const auto& [index, pass] : gEnumerate(m_RenderPasses)) {
-		if (pass->m_WrittenTextures.size() < 2)
+		if (pass->m_WrittenTextures.size() < 2 || pass->m_WrittenBuffers.size() < 2)
 			continue;
 
 		ofs << '\"' << pass->GetName() << R"(" -> {")";
@@ -317,6 +355,18 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 			ofs << gWCharToString(name);
 
 			if (index != pass->m_WrittenTextures.size() - 1)
+				ofs << R"(" ")";
+		}
+
+		for (const auto& [index, resource] : gEnumerate(pass->m_WrittenBuffers)) {
+			wchar_t name[128] = {};
+			UINT size = sizeof(name);
+			inDevice.GetBuffer(resource.mCreatedBuffer).GetResource()->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
+			auto str_name = gWCharToString(name);
+
+			ofs << gWCharToString(name);
+
+			if (index != pass->m_WrittenBuffers.size() - 1)
 				ofs << R"(" ")";
 		}
 

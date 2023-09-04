@@ -168,14 +168,13 @@ public:
             ioArchive << component;
     }
 
-    void Write(JSON::WriteArchive& ioArchive) override final {
-        
-    }
+    void Write(JSON::WriteArchive& ioArchive) override final {}
     
     View Each() { return View(*this); }
 
     Slice<T> GetStorage() const { return Slice(storage.data(), storage.size()); }
     Slice<Entity> GetEntities() const { return Slice(entities.data(), entities.size()); }
+    Slice<Entity> GetSparseEntities() const { return Slice(sparse.data(), sparse.size()); }
 
     auto begin() { return EachIterator(storage.begin(), entities.begin()); }
     auto end() { return EachIterator(storage.end(), entities.end()); }
@@ -286,6 +285,14 @@ public:
     Slice<Entity> GetEntities() const {
         if (m_Components.contains(RTTI_OF(Component).GetHash()))
             return GetSparseSet<Component>()->GetEntities();
+        else
+            return Slice<Entity>((const Entity*)nullptr, uint64_t(0));
+    }
+
+    template<typename Component>
+    Slice<Entity> GetSparseEntities() const {
+        if (m_Components.contains(RTTI_OF(Component).GetHash()))
+            return GetSparseSet<Component>()->GetSparseEntities();
         else
             return Slice<Entity>((const Entity*)nullptr, uint64_t(0));
     }

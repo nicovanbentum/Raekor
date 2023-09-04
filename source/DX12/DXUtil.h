@@ -41,5 +41,39 @@ inline uint32_t gSpdCaculateMipCount(const uint32_t inWidth, const uint32_t inHe
 	return uint32_t((glm::min(glm::floor(glm::log2(float(max_res))), float(12))));
 }
 
+
+inline bool gIsDepthFormat(DXGI_FORMAT inFormat) {
+	switch (inFormat) {
+		case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+		case DXGI_FORMAT_D32_FLOAT:
+		case DXGI_FORMAT_D24_UNORM_S8_UINT:
+		case DXGI_FORMAT_D16_UNORM:
+			return true;
+		default:
+			return false;
+	}
+
+	return false;
+}
+
+
+inline DXGI_FORMAT gGetDepthFormatSRV(DXGI_FORMAT inFormat) {
+    switch (inFormat) {
+    case DXGI_FORMAT::DXGI_FORMAT_D16_UNORM:
+        return  DXGI_FORMAT::DXGI_FORMAT_R16_FLOAT;
+
+    case DXGI_FORMAT::DXGI_FORMAT_D24_UNORM_S8_UINT:
+        return DXGI_FORMAT::DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+
+    case DXGI_FORMAT::DXGI_FORMAT_D32_FLOAT:
+        return DXGI_FORMAT::DXGI_FORMAT_R32_FLOAT;
+
+    case DXGI_FORMAT::DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+        return DXGI_FORMAT::DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+    }
+
+    return DXGI_FORMAT_UNKNOWN;
+}
+
 } // namespace Raekor::DX12
 

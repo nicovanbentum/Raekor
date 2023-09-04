@@ -29,6 +29,7 @@ DXApp::DXApp() :
     m_Device(m_Window, sFrameCount), 
     m_StagingHeap(m_Device),
     m_Renderer(m_Device, m_Viewport, m_Window),
+    m_RayTracedScene(m_Scene),
     m_RenderInterface(m_Device, m_Renderer, m_StagingHeap)
 {
     RTTIFactory::Register(RTTI_OF(ShaderProgram));
@@ -39,7 +40,7 @@ DXApp::DXApp() :
 
     Timer timer;
 
-    auto json_data = JSON::JSONData("shaders.json");
+    auto json_data = JSON::JSONData("assets\\system\\shaders\\DirectX\\shaders.json");
     auto read_archive = JSON::ReadArchive(json_data);
     if (!json_data.IsEmpty())
         read_archive >> g_SystemShaders;
@@ -145,19 +146,18 @@ DXApp::DXApp() :
     {
         auto& cmd_list = m_Renderer.StartSingleSubmit();
 
-        UploadBindlessSceneBuffers(cmd_list);
+        m_RayTracedScene.UploadInstances(this, m_Device, m_StagingHeap, cmd_list);
+        
+        m_RayTracedScene.UploadMaterials(this, m_Device, m_StagingHeap, cmd_list);
 
-        UploadTopLevelBVH(cmd_list);
+        m_RayTracedScene.UploadTLAS(this, m_Device, m_StagingHeap, cmd_list);
 
         m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
     }
 
     LogMessage(std::format("[CPU] Upload BVH to GPU took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
-    const auto debug_texture = EDebugTexture(m_RenderInterface.GetSettings().mDebugTexture);
-    const auto instances_buffer = m_Device.GetBuffer(m_InstancesBuffer).GetView();
-    const auto materials_buffer = m_Device.GetBuffer(m_MaterialsBuffer).GetView();
-    m_Renderer.Recompile(m_Device, m_Scene, m_TLASDescriptor, instances_buffer, materials_buffer, debug_texture);
+    m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
 
     LogMessage(std::format("[CPU] RenderGraph compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
@@ -174,12 +174,7 @@ DXApp::~DXApp() {
 void DXApp::OnUpdate(float inDeltaTime) {
     IEditor::OnUpdate(inDeltaTime);
 
-    //UploadTopLevelBVH(m_Renderer.GetBackBufferData().mCmdList);
-
-    const auto debug_texture = EDebugTexture(m_RenderInterface.GetSettings().mDebugTexture);
-    const auto instances_buffer = m_Device.GetBuffer(m_InstancesBuffer).GetView();
-    const auto materials_buffer = m_Device.GetBuffer(m_MaterialsBuffer).GetView();
-    m_Renderer.OnRender(m_Device, m_Viewport, m_Scene, m_StagingHeap, m_TLASDescriptor, instances_buffer, materials_buffer, debug_texture, inDeltaTime);
+    m_Renderer.OnRender(this, m_Device, m_Viewport, m_RayTracedScene, m_StagingHeap, GetRenderInterface(), inDeltaTime);
 }
 
 
@@ -285,186 +280,6 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
     return texture.GetView();
 }
 
-
-
-void DXApp::UploadBindlessSceneBuffers(CommandList& inCmdList) {
-    auto MaterialIndex = [&](Entity m) -> uint32_t {
-        uint32_t i = 0;
-
-        for (const auto& [entity, material] : m_Scene.Each<Material>()) {
-            if (entity == m) {
-                return i;
-            }
-
-            i++;
-        }
-
-        return 0;
-    };
-
-    const auto nr_of_meshes = m_Scene.Count<Mesh>();
-    std::vector<RTGeometry> rt_geometries;
-    rt_geometries.reserve(nr_of_meshes);
-
-    for (const auto& [entity, mesh, transform] : m_Scene.Each<Mesh, Transform>()) {
-        if (!BufferID(mesh.BottomLevelAS).IsValid())
-            continue;
-
-        rt_geometries.emplace_back(RTGeometry {
-            .mIndexBuffer = m_Device.GetBindlessHeapIndex(m_Device.GetBuffer(BufferID(mesh.indexBuffer)).GetView()),
-            .mVertexBuffer = m_Device.GetBindlessHeapIndex(m_Device.GetBuffer(BufferID(mesh.vertexBuffer)).GetView()),
-            .mMaterialIndex = MaterialIndex(mesh.material),
-            .mLocalToWorldTransform = transform.worldTransform,
-            .mInvLocalToWorldTransform = glm::inverse(transform.worldTransform)
-        });
-    }
-
-    {
-        m_InstancesBuffer = m_Device.CreateBuffer(Buffer::Desc {
-            .size   = sizeof(RTGeometry) * nr_of_meshes,
-            .stride = sizeof(RTGeometry),
-            .usage  = Buffer::Usage::UPLOAD,
-        }, L"RT_INSTANCE_BUFFER");
-    }
-
-    {
-        uint8_t* mapped_ptr;
-        auto buffer_range = CD3DX12_RANGE(0, 0);
-        gThrowIfFailed(m_Device.GetBuffer(m_InstancesBuffer)->Map(0, &buffer_range, reinterpret_cast<void**>(&mapped_ptr)));
-        memcpy(mapped_ptr, rt_geometries.data(), rt_geometries.size() * sizeof(rt_geometries[0]));
-        m_Device.GetBuffer(m_InstancesBuffer)->Unmap(0, nullptr);
-    }
-
-    std::vector<RTMaterial> rt_materials(m_Scene.Count<Material>());
-
-    auto i = 0u;
-    for (const auto& [entity, material] : m_Scene.Each<Material>()) {
-        auto& rt_material = rt_materials[i];
-        rt_material.mAlbedo = material.albedo;
-        
-        rt_material.mAlbedoTexture = material.gpuAlbedoMap;
-        rt_material.mNormalsTexture = material.gpuNormalMap;
-        rt_material.mMetalRoughTexture = material.gpuMetallicRoughnessMap;
-        
-        rt_material.mMetallic = material.metallic;
-        rt_material.mRoughness = material.roughness;
-        
-        rt_material.mEmissive = Vec4(material.emissive, 1.0);
-
-        assert(rt_material.mAlbedoTexture != 0 && rt_material.mNormalsTexture != 0 && rt_material.mMetalRoughTexture != 0);
-
-        i++;
-    }
-
-    {
-        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-        srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-        srv_desc.Buffer.StructureByteStride = sizeof(RTMaterial);
-        srv_desc.Buffer.NumElements = rt_materials.size();
-
-        m_MaterialsBuffer = m_Device.CreateBuffer(Buffer::Desc {
-            .size   = sizeof(RTMaterial) * rt_materials.size(),
-            .stride = sizeof(RTMaterial),
-            .usage  = Buffer::Usage::UPLOAD,
-            .viewDesc = &srv_desc
-        }, L"RT_MATERIAL_BUFFER");
-    }
-
-
-    {
-        uint8_t* mapped_ptr;
-        auto buffer_range = CD3DX12_RANGE(0, 0);
-        gThrowIfFailed(m_Device.GetBuffer(m_MaterialsBuffer)->Map(0, &buffer_range, reinterpret_cast<void**>(&mapped_ptr)));
-        memcpy(mapped_ptr, rt_materials.data(), rt_materials.size() * sizeof(rt_materials[0]));
-        m_Device.GetBuffer(m_MaterialsBuffer)->Unmap(0, nullptr);
-    }
-}
-
-
-
-void DXApp::UploadTopLevelBVH(CommandList& inCmdList) {
-    auto rt_instances = std::vector<D3D12_RAYTRACING_INSTANCE_DESC> {};
-    rt_instances.reserve(m_Scene.Count<Mesh>());
-
-    auto instance_id = 0u;
-    for (const auto& [entity, mesh, transform] : m_Scene.Each<Mesh, Transform>()) {
-        const auto& blas_buffer = m_Device.GetBuffer(BufferID(mesh.BottomLevelAS));
-
-        auto instance = D3D12_RAYTRACING_INSTANCE_DESC {
-            .InstanceID = instance_id++,
-            .InstanceMask = 0xFF,
-            .Flags = D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE,
-            .AccelerationStructure = blas_buffer->GetGPUVirtualAddress(),
-        };
-
-        const auto transpose = glm::transpose(transform.worldTransform); // TODO: transform buffer
-        memcpy(instance.Transform, glm::value_ptr(transpose), sizeof(instance.Transform));
-
-        rt_instances.push_back(instance);
-    }
-
-    const auto instance_buffer_id = m_Device.CreateBuffer(Buffer::Desc{
-        .size = rt_instances.size() * sizeof(rt_instances[0]),
-        .usage = Buffer::UPLOAD,
-    });
-
-    auto& instance_buffer = m_Device.GetBuffer(instance_buffer_id);
-
-    {
-        auto mapped_ptr = (uint8_t*)nullptr;
-        auto buffer_range = CD3DX12_RANGE(0, 0);
-        gThrowIfFailed(instance_buffer->Map(0, &buffer_range, reinterpret_cast<void**>(&mapped_ptr)));
-        memcpy(mapped_ptr, rt_instances.data(), rt_instances.size() * sizeof(rt_instances[0]));
-        instance_buffer->Unmap(0, nullptr);
-    }
-
-    const auto inputs = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS {
-        .Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL,
-        .Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE,
-        .NumDescs = uint32_t(rt_instances.size()),
-        .DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY,
-        .InstanceDescs = instance_buffer->GetGPUVirtualAddress(),
-    };
-
-    auto prebuild_info = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO {};
-    m_Device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
-
-    auto scratch_buffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size = prebuild_info.ScratchDataSizeInBytes
-    }, L"TLAS_SCRATCH_BUFFER");
-
-    m_TLASBuffer = m_Device.CreateBuffer(Buffer::Desc {
-        .size = prebuild_info.ResultDataMaxSizeInBytes,
-        .usage = Buffer::Usage::ACCELERATION_STRUCTURE,
-    }, L"TLAS_FULL_SCENE");
-
-    LogMessage(std::format("[GPU] TLAS Buffer size is {:.1f} KBs", float(prebuild_info.ResultDataMaxSizeInBytes) / 1000));
-
-    const auto result_buffer = m_Device.GetBuffer(m_TLASBuffer);
-
-    {
-        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-        srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srv_desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-        srv_desc.RaytracingAccelerationStructure.Location = result_buffer->GetGPUVirtualAddress();
-
-        // pResource must be NULL, since the resource location comes from a GPUVA in pDesc
-        m_TLASDescriptor = m_Device.CreateShaderResourceView(nullptr, &srv_desc);
-    }
-
-    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
-    desc.ScratchAccelerationStructureData = m_Device.GetBuffer(scratch_buffer)->GetGPUVirtualAddress();
-    desc.DestAccelerationStructureData = result_buffer->GetGPUVirtualAddress();
-    desc.Inputs = inputs;
-
-    auto& cmd_list = m_Renderer.GetBackBufferData().mCmdList;
-    
-    cmd_list->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
-
-    m_Device.ReleaseBuffer(scratch_buffer);
-    m_Device.ReleaseBuffer(instance_buffer_id);
-}
 
 
 DebugWidget::DebugWidget(Application* inApp) : 

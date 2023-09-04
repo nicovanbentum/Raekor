@@ -135,8 +135,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt) {
     if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !(GetActiveEntity() != NULL_ENTITY && ImGuizmo::IsOver(operation)) && !ImGui::IsAnyItemHovered()) {
         const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + (ImGui::GetWindowSize() - size));
         const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(mouse_pos.x, mouse_pos.y);
-        auto picked = Entity(pixel);
 
+        auto picked = Entity(pixel);
         if (GetActiveEntity() == picked) {
             if (auto soft_body = scene.GetPtr<SoftBody>(GetActiveEntity())) {
                 if (auto body = GetPhysics().GetSystem()->GetBodyLockInterface().TryGetBody(soft_body->mBodyID)) {

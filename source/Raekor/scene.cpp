@@ -11,7 +11,7 @@
 
 namespace Raekor {
 
-Entity Scene::PickSpatialEntity(Ray& inRay) {
+Entity Scene::PickSpatialEntity(const Ray& inRay) {
     auto picked_entity = NULL_ENTITY;
     auto boxes_hit = std::map<float, Entity>{};
 

@@ -11,14 +11,16 @@ class ShaderProgram;
 struct TextureResource;
 
 
-class Device : public INoCopyNoMove {
+class Device {
 public:
+	NO_COPY_NO_MOVE(Device);
+
 	Device(SDL_Window* window, uint32_t inFrameCount);
 
-	operator ID3D12Device5*()					{ return m_Device.Get(); }
-	operator const ID3D12Device5* () const		{ return m_Device.Get(); }
-	ID3D12Device5* operator-> ()				{ return m_Device.Get(); }
-	const ID3D12Device5* operator-> () const	{ return m_Device.Get(); }
+	operator ID3D12Device5*()				 { return m_Device.Get(); }
+	operator const ID3D12Device5* () const	 { return m_Device.Get(); }
+	ID3D12Device5* operator-> ()			 { return m_Device.Get(); }
+	const ID3D12Device5* operator-> () const { return m_Device.Get(); }
 
 	bool IsTearingSupported() const { return mIsTearingSupported; }
 
@@ -75,7 +77,7 @@ public:
 	[[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader);
 
 	[[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inID)  { return inID.ToIndex(); }
-	[[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inID)		{ return GetBindlessHeapIndex(GetBuffer(inID).GetView()); }
+	[[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inID)		{ return GetBindlessHeapIndex(GetBuffer(inID).GetDescriptor()); }
 	[[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inID)		{ return GetBindlessHeapIndex(GetTexture(inID).GetView()); }
 
 	void QueueShader(const Path& inPath);

@@ -44,7 +44,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime) {
 
                 if (!filepath.empty()) {
                     Timer timer;
-                    SDL_SetWindowTitle(m_Editor->GetWindow(), std::string(filepath + " - Raekor Renderer").c_str());
+                    SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("Raekor Editor - " + filepath).c_str());
                     scene.OpenFromFile(IWidget::GetAssets(), filepath);
                     m_Editor->SetActiveEntity(NULL_ENTITY);
 

@@ -23,7 +23,7 @@ public:
 	~Scene() { Clear(); }
 
 	// Spatial entity management
-	Entity PickSpatialEntity(Ray& inRay);
+	Entity PickSpatialEntity(const Ray& inRay);
 	Entity CreateSpatialEntity(const std::string& inName = "");
 	void DestroySpatialEntity(Entity inEntity);
 
@@ -51,7 +51,7 @@ public:
 
 	void Optimize();
 
-private:
+protected:
 	IRenderInterface* m_Renderer;
 	std::stack<Entity> m_Nodes;
 };

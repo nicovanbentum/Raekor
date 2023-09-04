@@ -42,8 +42,8 @@ public:
 	Texture(const Desc& inDesc) : m_Desc(inDesc) {}
 
 	const Desc& GetDesc() const		{ return m_Desc; }
-	DescriptorID GetView() const	{ return m_View; }
-	uint32_t GetHeapIndex() const	{ return m_View.ToIndex(); }
+	DescriptorID GetView() const	{ return m_Descriptor; }
+	uint32_t GetHeapIndex() const	{ return m_Descriptor.ToIndex(); }
 
 	ResourceRef& operator-> ()				{ return m_Resource; }
 	const ResourceRef& operator-> () const	{ return m_Resource; }
@@ -52,7 +52,7 @@ public:
 
 private:
 	Desc m_Desc = {};
-	DescriptorID m_View;
+	DescriptorID m_Descriptor;
 	ResourceRef m_Resource = nullptr;
 	AllocationRef m_Allocation = nullptr;
 };
@@ -88,9 +88,9 @@ public:
 	Buffer(const Desc& inDesc) : m_Desc(inDesc) {}
 	~Buffer() { if (m_MappedPtr) m_Resource->Unmap(0, nullptr); }
 
-	const Desc& GetDesc() const		{ return m_Desc; }
-	DescriptorID GetView() const	{ return m_View; }
-	uint32_t GetHeapIndex() const	{ return m_View.ToIndex(); }
+	const Desc& GetDesc() const			{ return m_Desc; }
+	DescriptorID GetDescriptor() const	{ return m_Descriptor; }
+	uint32_t GetHeapIndex() const		{ return m_Descriptor.ToIndex(); }
 
 	ResourceRef& operator-> ()				{ return m_Resource; }
 	const ResourceRef& operator-> () const	{ return m_Resource; }
@@ -100,7 +100,7 @@ public:
 private:
 	Desc m_Desc = {};
 	void* m_MappedPtr = nullptr;
-	DescriptorID m_View;
+	DescriptorID m_Descriptor;
 	ResourceRef m_Resource = nullptr;
 	AllocationRef m_Allocation = nullptr;
 };
