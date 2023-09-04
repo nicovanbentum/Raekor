@@ -7,63 +7,65 @@
 
 namespace Raekor::VK {
 
-AccelStruct Device::CreateAccelStruct(VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount) {
-    AccelStruct accelStruct;
-    
-    // get the acceleration structure sizes
-    VkAccelerationStructureBuildSizesInfoKHR sizeInfo = {};
-    sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
-    
-    EXT::vkGetAccelerationStructureBuildSizesKHR(m_Device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &primitiveCount, &sizeInfo);
+AccelStruct Device::CreateAccelStruct(VkAccelerationStructureBuildGeometryInfoKHR& buildInfo, const uint32_t primitiveCount)
+{
+	AccelStruct accelStruct;
 
-    accelStruct.buffer = CreateBuffer(
-        sizeInfo.accelerationStructureSize, 
-        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, 
-        VMA_MEMORY_USAGE_GPU_ONLY
-    );
+	// get the acceleration structure sizes
+	VkAccelerationStructureBuildSizesInfoKHR sizeInfo = {};
+	sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 
-    // create the acceleration structure buffer
-    VkAccelerationStructureCreateInfoKHR asInfo = {};
-    asInfo.sType  = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-    asInfo.type   = buildInfo.type;
-    asInfo.size   = sizeInfo.accelerationStructureSize;
-    asInfo.buffer = accelStruct.buffer.buffer;
+	EXT::vkGetAccelerationStructureBuildSizesKHR(m_Device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &primitiveCount, &sizeInfo);
 
-    gThrowIfFailed(EXT::vkCreateAccelerationStructureKHR(m_Device, &asInfo, nullptr, &accelStruct.accelerationStructure));
+	accelStruct.buffer = CreateBuffer(
+		sizeInfo.accelerationStructureSize,
+		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
+		VMA_MEMORY_USAGE_GPU_ONLY
+	);
 
-    buildInfo.dstAccelerationStructure = accelStruct.accelerationStructure;
+	// create the acceleration structure buffer
+	VkAccelerationStructureCreateInfoKHR asInfo = {};
+	asInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+	asInfo.type = buildInfo.type;
+	asInfo.size = sizeInfo.accelerationStructureSize;
+	asInfo.buffer = accelStruct.buffer.buffer;
 
-    Buffer scratchBuffer = CreateBuffer(
-        sizeInfo.buildScratchSize, 
-        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
-        VMA_MEMORY_USAGE_GPU_ONLY
-    );
+	gThrowIfFailed(EXT::vkCreateAccelerationStructureKHR(m_Device, &asInfo, nullptr, &accelStruct.accelerationStructure));
 
-    buildInfo.scratchData.deviceAddress = GetDeviceAddress(scratchBuffer);
+	buildInfo.dstAccelerationStructure = accelStruct.accelerationStructure;
 
-    // build the acceleration structure on the GPU
-    auto commandBuffer = StartSingleSubmit();
+	Buffer scratchBuffer = CreateBuffer(
+		sizeInfo.buildScratchSize,
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY
+	);
 
-    auto build_range = VkAccelerationStructureBuildRangeInfoKHR {};
-    build_range.primitiveCount = primitiveCount;
+	buildInfo.scratchData.deviceAddress = GetDeviceAddress(scratchBuffer);
 
-    const auto build_ranges = std::array { &build_range };
+	// build the acceleration structure on the GPU
+	auto commandBuffer = StartSingleSubmit();
 
-    EXT::vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, build_ranges.data());
+	auto build_range = VkAccelerationStructureBuildRangeInfoKHR {};
+	build_range.primitiveCount = primitiveCount;
 
-    FlushSingleSubmit(commandBuffer);
+	const auto build_ranges = std::array { &build_range };
 
-    DestroyBuffer(scratchBuffer);
+	EXT::vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfo, build_ranges.data());
 
-    return accelStruct;
+	FlushSingleSubmit(commandBuffer);
+
+	DestroyBuffer(scratchBuffer);
+
+	return accelStruct;
 }
 
 
-void Device::DestroyAccelStruct(AccelStruct& accelStruct) {
-    if (accelStruct.accelerationStructure)
-        EXT::vkDestroyAccelerationStructureKHR(m_Device, accelStruct.accelerationStructure, nullptr);
+void Device::DestroyAccelStruct(AccelStruct& accelStruct)
+{
+	if (accelStruct.accelerationStructure)
+		EXT::vkDestroyAccelerationStructureKHR(m_Device, accelStruct.accelerationStructure, nullptr);
 
-    DestroyBuffer(accelStruct.buffer);
+	DestroyBuffer(accelStruct.buffer);
 }
 
 }

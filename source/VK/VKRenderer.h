@@ -12,58 +12,59 @@
 
 namespace Raekor::VK {
 
-class Renderer {
+class Renderer
+{
 public:
-    Renderer(SDL_Window* window);
-    ~Renderer();
+	Renderer(SDL_Window* window);
+	~Renderer();
 
-    void Init(Scene& scene);
-    void ResetAccumulation();
-    uint32_t GetFrameCounter();
+	void Init(Scene& scene);
+	void ResetAccumulation();
+	uint32_t GetFrameCounter();
 
-    void UpdateBVH(Scene& scene);
-    void UpdateMaterials(Assets& assets, Scene& scene);
+	void UpdateBVH(Scene& scene);
+	void UpdateMaterials(Assets& assets, Scene& scene);
 
-    void RenderScene(SDL_Window* window, const Viewport& viewport, Scene& scene);
+	void RenderScene(SDL_Window* window, const Viewport& viewport, Scene& scene);
 
-    void Screenshot(const std::string& path);
-    void RecreateSwapchain(SDL_Window* window);
+	void Screenshot(const std::string& path);
+	void RecreateSwapchain(SDL_Window* window);
 
-    int32_t UploadTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format);
+	int32_t UploadTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format);
 
-    void ReloadShaders();
-    void SetSyncInterval(bool interval);
+	void ReloadShaders();
+	void SetSyncInterval(bool interval);
 
-    RTGeometry CreateBLAS(Mesh& mesh, const Material& material);
-    void DestroyBLAS(RTGeometry& geometry);
-    AccelStruct CreateTLAS(Slice<VkAccelerationStructureInstanceKHR> inInstances);
-    
-    PathTracePass::PushConstants& GetPushConstants() { return m_PathTracePass.m_PushConstants; }
+	RTGeometry CreateBLAS(Mesh& mesh, const Material& material);
+	void DestroyBLAS(RTGeometry& geometry);
+	AccelStruct CreateTLAS(Slice<VkAccelerationStructureInstanceKHR> inInstances);
+
+	PathTracePass::PushConstants& GetPushConstants() { return m_PathTracePass.m_PushConstants; }
 
 private:
-    bool m_SyncInterval = false;
+	bool m_SyncInterval = false;
 
-    Device m_Device;
-    SwapChain m_Swapchain;
+	Device m_Device;
+	SwapChain m_Swapchain;
 
-    ImGuiPass m_ImGuiPass;
-    PathTracePass m_PathTracePass;
+	ImGuiPass m_ImGuiPass;
+	PathTracePass m_PathTracePass;
 
-    std::vector<VkFence> m_CommandsFinishedFences;
-    std::vector<VkSemaphore> m_ImageAcquiredSemaphores;
-    std::vector<VkSemaphore> m_RenderFinishedSemaphores;
+	std::vector<VkFence> m_CommandsFinishedFences;
+	std::vector<VkSemaphore> m_ImageAcquiredSemaphores;
+	std::vector<VkSemaphore> m_RenderFinishedSemaphores;
 
-    std::vector<Texture> m_Textures;
-    std::vector<Sampler> m_Samplers;
-    BindlessDescriptorSet m_BindlessTextureSet;
+	std::vector<Texture> m_Textures;
+	std::vector<Sampler> m_Samplers;
+	BindlessDescriptorSet m_BindlessTextureSet;
 
-    uint32_t m_ImageIndex = 0;
-    uint32_t m_CurrentFrame = 0;
-    static constexpr uint32_t sMaxFramesInFlight = 3;
+	uint32_t m_ImageIndex = 0;
+	uint32_t m_CurrentFrame = 0;
+	static constexpr uint32_t sMaxFramesInFlight = 3;
 
-    AccelStruct m_TLAS;
-    Buffer m_InstanceBuffer;
-    Buffer m_MaterialBuffer;
+	AccelStruct m_TLAS;
+	Buffer m_InstanceBuffer;
+	Buffer m_MaterialBuffer;
 };
 
 } // Raekor::VK

@@ -4,7 +4,8 @@ namespace Raekor::VK {
 
 class Texture;
 
-class CommandList {
+class CommandList
+{
 public:
 	void ImageLayoutBarrier(const Texture& texture, VkImageLayout oldLayout, VkImageLayout newLayout);
 

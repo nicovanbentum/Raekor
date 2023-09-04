@@ -16,9 +16,6 @@
 [submodule "dependencies/IconFontCppHeaders"]
 	path = dependencies/IconFontCppHeaders
 	url = https://github.com/juliettef/IconFontCppHeaders
-[submodule "dependencies/SPIRV-Reflect"]
-	path = dependencies/SPIRV-Reflect
-	url = https://github.com/KhronosGroup/SPIRV-Reflect
 [submodule "dependencies/vcpkg"]
 	path = dependencies/vcpkg
 	url = https://github.com/microsoft/vcpkg

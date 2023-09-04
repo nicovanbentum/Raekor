@@ -10,7 +10,8 @@
 
 namespace Raekor::VK {
 
-void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& pathTracePass, BindlessDescriptorSet& textures) {
+void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& pathTracePass, BindlessDescriptorSet& textures)
+{
 	constexpr size_t max_buffer_size = 65536; // Max number of bytes for VkCmdUpdateBuffer
 	m_ScratchBuffer.resize(max_buffer_size);
 
@@ -29,10 +30,10 @@ void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& 
 	int width, height;
 	unsigned char* pixels;
 	ImGui::GetIO().Fonts->GetTexDataAsAlpha8(&pixels, &width, &height);
-	
+
 	Buffer stagingBuffer = device.CreateBuffer(
-		width * height, 
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		width * height,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VMA_MEMORY_USAGE_CPU_ONLY
 	);
 
@@ -49,7 +50,7 @@ void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& 
 
 	device.TransitionImageLayout(
 		m_FontTexture,
-		VK_IMAGE_LAYOUT_UNDEFINED, 
+		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
 	);
 
@@ -57,7 +58,7 @@ void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& 
 
 	device.TransitionImageLayout(
 		m_FontTexture,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 	);
 
@@ -92,8 +93,8 @@ void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& 
 		.Attribute(1, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, uv))
 		.Attribute(2, VK_FORMAT_R32_UINT, offsetof(ImDrawVert, col));
 
-	m_PixelShader = device.CreateShader("assets/system/shaders/Vulkan/bin/imguiPS.hlsl.spv");
-	m_VertexShader = device.CreateShader("assets/system/shaders/Vulkan/bin/imguiVS.hlsl.spv");
+	m_PixelShader = device.CreateShader("assets/system/shaders/Vulkan/bin/imguiPS.hlsl.spv", VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
+	m_VertexShader = device.CreateShader("assets/system/shaders/Vulkan/bin/imguiVS.hlsl.spv", VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
 
 	GraphicsPipeline::State pipeline_state;
 	pipeline_state.rasterizer.cullMode = VK_CULL_MODE_NONE;
@@ -105,24 +106,25 @@ void ImGuiPass::Init(Device& device, const SwapChain& swapchain, PathTracePass& 
 	framebuffer_desc.ColorAttachment(0, pathTracePass.finalTexture);
 
 	m_FrameBuffer = device.CreateFrameBuffer(framebuffer_desc);
-	
+
 	GraphicsPipeline::Desc pipeline_desc;
 	pipeline_desc.state = &pipeline_state;
 	pipeline_desc.vertexShader = &m_VertexShader;
 	pipeline_desc.vertexInput = &vertex_input;
 	pipeline_desc.pixelShader = &m_PixelShader;
-	
+
 	m_Pipeline = device.CreateGraphicsPipeline(pipeline_desc, m_FrameBuffer, m_PipelineLayout);
 }
 
 
-void ImGuiPass::Destroy(Device& device) {
+void ImGuiPass::Destroy(Device& device)
+{
 	device.DestroyBuffer(m_IndexBuffer);
 	device.DestroyBuffer(m_VertexBuffer);
 
 	device.DestroyShader(m_PixelShader);
 	device.DestroyShader(m_VertexShader);
-	
+
 	device.DestroyTexture(m_FontTexture);
 	device.DestroySampler(m_FontSampler);
 
@@ -131,12 +133,14 @@ void ImGuiPass::Destroy(Device& device) {
 }
 
 
-void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData* data, BindlessDescriptorSet& textures, uint32_t width, uint32_t height, PathTracePass& pathTracePass) {
+void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData* data, BindlessDescriptorSet& textures, uint32_t width, uint32_t height, PathTracePass& pathTracePass)
+{
 	uint32_t vertex_offset = 0, index_offset = 0;
 
-	for (int n = 0; n < data->CmdListsCount; n++) {
+	for (int n = 0; n < data->CmdListsCount; n++)
+	{
 		const ImDrawList* cmdList = data->CmdLists[n];
-		
+
 		uint32_t vertex_size = cmdList->VtxBuffer.Size * sizeof(ImDrawVert);
 		memcpy(m_ScratchBuffer.data() + vertex_offset, cmdList->VtxBuffer.Data, vertex_size);
 		vertex_offset += vertex_size;
@@ -147,7 +151,8 @@ void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 	if (vertex_offset)
 		vkCmdUpdateBuffer(commandBuffer, m_VertexBuffer.buffer, 0, gAlignUp(vertex_offset, 4), m_ScratchBuffer.data());
 
-	for (int n = 0; n < data->CmdListsCount; n++) {
+	for (int n = 0; n < data->CmdListsCount; n++)
+	{
 		const ImDrawList* cmdList = data->CmdLists[n];
 
 		uint32_t index_size = cmdList->IdxBuffer.Size * sizeof(ImDrawIdx);
@@ -160,7 +165,8 @@ void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 	if (index_offset)
 		vkCmdUpdateBuffer(commandBuffer, m_IndexBuffer.buffer, 0, gAlignUp(index_offset, 4), m_ScratchBuffer.data());
 
-	struct PushConstants {
+	struct PushConstants
+	{
 		glm::mat4 projection;
 		int32_t textureIndex;
 	} push_constants;
@@ -170,8 +176,10 @@ void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 	std::vector<VkRenderingAttachmentInfo> colorAttachments;
 	colorAttachments.reserve(m_FrameBuffer.description.colorAttachments.size());
 
-	for (const auto& texture : m_FrameBuffer.description.colorAttachments) {
-		if (texture) {
+	for (const auto& texture : m_FrameBuffer.description.colorAttachments)
+	{
+		if (texture)
+		{
 			auto& attachment = colorAttachments.emplace_back();
 			attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 			attachment.imageView = device.CreateView(*texture);
@@ -185,10 +193,10 @@ void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 	renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 	renderInfo.layerCount = 1;
 	renderInfo.colorAttachmentCount = 1;
-	renderInfo.renderArea.extent = VkExtent2D{ width, height };
+	renderInfo.renderArea.extent = VkExtent2D { width, height };
 	renderInfo.pColorAttachments = colorAttachments.data();
 	renderInfo.colorAttachmentCount = colorAttachments.size();
-	
+
 	vkCmdBeginRendering(commandBuffer, &renderInfo);
 	vkCmdSetDepthBiasEnable(commandBuffer, false);
 	vkCmdSetPrimitiveRestartEnable(commandBuffer, false);
@@ -199,24 +207,29 @@ void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 	VkDeviceSize offset[] = { 0 };
 	VkDeviceSize stride[] = { sizeof(ImDrawVert) };
 	vkCmdBindVertexBuffers2(commandBuffer, 0, 1, &m_VertexBuffer.buffer, offset, nullptr, stride);
-	
+
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline.pipeline);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &textures.GetDescriptorSet(), 0, nullptr);
 
 	index_offset = 0;
 	vertex_offset = 0;
 
-	for (uint32_t list = 0; list < uint32_t(data->CmdListsCount); list++) {
+	for (uint32_t list = 0; list < uint32_t(data->CmdListsCount); list++)
+	{
 		const ImDrawList* cmd_list = data->CmdLists[list];
 
-		for (const auto& cmd : cmd_list->CmdBuffer) {
-			if (cmd.ElemCount == 0) continue;
+		for (const auto& cmd : cmd_list->CmdBuffer)
+		{
+			if (cmd.ElemCount == 0) 
+				continue;
 
 			if (cmd.UserCallback)
 			{
 				cmd.UserCallback(cmd_list, &cmd);
-			} else {
-				push_constants.textureIndex = cmd.TextureId ? *static_cast<int32_t*>(cmd.TextureId) : -1;
+			}
+			else
+			{
+				push_constants.textureIndex = cmd.TextureId ? *static_cast<int32_t*>( cmd.TextureId ) : -1;
 				vkCmdPushConstants(commandBuffer, m_PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
 
 				ImVec4 clip = ImVec4(
@@ -235,7 +248,7 @@ void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 				VkViewport viewport = {};
 				viewport.maxDepth = 1.0f;
 				viewport.width = float(width);
-				viewport.height = - float(height);
+				viewport.height = -float(height);
 				viewport.y = float(height);
 				viewport.x = 0;
 
@@ -257,7 +270,8 @@ void ImGuiPass::Record(Device& device, VkCommandBuffer commandBuffer, ImDrawData
 
 
 
-void ImGuiPass::CreateFramebuffer(Device& device, PathTracePass& pathTracePass, uint32_t width, uint32_t height) {
+void ImGuiPass::CreateFramebuffer(Device& device, PathTracePass& pathTracePass, uint32_t width, uint32_t height)
+{
 	FrameBuffer::Desc framebuffer_desc;
 	framebuffer_desc.width = width;
 	framebuffer_desc.height = height;
@@ -268,7 +282,8 @@ void ImGuiPass::CreateFramebuffer(Device& device, PathTracePass& pathTracePass, 
 
 
 
-void ImGuiPass::DestroyFramebuffer(Device& device) {
+void ImGuiPass::DestroyFramebuffer(Device& device)
+{
 	device.DestroyFrameBuffer(m_FrameBuffer);
 }
 

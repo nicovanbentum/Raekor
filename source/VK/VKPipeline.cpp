@@ -5,7 +5,8 @@
 
 namespace Raekor::VK {
 
-GraphicsPipeline::State::State() {
+GraphicsPipeline::State::State()
+{
 	inputAssembly = {};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -28,9 +29,10 @@ GraphicsPipeline::State::State() {
 	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
 	depthStencil.maxDepthBounds = 1.0;
 
-	for (size_t i = 0; i < std::size(blendStates); i++) {
+	for (size_t i = 0; i < std::size(blendStates); i++)
+	{
 		auto& colorState = blendStates[i];
-		
+
 		colorState.colorWriteMask =
 			VK_COLOR_COMPONENT_R_BIT |
 			VK_COLOR_COMPONENT_G_BIT |
@@ -55,23 +57,26 @@ GraphicsPipeline::State::State() {
 
 
 
-GraphicsPipeline::VertexInput& GraphicsPipeline::VertexInput::Binding(uint32_t binding, uint32_t stride) {
+GraphicsPipeline::VertexInput& GraphicsPipeline::VertexInput::Binding(uint32_t binding, uint32_t stride)
+{
 	bindings.push_back({ binding, stride, VK_VERTEX_INPUT_RATE_VERTEX });
 	return *this;
 }
 
 
 
-GraphicsPipeline::VertexInput& GraphicsPipeline::VertexInput::Attribute(uint32_t location, VkFormat format, uint32_t offset) {
+GraphicsPipeline::VertexInput& GraphicsPipeline::VertexInput::Attribute(uint32_t location, VkFormat format, uint32_t offset)
+{
 	attributes.push_back({ location, bindings.back().binding, format, offset });
 	return *this;
 }
 
 
 
-GraphicsPipeline Device::CreateGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer, VkPipelineLayout layout) {
+GraphicsPipeline Device::CreateGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer, VkPipelineLayout layout)
+{
 	GraphicsPipeline pipeline = {};
-	
+
 	std::array stages = {
 		desc.pixelShader->GetPipelineCreateInfo(),
 		desc.vertexShader->GetPipelineCreateInfo()
@@ -155,7 +160,8 @@ GraphicsPipeline Device::CreateGraphicsPipeline(const GraphicsPipeline::Desc& de
 	return pipeline;
 }
 
-void Device::DestroyGraphicsPipeline(const GraphicsPipeline& pipeline) {
+void Device::DestroyGraphicsPipeline(const GraphicsPipeline& pipeline)
+{
 	vkDestroyPipeline(m_Device, pipeline.pipeline, nullptr);
 	vkDestroyPipelineLayout(m_Device, pipeline.layout, nullptr);
 }

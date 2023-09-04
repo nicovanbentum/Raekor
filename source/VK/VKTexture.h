@@ -4,48 +4,52 @@
 
 namespace Raekor::VK {
 
-class Texture {
-    friend class Device;
-    friend class CommandList;
+class Texture
+{
+	friend class Device;
+	friend class CommandList;
 
 public:
-    struct Desc {
-        VkImageType type = VK_IMAGE_TYPE_2D;
-        VkFormat format = VK_FORMAT_UNDEFINED;
-        uint32_t width = 1, height = 1, depth = 1;
-        uint32_t mipLevels = 1;
-        uint32_t arrayLayers = 1;
-        bool shaderAccess = false;
-        bool mappable = false;
-    };
+	struct Desc
+	{
+		VkImageType type = VK_IMAGE_TYPE_2D;
+		VkFormat format = VK_FORMAT_UNDEFINED;
+		uint32_t width = 1, height = 1, depth = 1;
+		uint32_t mipLevels = 1;
+		uint32_t arrayLayers = 1;
+		bool shaderAccess = false;
+		bool mappable = false;
+	};
 
-    VkImage image;
-    Desc description;
+	VkImage image;
+	Desc description;
 
-    VkImageView GetView(uint32_t mip = 0) { return viewsByMip.at(mip); }
+	VkImageView GetView(uint32_t mip = 0) { return viewsByMip.at(mip); }
 
 private:
-    VmaAllocation allocation;
-    std::unordered_map<uint32_t, VkImageView> viewsByMip;
+	VmaAllocation allocation;
+	std::unordered_map<uint32_t, VkImageView> viewsByMip;
 };
 
 
 
-class Sampler {
-    friend class Device;
+class Sampler
+{
+	friend class Device;
 
 public:
-    struct Desc {
-        VkFilter minFilter = VK_FILTER_NEAREST; 
-        VkFilter magFilter = VK_FILTER_NEAREST;
-        VkBorderColor borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        float anisotropy = 0.0f;
-        float maxMipmap = 1.0f;
-    };
+	struct Desc
+	{
+		VkFilter minFilter = VK_FILTER_NEAREST;
+		VkFilter magFilter = VK_FILTER_NEAREST;
+		VkBorderColor borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		float anisotropy = 0.0f;
+		float maxMipmap = 1.0f;
+	};
 
-    VkSampler sampler;
-    Desc description;
+	VkSampler sampler;
+	Desc description;
 
 };
 

@@ -46,7 +46,7 @@ public:
     void AllocateDescriptorSet(uint32_t count, VkDescriptorSetLayout* layouts, VkDescriptorSet* sets, const void* pNext = nullptr) const;
     void FreeDescriptorSet(uint32_t count, VkDescriptorSet* sets) const;
 
-    [[nodiscard]] Shader CreateShader(const std::string& filepath);
+    [[nodiscard]] Shader CreateShader(const std::string& filepath, VkShaderStageFlagBits stageFlags);
     void DestroyShader(Shader& shader);
     
     [[nodiscard]] Texture CreateTexture(const Texture::Desc& desc);

@@ -8,22 +8,23 @@
 
 namespace Raekor::VK {
 
-class PathTracer : public Application {
+class PathTracer : public Application
+{
 public:
-    PathTracer();
-    virtual ~PathTracer();
+	PathTracer();
+	virtual ~PathTracer();
 
-    virtual void OnUpdate(float dt) override;
-    virtual void OnEvent(const SDL_Event& ev) override;
+	virtual void OnUpdate(float dt) override;
+	virtual void OnEvent(const SDL_Event& ev) override;
 
 private:
-    Scene m_Scene;
-    Assets m_Assets;
-    Physics m_Physics;
-    VK::Renderer m_Renderer;
-    
-    bool m_IsImGuiEnabled = true;
-    bool m_IsSwapchainDirty = true;
+	Scene m_Scene;
+	Assets m_Assets;
+	Physics m_Physics;
+	VK::Renderer m_Renderer;
+
+	bool m_IsImGuiEnabled = true;
+	bool m_IsSwapchainDirty = true;
 };
 
 }

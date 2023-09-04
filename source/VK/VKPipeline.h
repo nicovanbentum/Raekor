@@ -5,12 +5,14 @@
 
 namespace Raekor::VK {
 
-class GraphicsPipeline {
+class GraphicsPipeline
+{
 	friend class Device;
 	friend class CommandList;
 
 public:
-	struct State {
+	struct State
+	{
 		State();
 
 		VkPipelineInputAssemblyStateCreateInfo    inputAssembly;
@@ -23,7 +25,8 @@ public:
 		VkPipelineColorBlendAttachmentState blendStates[8];
 	};
 
-	struct VertexInput {
+	struct VertexInput
+	{
 		VertexInput& Binding(uint32_t binding, uint32_t stride);
 		VertexInput& Attribute(uint32_t location, VkFormat format, uint32_t offset);
 
@@ -31,7 +34,8 @@ public:
 		std::vector<VkVertexInputAttributeDescription> attributes;
 	};
 
-	struct Desc {
+	struct Desc
+	{
 		State* state;
 		Shader* vertexShader;
 		VertexInput* vertexInput;

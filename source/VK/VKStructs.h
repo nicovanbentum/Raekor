@@ -4,36 +4,40 @@
 
 namespace Raekor::VK {
 
-struct Buffer {
-    RTTI_DECLARE_TYPE(Buffer);
+struct Buffer
+{
+	RTTI_DECLARE_TYPE(Buffer);
 
-    VkBuffer buffer;
-    VmaAllocation allocation;
+	VkBuffer buffer;
+	VmaAllocation allocation;
 };
 
 
-struct AccelStruct {
-    RTTI_DECLARE_TYPE(AccelStruct);
+struct AccelStruct
+{
+	RTTI_DECLARE_TYPE(AccelStruct);
 
-    Buffer buffer = {};
-    VkAccelerationStructureKHR accelerationStructure = VK_NULL_HANDLE;
+	Buffer buffer = {};
+	VkAccelerationStructureKHR accelerationStructure = VK_NULL_HANDLE;
 };
 
 
-struct RTGeometry {
-    RTTI_DECLARE_TYPE(RTGeometry);
+struct RTGeometry
+{
+	RTTI_DECLARE_TYPE(RTGeometry);
 
-    AccelStruct accelStruct;
-    Buffer vertices;
-    Buffer indices;
+	AccelStruct accelStruct;
+	Buffer vertices;
+	Buffer indices;
 };
 
 
-struct RTMaterial {
-    glm::vec4 albedo;
-    glm::ivec4 textures; // texture indices:    x = albedo,    y = normals,   z = metalrough
-    glm::vec4 properties; // scalar properties: x = metalness, y = roughness
-    glm::vec4 emissive;
+struct RTMaterial
+{
+	glm::vec4 albedo;
+	glm::ivec4 textures; // texture indices:    x = albedo,    y = normals,   z = metalrough
+	glm::vec4 properties; // scalar properties: x = metalness, y = roughness
+	glm::vec4 emissive;
 };
 
 

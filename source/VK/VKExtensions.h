@@ -6,19 +6,20 @@
 
 namespace Raekor {
 
-class EXT {
+class EXT
+{
 public:
-    inline static PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
-    inline static PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
-    inline static PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
-    inline static PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
-    inline static PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
-    inline static PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
-    inline static PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
-    inline static PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
-    inline static PFN_vkCmdPipelineBarrier2KHR vkCmdPipelineBarrier2KHR;
+	inline static PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+	inline static PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+	inline static PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+	inline static PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
+	inline static PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+	inline static PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+	inline static PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+	inline static PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
+	inline static PFN_vkCmdPipelineBarrier2KHR vkCmdPipelineBarrier2KHR;
 
-    static void sInit(VkDevice device);
+	static void sInit(VkDevice device);
 };
 
 
