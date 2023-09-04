@@ -13,7 +13,8 @@
 
 namespace Raekor {
 
-struct DXMesh {
+struct DXMesh
+{
     RTTI_DECLARE_TYPE(DXMesh);
 
     ComPtr<ID3D11Buffer> mIndexBuffer = nullptr;
@@ -26,7 +27,8 @@ RTTI_DEFINE_TYPE(DXMesh) {}
 
 
 
-struct DXMaterial {
+struct DXMaterial
+{
     RTTI_DECLARE_TYPE(DXMaterial);
 
     ComPtr<ID3D11Texture2D> mAlbedoTexture = nullptr;
@@ -43,7 +45,8 @@ RTTI_DEFINE_TYPE(DXMaterial) {}
 
 
 
-struct GBufferConstants {
+struct GBufferConstants
+{
     float mLODFade = 1.0f;
     float pad0;
     float metallic;
@@ -58,9 +61,11 @@ struct GBufferConstants {
 
 
 
-class DX11App : public Application {
+class DX11App : public Application
+{
 public:
-    bool UploadMesh(const Mesh& inMesh, DXMesh& ioMesh) {
+    bool UploadMesh(const Mesh& inMesh, DXMesh& ioMesh)
+    {
         const auto vertices = inMesh.GetInterleavedVertices();
         const auto vertices_size = vertices.size() * sizeof(vertices[0]);
         const auto indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
@@ -78,7 +83,7 @@ public:
             buffer_desc.StructureByteStride = inMesh.GetInterleavedStride();
 
             D3D11_SUBRESOURCE_DATA vb_data = {};
-            vb_data.pSysMem = &(vertices[0]);
+            vb_data.pSysMem = &( vertices[0] );
 
             D3D.device->CreateBuffer(&buffer_desc, &vb_data, ioMesh.mVertexBuffer.GetAddressOf());
 
@@ -96,7 +101,7 @@ public:
             buffer_desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 
             D3D11_SUBRESOURCE_DATA vb_data = {};
-            vb_data.pSysMem = &(inMesh.indices[0]);
+            vb_data.pSysMem = &( inMesh.indices[0] );
 
             D3D.device->CreateBuffer(&buffer_desc, &vb_data, ioMesh.mIndexBuffer.GetAddressOf());
         }
@@ -106,7 +111,8 @@ public:
 
 
 
-    ComPtr<ID3D11Texture2D> UploadTexture(const TextureAsset::Ptr& inTexture, DXGI_FORMAT informat) {
+    ComPtr<ID3D11Texture2D> UploadTexture(const TextureAsset::Ptr& inTexture, DXGI_FORMAT informat)
+    {
         const auto header_ptr = inTexture->GetHeader();
 
         D3D11_TEXTURE2D_DESC desc = {};
@@ -123,12 +129,13 @@ public:
         auto data_ptr = inTexture->GetData();
         auto subresources = std::vector<D3D11_SUBRESOURCE_DATA>(desc.MipLevels);
 
-        for (uint32_t mip = 0; mip < desc.MipLevels; mip++) {
+        for (uint32_t mip = 0; mip < desc.MipLevels; mip++)
+        {
             const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
 
             auto& subresource = subresources[mip];
             subresource.pSysMem = data_ptr;
-            subresource.SysMemPitch = std::max(1, ((dimensions.x + 3) / 4)) * 16;
+            subresource.SysMemPitch = std::max(1, ( ( dimensions.x + 3 ) / 4 )) * 16;
 
             data_ptr += dimensions.x * dimensions.y;
         }
@@ -142,30 +149,37 @@ public:
         return texture;
     }
 
-    bool UploadMaterial(Assets& inAssets, const Material& inMaterial, DXMaterial& ioMaterial) {
-        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.albedoFile)) {
+    bool UploadMaterial(Assets& inAssets, const Material& inMaterial, DXMaterial& ioMaterial)
+    {
+        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.albedoFile))
+        {
             ioMaterial.mAlbedoTexture = UploadTexture(asset, DXGI_FORMAT_BC3_UNORM_SRGB);
             gThrowIfFailed(D3D.device->CreateShaderResourceView(ioMaterial.mAlbedoTexture.Get(), nullptr, ioMaterial.mAlbedoSRV.GetAddressOf()));
         }
-        else {
+        else
+        {
             ioMaterial.mAlbedoTexture = m_DefaultWhiteTexture;
             ioMaterial.mAlbedoSRV = m_DefaultWhiteTextureSRV;
         }
 
-        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.normalFile)) {
+        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.normalFile))
+        {
             ioMaterial.mNormalTexture = UploadTexture(asset, DXGI_FORMAT_BC3_UNORM);
             gThrowIfFailed(D3D.device->CreateShaderResourceView(ioMaterial.mNormalTexture.Get(), nullptr, ioMaterial.mNormalSRV.GetAddressOf()));
-        } 
-        else {
+        }
+        else
+        {
             ioMaterial.mNormalTexture = m_DefaultNormalTexture;
             ioMaterial.mNormalSRV = m_DefaultNormalTextureSRV;
         }
 
-        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.metalroughFile)) {
+        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.metalroughFile))
+        {
             ioMaterial.mMetalRoughTexture = UploadTexture(asset, DXGI_FORMAT_BC3_UNORM);
             gThrowIfFailed(D3D.device->CreateShaderResourceView(ioMaterial.mMetalRoughTexture.Get(), nullptr, ioMaterial.mMetalRoughSRV.GetAddressOf()));
         }
-        else {
+        else
+        {
             ioMaterial.mMetalRoughTexture = m_DefaultWhiteTexture;
             ioMaterial.mMetalRoughSRV = m_DefaultWhiteTextureSRV;
         }
@@ -173,7 +187,8 @@ public:
         return true;
     }
 
-    DX11App() : Application(WindowFlag::RESIZE), m_Renderer(m_Viewport, m_Window), m_Scene(nullptr) {
+    DX11App() : Application(WindowFlag::RESIZE), m_Renderer(m_Viewport, m_Window), m_Scene(nullptr)
+    {
         while (!fs::exists(m_Settings.mSceneFile))
             m_Settings.mSceneFile = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
 
@@ -184,7 +199,8 @@ public:
         for (const auto& [entity, material] : m_Scene.Each<Material>())
             m_Scene.Add<DXMaterial>(entity);
 
-        for (const auto& [entity, mesh] : m_Scene.Each<Mesh>()) {
+        for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
+        {
             m_Scene.Add<DXMesh>(entity);
             m_StreamingJobsPending++;
 
@@ -192,7 +208,8 @@ public:
                 //mesh.mLODFade = 1.0f;
         }
 
-        g_ThreadPool.QueueJob([this]() {
+        g_ThreadPool.QueueJob([this]()
+        {
             const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
             const auto white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
             const auto normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
@@ -203,10 +220,12 @@ public:
             m_DefaultNormalTexture = UploadTexture(m_Assets.GetAsset<TextureAsset>(normal_texture_file), DXGI_FORMAT_BC3_UNORM);
             D3D.device->CreateShaderResourceView(m_DefaultNormalTexture.Get(), nullptr, m_DefaultNormalTextureSRV.GetAddressOf());
 
-            for (const auto& [entity, mesh, geometry] : m_Scene.Each<Mesh, DXMesh>()) {
+            for (const auto& [entity, mesh, geometry] : m_Scene.Each<Mesh, DXMesh>())
+            {
                 UploadMesh(mesh, geometry);
 
-                if (m_Scene.IsValid(mesh.material)) {
+                if (m_Scene.IsValid(mesh.material))
+                {
                     const auto& [material, dx_material] = m_Scene.Get<Material, DXMaterial>(mesh.material);
                     if (!dx_material.IsReady())
                         UploadMaterial(m_Assets, material, dx_material);
@@ -220,15 +239,15 @@ public:
         std::cout << std::format("Scene Upload took {:.2f} ms\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
 
         const auto gbuffer_stages = std::array {
-            DXShader::Stage { .type = DXShader::Type::VERTEX, .mTextFile = "assets/system/shaders/DirectX/old/simple_vertex.hlsl" },
-            DXShader::Stage { .type = DXShader::Type::FRAG, .mTextFile = "assets/system/shaders/DirectX/old/simple_fp.hlsl" },
+            DXShader::Stage {.type = DXShader::Type::VERTEX, .mTextFile = "assets/system/shaders/DirectX/old/simple_vertex.hlsl" },
+                DXShader::Stage {.type = DXShader::Type::FRAG, .mTextFile = "assets/system/shaders/DirectX/old/simple_fp.hlsl" },
         };
 
         m_GbufferShader = DXShader(gbuffer_stages.data(), gbuffer_stages.size());
 
         const auto gbuffer_depth_stages = std::array {
-            DXShader::Stage { .type = DXShader::Type::VERTEX, .mTextFile = "assets/system/shaders/DirectX/old/simple_vertex.hlsl" },
-            DXShader::Stage { .type = DXShader::Type::FRAG, .mTextFile = "assets/system/shaders/DirectX/old/depth_fp.hlsl" },
+            DXShader::Stage {.type = DXShader::Type::VERTEX, .mTextFile = "assets/system/shaders/DirectX/old/simple_vertex.hlsl" },
+                DXShader::Stage {.type = DXShader::Type::FRAG, .mTextFile = "assets/system/shaders/DirectX/old/depth_fp.hlsl" },
         };
 
         m_GbufferDepthShader = DXShader(gbuffer_depth_stages.data(), gbuffer_depth_stages.size());
@@ -254,7 +273,8 @@ public:
         m_Viewport.SetFieldOfView(65.0f);
     }
 
-    virtual void OnUpdate(float dt) override {
+    virtual void OnUpdate(float dt) override
+    {
         // Check if any BoxCollider's are waiting to be registered
         m_Physics.OnUpdate(m_Scene);
 
@@ -277,40 +297,50 @@ public:
 
         ImGui::Begin("DX11 Settings");
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        
+
         const auto meshes_streamed = m_StreamingJobsFinished.load();
-        if (meshes_streamed != m_StreamingJobsPending) {
+        if (meshes_streamed != m_StreamingJobsPending)
+        {
             const auto progress_string = std::format("({}/{}) Streaming Jobs..", meshes_streamed, m_StreamingJobsPending);
             ImGui::ProgressBar((float)meshes_streamed / (float)m_StreamingJobsPending, ImVec2(-FLT_MIN, 0), progress_string.c_str());
         }
-        else {
+        else
+        {
             ImGui::ProgressBar(1.0f, ImVec2(-FLT_MIN, 0), "Streaming Finished.");
         }
 
-        if (ImGui::SmallButton("Reset Mesh Fade")) {
-            g_ThreadPool.QueueJob([this]() {
-                for (const auto& [entity, mesh] : m_Scene.Each<Mesh>()) {
+        if (ImGui::SmallButton("Reset Mesh Fade"))
+        {
+            g_ThreadPool.QueueJob([this]()
+            {
+                for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
+                {
                     mesh.mLODFade = 1.0f;
                     Sleep(rand() % 100);
                 }
             });
         }
 
-        if (ImGui::SmallButton("Generate Rigid Bodies")) {
-            for (const auto& [sb_entity, sb_transform, sb_mesh] : m_Scene.Each<Transform, Mesh>()) {
+        if (ImGui::SmallButton("Generate Rigid Bodies"))
+        {
+            for (const auto& [sb_entity, sb_transform, sb_mesh] : m_Scene.Each<Transform, Mesh>())
+            {
                 m_Scene.Add<BoxCollider>(sb_entity);
                 m_StreamingJobsPending++;
             }
 
-            for (const auto& [entity, sb_transform, sb_mesh, sb_collider] : m_Scene.Each<Transform, Mesh, BoxCollider>()) {
-                auto& mesh      = sb_mesh;
+            for (const auto& [entity, sb_transform, sb_mesh, sb_collider] : m_Scene.Each<Transform, Mesh, BoxCollider>())
+            {
+                auto& mesh = sb_mesh;
                 auto& transform = sb_transform;
-                auto& collider  = sb_collider;
+                auto& collider = sb_collider;
 
-                g_ThreadPool.QueueJob([&]() {
+                g_ThreadPool.QueueJob([&]()
+                {
                     JPH::TriangleList triangles;
 
-                    for (int i = 0; i < mesh.indices.size(); i += 3) {
+                    for (int i = 0; i < mesh.indices.size(); i += 3)
+                    {
                         auto v0 = mesh.positions[mesh.indices[i]];
                         auto v1 = mesh.positions[mesh.indices[i + 1]];
                         auto v2 = mesh.positions[mesh.indices[i + 2]];
@@ -341,18 +371,20 @@ public:
             }
         }
 
-        if (g_ThreadPool.GetActiveJobCount() == 0 && ImGui::Button("Spawn/Reset Balls")) {
+        if (g_ThreadPool.GetActiveJobCount() == 0 && ImGui::Button("Spawn/Reset Balls"))
+        {
             const auto material_entity = m_Scene.Create();
-            
+
             auto& material_name = m_Scene.Add<Name>(material_entity);
             material_name = "Ball Material";
-            
+
             auto& ball_material = m_Scene.Add<Material>(material_entity);
             ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
 
             UploadMaterial(m_Assets, ball_material, m_Scene.Add<DXMaterial>(material_entity));
 
-            for (uint32_t i = 0; i < 64; i++) {
+            for (uint32_t i = 0; i < 64; i++)
+            {
                 auto entity = m_Scene.CreateSpatialEntity("ball");
                 auto& transform = m_Scene.Get<Transform>(entity);
                 auto& mesh = m_Scene.Add<Mesh>(entity);
@@ -362,7 +394,7 @@ public:
                 gGenerateSphere(mesh, radius, 16, 16);
                 UploadMesh(mesh, m_Scene.Add<DXMesh>(entity));
 
-                transform.position = Vec3(-65.0f, 85.0f + i * (radius * 2.0f), 0.0f);
+                transform.position = Vec3(-65.0f, 85.0f + i * ( radius * 2.0f ), 0.0f);
                 transform.Compose();
 
                 auto& collider = m_Scene.Add<BoxCollider>(entity);
@@ -388,25 +420,32 @@ public:
         }
 
         const auto physics_state = m_Physics.GetState();
-        if (ImGui::SmallButton(physics_state == Physics::Stepping ? "pause" : "start")) {
-            switch (physics_state) {
-            case Physics::Idle: {
-                m_Physics.SaveState();
-                m_Physics.SetState(Physics::Stepping);
-            } break;
-            case Physics::Paused: {
-                m_Physics.SetState(Physics::Stepping);
-            } break;
-            case Physics::Stepping: {
-                m_Physics.SetState(Physics::Paused);
-            } break;
+        if (ImGui::SmallButton(physics_state == Physics::Stepping ? "pause" : "start"))
+        {
+            switch (physics_state)
+            {
+                case Physics::Idle:
+                {
+                    m_Physics.SaveState();
+                    m_Physics.SetState(Physics::Stepping);
+                } break;
+                case Physics::Paused:
+                {
+                    m_Physics.SetState(Physics::Stepping);
+                } break;
+                case Physics::Stepping:
+                {
+                    m_Physics.SetState(Physics::Paused);
+                } break;
             }
         }
 
         ImGui::SameLine();
 
-        if (ImGui::SmallButton("stop")) {
-            if (physics_state != Physics::Idle) {
+        if (ImGui::SmallButton("stop"))
+        {
+            if (physics_state != Physics::Idle)
+            {
                 m_Physics.RestoreState();
                 m_Physics.Step(m_Scene, dt); // Step once to trigger the restored state
                 m_Physics.SetState(Physics::Idle);
@@ -421,7 +460,8 @@ public:
         ImGui::DragFloat3("Light Position", glm::value_ptr(m_GBufferConstants.mLightPosition), 0.1f, -200.0f, 200.0f);
         ImGui::End();
 
-        if (show_gizmo) {
+        if (show_gizmo)
+        {
             ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
             ImGuizmo::SetRect(0, 0, float(m_Viewport.size.x), float(m_Viewport.size.y));
 
@@ -436,7 +476,8 @@ public:
                 glm::value_ptr(light_transform.localTransform)
             );
 
-            if (manipulated) {
+            if (manipulated)
+            {
                 light_transform.Decompose();
                 m_GBufferConstants.mLightPosition = Vec4(light_transform.position, 1.0);
             }
@@ -445,12 +486,13 @@ public:
         // DO THE RENDERING THINGS
         m_Renderer.Clear(Vec4(0, 0, 0, 1));
         m_Renderer.BindPipeline();
-        
+
         // DEPTH PASS
         m_GbufferDepthShader.Bind(D3D.context.Get());
         D3D.context->OMSetRenderTargets(0, nullptr, D3D.depth_stencil_view.Get());
-        
-        for (const auto& [entity, transform, mesh, geometry] : m_Scene.Each<Transform, Mesh, DXMesh>()) {
+
+        for (const auto& [entity, transform, mesh, geometry] : m_Scene.Each<Transform, Mesh, DXMesh>())
+        {
             if (!geometry.IsReady())
                 continue;
 
@@ -479,7 +521,7 @@ public:
             D3D.context->DrawIndexedInstanced(uint32_t(mesh.indices.size()), 1, 0, 0, 0);
 
             // Fade in the mesh over a span of 4 seconds
-            mesh.mLODFade = glm::max(0.0f, mesh.mLODFade - (dt * 0.25f));
+            mesh.mLODFade = glm::max(0.0f, mesh.mLODFade - ( dt * 0.25f ));
         }
 
         // SCENE GEOMETRY PASS
@@ -490,7 +532,8 @@ public:
         const auto samplers = std::array { m_SamplerAnisoWrap.Get() };
         D3D.context->PSSetSamplers(0, uint32_t(samplers.size()), samplers.data());
 
-        for (const auto& [entity, transform, mesh, geometry] : m_Scene.Each<Transform, Mesh, DXMesh>()) {
+        for (const auto& [entity, transform, mesh, geometry] : m_Scene.Each<Transform, Mesh, DXMesh>())
+        {
             if (!geometry.IsReady())
                 continue;
 
@@ -519,11 +562,13 @@ public:
             D3D.context->VSSetShaderResources(0, uint32_t(srvs.size()), srvs.data());
 
 
-            if (dx_material != nullptr) {
+            if (dx_material != nullptr)
+            {
                 auto textures = std::array { dx_material->mAlbedoSRV.Get(), dx_material->mNormalSRV.Get(), dx_material->mMetalRoughSRV.Get() };
                 D3D.context->PSSetShaderResources(0, uint32_t(textures.size()), textures.data());
             }
-            else {
+            else
+            {
                 auto textures = std::array { m_DefaultWhiteTextureSRV.Get(), m_DefaultNormalTextureSRV.Get(), m_DefaultWhiteTextureSRV.Get() };
                 D3D.context->PSSetShaderResources(0, uint32_t(textures.size()), textures.data());
             }
@@ -533,20 +578,24 @@ public:
         }
 
         m_Renderer.ImGui_Render();
-        
+
         m_Renderer.SwapBuffers(m_Settings.mVsyncEnabled);
     }
 
 
-    virtual void OnEvent(const SDL_Event& inEvent) override {
+    virtual void OnEvent(const SDL_Event& inEvent) override
+    {
         ImGui_ImplSDL2_ProcessEvent(&inEvent);
-        
+
         if (!ImGui::GetIO().WantCaptureMouse)
             CameraController::OnEvent(m_Viewport.GetCamera(), inEvent);
 
-        if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat) {
-            switch (inEvent.key.keysym.sym) {
-                case SDLK_r: {
+        if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
+        {
+            switch (inEvent.key.keysym.sym)
+            {
+                case SDLK_r:
+                {
                     m_GbufferShader.CheckForReload();
                 } break;
             }
@@ -557,7 +606,8 @@ public:
     }
 
 private:
-    struct {
+    struct
+    {
         int& mEnableMeshFading = g_CVars.Create("r_mesh_fading", 1);
     } m_CustomSettings;
 
@@ -587,14 +637,16 @@ private:
 
 using namespace Raekor;
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     RTTIFactory::Register(RTTI_OF(ConfigSettings));
 
     g_CVars.ParseCommandLine(argc, argv);
 
     auto should_launch = true;
 
-    if (g_CVars.Create("enable_launcher", 0)) {
+    if (g_CVars.Create("enable_launcher", 0))
+    {
         Launcher launcher;
         launcher.Run();
 

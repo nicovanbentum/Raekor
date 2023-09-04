@@ -2,21 +2,24 @@
 
 namespace Raekor {
 
-class DXShader {
+class DXShader
+{
 public:
-enum Type {
-    VERTEX, FRAG, GEO, COMPUTE
-};
+    enum Type
+    {
+        VERTEX, FRAG, GEO, COMPUTE
+    };
 
-inline static auto sTypeTargets = std::array {
-    "vs_5_0", "ps_5_0", "gs_5_0", "cs_5_0"
-};
-    
-struct Stage {
-    Type type;
-    std::string mTextFile;
-    fs::file_time_type mUpdateTime;
-};
+    inline static auto sTypeTargets = std::array {
+        "vs_5_0", "ps_5_0", "gs_5_0", "cs_5_0"
+    };
+
+    struct Stage
+    {
+        Type type;
+        std::string mTextFile;
+        fs::file_time_type mUpdateTime;
+    };
 
 
 public:

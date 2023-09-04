@@ -9,7 +9,8 @@ namespace Raekor {
 // TODO: globals are bad mkay
 COM_PTRS D3D;
 
-DXRenderer::DXRenderer(const Viewport& inViewport, SDL_Window* window) {
+DXRenderer::DXRenderer(const Viewport& inViewport, SDL_Window* window)
+{
     std::cout << "Active Rendering API: DirectX11  No device/context information available.\n";
 
     // initialize ImGui
@@ -35,12 +36,12 @@ DXRenderer::DXRenderer(const Viewport& inViewport, SDL_Window* window) {
 #endif
 
     DXGI_SWAP_CHAIN_DESC sc_desc = {};
-    sc_desc.Windowed          = TRUE;
-    sc_desc.BufferCount       = 1u;
-    sc_desc.OutputWindow      = dx_hwnd;
-    sc_desc.SampleDesc.Count  = 1u;
+    sc_desc.Windowed = TRUE;
+    sc_desc.BufferCount = 1u;
+    sc_desc.OutputWindow = dx_hwnd;
+    sc_desc.SampleDesc.Count = 1u;
     sc_desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    sc_desc.BufferUsage       = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    sc_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 
     hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, device_flags,
         NULL, NULL, D3D11_SDK_VERSION, &sc_desc, D3D.swap_chain.GetAddressOf(), D3D.device.GetAddressOf(), NULL, D3D.context.GetAddressOf());
@@ -91,28 +92,33 @@ DXRenderer::DXRenderer(const Viewport& inViewport, SDL_Window* window) {
     D3D.render_target_view = D3D.back_buffer;
 }
 
-DXRenderer::~DXRenderer() {
+DXRenderer::~DXRenderer()
+{
     ImGui_ImplDX11_InvalidateDeviceObjects();
 }
 
-void DXRenderer::Clear(glm::vec4 color) {
+void DXRenderer::Clear(glm::vec4 color)
+{
     const float clear_color[4] = { color.r, color.g, color.b, color.a };
     D3D.context->ClearDepthStencilView(D3D.depth_stencil_view.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
     D3D.context->ClearRenderTargetView(D3D.render_target_view.Get(), clear_color);
 }
 
-void DXRenderer::ImGui_NewFrame(SDL_Window* window) {
+void DXRenderer::ImGui_NewFrame(SDL_Window* window)
+{
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
 }
 
-void DXRenderer::ImGui_Render() {
+void DXRenderer::ImGui_Render()
+{
     ImGui::Render();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
-void DXRenderer::BindPipeline(D3D11_COMPARISON_FUNC inDepthFunc) {
+void DXRenderer::BindPipeline(D3D11_COMPARISON_FUNC inDepthFunc)
+{
     if (inDepthFunc == D3D11_COMPARISON_LESS)
         D3D.context->OMSetDepthStencilState(depth_stencil_state.Get(), 0);
     else if (inDepthFunc == D3D11_COMPARISON_EQUAL)
@@ -123,7 +129,8 @@ void DXRenderer::BindPipeline(D3D11_COMPARISON_FUNC inDepthFunc) {
     D3D.context->OMSetBlendState(blend_state.Get(), blendFactor, sampleMask);
 }
 
-void DXRenderer::SwapBuffers(bool vsync) const {
+void DXRenderer::SwapBuffers(bool vsync) const
+{
     D3D.swap_chain->Present(vsync, NULL);
 }
 

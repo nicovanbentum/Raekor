@@ -4,6 +4,4 @@
 
 namespace Raekor {
 
-
-
 } // namespace Raekor

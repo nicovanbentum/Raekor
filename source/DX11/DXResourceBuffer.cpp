@@ -3,11 +3,13 @@
 
 namespace Raekor {
 
-DXResourceBuffer::~DXResourceBuffer() {
+DXResourceBuffer::~DXResourceBuffer()
+{
     //D3D.context->Unmap(buffer.Get(), 0);
 }
 
-DXResourceBuffer::DXResourceBuffer(size_t size) {
+DXResourceBuffer::DXResourceBuffer(size_t size)
+{
     // describe the constant buffer, align the bytewidth to 16bit
     // TODO: Figure out if there's a better way to align, this seems like a hack
     D3D11_BUFFER_DESC cbdesc;
@@ -27,7 +29,8 @@ DXResourceBuffer::DXResourceBuffer(size_t size) {
 
 }
 
-void DXResourceBuffer::Update(void* data, const size_t size) {
+void DXResourceBuffer::Update(void* data, const size_t size)
+{
     auto hr = D3D.context->Map(buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &resource);
     assert(SUCCEEDED(hr) && "failed to map dx constant buffer");
 

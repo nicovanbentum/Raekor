@@ -4,10 +4,12 @@
 
 namespace Raekor {
 
-DXShader::DXShader(const Stage* stages, size_t stageCount) {
+DXShader::DXShader(const Stage* stages, size_t stageCount)
+{
     m_Stages.resize(stageCount);
 
-    for (uint32_t i = 0; i < stageCount; i++) {
+    for (uint32_t i = 0; i < stageCount; i++)
+    {
         m_Stages[i] = stages[i];
         CompileStage(m_Stages[i]);
 
@@ -17,15 +19,18 @@ DXShader::DXShader(const Stage* stages, size_t stageCount) {
 }
 
 
-void DXShader::CheckForReload() {
-    for (auto& stage : m_Stages) {
+void DXShader::CheckForReload()
+{
+    for (auto& stage : m_Stages)
+    {
         auto error_code = std::error_code();
         auto timestamp = fs::last_write_time(stage.mTextFile, error_code);
 
         while (error_code)
             timestamp = fs::last_write_time(stage.mTextFile, error_code);
 
-        if (timestamp > stage.mUpdateTime) {
+        if (timestamp > stage.mUpdateTime)
+        {
             CompileStage(stage);
             stage.mUpdateTime = timestamp;
         }
@@ -33,7 +38,8 @@ void DXShader::CheckForReload() {
 }
 
 
-bool DXShader::CompileStage(const Stage& inStage) {
+bool DXShader::CompileStage(const Stage& inStage)
+{
     const auto fp = std::string(inStage.mTextFile);
     const auto ww = std::wstring(fp.begin(), fp.end());
     const auto wstr = ww.c_str();
@@ -41,30 +47,37 @@ bool DXShader::CompileStage(const Stage& inStage) {
     ComPtr<ID3D10Blob> buffer, errors;
     auto hr = D3DCompileFromFile(wstr, nullptr, nullptr, "main", sTypeTargets[inStage.type], 0, 0, buffer.GetAddressOf(), errors.GetAddressOf());
 
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         if (errors)
             OutputDebugStringA((char*)errors->GetBufferPointer());
-        
+
         std::cout << std::format("Compilation {} for shader: {} \n", COUT_RED("failed"), fp);
         return false;
     }
 
-    switch (inStage.type) {
-        case Type::VERTEX: {
+    switch (inStage.type)
+    {
+        case Type::VERTEX:
+        {
             hr = D3D.device->CreateVertexShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, m_VertexShader.GetAddressOf());
         } break;
-        case Type::FRAG: {
+        case Type::FRAG:
+        {
             hr = D3D.device->CreatePixelShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, m_PixelShader.GetAddressOf());
         } break;
-        case Type::GEO: {
+        case Type::GEO:
+        {
             hr = D3D.device->CreateGeometryShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, m_GeometryShader.GetAddressOf());
         } break;
-        case Type::COMPUTE: {
+        case Type::COMPUTE:
+        {
             hr = D3D.device->CreateComputeShader(buffer.Get()->GetBufferPointer(), buffer->GetBufferSize(), NULL, m_ComputeShader.GetAddressOf());
         } break;
     }
 
-    if (!SUCCEEDED(hr)) {
+    if (!SUCCEEDED(hr))
+    {
         std::cout << std::format("Compilation {} for shader: {} \n", COUT_RED("failed"), fp);
         return false;
     }
@@ -74,7 +87,8 @@ bool DXShader::CompileStage(const Stage& inStage) {
 }
 
 
-void DXShader::Bind(ID3D11DeviceContext* inContext) {
+void DXShader::Bind(ID3D11DeviceContext* inContext)
+{
     if (m_VertexShader)
         inContext->VSSetShader(m_VertexShader.Get(), NULL, 0);
     if (m_PixelShader)

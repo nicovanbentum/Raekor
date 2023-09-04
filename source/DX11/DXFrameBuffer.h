@@ -4,9 +4,11 @@
 
 namespace Raekor {
 
-class DXFrameBuffer {
+class DXFrameBuffer
+{
 public:
-    struct ConstructInfo {
+    struct ConstructInfo
+    {
         glm::vec2 size;
         // opt
         bool depthOnly = false;
@@ -16,12 +18,12 @@ public:
 
     DXFrameBuffer(ConstructInfo* info);
     ~DXFrameBuffer();
-    
+
     void bind() const;
     void unbind() const;
 
     void Image() const;
-    
+
     void resize(const glm::vec2& size);
     glm::vec2 getSize() const { return size; }
 

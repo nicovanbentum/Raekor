@@ -6,7 +6,8 @@
 namespace Raekor {
 
 // TODO: right now we always let directx auto generate mip maps, might want to make that optional
-DXTexture::DXTexture(const std::string& filepath) {
+DXTexture::DXTexture(const std::string& filepath)
+{
     stbi_set_flip_vertically_on_load(true);
 
     //describe our 2d texture
@@ -63,7 +64,8 @@ DXTexture::DXTexture(const std::string& filepath) {
     m_assert(SUCCEEDED(hr), "failed to create sampler state");
 }
 
-DXTexture::DXTexture(uint32_t width, uint32_t height, const void* pixels) {
+DXTexture::DXTexture(uint32_t width, uint32_t height, const void* pixels)
+{
     //describe our 2d texture
     D3D11_TEXTURE2D_DESC desc = {};
     desc.MipLevels = 0;
@@ -112,12 +114,14 @@ DXTexture::DXTexture(uint32_t width, uint32_t height, const void* pixels) {
     m_assert(SUCCEEDED(hr), "failed to create sampler state");
 }
 
-void DXTexture::bind(uint32_t slot) const {
+void DXTexture::bind(uint32_t slot) const
+{
     D3D.context->PSSetShaderResources(0, 1, texture_resource.GetAddressOf());
     D3D.context->PSSetSamplers(0, 1, sampler_state.GetAddressOf());
 }
 
-DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files) {
+DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files)
+{
     stbi_set_flip_vertically_on_load(false);
     D3D11_TEXTURE2D_DESC desc = {};
     desc.MipLevels = 1;
@@ -135,14 +139,15 @@ DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files) {
 
     // for every face file we generate an OpenGL texture image
     int width = -1, height = -1, n_channels = -1;
-    for (unsigned int i = 0; i < face_files.size(); i++) {
+    for (unsigned int i = 0; i < face_files.size(); i++)
+    {
         auto image = stbi_load(face_files[i].c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
         images[i] = image;
         if (!image) std::cout << "failed to load stbi image fifle" << std::endl;
         data[i].pSysMem = (const void*)image;
         data[i].SysMemPitch = STBI_rgb_alpha * width;
     }
-    
+
     desc.Width = width;
     desc.Height = height;
 
@@ -159,12 +164,14 @@ DXTextureCube::DXTextureCube(const std::array<std::string, 6>& face_files) {
     hr = D3D.device->CreateShaderResourceView(texture.Get(), &resource, &texture_resource);
     m_assert(SUCCEEDED(hr), "failed to create shader resource view for cubemap");
 
-    for (unsigned int i = 0; i < ARRAYSIZE(images); i++) {
+    for (unsigned int i = 0; i < ARRAYSIZE(images); i++)
+    {
         stbi_image_free(images[i]);
     }
 }
 
-void DXTextureCube::bind(uint32_t slot) const {
+void DXTextureCube::bind(uint32_t slot) const
+{
     D3D.context->PSSetShaderResources(0, 1, texture_resource.GetAddressOf());
 }
 

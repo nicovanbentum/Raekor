@@ -5,7 +5,8 @@
 
 namespace Raekor {
 
-class DXResourceBuffer {
+class DXResourceBuffer
+{
 public:
     ~DXResourceBuffer();
     DXResourceBuffer(size_t size);

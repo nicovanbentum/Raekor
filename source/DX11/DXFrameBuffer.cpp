@@ -4,7 +4,8 @@
 
 namespace Raekor {
 
-DXFrameBuffer::DXFrameBuffer(DXFrameBuffer::ConstructInfo* info) {
+DXFrameBuffer::DXFrameBuffer(DXFrameBuffer::ConstructInfo* info)
+{
     this->size = info->size;
 
     D3D11_TEXTURE2D_DESC texture_desc = { 0 };
@@ -52,23 +53,27 @@ DXFrameBuffer::DXFrameBuffer(DXFrameBuffer::ConstructInfo* info) {
 
 DXFrameBuffer::~DXFrameBuffer() {}
 
-void DXFrameBuffer::bind() const {
+void DXFrameBuffer::bind() const
+{
     D3D.context->RSSetViewports(1, &view_port);
     D3D.render_target_view = target_view;
     D3D.context->OMSetRenderTargets(1, target_view.GetAddressOf(), D3D.depth_stencil_view.Get());
 }
 
-void DXFrameBuffer::unbind() const {
+void DXFrameBuffer::unbind() const
+{
     D3D.render_target_view = D3D.back_buffer;
     D3D.context->OMSetRenderTargets(1, D3D.back_buffer.GetAddressOf(), NULL);
 }
 
-void DXFrameBuffer::Image() const {
+void DXFrameBuffer::Image() const
+{
     ImGui::Image(shader_view.Get(), ImVec2(size.x, size.y));
 }
 
 // TODO: figure this out
-void DXFrameBuffer::resize(const glm::vec2& new_size) {
+void DXFrameBuffer::resize(const glm::vec2& new_size)
+{
     if (size == new_size) return;
     size = new_size;
     D3D11_TEXTURE2D_DESC texture_desc = {};

@@ -5,13 +5,15 @@
 
 namespace Raekor {
 
-inline void gThrowIfFailed(HRESULT inResult) {
+inline void gThrowIfFailed(HRESULT inResult)
+{
     if (FAILED(inResult))
         __debugbreak();
 }
 
 // TODO: This should probably be moved to the DXRenderer class as static members
-struct COM_PTRS {
+struct COM_PTRS
+{
     ComPtr<IDXGISwapChain> swap_chain = nullptr;
     ComPtr<ID3D11Device> device = nullptr;
     ComPtr<ID3D11DeviceContext> context = nullptr;
@@ -20,7 +22,8 @@ struct COM_PTRS {
     ComPtr<ID3D11DepthStencilView> depth_stencil_view = nullptr;
     ComPtr<ID3D11RenderTargetView> render_target_view = nullptr;
 
-    void Release() {
+    void Release()
+    {
         swap_chain->Release();
         device->Release();
         context->Release();
@@ -33,7 +36,8 @@ struct COM_PTRS {
 
 extern COM_PTRS D3D;
 
-class DXRenderer {
+class DXRenderer
+{
 public:
     DXRenderer(const Viewport& inViewport, SDL_Window* window);
     ~DXRenderer();
