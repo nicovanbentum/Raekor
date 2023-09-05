@@ -44,6 +44,15 @@ enum EDebugTexture
     DEBUG_TEXTURE_COUNT
 };
 
+enum EUpscaler
+{
+    UPSCALER_NONE,
+    UPSCALER_FSR2,
+    UPSCALER_DLSS,
+    UPSCALER_XESS,
+    UPSCALER_COUNT
+};
+
 /*
     Fun TODO's:
     - timestamp queries per render pass for profiling
@@ -54,19 +63,20 @@ class Renderer
 private:
     struct Settings
     {
-        int& mDoPathTrace = g_CVars.Create("r_path_trace",          0);
+        int& mDoPathTrace = g_CVars.Create("r_path_trace",          0, true);
         int& mEnableVsync = g_CVars.Create("r_vsync",               1);
         int& mDebugLines  = g_CVars.Create("r_debug_lines",         1);
         int& mEnableRTAO  = g_CVars.Create("r_enable_rtao",         1);
         int& mProbeDebug  = g_CVars.Create("r_debug_gi_probes",     0);
         int& mEnableDDGI  = g_CVars.Create("r_enable_ddgi",         1);
         int& mFullscreen  = g_CVars.Create("r_fullscreen",          0);
-        int& mEnableFsr2  = g_CVars.Create("r_enable_fsr2",         0);
+        int& mUpscaler    = g_CVars.Create("r_upscaler",            0, true);
         int& mDisplayRes  = g_CVars.Create("r_display_resolution",  0);
     } m_Settings;
 
 public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
+
 
     void OnResize(Device& inDevice, const Viewport& inViewport, bool inExclusiveFullscreen = false);
     void OnRender(Application* inApp, Device& inDevice, const Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterfacee, float inDeltaTime);
@@ -81,12 +91,21 @@ public:
     void SetShouldResize(bool inValue) { m_ShouldResize = inValue; }
     void SetShouldCaptureNextFrame(bool inValue) { m_ShouldCaptureNextFrame = inValue; }
 
-    SDL_Window* GetWindow()       const { return m_Window; }
-    Settings& GetSettings() { return m_Settings; }
-    const RenderGraph& GetRenderGraph()  const { return m_RenderGraph; }
+    bool InitFSR(Device& inDevice, const Viewport& inViewport);
+    bool DestroyFSR(Device& inDevice);
+
+    bool InitDLSS(Device& inDevice, const Viewport& inViewport);
+    bool DestroyDLSS(Device& inDevice);
+
+    bool InitXeSS(Device& inDevice, const Viewport& inViewport);
+    bool DestroyXeSS(Device& inDevice);
+
+    SDL_Window*         GetWindow() const       { return m_Window; }
+    Settings&           GetSettings()           { return m_Settings; }
+    const RenderGraph&  GetRenderGraph() const  { return m_RenderGraph; }
     uint64_t            GetFrameCounter() const { return m_FrameCounter; }
-    BackBufferData& GetBackBufferData() { return m_BackBufferData[m_FrameIndex]; }
-    BackBufferData& GetPrevBackBufferData() { return m_BackBufferData[!m_FrameIndex]; }
+    BackBufferData&     GetBackBufferData()     { return m_BackBufferData[m_FrameIndex]; }
+    BackBufferData&     GetPrevBackBufferData() { return m_BackBufferData[!m_FrameIndex]; }
 
 public:
     static constexpr uint32_t sFrameCount = 2;
@@ -107,6 +126,9 @@ private:
     FrameConstants          m_FrameConstants;
     FfxFsr2Context          m_Fsr2Context;
     std::vector<uint8_t>    m_FsrScratchMemory;
+    NVSDK_NGX_Handle*       m_DLSSHandle = nullptr;
+    NVSDK_NGX_Parameter*    m_DLSSParams = nullptr;
+    xess_context_handle_t   m_XeSSContext = nullptr;
     RenderGraph             m_RenderGraph;
 };
 
@@ -229,7 +251,7 @@ struct RTAOData
 {
     RTTI_DECLARE_TYPE(RTAOData);
 
-    AmbientOcclusionParams mParams = { .mRadius = 2.0, .mIntensity = 1.0, .mNormalBias = 0.01, .mSampleCount = 1u };
+    AmbientOcclusionParams mParams = { .mRadius = 2.0, .mIntensity = 0.0, .mNormalBias = 0.01, .mSampleCount = 1u };
     TextureResource mOutputTexture;
     TextureResource mGbufferDepthTexture;
     TextureResource mGBufferRenderTexture;
@@ -429,7 +451,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
     const GBufferData& inGBufferData,
     const RTShadowMaskData& inShadowMaskData,
     const ReflectionsData& inReflectionsData,
-    const RTAOData& inAmbientOcclusionData,
+    const TextureResource& inAOTexture,
     const ProbeUpdateData& inProbeData
 );
 
@@ -451,6 +473,49 @@ struct FSR2Data
 
 const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice,
     FfxFsr2Context& inContext,
+    TextureResource inColorTexture,
+    const GBufferData& inGBufferData
+);
+
+
+////////////////////////////////////////
+/// Nvidia DLSS Render Pass
+////////////////////////////////////////
+struct DLSSData
+{
+    RTTI_DECLARE_TYPE(DLSSData);
+
+    TextureResource mColorTexture;
+    TextureResource mDepthTexture;
+    TextureResource mMotionVectorTexture;
+    TextureResource mOutputTexture;
+    uint32_t mFrameCounter = 0;
+};
+
+const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice,
+    NVSDK_NGX_Handle* inDLSSHandle, 
+    NVSDK_NGX_Parameter* inDLSSParams,
+    TextureResource inColorTexture,
+    const GBufferData& inGBufferData
+);
+
+
+////////////////////////////////////////
+/// Intel XeSS Render Pass
+////////////////////////////////////////
+struct XeSSData
+{
+    RTTI_DECLARE_TYPE(XeSSData);
+
+    TextureResource mColorTexture;
+    TextureResource mDepthTexture;
+    TextureResource mMotionVectorTexture;
+    TextureResource mOutputTexture;
+    uint32_t mFrameCounter = 0;
+};
+
+const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice,
+    xess_context_handle_t inContext,
     TextureResource inColorTexture,
     const GBufferData& inGBufferData
 );

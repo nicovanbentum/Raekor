@@ -70,19 +70,19 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     if (!m_FenceEvent)
         gThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
 
-    auto fsr2_desc = FfxFsr2ContextDescription {
-        .flags = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE,
-        .maxRenderSize = { inViewport.size.x, inViewport.size.y },
-        .displaySize = { inViewport.size.x, inViewport.size.y },
-        .device = ffxGetDeviceDX12(inDevice),
-    };
+    /// INIT ALL THE UPSCALERS ///
 
-    m_FsrScratchMemory.resize(ffxFsr2GetScratchMemorySizeDX12());
-    auto ffx_error = ffxFsr2GetInterfaceDX12(&fsr2_desc.callbacks, inDevice, m_FsrScratchMemory.data(), m_FsrScratchMemory.size());
-    assert(ffx_error == FFX_OK);
+    if (!InitFSR(inDevice, inViewport))
+        std::cout << std::format("Failed to initialize FSR2.\n");
 
-    ffx_error = ffxFsr2ContextCreate(&m_Fsr2Context, &fsr2_desc);
-    assert(ffx_error == FFX_OK);
+    if (!InitXeSS(inDevice, inViewport))
+        std::cout << std::format("Failed to initialize XeSS.\n");
+
+    if (inDevice.IsDLSSSupported())
+    {
+        if (!InitDLSS(inDevice, inViewport))
+            std::cout << std::format("Failed to initialize DLSS.\n");
+    }
 }
 
 
@@ -111,21 +111,19 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
 
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
 
-    ffxFsr2ContextDestroy(&m_Fsr2Context);
+    DestroyFSR(inDevice);
+    if (!InitFSR(inDevice, inViewport))
+        std::cout << std::format("Failed to initialize FSR2.\n");
 
-    auto fsr2_desc = FfxFsr2ContextDescription {
-        .flags = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE,
-        .maxRenderSize = { inViewport.size.x, inViewport.size.y },
-        .displaySize = { inViewport.size.x, inViewport.size.y },
-        .device = ffxGetDeviceDX12(inDevice),
-    };
+    DestroyXeSS(inDevice);
+    if (!InitXeSS(inDevice, inViewport))
+        std::cout << std::format("Failed to initialize XeSS.\n");
 
-    m_FsrScratchMemory.resize(ffxFsr2GetScratchMemorySizeDX12());
-    auto ffx_error = ffxFsr2GetInterfaceDX12(&fsr2_desc.callbacks, inDevice, m_FsrScratchMemory.data(), m_FsrScratchMemory.size());
-    assert(ffx_error == FFX_OK);
-
-    ffx_error = ffxFsr2ContextCreate(&m_Fsr2Context, &fsr2_desc);
-    assert(ffx_error == FFX_OK);
+    if (inDevice.IsDLSSSupported())
+    {
+        DestroyDLSS(inDevice);
+        InitDLSS(inDevice, inViewport);
+    }
 
     m_Settings.mFullscreen = inFullScreen;
     std::cout << std::format("Render Size: {}, {} \n", inViewport.size.x, inViewport.size.y);
@@ -308,7 +306,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, ddgi_trace_data);
 
-        const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data, ddgi_update_data);
+        const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data.mOutputTexture, ddgi_update_data);
 
         if (m_Settings.mProbeDebug)
             const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
@@ -322,8 +320,18 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         compose_input = light_data.mOutputTexture;
 
-        if (m_Settings.mEnableFsr2)
-            compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+        switch (m_Settings.mUpscaler)
+        {
+            case UPSCALER_FSR2:
+                compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+                break;
+            case UPSCALER_DLSS:
+                compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_DLSSHandle, m_DLSSParams, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+                break;
+            case UPSCALER_XESS:
+                compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_XeSSContext, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+                break;
+        }
     }
 
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, compose_input);
@@ -399,6 +407,151 @@ void Renderer::WaitForIdle(Device& inDevice)
 
 
 
+bool Renderer::InitFSR(Device& inDevice, const Viewport& inViewport)
+{
+    auto fsr2_desc = FfxFsr2ContextDescription
+    {
+        .flags = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE,
+        .maxRenderSize = { inViewport.size.x, inViewport.size.y },
+        .displaySize = { inViewport.size.x, inViewport.size.y },
+        .device = ffxGetDeviceDX12(inDevice),
+    };
+
+    m_FsrScratchMemory.resize(ffxFsr2GetScratchMemorySizeDX12());
+    auto ffx_error = ffxFsr2GetInterfaceDX12(&fsr2_desc.callbacks, inDevice, m_FsrScratchMemory.data(), m_FsrScratchMemory.size());
+    if (ffx_error != FFX_OK)
+        return false;
+
+    ffx_error = ffxFsr2ContextCreate(&m_Fsr2Context, &fsr2_desc);
+    if (ffx_error != FFX_OK)
+        return false;
+
+    return true;
+}
+
+
+
+bool Renderer::DestroyFSR(Device& inDevice)
+{
+    return ffxFsr2ContextDestroy(&m_Fsr2Context) == FFX_OK;
+}
+
+
+
+bool Renderer::InitDLSS(Device& inDevice, const Viewport& inViewport)
+{
+    if (m_DLSSParams == nullptr)
+        gThrowIfFailed(NVSDK_NGX_D3D12_GetCapabilityParameters(&m_DLSSParams));
+
+    uint32_t pOutRenderOptimalWidth;
+    uint32_t pOutRenderOptimalHeight;
+    uint32_t pOutRenderMaxWidth;
+    uint32_t pOutRenderMaxHeight;
+    uint32_t pOutRenderMinWidth;
+    uint32_t pOutRenderMinHeight;
+    float pOutSharpnes;
+
+    auto result = NGX_DLSS_GET_OPTIMAL_SETTINGS(m_DLSSParams, inViewport.size.x, inViewport.size.y,
+        NVSDK_NGX_PerfQuality_Value_DLAA, &pOutRenderOptimalWidth, &pOutRenderOptimalHeight, &pOutRenderMaxWidth, &pOutRenderMaxHeight, &pOutRenderMinWidth, &pOutRenderMinHeight, &pOutSharpnes);
+
+    if (result != NVSDK_NGX_Result_Success)
+        return false;
+
+    int MotionVectorResolutionLow = 1;
+    // Next create features	
+    int DlssCreateFeatureFlags = NVSDK_NGX_DLSS_Feature_Flags_None;
+    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_MVLowRes;
+    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_IsHDR;
+    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_DoSharpening;
+    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_AutoExposure;
+
+    NVSDK_NGX_DLSS_Create_Params DlssCreateParams = {};
+    DlssCreateParams.Feature.InWidth = pOutRenderOptimalWidth;
+    DlssCreateParams.Feature.InHeight = pOutRenderOptimalHeight;
+    DlssCreateParams.Feature.InTargetWidth = inViewport.size.x;
+    DlssCreateParams.Feature.InTargetHeight = inViewport.size.y;
+    DlssCreateParams.Feature.InPerfQualityValue = NVSDK_NGX_PerfQuality_Value_DLAA;
+    DlssCreateParams.InFeatureCreateFlags = DlssCreateFeatureFlags;
+
+    auto& cmd_list = StartSingleSubmit();
+
+    result = NGX_D3D12_CREATE_DLSS_EXT(cmd_list, 1, 1, &m_DLSSHandle, m_DLSSParams, &DlssCreateParams);
+
+    FlushSingleSubmit(inDevice, cmd_list);
+    
+    return result;
+}
+
+
+
+bool Renderer::DestroyDLSS(Device& inDevice)
+{
+    if (NVSDK_NGX_D3D12_ReleaseFeature(m_DLSSHandle) != NVSDK_NGX_Result_Success)
+        return false;
+
+    m_DLSSHandle = nullptr;
+
+    return true;
+}
+
+
+
+bool Renderer::InitXeSS(Device& inDevice, const Viewport& inViewport)
+{
+    auto status = xessD3D12CreateContext(inDevice, &m_XeSSContext);
+    if (status != XESS_RESULT_SUCCESS)
+        return false;
+
+    if (XESS_RESULT_WARNING_OLD_DRIVER == xessIsOptimalDriver(m_XeSSContext))
+    {
+        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX12 Error", "Please install the latest graphics driver from your vendor for optimal Intel(R) XeSS performance and visual quality", m_Window);
+        return false;
+    }
+
+    const auto display_res = xess_2d_t { inViewport.size.x, inViewport.size.y };
+    xess_properties_t props;
+    status = xessGetProperties(m_XeSSContext, &display_res, &props);
+    if (status != XESS_RESULT_SUCCESS)
+        return false;
+
+    xess_version_t xefx_version;
+    status = xessGetIntelXeFXVersion(m_XeSSContext, &xefx_version);
+    if (status != XESS_RESULT_SUCCESS)
+        return false;
+
+    const auto uav_desc_size = inDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    xess_d3d12_init_params_t params = {
+        /* Output width and height. */
+        display_res,
+        /* Quality setting */
+        XESS_QUALITY_SETTING_ULTRA_QUALITY,
+        /* Initialization flags. */
+        XESS_INIT_FLAG_ENABLE_AUTOEXPOSURE
+    };
+
+    status = xessD3D12Init(m_XeSSContext, &params);
+    if (status != XESS_RESULT_SUCCESS)
+        return false;
+
+    // Get optimal input resolution
+    auto render_res = xess_2d_t { };
+    status = xessGetInputResolution(m_XeSSContext, &display_res, XESS_QUALITY_SETTING_ULTRA_QUALITY, &render_res);
+    if (status != XESS_RESULT_SUCCESS)
+        return false;
+
+    return true;
+}
+
+
+
+bool Renderer::DestroyXeSS(Device& inDevice)
+{
+    return xessDestroyContext(m_XeSSContext) == XESS_RESULT_SUCCESS;
+}
+
+
+
 RenderInterface::RenderInterface(Device& inDevice, Renderer& inRenderer, StagingHeap& inStagingHeap) :
     IRenderInterface(GraphicsAPI::DirectX12), m_Device(inDevice), m_Renderer(inRenderer), m_StagingHeap(inStagingHeap)
 {
@@ -443,7 +596,8 @@ uint64_t RenderInterface::GetImGuiTextureID(uint32_t inHandle)
 
 const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
 {
-    constexpr auto names = std::array {
+    constexpr auto names = std::array 
+    {
         "Final",
         "Depth",
         "Albedo",
@@ -511,14 +665,16 @@ void RenderInterface::UploadMeshBuffers(Mesh& inMesh)
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
     m_Device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
 
-    const auto blas_buffer_id = m_Device.CreateBuffer(Buffer::Desc {
-        .size = prebuild_info.ResultDataMaxSizeInBytes,
-            .usage = Buffer::Usage::ACCELERATION_STRUCTURE
+    const auto blas_buffer_id = m_Device.CreateBuffer(Buffer::Desc 
+    {
+        .size  = prebuild_info.ResultDataMaxSizeInBytes,
+        .usage = Buffer::Usage::ACCELERATION_STRUCTURE
     }, L"BLAS_BUFFER");
 
     inMesh.BottomLevelAS = blas_buffer_id.ToIndex();
 
-    const auto scratch_buffer_id = m_Device.CreateBuffer(Buffer::Desc{
+    const auto scratch_buffer_id = m_Device.CreateBuffer(Buffer::Desc
+    {
         .size = prebuild_info.ScratchDataSizeInBytes
     }, L"SCRATCH_BUFFER_BLAS_RT");
 
@@ -560,6 +716,7 @@ void RenderInterface::UploadMeshBuffers(Mesh& inMesh)
 }
 
 
+
 uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB)
 {
     auto data_ptr = inAsset->GetData();
@@ -568,7 +725,8 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     ///const auto mipmap_levels = std::min(header_ptr->dwMipMapCount, 4ul);
     const auto mipmap_levels = header_ptr->dwMipMapCount;
 
-    auto texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc{
+    auto texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc
+    {
         .format     = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM,
         .width      = header_ptr->dwWidth,
         .height     = header_ptr->dwHeight,
@@ -598,6 +756,8 @@ void RenderInterface::OnResize(const Viewport& inViewport)
 {
     m_Renderer.SetShouldResize(true);
 }
+
+
 
 CommandList& Renderer::StartSingleSubmit()
 {
@@ -635,6 +795,8 @@ RTTI_DEFINE_TYPE(ReflectionsData)   {}
 RTTI_DEFINE_TYPE(DownsampleData)    {}
 RTTI_DEFINE_TYPE(LightingData)      {}
 RTTI_DEFINE_TYPE(FSR2Data)          {}
+RTTI_DEFINE_TYPE(XeSSData)          {}
+RTTI_DEFINE_TYPE(DLSSData)          {}
 RTTI_DEFINE_TYPE(ProbeTraceData)    {}
 RTTI_DEFINE_TYPE(ProbeUpdateData)   {}
 RTTI_DEFINE_TYPE(PathTraceData)     {}
@@ -1502,7 +1664,7 @@ const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, const RTShadowMaskData& inShadowMaskData, const ReflectionsData& inReflectionsData, const RTAOData& inAmbientOcclusionData, const ProbeUpdateData& inProbeData)
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, const RTShadowMaskData& inShadowMaskData, const ReflectionsData& inReflectionsData, const TextureResource& inAOTexture, const ProbeUpdateData& inProbeData)
 {
     return inRenderGraph.AddGraphicsPass<LightingData>("DEFERRED LIGHTING PASS", inDevice,
 
@@ -1524,7 +1686,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mReflectionsTexture = inRenderPass->Read(inReflectionsData.mOutputTexture);
         inData.mGBufferDepthTexture = inRenderPass->Read(inGBufferData.mDepthTexture);
         inData.mGBufferRenderTexture = inRenderPass->Read(inGBufferData.mRenderTexture);
-        inData.mAmbientOcclusionTexture = inRenderPass->Read(inAmbientOcclusionData.mOutputTexture);
+        inData.mAmbientOcclusionTexture = inRenderPass->Read(inAOTexture);
         inData.mProbesDepthTexture = inRenderPass->Read(inProbeData.mProbesDepthTexture);
         inData.mProbesIrradianceTexture = inRenderPass->Read(inProbeData.mProbesIrradianceTexture);
         // inData.mIndirectDiffuseTexture  = inRenderPass->Read(inDiffuseGIData.mOutputTexture);
@@ -1623,6 +1785,101 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, FfxFsr2
         inData.mFrameCounter = ( inData.mFrameCounter + 1 ) % jitter_phase_count;
 
         gThrowIfFailed(ffxFsr2ContextDispatch(&inContext, &fsr2_dispatch_desc));
+    });
+}
+
+
+
+const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, NVSDK_NGX_Handle* inDLSSHandle, NVSDK_NGX_Parameter* inDLSSParams, TextureResource inColorTexture, const GBufferData& inGBufferData)
+{
+    return inRenderGraph.AddComputePass<DLSSData>("DLSS PASS", inDevice,
+    [&](IRenderPass* inRenderPass, DLSSData& inData)
+    {
+        const auto output_texture = inDevice.CreateTexture(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::SHADER_READ_WRITE,
+        }, L"DLSS_OUTPUT");
+
+        inRenderPass->Create(output_texture);
+        inData.mOutputTexture = inRenderPass->Write(output_texture);
+
+        inData.mColorTexture = inRenderPass->Read(inColorTexture);
+        inData.mDepthTexture = inRenderPass->Read(inGBufferData.mDepthTexture);
+        inData.mMotionVectorTexture = inRenderPass->Read(inGBufferData.mMotionVectorTexture);
+
+        inRenderPass->SetExternal(true);
+    },
+
+    [&inRenderGraph, &inDevice, inDLSSHandle, inDLSSParams](DLSSData& inData, CommandList& inCmdList)
+    {
+        auto& viewport = inRenderGraph.GetViewport();
+
+        const auto color_texture_ptr = inDevice.GetResourcePtr(inData.mColorTexture.mCreatedTexture);
+        const auto depth_texture_ptr = inDevice.GetResourcePtr(inData.mDepthTexture.mCreatedTexture);
+        const auto movec_texture_ptr = inDevice.GetResourcePtr(inData.mMotionVectorTexture.mCreatedTexture);
+        const auto output_texture_ptr = inDevice.GetResourcePtr(inData.mOutputTexture.mCreatedTexture);
+        
+        NVSDK_NGX_D3D12_DLSS_Eval_Params eval_params = {};
+        eval_params.Feature.pInColor = color_texture_ptr;
+        eval_params.Feature.pInOutput = output_texture_ptr;
+        eval_params.pInDepth = depth_texture_ptr;
+        eval_params.pInMotionVectors = movec_texture_ptr;
+        eval_params.InRenderSubrectDimensions.Width = viewport.size.x;
+        eval_params.InRenderSubrectDimensions.Height = viewport.size.y;
+
+        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.size.x, viewport.size.x);
+        ffxFsr2GetJitterOffset(&eval_params.InJitterOffsetX, &eval_params.InJitterOffsetY, inData.mFrameCounter, jitter_phase_count);
+        inData.mFrameCounter = ( inData.mFrameCounter + 1 ) % jitter_phase_count;
+
+        gThrowIfFailed(NGX_D3D12_EVALUATE_DLSS_EXT(inCmdList, inDLSSHandle, inDLSSParams, &eval_params));
+    });
+}
+
+
+
+const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, xess_context_handle_t inContext, TextureResource inColorTexture, const GBufferData& inGBufferData)
+{
+    return inRenderGraph.AddComputePass<XeSSData>("DLSS PASS", inDevice,
+        [&](IRenderPass* inRenderPass, XeSSData& inData)
+    {
+        const auto output_texture = inDevice.CreateTexture(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::SHADER_READ_WRITE,
+        }, L"DLSS_OUTPUT");
+
+        inRenderPass->Create(output_texture);
+        inData.mOutputTexture = inRenderPass->Write(output_texture);
+
+        inData.mColorTexture = inRenderPass->Read(inColorTexture);
+        inData.mDepthTexture = inRenderPass->Read(inGBufferData.mDepthTexture);
+        inData.mMotionVectorTexture = inRenderPass->Read(inGBufferData.mMotionVectorTexture);
+
+        inRenderPass->SetExternal(true);
+    },
+
+        [&inRenderGraph, &inDevice, inContext](XeSSData& inData, CommandList& inCmdList)
+    {
+        auto& viewport = inRenderGraph.GetViewport();
+
+        xess_d3d12_execute_params_t exec_params = {};
+        exec_params.pColorTexture    = inDevice.GetResourcePtr(inData.mColorTexture.mCreatedTexture);
+        exec_params.pVelocityTexture = inDevice.GetResourcePtr(inData.mMotionVectorTexture.mCreatedTexture);
+        exec_params.pDepthTexture    = inDevice.GetResourcePtr(inData.mDepthTexture.mCreatedTexture);
+        exec_params.pOutputTexture   = inDevice.GetResourcePtr(inData.mOutputTexture.mCreatedTexture);
+        exec_params.inputWidth       = viewport.size.x;
+        exec_params.inputHeight      = viewport.size.y;
+
+        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.size.x, viewport.size.x);
+        ffxFsr2GetJitterOffset(&exec_params.jitterOffsetX, &exec_params.jitterOffsetY, inData.mFrameCounter, jitter_phase_count);
+        inData.mFrameCounter = ( inData.mFrameCounter + 1 ) % jitter_phase_count;
+
+        gThrowIfFailed(xessD3D12Execute(inContext, inCmdList, &exec_params));
     });
 }
 

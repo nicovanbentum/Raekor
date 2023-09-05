@@ -43,13 +43,47 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
         assert(pix_module);
     }
 
+
     m_Buffers.Reserve(UINT16_MAX);
     m_Textures.Reserve(UINT16_MAX);
+
 
     auto factory = ComPtr<IDXGIFactory6> {};
     gThrowIfFailed(CreateDXGIFactory2(device_creation_flags, IID_PPV_ARGS(&factory)));
     factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&m_Adapter));
     gThrowIfFailed(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m_Device)));
+    
+    auto temp_path = fs::temp_directory_path().wstring();
+
+    NVSDK_NGX_Application_Identifier ngx_app_id = {};
+    ngx_app_id.IdentifierType = NVSDK_NGX_Application_Identifier_Type_Application_Id;
+    ngx_app_id.v.ApplicationId = 0xdeadbeef;
+
+    static const auto NGXLogCallback = [](const char* message, NVSDK_NGX_Logging_Level loggingLevel, NVSDK_NGX_Feature sourceComponent) {
+        std::cout << message << '\n';
+    };
+
+    NVSDK_NGX_FeatureCommonInfo ngx_common_info = {};
+    ngx_common_info.LoggingInfo.LoggingCallback = NGXLogCallback;
+    ngx_common_info.LoggingInfo.MinimumLoggingLevel = NVSDK_NGX_LOGGING_LEVEL_VERBOSE;
+    ngx_common_info.LoggingInfo.DisableOtherLoggingSinks = true;
+
+    NVSDK_NGX_FeatureDiscoveryInfo feature_info = {};
+    feature_info.SDKVersion = NVSDK_NGX_Version_API;
+    feature_info.FeatureID = NVSDK_NGX_Feature_SuperSampling;
+    feature_info.Identifier = ngx_app_id;
+    feature_info.ApplicationDataPath = temp_path.c_str();
+    feature_info.FeatureInfo = &ngx_common_info;
+
+    NVSDK_NGX_FeatureRequirement nv_supported = {};
+    const auto ngx_result = NVSDK_NGX_D3D12_GetFeatureRequirements(m_Adapter.Get(), &feature_info, &nv_supported);
+
+    if (ngx_result == NVSDK_NGX_Result::NVSDK_NGX_Result_Success && nv_supported.FeatureSupported == 0)
+        mIsDLSSSupported = true;
+    else if (ngx_result != NVSDK_NGX_Result_FAIL_FeatureNotSupported)
+        gThrowIfFailed(ngx_result);
+
+    gThrowIfFailed(NVSDK_NGX_D3D12_Init(0xdeadbeef, temp_path.c_str(), m_Device.Get()));
 
     const auto allocator_desc = D3D12MA::ALLOCATOR_DESC { .pDevice = m_Device.Get(), .pAdapter = m_Adapter.Get() };
     gThrowIfFailed(D3D12MA::CreateAllocator(&allocator_desc, &m_Allocator));
@@ -370,9 +404,9 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
     static constexpr auto vertex_layout = std::array
     {
         D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            D3D12_INPUT_ELEMENT_DESC { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            D3D12_INPUT_ELEMENT_DESC { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        D3D12_INPUT_ELEMENT_DESC { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        D3D12_INPUT_ELEMENT_DESC { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
     auto pso_state = D3D12_GRAPHICS_PIPELINE_STATE_DESC

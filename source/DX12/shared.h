@@ -129,6 +129,7 @@ struct GbufferRootConstants
     float    pad1;
     float4x4 mWorldTransform;
     float4x4 mInvWorldTransform;
+
 };
 STATIC_ASSERT(sizeof(GbufferRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 

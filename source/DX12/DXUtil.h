@@ -30,6 +30,19 @@ inline void gThrowIfFailed(FfxErrorCode inErrCode)
         __debugbreak();
 }
 
+inline void gThrowIfFailed(NVSDK_NGX_Result inErrCode)
+{
+    if (inErrCode != NVSDK_NGX_Result_Success)
+        __debugbreak();
+}
+
+
+inline void gThrowIfFailed(xess_result_t inErrCode)
+{
+    if (inErrCode != XESS_RESULT_SUCCESS)
+        __debugbreak();
+}
+
 
 inline std::string gGetDebugName(ID3D12Resource* inResource)
 {

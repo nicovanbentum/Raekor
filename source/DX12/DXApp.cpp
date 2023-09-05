@@ -435,8 +435,15 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
     if (ImGui::Combo("##EGizmo", &index, items.data(), int(items.size())))
         gizmo = EGizmo(index);
 
+    ImGui::Separator();
+
     bool need_recompile = false;
-    need_recompile |= ImGui::Checkbox("Enable FSR 2.1", (bool*)&m_Renderer.GetSettings().mEnableFsr2);
+
+    constexpr auto upscaler_items = std::array{ "No Upscaler", "AMD FSR2", "Nvidia DLSS", "Intel XeSS" };
+    need_recompile |= ImGui::Combo("##Upscaler", &m_Renderer.GetSettings().mUpscaler, upscaler_items.data(), int(upscaler_items.size()));
+
+    ImGui::Separator();
+
     need_recompile |= ImGui::Checkbox("Enable Path Tracer", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
     need_recompile |= ImGui::Checkbox("Enable DDGI", (bool*)&m_Renderer.GetSettings().mEnableDDGI);
     need_recompile |= ImGui::Checkbox("Show GI Probe Grid", (bool*)&m_Renderer.GetSettings().mProbeDebug);

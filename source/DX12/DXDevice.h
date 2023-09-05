@@ -21,6 +21,7 @@ public:
     ID3D12Device5* operator-> ()             { return m_Device.Get(); }
     const ID3D12Device5* operator-> () const { return m_Device.Get(); }
 
+    bool IsDLSSSupported() const { return mIsDLSSSupported; }
     bool IsTearingSupported() const { return mIsTearingSupported; }
 
     [[nodiscard]] ID3D12CommandQueue* GetQueue() const { return m_Queue.Get(); }
@@ -93,7 +94,8 @@ private:
     void ReleaseDescriptorImmediate(TextureID inTextureID);
 
 private:
-    BOOL mIsTearingSupported;
+    BOOL mIsDLSSSupported = false;
+    BOOL mIsTearingSupported = false;
     ComPtr<ID3D12Device5> m_Device;
     ComPtr<IDXGIAdapter1> m_Adapter;
     ComPtr<ID3D12CommandQueue> m_Queue;

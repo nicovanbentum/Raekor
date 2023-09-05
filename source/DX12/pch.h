@@ -35,6 +35,18 @@
 #include "ffx_fsr2.h"
 #include "dx12/ffx_fsr2_dx12.h"
 
+// Nvidia DLSS 3.1
+#include "nvsdk_ngx.h"
+#include "nvsdk_ngx_defs.h"
+#include "nvsdk_ngx_params.h"
+#include "nvsdk_ngx_helpers.h"
+
+// Intel XeSS
+#include "xess.h"
+#include "xess_debug.h"
+#include "xess_d3d12.h"
+#include "xess_d3d12_debug.h"
+
 // PIX Runtime Events
 #include "pix3.h"
 

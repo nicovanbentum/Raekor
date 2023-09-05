@@ -31,3 +31,9 @@
 [submodule "dependencies/ufbx"]
 	path = dependencies/ufbx
 	url = https://github.com/ufbx/ufbx
+[submodule "dependencies/DLSS"]
+	path = dependencies/DLSS
+	url = https://github.com/NVIDIA/DLSS
+[submodule "dependencies/xess"]
+	path = dependencies/xess
+	url = https://github.com/intel/xess
