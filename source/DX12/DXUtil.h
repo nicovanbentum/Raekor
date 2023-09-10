@@ -10,11 +10,22 @@ enum EBindSlot
     SRV0 = 1, SRV1, Count
 };
 
+// Total number of frames-in-flight, aka the number of backbuffers in the swapchain
 static constexpr uint32_t sFrameCount = 2;
+// Alignment constants as per DX12 spec
 static constexpr uint32_t sConstantBufferAlignment = 256;
 static constexpr uint32_t sByteAddressBufferAlignment = 4;
-static constexpr uint32_t sRootSignatureSize = 64 * sizeof(DWORD);
-static constexpr uint32_t sMaxRootConstantsSize = sRootSignatureSize - ( EBindSlot::Count * 2 * sizeof(DWORD) );
+// Hardcoded limit for the number of RTVs / DSVs. Surely 255 should be more than enough..
+static constexpr uint32_t sMaxRTVHeapSize = 0xFF;
+static constexpr uint32_t sMaxDSVHeapSize = 0xFF;
+// Hardcoded limit for static samplers as per DX12 spec, also used for regular sampler heap here.
+static constexpr uint32_t sMaxSamplerHeapSize = 2043;
+// Hardcoded limit for resource heap size as per DX12 hardware Tier 2, should be more than enough..
+static constexpr uint32_t sMaxResourceHeapSize = 1'000'000;
+// Hardcoded limit for root signature size as per DX12 spec
+static constexpr uint32_t sMaxRootSignatureSize = 64 * sizeof(DWORD);
+// Hardcoded limit for root constants, subtract root descriptors as they take 2 DWORDs each. Should match shared.h
+static constexpr uint32_t sMaxRootConstantsSize = sMaxRootSignatureSize - ( EBindSlot::Count * 2 * sizeof(DWORD) );
 
 
 inline void gThrowIfFailed(HRESULT inResult)

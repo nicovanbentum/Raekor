@@ -3,6 +3,7 @@
 #include "application.h"
 #include "systems.h"
 #include "components.h"
+#include "scene.h"
 #include "input.h"
 
 namespace Raekor {

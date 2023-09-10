@@ -2,6 +2,7 @@
 #include "randomWidget.h"
 #include "timer.h"
 #include "rmath.h"
+#include "scene.h"
 #include "systems.h"
 #include "physics.h"
 #include "primitives.h"

@@ -28,7 +28,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     uint2 ray_texture_index = uint2(ray_index, probe_index);
     
     float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-    //ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
+    ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
     
     float3 probe_ws_pos = DDGIGetProbeWorldPos(Index1DTo3D(probe_index, rc.mDDGIData.mProbeCount), rc.mDDGIData);
     
@@ -59,20 +59,25 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         brdf.FromHit(vertex, material);
         //brdf.mNormal = vertex.mNormal; // use the vertex normal, texture based detail is lost anyway
         
-        const float3 Wo = -ray_dir;
+        // brdf.mAlbedo.rgb *= 4.0f;
+        
+        irradiance = material.mEmissive.rgb;
+        
+        const float3 Wo = -ray.Direction;
         const float3 Wi = normalize(-fc.mSunDirection.xyz);
         const float3 Wh = normalize(Wo + Wi);
         
         const float3 l = brdf.Evaluate(Wo, Wi, Wh);
 
         const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
-        float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * 2.0;
-        irradiance = l * NdotL * sunlight_luminance;
+        float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * fc.mSunColor.a;
+        
+        irradiance += l * NdotL * sunlight_luminance;
         
         if (NdotL != 0.0)
         {
             RayDesc shadow_ray;
-            shadow_ray.Origin = vertex.mPos + brdf.mNormal * 0.01;
+            shadow_ray.Origin = vertex.mPos + vertex.mNormal * 0.01;
             shadow_ray.Direction = Wi;
             shadow_ray.TMin = 0.1;
             shadow_ray.TMax = 1000.0;
@@ -93,7 +98,11 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     else
     {
         //float3 transmittance;
-        //irradiance = IntegrateScattering(ray.Origin, ray.Direction, 1.#INF, fc.mSunDirection.xyz, float3(1, 1, 1), transmittance);
+        float3 transmittance;
+        float3 inscattering = IntegrateScattering(ray.Origin, -ray.Direction, 1.#INF, fc.mSunDirection.xyz, float3(1, 1, 1), transmittance);
+        
+        irradiance = min(inscattering, 1.0.xxx) * fc.mSunColor.a;
+        
         hitT = ray.TMax;
     }
     

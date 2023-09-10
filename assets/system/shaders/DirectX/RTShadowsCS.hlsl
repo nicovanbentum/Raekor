@@ -21,7 +21,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
 
     float depth = gbuffer_depth_texture[threadID.xy];
     
-        if (depth >= 1.0) {
+    if (depth >= 1.0) {
         result_texture[threadID.xy] = 1.0;
         return;
     }

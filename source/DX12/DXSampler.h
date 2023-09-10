@@ -12,9 +12,6 @@ enum ESamplerIndex
     ANISOTROPIC_WRAP,
     ANISOTROPIC_CLAMP,
     SAMPLER_COUNT,
-
-    // Hardcoded limit for static samplers as per DX12 spec, also used for regular sampler heap here.
-    SAMPLER_LIMIT = 2043
 };
 
 constexpr std::array<D3D12_STATIC_SAMPLER_DESC, ESamplerIndex::SAMPLER_COUNT> STATIC_SAMPLER_DESC = {

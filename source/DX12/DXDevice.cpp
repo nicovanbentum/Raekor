@@ -43,11 +43,6 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
         assert(pix_module);
     }
 
-
-    m_Buffers.Reserve(UINT16_MAX);
-    m_Textures.Reserve(UINT16_MAX);
-
-
     auto factory = ComPtr<IDXGIFactory6> {};
     gThrowIfFailed(CreateDXGIFactory2(device_creation_flags, IID_PPV_ARGS(&factory)));
     factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&m_Adapter));
@@ -92,11 +87,16 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     constexpr auto direct_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_DIRECT };
     gThrowIfFailed(m_Device->CreateCommandQueue(&copy_queue_desc, IID_PPV_ARGS(&m_CopyQueue)));
     gThrowIfFailed(m_Device->CreateCommandQueue(&direct_queue_desc, IID_PPV_ARGS(&m_Queue)));
+    
+    // Since buffers/textures also correspond to a resource descriptor, we should / can never allocate more than the resource heap limit.
+    // Because we reserve this upfront we also get stable pointers.
+    m_Buffers.Reserve(sMaxResourceHeapSize);
+    m_Textures.Reserve(sMaxResourceHeapSize);
 
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, std::numeric_limits<uint16_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, ESamplerIndex::SAMPLER_LIMIT, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, std::numeric_limits<uint8_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, std::numeric_limits<uint8_t>::max(), D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, sMaxRTVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, sMaxDSVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, sMaxSamplerHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, sMaxResourceHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
     for (size_t sampler_index = 0; sampler_index < ESamplerIndex::SAMPLER_COUNT; sampler_index++)
         m_Device->CreateSampler(&SAMPLER_DESC[sampler_index], m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].GetCPUDescriptorHandle(DescriptorID(sampler_index)));

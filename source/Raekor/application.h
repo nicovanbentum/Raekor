@@ -1,9 +1,9 @@
 #pragma once
 
+#include "ecs.h"
 #include "rtti.h"
-#include "scene.h"
-#include "camera.h"
 #include "assets.h"
+#include "camera.h"
 
 extern std::atomic_uint64_t sAllocationsPerFrame;
 
@@ -49,7 +49,6 @@ public:
 		int& disableTiming	= g_CVars.Create("r_disable_timings",	0);
 		int& shouldVoxelize = g_CVars.Create("r_voxelize",			1);
 		int& mDebugTexture	= g_CVars.Create("r_debug_texture",		0, true);
-
 	} mSettings;
 
 	IRenderInterface(GraphicsAPI inAPI) : m_GraphicsAPI(inAPI) {}

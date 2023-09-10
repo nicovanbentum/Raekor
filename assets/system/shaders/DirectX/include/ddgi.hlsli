@@ -118,9 +118,9 @@ float2 DDGISampleDepthProbe(uint inProbeIndex, float3 inDir, Texture2D<float2> i
 
 float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
     // Calculate normalized position within the 8 surrounding probes, used for trilinear interpolation
-    uint3 start_probe_coord = abs(inWsPos - inData.mCornerPosition) / inData.mProbeSpacing;
-    float3 start_probe_ws_pos = inData.mCornerPosition + inData.mProbeSpacing * start_probe_coord;
-    float3 ws_pos_01 = clamp((inWsPos - start_probe_ws_pos) / inData.mProbeSpacing, 0.0, 1.0);
+    uint3 start_probe_coord = floor((inWsPos - inData.mCornerPosition) / inData.mProbeSpacing);
+    float3 start_probe_ws_pos = DDGIGetProbeWorldPos(start_probe_coord, inData);
+    float3 ws_pos_01 = saturate((inWsPos - start_probe_ws_pos) / inData.mProbeSpacing);
     
     Texture2D<float2> depth_texture = ResourceDescriptorHeap[inData.mProbesDepthTexture];
     Texture2D<float4> irradiance_texture = ResourceDescriptorHeap[inData.mProbesIrradianceTexture];
@@ -136,10 +136,10 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
         float3 probe_ws_pos = DDGIGetProbeWorldPos(current_probe_coord, inData);
                 
         // Initialize the weight to wrap shading
-        float3 dir = normalize(probe_ws_pos - inWsPos);
-        float wrap_shade = (dot(dir, inNormal) + 1) * 0.5;
-        float weight = (wrap_shade*wrap_shade) + 0.2;
-                
+        float3 pos_to_probe_dir = normalize(probe_ws_pos - inWsPos);
+        
+        float weight = saturate(dot(pos_to_probe_dir, inNormal));
+        
         //// Chebyshev visibility test
         //float2 depth = DDGISampleDepthProbe(probe_index, -dir, depth_texture);
         //float r = length(probe_ws_pos - inWsPos);
@@ -153,11 +153,11 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
 
         // Calculate trilinear interpolation weight
         float3 tri = lerp(1.0 - ws_pos_01, ws_pos_01, cube_indices);
-        float tri_weight = clamp(tri.x * tri.y * tri.z, 0.0, 1.0);
-        weight *= tri_weight;
+        float tri_weight = tri.x * tri.y * tri.z;
+        weight *= max(tri_weight, 0.001);
         
         // Sample the probe's irradiance texels
-        float3 sampled_irradiance = DDGISampleIrradianceProbe(probe_index, -dir, irradiance_texture);
+        float3 sampled_irradiance = DDGISampleIrradianceProbe(probe_index, inNormal, irradiance_texture);
         
         uint3 debug_color = current_probe_coord & 1;
         

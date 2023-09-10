@@ -296,7 +296,8 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
 DebugWidget::DebugWidget(Application* inApp) :
     IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_SLIDERS_H "  DX12 Settings " )),
     m_Device(static_cast<DXApp*>( inApp )->GetDevice()),
-    m_Renderer(static_cast<DXApp*>( inApp )->GetRenderer())
+    m_Renderer(static_cast<DXApp*>( inApp )->GetRenderer()),
+    m_RayTracedScene(static_cast<DXApp*>( inApp )->GetRayTracedScene())
 {
 }
 
@@ -425,7 +426,7 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
         }
     }
 
-    ImGui::Checkbox("Enable V-Sync", (bool*)&m_Renderer.GetSettings().mEnableVsync);
+    ImGui::SliderInt("V-Sync", &m_Renderer.GetSettings().mEnableVsync, 0, 3);
 
     enum EGizmo { SUNLIGHT_DIR, DDGI_POS };
     constexpr auto items = std::array{ "Sunlight Direction", "DDGI Position", };
@@ -445,7 +446,6 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
     ImGui::Separator();
 
     need_recompile |= ImGui::Checkbox("Enable Path Tracer", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
-    need_recompile |= ImGui::Checkbox("Enable DDGI", (bool*)&m_Renderer.GetSettings().mEnableDDGI);
     need_recompile |= ImGui::Checkbox("Show GI Probe Grid", (bool*)&m_Renderer.GetSettings().mProbeDebug);
     need_recompile |= ImGui::Checkbox("Show GI Probe Rays", (bool*)&m_Renderer.GetSettings().mDebugLines);
 

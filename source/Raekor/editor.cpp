@@ -55,10 +55,10 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer) :
 	LogMessage("[Editor] initialization done.");
 
 	// sponza specific
-	m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
-	m_Viewport.GetCamera().Zoom(5.0f);
-	m_Viewport.GetCamera().Look(Vec2(1.65f, 0.2f));
-	m_Viewport.SetFieldOfView(65.0f);
+	m_Viewport.GetCamera().Move(Vec2(-42.0f, 10.0f));
+	m_Viewport.GetCamera().Zoom(0.0f);
+	m_Viewport.GetCamera().Look(Vec2(-1.65f, 0.0f));
+	m_Viewport.SetFieldOfView(68.0f);
 
 	// launch the asset compiler  app to the system tray
 	// Make sure we don't try this when we are the the compiler app 

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "inspectorWidget.h"
+#include "scene.h"
 #include "components.h"
 #include "viewportWidget.h"
 #include "NodeGraphWidget.h"
@@ -58,15 +59,22 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 
 			if (scene.Has<ComponentType>(entity))
 			{
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+				
 				bool is_open = true;
 				if (ImGui::CollapsingHeader(components.name, &is_open, ImGuiTreeNodeFlags_DefaultOpen))
 				{
+					ImGui::PopStyleVar();
+
 					if (is_open)
 						DrawComponent(scene.Get<ComponentType>(entity));
 					else
 						scene.Remove<ComponentType>(entity);
 				}
+				else
+					ImGui::PopStyleVar();
 			}
+
 		}( assets, scene, active_entity ) );
 	}, Components);
 

@@ -68,7 +68,6 @@ private:
         int& mDebugLines  = g_CVars.Create("r_debug_lines",         1);
         int& mEnableRTAO  = g_CVars.Create("r_enable_rtao",         1);
         int& mProbeDebug  = g_CVars.Create("r_debug_gi_probes",     0);
-        int& mEnableDDGI  = g_CVars.Create("r_enable_ddgi",         1);
         int& mFullscreen  = g_CVars.Create("r_fullscreen",          0);
         int& mUpscaler    = g_CVars.Create("r_upscaler",            0, true);
         int& mDisplayRes  = g_CVars.Create("r_display_resolution",  0);
@@ -294,7 +293,7 @@ struct PathTraceData
 {
     RTTI_DECLARE_TYPE(PathTraceData);
 
-    uint32_t mBounces = 3;
+    uint32_t mBounces = 2;
     TextureResource mOutputTexture;
     TextureResource mGBufferDepthTexture;
     TextureResource mGbufferRenderTexture;
@@ -337,7 +336,7 @@ struct ProbeTraceData
 
     ProbeTraceData()
     {
-        mDDGIData.mCornerPosition = Vec3(-65, -2, -28.5);
+        mDDGIData.mCornerPosition = Vec3(-65, -1.4, -28.5);
         mDDGIData.mProbeCount = IVec3(22, 22, 22);
         mDDGIData.mProbeSpacing = Vec3(6.4, 2.8, 2.8);
     }

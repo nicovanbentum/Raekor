@@ -39,7 +39,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         
             // TODO: RANDOM ROTATION!!
             float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-            //ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
+            ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
+            
             float weight = max(dot(octahedral_dir, ray_dir), 0);
         
             irradiance += float4(ray_irradiance * weight, weight);

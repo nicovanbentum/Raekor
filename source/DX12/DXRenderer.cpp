@@ -1342,7 +1342,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
 {
     return inRenderGraph.AddComputePass<ProbeTraceData>("GI PROBE TRACE PASS", inDevice,
 
-        [&](IRenderPass* inRenderPass, ProbeTraceData& inData)
+    [&](IRenderPass* inRenderPass, ProbeTraceData& inData)
     {
         const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
 
@@ -1492,7 +1492,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 
     [&](IRenderPass* inRenderPass, ProbeDebugData& inData)
     {
-        gGenerateSphere(inData.mProbeMesh, .25f, 16u, 16u);
+        gGenerateSphere(inData.mProbeMesh, 0.25f, 32u, 32u);
 
         const auto vertices = inData.mProbeMesh.GetInterleavedVertices();
         const auto vertices_size = vertices.size() * sizeof(vertices[0]);
@@ -1842,7 +1842,7 @@ const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, NVSDK_
 
 const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, xess_context_handle_t inContext, TextureResource inColorTexture, const GBufferData& inGBufferData)
 {
-    return inRenderGraph.AddComputePass<XeSSData>("DLSS PASS", inDevice,
+    return inRenderGraph.AddComputePass<XeSSData>("XeSS PASS", inDevice,
         [&](IRenderPass* inRenderPass, XeSSData& inData)
     {
         const auto output_texture = inDevice.CreateTexture(Texture::Desc

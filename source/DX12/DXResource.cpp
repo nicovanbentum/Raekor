@@ -59,6 +59,8 @@ D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage)
 
 void DescriptorHeap::Init(ID3D12Device* inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags)
 {
+    Reserve(inCount);
+
     constexpr auto heap_type_debug_names = std::array
     {
         L"CBV_SRV_UAV_HEAP",

@@ -69,7 +69,9 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             // Setup the BRDF
             BRDF brdf;
             brdf.FromHit(vertex, material);
-        
+            
+            // brdf.mAlbedo.rgb *= 4.0f;
+            
             irradiance = material.mEmissive.rgb;
             
             const float3 Wo = -ray.Direction;
@@ -81,7 +83,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             
                 // Check if the sun is visible
                 RayDesc shadow_ray;
-                shadow_ray.Origin = vertex.mPos + brdf.mNormal * 0.01;
+                shadow_ray.Origin = vertex.mPos + vertex.mNormal * 0.01;
                 shadow_ray.Direction = Wi;
                 shadow_ray.TMin = 0.1;
                 shadow_ray.TMax = 1000.0;
@@ -137,7 +139,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             // Stop tracing
             bounce = rc.mBounces + 1;
         }
-        
+      
         // Update irradiance and throughput
         total_irradiance += irradiance * total_throughput;
         total_throughput *= throughput;

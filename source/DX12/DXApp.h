@@ -24,6 +24,7 @@ public:
 
     Device& GetDevice() { return m_Device; }
     Renderer& GetRenderer() { return m_Renderer; }
+    RayTracedScene& GetRayTracedScene() { return m_RayTracedScene; }
     IRenderInterface* GetRenderInterface() { return &m_RenderInterface; }
 
 private:
@@ -60,6 +61,7 @@ public:
 private:
     Device& m_Device;
     Renderer& m_Renderer;
+    RayTracedScene& m_RayTracedScene;
 };
 
 } // namespace Raekor::DX12

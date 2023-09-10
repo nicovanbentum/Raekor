@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "assetsWidget.h"
+
+#include "scene.h"
 #include "components.h"
 #include "application.h"
 #include "IconsFontAwesome5.h"
