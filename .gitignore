@@ -26,7 +26,6 @@ RelWithDebInfo/
 .vs/
 .vscode/
 x64/Linux/GE
-x64/
 .clang-format
 /screenshots
 fake.hlsl
@@ -34,3 +33,4 @@ cached/
 !assets/
 assets/*
 !assets/system/
+!assets/models/
