@@ -86,7 +86,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 		file_entry.ReadMetadata();
 	}
 
-	g_ThreadPool.SetActiveThreadCount(g_ThreadPool.GetThreadCount() / 4);
+	g_ThreadPool.SetActiveThreadCount(std::max(2u, g_ThreadPool.GetThreadCount() / 4));
 
 	stbi_set_flip_vertically_on_load(true);
 
