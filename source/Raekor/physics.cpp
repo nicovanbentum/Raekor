@@ -186,9 +186,9 @@ void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
 				auto v1 = mesh.positions[mesh.indices[i + 1]];
 				auto v2 = mesh.positions[mesh.indices[i + 2]];
 
-				v0 *= transform.scale;
-				v1 *= transform.scale;
-				v2 *= transform.scale;
+				v0 *= transform.GetScaleWorldSpace();
+				v1 *= transform.GetScaleWorldSpace();
+				v2 *= transform.GetScaleWorldSpace();
 
 				triangles.push_back(JPH::Triangle(JPH::Float3(v0.x, v0.y, v0.z), JPH::Float3(v1.x, v1.y, v1.z), JPH::Float3(v2.x, v2.y, v2.z)));
 			}
