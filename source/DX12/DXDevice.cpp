@@ -6,6 +6,7 @@
 #include "DXCommandList.h"
 #include "DXRenderGraph.h"
 
+#include "Raekor/OS.h"
 #include "Raekor/timer.h"
 #include "Raekor/async.h"
 
@@ -37,7 +38,7 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     device_creation_flags |= DXGI_CREATE_FACTORY_DEBUG;
 #endif
 
-    if (g_CVars.Create("hook_pix", 0))
+    if (OS::sCheckCommandLineOption("-hook_pix"))
     {
         auto pix_module = PIXLoadLatestWinPixGpuCapturerLibrary();
         assert(pix_module);
@@ -246,6 +247,9 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const std::wstring& in
     auto alloc_desc = D3D12MA::ALLOCATION_DESC {};
     alloc_desc.HeapType = inDesc.mappable ? D3D12_HEAP_TYPE_UPLOAD : D3D12_HEAP_TYPE_DEFAULT;
 
+    if (inDesc.usage & Buffer::Usage::READBACK)
+        alloc_desc.HeapType = D3D12_HEAP_TYPE_READBACK;
+
     auto buffer = Buffer(inDesc);
     auto initial_state = D3D12_RESOURCE_STATE_COMMON;
     auto buffer_desc = D3D12_RESOURCE_DESC(CD3DX12_RESOURCE_DESC::Buffer(inDesc.size));
@@ -349,6 +353,11 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
     CreateDescriptor(texture_id, inDesc);
 
     return texture_id;
+}
+
+
+void Device::ReleaseBufferDeferred(BufferID inID)
+{
 }
 
 
@@ -569,6 +578,14 @@ void Device::ReleaseDescriptor(TextureID inTextureID)
 }
 
 
+void Device::ReleaseDescriptorImmediate(BufferID inBufferID)
+{
+    auto& buffer = GetBuffer(inBufferID);
+    m_Heaps[gGetHeapType(buffer.m_Desc.usage)].Get(buffer.m_Descriptor) = nullptr;
+    ReleaseDescriptor(inBufferID);
+}
+
+
 void Device::ReleaseDescriptorImmediate(TextureID inTextureID)
 {
     auto& texture = GetTexture(inTextureID);
@@ -683,7 +700,7 @@ StagingHeap::~StagingHeap()
 
 
 
-void StagingHeap::StageBuffer(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, uint32_t inOffset, const void* inData, uint32_t inSize)
+void StagingHeap::StageBuffer(CommandList& inCmdList, ResourceRef inResource, uint32_t inOffset, const void* inData, uint32_t inSize)
 {
     for (auto& buffer : m_Buffers)
     {
@@ -714,6 +731,7 @@ void StagingHeap::StageBuffer(ID3D12GraphicsCommandList* inCmdList, ResourceRef 
 
     memcpy(mapped_ptr, inData, inSize);
 
+    assert(inResource->GetDesc().Width >= inSize);
     inCmdList->CopyBufferRegion(inResource.Get(), inOffset, buffer.GetResource().Get(), 0, inSize);
 
     m_Buffers.emplace_back(StagingBuffer
@@ -728,7 +746,7 @@ void StagingHeap::StageBuffer(ID3D12GraphicsCommandList* inCmdList, ResourceRef 
 
 
 
-void StagingHeap::StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, uint32_t inSubResource, const void* inData)
+void StagingHeap::StageTexture(CommandList& inCmdList, ResourceRef inResource, uint32_t inSubResource, const void* inData)
 {
     auto nr_of_rows = 0u;
     auto row_size = 0ull, total_size = 0ull;

@@ -16,7 +16,7 @@ ViewportWidget::ViewportWidget(Application* inApp) :
 }
 
 
-void ViewportWidget::Draw(Widgets* inWidgets, float dt)
+void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {
 	auto& scene = IWidget::GetScene();
 	auto& physics = IWidget::GetPhysics();
@@ -31,20 +31,93 @@ void ViewportWidget::Draw(Widgets* inWidgets, float dt)
 	m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open, flags);
 	m_Editor->GetRenderInterface()->GetSettings().paused = !m_Visible;
 
-	if (ImGui::Checkbox("Gizmo", &gizmoEnabled))
-		ImGuizmo::Enable(gizmoEnabled);
+	auto DrawGizmoButton = [&](const char* inLabel, ImGuizmo::OPERATION inOperation)
+	{
+		const auto is_selected = (operation == inOperation) && gizmoEnabled;
+
+		if (is_selected)
+			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
+
+		if (ImGui::Button(inLabel))
+		{
+			if (operation == inOperation)
+				gizmoEnabled = !gizmoEnabled;
+			else
+			{
+				operation = inOperation;
+				gizmoEnabled = true;
+			}
+		}
+
+		if (is_selected)
+			ImGui::PopStyleColor();
+	};
+
+	ImGui::Checkbox("Gizmo", &gizmoEnabled);
 	ImGui::SameLine();
 
-	if (ImGui::RadioButton("Move", operation == ImGuizmo::OPERATION::TRANSLATE))
-		operation = ImGuizmo::OPERATION::TRANSLATE;
+	DrawGizmoButton((const char*)ICON_FA_ARROWS_ALT, ImGuizmo::OPERATION::TRANSLATE);
+	ImGui::SameLine();
+	DrawGizmoButton((const char*)ICON_FA_SYNC_ALT, ImGuizmo::OPERATION::ROTATE);
+	ImGui::SameLine();
+	DrawGizmoButton((const char*)ICON_FA_EXPAND_ARROWS_ALT, ImGuizmo::OPERATION::SCALE);
+
+	ImGui::SameLine();
+	ImGui::SetCursorPosX(( ImGui::GetContentRegionAvail().x / 2 ));
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0,0,0,0));
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+
+	if (ImGui::Button((const char*)ICON_FA_HAMMER)) {}
+
 	ImGui::SameLine();
 
-	if (ImGui::RadioButton("Rotate", operation == ImGuizmo::OPERATION::ROTATE))
-		operation = ImGuizmo::OPERATION::ROTATE;
+	const auto physics_state = GetPhysics().GetState();
+	ImGui::PushStyleColor(ImGuiCol_Text, GetPhysics().GetStateColor());
+	if (ImGui::Button(physics_state == Physics::Stepping ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY))
+	{
+		switch (physics_state)
+		{
+			case Physics::Idle:
+			{
+				GetPhysics().SaveState();
+				GetPhysics().SetState(Physics::Stepping);
+			} break;
+			case Physics::Paused:
+			{
+				GetPhysics().SetState(Physics::Stepping);
+			} break;
+			case Physics::Stepping:
+			{
+				GetPhysics().SetState(Physics::Paused);
+			} break;
+		}
+	}
+
+	ImGui::PopStyleColor();
 	ImGui::SameLine();
 
-	if (ImGui::RadioButton("Scale", operation == ImGuizmo::OPERATION::SCALE))
-		operation = ImGuizmo::OPERATION::SCALE;
+	const auto current_physics_state = physics_state;
+	if (current_physics_state != Physics::Idle)
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+	if (ImGui::Button((const char*)ICON_FA_STOP))
+	{
+		if (physics_state != Physics::Idle)
+		{
+			GetPhysics().RestoreState();
+			GetPhysics().Step(scene, inDeltaTime); // Step once to trigger the restored state
+			GetPhysics().SetState(Physics::Idle);
+		}
+	}
+
+	if (current_physics_state != Physics::Idle)
+		ImGui::PopStyleColor();
+
+	ImGui::PopStyleVar();
+	ImGui::PopStyleColor();
+	ImGui::PopStyleColor();
 
 	ImGui::SameLine(ImGui::GetContentRegionAvail().x - 256.0f);
 

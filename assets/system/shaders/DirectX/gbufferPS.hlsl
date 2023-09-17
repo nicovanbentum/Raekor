@@ -47,8 +47,7 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     float2 curr_pos = (input.curr_position.xyz / input.prev_position.w).xy;
     
     output.gbuffer = asfloat(packed);
-    output.motionvectors = (input.prev_position.xy / input.prev_position.w) - (input.curr_position.xy / input.curr_position.w);
-    output.motionvectors *= float2(0.5, -0.5);
+    output.motionvectors = curr_pos - prev_pos;
     
     return output;
 }

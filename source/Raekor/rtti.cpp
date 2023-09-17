@@ -4,6 +4,8 @@
 
 namespace Raekor {
 
+RTTIFactory	g_RTTIFactory;
+
 RTTI::RTTI(const char* inName, CreateFn inCreateFn, Constructor inConstructor)
 	: m_Hash(gHash32Bit(inName)), m_Name(inName), m_Constructor(inConstructor)
 {
@@ -52,8 +54,8 @@ Member::Member(const char* inName, const char* inCustomName, ESerializeType inSe
 
 void RTTIFactory::Register(RTTI& inRTTI)
 {
-	if (global->m_RegisteredTypes.find(inRTTI.GetHash()) == global->m_RegisteredTypes.end())
-		global->m_RegisteredTypes[inRTTI.GetHash()] = &inRTTI;
+	if (m_RegisteredTypes.find(inRTTI.GetHash()) == m_RegisteredTypes.end())
+		m_RegisteredTypes[inRTTI.GetHash()] = &inRTTI;
 }
 
 
@@ -85,9 +87,9 @@ bool RTTI::IsDerivedFrom(RTTI* inRTTI) const
 
 RTTI* RTTIFactory::GetRTTI(uint32_t inHash)
 {
-	auto rtti = global->m_RegisteredTypes.find(inHash);
+	auto rtti = m_RegisteredTypes.find(inHash);
 
-	if (rtti != global->m_RegisteredTypes.end())
+	if (rtti != m_RegisteredTypes.end())
 		return rtti->second;
 
 	return nullptr;

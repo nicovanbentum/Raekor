@@ -25,36 +25,34 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         return;
     }
     
-    float occlusion = 0;
+    float occlusion = 1.0;
     
-    for (uint i = 0; i < rc.mParams.mSampleCount; i++)
+    float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
+    const float3 random_offset = SampleCosineWeightedHemisphere(blue_noise.xy);
+    const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
+    const float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
+    
+    RayDesc ray;
+    ray.TMin = rc.mParams.mNormalBias;
+    ray.TMax = rc.mParams.mRadius;
+    ray.Origin = ws_position + normal * rc.mParams.mNormalBias; // TODO: find a more robust method? offsetRay from ray tracing gems 
+                                            // expects a geometric normal, which most deferred renderers dont write out
+    ray.Direction = normalize(normal + random_offset);
+
+    uint ray_flags =  RAY_FLAG_FORCE_OPAQUE;
+    
+    RayQuery< RAY_FLAG_FORCE_OPAQUE> query;
+
+    query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
+    query.Proceed();
+        
+    if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
     {
-        float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter + i);
-        const float3 random_offset = SampleCosineWeightedHemisphere(blue_noise.xy);
-        const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
-        const float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
-    
-        RayDesc ray;
-        ray.TMin = rc.mParams.mNormalBias;
-        ray.TMax = rc.mParams.mRadius;
-        ray.Origin = ws_position + normal * rc.mParams.mNormalBias; // TODO: find a more robust method? offsetRay from ray tracing gems 
-                                                // expects a geometric normal, which most deferred renderers dont write out
-        ray.Direction = normalize(normal + random_offset);
-
-        uint ray_flags =  RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;
-    
-        RayQuery< RAY_FLAG_FORCE_OPAQUE |
-                    RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | 
-                    RAY_FLAG_SKIP_CLOSEST_HIT_SHADER > query;
-
-        query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
-        query.Proceed();
-
-        occlusion += float(query.CommittedStatus() != COMMITTED_TRIANGLE_HIT);
+        occlusion = saturate((ray.TMin + query.CommittedRayT()) / ray.TMax);
+        occlusion = pow(occlusion, rc.mParams.mPower);
     }
     
-    occlusion /= rc.mParams.mSampleCount;
+    // occlusion /= rc.mParams.mSampleCount;
     
-    result_texture[threadID.xy] = lerp(occlusion, 1.0, (1.0 - rc.mParams.mIntensity));
-
+    result_texture[threadID.xy] = occlusion;
 }

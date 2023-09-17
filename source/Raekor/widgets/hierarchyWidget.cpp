@@ -21,6 +21,9 @@ void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::Begin(m_Title.c_str(), &m_Open);
 	m_Visible = ImGui::IsWindowAppearing();
 
+	ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetColorU32(ImGuiCol_TabHovered));
+	ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetColorU32(ImGuiCol_TabHovered));
+
 	auto& scene = GetScene();
 	auto active_entity = m_Editor->GetActiveEntity();
 
@@ -40,6 +43,8 @@ void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		else
 			DrawChildlessNode(scene, entity, active_entity);
 	}
+
+	ImGui::PopStyleColor(2);
 
 	DropTargetWindow(scene);
 

@@ -30,6 +30,8 @@ public:
 	virtual void    Write(BinaryWriteArchive& ioArchive) = 0;
 	virtual void    Write(JSON::WriteArchive& ioArchive) = 0;
 
+	bool IsEmpty() const { return Length() != 0; }
+
 	template<typename T> SparseSet<T>* GetDerived() { return static_cast<SparseSet<T>*>( this ); }
 	template<typename T> SparseSet<T>* GetDerived() const { return static_cast<SparseSet<T>*>( this ); }
 

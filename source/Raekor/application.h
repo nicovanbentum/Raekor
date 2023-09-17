@@ -43,11 +43,11 @@ public:
 		int& vsync			= g_CVars.Create("r_vsync",				1);
 		int& doBloom		= g_CVars.Create("r_bloom",				0);
 		int& paused			= g_CVars.Create("r_paused",			0);
-		int& enableTAA		= g_CVars.Create("r_taa",				1);
 		int& debugVoxels	= g_CVars.Create("r_voxelize_debug",	0);
 		int& debugCascades	= g_CVars.Create("r_debug_cascades",	0);
 		int& disableTiming	= g_CVars.Create("r_disable_timings",	0);
 		int& shouldVoxelize = g_CVars.Create("r_voxelize",			1);
+		int& enableTAA		= g_CVars.Create("r_taa",				0);
 		int& mDebugTexture	= g_CVars.Create("r_debug_texture",		0, true);
 	} mSettings;
 
@@ -103,8 +103,8 @@ struct ConfigSettings
 	int mDisplayIndex = 0;
 	bool mVsyncEnabled = true;
 	std::string mAppName = "";
-	std::string mFontFile = "";
-	std::string mSceneFile = "";
+	Path mFontFile = "";
+	Path mSceneFile = "";
 };
 
 enum WindowFlag
@@ -142,6 +142,7 @@ public:
 
 	virtual void LogMessage(const std::string& inMessage) { std::cout << inMessage << '\n'; }
 
+	uint64_t GetFrameCounter() const { return m_FrameCounter; }
 	const ConfigSettings& GetSettings() const { return m_Settings; }
 
 	SDL_Window* GetWindow() { return m_Window; }
@@ -149,6 +150,7 @@ public:
 
 protected:
 	bool m_Running = true;
+	uint64_t m_FrameCounter = 0;
 	SDL_Window* m_Window = nullptr;
 
 	Viewport m_Viewport;

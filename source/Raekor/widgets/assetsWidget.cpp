@@ -26,17 +26,17 @@ void AssetsWidget::Draw(Widgets* inWidgets, float dt)
 			ImGui::TableNextColumn();
 
 			if (m_Editor->GetActiveEntity() == entity)
-				ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.2f)));
+				ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
 
 			auto clicked = false;
 			ImGui::PushID(uint32_t(entity));
 
 			if (material.gpuAlbedoMap && !material.albedoFile.empty())
 			{
-				clicked = ImGui::ImageButton(
+				clicked = ImGui::ImageButton("##AssetsWidget::Draw",
 					(void*)( (intptr_t)m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap) ),
 					ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()),
-					ImVec2(0, 0), ImVec2(1, 1), -1,
+					ImVec2(0, 0), ImVec2(1, 1),
 					ImVec4(0, 1, 0, 1)
 				);
 			}
@@ -50,6 +50,9 @@ void AssetsWidget::Draw(Widgets* inWidgets, float dt)
 				);
 				ImGui::PopStyleColor();
 			}
+
+			if (m_Editor->GetActiveEntity() == entity)
+				ImGui::PopStyleColor();
 
 			if (clicked)
 				m_Editor->SetActiveEntity(entity);

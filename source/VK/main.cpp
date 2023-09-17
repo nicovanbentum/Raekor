@@ -5,7 +5,7 @@ using namespace Raekor;
 
 int main(int argc, char** argv)
 {
-	RTTIFactory::Register(RTTI_OF(ConfigSettings));
+	g_RTTIFactory.Register(RTTI_OF(ConfigSettings));
 
 	auto app = VK::PathTracer();
 

@@ -157,7 +157,7 @@ STATIC_ASSERT(sizeof(ShadowMaskRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 struct AmbientOcclusionParams
 {
     float mRadius;
-    float mIntensity;
+    float mPower;
     float mNormalBias;
     uint  mSampleCount;
 };
@@ -196,7 +196,7 @@ struct PathTraceRootConstants
     uint  mMaterialsBuffer;
     uint2 mDispatchSize;
     uint  mResultTexture;
-    uint  mPad0;
+    uint  mAccumulationTexture;
 };
 STATIC_ASSERT(sizeof(PathTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
@@ -275,6 +275,17 @@ struct ProbeUpdateRootConstants
     float3x3 mRandomRotationMatrix;
 };
 STATIC_ASSERT(sizeof(ProbeUpdateRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
+struct TAAResolveConstants
+{
+    uint2 mRenderSize;
+    uint mColorTexture;
+    uint mDepthTexture;
+    uint mHistoryTexture;
+    uint mVelocityTexture;
+};
+STATIC_ASSERT(sizeof(TAAResolveConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ImGuiRootConstants

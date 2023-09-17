@@ -71,13 +71,14 @@ public:
 
     enum Usage
     {
-        UPLOAD = 1 << 0,
-        GENERAL = 1 << 1,
-        INDEX_BUFFER = 1 << 2,
-        VERTEX_BUFFER = 1 << 3,
-        SHADER_READ_ONLY = 1 << 4,
-        SHADER_READ_WRITE = 1 << 5,
-        ACCELERATION_STRUCTURE = 1 << 6
+        GENERAL                 = 1 << 1,
+        UPLOAD                  = 1 << 2,
+        READBACK                = 1 << 3,
+        INDEX_BUFFER            = 1 << 4,
+        VERTEX_BUFFER           = 1 << 5,
+        SHADER_READ_ONLY        = 1 << 6,
+        SHADER_READ_WRITE       = 1 << 7,
+        ACCELERATION_STRUCTURE  = 1 << 8
     };
 
     struct Desc

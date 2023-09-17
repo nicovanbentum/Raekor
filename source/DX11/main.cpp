@@ -192,8 +192,8 @@ public:
         while (!fs::exists(m_Settings.mSceneFile))
             m_Settings.mSceneFile = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
 
-        SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
-        m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
+        SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - Raekor Renderer").c_str());
+        m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile.string());
 
         Timer timer;
         for (const auto& [entity, material] : m_Scene.Each<Material>())
@@ -639,7 +639,7 @@ using namespace Raekor;
 
 int main(int argc, char** argv)
 {
-    RTTIFactory::Register(RTTI_OF(ConfigSettings));
+    g_RTTIFactory.Register(RTTI_OF(ConfigSettings));
 
     g_CVars.ParseCommandLine(argc, argv);
 

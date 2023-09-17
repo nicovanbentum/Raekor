@@ -19,7 +19,7 @@
 namespace Raekor {
 
 IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer) :
-	Application(inWindowFlags),
+	Application(inWindowFlags /* | WindowFlag::BORDERLESS */),
 	m_Scene(inRenderer),
 	m_Physics(inRenderer)
 {
@@ -40,7 +40,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer) :
 	ImNodes::StyleColorsDark();
 
 	if (!m_Settings.mFontFile.empty())
-		GUI::SetFont(m_Settings.mFontFile.c_str());
+		GUI::SetFont(m_Settings.mFontFile.string());
 
 	m_Widgets.Register<AssetsWidget>(this);
 	m_Widgets.Register<RandomWidget>(this);
@@ -55,9 +55,9 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer) :
 	LogMessage("[Editor] initialization done.");
 
 	// sponza specific
-	m_Viewport.GetCamera().Move(Vec2(-42.0f, 10.0f));
+	m_Viewport.GetCamera().Move(Vec2(42.0f, 10.0f));
 	m_Viewport.GetCamera().Zoom(0.0f);
-	m_Viewport.GetCamera().Look(Vec2(-1.65f, 0.0f));
+	m_Viewport.GetCamera().Look(Vec2(1.65f, 0.0f));
 	m_Viewport.SetFieldOfView(68.0f);
 
 	// launch the asset compiler  app to the system tray
@@ -129,6 +129,9 @@ void IEditor::OnUpdate(float inDeltaTime)
 
 	// end ImGui
 	GUI::EndDockSpace();
+
+	// ImGui::ShowStyleEditor();
+	
 	GUI::EndFrame();
 
 	// Applications that implement IEditor should call IEditor::OnUpdate first, then do their own rendering

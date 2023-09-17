@@ -115,12 +115,12 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 	if (ImGui::BeginPopup("New Type"))
 	{
-		for (const auto& registered_type : RTTIFactory::GetAllTypesIter())
+		for (const auto& registered_type : g_RTTIFactory)
 		{
 			if (ImGui::Selectable(registered_type.second->GetTypeName(), false))
 			{
-				auto rtti = RTTIFactory::GetRTTI(registered_type.second->GetTypeName());
-				auto instance = RTTIFactory::Construct(registered_type.second->GetTypeName());
+				auto rtti = g_RTTIFactory.GetRTTI(registered_type.second->GetTypeName());
+				auto instance = g_RTTIFactory.Construct(registered_type.second->GetTypeName());
 
 				for (uint32_t member_index = 0; member_index < rtti->GetMemberCount(); member_index++)
 				{
@@ -153,7 +153,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 		auto token_index = tokens.front();
 		tokens.pop();
 
-		const auto rtti = RTTIFactory::GetRTTI(m_JSON.GetString(token_index).c_str());
+		const auto rtti = g_RTTIFactory.GetRTTI(m_JSON.GetString(token_index).c_str());
 		if (rtti == nullptr)
 			break;
 

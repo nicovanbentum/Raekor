@@ -31,6 +31,11 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt)
 	if (ImGui::Checkbox("Debug Physics", &debug_physics))
 		GetPhysics().SetDebugRendering(debug_physics);
 
+	if (ImGui::Checkbox("VSync", (bool*)( &GetRenderInterface().GetSettings().vsync )))
+		SDL_GL_SetSwapInterval(GetRenderInterface().GetSettings().vsync);
+
+	ImGui::SameLine();
+
 	if (ImGui::Button("Generate Rigid Bodies"))
 	{
 		Timer timer;
@@ -67,7 +72,7 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt)
 
 			mesh.material = material_entity;
 
-			constexpr auto radius = 2.5f;
+			constexpr auto radius = 4.5f;
 			gGenerateSphere(mesh, radius, 32, 32);
 			GetRenderInterface().UploadMeshBuffers(mesh);
 

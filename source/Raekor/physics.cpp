@@ -214,7 +214,7 @@ void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
 const ImVec4& Physics::GetStateColor()
 {
 	static const auto colors = std::array {
-		ImGui::GetStyleColorVec4(ImGuiCol_Text),
+		ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),
 			ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
 			ImVec4(0.35f, 0.78f, 1.0f, 1.0f),
 	};

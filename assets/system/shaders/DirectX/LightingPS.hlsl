@@ -74,11 +74,11 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     
     //total_radiance += brdf.mAlbedo.rgb * 0.25;
     
-    total_radiance += irradiance.rgb * brdf.mAlbedo.rgb;
+    total_radiance += irradiance.rgb * brdf.mAlbedo.rgb * ao;
     
     //total_radiance = ApplyFog(total_radiance, distance(fc.mCameraPosition.xyz, ws_pos), fc.mCameraPosition.xyz, -Wo);
     
     //return float4(ao, ao, ao, 1.0);
     // return float4(irradiance.rgb, 1.0);
-    return float4(total_radiance * ao, 1.0);
+    return float4(total_radiance, 1.0);
 }

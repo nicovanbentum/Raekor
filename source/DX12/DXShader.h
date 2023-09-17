@@ -95,6 +95,7 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mLightingShader;
     ShaderProgram mDownsampleShader;
     ShaderProgram mDebugLinesShader;
+    ShaderProgram mTAAResolveShader;
     ShaderProgram mFinalComposeShader;
 
     ShaderProgram mProbeDebugShader;

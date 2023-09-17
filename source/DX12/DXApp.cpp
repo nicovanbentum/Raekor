@@ -31,9 +31,10 @@ DXApp::DXApp() :
     m_RayTracedScene(m_Scene),
     m_RenderInterface(m_Device, m_Renderer, m_StagingHeap)
 {
-    RTTIFactory::Register(RTTI_OF(ShaderProgram));
-    RTTIFactory::Register(RTTI_OF(SystemShadersDX12));
-    RTTIFactory::Register(RTTI_OF(EShaderProgramType));
+    g_RTTIFactory.Register(RTTI_OF(ShaderProgram));
+    g_RTTIFactory.Register(RTTI_OF(SystemShadersDX12));
+    g_RTTIFactory.Register(RTTI_OF(EShaderProgramType));
+    g_RTTIFactory.Register(RTTI_OF(DDGISceneSettings));
 
     m_Widgets.Register<DebugWidget>(this);
 
@@ -115,8 +116,8 @@ DXApp::DXApp() :
     while (!fs::exists(m_Settings.mSceneFile))
         m_Settings.mSceneFile = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).make_preferred().string();
 
-    SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile + " - Raekor Renderer").c_str());
-    m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile);
+    SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - Raekor Renderer").c_str());
+    m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile.string());
 
     assert(!m_Scene.IsEmpty() && "Scene cannot be empty when starting up DX12 renderer!!");
 
@@ -428,26 +429,16 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
 
     ImGui::SliderInt("V-Sync", &m_Renderer.GetSettings().mEnableVsync, 0, 3);
 
-    enum EGizmo { SUNLIGHT_DIR, DDGI_POS };
-    constexpr auto items = std::array{ "Sunlight Direction", "DDGI Position", };
-    static auto gizmo = EGizmo::SUNLIGHT_DIR;
-
-    auto index = int(gizmo);
-    if (ImGui::Combo("##EGizmo", &index, items.data(), int(items.size())))
-        gizmo = EGizmo(index);
-
     ImGui::Separator();
 
     bool need_recompile = false;
 
-    constexpr auto upscaler_items = std::array{ "No Upscaler", "AMD FSR2", "Nvidia DLSS", "Intel XeSS" };
-    need_recompile |= ImGui::Combo("##Upscaler", &m_Renderer.GetSettings().mUpscaler, upscaler_items.data(), int(upscaler_items.size()));
-
-    ImGui::Separator();
-
     need_recompile |= ImGui::Checkbox("Enable Path Tracer", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
     need_recompile |= ImGui::Checkbox("Show GI Probe Grid", (bool*)&m_Renderer.GetSettings().mProbeDebug);
     need_recompile |= ImGui::Checkbox("Show GI Probe Rays", (bool*)&m_Renderer.GetSettings().mDebugLines);
+
+    constexpr auto upscaler_items = std::array{ "No Upscaler", "AMD FSR2", "Nvidia DLSS", "Intel XeSS" };
+    need_recompile |= ImGui::Combo("##Upscaler", &m_Renderer.GetSettings().mUpscaler, upscaler_items.data(), int(upscaler_items.size()));
 
     if (need_recompile)
         m_Renderer.SetShouldResize(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
@@ -466,28 +457,49 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
         ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
         ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
         ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
-        ImGui::NewLine(); ImGui::Separator();
+        ImGui::NewLine(); 
     }
 
     if (auto rtao_pass = m_Renderer.GetRenderGraph().GetPass<RTAOData>())
     {
         auto& params = rtao_pass->GetData().mParams;
         ImGui::Text("RTAO Settings");
+        ImGui::Separator();
         ImGui::DragFloat("Radius", &params.mRadius, 0.01f, 0.0f, 20.0f, "%.2f");
-        ImGui::DragFloat("Intensity", &params.mIntensity, 0.01f, 0.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("Intensity", &params.mPower, 0.01f, 0.0f, 10.0f, "%.2f");
         ImGui::DragFloat("Normal Bias", &params.mNormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
         ImGui::SliderInt("Sample Count", (int*)&params.mSampleCount, 1u, 128u);
-        ImGui::NewLine(); ImGui::Separator();
+        ImGui::NewLine(); 
     }
 
     if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeTraceData>())
     {
         auto& data = ddgi_pass->GetData();
         ImGui::Text("DDGI Settings");
-        ImGui::DragInt3("Debug Probe", glm::value_ptr(data.mDebugProbe));
-        ImGui::DragFloat3("Probe Spacing", glm::value_ptr(data.mDDGIData.mProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
-        ImGui::DragInt3("Probe Count", glm::value_ptr(data.mDDGIData.mProbeCount), 1, 1, 40);
-        ImGui::DragFloat3("Grid Position", glm::value_ptr(data.mDDGIData.mCornerPosition), 0.01f, -1000.0f, 1000.0f, "%.3f");
+        ImGui::Separator();
+
+        if (m_RayTracedScene->Count<DDGISceneSettings>())
+        {
+            auto& ddgi_settings = m_RayTracedScene->Get<DDGISceneSettings>(m_RayTracedScene->GetEntities<DDGISceneSettings>()[0]);
+
+            ImGui::DragInt3("Debug Probe", glm::value_ptr(ddgi_settings.mDDGIDebugProbe));
+            ImGui::DragFloat3("Probe Spacing", glm::value_ptr(ddgi_settings.mDDGIProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
+            ImGui::DragInt3("Probe Count", glm::value_ptr(ddgi_settings.mDDGIProbeCount), 1, 1, 40);
+        }
+        else
+        {
+            ImGui::DragInt3("Debug Probe", glm::value_ptr(data.mDebugProbe));
+            ImGui::DragFloat3("Probe Spacing", glm::value_ptr(data.mDDGIData.mProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
+            ImGui::DragInt3("Probe Count", glm::value_ptr(data.mDDGIData.mProbeCount), 1, 1, 40);
+            ImGui::DragFloat3("Grid Position", glm::value_ptr(data.mDDGIData.mCornerPosition), 0.01f, -1000.0f, 1000.0f, "%.3f");
+
+            if (ImGui::Button("Add Settings to Scene"))
+            {
+                auto ddgi_settings_entity = m_RayTracedScene->CreateSpatialEntity("DDGI Settings");
+                auto& ddgi_settings = m_RayTracedScene->Add<DDGISceneSettings>(ddgi_settings_entity);
+            }
+        }
+
     }
 
     /*auto debug_textures = std::vector<TextureID>{};

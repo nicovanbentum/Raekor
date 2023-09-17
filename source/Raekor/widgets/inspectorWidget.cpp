@@ -207,7 +207,20 @@ void InspectorWidget::DrawJSONInspector(Widgets* inWidgets)
 
 void InspectorWidget::DrawComponent(Name& inName)
 {
-	ImGui::InputText("Name##1", &inName.name, ImGuiInputTextFlags_AutoSelectAll);
+	if (ImGui::BeginTable("##NameTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
+	{
+		ImGui::TableNextColumn();
+
+		ImGui::AlignTextToFramePadding();
+
+		ImGui::Text("Name");
+
+		ImGui::TableNextColumn();
+
+		ImGui::InputText("##NameInputText", &inName.name, ImGuiInputTextFlags_AutoSelectAll);
+
+		ImGui::EndTable();
+	}
 }
 
 
@@ -227,9 +240,9 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh)
 	const auto byte_size = sizeof(Mesh) + ioMesh.GetInterleavedStride() * ioMesh.positions.size();
 	ImGui::Text("%.1f Kb", float(byte_size) / 1024);
 
+	ImGui::Text("%i Vertices", ioMesh.positions.size());
 	ImGui::Text("%i Triangles", ioMesh.indices.size() / 3);
 
-	ImGui::DragFloat("LOD Fade", &ioMesh.mLODFade, 0.001f, -1.0f, 1.0f, "%.3f");
 
 	auto& scene = GetScene();
 	if (scene.IsValid(ioMesh.material) && scene.Has<Material, Name>(ioMesh.material))
@@ -256,6 +269,8 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh)
 
 		ImGui::EndDragDropTarget();
 	}
+
+	ImGui::DragFloat("LOD Fade", &ioMesh.mLODFade, 0.001f, -1.0f, 1.0f, "%.3f");
 }
 
 
@@ -360,9 +375,10 @@ void InspectorWidget::DrawComponent(Material& inMaterial)
 		ImGui::EndPopup();
 	}
 
-	auto DrawTextureInteraction = [&](uint32_t& inGpuMap, std::string& inFile)
+	auto DrawTextureInteraction = [&](uint32_t& inGpuMap, uint32_t inDefaultMap, std::string& inFile)
 	{
-		const auto imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(inGpuMap);
+		const auto imgui_map = inGpuMap ? inGpuMap : inDefaultMap;
+		const auto imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(imgui_map);
 
 		if (ImGui::ImageButton((void*)( (intptr_t)imgui_id ), ImVec2(line_height - 1, line_height - 1)))
 		{
@@ -383,6 +399,17 @@ void InspectorWidget::DrawComponent(Material& inMaterial)
 			}
 		}
 
+		if (ImGui::BeginPopupContextItem())
+		{
+			if (ImGui::MenuItem("Remove"))
+			{
+				inFile = "";
+				inGpuMap = inDefaultMap;
+			}
+
+			ImGui::EndPopup();
+		}
+
 		if (!inFile.empty())
 		{
 			ImGui::SameLine();
@@ -395,11 +422,11 @@ void InspectorWidget::DrawComponent(Material& inMaterial)
 	};
 
 	ImGui::AlignTextToFramePadding(); ImGui::Text("Albedo Map"); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuAlbedoMap ? inMaterial.gpuAlbedoMap : Material::Default.gpuAlbedoMap, inMaterial.albedoFile);
+	DrawTextureInteraction(inMaterial.gpuAlbedoMap, Material::Default.gpuAlbedoMap, inMaterial.albedoFile);
 	ImGui::AlignTextToFramePadding(); ImGui::Text("Normal Map"); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuNormalMap ? inMaterial.gpuNormalMap : Material::Default.gpuNormalMap, inMaterial.normalFile);
+	DrawTextureInteraction(inMaterial.gpuNormalMap, Material::Default.gpuNormalMap, inMaterial.normalFile);
 	ImGui::AlignTextToFramePadding(); ImGui::Text("Material Map"); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuMetallicRoughnessMap ? inMaterial.gpuMetallicRoughnessMap : Material::Default.gpuMetallicRoughnessMap, inMaterial.metalroughFile);
+	DrawTextureInteraction(inMaterial.gpuMetallicRoughnessMap, Material::Default.gpuMetallicRoughnessMap, inMaterial.metalroughFile);
 
 	ImGui::Checkbox("Is Transparent", &inMaterial.isTransparent);
 }
@@ -418,10 +445,11 @@ bool DragVec3(const char* label, glm::vec3& v, float step, float min, float max,
 
 	constexpr auto chars = std::array { "X", "Y", "Z", "W" };
 
-	static const auto colors = std::array {
-		ImVec4{0.5f, 0.0f, 0.0f, 1.0f},
-			ImVec4 { 0.0f, 0.5f, 0.0f, 1.0f },
-			ImVec4 { 0.1f, 0.1f, 1.0f, 1.0f }
+	static constexpr auto colors = std::array 
+	{
+		ImVec4 { 0.5f, 0.0f, 0.0f, 1.0f },
+		ImVec4 { 0.0f, 0.5f, 0.0f, 1.0f },
+		ImVec4 { 0.1f, 0.1f, 1.0f, 1.0f }
 	};
 
 	for (int i = 0; i < v.length(); i++)
@@ -442,7 +470,7 @@ bool DragVec3(const char* label, glm::vec3& v, float step, float min, float max,
 
 		//ImGui::SameLine(0, 1);
 		auto size = ImGui::CalcTextSize("12.456");
-		ImGui::PushItemWidth(size.x);
+		ImGui::PushItemWidth(size.x * 2);
 
 		const auto type = ImGuiDataType_Float;
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);

@@ -78,7 +78,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             
             {
                 const float3 light_dir = normalize(fc.mSunDirection.xyz);
-                float2 diskPoint = uniformSampleDisk(pcg_float2(rng), 0.00);
+                float2 diskPoint = uniformSampleDisk(pcg_float2(rng), 0.02);
                 float3 Wi = -(light_dir + float3(diskPoint.x, 0.0, diskPoint.y));
             
                 // Check if the sun is visible
@@ -145,8 +145,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         total_throughput *= throughput;
     }
     
+    float alpha = 0.1;
     float4 curr = result_texture[threadID.xy];
-    
-    result_texture[threadID.xy] = float4(total_irradiance, 1.0);
+    result_texture[threadID.xy] = float4(lerp(curr.rgb, total_irradiance, alpha), 1.0);
 
 }

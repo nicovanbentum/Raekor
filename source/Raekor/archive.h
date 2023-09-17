@@ -17,7 +17,7 @@ public:
 		std::string type;
 		ReadFileBinary(m_File, type);
 
-		if (auto rtti = RTTIFactory::GetRTTI(type.c_str()))
+		if (auto rtti = g_RTTIFactory.GetRTTI(type.c_str()))
 			for (const auto& member : *rtti)
 			{
 				if (member->GetSerializeType() & SERIALIZE_BINARY)

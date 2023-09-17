@@ -386,14 +386,6 @@ uint64_t Renderer::GetDisplayTexture()
 
 void Renderer::DrawImGui(Scene& inScene, const Viewport& inViewport)
 {
-    if (ImGui::Checkbox("VSync", (bool*)( &mSettings.vsync )))
-        SDL_GL_SetSwapInterval(mSettings.vsync);
-
-    ImGui::SameLine();
-
-    if (ImGui::Checkbox("TAA", (bool*)( &mSettings.enableTAA )))
-        m_FrameNr = 0;
-
     ImGui::NewLine();
     ImGui::Text("VCTGI");
     ImGui::Separator();

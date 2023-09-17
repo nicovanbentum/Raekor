@@ -38,12 +38,19 @@ public:
     [[nodiscard]] TextureID CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc);
     [[nodiscard]] TextureID CreateTextureView(ResourceRef inResource, const Texture::Desc& inDesc);
 
+    /* Preferred runtime API, safe to use at any point during the frame. */
+    void ReleaseBufferDeferred(BufferID inID);
+    /* Preferred runtime API, safe to use at any point during the frame. */
+    void ReleaseTextureDeferred(TextureID inID);
+
+    /* USE WITH CAUTION. NEXT CREATE* CALL WILL DELETE THE OLD RESOURCE. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
     void ReleaseBuffer(BufferID inID);
+    /* USE WITH CAUTION. NEXT CREATE* CALL WILL DELETE THE OLD RESOURCE. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
     void ReleaseTexture(TextureID inID);
 
-    /* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
+    /* USE WITH CAUTION. WILL IMMEDIATELY DELETE THE RESOURCE. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
     void ReleaseBufferImmediate(BufferID inID);
-    /* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
+    /* USE WITH CAUTION. WILL IMMEDIATELY DELETE THE RESOURCE. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
     void ReleaseTextureImmediate(TextureID inID);
 
     [[nodiscard]] Buffer& GetBuffer(BufferID inID) { assert(inID.IsValid()); return m_Buffers.Get(inID); }
@@ -108,6 +115,8 @@ private:
     uint32_t m_NumFrames;
     Buffer::Pool m_Buffers;
     Texture::Pool m_Textures;
+    std::array<BufferID, sFrameCount> m_BuffersToRelease;
+    std::array<TextureID, sFrameCount> m_TexturesToRelease;
 };
 
 
@@ -127,8 +136,8 @@ public:
     StagingHeap(Device& inDevice) : m_Device(inDevice) {}
     ~StagingHeap();
 
-    void StageBuffer(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, uint32_t inOffset, const void* inData, uint32_t inSize);
-    void StageTexture(ID3D12GraphicsCommandList* inCmdList, ResourceRef inResource, uint32_t inSubResource, const void* inData);
+    void StageBuffer(CommandList& inCmdList, ResourceRef inResource, uint32_t inOffset, const void* inData, uint32_t inSize);
+    void StageTexture(CommandList& inCmdList, ResourceRef inResource, uint32_t inSubResource, const void* inData);
 
 private:
     Device& m_Device;

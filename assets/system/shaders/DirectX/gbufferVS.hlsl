@@ -29,6 +29,7 @@ VS_OUTPUT main(in uint inVertexID : SV_VertexID)
     output.bitangent = normalize(cross(output.normal, output.tangent));
     output.texcoord = vertex.mTexCoord;
     
+    // TODO: prev world transform
     output.curr_position = mul(fc.mViewProjectionMatrix, float4(vertex.mPos, 1.0));
     output.prev_position = mul(fc.mPrevViewProjectionMatrix, float4(vertex.mPos, 1.0));
     output.sv_position = output.curr_position;

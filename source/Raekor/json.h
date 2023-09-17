@@ -337,7 +337,9 @@ inline void JSONWriter::GetValueToJSON(const bool& inBool)
 
 inline void JSONWriter::GetValueToJSON(const std::string& inString)
 {
-	Write("\"" + inString + "\"");
+	Write("\"");
+	Write(inString);
+	Write("\"");
 }
 
 template<glm::length_t L, typename T>
@@ -451,7 +453,9 @@ void JSONWriter::GetValueToJSON(const std::unordered_map<K, V>& inValue)
 
 inline void JSONWriter::GetValueToJSON(const Path& inPath)
 {
-	GetValueToJSON(inPath.string());
+	Write("\"");
+	Write(inPath.generic_string());
+	Write("\"");
 }
 
 } // Raekor::JSON

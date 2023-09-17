@@ -36,6 +36,12 @@
             "Pixel Shader File": "assets/system/shaders/DirectX/DebugLinesPS.hlsl"
         },
 
+        "TAA Resolve Shader":
+        {
+            "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/TAAResolvePS.hlsl"
+        },
+
         "Final Compose Shader":
         {
             "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",

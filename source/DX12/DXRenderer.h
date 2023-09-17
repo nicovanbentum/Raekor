@@ -53,6 +53,15 @@ enum EUpscaler
     UPSCALER_COUNT
 };
 
+struct DDGISceneSettings
+{
+    RTTI_DECLARE_TYPE(DDGISceneSettings);
+
+    IVec3 mDDGIDebugProbe = UVec3(0, 0, 0);
+    IVec3 mDDGIProbeCount = UVec3(2, 2, 2);
+    Vec3 mDDGIProbeSpacing = Vec3(0.1f, 0.1f, 0.1f);
+};
+
 /*
     Fun TODO's:
     - timestamp queries per render pass for profiling
@@ -63,14 +72,16 @@ class Renderer
 private:
     struct Settings
     {
-        int& mDoPathTrace = g_CVars.Create("r_path_trace",          0, true);
         int& mEnableVsync = g_CVars.Create("r_vsync",               1);
         int& mDebugLines  = g_CVars.Create("r_debug_lines",         1);
+        int& mEnableDDGI  = g_CVars.Create("r_enable_ddgi",         1);
         int& mEnableRTAO  = g_CVars.Create("r_enable_rtao",         1);
         int& mProbeDebug  = g_CVars.Create("r_debug_gi_probes",     0);
         int& mFullscreen  = g_CVars.Create("r_fullscreen",          0);
-        int& mUpscaler    = g_CVars.Create("r_upscaler",            0, true);
         int& mDisplayRes  = g_CVars.Create("r_display_resolution",  0);
+        int& mEnableTAA   = g_CVars.Create("r_enable_taa",          1);
+        int& mUpscaler    = g_CVars.Create("r_upscaler",            0, true);
+        int& mDoPathTrace = g_CVars.Create("r_path_trace",          0, true);
     } m_Settings;
 
 public:
@@ -143,7 +154,7 @@ public:
     virtual uint32_t    GetDebugTextureCount() const override { return DEBUG_TEXTURE_COUNT; }
     virtual const char* GetDebugTextureName(uint32_t inIndex) const;
 
-    uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) { return 0; /* TODO: FIXME */ }
+    uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) { return 0; }
     uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) override { return NULL_ENTITY; /* TODO: FIXME */ }
 
     void UploadMeshBuffers(Mesh& inMesh);
@@ -233,7 +244,6 @@ struct RTShadowMaskData
     TextureResource mOutputTexture;
     TextureResource mGbufferDepthTexture;
     TextureResource mGBufferRenderTexture;
-    DescriptorID mTopLevelAccelerationStructure;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -250,11 +260,10 @@ struct RTAOData
 {
     RTTI_DECLARE_TYPE(RTAOData);
 
-    AmbientOcclusionParams mParams = { .mRadius = 2.0, .mIntensity = 0.0, .mNormalBias = 0.01, .mSampleCount = 1u };
+    AmbientOcclusionParams mParams = { .mRadius = 2.0, .mPower = 0.0, .mNormalBias = 0.01, .mSampleCount = 1u };
     TextureResource mOutputTexture;
     TextureResource mGbufferDepthTexture;
     TextureResource mGBufferRenderTexture;
-    DescriptorID mTopLevelAccelerationStructure;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -274,9 +283,6 @@ struct ReflectionsData
     TextureResource mOutputTexture;
     TextureResource mGBufferDepthTexture;
     TextureResource mGbufferRenderTexture;
-    DescriptorID mTopLevelAccelerationStructure;
-    DescriptorID mInstancesBuffer;
-    DescriptorID mMaterialBuffer;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -297,9 +303,6 @@ struct PathTraceData
     TextureResource mOutputTexture;
     TextureResource mGBufferDepthTexture;
     TextureResource mGbufferRenderTexture;
-    DescriptorID mTopLevelAccelerationStructure;
-    DescriptorID mInstancesBuffer;
-    DescriptorID mMaterialBuffer;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -344,13 +347,10 @@ struct ProbeTraceData
     IVec3           mDebugProbe = IVec3(10, 10, 5);
     DDGIData        mDDGIData;
     Mat3x3          mRandomRotationMatrix;
-    DescriptorID    mMaterialBuffer;
-    DescriptorID    mInstancesBuffer;
     TextureResource mProbesDepthTexture;
     TextureResource mProbesIrradianceTexture;
     TextureResource mRaysDepthTexture;
     TextureResource mRaysIrradianceTexture;
-    DescriptorID    mTopLevelAccelerationStructure;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -371,7 +371,6 @@ struct ProbeUpdateData
     TextureResource mProbesIrradianceTexture;
     TextureResource mRaysDepthTexture;
     TextureResource mRaysIrradianceTexture;
-    DescriptorID mTopLevelAccelerationStructure;
     ComPtr<ID3D12PipelineState> mDepthPipeline;
     ComPtr<ID3D12PipelineState> mIrradiancePipeline;
 };
@@ -517,6 +516,28 @@ const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice,
     xess_context_handle_t inContext,
     TextureResource inColorTexture,
     const GBufferData& inGBufferData
+);
+
+
+////////////////////////////////////////
+/// TAA Resolve Render Pass
+////////////////////////////////////////
+struct TAAResolveData
+{
+    RTTI_DECLARE_TYPE(TAAResolveData);
+
+    uint32_t mFrameCounter = 0;
+    TextureResource mColorTexture;
+    TextureResource mDepthTexture;
+    TextureResource mOutputTexture;
+    TextureResource mHistoryTexture;
+    TextureResource mVelocityTexture;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDevice,
+    const GBufferData& inGBufferData,
+    TextureResource inColorTexture
 );
 
 

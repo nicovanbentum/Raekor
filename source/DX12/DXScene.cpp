@@ -66,8 +66,6 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
 
     const auto result_buffer = inDevice.GetBuffer(m_TLASBuffer);
 
-    inApp->LogMessage(std::format("[GPU] TLAS Buffer size is {:.1f} KBs", float(prebuild_info.ResultDataMaxSizeInBytes) / 1000));
-
     auto scratch_buffer = inDevice.CreateBuffer(Buffer::Desc
     {
         .size = prebuild_info.ScratchDataSizeInBytes,
@@ -114,7 +112,19 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
     };
 
-    m_InstancesBuffer = inDevice.CreateBuffer(instance_buffer_desc, L"RT_INSTANCE_BUFFER");
+    if (m_InstancesBuffer.IsValid())
+    {
+        const auto& buffer_desc = inDevice.GetBuffer(m_InstancesBuffer).GetDesc();
+
+        if (instance_buffer_desc.size > buffer_desc.size)
+        {
+            const auto old_instance_buffer = m_InstancesBuffer;
+            m_InstancesBuffer = inDevice.CreateBuffer(instance_buffer_desc, L"RT_INSTANCE_BUFFER");
+            inDevice.ReleaseBuffer(old_instance_buffer);
+        }
+    }
+    else 
+        m_InstancesBuffer = inDevice.CreateBuffer(instance_buffer_desc, L"RT_INSTANCE_BUFFER");
 
     const auto& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
     inStagingHeap.StageBuffer(inCmdList, instance_buffer.GetResource(), 0, rt_geometries.data(), instance_buffer_desc.size);
@@ -159,7 +169,19 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
         .viewDesc = &srv_desc
     };
 
-    m_MaterialsBuffer = inDevice.CreateBuffer(material_buffer_desc, L"RT_MATERIAL_BUFFER");
+    if (m_MaterialsBuffer.IsValid())
+    {
+        const auto& buffer_desc = inDevice.GetBuffer(m_MaterialsBuffer).GetDesc();
+        
+        if (material_buffer_desc.size > buffer_desc.size)
+        {
+            const auto old_material_buffer = m_MaterialsBuffer;
+            m_MaterialsBuffer = inDevice.CreateBuffer(material_buffer_desc, L"RT_MATERIAL_BUFFER");
+            inDevice.ReleaseBuffer(old_material_buffer);
+        }
+    }
+    else 
+        m_MaterialsBuffer = inDevice.CreateBuffer(material_buffer_desc, L"RT_MATERIAL_BUFFER");
 
     const auto& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
     inStagingHeap.StageBuffer(inCmdList, materials_buffer.GetResource(), 0, rt_materials.data(), material_buffer_desc.size);

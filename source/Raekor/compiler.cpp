@@ -26,7 +26,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 	ImGui::GetIO().IniFilename = "";
 
 	if (!m_Settings.mFontFile.empty())
-		GUI::SetFont(m_Settings.mFontFile);
+		GUI::SetFont(m_Settings.mFontFile.string());
 
 	GUI::SetTheme();
 	ImGui::GetStyle().ScaleAllSizes(1.33333333f);

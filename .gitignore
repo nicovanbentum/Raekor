@@ -33,4 +33,10 @@ cached/
 !assets/
 assets/*
 !assets/system/
-!assets/models/
+assets/models/
+!assets/models/DancingStormtrooper
+!assets/models/Homer
+!assets/models/MinecraftBlock
+!assets/models/Pica
+!assets/models/Sponza
+!assets/models/TestCube

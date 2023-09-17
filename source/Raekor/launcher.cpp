@@ -54,7 +54,7 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 	ImGui::GetIO().IniFilename = "";
 
 	if (!m_Settings.mFontFile.empty())
-		GUI::SetFont(m_Settings.mFontFile);
+		GUI::SetFont(m_Settings.mFontFile.string());
 	GUI::SetTheme();
 
 	m_Renderer = SDL_CreateRenderer(m_Window, -1, SDL_RENDERER_PRESENTVSYNC);

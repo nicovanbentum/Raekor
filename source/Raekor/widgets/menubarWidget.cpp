@@ -97,48 +97,6 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				}
 			}
 
-			if (ImGui::MenuItem("Serialize as JSON..", "CTRL + S"))
-			{
-				auto folder = Path(OS::sSelectFolderDialog());
-
-				Timer timer;
-				if (!folder.empty())
-				{
-					for (const auto& [entity, name, mesh] : scene.Each<Name, Mesh>())
-					{
-						// for the love of god C++ overlords, let me capture structured bindings
-						g_ThreadPool.QueueJob([&, name = &name, mesh = &mesh]()
-						{
-							auto ofs = std::ofstream(( folder / "sponza" ).replace_extension(".meshes"));
-
-						});
-					}
-
-					for (const auto& [entity, name, material] : scene.Each<Name, Material>())
-					{
-						// for the love of god C++ overlords, let me capture structured bindings
-						g_ThreadPool.QueueJob([&, name = &name, material = &material]()
-						{
-							auto ofs = std::ofstream(( folder / name->name ).replace_extension(".material"));
-						});
-					}
-					g_ThreadPool.WaitForJobs();
-				}
-
-				m_Editor->LogMessage("[Scene] Serialize as JSON took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
-			}
-
-			if (ImGui::MenuItem("Compile script.."))
-			{
-				const auto filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
-				if (!filepath.empty())
-				{
-					//g_ThreadPool.QueueJob([filepath]() {
-					ScriptAsset::sConvert(filepath);
-					// });
-				}
-			}
-
 			if (ImGui::MenuItem("Save screenshot.."))
 			{
 				const auto save_path = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
@@ -169,13 +127,18 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		if (ImGui::BeginMenu("Edit"))
 		{
 
-			if (ImGui::MenuItem("Delete", "DEL"))
+			if (ImGui::MenuItem("Delete", "DELETE"))
 			{
 				if (m_Editor->GetActiveEntity() != NULL_ENTITY)
 				{
 					IWidget::GetScene().DestroySpatialEntity(m_Editor->GetActiveEntity());
 					m_Editor->SetActiveEntity(NULL_ENTITY);
 				}
+			}
+
+			if (ImGui::MenuItem("Duplicate", "CTRL+D"))
+			{
+
 			}
 
 			ImGui::EndMenu();
@@ -349,61 +312,6 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		ImGui::PopID();
 
-		ImGui::SetCursorPosX(( ImGui::GetContentRegionAvail().x / 2 ));
-
-		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_CheckMark));
-		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
-
-		if (ImGui::Button((const char*)ICON_FA_HAMMER)) {}
-
-		ImGui::SameLine();
-
-		const auto physics_state = GetPhysics().GetState();
-		ImGui::PushStyleColor(ImGuiCol_Text, GetPhysics().GetStateColor());
-		if (ImGui::Button(physics_state == Physics::Stepping ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY))
-		{
-			switch (physics_state)
-			{
-				case Physics::Idle:
-				{
-					GetPhysics().SaveState();
-					GetPhysics().SetState(Physics::Stepping);
-				} break;
-				case Physics::Paused:
-				{
-					GetPhysics().SetState(Physics::Stepping);
-				} break;
-				case Physics::Stepping:
-				{
-					GetPhysics().SetState(Physics::Paused);
-				} break;
-			}
-		}
-
-		ImGui::PopStyleColor();
-		ImGui::SameLine();
-
-		const auto current_physics_state = physics_state;
-		if (current_physics_state != Physics::Idle)
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
-
-		if (ImGui::Button((const char*)ICON_FA_STOP))
-		{
-			if (physics_state != Physics::Idle)
-			{
-				GetPhysics().RestoreState();
-				GetPhysics().Step(scene, inDeltaTime); // Step once to trigger the restored state
-				GetPhysics().SetState(Physics::Idle);
-			}
-		}
-
-		if (current_physics_state != Physics::Idle)
-			ImGui::PopStyleColor();
-
-		ImGui::PopStyleVar();
-		ImGui::PopStyleColor();
-		ImGui::PopStyleColor();
 		ImGui::EndMainMenuBar();
 	}
 }

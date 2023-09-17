@@ -142,21 +142,21 @@ public:
 class RTTIFactory
 {
 public:
-	static void Register(RTTI& inRTTI);
+	void Register(RTTI& inRTTI);
 
-	static RTTI* GetRTTI(uint32_t inHash);
-	static RTTI* GetRTTI(const char* inType);
+	RTTI* GetRTTI(uint32_t inHash);
+	RTTI* GetRTTI(const char* inType);
 
-	static void* Construct(const char* inType);
+	void* Construct(const char* inType);
 
-	static auto GetAllTypesIter() { return global->m_RegisteredTypes; }
+	inline auto begin() const { return m_RegisteredTypes.begin(); }
+	inline auto end() const { return m_RegisteredTypes.end(); }
 
 private:
 	std::unordered_map<uint32_t, RTTI*> m_RegisteredTypes;
-
-	// global singleton
-	static inline std::unique_ptr<RTTIFactory> global = std::make_unique<RTTIFactory>();
 };
+
+extern RTTIFactory g_RTTIFactory;
 
 } // namespace Raekor
 

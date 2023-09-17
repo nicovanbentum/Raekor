@@ -97,18 +97,18 @@ RTTI_DEFINE_TYPE(Material)
 
 void gRegisterComponentTypes()
 {
-	RTTIFactory::Register(RTTI_OF(Name));
-	RTTIFactory::Register(RTTI_OF(Transform));
-	RTTIFactory::Register(RTTI_OF(Mesh));
-	RTTIFactory::Register(RTTI_OF(Node));
-	RTTIFactory::Register(RTTI_OF(Material));
-	RTTIFactory::Register(RTTI_OF(BoxCollider));
-	RTTIFactory::Register(RTTI_OF(DirectionalLight));
-	RTTIFactory::Register(RTTI_OF(PointLight));
-	RTTIFactory::Register(RTTI_OF(SoftBody));
-	RTTIFactory::Register(RTTI_OF(Bone));
-	RTTIFactory::Register(RTTI_OF(Skeleton));
-	RTTIFactory::Register(RTTI_OF(NativeScript));
+	g_RTTIFactory.Register(RTTI_OF(Name));
+	g_RTTIFactory.Register(RTTI_OF(Transform));
+	g_RTTIFactory.Register(RTTI_OF(Mesh));
+	g_RTTIFactory.Register(RTTI_OF(Node));
+	g_RTTIFactory.Register(RTTI_OF(Material));
+	g_RTTIFactory.Register(RTTI_OF(BoxCollider));
+	g_RTTIFactory.Register(RTTI_OF(DirectionalLight));
+	g_RTTIFactory.Register(RTTI_OF(PointLight));
+	g_RTTIFactory.Register(RTTI_OF(SoftBody));
+	g_RTTIFactory.Register(RTTI_OF(Bone));
+	g_RTTIFactory.Register(RTTI_OF(Skeleton));
+	g_RTTIFactory.Register(RTTI_OF(NativeScript));
 }
 
 
