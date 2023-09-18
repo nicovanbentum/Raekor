@@ -92,6 +92,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             irradiance *= shadow_query.CommittedStatus() != COMMITTED_TRIANGLE_HIT;
         }
         
+        // TODO: make probe textures persistent, at this point in the rendergraph they don't exist yet
         // Infinite bounces!
         // irradiance += DDGISampleIrradiance(vertex.mPos, vertex.mNormal, rc.mDDGIData);
     }

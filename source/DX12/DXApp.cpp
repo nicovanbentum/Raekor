@@ -29,7 +29,7 @@ DXApp::DXApp() :
     m_StagingHeap(m_Device),
     m_Renderer(m_Device, m_Viewport, m_Window),
     m_RayTracedScene(m_Scene),
-    m_RenderInterface(m_Device, m_Renderer, m_StagingHeap)
+    m_RenderInterface(m_Device, m_Renderer, m_Renderer.GetRenderGraph().GetResources(), m_StagingHeap)
 {
     g_RTTIFactory.Register(RTTI_OF(ShaderProgram));
     g_RTTIFactory.Register(RTTI_OF(SystemShadersDX12));
@@ -77,10 +77,11 @@ DXApp::DXApp() :
 
     auto bluenoise_texture = m_Device.CreateTexture(Texture::Desc{
         .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-            .width = 128,
-            .height = 128,
-            .usage = Texture::Usage::SHADER_READ_ONLY
-    }, L"BLUENOISE128x1spp");
+        .width  = 128,
+        .height = 128,
+        .usage  = Texture::Usage::SHADER_READ_ONLY,
+        .debugName = L"BLUENOISE128x1spp"
+    });
 
     assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
 
@@ -237,8 +238,9 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
         .width      = header_ptr->dwWidth,
         .height     = header_ptr->dwHeight,
         .mipLevels  = mipmap_levels,
-        .usage      = Texture::SHADER_READ_ONLY
-    }, inAsset->GetPath().wstring().c_str()));
+        .usage      = Texture::SHADER_READ_ONLY,
+        .debugName  = inAsset->GetPath().wstring().c_str()
+    }));
 
     auto requests = std::vector<DSTORAGE_REQUEST>(mipmap_levels);
 
@@ -317,7 +319,7 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
         if (!file_path.empty())
         {
             auto ofs = std::ofstream(file_path);
-            ofs << m_Renderer.GetRenderGraph().ToGraphVizText(m_Device);
+            ofs << m_Renderer.GetRenderGraph().ToGraphVizText(m_Device, TextureID());
         }
     }
 
@@ -433,6 +435,7 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
 
     bool need_recompile = false;
 
+    need_recompile |= ImGui::Checkbox("Temporal AA",        (bool*)&m_Renderer.GetSettings().mEnableTAA);
     need_recompile |= ImGui::Checkbox("Enable Path Tracer", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
     need_recompile |= ImGui::Checkbox("Show GI Probe Grid", (bool*)&m_Renderer.GetSettings().mProbeDebug);
     need_recompile |= ImGui::Checkbox("Show GI Probe Rays", (bool*)&m_Renderer.GetSettings().mDebugLines);
@@ -451,14 +454,14 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
         ImGui::SliderInt("Bounces", (int*)&path_trace_pass->GetData().mBounces, 1, 8);
     }
 
-    if (auto grass_pass = m_Renderer.GetRenderGraph().GetPass<GrassData>())
+    /*if (auto grass_pass = m_Renderer.GetRenderGraph().GetPass<GrassData>())
     {
         ImGui::Text("Grass Settings");
         ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
         ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
         ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
         ImGui::NewLine(); 
-    }
+    }*/
 
     if (auto rtao_pass = m_Renderer.GetRenderGraph().GetPass<RTAOData>())
     {

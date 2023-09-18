@@ -159,7 +159,7 @@ inline JPH::Quat FromGLM(const glm::quat& quat)
 }
 
 // std::string version of https://docs.microsoft.com/en-us/cpp/text/how-to-convert-between-various-string-types?view=msvc-160
-inline std::string gWCharToString(wchar_t* wchars) 
+inline std::string gWCharToString(const wchar_t* wchars) 
 {
     const auto len = wcslen(wchars);
     auto string = std::string((len + 1) * 2, 0);
@@ -225,89 +225,6 @@ private:
 };
 
 
-template<typename T>
-class RTID 
-{
-public:
-    static inline uint32_t INVALID = 0xFFFFF;
-
-    RTID() : index(INVALID) {}
-    explicit RTID(uint32_t inIndex) : index(inIndex) {}
-    
-    bool operator==(const RTID<T>& inOther) const { return ToIndex() == inOther.ToIndex(); }
-    bool operator!=(const RTID<T>& inOther) const { return ToIndex() != inOther.ToIndex(); }
-
-    inline uint32_t ToIndex() const { return index; }
-    [[nodiscard]] bool IsValid() const { return index != INVALID; }
-
-private:
-    uint32_t index : 20;
-    uint32_t generation : 12;
-};
-
-
-template<typename T>
-class FreeVector 
-{
-public:
-    using ID = RTID<T>;
-    virtual ~FreeVector() = default;
-
-    void Reserve(size_t inSizeInBytes) 
-    {
-        m_Storage.reserve(inSizeInBytes);
-    }
-
-    [[nodiscard]] virtual ID Add(const T& inT) 
-    {
-        size_t t_index;
-
-        if (m_FreeIndices.empty()) 
-        {
-            m_Storage.emplace_back(inT);
-            t_index = m_Storage.size() - 1;
-        }
-        else 
-        {
-            t_index = m_FreeIndices.back();
-            m_Storage[t_index] = inT;
-            m_FreeIndices.pop_back();
-        }
-
-        return ID(t_index);
-    }
-
-    bool Remove(ID inID) 
-    {
-        if (inID.ToIndex() > m_Storage.size() - 1)
-            return false;
-
-        for (auto free_index : m_FreeIndices)
-            if (free_index == inID.ToIndex())
-                return false;
-
-        m_FreeIndices.push_back(inID.ToIndex());
-        return true;
-    }
-
-    T& Get(ID inRTID) 
-    {
-        assert(!m_Storage.empty() && inRTID.ToIndex() < m_Storage.size());
-        return m_Storage[inRTID.ToIndex()];
-    }
-
-    const T& Get(ID inRTID) const 
-    {
-        assert(!m_Storage.empty() && inRTID.ToIndex() < m_Storage.size());
-        return m_Storage[inRTID.ToIndex()];
-    }
-
-private:
-    std::vector<uint16_t> m_Generations;
-    std::vector<uint32_t> m_FreeIndices;
-    std::vector<T> m_Storage;
-};
-
 
 
 template <typename T, typename TIter = decltype(std::begin(std::declval<T>())), typename = decltype(std::end(std::declval<T>()))>
@@ -335,13 +252,5 @@ constexpr auto gEnumerate(T&& iterable)
 #define gWarn(inStr) std::cout << "Warning in File " << __FILE__ << " at Line " << __LINE__ << " from function " << __FUNCTION__ << ": " << inStr << '\n';
 
 } // Namespace Raekor
-
-template<typename T> struct std::hash<Raekor::RTID<T>> 
-{
-    std::size_t operator()(const Raekor::RTID<T>& inID) const noexcept 
-    {
-        return size_t(inID.ToIndex());
-    }
-};
 
 

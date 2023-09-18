@@ -79,7 +79,7 @@ private:
         int& mProbeDebug  = g_CVars.Create("r_debug_gi_probes",     0);
         int& mFullscreen  = g_CVars.Create("r_fullscreen",          0);
         int& mDisplayRes  = g_CVars.Create("r_display_resolution",  0);
-        int& mEnableTAA   = g_CVars.Create("r_enable_taa",          1);
+        int& mEnableTAA   = g_CVars.Create("r_enable_taa",          0);
         int& mUpscaler    = g_CVars.Create("r_upscaler",            0, true);
         int& mDoPathTrace = g_CVars.Create("r_path_trace",          0, true);
     } m_Settings;
@@ -146,7 +146,7 @@ private:
 class RenderInterface : public IRenderInterface
 {
 public:
-    RenderInterface(Device& inDevice, Renderer& inRenderer, StagingHeap& inStagingHeap);
+    RenderInterface(Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources, StagingHeap& inStagingHeap);
 
     uint64_t GetDisplayTexture() override;
     uint64_t GetImGuiTextureID(uint32_t inTextureID) override;
@@ -174,6 +174,7 @@ private:
     Device& m_Device;
     Renderer& m_Renderer;
     StagingHeap& m_StagingHeap;
+    const RenderGraphResources& m_Resources;
 };
 
 
@@ -185,9 +186,9 @@ struct GBufferData
     RTTI_DECLARE_TYPE(GBufferData);
 
     Entity mActiveEntity = NULL_ENTITY;
-    TextureResource mDepthTexture;
-    TextureResource mRenderTexture;
-    TextureResource mMotionVectorTexture;
+    RenderGraphResourceID mDepthTexture;
+    RenderGraphResourceID mRenderTexture;
+    RenderGraphResourceID mVelocityTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -196,16 +197,16 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice,
 );
 
 
-////////////////////////////////////////
-/// GBuffer Debug Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// GBuffer Debug Pass
+//////////////////////////////////////////
 struct GBufferDebugData
 {
     RTTI_DECLARE_TYPE(GBufferDebugData);
 
     GBufferData mGBufferData;
-    TextureResource mInputTexture;
-    TextureResource mOutputTexture;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mInputTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -215,16 +216,16 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 );
 
 
-////////////////////////////////////////
-/// Grass Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// Grass Pass
+//////////////////////////////////////////
 struct GrassData
 {
     RTTI_DECLARE_TYPE(GrassData);
 
     BufferID mPerBladeIndexBuffer;
-    TextureResource mDepthTexture;
-    TextureResource mRenderTexture;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mRenderTextureSRV;
     GrassRenderRootConstants mRenderConstants;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
@@ -241,9 +242,9 @@ struct RTShadowMaskData
 {
     RTTI_DECLARE_TYPE(RTShadowMaskData);
 
-    TextureResource mOutputTexture;
-    TextureResource mGbufferDepthTexture;
-    TextureResource mGBufferRenderTexture;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mGbufferDepthTextureSRV;
+    RenderGraphResourceViewID mGBufferRenderTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -253,17 +254,17 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
 );
 
 
-////////////////////////////////////////
-/// Ray-traced Ambient Occlusion Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// Ray-traced Ambient Occlusion Render Pass
+//////////////////////////////////////////
 struct RTAOData
 {
     RTTI_DECLARE_TYPE(RTAOData);
 
     AmbientOcclusionParams mParams = { .mRadius = 2.0, .mPower = 0.0, .mNormalBias = 0.01, .mSampleCount = 1u };
-    TextureResource mOutputTexture;
-    TextureResource mGbufferDepthTexture;
-    TextureResource mGBufferRenderTexture;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mGbufferDepthTextureSRV;
+    RenderGraphResourceViewID mGBufferRenderTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -273,16 +274,16 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 );
 
 
-////////////////////////////////////////
-/// Ray-traced Reflections Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// Ray-traced Reflections Render Pass
+//////////////////////////////////////////
 struct ReflectionsData
 {
     RTTI_DECLARE_TYPE(ReflectionsData);
 
-    TextureResource mOutputTexture;
-    TextureResource mGBufferDepthTexture;
-    TextureResource mGbufferRenderTexture;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mGBufferDepthTextureSRV;
+    RenderGraphResourceViewID mGbufferRenderTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -292,47 +293,44 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 );
 
 
-////////////////////////////////////////
-/// Ray-traced Indirect Diffuse Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// Ray-traced Indirect Diffuse Render Pass
+//////////////////////////////////////////
 struct PathTraceData
 {
     RTTI_DECLARE_TYPE(PathTraceData);
 
     uint32_t mBounces = 2;
-    TextureResource mOutputTexture;
-    TextureResource mGBufferDepthTexture;
-    TextureResource mGbufferRenderTexture;
+    RenderGraphResourceID mOutputTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene,
-    const GBufferData& inGBufferData
+    const RayTracedScene& inScene
 );
 
 
-////////////////////////////////////////
-/// Downsample Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// Downsample Render Pass
+//////////////////////////////////////////
 struct DownsampleData
 {
     RTTI_DECLARE_TYPE(DownsampleData);
 
-    TextureID mTextureMips[12];
-    BufferID mGlobalAtomicBuffer;
-    TextureResource mSourceTexture;
+    RenderGraphResourceID mGlobalAtomicBuffer;
+    RenderGraphResourceViewID mSourceTextureUAV;
+    RenderGraphResourceViewID mSourceTextureMipsUAVs[12];
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDevice,
-    const TextureResource& inSourceTexture
+    RenderGraphResourceID inSourceTexture
 );
 
 
-////////////////////////////////////////
-/// GI Probe Trace Compute Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// GI Probe Trace Compute Pass
+//////////////////////////////////////////
 struct ProbeTraceData
 {
     RTTI_DECLARE_TYPE(ProbeTraceData);
@@ -347,10 +345,10 @@ struct ProbeTraceData
     IVec3           mDebugProbe = IVec3(10, 10, 5);
     DDGIData        mDDGIData;
     Mat3x3          mRandomRotationMatrix;
-    TextureResource mProbesDepthTexture;
-    TextureResource mProbesIrradianceTexture;
-    TextureResource mRaysDepthTexture;
-    TextureResource mRaysIrradianceTexture;
+    RenderGraphResourceID mProbesDepthTexture;
+    RenderGraphResourceID mProbesIrradianceTexture;
+    RenderGraphResourceID mRaysDepthTexture;
+    RenderGraphResourceID mRaysIrradianceTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -359,18 +357,18 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
 );
 
 
-////////////////////////////////////////
-/// GI Probe Update Compute Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// GI Probe Update Compute Pass
+//////////////////////////////////////////
 struct ProbeUpdateData
 {
     RTTI_DECLARE_TYPE(ProbeUpdateData);
 
     DDGIData        mDDGIData;
-    TextureResource mProbesDepthTexture;
-    TextureResource mProbesIrradianceTexture;
-    TextureResource mRaysDepthTexture;
-    TextureResource mRaysIrradianceTexture;
+    RenderGraphResourceID mProbesDepthTexture;
+    RenderGraphResourceID mProbesIrradianceTexture;
+    RenderGraphResourceViewID mRaysDepthTextureSRV;
+    RenderGraphResourceViewID mRaysIrradianceTextureSRV;
     ComPtr<ID3D12PipelineState> mDepthPipeline;
     ComPtr<ID3D12PipelineState> mIrradiancePipeline;
 };
@@ -381,67 +379,69 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
 
 
 
-////////////////////////////////////////
-/// GI Probe Debug Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// GI Probe Debug Render Pass
+//////////////////////////////////////////
 struct ProbeDebugData
 {
     RTTI_DECLARE_TYPE(ProbeDebugData);
 
     Mesh            mProbeMesh;
     DDGIData        mDDGIData;
-    TextureResource mRenderTarget;
-    TextureResource mDepthTarget;
-    TextureResource mProbesDepthTexture;
-    TextureResource mProbesIrradianceTexture;
+    RenderGraphResourceViewID mRenderTargetRTV;
+    RenderGraphResourceViewID mDepthTargetDSV;
+    RenderGraphResourceViewID mProbesDepthTextureSRV;
+    RenderGraphResourceViewID mProbesIrradianceTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDevice,
     const ProbeTraceData& inTraceData,
     const ProbeUpdateData& inUpdateData,
-    TextureResource inRenderTarget,
-    TextureResource inDepthTarget
+    RenderGraphResourceID inRenderTarget,
+    RenderGraphResourceID inDepthTarget
 );
 
 
-////////////////////////////////////////
-/// Debug Lines Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// Debug Lines Render Pass
+//////////////////////////////////////////
 struct DebugLinesData
 {
     RTTI_DECLARE_TYPE(DebugLinesData);
 
-    BufferResource mVertexBuffer;
     D3D12_DRAW_ARGUMENTS* mMappedPtr;
-    BufferResource mIndirectArgsBuffer;
+    RenderGraphResourceID mVertexBuffer;
+    RenderGraphResourceID mIndirectArgsBuffer;
+    RenderGraphResourceID mVertexBufferSRV;
+    RenderGraphResourceID mIndirectArgsBufferSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
     ComPtr<ID3D12CommandSignature> mCommandSignature;
 };
 
 const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDevice,
-    TextureResource inRenderTarget,
-    TextureResource inDepthTarget
+    RenderGraphResourceID inRenderTarget,
+    RenderGraphResourceID inDepthTarget
 );
 
 
-////////////////////////////////////////
-/// Deferred Lighting Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// Deferred Lighting Render Pass
+//////////////////////////////////////////
 struct LightingData
 {
     RTTI_DECLARE_TYPE(LightingData);
 
     DDGIData        mDDGIData;
-    TextureResource mOutputTexture;
-    TextureResource mShadowMaskTexture;
-    TextureResource mReflectionsTexture;
-    TextureResource mGBufferDepthTexture;
-    TextureResource mGBufferRenderTexture;
-    TextureResource mAmbientOcclusionTexture;
-    TextureResource mProbesDepthTexture;
-    TextureResource mProbesIrradianceTexture;
-    TextureResource mIndirectDiffuseTexture;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mShadowMaskTextureSRV;
+    RenderGraphResourceViewID mReflectionsTextureSRV;
+    RenderGraphResourceViewID mGBufferDepthTextureSRV;
+    RenderGraphResourceViewID mGBufferRenderTextureSRV;
+    RenderGraphResourceViewID mAmbientOcclusionTextureSRV;
+    RenderGraphResourceViewID mProbesDepthTextureSRV;
+    RenderGraphResourceViewID mProbesIrradianceTextureSRV;
+    RenderGraphResourceViewID mIndirectDiffuseTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -449,95 +449,97 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
     const GBufferData& inGBufferData,
     const RTShadowMaskData& inShadowMaskData,
     const ReflectionsData& inReflectionsData,
-    const TextureResource& inAOTexture,
+    RenderGraphResourceID inAOTexture,
     const ProbeUpdateData& inProbeData
 );
 
 
-////////////////////////////////////////
-/// AMD FSR 2.1 Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// AMD FSR 2.1 Render Pass
+//////////////////////////////////////////
 struct FSR2Data
 {
     RTTI_DECLARE_TYPE(FSR2Data);
 
-    TextureResource mColorTexture;
-    TextureResource mDepthTexture;
-    TextureResource mMotionVectorTexture;
-    TextureResource mOutputTexture;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mColorTextureSRV;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mMotionVectorTextureSRV;
     float mDeltaTime = 0;
     uint32_t mFrameCounter = 0;
 };
 
 const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice,
     FfxFsr2Context& inContext,
-    TextureResource inColorTexture,
+    RenderGraphResourceID inColorTexture,
     const GBufferData& inGBufferData
 );
 
 
-////////////////////////////////////////
-/// Nvidia DLSS Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// Nvidia DLSS Render Pass
+//////////////////////////////////////////
 struct DLSSData
 {
     RTTI_DECLARE_TYPE(DLSSData);
 
-    TextureResource mColorTexture;
-    TextureResource mDepthTexture;
-    TextureResource mMotionVectorTexture;
-    TextureResource mOutputTexture;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mColorTextureSRV;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mMotionVectorTextureSRV;
     uint32_t mFrameCounter = 0;
 };
 
 const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice,
     NVSDK_NGX_Handle* inDLSSHandle, 
     NVSDK_NGX_Parameter* inDLSSParams,
-    TextureResource inColorTexture,
+    RenderGraphResourceID inColorTexture,
     const GBufferData& inGBufferData
 );
 
 
-////////////////////////////////////////
-/// Intel XeSS Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// Intel XeSS Render Pass
+//////////////////////////////////////////
 struct XeSSData
 {
     RTTI_DECLARE_TYPE(XeSSData);
 
-    TextureResource mColorTexture;
-    TextureResource mDepthTexture;
-    TextureResource mMotionVectorTexture;
-    TextureResource mOutputTexture;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mColorTextureSRV;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mMotionVectorTextureSRV;
     uint32_t mFrameCounter = 0;
 };
 
 const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice,
     xess_context_handle_t inContext,
-    TextureResource inColorTexture,
+    RenderGraphResourceID inColorTexture,
     const GBufferData& inGBufferData
 );
 
 
-////////////////////////////////////////
-/// TAA Resolve Render Pass
-////////////////////////////////////////
+//////////////////////////////////////////
+///// TAA Resolve Render Pass
+//////////////////////////////////////////
 struct TAAResolveData
 {
     RTTI_DECLARE_TYPE(TAAResolveData);
 
     uint32_t mFrameCounter = 0;
-    TextureResource mColorTexture;
-    TextureResource mDepthTexture;
-    TextureResource mOutputTexture;
-    TextureResource mHistoryTexture;
-    TextureResource mVelocityTexture;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceID mHistoryTexture;
+    RenderGraphResourceViewID mHistoryTextureSRV;
+    RenderGraphResourceViewID mColorTextureSRV;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mVelocityTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDevice,
     const GBufferData& inGBufferData,
-    TextureResource inColorTexture
+    RenderGraphResourceID inColorTexture,
+    uint32_t inFrameCounter
 );
 
 
@@ -548,13 +550,13 @@ struct ComposeData
 {
     RTTI_DECLARE_TYPE(ComposeData);
 
-    TextureResource mInputTexture;
-    TextureResource mOutputTexture;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mInputTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice,
-    TextureResource inInputTexture
+    RenderGraphResourceID inInputTexture
 );
 
 
@@ -565,39 +567,22 @@ struct PreImGuiData
 {
     RTTI_DECLARE_TYPE(PreImGuiData);
 
-    TextureResource mDisplayTexture;
+    RenderGraphResourceViewID mDisplayTextureSRV;
 };
 
 const PreImGuiData& AddPreImGuiPass(RenderGraph& inRenderGraph, Device& inDevice,
-    TextureResource ioDisplayTexture
+    RenderGraphResourceID ioDisplayTexture
 );
 
 
 ////////////////////////////////////////
-/// ImGui Render Pass
-/// Note: the ImGui init and render functions really don't like being put in the RenderGraph (capturing lambdas) so manual functions are provided.
+/// ImGui Pass (standalone functions)
 ////////////////////////////////////////
-struct ImGuiData
-{
-    RTTI_DECLARE_TYPE(ImGuiData);
-
-    BufferID mIndexBuffer;
-    BufferID mVertexBuffer;
-    TextureResource mInputTexture;
-    std::vector<uint8_t> mIndexScratchBuffer;
-    std::vector<uint8_t> mVertexScratchBuffer;
-    ComPtr<ID3D12PipelineState> mPipeline;
-};
-
-const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice,
-    StagingHeap& inStagingHeap,
-    TextureResource inInputTexture
-);
 
 /* Initializes ImGui and returns the font texture ID. */
 [[nodiscard]] TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameCount);
 
 /* Renders ImGui directly to the backbuffer. */
-void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCmdList);
+void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCmdList, TextureID inBackBuffer);
 
 } // namespace Raekor

@@ -61,15 +61,17 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
     m_TLASBuffer = inDevice.CreateBuffer(Buffer::Desc
     {
         .size  = prebuild_info.ResultDataMaxSizeInBytes,
-        .usage = Buffer::Usage::ACCELERATION_STRUCTURE
-    }, L"TLAS_FULL_SCENE");
+        .usage = Buffer::Usage::ACCELERATION_STRUCTURE,
+        .debugName = L"TLAS_FULL_SCENE"
+    });
 
     const auto result_buffer = inDevice.GetBuffer(m_TLASBuffer);
 
     auto scratch_buffer = inDevice.CreateBuffer(Buffer::Desc
     {
         .size = prebuild_info.ScratchDataSizeInBytes,
-    }, L"TLAS_SCRATCH_BUFFER");
+        .debugName = L"TLAS_SCRATCH_BUFFER"
+    });
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
     desc.ScratchAccelerationStructureData = inDevice.GetBuffer(scratch_buffer)->GetGPUVirtualAddress();
@@ -110,6 +112,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
         .size   = sizeof(RTGeometry) * nr_of_meshes,
         .stride = sizeof(RTGeometry),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
+        .debugName = L"RT_INSTANCE_BUFFER"
     };
 
     if (m_InstancesBuffer.IsValid())
@@ -119,12 +122,12 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
         if (instance_buffer_desc.size > buffer_desc.size)
         {
             const auto old_instance_buffer = m_InstancesBuffer;
-            m_InstancesBuffer = inDevice.CreateBuffer(instance_buffer_desc, L"RT_INSTANCE_BUFFER");
+            m_InstancesBuffer = inDevice.CreateBuffer(instance_buffer_desc);
             inDevice.ReleaseBuffer(old_instance_buffer);
         }
     }
     else 
-        m_InstancesBuffer = inDevice.CreateBuffer(instance_buffer_desc, L"RT_INSTANCE_BUFFER");
+        m_InstancesBuffer = inDevice.CreateBuffer(instance_buffer_desc);
 
     const auto& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
     inStagingHeap.StageBuffer(inCmdList, instance_buffer.GetResource(), 0, rt_geometries.data(), instance_buffer_desc.size);
@@ -166,7 +169,8 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
         .size     = sizeof(RTMaterial) * rt_materials.size(),
         .stride   = sizeof(RTMaterial),
         .usage    = Buffer::Usage::SHADER_READ_ONLY,
-        .viewDesc = &srv_desc
+        .viewDesc = &srv_desc,
+        .debugName = L"RT_MATERIAL_BUFFER"
     };
 
     if (m_MaterialsBuffer.IsValid())
@@ -176,12 +180,12 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
         if (material_buffer_desc.size > buffer_desc.size)
         {
             const auto old_material_buffer = m_MaterialsBuffer;
-            m_MaterialsBuffer = inDevice.CreateBuffer(material_buffer_desc, L"RT_MATERIAL_BUFFER");
+            m_MaterialsBuffer = inDevice.CreateBuffer(material_buffer_desc);
             inDevice.ReleaseBuffer(old_material_buffer);
         }
     }
     else 
-        m_MaterialsBuffer = inDevice.CreateBuffer(material_buffer_desc, L"RT_MATERIAL_BUFFER");
+        m_MaterialsBuffer = inDevice.CreateBuffer(material_buffer_desc);
 
     const auto& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
     inStagingHeap.StageBuffer(inCmdList, materials_buffer.GetResource(), 0, rt_materials.data(), material_buffer_desc.size);

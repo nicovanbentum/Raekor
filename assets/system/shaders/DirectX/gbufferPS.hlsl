@@ -43,11 +43,12 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     PackNormal(normal, packed);
     PackMetallicRoughness(metalness, roughness, packed);
     
-    float2 prev_pos = (input.prev_position.xyz / input.prev_position.w).xy;
-    float2 curr_pos = (input.curr_position.xyz / input.prev_position.w).xy;
+    float2 prev_pos = (input.prev_position.xyz / input.prev_position.w * 0.5 + 0.5).xy;
+    float2 curr_pos = (input.curr_position.xyz / input.prev_position.w * 0.5 + 0.5).xy;
     
     output.gbuffer = asfloat(packed);
     output.motionvectors = curr_pos - prev_pos;
+    output.motionvectors.y *= -1.0;
     
     return output;
 }

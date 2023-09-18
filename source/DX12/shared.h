@@ -145,9 +145,9 @@ STATIC_ASSERT(sizeof(GbufferDebugRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 struct ShadowMaskRootConstants
 {
-    uint  mGbufferRenderTexture;
-    uint  mGbufferDepthTexture;
     uint  mShadowMaskTexture;
+    uint  mGbufferDepthTexture;
+    uint  mGbufferRenderTexture;
     uint  mTLAS;
     uint2 mDispatchSize;
 };
@@ -166,9 +166,9 @@ struct AmbientOcclusionParams
 struct AmbientOcclusionRootConstants
 {
     AmbientOcclusionParams mParams;
-    uint  mGbufferRenderTexture;
-    uint  mGbufferDepthTexture;
     uint  mAOmaskTexture;
+    uint  mGbufferDepthTexture;
+    uint  mGbufferRenderTexture;
     uint  mTLAS;
     uint2 mDispatchSize;
 };
@@ -177,12 +177,12 @@ STATIC_ASSERT(sizeof(AmbientOcclusionRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 struct ReflectionsRootConstants
 {
-    uint  mGbufferRenderTexture;
-    uint  mGbufferDepthTexture;
-    uint  mShadowMaskTexture;
     uint  mTLAS;
     uint  mInstancesBuffer;
     uint  mMaterialsBuffer;
+    uint  mShadowMaskTexture;
+    uint  mGbufferDepthTexture;
+    uint  mGbufferRenderTexture;
     uint2 mDispatchSize;
 };
 STATIC_ASSERT(sizeof(ReflectionsRootConstants) < MAX_ROOT_CONSTANTS_SIZE);

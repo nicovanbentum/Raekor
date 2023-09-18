@@ -27,14 +27,14 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt)
 	m_Visible = ImGui::IsWindowAppearing();
 	ImGui::SetItemDefaultFocus();
 
-	auto debug_physics = GetPhysics().GetDebugRendering();
-	if (ImGui::Checkbox("Debug Physics", &debug_physics))
-		GetPhysics().SetDebugRendering(debug_physics);
-
 	if (ImGui::Checkbox("VSync", (bool*)( &GetRenderInterface().GetSettings().vsync )))
 		SDL_GL_SetSwapInterval(GetRenderInterface().GetSettings().vsync);
 
 	ImGui::SameLine();
+
+	auto debug_physics = GetPhysics().GetDebugRendering();
+	if (ImGui::Checkbox("Debug Physics", &debug_physics))
+		GetPhysics().SetDebugRendering(debug_physics);
 
 	if (ImGui::Button("Generate Rigid Bodies"))
 	{

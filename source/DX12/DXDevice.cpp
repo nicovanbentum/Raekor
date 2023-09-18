@@ -175,7 +175,7 @@ void Device::BindDrawDefaults(CommandList& inCmdList)
 
 
 
-TextureID Device::CreateTexture(const Texture::Desc& inDesc, const std::wstring& inName)
+TextureID Device::CreateTexture(const Texture::Desc& inDesc)
 {
     auto texture = Texture(inDesc);
     auto resource_desc = D3D12_RESOURCE_DESC(CD3DX12_RESOURCE_DESC::Tex2D(inDesc.format, inDesc.width, inDesc.height, inDesc.arrayLayers, inDesc.mipLevels, 1u, 0, D3D12_RESOURCE_FLAG_NONE, D3D12_TEXTURE_LAYOUT_UNKNOWN));
@@ -231,8 +231,8 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc, const std::wstring&
 
     gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &resource_desc, initial_state, clear_value_ptr, texture.m_Allocation.GetAddressOf(), IID_PPV_ARGS(&texture.m_Resource)));
 
-    if (!inName.empty())
-        texture.m_Resource->SetName(inName.c_str());
+    if (inDesc.debugName != nullptr)
+        texture.m_Resource->SetName(inDesc.debugName);
 
     const auto texture_id = m_Textures.Add(texture);
     CreateDescriptor(texture_id, inDesc);
@@ -242,7 +242,7 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc, const std::wstring&
 
 
 
-BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const std::wstring& inName)
+BufferID Device::CreateBuffer(const Buffer::Desc& inDesc)
 {
     auto alloc_desc = D3D12MA::ALLOCATION_DESC {};
     alloc_desc.HeapType = inDesc.mappable ? D3D12_HEAP_TYPE_UPLOAD : D3D12_HEAP_TYPE_DEFAULT;
@@ -297,8 +297,8 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const std::wstring& in
         IID_PPV_ARGS(&buffer.m_Resource)
     ));
 
-    if (!inName.empty())
-        buffer.m_Resource->SetName(inName.c_str());
+    if (inDesc.debugName != nullptr)
+        buffer.m_Resource->SetName(inDesc.debugName);
 
     const auto buffer_id = m_Buffers.Add(buffer);
     CreateDescriptor(buffer_id, inDesc);
@@ -438,21 +438,15 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
 
     pso_state.RasterizerState.FrontCounterClockwise = TRUE;
 
-    for (const auto& resource : inRenderPass->m_WrittenTextures)
+    for (auto format : inRenderPass->m_RenderTargetFormats)
     {
-        const auto& texture = GetTexture(resource.mResourceTexture);
+        if (format == DXGI_FORMAT_UNKNOWN)
+            break;
 
-        switch (texture.GetDesc().usage)
-        {
-            case Texture::RENDER_TARGET:
-                pso_state.RTVFormats[pso_state.NumRenderTargets++] = texture.GetDesc().format;
-                break;
-            case Texture::DEPTH_STENCIL_TARGET:
-                assert(pso_state.DSVFormat == DXGI_FORMAT_UNKNOWN); // If you define multiple depth targets, I got bad news for you
-                pso_state.DSVFormat = texture.GetDesc().format;
-                break;
-        }
+        pso_state.RTVFormats[pso_state.NumRenderTargets++] = format;
     }
+
+    pso_state.DSVFormat = inRenderPass->m_DepthStencilFormat;
 
     return pso_state;
 }
@@ -483,7 +477,15 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
                 desc.Format = inDesc.format;
                 desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 
-                if (inDesc.stride > 0)
+                // Raw buffer
+                if (inDesc.stride == 0 && desc.Format == DXGI_FORMAT_UNKNOWN)
+                {
+                    desc.Format = DXGI_FORMAT_R32_TYPELESS;
+                    desc.Buffer.Flags |= D3D12_BUFFER_UAV_FLAG_RAW;
+                    desc.Buffer.NumElements = inDesc.size / sizeof(uint32_t);
+                }
+                // Structured buffer
+                else if (inDesc.stride > 0) 
                 {
                     desc.Buffer.StructureByteStride = inDesc.stride;
                     desc.Buffer.NumElements = inDesc.size / inDesc.stride;
@@ -547,17 +549,38 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
     switch (inDesc.usage)
     {
         case Texture::DEPTH_STENCIL_TARGET:
+        {
+            assert(gIsDepthFormat(texture.m_Desc.format));
             texture.m_Descriptor = CreateDepthStencilView(texture.m_Resource, static_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>( inDesc.viewDesc ));
             break;
+        }
         case Texture::RENDER_TARGET:
+        {
             texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>( inDesc.viewDesc ));
             break;
+        }
         case Texture::SHADER_READ_ONLY:
-            texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>( inDesc.viewDesc ));
+        {
+            if (inDesc.viewDesc == nullptr)
+            {
+                D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+                srv_desc.Format = gGetDepthFormatSRV(texture.m_Desc.format);
+                srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                srv_desc.Texture2D.MipLevels = -1;
+
+                texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, &srv_desc);
+            }
+            else
+                texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>( inDesc.viewDesc ));
+
             break;
+        }
         case Texture::SHADER_READ_WRITE:
+        {
             texture.m_Descriptor = CreateUnorderedAccessView(texture.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>( inDesc.viewDesc ));
             break;
+        }
         default:
             assert(false); // should not be able to get here
     }
@@ -640,13 +663,6 @@ D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(TextureID inID)
 {
     auto& texture = GetTexture(inID);
     return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(texture.GetView());
-}
-
-
-
-D3D12_CPU_DESCRIPTOR_HANDLE Device::GetHeapPtr(TextureResource inResource)
-{
-    return GetCPUDescriptorHandle(inResource.mResourceTexture);
 }
 
 

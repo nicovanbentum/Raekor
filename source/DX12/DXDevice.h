@@ -7,7 +7,6 @@ namespace Raekor::DX12 {
 class CommandList;
 class IRenderPass;
 class ShaderProgram;
-struct TextureResource;
 
 class Device
 {
@@ -31,8 +30,8 @@ public:
     void BindDrawDefaults(CommandList& inCmdList);
     void Submit(const Slice<CommandList>& inCmdLists);
 
-    [[nodiscard]] BufferID  CreateBuffer(const Buffer::Desc& inDesc, const std::wstring& inName = std::wstring());
-    [[nodiscard]] TextureID CreateTexture(const Texture::Desc& inDesc, const std::wstring& inName = std::wstring());
+    [[nodiscard]] BufferID  CreateBuffer(const Buffer::Desc& inDesc);
+    [[nodiscard]] TextureID CreateTexture(const Texture::Desc& inDesc);
 
     [[nodiscard]] BufferID  CreateBufferView(BufferID inTextureID, const Buffer::Desc& inDesc);
     [[nodiscard]] TextureID CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc);
@@ -62,13 +61,14 @@ public:
     [[nodiscard]] ID3D12Resource* GetResourcePtr(BufferID inID) { return GetBuffer(inID).GetResource().Get(); }
     [[nodiscard]] ID3D12Resource* GetResourcePtr(TextureID inID) { return GetTexture(inID).GetResource().Get(); }
 
+    [[nodiscard]] const ID3D12Resource* GetResourcePtr(BufferID inID) const { return GetBuffer(inID).GetResource().Get(); }
+    [[nodiscard]] const ID3D12Resource* GetResourcePtr(TextureID inID) const { return GetTexture(inID).GetResource().Get(); }
+
     [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(BufferID inID);
     [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(TextureID inID);
 
     [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(BufferID inID);
     [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(TextureID inID);
-
-    [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetHeapPtr(TextureResource inResource);
 
     [[nodiscard]] DescriptorID CreateDepthStencilView(ResourceRef inResourceID, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
     [[nodiscard]] DescriptorID CreateRenderTargetView(ResourceRef inResourceID, const D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);

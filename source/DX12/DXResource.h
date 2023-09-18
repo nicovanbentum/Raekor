@@ -4,11 +4,106 @@
 
 namespace Raekor::DX12 {
 
+class ResourceID
+{
+public:
+    static inline uint32_t INVALID = 0xFFFFF;
+
+    ResourceID() : m_Index(INVALID) {}
+    explicit ResourceID(uint32_t inValue) : m_Index(inValue) {}
+
+    bool operator==(const ResourceID& inOther) const { return ToIndex() == inOther.ToIndex(); }
+    bool operator!=(const ResourceID& inOther) const { return ToIndex() != inOther.ToIndex(); }
+
+    inline uint32_t ToIndex() const { return m_Index; }
+    [[nodiscard]] bool IsValid() const { return m_Index != INVALID; }
+
+protected:
+    uint32_t m_Index : 20;
+    uint32_t m_Generation : 12;
+};
+
+
+template<typename T>
+class TypedResourceID : public ResourceID 
+{
+public:
+    TypedResourceID() = default;
+    TypedResourceID(uint32_t inValue) : ResourceID(inValue) {}
+    TypedResourceID(ResourceID inValue) : ResourceID(inValue) {}
+};
+
+
+template<typename T>
+class ResourcePool
+{
+public:
+    using TypedID = TypedResourceID<T>;
+    virtual ~ResourcePool() = default;
+
+    void Reserve(size_t inSizeInBytes)
+    {
+        m_Storage.reserve(inSizeInBytes);
+    }
+
+    [[nodiscard]] virtual TypedID Add(const T& inT)
+    {
+        size_t t_index;
+
+        if (m_FreeIndices.empty())
+        {
+            m_Storage.emplace_back(inT);
+            t_index = m_Storage.size() - 1;
+        }
+        else
+        {
+            t_index = m_FreeIndices.back();
+            m_Storage[t_index] = inT;
+            m_FreeIndices.pop_back();
+        }
+
+        return TypedID(t_index);
+    }
+
+    bool Remove(TypedID inID)
+    {
+        if (inID.ToIndex() > m_Storage.size() - 1)
+            return false;
+
+        for (auto free_index : m_FreeIndices)
+            if (free_index == inID.ToIndex())
+                return false;
+
+        m_FreeIndices.push_back(inID.ToIndex());
+        return true;
+    }
+
+    T& Get(TypedID inRTID)
+    {
+        assert(!m_Storage.empty() && inRTID.ToIndex() < m_Storage.size());
+        return m_Storage[inRTID.ToIndex()];
+    }
+
+    const T& Get(TypedID inRTID) const
+    {
+        assert(!m_Storage.empty() && inRTID.ToIndex() < m_Storage.size());
+        return m_Storage[inRTID.ToIndex()];
+    }
+
+private:
+    std::vector<uint16_t> m_Generations;
+    std::vector<uint32_t> m_FreeIndices;
+    std::vector<T> m_Storage;
+};
+
+
 using ResourceRef = ComPtr<ID3D12Resource>;
 using AllocationRef = ComPtr<D3D12MA::Allocation>;
 
-using DescriptorPool = FreeVector<ResourceRef>;
-using DescriptorID = DescriptorPool::ID;
+
+using DescriptorPool = ResourcePool<ResourceRef>;
+using DescriptorID = DescriptorPool::TypedID;
+
 
 class Texture
 {
@@ -16,7 +111,7 @@ class Texture
     friend class CommandList;
 
 public:
-    using Pool = FreeVector<Texture>;
+    using Pool = ResourcePool<Texture>;
 
     enum Usage
     {
@@ -39,6 +134,7 @@ public:
         bool mappable = false;
         Usage usage = Usage::GENERAL;
         void* viewDesc = nullptr;
+        const wchar_t* debugName = nullptr;
     };
 
     Texture() = default;
@@ -67,7 +163,7 @@ class Buffer
     friend class CommandList;
 
 public:
-    using Pool = FreeVector<Buffer>;
+    using Pool = ResourcePool<Buffer>;
 
     enum Usage
     {
@@ -89,6 +185,7 @@ public:
         Usage usage = Usage::GENERAL;
         bool mappable = false;
         void* viewDesc = nullptr;
+        const wchar_t* debugName = nullptr;
     };
 
     Buffer() = default;
@@ -106,15 +203,22 @@ public:
 
 private:
     Desc m_Desc = {};
-    void* m_MappedPtr = nullptr;
     DescriptorID m_Descriptor;
+    void* m_MappedPtr = nullptr;
     ResourceRef m_Resource = nullptr;
     AllocationRef m_Allocation = nullptr;
 };
 
 
-using BufferID = Buffer::Pool::ID;
-using TextureID = Texture::Pool::ID;
+using BufferID = Buffer::Pool::TypedID;
+using TextureID = Texture::Pool::TypedID;
+
+
+enum EResourceType
+{
+    RESOURCE_TYPE_BUFFER,
+    RESOURCE_TYPE_TEXTURE
+};
 
 
 D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage);
@@ -132,12 +236,12 @@ public:
 
     ID3D12DescriptorHeap* GetHeap() const { return m_Heap.Get(); }
 
-    inline D3D12_CPU_DESCRIPTOR_HANDLE  GetCPUDescriptorHandle(ID inResourceID) const
+    inline D3D12_CPU_DESCRIPTOR_HANDLE  GetCPUDescriptorHandle(TypedID inResourceID) const
     {
         return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_HeapPtr, inResourceID.ToIndex(), m_HeapIncrement);
     }
 
-    inline D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(ID inResourceID) const
+    inline D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(TypedID inResourceID) const
     {
         return CD3DX12_GPU_DESCRIPTOR_HANDLE(m_Heap->GetGPUDescriptorHandleForHeapStart(), inResourceID.ToIndex(), m_HeapIncrement);
     }
@@ -152,3 +256,11 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 } // namespace::Raekor
+
+template<typename T> struct std::hash<Raekor::DX12::TypedResourceID<T>>
+{
+    std::size_t operator()(const Raekor::DX12::TypedResourceID<T>& inID) const noexcept
+    {
+        return size_t(inID.ToIndex());
+    }
+};

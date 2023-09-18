@@ -107,14 +107,19 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 					const auto buffer_size = m_Editor->GetRenderInterface()->GetScreenshotBuffer(nullptr);
 
-					auto pixels = std::vector<unsigned char>(buffer_size);
+					if (buffer_size > 0)
+					{
+						auto pixels = std::vector<unsigned char>(buffer_size);
 
-					m_Editor->GetRenderInterface()->GetScreenshotBuffer(pixels.data());
+						m_Editor->GetRenderInterface()->GetScreenshotBuffer(pixels.data());
 
-					stbi_flip_vertically_on_write(true);
-					stbi_write_png(save_path.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
+						stbi_flip_vertically_on_write(true);
+						stbi_write_png(save_path.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
 
-					m_Editor->LogMessage("[System] Screenshot saved to " + save_path);
+						m_Editor->LogMessage("[System] Screenshot saved to " + save_path);
+					}
+					else 
+						m_Editor->LogMessage("[System] Unable to save screenshot to " + save_path);
 				}
 			}
 

@@ -4,32 +4,347 @@
 
 namespace Raekor::DX12 {
 
-bool IRenderPass::IsRead(TextureID inTexture) const
+RenderGraphResourceID RenderGraphBuilder::Create(const Buffer::Desc& inDesc)
 {
-    for (const auto& texture : m_ReadTextures)
-        if (texture.mCreatedTexture == inTexture)
+    return Create(RenderGraphResourceDesc { .mResourceType = EResourceType::RESOURCE_TYPE_BUFFER, .mBufferDesc = inDesc });
+}
+
+
+
+RenderGraphResourceID RenderGraphBuilder::Create(const Texture::Desc& inDesc)
+{
+    return Create(RenderGraphResourceDesc { .mResourceType = EResourceType::RESOURCE_TYPE_TEXTURE, .mTextureDesc = inDesc });
+}
+
+
+
+RenderGraphResourceViewID RenderGraphBuilder::RenderTarget(RenderGraphResourceID inGraphResourceID)
+{
+    RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);
+    assert(desc.mResourceDesc.mResourceType != RESOURCE_TYPE_BUFFER);
+    desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::RENDER_TARGET;
+
+    const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
+
+    m_CurrentRenderPass->m_WrittenResources.push_back(graph_resource_id);
+    m_CurrentRenderPass->m_RenderTargetFormats.push_back(desc.mResourceDesc.mTextureDesc.format);
+
+    return graph_resource_id;
+}
+
+
+
+RenderGraphResourceViewID RenderGraphBuilder::DepthStencilTarget(RenderGraphResourceID inGraphResourceID)
+{
+    assert(m_CurrentRenderPass->m_DepthStencilFormat == DXGI_FORMAT_UNKNOWN);
+
+    RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);
+    assert(desc.mResourceDesc.mResourceType != RESOURCE_TYPE_BUFFER);
+    
+    desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::DEPTH_STENCIL_TARGET;
+
+    const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
+
+    m_CurrentRenderPass->m_WrittenResources.push_back(graph_resource_id);
+    m_CurrentRenderPass->m_DepthStencilFormat = desc.mResourceDesc.mTextureDesc.format;
+
+    return graph_resource_id;
+}
+
+
+
+RenderGraphResourceViewID RenderGraphBuilder::Write(RenderGraphResourceID inGraphResourceID)
+{
+    RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);
+
+    if (desc.mResourceDesc.mResourceType == RESOURCE_TYPE_BUFFER)
+    {
+        desc.mResourceDesc.mBufferDesc.usage = Buffer::Usage::SHADER_READ_WRITE;
+    }
+    else if (desc.mResourceDesc.mResourceType == RESOURCE_TYPE_TEXTURE)
+    {
+        desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::SHADER_READ_WRITE;
+    }
+
+    const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
+
+    m_CurrentRenderPass->m_WrittenResources.push_back(graph_resource_id);
+
+    return graph_resource_id;
+}
+
+
+
+RenderGraphResourceViewID RenderGraphBuilder::Read(RenderGraphResourceID inGraphResourceID)
+{
+    RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);
+
+    if (desc.mResourceDesc.mResourceType == RESOURCE_TYPE_BUFFER)
+    {
+        desc.mResourceDesc.mBufferDesc.usage = Buffer::Usage::SHADER_READ_ONLY;
+    }
+    else if (desc.mResourceDesc.mResourceType == RESOURCE_TYPE_TEXTURE)
+    {
+        desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::SHADER_READ_ONLY;
+    }
+
+    const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
+
+    m_CurrentRenderPass->m_ReadResources.push_back(graph_resource_id);
+
+    return graph_resource_id;
+}
+
+
+
+RenderGraphResourceID RenderGraphBuilder::Create(const RenderGraphResourceDesc& inDesc)
+{
+    m_ResourceDescriptions.emplace_back(inDesc);
+
+    const RenderGraphResourceID graph_resource_id = RenderGraphResourceID(m_ResourceDescriptions.size() - 1);
+
+    m_CurrentRenderPass->m_CreatedResources.push_back(graph_resource_id);
+
+    return graph_resource_id;
+}
+
+
+
+RenderGraphResourceViewDesc& RenderGraphBuilder::EmplaceDescriptorDesc(RenderGraphResourceID inGraphResourceID)
+{
+    return m_ResourceViewDescriptions.emplace_back(RenderGraphResourceViewDesc
+    {
+        .mGraphResourceID = inGraphResourceID,
+        .mResourceDesc = m_ResourceDescriptions[inGraphResourceID]
+    });
+}
+
+
+
+void RenderGraphBuilder::Clear()
+{
+    m_CurrentRenderPass = nullptr;
+    m_ResourceDescriptions.clear();
+    m_ResourceViewDescriptions.clear();
+}
+
+
+
+void RenderGraphBuilder::StartPass(IRenderPass* inRenderPass)
+{
+    assert(m_CurrentRenderPass == nullptr);
+    m_CurrentRenderPass = inRenderPass;
+}
+
+
+
+void RenderGraphBuilder::EndPass(IRenderPass* inRenderPass)
+{
+    assert(m_CurrentRenderPass == inRenderPass);
+    m_CurrentRenderPass = nullptr;
+}
+
+
+
+void RenderGraphResources::Clear(Device& inDevice)
+{
+    for (const RenderGraphResource& resource : m_Resources)
+    {
+        if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
+            inDevice.ReleaseBufferImmediate(BufferID(resource.mResourceID));
+
+        if (resource.mResourceType == RESOURCE_TYPE_TEXTURE)
+            inDevice.ReleaseTextureImmediate(TextureID(resource.mResourceID));
+    }
+
+    for (const RenderGraphResource& resource : m_ResourceViews)
+    {
+        if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
+            inDevice.ReleaseBufferImmediate(BufferID(resource.mResourceID));
+
+        if (resource.mResourceType == RESOURCE_TYPE_TEXTURE)
+            inDevice.ReleaseTextureImmediate(TextureID(resource.mResourceID));
+    }
+
+    m_Resources.clear();
+    m_ResourceViews.clear();
+}
+
+
+
+void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& inBuilder)
+{
+    // Allocate actual device buffers/textures
+    // TODO: aliasing
+    for (const RenderGraphResourceDesc& desc : inBuilder.m_ResourceDescriptions)
+    {
+        RenderGraphResource resource;
+        resource.mResourceType = desc.mResourceType;
+
+        if (desc.mResourceType == RESOURCE_TYPE_BUFFER)
+        {
+            resource.mResourceID = inDevice.CreateBuffer(desc.mBufferDesc);
+        }
+        else if (desc.mResourceType == RESOURCE_TYPE_TEXTURE)
+        {
+            resource.mResourceID = inDevice.CreateTexture(desc.mTextureDesc);
+        }
+
+        m_Resources.push_back(resource);
+    }
+
+    // Create buffer/texture resource views
+    for (const RenderGraphResourceViewDesc& descriptor_desc : inBuilder.m_ResourceViewDescriptions)
+    {
+        const RenderGraphResource& resource = m_Resources[descriptor_desc.mGraphResourceID];
+        const RenderGraphResourceDesc& resource_desc = inBuilder.m_ResourceDescriptions[descriptor_desc.mGraphResourceID];
+
+        RenderGraphResource new_resource = resource;
+
+        // generic ResourceID, cast to BufferID or TextureID to get the device-owned resource
+        const ResourceID device_resource_index = m_Resources[descriptor_desc.mGraphResourceID].mResourceID;
+
+        if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
+        {
+            if (descriptor_desc.mResourceDesc.mBufferDesc.usage != resource_desc.mBufferDesc.usage)
+                new_resource.mResourceID = inDevice.CreateBufferView(BufferID(device_resource_index), descriptor_desc.mResourceDesc.mBufferDesc);
+        }
+        else if (resource.mResourceType == RESOURCE_TYPE_TEXTURE)
+        {
+            if (descriptor_desc.mResourceDesc.mTextureDesc.usage != resource_desc.mTextureDesc.usage)
+                new_resource.mResourceID = inDevice.CreateTextureView(TextureID(device_resource_index), descriptor_desc.mResourceDesc.mTextureDesc);
+        }
+
+        m_ResourceViews.push_back(new_resource);
+    }
+}
+
+
+
+BufferID RenderGraphResources::GetBuffer(RenderGraphResourceID inResource) const
+{
+    const RenderGraphResource& resource = m_Resources[inResource];
+    return resource.mResourceType == RESOURCE_TYPE_BUFFER ? BufferID(resource.mResourceID) : BufferID();
+}
+
+
+
+TextureID RenderGraphResources::GetTexture(RenderGraphResourceID inResource) const
+{
+    const RenderGraphResource& resource = m_Resources[inResource];
+    return resource.mResourceType == RESOURCE_TYPE_TEXTURE ? TextureID(resource.mResourceID) : TextureID();
+}
+
+
+
+ResourceID RenderGraphResources::GetResource(RenderGraphResourceID inResource) const
+{
+    return m_Resources[inResource].mResourceID;
+}
+
+
+
+BufferID RenderGraphResources::GetBufferView(RenderGraphResourceViewID inResource) const
+{
+    const RenderGraphResource& resource = m_ResourceViews[inResource];
+    return resource.mResourceType == RESOURCE_TYPE_BUFFER ? BufferID(resource.mResourceID) : BufferID();
+}
+
+
+
+TextureID RenderGraphResources::GetTextureView(RenderGraphResourceViewID inResource) const
+{
+    const RenderGraphResource& resource = m_ResourceViews[inResource];
+    return resource.mResourceType == RESOURCE_TYPE_TEXTURE ? TextureID(resource.mResourceID) : TextureID();
+}
+
+
+
+ResourceID RenderGraphResources::GetResourceView(RenderGraphResourceViewID inResource) const
+{
+    return m_ResourceViews[inResource].mResourceID;
+}
+
+
+
+bool IRenderPass::IsCreated(RenderGraphResourceID inResource) const
+{
+    for (const auto& resource : m_CreatedResources)
+        if (resource == inResource)
             return true;
     return false;
 }
 
 
 
-bool IRenderPass::IsWritten(TextureID inTexture) const
+bool IRenderPass::IsRead(RenderGraphResourceViewID inResource) const
 {
-    for (const auto& texture : m_WrittenTextures)
-        if (texture.mCreatedTexture == inTexture)
+    for (const auto& resource : m_ReadResources)
+        if (resource == inResource)
             return true;
     return false;
 }
 
 
 
-bool IRenderPass::IsCreated(TextureID inTexture) const
+bool IRenderPass::IsWritten(RenderGraphResourceViewID inResource) const
 {
-    for (const auto& texture : m_CreatedTextures)
-        if (texture == inTexture)
+    for (const auto& resource : m_WrittenResources)
+        if (resource == inResource)
             return true;
     return false;
+}
+
+
+
+void IRenderPass::FlushBarriers(Device& inDevice, CommandList& inCmdList, const Slice<D3D12_RESOURCE_BARRIER>& inBarriers) const
+{
+    if (!inBarriers.IsEmpty())
+        inCmdList->ResourceBarrier(inBarriers.Length(), inBarriers.GetPtr());
+}
+
+
+
+void IRenderPass::SetRenderTargets(Device& inDevice, const RenderGraphResources& inRenderResources, CommandList& inCmdList) const
+{
+    auto& rtv_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    auto& dsv_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+
+    // depth stencil attachment is invalid until a target texture (descriptor) is found and assigned
+    auto dsv_descriptor = DescriptorID(DescriptorID::INVALID);
+
+    auto rtv_handle_count = 0u;
+    static auto rtv_handles = std::array<D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT>{};
+
+    for (const auto resource_id : m_WrittenResources)
+    {
+        if (!inRenderResources.IsTexture(resource_id))
+            continue;
+
+        const auto& texture = inDevice.GetTexture(inRenderResources.GetTextureView(resource_id));
+
+        switch (texture.GetDesc().usage)
+        {
+            case Texture::RENDER_TARGET:
+            {
+                rtv_handles[rtv_handle_count++] = rtv_heap.GetCPUDescriptorHandle(texture.GetView());
+            } break;
+
+            case Texture::DEPTH_STENCIL_TARGET:
+            {
+                assert(!dsv_descriptor.IsValid()); // if you define multiple depth targets for a renderpass you're going to have a bad time, mmkay
+                dsv_descriptor = texture.GetView();
+            } break;
+        }
+    }
+
+    if (dsv_descriptor.IsValid())
+    {
+        auto dsv_handle = dsv_heap.GetCPUDescriptorHandle(dsv_descriptor);
+        inCmdList->OMSetRenderTargets(rtv_handle_count, rtv_handles.data(), FALSE, &dsv_handle);
+    }
+    else
+        inCmdList->OMSetRenderTargets(rtv_handle_count, rtv_handles.data(), FALSE, nullptr);
 }
 
 
@@ -44,20 +359,9 @@ RenderGraph::RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t 
 
 void RenderGraph::Clear(Device& inDevice)
 {
-    for (auto& pass : m_RenderPasses)
-    {
-        for (auto resource_id : pass->m_WrittenTextures)
-            if (resource_id.mResourceTexture != m_BackBuffer)
-                inDevice.ReleaseTexture(resource_id.mResourceTexture);
-
-        for (auto resource_id : pass->m_ReadTextures)
-            inDevice.ReleaseTexture(resource_id.mResourceTexture);
-
-        for (auto texture_id : pass->m_CreatedTextures)
-            inDevice.ReleaseTexture(texture_id);
-    }
-
     m_RenderPasses.clear();
+    m_RenderGraphBuilder.Clear();
+    m_RenderGraphResources.Clear(inDevice);
     m_PerPassAllocator.DestroyBuffer(inDevice);
     m_PerFrameAllocator.DestroyBuffer(inDevice);
 }
@@ -66,7 +370,8 @@ void RenderGraph::Clear(Device& inDevice)
 
 bool RenderGraph::Compile(Device& inDevice)
 {
-    assert(m_BackBuffer.IsValid());
+    m_RenderGraphResources.Compile(inDevice, m_RenderGraphBuilder);
+
     /*
         PASS VALIDATION
         Does not do much at the moment, it validates:
@@ -74,11 +379,11 @@ bool RenderGraph::Compile(Device& inDevice)
     */
     for (auto& renderpass : m_RenderPasses)
     {
-        for (const auto& resource : renderpass->m_WrittenTextures)
+        for (const auto& resource : renderpass->m_WrittenResources)
         {
-            if (renderpass->IsRead(resource.mCreatedTexture))
+            if (renderpass->IsRead(resource))
             {
-                std::cout << std::format("RenderGraph Error: Texture {} is both written to and read from in renderpass {}\n", gGetDebugName(inDevice.GetResourcePtr(resource.mCreatedTexture)), renderpass->GetName());
+                 std::cout << std::format("RenderGraph Error: Texture {} is both written to and read from in renderpass {}\n", gWCharToString(inDevice.GetTexture(m_RenderGraphResources.GetTextureView(resource)).GetDesc().debugName), renderpass->GetName());
                 return false;
             }
         }
@@ -104,31 +409,54 @@ bool RenderGraph::Compile(Device& inDevice)
     */
     struct GraphEdge
     {
-        Texture::Usage mUsage;
         uint32_t mRenderPassIndex;
+        D3D12_RESOURCE_STATES mUsage;
     };
 
     struct GraphNode
     {
+        EResourceType mResourceType;
         std::vector<GraphEdge> mEdges;
     };
 
-    std::unordered_map<TextureID, GraphNode> graph;
+    std::unordered_map<RenderGraphResourceID, GraphNode> graph;
 
     for (const auto& [renderpass_index, renderpass] : gEnumerate(m_RenderPasses))
     {
-        for (const auto& resource : renderpass->m_WrittenTextures)
+        for (const auto& resource_id : renderpass->m_WrittenResources)
         {
-            auto& node = graph[resource.mCreatedTexture];
-            const auto usage = inDevice.GetTexture(resource.mResourceTexture).GetDesc().usage;
-            node.mEdges.emplace_back(GraphEdge { .mUsage = usage, .mRenderPassIndex = uint32_t(renderpass_index) });
+            const auto& view_desc = m_RenderGraphBuilder.m_ResourceViewDescriptions[resource_id];
+
+            auto& node = graph[view_desc.mGraphResourceID];
+            node.mResourceType = view_desc.mResourceDesc.mResourceType;
+
+            auto usage = D3D12_RESOURCE_STATE_COMMON;
+
+            if (node.mResourceType == RESOURCE_TYPE_BUFFER)
+                usage = gGetResourceStates(inDevice.GetBuffer(m_RenderGraphResources.GetBufferView(resource_id)).GetDesc().usage);
+
+            else if (node.mResourceType == RESOURCE_TYPE_TEXTURE)
+                usage = gGetResourceStates(inDevice.GetTexture(m_RenderGraphResources.GetTextureView(resource_id)).GetDesc().usage);
+
+            node.mEdges.emplace_back(GraphEdge { .mRenderPassIndex = uint32_t(renderpass_index), .mUsage = usage });
         }
 
-        for (const auto& resource : renderpass->m_ReadTextures)
+        for (const auto& resource_id : renderpass->m_ReadResources)
         {
-            auto& node = graph[resource.mCreatedTexture];
-            const auto usage = inDevice.GetTexture(resource.mResourceTexture).GetDesc().usage;
-            node.mEdges.emplace_back(GraphEdge { .mUsage = usage, .mRenderPassIndex = uint32_t(renderpass_index) });
+            const auto& view_desc = m_RenderGraphBuilder.m_ResourceViewDescriptions[resource_id];
+
+            auto& node = graph[view_desc.mGraphResourceID];
+            node.mResourceType = view_desc.mResourceDesc.mResourceType;
+
+            auto usage = D3D12_RESOURCE_STATE_COMMON;
+
+            if (node.mResourceType == RESOURCE_TYPE_BUFFER)
+                usage = gGetResourceStates(inDevice.GetBuffer(m_RenderGraphResources.GetBufferView(resource_id)).GetDesc().usage);
+
+            else if (node.mResourceType == RESOURCE_TYPE_TEXTURE)
+                usage = gGetResourceStates(inDevice.GetTexture(m_RenderGraphResources.GetTextureView(resource_id)).GetDesc().usage);
+
+            node.mEdges.emplace_back(GraphEdge { .mRenderPassIndex = uint32_t(renderpass_index), .mUsage = usage });
         }
     }
 
@@ -169,30 +497,32 @@ bool RenderGraph::Compile(Device& inDevice)
         if (node.mEdges.size() < 2)
             continue;
 
-        auto tracked_state = gGetResourceStates(node.mEdges[0].mUsage);
+        auto resource_ptr = (ID3D12Resource*)nullptr;
+
+        if (node.mResourceType == RESOURCE_TYPE_BUFFER)
+            resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTexture(resource_id));
+
+        else if (node.mResourceType == RESOURCE_TYPE_TEXTURE)
+            resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTexture(resource_id));
+
+        assert(resource_ptr);
+
+        auto tracked_state = node.mEdges[0].mUsage;
 
         for (auto edge_index = 1; edge_index < node.mEdges.size(); edge_index++)
         {
-            auto new_state = gGetResourceStates(node.mEdges[edge_index].mUsage);
+            auto new_state = node.mEdges[edge_index].mUsage;
             auto& prev_pass = m_RenderPasses[node.mEdges[edge_index - 1].mRenderPassIndex];
 
             if (( tracked_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS ) && ( new_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS ))
             {
-                prev_pass->AddExitBarrier(ResourceBarrier
-                    {
-                        .mTexture = resource_id,
-                        .mBarrier = CD3DX12_RESOURCE_BARRIER::UAV(inDevice.GetResourcePtr(resource_id))
-                    });
+                prev_pass->AddExitBarrier( CD3DX12_RESOURCE_BARRIER::UAV(resource_ptr) );
             }
 
             if (tracked_state == new_state)
                 continue;
 
-            prev_pass->AddExitBarrier(ResourceBarrier
-                {
-                    .mTexture = resource_id,
-                    .mBarrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(resource_id), tracked_state, new_state)
-                });
+            prev_pass->AddExitBarrier( CD3DX12_RESOURCE_BARRIER::Transition(resource_ptr, tracked_state, new_state) );
 
             tracked_state = new_state;
         }
@@ -203,14 +533,11 @@ bool RenderGraph::Compile(Device& inDevice)
             if (!pass->IsCreated(resource_id))
                 continue;
 
-            auto edge_state = gGetResourceStates(edge.mUsage);
+            auto edge_state = edge.mUsage;
             if (tracked_state == edge_state)
                 continue;
 
-            pass->AddEntryBarrier(ResourceBarrier {
-                .mTexture = resource_id,
-                .mBarrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(resource_id), tracked_state, edge_state)
-                });
+            pass->AddEntryBarrier( CD3DX12_RESOURCE_BARRIER::Transition(resource_ptr, tracked_state, edge_state) );
         }
     }
 
@@ -226,60 +553,6 @@ bool RenderGraph::Compile(Device& inDevice)
 
 
 
-void IRenderPass::FlushBarriers(Device& inDevice, CommandList& inCmdList, const Slice<ResourceBarrier>& inBarriers) const
-{
-    auto barriers = std::vector<D3D12_RESOURCE_BARRIER>(inBarriers.Length());
-
-    for (const auto& [index, barrier] : gEnumerate(inBarriers))
-        barriers[index] = barrier.mBarrier;
-
-    if (!barriers.empty())
-        inCmdList->ResourceBarrier(barriers.size(), barriers.data());
-}
-
-
-
-void IRenderPass::SetRenderTargets(Device& inDevice, CommandList& inCmdList) const
-{
-    auto& rtv_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    auto& dsv_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-
-    // depth stencil attachment is invalid until a target texture (descriptor) is found and assigned
-    auto dsv_descriptor = DescriptorID(DescriptorID::INVALID);
-
-    auto rtv_handle_count = 0u;
-    static auto rtv_handles = std::array<D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT>{};
-
-    for (const auto resource : m_WrittenTextures)
-    {
-        const auto& texture = inDevice.GetTexture(resource.mResourceTexture);
-
-        switch (texture.GetDesc().usage)
-        {
-            case Texture::RENDER_TARGET:
-            {
-                rtv_handles[rtv_handle_count++] = rtv_heap.GetCPUDescriptorHandle(texture.GetView());
-            } break;
-
-            case Texture::DEPTH_STENCIL_TARGET:
-            {
-                assert(!dsv_descriptor.IsValid()); // if you define multiple depth targets for a renderpass you're going to have a bad time, mmkay
-                dsv_descriptor = texture.GetView();
-            } break;
-        }
-    }
-
-    if (dsv_descriptor.IsValid())
-    {
-        auto dsv_handle = dsv_heap.GetCPUDescriptorHandle(dsv_descriptor);
-        inCmdList->OMSetRenderTargets(rtv_handle_count, rtv_handles.data(), FALSE, &dsv_handle);
-    }
-    else
-        inCmdList->OMSetRenderTargets(rtv_handle_count, rtv_handles.data(), FALSE, nullptr);
-}
-
-
-
 void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inFrameCounter)
 {
     inDevice.BindDrawDefaults(inCmdList);
@@ -291,12 +564,12 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inF
         PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), renderpass->GetName().c_str());
 
         if (renderpass->IsGraphics())
-            renderpass->SetRenderTargets(inDevice, inCmdList);
+            renderpass->SetRenderTargets(inDevice, m_RenderGraphResources, inCmdList);
 
         if (inFrameCounter > 0)
             renderpass->FlushBarriers(inDevice, inCmdList, renderpass->m_EntryBarriers);
 
-        renderpass->Execute(inCmdList);
+        renderpass->Execute(m_RenderGraphResources, inCmdList);
 
         renderpass->FlushBarriers(inDevice, inCmdList, renderpass->m_ExitBarriers);
     }
@@ -304,19 +577,7 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inF
 
 
 
-void RenderGraph::SetBackBuffer(TextureID inTexture)
-{
-    for (auto& renderpass : m_RenderPasses)
-        for (auto& resource : renderpass->m_WrittenTextures)
-            if (resource.mCreatedTexture == m_BackBuffer && resource.mResourceTexture == m_BackBuffer)
-                resource = TextureResource { .mCreatedTexture = inTexture, .mResourceTexture = inTexture };
-
-    m_BackBuffer = inTexture;
-}
-
-
-
-std::string RenderGraph::ToGraphVizText(const Device& inDevice) const
+std::string RenderGraph::ToGraphVizText(const Device& inDevice, TextureID inBackBuffer) const
 {
     auto ofs = std::stringstream();
     ofs << R"(digraph G {
@@ -333,80 +594,87 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
     {
         ofs << '\"' << pass->GetName() << R"("[color="#CC8400"])" << '\n';
 
-        for (const auto& resource : pass->m_WrittenTextures)
+        for (const auto& resource_id : pass->m_WrittenResources)
         {
-            wchar_t name[128] = {};
-            UINT size = sizeof(name);
-            inDevice.GetTexture(resource.mCreatedTexture).GetResource()->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
-            auto str_name = gWCharToString(name);
+            auto resource_ptr = ( const ID3D12Resource* )nullptr;
 
-            if (resource.mCreatedTexture == GetBackBuffer())
-                ofs << '\"' << str_name << R"("[color="red"][group=g)" << std::to_string(index) << "]\n";
-            else
-                ofs << '\"' << str_name << R"("[color="#1B4958"][group=g)" << std::to_string(index) << "]\n";
-        }
+            if (m_RenderGraphResources.IsBuffer(resource_id))
+                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetBufferView(resource_id));
 
-        for (const auto& resource : pass->m_WrittenTextures)
-        {
-            wchar_t name[128] = {};
-            UINT size = sizeof(name);
-            inDevice.GetTexture(resource.mCreatedTexture).GetResource()->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
-            auto str_name = gWCharToString(name);
+            else if (m_RenderGraphResources.IsTexture(resource_id))
+                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTextureView(resource_id));
 
-            if (resource.mCreatedTexture == GetBackBuffer())
-                ofs << '\"' << str_name << R"("[color="red"][group=g)" << std::to_string(index) << "]\n";
-            else
-                ofs << '\"' << str_name << R"("[color="#1B4958"][group=g)" << std::to_string(index) << "]\n";
+            assert(resource_ptr);
+
+            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>(resource_ptr));
+
+            ofs << '\"' << str_name << R"("[color="#1B4958"][group=g)" << std::to_string(index) << "]\n";
         }
     }
 
     /* Stringify the graph logic, basically all the connections e.g "pass" -> "write1" */
     for (const auto& pass : m_RenderPasses)
     {
-        for (const auto& resource : pass->m_WrittenTextures)
-            ofs << '\"' << pass->GetName() << "\" -> \"" << gGetDebugName(inDevice.GetTexture(resource.mCreatedTexture).GetResource().Get()) << "\" [color=\"red\"][penwidth=3]\n";
+        for (const auto& resource_id : pass->m_WrittenResources)
+        {
+            auto resource_ptr = ( const ID3D12Resource* )nullptr;
 
-        for (const auto& resource : pass->m_WrittenBuffers)
-            ofs << '\"' << pass->GetName() << "\" -> \"" << gGetDebugName(inDevice.GetBuffer(resource.mCreatedBuffer).GetResource().Get()) << "\" [color=\"red\"][penwidth=3]\n";
+            if (m_RenderGraphResources.IsBuffer(resource_id))
+                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetBufferView(resource_id));
 
-        for (const auto& resource : pass->m_ReadTextures)
-            ofs << '\"' << gGetDebugName(inDevice.GetTexture(resource.mCreatedTexture).GetResource().Get()) << "\" -> \"" << pass->GetName() << "\" [color=\"green\"][penwidth=3]\n";
+            else if (m_RenderGraphResources.IsTexture(resource_id))
+                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTextureView(resource_id));
 
-        for (const auto& resource : pass->m_ReadBuffers)
-            ofs << '\"' << gGetDebugName(inDevice.GetBuffer(resource.mCreatedBuffer).GetResource().Get()) << "\" -> \"" << pass->GetName() << "\" [color=\"green\"][penwidth=3]\n";
+            assert(resource_ptr);
+
+            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
+
+            ofs << '\"' << pass->GetName() << "\" -> \"" << str_name << "\" [color=\"red\"][penwidth=3]\n";
+        }
+
+        for (const auto& resource_id : pass->m_ReadResources)
+        {
+            auto resource_ptr = ( const ID3D12Resource* )nullptr;
+
+            if (m_RenderGraphResources.IsBuffer(resource_id))
+                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetBufferView(resource_id));
+
+            else if (m_RenderGraphResources.IsTexture(resource_id))
+                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTextureView(resource_id));
+
+            assert(resource_ptr);
+
+            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
+
+            ofs << '\"' << str_name << "\" -> \"" << pass->GetName() << "\" [color=\"green\"][penwidth=3]\n";
+        }
     }
 
     /* Stringify final groupings, e.g. "pass" -> {"write1" "write2" "write3" } */
     for (const auto& [index, pass] : gEnumerate(m_RenderPasses))
     {
-        if (pass->m_WrittenTextures.size() < 2 || pass->m_WrittenBuffers.size() < 2)
+        if (pass->m_WrittenResources.size() < 2)
             continue;
 
         ofs << '\"' << pass->GetName() << R"(" -> {")";
 
-        for (const auto& [index, resource] : gEnumerate(pass->m_WrittenTextures))
+        for (const auto& [index, resource_id] : gEnumerate(pass->m_WrittenResources))
         {
-            wchar_t name[128] = {};
-            UINT size = sizeof(name);
-            inDevice.GetTexture(resource.mCreatedTexture).GetResource()->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
-            auto str_name = gWCharToString(name);
+            auto resource_ptr = ( const ID3D12Resource* )nullptr;
 
-            ofs << gWCharToString(name);
+            if (m_RenderGraphResources.IsBuffer(resource_id))
+                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetBufferView(resource_id));
 
-            if (index != pass->m_WrittenTextures.size() - 1)
-                ofs << R"(" ")";
-        }
+            else if (m_RenderGraphResources.IsTexture(resource_id))
+                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTextureView(resource_id));
 
-        for (const auto& [index, resource] : gEnumerate(pass->m_WrittenBuffers))
-        {
-            wchar_t name[128] = {};
-            UINT size = sizeof(name);
-            inDevice.GetBuffer(resource.mCreatedBuffer).GetResource()->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
-            auto str_name = gWCharToString(name);
+            assert(resource_ptr);
 
-            ofs << gWCharToString(name);
+            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
 
-            if (index != pass->m_WrittenBuffers.size() - 1)
+            ofs << str_name;
+
+            if (index != pass->m_WrittenResources.size() - 1)
                 ofs << R"(" ")";
         }
 
