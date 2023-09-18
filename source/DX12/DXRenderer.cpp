@@ -822,6 +822,7 @@ RTTI_DEFINE_TYPE(DebugLinesData)    {}
 RTTI_DEFINE_TYPE(TAAResolveData)    {}
 RTTI_DEFINE_TYPE(ComposeData)       {}
 RTTI_DEFINE_TYPE(PreImGuiData)      {}
+RTTI_DEFINE_TYPE(ImGuiData)         {}
 
 /*
 
@@ -2067,6 +2068,166 @@ static void ImGui_ImplDX12_SetupRenderState(ImDrawData* draw_data, CommandList& 
     // Setup blend factor
     const float blend_factor[4] = { 0.f, 0.f, 0.f, 0.f };
     inCmdList->OMSetBlendFactor(blend_factor);
+}
+
+
+
+const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, StagingHeap& inStagingHeap, RenderGraphResourceID inInputTexture, TextureID inBackBuffer)
+{
+    return inRenderGraph.AddGraphicsPass<ImGuiData>("IMGUI PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ImGuiData& inData)
+    {
+        constexpr size_t max_buffer_size = 65536; // Taken from Vulkan's ImGuiPass
+        inData.mIndexScratchBuffer.resize(max_buffer_size);
+        inData.mVertexScratchBuffer.resize(max_buffer_size);
+
+        inData.mIndexBuffer = ioRGBuilder.Create(Buffer::Desc
+        {
+            .size = max_buffer_size,
+            .stride = sizeof(uint16_t),
+            .usage = Buffer::Usage::INDEX_BUFFER,
+            .debugName = L"IMGUI_INDEX_BUFFER"
+        });
+
+        inData.mVertexBuffer = ioRGBuilder.Create(Buffer::Desc
+        {
+            .size = max_buffer_size,
+            .stride = sizeof(ImDrawVert),
+            .usage = Buffer::Usage::VERTEX_BUFFER,
+            .debugName = L"IMGUI_VERTEX_BUFFER"
+        });
+
+        inData.mInputTextureSRV = ioRGBuilder.Read(inInputTexture);
+        inData.mBackBufferRTV = ioRGBuilder.RenderTarget(ioRGBuilder.Import(inBackBuffer));
+
+        static constexpr auto input_layout = std::array
+        {
+            D3D12_INPUT_ELEMENT_DESC { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(ImDrawVert, pos), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+                D3D12_INPUT_ELEMENT_DESC { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(ImDrawVert, uv), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+                D3D12_INPUT_ELEMENT_DESC { "COLOR", 0, DXGI_FORMAT_R32_UINT, 0, offsetof(ImDrawVert, col), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        };
+
+        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        g_SystemShaders.mImGuiShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        pso_state.InputLayout = D3D12_INPUT_LAYOUT_DESC
+        {
+            .pInputElementDescs = input_layout.data(),
+            .NumElements = input_layout.size(),
+        };
+
+        pso_state.DepthStencilState.DepthEnable = FALSE;
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
+        inData.mPipeline->SetName(L"PSO_IMGUI");
+    },
+
+    [&inRenderGraph, &inDevice, &inStagingHeap, inBackBuffer](ImGuiData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    {
+        {   // manual barriers around the imported backbuffer resource, the rendergraph doesn't handle this kind of state
+            auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(inBackBuffer), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
+            inCmdList->ResourceBarrier(1, &backbuffer_barrier);
+        }
+
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+
+        auto draw_data = ImGui::GetDrawData();
+        auto idx_dst = (ImDrawIdx*)inData.mIndexScratchBuffer.data();
+        auto vtx_dst = (ImDrawVert*)inData.mVertexScratchBuffer.data();
+
+        for (auto& cmd_list : Slice(draw_data->CmdLists, draw_data->CmdListsCount))
+        {
+            memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+            memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+            vtx_dst += cmd_list->VtxBuffer.Size;
+            idx_dst += cmd_list->IdxBuffer.Size;
+        }
+
+        const auto index_buffer_size = (uint8_t*)idx_dst - inData.mIndexScratchBuffer.data();
+        const auto vertex_buffer_size = (uint8_t*)vtx_dst - inData.mVertexScratchBuffer.data();
+
+        assert(index_buffer_size < inData.mIndexScratchBuffer.size());
+        assert(vertex_buffer_size < inData.mVertexScratchBuffer.size());
+
+        auto nr_of_barriers = 0;
+        auto barriers = std::array
+        {
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mIndexBuffer).GetResource().Get(), D3D12_RESOURCE_STATE_INDEX_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST)),
+                D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mVertexBuffer).GetResource().Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST))
+        };
+
+        if (index_buffer_size) nr_of_barriers++;
+        if (vertex_buffer_size) nr_of_barriers++;
+
+        if (nr_of_barriers)
+            inCmdList->ResourceBarrier(nr_of_barriers, barriers.data());
+
+        if (vertex_buffer_size)
+            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mVertexBuffer).GetResource(), 0, inData.mVertexScratchBuffer.data(), vertex_buffer_size);
+
+        if (index_buffer_size)
+            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mIndexBuffer).GetResource(), 0, inData.mIndexScratchBuffer.data(), index_buffer_size);
+
+        if (nr_of_barriers)
+        {
+            for (auto& barrier : barriers)
+                std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+
+            inCmdList->ResourceBarrier(nr_of_barriers, barriers.data());
+        }
+
+        auto root_constants = ImGuiRootConstants { .mBindlessTextureIndex = 1 };
+        ImGui_ImplDX12_SetupRenderState(draw_data, inCmdList, inDevice.GetBuffer(inData.mVertexBuffer), inDevice.GetBuffer(inData.mIndexBuffer), root_constants);
+
+        auto global_vtx_offset = 0;
+        auto global_idx_offset = 0;
+        auto clip_off = draw_data->DisplayPos;
+
+        for (auto& cmd_list : Slice(draw_data->CmdLists, draw_data->CmdListsCount))
+        {
+            for (const auto& cmd : cmd_list->CmdBuffer)
+            {
+                if (cmd.UserCallback)
+                {
+                    if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
+                        ImGui_ImplDX12_SetupRenderState(draw_data, inCmdList, inDevice.GetBuffer(inData.mVertexBuffer), inDevice.GetBuffer(inData.mIndexBuffer), root_constants);
+                    else
+                        cmd.UserCallback(cmd_list, &cmd);
+                }
+                else
+                {
+                    // IRenderer::GetImGuiTextureID writes out the bindless index into the ResourceDescriptorHeap, so we can assign that directly here
+                    if (cmd.TextureId)
+                        root_constants.mBindlessTextureIndex = 1;
+                    else
+                        root_constants.mBindlessTextureIndex = 1; // set 0 to make debugging easier (should be the blue noise texture I think)
+
+                    inCmdList.PushGraphicsConstants(root_constants);
+
+                    // Project scissor/clipping rectangles into framebuffer space
+                    const auto clip_min = ImVec2(cmd.ClipRect.x - clip_off.x, cmd.ClipRect.y - clip_off.y);
+                    const auto clip_max = ImVec2(cmd.ClipRect.z - clip_off.x, cmd.ClipRect.w - clip_off.y);
+                    if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
+                        continue;
+
+                    const auto scissor_rect = D3D12_RECT { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
+                    inCmdList->RSSetScissorRects(1, &scissor_rect);
+
+                    inCmdList->DrawIndexedInstanced(cmd.ElemCount, 1, cmd.IdxOffset + global_idx_offset, cmd.VtxOffset + global_vtx_offset, 0);
+                }
+            }
+
+            global_idx_offset += cmd_list->IdxBuffer.Size;
+            global_vtx_offset += cmd_list->VtxBuffer.Size;
+        }
+
+        {
+            auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(inBackBuffer), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON);
+            inCmdList->ResourceBarrier(1, &backbuffer_barrier);
+        }
+    });
 }
 
 

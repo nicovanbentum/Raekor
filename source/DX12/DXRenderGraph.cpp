@@ -18,6 +18,22 @@ RenderGraphResourceID RenderGraphBuilder::Create(const Texture::Desc& inDesc)
 
 
 
+RenderGraphResourceID RenderGraphBuilder::Import(BufferID inBuffer)
+{
+    assert(false); // TODO: implement
+    return 0;
+}
+
+
+
+RenderGraphResourceID RenderGraphBuilder::Import(TextureID inTexture)
+{
+    assert(false); // TODO: implement
+    return 0;
+}
+
+
+
 RenderGraphResourceViewID RenderGraphBuilder::RenderTarget(RenderGraphResourceID inGraphResourceID)
 {
     RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);

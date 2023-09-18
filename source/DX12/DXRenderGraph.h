@@ -62,6 +62,9 @@ public:
     RenderGraphResourceID Create(const Buffer::Desc& inDesc);
     RenderGraphResourceID Create(const Texture::Desc& inDesc);
 
+    RenderGraphResourceID Import(BufferID inBuffer);
+    RenderGraphResourceID Import(TextureID inTexture);
+
     RenderGraphResourceViewID RenderTarget(RenderGraphResourceID inGraphResourceID);
     RenderGraphResourceViewID DepthStencilTarget(RenderGraphResourceID inGraphResourceID);
 

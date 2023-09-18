@@ -576,8 +576,26 @@ const PreImGuiData& AddPreImGuiPass(RenderGraph& inRenderGraph, Device& inDevice
 
 
 ////////////////////////////////////////
-/// ImGui Pass (standalone functions)
+/// ImGui Pass
 ////////////////////////////////////////
+struct ImGuiData
+{
+    RTTI_DECLARE_TYPE(ImGuiData);
+
+    RenderGraphResourceID mIndexBuffer;
+    RenderGraphResourceID mVertexBuffer;
+    RenderGraphResourceViewID mBackBufferRTV;
+    RenderGraphResourceViewID mInputTextureSRV;
+    std::vector<uint8_t> mIndexScratchBuffer;
+    std::vector<uint8_t> mVertexScratchBuffer;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice,
+    StagingHeap& inStagingHeap,
+    RenderGraphResourceID inInputTexture,
+    TextureID inBackBuffer
+);
 
 /* Initializes ImGui and returns the font texture ID. */
 [[nodiscard]] TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameCount);

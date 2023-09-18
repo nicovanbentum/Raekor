@@ -219,7 +219,9 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc)
 
         case Texture::SHADER_READ_ONLY:
         {
-            initial_state = D3D12_RESOURCE_STATE_COPY_DEST;
+            // According to D3D12 implicit state transitions, COMMON can be promoted to COPY_DEST or GENERIC_READ implicitly,
+            // which is typically what you need for a texture that will only be read in a shader.
+            initial_state = D3D12_RESOURCE_STATE_COMMON;
         } break;
 
         case Texture::SHADER_READ_WRITE:

@@ -113,6 +113,8 @@ DXApp::DXApp() :
     ImGui_ImplSDL2_InitForD3D(m_Window);
     m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
 
+    timer.Restart();
+
     // Pick a scene file and load it
     while (!fs::exists(m_Settings.mSceneFile))
         m_Settings.mSceneFile = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).make_preferred().string();
@@ -121,6 +123,9 @@ DXApp::DXApp() :
     m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile.string());
 
     assert(!m_Scene.IsEmpty() && "Scene cannot be empty when starting up DX12 renderer!!");
+
+    LogMessage(std::format("[CPU] Scene import took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+
 
     // check for ray-tracing support
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
@@ -148,6 +153,8 @@ DXApp::DXApp() :
 
     queue_desc.SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY;
     gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_MemoryStorageQueue)));
+
+    timer.Restart();
 
     {
         auto& cmd_list = m_Renderer.StartSingleSubmit();
