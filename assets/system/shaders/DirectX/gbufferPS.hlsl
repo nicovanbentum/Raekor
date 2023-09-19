@@ -29,6 +29,8 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
     float4 sampled_normal = normal_texture.Sample(SamplerAnisoWrap, input.texcoord);
     float4 sampled_material = material_texture.Sample(SamplerAnisoWrap, input.texcoord);
+    
+    FrameConstants fc = gGetFrameConstants();
 
     float3x3 TBN = transpose(float3x3(input.tangent, input.bitangent, input.normal));
     float3 normal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
@@ -43,12 +45,13 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     PackNormal(normal, packed);
     PackMetallicRoughness(metalness, roughness, packed);
     
-    float2 prev_pos = (input.prev_position.xyz / input.prev_position.w * 0.5 + 0.5).xy;
-    float2 curr_pos = (input.curr_position.xyz / input.prev_position.w * 0.5 + 0.5).xy;
-    
     output.gbuffer = asfloat(packed);
-    output.motionvectors = curr_pos - prev_pos;
-    output.motionvectors.y *= -1.0;
+    
+    float2 curr_pos = (input.curr_position.xyz / input.prev_position.w).xy - fc.mJitter;
+    float2 prev_pos = (input.prev_position.xyz / input.prev_position.w).xy - fc.mPrevJitter;
+    
+    output.motionvectors = (curr_pos - prev_pos);
+    output.motionvectors.xy *= float2(0.5, -0.5);
     
     return output;
 }

@@ -17,7 +17,7 @@ float3 CheapACES(float3 x) {
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
-float3 CorrectGamma(float3 L) {
+float3 EncodeGamma(float3 L) {
     return pow(L, (1.0 / 2.2).xxx);
 }
 
@@ -25,5 +25,5 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     Texture2D input_texture = ResourceDescriptorHeap[rc.mInputTexture];
     float4 src = input_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
     
-    return float4(CorrectGamma(src.rgb), 1.0);
+    return float4(EncodeGamma(src.rgb), 1.0);
 }

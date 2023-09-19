@@ -182,7 +182,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
 
     // Calculate a jittered projection matrix for FSR2
     const auto& camera = m_RenderGraph.GetViewport().GetCamera();
-    const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(m_RenderGraph.GetViewport().size.x, m_RenderGraph.GetViewport().size.y);
+    const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(m_RenderGraph.GetViewport().size.x, m_RenderGraph.GetViewport().size.x);
 
     float jitter_offset_x = 0;
     float jitter_offset_y = 0;
@@ -190,15 +190,17 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
 
     const auto jitter_x = 2.0f * jitter_offset_x / (float)m_RenderGraph.GetViewport().size.x;
     const auto jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().size.y;
-    const auto offset_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(jitter_x, jitter_y, 0));
-    const auto jittered_proj_matrix = camera.GetProjection();
-    //const auto jittered_proj_matrix = offset_matrix * m_Camera.GetProjection();
+    const auto jitter_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(jitter_x, jitter_y, 0));
+    //const auto jittered_proj_matrix = camera.GetProjection();
+    const auto jittered_proj_matrix = jitter_matrix * camera.GetProjection();
 
     // Update all the frame constants and copy it in into the GPU ring buffer
     m_FrameConstants.mTime = m_ElapsedTime;
     m_FrameConstants.mDeltaTime = inDeltaTime;
     m_FrameConstants.mFrameIndex = m_FrameCounter % sFrameCount;
     m_FrameConstants.mFrameCounter = m_FrameCounter;
+    m_FrameConstants.mPrevJitter = m_FrameConstants.mJitter;
+    m_FrameConstants.mJitter = Vec2(jitter_x, jitter_y);
     m_FrameConstants.mSunColor = inScene->GetSunLight() ? inScene->GetSunLight()->GetColor() : Vec4(1.0f);
     m_FrameConstants.mSunDirection = Vec4(inScene->GetSunLightDirection(), 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(camera.GetPosition(), 1.0f);
@@ -207,6 +209,12 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     m_FrameConstants.mPrevViewProjectionMatrix = m_FrameConstants.mViewProjectionMatrix;
     m_FrameConstants.mViewProjectionMatrix = jittered_proj_matrix * camera.GetView();
     m_FrameConstants.mInvViewProjectionMatrix = glm::inverse(jittered_proj_matrix * camera.GetView());
+
+    if (m_FrameCounter == 0)
+    {
+        m_FrameConstants.mPrevJitter = m_FrameConstants.mJitter;
+        m_FrameConstants.mPrevViewProjectionMatrix = m_FrameConstants.mViewProjectionMatrix;
+    }
 
     if (auto debug_lines_pass = m_RenderGraph.GetPass<DebugLinesData>())
     {
@@ -851,7 +859,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         inData.mVelocityTexture = ioRGBuilder.Create(Texture::Desc
         {
-            .format = DXGI_FORMAT_R32G32_FLOAT,
+            .format = DXGI_FORMAT_R16G16_FLOAT,
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
@@ -1936,6 +1944,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
         const auto root_constants = TAAResolveConstants {
             .mRenderSize      = inRenderGraph.GetViewport().GetSize(),
+            .mRenderSizeRcp   = 1.0f / Vec2(inRenderGraph.GetViewport().GetSize()),
             .mColorTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mColorTextureSRV)),
             .mDepthTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mDepthTextureSRV)),
             .mHistoryTexture  = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mHistoryTextureSRV)),

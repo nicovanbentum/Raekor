@@ -89,6 +89,8 @@ struct FrameConstants
     uint      mFrameCounter;
     uint      mDebugLinesVertexBuffer;
     uint      mDebugLinesIndirectArgsBuffer;
+    float2    mJitter;
+    float2    mPrevJitter;
     float4    mSunColor;
     float4    mSunDirection;
     float4    mCameraPosition;
@@ -280,6 +282,7 @@ STATIC_ASSERT(sizeof(ProbeUpdateRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 struct TAAResolveConstants
 {
     uint2 mRenderSize;
+    float2 mRenderSizeRcp;
     uint mColorTexture;
     uint mDepthTexture;
     uint mHistoryTexture;

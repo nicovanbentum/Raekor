@@ -38,6 +38,12 @@ template<typename T>
 T square(T inValue) { return inValue * inValue; }
 
 
+float LuminanceLinear(float3 inLinearRGB)
+{
+    return dot(inLinearRGB, float3(0.2127, 0.7152, 0.0722));
+}
+
+
 void ResetDebugLineCount() {
     FrameConstants fc = gGetFrameConstants();
     RWByteAddressBuffer args_buffer = ResourceDescriptorHeap[fc.mDebugLinesIndirectArgsBuffer];

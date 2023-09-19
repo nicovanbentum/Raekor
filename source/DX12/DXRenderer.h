@@ -133,7 +133,7 @@ private:
     bool                    m_ShouldResize = false;
     bool                    m_ShouldCaptureNextFrame = false;
     BackBufferData          m_BackBufferData[sFrameCount];
-    FrameConstants          m_FrameConstants;
+    FrameConstants          m_FrameConstants = {};
     FfxFsr2Context          m_Fsr2Context;
     std::vector<uint8_t>    m_FsrScratchMemory;
     NVSDK_NGX_Handle*       m_DLSSHandle = nullptr;
