@@ -15,17 +15,20 @@ public:
 
     Device(SDL_Window* window, uint32_t inFrameCount);
 
-    operator ID3D12Device5* ( )              { return m_Device.Get(); }
-    operator const ID3D12Device5* ( ) const  { return m_Device.Get(); }
+    ID3D12Device5* operator* ()              { return m_Device.Get(); }
+    const ID3D12Device5* operator* () const  { return m_Device.Get(); }
     ID3D12Device5* operator-> ()             { return m_Device.Get(); }
     const ID3D12Device5* operator-> () const { return m_Device.Get(); }
 
     bool IsDLSSSupported() const { return mIsDLSSSupported; }
     bool IsTearingSupported() const { return mIsTearingSupported; }
 
-    [[nodiscard]] ID3D12CommandQueue* GetQueue() const { return m_Queue.Get(); }
     [[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() const { return m_GlobalRootSignature.Get(); }
     [[nodiscard]] DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType) { return m_Heaps[inType]; }
+
+    [[nodiscard]] ID3D12CommandQueue* GetCopyQueue() { return m_CopyQueue.Get(); }
+    [[nodiscard]] ID3D12CommandQueue* GetComputeQueue() { return m_ComputeQueue.Get(); }
+    [[nodiscard]] ID3D12CommandQueue* GetGraphicsQueue() { return m_GraphicsQueue.Get(); }
 
     void BindDrawDefaults(CommandList& inCmdList);
     void Submit(const Slice<CommandList>& inCmdLists);
@@ -58,11 +61,11 @@ public:
     [[nodiscard]] Texture& GetTexture(TextureID inID) { assert(inID.IsValid()); return m_Textures.Get(inID); }
     [[nodiscard]] const Texture& GetTexture(TextureID inID) const { assert(inID.IsValid()); return m_Textures.Get(inID); }
 
-    [[nodiscard]] ID3D12Resource* GetResourcePtr(BufferID inID) { return GetBuffer(inID).GetResource().Get(); }
-    [[nodiscard]] ID3D12Resource* GetResourcePtr(TextureID inID) { return GetTexture(inID).GetResource().Get(); }
+    [[nodiscard]] ID3D12Resource* GetD3D12Resource(BufferID inID) { return GetBuffer(inID).GetResource().Get(); }
+    [[nodiscard]] ID3D12Resource* GetD3D12Resource(TextureID inID) { return GetTexture(inID).GetResource().Get(); }
 
-    [[nodiscard]] const ID3D12Resource* GetResourcePtr(BufferID inID) const { return GetBuffer(inID).GetResource().Get(); }
-    [[nodiscard]] const ID3D12Resource* GetResourcePtr(TextureID inID) const { return GetTexture(inID).GetResource().Get(); }
+    [[nodiscard]] const ID3D12Resource* GetD3D12Resource(BufferID inID) const { return GetBuffer(inID).GetResource().Get(); }
+    [[nodiscard]] const ID3D12Resource* GetD3D12Resource(TextureID inID) const { return GetTexture(inID).GetResource().Get(); }
 
     [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(BufferID inID);
     [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(TextureID inID);
@@ -70,15 +73,15 @@ public:
     [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(BufferID inID);
     [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(TextureID inID);
 
-    [[nodiscard]] DescriptorID CreateDepthStencilView(ResourceRef inResourceID, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
-    [[nodiscard]] DescriptorID CreateRenderTargetView(ResourceRef inResourceID, const D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);
-    [[nodiscard]] DescriptorID CreateShaderResourceView(ResourceRef inResourceID, const D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc = nullptr);
-    [[nodiscard]] DescriptorID CreateUnorderedAccessView(ResourceRef inResourceID, const D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc = nullptr);
+    [[nodiscard]] DescriptorID CreateDepthStencilView(ResourceRef inD3D12Resource, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc = nullptr);
+    [[nodiscard]] DescriptorID CreateRenderTargetView(ResourceRef inD3D12Resource, const D3D12_RENDER_TARGET_VIEW_DESC* inDesc = nullptr);
+    [[nodiscard]] DescriptorID CreateShaderResourceView(ResourceRef inD3D12Resource, const D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc = nullptr);
+    [[nodiscard]] DescriptorID CreateUnorderedAccessView(ResourceRef inD3D12Resource, const D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc = nullptr);
 
-    void ReleaseDepthStencilView(DescriptorID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Remove(inResourceID); }
-    void ReleaseRenderTargetView(DescriptorID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Remove(inResourceID); }
-    void ReleaseShaderResourceView(DescriptorID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
-    void ReleaseUnorderedAccessView(DescriptorID inResourceID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inResourceID); }
+    void ReleaseDepthStencilView(DescriptorID inDescriptorID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Remove(inDescriptorID); }
+    void ReleaseRenderTargetView(DescriptorID inDescriptorID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Remove(inDescriptorID); }
+    void ReleaseShaderResourceView(DescriptorID inDescriptorID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inDescriptorID); }
+    void ReleaseUnorderedAccessView(DescriptorID inDescriptorID) { m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inDescriptorID); }
 
     [[nodiscard]] D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader);
     [[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader);
@@ -105,8 +108,9 @@ private:
     BOOL mIsTearingSupported = false;
     ComPtr<ID3D12Device5> m_Device;
     ComPtr<IDXGIAdapter1> m_Adapter;
-    ComPtr<ID3D12CommandQueue> m_Queue;
     ComPtr<ID3D12CommandQueue> m_CopyQueue;
+    ComPtr<ID3D12CommandQueue> m_ComputeQueue;
+    ComPtr<ID3D12CommandQueue> m_GraphicsQueue;
     ComPtr<D3D12MA::Allocator> m_Allocator;
     ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
     std::array<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
@@ -127,6 +131,7 @@ private:
     {
         size_t mSize = 0;
         size_t mCapacity = 0;
+        uint64_t mFenceValue = 0;
         bool mRetired = true;
         uint8_t* mPtr = nullptr;
         BufferID mBufferID = BufferID();

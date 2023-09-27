@@ -35,8 +35,8 @@ public:
 	bool operator==(const RTTI& rhs) const { return m_Hash == rhs.m_Hash; }
 	bool operator!=(const RTTI& rhs) const { return m_Hash != rhs.m_Hash; }
 
-	uint32_t    GetHash() const { return m_Hash; }
-	const char* GetTypeName() const { return m_Name.c_str(); }
+	inline uint32_t    GetHash() const { return m_Hash; }
+	inline const char* GetTypeName() const { return m_Name.c_str(); }
 
 	inline const auto end() const { return m_Members.end(); }
 	inline const auto begin() const { return m_Members.begin(); }

@@ -132,11 +132,13 @@ void CommandList::SetViewportScissorRect(const Viewport& inViewport)
 }
 
 
-void CommandList::Submit(Device& inDevice)
+void CommandList::Submit(Device& inDevice, ID3D12CommandQueue* inQueue)
 {
     auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
     const auto cmd_lists = std::array { static_cast<ID3D12CommandList*>( command_list.Get() )};
-    inDevice.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
+    inQueue->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
+
+    m_SubmitFenceValue++;
 }
 
 } // namespace Raekor

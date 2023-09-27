@@ -213,7 +213,7 @@ public:
 	template<typename Component>
 	SparseSet<Component>* GetSparseSet()
 	{
-		if (m_Components.find(gGetRTTI<Component>().GetHash()) == m_Components.end())
+		if (!m_Components.contains(gGetTypeHash<Component>()))
 			m_Components[gGetRTTI<Component>().GetHash()] = new SparseSet<Component>();
 		return m_Components.at(gGetTypeHash<Component>())->GetDerived<Component>();
 	}
@@ -261,14 +261,14 @@ public:
 	template<typename Component>
 	Component& _GetInternal(Entity entity)
 	{
-		assert(m_Components.find(gGetRTTI<Component>().GetHash()) != m_Components.end());
+		assert(m_Components.contains(gGetTypeHash<Component>()));
 		return GetSparseSet<Component>()->Get(entity);
 	}
 
 	template<typename Component>
 	const Component& _GetInternal(Entity entity) const
 	{
-		assert(m_Components.find(gGetRTTI<Component>().GetHash()) != m_Components.end());
+		assert(m_Components.contains(gGetTypeHash<Component>()));
 		return GetSparseSet<Component>()->Get(entity);
 	}
 
@@ -301,6 +301,15 @@ public:
 
 	template<typename Component>
 	const Component* GetPtr(Entity inEntity) const
+	{
+		if (m_Components.contains(RTTI_OF(Component).GetHash()) && Has<Component>(inEntity))
+			return &GetSparseSet<Component>()->Get(inEntity);
+		else
+			return nullptr;
+	}
+
+	template<typename Component>
+	Component* GetPtr(Entity inEntity)
 	{
 		if (m_Components.contains(RTTI_OF(Component).GetHash()) && Has<Component>(inEntity))
 			return &GetSparseSet<Component>()->Get(inEntity);
@@ -351,12 +360,7 @@ public:
 
 		( ..., [&]()
 		{
-			if (m_Components.find(RTTI_OF(Components).GetHash()) != m_Components.end())
-			{
-				if (!GetSparseSet<Components>()->Contains(entity))
-					has_all = false;
-			}
-			else
+			if (!GetSparseSet<Components>()->Contains(entity))
 				has_all = false;
 		}( ) );
 

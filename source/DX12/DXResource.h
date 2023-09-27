@@ -231,10 +231,17 @@ D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage);
 
 class DescriptorHeap : public DescriptorPool
 {
-public:
-    void Init(ID3D12Device* inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags);
+private:
+    friend class Device; // Only Device is allowed to create DescriptorHeap's
+    DescriptorHeap(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags);
 
-    ID3D12DescriptorHeap* GetHeap() const { return m_Heap.Get(); }
+public:
+    DescriptorHeap() = default;
+
+    ID3D12DescriptorHeap* operator* ()              { return m_Heap.Get(); }
+    const ID3D12DescriptorHeap* operator* () const  { return m_Heap.Get(); }
+    ID3D12DescriptorHeap* operator-> ()             { return m_Heap.Get(); }
+    const ID3D12DescriptorHeap* operator-> () const { return m_Heap.Get(); }
 
     inline D3D12_CPU_DESCRIPTOR_HANDLE  GetCPUDescriptorHandle(TypedID inResourceID) const
     {

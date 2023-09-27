@@ -10,7 +10,7 @@ namespace Raekor {
 
 class INativeScript;
 
-struct Name
+struct SCRIPT_INTERFACE Name
 {
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(Name);
 
@@ -43,7 +43,7 @@ struct SCRIPT_INTERFACE Transform
 };
 
 
-struct DirectionalLight
+struct SCRIPT_INTERFACE DirectionalLight
 {
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(DirectionalLight);
 
@@ -56,7 +56,7 @@ struct DirectionalLight
 };
 
 
-struct PointLight
+struct SCRIPT_INTERFACE PointLight
 {
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(PointLight);
 
@@ -72,7 +72,7 @@ struct Light
 };
 
 
-struct Node
+struct SCRIPT_INTERFACE Node
 {
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(Node);
 
@@ -86,7 +86,7 @@ struct Node
 	bool IsConnected() const { return firstChild != NULL_ENTITY && parent != NULL_ENTITY; }
 };
 
-struct Mesh
+struct SCRIPT_INTERFACE Mesh
 {
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(Mesh);
 
@@ -183,7 +183,7 @@ struct Skeleton
 };
 
 
-struct Material
+struct SCRIPT_INTERFACE Material
 {
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(Material);
 

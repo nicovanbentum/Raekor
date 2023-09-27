@@ -86,20 +86,22 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 
     constexpr auto copy_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_COPY };
     constexpr auto direct_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_DIRECT };
+    constexpr auto compute_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_COMPUTE };
     gThrowIfFailed(m_Device->CreateCommandQueue(&copy_queue_desc, IID_PPV_ARGS(&m_CopyQueue)));
-    gThrowIfFailed(m_Device->CreateCommandQueue(&direct_queue_desc, IID_PPV_ARGS(&m_Queue)));
+    gThrowIfFailed(m_Device->CreateCommandQueue(&compute_queue_desc, IID_PPV_ARGS(&m_ComputeQueue)));
+    gThrowIfFailed(m_Device->CreateCommandQueue(&direct_queue_desc, IID_PPV_ARGS(&m_GraphicsQueue)));
     
     // Since buffers/textures also correspond to a resource descriptor, we should / can never allocate more than the resource heap limit.
     // Because we reserve this upfront we also get stable pointers.
     m_Buffers.Reserve(sMaxResourceHeapSize);
     m_Textures.Reserve(sMaxResourceHeapSize);
 
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, sMaxRTVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, sMaxDSVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, sMaxSamplerHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Init(m_Device.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, sMaxResourceHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV]         = DescriptorHeap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, sMaxRTVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]         = DescriptorHeap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, sMaxDSVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]     = DescriptorHeap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, sMaxSamplerHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = DescriptorHeap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, sMaxResourceHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
-    for (size_t sampler_index = 0; sampler_index < ESamplerIndex::SAMPLER_COUNT; sampler_index++)
+    for (auto sampler_index = 0u; sampler_index < ESamplerIndex::SAMPLER_COUNT; sampler_index++)
         m_Device->CreateSampler(&SAMPLER_DESC[sampler_index], m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].GetCPUDescriptorHandle(DescriptorID(sampler_index)));
 
     auto root_params = std::vector<D3D12_ROOT_PARAMETER1> {};
@@ -155,6 +157,11 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     gThrowIfFailed(m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_GlobalRootSignature)));
 
     gThrowIfFailed(factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &mIsTearingSupported, sizeof(mIsTearingSupported)));
+
+    /*ComPtr<ID3D12QueryHeap> m_TimestampQueryHeap;
+    D3D12_QUERY_HEAP_DESC query_heap_desc = {};
+    query_heap_desc.
+    m_Device->CreateQueryHeap(&query_heap_desc, IID_PPV_ARGS(m_TimestampQueryHeap.GetAddressOf()));*/
 }
 
 
@@ -164,8 +171,8 @@ void Device::BindDrawDefaults(CommandList& inCmdList)
     inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     const auto heaps = std::array {
-        GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetHeap(),
-            GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER).GetHeap()
+        *GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER),
+        *GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
     };
 
     inCmdList->SetDescriptorHeaps(heaps.size(), heaps.data());
@@ -756,6 +763,7 @@ void StagingHeap::StageBuffer(CommandList& inCmdList, ResourceRef inResource, ui
     {
         .mSize = inSize,
         .mCapacity = inSize,
+        .mFenceValue = inCmdList.GetFenceValue(),
         .mRetired = false,
         .mPtr = mapped_ptr,
         .mBufferID = buffer_id
@@ -822,6 +830,7 @@ void StagingHeap::StageTexture(CommandList& inCmdList, ResourceRef inResource, u
     {
         .mSize = total_size,
         .mCapacity = total_size,
+        .mFenceValue = inCmdList.GetFenceValue(),
         .mRetired = false,
         .mPtr = mapped_ptr,
         .mBufferID = buffer_id

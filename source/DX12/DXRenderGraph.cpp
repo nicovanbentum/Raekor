@@ -516,10 +516,10 @@ bool RenderGraph::Compile(Device& inDevice)
         auto resource_ptr = (ID3D12Resource*)nullptr;
 
         if (node.mResourceType == RESOURCE_TYPE_BUFFER)
-            resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTexture(resource_id));
+            resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTexture(resource_id));
 
         else if (node.mResourceType == RESOURCE_TYPE_TEXTURE)
-            resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTexture(resource_id));
+            resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTexture(resource_id));
 
         assert(resource_ptr);
 
@@ -615,10 +615,10 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
             auto resource_ptr = ( const ID3D12Resource* )nullptr;
 
             if (m_RenderGraphResources.IsBuffer(resource_id))
-                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetBufferView(resource_id));
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
 
             else if (m_RenderGraphResources.IsTexture(resource_id))
-                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTextureView(resource_id));
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTextureView(resource_id));
 
             assert(resource_ptr);
 
@@ -636,10 +636,10 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
             auto resource_ptr = ( const ID3D12Resource* )nullptr;
 
             if (m_RenderGraphResources.IsBuffer(resource_id))
-                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetBufferView(resource_id));
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
 
             else if (m_RenderGraphResources.IsTexture(resource_id))
-                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTextureView(resource_id));
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTextureView(resource_id));
 
             assert(resource_ptr);
 
@@ -653,10 +653,10 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
             auto resource_ptr = ( const ID3D12Resource* )nullptr;
 
             if (m_RenderGraphResources.IsBuffer(resource_id))
-                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetBufferView(resource_id));
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
 
             else if (m_RenderGraphResources.IsTexture(resource_id))
-                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTextureView(resource_id));
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTextureView(resource_id));
 
             assert(resource_ptr);
 
@@ -679,10 +679,10 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
             auto resource_ptr = ( const ID3D12Resource* )nullptr;
 
             if (m_RenderGraphResources.IsBuffer(resource_id))
-                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetBufferView(resource_id));
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
 
             else if (m_RenderGraphResources.IsTexture(resource_id))
-                resource_ptr = inDevice.GetResourcePtr(m_RenderGraphResources.GetTextureView(resource_id));
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTextureView(resource_id));
 
             assert(resource_ptr);
 

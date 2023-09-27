@@ -10,23 +10,27 @@ public:
 
         //transform.rotation.y = 33.14f;
         auto& transform = GetComponent<Transform>();
-        transform.scale = Vec3(1, 2, 3);
-        GetComponent<Transform>().rotation.x += 3.14159f * inDeltaTime;
-        GetComponent<Transform>().rotation.y += 32.0f * inDeltaTime;
+        GetComponent<Transform>().position.y += glm::sin(time) * inDeltaTime;
         GetComponent<Transform>().Compose();
 
-        GetComponent<Transform>().Print();
-        std::cout << GetComponent<Transform>().rotation.y << '\n';
+        if (GetInput()->sIsKeyPressed(SDL_SCANCODE_W))
+            transform.position.x += 1.0f * inDeltaTime;
 
-        auto& aabb = GetComponent<Mesh>().aabb;
+        /*auto& aabb = GetComponent<Mesh>().aabb;
 
-        aabb[1] += 10.0f * inDeltaTime;
+        aabb[1] += 10.0f * inDeltaTime;*/
 
+        time += inDeltaTime;
+    }
+
+    void OnEvent(const SDL_Event& inEvent)
+    {
 
     }
 
 private:
     float speed = 0.02f;
+    float time = 0.0f;
 };
 
-RAEKOR_SCRIPT_CLASS(TestScript);
+DEFINE_SCRIPT_CLASS(TestScript);

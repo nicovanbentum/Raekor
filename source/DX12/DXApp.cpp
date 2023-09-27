@@ -143,7 +143,7 @@ DXApp::DXApp() :
         .SourceType = DSTORAGE_REQUEST_SOURCE_FILE,
         .Capacity = DSTORAGE_MAX_QUEUE_CAPACITY,
         .Priority = DSTORAGE_PRIORITY_NORMAL,
-        .Device = m_Device,
+        .Device = *m_Device,
     };
 
     auto storage_factory = ComPtr<IDStorageFactory> {};
@@ -507,6 +507,10 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
             {
                 auto ddgi_settings_entity = m_RayTracedScene->CreateSpatialEntity("DDGI Settings");
                 auto& ddgi_settings = m_RayTracedScene->Add<DDGISceneSettings>(ddgi_settings_entity);
+
+                ddgi_settings.mDDGIDebugProbe = data.mDebugProbe;
+                ddgi_settings.mDDGIProbeCount = data.mDDGIData.mProbeCount;
+                ddgi_settings.mDDGIProbeSpacing = data.mDDGIData.mProbeSpacing;
             }
         }
 

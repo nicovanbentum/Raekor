@@ -3,15 +3,19 @@
 #include "ecs.h"
 #include "scene.h"
 
-#define RAEKOR_SCRIPT_CLASS(x) extern "C" __declspec(dllexport) Raekor::INativeScript * __cdecl Create##x() { return new class x(); }
+#define DEFINE_SCRIPT_CLASS(x) extern "C" __declspec(dllexport) Raekor::INativeScript * __cdecl Create##x() { return new class x(); }
 
 namespace Raekor {
+
+class Input;
 
 /* Example
 
 class MoveCubeScript : public NativeScript {
 public:
-	void update(float dt) override;
+	void OnUpdate(float inDeltaTime) {};
+	void OnEvent(const SDL_Event& inEvent) {};
+
 };
 
 */
@@ -25,8 +29,11 @@ public:
 
 	void Bind(Raekor::Entity inEntity, Raekor::Scene* inScene);
 
-	virtual void OnUpdate(float dt) = 0;
+	virtual void OnUpdate(float inDeltaTime) = 0;
 
+	virtual void OnEvent(const SDL_Event& inEvent) = 0;
+
+	// helper functions to interface with the engine
 	template<typename T>
 	T& GetComponent();
 
@@ -41,5 +48,9 @@ T& INativeScript::GetComponent()
 {
 	return m_Scene->Get<T>(m_Entity);
 }
+
+
+SCRIPT_INTERFACE Input* GetInput();
+
 
 } // Raekor

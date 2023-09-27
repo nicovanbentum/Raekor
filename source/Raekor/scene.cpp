@@ -150,7 +150,7 @@ void Scene::UpdateTransforms()
 				}
 				else
 				{
-					const auto& [parent_node, parent_transform] = Get<Node, Transform>(current_node.parent);
+					const auto& parent_transform = Get<Transform>(current_node.parent);
 					current_transform.worldTransform = parent_transform.worldTransform * current_transform.localTransform;
 				}
 
@@ -160,7 +160,6 @@ void Scene::UpdateTransforms()
 					m_Nodes.push(child);
 					child = Get<Node>(child).nextSibling;
 				}
-
 			}
 		}
 	}

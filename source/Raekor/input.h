@@ -21,7 +21,8 @@ public:
 
 private:
 	const Uint8* keyboardState;
-	inline static std::unique_ptr<Input> global = std::make_unique<Input>();
 };
+
+extern Input* g_Input;
 
 }

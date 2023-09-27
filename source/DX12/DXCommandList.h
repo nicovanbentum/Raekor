@@ -27,6 +27,8 @@ public:
     void Push();
     void Pop();
 
+    inline uint64_t GetFenceValue() const { return m_SubmitFenceValue; }
+
     /* Resource API. Typically used for updating resources that are in GPU memory. */
     void UpdateBuffer(Buffer& inDstBuffer, uint32_t inDstOffset, uint32_t inDstSize, void* inDataPtr);
     void UpdateTexture(Texture& inDstTexture, uint32_t inDstMip, void* inDataPtr);
@@ -59,9 +61,10 @@ public:
     /* Sets both the viewport and scissor to the size defined by inViewport. */
     void SetViewportScissorRect(const Viewport& inViewport);
 
-    void Submit(Device& inDevice);
+    void Submit(Device& inDevice, ID3D12CommandQueue* inQueue);
 
 private:
+    uint64_t m_SubmitFenceValue = 0;
     uint32_t m_CurrentCmdListIndex = 0;
     ComPtr<ID3D12Fence> m_Fence = nullptr;
     std::vector<ComPtr<ID3D12GraphicsCommandList4>> m_CommandLists;

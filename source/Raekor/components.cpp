@@ -173,7 +173,7 @@ Quat Transform::GetRotationWorldSpace() const
 
 void Transform::Print()
 {
-	std::cout << glm::to_string(rotation) << '\n';
+	std::cout << glm::to_string(worldTransform) << '\n';
 }
 
 

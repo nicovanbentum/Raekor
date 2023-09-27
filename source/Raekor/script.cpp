@@ -13,6 +13,8 @@ void INativeScript::Bind(Entity inEntity, Scene* inScene)
 	m_Scene = inScene;
 }
 
+SCRIPT_INTERFACE Input* GetInput() { return g_Input; }
+
 /*
 void MoveCubeScript::update(float dt) {
 	auto& transform = getComponent<TransformComponent>();

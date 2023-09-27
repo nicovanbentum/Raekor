@@ -3,9 +3,11 @@
 
 namespace Raekor {
 
+Input* g_Input = new Input();
+
 bool Input::sIsKeyPressed(SDL_Keycode code)
 {
-	return global->keyboardState[code];
+	return g_Input->keyboardState[code];
 }
 
 
@@ -17,5 +19,6 @@ bool Input::sIsButtonPressed(uint32_t button)
 
 
 void Input::sSetCallback(uint32_t type, const std::function<void()>& callback) {}
+
 
 } // raekor

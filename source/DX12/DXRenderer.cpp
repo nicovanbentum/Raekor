@@ -42,7 +42,7 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     auto hwnd = wmInfo.info.win.window;
 
     auto swapchain = ComPtr<IDXGISwapChain1> {};
-    gThrowIfFailed(factory->CreateSwapChainForHwnd(inDevice.GetQueue(), hwnd, &swapchain_desc, nullptr, nullptr, &swapchain));
+    gThrowIfFailed(factory->CreateSwapChainForHwnd(inDevice.GetGraphicsQueue(), hwnd, &swapchain_desc, nullptr, nullptr, &swapchain));
     gThrowIfFailed(swapchain.As(&m_Swapchain));
 
     // Disables DXGI's automatic ALT+ENTER and PRINTSCREEN
@@ -143,6 +143,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     if (need_recompile)
         std::cout << std::format("Hotloaded system shaders.\n");
 
+    need_recompile |= OS::sCheckCommandLineOption("-stress_test");
+
     if (m_ShouldResize || need_recompile)
     {
         // Make sure nothing is using render targets anymore
@@ -192,7 +194,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     const auto jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().size.y;
     const auto jitter_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(jitter_x, jitter_y, 0));
     //const auto jittered_proj_matrix = camera.GetProjection();
-    const auto jittered_proj_matrix = jitter_matrix * camera.GetProjection();
+    auto jittered_proj_matrix = m_Settings.mEnableTAA ? jitter_matrix * camera.GetProjection() : camera.GetProjection();
 
     // Update all the frame constants and copy it in into the GPU ring buffer
     m_FrameConstants.mTime = m_ElapsedTime;
@@ -247,7 +249,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
 
     //// Submit all copy commands
     copy_cmd_list.Close();
-    copy_cmd_list.Submit(inDevice);
+    copy_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
 
     // Start recording graphics commands
     auto& direct_cmd_list = GetBackBufferData().mDirectCmdList;
@@ -264,7 +266,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     // Run command list execution and present in a job so it can overlap a bit with the start of the next frame
     //m_PresentJobPtr = Async::sQueueJob([&inDevice, this]() {
         // submit all graphics commands 
-    direct_cmd_list.Submit(inDevice);
+    direct_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
 
     auto sync_interval = m_Settings.mEnableVsync;
     auto present_flags = 0u;
@@ -276,7 +278,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
 
     GetBackBufferData().mFenceValue++;
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
-    gThrowIfFailed(inDevice.GetQueue()->Signal(m_Fence.Get(), GetBackBufferData().mFenceValue));
+    gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), GetBackBufferData().mFenceValue));
     //});
 
     m_FrameCounter++;
@@ -410,7 +412,7 @@ void Renderer::WaitForIdle(Device& inDevice)
 
     for (auto& backbuffer_data : m_BackBufferData)
     {
-        gThrowIfFailed(inDevice.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
+        gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
 
         if (m_Fence->GetCompletedValue() < backbuffer_data.mFenceValue)
         {
@@ -434,11 +436,11 @@ bool Renderer::InitFSR(Device& inDevice, const Viewport& inViewport)
         .flags = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE,
         .maxRenderSize = { inViewport.size.x, inViewport.size.y },
         .displaySize = { inViewport.size.x, inViewport.size.y },
-        .device = ffxGetDeviceDX12(inDevice),
+        .device = ffxGetDeviceDX12(*inDevice),
     };
 
     m_FsrScratchMemory.resize(ffxFsr2GetScratchMemorySizeDX12());
-    auto ffx_error = ffxFsr2GetInterfaceDX12(&fsr2_desc.callbacks, inDevice, m_FsrScratchMemory.data(), m_FsrScratchMemory.size());
+    auto ffx_error = ffxFsr2GetInterfaceDX12(&fsr2_desc.callbacks, *inDevice, m_FsrScratchMemory.data(), m_FsrScratchMemory.size());
     if (ffx_error != FFX_OK)
         return false;
 
@@ -518,7 +520,7 @@ bool Renderer::DestroyDLSS(Device& inDevice)
 
 bool Renderer::InitXeSS(Device& inDevice, const Viewport& inViewport)
 {
-    auto status = xessD3D12CreateContext(inDevice, &m_XeSSContext);
+    auto status = xessD3D12CreateContext(*inDevice, &m_XeSSContext);
     if (status != XESS_RESULT_SUCCESS)
         return false;
 
@@ -607,7 +609,7 @@ uint64_t RenderInterface::GetDisplayTexture()
 
 uint64_t RenderInterface::GetImGuiTextureID(uint32_t inHandle)
 {
-    const auto& resource_heap = m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetHeap();
+    const auto& resource_heap = *m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     const auto heap_ptr = resource_heap->GetGPUDescriptorHandleForHeapStart().ptr + inHandle * m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     return heap_ptr;
 }
@@ -798,11 +800,11 @@ void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList)
     inCmdList.Close();
 
     const auto cmd_lists = std::array { (ID3D12CommandList*)inCmdList };
-    inDevice.GetQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
+    inDevice.GetGraphicsQueue()->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
 
     auto& backbuffer_data = GetBackBufferData();
     backbuffer_data.mFenceValue++;
-    gThrowIfFailed(inDevice.GetQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
+    gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
     gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
     WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
 }
@@ -1638,8 +1640,8 @@ const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDe
 
     [&inDevice](DebugLinesData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        auto vertices_buffer_resource = inDevice.GetResourcePtr(inRGResources.GetBuffer(inData.mVertexBuffer));
-        auto indirect_args_buffer_resource = inDevice.GetResourcePtr(inRGResources.GetBuffer(inData.mIndirectArgsBuffer));
+        auto vertices_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mVertexBuffer));
+        auto indirect_args_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mIndirectArgsBuffer));
 
         const auto vertices_entry_barrier = CD3DX12_RESOURCE_BARRIER::Transition(vertices_buffer_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
         const auto indirect_args_entry_barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_args_buffer_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
@@ -1760,10 +1762,10 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, FfxFsr2
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        const auto color_texture_ptr = inDevice.GetResourcePtr(inResources.GetTextureView(inData.mColorTextureSRV));
-        const auto depth_texture_ptr = inDevice.GetResourcePtr(inResources.GetTextureView(inData.mDepthTextureSRV));
-        const auto movec_texture_ptr = inDevice.GetResourcePtr(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
-        const auto output_texture_ptr = inDevice.GetResourcePtr(inResources.GetTexture(inData.mOutputTexture));
+        const auto color_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
+        const auto depth_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
+        const auto movec_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
+        const auto output_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
 
         auto fsr2_dispatch_desc = FfxFsr2DispatchDescription {};
         fsr2_dispatch_desc.commandList = ffxGetCommandListDX12(inCmdList);
@@ -1822,10 +1824,10 @@ const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, NVSDK_
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        const auto color_texture_ptr = inDevice.GetResourcePtr(inResources.GetTextureView(inData.mColorTextureSRV));
-        const auto depth_texture_ptr = inDevice.GetResourcePtr(inResources.GetTextureView(inData.mDepthTextureSRV));
-        const auto movec_texture_ptr = inDevice.GetResourcePtr(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
-        const auto output_texture_ptr = inDevice.GetResourcePtr(inResources.GetTexture(inData.mOutputTexture));
+        const auto color_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
+        const auto depth_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
+        const auto movec_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
+        const auto output_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
         
         NVSDK_NGX_D3D12_DLSS_Eval_Params eval_params = {};
         eval_params.Feature.pInColor = color_texture_ptr;
@@ -1872,10 +1874,10 @@ const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, xess_c
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        const auto color_texture_ptr = inDevice.GetResourcePtr(inResources.GetTextureView(inData.mColorTextureSRV));
-        const auto depth_texture_ptr = inDevice.GetResourcePtr(inResources.GetTextureView(inData.mDepthTextureSRV));
-        const auto movec_texture_ptr = inDevice.GetResourcePtr(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
-        const auto output_texture_ptr = inDevice.GetResourcePtr(inResources.GetTexture(inData.mOutputTexture));
+        const auto color_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
+        const auto depth_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
+        const auto movec_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
+        const auto output_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
 
         xess_d3d12_execute_params_t exec_params = {};
         exec_params.pColorTexture    = color_texture_ptr;
@@ -1955,8 +1957,8 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
         inCmdList->DrawInstanced(6, 1, 0, 0);
 
-        auto result_texture_resource = inDevice.GetResourcePtr(inResources.GetTexture(inData.mOutputTexture));
-        auto history_texture_resource = inDevice.GetResourcePtr(inResources.GetTexture(inData.mHistoryTexture));
+        auto result_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
+        auto history_texture_resource = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mHistoryTexture));
 
         auto barriers = std::array
         {
@@ -2136,7 +2138,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
     [&inRenderGraph, &inDevice, &inStagingHeap, inBackBuffer](ImGuiData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         {   // manual barriers around the imported backbuffer resource, the rendergraph doesn't handle this kind of state
-            auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(inBackBuffer), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
+            auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetD3D12Resource(inBackBuffer), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
             inCmdList->ResourceBarrier(1, &backbuffer_barrier);
         }
 
@@ -2233,7 +2235,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
         }
 
         {
-            auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(inBackBuffer), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON);
+            auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetD3D12Resource(inBackBuffer), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON);
             inCmdList->ResourceBarrier(1, &backbuffer_barrier);
         }
     });
@@ -2257,13 +2259,13 @@ TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameC
     });
 
     auto font_texture_view = inDevice.GetTexture(font_texture_id).GetView();
-    const auto& descriptor_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    auto& descriptor_heap = inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     ImGui_ImplDX12_Init(
-        inDevice,
+        *inDevice,
         inFrameCount,
         inRtvFormat,
-        descriptor_heap.GetHeap(),
+        *descriptor_heap,
         descriptor_heap.GetCPUDescriptorHandle(font_texture_view),
         descriptor_heap.GetGPUDescriptorHandle(font_texture_view)
     );
@@ -2286,7 +2288,7 @@ void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCm
     inDevice.BindDrawDefaults(inCmdList);
 
     {   // manual barriers around the imported backbuffer resource, the rendergraph doesn't handle this kind of state
-        auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(inBackBuffer), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
+        auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetD3D12Resource(inBackBuffer), D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
         inCmdList->ResourceBarrier(1, &backbuffer_barrier);
     }
 
@@ -2304,7 +2306,7 @@ void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCm
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), inCmdList);
 
     {
-        auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetResourcePtr(inBackBuffer), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON);
+        auto backbuffer_barrier = CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetD3D12Resource(inBackBuffer), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT | D3D12_RESOURCE_STATE_COMMON);
         inCmdList->ResourceBarrier(1, &backbuffer_barrier);
     }
 }

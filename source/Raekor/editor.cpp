@@ -130,6 +130,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 	// end ImGui
 	GUI::EndDockSpace();
 
+	// ImGui::ShowDemoWindow();
 	// ImGui::ShowStyleEditor();
 	
 	GUI::EndFrame();

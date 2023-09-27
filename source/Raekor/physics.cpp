@@ -92,7 +92,7 @@ void Physics::Step(Scene& scene, float dt)
 
 void Physics::OnUpdate(Scene& scene)
 {
-	for (const auto& [entity, transform, mesh, collider] : scene.Each<Transform, Mesh, BoxCollider>())
+	for (const auto& [entity, transform, collider] : scene.Each<Transform, BoxCollider>())
 	{
 		if (collider.bodyID.IsInvalid() && collider.settings.GetRefCount())
 		{
@@ -117,7 +117,7 @@ void Physics::OnUpdate(Scene& scene)
 		}
 	}
 
-	for (const auto& [entity, transform, mesh, soft_body] : scene.Each<Transform, Mesh, SoftBody>())
+	for (const auto& [entity, transform, soft_body] : scene.Each<Transform, SoftBody>())
 	{
 		if (soft_body.mBodyID.IsInvalid() && soft_body.mSharedSettings.GetRefCount())
 		{
@@ -145,11 +145,14 @@ void Physics::OnUpdate(Scene& scene)
 
 				if (auto props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties())
 				{
-					for (auto i = 0u; i < props->GetVertices().size(); i++)
+					if (auto mesh = scene.GetPtr<Mesh>(entity))
 					{
-						const auto& pos = props->GetVertex(i).mPosition;
-						mesh.positions[i] = Vec3(pos.GetX(), pos.GetY(), pos.GetZ());
-						mesh.positions[i] *= Vec3(1.0f) / transform.scale;
+						for (auto i = 0u; i < props->GetVertices().size(); i++)
+						{
+							const auto& pos = props->GetVertex(i).mPosition;
+							mesh->positions[i] = Vec3(pos.GetX(), pos.GetY(), pos.GetZ());
+							mesh->positions[i] *= Vec3(1.0f) / transform.scale;
+						}
 					}
 				}
 			}

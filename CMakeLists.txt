@@ -21,6 +21,7 @@ add_subdirectory(source/DX11)
 add_subdirectory(source/DX12)
 add_subdirectory(source/Editor)
 add_subdirectory(source/Raekor)
+add_subdirectory(source/Scripts)
 
 
 

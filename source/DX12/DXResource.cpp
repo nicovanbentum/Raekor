@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "DXResource.h"
+#include "DXDevice.h"
 
 namespace Raekor::DX12 {
 
@@ -57,7 +58,7 @@ D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage)
 }
 
 
-void DescriptorHeap::Init(ID3D12Device* inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags)
+DescriptorHeap::DescriptorHeap(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags)
 {
     Reserve(inCount);
 

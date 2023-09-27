@@ -7,7 +7,7 @@
 #include "OS.h"
 #include "physics.h"
 #include "application.h"
-
+#include "systems.h"
 
 namespace Raekor {
 
@@ -227,7 +227,13 @@ void InspectorWidget::DrawComponent(Name& inName)
 void InspectorWidget::DrawComponent(Node& ioNode)
 {
 	if (ioNode.parent != NULL_ENTITY)
+	{
 		ImGui::Text("Parent entity: %i", ioNode.parent);
+
+		ImGui::SameLine();
+		if (ImGui::SmallButton("X"))
+			NodeSystem::sRemove(GetScene(), ioNode);
+	}
 	else
 		ImGui::Text("Parent entity: NULL");
 
@@ -501,19 +507,29 @@ bool DragVec3(const char* label, glm::vec3& v, float step, float min, float max,
 
 void InspectorWidget::DrawComponent(Transform& inTransform)
 {
-	if (DragVec3("Scale", inTransform.scale, 0.001f, 0.0f, FLT_MAX))
+	ImGui::AlignTextToFramePadding();
+	ImGui::Text("Scale     ");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(-FLT_MIN);
+	if (ImGui::DragFloat3("##ScaleDragFloat3", glm::value_ptr(inTransform.scale), 0.001f, 0.0f, FLT_MAX, "%.2f"))
 		inTransform.Compose();
 
+	ImGui::AlignTextToFramePadding();
+	ImGui::Text("Rotation");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(-FLT_MIN);
 	auto degrees = glm::degrees(glm::eulerAngles(inTransform.rotation));
-
-	if (DragVec3("Rotation", degrees, 0.1f, -360.0f, 360.0f))
+	if (ImGui::DragFloat3("##RotationDragFloat3", glm::value_ptr(degrees), 0.1f, -360.0f, 360.0f, "%.2f"))
 	{
 		inTransform.rotation = glm::quat(glm::radians(degrees));
 		inTransform.Compose();
 	}
 
-	if (DragVec3("Position", inTransform.position, 0.001f, -FLT_MAX, FLT_MAX))
-		inTransform.Compose();
+	ImGui::AlignTextToFramePadding();
+	ImGui::Text("Position ");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(-FLT_MIN);
+	ImGui::DragFloat3("##PositionDragFloat3", glm::value_ptr(inTransform.position), 0.001f, -FLT_MAX, FLT_MAX);
 }
 
 
