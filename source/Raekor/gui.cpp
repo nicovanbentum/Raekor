@@ -4,9 +4,9 @@
 
 namespace Raekor::GUI {
 
-void BeginDockSpace()
+void BeginDockSpace(ImGuiWindowFlags inFlags)
 {
-	ImGuiWindowFlags dockWindowFlags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+	ImGuiWindowFlags dockWindowFlags = inFlags | ImGuiWindowFlags_NoDocking;
 	ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(imGuiViewport->Pos);
 	ImGui::SetNextWindowSize(imGuiViewport->Size);
@@ -216,4 +216,47 @@ bool ImGui::Spinner(const char* label, float radius, int thickness, const ImU32&
 	window->DrawList->PathStroke(color, false, thickness);
 
 	return true;
+}
+
+
+bool ImGui::DragVec3(const char* label, glm::vec3& v, float step, float min, float max, const char* format)
+{
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	if (window->SkipItems)
+		return false;
+
+	ImGuiContext& g = *GImGui;
+	bool value_changed = false;
+	ImGui::BeginGroup();
+	ImGui::PushID(label);
+	ImGui::PushMultiItemsWidths(v.length(), ImGui::CalcItemWidth());
+
+	static const auto colors = std::array 
+	{
+		ImVec4 { 0.5f, 0.0f, 0.0f, 1.0f },
+		ImVec4 { 0.0f, 0.5f, 0.0f, 1.0f },
+		ImVec4 { 0.1f, 0.1f, 1.0f, 1.0f }
+	};
+
+	for (int i = 0; i < v.length(); i++)
+	{
+		ImGui::PushID(i);
+		if (i > 0)
+			ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
+
+		const auto type = ImGuiDataType_Float;
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
+		ImGui::PushStyleColor(ImGuiCol_Border, colors[i]);
+		value_changed |= ImGui::DragScalar("", type, (void*)&v[i], step, &min, &max, format, 0);
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar();
+
+		ImGui::PopID();
+		ImGui::PopItemWidth();
+	}
+
+	ImGui::PopID();
+
+	ImGui::EndGroup();
+	return value_changed;
 }

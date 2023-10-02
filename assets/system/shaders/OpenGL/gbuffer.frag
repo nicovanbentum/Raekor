@@ -8,16 +8,17 @@
 // TODO: optimize by packing more data per byte
 // MRT texture output 
 // NOTE: always render to 1, 2 or 4 component vectors
-layout(location = 0) out vec4 gNormal;
-layout(location = 1) out vec4 gColor;
-layout(location = 2) out vec4 gMetallicRoughness;
-layout(location = 3) out vec4 gEntityID;
-layout(location = 4) out vec4 gVelocity;
+layout(location = 0) out vec4 RT_Normals;
+layout(location = 1) out vec4 RT_Albedo;
+layout(location = 2) out vec4 RT_MetallicRoughness;
+layout(location = 3) out vec4 RT_EntityID;
+layout(location = 4) out vec4 RT_Velocity;
 
 // constant mesh values
 layout(binding = 1) uniform sampler2D albedoTexture;
 layout(binding = 2) uniform sampler2D normalTexture;
-layout(binding = 3) uniform sampler2D metalroughTexture;
+layout(binding = 3) uniform sampler2D metallicTexture;
+layout(binding = 4) uniform sampler2D roughnessTexture;
 
 layout(location = 0) in VS_OUT {
     vec2 uv;
@@ -66,21 +67,22 @@ void main() {
     ClipLODTransition(gl_FragCoord.xy, mLODFade);
 
 	// write the color to the color texture of the gbuffer
-	gColor = color * colour;
+	RT_Albedo = color * colour;
 
 	// retrieve the normal from the normal map
     vec4 sampledNormal = texture(normalTexture, vs_out.uv);
 	vec3 glNormal = sampledNormal.xyz * 2.0 - 1.0;
     vec3 normal = vs_out.TBN * glNormal;
-	gNormal = vec4(normal, 1.0);
+	RT_Normals = vec4(normal, 1.0);
 
-    vec4 metalrough = texture(metalroughTexture, vs_out.uv);
-    gMetallicRoughness = vec4(metalrough.r, metalrough.g * roughness, metalrough.b * metallic, 1.0);
+    float sampled_metallic = texture(metallicTexture, vs_out.uv).b;
+    float sampled_roughness = texture(roughnessTexture, vs_out.uv).g;
+    RT_MetallicRoughness = vec4(0.0f, sampled_roughness * roughness, sampled_metallic * metallic, 1.0);
 
     vec3 prevPosNDC = (vs_out.prevPos.xyz / vs_out.prevPos.w);
     vec3 currentPosNDC = (vs_out.currentPos.xyz / vs_out.currentPos.w);
     
-    gVelocity = vec4(currentPosNDC.xy - prevPosNDC.xy, 0.0, 1.0);
+    RT_Velocity = vec4(currentPosNDC.xy - prevPosNDC.xy, 0.0, 1.0);
 
-    gEntityID = vec4(entity, 0, 0, 1.0);
+    RT_EntityID = vec4(entity, 0, 0, 1.0);
 }

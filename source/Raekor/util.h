@@ -28,6 +28,24 @@
     Type& operator=(Type&) = delete; \
     Type& operator=(Type&&) = delete \
 
+#define TEXTURE_SWIZZLE_RGBA 0b11'10'01'00
+#define TEXTURE_SWIZZLE_RRRR 0b00'00'00'00
+#define TEXTURE_SWIZZLE_GGGG 0b01'01'01'01
+#define TEXTURE_SWIZZLE_BBBB 0b10'10'10'10
+#define TEXTURE_SWIZZLE_AAAA 0b11'11'11'11
+
+inline uint8_t gUnswizzleComponent(uint8_t swizzle, uint8_t channel) { return ( ( swizzle >> (channel * 2)) & 0b00'00'00'11 ); }
+inline std::tuple<uint8_t, uint8_t, uint8_t, uint8_t> gUnswizzleComponents(uint8_t swizzle)
+{ 
+    return std::make_tuple
+    (
+        gUnswizzleComponent(swizzle, 0), 
+        gUnswizzleComponent(swizzle, 1),
+        gUnswizzleComponent(swizzle, 2),
+        gUnswizzleComponent(swizzle, 3)
+    );
+}
+
 // From https://en.cppreference.com/w/cpp/utility/unreachable
 [[noreturn]] constexpr inline void gUnreachableCode() {
     assert(false);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "application.h"
+#include "timer.h"
 
 constexpr auto sImageFileExtensions = std::array {
 	".jpg", ".jpeg", ".tga", ".png", ".dds"
@@ -93,6 +94,8 @@ public:
 	HWND GetWindowHandle();
 
 private:
+	uint64_t m_StartTicks = 0;
+	uint64_t m_FinishedTicks = 0;
 	Path m_CurrentPath;
 	bool m_WasClosed = false;
 	int m_ResizeCounter = 0;

@@ -264,12 +264,19 @@ void FBXImporter::ConvertMaterial(Entity inEntity, const ufbx_material* inMateri
 
 	const auto& roughness = inMaterial->pbr.roughness;
 	if (roughness.texture && roughness.texture_enabled && roughness.texture->type == UFBX_TEXTURE_FILE)
-		material.metalroughFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + roughness.texture->relative_filename.data);
+		material.roughnessFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + roughness.texture->relative_filename.data);
+
+	const auto& metallic = inMaterial->pbr.metalness;
+	if (metallic.texture && metallic.texture_enabled && metallic.texture->type == UFBX_TEXTURE_FILE)
+		material.metallicFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + metallic.texture->relative_filename.data);
 
 	const auto& emission = inMaterial->pbr.emission_color;
 	if (emission.has_value)
 		for (uint32_t i = 0; i < emission.value_components; i++)
 			material.emissive[i] = emission.value_vec4.v[i];
+
+	if (emission.texture && emission.texture_enabled && emission.texture->type == UFBX_TEXTURE_FILE)
+		material.emissiveFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + emission.texture->relative_filename.data);
 
 	material.metallic = inMaterial->pbr.metalness.has_value ? inMaterial->pbr.metalness.value_real : material.metallic;
 	material.roughness = inMaterial->pbr.roughness.has_value ? inMaterial->pbr.roughness.value_real : material.roughness;

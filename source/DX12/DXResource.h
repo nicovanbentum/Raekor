@@ -124,6 +124,7 @@ public:
 
     struct Desc
     {
+        uint8_t swizzle = TEXTURE_SWIZZLE_RGBA;
         DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
         uint32_t width = 1;
         uint32_t height = 1;

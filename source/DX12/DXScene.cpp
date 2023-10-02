@@ -150,10 +150,12 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
 
         rt_material.mAlbedoTexture = material.gpuAlbedoMap;
         rt_material.mNormalsTexture = material.gpuNormalMap;
-        rt_material.mMetalRoughTexture = material.gpuMetallicRoughnessMap;
+        rt_material.mEmissiveTexture = material.gpuEmissiveMap;
+        rt_material.mMetallicTexture = material.gpuMetallicMap;
+        rt_material.mRoughnessTexture = material.gpuRoughnessMap;
 
         // 0 is maybe fine? haven't seen this trigger before though
-        assert(rt_material.mAlbedoTexture != 0 && rt_material.mNormalsTexture != 0 && rt_material.mMetalRoughTexture != 0);
+        assert(rt_material.mAlbedoTexture != 0 && rt_material.mNormalsTexture != 0 && rt_material.mMetallicTexture != 0);
 
         material_index++;
     }

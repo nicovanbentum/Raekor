@@ -165,13 +165,15 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 			NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), entity, m_Scene.Get<Node>(entity));
 
 		if (inNode.mesh->primitives_count == 1)
+		{
 			ConvertMesh(entity, inNode.mesh->primitives[0]);
-
+		}
 		else if (inNode.mesh->primitives_count > 1)
-			for (const auto& [index, prim] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count)))
+		{
+			for (const auto& [index, primitive] : gEnumerate(Slice(inNode.mesh->primitives, inNode.mesh->primitives_count)))
 			{
 				auto clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(entity));
-				ConvertMesh(clone, prim);
+				ConvertMesh(clone, primitive);
 
 				auto& name = m_Scene.Get<Name>(clone);
 				name.name += "-" + std::to_string(index);
@@ -182,8 +184,8 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 				transform.Decompose();
 
 				NodeSystem::sAppend(m_Scene, entity, m_Scene.Get<Node>(entity), clone, m_Scene.Get<Node>(clone));
-
 			}
+		}
 
 		if (inNode.skin)
 			ConvertBones(entity, inNode);
@@ -514,11 +516,18 @@ void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMa
 			material.albedoFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + texture->image->uri);
 
 		if (auto texture = gltfMaterial.pbr_metallic_roughness.metallic_roughness_texture.texture)
-			material.metalroughFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + texture->image->uri);
+		{
+			auto cached_texture_path = TextureAsset::sAssetsToCachedPath(m_Directory.string() + texture->image->uri);
+			material.metallicFile = cached_texture_path;
+			material.roughnessFile = cached_texture_path;
+		}
 	}
 
 	if (auto normal_texture = gltfMaterial.normal_texture.texture)
 		material.normalFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + normal_texture->image->uri);
+
+	if (auto emissive_texture = gltfMaterial.emissive_texture.texture)
+		material.emissiveFile = TextureAsset::sAssetsToCachedPath(m_Directory.string() + emissive_texture->image->uri);
 
 	memcpy(glm::value_ptr(material.emissive), gltfMaterial.emissive_factor, sizeof(material.emissive));
 }

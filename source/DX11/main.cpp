@@ -173,7 +173,7 @@ public:
             ioMaterial.mNormalSRV = m_DefaultNormalTextureSRV;
         }
 
-        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.metalroughFile))
+        if (const auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.metallicFile))
         {
             ioMaterial.mMetalRoughTexture = UploadTexture(asset, DXGI_FORMAT_BC3_UNORM);
             gThrowIfFailed(D3D.device->CreateShaderResourceView(ioMaterial.mMetalRoughTexture.Get(), nullptr, ioMaterial.mMetalRoughSRV.GetAddressOf()));

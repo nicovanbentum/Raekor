@@ -13,8 +13,8 @@ public:
         GetComponent<Transform>().position.y += glm::sin(time) * inDeltaTime;
         GetComponent<Transform>().Compose();
 
-        if (GetInput()->sIsKeyPressed(SDL_SCANCODE_W))
-            transform.position.x += 1.0f * inDeltaTime;
+        /*if (GetInput()->sIsKeyPressed(SDL_SCANCODE_W))
+            transform.position.x += 1.0f * inDeltaTime;*/
 
         /*auto& aabb = GetComponent<Mesh>().aabb;
 

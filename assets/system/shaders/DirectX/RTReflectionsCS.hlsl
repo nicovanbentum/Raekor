@@ -92,27 +92,13 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         TransformToWorldSpace(vertex, geometry.mLocalToWorldTransform, geometry.mInvLocalToWorldTransform);
         
         RTMaterial material = materials[geometry.mMaterialIndex];
-        Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mAlbedoTexture)];
-        Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mNormalsTexture)];
-        Texture2D metalrough_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mMetalRoughTexture)];
         
         const float3 Wo = normalize(fc.mCameraPosition.xyz - vertex.mPos);
         const float3 Wi = normalize(-fc.mSunDirection.xyz);
         const float3 Wh = normalize(Wo + Wi);
         
-        float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, vertex.mTexCoord);
-        float4 sampled_normal = normals_texture.Sample(SamplerAnisoWrap, vertex.mTexCoord);
-        float4 sampled_metalrough = metalrough_texture.Sample(SamplerAnisoWrap, vertex.mTexCoord);
-        
-        float3 bitangent = cross(vertex.mNormal, vertex.mTangent);
-        float3x3 TBN = transpose(float3x3(vertex.mTangent, bitangent, vertex.mNormal));
-        float3 normal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
-        
         BRDF brdf;
-        brdf.mAlbedo = material.mAlbedo * sampled_albedo;
-        brdf.mNormal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
-        brdf.mMetallic = material.mMetallic * sampled_metalrough.b;
-        brdf.mRoughness = material.mRoughness * sampled_metalrough.g;
+        brdf.FromHit(vertex, material);
         
         const float3 l = brdf.Evaluate(Wo, Wi, Wh);
 

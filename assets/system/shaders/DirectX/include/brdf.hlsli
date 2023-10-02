@@ -74,6 +74,7 @@ float Smith_G1_GGX(float alpha, float NdotL, float alphaSquared, float NdotLSqua
 struct BRDF {
     float4 mAlbedo;
     float3 mNormal;
+    float3 mEmissive;
     float mMetallic;
     float mRoughness;
     
@@ -89,11 +90,15 @@ struct BRDF {
     void FromHit(RTVertex inVertex, RTMaterial inMaterial) {
         Texture2D albedo_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mAlbedoTexture)];
         Texture2D normals_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mNormalsTexture)];
-        Texture2D metalrough_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mMetalRoughTexture)];
+        Texture2D emissive_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mEmissiveTexture)];
+        Texture2D metallic_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mMetallicTexture)];
+        Texture2D roughness_texture = ResourceDescriptorHeap[NonUniformResourceIndex(inMaterial.mRoughnessTexture)];
     
         float4 sampled_albedo = albedo_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord);
-        float4 sampled_normal = normals_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord);
-        float4 sampled_metalrough = metalrough_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord);
+        float3 sampled_normal = normals_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).rgb; // alpha channel unused
+        float3 sampled_emissive = emissive_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).rgb; // alpha channel unused
+        float sampled_metallic = metallic_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).r; // value swizzled across all channels, just get Red
+        float sampled_roughness = roughness_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).r; // value swizzled across all channels, just get Red
         
         float3 bitangent = normalize(cross(inVertex.mNormal, inVertex.mTangent));
         float3x3 TBN = transpose(float3x3(inVertex.mTangent, bitangent, inVertex.mNormal));
@@ -101,8 +106,9 @@ struct BRDF {
         mAlbedo = inMaterial.mAlbedo * sampled_albedo;
         mNormal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
         // mNormal = inVertex.mNormal;
-        mMetallic = inMaterial.mMetallic * sampled_metalrough.b;
-        mRoughness = inMaterial.mRoughness * sampled_metalrough.g;
+        mEmissive = inMaterial.mEmissive.rgb * sampled_emissive;
+        mMetallic = inMaterial.mMetallic * sampled_metallic;
+        mRoughness = inMaterial.mRoughness * sampled_roughness;
     }
 
     
@@ -135,7 +141,7 @@ struct BRDF {
         const float rand = pcg_float(rng);
 
         // randomly decide to specular bounce
-        if (rand > 0.5 && mRoughness < 0.5) {
+        if (rand > 0.5 && mRoughness < 0.67) {
         // Importance sample the specular lobe using UE4's example to get the half vector
             if (mRoughness == 0.0)
                 Wh = mNormal; // roughness 0 is a perfect reflection, so we can just reflect around the normal

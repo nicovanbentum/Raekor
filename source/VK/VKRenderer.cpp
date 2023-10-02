@@ -102,15 +102,17 @@ void Renderer::UpdateMaterials(Assets& assets, Scene& scene)
 		auto& buffer = materials[i];
 		buffer.albedo = material.albedo;
 
-		buffer.textures.x = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_SRGB_BLOCK);
-		buffer.textures.y = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK);
-		buffer.textures.z = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.metalroughFile), VK_FORMAT_BC3_UNORM_BLOCK);
+		buffer.textures.x  = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.albedoFile), VK_FORMAT_BC3_SRGB_BLOCK, material.gpuAlbedoMapSwizzle);
+		buffer.textures.y  = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.normalFile), VK_FORMAT_BC3_UNORM_BLOCK, material.gpuNormalMapSwizzle);
+		buffer.textures2.x = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.emissiveFile), VK_FORMAT_BC3_UNORM_BLOCK, material.gpuEmissiveMapSwizzle);
+		buffer.textures.z  = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.metallicFile), VK_FORMAT_BC3_UNORM_BLOCK, material.gpuMetallicMapSwizzle);
+		buffer.textures.w  = UploadTexture(m_Device, assets.GetAsset<TextureAsset>(material.roughnessFile), VK_FORMAT_BC3_UNORM_BLOCK, material.gpuRoughnessMapSwizzle);
 
 		buffer.properties.x = material.metallic;
 		buffer.properties.y = material.roughness;
 		buffer.properties.z = 1.0f;
 
-		buffer.emissive = glm::vec4(material.emissive, 0.0f);
+		buffer.emissive = glm::vec4(material.emissive, 1.0f);
 
 		i++;
 	}
@@ -490,7 +492,7 @@ void Renderer::RecreateSwapchain(SDL_Window* window)
 }
 
 
-int32_t Renderer::UploadTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format)
+int32_t Renderer::UploadTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format, uint8_t inSwizzle)
 {
 	if (!asset)
 		return -1;
@@ -502,7 +504,7 @@ int32_t Renderer::UploadTexture(Device& device, const TextureAsset::Ptr& asset, 
 	desc.mipLevels = asset->GetHeader()->dwMipMapCount;
 
 	auto texture = device.CreateTexture(desc);
-	auto view = device.CreateView(texture);
+	auto view = device.CreateView(texture, inSwizzle);
 
 	Sampler::Desc samplerDesc;
 	auto sampler = m_Samplers.emplace_back(device.CreateSampler(samplerDesc));

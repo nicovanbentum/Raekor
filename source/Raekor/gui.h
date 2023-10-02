@@ -5,7 +5,7 @@
 
 namespace Raekor::GUI {
 
-void BeginDockSpace();
+void BeginDockSpace(ImGuiWindowFlags inFlags = ImGuiWindowFlags_None);
 void EndDockSpace();
 
 void BeginFrame();
@@ -23,5 +23,7 @@ namespace ImGui {
 
 // Full credit goes to https://github.com/ocornut/imgui/issues/1901
 bool Spinner(const char* label, float radius, int thickness, const ImU32& color);
+
+bool DragVec3(const char* label, glm::vec3& v, float step, float min, float max, const char* format = "%.2f");
 
 }

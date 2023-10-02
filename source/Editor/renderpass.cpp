@@ -423,7 +423,8 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
 
         glBindTextureUnit(1, ( material && material->gpuAlbedoMap ) ? material->gpuAlbedoMap : Material::Default.gpuAlbedoMap);
         glBindTextureUnit(2, ( material && material->gpuNormalMap ) ? material->gpuNormalMap : Material::Default.gpuNormalMap);
-        glBindTextureUnit(3, ( material && material->gpuMetallicRoughnessMap ) ? material->gpuMetallicRoughnessMap : Material::Default.gpuMetallicRoughnessMap);
+        glBindTextureUnit(3, ( material && material->gpuMetallicMap ) ? material->gpuMetallicMap : Material::Default.gpuMetallicMap);
+        glBindTextureUnit(4, ( material && material->gpuRoughnessMap ) ? material->gpuRoughnessMap : Material::Default.gpuRoughnessMap);
 
         uniforms.model = transform.worldTransform;
         uniforms.entity = uint32_t(entity);

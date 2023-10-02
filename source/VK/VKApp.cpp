@@ -133,7 +133,7 @@ void PathTracer::OnUpdate(float dt)
 		reset |= ImGui::DragFloat("Sun Cone", &m_Renderer.GetPushConstants().sunConeAngle, 0.001f, 0.0f, 1.0f, "%.3f");
 
 		auto field_of_view = m_Viewport.GetFieldOfView();
-		if (ImGui::DragFloat("Camera Fov", &field_of_view, 0.1f, 65.0f, 120.0f, "%.3f"))
+		if (ImGui::DragFloat("Camera Fov", &field_of_view, 0.1f, 25.0f, 120.0f, "%.3f"))
 		{
 			m_Viewport.SetFieldOfView(field_of_view);
 			reset = true;

@@ -142,21 +142,18 @@ void IRenderInterface::UploadMaterialTextures(Material& inMaterial, Assets& inAs
 {
 	assert(Material::Default.IsLoaded() && "Default material not loaded, did you forget to initialize its gpu maps before opening a scene?");
 
-	if (auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.albedoFile); asset)
-		inMaterial.gpuAlbedoMap = UploadTextureFromAsset(asset, true);
-	else
-		inMaterial.gpuAlbedoMap = Material::Default.gpuAlbedoMap;
+	auto UploadTexture = [&](const std::string& inFile, bool inIsSRGB, uint8_t inSwizzle, uint32_t inDefaultMap, uint32_t& ioGpuMap) {
+		if (auto asset = inAssets.GetAsset<TextureAsset>(inFile); asset)
+			ioGpuMap = UploadTextureFromAsset(asset, inIsSRGB, inSwizzle);
+		else
+			ioGpuMap = inDefaultMap;
+	};
 
-	if (auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.normalFile); asset)
-		inMaterial.gpuNormalMap = UploadTextureFromAsset(asset);
-	else
-		inMaterial.gpuNormalMap = Material::Default.gpuNormalMap;
-
-	if (auto asset = inAssets.GetAsset<TextureAsset>(inMaterial.metalroughFile); asset)
-		inMaterial.gpuMetallicRoughnessMap = UploadTextureFromAsset(asset);
-	else
-		inMaterial.gpuMetallicRoughnessMap = Material::Default.gpuMetallicRoughnessMap;
-
+	UploadTexture(inMaterial.albedoFile,	true,  inMaterial.gpuAlbedoMapSwizzle,	  Material::Default.gpuAlbedoMap,	 inMaterial.gpuAlbedoMap);
+	UploadTexture(inMaterial.normalFile,	false, inMaterial.gpuNormalMapSwizzle,	  Material::Default.gpuNormalMap,	 inMaterial.gpuNormalMap);
+	UploadTexture(inMaterial.emissiveFile,	false, inMaterial.gpuEmissiveMapSwizzle,  Material::Default.gpuEmissiveMap,  inMaterial.gpuEmissiveMap);
+	UploadTexture(inMaterial.metallicFile,	false, inMaterial.gpuMetallicMapSwizzle,  Material::Default.gpuMetallicMap,  inMaterial.gpuMetallicMap);
+	UploadTexture(inMaterial.roughnessFile, false, inMaterial.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap, inMaterial.gpuRoughnessMap);
 }
 
 } // namespace Raekor

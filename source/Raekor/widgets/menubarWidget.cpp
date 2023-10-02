@@ -153,6 +153,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		{
 			ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
 
+			if (ImGui::MenuItem(GetTitle().c_str(), "", &m_Open));
+
 			for (const auto& widget : *inWidgets)
 			{
 				// skip the menu bar widget itself

@@ -245,7 +245,9 @@ void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials)
 			auto& material = Get<Material>(entity);
 			assets.GetAsset<TextureAsset>(material.albedoFile);
 			assets.GetAsset<TextureAsset>(material.normalFile);
-			assets.GetAsset<TextureAsset>(material.metalroughFile);
+			assets.GetAsset<TextureAsset>(material.emissiveFile);
+			assets.GetAsset<TextureAsset>(material.metallicFile);
+			assets.GetAsset<TextureAsset>(material.roughnessFile);
 		});
 	}
 
@@ -496,7 +498,8 @@ void SceneImporter::ConvertMaterial(Entity inEntity, const Material& inMaterial)
 
 	material.gpuAlbedoMap = 0;
 	material.gpuNormalMap = 0;
-	material.gpuMetallicRoughnessMap = 0;
+	material.gpuMetallicMap = 0;
+	material.gpuRoughnessMap = 0;
 }
 
 

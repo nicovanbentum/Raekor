@@ -66,7 +66,10 @@ struct RTMaterial
     float  mRoughness;
     uint   mAlbedoTexture;
     uint   mNormalsTexture;
-    uint   mMetalRoughTexture;
+    uint   mEmissiveTexture;
+    uint   mMetallicTexture;
+    uint   mRoughnessTexture;
+    uint   mPad0;
     float4 mAlbedo;
     float4 mEmissive;
 };
@@ -123,15 +126,14 @@ struct GbufferRootConstants
     uint     mVertexBuffer;
     uint     mAlbedoTexture;
     uint     mNormalTexture;
-    uint     mMetalRoughTexture;
-    float4	 mAlbedo;
+    uint     mEmissiveTexture;
+    uint     mMetallicTexture;
+    uint     mRoughnessTexture;
     float    mRoughness;
     float    mMetallic;
-    float    pad0;
-    float    pad1;
+    float4	 mAlbedo;
     float4x4 mWorldTransform;
     float4x4 mInvWorldTransform;
-
 };
 STATIC_ASSERT(sizeof(GbufferRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
@@ -199,6 +201,7 @@ struct PathTraceRootConstants
     uint2 mDispatchSize;
     uint  mResultTexture;
     uint  mAccumulationTexture;
+    float mAlpha;
 };
 STATIC_ASSERT(sizeof(PathTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
@@ -291,12 +294,21 @@ struct TAAResolveConstants
 STATIC_ASSERT(sizeof(TAAResolveConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+struct ComposeRootConstants
+{
+    float mExposure;
+    uint mInputTexture;
+};
+STATIC_ASSERT(sizeof(ComposeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
 struct ImGuiRootConstants
 {
     float4x4 mProjection;
     uint mBindlessTextureIndex;
 };
 STATIC_ASSERT(sizeof(ImGuiRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
 
 
 #endif // SHARED_H

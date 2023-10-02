@@ -94,6 +94,8 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 	auto change_notifs = FindFirstChangeNotificationA(assets_folder.c_str(), true, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE);
 	assert(change_notifs != INVALID_HANDLE_VALUE);
 
+	m_StartTicks = Timer::sGetCurrentTick();
+	m_FinishedTicks = Timer::sGetCurrentTick();
 }
 
 
@@ -171,6 +173,12 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 	{
 		ImGui::SameLine();
 		ImGui::Spinner("##filesinflightspinner", ImGui::GetFontSize() / 2.0f, 2, ImGui::GetColorU32(ImGuiCol_CheckMark));
+		m_FinishedTicks = Timer::sGetCurrentTick();
+	}
+	else
+	{
+		ImGui::SameLine();
+		ImGui::Text("Compilation took %.2f seconds.", Timer::sGetTicksToSeconds(m_FinishedTicks - m_StartTicks));
 	}
 
 	auto flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable;

@@ -49,7 +49,7 @@ public:
 
     void DestroyMaterialTextures(Material& inMaterial, Assets& inAssets);
 
-    uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false) override;
+    uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
 
 public:
     std::shared_ptr<Bloom>                      m_Bloom;

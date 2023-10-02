@@ -8,7 +8,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBits
 	std::cerr << pCallbackData->pMessage << '\n';
 
 	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-		assert(false);
+		if (IsDebuggerPresent())
+			__debugbreak();
 
 	return VK_FALSE;
 }

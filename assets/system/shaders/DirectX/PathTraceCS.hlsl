@@ -49,6 +49,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
         query.Proceed();
         
+        float opacity = 1.0;
         float3 irradiance = 0.0.xxx;
         float3 throughput = 1.0.xxx;
     
@@ -59,7 +60,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             RTGeometry geometry = geometries[query.CommittedInstanceID()];
             RTVertex vertex = CalculateVertexFromGeometry(geometry, query.CommittedPrimitiveIndex(), query.CommittedTriangleBarycentrics());
             RTMaterial material = materials[geometry.mMaterialIndex];
-           
+
             // transform to world space
             TransformToWorldSpace(vertex, geometry.mLocalToWorldTransform, geometry.mInvLocalToWorldTransform);
             vertex.mNormal = normalize(vertex.mNormal);
@@ -70,15 +71,18 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             BRDF brdf;
             brdf.FromHit(vertex, material);
             
+            brdf.mAlbedo.rgb *= opacity;
+            opacity = opacity * (1 - brdf.mAlbedo.a);
+            
             // brdf.mAlbedo.rgb *= 4.0f;
             
-            irradiance = material.mEmissive.rgb;
+            irradiance = brdf.mEmissive;
             
             const float3 Wo = -ray.Direction;
             
             {
                 const float3 light_dir = normalize(fc.mSunDirection.xyz);
-                float2 diskPoint = uniformSampleDisk(pcg_float2(rng), 0.02);
+                float2 diskPoint = uniformSampleDisk(pcg_float2(rng), 0.00);
                 float3 Wi = -(light_dir + float3(diskPoint.x, 0.0, diskPoint.y));
             
                 // Check if the sun is visible
@@ -144,7 +148,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         total_irradiance += irradiance * total_throughput;
         total_throughput *= throughput;
     }
-    
+
     float alpha = 0.1;
     float4 curr = result_texture[threadID.xy];
     result_texture[threadID.xy] = float4(lerp(curr.rgb, total_irradiance, alpha), 1.0);

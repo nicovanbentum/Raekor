@@ -197,14 +197,23 @@ struct SCRIPT_INTERFACE Material
 	// texture file paths
 	std::string albedoFile; // ptr
 	std::string normalFile;  // ptr
-	std::string metalroughFile; // ptr
+	std::string emissiveFile; // ptr
+	std::string metallicFile; // ptr
+	std::string roughnessFile;  // ptr
 
 	// GPU resources
 	uint32_t gpuAlbedoMap = 0;
 	uint32_t gpuNormalMap = 0;
-	uint32_t gpuMetallicRoughnessMap = 0;
+	uint32_t gpuMetallicMap = 0;
+	uint32_t gpuEmissiveMap = 0;
+	uint32_t gpuRoughnessMap = 0;
+	uint8_t gpuAlbedoMapSwizzle = TEXTURE_SWIZZLE_RGBA;
+	uint8_t gpuNormalMapSwizzle = TEXTURE_SWIZZLE_RGBA;
+	uint8_t gpuEmissiveMapSwizzle = TEXTURE_SWIZZLE_RGBA;
+	uint8_t gpuMetallicMapSwizzle = TEXTURE_SWIZZLE_BBBB; // assume GLTF by default, TODO: make changes in FbxImporter?
+	uint8_t gpuRoughnessMapSwizzle = TEXTURE_SWIZZLE_GGGG; // assume GLTF by default, TODO: make changes in FbxImporter?
 
-	bool IsLoaded() const { return gpuAlbedoMap != 0 && gpuNormalMap != 0 && gpuMetallicRoughnessMap != 0; }
+	bool IsLoaded() const { return gpuAlbedoMap != 0 && gpuNormalMap != 0 && gpuMetallicMap != 0 && gpuRoughnessMap != 0; }
 
 	// default material for newly spawned meshes
 	static Material Default;

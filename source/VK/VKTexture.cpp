@@ -60,7 +60,7 @@ void Device::DestroyTexture(Texture& texture)
 
 
 
-VkImageView Device::CreateView(Texture& texture, uint32_t mipLevel)
+VkImageView Device::CreateView(Texture& texture, uint8_t swizzle, uint32_t mipLevel)
 {
 	auto& views = texture.viewsByMip;
 	const auto& desc = texture.description;
@@ -82,6 +82,13 @@ VkImageView Device::CreateView(Texture& texture, uint32_t mipLevel)
 		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	else
 		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	const auto [R, G, B, A] = gUnswizzleComponents(swizzle);
+	constexpr auto vk_swizzles = std::array { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	viewInfo.components.r = vk_swizzles[R];
+	viewInfo.components.g = vk_swizzles[G];
+	viewInfo.components.b = vk_swizzles[B];
+	viewInfo.components.a = vk_swizzles[A];
 
 	VkImageView view;
 	vkCreateImageView(m_Device, &viewInfo, nullptr, &view);

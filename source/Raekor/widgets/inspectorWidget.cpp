@@ -5,6 +5,7 @@
 #include "viewportWidget.h"
 #include "NodeGraphWidget.h"
 #include "OS.h"
+#include "gui.h"
 #include "physics.h"
 #include "application.h"
 #include "systems.h"
@@ -381,8 +382,46 @@ void InspectorWidget::DrawComponent(Material& inMaterial)
 		ImGui::EndPopup();
 	}
 
-	auto DrawTextureInteraction = [&](uint32_t& inGpuMap, uint32_t inDefaultMap, std::string& inFile)
+	auto DrawSwizzleChannel = [&](const char* inLabel, uint8_t& inSwizzle, uint8_t inSwizzleMode)
 	{
+		const auto is_selected = ( inSwizzle == inSwizzleMode ) || inSwizzle == TEXTURE_SWIZZLE_RGBA;
+
+		if (is_selected)
+			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
+
+		if (ImGui::SmallButton(inLabel))
+		{
+			if (inSwizzle == inSwizzleMode)
+				inSwizzle = TEXTURE_SWIZZLE_RGBA;
+			else
+				inSwizzle = inSwizzleMode;
+		}
+
+		if (is_selected)
+			ImGui::PopStyleColor();
+	};
+
+	auto DrawTextureInteraction = [&](uint32_t& inGpuMap, uint8_t& inSwizzle, uint32_t inDefaultMap, std::string& inFile, uint32_t& imguiID)
+	{
+		/*ImGui::PushID(imguiID++);
+		DrawSwizzleChannel("R", inSwizzle, TEXTURE_SWIZZLE_RRRR);
+		ImGui::PopID();
+		ImGui::SameLine();
+
+		ImGui::PushID(imguiID++);
+		DrawSwizzleChannel("G", inSwizzle, TEXTURE_SWIZZLE_GGGG);
+		ImGui::PopID();
+		ImGui::SameLine();
+
+		ImGui::PushID(imguiID++);
+		DrawSwizzleChannel("B", inSwizzle, TEXTURE_SWIZZLE_BBBB);
+		ImGui::PopID();
+		ImGui::SameLine();
+
+		ImGui::PushID(imguiID++);
+		DrawSwizzleChannel("A", inSwizzle, TEXTURE_SWIZZLE_AAAA);
+		ImGui::PopID();*/
+
 		const auto imgui_map = inGpuMap ? inGpuMap : inDefaultMap;
 		const auto imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(imgui_map);
 
@@ -416,23 +455,29 @@ void InspectorWidget::DrawComponent(Material& inMaterial)
 			ImGui::EndPopup();
 		}
 
-		if (!inFile.empty())
-		{
-			ImGui::SameLine();
-			ImGui::AlignTextToFramePadding();
-			ImGui::Text(inFile.c_str());
+		ImGui::SameLine();
+		ImGui::AlignTextToFramePadding();
+		
+		const auto file_text = inFile.empty() ? "N/A" : inFile.c_str();
+		const auto tooltip_text = inFile.empty() ? "No file loaded." : inFile.c_str();
 
-			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip(inFile.c_str());
-		}
+		ImGui::Text(file_text);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip(tooltip_text);
 	};
 
-	ImGui::AlignTextToFramePadding(); ImGui::Text("Albedo Map"); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuAlbedoMap, Material::Default.gpuAlbedoMap, inMaterial.albedoFile);
-	ImGui::AlignTextToFramePadding(); ImGui::Text("Normal Map"); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuNormalMap, Material::Default.gpuNormalMap, inMaterial.normalFile);
-	ImGui::AlignTextToFramePadding(); ImGui::Text("Material Map"); ImGui::SameLine();
-	DrawTextureInteraction(inMaterial.gpuMetallicRoughnessMap, Material::Default.gpuMetallicRoughnessMap, inMaterial.metalroughFile);
+	uint32_t imgui_id = 0;
+
+	ImGui::AlignTextToFramePadding(); ImGui::Text("Albedo Map       "); ImGui::SameLine();
+	DrawTextureInteraction(inMaterial.gpuAlbedoMap, inMaterial.gpuAlbedoMapSwizzle, Material::Default.gpuAlbedoMap, inMaterial.albedoFile, imgui_id);
+	ImGui::AlignTextToFramePadding(); ImGui::Text("Normal Map       "); ImGui::SameLine();
+	DrawTextureInteraction(inMaterial.gpuNormalMap, inMaterial.gpuNormalMapSwizzle, Material::Default.gpuNormalMap, inMaterial.normalFile, imgui_id);
+	ImGui::AlignTextToFramePadding(); ImGui::Text("Emissive Map    "); ImGui::SameLine();
+	DrawTextureInteraction(inMaterial.gpuEmissiveMap, inMaterial.gpuEmissiveMapSwizzle, Material::Default.gpuEmissiveMap, inMaterial.emissiveFile, imgui_id);
+	ImGui::AlignTextToFramePadding(); ImGui::Text("Metallic Map      "); ImGui::SameLine();
+	DrawTextureInteraction(inMaterial.gpuMetallicMap, inMaterial.gpuMetallicMapSwizzle, Material::Default.gpuMetallicMap, inMaterial.metallicFile, imgui_id);
+	ImGui::AlignTextToFramePadding(); ImGui::Text("Roughness Map"); ImGui::SameLine();
+	DrawTextureInteraction(inMaterial.gpuRoughnessMap, inMaterial.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap, inMaterial.roughnessFile, imgui_id);
 
 	ImGui::Checkbox("Is Transparent", &inMaterial.isTransparent);
 }
@@ -511,7 +556,7 @@ void InspectorWidget::DrawComponent(Transform& inTransform)
 	ImGui::Text("Scale     ");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-FLT_MIN);
-	if (ImGui::DragFloat3("##ScaleDragFloat3", glm::value_ptr(inTransform.scale), 0.001f, 0.0f, FLT_MAX, "%.2f"))
+	if (ImGui::DragVec3("##ScaleDragFloat3", inTransform.scale, 0.001f, 0.0f, FLT_MAX))
 		inTransform.Compose();
 
 	ImGui::AlignTextToFramePadding();
@@ -519,7 +564,7 @@ void InspectorWidget::DrawComponent(Transform& inTransform)
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-FLT_MIN);
 	auto degrees = glm::degrees(glm::eulerAngles(inTransform.rotation));
-	if (ImGui::DragFloat3("##RotationDragFloat3", glm::value_ptr(degrees), 0.1f, -360.0f, 360.0f, "%.2f"))
+	if (ImGui::DragVec3("##RotationDragFloat3", degrees, 0.1f, -360.0f, 360.0f))
 	{
 		inTransform.rotation = glm::quat(glm::radians(degrees));
 		inTransform.Compose();
@@ -529,7 +574,8 @@ void InspectorWidget::DrawComponent(Transform& inTransform)
 	ImGui::Text("Position ");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-FLT_MIN);
-	ImGui::DragFloat3("##PositionDragFloat3", glm::value_ptr(inTransform.position), 0.001f, -FLT_MAX, FLT_MAX);
+	if (ImGui::DragVec3("##PositionDragFloat3", inTransform.position, 0.001f, -FLT_MAX, FLT_MAX))
+		inTransform.Compose();
 }
 
 
@@ -581,8 +627,17 @@ void InspectorWidget::DrawComponent(NativeScript& inNativeScript)
 
 void InspectorWidget::DrawComponent(DirectionalLight& inDirectionalLight)
 {
-	ImGui::ColorEdit4("Colour", glm::value_ptr(inDirectionalLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
-	ImGui::DragFloat3("Direction", glm::value_ptr(inDirectionalLight.direction), 0.01f, -1.0f, 1.0f);
+	ImGui::AlignTextToFramePadding();
+	ImGui::Text("Colour     ");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(-FLT_MIN);
+	ImGui::ColorEdit4("##Colour", glm::value_ptr(inDirectionalLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+
+	ImGui::AlignTextToFramePadding();
+	ImGui::Text("Direction ");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(-FLT_MIN);
+	ImGui::DragFloat3("##Direction", glm::value_ptr(inDirectionalLight.direction), 0.01f, -1.0f, 1.0f);
 }
 
 }

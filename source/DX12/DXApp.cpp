@@ -107,7 +107,9 @@ DXApp::DXApp() :
 
     Material::Default.gpuAlbedoMap = m_DefaultWhiteTexture.ToIndex();
     Material::Default.gpuNormalMap = m_DefaultNormalTexture.ToIndex();
-    Material::Default.gpuMetallicRoughnessMap = m_DefaultWhiteTexture.ToIndex();
+    Material::Default.gpuEmissiveMap = m_DefaultWhiteTexture.ToIndex();
+    Material::Default.gpuMetallicMap = m_DefaultWhiteTexture.ToIndex();
+    Material::Default.gpuRoughnessMap = m_DefaultWhiteTexture.ToIndex();
 
     // initialize ImGui
     ImGui_ImplSDL2_InitForD3D(m_Window);
@@ -126,6 +128,8 @@ DXApp::DXApp() :
 
     LogMessage(std::format("[CPU] Scene import took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
+    // update transforms here so the bvh gets updated world transform TODO: pls fix
+    m_Scene.UpdateTransforms();
 
     // check for ray-tracing support
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
@@ -458,6 +462,7 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
     if (auto path_trace_pass = m_Renderer.GetRenderGraph().GetPass<PathTraceData>())
     {
         ImGui::Text("Path Trace Settings");
+        ImGui::DragFloat("Alpha", &path_trace_pass->GetData().mAlpha, 0.01f, 0.00001f, 1.0f, "%.5f");
         ImGui::SliderInt("Bounces", (int*)&path_trace_pass->GetData().mBounces, 1, 8);
     }
 
@@ -514,6 +519,13 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
             }
         }
 
+    }
+
+    if (auto compose_pass = m_Renderer.GetRenderGraph().GetPass<ComposeData>())
+    {
+        ImGui::Text("Compose Settings");
+        ImGui::Separator();
+        ImGui::DragFloat("Exposure", &compose_pass->GetData().mExposure, 0.01f, 0.0f, 100.0f, "%.2f");
     }
 
     /*auto debug_textures = std::vector<TextureID>{};

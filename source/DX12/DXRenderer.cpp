@@ -743,7 +743,7 @@ void RenderInterface::UploadMeshBuffers(Mesh& inMesh)
 
 
 
-uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB)
+uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB, uint8_t inSwizzle)
 {
     auto data_ptr = inAsset->GetData();
     const auto header_ptr = inAsset->GetHeader();
@@ -753,12 +753,13 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
 
     auto texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc
     {
-        .format     = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM,
-        .width      = header_ptr->dwWidth,
-        .height     = header_ptr->dwHeight,
-        .mipLevels  = mipmap_levels,
-        .usage      = Texture::SHADER_READ_ONLY,
-        .debugName = debug_name.c_str()
+        .swizzle        = inSwizzle,
+        .format         = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM,
+        .width          = header_ptr->dwWidth,
+        .height         = header_ptr->dwHeight,
+        .mipLevels      = mipmap_levels,
+        .usage          = Texture::SHADER_READ_ONLY,
+        .debugName      = debug_name.c_str()
     }));
 
     auto& cmd_list = m_Renderer.StartSingleSubmit();
@@ -927,10 +928,12 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 .mVertexBuffer       = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
                 .mAlbedoTexture      = material->gpuAlbedoMap,
                 .mNormalTexture      = material->gpuNormalMap,
-                .mMetalRoughTexture  = material->gpuMetallicRoughnessMap,
-                .mAlbedo             = material->albedo,
+                .mEmissiveTexture    = material->gpuEmissiveMap,
+                .mMetallicTexture    = material->gpuMetallicMap,
+                .mRoughnessTexture   = material->gpuRoughnessMap,
                 .mRoughness          = material->roughness,
                 .mMetallic           = material->metallic,
+                .mAlbedo             = material->albedo,
                 .mWorldTransform     = transform.worldTransform,
                 .mInvWorldTransform  = glm::inverse(transform.worldTransform)
             };
@@ -1213,13 +1216,23 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = L"RT_PATH_TRACED"
+            .debugName = L"RT_PATH_TRACE_RESULT"
+        });
+
+        inData.mAccumulationTexture = inRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = L"RT_PATH_TRACE_ACCUMULATION"
         });
 
         inRGBuilder.Write(inData.mOutputTexture);
+        inRGBuilder.Write(inData.mAccumulationTexture);
 
         CD3DX12_SHADER_BYTECODE compute_shader;
-        g_SystemShaders.mRTIndirectDiffuseShader.GetComputeProgram(compute_shader);
+        g_SystemShaders.mRTPathTraceShader.GetComputeProgram(compute_shader);
         auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
 
         gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
@@ -1237,7 +1250,9 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
             .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
             .mDispatchSize = viewport.size,
-            .mResultTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mOutputTexture))
+            .mResultTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mOutputTexture)),
+            .mAccumulationTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mAccumulationTexture)),
+            .mAlpha = inData.mAlpha
         };
 
         inCmdList.PushComputeConstants(root_constants);
@@ -1944,16 +1959,14 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportScissorRect(inRenderGraph.GetViewport());
 
-        const auto root_constants = TAAResolveConstants {
+        inCmdList.PushGraphicsConstants(TAAResolveConstants {
             .mRenderSize      = inRenderGraph.GetViewport().GetSize(),
             .mRenderSizeRcp   = 1.0f / Vec2(inRenderGraph.GetViewport().GetSize()),
             .mColorTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mColorTextureSRV)),
             .mDepthTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mDepthTextureSRV)),
             .mHistoryTexture  = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mHistoryTextureSRV)),
             .mVelocityTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mVelocityTextureSRV))
-        };
-
-        inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
+        });
 
         inCmdList->DrawInstanced(6, 1, 0, 0);
 
@@ -2016,10 +2029,11 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportScissorRect(inRenderGraph.GetViewport());
         
-        struct { uint32_t mInputTexture; } root_constants;
-        root_constants.mInputTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mInputTextureSRV));
-        inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
-        
+        inCmdList.PushGraphicsConstants(ComposeRootConstants {
+            .mExposure = inData.mExposure,
+            .mInputTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mInputTextureSRV))
+         });
+
         inCmdList->DrawInstanced(6, 1, 0, 0);
     });
 }

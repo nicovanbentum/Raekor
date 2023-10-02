@@ -35,7 +35,8 @@ struct RTGeometry
 struct RTMaterial
 {
 	glm::vec4 albedo;
-	glm::ivec4 textures; // texture indices:    x = albedo,    y = normals,   z = metalrough
+	glm::ivec4 textures; // texture indices:    x = albedo,    y = normals,   z = metallic,		w = roughness
+	glm::ivec4 textures2; // texture indices:	x = emissive
 	glm::vec4 properties; // scalar properties: x = metalness, y = roughness
 	glm::vec4 emissive;
 };

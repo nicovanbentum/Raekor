@@ -2,11 +2,7 @@
 #include "include/common.hlsli"
 #include "include/packing.hlsli"
 
-struct RootConstants {
-    uint mInputTexture;
-};
-
-ROOT_CONSTANTS(RootConstants, rc)
+ROOT_CONSTANTS(ComposeRootConstants, rc)
 
 float3 CheapACES(float3 x) {
     const float a = 2.51;
@@ -25,5 +21,5 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     Texture2D input_texture = ResourceDescriptorHeap[rc.mInputTexture];
     float4 src = input_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
     
-    return float4(EncodeGamma(src.rgb), 1.0);
+    return float4(EncodeGamma(src.rgb * rc.mExposure), 1.0);
 }

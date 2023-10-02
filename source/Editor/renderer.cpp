@@ -204,11 +204,14 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     createDefaultMaterialTexture(Material::Default.gpuAlbedoMap, glm::vec4(1.0f));
     setDefaultTextureParams(Material::Default.gpuAlbedoMap);
 
-    createDefaultMaterialTexture(Material::Default.gpuMetallicRoughnessMap, glm::vec4(0.0f, 1.0f, 1.0f, 1.0f));
-    setDefaultTextureParams(Material::Default.gpuMetallicRoughnessMap);
-
     createDefaultMaterialTexture(Material::Default.gpuNormalMap, glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
     setDefaultTextureParams(Material::Default.gpuNormalMap);
+
+    createDefaultMaterialTexture(Material::Default.gpuMetallicMap, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    setDefaultTextureParams(Material::Default.gpuMetallicMap);
+
+    createDefaultMaterialTexture(Material::Default.gpuRoughnessMap, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    setDefaultTextureParams(Material::Default.gpuRoughnessMap);
 }
 
 
@@ -471,17 +474,19 @@ void Renderer::DestroyMaterialTextures(Material& material, Assets& assets)
 {
     glDeleteTextures(1, &material.gpuAlbedoMap);
     glDeleteTextures(1, &material.gpuNormalMap);
-    glDeleteTextures(1, &material.gpuMetallicRoughnessMap);
-    material.gpuAlbedoMap = 0, material.gpuNormalMap = 0, material.gpuMetallicRoughnessMap = 0;
+    glDeleteTextures(1, &material.gpuMetallicMap);
+    glDeleteTextures(1, &material.gpuRoughnessMap);
+    material.gpuAlbedoMap = 0, material.gpuNormalMap = 0, material.gpuRoughnessMap = 0, material.gpuMetallicMap = 0;
 
     assets.Release(material.albedoFile);
     assets.Release(material.normalFile);
-    assets.Release(material.metalroughFile);
+    assets.Release(material.metallicFile);
+    assets.Release(material.roughnessFile);
 }
 
 
 
-GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB)
+GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRGB, uint8_t inSwizzle)
 {
     auto dataPtr = asset->GetData();
     auto headerPtr = asset->GetHeader();
@@ -515,6 +520,14 @@ GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRG
 
     auto texture = 0u;
     glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+
+    constexpr auto gl_swizzle_channels = std::array { GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA };
+    auto swizzle_mask = gl_swizzle_channels;
+
+    for (auto channel = 0u; channel < gl_swizzle_channels.size(); channel++)
+        swizzle_mask[channel] = gl_swizzle_channels[gUnswizzleComponent(inSwizzle, channel)];
+
+    glTextureParameteriv(texture, GL_TEXTURE_SWIZZLE_RGBA, swizzle_mask.data());
 
     glTextureStorage2D(texture, headerPtr->dwMipMapCount, gl_format, headerPtr->dwWidth, headerPtr->dwHeight);
 

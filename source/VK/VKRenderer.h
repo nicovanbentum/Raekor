@@ -30,7 +30,7 @@ public:
 	void Screenshot(const std::string& path);
 	void RecreateSwapchain(SDL_Window* window);
 
-	int32_t UploadTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format);
+	int32_t UploadTexture(Device& device, const TextureAsset::Ptr& asset, VkFormat format, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA);
 
 	void ReloadShaders();
 	void SetSyncInterval(bool interval);

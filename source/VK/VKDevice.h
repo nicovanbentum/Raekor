@@ -67,7 +67,7 @@ public:
     [[nodiscard]] GraphicsPipeline CreateGraphicsPipeline(const GraphicsPipeline::Desc& desc, const FrameBuffer& framebuffer, VkPipelineLayout layout);
     void DestroyGraphicsPipeline(const GraphicsPipeline& pipeline);
     
-    [[nodiscard]] VkImageView CreateView(Texture& texture, uint32_t mipLevel = 0);
+    [[nodiscard]] VkImageView CreateView(Texture& texture, uint8_t swizzle = TEXTURE_SWIZZLE_RGBA, uint32_t mipLevel = 0);
     /* Use vkDestroyImageView or let DestroyTexture clean up the views.*/
 
     [[nodiscard]] VkBufferView CreateView(Buffer& buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize range = VK_WHOLE_SIZE);

@@ -79,9 +79,9 @@
             "Compute Shader File": "assets/system/shaders/DirectX/RTReflectionsCS.hlsl"
         },
 
-        "RT Indirect Diffuse Shader":
+        "RT Path Trace Shader":
         {
-            "Compute Shader File": "assets/system/shaders/DirectX/RTIndirectDiffuseCS.hlsl"
+            "Compute Shader File": "assets/system/shaders/DirectX/PathTraceCS.hlsl"
         },
 
         "RT Ambient Occlusion Shader":

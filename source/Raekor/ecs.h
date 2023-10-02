@@ -221,7 +221,7 @@ public:
 	template<typename Component>
 	const SparseSet<Component>* GetSparseSet() const
 	{
-		if (m_Components.find(gGetRTTI<Component>().GetHash()) == m_Components.end())
+		if (!m_Components.contains(gGetTypeHash<Component>()))
 			m_Components[gGetRTTI<Component>().GetHash()] = new SparseSet<Component>();
 		return m_Components.at(gGetTypeHash<Component>())->GetDerived<Component>();
 	}
@@ -243,7 +243,7 @@ public:
 	template<typename Component>
 	Component& Add(Entity entity)
 	{
-		if (m_Components.find(gGetRTTI<Component>().GetHash()) == m_Components.end())
+		if (!m_Components.contains(gGetTypeHash<Component>()))
 			m_Components[gGetRTTI<Component>().GetHash()] = new SparseSet<Component>();
 
 		return GetSparseSet<Component>()->Insert(entity, Component());
@@ -252,7 +252,7 @@ public:
 	template<typename Component>
 	Component& Add(Entity entity, const Component& inComponent)
 	{
-		if (m_Components.find(gGetRTTI<Component>().GetHash()) == m_Components.end())
+		if (!m_Components.contains(gGetTypeHash<Component>()))
 			m_Components[gGetRTTI<Component>().GetHash()] = new SparseSet<Component>();
 
 		return GetSparseSet<Component>()->Insert(entity, inComponent);
@@ -261,7 +261,6 @@ public:
 	template<typename Component>
 	Component& _GetInternal(Entity entity)
 	{
-		assert(m_Components.contains(gGetTypeHash<Component>()));
 		return GetSparseSet<Component>()->Get(entity);
 	}
 
@@ -370,7 +369,7 @@ public:
 	template<typename Component>
 	void Remove(Entity entity)
 	{
-		if (m_Components.find(RTTI_OF(Component).GetHash()) != m_Components.end())
+		if (m_Components.contains(gGetTypeHash<Component>()))
 			GetSparseSet<Component>()->Remove(entity);
 	}
 

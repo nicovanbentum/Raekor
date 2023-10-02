@@ -122,7 +122,14 @@ void IEditor::OnUpdate(float inDeltaTime)
 
 	// start ImGui
 	GUI::BeginFrame();
-	GUI::BeginDockSpace();
+
+	auto dockspace_flags = ImGuiWindowFlags(ImGuiWindowFlags_None);
+
+	if (auto menubar_widget = m_Widgets.GetWidget<MenubarWidget>())
+		if (menubar_widget->IsOpen())
+			dockspace_flags |= ImGuiWindowFlags_MenuBar;
+
+	GUI::BeginDockSpace(dockspace_flags);
 
 	// draw widgets
 	m_Widgets.Draw(inDeltaTime);

@@ -12,7 +12,8 @@ struct Vertex {
 
 struct Material {
     vec4 albedo;
-    ivec4 textures; // x = albedo, y = normals, z = metalroughness
+    ivec4 textures; // x = albedo, y = normals, z = metallic, w = roughness
+    ivec4 textures2; // x = emissive
     vec4 properties; // x = metallic, y = roughness, z = emissive
     vec4 emissive;
 };

@@ -72,6 +72,7 @@ class Renderer
 private:
     struct Settings
     {
+        int& mEnableImGui = g_CVars.Create("r_enable_imgui",        1);
         int& mEnableVsync = g_CVars.Create("r_vsync",               1);
         int& mDebugLines  = g_CVars.Create("r_debug_lines",         1);
         int& mEnableDDGI  = g_CVars.Create("r_enable_ddgi",         1);
@@ -165,7 +166,7 @@ public:
 
     void DestroyMaterialTextures(Material& inMaterial, Assets& inAssets) override {}
 
-    uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false);
+    uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA);
 
     void OnResize(const Viewport& inViewport);
     void DrawImGui(Scene& inScene, const Viewport& inViewport) {}
@@ -300,8 +301,10 @@ struct PathTraceData
 {
     RTTI_DECLARE_TYPE(PathTraceData);
 
+    float mAlpha = 0.1f;
     uint32_t mBounces = 2;
     RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceID mAccumulationTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -550,6 +553,7 @@ struct ComposeData
 {
     RTTI_DECLARE_TYPE(ComposeData);
 
+    float mExposure = 1.0f;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mInputTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;

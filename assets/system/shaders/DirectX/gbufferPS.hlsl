@@ -24,11 +24,14 @@ PS_OUTPUT main(in VS_OUTPUT input) {
 
     Texture2D<float4> albedo_texture = ResourceDescriptorHeap[rc.mAlbedoTexture];
     Texture2D<float4> normal_texture = ResourceDescriptorHeap[rc.mNormalTexture];
-    Texture2D<float4> material_texture = ResourceDescriptorHeap[rc.mMetalRoughTexture];
+    Texture2D<float4> emissive_texture = ResourceDescriptorHeap[rc.mEmissiveTexture];
+    Texture2D<float4> metallic_texture = ResourceDescriptorHeap[rc.mMetallicTexture];
+    Texture2D<float4> roughness_texture = ResourceDescriptorHeap[rc.mRoughnessTexture];
     
     float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
     float4 sampled_normal = normal_texture.Sample(SamplerAnisoWrap, input.texcoord);
-    float4 sampled_material = material_texture.Sample(SamplerAnisoWrap, input.texcoord);
+    float sampled_metallic = metallic_texture.Sample(SamplerAnisoWrap, input.texcoord).r;
+    float sampled_roughness = roughness_texture.Sample(SamplerAnisoWrap, input.texcoord).r;
     
     FrameConstants fc = gGetFrameConstants();
 
@@ -37,8 +40,8 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     // normal = normalize(input.normal);
 
     float4 albedo = rc.mAlbedo * sampled_albedo;
-    float metalness = rc.mMetallic * sampled_material.b;
-    float roughness = rc.mRoughness * sampled_material.g;
+    float metalness = rc.mMetallic * sampled_metallic;
+    float roughness = rc.mRoughness * sampled_roughness;
     
     uint4 packed = uint4(0, 0, 0, 0);
     PackAlbedo(albedo, packed);

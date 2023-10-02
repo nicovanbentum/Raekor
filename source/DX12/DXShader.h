@@ -105,7 +105,7 @@ struct SystemShadersDX12 : public IResource
 
     ShaderProgram mRTShadowsShader;
     ShaderProgram mRTReflectionsShader;
-    ShaderProgram mRTIndirectDiffuseShader;
+    ShaderProgram mRTPathTraceShader;
     ShaderProgram mRTAmbientOcclusionShader;
 
     ShaderProgram mGBufferDebugDepthShader;

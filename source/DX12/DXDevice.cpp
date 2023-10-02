@@ -572,10 +572,12 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
         {
             if (inDesc.viewDesc == nullptr)
             {
+                const auto [r, g, b, a] = gUnswizzleComponents(inDesc.swizzle);
+
                 D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
                 srv_desc.Format = gGetDepthFormatSRV(texture.m_Desc.format);
                 srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-                srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                srv_desc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r, g, b, a);
                 srv_desc.Texture2D.MipLevels = -1;
 
                 texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, &srv_desc);

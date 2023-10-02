@@ -86,7 +86,9 @@ Surface getSurface(Instance instance, Vertex vertex) {
 
     int albedoIndex = material.textures.x;
     int normalIndex = material.textures.y;
-    int metalRoughIndex = material.textures.z;
+    int metallicIndex = material.textures.z;
+    int roughnessIndex = material.textures.w;
+    int emissiveIndex = material.textures2.x;
 
     if(albedoIndex > -1) {
         surface.albedo *= texture(textures[albedoIndex], vertex.uv);
@@ -96,10 +98,19 @@ Surface getSurface(Instance instance, Vertex vertex) {
         surface.shadingNormal = getNormalFromTexture(instance, vertex, texture(textures[normalIndex], vertex.uv));
     }
 
-    if(metalRoughIndex > -1) {
-        vec4 sampledMetallicRoughness = texture(textures[metalRoughIndex], vertex.uv);
-        surface.metallic *= sampledMetallicRoughness.b;
-        surface.roughness *= sampledMetallicRoughness.g;
+    if(metallicIndex > -1) {
+        vec4 sampled_metallic = texture(textures[metallicIndex], vertex.uv);
+        surface.metallic *= sampled_metallic.r;
+    }
+
+    if(roughnessIndex > -1) {
+        vec4 sampled_roughness = texture(textures[roughnessIndex], vertex.uv);
+        surface.roughness *= sampled_roughness.r;
+    }
+
+    if(emissiveIndex > -1) {
+        vec4 sampled_emissive = texture(textures[emissiveIndex], vertex.uv);
+        surface.emissive *= sampled_emissive.rgb;
     }
 
     // flip the normal incase we hit a backface
@@ -213,7 +224,7 @@ vec3 BRDF_Sample(Surface surface, vec3 Wo, out vec3 Wi, out vec3 weight) {
     const float rand = pcg_float(payload.rng);
 
     // randomly decide to specular bounce
-    if (rand > 0.5 && surface.roughness < 0.5) {
+    if (rand > 0.5 && surface.roughness < 0.67) {
         // Importance sample the specular lobe using UE4's example to get the half vector
         if (surface.roughness == 0.0)
             Wh = surface.shadingNormal; // roughness 0 is a perfect reflection, so we can just reflect around the normal
