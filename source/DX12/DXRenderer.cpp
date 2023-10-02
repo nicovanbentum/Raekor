@@ -56,14 +56,14 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData))
     {
-        auto rtv_resource = ResourceRef {};
+        auto rtv_resource = D3D12ResourceRef(nullptr);
         gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
         backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{.usage = Texture::Usage::RENDER_TARGET });
 
-        backbuffer_data.mDirectCmdList = CommandList(inDevice);
+        backbuffer_data.mDirectCmdList = CommandList(inDevice, index);
         backbuffer_data.mDirectCmdList->SetName(L"Raekor::DX12::CommandList(DIRECT)");
 
-        backbuffer_data.mCopyCmdList = CommandList(inDevice);
+        backbuffer_data.mCopyCmdList = CommandList(inDevice, index);
         backbuffer_data.mCopyCmdList->SetName(L"Raekor::DX12::CommandList(COPY)");
 
         rtv_resource->SetName(L"BACKBUFFER");
@@ -107,7 +107,7 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData))
     {
-        auto rtv_resource = ResourceRef(nullptr);
+        auto rtv_resource = D3D12ResourceRef(nullptr);
         gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
 
         backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{.usage = Texture::Usage::RENDER_TARGET });
@@ -150,10 +150,10 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
         // Make sure nothing is using render targets anymore
         WaitForIdle(inDevice);
 
-        // Resize the renderer, which recreates the swapchain backbuffers and re-inits FSR2
+        // Resize the renderer, which recreates the swapchain backbuffers and re-inits upscalers
         OnResize(inDevice, inViewport, SDL_IsWindowExclusiveFullscreen(m_Window));
 
-        // Recompile the renderer, probably a bit overkill. TODO: pls fix
+        // Recompile the renderer, super overkill and leaks memory. TODO: pls fix
         Recompile(inDevice, inScene, inRenderInterface);
 
         // Unflag
@@ -179,10 +179,17 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
         }
     }
 
+    // at this point we know the GPU is no longer working on this frame, so free/release stuff here
+    BackBufferData& backbuffer_data = GetBackBufferData();
+    inStagingHeap.RetireBuffers(backbuffer_data.mCopyCmdList);
+    inStagingHeap.RetireBuffers(backbuffer_data.mDirectCmdList);
+    backbuffer_data.mCopyCmdList.ReleaseTrackedResources();
+    backbuffer_data.mDirectCmdList.ReleaseTrackedResources();
+
     // Update the total running time of the application / renderer
     m_ElapsedTime += inDeltaTime;
 
-    // Calculate a jittered projection matrix for FSR2
+    // Calculate a jittered projection matrix for TAA/FSR/DLSS/XESS
     const auto& camera = m_RenderGraph.GetViewport().GetCamera();
     const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(m_RenderGraph.GetViewport().size.x, m_RenderGraph.GetViewport().size.x);
 
@@ -218,18 +225,17 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
         m_FrameConstants.mPrevViewProjectionMatrix = m_FrameConstants.mViewProjectionMatrix;
     }
 
+    // TODO: instead of updating this every frame, make these buffers global?
     if (auto debug_lines_pass = m_RenderGraph.GetPass<DebugLinesData>())
     {
         m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mVertexBuffer));
         m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mIndirectArgsBuffer));
     }
 
+    // memcpy the frame constants into upload memory
     m_RenderGraph.GetPerFrameAllocator().AllocAndCopy(m_FrameConstants, m_RenderGraph.GetPerFrameAllocatorOffset());
 
-    // Update any per pass data here, before executing the render graph
-    //if (auto fsr_pass = m_RenderGraph.GetPass<FSR2Data>())
-    //    fsr_pass->GetData().mDeltaTime = inDeltaTime;
-
+    // handle PIX capture requests
     if (m_ShouldCaptureNextFrame)
     {
         PIXCaptureParameters capture_params = {};
@@ -243,9 +249,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
 
     //// Record copy commands to the copy cmd list
     // TODO: StagingBuffer leaks and ReleaseBuffer/ReleaseTexture needs frame tracking
-    /*inScene.UploadInstances(inApp, inDevice, inStagingHeap, copy_cmd_list);
+    inScene.UploadInstances(inApp, inDevice, inStagingHeap, copy_cmd_list);
     inScene.UploadMaterials(inApp, inDevice, inStagingHeap, copy_cmd_list);
-    inScene.UploadTLAS(inApp, inDevice, inStagingHeap, copy_cmd_list);*/
+    inScene.UploadTLAS(inApp, inDevice, inStagingHeap, copy_cmd_list);
 
     //// Submit all copy commands
     copy_cmd_list.Close();
@@ -266,19 +272,19 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     // Run command list execution and present in a job so it can overlap a bit with the start of the next frame
     //m_PresentJobPtr = Async::sQueueJob([&inDevice, this]() {
         // submit all graphics commands 
-    direct_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
+        direct_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
 
-    auto sync_interval = m_Settings.mEnableVsync;
-    auto present_flags = 0u;
+        auto sync_interval = m_Settings.mEnableVsync;
+        auto present_flags = 0u;
 
-    if (!m_Settings.mEnableVsync && inDevice.IsTearingSupported())
-        present_flags = DXGI_PRESENT_ALLOW_TEARING;
+        if (!m_Settings.mEnableVsync && inDevice.IsTearingSupported())
+            present_flags = DXGI_PRESENT_ALLOW_TEARING;
 
-    gThrowIfFailed(m_Swapchain->Present(sync_interval, present_flags));
+        gThrowIfFailed(m_Swapchain->Present(sync_interval, present_flags));
 
-    GetBackBufferData().mFenceValue++;
-    m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
-    gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), GetBackBufferData().mFenceValue));
+        GetBackBufferData().mFenceValue++;
+        m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
+        gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), GetBackBufferData().mFenceValue));
     //});
 
     m_FrameCounter++;
@@ -597,6 +603,14 @@ RenderInterface::RenderInterface(Device& inDevice, Renderer& inRenderer, const R
 
 
 
+void RenderInterface::UpdateGPUStats(Device& inDevice)
+{
+    m_GPUStats.mLiveBuffers.store(inDevice.GetBufferPool().GetSize());
+    m_GPUStats.mLiveTextures.store(inDevice.GetTexturePool().GetSize());
+}
+
+
+
 uint64_t RenderInterface::GetDisplayTexture()
 {
     if (auto pre_imgui_pass = m_Renderer.GetRenderGraph().GetPass<PreImGuiData>())
@@ -718,8 +732,8 @@ void RenderInterface::UploadMeshBuffers(Mesh& inMesh)
         const auto& gpu_index_buffer = m_Device.GetBuffer(BufferID(inMesh.indexBuffer));
         const auto& gpu_vertex_buffer = m_Device.GetBuffer(BufferID(inMesh.vertexBuffer));
 
-        m_StagingHeap.StageBuffer(cmd_list, gpu_index_buffer.GetResource(), 0, inMesh.indices.data(), indices_size);
-        m_StagingHeap.StageBuffer(cmd_list, gpu_vertex_buffer.GetResource(), 0, vertices.data(), vertices_size);
+        m_StagingHeap.StageBuffer(cmd_list, gpu_index_buffer.GetD3D12Resource(), 0, inMesh.indices.data(), indices_size);
+        m_StagingHeap.StageBuffer(cmd_list, gpu_vertex_buffer.GetD3D12Resource(), 0, vertices.data(), vertices_size);
     }
 
     {
@@ -727,8 +741,8 @@ void RenderInterface::UploadMeshBuffers(Mesh& inMesh)
         const auto& gpu_vertex_buffer = m_Device.GetBuffer(BufferID(inMesh.vertexBuffer));
 
         const auto barriers = std::array {
-            CD3DX12_RESOURCE_BARRIER::Transition(gpu_index_buffer.GetResource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
-            CD3DX12_RESOURCE_BARRIER::Transition(gpu_vertex_buffer.GetResource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
+            CD3DX12_RESOURCE_BARRIER::Transition(gpu_index_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
+            CD3DX12_RESOURCE_BARRIER::Transition(gpu_vertex_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
         };
 
         cmd_list->ResourceBarrier(barriers.size(), barriers.data());
@@ -768,7 +782,7 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     {
         const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
 
-        m_StagingHeap.StageTexture(cmd_list, texture.GetResource(), mip, data_ptr);
+        m_StagingHeap.StageTexture(cmd_list, texture.GetD3D12Resource(), mip, data_ptr);
 
         data_ptr += dimensions.x * dimensions.y;
     }
@@ -893,7 +907,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
     [&inRenderGraph, &inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         const auto& viewport = inRenderGraph.GetViewport();
-        inCmdList.SetViewportScissorRect(viewport);
+        inCmdList.SetViewportAndScissor(viewport);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
 
         const auto clear_color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -1002,16 +1016,14 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 
     [&inRenderGraph, &inDevice](GBufferDebugData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        const auto root_constants = GbufferDebugRootConstants
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
+        inCmdList.PushGraphicsConstants(GbufferDebugRootConstants
         {
             .mTexture   = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mInputTextureSRV)),
             .mFarPlane  = inRenderGraph.GetViewport().GetCamera().GetFar(),
             .mNearPlane = inRenderGraph.GetViewport().GetCamera().GetNear(),
-        };
-
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList.SetViewportScissorRect(inRenderGraph.GetViewport());
-        inCmdList.PushGraphicsConstants(root_constants);
+        });
         inCmdList->DrawInstanced(6, 1, 0, 0);
     });
 }
@@ -1049,16 +1061,15 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        const auto root_constants = ShadowMaskRootConstants
+        inCmdList.PushComputeConstants(ShadowMaskRootConstants
         {
             .mShadowMaskTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture)),
             .mGbufferDepthTexture  = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mGbufferDepthTextureSRV)),
             .mGbufferRenderTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mGBufferRenderTextureSRV)),
             .mTLAS                 = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
             .mDispatchSize         = viewport.size
-        };
+        });
 
-        inCmdList->SetComputeRoot32BitConstants(0, sizeof(ShadowMaskRootConstants) / sizeof(DWORD), &root_constants, 0);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
@@ -1096,7 +1107,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        const auto root_constants = AmbientOcclusionRootConstants
+        inCmdList.PushComputeConstants(AmbientOcclusionRootConstants
         {
             .mParams                = inData.mParams,
             .mAOmaskTexture         = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
@@ -1104,9 +1115,8 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
             .mGbufferRenderTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferRenderTextureSRV)),
             .mTLAS                  = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
             .mDispatchSize          = viewport.size
-        };
+        });
 
-        inCmdList.PushComputeConstants(root_constants);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
@@ -1187,7 +1197,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        const auto root_constants = ReflectionsRootConstants {
+        inCmdList.PushComputeConstants(ReflectionsRootConstants {
             .mTLAS                  = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
             .mInstancesBuffer       = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
             .mMaterialsBuffer       = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
@@ -1195,9 +1205,8 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
             .mGbufferDepthTexture   = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGBufferDepthTextureSRV)),
             .mGbufferRenderTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mGbufferRenderTextureSRV)),
             .mDispatchSize          = viewport.size
-        };
+        });
 
-        inCmdList->SetComputeRoot32BitConstants(0, sizeof(ReflectionsRootConstants) / sizeof(DWORD), &root_constants, 0);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
@@ -1243,19 +1252,18 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        const auto root_constants = PathTraceRootConstants
+        inCmdList.PushComputeConstants(PathTraceRootConstants
         {
-            .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
-            .mBounces = inData.mBounces,
-            .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
-            .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
-            .mDispatchSize = viewport.size,
-            .mResultTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mOutputTexture)),
-            .mAccumulationTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mAccumulationTexture)),
-            .mAlpha = inData.mAlpha
-        };
+            .mTLAS                  = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
+            .mBounces               = inData.mBounces,
+            .mInstancesBuffer       = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
+            .mMaterialsBuffer       = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
+            .mDispatchSize          = viewport.size,
+            .mResultTexture         = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mOutputTexture)),
+            .mAccumulationTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mAccumulationTexture)),
+            .mAlpha                 = inData.mAlpha
+        });
 
-        inCmdList.PushComputeConstants(root_constants);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
@@ -1334,14 +1342,14 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
         if (first_run)
         {
-            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetResource().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
 
             inCmdList->ResourceBarrier(1, &barrier);
 
             const auto param = D3D12_WRITEBUFFERIMMEDIATE_PARAMETER { .Dest = atomic_buffer->GetGPUVirtualAddress(), .Value = 0 };
             inCmdList->WriteBufferImmediate(1, &param, nullptr);
 
-            barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetResource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+            barrier = CD3DX12_RESOURCE_BARRIER::Transition(atomic_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
             inCmdList->ResourceBarrier(1, &barrier);
 
             first_run = false;
@@ -1413,7 +1421,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
         inData.mDDGIData.mRaysDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mRaysDepthTexture));
         inData.mDDGIData.mRaysIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mRaysIrradianceTexture));
 
-        auto constants = ProbeTraceRootConstants
+        inCmdList.PushComputeConstants(ProbeTraceRootConstants
         {
             .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
             .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
@@ -1421,11 +1429,10 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             .mDebugProbeIndex = Index3Dto1D(inData.mDebugProbe, inData.mDDGIData.mProbeCount),
             .mDDGIData = inData.mDDGIData,
             .mRandomRotationMatrix = inData.mRandomRotationMatrix
-        };
+        });
 
         const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
 
-        inCmdList.PushComputeConstants(constants);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList->Dispatch(DDGI_RAYS_PER_PROBE / DDGI_WAVE_SIZE, total_probe_count, 1);
     });
@@ -1488,19 +1495,17 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
 
     [&inDevice, &inTraceData](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        inData.mDDGIData = inTraceData.mDDGIData;
-        inData.mDDGIData.mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mProbesDepthTexture));
-        inData.mDDGIData.mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
-        inData.mDDGIData.mRaysDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysDepthTextureSRV));
-        inData.mDDGIData.mRaysIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysIrradianceTextureSRV));
+        inData.mDDGIData                            = inTraceData.mDDGIData;
+        inData.mDDGIData.mRaysDepthTexture          = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysDepthTextureSRV));
+        inData.mDDGIData.mProbesDepthTexture        = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mProbesDepthTexture));
+        inData.mDDGIData.mRaysIrradianceTexture     = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysIrradianceTextureSRV));
+        inData.mDDGIData.mProbesIrradianceTexture   = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
 
-        const auto root_constants = ProbeUpdateRootConstants
+        inCmdList.PushComputeConstants(ProbeUpdateRootConstants
         {
             .mDDGIData = inData.mDDGIData,
             .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix
-        };
-
-        inCmdList.PushComputeConstants(root_constants);
+        });
 
         //inCmdList->SetPipelineState(inData.mDepthPipeline.Get());
         //const auto depth_texture = inDevice.GetTexture(inData.mProbesDepthTexture.mCreatedTexture);
@@ -1576,18 +1581,18 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 
     [&inRenderGraph, &inDevice, &inUpdateData](ProbeDebugData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        const auto& viewport = inRenderGraph.GetViewport();
-        inCmdList.SetViewportScissorRect(viewport);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
 
         inData.mDDGIData = inUpdateData.mDDGIData;
         inData.mDDGIData.mProbesDepthTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesDepthTextureSRV));
         inData.mDDGIData.mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureSRV));
-
-        const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
-
+        
         inCmdList.PushGraphicsConstants(inData.mDDGIData);
+
         inCmdList.BindVertexAndIndexBuffers(inDevice, inData.mProbeMesh);
+        
+        const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
         inCmdList->DrawIndexedInstanced(inData.mProbeMesh.indices.size(), total_probe_count, 0, 0, 0);
     });
 }
@@ -1742,7 +1747,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         root_constants.mDDGIData.mProbesIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mProbesIrradianceTextureSRV));
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList.SetViewportScissorRect(inRenderGraph.GetViewport());
+        inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
         inCmdList.PushGraphicsConstants(root_constants);
         inCmdList->DrawInstanced(6, 1, 0, 0);
     });
@@ -1957,7 +1962,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
     [&inRenderGraph, &inDevice](TAAResolveData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList.SetViewportScissorRect(inRenderGraph.GetViewport());
+        inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
 
         inCmdList.PushGraphicsConstants(TAAResolveConstants {
             .mRenderSize      = inRenderGraph.GetViewport().GetSize(),
@@ -2027,7 +2032,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
     [&inRenderGraph, &inDevice](ComposeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList.SetViewportScissorRect(inRenderGraph.GetViewport());
+        inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
         
         inCmdList.PushGraphicsConstants(ComposeRootConstants {
             .mExposure = inData.mExposure,
@@ -2179,8 +2184,8 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
         auto nr_of_barriers = 0;
         auto barriers = std::array
         {
-            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mIndexBuffer).GetResource().Get(), D3D12_RESOURCE_STATE_INDEX_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST)),
-                D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mVertexBuffer).GetResource().Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST))
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mIndexBuffer).GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_INDEX_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST)),
+                D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mVertexBuffer).GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST))
         };
 
         if (index_buffer_size) nr_of_barriers++;
@@ -2190,10 +2195,10 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
             inCmdList->ResourceBarrier(nr_of_barriers, barriers.data());
 
         if (vertex_buffer_size)
-            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mVertexBuffer).GetResource(), 0, inData.mVertexScratchBuffer.data(), vertex_buffer_size);
+            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mVertexBuffer).GetD3D12Resource(), 0, inData.mVertexScratchBuffer.data(), vertex_buffer_size);
 
         if (index_buffer_size)
-            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mIndexBuffer).GetResource(), 0, inData.mIndexScratchBuffer.data(), index_buffer_size);
+            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mIndexBuffer).GetD3D12Resource(), 0, inData.mIndexScratchBuffer.data(), index_buffer_size);
 
         if (nr_of_barriers)
         {
@@ -2306,7 +2311,7 @@ void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCm
         inCmdList->ResourceBarrier(1, &backbuffer_barrier);
     }
 
-    const auto bb_viewport = CD3DX12_VIEWPORT(inDevice.GetTexture(inBackBuffer).GetResource().Get());
+    const auto bb_viewport = CD3DX12_VIEWPORT(inDevice.GetTexture(inBackBuffer).GetD3D12Resource().Get());
     const auto bb_scissor = CD3DX12_RECT(bb_viewport.TopLeftX, bb_viewport.TopLeftY, bb_viewport.Width, bb_viewport.Height);
 
     inCmdList->RSSetViewports(1, &bb_viewport);

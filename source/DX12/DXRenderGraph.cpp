@@ -285,7 +285,7 @@ ResourceID RenderGraphResources::GetResourceView(RenderGraphResourceViewID inRes
 
 bool IRenderPass::IsCreated(RenderGraphResourceID inResource) const
 {
-    for (const auto& resource : m_CreatedResources)
+    for (RenderGraphResourceID resource : m_CreatedResources)
         if (resource == inResource)
             return true;
     return false;
@@ -295,7 +295,7 @@ bool IRenderPass::IsCreated(RenderGraphResourceID inResource) const
 
 bool IRenderPass::IsRead(RenderGraphResourceViewID inResource) const
 {
-    for (const auto& resource : m_ReadResources)
+    for (RenderGraphResourceViewID resource : m_ReadResources)
         if (resource == inResource)
             return true;
     return false;
@@ -305,7 +305,7 @@ bool IRenderPass::IsRead(RenderGraphResourceViewID inResource) const
 
 bool IRenderPass::IsWritten(RenderGraphResourceViewID inResource) const
 {
-    for (const auto& resource : m_WrittenResources)
+    for (RenderGraphResourceViewID resource : m_WrittenResources)
         if (resource == inResource)
             return true;
     return false;

@@ -88,7 +88,7 @@ DXApp::DXApp() :
     {
         auto& cmd_list = m_Renderer.StartSingleSubmit();
 
-        m_StagingHeap.StageTexture(cmd_list, m_Device.GetTexture(bluenoise_texture).GetResource(), 0, blue_noise_samples.data());
+        m_StagingHeap.StageTexture(cmd_list, m_Device.GetTexture(bluenoise_texture).GetD3D12Resource(), 0, blue_noise_samples.data());
 
         m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
     }
@@ -193,6 +193,8 @@ void DXApp::OnUpdate(float inDeltaTime)
 {
     IEditor::OnUpdate(inDeltaTime);
 
+    m_RenderInterface.UpdateGPUStats(m_Device);
+
     m_Renderer.OnRender(this, m_Device, m_Viewport, m_RayTracedScene, m_StagingHeap, GetRenderInterface(), inDeltaTime);
 }
 
@@ -273,7 +275,7 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
 
             .Destination = DSTORAGE_DESTINATION {
                 .Texture = DSTORAGE_DESTINATION_TEXTURE_REGION {
-                    .Resource = texture.GetResource().Get(),
+                    .Resource = texture.GetD3D12Resource().Get(),
                     .SubresourceIndex = uint32_t(mip),
                     .Region = CD3DX12_BOX(0, 0, dimensions.x, dimensions.y),
                 }
@@ -547,7 +549,7 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
     texture_index = glm::min(texture_index, int(debug_textures.size() -1 ));
 
     for (auto [index, texture] : gEnumerate(debug_textures)) {
-        texture_strs[index] = gGetDebugName(m_Device.GetTexture(texture).GetResource().Get());
+        texture_strs[index] = gGetDebugName(m_Device.GetTexture(texture).GetD3D12Resource().Get());
         texture_cstrs[index] = texture_strs[index].c_str();
     }
 

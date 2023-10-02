@@ -22,7 +22,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	auto& physics = IWidget::GetPhysics();
 	auto& viewport = m_Editor->GetViewport();
 
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2, 2));
 	const auto flags = ImGuiWindowFlags_AlwaysAutoResize |
 		ImGuiWindowFlags_NoScrollWithMouse |
 		ImGuiWindowFlags_NoScrollbar;
@@ -31,113 +31,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	m_Visible = ImGui::Begin(m_Title.c_str(), &m_Open, flags);
 	m_Editor->GetRenderInterface()->GetSettings().paused = !m_Visible;
 
-	auto DrawGizmoButton = [&](const char* inLabel, ImGuizmo::OPERATION inOperation)
-	{
-		const auto is_selected = (operation == inOperation) && gizmoEnabled;
-
-		if (is_selected)
-			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
-
-		if (ImGui::Button(inLabel))
-		{
-			if (operation == inOperation)
-				gizmoEnabled = !gizmoEnabled;
-			else
-			{
-				operation = inOperation;
-				gizmoEnabled = true;
-			}
-		}
-
-		if (is_selected)
-			ImGui::PopStyleColor();
-	};
-
-	ImGui::Checkbox("Gizmo", &gizmoEnabled);
-	ImGui::SameLine();
-
-	DrawGizmoButton((const char*)ICON_FA_ARROWS_ALT, ImGuizmo::OPERATION::TRANSLATE);
-	ImGui::SameLine();
-	DrawGizmoButton((const char*)ICON_FA_SYNC_ALT, ImGuizmo::OPERATION::ROTATE);
-	ImGui::SameLine();
-	DrawGizmoButton((const char*)ICON_FA_EXPAND_ARROWS_ALT, ImGuizmo::OPERATION::SCALE);
-
-	ImGui::SameLine();
-	ImGui::SetCursorPosX(( ImGui::GetContentRegionAvail().x / 2 ));
-
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0,0,0,0));
-	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
-	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-
-	if (ImGui::Button((const char*)ICON_FA_HAMMER)) {}
-
-	ImGui::SameLine();
-
-	const auto physics_state = GetPhysics().GetState();
-	ImGui::PushStyleColor(ImGuiCol_Text, GetPhysics().GetStateColor());
-	if (ImGui::Button(physics_state == Physics::Stepping ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY))
-	{
-		switch (physics_state)
-		{
-			case Physics::Idle:
-			{
-				GetPhysics().SaveState();
-				GetPhysics().SetState(Physics::Stepping);
-			} break;
-			case Physics::Paused:
-			{
-				GetPhysics().SetState(Physics::Stepping);
-			} break;
-			case Physics::Stepping:
-			{
-				GetPhysics().SetState(Physics::Paused);
-			} break;
-		}
-	}
-
-	ImGui::PopStyleColor();
-	ImGui::SameLine();
-
-	const auto current_physics_state = physics_state;
-	if (current_physics_state != Physics::Idle)
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
-
-	if (ImGui::Button((const char*)ICON_FA_STOP))
-	{
-		if (physics_state != Physics::Idle)
-		{
-			GetPhysics().RestoreState();
-			GetPhysics().Step(scene, inDeltaTime); // Step once to trigger the restored state
-			GetPhysics().SetState(Physics::Idle);
-		}
-	}
-
-	if (current_physics_state != Physics::Idle)
-		ImGui::PopStyleColor();
-
-	ImGui::PopStyleVar();
-	ImGui::PopStyleColor();
-	ImGui::PopStyleColor();
-
-	ImGui::SameLine(ImGui::GetContentRegionAvail().x - 256.0f);
-
-	auto& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
-	const auto debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
-	const auto preview = std::string("Render Output: " + std::string(m_Editor->GetRenderInterface()->GetDebugTextureName(current_debug_texture))); // allocs, BLEH TODO: FIXME
-
-	if (ImGui::BeginCombo("##RenderTarget", preview.c_str()))
-	{
-		for (auto texture_idx = 0u; texture_idx < debug_texture_count; texture_idx++)
-		{
-			if (ImGui::Selectable(m_Editor->GetRenderInterface()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx))
-			{
-				current_debug_texture = texture_idx;
-				m_Editor->GetRenderInterface()->OnResize(viewport); // not an actual resize, just to recreate render targets
-			}
-		}
-
-		ImGui::EndCombo();
-	}
+	auto pre_scene_cursor_pos = ImGui::GetCursorPos();
 
 	// figure out if we need to resize the viewport
 	auto size = ImGui::GetContentRegionAvail();
@@ -312,27 +206,131 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		if (!dock_node->IsHiddenTabBar())
 			metricsPosition.y += 25.0f;
 
+	ImGui::SetCursorPos(pre_scene_cursor_pos + ImGui::GetStyle().FramePadding * 2.0f);
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
+
+	auto DrawGizmoButton = [&](const char* inLabel, ImGuizmo::OPERATION inOperation)
+	{
+		const auto is_selected = ( operation == inOperation ) && gizmoEnabled;
+
+		if (is_selected)
+			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
+
+		if (ImGui::Button(inLabel))
+		{
+			if (operation == inOperation)
+				gizmoEnabled = !gizmoEnabled;
+			else
+			{
+				operation = inOperation;
+				gizmoEnabled = true;
+			}
+		}
+
+		if (is_selected)
+			ImGui::PopStyleColor();
+	};
+
+	/*ImGui::Checkbox("Gizmo", &gizmoEnabled);
+	ImGui::SameLine();*/
+
+	DrawGizmoButton((const char*)ICON_FA_ARROWS_ALT, ImGuizmo::OPERATION::TRANSLATE);
+	ImGui::SameLine();
+	DrawGizmoButton((const char*)ICON_FA_SYNC_ALT, ImGuizmo::OPERATION::ROTATE);
+	ImGui::SameLine();
+	DrawGizmoButton((const char*)ICON_FA_EXPAND_ARROWS_ALT, ImGuizmo::OPERATION::SCALE);
+
+	ImGui::SameLine();
+	ImGui::SetCursorPosX(( ImGui::GetContentRegionAvail().x / 2 ));
+
+	if (ImGui::Button((const char*)ICON_FA_HAMMER)) {}
+
+	ImGui::SameLine();
+
+	const auto physics_state = GetPhysics().GetState();
+	ImGui::PushStyleColor(ImGuiCol_Text, GetPhysics().GetStateColor());
+	if (ImGui::Button(physics_state == Physics::Stepping ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY))
+	{
+		switch (physics_state)
+		{
+			case Physics::Idle:
+			{
+				GetPhysics().SaveState();
+				GetPhysics().SetState(Physics::Stepping);
+			} break;
+			case Physics::Paused:
+			{
+				GetPhysics().SetState(Physics::Stepping);
+			} break;
+			case Physics::Stepping:
+			{
+				GetPhysics().SetState(Physics::Paused);
+			} break;
+		}
+	}
+
+	ImGui::PopStyleColor();
+	ImGui::SameLine();
+
+	const auto current_physics_state = physics_state;
+	if (current_physics_state != Physics::Idle)
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+	if (ImGui::Button((const char*)ICON_FA_STOP))
+	{
+		if (physics_state != Physics::Idle)
+		{
+			GetPhysics().RestoreState();
+			GetPhysics().Step(scene, inDeltaTime); // Step once to trigger the restored state
+			GetPhysics().SetState(Physics::Idle);
+		}
+	}
+
+	if (current_physics_state != Physics::Idle)
+		ImGui::PopStyleColor();
+
+	ImGui::SameLine(ImGui::GetContentRegionAvail().x - 256.0f);
+
+	auto& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
+	const auto debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
+	const auto preview = std::string("Render Output: " + std::string(m_Editor->GetRenderInterface()->GetDebugTextureName(current_debug_texture))); // allocs, BLEH TODO: FIXME
+	
+	ImGui::PopStyleColor();
+
+	if (ImGui::BeginCombo("##RenderTarget", preview.c_str()))
+	{
+		for (auto texture_idx = 0u; texture_idx < debug_texture_count; texture_idx++)
+		{
+			if (ImGui::Selectable(m_Editor->GetRenderInterface()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx))
+			{
+				current_debug_texture = texture_idx;
+				m_Editor->GetRenderInterface()->OnResize(viewport); // not an actual resize, just to recreate render targets
+			}
+		}
+
+		ImGui::EndCombo();
+	}
+
 	ImGui::End();
 	ImGui::PopStyleVar();
 
 	if (m_Visible)
 	{
-		ImGui::SetNextWindowPos(metricsPosition);
-		ImGui::SetNextWindowBgAlpha(0.35f);
+		ImGui::SetNextWindowPos(metricsPosition + ImVec2(size.x - 260.0f, 0.0f));
+		ImGui::SetNextWindowBgAlpha(0.0f);
 
 		const auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
 		ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
 		// ImGui::Text("Culled meshes: %i", renderer.m_GBuffer->culled);
 		const auto& gpu_info = m_Editor->GetRenderInterface()->GetGPUInfo();
 
-		ImGui::Text("Vendor: %s", gpu_info.mVendor.c_str());
-		ImGui::Text("Product: %s", gpu_info.mProduct.c_str());
-
+		ImGui::Text("Buffers: %i", GetRenderInterface().GetGPUStats().mLiveBuffers.load());
+		ImGui::Text("Textures: %i", GetRenderInterface().GetGPUStats().mLiveTextures.load());
 		ImGui::Text("Draw calls: %i", GetScene().Count<Mesh>());
 		ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
 		ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
-		ImGui::Text("Graphics API: %s", gpu_info.mActiveAPI.c_str());
 		ImGui::End();
 	}
 

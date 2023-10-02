@@ -36,10 +36,15 @@ public:
     uint32_t GetMaterialIndex(Entity inEntity);
 
 private:
+    BufferID GrowBuffer(Device& inDevice, BufferID inBuffer, const Buffer::Desc& inDesc);
+
+private:
     Scene& m_Scene;
     BufferID m_TLASBuffer;
-    BufferID m_InstancesBuffer;
+    BufferID m_ScratchBuffer;
     BufferID m_MaterialsBuffer;
+    BufferID m_InstancesBuffer;
+    BufferID m_D3D12InstancesBuffer;
 };
 
 }

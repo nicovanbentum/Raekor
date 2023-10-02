@@ -11,7 +11,7 @@ class CommandList
 {
 public:
     CommandList() = default;
-    CommandList(Device& inDevice);
+    CommandList(Device& inDevice, uint32_t inFrameIndex);
 
     operator ID3D12GraphicsCommandList* ()                { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
     operator const ID3D12GraphicsCommandList* () const    { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
@@ -59,14 +59,22 @@ public:
     void BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh);
 
     /* Sets both the viewport and scissor to the size defined by inViewport. */
-    void SetViewportScissorRect(const Viewport& inViewport);
+    void SetViewportAndScissor(const Viewport& inViewport);
 
     void Submit(Device& inDevice, ID3D12CommandQueue* inQueue);
 
+    void TrackResource(D3D12ResourceRef inResource) { m_ResourceRefs.push_back(inResource); }
+
+    void ReleaseTrackedResources() { m_ResourceRefs.resize(0); }
+
+    uint32_t GetFrameIndex() const { return m_FrameIndex; }
+
 private:
+    uint32_t m_FrameIndex = 0;
     uint64_t m_SubmitFenceValue = 0;
     uint32_t m_CurrentCmdListIndex = 0;
     ComPtr<ID3D12Fence> m_Fence = nullptr;
+    std::vector<ComPtr<ID3D12Resource>> m_ResourceRefs;
     std::vector<ComPtr<ID3D12GraphicsCommandList4>> m_CommandLists;
     std::vector<ComPtr<ID3D12CommandAllocator>> m_CommandAllocators;
 };

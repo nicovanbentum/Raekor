@@ -49,8 +49,8 @@ Application::Application(WindowFlags inFlags)
 	m_Settings.mDisplayIndex = m_Settings.mDisplayIndex > displays.size() - 1 ? 0 : m_Settings.mDisplayIndex;
 	const auto& rect = displays[m_Settings.mDisplayIndex];
 
-	int width = int(rect.w * 0.9f);
-	int height = int(rect.h * 0.9f);
+	int width = int(rect.w * 0.88f);
+	int height = int(rect.h * 0.88f);
 
 	//width = 1920, height = 1080;
 

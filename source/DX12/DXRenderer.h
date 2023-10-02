@@ -149,6 +149,8 @@ class RenderInterface : public IRenderInterface
 public:
     RenderInterface(Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources, StagingHeap& inStagingHeap);
 
+    void UpdateGPUStats(Device& inDevice);
+
     uint64_t GetDisplayTexture() override;
     uint64_t GetImGuiTextureID(uint32_t inTextureID) override;
 

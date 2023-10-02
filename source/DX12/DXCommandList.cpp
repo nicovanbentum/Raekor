@@ -4,7 +4,7 @@
 
 namespace Raekor::DX12 {
 
-CommandList::CommandList(Device& inDevice)
+CommandList::CommandList(Device& inDevice, uint32_t inFrameIndex) : m_FrameIndex(inFrameIndex)
 {
     auto& command_list = m_CommandLists.emplace_back();
     auto& command_allocator = m_CommandAllocators.emplace_back();
@@ -88,8 +88,8 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
     switch (inSlot)
     {
         case EBindSlot::SRV0: case EBindSlot::SRV1:
-            command_list->SetGraphicsRootShaderResourceView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
-            command_list->SetComputeRootShaderResourceView(inSlot, inBuffer.GetResource()->GetGPUVirtualAddress() + inOffset);
+            command_list->SetGraphicsRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
+            command_list->SetComputeRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
             break;
         default: assert(false);
     }
@@ -122,7 +122,7 @@ void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh
 
 
 
-void CommandList::SetViewportScissorRect(const Viewport& inViewport)
+void CommandList::SetViewportAndScissor(const Viewport& inViewport)
 {
     const auto scissor = CD3DX12_RECT(0, 0, inViewport.GetSize().x, inViewport.GetSize().y);
     const auto viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(inViewport.GetSize().x), float(inViewport.GetSize().y));

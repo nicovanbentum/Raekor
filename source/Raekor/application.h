@@ -35,6 +35,14 @@ enum GraphicsAPI : uint8_t
 	DirectX = DirectX11 | DirectX12
 };
 
+struct GPUStats
+{
+	uint64_t mTotalVideoMemory = 0;
+	uint64_t mAvailableVideoMemory = 0;
+	std::atomic<uint64_t> mLiveBuffers = 0;
+	std::atomic<uint64_t> mLiveTextures = 0;
+};
+
 class IRenderInterface
 {
 public:
@@ -56,6 +64,7 @@ public:
 	GraphicsAPI GetGraphicsAPI() const { return m_GraphicsAPI; }
 
 	Settings& GetSettings() { return mSettings; }
+	GPUStats& GetGPUStats() { return m_GPUStats; }
 
 	const GPUInfo& GetGPUInfo() const { return m_GPUInfo; }
 	void SetGPUInfo(const GPUInfo& inInfo) { m_GPUInfo = inInfo; }
@@ -92,6 +101,7 @@ public:
 
 protected:
 	GPUInfo m_GPUInfo;
+	GPUStats m_GPUStats;
 	GraphicsAPI m_GraphicsAPI;
 };
 

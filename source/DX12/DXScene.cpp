@@ -8,6 +8,8 @@ namespace Raekor::DX12 {
 
 void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
 {
+    PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD TLAS");
+
     auto rt_instances = std::vector<D3D12_RAYTRACING_INSTANCE_DESC> {};
     rt_instances.reserve(m_Scene.Count<Mesh>());
 
@@ -30,21 +32,17 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
         rt_instances.push_back(instance);
     }
 
-    const auto instance_buffer_id = inDevice.CreateBuffer(Buffer::Desc
+    m_D3D12InstancesBuffer = GrowBuffer(inDevice, m_D3D12InstancesBuffer, Buffer::Desc
     {
-        .size  = rt_instances.size() * sizeof(rt_instances[0]),
-        .usage = Buffer::UPLOAD,
+        .size = rt_instances.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
+        .debugName = L"D3D12_RAYTRACING_INSTANCE Buffer"
     });
 
-    auto& instance_buffer = inDevice.GetBuffer(instance_buffer_id);
-
-    {
-        auto mapped_ptr = ( uint8_t* )nullptr;
-        auto buffer_range = CD3DX12_RANGE(0, 0);
-        gThrowIfFailed(instance_buffer->Map(0, &buffer_range, reinterpret_cast<void**>( &mapped_ptr )));
-        memcpy(mapped_ptr, rt_instances.data(), rt_instances.size() * sizeof(rt_instances[0]));
-        instance_buffer->Unmap(0, nullptr);
-    }
+    auto& instance_buffer = inDevice.GetBuffer(m_D3D12InstancesBuffer);
+    inStagingHeap.StageBuffer(inCmdList, instance_buffer.GetD3D12Resource(), 0, rt_instances.data(), instance_buffer.GetSize());
+    
+    const auto after_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(instance_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    inCmdList->ResourceBarrier(1, &after_copy_barrier);
 
     const auto inputs = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS
     {
@@ -58,36 +56,35 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
     auto prebuild_info = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO {};
     inDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
 
-    m_TLASBuffer = inDevice.CreateBuffer(Buffer::Desc
+    m_TLASBuffer = GrowBuffer(inDevice, m_TLASBuffer, Buffer::Desc
     {
-        .size  = prebuild_info.ResultDataMaxSizeInBytes,
+        .size = prebuild_info.ResultDataMaxSizeInBytes,
         .usage = Buffer::Usage::ACCELERATION_STRUCTURE,
         .debugName = L"TLAS_FULL_SCENE"
     });
 
-    const auto result_buffer = inDevice.GetBuffer(m_TLASBuffer);
-
-    auto scratch_buffer = inDevice.CreateBuffer(Buffer::Desc
+    m_ScratchBuffer = GrowBuffer(inDevice, m_ScratchBuffer, Buffer::Desc
     {
         .size = prebuild_info.ScratchDataSizeInBytes,
         .debugName = L"TLAS_SCRATCH_BUFFER"
     });
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
-    desc.ScratchAccelerationStructureData = inDevice.GetBuffer(scratch_buffer)->GetGPUVirtualAddress();
-    desc.DestAccelerationStructureData = result_buffer->GetGPUVirtualAddress();
     desc.Inputs = inputs;
+    desc.DestAccelerationStructureData = inDevice.GetBuffer(m_TLASBuffer)->GetGPUVirtualAddress();
+    desc.ScratchAccelerationStructureData = inDevice.GetBuffer(m_ScratchBuffer)->GetGPUVirtualAddress();
 
+    inCmdList.TrackResource(inDevice.GetD3D12Resource(m_TLASBuffer));
+    inCmdList.TrackResource(inDevice.GetD3D12Resource(m_ScratchBuffer));
     inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
-
-    inDevice.ReleaseBuffer(scratch_buffer);
-    inDevice.ReleaseBuffer(instance_buffer_id);
 }
 
 
 
 void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
 {
+    PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD INSTANCES");
+
     const auto nr_of_meshes = m_Scene.Count<Mesh>();
     std::vector<RTGeometry> rt_geometries;
     rt_geometries.reserve(nr_of_meshes);
@@ -99,44 +96,32 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
 
         rt_geometries.emplace_back(RTGeometry
         {
-            .mIndexBuffer = inDevice.GetBindlessHeapIndex(inDevice.GetBuffer(BufferID(mesh.indexBuffer)).GetDescriptor()),
-            .mVertexBuffer = inDevice.GetBindlessHeapIndex(inDevice.GetBuffer(BufferID(mesh.vertexBuffer)).GetDescriptor()),
+            .mIndexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.indexBuffer)),
+            .mVertexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
             .mMaterialIndex = GetMaterialIndex(mesh.material),
             .mLocalToWorldTransform = transform.worldTransform,
             .mInvLocalToWorldTransform = glm::inverse(transform.worldTransform)
         });
     }
 
-    const auto instance_buffer_desc = Buffer::Desc
+    m_InstancesBuffer = GrowBuffer(inDevice, m_InstancesBuffer, Buffer::Desc
     {
-        .size   = sizeof(RTGeometry) * nr_of_meshes,
+        .size = sizeof(RTGeometry) * nr_of_meshes,
         .stride = sizeof(RTGeometry),
-        .usage  = Buffer::Usage::SHADER_READ_ONLY,
+        .usage = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = L"RT_INSTANCE_BUFFER"
-    };
-
-    if (m_InstancesBuffer.IsValid())
-    {
-        const auto& buffer_desc = inDevice.GetBuffer(m_InstancesBuffer).GetDesc();
-
-        if (instance_buffer_desc.size > buffer_desc.size)
-        {
-            const auto old_instance_buffer = m_InstancesBuffer;
-            m_InstancesBuffer = inDevice.CreateBuffer(instance_buffer_desc);
-            inDevice.ReleaseBuffer(old_instance_buffer);
-        }
-    }
-    else 
-        m_InstancesBuffer = inDevice.CreateBuffer(instance_buffer_desc);
+    });
 
     const auto& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
-    inStagingHeap.StageBuffer(inCmdList, instance_buffer.GetResource(), 0, rt_geometries.data(), instance_buffer_desc.size);
+    inStagingHeap.StageBuffer(inCmdList, instance_buffer.GetD3D12Resource(), 0, rt_geometries.data(), instance_buffer.GetSize());
 }
 
 
 
 void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
 {
+    PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
+
     std::vector<RTMaterial> rt_materials(m_Scene.Count<Material>());
 
     auto material_index = 0u;
@@ -166,31 +151,17 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
     srv_desc.Buffer.StructureByteStride = sizeof(RTMaterial);
     srv_desc.Buffer.NumElements = rt_materials.size();
 
-    const auto material_buffer_desc = Buffer::Desc
+    m_MaterialsBuffer = GrowBuffer(inDevice, m_MaterialsBuffer, Buffer::Desc
     {
-        .size     = sizeof(RTMaterial) * rt_materials.size(),
-        .stride   = sizeof(RTMaterial),
-        .usage    = Buffer::Usage::SHADER_READ_ONLY,
-        .viewDesc = &srv_desc,
+        .size      = sizeof(RTMaterial) * rt_materials.size(),
+        .stride    = sizeof(RTMaterial),
+        .usage     = Buffer::Usage::SHADER_READ_ONLY,
+        .viewDesc  = &srv_desc,
         .debugName = L"RT_MATERIAL_BUFFER"
-    };
-
-    if (m_MaterialsBuffer.IsValid())
-    {
-        const auto& buffer_desc = inDevice.GetBuffer(m_MaterialsBuffer).GetDesc();
-        
-        if (material_buffer_desc.size > buffer_desc.size)
-        {
-            const auto old_material_buffer = m_MaterialsBuffer;
-            m_MaterialsBuffer = inDevice.CreateBuffer(material_buffer_desc);
-            inDevice.ReleaseBuffer(old_material_buffer);
-        }
-    }
-    else 
-        m_MaterialsBuffer = inDevice.CreateBuffer(material_buffer_desc);
+    });
 
     const auto& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
-    inStagingHeap.StageBuffer(inCmdList, materials_buffer.GetResource(), 0, rt_materials.data(), material_buffer_desc.size);
+    inStagingHeap.StageBuffer(inCmdList, materials_buffer.GetD3D12Resource(), 0, rt_materials.data(), materials_buffer.GetSize());
 }
 
 
@@ -201,6 +172,26 @@ uint32_t RayTracedScene::GetMaterialIndex(Entity inEntity)
         return m_Scene.GetSparseEntities<Material>()[inEntity];
     else
         return 0;
+}
+
+
+BufferID RayTracedScene::GrowBuffer(Device& inDevice, BufferID inBuffer, const Buffer::Desc& inDesc)
+{
+    auto current_buffer = inBuffer;
+
+    if (current_buffer.IsValid())
+    {
+        if (inDesc.size > inDevice.GetBuffer(current_buffer).GetSize())
+        {
+            const auto old_buffer = current_buffer;
+            current_buffer = inDevice.CreateBuffer(inDesc);
+            inDevice.ReleaseBuffer(old_buffer);
+        }
+    }
+    else
+        current_buffer = inDevice.CreateBuffer(inDesc);
+
+    return current_buffer;
 }
 
 } // namespace Raekor
