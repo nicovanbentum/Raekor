@@ -93,6 +93,8 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
             break;
         default: assert(false);
     }
+
+    TrackResource(inBuffer.GetD3D12Resource());
 }
 
 

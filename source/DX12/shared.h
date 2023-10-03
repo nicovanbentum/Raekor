@@ -121,6 +121,14 @@ struct DDGIData
 STATIC_ASSERT(sizeof(DDGIData) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+struct ClearTextureRootConstants
+{
+    float4 mClearValue;
+    uint mTexture;
+};
+STATIC_ASSERT(sizeof(ClearTextureRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
 struct GbufferRootConstants
 {
     uint     mVertexBuffer;

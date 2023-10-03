@@ -327,6 +327,10 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		ImGui::Text("Buffers: %i", GetRenderInterface().GetGPUStats().mLiveBuffers.load());
 		ImGui::Text("Textures: %i", GetRenderInterface().GetGPUStats().mLiveTextures.load());
+		ImGui::Text("RTV Heap: %i", GetRenderInterface().GetGPUStats().mLiveRTVHeap.load());
+		ImGui::Text("DSV Heap: %i", GetRenderInterface().GetGPUStats().mLiveDSVHeap.load());
+		ImGui::Text("Sampler Heap: %i", GetRenderInterface().GetGPUStats().mLiveSamplerHeap.load());
+		ImGui::Text("Resource Heap: %i", GetRenderInterface().GetGPUStats().mLiveResourceHeap.load());
 		ImGui::Text("Draw calls: %i", GetScene().Count<Mesh>());
 		ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
 		ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);

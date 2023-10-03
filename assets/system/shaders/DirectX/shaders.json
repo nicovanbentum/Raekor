@@ -1,6 +1,16 @@
 {
 	"SystemShadersDX12":
     {
+        "Clear Buffer Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/ClearTextureUAV.hlsl"
+        },
+
+        "Clear Texture Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/ClearTextureUAV.hlsl"
+        },
+
         "ImGui Shader":
         {
             "Vertex Shader File": "assets/system/shaders/DirectX/ImGuiVS.hlsl",

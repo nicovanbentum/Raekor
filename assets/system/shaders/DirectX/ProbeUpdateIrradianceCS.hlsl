@@ -12,7 +12,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     RWTexture2D<float4> probes_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
     
     FrameConstants fc = gGetFrameConstants();
-    
+
     //if (fc.mFrameCounter > 192)
     //    return;
     
@@ -37,7 +37,6 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) {
             float3 ray_irradiance = rays_irradiance_texture[uint2(ray_index, probe_index)];
         
-            // TODO: RANDOM ROTATION!!
             float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
             ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
             
@@ -57,32 +56,34 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         probes_irradiance_texture[threadID.xy] = float4(lerp(irradiance.rgb, prev_irradiance, hysteresis), 1.0);
         
         // probes_irradiance_texture[threadID.xy] = float3(octahedral_uv * 0.5 + 0.5, 0.0);
-        
-        return;
     }
     
     AllMemoryBarrierWithGroupSync();
     
-    // Initialize the texel coordinateto copy to 0,0 in range [0 - NR_OF_TEXELS] (so basically the top left start of the probe texels)
-    uint2 copy_texel = probe_index_2d * DDGI_IRRADIANCE_TEXELS;
-    
-    // Trick is here is to wrap around by using the absolute of signed integers
-    // e.g. border at 0,0 maps to abs(0,0 - 1,1) which is 1,1 inner pixel,
-    // using the same for 6,6 maps to abs(6,6 - 1,1) which is 5,5
-    if (probe_pixel.y > 0 && probe_pixel.y < DDGI_IRRADIANCE_TEXELS - 1)
+    if (is_border)
     {
-        copy_texel.x += abs(int(probe_pixel.x) - 1);
-        copy_texel.y += DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.y;
-    }
-    else if (probe_pixel.x > 0 && probe_pixel.x < DDGI_IRRADIANCE_TEXELS - 1)
-    {
-        copy_texel.y += abs(int(probe_pixel.y) - 1);
-        copy_texel.x += DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.x;
-    }
-    else {
-        copy_texel.x += abs(int(DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.x) - 1);
-        copy_texel.y += abs(int(DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.y) - 1);
+        // Initialize the texel coordinate to copy to 0,0 in range [0 - NR_OF_TEXELS] (so basically the top left start of the probe texels)
+        uint2 copy_texel = probe_index_2d * DDGI_IRRADIANCE_TEXELS;
+    
+        // Trick is here is to wrap around by using the absolute of signed integers
+        // e.g. border at 0,0 maps to abs(0,0 - 1,1) which is 1,1 inner pixel,
+        // using the same for 6,6 maps to abs(6,6 - 1,1) which is 5,5
+        if (probe_pixel.y > 0 && probe_pixel.y < DDGI_IRRADIANCE_TEXELS - 1)
+        {
+            copy_texel.x += abs(int(probe_pixel.x) - 1);
+            copy_texel.y += DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.y;
+        }
+        else if (probe_pixel.x > 0 && probe_pixel.x < DDGI_IRRADIANCE_TEXELS - 1)
+        {
+            copy_texel.y += abs(int(probe_pixel.y) - 1);
+            copy_texel.x += DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.x;
+        }
+        else {
+            copy_texel.x += abs(int(DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.x) - 1);
+            copy_texel.y += abs(int(DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.y) - 1);
+        }
+    
+        probes_irradiance_texture[threadID.xy] = probes_irradiance_texture[copy_texel];
     }
     
-    probes_irradiance_texture[threadID.xy] = probes_irradiance_texture[copy_texel];
 }

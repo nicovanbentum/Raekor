@@ -883,6 +883,11 @@ void RingAllocator::DestroyBuffer(Device& inDevice)
 
     inDevice.GetBuffer(m_Buffer)->Unmap(0, nullptr);
     inDevice.ReleaseBuffer(m_Buffer);
+
+    m_Buffer = BufferID::INVALID;
+    m_Size = 0;
+    m_DataPtr = nullptr;
+    m_TotalCapacity = 0;
 }
 
 

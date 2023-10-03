@@ -41,6 +41,12 @@ struct GPUStats
 	uint64_t mAvailableVideoMemory = 0;
 	std::atomic<uint64_t> mLiveBuffers = 0;
 	std::atomic<uint64_t> mLiveTextures = 0;
+
+	std::atomic<uint64_t> mLiveRTVHeap = 0;
+	std::atomic<uint64_t> mLiveDSVHeap = 0;
+	std::atomic<uint64_t> mLiveSamplerHeap = 0;
+	std::atomic<uint64_t> mLiveResourceHeap = 0;
+
 };
 
 class IRenderInterface

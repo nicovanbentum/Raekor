@@ -143,9 +143,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     if (need_recompile)
         std::cout << std::format("Hotloaded system shaders.\n");
 
-    need_recompile |= OS::sCheckCommandLineOption("-stress_test");
+    static auto do_stress_test = OS::sCheckCommandLineOption("-stress_test");
 
-    if (m_ShouldResize || need_recompile)
+    if (m_ShouldResize || need_recompile || (do_stress_test && m_FrameCounter > 0))
     {
         // Make sure nothing is using render targets anymore
         WaitForIdle(inDevice);
@@ -162,25 +162,21 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
         return;
     }
 
-    if (m_FrameCounter > 0)
+    // At this point in the frame we really need the previous frame's present job to have finished
+    if (m_PresentJobPtr)
+        m_PresentJobPtr->WaitCPU();
+
+    auto& backbuffer_data = GetBackBufferData();
+    auto  completed_value = m_Fence->GetCompletedValue();
+
+    // make sure the backbuffer data we're about to use is no longer being used by the GPU
+    if (completed_value < backbuffer_data.mFenceValue)
     {
-        // At this point in the frame we really need the previous frame's present job to have finished
-        if (m_PresentJobPtr)
-            m_PresentJobPtr->WaitCPU();
-
-        auto& backbuffer_data = GetBackBufferData();
-        auto  completed_value = m_Fence->GetCompletedValue();
-
-        // make sure the backbuffer data we're about to use is no longer being used by the GPU
-        if (completed_value < backbuffer_data.mFenceValue)
-        {
-            gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
-            WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
-        }
+        gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
+        WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
     }
 
     // at this point we know the GPU is no longer working on this frame, so free/release stuff here
-    BackBufferData& backbuffer_data = GetBackBufferData();
     inStagingHeap.RetireBuffers(backbuffer_data.mCopyCmdList);
     inStagingHeap.RetireBuffers(backbuffer_data.mDirectCmdList);
     backbuffer_data.mCopyCmdList.ReleaseTrackedResources();
@@ -607,6 +603,10 @@ void RenderInterface::UpdateGPUStats(Device& inDevice)
 {
     m_GPUStats.mLiveBuffers.store(inDevice.GetBufferPool().GetSize());
     m_GPUStats.mLiveTextures.store(inDevice.GetTexturePool().GetSize());
+    m_GPUStats.mLiveDSVHeap.store(inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV).GetSize());
+    m_GPUStats.mLiveRTVHeap.store(inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV).GetSize());
+    m_GPUStats.mLiveSamplerHeap.store(inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER).GetSize());
+    m_GPUStats.mLiveResourceHeap.store(inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetSize());
 }
 
 
@@ -1490,7 +1490,6 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
             gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mIrradiancePipeline)));
             inData.mIrradiancePipeline->SetName(L"PSO_PROBE_UPDATE_IRRADIANCE");
         }
-
     },
 
     [&inDevice, &inTraceData](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
@@ -1500,7 +1499,11 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         inData.mDDGIData.mProbesDepthTexture        = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mProbesDepthTexture));
         inData.mDDGIData.mRaysIrradianceTexture     = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysIrradianceTextureSRV));
         inData.mDDGIData.mProbesIrradianceTexture   = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
+        
+        const auto irradiance_texture = inDevice.GetTexture(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
 
+        inCmdList->SetPipelineState(inData.mIrradiancePipeline.Get());
+        
         inCmdList.PushComputeConstants(ProbeUpdateRootConstants
         {
             .mDDGIData = inData.mDDGIData,
@@ -1511,8 +1514,6 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         //const auto depth_texture = inDevice.GetTexture(inData.mProbesDepthTexture.mCreatedTexture);
         //inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
 
-        inCmdList->SetPipelineState(inData.mIrradiancePipeline.Get());
-        const auto irradiance_texture = inDevice.GetTexture(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
         inCmdList->Dispatch(irradiance_texture.GetDesc().width / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetDesc().height / DDGI_IRRADIANCE_TEXELS, 1);
     });
 }

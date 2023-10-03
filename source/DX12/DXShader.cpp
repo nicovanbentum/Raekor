@@ -38,6 +38,9 @@ RTTI_DEFINE_TYPE(ShaderProgram)
 
 RTTI_DEFINE_TYPE(SystemShadersDX12)
 {
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Clear Buffer Shader", mClearBufferShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Clear Texture Shader", mClearTextureShader);
+
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "ImGui Shader", mImGuiShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Grass Shader", mGrassShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Shader", mGBufferShader);

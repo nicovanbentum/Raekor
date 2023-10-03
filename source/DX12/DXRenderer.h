@@ -22,7 +22,7 @@ class RayTracedScene;
 
 struct BackBufferData
 {
-    uint64_t    mFenceValue;
+    uint64_t    mFenceValue = 0;
     TextureID   mBackBuffer;
     CommandList mCopyCmdList;
     CommandList mDirectCmdList;
@@ -375,6 +375,7 @@ struct ProbeUpdateData
     RenderGraphResourceViewID mRaysDepthTextureSRV;
     RenderGraphResourceViewID mRaysIrradianceTextureSRV;
     ComPtr<ID3D12PipelineState> mDepthPipeline;
+    ComPtr<ID3D12PipelineState> mClearPipeline;;
     ComPtr<ID3D12PipelineState> mIrradiancePipeline;
 };
 

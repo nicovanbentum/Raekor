@@ -379,7 +379,6 @@ void RenderGraph::Clear(Device& inDevice)
     m_RenderGraphBuilder.Clear();
     m_RenderGraphResources.Clear(inDevice);
     m_PerPassAllocator.DestroyBuffer(inDevice);
-    m_PerFrameAllocator.DestroyBuffer(inDevice);
 }
 
 
@@ -562,7 +561,11 @@ bool RenderGraph::Compile(Device& inDevice)
         total_constants_size += pass->m_ConstantsSize;
 
     m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size * sFrameCount, 1u));
-    m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants) * sFrameCount);
+    
+    if (!m_PerFrameAllocator.GetBuffer().IsValid())
+        m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants) * sFrameCount);
+
+    m_PerFrameAllocatorOffset = 0;
 
     return true;
 }
@@ -572,6 +575,7 @@ bool RenderGraph::Compile(Device& inDevice)
 void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inFrameCounter)
 {
     inDevice.BindDrawDefaults(inCmdList);
+    
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::SRV0, m_PerFrameAllocatorOffset);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerPassAllocator.GetBuffer()), EBindSlot::SRV1);
 

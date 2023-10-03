@@ -89,6 +89,9 @@ struct SystemShadersDX12 : public IResource
 {
     RTTI_DECLARE_TYPE(SystemShadersDX12);
 
+    ShaderProgram mClearBufferShader;
+    ShaderProgram mClearTextureShader;
+
     ShaderProgram mImGuiShader;
     ShaderProgram mGrassShader;
     ShaderProgram mGBufferShader;
