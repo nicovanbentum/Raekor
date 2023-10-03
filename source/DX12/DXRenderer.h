@@ -264,7 +264,14 @@ struct RTAOData
 {
     RTTI_DECLARE_TYPE(RTAOData);
 
-    AmbientOcclusionParams mParams = { .mRadius = 2.0, .mPower = 0.0, .mNormalBias = 0.01, .mSampleCount = 1u };
+    static inline AmbientOcclusionParams mParams = 
+    { 
+        .mRadius = 2.0, 
+        .mPower = 0.0, 
+        .mNormalBias = 0.01, 
+        .mSampleCount = 1u 
+    };
+
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mGbufferDepthTextureSRV;
     RenderGraphResourceViewID mGBufferRenderTextureSRV;
@@ -303,8 +310,8 @@ struct PathTraceData
 {
     RTTI_DECLARE_TYPE(PathTraceData);
 
-    float mAlpha = 0.1f;
-    uint32_t mBounces = 2;
+    static inline float mAlpha = 0.1f;
+    static inline uint32_t mBounces = 2;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceID mAccumulationTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
@@ -556,7 +563,7 @@ struct ComposeData
 {
     RTTI_DECLARE_TYPE(ComposeData);
 
-    float mExposure = 1.0f;
+    static inline float mExposure = 1.0f;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mInputTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;

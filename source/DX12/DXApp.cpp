@@ -177,8 +177,6 @@ DXApp::DXApp() :
     m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
 
     LogMessage(std::format("[CPU] RenderGraph compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
-
-    LogMessage(std::format("Render Size: {}", glm::to_string(m_Viewport.GetSize())));
 }
 
 

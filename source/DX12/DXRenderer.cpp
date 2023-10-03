@@ -131,7 +131,6 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
     }*/
 
     m_Settings.mFullscreen = inFullScreen;
-    std::cout << std::format("Render Size: {}, {} \n", inViewport.size.x, inViewport.size.y);
 }
 
 
@@ -226,6 +225,12 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     {
         m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mVertexBuffer));
         m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mIndirectArgsBuffer));
+    }
+
+    // TODO: move this somewhere else?
+    if (auto gbuffer_pass = m_RenderGraph.GetPass<GBufferData>())
+    {
+        gbuffer_pass->GetData().mActiveEntity = inApp->GetActiveEntity();
     }
 
     // memcpy the frame constants into upload memory
@@ -911,10 +916,9 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
 
         const auto clear_color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-        const auto clear_rect = CD3DX12_RECT(0, 0, viewport.size.x, viewport.size.y);
-        inCmdList->ClearDepthStencilView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mDepthTexture)), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 1, &clear_rect);
-        inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mRenderTexture)), glm::value_ptr(clear_color), 1, &clear_rect);
-        inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mVelocityTexture)), glm::value_ptr(clear_color), 1, &clear_rect);
+        inCmdList->ClearDepthStencilView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mDepthTexture)), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+        inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mRenderTexture)), glm::value_ptr(clear_color), 0, nullptr);
+        inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mVelocityTexture)), glm::value_ptr(clear_color), 0, nullptr);
 
         for (const auto& [entity, transform, mesh] : inScene.Each<Transform, Mesh>())
         {

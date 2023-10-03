@@ -42,9 +42,9 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     if (depth == 1.0) {
         float3 transmittance;
         const float3 light_color = fc.mSunColor.rgb;
-        float3 sky_color = IntegrateScattering(ws_pos, normalize(fc.mCameraPosition.xyz - ws_pos), 1.#INF, fc.mSunDirection.xyz, light_color, transmittance);
+        float3 inscattering = IntegrateScattering(ws_pos, normalize(fc.mCameraPosition.xyz - ws_pos), 1.#INF, fc.mSunDirection.xyz, fc.mSunColor.rgb, transmittance);
         //sky_color = ApplyFog(sky_color, distance(fc.mCameraPosition.xyz, position.xyz), fc.mCameraPosition.xyz, normalize(fc.mCameraPosition.xyz - position.xyz));
-        return float4(pow(sky_color, 1.0 / 2.2), 1.0);
+        return float4(min(inscattering, 1.0.xxx) * fc.mSunColor.a, 1.0);
     }
 
     const float3 Wo = normalize(fc.mCameraPosition.xyz - ws_pos.xyz);
@@ -62,7 +62,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     //if (brdf.mRoughness < 0.3)
     //{
     //    float4 specular = reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
-    //    total_radiance = specular.rgb;
+    //    total_radiance += specular.rgb;
     //}
     
     float ao = ao_texture[inParams.mPixelCoords.xy];

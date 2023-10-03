@@ -82,6 +82,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		{
 			ImGui::BeginTooltip();
 
+			mesh = scene.GetPtr<Mesh>(picked);
+
 			if (scene.Has<Mesh>(picked))
 			{
 				ImGui::Text(std::string(std::string("Apply to ") + scene.Get<Name>(picked).name).c_str());

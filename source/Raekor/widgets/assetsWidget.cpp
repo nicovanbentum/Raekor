@@ -19,6 +19,8 @@ void AssetsWidget::Draw(Widgets* inWidgets, float dt)
 
 	auto& style = ImGui::GetStyle();
 
+	if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(1)) {}
+
 	if (ImGui::BeginTable("Assets", 24))
 	{
 		for (auto [entity, material, name] : GetScene().Each<Material, Name>())

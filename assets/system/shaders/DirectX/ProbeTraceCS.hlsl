@@ -100,7 +100,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     {
         //float3 transmittance;
         float3 transmittance;
-        float3 inscattering = IntegrateScattering(ray.Origin, -ray.Direction, 1.#INF, fc.mSunDirection.xyz, float3(1, 1, 1), transmittance);
+        float3 inscattering = IntegrateScattering(ray.Origin, -ray.Direction, 1.#INF, fc.mSunDirection.xyz, fc.mSunColor.rgb, transmittance);
         
         irradiance = min(inscattering, 1.0.xxx) * fc.mSunColor.a;
         
