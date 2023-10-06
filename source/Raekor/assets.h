@@ -15,9 +15,6 @@ public:
 	Asset(const std::string& inPath) : m_Path(inPath) {}
 	virtual ~Asset() = default;
 
-	template<class Archive>
-	void serialize(Archive& inArchive) { inArchive(m_Path); }
-
 	Path& GetPath() { return m_Path; }
 	const Path& GetPath() const { return m_Path; }
 
@@ -79,9 +76,6 @@ public:
 	static std::string sConvert(const std::string& inPath);
 	virtual bool Load(const std::string& inPath) override;
 
-	template<class Archive>
-	void serialize(Archive& ioArchive) { ioArchive(m_Data); }
-
 	static std::string sAssetsToCachedPath(const std::string& inAssetPath) { return Asset::sAssetsToCachedPath(inAssetPath, ".dds"); }
 
 	uint32_t GetDataSize() const { return m_Data.size() - 128; }
@@ -89,6 +83,7 @@ public:
 	const DDS_HEADER* GetHeader() const { return reinterpret_cast<const DDS_HEADER*>( m_Data.data() + sizeof(DWORD) ); }
 
 private:
+	uint32_t m_Texture = 0;
 	std::vector<char> m_Data;
 };
 
@@ -124,9 +119,6 @@ public:
 
 	static Path sConvert(const Path& inPath);
 	virtual bool Load(const std::string& inPath) override;
-
-	template<class Archive>
-	void serialize(Archive& ioArchive) {}
 
 	void EnumerateSymbols();
 	HMODULE GetModule() { return m_HModule; }

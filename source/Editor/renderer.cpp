@@ -418,9 +418,9 @@ void Renderer::DrawImGui(Scene& inScene, const Viewport& inViewport)
 
 
 
-void Renderer::UploadMeshBuffers(Mesh& mesh)
+void Renderer::UploadMeshBuffers(Entity inEntity, Mesh& mesh)
 {
-    auto vertices = mesh.GetInterleavedVertices();
+    const auto& vertices = mesh.GetInterleavedVertices();
 
     glCreateBuffers(1, &mesh.vertexBuffer);
     glNamedBufferData(mesh.vertexBuffer, sizeof(float) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
@@ -431,7 +431,7 @@ void Renderer::UploadMeshBuffers(Mesh& mesh)
 
 
 
-void Renderer::DestroyMeshBuffers(Mesh& mesh)
+void Renderer::DestroyMeshBuffers(Entity inEntity, Mesh& mesh)
 {
     glDeleteBuffers(1, &mesh.vertexBuffer);
     glDeleteBuffers(1, &mesh.indexBuffer);
@@ -451,7 +451,7 @@ void Renderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh)
     glCreateBuffers(1, &skeleton.boneTransformsBuffer);
     glNamedBufferData(skeleton.boneTransformsBuffer, skeleton.boneTransformMatrices.size() * sizeof(glm::mat4), skeleton.boneTransformMatrices.data(), GL_DYNAMIC_READ);
 
-    auto originalMeshBuffer = mesh.GetInterleavedVertices();
+    const auto& originalMeshBuffer = mesh.GetInterleavedVertices();
 
     if (skeleton.skinnedVertexBuffer) glDeleteBuffers(1, &skeleton.skinnedVertexBuffer);
     glCreateBuffers(1, &skeleton.skinnedVertexBuffer);
@@ -470,7 +470,7 @@ void Renderer::DestroySkeletonBuffers(Skeleton& skeleton)
 
 
 
-void Renderer::DestroyMaterialTextures(Material& material, Assets& assets)
+void Renderer::DestroyMaterialTextures(Entity inEntity, Material& material, Assets& assets)
 {
     glDeleteTextures(1, &material.gpuAlbedoMap);
     glDeleteTextures(1, &material.gpuNormalMap);

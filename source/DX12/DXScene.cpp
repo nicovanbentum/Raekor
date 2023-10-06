@@ -2,12 +2,136 @@
 #include "shared.h"
 #include "DXScene.h"
 #include "DXCommandList.h"
+#include "Raekor/primitives.h"
 #include "Raekor/application.h"
 
 namespace Raekor::DX12 {
 
+void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, CommandList& inCmdList)
+{
+    const auto& vertices = inMesh.GetInterleavedVertices();
+    const auto  vertices_size = vertices.size() * sizeof(vertices[0]);
+    const auto  indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
+
+    if (!vertices_size || !indices_size)
+        return;
+
+    D3D12_RAYTRACING_GEOMETRY_DESC geom = {};
+    geom.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+    geom.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+
+    geom.Triangles.IndexBuffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer))->GetGPUVirtualAddress();
+    geom.Triangles.IndexCount = inMesh.indices.size();
+    geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
+
+    geom.Triangles.VertexBuffer.StartAddress = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer))->GetGPUVirtualAddress();
+    geom.Triangles.VertexBuffer.StrideInBytes = sizeof(Vertex);
+    geom.Triangles.VertexCount = inMesh.positions.size();
+    geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
+    inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+    inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+    inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+    inputs.pGeometryDescs = &geom;
+    inputs.NumDescs = 1;
+
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
+    inDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
+
+    const auto blas_buffer_id = inDevice.CreateBuffer(Buffer::Desc
+    {
+        .size  = prebuild_info.ResultDataMaxSizeInBytes,
+        .usage = Buffer::Usage::ACCELERATION_STRUCTURE,
+        .debugName = L"BLAS_BUFFER"
+    });
+
+    inMesh.BottomLevelAS = blas_buffer_id.ToIndex();
+
+    const auto scratch_buffer_id = inDevice.CreateBuffer(Buffer::Desc
+    {
+        .size = prebuild_info.ScratchDataSizeInBytes,
+        .debugName = L"SCRATCH_BUFFER_BLAS_RT"
+    });
+
+    auto& blas_buffer = inDevice.GetBuffer(blas_buffer_id);
+    auto& scratch_buffer = inDevice.GetBuffer(scratch_buffer_id);
+    
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
+    desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();
+    desc.DestAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
+    desc.Inputs = inputs;
+
+    inCmdList.TrackResource(scratch_buffer.GetD3D12Resource());
+        
+    const auto& gpu_index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
+    const auto& gpu_vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
+
+    inStagingHeap.StageBuffer(inCmdList, gpu_index_buffer.GetD3D12Resource(), 0, inMesh.indices.data(), indices_size);
+    inStagingHeap.StageBuffer(inCmdList, gpu_vertex_buffer.GetD3D12Resource(), 0, vertices.data(), vertices_size);
+
+    const auto barriers = std::array {
+        CD3DX12_RESOURCE_BARRIER::Transition(gpu_index_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
+        CD3DX12_RESOURCE_BARRIER::Transition(gpu_vertex_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
+    };
+
+    inCmdList->ResourceBarrier(barriers.size(), barriers.data());
+
+    inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
+
+    // TODO: validation layer warning??
+    // inDevice.ReleaseBuffer(scratch_buffer_id);
+}
+
+
+
+void RayTracedScene::UploadTexture(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, TextureUpload& inUpload, CommandList& inCmdList)
+{
+    if (inUpload.mTexture.IsValid() && !inUpload.mData.IsEmpty())
+    {
+        const auto& texture = inDevice.GetTexture(inUpload.mTexture);
+        inStagingHeap.StageTexture(inCmdList, texture.GetD3D12Resource(), inUpload.mMip, inUpload.mData.GetPtr());
+    }
+}
+
+
+
+void RayTracedScene::UploadMaterial(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Material& inMaterial, CommandList& inCmdList)
+{
+    auto UploadMaterialTexture = [inApp, &inDevice, &inStagingHeap, &inCmdList](const TextureAsset::Ptr& inAsset, const Texture& inTexture)
+    {
+        if (inAsset)
+        {
+            auto data_ptr = inAsset->GetData();
+            const auto header_ptr = inAsset->GetHeader();
+
+            const auto mipmap_levels = header_ptr->dwMipMapCount;
+
+            for (uint32_t mip = 0; mip < mipmap_levels; mip++)
+            {
+                const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
+
+                inStagingHeap.StageTexture(inCmdList, inTexture.GetD3D12Resource(), mip, data_ptr);
+
+                data_ptr += dimensions.x * dimensions.y;
+            }
+        }
+    };
+
+    UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.albedoFile), inDevice.GetTexture(TextureID(inMaterial.gpuAlbedoMap)));
+    UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.normalFile), inDevice.GetTexture(TextureID(inMaterial.gpuNormalMap)));
+    UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.emissiveFile), inDevice.GetTexture(TextureID(inMaterial.gpuEmissiveMap)));
+    UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.metallicFile), inDevice.GetTexture(TextureID(inMaterial.gpuMetallicMap)));
+    UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.roughnessFile), inDevice.GetTexture(TextureID(inMaterial.gpuRoughnessMap)));
+}
+
+
+
 void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
 {
+    if (!m_Scene.Count<Mesh>())
+        return;
+
     PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD TLAS");
 
     auto rt_instances = std::vector<D3D12_RAYTRACING_INSTANCE_DESC> {};
@@ -16,6 +140,9 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
     auto instance_id = 0u;
     for (const auto& [entity, mesh, transform] : m_Scene.Each<Mesh, Transform>())
     {
+        if (!BufferID(mesh.BottomLevelAS).IsValid())
+            continue;
+
         const auto& blas_buffer = inDevice.GetBuffer(BufferID(mesh.BottomLevelAS));
 
         auto instance = D3D12_RAYTRACING_INSTANCE_DESC
@@ -83,6 +210,9 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
 
 void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
 {
+    if (!m_Scene.Count<Mesh>())
+        return;
+
     PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD INSTANCES");
 
     const auto nr_of_meshes = m_Scene.Count<Mesh>();
@@ -120,6 +250,9 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
 
 void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
 {
+    if (!m_Scene.Count<Material>())
+        return;
+
     PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
 
     std::vector<RTMaterial> rt_materials(m_Scene.Count<Material>());
@@ -133,11 +266,11 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
         rt_material.mRoughness = material.roughness;
         rt_material.mEmissive = Vec4(material.emissive, 1.0);
 
-        rt_material.mAlbedoTexture = material.gpuAlbedoMap;
-        rt_material.mNormalsTexture = material.gpuNormalMap;
-        rt_material.mEmissiveTexture = material.gpuEmissiveMap;
-        rt_material.mMetallicTexture = material.gpuMetallicMap;
-        rt_material.mRoughnessTexture = material.gpuRoughnessMap;
+        rt_material.mAlbedoTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuAlbedoMap));
+        rt_material.mNormalsTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuNormalMap));
+        rt_material.mEmissiveTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuEmissiveMap));
+        rt_material.mMetallicTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuMetallicMap));
+        rt_material.mRoughnessTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuRoughnessMap));
 
         // 0 is maybe fine? haven't seen this trigger before though
         assert(rt_material.mAlbedoTexture != 0 && rt_material.mNormalsTexture != 0 && rt_material.mMetallicTexture != 0);

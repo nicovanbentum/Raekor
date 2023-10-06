@@ -791,8 +791,10 @@ void StagingHeap::StageTexture(CommandList& inCmdList, D3D12ResourceRef inResour
 
     const auto aligned_row_size = gAlignUp(row_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
-    /*for (auto& buffer : m_Buffers) {
-        if (buffer.mRetired && total_size < buffer.mCapacity - buffer.mSize) {
+    /*for (auto& buffer : m_Buffers) 
+    {
+        if (buffer.mRetired && inSize <= buffer.mCapacity - buffer.mSize) 
+        {
             memcpy(buffer.mPtr + buffer.mSize, inData, aligned_size);
 
             const auto buffer_resource = m_Device.GetBuffer(buffer.mBufferID).GetD3D12Resource();

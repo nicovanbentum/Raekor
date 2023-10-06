@@ -87,15 +87,15 @@ public:
 	virtual uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) = 0;
 	virtual uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) = 0;
 
-	virtual void UploadMeshBuffers(Mesh& inMesh) = 0;
-	virtual void DestroyMeshBuffers(Mesh& inMesh) = 0;
+	virtual void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
+	virtual void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
 
 	virtual void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) = 0;
 	virtual void DestroySkeletonBuffers(Skeleton& inSkeleton) = 0;
 
 	/* Implementation resides in Systems.cpp to avoid conflicts. */
-	virtual void UploadMaterialTextures(Material& inMaterial, Assets& inAssets);
-	virtual void DestroyMaterialTextures(Material& inMaterial, Assets& inAssets) = 0;
+	virtual void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets);
+	virtual void DestroyMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) = 0;
 
 	virtual uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) = 0;
 

@@ -134,21 +134,35 @@ struct BRDF {
         return (1.0 - F) * diffuse + specular;
     }
     
+    void SampleDiffuse(inout uint rng, float3 Wo, out float3 Wi)
+    {
+        Wi = normalize(mNormal + SampleCosineWeightedHemisphere(pcg_float2(rng)));
+    }
+    
+    // Sample specular lobe
+    void SampleSpecular(inout uint rng, float3 Wo, out float3 Wi, out float3 Wh)
+    {
+        if (mRoughness == 0.0)
+        {
+            Wh = mNormal; // roughness 0 is a perfect reflection, so just reflect around the normal
+        }
+        else
+        {
+            // Importance sample the specular lobe using UE4's example to get the half vector
+            Wh = ImportanceSampleGGX(pcg_float2(rng), mRoughness, mNormal);
+        }
+        Wi = normalize(reflect(-Wo, Wh));
+    }
+    
     
     /* Returns the BRDF value, also outputs new outgoing direction and pdf */
-    void Sample(uint rng, float3 Wo, out float3 Wi, out float3 weight) {
-        float3 Wh;
+    void Sample(inout uint rng, float3 Wo, out float3 Wi, out float3 weight) {
         const float rand = pcg_float(rng);
 
         // randomly decide to specular bounce
         if (rand > 0.5 && mRoughness < 0.67) {
-        // Importance sample the specular lobe using UE4's example to get the half vector
-            if (mRoughness == 0.0)
-                Wh = mNormal; // roughness 0 is a perfect reflection, so we can just reflect around the normal
-            else
-                Wh = ImportanceSampleGGX(pcg_float2(rng), mRoughness, mNormal);
-
-            Wi = normalize(reflect(-Wo, Wh));
+            float3 Wh;
+            SampleSpecular(rng, Wo, Wi, Wh);
 
             float VdotH = clamp(dot(Wo, Wh), 0.0001, 1.0);
             float NdotL = clamp(dot(mNormal, Wi), 0.0001, 1.0);
@@ -159,8 +173,7 @@ struct BRDF {
         }
         else {
         // importance sample the hemisphere around the normal for diffuse
-            Wi = normalize(mNormal + SampleCosineWeightedHemisphere(pcg_float2(rng)));
-            Wh = normalize(Wo + Wi);
+            SampleDiffuse(rng, Wo, Wi);
             weight = ((1.0 - mMetallic) * mAlbedo.rgb);
         }
     }

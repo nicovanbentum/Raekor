@@ -38,13 +38,12 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     FrameConstants fc = gGetFrameConstants();
     const float3 ws_pos = ReconstructWorldPosition(inParams.mScreenUV, depth, fc.mInvViewProjectionMatrix);
     
-    
     if (depth == 1.0) {
         float3 transmittance;
         const float3 light_color = fc.mSunColor.rgb;
         float3 inscattering = IntegrateScattering(ws_pos, normalize(fc.mCameraPosition.xyz - ws_pos), 1.#INF, fc.mSunDirection.xyz, fc.mSunColor.rgb, transmittance);
         //sky_color = ApplyFog(sky_color, distance(fc.mCameraPosition.xyz, position.xyz), fc.mCameraPosition.xyz, normalize(fc.mCameraPosition.xyz - position.xyz));
-        return float4(min(inscattering, 1.0.xxx) * fc.mSunColor.a, 1.0);
+        return float4(max(inscattering, 0.0.xxx) * fc.mSunColor.a, 1.0);
     }
 
     const float3 Wo = normalize(fc.mCameraPosition.xyz - ws_pos.xyz);
@@ -57,24 +56,18 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     float shadow_mask   = shadow_texture[inParams.mPixelCoords.xy];
     total_radiance += l * NdotL * sunlight_luminance * shadow_mask;
     
-    // float4 diffuse_gi = diffuse_gi_texture[inParams.mPixelCoords.xy];
-    
-    //if (brdf.mRoughness < 0.3)
-    //{
-    //    float4 specular = reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
-    //    total_radiance += specular.rgb;
-    //}
-    
     float ao = ao_texture[inParams.mPixelCoords.xy];
     //ao = 1.0;
     
+    float4 specular = reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
+    // total_radiance += specular.rgb * brdf.mAlbedo.rgb * ao;
     
     float3 offset_ws_pos = ws_pos + brdf.mNormal * 0.01;
     float3 irradiance = DDGISampleIrradiance(offset_ws_pos, brdf.mNormal, rc.mDDGIData);
     
-    //total_radiance += brdf.mAlbedo.rgb * 0.25;
+    // total_radiance += brdf.mAlbedo.rgb * 0.25;
     
-    total_radiance += irradiance.rgb * brdf.mAlbedo.rgb * ao;
+     total_radiance += irradiance.rgb * brdf.mAlbedo.rgb * ao;
     
     //total_radiance = ApplyFog(total_radiance, distance(fc.mCameraPosition.xyz, ws_pos), fc.mCameraPosition.xyz, -Wo);
     

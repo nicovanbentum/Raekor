@@ -29,7 +29,7 @@ void GLApp::OnUpdate(float inDeltaTime)
     }
 
     for (const auto& [entity, transform, mesh, soft_body] : m_Scene.Each<Transform, Mesh, SoftBody>())
-        m_Renderer.UploadMeshBuffers(mesh);
+        m_Renderer.UploadMeshBuffers(entity, mesh);
 
     // render scene
     m_Renderer.Render(m_Scene, m_Viewport);

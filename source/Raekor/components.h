@@ -108,11 +108,14 @@ struct SCRIPT_INTERFACE Mesh
 
 	float mLODFade = 0.0f;
 
-	void CalculateTangents(float inTangentSign = 1.0f);
-	void CalculateNormals();
+	std::vector<float> mInterleavedVertices;
+
 	void CalculateAABB();
-	std::vector<float> GetInterleavedVertices() const;
+	void CalculateNormals();
+	void CalculateTangents(float inTangentSign = 1.0f);
+
 	uint32_t GetInterleavedStride() const;
+	const std::vector<float>& GetInterleavedVertices();
 
 	void Clear()
 	{

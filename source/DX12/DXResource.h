@@ -11,6 +11,7 @@ public:
 
     ResourceID() : m_Index(INVALID) {}
     explicit ResourceID(uint32_t inValue) : m_Index(inValue) {}
+    explicit operator uint32_t() const { return m_Value; }
 
     bool operator==(const ResourceID& inOther) const { return ToIndex() == inOther.ToIndex(); }
     bool operator!=(const ResourceID& inOther) const { return ToIndex() != inOther.ToIndex(); }
@@ -19,8 +20,16 @@ public:
     [[nodiscard]] bool IsValid() const { return m_Index != INVALID; }
 
 protected:
-    uint32_t m_Index : 20;
-    uint32_t m_Generation : 12;
+    union
+    {
+        struct
+        {
+            uint32_t m_Index : 20;
+            uint32_t m_Generation : 12;
+        };
+
+        uint32_t m_Value;
+    };
 };
 
 
@@ -220,6 +229,20 @@ private:
 
 using BufferID = Buffer::Pool::TypedID;
 using TextureID = Texture::Pool::TypedID;
+
+
+struct BufferUpload
+{
+    BufferID mBuffer;
+    Slice<char> mData;
+};
+
+struct TextureUpload
+{
+    uint32_t mMip = 0;
+    TextureID mTexture;
+    Slice<char> mData;
+};
 
 
 enum EResourceType

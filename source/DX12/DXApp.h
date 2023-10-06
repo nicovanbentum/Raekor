@@ -31,10 +31,10 @@ private:
     DescriptorID UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat); // unused for now
 
 private:
-    TextureID     m_ImGuiFontTextureID;
-    DescriptorID  m_DefaultWhiteTexture;
-    DescriptorID  m_DefaultBlackTexture;
-    DescriptorID  m_DefaultNormalTexture;
+    TextureID  m_ImGuiFontTextureID;
+    TextureID  m_DefaultWhiteTexture;
+    TextureID  m_DefaultBlackTexture;
+    TextureID  m_DefaultNormalTexture;
 
     ComPtr<IDXGISwapChain3> m_Swapchain;
     ComPtr<IDStorageQueue>  m_FileStorageQueue;

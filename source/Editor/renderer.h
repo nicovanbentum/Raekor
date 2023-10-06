@@ -41,13 +41,13 @@ public:
 
     void DrawImGui(Scene& inScene, const Viewport& inViewport);
 
-    void UploadMeshBuffers(Mesh& inMesh) override;
-    void DestroyMeshBuffers(Mesh& inMesh);
+    void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
+    void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh);
 
     void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) override;
     void DestroySkeletonBuffers(Skeleton& inSkeleton);
 
-    void DestroyMaterialTextures(Material& inMaterial, Assets& inAssets);
+    void DestroyMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets);
 
     uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
 

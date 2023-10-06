@@ -228,7 +228,7 @@ Entity Scene::Clone(Entity inEntity)
 	);
 
 	if (Has<Mesh>(copy))
-		m_Renderer->UploadMeshBuffers(Get<Mesh>(copy));
+		m_Renderer->UploadMeshBuffers(copy, Get<Mesh>(copy));
 
 	return copy;
 }
@@ -260,7 +260,7 @@ void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials)
 		auto& material = Get<Material>(entity);
 
 		if (m_Renderer)
-			m_Renderer->UploadMaterialTextures(material, assets);
+			m_Renderer->UploadMaterialTextures(entity, material, assets);
 	}
 
 	std::cout << std::format("[Scene] Upload textures to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
@@ -316,7 +316,7 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file)
 		mesh.CalculateAABB();
 
 		if (m_Renderer)
-			m_Renderer->UploadMeshBuffers(mesh);
+			m_Renderer->UploadMeshBuffers(entity, mesh);
 	}
 
 	std::cout << std::format("[Scene] Upload mesh data to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
@@ -478,7 +478,7 @@ void SceneImporter::ConvertMesh(Entity inEntity, const Mesh& inMesh)
 	mesh.material = m_MaterialMapping[mesh.material];
 
 	if (m_Renderer)
-		m_Renderer->UploadMeshBuffers(mesh);
+		m_Renderer->UploadMeshBuffers(inEntity, mesh);
 }
 
 

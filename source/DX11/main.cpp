@@ -64,11 +64,11 @@ struct GBufferConstants
 class DX11App : public Application
 {
 public:
-    bool UploadMesh(const Mesh& inMesh, DXMesh& ioMesh)
+    bool UploadMesh(Mesh& inMesh, DXMesh& ioMesh)
     {
-        const auto vertices = inMesh.GetInterleavedVertices();
-        const auto vertices_size = vertices.size() * sizeof(vertices[0]);
-        const auto indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
+        const auto& vertices = inMesh.GetInterleavedVertices();
+        const auto  vertices_size = vertices.size() * sizeof(vertices[0]);
+        const auto  indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
 
         if (!vertices_size || !indices_size)
             return false;

@@ -298,10 +298,11 @@ void Mesh::CalculateAABB()
 }
 
 
-std::vector<float> Mesh::GetInterleavedVertices() const
+const std::vector<float>& Mesh::GetInterleavedVertices()
 {
-	std::vector<float> vertices;
-	vertices.reserve(
+	mInterleavedVertices.clear();
+
+	mInterleavedVertices.reserve(
 		3 * positions.size() +
 		2 * uvs.size() +
 		3 * normals.size() +
@@ -315,35 +316,35 @@ std::vector<float> Mesh::GetInterleavedVertices() const
 	for (auto i = 0; i < positions.size(); i++)
 	{
 		auto position = positions[i];
-		vertices.push_back(position.x);
-		vertices.push_back(position.y);
-		vertices.push_back(position.z);
+		mInterleavedVertices.push_back(position.x);
+		mInterleavedVertices.push_back(position.y);
+		mInterleavedVertices.push_back(position.z);
 
 		if (hasUVs)
 		{
 			auto uv = uvs[i];
-			vertices.push_back(uv.x);
-			vertices.push_back(uv.y);
+			mInterleavedVertices.push_back(uv.x);
+			mInterleavedVertices.push_back(uv.y);
 		}
 
 		if (hasNormals)
 		{
 			auto normal = normals[i];
-			vertices.push_back(normal.x);
-			vertices.push_back(normal.y);
-			vertices.push_back(normal.z);
+			mInterleavedVertices.push_back(normal.x);
+			mInterleavedVertices.push_back(normal.y);
+			mInterleavedVertices.push_back(normal.z);
 		}
 
 		if (hasTangents && i < tangents.size())
 		{
 			auto tangent = tangents[i];
-			vertices.push_back(tangent.x);
-			vertices.push_back(tangent.y);
-			vertices.push_back(tangent.z);
+			mInterleavedVertices.push_back(tangent.x);
+			mInterleavedVertices.push_back(tangent.y);
+			mInterleavedVertices.push_back(tangent.z);
 		}
 	}
 
-	return vertices;
+	return mInterleavedVertices;
 }
 
 

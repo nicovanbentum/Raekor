@@ -13,6 +13,10 @@ class Application;
 
 namespace Raekor::DX12 {
 
+/* 
+    Since I don't feel like changing Scene to be some base pointer to a derived RayTracedScene class and having to pass pointers everywhere, 
+    this class is a single instance type just like Scene. It holds a reference to the Editor's scene, and stores additional data for ray tracing and handles mesh/material uploads.
+*/
 class RayTracedScene
 {
 public:
@@ -28,6 +32,10 @@ public:
     DescriptorID GetTLASDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_TLASBuffer).GetDescriptor(); }
     DescriptorID GetInstancesDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_InstancesBuffer).GetDescriptor(); }
     DescriptorID GetMaterialsDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_MaterialsBuffer).GetDescriptor(); }
+
+    void UploadMesh(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, CommandList& inCmdList);
+    void UploadTexture(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, TextureUpload& inUpload, CommandList& inCmdList);
+    void UploadMaterial(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Material& inMaterial, CommandList& inCmdList);
 
     void UploadTLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
     void UploadInstances(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);

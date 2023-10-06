@@ -278,6 +278,14 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh)
 	}
 
 	ImGui::DragFloat("LOD Fade", &ioMesh.mLODFade, 0.001f, -1.0f, 1.0f, "%.3f");
+
+	if (ImGui::Button("Generate Normals"))
+		ioMesh.CalculateNormals();
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Generate Tangents"))
+		ioMesh.CalculateTangents();
 }
 
 
@@ -444,7 +452,7 @@ void InspectorWidget::DrawComponent(Material& inMaterial)
 			}
 		}
 
-		if (ImGui::BeginPopupContextItem())
+		if (!inFile.empty() && inGpuMap && inGpuMap != inDefaultMap && ImGui::BeginPopupContextItem())
 		{
 			if (ImGui::MenuItem("Remove"))
 			{

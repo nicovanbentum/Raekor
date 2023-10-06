@@ -176,10 +176,13 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     }
 
     // at this point we know the GPU is no longer working on this frame, so free/release stuff here
-    inStagingHeap.RetireBuffers(backbuffer_data.mCopyCmdList);
-    inStagingHeap.RetireBuffers(backbuffer_data.mDirectCmdList);
-    backbuffer_data.mCopyCmdList.ReleaseTrackedResources();
-    backbuffer_data.mDirectCmdList.ReleaseTrackedResources();
+    // if (m_FrameCounter > 0)
+    {
+        inStagingHeap.RetireBuffers(backbuffer_data.mCopyCmdList);
+        inStagingHeap.RetireBuffers(backbuffer_data.mDirectCmdList);
+        backbuffer_data.mCopyCmdList.ReleaseTrackedResources();
+        backbuffer_data.mDirectCmdList.ReleaseTrackedResources();
+    }
 
     // Update the total running time of the application / renderer
     m_ElapsedTime += inDeltaTime;
@@ -248,8 +251,21 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     auto& copy_cmd_list = GetBackBufferData().mCopyCmdList;
     copy_cmd_list.Reset();
 
-    //// Record copy commands to the copy cmd list
-    // TODO: StagingBuffer leaks and ReleaseBuffer/ReleaseTexture needs frame tracking
+    //// Record pending scene uploads to the copy cmd list
+    for (auto entity : m_PendingMeshUploads)
+        inScene.UploadMesh(inApp, inDevice, inStagingHeap, inScene->Get<Mesh>(entity), copy_cmd_list);
+
+    for (auto& texture_upload : m_PendingTextureUploads)
+        inScene.UploadTexture(inApp, inDevice, inStagingHeap, texture_upload, copy_cmd_list);
+
+    for (auto entity : m_PendingMaterialUploads)
+        inScene.UploadMaterial(inApp, inDevice, inStagingHeap, inScene->Get<Material>(entity), copy_cmd_list);
+
+    m_PendingMeshUploads.clear();
+    m_PendingTextureUploads.clear();
+    m_PendingMaterialUploads.clear();
+
+    //// Record uploads for the RT scene 
     inScene.UploadInstances(inApp, inDevice, inStagingHeap, copy_cmd_list);
     inScene.UploadMaterials(inApp, inDevice, inStagingHeap, copy_cmd_list);
     inScene.UploadTLAS(inApp, inDevice, inStagingHeap, copy_cmd_list);
@@ -628,8 +644,9 @@ uint64_t RenderInterface::GetDisplayTexture()
 
 uint64_t RenderInterface::GetImGuiTextureID(uint32_t inHandle)
 {
+    const auto& heap_index = m_Device.GetBindlessHeapIndex(TextureID(inHandle));
     const auto& resource_heap = *m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    const auto heap_ptr = resource_heap->GetGPUDescriptorHandleForHeapStart().ptr + inHandle * m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    const auto heap_ptr = resource_heap->GetGPUDescriptorHandleForHeapStart().ptr + heap_index * m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     return heap_ptr;
 }
 
@@ -660,13 +677,11 @@ const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
 
 
 
-void RenderInterface::UploadMeshBuffers(Mesh& inMesh)
+void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
 {
-    m_Renderer.WaitForIdle(m_Device);
-
-    const auto vertices = inMesh.GetInterleavedVertices();
-    const auto vertices_size = vertices.size() * sizeof(vertices[0]);
-    const auto indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
+    const auto& vertices = inMesh.GetInterleavedVertices();
+    const auto  vertices_size = vertices.size() * sizeof(vertices[0]);
+    const auto  indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
 
     if (!vertices_size || !indices_size)
         return;
@@ -685,79 +700,16 @@ void RenderInterface::UploadMeshBuffers(Mesh& inMesh)
         .debugName = L"VERTEX_BUFFER"
     }).ToIndex();
 
-    D3D12_RAYTRACING_GEOMETRY_DESC geom = {};
-    geom.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-    geom.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+    // actual data upload happens in RayTracedScene::UploadMesh at the start of the frame
+    m_Renderer.QueueMeshUpload(inEntity);
+}
 
-    geom.Triangles.IndexBuffer = m_Device.GetBuffer(BufferID(inMesh.indexBuffer))->GetGPUVirtualAddress();
-    geom.Triangles.IndexCount = inMesh.indices.size();
-    geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
 
-    geom.Triangles.VertexBuffer.StartAddress = m_Device.GetBuffer(BufferID(inMesh.vertexBuffer))->GetGPUVirtualAddress();
-    geom.Triangles.VertexBuffer.StrideInBytes = sizeof(Vertex);
-    geom.Triangles.VertexCount = inMesh.positions.size();
-    geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-
-    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
-    inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
-    inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-    inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-    inputs.pGeometryDescs = &geom;
-    inputs.NumDescs = 1;
-
-    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
-    m_Device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
-
-    const auto blas_buffer_id = m_Device.CreateBuffer(Buffer::Desc 
-    {
-        .size  = prebuild_info.ResultDataMaxSizeInBytes,
-        .usage = Buffer::Usage::ACCELERATION_STRUCTURE,
-        .debugName = L"BLAS_BUFFER"
-    });
-
-    inMesh.BottomLevelAS = blas_buffer_id.ToIndex();
-
-    const auto scratch_buffer_id = m_Device.CreateBuffer(Buffer::Desc
-    {
-        .size = prebuild_info.ScratchDataSizeInBytes,
-        .debugName = L"SCRATCH_BUFFER_BLAS_RT"
-    });
-
-    auto& blas_buffer = m_Device.GetBuffer(blas_buffer_id);
-    auto& scratch_buffer = m_Device.GetBuffer(scratch_buffer_id);
-
-    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
-    desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();
-    desc.DestAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
-    desc.Inputs = inputs;
-
-    auto& cmd_list = m_Renderer.StartSingleSubmit();
-
-    {
-        const auto& gpu_index_buffer = m_Device.GetBuffer(BufferID(inMesh.indexBuffer));
-        const auto& gpu_vertex_buffer = m_Device.GetBuffer(BufferID(inMesh.vertexBuffer));
-
-        m_StagingHeap.StageBuffer(cmd_list, gpu_index_buffer.GetD3D12Resource(), 0, inMesh.indices.data(), indices_size);
-        m_StagingHeap.StageBuffer(cmd_list, gpu_vertex_buffer.GetD3D12Resource(), 0, vertices.data(), vertices_size);
-    }
-
-    {
-        const auto& gpu_index_buffer = m_Device.GetBuffer(BufferID(inMesh.indexBuffer));
-        const auto& gpu_vertex_buffer = m_Device.GetBuffer(BufferID(inMesh.vertexBuffer));
-
-        const auto barriers = std::array {
-            CD3DX12_RESOURCE_BARRIER::Transition(gpu_index_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
-            CD3DX12_RESOURCE_BARRIER::Transition(gpu_vertex_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
-        };
-
-        cmd_list->ResourceBarrier(barriers.size(), barriers.data());
-    }
-
-    cmd_list->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
-
-    m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
-
-    // m_Device.ReleaseBuffer(scratch_buffer_id);
+void RenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets)
+{
+    IRenderInterface::UploadMaterialTextures(inEntity, inMaterial, inAssets);
+    // UploadMaterialTextures only creates the gpu texture and srv, data upload happens in RayTracedScene::UploadMaterial at the start of the frame
+    m_Renderer.QueueMaterialUpload(inEntity);
 }
 
 
@@ -770,7 +722,7 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     const auto mipmap_levels = header_ptr->dwMipMapCount;
     const auto debug_name = inAsset->GetPath().wstring();
 
-    auto texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc
+    const auto texture_id = m_Device.CreateTexture(Texture::Desc
     {
         .swizzle        = inSwizzle,
         .format         = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM,
@@ -779,22 +731,9 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
         .mipLevels      = mipmap_levels,
         .usage          = Texture::SHADER_READ_ONLY,
         .debugName      = debug_name.c_str()
-    }));
+    });
 
-    auto& cmd_list = m_Renderer.StartSingleSubmit();
-
-    for (uint32_t mip = 0; mip < mipmap_levels; mip++)
-    {
-        const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
-
-        m_StagingHeap.StageTexture(cmd_list, texture.GetD3D12Resource(), mip, data_ptr);
-
-        data_ptr += dimensions.x * dimensions.y;
-    }
-
-    m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
-
-    return texture.GetView().ToIndex();
+    return uint32_t(texture_id);
 }
 
 
@@ -944,11 +883,11 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             auto root_constants = GbufferRootConstants {
                 .mVertexBuffer       = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
-                .mAlbedoTexture      = material->gpuAlbedoMap,
-                .mNormalTexture      = material->gpuNormalMap,
-                .mEmissiveTexture    = material->gpuEmissiveMap,
-                .mMetallicTexture    = material->gpuMetallicMap,
-                .mRoughnessTexture   = material->gpuRoughnessMap,
+                .mAlbedoTexture      = inDevice.GetBindlessHeapIndex(TextureID(material->gpuAlbedoMap)),
+                .mNormalTexture      = inDevice.GetBindlessHeapIndex(TextureID(material->gpuNormalMap)),
+                .mEmissiveTexture    = inDevice.GetBindlessHeapIndex(TextureID(material->gpuEmissiveMap)),
+                .mMetallicTexture    = inDevice.GetBindlessHeapIndex(TextureID(material->gpuMetallicMap)),
+                .mRoughnessTexture   = inDevice.GetBindlessHeapIndex(TextureID(material->gpuRoughnessMap)),
                 .mRoughness          = material->roughness,
                 .mMetallic           = material->metallic,
                 .mAlbedo             = material->albedo,

@@ -138,12 +138,13 @@ std::vector<Entity> NodeSystem::sGetFlatHierarchy(ecs::ECS& inECS, Entity inEnti
 }
 
 
-void IRenderInterface::UploadMaterialTextures(Material& inMaterial, Assets& inAssets)
+void IRenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets)
 {
-	assert(Material::Default.IsLoaded() && "Default material not loaded, did you forget to initialize its gpu maps before opening a scene?");
+	assert(Material::Default.IsLoaded() && "Default material not loaded, did the programmer forget to initialize its gpu maps before opening a scene?");
 
-	auto UploadTexture = [&](const std::string& inFile, bool inIsSRGB, uint8_t inSwizzle, uint32_t inDefaultMap, uint32_t& ioGpuMap) {
-		if (auto asset = inAssets.GetAsset<TextureAsset>(inFile); asset)
+	auto UploadTexture = [&](const std::string& inFile, bool inIsSRGB, uint8_t inSwizzle, uint32_t inDefaultMap, uint32_t& ioGpuMap) 
+	{
+		if (auto asset = inAssets.GetAsset<TextureAsset>(inFile))
 			ioGpuMap = UploadTextureFromAsset(asset, inIsSRGB, inSwizzle);
 		else
 			ioGpuMap = inDefaultMap;

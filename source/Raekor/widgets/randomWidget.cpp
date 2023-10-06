@@ -62,7 +62,7 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt)
 		ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
 
 		if (auto renderer = m_Editor->GetRenderInterface())
-			renderer->UploadMaterialTextures(ball_material, GetAssets());
+			renderer->UploadMaterialTextures(material_entity, ball_material, GetAssets());
 
 		for (uint32_t i = 0; i < 64; i++)
 		{
@@ -74,7 +74,8 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt)
 
 			constexpr auto radius = 4.5f;
 			gGenerateSphere(mesh, radius, 32, 32);
-			GetRenderInterface().UploadMeshBuffers(mesh);
+			GetRenderInterface().UploadMeshBuffers(entity, mesh);
+			GetRenderInterface().UploadMaterialTextures(material_entity, ball_material, GetAssets());
 
 			transform.position = Vec3(-65.0f, 85.0f + i * ( radius * 2.0f ), 0.0f);
 			transform.Compose();

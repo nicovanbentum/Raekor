@@ -204,7 +204,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					}
 
 					gGenerateSphere(mesh, 2.5f, 16, 16);
-					m_Editor->GetRenderInterface()->UploadMeshBuffers(mesh);
+					m_Editor->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
 				}
 
 				if (ImGui::MenuItem("Plane"))
@@ -235,7 +235,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					mesh.CalculateTangents();
 					mesh.CalculateAABB();
 
-					m_Editor->GetRenderInterface()->UploadMeshBuffers(mesh);
+					m_Editor->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
 				}
 
 				if (ImGui::MenuItem("Cube"))
@@ -267,7 +267,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					mesh.CalculateTangents();
 					mesh.CalculateAABB();
 
-					m_Editor->GetRenderInterface()->UploadMeshBuffers(mesh);
+					m_Editor->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
 					m_Editor->SetActiveEntity(entity);
 				}
 

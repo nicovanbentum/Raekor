@@ -197,7 +197,12 @@ void IEditor::OnEvent(const SDL_Event& event)
 			case SDLK_d:
 			{
 				if (SDL_GetModState() & KMOD_LCTRL)
-					m_Scene.Clone(m_Scene.Create());
+				{
+					if (m_ActiveEntity != NULL_ENTITY)
+					{
+						SetActiveEntity(m_Scene.Clone(m_ActiveEntity));
+					}
+				}
 			} break;
 		}
 	}

@@ -236,7 +236,7 @@ void FBXImporter::ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const uf
 		mesh.CalculateTangents();
 
 	if (m_Renderer)
-		m_Renderer->UploadMeshBuffers(mesh);
+		m_Renderer->UploadMeshBuffers(inEntity, mesh);
 }
 
 

@@ -94,22 +94,26 @@ DXApp::DXApp() :
     }
 
     // Create default textures / assets
-    const auto black_texture_file = TextureAsset::sConvert("assets/system/black4x4.png");
-    const auto white_texture_file = TextureAsset::sConvert("assets/system/white4x4.png");
+    const auto black_texture_file  = TextureAsset::sConvert("assets/system/black4x4.png");
+    const auto white_texture_file  = TextureAsset::sConvert("assets/system/white4x4.png");
     const auto normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
-    m_DefaultBlackTexture = DescriptorID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(black_texture_file)));
-    m_DefaultWhiteTexture = DescriptorID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(white_texture_file)));
-    m_DefaultNormalTexture = DescriptorID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(normal_texture_file)));
+    m_DefaultBlackTexture  = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(black_texture_file)));
+    m_DefaultWhiteTexture  = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(white_texture_file)));
+    m_DefaultNormalTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(normal_texture_file)));
+
+    m_Renderer.QueueTextureUpload(m_DefaultBlackTexture, 0, m_Assets.GetAsset<TextureAsset>(black_texture_file));
+    m_Renderer.QueueTextureUpload(m_DefaultWhiteTexture, 0, m_Assets.GetAsset<TextureAsset>(white_texture_file));
+    m_Renderer.QueueTextureUpload(m_DefaultNormalTexture, 0, m_Assets.GetAsset<TextureAsset>(normal_texture_file));
 
     assert(m_DefaultBlackTexture.IsValid() && m_DefaultBlackTexture.ToIndex() != 0);
     assert(m_DefaultWhiteTexture.IsValid() && m_DefaultWhiteTexture.ToIndex() != 0);
     assert(m_DefaultNormalTexture.IsValid() && m_DefaultNormalTexture.ToIndex() != 0);
 
-    Material::Default.gpuAlbedoMap = m_DefaultWhiteTexture.ToIndex();
-    Material::Default.gpuNormalMap = m_DefaultNormalTexture.ToIndex();
-    Material::Default.gpuEmissiveMap = m_DefaultWhiteTexture.ToIndex();
-    Material::Default.gpuMetallicMap = m_DefaultWhiteTexture.ToIndex();
-    Material::Default.gpuRoughnessMap = m_DefaultWhiteTexture.ToIndex();
+    Material::Default.gpuAlbedoMap    = uint32_t(m_DefaultWhiteTexture);
+    Material::Default.gpuNormalMap    = uint32_t(m_DefaultNormalTexture);
+    Material::Default.gpuEmissiveMap  = uint32_t(m_DefaultWhiteTexture);
+    Material::Default.gpuMetallicMap  = uint32_t(m_DefaultWhiteTexture);
+    Material::Default.gpuRoughnessMap = uint32_t(m_DefaultWhiteTexture);
 
     // initialize ImGui
     ImGui_ImplSDL2_InitForD3D(m_Window);
@@ -159,20 +163,6 @@ DXApp::DXApp() :
     gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_MemoryStorageQueue)));
 
     timer.Restart();
-
-    {
-        auto& cmd_list = m_Renderer.StartSingleSubmit();
-
-        m_RayTracedScene.UploadInstances(this, m_Device, m_StagingHeap, cmd_list);
-
-        m_RayTracedScene.UploadMaterials(this, m_Device, m_StagingHeap, cmd_list);
-
-        m_RayTracedScene.UploadTLAS(this, m_Device, m_StagingHeap, cmd_list);
-
-        m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
-    }
-
-    LogMessage(std::format("[CPU] Upload BVH to GPU took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
 

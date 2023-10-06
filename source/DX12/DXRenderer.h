@@ -88,7 +88,6 @@ private:
 public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
-
     void OnResize(Device& inDevice, const Viewport& inViewport, bool inExclusiveFullscreen = false);
     void OnRender(Application* inApp, Device& inDevice, const Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterfacee, float inDeltaTime);
 
@@ -111,6 +110,12 @@ public:
     bool InitXeSS(Device& inDevice, const Viewport& inViewport);
     bool DestroyXeSS(Device& inDevice);
 
+    void QueueMeshUpload(Entity inEntity) { m_PendingMeshUploads.push_back(inEntity); }
+    void QueueMaterialUpload(Entity inEntity) { m_PendingMaterialUploads.push_back(inEntity); }
+
+    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const Slice<char>& inData) { m_PendingTextureUploads.emplace_back(TextureUpload{ inMip, inTexture, inData }); }
+    void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const TextureAsset::Ptr& inData) { m_PendingTextureUploads.emplace_back(TextureUpload{ inMip, inTexture, Slice(inData->GetData(), inData->GetDataSize()) }); }
+
     SDL_Window*         GetWindow() const       { return m_Window; }
     Settings&           GetSettings()           { return m_Settings; }
     const RenderGraph&  GetRenderGraph() const  { return m_RenderGraph; }
@@ -124,23 +129,26 @@ public:
 
 private:
     SDL_Window* m_Window;
-    Job::Ptr                m_PresentJobPtr;
-    uint32_t                m_FrameIndex;
-    float                   m_ElapsedTime = 0;
-    ComPtr<IDXGISwapChain3> m_Swapchain;
-    ComPtr<ID3D12Fence>     m_Fence;
-    HANDLE                  m_FenceEvent;
-    uint64_t                m_FrameCounter = 0;
-    bool                    m_ShouldResize = false;
-    bool                    m_ShouldCaptureNextFrame = false;
-    BackBufferData          m_BackBufferData[sFrameCount];
-    FrameConstants          m_FrameConstants = {};
-    FfxFsr2Context          m_Fsr2Context;
-    std::vector<uint8_t>    m_FsrScratchMemory;
-    NVSDK_NGX_Handle*       m_DLSSHandle = nullptr;
-    NVSDK_NGX_Parameter*    m_DLSSParams = nullptr;
-    xess_context_handle_t   m_XeSSContext = nullptr;
-    RenderGraph             m_RenderGraph;
+    std::vector<Entity>         m_PendingMeshUploads;
+    std::vector<Entity>         m_PendingMaterialUploads;
+    std::vector<TextureUpload>  m_PendingTextureUploads;
+    Job::Ptr                    m_PresentJobPtr;
+    uint32_t                    m_FrameIndex;
+    float                       m_ElapsedTime = 0;
+    ComPtr<IDXGISwapChain3>     m_Swapchain;
+    ComPtr<ID3D12Fence>         m_Fence;
+    HANDLE                      m_FenceEvent;
+    uint64_t                    m_FrameCounter = 0;
+    bool                        m_ShouldResize = false;
+    bool                        m_ShouldCaptureNextFrame = false;
+    BackBufferData              m_BackBufferData[sFrameCount];
+    FrameConstants              m_FrameConstants = {};
+    FfxFsr2Context              m_Fsr2Context;
+    std::vector<uint8_t>        m_FsrScratchMemory;
+    NVSDK_NGX_Handle*           m_DLSSHandle = nullptr;
+    NVSDK_NGX_Parameter*        m_DLSSParams = nullptr;
+    xess_context_handle_t       m_XeSSContext = nullptr;
+    RenderGraph                 m_RenderGraph;
 };
 
 
@@ -160,18 +168,19 @@ public:
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) { return 0; }
     uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) override { return NULL_ENTITY; /* TODO: FIXME */ }
 
-    void UploadMeshBuffers(Mesh& inMesh);
-    void DestroyMeshBuffers(Mesh& inMesh) { /* TODO: FIXME */ }
+    void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
+    void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) override { /* TODO: FIXME */ }
 
-    void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) { /* TODO: FIXME */ }
-    void DestroySkeletonBuffers(Skeleton& inSkeleton) { /* TODO: FIXME */ }
+    void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) override { /* TODO: FIXME */ }
+    void DestroySkeletonBuffers(Skeleton& inSkeleton) override { /* TODO: FIXME */ }
 
-    void DestroyMaterialTextures(Material& inMaterial, Assets& inAssets) override {}
+    void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) override;
+    void DestroyMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) override {}
 
-    uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA);
+    uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
 
-    void OnResize(const Viewport& inViewport);
-    void DrawImGui(Scene& inScene, const Viewport& inViewport) {}
+    void OnResize(const Viewport& inViewport) override;
+    void DrawImGui(Scene& inScene, const Viewport& inViewport) override {}
 
 private:
     Device& m_Device;
