@@ -27,7 +27,7 @@ std::string TextureAsset::sConvert(const std::string& filepath)
 		const auto aw = gAlignUp(width, 4), ah = gAlignUp(height, 4);
 
 		mip_chain.push_back((stbi_uc*)malloc(aw * ah * 4));
-		stbir_resize_uint8(mip_chain[0], width, height, 0, mip_chain[1], aw, ah, 0, 4);
+		stbir_resize_uint8_linear(mip_chain[0], width, height, 0, mip_chain[1], aw, ah, 0, (stbir_pixel_layout)4);
 
 		stbi_image_free(mip_chain[0]);
 		mip_chain[0] = mip_chain[1];
@@ -56,7 +56,7 @@ std::string TextureAsset::sConvert(const std::string& filepath)
 		}
 
 		mip_chain.push_back((stbi_uc*)malloc(mip_size.x * mip_size.y * 4));
-		stbir_resize_uint8(mip_chain[i - 1], prev_mip_size.x, prev_mip_size.y, 0, mip_chain[i], mip_size.x, mip_size.y, 0, 4);
+		stbir_resize_uint8_linear(mip_chain[i - 1], prev_mip_size.x, prev_mip_size.y, 0, mip_chain[i], mip_size.x, mip_size.y, 0, (stbir_pixel_layout)4);
 	}
 
 	std::vector<unsigned char> dds_buffer(128);

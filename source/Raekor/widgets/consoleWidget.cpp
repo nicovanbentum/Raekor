@@ -77,6 +77,11 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				else
 					m_Items.emplace_back("Failed to set cvar " + name + " to " + "\"" + value + "\"");
 			}
+			else
+			{
+				if (name.starts_with('r'))
+					m_Editor->GetRenderInterface()->OnResize(m_Editor->GetViewport());
+			}
 		}
 
 		m_InputBuffer.clear();
@@ -103,7 +108,9 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			const auto cvar_text = mapping.first + " " + g_CVars.GetValue(mapping.first) + '\n';
 
 			if (index == m_ActiveItem)
+			{
 				ImGui::Selectable(cvar_text.c_str(), true);
+			}
 			else
 				ImGui::TextUnformatted(cvar_text.c_str());
 		}
@@ -149,11 +156,54 @@ int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data)
 		}
 	}
 
+	auto GoToNextItem = [&]() -> int
+	{
+		auto found_active = false;
+		auto filter = ImGuiTextFilter(data->Buf);
+
+		for (const auto& [index, cvar] : gEnumerate(g_CVars))
+		{
+			if (index == console->m_ActiveItem)
+			{
+				found_active = true;
+				continue;
+			}
+
+			if (!filter.PassFilter(cvar.first.c_str()))
+				continue;
+
+			if (found_active)
+				return index;
+		}
+
+		return console->m_ActiveItem;
+	};
+
+	auto GoToPreviousItem = [&]() -> int
+	{
+		auto found_active = false;
+		auto previous_index = 0;
+		auto filter = ImGuiTextFilter(data->Buf);
+
+		for (const auto& [index, cvar] : gEnumerate(g_CVars))
+		{
+			if (!filter.PassFilter(cvar.first.c_str()))
+				continue;
+
+			if (index == console->m_ActiveItem)
+				return previous_index;
+
+			previous_index = index;
+		}
+
+		return console->m_ActiveItem;
+	};
+
 	if (data->EventKey == ImGuiKey_DownArrow)
-		console->m_ActiveItem++;
+		console->m_ActiveItem = GoToNextItem();
 
 	if (data->EventKey == ImGuiKey_UpArrow && console->m_ActiveItem)
-		console->m_ActiveItem--;
+		console->m_ActiveItem = GoToPreviousItem();
 
 	return 0;
 }

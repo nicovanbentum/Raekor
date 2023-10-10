@@ -465,7 +465,7 @@ void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 	auto child = m_ImportedScene.Get<Node>(inEntity).firstChild;
 	while (child != NULL_ENTITY)
 	{
-		ParseNode(child, inParent);
+		ParseNode(child, new_entity);
 		child = m_ImportedScene.Get<Node>(child).nextSibling;
 	}
 }
