@@ -132,6 +132,12 @@
             "Defines": "#define DEBUG_TEXTURE_GBUFFER_ROUGHNESS",
             "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
             "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl"
+        },
+
+        "Depth of Field Shader":
+        {
+            "Defines": "",
+            "Compute Shader File": "assets/system/shaders/DirectX/DepthOfFieldCS.hlsl"
         }
     }
 }

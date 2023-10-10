@@ -11,6 +11,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     Texture2D<float> rays_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
     RWTexture2D<float2> probes_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesDepthTexture];
     
+    FrameConstants fc = gGetFrameConstants();
+    
     // The 2D pixel coordinate on the probe's total texel area (with border)
     uint2 probe_pixel = threadID.xy % DDGI_DEPTH_TEXELS.xx;
     
@@ -29,13 +31,15 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     
         float3 depth = 0.xxx;
         
-        for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) {
+        for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) 
+        {
             float ray_depth = rays_depth_texture[uint2(ray_index, probe_index)];
             // limit the depth to the max distance between probes, if its further we would have picked a different probe anyway
             ray_depth = min(ray_depth, length(rc.mDDGIData.mProbeSpacing));
         
             float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-            ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
+            ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, ray_dir));
+            
             float weight = max(dot(octahedral_dir, ray_dir), 0);
         
             depth += float3(ray_depth * weight, ray_depth*ray_depth * weight, weight);
@@ -44,8 +48,11 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         if (depth.z > 0.0)
             depth.rg /= depth.z;
         
-        probes_depth_texture[threadID.xy] = depth.rg;
-        return;
+        float2 prev_depth = probes_depth_texture[threadID.xy].rg;
+        
+        float hysteresis = fc.mFrameCounter == 0 ? 0.0 : 0.975;
+        
+        probes_depth_texture[threadID.xy] = lerp(depth.rg, prev_depth, hysteresis);;
     }
     
     AllMemoryBarrierWithGroupSync();
@@ -56,7 +63,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     // Trick is here is to wrap around by using the absolute of signed integers
     // e.g. border at 0,0 maps to abs(0,0 - 1,1) which is 1,1 inner pixel,
     // using the same for 6,6 maps to abs(6,6 - 1,1) which is 5,5
-    if (probe_pixel.y > 0 && probe_pixel.y < DDGI_DEPTH_TEXELS - 1) {
+    if (probe_pixel.y > 0 && probe_pixel.y < DDGI_DEPTH_TEXELS - 1) 
+    {
         copy_texel.x += abs(int(probe_pixel.x) - 1);
         copy_texel.y += DDGI_DEPTH_TEXELS - 1 - probe_pixel.y;
     }
@@ -65,7 +73,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         copy_texel.y += abs(int(probe_pixel.y) - 1);
         copy_texel.x += DDGI_DEPTH_TEXELS - 1 - probe_pixel.x;
     }
-    else {
+    else 
+    {
         copy_texel.x += abs(int(DDGI_DEPTH_TEXELS - 1 - probe_pixel.x) - 1);
         copy_texel.y += abs(int(DDGI_DEPTH_TEXELS - 1 - probe_pixel.y) - 1);
     }

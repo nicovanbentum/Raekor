@@ -29,20 +29,25 @@ void main(uint3 threadID : SV_DispatchThreadID) {
                      probe_pixel.y == 0 || probe_pixel.y == (DDGI_IRRADIANCE_TEXELS - 1);
     
     if (!is_border) {
-        float2 octahedral_uv = (float2(probe_pixel) / DDGI_IRRADIANCE_TEXELS.xx) * 2.0 - 1.0;
+        float2 octahedral_uv = ((float2(probe_pixel) + 0.5) / DDGI_IRRADIANCE_TEXELS.xx) * 2.0 - 1.0;
         float3 octahedral_dir = OctDecode(octahedral_uv);
     
         float4 irradiance = 0.xxxx;
         
-        for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) {
+        for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) 
+        {
             float3 ray_irradiance = rays_irradiance_texture[uint2(ray_index, probe_index)];
         
             float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-            ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
+            ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, ray_dir));
             
-            float weight = max(dot(octahedral_dir, ray_dir), 0);
+            float weight = saturate(dot(octahedral_dir, ray_dir));
+            
+            if (weight > 0.0001)
+            {
+                irradiance += float4(ray_irradiance * weight, weight);
+            }
         
-            irradiance += float4(ray_irradiance * weight, weight);
         }
     
         if (irradiance.w > 0.0)
@@ -78,7 +83,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             copy_texel.y += abs(int(probe_pixel.y) - 1);
             copy_texel.x += DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.x;
         }
-        else {
+        else 
+        {
             copy_texel.x += abs(int(DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.x) - 1);
             copy_texel.y += abs(int(DDGI_IRRADIANCE_TEXELS - 1 - probe_pixel.y) - 1);
         }

@@ -82,7 +82,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             
             {
                 const float3 light_dir = normalize(fc.mSunDirection.xyz);
-                float2 diskPoint = uniformSampleDisk(pcg_float2(rng), 0.00);
+                float2 diskPoint = uniformSampleDisk(pcg_float2(rng), fc.mSunConeAngle);
                 float3 Wi = -(light_dir + float3(diskPoint.x, 0.0, diskPoint.y));
             
                 // Check if the sun is visible

@@ -72,17 +72,19 @@ class Renderer
 private:
     struct Settings
     {
-        int& mEnableImGui = g_CVars.Create("r_enable_imgui",        1);
-        int& mEnableVsync = g_CVars.Create("r_vsync",               1);
-        int& mDebugLines  = g_CVars.Create("r_debug_lines",         1);
-        int& mEnableDDGI  = g_CVars.Create("r_enable_ddgi",         1);
-        int& mEnableRTAO  = g_CVars.Create("r_enable_rtao",         1);
-        int& mProbeDebug  = g_CVars.Create("r_debug_gi_probes",     0);
-        int& mFullscreen  = g_CVars.Create("r_fullscreen",          0);
-        int& mDisplayRes  = g_CVars.Create("r_display_resolution",  0);
-        int& mEnableTAA   = g_CVars.Create("r_enable_taa",          0);
-        int& mUpscaler    = g_CVars.Create("r_upscaler",            0, true);
-        int& mDoPathTrace = g_CVars.Create("r_path_trace",          0, true);
+        int& mEnableImGui    = g_CVars.Create("r_enable_imgui",        1);
+        int& mEnableVsync    = g_CVars.Create("r_vsync",               1);
+        int& mDebugLines     = g_CVars.Create("r_debug_lines",         1);
+        int& mEnableDDGI     = g_CVars.Create("r_enable_ddgi",         1);
+        int& mEnableRTAO     = g_CVars.Create("r_enable_rtao",         1);
+        int& mProbeDebug     = g_CVars.Create("r_debug_gi_probes",     0);
+        int& mFullscreen     = g_CVars.Create("r_fullscreen",          0);
+        int& mDisplayRes     = g_CVars.Create("r_display_resolution",  0);
+        int& mEnableTAA      = g_CVars.Create("r_enable_taa",          0);
+        int& mEnableDoF      = g_CVars.Create("r_enable_dof",          0,    true);
+        int& mUpscaler       = g_CVars.Create("r_upscaler",            0,    true);
+        int& mDoPathTrace    = g_CVars.Create("r_path_trace",          0,    true);
+        float& mSunConeAngle = g_CVars.Create("r_sun_cone_angle",      0.0f, true);
     } m_Settings;
 
 public:
@@ -205,7 +207,7 @@ struct GBufferData
 };
 
 const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const Scene& inScene
+    const RayTracedScene& inScene
 );
 
 
@@ -356,16 +358,15 @@ struct ProbeTraceData
 {
     RTTI_DECLARE_TYPE(ProbeTraceData);
 
-    ProbeTraceData()
+    static inline IVec3 mDebugProbe = IVec3(10, 10, 5);
+    static inline DDGIData mDDGIData =
     {
-        mDDGIData.mCornerPosition = Vec3(-65, -1.4, -28.5);
-        mDDGIData.mProbeCount = IVec3(22, 22, 22);
-        mDDGIData.mProbeSpacing = Vec3(6.4, 2.8, 2.8);
-    }
+        .mProbeCount = IVec3(22, 22, 22),
+        .mProbeSpacing = Vec3(6.4, 2.8, 2.8),
+        .mCornerPosition = Vec3(-65, -1.4, -28.5)
+    };
 
-    IVec3           mDebugProbe = IVec3(10, 10, 5);
-    DDGIData        mDDGIData;
-    Mat3x3          mRandomRotationMatrix;
+    Mat4x4 mRandomRotationMatrix;
     RenderGraphResourceID mProbesDepthTexture;
     RenderGraphResourceID mProbesIrradianceTexture;
     RenderGraphResourceID mRaysDepthTexture;
@@ -566,6 +567,27 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
 
 ////////////////////////////////////////
+/// Depth of Field Render Pass
+////////////////////////////////////////
+struct DepthOfFieldData
+{
+    RTTI_DECLARE_TYPE(DepthOfFieldData);
+
+    static inline float mFocusPoint = 1.0f;
+    static inline float mFocusScale = 1.0f;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mInputTextureSRV;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& inDevice,
+    RenderGraphResourceID inInputTexture, 
+    RenderGraphResourceID mInDepthTexture
+);
+
+
+////////////////////////////////////////
 /// Final Compose Render Pass
 ////////////////////////////////////////
 struct ComposeData
@@ -573,6 +595,7 @@ struct ComposeData
     RTTI_DECLARE_TYPE(ComposeData);
 
     static inline float mExposure = 1.0f;
+    static inline float mChromaticAberrationStrength = 0.0f;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mInputTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;

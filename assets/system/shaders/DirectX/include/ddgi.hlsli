@@ -62,8 +62,9 @@ float3 OctDecode(float2 inOct) {
     return normalize(v);
 }
 
+static const float PHI = sqrt(5) * 0.5 + 0.5;
+
 float3 SphericalFibonnaci(uint i, uint n) {
-    const float PHI = sqrt(5) * 0.5 + 0.5;
     float fraction = (i * (PHI - 1)) - floor(i * (PHI - 1));
     float phi = 2.0 * M_PI * fraction;
     float cos_theta = 1.0 - (2.0 * i + 1.0) * (1.0 / n);
@@ -135,13 +136,13 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
         uint probe_index = Index3Dto1D(current_probe_coord, inData.mProbeCount);
         float3 probe_ws_pos = DDGIGetProbeWorldPos(current_probe_coord, inData);
                 
-        // Initialize the weight to wrap shading
         float3 pos_to_probe_dir = normalize(probe_ws_pos - inWsPos);
         
+        // Initialize the weight to wrap shading
         float weight = saturate(dot(pos_to_probe_dir, inNormal));
         
         //// Chebyshev visibility test
-        //float2 depth = DDGISampleDepthProbe(probe_index, -dir, depth_texture);
+        //float2 depth = DDGISampleDepthProbe(probe_index, -pos_to_probe_dir, depth_texture);
         //float r = length(probe_ws_pos - inWsPos);
         //float mean = depth.r, mean2 = depth.g;
         

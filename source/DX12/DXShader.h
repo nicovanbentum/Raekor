@@ -117,6 +117,11 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mGBufferDebugMetallicShader;
     ShaderProgram mGBufferDebugRoughnessShader;
 
+    ShaderProgram mDepthOfFieldShader;
+    ShaderProgram mBloomUpSampleShader;
+    ShaderProgram mBloomDownsampleShader;
+    ShaderProgram mChromaticAberrationShader;
+
     bool HotLoad();
     bool OnCompile() override;
     bool IsCompiled() const override;

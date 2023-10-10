@@ -34,7 +34,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     BRDF gbuffer_brdf;
     gbuffer_brdf.Unpack(asuint(gbuffer_texture[threadID.xy]));
 
-    if (gbuffer_brdf.mRoughness >= 0.3) {
+    if (gbuffer_brdf.mRoughness >= 0.3 && gbuffer_brdf.mMetallic < 0.1) {
         result_texture[threadID.xy] = float4(0.0, 0.0, 0.0, 1.0);
         return;
     }

@@ -437,6 +437,12 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
     bool need_recompile = false;
 
     need_recompile |= ImGui::Checkbox("Temporal AA",        (bool*)&m_Renderer.GetSettings().mEnableTAA);
+    
+    if (auto gbuffer_pass = m_Renderer.GetRenderGraph().GetPass<GBufferData>())
+    {
+        ImGui::Checkbox("Disable Albedo", &m_RayTracedScene.GetSettings().mDisableAlbedo);
+    }
+    
     need_recompile |= ImGui::Checkbox("Enable Path Tracer", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
     need_recompile |= ImGui::Checkbox("Show GI Probe Grid", (bool*)&m_Renderer.GetSettings().mProbeDebug);
     need_recompile |= ImGui::Checkbox("Show GI Probe Rays", (bool*)&m_Renderer.GetSettings().mDebugLines);
@@ -503,6 +509,10 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
                 auto ddgi_settings_entity = m_RayTracedScene->CreateSpatialEntity("DDGI Settings");
                 auto& ddgi_settings = m_RayTracedScene->Add<DDGISceneSettings>(ddgi_settings_entity);
 
+                auto& transform = m_RayTracedScene->Get<Transform>(ddgi_settings_entity);
+                transform.position = data.mDDGIData.mCornerPosition;
+                transform.Compose();
+
                 ddgi_settings.mDDGIDebugProbe = data.mDebugProbe;
                 ddgi_settings.mDDGIProbeCount = data.mDDGIData.mProbeCount;
                 ddgi_settings.mDDGIProbeSpacing = data.mDDGIData.mProbeSpacing;
@@ -511,11 +521,26 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
 
     }
 
+    if (auto depth_of_field_pass = m_Renderer.GetRenderGraph().GetPass<DepthOfFieldData>())
+    {
+        const auto far_plane = m_Editor->GetViewport().GetCamera().GetFar();
+        const auto near_plane = m_Editor->GetViewport().GetCamera().GetNear();
+
+        ImGui::Text("Depth of Field");
+        ImGui::Separator();
+        ImGui::DragFloat("Focus Scale", &depth_of_field_pass->GetData().mFocusScale, 0.01f, 0.0f, 4.0f, "%.2f");
+        ImGui::DragFloat("Focus Point", &depth_of_field_pass->GetData().mFocusPoint, 0.01f, near_plane, far_plane, "%.2f");
+    }
+
     if (auto compose_pass = m_Renderer.GetRenderGraph().GetPass<ComposeData>())
     {
         ImGui::Text("Compose Settings");
         ImGui::Separator();
         ImGui::DragFloat("Exposure", &compose_pass->GetData().mExposure, 0.01f, 0.0f, 100.0f, "%.2f");
+
+        ImGui::DragFloat("Chromatic Aberration", &compose_pass->GetData().mChromaticAberrationStrength, 0.01f, 0.0f, 10.0f, "%.2f");
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Channel separation width in pixels.");
     }
 
     /*auto debug_textures = std::vector<TextureID>{};

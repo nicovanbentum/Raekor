@@ -204,6 +204,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     // Update all the frame constants and copy it in into the GPU ring buffer
     m_FrameConstants.mTime = m_ElapsedTime;
     m_FrameConstants.mDeltaTime = inDeltaTime;
+    m_FrameConstants.mSunConeAngle = m_Settings.mSunConeAngle;
     m_FrameConstants.mFrameIndex = m_FrameCounter % sFrameCount;
     m_FrameConstants.mFrameCounter = m_FrameCounter;
     m_FrameConstants.mPrevJitter = m_FrameConstants.mJitter;
@@ -378,6 +379,9 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
             }
         }
     }
+
+    if (m_Settings.mEnableDoF)
+        compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, gbuffer_data.mDepthTexture).mOutputTexture;
 
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, compose_input);
 
@@ -789,6 +793,7 @@ RTTI_DEFINE_TYPE(PathTraceData)     {}
 RTTI_DEFINE_TYPE(ProbeDebugData)    {}
 RTTI_DEFINE_TYPE(DebugLinesData)    {}
 RTTI_DEFINE_TYPE(TAAResolveData)    {}
+RTTI_DEFINE_TYPE(DepthOfFieldData)  {}
 RTTI_DEFINE_TYPE(ComposeData)       {}
 RTTI_DEFINE_TYPE(PreImGuiData)      {}
 RTTI_DEFINE_TYPE(ImGuiData)         {}
@@ -804,7 +809,7 @@ const T& AddPass(RenderGraph& inRenderGraph, Device& inDevice) {
 */
 
 
-const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene)
+const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
 {
     return inRenderGraph.AddGraphicsPass<GBufferData>("GBUFFER PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GBufferData& inData)
@@ -859,9 +864,9 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mRenderTexture)), glm::value_ptr(clear_color), 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mVelocityTexture)), glm::value_ptr(clear_color), 0, nullptr);
 
-        for (const auto& [entity, transform, mesh] : inScene.Each<Transform, Mesh>())
+        for (const auto& [entity, transform, mesh] : inScene->Each<Transform, Mesh>())
         {
-            auto material = inScene.GetPtr<Material>(mesh.material);
+            auto material = inScene->GetPtr<Material>(mesh.material);
             //if (material && material->isTransparent)
                 //continue;
 
@@ -894,6 +899,12 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 .mWorldTransform     = transform.worldTransform,
                 .mInvWorldTransform  = glm::inverse(transform.worldTransform)
             };
+
+            if (inScene.GetSettings().mDisableAlbedo)
+            {
+                root_constants.mAlbedo = Material::Default.albedo;
+                root_constants.mAlbedoTexture = inDevice.GetBindlessHeapIndex(TextureID(Material::Default.gpuAlbedoMap));
+            }
 
             inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
 
@@ -1370,8 +1381,8 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
             .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
             .mDebugProbeIndex = Index3Dto1D(inData.mDebugProbe, inData.mDDGIData.mProbeCount),
-            .mDDGIData = inData.mDDGIData,
-            .mRandomRotationMatrix = inData.mRandomRotationMatrix
+            .mRandomRotationMatrix = inData.mRandomRotationMatrix,
+            .mDDGIData = inData.mDDGIData
         });
 
         const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
@@ -1449,8 +1460,8 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         
         inCmdList.PushComputeConstants(ProbeUpdateRootConstants
         {
-            .mDDGIData = inData.mDDGIData,
-            .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix
+            .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix,
+            .mDDGIData = inData.mDDGIData
         });
 
         //inCmdList->SetPipelineState(inData.mDepthPipeline.Get());
@@ -1942,6 +1953,54 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
+const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture, RenderGraphResourceID inDepthTexture)
+{
+    return inRenderGraph.AddComputePass<DepthOfFieldData>("DEPTH OF FIELD PASS",
+
+    [&](RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, DepthOfFieldData& inData)
+    {
+        inData.mOutputTexture = inBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::SHADER_READ_WRITE,
+            .debugName = L"DEPTH_OUT_FIELD_OUTPUT"
+        });
+
+        inBuilder.Write(inData.mOutputTexture);
+        
+        inData.mDepthTextureSRV = inBuilder.Read(inDepthTexture);
+        inData.mInputTextureSRV = inBuilder.Read(inInputTexture);
+
+        CD3DX12_SHADER_BYTECODE compute_shader;
+        g_SystemShaders.mDepthOfFieldShader.GetComputeProgram(compute_shader);
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
+
+        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline)));
+        inData.mPipeline->SetName(L"PSO_DEPTH_OF_FIELD");
+    },
+
+    [&inRenderGraph, &inDevice](DepthOfFieldData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    {
+        const auto& viewport = inRenderGraph.GetViewport();
+
+        inCmdList.PushComputeConstants(DepthOfFieldRootConstants {
+            .mDepthTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mDepthTextureSRV)),
+            .mInputTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mInputTextureSRV)),
+            .mOutputTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
+            .mFarPlane      = viewport.GetCamera().GetFar(),
+            .mFocusPoint    = inData.mFocusPoint,
+            .mFocusScale    = inData.mFocusScale
+        });
+
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
+    });
+}
+
+
+
 const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture)
 {
     return inRenderGraph.AddGraphicsPass<ComposeData>("COMPOSE PASS",
@@ -1980,6 +2039,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         
         inCmdList.PushGraphicsConstants(ComposeRootConstants {
             .mExposure = inData.mExposure,
+            .mChromaticAberrationStrength = inData.mChromaticAberrationStrength,
             .mInputTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mInputTextureSRV))
          });
 

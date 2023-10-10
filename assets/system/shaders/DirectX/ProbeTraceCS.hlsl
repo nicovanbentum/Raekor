@@ -28,7 +28,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     uint2 ray_texture_index = uint2(ray_index, probe_index);
     
     float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-    ray_dir = normalize(mul(rc.mRandomRotationMatrix, ray_dir));
+    ray_dir = normalize(mul((float3x3)rc.mRandomRotationMatrix, ray_dir));
     
     float3 probe_ws_pos = DDGIGetProbeWorldPos(Index1DTo3D(probe_index, rc.mDDGIData.mProbeCount), rc.mDDGIData);
     
@@ -79,7 +79,7 @@ void main(uint3 threadID : SV_DispatchThreadID) {
             RayDesc shadow_ray;
             shadow_ray.Origin = vertex.mPos + vertex.mNormal * 0.01;
             shadow_ray.Direction = Wi;
-            shadow_ray.TMin = 0.1;
+            shadow_ray.TMin = 0.0;
             shadow_ray.TMax = 1000.0;
         
             uint shadow_ray_flags = RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;
@@ -107,18 +107,18 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         hitT = ray.TMax;
     }
     
-    if (probe_index == rc.mDebugProbeIndex) {
-        // Resets indirect draw args VertexCount to 0 and InstanceCount to 1
-        if (ray_index == 0)
-            ResetDebugLineCount();
+    //if (probe_index == rc.mDebugProbeIndex) {
+    //    // Resets indirect draw args VertexCount to 0 and InstanceCount to 1
+    //    if (ray_index == 0)
+    //        ResetDebugLineCount();
         
-        float4 debug_ray_color = float4(irradiance, 1.0);
-        float3 debug_ray_start = ray.Origin + ray.Direction * 0.25;
-        float3 debug_ray_end   = ray.Origin + ray.Direction * hitT;
+    //    float4 debug_ray_color = float4(irradiance, 1.0);
+    //    float3 debug_ray_start = ray.Origin + ray.Direction * 0.25;
+    //    float3 debug_ray_end   = ray.Origin + ray.Direction * hitT;
         
-        // InterlockedAdd( 2 ) to the VertexCount, use the original value as write index into the line vertex buffer
-        AddDebugLine(debug_ray_start, debug_ray_end, debug_ray_color, debug_ray_color);
-    }
+    //    // InterlockedAdd( 2 ) to the VertexCount, use the original value as write index into the line vertex buffer
+    //    AddDebugLine(debug_ray_start, debug_ray_end, debug_ray_color, debug_ray_color);
+    //}
     
     
     depth_texture[ray_texture_index] = hitT;

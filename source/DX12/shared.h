@@ -88,6 +88,8 @@ struct FrameConstants
 {
     float     mTime;
     float     mDeltaTime;
+    float     mSunConeAngle;
+    float     mPad0;
     uint      mFrameIndex;
     uint      mFrameCounter;
     uint      mDebugLinesVertexBuffer;
@@ -276,16 +278,16 @@ struct ProbeTraceRootConstants
     uint     mMaterialsBuffer;
     uint     mTLAS;
     uint     mDebugProbeIndex;
+    float4x4 mRandomRotationMatrix;
     DDGIData mDDGIData;
-    float3x3 mRandomRotationMatrix;
 };
 STATIC_ASSERT(sizeof(ProbeTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ProbeUpdateRootConstants
 {
+    float4x4 mRandomRotationMatrix;
     DDGIData mDDGIData;
-    float3x3 mRandomRotationMatrix;
 };
 STATIC_ASSERT(sizeof(ProbeUpdateRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
@@ -305,9 +307,24 @@ STATIC_ASSERT(sizeof(TAAResolveConstants) < MAX_ROOT_CONSTANTS_SIZE);
 struct ComposeRootConstants
 {
     float mExposure;
+    float mChromaticAberrationStrength;
     uint mInputTexture;
 };
 STATIC_ASSERT(sizeof(ComposeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
+struct DepthOfFieldRootConstants
+{
+    uint mDepthTexture;
+    uint mInputTexture;
+    uint mOutputTexture;
+    uint mPad1;
+    float mFarPlane;
+    float mFocusPoint;
+    float mFocusScale;
+    float mPad0;
+};
+STATIC_ASSERT(sizeof(DepthOfFieldRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct ImGuiRootConstants

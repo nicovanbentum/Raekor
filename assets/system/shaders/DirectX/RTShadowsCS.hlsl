@@ -26,9 +26,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         return;
     }
 
-    const float radius = 0.00;
     const float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
-    const float2 offset = uniformSampleDisk(blue_noise.xy, radius);
+    const float2 offset = uniformSampleDisk(blue_noise.xy, fc.mSunConeAngle);
     const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
     const float3 position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
     

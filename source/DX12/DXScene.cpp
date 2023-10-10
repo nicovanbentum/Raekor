@@ -272,6 +272,12 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
         rt_material.mMetallicTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuMetallicMap));
         rt_material.mRoughnessTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuRoughnessMap));
 
+        if (m_Settings.mDisableAlbedo)
+        {
+            rt_material.mAlbedo = Material::Default.albedo;
+            rt_material.mAlbedoTexture = inDevice.GetBindlessHeapIndex(TextureID(Material::Default.gpuAlbedoMap));
+        }
+
         // 0 is maybe fine? haven't seen this trigger before though
         assert(rt_material.mAlbedoTexture != 0 && rt_material.mNormalsTexture != 0 && rt_material.mMetallicTexture != 0);
 
