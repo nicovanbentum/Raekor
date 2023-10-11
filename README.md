@@ -82,17 +82,20 @@ Older versions of this project contained rasterized experiments with parallel co
 ### DX12
 *Currently In-Progress*
 
-Nothing fancy yet, so far its mostly a basic Render Graph (automatically creates resource views and handles resource transitions) on top of DirectX 12. Heavily relies on shader model 6_6 bindless. DirectStorage 1.0 integration. The graph currently describes:
+Basic RenderGraph architecture (automatically creates resource views and handles resource transitions) on top of DirectX 12. Heavily relies on shader model 6_6 bindless. Lots of ray tracing. Derived from Editor, so can edit the scene in real-time. The rendergraph currently features:
 
-- Geometry Buffer
-- WIP Procedural Grass (from Ghost of Tsushima)
-- WIP Ray Traced Shadows
-- WIP Ray Traced Ambient Occlusion
-- WIP Ray Traced Reflections
-- WIP Dynamic Diffuse Global Illumination
+- GBuffer Pass
+- Path Trace Pass (For comparisons)
+- Procedural Grass (based on Ghost of Tsushima, WIP)
+- Ray Traced Shadows (denoiser WIP)
+- Ray Traced Ambient Occlusion (denoiser WIP)
+- Ray Traced Reflections (denoiser WIP)
+- Ray Traced Irradiance Probes (DDGI)
 - Deferred Shading
-- AMD FidelityFX Super Resolution 2.1
+- TAA / FSR2 / DLSS / XeSS (Upscalers are WIP)
+- Post Processing
 
+![image](https://i.imgur.com/B3pbNgd.png)
 
 ### DX11
 Currently a small demo of async GPU resource creation and dithered mesh fading.
