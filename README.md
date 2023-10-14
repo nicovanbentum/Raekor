@@ -95,6 +95,7 @@ Basic RenderGraph architecture (automatically creates resource views and handles
 - TAA / FSR2 / DLSS / XeSS (Upscalers are WIP)
 - Post Processing
 
+![image](https://svgshare.com/i/yXg.svg)
 ![image](https://i.imgur.com/B3pbNgd.png)
 
 ### DX11
