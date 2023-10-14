@@ -80,9 +80,11 @@ Older versions of this project contained rasterized experiments with parallel co
 *Path tracer WIP - 8 bounces. Converges in real time when stationary.*
 
 ### DX12
-*Currently In-Progress*
+*Main project at the moment.*
 
-Basic RenderGraph architecture (automatically creates resource views and handles resource transitions) on top of DirectX 12. Heavily relies on shader model 6_6 bindless. Lots of ray tracing. Derived from Editor, so can edit the scene in real-time. The rendergraph currently features:
+![image](https://svgshare.com/i/yXg.svg)
+
+Basic RenderGraph architecture (automatically creates resource views and handles resource barriers) on top of DirectX 12. Heavily relies on shader model 6_6 bindless. Lots of ray tracing. Implements IEditor, so can edit the scene in real-time. The rendergraph currently features:
 
 - GBuffer Pass
 - Path Trace Pass (For comparisons)
@@ -95,7 +97,6 @@ Basic RenderGraph architecture (automatically creates resource views and handles
 - TAA / FSR2 / DLSS / XeSS (Upscalers are WIP)
 - Post Processing
 
-![image](https://svgshare.com/i/yXg.svg)
 ![image](https://i.imgur.com/B3pbNgd.png)
 
 ### DX11
