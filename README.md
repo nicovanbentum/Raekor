@@ -82,7 +82,7 @@ Older versions of this project contained rasterized experiments with parallel co
 ### DX12
 *Main project at the moment.*
 
-![image](https://svgshare.com/i/yXg.svg)
+![image](https://svgshare.com/i/yZn.svg)
 
 Basic RenderGraph architecture (automatically creates resource views and handles resource barriers) on top of DirectX 12. Heavily relies on shader model 6_6 bindless. Lots of ray tracing. Implements IEditor, so can edit the scene in real-time. The rendergraph currently features:
 
