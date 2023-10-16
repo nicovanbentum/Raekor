@@ -62,13 +62,14 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
     desc.DestAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
     desc.Inputs = inputs;
 
-    inCmdList.TrackResource(scratch_buffer.GetD3D12Resource());
+    inCmdList.TrackResource(blas_buffer);
+    inCmdList.TrackResource(scratch_buffer);
         
     const auto& gpu_index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
     const auto& gpu_vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
 
-    inStagingHeap.StageBuffer(inCmdList, gpu_index_buffer.GetD3D12Resource(), 0, inMesh.indices.data(), indices_size);
-    inStagingHeap.StageBuffer(inCmdList, gpu_vertex_buffer.GetD3D12Resource(), 0, vertices.data(), vertices_size);
+    inStagingHeap.StageBuffer(inCmdList, gpu_index_buffer, 0, inMesh.indices.data(), indices_size);
+    inStagingHeap.StageBuffer(inCmdList, gpu_vertex_buffer, 0, vertices.data(), vertices_size);
 
     const auto barriers = std::array {
         CD3DX12_RESOURCE_BARRIER::Transition(gpu_index_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
@@ -90,7 +91,7 @@ void RayTracedScene::UploadTexture(Application* inApp, Device& inDevice, Staging
     if (inUpload.mTexture.IsValid() && !inUpload.mData.IsEmpty())
     {
         const auto& texture = inDevice.GetTexture(inUpload.mTexture);
-        inStagingHeap.StageTexture(inCmdList, texture.GetD3D12Resource(), inUpload.mMip, inUpload.mData.GetPtr());
+        inStagingHeap.StageTexture(inCmdList, texture, inUpload.mMip, inUpload.mData.GetPtr());
     }
 }
 
@@ -111,7 +112,7 @@ void RayTracedScene::UploadMaterial(Application* inApp, Device& inDevice, Stagin
             {
                 const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
 
-                inStagingHeap.StageTexture(inCmdList, inTexture.GetD3D12Resource(), mip, data_ptr);
+                inStagingHeap.StageTexture(inCmdList, inTexture, mip, data_ptr);
 
                 data_ptr += dimensions.x * dimensions.y;
             }
@@ -166,7 +167,7 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
     });
 
     auto& instance_buffer = inDevice.GetBuffer(m_D3D12InstancesBuffer);
-    inStagingHeap.StageBuffer(inCmdList, instance_buffer.GetD3D12Resource(), 0, rt_instances.data(), instance_buffer.GetSize());
+    inStagingHeap.StageBuffer(inCmdList, instance_buffer, 0, rt_instances.data(), instance_buffer.GetSize());
     
     const auto after_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(instance_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     inCmdList->ResourceBarrier(1, &after_copy_barrier);
@@ -201,8 +202,8 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
     desc.DestAccelerationStructureData = inDevice.GetBuffer(m_TLASBuffer)->GetGPUVirtualAddress();
     desc.ScratchAccelerationStructureData = inDevice.GetBuffer(m_ScratchBuffer)->GetGPUVirtualAddress();
 
-    inCmdList.TrackResource(inDevice.GetD3D12Resource(m_TLASBuffer));
-    inCmdList.TrackResource(inDevice.GetD3D12Resource(m_ScratchBuffer));
+    inCmdList.TrackResource(inDevice.GetBuffer(m_TLASBuffer));
+    inCmdList.TrackResource(inDevice.GetBuffer(m_ScratchBuffer));
     inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
 }
 
@@ -243,7 +244,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
     });
 
     const auto& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
-    inStagingHeap.StageBuffer(inCmdList, instance_buffer.GetD3D12Resource(), 0, rt_geometries.data(), instance_buffer.GetSize());
+    inStagingHeap.StageBuffer(inCmdList, instance_buffer, 0, rt_geometries.data(), instance_buffer.GetSize());
 }
 
 
@@ -300,7 +301,7 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
     });
 
     const auto& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
-    inStagingHeap.StageBuffer(inCmdList, materials_buffer.GetD3D12Resource(), 0, rt_materials.data(), materials_buffer.GetSize());
+    inStagingHeap.StageBuffer(inCmdList, materials_buffer, 0, rt_materials.data(), materials_buffer.GetSize());
 }
 
 

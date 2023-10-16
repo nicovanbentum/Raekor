@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "DXShader.h"
+#include "DXDevice.h"
 #include "DXUtil.h"
 #include "Raekor/async.h"
 
@@ -89,6 +90,24 @@ bool ShaderProgram::GetComputeProgram(CD3DX12_SHADER_BYTECODE& ioComputeShaderBy
 }
 
 
+
+bool ShaderProgram::CompilePSO(Device& inDevice, const char* inDebugName)
+{
+    if (IsCompute())
+    {
+        const auto pso_desc = inDevice.CreatePipelineStateDesc(nullptr, CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size()));
+        inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&m_ComputePipeline));
+
+        if (m_ComputePipeline && inDebugName)
+            m_ComputePipeline->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(inDebugName), inDebugName);
+
+        return m_ComputePipeline != nullptr;
+    }
+
+    return true;
+}
+
+
 bool ShaderProgram::OnCompile()
 {
     if (!mVertexShaderFilePath.empty() && !mPixelShaderFilePath.empty() && mComputeShaderFilePath.empty())
@@ -119,8 +138,8 @@ bool ShaderProgram::OnCompile()
             mVertexShaderFileTime = fs::last_write_time(mVertexShaderFilePath);
             mPixelShaderFileTime = fs::last_write_time(mPixelShaderFilePath);
 
-            auto vertex_shader_blob = g_ShaderCompiler.CompileShader(mVertexShaderFilePath, SHADER_TYPE_VERTEX, mDefines);
-            auto pixel_shader_blob = g_ShaderCompiler.CompileShader(mPixelShaderFilePath, SHADER_TYPE_PIXEL, mDefines);
+            auto vertex_shader_blob = g_ShaderCompiler.CompileShader(mVertexShaderFilePath, SHADER_TYPE_VERTEX, mDefines, mVertexShaderHash);
+            auto pixel_shader_blob = g_ShaderCompiler.CompileShader(mPixelShaderFilePath, SHADER_TYPE_PIXEL, mDefines, mPixelShaderHash);
 
             if (!vertex_shader_blob || !pixel_shader_blob)
                 return false;
@@ -135,7 +154,7 @@ bool ShaderProgram::OnCompile()
         {
             mComputeShaderFileTime = fs::last_write_time(mComputeShaderFilePath);
 
-            auto compute_shader_blob = g_ShaderCompiler.CompileShader(mComputeShaderFilePath, SHADER_TYPE_COMPUTE, mDefines);
+            auto compute_shader_blob = g_ShaderCompiler.CompileShader(mComputeShaderFilePath, SHADER_TYPE_COMPUTE, mDefines, mComputeShaderHash);
 
             if (!compute_shader_blob)
                 return false;
@@ -167,9 +186,8 @@ bool ShaderProgram::IsCompiled() const
 }
 
 
-ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines)
+ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines, uint64_t& outHash)
 {
-
     auto utils = ComPtr<IDxcUtils> {};
     auto library = ComPtr<IDxcLibrary> {};
     auto compiler = ComPtr<IDxcCompiler3> {};
@@ -237,15 +255,14 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
     auto preprocessed_hlsl = ComPtr<IDxcBlobUtf8>();
     gThrowIfFailed(pp_result->GetOutput(DXC_OUT_HLSL, IID_PPV_ARGS(preprocessed_hlsl.GetAddressOf()), nullptr));
 
-    auto hash_key = 0ui64;
+    outHash = gHashFNV1a((const char*)preprocessed_hlsl->GetBufferPointer(), preprocessed_hlsl->GetBufferSize());
 
     if (m_EnableCache)
     {
-        hash_key = gHashFNV1a((const char*)preprocessed_hlsl->GetBufferPointer(), preprocessed_hlsl->GetBufferSize());
         {
             auto lock = std::scoped_lock(m_ShaderCompilationMutex);
-            if (m_ShaderCache.contains(hash_key))
-                return m_ShaderCache.at(hash_key);
+            if (m_ShaderCache.contains(outHash))
+                return m_ShaderCache.at(outHash);
         }
     }
 
@@ -315,7 +332,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
     if (m_EnableCache)
     {
         auto lock = std::scoped_lock(m_ShaderCompilationMutex);
-        m_ShaderCache.insert({ hash_key , shader });
+        m_ShaderCache.insert({ outHash, shader });
     }
 
     std::cout << std::format("Compilation {} for shader: {} \n", COUT_GREEN("finished"), inPath.string());
@@ -324,9 +341,8 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
 }
 
 
-bool SystemShadersDX12::HotLoad()
+bool SystemShadersDX12::HotLoad(Device& inDevice)
 {
-    auto should_hotload = false;
     // g_ShaderCompiler.DisableShaderCache();
 
     for (const auto& member : GetRTTI())
@@ -357,16 +373,46 @@ bool SystemShadersDX12::HotLoad()
 
         if (should_recompile)
         {
-            should_hotload = true;
-            if (!program.OnCompile())
-                return false;
-
+            if (program.OnCompile())
+            {
+                if (program.IsCompute())
+                    return program.CompilePSO(inDevice, member->GetCustomName());
+                else
+                    return true;
+            }
         }
     }
 
     // g_ShaderCompiler.EnableShaderCache();
-    return should_hotload;
+    return false;
 }
+
+
+
+bool SystemShadersDX12::CompilePSOs(Device& inDevice)
+{
+    for (const auto& member : GetRTTI())
+    {
+        g_ThreadPool.QueueJob([this, &inDevice, &member]()
+        {
+            auto& shader_program = member->GetRef<ShaderProgram>(this);
+
+            if (shader_program.GetProgramType() == SHADER_PROGRAM_COMPUTE && shader_program.IsCompiled())
+            {
+                CD3DX12_SHADER_BYTECODE bytecode;
+                shader_program.GetComputeProgram(bytecode);
+
+                const auto pso_desc = inDevice.CreatePipelineStateDesc(nullptr, bytecode);
+                inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&shader_program.m_ComputePipeline));
+
+                shader_program.GetComputePSO()->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(member->GetCustomName()), member->GetCustomName());
+            }
+        });
+    }
+
+    return true;
+}
+
 
 
 bool SystemShadersDX12::OnCompile()
@@ -383,6 +429,8 @@ bool SystemShadersDX12::OnCompile()
 
     return true;
 }
+
+
 
 
 bool SystemShadersDX12::IsCompiled() const

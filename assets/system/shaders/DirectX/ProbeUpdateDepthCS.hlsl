@@ -6,21 +6,40 @@
 
 ROOT_CONSTANTS(ProbeUpdateRootConstants, rc)
 
+groupshared float lds_ProbeDepthRays[DDGI_RAYS_PER_PROBE];
+groupshared float3 lds_ProbeRayDirections[DDGI_RAYS_PER_PROBE];
+
 [numthreads(DDGI_DEPTH_TEXELS, DDGI_DEPTH_TEXELS, 1)]
-void main(uint3 threadID : SV_DispatchThreadID) {
+void main(uint3 threadID : SV_DispatchThreadID, uint inGroupIndex : SV_GroupIndex)
+{
     Texture2D<float> rays_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysDepthTexture];
     RWTexture2D<float2> probes_depth_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesDepthTexture];
-    
-    FrameConstants fc = gGetFrameConstants();
-    
-    // The 2D pixel coordinate on the probe's total texel area (with border)
-    uint2 probe_pixel = threadID.xy % DDGI_DEPTH_TEXELS.xx;
     
     // 2D index of the probe we are on
     uint2 probe_index_2d = uint2(threadID.xy / DDGI_DEPTH_TEXELS);
     
     // 1D index of the probe we are on, used to read the 192 ray hits from the ray tracing results
     uint probe_index = Index2DTo1D(probe_index_2d, DDGI_PROBES_PER_ROW);
+
+    // calculate how many rays the current thread should write to lds
+    const uint rays_per_lane = DDGI_RAYS_PER_PROBE / (DDGI_DEPTH_TEXELS * DDGI_DEPTH_TEXELS);
+    
+    // unroll if possible as this number is usually quite small
+    [unroll]
+    for (uint i = 0; i < rays_per_lane; i++)
+    {
+        uint ray_index = inGroupIndex * rays_per_lane + i;
+        lds_ProbeDepthRays[ray_index] = rays_depth_texture[uint2(ray_index, probe_index)];
+        lds_ProbeRayDirections[ray_index] = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
+    }
+    
+    GroupMemoryBarrierWithGroupSync();
+
+    FrameConstants fc = gGetFrameConstants();
+    
+    // The 2D pixel coordinate on the probe's total texel area (with border)
+    uint2 probe_pixel = threadID.xy % DDGI_DEPTH_TEXELS.xx;
+    
     
     bool is_border = probe_pixel.x == 0 || probe_pixel.x == (DDGI_DEPTH_TEXELS - 1) ||
                      probe_pixel.y == 0 || probe_pixel.y == (DDGI_DEPTH_TEXELS - 1);
@@ -33,12 +52,11 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         
         for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) 
         {
-            float ray_depth = rays_depth_texture[uint2(ray_index, probe_index)];
+            float ray_depth = lds_ProbeDepthRays[ray_index];
             // limit the depth to the max distance between probes, if its further we would have picked a different probe anyway
             ray_depth = min(ray_depth, length(rc.mDDGIData.mProbeSpacing));
         
-            float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-            ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, ray_dir));
+            float3 ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, lds_ProbeRayDirections[ray_index]));
             
             float weight = max(dot(octahedral_dir, ray_dir), 0);
         

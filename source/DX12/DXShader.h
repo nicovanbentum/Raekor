@@ -2,6 +2,7 @@
 
 namespace Raekor::DX12 {
 
+class Device;
 class ShaderCompiler;
 class SystemShadersDX12;
 
@@ -45,7 +46,14 @@ public:
     bool GetGraphicsProgram(CD3DX12_SHADER_BYTECODE& ioVertexShaderByteCode, CD3DX12_SHADER_BYTECODE& ioPixelShaderByteCode) const;
     bool GetComputeProgram(CD3DX12_SHADER_BYTECODE& ioComputeShaderByteCode) const;
 
+    inline bool IsCompute() const { return mProgramType == SHADER_PROGRAM_COMPUTE; }
+    inline bool IsGraphics() const { return mProgramType == SHADER_PROGRAM_GRAPHICS; }
+
     EShaderProgramType GetProgramType() const { return mProgramType; }
+
+    bool CompilePSO(Device& inDevice, const char* inDebugName = nullptr);
+
+    ID3D12PipelineState* GetComputePSO() { return m_ComputePipeline.Get(); }
 
     bool OnCompile() override;
     bool IsCompiled() const override;
@@ -59,6 +67,9 @@ private:
 
     // Binary fields
     EShaderProgramType mProgramType;
+    uint64_t mVertexShaderHash;
+    uint64_t mPixelShaderHash;
+    uint64_t mComputeShaderHash;
     std::vector<unsigned char> mVertexShader;
     std::vector<unsigned char> mPixelShader;
     std::vector<unsigned char> mComputeShader;
@@ -67,13 +78,14 @@ private:
     fs::file_time_type mVertexShaderFileTime;
     fs::file_time_type mPixelShaderFileTime;
     fs::file_time_type mComputeShaderFileTime;
+    ComPtr<ID3D12PipelineState> m_ComputePipeline = nullptr;
 };
 
 
 class ShaderCompiler
 {
 public:
-    ComPtr<IDxcBlob> CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines);
+    ComPtr<IDxcBlob> CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines, uint64_t& outHash);
 
     void EnableShaderCache() { m_EnableCache.store(true); }
     void DisableShaderCache() { m_EnableCache.store(false); }
@@ -87,6 +99,10 @@ private:
 
 struct SystemShadersDX12 : public IResource
 {
+    SystemShadersDX12() = default;
+    ~SystemShadersDX12() = default;
+
+    NO_COPY_NO_MOVE(SystemShadersDX12);
     RTTI_DECLARE_TYPE(SystemShadersDX12);
 
     ShaderProgram mClearBufferShader;
@@ -122,7 +138,9 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mBloomDownsampleShader;
     ShaderProgram mChromaticAberrationShader;
 
-    bool HotLoad();
+    bool HotLoad(Device& inDevice);
+    bool CompilePSOs(Device& inDevice);
+
     bool OnCompile() override;
     bool IsCompiled() const override;
 };

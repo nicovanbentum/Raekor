@@ -6,10 +6,34 @@
 
 ROOT_CONSTANTS(ProbeUpdateRootConstants, rc)
 
+groupshared float3 lds_ProbeRayDirections[DDGI_RAYS_PER_PROBE];
+groupshared float3 lds_ProbeIrradianceRays[DDGI_RAYS_PER_PROBE];
+
 [numthreads(DDGI_IRRADIANCE_TEXELS, DDGI_IRRADIANCE_TEXELS, 1)]
-void main(uint3 threadID : SV_DispatchThreadID) {
+void main(uint3 threadID : SV_DispatchThreadID, uint inGroupIndex : SV_GroupIndex) 
+{
     Texture2D<float3> rays_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
     RWTexture2D<float4> probes_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
+    
+    // 2D index of the probe we are on
+    uint2 probe_index_2d = uint2(threadID.xy / DDGI_IRRADIANCE_TEXELS);
+    
+    // 1D index of the probe we are on, used to read the 192 ray hits from the ray tracing results
+    uint probe_index = Index2DTo1D(probe_index_2d, DDGI_PROBES_PER_ROW);
+    
+    // calculate how many rays the current thread should write to lds
+    const uint rays_per_lane = DDGI_RAYS_PER_PROBE / (DDGI_IRRADIANCE_TEXELS * DDGI_IRRADIANCE_TEXELS);
+    
+    // unroll if possible as this number is usually quite small
+    [unroll]
+    for (uint i = 0; i < rays_per_lane; i++)
+    {
+        uint ray_index = inGroupIndex * rays_per_lane + i;
+        lds_ProbeRayDirections[ray_index] = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
+        lds_ProbeIrradianceRays[ray_index] = rays_irradiance_texture[uint2(ray_index, probe_index)];
+    }
+    
+    GroupMemoryBarrierWithGroupSync();
     
     FrameConstants fc = gGetFrameConstants();
 
@@ -18,12 +42,6 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     
     // The 2D pixel coordinate on the probe's total texel area (with border)
     uint2 probe_pixel = threadID.xy % DDGI_IRRADIANCE_TEXELS.xx;
-    
-    // 2D index of the probe we are on
-    uint2 probe_index_2d = uint2(threadID.xy / DDGI_IRRADIANCE_TEXELS);
-    
-    // 1D index of the probe we are on, used to read the 192 ray hits from the ray tracing results
-    uint probe_index = Index2DTo1D(probe_index_2d, DDGI_PROBES_PER_ROW);
     
     bool is_border = probe_pixel.x == 0 || probe_pixel.x == (DDGI_IRRADIANCE_TEXELS - 1) ||
                      probe_pixel.y == 0 || probe_pixel.y == (DDGI_IRRADIANCE_TEXELS - 1);
@@ -36,10 +54,9 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         
         for (uint ray_index = 0; ray_index < DDGI_RAYS_PER_PROBE; ray_index++) 
         {
-            float3 ray_irradiance = rays_irradiance_texture[uint2(ray_index, probe_index)];
+            float3 ray_irradiance = lds_ProbeIrradianceRays[ray_index];
         
-            float3 ray_dir = SphericalFibonnaci(ray_index, DDGI_RAYS_PER_PROBE);
-            ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, ray_dir));
+            float3 ray_dir = normalize(mul((float3x3) rc.mRandomRotationMatrix, lds_ProbeRayDirections[ray_index]));
             
             float weight = saturate(dot(octahedral_dir, ray_dir));
             

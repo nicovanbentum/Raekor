@@ -60,10 +60,10 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
         gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
         backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{.usage = Texture::Usage::RENDER_TARGET });
 
-        backbuffer_data.mDirectCmdList = CommandList(inDevice, index);
+        backbuffer_data.mDirectCmdList = CommandList(inDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, index);
         backbuffer_data.mDirectCmdList->SetName(L"Raekor::DX12::CommandList(DIRECT)");
 
-        backbuffer_data.mCopyCmdList = CommandList(inDevice, index);
+        backbuffer_data.mCopyCmdList = CommandList(inDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, index);
         backbuffer_data.mCopyCmdList->SetName(L"Raekor::DX12::CommandList(COPY)");
 
         rtv_resource->SetName(L"BACKBUFFER");
@@ -138,7 +138,7 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
 void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterface, float inDeltaTime)
 {
     // Check if any of the shader sources were updated and recompile them if necessary
-    bool need_recompile = g_SystemShaders.HotLoad();
+    bool need_recompile = g_SystemShaders.HotLoad(inDevice);
     if (need_recompile)
         std::cout << std::format("Hotloaded system shaders.\n");
 
@@ -152,7 +152,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
         // Resize the renderer, which recreates the swapchain backbuffers and re-inits upscalers
         OnResize(inDevice, inViewport, SDL_IsWindowExclusiveFullscreen(m_Window));
 
-        // Recompile the renderer, super overkill and leaks memory. TODO: pls fix
+        // Recompile the renderer, super overkill. TODO: pls fix
         Recompile(inDevice, inScene, inRenderInterface);
 
         // Unflag
@@ -176,7 +176,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     }
 
     // at this point we know the GPU is no longer working on this frame, so free/release stuff here
-    // if (m_FrameCounter > 0)
+     if (m_FrameCounter > 0)
     {
         inStagingHeap.RetireBuffers(backbuffer_data.mCopyCmdList);
         inStagingHeap.RetireBuffers(backbuffer_data.mDirectCmdList);
@@ -358,7 +358,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         if (m_Settings.mDebugLines)
             const auto& debug_lines_data = AddDebugLinesPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
-        
+
         if (m_Settings.mEnableTAA)
         {
             compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_data, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
@@ -820,7 +820,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = L"GBUFFER_RENDER"
+            .debugName = L"GBUFFER RENDER"
         });
 
         inData.mVelocityTexture = ioRGBuilder.Create(Texture::Desc
@@ -829,7 +829,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = L"GBUFFER_VELOCITY"
+            .debugName = L"GBUFFER VELOCITY"
         });
 
         inData.mDepthTexture = ioRGBuilder.Create(Texture::Desc
@@ -838,7 +838,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::DEPTH_STENCIL_TARGET,
-            .debugName = L"GBUFFER_DEPTH"
+            .debugName = L"GBUFFER DEPTH"
         });
 
         ioRGBuilder.RenderTarget(inData.mRenderTexture); // SV_Target0
@@ -995,20 +995,13 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = L"SHADOW_MASK"
+            .debugName = L"RAY TRACED SHADOW MASK"
         });
 
         inRGBuilder.Write(inData.mOutputTexture);
 
         inData.mGbufferDepthTextureSRV = inRGBuilder.Read(inGBufferData.mDepthTexture);
         inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBufferData.mRenderTexture);
-
-        CD3DX12_SHADER_BYTECODE compute_shader;
-        g_SystemShaders.mRTShadowsShader.GetComputeProgram(compute_shader);
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
-
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(&inData.mPipeline)));
-        inData.mPipeline->SetName(L"PSO_RT_SHADOWS");
     },
 
     [&inRenderGraph, &inDevice, &inScene](RTShadowMaskData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
@@ -1024,7 +1017,7 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
             .mDispatchSize         = viewport.size
         });
 
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->SetPipelineState(g_SystemShaders.mRTShadowsShader.GetComputePSO());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
 }
@@ -1041,20 +1034,13 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = L"AO_MASK"
+            .debugName = L"RAY TRACED AO MASK"
         });
 
         inRGBuilder.Write(inData.mOutputTexture);
 
         inData.mGbufferDepthTextureSRV = inRGBuilder.Read(inGbufferData.mDepthTexture);
         inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGbufferData.mRenderTexture);
-
-        CD3DX12_SHADER_BYTECODE compute_shader;
-        g_SystemShaders.mRTAmbientOcclusionShader.GetComputeProgram(compute_shader);
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
-
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(&inData.mPipeline)));
-        inData.mPipeline->SetName(L"PSO_RTAO");
     },
 
     [&inRenderGraph, &inDevice, &inScene](RTAOData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
@@ -1071,7 +1057,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
             .mDispatchSize          = viewport.size
         });
 
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->SetPipelineState(g_SystemShaders.mRTAmbientOcclusionShader.GetComputePSO());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
 }
@@ -1121,7 +1107,7 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
 
 const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData)
 {
-    return inRenderGraph.AddComputePass<ReflectionsData>("RT REFLECTION TRACE PASS",
+    return inRenderGraph.AddComputePass<ReflectionsData>("RAY TRACED REFLECTIONS PASS",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ReflectionsData& inData)
     {
         inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
@@ -1131,20 +1117,13 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
             .height     = inRenderGraph.GetViewport().size.y,
             .mipLevels  = 0, // let it auto-calculate the nr of mips
             .usage      = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = L"RT_REFLECTIONS"
+            .debugName = L"RAY TRACED REFLECTIONS"
         });
 
         inRGBuilder.Write(inData.mOutputTexture);
 
         inData.mGBufferDepthTextureSRV = inRGBuilder.Read(inGBufferData.mDepthTexture);
         inData.mGbufferRenderTextureSRV = inRGBuilder.Read(inGBufferData.mRenderTexture);
-
-        CD3DX12_SHADER_BYTECODE compute_shader;
-        g_SystemShaders.mRTReflectionsShader.GetComputeProgram(compute_shader);
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
-
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
-        inData.mPipeline->SetName(L"PSO_RT_REFLECTIONS");
     },
 
     [&inRenderGraph, &inDevice, &inScene](ReflectionsData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
@@ -1161,7 +1140,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
             .mDispatchSize          = viewport.size
         });
 
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->SetPipelineState(g_SystemShaders.mRTReflectionsShader.GetComputePSO());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
 }
@@ -1193,13 +1172,6 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
 
         inRGBuilder.Write(inData.mOutputTexture);
         inRGBuilder.Write(inData.mAccumulationTexture);
-
-        CD3DX12_SHADER_BYTECODE compute_shader;
-        g_SystemShaders.mRTPathTraceShader.GetComputeProgram(compute_shader);
-        auto state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
-
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf())));
-        inData.mPipeline->SetName(L"PSO_RT_PATH_TRACE");
     },
 
     [&inRenderGraph, &inDevice, &inScene](PathTraceData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
@@ -1218,7 +1190,7 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .mAlpha                 = inData.mAlpha
         });
 
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->SetPipelineState(g_SystemShaders.mRTPathTraceShader.GetComputePSO());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
 }
@@ -1330,7 +1302,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             .width  = DDGI_RAYS_PER_PROBE,
             .height = uint32_t(total_probe_count),
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = L"DDGI_TRACE_DEPTH"
+            .debugName = L"DDGI TRACE DEPTH"
         });
 
         inData.mRaysIrradianceTexture = ioRGBuilder.Create(Texture::Desc
@@ -1339,18 +1311,11 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             .width  = DDGI_RAYS_PER_PROBE,
             .height = uint32_t(total_probe_count),
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = L"DDGI_TRACE_IRRADIANCE"
+            .debugName = L"DDGI TRACE IRRADIANCE"
         });
 
         ioRGBuilder.Write(inData.mRaysDepthTexture);
         ioRGBuilder.Write(inData.mRaysIrradianceTexture);
-
-        CD3DX12_SHADER_BYTECODE compute_shader;
-        g_SystemShaders.mProbeTraceShader.GetComputeProgram(compute_shader);
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
-
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline)));
-        inData.mPipeline->SetName(L"PSO_PROBE_TRACE");
     },
 
     [&inRenderGraph, &inDevice, &inScene](ProbeTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
@@ -1387,8 +1352,8 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
 
         const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
 
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList->Dispatch(DDGI_RAYS_PER_PROBE / DDGI_WAVE_SIZE, total_probe_count, 1);
+        inCmdList->SetPipelineState(g_SystemShaders.mProbeTraceShader.GetComputePSO());
+        inCmdList->Dispatch(DDGI_RAYS_PER_PROBE / DDGI_TRACE_SIZE, total_probe_count, 1);
     });
 }
 
@@ -1409,7 +1374,7 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
             .width  = uint32_t(DDGI_DEPTH_TEXELS * DDGI_PROBES_PER_ROW),
             .height = uint32_t(DDGI_DEPTH_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = L"DDGI_UPDATE_DEPTH"
+            .debugName = L"DDGI UPDATE DEPTH"
         });
 
         inData.mProbesIrradianceTexture = ioRGBuilder.Create(Texture::Desc
@@ -1418,7 +1383,7 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
             .width  = uint32_t(DDGI_IRRADIANCE_TEXELS * DDGI_PROBES_PER_ROW),
             .height = uint32_t(DDGI_IRRADIANCE_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
             .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = L"DDGI_UPDATE_IRRADIANCE"
+            .debugName = L"DDGI UPDATE IRRADIANCE"
         });
 
         ioRGBuilder.Write(inData.mProbesDepthTexture);
@@ -1426,24 +1391,6 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
 
         inData.mRaysDepthTextureSRV = ioRGBuilder.Read(inTraceData.mRaysDepthTexture);
         inData.mRaysIrradianceTextureSRV = ioRGBuilder.Read(inTraceData.mRaysIrradianceTexture);
-
-        {
-            CD3DX12_SHADER_BYTECODE compute_shader;
-            g_SystemShaders.mProbeUpdateDepthShader.GetComputeProgram(compute_shader);
-            auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
-
-            gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mDepthPipeline)));
-            inData.mDepthPipeline->SetName(L"PSO_PROBE_UPDATE_DEPTH");
-        }
-
-        {
-            CD3DX12_SHADER_BYTECODE compute_shader;
-            g_SystemShaders.mProbeUpdateIrradianceShader.GetComputeProgram(compute_shader);
-            auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
-
-            gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mIrradiancePipeline)));
-            inData.mIrradiancePipeline->SetName(L"PSO_PROBE_UPDATE_IRRADIANCE");
-        }
     },
 
     [&inDevice, &inTraceData](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
@@ -1454,21 +1401,31 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         inData.mDDGIData.mRaysIrradianceTexture     = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysIrradianceTextureSRV));
         inData.mDDGIData.mProbesIrradianceTexture   = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
         
-        const auto irradiance_texture = inDevice.GetTexture(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
+        /*{
+            inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateDepthShader.GetComputePSO());
+            inCmdList.PushComputeConstants(ProbeUpdateRootConstants
+            {
+                .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix,
+                .mDDGIData = inData.mDDGIData
+            });
 
-        inCmdList->SetPipelineState(inData.mIrradiancePipeline.Get());
-        
-        inCmdList.PushComputeConstants(ProbeUpdateRootConstants
+            const auto depth_texture = inDevice.GetTexture(inRGResources.GetTexture(inData.mProbesDepthTexture));
+            inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
+        }*/
+
         {
-            .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix,
-            .mDDGIData = inData.mDDGIData
-        });
+            inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateIrradianceShader.GetComputePSO());
+            inCmdList.PushComputeConstants(ProbeUpdateRootConstants
+            {
+                .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix,
+                .mDDGIData = inData.mDDGIData
+            });
 
-        //inCmdList->SetPipelineState(inData.mDepthPipeline.Get());
-        //const auto depth_texture = inDevice.GetTexture(inData.mProbesDepthTexture.mCreatedTexture);
-        //inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
+            const auto irradiance_texture = inDevice.GetTexture(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
+            inCmdList->Dispatch(irradiance_texture.GetDesc().width / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetDesc().height / DDGI_IRRADIANCE_TEXELS, 1);
+        }
 
-        inCmdList->Dispatch(irradiance_texture.GetDesc().width / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetDesc().height / DDGI_IRRADIANCE_TEXELS, 1);
+
     });
 }
 
@@ -1565,7 +1522,7 @@ const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDe
             .size   = sizeof(float4) * UINT16_MAX,
             .stride = sizeof(float4),
             .usage  = Buffer::Usage::SHADER_READ_WRITE,
-            .debugName = L"DEBUG_LINES_VERTEX_BUFFER"
+            .debugName = L"DEBUG LINES VERTEX BUFFER"
         });
 
 
@@ -1574,8 +1531,10 @@ const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDe
             .size     = sizeof(D3D12_DRAW_ARGUMENTS),
             .usage    = Buffer::Usage::SHADER_READ_WRITE,
             // .viewDesc = args_srv_desc
-            .debugName = L"DEBUG_LINES_INDIRECT_ARGS_BUFFER"
+            .debugName = L"DEBUG LINES INDIRECT ARGS BUFFER"
         });
+
+        // ioRGBuilder.Write(inData.mVertexBuffer);
 
         const auto render_target = ioRGBuilder.RenderTarget(inRenderTarget);
         const auto depth_target  = ioRGBuilder.DepthStencilTarget(inDepthTarget);
@@ -1658,7 +1617,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = L"LIGHT_OUTPUT"
+            .debugName = L"SHADING OUTPUT"
         });
 
         ioRGBuilder.RenderTarget(inData.mOutputTexture);
@@ -1883,7 +1842,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = L"RT_TAA_RESOLVE"
+            .debugName = L"TAA OUTPUT"
         });
 
         inData.mHistoryTexture = ioRGBuilder.Create(Texture::Desc
@@ -1892,7 +1851,7 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::SHADER_READ_ONLY,
-            .debugName = L"RT_TAA_HISTORY"
+            .debugName = L"TAA HISTORY"
         });
 
         ioRGBuilder.RenderTarget(inData.mOutputTexture);
@@ -1965,20 +1924,13 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::SHADER_READ_WRITE,
-            .debugName = L"DEPTH_OUT_FIELD_OUTPUT"
+            .debugName = L"DOF OUTPUT"
         });
 
         inBuilder.Write(inData.mOutputTexture);
         
         inData.mDepthTextureSRV = inBuilder.Read(inDepthTexture);
         inData.mInputTextureSRV = inBuilder.Read(inInputTexture);
-
-        CD3DX12_SHADER_BYTECODE compute_shader;
-        g_SystemShaders.mDepthOfFieldShader.GetComputeProgram(compute_shader);
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, compute_shader);
-
-        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline)));
-        inData.mPipeline->SetName(L"PSO_DEPTH_OF_FIELD");
     },
 
     [&inRenderGraph, &inDevice](DepthOfFieldData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
@@ -1990,11 +1942,12 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
             .mInputTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mInputTextureSRV)),
             .mOutputTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mOutputTexture)),
             .mFarPlane      = viewport.GetCamera().GetFar(),
+            .mNearPlane     = viewport.GetCamera().GetNear(),
             .mFocusPoint    = inData.mFocusPoint,
             .mFocusScale    = inData.mFocusScale
         });
 
-        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList->SetPipelineState(g_SystemShaders.mDepthOfFieldShader.GetComputePSO());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
     });
 }
@@ -2013,7 +1966,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
-            .debugName = L"COMPOSE_OUTPUT"
+            .debugName = L"COMPOSE OUTPUT"
         });
 
         inBuilder.RenderTarget(inData.mOutputTexture);
@@ -2051,7 +2004,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 const PreImGuiData& AddPreImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID ioDisplayTexture)
 {
-    return inRenderGraph.AddGraphicsPass<PreImGuiData>("PRE-IMGUI PASS",
+    return inRenderGraph.AddGraphicsPass<PreImGuiData>("PRE-UI PASS",
 
     [&](RenderGraphBuilder& inBuilder, IRenderPass* inRenderPass, PreImGuiData& inData)
     {
@@ -2199,10 +2152,10 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
             inCmdList->ResourceBarrier(nr_of_barriers, barriers.data());
 
         if (vertex_buffer_size)
-            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mVertexBuffer).GetD3D12Resource(), 0, inData.mVertexScratchBuffer.data(), vertex_buffer_size);
+            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mVertexBuffer), 0, inData.mVertexScratchBuffer.data(), vertex_buffer_size);
 
         if (index_buffer_size)
-            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mIndexBuffer).GetD3D12Resource(), 0, inData.mIndexScratchBuffer.data(), index_buffer_size);
+            inStagingHeap.StageBuffer(inCmdList, inDevice.GetBuffer(inData.mIndexBuffer), 0, inData.mIndexScratchBuffer.data(), index_buffer_size);
 
         if (nr_of_barriers)
         {

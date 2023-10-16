@@ -60,7 +60,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     //ao = 1.0;
     
     float4 specular = reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
-    // total_radiance += specular.rgb * brdf.mAlbedo.rgb * ao;
+    total_radiance += specular.rgb * brdf.mAlbedo.rgb * ao;
     
     float3 offset_ws_pos = ws_pos + brdf.mNormal * 0.01;
     float3 irradiance = DDGISampleIrradiance(offset_ws_pos, brdf.mNormal, rc.mDDGIData);

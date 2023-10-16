@@ -601,13 +601,16 @@ std::string RenderGraph::ToGraphVizText(const Device& inDevice, TextureID inBack
 {
     auto ofs = std::stringstream();
     ofs << R"(digraph G {
-bgcolor="#181A1B"
+bgcolor="#181A1B";
+rankdir="LR";
 overlap = false;
-splines = ortho;
+splines = curves;
 outputorder="edgesfirst"
 graph [pad="0.5", nodesep="1", ranksep="1.5"];
 node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=filled, fontname="Arial"]
 )";
+
+    std::set<std::string> seen_resources;
 
     /* Stringify the declaration of every pass and resource. */
     for (const auto& [index, pass] : gEnumerate(m_RenderPasses))
@@ -628,28 +631,12 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 
             auto str_name = gGetDebugName(const_cast<ID3D12Resource*>(resource_ptr));
 
+            if (seen_resources.contains(str_name))
+                continue;
+
             ofs << '\"' << str_name << R"("[color="#1B4958"][group=g)" << std::to_string(index) << "]\n";
-        }
-    }
-
-    /* Stringify the graph logic, basically all the connections e.g "pass" -> "write1" */
-    for (const auto& pass : m_RenderPasses)
-    {
-        for (const auto& resource_id : pass->m_WrittenResources)
-        {
-            auto resource_ptr = ( const ID3D12Resource* )nullptr;
-
-            if (m_RenderGraphResources.IsBuffer(resource_id))
-                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
-
-            else if (m_RenderGraphResources.IsTexture(resource_id))
-                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTextureView(resource_id));
-
-            assert(resource_ptr);
-
-            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
-
-            ofs << '\"' << pass->GetName() << "\" -> \"" << str_name << "\" [color=\"red\"][penwidth=3]\n";
+            
+            seen_resources.emplace(str_name);
         }
 
         for (const auto& resource_id : pass->m_ReadResources)
@@ -666,19 +653,26 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 
             auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
 
-            ofs << '\"' << str_name << "\" -> \"" << pass->GetName() << "\" [color=\"green\"][penwidth=3]\n";
+            if (seen_resources.contains(str_name))
+                continue;
+
+            ofs << '\"' << str_name << R"("[color="#1B4958"][group=g)" << std::to_string(index) << "]\n";
+
+            seen_resources.emplace(str_name);
         }
+
+        ofs << '\n';
     }
 
-    /* Stringify final groupings, e.g. "pass" -> {"write1" "write2" "write3" } */
+    seen_resources.clear();
+
+    /* Group written resources. */
+
     for (const auto& [index, pass] : gEnumerate(m_RenderPasses))
     {
-        if (pass->m_WrittenResources.size() < 2)
-            continue;
+        ofs << "\n{\n" << "rank = same;\n";
 
-        ofs << '\"' << pass->GetName() << R"(" -> {")";
-
-        for (const auto& [index, resource_id] : gEnumerate(pass->m_WrittenResources))
+        for (const auto& resource_id : pass->m_WrittenResources)
         {
             auto resource_ptr = ( const ID3D12Resource* )nullptr;
 
@@ -692,13 +686,64 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 
             auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
 
-            ofs << str_name;
+            if (seen_resources.contains(str_name))
+                continue;
 
-            if (index != pass->m_WrittenResources.size() - 1)
-                ofs << R"(" ")";
+            ofs << '\"' << str_name << "\";\n";
+
+            seen_resources.emplace(str_name);
         }
 
-        ofs << R"("}[style=invis])" << '\n';
+        ofs << "\n}\n";
+    }
+
+    /* Group root passes. */
+    ofs << "\n{\n" << "rank = min;\n";
+    for (const auto& pass : m_RenderPasses)
+    {
+        if (pass->m_ReadResources.empty())
+            ofs << '\"' << pass->GetName() << "\";\n";
+    }
+    ofs << "\n}\n";
+
+    /* Stringify the graph logic, basically all the connections e.g "pass" -> "write1" */
+    for (const auto& pass : m_RenderPasses)
+    {
+        for (const auto& resource_id : pass->m_ReadResources)
+        {
+            auto resource_ptr = ( const ID3D12Resource* )nullptr;
+
+            if (m_RenderGraphResources.IsBuffer(resource_id))
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
+
+            else if (m_RenderGraphResources.IsTexture(resource_id))
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTextureView(resource_id));
+
+            assert(resource_ptr);
+
+            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
+
+            ofs << '\"' << str_name << "\":e -> \"" << pass->GetName()  << "\":w [color=\"green\"][penwidth=3]\n";
+        }
+
+        for (const auto& resource_id : pass->m_WrittenResources)
+        {
+            auto resource_ptr = ( const ID3D12Resource* )nullptr;
+
+            if (m_RenderGraphResources.IsBuffer(resource_id))
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBufferView(resource_id));
+
+            else if (m_RenderGraphResources.IsTexture(resource_id))
+                resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTextureView(resource_id));
+
+            assert(resource_ptr);
+
+            auto str_name = gGetDebugName(const_cast<ID3D12Resource*>( resource_ptr ));
+
+            ofs << '\"' << pass->GetName() << "\":e -> \"" << str_name << "\":w [color=\"red\"][penwidth=3]\n";
+        }
+
+        ofs << '\n';
     }
 
     ofs << "}";

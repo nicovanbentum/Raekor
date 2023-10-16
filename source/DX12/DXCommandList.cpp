@@ -4,12 +4,12 @@
 
 namespace Raekor::DX12 {
 
-CommandList::CommandList(Device& inDevice, uint32_t inFrameIndex) : m_FrameIndex(inFrameIndex)
+CommandList::CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType, uint32_t inFrameIndex) : m_FrameIndex(inFrameIndex)
 {
     auto& command_list = m_CommandLists.emplace_back();
     auto& command_allocator = m_CommandAllocators.emplace_back();
-    gThrowIfFailed(inDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&command_allocator)));
-    gThrowIfFailed(inDevice->CreateCommandList1(0x00, D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_LIST_FLAG_NONE, IID_PPV_ARGS(&command_list)));
+    gThrowIfFailed(inDevice->CreateCommandAllocator(inType, IID_PPV_ARGS(&command_allocator)));
+    gThrowIfFailed(inDevice->CreateCommandList1(0x00, inType, D3D12_COMMAND_LIST_FLAG_NONE, IID_PPV_ARGS(&command_list)));
 }
 
 
@@ -94,7 +94,7 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
         default: assert(false);
     }
 
-    TrackResource(inBuffer.GetD3D12Resource());
+    TrackResource(inBuffer);
 }
 
 
@@ -137,6 +137,8 @@ void CommandList::SetViewportAndScissor(const Viewport& inViewport)
 void CommandList::Submit(Device& inDevice, ID3D12CommandQueue* inQueue)
 {
     auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
+    assert(command_list->GetType() == inQueue->GetDesc().Type);
+
     const auto cmd_lists = std::array { static_cast<ID3D12CommandList*>( command_list.Get() )};
     inQueue->ExecuteCommandLists(cmd_lists.size(), cmd_lists.data());
 

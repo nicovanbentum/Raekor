@@ -327,6 +327,17 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		// ImGui::Text("Culled meshes: %i", renderer.m_GBuffer->culled);
 		const auto& gpu_info = m_Editor->GetRenderInterface()->GetGPUInfo();
 
+		const auto col_white = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		const auto col_pink  = Vec4(1.0f, 0.078f, 0.576f, 1.0f);
+
+		if (auto cvar = g_CVars.TryGetValue<int>("debug_layer"))
+			if (*cvar)
+				ImGui::TextColored(ImVec(col_pink), "DEBUG DEVICE ENABLED");
+
+		if (auto cvar = g_CVars.TryGetValue<int>("gpu_validation"))
+			if (*cvar)
+				ImGui::TextColored(ImVec(col_pink), "GPU VALIDATION ENABLED");
+
 		ImGui::Text("Buffers: %i", GetRenderInterface().GetGPUStats().mLiveBuffers.load());
 		ImGui::Text("Textures: %i", GetRenderInterface().GetGPUStats().mLiveTextures.load());
 		ImGui::Text("RTV Heap: %i", GetRenderInterface().GetGPUStats().mLiveRTVHeap.load());
@@ -339,7 +350,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		ImGui::End();
 	}
-
+	
+	m_TotalTime += inDeltaTime;
 }
 
 

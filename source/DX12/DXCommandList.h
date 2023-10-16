@@ -11,7 +11,7 @@ class CommandList
 {
 public:
     CommandList() = default;
-    CommandList(Device& inDevice, uint32_t inFrameIndex);
+    CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType, uint32_t inFrameIndex);
 
     operator ID3D12GraphicsCommandList* ()                { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
     operator const ID3D12GraphicsCommandList* () const    { return m_CommandLists[m_CurrentCmdListIndex].Get(); }
@@ -63,9 +63,10 @@ public:
 
     void Submit(Device& inDevice, ID3D12CommandQueue* inQueue);
 
-    void TrackResource(D3D12ResourceRef inResource) { m_ResourceRefs.push_back(inResource); }
+    void TrackResource(const Buffer& inBuffer) { m_ResourceRefs.push_back(inBuffer); }
+    void TrackResource(const Texture& inTexture) { m_ResourceRefs.push_back(inTexture); }
 
-    void ReleaseTrackedResources() { m_ResourceRefs.resize(0); }
+    void ReleaseTrackedResources() { m_ResourceRefs.clear(); }
 
     uint32_t GetFrameIndex() const { return m_FrameIndex; }
 
@@ -74,7 +75,7 @@ private:
     uint64_t m_SubmitFenceValue = 0;
     uint32_t m_CurrentCmdListIndex = 0;
     ComPtr<ID3D12Fence> m_Fence = nullptr;
-    std::vector<ComPtr<ID3D12Resource>> m_ResourceRefs;
+    std::vector<DeviceResource> m_ResourceRefs;
     std::vector<ComPtr<ID3D12GraphicsCommandList4>> m_CommandLists;
     std::vector<ComPtr<ID3D12CommandAllocator>> m_CommandAllocators;
 };

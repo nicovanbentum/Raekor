@@ -81,7 +81,7 @@ private:
         int& mFullscreen     = g_CVars.Create("r_fullscreen",          0);
         int& mDisplayRes     = g_CVars.Create("r_display_resolution",  0);
         int& mEnableTAA      = g_CVars.Create("r_enable_taa",          0);
-        int& mEnableDoF      = g_CVars.Create("r_enable_dof",          0,    true);
+        int& mEnableDoF      = g_CVars.Create("r_enable_dof",          1);
         int& mUpscaler       = g_CVars.Create("r_upscaler",            0,    true);
         int& mDoPathTrace    = g_CVars.Create("r_path_trace",          0,    true);
         float& mSunConeAngle = g_CVars.Create("r_sun_cone_angle",      0.0f, true);
@@ -259,7 +259,6 @@ struct RTShadowMaskData
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mGbufferDepthTextureSRV;
     RenderGraphResourceViewID mGBufferRenderTextureSRV;
-    ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDevice,
@@ -286,7 +285,6 @@ struct RTAOData
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mGbufferDepthTextureSRV;
     RenderGraphResourceViewID mGBufferRenderTextureSRV;
-    ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDevice,
@@ -305,7 +303,6 @@ struct ReflectionsData
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mGBufferDepthTextureSRV;
     RenderGraphResourceViewID mGbufferRenderTextureSRV;
-    ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& inDevice,
@@ -325,7 +322,6 @@ struct PathTraceData
     static inline uint32_t mBounces = 2;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceID mAccumulationTexture;
-    ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice,
@@ -371,7 +367,6 @@ struct ProbeTraceData
     RenderGraphResourceID mProbesIrradianceTexture;
     RenderGraphResourceID mRaysDepthTexture;
     RenderGraphResourceID mRaysIrradianceTexture;
-    ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice,
@@ -391,9 +386,6 @@ struct ProbeUpdateData
     RenderGraphResourceID mProbesIrradianceTexture;
     RenderGraphResourceViewID mRaysDepthTextureSRV;
     RenderGraphResourceViewID mRaysIrradianceTextureSRV;
-    ComPtr<ID3D12PipelineState> mDepthPipeline;
-    ComPtr<ID3D12PipelineState> mClearPipeline;;
-    ComPtr<ID3D12PipelineState> mIrradiancePipeline;
 };
 
 const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice,
@@ -436,8 +428,6 @@ struct DebugLinesData
     D3D12_DRAW_ARGUMENTS* mMappedPtr;
     RenderGraphResourceID mVertexBuffer;
     RenderGraphResourceID mIndirectArgsBuffer;
-    RenderGraphResourceID mVertexBufferSRV;
-    RenderGraphResourceID mIndirectArgsBufferSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
     ComPtr<ID3D12CommandSignature> mCommandSignature;
 };
@@ -578,7 +568,6 @@ struct DepthOfFieldData
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mDepthTextureSRV;
     RenderGraphResourceViewID mInputTextureSRV;
-    ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& inDevice,

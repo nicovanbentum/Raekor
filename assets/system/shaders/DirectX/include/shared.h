@@ -32,14 +32,13 @@ using float4x4 = glm::mat4;
 // NEEDS TO MATCH DXUtil.h , its 256 - 2 SRV root descriptors (which are 2 DWORDs each)
 #define MAX_ROOT_CONSTANTS_SIZE 232
 
-#define DDGI_WAVE_SIZE 64                        // Thread group size for the ray trace shader. Sorry AMD, I'm running a 3080
-#define DDGI_RAYS_PER_WAVE 3                     // This is the number of rays per probe (192) divided by the thread group size (64)
+#define DDGI_TRACE_SIZE 64                       // Thread group size for the ray trace shader. Sorry AMD, I'm running a 3080
 #define DDGI_DEPTH_TEXELS 16                     // Depth is stored as 16x16 FORMAT_R32F texels
 #define DDGI_DEPTH_TEXELS_NO_BORDER 14           // Depth is stored as 16x16 FORMAT_R32F texels
 #define DDGI_IRRADIANCE_TEXELS 8                 // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
 #define DDGI_IRRADIANCE_TEXELS_NO_BORDER 6       // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
 #define DDGI_PROBES_PER_ROW 40                   // Number of probes per row for the final probe texture
-#define DDGI_RAYS_PER_PROBE 192                  // Basically wave size * rays per wave
+#define DDGI_RAYS_PER_PROBE 256                  // Basically wave size * rays per wave
 
 #define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 1
 
@@ -320,9 +319,9 @@ struct DepthOfFieldRootConstants
     uint mOutputTexture;
     uint mPad1;
     float mFarPlane;
+    float mNearPlane;
     float mFocusPoint;
     float mFocusScale;
-    float mPad0;
 };
 STATIC_ASSERT(sizeof(DepthOfFieldRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 

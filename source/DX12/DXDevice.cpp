@@ -365,11 +365,6 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
 }
 
 
-void Device::ReleaseBufferDeferred(BufferID inID)
-{
-}
-
-
 
 void Device::ReleaseBuffer(BufferID inBufferID)
 {
@@ -395,9 +390,10 @@ void Device::ReleaseBufferImmediate(BufferID inBufferID)
 
     auto& buffer = GetBuffer(inBufferID);
     buffer.m_Resource = nullptr;
+    buffer.m_Allocation = nullptr;
 
     m_Buffers.Remove(inBufferID);
-    // ReleaseDescriptorImmediate(inBufferID);
+    ReleaseDescriptorImmediate(inBufferID);
 }
 
 
@@ -408,6 +404,7 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID)
 
     auto& texture = GetTexture(inTextureID);
     texture.m_Resource = nullptr;
+    texture.m_Allocation = nullptr;
 
     m_Textures.Remove(inTextureID);
     ReleaseDescriptorImmediate(inTextureID);
@@ -464,7 +461,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
 
 D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader)
 {
-    assert(inRenderPass->IsCompute() && "Cannot create a Compute PSO description for a GraphicsRenderPass");
+    assert(inRenderPass ? inRenderPass->IsCompute() : true && "Cannot create a Compute PSO description for a GraphicsRenderPass");
     return D3D12_COMPUTE_PIPELINE_STATE_DESC { .pRootSignature = GetGlobalRootSignature(), .CS = inComputeShader };
 }
 
@@ -727,9 +724,9 @@ StagingHeap::~StagingHeap()
 
 
 
-void StagingHeap::StageBuffer(CommandList& inCmdList, D3D12ResourceRef inResource, uint32_t inOffset, const void* inData, uint32_t inSize)
+void StagingHeap::StageBuffer(CommandList& inCmdList, const Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize)
 {
-    inCmdList.TrackResource(inResource);
+    inCmdList.TrackResource(inBuffer);
 
     for (auto& buffer : m_Buffers)
     {
@@ -738,7 +735,7 @@ void StagingHeap::StageBuffer(CommandList& inCmdList, D3D12ResourceRef inResourc
             memcpy(buffer.mPtr + buffer.mSize, inData, inSize);
 
             const auto buffer_resource = m_Device.GetBuffer(buffer.mBufferID).GetD3D12Resource();
-            inCmdList->CopyBufferRegion(inResource.Get(), inOffset, buffer_resource.Get(), buffer.mSize, inSize);
+            inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource().Get(), inOffset, buffer_resource.Get(), buffer.mSize, inSize);
 
             buffer.mSize += inSize;
             buffer.mRetired = false;
@@ -762,8 +759,8 @@ void StagingHeap::StageBuffer(CommandList& inCmdList, D3D12ResourceRef inResourc
 
     memcpy(mapped_ptr, inData, inSize);
 
-    assert(inResource->GetDesc().Width >= inSize);
-    inCmdList->CopyBufferRegion(inResource.Get(), inOffset, buffer.GetD3D12Resource().Get(), 0, inSize);
+    assert(inBuffer.GetSize() >= inSize);
+    inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource().Get(), inOffset, buffer.GetD3D12Resource().Get(), 0, inSize);
 
     m_Buffers.emplace_back(StagingBuffer
     {
@@ -778,15 +775,15 @@ void StagingHeap::StageBuffer(CommandList& inCmdList, D3D12ResourceRef inResourc
 
 
 
-void StagingHeap::StageTexture(CommandList& inCmdList, D3D12ResourceRef inResource, uint32_t inSubResource, const void* inData)
+void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture, uint32_t inSubResource, const void* inData)
 {
-    inCmdList.TrackResource(inResource);
+    inCmdList.TrackResource(inTexture);
 
     auto nr_of_rows = 0u;
     auto row_size = 0ull, total_size = 0ull;
     auto footprint = D3D12_PLACED_SUBRESOURCE_FOOTPRINT {};
 
-    auto desc = inResource->GetDesc();
+    auto desc = inTexture.GetD3D12Resource()->GetDesc();
     m_Device->GetCopyableFootprints(&desc, inSubResource, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
 
     const auto aligned_row_size = gAlignUp(row_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
@@ -831,7 +828,7 @@ void StagingHeap::StageTexture(CommandList& inCmdList, D3D12ResourceRef inResour
         memcpy(copy_dst, copy_src, row_size);
     }
 
-    const auto dest = CD3DX12_TEXTURE_COPY_LOCATION(inResource.Get(), inSubResource);
+    const auto dest = CD3DX12_TEXTURE_COPY_LOCATION(inTexture.GetD3D12Resource().Get(), inSubResource);
     const auto source = CD3DX12_TEXTURE_COPY_LOCATION(buffer.GetD3D12Resource().Get(), footprint);
 
     inCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
@@ -846,7 +843,7 @@ void StagingHeap::StageTexture(CommandList& inCmdList, D3D12ResourceRef inResour
         .mPtr        = mapped_ptr,
     });
 
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(inResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, inSubResource);
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(inTexture.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ, inSubResource);
     inCmdList->ResourceBarrier(1, &barrier);
 }
 

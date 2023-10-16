@@ -40,11 +40,6 @@ public:
     [[nodiscard]] TextureID CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc);
     [[nodiscard]] TextureID CreateTextureView(D3D12ResourceRef inResource, const Texture::Desc& inDesc);
 
-    /* Preferred runtime API, safe to use at any point during the frame. */
-    void ReleaseBufferDeferred(BufferID inID);
-    /* Preferred runtime API, safe to use at any point during the frame. */
-    void ReleaseTextureDeferred(TextureID inID);
-
     /* USE WITH CAUTION. NEXT CREATE* CALL WILL DELETE THE OLD RESOURCE. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
     void ReleaseBuffer(BufferID inID);
     /* USE WITH CAUTION. NEXT CREATE* CALL WILL DELETE THE OLD RESOURCE. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
@@ -142,8 +137,8 @@ public:
     StagingHeap(Device& inDevice) : m_Device(inDevice) {}
     ~StagingHeap();
 
-    void StageBuffer(CommandList& inCmdList, D3D12ResourceRef inResource, uint32_t inOffset, const void* inData, uint32_t inSize);
-    void StageTexture(CommandList& inCmdList, D3D12ResourceRef inResource, uint32_t inSubResource, const void* inData);
+    void StageBuffer(CommandList& inCmdList, const Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize);
+    void StageTexture(CommandList& inCmdList, const Texture& inTexture, uint32_t inSubResource, const void* inData);
     void RetireBuffers(CommandList& inCmdList);
 
 private:

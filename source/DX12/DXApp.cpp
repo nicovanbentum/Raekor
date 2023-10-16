@@ -45,8 +45,12 @@ DXApp::DXApp() :
     if (!json_data.IsEmpty())
         read_archive >> g_SystemShaders;
 
-    // Wait for all the shaders to compile before continuing with renderer init
+    // compile shaders
     g_SystemShaders.OnCompile();
+    g_ThreadPool.WaitForJobs();
+
+    // compile PSOs
+    g_SystemShaders.CompilePSOs(m_Device);
     g_ThreadPool.WaitForJobs();
 
     if (!g_SystemShaders.IsCompiled())
@@ -88,7 +92,7 @@ DXApp::DXApp() :
     {
         auto& cmd_list = m_Renderer.StartSingleSubmit();
 
-        m_StagingHeap.StageTexture(cmd_list, m_Device.GetTexture(bluenoise_texture).GetD3D12Resource(), 0, blue_noise_samples.data());
+        m_StagingHeap.StageTexture(cmd_list, m_Device.GetTexture(bluenoise_texture), 0, blue_noise_samples.data());
 
         m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
     }

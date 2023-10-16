@@ -29,6 +29,9 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     Texture2D<float4> roughness_texture = ResourceDescriptorHeap[rc.mRoughnessTexture];
     
     float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
+    if (sampled_albedo.a < 0.3)
+        discard;
+    
     float4 sampled_normal = normal_texture.Sample(SamplerAnisoWrap, input.texcoord);
     float sampled_metallic = metallic_texture.Sample(SamplerAnisoWrap, input.texcoord).r;
     float sampled_roughness = roughness_texture.Sample(SamplerAnisoWrap, input.texcoord).r;

@@ -119,7 +119,30 @@ using DescriptorPool = ResourcePool<D3D12ResourceRef>;
 using DescriptorID = DescriptorPool::TypedID;
 
 
-class Texture
+
+class DeviceResource
+{
+public:
+    DeviceResource() = default;
+    DeviceResource(const D3D12ResourceRef& m_Resource, const D3D12AllocationRef& m_Allocation)
+        : m_Resource(m_Resource), m_Allocation(m_Allocation) {}
+    virtual ~DeviceResource() = default;
+
+    D3D12ResourceRef& operator-> () { return m_Resource; }
+    const D3D12ResourceRef& operator-> () const { return m_Resource; }
+    D3D12ResourceRef& GetD3D12Resource() { return m_Resource; }
+    const D3D12ResourceRef& GetD3D12Resource() const { return m_Resource; }
+    D3D12AllocationRef& GetD3D12Allocation() { return m_Allocation; }
+    const D3D12AllocationRef& GetD3D12Allocation() const { return m_Allocation; }
+
+protected:
+    D3D12ResourceRef m_Resource = nullptr;
+    D3D12AllocationRef m_Allocation = nullptr;
+};
+
+
+
+class Texture : public DeviceResource
 {
     friend class Device;
     friend class CommandList;
@@ -159,20 +182,13 @@ public:
     DescriptorID GetView() const { return m_Descriptor; }
     uint32_t GetHeapIndex() const { return m_Descriptor.ToIndex(); }
 
-    D3D12ResourceRef& operator-> () { return m_Resource; }
-    const D3D12ResourceRef& operator-> () const { return m_Resource; }
-    D3D12ResourceRef& GetD3D12Resource() { return m_Resource; }
-    const D3D12ResourceRef& GetD3D12Resource() const { return m_Resource; }
-
 private:
     Desc m_Desc = {};
     DescriptorID m_Descriptor;
-    D3D12ResourceRef m_Resource = nullptr;
-    D3D12AllocationRef m_Allocation = nullptr;
 };
 
 
-class Buffer
+class Buffer : public DeviceResource
 {
     friend class Device;
     friend class CommandList;
@@ -213,17 +229,10 @@ public:
     DescriptorID GetDescriptor() const { return m_Descriptor; }
     uint32_t GetHeapIndex() const { return m_Descriptor.ToIndex(); }
 
-    D3D12ResourceRef& operator-> () { return m_Resource; }
-    const D3D12ResourceRef& operator-> () const { return m_Resource; }
-    D3D12ResourceRef& GetD3D12Resource() { return m_Resource; }
-    const D3D12ResourceRef& GetD3D12Resource() const { return m_Resource; }
-
 private:
     Desc m_Desc = {};
     DescriptorID m_Descriptor;
     void* m_MappedPtr = nullptr;
-    D3D12ResourceRef m_Resource = nullptr;
-    D3D12AllocationRef m_Allocation = nullptr;
 };
 
 

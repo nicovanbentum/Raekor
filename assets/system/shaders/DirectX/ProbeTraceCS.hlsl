@@ -9,7 +9,7 @@
 
 ROOT_CONSTANTS(ProbeTraceRootConstants, rc)
 
-[numthreads(DDGI_WAVE_SIZE, 1, 1)]
+[numthreads(DDGI_TRACE_SIZE, 1, 1)]
 void main(uint3 threadID : SV_DispatchThreadID) {
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[rc.mTLAS];
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];

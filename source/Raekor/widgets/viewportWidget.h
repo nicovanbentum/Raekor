@@ -17,6 +17,7 @@ public:
 	bool IsHovered() { return mouseInViewport; }
 
 protected:
+	float m_TotalTime = 0;
 	uint64_t m_DisplayTexture;
 	int m_RenderTargetIndex = 0;
 	bool gizmoEnabled = true;
