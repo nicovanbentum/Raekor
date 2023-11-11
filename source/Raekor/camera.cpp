@@ -5,40 +5,44 @@
 
 namespace Raekor {
 
-Camera::Camera(glm::vec3 position, glm::mat4 proj) :
-	m_Position(position),
+Camera::Camera(const Vec3& inPos, const Mat4x4& inProj) :
+	m_Position(inPos),
 	m_Angle(0.0f, 0.0f)
 {
-	m_Projection = proj;
+	m_Projection = inProj;
 }
 
 
-void Camera::OnUpdate(float dt)
+void Camera::OnUpdate(float inDeltaTime)
 {
-	auto dir = GetForwardVector();
-	m_View = glm::lookAtRH(m_Position, m_Position + dir, { 0, 1, 0 });
+	m_PrevView = m_View;
+	m_PrevProjection = m_Projection;
 
 	if (SDL_GetRelativeMouseMode())
 	{
 		if (Input::sIsKeyPressed(SDL_SCANCODE_W))
 		{
-			Zoom(float(mZoomConstant * dt));
+			Zoom(float(mZoomConstant * inDeltaTime));
 		}
 		else if (Input::sIsKeyPressed(SDL_SCANCODE_S))
 		{
-			Zoom(float(-mZoomConstant * dt));
+			Zoom(float(-mZoomConstant * inDeltaTime));
 		}
 
 		if (Input::sIsKeyPressed(SDL_SCANCODE_A))
 		{
-			Move({ mMoveConstant * dt, 0.0f });
+			Move({ mMoveConstant * inDeltaTime, 0.0f });
 		}
 		else if (Input::sIsKeyPressed(SDL_SCANCODE_D))
 		{
-			Move({ -mMoveConstant * dt, 0.0f });
+			Move({ -mMoveConstant * inDeltaTime, 0.0f });
 		}
 	}
+
+	auto dir = GetForwardVector();
+	m_View = glm::lookAtRH(m_Position, m_Position + dir, { 0, 1, 0 });
 }
+
 
 
 void Camera::Zoom(float amount)
@@ -48,7 +52,7 @@ void Camera::Zoom(float amount)
 }
 
 
-void Camera::Look(glm::vec2 amount)
+void Camera::Look(Vec2 amount)
 {
 	m_Angle.x += float(amount.x * -1);
 	m_Angle.y += float(amount.y * -1);
@@ -57,7 +61,7 @@ void Camera::Look(glm::vec2 amount)
 }
 
 
-void Camera::Move(glm::vec2 amount)
+void Camera::Move(Vec2 amount)
 {
 	auto dir = GetForwardVector();
 	// sideways
@@ -67,9 +71,31 @@ void Camera::Move(glm::vec2 amount)
 }
 
 
-glm::vec3 Camera::GetForwardVector()
+bool Camera::Moved() const
 {
-	return glm::normalize(glm::vec3(cos(m_Angle.y) * sin(m_Angle.x),
+	for (uint32_t x = 0; x < 4; x++)
+		for (uint32_t y = 0; y < 4; y++)
+			if (glm::abs(m_View[x][y] - m_PrevView[x][y]) > 0.000001)
+				return true;
+
+	return false;
+}
+
+
+bool Camera::Changed() const
+{
+	for (uint32_t x = 0; x < 4; x++)
+		for (uint32_t y = 0; y < 4; y++)
+			if (glm::abs(m_Projection[x][y] - m_PrevProjection[x][y]) > 0.000001)
+				return true;
+
+	return Moved();
+}
+
+
+Vec3 Camera::GetForwardVector()
+{
+	return glm::normalize(Vec3(cos(m_Angle.y) * sin(m_Angle.x),
 		sin(m_Angle.y), cos(m_Angle.y) * cos(m_Angle.x)));
 }
 
@@ -152,9 +178,10 @@ bool CameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 }
 
 
-Viewport::Viewport(glm::vec2 inSize) :
-	m_Camera(glm::vec3(0, 0.0, 0), glm::perspectiveRH(glm::radians(m_FieldOfView), m_AspectRatio, 0.1f, 1000.0f)),
-	size(inSize)
+Viewport::Viewport(Vec2 inSize) :
+	m_Camera(Vec3(0, 0.0, 0), glm::perspectiveRH(glm::radians(m_FieldOfView), m_AspectRatio, 0.1f, 1000.0f)),
+	size(inSize),
+	m_DisplaySize(inSize)
 {
 }
 
@@ -192,16 +219,16 @@ void Viewport::OnUpdate(float dt)
 
 	m_JitterIndex = m_JitterIndex + 1;
 
-	const auto halton = glm::vec2(
+	const auto halton = Vec2(
 		2.0f * GetHaltonSequence(m_JitterIndex + 1, 2) - 1.0f,
 		2.0f * GetHaltonSequence(m_JitterIndex + 1, 3) - 1.0f
 	);
 
-	m_Jitter = halton / glm::vec2(size);
+	m_Jitter = halton / Vec2(size);
 }
 
 
-glm::mat4 Viewport::GetJitteredProjMatrix(const glm::vec2& inJitter) const
+glm::mat4 Viewport::GetJitteredProjMatrix(const Vec2& inJitter) const
 {
 	auto mat = m_Camera.GetProjection();
 	mat[2][0] = m_Jitter[0];

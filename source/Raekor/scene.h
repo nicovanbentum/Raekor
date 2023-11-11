@@ -45,14 +45,15 @@ public:
 	void LoadMaterialTextures(Assets& ioAssets, const Slice<Entity>& inMaterials);
 
 	// save Scene to disk
-	void SaveToFile(Assets& ioAssets, const std::string& inFile);
-	void OpenFromFile(Assets& ioAssets, const std::string& inFile);
+	void SaveToFile(const std::string& inFile, Assets& ioAssets);
+	void OpenFromFile(const std::string& inFile, Assets& ioAssets);
 
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript);
 
 	void Optimize();
 
 protected:
+	Path m_ActiveSceneFilePath;
 	IRenderInterface* m_Renderer;
 	std::stack<Entity> m_Nodes;
 };

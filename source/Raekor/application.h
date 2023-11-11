@@ -116,6 +116,7 @@ struct ConfigSettings
 {
 	RTTI_DECLARE_TYPE(ConfigSettings);
 
+	bool mShowUI = true;
 	int mDisplayIndex = 0;
 	bool mVsyncEnabled = true;
 	std::string mAppName = "";
@@ -133,6 +134,7 @@ enum WindowFlag
 	BORDERLESS = SDL_WINDOW_BORDERLESS,
 };
 using WindowFlags = uint32_t;
+
 
 class Application
 {
@@ -162,7 +164,10 @@ public:
 	const ConfigSettings& GetSettings() const { return m_Settings; }
 
 	SDL_Window* GetWindow() { return m_Window; }
+	const SDL_Window* GetWindow() const { return m_Window; }
+
 	Viewport& GetViewport() { return m_Viewport; }
+	const Viewport& GetViewport() const { return m_Viewport; }
 
 protected:
 	bool m_Running = true;

@@ -19,7 +19,7 @@ public:
     Renderer(SDL_Window* inWindow, Viewport& ioViewport);
     ~Renderer();
 
-    void Render(const Scene& inScene, const Viewport& inViewport);
+    void Render(const Application* inApp, const Scene& inScene, const Viewport& inViewport);
     void CreateRenderTargets(const Viewport& inViewport);
 
     void AddDebugLine(Vec3 inP1, Vec3 inP2);
@@ -34,10 +34,7 @@ public:
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer);
     uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) { return m_GBuffer ? m_GBuffer->readEntity(inScreenPosX, inScreenPosY) : NULL_ENTITY; }
 
-    void OnResize(const Viewport& inViewport)
-    {
-        CreateRenderTargets(inViewport);
-    }
+    void OnResize(const Viewport& inViewport) { CreateRenderTargets(inViewport); }
 
     void DrawImGui(Scene& inScene, const Viewport& inViewport);
 
@@ -69,6 +66,7 @@ public:
 
 private:
     uint32_t      m_FrameNr = 0;
+    uint32_t      m_FrameBuffer = 0;
     uint32_t      m_DefaultBlackTexture = 0;
     SDL_Window* m_Window = nullptr;
     SDL_GLContext m_GLContext = nullptr;

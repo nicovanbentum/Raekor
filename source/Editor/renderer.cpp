@@ -139,6 +139,8 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     glGenVertexArrays(1, &vertexArrayID);
     glBindVertexArray(vertexArrayID);
 
+    glCreateFramebuffers(1, &m_FrameBuffer);
+
     ImGui_ImplSDL2_InitForOpenGL(window, &m_GLContext);
     ImGui_ImplOpenGL3_Init("#version 450");
     ImGui_ImplOpenGL3_CreateDeviceObjects();
@@ -151,7 +153,8 @@ Renderer::Renderer(SDL_Window* window, Viewport& viewport) :
     // io.ConfigDockingWithShift = true;
 
     // initialise all the render passes
-    viewport.SetSize(UVec2(2560, 1440));
+    viewport.SetRenderSize(UVec2(2560, 1440));
+    viewport.SetDisplaySize(UVec2(2560, 1440));
 
     m_Icons = std::make_shared<Icons>(viewport);
     m_Bloom = std::make_shared<Bloom>(viewport);
@@ -224,7 +227,7 @@ Renderer::~Renderer()
 }
 
 
-void Renderer::Render(const Scene& scene, const Viewport& viewport)
+void Renderer::Render(const Application* inApp, const Scene& scene, const Viewport& viewport)
 {
     // skin all meshes in the scene
     {
@@ -324,11 +327,27 @@ void Renderer::Render(const Scene& scene, const Viewport& viewport)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // render ImGui
+    if (inApp && inApp->GetSettings().mShowUI)
     {
-        const auto timer = RenderPass::ScopedTimer("ImGui", m_ImGuiPass.get(), !mSettings.disableTiming);
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        {
+            const auto timer = RenderPass::ScopedTimer("ImGui", m_ImGuiPass.get(), !mSettings.disableTiming);
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        }
     }
+    else
+    {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, m_FrameBuffer);
+        glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_Tonemap->result, 0);
+
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBlitFramebuffer(0, 0, viewport.size.x, viewport.size.y,
+                            0, 0, viewport.size.x, viewport.size.y,
+                                GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    }
+
 
     // increment frame counter
     m_FrameNr = m_FrameNr + 1;

@@ -63,8 +63,8 @@ void GBuffer::CreateRenderTargets(Device& device, const Viewport& viewport)
 {
 	Texture::Desc texDesc;
 	texDesc.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-	texDesc.width = viewport.GetSize().x;
-	texDesc.height = viewport.GetSize().y;
+	texDesc.width = viewport.GetRenderSize().x;
+	texDesc.height = viewport.GetRenderSize().y;
 
 	albedoTexture = device.CreateTexture(texDesc);
 	normalTexture = device.CreateTexture(texDesc);

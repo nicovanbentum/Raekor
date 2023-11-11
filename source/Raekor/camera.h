@@ -10,26 +10,29 @@ class Camera
 {
 
 public:
-	Camera(glm::vec3 inPosition, glm::mat4 inProjMatrix);
+	Camera(const Vec3& inPosition, const Mat4x4& inProjMatrix);
 	Camera(const Camera&) : Camera(m_Position, m_Projection) {}
 	Camera& operator=(const Camera& rhs) { return *this; }
 
 	void OnUpdate(float inDeltaTime);
 
 	void Zoom(float inAmount);
-	void Look(glm::vec2 inAmount);
-	void Move(glm::vec2 inAmount);
+	void Look(Vec2 inAmount);
+	void Move(Vec2 inAmount);
 
-	glm::vec3 GetForwardVector();
+	bool Moved() const;
+	bool Changed() const;
 
-	glm::vec2& GetAngle() { return m_Angle; }
-	const glm::vec3& GetPosition() const { return m_Position; }
+	Vec3 GetForwardVector();
 
-	glm::mat4& GetView() { return m_View; }
-	const glm::mat4& GetView() const { return m_View; }
+	const Vec2& GetAngle() const { return m_Angle; }
+	const Vec3& GetPosition() const { return m_Position; }
 
-	glm::mat4& GetProjection() { return m_Projection; }
-	const glm::mat4& GetProjection() const { return m_Projection; }
+	Mat4x4& GetView() { return m_View; }
+	const Mat4x4& GetView() const { return m_View; }
+
+	Mat4x4& GetProjection() { return m_Projection; }
+	const Mat4x4& GetProjection() const { return m_Projection; }
 
 	float GetFov() const;
 	float GetFar() const;
@@ -39,11 +42,15 @@ public:
 	Frustum GetFrustum() const;
 
 private:
-	glm::vec2 m_Angle;
-	glm::vec3 m_Position;
+	Vec2 m_Angle;
+	Vec2 m_PrevAngle;
+	Vec3 m_Position;
+	Vec3 m_PrevPosition;
 
-	glm::mat4 m_View;
-	glm::mat4 m_Projection;
+	Mat4x4 m_View;
+	Mat4x4 m_PrevView;
+	Mat4x4 m_Projection;
+	Mat4x4 m_PrevProjection;
 
 public:
 	float& mSensitivity = g_CVars.Create("sensitivity", 2.0f);
@@ -78,19 +85,22 @@ public:
 	float GetAspectRatio() const { return m_AspectRatio; }
 	void SetAspectRatio(float inAspectRatio) { m_AspectRatio = inAspectRatio; UpdateProjectionMatrix(); }
 
-	glm::vec2 GetJitter() const { return m_Jitter; }
-	void SetJitter(const glm::vec2& inJitter) { m_Jitter = inJitter; }
+	Vec2 GetJitter() const { return m_Jitter; }
+	void SetJitter(const Vec2& inJitter) { m_Jitter = inJitter; }
 
-	inline const glm::uvec2& GetSize() const { return size; }
-	void SetSize(const glm::uvec2& inSize) { size = inSize; UpdateProjectionMatrix(); m_JitterIndex = 0; }
+	inline const UVec2& GetRenderSize() const { return size; }
+	void SetRenderSize(const UVec2& inSize) { size = inSize; UpdateProjectionMatrix(); m_JitterIndex = 0; }
 
-	glm::mat4 GetJitteredProjMatrix(const glm::vec2& inJitter) const;
-	glm::mat4 GetJitteredProjMatrix() const { return GetJitteredProjMatrix(GetJitter()); }
+	inline const UVec2 GetDisplaySize() const { return m_DisplaySize; }
+	void SetDisplaySize(const UVec2& inSize) { m_DisplaySize = inSize; }
+
+	Mat4x4 GetJitteredProjMatrix(const Vec2& inJitter) const;
+	Mat4x4 GetJitteredProjMatrix() const { return GetJitteredProjMatrix(GetJitter()); }
 
 public:
 	// These two are public out of convenience
-	glm::uvec2 size = glm::uvec2(0u);
-	glm::uvec2 offset = glm::uvec2(0u);
+	UVec2 size = UVec2(0u);
+	UVec2 offset = UVec2(0u);
 
 private:
 	void UpdateProjectionMatrix();
@@ -98,8 +108,10 @@ private:
 	float m_FieldOfView = 45.0f;
 	float m_AspectRatio = 16.0f / 9.0f;
 
+	UVec2 m_DisplaySize = UVec2(0u, 0u);
+
 	uint32_t m_JitterIndex = 0;
-	glm::vec2 m_Jitter = glm::vec2(0.0f);
+	Vec2 m_Jitter = Vec2(0.0f);
 
 	Camera m_Camera;
 };

@@ -52,7 +52,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				{
 					Timer timer;
 					SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("Raekor Editor - " + filepath).c_str());
-					scene.OpenFromFile(IWidget::GetAssets(), filepath);
+
+					scene.OpenFromFile(filepath, IWidget::GetAssets());
 					m_Editor->SetActiveEntity(NULL_ENTITY);
 
 					m_Editor->LogMessage("[Scene] Open from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
@@ -68,7 +69,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					g_ThreadPool.QueueJob([this, filepath]()
 					{
 						m_Editor->LogMessage("[Editor] Saving scene...");
-						GetScene().SaveToFile(IWidget::GetAssets(), filepath);
+						GetScene().SaveToFile(filepath, IWidget::GetAssets());
 						m_Editor->LogMessage("[Editor] Saved scene to " + fs::relative(filepath).string() + "");
 					});
 				}

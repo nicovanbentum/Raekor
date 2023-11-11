@@ -4,6 +4,8 @@
 
 namespace Raekor::DX12 {
 
+class Device;
+
 class ResourceID
 {
 public:
@@ -123,6 +125,8 @@ using DescriptorID = DescriptorPool::TypedID;
 class DeviceResource
 {
 public:
+    friend class Device;
+
     DeviceResource() = default;
     DeviceResource(const D3D12ResourceRef& m_Resource, const D3D12AllocationRef& m_Allocation)
         : m_Resource(m_Resource), m_Allocation(m_Allocation) {}
@@ -177,6 +181,7 @@ public:
 
     Texture() = default;
     Texture(const Desc& inDesc) : m_Desc(inDesc) {}
+    explicit Texture(const Texture& inRHS) = default;
 
     const Desc& GetDesc() const { return m_Desc; }
     DescriptorID GetView() const { return m_Descriptor; }

@@ -36,6 +36,7 @@ protected:
 	Physics m_Physics;
 	Widgets m_Widgets;
 
+	bool m_ViewportChanged = false;
 	void* m_CompilerProcess = nullptr;
 	ImGuiID m_DockSpaceID;
 	Entity m_ActiveEntity = NULL_ENTITY;

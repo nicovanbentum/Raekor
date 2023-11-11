@@ -39,9 +39,10 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	size.y = glm::max(size.y, 90.0f);
 
 	auto resized = false;
-	if (viewport.size.x != size.x || viewport.size.y != size.y)
+	if (viewport.GetDisplaySize().x != size.x || viewport.GetDisplaySize().y != size.y)
 	{
-		viewport.SetSize({ size.x, size.y });
+		viewport.SetRenderSize({ size.x, size.y });
+		viewport.SetDisplaySize({ size.x, size.y });
 		m_Editor->GetRenderInterface()->OnResize(viewport);
 		resized = true;
 	}
@@ -197,8 +198,13 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			transform.localTransform = glm::translate(transform.localTransform, -bounds.GetCenter());
 		}
 
+		m_Changed = false;
+
 		if (manipulated)
+		{
 			transform.Decompose();
+			m_Changed = true;
+		}
 	}
 
 	auto metricsPosition = ImGui::GetWindowPos();
@@ -330,13 +336,22 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		const auto col_white = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		const auto col_pink  = Vec4(1.0f, 0.078f, 0.576f, 1.0f);
 
-		if (auto cvar = g_CVars.TryGetValue<int>("debug_layer"))
-			if (*cvar)
-				ImGui::TextColored(ImVec(col_pink), "DEBUG DEVICE ENABLED");
+#ifndef NDEBUG
+		if (GetRenderInterface().GetGraphicsAPI() == GraphicsAPI::DirectX12 || GetRenderInterface().GetGraphicsAPI() == GraphicsAPI::Vulkan)
+		{
+			if (auto cvar = g_CVars.TryGetValue<int>("debug_layer"))
+				if (*cvar)
+					ImGui::TextColored(ImVec(col_pink), "DEBUG DEVICE ENABLED");
 
-		if (auto cvar = g_CVars.TryGetValue<int>("gpu_validation"))
-			if (*cvar)
-				ImGui::TextColored(ImVec(col_pink), "GPU VALIDATION ENABLED");
+			if (auto cvar = g_CVars.TryGetValue<int>("gpu_validation"))
+				if (*cvar)
+					ImGui::TextColored(ImVec(col_pink), "GPU VALIDATION ENABLED");
+		}
+#endif
+		uint64_t triangle_count = 0;
+		for (const auto& mesh : GetScene().GetStorage<Mesh>())
+			triangle_count += mesh.indices.size();
+		triangle_count /= 3;
 
 		ImGui::Text("Buffers: %i", GetRenderInterface().GetGPUStats().mLiveBuffers.load());
 		ImGui::Text("Textures: %i", GetRenderInterface().GetGPUStats().mLiveTextures.load());
@@ -344,8 +359,12 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImGui::Text("DSV Heap: %i", GetRenderInterface().GetGPUStats().mLiveDSVHeap.load());
 		ImGui::Text("Sampler Heap: %i", GetRenderInterface().GetGPUStats().mLiveSamplerHeap.load());
 		ImGui::Text("Resource Heap: %i", GetRenderInterface().GetGPUStats().mLiveResourceHeap.load());
+		ImGui::Text("Materials: %i", GetScene().Count<Material>());
 		ImGui::Text("Draw calls: %i", GetScene().Count<Mesh>());
-		ImGui::Text("Resolution: %i x %i", viewport.size.x, viewport.size.y);
+		ImGui::Text("Transforms: %i", GetScene().Count<Transform>());
+		ImGui::Text("Triangle Count: %i", triangle_count);
+		ImGui::Text("Render Resolution: %i x %i", viewport.GetRenderSize().x, viewport.GetRenderSize().y);
+		ImGui::Text("Display Resolution: %i x %i", viewport.GetDisplaySize().x, viewport.GetDisplaySize().y);
 		ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
 		ImGui::End();

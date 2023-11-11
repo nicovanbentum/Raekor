@@ -267,9 +267,9 @@ void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials)
 }
 
 
-void Scene::SaveToFile(Assets& assets, const std::string& file)
+void Scene::SaveToFile(const std::string& inFile, Assets& ioAssets)
 {
-	auto archive = BinaryWriteArchive(file);
+	auto archive = BinaryWriteArchive(inFile);
 	WriteFileBinary(archive.GetFile(), m_Entities);
 
 	gForEachTupleElement(Components, [&](auto component)
@@ -282,11 +282,11 @@ void Scene::SaveToFile(Assets& assets, const std::string& file)
 }
 
 
-void Scene::OpenFromFile(Assets& assets, const std::string& file)
+void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets)
 {
-	if (!fs::is_regular_file(file))
+	if (!fs::is_regular_file(inFilePath))
 	{
-		std::cout << "Scene::openFromFile : filepath " << file << " does not exist.";
+		std::cout << "Scene::openFromFile : filepath " << inFilePath << " does not exist.";
 		return;
 	}
 
@@ -294,7 +294,7 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file)
 
 	Timer timer;
 
-	auto archive = BinaryReadArchive(file);
+	auto archive = BinaryReadArchive(inFilePath);
 	ReadFileBinary(archive.GetFile(), m_Entities);
 
 	gForEachTupleElement(Components, [&](auto inVar)
@@ -306,7 +306,7 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file)
 	std::cout << std::format("[Scene] Load ECS data took {:.3f} seconds.\n", timer.GetElapsedTime());
 
 	// init material render data
-	LoadMaterialTextures(assets, GetEntities<Material>());
+	LoadMaterialTextures(ioAssets, GetEntities<Material>());
 
 	timer.Restart();
 
@@ -320,23 +320,25 @@ void Scene::OpenFromFile(Assets& assets, const std::string& file)
 	}
 
 	std::cout << std::format("[Scene] Upload mesh data to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
+
+	m_ActiveSceneFilePath = inFilePath;
 }
 
 
-void Scene::BindScriptToEntity(Entity entity, NativeScript& script)
+void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript)
 {
-	auto address = GetProcAddress(script.asset->GetModule(), script.procAddress.c_str());
+	auto address = GetProcAddress(inScript.asset->GetModule(), inScript.procAddress.c_str());
 	if (address)
 	{
 		auto function = reinterpret_cast<INativeScript::FactoryType>( address );
-		script.script = function();
-		script.script->Bind(entity, this);
+		inScript.script = function();
+		inScript.script->Bind(inEntity, this);
 	}
 	else
 	{
-		std::clog << "Failed to bind script" << script.file <<
-			" to entity " << uint32_t(entity) <<
-			" from class " << script.procAddress << '\n';
+		std::clog << "Failed to bind script" << inScript.file <<
+			" to entity " << uint32_t(inEntity) <<
+			" from class " << inScript.procAddress << '\n';
 	}
 }
 
@@ -367,8 +369,8 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	*/
 	Timer timer;
 
-	// TODO: make passing in assets optional
-	m_ImportedScene.OpenFromFile(*inAssets, inFile);
+	// TODO: make passing in ioAssets optional
+	m_ImportedScene.OpenFromFile(inFile, *inAssets);
 
 	if (!m_ImportedScene.Count<Mesh>() || !m_ImportedScene.Count<Material>())
 	{
@@ -434,7 +436,7 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 
 void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 {
-	// Create new entity
+	// Create new inEntity
 	auto new_entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
 
 	// Copy over transform
@@ -449,7 +451,7 @@ void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 	else
 		m_Scene.Add<Name>(new_entity);
 
-	// set the new entity's parent
+	// set the new inEntity's parent
 	if (inParent != NULL_ENTITY)
 		NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), new_entity, m_Scene.Get<Node>(new_entity));
 

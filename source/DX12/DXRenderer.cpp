@@ -74,32 +74,17 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
     if (!m_FenceEvent)
         gThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
-
-    /// INIT ALL THE UPSCALERS ///
-
-    //if (!InitFSR(inDevice, inViewport))
-    //    std::cout << std::format("Failed to initialize FSR2.\n");
-
-    //if (!InitXeSS(inDevice, inViewport))
-    //    std::cout << std::format("Failed to initialize XeSS.\n");
-
-    //if (inDevice.IsDLSSSupported())
-    //{
-    //    if (!InitDLSS(inDevice, inViewport))
-    //        std::cout << std::format("Failed to initialize DLSS.\n");
-    //}
 }
 
 
 
-void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFullScreen)
+void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScreen)
 {
     for (auto& bb_data : m_BackBufferData)
         inDevice.ReleaseTextureImmediate(bb_data.mBackBuffer);
 
     auto desc = DXGI_SWAP_CHAIN_DESC {};
     gThrowIfFailed(m_Swapchain->GetDesc(&desc));
-
 
     auto window_width = 0, window_height = 0;
     SDL_GetWindowSize(m_Window, &window_width, &window_height);
@@ -116,29 +101,39 @@ void Renderer::OnResize(Device& inDevice, const Viewport& inViewport, bool inFul
 
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
 
-    /*DestroyFSR(inDevice);
-    if (!InitFSR(inDevice, inViewport))
-        std::cout << std::format("Failed to initialize FSR2.\n");
 
-    DestroyXeSS(inDevice);
-    if (!InitXeSS(inDevice, inViewport))
-        std::cout << std::format("Failed to initialize XeSS.\n");
-
-    if (inDevice.IsDLSSSupported())
+    if (!m_Settings.mEnableTAA && m_Settings.mUpscaler != UPSCALER_NONE && m_Settings.mUpscaleQuality < UPSCALER_QUALITY_COUNT)
     {
-        DestroyDLSS(inDevice);
-        InitDLSS(inDevice, inViewport);
-    }*/
+        inViewport.SetRenderSize(Upscaler::sGetRenderResolution(inViewport.GetDisplaySize(), EUpscalerQuality(m_Settings.mUpscaleQuality)));
+
+        auto upscale_init_success = true;
+
+        switch (m_Settings.mUpscaler)
+        {
+            case UPSCALER_FSR:  upscale_init_success = InitFSR(inDevice,  inViewport); break;
+            case UPSCALER_DLSS: upscale_init_success = InitDLSS(inDevice, inViewport); break;
+            case UPSCALER_XESS: upscale_init_success = InitXeSS(inDevice, inViewport); break;
+            default: break;
+        }
+
+        assert(upscale_init_success);
+    }
+    else
+    {
+        // might be redundant but eh, make sure render size and display size match
+        inViewport.SetRenderSize(inViewport.GetDisplaySize());
+    }
 
     m_Settings.mFullscreen = inFullScreen;
 }
 
 
 
-void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterface, float inDeltaTime)
+void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterface, float inDeltaTime)
 {
-    // Check if any of the shader sources were updated and recompile them if necessary
-    bool need_recompile = g_SystemShaders.HotLoad(inDevice);
+    // Check if any of the shader sources were updated and recompile them if necessary.
+    // the OS file stamp checks are expensive so we only turn this on in debug builds.
+    auto need_recompile = IF_DEBUG_ELSE(g_SystemShaders.HotLoad(inDevice), false);
     if (need_recompile)
         std::cout << std::format("Hotloaded system shaders.\n");
 
@@ -189,17 +184,18 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
 
     // Calculate a jittered projection matrix for TAA/FSR/DLSS/XESS
     const auto& camera = m_RenderGraph.GetViewport().GetCamera();
-    const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(m_RenderGraph.GetViewport().size.x, m_RenderGraph.GetViewport().size.x);
+    const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(m_RenderGraph.GetViewport().GetRenderSize().x, m_RenderGraph.GetViewport().GetDisplaySize().x);
 
     float jitter_offset_x = 0;
     float jitter_offset_y = 0;
     ffxFsr2GetJitterOffset(&jitter_offset_x, &jitter_offset_y, m_FrameCounter, jitter_phase_count);
 
-    const auto jitter_x = 2.0f * jitter_offset_x / (float)m_RenderGraph.GetViewport().size.x;
-    const auto jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().size.y;
+    const auto jitter_x = 2.0f * jitter_offset_x / (float)m_RenderGraph.GetViewport().GetRenderSize().x;
+    const auto jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().GetRenderSize().y;
     const auto jitter_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(jitter_x, jitter_y, 0));
-    //const auto jittered_proj_matrix = camera.GetProjection();
-    auto jittered_proj_matrix = m_Settings.mEnableTAA ? jitter_matrix * camera.GetProjection() : camera.GetProjection();
+    
+    const auto enable_jitter = m_Settings.mEnableTAA || m_Settings.mUpscaler;
+    auto final_proj_matrix = enable_jitter ? jitter_matrix * camera.GetProjection() : camera.GetProjection();
 
     // Update all the frame constants and copy it in into the GPU ring buffer
     m_FrameConstants.mTime = m_ElapsedTime;
@@ -213,10 +209,10 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     m_FrameConstants.mSunDirection = Vec4(inScene->GetSunLightDirection(), 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(camera.GetPosition(), 1.0f);
     m_FrameConstants.mViewMatrix = camera.GetView();
-    m_FrameConstants.mProjectionMatrix = jittered_proj_matrix;
+    m_FrameConstants.mProjectionMatrix = final_proj_matrix;
     m_FrameConstants.mPrevViewProjectionMatrix = m_FrameConstants.mViewProjectionMatrix;
-    m_FrameConstants.mViewProjectionMatrix = jittered_proj_matrix * camera.GetView();
-    m_FrameConstants.mInvViewProjectionMatrix = glm::inverse(jittered_proj_matrix * camera.GetView());
+    m_FrameConstants.mViewProjectionMatrix = final_proj_matrix * camera.GetView();
+    m_FrameConstants.mInvViewProjectionMatrix = glm::inverse(final_proj_matrix * camera.GetView());
 
     if (m_FrameCounter == 0)
     {
@@ -283,7 +279,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, const Viewport& in
     m_RenderGraph.Execute(inDevice, direct_cmd_list, m_FrameCounter);
 
     //Record commands to render ImGui to the backbuffer
-    RenderImGui(m_RenderGraph, inDevice, direct_cmd_list, GetBackBufferData().mBackBuffer);
+    if (inApp->GetSettings().mShowUI)
+        RenderImGui(m_RenderGraph, inDevice, direct_cmd_list, GetBackBufferData().mBackBuffer);
 
     direct_cmd_list.Close();
 
@@ -328,7 +325,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
     
     auto compose_input = gbuffer_data.mRenderTexture;
-    
+
     if (m_Settings.mDoPathTrace)
     {
         compose_input = AddPathTracePass(m_RenderGraph, inDevice, inScene).mOutputTexture;
@@ -347,7 +344,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         
         const auto& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inScene);
 
-        const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, ddgi_trace_data);
+        const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, inScene, ddgi_trace_data);
         
         const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data.mOutputTexture, ddgi_update_data);
         
@@ -367,7 +364,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         {
             switch (m_Settings.mUpscaler)
             {
-                case UPSCALER_FSR2:
+                case UPSCALER_FSR:
                     compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
                     break;
                 case UPSCALER_DLSS:
@@ -461,8 +458,8 @@ bool Renderer::InitFSR(Device& inDevice, const Viewport& inViewport)
     auto fsr2_desc = FfxFsr2ContextDescription
     {
         .flags = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE,
-        .maxRenderSize = { inViewport.size.x, inViewport.size.y },
-        .displaySize = { inViewport.size.x, inViewport.size.y },
+        .maxRenderSize = { inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y },
+        .displaySize = { inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y },
         .device = ffxGetDeviceDX12(*inDevice),
     };
 
@@ -489,6 +486,9 @@ bool Renderer::DestroyFSR(Device& inDevice)
 
 bool Renderer::InitDLSS(Device& inDevice, const Viewport& inViewport)
 {
+    if (!inDevice.IsDLSSSupported())
+        return false;
+
     if (m_DLSSParams == nullptr)
         gThrowIfFailed(NVSDK_NGX_D3D12_GetCapabilityParameters(&m_DLSSParams));
 
@@ -500,26 +500,28 @@ bool Renderer::InitDLSS(Device& inDevice, const Viewport& inViewport)
     uint32_t pOutRenderMinHeight;
     float pOutSharpnes;
 
-    auto result = NGX_DLSS_GET_OPTIMAL_SETTINGS(m_DLSSParams, inViewport.size.x, inViewport.size.y,
-        NVSDK_NGX_PerfQuality_Value_DLAA, &pOutRenderOptimalWidth, &pOutRenderOptimalHeight, &pOutRenderMaxWidth, &pOutRenderMaxHeight, &pOutRenderMinWidth, &pOutRenderMinHeight, &pOutSharpnes);
+    const auto upscaler_quality = Upscaler::sGetQuality(EUpscalerQuality(m_Settings.mUpscaleQuality));
+
+    auto result = NGX_DLSS_GET_OPTIMAL_SETTINGS(m_DLSSParams, inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y,
+        upscaler_quality, &pOutRenderOptimalWidth, &pOutRenderOptimalHeight, &pOutRenderMaxWidth, &pOutRenderMaxHeight, &pOutRenderMinWidth, &pOutRenderMinHeight, &pOutSharpnes);
 
     if (result != NVSDK_NGX_Result_Success)
         return false;
 
-    int MotionVectorResolutionLow = 1;
-    // Next create features	
     int DlssCreateFeatureFlags = NVSDK_NGX_DLSS_Feature_Flags_None;
-    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_MVLowRes;
     DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_IsHDR;
-    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_DoSharpening;
+    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_MVLowRes;
+    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_MVJittered;
+    //DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_DepthInverted;
+    //DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_DoSharpening;
     DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_AutoExposure;
 
     NVSDK_NGX_DLSS_Create_Params DlssCreateParams = {};
     DlssCreateParams.Feature.InWidth = pOutRenderOptimalWidth;
     DlssCreateParams.Feature.InHeight = pOutRenderOptimalHeight;
-    DlssCreateParams.Feature.InTargetWidth = inViewport.size.x;
-    DlssCreateParams.Feature.InTargetHeight = inViewport.size.y;
-    DlssCreateParams.Feature.InPerfQualityValue = NVSDK_NGX_PerfQuality_Value_DLAA;
+    DlssCreateParams.Feature.InTargetWidth = inViewport.GetDisplaySize().x;
+    DlssCreateParams.Feature.InTargetHeight = inViewport.GetDisplaySize().y;
+    DlssCreateParams.Feature.InPerfQualityValue = upscaler_quality;
     DlssCreateParams.InFeatureCreateFlags = DlssCreateFeatureFlags;
 
     auto& cmd_list = StartSingleSubmit();
@@ -728,13 +730,13 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
 
     const auto texture_id = m_Device.CreateTexture(Texture::Desc
     {
-        .swizzle        = inSwizzle,
-        .format         = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM,
-        .width          = header_ptr->dwWidth,
-        .height         = header_ptr->dwHeight,
-        .mipLevels      = mipmap_levels,
-        .usage          = Texture::SHADER_READ_ONLY,
-        .debugName      = debug_name.c_str()
+        .swizzle    = inSwizzle,
+        .format     = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM,
+        .width      = header_ptr->dwWidth,
+        .height     = header_ptr->dwHeight,
+        .mipLevels  = mipmap_levels,
+        .usage      = Texture::SHADER_READ_ONLY,
+        .debugName  = debug_name.c_str()
     });
 
     return uint32_t(texture_id);
@@ -825,7 +827,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         inData.mVelocityTexture = ioRGBuilder.Create(Texture::Desc
         {
-            .format = DXGI_FORMAT_R16G16_FLOAT,
+            .format = DXGI_FORMAT_R32G32_FLOAT,
             .width  = inRenderGraph.GetViewport().size.x,
             .height = inRenderGraph.GetViewport().size.y,
             .usage  = Texture::RENDER_TARGET,
@@ -1006,6 +1008,9 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
 
     [&inRenderGraph, &inDevice, &inScene](RTShadowMaskData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
+        if (inScene->Count<Mesh>() == 0)
+            return;
+
         auto& viewport = inRenderGraph.GetViewport();
 
         inCmdList.PushComputeConstants(ShadowMaskRootConstants
@@ -1045,6 +1050,9 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
 
     [&inRenderGraph, &inDevice, &inScene](RTAOData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
+        if (inScene->Count<Mesh>() == 0)
+            return;
+
         auto& viewport = inRenderGraph.GetViewport();
 
         inCmdList.PushComputeConstants(AmbientOcclusionRootConstants
@@ -1128,6 +1136,9 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 
     [&inRenderGraph, &inDevice, &inScene](ReflectionsData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
+        if (inScene->Count<Mesh>() == 0)
+            return;
+
         auto& viewport = inRenderGraph.GetViewport();
 
         inCmdList.PushComputeConstants(ReflectionsRootConstants {
@@ -1187,11 +1198,13 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .mDispatchSize          = viewport.size,
             .mResultTexture         = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mOutputTexture)),
             .mAccumulationTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mAccumulationTexture)),
-            .mAlpha                 = inData.mAlpha
+            .mReset                 = PathTraceData::mReset,
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTPathTraceShader.GetComputePSO());
         inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
+
+        PathTraceData::mReset = false;
     });
 }
 
@@ -1320,6 +1333,9 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
 
     [&inRenderGraph, &inDevice, &inScene](ProbeTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
+        if (inScene->Count<Mesh>() == 0)
+            return;
+
         auto Index3Dto1D = [](UVec3 inIndex, UVec3 inCount)
         {
             return inIndex.x + inIndex.y * inCount.x + inIndex.z * inCount.x * inCount.y;
@@ -1359,7 +1375,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
-const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice, const ProbeTraceData& inTraceData)
+const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const ProbeTraceData& inTraceData)
 {
     return inRenderGraph.AddComputePass<ProbeUpdateData>("GI PROBE UPDATE PASS",
 
@@ -1393,8 +1409,11 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         inData.mRaysIrradianceTextureSRV = ioRGBuilder.Read(inTraceData.mRaysIrradianceTexture);
     },
 
-    [&inDevice, &inTraceData](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inDevice, &inTraceData, &inScene](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
+        if (inScene->Count<Mesh>() == 0)
+            return;
+
         inData.mDDGIData                            = inTraceData.mDDGIData;
         inData.mDDGIData.mRaysDepthTexture          = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mRaysDepthTextureSRV));
         inData.mDDGIData.mProbesDepthTexture        = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mProbesDepthTexture));
@@ -1421,7 +1440,7 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
                 .mDDGIData = inData.mDDGIData
             });
 
-            const auto irradiance_texture = inDevice.GetTexture(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
+            const auto& irradiance_texture = inDevice.GetTexture(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
             inCmdList->Dispatch(irradiance_texture.GetDesc().width / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetDesc().height / DDGI_IRRADIANCE_TEXELS, 1);
         }
 
@@ -1677,8 +1696,8 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, FfxFsr2
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetDisplaySize().x,
+            .height = inRenderGraph.GetViewport().GetDisplaySize().y,
             .usage  = Texture::SHADER_READ_WRITE,
             .debugName = L"FSR2_OUTPUT"
         });
@@ -1706,22 +1725,22 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, FfxFsr2
         fsr2_dispatch_desc.color = ffxGetResourceDX12(&inContext, color_texture_ptr, nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
         fsr2_dispatch_desc.depth = ffxGetResourceDX12(&inContext, depth_texture_ptr, nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
         fsr2_dispatch_desc.motionVectors = ffxGetResourceDX12(&inContext, movec_texture_ptr, nullptr, FFX_RESOURCE_STATE_COMPUTE_READ);
-        fsr2_dispatch_desc.output = ffxGetResourceDX12(&inContext, output_texture_ptr, nullptr, FFX_RESOURCE_STATE_UNORDERED_ACCESS);
         fsr2_dispatch_desc.exposure = ffxGetResourceDX12(&inContext, nullptr);
-        fsr2_dispatch_desc.motionVectorScale.x = float(viewport.size.x);
-        fsr2_dispatch_desc.motionVectorScale.y = float(viewport.size.y);
-        fsr2_dispatch_desc.reset = false;
+        fsr2_dispatch_desc.output = ffxGetResourceDX12(&inContext, output_texture_ptr, nullptr, FFX_RESOURCE_STATE_UNORDERED_ACCESS);
+        fsr2_dispatch_desc.motionVectorScale.x = -float(viewport.GetRenderSize().x);
+        fsr2_dispatch_desc.motionVectorScale.y = -float(viewport.GetRenderSize().y);
+        fsr2_dispatch_desc.renderSize.width = viewport.GetRenderSize().x;
+        fsr2_dispatch_desc.renderSize.height = viewport.GetRenderSize().y;
         fsr2_dispatch_desc.enableSharpening = false;
         fsr2_dispatch_desc.sharpness = 0.0f;
         fsr2_dispatch_desc.frameTimeDelta = Timer::sToMilliseconds(inData.mDeltaTime);
         fsr2_dispatch_desc.preExposure = 1.0f;
-        fsr2_dispatch_desc.renderSize.width = viewport.size.x;
-        fsr2_dispatch_desc.renderSize.height = viewport.size.y;
-        fsr2_dispatch_desc.cameraFar = viewport.GetCamera().GetFar();
+        fsr2_dispatch_desc.reset = false;
         fsr2_dispatch_desc.cameraNear = viewport.GetCamera().GetNear();
+        fsr2_dispatch_desc.cameraFar = viewport.GetCamera().GetFar();
         fsr2_dispatch_desc.cameraFovAngleVertical = glm::radians(viewport.GetFieldOfView());
 
-        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.size.x, viewport.size.x);
+        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);
         ffxFsr2GetJitterOffset(&fsr2_dispatch_desc.jitterOffset.x, &fsr2_dispatch_desc.jitterOffset.y, inData.mFrameCounter, jitter_phase_count);
         inData.mFrameCounter = ( inData.mFrameCounter + 1 ) % jitter_phase_count;
 
@@ -1739,8 +1758,8 @@ const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, NVSDK_
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetDisplaySize().x,
+            .height = inRenderGraph.GetViewport().GetDisplaySize().y,
             .usage  = Texture::SHADER_READ_WRITE,
             .debugName = L"DLSS_OUTPUT"
         });
@@ -1758,9 +1777,9 @@ const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, NVSDK_
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        const auto color_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
-        const auto depth_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
-        const auto movec_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
+        const auto color_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
+        const auto depth_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
+        const auto movec_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
         const auto output_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
         
         NVSDK_NGX_D3D12_DLSS_Eval_Params eval_params = {};
@@ -1768,10 +1787,12 @@ const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, NVSDK_
         eval_params.Feature.pInOutput = output_texture_ptr;
         eval_params.pInDepth = depth_texture_ptr;
         eval_params.pInMotionVectors = movec_texture_ptr;
-        eval_params.InRenderSubrectDimensions.Width = viewport.size.x;
-        eval_params.InRenderSubrectDimensions.Height = viewport.size.y;
+        eval_params.InMVScaleX = -float(viewport.GetRenderSize().x);
+        eval_params.InMVScaleY = -float(viewport.GetRenderSize().y);
+        eval_params.InRenderSubrectDimensions.Width = viewport.GetRenderSize().x;
+        eval_params.InRenderSubrectDimensions.Height = viewport.GetRenderSize().y;
 
-        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.size.x, viewport.size.x);
+        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);
         ffxFsr2GetJitterOffset(&eval_params.InJitterOffsetX, &eval_params.InJitterOffsetY, inData.mFrameCounter, jitter_phase_count);
         inData.mFrameCounter = ( inData.mFrameCounter + 1 ) % jitter_phase_count;
 
@@ -1789,8 +1810,8 @@ const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, xess_c
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetDisplaySize().x,
+            .height = inRenderGraph.GetViewport().GetDisplaySize().y,
             .usage  = Texture::SHADER_READ_WRITE,
             .debugName = L"DLSS_OUTPUT",
         });
@@ -1818,10 +1839,11 @@ const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, xess_c
         exec_params.pVelocityTexture = movec_texture_ptr;
         exec_params.pDepthTexture    = depth_texture_ptr;
         exec_params.pOutputTexture   = output_texture_ptr;
-        exec_params.inputWidth       = viewport.size.x;
-        exec_params.inputHeight      = viewport.size.y;
+        exec_params.exposureScale    = 1.0f;
+        exec_params.inputWidth       = viewport.GetRenderSize().x;
+        exec_params.inputHeight      = viewport.GetRenderSize().y;
 
-        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.size.x, viewport.size.x);
+        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);
         ffxFsr2GetJitterOffset(&exec_params.jitterOffsetX, &exec_params.jitterOffsetY, inData.mFrameCounter, jitter_phase_count);
         inData.mFrameCounter = ( inData.mFrameCounter + 1 ) % jitter_phase_count;
 
@@ -1879,8 +1901,8 @@ const TAAResolveData& AddTAAResolvePass(RenderGraph& inRenderGraph, Device& inDe
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
 
         inCmdList.PushGraphicsConstants(TAAResolveConstants {
-            .mRenderSize      = inRenderGraph.GetViewport().GetSize(),
-            .mRenderSizeRcp   = 1.0f / Vec2(inRenderGraph.GetViewport().GetSize()),
+            .mRenderSize      = inRenderGraph.GetViewport().GetRenderSize(),
+            .mRenderSizeRcp   = 1.0f / Vec2(inRenderGraph.GetViewport().GetRenderSize()),
             .mColorTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mColorTextureSRV)),
             .mDepthTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mDepthTextureSRV)),
             .mHistoryTexture  = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mHistoryTextureSRV)),
@@ -1921,8 +1943,8 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
         inData.mOutputTexture = inBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetDisplaySize().x,
+            .height = inRenderGraph.GetViewport().GetDisplaySize().y,
             .usage  = Texture::SHADER_READ_WRITE,
             .debugName = L"DOF OUTPUT"
         });
@@ -1948,7 +1970,7 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mDepthOfFieldShader.GetComputePSO());
-        inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
+        inCmdList->Dispatch(viewport.GetDisplaySize().x / 8, viewport.GetDisplaySize().y / 8, 1);
     });
 }
 
@@ -1963,8 +1985,8 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inData.mOutputTexture = inBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
+            .width  = inRenderGraph.GetViewport().GetDisplaySize().x,
+            .height = inRenderGraph.GetViewport().GetDisplaySize().y,
             .usage  = Texture::RENDER_TARGET,
             .debugName = L"COMPOSE OUTPUT"
         });
@@ -1988,8 +2010,15 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
     [&inRenderGraph, &inDevice](ComposeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
-        
+
+        const auto vp = inRenderGraph.GetViewport();
+
+        const auto scissor = CD3DX12_RECT(0, 0, vp.GetDisplaySize().x, vp.GetDisplaySize().y);
+        const auto viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(vp.GetDisplaySize().x), float(vp.GetDisplaySize().y));
+
+        inCmdList->RSSetViewports(1, &viewport);
+        inCmdList->RSSetScissorRects(1, &scissor);
+
         inCmdList.PushGraphicsConstants(ComposeRootConstants {
             .mExposure = inData.mExposure,
             .mChromaticAberrationStrength = inData.mChromaticAberrationStrength,

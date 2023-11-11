@@ -31,8 +31,8 @@ BBox3D& BBox3D::Transform(const Mat4x4& inTransform)
 Ray::Ray(Viewport& inViewport, Vec2 inCoords)
 {
 	auto ndc_to_clip = Vec3 {
-	   ( inCoords.x / inViewport.GetSize().x ) * 2.0f - 1.0f,
-	   ( inCoords.y / inViewport.GetSize().y ) * 2.0f - 1.0f,
+	   ( inCoords.x / inViewport.GetRenderSize().x ) * 2.0f - 1.0f,
+	   ( inCoords.y / inViewport.GetRenderSize().y ) * 2.0f - 1.0f,
 		1.0f
 	};
 

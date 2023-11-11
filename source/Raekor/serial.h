@@ -95,10 +95,19 @@ inline void WriteFileBinary(File& ioFile, const std::vector<T>& inData)
 template<typename T>
 inline void ReadFileBinary(File& ioFile, std::vector<T>& ioData)
 {
-	size_t size;
+	size_t size = 0;
 	ReadFileData(ioFile, size);
 	ioData.resize(size);
-	ReadFileSlice(ioFile, Slice(ioData));
+
+	if constexpr (std::is_trivial_v<T>)
+	{
+		ReadFileSlice(ioFile, Slice(ioData));
+	}
+	else
+	{
+		for (size_t i = 0; i < size; i++)
+			ReadFileBinary(ioFile, ioData[i]);
+	}
 }
 
 

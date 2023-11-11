@@ -72,7 +72,7 @@ PathTracer::PathTracer() :
 	SDL_ShowWindow(m_Window);
 	SDL_SetWindowInputFocus(m_Window);
 
-	m_Viewport.SetSize({ 1300, 1300 });
+	m_Viewport.SetRenderSize({ 1300, 1300 });
 	SDL_SetWindowSize(m_Window, 1300, 1300);
 
 	m_Viewport.SetFieldOfView(65.0f);
@@ -95,7 +95,7 @@ void PathTracer::OnUpdate(float dt)
 		int w, h;
 		SDL_GetWindowSize(m_Window, &w, &h);
 
-		m_Viewport.SetSize(glm::uvec2(w, h));
+		m_Viewport.SetRenderSize(glm::uvec2(w, h));
 		m_Renderer.RecreateSwapchain(m_Window);
 		m_Renderer.ResetAccumulation();
 		m_IsSwapchainDirty = false;
@@ -144,7 +144,7 @@ void PathTracer::OnUpdate(float dt)
 		ImGui::End();
 
 		ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
-		ImGuizmo::SetRect(0, 0, float(m_Viewport.GetSize().x), float(m_Viewport.GetSize().y));
+		ImGuizmo::SetRect(0, 0, float(m_Viewport.GetRenderSize().x), float(m_Viewport.GetRenderSize().y));
 
 		if (auto sunlight = m_Scene.GetSunLight())
 		{

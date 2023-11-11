@@ -210,6 +210,7 @@ struct PathTraceRootConstants
     uint2 mDispatchSize;
     uint  mResultTexture;
     uint  mAccumulationTexture;
+    bool  mReset;
     float mAlpha;
 };
 STATIC_ASSERT(sizeof(PathTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);

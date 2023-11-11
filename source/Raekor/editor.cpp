@@ -123,19 +123,32 @@ void IEditor::OnUpdate(float inDeltaTime)
 	// start ImGui
 	GUI::BeginFrame();
 
-	auto dockspace_flags = ImGuiWindowFlags(ImGuiWindowFlags_None);
+	if (GetSettings().mShowUI)
+	{
+		auto dockspace_flags = ImGuiWindowFlags(ImGuiWindowFlags_None);
 
-	if (auto menubar_widget = m_Widgets.GetWidget<MenubarWidget>())
-		if (menubar_widget->IsOpen())
-			dockspace_flags |= ImGuiWindowFlags_MenuBar;
+		if (auto menubar_widget = m_Widgets.GetWidget<MenubarWidget>())
+			if (menubar_widget->IsOpen())
+				dockspace_flags |= ImGuiWindowFlags_MenuBar;
 
-	GUI::BeginDockSpace(dockspace_flags);
+		GUI::BeginDockSpace(dockspace_flags);
 
-	// draw widgets
-	m_Widgets.Draw(inDeltaTime);
+		// draw widgets
+		m_Widgets.Draw(inDeltaTime);
 
-	// end ImGui
-	GUI::EndDockSpace();
+		// end ImGui
+		GUI::EndDockSpace();
+	}
+
+	// detect any changes to the viewport (mainly used to reset path tracers)
+	m_ViewportChanged = false;
+	if (auto widget = m_Widgets.GetWidget<ViewportWidget>())
+		if (widget->Changed())
+			m_ViewportChanged = true;
+
+	// this has to check deltas in camera matrices, so only do it if the previous check failed
+	if (!m_ViewportChanged)
+		m_ViewportChanged = m_Viewport.GetCamera().Changed();
 
 	// ImGui::ShowDemoWindow();
 	// ImGui::ShowStyleEditor();
@@ -151,7 +164,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 {
 	ImGui_ImplSDL2_ProcessEvent(&event);
 
-	if (m_Widgets.GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode())
+	if ((m_Widgets.GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode()) || !m_Settings.mShowUI)
 		CameraController::OnEvent(m_Viewport.GetCamera(), event);
 
 	if (event.type == SDL_WINDOWEVENT)
@@ -165,6 +178,16 @@ void IEditor::OnEvent(const SDL_Event& event)
 
 				if (temp_event.window.event == SDL_WINDOWEVENT_RESTORED)
 					break;
+			}
+		}
+
+		if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+		{
+			if (!m_Settings.mShowUI)
+			{
+				int w, h;
+				SDL_GetWindowSize(m_Window, &w, &h);
+				m_Viewport.SetDisplaySize(UVec2(w, h));
 			}
 		}
 	}
@@ -204,10 +227,21 @@ void IEditor::OnEvent(const SDL_Event& event)
 					}
 				}
 			} break;
+
+			case SDLK_F1:
+			{
+				m_Settings.mShowUI = !m_Settings.mShowUI;
+
+				SDL_Event sdl_event;
+				sdl_event.type = SDL_WINDOWEVENT;
+				sdl_event.window.event = SDL_WINDOWEVENT_RESIZED;
+				SDL_PushEvent(&sdl_event);
+			} break;
 		}
 	}
 
-	m_Widgets.OnEvent(event);
+	if (m_Settings.mShowUI)
+		m_Widgets.OnEvent(event);
 }
 
 

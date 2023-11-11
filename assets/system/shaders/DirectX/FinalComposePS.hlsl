@@ -37,9 +37,6 @@ float3 EncodeGamma(float3 L) {
 float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     Texture2D input_texture = ResourceDescriptorHeap[rc.mInputTexture];
     
-    uint mip, width, height, levels;
-    input_texture.GetDimensions(mip, width, height, levels);
-    
     float4 src = input_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
     src.rgb = CheapChromaticAberration(input_texture, inParams.mScreenUV);
     

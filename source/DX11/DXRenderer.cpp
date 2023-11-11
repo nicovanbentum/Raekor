@@ -58,13 +58,13 @@ DXRenderer::DXRenderer(const Viewport& inViewport, SDL_Window* window)
     D3D.swap_chain->GetBuffer(0, IID_PPV_ARGS(backbuffer.GetAddressOf()));
     gThrowIfFailed(D3D.device->CreateRenderTargetView(backbuffer.Get(), NULL, D3D.back_buffer.GetAddressOf()));
 
-    const auto viewport = CD3D11_VIEWPORT(0.0f, 0.0f, (FLOAT)inViewport.GetSize().x, (FLOAT)inViewport.GetSize().y);
+    const auto viewport = CD3D11_VIEWPORT(0.0f, 0.0f, (FLOAT)inViewport.GetRenderSize().x, (FLOAT)inViewport.GetRenderSize().y);
     D3D.context->RSSetViewports(1, &viewport);
 
     auto blend_desc = CD3D11_BLEND_DESC(CD3D11_DEFAULT());
     D3D.device->CreateBlendState(&blend_desc, &blend_state);
 
-    auto depth_target_desc = CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_D32_FLOAT, inViewport.GetSize().x, inViewport.GetSize().y, 1u, 1u, D3D11_BIND_DEPTH_STENCIL);
+    auto depth_target_desc = CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_D32_FLOAT, inViewport.GetRenderSize().x, inViewport.GetRenderSize().y, 1u, 1u, D3D11_BIND_DEPTH_STENCIL);
     gThrowIfFailed(D3D.device->CreateTexture2D(&depth_target_desc, NULL, depth_stencil_buffer.GetAddressOf()));
 
     gThrowIfFailed(D3D.device->CreateDepthStencilView(depth_stencil_buffer.Get(), NULL, D3D.depth_stencil_view.GetAddressOf()));

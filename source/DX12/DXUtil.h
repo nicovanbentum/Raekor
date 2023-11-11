@@ -64,6 +64,25 @@ inline std::string gGetDebugName(ID3D12Resource* inResource)
 }
 
 
+inline std::string gGetShaderISA(ID3D12PipelineState* inPipeline)
+{
+    UINT size = 0;
+    inPipeline->GetPrivateData(WKPDID_CommentStringW, &size, NULL);
+
+    if (size > 0)
+    {
+        std::wstring isa;
+        isa.resize(size);
+
+        inPipeline->GetPrivateData(WKPDID_CommentStringW, &size, isa.data());
+
+        return gWCharToString(isa.c_str());
+    }
+
+    return {};
+}
+
+
 inline uint32_t gSpdCaculateMipCount(const uint32_t inWidth, const uint32_t inHeight)
 {
     uint32_t max_res = glm::max(inWidth, inHeight);
@@ -107,6 +126,7 @@ inline DXGI_FORMAT gGetDepthFormatSRV(DXGI_FORMAT inFormat)
 
     return DXGI_FORMAT_UNKNOWN;
 }
+
 
 } // namespace Raekor::DX12
 

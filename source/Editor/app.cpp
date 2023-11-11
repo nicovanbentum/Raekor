@@ -32,7 +32,7 @@ void GLApp::OnUpdate(float inDeltaTime)
         m_Renderer.UploadMeshBuffers(entity, mesh);
 
     // render scene
-    m_Renderer.Render(m_Scene, m_Viewport);
+    m_Renderer.Render(this, m_Scene, m_Viewport);
 }
 
 
@@ -41,7 +41,10 @@ void GLApp::OnEvent(const SDL_Event& inEvent)
     IEditor::OnEvent(inEvent);
 
     if (inEvent.window.event == SDL_WINDOWEVENT_RESIZED)
+    {
+        m_Viewport.SetRenderSize(m_Viewport.GetDisplaySize());
         m_Renderer.CreateRenderTargets(m_Viewport);
+    }
 }
 
 } // Raekor::GL

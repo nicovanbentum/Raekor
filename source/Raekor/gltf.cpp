@@ -196,14 +196,12 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 }
 
 
-void GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
+bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 {
+	if (!inMesh.indices || inMesh.type != cgltf_primitive_type_triangles)
+		return false;
+	
 	auto& mesh = m_Scene.Add<Mesh>(inEntity);
-
-	if (!inMesh.indices)
-		return;
-
-	assert(inMesh.type == cgltf_primitive_type_triangles);
 
 	for (int i = 0; i < m_GltfData->materials_count; i++)
 	{

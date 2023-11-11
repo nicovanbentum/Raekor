@@ -276,7 +276,7 @@ void Renderer::RenderScene(SDL_Window* window, const Viewport& viewport, Scene& 
 		EXT::vkCmdPipelineBarrier2KHR(commandBuffer, &dep);
 	}
 
-	m_ImGuiPass.Record(m_Device, commandBuffer, ImGui::GetDrawData(), m_BindlessTextureSet, viewport.GetSize().x, viewport.GetSize().y, m_PathTracePass);
+	m_ImGuiPass.Record(m_Device, commandBuffer, ImGui::GetDrawData(), m_BindlessTextureSet, viewport.GetRenderSize().x, viewport.GetRenderSize().y, m_PathTracePass);
 
 	{
 		VkImageMemoryBarrier2KHR barrier = {};
@@ -320,11 +320,11 @@ void Renderer::RenderScene(SDL_Window* window, const Viewport& viewport, Scene& 
 
 	VkImageBlit region = {};
 
-	region.srcOffsets[1] = { int32_t(viewport.GetSize().x), int32_t(viewport.GetSize().y), 1 };
+	region.srcOffsets[1] = { int32_t(viewport.GetRenderSize().x), int32_t(viewport.GetRenderSize().y), 1 };
 	region.srcSubresource.layerCount = 1;
 	region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-	region.dstOffsets[1] = { int32_t(viewport.GetSize().x), int32_t(viewport.GetSize().y), 1 };
+	region.dstOffsets[1] = { int32_t(viewport.GetRenderSize().x), int32_t(viewport.GetRenderSize().y), 1 };
 	region.dstSubresource.layerCount = 1;
 	region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 

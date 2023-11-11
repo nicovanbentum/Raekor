@@ -5,10 +5,16 @@
 
 
 #ifdef NDEBUG
-    #define RAEKOR_DEBUG 0
+    #define RK_DEBUG_BUILD 0
+    #define IF_DEBUG(code)
+    #define IF_DEBUG_ELSE(debug_code, rel_code) rel_code
 #else 
-    #define RAEKOR_DEBUG 1
+    #define RK_DEBUG_BUILD 1
+    #define IF_DEBUG(code) code
+    #define IF_DEBUG_ELSE(debug_code, rel_code) debug_code
 #endif
+
+
 
 
 #ifdef RAEKOR_SCRIPT
@@ -65,6 +71,10 @@
 #include "glm.hpp"
 #include "ext.hpp"
 #include "gtx/quaternion.hpp"
+#include "gtc/epsilon.hpp"
+#include "gtc/constants.hpp"
+#include "vector_relational.hpp"
+#include "ext/matrix_relational.hpp"
 #include "gtx/string_cast.hpp"
 #include "gtc/type_ptr.hpp"
 #include "gtx/matrix_decompose.hpp"

@@ -74,7 +74,7 @@ RTTI_DEFINE_TYPE(Skeleton)
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Indices", boneIndices);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Offset Matrices", boneOffsetMatrices);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Transform Matrices", boneTransformMatrices);
-	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Hierarchy", boneHierarchy);
+	// RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Hierarchy", boneHierarchy);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Animations", animations);
 }
 

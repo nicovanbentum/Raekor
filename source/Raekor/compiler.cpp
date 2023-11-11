@@ -429,7 +429,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 #endif
 
 				fs::create_directories(Path(file.mCachePath).parent_path());
-				scene.SaveToFile(assets, file.mCachePath);
+				scene.SaveToFile(file.mCachePath, assets);
 
 				std::scoped_lock lock(m_FilesInFlightMutex);
 				m_FilesInFlight.erase(index);

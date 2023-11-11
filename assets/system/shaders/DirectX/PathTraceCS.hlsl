@@ -13,6 +13,7 @@ ROOT_CONSTANTS(PathTraceRootConstants, rc)
 [numthreads(8,8,1)]
 void main(uint3 threadID : SV_DispatchThreadID) {
     RWTexture2D<float4> result_texture = ResourceDescriptorHeap[rc.mResultTexture];
+    RWTexture2D<float4> accumulation_texture = ResourceDescriptorHeap[rc.mAccumulationTexture];
     
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[rc.mTLAS];
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
@@ -148,9 +149,11 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         total_irradiance += irradiance * total_throughput;
         total_throughput *= throughput;
     }
-
-    float alpha = 0.1;
-    float4 curr = result_texture[threadID.xy];
-    result_texture[threadID.xy] = float4(lerp(curr.rgb, total_irradiance, alpha), 1.0);
-
+    
+    float4 acc = rc.mReset ? 0.xxxx : accumulation_texture[threadID.xy];
+    
+    acc += float4(total_irradiance, 1.0);
+    
+    result_texture[threadID.xy] = float4(acc.rgb / acc.a, 1.0);
+    accumulation_texture[threadID.xy] = acc;
 }

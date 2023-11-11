@@ -123,22 +123,6 @@ DXApp::DXApp() :
     ImGui_ImplSDL2_InitForD3D(m_Window);
     m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
 
-    timer.Restart();
-
-    // Pick a scene file and load it
-    while (!fs::exists(m_Settings.mSceneFile))
-        m_Settings.mSceneFile = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).make_preferred().string();
-
-    SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - Raekor Renderer").c_str());
-    m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile.string());
-
-    assert(!m_Scene.IsEmpty() && "Scene cannot be empty when starting up DX12 renderer!!");
-
-    LogMessage(std::format("[CPU] Scene import took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
-
-    // update transforms here so the bvh gets updated world transform TODO: pls fix
-    m_Scene.UpdateTransforms();
-
     // check for ray-tracing support
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
     gThrowIfFailed(m_Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
@@ -185,6 +169,9 @@ void DXApp::OnUpdate(float inDeltaTime)
 {
     IEditor::OnUpdate(inDeltaTime);
 
+    if (m_ViewportChanged || m_Viewport.GetCamera().Changed() || m_Physics.GetState() == Physics::EState::Stepping)
+        PathTraceData::mReset = true;
+    
     m_RenderInterface.UpdateGPUStats(m_Device);
 
     m_Renderer.OnRender(this, m_Device, m_Viewport, m_RayTracedScene, m_StagingHeap, GetRenderInterface(), inDeltaTime);
@@ -211,7 +198,7 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
             SDL_GetWindowSize(m_Window, &width, &height);
 
             // Updat the viewport and tell the renderer to resize to the viewport
-            m_Viewport.SetSize(UVec2(width, height));
+            m_Viewport.SetRenderSize(UVec2(width, height));
             m_Renderer.SetShouldResize(true);
 
             SDL_DisplayMode mode;
@@ -238,7 +225,7 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
     const auto mipmap_levels = std::min(header_ptr->dwMipMapCount, 4ul);
     // const auto mipmap_levels = header->dwMipMapCount;
 
-    auto texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc {
+    auto& texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc {
         .format     = inFormat,
         .width      = header_ptr->dwWidth,
         .height     = header_ptr->dwHeight,
@@ -440,19 +427,57 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
 
     bool need_recompile = false;
 
-    need_recompile |= ImGui::Checkbox("Temporal AA",        (bool*)&m_Renderer.GetSettings().mEnableTAA);
+    need_recompile |= ImGui::Checkbox("Temporal AA", (bool*)&m_Renderer.GetSettings().mEnableTAA);
     
     if (auto gbuffer_pass = m_Renderer.GetRenderGraph().GetPass<GBufferData>())
     {
         ImGui::Checkbox("Disable Albedo", &m_RayTracedScene.GetSettings().mDisableAlbedo);
     }
-    
+
     need_recompile |= ImGui::Checkbox("Enable Path Tracer", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
     need_recompile |= ImGui::Checkbox("Show GI Probe Grid", (bool*)&m_Renderer.GetSettings().mProbeDebug);
     need_recompile |= ImGui::Checkbox("Show GI Probe Rays", (bool*)&m_Renderer.GetSettings().mDebugLines);
 
-    constexpr auto upscaler_items = std::array{ "No Upscaler", "AMD FSR2", "Nvidia DLSS", "Intel XeSS" };
-    need_recompile |= ImGui::Combo("##Upscaler", &m_Renderer.GetSettings().mUpscaler, upscaler_items.data(), int(upscaler_items.size()));
+    if (ImGui::Button("Reset Path Tracer"))
+        PathTraceData::mReset = true;
+
+    if (!m_Renderer.GetSettings().mEnableTAA)
+    {
+        constexpr auto upscaler_items = std::array { "No Upscaler", "AMD FSR2", "Nvidia DLSS", "Intel XeSS" };
+        constexpr auto upscaler_quality_items = std::array { "Native", "Quality", "Balanced", "Performance" };
+        
+        if (ImGui::BeginCombo("##Upscaler", upscaler_items[m_Renderer.GetSettings().mUpscaler], ImGuiComboFlags_None))
+        {
+            for (uint32_t upscaler = 0; upscaler < UPSCALER_COUNT; upscaler++)
+            {
+                if (ImGui::Selectable(upscaler_items[upscaler], m_Renderer.GetSettings().mUpscaler == upscaler))
+                {
+                    m_Renderer.GetSettings().mUpscaler = upscaler;
+                    need_recompile = true;
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+
+        if (m_Renderer.GetSettings().mUpscaler != UPSCALER_NONE)
+        {
+            if (ImGui::BeginCombo("##UpscalerQuality", upscaler_quality_items[m_Renderer.GetSettings().mUpscaleQuality], ImGuiComboFlags_None))
+            {
+                for (uint32_t quality = 0; quality < UPSCALER_QUALITY_COUNT; quality++)
+                {
+                    if (ImGui::Selectable(upscaler_quality_items[quality], m_Renderer.GetSettings().mUpscaleQuality == quality))
+                    {
+                        m_Renderer.GetSettings().mUpscaleQuality = quality;
+                        need_recompile = true;
+                    }
+                }
+
+                ImGui::EndCombo();
+            } 
+        }
+
+    }
 
     if (need_recompile)
         m_Renderer.SetShouldResize(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
@@ -462,8 +487,9 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
     if (auto path_trace_pass = m_Renderer.GetRenderGraph().GetPass<PathTraceData>())
     {
         ImGui::Text("Path Trace Settings");
-        ImGui::DragFloat("Alpha", &path_trace_pass->GetData().mAlpha, 0.01f, 0.00001f, 1.0f, "%.5f");
-        ImGui::SliderInt("Bounces", (int*)&path_trace_pass->GetData().mBounces, 1, 8);
+
+        if (ImGui::SliderInt("Bounces", (int*)&path_trace_pass->GetData().mBounces, 1, 8))
+            PathTraceData::mReset = true;
     }
 
     /*if (auto grass_pass = m_Renderer.GetRenderGraph().GetPass<GrassData>())

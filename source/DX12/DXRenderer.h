@@ -2,6 +2,7 @@
 
 #include "shared.h"
 #include "DXResource.h"
+#include "DXUpscaler.h"
 #include "DXRenderGraph.h"
 
 #include "Raekor/async.h"
@@ -44,15 +45,6 @@ enum EDebugTexture
     DEBUG_TEXTURE_COUNT
 };
 
-enum EUpscaler
-{
-    UPSCALER_NONE,
-    UPSCALER_FSR2,
-    UPSCALER_DLSS,
-    UPSCALER_XESS,
-    UPSCALER_COUNT
-};
-
 struct DDGISceneSettings
 {
     RTTI_DECLARE_TYPE(DDGISceneSettings);
@@ -83,6 +75,7 @@ private:
         int& mEnableTAA      = g_CVars.Create("r_enable_taa",          0);
         int& mEnableDoF      = g_CVars.Create("r_enable_dof",          1);
         int& mUpscaler       = g_CVars.Create("r_upscaler",            0,    true);
+        int& mUpscaleQuality = g_CVars.Create("r_upscaler_quality",    0,    true);
         int& mDoPathTrace    = g_CVars.Create("r_path_trace",          0,    true);
         float& mSunConeAngle = g_CVars.Create("r_sun_cone_angle",      0.0f, true);
     } m_Settings;
@@ -90,8 +83,8 @@ private:
 public:
     Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow);
 
-    void OnResize(Device& inDevice, const Viewport& inViewport, bool inExclusiveFullscreen = false);
-    void OnRender(Application* inApp, Device& inDevice, const Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterfacee, float inDeltaTime);
+    void OnResize(Device& inDevice, Viewport& inViewport, bool inExclusiveFullscreen = false);
+    void OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterfacee, float inDeltaTime);
 
     void Recompile(Device& inDevice, const RayTracedScene& inScene, IRenderInterface* inRenderInterface);
 
@@ -318,7 +311,7 @@ struct PathTraceData
 {
     RTTI_DECLARE_TYPE(PathTraceData);
 
-    static inline float mAlpha = 0.1f;
+    static inline bool mReset = true;
     static inline uint32_t mBounces = 2;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceID mAccumulationTexture;
@@ -389,6 +382,7 @@ struct ProbeUpdateData
 };
 
 const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice,
+    const RayTracedScene& inScene,
     const ProbeTraceData& inTraceData
 );
 
