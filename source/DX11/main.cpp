@@ -193,7 +193,7 @@ public:
             m_Settings.mSceneFile = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
 
         SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - Raekor Renderer").c_str());
-        m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile.string());
+        m_Scene.OpenFromFile(m_Settings.mSceneFile.string(), m_Assets);
 
         Timer timer;
         for (const auto& [entity, material] : m_Scene.Each<Material>())

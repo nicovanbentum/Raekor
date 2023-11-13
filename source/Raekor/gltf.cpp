@@ -268,6 +268,8 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 
 	if (m_Renderer)
 		m_Renderer->UploadMeshBuffers(inEntity, mesh);
+
+	return true;
 }
 
 

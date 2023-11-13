@@ -11,7 +11,7 @@ GLApp::GLApp() :
     if (fs::exists(m_Settings.mSceneFile) && Path(m_Settings.mSceneFile).extension() == ".scene")
     {
         SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - Raekor Editor").c_str());
-        m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile.string());
+        m_Scene.OpenFromFile(m_Settings.mSceneFile.string(), m_Assets);
         LogMessage("[Editor] Loaded scene from file: " + m_Settings.mSceneFile.string());
     }
 }

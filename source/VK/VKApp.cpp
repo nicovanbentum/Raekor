@@ -24,7 +24,7 @@ PathTracer::PathTracer() :
 	if (fs::exists(m_Settings.mSceneFile))
 	{
 		SDL_SetWindowTitle(m_Window, std::string(m_Settings.mSceneFile.string() + " - Raekor Renderer").c_str());
-		m_Scene.OpenFromFile(m_Assets, m_Settings.mSceneFile.string());
+		m_Scene.OpenFromFile(m_Settings.mSceneFile.string(), m_Assets);
 	}
 	else
 	{
@@ -36,7 +36,7 @@ PathTracer::PathTracer() :
 			if (!filepath.empty())
 			{
 				SDL_SetWindowTitle(m_Window, std::string(filepath + " - Raekor Renderer").c_str());
-				m_Scene.OpenFromFile(m_Assets, filepath);
+				m_Scene.OpenFromFile(filepath, m_Assets);
 				break;
 			}
 		}
