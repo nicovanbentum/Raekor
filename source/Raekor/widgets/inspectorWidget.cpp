@@ -229,7 +229,13 @@ void InspectorWidget::DrawComponent(Node& ioNode)
 {
 	if (ioNode.parent != NULL_ENTITY)
 	{
-		ImGui::Text("Parent entity: %i", ioNode.parent);
+		ImGui::Text("Parent entity:");
+		ImGui::SameLine();
+
+		auto parent = std::to_string(ioNode.parent);
+
+		if (ImGui::SmallButton(parent.c_str()))
+			SetActiveEntity(ioNode.parent);
 
 		ImGui::SameLine();
 		if (ImGui::SmallButton("X"))

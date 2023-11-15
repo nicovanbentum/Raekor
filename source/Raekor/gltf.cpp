@@ -191,6 +191,9 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 			ConvertBones(entity, inNode);
 	}
 
+	if (inNode.light)
+		ConvertLight(m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity()), *inNode.light);
+
 	for (const auto& child : Slice(inNode.children, inNode.children_count))
 		ParseNode(*child, inParent, inTransform);
 }
@@ -271,6 +274,14 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 
 	return true;
 }
+
+
+
+void GltfImporter::ConvertLight(Entity inEntity, const cgltf_light& inLight)
+{
+	
+}
+
 
 
 void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)

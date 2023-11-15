@@ -11,7 +11,7 @@ public:
 	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
 
 private:
-	void ParseNode(const ufbx_node* inNode, Entity inParent, glm::mat4 inTransform);
+	void ParseNode(const ufbx_node* inNode, Entity inParent, Entity inEntity);
 
 	void ConvertMesh(Entity inEntity, const ufbx_mesh* inMesh, const ufbx_mesh_material& inMaterial);
 	void ConvertBones(Entity inEntity, const ufbx_bone_list* inSkeleton);

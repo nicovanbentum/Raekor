@@ -123,6 +123,9 @@ void IEditor::OnUpdate(float inDeltaTime)
 	// start ImGui
 	GUI::BeginFrame();
 
+	if (SDL_GetRelativeMouseMode())
+		ImGui::GetIO().MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
+
 	if (GetSettings().mShowUI)
 	{
 		auto dockspace_flags = ImGuiWindowFlags(ImGuiWindowFlags_None);

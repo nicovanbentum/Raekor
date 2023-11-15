@@ -429,6 +429,10 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 #endif
 
 				fs::create_directories(Path(file.mCachePath).parent_path());
+
+				if (scene.Count<DirectionalLight>() == 0)
+					scene.Add<DirectionalLight>(scene.CreateSpatialEntity("Directional Light"));
+
 				scene.SaveToFile(file.mCachePath, assets);
 
 				std::scoped_lock lock(m_FilesInFlightMutex);

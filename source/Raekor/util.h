@@ -197,6 +197,7 @@ public:
     Slice(const T* start) : start(start), length(1) {}
     Slice(const T* start, uint64_t length) : start(start), length(length) {}
     Slice(const T* start, const T* end) : start(start), length(end - start) {}
+    Slice(std::initializer_list<T> init_list) : start(init_list.begin()), length(init_list.size()) {}
 
     Slice(const std::vector<T>& inVec) : start(inVec.data()), length(inVec.size()) {}
     Slice(const std::string& inString) : start(inString.c_str()), length(inString.size()) {}

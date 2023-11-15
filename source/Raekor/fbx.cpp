@@ -45,7 +45,10 @@ bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	for (const auto& node : m_FbxScene->nodes)
 	{
 		if (node->is_root)
-			ParseNode(node, NULL_ENTITY, glm::mat4(1.0f));
+		{
+			auto root = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity(node->name.data));
+			ParseNode(node, NULL_ENTITY, root);
+		}
 	}
 
 	const auto root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
@@ -71,8 +74,20 @@ bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 }
 
 
-void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, glm::mat4 inTransform)
+void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inEntity)
 {
+	// set the name
+	if (inNode->name.length)
+		m_Scene.Get<Name>(inEntity).name = inNode->name.data;
+	else if (inNode->mesh && inNode->mesh->name.length)
+		m_Scene.Get<Name>(inEntity).name = inNode->mesh->name.data;
+	else
+		m_Scene.Get<Name>(inEntity).name = inNode->mesh ? "Mesh " : "Entity " + std::to_string(uint32_t(inEntity));
+
+	// set the new entity's parent
+	if (inParent != NULL_ENTITY)
+		NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), inEntity, m_Scene.Get<Node>(inEntity));
+
 	auto local_transform = glm::mat4(1.0f);
 
 	const auto& translation = inNode->local_transform.translation;
@@ -84,37 +99,21 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, glm::mat4 
 	const auto& scale = inNode->local_transform.scale;
 	local_transform = glm::scale(local_transform, Vec3(scale.x, scale.y, scale.z));
 
-	// Calculate global transform
-	inTransform *= local_transform;
-
+	auto& transform = m_Scene.Get<Transform>(inEntity);
+	transform.localTransform = local_transform;
+	transform.Decompose();
+	
 	if (inNode->mesh)
 	{
-		auto entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
-
-		if (inNode->name.length)
-			m_Scene.Get<Name>(entity).name = inNode->name.data;
-		else if (inNode->mesh && inNode->mesh->name.length)
-			m_Scene.Get<Name>(entity).name = inNode->mesh->name.data;
-		else
-			m_Scene.Get<Name>(entity).name = "Mesh " + std::to_string(uint32_t(entity));
-
-		auto& mesh_transform = m_Scene.Get<Transform>(entity);
-		mesh_transform.localTransform = inTransform;
-		mesh_transform.Decompose();
-
-		// set the new entity's parent
-		if (inParent != NULL_ENTITY)
-			NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), entity, m_Scene.Get<Node>(entity));
-
 		if (inNode->mesh->materials.count == 1)
 		{
-			ConvertMesh(entity, inNode->mesh, inNode->mesh->materials[0]);
+			ConvertMesh(inEntity, inNode->mesh, inNode->mesh->materials[0]);
 		}
 		else if (inNode->mesh->materials.count > 1)
 		{
 			for (const auto& [index, material] : gEnumerate(inNode->mesh->materials))
 			{
-				auto clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(entity));
+				auto clone = m_CreatedNodeEntities.emplace_back(m_Scene.Clone(inEntity));
 				ConvertMesh(clone, inNode->mesh, material);
 
 				auto& name = m_Scene.Get<Name>(clone);
@@ -125,7 +124,7 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, glm::mat4 
 				transform.localTransform = glm::mat4(1.0f);
 				transform.Decompose();
 
-				NodeSystem::sAppend(m_Scene, entity, m_Scene.Get<Node>(entity), clone, m_Scene.Get<Node>(clone));
+				NodeSystem::sAppend(m_Scene, inEntity, m_Scene.Get<Node>(inEntity), clone, m_Scene.Get<Node>(clone));
 			}
 		}
 
@@ -135,7 +134,10 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, glm::mat4 
 	}
 
 	for (const auto& child : inNode->children)
-		ParseNode(child, inParent, inTransform);
+	{
+		auto child_entity = m_Scene.CreateSpatialEntity(child->name.data);
+		ParseNode(child, inEntity, child_entity);
+	}
 }
 
 
