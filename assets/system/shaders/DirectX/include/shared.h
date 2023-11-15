@@ -323,6 +323,7 @@ struct DepthOfFieldRootConstants
     float mNearPlane;
     float mFocusPoint;
     float mFocusScale;
+    uint2 mDispatchSize;
 };
 STATIC_ASSERT(sizeof(DepthOfFieldRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 

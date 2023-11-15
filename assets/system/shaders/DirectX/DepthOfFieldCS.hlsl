@@ -22,6 +22,9 @@ float LinearizeDepth(float inDepth, float inNearPlane, float inFarPlane)
 [numthreads(8, 8, 1)]
 void main(uint2 threadID : SV_DispatchThreadID) 
 {
+    if (any(threadID.xy >= rc.mDispatchSize.xy))
+        return;
+
     Texture2D input_texture = ResourceDescriptorHeap[rc.mInputTexture];
     Texture2D<float> depth_texture = ResourceDescriptorHeap[rc.mDepthTexture];
     RWTexture2D<float4> output_texture = ResourceDescriptorHeap[rc.mOutputTexture];

@@ -97,6 +97,9 @@ DXApp::DXApp() :
         m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
     }
 
+    LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+
+
     // Create default textures / assets
     const auto black_texture_file  = TextureAsset::sConvert("assets/system/black4x4.png");
     const auto white_texture_file  = TextureAsset::sConvert("assets/system/white4x4.png");
@@ -119,9 +122,13 @@ DXApp::DXApp() :
     Material::Default.gpuMetallicMap  = uint32_t(m_DefaultWhiteTexture);
     Material::Default.gpuRoughnessMap = uint32_t(m_DefaultWhiteTexture);
 
+    LogMessage(std::format("[CPU] Default material upload took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+
     // initialize ImGui
     ImGui_ImplSDL2_InitForD3D(m_Window);
     m_ImGuiFontTextureID = InitImGui(m_Device, Renderer::sSwapchainFormat, sFrameCount);
+
+    LogMessage(std::format("[CPU] ImGui init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     // check for ray-tracing support
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
@@ -150,7 +157,7 @@ DXApp::DXApp() :
     queue_desc.SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY;
     gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_MemoryStorageQueue)));
 
-    timer.Restart();
+    LogMessage(std::format("[CPU] DirectStorage init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
 

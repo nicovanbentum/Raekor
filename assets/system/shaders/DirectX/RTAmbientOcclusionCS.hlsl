@@ -7,14 +7,17 @@
 ROOT_CONSTANTS(AmbientOcclusionRootConstants, rc)
 
 [numthreads(8,8,1)]
-void main(uint3 threadID : SV_DispatchThreadID) {
+void main(uint3 threadID : SV_DispatchThreadID) 
+{
+    if (any(threadID.xy >= rc.mDispatchSize.xy))
+        return;
+
     Texture2D<float4> gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
     Texture2D<float> gbuffer_depth_texture = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
     RWTexture2D<float> result_texture = ResourceDescriptorHeap[rc.mAOmaskTexture];
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[rc.mTLAS];
     
     FrameConstants fc = gGetFrameConstants();
-    
 
     const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;

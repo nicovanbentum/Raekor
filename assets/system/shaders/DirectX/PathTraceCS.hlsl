@@ -11,7 +11,11 @@ ROOT_CONSTANTS(PathTraceRootConstants, rc)
 
 
 [numthreads(8,8,1)]
-void main(uint3 threadID : SV_DispatchThreadID) {
+void main(uint3 threadID : SV_DispatchThreadID) 
+{
+    if (any(threadID.xy >= rc.mDispatchSize.xy))
+        return;
+    
     RWTexture2D<float4> result_texture = ResourceDescriptorHeap[rc.mResultTexture];
     RWTexture2D<float4> accumulation_texture = ResourceDescriptorHeap[rc.mAccumulationTexture];
     

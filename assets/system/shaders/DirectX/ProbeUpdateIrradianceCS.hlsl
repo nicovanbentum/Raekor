@@ -72,7 +72,7 @@ void main(uint3 threadID : SV_DispatchThreadID, uint inGroupIndex : SV_GroupInde
         
         float3 prev_irradiance = probes_irradiance_texture[threadID.xy].rgb;
         
-        float hysteresis = fc.mFrameCounter == 0 ? 0.0 : 0.975;
+        float hysteresis = fc.mFrameCounter == 0 ? 0.0 : 0.985;
         
         //hysteresis = 1.0;
         probes_irradiance_texture[threadID.xy] = float4(lerp(irradiance.rgb, prev_irradiance, hysteresis), 1.0);

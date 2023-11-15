@@ -52,7 +52,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     const float3 l = brdf.Evaluate(Wo, Wi, Wh);
 
     const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
-    float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(ws_pos.xyz, fc.mSunDirection.xyz)) * fc.mSunColor.a;
+    float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, fc.mSunDirection.xyz)) * fc.mSunColor.a;
     float shadow_mask   = shadow_texture[inParams.mPixelCoords.xy];
     total_radiance += l * NdotL * sunlight_luminance * shadow_mask;
     

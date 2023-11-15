@@ -632,4 +632,5 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice,
 /* Renders ImGui directly to the backbuffer. */
 void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCmdList, TextureID inBackBuffer);
 
+
 } // namespace Raekor

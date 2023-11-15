@@ -133,7 +133,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 {
     // Check if any of the shader sources were updated and recompile them if necessary.
     // the OS file stamp checks are expensive so we only turn this on in debug builds.
-    auto need_recompile = IF_DEBUG_ELSE(g_SystemShaders.HotLoad(inDevice), false);
+    static auto force_hotload = OS::sCheckCommandLineOption("-force_enable_hotload");
+    auto need_recompile = IF_DEBUG_ELSE(g_SystemShaders.HotLoad(inDevice), force_hotload ? g_SystemShaders.HotLoad(inDevice) : false);
     if (need_recompile)
         std::cout << std::format("Hotloaded system shaders.\n");
 
@@ -1023,7 +1024,7 @@ const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& in
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTShadowsShader.GetComputePSO());
-        inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
+        inCmdList->Dispatch((viewport.size.x + 7) / 8, (viewport.size.y + 7) / 8, 1);
     });
 }
 
@@ -1066,7 +1067,7 @@ const RTAOData& AddAmbientOcclusionPass(RenderGraph& inRenderGraph, Device& inDe
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTAmbientOcclusionShader.GetComputePSO());
-        inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
+        inCmdList->Dispatch((viewport.size.x + 7) / 8, (viewport.size.y + 7) / 8, 1);
     });
 }
 
@@ -1152,7 +1153,7 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTReflectionsShader.GetComputePSO());
-        inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
+        inCmdList->Dispatch((viewport.size.x + 7) / 8, (viewport.size.y + 7) / 8, 1);
     });
 }
 
@@ -1202,7 +1203,7 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTPathTraceShader.GetComputePSO());
-        inCmdList->Dispatch(viewport.size.x / 8, viewport.size.y / 8, 1);
+        inCmdList->Dispatch((viewport.size.x + 7) / 8, (viewport.size.y + 7) / 8, 1);
 
         PathTraceData::mReset = false;
     });
@@ -1966,11 +1967,12 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
             .mFarPlane      = viewport.GetCamera().GetFar(),
             .mNearPlane     = viewport.GetCamera().GetNear(),
             .mFocusPoint    = inData.mFocusPoint,
-            .mFocusScale    = inData.mFocusScale
+            .mFocusScale    = inData.mFocusScale,
+            .mDispatchSize  = viewport.size
         });
 
         inCmdList->SetPipelineState(g_SystemShaders.mDepthOfFieldShader.GetComputePSO());
-        inCmdList->Dispatch(viewport.GetDisplaySize().x / 8, viewport.GetDisplaySize().y / 8, 1);
+        inCmdList->Dispatch((viewport.GetDisplaySize().x + 7) / 8, (viewport.GetDisplaySize().y + 7) / 8, 1);
     });
 }
 
@@ -2315,5 +2317,6 @@ void RenderImGui(RenderGraph& inRenderGraph, Device& inDevice, CommandList& inCm
         inCmdList->ResourceBarrier(1, &backbuffer_barrier);
     }
 }
+
 
 } // raekor

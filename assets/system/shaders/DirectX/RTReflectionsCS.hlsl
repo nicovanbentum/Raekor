@@ -9,7 +9,11 @@
 ROOT_CONSTANTS(ReflectionsRootConstants, rc)
 
 [numthreads(8,8,1)]
-void main(uint3 threadID : SV_DispatchThreadID) {
+void main(uint3 threadID : SV_DispatchThreadID) 
+{
+    if (any(threadID.xy >= rc.mDispatchSize.xy))
+        return;
+
     Texture2D<float4> gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
     Texture2D<float> gbuffer_depth_texture = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
     RWTexture2D<float4> result_texture = ResourceDescriptorHeap[rc.mShadowMaskTexture];
