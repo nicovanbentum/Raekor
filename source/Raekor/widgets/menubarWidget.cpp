@@ -187,7 +187,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			{
 				auto entity = scene.Create();
 				scene.Add<Name>(entity).name = "New Material";
-				scene.Add<Material>(entity);
+				scene.Add<Material>(entity, Material::Default);
 				m_Editor->SetActiveEntity(entity);
 			}
 
@@ -198,7 +198,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					auto entity = scene.CreateSpatialEntity("Sphere");
 					auto& mesh = scene.Add<Mesh>(entity);
 
-					if (m_Editor->GetActiveEntity() != NULL_ENTITY)
+					if (m_Editor->GetActiveEntity() != NULL_ENTITY && scene.Has<Node>(m_Editor->GetActiveEntity()))
 					{
 						auto& node = scene.Get<Node>(entity);
 						NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.Get<Node>(m_Editor->GetActiveEntity()), entity, node);
@@ -206,6 +206,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 					gGenerateSphere(mesh, 2.5f, 16, 16);
 					m_Editor->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
+					m_Editor->SetActiveEntity(entity);
 				}
 
 				if (ImGui::MenuItem("Plane"))
@@ -237,6 +238,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					mesh.CalculateAABB();
 
 					m_Editor->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
+					m_Editor->SetActiveEntity(entity);
 				}
 
 				if (ImGui::MenuItem("Cube"))

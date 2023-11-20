@@ -100,10 +100,18 @@ void ConsoleWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		const auto filter = ImGuiTextFilter(m_InputBuffer.c_str());
 
+		auto first_cvar_index = -1;
+
 		for (const auto& [index, mapping] : gEnumerate(g_CVars))
 		{
 			if (!filter.PassFilter(mapping.first.c_str()))
 				continue;
+
+			if (first_cvar_index == -1)
+			{
+				first_cvar_index = index;
+				m_ActiveItem = glm::max(m_ActiveItem, first_cvar_index);
+			}
 
 			const auto cvar_text = mapping.first + " " + g_CVars.GetValue(mapping.first) + '\n';
 
