@@ -163,10 +163,18 @@ public:
         DEPTH_STENCIL_TARGET
     };
 
+    enum Dimension
+    {
+        TEX_DIM_2D,
+        TEX_DIM_3D,
+        TEX_DIM_CUBE
+    };
+
     struct Desc
     {
         uint8_t swizzle = TEXTURE_SWIZZLE_RGBA;
         DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+        Dimension dimension = TEX_DIM_2D;
         uint32_t width = 1;
         uint32_t height = 1;
         uint32_t depth = 1;
@@ -303,6 +311,7 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_Heap = nullptr;
     D3D12_CPU_DESCRIPTOR_HANDLE m_HeapPtr = { .ptr = 0 };
 };
+
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

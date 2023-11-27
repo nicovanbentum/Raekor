@@ -18,9 +18,13 @@
 
 
 #ifdef RAEKOR_SCRIPT
+#ifndef SCRIPT_INTERFACE
     #define SCRIPT_INTERFACE __declspec(dllimport)
+#endif
 #else
+#ifndef SCRIPT_INTERFACE
     #define SCRIPT_INTERFACE __declspec(dllexport)
+#endif
 #endif
 
 

@@ -107,11 +107,16 @@ void IEditor::OnUpdate(float inDeltaTime)
 	// update camera matrices
 	m_Viewport.OnUpdate(inDeltaTime);
 
-	// update Transform components
-	m_Scene.UpdateTransforms();
+	static auto& update_transforms = g_CVars.Create("update_transforms", 1, true);
 
-	// update PointLight and DirectionalLight components
-	m_Scene.UpdateLights();
+	if (update_transforms)
+	{
+		// update Transform components
+		m_Scene.UpdateTransforms();
+
+		// update PointLight and DirectionalLight components
+		m_Scene.UpdateLights();
+	}
 
 	// update Skeleton and Animation components
 	m_Scene.UpdateAnimations(inDeltaTime);

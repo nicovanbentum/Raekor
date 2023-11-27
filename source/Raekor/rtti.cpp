@@ -7,7 +7,7 @@ namespace Raekor {
 RTTIFactory	g_RTTIFactory;
 
 RTTI::RTTI(const char* inName, CreateFn inCreateFn, Constructor inConstructor)
-	: m_Hash(gHash32Bit(inName)), m_Name(inName), m_Constructor(inConstructor)
+	: mHash(gHash32Bit(inName)), m_Name(inName), m_Constructor(inConstructor)
 {
 	inCreateFn(*this);
 }
@@ -54,8 +54,8 @@ Member::Member(const char* inName, const char* inCustomName, ESerializeType inSe
 
 void RTTIFactory::Register(RTTI& inRTTI)
 {
-	if (m_RegisteredTypes.find(inRTTI.GetHash()) == m_RegisteredTypes.end())
-		m_RegisteredTypes[inRTTI.GetHash()] = &inRTTI;
+	if (m_RegisteredTypes.find(inRTTI.mHash) == m_RegisteredTypes.end())
+		m_RegisteredTypes[inRTTI.mHash] = &inRTTI;
 }
 
 

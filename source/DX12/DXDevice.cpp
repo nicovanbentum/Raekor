@@ -117,7 +117,7 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
             .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL,
         });
 
-    for (uint32_t bind_slot = EBindSlot::SRV0; bind_slot < EBindSlot::Count; bind_slot++)
+    for (uint32_t bind_slot = EBindSlot::Start; bind_slot < EBindSlot::Count; bind_slot++)
     {
         auto param = D3D12_ROOT_PARAMETER1
         {
@@ -127,10 +127,16 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 
         switch (bind_slot)
         {
+            case EBindSlot::CBV0:
+                param.Descriptor.ShaderRegister = b_registers++;
+                param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+                break;
+            
             case EBindSlot::SRV0: case EBindSlot::SRV1:
                 param.Descriptor.ShaderRegister = t_registers++;
                 param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
                 break;
+
             default: assert(false);
         }
 
@@ -577,6 +583,17 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
                 srv_desc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r, g, b, a);
                 srv_desc.Texture2D.MipLevels = -1;
 
+                switch (inDesc.dimension)
+                {
+                    case Texture::TEX_DIM_CUBE:
+                    {
+                        srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+                        srv_desc.TextureCube.MipLevels = -1;
+                        srv_desc.TextureCube.MostDetailedMip = 0;
+                        srv_desc.TextureCube.ResourceMinLODClamp = 0.0f;
+                    } break;
+                }
+
                 texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, &srv_desc);
             }
             else
@@ -887,6 +904,30 @@ void RingAllocator::DestroyBuffer(Device& inDevice)
     m_Size = 0;
     m_DataPtr = nullptr;
     m_TotalCapacity = 0;
+}
+
+
+
+void GlobalConstantsAllocator::CreateBuffer(Device& inDevice)
+{
+    m_Buffer = inDevice.CreateBuffer(Buffer::Desc { .size = sizeof(GlobalConstants), .usage = Buffer::Usage::UPLOAD});
+
+    auto buffer_range = CD3DX12_RANGE(0, 0);
+    gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, &buffer_range, reinterpret_cast<void**>( &m_DataPtr )));
+}
+
+
+
+void GlobalConstantsAllocator::DestroyBuffer(Device& inDevice)
+{
+    if (!m_Buffer.IsValid())
+        return;
+
+    inDevice.GetBuffer(m_Buffer)->Unmap(0, nullptr);
+    inDevice.ReleaseBuffer(m_Buffer);
+
+    m_Buffer = BufferID::INVALID;
+    m_DataPtr = nullptr;
 }
 
 

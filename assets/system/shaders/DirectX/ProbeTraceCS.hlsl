@@ -107,18 +107,18 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         hitT = ray.TMax;
     }
     
-    //if (probe_index == rc.mDebugProbeIndex) {
-    //    // Resets indirect draw args VertexCount to 0 and InstanceCount to 1
-    //    if (ray_index == 0)
-    //        ResetDebugLineCount();
+    if (probe_index == rc.mDebugProbeIndex) {
+       // Resets indirect draw args VertexCount to 0 and InstanceCount to 1
+       if (ray_index == 0)
+           ResetDebugLineCount();
         
-    //    float4 debug_ray_color = float4(irradiance, 1.0);
-    //    float3 debug_ray_start = ray.Origin + ray.Direction * 0.25;
-    //    float3 debug_ray_end   = ray.Origin + ray.Direction * hitT;
+       float4 debug_ray_color = float4(irradiance, 1.0);
+       float3 debug_ray_start = ray.Origin + ray.Direction * 0.25;
+       float3 debug_ray_end   = ray.Origin + ray.Direction * hitT;
         
-    //    // InterlockedAdd( 2 ) to the VertexCount, use the original value as write index into the line vertex buffer
-    //    AddDebugLine(debug_ray_start, debug_ray_end, debug_ray_color, debug_ray_color);
-    //}
+       // InterlockedAdd( 2 ) to the VertexCount, use the original value as write index into the line vertex buffer
+       AddDebugLine(debug_ray_start, debug_ray_end, debug_ray_color, debug_ray_color);
+    }
     
     
     depth_texture[ray_texture_index] = hitT;

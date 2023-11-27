@@ -19,7 +19,7 @@ struct DirectionalLight;
 class Scene : public ecs::ECS
 {
 public:
-	Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer) {}
+	Scene(IRenderInterface* inRenderer);
 	Scene(const Scene& inOther) = delete;
 	~Scene() { Clear(); }
 

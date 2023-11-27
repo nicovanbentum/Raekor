@@ -32,17 +32,17 @@ public:
 
 	bool      IsDerivedFrom(RTTI* inRTTI) const;
 
-	bool operator==(const RTTI& rhs) const { return m_Hash == rhs.m_Hash; }
-	bool operator!=(const RTTI& rhs) const { return m_Hash != rhs.m_Hash; }
+	bool operator==(const RTTI& rhs) const { return mHash == rhs.mHash; }
+	bool operator!=(const RTTI& rhs) const { return mHash != rhs.mHash; }
 
-	inline uint32_t    GetHash() const { return m_Hash; }
 	inline const char* GetTypeName() const { return m_Name.c_str(); }
 
 	inline const auto end() const { return m_Members.end(); }
 	inline const auto begin() const { return m_Members.begin(); }
 
+	uint32_t mHash;
+
 private:
-	uint32_t m_Hash;
 	std::string m_Name;
 	Constructor m_Constructor;
 	std::vector<RTTI*> m_BaseClasses;
@@ -164,9 +164,9 @@ extern RTTIFactory g_RTTIFactory;
 namespace std {
 template <> struct hash<Raekor::RTTI>
 {
-	size_t operator()(const Raekor::RTTI& x) const
+	inline size_t operator()(const Raekor::RTTI& rtti) const
 	{
-		return size_t(x.GetHash());
+		return rtti.mHash;
 	}
 };
 }
@@ -246,7 +246,7 @@ template<typename T>
 Raekor::RTTI& gGetRTTI() { return sGetRTTI(( std::remove_cv_t<T>* )nullptr); }
 
 template<typename T>
-uint32_t gGetTypeHash() { return gGetRTTI<T>().GetHash(); }
+uint32_t gGetTypeHash() { return gGetRTTI<T>().mHash; }
 
 
 

@@ -138,6 +138,7 @@ private:
     bool                        m_ShouldCaptureNextFrame = false;
     BackBufferData              m_BackBufferData[sFrameCount];
     FrameConstants              m_FrameConstants = {};
+    GlobalConstants             m_GlobalConstants = {};
     FfxFsr2Context              m_Fsr2Context;
     std::vector<uint8_t>        m_FsrScratchMemory;
     NVSDK_NGX_Handle*           m_DLSSHandle = nullptr;
@@ -183,6 +184,44 @@ private:
     StagingHeap& m_StagingHeap;
     const RenderGraphResources& m_Resources;
 };
+
+
+
+////////////////////////////////////////
+/// Compute Sky Cube Pass
+////////////////////////////////////////
+struct SkyCubeData
+{
+    RTTI_DECLARE_TYPE(SkyCubeData);
+
+    RenderGraphResourceID mSkyCubeTexture;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
+    const Scene& inScene,
+    TextureID inSkyCubeTexture
+);
+
+
+
+////////////////////////////////////////
+/// Convolve Irradiance Cubemap Cube Pass
+////////////////////////////////////////
+struct ConvolveCubeData
+{
+    RTTI_DECLARE_TYPE(ConvolveCubeData);
+
+    RenderGraphResourceID mConvolvedCubeTexture;
+    RenderGraphResourceViewID mCubeTexture;
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& inDevice,
+    RenderGraphResourceID inCubeTexture, 
+    TextureID inConvolvedCubeTexture
+);
+
 
 
 ////////////////////////////////////////

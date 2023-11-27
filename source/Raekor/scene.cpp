@@ -11,6 +11,19 @@
 
 namespace Raekor {
 
+Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer) 
+{
+	gForEachTupleElement(Components, [&](auto component)
+	{
+		using ComponentType = decltype( component )::type;
+
+		if (!m_Components.contains(gGetTypeHash<ComponentType>()))
+			m_Components[gGetRTTI<ComponentType>().mHash] = new ecs::ComponentStorage<ComponentType>();
+	});
+}
+
+
+
 Entity Scene::PickSpatialEntity(const Ray& inRay)
 {
 	auto picked_entity = NULL_ENTITY;
@@ -221,7 +234,7 @@ Entity Scene::Clone(Entity inEntity)
 		{
 			using ComponentType = decltype( component )::type;
 
-			if (gGetRTTI<ComponentType>().GetHash() == inTypeHash)
+			if (gGetTypeHash<ComponentType>()== inTypeHash)
 				clone<ComponentType>(*this, inEntity, copy);
 		});
 	}
@@ -229,6 +242,17 @@ Entity Scene::Clone(Entity inEntity)
 
 	if (Has<Mesh>(copy))
 		m_Renderer->UploadMeshBuffers(copy, Get<Mesh>(copy));
+
+	if (Has<Node>(copy))
+	{
+		auto& node = Get<Node>(copy);
+
+		for (auto it = node.firstChild; it != NULL_ENTITY; it = Get<Node>(it).nextSibling)
+		{
+			const auto child_clone = Clone(it);
+			NodeSystem::sAppend(*this, copy, node, child_clone, Get<Node>(child_clone));
+		}
+	}
 
 	return copy;
 }
@@ -275,9 +299,7 @@ void Scene::SaveToFile(const std::string& inFile, Assets& ioAssets)
 	gForEachTupleElement(Components, [&](auto component)
 	{
 		using ComponentType = decltype( component )::type;
-		const auto type_hash = gGetTypeHash<ComponentType>();
-
-		GetSparseSet<ComponentType>()->Write(archive);
+		GetComponentStorage<ComponentType>()->Write(archive);
 	});
 }
 
@@ -300,7 +322,7 @@ void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets)
 	gForEachTupleElement(Components, [&](auto inVar)
 	{
 		using Component = decltype( inVar )::type;
-		GetSparseSet<Component>()->Read(archive);
+		GetComponentStorage<Component>()->Read(archive);
 	});
 
 	std::cout << std::format("[Scene] Load ECS data took {:.3f} seconds.\n", timer.GetElapsedTime());

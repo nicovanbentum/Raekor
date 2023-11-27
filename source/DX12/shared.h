@@ -2,30 +2,34 @@
 #define SHARED_H
 
 #ifdef __cplusplus
-#include "pch.h"
-using uint = uint32_t;
-using uint2 = glm::uvec2;
-using uint3 = glm::uvec3;
-using uint4 = glm::uvec4;
 
-using int2 = glm::ivec2;
-using int3 = glm::ivec3;
-using int4 = glm::ivec4;
+    #include "pch.h"
 
-using float2 = glm::vec2;
-using float3 = glm::vec3;
-using float4 = glm::vec4;
+    class Device;
 
-using float3x3 = glm::mat3;
-using float4x4 = glm::mat4;
+    using uint = uint32_t;
+    using uint2 = glm::uvec2;
+    using uint3 = glm::uvec3;
+    using uint4 = glm::uvec4;
 
-#define OUT_PARAM
-#define STATIC_ASSERT(cond) static_assert(cond);
+    using int2 = glm::ivec2;
+    using int3 = glm::ivec3;
+    using int4 = glm::ivec4;
+
+    using float2 = glm::vec2;
+    using float3 = glm::vec3;
+    using float4 = glm::vec4;
+
+    using float3x3 = glm::mat3;
+    using float4x4 = glm::mat4;
+
+    #define OUT_PARAM
+    #define STATIC_ASSERT(cond) static_assert(cond);
 
 #else
 
-#define OUT_PARAM out
-#define STATIC_ASSERT(cond) 
+    #define OUT_PARAM out
+    #define STATIC_ASSERT(cond) 
 
 #endif
 
@@ -83,6 +87,15 @@ struct RTVertex
 };
 
 
+struct GlobalConstants
+{
+    uint mSkyCubeTexture;
+    uint mConvolvedSkyCubeTexture;
+    uint mDebugLinesVertexBuffer;
+    uint mDebugLinesIndirectArgsBuffer;
+};
+
+
 struct FrameConstants
 {
     float     mTime;
@@ -130,6 +143,23 @@ struct ClearTextureRootConstants
 STATIC_ASSERT(sizeof(ClearTextureRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+struct ConvolveCubeRootConstants
+{
+    uint mCubeTexture;
+    uint mConvolvedCubeTexture;
+};
+STATIC_ASSERT(sizeof(ConvolveCubeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
+struct SkyCubeRootConstants
+{
+    uint mSkyCubeTexture;
+    float3 mSunLightDirection;
+    float4 mSunLightColor;
+};
+STATIC_ASSERT(sizeof(SkyCubeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
 struct GbufferRootConstants
 {
     uint     mVertexBuffer;
@@ -140,6 +170,8 @@ struct GbufferRootConstants
     uint     mRoughnessTexture;
     float    mRoughness;
     float    mMetallic;
+    uint2    mBBmin;
+    uint2    mBBmax;
     float4	 mAlbedo;
     float4x4 mWorldTransform;
     float4x4 mInvWorldTransform;

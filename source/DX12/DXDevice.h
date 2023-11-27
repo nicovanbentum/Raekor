@@ -1,5 +1,6 @@
 #pragma once
 
+#include "shared.h"
 #include "DXResource.h"
 
 namespace Raekor::DX12 {
@@ -181,6 +182,25 @@ private:
     uint32_t m_Size = 0;
     uint8_t* m_DataPtr = nullptr;
     uint32_t m_TotalCapacity = 0;
+};
+
+
+class GlobalConstantsAllocator
+{
+public:
+    void CreateBuffer(Device& inDevice);
+    void DestroyBuffer(Device& inDevice);
+
+    void Copy(const GlobalConstants& inGlobalConstants)
+    {
+        memcpy(m_DataPtr, &inGlobalConstants, sizeof(GlobalConstants));
+    }
+
+    inline BufferID GetBuffer() const { return m_Buffer; }
+
+private:
+    BufferID m_Buffer;
+    uint8_t* m_DataPtr = nullptr;
 };
 
 } // namespace::Raekor

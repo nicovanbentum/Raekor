@@ -11,6 +11,16 @@
             "Compute Shader File": "assets/system/shaders/DirectX/ClearTextureUAV.hlsl"
         },
 
+        "Sky Cube Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/SkyCubeCS.hlsl"
+        },
+
+        "Convolve Cube Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/ConvolveCubeCS.hlsl"
+        },
+
         "ImGui Shader":
         {
             "Vertex Shader File": "assets/system/shaders/DirectX/ImGuiVS.hlsl",

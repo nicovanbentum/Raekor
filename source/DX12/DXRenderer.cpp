@@ -322,6 +322,10 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRenderInterface* inRenderInterface)
 {
     m_RenderGraph.Clear(inDevice);
+    
+    //const auto& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene, m_GlobalConstants.mSkyCubeTexture);
+
+    //const auto& convolved_cube_data = AddConvolveCubePass(m_RenderGraph, inDevice, sky_cube_data.mSkyCubeTexture, m_GlobalConstants.mConvolvedSkyCubeTexture);
 
     const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
     
@@ -333,49 +337,49 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     }
     else
     {
-        // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
-        
-        const auto& shadow_data = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
+        //// const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
+        //
+        //const auto& shadow_data = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
     
-        const auto& rtao_data = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
-        
-        const auto& reflection_data = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
-        
-        // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
-        
-        const auto& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inScene);
+        //const auto& rtao_data = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
+        //
+        //const auto& reflection_data = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
+        //
+        //// const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
+        //
+        //const auto& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inScene);
 
-        const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, inScene, ddgi_trace_data);
-        
-        const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data.mOutputTexture, ddgi_update_data);
-        
-        compose_input = light_data.mOutputTexture;
-        
-        if (m_Settings.mProbeDebug)
-            const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+        //const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, inScene, ddgi_trace_data);
+        //
+        //const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data.mOutputTexture, ddgi_update_data);
+        //
+        //compose_input = light_data.mOutputTexture;
+        //
+        //if (m_Settings.mProbeDebug)
+        //    const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
 
-        if (m_Settings.mDebugLines)
-            const auto& debug_lines_data = AddDebugLinesPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+        //if (m_Settings.mDebugLines)
+        //    const auto& debug_lines_data = AddDebugLinesPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
 
-        if (m_Settings.mEnableTAA)
-        {
-            compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_data, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
-        }
-        else
-        {
-            switch (m_Settings.mUpscaler)
-            {
-                case UPSCALER_FSR:
-                    compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
-                    break;
-                case UPSCALER_DLSS:
-                    compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_DLSSHandle, m_DLSSParams, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
-                    break;
-                case UPSCALER_XESS:
-                    compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_XeSSContext, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
-                    break;
-            }
-        }
+        //if (m_Settings.mEnableTAA)
+        //{
+        //    compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_data, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
+        //}
+        //else
+        //{
+        //    switch (m_Settings.mUpscaler)
+        //    {
+        //        case UPSCALER_FSR:
+        //            compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+        //            break;
+        //        case UPSCALER_DLSS:
+        //            compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_DLSSHandle, m_DLSSParams, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+        //            break;
+        //        case UPSCALER_XESS:
+        //            compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_XeSSContext, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+        //            break;
+        //    }
+        //}
     }
 
     if (m_Settings.mEnableDoF)
@@ -712,6 +716,7 @@ void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
 }
 
 
+
 void RenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets)
 {
     IRenderInterface::UploadMaterialTextures(inEntity, inMaterial, inAssets);
@@ -779,6 +784,8 @@ void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+RTTI_DEFINE_TYPE(SkyCubeData)       {}
+RTTI_DEFINE_TYPE(ConvolveCubeData)  {}
 RTTI_DEFINE_TYPE(GBufferData)       {}
 RTTI_DEFINE_TYPE(GBufferDebugData)  {}
 RTTI_DEFINE_TYPE(GrassData)         {}
@@ -803,13 +810,76 @@ RTTI_DEFINE_TYPE(ImGuiData)         {}
 
 /*
 
-const T& AddPass(RenderGraph& inRenderGraph, Device& inDevice) {
-    return inRenderGraph.AddGraphicsPass<T>(pass_name, inDevice,
-    [&](IRenderPass* inRenderPass, T& inData) {  },
-    [](T& inData, CommandList& inCmdList) {   });
+const T& AddPass(RenderGraph& inRenderGraph, Device& inDevice) 
+{
+    return inRenderGraph.AddGraphicsPass<T>("pass_name",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, T& inData) 
+    {  
+    },
+    [](T& inData, const RenderGraphResources& inResources, CommandList& inCmdList) 
+    {   
+    });
 }
 
 */
+
+
+
+const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, TextureID inSkyCubeTexture)
+{
+    return inRenderGraph.AddComputePass<SkyCubeData>("SKY CUBE PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkyCubeData& inData)
+    {  
+        inData.mSkyCubeTexture = ioRGBuilder.Write(ioRGBuilder.Import(inDevice, inSkyCubeTexture));
+    },
+
+    [=, &inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {   
+        if (auto sun_light = inScene.GetSunLight())
+        {
+            inCmdList.PushComputeConstants(SkyCubeRootConstants
+            {
+                .mSkyCubeTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mSkyCubeTexture)),
+                .mSunLightDirection = sun_light->GetDirection(),
+                .mSunLightColor     = sun_light->GetColor()
+            });
+
+            inCmdList->SetPipelineState(g_SystemShaders.mSkyCubeShader.GetComputePSO());
+
+            const auto& texture_desc = inDevice.GetTexture(inResources.GetTexture(inData.mSkyCubeTexture)).GetDesc();
+
+            inCmdList->Dispatch(texture_desc.width / 8, texture_desc.height / 8, texture_desc.arrayLayers);
+        }
+    });
+}
+
+
+
+const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inCubeTexture, TextureID inConvolvedCubeTexture)
+{
+    return inRenderGraph.AddGraphicsPass<ConvolveCubeData>("CONVOLVE CUBE PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ConvolveCubeData& inData)
+    {
+        inData.mCubeTexture = ioRGBuilder.Read(inCubeTexture);
+        inData.mConvolvedCubeTexture = ioRGBuilder.Write(ioRGBuilder.Import(inDevice, inConvolvedCubeTexture));
+    },
+
+    [=, &inDevice](ConvolveCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        inCmdList.PushComputeConstants(ConvolveCubeRootConstants
+            {
+                .mCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mCubeTexture)),
+                .mConvolvedCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mConvolvedCubeTexture))
+            });
+
+        inCmdList->SetPipelineState(g_SystemShaders.mConvolveCubeShader.GetComputePSO());
+
+        const auto& texture_desc = inDevice.GetTexture(inResources.GetTexture(inData.mConvolvedCubeTexture)).GetDesc();
+
+        inCmdList->Dispatch(texture_desc.width / 8, texture_desc.height / 8, texture_desc.arrayLayers);
+    });
+}
+
 
 
 const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
@@ -867,8 +937,17 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mRenderTexture)), glm::value_ptr(clear_color), 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mVelocityTexture)), glm::value_ptr(clear_color), 0, nullptr);
 
-        for (const auto& [entity, transform, mesh] : inScene->Each<Transform, Mesh>())
+        Timer timer;
+
+        for (const auto& [entity, mesh] : inScene->Each<Mesh>())
         {
+            auto transform = inScene->GetPtr<Transform>(entity);
+            if (!transform)
+                continue;
+
+            if (!BufferID(mesh.BottomLevelAS).IsValid())
+                continue;
+
             auto material = inScene->GetPtr<Material>(mesh.material);
             //if (material && material->isTransparent)
                 //continue;
@@ -889,6 +968,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             if (material == nullptr)
                 material = &Material::Default;
 
+
             auto root_constants = GbufferRootConstants {
                 .mVertexBuffer       = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
                 .mAlbedoTexture      = inDevice.GetBindlessHeapIndex(TextureID(material->gpuAlbedoMap)),
@@ -898,9 +978,11 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 .mRoughnessTexture   = inDevice.GetBindlessHeapIndex(TextureID(material->gpuRoughnessMap)),
                 .mRoughness          = material->roughness,
                 .mMetallic           = material->metallic,
+                .mBBmin              = mesh.aabb[0],
+                .mBBmax              = mesh.aabb[1],
                 .mAlbedo             = material->albedo,
-                .mWorldTransform     = transform.worldTransform,
-                .mInvWorldTransform  = glm::inverse(transform.worldTransform)
+                .mWorldTransform     = transform->worldTransform,
+                .mInvWorldTransform  = glm::inverse(transform->worldTransform)
             };
 
             if (inScene.GetSettings().mDisableAlbedo)
@@ -920,6 +1002,8 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             inCmdList->DrawIndexedInstanced(mesh.indices.size(), 1, 0, 0, 0);
         }
+
+        std::cout << std::format("gbuffer pass took {:.2f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
     });
 }
 
@@ -2116,7 +2200,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
         });
 
         inData.mInputTextureSRV = ioRGBuilder.Read(inInputTexture);
-        inData.mBackBufferRTV = ioRGBuilder.RenderTarget(ioRGBuilder.Import(inBackBuffer));
+        inData.mBackBufferRTV = ioRGBuilder.RenderTarget(ioRGBuilder.Import(inDevice, inBackBuffer));
 
         static constexpr auto input_layout = std::array
         {

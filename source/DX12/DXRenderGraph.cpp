@@ -18,7 +18,7 @@ RenderGraphResourceID RenderGraphBuilder::Create(const Texture::Desc& inDesc)
 
 
 
-RenderGraphResourceID RenderGraphBuilder::Import(BufferID inBuffer)
+RenderGraphResourceID RenderGraphBuilder::Import(Device& inDevice, BufferID inBuffer)
 {
     assert(false); // TODO: implement
     return 0;
@@ -26,10 +26,18 @@ RenderGraphResourceID RenderGraphBuilder::Import(BufferID inBuffer)
 
 
 
-RenderGraphResourceID RenderGraphBuilder::Import(TextureID inTexture)
+RenderGraphResourceID RenderGraphBuilder::Import(Device& inDevice, TextureID inTexture)
 {
-    assert(false); // TODO: implement
-    return 0;
+    const auto& texture = inDevice.GetTexture(inTexture);
+
+    m_ResourceDescriptions.emplace_back(RenderGraphResourceDesc 
+    { 
+        .mResourceID = inTexture,
+        .mResourceType = EResourceType::RESOURCE_TYPE_TEXTURE, 
+        .mTextureDesc = texture.GetDesc(),
+    });
+
+    return RenderGraphResourceID(m_ResourceDescriptions.size() - 1);
 }
 
 
@@ -197,7 +205,11 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
         RenderGraphResource resource;
         resource.mResourceType = desc.mResourceType;
 
-        if (desc.mResourceType == RESOURCE_TYPE_BUFFER)
+        if (desc.mResourceID.IsValid())
+        {
+            resource.mResourceID = desc.mResourceID;
+        }
+        else if (desc.mResourceType == RESOURCE_TYPE_BUFFER)
         {
             resource.mResourceID = inDevice.CreateBuffer(desc.mBufferDesc);
         }
@@ -379,6 +391,7 @@ void RenderGraph::Clear(Device& inDevice)
     m_RenderGraphBuilder.Clear();
     m_RenderGraphResources.Clear(inDevice);
     m_PerPassAllocator.DestroyBuffer(inDevice);
+    m_GlobalConstantsAllocator.DestroyBuffer(inDevice);
 }
 
 
@@ -560,7 +573,11 @@ bool RenderGraph::Compile(Device& inDevice)
     for (const auto& pass : m_RenderPasses)
         total_constants_size += pass->m_ConstantsSize;
 
-    m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size * sFrameCount, 1u));
+    if (!m_PerPassAllocator.GetBuffer().IsValid())
+        m_PerPassAllocator.CreateBuffer(inDevice, std::max(total_constants_size * sFrameCount, 1u));
+
+    if (!m_GlobalConstantsAllocator.GetBuffer().IsValid())
+        m_GlobalConstantsAllocator.CreateBuffer(inDevice);
     
     if (!m_PerFrameAllocator.GetBuffer().IsValid())
         m_PerFrameAllocator.CreateBuffer(inDevice, sizeof(FrameConstants) * sFrameCount);
@@ -576,6 +593,7 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inF
 {
     inDevice.BindDrawDefaults(inCmdList);
     
+    inCmdList.BindToSlot(inDevice.GetBuffer(m_GlobalConstantsAllocator.GetBuffer()), EBindSlot::CBV0);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::SRV0, m_PerFrameAllocatorOffset);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerPassAllocator.GetBuffer()), EBindSlot::SRV1);
 

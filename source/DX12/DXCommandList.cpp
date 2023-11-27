@@ -87,6 +87,9 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
 
     switch (inSlot)
     {
+        case EBindSlot::CBV0:
+            command_list->SetGraphicsRootConstantBufferView(inSlot, inBuffer->GetGPUVirtualAddress());
+            break;
         case EBindSlot::SRV0: case EBindSlot::SRV1:
             command_list->SetGraphicsRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
             command_list->SetComputeRootShaderResourceView(inSlot, inBuffer->GetGPUVirtualAddress() + inOffset);
@@ -101,20 +104,20 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
 
 void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh)
 {
-    const auto& indexBuffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
-    const auto& vertexBuffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
+    const auto& index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
+    const auto& vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
 
     const auto index_view = D3D12_INDEX_BUFFER_VIEW
     {
-        .BufferLocation = indexBuffer->GetGPUVirtualAddress(),
+        .BufferLocation = index_buffer->GetGPUVirtualAddress(),
         .SizeInBytes = uint32_t(inMesh.indices.size() * sizeof(inMesh.indices[0])),
         .Format = DXGI_FORMAT_R32_UINT,
     };
 
     const auto vertex_view = D3D12_VERTEX_BUFFER_VIEW
     {
-        .BufferLocation = vertexBuffer->GetGPUVirtualAddress(),
-        .SizeInBytes = uint32_t(vertexBuffer->GetDesc().Width),
+        .BufferLocation = vertex_buffer->GetGPUVirtualAddress(),
+        .SizeInBytes = uint32_t(vertex_buffer->GetDesc().Width),
         .StrideInBytes = inMesh.GetInterleavedStride()
     };
 

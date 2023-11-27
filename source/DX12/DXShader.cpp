@@ -51,6 +51,9 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "TAA Resolve Shader", mTAAResolveShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Final Compose Shader", mFinalComposeShader);
 
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Sky Cube Shader", mSkyCubeShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Convolve Cube Shader", mConvolveCubeShader);
+
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Debug Shader", mProbeDebugShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Trace Shader", mProbeTraceShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Update Depth Shader", mProbeUpdateDepthShader);

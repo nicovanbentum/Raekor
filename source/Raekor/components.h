@@ -32,6 +32,7 @@ struct SCRIPT_INTERFACE Transform
 
 	glm::mat4 localTransform = glm::mat4(1.0f);
 	glm::mat4 worldTransform = glm::mat4(1.0f);
+	glm::mat4 invWorldTransform = glm::mat4(1.0f);
 
 	Vec3 GetScaleWorldSpace() const;
 	Vec3 GetPositionWorldSpace() const;

@@ -20,6 +20,7 @@ using RenderGraphResourceViewID = uint32_t;
 // resource description so we know how to allocate the resource
 struct RenderGraphResourceDesc
 {
+    ResourceID mResourceID;
     EResourceType mResourceType;
     
     union
@@ -62,8 +63,8 @@ public:
     RenderGraphResourceID Create(const Buffer::Desc& inDesc);
     RenderGraphResourceID Create(const Texture::Desc& inDesc);
 
-    RenderGraphResourceID Import(BufferID inBuffer);
-    RenderGraphResourceID Import(TextureID inTexture);
+    RenderGraphResourceID Import(Device& inDevice, BufferID inBuffer);
+    RenderGraphResourceID Import(Device& inDevice, TextureID inTexture);
 
     RenderGraphResourceViewID RenderTarget(RenderGraphResourceID inGraphResourceID);
     RenderGraphResourceViewID DepthStencilTarget(RenderGraphResourceID inGraphResourceID);
@@ -88,6 +89,13 @@ private:
     std::vector<RenderGraphResourceViewDesc> m_ResourceViewDescriptions;
 };
 
+
+enum EGlobalResource
+{
+    GLOBAL_RESOURCE_SKY_CUBE_TEXTURE,
+    GLOBAL_RESOURCE_SKY_CUBE_CONVOLVED_TEXTURE,
+    GLOBAL_RESOURCE_COUNT,
+};
 
 
 class RenderGraphResources
@@ -263,6 +271,7 @@ public:
     RingAllocator& GetPerPassAllocator() { return m_PerPassAllocator; }
     RingAllocator& GetPerFrameAllocator() { return m_PerFrameAllocator; }
     uint32_t& GetPerFrameAllocatorOffset() { return m_PerFrameAllocatorOffset; }
+    GlobalConstantsAllocator& GetGlobalConstantsAllocator() { return m_GlobalConstantsAllocator; }
 
 private:
     const Viewport& m_Viewport;
@@ -271,6 +280,7 @@ private:
     uint32_t m_PerFrameAllocatorOffset = 0;
     RingAllocator m_PerFrameAllocator;
     RingAllocator m_PerPassAllocator;
+    GlobalConstantsAllocator m_GlobalConstantsAllocator;
 
     RenderGraphBuilder m_RenderGraphBuilder;
     RenderGraphResources m_RenderGraphResources;

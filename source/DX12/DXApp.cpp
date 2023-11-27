@@ -65,7 +65,7 @@ DXApp::DXApp() :
     // this is a hacky workaround. at least we get the added benefit of 0 being an 'invalid' index :D
     (void)m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Add(nullptr);
 
-    auto blue_noise_samples = std::vector<Vec4>();
+    static auto blue_noise_samples = std::vector<Vec4>();
     blue_noise_samples.reserve(128 * 128);
 
     for (auto y = 0u; y < 128; y++)
@@ -89,16 +89,9 @@ DXApp::DXApp() :
 
     assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
 
-    {
-        auto& cmd_list = m_Renderer.StartSingleSubmit();
-
-        m_StagingHeap.StageTexture(cmd_list, m_Device.GetTexture(bluenoise_texture), 0, blue_noise_samples.data());
-
-        m_Renderer.FlushSingleSubmit(m_Device, cmd_list);
-    }
+    m_Renderer.QueueTextureUpload(bluenoise_texture, 0, Slice<char>((const char*)blue_noise_samples.data(), blue_noise_samples.size() / sizeof(blue_noise_samples[0])));
 
     LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
-
 
     // Create default textures / assets
     const auto black_texture_file  = TextureAsset::sConvert("assets/system/black4x4.png");

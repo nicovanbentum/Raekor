@@ -7,7 +7,11 @@ namespace Raekor::DX12 {
 /* explicit bindings to root descriptors hardcoded into the root signature. */
 enum EBindSlot
 {
-    SRV0 = 1, SRV1, Count
+    Start = 1, 
+    CBV0 = Start, 
+    SRV0,
+    SRV1, 
+    Count
 };
 
 // Total number of frames-in-flight, aka the number of backbuffers in the swapchain
