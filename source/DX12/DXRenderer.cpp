@@ -337,49 +337,49 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     }
     else
     {
-        //// const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
-        //
-        //const auto& shadow_data = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
+        // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
+        
+        const auto& shadow_data = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
     
-        //const auto& rtao_data = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
-        //
-        //const auto& reflection_data = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
-        //
-        //// const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
-        //
-        //const auto& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inScene);
+        const auto& rtao_data = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
+        
+        const auto& reflection_data = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
+        
+        // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
+        
+        const auto& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inScene);
 
-        //const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, inScene, ddgi_trace_data);
-        //
-        //const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data.mOutputTexture, ddgi_update_data);
-        //
-        //compose_input = light_data.mOutputTexture;
-        //
-        //if (m_Settings.mProbeDebug)
-        //    const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+        const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, inScene, ddgi_trace_data);
+        
+        const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_data, reflection_data, rtao_data.mOutputTexture, ddgi_update_data);
+        
+        compose_input = light_data.mOutputTexture;
+        
+        if (m_Settings.mProbeDebug)
+            const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
 
-        //if (m_Settings.mDebugLines)
-        //    const auto& debug_lines_data = AddDebugLinesPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+        if (m_Settings.mDebugLines)
+            const auto& debug_lines_data = AddDebugLinesPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
 
-        //if (m_Settings.mEnableTAA)
-        //{
-        //    compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_data, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
-        //}
-        //else
-        //{
-        //    switch (m_Settings.mUpscaler)
-        //    {
-        //        case UPSCALER_FSR:
-        //            compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
-        //            break;
-        //        case UPSCALER_DLSS:
-        //            compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_DLSSHandle, m_DLSSParams, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
-        //            break;
-        //        case UPSCALER_XESS:
-        //            compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_XeSSContext, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
-        //            break;
-        //    }
-        //}
+        if (m_Settings.mEnableTAA)
+        {
+            compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_data, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
+        }
+        else
+        {
+            switch (m_Settings.mUpscaler)
+            {
+                case UPSCALER_FSR:
+                    compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+                    break;
+                case UPSCALER_DLSS:
+                    compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_DLSSHandle, m_DLSSParams, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+                    break;
+                case UPSCALER_XESS:
+                    compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_XeSSContext, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
+                    break;
+            }
+        }
     }
 
     if (m_Settings.mEnableDoF)
@@ -1426,7 +1426,7 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
             return inIndex.x + inIndex.y * inCount.x + inIndex.z * inCount.x * inCount.y;
         };
 
-        if (inScene->Count<DDGISceneSettings>())
+        if (inScene->Any<DDGISceneSettings>() && inScene->Count<DDGISceneSettings>())
         {
             const auto& ddgi_entity = inScene->GetEntities<DDGISceneSettings>()[0];
             const auto& ddgi_settings = inScene->Get<DDGISceneSettings>(ddgi_entity);

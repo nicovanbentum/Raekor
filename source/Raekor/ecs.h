@@ -318,6 +318,12 @@ public:
 		return uint32_t(GetComponentStorage<Component>()->Length());
 	}
 
+	template<typename Component>
+	bool Any() const
+	{
+		return m_Components.contains(gGetTypeHash<Component>());
+	}
+
 	template<typename ...Components>
 	auto Get(Entity entity) -> decltype( auto )
 	{

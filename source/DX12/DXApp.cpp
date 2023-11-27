@@ -519,7 +519,7 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
         ImGui::Text("DDGI Settings");
         ImGui::Separator();
 
-        if (m_RayTracedScene->Count<DDGISceneSettings>())
+        if (m_RayTracedScene->Any<DDGISceneSettings>() && m_RayTracedScene->Count<DDGISceneSettings>())
         {
             auto& ddgi_settings = m_RayTracedScene->Get<DDGISceneSettings>(m_RayTracedScene->GetEntities<DDGISceneSettings>()[0]);
 
