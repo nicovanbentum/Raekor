@@ -3,6 +3,7 @@
 #include "DXDevice.h"
 #include "DXUtil.h"
 #include "Raekor/async.h"
+#include "Raekor/member.h"
 
 namespace Raekor::DX12 {
 

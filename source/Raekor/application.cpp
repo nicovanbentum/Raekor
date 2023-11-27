@@ -5,6 +5,7 @@
 #include "util.h"
 #include "async.h"
 #include "timer.h"
+#include "member.h"
 #include "camera.h"
 #include "archive.h"
 #include "components.h"

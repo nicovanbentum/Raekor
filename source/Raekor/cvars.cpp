@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "cvars.h"
+#include "member.h"
 #include "archive.h"
 
 namespace Raekor {

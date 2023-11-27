@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "animation.h"
 #include "util.h"
+#include "member.h"
 
 namespace Raekor {
 

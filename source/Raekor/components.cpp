@@ -2,6 +2,7 @@
 #include "components.h"
 #include "timer.h"
 #include "assets.h"
+#include "member.h"
 #include "primitives.h"
 
 namespace Raekor {

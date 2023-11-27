@@ -1,6 +1,7 @@
 #pragma once
 
 #include "util.h"
+#include "rtti.h"
 #include "rmath.h"
 #include "serial.h"
 
