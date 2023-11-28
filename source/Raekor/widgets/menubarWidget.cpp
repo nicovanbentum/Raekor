@@ -54,6 +54,9 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("Raekor Editor - " + filepath).c_str());
 
 					scene.OpenFromFile(filepath, IWidget::GetAssets());
+
+					m_Editor->AddRecentScene(filepath);
+
 					m_Editor->SetActiveEntity(NULL_ENTITY);
 
 					m_Editor->LogMessage("[Scene] Open from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
@@ -96,6 +99,23 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 					m_Editor->LogMessage("[Scene] Import from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
 				}
+			}
+
+			if (ImGui::BeginMenu("Recent scenes"))
+			{
+				for (const auto& scene : m_Editor->GetSettings().mRecentScenes)
+				{
+					const auto& scene_str = scene.string();
+					
+					if (ImGui::MenuItem(scene_str.c_str()))
+					{
+						m_Editor->GetScene()->OpenFromFile(scene_str, IWidget::GetAssets());
+
+						m_Editor->AddRecentScene(scene_str);
+					}
+				}
+
+				ImGui::EndMenu();
 			}
 
 			if (ImGui::MenuItem("Save screenshot.."))

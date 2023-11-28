@@ -122,6 +122,7 @@ struct ConfigSettings
 	std::string mAppName = "";
 	Path mFontFile = "";
 	Path mSceneFile = "";
+	std::vector<Path> mRecentScenes;
 };
 
 enum WindowFlag
@@ -162,6 +163,8 @@ public:
 
 	uint64_t GetFrameCounter() const { return m_FrameCounter; }
 	const ConfigSettings& GetSettings() const { return m_Settings; }
+
+	void AddRecentScene(const Path& inPath);
 
 	SDL_Window* GetWindow() { return m_Window; }
 	const SDL_Window* GetWindow() const { return m_Window; }

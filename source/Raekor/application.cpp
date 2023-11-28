@@ -19,6 +19,7 @@ RTTI_DEFINE_TYPE(ConfigSettings)
 	RTTI_DEFINE_MEMBER(ConfigSettings, SERIALIZE_ALL, "App Name", mAppName);
 	RTTI_DEFINE_MEMBER(ConfigSettings, SERIALIZE_ALL, "Font File", mFontFile);
 	RTTI_DEFINE_MEMBER(ConfigSettings, SERIALIZE_ALL, "Scene File", mSceneFile);
+	RTTI_DEFINE_MEMBER(ConfigSettings, SERIALIZE_ALL, "Recent Scene Files", mRecentScenes);
 }
 
 static constexpr auto CONFIG_FILE_STR = "config.json";
@@ -120,6 +121,27 @@ void Application::Run()
 
 		m_FrameCounter++;
 	}
+}
+
+
+void Application::AddRecentScene(const Path& inPath) 
+{ 
+	std::vector<Path> new_paths;
+
+	new_paths.push_back(inPath);
+
+	for (const auto& path : m_Settings.mRecentScenes)
+	{
+		if (path == inPath)
+			continue;
+
+		new_paths.push_back(path);
+	}
+
+	if (new_paths.size() > 5)
+		new_paths.pop_back();
+
+	m_Settings.mRecentScenes = new_paths;
 }
 
 } // namespace Raekor  
