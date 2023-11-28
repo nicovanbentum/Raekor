@@ -412,7 +412,7 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
 
         const Material* material = nullptr;
 
-        if (scene.IsValid(mesh.material))
+        if (scene.Exists(mesh.material))
             material = scene.GetPtr<Material>(mesh.material);
 
         uniforms.mLODFade = mesh.mLODFade;
@@ -965,7 +965,7 @@ void Voxelize::Render(const Scene& scene, const Viewport& viewport, const Shadow
     {
         const Material* material = nullptr;
 
-        if (scene.IsValid(mesh.material))
+        if (scene.Exists(mesh.material))
             material = scene.GetPtr<Material>(mesh.material);
 
         uniforms.colour = material ? material->albedo : Material::Default.albedo;

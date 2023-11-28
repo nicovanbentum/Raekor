@@ -12,7 +12,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
 #ifdef DEBUG_TEXTURE_GBUFFER_DEPTH
     float depth = gbuffer_texture.Sample(SamplerPointClamp, inParams.mScreenUV).r;
     float linear_depth = rc.mNearPlane * rc.mFarPlane / (rc.mFarPlane + depth * (rc.mNearPlane - rc.mFarPlane));
-    output_color = float4(linear_depth.xxx, 1.0);
+    output_color = float4(1.0f / linear_depth.x, 0.0, 0.0, 1.0);
 #endif
    
     BRDF brdf;

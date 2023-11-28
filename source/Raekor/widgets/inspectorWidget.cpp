@@ -258,9 +258,9 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh)
 
 
 	auto& scene = GetScene();
-	if (scene.IsValid(ioMesh.material) && scene.Has<Material, Name>(ioMesh.material))
+	if (scene.Has<Material>(ioMesh.material) && scene.Has<Material, Name>(ioMesh.material))
 	{
-		auto [material, name] = scene.Get<Material, Name>(ioMesh.material);
+		const auto& [material, name] = scene.Get<Material, Name>(ioMesh.material);
 
 		const auto albedo_imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap);
 		const auto preview_size = ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale());

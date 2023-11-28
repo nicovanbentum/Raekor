@@ -19,6 +19,8 @@ PathTracer::PathTracer() :
 	ImGui::StyleColorsDark();
 	ImGui_ImplSDL2_InitForVulkan(m_Window);
 
+	m_Scene.Register<VK::RTGeometry>();
+
 	ImGui::GetIO().IniFilename = "";
 
 	if (fs::exists(m_Settings.mSceneFile))

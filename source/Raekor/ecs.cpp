@@ -41,7 +41,7 @@ void RunTests()
 		name.name = "FirstEntity";
 	}
 
-	assert(ecs.IsValid(entity));
+	assert(ecs.Exists(entity));
 	assert(ecs.Has<TestName>(entity));
 	assert(ecs.Get<TestName>(entity).name == "FirstEntity");
 	assert(ecs.Count<TestName>() == 1);

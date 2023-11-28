@@ -23,7 +23,7 @@ void AssetsWidget::Draw(Widgets* inWidgets, float dt)
 
 	if (ImGui::BeginTable("Assets", 24))
 	{
-		for (auto [entity, material, name] : GetScene().Each<Material, Name>())
+		for (const auto& [entity, material, name] : GetScene().Each<Material, Name>())
 		{
 			ImGui::TableNextColumn();
 

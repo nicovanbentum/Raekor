@@ -38,10 +38,10 @@ enum EDebugTexture
     DEBUG_TEXTURE_GBUFFER_VELOCITY = 4,
     DEBUG_TEXTURE_GBUFFER_METALLIC = 5,
     DEBUG_TEXTURE_GBUFFER_ROUGHNESS = 6,
-    DEBUG_TEXTURE_RT_AO = 7,
+    DEBUG_TEXTURE_LIGHTING = 7,
     DEBUG_TEXTURE_RT_SHADOWS = 8,
     DEBUG_TEXTURE_RT_REFLECTIONS = 9,
-    DEBUG_TEXTURE_LIGHTING = 10,
+    DEBUG_TEXTURE_RT_AMBIENT_OCCLUSION = 10,
     DEBUG_TEXTURE_COUNT
 };
 
@@ -390,7 +390,7 @@ struct ProbeTraceData
     static inline DDGIData mDDGIData =
     {
         .mProbeCount = IVec3(22, 22, 22),
-        .mProbeSpacing = Vec3(6.4, 2.8, 2.8),
+        .mProbeSpacing = Vec3(6.4, 3.0, 2.8),
         .mCornerPosition = Vec3(-65, -1.4, -28.5)
     };
 

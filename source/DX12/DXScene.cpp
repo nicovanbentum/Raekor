@@ -225,11 +225,14 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
         if (!BufferID(mesh.BottomLevelAS).IsValid())
             continue;
 
+        auto material_index = m_Scene.GetSparseIndex<Material>(mesh.material);
+        material_index = material_index == UINT32_MAX ? 0 : material_index;
+
         rt_geometries.emplace_back(RTGeometry
         {
             .mIndexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.indexBuffer)),
             .mVertexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
-            .mMaterialIndex = GetMaterialIndex(mesh.material),
+            .mMaterialIndex = material_index,
             .mLocalToWorldTransform = transform.worldTransform,
             .mInvLocalToWorldTransform = glm::inverse(transform.worldTransform)
         });
@@ -302,16 +305,6 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
 
     const auto& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
     inStagingHeap.StageBuffer(inCmdList, materials_buffer, 0, rt_materials.data(), materials_buffer.GetSize());
-}
-
-
-
-uint32_t RayTracedScene::GetMaterialIndex(Entity inEntity)
-{
-    if (m_Scene.IsValid(inEntity) && m_Scene.Has<Material>(inEntity))
-        return m_Scene.GetSparseEntities<Material>()[inEntity];
-    else
-        return 0;
 }
 
 

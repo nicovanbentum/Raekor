@@ -50,8 +50,6 @@ public:
     void UploadInstances(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
     void UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
 
-    uint32_t GetMaterialIndex(Entity inEntity);
-
 private:
     BufferID GrowBuffer(Device& inDevice, BufferID inBuffer, const Buffer::Desc& inDesc);
 

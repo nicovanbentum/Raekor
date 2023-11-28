@@ -17,6 +17,9 @@ template<glm::length_t C, glm::length_t R, typename T>
 inline glm::mat<C, R, T> gFromString(const std::string& inValue);
 
 
+inline float gRadiansToDegrees(float inValue) { return inValue * ( 180.0f / M_PI ); }
+inline float gDegreesToRadians(float inValue) { return inValue * ( M_PI / 180.0f ); }
+
 struct BBox3D
 {
 	BBox3D() = default;

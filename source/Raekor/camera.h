@@ -26,7 +26,10 @@ public:
 	Vec3 GetForwardVector();
 
 	const Vec2& GetAngle() const { return m_Angle; }
+	void SetAngle(const Vec2& inAngle) { m_Angle = inAngle; }
+	
 	const Vec3& GetPosition() const { return m_Position; }
+	void SetPosition(const Vec3& inPosition) { m_Position = inPosition; }
 
 	Mat4x4& GetView() { return m_View; }
 	const Mat4x4& GetView() const { return m_View; }

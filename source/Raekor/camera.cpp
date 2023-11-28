@@ -179,7 +179,7 @@ bool CameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 
 
 Viewport::Viewport(Vec2 inSize) :
-	m_Camera(Vec3(0, 0.0, 0), glm::perspectiveRH(glm::radians(m_FieldOfView), m_AspectRatio, 0.1f, 1000.0f)),
+	m_Camera(Vec3(0, 0.0, 0), glm::perspectiveRH(glm::radians(m_FieldOfView), m_AspectRatio, 0.1f, 4096.0f)),
 	size(inSize),
 	m_DisplaySize(inSize)
 {

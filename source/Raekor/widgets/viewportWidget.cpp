@@ -22,6 +22,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	auto& physics = IWidget::GetPhysics();
 	auto& viewport = m_Editor->GetViewport();
 
+	static auto& show_debug_text = g_CVars.Create("r_show_debug_text", 1, IF_DEBUG_ELSE(true, false));
+
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2, 2));
 	const auto flags = ImGuiWindowFlags_AlwaysAutoResize |
 		ImGuiWindowFlags_NoScrollWithMouse |
@@ -79,7 +81,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		Mesh* mesh = nullptr;
 
-		if (scene.IsValid(picked))
+		if (scene.Exists(picked))
 		{
 			ImGui::BeginTooltip();
 
@@ -166,7 +168,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			SetActiveEntity(picked);
 	}
 
-	if (GetActiveEntity() != NULL_ENTITY && scene.IsValid(GetActiveEntity()) && scene.Has<Transform>(GetActiveEntity()) && gizmoEnabled)
+	if (GetActiveEntity() != NULL_ENTITY && scene.Has<Transform>(GetActiveEntity()) && gizmoEnabled)
 	{
 		ImGuizmo::SetDrawlist();
 		ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
@@ -208,7 +210,6 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	}
 
 	auto metricsPosition = ImGui::GetWindowPos();
-	metricsPosition.y += ImGui::GetFrameHeightWithSpacing();
 
 	if (auto dock_node = ImGui::GetCurrentWindow()->DockNode)
 		if (!dock_node->IsHiddenTabBar())
@@ -248,6 +249,62 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	DrawGizmoButton((const char*)ICON_FA_SYNC_ALT, ImGuizmo::OPERATION::ROTATE);
 	ImGui::SameLine();
 	DrawGizmoButton((const char*)ICON_FA_EXPAND_ARROWS_ALT, ImGuizmo::OPERATION::SCALE);
+
+	const auto cursor_pos = ImGui::GetCursorPos();
+	
+	ImGui::SameLine();
+	ImGui::Button((const char*)ICON_FA_COG);
+	
+	ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 5.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
+
+
+	if (ImGui::BeginPopupContextItem(NULL, ImGuiPopupFlags_MouseButtonLeft))
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));
+		ImGui::SeparatorText("Viewport Settings");
+
+		ImGui::Checkbox("Show Debug Text", (bool*) &show_debug_text);
+
+		auto& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
+		const auto debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
+
+		if (ImGui::BeginMenu("Debug Render Output"))
+		{
+			for (auto texture_idx = 0u; texture_idx < debug_texture_count; texture_idx++)
+			{
+				if (ImGui::RadioButton(m_Editor->GetRenderInterface()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx))
+				{
+					current_debug_texture = texture_idx;
+					m_Editor->GetRenderInterface()->OnResize(viewport); // not an actual resize, just to recreate render targets
+				}
+			}
+
+			ImGui::EndMenu();
+		}
+
+		ImGui::SeparatorText("Camera Settings");
+
+		auto position = viewport.GetCamera().GetPosition();
+		if (ImGui::DragFloat3("Position", glm::value_ptr(position)))
+			viewport.GetCamera().SetPosition(position);
+
+		auto orientation = viewport.GetCamera().GetAngle();
+		if (ImGui::DragFloat2("Orientation", glm::value_ptr(orientation), 0.001f, -FLT_MAX, FLT_MAX))
+			viewport.GetCamera().SetAngle(orientation);
+
+		auto field_of_view = viewport.GetFieldOfView();
+		if (ImGui::DragFloat("Field of View", &field_of_view)) 
+			viewport.SetFieldOfView(field_of_view);
+
+		ImGui::PopStyleVar();
+		ImGui::EndPopup();
+	}
+
+	ImGui::PopStyleVar();
+	ImGui::PopStyleVar();
+
+	ImGui::SetCursorPos(cursor_pos);
 
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(( ImGui::GetContentRegionAvail().x / 2 ));
@@ -298,27 +355,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	if (current_physics_state != Physics::Idle)
 		ImGui::PopStyleColor();
 
-	ImGui::SameLine(ImGui::GetContentRegionAvail().x - 256.0f);
-
-	auto& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
-	const auto debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
-	const auto preview = std::string("Render Output: " + std::string(m_Editor->GetRenderInterface()->GetDebugTextureName(current_debug_texture))); // allocs, BLEH TODO: FIXME
-	
 	ImGui::PopStyleColor();
-
-	if (ImGui::BeginCombo("##RenderTarget", preview.c_str()))
-	{
-		for (auto texture_idx = 0u; texture_idx < debug_texture_count; texture_idx++)
-		{
-			if (ImGui::Selectable(m_Editor->GetRenderInterface()->GetDebugTextureName(texture_idx), current_debug_texture == texture_idx))
-			{
-				current_debug_texture = texture_idx;
-				m_Editor->GetRenderInterface()->OnResize(viewport); // not an actual resize, just to recreate render targets
-			}
-		}
-
-		ImGui::EndCombo();
-	}
 
 	ImGui::End();
 	ImGui::PopStyleVar();
@@ -353,19 +390,22 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			triangle_count += mesh.indices.size();
 		triangle_count /= 3;
 
-		ImGui::Text("Buffers: %i", GetRenderInterface().GetGPUStats().mLiveBuffers.load());
-		ImGui::Text("Textures: %i", GetRenderInterface().GetGPUStats().mLiveTextures.load());
-		ImGui::Text("RTV Heap: %i", GetRenderInterface().GetGPUStats().mLiveRTVHeap.load());
-		ImGui::Text("DSV Heap: %i", GetRenderInterface().GetGPUStats().mLiveDSVHeap.load());
-		ImGui::Text("Sampler Heap: %i", GetRenderInterface().GetGPUStats().mLiveSamplerHeap.load());
-		ImGui::Text("Resource Heap: %i", GetRenderInterface().GetGPUStats().mLiveResourceHeap.load());
-		ImGui::Text("Materials: %i", GetScene().Count<Material>());
-		ImGui::Text("Draw calls: %i", GetScene().Count<Mesh>());
-		ImGui::Text("Transforms: %i", GetScene().Count<Transform>());
-		ImGui::Text("Triangle Count: %i", triangle_count);
-		ImGui::Text("Render Resolution: %i x %i", viewport.GetRenderSize().x, viewport.GetRenderSize().y);
-		ImGui::Text("Display Resolution: %i x %i", viewport.GetDisplaySize().x, viewport.GetDisplaySize().y);
-		ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		if (show_debug_text)
+		{
+			ImGui::Text("Buffers: %i", GetRenderInterface().GetGPUStats().mLiveBuffers.load());
+			ImGui::Text("Textures: %i", GetRenderInterface().GetGPUStats().mLiveTextures.load());
+			ImGui::Text("RTV Heap: %i", GetRenderInterface().GetGPUStats().mLiveRTVHeap.load());
+			ImGui::Text("DSV Heap: %i", GetRenderInterface().GetGPUStats().mLiveDSVHeap.load());
+			ImGui::Text("Sampler Heap: %i", GetRenderInterface().GetGPUStats().mLiveSamplerHeap.load());
+			ImGui::Text("Resource Heap: %i", GetRenderInterface().GetGPUStats().mLiveResourceHeap.load());
+			ImGui::Text("Materials: %i", GetScene().Count<Material>());
+			ImGui::Text("Draw calls: %i", GetScene().Count<Mesh>());
+			ImGui::Text("Transforms: %i", GetScene().Count<Transform>());
+			ImGui::Text("Triangle Count: %i", triangle_count);
+			ImGui::Text("Render Resolution: %i x %i", viewport.GetRenderSize().x, viewport.GetRenderSize().y);
+			ImGui::Text("Display Resolution: %i x %i", viewport.GetDisplaySize().x, viewport.GetDisplaySize().y);
+			ImGui::Text("Frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		}
 
 		ImGui::End();
 	}

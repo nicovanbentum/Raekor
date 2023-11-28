@@ -92,66 +92,72 @@ void Physics::Step(Scene& scene, float dt)
 
 void Physics::OnUpdate(Scene& scene)
 {
-	for (const auto& [entity, transform, collider] : scene.Each<Transform, BoxCollider>())
+	if (scene.Any<BoxCollider>() && scene.Count<BoxCollider>())
 	{
-		if (collider.bodyID.IsInvalid() && collider.settings.GetRefCount())
+		for (const auto& [entity, transform, collider] : scene.Each<Transform, BoxCollider>())
 		{
-			auto settings = JPH::BodyCreationSettings(
-				&collider.settings,
-				JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
-				JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-				collider.motionType,
-				EPhysicsObjectLayers::MOVING
-			);
+			if (collider.bodyID.IsInvalid() && collider.settings.GetRefCount())
+			{
+				auto settings = JPH::BodyCreationSettings(
+					&collider.settings,
+					JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
+					JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+					collider.motionType,
+					EPhysicsObjectLayers::MOVING
+				);
 
-			collider.settings.SetEmbedded();
+				collider.settings.SetEmbedded();
 
-			settings.mAllowDynamicOrKinematic = true;
-			collider.bodyID = m_Physics->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
-		}
-		else
-		{
-			const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
-			const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-			m_Physics->GetBodyInterface().SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
+				settings.mAllowDynamicOrKinematic = true;
+				collider.bodyID = m_Physics->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
+			}
+			else
+			{
+				const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
+				const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				m_Physics->GetBodyInterface().SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
+			}
 		}
 	}
 
-	for (const auto& [entity, transform, soft_body] : scene.Each<Transform, SoftBody>())
+	if (scene.Any<SoftBody>() && scene.Count<SoftBody>())
 	{
-		if (soft_body.mBodyID.IsInvalid() && soft_body.mSharedSettings.GetRefCount())
+		for (const auto& [entity, transform, soft_body] : scene.Each<Transform, SoftBody>())
 		{
-			auto settings = JPH::SoftBodyCreationSettings(
-				&soft_body.mSharedSettings,
-				JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
-				JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
-				EPhysicsObjectLayers::NON_MOVING
-			);
-
-			settings.mUpdatePosition = false;
-
-			soft_body.mBodyID = m_Physics->GetBodyInterface().CreateAndAddSoftBody(settings, JPH::EActivation::Activate);
-		}
-		else
-		{
-			const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
-			const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-			m_Physics->GetBodyInterface().SetPositionAndRotationWhenChanged(soft_body.mBodyID, position, rotation, JPH::EActivation::DontActivate);
-
-			if (auto body = m_Physics->GetBodyLockInterface().TryGetBody(soft_body.mBodyID))
+			if (soft_body.mBodyID.IsInvalid() && soft_body.mSharedSettings.GetRefCount())
 			{
-				if (!body->IsActive())
-					continue;
+				auto settings = JPH::SoftBodyCreationSettings(
+					&soft_body.mSharedSettings,
+					JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
+					JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+					EPhysicsObjectLayers::NON_MOVING
+				);
 
-				if (auto props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties())
+				settings.mUpdatePosition = false;
+
+				soft_body.mBodyID = m_Physics->GetBodyInterface().CreateAndAddSoftBody(settings, JPH::EActivation::Activate);
+			}
+			else
+			{
+				const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
+				const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				m_Physics->GetBodyInterface().SetPositionAndRotationWhenChanged(soft_body.mBodyID, position, rotation, JPH::EActivation::DontActivate);
+
+				if (auto body = m_Physics->GetBodyLockInterface().TryGetBody(soft_body.mBodyID))
 				{
-					if (auto mesh = scene.GetPtr<Mesh>(entity))
+					if (!body->IsActive())
+						continue;
+
+					if (auto props = (JPH::SoftBodyMotionProperties*)body->GetMotionProperties())
 					{
-						for (auto i = 0u; i < props->GetVertices().size(); i++)
+						if (auto mesh = scene.GetPtr<Mesh>(entity))
 						{
-							const auto& pos = props->GetVertex(i).mPosition;
-							mesh->positions[i] = Vec3(pos.GetX(), pos.GetY(), pos.GetZ());
-							mesh->positions[i] *= Vec3(1.0f) / transform.scale;
+							for (auto i = 0u; i < props->GetVertices().size(); i++)
+							{
+								const auto& pos = props->GetVertex(i).mPosition;
+								mesh->positions[i] = Vec3(pos.GetX(), pos.GetY(), pos.GetZ());
+								mesh->positions[i] *= Vec3(1.0f) / transform.scale;
+							}
 						}
 					}
 				}

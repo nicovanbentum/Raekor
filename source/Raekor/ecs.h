@@ -180,6 +180,14 @@ public:
 		return m_Components[m_Sparse[entity]];
 	}
 
+	uint32_t GetSparseIndex(Entity entity) const
+	{
+		if (!Contains(entity))
+			return UINT32_MAX;
+
+		return m_Sparse[entity];
+	}
+
 	void Remove(Entity entity) override final
 	{
 		if (!Contains(entity))
@@ -301,6 +309,13 @@ public:
 	}
 
 	template<typename Component>
+	void Register()
+	{
+		if (!m_Components.contains(gGetTypeHash<Component>()))
+			m_Components[gGetRTTI<Component>().mHash] = new ecs::ComponentStorage<Component>();
+	}
+
+	template<typename Component>
 	Component& _GetInternal(Entity entity)
 	{
 		return GetComponentStorage<Component>()->Get(entity);
@@ -378,6 +393,12 @@ public:
 		return GetComponentStorage<Component>()->GetSparseEntities();
 	}
 
+	template<typename Component>
+	uint32_t GetSparseIndex(Entity inEntity) const
+	{
+		return GetComponentStorage<Component>()->GetSparseIndex(inEntity);
+	}
+
 	void Clear()
 	{
 		for (const auto& [type_id, components] : m_Components)
@@ -398,6 +419,18 @@ public:
 		}( ) );
 
 		return has_all;
+	}
+
+	bool Exists(Entity inEntity) const
+	{
+		if (inEntity == NULL_ENTITY)
+			return false;
+
+		for (auto entity : m_Entities)
+			if (entity == inEntity)
+				return true;
+
+		return false;
 	}
 
 	template<typename Component>
@@ -571,16 +604,10 @@ public:
 		}
 	}
 
-	bool IsValid(Entity inEntity) const
+	template<typename Component>
+	bool Contains(Entity inEntity) const
 	{
-		if (inEntity == NULL_ENTITY)
-			return false;
-
-		for (auto entity : m_Entities)
-			if (entity == inEntity)
-				return true;
-
-		return false;
+		return GetComponentStorage<Component>()->Contains(inEntity);
 	}
 
 	bool IsEmpty() const { return m_Entities.empty(); }

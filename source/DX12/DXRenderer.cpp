@@ -264,9 +264,13 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_PendingMaterialUploads.clear();
 
     //// Record uploads for the RT scene 
-    inScene.UploadInstances(inApp, inDevice, inStagingHeap, copy_cmd_list);
-    inScene.UploadMaterials(inApp, inDevice, inStagingHeap, copy_cmd_list);
-    inScene.UploadTLAS(inApp, inDevice, inStagingHeap, copy_cmd_list);
+    static const auto& upload_tlas = g_CVars.Create("upload_scene", 1, true);
+    if (upload_tlas)
+    {
+        inScene.UploadInstances(inApp, inDevice, inStagingHeap, copy_cmd_list);
+        inScene.UploadMaterials(inApp, inDevice, inStagingHeap, copy_cmd_list);
+        inScene.UploadTLAS(inApp, inDevice, inStagingHeap, copy_cmd_list);
+    }
 
     //// Submit all copy commands
     copy_cmd_list.Close();
@@ -409,7 +413,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
             if (auto data = m_RenderGraph.GetPass<RTShadowMaskData>())
                 final_output = data->GetData().mOutputTexture;
             break;
-        case DEBUG_TEXTURE_RT_AO:
+        case DEBUG_TEXTURE_RT_AMBIENT_OCCLUSION:
             if (auto data = m_RenderGraph.GetPass<RTAOData>())
                 final_output = data->GetData().mOutputTexture;
             break;
@@ -667,17 +671,17 @@ const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
 {
     constexpr auto names = std::array 
     {
-        "Final",
+        "None",
         "Depth",
         "Albedo",
         "Normals",
         "Velocity",
         "Metallic",
         "Roughness",
-        "RT AO",
+        "Lighting",
         "RT Shadows",
         "RT Reflections",
-        "Lighting"
+        "RT Ambient Occlusion"
     };
 
     static_assert( names.size() == DEBUG_TEXTURE_COUNT );
@@ -1003,7 +1007,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             inCmdList->DrawIndexedInstanced(mesh.indices.size(), 1, 0, 0, 0);
         }
 
-        std::cout << std::format("gbuffer pass took {:.2f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
+        // std::cout << std::format("gbuffer pass took {:.2f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
     });
 }
 

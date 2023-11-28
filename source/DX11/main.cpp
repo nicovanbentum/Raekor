@@ -189,6 +189,9 @@ public:
 
     DX11App() : Application(WindowFlag::RESIZE), m_Renderer(m_Viewport, m_Window), m_Scene(nullptr)
     {
+        m_Scene.Register<DXMesh>();
+        m_Scene.Register<DXMaterial>();
+
         while (!fs::exists(m_Settings.mSceneFile))
             m_Settings.mSceneFile = fs::relative(OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0")).string();
 
@@ -224,7 +227,7 @@ public:
             {
                 UploadMesh(mesh, geometry);
 
-                if (m_Scene.IsValid(mesh.material))
+                if (m_Scene.Exists(mesh.material))
                 {
                     const auto& [material, dx_material] = m_Scene.Get<Material, DXMaterial>(mesh.material);
                     if (!dx_material.IsReady())
