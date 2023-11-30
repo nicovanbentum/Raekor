@@ -114,7 +114,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 		// update Transform components
 		m_Scene.UpdateTransforms();
 
-		// update PointLight and DirectionalLight components
+		// update Light and DirectionalLight components
 		m_Scene.UpdateLights();
 	}
 

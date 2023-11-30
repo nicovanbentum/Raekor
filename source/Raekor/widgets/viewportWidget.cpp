@@ -294,7 +294,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			viewport.GetCamera().SetAngle(orientation);
 
 		auto field_of_view = viewport.GetFieldOfView();
-		if (ImGui::DragFloat("Field of View", &field_of_view)) 
+		if (ImGui::DragFloat("Field of View", &field_of_view, 0.1f)) 
 			viewport.SetFieldOfView(field_of_view);
 
 		ImGui::PopStyleVar();

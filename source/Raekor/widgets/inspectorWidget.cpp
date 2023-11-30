@@ -593,9 +593,28 @@ void InspectorWidget::DrawComponent(Transform& inTransform)
 }
 
 
-void InspectorWidget::DrawComponent(PointLight& inPointLight)
+void InspectorWidget::DrawComponent(Light& inLight)
 {
-	ImGui::ColorEdit4("Colour", glm::value_ptr(inPointLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+	constexpr auto type_names = std::array { "None", "Spot", "Point" };
+	ImGui::Combo("Type", (int*)&inLight.type, type_names.data(), type_names.size());
+
+	ImGui::ColorEdit3("Colour", glm::value_ptr(inLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+	ImGui::DragFloat("Intensity", &inLight.colour.a, 0.001f);
+
+	switch (inLight.type)
+	{
+		case LIGHT_TYPE_POINT:
+		{
+			ImGui::DragFloat("Radius", &inLight.attributes.x, 0.001f);
+		} break;
+
+		case LIGHT_TYPE_SPOT:
+		{
+			ImGui::DragFloat("Range", &inLight.attributes.x, 0.001f);
+			ImGui::DragFloat("Inner Cone Angle", &inLight.attributes.y, 0.001f);
+			ImGui::DragFloat("Outer Cone Angle", &inLight.attributes.z, 0.001f);
+		} break;
+	}
 }
 
 

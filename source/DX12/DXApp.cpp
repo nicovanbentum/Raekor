@@ -36,6 +36,8 @@ DXApp::DXApp() :
     g_RTTIFactory.Register(RTTI_OF(EShaderProgramType));
     g_RTTIFactory.Register(RTTI_OF(DDGISceneSettings));
 
+    m_Scene.Register<DDGISceneSettings>();
+
     m_Widgets.Register<DebugWidget>(this);
 
     Timer timer;

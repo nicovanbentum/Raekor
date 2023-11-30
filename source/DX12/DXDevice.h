@@ -22,6 +22,7 @@ public:
     const ID3D12Device5* operator-> () const { return m_Device.Get(); }
 
     bool IsDLSSSupported() const { return mIsDLSSSupported; }
+    bool IsDLSSInitialized() const { return mIsDLSSInitialized; }
     bool IsTearingSupported() const { return mIsTearingSupported; }
 
     [[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() const { return m_GlobalRootSignature.Get(); }
@@ -104,6 +105,7 @@ private:
 
 private:
     BOOL mIsDLSSSupported = false;
+    BOOL mIsDLSSInitialized = false;
     BOOL mIsTearingSupported = false;
     ComPtr<ID3D12Device5> m_Device;
     ComPtr<IDXGIAdapter1> m_Adapter;

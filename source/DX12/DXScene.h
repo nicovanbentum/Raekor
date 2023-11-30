@@ -39,6 +39,7 @@ public:
     inline const Settings& GetSettings() const { return m_Settings; }
 
     DescriptorID GetTLASDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_TLASBuffer).GetDescriptor(); }
+    DescriptorID GetLightsDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_LightsBuffer).GetDescriptor(); }
     DescriptorID GetInstancesDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_InstancesBuffer).GetDescriptor(); }
     DescriptorID GetMaterialsDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_MaterialsBuffer).GetDescriptor(); }
 
@@ -47,6 +48,7 @@ public:
     void UploadMaterial(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Material& inMaterial, CommandList& inCmdList);
 
     void UploadTLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
+    void UploadLights(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
     void UploadInstances(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
     void UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
 
@@ -56,6 +58,7 @@ private:
 private:
     Scene& m_Scene;
     BufferID m_TLASBuffer;
+    BufferID m_LightsBuffer;
     BufferID m_ScratchBuffer;
     BufferID m_MaterialsBuffer;
     BufferID m_InstancesBuffer;

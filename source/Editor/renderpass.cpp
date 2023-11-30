@@ -600,7 +600,7 @@ void DeferredShading::Render(const Scene& inScene, const Viewport& viewport,
         uniforms.dirLight = *sunlight;
 
     unsigned int i = 0;
-    for (auto [entity, transform, light] : inScene.Each<Transform, PointLight>())
+    for (auto [entity, transform, light] : inScene.Each<Transform, Light>())
     {
 
         i++;
@@ -620,7 +620,7 @@ void DeferredShading::Render(const Scene& inScene, const Viewport& viewport,
     }
 
     uniforms2.bloomThreshold = glm::vec4(settings.bloomThreshold, 0.0f);
-    uniforms2.pointLightCount = static_cast<uint32_t>( inScene.Count<PointLight>() );
+    uniforms2.pointLightCount = static_cast<uint32_t>( inScene.Count<Light>() );
     uniforms2.directionalLightCount = static_cast<uint32_t>( inScene.Count<DirectionalLight>() );;
     uniforms2.voxelWorldSize = voxels.worldSize;
     uniforms2.invViewProjection = glm::inverse(uniforms.projection * uniforms.view);
@@ -1324,6 +1324,37 @@ void Icons::Render(const Scene& scene, const Viewport& viewport, GLuint colorAtt
     for (const auto& [entity, light, transform] : scene.Each<DirectionalLight, Transform>())
     {
 
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, transform.position);
+
+        glm::vec3 V;
+        V.x = viewport.GetCamera().GetPosition().x - transform.position.x;
+        V.y = 0;
+        V.z = viewport.GetCamera().GetPosition().z - transform.position.z;
+
+        auto Vnorm = glm::normalize(V);
+
+        glm::vec3 lookAt = glm::vec3(0.0f, 0.0f, 1.0f);
+
+        auto upAux = glm::cross(lookAt, Vnorm);
+        auto cosTheta = glm::dot(lookAt, Vnorm);
+
+        model = glm::rotate(model, acos(cosTheta), upAux);
+
+        model = glm::scale(model, glm::vec3(glm::length(V) * 0.05f));
+
+        uniforms.mvp = vp * model;
+        uniforms.entity = uint32_t(entity);
+        uniforms.world_position = glm::vec4(transform.position, 1.0);
+
+        glNamedBufferSubData(uniformBuffer, 0, sizeof(uniforms), &uniforms);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
+
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    for (const auto& [entity, light, transform] : scene.Each<Light, Transform>())
+    {
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, transform.position);
 

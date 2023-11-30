@@ -192,7 +192,15 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 	}
 
 	if (inNode.light)
-		ConvertLight(m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity()), *inNode.light);
+	{
+		const auto entity = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity());
+
+		auto& transform = m_Scene.Get<Transform>(entity);
+		transform.localTransform = inTransform;
+		transform.Decompose();
+
+		ConvertLight(entity, *inNode.light);
+	}
 
 	for (const auto& child : Slice(inNode.children, inNode.children_count))
 		ParseNode(*child, inParent, inTransform);
@@ -279,7 +287,23 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 
 void GltfImporter::ConvertLight(Entity inEntity, const cgltf_light& inLight)
 {
+	m_Scene.Get<Name>(inEntity).name = inLight.name;
+
+	if (inLight.type == cgltf_light_type_point)
+	{
+		auto& light = m_Scene.Add<Light>(inEntity);
+
+		light.type = LIGHT_TYPE_POINT;
+		light.colour = Vec4(inLight.color[0], inLight.color[1], inLight.color[2], inLight.intensity);
+	}
 	
+	if (inLight.type == cgltf_light_type_spot)
+	{
+		auto& light = m_Scene.Add<Light>(inEntity);
+
+		light.type = LIGHT_TYPE_SPOT;
+		light.colour = Vec4(inLight.color[0], inLight.color[1], inLight.color[2], inLight.intensity);
+	}
 }
 
 

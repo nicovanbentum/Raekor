@@ -136,7 +136,7 @@ void Scene::UpdateLights()
 	for (auto [entity, light, transform] : Each<DirectionalLight, Transform>())
 		light.direction = Vec4(static_cast<glm::quat>( transform.rotation ) * glm::vec3(0, -1, 0), 1.0);
 
-	for (auto [entity, light, transform] : Each<PointLight, Transform>())
+	for (auto [entity, light, transform] : Each<Light, Transform>())
 		light.position = Vec4(transform.position, 1.0f);
 }
 

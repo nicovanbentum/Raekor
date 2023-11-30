@@ -49,37 +49,41 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&m_Adapter));
     gThrowIfFailed(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m_Device)));
     
-    auto temp_path = fs::temp_directory_path().wstring();
+    const static auto disable_dlss = OS::sCheckCommandLineOption("-disable_dlss");
+    if (!disable_dlss)
+    {
+        auto temp_path = fs::temp_directory_path().wstring();
 
-    NVSDK_NGX_Application_Identifier ngx_app_id = {};
-    ngx_app_id.IdentifierType = NVSDK_NGX_Application_Identifier_Type_Application_Id;
-    ngx_app_id.v.ApplicationId = 0xdeadbeef;
+        NVSDK_NGX_Application_Identifier ngx_app_id = {};
+        ngx_app_id.IdentifierType = NVSDK_NGX_Application_Identifier_Type_Application_Id;
+        ngx_app_id.v.ApplicationId = 0xdeadbeef;
 
-    static const auto NGXLogCallback = [](const char* message, NVSDK_NGX_Logging_Level loggingLevel, NVSDK_NGX_Feature sourceComponent) {
-        std::cout << message << '\n';
-    };
+        static const auto NGXLogCallback = [](const char* message, NVSDK_NGX_Logging_Level loggingLevel, NVSDK_NGX_Feature sourceComponent) {
+            std::cout << message << '\n';
+        };
 
-    NVSDK_NGX_FeatureCommonInfo ngx_common_info = {};
-    ngx_common_info.LoggingInfo.LoggingCallback = NGXLogCallback;
-    ngx_common_info.LoggingInfo.MinimumLoggingLevel = NVSDK_NGX_LOGGING_LEVEL_VERBOSE;
-    ngx_common_info.LoggingInfo.DisableOtherLoggingSinks = true;
+        NVSDK_NGX_FeatureCommonInfo ngx_common_info = {};
+        ngx_common_info.LoggingInfo.LoggingCallback = NGXLogCallback;
+        ngx_common_info.LoggingInfo.MinimumLoggingLevel = NVSDK_NGX_LOGGING_LEVEL_VERBOSE;
+        ngx_common_info.LoggingInfo.DisableOtherLoggingSinks = true;
 
-    NVSDK_NGX_FeatureDiscoveryInfo feature_info = {};
-    feature_info.SDKVersion = NVSDK_NGX_Version_API;
-    feature_info.FeatureID = NVSDK_NGX_Feature_SuperSampling;
-    feature_info.Identifier = ngx_app_id;
-    feature_info.ApplicationDataPath = temp_path.c_str();
-    feature_info.FeatureInfo = &ngx_common_info;
+        NVSDK_NGX_FeatureDiscoveryInfo feature_info = {};
+        feature_info.SDKVersion = NVSDK_NGX_Version_API;
+        feature_info.FeatureID = NVSDK_NGX_Feature_SuperSampling;
+        feature_info.Identifier = ngx_app_id;
+        feature_info.ApplicationDataPath = temp_path.c_str();
+        feature_info.FeatureInfo = &ngx_common_info;
 
-    NVSDK_NGX_FeatureRequirement nv_supported = {};
-    const auto ngx_result = NVSDK_NGX_D3D12_GetFeatureRequirements(m_Adapter.Get(), &feature_info, &nv_supported);
+        NVSDK_NGX_FeatureRequirement nv_supported = {};
+        const auto ngx_result = NVSDK_NGX_D3D12_GetFeatureRequirements(m_Adapter.Get(), &feature_info, &nv_supported);
 
-    if (ngx_result == NVSDK_NGX_Result::NVSDK_NGX_Result_Success && nv_supported.FeatureSupported == 0)
-        mIsDLSSSupported = true;
-    else if (ngx_result != NVSDK_NGX_Result_FAIL_FeatureNotSupported)
-        gThrowIfFailed(ngx_result);
+        if (ngx_result == NVSDK_NGX_Result::NVSDK_NGX_Result_Success && nv_supported.FeatureSupported == 0)
+            mIsDLSSSupported = true;
+        else if (ngx_result != NVSDK_NGX_Result_FAIL_FeatureNotSupported)
+            gThrowIfFailed(ngx_result);
 
-    gThrowIfFailed(NVSDK_NGX_D3D12_Init(0xdeadbeef, temp_path.c_str(), m_Device.Get()));
+        gThrowIfFailed(NVSDK_NGX_D3D12_Init(0xdeadbeef, temp_path.c_str(), m_Device.Get()));
+    }
 
     const auto allocator_desc = D3D12MA::ALLOCATOR_DESC { .pDevice = m_Device.Get(), .pAdapter = m_Adapter.Get() };
     gThrowIfFailed(D3D12MA::CreateAllocator(&allocator_desc, &m_Allocator));

@@ -126,7 +126,10 @@ void Application::Run()
 
 void Application::AddRecentScene(const Path& inPath) 
 { 
+	const auto cMaxSize = 5u;
+
 	std::vector<Path> new_paths;
+	new_paths.reserve(cMaxSize);
 
 	new_paths.push_back(inPath);
 
@@ -138,7 +141,7 @@ void Application::AddRecentScene(const Path& inPath)
 		new_paths.push_back(path);
 	}
 
-	if (new_paths.size() > 5)
+	if (new_paths.size() > cMaxSize)
 		new_paths.pop_back();
 
 	m_Settings.mRecentScenes = new_paths;

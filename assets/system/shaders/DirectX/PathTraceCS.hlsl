@@ -81,41 +81,19 @@ void main(uint3 threadID : SV_DispatchThreadID)
             
             // brdf.mAlbedo.rgb *= 4.0f;
             
-            irradiance = brdf.mEmissive;
+            // irradiance = brdf.mEmissive;
             
             const float3 Wo = -ray.Direction;
             
             {
-                const float3 light_dir = normalize(fc.mSunDirection.xyz);
-                float2 diskPoint = uniformSampleDisk(pcg_float2(rng), fc.mSunConeAngle);
-                float3 Wi = -(light_dir + float3(diskPoint.x, 0.0, diskPoint.y));
+                // sample a ray direction towards the sun disk
+                float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, rng);
             
                 // Check if the sun is visible
-                RayDesc shadow_ray;
-                shadow_ray.Origin = vertex.mPos + vertex.mNormal * 0.01;
-                shadow_ray.Direction = Wi;
-                shadow_ray.TMin = 0.1;
-                shadow_ray.TMax = 1000.0;
+                bool hit = ShootShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
                 
-                uint shadow_ray_flags = RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;
-    
-                RayQuery <RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER> shadow_query;
-
-                shadow_query.TraceRayInline(TLAS, shadow_ray_flags, 0xFF, shadow_ray);
-                shadow_query.Proceed();
-                
-                float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * fc.mSunColor.a;
-                sunlight_luminance *= shadow_query.CommittedStatus() != COMMITTED_TRIANGLE_HIT;
-                
-                const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
-                
-                const float3 Wh = normalize(Wo + Wi);
-                
-                // Evalulate the BRDF
-                const float3 l = brdf.Evaluate(Wo, Wi, Wh);
-                
-                // Add irradiance
-                irradiance += l * NdotL * sunlight_luminance;
+                if (hit)
+                    irradiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo, rng);
             }
             
             { // sample the BRDF to get new outgoing direction , update ray dir and pos

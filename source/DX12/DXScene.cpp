@@ -209,6 +209,30 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
 
 
 
+void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
+{
+    static_assert( sizeof(Light) == sizeof(RTLight) );
+
+    if (!m_Scene.Count<Light>())
+        return;
+
+    const auto lights = m_Scene.GetComponentStorage<Light>()->GetComponents();
+
+    m_LightsBuffer = GrowBuffer(inDevice, m_LightsBuffer, Buffer::Desc
+    {
+        .size   = sizeof(Light) * lights.Length(),
+        .stride = sizeof(Light),
+        .usage  = Buffer::Usage::SHADER_READ_ONLY,
+        .debugName = L"RT_LIGHTS_BUFFER"
+    });
+
+    const auto& lights_buffer = inDevice.GetBuffer(m_LightsBuffer);
+    
+    inStagingHeap.StageBuffer(inCmdList, lights_buffer, 0, lights.GetPtr(), lights_buffer.GetSize());
+}
+
+
+
 void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
 {
     if (!m_Scene.Count<Mesh>())

@@ -78,6 +78,15 @@ struct RTMaterial
 };
 
 
+struct RTLight
+{
+    uint mType;
+    float4 mPosition;
+    float4 mColor;
+    float4 mAttributes;
+};
+
+
 struct RTVertex
 {
     float3 mPos;
@@ -237,13 +246,15 @@ struct PathTraceRootConstants
 {
     uint  mTLAS;
     uint  mBounces;
+    uint  mLightsBuffer;
     uint  mInstancesBuffer;
     uint  mMaterialsBuffer;
-    uint2 mDispatchSize;
     uint  mResultTexture;
     uint  mAccumulationTexture;
-    bool  mReset;
-    float mAlpha;
+    uint  mPad0;
+    uint2 mDispatchSize;
+    uint  mReset;
+    float mLightsCount;
 };
 STATIC_ASSERT(sizeof(PathTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 

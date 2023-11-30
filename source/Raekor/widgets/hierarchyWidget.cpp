@@ -21,6 +21,10 @@ void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::Begin(m_Title.c_str(), &m_Open);
 	m_Visible = ImGui::IsWindowAppearing();
 
+	ImGui::PushItemWidth(-1);
+	ImGui::InputText("##Filter", &m_Filter);
+	ImGui::PopItemWidth();
+
 	ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetColorU32(ImGuiCol_TabHovered));
 	ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetColorU32(ImGuiCol_TabHovered));
 

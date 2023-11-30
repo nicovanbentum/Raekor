@@ -20,6 +20,8 @@ private:
 	void DrawFamily(Scene& inScene, Entity inParent, Entity& inActive);
 	bool DrawFamilyNode(Scene& inScene, Entity inEntity, Entity& inActive);
 	void DrawChildlessNode(Scene& inScene, Entity inEntity, Entity& inActive);
+
+	std::string m_Filter;
 };
 
 }

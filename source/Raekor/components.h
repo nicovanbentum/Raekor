@@ -57,19 +57,24 @@ struct SCRIPT_INTERFACE DirectionalLight
 };
 
 
-struct SCRIPT_INTERFACE PointLight
+enum ELightType
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(PointLight);
-
-	glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
-	glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+	LIGHT_TYPE_NONE = 0,
+	LIGHT_TYPE_SPOT,
+	LIGHT_TYPE_POINT,
+	LIGHT_TYPE_COUNT
 };
+RTTI_DECLARE_ENUM(ELightType);
 
-struct Light
+
+struct SCRIPT_INTERFACE Light
 {
+	RTTI_DECLARE_TYPE_NO_VIRTUAL(Light);
 
-	glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f };
-	glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+	ELightType type = LIGHT_TYPE_NONE;
+	glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f }; // could be used as dir for DirectionalLight?
+	glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f }; // rgb = color, a = intensity
+	glm::vec4 attributes = { 0.0f, 0.0f, 0.0f, 0.0f }; // range, spot inner cone angle, spot outer cone angle
 };
 
 
@@ -250,7 +255,7 @@ static constexpr auto Components = std::make_tuple(
 	ComponentDescription<Mesh>              {"Mesh"},
 	ComponentDescription<SoftBody>          {"Soft Body"},
 	ComponentDescription<Material>          {"Material"},
-	ComponentDescription<PointLight>        {"Point Light"},
+	ComponentDescription<Light>				{"Light"},
 	ComponentDescription<DirectionalLight>  {"Directional Light"},
 	ComponentDescription<BoxCollider>       {"Box Collider"},
 	ComponentDescription<Skeleton>          {"Skeleton"},

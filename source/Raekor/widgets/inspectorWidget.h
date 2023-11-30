@@ -12,7 +12,7 @@ struct Skeleton;
 struct SoftBody;
 struct Material;
 struct Transform;
-struct PointLight;
+struct Light;
 struct BoxCollider;
 struct NativeScript;
 struct DirectionalLight;
@@ -37,7 +37,7 @@ private:
 	void DrawComponent(Skeleton& ioSkeleton);
 	void DrawComponent(Material& ioMaterial);
 	void DrawComponent(Transform& ioTransform);
-	void DrawComponent(PointLight& ioPointLight);
+	void DrawComponent(Light& ioPointLight);
 	void DrawComponent(BoxCollider& ioBoxCollider);
 	void DrawComponent(NativeScript& ioNativeScript);
 	void DrawComponent(DirectionalLight& ioDirectionalLight);

@@ -417,7 +417,7 @@ private:
         glm::vec4 shadowSplits;
         glm::vec4 cameraPosition;
         DirectionalLight dirLight;
-        PointLight pointLights[10];
+        Light pointLights[10];
     } uniforms;
 
     struct Uniforms2

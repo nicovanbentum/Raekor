@@ -101,22 +101,28 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				}
 			}
 
-			if (ImGui::BeginMenu("Recent scenes"))
+			if (!m_Editor->GetSettings().mRecentScenes.empty())
 			{
-				for (const auto& scene : m_Editor->GetSettings().mRecentScenes)
+				if (ImGui::BeginMenu("Recent scenes"))
 				{
-					const auto& scene_str = scene.string();
-					
-					if (ImGui::MenuItem(scene_str.c_str()))
+					for (const auto& scene : m_Editor->GetSettings().mRecentScenes)
 					{
-						m_Editor->GetScene()->OpenFromFile(scene_str, IWidget::GetAssets());
+						const auto& scene_str = scene.string();
+					
+						if (ImGui::MenuItem(scene_str.c_str()))
+						{
+							m_Editor->GetScene()->OpenFromFile(scene_str, IWidget::GetAssets());
 
-						m_Editor->AddRecentScene(scene_str);
+							m_Editor->AddRecentScene(scene_str);
+
+							SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("Raekor Editor - " + scene_str).c_str());
+						}
 					}
-				}
 
-				ImGui::EndMenu();
+					ImGui::EndMenu();
+				}
 			}
+
 
 			if (ImGui::MenuItem("Save screenshot.."))
 			{
@@ -302,7 +308,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				if (ImGui::MenuItem("Point Light"))
 				{
 					auto entity = scene.CreateSpatialEntity("Point Light");
-					scene.Add<PointLight>(entity);
+					scene.Add<Light>(entity);
 					m_Editor->SetActiveEntity(entity);
 				}
 

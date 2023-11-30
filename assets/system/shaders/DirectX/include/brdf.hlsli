@@ -2,6 +2,7 @@
 #define BRDF_HLSLI
 
 #include "shared.h"
+#include "sky.hlsli"
 #include "packing.hlsli"
 #include "bindless.hlsli"
 #include "random.hlsli"
@@ -178,5 +179,47 @@ struct BRDF {
         }
     }
 };
+
+
+bool ShootShadowRay(RaytracingAccelerationStructure inTLAS, float3 inRayPos, float3 inRayDir, float inTMin, float inTMax)
+{
+    RayDesc shadow_ray;
+    shadow_ray.Origin = inRayPos;
+    shadow_ray.Direction = inRayDir;
+    shadow_ray.TMin = inTMin;
+    shadow_ray.TMax = inTMax;
+                
+    uint shadow_ray_flags = RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;
+    
+    RayQuery < RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER > query;
+
+    query.TraceRayInline(inTLAS, shadow_ray_flags, 0xFF, shadow_ray);
+    query.Proceed();
+                
+    return query.CommittedStatus() != COMMITTED_TRIANGLE_HIT;
+}
+
+
+float3 SampleDirectionalLight(float3 inLightDir, float inConeAngle, inout uint ioRNG)
+{
+    const float3 light_dir = normalize(inLightDir.xyz);
+    float2 diskPoint = uniformSampleDisk(pcg_float2(ioRNG), inConeAngle);
+    return -(light_dir + float3(diskPoint.x, 0.0, diskPoint.y));
+}
+    
+
+float3 EvaluateDirectionalLight(BRDF inBrdf, float4 inLightColor, float3 Wi, float3 Wo, inout uint ioRNG)
+{             
+    float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * inLightColor.a;
+                
+    const float NdotL = max(dot(inBrdf.mNormal, Wi), 0.0);
+                
+    const float3 Wh = normalize(Wo + Wi);
+                
+    const float3 l = inBrdf.Evaluate(Wo, Wi, Wh);
+                
+    return l * NdotL * sunlight_luminance;
+}
+
 
 #endif // BRDF_HLSLI

@@ -30,10 +30,20 @@ RTTI_DEFINE_TYPE(DirectionalLight)
 }
 
 
-RTTI_DEFINE_TYPE(PointLight)
+RTTI_DEFINE_ENUM(ELightType)
 {
-	RTTI_DEFINE_MEMBER(PointLight, SERIALIZE_ALL, "Position", position);
-	RTTI_DEFINE_MEMBER(PointLight, SERIALIZE_ALL, "Color", colour);
+	RTTI_DEFINE_ENUM_MEMBER(ELightType, SERIALIZE_ALL, "None", LIGHT_TYPE_NONE);
+	RTTI_DEFINE_ENUM_MEMBER(ELightType, SERIALIZE_ALL, "Spot", LIGHT_TYPE_SPOT);
+	RTTI_DEFINE_ENUM_MEMBER(ELightType, SERIALIZE_ALL, "Point", LIGHT_TYPE_POINT);
+}
+
+
+RTTI_DEFINE_TYPE(Light)
+{
+	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Type", type);
+	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Position", position);
+	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Color", colour);
+	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Attributes", attributes);
 }
 
 
@@ -112,7 +122,7 @@ void gRegisterComponentTypes()
 	g_RTTIFactory.Register(RTTI_OF(Material));
 	g_RTTIFactory.Register(RTTI_OF(BoxCollider));
 	g_RTTIFactory.Register(RTTI_OF(DirectionalLight));
-	g_RTTIFactory.Register(RTTI_OF(PointLight));
+	g_RTTIFactory.Register(RTTI_OF(Light));
 	g_RTTIFactory.Register(RTTI_OF(SoftBody));
 	g_RTTIFactory.Register(RTTI_OF(Bone));
 	g_RTTIFactory.Register(RTTI_OF(Skeleton));

@@ -270,6 +270,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         inScene.UploadInstances(inApp, inDevice, inStagingHeap, copy_cmd_list);
         inScene.UploadMaterials(inApp, inDevice, inStagingHeap, copy_cmd_list);
         inScene.UploadTLAS(inApp, inDevice, inStagingHeap, copy_cmd_list);
+        inScene.UploadLights(inApp, inDevice, inStagingHeap, copy_cmd_list);
     }
 
     //// Submit all copy commands
@@ -1278,17 +1279,24 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
     {
         auto& viewport = inRenderGraph.GetViewport();
 
-        inCmdList.PushComputeConstants(PathTraceRootConstants
+        auto constants = PathTraceRootConstants
         {
             .mTLAS                  = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
             .mBounces               = inData.mBounces,
             .mInstancesBuffer       = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
             .mMaterialsBuffer       = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
-            .mDispatchSize          = viewport.size,
             .mResultTexture         = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mOutputTexture)),
             .mAccumulationTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mAccumulationTexture)),
+            .mDispatchSize          = viewport.size,
             .mReset                 = PathTraceData::mReset,
-        });
+        };
+
+        constants.mLightsCount = inScene->Count<Light>();
+
+        if (constants.mLightsCount > 0)
+            constants.mLightsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetLightsDescriptor(inDevice));
+
+        inCmdList.PushComputeConstants(constants);
 
         inCmdList->SetPipelineState(g_SystemShaders.mRTPathTraceShader.GetComputePSO());
         inCmdList->Dispatch((viewport.size.x + 7) / 8, (viewport.size.y + 7) / 8, 1);
