@@ -605,7 +605,7 @@ void InspectorWidget::DrawComponent(Light& inLight)
 	{
 		case LIGHT_TYPE_POINT:
 		{
-			ImGui::DragFloat("Radius", &inLight.attributes.x, 0.001f);
+			ImGui::DragFloat("Radius", &inLight.attributes.x, 0.001f, 0.0f, 100.0f);
 		} break;
 
 		case LIGHT_TYPE_SPOT:
@@ -613,6 +613,7 @@ void InspectorWidget::DrawComponent(Light& inLight)
 			ImGui::DragFloat("Range", &inLight.attributes.x, 0.001f);
 			ImGui::DragFloat("Inner Cone Angle", &inLight.attributes.y, 0.001f);
 			ImGui::DragFloat("Outer Cone Angle", &inLight.attributes.z, 0.001f);
+			ImGui::DragFloat3("Direction", &inLight.direction[0], 0.001f);
 		} break;
 	}
 }

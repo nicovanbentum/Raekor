@@ -22,10 +22,73 @@ void GLApp::OnUpdate(float inDeltaTime)
     IEditor::OnUpdate(inDeltaTime);
 
     // add debug geometry around a selected mesh
-    if (GetActiveEntity() != NULL_ENTITY && m_Scene.Has<Mesh>(m_ActiveEntity))
+    if (GetActiveEntity() != NULL_ENTITY)
     {
-        const auto& [mesh, transform] = m_Scene.Get<Mesh, Transform>(m_ActiveEntity);
-        m_Renderer.AddDebugBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
+
+        if (m_Scene.Has<Mesh>(m_ActiveEntity))
+        {
+            const auto& [mesh, transform] = m_Scene.Get<Mesh, Transform>(m_ActiveEntity);
+            m_Renderer.AddDebugBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
+        }
+        else if (m_Scene.Has<Light>(m_ActiveEntity))
+        {
+            const auto& light = m_Scene.Get<Light>(m_ActiveEntity);
+
+            
+            if (light.type == LIGHT_TYPE_SPOT)
+            {
+                Vec3 pos = light.position;
+                Vec3 target = pos + light.direction * light.attributes.x;
+
+                float o = glm::atan(light.attributes.z) * light.attributes.x;
+                Vec3 perp = glm::cross(target - pos, Vec3(0, 1, 0));
+                Vec3 circle_edge = target + perp * o;
+
+                Vec3 prev_point = circle_edge;
+                
+                constexpr auto step_size = M_PI * 2.0f / 12.0f;
+
+                for (float angle = 0.0f; angle < M_PI * 2.0f; angle += step_size)
+                {
+                    Vec3 current_point = glm::toMat3(glm::angleAxis(angle, light.direction)) * circle_edge;
+
+                    m_Renderer.AddDebugLine(prev_point, current_point);
+                    m_Renderer.AddDebugLine(pos, current_point);
+
+                    prev_point = current_point;
+                }
+            }
+            else if (light.type == LIGHT_TYPE_POINT)
+            {
+                const auto light_pos = Vec3(light.position);
+
+                constexpr float step_size = M_PI * 2.0f / 32.0f;
+
+                auto DrawDebugCircle = [&](Vec3 inDir, Vec3 inAxis) 
+                {
+                    Vec3 point = inDir;
+
+                    for (float angle = 0.0f; angle < M_PI * 2.0f; angle += step_size)
+                    {
+                        Vec3 new_point = glm::toMat3(glm::angleAxis(step_size, inAxis)) * point;
+
+                        Vec3 start_point = light_pos + point * light.attributes.x;
+
+                        Vec3 end_point = light_pos + new_point * light.attributes.x;
+
+                        m_Renderer.AddDebugLine(start_point, end_point);
+
+                        point = new_point;
+
+                    }
+                };
+
+                DrawDebugCircle(Vec3(1, 0, 0), Vec3(0, 1, 0));
+                DrawDebugCircle(Vec3(0, 1, 0), Vec3(0, 0, 1));
+                DrawDebugCircle(Vec3(0, 0, 1), Vec3(1, 0, 0));
+            }
+        }
+
     }
 
     for (const auto& [entity, transform, mesh, soft_body] : m_Scene.Each<Transform, Mesh, SoftBody>())

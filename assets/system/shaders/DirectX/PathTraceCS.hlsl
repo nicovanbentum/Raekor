@@ -16,10 +16,11 @@ void main(uint3 threadID : SV_DispatchThreadID)
     if (any(threadID.xy >= rc.mDispatchSize.xy))
         return;
     
-    RWTexture2D<float4> result_texture = ResourceDescriptorHeap[rc.mResultTexture];
+    RWTexture2D<float4> result_texture       = ResourceDescriptorHeap[rc.mResultTexture];
     RWTexture2D<float4> accumulation_texture = ResourceDescriptorHeap[rc.mAccumulationTexture];
     
-    RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[rc.mTLAS];
+    RaytracingAccelerationStructure TLAS    = ResourceDescriptorHeap[rc.mTLAS];
+    StructuredBuffer<RTLight> lights        = ResourceDescriptorHeap[rc.mLightsBuffer];
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[rc.mMaterialsBuffer];
     
@@ -81,19 +82,59 @@ void main(uint3 threadID : SV_DispatchThreadID)
             
             // brdf.mAlbedo.rgb *= 4.0f;
             
-            // irradiance = brdf.mEmissive;
+            //irradiance = brdf.mEmissive;
             
             const float3 Wo = -ray.Direction;
             
-            {
-                // sample a ray direction towards the sun disk
-                float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, rng);
+            //{
+            //    // sample a ray direction towards the sun disk
+            //    float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, rng);
             
-                // Check if the sun is visible
-                bool hit = ShootShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
+            //    // Check if the sun is visible
+            //    bool hit = ShootSunShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
                 
-                if (hit)
-                    irradiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo, rng);
+            //    if (!hit)
+            //        irradiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo, rng);
+            //}
+            
+            for (uint i = 0; i < rc.mLightsCount; i++)
+            {
+                uint random_light_index = floor(float(rc.mLightsCount - 1) / pcg_float(rng));
+                RTLight light = lights[i];
+                
+                switch (light.mType)
+                {
+                    //case RT_LIGHT_TYPE_POINT:
+                    //{
+                    //        float3 Wi = SamplePointLight(light, vertex.mPos);
+                    //        float t_max = length(light.mPosition.xyz - vertex.mPos);
+                            
+                    //        float point_radius = light.mAttributes.x * sqrt(pcg_float(rng));
+                    //        float point_angle = pcg_float(rng) * 2.0f * M_PI;
+                    //        float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+                                
+                    //        bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 2.0f, t_max);
+                        
+                    //        if (!hit)
+                    //            irradiance += EvaluatePointLight(brdf, light, Wi, Wo, t_max, rng);
+                    //} break;
+                    
+                    case RT_LIGHT_TYPE_SPOT:
+                    {
+                            float3 Wi = SampleSpotLight(light, vertex.mPos);
+                            float t_max = length(light.mPosition.xyz - vertex.mPos);
+
+                            //float point_radius = light.mAttributes.x * sqrt(pcg_float(rng));
+                            //float point_angle = pcg_float(rng) * 2.0f * M_PI;
+                            //float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+                                
+                            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 2.0f, t_max);
+                        
+                            if (!hit)
+                                irradiance += EvaluatePointLight(brdf, light, Wi, Wo, t_max, rng);
+                        }
+                        break;
+                }
             }
             
             { // sample the BRDF to get new outgoing direction , update ray dir and pos

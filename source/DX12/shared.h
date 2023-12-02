@@ -78,9 +78,19 @@ struct RTMaterial
 };
 
 
+enum RTELightType
+{
+    RT_LIGHT_TYPE_NONE = 0,
+    RT_LIGHT_TYPE_SPOT,
+    RT_LIGHT_TYPE_POINT,
+    RT_LIGHT_TYPE_COUNT,
+};
+
+
 struct RTLight
 {
     uint mType;
+    float3 mDirection;
     float4 mPosition;
     float4 mColor;
     float4 mAttributes;
@@ -254,7 +264,7 @@ struct PathTraceRootConstants
     uint  mPad0;
     uint2 mDispatchSize;
     uint  mReset;
-    float mLightsCount;
+    uint mLightsCount;
 };
 STATIC_ASSERT(sizeof(PathTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 

@@ -137,7 +137,10 @@ void Scene::UpdateLights()
 		light.direction = Vec4(static_cast<glm::quat>( transform.rotation ) * glm::vec3(0, -1, 0), 1.0);
 
 	for (auto [entity, light, transform] : Each<Light, Transform>())
+	{
+		light.direction = glm::toMat3(transform.rotation) * Vec3(0.0f, 0.0f, -1.0f);
 		light.position = Vec4(transform.position, 1.0f);
+	}
 }
 
 

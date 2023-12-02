@@ -181,7 +181,7 @@ struct BRDF {
 };
 
 
-bool ShootShadowRay(RaytracingAccelerationStructure inTLAS, float3 inRayPos, float3 inRayDir, float inTMin, float inTMax)
+bool TraceShadowRay(RaytracingAccelerationStructure inTLAS, float3 inRayPos, float3 inRayDir, float inTMin, float inTMax)
 {
     RayDesc shadow_ray;
     shadow_ray.Origin = inRayPos;
@@ -196,7 +196,7 @@ bool ShootShadowRay(RaytracingAccelerationStructure inTLAS, float3 inRayPos, flo
     query.TraceRayInline(inTLAS, shadow_ray_flags, 0xFF, shadow_ray);
     query.Proceed();
                 
-    return query.CommittedStatus() != COMMITTED_TRIANGLE_HIT;
+    return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
 }
 
 
@@ -219,6 +219,68 @@ float3 EvaluateDirectionalLight(BRDF inBrdf, float4 inLightColor, float3 Wi, flo
     const float3 l = inBrdf.Evaluate(Wo, Wi, Wh);
                 
     return l * NdotL * sunlight_luminance;
+}
+
+
+float3 SamplePointLight(RTLight inLight, float3 inPosWS)
+{
+    return normalize(inLight.mPosition.xyz - inPosWS);
+}
+
+
+float GetPointAttenuation(RTLight inLight, float inDistance)
+{
+    float dist2 = dot(inDistance, inDistance);
+    float rcp_radius = 1.0 / inLight.mAttributes.x;
+    float factor = dist2 * rcp_radius * rcp_radius;
+    float smoothing = max(1.0 - factor * factor, 0.0);
+    return (smoothing * smoothing) / max(dist2, 1e-4);
+}
+
+
+float3 EvaluatePointLight(BRDF inBrdf, RTLight inLight, float3 Wi, float3 Wo, float inDistance, inout uint ioRNG)
+{
+    const float NdotL = max(dot(inBrdf.mNormal, Wi), 0.0);
+    
+    const float3 Wh = normalize(Wo + Wi);
+    
+    const float3 l = inBrdf.Evaluate(Wo, Wi, Wh);
+    
+    const float attenuation = GetPointAttenuation(inLight, inDistance);
+    
+    return l * NdotL * attenuation * (inLight.mColor.rgb * inLight.mColor.a);
+}
+
+
+float3 SampleSpotLight(RTLight inLight, float3 inPosWS)
+{
+    return normalize(inLight.mPosition.xyz - inPosWS);
+}
+
+
+float GetSpotAttenuation(RTLight inLight, float inDistance, float3 Wi)
+{
+    float cos_outer = cos(inLight.mAttributes.z);
+    float spot_scale = 1.0 / max(cos(inLight.mAttributes.y) - cos_outer, 1e-4);
+    float spot_offset = -cos_outer * spot_scale;
+
+    float cd = dot(normalize(-inLight.mDirection), Wi);
+    float attenuation = clamp(cd * spot_scale + spot_offset, 0.0, 1.0);
+    return attenuation * attenuation;
+}
+
+
+float3 EvaluateSpotLight(BRDF inBrdf, RTLight inLight, float3 Wi, float3 Wo, float inDistance, inout uint ioRNG)
+{
+    const float NdotL = max(dot(inBrdf.mNormal, Wi), 0.0);
+    
+    const float3 Wh = normalize(Wo + Wi);
+    
+    const float3 l = inBrdf.Evaluate(Wo, Wi, Wh);
+    
+    const float attenuation = GetPointAttenuation(inLight, inDistance) * GetSpotAttenuation(inLight, inDistance, Wi);
+    
+    return l * NdotL * attenuation * (inLight.mColor.rgb * inLight.mColor.a);
 }
 
 

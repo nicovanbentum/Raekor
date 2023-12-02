@@ -295,6 +295,7 @@ void GltfImporter::ConvertLight(Entity inEntity, const cgltf_light& inLight)
 
 		light.type = LIGHT_TYPE_POINT;
 		light.colour = Vec4(inLight.color[0], inLight.color[1], inLight.color[2], inLight.intensity);
+		light.attributes.x = inLight.range;
 	}
 	
 	if (inLight.type == cgltf_light_type_spot)
@@ -303,6 +304,9 @@ void GltfImporter::ConvertLight(Entity inEntity, const cgltf_light& inLight)
 
 		light.type = LIGHT_TYPE_SPOT;
 		light.colour = Vec4(inLight.color[0], inLight.color[1], inLight.color[2], inLight.intensity);
+		light.attributes.x = inLight.range;
+		light.attributes.y = inLight.spot_inner_cone_angle;
+		light.attributes.z = inLight.spot_outer_cone_angle;
 	}
 }
 

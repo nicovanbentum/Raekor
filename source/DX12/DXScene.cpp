@@ -211,7 +211,7 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
 
 void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
 {
-    static_assert( sizeof(Light) == sizeof(RTLight) );
+    static_assert( sizeof(RTLight) == sizeof(Light) );
 
     if (!m_Scene.Count<Light>())
         return;
@@ -220,8 +220,8 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, StagingH
 
     m_LightsBuffer = GrowBuffer(inDevice, m_LightsBuffer, Buffer::Desc
     {
-        .size   = sizeof(Light) * lights.Length(),
-        .stride = sizeof(Light),
+        .size   = sizeof(lights[0]) * lights.Length(),
+        .stride = sizeof(lights[0]),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = L"RT_LIGHTS_BUFFER"
     });

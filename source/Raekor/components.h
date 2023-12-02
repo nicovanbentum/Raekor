@@ -72,9 +72,10 @@ struct SCRIPT_INTERFACE Light
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(Light);
 
 	ELightType type = LIGHT_TYPE_NONE;
-	glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f }; // could be used as dir for DirectionalLight?
+	glm::vec3 direction = { 0.0f, -1.0f, 0.0f }; // used for Directional and Spot light
+	glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f }; // Used for Spot and Point light
 	glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f }; // rgb = color, a = intensity
-	glm::vec4 attributes = { 0.0f, 0.0f, 0.0f, 0.0f }; // range, spot inner cone angle, spot outer cone angle
+	glm::vec4 attributes = { 1.0f, 0.0f, 0.0f, 0.0f }; // range, spot inner cone angle, spot outer cone angle
 };
 
 

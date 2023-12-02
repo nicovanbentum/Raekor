@@ -41,6 +41,7 @@ RTTI_DEFINE_ENUM(ELightType)
 RTTI_DEFINE_TYPE(Light)
 {
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Type", type);
+	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Direction", direction);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Position", position);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Color", colour);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Attributes", attributes);

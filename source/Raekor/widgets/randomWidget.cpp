@@ -102,6 +102,19 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt)
 		}
 	}
 
+	if (ImGui::Button("Lower Spot Lights"))
+	{
+		for (const auto& [entity, light] : GetScene().Each<Light>())
+		{
+			if (light.type == LIGHT_TYPE_SPOT)
+			{
+				light.attributes.y = 0.01f;
+				light.attributes.z = 0.01f;
+				light.colour.a /= 1000.0f;
+			}
+		}
+	}
+
 	// Draw all the renderer debug UI
 	m_Editor->GetRenderInterface()->DrawImGui(GetScene(), m_Editor->GetViewport());
 

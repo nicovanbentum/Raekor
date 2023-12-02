@@ -76,6 +76,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 						m_Editor->LogMessage("[Editor] Saved scene to " + fs::relative(filepath).string() + "");
 					});
 				}
+
+				m_Editor->AddRecentScene(filepath);
 			}
 
 			if (ImGui::MenuItem("Import scene.."))
@@ -305,10 +307,17 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::BeginMenu("Light"))
 			{
+				if (ImGui::MenuItem("Spot Light"))
+				{
+					auto entity = scene.CreateSpatialEntity("Spot Light");
+					scene.Add<Light>(entity).type = LIGHT_TYPE_SPOT;
+					m_Editor->SetActiveEntity(entity);
+				}
+
 				if (ImGui::MenuItem("Point Light"))
 				{
 					auto entity = scene.CreateSpatialEntity("Point Light");
-					scene.Add<Light>(entity);
+					scene.Add<Light>(entity).type = LIGHT_TYPE_POINT;
 					m_Editor->SetActiveEntity(entity);
 				}
 
