@@ -82,56 +82,57 @@ void main(uint3 threadID : SV_DispatchThreadID)
             
             // brdf.mAlbedo.rgb *= 4.0f;
             
-            //irradiance = brdf.mEmissive;
+            irradiance = brdf.mEmissive;
             
             const float3 Wo = -ray.Direction;
             
-            //{
-            //    // sample a ray direction towards the sun disk
-            //    float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, rng);
-            
-            //    // Check if the sun is visible
-            //    bool hit = ShootSunShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
-                
-            //    if (!hit)
-            //        irradiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo, rng);
-            //}
-            
-            for (uint i = 0; i < rc.mLightsCount; i++)
             {
-                uint random_light_index = floor(float(rc.mLightsCount - 1) / pcg_float(rng));
-                RTLight light = lights[i];
+                // sample a ray direction towards the sun disk
+                float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, rng);
+            
+                // Check if the sun is visible
+                bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
+                
+                if (!hit)
+                    irradiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo, rng);
+            }
+            
+            // for (uint i = 0; i < 8; i++)
+            {
+                uint random_light_index = uint(float(rc.mLightsCount - 1) * pcg_float(rng));
+                RTLight light = lights[random_light_index];
                 
                 switch (light.mType)
                 {
-                    //case RT_LIGHT_TYPE_POINT:
-                    //{
-                    //        float3 Wi = SamplePointLight(light, vertex.mPos);
-                    //        float t_max = length(light.mPosition.xyz - vertex.mPos);
+                    case RT_LIGHT_TYPE_POINT:
+                    {
+                            float3 Wi = SamplePointLight(light, vertex.mPos);
+                            float t_max = length(light.mPosition.xyz - vertex.mPos);
                             
-                    //        float point_radius = light.mAttributes.x * sqrt(pcg_float(rng));
-                    //        float point_angle = pcg_float(rng) * 2.0f * M_PI;
-                    //        float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+                            float point_radius = light.mAttributes.x * sqrt(pcg_float(rng));
+                            float point_angle = pcg_float(rng) * 2.0f * M_PI;
+                            float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
                                 
-                    //        bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 2.0f, t_max);
+                            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 2.0f, t_max);
                         
-                    //        if (!hit)
-                    //            irradiance += EvaluatePointLight(brdf, light, Wi, Wo, t_max, rng);
-                    //} break;
+                            if (!hit)
+                                irradiance += EvaluatePointLight(brdf, light, Wi, Wo, t_max, rng);
+                        }
+                        break;
                     
                     case RT_LIGHT_TYPE_SPOT:
                     {
                             float3 Wi = SampleSpotLight(light, vertex.mPos);
                             float t_max = length(light.mPosition.xyz - vertex.mPos);
 
-                            //float point_radius = light.mAttributes.x * sqrt(pcg_float(rng));
-                            //float point_angle = pcg_float(rng) * 2.0f * M_PI;
-                            //float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
-                                
-                            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 2.0f, t_max);
+                            float point_radius = 0.022f;
+                            float point_angle = pcg_float(rng) * 2.0f * M_PI;
+                            float2 disk_point = float2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+                                        
+                            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, float3(Wi.x + disk_point.x, Wi.y, Wi.z + disk_point.y), 2.0f, t_max);
                         
                             if (!hit)
-                                irradiance += EvaluatePointLight(brdf, light, Wi, Wo, t_max, rng);
+                                irradiance += EvaluateSpotLight(brdf, light, Wi, Wo, t_max, rng);
                         }
                         break;
                 }

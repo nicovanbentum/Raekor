@@ -114,6 +114,14 @@ RTTI_DEFINE_TYPE(Material)
 }
 
 
+RTTI_DEFINE_TYPE(DDGISceneSettings) 
+{
+	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Debug Probe", mDDGIDebugProbe);
+	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Probe Count", mDDGIProbeCount);
+	RTTI_DEFINE_MEMBER(DDGISceneSettings, SERIALIZE_ALL, "Probe Spacing", mDDGIProbeSpacing);
+}
+
+
 void gRegisterComponentTypes()
 {
 	g_RTTIFactory.Register(RTTI_OF(Name));
@@ -128,6 +136,7 @@ void gRegisterComponentTypes()
 	g_RTTIFactory.Register(RTTI_OF(Bone));
 	g_RTTIFactory.Register(RTTI_OF(Skeleton));
 	g_RTTIFactory.Register(RTTI_OF(NativeScript));
+	g_RTTIFactory.Register(RTTI_OF(DDGISceneSettings));
 }
 
 

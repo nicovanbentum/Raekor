@@ -611,8 +611,8 @@ void InspectorWidget::DrawComponent(Light& inLight)
 		case LIGHT_TYPE_SPOT:
 		{
 			ImGui::DragFloat("Range", &inLight.attributes.x, 0.001f);
-			ImGui::DragFloat("Inner Cone Angle", &inLight.attributes.y, 0.001f);
-			ImGui::DragFloat("Outer Cone Angle", &inLight.attributes.z, 0.001f);
+			ImGui::DragFloat("Inner Cone Angle", &inLight.attributes.y, 0.001f, 0.0f, M_PI / 2);
+			ImGui::DragFloat("Outer Cone Angle", &inLight.attributes.z, 0.001f, 0.0f, M_PI / 2);
 			ImGui::DragFloat3("Direction", &inLight.direction[0], 0.001f);
 		} break;
 	}
@@ -655,6 +655,36 @@ void InspectorWidget::DrawComponent(NativeScript& inNativeScript)
 	{
 		if (inNativeScript.asset)
 			scene.BindScriptToEntity(GetActiveEntity(), inNativeScript);
+	}
+}
+
+
+void InspectorWidget::DrawComponent(DDGISceneSettings& ioSettings)
+{
+	auto& scene = GetScene();
+
+	ImGui::DragInt3("Debug Probe", glm::value_ptr(ioSettings.mDDGIDebugProbe));
+	ImGui::DragFloat3("Probe Spacing", glm::value_ptr(ioSettings.mDDGIProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
+	ImGui::DragInt3("Probe Count", glm::value_ptr(ioSettings.mDDGIProbeCount), 1, 1, 40);
+
+	if (ImGui::Button("Fit to Scene"))
+	{
+		BBox3D scene_bounds;
+
+		for (const auto& [entity, transform, mesh] : scene.Each<Transform, Mesh>())
+			scene_bounds.Combine(BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform));
+
+		if (scene_bounds.IsValid())
+		{
+			auto entity = scene.GetEntities<DDGISceneSettings>()[0];
+			auto& transform = scene.Get<Transform>(entity);
+			auto& ddgi_settings = scene.Get<DDGISceneSettings>(entity);
+
+			transform.position = scene_bounds.GetMin();
+			transform.Compose();
+
+			ddgi_settings.mDDGIProbeSpacing = scene_bounds.GetExtents() / Vec3(ddgi_settings.mDDGIProbeCount);
+		}
 	}
 }
 

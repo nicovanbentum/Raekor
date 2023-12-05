@@ -29,9 +29,11 @@ struct BBox3D
 	const Vec3& GetMax() const { return mMax; }
 
 	BBox3D& Scale(const Vec3& inScale);
+	BBox3D& Combine(const BBox3D& inOther);
 	BBox3D& Transform(const Mat4x4& inTransform);
 
 	Vec3 GetCenter() const { return mMin + ( ( mMax - mMin ) * 0.5f ); }
+	Vec3 GetExtents() const { return glm::abs(mMax - mMin); }
 
 	bool IsValid() const { return glm::all(glm::greaterThan(mMax, mMin)); }
 

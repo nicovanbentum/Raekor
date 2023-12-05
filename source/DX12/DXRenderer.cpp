@@ -14,8 +14,6 @@
 
 namespace Raekor::DX12 {
 
-RTTI_DEFINE_TYPE(DDGISceneSettings) {}
-
 Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inWindow) :
     m_Window(inWindow),
     m_RenderGraph(inDevice, inViewport, sFrameCount)

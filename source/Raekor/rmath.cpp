@@ -18,6 +18,13 @@ BBox3D& BBox3D::Scale(const Vec3& inScale)
 }
 
 
+BBox3D& BBox3D::Combine(const BBox3D& inOther)
+{
+	mMin = glm::min(mMin, inOther.mMin);
+	mMax = glm::max(mMax, inOther.mMax);
+	return *this;
+}
+
 
 BBox3D& BBox3D::Transform(const Mat4x4& inTransform)
 {

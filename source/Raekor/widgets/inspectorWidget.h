@@ -16,6 +16,7 @@ struct Light;
 struct BoxCollider;
 struct NativeScript;
 struct DirectionalLight;
+struct DDGISceneSettings;
 
 class InspectorWidget : public IWidget
 {
@@ -40,6 +41,7 @@ private:
 	void DrawComponent(Light& ioPointLight);
 	void DrawComponent(BoxCollider& ioBoxCollider);
 	void DrawComponent(NativeScript& ioNativeScript);
+	void DrawComponent(DDGISceneSettings& ioSettings);
 	void DrawComponent(DirectionalLight& ioDirectionalLight);
 };
 

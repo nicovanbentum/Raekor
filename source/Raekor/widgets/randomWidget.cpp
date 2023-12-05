@@ -108,8 +108,6 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt)
 		{
 			if (light.type == LIGHT_TYPE_SPOT)
 			{
-				light.attributes.y = 0.01f;
-				light.attributes.z = 0.01f;
 				light.colour.a /= 1000.0f;
 			}
 		}

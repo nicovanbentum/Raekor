@@ -241,6 +241,16 @@ struct NativeScript
 };
 
 
+struct DDGISceneSettings
+{
+	RTTI_DECLARE_TYPE(DDGISceneSettings);
+
+	IVec3 mDDGIDebugProbe = UVec3(0, 0, 0);
+	IVec3 mDDGIProbeCount = UVec3(2, 2, 2);
+	Vec3 mDDGIProbeSpacing = Vec3(0.1f, 0.1f, 0.1f);
+};
+
+
 template<typename Component>
 struct ComponentDescription
 {
@@ -260,7 +270,8 @@ static constexpr auto Components = std::make_tuple(
 	ComponentDescription<DirectionalLight>  {"Directional Light"},
 	ComponentDescription<BoxCollider>       {"Box Collider"},
 	ComponentDescription<Skeleton>          {"Skeleton"},
-	ComponentDescription<NativeScript>      {"Native Script"}
+	ComponentDescription<NativeScript>      {"Native Script"},
+	ComponentDescription<DDGISceneSettings> {"DDGI Scene Settings"}
 );
 
 void gRegisterComponentTypes();

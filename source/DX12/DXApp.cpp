@@ -34,9 +34,6 @@ DXApp::DXApp() :
     g_RTTIFactory.Register(RTTI_OF(ShaderProgram));
     g_RTTIFactory.Register(RTTI_OF(SystemShadersDX12));
     g_RTTIFactory.Register(RTTI_OF(EShaderProgramType));
-    g_RTTIFactory.Register(RTTI_OF(DDGISceneSettings));
-
-    m_Scene.Register<DDGISceneSettings>();
 
     m_Widgets.Register<DebugWidget>(this);
 
@@ -484,7 +481,7 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
     if (need_recompile)
         m_Renderer.SetShouldResize(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
 
-    ImGui::NewLine(); ImGui::Separator();
+    ImGui::NewLine();
 
     if (auto path_trace_pass = m_Renderer.GetRenderGraph().GetPass<PathTraceData>())
     {
@@ -506,8 +503,10 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
     if (auto rtao_pass = m_Renderer.GetRenderGraph().GetPass<RTAOData>())
     {
         auto& params = rtao_pass->GetData().mParams;
+
         ImGui::Text("RTAO Settings");
         ImGui::Separator();
+
         ImGui::DragFloat("Radius", &params.mRadius, 0.01f, 0.0f, 20.0f, "%.2f");
         ImGui::DragFloat("Intensity", &params.mPower, 0.01f, 0.0f, 10.0f, "%.2f");
         ImGui::DragFloat("Normal Bias", &params.mNormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
@@ -518,19 +517,12 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
     if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeTraceData>())
     {
         auto& data = ddgi_pass->GetData();
-        ImGui::Text("DDGI Settings");
-        ImGui::Separator();
 
-        if (m_RayTracedScene->Any<DDGISceneSettings>() && m_RayTracedScene->Count<DDGISceneSettings>())
+        if (!m_RayTracedScene->Any<DDGISceneSettings>() || !m_RayTracedScene->Count<DDGISceneSettings>())
         {
-            auto& ddgi_settings = m_RayTracedScene->Get<DDGISceneSettings>(m_RayTracedScene->GetEntities<DDGISceneSettings>()[0]);
-
-            ImGui::DragInt3("Debug Probe", glm::value_ptr(ddgi_settings.mDDGIDebugProbe));
-            ImGui::DragFloat3("Probe Spacing", glm::value_ptr(ddgi_settings.mDDGIProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
-            ImGui::DragInt3("Probe Count", glm::value_ptr(ddgi_settings.mDDGIProbeCount), 1, 1, 40);
-        }
-        else
-        {
+            ImGui::Text("DDGI Settings");
+            ImGui::Separator();
+            
             ImGui::DragInt3("Debug Probe", glm::value_ptr(data.mDebugProbe));
             ImGui::DragFloat3("Probe Spacing", glm::value_ptr(data.mDDGIData.mProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
             ImGui::DragInt3("Probe Count", glm::value_ptr(data.mDDGIData.mProbeCount), 1, 1, 40);
@@ -548,9 +540,10 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
                 ddgi_settings.mDDGIDebugProbe = data.mDebugProbe;
                 ddgi_settings.mDDGIProbeCount = data.mDDGIData.mProbeCount;
                 ddgi_settings.mDDGIProbeSpacing = data.mDDGIData.mProbeSpacing;
+
+                SetActiveEntity(ddgi_settings_entity);
             }
         }
-
     }
 
     if (auto depth_of_field_pass = m_Renderer.GetRenderGraph().GetPass<DepthOfFieldData>())

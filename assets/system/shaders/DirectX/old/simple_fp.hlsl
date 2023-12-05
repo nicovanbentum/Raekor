@@ -27,7 +27,7 @@ cbuffer Constants : register(b0) {
 }
 
 float3 CorrectGamma(float3 L) {
-    return pow(L, (1.0 / 1.8).xxx);
+    return pow(L, (1.0 / 2.2).xxx);
 }
 
 float InterleavedGradientNoise(float2 pixel) {

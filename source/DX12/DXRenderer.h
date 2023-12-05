@@ -45,14 +45,6 @@ enum EDebugTexture
     DEBUG_TEXTURE_COUNT
 };
 
-struct DDGISceneSettings
-{
-    RTTI_DECLARE_TYPE(DDGISceneSettings);
-
-    IVec3 mDDGIDebugProbe = UVec3(0, 0, 0);
-    IVec3 mDDGIProbeCount = UVec3(2, 2, 2);
-    Vec3 mDDGIProbeSpacing = Vec3(0.1f, 0.1f, 0.1f);
-};
 
 /*
     Fun TODO's:
