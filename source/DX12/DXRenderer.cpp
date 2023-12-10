@@ -2079,7 +2079,7 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
 
 const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture)
 {
-    auto AddBloomSamplePass = [&](const std::string& inPassName, ComPtr<ID3D12PipelineState> inPipeline, RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
+    auto RunBloomPass = [&](const std::string& inPassName, ID3D12PipelineState* inPipeline, RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
     {
         return inRenderGraph.AddComputePass<BloomDownscaleData>(inPassName,
         [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomDownscaleData& inData)
@@ -2103,11 +2103,23 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
                 .mDispatchSize = UVec2(dest_viewport.Width, dest_viewport.Height)
             });
 
-            inCmdList->SetPipelineState(inPipeline.Get());
+            inCmdList->SetPipelineState(inPipeline);
             
             inCmdList->Dispatch(( dest_viewport.Width + 7 ) / 8, ( dest_viewport.Height + 7 ) / 8, 1);
         });
     };
+    
+
+    auto AddDownsamplePass = [&](RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
+    {
+        return RunBloomPass(std::format("Downsample Mip {} -> Mip {}", inFromMip, inToMip), g_SystemShaders.mBloomDownsampleShader.GetComputePSO(), inFromTexture, inToTexture, inFromMip, inToMip);
+    };
+
+    auto AddUpsamplePass = [&](RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
+    {
+        return RunBloomPass(std::format("Upsample Mip {} -> Mip {}", inFromMip, inToMip), g_SystemShaders.mBloomUpSampleShader.GetComputePSO(), inFromTexture, inToTexture, inFromMip, inToMip);
+    };
+
 
     return inRenderGraph.AddComputePass<BloomData>("BLOOM PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomData& inData)
@@ -2127,15 +2139,15 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         ioRGBuilder.Write(inData.mOutputTexture);
 
         // do an initial downsample from the current final scene texture to the first mip of the bloom chain
-        const auto& downscale_data = AddBloomSamplePass(std::format("Downsample Scene -> Mip 1"), g_SystemShaders.mBloomDownsampleShader.GetComputePSO(), inInputTexture, inData.mOutputTexture, 0, 1);
+        AddDownsamplePass(inInputTexture, inData.mOutputTexture, 0, 1);
 
         // downsample along the bloom chain
         for (auto mip = 1u; mip < mip_levels - 1; mip++)
-            const auto& data = AddBloomSamplePass(std::format("Downsample Mip {} -> Mip {}", mip, mip + 1), g_SystemShaders.mBloomUpSampleShader.GetComputePSO(), inData.mOutputTexture, inData.mOutputTexture, mip, mip + 1);
+            AddDownsamplePass(inData.mOutputTexture, inData.mOutputTexture, mip, mip + 1);
 
         // upsample along the bloom chain
         for (auto mip = mip_levels - 1; mip > 0; mip--)
-            const auto& data = AddBloomSamplePass(std::format("Upsample Mip {} -> Mip {}", mip, mip - 1), g_SystemShaders.mBloomUpSampleShader.GetComputePSO(), inData.mOutputTexture, inData.mOutputTexture, mip, mip - 1);
+            AddUpsamplePass(inData.mOutputTexture, inData.mOutputTexture, mip, mip - 1);
     },
 
     [&inDevice](BloomData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
@@ -2194,6 +2206,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
             .mBloomTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mBloomTextureSRV)),
             .mInputTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mInputTextureSRV)),
             .mExposure = inData.mExposure,
+            .mBloomBlendFactor = inData.mBloomBlendFactor,
             .mChromaticAberrationStrength = inData.mChromaticAberrationStrength,
          });
 

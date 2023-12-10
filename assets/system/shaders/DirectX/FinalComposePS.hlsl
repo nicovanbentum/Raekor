@@ -40,7 +40,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     
     float4 src = float4(CheapChromaticAberration(input_texture, inParams.mScreenUV), 1.0);
     
-    src = lerp(src, bloom_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0), 0.06);
+    src = lerp(src, bloom_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0), rc.mBloomBlendFactor);
     
     return float4(EncodeGamma(src.rgb * rc.mExposure), 1.0);
 }

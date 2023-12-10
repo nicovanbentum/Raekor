@@ -610,6 +610,7 @@ struct ComposeData
     RTTI_DECLARE_TYPE(ComposeData);
 
     static inline float mExposure = 1.0f;
+    static inline float mBloomBlendFactor = 0.06f;
     static inline float mChromaticAberrationStrength = 0.0f;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mInputTextureSRV;

@@ -562,7 +562,7 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
         ImGui::Text("Compose Settings");
         ImGui::Separator();
         ImGui::DragFloat("Exposure", &compose_pass->GetData().mExposure, 0.01f, 0.0f, 100.0f, "%.2f");
-
+        ImGui::DragFloat("Bloom Blend Factor", &compose_pass->GetData().mBloomBlendFactor, 0.01f, 0.0f, 0.5f, "%.2f");
         ImGui::DragFloat("Chromatic Aberration", &compose_pass->GetData().mChromaticAberrationStrength, 0.01f, 0.0f, 10.0f, "%.2f");
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Channel separation width in pixels.");

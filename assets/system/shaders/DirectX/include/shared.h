@@ -372,6 +372,7 @@ struct ComposeRootConstants
     uint mBloomTexture;
     uint mInputTexture;
     float mExposure;
+    float mBloomBlendFactor;
     float mChromaticAberrationStrength;
 };
 STATIC_ASSERT(sizeof(ComposeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);

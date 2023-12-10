@@ -510,8 +510,6 @@ bool RenderGraph::Compile(Device& inDevice)
         {
             const auto& view_desc = m_RenderGraphBuilder.GetResourceViewDesc(resource_id);
 
-            
-
             auto& node = graph[view_desc.mGraphResourceID];
 
             auto usage = D3D12_RESOURCE_STATE_COMMON;
@@ -570,24 +568,6 @@ bool RenderGraph::Compile(Device& inDevice)
     }
 
     /*
-        RENDER PASS REMOVAL
-    */
-
-    /*std::set<uint32_t> renderpass_indices_to_delete;
-    for (const auto& [renderpass_index, renderpass] : gEnumerate(m_RenderPasses)) {
-        auto should_delete = true;
-
-        for (const auto& resource : renderpass->m_WrittenTextures) {
-            const auto& node = graph[resource.mCreatedTexture];
-
-            for (const auto& edge : node.mEdges) {
-                if (edge.mUsage)
-            }
-        }
-    }*/
-
-
-    /*
         BARRIER GENERATION
         The state tracking algorithm here is quite dumb:
 
@@ -617,29 +597,38 @@ bool RenderGraph::Compile(Device& inDevice)
         assert(resource_ptr);
 
         auto tracked_state = ResourceStates(node);
+        auto previous_renderpass_index = node.mEdges[0].mRenderPassIndex;
+
+        bool uav_barrier_added = false;
 
         for (auto edge_index = 1; edge_index < node.mEdges.size(); edge_index++)
         {
             const auto& prev_edge = node.mEdges[edge_index - 1];
             const auto& curr_edge = node.mEdges[edge_index];
 
+            if (curr_edge.mRenderPassIndex != prev_edge.mRenderPassIndex)
+            {
+                previous_renderpass_index = prev_edge.mRenderPassIndex;
+                uav_barrier_added = false; // for a given resource (GraphNode), we can only ever add 1 UAV barrier per renderpass, so everytime the renderpass changes we reset the flag
+            }
+
+            auto& prev_pass = m_RenderPasses[previous_renderpass_index];
             auto& curr_pass = m_RenderPasses[curr_edge.mRenderPassIndex];
-            auto& prev_pass = m_RenderPasses[prev_edge.mRenderPassIndex];
 
             auto& old_state = tracked_state.mSubResourceStates[curr_edge.mSubResource];
             auto& new_state = curr_edge.mUsage;
 
-            if (( old_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS ) && ( new_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS ) &&  curr_edge.mRenderPassIndex != prev_edge.mRenderPassIndex)
+            // TODO: fix multiple UAV barriers 
+            if (( old_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS ) && ( new_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS ) &&  !uav_barrier_added)
             {
                 prev_pass->AddExitBarrier( CD3DX12_RESOURCE_BARRIER::UAV(resource_ptr) );
+                uav_barrier_added = true;
             }
 
             if (old_state == new_state)
                 continue;
 
             assert(curr_edge.mSubResource != prev_edge.mSubResource || curr_edge.mRenderPassIndex != prev_edge.mRenderPassIndex);
-           /* if (curr_edge.mSubResource == 4)
-                __debugbreak();*/
 
             prev_pass->AddExitBarrier( CD3DX12_RESOURCE_BARRIER::Transition(resource_ptr, old_state, new_state, curr_edge.mSubResource) );
 
