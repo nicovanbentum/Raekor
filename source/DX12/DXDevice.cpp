@@ -572,7 +572,23 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
         }
         case Texture::RENDER_TARGET:
         {
-            texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>( inDesc.viewDesc ));
+            if (inDesc.viewDesc == nullptr)
+            {
+                D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
+                rtv_desc.Format = inDesc.format;
+                rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
+                if (inDesc.dimension == Texture::Dimension::TEX_DIM_2D)
+                {
+                    rtv_desc.Texture2D.MipSlice = inDesc.baseMip;
+                    texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, &rtv_desc);
+                }
+            }
+            else
+            {
+                texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>( inDesc.viewDesc ));
+            }
+
             break;
         }
         case Texture::SHADER_READ_ONLY:
@@ -607,7 +623,19 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
         }
         case Texture::SHADER_READ_WRITE:
         {
-            texture.m_Descriptor = CreateUnorderedAccessView(texture.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>( inDesc.viewDesc ));
+            if (inDesc.viewDesc == nullptr)
+            {
+                D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
+                uav_desc.Format = inDesc.format;
+                uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+                uav_desc.Texture2D.MipSlice = inDesc.baseMip;
+
+                texture.m_Descriptor = CreateUnorderedAccessView(texture.m_Resource, &uav_desc);
+            }
+            else
+            {
+                texture.m_Descriptor = CreateUnorderedAccessView(texture.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>( inDesc.viewDesc ));
+            }
             break;
         }
         default:

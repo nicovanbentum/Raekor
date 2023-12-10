@@ -178,13 +178,18 @@ public:
         uint32_t width = 1;
         uint32_t height = 1;
         uint32_t depth = 1;
+        uint32_t baseMip = 0;
         uint32_t mipLevels = 1;
         uint32_t arrayLayers = 1;
         bool shaderAccess = false;
         bool mappable = false;
         Usage usage = Usage::GENERAL;
+
         void* viewDesc = nullptr;
         const wchar_t* debugName = nullptr;
+
+        inline bool operator==(const Desc& inOther) const { return std::memcmp(this, &inOther, offsetof(Desc, viewDesc)) == 0; }
+
     };
 
     Texture() = default;
@@ -193,7 +198,11 @@ public:
 
     const Desc& GetDesc() const { return m_Desc; }
     DescriptorID GetView() const { return m_Descriptor; }
+
     uint32_t GetHeapIndex() const { return m_Descriptor.ToIndex(); }
+
+    uint32_t GetBaseSubresource() const { return m_Desc.baseMip; }
+    uint32_t GetSubresourceCount() const { return m_Desc.mipLevels * m_Desc.arrayLayers; }
 
 private:
     Desc m_Desc = {};
@@ -228,8 +237,12 @@ public:
         uint64_t stride = 0;
         Usage usage = Usage::GENERAL;
         bool mappable = false;
+
         void* viewDesc = nullptr;
         const wchar_t* debugName = nullptr;
+
+
+        inline bool operator==(const Desc& inOther) const { return std::memcmp(this, &inOther, offsetof(Desc, viewDesc)) == 0; }
     };
 
     Buffer() = default;
@@ -241,6 +254,9 @@ public:
 
     DescriptorID GetDescriptor() const { return m_Descriptor; }
     uint32_t GetHeapIndex() const { return m_Descriptor.ToIndex(); }
+
+    uint32_t GetBaseSubresource() const { return 0; }
+    uint32_t GetSubresourceCount() const { return 1; }
 
 private:
     Desc m_Desc = {};

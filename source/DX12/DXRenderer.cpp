@@ -385,10 +385,12 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         }
     }
 
+    const auto& bloom_data = AddBloomPass(m_RenderGraph, inDevice, compose_input);
+
     if (m_Settings.mEnableDoF)
         compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, gbuffer_data.mDepthTexture).mOutputTexture;
 
-    const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, compose_input);
+    const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, bloom_data.mOutputTexture, compose_input);
 
     auto final_output = compose_data.mOutputTexture;
 
@@ -787,29 +789,32 @@ void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-RTTI_DEFINE_TYPE(SkyCubeData)       {}
-RTTI_DEFINE_TYPE(ConvolveCubeData)  {}
-RTTI_DEFINE_TYPE(GBufferData)       {}
-RTTI_DEFINE_TYPE(GBufferDebugData)  {}
-RTTI_DEFINE_TYPE(GrassData)         {}
-RTTI_DEFINE_TYPE(RTShadowMaskData)  {}
-RTTI_DEFINE_TYPE(RTAOData)          {}
-RTTI_DEFINE_TYPE(ReflectionsData)   {}
-RTTI_DEFINE_TYPE(DownsampleData)    {}
-RTTI_DEFINE_TYPE(LightingData)      {}
-RTTI_DEFINE_TYPE(FSR2Data)          {}
-RTTI_DEFINE_TYPE(XeSSData)          {}
-RTTI_DEFINE_TYPE(DLSSData)          {}
-RTTI_DEFINE_TYPE(ProbeTraceData)    {}
-RTTI_DEFINE_TYPE(ProbeUpdateData)   {}
-RTTI_DEFINE_TYPE(PathTraceData)     {}
-RTTI_DEFINE_TYPE(ProbeDebugData)    {}
-RTTI_DEFINE_TYPE(DebugLinesData)    {}
-RTTI_DEFINE_TYPE(TAAResolveData)    {}
-RTTI_DEFINE_TYPE(DepthOfFieldData)  {}
-RTTI_DEFINE_TYPE(ComposeData)       {}
-RTTI_DEFINE_TYPE(PreImGuiData)      {}
-RTTI_DEFINE_TYPE(ImGuiData)         {}
+RTTI_DEFINE_TYPE(SkyCubeData)        {}
+RTTI_DEFINE_TYPE(ConvolveCubeData)   {}
+RTTI_DEFINE_TYPE(GBufferData)        {}
+RTTI_DEFINE_TYPE(GBufferDebugData)   {}
+RTTI_DEFINE_TYPE(GrassData)          {}
+RTTI_DEFINE_TYPE(RTShadowMaskData)   {}
+RTTI_DEFINE_TYPE(RTAOData)           {}
+RTTI_DEFINE_TYPE(ReflectionsData)    {}
+RTTI_DEFINE_TYPE(DownsampleData)     {}
+RTTI_DEFINE_TYPE(LightingData)       {}
+RTTI_DEFINE_TYPE(FSR2Data)           {}
+RTTI_DEFINE_TYPE(XeSSData)           {}
+RTTI_DEFINE_TYPE(DLSSData)           {}
+RTTI_DEFINE_TYPE(ProbeTraceData)     {}
+RTTI_DEFINE_TYPE(ProbeUpdateData)    {}
+RTTI_DEFINE_TYPE(PathTraceData)      {}
+RTTI_DEFINE_TYPE(ProbeDebugData)     {}
+RTTI_DEFINE_TYPE(DebugLinesData)     {}
+RTTI_DEFINE_TYPE(TAAResolveData)     {}
+RTTI_DEFINE_TYPE(DepthOfFieldData)   {}
+RTTI_DEFINE_TYPE(ComposeData)        {}
+RTTI_DEFINE_TYPE(PreImGuiData)       {}
+RTTI_DEFINE_TYPE(ImGuiData)          {}
+RTTI_DEFINE_TYPE(BloomDownscaleData) {}
+RTTI_DEFINE_TYPE(BloomUpscaleData)   {}
+RTTI_DEFINE_TYPE(BloomData)          {}
 
 /*
 
@@ -2072,7 +2077,76 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
 
 
 
-const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture)
+const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture)
+{
+    auto AddBloomSamplePass = [&](const std::string& inPassName, ComPtr<ID3D12PipelineState> inPipeline, RenderGraphResourceID inFromTexture, RenderGraphResourceID inToTexture, uint32_t inFromMip, uint32_t inToMip)
+    {
+        return inRenderGraph.AddComputePass<BloomDownscaleData>(inPassName,
+        [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomDownscaleData& inData)
+        {
+            inData.mToTextureMip   = inToMip;
+            inData.mFromTextureMip = inFromMip;
+
+            inData.mToTextureUAV   = ioRGBuilder.WriteTexture(inToTexture, inToMip);
+            inData.mFromTextureSRV = ioRGBuilder.ReadTexture(inFromTexture, inFromMip);
+        },
+        [&inRenderGraph, &inDevice, inPipeline](BloomDownscaleData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+        {
+            const auto dest_viewport = CD3DX12_VIEWPORT(inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mToTextureUAV)), inData.mToTextureMip);
+            
+            inCmdList.PushComputeConstants(BloomRootConstants
+            {
+                .mSrcTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mFromTextureSRV)),
+                .mSrcMipLevel  = inData.mFromTextureMip,
+                .mDstTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mToTextureUAV)),
+                .mDstMipLevel  = inData.mToTextureMip,
+                .mDispatchSize = UVec2(dest_viewport.Width, dest_viewport.Height)
+            });
+
+            inCmdList->SetPipelineState(inPipeline.Get());
+            
+            inCmdList->Dispatch(( dest_viewport.Width + 7 ) / 8, ( dest_viewport.Height + 7 ) / 8, 1);
+        });
+    };
+
+    return inRenderGraph.AddComputePass<BloomData>("BLOOM PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, BloomData& inData)
+    {
+        const auto mip_levels = 6u;
+
+        inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
+        {
+            .format    = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width     = inRenderGraph.GetViewport().size.x,
+            .height    = inRenderGraph.GetViewport().size.y,
+            .mipLevels = mip_levels,
+            .usage     = Texture::SHADER_READ_WRITE,
+            .debugName = L"BLOOM OUTPUT"
+        });
+
+        ioRGBuilder.Write(inData.mOutputTexture);
+
+        // do an initial downsample from the current final scene texture to the first mip of the bloom chain
+        const auto& downscale_data = AddBloomSamplePass(std::format("Downsample Scene -> Mip 1"), g_SystemShaders.mBloomDownsampleShader.GetComputePSO(), inInputTexture, inData.mOutputTexture, 0, 1);
+
+        // downsample along the bloom chain
+        for (auto mip = 1u; mip < mip_levels - 1; mip++)
+            const auto& data = AddBloomSamplePass(std::format("Downsample Mip {} -> Mip {}", mip, mip + 1), g_SystemShaders.mBloomUpSampleShader.GetComputePSO(), inData.mOutputTexture, inData.mOutputTexture, mip, mip + 1);
+
+        // upsample along the bloom chain
+        for (auto mip = mip_levels - 1; mip > 0; mip--)
+            const auto& data = AddBloomSamplePass(std::format("Upsample Mip {} -> Mip {}", mip, mip - 1), g_SystemShaders.mBloomUpSampleShader.GetComputePSO(), inData.mOutputTexture, inData.mOutputTexture, mip, mip - 1);
+    },
+
+    [&inDevice](BloomData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        // clear or discard maybe?
+    });
+}
+
+
+
+const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inBloomTexture, RenderGraphResourceID inInputTexture)
 {
     return inRenderGraph.AddGraphicsPass<ComposeData>("COMPOSE PASS",
 
@@ -2090,6 +2164,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inBuilder.RenderTarget(inData.mOutputTexture);
 
         inData.mInputTextureSRV = inBuilder.Read(inInputTexture);
+        inData.mBloomTextureSRV = inBuilder.Read(inBloomTexture);
 
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         g_SystemShaders.mFinalComposeShader.GetGraphicsProgram(vertex_shader, pixel_shader);
@@ -2116,9 +2191,10 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->RSSetScissorRects(1, &scissor);
 
         inCmdList.PushGraphicsConstants(ComposeRootConstants {
+            .mBloomTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mBloomTextureSRV)),
+            .mInputTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mInputTextureSRV)),
             .mExposure = inData.mExposure,
             .mChromaticAberrationStrength = inData.mChromaticAberrationStrength,
-            .mInputTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mInputTextureSRV))
          });
 
         inCmdList->DrawInstanced(6, 1, 0, 0);

@@ -73,9 +73,8 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Roughness Shader", mGBufferDebugRoughnessShader);
 
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Depth of Field Shader", mDepthOfFieldShader);
-    // RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Bloom Upsample Shader", mBloomUpSampleShader);
-    // RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Bloom Downsample Shader", mBloomDownsampleShader);
-    // RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Chromatic Aberration Shader", mChromaticAberrationShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Bloom Upscale Shader", mBloomUpSampleShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Bloom Downscale Shader", mBloomDownsampleShader);
 }
 
 

@@ -72,6 +72,9 @@ public:
     RenderGraphResourceViewID Read(RenderGraphResourceID inGraphResourceID);
     RenderGraphResourceViewID Write(RenderGraphResourceID inGraphResourceID);
 
+    RenderGraphResourceViewID ReadTexture(RenderGraphResourceID inGraphResourceID, uint32_t inMip);
+    RenderGraphResourceViewID WriteTexture(RenderGraphResourceID inGraphResourceID, uint32_t inMip);
+
     const RenderGraphResourceDesc& GetResourceDesc(RenderGraphResourceID inGraphResourceID) { return m_ResourceDescriptions[inGraphResourceID]; }
     const RenderGraphResourceViewDesc& GetResourceViewDesc(RenderGraphResourceViewID inGraphResourceViewID) { return m_ResourceViewDescriptions[inGraphResourceViewID]; }
 
@@ -81,10 +84,11 @@ private:
 
     void Clear();
     
-    void StartPass(IRenderPass* inRenderPass);
-    void EndPass(IRenderPass* inRenderPass);
+    void PushRenderPass(IRenderPass* inRenderPass)  { m_CurrentRenderPasses.push_back(inRenderPass); }
+    void PopRenderPass()                            { m_CurrentRenderPasses.pop_back(); }
+    IRenderPass* GetRenderPass()                    { return m_CurrentRenderPasses.empty() ? nullptr : m_CurrentRenderPasses.back(); }
 
-    IRenderPass* m_CurrentRenderPass = nullptr;
+    std::vector<IRenderPass*> m_CurrentRenderPasses;
     std::vector<RenderGraphResourceDesc> m_ResourceDescriptions;
     std::vector<RenderGraphResourceViewDesc> m_ResourceViewDescriptions;
 };
@@ -101,6 +105,8 @@ enum EGlobalResource
 class RenderGraphResources
 {
 public:
+    friend class RenderGraph;
+
     void Clear(Device& inDevice);
     void Compile(Device& inDevice, const RenderGraphBuilder& inBuilder);
 
@@ -157,6 +163,9 @@ public:
     D3D12_RESOURCE_TRANSITION_BARRIER::StateAfter could be overwritten by the graph if it finds a better match during graph compilation. */
     void AddExitBarrier(const D3D12_RESOURCE_BARRIER& inBarrier) { m_ExitBarriers.push_back(inBarrier); }
     void AddEntryBarrier(const D3D12_RESOURCE_BARRIER& inBarrier) { m_EntryBarriers.push_back(inBarrier); }
+
+    void PopExitBarrier() { m_ExitBarriers.pop_back(); }
+    void PopEntryBarrier() { m_EntryBarriers.pop_back(); }
 
     inline const std::string& GetName() const { return m_Name; }
 
@@ -292,15 +301,17 @@ private:
 template<typename T, typename PassType>
 const T& RenderGraph::AddPass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
 {
-    auto& pass = m_RenderPasses.emplace_back(std::make_unique<PassType>(inName, inExecute));
+    // have to use index here, taking the emplace_back ref would invalidate it if we add aditional passes inside of the setup function
+    const auto pass_index = m_RenderPasses.size();
+    m_RenderPasses.emplace_back(std::make_unique<PassType>(inName, inExecute));
 
-    m_RenderGraphBuilder.StartPass(pass.get());
+    m_RenderGraphBuilder.PushRenderPass(m_RenderPasses[pass_index].get());
 
-    inSetup(m_RenderGraphBuilder, pass.get(), static_cast<RenderPass<T>*>( pass.get() )->GetData());
+    inSetup(m_RenderGraphBuilder, m_RenderPasses[pass_index].get(), static_cast<RenderPass<T>*>( m_RenderPasses[pass_index].get() )->GetData());
 
-    m_RenderGraphBuilder.EndPass(pass.get());
+    m_RenderGraphBuilder.PopRenderPass();
 
-    return static_cast<RenderPass<T>*>( pass.get() )->GetData();
+    return static_cast<RenderPass<T>*>( m_RenderPasses[pass_index].get() )->GetData();
 }
 
 

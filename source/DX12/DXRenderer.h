@@ -66,6 +66,7 @@ private:
         int& mDisplayRes     = g_CVars.Create("r_display_resolution",  0);
         int& mEnableTAA      = g_CVars.Create("r_enable_taa",          0);
         int& mEnableDoF      = g_CVars.Create("r_enable_dof",          1);
+        int& mEnableBloom    = g_CVars.Create("r_enable_bloom",        1);
         int& mUpscaler       = g_CVars.Create("r_upscaler",            0,    true);
         int& mUpscaleQuality = g_CVars.Create("r_upscaler_quality",    0,    true);
         int& mDoPathTrace    = g_CVars.Create("r_path_trace",          0,    true);
@@ -612,10 +613,46 @@ struct ComposeData
     static inline float mChromaticAberrationStrength = 0.0f;
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mInputTextureSRV;
+    RenderGraphResourceViewID mBloomTextureSRV;;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
 const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice,
+    RenderGraphResourceID inBloomTexture,
+    RenderGraphResourceID inInputTexture
+);
+
+
+////////////////////////////////////////
+/// Bloom Downscale and Upscale passes
+////////////////////////////////////////
+struct BloomDownscaleData
+{
+    RTTI_DECLARE_TYPE(BloomDownscaleData);
+    uint32_t mToTextureMip = 0;
+    uint32_t mFromTextureMip = 0;
+    RenderGraphResourceViewID mToTextureUAV;
+    RenderGraphResourceViewID mFromTextureSRV;
+};
+
+
+struct BloomUpscaleData
+{
+    RTTI_DECLARE_TYPE(BloomDownscaleData);
+
+
+};
+
+
+struct BloomData
+{
+    RTTI_DECLARE_TYPE(BloomData);
+
+    RenderGraphResourceID mOutputTexture;
+};
+
+
+const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, 
     RenderGraphResourceID inInputTexture
 );
 

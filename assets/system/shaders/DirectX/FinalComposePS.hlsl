@@ -36,9 +36,11 @@ float3 EncodeGamma(float3 L) {
 
 float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     Texture2D input_texture = ResourceDescriptorHeap[rc.mInputTexture];
+    Texture2D bloom_texture = ResourceDescriptorHeap[rc.mBloomTexture];
     
-    float4 src = input_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
-    src.rgb = CheapChromaticAberration(input_texture, inParams.mScreenUV);
+    float4 src = float4(CheapChromaticAberration(input_texture, inParams.mScreenUV), 1.0);
+    
+    src = lerp(src, bloom_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0), 0.06);
     
     return float4(EncodeGamma(src.rgb * rc.mExposure), 1.0);
 }

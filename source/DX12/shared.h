@@ -357,11 +357,22 @@ struct TAAResolveConstants
 STATIC_ASSERT(sizeof(TAAResolveConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+struct BloomRootConstants
+{
+    uint mSrcTexture;
+    uint mSrcMipLevel;
+    uint mDstTexture;
+    uint mDstMipLevel;
+    uint2 mDispatchSize;
+};
+
+
 struct ComposeRootConstants
 {
+    uint mBloomTexture;
+    uint mInputTexture;
     float mExposure;
     float mChromaticAberrationStrength;
-    uint mInputTexture;
 };
 STATIC_ASSERT(sizeof(ComposeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 

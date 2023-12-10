@@ -50,8 +50,8 @@ RenderGraphResourceViewID RenderGraphBuilder::RenderTarget(RenderGraphResourceID
 
     const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
 
-    m_CurrentRenderPass->m_WrittenResources.push_back(graph_resource_id);
-    m_CurrentRenderPass->m_RenderTargetFormats.push_back(desc.mResourceDesc.mTextureDesc.format);
+    GetRenderPass()->m_WrittenResources.push_back(graph_resource_id);
+    GetRenderPass()->m_RenderTargetFormats.push_back(desc.mResourceDesc.mTextureDesc.format);
 
     return graph_resource_id;
 }
@@ -60,7 +60,7 @@ RenderGraphResourceViewID RenderGraphBuilder::RenderTarget(RenderGraphResourceID
 
 RenderGraphResourceViewID RenderGraphBuilder::DepthStencilTarget(RenderGraphResourceID inGraphResourceID)
 {
-    assert(m_CurrentRenderPass->m_DepthStencilFormat == DXGI_FORMAT_UNKNOWN);
+    assert(GetRenderPass()->m_DepthStencilFormat == DXGI_FORMAT_UNKNOWN);
 
     RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);
     assert(desc.mResourceDesc.mResourceType != RESOURCE_TYPE_BUFFER);
@@ -69,8 +69,8 @@ RenderGraphResourceViewID RenderGraphBuilder::DepthStencilTarget(RenderGraphReso
 
     const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
 
-    m_CurrentRenderPass->m_WrittenResources.push_back(graph_resource_id);
-    m_CurrentRenderPass->m_DepthStencilFormat = desc.mResourceDesc.mTextureDesc.format;
+    GetRenderPass()->m_WrittenResources.push_back(graph_resource_id);
+    GetRenderPass()->m_DepthStencilFormat = desc.mResourceDesc.mTextureDesc.format;
 
     return graph_resource_id;
 }
@@ -92,7 +92,7 @@ RenderGraphResourceViewID RenderGraphBuilder::Write(RenderGraphResourceID inGrap
 
     const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
 
-    m_CurrentRenderPass->m_WrittenResources.push_back(graph_resource_id);
+    GetRenderPass()->m_WrittenResources.push_back(graph_resource_id);
 
     return graph_resource_id;
 }
@@ -114,7 +114,45 @@ RenderGraphResourceViewID RenderGraphBuilder::Read(RenderGraphResourceID inGraph
 
     const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
 
-    m_CurrentRenderPass->m_ReadResources.push_back(graph_resource_id);
+    GetRenderPass()->m_ReadResources.push_back(graph_resource_id);
+
+    return graph_resource_id;
+}
+
+
+
+RenderGraphResourceViewID RenderGraphBuilder::ReadTexture(RenderGraphResourceID inGraphResourceID, uint32_t inMip)
+{
+    assert(m_ResourceDescriptions[inGraphResourceID].mResourceType == RESOURCE_TYPE_TEXTURE);
+    assert(inMip < m_ResourceDescriptions[inGraphResourceID].mTextureDesc.mipLevels);
+
+    RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);
+    desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::SHADER_READ_ONLY;
+    desc.mResourceDesc.mTextureDesc.baseMip = inMip;
+    desc.mResourceDesc.mTextureDesc.mipLevels = 1;
+
+    const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
+
+    GetRenderPass()->m_ReadResources.push_back(graph_resource_id);
+
+    return graph_resource_id;
+}
+
+
+
+RenderGraphResourceViewID RenderGraphBuilder::WriteTexture(RenderGraphResourceID inGraphResourceID, uint32_t inMip)
+{
+    assert(inMip < m_ResourceDescriptions[inGraphResourceID].mTextureDesc.mipLevels);
+    assert(m_ResourceDescriptions[inGraphResourceID].mResourceType == RESOURCE_TYPE_TEXTURE);
+    
+    RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);
+    desc.mResourceDesc.mTextureDesc.usage = Texture::Usage::SHADER_READ_WRITE;
+    desc.mResourceDesc.mTextureDesc.baseMip = inMip;
+    desc.mResourceDesc.mTextureDesc.mipLevels = 1;
+
+    const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
+
+    GetRenderPass()->m_WrittenResources.push_back(graph_resource_id);
 
     return graph_resource_id;
 }
@@ -127,7 +165,7 @@ RenderGraphResourceID RenderGraphBuilder::Create(const RenderGraphResourceDesc& 
 
     const RenderGraphResourceID graph_resource_id = RenderGraphResourceID(m_ResourceDescriptions.size() - 1);
 
-    m_CurrentRenderPass->m_CreatedResources.push_back(graph_resource_id);
+    GetRenderPass()->m_CreatedResources.push_back(graph_resource_id);
 
     return graph_resource_id;
 }
@@ -147,25 +185,9 @@ RenderGraphResourceViewDesc& RenderGraphBuilder::EmplaceDescriptorDesc(RenderGra
 
 void RenderGraphBuilder::Clear()
 {
-    m_CurrentRenderPass = nullptr;
+    m_CurrentRenderPasses.clear();
     m_ResourceDescriptions.clear();
     m_ResourceViewDescriptions.clear();
-}
-
-
-
-void RenderGraphBuilder::StartPass(IRenderPass* inRenderPass)
-{
-    assert(m_CurrentRenderPass == nullptr);
-    m_CurrentRenderPass = inRenderPass;
-}
-
-
-
-void RenderGraphBuilder::EndPass(IRenderPass* inRenderPass)
-{
-    assert(m_CurrentRenderPass == inRenderPass);
-    m_CurrentRenderPass = nullptr;
 }
 
 
@@ -234,12 +256,12 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
 
         if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
         {
-            if (descriptor_desc.mResourceDesc.mBufferDesc.usage != resource_desc.mBufferDesc.usage)
+            if (descriptor_desc.mResourceDesc.mBufferDesc != resource_desc.mBufferDesc)
                 new_resource.mResourceID = inDevice.CreateBufferView(BufferID(device_resource_index), descriptor_desc.mResourceDesc.mBufferDesc);
         }
         else if (resource.mResourceType == RESOURCE_TYPE_TEXTURE)
         {
-            if (descriptor_desc.mResourceDesc.mTextureDesc.usage != resource_desc.mTextureDesc.usage)
+            if (descriptor_desc.mResourceDesc.mTextureDesc != resource_desc.mTextureDesc)
                 new_resource.mResourceID = inDevice.CreateTextureView(TextureID(device_resource_index), descriptor_desc.mResourceDesc.mTextureDesc);
         }
 
@@ -437,54 +459,113 @@ bool RenderGraph::Compile(Device& inDevice)
     */
     struct GraphEdge
     {
+        uint32_t mSubResource;
         uint32_t mRenderPassIndex;
         D3D12_RESOURCE_STATES mUsage;
     };
 
     struct GraphNode
     {
+        uint32_t mBaseSubResource;
+        uint32_t mSubResourceCount;
         EResourceType mResourceType;
         std::vector<GraphEdge> mEdges;
     };
 
+    struct ResourceStates
+    {
+        ResourceStates(const GraphNode& inNode) : mSubResourceStates(inNode.mSubResourceCount, inNode.mEdges[0].mUsage) {}
+
+        std::vector<D3D12_RESOURCE_STATES> mSubResourceStates;
+    };
+
     std::unordered_map<RenderGraphResourceID, GraphNode> graph;
 
+    // initialize all the graph nodes (all the created/imported resources)
+    for (const auto& [resource_id, resource] : gEnumerate(m_RenderGraphResources.m_Resources))
+    {
+        auto& node = graph[resource_id];
+        node.mResourceType = resource.mResourceType;
+
+        if (node.mResourceType == EResourceType::RESOURCE_TYPE_BUFFER)
+        {
+            const auto& buffer = inDevice.GetBuffer(BufferID(resource.mResourceID));
+
+            node.mBaseSubResource = buffer.GetBaseSubresource();
+            node.mSubResourceCount = buffer.GetSubresourceCount();
+        }
+        else if (node.mResourceType == EResourceType::RESOURCE_TYPE_TEXTURE)
+        {
+            const auto& texture = inDevice.GetTexture(TextureID(resource.mResourceID));
+
+            node.mBaseSubResource = texture.GetBaseSubresource();
+            node.mSubResourceCount = texture.GetSubresourceCount();
+        }
+    }
+
+    // go through all the written/read views and add edges to nodes
     for (const auto& [renderpass_index, renderpass] : gEnumerate(m_RenderPasses))
     {
         for (const auto& resource_id : renderpass->m_WrittenResources)
         {
-            const auto& view_desc = m_RenderGraphBuilder.m_ResourceViewDescriptions[resource_id];
+            const auto& view_desc = m_RenderGraphBuilder.GetResourceViewDesc(resource_id);
+
+            
 
             auto& node = graph[view_desc.mGraphResourceID];
-            node.mResourceType = view_desc.mResourceDesc.mResourceType;
 
             auto usage = D3D12_RESOURCE_STATE_COMMON;
 
-            if (node.mResourceType == RESOURCE_TYPE_BUFFER)
-                usage = gGetResourceStates(inDevice.GetBuffer(m_RenderGraphResources.GetBufferView(resource_id)).GetDesc().usage);
+            auto subresource_index = 0u;
+            auto subresource_count = 1u;
 
+            if (node.mResourceType == RESOURCE_TYPE_BUFFER)
+            {
+                usage = gGetResourceStates(inDevice.GetBuffer(m_RenderGraphResources.GetBufferView(resource_id)).GetDesc().usage);
+            }
             else if (node.mResourceType == RESOURCE_TYPE_TEXTURE)
+            {
                 usage = gGetResourceStates(inDevice.GetTexture(m_RenderGraphResources.GetTextureView(resource_id)).GetDesc().usage);
 
-            node.mEdges.emplace_back(GraphEdge { .mRenderPassIndex = uint32_t(renderpass_index), .mUsage = usage });
+                subresource_index = view_desc.mResourceDesc.mTextureDesc.baseMip;
+                subresource_count = view_desc.mResourceDesc.mTextureDesc.mipLevels;
+            }
+
+            for (auto subresource = subresource_index; subresource < subresource_index + subresource_count; subresource++)
+            {
+                assert(subresource < inDevice.GetTexture(m_RenderGraphResources.GetTexture(view_desc.mGraphResourceID)).GetSubresourceCount());
+                node.mEdges.emplace_back(GraphEdge { .mSubResource = subresource, .mRenderPassIndex = uint32_t(renderpass_index), .mUsage = usage });
+            }
         }
 
         for (const auto& resource_id : renderpass->m_ReadResources)
         {
-            const auto& view_desc = m_RenderGraphBuilder.m_ResourceViewDescriptions[resource_id];
+            const auto& view_desc = m_RenderGraphBuilder.GetResourceViewDesc(resource_id);
 
             auto& node = graph[view_desc.mGraphResourceID];
-            node.mResourceType = view_desc.mResourceDesc.mResourceType;
 
             auto usage = D3D12_RESOURCE_STATE_COMMON;
 
-            if (node.mResourceType == RESOURCE_TYPE_BUFFER)
-                usage = gGetResourceStates(inDevice.GetBuffer(m_RenderGraphResources.GetBufferView(resource_id)).GetDesc().usage);
+            auto subresource_index = 0u;
+            auto subresource_count = 1u;
 
+            if (node.mResourceType == RESOURCE_TYPE_BUFFER)
+            {
+                usage = gGetResourceStates(inDevice.GetBuffer(m_RenderGraphResources.GetBufferView(resource_id)).GetDesc().usage);
+            }
             else if (node.mResourceType == RESOURCE_TYPE_TEXTURE)
+            {
                 usage = gGetResourceStates(inDevice.GetTexture(m_RenderGraphResources.GetTextureView(resource_id)).GetDesc().usage);
 
-            node.mEdges.emplace_back(GraphEdge { .mRenderPassIndex = uint32_t(renderpass_index), .mUsage = usage });
+                subresource_index = view_desc.mResourceDesc.mTextureDesc.baseMip;
+                subresource_count = view_desc.mResourceDesc.mTextureDesc.mipLevels;
+            }
+
+            for (auto subresource = subresource_index; subresource < subresource_index + subresource_count; subresource++)
+            {
+                assert(subresource < inDevice.GetTexture(m_RenderGraphResources.GetTexture(view_desc.mGraphResourceID)).GetSubresourceCount());
+                node.mEdges.emplace_back(GraphEdge { .mSubResource = subresource, .mRenderPassIndex = uint32_t(renderpass_index), .mUsage = usage });
+            }
         }
     }
 
@@ -535,24 +616,34 @@ bool RenderGraph::Compile(Device& inDevice)
 
         assert(resource_ptr);
 
-        auto tracked_state = node.mEdges[0].mUsage;
+        auto tracked_state = ResourceStates(node);
 
         for (auto edge_index = 1; edge_index < node.mEdges.size(); edge_index++)
         {
-            auto new_state = node.mEdges[edge_index].mUsage;
-            auto& prev_pass = m_RenderPasses[node.mEdges[edge_index - 1].mRenderPassIndex];
+            const auto& prev_edge = node.mEdges[edge_index - 1];
+            const auto& curr_edge = node.mEdges[edge_index];
 
-            if (( tracked_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS ) && ( new_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS ))
+            auto& curr_pass = m_RenderPasses[curr_edge.mRenderPassIndex];
+            auto& prev_pass = m_RenderPasses[prev_edge.mRenderPassIndex];
+
+            auto& old_state = tracked_state.mSubResourceStates[curr_edge.mSubResource];
+            auto& new_state = curr_edge.mUsage;
+
+            if (( old_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS ) && ( new_state & D3D12_RESOURCE_STATE_UNORDERED_ACCESS ) &&  curr_edge.mRenderPassIndex != prev_edge.mRenderPassIndex)
             {
                 prev_pass->AddExitBarrier( CD3DX12_RESOURCE_BARRIER::UAV(resource_ptr) );
             }
 
-            if (tracked_state == new_state)
+            if (old_state == new_state)
                 continue;
 
-            prev_pass->AddExitBarrier( CD3DX12_RESOURCE_BARRIER::Transition(resource_ptr, tracked_state, new_state) );
+            assert(curr_edge.mSubResource != prev_edge.mSubResource || curr_edge.mRenderPassIndex != prev_edge.mRenderPassIndex);
+           /* if (curr_edge.mSubResource == 4)
+                __debugbreak();*/
 
-            tracked_state = new_state;
+            prev_pass->AddExitBarrier( CD3DX12_RESOURCE_BARRIER::Transition(resource_ptr, old_state, new_state, curr_edge.mSubResource) );
+
+            old_state = new_state;
         }
 
         for (const auto& edge : node.mEdges)
@@ -561,11 +652,13 @@ bool RenderGraph::Compile(Device& inDevice)
             if (!pass->IsCreated(resource_id))
                 continue;
 
-            auto edge_state = edge.mUsage;
-            if (tracked_state == edge_state)
+            auto& old_state = tracked_state.mSubResourceStates[edge.mSubResource];
+            auto& new_state = edge.mUsage;
+            
+            if (old_state == new_state)
                 continue;
 
-            pass->AddEntryBarrier( CD3DX12_RESOURCE_BARRIER::Transition(resource_ptr, tracked_state, edge_state) );
+            pass->AddEntryBarrier( CD3DX12_RESOURCE_BARRIER::Transition(resource_ptr, old_state, new_state, edge.mSubResource) );
         }
     }
 
