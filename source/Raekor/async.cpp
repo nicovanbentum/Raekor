@@ -35,20 +35,7 @@ ThreadPool::ThreadPool(uint32_t inThreadCount) : m_ActiveThreadCount(inThreadCou
 
 ThreadPool::~ThreadPool()
 {
-	// let every thread know they can exit their while loops
-	{
-		auto lock = std::scoped_lock<std::mutex>(m_Mutex);
-		m_Quit = true;
-	}
-
-	SetActiveThreadCount(m_Threads.size());
-
-	m_ConditionVariable.notify_all();
-
-	// wait for all to finish up
-	for (auto& thread : m_Threads)
-		if (thread.joinable())
-			thread.join();
+	Shutdown();
 }
 
 
@@ -72,6 +59,25 @@ void ThreadPool::WaitForJobs()
 {
 	m_ConditionVariable.notify_all();
 	while (m_ActiveJobCount.load() > 0) {}
+}
+
+
+void ThreadPool::Shutdown()
+{
+	// let every thread know they can exit their while loops
+	{
+		auto lock = std::scoped_lock<std::mutex>(m_Mutex);
+		m_Quit = true;
+	}
+
+	SetActiveThreadCount(m_Threads.size());
+
+	m_ConditionVariable.notify_all();
+
+	// wait for all to finish up
+	for (auto& thread : m_Threads)
+		if (thread.joinable())
+			thread.join();
 }
 
 

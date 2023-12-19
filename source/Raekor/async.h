@@ -34,6 +34,9 @@ public:
 	/* Wait for all jobs to finish. */
 	void WaitForJobs();
 
+	/* exits all the threads. */
+	void Shutdown();
+
 	/* Scoped lock on the global mutex,
 		useful for ensuring thread safety inside a job function. */
 	std::mutex& GetMutex() { return m_Mutex; }

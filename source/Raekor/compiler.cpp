@@ -62,7 +62,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 
 #ifdef NDEBUG
 	// hide the console window
-	ShowWindow(GetConsoleWindow(), SW_HIDE);
+	// ShowWindow(GetConsoleWindow(), SW_HIDE);
 #endif
 
 	SDL_SetWindowTitle(m_Window, "Raekor Asset Compiler");
@@ -86,7 +86,13 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 		file_entry.ReadMetadata();
 	}
 
-	g_ThreadPool.SetActiveThreadCount(std::max(2u, g_ThreadPool.GetThreadCount() / 4));
+	g_ThreadPool.SetActiveThreadCount(std::max(2u, g_ThreadPool.GetThreadCount() - 1));
+
+	g_ThreadPool.QueueJob([this]() 
+	{
+		for (auto& file : m_Files)
+			file.UpdateFileHash();
+	});
 
 	stbi_set_flip_vertically_on_load(true);
 
@@ -99,6 +105,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 }
 
 
+#pragma warning(disable:4722)
 
 CompilerApp::~CompilerApp()
 {
@@ -107,12 +114,10 @@ CompilerApp::~CompilerApp()
 	nid.hWnd = GetWindowHandle();
 	Shell_NotifyIcon(NIM_DELETE, &nid);
 
-	ImGui_ImplSDL2_Shutdown();
-	ImGui_ImplSDLRenderer_Shutdown();
-	SDL_DestroyRenderer(m_Renderer);
-	ImGui::DestroyContext();
+	std::quick_exit(0);
 }
 
+#pragma warning(default:4722)
 
 
 void CompilerApp::OnUpdate(float inDeltaTime)
@@ -307,8 +312,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 
 			ImGui::SameLine();
 
-			auto error_code = std::error_code();
-			if (fs::exists(file.mCachePath, error_code))
+			if (file.mIsCached)
 				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 1, 0, 1));
 			else
 			{
@@ -373,7 +377,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 
 	for (auto [index, file] : gEnumerate(m_Files))
 	{
-		if (fs::exists(file.mCachePath) || m_FilesInFlight.contains(index))
+		if (file.mIsCached || m_FilesInFlight.contains(index))
 			continue;
 
 		if (file.mAssetType == ASSET_TYPE_IMAGE && m_CompileTextures)
@@ -392,7 +396,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 					fs::copy_file(file.mAssetPath, file.mCachePath);
 				}
 
-				file.UpdateWriteTime();
+				file.ReadMetadata();
 
 				std::scoped_lock lock(m_FilesInFlightMutex);
 				m_FilesInFlight.erase(index);
@@ -434,6 +438,8 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 					scene.Add<DirectionalLight>(scene.CreateSpatialEntity("Directional Light"));
 
 				scene.SaveToFile(file.mCachePath, assets);
+
+				file.ReadMetadata();
 
 				std::scoped_lock lock(m_FilesInFlightMutex);
 				m_FilesInFlight.erase(index);

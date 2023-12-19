@@ -60,17 +60,18 @@ struct FileEntry
 
 	void UpdateWriteTime()
 	{
-		auto& write_path = fs::exists(mCachePath) ? mCachePath : mAssetPath;
+		auto& write_path = mIsCached ? mCachePath : mAssetPath;
 		mWriteTime = std::chrono::system_clock::to_time_t(std::chrono::clock_cast<std::chrono::system_clock>( fs::last_write_time(write_path) ));
 	}
 
 	void ReadMetadata()
 	{
-		UpdateFileHash();
+		mIsCached = fs::exists(mCachePath);
 		UpdateWriteTime();
 	}
 
-	uint64_t mFileHash;
+	bool mIsCached = false;
+	uint64_t mFileHash = 0;
 	AssetType mAssetType;
 	std::string mAssetPath;
 	std::string mCachePath;
@@ -105,9 +106,9 @@ private:
 	std::mutex m_FilesInFlightMutex;
 	std::set<uint32_t> m_FilesInFlight;
 	std::vector<FileEntry> m_Files;
+	std::set<fs::path> m_CachedFiles;
 	std::atomic<bool> m_CompileScenes = true;
 	std::atomic<bool> m_CompileTextures = true;
-
 };
 
 }
