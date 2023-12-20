@@ -67,7 +67,8 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         const float3 Wi = normalize(-fc.mSunDirection.xyz);
         const float3 Wh = normalize(Wo + Wi);
         
-        const float3 l = brdf.Evaluate(Wo, Wi, Wh);
+        const float3 l = ((1.0 - brdf.mMetallic) * brdf.mAlbedo.rgb);
+        
 
         const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
         float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * fc.mSunColor.a;

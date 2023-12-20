@@ -3,7 +3,7 @@
     {
         "Clear Buffer Shader":
         {
-            "Compute Shader File": "assets/system/shaders/DirectX/ClearTextureUAV.hlsl"
+            "Compute Shader File": "assets/system/shaders/DirectX/ClearBufferUAV.hlsl"
         },
 
         "Clear Texture Shader":
@@ -107,6 +107,24 @@
         "RT Ambient Occlusion Shader":
         {
             "Compute Shader File": "assets/system/shaders/DirectX/RTAmbientOcclusionCS.hlsl"
+        },
+
+        
+        "Trace Shadow Rays Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/RTShadowsTraceCS.hlsl"
+        },
+
+        
+        "Classify Shadow Tiles Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/RTShadowsClassifyCS.hlsl"
+        },
+
+        
+        "Denoise Shadow Tiles Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/RTShadowsDenoiseCS.hlsl"
         },
 
         "GBuffer Debug Depth Shader": 

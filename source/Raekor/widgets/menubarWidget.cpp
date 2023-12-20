@@ -8,6 +8,7 @@
 #include "assimp.h"
 #include "physics.h"
 #include "systems.h"
+#include "compiler.h"
 #include "primitives.h"
 #include "components.h"
 #include "application.h"
@@ -330,6 +331,17 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				}
 
 				ImGui::EndMenu();
+			}
+
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Help"))
+		{
+			if (ImGui::MenuItem("Launch Asset Compiler"))
+			{
+				const auto exe = OS::sGetExecutablePath().string();
+				ShellExecute(0, 0, exe.c_str(), "-asset_compiler", 0, SW_SHOW);
 			}
 
 			ImGui::EndMenu();

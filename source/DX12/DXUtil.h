@@ -59,12 +59,20 @@ inline void gThrowIfFailed(xess_result_t inErrCode)
 }
 
 
-inline std::string gGetDebugName(ID3D12Resource* inResource)
+inline const char* gGetDebugName(ID3D12Resource* inResource)
 {
-    wchar_t name[128] = {};
-    UINT size = sizeof(name);
-    inResource->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
-    return gWCharToString(name);
+    const char* name = nullptr;
+    uint32_t size = 0;
+    inResource->GetPrivateData(WKPDID_D3DDebugObjectName, &size, nullptr);
+    inResource->GetPrivateData(WKPDID_D3DDebugObjectName, &size, (void*)name);
+
+    return name;
+}
+
+
+inline void gSetDebugName(ID3D12Resource* inResource, const char* inName)
+{
+    inResource->SetPrivateData(WKPDID_D3DDebugObjectName, (uint32_t)strlen(inName) + 1, inName);
 }
 
 
@@ -131,6 +139,287 @@ inline DXGI_FORMAT gGetDepthFormatSRV(DXGI_FORMAT inFormat)
     return DXGI_FORMAT_UNKNOWN;
 }
 
+
+inline size_t gBitsPerPixel(DXGI_FORMAT fmt) noexcept
+{
+    switch (static_cast<int>( fmt ))
+    {
+        case DXGI_FORMAT_R32G32B32A32_TYPELESS:
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        case DXGI_FORMAT_R32G32B32A32_UINT:
+        case DXGI_FORMAT_R32G32B32A32_SINT:
+            return 128;
+
+        case DXGI_FORMAT_R32G32B32_TYPELESS:
+        case DXGI_FORMAT_R32G32B32_FLOAT:
+        case DXGI_FORMAT_R32G32B32_UINT:
+        case DXGI_FORMAT_R32G32B32_SINT:
+            return 96;
+
+        case DXGI_FORMAT_R16G16B16A16_TYPELESS:
+        case DXGI_FORMAT_R16G16B16A16_FLOAT:
+        case DXGI_FORMAT_R16G16B16A16_UNORM:
+        case DXGI_FORMAT_R16G16B16A16_UINT:
+        case DXGI_FORMAT_R16G16B16A16_SNORM:
+        case DXGI_FORMAT_R16G16B16A16_SINT:
+        case DXGI_FORMAT_R32G32_TYPELESS:
+        case DXGI_FORMAT_R32G32_FLOAT:
+        case DXGI_FORMAT_R32G32_UINT:
+        case DXGI_FORMAT_R32G32_SINT:
+        case DXGI_FORMAT_R32G8X24_TYPELESS:
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+        case DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS:
+        case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT:
+        case DXGI_FORMAT_Y416:
+        case DXGI_FORMAT_Y210:
+        case DXGI_FORMAT_Y216:
+            return 64;
+
+        case DXGI_FORMAT_R10G10B10A2_TYPELESS:
+        case DXGI_FORMAT_R10G10B10A2_UNORM:
+        case DXGI_FORMAT_R10G10B10A2_UINT:
+        case DXGI_FORMAT_R11G11B10_FLOAT:
+        case DXGI_FORMAT_R8G8B8A8_TYPELESS:
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+        case DXGI_FORMAT_R8G8B8A8_UINT:
+        case DXGI_FORMAT_R8G8B8A8_SNORM:
+        case DXGI_FORMAT_R8G8B8A8_SINT:
+        case DXGI_FORMAT_R16G16_TYPELESS:
+        case DXGI_FORMAT_R16G16_FLOAT:
+        case DXGI_FORMAT_R16G16_UNORM:
+        case DXGI_FORMAT_R16G16_UINT:
+        case DXGI_FORMAT_R16G16_SNORM:
+        case DXGI_FORMAT_R16G16_SINT:
+        case DXGI_FORMAT_R32_TYPELESS:
+        case DXGI_FORMAT_D32_FLOAT:
+        case DXGI_FORMAT_R32_FLOAT:
+        case DXGI_FORMAT_R32_UINT:
+        case DXGI_FORMAT_R32_SINT:
+        case DXGI_FORMAT_R24G8_TYPELESS:
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:
+        case DXGI_FORMAT_R24_UNORM_X8_TYPELESS:
+        case DXGI_FORMAT_X24_TYPELESS_G8_UINT:
+        case DXGI_FORMAT_R9G9B9E5_SHAREDEXP:
+        case DXGI_FORMAT_R8G8_B8G8_UNORM:
+        case DXGI_FORMAT_G8R8_G8B8_UNORM:
+        case DXGI_FORMAT_B8G8R8A8_UNORM:
+        case DXGI_FORMAT_B8G8R8X8_UNORM:
+        case DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM:
+        case DXGI_FORMAT_B8G8R8A8_TYPELESS:
+        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+        case DXGI_FORMAT_B8G8R8X8_TYPELESS:
+        case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB:
+        case DXGI_FORMAT_AYUV:
+        case DXGI_FORMAT_Y410:
+        case DXGI_FORMAT_YUY2:
+            return 32;
+
+        case DXGI_FORMAT_P010:
+        case DXGI_FORMAT_P016:
+            return 24;
+
+        case DXGI_FORMAT_R8G8_TYPELESS:
+        case DXGI_FORMAT_R8G8_UNORM:
+        case DXGI_FORMAT_R8G8_UINT:
+        case DXGI_FORMAT_R8G8_SNORM:
+        case DXGI_FORMAT_R8G8_SINT:
+        case DXGI_FORMAT_R16_TYPELESS:
+        case DXGI_FORMAT_R16_FLOAT:
+        case DXGI_FORMAT_D16_UNORM:
+        case DXGI_FORMAT_R16_UNORM:
+        case DXGI_FORMAT_R16_UINT:
+        case DXGI_FORMAT_R16_SNORM:
+        case DXGI_FORMAT_R16_SINT:
+        case DXGI_FORMAT_B5G6R5_UNORM:
+        case DXGI_FORMAT_B5G5R5A1_UNORM:
+        case DXGI_FORMAT_A8P8:
+        case DXGI_FORMAT_B4G4R4A4_UNORM:
+            return 16;
+
+        case DXGI_FORMAT_NV12:
+        case DXGI_FORMAT_420_OPAQUE:
+        case DXGI_FORMAT_NV11:
+            return 12;
+
+        case DXGI_FORMAT_R8_TYPELESS:
+        case DXGI_FORMAT_R8_UNORM:
+        case DXGI_FORMAT_R8_UINT:
+        case DXGI_FORMAT_R8_SNORM:
+        case DXGI_FORMAT_R8_SINT:
+        case DXGI_FORMAT_A8_UNORM:
+        case DXGI_FORMAT_BC2_TYPELESS:
+        case DXGI_FORMAT_BC2_UNORM:
+        case DXGI_FORMAT_BC2_UNORM_SRGB:
+        case DXGI_FORMAT_BC3_TYPELESS:
+        case DXGI_FORMAT_BC3_UNORM:
+        case DXGI_FORMAT_BC3_UNORM_SRGB:
+        case DXGI_FORMAT_BC5_TYPELESS:
+        case DXGI_FORMAT_BC5_UNORM:
+        case DXGI_FORMAT_BC5_SNORM:
+        case DXGI_FORMAT_BC6H_TYPELESS:
+        case DXGI_FORMAT_BC6H_UF16:
+        case DXGI_FORMAT_BC6H_SF16:
+        case DXGI_FORMAT_BC7_TYPELESS:
+        case DXGI_FORMAT_BC7_UNORM:
+        case DXGI_FORMAT_BC7_UNORM_SRGB:
+        case DXGI_FORMAT_AI44:
+        case DXGI_FORMAT_IA44:
+        case DXGI_FORMAT_P8:
+            return 8;
+
+        case DXGI_FORMAT_R1_UNORM:
+            return 1;
+
+        case DXGI_FORMAT_BC1_TYPELESS:
+        case DXGI_FORMAT_BC1_UNORM:
+        case DXGI_FORMAT_BC1_UNORM_SRGB:
+        case DXGI_FORMAT_BC4_TYPELESS:
+        case DXGI_FORMAT_BC4_UNORM:
+        case DXGI_FORMAT_BC4_SNORM:
+            return 4;
+
+        default:
+            return 0;
+    }
+}
+
+
+inline HRESULT gComputePitch(DXGI_FORMAT fmt, size_t width, size_t height,
+    size_t& rowPitch, size_t& slicePitch)
+{
+    uint64_t pitch = 0;
+    uint64_t slice = 0;
+
+    switch (static_cast<int>( fmt ))
+    {
+        case DXGI_FORMAT_BC1_TYPELESS:
+        case DXGI_FORMAT_BC1_UNORM:
+        case DXGI_FORMAT_BC1_UNORM_SRGB:
+        case DXGI_FORMAT_BC4_TYPELESS:
+        case DXGI_FORMAT_BC4_UNORM:
+        case DXGI_FORMAT_BC4_SNORM:
+        {
+            const uint64_t nbw = std::max<uint64_t>(1u, ( uint64_t(width) + 3u ) / 4u);
+            const uint64_t nbh = std::max<uint64_t>(1u, ( uint64_t(height) + 3u ) / 4u);
+            pitch = nbw * 8u;
+            slice = pitch * nbh;
+            break;
+        }
+
+        case DXGI_FORMAT_BC2_TYPELESS:
+        case DXGI_FORMAT_BC2_UNORM:
+        case DXGI_FORMAT_BC2_UNORM_SRGB:
+        case DXGI_FORMAT_BC3_TYPELESS:
+        case DXGI_FORMAT_BC3_UNORM:
+        case DXGI_FORMAT_BC3_UNORM_SRGB:
+        case DXGI_FORMAT_BC5_TYPELESS:
+        case DXGI_FORMAT_BC5_UNORM:
+        case DXGI_FORMAT_BC5_SNORM:
+        case DXGI_FORMAT_BC6H_TYPELESS:
+        case DXGI_FORMAT_BC6H_UF16:
+        case DXGI_FORMAT_BC6H_SF16:
+        case DXGI_FORMAT_BC7_TYPELESS:
+        case DXGI_FORMAT_BC7_UNORM:
+        case DXGI_FORMAT_BC7_UNORM_SRGB:
+        {
+            const uint64_t nbw = std::max<uint64_t>(1u, ( uint64_t(width) + 3u ) / 4u);
+            const uint64_t nbh = std::max<uint64_t>(1u, ( uint64_t(height) + 3u ) / 4u);
+            pitch = nbw * 16u;
+            slice = pitch * nbh;
+            break;
+        }
+
+        case DXGI_FORMAT_R8G8_B8G8_UNORM:
+        case DXGI_FORMAT_G8R8_G8B8_UNORM:
+        case DXGI_FORMAT_YUY2:
+            pitch = ( ( uint64_t(width) + 1u ) >> 1 ) * 4u;
+            slice = pitch * uint64_t(height);
+            break;
+
+        default:
+            {
+                size_t bpp = gBitsPerPixel(fmt);
+                if (!bpp)
+                    return E_INVALIDARG;
+
+                // Default byte alignment
+                pitch = ( uint64_t(width) * bpp + 7u ) / 8u;
+                slice = pitch * uint64_t(height);
+                break;
+            }
+    }
+
+    rowPitch = static_cast<size_t>( pitch );
+    slicePitch = static_cast<size_t>( slice );
+
+    return S_OK;
+}
+
+
+//------------------------------------------------------------------------------------------------
+// All arrays must be populated (e.g. by calling GetCopyableFootprints)
+inline UINT64 gUpdateSubresources(
+    _In_ ID3D12GraphicsCommandList* pCmdList,
+    _In_ ID3D12Resource* pDestinationResource,
+    _In_ ID3D12Resource* pIntermediate,
+    _In_range_(0, D3D12_REQ_SUBRESOURCES) UINT FirstSubresource,
+    _In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT NumSubresources,
+    UINT64 RequiredSize,
+    _In_reads_(NumSubresources) const D3D12_PLACED_SUBRESOURCE_FOOTPRINT* pLayouts,
+    _In_reads_(NumSubresources) const UINT* pNumRows,
+    _In_reads_(NumSubresources) const UINT64* pRowSizesInBytes,
+    _In_reads_(NumSubresources) const D3D12_SUBRESOURCE_DATA* pSrcData) noexcept
+{
+    // Minor validation
+#if defined(_MSC_VER) || !defined(_WIN32)
+    const auto IntermediateDesc = pIntermediate->GetDesc();
+    const auto DestinationDesc = pDestinationResource->GetDesc();
+#else
+    D3D12_RESOURCE_DESC tmpDesc1, tmpDesc2;
+    const auto& IntermediateDesc = *pIntermediate->GetDesc(&tmpDesc1);
+    const auto& DestinationDesc = *pDestinationResource->GetDesc(&tmpDesc2);
+#endif
+    if (IntermediateDesc.Dimension != D3D12_RESOURCE_DIMENSION_BUFFER ||
+        IntermediateDesc.Width < RequiredSize + pLayouts[0].Offset ||
+        RequiredSize > SIZE_T(-1) ||
+        ( DestinationDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER &&
+            ( FirstSubresource != 0 || NumSubresources != 1 ) ))
+    {
+        return 0;
+    }
+
+    BYTE* pData;
+    HRESULT hr = pIntermediate->Map(0, nullptr, reinterpret_cast<void**>( &pData ));
+    if (FAILED(hr))
+    {
+        return 0;
+    }
+
+    for (UINT i = 0; i < NumSubresources; ++i)
+    {
+        if (pRowSizesInBytes[i] > SIZE_T(-1)) return 0;
+        D3D12_MEMCPY_DEST DestData = { pData + pLayouts[i].Offset, pLayouts[i].Footprint.RowPitch, SIZE_T(pLayouts[i].Footprint.RowPitch) * SIZE_T(pNumRows[i]) };
+        MemcpySubresource(&DestData, &pSrcData[i], static_cast<SIZE_T>( pRowSizesInBytes[i] ), pNumRows[i], pLayouts[i].Footprint.Depth);
+    }
+    pIntermediate->Unmap(0, nullptr);
+
+    if (DestinationDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
+    {
+        pCmdList->CopyBufferRegion(
+            pDestinationResource, 0, pIntermediate, pLayouts[0].Offset, pLayouts[0].Footprint.Width);
+    }
+    else
+    {
+        for (UINT i = 0; i < NumSubresources; ++i)
+        {
+            const CD3DX12_TEXTURE_COPY_LOCATION Dst(pDestinationResource, i + FirstSubresource);
+            const CD3DX12_TEXTURE_COPY_LOCATION Src(pIntermediate, pLayouts[i]);
+            pCmdList->CopyTextureRegion(&Dst, 0, 0, 0, &Src, nullptr);
+        }
+    }
+    return RequiredSize;
+}
 
 } // namespace Raekor::DX12
 

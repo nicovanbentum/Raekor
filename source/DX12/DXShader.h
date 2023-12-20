@@ -130,6 +130,10 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mRTPathTraceShader;
     ShaderProgram mRTAmbientOcclusionShader;
 
+    ShaderProgram mTraceShadowRaysShader;
+    ShaderProgram mClassifyShadowTilesShader;
+    ShaderProgram mDenoiseShadowTilesShader;
+
     ShaderProgram mGBufferDebugDepthShader;
     ShaderProgram mGBufferDebugAlbedoShader;
     ShaderProgram mGBufferDebugNormalsShader;

@@ -65,6 +65,9 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "RT Reflections Shader", mRTReflectionsShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "RT Ambient Occlusion Shader", mRTAmbientOcclusionShader);
 
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Trace Shadow Rays Shader", mTraceShadowRaysShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Classify Shadow Tiles Shader", mClassifyShadowTilesShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Denoise Shadow Tiles Shader", mDenoiseShadowTilesShader);
 
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Depth Shader", mGBufferDebugDepthShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Debug Albedo Shader", mGBufferDebugAlbedoShader);

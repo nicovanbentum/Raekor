@@ -113,6 +113,59 @@ void RandomWidget::Draw(Widgets* inWidgets, float dt)
 		}
 	}
 
+	ImGui::SameLine();
+
+	if (ImGui::Button("Generate Meshlets"))
+	{
+		Timer timer; 
+
+		m_Editor->LogMessage("Generating Meshlets..");
+
+		for (const auto& [entity, mesh] : GetScene().Each<Mesh>())
+		{
+			const size_t max_vertices = 64;
+			const size_t max_triangles = 124;
+			const float cone_weight = 0.0f;
+
+			size_t max_meshlets = meshopt_buildMeshletsBound(mesh.indices.size(), max_vertices, max_triangles);
+			std::vector<meshopt_Meshlet> meshlets(max_meshlets);
+			std::vector<unsigned int> meshlet_vertices(max_meshlets * max_vertices);
+			std::vector<unsigned char> meshlet_triangles(max_meshlets * max_triangles * 3);
+
+			size_t meshlet_count = meshopt_buildMeshlets(meshlets.data(), meshlet_vertices.data(), meshlet_triangles.data(), mesh.indices.data(),
+				mesh.indices.size(), &mesh.positions[0].x, mesh.positions.size(), sizeof(mesh.positions[0]), max_vertices, max_triangles, cone_weight);
+		
+			meshlets.resize(meshlet_count);
+			meshlet_vertices.resize(meshlet_count * max_vertices);
+			meshlet_triangles.resize(meshlet_count* max_triangles * 3);
+			
+			mesh.meshlets.reserve(meshlet_count);
+			mesh.meshletIndices.resize(meshlet_count * max_vertices);
+			mesh.meshletTriangles.resize(meshlet_count * max_triangles);
+
+			for (const auto& meshlet : meshlets)
+			{
+				auto& m = mesh.meshlets.emplace_back();
+				m.mTriangleCount = meshlet.triangle_count;
+				m.mTriangleOffset = meshlet.triangle_offset;
+				m.mVertexCount = meshlet.vertex_count;
+				m.mVertexOffset = meshlet.vertex_offset;
+			}
+
+			assert(mesh.meshletIndices.size() == meshlet_vertices.size());
+			std::memcpy(mesh.meshletIndices.data(), meshlet_vertices.data(), mesh.meshletIndices.size());
+
+			for (uint32_t idx = 0; idx < mesh.meshletTriangles.size(); idx += 3)
+			{
+				mesh.meshletTriangles[idx].mX = meshlet_triangles[idx];
+				mesh.meshletTriangles[idx].mY = meshlet_triangles[idx + 1];
+				mesh.meshletTriangles[idx].mZ = meshlet_triangles[idx + 2];
+			}
+		}
+
+		m_Editor->LogMessage(std::format("Generating Meshlets took {:.3f} seconds.", timer.GetElapsedTime()));
+	}
+
 	// Draw all the renderer debug UI
 	m_Editor->GetRenderInterface()->DrawImGui(GetScene(), m_Editor->GetViewport());
 

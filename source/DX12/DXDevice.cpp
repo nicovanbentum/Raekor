@@ -17,7 +17,7 @@ namespace Raekor::DX12 {
 
 Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameCount)
 {
-    auto device_creation_flags = 0u;
+    uint32_t device_creation_flags = 0u;
 
 #ifndef NDEBUG
     auto debug_interface = ComPtr<ID3D12Debug1> {};
@@ -40,25 +40,28 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 
     if (OS::sCheckCommandLineOption("-hook_pix"))
     {
-        auto pix_module = PIXLoadLatestWinPixGpuCapturerLibrary();
+        HMODULE pix_module = PIXLoadLatestWinPixGpuCapturerLibrary();
         assert(pix_module);
     }
 
-    auto factory = ComPtr<IDXGIFactory6> {};
+    ComPtr<IDXGIFactory6> factory = nullptr;
     gThrowIfFailed(CreateDXGIFactory2(device_creation_flags, IID_PPV_ARGS(&factory)));
+
     factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&m_Adapter));
+
     gThrowIfFailed(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m_Device)));
     
-    const static auto disable_dlss = OS::sCheckCommandLineOption("-disable_dlss");
+    const static bool disable_dlss = OS::sCheckCommandLineOption("-disable_dlss");
     if (!disable_dlss)
     {
-        auto temp_path = fs::temp_directory_path().wstring();
+        std::wstring temp_path = fs::temp_directory_path().wstring();
 
         NVSDK_NGX_Application_Identifier ngx_app_id = {};
         ngx_app_id.IdentifierType = NVSDK_NGX_Application_Identifier_Type_Application_Id;
         ngx_app_id.v.ApplicationId = 0xdeadbeef;
 
-        static const auto NGXLogCallback = [](const char* message, NVSDK_NGX_Logging_Level loggingLevel, NVSDK_NGX_Feature sourceComponent) {
+        static const auto NGXLogCallback = [](const char* message, NVSDK_NGX_Logging_Level loggingLevel, NVSDK_NGX_Feature sourceComponent) 
+        {
             std::cout << message << '\n';
         };
 
@@ -75,7 +78,7 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
         feature_info.FeatureInfo = &ngx_common_info;
 
         NVSDK_NGX_FeatureRequirement nv_supported = {};
-        const auto ngx_result = NVSDK_NGX_D3D12_GetFeatureRequirements(m_Adapter.Get(), &feature_info, &nv_supported);
+        const NVSDK_NGX_Result ngx_result = NVSDK_NGX_D3D12_GetFeatureRequirements(m_Adapter.Get(), &feature_info, &nv_supported);
 
         if (ngx_result == NVSDK_NGX_Result::NVSDK_NGX_Result_Success && nv_supported.FeatureSupported == 0)
             mIsDLSSSupported = true;
@@ -85,12 +88,12 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
         gThrowIfFailed(NVSDK_NGX_D3D12_Init(0xdeadbeef, temp_path.c_str(), m_Device.Get()));
     }
 
-    const auto allocator_desc = D3D12MA::ALLOCATOR_DESC { .pDevice = m_Device.Get(), .pAdapter = m_Adapter.Get() };
+    const D3D12MA::ALLOCATOR_DESC allocator_desc = D3D12MA::ALLOCATOR_DESC { .pDevice = m_Device.Get(), .pAdapter = m_Adapter.Get() };
     gThrowIfFailed(D3D12MA::CreateAllocator(&allocator_desc, &m_Allocator));
 
-    constexpr auto copy_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_COPY };
-    constexpr auto direct_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_DIRECT };
-    constexpr auto compute_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_COMPUTE };
+    constexpr D3D12_COMMAND_QUEUE_DESC copy_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_COPY };
+    constexpr D3D12_COMMAND_QUEUE_DESC direct_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_DIRECT };
+    constexpr D3D12_COMMAND_QUEUE_DESC compute_queue_desc = D3D12_COMMAND_QUEUE_DESC { .Type = D3D12_COMMAND_LIST_TYPE_COMPUTE };
     gThrowIfFailed(m_Device->CreateCommandQueue(&copy_queue_desc, IID_PPV_ARGS(&m_CopyQueue)));
     gThrowIfFailed(m_Device->CreateCommandQueue(&compute_queue_desc, IID_PPV_ARGS(&m_ComputeQueue)));
     gThrowIfFailed(m_Device->CreateCommandQueue(&direct_queue_desc, IID_PPV_ARGS(&m_GraphicsQueue)));
@@ -100,30 +103,31 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     m_Buffers.Reserve(sMaxResourceHeapSize);
     m_Textures.Reserve(sMaxResourceHeapSize);
 
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV]         = DescriptorHeap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, sMaxRTVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]         = DescriptorHeap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, sMaxDSVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]     = DescriptorHeap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, sMaxSamplerHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
-    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = DescriptorHeap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, sMaxResourceHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, sMaxRTVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, sMaxDSVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, sMaxSamplerHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, sMaxResourceHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
-    for (auto sampler_index = 0u; sampler_index < ESamplerIndex::SAMPLER_COUNT; sampler_index++)
+    for (uint32_t sampler_index = 0u; sampler_index < ESamplerIndex::SAMPLER_COUNT; sampler_index++)
         m_Device->CreateSampler(&SAMPLER_DESC[sampler_index], m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].GetCPUDescriptorHandle(DescriptorID(sampler_index)));
 
-    auto root_params = std::vector<D3D12_ROOT_PARAMETER1> {};
-    auto b_registers = 0u, t_registers = 0u;
+    uint32_t b_registers = 0u, t_registers = 0u;
+    std::vector<D3D12_ROOT_PARAMETER1> root_params;
 
     root_params.emplace_back(D3D12_ROOT_PARAMETER1
+    {
+        .ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
+        .Constants = D3D12_ROOT_CONSTANTS 
         {
-            .ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
-            .Constants = D3D12_ROOT_CONSTANTS {
-                .ShaderRegister = b_registers++,
-                .Num32BitValues = sMaxRootConstantsSize / (uint32_t)sizeof(DWORD),
-            },
-            .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL,
-        });
+            .ShaderRegister = b_registers++,
+            .Num32BitValues = sMaxRootConstantsSize / (uint32_t)sizeof(DWORD),
+        },
+        .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL,
+    });
 
     for (uint32_t bind_slot = EBindSlot::Start; bind_slot < EBindSlot::Count; bind_slot++)
     {
-        auto param = D3D12_ROOT_PARAMETER1
+        D3D12_ROOT_PARAMETER1 param = D3D12_ROOT_PARAMETER1
         {
             .Descriptor = D3D12_ROOT_DESCRIPTOR1 {.RegisterSpace = 0 },
             .ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL,
@@ -148,8 +152,8 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     }
 
 
-    auto vrsd = CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC {};
-    vrsd.Init_1_1(
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC root_signature_desc = {};
+    root_signature_desc.Init_1_1(
         root_params.size(), root_params.data(),
         ESamplerIndex::SAMPLER_COUNT, STATIC_SAMPLER_DESC.data(),
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
@@ -157,8 +161,8 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
         D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED
     );
 
-    auto signature = ComPtr<ID3DBlob> {}, error = ComPtr<ID3DBlob> {};
-    auto serialize_vrs_hr = D3DX12SerializeVersionedRootSignature(&vrsd, D3D_ROOT_SIGNATURE_VERSION_1_1, &signature, &error);
+    ComPtr<ID3DBlob> signature, error;
+    HRESULT serialize_vrs_hr = D3DX12SerializeVersionedRootSignature(&root_signature_desc, D3D_ROOT_SIGNATURE_VERSION_1_1, &signature, &error);
 
     if (error)
         OutputDebugStringA((char*)error->GetBufferPointer());
@@ -167,6 +171,21 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     gThrowIfFailed(m_Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_GlobalRootSignature)));
 
     gThrowIfFailed(factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &mIsTearingSupported, sizeof(mIsTearingSupported)));
+
+    for (uint32_t cmd_sig = 0; cmd_sig < COMMAND_SIGNATURE_COUNT; cmd_sig++)
+    {
+        constexpr auto sizes = std::array { uint32_t(sizeof(D3D12_DRAW_ARGUMENTS)), uint32_t(sizeof(D3D12_DRAW_INDEXED_ARGUMENTS)), uint32_t(sizeof(D3D12_DISPATCH_ARGUMENTS)) };
+        static_assert( sizes.size() == COMMAND_SIGNATURE_COUNT );
+
+        auto indirect_args = D3D12_INDIRECT_ARGUMENT_DESC { .Type = (D3D12_INDIRECT_ARGUMENT_TYPE)cmd_sig };
+
+        const auto cmdsig_desc = D3D12_COMMAND_SIGNATURE_DESC
+        {
+            .ByteStride = sizes[cmd_sig], .NumArgumentDescs = 1, .pArgumentDescs = &indirect_args
+        };
+
+        m_Device->CreateCommandSignature(&cmdsig_desc, nullptr, IID_PPV_ARGS(m_CommandSignatures[cmd_sig].GetAddressOf()));
+    }
 
     /*ComPtr<ID3D12QueryHeap> m_TimestampQueryHeap;
     D3D12_QUERY_HEAP_DESC query_heap_desc = {};
@@ -194,16 +213,30 @@ void Device::BindDrawDefaults(CommandList& inCmdList)
 
 TextureID Device::CreateTexture(const Texture::Desc& inDesc)
 {
-    auto texture = Texture(inDesc);
-    auto resource_desc = D3D12_RESOURCE_DESC(CD3DX12_RESOURCE_DESC::Tex2D(inDesc.format, inDesc.width, inDesc.height, inDesc.arrayLayers, inDesc.mipLevels, 1u, 0, D3D12_RESOURCE_FLAG_NONE, D3D12_TEXTURE_LAYOUT_UNKNOWN));
+    Texture texture = Texture(inDesc);
+    D3D12_RESOURCE_DESC resource_desc = {};
 
-    auto alloc_desc = D3D12MA::ALLOCATION_DESC {};
+    switch (inDesc.dimension)
+    {
+        case Texture::TEX_DIM_2D:
+            resource_desc = CD3DX12_RESOURCE_DESC::Tex2D(inDesc.format, inDesc.width, inDesc.height, inDesc.depthOrArrayLayers, inDesc.mipLevels, 1u, 0);
+            break;
+        case Texture::TEX_DIM_3D:
+            resource_desc = CD3DX12_RESOURCE_DESC::Tex3D(inDesc.format, inDesc.width, inDesc.height, inDesc.depthOrArrayLayers, inDesc.mipLevels);
+            break;
+        case Texture::TEX_DIM_CUBE:
+            resource_desc = CD3DX12_RESOURCE_DESC::Tex2D(inDesc.format, inDesc.width, inDesc.height, inDesc.depthOrArrayLayers * 6, inDesc.mipLevels, 1u, 0);
+            break;
+        default:
+            assert(false);
+    }
+
+    D3D12MA::ALLOCATION_DESC alloc_desc = {};
     alloc_desc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
 
-    auto clear_value = D3D12_CLEAR_VALUE {};
-    auto clear_value_ptr = static_cast<D3D12_CLEAR_VALUE*>( nullptr );
-
-    auto initial_state = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_CLEAR_VALUE clear_value = {};
+    D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
+    D3D12_RESOURCE_STATES initial_state = D3D12_RESOURCE_STATE_COMMON;
 
     switch (inDesc.usage)
     {
@@ -215,9 +248,6 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc)
 
             clear_value = CD3DX12_CLEAR_VALUE(inDesc.format, 1.0f, 0.0f);
             clear_value_ptr = &clear_value;
-
-            if (inDesc.viewDesc)
-                clear_value.Format = static_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>( inDesc.viewDesc )->Format;
         } break;
 
         case Texture::RENDER_TARGET:
@@ -229,9 +259,6 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc)
             float color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
             clear_value = CD3DX12_CLEAR_VALUE(inDesc.format, color);
             clear_value_ptr = &clear_value;
-
-            if (inDesc.viewDesc)
-                clear_value.Format = static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>( inDesc.viewDesc )->Format;
         } break;
 
         case Texture::SHADER_READ_ONLY:
@@ -251,9 +278,10 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc)
     gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &resource_desc, initial_state, clear_value_ptr, texture.m_Allocation.GetAddressOf(), IID_PPV_ARGS(&texture.m_Resource)));
 
     if (inDesc.debugName != nullptr)
-        texture.m_Resource->SetName(inDesc.debugName);
+        gSetDebugName(texture.m_Resource.Get(), inDesc.debugName);
 
-    const auto texture_id = m_Textures.Add(texture);
+    const TextureID texture_id = m_Textures.Add(texture);
+
     CreateDescriptor(texture_id, inDesc);
 
     return texture_id;
@@ -263,15 +291,15 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc)
 
 BufferID Device::CreateBuffer(const Buffer::Desc& inDesc)
 {
-    auto alloc_desc = D3D12MA::ALLOCATION_DESC {};
+    D3D12MA::ALLOCATION_DESC alloc_desc = {};
     alloc_desc.HeapType = inDesc.mappable ? D3D12_HEAP_TYPE_UPLOAD : D3D12_HEAP_TYPE_DEFAULT;
 
     if (inDesc.usage & Buffer::Usage::READBACK)
         alloc_desc.HeapType = D3D12_HEAP_TYPE_READBACK;
 
-    auto buffer = Buffer(inDesc);
-    auto initial_state = D3D12_RESOURCE_STATE_COMMON;
-    auto buffer_desc = D3D12_RESOURCE_DESC(CD3DX12_RESOURCE_DESC::Buffer(inDesc.size));
+    Buffer buffer = Buffer(inDesc);
+    D3D12_RESOURCE_STATES initial_state = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_RESOURCE_DESC buffer_desc = CD3DX12_RESOURCE_DESC::Buffer(inDesc.size);
 
     switch (inDesc.usage)
     {
@@ -307,19 +335,13 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc)
         } break;
     }
 
-    gThrowIfFailed(m_Allocator->CreateResource(
-        &alloc_desc,
-        &buffer_desc,
-        initial_state,
-        nullptr,
-        buffer.m_Allocation.GetAddressOf(),
-        IID_PPV_ARGS(&buffer.m_Resource)
-    ));
+    gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &buffer_desc, initial_state, nullptr, buffer.m_Allocation.GetAddressOf(), IID_PPV_ARGS(&buffer.m_Resource)));
 
     if (inDesc.debugName != nullptr)
-        buffer.m_Resource->SetName(inDesc.debugName);
+        gSetDebugName(buffer.m_Resource.Get(), inDesc.debugName);
 
-    const auto buffer_id = m_Buffers.Add(buffer);
+    const BufferID buffer_id = m_Buffers.Add(buffer);
+
     CreateDescriptor(buffer_id, inDesc);
 
     return buffer_id;
@@ -329,13 +351,12 @@ BufferID Device::CreateBuffer(const Buffer::Desc& inDesc)
 
 BufferID Device::CreateBufferView(BufferID inBufferID, const Buffer::Desc& inDesc)
 {
-    // make a copy of the texture
-    const auto& buffer = GetBuffer(inBufferID);
-    auto new_buffer = Buffer(buffer);
+    // make a copy of the texture, super lightweight as the underlying resource is ref counted
+    const Buffer& buffer = GetBuffer(inBufferID);
+    Buffer new_buffer = Buffer(buffer);
     new_buffer.m_Desc.usage = inDesc.usage;
-    new_buffer.m_Desc.viewDesc = inDesc.viewDesc;
 
-    const auto buffer_id = m_Buffers.Add(new_buffer);
+    const BufferID buffer_id = m_Buffers.Add(new_buffer);
     CreateDescriptor(buffer_id, inDesc);
 
     return buffer_id;
@@ -346,12 +367,11 @@ BufferID Device::CreateBufferView(BufferID inBufferID, const Buffer::Desc& inDes
 TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc)
 {
     // make a copy of the texture
-    const auto& texture = GetTexture(inTextureID);
-    auto new_texture = Texture(texture);
+    const Texture& texture = GetTexture(inTextureID);
+    Texture new_texture = Texture(texture);
     new_texture.m_Desc.usage = inDesc.usage;
-    new_texture.m_Desc.viewDesc = inDesc.viewDesc;
 
-    const auto texture_id = m_Textures.Add(new_texture);
+    const TextureID texture_id = m_Textures.Add(new_texture);
     CreateDescriptor(texture_id, inDesc);
 
     return texture_id;
@@ -361,14 +381,13 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
 
 [[nodiscard]] TextureID Device::CreateTextureView(D3D12ResourceRef inResource, const Texture::Desc& inDesc)
 {
-    auto temp_texture = Texture(inDesc);
+    Texture temp_texture = Texture(inDesc);
     temp_texture.m_Resource = inResource;
-    const auto texture_id = m_Textures.Add(temp_texture);
+    const TextureID texture_id = m_Textures.Add(temp_texture);
 
-    auto& texture = GetTexture(texture_id);
+    Texture& texture = GetTexture(texture_id);
     texture.m_Desc.format = texture.GetD3D12Resource()->GetDesc().Format;
     texture.m_Desc.usage = inDesc.usage;
-    texture.m_Desc.viewDesc = inDesc.viewDesc;
     CreateDescriptor(texture_id, inDesc);
 
     return texture_id;
@@ -398,7 +417,7 @@ void Device::ReleaseBufferImmediate(BufferID inBufferID)
 {
     assert(inBufferID.IsValid());
 
-    auto& buffer = GetBuffer(inBufferID);
+    Buffer& buffer = GetBuffer(inBufferID);
     buffer.m_Resource = nullptr;
     buffer.m_Allocation = nullptr;
 
@@ -412,7 +431,7 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID)
 {
     assert(inTextureID.IsValid());
 
-    auto& texture = GetTexture(inTextureID);
+    Texture& texture = GetTexture(inTextureID);
     texture.m_Resource = nullptr;
     texture.m_Allocation = nullptr;
 
@@ -454,7 +473,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* 
 
     pso_state.RasterizerState.FrontCounterClockwise = TRUE;
 
-    for (auto format : inRenderPass->m_RenderTargetFormats)
+    for (DXGI_FORMAT format : inRenderPass->m_RenderTargetFormats)
     {
         if (format == DXGI_FORMAT_UNKNOWN)
             break;
@@ -479,53 +498,44 @@ D3D12_COMPUTE_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* i
 
 void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
 {
-    auto& buffer = GetBuffer(inID);
+    Buffer& buffer = GetBuffer(inID);
     buffer.m_Desc.usage = inDesc.usage;
-    buffer.m_Desc.viewDesc = inDesc.viewDesc;
 
     switch (inDesc.usage)
     {
         case Buffer::SHADER_READ_WRITE:
         {
-            if (inDesc.viewDesc == nullptr)
+            D3D12_UNORDERED_ACCESS_VIEW_DESC desc = { .Format = inDesc.format, .ViewDimension = D3D12_UAV_DIMENSION_BUFFER };
+
+            // Raw buffer
+            if (inDesc.stride == 0 && desc.Format == DXGI_FORMAT_UNKNOWN)
             {
-                auto desc = D3D12_UNORDERED_ACCESS_VIEW_DESC {};
-                desc.Format = inDesc.format;
-                desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-
-                // Raw buffer
-                if (inDesc.stride == 0 && desc.Format == DXGI_FORMAT_UNKNOWN)
-                {
-                    desc.Format = DXGI_FORMAT_R32_TYPELESS;
-                    desc.Buffer.Flags |= D3D12_BUFFER_UAV_FLAG_RAW;
-                    desc.Buffer.NumElements = inDesc.size / sizeof(uint32_t);
-                }
-                // Structured buffer
-                else if (inDesc.stride > 0) 
-                {
-                    desc.Buffer.StructureByteStride = inDesc.stride;
-                    desc.Buffer.NumElements = inDesc.size / inDesc.stride;
-                }
-
-                buffer.m_Descriptor = CreateUnorderedAccessView(buffer.m_Resource, &desc);
+                desc.Format = DXGI_FORMAT_R32_TYPELESS;
+                desc.Buffer.Flags |= D3D12_BUFFER_UAV_FLAG_RAW;
+                desc.Buffer.NumElements = inDesc.size / sizeof(uint32_t);
+            }
+            // Structured buffer
+            else if (inDesc.stride > 0) 
+            {
+                desc.Buffer.StructureByteStride = inDesc.stride;
+                desc.Buffer.NumElements = inDesc.size / inDesc.stride;
             }
             else
-                buffer.m_Descriptor = CreateUnorderedAccessView(buffer.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>( inDesc.viewDesc ));
+            {
+                desc.Buffer.NumElements = inDesc.size / ( gBitsPerPixel(desc.Format) / 8 );
+            }
+
+            buffer.m_Descriptor = CreateUnorderedAccessView(buffer.m_Resource, &desc);
         } break;
 
         case Buffer::ACCELERATION_STRUCTURE:
         {
-            if (inDesc.viewDesc)
-                buffer.m_Descriptor = CreateShaderResourceView(nullptr, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>( inDesc.viewDesc ));
-            else
-            {
-                D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-                srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                srv_desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-                srv_desc.RaytracingAccelerationStructure.Location = buffer->GetGPUVirtualAddress();
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+            srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srv_desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+            srv_desc.RaytracingAccelerationStructure.Location = buffer->GetGPUVirtualAddress();
 
-                buffer.m_Descriptor = CreateShaderResourceView(nullptr, &srv_desc);
-            }
+            buffer.m_Descriptor = CreateShaderResourceView(nullptr, &srv_desc);
         } break;
 
         case Buffer::UPLOAD:
@@ -534,9 +544,7 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
         case Buffer::VERTEX_BUFFER:
         case Buffer::SHADER_READ_ONLY:
         {
-            if (inDesc.viewDesc)
-                buffer.m_Descriptor = CreateShaderResourceView(buffer.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>( inDesc.viewDesc ));
-            else if (inDesc.stride)
+            if (inDesc.stride)
             {
                 D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
                 srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -545,8 +553,8 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
                 srv_desc.Buffer.NumElements = inDesc.size / inDesc.stride;
 
                 buffer.m_Descriptor = CreateShaderResourceView(buffer.m_Resource, &srv_desc);
-
             }
+
         } break;
 
         default:
@@ -560,84 +568,62 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
 {
     auto& texture = GetTexture(inID);
     texture.m_Desc.usage = inDesc.usage;
-    texture.m_Desc.viewDesc = inDesc.viewDesc;
 
     switch (inDesc.usage)
     {
         case Texture::DEPTH_STENCIL_TARGET:
         {
             assert(gIsDepthFormat(texture.m_Desc.format));
-            texture.m_Descriptor = CreateDepthStencilView(texture.m_Resource, static_cast<D3D12_DEPTH_STENCIL_VIEW_DESC*>( inDesc.viewDesc ));
-            break;
-        }
+            texture.m_Descriptor = CreateDepthStencilView(texture.m_Resource, nullptr);
+        } break;
+
         case Texture::RENDER_TARGET:
         {
-            if (inDesc.viewDesc == nullptr)
-            {
-                D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
-                rtv_desc.Format = inDesc.format;
-                rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+            D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
+            rtv_desc.Format = inDesc.format;
+            rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 
-                if (inDesc.dimension == Texture::Dimension::TEX_DIM_2D)
-                {
-                    rtv_desc.Texture2D.MipSlice = inDesc.baseMip;
-                    texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, &rtv_desc);
-                }
-            }
-            else
+            if (inDesc.dimension == Texture::Dimension::TEX_DIM_2D)
             {
-                texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, static_cast<D3D12_RENDER_TARGET_VIEW_DESC*>( inDesc.viewDesc ));
+                rtv_desc.Texture2D.MipSlice = inDesc.baseMip;
+                texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, &rtv_desc);
             }
+        } break;
 
-            break;
-        }
         case Texture::SHADER_READ_ONLY:
         {
-            if (inDesc.viewDesc == nullptr)
+            const auto [r, g, b, a] = gUnswizzleComponents(inDesc.swizzle);
+
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+            srv_desc.Format = gGetDepthFormatSRV(texture.m_Desc.format);
+            srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            srv_desc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r, g, b, a);
+            srv_desc.Texture2D.MipLevels = -1;
+
+            switch (inDesc.dimension)
             {
-                const auto [r, g, b, a] = gUnswizzleComponents(inDesc.swizzle);
-
-                D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-                srv_desc.Format = gGetDepthFormatSRV(texture.m_Desc.format);
-                srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-                srv_desc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r, g, b, a);
-                srv_desc.Texture2D.MipLevels = -1;
-
-                switch (inDesc.dimension)
+                case Texture::TEX_DIM_CUBE:
                 {
-                    case Texture::TEX_DIM_CUBE:
-                    {
-                        srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-                        srv_desc.TextureCube.MipLevels = -1;
-                        srv_desc.TextureCube.MostDetailedMip = 0;
-                        srv_desc.TextureCube.ResourceMinLODClamp = 0.0f;
-                    } break;
-                }
-
-                texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, &srv_desc);
+                    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+                    srv_desc.TextureCube.MipLevels = -1;
+                    srv_desc.TextureCube.MostDetailedMip = 0;
+                    srv_desc.TextureCube.ResourceMinLODClamp = 0.0f;
+                } break;
             }
-            else
-                texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, static_cast<D3D12_SHADER_RESOURCE_VIEW_DESC*>( inDesc.viewDesc ));
 
-            break;
-        }
+            texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, &srv_desc);
+        } break;
+
         case Texture::SHADER_READ_WRITE:
         {
-            if (inDesc.viewDesc == nullptr)
-            {
-                D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
-                uav_desc.Format = inDesc.format;
-                uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-                uav_desc.Texture2D.MipSlice = inDesc.baseMip;
+            D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
+            uav_desc.Format = inDesc.format;
+            uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+            uav_desc.Texture2D.MipSlice = inDesc.baseMip;
 
-                texture.m_Descriptor = CreateUnorderedAccessView(texture.m_Resource, &uav_desc);
-            }
-            else
-            {
-                texture.m_Descriptor = CreateUnorderedAccessView(texture.m_Resource, static_cast<D3D12_UNORDERED_ACCESS_VIEW_DESC*>( inDesc.viewDesc ));
-            }
-            break;
-        }
+            texture.m_Descriptor = CreateUnorderedAccessView(texture.m_Resource, &uav_desc);
+        } break;
+
         default:
             assert(false); // should not be able to get here
     }
@@ -646,21 +632,21 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
 
 void Device::ReleaseDescriptor(BufferID inBufferID)
 {
-    auto& buffer = GetBuffer(inBufferID);
+    Buffer& buffer = GetBuffer(inBufferID);
     m_Heaps[gGetHeapType(buffer.m_Desc.usage)].Remove(buffer.m_Descriptor);
 }
 
 
 void Device::ReleaseDescriptor(TextureID inTextureID)
 {
-    auto& texture = GetTexture(inTextureID);
+    Texture& texture = GetTexture(inTextureID);
     m_Heaps[gGetHeapType(texture.m_Desc.usage)].Remove(texture.m_Descriptor);
 }
 
 
 void Device::ReleaseDescriptorImmediate(BufferID inBufferID)
 {
-    auto& buffer = GetBuffer(inBufferID);
+    Buffer& buffer = GetBuffer(inBufferID);
     m_Heaps[gGetHeapType(buffer.m_Desc.usage)].Get(buffer.m_Descriptor) = nullptr;
     ReleaseDescriptor(inBufferID);
 }
@@ -668,7 +654,7 @@ void Device::ReleaseDescriptorImmediate(BufferID inBufferID)
 
 void Device::ReleaseDescriptorImmediate(TextureID inTextureID)
 {
-    auto& texture = GetTexture(inTextureID);
+    Texture& texture = GetTexture(inTextureID);
     m_Heaps[gGetHeapType(texture.m_Desc.usage)].Get(texture.m_Descriptor) = nullptr;
     ReleaseDescriptor(inTextureID);
 }
@@ -677,7 +663,7 @@ void Device::ReleaseDescriptorImmediate(TextureID inTextureID)
 
 D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(TextureID inID)
 {
-    auto& texture = GetTexture(inID);
+    Texture& texture = GetTexture(inID);
 
     switch (texture.GetDesc().usage)
     {
@@ -702,7 +688,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(TextureID inID)
 
 D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(BufferID inID)
 {
-    auto& buffer = GetBuffer(inID);
+    Buffer& buffer = GetBuffer(inID);
     return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetCPUDescriptorHandle(buffer.GetDescriptor());
 }
 
@@ -710,7 +696,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE Device::GetCPUDescriptorHandle(BufferID inID)
 
 D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(BufferID inID)
 {
-    auto& buffer = GetBuffer(inID);
+    Buffer& buffer = GetBuffer(inID);
     return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(buffer.GetDescriptor());
 }
 
@@ -718,7 +704,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(BufferID inID)
 
 D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(TextureID inID)
 {
-    auto& texture = GetTexture(inID);
+    Texture& texture = GetTexture(inID);
     return GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).GetGPUDescriptorHandle(texture.GetView());
 }
 
@@ -726,49 +712,49 @@ D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(TextureID inID)
 
 DescriptorID Device::CreateDepthStencilView(D3D12ResourceRef inResource, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc)
 {
-    auto& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV];
-    const auto descriptor_id = heap.Add(inResource);
-    m_Device->CreateDepthStencilView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor_id));
-    return descriptor_id;
+    DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV];
+    DescriptorID descriptor = heap.Add(inResource);
+    m_Device->CreateDepthStencilView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor));
+    return descriptor;
 }
 
 
 
 DescriptorID Device::CreateRenderTargetView(D3D12ResourceRef inResource, const D3D12_RENDER_TARGET_VIEW_DESC* inDesc)
 {
-    auto& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV];
-    const auto descriptor_id = heap.Add(inResource);
+    DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV];
+    DescriptorID descriptor = heap.Add(inResource);
     Timer timer;
-    m_Device->CreateRenderTargetView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor_id));
-    return descriptor_id;
+    m_Device->CreateRenderTargetView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor));
+    return descriptor;
 }
 
 
 
 DescriptorID Device::CreateShaderResourceView(D3D12ResourceRef inResource, const D3D12_SHADER_RESOURCE_VIEW_DESC* inDesc)
 {
-    auto& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
-    const auto descriptor_id = heap.Add(inResource);
-    m_Device->CreateShaderResourceView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor_id));
-    return descriptor_id;
+    DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
+    DescriptorID descriptor = heap.Add(inResource);
+    m_Device->CreateShaderResourceView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor));
+    return descriptor;
 }
 
 
 
 DescriptorID Device::CreateUnorderedAccessView(D3D12ResourceRef inResource, const D3D12_UNORDERED_ACCESS_VIEW_DESC* inDesc)
 {
-    auto& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
-    const auto descriptor_id = heap.Add(inResource);
-    m_Device->CreateUnorderedAccessView(inResource.Get(), nullptr, inDesc, heap.GetCPUDescriptorHandle(descriptor_id));
-    return descriptor_id;
+    DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
+    DescriptorID descriptor = heap.Add(inResource);
+    m_Device->CreateUnorderedAccessView(inResource.Get(), nullptr, inDesc, heap.GetCPUDescriptorHandle(descriptor));
+    return descriptor;
 }
 
 
 
 StagingHeap::~StagingHeap()
 {
-    for (auto& buffer_view : m_Buffers)
-        m_Device.GetBuffer(buffer_view.mBufferID)->Unmap(0, nullptr);
+    for (StagingBuffer& buffer : m_Buffers)
+        m_Device.GetBuffer(buffer.mBufferID)->Unmap(0, nullptr);
 }
 
 
@@ -777,14 +763,14 @@ void StagingHeap::StageBuffer(CommandList& inCmdList, const Buffer& inBuffer, ui
 {
     inCmdList.TrackResource(inBuffer);
 
-    for (auto& buffer : m_Buffers)
+    for (StagingBuffer& buffer : m_Buffers)
     {
         if (buffer.mRetired && inSize <= buffer.mCapacity - buffer.mSize)
         {
             memcpy(buffer.mPtr + buffer.mSize, inData, inSize);
 
-            const auto buffer_resource = m_Device.GetBuffer(buffer.mBufferID).GetD3D12Resource();
-            inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource().Get(), inOffset, buffer_resource.Get(), buffer.mSize, inSize);
+            ID3D12Resource* buffer_resource = m_Device.GetD3D12Resource(buffer.mBufferID);
+            inCmdList->CopyBufferRegion(inBuffer.GetD3D12Resource().Get(), inOffset, buffer_resource, buffer.mSize, inSize);
 
             buffer.mSize += inSize;
             buffer.mRetired = false;
@@ -794,16 +780,16 @@ void StagingHeap::StageBuffer(CommandList& inCmdList, const Buffer& inBuffer, ui
         }
     }
 
-    auto buffer_id = m_Device.CreateBuffer(Buffer::Desc
+    BufferID buffer_id = m_Device.CreateBuffer(Buffer::Desc
     {
         .size = inSize,
         .usage = Buffer::Usage::UPLOAD
     });
 
-    auto& buffer = m_Device.GetBuffer(buffer_id);
+    Buffer& buffer = m_Device.GetBuffer(buffer_id);
 
-    auto mapped_ptr = static_cast<uint8_t*>( nullptr );
-    const auto range = CD3DX12_RANGE(0, 0);
+    uint8_t* mapped_ptr = nullptr;
+    const CD3DX12_RANGE range = CD3DX12_RANGE(0, 0);
     gThrowIfFailed(buffer->Map(0, &range, reinterpret_cast<void**>( &mapped_ptr )));
 
     memcpy(mapped_ptr, inData, inSize);
@@ -828,14 +814,14 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
 {
     inCmdList.TrackResource(inTexture);
 
-    auto nr_of_rows = 0u;
-    auto row_size = 0ull, total_size = 0ull;
-    auto footprint = D3D12_PLACED_SUBRESOURCE_FOOTPRINT {};
+    uint32_t nr_of_rows = 0u;
+    uint64_t row_size = 0ull, total_size = 0ull;
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 
     auto desc = inTexture.GetD3D12Resource()->GetDesc();
     m_Device->GetCopyableFootprints(&desc, inSubResource, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
 
-    const auto aligned_row_size = gAlignUp(row_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+    const uint64_t aligned_row_size = gAlignUp(row_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
     /*for (auto& buffer : m_Buffers) 
     {
@@ -856,12 +842,13 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
         }
     }*/
 
-    auto buffer_id = m_Device.CreateBuffer(Buffer::Desc {
+    BufferID buffer_id = m_Device.CreateBuffer(Buffer::Desc {
         .size = uint32_t(total_size),
         .usage = Buffer::Usage::UPLOAD
     });
 
-    auto& buffer = m_Device.GetBuffer(buffer_id);
+
+    Buffer& buffer = m_Device.GetBuffer(buffer_id);
 
     auto mapped_ptr = static_cast<uint8_t*>( nullptr );
     const auto range = CD3DX12_RANGE(0, 0);

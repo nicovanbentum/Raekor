@@ -172,25 +172,25 @@ public:
 
     struct Desc
     {
-        uint8_t swizzle = TEXTURE_SWIZZLE_RGBA;
-        DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
-        Dimension dimension = TEX_DIM_2D;
-        uint32_t width = 1;
-        uint32_t height = 1;
-        uint32_t depth = 1;
-        uint32_t baseMip = 0;
-        uint32_t mipLevels = 1;
-        uint32_t arrayLayers = 1;
-        bool shaderAccess = false;
-        bool mappable = false;
-        Usage usage = Usage::GENERAL;
+        uint8_t swizzle             = TEXTURE_SWIZZLE_RGBA;
+        DXGI_FORMAT format          = DXGI_FORMAT_UNKNOWN;
+        Dimension dimension         = TEX_DIM_2D;
+        uint32_t width              = 1;
+        uint32_t height             = 1;
+        uint32_t depthOrArrayLayers = 1;
+        uint32_t baseMip            = 0;
+        uint32_t mipLevels          = 1;
+        Usage usage                 = Usage::GENERAL;
+        const char* debugName       = nullptr;
 
-        void* viewDesc = nullptr;
-        const wchar_t* debugName = nullptr;
-
-        inline bool operator==(const Desc& inOther) const { return std::memcmp(this, &inOther, offsetof(Desc, viewDesc)) == 0; }
+        inline bool operator==(const Desc& inOther) const { return std::memcmp(this, &inOther, offsetof(Desc, debugName)) == 0; }
 
     };
+
+    static Desc Desc2D(DXGI_FORMAT inFormat, uint32_t inWidth, uint32_t inHeight, Usage inUsage, uint32_t inBaseMip = 0, uint32_t inMipLevels = 1)
+    {
+        return Desc { .format = inFormat, .width = inWidth, .height = inHeight, .baseMip = inBaseMip, .mipLevels = inMipLevels, .usage = inUsage, };
+    }
 
     Texture() = default;
     Texture(const Desc& inDesc) : m_Desc(inDesc) {}
@@ -199,10 +199,14 @@ public:
     const Desc& GetDesc() const { return m_Desc; }
     DescriptorID GetView() const { return m_Descriptor; }
 
+    uint32_t GetWidth() const { return m_Desc.width; }
+    uint32_t GetHeight() const { return m_Desc.height; }
+    DXGI_FORMAT GetFormat() const { return m_Desc.format; }
+
     uint32_t GetHeapIndex() const { return m_Descriptor.ToIndex(); }
 
     uint32_t GetBaseSubresource() const { return m_Desc.baseMip; }
-    uint32_t GetSubresourceCount() const { return m_Desc.mipLevels * m_Desc.arrayLayers; }
+    uint32_t GetSubresourceCount() const { return m_Desc.mipLevels * m_Desc.depthOrArrayLayers; }
 
 private:
     Desc m_Desc = {};
@@ -232,18 +236,20 @@ public:
 
     struct Desc
     {
-        DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
-        uint64_t size = 0;
-        uint64_t stride = 0;
-        Usage usage = Usage::GENERAL;
-        bool mappable = false;
+        DXGI_FORMAT format          = DXGI_FORMAT_UNKNOWN;
+        uint64_t size               = 0;
+        uint64_t stride             = 0;
+        Usage usage                 = Usage::GENERAL;
+        bool mappable               = false;
+        const char* debugName       = nullptr;
 
-        void* viewDesc = nullptr;
-        const wchar_t* debugName = nullptr;
-
-
-        inline bool operator==(const Desc& inOther) const { return std::memcmp(this, &inOther, offsetof(Desc, viewDesc)) == 0; }
+        inline bool operator==(const Desc& inOther) const { return std::memcmp(this, &inOther, offsetof(Desc, debugName)) == 0; }
     };
+
+    static Desc Describe(DXGI_FORMAT inFormat, uint64_t inSize, Usage inUsage, uint64_t inStride = 0, bool inMappable = false, const char* inDebugName = nullptr)
+    { 
+        return  Desc { .format = inFormat, .size = inSize, .stride = inStride, .usage = inUsage, .mappable = inMappable, .debugName = inDebugName };
+    }
 
     Buffer() = default;
     Buffer(const Desc& inDesc) : m_Desc(inDesc) {}
@@ -302,7 +308,7 @@ class DescriptorHeap : public DescriptorPool
 {
 private:
     friend class Device; // Only Device is allowed to create DescriptorHeap's
-    DescriptorHeap(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags);
+    void Allocate(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags);
 
 public:
     DescriptorHeap() = default;
@@ -329,6 +335,13 @@ private:
 };
 
 
+enum ECommandSignature
+{
+    COMMAND_SIGNATURE_DRAW       = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW,
+    COMMAND_SIGNATURE_DRAW_INDEX = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED,
+    COMMAND_SIGNATURE_DISPATCH   = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH,
+    COMMAND_SIGNATURE_COUNT
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

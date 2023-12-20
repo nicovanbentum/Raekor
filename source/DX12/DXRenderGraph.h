@@ -167,6 +167,8 @@ public:
     void PopExitBarrier() { m_ExitBarriers.pop_back(); }
     void PopEntryBarrier() { m_EntryBarriers.pop_back(); }
 
+    virtual RTTI* GetRTTI() { return nullptr; }
+
     inline const std::string& GetName() const { return m_Name; }
 
 private:

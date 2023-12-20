@@ -528,9 +528,10 @@ GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRG
         case EDDSFormat::DDS_FORMAT_ATI1:
             gl_format = GL_COMPRESSED_RED_RGTC1_EXT;
             break;
+        case EDDSFormat::DDS_FORMAT_DX10:
+            break; // can't determine format
         case EDDSFormat::DDS_FORMAT_DXT2:
         case EDDSFormat::DDS_FORMAT_DXT4:
-
         default:
             assert(false);
     }
@@ -538,6 +539,9 @@ GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRG
     assert(dds_format != NULL);
 
     auto texture = 0u;
+    if (dds_format == EDDSFormat::DDS_FORMAT_DX10)
+        return texture;
+
     glCreateTextures(GL_TEXTURE_2D, 1, &texture);
 
     constexpr auto gl_swizzle_channels = std::array { GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA };

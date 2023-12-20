@@ -43,7 +43,7 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
     {
         .size  = prebuild_info.ResultDataMaxSizeInBytes,
         .usage = Buffer::Usage::ACCELERATION_STRUCTURE,
-        .debugName = L"BLAS_BUFFER"
+        .debugName = "BLAS_BUFFER"
     });
 
     inMesh.BottomLevelAS = blas_buffer_id.ToIndex();
@@ -51,7 +51,7 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
     const auto scratch_buffer_id = inDevice.CreateBuffer(Buffer::Desc
     {
         .size = prebuild_info.ScratchDataSizeInBytes,
-        .debugName = L"SCRATCH_BUFFER_BLAS_RT"
+        .debugName = "SCRATCH_BUFFER_BLAS_RT"
     });
 
     auto& blas_buffer = inDevice.GetBuffer(blas_buffer_id);
@@ -163,7 +163,7 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
     m_D3D12InstancesBuffer = GrowBuffer(inDevice, m_D3D12InstancesBuffer, Buffer::Desc
     {
         .size = rt_instances.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
-        .debugName = L"D3D12_RAYTRACING_INSTANCE Buffer"
+        .debugName = "D3D12_RAYTRACING_INSTANCE Buffer"
     });
 
     auto& instance_buffer = inDevice.GetBuffer(m_D3D12InstancesBuffer);
@@ -188,13 +188,13 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
     {
         .size = prebuild_info.ResultDataMaxSizeInBytes,
         .usage = Buffer::Usage::ACCELERATION_STRUCTURE,
-        .debugName = L"TLAS_FULL_SCENE"
+        .debugName = "TLAS_FULL_SCENE"
     });
 
     m_ScratchBuffer = GrowBuffer(inDevice, m_ScratchBuffer, Buffer::Desc
     {
         .size = prebuild_info.ScratchDataSizeInBytes,
-        .debugName = L"TLAS_SCRATCH_BUFFER"
+        .debugName = "TLAS_SCRATCH_BUFFER"
     });
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
@@ -223,7 +223,7 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, StagingH
         .size   = sizeof(lights[0]) * lights.Length(),
         .stride = sizeof(lights[0]),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
-        .debugName = L"RT_LIGHTS_BUFFER"
+        .debugName = "RT_LIGHTS_BUFFER"
     });
 
     const auto& lights_buffer = inDevice.GetBuffer(m_LightsBuffer);
@@ -246,6 +246,10 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
 
     for (const auto& [entity, mesh, transform] : m_Scene.Each<Mesh, Transform>())
     {
+        auto transform = m_Scene.GetPtr<Transform>(entity);
+        if (!transform)
+            continue;
+
         if (!BufferID(mesh.BottomLevelAS).IsValid())
             continue;
 
@@ -257,8 +261,8 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
             .mIndexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.indexBuffer)),
             .mVertexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
             .mMaterialIndex = material_index,
-            .mLocalToWorldTransform = transform.worldTransform,
-            .mInvLocalToWorldTransform = glm::inverse(transform.worldTransform)
+            .mLocalToWorldTransform = transform->worldTransform,
+            .mInvLocalToWorldTransform = glm::inverse(transform->worldTransform)
         });
     }
 
@@ -267,7 +271,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
         .size = sizeof(RTGeometry) * nr_of_meshes,
         .stride = sizeof(RTGeometry),
         .usage = Buffer::Usage::SHADER_READ_ONLY,
-        .debugName = L"RT_INSTANCE_BUFFER"
+        .debugName = "RT_INSTANCE_BUFFER"
     });
 
     const auto& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
@@ -323,8 +327,7 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
         .size      = sizeof(RTMaterial) * rt_materials.size(),
         .stride    = sizeof(RTMaterial),
         .usage     = Buffer::Usage::SHADER_READ_ONLY,
-        .viewDesc  = &srv_desc,
-        .debugName = L"RT_MATERIAL_BUFFER"
+        .debugName = "RT_MATERIAL_BUFFER"
     });
 
     const auto& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);

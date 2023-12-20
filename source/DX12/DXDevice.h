@@ -26,6 +26,8 @@ public:
     bool IsTearingSupported() const { return mIsTearingSupported; }
 
     [[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() const { return m_GlobalRootSignature.Get(); }
+    [[nodiscard]] ID3D12CommandSignature* GetCommandSignature(ECommandSignature inCmdSig) { return m_CommandSignatures[inCmdSig].Get(); }
+    
     [[nodiscard]] DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType) { return m_Heaps[inType]; }
 
     [[nodiscard]] ID3D12CommandQueue* GetCopyQueue() { return m_CopyQueue.Get(); }
@@ -83,9 +85,9 @@ public:
     [[nodiscard]] D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader);
     [[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader);
 
-    [[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inID) { return inID.ToIndex(); }
-    [[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inID) { return GetBindlessHeapIndex(GetBuffer(inID).GetDescriptor()); }
-    [[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inID) { return GetBindlessHeapIndex(GetTexture(inID).GetView()); }
+    [[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inID) const { return inID.ToIndex(); }
+    [[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inID) const { return GetBindlessHeapIndex(GetBuffer(inID).GetDescriptor()); }
+    [[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inID) const { return GetBindlessHeapIndex(GetTexture(inID).GetView()); }
 
     IDXGIAdapter1* GetAdapter() { return m_Adapter.Get(); }
 
@@ -115,6 +117,7 @@ private:
     ComPtr<D3D12MA::Allocator> m_Allocator;
     ComPtr<ID3D12RootSignature> m_GlobalRootSignature;
     std::array<DescriptorHeap, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_Heaps;
+    std::array <ComPtr<ID3D12CommandSignature>, COMMAND_SIGNATURE_COUNT> m_CommandSignatures;
 
 private:
     uint32_t m_NumFrames;
@@ -142,6 +145,8 @@ public:
 
     void StageBuffer(CommandList& inCmdList, const Buffer& inBuffer, uint32_t inOffset, const void* inData, uint32_t inSize);
     void StageTexture(CommandList& inCmdList, const Texture& inTexture, uint32_t inSubResource, const void* inData);
+    void StageTexture(CommandList& inCmdList, const Texture& inTexture, Slice<D3D12_SUBRESOURCE_DATA> inData);
+
     void RetireBuffers(CommandList& inCmdList);
 
 private:

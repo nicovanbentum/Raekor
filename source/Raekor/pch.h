@@ -190,3 +190,7 @@ using File = std::fstream;
 ///////////////////////////
 // lz4 compression library
 #include "lz4.h"
+
+///////////////////////////
+// meshlet library
+#include "meshoptimizer.h"

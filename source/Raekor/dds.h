@@ -17,6 +17,7 @@ void CompressDXT(unsigned char* dst, unsigned char* src, int w, int h, int isDxt
 
 enum EDDSFormat
 {
+	DDS_FORMAT_DX10 = MAKEFOURCC('D', 'X', '1', '0'),
 	DDS_FORMAT_DXT1 = MAKEFOURCC('D', 'X', 'T', '1'),
 	DDS_FORMAT_DXT2 = MAKEFOURCC('D', 'X', 'T', '2'),
 	DDS_FORMAT_DXT3 = MAKEFOURCC('D', 'X', 'T', '3'),
@@ -105,5 +106,33 @@ struct DDS_HEADER
 };
 
 static_assert( sizeof(DDS_HEADER) == 124 );
+
+
+struct DDS_HEADER_DXT10
+{
+	UINT dxgiFormat;
+	UINT resourceDimension;
+	UINT miscFlag;
+	UINT arraySize;
+	UINT miscFlags2;
+};
+
+
+struct DDSFileInfo
+{
+	uint32_t magicNumber;
+	DDS_HEADER header;
+};
+
+static_assert( sizeof(DDSFileInfo) == 128 );
+
+
+struct DDSFileInfoExtended
+{
+	uint32_t magicNumber;
+	DDS_HEADER header;
+	DDS_HEADER_DXT10 header10;
+};
+
 
 } // raekor

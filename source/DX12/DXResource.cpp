@@ -58,7 +58,7 @@ D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage)
 }
 
 
-DescriptorHeap::DescriptorHeap(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags)
+void DescriptorHeap::Allocate(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags)
 {
     Reserve(inCount);
 

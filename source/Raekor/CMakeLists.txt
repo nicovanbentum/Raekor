@@ -16,6 +16,9 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/imnodes/imnodes.cpp)
 set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/ufbx/ufbx.c PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/ufbx/ufbx.c)
 
+set_source_files_properties(${CMAKE_SOURCE_DIR}/dependencies/meshoptimizer/src/clusterizer.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/meshoptimizer/src/clusterizer.cpp)
+
 # Rule to build the actual exectuable and enable c++20
 
 add_library(${PROJECT_NAME} ${CppFiles} ${HppFiles} raekor.natvis ${CMAKE_SOURCE_DIR}/config.json)
@@ -59,6 +62,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/dependencies/glm/glm
     ${CMAKE_SOURCE_DIR}/dependencies/ImGuizmo
     ${CMAKE_SOURCE_DIR}/dependencies/JoltPhysics
+    ${CMAKE_SOURCE_DIR}/dependencies/meshoptimizer/src
     ${CMAKE_SOURCE_DIR}/dependencies/IconFontCppHeaders
     ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include
 )

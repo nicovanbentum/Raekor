@@ -78,16 +78,11 @@ DXApp::DXApp() :
         }
     }
 
-    auto bluenoise_texture = m_Device.CreateTexture(Texture::Desc{
-        .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-        .width  = 128,
-        .height = 128,
-        .usage  = Texture::Usage::SHADER_READ_ONLY,
-        .debugName = L"BLUENOISE128x1spp"
-    });
-
+    auto bluenoise_texture = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 128, 128, Texture::Usage::SHADER_READ_ONLY));
+    gSetDebugName(m_Device.GetD3D12Resource(bluenoise_texture), "BLUENOISE128x1spp");
+    
     assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
-
+    
     m_Renderer.QueueTextureUpload(bluenoise_texture, 0, Slice<char>((const char*)blue_noise_samples.data(), blue_noise_samples.size() / sizeof(blue_noise_samples[0])));
 
     LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
@@ -154,6 +149,11 @@ DXApp::DXApp() :
     m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
 
     LogMessage(std::format("[CPU] RenderGraph compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
+
+    if (!m_Settings.mSceneFile.empty() && fs::exists(m_Settings.mSceneFile))
+    {
+        m_Scene.OpenFromFile(m_Settings.mSceneFile.string(), m_Assets);
+    }
 }
 
 
@@ -224,13 +224,15 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
     const auto mipmap_levels = std::min(header_ptr->dwMipMapCount, 4ul);
     // const auto mipmap_levels = header->dwMipMapCount;
 
+    const auto debug_name = inAsset->GetPath().string();
+
     auto& texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc {
         .format     = inFormat,
         .width      = header_ptr->dwWidth,
         .height     = header_ptr->dwHeight,
         .mipLevels  = mipmap_levels,
         .usage      = Texture::SHADER_READ_ONLY,
-        .debugName  = inAsset->GetPath().wstring().c_str()
+        .debugName  = debug_name.c_str()
     }));
 
     auto requests = std::vector<DSTORAGE_REQUEST>(mipmap_levels);
@@ -517,13 +519,15 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
     if (auto ddgi_pass = m_Renderer.GetRenderGraph().GetPass<ProbeTraceData>())
     {
         auto& data = ddgi_pass->GetData();
+        
+        ImGui::Text("DDGI Settings");
+        ImGui::Separator();
+
+        ImGui::DragInt3("Debug Probe", glm::value_ptr(data.mDebugProbe));
+        ImGui::DragFloat("Probe Radius", &data.mDDGIData.mProbeRadius, 0.01f, 0.01f, 10.0f, "%.2f");
 
         if (!m_RayTracedScene->Any<DDGISceneSettings>() || !m_RayTracedScene->Count<DDGISceneSettings>())
         {
-            ImGui::Text("DDGI Settings");
-            ImGui::Separator();
-            
-            ImGui::DragInt3("Debug Probe", glm::value_ptr(data.mDebugProbe));
             ImGui::DragFloat3("Probe Spacing", glm::value_ptr(data.mDDGIData.mProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
             ImGui::DragInt3("Probe Count", glm::value_ptr(data.mDDGIData.mProbeCount), 1, 1, 40);
             ImGui::DragFloat3("Grid Position", glm::value_ptr(data.mDDGIData.mCornerPosition), 0.01f, -1000.0f, 1000.0f, "%.3f");
@@ -537,7 +541,6 @@ void DebugWidget::Draw(Widgets* inWidgets, float dt)
                 transform.position = data.mDDGIData.mCornerPosition;
                 transform.Compose();
 
-                ddgi_settings.mDDGIDebugProbe = data.mDebugProbe;
                 ddgi_settings.mDDGIProbeCount = data.mDDGIData.mProbeCount;
                 ddgi_settings.mDDGIProbeSpacing = data.mDDGIData.mProbeSpacing;
 

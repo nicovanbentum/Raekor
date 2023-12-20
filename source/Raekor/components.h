@@ -93,6 +93,28 @@ struct SCRIPT_INTERFACE Node
 	bool IsConnected() const { return firstChild != NULL_ENTITY && parent != NULL_ENTITY; }
 };
 
+
+struct MeshletTriangle
+{
+	uint32_t mX : 10;
+	uint32_t mY : 10;
+	uint32_t mZ : 10;
+	uint32_t mW : 2;
+};
+
+
+struct Meshlet
+{
+	/* offsets within meshlet_vertices and meshlet_triangles arrays with meshlet data */
+	uint32_t mVertexOffset;
+	uint32_t mTriangleOffset;
+
+	/* number of vertices and triangles used in the meshlet; data is stored in consecutive range defined by offset and count */
+	uint32_t mVertexCount;
+	uint32_t mTriangleCount;
+};
+
+
 struct SCRIPT_INTERFACE Mesh
 {
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(Mesh);
@@ -103,6 +125,10 @@ struct SCRIPT_INTERFACE Mesh
 	std::vector<glm::vec3> tangents; // ptr
 
 	std::vector<uint32_t> indices; // ptr
+
+	std::vector<Meshlet> meshlets;
+	std::vector<uint32_t> meshletIndices;
+	std::vector<MeshletTriangle> meshletTriangles;
 
 	// GPU resources
 	uint32_t vertexBuffer = 0;

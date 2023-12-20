@@ -78,13 +78,16 @@ public:
 
 	static std::string sAssetsToCachedPath(const std::string& inAssetPath) { return Asset::sAssetsToCachedPath(inAssetPath, ".dds"); }
 
-	uint32_t GetDataSize() const { return m_Data.size() - 128; }
-	const char* const GetData() const { return m_Data.data() + 128; }
+	uint32_t GetDataSize() const { return m_Data.size() - m_IsExtendedDX10 ? sizeof(DDSFileInfoExtended) : sizeof(DDSFileInfo); }
+	const char* const GetData() const { return m_Data.data() + int(m_IsExtendedDX10 ? sizeof(DDSFileInfoExtended) : sizeof(DDSFileInfo)); }
+
 	const DDS_HEADER* GetHeader() const { return reinterpret_cast<const DDS_HEADER*>( m_Data.data() + sizeof(DWORD) ); }
+	const DDS_HEADER_DXT10* GetHeaderDXT10() const { return reinterpret_cast<const DDS_HEADER_DXT10*>( m_Data.data() + sizeof(DWORD) + sizeof(DDS_HEADER)); }
 
 private:
 	uint32_t m_Texture = 0;
 	std::vector<char> m_Data;
+	bool m_IsExtendedDX10 = false;
 };
 
 

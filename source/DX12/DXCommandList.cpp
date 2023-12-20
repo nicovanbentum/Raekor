@@ -1,6 +1,7 @@
 #include "DXCommandList.h"
 #include "DXResource.h"
 #include "DXDevice.h"
+#include "DXShader.h"
 
 namespace Raekor::DX12 {
 

@@ -1,6 +1,16 @@
 #ifndef PACKING_HLSL
 #define PACKING_HLSL
 
+uint UInt2ToUInt(uint x, uint y)
+{
+    return (x << 16) | (y & 0xFFFF);
+}
+
+uint2 UIntToUInt2(uint val)
+{
+    return uint2(val >> 16, val & 0xFFFF);
+}
+
 float4 RGBA8ToFloat4(uint val) {
     float4 unpacked = float4(0.0, 0.0, 0.0, 0.0);
     unpacked.x = val & 255;

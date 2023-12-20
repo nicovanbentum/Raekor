@@ -282,6 +282,7 @@ BufferID RenderGraphResources::GetBuffer(RenderGraphResourceID inResource) const
 TextureID RenderGraphResources::GetTexture(RenderGraphResourceID inResource) const
 {
     const RenderGraphResource& resource = m_Resources[inResource];
+    assert(resource.mResourceType == RESOURCE_TYPE_TEXTURE);
     return resource.mResourceType == RESOURCE_TYPE_TEXTURE ? TextureID(resource.mResourceID) : TextureID();
 }
 
@@ -433,7 +434,7 @@ bool RenderGraph::Compile(Device& inDevice)
         {
             if (renderpass->IsRead(resource))
             {
-                 std::cout << std::format("RenderGraph Error: Texture {} is both written to and read from in renderpass {}\n", gWCharToString(inDevice.GetTexture(m_RenderGraphResources.GetTextureView(resource)).GetDesc().debugName), renderpass->GetName());
+                 std::cout << std::format("RenderGraph Error: Texture {} is both written to and read from in renderpass {}\n", gGetDebugName(inDevice.GetD3D12Resource(m_RenderGraphResources.GetTextureView(resource))), renderpass->GetName());
                 return false;
             }
         }
@@ -561,7 +562,11 @@ bool RenderGraph::Compile(Device& inDevice)
 
             for (auto subresource = subresource_index; subresource < subresource_index + subresource_count; subresource++)
             {
-                assert(subresource < inDevice.GetTexture(m_RenderGraphResources.GetTexture(view_desc.mGraphResourceID)).GetSubresourceCount());
+                if (node.mResourceType == RESOURCE_TYPE_TEXTURE)
+                {
+                    assert(subresource < inDevice.GetTexture(m_RenderGraphResources.GetTexture(view_desc.mGraphResourceID)).GetSubresourceCount());
+                }
+
                 node.mEdges.emplace_back(GraphEdge { .mSubResource = subresource, .mRenderPassIndex = uint32_t(renderpass_index), .mUsage = usage });
             }
         }
@@ -589,7 +594,7 @@ bool RenderGraph::Compile(Device& inDevice)
         auto resource_ptr = (ID3D12Resource*)nullptr;
 
         if (node.mResourceType == RESOURCE_TYPE_BUFFER)
-            resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTexture(resource_id));
+            resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetBuffer(resource_id));
 
         else if (node.mResourceType == RESOURCE_TYPE_TEXTURE)
             resource_ptr = inDevice.GetD3D12Resource(m_RenderGraphResources.GetTexture(resource_id));

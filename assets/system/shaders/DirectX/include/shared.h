@@ -145,7 +145,7 @@ struct DDGIData
     uint   mProbesDepthTexture;
     uint   mProbesIrradianceTexture;
     int3   mProbeCount;
-    uint   pad0;
+    float  mProbeRadius;
     float3 mProbeSpacing;
     uint   pad1;
     float3 mCornerPosition;
@@ -160,6 +160,16 @@ struct ClearTextureRootConstants
     uint mTexture;
 };
 STATIC_ASSERT(sizeof(ClearTextureRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
+struct ClearBufferRootConstants
+{
+    uint mClearValue;
+    uint mBuffer;
+};
+STATIC_ASSERT(sizeof(ClearBufferRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
 
 
 struct ConvolveCubeRootConstants
@@ -182,18 +192,9 @@ STATIC_ASSERT(sizeof(SkyCubeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 struct GbufferRootConstants
 {
     uint     mVertexBuffer;
-    uint     mAlbedoTexture;
-    uint     mNormalTexture;
-    uint     mEmissiveTexture;
-    uint     mMetallicTexture;
-    uint     mRoughnessTexture;
-    float    mRoughness;
-    float    mMetallic;
-    uint2    mBBmin;
-    uint2    mBBmax;
-    float4	 mAlbedo;
-    float4x4 mWorldTransform;
-    float4x4 mInvWorldTransform;
+    uint     mInstancesBuffer;
+    uint     mMaterialsBuffer;
+    uint     mInstanceIndex;
 };
 STATIC_ASSERT(sizeof(GbufferRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
@@ -268,6 +269,25 @@ struct PathTraceRootConstants
 };
 STATIC_ASSERT(sizeof(PathTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
+
+struct ShadowsClassifyRootConstants
+{
+    uint mShadowMaskTexture;
+    uint mTilesBuffer;
+    uint mDispatchBuffer;
+    uint2 mDispatchSize;
+};
+STATIC_ASSERT(sizeof(ShadowsClassifyRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
+struct ShadowsDenoiseRootConstants
+{
+    uint mResultTexture;
+    uint mShadowMaskTexture;
+    uint mTilesBuffer;
+    uint pad0;
+};
+STATIC_ASSERT(sizeof(ShadowsDenoiseRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct SpdRootConstants

@@ -145,6 +145,9 @@ bool TextureAsset::Load(const std::string& filepath)
 		return false;
 	}
 
+	if (GetHeader()->ddspf.dwFourCC == DDS_FORMAT_DX10)
+		m_IsExtendedDX10 = true;
+	
 	return true;
 }
 

@@ -253,6 +253,7 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh)
 	const auto byte_size = sizeof(Mesh) + ioMesh.GetInterleavedStride() * ioMesh.positions.size();
 	ImGui::Text("%.1f Kb", float(byte_size) / 1024);
 
+	ImGui::Text("%i Meshlets", ioMesh.meshlets.size());
 	ImGui::Text("%i Vertices", ioMesh.positions.size());
 	ImGui::Text("%i Triangles", ioMesh.indices.size() / 3);
 
@@ -663,9 +664,8 @@ void InspectorWidget::DrawComponent(DDGISceneSettings& ioSettings)
 {
 	auto& scene = GetScene();
 
-	ImGui::DragInt3("Debug Probe", glm::value_ptr(ioSettings.mDDGIDebugProbe));
-	ImGui::DragFloat3("Probe Spacing", glm::value_ptr(ioSettings.mDDGIProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
 	ImGui::DragInt3("Probe Count", glm::value_ptr(ioSettings.mDDGIProbeCount), 1, 1, 40);
+	ImGui::DragFloat3("Probe Spacing", glm::value_ptr(ioSettings.mDDGIProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
 
 	if (ImGui::Button("Fit to Scene"))
 	{

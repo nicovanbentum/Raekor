@@ -26,7 +26,8 @@ VS_OUTPUT main (in VS_INPUT input, uint instance_id : SV_InstanceID) {
     uint3 probe_coord = Index1DTo3D(instance_id, rc.mProbeCount);
     float3 probe_ws_pos = rc.mCornerPosition + rc.mProbeSpacing * probe_coord;
     
-    output.position = mul(fc.mViewProjectionMatrix, float4(input.pos + probe_ws_pos, 1.0));
+    float3 scaled_pos = input.pos * rc.mProbeRadius;
+    output.position = mul(fc.mViewProjectionMatrix, float4(scaled_pos + probe_ws_pos, 1.0));
     output.normal = normalize(input.normal);
     
     output.color = max(dot(input.normal, -fc.mSunDirection.xyz), 0).xxx;
