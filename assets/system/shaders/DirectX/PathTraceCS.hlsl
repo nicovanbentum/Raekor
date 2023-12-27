@@ -88,7 +88,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
             
             {
                 // sample a ray direction towards the sun disk
-                float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, rng);
+                float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
             
                 // Check if the sun is visible
                 bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);

@@ -56,7 +56,7 @@ private:
         int& mUpscaler       = g_CVars.Create("r_upscaler",            0,    true);
         int& mUpscaleQuality = g_CVars.Create("r_upscaler_quality",    0,    true);
         int& mDoPathTrace    = g_CVars.Create("r_path_trace",          0,    true);
-        float& mSunConeAngle = g_CVars.Create("r_sun_cone_angle",      0.0f, true);
+        float& mSunConeAngle = g_CVars.Create("r_sun_cone_angle",      0.02f,true);
     } m_Settings;
 
 public:

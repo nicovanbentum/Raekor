@@ -125,12 +125,12 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mProbeUpdateDepthShader;
     ShaderProgram mProbeUpdateIrradianceShader;
 
-    ShaderProgram mRTShadowsShader;
     ShaderProgram mRTReflectionsShader;
     ShaderProgram mRTPathTraceShader;
     ShaderProgram mRTAmbientOcclusionShader;
 
     ShaderProgram mTraceShadowRaysShader;
+    ShaderProgram mClearShadowTilesShader;
     ShaderProgram mClassifyShadowTilesShader;
     ShaderProgram mDenoiseShadowTilesShader;
 

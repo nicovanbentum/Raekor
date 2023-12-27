@@ -17,12 +17,12 @@ VS_OUTPUT main(in uint inVertexID : SV_VertexID)
 {
     FrameConstants fc = gGetFrameConstants();
     
-    StructuredBuffer<RTVertex> vertex_buffer = ResourceDescriptorHeap[rc.mVertexBuffer];
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
-    
     RTGeometry geometry = geometries[rc.mInstanceIndex];
     
+    StructuredBuffer<RTVertex> vertex_buffer = ResourceDescriptorHeap[geometry.mVertexBuffer];
     RTVertex vertex = vertex_buffer[inVertexID];
+    
     TransformToWorldSpace(vertex, geometry.mLocalToWorldTransform, geometry.mInvLocalToWorldTransform);
 
     VS_OUTPUT output;

@@ -416,10 +416,8 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
             final_output = gbuffer_data.mVelocityTexture;
             break;
         case DEBUG_TEXTURE_RT_SHADOWS:
-            if (auto data = m_RenderGraph.GetPass<DenoiseShadowsData>())
-                final_output = data->GetData().mOutputTexture;
-            else if (auto data = m_RenderGraph.GetPass<RTShadowMaskData>())
-                final_output = data->GetData().mOutputTexture;
+            if (auto data = m_RenderGraph.GetPass<ClearShadowsData>())
+                final_output = data->GetData().mShadowsTexture;
             break;
         case DEBUG_TEXTURE_RT_AMBIENT_OCCLUSION:
             if (auto data = m_RenderGraph.GetPass<RTAOData>())

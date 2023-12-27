@@ -298,7 +298,8 @@ ResourceID RenderGraphResources::GetResource(RenderGraphResourceID inResource) c
 BufferID RenderGraphResources::GetBufferView(RenderGraphResourceViewID inResource) const
 {
     const RenderGraphResource& resource = m_ResourceViews[inResource];
-    return resource.mResourceType == RESOURCE_TYPE_BUFFER ? BufferID(resource.mResourceID) : BufferID();
+    assert(resource.mResourceType == RESOURCE_TYPE_BUFFER);
+    return BufferID(resource.mResourceID);
 }
 
 
@@ -306,7 +307,8 @@ BufferID RenderGraphResources::GetBufferView(RenderGraphResourceViewID inResourc
 TextureID RenderGraphResources::GetTextureView(RenderGraphResourceViewID inResource) const
 {
     const RenderGraphResource& resource = m_ResourceViews[inResource];
-    return resource.mResourceType == RESOURCE_TYPE_TEXTURE ? TextureID(resource.mResourceID) : TextureID();
+    assert(resource.mResourceType == RESOURCE_TYPE_TEXTURE);
+    return TextureID(resource.mResourceID);
 }
 
 
@@ -532,7 +534,6 @@ bool RenderGraph::Compile(Device& inDevice)
 
             for (auto subresource = subresource_index; subresource < subresource_index + subresource_count; subresource++)
             {
-                assert(subresource < inDevice.GetTexture(m_RenderGraphResources.GetTexture(view_desc.mGraphResourceID)).GetSubresourceCount());
                 node.mEdges.emplace_back(GraphEdge { .mSubResource = subresource, .mRenderPassIndex = uint32_t(renderpass_index), .mUsage = usage });
             }
         }

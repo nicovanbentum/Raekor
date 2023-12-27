@@ -36,13 +36,17 @@
 // NEEDS TO MATCH DXUtil.h , its 256 - 2 SRV root descriptors (which are 2 DWORDs each)
 #define MAX_ROOT_CONSTANTS_SIZE 232
 
-#define DDGI_TRACE_SIZE 64                       // Thread group size for the ray trace shader. Sorry AMD, I'm running a 3080
-#define DDGI_DEPTH_TEXELS 16                     // Depth is stored as 16x16 FORMAT_R32F texels
-#define DDGI_DEPTH_TEXELS_NO_BORDER 14           // Depth is stored as 16x16 FORMAT_R32F texels
-#define DDGI_IRRADIANCE_TEXELS 8                 // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
-#define DDGI_IRRADIANCE_TEXELS_NO_BORDER 6       // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
-#define DDGI_PROBES_PER_ROW 40                   // Number of probes per row for the final probe texture
-#define DDGI_RAYS_PER_PROBE 256                  // Basically wave size * rays per wave
+#define DDGI_TRACE_SIZE 64                  // Thread group size for the ray trace shader. Sorry AMD, I'm running a 3080
+#define DDGI_DEPTH_TEXELS 16                // Depth is stored as 16x16 FORMAT_R32F texels
+#define DDGI_DEPTH_TEXELS_NO_BORDER 14      // Depth is stored as 16x16 FORMAT_R32F texels
+#define DDGI_IRRADIANCE_TEXELS 8            // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
+#define DDGI_IRRADIANCE_TEXELS_NO_BORDER 6  // Irradiance is stored as 6x6 FORMAT_R11G11B10F texels with a 1 pixel border
+#define DDGI_PROBES_PER_ROW 40              // Number of probes per row for the final probe texture
+#define DDGI_RAYS_PER_PROBE 256             // Basically wave size * rays per wave
+
+#define RT_SHADOWS_GROUP_DIM 16     // RT shadows divides the screen up in 16x16 pixel tiles
+#define RT_SHADOWS_PACKED_DIM_X 8   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
+#define RT_SHADOWS_PACKED_DIM_Y 4   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
 
 #define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 1
 
@@ -191,7 +195,6 @@ STATIC_ASSERT(sizeof(SkyCubeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 struct GbufferRootConstants
 {
-    uint     mVertexBuffer;
     uint     mInstancesBuffer;
     uint     mMaterialsBuffer;
     uint     mInstanceIndex;
@@ -270,6 +273,15 @@ struct PathTraceRootConstants
 STATIC_ASSERT(sizeof(PathTraceRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+
+struct ShadowsClearRootConstants
+{
+    uint mTilesBuffer;
+    uint mDispatchBuffer;
+};
+STATIC_ASSERT(sizeof(ShadowsClearRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
 struct ShadowsClassifyRootConstants
 {
     uint mShadowMaskTexture;
@@ -283,11 +295,16 @@ STATIC_ASSERT(sizeof(ShadowsClassifyRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 struct ShadowsDenoiseRootConstants
 {
     uint mResultTexture;
+    uint mHistoryTexture;
+    uint mDepthTexture;
+    uint mGBufferTexture;
+    uint mVelocityTexture;
     uint mShadowMaskTexture;
     uint mTilesBuffer;
-    uint pad0;
+    uint2 mDispatchSize;
 };
 STATIC_ASSERT(sizeof(ShadowsDenoiseRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
 
 
 struct SpdRootConstants

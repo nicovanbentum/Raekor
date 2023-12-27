@@ -244,7 +244,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
     std::vector<RTGeometry> rt_geometries;
     rt_geometries.reserve(nr_of_meshes);
 
-    for (const auto& [entity, mesh, transform] : m_Scene.Each<Mesh, Transform>())
+    for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
     {
         auto transform = m_Scene.GetPtr<Transform>(entity);
         if (!transform)

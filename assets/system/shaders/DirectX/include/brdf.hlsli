@@ -111,7 +111,7 @@ struct BRDF {
         mMetallic = inMaterial.mMetallic * sampled_metallic;
         mRoughness = inMaterial.mRoughness * sampled_roughness;
     }
-
+    
     
     float3 Evaluate(float3 Wo, float3 Wi, float3 Wh) {
         float NdotL = max(dot(mNormal, Wi), 0.0);
@@ -200,11 +200,14 @@ bool TraceShadowRay(RaytracingAccelerationStructure inTLAS, float3 inRayPos, flo
 }
 
 
-float3 SampleDirectionalLight(float3 inLightDir, float inConeAngle, inout uint ioRNG)
+float3 SampleDirectionalLight(float3 inLightDir, float inConeAngle, float2 inRNG)
 {
     const float3 light_dir = normalize(inLightDir.xyz);
-    float2 diskPoint = uniformSampleDisk(pcg_float2(ioRNG), inConeAngle);
-    return -(light_dir + float3(diskPoint.x, 0.0, diskPoint.y));
+    float3 light_tangent = normalize(cross(light_dir, float3(0.0f, 1.0f, 0.0f)));
+    float3 light_bitangent = normalize(cross(light_tangent, light_dir));
+    
+    float2 disk_point = uniformSampleDisk(inRNG, inConeAngle);
+    return -normalize(light_dir + disk_point.x * light_tangent + disk_point.y * light_bitangent);
 }
     
 

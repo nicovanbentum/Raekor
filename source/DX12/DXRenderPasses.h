@@ -173,48 +173,51 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice,
 
 
 ////////////////////////////////////////
-/// Ray-traced Shadow Mask Render Pass
+/// Ray-traced Mask Render Passes
 ////////////////////////////////////////
-struct RTShadowMaskData
+struct TraceShadowTilesData
 {
-    RTTI_DECLARE_TYPE(RTShadowMaskData);
-
-    RenderGraphResourceID mOutputTexture;
-    RenderGraphResourceViewID mGbufferDepthTextureSRV;
-    RenderGraphResourceViewID mGBufferRenderTextureSRV;
-};
-
-const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene,
-    const GBufferData& inGBufferData
-);
-
-
-struct ShadowTraceData
-{
-    RTTI_DECLARE_TYPE(ShadowTraceData);
+    RTTI_DECLARE_TYPE(TraceShadowTilesData);
 
     RenderGraphResourceID mOutputTexture;
     RenderGraphResourceViewID mGBufferDepthTextureSRV;
     RenderGraphResourceViewID mGBufferRenderTextureSRV;
 };
 
+struct ClearShadowTilesData
+{
+    RTTI_DECLARE_TYPE(ClearShadowTilesData);
+
+    RenderGraphResourceID mTilesBuffer;
+    RenderGraphResourceID mIndirectDispatchBuffer;
+};
 
 struct ClassifyShadowTilesData
 {
     RTTI_DECLARE_TYPE(ClassifyShadowTilesData);
 
-    RenderGraphResourceID mTilesBuffer;
-    RenderGraphResourceID mIndirectDispatchBuffer;
+    RenderGraphResourceViewID mTilesBufferUAV;
+    RenderGraphResourceViewID mIndirectDispatchBufferUAV;
     RenderGraphResourceViewID mTracedShadowRaysTextureSRV;
 };
 
+struct ClearShadowsData
+{
+    RTTI_DECLARE_TYPE(ClearShadowsData);
+
+    RenderGraphResourceID mShadowsTexture;
+    RenderGraphResourceID mShadowsTextureHistory;
+};
 
 struct DenoiseShadowsData
 {
     RTTI_DECLARE_TYPE(DenoiseShadowsData);
 
-    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mOutputTextureUAV;
+    RenderGraphResourceViewID mHistoryTextureUAV;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mGBufferTextureSRV;
+    RenderGraphResourceViewID mVelocityTextureSRV;
     RenderGraphResourceViewID mTracedShadowRaysTextureSRV;
     RenderGraphResourceViewID mTilesBufferSRV;
     RenderGraphResourceViewID mDenoisedTilesBufferSRV;

@@ -88,11 +88,6 @@
         {
             "Compute Shader File": "assets/system/shaders/DirectX/ProbeUpdateIrradianceCS.hlsl"
         },
-
-        "RT Shadows Shader":
-        {
-            "Compute Shader File": "assets/system/shaders/DirectX/RTShadowsCS.hlsl"
-        },
         
         "RT Reflections Shader":
         {
@@ -115,18 +110,22 @@
             "Compute Shader File": "assets/system/shaders/DirectX/RTShadowsTraceCS.hlsl"
         },
 
+        "Clear Shadow Tiles Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/RTShadowsClearTilesCS.hlsl"
+        },
         
         "Classify Shadow Tiles Shader":
         {
             "Compute Shader File": "assets/system/shaders/DirectX/RTShadowsClassifyCS.hlsl"
         },
 
-        
         "Denoise Shadow Tiles Shader":
         {
             "Compute Shader File": "assets/system/shaders/DirectX/RTShadowsDenoiseCS.hlsl"
         },
 
+        
         "GBuffer Debug Depth Shader": 
         { 
             "Defines": "#define DEBUG_TEXTURE_GBUFFER_DEPTH",

@@ -34,14 +34,14 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     Texture2D metallic_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mMetallicTexture)];
     Texture2D roughness_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mRoughnessTexture)];
     
-    float4 sampled_albedo = albedo_texture.Sample(SamplerPointWrapNoMips, input.texcoord);
+    float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
     if (sampled_albedo.a < 0.3)
         discard;
     
-    float3 sampled_normal = normals_texture.Sample(SamplerPointWrapNoMips, input.texcoord).rgb; // alpha channel unused
-    float3 sampled_emissive = emissive_texture.Sample(SamplerPointWrapNoMips, input.texcoord).rgb; // alpha channel unused
-    float sampled_metallic = metallic_texture.Sample(SamplerPointWrapNoMips, input.texcoord).r; // value swizzled across all channels, just get Red
-    float sampled_roughness = roughness_texture.Sample(SamplerPointWrapNoMips, input.texcoord).r; // value swizzled across all channels, just get Red
+    float3 sampled_normal = normals_texture.Sample(SamplerAnisoWrap, input.texcoord).rgb; // alpha channel unused
+    float3 sampled_emissive = emissive_texture.Sample(SamplerAnisoWrap, input.texcoord).rgb; // alpha channel unused
+    float sampled_metallic = metallic_texture.Sample(SamplerAnisoWrap, input.texcoord).r; // value swizzled across all channels, just get Red
+    float sampled_roughness = roughness_texture.Sample(SamplerAnisoWrap, input.texcoord).r; // value swizzled across all channels, just get Red
         
     FrameConstants fc = gGetFrameConstants();
 

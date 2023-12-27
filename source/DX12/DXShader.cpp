@@ -60,12 +60,12 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Update Depth Shader", mProbeUpdateDepthShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Probe Update Irradiance Shader", mProbeUpdateIrradianceShader);
 
-    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "RT Shadows Shader", mRTShadowsShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "RT Path Trace Shader", mRTPathTraceShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "RT Reflections Shader", mRTReflectionsShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "RT Ambient Occlusion Shader", mRTAmbientOcclusionShader);
 
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Trace Shadow Rays Shader", mTraceShadowRaysShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Clear Shadow Tiles Shader", mClearShadowTilesShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Classify Shadow Tiles Shader", mClassifyShadowTilesShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Denoise Shadow Tiles Shader", mDenoiseShadowTilesShader);
 

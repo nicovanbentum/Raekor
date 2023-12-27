@@ -11,7 +11,6 @@ RTTI_DEFINE_TYPE(ConvolveCubeData)          {}
 RTTI_DEFINE_TYPE(GBufferData)               {}
 RTTI_DEFINE_TYPE(GBufferDebugData)          {}
 RTTI_DEFINE_TYPE(GrassData)                 {}
-RTTI_DEFINE_TYPE(RTShadowMaskData)          {}
 RTTI_DEFINE_TYPE(RTAOData)                  {}
 RTTI_DEFINE_TYPE(ReflectionsData)           {}
 RTTI_DEFINE_TYPE(DownsampleData)            {}
@@ -32,7 +31,9 @@ RTTI_DEFINE_TYPE(PreImGuiData)              {}
 RTTI_DEFINE_TYPE(ImGuiData)                 {}
 RTTI_DEFINE_TYPE(BloomDownscaleData)        {}
 RTTI_DEFINE_TYPE(BloomData)                 {}
-RTTI_DEFINE_TYPE(ShadowTraceData)           {}
+RTTI_DEFINE_TYPE(TraceShadowTilesData)      {}
+RTTI_DEFINE_TYPE(ClearShadowsData)          {}
+RTTI_DEFINE_TYPE(ClearShadowTilesData)      {}
 RTTI_DEFINE_TYPE(ClassifyShadowTilesData)   {}
 RTTI_DEFINE_TYPE(DenoiseShadowsData)        {}
 RTTI_DEFINE_TYPE(ClearBufferData)           {}
@@ -253,7 +254,6 @@ const MeshletsRasterData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Devi
             const auto instance_index = inScene->GetSparseIndex<Mesh>(entity);
 
             auto root_constants = GbufferRootConstants {
-                .mVertexBuffer       = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
                 .mInstancesBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
                 .mMaterialsBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
                 .mInstanceIndex      = instance_index,
@@ -351,7 +351,6 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 //continue;
 
             const auto& index_buffer = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
-            const auto& vertex_buffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
 
             const auto index_view = D3D12_INDEX_BUFFER_VIEW
             {
@@ -366,13 +365,9 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             if (material == nullptr)
                 material = &Material::Default;
 
-            auto material_index = inScene->GetSparseIndex<Material>(mesh.material);
-            material_index = material_index == UINT32_MAX ? 0 : material_index;
-
             const auto instance_index = inScene->GetSparseIndex<Mesh>(entity);
 
             auto root_constants = GbufferRootConstants {
-                .mVertexBuffer       = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
                 .mInstancesBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
                 .mMaterialsBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
                 .mInstanceIndex      = instance_index,
@@ -460,14 +455,14 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 
 const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData)
 {
-    constexpr auto cTileSize = 16u;
-    constexpr auto cPackedRaysWidth = 8u;
-    constexpr auto cPackedRaysHeight = 4u;
+    constexpr auto cTileSize = RT_SHADOWS_GROUP_DIM;
+    constexpr auto cPackedRaysWidth = RT_SHADOWS_PACKED_DIM_X;
+    constexpr auto cPackedRaysHeight = RT_SHADOWS_PACKED_DIM_Y;
 
     auto TraceShadowRaysPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData)
     {
-        return inRenderGraph.AddComputePass<ShadowTraceData>("TRACE SHADOW RAYS PASS",
-        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ShadowTraceData& inData)
+        return inRenderGraph.AddComputePass<TraceShadowTilesData>("TRACE SHADOW RAYS PASS",
+        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, TraceShadowTilesData& inData)
         {
             inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
             {
@@ -483,7 +478,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBufferData.mRenderTexture);
         },
 
-        [&inRenderGraph, &inDevice, &inScene](ShadowTraceData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+        [&inRenderGraph, &inDevice, &inScene](TraceShadowTilesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
             if (inScene->Count<Mesh>() == 0)
                 return;
@@ -505,7 +500,51 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
         });
     };
 
-    auto ClassifyShadowTilesPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const ShadowTraceData& inTraceData)
+    auto ClearShadowTilesPass = [](RenderGraph& inRenderGraph, Device& inDevice)
+    {
+        return inRenderGraph.AddComputePass<ClearShadowTilesData>("CLEAR SHADOW TILES PASS",
+        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ClearShadowTilesData& inData)
+        {
+            const auto& render_size = inRenderGraph.GetViewport().GetRenderSize();
+            const auto tile_width = ( render_size.x + cTileSize - 1 ) / cTileSize;
+            const auto tile_height = ( render_size.y + cTileSize - 1 ) / cTileSize;
+
+            inData.mTilesBuffer = inRGBuilder.Create(Buffer::Desc
+            {
+                .format = DXGI_FORMAT_R32_UINT,
+                .size   = tile_width * tile_height * sizeof(uint32_t),
+                .usage  = Buffer::SHADER_READ_WRITE,
+                .debugName = "SHADOW_TILES_BUFFER"
+            });
+
+            inData.mIndirectDispatchBuffer = inRGBuilder.Create(Buffer::Desc
+            {
+                .format = DXGI_FORMAT_UNKNOWN,
+                .size   = sizeof(D3D12_DISPATCH_ARGUMENTS),
+                .usage  = Buffer::SHADER_READ_WRITE,
+                .debugName = "SHADOWS_DISPATCH_BUFFER"
+            });
+
+            inRGBuilder.Write(inData.mTilesBuffer);
+            inRGBuilder.Write(inData.mIndirectDispatchBuffer);
+        },
+
+        [&inRenderGraph, &inDevice](ClearShadowTilesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+        {
+            inCmdList.PushComputeConstants(ShadowsClearRootConstants
+            {
+                .mTilesBuffer = inDevice.GetBindlessHeapIndex(inResources.GetBuffer(inData.mTilesBuffer)),
+                .mDispatchBuffer = inDevice.GetBindlessHeapIndex(inResources.GetBuffer(inData.mIndirectDispatchBuffer))
+            });
+
+            const auto& tiles_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mTilesBuffer));
+            
+            inCmdList->SetPipelineState(g_SystemShaders.mClearShadowTilesShader.GetComputePSO());
+            inCmdList->Dispatch(( (tiles_buffer.GetSize() / sizeof(uint32_t)) + 63 ) / 64, 1, 1);
+        });
+    };
+
+    auto ClassifyShadowTilesPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const TraceShadowTilesData& inTraceData, const ClearShadowTilesData& inClearData)
     {
         return inRenderGraph.AddComputePass<ClassifyShadowTilesData>("CLASSIFY SHADOW RAYS PASS",
         [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ClassifyShadowTilesData& inData)
@@ -514,133 +553,103 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             const auto tile_width   = ( render_size.x + cTileSize - 1 ) / cTileSize;
             const auto tile_height  = ( render_size.y + cTileSize - 1 ) / cTileSize;
 
-            inData.mTilesBuffer = inRGBuilder.Create(Buffer::Desc 
-            { 
-                .format = DXGI_FORMAT_R32_UINT, 
-                .size   = tile_width * tile_height * sizeof(uint32_t), 
-                .usage  = Buffer::SHADER_READ_WRITE,
-                .debugName = "SHADOW_TILES_BUFFER"
-            });
-
-            inData.mIndirectDispatchBuffer = inRGBuilder.Create(Buffer::Desc 
-            { 
-                .format = DXGI_FORMAT_UNKNOWN, 
-                .size   = sizeof(D3D12_DISPATCH_ARGUMENTS), 
-                .usage  = Buffer::SHADER_READ_WRITE,
-                .debugName = "SHADOWS_DISPATCH_BUFFER"
-            });
-
-            inData.mTracedShadowRaysTextureSRV = inRGBuilder.Read(inTraceData.mOutputTexture);
+            inData.mTilesBufferUAV              = inRGBuilder.Write(inClearData.mTilesBuffer);
+            inData.mIndirectDispatchBufferUAV   = inRGBuilder.Write(inClearData.mIndirectDispatchBuffer);
+            inData.mTracedShadowRaysTextureSRV  = inRGBuilder.Read(inTraceData.mOutputTexture);
         },
 
         [&inRenderGraph, &inDevice, &inScene](ClassifyShadowTilesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
-            inCmdList.PushComputeConstants(ClearBufferRootConstants
-            {
-                .mBuffer = inDevice.GetBindlessHeapIndex(inResources.GetBuffer(inData.mTilesBuffer))
-            });
-
-            const auto& tiles_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mTilesBuffer));
-
-            inCmdList->SetPipelineState(g_SystemShaders.mClearBufferShader.GetComputePSO());
-            inCmdList->Dispatch(( tiles_buffer.GetSize() + 63 ) / 64, 1, 1);
-
-            {
-                const auto uav_barrier = CD3DX12_RESOURCE_BARRIER::UAV(tiles_buffer.GetD3D12Resource().Get());
-                inCmdList->ResourceBarrier(1, &uav_barrier);
-            }
-
-            inCmdList.PushComputeConstants(ClearBufferRootConstants
-            {
-                .mBuffer = inDevice.GetBindlessHeapIndex(inResources.GetBuffer(inData.mIndirectDispatchBuffer))
-            });
-
-            const auto& dispatch_buffer = inDevice.GetBuffer(inResources.GetBuffer(inData.mIndirectDispatchBuffer));
-
-            inCmdList->SetPipelineState(g_SystemShaders.mClearBufferShader.GetComputePSO());
-            inCmdList->Dispatch(( dispatch_buffer.GetSize() + 63 ) / 64, 1, 1);
-
-            {
-                const auto uav_barrier = CD3DX12_RESOURCE_BARRIER::UAV(dispatch_buffer.GetD3D12Resource().Get());
-                inCmdList->ResourceBarrier(1, &uav_barrier);
-            }
-
             const auto& viewport = inRenderGraph.GetViewport();
             const auto  dispatch_size = UVec2(( viewport.size.x + cTileSize - 1 ) / cTileSize, ( viewport.size.y + cTileSize - 1 ) / cTileSize);
-
 
             inCmdList.PushComputeConstants(ShadowsClassifyRootConstants 
             { 
                 .mShadowMaskTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mTracedShadowRaysTextureSRV)),
-                .mTilesBuffer       = inDevice.GetBindlessHeapIndex(inResources.GetBuffer(inData.mTilesBuffer)),
-                .mDispatchBuffer    = inDevice.GetBindlessHeapIndex(inResources.GetBuffer(inData.mIndirectDispatchBuffer)),
+                .mTilesBuffer       = inDevice.GetBindlessHeapIndex(inResources.GetBufferView(inData.mTilesBufferUAV)),
+                .mDispatchBuffer    = inDevice.GetBindlessHeapIndex(inResources.GetBufferView(inData.mIndirectDispatchBufferUAV)),
                 .mDispatchSize      = viewport.size
             });
 
             inCmdList->SetPipelineState(g_SystemShaders.mClassifyShadowTilesShader.GetComputePSO());
             inCmdList->Dispatch(dispatch_size.x, dispatch_size.y, 1);
-
-            {
-                const auto uav_barrier = CD3DX12_RESOURCE_BARRIER::UAV(dispatch_buffer.GetD3D12Resource().Get());
-                inCmdList->ResourceBarrier(1, &uav_barrier);
-            }
-
-            {
-                const auto uav_barrier = CD3DX12_RESOURCE_BARRIER::UAV(tiles_buffer.GetD3D12Resource().Get());
-                inCmdList->ResourceBarrier(1, &uav_barrier);
-            }
         });
     };
 
-    auto DenoiseShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const ShadowTraceData& inTraceData, const ClassifyShadowTilesData& inClassifyData)
+    auto ClearShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice)
     {
-        return inRenderGraph.AddComputePass<DenoiseShadowsData>("DENOISE SHADOWS PASS",
-        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DenoiseShadowsData& inData)
+        return inRenderGraph.AddComputePass<ClearShadowsData>("CLEAR SHADOWS PASS",
+        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, ClearShadowsData& inData)
         {
-            inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
+            inData.mShadowsTexture = inRGBuilder.Create(Texture::Desc
             {
                 .format = DXGI_FORMAT_R32G32_FLOAT,
                 .width  = inRenderGraph.GetViewport().size.x,
                 .height = inRenderGraph.GetViewport().size.y,
                 .usage  = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "RAY TRACED SHADOW MASK"
+                .debugName = "RT SHADOW MASK"
             });
 
-            inRGBuilder.Write(inData.mOutputTexture);
+            inData.mShadowsTextureHistory = inRGBuilder.Create(Texture::Desc
+            {
+                .format = DXGI_FORMAT_R32G32_FLOAT,
+                .width  = inRenderGraph.GetViewport().size.x,
+                .height = inRenderGraph.GetViewport().size.y,
+                .usage  = Texture::Usage::SHADER_READ_WRITE,
+                .debugName = "RT SHADOW MASK HISTORY"
+            });
 
-            inData.mTracedShadowRaysTextureSRV = inRGBuilder.Read(inTraceData.mOutputTexture);
-
-            inData.mTilesBufferSRV = inRGBuilder.Read(inClassifyData.mTilesBuffer);
-            inData.mDenoisedTilesBufferSRV = inRGBuilder.Read(inClassifyData.mTilesBuffer);
-
-            // don't actually need the views, just barriers and render graph resource IDs
-            inData.mIndirectDispatchBufferSRV = inRGBuilder.Read(inClassifyData.mIndirectDispatchBuffer);
-            inData.mDenoisedIndirectDispatchBufferSRV = inRGBuilder.Read(inClassifyData.mIndirectDispatchBuffer);
-
-            // clear the final shadow texture to white (nothing in shadow)
-            // AddClearTextureFloatPass(inRenderGraph, inDevice, inData.mOutputTexture, Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+            inRGBuilder.Write(inData.mShadowsTexture);
+            inRGBuilder.Write(inData.mShadowsTextureHistory);
         },
 
-        [&inRenderGraph, &inDevice, &inScene](DenoiseShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+        [&inRenderGraph, &inDevice](ClearShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
             inCmdList.PushComputeConstants(ClearTextureRootConstants
-            {
-                .mClearValue = Vec4(1.0f, 1.0f, 1.0f, 1.0f),
-                .mTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture))
-            });
+                {
+                    .mClearValue = Vec4(1.0f, 1.0f, 1.0f, 1.0f),
+                    .mTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mShadowsTexture))
+                });
 
-            const auto& texture = inDevice.GetTexture(inResources.GetTexture(inData.mOutputTexture));
+            const auto& texture = inDevice.GetTexture(inResources.GetTexture(inData.mShadowsTexture));
 
             inCmdList->SetPipelineState(g_SystemShaders.mClearTextureShader.GetComputePSO());
             inCmdList->Dispatch(( texture.GetWidth() + 7 ) / 8, ( texture.GetHeight() + 7 ) / 8, 1);
+        });
+    };
 
-            const auto uav_barrier = CD3DX12_RESOURCE_BARRIER::UAV(texture.GetD3D12Resource().Get());
-            inCmdList->ResourceBarrier(1, &uav_barrier);
+    auto DenoiseShadowsPass = [](RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, const TraceShadowTilesData& inTraceData, const ClearShadowTilesData& inTilesData, const ClearShadowsData& inShadowsData)
+    {
+        return inRenderGraph.AddComputePass<DenoiseShadowsData>("DENOISE SHADOWS PASS",
+        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DenoiseShadowsData& inData)
+        {
+            inData.mOutputTextureUAV = inRGBuilder.Write(inShadowsData.mShadowsTexture);
+            inData.mHistoryTextureUAV = inRGBuilder.Write(inShadowsData.mShadowsTextureHistory);
 
+            inData.mDepthTextureSRV = inRGBuilder.Read(inGBufferData.mDepthTexture);
+            inData.mGBufferTextureSRV = inRGBuilder.Read(inGBufferData.mRenderTexture);
+            inData.mVelocityTextureSRV = inRGBuilder.Read(inGBufferData.mVelocityTexture);
+
+            inData.mTracedShadowRaysTextureSRV = inRGBuilder.Read(inTraceData.mOutputTexture);
+
+            inData.mTilesBufferSRV = inRGBuilder.Read(inTilesData.mTilesBuffer);
+            inData.mDenoisedTilesBufferSRV = inRGBuilder.Read(inTilesData.mTilesBuffer);
+
+            // don't actually need the views, just barriers and render graph resource IDs
+            inData.mIndirectDispatchBufferSRV = inRGBuilder.Read(inTilesData.mIndirectDispatchBuffer);
+            inData.mDenoisedIndirectDispatchBufferSRV = inRGBuilder.Read(inTilesData.mIndirectDispatchBuffer);
+        },
+
+        [&inRenderGraph, &inDevice](DenoiseShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+        {
             auto root_constants = ShadowsDenoiseRootConstants
             {
-                .mResultTexture     = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture)),
-                .mShadowMaskTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mTracedShadowRaysTextureSRV))
+                .mResultTexture     = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mOutputTextureUAV)),
+                .mHistoryTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mHistoryTextureUAV)),
+                .mDepthTexture      = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mDepthTextureSRV)),
+                .mVelocityTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mVelocityTextureSRV)),
+                .mShadowMaskTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mTracedShadowRaysTextureSRV)),
+                .mDispatchSize      = inRenderGraph.GetViewport().GetRenderSize()
             };
 
             //{
@@ -660,59 +669,39 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
                 inCmdList->ExecuteIndirect(inDevice.GetCommandSignature(COMMAND_SIGNATURE_DISPATCH), 1, inDevice.GetD3D12Resource(dispatch_buffer), 0, nullptr, 0);
             }
 
+            auto result_texture_resource = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mOutputTextureUAV));
+            auto history_texture_resource = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mHistoryTextureUAV));
+
+            auto barriers = std::array
+            {
+                D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(result_texture_resource, gGetResourceStates(Texture::SHADER_READ_WRITE), D3D12_RESOURCE_STATE_COPY_SOURCE)),
+                D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(history_texture_resource, gGetResourceStates(Texture::SHADER_READ_WRITE), D3D12_RESOURCE_STATE_COPY_DEST))
+            };
+            inCmdList->ResourceBarrier(barriers.size(), barriers.data());
+
+            const auto dest = CD3DX12_TEXTURE_COPY_LOCATION(history_texture_resource, 0);
+            const auto source = CD3DX12_TEXTURE_COPY_LOCATION(result_texture_resource, 0);
+            inCmdList->CopyTextureRegion(&dest, 0, 0, 0, &source, nullptr);
+
+            for (auto& barrier : barriers)
+                std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+
+            inCmdList->ResourceBarrier(barriers.size(), barriers.data());
         });
     };
 
+    
     const auto& traced_rays_data    = TraceShadowRaysPass(inRenderGraph, inDevice, inScene, inGBufferData);
 
-    const auto& classify_tiles_data = ClassifyShadowTilesPass(inRenderGraph, inDevice, inScene, traced_rays_data);
+    const auto& clear_tiles_data    = ClearShadowTilesPass(inRenderGraph, inDevice);
 
-    const auto& denoise_tiles_data  = DenoiseShadowsPass(inRenderGraph, inDevice, inScene, traced_rays_data, classify_tiles_data);
+    const auto& classify_tiles_data = ClassifyShadowTilesPass(inRenderGraph, inDevice, inScene, traced_rays_data, clear_tiles_data);
 
-    return denoise_tiles_data.mOutputTexture;
-}
+    const auto& clear_shadows_data  = ClearShadowsPass(inRenderGraph, inDevice);
 
+    const auto& denoise_tiles_data  = DenoiseShadowsPass(inRenderGraph, inDevice, inGBufferData, traced_rays_data, clear_tiles_data, clear_shadows_data);
 
-
-const RTShadowMaskData& AddShadowMaskPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData)
-{
-    return inRenderGraph.AddComputePass<RTShadowMaskData>("RAY TRACED SHADOWS PASS",
-    [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, RTShadowMaskData& inData)
-    {
-        inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
-        {
-            .format = DXGI_FORMAT_R32_FLOAT,
-            .width  = inRenderGraph.GetViewport().size.x,
-            .height = inRenderGraph.GetViewport().size.y,
-            .usage  = Texture::Usage::SHADER_READ_WRITE,
-            .debugName = "RAY TRACED SHADOW MASK"
-        });
-
-        inRGBuilder.Write(inData.mOutputTexture);
-
-        inData.mGbufferDepthTextureSRV = inRGBuilder.Read(inGBufferData.mDepthTexture);
-        inData.mGBufferRenderTextureSRV = inRGBuilder.Read(inGBufferData.mRenderTexture);
-    },
-
-    [&inRenderGraph, &inDevice, &inScene](RTShadowMaskData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
-    {
-        if (inScene->Count<Mesh>() == 0)
-            return;
-
-        auto& viewport = inRenderGraph.GetViewport();
-
-        inCmdList.PushComputeConstants(ShadowMaskRootConstants
-        {
-            .mShadowMaskTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture)),
-            .mGbufferDepthTexture  = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mGbufferDepthTextureSRV)),
-            .mGbufferRenderTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mGBufferRenderTextureSRV)),
-            .mTLAS                 = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
-            .mDispatchSize         = viewport.size
-        });
-
-        inCmdList->SetPipelineState(g_SystemShaders.mRTShadowsShader.GetComputePSO());
-        inCmdList->Dispatch((viewport.size.x + 7) / 8, (viewport.size.y + 7) / 8, 1);
-    });
+    return clear_shadows_data.mShadowsTexture;
 }
 
 

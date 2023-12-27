@@ -2,16 +2,19 @@
 #include "include/packing.hlsli"
 #include "include/common.hlsli"
 #include "include/random.hlsli"
+#include "include/brdf.hlsli"
 
 ROOT_CONSTANTS(ShadowMaskRootConstants, rc)
 
 groupshared uint g_RayHitsMask;
 
 [numthreads(8, 4, 1)]
-void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_GroupID, uint3 groupThreadID : SV_GroupThreadID, uint groupIndex : SV_GroupIndex)
+void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_GroupID, uint3 groupThreadID : SV_GroupThreadID, uint groupLocalIndex : SV_GroupIndex)
 {
-    if (groupIndex == 0)
+    if (groupLocalIndex == 0)
         g_RayHitsMask = 0;
+    
+    GroupMemoryBarrierWithGroupSync();
     
     if (any(dispatchThreadID.xy >= rc.mDispatchSize))
         return;
@@ -23,22 +26,20 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
     
     FrameConstants fc = gGetFrameConstants();
 
-    const float2 pixel_center = float2(groupThreadID.xy) + float2(0.5, 0.5);
+    const float2 pixel_center = float2(dispatchThreadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;
 
-    uint rng = TeaHash(((dispatchThreadID.y << 16) | dispatchThreadID.x), fc.mFrameCounter);
-
     float depth = gbuffer_depth_texture[dispatchThreadID.xy];
+    
+    uint hit = 0;
     
     if (depth < 1.0)
     {
         const float4 blue_noise = SampleBlueNoise(dispatchThreadID.xy, fc.mFrameCounter);
-        const float2 offset = uniformSampleDisk(blue_noise.xy, fc.mSunConeAngle);
-        const float3 normal = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
-        const float3 position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
-    
-        float3 ray_dir = -normalize(fc.mSunDirection.xyz);
-        ray_dir.xz += offset;
+        const float3 ray_dir    = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, blue_noise.xy);
+        
+        const float3 normal     = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
+        const float3 position   = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
     
         RayDesc ray;
         ray.TMin = 0.01;
@@ -55,12 +56,15 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
             query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
             query.Proceed();
             
-            uint hit = query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+            hit = query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
 
-            InterlockedOr(g_RayHitsMask, hit << groupIndex);
         }
     }
+    
+    InterlockedOr(g_RayHitsMask, hit << groupLocalIndex);
+    
+    GroupMemoryBarrierWithGroupSync();
 
-    if (groupIndex == 0)
+    if (groupLocalIndex == 0)
         result_texture[groupID.xy] = g_RayHitsMask;
 }
