@@ -99,7 +99,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
             
             // for (uint i = 0; i < 8; i++)
             {
-                uint random_light_index = uint(float(rc.mLightsCount - 1) * pcg_float(rng));
+                uint random_light_index = uint(round(float(rc.mLightsCount - 1) * pcg_float(rng)));
                 RTLight light = lights[random_light_index];
                 
                 switch (light.mType)

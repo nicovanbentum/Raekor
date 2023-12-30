@@ -75,6 +75,7 @@
 #include "glm.hpp"
 #include "ext.hpp"
 #include "gtx/quaternion.hpp"
+#include "gtx/intersect.hpp"
 #include "gtc/epsilon.hpp"
 #include "gtc/constants.hpp"
 #include "vector_relational.hpp"
@@ -83,6 +84,7 @@
 #include "gtc/type_ptr.hpp"
 #include "gtx/matrix_decompose.hpp"
 #include "gtx/euler_angles.hpp"
+#include "gtx/texture.hpp"
 
 namespace Raekor {
 using Quat   = glm::quat;
@@ -144,6 +146,7 @@ using Mat4x4 = glm::mat4x4;
 #include <charconv>
 #include <optional>
 #include <iostream>
+#include <semaphore>
 #include <execution>
 #include <algorithm>
 #include <type_traits>

@@ -315,6 +315,9 @@ template<>
 void clone<Name>(ecs::ECS& reg, Entity from, Entity to);
 
 template<>
+void clone<Light>(ecs::ECS& reg, Entity from, Entity to);
+
+template<>
 void clone<Mesh>(ecs::ECS& reg, Entity from, Entity to);
 
 template<>

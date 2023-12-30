@@ -6,6 +6,20 @@ namespace Raekor::DX12 {
 
 D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage)
 {
+    switch (inUsage)
+    {
+        case Buffer::Usage::VERTEX_BUFFER:
+            return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+        case Buffer::Usage::INDEX_BUFFER:
+            return D3D12_RESOURCE_STATE_INDEX_BUFFER;
+        case Buffer::Usage::UPLOAD:
+            return D3D12_RESOURCE_STATE_COMMON;
+        case Buffer::Usage::SHADER_READ_ONLY:
+            return D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+        case Buffer::Usage::SHADER_READ_WRITE:
+            return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    }
+
     return D3D12_RESOURCE_STATES();
 }
 

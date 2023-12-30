@@ -32,6 +32,8 @@ struct BBox3D
 	BBox3D& Combine(const BBox3D& inOther);
 	BBox3D& Transform(const Mat4x4& inTransform);
 
+	bool Contains(const Vec3& inPoint) const;
+
 	Vec3 GetCenter() const { return mMin + ( ( mMax - mMin ) * 0.5f ); }
 	Vec3 GetExtents() const { return glm::abs(mMax - mMin); }
 
@@ -76,7 +78,6 @@ struct Frustum
 };
 
 
-bool gPointInAABB(const Vec3& inPoint, const BBox3D& inAABB);
 
 float gRandomFloatZO();
 float gRandomFloatNO();

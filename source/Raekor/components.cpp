@@ -458,6 +458,14 @@ void clone<Name>(ecs::ECS& reg, Entity from, Entity to)
 
 
 template<>
+void clone<Light>(ecs::ECS& reg, Entity from, Entity to)
+{
+	auto& component = reg.Get<Light>(from);
+	reg.Add<Light>(to, component);
+}
+
+
+template<>
 void clone<Mesh>(ecs::ECS& reg, Entity from, Entity to)
 {
 	auto& from_component = reg.Get<Mesh>(from);

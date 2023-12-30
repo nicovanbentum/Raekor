@@ -172,54 +172,28 @@ std::optional<float> Ray::HitsAABB(const BBox3D& inAABB) const
 
 std::optional<float> Ray::HitsTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2) const
 {
-	auto p1 = inV1 - inV0;
-	auto p2 = inV2 - inV0;
-	auto pvec = glm::cross(m_Direction, p2);
-	float det = glm::dot(p1, pvec);
+	float dist;
+	Vec2 bary_pos;
+	bool hit = glm::intersectRayTriangle(m_Origin, m_Direction, inV0, inV1, inV2, bary_pos, dist);
 
-	if (fabs(det) < std::numeric_limits<float>::epsilon()) return std::nullopt;
-
-	float invDet = 1 / det;
-	auto tvec = m_Origin - inV0;
-	auto u = glm::dot(tvec, pvec) * invDet;
-	if (u < 0 || u > 1) return std::nullopt;
-
-	auto qvec = glm::cross(tvec, p1);
-	auto v = glm::dot(m_Direction, qvec) * invDet;
-	if (v < 0 || u + v > 1) return std::nullopt;
-
-	return glm::dot(p2, qvec) * invDet;
+	return hit ? std::make_optional(dist) : std::nullopt;
 }
 
 
 std::optional<float> Ray::HitsSphere(const Vec3& inPosition, float inRadius, float inTmin, float inTmax) const
 {
-	auto R2 = inRadius * inRadius;
-	glm::vec3 L = inPosition - m_Origin;
-	float tca = glm::dot(L, glm::normalize(m_Direction));
-	if (tca < 0) return std::nullopt;
+	float dist = FLT_MAX;
+	bool hit = glm::intersectRaySphere(m_Origin, m_Direction, inPosition, inRadius * inRadius, dist);
 
-	float D2 = dot(L, L) - tca * tca;
-	if (D2 > R2) return std::nullopt;
-	float thc = sqrt(R2 - D2);
-	float t0 = tca - thc;
-	float t1 = tca + thc;
-
-	float closest_t = std::min(t0, t1);
-
-	if (closest_t < inTmax && closest_t > inTmin)
-	{
-		return closest_t / glm::length(m_Direction);
-	}
-
-	return std::nullopt;
+	return hit ? std::make_optional(dist) : std::nullopt;
 }
 
-bool gPointInAABB(const Vec3& inPoint, const BBox3D& inAABB)
+
+bool BBox3D::Contains(const Vec3& inPoint) const
 {
-	return ( inPoint.x >= inAABB.mMin.x && inPoint.x <= inAABB.mMax.x ) &&
-		( inPoint.y >= inAABB.mMin.y && inPoint.y <= inAABB.mMax.y ) &&
-		( inPoint.z >= inAABB.mMin.z && inPoint.z <= inAABB.mMax.z );
+	return ( inPoint.x >= mMin.x && inPoint.x <= mMax.x ) &&
+		( inPoint.y >= mMin.y && inPoint.y <= mMax.y ) &&
+		( inPoint.z >= mMin.z && inPoint.z <= mMax.z );
 }
 
 
