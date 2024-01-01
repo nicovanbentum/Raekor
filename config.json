@@ -1,10 +1,14 @@
 {
     "ConfigSettings":
     {
-        "Display": 1,
+        "Display": 0,
         "Vsync": true,
         "App Name": "Raekor Renderer",
         "Font File": "assets/system/Inter-Medium.ttf",
-        "Scene File": ""
+        "Scene File": "",
+        "Recent Scene Files": 
+        [
+
+        ]
     }
 }

@@ -3,10 +3,17 @@
     {
         "Variables": 
         {
-            "r_upscaler": 
+            "r_show_debug_text": 
             {
                 "Type": 1,
-                "Int": 0,
+                "Int": 1,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_vsync": 
+            {
+                "Type": 1,
+                "Int": 1,
                 "Float": 0.000000,
                 "String": ""
             },
@@ -17,10 +24,10 @@
                 "Float": 0.000000,
                 "String": ""
             },
-            "r_vsync": 
+            "update_transforms": 
             {
                 "Type": 1,
-                "Int": 0,
+                "Int": 1,
                 "Float": 0.000000,
                 "String": ""
             },
@@ -29,13 +36,6 @@
                 "Type": 2,
                 "Int": 0,
                 "Float": 2.000000,
-                "String": ""
-            },
-            "debug_layer": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
                 "String": ""
             },
             "quit": 
@@ -53,13 +53,6 @@
                 "String": ""
             },
             "physics_state": 
-            {
-                "Type": 1,
-                "Int": 1,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_enable_dof": 
             {
                 "Type": 1,
                 "Int": 0,
@@ -87,13 +80,6 @@
                 "Float": 0.000000,
                 "String": ""
             },
-            "r_taa": 
-            {
-                "Type": 1,
-                "Int": 1,
-                "Float": 0.000000,
-                "String": ""
-            },
             "r_voxelize_debug": 
             {
                 "Type": 1,
@@ -118,123 +104,18 @@
             "r_voxelize": 
             {
                 "Type": 1,
+                "Int": 1,
+                "Float": 0.000000,
+                "String": ""
+            },
+            "r_taa": 
+            {
+                "Type": 1,
                 "Int": 0,
                 "Float": 0.000000,
                 "String": ""
             },
             "r_debug_texture": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "gpu_validation": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "hook_pix": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_enable_taa": 
-            {
-                "Type": 1,
-                "Int": 1,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_debug_lines": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_enable_rtao": 
-            {
-                "Type": 1,
-                "Int": 1,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_debug_gi_probes": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_show_ui": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_enable_ddgi": 
-            {
-                "Type": 1,
-                "Int": 1,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_fullscreen": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_enable_imgui": 
-            {
-                "Type": 1,
-                "Int": 1,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_mesh_fading": 
-            {
-                "Type": 1,
-                "Int": 1,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_enable_fsr2": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_display_resolution": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_path_trace": 
-            {
-                "Type": 1,
-                "Int": 0,
-                "Float": 0.000000,
-                "String": ""
-            },
-            "r_sun_cone_angle": 
-            {
-                "Type": 2,
-                "Int": 0,
-                "Float": 0.020000,
-                "String": ""
-            },
-            "r_upscaler_quality": 
             {
                 "Type": 1,
                 "Int": 0,

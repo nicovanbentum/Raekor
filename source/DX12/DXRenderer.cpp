@@ -385,7 +385,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
        // if (m_Settings.mProbeDebug)
             //const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
 
-        if (m_Settings.mDebugLines)
+        if (m_Settings.mDebugProbeRays)
             const auto& debug_lines_data = AddDebugLinesPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
 
         if (m_Settings.mEnableTAA)

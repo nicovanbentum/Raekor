@@ -1,10 +1,11 @@
 #include "pch.h"
 #include "viewportWidget.h"
-#include "scene.h"
+#include "OS.h"
 #include "gui.h"
+#include "scene.h"
 #include "physics.h"
-#include "application.h"
 #include "components.h"
+#include "application.h"
 
 namespace Raekor {
 
@@ -376,13 +377,14 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 #ifndef NDEBUG
 		if (GetRenderInterface().GetGraphicsAPI() == GraphicsAPI::DirectX12 || GetRenderInterface().GetGraphicsAPI() == GraphicsAPI::Vulkan)
 		{
-			if (auto cvar = g_CVars.TryGetValue<int>("debug_layer"))
-				if (*cvar)
-					ImGui::TextColored(ImVec(col_pink), "DEBUG DEVICE ENABLED");
+			static auto debug_layer_enabled = OS::sCheckCommandLineOption("-debug_layer");
+			static auto gpu_validation_enabled = OS::sCheckCommandLineOption("-gpu_validation");
 
-			if (auto cvar = g_CVars.TryGetValue<int>("gpu_validation"))
-				if (*cvar)
-					ImGui::TextColored(ImVec(col_pink), "GPU VALIDATION ENABLED");
+			if (debug_layer_enabled)
+				ImGui::TextColored(ImVec(col_pink), "DEBUG DEVICE ENABLED");
+
+			if (gpu_validation_enabled)
+				ImGui::TextColored(ImVec(col_pink), "GPU VALIDATION ENABLED");
 		}
 #endif
 		uint64_t triangle_count = 0;

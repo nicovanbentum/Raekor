@@ -24,11 +24,13 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_interface))))
     {
-        if (g_CVars.Create("debug_layer", 0))
+        static auto debug_layer_enabled = OS::sCheckCommandLineOption("-debug_layer");
+        static auto gpu_validation_enabled = OS::sCheckCommandLineOption("-gpu_validation");
+
+        if (debug_layer_enabled)
             debug_interface->EnableDebugLayer();
 
-
-        if (g_CVars.Create("gpu_validation", 0))
+        if (gpu_validation_enabled)
         {
             debug_interface->SetEnableGPUBasedValidation(TRUE);
             debug_interface->SetEnableSynchronizedCommandQueueValidation(TRUE);

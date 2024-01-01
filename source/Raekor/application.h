@@ -126,8 +126,8 @@ struct ConfigSettings
 	bool mShowUI = true;
 	int mDisplayIndex = 0;
 	bool mVsyncEnabled = true;
-	std::string mAppName = "";
-	Path mFontFile = "";
+	std::string mAppName = "Raekor Renderer";
+	Path mFontFile = "assets/system/Inter-Medium.ttf";
 	Path mSceneFile = "";
 	std::vector<Path> mRecentScenes;
 };

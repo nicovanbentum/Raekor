@@ -44,21 +44,21 @@ private:
     {
         int& mEnableImGui       = g_CVars.Create("r_enable_imgui",        1);
         int& mEnableVsync       = g_CVars.Create("r_vsync",               1);
-        int& mDebugLines        = g_CVars.Create("r_debug_lines",         1);
+        int& mDebugProbeRays    = g_CVars.Create("r_Debug_gi_rays",       0);
         int& mEnableDDGI        = g_CVars.Create("r_enable_ddgi",         1);
         int& mEnableRTAO        = g_CVars.Create("r_enable_rtao",         1);
         int& mEnableShadows     = g_CVars.Create("r_enable_shadows",      1);
         int& mEnableReflections = g_CVars.Create("r_enable_reflections",  1);
-        int& mProbeDebug        = g_CVars.Create("r_debug_gi_probes",     0);
+        int& mDebugProbes       = g_CVars.Create("r_debug_gi_probes",     0);
         int& mFullscreen        = g_CVars.Create("r_fullscreen",          0);
-        int& mDisplayRes        = g_CVars.Create("r_display_resolution",  0);
-        int& mEnableTAA         = g_CVars.Create("r_enable_taa",          0);
+        int& mDisplayRes        = g_CVars.Create("r_display_res_index",   0);
+        int& mEnableTAA         = g_CVars.Create("r_enable_taa",          1);
         int& mEnableDoF         = g_CVars.Create("r_enable_dof",          1);
         int& mEnableBloom       = g_CVars.Create("r_enable_bloom",        1);
-        int& mUpscaler          = g_CVars.Create("r_upscaler",            0,    true);
-        int& mUpscaleQuality    = g_CVars.Create("r_upscaler_quality",    0,    true);
-        int& mDoPathTrace       = g_CVars.Create("r_path_trace",          0,    true);
-        float& mSunConeAngle    = g_CVars.Create("r_sun_cone_angle",      0.02f,true);
+        int& mUpscaler          = g_CVars.Create("r_upscaler",            0,     true);
+        int& mUpscaleQuality    = g_CVars.Create("r_upscaler_quality",    0,     true);
+        int& mDoPathTrace       = g_CVars.Create("r_path_trace",          0,     true);
+        float& mSunConeAngle    = g_CVars.Create("r_sun_cone_angle",      0.02f, true);
     } m_Settings;
 
 public:
