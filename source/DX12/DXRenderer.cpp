@@ -411,24 +411,43 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     auto bloom_output = compose_input;
 
+    const auto debug_texture = EDebugTexture(inRenderInterface->GetSettings().mDebugTexture);
     
-    if (m_Settings.mEnableBloom)
-        bloom_output = AddBloomPass(m_RenderGraph, inDevice, compose_input).mOutputTexture;
+    // turn off any post processing effects for debug textures (this might change in the future)
+    if (debug_texture == DEBUG_TEXTURE_NONE)
+    {
+        
+         if (m_Settings.mEnableBloom)
+            bloom_output = AddBloomPass(m_RenderGraph, inDevice, compose_input).mOutputTexture;
 
-    if (m_Settings.mEnableDoF)
-        compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, gbuffer_data.mDepthTexture).mOutputTexture;
+        if (m_Settings.mEnableDoF)
+            compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, gbuffer_data.mDepthTexture).mOutputTexture;
+    }
+    else
+    {
+        switch (debug_texture)
+        { // all the debug textures that need tonemapping/gamma adjustment should go here, so they go through the compose pass
+            case DEBUG_TEXTURE_RT_INDIRECT_DIFFUSE:
+                if (auto data = m_RenderGraph.GetPass<ProbeSampleData>())
+                    compose_input = data->GetData().mOutputTexture;
+                break;
+
+            case DEBUG_TEXTURE_RT_REFLECTIONS:
+                if (auto data = m_RenderGraph.GetPass<ReflectionsData>())
+                    compose_input = data->GetData().mOutputTexture;
+                break;
+        }
+
+        bloom_output = compose_input;
+    }
+    
 
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, bloom_output, compose_input);
 
     auto final_output = compose_data.mOutputTexture;
 
-    const auto debug_texture = EDebugTexture(inRenderInterface->GetSettings().mDebugTexture);
-
     switch (debug_texture)
     {
-        case DEBUG_TEXTURE_NONE:
-            break;
-
         case DEBUG_TEXTURE_GBUFFER_DEPTH:
         case DEBUG_TEXTURE_GBUFFER_ALBEDO:
         case DEBUG_TEXTURE_GBUFFER_NORMALS:
@@ -451,23 +470,10 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
                 final_output = data->GetData().mOutputTexture;
             break;
 
-        case DEBUG_TEXTURE_RT_INDIRECT_DIFFUSE:
-            if (auto data = m_RenderGraph.GetPass<ProbeSampleData>())
-                final_output = data->GetData().mOutputTexture;
-            break;
-
-        case DEBUG_TEXTURE_RT_REFLECTIONS:
-            if (auto data = m_RenderGraph.GetPass<ReflectionsData>())
-                final_output = data->GetData().mOutputTexture;
-            break;
-
         case DEBUG_TEXTURE_LIGHTING:
             if (auto data = m_RenderGraph.GetPass<LightingData>())
                 final_output = data->GetData().mOutputTexture;
             break;
-
-        default:
-            assert(false);
     }
 
     const auto& pre_imgui_data = AddPreImGuiPass(m_RenderGraph, inDevice, final_output);
