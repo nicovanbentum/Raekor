@@ -121,6 +121,22 @@ RenderGraphResourceViewID RenderGraphBuilder::Read(RenderGraphResourceID inGraph
 
 
 
+RenderGraphResourceViewID RenderGraphBuilder::ReadIndirectArgs(RenderGraphResourceID inGraphResourceID)
+{
+    RenderGraphResourceViewDesc& desc = EmplaceDescriptorDesc(inGraphResourceID);
+    assert(desc.mResourceDesc.mResourceType == RESOURCE_TYPE_BUFFER);
+
+    desc.mResourceDesc.mBufferDesc.usage = Buffer::Usage::INDIRECT_ARGUMENTS;
+
+    const RenderGraphResourceViewID graph_resource_id = RenderGraphResourceViewID(m_ResourceViewDescriptions.size() - 1);
+
+    GetRenderPass()->m_ReadResources.push_back(graph_resource_id);
+
+    return graph_resource_id;
+}
+
+
+
 RenderGraphResourceViewID RenderGraphBuilder::ReadTexture(RenderGraphResourceID inGraphResourceID, uint32_t inMip)
 {
     assert(m_ResourceDescriptions[inGraphResourceID].mResourceType == RESOURCE_TYPE_TEXTURE);
@@ -196,6 +212,9 @@ void RenderGraphResources::Clear(Device& inDevice)
 {
     for (const RenderGraphResource& resource : m_Resources)
     {
+        if (resource.mImported)
+            continue;
+
         if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
             inDevice.ReleaseBufferImmediate(BufferID(resource.mResourceID));
 
@@ -205,6 +224,9 @@ void RenderGraphResources::Clear(Device& inDevice)
 
     for (const RenderGraphResource& resource : m_ResourceViews)
     {
+        if (resource.mImported)
+            continue;
+
         if (resource.mResourceType == RESOURCE_TYPE_BUFFER)
             inDevice.ReleaseBufferImmediate(BufferID(resource.mResourceID));
 
@@ -229,6 +251,7 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
 
         if (desc.mResourceID.IsValid())
         {
+            resource.mImported = true;
             resource.mResourceID = desc.mResourceID;
         }
         else if (desc.mResourceType == RESOURCE_TYPE_BUFFER)

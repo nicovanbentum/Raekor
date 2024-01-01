@@ -122,6 +122,7 @@ struct SystemShadersDX12 : public IResource
 
     ShaderProgram mProbeDebugShader;
     ShaderProgram mProbeTraceShader;
+    ShaderProgram mProbeSampleShader;
     ShaderProgram mProbeUpdateDepthShader;
     ShaderProgram mProbeUpdateIrradianceShader;
 

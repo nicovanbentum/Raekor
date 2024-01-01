@@ -301,6 +301,7 @@ struct ShadowsDenoiseRootConstants
     uint mVelocityTexture;
     uint mShadowMaskTexture;
     uint mTilesBuffer;
+    uint mPad0;
     uint2 mDispatchSize;
 };
 STATIC_ASSERT(sizeof(ShadowsDenoiseRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
@@ -337,10 +338,8 @@ struct LightingRootConstants
     uint  mReflectionsTexture;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
-    uint  mAmbientOcclusionTexture;
     uint  mIndirectDiffuseTexture;
-    uint2 pad2;
-    DDGIData mDDGIData;
+    uint  mAmbientOcclusionTexture;
 };
 STATIC_ASSERT(sizeof(LightingRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
@@ -380,6 +379,18 @@ struct ProbeUpdateRootConstants
     DDGIData mDDGIData;
 };
 STATIC_ASSERT(sizeof(ProbeUpdateRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
+struct ProbeSampleRootConstants
+{
+    DDGIData mDDGIData;
+    uint mOutputTexture;
+    uint mDepthTexture;
+    uint mGBufferTexture;
+    uint mPad0;
+    uint2 mDispatchSize;
+};
+STATIC_ASSERT(sizeof(ProbeSampleRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
 struct TAAResolveConstants

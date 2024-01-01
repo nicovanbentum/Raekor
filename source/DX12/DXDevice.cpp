@@ -441,6 +441,8 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID)
 
 
 
+
+
 D3D12_GRAPHICS_PIPELINE_STATE_DESC Device::CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader)
 {
     assert(inRenderPass->IsGraphics() && "Cannot create a Graphics PSO description for a Compute RenderPass");
@@ -543,6 +545,7 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
         case Buffer::INDEX_BUFFER:
         case Buffer::VERTEX_BUFFER:
         case Buffer::SHADER_READ_ONLY:
+        case Buffer::INDIRECT_ARGUMENTS:
         {
             if (inDesc.stride)
             {

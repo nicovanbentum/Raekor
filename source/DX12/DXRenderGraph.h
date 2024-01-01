@@ -50,6 +50,8 @@ struct RenderGraphResource
     EResourceType mResourceType; 
     /* The device-owned resource index. use BufferID(mResourceID) or TextureID(mResourceID) to get the device index. */
     ResourceID mResourceID; 
+    /* Was this resource imported and should it stay alive outside the graph? */
+    bool mImported = false;
 };
 
 
@@ -70,6 +72,8 @@ public:
     RenderGraphResourceViewID DepthStencilTarget(RenderGraphResourceID inGraphResourceID);
 
     RenderGraphResourceViewID Read(RenderGraphResourceID inGraphResourceID);
+    RenderGraphResourceViewID ReadIndirectArgs(RenderGraphResourceID inGraphResourceID);
+    
     RenderGraphResourceViewID Write(RenderGraphResourceID inGraphResourceID);
 
     RenderGraphResourceViewID ReadTexture(RenderGraphResourceID inGraphResourceID, uint32_t inMip);

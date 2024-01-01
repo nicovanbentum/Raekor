@@ -17,9 +17,28 @@ enum EDebugTexture
     DEBUG_TEXTURE_LIGHTING,
     DEBUG_TEXTURE_RT_SHADOWS,
     DEBUG_TEXTURE_RT_REFLECTIONS,
+    DEBUG_TEXTURE_RT_INDIRECT_DIFFUSE,
     DEBUG_TEXTURE_RT_AMBIENT_OCCLUSION,
     DEBUG_TEXTURE_COUNT
 };
+
+
+////////////////////////////////////////
+/// Defaults Pass
+////////////////////////////////////////
+struct DefaultTexturesData
+{
+    RTTI_DECLARE_TYPE(DefaultTexturesData);
+
+    RenderGraphResourceID mBlackTexture;
+    RenderGraphResourceID mWhiteTexture;
+};
+
+const DefaultTexturesData& AddDefaultTexturesPass(RenderGraph& inRenderGraph, Device& inDevice,
+    TextureID inBlackTexture,
+    TextureID inWhiteTexture
+);
+
 
 
 ////////////////////////////////////////
@@ -347,7 +366,7 @@ struct ProbeUpdateData
 {
     RTTI_DECLARE_TYPE(ProbeUpdateData);
 
-    DDGIData        mDDGIData;
+    DDGIData mDDGIData;
     RenderGraphResourceID mProbesDepthTexture;
     RenderGraphResourceID mProbesIrradianceTexture;
     RenderGraphResourceViewID mRaysDepthTextureSRV;
@@ -357,6 +376,28 @@ struct ProbeUpdateData
 const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice,
     const RayTracedScene& inScene,
     const ProbeTraceData& inTraceData
+);
+
+
+
+//////////////////////////////////////////
+///// GI Probe Sample Compute Pass
+//////////////////////////////////////////
+struct ProbeSampleData
+{
+    RTTI_DECLARE_TYPE(ProbeSampleData);
+
+    DDGIData mDDGIData;
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mGBufferTextureSRV;
+    RenderGraphResourceViewID mProbesDepthTextureSRV;
+    RenderGraphResourceViewID mProbesIrradianceTextureSRV;
+};
+
+const ProbeSampleData& AddProbeSamplePass(RenderGraph& inRenderGraph, Device& inDevice,
+    const GBufferData& inGBufferData,
+    const ProbeUpdateData& inUpdateData
 );
 
 
@@ -384,6 +425,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
     RenderGraphResourceID inRenderTarget,
     RenderGraphResourceID inDepthTarget
 );
+
 
 
 //////////////////////////////////////////
@@ -419,19 +461,17 @@ struct LightingData
     RenderGraphResourceViewID mReflectionsTextureSRV;
     RenderGraphResourceViewID mGBufferDepthTextureSRV;
     RenderGraphResourceViewID mGBufferRenderTextureSRV;
-    RenderGraphResourceViewID mAmbientOcclusionTextureSRV;
-    RenderGraphResourceViewID mProbesDepthTextureSRV;
-    RenderGraphResourceViewID mProbesIrradianceTextureSRV;
     RenderGraphResourceViewID mIndirectDiffuseTextureSRV;
+    RenderGraphResourceViewID mAmbientOcclusionTextureSRV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const GBufferData& inGBufferData,
-    RenderGraphResourceID inShadowTexture,
-    const ReflectionsData& inReflectionsData,
-    RenderGraphResourceID inAOTexture,
-    const ProbeUpdateData& inProbeData
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, 
+    const GBufferData& inGBufferData, 
+    RenderGraphResourceID inShadowTexture, 
+    RenderGraphResourceID inReflectionsTexture, 
+    RenderGraphResourceID inAOTexture, 
+    RenderGraphResourceID inIndirectDiffuseTexture
 );
 
 

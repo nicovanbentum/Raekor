@@ -22,11 +22,10 @@ float3 ApplyFog(in float3 rgb, // original color of the pixel
 float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     Texture2D<float>    ao_texture                = ResourceDescriptorHeap[rc.mAmbientOcclusionTexture];
     Texture2D<float>    depth_texture             = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
-    Texture2D<float2>    shadow_texture            = ResourceDescriptorHeap[rc.mShadowMaskTexture];
+    Texture2D<float2>   shadow_texture            = ResourceDescriptorHeap[rc.mShadowMaskTexture];
     Texture2D<uint4>    gbuffer_texture           = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
     Texture2D<float4>   reflections_texture       = ResourceDescriptorHeap[rc.mReflectionsTexture];
-    Texture2D<float2>   probes_depth_texture      = ResourceDescriptorHeap[rc.mDDGIData.mProbesDepthTexture];
-    Texture2D           probes_irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mProbesIrradianceTexture];
+    Texture2D<float4>   indirect_diffuse_texture  = ResourceDescriptorHeap[rc.mIndirectDiffuseTexture];
     // Texture2D<float4>   diffuse_gi_texture        = ResourceDescriptorHeap[rc.mIndirectDiffuseTexture];
 
     BRDF brdf;
@@ -63,7 +62,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     total_radiance += specular.rgb * brdf.mAlbedo.rgb * ao;
     
     float3 offset_ws_pos = ws_pos + brdf.mNormal * 0.01;
-    float3 irradiance = DDGISampleIrradiance(offset_ws_pos, brdf.mNormal, rc.mDDGIData);
+    float3 irradiance = indirect_diffuse_texture[inParams.mPixelCoords.xy].rgb;
     
     // total_radiance += brdf.mAlbedo.rgb * 0.25;
     

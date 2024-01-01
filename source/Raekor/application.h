@@ -75,6 +75,11 @@ public:
 	const GPUInfo& GetGPUInfo() const { return m_GPUInfo; }
 	void SetGPUInfo(const GPUInfo& inInfo) { m_GPUInfo = inInfo; }
 
+	virtual void SetWhiteTexture(uint32_t inTexture) { m_WhiteTexture = inTexture; }
+	virtual void SetBlackTexture(uint32_t inTexture) { m_BlackTexture = inTexture; }
+	virtual uint32_t GetWhiteTexture() const { return m_WhiteTexture; }
+	virtual uint32_t GetBlackTexture() const { return m_BlackTexture; }
+	
 	virtual uint64_t GetDisplayTexture() = 0;
 
 	virtual uint32_t    GetDebugTextureCount() const = 0;
@@ -106,8 +111,10 @@ public:
 	virtual void AddDebugBox(Vec3 inMin, Vec3 inMax, const Mat4x4& inTransform = Mat4x4(1.0f)) {}
 
 protected:
-	GPUInfo m_GPUInfo;
-	GPUStats m_GPUStats;
+	uint32_t	m_WhiteTexture;
+	uint32_t	m_BlackTexture;
+	GPUInfo		m_GPUInfo;
+	GPUStats	m_GPUStats;
 	GraphicsAPI m_GraphicsAPI;
 };
 

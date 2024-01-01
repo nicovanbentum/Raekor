@@ -79,6 +79,11 @@
             "Compute Shader File": "assets/system/shaders/DirectX/ProbeTraceCS.hlsl"
         },
 
+        "Probe Sample Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/ProbeSampleCS.hlsl"
+        },
+
         "Probe Update Depth Shader":
         {
             "Compute Shader File": "assets/system/shaders/DirectX/ProbeUpdateDepthCS.hlsl"

@@ -18,6 +18,8 @@ D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage)
             return D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
         case Buffer::Usage::SHADER_READ_WRITE:
             return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        case Buffer::Usage::INDIRECT_ARGUMENTS:
+            return D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
     }
 
     return D3D12_RESOURCE_STATES();

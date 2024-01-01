@@ -204,7 +204,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mFrameIndex = m_FrameCounter % sFrameCount;
     m_FrameConstants.mFrameCounter = m_FrameCounter;
     m_FrameConstants.mPrevJitter = m_FrameConstants.mJitter;
-    m_FrameConstants.mJitter = Vec2(jitter_x, jitter_y);
+    m_FrameConstants.mJitter = enable_jitter ? Vec2(jitter_x, jitter_y) : Vec2(0.0f, 0.0f);
     m_FrameConstants.mSunColor = inScene->GetSunLight() ? inScene->GetSunLight()->GetColor() : Vec4(1.0f);
     m_FrameConstants.mSunDirection = Vec4(inScene->GetSunLightDirection(), 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(camera.GetPosition(), 1.0f);
@@ -326,10 +326,12 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRenderInterface* inRenderInterface)
 {
     m_RenderGraph.Clear(inDevice);
-    
+
     //const auto& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene, m_GlobalConstants.mSkyCubeTexture);
 
     //const auto& convolved_cube_data = AddConvolveCubePass(m_RenderGraph, inDevice, sky_cube_data.mSkyCubeTexture, m_GlobalConstants.mConvolvedSkyCubeTexture);
+
+    const auto& default_textures = AddDefaultTexturesPass(m_RenderGraph, inDevice, inRenderInterface->GetBlackTexture(), inRenderInterface->GetWhiteTexture());
 
     const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
     
@@ -342,26 +344,46 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     else
     {
         // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
-        
-        //const auto shadow_texture = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
-        const auto shadow_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
-    
-        const auto& rtao_data = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
-        
-        const auto& reflection_data = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
-        
-        // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
-        
-        const auto& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inScene);
 
-        const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, inScene, ddgi_trace_data);
+        //const auto shadow_texture = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
+
+        auto shadow_texture = default_textures.mWhiteTexture;
+
+        if (m_Settings.mEnableShadows)
+            shadow_texture = AddRayTracedShadowsPass(m_RenderGraph, inDevice, inScene, gbuffer_data);
+
+        auto rtao_texture = default_textures.mWhiteTexture;
+
+        if (m_Settings.mEnableRTAO)
+            rtao_texture = AddAmbientOcclusionPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
+
+        auto reflections_texture = default_textures.mBlackTexture;
+
+        if (m_Settings.mEnableReflections)
+            reflections_texture = AddReflectionsPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
+
+        // const auto& downsample_data = AddDownsamplePass(m_RenderGraph, inDevice, reflection_data.mOutputTexture);
+
+        auto indirect_diffuse_texture = default_textures.mBlackTexture;
+
+        if (m_Settings.mEnableDDGI)
+        {
+            const auto& ddgi_trace_data = AddProbeTracePass(m_RenderGraph, inDevice, inScene);
+
+            const auto& ddgi_update_data = AddProbeUpdatePass(m_RenderGraph, inDevice, inScene, ddgi_trace_data);
         
-        const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_texture, reflection_data, rtao_data.mOutputTexture, ddgi_update_data);
+            const auto& ddgi_sample_data = AddProbeSamplePass(m_RenderGraph, inDevice, gbuffer_data, ddgi_update_data);
+
+            indirect_diffuse_texture = ddgi_sample_data.mOutputTexture;
+        }
+
+        
+        const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_texture, reflections_texture, rtao_texture, indirect_diffuse_texture);
         
         compose_input = light_data.mOutputTexture;
         
-        if (m_Settings.mProbeDebug)
-            const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+       // if (m_Settings.mProbeDebug)
+            //const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
 
         if (m_Settings.mDebugLines)
             const auto& debug_lines_data = AddDebugLinesPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
@@ -389,6 +411,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     auto bloom_output = compose_input;
 
+    
     if (m_Settings.mEnableBloom)
         bloom_output = AddBloomPass(m_RenderGraph, inDevice, compose_input).mOutputTexture;
 
@@ -405,6 +428,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     {
         case DEBUG_TEXTURE_NONE:
             break;
+
         case DEBUG_TEXTURE_GBUFFER_DEPTH:
         case DEBUG_TEXTURE_GBUFFER_ALBEDO:
         case DEBUG_TEXTURE_GBUFFER_NORMALS:
@@ -412,25 +436,36 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         case DEBUG_TEXTURE_GBUFFER_ROUGHNESS:
             final_output = AddGBufferDebugPass(m_RenderGraph, inDevice, gbuffer_data, debug_texture).mOutputTexture;
             break;
+
         case DEBUG_TEXTURE_GBUFFER_VELOCITY:
             final_output = gbuffer_data.mVelocityTexture;
             break;
+
         case DEBUG_TEXTURE_RT_SHADOWS:
             if (auto data = m_RenderGraph.GetPass<ClearShadowsData>())
                 final_output = data->GetData().mShadowsTexture;
             break;
+
         case DEBUG_TEXTURE_RT_AMBIENT_OCCLUSION:
             if (auto data = m_RenderGraph.GetPass<RTAOData>())
                 final_output = data->GetData().mOutputTexture;
             break;
+
+        case DEBUG_TEXTURE_RT_INDIRECT_DIFFUSE:
+            if (auto data = m_RenderGraph.GetPass<ProbeSampleData>())
+                final_output = data->GetData().mOutputTexture;
+            break;
+
         case DEBUG_TEXTURE_RT_REFLECTIONS:
             if (auto data = m_RenderGraph.GetPass<ReflectionsData>())
                 final_output = data->GetData().mOutputTexture;
             break;
+
         case DEBUG_TEXTURE_LIGHTING:
             if (auto data = m_RenderGraph.GetPass<LightingData>())
                 final_output = data->GetData().mOutputTexture;
             break;
+
         default:
             assert(false);
     }
@@ -687,7 +722,8 @@ const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
         "Lighting",
         "RT Shadows",
         "RT Reflections",
-        "RT Ambient Occlusion"
+        "RT Indirect Diffuse",
+        "RT Ambient Occlusion",
     };
 
     static_assert( names.size() == DEBUG_TEXTURE_COUNT );

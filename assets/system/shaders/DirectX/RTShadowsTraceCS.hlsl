@@ -33,10 +33,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
     
     uint hit = 0;
     
+    uint rng = TeaHash(((dispatchThreadID.y << 16) | dispatchThreadID.x), fc.mFrameCounter + 1);
+    
     if (depth < 1.0)
     {
         const float4 blue_noise = SampleBlueNoise(dispatchThreadID.xy, fc.mFrameCounter);
-        const float3 ray_dir    = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, blue_noise.xy);
+        const float3 ray_dir = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
         
         const float3 normal     = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
         const float3 position   = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);

@@ -109,6 +109,9 @@ DXApp::DXApp() :
     Material::Default.gpuMetallicMap  = uint32_t(m_DefaultWhiteTexture);
     Material::Default.gpuRoughnessMap = uint32_t(m_DefaultWhiteTexture);
 
+    m_RenderInterface.SetBlackTexture(uint32_t(m_DefaultBlackTexture));
+    m_RenderInterface.SetWhiteTexture(uint32_t(m_DefaultWhiteTexture));
+
     LogMessage(std::format("[CPU] Default material upload took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     // initialize ImGui

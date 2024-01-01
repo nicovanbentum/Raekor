@@ -231,7 +231,8 @@ public:
         VERTEX_BUFFER           = 1 << 5,
         SHADER_READ_ONLY        = 1 << 6,
         SHADER_READ_WRITE       = 1 << 7,
-        ACCELERATION_STRUCTURE  = 1 << 8
+        INDIRECT_ARGUMENTS      = 1 << 8,
+        ACCELERATION_STRUCTURE  = 1 << 9
     };
 
     struct Desc
