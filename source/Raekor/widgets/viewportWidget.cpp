@@ -1,10 +1,13 @@
 #include "pch.h"
 #include "viewportWidget.h"
+#include "menubarWidget.h"
 #include "OS.h"
 #include "gui.h"
 #include "scene.h"
+#include "timer.h"
 #include "physics.h"
 #include "components.h"
+#include "primitives.h"
 #include "application.h"
 
 namespace Raekor {
@@ -251,6 +254,16 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::SameLine();
 	DrawGizmoButton((const char*)ICON_FA_EXPAND_ARROWS_ALT, ImGuizmo::OPERATION::SCALE);
 
+	auto menubar_widget = inWidgets->GetWidget<MenubarWidget>();
+
+	if (menubar_widget && !menubar_widget->IsOpen())
+	{
+		ImGui::SameLine();
+
+		if (ImGui::Button((const char*)ICON_FA_ADDRESS_BOOK))
+			menubar_widget->Show();
+	}
+
 	const auto cursor_pos = ImGui::GetCursorPos();
 	
 	ImGui::SameLine();
@@ -260,7 +273,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
 
 
-	if (ImGui::BeginPopupContextItem(NULL, ImGuiPopupFlags_MouseButtonLeft))
+ if (ImGui::BeginPopupContextItem(NULL, ImGuiPopupFlags_MouseButtonLeft))
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));
 		ImGui::SeparatorText("Viewport Settings");
@@ -269,6 +282,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		auto& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
 		const auto debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
+
+		ImGui::AlignTextToFramePadding();
 
 		if (ImGui::BeginMenu("Debug Render Output"))
 		{
@@ -282,6 +297,81 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			}
 
 			ImGui::EndMenu();
+		}
+
+		// Draw all the renderer debug UI
+		m_Editor->GetRenderInterface()->DrawDebugSettings(m_Editor, GetScene(), m_Editor->GetViewport());
+
+		ImGui::SeparatorText("Physics Settings");
+
+		auto debug_physics = GetPhysics().GetDebugRendering();
+		if (ImGui::Checkbox("Debug Visualize Physics", &debug_physics))
+			GetPhysics().SetDebugRendering(debug_physics);
+
+		if (ImGui::Button("Generate Rigid Bodies"))
+		{
+			Timer timer;
+			for (const auto& [sb_entity, sb_transform, sb_mesh] : scene.Each<Transform, Mesh>())
+			{
+				if (!scene.Has<SoftBody>(sb_entity))
+					scene.Add<BoxCollider>(sb_entity);
+			}
+
+			GetPhysics().GenerateRigidBodiesEntireScene(GetScene());
+
+			g_ThreadPool.WaitForJobs();
+			m_Editor->LogMessage("Rigid Body Generation took " + timer.GetElapsedFormatted() + " seconds.");
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Spawn/Reset Balls"))
+		{
+			const auto material_entity = scene.Create();
+			auto& material_name = scene.Add<Name>(material_entity);
+			material_name = "Ball Material";
+			auto& ball_material = scene.Add<Material>(material_entity);
+			ball_material.albedo = glm::vec4(1.0f, 0.25f, 0.38f, 1.0f);
+
+			if (auto renderer = m_Editor->GetRenderInterface())
+				renderer->UploadMaterialTextures(material_entity, ball_material, GetAssets());
+
+			for (uint32_t i = 0; i < 64; i++)
+			{
+				auto entity = scene.CreateSpatialEntity("ball");
+				auto& transform = scene.Get<Transform>(entity);
+				auto& mesh = scene.Add<Mesh>(entity);
+
+				mesh.material = material_entity;
+
+				constexpr auto radius = 4.5f;
+				gGenerateSphere(mesh, radius, 32, 32);
+				GetRenderInterface().UploadMeshBuffers(entity, mesh);
+				GetRenderInterface().UploadMaterialTextures(material_entity, ball_material, GetAssets());
+
+				transform.position = Vec3(-65.0f, 85.0f + i * ( radius * 2.0f ), 0.0f);
+				transform.Compose();
+
+				auto& collider = scene.Add<BoxCollider>(entity);
+				collider.motionType = JPH::EMotionType::Dynamic;
+				JPH::ShapeSettings* settings = new JPH::SphereShapeSettings(radius);
+
+				auto body_settings = JPH::BodyCreationSettings(
+					settings,
+					JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
+					JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
+					collider.motionType,
+					EPhysicsObjectLayers::MOVING
+				);
+
+				body_settings.mFriction = 0.1;
+				body_settings.mRestitution = 0.35;
+
+				auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
+				collider.bodyID = body_interface.CreateAndAddBody(body_settings, JPH::EActivation::Activate);
+
+				//body_interface.AddImpulse(collider.bodyID, JPH::Vec3Arg(50.0f, -2.0f, 50.0f));
+			}
 		}
 
 		ImGui::SeparatorText("Camera Settings");

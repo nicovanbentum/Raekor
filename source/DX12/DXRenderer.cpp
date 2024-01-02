@@ -267,7 +267,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     if (upload_tlas)
     {
         inScene.UploadInstances(inApp, inDevice, inStagingHeap, copy_cmd_list);
-        inScene.UploadMaterials(inApp, inDevice, inStagingHeap, copy_cmd_list);
+        inScene.UploadMaterials(inApp, inDevice, inStagingHeap, copy_cmd_list, m_Settings.mDisableAlbedo);
         inScene.UploadTLAS(inApp, inDevice, inStagingHeap, copy_cmd_list);
         inScene.UploadLights(inApp, inDevice, inStagingHeap, copy_cmd_list);
     }
@@ -327,15 +327,15 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 {
     m_RenderGraph.Clear(inDevice);
 
+
     //const auto& sky_cube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene, m_GlobalConstants.mSkyCubeTexture);
 
     //const auto& convolved_cube_data = AddConvolveCubePass(m_RenderGraph, inDevice, sky_cube_data.mSkyCubeTexture, m_GlobalConstants.mConvolvedSkyCubeTexture);
 
     const auto& default_textures = AddDefaultTexturesPass(m_RenderGraph, inDevice, inRenderInterface->GetBlackTexture(), inRenderInterface->GetWhiteTexture());
-
-    const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
     
-    auto compose_input = gbuffer_data.mRenderTexture;
+    auto depth_texture = default_textures.mWhiteTexture;
+    auto compose_input = default_textures.mBlackTexture;
 
     if (m_Settings.mDoPathTrace)
     {
@@ -343,6 +343,10 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     }
     else
     {
+        const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
+        
+        depth_texture = gbuffer_data.mDepthTexture;
+
         // const auto& grass_data = AddGrassRenderPass(m_RenderGraph, inDevice, gbuffer_data);
 
         //const auto shadow_texture = AddShadowMaskPass(m_RenderGraph, inDevice, inScene, gbuffer_data).mOutputTexture;
@@ -382,10 +386,15 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         
         compose_input = light_data.mOutputTexture;
         
-       // if (m_Settings.mProbeDebug)
-            //const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+        if (m_Settings.mEnableDDGI && m_Settings.mDebugProbes)
+        {
+            auto ddgi_trace_data = m_RenderGraph.GetPass<ProbeTraceData>();
+            auto ddgi_update_data = m_RenderGraph.GetPass<ProbeUpdateData>();
+            
+            const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data->GetData(), ddgi_update_data->GetData(), light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+        }
 
-        if (m_Settings.mDebugProbeRays)
+        if (m_Settings.mEnableDDGI && m_Settings.mDebugProbeRays)
             const auto& debug_lines_data = AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
 
         if (m_Settings.mEnableTAA)
@@ -419,8 +428,9 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
          if (m_Settings.mEnableBloom)
             bloom_output = AddBloomPass(m_RenderGraph, inDevice, compose_input).mOutputTexture;
 
-        if (m_Settings.mEnableDoF)
-            compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, gbuffer_data.mDepthTexture).mOutputTexture;
+         // Depth of Field can't run under path tracing, no depth texture available (and we should just do actual depth of field)
+        if (m_Settings.mEnableDoF && !m_Settings.mDoPathTrace)
+            compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, depth_texture).mOutputTexture;
     }
     else
     {
@@ -439,7 +449,6 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
         bloom_output = compose_input;
     }
-    
 
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, bloom_output, compose_input);
 
@@ -450,13 +459,11 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         case DEBUG_TEXTURE_GBUFFER_DEPTH:
         case DEBUG_TEXTURE_GBUFFER_ALBEDO:
         case DEBUG_TEXTURE_GBUFFER_NORMALS:
+        case DEBUG_TEXTURE_GBUFFER_VELOCITY:
         case DEBUG_TEXTURE_GBUFFER_METALLIC:
         case DEBUG_TEXTURE_GBUFFER_ROUGHNESS:
-            final_output = AddGBufferDebugPass(m_RenderGraph, inDevice, gbuffer_data, debug_texture).mOutputTexture;
-            break;
-
-        case DEBUG_TEXTURE_GBUFFER_VELOCITY:
-            final_output = gbuffer_data.mVelocityTexture;
+            if (auto data = m_RenderGraph.GetPass<GBufferData>())
+                final_output = AddGBufferDebugPass(m_RenderGraph, inDevice, data->GetData(), debug_texture).mOutputTexture;
             break;
 
         case DEBUG_TEXTURE_RT_SHADOWS:
@@ -658,7 +665,7 @@ bool Renderer::DestroyXeSS(Device& inDevice)
 
 
 
-RenderInterface::RenderInterface(Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources, StagingHeap& inStagingHeap) :
+RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources, StagingHeap& inStagingHeap) :
     IRenderInterface(GraphicsAPI::DirectX12), m_Device(inDevice), m_Renderer(inRenderer), m_Resources(inResources), m_StagingHeap(inStagingHeap)
 {
     DXGI_ADAPTER_DESC adapter_desc = {};
@@ -835,6 +842,378 @@ void Renderer::FlushSingleSubmit(Device& inDevice, CommandList& inCmdList)
     gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
     gThrowIfFailed(m_Fence->SetEventOnCompletion(backbuffer_data.mFenceValue, m_FenceEvent));
     WaitForSingleObjectEx(m_FenceEvent, INFINITE, FALSE);
+}
+
+
+
+void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport)
+{
+    bool need_recompile = false;
+
+    ImGui::SeparatorText("Renderer Settings");
+
+    need_recompile |= ImGui::Checkbox("##pathtracingtoggle", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
+
+    ImGui::SameLine();
+
+    ImGui::AlignTextToFramePadding();
+
+    if (ImGui::BeginMenu("Enable Path Tracer"))
+    {
+        ImGui::SeparatorText("Settings");
+
+        if (ImGui::SliderInt("Bounces", (int*)&PathTraceData::mBounces, 1, 8))
+            PathTraceData::mReset = true;
+
+        ImGui::EndMenu();
+    }
+
+    need_recompile |= ImGui::Checkbox("##TAAtoggle", (bool*)&m_Renderer.GetSettings().mEnableTAA);
+    
+    ImGui::SameLine();
+
+    ImGui::AlignTextToFramePadding();
+
+    if (ImGui::BeginMenu("Enable Temporal AA"))
+    {
+        ImGui::SeparatorText("Upscaler");
+
+        if (m_Renderer.GetSettings().mEnableTAA)
+        {
+            constexpr auto text = "...TAA is enabled";
+            ImGui::SetCursorPosX(( ImGui::GetWindowWidth() - ImGui::CalcTextSize(text).x ) / 2.f);
+            ImGui::TextDisabled(text);
+        }
+        else
+        {
+            constexpr auto upscaler_items = std::array { "No Upscaler", "AMD FSR2", "Nvidia DLSS", "Intel XeSS" };
+            constexpr auto upscaler_quality_items = std::array { "Native", "Quality", "Balanced", "Performance" };
+
+            if (ImGui::BeginCombo("##Upscaler", upscaler_items[m_Renderer.GetSettings().mUpscaler], ImGuiComboFlags_None))
+            {
+                for (uint32_t upscaler = 0; upscaler < UPSCALER_COUNT; upscaler++)
+                {
+                    if (ImGui::Selectable(upscaler_items[upscaler], m_Renderer.GetSettings().mUpscaler == upscaler))
+                    {
+                        m_Renderer.GetSettings().mUpscaler = upscaler;
+                        need_recompile = true;
+                    }
+                }
+
+                ImGui::EndCombo();
+            }
+
+            if (m_Renderer.GetSettings().mUpscaler != UPSCALER_NONE)
+            {
+                if (ImGui::BeginCombo("##UpscalerQuality", upscaler_quality_items[m_Renderer.GetSettings().mUpscaleQuality], ImGuiComboFlags_None))
+                {
+                    for (uint32_t quality = 0; quality < UPSCALER_QUALITY_COUNT; quality++)
+                    {
+                        if (ImGui::Selectable(upscaler_quality_items[quality], m_Renderer.GetSettings().mUpscaleQuality == quality))
+                        {
+                            m_Renderer.GetSettings().mUpscaleQuality = quality;
+                            need_recompile = true;
+                        }
+                    }
+
+                    ImGui::EndCombo();
+                }
+            }
+        }
+
+        ImGui::EndMenu();
+    }
+
+    ImGui::AlignTextToFramePadding();
+
+    if (ImGui::BeginMenu("Debug Settings"))
+    {
+        ImGui::SeparatorText("Debug");
+
+        if (ImGui::Button("PIX GPU Capture"))
+            m_Renderer.SetShouldCaptureNextFrame(true);
+
+        if (ImGui::Button("Generate Meshlets"))
+        {
+            Timer timer;
+
+            inApp->LogMessage("Generating Meshlets..");
+
+            for (const auto& [entity, mesh] : inScene.Each<Mesh>())
+            {
+                const size_t max_vertices = 64;
+                const size_t max_triangles = 124;
+                const float cone_weight = 0.0f;
+
+                size_t max_meshlets = meshopt_buildMeshletsBound(mesh.indices.size(), max_vertices, max_triangles);
+                std::vector<meshopt_Meshlet> meshlets(max_meshlets);
+                std::vector<unsigned int> meshlet_vertices(max_meshlets * max_vertices);
+                std::vector<unsigned char> meshlet_triangles(max_meshlets * max_triangles * 3);
+
+                size_t meshlet_count = meshopt_buildMeshlets(meshlets.data(), meshlet_vertices.data(), meshlet_triangles.data(), mesh.indices.data(),
+                    mesh.indices.size(), &mesh.positions[0].x, mesh.positions.size(), sizeof(mesh.positions[0]), max_vertices, max_triangles, cone_weight);
+
+                meshlets.resize(meshlet_count);
+                meshlet_vertices.resize(meshlet_count * max_vertices);
+                meshlet_triangles.resize(meshlet_count * max_triangles * 3);
+
+                mesh.meshlets.reserve(meshlet_count);
+                mesh.meshletIndices.resize(meshlet_count * max_vertices);
+                mesh.meshletTriangles.resize(meshlet_count * max_triangles);
+
+                for (const auto& meshlet : meshlets)
+                {
+                    auto& m = mesh.meshlets.emplace_back();
+                    m.mTriangleCount = meshlet.triangle_count;
+                    m.mTriangleOffset = meshlet.triangle_offset;
+                    m.mVertexCount = meshlet.vertex_count;
+                    m.mVertexOffset = meshlet.vertex_offset;
+                }
+
+                assert(mesh.meshletIndices.size() == meshlet_vertices.size());
+                std::memcpy(mesh.meshletIndices.data(), meshlet_vertices.data(), mesh.meshletIndices.size());
+
+                for (uint32_t idx = 0; idx < mesh.meshletTriangles.size(); idx += 3)
+                {
+                    mesh.meshletTriangles[idx].mX = meshlet_triangles[idx];
+                    mesh.meshletTriangles[idx].mY = meshlet_triangles[idx + 1];
+                    mesh.meshletTriangles[idx].mZ = meshlet_triangles[idx + 2];
+                }
+            }
+
+            inApp->LogMessage(std::format("Generating Meshlets took {:.3f} seconds.", timer.GetElapsedTime()));
+        }
+
+
+        if (ImGui::Button("Save As GraphViz.."))
+        {
+            const auto file_path = OS::sSaveFileDialog("DOT File (*.dot)\0", "dot");
+
+            if (!file_path.empty())
+            {
+                auto ofs = std::ofstream(file_path);
+                ofs << m_Renderer.GetRenderGraph().ToGraphVizText(m_Device, TextureID());
+            }
+        }
+
+        ImGui::EndMenu();
+    }
+
+    ImGui::AlignTextToFramePadding();
+
+
+    if (ImGui::BeginMenu("Monitor Settings"))
+    {
+        ImGui::SeparatorText("Monitor");
+
+        static constexpr auto modes = std::array { 0u /* Windowed */, (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP, (uint32_t)SDL_WINDOW_FULLSCREEN };
+        static constexpr auto mode_strings = std::array { "Windowed", "Borderless", "Fullscreen" };
+
+        auto mode = 0u; // Windowed
+        auto window = inApp->GetWindow();
+        const auto window_flags = SDL_GetWindowFlags(window);
+
+        if (SDL_IsWindowBorderless(window))
+            mode = 1u;
+        else if (SDL_IsWindowExclusiveFullscreen(window))
+            mode = 2u;
+
+        if (ImGui::BeginCombo("Mode", mode_strings[mode]))
+        {
+            for (const auto& [index, string] : gEnumerate(mode_strings))
+            {
+                const auto is_selected = index == mode;
+                if (ImGui::Selectable(string, &is_selected))
+                {
+                    bool to_fullscreen = modes[index] == 2u;
+                    SDL_SetWindowFullscreen(window, modes[index]);
+                    if (to_fullscreen)
+                    {
+                        while (!SDL_IsWindowExclusiveFullscreen(window))
+                            SDL_Delay(10);
+                    }
+
+                    m_Renderer.SetShouldResize(true);
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+
+        auto display_names = std::vector<std::string>(SDL_GetNumVideoDisplays());
+        for (const auto& [index, name] : gEnumerate(display_names))
+            name = SDL_GetDisplayName(index);
+
+        const auto display_index = SDL_GetWindowDisplayIndex(window);
+        if (ImGui::BeginCombo("Monitor", display_names[display_index].c_str()))
+        {
+            for (const auto& [index, name] : gEnumerate(display_names))
+            {
+                const auto is_selected = index == display_index;
+                if (ImGui::Selectable(name.c_str(), &is_selected))
+                {
+                    if (m_Renderer.GetSettings().mFullscreen)
+                    {
+                        SDL_SetWindowFullscreen(window, 0);
+                        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
+                        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                    }
+                    else
+                    {
+                        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(index), SDL_WINDOWPOS_CENTERED_DISPLAY(index));
+                    }
+
+                    m_Renderer.SetShouldResize(true);
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+
+        const auto current_display_index = SDL_GetWindowDisplayIndex(window);
+        const auto num_display_modes = SDL_GetNumDisplayModes(current_display_index);
+
+        auto display_modes = std::vector<SDL_DisplayMode>(num_display_modes);
+        auto display_mode_strings = std::vector<std::string>(num_display_modes);
+
+        SDL_DisplayMode* new_display_mode = nullptr;
+
+        if (m_Renderer.GetSettings().mFullscreen)
+        {
+            for (const auto& [index, display_mode] : gEnumerate(display_modes))
+                SDL_GetDisplayMode(current_display_index, index, &display_mode);
+
+            for (const auto& [index, display_mode] : gEnumerate(display_modes))
+                display_mode_strings[index] = std::format("{}x{}@{}Hz", display_mode.w, display_mode.h, display_mode.refresh_rate);
+
+            SDL_DisplayMode current_display_mode;
+            SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &current_display_mode);
+
+            if (ImGui::BeginCombo("Resolution", display_mode_strings[m_Renderer.GetSettings().mDisplayRes].c_str()))
+            {
+                for (int index = 0; index < display_mode_strings.size(); index++)
+                {
+                    const auto is_selected = index == m_Renderer.GetSettings().mDisplayRes;
+                    if (ImGui::Selectable(display_mode_strings[index].c_str(), is_selected))
+                    {
+                        m_Renderer.GetSettings().mDisplayRes = index;
+                        new_display_mode = &display_modes[index];
+
+                        if (SDL_SetWindowDisplayMode(window, new_display_mode) != 0)
+                            std::cout << SDL_GetError();
+
+                        std::cout << std::format("SDL_SetWindowDisplayMode with {}x{} @ {}Hz\n", new_display_mode->w, new_display_mode->h, new_display_mode->refresh_rate);
+
+                        m_Renderer.SetShouldResize(true);
+                    }
+                }
+
+                ImGui::EndCombo();
+            }
+        }
+
+        ImGui::SliderInt("V-Sync", &m_Renderer.GetSettings().mEnableVsync, 0, 3);
+
+
+        ImGui::EndMenu();
+    }
+
+    /*if (auto grass_pass = m_Renderer.GetRenderGraph().GetPass<GrassData>())
+    {
+        ImGui::Text("Grass Settings");
+        ImGui::DragFloat("Grass Bend", &grass_pass->GetData().mRenderConstants.mBend, 0.01f, -1.0f, 1.0f, "%.2f");
+        ImGui::DragFloat("Grass Tilt", &grass_pass->GetData().mRenderConstants.mTilt, 0.01f, -1.0f, 1.0f, "%.2f");
+        ImGui::DragFloat2("Wind Direction", glm::value_ptr(grass_pass->GetData().mRenderConstants.mWindDirection), 0.01f, -10.0f, 10.0f, "%.1f");
+        ImGui::NewLine();
+    }*/
+
+    ImGui::AlignTextToFramePadding();
+
+    if (ImGui::BeginMenu("Lighting Settings"))
+    {
+        //ImGui::SeparatorText("Settings");
+        ImGui::SeparatorText("Lighting");
+
+        need_recompile |= ImGui::Checkbox("Enable Shadows", (bool*)&m_Renderer.GetSettings().mEnableShadows);
+        need_recompile |= ImGui::Checkbox("Enable Reflections", (bool*)&m_Renderer.GetSettings().mEnableReflections);
+
+        need_recompile |= ImGui::Checkbox("##GItoggle", (bool*)&m_Renderer.GetSettings().mEnableDDGI);
+        ImGui::SameLine();
+
+        if (ImGui::BeginMenu("Enable Indirect Diffuse"))
+        {
+            ImGui::SeparatorText("Debug Options");
+
+            ImGui::Checkbox("Visualize Pure White Mode", (bool*)&m_Renderer.GetSettings().mDisableAlbedo);
+            need_recompile |= ImGui::Checkbox("Visualize Indirect Diffuse Rays", (bool*)&m_Renderer.GetSettings().mDebugProbeRays);
+            need_recompile |= ImGui::Checkbox("Visualize Indirect Diffuse Probes", (bool*)&m_Renderer.GetSettings().mDebugProbes);
+            ImGui::EndMenu();
+        }
+
+        need_recompile |= ImGui::Checkbox("##AOtoggle", (bool*)&m_Renderer.GetSettings().mEnableRTAO);
+        ImGui::SameLine();
+
+        if (ImGui::BeginMenu("Enable Ambient Occlusion"))
+        {
+            ImGui::SeparatorText("Settings");
+
+            ImGui::DragFloat("Radius", &RTAOData::mParams.mRadius, 0.01f, 0.0f, 20.0f, "%.2f");
+            ImGui::DragFloat("Intensity", &RTAOData::mParams.mPower, 0.01f, 0.0f, 10.0f, "%.2f");
+            ImGui::DragFloat("Normal Bias", &RTAOData::mParams.mNormalBias, 0.001f, 0.0f, 1.0f, "%.3f");
+            ImGui::SliderInt("Sample Count", (int*)&RTAOData::mParams.mSampleCount, 1u, 128u);
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMenu();
+    }
+
+    ImGui::AlignTextToFramePadding();
+
+    if (ImGui::BeginMenu("Post Process Settings"))
+    {
+        ImGui::SeparatorText("Post Processing");
+
+        need_recompile |= ImGui::Checkbox("##Bloomtoggle", (bool*)&m_Renderer.GetSettings().mEnableBloom);
+        ImGui::SameLine();
+
+        if (ImGui::BeginMenu("Bloom"))
+        {
+            ImGui::SeparatorText("Settings");
+
+            ImGui::DragFloat("Blend Factor", &ComposeData::mBloomBlendFactor, 0.01f, 0.0f, 0.5f, "%.2f");
+
+            ImGui::EndMenu();
+        }
+
+
+        need_recompile |= ImGui::Checkbox("##DOFtoggle", (bool*)&m_Renderer.GetSettings().mEnableDoF);
+        ImGui::SameLine();
+
+
+        if (ImGui::BeginMenu("Depth of Field"))
+        {
+            ImGui::SeparatorText("Settings");
+
+            const auto far_plane = inViewport.GetCamera().GetFar();
+            const auto near_plane = inViewport.GetCamera().GetNear();
+
+            ImGui::DragFloat("Focus Scale", &DepthOfFieldData::mFocusScale, 0.01f, 0.0f, 4.0f, "%.2f");
+            ImGui::DragFloat("Focus Point", &DepthOfFieldData::mFocusPoint, 0.01f, near_plane, far_plane, "%.2f");
+            ImGui::EndMenu();
+        }
+
+        need_recompile |= ImGui::Checkbox("Auto Exposure", (bool*)&m_Renderer.GetSettings().mEnableAutoExposure);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Currently not implemented.");
+
+        ImGui::DragFloat("Manual Exposure", &ComposeData::mExposure, 0.01f, 0.0f, 100.0f, "%.2f");
+        ImGui::DragFloat("Chromatic Aberration", &ComposeData::mChromaticAberrationStrength, 0.01f, 0.0f, 10.0f, "%.2f");
+
+        ImGui::EndMenu();
+    }
+
+    if (need_recompile)
+        m_Renderer.SetShouldResize(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
 }
 
 

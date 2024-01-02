@@ -20,8 +20,16 @@ RenderGraphResourceID RenderGraphBuilder::Create(const Texture::Desc& inDesc)
 
 RenderGraphResourceID RenderGraphBuilder::Import(Device& inDevice, BufferID inBuffer)
 {
-    assert(false); // TODO: implement
-    return RenderGraphResourceID { 0 };
+    const auto& buffer = inDevice.GetBuffer(inBuffer);
+
+    m_ResourceDescriptions.emplace_back(RenderGraphResourceDesc
+    {
+        .mResourceID = inBuffer,
+        .mResourceType = EResourceType::RESOURCE_TYPE_BUFFER,
+        .mBufferDesc = buffer.GetDesc()
+    });
+
+    return RenderGraphResourceID(m_ResourceDescriptions.size() - 1);
 }
 
 

@@ -406,33 +406,59 @@ uint64_t Renderer::GetDisplayTexture()
 
 
 
-void Renderer::DrawImGui(Scene& inScene, const Viewport& inViewport)
+void Renderer::DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport)
 {
-    ImGui::NewLine();
-    ImGui::Text("VCTGI");
-    ImGui::Separator();
+    ImGui::SeparatorText("Renderer Settings");
 
-    ImGui::DragFloat("Radius", &m_Voxelize->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
+    if (ImGui::Checkbox("VSync", (bool*)( &inApp->GetRenderInterface()->GetSettings().vsync )))
+        SDL_GL_SetSwapInterval(inApp->GetRenderInterface()->GetSettings().vsync);
 
-    ImGui::NewLine();
-    ImGui::Text("CSM");
-    ImGui::Separator();
+    ImGui::AlignTextToFramePadding();
 
-    if (ImGui::DragFloat("Bias constant", &m_ShadowMaps->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Bias slope factor", &m_ShadowMaps->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
-    if (ImGui::DragFloat("Split lambda", &m_ShadowMaps->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f"))
+    if (ImGui::BeginMenu("Voxel Cone-Traced GI"))
     {
-        m_ShadowMaps->updatePerspectiveConstants(inViewport);
+        ImGui::SeparatorText("Settings");
+
+        ImGui::DragFloat("Radius", &m_Voxelize->worldSize, 0.05f, 1.0f, FLT_MAX, "%.2f");
+
+        ImGui::EndMenu();
     }
 
-    ImGui::NewLine();
-    ImGui::Text("Bloom");
-    ImGui::Separator();
-    ImGui::DragFloat3("Threshold", glm::value_ptr(m_DeferredShading->settings.bloomThreshold), 0.01f, 0.0f, 10.0f, "%.3f");
+    ImGui::AlignTextToFramePadding();
+
+    if (ImGui::BeginMenu("Cascaded Shadow Maps"))
+    {
+        ImGui::SeparatorText("Settings");
+
+        if (ImGui::DragFloat("Bias constant", &m_ShadowMaps->settings.depthBiasConstant, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+        if (ImGui::DragFloat("Bias slope factor", &m_ShadowMaps->settings.depthBiasSlope, 0.01f, 0.0f, FLT_MAX, "%.2f")) {}
+        if (ImGui::DragFloat("Split lambda", &m_ShadowMaps->settings.cascadeSplitLambda, 0.0001f, 0.0f, 1.0f, "%.4f"))
+        {
+            m_ShadowMaps->updatePerspectiveConstants(inViewport);
+        }
+
+        ImGui::EndMenu();
+    }
+
+    ImGui::AlignTextToFramePadding();
+
+    if (ImGui::BeginMenu("Bloom"))
+    {
+        ImGui::SeparatorText("Settings");
+        ImGui::DragFloat3("Threshold", glm::value_ptr(m_DeferredShading->settings.bloomThreshold), 0.01f, 0.0f, 10.0f, "%.3f");
+        ImGui::EndMenu();
+    }
+    
+    ImGui::SeparatorText("Profile Timings");
 
     for (const auto& render_pass : m_RenderPasses)
+    {
         if (render_pass->GetName())
+        {
+            ImGui::AlignTextToFramePadding();
             ImGui::Text("%s : %.3f ms", render_pass->GetName(), render_pass->GetElapsedTime());
+        }
+    }
 }
 
 

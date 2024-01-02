@@ -117,8 +117,6 @@ public:
     TextureID GetTextureView(RenderGraphResourceViewID inResource) const;
     ResourceID GetResourceView(RenderGraphResourceViewID inResource) const;
 
-    TextureID GetTextureView(RenderGraphResourceID inResource) const = delete;
-
     BufferID GetBuffer(RenderGraphResourceID inResource) const;
     TextureID GetTexture(RenderGraphResourceID inResource) const;
     ResourceID GetResource(RenderGraphResourceID inResource) const;

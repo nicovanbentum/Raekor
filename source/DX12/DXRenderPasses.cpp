@@ -24,7 +24,7 @@ RTTI_DEFINE_TYPE(ProbeSampleData)           {}
 RTTI_DEFINE_TYPE(PathTraceData)             {}
 RTTI_DEFINE_TYPE(ProbeDebugData)            {}
 RTTI_DEFINE_TYPE(MeshletsRasterData)        {}
-RTTI_DEFINE_TYPE(ProbeDebugRaysData)            {}
+RTTI_DEFINE_TYPE(ProbeDebugRaysData)        {}
 RTTI_DEFINE_TYPE(TAAResolveData)            {}
 RTTI_DEFINE_TYPE(DepthOfFieldData)          {}
 RTTI_DEFINE_TYPE(ComposeData)               {}
@@ -425,11 +425,12 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
 
         switch (inDebugTexture)
         {
-            case DEBUG_TEXTURE_GBUFFER_DEPTH:     inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mDepthTexture);  break;
-            case DEBUG_TEXTURE_GBUFFER_ALBEDO:    inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mRenderTexture); break;
-            case DEBUG_TEXTURE_GBUFFER_NORMALS:   inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mRenderTexture); break;
-            case DEBUG_TEXTURE_GBUFFER_METALLIC:  inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mRenderTexture); break;
-            case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mRenderTexture); break;
+            case DEBUG_TEXTURE_GBUFFER_DEPTH:     inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mDepthTexture);    break;
+            case DEBUG_TEXTURE_GBUFFER_ALBEDO:    inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mRenderTexture);   break;
+            case DEBUG_TEXTURE_GBUFFER_NORMALS:   inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mRenderTexture);   break;
+            case DEBUG_TEXTURE_GBUFFER_VELOCITY:  inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mVelocityTexture); break;
+            case DEBUG_TEXTURE_GBUFFER_METALLIC:  inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mRenderTexture);   break;
+            case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: inData.mInputTextureSRV = ioRGBuilder.Read(inGBufferData.mRenderTexture);   break;
             default: assert(false);
         }
 
@@ -439,6 +440,7 @@ const GBufferDebugData& AddGBufferDebugPass(RenderGraph& inRenderGraph, Device& 
             case DEBUG_TEXTURE_GBUFFER_DEPTH:     g_SystemShaders.mGBufferDebugDepthShader.GetGraphicsProgram(vertex_shader, pixel_shader);      break;
             case DEBUG_TEXTURE_GBUFFER_ALBEDO:    g_SystemShaders.mGBufferDebugAlbedoShader.GetGraphicsProgram(vertex_shader, pixel_shader);     break;
             case DEBUG_TEXTURE_GBUFFER_NORMALS:   g_SystemShaders.mGBufferDebugNormalsShader.GetGraphicsProgram(vertex_shader, pixel_shader);    break;
+            case DEBUG_TEXTURE_GBUFFER_VELOCITY:  g_SystemShaders.mGBufferDebugVelocityShader.GetGraphicsProgram(vertex_shader, pixel_shader);   break;
             case DEBUG_TEXTURE_GBUFFER_METALLIC:  g_SystemShaders.mGBufferDebugMetallicShader.GetGraphicsProgram(vertex_shader, pixel_shader);   break;
             case DEBUG_TEXTURE_GBUFFER_ROUGHNESS: g_SystemShaders.mGBufferDebugRoughnessShader.GetGraphicsProgram(vertex_shader, pixel_shader);  break;
             default: assert(false);

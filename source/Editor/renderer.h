@@ -36,7 +36,7 @@ public:
 
     void OnResize(const Viewport& inViewport) { CreateRenderTargets(inViewport); }
 
-    void DrawImGui(Scene& inScene, const Viewport& inViewport);
+    void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport);
 
     void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
     void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh);

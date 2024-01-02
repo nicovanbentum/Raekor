@@ -664,10 +664,7 @@ void InspectorWidget::DrawComponent(DDGISceneSettings& ioSettings)
 {
 	auto& scene = GetScene();
 
-	ImGui::DragInt3("Probe Count", glm::value_ptr(ioSettings.mDDGIProbeCount), 1, 1, 40);
-	ImGui::DragFloat3("Probe Spacing", glm::value_ptr(ioSettings.mDDGIProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
-
-	if (ImGui::Button("Fit to Scene"))
+	if (ImGui::Button("Fit to Scene", ImVec2(ImGui::GetWindowWidth(), 0)))
 	{
 		BBox3D scene_bounds;
 
@@ -686,6 +683,9 @@ void InspectorWidget::DrawComponent(DDGISceneSettings& ioSettings)
 			ddgi_settings.mDDGIProbeSpacing = scene_bounds.GetExtents() / Vec3(ddgi_settings.mDDGIProbeCount);
 		}
 	}
+
+	ImGui::DragInt3("Probe Count", glm::value_ptr(ioSettings.mDDGIProbeCount), 1, 1, 40);
+	ImGui::DragFloat3("Probe Spacing", glm::value_ptr(ioSettings.mDDGIProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");
 }
 
 

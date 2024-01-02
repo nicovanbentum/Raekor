@@ -166,6 +166,13 @@
             "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl"
         },
 
+        "GBuffer Debug Velocity Shader": 
+        { 
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_VELOCITY",
+            "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl"
+        },
+
         "Bloom Upscale Shader": 
         { 
             "Defines": "#define DO_UPSCALE",

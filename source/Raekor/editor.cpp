@@ -3,12 +3,11 @@
 
 #include "OS.h"
 #include "rmath.h"
+#include "timer.h"
 #include "systems.h"
 #include "components.h"
 
 #include "widgets/assetsWidget.h"
-#include "widgets/randomWidget.h"
-#include "widgets/metricsWidget.h"
 #include "widgets/menubarWidget.h"
 #include "widgets/consoleWidget.h"
 #include "widgets/viewportWidget.h"
@@ -43,9 +42,8 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer) :
 		GUI::SetFont(m_Settings.mFontFile.string());
 
 	m_Widgets.Register<AssetsWidget>(this);
-	m_Widgets.Register<RandomWidget>(this);
 	m_Widgets.Register<MenubarWidget>(this);
-	m_Widgets.Register<MetricsWidget>(this);
+	// m_Widgets.Register<MetricsWidget>(this);
 	m_Widgets.Register<ConsoleWidget>(this);
 	m_Widgets.Register<NodeGraphWidget>(this);
 	m_Widgets.Register<ViewportWidget>(this);

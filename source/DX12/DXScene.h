@@ -19,12 +19,6 @@ namespace Raekor::DX12 {
 */
 class RayTracedScene
 {
-private:
-    struct Settings
-    {
-        bool mDisableAlbedo = false;
-    } m_Settings;
-
 public:
     NO_COPY_NO_MOVE(RayTracedScene);
 
@@ -34,9 +28,6 @@ public:
     inline operator const Scene& ( ) const  { return m_Scene; }
     Scene* operator-> ()                    { return &m_Scene; }
     const Scene* operator-> () const        { return &m_Scene; }
-
-    inline Settings& GetSettings() { return m_Settings; }
-    inline const Settings& GetSettings() const { return m_Settings; }
 
     DescriptorID GetTLASDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_TLASBuffer).GetDescriptor(); }
     DescriptorID GetLightsDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_LightsBuffer).GetDescriptor(); }
@@ -50,7 +41,7 @@ public:
     void UploadTLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
     void UploadLights(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
     void UploadInstances(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
-    void UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);
+    void UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList, bool inDisableAlbedo);
 
 private:
     BufferID GrowBuffer(Device& inDevice, BufferID inBuffer, const Buffer::Desc& inDesc);

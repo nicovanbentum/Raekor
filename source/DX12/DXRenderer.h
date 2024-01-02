@@ -42,23 +42,25 @@ class Renderer
 private:
     struct Settings
     {
-        int& mEnableImGui       = g_CVars.Create("r_enable_imgui",        1);
-        int& mEnableVsync       = g_CVars.Create("r_vsync",               1);
-        int& mDebugProbeRays    = g_CVars.Create("r_Debug_gi_rays",       0);
-        int& mEnableDDGI        = g_CVars.Create("r_enable_ddgi",         1);
-        int& mEnableRTAO        = g_CVars.Create("r_enable_rtao",         1);
-        int& mEnableShadows     = g_CVars.Create("r_enable_shadows",      1);
-        int& mEnableReflections = g_CVars.Create("r_enable_reflections",  1);
-        int& mDebugProbes       = g_CVars.Create("r_debug_gi_probes",     0);
-        int& mFullscreen        = g_CVars.Create("r_fullscreen",          0);
-        int& mDisplayRes        = g_CVars.Create("r_display_res_index",   0);
-        int& mEnableTAA         = g_CVars.Create("r_enable_taa",          1);
-        int& mEnableDoF         = g_CVars.Create("r_enable_dof",          0);
-        int& mEnableBloom       = g_CVars.Create("r_enable_bloom",        1);
-        int& mUpscaler          = g_CVars.Create("r_upscaler",            0,   true);
-        int& mUpscaleQuality    = g_CVars.Create("r_upscaler_quality",    0,   true);
-        int& mDoPathTrace       = g_CVars.Create("r_path_trace",          0,   true);
-        float& mSunConeAngle    = g_CVars.Create("r_sun_cone_angle",      0.f, true);
+        int& mEnableImGui        = g_CVars.Create("r_enable_imgui",         1);
+        int& mEnableVsync        = g_CVars.Create("r_vsync",                1);
+        int& mDisableAlbedo      = g_CVars.Create("r_disable_albedo",       0, true);
+        int& mEnableDDGI         = g_CVars.Create("r_enable_ddgi",          1, true);
+        int& mDebugProbeRays     = g_CVars.Create("r_Debug_gi_rays",        0, true);
+        int& mDebugProbes        = g_CVars.Create("r_debug_gi_probes",      0, true);
+        int& mEnableRTAO         = g_CVars.Create("r_enable_rtao",          1);
+        int& mEnableShadows      = g_CVars.Create("r_enable_shadows",       1);
+        int& mEnableReflections  = g_CVars.Create("r_enable_reflections",   1);
+        int& mEnableAutoExposure = g_CVars.Create("r_enable_auto_exposure", 0, true);
+        int& mFullscreen         = g_CVars.Create("r_fullscreen",           0);
+        int& mDisplayRes         = g_CVars.Create("r_display_res_index",    0);
+        int& mEnableTAA          = g_CVars.Create("r_enable_taa",           1);
+        int& mEnableDoF          = g_CVars.Create("r_enable_dof",           0);
+        int& mEnableBloom        = g_CVars.Create("r_enable_bloom",         1);
+        int& mUpscaler           = g_CVars.Create("r_upscaler",             0,   true);
+        int& mUpscaleQuality     = g_CVars.Create("r_upscaler_quality",     0,   true);
+        int& mDoPathTrace        = g_CVars.Create("r_path_trace",           0,   true);
+        float& mSunConeAngle     = g_CVars.Create("r_sun_cone_angle",       0.f, true);
     } m_Settings;
 
 public:
@@ -133,7 +135,7 @@ private:
 class RenderInterface : public IRenderInterface
 {
 public:
-    RenderInterface(Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources, StagingHeap& inStagingHeap);
+    RenderInterface(Application* inApp, Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources, StagingHeap& inStagingHeap);
 
     void UpdateGPUStats(Device& inDevice);
 
@@ -158,7 +160,7 @@ public:
     uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
 
     void OnResize(const Viewport& inViewport) override;
-    void DrawImGui(Scene& inScene, const Viewport& inViewport) override {}
+    void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) override;
 
 private:
     Device& m_Device;

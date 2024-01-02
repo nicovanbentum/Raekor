@@ -52,17 +52,18 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
 
     const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
     float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, fc.mSunDirection.xyz)) * fc.mSunColor.a;
-    float shadow_mask   = shadow_texture[inParams.mPixelCoords.xy].x;
+    float shadow_mask = shadow_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).r;
     total_radiance += l * NdotL * sunlight_luminance * shadow_mask;
     
-    float ao = ao_texture[inParams.mPixelCoords.xy];
-    //ao = 1.0;
+    float ao = ao_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);;
+    // ao = 1.0;
     
     float4 specular = reflections_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0);
     total_radiance += specular.rgb * brdf.mAlbedo.rgb * ao;
     
     float3 offset_ws_pos = ws_pos + brdf.mNormal * 0.01;
-    float3 irradiance = indirect_diffuse_texture[inParams.mPixelCoords.xy].rgb;
+    
+    float3 irradiance = indirect_diffuse_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).rgb;
     
     // total_radiance += brdf.mAlbedo.rgb * 0.25;
     

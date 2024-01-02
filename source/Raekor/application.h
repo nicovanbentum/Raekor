@@ -105,7 +105,7 @@ public:
 	virtual uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) = 0;
 
 	virtual void OnResize(const Viewport& inViewport) = 0;
-	virtual void DrawImGui(Scene& inScene, const Viewport& inViewport) = 0;
+	virtual void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) = 0;
 
 	virtual void AddDebugLine(Vec3 inP1, Vec3 inP2) {}
 	virtual void AddDebugBox(Vec3 inMin, Vec3 inMax, const Mat4x4& inTransform = Mat4x4(1.0f)) {}

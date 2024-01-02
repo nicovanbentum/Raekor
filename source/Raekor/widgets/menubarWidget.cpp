@@ -4,6 +4,7 @@
 #include "OS.h"
 #include "gltf.h"
 #include "scene.h"
+#include "input.h"
 #include "timer.h"
 #include "assimp.h"
 #include "physics.h"
@@ -36,6 +37,14 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	if (ImGui::BeginMainMenuBar())
 	{
 		ImGui::Text(reinterpret_cast<const char*>( ICON_FA_ADDRESS_BOOK ));
+
+		if (ImGui::BeginPopupContextItem(reinterpret_cast<const char*>( ICON_FA_ADDRESS_BOOK )))
+		{
+			if (ImGui::MenuItem("Hide"))
+				Hide();
+
+			ImGui::EndPopup();
+		}
 
 		if (ImGui::BeginMenu("File"))
 		{
@@ -183,7 +192,9 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		{
 			ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
 
-			if (ImGui::MenuItem(GetTitle().c_str(), "", &m_Open));
+			constexpr auto subtext = "CTRL+Click";
+
+			if (ImGui::MenuItem(GetTitle().c_str(), subtext, &m_Open));
 
 			for (const auto& widget : *inWidgets)
 			{
@@ -193,8 +204,24 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 				auto is_visible = widget->IsOpen();
 
-				if (ImGui::MenuItem(std::string(widget->GetTitle() + "Window").c_str(), "", &is_visible))
-					is_visible ? widget->Show() : widget->Hide();
+				if (ImGui::MenuItem(std::string(widget->GetTitle() + "Window").c_str(), subtext, &is_visible))
+				{
+					if (SDL_GetModState() & KMOD_LCTRL)
+					{
+						widget->Show();
+
+						for (const auto& other_widget : *inWidgets)
+						{
+							if (widget.get() == other_widget.get())
+								continue;
+
+							other_widget->Hide();
+						}
+					}
+					else
+						is_visible ? widget->Show() : widget->Hide();
+
+				}
 			}
 
 			ImGui::PopItemFlag();

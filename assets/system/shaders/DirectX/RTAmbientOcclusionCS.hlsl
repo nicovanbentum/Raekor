@@ -51,7 +51,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
         
     if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
     {
-        occlusion = saturate((ray.TMin + query.CommittedRayT()) / ray.TMax);
+        occlusion = saturate((ray.TMin + query.CommittedRayT()) / max(ray.TMax, 0.001));
         occlusion = pow(occlusion, rc.mParams.mPower);
     }
     

@@ -138,6 +138,7 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mGBufferDebugDepthShader;
     ShaderProgram mGBufferDebugAlbedoShader;
     ShaderProgram mGBufferDebugNormalsShader;
+    ShaderProgram mGBufferDebugVelocityShader;
     ShaderProgram mGBufferDebugMetallicShader;
     ShaderProgram mGBufferDebugRoughnessShader;
 

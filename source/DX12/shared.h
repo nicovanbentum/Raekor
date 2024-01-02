@@ -3,6 +3,9 @@
 
 #ifdef __cplusplus
 
+    #define IF_CPP(code) code
+    #define IF_CPP_ELSE(cpp, other) cpp
+
     #include "pch.h"
 
     class Device;
@@ -27,6 +30,9 @@
     #define STATIC_ASSERT(cond) static_assert(cond);
 
 #else
+
+    #define IF_CPP(code)
+    #define IF_CPP_ELSE(cpp, other) other
 
     #define OUT_PARAM out
     #define STATIC_ASSERT(cond) 

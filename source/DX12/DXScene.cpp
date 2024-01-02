@@ -280,7 +280,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
 
 
 
-void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
+void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList, bool inDisableAlbedo)
 {
     if (!m_Scene.Count<Material>())
         return;
@@ -304,7 +304,7 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
         rt_material.mMetallicTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuMetallicMap));
         rt_material.mRoughnessTexture = inDevice.GetBindlessHeapIndex(TextureID(material.gpuRoughnessMap));
 
-        if (m_Settings.mDisableAlbedo)
+        if (inDisableAlbedo)
         {
             rt_material.mAlbedo = Material::Default.albedo;
             rt_material.mAlbedoTexture = inDevice.GetBindlessHeapIndex(TextureID(Material::Default.gpuAlbedoMap));
