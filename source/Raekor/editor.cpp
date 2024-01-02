@@ -43,7 +43,6 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer) :
 
 	m_Widgets.Register<AssetsWidget>(this);
 	m_Widgets.Register<MenubarWidget>(this);
-	// m_Widgets.Register<MetricsWidget>(this);
 	m_Widgets.Register<ConsoleWidget>(this);
 	m_Widgets.Register<NodeGraphWidget>(this);
 	m_Widgets.Register<ViewportWidget>(this);

@@ -2,6 +2,7 @@
 #include "components.h"
 #include "timer.h"
 #include "assets.h"
+#include "scene.h"
 #include "member.h"
 #include "primitives.h"
 
@@ -411,6 +412,25 @@ void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationT
 	for (auto& child : pNode.children)
 		UpdateBoneTransforms(animation, animationTime, child, global_transform);
 }
+
+
+
+void DDGISceneSettings::FitToScene(const Scene& inScene, Transform& ioTransform)
+{
+	BBox3D scene_bounds;
+
+	for (const auto& [entity, transform, mesh] : inScene.Each<Transform, Mesh>())
+		scene_bounds.Combine(BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform));
+
+	if (scene_bounds.IsValid())
+	{
+		ioTransform.position = scene_bounds.GetMin();
+		ioTransform.Compose();
+
+		mDDGIProbeSpacing = scene_bounds.GetExtents() / Vec3(mDDGIProbeCount);
+	}
+}
+
 
 
 void Skeleton::UpdateFromAnimation(Animation& animation, float dt)

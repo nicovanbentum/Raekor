@@ -933,6 +933,17 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         if (ImGui::Button("PIX GPU Capture"))
             m_Renderer.SetShouldCaptureNextFrame(true);
 
+        if (ImGui::Button("Lower Spot Lights"))
+        {
+            for (const auto& [entity, light] : inScene.Each<Light>())
+            {
+                if (light.type == LIGHT_TYPE_SPOT)
+                {
+                    light.colour.a /= 1000.0f;
+                }
+            }
+        }
+
         if (ImGui::Button("Generate Meshlets"))
         {
             Timer timer;
@@ -1134,7 +1145,19 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         //ImGui::SeparatorText("Settings");
         ImGui::SeparatorText("Lighting");
 
-        need_recompile |= ImGui::Checkbox("Enable Shadows", (bool*)&m_Renderer.GetSettings().mEnableShadows);
+        need_recompile |= ImGui::Checkbox("##Shadowstoggle", (bool*)&m_Renderer.GetSettings().mEnableShadows);
+
+        ImGui::SameLine();
+
+        if (ImGui::BeginMenu("Enable Shadows"))
+        {
+            ImGui::SeparatorText("Settings");
+
+            ImGui::DragFloat("Sun Cone Angle", &m_Renderer.GetSettings().mSunConeAngle, 0.01f, 0.0f, 1.0f, "%.2f");
+
+            ImGui::EndMenu();
+        }
+
         need_recompile |= ImGui::Checkbox("Enable Reflections", (bool*)&m_Renderer.GetSettings().mEnableReflections);
 
         need_recompile |= ImGui::Checkbox("##GItoggle", (bool*)&m_Renderer.GetSettings().mEnableDDGI);

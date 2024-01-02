@@ -138,9 +138,12 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
     auto rt_instances = std::vector<D3D12_RAYTRACING_INSTANCE_DESC> {};
     rt_instances.reserve(m_Scene.Count<Mesh>());
 
-    auto instance_id = 0u;
-    for (const auto& [entity, mesh, transform] : m_Scene.Each<Mesh, Transform>())
+    for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
     {
+        auto transform = m_Scene.GetPtr<Transform>(entity);
+        if (!transform)
+            continue;
+
         if (!BufferID(mesh.BottomLevelAS).IsValid())
             continue;
 
@@ -148,13 +151,13 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
 
         auto instance = D3D12_RAYTRACING_INSTANCE_DESC
         {
-            .InstanceID = instance_id++,
+            .InstanceID = m_Scene.GetSparseIndex<Mesh>(entity),
             .InstanceMask = 0xFF,
             .Flags = D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE,
             .AccelerationStructure = blas_buffer->GetGPUVirtualAddress(),
         };
 
-        const auto transpose = glm::transpose(transform.worldTransform); // TODO: transform buffer
+        const auto transpose = glm::transpose(transform->worldTransform); // TODO: transform buffer
         memcpy(instance.Transform, glm::value_ptr(transpose), sizeof(instance.Transform));
 
         rt_instances.push_back(instance);
@@ -247,6 +250,8 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
     for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
     {
         auto transform = m_Scene.GetPtr<Transform>(entity);
+        assert(transform);
+
         if (!transform)
             continue;
 

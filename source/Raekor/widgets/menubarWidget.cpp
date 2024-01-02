@@ -247,6 +247,16 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				m_Editor->SetActiveEntity(entity);
 			}
 
+			if (ImGui::MenuItem("DDGI Settings"))
+			{
+				auto entity = scene.CreateSpatialEntity("DDGI Settings");
+				auto& ddgi_settings = scene.Add<DDGISceneSettings>(entity);
+				
+				ddgi_settings.FitToScene(scene, scene.Get<Transform>(entity));
+				
+				m_Editor->SetActiveEntity(entity);
+			}
+
 			if (ImGui::BeginMenu("Shapes"))
 			{
 				if (ImGui::MenuItem("Sphere"))

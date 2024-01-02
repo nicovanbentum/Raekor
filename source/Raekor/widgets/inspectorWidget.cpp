@@ -666,22 +666,7 @@ void InspectorWidget::DrawComponent(DDGISceneSettings& ioSettings)
 
 	if (ImGui::Button("Fit to Scene", ImVec2(ImGui::GetWindowWidth(), 0)))
 	{
-		BBox3D scene_bounds;
-
-		for (const auto& [entity, transform, mesh] : scene.Each<Transform, Mesh>())
-			scene_bounds.Combine(BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform));
-
-		if (scene_bounds.IsValid())
-		{
-			auto entity = scene.GetEntities<DDGISceneSettings>()[0];
-			auto& transform = scene.Get<Transform>(entity);
-			auto& ddgi_settings = scene.Get<DDGISceneSettings>(entity);
-
-			transform.position = scene_bounds.GetMin();
-			transform.Compose();
-
-			ddgi_settings.mDDGIProbeSpacing = scene_bounds.GetExtents() / Vec3(ddgi_settings.mDDGIProbeCount);
-		}
+		ioSettings.FitToScene(scene, scene.Get<Transform>(GetActiveEntity()));
 	}
 
 	ImGui::DragInt3("Probe Count", glm::value_ptr(ioSettings.mDDGIProbeCount), 1, 1, 40);

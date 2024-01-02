@@ -8,6 +8,7 @@
 
 namespace Raekor {
 
+class Scene;
 class INativeScript;
 
 struct SCRIPT_INTERFACE Name
@@ -271,8 +272,10 @@ struct DDGISceneSettings
 {
 	RTTI_DECLARE_TYPE(DDGISceneSettings);
 
-	IVec3 mDDGIDebugProbe = UVec3(0, 0, 0);
-	IVec3 mDDGIProbeCount = UVec3(2, 2, 2);
+	void FitToScene(const Scene& inScene, Transform& ioTransform);
+
+	IVec3 mDDGIDebugProbe = UVec3(10, 10, 5);
+	IVec3 mDDGIProbeCount = UVec3(22, 22, 22);
 	Vec3 mDDGIProbeSpacing = Vec3(0.1f, 0.1f, 0.1f);
 };
 
