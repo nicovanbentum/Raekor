@@ -221,7 +221,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     }
 
     // TODO: instead of updating this every frame, make these buffers global?
-    if (auto debug_lines_pass = m_RenderGraph.GetPass<DebugLinesData>())
+    if (auto debug_lines_pass = m_RenderGraph.GetPass<ProbeDebugRaysData>())
     {
         m_FrameConstants.mDebugLinesVertexBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mVertexBuffer));
         m_FrameConstants.mDebugLinesIndirectArgsBuffer = inDevice.GetBindlessHeapIndex(m_RenderGraph.GetResources().GetBuffer(debug_lines_pass->GetData().mIndirectArgsBuffer));
@@ -386,7 +386,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
             //const auto& probe_debug_data = AddProbeDebugPass(m_RenderGraph, inDevice, ddgi_trace_data, ddgi_update_data, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
 
         if (m_Settings.mDebugProbeRays)
-            const auto& debug_lines_data = AddDebugLinesPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
+            const auto& debug_lines_data = AddProbeDebugRaysPass(m_RenderGraph, inDevice, light_data.mOutputTexture, gbuffer_data.mDepthTexture);
 
         if (m_Settings.mEnableTAA)
         {
@@ -416,7 +416,6 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     // turn off any post processing effects for debug textures (this might change in the future)
     if (debug_texture == DEBUG_TEXTURE_NONE)
     {
-        
          if (m_Settings.mEnableBloom)
             bloom_output = AddBloomPass(m_RenderGraph, inDevice, compose_input).mOutputTexture;
 

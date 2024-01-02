@@ -261,7 +261,7 @@ struct RTAOData
     static inline AmbientOcclusionParams mParams =
     {
         .mRadius = 2.0,
-        .mPower = 0.0,
+        .mPower = 1.0,
         .mNormalBias = 0.01,
         .mSampleCount = 1u
     };
@@ -429,20 +429,19 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 
 
 //////////////////////////////////////////
-///// Debug Lines Render Pass
+///// GI Probe Debug Rays Render Pass
 //////////////////////////////////////////
-struct DebugLinesData
+struct ProbeDebugRaysData
 {
-    RTTI_DECLARE_TYPE(DebugLinesData);
+    RTTI_DECLARE_TYPE(ProbeDebugRaysData);
 
-    D3D12_DRAW_ARGUMENTS* mMappedPtr;
     RenderGraphResourceID mVertexBuffer;
     RenderGraphResourceID mIndirectArgsBuffer;
     ComPtr<ID3D12PipelineState> mPipeline;
     ComPtr<ID3D12CommandSignature> mCommandSignature;
 };
 
-const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDevice,
+const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Device& inDevice,
     RenderGraphResourceID inRenderTarget,
     RenderGraphResourceID inDepthTarget
 );

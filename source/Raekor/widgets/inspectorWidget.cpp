@@ -695,13 +695,13 @@ void InspectorWidget::DrawComponent(DirectionalLight& inDirectionalLight)
 	ImGui::Text("Colour     ");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-FLT_MIN);
-	ImGui::ColorEdit4("##Colour", glm::value_ptr(inDirectionalLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+	ImGui::ColorEdit3("##Colour", glm::value_ptr(inDirectionalLight.colour), ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
 
 	ImGui::AlignTextToFramePadding();
-	ImGui::Text("Direction ");
+	ImGui::Text("Intensity  ");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-FLT_MIN);
-	ImGui::DragFloat3("##Direction", glm::value_ptr(inDirectionalLight.direction), 0.01f, -1.0f, 1.0f);
+	ImGui::DragFloat("##Intensity", &inDirectionalLight.colour.a, 0.001f, 0.0f, FLT_MAX);
 }
 
 }

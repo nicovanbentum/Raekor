@@ -24,12 +24,12 @@ void GLApp::OnUpdate(float inDeltaTime)
     // add debug geometry around a selected mesh
     if (GetActiveEntity() != NULL_ENTITY)
     {
-
         if (m_Scene.Has<Mesh>(m_ActiveEntity))
         {
             const auto& [mesh, transform] = m_Scene.Get<Mesh, Transform>(m_ActiveEntity);
             m_Renderer.AddDebugBox(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
         }
+
         else if (m_Scene.Has<Light>(m_ActiveEntity))
         {
             const auto& light = m_Scene.Get<Light>(m_ActiveEntity);
@@ -40,24 +40,32 @@ void GLApp::OnUpdate(float inDeltaTime)
                 Vec3 pos = light.position;
                 Vec3 target = pos + light.direction * light.attributes.x;
 
-                float o = glm::atan(light.attributes.z) * light.attributes.x;
-                Vec3 perp = glm::cross(target - pos, Vec3(0, 1, 0));
-                Vec3 circle_edge = target + perp * o;
+                Vec3 right = glm::normalize(glm::cross(light.direction, glm::vec3(0.0f, 1.0f, 0.0f)));
+                Vec3 up = glm::cross(right, light.direction);
 
-                Vec3 prev_point = circle_edge;
+                // Calculate cone radius and step angle
+                float half_angle = light.attributes.z / 2.0f;
+                float cone_radius = light.attributes.x * tan(half_angle);
                 
-                constexpr auto step_size = M_PI * 2.0f / 12.0f;
+                constexpr auto steps = 16u;
+                constexpr auto step_angle = glm::radians(360.0f / float(steps));
 
-                for (float angle = 0.0f; angle < M_PI * 2.0f; angle += step_size)
+                Vec3 last_point;
+
+                for (int i = 0; i <= steps; i++)
                 {
-                    Vec3 current_point = glm::toMat3(glm::angleAxis(angle, light.direction)) * circle_edge;
+                    float angle = step_angle * i;
+                    Vec3 circle_point = target + cone_radius * ( cos(angle) * right + sin(angle) * up );
+                    
+                    m_Renderer.AddDebugLine(pos, circle_point);
+                    
+                    if (i > 0)
+                        m_Renderer.AddDebugLine(last_point, circle_point);
 
-                    m_Renderer.AddDebugLine(prev_point, current_point);
-                    m_Renderer.AddDebugLine(pos, current_point);
-
-                    prev_point = current_point;
+                    last_point = circle_point;
                 }
             }
+
             else if (light.type == LIGHT_TYPE_POINT)
             {
                 const auto light_pos = Vec3(light.position);
@@ -88,7 +96,6 @@ void GLApp::OnUpdate(float inDeltaTime)
                 DrawDebugCircle(Vec3(0, 0, 1), Vec3(1, 0, 0));
             }
         }
-
     }
 
     for (const auto& [entity, transform, mesh, soft_body] : m_Scene.Each<Transform, Mesh, SoftBody>())

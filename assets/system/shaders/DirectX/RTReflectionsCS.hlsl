@@ -53,15 +53,11 @@ void main(uint3 threadID : SV_DispatchThreadID)
     RayDesc ray;
     ray.TMin = 0.1;
     ray.TMax = 1000.0;
-    ray.Origin = position + gbuffer_brdf.mNormal * 0.01; // TODO: find a more robust method? offsetRay from ray tracing gems 
-                                            // expects a geometric normal, which most deferred renderers dont write out
+    ray.Origin = position + gbuffer_brdf.mNormal * 0.01; // TODO: find a more robust method?
     ray.Direction = Wi;
 
-    uint ray_flags = RAY_FLAG_FORCE_OPAQUE;
-    
     RayQuery < RAY_FLAG_FORCE_OPAQUE > query;
-
-    query.TraceRayInline(TLAS, ray_flags, 0xFF, ray);
+    query.TraceRayInline(TLAS, RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
     query.Proceed();
     
 
@@ -78,12 +74,14 @@ void main(uint3 threadID : SV_DispatchThreadID)
         vertex.mTangent = normalize(vertex.mTangent);
         vertex.mTangent = normalize(vertex.mTangent - dot(vertex.mTangent, vertex.mNormal) * vertex.mNormal);
             
-        const float3 Wo = normalize(fc.mCameraPosition.xyz - vertex.mPos);
-        const float3 Wi = normalize(-fc.mSunDirection.xyz);
+        const float3 Wo = normalize(position - vertex.mPos);
         const float3 Wh = normalize(Wo + Wi);
         
         BRDF brdf;
         brdf.FromHit(vertex, material);
+        
+        // sample a ray direction towards the sun disk
+        float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, 0.0f, 0.xx);
         
         const float3 l = brdf.Evaluate(Wo, Wi, Wh);
 
@@ -91,24 +89,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
         float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi));
         float3 total_radiance = l * NdotL * sunlight_luminance;
         
-        if (NdotL != 0.0) {
-            RayDesc shadow_ray;
-            shadow_ray.Origin = vertex.mPos + brdf.mNormal * 0.01;
-            shadow_ray.Direction = Wi;
-            shadow_ray.TMin = 0.1;
-            shadow_ray.TMax = 1000.0;
-            
-            float4 blue_noise = SampleBlueNoise(threadID.xy, fc.mFrameCounter);
-            shadow_ray.Direction.xz += uniformSampleDisk(blue_noise.xy, 0.00);
-            
-            uint shadow_ray_flags = RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;
-    
-            RayQuery <RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER> shadow_query;
-
-            shadow_query.TraceRayInline(TLAS, shadow_ray_flags, 0xFF, shadow_ray);
-            shadow_query.Proceed();
-        
-            total_radiance *= shadow_query.CommittedStatus() != COMMITTED_TRIANGLE_HIT;
+        if (NdotL != 0.0) 
+        {
+            bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
+            total_radiance *= uint(!hit);
         }
         
         

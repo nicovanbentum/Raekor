@@ -53,12 +53,12 @@ private:
         int& mFullscreen        = g_CVars.Create("r_fullscreen",          0);
         int& mDisplayRes        = g_CVars.Create("r_display_res_index",   0);
         int& mEnableTAA         = g_CVars.Create("r_enable_taa",          1);
-        int& mEnableDoF         = g_CVars.Create("r_enable_dof",          1);
+        int& mEnableDoF         = g_CVars.Create("r_enable_dof",          0);
         int& mEnableBloom       = g_CVars.Create("r_enable_bloom",        1);
-        int& mUpscaler          = g_CVars.Create("r_upscaler",            0,     true);
-        int& mUpscaleQuality    = g_CVars.Create("r_upscaler_quality",    0,     true);
-        int& mDoPathTrace       = g_CVars.Create("r_path_trace",          0,     true);
-        float& mSunConeAngle    = g_CVars.Create("r_sun_cone_angle",      0.02f, true);
+        int& mUpscaler          = g_CVars.Create("r_upscaler",            0,   true);
+        int& mUpscaleQuality    = g_CVars.Create("r_upscaler_quality",    0,   true);
+        int& mDoPathTrace       = g_CVars.Create("r_path_trace",          0,   true);
+        float& mSunConeAngle    = g_CVars.Create("r_sun_cone_angle",      0.f, true);
     } m_Settings;
 
 public:

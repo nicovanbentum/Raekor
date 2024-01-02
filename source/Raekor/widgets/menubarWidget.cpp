@@ -344,6 +344,9 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				ShellExecute(0, 0, exe.c_str(), "-asset_compiler", 0, SW_SHOW);
 			}
 
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Launch an Asset Compiler process to the system tray.");
+
 			ImGui::EndMenu();
 		}
 

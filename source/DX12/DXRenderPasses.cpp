@@ -24,7 +24,7 @@ RTTI_DEFINE_TYPE(ProbeSampleData)           {}
 RTTI_DEFINE_TYPE(PathTraceData)             {}
 RTTI_DEFINE_TYPE(ProbeDebugData)            {}
 RTTI_DEFINE_TYPE(MeshletsRasterData)        {}
-RTTI_DEFINE_TYPE(DebugLinesData)            {}
+RTTI_DEFINE_TYPE(ProbeDebugRaysData)            {}
 RTTI_DEFINE_TYPE(TAAResolveData)            {}
 RTTI_DEFINE_TYPE(DepthOfFieldData)          {}
 RTTI_DEFINE_TYPE(ComposeData)               {}
@@ -886,8 +886,8 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
             .mBounces               = inData.mBounces,
             .mInstancesBuffer       = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
             .mMaterialsBuffer       = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
-            .mResultTexture         = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mOutputTexture)),
-            .mAccumulationTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mAccumulationTexture)),
+            .mResultTexture         = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mOutputTexture)),
+            .mAccumulationTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mAccumulationTexture)),
             .mDispatchSize          = viewport.size,
             .mReset                 = PathTraceData::mReset,
         };
@@ -1272,11 +1272,11 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
-const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
+const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
 {
-    return inRenderGraph.AddGraphicsPass<DebugLinesData>("DEBUG LINES PASS",
+    return inRenderGraph.AddGraphicsPass<ProbeDebugRaysData>("DEBUG LINES PASS",
 
-    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DebugLinesData& inData)
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugRaysData& inData)
     {
         inData.mVertexBuffer = ioRGBuilder.Create(Buffer::Desc
         {
@@ -1333,7 +1333,7 @@ const DebugLinesData& AddDebugLinesPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mPipeline->SetName(L"PSO_DEBUG_LINES");
     },
 
-    [&inDevice](DebugLinesData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inDevice](ProbeDebugRaysData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         auto vertices_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mVertexBuffer));
         auto indirect_args_buffer_resource = inDevice.GetD3D12Resource(inRGResources.GetBuffer(inData.mIndirectArgsBuffer));
