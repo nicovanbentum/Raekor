@@ -85,6 +85,7 @@ struct SkyCubeData
     RTTI_DECLARE_TYPE(SkyCubeData);
 
     RenderGraphResourceID mSkyCubeTexture;
+    RenderGraphResourceViewID mSkyCubeTextureUAV;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 
@@ -103,6 +104,7 @@ struct ConvolveCubeData
     RTTI_DECLARE_TYPE(ConvolveCubeData);
 
     RenderGraphResourceID mConvolvedCubeTexture;
+    RenderGraphResourceViewID mConvolvedCubeTextureUAV;
     RenderGraphResourceViewID mCubeTexture;
     ComPtr<ID3D12PipelineState> mPipeline;
 };

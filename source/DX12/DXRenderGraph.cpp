@@ -21,7 +21,7 @@ RenderGraphResourceID RenderGraphBuilder::Create(const Texture::Desc& inDesc)
 RenderGraphResourceID RenderGraphBuilder::Import(Device& inDevice, BufferID inBuffer)
 {
     assert(false); // TODO: implement
-    return 0;
+    return RenderGraphResourceID { 0 };
 }
 
 
@@ -510,7 +510,7 @@ bool RenderGraph::Compile(Device& inDevice)
     // initialize all the graph nodes (all the created/imported resources)
     for (const auto& [resource_id, resource] : gEnumerate(m_RenderGraphResources.m_Resources))
     {
-        auto& node = graph[resource_id];
+        auto& node = graph[RenderGraphResourceID(resource_id)];
         node.mResourceType = resource.mResourceType;
 
         if (node.mResourceType == EResourceType::RESOURCE_TYPE_BUFFER)

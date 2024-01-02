@@ -11,10 +11,9 @@ class Viewport;
 namespace Raekor::DX12 {
 
 // Index into RenderGraphBuilder::m_ResourceDescriptions
-using RenderGraphResourceID = uint32_t;
+enum RenderGraphResourceID : uint32_t {};
 // Index into RenderGraphBuilder::m_ResourceViewDescriptions
-using RenderGraphResourceViewID = uint32_t;
-
+enum RenderGraphResourceViewID : uint32_t {};
 
 
 // resource description so we know how to allocate the resource
@@ -117,6 +116,8 @@ public:
     BufferID GetBufferView(RenderGraphResourceViewID inResource) const;
     TextureID GetTextureView(RenderGraphResourceViewID inResource) const;
     ResourceID GetResourceView(RenderGraphResourceViewID inResource) const;
+
+    TextureID GetTextureView(RenderGraphResourceID inResource) const = delete;
 
     BufferID GetBuffer(RenderGraphResourceID inResource) const;
     TextureID GetTexture(RenderGraphResourceID inResource) const;

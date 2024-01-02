@@ -123,7 +123,8 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
     return inRenderGraph.AddComputePass<SkyCubeData>("SKY CUBE PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkyCubeData& inData)
     {  
-        inData.mSkyCubeTexture = ioRGBuilder.Write(ioRGBuilder.Import(inDevice, inSkyCubeTexture));
+        inData.mSkyCubeTexture = ioRGBuilder.Import(inDevice, inSkyCubeTexture);
+        inData.mSkyCubeTextureUAV = ioRGBuilder.Write(inData.mSkyCubeTexture);
     },
 
     [=, &inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
@@ -132,7 +133,7 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
         {
             inCmdList.PushComputeConstants(SkyCubeRootConstants
             {
-                .mSkyCubeTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mSkyCubeTexture)),
+                .mSkyCubeTexture    = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mSkyCubeTextureUAV)),
                 .mSunLightDirection = sun_light->GetDirection(),
                 .mSunLightColor     = sun_light->GetColor()
             });
@@ -154,7 +155,8 @@ const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& 
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ConvolveCubeData& inData)
     {
         inData.mCubeTexture = ioRGBuilder.Read(inCubeTexture);
-        inData.mConvolvedCubeTexture = ioRGBuilder.Write(ioRGBuilder.Import(inDevice, inConvolvedCubeTexture));
+        inData.mConvolvedCubeTexture = ioRGBuilder.Import(inDevice, inConvolvedCubeTexture);
+        inData.mConvolvedCubeTextureUAV = ioRGBuilder.Write(inData.mConvolvedCubeTexture);
     },
 
     [=, &inDevice](ConvolveCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
