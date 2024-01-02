@@ -146,22 +146,32 @@ using WindowFlags = uint32_t;
 
 class Application
 {
+public:
+	enum IPC
+	{
+		LOG_MESSAGE_SENT = 1,
+		LOG_MESSAGE_RECEIVED = 2,
+	};
+
 protected:
 	Application(WindowFlags inFlags);
 
 public:
 	virtual ~Application();
 
+
 	void Run();
 	void Terminate() { m_Running = false; }
 
 	virtual void OnUpdate(float dt) = 0;
 	virtual void OnEvent(const SDL_Event& event) = 0;
+	static int OnNativeEvent(void* inUserData, SDL_Event* inEvent);
 
 	virtual Scene* GetScene() { return nullptr; }
 	virtual Assets* GetAssets() { return nullptr; }
 	virtual Physics* GetPhysics() { return nullptr; }
 	virtual IRenderInterface* GetRenderInterface() { return nullptr; }
+
 
 	virtual void SetActiveEntity(Entity inEntity) {}
 	virtual Entity GetActiveEntity() { return NULL_ENTITY; }

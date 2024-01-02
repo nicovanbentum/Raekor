@@ -80,6 +80,8 @@ Application::Application(WindowFlags inFlags)
 
 	if (( inFlags & WindowFlag::HIDDEN ) == 0)
 		SDL_ShowWindow(m_Window);
+
+	SDL_AddEventWatch(OnNativeEvent, this);
 }
 
 
@@ -121,6 +123,30 @@ void Application::Run()
 
 		m_FrameCounter++;
 	}
+}
+
+
+int Application::OnNativeEvent(void* inUserData, SDL_Event* inEvent)
+{
+	auto app = (Application*)inUserData;
+
+	if (inEvent && inEvent->type == SDL_SYSWMEVENT)
+	{
+		auto& win_msg = inEvent->syswm.msg->msg.win;
+
+		if (win_msg.msg == WM_COPYDATA)
+		{
+			const auto copied_data = (PCOPYDATASTRUCT)win_msg.lParam;
+			constexpr auto LOG_MESSAGE = 1u;
+
+			if (copied_data->dwData == IPC::LOG_MESSAGE_SENT)
+			{
+				app->LogMessage((const char*)copied_data->lpData);
+			}
+		}
+	}
+
+	return 0;
 }
 
 

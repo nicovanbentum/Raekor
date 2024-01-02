@@ -107,6 +107,8 @@ public:
 	template<typename T>
 	WriteArchive& operator<< (T& inRHS);
 
+	JSONWriter& GetRaw() { return m_Writer; }
+
 private:
 	std::ofstream m_Ofs;
 	std::vector<const char*> m_Types;

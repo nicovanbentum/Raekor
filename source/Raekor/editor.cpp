@@ -76,9 +76,28 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer) :
 		STARTUPINFO si = { sizeof(si) };
 
 		if (CreateProcessA(NULL, &compiler_app_cmd_line[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+		{
 			m_CompilerProcess = pi.hProcess;
-		else
-			LogMessage("Failed to start asset compiler process.");
+#if 0
+			DWORD result = WaitForInputIdle(pi.hProcess, INFINITE); // scary
+			{
+				auto EnumThreadWindowCallback = [](HWND hwnd, LPARAM lParam) -> BOOL 
+				{
+					IEditor* editor = (IEditor*)lParam;
+					editor->m_CompilerWindow = hwnd;
+					return false;
+				};
+
+				EnumThreadWindows(pi.dwThreadId, EnumThreadWindowCallback, (LPARAM)this);
+			}
+#endif
+		}
+
+		if (m_CompilerProcess == nullptr)
+			LogMessage("[Editor] Failed to start asset compiler process.");
+
+		if (m_CompilerWindow == nullptr)
+			LogMessage("[Editor] Failed to hook asset compiler window.");
 	}
 }
 

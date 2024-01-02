@@ -62,7 +62,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 
 #ifdef NDEBUG
 	// hide the console window
-	// ShowWindow(GetConsoleWindow(), SW_HIDE);
+	ShowWindow(GetConsoleWindow(), SW_HIDE);
 #endif
 
 	SDL_SetWindowTitle(m_Window, "Raekor Asset Compiler");
@@ -403,6 +403,10 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 				LogMessage(std::format("[Assets] Converted {}", file.mAssetPath));
 			});
 		}
+		else if (file.mAssetType == ASSET_TYPE_EMBEDDED)
+		{
+
+		}
 		else if (file.mAssetType == ASSET_TYPE_SCENE && m_CompileScenes)
 		{
 			m_FilesInFlight.insert(index);
@@ -531,6 +535,25 @@ void CompilerApp::OnEvent(const SDL_Event& inEvent)
 		}
 	}
 
+}
+
+
+void CompilerApp::LogMessage(const std::string& inMessage)
+{
+	Application::LogMessage(inMessage);
+
+	SDL_SysWMinfo wminfo;
+	SDL_VERSION(&wminfo.version);
+	SDL_GetWindowWMInfo(m_Window, &wminfo);
+
+	COPYDATASTRUCT cds = {};
+	cds.dwData = IPC::LOG_MESSAGE_SENT;
+	cds.lpData = (PVOID)inMessage.c_str();
+	cds.cbData = inMessage.size() + 1;
+
+	auto hwnd = wminfo.info.win.window;
+	auto parent = GetAncestor(hwnd, GA_PARENT);
+	SendMessage(parent, WM_COPYDATA, (WPARAM)(HWND)hwnd, (LPARAM)(LPVOID)&cds);
 }
 
 

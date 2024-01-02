@@ -8,6 +8,14 @@
 
 #define ALIGN(x) __declspec(align(x))
 
+#ifndef TOKENPASTE
+#define TOKENPASTE(x, y) x ## y
+#endif
+
+#ifndef TOKENPASTE2
+#define TOKENPASTE2(x, y) TOKENPASTE(x, y)
+#endif
+
 #define COUT_NC "\033[0m"
 #define COUT_RED(str) "\033[0;31m" str COUT_NC
 #define COUT_GREEN(str) "\033[1;32m" str COUT_NC

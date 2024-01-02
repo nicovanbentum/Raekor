@@ -11,15 +11,20 @@ constexpr auto sModelFileExtensions = std::array {
 	".obj", ".gltf", ".fbx"
 };
 
+constexpr auto sEmbededFileExtensions = std::array {
+	".ttf"
+};
+
 enum AssetType
 {
 	ASSET_TYPE_SCENE,
 	ASSET_TYPE_IMAGE,
+	ASSET_TYPE_EMBEDDED,
 	ASSET_TYPE_NONE
 };
 
 constexpr auto sAssetTypeExtensions = std::array {
-	".scene", ".dds"
+	".scene", ".dds", ".bin"
 };
 
 namespace Raekor {
@@ -34,6 +39,10 @@ inline AssetType GetCacheFileExtension(const Path& inPath)
 	for (const auto& ext : sImageFileExtensions)
 		if (extension == ext)
 			return ASSET_TYPE_IMAGE;
+
+	for (const auto& ext : sEmbededFileExtensions)
+		if (extension == ext)
+			return ASSET_TYPE_EMBEDDED;
 
 	return ASSET_TYPE_NONE;
 }
@@ -90,6 +99,7 @@ public:
 
 	virtual void OnUpdate(float inDeltaTime) override;
 	virtual void OnEvent(const SDL_Event& inEvent) override;
+	virtual void LogMessage(const std::string& inMessage) override;
 
 	void OpenFromTray();
 	HWND GetWindowHandle();
