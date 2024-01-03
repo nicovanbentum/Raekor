@@ -6,6 +6,7 @@
 
 namespace Raekor::DX12 {
 
+RTTI_DEFINE_TYPE(DebugPrimitivesData)       {}
 RTTI_DEFINE_TYPE(SkyCubeData)               {}
 RTTI_DEFINE_TYPE(ConvolveCubeData)          {}
 RTTI_DEFINE_TYPE(GBufferData)               {}
@@ -1324,7 +1325,7 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
         };
 
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
-        g_SystemShaders.mDebugLinesShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+        g_SystemShaders.mProbeDebugRaysShader.GetGraphicsProgram(vertex_shader, pixel_shader);
         auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
         pso_state.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
@@ -1334,7 +1335,7 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
         pso_state.InputLayout.pInputElementDescs = vertex_layout.data();
 
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
-        inData.mPipeline->SetName(L"PSO_DEBUG_LINES");
+        inData.mPipeline->SetName(L"PSO_PROBE_DEBUG_RAYS");
     },
 
     [&inDevice](ProbeDebugRaysData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
@@ -1790,6 +1791,50 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
     [&inDevice](BloomData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         // clear or discard maybe?
+    });
+}
+
+
+
+const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
+{
+    constexpr auto cPrimitiveBufferSize = 3 * UINT16_MAX;
+
+    return inRenderGraph.AddGraphicsPass<DebugPrimitivesData>("DEBUG PRIMITIVES PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, DebugPrimitivesData& inData)
+    {
+        inData.mRenderTarget = ioRGBuilder.RenderTarget(inRenderTarget);
+        inData.mDepthTarget = ioRGBuilder.DepthStencilTarget(inDepthTarget);
+
+        CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
+        g_SystemShaders.mDebugPrimitivesShader.GetGraphicsProgram(vertex_shader, pixel_shader);
+        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+
+        pso_state.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        pso_state.RasterizerState.AntialiasedLineEnable = true;
+        //pso_state.InputLayout = {};
+
+        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
+        inData.mPipeline->SetName(L"PSO_DEBUG_PRIM_LINES");
+
+        inRenderPass->ReserveMemory(cPrimitiveBufferSize);
+    },
+    [&inRenderGraph](DebugPrimitivesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        const auto data_ptr  = inData.mVertexData.data();
+        const auto data_size = inData.mVertexData.size() * sizeof(Vec4);
+
+        inRenderGraph.GetPerPassAllocator().AllocAndCopy(data_size, data_ptr, inData.mVertexDataOffset);
+
+        inCmdList->SetPipelineState(inData.mPipeline.Get());
+        inCmdList.PushGraphicsConstants(DebugPrimitivesRootConstants { .mBufferOffset = inData.mVertexDataOffset });
+
+        inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+        inCmdList->DrawInstanced(inData.mVertexData.size(), 1, 0, 0);
+
+        // restore triangle state for other passes
+        inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     });
 }
 

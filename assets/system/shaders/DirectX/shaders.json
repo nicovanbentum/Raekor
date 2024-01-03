@@ -50,12 +50,6 @@
             "Compute Shader File": "assets/system/shaders/DirectX/DownsampleCS.hlsl"
         },
 
-        "Debug Lines Shader":
-        {
-            "Vertex Shader File": "assets/system/shaders/DirectX/DebugLinesVS.hlsl",
-            "Pixel Shader File": "assets/system/shaders/DirectX/DebugLinesPS.hlsl"
-        },
-
         "TAA Resolve Shader":
         {
             "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
@@ -68,10 +62,23 @@
             "Pixel Shader File": "assets/system/shaders/DirectX/FinalComposePS.hlsl"
         },
 
+        "Debug Primitives Shader":
+        {
+            "Vertex Shader File": "assets/system/shaders/DirectX/DebugLinesVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/DebugLinesPS.hlsl"
+        },
+
         "Probe Debug Shader":
         {
             "Vertex Shader File": "assets/system/shaders/DirectX/ProbeDebugVS.hlsl",
             "Pixel Shader File": "assets/system/shaders/DirectX/ProbeDebugPS.hlsl"
+        },
+
+        "Probe Debug Rays Shader":
+        {
+            "Defines": "#define DEBUG_PROBE_RAYS",
+            "Vertex Shader File": "assets/system/shaders/DirectX/DebugLinesVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/DebugLinesPS.hlsl"
         },
 
         "Probe Trace Shader":

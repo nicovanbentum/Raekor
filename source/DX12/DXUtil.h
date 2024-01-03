@@ -59,14 +59,15 @@ inline void gThrowIfFailed(xess_result_t inErrCode)
 }
 
 
-inline const char* gGetDebugName(ID3D12Resource* inResource)
+inline std::string gGetDebugName(ID3D12Resource* inResource)
 {
-    const char* name = nullptr;
+    char name[1024];
     uint32_t size = 0;
-    inResource->GetPrivateData(WKPDID_D3DDebugObjectName, &size, nullptr);
-    inResource->GetPrivateData(WKPDID_D3DDebugObjectName, &size, (void*)name);
 
-    return name;
+    inResource->GetPrivateData(WKPDID_D3DDebugObjectName, &size, nullptr);
+    inResource->GetPrivateData(WKPDID_D3DDebugObjectName, &size, name);
+
+    return std::string(name, size - 1);
 }
 
 

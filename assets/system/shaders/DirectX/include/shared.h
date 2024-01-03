@@ -54,7 +54,7 @@
 #define RT_SHADOWS_PACKED_DIM_X 8   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
 #define RT_SHADOWS_PACKED_DIM_Y 4   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
 
-#define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 1
+#define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 2
 
 struct LineVertex
 {
@@ -145,6 +145,12 @@ struct FrameConstants
     float4x4  mViewProjectionMatrix;
     float4x4  mInvViewProjectionMatrix;
     float4x4  mPrevViewProjectionMatrix;
+};
+
+
+struct DebugPrimitivesRootConstants
+{
+    uint mBufferOffset;
 };
 
 

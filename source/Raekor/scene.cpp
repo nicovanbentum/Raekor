@@ -24,23 +24,15 @@ Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer)
 
 
 
-Entity Scene::PickSpatialEntity(const Ray& inRay)
+Entity Scene::PickSpatialEntity(const Ray& inRay) const
 {
 	auto picked_entity = NULL_ENTITY;
 	auto boxes_hit = std::map<float, Entity> {};
 
 	for (auto [entity, transform, mesh] : Each<Transform, Mesh>())
 	{
-		// convert AABB from local to world space
-		auto world_aabb = std::array<glm::vec3, 2>
-		{
-			transform.worldTransform* glm::vec4(mesh.aabb[0], 1.0),
-				transform.worldTransform* glm::vec4(mesh.aabb[1], 1.0)
-		};
-
-		// check for ray hit
-		const auto bounding_box = BBox3D(mesh.aabb[0], mesh.aabb[1]);
-		const auto hit_result = inRay.HitsOBB(bounding_box, transform.worldTransform);
+		auto oobb = BBox3D(mesh.aabb[0], mesh.aabb[1]);
+		const auto hit_result = inRay.HitsOBB(oobb, transform.worldTransform);
 
 		if (hit_result.has_value())
 			boxes_hit[hit_result.value()] = entity;
@@ -57,7 +49,8 @@ Entity Scene::PickSpatialEntity(const Ray& inRay)
 			const auto v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
 			const auto v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
 
-			const auto hit_result = inRay.HitsTriangle(v0, v1, v2);
+			Vec2 barycentrics;
+			const auto hit_result = inRay.HitsTriangle(v0, v1, v2, barycentrics);
 
 			if (hit_result.has_value())
 			{

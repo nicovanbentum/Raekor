@@ -634,6 +634,30 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice,
 
 
 ////////////////////////////////////////
+/// Debug primitives graphics pass
+////////////////////////////////////////
+struct DebugPrimitivesData
+{
+    RTTI_DECLARE_TYPE(DebugPrimitivesData);
+
+    static inline uint32_t mVertexDataOffset = 0;
+    static inline std::vector<Vec4> mVertexData;
+
+    RenderGraphResourceViewID mRenderTarget;
+    RenderGraphResourceViewID mDepthTarget;
+
+    ComPtr<ID3D12PipelineState> mPipeline;
+};
+
+
+const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Device& inDevice,
+    RenderGraphResourceID inRenderTarget,
+    RenderGraphResourceID inDepthTarget
+);
+
+
+
+////////////////////////////////////////
 /// Pre-ImGui Pass
 ////////////////////////////////////////
 struct PreImGuiData

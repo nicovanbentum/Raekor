@@ -80,7 +80,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	if (ImGui::BeginDragDropTarget())
 	{
 		const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + ( ImGui::GetWindowSize() - size ));
-		const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(mouse_pos.x, mouse_pos.y);
+		const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(GetScene(), mouse_pos.x, mouse_pos.y);
 		const auto picked = Entity(pixel);
 
 		Mesh* mesh = nullptr;
@@ -117,13 +117,36 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImGui::EndDragDropTarget();
 	}
 
+	{
+		for (const auto& [entity, light] : scene.Each<Light>())
+		{
+			AddClickableQuad(viewport, entity, (ImTextureID)GetRenderInterface().GetLightTexture(), light.position, 0.1f);
+		}
+
+		for (const auto& [entity, light, transform] : scene.Each<DirectionalLight, Transform>())
+		{
+			AddClickableQuad(viewport, entity, (ImTextureID)GetRenderInterface().GetLightTexture(), transform.position, 0.1f);
+		}
+	}
+
 	auto pos = ImGui::GetWindowPos();
 	viewport.offset = { pos.x, pos.y };
 
 	if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !( GetActiveEntity() != NULL_ENTITY && ImGuizmo::IsOver(operation) ) && !ImGui::IsAnyItemHovered())
 	{
 		const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + ( ImGui::GetWindowSize() - size ));
-		const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(mouse_pos.x, mouse_pos.y);
+		const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(GetScene(), mouse_pos.x, mouse_pos.y);
+
+		/*float hit_dist = FLT_MAX;
+		Entity hit_entity = NULL_ENTITY;
+
+		Ray ray(viewport, Vec2(mouse_pos.x, mouse_pos.y));
+
+		for (const auto& quad : m_EntityQuads)
+		{
+			Vec2 barycentrics;
+			const auto hit_result = ray.HitsTriangle(quad.mVertices[0], quad.mVertices[1], quad.mVertices[2], barycentrics);
+		}*/
 
 		auto picked = Entity(pixel);
 		if (GetActiveEntity() == picked)
@@ -145,7 +168,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 						const auto v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
 						const auto v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
 
-						const auto hit_result = ray.HitsTriangle(v0, v1, v2);
+						Vec2 barycentrics;
+						const auto hit_result = ray.HitsTriangle(v0, v1, v2, barycentrics);
 
 						if (hit_result.has_value() && hit_result.value() < hit_dist)
 						{
@@ -278,7 +302,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));
 		ImGui::SeparatorText("Viewport Settings");
 
-		ImGui::Checkbox("Show Debug Text", (bool*) &show_debug_text);
+		ImGui::Checkbox("Show Debug Text", (bool*)&show_debug_text);
 
 		auto& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
 		const auto debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();
@@ -532,6 +556,83 @@ void ViewportWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 			}
 		}
 	}
+}
+
+
+void ViewportWidget::AddClickableQuad(const Viewport& inViewport, Entity inEntity, ImTextureID inTexture, Vec3 inPos, float inSize)
+{
+	auto model = Mat4x4(1.0f);
+	model = glm::translate(model, inPos);
+
+	auto view_vector = Vec3(0.0f);
+	view_vector.x = inViewport.GetCamera().GetPosition().x - inPos.x;
+	view_vector.z = inViewport.GetCamera().GetPosition().z - inPos.z;
+
+	const auto look_at_vector = Vec3(0.0f, 0.0f, 1.0f);
+	const auto view_vector_normalized = glm::normalize(view_vector);
+
+	const auto up = glm::cross(look_at_vector, view_vector_normalized);
+	const auto angle = glm::dot(look_at_vector, view_vector_normalized);
+
+	model = glm::rotate(model, acos(angle), up);
+	model = glm::scale(model, Vec3(glm::length(view_vector) * inSize));
+
+	auto vp = inViewport.GetCamera().GetProjection() * inViewport.GetCamera().GetView();
+
+	auto vertices = std::array
+	{
+		Vec4(-0.5f, -0.5f, 0.0f, 1.0f),
+		Vec4(-0.5f,  0.5f, 0.0f, 1.0f),
+		Vec4( 0.5f,  0.5f, 0.0f, 1.0f),
+		Vec4( 0.5f, -0.5f, 0.0f, 1.0f)
+	};
+
+	for (auto& vertex : vertices)
+		vertex = model * vertex;
+
+	const auto frustum = inViewport.GetCamera().GetFrustum();
+
+	int visible_vertices = vertices.size();
+
+	for (const auto& vertex : vertices)
+	{
+		if (!frustum.Contains(vertex))
+			visible_vertices--;
+	}
+
+	if (visible_vertices == 0)
+		return;
+
+	for (const auto& [index, vertex] : gEnumerate(vertices))
+	{
+		vertex = vp * vertex;
+		vertex /= vertex.w;
+
+		vertex.x = ImGui::GetWindowPos().x + ( vertex.x + 1.0f ) * 0.5f * ImGui::GetWindowSize().x;
+		vertex.y = ImGui::GetWindowPos().y + ( 1.0f - vertex.y ) * 0.5f * ImGui::GetWindowSize().y;
+	}
+
+	// Flip the Y uv for OpenGL and Vulkan
+	float y_uv = m_Editor->GetRenderInterface()->GetGraphicsAPI() & GraphicsAPI::DirectX ? 1.0f : 0.0f;
+
+	ImGui::GetWindowDrawList()->AddImageQuad(
+		(void*)( (intptr_t)GetRenderInterface().GetLightTexture() ),
+		ImVec2(vertices[0].x, vertices[0].y),
+		ImVec2(vertices[1].x, vertices[1].y),
+		ImVec2(vertices[2].x, vertices[2].y),
+		ImVec2(vertices[3].x, vertices[3].y),
+		ImVec2(0, y_uv),
+		ImVec2(0, 1 - y_uv),
+		ImVec2(1, 1 - y_uv),
+		ImVec2(1, y_uv)
+	);
+
+	/*ClickableQuad quad = { inEntity };
+
+	for (const auto& [index, vertex] : gEnumerate(vertices))
+		quad.mVertices[index] = model * vertex;
+
+	m_EntityQuads.push_back(quad);*/
 }
 
 

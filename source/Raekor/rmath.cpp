@@ -35,7 +35,7 @@ BBox3D& BBox3D::Transform(const Mat4x4& inTransform)
 
 
 
-Ray::Ray(Viewport& inViewport, Vec2 inCoords)
+Ray::Ray(const Viewport& inViewport, Vec2 inCoords)
 {
 	auto ndc_to_clip = Vec3 {
 	   ( inCoords.x / inViewport.GetRenderSize().x ) * 2.0f - 1.0f,
@@ -170,11 +170,10 @@ std::optional<float> Ray::HitsAABB(const BBox3D& inAABB) const
 }
 
 
-std::optional<float> Ray::HitsTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2) const
+std::optional<float> Ray::HitsTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2, Vec2& outBarycentrics) const
 {
 	float dist;
-	Vec2 bary_pos;
-	bool hit = glm::intersectRayTriangle(m_Origin, m_Direction, inV0, inV1, inV2, bary_pos, dist);
+	bool hit = glm::intersectRayTriangle(m_Origin, m_Direction, inV0, inV1, inV2, outBarycentrics, dist);
 
 	return hit ? std::make_optional(dist) : std::nullopt;
 }
@@ -314,6 +313,20 @@ Frustum::Frustum(const glm::mat4& inViewProjMatrix, bool inShouldNormalize)
 		}
 	}
 }
+
+
+
+bool Frustum::Contains(const Vec3& inPoint) const
+{
+	for (const auto& plane : m_Planes)
+	{
+		if (glm::dot(plane, glm::vec4(inPoint, 1.0f)) < 0.0)
+			return false;
+	}
+
+	return true;
+}
+
 
 
 bool Frustum::ContainsAABB(const BBox3D& inAABB) const

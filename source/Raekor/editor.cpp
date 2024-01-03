@@ -17,10 +17,11 @@
 
 namespace Raekor {
 
-IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer) :
+IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface) :
 	Application(inWindowFlags /* | WindowFlag::BORDERLESS */),
-	m_Scene(inRenderer),
-	m_Physics(inRenderer)
+	m_Scene(inRenderInterface),
+	m_Physics(inRenderInterface),
+	m_RenderInterface(inRenderInterface)
 {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();

@@ -395,11 +395,6 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
 
     for (const auto& [entity, mesh, transform] : scene.Each<Mesh, Transform>())
     {
-        // convert AABB from local to world space
-        std::array<glm::vec3, 2> worldAABB = {
-            transform.worldTransform * glm::vec4(mesh.aabb[0], 1.0),
-            transform.worldTransform * glm::vec4(mesh.aabb[1], 1.0)
-        };
         const auto bounding_box = BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform);
 
         // if the frustrum can't see the mesh's OBB we cull it

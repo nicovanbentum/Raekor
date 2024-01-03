@@ -10,6 +10,7 @@
 #include "Raekor/OS.h"
 #include "Raekor/gui.h"
 #include "Raekor/timer.h"
+#include "Raekor/rmath.h"
 #include "Raekor/primitives.h"
 #include "Raekor/application.h"
 
@@ -431,6 +432,9 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
          // Depth of Field can't run under path tracing, no depth texture available (and we should just do actual depth of field)
         if (m_Settings.mEnableDoF && !m_Settings.mDoPathTrace)
             compose_input = AddDepthOfFieldPass(m_RenderGraph, inDevice, compose_input, depth_texture).mOutputTexture;
+
+        if (m_Settings.mEnableDebugOverlay && !m_Settings.mDoPathTrace)
+            AddDebugOverlayPass(m_RenderGraph, inDevice, compose_input, depth_texture);
     }
     else
     {
@@ -684,6 +688,11 @@ RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer&
     gpu_info.mActiveAPI = "DirectX 12 Ultimate";
 
     SetGPUInfo(gpu_info);
+
+    // Create default textures / assets
+    const auto light_texture_file = TextureAsset::sConvert("assets/system/light.png");
+    m_LightTexture = TextureID(UploadTextureFromAsset(inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file)));
+    m_Renderer.QueueTextureUpload(m_LightTexture, 0, inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file));
 }
 
 
@@ -706,6 +715,13 @@ uint64_t RenderInterface::GetDisplayTexture()
         return m_Device.GetGPUDescriptorHandle(m_Resources.GetTextureView(pre_imgui_pass->GetData().mDisplayTextureSRV)).ptr;
     else
         return uint64_t(TextureID::INVALID);
+}
+
+
+
+uint64_t RenderInterface::GetLightTexture()
+{
+    return m_Device.GetGPUDescriptorHandle(m_LightTexture).ptr;
 }
 
 
@@ -851,12 +867,14 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     bool need_recompile = false;
 
     ImGui::SeparatorText("Renderer Settings");
+    
 
     need_recompile |= ImGui::Checkbox("##pathtracingtoggle", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
 
     ImGui::SameLine();
 
     ImGui::AlignTextToFramePadding();
+
 
     if (ImGui::BeginMenu("Enable Path Tracer"))
     {
@@ -924,6 +942,8 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         ImGui::EndMenu();
     }
 
+    need_recompile |= ImGui::Checkbox("Enable Debug Overlay", (bool*)&m_Renderer.GetSettings().mEnableDebugOverlay);
+    
     ImGui::AlignTextToFramePadding();
 
     if (ImGui::BeginMenu("Debug Settings"))
@@ -1237,6 +1257,110 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
     if (need_recompile)
         m_Renderer.SetShouldResize(true); // call for a resize so the rendergraph gets recompiled (hacky, TODO: FIXME: pls fix)
+}
+
+
+
+uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY)
+{
+    float hit_dist = FLT_MAX;
+    Entity hit_entity = NULL_ENTITY;
+    
+    Ray ray(m_Renderer.GetRenderGraph().GetViewport(), Vec2(inScreenPosX, inScreenPosY));
+    
+    for (const auto& [entity, transform, mesh] : inScene.Each<Transform, Mesh>())
+    {
+        //const auto bounds = BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform);
+
+        //if (bounds.Contains(m_Renderer.GetRenderGraph().GetViewport().GetCamera().GetPosition()))
+        //    continue;
+
+        for (auto i = 0u; i < mesh.indices.size(); i += 3)
+        {
+            const auto v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
+            const auto v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
+            const auto v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
+
+            Vec2 barycentrics;
+            const auto hit_result = ray.HitsTriangle(v0, v1, v2, barycentrics);
+
+            if (hit_result.has_value() && hit_result.value() < hit_dist)
+            {
+                if (hit_result.value() < 0.0f)
+                    continue;
+
+                const auto v0_normal = Vec3(transform.worldTransform * Vec4(mesh.normals[mesh.indices[i]], 1.0));
+                const auto v1_normal = Vec3(transform.worldTransform * Vec4(mesh.normals[mesh.indices[i + 1]], 1.0));
+                const auto v2_normal = Vec3(transform.worldTransform * Vec4(mesh.normals[mesh.indices[i + 2]], 1.0));
+
+                float bary_z = 1.0f - barycentrics.x - barycentrics.y;
+                Vec3 normal = v0_normal * barycentrics.x + v1_normal * barycentrics.y + v2_normal * bary_z;
+
+                if (glm::dot(ray.m_Direction, normal) > 0.0f)
+                    continue;
+
+                hit_dist = hit_result.value();
+                hit_entity = entity;
+            }
+        }
+    }
+
+    return hit_entity;
+}
+
+
+uint32_t Float4ToRGBA8(Vec4 val)
+{
+    uint packed = 0;
+    packed += uint(val.r * 255);
+    packed += uint(val.g * 255) << 8;
+    packed += uint(val.b * 255) << 16;
+    packed += uint(val.a * 255) << 24;
+    return packed;
+}
+
+
+void RenderInterface::AddDebugLine(Vec3 inP1, Vec3 inP2) 
+{
+    Vec4 val = Vec4(1.0f, 0.4f, 0.0f, 1.0f);
+
+    uint packed = 0;
+    packed += uint(val.r * 255);
+    packed += uint(val.g * 255) << 8;
+    packed += uint(val.b * 255) << 16;
+    packed += uint(val.a * 255) << 24;
+
+    DebugPrimitivesData::mVertexData.push_back(Vec4(inP1, std::bit_cast<float>(packed)));
+    DebugPrimitivesData::mVertexData.push_back(Vec4(inP2, std::bit_cast<float>(packed)));
+}
+
+void RenderInterface::AddDebugLineColored(Vec3 inP1, Vec3 inP2, Vec4 inColor)
+{
+    uint packed = 0;
+    packed += uint(inColor.r * 255);
+    packed += uint(inColor.g * 255) << 8;
+    packed += uint(inColor.b * 255) << 16;
+    packed += uint(inColor.a * 255) << 24;
+
+    DebugPrimitivesData::mVertexData.push_back(Vec4(inP1, std::bit_cast<float>( packed )));
+    DebugPrimitivesData::mVertexData.push_back(Vec4(inP2, std::bit_cast<float>( packed )));
+}
+
+
+void RenderInterface::AddDebugBox(Vec3 min, Vec3 max, const Mat4x4& m) 
+{
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
+    AddDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
 }
 
 

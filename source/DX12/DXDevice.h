@@ -162,24 +162,29 @@ public:
     void DestroyBuffer(Device& inDevice);
 
     /*
-        Allocates memory for inStruct and memcpy's it to the mapped buffer. ioOffset contains the offset from the starting pointer.
+        Allocates memory and memcpy's inData to the mapped buffer. ioOffset contains the offset from the starting pointer.
         This function default aligns to 4, so the offset can be used with HLSL byte address buffers directly:
         ByteAddressBuffer buffer;
         T data = buffer.Load<T>(ioOffset);
     */
+    void AllocAndCopy(uint32_t inSize, void* inData, uint32_t& ioOffset, uint32_t inAlignment = sByteAddressBufferAlignment)
+    {
+        const auto size = gAlignUp(inSize, inAlignment);
+        //assert(m_Size + size <= m_TotalCapacity);
+        m_Size += size;
+
+        if (m_Size >= m_TotalCapacity)
+            m_Size = 0;
+
+        memcpy(m_DataPtr + m_Size, inData, inSize);
+        ioOffset = m_Size;
+    }
+
+
     template<typename T>
     void AllocAndCopy(const T& inStruct, uint32_t& ioOffset, uint32_t inAlignment = sByteAddressBufferAlignment)
     {
-        const auto size = gAlignUp(sizeof(T), inAlignment);
-        assert(m_Size + size <= m_TotalCapacity);
-
-        memcpy(m_DataPtr + m_Size, &inStruct, sizeof(T));
-        ioOffset = m_Size;
-
-        m_Size += size;
-
-        if (m_Size == m_TotalCapacity)
-            m_Size = 0;
+        AllocAndCopy(sizeof(T), (void*)&inStruct, ioOffset, inAlignment);
     }
 
     inline BufferID GetBuffer() const { return m_Buffer; }

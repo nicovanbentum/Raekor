@@ -80,6 +80,7 @@ public:
 	virtual uint32_t GetWhiteTexture() const { return m_WhiteTexture; }
 	virtual uint32_t GetBlackTexture() const { return m_BlackTexture; }
 	
+	virtual uint64_t GetLightTexture() { return 0; };
 	virtual uint64_t GetDisplayTexture() = 0;
 
 	virtual uint32_t    GetDebugTextureCount() const = 0;
@@ -90,7 +91,7 @@ public:
 	virtual uint64_t GetImGuiTextureID(uint32_t inHandle) = 0;
 
 	virtual uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) = 0;
-	virtual uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) = 0;
+	virtual uint32_t GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY) = 0;
 
 	virtual void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
 	virtual void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
@@ -108,6 +109,7 @@ public:
 	virtual void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) = 0;
 
 	virtual void AddDebugLine(Vec3 inP1, Vec3 inP2) {}
+	virtual void AddDebugLineColored(Vec3 inP1, Vec3 inP2, Vec4 inColor) {}
 	virtual void AddDebugBox(Vec3 inMin, Vec3 inMax, const Mat4x4& inTransform = Mat4x4(1.0f)) {}
 
 protected:

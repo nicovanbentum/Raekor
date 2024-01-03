@@ -283,8 +283,9 @@ void Renderer::Render(const Application* inApp, const Scene& scene, const Viewpo
 
     // render editor icons
     {
-        const auto timer = RenderPass::ScopedTimer("Icons", m_Icons.get(), !mSettings.disableTiming);
-        m_Icons->Render(scene, viewport, shading_result, m_GBuffer->entityTexture);
+        // temporarily disabled as I'm re-implementing it through ImGui
+        // const auto timer = RenderPass::ScopedTimer("Icons", m_Icons.get(), !mSettings.disableTiming);
+        // m_Icons->Render(scene, viewport, shading_result, m_GBuffer->entityTexture);
     }
 
     // generate downsampled bloom and do ACES tonemapping
@@ -389,15 +390,15 @@ uint64_t Renderer::GetDisplayTexture()
 {
     const auto targets = std::array {
         m_Tonemap->result,
-            m_GBuffer->albedoTexture,
-            m_GBuffer->normalTexture,
-            m_GBuffer->materialTexture,
-            m_GBuffer->velocityTexture,
-            m_ResolveTAA->resultBuffer,
-            m_DeferredShading->result,
-            m_DeferredShading->bloomHighlights,
-            m_Bloom->blurTexture,
-            m_Bloom->bloomTexture,
+        m_GBuffer->albedoTexture,
+        m_GBuffer->normalTexture,
+        m_GBuffer->materialTexture,
+        m_GBuffer->velocityTexture,
+        m_ResolveTAA->resultBuffer,
+        m_DeferredShading->result,
+        m_DeferredShading->bloomHighlights,
+        m_Bloom->blurTexture,
+        m_Bloom->bloomTexture,
     };
 
     assert(targets.size() == sDebugTextureNames.size());

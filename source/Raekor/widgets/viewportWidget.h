@@ -4,6 +4,14 @@
 
 namespace Raekor {
 
+using Entity = uint32_t;
+
+struct ClickableQuad
+{
+	Entity mEntity;
+	std::array<Vec4, 4> mVertices;
+};
+
 class ViewportWidget : public IWidget
 {
 public:
@@ -19,6 +27,8 @@ public:
 	void DisableGizmo() { gizmoEnabled = false; }
 
 protected:
+	void AddClickableQuad(const Viewport& inViewport, Entity inEntity, ImTextureID inTexture, Vec3 inPos, float inSize);
+
 	bool m_Changed = false;
 	float m_TotalTime = 0;
 	uint64_t m_DisplayTexture;
@@ -26,6 +36,7 @@ protected:
 	bool gizmoEnabled = true;
 	bool mouseInViewport = false;
 	ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
+	std::vector<ClickableQuad> m_EntityQuads;
 };
 
 } // raekor

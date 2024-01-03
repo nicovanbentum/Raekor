@@ -24,7 +24,7 @@ public:
 	~Scene() { Clear(); }
 
 	// Spatial entity management
-	Entity PickSpatialEntity(const Ray& inRay);
+	Entity PickSpatialEntity(const Ray& inRay) const;
 	Entity CreateSpatialEntity(const std::string& inName = "");
 	void DestroySpatialEntity(Entity inEntity);
 

@@ -46,7 +46,7 @@ struct BBox3D
 
 struct Ray
 {
-	Ray(Viewport& viewport, Vec2 coords);
+	Ray(const Viewport& viewport, Vec2 coords);
 	Ray(const Vec3& origin, const Vec3& direction);
 
 	Vec3 m_Origin;
@@ -55,7 +55,7 @@ struct Ray
 
 	std::optional<float> HitsOBB(const BBox3D& inOBB, const Mat4x4& modelMatrix) const;
 	std::optional<float> HitsAABB(const BBox3D& inABB) const;
-	std::optional<float> HitsTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2) const;
+	std::optional<float> HitsTriangle(const Vec3& inV0, const Vec3& inV1, const Vec3& inV2, Vec2& outBarycentrics) const;
 	std::optional<float> HitsSphere(const Vec3& inPosition, float inRadius, float inTmin, float inTmax) const;
 };
 
@@ -74,7 +74,8 @@ struct Frustum
 	Frustum() = default;
 	Frustum(const glm::mat4& inViewProjMatrix, bool inShouldNormalize);
 
-	bool ContainsAABB(const BBox3D& inAABB)const;
+	bool Contains(const Vec3& inPoint) const;
+	bool ContainsAABB(const BBox3D& inAABB) const;
 };
 
 

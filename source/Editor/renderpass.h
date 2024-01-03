@@ -184,10 +184,11 @@ public:
 
     void Render(const Scene& scene, const Viewport& viewport, GLuint screenTexture, GLuint entityTexture);
 
+    static inline GLuint lightTexture = 0;
+
 private:
     GLShader shader;
     GLuint framebuffer;
-    GLuint lightTexture;
     GLuint uniformBuffer;
 };
 

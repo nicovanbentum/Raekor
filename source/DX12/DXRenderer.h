@@ -12,6 +12,7 @@
 namespace Raekor {
 
 class Application;
+class Scene;
 
 }
 
@@ -48,6 +49,7 @@ private:
         int& mEnableDDGI         = g_CVars.Create("r_enable_ddgi",          1, true);
         int& mDebugProbeRays     = g_CVars.Create("r_Debug_gi_rays",        0, true);
         int& mDebugProbes        = g_CVars.Create("r_debug_gi_probes",      0, true);
+        int& mEnableDebugOverlay = g_CVars.Create("r_enable_debug_overlay", 1);
         int& mEnableRTAO         = g_CVars.Create("r_enable_rtao",          1);
         int& mEnableShadows      = g_CVars.Create("r_enable_shadows",       1);
         int& mEnableReflections  = g_CVars.Create("r_enable_reflections",   1);
@@ -139,14 +141,15 @@ public:
 
     void UpdateGPUStats(Device& inDevice);
 
+    uint64_t GetLightTexture() override;
     uint64_t GetDisplayTexture() override;
+
     uint64_t GetImGuiTextureID(uint32_t inTextureID) override;
 
     virtual uint32_t    GetDebugTextureCount() const override { return DEBUG_TEXTURE_COUNT; }
     virtual const char* GetDebugTextureName(uint32_t inIndex) const;
 
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer) { return 0; }
-    uint32_t GetSelectedEntity(uint32_t inScreenPosX, uint32_t inScreenPosY) override { return NULL_ENTITY; /* TODO: FIXME */ }
 
     void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
     void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) override { /* TODO: FIXME */ }
@@ -159,14 +162,24 @@ public:
 
     uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
 
+    uint32_t GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY) override;
+
     void OnResize(const Viewport& inViewport) override;
     void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) override;
+
+    void AddDebugLine(Vec3 inP1, Vec3 inP2) override;
+    void AddDebugLineColored(Vec3 inP1, Vec3 inP2, Vec4 inColor) override;
+    void AddDebugBox(Vec3 inMin, Vec3 inMax, const Mat4x4& inTransform = Mat4x4(1.0f)) override;
+
+private:
+    TextureID m_LightTexture;
 
 private:
     Device& m_Device;
     Renderer& m_Renderer;
     StagingHeap& m_StagingHeap;
     const RenderGraphResources& m_Resources;
+
 };
 
 

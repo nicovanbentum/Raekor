@@ -113,14 +113,16 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mGBufferShader;
     ShaderProgram mLightingShader;
     ShaderProgram mDownsampleShader;
-    ShaderProgram mDebugLinesShader;
     ShaderProgram mTAAResolveShader;
     ShaderProgram mFinalComposeShader;
+    ShaderProgram mDebugPrimitivesShader;
 
     ShaderProgram mSkyCubeShader;
     ShaderProgram mConvolveCubeShader;
 
     ShaderProgram mProbeDebugShader;
+    ShaderProgram mProbeDebugRaysShader;
+
     ShaderProgram mProbeTraceShader;
     ShaderProgram mProbeSampleShader;
     ShaderProgram mProbeUpdateDepthShader;
@@ -146,6 +148,7 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mBloomUpSampleShader;
     ShaderProgram mBloomDownsampleShader;
     ShaderProgram mChromaticAberrationShader;
+
 
     bool HotLoad(Device& inDevice);
     bool CompilePSOs(Device& inDevice);

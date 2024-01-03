@@ -15,7 +15,7 @@ class IEditor : public Application
 public:
 	friend class IWidget;
 
-	IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderer);
+	IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface);
 	virtual ~IEditor();
 
 	void OnUpdate(float dt) override;
@@ -35,6 +35,7 @@ protected:
 	Assets m_Assets;
 	Physics m_Physics;
 	Widgets m_Widgets;
+	IRenderInterface* m_RenderInterface;
 
 	bool m_ViewportChanged = false;
 	void* m_CompilerWindow = nullptr;

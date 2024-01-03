@@ -34,7 +34,6 @@ void GLApp::OnUpdate(float inDeltaTime)
         {
             const auto& light = m_Scene.Get<Light>(m_ActiveEntity);
 
-            
             if (light.type == LIGHT_TYPE_SPOT)
             {
                 Vec3 pos = light.position;
@@ -46,7 +45,7 @@ void GLApp::OnUpdate(float inDeltaTime)
                 // Calculate cone radius and step angle
                 float half_angle = light.attributes.z / 2.0f;
                 float cone_radius = light.attributes.x * tan(half_angle);
-                
+
                 constexpr auto steps = 16u;
                 constexpr auto step_angle = glm::radians(360.0f / float(steps));
 
@@ -56,9 +55,9 @@ void GLApp::OnUpdate(float inDeltaTime)
                 {
                     float angle = step_angle * i;
                     Vec3 circle_point = target + cone_radius * ( cos(angle) * right + sin(angle) * up );
-                    
+
                     m_Renderer.AddDebugLine(pos, circle_point);
-                    
+
                     if (i > 0)
                         m_Renderer.AddDebugLine(last_point, circle_point);
 
@@ -72,7 +71,7 @@ void GLApp::OnUpdate(float inDeltaTime)
 
                 constexpr float step_size = M_PI * 2.0f / 32.0f;
 
-                auto DrawDebugCircle = [&](Vec3 inDir, Vec3 inAxis) 
+                auto DrawDebugCircle = [&](Vec3 inDir, Vec3 inAxis)
                 {
                     Vec3 point = inDir;
 
@@ -96,7 +95,56 @@ void GLApp::OnUpdate(float inDeltaTime)
                 DrawDebugCircle(Vec3(0, 0, 1), Vec3(1, 0, 0));
             }
         }
+        else if (m_Scene.Has<DirectionalLight>(GetActiveEntity()))
+        {
+            const DirectionalLight& light = m_Scene.Get<DirectionalLight>(m_ActiveEntity);
+            Vec3 direction = Vec3(light.GetDirection());
+
+            if (m_Scene.Has<Transform>(GetActiveEntity()))
+            {
+                const Transform& transform = m_Scene.Get<Transform>(GetActiveEntity());
+
+                constexpr float cWidth = 0.6f;
+                constexpr float cLength = 2.4f;
+
+                Vec3 start_point = transform.GetPositionWorldSpace();
+                Vec3 end_point = start_point + direction * 4.0f;
+
+                for (int i = 0; i < 4; i++)
+                {
+                    constexpr float up_dirs[4] = { 1.0f, -1.0f, 0.0f, 0.0f };
+                    constexpr float right_dirs[4] = { 0.0f, 0.0f, -1.0f, 1.0f };
+
+
+                    Vec3 right = glm::normalize(glm::cross(direction, glm::vec3(0.0f, 1.0f, 0.0f)));
+                    Vec3 up = glm::normalize(glm::cross(right, direction));
+
+                    up = up * up_dirs[i];
+                    right = right * right_dirs[i];
+
+                    Vec3 curr_point = start_point;
+                    Vec3 next_point = start_point + up * cWidth + right * cWidth;
+                    m_Renderer.AddDebugLine(curr_point, next_point);
+
+                    curr_point = next_point;
+                    next_point = curr_point + direction * cLength;
+                    m_Renderer.AddDebugLine(curr_point, next_point);
+
+
+                    curr_point = next_point;
+                    next_point = curr_point + up * cWidth + right * cWidth;
+                    m_Renderer.AddDebugLine(curr_point, next_point);
+
+                    m_Renderer.AddDebugLine(next_point, end_point);
+                }
+            }
+        }
     }
+
+    constexpr auto cInfiniteLineLength = 4096.0f;
+    m_Renderer.AddDebugLine(Vec3(-cInfiniteLineLength, 0, 0), Vec3(cInfiniteLineLength, 0, 0));
+    m_Renderer.AddDebugLine(Vec3(0, -cInfiniteLineLength, 0), Vec3(0, cInfiniteLineLength, 0));
+    m_Renderer.AddDebugLine(Vec3(0, 0, -cInfiniteLineLength), Vec3(0, 0, cInfiniteLineLength));
 
     for (const auto& [entity, transform, mesh, soft_body] : m_Scene.Each<Transform, Mesh, SoftBody>())
         m_Renderer.UploadMeshBuffers(entity, mesh);
