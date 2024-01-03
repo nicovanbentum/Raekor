@@ -1270,10 +1270,10 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
     
     for (const auto& [entity, transform, mesh] : inScene.Each<Transform, Mesh>())
     {
-        //const auto bounds = BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform);
+        const auto bounds = BBox3D(mesh.aabb[0], mesh.aabb[1]);
 
-        //if (bounds.Contains(m_Renderer.GetRenderGraph().GetViewport().GetCamera().GetPosition()))
-        //    continue;
+        if (!ray.HitsOBB(bounds, transform.worldTransform))
+            continue;
 
         for (auto i = 0u; i < mesh.indices.size(); i += 3)
         {

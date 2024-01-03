@@ -135,20 +135,41 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !( GetActiveEntity() != NULL_ENTITY && ImGuizmo::IsOver(operation) ) && !ImGui::IsAnyItemHovered())
 	{
 		const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + ( ImGui::GetWindowSize() - size ));
+
 		const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(GetScene(), mouse_pos.x, mouse_pos.y);
 
-		/*float hit_dist = FLT_MAX;
+		float hit_dist = FLT_MAX;
 		Entity hit_entity = NULL_ENTITY;
 
 		Ray ray(viewport, Vec2(mouse_pos.x, mouse_pos.y));
 
 		for (const auto& quad : m_EntityQuads)
 		{
-			Vec2 barycentrics;
-			const auto hit_result = ray.HitsTriangle(quad.mVertices[0], quad.mVertices[1], quad.mVertices[2], barycentrics);
-		}*/
+			{
+				Vec2 barycentrics;
+				const auto hit_result = ray.HitsTriangle(quad.mVertices[0], quad.mVertices[1], quad.mVertices[2], barycentrics);
 
-		auto picked = Entity(pixel);
+				if (hit_result.has_value() && hit_result.value() < hit_dist)
+				{
+					hit_dist = hit_result.value();
+					hit_entity = quad.mEntity;
+				}
+			}
+
+			{
+				Vec2 barycentrics;
+				const auto hit_result = ray.HitsTriangle(quad.mVertices[0], quad.mVertices[2], quad.mVertices[3], barycentrics);
+
+				if (hit_result.has_value() && hit_result.value() < hit_dist)
+				{
+					hit_dist = hit_result.value();
+					hit_entity = quad.mEntity;
+				}
+			}
+		}
+
+		auto picked = hit_entity == NULL_ENTITY ? Entity(pixel) : hit_entity;
+
 		if (GetActiveEntity() == picked)
 		{
 			if (auto soft_body = scene.GetPtr<SoftBody>(GetActiveEntity()))
@@ -195,6 +216,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		else
 			SetActiveEntity(picked);
 	}
+
+	m_EntityQuads.clear();
 
 	if (GetActiveEntity() != NULL_ENTITY && scene.Has<Transform>(GetActiveEntity()) && gizmoEnabled)
 	{
@@ -590,6 +613,8 @@ void ViewportWidget::AddClickableQuad(const Viewport& inViewport, Entity inEntit
 	for (auto& vertex : vertices)
 		vertex = model * vertex;
 
+	const auto ws_quad = ClickableQuad { inEntity, vertices };
+
 	const auto frustum = inViewport.GetCamera().GetFrustum();
 
 	int visible_vertices = vertices.size();
@@ -627,12 +652,7 @@ void ViewportWidget::AddClickableQuad(const Viewport& inViewport, Entity inEntit
 		ImVec2(1, y_uv)
 	);
 
-	/*ClickableQuad quad = { inEntity };
-
-	for (const auto& [index, vertex] : gEnumerate(vertices))
-		quad.mVertices[index] = model * vertex;
-
-	m_EntityQuads.push_back(quad);*/
+	m_EntityQuads.push_back(ws_quad);
 }
 
 

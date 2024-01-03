@@ -141,10 +141,12 @@ void GLApp::OnUpdate(float inDeltaTime)
         }
     }
 
+#if 0
     constexpr auto cInfiniteLineLength = 4096.0f;
     m_Renderer.AddDebugLine(Vec3(-cInfiniteLineLength, 0, 0), Vec3(cInfiniteLineLength, 0, 0));
     m_Renderer.AddDebugLine(Vec3(0, -cInfiniteLineLength, 0), Vec3(0, cInfiniteLineLength, 0));
     m_Renderer.AddDebugLine(Vec3(0, 0, -cInfiniteLineLength), Vec3(0, 0, cInfiniteLineLength));
+#endif
 
     for (const auto& [entity, transform, mesh, soft_body] : m_Scene.Each<Transform, Mesh, SoftBody>())
         m_Renderer.UploadMeshBuffers(entity, mesh);
