@@ -38,6 +38,8 @@ public:
 	void UpdateAnimations(float inDeltaTime);
 	void UpdateNativeScripts(float inDeltaTime);
 
+	void RenderDebugShapes(Entity inEntity) const;
+
 	// Entity operations
 	Entity Clone(Entity inEntity);
 

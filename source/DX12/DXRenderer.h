@@ -167,10 +167,6 @@ public:
     void OnResize(const Viewport& inViewport) override;
     void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) override;
 
-    void AddDebugLine(Vec3 inP1, Vec3 inP2) override;
-    void AddDebugLineColored(Vec3 inP1, Vec3 inP2, Vec4 inColor) override;
-    void AddDebugBox(Vec3 inMin, Vec3 inMax, const Mat4x4& inTransform = Mat4x4(1.0f)) override;
-
 private:
     TextureID m_LightTexture;
 

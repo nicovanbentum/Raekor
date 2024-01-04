@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "renderpass.h"
 #include "Raekor/scene.h"
+#include "Raekor/debug.h"
 #include "Raekor/rmath.h"
 #include "Raekor/camera.h"
 
@@ -1186,7 +1187,8 @@ DebugLines::DebugLines()
 
 void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint depthAttachment)
 {
-    if (points.size() < 2) return;
+    if (gDebugRenderer.GetLinesToRender().IsEmpty())
+        return;
 
     glEnable(GL_LINE_SMOOTH);
 
@@ -1203,20 +1205,24 @@ void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
 
-    if (vertexBuffer) glDeleteBuffers(1, &vertexBuffer);
+
+
+    if (vertexBuffer) 
+        glDeleteBuffers(1, &vertexBuffer);
+
+    Slice<Vec4> lines = gDebugRenderer.GetLinesToRender();
+
     glCreateBuffers(1, &vertexBuffer);
-    glNamedBufferData(vertexBuffer, sizeof(float) * points.size() * 3, glm::value_ptr(points[0]), GL_STATIC_DRAW);
+    glNamedBufferData(vertexBuffer, lines.SizeInBytes(), lines.GetPtr(), GL_STATIC_DRAW);
 
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (const void*)( (intptr_t)0 ));
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (const void*)( (intptr_t)0 ));
 
-    glDrawArrays(GL_LINES, 0, (GLsizei)points.size());
+    glDrawArrays(GL_LINES, 0, lines.Length());
 
     glDisable(GL_LINE_SMOOTH);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    points.clear();
 }
 
 

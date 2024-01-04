@@ -167,7 +167,7 @@ public:
         ByteAddressBuffer buffer;
         T data = buffer.Load<T>(ioOffset);
     */
-    void AllocAndCopy(uint32_t inSize, void* inData, uint32_t& ioOffset, uint32_t inAlignment = sByteAddressBufferAlignment)
+    void AllocAndCopy(uint32_t inSize, const void* inData, uint32_t& ioOffset, uint32_t inAlignment = sByteAddressBufferAlignment)
     {
         const auto size = gAlignUp(inSize, inAlignment);
         //assert(m_Size + size <= m_TotalCapacity);

@@ -346,9 +346,7 @@ private:
     GLShader shader;
     GLuint frameBuffer;
     GLuint uniformBuffer;
-
     uint32_t vertexBuffer;
-    std::vector<glm::vec3> points;
 };
 
 

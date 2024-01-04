@@ -22,9 +22,6 @@ public:
     void Render(const Application* inApp, const Scene& inScene, const Viewport& inViewport);
     void CreateRenderTargets(const Viewport& inViewport);
 
-    void AddDebugLine(Vec3 inP1, Vec3 inP2);
-    void AddDebugBox(Vec3 inMin, Vec3 inMax, const Mat4x4& inTransform = Mat4x4(1.0f));
-
     uint64_t GetLightTexture() { return Icons::lightTexture; };
     uint64_t GetDisplayTexture();
     uint64_t GetImGuiTextureID(uint32_t inTextureID) { return inTextureID; }

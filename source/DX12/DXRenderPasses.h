@@ -640,8 +640,8 @@ struct DebugPrimitivesData
 {
     RTTI_DECLARE_TYPE(DebugPrimitivesData);
 
-    static inline uint32_t mVertexDataOffset = 0;
-    static inline std::vector<Vec4> mVertexData;
+    uint32_t mLineVertexDataOffset = 0;
+    uint32_t mTriangleVertexDataOffset = 0;
 
     RenderGraphResourceViewID mRenderTarget;
     RenderGraphResourceViewID mDepthTarget;

@@ -4,6 +4,7 @@
 #include "components.h"
 #include "timer.h"
 #include "async.h"
+#include "debug.h"
 #include "rmath.h"
 #include "script.h"
 #include "systems.h"
@@ -219,6 +220,42 @@ void Scene::UpdateNativeScripts(float inDeltaTime)
 	}
 }
 
+
+void Scene::RenderDebugShapes(Entity inEntity) const
+{
+	// render bounding box for meshes
+	if (Has<Mesh>(inEntity))
+	{
+		const auto& [mesh, transform] = Get<Mesh, Transform>(inEntity);
+		gDebugRenderer.AddLineCube(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
+	}
+	// render debug shape for lights
+	else if (Has<Light>(inEntity))
+	{
+		const Light& light = Get<Light>(inEntity);
+
+		if (light.type == LIGHT_TYPE_SPOT)
+		{
+			gDebugRenderer.AddLineCone(light.position, light.direction, light.attributes.x, light.attributes.z);
+
+		}
+		else if (light.type == LIGHT_TYPE_POINT)
+		{
+			gDebugRenderer.AddLineSphere(light.position, light.attributes.x);
+		}
+	}
+	else if (Has<DirectionalLight>(inEntity))
+	{
+		const DirectionalLight& light = Get<DirectionalLight>(inEntity);
+
+		if (Has<Transform>(inEntity))
+		{
+			const Transform& transform = Get<Transform>(inEntity);
+
+			gDebugRenderer.AddLineArrow(transform.GetPositionWorldSpace(), light.GetDirection(), 0.6f, 2.4f);
+		}
+	}
+}
 
 
 Entity Scene::Clone(Entity inEntity)

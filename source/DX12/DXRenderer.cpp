@@ -1270,10 +1270,10 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
     
     for (const auto& [entity, transform, mesh] : inScene.Each<Transform, Mesh>())
     {
-        const auto bounds = BBox3D(mesh.aabb[0], mesh.aabb[1]);
+        /*const auto bounds = BBox3D(mesh.aabb[0], mesh.aabb[1]);
 
         if (!ray.HitsOBB(bounds, transform.worldTransform))
-            continue;
+            continue;*/
 
         for (auto i = 0u; i < mesh.indices.size(); i += 3)
         {
@@ -1318,51 +1318,6 @@ uint32_t Float4ToRGBA8(Vec4 val)
     packed += uint(val.a * 255) << 24;
     return packed;
 }
-
-
-void RenderInterface::AddDebugLine(Vec3 inP1, Vec3 inP2) 
-{
-    Vec4 val = Vec4(1.0f, 0.4f, 0.0f, 1.0f);
-
-    uint packed = 0;
-    packed += uint(val.r * 255);
-    packed += uint(val.g * 255) << 8;
-    packed += uint(val.b * 255) << 16;
-    packed += uint(val.a * 255) << 24;
-
-    DebugPrimitivesData::mVertexData.push_back(Vec4(inP1, std::bit_cast<float>(packed)));
-    DebugPrimitivesData::mVertexData.push_back(Vec4(inP2, std::bit_cast<float>(packed)));
-}
-
-void RenderInterface::AddDebugLineColored(Vec3 inP1, Vec3 inP2, Vec4 inColor)
-{
-    uint packed = 0;
-    packed += uint(inColor.r * 255);
-    packed += uint(inColor.g * 255) << 8;
-    packed += uint(inColor.b * 255) << 16;
-    packed += uint(inColor.a * 255) << 24;
-
-    DebugPrimitivesData::mVertexData.push_back(Vec4(inP1, std::bit_cast<float>( packed )));
-    DebugPrimitivesData::mVertexData.push_back(Vec4(inP2, std::bit_cast<float>( packed )));
-}
-
-
-void RenderInterface::AddDebugBox(Vec3 min, Vec3 max, const Mat4x4& m) 
-{
-    AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, min.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(max.x, min.y, max.z, 1.0)), glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(max.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0f)));
-    AddDebugLine(glm::vec3(m * glm::vec4(min.x, max.y, max.z, 1.0)), glm::vec3(m * glm::vec4(min.x, min.y, max.z, 1.0f)));
-}
-
 
 
 TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameCount)

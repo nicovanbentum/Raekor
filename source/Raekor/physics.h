@@ -81,11 +81,9 @@ class ObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
 };
 
 
-class DebugRenderer final : public JPH::DebugRenderer
+class PhysicsDebugRenderer final : public JPH::DebugRenderer
 {
 public:
-	DebugRenderer(IRenderInterface* inRenderer) : m_Renderer(inRenderer) {}
-
 	void DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor);
 	void DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow inCastShadow = ECastShadow::Off);
 
@@ -94,9 +92,6 @@ public:
 
 	void DrawGeometry(JPH::RMat44Arg inModelMatrix, const JPH::AABox& inWorldSpaceBounds, float inLODScaleSq, JPH::ColorArg inModelColor, const GeometryRef& inGeometry, ECullMode inCullMode = ECullMode::CullBackFace, ECastShadow inCastShadow = ECastShadow::On, EDrawMode inDrawMode = EDrawMode::Solid);
 	void DrawText3D(JPH::RVec3Arg inPosition, const std::string_view& inString, JPH::ColorArg inColor = JPH::Color::sWhite, float inHeight = 0.5f) {}
-
-private:
-	IRenderInterface* m_Renderer;
 };
 
 

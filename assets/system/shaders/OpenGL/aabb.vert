@@ -1,5 +1,5 @@
 #version 460 core
-layout (location = 0) in vec3 v_pos;
+layout (location = 0) in vec4 v_pos;
 
 layout(binding = 0) uniform ubo {
     mat4 projection;
@@ -7,5 +7,5 @@ layout(binding = 0) uniform ubo {
 };
 
 void main() {
-    gl_Position = projection * view * vec4(v_pos, 1.0);
+    gl_Position = projection * view * vec4(v_pos.xyz, 1.0);
 }

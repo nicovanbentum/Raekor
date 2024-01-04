@@ -4,6 +4,7 @@
 #include "OS.h"
 #include "rmath.h"
 #include "timer.h"
+#include "debug.h"
 #include "systems.h"
 #include "components.h"
 
@@ -114,6 +115,9 @@ IEditor::~IEditor()
 
 void IEditor::OnUpdate(float inDeltaTime)
 {
+	// clear the debug renderer vertex buffers
+	gDebugRenderer.Reset();
+
 	// check if any BoxCollider's are waiting to be registered
 	m_Physics.OnUpdate(m_Scene);
 
@@ -135,9 +139,12 @@ void IEditor::OnUpdate(float inDeltaTime)
 		m_Scene.UpdateLights();
 	}
 
+	// render any scene dependent debug shapes
+	if (GetActiveEntity() != NULL_ENTITY)
+		m_Scene.RenderDebugShapes(GetActiveEntity());
+
 	// update Skeleton and Animation components
 	m_Scene.UpdateAnimations(inDeltaTime);
-
 
 	// update NativeScript components
 	m_Scene.UpdateNativeScripts(inDeltaTime);

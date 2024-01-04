@@ -27,6 +27,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	auto& viewport = m_Editor->GetViewport();
 
 	static auto& show_debug_text = g_CVars.Create("r_show_debug_text", 1, IF_DEBUG_ELSE(true, false));
+	static auto& show_debug_icons = g_CVars.Create("r_show_debug_icons", 1, IF_DEBUG_ELSE(true, false));
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2, 2));
 	const auto flags = ImGuiWindowFlags_AlwaysAutoResize |
@@ -117,6 +118,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImGui::EndDragDropTarget();
 	}
 
+	if (show_debug_icons) 
 	{
 		for (const auto& [entity, light] : scene.Each<Light>())
 		{
@@ -145,20 +147,10 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		for (const auto& quad : m_EntityQuads)
 		{
+			for (int i = 0; i < 2; i++)
 			{
 				Vec2 barycentrics;
-				const auto hit_result = ray.HitsTriangle(quad.mVertices[0], quad.mVertices[1], quad.mVertices[2], barycentrics);
-
-				if (hit_result.has_value() && hit_result.value() < hit_dist)
-				{
-					hit_dist = hit_result.value();
-					hit_entity = quad.mEntity;
-				}
-			}
-
-			{
-				Vec2 barycentrics;
-				const auto hit_result = ray.HitsTriangle(quad.mVertices[0], quad.mVertices[2], quad.mVertices[3], barycentrics);
+				const auto hit_result = ray.HitsTriangle(quad.mVertices[0], quad.mVertices[1 + i], quad.mVertices[2 + i], barycentrics);
 
 				if (hit_result.has_value() && hit_result.value() < hit_dist)
 				{
@@ -326,6 +318,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImGui::SeparatorText("Viewport Settings");
 
 		ImGui::Checkbox("Show Debug Text", (bool*)&show_debug_text);
+
+		ImGui::Checkbox("Show Debug Icons", (bool*)&show_debug_icons);
 
 		auto& current_debug_texture = m_Editor->GetRenderInterface()->GetSettings().mDebugTexture;
 		const auto debug_texture_count = m_Editor->GetRenderInterface()->GetDebugTextureCount();

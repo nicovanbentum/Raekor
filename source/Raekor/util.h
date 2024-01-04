@@ -241,6 +241,7 @@ public:
 
     bool IsEmpty() const { return start == nullptr || length == 0; }
     uint64_t Length() const { return length; }
+    uint64_t SizeInBytes() const { return length * sizeof(T); }
 
     const T* GetPtr() const { return start; }
 

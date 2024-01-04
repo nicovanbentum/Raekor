@@ -2,6 +2,7 @@
 #include "DXRenderPasses.h"
 #include "DXShader.h"
 #include "Raekor/timer.h"
+#include "Raekor/debug.h"
 #include "Raekor/primitives.h"
 
 namespace Raekor::DX12 {
@@ -1822,16 +1823,18 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
     },
     [&inRenderGraph](DebugPrimitivesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const auto data_ptr  = inData.mVertexData.data();
-        const auto data_size = inData.mVertexData.size() * sizeof(Vec4);
+        const auto line_vertices = gDebugRenderer.GetLinesToRender();
 
-        inRenderGraph.GetPerPassAllocator().AllocAndCopy(data_size, data_ptr, inData.mVertexDataOffset);
+        if (line_vertices.IsEmpty())
+            return;
+
+        inRenderGraph.GetPerPassAllocator().AllocAndCopy(line_vertices.SizeInBytes(), line_vertices.GetPtr(), inData.mLineVertexDataOffset);
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
-        inCmdList.PushGraphicsConstants(DebugPrimitivesRootConstants { .mBufferOffset = inData.mVertexDataOffset });
+        inCmdList.PushGraphicsConstants(DebugPrimitivesRootConstants { .mBufferOffset = inData.mLineVertexDataOffset });
 
         inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-        inCmdList->DrawInstanced(inData.mVertexData.size(), 1, 0, 0);
+        inCmdList->DrawInstanced(line_vertices.Length(), 1, 0, 0);
 
         // restore triangle state for other passes
         inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
