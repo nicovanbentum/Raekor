@@ -53,8 +53,8 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 
     gThrowIfFailed(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m_Device)));
     
-    const static bool disable_dlss = OS::sCheckCommandLineOption("-disable_dlss");
-    if (!disable_dlss)
+    const static bool enable_dlss = OS::sCheckCommandLineOption("-enable_dlss");
+    if (enable_dlss)
     {
         std::wstring temp_path = fs::temp_directory_path().wstring();
 
@@ -273,7 +273,7 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc)
         case Texture::SHADER_READ_WRITE:
         {
             initial_state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
         } break;
     }
 
@@ -727,6 +727,8 @@ DescriptorID Device::CreateDepthStencilView(D3D12ResourceRef inResource, const D
 
 DescriptorID Device::CreateRenderTargetView(D3D12ResourceRef inResource, const D3D12_RENDER_TARGET_VIEW_DESC* inDesc)
 {
+    assert(inResource->GetDesc().Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV];
     DescriptorID descriptor = heap.Add(inResource);
     Timer timer;

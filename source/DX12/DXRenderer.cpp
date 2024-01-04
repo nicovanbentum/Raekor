@@ -4,6 +4,8 @@
 #include "shared.h"
 #include "DXScene.h"
 #include "DXShader.h"
+#include "DXUpscaler.h"
+#include "DXRayTracing.h"
 #include "DXRenderGraph.h"
 #include "DXRenderPasses.h"
 
@@ -101,18 +103,34 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
 
     m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
 
-
-    if (!m_Settings.mEnableTAA && m_Settings.mUpscaler != UPSCALER_NONE && m_Settings.mUpscaleQuality < UPSCALER_QUALITY_COUNT)
+    if (!m_Settings.mEnableTAA && m_Upscaler.GetActiveUpscaler() != UPSCALER_NONE && m_Upscaler.GetActiveUpscalerQuality() < UPSCALER_QUALITY_COUNT)
     {
-        inViewport.SetRenderSize(Upscaler::sGetRenderResolution(inViewport.GetDisplaySize(), EUpscalerQuality(m_Settings.mUpscaleQuality)));
+        inViewport.SetRenderSize(Upscaler::sGetRenderResolution(inViewport.GetDisplaySize(), m_Upscaler.GetActiveUpscalerQuality()));
 
         auto upscale_init_success = true;
 
-        switch (m_Settings.mUpscaler)
+        switch (m_Upscaler.GetActiveUpscaler())
         {
-            case UPSCALER_FSR:  upscale_init_success = InitFSR(inDevice,  inViewport); break;
-            case UPSCALER_DLSS: upscale_init_success = InitDLSS(inDevice, inViewport); break;
-            case UPSCALER_XESS: upscale_init_success = InitXeSS(inDevice, inViewport); break;
+            case UPSCALER_FSR:
+            {
+                upscale_init_success = m_Upscaler.InitFSR(inDevice, inViewport);
+            } break;
+
+            case UPSCALER_DLSS: 
+            {
+                auto& cmd_list = StartSingleSubmit();
+
+                upscale_init_success = m_Upscaler.InitDLSS(inDevice, inViewport, cmd_list);
+
+                FlushSingleSubmit(inDevice, cmd_list);
+
+            } break;
+
+            case UPSCALER_XESS: 
+            {
+                upscale_init_success = m_Upscaler.InitXeSS(inDevice, inViewport);;
+            } break;
+
             default: break;
         }
 
@@ -195,7 +213,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     const auto jitter_y = -2.0f * jitter_offset_y / (float)m_RenderGraph.GetViewport().GetRenderSize().y;
     const auto jitter_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(jitter_x, jitter_y, 0));
     
-    const auto enable_jitter = m_Settings.mEnableTAA || m_Settings.mUpscaler;
+    const auto enable_jitter = m_Settings.mEnableTAA || m_Upscaler.GetActiveUpscaler();
     auto final_proj_matrix = enable_jitter ? jitter_matrix * camera.GetProjection() : camera.GetProjection();
 
     // Update all the frame constants and copy it in into the GPU ring buffer
@@ -402,21 +420,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         {
             compose_input = AddTAAResolvePass(m_RenderGraph, inDevice, gbuffer_data, light_data.mOutputTexture, m_FrameCounter).mOutputTexture;
         }
-        else
-        {
-            switch (m_Settings.mUpscaler)
-            {
-                case UPSCALER_FSR:
-                    compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Fsr2Context, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
-                    break;
-                case UPSCALER_DLSS:
-                    compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_DLSSHandle, m_DLSSParams, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
-                    break;
-                case UPSCALER_XESS:
-                    compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_XeSSContext, light_data.mOutputTexture, gbuffer_data).mOutputTexture;
-                    break;
-            }
-        }
+          
     }
 
     auto bloom_output = compose_input;
@@ -452,6 +456,25 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
         }
 
         bloom_output = compose_input;
+    }
+
+    if (!m_Settings.mEnableTAA)
+    {
+        switch (m_Upscaler.GetActiveUpscaler())
+        {
+            case UPSCALER_FSR:
+                if (auto data = m_RenderGraph.GetPass<GBufferData>())
+                    compose_input = AddFsrPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, data->GetData()).mOutputTexture;
+                    break;
+            case UPSCALER_DLSS:
+                if (auto data = m_RenderGraph.GetPass<GBufferData>())
+                    compose_input = AddDLSSPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, data->GetData()).mOutputTexture;
+                    break;
+            case UPSCALER_XESS:
+                if (auto data = m_RenderGraph.GetPass<GBufferData>())
+                    compose_input = AddXeSSPass(m_RenderGraph, inDevice, m_Upscaler, compose_input, data->GetData()).mOutputTexture;
+                    break;
+        }
     }
 
     const auto& compose_data = AddComposePass(m_RenderGraph, inDevice, bloom_output, compose_input);
@@ -519,153 +542,6 @@ void Renderer::WaitForIdle(Device& inDevice)
 
 
 
-bool Renderer::InitFSR(Device& inDevice, const Viewport& inViewport)
-{
-    auto fsr2_desc = FfxFsr2ContextDescription
-    {
-        .flags = FfxFsr2InitializationFlagBits::FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE,
-        .maxRenderSize = { inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y },
-        .displaySize = { inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y },
-        .device = ffxGetDeviceDX12(*inDevice),
-    };
-
-    m_FsrScratchMemory.resize(ffxFsr2GetScratchMemorySizeDX12());
-    auto ffx_error = ffxFsr2GetInterfaceDX12(&fsr2_desc.callbacks, *inDevice, m_FsrScratchMemory.data(), m_FsrScratchMemory.size());
-    if (ffx_error != FFX_OK)
-        return false;
-
-    ffx_error = ffxFsr2ContextCreate(&m_Fsr2Context, &fsr2_desc);
-    if (ffx_error != FFX_OK)
-        return false;
-
-    return true;
-}
-
-
-
-bool Renderer::DestroyFSR(Device& inDevice)
-{
-    return ffxFsr2ContextDestroy(&m_Fsr2Context) == FFX_OK;
-}
-
-
-
-bool Renderer::InitDLSS(Device& inDevice, const Viewport& inViewport)
-{
-    if (!inDevice.IsDLSSSupported())
-        return false;
-
-    if (m_DLSSParams == nullptr)
-        gThrowIfFailed(NVSDK_NGX_D3D12_GetCapabilityParameters(&m_DLSSParams));
-
-    uint32_t pOutRenderOptimalWidth;
-    uint32_t pOutRenderOptimalHeight;
-    uint32_t pOutRenderMaxWidth;
-    uint32_t pOutRenderMaxHeight;
-    uint32_t pOutRenderMinWidth;
-    uint32_t pOutRenderMinHeight;
-    float pOutSharpnes;
-
-    const auto upscaler_quality = Upscaler::sGetQuality(EUpscalerQuality(m_Settings.mUpscaleQuality));
-
-    auto result = NGX_DLSS_GET_OPTIMAL_SETTINGS(m_DLSSParams, inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y,
-        upscaler_quality, &pOutRenderOptimalWidth, &pOutRenderOptimalHeight, &pOutRenderMaxWidth, &pOutRenderMaxHeight, &pOutRenderMinWidth, &pOutRenderMinHeight, &pOutSharpnes);
-
-    if (result != NVSDK_NGX_Result_Success)
-        return false;
-
-    int DlssCreateFeatureFlags = NVSDK_NGX_DLSS_Feature_Flags_None;
-    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_IsHDR;
-    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_MVLowRes;
-    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_MVJittered;
-    //DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_DepthInverted;
-    //DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_DoSharpening;
-    DlssCreateFeatureFlags |= NVSDK_NGX_DLSS_Feature_Flags_AutoExposure;
-
-    NVSDK_NGX_DLSS_Create_Params DlssCreateParams = {};
-    DlssCreateParams.Feature.InWidth = pOutRenderOptimalWidth;
-    DlssCreateParams.Feature.InHeight = pOutRenderOptimalHeight;
-    DlssCreateParams.Feature.InTargetWidth = inViewport.GetDisplaySize().x;
-    DlssCreateParams.Feature.InTargetHeight = inViewport.GetDisplaySize().y;
-    DlssCreateParams.Feature.InPerfQualityValue = upscaler_quality;
-    DlssCreateParams.InFeatureCreateFlags = DlssCreateFeatureFlags;
-
-    auto& cmd_list = StartSingleSubmit();
-
-    result = NGX_D3D12_CREATE_DLSS_EXT(cmd_list, 1, 1, &m_DLSSHandle, m_DLSSParams, &DlssCreateParams);
-
-    FlushSingleSubmit(inDevice, cmd_list);
-    
-    return result;
-}
-
-
-
-bool Renderer::DestroyDLSS(Device& inDevice)
-{
-    if (NVSDK_NGX_D3D12_ReleaseFeature(m_DLSSHandle) != NVSDK_NGX_Result_Success)
-        return false;
-
-    m_DLSSHandle = nullptr;
-
-    return true;
-}
-
-
-
-bool Renderer::InitXeSS(Device& inDevice, const Viewport& inViewport)
-{
-    auto status = xessD3D12CreateContext(*inDevice, &m_XeSSContext);
-    if (status != XESS_RESULT_SUCCESS)
-        return false;
-
-    if (XESS_RESULT_WARNING_OLD_DRIVER == xessIsOptimalDriver(m_XeSSContext))
-    {
-        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX12 Error", "Please install the latest graphics driver from your vendor for optimal Intel(R) XeSS performance and visual quality", m_Window);
-        return false;
-    }
-
-    const auto display_res = xess_2d_t { inViewport.size.x, inViewport.size.y };
-    xess_properties_t props;
-    status = xessGetProperties(m_XeSSContext, &display_res, &props);
-    if (status != XESS_RESULT_SUCCESS)
-        return false;
-
-    xess_version_t xefx_version;
-    status = xessGetIntelXeFXVersion(m_XeSSContext, &xefx_version);
-    if (status != XESS_RESULT_SUCCESS)
-        return false;
-
-    const auto uav_desc_size = inDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-    xess_d3d12_init_params_t params = {
-        /* Output width and height. */
-        display_res,
-        /* Quality setting */
-        XESS_QUALITY_SETTING_ULTRA_QUALITY,
-        /* Initialization flags. */
-        XESS_INIT_FLAG_ENABLE_AUTOEXPOSURE
-    };
-
-    status = xessD3D12Init(m_XeSSContext, &params);
-    if (status != XESS_RESULT_SUCCESS)
-        return false;
-
-    // Get optimal input resolution
-    auto render_res = xess_2d_t { };
-    status = xessGetInputResolution(m_XeSSContext, &display_res, XESS_QUALITY_SETTING_ULTRA_QUALITY, &render_res);
-    if (status != XESS_RESULT_SUCCESS)
-        return false;
-
-    return true;
-}
-
-
-
-bool Renderer::DestroyXeSS(Device& inDevice)
-{
-    return xessDestroyContext(m_XeSSContext) == XESS_RESULT_SUCCESS;
-}
 
 
 
@@ -867,14 +743,12 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     bool need_recompile = false;
 
     ImGui::SeparatorText("Renderer Settings");
-    
 
     need_recompile |= ImGui::Checkbox("##pathtracingtoggle", (bool*)&m_Renderer.GetSettings().mDoPathTrace);
 
     ImGui::SameLine();
 
     ImGui::AlignTextToFramePadding();
-
 
     if (ImGui::BeginMenu("Enable Path Tracer"))
     {
@@ -907,13 +781,15 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             constexpr auto upscaler_items = std::array { "No Upscaler", "AMD FSR2", "Nvidia DLSS", "Intel XeSS" };
             constexpr auto upscaler_quality_items = std::array { "Native", "Quality", "Balanced", "Performance" };
 
-            if (ImGui::BeginCombo("##Upscaler", upscaler_items[m_Renderer.GetSettings().mUpscaler], ImGuiComboFlags_None))
+            auto& upscaler = m_Renderer.GetUpscaler();
+
+            if (ImGui::BeginCombo("##Upscaler", upscaler_items[upscaler.GetActiveUpscaler()], ImGuiComboFlags_None))
             {
-                for (uint32_t upscaler = 0; upscaler < UPSCALER_COUNT; upscaler++)
+                for (uint32_t upscaler_idx = 0; upscaler_idx < UPSCALER_COUNT; upscaler_idx++)
                 {
-                    if (ImGui::Selectable(upscaler_items[upscaler], m_Renderer.GetSettings().mUpscaler == upscaler))
+                    if (ImGui::Selectable(upscaler_items[upscaler_idx], upscaler.GetActiveUpscaler() == upscaler_idx))
                     {
-                        m_Renderer.GetSettings().mUpscaler = upscaler;
+                        upscaler.SetActiveUpscaler(EUpscaler(upscaler_idx));
                         need_recompile = true;
                     }
                 }
@@ -921,15 +797,15 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                 ImGui::EndCombo();
             }
 
-            if (m_Renderer.GetSettings().mUpscaler != UPSCALER_NONE)
+            if (upscaler.GetActiveUpscaler() != UPSCALER_NONE)
             {
-                if (ImGui::BeginCombo("##UpscalerQuality", upscaler_quality_items[m_Renderer.GetSettings().mUpscaleQuality], ImGuiComboFlags_None))
+                if (ImGui::BeginCombo("##UpscalerQuality", upscaler_quality_items[upscaler.GetActiveUpscalerQuality()], ImGuiComboFlags_None))
                 {
-                    for (uint32_t quality = 0; quality < UPSCALER_QUALITY_COUNT; quality++)
+                    for (uint32_t quality_idx = 0; quality_idx < UPSCALER_QUALITY_COUNT; quality_idx++)
                     {
-                        if (ImGui::Selectable(upscaler_quality_items[quality], m_Renderer.GetSettings().mUpscaleQuality == quality))
+                        if (ImGui::Selectable(upscaler_quality_items[quality_idx], upscaler.GetActiveUpscalerQuality() == EUpscalerQuality(quality_idx)))
                         {
-                            m_Renderer.GetSettings().mUpscaleQuality = quality;
+                            upscaler.SetActiveUpscalerQuality(EUpscalerQuality(quality_idx));
                             need_recompile = true;
                         }
                     }
@@ -1014,7 +890,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
             inApp->LogMessage(std::format("Generating Meshlets took {:.3f} seconds.", timer.GetElapsedTime()));
         }
-
 
         if (ImGui::Button("Save As GraphViz.."))
         {
@@ -1144,7 +1019,6 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         }
 
         ImGui::SliderInt("V-Sync", &m_Renderer.GetSettings().mEnableVsync, 0, 3);
-
 
         ImGui::EndMenu();
     }
@@ -1308,16 +1182,6 @@ uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScr
     return hit_entity;
 }
 
-
-uint32_t Float4ToRGBA8(Vec4 val)
-{
-    uint packed = 0;
-    packed += uint(val.r * 255);
-    packed += uint(val.g * 255) << 8;
-    packed += uint(val.b * 255) << 16;
-    packed += uint(val.a * 255) << 24;
-    return packed;
-}
 
 
 TextureID InitImGui(Device& inDevice, DXGI_FORMAT inRtvFormat, uint32_t inFrameCount)

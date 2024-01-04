@@ -59,8 +59,6 @@ private:
         int& mEnableTAA          = g_CVars.Create("r_enable_taa",           1);
         int& mEnableDoF          = g_CVars.Create("r_enable_dof",           0);
         int& mEnableBloom        = g_CVars.Create("r_enable_bloom",         1);
-        int& mUpscaler           = g_CVars.Create("r_upscaler",             0,   true);
-        int& mUpscaleQuality     = g_CVars.Create("r_upscaler_quality",     0,   true);
         int& mDoPathTrace        = g_CVars.Create("r_path_trace",           0,   true);
         float& mSunConeAngle     = g_CVars.Create("r_sun_cone_angle",       0.f, true);
     } m_Settings;
@@ -81,15 +79,6 @@ public:
     void SetShouldResize(bool inValue) { m_ShouldResize = inValue; }
     void SetShouldCaptureNextFrame(bool inValue) { m_ShouldCaptureNextFrame = inValue; }
 
-    bool InitFSR(Device& inDevice, const Viewport& inViewport);
-    bool DestroyFSR(Device& inDevice);
-
-    bool InitDLSS(Device& inDevice, const Viewport& inViewport);
-    bool DestroyDLSS(Device& inDevice);
-
-    bool InitXeSS(Device& inDevice, const Viewport& inViewport);
-    bool DestroyXeSS(Device& inDevice);
-
     void QueueMeshUpload(Entity inEntity) { m_PendingMeshUploads.push_back(inEntity); }
     void QueueMaterialUpload(Entity inEntity) { m_PendingMaterialUploads.push_back(inEntity); }
 
@@ -98,6 +87,7 @@ public:
 
     SDL_Window*         GetWindow() const       { return m_Window; }
     Settings&           GetSettings()           { return m_Settings; }
+    Upscaler&           GetUpscaler()           { return m_Upscaler; }
     const RenderGraph&  GetRenderGraph() const  { return m_RenderGraph; }
     uint64_t            GetFrameCounter() const { return m_FrameCounter; }
     BackBufferData&     GetBackBufferData()     { return m_BackBufferData[m_FrameIndex]; }
@@ -124,11 +114,7 @@ private:
     BackBufferData              m_BackBufferData[sFrameCount];
     FrameConstants              m_FrameConstants = {};
     GlobalConstants             m_GlobalConstants = {};
-    FfxFsr2Context              m_Fsr2Context;
-    std::vector<uint8_t>        m_FsrScratchMemory;
-    NVSDK_NGX_Handle*           m_DLSSHandle = nullptr;
-    NVSDK_NGX_Parameter*        m_DLSSParams = nullptr;
-    xess_context_handle_t       m_XeSSContext = nullptr;
+    Upscaler                    m_Upscaler;
     RenderGraph                 m_RenderGraph;
 };
 

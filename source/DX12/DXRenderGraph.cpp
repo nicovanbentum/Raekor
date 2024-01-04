@@ -729,6 +729,9 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inF
         renderpass->Execute(m_RenderGraphResources, inCmdList);
 
         renderpass->FlushBarriers(inDevice, inCmdList, renderpass->m_ExitBarriers);
+
+        if (renderpass->IsExternal())
+            inDevice.BindDrawDefaults(inCmdList);
     }
 }
 

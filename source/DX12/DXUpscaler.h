@@ -1,6 +1,10 @@
 #pragma once
 
+#include "DXRenderGraph.h"
+
 namespace Raekor::DX12 {
+
+struct GBufferData;
 
 enum EUpscaler
 {
@@ -21,58 +25,112 @@ enum EUpscalerQuality
     UPSCALER_QUALITY_COUNT
 };
 
-
 class Upscaler
 {
+private:
+    struct Settings
+    {
+        int& mUpscaler       = g_CVars.Create("r_upscaler",         0, true);
+        int& mUpscaleQuality = g_CVars.Create("r_upscaler_quality", 0, true);
+    } m_Settings;
+
 public:
-    struct InitParams
-    {
-        ID3D12Device* mDevice;
-    };
-
-    struct DispatchParams
-    {
-        ID3D12CommandList*  mCommandList;                        
-        ID3D12Resource*     mColorTexture;                              
-        ID3D12Resource*     mDepthTexture;                              
-        ID3D12Resource*     mVelocityTexture;
-        ID3D12Resource*     mOutputTexture;
-        float               mJitterOffsetX;
-        float               mJitterOffsetY;
-        float               mMotionVectorScaleX;
-        float               mMotionVectorScaleY;
-        uint32_t            mRenderSizeX;
-        uint32_t            mRenderSizeY;
-        bool                mEnableSharpening;                   
-        float               mSharpness;                          
-        float               mDeltaTime;                     
-        float               mPreExposure;                        
-        bool                mCameraCut;                              
-        float               mCameraNear;                         
-        float               mCameraFar;                          
-        float               mCameraFovAngleVertical;             
-    };
-
     static UVec2 sGetRenderResolution(UVec2 inDisplayResolution, EUpscalerQuality inQuality);
     static NVSDK_NGX_PerfQuality_Value sGetQuality(EUpscalerQuality inQuality);
 
-    bool Init(const InitParams& inParams);
-    bool Destroy(ID3D12Device* inDevice);
-    void Dispatch(const DispatchParams& inParams);
+    EUpscaler GetActiveUpscaler() const { return EUpscaler(m_Settings.mUpscaler); }
+    void SetActiveUpscaler(EUpscaler inUpscaler) { m_Settings.mUpscaler = inUpscaler; }
+
+    EUpscalerQuality GetActiveUpscalerQuality() const { return EUpscalerQuality(m_Settings.mUpscaleQuality); }
+    void SetActiveUpscalerQuality(EUpscalerQuality inQuality) { m_Settings.mUpscaleQuality = inQuality; }
+
+    bool InitFSR(Device& inDevice, const Viewport& inViewport);
+    bool InitDLSS(Device& inDevice, const Viewport& inViewport, CommandList& inCmdList);
+    bool InitXeSS(Device& inDevice, const Viewport& inViewport);
+    
+    bool DestroyFSR(Device& inDevice);
+    bool DestroyDLSS(Device& inDevice);
+    bool DestroyXeSS(Device& inDevice);
+
+    FfxFsr2Context* GetFsr2Context() { return &m_Fsr2Context; }
+    xess_context_handle_t GetXeSSContext() { return m_XeSSContext; }
+
+    NVSDK_NGX_Handle* GetDLSSHandle() { return m_DLSSHandle; }
+    NVSDK_NGX_Parameter* GetDLSSParams() { return m_DLSSParams; }
 
 private:
-    bool InitFSR(const InitParams& inParams);
-    bool InitDLSS(const InitParams& inParams);
-    bool InitXeSS(const InitParams& inParams);
-
-    bool DestroyFSR(ID3D12Device* inDevice);
-    bool DestroyDLSS(ID3D12Device* inDevice);
-    bool DestroyXeSS(ID3D12Device* inDevice);
-
-    void DispatchFSR(const DispatchParams& inParams);
-    void DispatchDLSS(const DispatchParams& inParams);
-    void DispatchXeSS(const DispatchParams& inParams);
+    FfxFsr2Context          m_Fsr2Context;
+    std::vector<uint8_t>    m_FsrScratchMemory;
+    NVSDK_NGX_Handle*       m_DLSSHandle = nullptr;
+    NVSDK_NGX_Parameter*    m_DLSSParams = nullptr;
+    xess_context_handle_t   m_XeSSContext = nullptr;
 };
 
+
+
+//////////////////////////////////////////
+///// AMD FSR 2.1 Render Pass
+//////////////////////////////////////////
+struct FSR2Data
+{
+    RTTI_DECLARE_TYPE(FSR2Data);
+
+    float mDeltaTime = 0;
+    uint32_t mFrameCounter = 0;
+
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mColorTextureSRV;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mMotionVectorTextureSRV;
+};
+
+const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, Upscaler& inUpscaler,
+    RenderGraphResourceID inColorTexture,
+    const GBufferData& inGBufferData
+);
+
+
+
+//////////////////////////////////////////
+///// Nvidia DLSS Render Pass
+//////////////////////////////////////////
+struct DLSSData
+{
+    RTTI_DECLARE_TYPE(DLSSData);
+
+    uint32_t mFrameCounter = 0;
+  
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mColorTextureSRV;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mMotionVectorTextureSRV;
+};
+
+const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice,  Upscaler& inUpscaler,
+    RenderGraphResourceID inColorTexture,
+    const GBufferData& inGBufferData
+);
+
+
+
+//////////////////////////////////////////
+///// Intel XeSS Render Pass
+//////////////////////////////////////////
+struct XeSSData
+{
+    RTTI_DECLARE_TYPE(XeSSData);
+
+    uint32_t mFrameCounter = 0;
+
+    RenderGraphResourceID mOutputTexture;
+    RenderGraphResourceViewID mColorTextureSRV;
+    RenderGraphResourceViewID mDepthTextureSRV;
+    RenderGraphResourceViewID mMotionVectorTextureSRV;
+};
+
+const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscaler& inUpscaler,
+    RenderGraphResourceID inColorTexture,
+    const GBufferData& inGBufferData
+);
 
 } // namespace raekor

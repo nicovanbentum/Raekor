@@ -16,6 +16,7 @@
 #include "DXUtil.h"
 #include "DXShader.h"
 #include "DXRenderer.h"
+#include "DXRayTracing.h"
 #include "DXRenderGraph.h"
 
 extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension);
