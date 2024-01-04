@@ -267,16 +267,16 @@ bool ObjectLayerPairFilter::ShouldCollide(JPH::ObjectLayer inLayer1, JPH::Object
 
 void PhysicsDebugRenderer::DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor)
 {
-	gDebugRenderer.AddLine(Vec3(inFrom.GetX(), inFrom.GetY(), inFrom.GetZ()), Vec3(inTo.GetX(), inTo.GetY(), inTo.GetZ()));
+	g_DebugRenderer.AddLine(Vec3(inFrom.GetX(), inFrom.GetY(), inFrom.GetZ()), Vec3(inTo.GetX(), inTo.GetY(), inTo.GetZ()));
 }
 
 
 
 void PhysicsDebugRenderer::DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow inCastShadow)
 {
-	gDebugRenderer.AddLine(Vec3(inV1.GetX(), inV1.GetY(), inV1.GetZ()), Vec3(inV2.GetX(), inV2.GetY(), inV2.GetZ()));
-	gDebugRenderer.AddLine(Vec3(inV1.GetX(), inV1.GetY(), inV1.GetZ()), Vec3(inV3.GetX(), inV3.GetY(), inV3.GetZ()));
-	gDebugRenderer.AddLine(Vec3(inV2.GetX(), inV2.GetY(), inV2.GetZ()), Vec3(inV3.GetX(), inV3.GetY(), inV3.GetZ()));
+	g_DebugRenderer.AddLine(Vec3(inV1.GetX(), inV1.GetY(), inV1.GetZ()), Vec3(inV2.GetX(), inV2.GetY(), inV2.GetZ()));
+	g_DebugRenderer.AddLine(Vec3(inV1.GetX(), inV1.GetY(), inV1.GetZ()), Vec3(inV3.GetX(), inV3.GetY(), inV3.GetZ()));
+	g_DebugRenderer.AddLine(Vec3(inV2.GetX(), inV2.GetY(), inV2.GetZ()), Vec3(inV3.GetX(), inV3.GetY(), inV3.GetZ()));
 }
 
 
@@ -285,7 +285,7 @@ void PhysicsDebugRenderer::DrawGeometry(JPH::RMat44Arg inModelMatrix, const JPH:
 	const auto bb_min = inWorldSpaceBounds.GetCenter() - inWorldSpaceBounds.GetExtent() / 2;
 	const auto bb_max = inWorldSpaceBounds.GetCenter() + inWorldSpaceBounds.GetExtent() / 2;
 
-	gDebugRenderer.AddLineCube(Vec3(bb_min.GetX(), bb_min.GetY(), bb_min.GetZ()), Vec3(bb_max.GetX(), bb_max.GetY(), bb_max.GetZ()));
+	g_DebugRenderer.AddLineCube(Vec3(bb_min.GetX(), bb_min.GetY(), bb_min.GetZ()), Vec3(bb_max.GetX(), bb_max.GetY(), bb_max.GetZ()));
 }
 
 } // namespace Raekor

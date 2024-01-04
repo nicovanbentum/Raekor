@@ -36,6 +36,6 @@ private:
     std::vector<Vec4> m_RenderTriangles; // xyz = pos, w = packed color or texture index
 };
 
-extern DebugRenderer gDebugRenderer;
+extern DebugRenderer g_DebugRenderer;
 
 }

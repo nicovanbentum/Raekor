@@ -418,7 +418,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		ImGui::SeparatorText("Camera Settings");
 
 		auto position = viewport.GetCamera().GetPosition();
-		if (ImGui::DragFloat3("Position", glm::value_ptr(position)))
+		if (ImGui::DragFloat3("Position", glm::value_ptr(position), 0.001f, -FLT_MAX, FLT_MAX))
 			viewport.GetCamera().SetPosition(position);
 
 		auto orientation = viewport.GetCamera().GetAngle();

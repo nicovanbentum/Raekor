@@ -116,7 +116,7 @@ IEditor::~IEditor()
 void IEditor::OnUpdate(float inDeltaTime)
 {
 	// clear the debug renderer vertex buffers
-	gDebugRenderer.Reset();
+	g_DebugRenderer.Reset();
 
 	// check if any BoxCollider's are waiting to be registered
 	m_Physics.OnUpdate(m_Scene);

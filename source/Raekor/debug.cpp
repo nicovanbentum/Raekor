@@ -3,7 +3,7 @@
 
 namespace Raekor {
 
-DebugRenderer gDebugRenderer;
+DebugRenderer g_DebugRenderer;
 
 
 uint32_t Float4ToRGBA8(Vec4 val)

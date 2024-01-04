@@ -1823,7 +1823,7 @@ const DebugPrimitivesData& AddDebugOverlayPass(RenderGraph& inRenderGraph, Devic
     },
     [&inRenderGraph](DebugPrimitivesData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const auto line_vertices = gDebugRenderer.GetLinesToRender();
+        const auto line_vertices = g_DebugRenderer.GetLinesToRender();
 
         if (line_vertices.IsEmpty())
             return;

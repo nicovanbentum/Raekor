@@ -227,7 +227,7 @@ void Scene::RenderDebugShapes(Entity inEntity) const
 	if (Has<Mesh>(inEntity))
 	{
 		const auto& [mesh, transform] = Get<Mesh, Transform>(inEntity);
-		gDebugRenderer.AddLineCube(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
+		g_DebugRenderer.AddLineCube(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
 	}
 	// render debug shape for lights
 	else if (Has<Light>(inEntity))
@@ -236,12 +236,12 @@ void Scene::RenderDebugShapes(Entity inEntity) const
 
 		if (light.type == LIGHT_TYPE_SPOT)
 		{
-			gDebugRenderer.AddLineCone(light.position, light.direction, light.attributes.x, light.attributes.z);
+			g_DebugRenderer.AddLineCone(light.position, light.direction, light.attributes.x, light.attributes.z);
 
 		}
 		else if (light.type == LIGHT_TYPE_POINT)
 		{
-			gDebugRenderer.AddLineSphere(light.position, light.attributes.x);
+			g_DebugRenderer.AddLineSphere(light.position, light.attributes.x);
 		}
 	}
 	else if (Has<DirectionalLight>(inEntity))
@@ -252,7 +252,7 @@ void Scene::RenderDebugShapes(Entity inEntity) const
 		{
 			const Transform& transform = Get<Transform>(inEntity);
 
-			gDebugRenderer.AddLineArrow(transform.GetPositionWorldSpace(), light.GetDirection(), 0.6f, 2.4f);
+			g_DebugRenderer.AddLineArrow(transform.GetPositionWorldSpace(), light.GetDirection(), 0.6f, 2.4f);
 		}
 	}
 }

@@ -1187,7 +1187,7 @@ DebugLines::DebugLines()
 
 void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint depthAttachment)
 {
-    if (gDebugRenderer.GetLinesToRender().IsEmpty())
+    if (g_DebugRenderer.GetLinesToRender().IsEmpty())
         return;
 
     glEnable(GL_LINE_SMOOTH);
@@ -1210,7 +1210,7 @@ void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint
     if (vertexBuffer) 
         glDeleteBuffers(1, &vertexBuffer);
 
-    Slice<Vec4> lines = gDebugRenderer.GetLinesToRender();
+    Slice<Vec4> lines = g_DebugRenderer.GetLinesToRender();
 
     glCreateBuffers(1, &vertexBuffer);
     glNamedBufferData(vertexBuffer, lines.SizeInBytes(), lines.GetPtr(), GL_STATIC_DRAW);
