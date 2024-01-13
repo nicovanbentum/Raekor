@@ -115,27 +115,6 @@ const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& 
 );
 
 
-
-////////////////////////////////////////
-/// Meshlets Raster Render Pass
-////////////////////////////////////////
-struct MeshletsRasterData
-{
-    RTTI_DECLARE_TYPE(MeshletsRasterData);
-
-    Entity mActiveEntity = NULL_ENTITY;
-    RenderGraphResourceID mDepthTexture;
-    RenderGraphResourceID mRenderTexture;
-    RenderGraphResourceID mVelocityTexture;
-    ComPtr<ID3D12PipelineState> mPipeline;
-};
-
-const MeshletsRasterData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inDevice,
-    const RayTracedScene& inScene
-);
-
-
-
 ////////////////////////////////////////
 /// GBuffer Render Pass
 ////////////////////////////////////////
@@ -151,6 +130,14 @@ struct GBufferData
 };
 
 const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice,
+    const RayTracedScene& inScene
+);
+
+
+////////////////////////////////////////
+/// Meshlets Raster Render Pass
+////////////////////////////////////////
+const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inDevice,
     const RayTracedScene& inScene
 );
 
@@ -285,6 +272,24 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
     RenderGraphResourceID inInputTexture,
     RenderGraphResourceID mInDepthTexture
 );
+
+
+
+////////////////////////////////////////
+/// Build Luminance Histogram Pass
+////////////////////////////////////////
+struct LuminanceHistogramData 
+{
+    RTTI_DECLARE_TYPE(LuminanceHistogramData);
+
+    RenderGraphResourceID mHistogramBuffer;
+    RenderGraphResourceViewID mInputTextureSRV;
+};
+
+const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGraph, Device& inDevice,
+    RenderGraphResourceID inInputTexture
+);
+
 
 
 ////////////////////////////////////////

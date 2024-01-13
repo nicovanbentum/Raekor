@@ -47,7 +47,7 @@ private:
         int& mEnableVsync        = g_CVars.Create("r_vsync",                1);
         int& mDisableAlbedo      = g_CVars.Create("r_disable_albedo",       0, true);
         int& mEnableDDGI         = g_CVars.Create("r_enable_ddgi",          1, true);
-        int& mDebugProbeRays     = g_CVars.Create("r_Debug_gi_rays",        0, true);
+        int& mDebugProbeRays     = g_CVars.Create("r_debug_gi_rays",        0, true);
         int& mDebugProbes        = g_CVars.Create("r_debug_gi_probes",      0, true);
         int& mEnableDebugOverlay = g_CVars.Create("r_enable_debug_overlay", 1);
         int& mEnableRTAO         = g_CVars.Create("r_enable_rtao",          1);

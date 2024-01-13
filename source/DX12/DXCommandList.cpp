@@ -63,6 +63,40 @@ void CommandList::UpdateTexture(Texture& inDstTexture, uint32_t inDstMip, void* 
 }
 
 
+void CommandList::ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue)
+{
+    auto& cmd_list = m_CommandLists.back();
+
+    const auto resource_ptr = inDevice.GetD3D12Resource(inBuffer);
+    const auto cpu_buffer_handle = inDevice.GetCPUDescriptorHandle(inBuffer);
+    const auto gpu_buffer_handle = inDevice.GetGPUDescriptorHandle(inBuffer);
+
+    const auto temp_descriptor = inDevice.GetClearHeap().Add(inDevice.GetBuffer(inBuffer).GetD3D12Resource());
+    const auto cpu_temp_descriptor_handle = inDevice.GetClearHeap().GetCPUDescriptorHandle(temp_descriptor);
+
+    inDevice->CopyDescriptorsSimple(1, cpu_temp_descriptor_handle, cpu_buffer_handle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    
+    cmd_list->ClearUnorderedAccessViewFloat(gpu_buffer_handle, cpu_temp_descriptor_handle, resource_ptr, glm::value_ptr(inValue), 0, NULL);
+}
+
+
+void CommandList::ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inValue)
+{
+    auto& cmd_list = m_CommandLists.back();
+
+    const auto resource_ptr = inDevice.GetD3D12Resource(inTexture);
+    const auto cpu_buffer_handle = inDevice.GetCPUDescriptorHandle(inTexture);
+    const auto gpu_buffer_handle = inDevice.GetGPUDescriptorHandle(inTexture);
+
+    auto& clear_heap = inDevice.GetClearHeap();
+    const auto temp_descriptor = clear_heap.Add(inDevice.GetTexture(inTexture).GetD3D12Resource());
+    const auto cpu_temp_descriptor_handle = clear_heap.GetCPUDescriptorHandle(temp_descriptor);
+
+    inDevice->CopyDescriptorsSimple(1, cpu_temp_descriptor_handle, cpu_buffer_handle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    
+    cmd_list->ClearUnorderedAccessViewFloat(gpu_buffer_handle, cpu_temp_descriptor_handle, resource_ptr, glm::value_ptr(inValue), 0, NULL);
+}
+
 
 void CommandList::Draw()
 {

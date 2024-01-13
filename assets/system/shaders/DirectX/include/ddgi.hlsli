@@ -166,7 +166,10 @@ float3 DDGISampleIrradiance(float3 inWsPos, float3 inNormal, DDGIData inData) {
         irradiance += float4(sampled_irradiance.rgb * weight, weight);
     }
     
-    return irradiance.rgb / irradiance.w;
+    if (irradiance.w > 0.0)
+        irradiance.rgb /= irradiance.w;
+
+    return irradiance.rgb;
 }
 
 #endif // DDGI_HLSLI

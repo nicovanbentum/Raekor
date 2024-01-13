@@ -61,11 +61,11 @@ public:
 	}
 
 	template<typename T>
-	std::shared_ptr<T> GetWidget()
+	T* GetWidget()
 	{
 		for (const auto& widget : m_Widgets)
 			if (widget->GetRTTI() == gGetRTTI<T>())
-				return std::static_pointer_cast<T>( widget );
+				return std::static_pointer_cast<T>( widget ).get();
 
 		return nullptr;
 	}

@@ -101,6 +101,13 @@ void ConVars::CreateFn(const std::string& name, std::function<void()> fn)
 }
 
 
+ConVar& ConVars::GetCVar(const std::string& inName) 
+{
+	assert(m_ConVars.contains(inName));
+	return m_ConVars[inName]; 
+}
+
+
 bool ConVars::SetValue(const std::string& inName, const std::string& inValue)
 {
 	if (m_ConVars.find(inName) == m_ConVars.end())

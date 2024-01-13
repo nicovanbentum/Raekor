@@ -105,6 +105,8 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
     m_Buffers.Reserve(sMaxResourceHeapSize);
     m_Textures.Reserve(sMaxResourceHeapSize);
 
+    m_ClearHeap.Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, sMaxClearHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+
     m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, sMaxRTVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, sMaxDSVHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate(*this, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, sMaxSamplerHeapSize, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
@@ -509,37 +511,8 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
     {
         case Buffer::SHADER_READ_WRITE:
         {
-            D3D12_UNORDERED_ACCESS_VIEW_DESC desc = { .Format = inDesc.format, .ViewDimension = D3D12_UAV_DIMENSION_BUFFER };
-
-            // Raw buffer
-            if (inDesc.stride == 0 && desc.Format == DXGI_FORMAT_UNKNOWN)
-            {
-                desc.Format = DXGI_FORMAT_R32_TYPELESS;
-                desc.Buffer.Flags |= D3D12_BUFFER_UAV_FLAG_RAW;
-                desc.Buffer.NumElements = inDesc.size / sizeof(uint32_t);
-            }
-            // Structured buffer
-            else if (inDesc.stride > 0) 
-            {
-                desc.Buffer.StructureByteStride = inDesc.stride;
-                desc.Buffer.NumElements = inDesc.size / inDesc.stride;
-            }
-            else
-            {
-                desc.Buffer.NumElements = inDesc.size / ( gBitsPerPixel(desc.Format) / 8 );
-            }
-
-            buffer.m_Descriptor = CreateUnorderedAccessView(buffer.m_Resource, &desc);
-        } break;
-
-        case Buffer::ACCELERATION_STRUCTURE:
-        {
-            D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-            srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-            srv_desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-            srv_desc.RaytracingAccelerationStructure.Location = buffer->GetGPUVirtualAddress();
-
-            buffer.m_Descriptor = CreateShaderResourceView(nullptr, &srv_desc);
+            const auto uav_desc = inDesc.ToUAVDesc();
+            buffer.m_Descriptor = CreateUnorderedAccessView(buffer.m_Resource, &uav_desc);
         } break;
 
         case Buffer::UPLOAD:
@@ -548,18 +521,18 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
         case Buffer::VERTEX_BUFFER:
         case Buffer::SHADER_READ_ONLY:
         case Buffer::INDIRECT_ARGUMENTS:
+        case Buffer::ACCELERATION_STRUCTURE:
         {
-            if (inDesc.stride)
-            {
-                D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-                srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-                srv_desc.Buffer.StructureByteStride = inDesc.stride;
-                srv_desc.Buffer.NumElements = inDesc.size / inDesc.stride;
+            auto srv_desc = inDesc.ToSRVDesc();
+            auto resource = buffer.GetD3D12Resource();
 
-                buffer.m_Descriptor = CreateShaderResourceView(buffer.m_Resource, &srv_desc);
+            if (inDesc.usage == Buffer::ACCELERATION_STRUCTURE)
+            {
+                resource = nullptr; // resource must be NULL, since the resource location comes from a GPUVA in desc 
+                srv_desc.RaytracingAccelerationStructure.Location = buffer->GetGPUVirtualAddress();
             }
 
+            buffer.m_Descriptor = CreateShaderResourceView(resource, &srv_desc);
         } break;
 
         default:
@@ -578,54 +551,25 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
     {
         case Texture::DEPTH_STENCIL_TARGET:
         {
-            assert(gIsDepthFormat(texture.m_Desc.format));
-            texture.m_Descriptor = CreateDepthStencilView(texture.m_Resource, nullptr);
+            const auto dsv_desc = inDesc.ToDSVDesc();
+            texture.m_Descriptor = CreateDepthStencilView(texture.m_Resource, &dsv_desc);
         } break;
 
         case Texture::RENDER_TARGET:
         {
-            D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
-            rtv_desc.Format = inDesc.format;
-            rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-
-            if (inDesc.dimension == Texture::Dimension::TEX_DIM_2D)
-            {
-                rtv_desc.Texture2D.MipSlice = inDesc.baseMip;
-                texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, &rtv_desc);
-            }
+            const auto rtv_desc = inDesc.ToRTVDesc();
+            texture.m_Descriptor = CreateRenderTargetView(texture.m_Resource, &rtv_desc);
         } break;
 
         case Texture::SHADER_READ_ONLY:
         {
-            const auto [r, g, b, a] = gUnswizzleComponents(inDesc.swizzle);
-
-            D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-            srv_desc.Format = gGetDepthFormatSRV(texture.m_Desc.format);
-            srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-            srv_desc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r, g, b, a);
-            srv_desc.Texture2D.MipLevels = -1;
-
-            switch (inDesc.dimension)
-            {
-                case Texture::TEX_DIM_CUBE:
-                {
-                    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-                    srv_desc.TextureCube.MipLevels = -1;
-                    srv_desc.TextureCube.MostDetailedMip = 0;
-                    srv_desc.TextureCube.ResourceMinLODClamp = 0.0f;
-                } break;
-            }
-
+            const auto srv_desc = inDesc.ToSRVDesc();
             texture.m_Descriptor = CreateShaderResourceView(texture.m_Resource, &srv_desc);
         } break;
 
         case Texture::SHADER_READ_WRITE:
         {
-            D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
-            uav_desc.Format = inDesc.format;
-            uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-            uav_desc.Texture2D.MipSlice = inDesc.baseMip;
-
+            const auto uav_desc = inDesc.ToUAVDesc();
             texture.m_Descriptor = CreateUnorderedAccessView(texture.m_Resource, &uav_desc);
         } break;
 
@@ -717,9 +661,13 @@ D3D12_GPU_DESCRIPTOR_HANDLE Device::GetGPUDescriptorHandle(TextureID inID)
 
 DescriptorID Device::CreateDepthStencilView(D3D12ResourceRef inResource, const D3D12_DEPTH_STENCIL_VIEW_DESC* inDesc)
 {
+    assert(gIsDepthFormat(inResource->GetDesc().Format));
+
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV];
     DescriptorID descriptor = heap.Add(inResource);
+
     m_Device->CreateDepthStencilView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor));
+
     return descriptor;
 }
 
@@ -731,8 +679,9 @@ DescriptorID Device::CreateRenderTargetView(D3D12ResourceRef inResource, const D
 
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV];
     DescriptorID descriptor = heap.Add(inResource);
-    Timer timer;
+
     m_Device->CreateRenderTargetView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor));
+
     return descriptor;
 }
 
@@ -742,7 +691,9 @@ DescriptorID Device::CreateShaderResourceView(D3D12ResourceRef inResource, const
 {
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     DescriptorID descriptor = heap.Add(inResource);
+
     m_Device->CreateShaderResourceView(inResource.Get(), inDesc, heap.GetCPUDescriptorHandle(descriptor));
+
     return descriptor;
 }
 
@@ -752,7 +703,9 @@ DescriptorID Device::CreateUnorderedAccessView(D3D12ResourceRef inResource, cons
 {
     DescriptorHeap& heap = m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     DescriptorID descriptor = heap.Add(inResource);
+
     m_Device->CreateUnorderedAccessView(inResource.Get(), nullptr, inDesc, heap.GetCPUDescriptorHandle(descriptor));
+
     return descriptor;
 }
 

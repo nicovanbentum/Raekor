@@ -15,7 +15,6 @@ RTTI_DEFINE_TYPE(GBufferDebugData)          {}
 RTTI_DEFINE_TYPE(GrassData)                 {}
 RTTI_DEFINE_TYPE(DownsampleData)            {}
 RTTI_DEFINE_TYPE(LightingData)              {}
-RTTI_DEFINE_TYPE(MeshletsRasterData)        {}
 RTTI_DEFINE_TYPE(TAAResolveData)            {}
 RTTI_DEFINE_TYPE(DepthOfFieldData)          {}
 RTTI_DEFINE_TYPE(ComposeData)               {}
@@ -26,6 +25,7 @@ RTTI_DEFINE_TYPE(BloomData)                 {}
 RTTI_DEFINE_TYPE(DefaultTexturesData)       {}
 RTTI_DEFINE_TYPE(ClearBufferData)           {}
 RTTI_DEFINE_TYPE(ClearTextureFloatData)     {}
+RTTI_DEFINE_TYPE(LuminanceHistogramData)    {}
 
 /*
 
@@ -59,11 +59,11 @@ const DefaultTexturesData& AddDefaultTexturesPass(RenderGraph& inRenderGraph, De
 const ClearBufferData& AddClearBufferPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inBuffer, uint32_t inClearValue)
 {
     return inRenderGraph.AddComputePass<ClearBufferData>(std::format("CLEAR BUFFER"),
-        [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ClearBufferData& inData)
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ClearBufferData& inData)
     {
         inData.mBufferUAV = ioRGBuilder.Write(inBuffer);
     },
-        [&inDevice, inClearValue](ClearBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice, inClearValue](ClearBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList.PushComputeConstants(ClearBufferRootConstants
         {
@@ -163,10 +163,10 @@ const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& 
 
 
 
-const MeshletsRasterData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
+const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
 {
-    return inRenderGraph.AddGraphicsPass<MeshletsRasterData>("MESHLETS RASTER PASS",
-    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, MeshletsRasterData& inData)
+    return inRenderGraph.AddGraphicsPass<GBufferData>("MESHLETS RASTER PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, GBufferData& inData)
     {
         inData.mRenderTexture = ioRGBuilder.Create(Texture::Desc
         {
@@ -207,20 +207,20 @@ const MeshletsRasterData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Devi
         inData.mPipeline->SetName(L"PSO_MESHLETS_RASTER");
     },
 
-    [&inRenderGraph, &inDevice, &inScene](MeshletsRasterData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         const auto& viewport = inRenderGraph.GetViewport();
         inCmdList.SetViewportAndScissor(viewport);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
 
-        const auto clear_color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        const auto clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         inCmdList->ClearDepthStencilView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mDepthTexture)), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mRenderTexture)), glm::value_ptr(clear_color), 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mVelocityTexture)), glm::value_ptr(clear_color), 0, nullptr);
 
         for (const auto& [entity, mesh] : inScene->Each<Mesh>())
         {
-            auto transform = inScene->GetPtr<Transform>(entity);
+            const auto transform = inScene->GetPtr<Transform>(entity);
             if (!transform)
                 continue;
 
@@ -234,10 +234,10 @@ const MeshletsRasterData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Devi
             //if (material && material->isTransparent)
                 //continue;
 
-            const auto& index_buffer = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
+            const auto& index_buffer  = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
             const auto& vertex_buffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
 
-            const auto index_view = D3D12_INDEX_BUFFER_VIEW
+            const D3D12_INDEX_BUFFER_VIEW index_view =
             {
                 .BufferLocation = index_buffer->GetGPUVirtualAddress(),
                 .SizeInBytes = uint32_t(mesh.indices.size() * sizeof(mesh.indices[0])),
@@ -255,10 +255,11 @@ const MeshletsRasterData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Devi
 
             const auto instance_index = inScene->GetSparseIndex<Mesh>(entity);
 
-            auto root_constants = GbufferRootConstants {
-                .mInstancesBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
-                .mMaterialsBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
-                .mInstanceIndex      = instance_index,
+            const GbufferRootConstants root_constants = 
+            {
+                .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
+                .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
+                .mInstanceIndex   = instance_index
             };
 
             inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
@@ -369,7 +370,8 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             const auto instance_index = inScene->GetSparseIndex<Mesh>(entity);
 
-            auto root_constants = GbufferRootConstants {
+            auto root_constants = GbufferRootConstants 
+            {
                 .mInstancesBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
                 .mMaterialsBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
                 .mInstanceIndex      = instance_index,
@@ -553,7 +555,8 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
         const auto& atomic_buffer = inDevice.GetBuffer(inData.mGlobalAtomicBuffer);
 
-        auto root_constants = SpdRootConstants {
+        auto root_constants = SpdRootConstants 
+        {
             .mNrOfMips = numWorkGroupsAndMips[1],
             .mNrOfWorkGroups = numWorkGroupsAndMips[0],
             .mGlobalAtomicBuffer = inDevice.GetBindlessHeapIndex(atomic_buffer.GetDescriptor()),
@@ -766,6 +769,23 @@ const DepthOfFieldData& AddDepthOfFieldPass(RenderGraph& inRenderGraph, Device& 
 
         inCmdList->SetPipelineState(g_SystemShaders.mDepthOfFieldShader.GetComputePSO());
         inCmdList->Dispatch((viewport.GetDisplaySize().x + 7) / 8, (viewport.GetDisplaySize().y + 7) / 8, 1);
+    });
+}
+
+
+
+const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inInputTexture) 
+{
+    return inRenderGraph.AddComputePass<LuminanceHistogramData>("LUMINANCE HISTOGRAM PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, LuminanceHistogramData& inData)
+    {
+        inData.mHistogramBuffer = ioRGBuilder.Create(Buffer::Describe(DXGI_FORMAT_R32_UINT, 128, Buffer::SHADER_READ_WRITE));
+        inData.mInputTextureSRV = ioRGBuilder.Write(inInputTexture);
+    },
+
+    [](LuminanceHistogramData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+
     });
 }
 
@@ -1021,17 +1041,17 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
 
         inData.mIndexBuffer = ioRGBuilder.Create(Buffer::Desc
         {
-            .size = max_buffer_size,
+            .size   = max_buffer_size,
             .stride = sizeof(uint16_t),
-            .usage = Buffer::Usage::INDEX_BUFFER,
+            .usage  = Buffer::Usage::INDEX_BUFFER,
             .debugName = "IMGUI_INDEX_BUFFER"
         });
 
         inData.mVertexBuffer = ioRGBuilder.Create(Buffer::Desc
         {
-            .size = max_buffer_size,
+            .size   = max_buffer_size,
             .stride = sizeof(ImDrawVert),
-            .usage = Buffer::Usage::VERTEX_BUFFER,
+            .usage  = Buffer::Usage::VERTEX_BUFFER,
             .debugName = "IMGUI_VERTEX_BUFFER"
         });
 
@@ -1093,7 +1113,7 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
         auto barriers = std::array
         {
             D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mIndexBuffer).GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_INDEX_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST)),
-                D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mVertexBuffer).GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST))
+            D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(inDevice.GetBuffer(inData.mVertexBuffer).GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST))
         };
 
         if (index_buffer_size) nr_of_barriers++;
@@ -1167,8 +1187,5 @@ const ImGuiData& AddImGuiPass(RenderGraph& inRenderGraph, Device& inDevice, Stag
         }
     });
 }
-
-
-
 
 } // raekor

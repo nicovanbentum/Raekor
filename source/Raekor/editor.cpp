@@ -59,6 +59,10 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	m_Viewport.GetCamera().Look(Vec2(-1.65f, 0.0f));
 	m_Viewport.SetFieldOfView(68.0f);
 
+	// hide the console window
+	if (!IsDebuggerPresent())
+		ShowWindow(GetConsoleWindow(), SW_HIDE);
+
 	// launch the asset compiler  app to the system tray
 	// Make sure we don't try this when we are the the compiler app 
 	// (I've had to restart my PC 3 times already because of recursive process creation lol)

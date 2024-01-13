@@ -198,6 +198,10 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         backbuffer_data.mDirectCmdList.ReleaseTrackedResources();
     }
 
+    // clear the clear heap every 2 frames, TODO: bad design pls fix
+    if (m_FrameCounter % sFrameCount == 0)
+        inDevice.GetClearHeap().Clear();
+
     // Update the total running time of the application / renderer
     m_ElapsedTime += inDeltaTime;
 
@@ -362,7 +366,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
     }
     else
     {
-        const auto& gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
+        auto gbuffer_data = AddGBufferPass(m_RenderGraph, inDevice, inScene);
         
         depth_texture = gbuffer_data.mDepthTexture;
 
@@ -908,9 +912,9 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     ImGui::AlignTextToFramePadding();
 
 
-    if (ImGui::BeginMenu("Monitor Settings"))
+    if (ImGui::BeginMenu("Window Settings"))
     {
-        ImGui::SeparatorText("Monitor");
+        ImGui::SeparatorText("Window");
 
         static constexpr auto modes = std::array { 0u /* Windowed */, (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP, (uint32_t)SDL_WINDOW_FULLSCREEN };
         static constexpr auto mode_strings = std::array { "Windowed", "Borderless", "Fullscreen" };
@@ -1034,10 +1038,10 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
     ImGui::AlignTextToFramePadding();
 
-    if (ImGui::BeginMenu("Lighting Settings"))
+    if (ImGui::BeginMenu("Ray Tracing Settings"))
     {
         //ImGui::SeparatorText("Settings");
-        ImGui::SeparatorText("Lighting");
+        ImGui::SeparatorText("Ray Tracing");
 
         need_recompile |= ImGui::Checkbox("##Shadowstoggle", (bool*)&m_Renderer.GetSettings().mEnableShadows);
 
@@ -1063,7 +1067,20 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
             ImGui::Checkbox("Visualize Pure White Mode", (bool*)&m_Renderer.GetSettings().mDisableAlbedo);
             need_recompile |= ImGui::Checkbox("Visualize Indirect Diffuse Rays", (bool*)&m_Renderer.GetSettings().mDebugProbeRays);
-            need_recompile |= ImGui::Checkbox("Visualize Indirect Diffuse Probes", (bool*)&m_Renderer.GetSettings().mDebugProbes);
+
+            need_recompile |= ImGui::Checkbox("##ddgiprobedebug", (bool*)&m_Renderer.GetSettings().mDebugProbes);
+            
+            ImGui::SameLine();
+
+            if (ImGui::BeginMenu("Visualize Indirect Diffuse Probes"))
+            {
+                ImGui::SeparatorText("Settings");
+
+                ImGui::DragFloat("Probe Radius", &ProbeTraceData::mDDGIData.mProbeRadius, 0.01f, 0.01f, 10.0f, "%.2f");
+
+                ImGui::EndMenu();
+            }
+
             ImGui::EndMenu();
         }
 

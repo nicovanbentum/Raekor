@@ -369,31 +369,31 @@ const ReflectionsData& AddReflectionsPass(RenderGraph& inRenderGraph, Device& in
 const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
 {
     return inRenderGraph.AddComputePass<PathTraceData>("PATH TRACE PASS",
-        [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, PathTraceData& inData)
+    [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, PathTraceData& inData)
     {
         inData.mOutputTexture = inRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-                .width = inRenderGraph.GetViewport().size.x,
-                .height = inRenderGraph.GetViewport().size.y,
-                .usage = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "RT_PATH_TRACE_RESULT"
-            });
+        {
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "RT_PATH_TRACE_RESULT"
+        });
 
         inData.mAccumulationTexture = inRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-                .width = inRenderGraph.GetViewport().size.x,
-                .height = inRenderGraph.GetViewport().size.y,
-                .usage = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "RT_PATH_TRACE_ACCUMULATION"
-            });
+        {
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "RT_PATH_TRACE_ACCUMULATION"
+        });
 
         inRGBuilder.Write(inData.mOutputTexture);
         inRGBuilder.Write(inData.mAccumulationTexture);
     },
 
-        [&inRenderGraph, &inDevice, &inScene](PathTraceData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inScene](PathTraceData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         auto& viewport = inRenderGraph.GetViewport();
 
@@ -428,33 +428,33 @@ const PathTraceData& AddPathTracePass(RenderGraph& inRenderGraph, Device& inDevi
 const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
 {
     return inRenderGraph.AddComputePass<ProbeTraceData>("GI PROBE TRACE PASS",
-        [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeTraceData& inData)
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeTraceData& inData)
     {
         const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
 
         inData.mRaysDepthTexture = ioRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R16G16_FLOAT,
-                .width = DDGI_RAYS_PER_PROBE,
-                .height = uint32_t(total_probe_count),
-                .usage = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "DDGI TRACE DEPTH"
-            });
+        {
+            .format = DXGI_FORMAT_R16G16_FLOAT,
+            .width  = DDGI_RAYS_PER_PROBE,
+            .height = uint32_t(total_probe_count),
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "DDGI TRACE DEPTH"
+        });
 
         inData.mRaysIrradianceTexture = ioRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R11G11B10_FLOAT,
-                .width = DDGI_RAYS_PER_PROBE,
-                .height = uint32_t(total_probe_count),
-                .usage = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "DDGI TRACE IRRADIANCE"
-            });
+        {
+            .format = DXGI_FORMAT_R11G11B10_FLOAT,
+            .width  = DDGI_RAYS_PER_PROBE,
+            .height = uint32_t(total_probe_count),
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "DDGI TRACE IRRADIANCE"
+        });
 
         ioRGBuilder.Write(inData.mRaysDepthTexture);
         ioRGBuilder.Write(inData.mRaysIrradianceTexture);
     },
 
-        [&inRenderGraph, &inDevice, &inScene](ProbeTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inScene](ProbeTraceData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         if (inScene->Count<Mesh>() == 0)
             return;
@@ -699,26 +699,25 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 
 const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
 {
-    return inRenderGraph.AddGraphicsPass<ProbeDebugRaysData>("DEBUG LINES PASS",
+    return inRenderGraph.AddGraphicsPass<ProbeDebugRaysData>("GI PROBE DEBUG RAYS PASS",
 
         [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugRaysData& inData)
     {
         inData.mVertexBuffer = ioRGBuilder.Create(Buffer::Desc
-            {
-                .size = sizeof(float4) * UINT16_MAX,
-                .stride = sizeof(float4),
-                .usage = Buffer::Usage::SHADER_READ_WRITE,
-                .debugName = "DEBUG LINES VERTEX BUFFER"
-            });
+        {
+            .size   = sizeof(float4) * UINT16_MAX,
+            .stride = sizeof(float4),
+            .usage  = Buffer::Usage::SHADER_READ_WRITE,
+            .debugName = "DEBUG LINES VERTEX BUFFER"
+        });
 
 
         inData.mIndirectArgsBuffer = ioRGBuilder.Create(Buffer::Desc
-            {
-                .size = sizeof(D3D12_DRAW_ARGUMENTS),
-                .usage = Buffer::Usage::SHADER_READ_WRITE,
-                // .viewDesc = args_srv_desc
+        {
+            .size  = sizeof(D3D12_DRAW_ARGUMENTS),
+            .usage = Buffer::Usage::SHADER_READ_WRITE,
             .debugName = "DEBUG LINES INDIRECT ARGS BUFFER"
-            });
+        });
 
         // ioRGBuilder.Write(inData.mVertexBuffer);
 

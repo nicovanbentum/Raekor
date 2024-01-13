@@ -46,7 +46,8 @@ void main(uint3 threadID : SV_DispatchThreadID, uint inGroupIndex : SV_GroupInde
     bool is_border = probe_pixel.x == 0 || probe_pixel.x == (DDGI_IRRADIANCE_TEXELS - 1) ||
                      probe_pixel.y == 0 || probe_pixel.y == (DDGI_IRRADIANCE_TEXELS - 1);
     
-    if (!is_border) {
+    if (!is_border) 
+    {
         float2 octahedral_uv = ((float2(probe_pixel) + 0.5) / DDGI_IRRADIANCE_TEXELS.xx) * 2.0 - 1.0;
         float3 octahedral_dir = OctDecode(octahedral_uv);
     

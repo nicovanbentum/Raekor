@@ -65,6 +65,8 @@ public:
 	template<typename T>
 	inline T& GetValue(const std::string& inName);
 
+	ConVar& GetCVar(const std::string& inName);
+
 	template<typename T>
 	inline T* TryGetValue(const std::string& inName);
 

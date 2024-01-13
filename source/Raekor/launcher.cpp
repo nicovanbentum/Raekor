@@ -53,6 +53,10 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 	ImGui::StyleColorsDark();
 	ImGui::GetIO().IniFilename = "";
 
+	// hide the console window
+	if (!IsDebuggerPresent())
+		ShowWindow(GetConsoleWindow(), SW_HIDE);
+
 	if (!m_Settings.mFontFile.empty())
 		GUI::SetFont(m_Settings.mFontFile.string());
 	GUI::SetTheme();
@@ -67,6 +71,11 @@ Launcher::Launcher() : Application(WindowFlag::HIDDEN)
 	ImGui_ImplSDLRenderer_Init(m_Renderer);
 	SDL_SetWindowTitle(m_Window, "Launcher");
 	SDL_SetWindowMinimumSize(m_Window, 420, 90);
+
+	for (const auto& [cvar, value] : g_CVars)
+		m_SortedCvarNames.insert(cvar);
+
+	m_NrOfRows = m_SortedCvarNames.size() / 2;
 
 	//if (!m_BgImage.Load(m_Renderer, "assets/system/doom.jpg"))
 	//    assert(false);
@@ -103,31 +112,38 @@ void Launcher::OnUpdate(float inDeltaTime)
 	ImGui::BeginTable("Configuration Settings", 2, ImGuiTableFlags_SizingFixedFit);
 
 	auto index = 0u;
+	auto cNrOfColumns = 2;
 
-	for (auto& [name, cvar] : g_CVars)
+	for (const auto& cvar_name : m_SortedCvarNames)
 	{
+		auto& cvar = g_CVars.GetCVar(cvar_name);
+
 		switch (cvar.GetType())
 		{
 			case CVAR_TYPE_INT:
 			{
-				/* if (index % 2 == 0)
-					 ImGui::TableNextRow();*/
-
-				auto value = bool(cvar.GetValue<int>());
-				auto string = "##" + name;
+				auto value = bool(cvar.mIntValue);
+				auto string = "##" + cvar_name;
 
 				if (ImGui::Checkbox(string.c_str(), &value))
 					cvar = ConVar(int(value));
 
 				ImGui::SameLine();
-				ImGui::Text(name.c_str());
-				ImGui::TableNextColumn();
+				ImGui::Text(cvar_name.c_str());
 
+				// ImGui::TableNextRow();
+
+				if (index % m_NrOfRows == 0)
+					ImGui::TableNextColumn();
 
 				index++;
-			}
+			} break;
+
+			default: break;
 		}
 	}
+
+	m_NrOfRows = index / 2;
 
 	ImGui::EndTable();
 

@@ -167,11 +167,6 @@ public:
     void AddExitBarrier(const D3D12_RESOURCE_BARRIER& inBarrier) { m_ExitBarriers.push_back(inBarrier); }
     void AddEntryBarrier(const D3D12_RESOURCE_BARRIER& inBarrier) { m_EntryBarriers.push_back(inBarrier); }
 
-    void PopExitBarrier() { m_ExitBarriers.pop_back(); }
-    void PopEntryBarrier() { m_EntryBarriers.pop_back(); }
-
-    virtual RTTI* GetRTTI() { return nullptr; }
-
     inline const std::string& GetName() const { return m_Name; }
 
 private:
@@ -224,10 +219,7 @@ template<typename T>
 class GraphicsRenderPass : public RenderPass<T>
 {
 public:
-    GraphicsRenderPass(const std::string& inName, const IRenderPass::ExecFn<T>& inExecuteFn) :
-        RenderPass<T>(inName, inExecuteFn)
-    {
-    }
+    GraphicsRenderPass(const std::string& inName, const IRenderPass::ExecFn<T>& inExecuteFn) : RenderPass<T>(inName, inExecuteFn) {}
 
     virtual bool IsCompute() override { return false; }
     virtual bool IsGraphics() override { return true; }
@@ -239,10 +231,7 @@ template<typename T>
 class ComputeRenderPass : public RenderPass<T>
 {
 public:
-    ComputeRenderPass(const std::string& inName, const IRenderPass::ExecFn<T>& inExecuteFn) :
-        RenderPass<T>(inName, inExecuteFn)
-    {
-    }
+    ComputeRenderPass(const std::string& inName, const IRenderPass::ExecFn<T>& inExecuteFn) : RenderPass<T>(inName, inExecuteFn) {}
 
     virtual bool IsCompute() override { return true; }
     virtual bool IsGraphics() override { return false; }

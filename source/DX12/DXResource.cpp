@@ -74,6 +74,127 @@ D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage)
 }
 
 
+D3D12_SHADER_RESOURCE_VIEW_DESC Buffer::Desc::ToSRVDesc() const
+{
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = { .Format = format, .ViewDimension = D3D12_SRV_DIMENSION_BUFFER };
+    srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+    // Raw buffer
+    if (stride == 0 && format == DXGI_FORMAT_UNKNOWN)
+    {
+        srv_desc.Format = DXGI_FORMAT_R32_TYPELESS;
+        srv_desc.Buffer.Flags |= D3D12_BUFFER_SRV_FLAG_RAW;
+        srv_desc.Buffer.NumElements = size / sizeof(uint32_t);
+    }
+    // Structured buffer
+    else if (stride > 0) 
+    {
+        srv_desc.Buffer.StructureByteStride = stride;
+        srv_desc.Buffer.NumElements = size / stride;
+    }
+    else
+    {
+        srv_desc.Buffer.NumElements = size / ( gBitsPerPixel(srv_desc.Format) / 8 );
+    }
+
+    if (usage == Buffer::ACCELERATION_STRUCTURE)
+    {
+        srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+        srv_desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+    }
+
+    return srv_desc;
+}
+
+
+D3D12_UNORDERED_ACCESS_VIEW_DESC Buffer::Desc::ToUAVDesc() const
+{
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = { .Format = format, .ViewDimension = D3D12_UAV_DIMENSION_BUFFER };
+
+    // Raw buffer
+    if (stride == 0 && uav_desc.Format == DXGI_FORMAT_UNKNOWN)
+    {
+        uav_desc.Format = DXGI_FORMAT_R32_TYPELESS;
+        uav_desc.Buffer.Flags |= D3D12_BUFFER_UAV_FLAG_RAW;
+        uav_desc.Buffer.NumElements = size / sizeof(uint32_t);
+    }
+    // Structured buffer
+    else if (stride > 0) 
+    {
+        uav_desc.Buffer.StructureByteStride = stride;
+        uav_desc.Buffer.NumElements = size / stride;
+    }
+    else
+    {
+        uav_desc.Buffer.NumElements = size / ( gBitsPerPixel(uav_desc.Format) / 8 );
+    }
+
+    return uav_desc;
+}
+
+
+D3D12_DEPTH_STENCIL_VIEW_DESC Texture::Desc::ToDSVDesc() const 
+{ 
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
+    dsv_desc.Format = format;
+    dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+
+    if (dimension == Texture::Dimension::TEX_DIM_2D)
+        dsv_desc.Texture2D.MipSlice = baseMip;
+
+    return dsv_desc;
+}
+
+
+D3D12_RENDER_TARGET_VIEW_DESC Texture::Desc::ToRTVDesc() const 
+{ 
+    D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
+    rtv_desc.Format = format;
+    rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
+    if (dimension == Texture::Dimension::TEX_DIM_2D)
+        rtv_desc.Texture2D.MipSlice = baseMip;
+
+    return rtv_desc;
+}
+
+
+D3D12_SHADER_RESOURCE_VIEW_DESC Texture::Desc::ToSRVDesc() const 
+{ 
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+    srv_desc.Format = gGetDepthFormatSRV(format);
+    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srv_desc.Texture2D.MipLevels = -1;
+
+    const auto [r, g, b, a] = gUnswizzleComponents(swizzle);
+    srv_desc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r, g, b, a);
+
+    switch (dimension)
+    {
+        case Texture::TEX_DIM_CUBE:
+        {
+            srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+            srv_desc.TextureCube.MipLevels = -1;
+            srv_desc.TextureCube.MostDetailedMip = 0;
+            srv_desc.TextureCube.ResourceMinLODClamp = 0.0f;
+        } break;
+    }
+
+    return srv_desc;
+}
+
+
+D3D12_UNORDERED_ACCESS_VIEW_DESC Texture::Desc::ToUAVDesc() const 
+{ 
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
+    uav_desc.Format = format;
+    uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    uav_desc.Texture2D.MipSlice = baseMip;
+
+    return uav_desc;
+}
+
+
 void DescriptorHeap::Allocate(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inType, uint32_t inCount, D3D12_DESCRIPTOR_HEAP_FLAGS inFlags)
 {
     Reserve(inCount);

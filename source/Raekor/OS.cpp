@@ -63,8 +63,11 @@ void* OS::sGetFunctionPointer(const char* inName)
 
 bool OS::sCheckCommandLineOption(const char* inOption)
 {
-	static const char* cmd_line = GetCommandLineA();
-	return strstr(cmd_line, inOption) != nullptr;
+    static const auto cmd_line = GetCommandLineA();
+    static const auto cmd_line_len = strlen(cmd_line);
+
+    const auto substr = strstr(cmd_line, inOption);
+    return substr != nullptr;
 }
 
 

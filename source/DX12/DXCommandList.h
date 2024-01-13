@@ -33,6 +33,12 @@ public:
     void UpdateBuffer(Buffer& inDstBuffer, uint32_t inDstOffset, uint32_t inDstSize, void* inDataPtr);
     void UpdateTexture(Texture& inDstTexture, uint32_t inDstMip, void* inDataPtr);
 
+    void ClearBuffer(Device& inDevice, BufferID inBuffer, Vec4 inValue);
+    void ClearBuffer(Device& inDevice, BufferID inBuffer, uint32_t inValue);
+
+    void ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inValue);
+    void ClearTexture(Device& inDevice, TextureID inTexture, uint32_t inValue);
+
     /* Execute API. */
     void Draw();
     void Dispatch(uint32_t inSizeX, uint32_t inSizeY, uint32_t inSizeZ);

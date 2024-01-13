@@ -37,10 +37,12 @@ public:
 	bool ShouldLaunch() const { return !m_WasClosed; }
 
 private:
+	int m_NrOfRows = 0;
 	int m_ResizeCounter = 0;
 	bool m_WasClosed = false;
 	SDL_Image m_BgImage;
 	SDL_Renderer* m_Renderer;
+	std::set<std::string> m_SortedCvarNames;
 };
 
 }

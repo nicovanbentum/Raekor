@@ -28,6 +28,7 @@ public:
     [[nodiscard]] ID3D12RootSignature* GetGlobalRootSignature() const { return m_GlobalRootSignature.Get(); }
     [[nodiscard]] ID3D12CommandSignature* GetCommandSignature(ECommandSignature inCmdSig) { return m_CommandSignatures[inCmdSig].Get(); }
     
+    [[nodiscard]] DescriptorHeap& GetClearHeap() { return m_ClearHeap; }
     [[nodiscard]] DescriptorHeap& GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE inType) { return m_Heaps[inType]; }
 
     [[nodiscard]] ID3D12CommandQueue* GetCopyQueue() { return m_CopyQueue.Get(); }
@@ -109,6 +110,7 @@ private:
     BOOL mIsDLSSSupported = false;
     BOOL mIsDLSSInitialized = false;
     BOOL mIsTearingSupported = false;
+    DescriptorHeap m_ClearHeap;
     ComPtr<ID3D12Device5> m_Device;
     ComPtr<IDXGIAdapter1> m_Adapter;
     ComPtr<ID3D12CommandQueue> m_CopyQueue;

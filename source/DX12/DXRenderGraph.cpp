@@ -548,6 +548,7 @@ bool RenderGraph::Compile(Device& inDevice)
 
             auto usage = D3D12_RESOURCE_STATE_COMMON;
 
+            // default for buffers
             auto subresource_index = 0u;
             auto subresource_count = 1u;
 

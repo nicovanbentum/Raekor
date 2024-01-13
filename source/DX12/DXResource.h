@@ -106,6 +106,13 @@ public:
         return m_Storage.size(); 
     }
 
+    void Clear() 
+    {
+        m_Storage.clear();
+        m_Generations.clear();
+        m_FreeIndices.clear();
+    }
+
 private:
     std::vector<uint16_t> m_Generations;
     std::vector<uint32_t> m_FreeIndices;
@@ -185,6 +192,10 @@ public:
 
         inline bool operator==(const Desc& inOther) const { return std::memcmp(this, &inOther, offsetof(Desc, debugName)) == 0; }
 
+        D3D12_DEPTH_STENCIL_VIEW_DESC    ToDSVDesc() const;
+        D3D12_RENDER_TARGET_VIEW_DESC    ToRTVDesc() const;
+        D3D12_SHADER_RESOURCE_VIEW_DESC  ToSRVDesc() const;
+        D3D12_UNORDERED_ACCESS_VIEW_DESC ToUAVDesc() const;
     };
 
     static Desc Desc2D(DXGI_FORMAT inFormat, uint32_t inWidth, uint32_t inHeight, Usage inUsage, uint32_t inBaseMip = 0, uint32_t inMipLevels = 1)
@@ -245,6 +256,9 @@ public:
         const char* debugName       = nullptr;
 
         inline bool operator==(const Desc& inOther) const { return std::memcmp(this, &inOther, offsetof(Desc, debugName)) == 0; }
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC  ToSRVDesc() const;
+        D3D12_UNORDERED_ACCESS_VIEW_DESC ToUAVDesc() const;
     };
 
     static Desc Describe(DXGI_FORMAT inFormat, uint64_t inSize, Usage inUsage, uint64_t inStride = 0, bool inMappable = false, const char* inDebugName = nullptr)

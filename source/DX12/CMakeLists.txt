@@ -13,8 +13,8 @@ list(APPEND CppFiles ${CMAKE_SOURCE_DIR}/dependencies/samplerCPP/samplerBlueNois
 
 # Rule to build the actual exectuable and enable c++20
 add_executable(${PROJECT_NAME} ${CppFiles} ${HppFiles} ${CMAKE_SOURCE_DIR}/assets/system/icon/Raekor.rc)
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "Raekor")
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
-
 
 # MSVC stuff for root working directory, static runtime and enabling precompiled headers
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
