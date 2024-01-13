@@ -1,24 +1,15 @@
 # Build (CMake - Windows)
 
-### Raekor - Static Library
-* Any Windows 10 SDK (configure using the Visual Studio Installer).
-
-### Editor - OpenGL Application
-* Requires Raekor.
+### Editor - Requirements
 * Graphics card with OpenGL 4.6 support.
-* Vulkan SDK accessible from PATH.
+* Vulkan SDK accessible from PATH (for SPIR-V compiler).
 
-### VK - Vulkan Application
-* Requires Raekor.
-* Up-to-date graphics drivers.
+### Vulkan - Requirements
 * Graphics card with RTX support.
 * Vulkan SDK [1.3.204](https://sdk.lunarg.com/sdk/download/1.3.204.0/windows/VulkanSDK-1.3.204.0-Installer.exe) or higher.
 
-### DX - DirectX 12 Application
-* Requires Raekor.
-* Up-to-date graphics drivers.
+### DirectX 12 - Requirements
 * Graphics card with RTX and Shader Model 6_6 support.
-* Windows 10 version with Agility SDK support (see Microsoft's [blog post](https://devblogs.microsoft.com/directx/gettingstarted-dx12agility/#OS)).
 * Windows SDK 10.0.20348 or higher (configure using the Visual Studio Installer).
 
 ## Instructions
@@ -34,7 +25,7 @@ Clone this repository using
 # Projects
 
 ### Raekor
-This project requires C++ 17.
+This project requires C++ 20.
 
 * Simple Job System
 * Simple CVar system
@@ -50,7 +41,7 @@ This project requires C++ 17.
 ### Editor
 This project requires OpenGL 4.6 for direct state access functions and shader include directives. 
 
-* Compute based Skinning & Animation
+* Compute based Skinning & Animation (temporarily broken)
 * Deferred PBR Renderer
     - Bloom
     - ACES Tonemapping
@@ -88,19 +79,18 @@ Basic RenderGraph architecture (automatically creates resource views and handles
 
 - GBuffer Pass
 - Path Trace Pass (For comparisons)
-- Procedural Grass (based on Ghost of Tsushima, WIP)
 - Ray Traced Shadows (denoiser WIP)
 - Ray Traced Ambient Occlusion (denoiser WIP)
 - Ray Traced Reflections (denoiser WIP)
 - Ray Traced Irradiance Probes (DDGI)
 - Deferred Shading
-- TAA / FSR2 / DLSS / XeSS (Upscalers are WIP)
+- TAA / FSR2 / DLSS / XeSS
 - Post Processing
 
 ![image](https://i.imgur.com/B3pbNgd.png)
 
 ### DX11
-Currently a small demo of async GPU resource creation and dithered mesh fading.
+A small demo of async GPU resource creation and dithered mesh fading.
 Raekor started out 4 years ago as an experiment on switching between graphics APIs at runtime (I had no idea what I was doing lol), which is why you will find a bunch of unfinished DirectX 11. Source only.
 
 ### Ray Tracing in One Weekend
