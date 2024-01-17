@@ -12,6 +12,7 @@
 #include "widgets/menubarWidget.h"
 #include "widgets/consoleWidget.h"
 #include "widgets/viewportWidget.h"
+#include "widgets/SequenceWidget.h"
 #include "widgets/inspectorWidget.h"
 #include "widgets/hierarchyWidget.h"
 #include "widgets/NodeGraphWidget.h"
@@ -47,6 +48,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	m_Widgets.Register<MenubarWidget>(this);
 	m_Widgets.Register<ConsoleWidget>(this);
 	m_Widgets.Register<NodeGraphWidget>(this);
+    m_Widgets.Register<SequenceWidget>(this);
 	m_Widgets.Register<ViewportWidget>(this);
 	m_Widgets.Register<InspectorWidget>(this);
 	m_Widgets.Register<HierarchyWidget>(this);
@@ -128,6 +130,13 @@ void IEditor::OnUpdate(float inDeltaTime)
 	// step the physics simulation
 	if (m_Physics.GetState() == Physics::Stepping)
 		m_Physics.Step(m_Scene, inDeltaTime);
+
+    // Apply sequence to camera
+    if (auto sequence_widget = m_Widgets.GetWidget<SequenceWidget>())
+    {
+        if (sequence_widget->IsPlaying())
+            sequence_widget->ApplyToCamera(m_Viewport.GetCamera());
+    }
 
 	// update camera matrices
 	m_Viewport.OnUpdate(inDeltaTime);

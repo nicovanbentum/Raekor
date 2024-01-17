@@ -54,10 +54,11 @@ class Widgets
 public:
 
 	template<typename T>
-	void Register(Application* inApp)
+	T* Register(Application* inApp)
 	{
 		static_assert( std::is_base_of<IWidget, T>() );
 		m_Widgets.emplace_back(std::make_shared<T>(inApp));
+        return std::static_pointer_cast<T>( m_Widgets.back() ).get();
 	}
 
 	template<typename T>

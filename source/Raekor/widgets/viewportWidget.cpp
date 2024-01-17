@@ -525,6 +525,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		if (show_debug_text)
 		{
+            ImGui::Text("Frame: %i", GetRenderInterface().GetGPUStats().mFrameCounter);
 			ImGui::Text("Buffers: %i", GetRenderInterface().GetGPUStats().mLiveBuffers.load());
 			ImGui::Text("Textures: %i", GetRenderInterface().GetGPUStats().mLiveTextures.load());
 #if 0

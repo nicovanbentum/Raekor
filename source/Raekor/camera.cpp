@@ -2,8 +2,22 @@
 #include "camera.h"
 #include "input.h"
 #include "rmath.h"
+#include "member.h"
 
 namespace Raekor {
+
+RTTI_DEFINE_TYPE(CameraSequence::KeyFrame)
+{
+    RTTI_DEFINE_MEMBER(CameraSequence::KeyFrame, SERIALIZE_ALL, "Time", mTime);
+    RTTI_DEFINE_MEMBER(CameraSequence::KeyFrame, SERIALIZE_ALL, "Angle", mAngle);
+    RTTI_DEFINE_MEMBER(CameraSequence::KeyFrame, SERIALIZE_ALL, "Position", mPosition);
+}
+
+RTTI_DEFINE_TYPE(CameraSequence)
+{
+    RTTI_DEFINE_MEMBER(CameraSequence, SERIALIZE_ALL, "Duration", m_Duration);
+    RTTI_DEFINE_MEMBER(CameraSequence, SERIALIZE_ALL, "Key Frames", m_KeyFrames);
+}
 
 Camera::Camera(const Vec3& inPos, const Mat4x4& inProj) :
 	m_Position(inPos),
@@ -234,6 +248,102 @@ glm::mat4 Viewport::GetJitteredProjMatrix(const Vec2& inJitter) const
 	mat[2][0] = m_Jitter[0];
 	mat[2][1] = m_Jitter[1];
 	return mat;
+}
+
+
+void CameraSequence::AddKeyFrame(const Camera& inCamera, float inTime)
+{
+    m_KeyFrames.emplace_back(inTime, inCamera.GetAngle(), inCamera.GetPosition());
+
+    std::sort(m_KeyFrames.begin(), m_KeyFrames.end(), [](const KeyFrame& inKey1, const KeyFrame& inKey2) { return inKey1.mTime < inKey2.mTime; });
+}
+
+
+void CameraSequence::RemoveKeyFrame(uint32_t inIndex)
+{
+    
+}
+
+
+Vec2 CameraSequence::GetAngle(const Camera& inCamera, float inTime) const
+{
+    const auto nr_of_key_frames = m_KeyFrames.size();
+    if (nr_of_key_frames == 0)
+    {
+        return inCamera.GetAngle();
+    }
+    else if (nr_of_key_frames == 1)
+    {
+        return m_KeyFrames[0].mAngle;
+    }
+    else
+    {
+        auto start_index = 0u;
+        
+        for (; start_index < nr_of_key_frames - 1; start_index++)
+        {
+            if (inTime < m_KeyFrames[start_index + 1].mTime)
+                break;
+        }
+
+        assert(start_index < nr_of_key_frames);
+        auto final_index = start_index + 1;
+
+        if (final_index == nr_of_key_frames)
+            return m_KeyFrames[start_index].mAngle;
+
+        auto start_time = m_KeyFrames[start_index].mTime;
+        auto final_time = m_KeyFrames[final_index].mTime;
+        
+        auto delta_time = m_KeyFrames[final_index].mTime - m_KeyFrames[start_index].mTime;
+        auto factor = glm::max((inTime - start_time) / delta_time, 0.0f);
+
+        const auto& start_angle = m_KeyFrames[start_index].mAngle;
+        const auto& final_angle = m_KeyFrames[final_index].mAngle;
+
+        return start_angle + factor * (final_angle - start_angle);
+    }
+}
+
+
+Vec3 CameraSequence::GetPosition(const Camera& inCamera, float inTime) const
+{
+    const auto nr_of_key_frames = m_KeyFrames.size();
+    if (nr_of_key_frames == 0)
+    {
+        return inCamera.GetPosition();
+    }
+    else if (nr_of_key_frames == 1)
+    {
+        return m_KeyFrames[0].mPosition;
+    }
+    else 
+    {
+        auto start_index = 0u;
+        
+        for (; start_index < nr_of_key_frames - 1; start_index++)
+        {
+            if (inTime < m_KeyFrames[start_index + 1].mTime)
+                break;
+        }
+
+        assert(start_index < nr_of_key_frames);
+        auto final_index = start_index + 1;
+
+        if (final_index == nr_of_key_frames)
+            return m_KeyFrames[start_index].mPosition;
+
+        auto start_time = m_KeyFrames[start_index].mTime;
+        auto final_time = m_KeyFrames[final_index].mTime;
+        
+        auto delta_time = m_KeyFrames[final_index].mTime - m_KeyFrames[start_index].mTime;
+        auto factor = glm::max((inTime - start_time) / delta_time, 0.0f);
+
+        const auto& start_position = m_KeyFrames[start_index].mPosition;
+        const auto& final_position = m_KeyFrames[final_index].mPosition;
+
+        return start_position + factor * (final_position - start_position);
+    }
 }
 
 } // namespace::Raekor

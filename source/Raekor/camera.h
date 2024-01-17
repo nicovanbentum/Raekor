@@ -119,4 +119,39 @@ private:
 	Camera m_Camera;
 };
 
+
+class CameraSequence
+{
+public:
+    RTTI_DECLARE_TYPE(CameraSequence);
+
+    struct KeyFrame
+    {
+        RTTI_DECLARE_TYPE(CameraSequence::KeyFrame);
+
+        KeyFrame() = default;
+        KeyFrame(float inTime, Vec2 inAngle, Vec3 inPos) : mTime(inTime), mAngle(inAngle), mPosition(inPos) {}
+
+        float mTime = 0.0f;
+        Vec2 mAngle = Vec2(0.0f, 0.0f);
+        Vec3 mPosition = Vec3(0.0f, 0.0f, 0.0f);
+    };
+
+    float GetDuration() const { return m_Duration; }
+    void  SetDuration(float inValue) { m_Duration = inValue; }
+
+    void AddKeyFrame(const Camera& inCamera, float inTime);
+    void RemoveKeyFrame(uint32_t inIndex);
+
+    uint32_t GetKeyFrameCount() const { return m_KeyFrames.size(); }
+    const KeyFrame& GetKeyFrame(uint32_t inIndex) { return m_KeyFrames[inIndex]; }
+
+    Vec2 GetAngle(const Camera& inCamera, float inTime) const;
+    Vec3 GetPosition(const Camera& inCamera, float inTime) const;
+
+private:
+    float m_Duration = 1.0f;
+    std::vector<KeyFrame> m_KeyFrames;
+};
+
 } // Namespace Raekor

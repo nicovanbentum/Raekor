@@ -37,6 +37,7 @@ enum GraphicsAPI : uint8_t
 
 struct GPUStats
 {
+    uint64_t mFrameCounter = 0;
 	uint64_t mTotalVideoMemory = 0;
 	uint64_t mAvailableVideoMemory = 0;
 	std::atomic<uint64_t> mLiveBuffers = 0;
