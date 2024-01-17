@@ -24,6 +24,20 @@ RTTI_DEFINE_TYPE(ProbeDebugData)          {}
 RTTI_DEFINE_TYPE(ProbeDebugRaysData)      {}
 
 
+void ClearTextureUAV(Device& inDevice, TextureID inTexture, Vec4 inValue, CommandList& inCmdList)
+{
+    inCmdList.PushComputeConstants(ClearTextureRootConstants
+    {
+        .mClearValue = inValue,
+        .mTexture = inDevice.GetBindlessHeapIndex(inTexture)
+    });
+
+    const auto& texture = inDevice.GetTexture(inTexture);
+
+    inCmdList->SetPipelineState(g_SystemShaders.mClearTextureShader.GetComputePSO());
+    inCmdList->Dispatch(( texture.GetWidth() + 7 ) / 8, ( texture.GetHeight() + 7 ) / 8, 1);
+}
+
 
 const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData)
 {
@@ -80,22 +94,10 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             const auto& render_size = inRenderGraph.GetViewport().GetRenderSize();
             const auto tile_width = ( render_size.x + cTileSize - 1 ) / cTileSize;
             const auto tile_height = ( render_size.y + cTileSize - 1 ) / cTileSize;
+            const auto tile_buffer_size = tile_width * tile_height * sizeof(uint32_t);
 
-            inData.mTilesBuffer = inRGBuilder.Create(Buffer::Desc
-            {
-                .format = DXGI_FORMAT_R32_UINT,
-                .size   = tile_width * tile_height * sizeof(uint32_t),
-                .usage  = Buffer::SHADER_READ_WRITE,
-                .debugName = "SHADOW_TILES_BUFFER"
-            });
-
-            inData.mIndirectDispatchBuffer = inRGBuilder.Create(Buffer::Desc
-            {
-                .format = DXGI_FORMAT_UNKNOWN,
-                .size   = sizeof(D3D12_DISPATCH_ARGUMENTS),
-                .usage  = Buffer::SHADER_READ_WRITE,
-                .debugName = "SHADOWS_DISPATCH_BUFFER"
-            });
+            inData.mTilesBuffer = inRGBuilder.Create(Buffer::RWTypedBuffer(DXGI_FORMAT_R32_UINT, tile_buffer_size, "SHADOW_TILES_BUFFER"));
+            inData.mIndirectDispatchBuffer = inRGBuilder.Create(Buffer::RWByteAddressBuffer(sizeof(D3D12_DISPATCH_ARGUMENTS), "SHADOWS_DISPATCH_BUFFER"));
 
             inRGBuilder.Write(inData.mTilesBuffer);
             inRGBuilder.Write(inData.mIndirectDispatchBuffer);
@@ -177,16 +179,7 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
 
         [&inRenderGraph, &inDevice](ClearShadowsData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
-            inCmdList.PushComputeConstants(ClearTextureRootConstants
-                {
-                    .mClearValue = Vec4(1.0f, 1.0f, 1.0f, 1.0f),
-                    .mTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mShadowsTexture))
-                });
-
-            const auto& texture = inDevice.GetTexture(inResources.GetTexture(inData.mShadowsTexture));
-
-            inCmdList->SetPipelineState(g_SystemShaders.mClearTextureShader.GetComputePSO());
-            inCmdList->Dispatch(( texture.GetWidth() + 7 ) / 8, ( texture.GetHeight() + 7 ) / 8, 1);
+            ClearTextureUAV(inDevice, inResources.GetTexture(inData.mShadowsTexture), Vec4(1.0f), inCmdList);
         });
     };
 
@@ -480,14 +473,14 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
         inData.mDDGIData.mRaysIrradianceTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTexture(inData.mRaysIrradianceTexture));
 
         inCmdList.PushComputeConstants(ProbeTraceRootConstants
-            {
-                .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
-                .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
-                .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
-                .mDebugProbeIndex = Index3Dto1D(inData.mDebugProbe, inData.mDDGIData.mProbeCount),
-                .mRandomRotationMatrix = inData.mRandomRotationMatrix,
-                .mDDGIData = inData.mDDGIData
-            });
+        {
+            .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
+            .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
+            .mTLAS = inDevice.GetBindlessHeapIndex(inScene.GetTLASDescriptor(inDevice)),
+            .mDebugProbeIndex = Index3Dto1D(inData.mDebugProbe, inData.mDDGIData.mProbeCount),
+            .mRandomRotationMatrix = inData.mRandomRotationMatrix,
+            .mDDGIData = inData.mDDGIData
+        });
 
         const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
 
@@ -501,28 +494,28 @@ const ProbeTraceData& AddProbeTracePass(RenderGraph& inRenderGraph, Device& inDe
 const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const ProbeTraceData& inTraceData)
 {
     return inRenderGraph.AddComputePass<ProbeUpdateData>("GI PROBE UPDATE PASS",
-        [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeUpdateData& inData)
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeUpdateData& inData)
     {
         inData.mDDGIData = inTraceData.mDDGIData;
         const auto total_probe_count = inData.mDDGIData.mProbeCount.x * inData.mDDGIData.mProbeCount.y * inData.mDDGIData.mProbeCount.z;
 
         inData.mProbesDepthTexture = ioRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R16G16_FLOAT,
-                .width = uint32_t(DDGI_DEPTH_TEXELS * DDGI_PROBES_PER_ROW),
-                .height = uint32_t(DDGI_DEPTH_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
-                .usage = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "DDGI UPDATE DEPTH"
-            });
+        {
+            .format = DXGI_FORMAT_R16G16_FLOAT,
+            .width  = uint32_t(DDGI_DEPTH_TEXELS * DDGI_PROBES_PER_ROW),
+            .height = uint32_t(DDGI_DEPTH_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "DDGI UPDATE DEPTH"
+        });
 
         inData.mProbesIrradianceTexture = ioRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-                .width = uint32_t(DDGI_IRRADIANCE_TEXELS * DDGI_PROBES_PER_ROW),
-                .height = uint32_t(DDGI_IRRADIANCE_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
-                .usage = Texture::Usage::SHADER_READ_WRITE,
-                .debugName = "DDGI UPDATE IRRADIANCE"
-            });
+        {
+            .format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .width  = uint32_t(DDGI_IRRADIANCE_TEXELS * DDGI_PROBES_PER_ROW),
+            .height = uint32_t(DDGI_IRRADIANCE_TEXELS * ( total_probe_count / DDGI_PROBES_PER_ROW )),
+            .usage  = Texture::Usage::SHADER_READ_WRITE,
+            .debugName = "DDGI UPDATE IRRADIANCE"
+        });
 
         ioRGBuilder.Write(inData.mProbesDepthTexture);
         ioRGBuilder.Write(inData.mProbesIrradianceTexture);
@@ -531,7 +524,7 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
         inData.mRaysIrradianceTextureSRV = ioRGBuilder.Read(inTraceData.mRaysIrradianceTexture);
     },
 
-        [&inDevice, &inTraceData, &inScene](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inDevice, &inTraceData, &inScene](ProbeUpdateData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         if (inScene->Count<Mesh>() == 0)
             return;
@@ -554,16 +547,22 @@ const ProbeUpdateData& AddProbeUpdatePass(RenderGraph& inRenderGraph, Device& in
             inCmdList->Dispatch(depth_texture.GetDesc().width / DDGI_DEPTH_TEXELS, depth_texture.GetDesc().height / DDGI_DEPTH_TEXELS, 1);
         }*/
 
+        if (ProbeUpdateData::mClear)
+        {
+            ClearTextureUAV(inDevice, inRGResources.GetTexture(inData.mProbesIrradianceTexture), Vec4(0.0), inCmdList);
+            ProbeUpdateData::mClear = false;
+        }
+
         {
             inCmdList->SetPipelineState(g_SystemShaders.mProbeUpdateIrradianceShader.GetComputePSO());
             inCmdList.PushComputeConstants(ProbeUpdateRootConstants
-                {
-                    .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix,
-                    .mDDGIData = inData.mDDGIData
-                });
+            {
+                .mRandomRotationMatrix = inTraceData.mRandomRotationMatrix,
+                .mDDGIData = inData.mDDGIData
+            });
 
             const auto& irradiance_texture = inDevice.GetTexture(inRGResources.GetTexture(inData.mProbesIrradianceTexture));
-            inCmdList->Dispatch(irradiance_texture.GetDesc().width / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetDesc().height / DDGI_IRRADIANCE_TEXELS, 1);
+            inCmdList->Dispatch(irradiance_texture.GetWidth() / DDGI_IRRADIANCE_TEXELS, irradiance_texture.GetHeight() / DDGI_IRRADIANCE_TEXELS, 1);
         }
     });
 }
@@ -576,13 +575,13 @@ const ProbeSampleData& AddProbeSamplePass(RenderGraph& inRenderGraph, Device& in
         [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeSampleData& inData)
     {
         inData.mOutputTexture = ioRGBuilder.Create(Texture::Desc
-            {
-                .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
-                .width = inRenderGraph.GetViewport().size.x,
-                .height = inRenderGraph.GetViewport().size.y,
-                .usage = Texture::SHADER_READ_WRITE,
-                .debugName = "INDIRECT DIFFUSE"
-            });
+        {
+            .format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::SHADER_READ_WRITE,
+            .debugName = "INDIRECT DIFFUSE"
+        });
 
         ioRGBuilder.Write(inData.mOutputTexture);
 
@@ -620,8 +619,7 @@ const ProbeSampleData& AddProbeSamplePass(RenderGraph& inRenderGraph, Device& in
 const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDevice, const ProbeTraceData& inTraceData, const ProbeUpdateData& inUpdateData, RenderGraphResourceID inRenderTarget, RenderGraphResourceID inDepthTarget)
 {
     return inRenderGraph.AddGraphicsPass<ProbeDebugData>("GI PROBE DEBUG PASS",
-
-        [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugData& inData)
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ProbeDebugData& inData)
     {
         gGenerateSphere(inData.mProbeMesh, 0.5f, 32u, 32u);
 
@@ -630,20 +628,20 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
         const auto indices_size = inData.mProbeMesh.indices.size() * sizeof(inData.mProbeMesh.indices[0]);
 
         inData.mProbeMesh.indexBuffer = inDevice.CreateBuffer(Buffer::Desc
-            {
-                .size = uint32_t(indices_size),
-                .stride = sizeof(uint32_t) * 3,
-                .usage = Buffer::Usage::INDEX_BUFFER,
-                .mappable = true
-            }).ToIndex();
+        {
+            .size   = uint32_t(indices_size),
+            .stride = sizeof(uint32_t) * 3,
+            .usage  = Buffer::Usage::INDEX_BUFFER,
+            .mappable = true
+        }).ToIndex();
 
         inData.mProbeMesh.vertexBuffer = inDevice.CreateBuffer(Buffer::Desc
-            {
-                .size = uint32_t(vertices_size),
-                .stride = sizeof(Vertex),
-                .usage = Buffer::Usage::VERTEX_BUFFER,
-                .mappable = true
-            }).ToIndex();
+        {
+            .size   = uint32_t(vertices_size),
+            .stride = sizeof(Vertex),
+            .usage  = Buffer::Usage::VERTEX_BUFFER,
+            .mappable = true
+        }).ToIndex();
 
         {
             auto& index_buffer = inDevice.GetBuffer(BufferID(inData.mProbeMesh.indexBuffer));
@@ -677,7 +675,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
         inData.mPipeline->SetName(L"PSO_PROBE_DEBUG");
     },
 
-        [&inRenderGraph, &inDevice, &inUpdateData](ProbeDebugData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inUpdateData](ProbeDebugData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());
@@ -705,8 +703,8 @@ const ProbeDebugRaysData& AddProbeDebugRaysPass(RenderGraph& inRenderGraph, Devi
     {
         inData.mVertexBuffer = ioRGBuilder.Create(Buffer::Desc
         {
-            .size   = sizeof(float4) * UINT16_MAX,
-            .stride = sizeof(float4),
+            .size   = sizeof(Vec4) * UINT16_MAX,
+            .stride = sizeof(Vec4),
             .usage  = Buffer::Usage::SHADER_READ_WRITE,
             .debugName = "DEBUG LINES VERTEX BUFFER"
         });

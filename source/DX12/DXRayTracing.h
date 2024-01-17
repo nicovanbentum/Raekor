@@ -169,6 +169,7 @@ struct ProbeUpdateData
 {
     RTTI_DECLARE_TYPE(ProbeUpdateData);
 
+    static inline bool mClear = false;
     DDGIData mDDGIData;
     RenderGraphResourceID mProbesDepthTexture;
     RenderGraphResourceID mProbesIrradianceTexture;

@@ -246,6 +246,12 @@ public:
         ACCELERATION_STRUCTURE  = 1 << 9
     };
 
+    enum class ShaderUsage : int
+    {
+        READ_ONLY = Usage::SHADER_READ_ONLY,
+        READ_WRITE = Usage::SHADER_READ_WRITE
+    };
+
     struct Desc
     {
         DXGI_FORMAT format          = DXGI_FORMAT_UNKNOWN;
@@ -264,6 +270,36 @@ public:
     static Desc Describe(DXGI_FORMAT inFormat, uint64_t inSize, Usage inUsage, uint64_t inStride = 0, bool inMappable = false, const char* inDebugName = nullptr)
     { 
         return  Desc { .format = inFormat, .size = inSize, .stride = inStride, .usage = inUsage, .mappable = inMappable, .debugName = inDebugName };
+    }
+
+    static Desc TypedBuffer(DXGI_FORMAT inFormat, uint64_t inSize, const char* inDebugName = nullptr)
+    {
+        return  Desc { .format = inFormat, .size = inSize, .stride = 0, .usage = SHADER_READ_ONLY, .mappable = false, .debugName = inDebugName };
+    }
+
+    static Desc RWTypedBuffer(DXGI_FORMAT inFormat, uint64_t inSize, const char* inDebugName = nullptr)
+    {
+        return  Desc { .format = inFormat, .size = inSize, .stride = 0, .usage = SHADER_READ_WRITE, .mappable = false, .debugName = inDebugName };
+    }
+
+    static Desc ByteAddressBuffer(uint64_t inSize, const char* inDebugName = nullptr)
+    {
+        return  Desc { .format = DXGI_FORMAT_R32_TYPELESS, .size = inSize, .stride = 0, .usage = SHADER_READ_ONLY, .mappable = false, .debugName = inDebugName };
+    }
+
+    static Desc RWByteAddressBuffer(uint64_t inSize, const char* inDebugName = nullptr)
+    {
+        return  Desc { .format = DXGI_FORMAT_R32_TYPELESS, .size = inSize, .stride = 0, .usage = SHADER_READ_WRITE, .mappable = false, .debugName = inDebugName };
+    }
+
+    static Desc StructuredBuffer(uint64_t inSize, uint64_t inStride, const char* inDebugName = nullptr)
+    {
+        return  Desc { .format = DXGI_FORMAT_UNKNOWN, .size = inSize, .stride = inStride, .usage = SHADER_READ_ONLY, .mappable = false, .debugName = inDebugName };
+    }
+
+    static Desc RWStructuredBuffer(uint64_t inSize, uint64_t inStride, const char* inDebugName = nullptr)
+    {
+        return  Desc { .format = DXGI_FORMAT_UNKNOWN, .size = inSize, .stride = inStride, .usage = SHADER_READ_WRITE, .mappable = false, .debugName = inDebugName };
     }
 
     Buffer() = default;

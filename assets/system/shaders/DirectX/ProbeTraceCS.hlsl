@@ -19,9 +19,6 @@ void main(uint3 threadID : SV_DispatchThreadID) {
     RWTexture2D<float3> irradiance_texture = ResourceDescriptorHeap[rc.mDDGIData.mRaysIrradianceTexture];
 
     FrameConstants fc = gGetFrameConstants();
-    
-    //if (fc.mFrameCounter > 192)
-    //    return;
 
     uint ray_index = threadID.x;
     uint probe_index = threadID.y;
@@ -58,8 +55,6 @@ void main(uint3 threadID : SV_DispatchThreadID) {
         BRDF brdf;
         brdf.FromHit(vertex, material);
         //brdf.mNormal = vertex.mNormal; // use the vertex normal, texture based detail is lost anyway
-        
-        // brdf.mAlbedo.rgb *= 4.0f;
         
         irradiance = material.mEmissive.rgb;
         

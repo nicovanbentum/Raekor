@@ -579,6 +579,7 @@ RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer&
 
 void RenderInterface::UpdateGPUStats(Device& inDevice)
 {
+    m_GPUStats.mFrameCounter = m_Renderer.GetFrameCounter();
     m_GPUStats.mLiveBuffers.store(inDevice.GetBufferPool().GetSize());
     m_GPUStats.mLiveTextures.store(inDevice.GetTexturePool().GetSize());
     m_GPUStats.mLiveDSVHeap.store(inDevice.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV).GetSize());
@@ -842,6 +843,11 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                     light.colour.a /= 1000.0f;
                 }
             }
+        }
+
+        if (ImGui::Button("Clear DDGI History"))
+        {
+            ProbeUpdateData::mClear = true;
         }
 
         if (ImGui::Button("Generate Meshlets"))

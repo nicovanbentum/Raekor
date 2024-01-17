@@ -505,13 +505,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
     return inRenderGraph.AddComputePass<DownsampleData>("DOWNSAMPLE PASS",
     [&](RenderGraphBuilder& inRGBuilder, IRenderPass* inRenderPass, DownsampleData& inData)
     {
-        inData.mGlobalAtomicBuffer = inRGBuilder.Create(Buffer::Desc
-        {
-            .size   = sizeof(uint32_t),
-            .stride = sizeof(uint32_t),
-            .usage  = Buffer::Usage::SHADER_READ_WRITE,
-            .debugName = "SPD_ATOMIC_UINT_BUFFER"
-        });
+        inData.mGlobalAtomicBuffer = inRGBuilder.Create(Buffer::RWStructuredBuffer(sizeof(uint32_t), sizeof(uint32_t), "SPD_ATOMIC_UINT_BUFFER"));
 
         inData.mSourceTextureUAV = inRGBuilder.Write(inSourceTexture);
         /* inData.mGlobalAtomicBuffer */ inRGBuilder.Write(inData.mGlobalAtomicBuffer);
@@ -779,7 +773,7 @@ const LuminanceHistogramData& AddLuminanceHistogramPass(RenderGraph& inRenderGra
     return inRenderGraph.AddComputePass<LuminanceHistogramData>("LUMINANCE HISTOGRAM PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, LuminanceHistogramData& inData)
     {
-        inData.mHistogramBuffer = ioRGBuilder.Create(Buffer::Describe(DXGI_FORMAT_R32_UINT, 128, Buffer::SHADER_READ_WRITE));
+        inData.mHistogramBuffer = ioRGBuilder.Create(Buffer::RWTypedBuffer(DXGI_FORMAT_R32_UINT, 128, "HISTOGRAM_BUFFER"));
         inData.mInputTextureSRV = ioRGBuilder.Write(inInputTexture);
     },
 

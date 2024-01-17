@@ -530,9 +530,13 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
             {
                 resource = nullptr; // resource must be NULL, since the resource location comes from a GPUVA in desc 
                 srv_desc.RaytracingAccelerationStructure.Location = buffer->GetGPUVirtualAddress();
+                buffer.m_Descriptor = CreateShaderResourceView(resource, &srv_desc);
+            }
+            else if (inDesc.format != DXGI_FORMAT_UNKNOWN || inDesc.stride > 0)
+            {
+                buffer.m_Descriptor = CreateShaderResourceView(resource, &srv_desc);
             }
 
-            buffer.m_Descriptor = CreateShaderResourceView(resource, &srv_desc);
         } break;
 
         default:

@@ -79,22 +79,26 @@ D3D12_SHADER_RESOURCE_VIEW_DESC Buffer::Desc::ToSRVDesc() const
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = { .Format = format, .ViewDimension = D3D12_SRV_DIMENSION_BUFFER };
     srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-    // Raw buffer
-    if (stride == 0 && format == DXGI_FORMAT_UNKNOWN)
+    // Raw (ByteAddress) buffer
+    if (stride == 0 && format == DXGI_FORMAT_R32_TYPELESS)
     {
-        srv_desc.Format = DXGI_FORMAT_R32_TYPELESS;
-        srv_desc.Buffer.Flags |= D3D12_BUFFER_SRV_FLAG_RAW;
+        assert(size >= 4);
+        srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
         srv_desc.Buffer.NumElements = size / sizeof(uint32_t);
     }
     // Structured buffer
-    else if (stride > 0) 
+    else if (stride > 0 && format == DXGI_FORMAT_UNKNOWN) 
     {
+        assert(size > 0);
         srv_desc.Buffer.StructureByteStride = stride;
         srv_desc.Buffer.NumElements = size / stride;
     }
-    else
+    // Typed buffer
+    else if (format != DXGI_FORMAT_UNKNOWN)
     {
-        srv_desc.Buffer.NumElements = size / ( gBitsPerPixel(srv_desc.Format) / 8 );
+        const auto format_size = gBitsPerPixel(srv_desc.Format);
+        assert(size && format_size && format_size%8 == 0);
+        srv_desc.Buffer.NumElements = size / ( format_size / 8 );
     }
 
     if (usage == Buffer::ACCELERATION_STRUCTURE)
@@ -112,22 +116,29 @@ D3D12_UNORDERED_ACCESS_VIEW_DESC Buffer::Desc::ToUAVDesc() const
     D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = { .Format = format, .ViewDimension = D3D12_UAV_DIMENSION_BUFFER };
 
     // Raw buffer
-    if (stride == 0 && uav_desc.Format == DXGI_FORMAT_UNKNOWN)
+    if (stride == 0 && format == DXGI_FORMAT_R32_TYPELESS)
     {
-        uav_desc.Format = DXGI_FORMAT_R32_TYPELESS;
-        uav_desc.Buffer.Flags |= D3D12_BUFFER_UAV_FLAG_RAW;
+        assert(size >= 4);
+        uav_desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
         uav_desc.Buffer.NumElements = size / sizeof(uint32_t);
     }
     // Structured buffer
-    else if (stride > 0) 
+    else if (stride > 0 && format == DXGI_FORMAT_UNKNOWN) 
     {
+        assert(size > 0);
         uav_desc.Buffer.StructureByteStride = stride;
         uav_desc.Buffer.NumElements = size / stride;
     }
-    else
+    // Typed buffer
+    else if (format != DXGI_FORMAT_UNKNOWN)
     {
-        uav_desc.Buffer.NumElements = size / ( gBitsPerPixel(uav_desc.Format) / 8 );
+        const auto format_size = gBitsPerPixel(format);
+        assert(size && format_size && format_size%8 == 0);
+        uav_desc.Buffer.NumElements = size / ( format_size / 8 );
     }
+
+    // defined both a stride and format, bad time!
+    assert((stride > 0 && format != DXGI_FORMAT_UNKNOWN) == false);
 
     return uav_desc;
 }
