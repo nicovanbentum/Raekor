@@ -52,6 +52,11 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     ImGui::SameLine();
 
+    if (ImGui::Button((const char*)(m_LockedToCamera ? ICON_FA_LOCK : ICON_FA_LOCK_OPEN)))
+        m_LockedToCamera = !m_LockedToCamera;
+
+    ImGui::SameLine();
+
     if (ImGui::Button((const char*)ICON_FA_SAVE))
     {
         std::string file_path = OS::sSaveFileDialog("JSON File (*.json)\0", "json");
@@ -74,6 +79,8 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
             auto json_data = JSON::JSONData(file_path);
             JSON::ReadArchive archive(json_data);
             archive >> m_Sequence;
+
+            m_OpenFile = fs::relative(file_path).string();
         }
     }
 
@@ -84,10 +91,28 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     ImGui::SameLine();
 
+    if (!m_OpenFile.empty())
+    {
+        ImGui::Text(m_OpenFile.c_str());
+        ImGui::SameLine();
+    }
+
     float duration = m_Sequence.GetDuration();
 
-    if (ImGui::DragFloat("Duration", &duration, cIncrSequence, cMinSequenceLength, cMaxSequenceLength, "%.2f"))
-        m_Sequence.SetDuration(duration);
+    const auto text_width = ImGui::CalcTextSize("60.000 seconds").x;
+    ImGui::SetNextItemWidth(text_width);
+
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - text_width);
+
+    const auto duration_text = duration > 1 ? "%.1f seconds" : "%.1f second";
+
+    auto duration_value = m_State == SEQUENCE_PLAYING ? m_Time : duration;
+
+    if (ImGui::DragFloat("##sequenceduration", &duration_value, cIncrSequence, cMinSequenceLength, cMaxSequenceLength, duration_text))
+    {
+        if (m_State != SEQUENCE_PLAYING)
+            m_Sequence.SetDuration(duration_value);
+    }
 
    // if (ImGui::DragFloat("Time", &m_Time, cIncrSequence, cMinSequenceLength, duration, "%.2f"))
    //     m_Time = glm::min(m_Time, duration);
@@ -144,14 +169,8 @@ bool SequenceWidget::DrawTimeline(const char* label, ImGuiDataType data_type, vo
     bool temp_input_is_active = temp_input_allowed && ImGui::TempInputIsActive(id);
     if (!temp_input_is_active)
     {
-        // Tabbing or CTRL-clicking on Slider turns it into an input box
         const bool clicked = hovered && ImGui::IsMouseClicked(0, id);
         const bool make_active = (clicked || g.NavActivateId == id);
-        if (make_active && clicked)
-            ImGui::SetKeyOwner(ImGuiKey_MouseLeft, id);
-        if (make_active && temp_input_allowed)
-            if ((clicked && g.IO.KeyCtrl) || (g.NavActivateId == id && (g.NavActivateFlags & ImGuiActivateFlags_PreferInput)))
-                temp_input_is_active = true;
 
         if (make_active && !temp_input_is_active)
         {
@@ -185,6 +204,22 @@ bool SequenceWidget::DrawTimeline(const char* label, ImGuiDataType data_type, vo
 
     ImGui::PushClipRect(frame_bb.Min, frame_bb.Max, false);
 
+    auto line_nr = 0u;
+
+    for (float f = 0.0f; f < m_Sequence.GetDuration(); f += cIncrSequence)
+    {
+        const auto x = frame_bb.Min.x + frame_bb.GetWidth() * (f / m_Sequence.GetDuration());
+
+        const auto half_color = ImVec4(0.2f, 0.2f, 0.2f, 0.5f);
+        const auto full_color = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
+        
+        auto line_color = line_nr % 2 != 0 ? full_color : half_color;
+
+        window->DrawList->AddLine(ImVec2(x, frame_bb.Min.y), ImVec2(x, frame_bb.Max.y), ImGui::GetColorU32(line_color), 2.0f);
+
+        line_nr++;
+    }
+
     for (auto keyframe_index = 0u; keyframe_index < m_Sequence.GetKeyFrameCount(); keyframe_index++)
     {
         const auto& keyframe = m_Sequence.GetKeyFrame(keyframe_index);
@@ -192,8 +227,12 @@ bool SequenceWidget::DrawTimeline(const char* label, ImGuiDataType data_type, vo
         const auto radius = 8.0f;
         const auto segments = 4;
 
-        const auto center_x = frame_bb.Min.x + frame_bb.GetWidth() * (keyframe.mTime / m_Sequence.GetDuration());
-        const auto center_y = frame_bb.Min.y + 0.5f * frame_bb.GetHeight();
+        auto padded_bb = frame_bb;
+        padded_bb.Min += style.FramePadding;
+        padded_bb.Max -= style.FramePadding;
+
+        const auto center_x = padded_bb.Min.x + padded_bb.GetWidth() * (keyframe.mTime / m_Sequence.GetDuration());
+        const auto center_y = padded_bb.Min.y + 0.5f * padded_bb.GetHeight();
 
         const auto color = ImGui::GetColorU32(ImVec4(1.0f, 0.647, 0.0f, 1.0f));
         window->DrawList->AddNgonFilled(ImVec2(center_x, center_y), radius, color, segments);
@@ -203,9 +242,24 @@ bool SequenceWidget::DrawTimeline(const char* label, ImGuiDataType data_type, vo
 
     ImGui::PopClipRect();
 
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImGui::GetStyleColorVec4(ImGuiCol_Text));
+
     // Render grab
     if (grab_bb.Max.x > grab_bb.Min.x)
-        window->DrawList->AddRectFilled(grab_bb.Min, grab_bb.Max, ImGui::GetColorU32(g.ActiveId == id ? ImGuiCol_SliderGrabActive : ImGuiCol_SliderGrab), style.GrabRounding);
+    {
+        grab_bb.Min.y -= style.FrameRounding * 0.30f;
+        grab_bb.Max.y += style.FrameRounding * 0.30f;
+
+        ImGuiCol color = g.ActiveId == id ? ImGuiCol_SliderGrabActive : ImGuiCol_SliderGrab;
+
+        if (m_State == SEQUENCE_PLAYING)
+            color = ImGuiCol_SliderGrabActive;
+
+        window->DrawList->AddRectFilled(grab_bb.Min, grab_bb.Max, ImGui::GetColorU32(color), 1.0f);
+    }
+
+    ImGui::PopStyleColor(2);
 
     // Display value using user-provided display format so user can add prefix/suffix/decorations to the value.
     char value_buf[64];

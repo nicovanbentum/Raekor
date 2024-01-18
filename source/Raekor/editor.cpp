@@ -134,7 +134,7 @@ void IEditor::OnUpdate(float inDeltaTime)
     // Apply sequence to camera
     if (auto sequence_widget = m_Widgets.GetWidget<SequenceWidget>())
     {
-        if (sequence_widget->IsPlaying())
+        if (sequence_widget->IsLockedToCamera())
             sequence_widget->ApplyToCamera(m_Viewport.GetCamera());
     }
 

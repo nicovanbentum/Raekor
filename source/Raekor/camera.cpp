@@ -261,7 +261,7 @@ void CameraSequence::AddKeyFrame(const Camera& inCamera, float inTime)
 
 void CameraSequence::RemoveKeyFrame(uint32_t inIndex)
 {
-    
+    m_KeyFrames.erase(m_KeyFrames.begin() + inIndex);
 }
 
 
@@ -317,33 +317,29 @@ Vec3 CameraSequence::GetPosition(const Camera& inCamera, float inTime) const
     {
         return m_KeyFrames[0].mPosition;
     }
-    else 
+
+    auto start_index = 0u;
+    
+    for (; start_index < nr_of_key_frames - 1; start_index++)
     {
-        auto start_index = 0u;
-        
-        for (; start_index < nr_of_key_frames - 1; start_index++)
-        {
-            if (inTime < m_KeyFrames[start_index + 1].mTime)
-                break;
-        }
-
-        assert(start_index < nr_of_key_frames);
-        auto final_index = start_index + 1;
-
-        if (final_index == nr_of_key_frames)
-            return m_KeyFrames[start_index].mPosition;
-
-        auto start_time = m_KeyFrames[start_index].mTime;
-        auto final_time = m_KeyFrames[final_index].mTime;
-        
-        auto delta_time = m_KeyFrames[final_index].mTime - m_KeyFrames[start_index].mTime;
-        auto factor = glm::max((inTime - start_time) / delta_time, 0.0f);
-
-        const auto& start_position = m_KeyFrames[start_index].mPosition;
-        const auto& final_position = m_KeyFrames[final_index].mPosition;
-
-        return start_position + factor * (final_position - start_position);
+        if (inTime < m_KeyFrames[start_index + 1].mTime)
+            break;
     }
+
+    assert(start_index < nr_of_key_frames);
+    auto final_index = start_index + 1;
+
+    if (final_index == nr_of_key_frames)
+        return m_KeyFrames[start_index].mPosition;
+
+    auto start_time = m_KeyFrames[start_index].mTime;
+    auto final_time = m_KeyFrames[final_index].mTime;
+    
+    const auto& start_position = m_KeyFrames[start_index].mPosition;
+    const auto& final_position = m_KeyFrames[final_index].mPosition;
+
+    const auto a = (inTime - start_time) / (final_time - start_time);
+    return glm::lerp(start_position, final_position, glm::clamp(a, 0.0f, 1.0f));
 }
 
 } // namespace::Raekor

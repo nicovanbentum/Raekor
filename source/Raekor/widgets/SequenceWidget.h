@@ -28,11 +28,13 @@ public:
 
     bool DrawTimeline(const char* label, ImGuiDataType data_type, void* p_data, const void* p_min, const void* p_max, const char* format, ImGuiSliderFlags flags = 0);
 
-    bool IsPlaying() const { return m_State == SEQUENCE_PLAYING; }
     void ApplyToCamera(Camera& ioCamera);
+    bool IsLockedToCamera() const { return m_LockedToCamera; }
 
 private:
     float m_Time = 0.0f;
+    std::string m_OpenFile = "";
+    bool m_LockedToCamera = false;
     SequenceState m_State = SEQUENCE_STOPPED;
     CameraSequence m_Sequence;
 };
