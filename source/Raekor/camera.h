@@ -144,13 +144,14 @@ public:
     void RemoveKeyFrame(uint32_t inIndex);
 
     uint32_t GetKeyFrameCount() const { return m_KeyFrames.size(); }
-    const KeyFrame& GetKeyFrame(uint32_t inIndex) { return m_KeyFrames[inIndex]; }
+    KeyFrame& GetKeyFrame(uint32_t inIndex) { return m_KeyFrames[inIndex]; }
+    const KeyFrame& GetKeyFrame(uint32_t inIndex) const { return m_KeyFrames[inIndex]; }
 
     Vec2 GetAngle(const Camera& inCamera, float inTime) const;
     Vec3 GetPosition(const Camera& inCamera, float inTime) const;
 
 private:
-    float m_Duration = 1.0f;
+    float m_Duration = 15.0f; // defaul to 15 seconds
     std::vector<KeyFrame> m_KeyFrames;
 };
 

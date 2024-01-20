@@ -135,7 +135,7 @@ void IEditor::OnUpdate(float inDeltaTime)
     if (auto sequence_widget = m_Widgets.GetWidget<SequenceWidget>())
     {
         if (sequence_widget->IsLockedToCamera())
-            sequence_widget->ApplyToCamera(m_Viewport.GetCamera());
+            sequence_widget->ApplyToCamera(m_Viewport.GetCamera(), inDeltaTime);
     }
 
 	// update camera matrices

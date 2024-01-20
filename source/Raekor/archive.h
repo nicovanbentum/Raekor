@@ -80,14 +80,15 @@ class ReadArchive
 {
 public:
 	ReadArchive() = default;
-	ReadArchive(JSONData& inJSON) : m_JSON(inJSON) {}
+    ReadArchive(const Path& inPath) : m_JSON(inPath) {}
 
 	template<typename T>
 	ReadArchive& operator>> (T& ioRHS);
 
-private:
-	JSONData& m_JSON;
+    bool IsEmpty() const { return m_JSON.IsEmpty(); }
 
+private:
+	JSONData m_JSON;
 };
 
 
@@ -122,6 +123,9 @@ private:
 template<typename T>
 ReadArchive& ReadArchive::operator>> (T& ioRHS)
 {
+    if (m_JSON.IsEmpty())
+        return *this;
+
 	// Any JSON document should start with a root object
 	auto token_index = 0;
 	if (m_JSON.GetToken(token_index).type != JSMN_OBJECT)

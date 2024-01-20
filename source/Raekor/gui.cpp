@@ -260,3 +260,12 @@ bool ImGui::DragVec3(const char* label, glm::vec3& v, float step, float min, flo
 	ImGui::EndGroup();
 	return value_changed;
 }
+
+
+void ImGui::SetNextItemRightAlign(const char* label)
+{
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text(label);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-FLT_MIN);
+}

@@ -262,6 +262,8 @@ void CameraSequence::AddKeyFrame(const Camera& inCamera, float inTime)
 void CameraSequence::RemoveKeyFrame(uint32_t inIndex)
 {
     m_KeyFrames.erase(m_KeyFrames.begin() + inIndex);
+
+    std::sort(m_KeyFrames.begin(), m_KeyFrames.end(), [](const KeyFrame& inKey1, const KeyFrame& inKey2) { return inKey1.mTime < inKey2.mTime; });
 }
 
 
@@ -308,7 +310,7 @@ Vec2 CameraSequence::GetAngle(const Camera& inCamera, float inTime) const
 
 Vec3 CameraSequence::GetPosition(const Camera& inCamera, float inTime) const
 {
-    const auto nr_of_key_frames = m_KeyFrames.size();
+    const int nr_of_key_frames = m_KeyFrames.size();
     if (nr_of_key_frames == 0)
     {
         return inCamera.GetPosition();
@@ -318,7 +320,7 @@ Vec3 CameraSequence::GetPosition(const Camera& inCamera, float inTime) const
         return m_KeyFrames[0].mPosition;
     }
 
-    auto start_index = 0u;
+    int start_index = 0;
     
     for (; start_index < nr_of_key_frames - 1; start_index++)
     {
@@ -334,11 +336,20 @@ Vec3 CameraSequence::GetPosition(const Camera& inCamera, float inTime) const
 
     auto start_time = m_KeyFrames[start_index].mTime;
     auto final_time = m_KeyFrames[final_index].mTime;
-    
+
     const auto& start_position = m_KeyFrames[start_index].mPosition;
     const auto& final_position = m_KeyFrames[final_index].mPosition;
 
     const auto a = (inTime - start_time) / (final_time - start_time);
+
+    //return glm::catmullRom(
+    //    m_KeyFrames[glm::clamp(start_index - 1, 0, nr_of_key_frames - 1)].mPosition, 
+    //    m_KeyFrames[glm::clamp(start_index + 0, 0, nr_of_key_frames - 1)].mPosition, 
+    //    m_KeyFrames[glm::clamp(start_index + 1, 0, nr_of_key_frames - 1)].mPosition, 
+    //    m_KeyFrames[glm::clamp(start_index + 2, 0, nr_of_key_frames - 1)].mPosition, 
+    //    glm::clamp(a, 0.0f, 1.0f)
+    //);
+    
     return glm::lerp(start_position, final_position, glm::clamp(a, 0.0f, 1.0f));
 }
 

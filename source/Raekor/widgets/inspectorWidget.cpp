@@ -3,6 +3,7 @@
 #include "scene.h"
 #include "components.h"
 #include "viewportWidget.h"
+#include "SequenceWidget.h"
 #include "NodeGraphWidget.h"
 #include "OS.h"
 #include "gui.h"
@@ -24,17 +25,21 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	m_Visible = ImGui::IsWindowAppearing();
 
 	auto viewport_widget = inWidgets->GetWidget<ViewportWidget>();
+    auto sequence_widget = inWidgets->GetWidget<SequenceWidget>();
 	auto nodegraph_widget = inWidgets->GetWidget<NodeGraphWidget>();
 
-	if (viewport_widget && viewport_widget->IsVisible())
+	if (viewport_widget && viewport_widget->IsVisible() && GetActiveEntity() != NULL_ENTITY)
 	{
 		DrawEntityInspector(inWidgets);
 	}
+    else if (sequence_widget && sequence_widget->IsVisible() && sequence_widget->GetSelectedKeyFrame() != -1)
+    {
+        DrawKeyFrameInspector(inWidgets);
+    }
 	else if (nodegraph_widget && nodegraph_widget->IsVisible())
 	{
 		DrawJSONInspector(inWidgets);
 	}
-
 
 	ImGui::End();
 };
@@ -205,6 +210,36 @@ void InspectorWidget::DrawJSONInspector(Widgets* inWidgets)
 	ImGui::Text("JSON Inspector");
 }
 
+
+void InspectorWidget::DrawKeyFrameInspector(Widgets* inWidgets)
+{
+    SequenceWidget* sequencer_widget = inWidgets->GetWidget<SequenceWidget>();
+    
+    const int selected_key_frame = sequencer_widget->GetSelectedKeyFrame();
+
+    if (selected_key_frame != -1)
+    {
+        CameraSequence::KeyFrame& key_frame = sequencer_widget->GetSequence().GetKeyFrame(selected_key_frame);
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+				
+        if (ImGui::CollapsingHeader("KeyFrame Properties", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::PopStyleVar();
+
+            ImGui::SetNextItemRightAlign("Time  ");
+            ImGui::SliderFloat("##keyframetime", &key_frame.mTime, 0.0f, sequencer_widget->GetSequence().GetDuration());
+
+            ImGui::SetNextItemRightAlign("Angle  ");
+            ImGui::DragFloat2("##keyframeangle", glm::value_ptr(key_frame.mAngle), 0.01f, -M_PI, M_PI, "%.2f");
+
+            ImGui::SetNextItemRightAlign("Position ");
+            ImGui::DragVec3("##keyframepos", key_frame.mPosition, 0.001f, -FLT_MAX, FLT_MAX);
+        }
+        else
+            ImGui::PopStyleVar();
+    }
+}
 
 void InspectorWidget::DrawComponent(Name& inName)
 {
@@ -567,17 +602,11 @@ bool DragVec3(const char* label, glm::vec3& v, float step, float min, float max,
 
 void InspectorWidget::DrawComponent(Transform& inTransform)
 {
-	ImGui::AlignTextToFramePadding();
-	ImGui::Text("Scale     ");
-	ImGui::SameLine();
-	ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::SetNextItemRightAlign("Scale     ");
 	if (ImGui::DragVec3("##ScaleDragFloat3", inTransform.scale, 0.001f, 0.0f, FLT_MAX))
 		inTransform.Compose();
 
-	ImGui::AlignTextToFramePadding();
-	ImGui::Text("Rotation");
-	ImGui::SameLine();
-	ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::SetNextItemRightAlign("Rotation");
 	auto degrees = glm::degrees(glm::eulerAngles(inTransform.rotation));
 	if (ImGui::DragVec3("##RotationDragFloat3", degrees, 0.1f, -360.0f, 360.0f))
 	{
@@ -585,10 +614,7 @@ void InspectorWidget::DrawComponent(Transform& inTransform)
 		inTransform.Compose();
 	}
 
-	ImGui::AlignTextToFramePadding();
-	ImGui::Text("Position ");
-	ImGui::SameLine();
-	ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::SetNextItemRightAlign("Position ");
 	if (ImGui::DragVec3("##PositionDragFloat3", inTransform.position, 0.001f, -FLT_MAX, FLT_MAX))
 		inTransform.Compose();
 }

@@ -75,6 +75,7 @@
 #include "glm.hpp"
 #include "ext.hpp"
 #include "gtx/quaternion.hpp"
+#include "gtx/spline.hpp"
 #include "gtx/intersect.hpp"
 #include "gtc/epsilon.hpp"
 #include "gtc/constants.hpp"

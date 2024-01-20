@@ -26,4 +26,6 @@ bool Spinner(const char* label, float radius, int thickness, const ImU32& color)
 
 bool DragVec3(const char* label, glm::vec3& v, float step, float min, float max, const char* format = "%.2f");
 
+void SetNextItemRightAlign(const char* label);
+
 }

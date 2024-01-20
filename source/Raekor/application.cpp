@@ -29,11 +29,8 @@ Application::Application(WindowFlags inFlags)
 	gRegisterComponentTypes();
 	g_RTTIFactory.Register(RTTI_OF(ConfigSettings));
 
-	auto json_data = JSON::JSONData(CONFIG_FILE_STR);
-	auto read_archive = JSON::ReadArchive(json_data);
-
-	if (!json_data.IsEmpty())
-		read_archive >> m_Settings;
+    JSON::ReadArchive archive(CONFIG_FILE_STR);
+    archive >> m_Settings;
 
 	SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
 

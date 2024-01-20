@@ -37,10 +37,8 @@ DXApp::DXApp() :
 
     Timer timer;
 
-    auto json_data = JSON::JSONData("assets\\system\\shaders\\DirectX\\shaders.json");
-    auto read_archive = JSON::ReadArchive(json_data);
-    if (!json_data.IsEmpty())
-        read_archive >> g_SystemShaders;
+    auto read_archive = JSON::ReadArchive("assets\\system\\shaders\\DirectX\\shaders.json");
+    read_archive >> g_SystemShaders;
 
     // compile shaders
     g_SystemShaders.OnCompile();

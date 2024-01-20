@@ -30,6 +30,7 @@ public:
 private:
 	void DrawJSONInspector(Widgets* inWidgets);
 	void DrawEntityInspector(Widgets* inWidgets);
+    void DrawKeyFrameInspector(Widgets* inWidgets);
 
 	void DrawComponent(Name& ioName);
 	void DrawComponent(Node& ioNode);

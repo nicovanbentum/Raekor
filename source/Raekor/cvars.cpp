@@ -28,8 +28,7 @@ ConVars::ConVars()
 	if (!stream.is_open() || fs::file_size("cvars.json") == 0)
 		return;
 
-	auto json_data = JSON::JSONData("cvars.json");
-	auto json_archive = JSON::ReadArchive(json_data);
+    auto json_archive = JSON::ReadArchive("cvars.json");
 	json_archive >> g_CVars;
 }
 
