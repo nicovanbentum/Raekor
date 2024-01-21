@@ -13,8 +13,8 @@ public:
 	JSONData() = default;
 	JSONData(const Path& inPath, bool inTokenizeOnly = false);
 
-	bool IsKeyObjectPair(uint32_t inTokenIdx);
-	uint32_t SkipToken(uint32_t inTokenIdx);
+	bool IsKeyObjectPair(uint32_t inTokenIdx) const;
+	uint32_t SkipToken(uint32_t inTokenIdx) const;
 
 	uint32_t GetTokenCount() const { return m_Tokens.size(); }
 	Slice<jsmntok_t> GetTokens() const { return Slice(m_Tokens); }
@@ -22,9 +22,9 @@ public:
 	bool IsEmpty() const { return m_StrBuffer.empty() || m_Tokens.empty(); }
 	bool HasRootObject() const { return m_Tokens.size() > 0 && m_Tokens[0].type == JSMN_OBJECT; }
 
-	const jsmntok_t& GetToken(uint32_t inTokenIdx) { return m_Tokens[inTokenIdx]; }
-	const std::string& GetString(uint32_t inTokenIdx) { return m_Strings[inTokenIdx]; }
-	double GetPrimitive(uint32_t inTokenIdx) { return m_Primitives[inTokenIdx]; }
+	const jsmntok_t& GetToken(uint32_t inTokenIdx) const { return m_Tokens[inTokenIdx]; }
+	const std::string& GetString(uint32_t inTokenIdx) const { return m_Strings[inTokenIdx]; }
+	double GetPrimitive(uint32_t inTokenIdx) const { return m_Primitives[inTokenIdx]; }
 
 public:
 	// Generics

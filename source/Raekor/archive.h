@@ -64,7 +64,9 @@ public:
 		}
 
 		return *this;
-	}
+    }
+
+    void WriteObject(const RTTI& inRTTI, void* inObject);
 
 	File& GetFile() { return m_File; }
 
@@ -85,10 +87,13 @@ public:
 	template<typename T>
 	ReadArchive& operator>> (T& ioRHS);
 
+     void* ReadNextObject(RTTI** rtti);
+
     bool IsEmpty() const { return m_JSON.IsEmpty(); }
 
 private:
 	JSONData m_JSON;
+    int m_TokenIndex = 1;
 };
 
 
@@ -107,6 +112,8 @@ public:
 
 	template<typename T>
 	WriteArchive& operator<< (T& inRHS);
+
+    void WriteObject(const RTTI& inRTTI, void* inObject);
 
 	JSONWriter& GetRaw() { return m_Writer; }
 

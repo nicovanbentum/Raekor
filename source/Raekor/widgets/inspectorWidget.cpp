@@ -1,15 +1,17 @@
 #include "pch.h"
 #include "inspectorWidget.h"
+
+#include "OS.h"
+#include "gui.h"
 #include "scene.h"
+#include "systems.h"
+#include "physics.h"
 #include "components.h"
+#include "application.h"
+
 #include "viewportWidget.h"
 #include "SequenceWidget.h"
 #include "NodeGraphWidget.h"
-#include "OS.h"
-#include "gui.h"
-#include "physics.h"
-#include "application.h"
-#include "systems.h"
 
 namespace Raekor {
 
@@ -240,6 +242,7 @@ void InspectorWidget::DrawKeyFrameInspector(Widgets* inWidgets)
             ImGui::PopStyleVar();
     }
 }
+
 
 void InspectorWidget::DrawComponent(Name& inName)
 {
@@ -530,73 +533,6 @@ void InspectorWidget::DrawComponent(Material& inMaterial)
 	DrawTextureInteraction(inMaterial.gpuRoughnessMap, inMaterial.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap, inMaterial.roughnessFile, imgui_id);
 
 	ImGui::Checkbox("Is Transparent", &inMaterial.isTransparent);
-}
-
-
-bool DragVec3(const char* label, glm::vec3& v, float step, float min, float max, const char* format = "%.2f")
-{
-	const auto window = ImGui::GetCurrentWindow();
-	if (window->SkipItems)
-		return false;
-
-	const auto& g = *GImGui;
-	auto value_changed = false;
-	ImGui::PushID(label);
-	ImGui::PushMultiItemsWidths(v.length(), ImGui::CalcItemWidth());
-
-	constexpr auto chars = std::array { "X", "Y", "Z", "W" };
-
-	static constexpr auto colors = std::array 
-	{
-		ImVec4 { 0.5f, 0.0f, 0.0f, 1.0f },
-		ImVec4 { 0.0f, 0.5f, 0.0f, 1.0f },
-		ImVec4 { 0.1f, 0.1f, 1.0f, 1.0f }
-	};
-
-	for (int i = 0; i < v.length(); i++)
-	{
-		ImGui::PushID(i);
-
-		if (i > 0)
-			ImGui::SameLine(0, ImGui::GetStyle().FramePadding.x);
-
-		//ImGui::PushStyleColor(ImGuiCol_Button, colors[i]);
-		//
-		//if (ImGui::Button(chars[i])) {
-		//    v[i] = 0.0f;
-		//    value_changed = true;
-		//}
-
-		//ImGui::PopStyleColor();
-
-		//ImGui::SameLine(0, 1);
-		auto size = ImGui::CalcTextSize("12.456");
-		ImGui::PushItemWidth(size.x * 2);
-
-		const auto type = ImGuiDataType_Float;
-		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
-		ImGui::PushStyleColor(ImGuiCol_Border, colors[i]);
-		value_changed |= ImGui::DragScalar("", type, (void*)&v[i], step, &min, &max, format, 0);
-		ImGui::PopStyleColor();
-		ImGui::PopStyleVar();
-
-		/*ImGui::SameLine();  ImGui::Spacing();*/
-
-		ImGui::PopItemWidth();
-
-		ImGui::PopItemWidth();
-		ImGui::PopID();
-	}
-	ImGui::PopID();
-
-	const auto label_end = ImGui::FindRenderedTextEnd(label);
-	if (label != label_end)
-	{
-		ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
-		ImGui::TextEx(label, label_end);
-	}
-
-	return value_changed;
 }
 
 

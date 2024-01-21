@@ -47,13 +47,13 @@ JSONData::JSONData(const Path& inPath, bool inTokenizeOnly)
 }
 
 
-bool JSONData::IsKeyObjectPair(uint32_t inIdx)
+bool JSONData::IsKeyObjectPair(uint32_t inIdx) const
 {
 	return m_Tokens[inIdx].type == JSMN_STRING && m_Tokens[inIdx + 1].type == JSMN_OBJECT;
 }
 
 
-uint32_t JSONData::SkipToken(uint32_t inTokenIdx)
+uint32_t JSONData::SkipToken(uint32_t inTokenIdx) const
 {
 	if (!( inTokenIdx < m_Tokens.size() ))
 		return inTokenIdx;

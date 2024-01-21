@@ -33,7 +33,7 @@ public:
     bool IsLockedToCamera() const { return m_LockedToCamera; }
 
 private:
-    bool DrawTimeline(const char* label, ImGuiDataType data_type, float& inTime, const float p_min, const float p_max, const char* format, ImGuiSliderFlags flags = 0);
+    bool DrawTimeline(const char* inLabel, float& inTime, const float inMinTime, const float inMaxTime);
     
 private:
     float m_Time = 0.0f;
