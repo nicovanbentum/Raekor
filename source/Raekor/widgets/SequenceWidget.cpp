@@ -12,7 +12,7 @@ namespace Raekor {
 RTTI_DEFINE_TYPE_NO_FACTORY(SequenceWidget) {}
 
 SequenceWidget::SequenceWidget(Application* inApp) : 
-    IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_FILM "  Sequencer " )) {}
+    IWidget(inApp, (const char*)( ICON_FA_FILM "  Sequencer " )) {}
 
 
 void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
@@ -36,20 +36,9 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     {
         switch (m_State)        
         {
-            case SEQUENCE_PLAYING:
-            {
-                m_State = SEQUENCE_PAUSED;
-            } break;
-
-            case SEQUENCE_PAUSED:
-            {
-                m_State = SEQUENCE_PLAYING;
-            } break;
-
-            case SEQUENCE_STOPPED:
-            {
-                m_State = SEQUENCE_PLAYING;
-            } break;
+            case SEQUENCE_PLAYING: { m_State = SEQUENCE_PAUSED;  } break;
+            case SEQUENCE_PAUSED:  { m_State = SEQUENCE_PLAYING; } break;
+            case SEQUENCE_STOPPED: { m_State = SEQUENCE_PLAYING; } break;
         }
     }
 
@@ -117,7 +106,6 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
         ImGui::Text(m_OpenFile.c_str());
         ImGui::SameLine();
     }
-
 
     const auto text_width = ImGui::CalcTextSize("Duration: 60.000 seconds").x;
     ImGui::SetNextItemWidth(text_width);
@@ -275,7 +263,6 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
             window->DrawList->AddNgonFilled(ImVec2(ngon_center_x, ngon_center_y), radius + 2.0f, color, segments);
         }
         
-
         const auto regular_color  = ImGui::GetColorU32(ImVec4(1.0f, 0.647, 0.0f, 1.0f));
         const auto selected_color = ImGui::GetColorU32(ImVec4(1.0f, 0.2f, 0.0f, 1.0f));
         window->DrawList->AddNgonFilled(ImVec2(ngon_center_x, ngon_center_y), radius, keyframe_index == m_SelectedKeyframe ? selected_color : regular_color, segments);
@@ -366,7 +353,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
     const auto grab_padding = 2.0f; // FIXME: Should be part of style.
     const auto slider_sz = (bb.Max[axis] - bb.Min[axis]) - grab_padding * 2.0f;
 
-    float grab_sz = style.GrabMinSize;
+    auto grab_sz = style.GrabMinSize;
     if (!is_floating_point && v_range_f >= 0.0f)                         // v_range_f < 0 may happen on integer overflows
         grab_sz = ImMax(slider_sz / (v_range_f + 1), style.GrabMinSize); // For integer sliders: if possible have the grab size represent 1 unit
 
