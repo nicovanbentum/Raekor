@@ -71,7 +71,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     if (ImGui::Button((const char*)ICON_FA_SAVE))
     {
-        std::string file_path = OS::sSaveFileDialog("JSON File (*.json)\0", "json");
+        const auto file_path = OS::sSaveFileDialog("JSON File (*.json)\0", "json");
 
         if (!file_path.empty())
         {
@@ -84,7 +84,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
     if (ImGui::Button((const char*)ICON_FA_FOLDER_OPEN))
     {
-        std::string file_path = OS::sOpenFileDialog("JSON File (*.json)\0");
+        const auto file_path = OS::sOpenFileDialog("JSON File (*.json)\0");
 
         if (!file_path.empty())
         {
@@ -144,7 +144,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
 
     // don't pass m_Time directly as DrawTimeline's return value indicates if we should update the value or not
-    float time = m_Time;
+    auto time = m_Time;
     
     if (DrawTimeline("Timeline", time, 0.0f, glm::min(m_Sequence.GetDuration(), cMaxSequenceLength)))
         m_Time = time;
@@ -155,7 +155,7 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const float inMinTime, const float inMaxTime)
 {
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    auto window = ImGui::GetCurrentWindow();
     if (window->SkipItems)
         return false;
 
@@ -485,10 +485,13 @@ void SequenceWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
         {
             case SDLK_DELETE:
             {
-                if (m_SelectedKeyframe != -1)
-                    m_Sequence.RemoveKeyFrame(m_SelectedKeyframe);
+                if (m_Editor->GetActiveEntity() == NULL_ENTITY)
+                {
+                    if (m_SelectedKeyframe != -1)
+                        m_Sequence.RemoveKeyFrame(m_SelectedKeyframe);
                 
-                m_SelectedKeyframe = -1;
+                    m_SelectedKeyframe = -1;
+                }
                 break;
             }
         }
@@ -506,8 +509,8 @@ void SequenceWidget::ApplyToCamera(Camera& ioCamera, float inDeltaTime)
             m_Time = 0.0f;
     }
 
-    Vec2 angle = m_Sequence.GetAngle(ioCamera, m_Time);
-    Vec3 position = m_Sequence.GetPosition(ioCamera, m_Time);
+    const auto angle = m_Sequence.GetAngle(ioCamera, m_Time);
+    const auto position = m_Sequence.GetPosition(ioCamera, m_Time);
 
     ioCamera.SetAngle(angle);
     ioCamera.SetPosition(position);
