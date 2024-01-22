@@ -302,9 +302,9 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
 
         if (ImGui::MenuItem("Duplicate"))
         {
-            const auto& key_frame = m_Sequence.GetKeyFrame(m_SelectedKeyframe);
+            auto key_frame = m_Sequence.GetKeyFrame(m_SelectedKeyframe);
             // slightly offset the time so we can actually see the duplicate and it doesn't perfectly overlap
-            m_Sequence.AddKeyFrame(m_Editor->GetViewport().GetCamera(), key_frame.mTime + 0.05f);
+            m_Sequence.AddKeyFrame(m_Editor->GetViewport().GetCamera(), key_frame.mTime + 0.05f, key_frame.mPosition, key_frame.mAngle);
         }
 
         ImGui::EndPopup();

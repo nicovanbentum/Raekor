@@ -253,7 +253,13 @@ glm::mat4 Viewport::GetJitteredProjMatrix(const Vec2& inJitter) const
 
 void CameraSequence::AddKeyFrame(const Camera& inCamera, float inTime)
 {
-    m_KeyFrames.emplace_back(inTime, inCamera.GetAngle(), inCamera.GetPosition());
+    AddKeyFrame(inCamera, inTime, inCamera.GetPosition(), inCamera.GetAngle());
+}
+
+
+void CameraSequence::AddKeyFrame(const Camera& inCamera, float inTime, Vec3 inPosition, Vec2 inAngle)
+{
+    m_KeyFrames.emplace_back(inTime, inAngle, inPosition);
 
     std::sort(m_KeyFrames.begin(), m_KeyFrames.end(), [](const KeyFrame& inKey1, const KeyFrame& inKey2) { return inKey1.mTime < inKey2.mTime; });
 }

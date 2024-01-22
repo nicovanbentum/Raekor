@@ -141,6 +141,7 @@ public:
     void  SetDuration(float inValue) { m_Duration = inValue; }
 
     void AddKeyFrame(const Camera& inCamera, float inTime);
+    void AddKeyFrame(const Camera& inCamera, float inTime, Vec3 inPos, Vec2 inAngle);
     void RemoveKeyFrame(uint32_t inIndex);
 
     uint32_t GetKeyFrameCount() const { return m_KeyFrames.size(); }
