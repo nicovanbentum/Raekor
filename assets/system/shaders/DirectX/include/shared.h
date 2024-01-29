@@ -260,7 +260,7 @@ struct ReflectionsRootConstants
     uint  mTLAS;
     uint  mInstancesBuffer;
     uint  mMaterialsBuffer;
-    uint  mShadowMaskTexture;
+    uint  mResultTexture;
     uint  mGbufferDepthTexture;
     uint  mGbufferRenderTexture;
     uint2 mDispatchSize;
@@ -346,6 +346,8 @@ STATIC_ASSERT(sizeof(SpdRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 struct LightingRootConstants
 {
+    uint  mLightsCount;
+    uint  mLightsBuffer;
     uint  mShadowMaskTexture;
     uint  mReflectionsTexture;
     uint  mGbufferDepthTexture;

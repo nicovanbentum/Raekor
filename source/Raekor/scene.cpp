@@ -128,12 +128,12 @@ const DirectionalLight* Scene::GetSunLight() const
 void Scene::UpdateLights()
 {
 	for (auto [entity, light, transform] : Each<DirectionalLight, Transform>())
-		light.direction = Vec4(static_cast<glm::quat>( transform.rotation ) * glm::vec3(0, -1, 0), 1.0);
+		light.direction = Vec4(static_cast<glm::quat>( transform.GetRotationWorldSpace() ) * glm::vec3(0, -1, 0), 1.0);
 
 	for (auto [entity, light, transform] : Each<Light, Transform>())
 	{
-		light.direction = glm::toMat3(transform.rotation) * Vec3(0.0f, 0.0f, -1.0f);
-		light.position = Vec4(transform.position, 1.0f);
+		light.direction = glm::toMat3(transform.GetRotationWorldSpace()) * Vec3(0.0f, 0.0f, -1.0f);
+		light.position = Vec4(transform.GetPositionWorldSpace(), 1.0f);
 	}
 }
 

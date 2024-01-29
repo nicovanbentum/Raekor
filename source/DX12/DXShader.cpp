@@ -3,6 +3,7 @@
 #include "DXDevice.h"
 #include "DXUtil.h"
 #include "Raekor/async.h"
+#include "Raekor/timer.h"
 #include "Raekor/member.h"
 
 namespace Raekor::DX12 {
@@ -105,8 +106,14 @@ bool ShaderProgram::CompilePSO(Device& inDevice, const char* inDebugName)
 {
     if (IsCompute())
     {
+        m_ComputePipeline = nullptr;
+
+        Timer timer;
+
         const auto pso_desc = inDevice.CreatePipelineStateDesc(nullptr, CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size()));
-        inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&m_ComputePipeline));
+        gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&m_ComputePipeline)));
+
+        std::cout << std::format("Compute PSO {} compilation took {:.2f} ms \n", inDebugName, Timer::sToMilliseconds(timer.GetElapsedTime()));
 
         if (m_ComputePipeline && inDebugName)
             m_ComputePipeline->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(inDebugName), inDebugName);
@@ -408,15 +415,7 @@ bool SystemShadersDX12::CompilePSOs(Device& inDevice)
             auto& shader_program = member->GetRef<ShaderProgram>(this);
 
             if (shader_program.GetProgramType() == SHADER_PROGRAM_COMPUTE && shader_program.IsCompiled())
-            {
-                CD3DX12_SHADER_BYTECODE bytecode;
-                shader_program.GetComputeProgram(bytecode);
-
-                const auto pso_desc = inDevice.CreatePipelineStateDesc(nullptr, bytecode);
-                inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&shader_program.m_ComputePipeline));
-
-                shader_program.GetComputePSO()->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(member->GetCustomName()), member->GetCustomName());
-            }
+                shader_program.CompilePSO(inDevice, member->GetCustomName());
         });
     }
 

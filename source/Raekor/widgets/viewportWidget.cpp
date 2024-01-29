@@ -5,6 +5,7 @@
 #include "gui.h"
 #include "scene.h"
 #include "timer.h"
+#include "script.h"
 #include "physics.h"
 #include "components.h"
 #include "primitives.h"
@@ -455,6 +456,13 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			{
 				GetPhysics().SaveState();
 				GetPhysics().SetState(Physics::Stepping);
+
+				for (auto [entity, script] : scene.Each<NativeScript>())
+				{
+					if (script.script)
+						script.script->OnStart();
+				}
+
 			} break;
 			case Physics::Paused:
 			{

@@ -16,30 +16,32 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
     Texture2D<float4> gbuffer_texture = ResourceDescriptorHeap[rc.mGbufferRenderTexture];
     Texture2D<float> gbuffer_depth_texture = ResourceDescriptorHeap[rc.mGbufferDepthTexture];
-    RWTexture2D<float4> result_texture = ResourceDescriptorHeap[rc.mShadowMaskTexture];
+    RWTexture2D<float4> result_texture = ResourceDescriptorHeap[rc.mResultTexture];
     
     RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[rc.mTLAS];
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials  = ResourceDescriptorHeap[rc.mMaterialsBuffer];
     
-    FrameConstants fc = gGetFrameConstants();
+    const FrameConstants fc = gGetFrameConstants();
 
+    uint rng = TeaHash(((threadID.y << 16) | threadID.x), fc.mFrameCounter + 1);
+    
     const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;
 
-    uint rng = TeaHash(((threadID.y << 16) | threadID.x), fc.mFrameCounter + 1);
-
     float depth = gbuffer_depth_texture[threadID.xy];
-    if (depth >= 1.0) {
-        result_texture[threadID.xy] = float4(0.0, 0.0, 0.0, 1.0);
+    if (depth >= 1.0) 
+    {
+        result_texture[threadID.xy] = 0.xxxx;
         return;
     }
 
     BRDF gbuffer_brdf;
     gbuffer_brdf.Unpack(asuint(gbuffer_texture[threadID.xy]));
 
-    if (gbuffer_brdf.mRoughness >= 0.3 && gbuffer_brdf.mMetallic < 0.1) {
-        result_texture[threadID.xy] = float4(0.0, 0.0, 0.0, 1.0);
+    if (gbuffer_brdf.mRoughness >= 0.3 && gbuffer_brdf.mMetallic < 0.1) 
+    {
+        result_texture[threadID.xy] = 0.xxxx;
         return;
     }
     
@@ -49,6 +51,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
     
     float3 Wi, Wh;
     gbuffer_brdf.SampleSpecular(rng, Wo, Wi, Wh);
+    //const float3 Wi = normalize(reflect(-Wo, gbuffer_brdf.mNormal.xyz));
     
     RayDesc ray;
     ray.TMin = 0.1;
@@ -60,6 +63,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
     query.TraceRayInline(TLAS, RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
     query.Proceed();
     
+    float3 irradiance = 0.xxx;
 
     if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
     {
@@ -80,23 +84,18 @@ void main(uint3 threadID : SV_DispatchThreadID)
         BRDF brdf;
         brdf.FromHit(vertex, material);
         
-        // sample a ray direction towards the sun disk
         float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, 0.0f, 0.xx);
-        
-        const float3 l = brdf.Evaluate(Wo, Wi, Wh);
 
         const float NdotL = max(dot(brdf.mNormal, Wi), 0.0);
-        float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi));
-        float3 total_radiance = l * NdotL * sunlight_luminance;
-        
-        if (NdotL != 0.0) 
+
+        if (NdotL > 0.0) 
         {
             bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
-            total_radiance *= uint(!hit);
+            
+            if (!hit)
+                irradiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo);
+                //irradiance += brdf.mAlbedo.rgb * NdotL * fc.mSunColor.a;
         }
-        
-        
-        result_texture[threadID.xy] = float4(total_radiance, 1.0);
     }
     else
     {
@@ -104,8 +103,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
         float3 transmittance;
         float3 inscattering = IntegrateScattering(ray.Origin, -ray.Direction, 1.#INF, fc.mSunDirection.xyz, fc.mSunColor.rgb, transmittance);
             
-        result_texture[threadID.xy] = float4(max(inscattering, 0.0.xxx) * fc.mSunColor.a, 1.0);
+        irradiance += max(inscattering, 0.0.xxx) * fc.mSunColor.a;
     }
     
-    //result_texture[threadID.xy] = float4(normal, 1.0);
+    result_texture[threadID.xy] = float4(irradiance, 1.0);
 }

@@ -13,6 +13,7 @@
 #include "Raekor/gui.h"
 #include "Raekor/timer.h"
 #include "Raekor/rmath.h"
+#include "Raekor/systems.h"
 #include "Raekor/primitives.h"
 #include "Raekor/application.h"
 
@@ -76,6 +77,21 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
     if (!m_FenceEvent)
         gThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+
+    g_CVars.CreateFn("fn_compile_psos", [this, &inDevice]()
+    {
+        WaitForIdle(inDevice);
+        g_SystemShaders.CompilePSOs(inDevice);
+        g_ThreadPool.WaitForJobs();
+    });
+
+    g_CVars.CreateFn("fn_hotload_shaders", [this, &inDevice]()
+    {
+        WaitForIdle(inDevice);
+        g_SystemShaders.HotLoad(inDevice);
+        SetShouldResize(true);
+        g_ThreadPool.WaitForJobs();
+    });
 }
 
 
@@ -228,7 +244,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     m_FrameConstants.mFrameCounter = m_FrameCounter;
     m_FrameConstants.mPrevJitter = m_FrameConstants.mJitter;
     m_FrameConstants.mJitter = enable_jitter ? Vec2(jitter_x, jitter_y) : Vec2(0.0f, 0.0f);
-    m_FrameConstants.mSunColor = inScene->GetSunLight() ? inScene->GetSunLight()->GetColor() : Vec4(1.0f);
+    m_FrameConstants.mSunColor = inScene->GetSunLight() ? inScene->GetSunLight()->GetColor() : Vec4(0.0f);
     m_FrameConstants.mSunDirection = Vec4(inScene->GetSunLightDirection(), 0.0f);
     m_FrameConstants.mCameraPosition = Vec4(camera.GetPosition(), 1.0f);
     m_FrameConstants.mViewMatrix = camera.GetView();
@@ -403,9 +419,8 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
             indirect_diffuse_texture = ddgi_sample_data.mOutputTexture;
         }
-
         
-        const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, gbuffer_data, shadow_texture, reflections_texture, rtao_texture, indirect_diffuse_texture);
+        const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_data, shadow_texture, reflections_texture, rtao_texture, indirect_diffuse_texture);
         
         compose_input = light_data.mOutputTexture;
         

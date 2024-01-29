@@ -11,6 +11,8 @@ void INativeScript::Bind(Entity inEntity, Scene* inScene)
 {
 	m_Entity = inEntity;
 	m_Scene = inScene;
+
+	OnBind();
 }
 
 SCRIPT_INTERFACE Input* GetInput() { return g_Input; }

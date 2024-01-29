@@ -149,9 +149,9 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mBloomDownsampleShader;
     ShaderProgram mChromaticAberrationShader;
 
-
     bool HotLoad(Device& inDevice);
     bool CompilePSOs(Device& inDevice);
+    bool ForceHotload(Device& inDevice);
 
     bool OnCompile() override;
     bool IsCompiled() const override;

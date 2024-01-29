@@ -587,7 +587,7 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const GBufferData& inGBufferData, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture)
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture)
 {
     return inRenderGraph.AddGraphicsPass<LightingData>("DEFERRED LIGHTING PASS",
 
@@ -623,7 +623,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mPipeline->SetName(L"PSO_DEFERRED_LIGHTING");
     },
 
-    [&inRenderGraph, &inDevice](LightingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inScene](LightingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         auto root_constants = LightingRootConstants
         {
@@ -634,6 +634,13 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
             .mIndirectDiffuseTexture  = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mIndirectDiffuseTextureSRV)),
             .mAmbientOcclusionTexture = inDevice.GetBindlessHeapIndex(inRGResources.GetTextureView(inData.mAmbientOcclusionTextureSRV)),
         };
+
+        auto lights_count = inScene->Count<Light>();
+        if ( lights_count > 0 )
+        {
+            root_constants.mLightsCount = lights_count;
+            root_constants.mLightsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetLightsDescriptor(inDevice));
+        }
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());

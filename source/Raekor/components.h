@@ -76,7 +76,7 @@ struct SCRIPT_INTERFACE Light
 	glm::vec3 direction = { 0.0f, -1.0f, 0.0f }; // used for Directional and Spot light
 	glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f }; // Used for Spot and Point light
 	glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f }; // rgb = color, a = intensity
-	glm::vec4 attributes = { 1.0f, 0.0f, 0.0f, 0.0f }; // range, spot inner cone angle, spot outer cone angle
+	glm::vec4 attributes = { 1.0f, 0.0f, 0.0f, 0.0f }; // radius/range, spot inner cone angle, spot outer cone angle
 };
 
 

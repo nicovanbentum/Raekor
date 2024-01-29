@@ -8,6 +8,7 @@
 #include "input.h"
 #include "camera.h"
 #include "script.h"
+#include "systems.h"
 #include "components.h"
 
 

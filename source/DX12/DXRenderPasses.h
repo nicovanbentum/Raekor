@@ -221,6 +221,7 @@ struct LightingData
 };
 
 const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, 
+    const RayTracedScene& inScene,
     const GBufferData& inGBufferData, 
     RenderGraphResourceID inShadowTexture, 
     RenderGraphResourceID inReflectionsTexture, 

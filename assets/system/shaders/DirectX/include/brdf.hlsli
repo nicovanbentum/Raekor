@@ -161,7 +161,7 @@ struct BRDF {
         const float rand = pcg_float(rng);
 
         // randomly decide to specular bounce
-        if (rand > 0.5 && mRoughness < 0.67) {
+        if (rand > 0.5) {
             float3 Wh;
             SampleSpecular(rng, Wo, Wi, Wh);
 
@@ -211,7 +211,7 @@ float3 SampleDirectionalLight(float3 inLightDir, float inConeAngle, float2 inRNG
 }
     
 
-float3 EvaluateDirectionalLight(BRDF inBrdf, float4 inLightColor, float3 Wi, float3 Wo, inout uint ioRNG)
+float3 EvaluateDirectionalLight(BRDF inBrdf, float4 inLightColor, float3 Wi, float3 Wo)
 {             
     float3 sunlight_luminance = Absorb(IntegrateOpticalDepth(0.xxx, -Wi)) * inLightColor.a;
                 
@@ -241,7 +241,7 @@ float GetPointAttenuation(RTLight inLight, float inDistance)
 }
 
 
-float3 EvaluatePointLight(BRDF inBrdf, RTLight inLight, float3 Wi, float3 Wo, float inDistance, inout uint ioRNG)
+float3 EvaluatePointLight(BRDF inBrdf, RTLight inLight, float3 Wi, float3 Wo, float inDistance)
 {
     const float NdotL = max(dot(inBrdf.mNormal, Wi), 0.0);
     
@@ -273,7 +273,7 @@ float GetSpotAttenuation(RTLight inLight, float inDistance, float3 Wi)
 }
 
 
-float3 EvaluateSpotLight(BRDF inBrdf, RTLight inLight, float3 Wi, float3 Wo, float inDistance, inout uint ioRNG)
+float3 EvaluateSpotLight(BRDF inBrdf, RTLight inLight, float3 Wi, float3 Wo, float inDistance)
 {
     const float NdotL = max(dot(inBrdf.mNormal, Wi), 0.0);
     

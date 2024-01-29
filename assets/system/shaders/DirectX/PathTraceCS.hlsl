@@ -85,7 +85,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
             irradiance = brdf.mEmissive;
             
             const float3 Wo = -ray.Direction;
-            
+
             {
                 // sample a ray direction towards the sun disk
                 float3 Wi = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
@@ -94,7 +94,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
                 bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 0.1f, 1000.0f);
                 
                 if (!hit)
-                    irradiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo, rng);
+                    irradiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo);
             }
             
             // for (uint i = 0; i < 8; i++)
@@ -116,7 +116,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
                             bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, Wi, 2.0f, t_max);
                         
                             if (!hit)
-                                irradiance += EvaluatePointLight(brdf, light, Wi, Wo, t_max, rng);
+                                irradiance += EvaluatePointLight(brdf, light, Wi, Wo, t_max);
                         }
                         break;
                     
@@ -132,7 +132,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
                             bool hit = TraceShadowRay(TLAS, vertex.mPos + vertex.mNormal * 0.01, float3(Wi.x + disk_point.x, Wi.y, Wi.z + disk_point.y), 2.0f, t_max);
                         
                             if (!hit)
-                                irradiance += EvaluateSpotLight(brdf, light, Wi, Wo, t_max, rng);
+                                irradiance += EvaluateSpotLight(brdf, light, Wi, Wo, t_max);
                         }
                         break;
                 }

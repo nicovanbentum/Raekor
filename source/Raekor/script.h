@@ -29,6 +29,12 @@ public:
 
 	void Bind(Raekor::Entity inEntity, Raekor::Scene* inScene);
 
+	virtual void OnBind() {};
+
+	virtual void OnStart() {};
+
+	virtual void OnStop() {};
+
 	virtual void OnUpdate(float inDeltaTime) = 0;
 
 	virtual void OnEvent(const SDL_Event& inEvent) = 0;
@@ -37,7 +43,9 @@ public:
 	template<typename T>
 	T& GetComponent();
 
-private:
+	Raekor::Scene* GetScene() { return m_Scene; }
+
+protected:
 	Raekor::Scene* m_Scene = nullptr;
 	Raekor::Entity m_Entity;
 };
@@ -48,7 +56,6 @@ T& INativeScript::GetComponent()
 {
 	return m_Scene->Get<T>(m_Entity);
 }
-
 
 SCRIPT_INTERFACE Input* GetInput();
 
