@@ -18,6 +18,8 @@ class ConVar
 {
 	RTTI_DECLARE_TYPE(ConVar);
 
+    using Func = std::function<void(void)>;
+
 public:
 	ConVar() : mType(CVAR_TYPE_ERROR) {}
 	ConVar(int inValue) : mType(CVAR_TYPE_INT), mIntValue(inValue) {}

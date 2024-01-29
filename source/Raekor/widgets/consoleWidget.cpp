@@ -213,6 +213,9 @@ int ConsoleWidget::sEditCallback(ImGuiInputTextCallbackData* data)
 	if (data->EventKey == ImGuiKey_UpArrow && console->m_ActiveItem)
 		console->m_ActiveItem = GoToPreviousItem();
 
+    if (data->EventKey == ImGuiKey_UpArrow && data->BufTextLen == 0)
+        data->InsertChars(0, console->m_Items.back().c_str());
+
 	return 0;
 }
 

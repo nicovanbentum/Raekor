@@ -37,6 +37,7 @@ private:
     
 private:
     float m_Time = 0.0f;
+    float m_Speed = 1.0f;
     std::string m_OpenFile = "";
     int m_SelectedKeyframe = -1;
     bool m_LockedToCamera = false;

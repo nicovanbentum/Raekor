@@ -129,6 +129,14 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
             m_Sequence.SetDuration(duration_value);
     }
 
+    const auto avail = ImGui::GetContentRegionAvail();
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
+
+    ImGui::VSliderFloat("##sequencespeed", ImVec2(avail.x * 0.01f, avail.y), &m_Speed, 0.0f, 1.0f, "%", ImGuiSliderFlags_NoRoundToFormat);
+
+    ImGui::SameLine();
+
     ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
 
     // don't pass m_Time directly as DrawTimeline's return value indicates if we should update the value or not
@@ -136,6 +144,8 @@ void SequenceWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     
     if (DrawTimeline("Timeline", time, 0.0f, glm::min(m_Sequence.GetDuration(), cMaxSequenceLength)))
         m_Time = time;
+
+    ImGui::PopStyleVar();
 
     ImGui::End();
 }
@@ -490,7 +500,7 @@ void SequenceWidget::ApplyToCamera(Camera& ioCamera, float inDeltaTime)
 {
     if (m_State == SEQUENCE_PLAYING)
     {
-        m_Time += inDeltaTime;
+        m_Time += inDeltaTime * m_Speed;
 
         if (m_Time > m_Sequence.GetDuration())
             m_Time = 0.0f;

@@ -72,6 +72,9 @@ bool ConVar::SetValue(const std::string& inValue)
 		case CVAR_TYPE_STRING: 
 			mStringValue = inValue;
 			return true;
+        case CVAR_TYPE_ERROR:
+            mFuncValue();
+            return true;
 		default:
 			return false;
 	}

@@ -332,7 +332,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 						mesh.indices.push_back(index.p3);
 					}
 
-					//mesh.CalculateNormals();
+					mesh.CalculateNormals();
 					mesh.CalculateTangents();
 					mesh.CalculateAABB();
 
