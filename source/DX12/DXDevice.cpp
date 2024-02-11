@@ -190,11 +190,6 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 
         m_Device->CreateCommandSignature(&cmdsig_desc, nullptr, IID_PPV_ARGS(m_CommandSignatures[cmd_sig].GetAddressOf()));
     }
-
-    /*ComPtr<ID3D12QueryHeap> m_TimestampQueryHeap;
-    D3D12_QUERY_HEAP_DESC query_heap_desc = {};
-    query_heap_desc.
-    m_Device->CreateQueryHeap(&query_heap_desc, IID_PPV_ARGS(m_TimestampQueryHeap.GetAddressOf()));*/
 }
 
 
@@ -785,8 +780,6 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
     auto desc = inTexture.GetD3D12Resource()->GetDesc();
     m_Device->GetCopyableFootprints(&desc, inSubResource, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
 
-    const uint64_t aligned_row_size = gAlignUp(row_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
-
     /*for (auto& buffer : m_Buffers) 
     {
         if (buffer.mRetired && inSize <= buffer.mCapacity - buffer.mSize) 
@@ -806,13 +799,9 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
         }
     }*/
 
-    BufferID buffer_id = m_Device.CreateBuffer(Buffer::Desc {
-        .size = uint32_t(total_size),
-        .usage = Buffer::Usage::UPLOAD
-    });
-
-
-    Buffer& buffer = m_Device.GetBuffer(buffer_id);
+    auto buffer_id = m_Device.CreateBuffer(Buffer::Describe(total_size, Buffer::Usage::UPLOAD));
+    
+    auto& buffer = m_Device.GetBuffer(buffer_id);
 
     auto mapped_ptr = static_cast<uint8_t*>( nullptr );
     const auto range = CD3DX12_RANGE(0, 0);
@@ -824,7 +813,7 @@ void StagingHeap::StageTexture(CommandList& inCmdList, const Texture& inTexture,
     for (uint32_t row = 0u; row < nr_of_rows; row++)
     {
         const auto copy_src = data_ptr + row * row_size;
-        const auto copy_dst = mapped_ptr + row * aligned_row_size;
+        const auto copy_dst = mapped_ptr + row * footprint.Footprint.RowPitch;
         memcpy(copy_dst, copy_src, row_size);
     }
 

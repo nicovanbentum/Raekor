@@ -2,8 +2,8 @@
 
 #include "DXDevice.h"
 #include "DXResource.h"
-#include "Raekor/util.h"
 #include "Raekor/scene.h"
+#include "Raekor/defines.h"
 
 namespace Raekor {
 

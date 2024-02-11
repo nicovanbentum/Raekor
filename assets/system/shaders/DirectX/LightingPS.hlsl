@@ -45,11 +45,20 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
 
     // apply ray traced shadows to DirectionalLight
     total_radiance *= shadow_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).r;
+
+    uint2 group_index = uint2(inParams.mPixelCoords.xy) / LIGHT_CULL_TILE_SIZE;
+    RWByteAddressBuffer light_count_buffer = ResourceDescriptorHeap[rc.mLights.mLightGridBuffer];
+    RWByteAddressBuffer light_index_buffer = ResourceDescriptorHeap[rc.mLights.mLightIndicesBuffer];
+        
+    uint light_count = light_count_buffer.Load(rc.mLights.mDispatchSize.x.x * group_index.x + group_index.y);
+    uint index_offset = rc.mLights.mDispatchSize.x * LIGHT_CULL_MAX_LIGHTS * group_index.y + group_index.x * LIGHT_CULL_MAX_LIGHTS;
     
     // evaluate Point and Spot lights
     for (int light_idx = 0; light_idx < rc.mLightsCount; light_idx++)
+    //for (uint light_idx = 0; light_idx < light_count; light_idx++)
     {
         RTLight light = lights[light_idx];
+        //RTLight light = lights[light_index_buffer.Load(index_offset + light_idx)];
         float dist_to_light = length(light.mPosition.xyz - ws_pos);
 
         switch (light.mType)

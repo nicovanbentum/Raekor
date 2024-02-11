@@ -11,6 +11,7 @@
 
 #include "Raekor/OS.h"
 #include "Raekor/gui.h"
+#include "Raekor/iter.h"
 #include "Raekor/timer.h"
 #include "Raekor/rmath.h"
 #include "Raekor/systems.h"
@@ -180,7 +181,7 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         WaitForIdle(inDevice);
 
         // Resize the renderer, which recreates the swapchain backbuffers and re-inits upscalers
-        OnResize(inDevice, inViewport, SDL_IsWindowExclusiveFullscreen(m_Window));
+        OnResize(inDevice, inViewport, inApp->IsWindowExclusiveFullscreen());
 
         // Recompile the renderer, super overkill. TODO: pls fix
         Recompile(inDevice, inScene, inRenderInterface);
@@ -373,6 +374,8 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
 
     const auto& default_textures = AddDefaultTexturesPass(m_RenderGraph, inDevice, inRenderInterface->GetBlackTexture(), inRenderInterface->GetWhiteTexture());
     
+    // const auto& skycube_data = AddSkyCubePass(m_RenderGraph, inDevice, inScene, )
+
     auto depth_texture = default_textures.mWhiteTexture;
     auto compose_input = default_textures.mBlackTexture;
 
@@ -420,7 +423,9 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, IRende
             indirect_diffuse_texture = ddgi_sample_data.mOutputTexture;
         }
         
-        const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_data, shadow_texture, reflections_texture, rtao_texture, indirect_diffuse_texture);
+        const auto& light_cull_data = AddTiledLightCullingPass(m_RenderGraph, inDevice, inScene);
+
+        const auto& light_data = AddLightingPass(m_RenderGraph, inDevice, inScene, gbuffer_data, light_cull_data, shadow_texture, reflections_texture, rtao_texture, indirect_diffuse_texture);
         
         compose_input = light_data.mOutputTexture;
         
@@ -579,7 +584,11 @@ RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer&
         case 0x00001414: gpu_info.mVendor = "Microsoft Corporation";        break;
     }
 
-    gpu_info.mProduct = gWCharToString(adapter_desc.Description);
+    char ch = ' ';
+    char description[128];
+    WideCharToMultiByte(CP_ACP, 0, adapter_desc.Description, -1, description, 128, &ch, NULL);
+
+    gpu_info.mProduct = std::string(description);
     gpu_info.mActiveAPI = "DirectX 12 Ultimate";
 
     SetGPUInfo(gpu_info);
@@ -707,8 +716,17 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
     auto format = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM;
     auto dds_format = (EDDSFormat)header_ptr->ddspf.dwFourCC;
 
+    switch (dds_format)
+    {
+        case EDDSFormat::DDS_FORMAT_ATI2: format = DXGI_FORMAT_BC5_UNORM; break;
+        default: break;
+    }
+
     if (dds_format == EDDSFormat::DDS_FORMAT_DX10)
         format = (DXGI_FORMAT)inAsset->GetHeaderDXT10()->dxgiFormat;
+
+   /* if (format == DXGI_FORMAT_BC7_UNORM && inIsSRGB)
+        format = DXGI_FORMAT_BC7_UNORM_SRGB;*/
 
     const auto texture_id = m_Device.CreateTexture(Texture::Desc
     {
@@ -860,6 +878,41 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             }
         }
 
+        if (ImGui::Button("Material albedo 1"))
+        {
+            for (const auto& [entity, material] : inScene.Each<Material>())
+                material.albedo = Vec4(1.0f);
+        }
+
+        if (ImGui::Button("Flip mesh uvs Y"))
+        {
+            for (const auto& [entity, mesh] : inScene.Each<Mesh>())
+            {
+                for (auto& uv : mesh.uvs)
+                    uv.y = 1.0 - uv.y;
+
+                UploadMeshBuffers(entity, mesh);
+            }
+        }
+
+        if (ImGui::Button("BC7_UNORM to BC7_UNORM_SRGB"))
+        {
+            for (const auto& [entity, material] : inScene.Each<Material>())
+            {
+                if (auto texture = inApp->GetAssets()->GetAsset<TextureAsset>(material.albedoFile))
+                {
+                    if (texture->IsExtendedDX10())
+                    {
+                        if (texture->GetHeaderDXT10()->dxgiFormat == DXGI_FORMAT_BC7_UNORM)
+                        {
+                            texture->GetHeaderDXT10()->dxgiFormat = DXGI_FORMAT_BC7_UNORM_SRGB;
+                            texture->Save();
+                        }
+                    }
+                }
+            }
+        }
+
         if (ImGui::Button("Clear DDGI History"))
         {
             ProbeUpdateData::mClear = true;
@@ -944,9 +997,15 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         auto window = inApp->GetWindow();
         const auto window_flags = SDL_GetWindowFlags(window);
 
-        if (SDL_IsWindowBorderless(window))
+        auto SDL_IsWindowBorderless = [](SDL_Window* inWindow) -> bool
+        {
+            const auto window_flags = SDL_GetWindowFlags(inWindow);
+            return ( ( window_flags & SDL_WINDOW_FULLSCREEN_DESKTOP ) == SDL_WINDOW_FULLSCREEN_DESKTOP );
+        };
+
+        if (inApp->IsWindowBorderless())
             mode = 1u;
-        else if (SDL_IsWindowExclusiveFullscreen(window))
+        else if (inApp->IsWindowExclusiveFullscreen())
             mode = 2u;
 
         if (ImGui::BeginCombo("Mode", mode_strings[mode]))
@@ -960,7 +1019,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                     SDL_SetWindowFullscreen(window, modes[index]);
                     if (to_fullscreen)
                     {
-                        while (!SDL_IsWindowExclusiveFullscreen(window))
+                        while (!inApp->IsWindowExclusiveFullscreen())
                             SDL_Delay(10);
                     }
 

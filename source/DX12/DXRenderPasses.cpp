@@ -1,8 +1,10 @@
 #include "pch.h"
 #include "DXRenderPasses.h"
 #include "DXShader.h"
+
 #include "Raekor/timer.h"
 #include "Raekor/debug.h"
+#include "Raekor/camera.h"
 #include "Raekor/primitives.h"
 
 namespace Raekor::DX12 {
@@ -14,6 +16,7 @@ RTTI_DEFINE_TYPE(GBufferData)               {}
 RTTI_DEFINE_TYPE(GBufferDebugData)          {}
 RTTI_DEFINE_TYPE(GrassData)                 {}
 RTTI_DEFINE_TYPE(DownsampleData)            {}
+RTTI_DEFINE_TYPE(TiledLightCullingData)     {}
 RTTI_DEFINE_TYPE(LightingData)              {}
 RTTI_DEFINE_TYPE(TAAResolveData)            {}
 RTTI_DEFINE_TYPE(DepthOfFieldData)          {}
@@ -109,11 +112,10 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
     return inRenderGraph.AddComputePass<SkyCubeData>("SKY CUBE PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkyCubeData& inData)
     {  
-        inData.mSkyCubeTexture = ioRGBuilder.Import(inDevice, inSkyCubeTexture);
+        inData.mSkyCubeTexture = ioRGBuilder.Create(Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 64, 64, Texture::SHADER_READ_WRITE));
         inData.mSkyCubeTextureUAV = ioRGBuilder.Write(inData.mSkyCubeTexture);
     },
-
-    [=, &inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice, &inScene](SkyCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {   
         if (auto sun_light = inScene.GetSunLight())
         {
@@ -135,23 +137,23 @@ const SkyCubeData& AddSkyCubePass(RenderGraph& inRenderGraph, Device& inDevice, 
 
 
 
-const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inCubeTexture, TextureID inConvolvedCubeTexture)
+const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& inDevice, RenderGraphResourceID inCubeTexture)
 {
-    return inRenderGraph.AddGraphicsPass<ConvolveCubeData>("CONVOLVE CUBE PASS",
+    return inRenderGraph.AddGraphicsPass<ConvolveCubeData>("CONVOLVE CUBEMAP PASS",
     [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, ConvolveCubeData& inData)
     {
         inData.mCubeTexture = ioRGBuilder.Read(inCubeTexture);
-        inData.mConvolvedCubeTexture = ioRGBuilder.Import(inDevice, inConvolvedCubeTexture);
+        inData.mConvolvedCubeTexture = ioRGBuilder.Create(Texture::DescCube(DXGI_FORMAT_R32G32B32A32_FLOAT, 16, 16, Texture::SHADER_READ_WRITE));
         inData.mConvolvedCubeTextureUAV = ioRGBuilder.Write(inData.mConvolvedCubeTexture);
     },
 
-    [=, &inDevice](ConvolveCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    [&inDevice](ConvolveCubeData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
         inCmdList.PushComputeConstants(ConvolveCubeRootConstants
-            {
-                .mCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mCubeTexture)),
-                .mConvolvedCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mConvolvedCubeTexture))
-            });
+        {
+            .mCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mCubeTexture)),
+            .mConvolvedCubeTexture = inDevice.GetBindlessHeapIndex(inResources.GetTexture(inData.mConvolvedCubeTexture))
+        });
 
         inCmdList->SetPipelineState(g_SystemShaders.mConvolveCubeShader.GetComputePSO());
 
@@ -586,8 +588,50 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 }
 
 
+const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
+{
+    return inRenderGraph.AddComputePass<TiledLightCullingData>("TILED LIGHT CULLING PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, TiledLightCullingData& inData)
+    {
+        const auto render_size = inRenderGraph.GetViewport().GetRenderSize();
+        const auto nr_of_tiles = UVec2
+        (
+            (render_size.x + LIGHT_CULL_TILE_SIZE - 1) / LIGHT_CULL_TILE_SIZE, 
+            (render_size.y + LIGHT_CULL_TILE_SIZE - 1) / LIGHT_CULL_TILE_SIZE
+        );
 
-const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture)
+        inData.mLightGridBuffer = ioRGBuilder.Create(Buffer::RWByteAddressBuffer(nr_of_tiles.x * nr_of_tiles.y, "LIGHT_CULLING_LIGHT_GRID"));
+        inData.mLightIndicesBuffer = ioRGBuilder.Create(Buffer::RWByteAddressBuffer(nr_of_tiles.x * nr_of_tiles.y * LIGHT_CULL_MAX_LIGHTS, "LIGHT_CULLING_INDICES"));
+
+        ioRGBuilder.Write(inData.mLightGridBuffer);
+        ioRGBuilder.Write(inData.mLightIndicesBuffer);
+    },
+    [&inRenderGraph, &inDevice, &inScene](TiledLightCullingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    {
+        inData.mRootConstants = 
+        {
+            .mLightGridBuffer    = inDevice.GetBindlessHeapIndex(inRGResources.GetBuffer(inData.mLightGridBuffer)),
+            .mLightIndicesBuffer = inDevice.GetBindlessHeapIndex(inRGResources.GetBuffer(inData.mLightIndicesBuffer)),
+        };
+
+        //inData.mRootConstants.mFullResSize = inRenderGraph.GetViewport().GetRenderSize();
+        //inData.mRootConstants.mDispatchSize.x = (inData.mRootConstants.mFullResSize.x + LIGHT_CULL_TILE_SIZE - 1) / LIGHT_CULL_TILE_SIZE;
+        //inData.mRootConstants.mDispatchSize.y = (inData.mRootConstants.mFullResSize.y + LIGHT_CULL_TILE_SIZE - 1) / LIGHT_CULL_TILE_SIZE;
+//
+        //inData.mRootConstants.mLightsCount = inScene->Count<Light>();
+        //if (inData.mRootConstants.mLightsCount > 0)
+        //    inData.mRootConstants.mLightsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetLightsDescriptor(inDevice));
+//
+        //inCmdList.PushComputeConstants(inData.mRootConstants);
+        //inCmdList->SetPipelineState(g_SystemShaders.mLightCullShader.GetComputePSO());
+//
+        //inCmdList->Dispatch(inData.mRootConstants.mDispatchSize.x, inData.mRootConstants.mDispatchSize.y, 1);
+    });
+}
+
+
+
+const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData, const TiledLightCullingData& inLightData, RenderGraphResourceID inShadowTexture, RenderGraphResourceID inReflectionsTexture, RenderGraphResourceID inAOTexture, RenderGraphResourceID inIndirectDiffuseTexture)
 {
     return inRenderGraph.AddGraphicsPass<LightingData>("DEFERRED LIGHTING PASS",
 
@@ -604,12 +648,16 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
 
         ioRGBuilder.RenderTarget(inData.mOutputTexture);
 
+        ioRGBuilder.Write(inLightData.mLightGridBuffer);
+        ioRGBuilder.Write(inLightData.mLightIndicesBuffer);
+
+        inData.mAmbientOcclusionTextureSRV  = ioRGBuilder.Read(inAOTexture);
         inData.mShadowMaskTextureSRV        = ioRGBuilder.Read(inShadowTexture);
         inData.mReflectionsTextureSRV       = ioRGBuilder.Read(inReflectionsTexture);
+        inData.mIndirectDiffuseTextureSRV   = ioRGBuilder.Read(inIndirectDiffuseTexture);
+
         inData.mGBufferDepthTextureSRV      = ioRGBuilder.Read(inGBufferData.mDepthTexture);
         inData.mGBufferRenderTextureSRV     = ioRGBuilder.Read(inGBufferData.mRenderTexture);
-        inData.mIndirectDiffuseTextureSRV   = ioRGBuilder.Read(inIndirectDiffuseTexture);
-        inData.mAmbientOcclusionTextureSRV  = ioRGBuilder.Read(inAOTexture);
 
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         g_SystemShaders.mLightingShader.GetGraphicsProgram(vertex_shader, pixel_shader);
@@ -623,7 +671,7 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
         inData.mPipeline->SetName(L"PSO_DEFERRED_LIGHTING");
     },
 
-    [&inRenderGraph, &inDevice, &inScene](LightingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
+    [&inRenderGraph, &inDevice, &inScene, &inLightData](LightingData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
         auto root_constants = LightingRootConstants
         {
@@ -641,6 +689,8 @@ const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice
             root_constants.mLightsCount = lights_count;
             root_constants.mLightsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetLightsDescriptor(inDevice));
         }
+
+        root_constants.mLights = inLightData.mRootConstants;
 
         inCmdList->SetPipelineState(inData.mPipeline.Get());
         inCmdList.SetViewportAndScissor(inRenderGraph.GetViewport());

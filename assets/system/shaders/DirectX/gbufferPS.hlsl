@@ -19,11 +19,24 @@ struct PS_OUTPUT {
 ROOT_CONSTANTS(GbufferRootConstants, rc)
 
 
+float3 ReconstructNormalBC5(float2 normal)
+{
+    float2 xy = 2.0f * normal - 1.0f;
+    float z = sqrt(1 - dot(xy, xy));
+    return float3(xy.x, xy.y, z);
+}
+
+
 PS_OUTPUT main(in VS_OUTPUT input) {
     PS_OUTPUT output;
 
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials = ResourceDescriptorHeap[rc.mMaterialsBuffer];
+    
+    RTVertex vertex;
+    vertex.mTexCoord = input.texcoord;
+    vertex.mNormal = input.normal;
+    vertex.mTangent = input.tangent;
     
     RTGeometry geometry = geometries[rc.mInstanceIndex];
     RTMaterial material = materials[geometry.mMaterialIndex];
@@ -43,10 +56,13 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     float sampled_metallic = metallic_texture.Sample(SamplerAnisoWrap, input.texcoord).r; // value swizzled across all channels, just get Red
     float sampled_roughness = roughness_texture.Sample(SamplerAnisoWrap, input.texcoord).r; // value swizzled across all channels, just get Red
         
+    //sampled_normal = sampled_normal * 2.0 - 1.0;
+    sampled_normal = ReconstructNormalBC5(sampled_normal.xy);
+    
     FrameConstants fc = gGetFrameConstants();
 
     float3x3 TBN = transpose(float3x3(input.tangent, input.bitangent, input.normal));
-    float3 normal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
+    float3 normal = normalize(mul(TBN, sampled_normal.xyz));
     // normal = normalize(input.normal);
 
     float4 albedo = material.mAlbedo * sampled_albedo;

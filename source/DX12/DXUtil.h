@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Raekor/util.h"
-
 namespace Raekor::DX12 {
 
 /* explicit bindings to root descriptors hardcoded into the root signature. */
@@ -86,12 +84,18 @@ inline std::string gGetShaderISA(ID3D12PipelineState* inPipeline)
 
     if (size > 0)
     {
-        std::wstring isa;
+        std::wstring wisa;
+        wisa.resize(size);
+
+        inPipeline->GetPrivateData(WKPDID_CommentStringW, &size, wisa.data());
+
+        char ch = ' ';
+        std::string isa;
         isa.resize(size);
 
-        inPipeline->GetPrivateData(WKPDID_CommentStringW, &size, isa.data());
+        WideCharToMultiByte(CP_ACP, 0, wisa.data(), -1, isa.data(), size, &ch, NULL);
 
-        return gWCharToString(isa.c_str());
+        return isa;
     }
 
     return {};

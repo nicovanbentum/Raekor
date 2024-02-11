@@ -54,7 +54,12 @@
 #define RT_SHADOWS_PACKED_DIM_X 8   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
 #define RT_SHADOWS_PACKED_DIM_Y 4   // RT shadows stores every 8x4 pixels ray results as a 32bit mask
 
+#define LIGHT_CULL_TILE_SIZE 16 // Light culling uses 16x16 pixel screen tiles
+#define LIGHT_CULL_MAX_LIGHTS 1024 // Max lights per tile for light culling
+
 #define BINDLESS_BLUE_NOISE_TEXTURE_INDEX 2
+#define BINDLESS_SKY_CUBE_TEXTURE_INDEX 3
+#define BINDLESS_SKY_CUBE_DIFFUSE_TEXTURE_INDEX 4
 
 struct LineVertex
 {
@@ -344,6 +349,20 @@ struct SpdRootConstants
 STATIC_ASSERT(sizeof(SpdRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+
+struct TiledLightCullingRootConstants
+{
+    uint  mLightsCount;
+    uint  mLightsBuffer;
+    uint  mLightGridBuffer;
+    uint  mLightIndicesBuffer;
+    uint2 mFullResSize;
+    uint2 mDispatchSize;
+};
+STATIC_ASSERT(sizeof(TiledLightCullingRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
+
 struct LightingRootConstants
 {
     uint  mLightsCount;
@@ -354,6 +373,9 @@ struct LightingRootConstants
     uint  mGbufferRenderTexture;
     uint  mIndirectDiffuseTexture;
     uint  mAmbientOcclusionTexture;
+    uint  mPad0;
+    uint  mPad1;
+    TiledLightCullingRootConstants mLights;
 };
 STATIC_ASSERT(sizeof(LightingRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
@@ -381,6 +403,10 @@ struct ProbeTraceRootConstants
     uint     mMaterialsBuffer;
     uint     mTLAS;
     uint     mDebugProbeIndex;
+    uint     mLightsBuffer;
+    uint     mLightsCount;
+    uint     mPad0;
+    uint     mPad1;
     float4x4 mRandomRotationMatrix;
     DDGIData mDDGIData;
 };

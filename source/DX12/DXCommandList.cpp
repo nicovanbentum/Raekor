@@ -1,4 +1,6 @@
+#include "pch.h"
 #include "DXCommandList.h"
+
 #include "DXResource.h"
 #include "DXDevice.h"
 #include "DXShader.h"

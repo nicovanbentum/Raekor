@@ -2,6 +2,8 @@
 #include "DXUpscaler.h"
 #include "DXRenderPasses.h"
 
+#include "Raekor/camera.h"
+
 namespace Raekor::DX12 {
 
 RTTI_DEFINE_TYPE(FSR2Data) {}
@@ -38,7 +40,8 @@ NVSDK_NGX_PerfQuality_Value Upscaler::sGetQuality(EUpscalerQuality inQuality)
         default: assert(false);
     }
 
-    gUnreachableCode();
+    assert(false);
+    return NVSDK_NGX_PerfQuality_Value_DLAA;
 }
 
 

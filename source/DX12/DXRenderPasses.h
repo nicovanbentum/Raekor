@@ -200,6 +200,19 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
 
 
 
+//////////////////////////////////////////
+///// Tiled Light Culling Compute Pass
+//////////////////////////////////////////
+struct TiledLightCullingData
+{
+    RTTI_DECLARE_TYPE(TiledLightCullingData);
+
+    RenderGraphResourceID mLightGridBuffer;
+    RenderGraphResourceID mLightIndicesBuffer;
+    TiledLightCullingRootConstants mRootConstants;
+};
+
+const TiledLightCullingData& AddTiledLightCullingPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene);
 
 
 //////////////////////////////////////////
@@ -223,6 +236,7 @@ struct LightingData
 const LightingData& AddLightingPass(RenderGraph& inRenderGraph, Device& inDevice, 
     const RayTracedScene& inScene,
     const GBufferData& inGBufferData, 
+    const TiledLightCullingData& inLightData,
     RenderGraphResourceID inShadowTexture, 
     RenderGraphResourceID inReflectionsTexture, 
     RenderGraphResourceID inAOTexture, 

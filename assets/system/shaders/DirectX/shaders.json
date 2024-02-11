@@ -45,6 +45,11 @@
             "Pixel Shader File": "assets/system/shaders/DirectX/LightingPS.hlsl"
         },
 
+        "Light Cull Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/LightCullTiledCS.hlsl"
+        },
+
         "Downsample Shader":
         {
             "Compute Shader File": "assets/system/shaders/DirectX/DownsampleCS.hlsl"

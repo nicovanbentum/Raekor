@@ -113,7 +113,7 @@ public:
         m_FreeIndices.clear();
     }
 
-private:
+protected:
     std::vector<uint16_t> m_Generations;
     std::vector<uint32_t> m_FreeIndices;
     std::vector<T> m_Storage;
@@ -200,7 +200,12 @@ public:
 
     static Desc Desc2D(DXGI_FORMAT inFormat, uint32_t inWidth, uint32_t inHeight, Usage inUsage, uint32_t inBaseMip = 0, uint32_t inMipLevels = 1)
     {
-        return Desc { .format = inFormat, .width = inWidth, .height = inHeight, .baseMip = inBaseMip, .mipLevels = inMipLevels, .usage = inUsage, };
+        return Desc { .format = inFormat, .dimension = TEX_DIM_2D, .width = inWidth, .height = inHeight, .baseMip = inBaseMip, .mipLevels = inMipLevels, .usage = inUsage, };
+    }
+
+    static Desc DescCube(DXGI_FORMAT inFormat, uint32_t inWidth, uint32_t inHeight, Usage inUsage, uint32_t inBaseMip = 0, uint32_t inMipLevels = 1)
+    {
+        return Desc { .format = inFormat, .dimension = TEX_DIM_CUBE, .width = inWidth, .height = inHeight, .depthOrArrayLayers = 6, .baseMip = inBaseMip, .mipLevels = inMipLevels, .usage = inUsage, };
     }
 
     Texture() = default;
@@ -266,6 +271,11 @@ public:
         D3D12_SHADER_RESOURCE_VIEW_DESC  ToSRVDesc() const;
         D3D12_UNORDERED_ACCESS_VIEW_DESC ToUAVDesc() const;
     };
+
+    static Desc Describe(uint64_t inSize, Usage inUsage, bool inMappable = false, const char* inDebugName = nullptr)
+    {
+        return  Desc { .size = inSize, .usage = inUsage, .mappable = inMappable, .debugName = inDebugName };
+    }
 
     static Desc Describe(DXGI_FORMAT inFormat, uint64_t inSize, Usage inUsage, uint64_t inStride = 0, bool inMappable = false, const char* inDebugName = nullptr)
     { 
@@ -368,6 +378,8 @@ public:
     const ID3D12DescriptorHeap* operator* () const  { return m_Heap.Get(); }
     ID3D12DescriptorHeap* operator-> ()             { return m_Heap.Get(); }
     const ID3D12DescriptorHeap* operator-> () const { return m_Heap.Get(); }
+
+
 
     inline D3D12_CPU_DESCRIPTOR_HANDLE  GetCPUDescriptorHandle(TypedID inResourceID) const
     {

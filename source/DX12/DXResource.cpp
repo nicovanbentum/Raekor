@@ -177,7 +177,7 @@ D3D12_SHADER_RESOURCE_VIEW_DESC Texture::Desc::ToSRVDesc() const
     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srv_desc.Texture2D.MipLevels = -1;
 
-    const auto [r, g, b, a] = gUnswizzleComponents(swizzle);
+    const auto [r, g, b, a] = gUnswizzle(swizzle);
     srv_desc.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r, g, b, a);
 
     switch (dimension)

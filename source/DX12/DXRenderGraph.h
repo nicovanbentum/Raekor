@@ -279,6 +279,9 @@ public:
 private:
     const Viewport& m_Viewport;
     const uint32_t m_FrameCount;
+    
+    BufferID m_TimestampReadbackBuffer;
+    ComPtr<ID3D12QueryHeap> m_TimestampQueryHeap = nullptr;
 
     uint32_t m_PerFrameAllocatorOffset = 0;
     RingAllocator m_PerFrameAllocator;

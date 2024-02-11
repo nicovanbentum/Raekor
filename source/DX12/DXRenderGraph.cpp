@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "DXRenderGraph.h"
+
 #include "shared.h"
+#include "Raekor/iter.h"
 
 namespace Raekor::DX12 {
 
@@ -443,9 +445,12 @@ RenderGraph::RenderGraph(Device& inDevice, const Viewport& inViewport, uint32_t 
 
 void RenderGraph::Clear(Device& inDevice)
 {
+    m_TimestampQueryHeap = nullptr;
+
     m_RenderPasses.clear();
     m_RenderGraphBuilder.Clear();
     m_RenderGraphResources.Clear(inDevice);
+
     m_PerPassAllocator.DestroyBuffer(inDevice);
     m_GlobalConstantsAllocator.DestroyBuffer(inDevice);
 }
@@ -704,6 +709,16 @@ bool RenderGraph::Compile(Device& inDevice)
 
     m_PerFrameAllocatorOffset = 0;
 
+    
+    D3D12_QUERY_HEAP_DESC query_heap_desc = 
+    {
+        .Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP,
+        .Count = uint32_t(m_RenderPasses.size()) * 2u
+    };
+
+    assert(m_TimestampQueryHeap == nullptr);
+    inDevice->CreateQueryHeap(&query_heap_desc, IID_PPV_ARGS(m_TimestampQueryHeap.GetAddressOf()));
+
     return true;
 }
 
@@ -717,8 +732,11 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inF
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerFrameAllocator.GetBuffer()), EBindSlot::SRV0, m_PerFrameAllocatorOffset);
     inCmdList.BindToSlot(inDevice.GetBuffer(m_PerPassAllocator.GetBuffer()), EBindSlot::SRV1);
 
-    for (const auto& renderpass : m_RenderPasses)
+
+    for (const auto& [index, renderpass] : gEnumerate(m_RenderPasses))
     {
+        inCmdList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, index * 2);
+        
         PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), renderpass->GetName().c_str());
 
         if (renderpass->IsGraphics())
@@ -733,6 +751,8 @@ void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inF
 
         if (renderpass->IsExternal())
             inDevice.BindDrawDefaults(inCmdList);
+
+        inCmdList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, index * 2 + 1);
     }
 }
 

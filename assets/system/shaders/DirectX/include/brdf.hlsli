@@ -71,6 +71,12 @@ float Smith_G1_GGX(float alpha, float NdotL, float alphaSquared, float NdotLSqua
     return 2.0 / (sqrt(((alphaSquared * (1.0 - NdotLSquared)) + NdotLSquared) / NdotLSquared) + 1.0);
 }
 
+float3 ReconstructNormalBC5(float2 normal)
+{
+    float2 xy = 2.0f * normal - 1.0f;
+    float z = sqrt(1 - dot(xy, xy));
+    return float3(xy.x, xy.y, z);
+}
 
 struct BRDF {
     float4 mAlbedo;
@@ -101,11 +107,14 @@ struct BRDF {
         float sampled_metallic = metallic_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).r; // value swizzled across all channels, just get Red
         float sampled_roughness = roughness_texture.Sample(SamplerPointWrapNoMips, inVertex.mTexCoord).r; // value swizzled across all channels, just get Red
         
+        //sampled_normal = sampled_normal * 2.0 - 1.0;
+        sampled_normal = ReconstructNormalBC5(sampled_normal.xy);
+        
         float3 bitangent = normalize(cross(inVertex.mNormal, inVertex.mTangent));
         float3x3 TBN = transpose(float3x3(inVertex.mTangent, bitangent, inVertex.mNormal));
         
         mAlbedo = inMaterial.mAlbedo * sampled_albedo;
-        mNormal = normalize(mul(TBN, sampled_normal.xyz * 2.0 - 1.0));
+        mNormal = normalize(mul(TBN, sampled_normal.xyz));
         // mNormal = inVertex.mNormal;
         mEmissive = inMaterial.mEmissive.rgb * sampled_emissive;
         mMetallic = inMaterial.mMetallic * sampled_metallic;

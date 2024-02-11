@@ -48,6 +48,7 @@
 #include "xess_d3d12_debug.h"
 
 // PIX Runtime Events
+#define USE_PIX
 #include "pix3.h"
 
 template<typename T>

@@ -6,7 +6,7 @@
 
 #include "Raekor/OS.h"
 #include "Raekor/gui.h"
-#include "Raekor/util.h"
+#include "Raekor/iter.h"
 #include "Raekor/debug.h"
 #include "Raekor/timer.h"
 #include "Raekor/input.h"
@@ -78,7 +78,7 @@ DXApp::DXApp() :
     gSetDebugName(m_Device.GetD3D12Resource(bluenoise_texture), "BLUENOISE128x1spp");
     
     assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
-    
+
     m_Renderer.QueueTextureUpload(bluenoise_texture, 0, Slice<char>((const char*)blue_noise_samples.data(), blue_noise_samples.size() / sizeof(blue_noise_samples[0])));
 
     LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
