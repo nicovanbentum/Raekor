@@ -2,8 +2,8 @@
 #include "assets.h"
 
 #include "dds.h"
-#include "util.h"
 #include "timer.h"
+#include "rmath.h"
 
 namespace Raekor {
 
@@ -152,6 +152,19 @@ bool TextureAsset::Load(const std::string& filepath)
 }
 
 
+bool TextureAsset::Save()
+{
+	File file(m_Path, std::ios::binary);
+
+	if (!file.is_open())
+		return false;
+
+	file.write(m_Data.data(), m_Data.size());
+
+	return true;
+}
+
+
 Assets::Assets()
 {
 	if (!fs::exists("assets"))
@@ -227,14 +240,25 @@ void ScriptAsset::EnumerateSymbols()
 
 	PSYM_ENUMERATESYMBOLS_CALLBACK processSymbol = [](PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID UserContext) -> BOOL
 	{
-		std::cout << "Symbol: " << pSymInfo->Name << '\n';
-		return true;
+        ScriptAsset* asset = (ScriptAsset*)UserContext;
+
+        if (strncmp(pSymInfo->Name, "Create", 6) == 0)
+        {
+            std::cout << "Symbol: " << pSymInfo->Name << '\n';
+            asset->m_CreateFunctions.push_back(pSymInfo->Name);
+        }
+
+        return true;
 	};
 
 	PSYM_ENUMERATESYMBOLS_CALLBACK callback = [](PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID UserContext) -> BOOL
 	{
-		std::cout << "User type: " << pSymInfo->Name << '\n';
-		return true;
+        if (strncmp(pSymInfo->Name, "Create", 6) == 0)
+        {
+		    std::cout << "User type: " << pSymInfo->Name << '\n';
+        }
+		
+        return true;
 	};
 
 	if (!SymInitialize(current_process, NULL, FALSE))
@@ -249,8 +273,8 @@ void ScriptAsset::EnumerateSymbols()
 
 	if (result)
 	{
-		SymEnumTypes(current_process, (ULONG64)result, callback, NULL);
-		SymEnumSymbols(current_process, (DWORD64)result, NULL, processSymbol, NULL);
+		// SymEnumTypes(current_process, (ULONG64)result, callback, NULL);
+		SymEnumSymbols(current_process, (DWORD64)result, NULL, processSymbol, this);
 		SymUnloadModule(current_process, (DWORD64)result);
 	}
 }

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "util.h"
 #include "serial.h"
 
 namespace Raekor::JSON 
@@ -8,6 +7,9 @@ namespace Raekor::JSON
 	class JSONData;
 	class JSONWriter;
 }
+
+template<typename T>
+concept HasRTTI = requires ( T t ) { t.GetRTTI(); };
 
 namespace Raekor {
 

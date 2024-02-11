@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Raekor/util.h"
-
 namespace Raekor::VK {
 
 class Texture

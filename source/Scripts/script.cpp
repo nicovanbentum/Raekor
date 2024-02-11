@@ -1,5 +1,7 @@
+#define RAEKOR_SCRIPT
 #include "Raekor/raekor.h"
 using namespace Raekor;
+
 
 class TestScript : public INativeScript {
 public:
@@ -23,10 +25,7 @@ public:
         time += inDeltaTime;
     }
 
-    void OnEvent(const SDL_Event& inEvent)
-    {
-
-    }
+    void OnEvent(const SDL_Event& inEvent) {}
 
 private:
     float speed = 0.02f;
@@ -34,10 +33,11 @@ private:
 };
 
 
+
 class LightsScript : public INativeScript 
 {
 public:
-    void OnBind() 
+    void OnBind() override
     {
         for (const auto& [entity, light] : m_Scene->Each<DirectionalLight>())
             light.colour.a = 0.0f;

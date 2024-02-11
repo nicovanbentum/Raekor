@@ -16,6 +16,7 @@ enum class EDirectoryChange
 bool sWatchDirectory(const Path& inDirPath, EDirectoryChange& outChange, Path& outFilePath);
 
 bool  sRunMsBuild(const char* args);
+bool  sCreateProcess(const char* inCmd);
 void  sCopyToClipboard(const char* inText);
 bool  sSetDarkTitleBar(SDL_Window* inWindow);
 void* sGetFunctionPointer(const char* inName);

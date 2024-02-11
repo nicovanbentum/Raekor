@@ -1,12 +1,15 @@
 #include "pch.h"
 #include "compiler.h"
+
+#include "OS.h"
 #include "gui.h"
-#include "archive.h"
-#include "timer.h"
 #include "fbx.h"
 #include "gltf.h"
+#include "iter.h"
 #include "async.h"
+#include "timer.h"
 #include "assimp.h"
+#include "archive.h"
 #include "components.h"
 
 #define WIN_TRAY_MESSAGE WM_USER + 1
@@ -15,6 +18,7 @@
 #define IDM_MENUITEM2 2
 #define IDM_EXIT 100
 
+#include <winioctl.h>
 
 namespace Raekor {
 
@@ -62,7 +66,7 @@ CompilerApp::CompilerApp(WindowFlags inFlags) : Application(inFlags | WindowFlag
 
 #ifdef NDEBUG
 	// hide the console window
-	ShowWindow(GetConsoleWindow(), SW_HIDE);
+	// ShowWindow(GetConsoleWindow(), SW_HIDE);
 #endif
 
 	SDL_SetWindowTitle(m_Window, "Raekor Asset Compiler");
@@ -173,6 +177,12 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 	auto compile_textures = m_CompileTextures.load();
 	if (ImGui::Checkbox("Convert Textures", &compile_textures))
 		m_CompileTextures.store(compile_textures);
+
+	ImGui::SameLine();
+
+	auto compile_scripts = m_CompileScripts.load();
+	if (ImGui::Checkbox("Convert Scripts", &compile_scripts))
+		m_CompileScripts.store(compile_scripts);
 
 	if (m_FilesInFlight.size() > 0)
 	{
@@ -396,7 +406,9 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 					fs::copy_file(file.mAssetPath, file.mCachePath);
 				}
 
-				file.ReadMetadata();
+				// conversion may have failed, but we don't want to keep trying to convert, so mark as cached
+				//file.UpdateWriteTime();
+				file.mIsCached = true;
 
 				std::scoped_lock lock(m_FilesInFlightMutex);
 				m_FilesInFlight.erase(index);
@@ -406,6 +418,24 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 		else if (file.mAssetType == ASSET_TYPE_EMBEDDED)
 		{
 
+		}
+		else if (file.mAssetType == ASSET_TYPE_CPP_SCRIPT && m_CompileScripts)
+		{
+			m_FilesInFlight.insert(index);
+
+			g_ThreadPool.QueueJob([this, index, &file]()
+			{
+				const auto clang_exe = "dependencies\\clang\\clang.exe";
+				const auto command = std::format("{} -gcodeview -I source\\Raekor\\ {} -shared -o {}", clang_exe, file.mAssetPath, file.mCachePath);
+
+				OS::sCreateProcess(command.c_str());
+
+				file.ReadMetadata();
+
+				std::scoped_lock lock(m_FilesInFlightMutex);
+				m_FilesInFlight.erase(index);
+				LogMessage(std::format("[Assets] Converted {}", file.mAssetPath));
+			});
 		}
 		else if (file.mAssetType == ASSET_TYPE_SCENE && m_CompileScenes)
 		{

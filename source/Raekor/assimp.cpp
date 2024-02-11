@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "assimp.h"
 
-#include "util.h"
 #include "async.h"
 #include "timer.h"
 #include "scene.h"

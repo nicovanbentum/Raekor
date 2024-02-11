@@ -184,7 +184,7 @@ void Launcher::OnUpdate(float inDeltaTime)
 
 		// At this point the window should be perfectly fitted to the ImGui content, the window was created with HIDDEN, so now we can SHOW it
 		SDL_SetWindowPosition(m_Window, SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.mDisplayIndex),
-			SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.mDisplayIndex));
+										SDL_WINDOWPOS_CENTERED_DISPLAY(m_Settings.mDisplayIndex));
 		SDL_ShowWindow(m_Window);
 
 		m_ResizeCounter++;

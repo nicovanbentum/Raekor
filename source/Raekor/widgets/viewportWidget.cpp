@@ -1,8 +1,9 @@
 #include "pch.h"
 #include "viewportWidget.h"
-#include "menubarWidget.h"
+
 #include "OS.h"
 #include "gui.h"
+#include "iter.h"
 #include "scene.h"
 #include "timer.h"
 #include "script.h"
@@ -10,6 +11,7 @@
 #include "components.h"
 #include "primitives.h"
 #include "application.h"
+#include "menubarWidget.h"
 
 namespace Raekor {
 
@@ -502,16 +504,17 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	if (m_Visible)
 	{
+		//Gui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 1));
 		ImGui::SetNextWindowPos(metricsPosition + ImVec2(size.x - 260.0f, 0.0f));
 		ImGui::SetNextWindowBgAlpha(0.0f);
 
-		const auto metricWindowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
-		ImGui::Begin("GPU Metrics", (bool*)0, metricWindowFlags);
+		const auto metric_window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize;
+		ImGui::Begin("GPU Metrics Shadow", (bool*)0, metric_window_flags);
 		// ImGui::Text("Culled meshes: %i", renderer.m_GBuffer->culled);
 		const auto& gpu_info = m_Editor->GetRenderInterface()->GetGPUInfo();
 
-		const auto col_white = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-		const auto col_pink  = Vec4(1.0f, 0.078f, 0.576f, 1.0f);
+		const auto col_white = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+		const auto col_pink  = ImVec4(1.0f, 0.078f, 0.576f, 1.0f);
 
 #ifndef NDEBUG
 		if (GetRenderInterface().GetGraphicsAPI() == GraphicsAPI::DirectX12 || GetRenderInterface().GetGraphicsAPI() == GraphicsAPI::Vulkan)
@@ -520,10 +523,10 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			static auto gpu_validation_enabled = OS::sCheckCommandLineOption("-gpu_validation");
 
 			if (debug_layer_enabled)
-				ImGui::TextColored(ImVec(col_pink), "DEBUG DEVICE ENABLED");
+				ImGui::TextColored(col_pink, "DEBUG DEVICE ENABLED");
 
 			if (gpu_validation_enabled)
-				ImGui::TextColored(ImVec(col_pink), "GPU VALIDATION ENABLED");
+				ImGui::TextColored(col_pink, "GPU VALIDATION ENABLED");
 		}
 #endif
 		uint64_t triangle_count = 0;
@@ -552,6 +555,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		}
 
 		ImGui::End();
+
+		//Gui::PopStyleColor();
 	}
 	
 	m_TotalTime += inDeltaTime;

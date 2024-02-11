@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Raekor/util.h"
+#include "defines.h"
 
 namespace Raekor::VK {
 
@@ -25,11 +25,12 @@ private:
 
 
 
-class PhysicalDevice : public INoCopyNoMove
+class PhysicalDevice
 {
-	friend class Device;
-
 public:
+	friend class Device;
+	NO_COPY_NO_MOVE(PhysicalDevice);
+
 	PhysicalDevice() = delete;
 	explicit PhysicalDevice(const Instance& instance);
 

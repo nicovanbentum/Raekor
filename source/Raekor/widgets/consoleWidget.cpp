@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "consoleWidget.h"
+#include "iter.h"
 #include "application.h"
 
 namespace Raekor {

@@ -20,6 +20,18 @@ inline glm::mat<C, R, T> gFromString(const std::string& inValue);
 inline float gRadiansToDegrees(float inValue) { return inValue * ( 180.0f / M_PI ); }
 inline float gDegreesToRadians(float inValue) { return inValue * ( M_PI / 180.0f ); }
 
+
+constexpr inline size_t gAlignUp(size_t value, size_t alignment) noexcept { return ( value + alignment - 1 ) & ~( alignment - 1 ); }
+constexpr inline size_t gAlignDown(size_t value, size_t alignment) noexcept { return value & ~( alignment - 1 ); }
+
+
+inline uint8_t gUnswizzle(uint8_t swizzle, uint8_t channel) { return ( ( swizzle >> ( channel * 2 ) ) & 0b00'00'00'11 ); }
+inline std::tuple<uint8_t, uint8_t, uint8_t, uint8_t> gUnswizzle(uint8_t swizzle) 
+{
+	return std::make_tuple(gUnswizzle(swizzle, 0), gUnswizzle(swizzle, 1), gUnswizzle(swizzle, 2), gUnswizzle(swizzle, 3));
+}
+
+
 struct BBox3D
 {
 	BBox3D() = default;

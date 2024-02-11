@@ -5,6 +5,9 @@ namespace Raekor {
 
 Input* g_Input = new Input();
 
+Input::Input() : keyboardState(SDL_GetKeyboardState(NULL)) {}
+
+
 bool Input::sIsKeyPressed(SDL_Keycode code)
 {
 	return g_Input->keyboardState[code];

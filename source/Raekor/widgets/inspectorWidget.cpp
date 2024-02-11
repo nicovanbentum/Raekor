@@ -116,7 +116,7 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 				auto& transform = scene.Get<Transform>(active_entity);
 
 				// verts
-				for (const auto& [index, pos] : gEnumerate(mesh.positions))
+				for (const auto& pos : mesh.positions)
 				{
 					const auto wpos = pos * transform.scale;
 
@@ -282,6 +282,7 @@ void InspectorWidget::DrawComponent(Node& ioNode)
 	else
 		ImGui::Text("Parent entity: NULL");
 
+	ImGui::Text("First Child: %i", ioNode.firstChild);
 	ImGui::Text("Siblings: %i, %i", ioNode.prevSibling, ioNode.nextSibling);
 }
 
@@ -367,10 +368,10 @@ void InspectorWidget::DrawComponent(BoxCollider& inBoxCollider)
 void InspectorWidget::DrawComponent(Skeleton& inSkeleton)
 {
 	static auto playing = false;
-	const  auto currentTime = inSkeleton.animations[0].GetRunningTime();
-	const  auto totalDuration = inSkeleton.animations[0].GetTotalDuration();
+	const  auto current_time = inSkeleton.animations[0].GetRunningTime();
+	const  auto total_duration = inSkeleton.animations[0].GetTotalDuration();
 
-	ImGui::ProgressBar(currentTime / totalDuration);
+	ImGui::ProgressBar(current_time / total_duration);
 
 	if (ImGui::Button(playing ? "pause" : "play"))
 		playing = !playing;
@@ -602,7 +603,7 @@ void InspectorWidget::DrawComponent(NativeScript& inNativeScript)
 			inNativeScript.asset = assets.GetAsset<ScriptAsset>(inNativeScript.file);
 		}
 
-		// component.asset->EnumerateSymbols();
+		inNativeScript.asset->EnumerateSymbols();
 	}
 
 	ImGui::SameLine();
@@ -614,11 +615,43 @@ void InspectorWidget::DrawComponent(NativeScript& inNativeScript)
 		inNativeScript = {};
 	}
 
-	if (ImGui::InputText("Function", &inNativeScript.procAddress, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
-	{
-		if (inNativeScript.asset)
-			scene.BindScriptToEntity(GetActiveEntity(), inNativeScript);
-	}
+    if (inNativeScript.asset)
+    {
+        const auto functions = inNativeScript.asset->GetCreateFunctions();
+
+        if (!functions.IsEmpty())
+        {
+            static auto index = -1;
+
+            const auto preview_text = index == -1 ? "None" : functions[index].c_str();
+
+            if (ImGui::BeginCombo("Function", preview_text, ImGuiComboFlags_None))
+            {
+                for (uint32_t i = 0; i < functions.Length(); i++)
+                {
+                    const auto fn_name = functions[i].c_str();
+
+                    if (ImGui::Selectable(fn_name, i == index))
+                    {
+                        index = i;
+                        inNativeScript.procAddress = fn_name;
+
+                        scene.BindScriptToEntity(GetActiveEntity(), inNativeScript);
+                    }
+                }
+
+                ImGui::EndCombo();
+            }
+        }
+        else
+        {
+            if(ImGui::BeginCombo("Function", "None Found", ImGuiComboFlags_None))
+            {
+                ImGui::EndCombo();
+            }
+        }
+
+    }
 }
 
 

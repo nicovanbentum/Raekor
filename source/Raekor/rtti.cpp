@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "rtti.h"
-#include "util.h"
+#include "iter.h"
+#include "hash.h"
 
 namespace Raekor {
 

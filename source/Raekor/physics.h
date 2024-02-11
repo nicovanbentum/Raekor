@@ -1,9 +1,9 @@
 #pragma once
 
 #include "pch.h"
-#include "util.h"
 #include "cvars.h"
 #include "async.h"
+#include "defines.h"
 
 namespace JPH {
 
@@ -95,9 +95,11 @@ public:
 };
 
 
-class Physics final : public INoCopyNoMove
+class Physics
 {
 public:
+	NO_COPY_NO_MOVE(Physics);
+
 	enum EState
 	{
 		Idle = 0,

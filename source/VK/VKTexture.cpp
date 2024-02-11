@@ -83,7 +83,7 @@ VkImageView Device::CreateView(Texture& texture, uint8_t swizzle, uint32_t mipLe
 	else
 		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-	const auto [R, G, B, A] = gUnswizzleComponents(swizzle);
+	const auto [R, G, B, A] = gUnswizzle(swizzle);
 	constexpr auto vk_swizzles = std::array { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 	viewInfo.components.r = vk_swizzles[R];
 	viewInfo.components.g = vk_swizzles[G];

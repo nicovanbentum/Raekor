@@ -549,7 +549,7 @@ GLuint Renderer::UploadTextureFromAsset(const TextureAsset::Ptr& asset, bool sRG
     auto swizzle_mask = gl_swizzle_channels;
 
     for (auto channel = 0u; channel < gl_swizzle_channels.size(); channel++)
-        swizzle_mask[channel] = gl_swizzle_channels[gUnswizzleComponent(inSwizzle, channel)];
+        swizzle_mask[channel] = gl_swizzle_channels[gUnswizzle(inSwizzle, channel)];
 
     glTextureParameteriv(texture, GL_TEXTURE_SWIZZLE_RGBA, swizzle_mask.data());
 

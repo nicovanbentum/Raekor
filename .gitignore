@@ -33,6 +33,7 @@ cached/
 !assets/
 assets/*
 !assets/system/
+!assets/sequences/
 assets/models/
 !assets/models/DancingStormtrooper
 !assets/models/Homer

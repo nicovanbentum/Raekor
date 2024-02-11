@@ -98,7 +98,7 @@ void DebugRenderer::AddLineCircle(const Vec3& inPos, float inRadius, const Vec3&
 void DebugRenderer::AddLineArrow(const Vec3& inPos, const Vec3& inDir, float inWidth, float inLength, const Vec4& inColor)
 {
     Vec3 start_point = inPos;
-    Vec3 end_point = start_point + inDir * 4.0f;
+    Vec3 end_point = start_point + inDir*inLength + inDir* 0.3f;
 
     for (int i = 0; i < 4; i++)
     {

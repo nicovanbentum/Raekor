@@ -1,6 +1,6 @@
 #pragma once
 
-#include "util.h"
+#include "slice.h"
 #include "rmath.h"
 
 namespace Raekor {
@@ -110,6 +110,8 @@ inline void ReadFileBinary(File& ioFile, std::vector<T>& ioData)
 	}
 }
 
+template<typename T>
+concept HasRTTI = requires ( T t ) { t.GetRTTI(); };
 
 template<typename T> requires HasRTTI<T>
 inline void ReadFileBinary(File& ioFile, T& ioData)

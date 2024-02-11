@@ -37,18 +37,18 @@ enum EDDSPixelFormatFlags
 	DDPF_LUMINANCE = 0x20000
 };
 
-constexpr DWORD DDS_MAGIC = 0x20534444;
+constexpr unsigned long DDS_MAGIC = 0x20534444;
 
 struct DDS_PIXELFORMAT
 {
-	DWORD dwSize;
-	DWORD dwFlags;
-	DWORD dwFourCC;
-	DWORD dwRGBBitCount;
-	DWORD dwRBitMask;
-	DWORD dwGBitMask;
-	DWORD dwBBitMask;
-	DWORD dwABitMask;
+	unsigned long dwSize;
+	unsigned long dwFlags;
+	unsigned long dwFourCC;
+	unsigned long dwRGBBitCount;
+	unsigned long dwRBitMask;
+	unsigned long dwGBitMask;
+	unsigned long dwBBitMask;
+	unsigned long dwABitMask;
 };
 
 enum DDS_FLAGS
@@ -89,20 +89,20 @@ enum DDSCAPS2
 
 struct DDS_HEADER
 {
-	DWORD           dwSize = 124;
-	DWORD           dwFlags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
-	DWORD           dwHeight;
-	DWORD           dwWidth;
-	DWORD           dwPitchOrLinearSize;
-	DWORD           dwDepth;
-	DWORD           dwMipMapCount;
-	DWORD           dwReserved1[11];
+	unsigned long   dwSize = 124;
+	unsigned long   dwFlags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
+	unsigned long   dwHeight;
+	unsigned long   dwWidth;
+	unsigned long   dwPitchOrLinearSize;
+	unsigned long   dwDepth;
+	unsigned long   dwMipMapCount;
+	unsigned long   dwReserved1[11];
 	DDS_PIXELFORMAT ddspf;
-	DWORD           dwCaps = DDSCAPS_TEXTURE;
-	DWORD           dwCaps2;
-	DWORD           dwCaps3;
-	DWORD           dwCaps4;
-	DWORD           dwReserved2;
+	unsigned long   dwCaps = DDSCAPS_TEXTURE;
+	unsigned long   dwCaps2;
+	unsigned long   dwCaps3;
+	unsigned long   dwCaps4;
+	unsigned long   dwReserved2;
 };
 
 static_assert( sizeof(DDS_HEADER) == 124 );
@@ -110,11 +110,11 @@ static_assert( sizeof(DDS_HEADER) == 124 );
 
 struct DDS_HEADER_DXT10
 {
-	UINT dxgiFormat;
-	UINT resourceDimension;
-	UINT miscFlag;
-	UINT arraySize;
-	UINT miscFlags2;
+	unsigned int dxgiFormat;
+	unsigned int resourceDimension;
+	unsigned int miscFlag;
+	unsigned int arraySize;
+	unsigned int miscFlags2;
 };
 
 

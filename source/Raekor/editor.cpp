@@ -44,11 +44,11 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	if (!m_Settings.mFontFile.empty())
 		GUI::SetFont(m_Settings.mFontFile.string());
 
+    m_Widgets.Register<SequenceWidget>(this);
 	m_Widgets.Register<AssetsWidget>(this);
 	m_Widgets.Register<MenubarWidget>(this);
 	m_Widgets.Register<ConsoleWidget>(this);
 	m_Widgets.Register<NodeGraphWidget>(this);
-    m_Widgets.Register<SequenceWidget>(this);
 	m_Widgets.Register<ViewportWidget>(this);
 	m_Widgets.Register<InspectorWidget>(this);
 	m_Widgets.Register<HierarchyWidget>(this);

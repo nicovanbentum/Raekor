@@ -1,9 +1,19 @@
 #include "pch.h"
-#include "Raekor/util.h"
 #include "shader.h"
 #include "renderer.h"
 
 namespace Raekor {
+
+bool Shader::Stage::WasModified()
+{
+    if (auto new_time = std::filesystem::last_write_time(path); new_time != lastwrite_time)
+    {
+        lastwrite_time = new_time;
+        return true;
+    }
+    return false;
+}
+
 
 GLShader::~GLShader()
 {
@@ -142,7 +152,7 @@ void GLShader::Bind()
 {
     for (auto& stage : stages)
     {
-        if (stage.watcher.WasModified())
+        if (stage.WasModified())
         {
             const auto sdk = getenv("VULKAN_SDK");
             assert(sdk);
@@ -164,9 +174,11 @@ void GLShader::Unbind()
 
 Shader::Stage::Stage(Type type, const Path& inSrcFile) :
     type(type),
-    textfile(inSrcFile.string()),
-    watcher(inSrcFile.string())
+    path(inSrcFile),
+    textfile(inSrcFile.string())
 {
+    lastwrite_time = fs::last_write_time(path);
+
     if (!fs::exists(inSrcFile))
     {
         std::cerr << "file does not exist on disk\n";

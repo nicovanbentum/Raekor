@@ -4,6 +4,7 @@
 #include "assets.h"
 #include "scene.h"
 #include "member.h"
+#include "systems.h"
 #include "primitives.h"
 
 namespace Raekor {
@@ -331,9 +332,9 @@ const std::vector<float>& Mesh::GetInterleavedVertices()
 		3 * tangents.size()
 	);
 
-	const bool hasUVs = !uvs.empty();
-	const bool hasNormals = !normals.empty();
-	const bool hasTangents = !tangents.empty();
+	const bool has_uvs = !uvs.empty();
+	const bool has_normals = !normals.empty();
+	const bool has_tangents = !tangents.empty();
 
 	for (auto i = 0; i < positions.size(); i++)
 	{
@@ -342,14 +343,14 @@ const std::vector<float>& Mesh::GetInterleavedVertices()
 		mInterleavedVertices.push_back(position.y);
 		mInterleavedVertices.push_back(position.z);
 
-		if (hasUVs)
+		if (has_uvs)
 		{
 			auto uv = uvs[i];
 			mInterleavedVertices.push_back(uv.x);
 			mInterleavedVertices.push_back(uv.y);
 		}
 
-		if (hasNormals)
+		if (has_normals)
 		{
 			auto normal = normals[i];
 			mInterleavedVertices.push_back(normal.x);
@@ -357,7 +358,7 @@ const std::vector<float>& Mesh::GetInterleavedVertices()
 			mInterleavedVertices.push_back(normal.z);
 		}
 
-		if (hasTangents && i < tangents.size())
+		if (has_tangents && i < tangents.size())
 		{
 			auto tangent = tangents[i];
 			mInterleavedVertices.push_back(tangent.x);
@@ -451,69 +452,64 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt)
 
 
 template<>
-void clone<Transform>(ecs::ECS& reg, Entity from, Entity to)
+void CopyComponent<Transform>(Scene& inScene, Entity inFrom, Entity inTo)
 {
-	auto& component = reg.Get<Transform>(from);
-	reg.Add<Transform>(to, component);
+	auto& component = inScene.Get<Transform>(inFrom);
+	inScene.Add<Transform>(inTo, component);
 }
 
 
 template<>
-void clone<Node>(ecs::ECS& reg, Entity from, Entity to)
+void CopyComponent<Node>(Scene& inScene, Entity inFrom, Entity inTo)
 {
-	auto& fromNode = reg.Get<Node>(from);
-	auto& toNode = reg.Add<Node>(to);
-	/*if (fromNode.parent != NULL_ENTITY) {
-		NodeSystem::sAppend(reg, fromNode.parent, reg.Get<Node>(fromNode.parent), to, toNode);
-	} TODO: FIXME: pls fix */
+	auto& from_node = inScene.Get<Node>(inFrom);
+	auto& to_node = inScene.Add<Node>(inTo);
+
+	if (from_node.parent != NULL_ENTITY)
+		NodeSystem::sAppend(inScene, from_node.parent, inScene.Get<Node>(from_node.parent), inTo, to_node);
 }
 
 
 template<>
-void clone<Name>(ecs::ECS& reg, Entity from, Entity to)
+void CopyComponent<Name>(Scene& inScene, Entity inFrom, Entity inTo)
 {
-	auto& component = reg.Get<Name>(from);
-	reg.Add<Name>(to, component);
+	auto& component = inScene.Get<Name>(inFrom);
+	inScene.Add<Name>(inTo, component);
 }
 
 
 template<>
-void clone<Light>(ecs::ECS& reg, Entity from, Entity to)
+void CopyComponent<Light>(Scene& inScene, Entity inFrom, Entity inTo)
 {
-	auto& component = reg.Get<Light>(from);
-	reg.Add<Light>(to, component);
+	auto& component = inScene.Get<Light>(inFrom);
+	inScene.Add<Light>(inTo, component);
 }
 
 
 template<>
-void clone<Mesh>(ecs::ECS& reg, Entity from, Entity to)
+void CopyComponent<Mesh>(Scene& inScene, Entity inFrom, Entity inTo)
 {
-	auto& from_component = reg.Get<Mesh>(from);
-	auto& to_component = reg.Add<Mesh>(to, from_component);
+	auto& from_component = inScene.Get<Mesh>(inFrom);
+	auto& to_component = inScene.Add<Mesh>(inTo, from_component);
 }
 
 
 template<>
-void clone<Material>(ecs::ECS& reg, Entity from, Entity to)
+void CopyComponent<Material>(Scene& inScene, Entity inFrom, Entity inTo)
 {
-	auto& from_component = reg.Get<Material>(from);
-	auto& to_component = reg.Add<Material>(to, from_component);
+	auto& from_component = inScene.Get<Material>(inFrom);
+	auto& to_component = inScene.Add<Material>(inTo, from_component);
 }
 
 
 template<>
-void clone<BoxCollider>(ecs::ECS& reg, Entity from, Entity to)
+void CopyComponent<BoxCollider>(Scene& inScene, Entity inFrom, Entity inTo)
 {
-	auto& from_component = reg.Get<BoxCollider>(from);
-	auto& to_component = reg.Add<BoxCollider>(to, from_component);
+	auto& from_component = inScene.Get<BoxCollider>(inFrom);
+	auto& to_component = inScene.Add<BoxCollider>(inTo, from_component);
 
 	// Invalidate the copied bodyID so it gets registered next update
 	to_component.bodyID = JPH::BodyID();
-}
-
-void SoftBody::CreateFromMesh(const Mesh& inMesh)
-{
-
 }
 
 } // raekor

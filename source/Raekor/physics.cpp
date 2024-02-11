@@ -1,10 +1,10 @@
 #include "pch.h"
 #include "physics.h"
-#include "util.h"
+
 #include "debug.h"
 #include "scene.h"
-#include "application.h"
 #include "components.h"
+#include "application.h"
 
 namespace Raekor {
 

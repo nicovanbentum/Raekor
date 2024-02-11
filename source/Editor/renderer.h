@@ -1,13 +1,12 @@
 #pragma once
 
-#include "Raekor/util.h"
-#include "Raekor/camera.h"
-#include "Raekor/application.h"
 #include "renderpass.h"
+#include "application.h"
 
 namespace Raekor {
 class Scene;
 class Async;
+class Viewport;
 }
 
 namespace Raekor::GL {

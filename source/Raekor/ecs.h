@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rtti.h"
+#include "slice.h"
 #include "archive.h"
 
 namespace Raekor {

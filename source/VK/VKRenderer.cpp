@@ -4,6 +4,8 @@
 #include "VKUtil.h"
 #include "VKDevice.h"
 #include "VKExtensions.h"
+
+#include "Raekor/assets.h"
 #include "Raekor/primitives.h"
 
 namespace Raekor::VK {

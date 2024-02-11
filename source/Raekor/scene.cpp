@@ -1,13 +1,14 @@
 #include "pch.h"
 #include "scene.h"
 
-#include "components.h"
+#include "iter.h"
 #include "timer.h"
 #include "async.h"
 #include "debug.h"
 #include "rmath.h"
 #include "script.h"
 #include "systems.h"
+#include "components.h"
 #include "application.h"
 
 namespace Raekor {
@@ -230,7 +231,7 @@ void Scene::RenderDebugShapes(Entity inEntity) const
 		g_DebugRenderer.AddLineCube(mesh.aabb[0], mesh.aabb[1], transform.worldTransform);
 	}
 	// render debug shape for lights
-	else if (Has<Light>(inEntity))
+	if (Has<Light>(inEntity))
 	{
 		const Light& light = Get<Light>(inEntity);
 
@@ -244,7 +245,8 @@ void Scene::RenderDebugShapes(Entity inEntity) const
 			g_DebugRenderer.AddLineSphere(light.position, light.attributes.x);
 		}
 	}
-	else if (Has<DirectionalLight>(inEntity))
+	// render debug shape for directional light
+	if (Has<DirectionalLight>(inEntity))
 	{
 		const DirectionalLight& light = Get<DirectionalLight>(inEntity);
 
@@ -252,7 +254,9 @@ void Scene::RenderDebugShapes(Entity inEntity) const
 		{
 			const Transform& transform = Get<Transform>(inEntity);
 
-			g_DebugRenderer.AddLineArrow(transform.GetPositionWorldSpace(), light.GetDirection(), 0.6f, 2.4f);
+			static constexpr float extent = 0.1f;
+			static constexpr float length = 0.5f;
+			g_DebugRenderer.AddLineArrow(transform.GetPositionWorldSpace(), light.GetDirection(), 0.1f, 0.5f);
 		}
 	}
 }
@@ -268,10 +272,9 @@ Entity Scene::Clone(Entity inEntity)
 			using ComponentType = decltype( component )::type;
 
 			if (gGetTypeHash<ComponentType>()== inTypeHash)
-				clone<ComponentType>(*this, inEntity, copy);
+				CopyComponent<ComponentType>(*this, inEntity, copy);
 		});
-	}
-	);
+	});
 
 	if (Has<Mesh>(copy))
 		m_Renderer->UploadMeshBuffers(copy, Get<Mesh>(copy));
@@ -382,8 +385,10 @@ void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets)
 
 void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript)
 {
-	auto address = GetProcAddress(inScript.asset->GetModule(), inScript.procAddress.c_str());
-	if (address)
+    if (inScript.script)
+        delete inScript.script;
+
+	if  (auto address = GetProcAddress(inScript.asset->GetModule(), inScript.procAddress.c_str()))
 	{
 		auto function = reinterpret_cast<INativeScript::FactoryType>( address );
 		inScript.script = function();

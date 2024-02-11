@@ -2,7 +2,7 @@
 #include "application.h"
 
 #include "OS.h"
-#include "util.h"
+#include "iter.h"
 #include "async.h"
 #include "timer.h"
 #include "member.h"
@@ -93,7 +93,6 @@ Application::~Application()
 }
 
 
-
 void Application::Run()
 {
 	Timer timer;
@@ -144,6 +143,20 @@ int Application::OnNativeEvent(void* inUserData, SDL_Event* inEvent)
 	}
 
 	return 0;
+}
+
+
+bool Application::IsWindowBorderless() const
+{
+	const auto window_flags = SDL_GetWindowFlags(m_Window);
+	return ( ( window_flags & SDL_WINDOW_FULLSCREEN_DESKTOP ) == SDL_WINDOW_FULLSCREEN_DESKTOP );
+}
+
+
+bool Application::IsWindowExclusiveFullscreen() const
+{
+	const auto window_flags = SDL_GetWindowFlags(m_Window);
+	return ( ( window_flags & SDL_WINDOW_FULLSCREEN ) && !IsWindowBorderless() );
 }
 
 

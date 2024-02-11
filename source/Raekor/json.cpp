@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "json.h"
+#include "iter.h"
 
 namespace Raekor::JSON {
 

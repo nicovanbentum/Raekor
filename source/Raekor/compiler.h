@@ -2,6 +2,7 @@
 
 #include "application.h"
 #include "timer.h"
+#include "hash.h"
 
 constexpr auto sImageFileExtensions = std::array {
 	".jpg", ".jpeg", ".tga", ".png", ".dds"
@@ -15,16 +16,21 @@ constexpr auto sEmbededFileExtensions = std::array {
 	".ttf"
 };
 
+constexpr auto sCppFileExtensions = std::array {
+	".cpp"
+};
+
 enum AssetType
 {
 	ASSET_TYPE_SCENE,
 	ASSET_TYPE_IMAGE,
 	ASSET_TYPE_EMBEDDED,
+	ASSET_TYPE_CPP_SCRIPT,
 	ASSET_TYPE_NONE
 };
 
 constexpr auto sAssetTypeExtensions = std::array {
-	".scene", ".dds", ".bin"
+	".scene", ".dds", ".bin", ".dll"
 };
 
 namespace Raekor {
@@ -43,6 +49,10 @@ inline AssetType GetCacheFileExtension(const Path& inPath)
 	for (const auto& ext : sEmbededFileExtensions)
 		if (extension == ext)
 			return ASSET_TYPE_EMBEDDED;
+
+	for (const auto& ext : sCppFileExtensions)
+		if (extension == ext)
+			return ASSET_TYPE_CPP_SCRIPT;
 
 	return ASSET_TYPE_NONE;
 }
@@ -75,7 +85,7 @@ struct FileEntry
 
 	void ReadMetadata()
 	{
-		mIsCached = fs::exists(mCachePath);
+		mIsCached = fs::exists(mCachePath) && fs::is_regular_file(mCachePath);
 		UpdateWriteTime();
 	}
 
@@ -118,7 +128,9 @@ private:
 	std::vector<FileEntry> m_Files;
 	std::set<fs::path> m_CachedFiles;
 	std::atomic<bool> m_CompileScenes = true;
+	std::atomic<bool> m_CompileScripts = false;
 	std::atomic<bool> m_CompileTextures = true;
 };
+
 
 }

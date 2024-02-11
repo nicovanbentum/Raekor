@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ecs.h"
-#include "util.h"
 
 namespace Raekor {
 

@@ -4,6 +4,7 @@
 #include "rtti.h"
 #include "assets.h"
 #include "camera.h"
+#include "defines.h"
 
 extern std::atomic_uint64_t sAllocationsPerFrame;
 
@@ -170,6 +171,9 @@ public:
 	virtual void OnEvent(const SDL_Event& event) = 0;
 
 	static int OnNativeEvent(void* inUserData, SDL_Event* inEvent);
+
+	bool IsWindowBorderless() const;
+	bool IsWindowExclusiveFullscreen() const;
 
 	virtual Scene* GetScene() { return nullptr; }
 	virtual Assets* GetAssets() { return nullptr; }

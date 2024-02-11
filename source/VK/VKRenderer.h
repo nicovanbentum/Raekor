@@ -7,6 +7,7 @@
 #include "VKDescriptor.h"
 
 #include "Raekor/scene.h"
+#include "Raekor/assets.h"
 #include "Raekor/camera.h"
 #include "Raekor/components.h"
 

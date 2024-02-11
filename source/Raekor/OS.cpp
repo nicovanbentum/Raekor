@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "OS.h"
-#include "util.h"
 
 namespace Raekor {
 
@@ -24,6 +23,26 @@ bool OS::sRunMsBuild(const char* args)
 	GetExitCodeProcess(procInfo.hProcess, &dwExitCode);
 	CloseHandle(procInfo.hProcess);
 	CloseHandle(procInfo.hThread);
+	return dwExitCode == 0;
+}
+
+
+bool OS::sCreateProcess(const char* inCmd)
+{
+	STARTUPINFOA startupInfo = {};
+	PROCESS_INFORMATION procInfo = {};
+
+	if (!CreateProcessA(0, const_cast<char*>( inCmd ), 0, 0, FALSE, 0, 0, 0, &startupInfo, &procInfo))
+		return false;
+
+	WaitForSingleObject(procInfo.hProcess, INFINITE);
+	
+	DWORD dwExitCode;
+	GetExitCodeProcess(procInfo.hProcess, &dwExitCode);
+	
+	CloseHandle(procInfo.hProcess);
+	CloseHandle(procInfo.hThread);
+	
 	return dwExitCode == 0;
 }
 
@@ -154,7 +173,13 @@ std::string OS::sSelectFolderDialog()
 				LPWSTR result;
 
 				if (SUCCEEDED(psi->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING, &result)))
-					return gWCharToString(result);
+				{
+					char ch = ' ';
+					char folder_path[MAX_PATH];
+					WideCharToMultiByte(CP_ACP, 0, result, -1, folder_path, MAX_PATH, &ch, NULL);
+
+					return folder_path;
+				}
 
 				psi->Release();
 			}

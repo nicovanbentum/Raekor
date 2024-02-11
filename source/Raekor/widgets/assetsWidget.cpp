@@ -44,7 +44,7 @@ void AssetsWidget::Draw(Widgets* inWidgets, float dt)
 			}
 			else
 			{
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec(material.albedo));
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a));
 
 				clicked = ImGui::Button(
 					std::string("##" + name.name).c_str(),

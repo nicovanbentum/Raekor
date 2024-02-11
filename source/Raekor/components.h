@@ -3,12 +3,14 @@
 #include "ecs.h"
 #include "rtti.h"
 #include "rmath.h"
-#include "assets.h"
+#include "defines.h"
 #include "animation.h"
 
 namespace Raekor {
 
 class Scene;
+class ScriptAsset;
+class TextureAsset;
 class INativeScript;
 
 struct SCRIPT_INTERFACE Name
@@ -27,13 +29,13 @@ struct SCRIPT_INTERFACE Transform
 {
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(Transform);
 
-	glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
-	glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
-	glm::quat rotation = glm::quat(glm::vec3(0.0f, 0.0f, 0.0f));
+	Vec3 scale = Vec3(1.0f, 1.0f, 1.0f);
+	Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
+	Quat rotation = Quat(Vec3(0.0f, 0.0f, 0.0f));
 
-	glm::mat4 localTransform = glm::mat4(1.0f);
-	glm::mat4 worldTransform = glm::mat4(1.0f);
-	glm::mat4 invWorldTransform = glm::mat4(1.0f);
+	Mat4x4 localTransform = Mat4x4(1.0f);
+	Mat4x4 worldTransform = Mat4x4(1.0f);
+	Mat4x4 invWorldTransform = Mat4x4(1.0f);
 
 	Vec3 GetScaleWorldSpace() const;
 	Vec3 GetPositionWorldSpace() const;
@@ -183,7 +185,7 @@ struct SoftBody
 	JPH::SoftBodySharedSettings mSharedSettings;
 	JPH::SoftBodyCreationSettings mCreationSettings;
 
-	void CreateFromMesh(const Mesh& inMesh);
+	void CreateFromMesh(const Mesh& inMesh) { /* todo impl */ }
 };
 
 struct Bone
@@ -262,7 +264,7 @@ struct NativeScript
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(NativeScript);
 
 	std::string file; // ptr
-	ScriptAsset::Ptr asset;
+	std::shared_ptr<ScriptAsset> asset;
 	std::string procAddress; // ptr
 	INativeScript* script = nullptr;
 };
@@ -306,27 +308,27 @@ static constexpr auto Components = std::make_tuple(
 void gRegisterComponentTypes();
 
 template<typename T>
-inline void clone(ecs::ECS& reg, Entity from, Entity to) {}
+inline void CopyComponent(Scene& inScene, Entity inFrom, Entity inTo) {}
 
 template<>
-void clone<Transform>(ecs::ECS& reg, Entity from, Entity to);
+void CopyComponent<Transform>(Scene& inScene, Entity inFrom, Entity inTo);
 
 template<>
-void clone<Node>(ecs::ECS& reg, Entity from, Entity to);
+void CopyComponent<Node>(Scene& inScene, Entity inFrom, Entity inTo);
 
 template<>
-void clone<Name>(ecs::ECS& reg, Entity from, Entity to);
+void CopyComponent<Name>(Scene& inScene, Entity inFrom, Entity inTo);
 
 template<>
-void clone<Light>(ecs::ECS& reg, Entity from, Entity to);
+void CopyComponent<Light>(Scene& inScene, Entity inFrom, Entity inTo);
 
 template<>
-void clone<Mesh>(ecs::ECS& reg, Entity from, Entity to);
+void CopyComponent<Mesh>(Scene& inScene, Entity inFrom, Entity inTo);
 
 template<>
-void clone<Material>(ecs::ECS& reg, Entity from, Entity to);
+void CopyComponent<Material>(Scene& inScene, Entity inFrom, Entity inTo);
 
 template<>
-void clone<BoxCollider>(ecs::ECS& reg, Entity from, Entity to);
+void CopyComponent<BoxCollider>(Scene& inScene, Entity inFrom, Entity inTo);
 
 } // Raekor

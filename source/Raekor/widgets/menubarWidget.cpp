@@ -123,11 +123,14 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					
 						if (ImGui::MenuItem(scene_str.c_str()))
 						{
-							m_Editor->GetScene()->OpenFromFile(scene_str, IWidget::GetAssets());
+							if (fs::exists(scene_str))
+							{
+								m_Editor->GetScene()->OpenFromFile(scene_str, IWidget::GetAssets());
 
-							m_Editor->AddRecentScene(scene_str);
+								m_Editor->AddRecentScene(scene_str);
 
-							SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("Raekor Editor - " + scene_str).c_str());
+								SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("Raekor Editor - " + scene_str).c_str());
+							}
 						}
 					}
 

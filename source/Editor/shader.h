@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Raekor/util.h"
-
 namespace Raekor {
 
 class Shader
@@ -13,10 +11,13 @@ public:
     {
         Stage(Type type, const Path& inSrcFile);
 
+        bool WasModified();
+
         Type type;
+        Path path;
         std::string textfile;
         std::string binfile;
-        FileWatcher watcher;
+        fs::file_time_type lastwrite_time;
     };
 
     virtual void Bind() = 0;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dds.h"
+#include "slice.h"
 
 namespace Raekor {
 
@@ -9,7 +10,7 @@ class Asset
 	friend class Assets;
 
 public:
-	using Ptr = Asset*;
+	using Ptr = std::shared_ptr<Asset>;
 
 	Asset() = default;
 	Asset(const std::string& inPath) : m_Path(inPath) {}
@@ -19,7 +20,7 @@ public:
 	const Path& GetPath() const { return m_Path; }
 
 	// ONLY USE FOR FIXING UP OLD SCENES WHERE m_Path WASN'T SERIALIZED!!
-	void SetPath(const std::string& inPath) { m_Path = inPath; }
+	[[deprecated]] void SetPath(const std::string& inPath) { m_Path = inPath; }
 
 	virtual bool Load(const std::string& inPath) = 0;
 
@@ -28,15 +29,12 @@ public:
 		return fs::relative(inAssetPath).replace_extension(inExtension).string().replace(0, 6, "cached");
 	}
 
-
-
 protected:
-
 	Path m_Path;
 };
 
 
-class Assets : public std::unordered_map<std::string, std::shared_ptr<Asset>>
+class Assets : public std::unordered_map<std::string, Asset::Ptr>
 {
 public:
 	Assets();
@@ -52,7 +50,7 @@ public:
 	template<typename T>
 	std::shared_ptr<T> GetAsset(const Path& inPath) { return GetAsset<T>(inPath.string()); }
 
-	[[nodiscard]] inline bool Contains(const std::string& inPath) const { return find(inPath) != end(); }
+	[[nodiscard]] inline bool Contains(const std::string& inPath) const { return contains(inPath); }
 
 	void Release(const std::string& inPath);
 
@@ -76,13 +74,21 @@ public:
 	static std::string sConvert(const std::string& inPath);
 	virtual bool Load(const std::string& inPath) override;
 
+	// ONLY USE FOR FIXING UP BAD ASSETS!!
+	[[deprecated]] bool Save();
+
 	static std::string sAssetsToCachedPath(const std::string& inAssetPath) { return Asset::sAssetsToCachedPath(inAssetPath, ".dds"); }
+
+	bool IsExtendedDX10() const { return m_IsExtendedDX10; }
 
 	uint32_t GetDataSize() const { return m_Data.size() - m_IsExtendedDX10 ? sizeof(DDSFileInfoExtended) : sizeof(DDSFileInfo); }
 	const char* const GetData() const { return m_Data.data() + int(m_IsExtendedDX10 ? sizeof(DDSFileInfoExtended) : sizeof(DDSFileInfo)); }
 
-	const DDS_HEADER* GetHeader() const { return reinterpret_cast<const DDS_HEADER*>( m_Data.data() + sizeof(DWORD) ); }
-	const DDS_HEADER_DXT10* GetHeaderDXT10() const { return reinterpret_cast<const DDS_HEADER_DXT10*>( m_Data.data() + sizeof(DWORD) + sizeof(DDS_HEADER)); }
+	DDS_HEADER* GetHeader() { return reinterpret_cast<DDS_HEADER*>( m_Data.data() + sizeof(uint32_t) ); }
+	const DDS_HEADER* GetHeader() const { return reinterpret_cast<const DDS_HEADER*>( m_Data.data() + sizeof(uint32_t) ); }
+
+	DDS_HEADER_DXT10* GetHeaderDXT10() { return reinterpret_cast<DDS_HEADER_DXT10*>( m_Data.data() + sizeof(uint32_t) + sizeof(DDS_HEADER)); }
+	const DDS_HEADER_DXT10* GetHeaderDXT10() const { return reinterpret_cast<const DDS_HEADER_DXT10*>( m_Data.data() + sizeof(uint32_t) + sizeof(DDS_HEADER) ); }
 
 private:
 	uint32_t m_Texture = 0;
@@ -107,8 +113,11 @@ public:
 	void EnumerateSymbols();
 	HMODULE GetModule() { return m_HModule; }
 
+    Slice<std::string> GetCreateFunctions() { return Slice(m_CreateFunctions); }
+
 private:
 	HMODULE m_HModule;
+    std::vector<std::string> m_CreateFunctions;
 };
 
 

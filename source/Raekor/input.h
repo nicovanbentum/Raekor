@@ -1,13 +1,13 @@
 #pragma once
 
-#include "application.h"
-
 namespace Raekor {
+
+typedef int32_t SDL_Keycode;
 
 class Input
 {
 public:
-	Input() : keyboardState(SDL_GetKeyboardState(NULL)) {}
+	Input();
 
 	/* Gets the current state of a keyboard key.
 		@param code pass the desired key from SDL_SCANCODE_ */
@@ -20,7 +20,7 @@ public:
 	static void sSetCallback(uint32_t type, const std::function<void()>& callback);
 
 private:
-	const Uint8* keyboardState;
+	const uint8_t* keyboardState;
 };
 
 extern Input* g_Input;

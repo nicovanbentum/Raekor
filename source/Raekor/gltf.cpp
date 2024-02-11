@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "gltf.h"
 
-#include "util.h"
+#include "iter.h"
 #include "scene.h"
 #include "async.h"
 #include "timer.h"
@@ -27,12 +27,12 @@ constexpr std::array cgltf_result_strings = {
 };
 
 
-bool handle_cgltf_error(cgltf_result result)
+bool handle_cgltf_error(cgltf_result result, const char* operation)
 {
 	if (result == cgltf_result_success)
 		return true;
 
-	gWarn(cgltf_result_strings[result]);
+	std::cout << std::format("[GLTF Import] {} failed with value: {}", operation, cgltf_result_strings[result]);
 	return false;
 }
 
@@ -54,13 +54,13 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	m_Directory = Path(inFile).parent_path() / "";
 
 	cgltf_options options = {};
-	if (!handle_cgltf_error(cgltf_parse_file(&options, inFile.c_str(), &m_GltfData)))
+	if (!handle_cgltf_error(cgltf_parse_file(&options, inFile.c_str(), &m_GltfData), "Parse"))
 		return false;
 
-	if (!handle_cgltf_error(cgltf_load_buffers(&options, m_GltfData, inFile.c_str())))
+	if (!handle_cgltf_error(cgltf_load_buffers(&options, m_GltfData, inFile.c_str()), "Load"))
 		return false;
 
-	if (!handle_cgltf_error(cgltf_validate(m_GltfData)))
+	if (!handle_cgltf_error(cgltf_validate(m_GltfData), "Validate"))
 		return false;
 
 	std::cout << "[GLTF Import] File load took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
