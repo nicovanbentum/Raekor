@@ -4,7 +4,9 @@
 
 namespace Raekor {
 
+class RTTI;
 class Scene;
+
 struct Name;
 struct Node;
 struct Mesh;
@@ -32,18 +34,23 @@ private:
 	void DrawEntityInspector(Widgets* inWidgets);
     void DrawKeyFrameInspector(Widgets* inWidgets);
 
+	void DrawScriptMember(const char* inLabel, int& ioValue);
+	void DrawScriptMember(const char* inLabel, bool& ioValue);
+	void DrawScriptMember(const char* inLabel, float& ioValue);
+	void DrawScriptMember(const char* inLabel, uint32_t& ioValue);
+
 	void DrawComponent(Name& ioName);
 	void DrawComponent(Node& ioNode);
 	void DrawComponent(Mesh& ioMesh);
+	void DrawComponent(Light& ioLight);
 	void DrawComponent(SoftBody& ioSoftBody);
 	void DrawComponent(Skeleton& ioSkeleton);
 	void DrawComponent(Material& ioMaterial);
 	void DrawComponent(Transform& ioTransform);
-	void DrawComponent(Light& ioPointLight);
 	void DrawComponent(BoxCollider& ioBoxCollider);
 	void DrawComponent(NativeScript& ioNativeScript);
-	void DrawComponent(DDGISceneSettings& ioSettings);
 	void DrawComponent(DirectionalLight& ioDirectionalLight);
+	void DrawComponent(DDGISceneSettings& ioDDGISceneSettings);
 };
 
 }

@@ -2,8 +2,12 @@
 
 #include "pch.h"
 #include "scene.h"
+#include "rtti.h"
 #include "rmath.h"
 #include "input.h"
+#include "debug.h"
+#include "member.h"
+#include "camera.h"
 #include "script.h"
 #include "systems.h"
 #include "components.h"

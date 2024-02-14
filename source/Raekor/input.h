@@ -11,13 +11,16 @@ public:
 
 	/* Gets the current state of a keyboard key.
 		@param code pass the desired key from SDL_SCANCODE_ */
-	static bool sIsKeyPressed(SDL_Keycode code);
+	bool IsKeyPressed(SDL_Keycode code);
 
 	/* Gets the current state of a mouse button.
-	   @param button 0 = LMB, 1 = MMB, 2 = RMB */
-	static bool sIsButtonPressed(uint32_t button);
+	   @param button 1 = LMB, 2 = MMB, 3 = RMB */
+	bool IsButtonPressed(uint32_t button);
 
-	static void sSetCallback(uint32_t type, const std::function<void()>& callback);
+	void SetCallback(uint32_t type, const std::function<void()>& callback);
+
+	bool IsRelativeMouseMode();
+	void SetRelativeMouseMode(bool inEnabled);
 
 private:
 	const uint8_t* keyboardState;

@@ -2,6 +2,7 @@
 
 #include "rtti.h"
 #include "json.h"
+#include "gui.h"
 
 namespace Raekor {
 
@@ -10,8 +11,8 @@ class ClassMember : public Member
 {
 public:
 	ClassMember() = delete;
-	ClassMember(const char* inName, const char* inCustomName, T Class::* inMember, ESerializeType inSerializeType = SERIALIZE_JSON)
-		: Member(inName, inCustomName, inSerializeType), m_Member(inMember)
+	ClassMember(const char* inName, const char* inCustomName, T Class::* inMember, RTTI* inRTTI = nullptr, ESerializeType inSerializeType = SERIALIZE_JSON)
+		: Member(inName, inCustomName, inSerializeType), m_RTTI(inRTTI), m_Member(inMember)
 	{
 	}
 
@@ -35,12 +36,15 @@ public:
 		ReadFileBinary(inFile, GetRef<T>(inClass));
 	}
 
+	virtual RTTI* GetRTTI() override { return m_RTTI; }
+
 	virtual void* GetPtr(void* inClass) override { return &( static_cast<Class*>( inClass )->*m_Member ); }
 	virtual const void* GetPtr(const void* inClass) override { return &( static_cast<const Class*>( inClass )->*m_Member ); }
 
 
 private:
 	T Class::* m_Member;
+	RTTI* m_RTTI = nullptr;
 };
 
 

@@ -7,6 +7,13 @@ namespace Raekor {
 
 RTTIFactory	g_RTTIFactory;
 
+
+RTTI::RTTI(const char* inName)
+	: mHash(gHash32Bit(inName)), m_Name(inName)
+{
+}
+
+
 RTTI::RTTI(const char* inName, CreateFn inCreateFn, Constructor inConstructor)
 	: mHash(gHash32Bit(inName)), m_Name(inName), m_Constructor(inConstructor)
 {
@@ -110,6 +117,22 @@ void* RTTIFactory::Construct(const char* inType)
 
 	return rtti->m_Constructor();
 }
+
+
+RTTI_DEFINE_TYPE_PRIMITIVE(int);
+RTTI_DEFINE_TYPE_PRIMITIVE(bool);
+RTTI_DEFINE_TYPE_PRIMITIVE(float);
+RTTI_DEFINE_TYPE_PRIMITIVE(uint32_t);
+
+
+void gRegisterPrimitiveTypes()
+{
+	g_RTTIFactory.Register(RTTI_OF(int));
+	g_RTTIFactory.Register(RTTI_OF(bool));
+	g_RTTIFactory.Register(RTTI_OF(float));
+	g_RTTIFactory.Register(RTTI_OF(uint32_t));
+}
+
 
 } // namespace Raekor
 

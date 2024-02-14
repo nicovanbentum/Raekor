@@ -5,6 +5,7 @@
 #include "rmath.h"
 #include "timer.h"
 #include "debug.h"
+#include "script.h"
 #include "systems.h"
 #include "components.h"
 
@@ -54,12 +55,6 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	m_Widgets.Register<HierarchyWidget>(this);
 
 	LogMessage("[Editor] initialization done.");
-
-	// sponza specific
-	m_Viewport.GetCamera().Move(Vec2(-42.0f, 10.0f));
-	m_Viewport.GetCamera().Zoom(0.0f);
-	m_Viewport.GetCamera().Look(Vec2(-1.65f, 0.0f));
-	m_Viewport.SetFieldOfView(68.0f);
 
 	// hide the console window
 	if (!IsDebuggerPresent())
@@ -160,7 +155,8 @@ void IEditor::OnUpdate(float inDeltaTime)
 	m_Scene.UpdateAnimations(inDeltaTime);
 
 	// update NativeScript components
-	m_Scene.UpdateNativeScripts(inDeltaTime);
+	if (GetGameState() == GAME_RUNNING)
+		m_Scene.UpdateNativeScripts(inDeltaTime);
 
 	// start ImGui
 	GUI::BeginFrame();
@@ -170,13 +166,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 
 	if (GetSettings().mShowUI)
 	{
-		auto dockspace_flags = ImGuiWindowFlags(ImGuiWindowFlags_None);
-
-		if (auto menubar_widget = m_Widgets.GetWidget<MenubarWidget>())
-			if (menubar_widget->IsOpen())
-				dockspace_flags |= ImGuiWindowFlags_MenuBar;
-
-		GUI::BeginDockSpace(dockspace_flags);
+		GUI::BeginDockSpace(m_Widgets);
 
 		// draw widgets
 		m_Widgets.Draw(inDeltaTime);
@@ -262,6 +252,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 					m_ActiveEntity = NULL_ENTITY;
 				}
 			} break;
+
 			case SDLK_d:
 			{
 				if (SDL_GetModState() & KMOD_LCTRL)
@@ -282,6 +273,30 @@ void IEditor::OnEvent(const SDL_Event& event)
 				sdl_event.window.event = SDL_WINDOWEVENT_RESIZED;
 				SDL_PushEvent(&sdl_event);
 			} break;
+
+			case SDLK_LALT:
+			case SDLK_RALT:
+			{
+				SDL_SetRelativeMouseMode(SDL_bool(!SDL_GetRelativeMouseMode()));
+			} break;
+		}
+	}
+
+	if (GetGameState() == GAME_RUNNING)
+	{
+		for (auto [entity, script] : m_Scene.Each<NativeScript>())
+		{
+			if (script.script)
+			{
+				try
+				{
+					script.script->OnEvent(event);
+				}
+				catch (const std::exception& e)
+				{
+					std::cerr << e.what() << '\n';
+				}
+			}
 		}
 	}
 

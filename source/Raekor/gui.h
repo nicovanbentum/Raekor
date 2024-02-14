@@ -1,20 +1,31 @@
 #pragma once
 
 #include "scene.h"
-#include "application.h"
+
+namespace Raekor {
+class Widgets;
+class Viewport;
+}
+
+struct ImVec2;
+typedef unsigned int ImU32;
 
 namespace Raekor::GUI {
 
-void BeginDockSpace(ImGuiWindowFlags inFlags = ImGuiWindowFlags_None);
+void BeginDockSpace(Widgets& inWidgets);
 void EndDockSpace();
+
 
 void BeginFrame();
 void EndFrame();
 
+
 void SetFont(const std::string& inFilePath);
 void SetTheme();
 
+
 glm::ivec2 GetMousePosWindow(const Viewport& viewport, ImVec2 windowPos);
+
 
 } // namespace GUI
 

@@ -906,7 +906,9 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                         if (texture->GetHeaderDXT10()->dxgiFormat == DXGI_FORMAT_BC7_UNORM)
                         {
                             texture->GetHeaderDXT10()->dxgiFormat = DXGI_FORMAT_BC7_UNORM_SRGB;
-                            texture->Save();
+
+                            if  (texture->Save())
+                                inApp->LogMessage(std::format("Saved {}", material.albedoFile));
                         }
                     }
                 }

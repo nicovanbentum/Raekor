@@ -147,6 +147,12 @@ enum WindowFlag
 };
 using WindowFlags = uint32_t;
 
+enum GameState
+{
+	GAME_STOPPED = 0,
+	GAME_PAUSED,
+	GAME_RUNNING
+};
 
 class Application
 {
@@ -156,6 +162,7 @@ public:
 		LOG_MESSAGE_SENT = 1,
 		LOG_MESSAGE_RECEIVED = 2,
 	};
+
 
 protected:
 	Application(WindowFlags inFlags);
@@ -185,6 +192,9 @@ public:
 
 	virtual void LogMessage(const std::string& inMessage) { std::cout << inMessage << '\n'; }
 
+	void SetGameState(GameState inState) { m_GameState = inState; }
+	GameState GetGameState() const { return m_GameState; }
+
 	uint64_t GetFrameCounter() const { return m_FrameCounter; }
 	const ConfigSettings& GetSettings() const { return m_Settings; }
 
@@ -198,6 +208,7 @@ public:
 
 protected:
 	bool m_Running = true;
+	GameState m_GameState = GAME_STOPPED;
 	uint64_t m_FrameCounter = 0;
 	SDL_Window* m_Window = nullptr;
 

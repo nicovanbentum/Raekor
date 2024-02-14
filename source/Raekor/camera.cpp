@@ -34,20 +34,20 @@ void Camera::OnUpdate(float inDeltaTime)
 
 	if (SDL_GetRelativeMouseMode())
 	{
-		if (Input::sIsKeyPressed(SDL_SCANCODE_W))
+		if (g_Input->IsKeyPressed(SDL_SCANCODE_W))
 		{
 			Zoom(float(mZoomConstant * inDeltaTime));
 		}
-		else if (Input::sIsKeyPressed(SDL_SCANCODE_S))
+		else if (g_Input->IsKeyPressed(SDL_SCANCODE_S))
 		{
 			Zoom(float(-mZoomConstant * inDeltaTime));
 		}
 
-		if (Input::sIsKeyPressed(SDL_SCANCODE_A))
+		if (g_Input->IsKeyPressed(SDL_SCANCODE_A))
 		{
 			Move({ mMoveConstant * inDeltaTime, 0.0f });
 		}
-		else if (Input::sIsKeyPressed(SDL_SCANCODE_D))
+		else if (g_Input->IsKeyPressed(SDL_SCANCODE_D))
 		{
 			Move({ -mMoveConstant * inDeltaTime, 0.0f });
 		}
@@ -114,6 +114,13 @@ Vec3 Camera::GetForwardVector()
 }
 
 
+void Camera::LookAt(Vec3 inPosition)
+{
+	m_Angle.x = glm::atan(inPosition.x, inPosition.z);
+	m_Angle.y = glm::asin(inPosition.y);
+}
+
+
 float Camera::GetFov() const
 {
 	return 2.0f * atan(1.0f / m_Projection[1][1]) * 180.0f / (float)M_PI;
@@ -170,13 +177,13 @@ bool CameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 
 	if (inEvent.type == SDL_MOUSEMOTION)
 	{
-		if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(3))
+		if (SDL_GetRelativeMouseMode() && g_Input->IsButtonPressed(3))
 		{
 			auto formula = glm::radians(0.022f * inCamera.mSensitivity * 2.0f);
 			inCamera.Look(glm::vec2(inEvent.motion.xrel * formula, inEvent.motion.yrel * formula));
 			camera_changed = true;
 		}
-		else if (SDL_GetRelativeMouseMode() && Input::sIsButtonPressed(2))
+		else if (SDL_GetRelativeMouseMode() && g_Input->IsButtonPressed(2))
 		{
 			inCamera.Move(glm::vec2(inEvent.motion.xrel * 0.02f, inEvent.motion.yrel * 0.02f));
 			camera_changed = true;
@@ -193,7 +200,7 @@ bool CameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 
 
 Viewport::Viewport(Vec2 inSize) :
-	m_Camera(Vec3(0, 0.0, 0), glm::perspectiveRH(glm::radians(m_FieldOfView), m_AspectRatio, 0.1f, 4096.0f)),
+	m_Camera(Vec3(0, 1.0, 0), glm::perspectiveRH(glm::radians(m_FieldOfView), m_AspectRatio, 0.1f, 4096.0f)),
 	size(inSize),
 	m_DisplaySize(inSize)
 {

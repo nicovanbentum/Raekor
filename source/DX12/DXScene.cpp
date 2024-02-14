@@ -1,7 +1,10 @@
 #include "pch.h"
-#include "shared.h"
 #include "DXScene.h"
+
+#include "shared.h"
 #include "DXCommandList.h"
+
+#include "Raekor/iter.h"
 #include "Raekor/primitives.h"
 #include "Raekor/application.h"
 
@@ -287,17 +290,18 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
 
 void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList, bool inDisableAlbedo)
 {
-    if (!m_Scene.Count<Material>())
-        return;
-
     PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
 
-    std::vector<RTMaterial> rt_materials(m_Scene.Count<Material>());
+    Slice<Material> materials = m_Scene.GetComponentStorage<Material>()->GetComponents();
 
-    auto material_index = 0u;
-    for (const auto& [entity, material] : m_Scene.Each<Material>())
+    if (materials.IsEmpty())
+        materials = Slice(&Material::Default);
+
+    auto rt_materials = std::vector<RTMaterial>(materials.Length());
+
+    for (const auto& [index, material] : gEnumerate(materials))
     {
-        auto& rt_material = rt_materials[material_index];
+        auto& rt_material = rt_materials[index];
         rt_material.mAlbedo = material.albedo;
         rt_material.mMetallic = material.metallic;
         rt_material.mRoughness = material.roughness;
@@ -317,8 +321,6 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
 
         // 0 is maybe fine? haven't seen this trigger before though
         assert(rt_material.mAlbedoTexture != 0 && rt_material.mNormalsTexture != 0 && rt_material.mMetallicTexture != 0);
-
-        material_index++;
     }
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};

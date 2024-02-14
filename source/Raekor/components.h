@@ -219,6 +219,10 @@ struct Skeleton
 	uint32_t boneWeightBuffer;
 	uint32_t boneTransformsBuffer;
 	uint32_t skinnedVertexBuffer;
+
+	// debug settings
+	bool autoPlay = true;
+	float currentTime = 0.0f;
 };
 
 
@@ -264,8 +268,8 @@ struct NativeScript
 	RTTI_DECLARE_TYPE_NO_VIRTUAL(NativeScript);
 
 	std::string file; // ptr
-	std::shared_ptr<ScriptAsset> asset;
-	std::string procAddress; // ptr
+	std::string type;
+	std::vector<std::string> types;
 	INativeScript* script = nullptr;
 };
 

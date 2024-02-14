@@ -4,6 +4,7 @@
 #include "dds.h"
 #include "timer.h"
 #include "rmath.h"
+#include "script.h"
 
 namespace Raekor {
 
@@ -154,7 +155,7 @@ bool TextureAsset::Load(const std::string& filepath)
 
 bool TextureAsset::Save()
 {
-	File file(m_Path, std::ios::binary);
+	File file(m_Path, std::ios::binary | std::ios::out);
 
 	if (!file.is_open())
 		return false;
@@ -199,7 +200,11 @@ void Assets::Release(const std::string& filepath)
 ScriptAsset::~ScriptAsset()
 {
 	if (m_HModule)
-		FreeLibrary(m_HModule);
+		if (!FreeLibrary(m_HModule))
+			std::cout << std::format("FreeLibrary(\"{}\") call failed! \n", m_Path.stem().string());
+
+	/*for (const auto& type : m_RegisteredTypes)
+		g_RTTIFactory.Remove(type.c_str());*/
 }
 
 
@@ -225,7 +230,30 @@ bool ScriptAsset::Load(const std::string& inPath)
 
 	m_HModule = LoadLibraryA(inPath.c_str());
 
-	return m_HModule != NULL;
+	if (!m_HModule)
+		return false;
+
+	if (auto address = GetProcAddress(m_HModule, SCRIPT_EXPORTED_FUNCTION_STR))
+	{
+		auto get_types_fn = reinterpret_cast<INativeScript::RegisterFn>( address );
+
+		std::vector<RTTI*> types;
+		types.resize(get_types_fn(nullptr));
+		get_types_fn(types.data());
+
+		for (RTTI* rtti : types)
+		{
+			g_RTTIFactory.Register(*rtti);
+			m_RegisteredTypes.push_back(rtti->GetTypeName());
+		}
+	}
+	else
+	{
+		FreeLibrary(m_HModule);
+		return false;
+	}
+
+	return true;
 }
 
 
@@ -244,8 +272,7 @@ void ScriptAsset::EnumerateSymbols()
 
         if (strncmp(pSymInfo->Name, "Create", 6) == 0)
         {
-            std::cout << "Symbol: " << pSymInfo->Name << '\n';
-            asset->m_CreateFunctions.push_back(pSymInfo->Name);
+            //std::cout << "Symbol: " << pSymInfo->Name << '\n';
         }
 
         return true;
@@ -255,7 +282,7 @@ void ScriptAsset::EnumerateSymbols()
 	{
         if (strncmp(pSymInfo->Name, "Create", 6) == 0)
         {
-		    std::cout << "User type: " << pSymInfo->Name << '\n';
+		    // std::cout << "User type: " << pSymInfo->Name << '\n';
         }
 		
         return true;

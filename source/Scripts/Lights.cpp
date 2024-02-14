@@ -2,41 +2,11 @@
 #include "Raekor/raekor.h"
 using namespace Raekor;
 
-
-class TestScript : public INativeScript {
-public:
-    void OnUpdate(float inDeltaTime) override
-    {
-        GetComponent<Name>().name = "I ROTATE";
-        GetComponent<Name>().name = "POTATO ROTATO";
-
-        //transform.rotation.y = 33.14f;
-        auto& transform = GetComponent<Transform>();
-        GetComponent<Transform>().position.y += glm::sin(time) * inDeltaTime;
-        GetComponent<Transform>().Compose();
-
-        /*if (GetInput()->sIsKeyPressed(SDL_SCANCODE_W))
-            transform.position.x += 1.0f * inDeltaTime;*/
-
-        /*auto& aabb = GetComponent<Mesh>().aabb;
-
-        aabb[1] += 10.0f * inDeltaTime;*/
-
-        time += inDeltaTime;
-    }
-
-    void OnEvent(const SDL_Event& inEvent) {}
-
-private:
-    float speed = 0.02f;
-    float time = 0.0f;
-};
-
-
-
-class LightsScript : public INativeScript 
+class LightsScript : public INativeScript
 {
 public:
+    RTTI_DECLARE_TYPE(LightsScript);
+
     void OnBind() override
     {
         for (const auto& [entity, light] : m_Scene->Each<DirectionalLight>())
@@ -47,8 +17,8 @@ public:
         for (const auto& [entity, transform, mesh] : m_Scene->Each<Transform, Mesh>())
             scene_bounds.Combine(BBox3D(mesh.aabb[0], mesh.aabb[1]).Transform(transform.worldTransform));
 
-        constexpr auto cPointLightRadius = 14.0f;
-        constexpr auto cPointLightIntensity = 10.0f;
+        constexpr auto cPointLightRadius = 2.5f;
+        constexpr auto cPointLightIntensity = 6.0f;
 
         auto point_light_count = 0u;
 
@@ -95,5 +65,8 @@ public:
     void OnEvent(const SDL_Event& inEvent) {}
 };
 
-DEFINE_SCRIPT_CLASS(TestScript);
-DEFINE_SCRIPT_CLASS(LightsScript);
+
+RTTI_DEFINE_TYPE(LightsScript)
+{
+    RTTI_DEFINE_TYPE_INHERITANCE(LightsScript, INativeScript);
+}

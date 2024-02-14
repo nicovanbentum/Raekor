@@ -376,7 +376,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 		memcpy(glm::value_ptr(matrix), data_ptr + n * num_components, num_components * sizeof(float));
 	}
 
-	skeleton.boneTransformMatrices.resize(skeleton.boneOffsetMatrices.size());
+	skeleton.boneTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), glm::mat4(1.0f));
 
 	if (m_Renderer)
 		m_Renderer->UploadSkeletonBuffers(skeleton, mesh);
@@ -446,7 +446,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 						const auto num_components = cgltf_num_components(channel.sampler->output->type);
 						assert(num_components == 3);
 
-						cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
+						cgltf_accessor_read_float(channel.sampler->output, index, buffer, num_components);
 						key.mValue = Vec3(buffer[0], buffer[1], buffer[2]);
 					}
 
@@ -472,7 +472,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 						const auto num_components = cgltf_num_components(channel.sampler->output->type);
 						assert(num_components == 4);
 
-						cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
+						cgltf_accessor_read_float(channel.sampler->output, index, buffer, num_components);
 						key.mValue = Quat(buffer[3], buffer[0], buffer[1], buffer[2]);
 					}
 				} break;
@@ -497,7 +497,7 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 						const auto num_components = cgltf_num_components(channel.sampler->output->type);
 						assert(num_components == 3);
 
-						cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
+						cgltf_accessor_read_float(channel.sampler->output, index, buffer, num_components);
 						key.mValue = Vec3(buffer[0], buffer[1], buffer[2]);
 					}
 				} break;

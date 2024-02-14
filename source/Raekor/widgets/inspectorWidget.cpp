@@ -3,7 +3,11 @@
 
 #include "OS.h"
 #include "gui.h"
+#include "json.h"
+#include "iter.h"
 #include "scene.h"
+#include "script.h"
+#include "archive.h"
 #include "systems.h"
 #include "physics.h"
 #include "components.h"
@@ -244,6 +248,33 @@ void InspectorWidget::DrawKeyFrameInspector(Widgets* inWidgets)
 }
 
 
+void InspectorWidget::DrawScriptMember(const char* inLabel, int& ioValue) { ImGui::DragInt(inLabel, &ioValue); }
+
+
+void InspectorWidget::DrawScriptMember(const char* inLabel, bool& ioValue) { ImGui::Checkbox(inLabel, &ioValue);  }
+
+
+void InspectorWidget::DrawScriptMember(const char* inLabel, float& ioValue) 
+{ 
+	ImGui::DragFloat(inLabel, &ioValue, 0.001f, FLT_MIN, FLT_MAX, "%.3f");
+}
+
+
+void InspectorWidget::DrawScriptMember(const char* inLabel, uint32_t& ioValue)
+{
+	int temp_value = ioValue;
+	if (ImGui::InputInt(inLabel, &temp_value))
+		ioValue = temp_value;
+
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const auto payload = ImGui::AcceptDragDropPayload("drag_drop_hierarchy_entity"))
+			ioValue = *reinterpret_cast<const uint32_t*>( payload->Data );
+	}
+}
+
+
+
 void InspectorWidget::DrawComponent(Name& inName)
 {
 	if (ImGui::BeginTable("##NameTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
@@ -367,14 +398,21 @@ void InspectorWidget::DrawComponent(BoxCollider& inBoxCollider)
 
 void InspectorWidget::DrawComponent(Skeleton& inSkeleton)
 {
-	static auto playing = false;
 	const  auto current_time = inSkeleton.animations[0].GetRunningTime();
 	const  auto total_duration = inSkeleton.animations[0].GetTotalDuration();
 
-	ImGui::ProgressBar(current_time / total_duration);
+	if (inSkeleton.autoPlay)
+		ImGui::ProgressBar(current_time / total_duration);
+	else
+	{
+		float time = inSkeleton.currentTime / 1000.0f;
+		if (ImGui::DragFloat("Time", &time, 0.001f, 0.0f, inSkeleton.animations[0].GetTotalDuration() / 1000.0f))
+			inSkeleton.currentTime = time * 1000.0f;
+	}
 
-	if (ImGui::Button(playing ? "pause" : "play"))
-		playing = !playing;
+
+	if (ImGui::Button(inSkeleton.autoPlay ? "pause" : "play"))
+		inSkeleton.autoPlay = !inSkeleton.autoPlay;
 
 	ImGui::SameLine();
 
@@ -583,77 +621,106 @@ void InspectorWidget::DrawComponent(Light& inLight)
 }
 
 
-void InspectorWidget::DrawComponent(NativeScript& inNativeScript)
+void InspectorWidget::DrawComponent(NativeScript& inScript)
 {
 	auto& scene = GetScene();
 	auto& assets = GetAssets();
 
-	if (inNativeScript.asset)
+	if (assets.contains(inScript.file))
 	{
-		ImGui::Text("Module: %i", inNativeScript.asset->GetModule());
-		ImGui::Text("File: %s", inNativeScript.file.c_str());
+		ImGui::Text("File: %s", inScript.file.c_str());
 	}
 
 	if (ImGui::Button("Load.."))
 	{
 		const auto filepath = OS::sOpenFileDialog("DLL Files (*.dll)\0*.dll\0");
+
 		if (!filepath.empty())
 		{
-			inNativeScript.file = fs::relative(filepath).string();
-			inNativeScript.asset = assets.GetAsset<ScriptAsset>(inNativeScript.file);
-		}
+			inScript.file = fs::relative(filepath).string();
 
-		inNativeScript.asset->EnumerateSymbols();
+			if (auto asset = assets.GetAsset<ScriptAsset>(inScript.file))
+			{
+				for (const auto& type : asset->GetRegisteredTypes())
+					inScript.types.push_back(type);
+			}
+		}
+	}
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Reload"))
+	{
+		assets.Release(inScript.file);
+		assets.GetAsset<ScriptAsset>(inScript.file);
+		
+		scene.BindScriptToEntity(GetActiveEntity(), inScript, m_Editor);
 	}
 
 	ImGui::SameLine();
 
 	if (ImGui::Button("Release"))
 	{
-		assets.Release(inNativeScript.file);
-		delete inNativeScript.script;
-		inNativeScript = {};
+		assets.Release(inScript.file);
 	}
 
-    if (inNativeScript.asset)
+    if (!inScript.types.empty())
     {
-        const auto functions = inNativeScript.asset->GetCreateFunctions();
+        static auto index = -1;
 
-        if (!functions.IsEmpty())
+        const auto preview_text = index == -1 ? "None" : inScript.types[index].c_str();
+
+        if (ImGui::BeginCombo("Type", preview_text, ImGuiComboFlags_None))
         {
-            static auto index = -1;
-
-            const auto preview_text = index == -1 ? "None" : functions[index].c_str();
-
-            if (ImGui::BeginCombo("Function", preview_text, ImGuiComboFlags_None))
+            for (uint32_t i = 0; i < inScript.types.size(); i++)
             {
-                for (uint32_t i = 0; i < functions.Length(); i++)
+                const auto type_name = inScript.types[i].c_str();
+
+                if (ImGui::Selectable(type_name, i == index))
                 {
-                    const auto fn_name = functions[i].c_str();
+                    index = i;
 
-                    if (ImGui::Selectable(fn_name, i == index))
-                    {
-                        index = i;
-                        inNativeScript.procAddress = fn_name;
+					inScript.type = type_name;
 
-                        scene.BindScriptToEntity(GetActiveEntity(), inNativeScript);
-                    }
+                    scene.BindScriptToEntity(GetActiveEntity(), inScript, m_Editor);
                 }
-
-                ImGui::EndCombo();
             }
-        }
-        else
-        {
-            if(ImGui::BeginCombo("Function", "None Found", ImGuiComboFlags_None))
-            {
-                ImGui::EndCombo();
-            }
-        }
 
+            ImGui::EndCombo();
+        }
     }
-}
+    else
+    {
+        if (ImGui::BeginCombo("Type", "None Found", ImGuiComboFlags_None))
+            ImGui::EndCombo();
+    }
 
+	ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));
+	ImGui::SeparatorText("Variables");
+	ImGui::PopStyleVar();
+
+	if (const RTTI* rtti = g_RTTIFactory.GetRTTI(inScript.type.c_str()))
+	{
+		for (const auto& member : *rtti)
+		{
+			if (const RTTI* member_rtti = member->GetRTTI())
+			{
+				gForEachTupleElement(std::tuple<int, float, bool, uint32_t>(), [&](auto i)
+				{
+					if (*member_rtti == RTTI_OF(decltype( i )))
+					{
+						DrawScriptMember(member->GetCustomName(), member->GetRef< decltype( i )>(inScript.script));
+						return;
+					}
+				});
+			}
+			else
+			{
+				ImGui::Text(member->GetCustomName());
+			}
+		}
+	}
+}
 
 void InspectorWidget::DrawComponent(DDGISceneSettings& ioSettings)
 {

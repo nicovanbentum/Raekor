@@ -113,11 +113,11 @@ public:
 	void EnumerateSymbols();
 	HMODULE GetModule() { return m_HModule; }
 
-    Slice<std::string> GetCreateFunctions() { return Slice(m_CreateFunctions); }
+	Slice<std::string> GetRegisteredTypes() const { return Slice(m_RegisteredTypes); }
 
 private:
 	HMODULE m_HModule;
-    std::vector<std::string> m_CreateFunctions;
+    std::vector<std::string> m_RegisteredTypes;
 };
 
 

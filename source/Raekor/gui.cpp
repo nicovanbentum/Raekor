@@ -1,12 +1,21 @@
 #include "pch.h"
 #include "gui.h"
+#include "camera.h"
+#include "widget.h"
+#include "widgets/menubarWidget.h"
 #include "IconsFontAwesome5.h"
 
 namespace Raekor::GUI {
 
-void BeginDockSpace(ImGuiWindowFlags inFlags)
+void BeginDockSpace(Widgets& inWidgets)
 {
-	ImGuiWindowFlags dockWindowFlags = inFlags | ImGuiWindowFlags_NoDocking;
+	auto flags = ImGuiWindowFlags(ImGuiWindowFlags_None);
+
+	if (auto menubar_widget = inWidgets.GetWidget<MenubarWidget>())
+		if (menubar_widget->IsOpen())
+			flags |= ImGuiWindowFlags_MenuBar;
+
+	ImGuiWindowFlags dockWindowFlags = flags | ImGuiWindowFlags_NoDocking;
 	ImGuiViewport* imGuiViewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(imGuiViewport->Pos);
 	ImGui::SetNextWindowSize(imGuiViewport->Size);

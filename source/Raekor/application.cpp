@@ -26,7 +26,9 @@ static constexpr auto CONFIG_FILE_STR = "config.json";
 
 Application::Application(WindowFlags inFlags)
 {
+	gRegisterPrimitiveTypes();
 	gRegisterComponentTypes();
+
 	g_RTTIFactory.Register(RTTI_OF(ConfigSettings));
 
     JSON::ReadArchive archive(CONFIG_FILE_STR);

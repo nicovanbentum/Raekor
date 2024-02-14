@@ -2,6 +2,7 @@
 #include "scene.h"
 
 #include "iter.h"
+#include "input.h"
 #include "timer.h"
 #include "async.h"
 #include "debug.h"
@@ -383,23 +384,27 @@ void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets)
 }
 
 
-void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript)
+void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp)
 {
-    if (inScript.script)
-        delete inScript.script;
-
-	if  (auto address = GetProcAddress(inScript.asset->GetModule(), inScript.procAddress.c_str()))
+	if (inScript.script)
 	{
-		auto function = reinterpret_cast<INativeScript::FactoryType>( address );
-		inScript.script = function();
-		inScript.script->Bind(inEntity, this);
+        delete inScript.script;
+		inScript.script = nullptr;
+	}
+
+	if (inScript.script = static_cast<INativeScript*>(g_RTTIFactory.Construct(inScript.type.c_str())))
+	{
+		inScript.script->m_App = inApp;
+		inScript.script->m_Scene = this;
+		inScript.script->m_Input = g_Input;
+		inScript.script->m_Entity = inEntity;
+		inScript.script->m_Camera = &inApp->GetViewport().GetCamera();
+		inScript.script->m_DebugRenderer = &g_DebugRenderer;
+
+		inScript.script->OnBind();
 	}
 	else
-	{
-		std::clog << "Failed to bind script" << inScript.file <<
-			" to entity " << uint32_t(inEntity) <<
-			" from class " << inScript.procAddress << '\n';
-	}
+		std::clog << "Failed to bind script" << inScript.file << " to entity " << uint32_t(inEntity) << '\n';
 }
 
 

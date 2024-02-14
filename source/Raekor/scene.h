@@ -1,25 +1,29 @@
 #pragma once
 
 #include "ecs.h"
+#include "defines.h"
 
 namespace Raekor {
 
 class Ray;
 class Assets;
-struct Mesh;
-struct Skeleton;
-struct Material;
-class IRenderInterface;
+class Application;
 class NativeScript;
 class SceneImporter;
+class IRenderInterface;
+
+struct Mesh;
+struct Material;
+struct Skeleton;
 struct DirectionalLight;
 
 
 class Scene : public ecs::ECS
 {
 public:
+	NO_COPY_NO_MOVE(Scene);
+
 	Scene(IRenderInterface* inRenderer);
-	Scene(const Scene& inOther) = delete;
 	~Scene() { Clear(); }
 
 	// Spatial entity management
@@ -49,7 +53,7 @@ public:
 	void SaveToFile(const std::string& inFile, Assets& ioAssets);
 	void OpenFromFile(const std::string& inFile, Assets& ioAssets);
 
-	void BindScriptToEntity(Entity inEntity, NativeScript& inScript);
+	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);
 
 	void Optimize();
 

@@ -77,7 +77,7 @@ struct RTAOData
 
     static inline AmbientOcclusionParams mParams =
     {
-        .mRadius = 2.0,
+        .mRadius = 1.0,
         .mPower = 1.0,
         .mNormalBias = 0.01,
         .mSampleCount = 1u

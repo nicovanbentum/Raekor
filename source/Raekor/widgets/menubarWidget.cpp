@@ -73,6 +73,19 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				}
 			}
 
+			if (ImGui::MenuItem("Open GLTF.."))
+			{
+				std::string filepath = OS::sOpenFileDialog("GLTF Files (*.gltf)\0*.gltf\0");
+
+				if (!filepath.empty())
+				{
+					GltfImporter importer(scene, &GetRenderInterface());
+					importer.LoadFromFile(filepath, &GetAssets());
+
+					m_Editor->SetActiveEntity(NULL_ENTITY);
+				}
+			}
+
 			if (ImGui::MenuItem("Save scene..", "CTRL + S"))
 			{
 				std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");

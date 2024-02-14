@@ -1,5 +1,6 @@
 #pragma once
 
+#include "hash.h"
 #include "serial.h"
 
 namespace Raekor::JSON 
@@ -23,6 +24,7 @@ class RTTI
 	using Constructor = void* ( * )( );
 
 public:
+	RTTI(const char* inName);
 	RTTI(const char* inName, CreateFn inCreateFn, Constructor inConstructor);
 	RTTI(RTTI&) = delete;
 	RTTI(RTTI&&) = delete;
@@ -103,6 +105,9 @@ public:
 	RTTI* GetRTTI(const char* inType);
 
 	void* Construct(const char* inType);
+
+	void Remove(uint32_t inHash) { m_RegisteredTypes.erase(inHash); }
+	void Remove(const char* inType) { m_RegisteredTypes.erase(gHash32Bit(inType)); }
 
 	inline auto begin() const { return m_RegisteredTypes.begin(); }
 	inline auto end() const { return m_RegisteredTypes.end(); }
@@ -191,7 +196,18 @@ public:                                                                         
     inRTTI.AddBaseClass(RTTI_OF(base_class_type))
 
 #define RTTI_DEFINE_MEMBER(class_type, serial_type, custom_type_string, member_type) \
-    inRTTI.AddMember(new ClassMember<class_type, decltype(class_type::member_type)>(#member_type, custom_type_string, &class_type::member_type, serial_type))
+    inRTTI.AddMember(new ClassMember<class_type, decltype(class_type::member_type)>(#member_type, custom_type_string, &class_type::member_type, nullptr, serial_type))
+
+#define RTTI_DEFINE_SCRIPT_MEMBER(class_type, serial_type, rtti_of, custom_type_string, member_type) \
+    inRTTI.AddMember(new ClassMember<class_type, decltype(class_type::member_type)>(#member_type, custom_type_string, &class_type::member_type, rtti_of, serial_type))
+
+#define RTTI_DECLARE_TYPE_PRIMITIVE(type) RTTI& sGetRTTI(const type* inType)
+
+#define RTTI_DEFINE_TYPE_PRIMITIVE(type)	\
+	RTTI& sGetRTTI(const type* inType) {	\
+		static auto rtti = RTTI(#type);		\
+			return rtti;					\
+	}
 
 /// RTTI GETTERS / HELPERS ///
 
@@ -204,5 +220,12 @@ template<typename T>
 uint32_t gGetTypeHash() { return gGetRTTI<T>().mHash; }
 
 
+namespace Raekor
+{
+	RTTI_DECLARE_TYPE_PRIMITIVE(int);
+	RTTI_DECLARE_TYPE_PRIMITIVE(bool);
+	RTTI_DECLARE_TYPE_PRIMITIVE(float);
+	RTTI_DECLARE_TYPE_PRIMITIVE(uint32_t);
 
-
+	void gRegisterPrimitiveTypes();
+}

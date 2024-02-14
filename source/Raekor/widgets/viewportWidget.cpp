@@ -115,7 +115,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		if (payload && mesh)
 		{
 			mesh->material = *reinterpret_cast<const Entity*>( payload->Data );
-			SetActiveEntity(mesh->material);
+			SetActiveEntity(picked);
 		}
 
 		ImGui::EndDragDropTarget();
@@ -458,21 +458,33 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			{
 				GetPhysics().SaveState();
 				GetPhysics().SetState(Physics::Stepping);
+				m_Editor->SetGameState(GAME_RUNNING);
 
 				for (auto [entity, script] : scene.Each<NativeScript>())
 				{
-					if (script.script)
-						script.script->OnStart();
+					if (script.script) 
+					{
+						try 
+						{
+							script.script->OnStart();
+						}
+						catch (std::exception& e) 
+						{
+							std::cout << e.what() << '\n';
+						}
+					}
 				}
 
 			} break;
 			case Physics::Paused:
 			{
 				GetPhysics().SetState(Physics::Stepping);
+				m_Editor->SetGameState(GAME_RUNNING);
 			} break;
 			case Physics::Stepping:
 			{
 				GetPhysics().SetState(Physics::Paused);
+				m_Editor->SetGameState(GAME_PAUSED);
 			} break;
 		}
 	}
@@ -491,6 +503,23 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			GetPhysics().RestoreState();
 			GetPhysics().Step(scene, inDeltaTime); // Step once to trigger the restored state
 			GetPhysics().SetState(Physics::Idle);
+
+			m_Editor->SetGameState(GAME_STOPPED);
+
+			for (auto [entity, script] : scene.Each<NativeScript>())
+			{
+				if (script.script)
+				{
+					try
+					{
+						script.script->OnStop();
+					}
+					catch (std::exception& e)
+					{
+						std::cout << e.what() << '\n';
+					}
+				}
+			}
 		}
 	}
 

@@ -1,11 +1,5 @@
 #pragma once
 
-#ifndef NDEBUG
-    #define RK_ASSERT(expr, msg) if(!expr) std::cout << msg << std::endl; assert(expr);
-#else 
-    #define RK_ASSERT(expr, msg)
-#endif
-
 #define ALIGN(x) __declspec(align(x))
 
 #ifndef TOKENPASTE

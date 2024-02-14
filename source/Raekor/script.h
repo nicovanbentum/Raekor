@@ -3,31 +3,29 @@
 #include "ecs.h"
 #include "scene.h"
 
-#define DEFINE_SCRIPT_CLASS(x) extern "C" __declspec(dllexport) Raekor::INativeScript * __cdecl Create##x() { return new class x(); }
+#define DECLARE_SCRIPT_CLASS(T) class T : public INativeScript { public: RTTI_DECLARE_TYPE(T); };
+
+#define SCRIPT_EXPORTED_FUNCTION_STR "gGetTypes"
+#define SCRIPT_EXPORTED_FUNCTION_NAME gGetTypes
 
 namespace Raekor {
 
 class Input;
-
-/* Example
-
-class MoveCubeScript : public NativeScript {
-public:
-	void OnUpdate(float inDeltaTime) {};
-	void OnEvent(const SDL_Event& inEvent) {};
-
-};
-
-*/
+class Scene;
+class Camera;
+class Application;
+class DebugRenderer;
 
 class INativeScript
 {
 public:
-	typedef INativeScript* ( __cdecl* FactoryType )( );
+	RTTI_DECLARE_TYPE(INativeScript);
+
+	friend class Scene;
+
+	typedef int ( __cdecl* RegisterFn ) ( RTTI** );
 
 	virtual ~INativeScript() = default;
-
-	void Bind(Raekor::Entity inEntity, Raekor::Scene* inScene);
 
 	virtual void OnBind() {};
 
@@ -43,11 +41,13 @@ public:
 	template<typename T>
 	T& GetComponent();
 
-	Raekor::Scene* GetScene() { return m_Scene; }
-
 protected:
-	Raekor::Scene* m_Scene = nullptr;
 	Raekor::Entity m_Entity;
+	Raekor::Input* m_Input = nullptr;
+	Raekor::Scene* m_Scene = nullptr;
+	Raekor::Camera* m_Camera = nullptr;
+	Raekor::Application* m_App = nullptr;
+	Raekor::DebugRenderer* m_DebugRenderer = nullptr;
 };
 
 
@@ -56,8 +56,6 @@ T& INativeScript::GetComponent()
 {
 	return m_Scene->Get<T>(m_Entity);
 }
-
-SCRIPT_INTERFACE Input* GetInput();
 
 
 } // Raekor

@@ -25,6 +25,8 @@ public:
 
 	Vec3 GetForwardVector();
 
+	void LookAt(Vec3 inPosition);
+
 	const Vec2& GetAngle() const { return m_Angle; }
 	void SetAngle(const Vec2& inAngle) { m_Angle = inAngle; }
 	
@@ -108,7 +110,7 @@ public:
 private:
 	void UpdateProjectionMatrix();
 
-	float m_FieldOfView = 45.0f;
+	float m_FieldOfView = 65.0f;
 	float m_AspectRatio = 16.0f / 9.0f;
 
 	UVec2 m_DisplaySize = UVec2(0u, 0u);

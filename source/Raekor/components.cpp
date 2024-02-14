@@ -88,12 +88,16 @@ RTTI_DEFINE_TYPE(Skeleton)
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Indices", boneIndices);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Offset Matrices", boneOffsetMatrices);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Transform Matrices", boneTransformMatrices);
-	// RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Hierarchy", boneHierarchy);
+	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Hierarchy", boneHierarchy);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Animations", animations);
 }
 
 
-RTTI_DEFINE_TYPE(NativeScript) {}
+RTTI_DEFINE_TYPE(NativeScript) 
+{
+	RTTI_DEFINE_MEMBER(NativeScript, SERIALIZE_ALL, "File", file);
+	RTTI_DEFINE_MEMBER(NativeScript, SERIALIZE_ALL, "Type", type);
+}
 
 
 RTTI_DEFINE_TYPE(Material)
@@ -444,6 +448,9 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt)
 
 	if (animation.m_RunningTime > animation.m_TotalDuration)
 		animation.m_RunningTime = 0;
+
+	if (!autoPlay)
+		animation.m_RunningTime = currentTime;
 
 	auto identity = glm::mat4(1.0f);
 	UpdateBoneTransforms(animation, animation.m_RunningTime, boneHierarchy, identity);
