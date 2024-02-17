@@ -20,12 +20,15 @@ bool  sCreateProcess(const char* inCmd);
 void  sCopyToClipboard(const char* inText);
 bool  sSetDarkTitleBar(SDL_Window* inWindow);
 void* sGetFunctionPointer(const char* inName);
+
 bool  sCheckCommandLineOption(const char* inOption);
+std::string sGetCommandLineValue(const char* inOption);
 
 std::string sOpenFileDialog(const char* filters);
 std::string sSaveFileDialog(const char* filters, const char* defaultExt);
 std::string sSelectFolderDialog();
 
+fs::path sGetTempPath();
 fs::path sGetExecutablePath();
 fs::path sGetExecutableDirectoryPath();
 

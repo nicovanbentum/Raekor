@@ -72,8 +72,15 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		std::swap(uv0.y, uv1.y);
 
 	// Render the display image
+	static const auto border_state_colors = std::array 
+	{
+		ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),
+		ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
+		ImVec4(0.35f, 0.78f, 1.0f, 1.0f),
+	};
+
 	const auto image_size = ImVec2(size.x, size.y);
-	const auto border_color = GetPhysics().GetState() != Physics::Idle ? GetPhysics().GetStateColor() : ImVec4(0, 0, 0, 1);
+	const auto border_color = GetPhysics().GetState() != Physics::Idle ? border_state_colors[GetPhysics().GetState()] : ImVec4(0, 0, 0, 1);
 	ImGui::Image((void*)( (intptr_t)m_DisplayTexture ), size, uv0, uv1, ImVec4(1, 1, 1, 1), border_color);
 
 	mouseInViewport = ImGui::IsItemHovered();
@@ -449,7 +456,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::SameLine();
 
 	const auto physics_state = GetPhysics().GetState();
-	ImGui::PushStyleColor(ImGuiCol_Text, GetPhysics().GetStateColor());
+	ImGui::PushStyleColor(ImGuiCol_Text, border_state_colors[GetPhysics().GetState()]);
 	if (ImGui::Button(physics_state == Physics::Stepping ? (const char*)ICON_FA_PAUSE : (const char*)ICON_FA_PLAY))
 	{
 		switch (physics_state)

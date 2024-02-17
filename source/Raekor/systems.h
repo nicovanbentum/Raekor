@@ -1,11 +1,8 @@
 #pragma once
 
-namespace Raekor::ecs {
-class ECS;
-}
-
 namespace Raekor {
 
+class ECStorage;
 struct Node;
 typedef uint32_t Entity;
 
@@ -13,11 +10,11 @@ typedef uint32_t Entity;
 class NodeSystem
 {
 public:
-	static void sAppend(ecs::ECS& registry, Entity parentEntity, Node& parent, Entity childEntity, Node& child);
-	static void sRemove(ecs::ECS& registry, Node& node);
-	static void sCollapseTransforms(ecs::ECS& registry, Node& node, Entity entity);
+	static void sAppend(ECStorage& registry, Entity parentEntity, Node& parent, Entity childEntity, Node& child);
+	static void sRemove(ECStorage& registry, Node& node);
+	static void sCollapseTransforms(ECStorage& registry, Node& node, Entity entity);
 
-	static std::vector<Entity> sGetFlatHierarchy(ecs::ECS& registry, Entity inEntity);
+	static std::vector<Entity> sGetFlatHierarchy(ECStorage& registry, Entity inEntity);
 };
 
 }

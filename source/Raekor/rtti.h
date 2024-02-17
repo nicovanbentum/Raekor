@@ -170,8 +170,8 @@ public:                                                                         
     friend RTTI& sGetRTTI(const type* inType);                                                                          \
     static void sImplRTTI(RTTI& inRTTI)  
 
-#define RTTI_DECLARE_TYPE(type)             __RTTI_DECLARE_TYPE(type, virtual)
-#define RTTI_DECLARE_TYPE_NO_VIRTUAL(type)  __RTTI_DECLARE_TYPE(type,)
+#define RTTI_DECLARE_TYPE(type) __RTTI_DECLARE_TYPE(type,)
+#define RTTI_DECLARE_VIRTUAL_TYPE(type) __RTTI_DECLARE_TYPE(type, virtual)
 
 /// TYPE DEFINITION MACROS ///
 

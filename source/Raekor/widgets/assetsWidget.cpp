@@ -17,9 +17,22 @@ void AssetsWidget::Draw(Widgets* inWidgets, float dt)
 	ImGui::Begin(m_Title.c_str(), &m_Open);
 	m_Visible = ImGui::IsWindowAppearing();
 
-	auto& style = ImGui::GetStyle();
+	auto& scene = GetScene();
 
-	if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(1)) {}
+	if (ImGui::BeginPopupContextWindow())
+	{
+		if (ImGui::MenuItem("Create Material"))
+		{
+			auto entity = scene.Create();
+			scene.Add<Name>(entity).name = "Material";
+			scene.Add<Material>(entity, Material::Default);
+			m_Editor->SetActiveEntity(entity);
+		}
+
+		ImGui::EndPopup();
+	}
+
+	auto& style = ImGui::GetStyle();
 
 	if (ImGui::BeginTable("Assets", 24))
 	{

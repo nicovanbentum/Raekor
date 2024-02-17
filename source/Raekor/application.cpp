@@ -31,6 +31,12 @@ Application::Application(WindowFlags inFlags)
 
 	g_RTTIFactory.Register(RTTI_OF(ConfigSettings));
 
+	if (OS::sCheckCommandLineOption("-run_tests"))
+	{
+		RunArchiveTests();
+		RunECStorageTests();
+	}
+
     JSON::ReadArchive archive(CONFIG_FILE_STR);
     archive >> m_Settings;
 

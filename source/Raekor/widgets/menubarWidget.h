@@ -8,7 +8,7 @@ class Scene;
 
 class MenubarWidget : public IWidget
 {
-	RTTI_DECLARE_TYPE(MenubarWidget);
+	RTTI_DECLARE_VIRTUAL_TYPE(MenubarWidget);
 public:
 
 	MenubarWidget(Application* inApp);

@@ -696,6 +696,45 @@ void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
 
 
 
+void RenderInterface::UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh)
+{
+    inSkeleton.boneTransformMatrices.resize(inSkeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
+    inSkeleton.boneWSTransformMatrices.resize(inSkeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
+
+    inSkeleton.boneIndexBuffer = m_Device.CreateBuffer(Buffer::Desc {
+        .format = DXGI_FORMAT_R32G32B32A32_SINT,
+        .size   = uint32_t(inSkeleton.boneIndices.size() * sizeof(IVec4)),
+        .stride = sizeof(IVec4),
+        .usage  = Buffer::Usage::SHADER_READ_ONLY,
+        .debugName = "BONE_INDICES_BUFFER"
+    }).ToIndex();
+
+    inSkeleton.boneWeightBuffer = m_Device.CreateBuffer(Buffer::Desc {
+        .size   = uint32_t(inSkeleton.boneWeights.size() * sizeof(Vec4)),
+        .stride = sizeof(Vec4),
+        .usage  = Buffer::Usage::SHADER_READ_ONLY,
+        .debugName = "BONE_WEIGHTS_BUFFER"
+    }).ToIndex();
+
+    inSkeleton.boneTransformsBuffer = m_Device.CreateBuffer(Buffer::Desc {
+        .size   = uint32_t(inSkeleton.boneTransformMatrices.size() * sizeof(Mat4x4)),
+        .stride = sizeof(Mat4x4),
+        .usage  = Buffer::Usage::SHADER_READ_ONLY,
+        .debugName = "BONE_TRANSFORMS_BUFFER"
+    }).ToIndex();
+
+    const auto& mesh_vertices = inMesh.GetInterleavedVertices();
+
+    inSkeleton.skinnedVertexBuffer = m_Device.CreateBuffer(Buffer::Desc {
+        .size   = uint32_t(sizeof(mesh_vertices[0]) * mesh_vertices.size()),
+        .stride = sizeof(Mat4x4),
+        .usage  = Buffer::Usage::SHADER_READ_ONLY,
+        .debugName = "BONE_TRANSFORMS_BUFFER"
+    }).ToIndex();
+}
+
+
+
 void RenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets)
 {
     IRenderInterface::UploadMaterialTextures(inEntity, inMaterial, inAssets);

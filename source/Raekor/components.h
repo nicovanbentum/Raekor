@@ -15,7 +15,7 @@ class INativeScript;
 
 struct SCRIPT_INTERFACE Name
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(Name);
+	RTTI_DECLARE_TYPE(Name);
 
 	std::string name;
 
@@ -27,7 +27,7 @@ struct SCRIPT_INTERFACE Name
 
 struct SCRIPT_INTERFACE Transform
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(Transform);
+	RTTI_DECLARE_TYPE(Transform);
 
 	Vec3 scale = Vec3(1.0f, 1.0f, 1.0f);
 	Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
@@ -49,7 +49,7 @@ struct SCRIPT_INTERFACE Transform
 
 struct SCRIPT_INTERFACE DirectionalLight
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(DirectionalLight);
+	RTTI_DECLARE_TYPE(DirectionalLight);
 
 	const Vec4& GetColor() const { return colour; }
 	const Vec4& GetDirection() const { return direction; }
@@ -72,7 +72,7 @@ RTTI_DECLARE_ENUM(ELightType);
 
 struct SCRIPT_INTERFACE Light
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(Light);
+	RTTI_DECLARE_TYPE(Light);
 
 	ELightType type = LIGHT_TYPE_NONE;
 	glm::vec3 direction = { 0.0f, -1.0f, 0.0f }; // used for Directional and Spot light
@@ -84,7 +84,7 @@ struct SCRIPT_INTERFACE Light
 
 struct SCRIPT_INTERFACE Node
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(Node);
+	RTTI_DECLARE_TYPE(Node);
 
 	Entity parent = NULL_ENTITY;
 	Entity firstChild = NULL_ENTITY;
@@ -120,7 +120,7 @@ struct Meshlet
 
 struct SCRIPT_INTERFACE Mesh
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(Mesh);
+	RTTI_DECLARE_TYPE(Mesh);
 
 	std::vector<glm::vec3> positions; // ptr
 	std::vector<glm::vec2> uvs; // ptr
@@ -166,7 +166,7 @@ struct SCRIPT_INTERFACE Mesh
 
 struct BoxCollider
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(BoxCollider);
+	RTTI_DECLARE_TYPE(BoxCollider);
 
 	JPH::BodyID bodyID;
 	JPH::EMotionType motionType;
@@ -179,7 +179,7 @@ struct BoxCollider
 
 struct SoftBody
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(SoftBody);
+	RTTI_DECLARE_TYPE(SoftBody);
 
 	JPH::BodyID mBodyID;
 	JPH::SoftBodySharedSettings mSharedSettings;
@@ -190,7 +190,7 @@ struct SoftBody
 
 struct Bone
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(Bone);
+	RTTI_DECLARE_TYPE(Bone);
 
 	uint32_t index;
 	std::string name;
@@ -200,17 +200,19 @@ struct Bone
 
 struct Skeleton
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(Skeleton);
+	RTTI_DECLARE_TYPE(Skeleton);
 
 	glm::mat4 inverseGlobalTransform;
 	std::vector<glm::vec4> boneWeights; // ptr
 	std::vector<glm::ivec4> boneIndices; // ptr
 	std::vector<glm::mat4> boneOffsetMatrices; // ptr
 	std::vector<glm::mat4> boneTransformMatrices; // ptr
+	std::vector<glm::mat4> boneWSTransformMatrices; // ptr
 
 	Bone boneHierarchy;
 	std::vector<Animation> animations; // ptr
 
+	void DebugDraw(const Bone& inBone);
 	void UpdateFromAnimation(Animation& animation, float TimeInSeconds);
 	void UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform);
 
@@ -223,12 +225,13 @@ struct Skeleton
 	// debug settings
 	bool autoPlay = true;
 	float currentTime = 0.0f;
+	uint32_t animationIndex = 0;
 };
 
 
 struct SCRIPT_INTERFACE Material
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(Material);
+	RTTI_DECLARE_TYPE(Material);
 
 	// properties
 	glm::vec4 albedo = glm::vec4(1.0f);
@@ -265,7 +268,7 @@ struct SCRIPT_INTERFACE Material
 
 struct NativeScript
 {
-	RTTI_DECLARE_TYPE_NO_VIRTUAL(NativeScript);
+	RTTI_DECLARE_TYPE(NativeScript);
 
 	std::string file; // ptr
 	std::string type;
@@ -310,29 +313,5 @@ static constexpr auto Components = std::make_tuple(
 );
 
 void gRegisterComponentTypes();
-
-template<typename T>
-inline void CopyComponent(Scene& inScene, Entity inFrom, Entity inTo) {}
-
-template<>
-void CopyComponent<Transform>(Scene& inScene, Entity inFrom, Entity inTo);
-
-template<>
-void CopyComponent<Node>(Scene& inScene, Entity inFrom, Entity inTo);
-
-template<>
-void CopyComponent<Name>(Scene& inScene, Entity inFrom, Entity inTo);
-
-template<>
-void CopyComponent<Light>(Scene& inScene, Entity inFrom, Entity inTo);
-
-template<>
-void CopyComponent<Mesh>(Scene& inScene, Entity inFrom, Entity inTo);
-
-template<>
-void CopyComponent<Material>(Scene& inScene, Entity inFrom, Entity inTo);
-
-template<>
-void CopyComponent<BoxCollider>(Scene& inScene, Entity inFrom, Entity inTo);
 
 } // Raekor

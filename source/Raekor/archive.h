@@ -198,3 +198,5 @@ WriteArchive& WriteArchive::operator<< (T& inRHS)
 }
 
 } // Raekor::JSON
+
+namespace Raekor { void RunArchiveTests(); }

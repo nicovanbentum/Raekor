@@ -124,8 +124,6 @@ public:
 
 	void GenerateRigidBodiesEntireScene(Scene& inScene);
 
-	const ImVec4& GetStateColor();
-
 	JPH::PhysicsSystem* GetSystem() { return m_Physics; }
 
 private:

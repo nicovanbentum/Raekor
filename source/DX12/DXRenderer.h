@@ -140,7 +140,7 @@ public:
     void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
     void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) override { /* TODO: FIXME */ }
 
-    void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) override { /* TODO: FIXME */ }
+    void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) override;
     void DestroySkeletonBuffers(Skeleton& inSkeleton) override { /* TODO: FIXME */ }
 
     void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) override;

@@ -23,7 +23,7 @@ struct DDGISceneSettings;
 class InspectorWidget : public IWidget
 {
 public:
-	RTTI_DECLARE_TYPE(InspectorWidget);
+	RTTI_DECLARE_VIRTUAL_TYPE(InspectorWidget);
 
 	InspectorWidget(Application* inApp);
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;
@@ -38,6 +38,7 @@ private:
 	void DrawScriptMember(const char* inLabel, bool& ioValue);
 	void DrawScriptMember(const char* inLabel, float& ioValue);
 	void DrawScriptMember(const char* inLabel, uint32_t& ioValue);
+	// void DrawScriptMember(const char* inLabel, Asset::Ptr ioValue);
 
 	void DrawComponent(Name& ioName);
 	void DrawComponent(Node& ioNode);

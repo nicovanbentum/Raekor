@@ -237,7 +237,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
 //////////////////////////////////////////
 struct ProbeDebugRaysData
 {
-    RTTI_DECLARE_TYPE(ProbeDebugRaysData);
+    RTTI_DECLARE_VIRTUAL_TYPE(ProbeDebugRaysData);
 
     RenderGraphResourceID mVertexBuffer;
     RenderGraphResourceID mIndirectArgsBuffer;

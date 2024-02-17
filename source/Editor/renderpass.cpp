@@ -1205,8 +1205,6 @@ void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, uniformBuffer);
 
-
-
     if (vertexBuffer) 
         glDeleteBuffers(1, &vertexBuffer);
 
@@ -1234,20 +1232,20 @@ Skinning::Skinning()
 
 
 
-void Skinning::compute(const Mesh& mesh, const Skeleton& anim)
+void Skinning::compute(const Mesh& mesh, const Skeleton& skeleton)
 {
 
-    glNamedBufferData(anim.boneTransformsBuffer, anim.boneTransformMatrices.size() * sizeof(glm::mat4), anim.boneTransformMatrices.data(), GL_DYNAMIC_DRAW);
+    glNamedBufferData(skeleton.boneTransformsBuffer, skeleton.boneTransformMatrices.size() * sizeof(glm::mat4), skeleton.boneTransformMatrices.data(), GL_DYNAMIC_DRAW);
 
     computeShader.Bind();
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, anim.boneIndexBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, anim.boneWeightBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, skeleton.boneIndexBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, skeleton.boneWeightBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, mesh.vertexBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, anim.skinnedVertexBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, anim.boneTransformsBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, skeleton.skinnedVertexBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, skeleton.boneTransformsBuffer);
 
-    glDispatchCompute(static_cast<GLuint>( mesh.positions.size() ), 1, 1);
+    glDispatchCompute((mesh.positions.size() + 63) / 64, 1, 1);
 
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }

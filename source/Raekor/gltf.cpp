@@ -311,6 +311,31 @@ void GltfImporter::ConvertLight(Entity inEntity, const cgltf_light& inLight)
 }
 
 
+Mat4x4 GltfImporter::GetLocalTransform(const cgltf_node& inNode)
+{
+	auto local_transform = glm::mat4(1.0f);
+
+	if (inNode.has_matrix)
+	{
+		static_assert( sizeof(inNode.matrix) == sizeof(local_transform) );
+		memcpy(glm::value_ptr(local_transform), inNode.matrix, sizeof(inNode.matrix));
+	}
+	else
+	{
+		if (inNode.has_translation)
+			local_transform = glm::translate(local_transform, Vec3(inNode.translation[0], inNode.translation[1], inNode.translation[2]));
+
+		if (inNode.has_rotation)
+			local_transform = local_transform * glm::toMat4(glm::quat(inNode.rotation[3], inNode.rotation[0], inNode.rotation[1], inNode.rotation[2]));
+
+		if (inNode.has_scale)
+			local_transform = glm::scale(local_transform, Vec3(inNode.scale[0], inNode.scale[1], inNode.scale[2]));
+	}
+
+	return local_transform;
+}
+
+
 
 void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 {
@@ -377,33 +402,36 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 	}
 
 	skeleton.boneTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), glm::mat4(1.0f));
+	skeleton.boneWSTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), glm::mat4(1.0f));
 
 	if (m_Renderer)
 		m_Renderer->UploadSkeletonBuffers(skeleton, mesh);
 
-	auto root_bone = inNode.skin->skeleton;
-	skeleton.boneHierarchy.name = root_bone->name;
-	skeleton.boneHierarchy.index = GetJointIndex(&inNode, root_bone);
-
-	// recursive lambda to loop over the node hierarchy, dear lord help us all
-	auto copyHierarchy = [&](auto&& copyHierarchy, cgltf_node* inCurrentNode, Bone& boneNode) -> void
+	if (auto root_bone = inNode.skin->skeleton)
 	{
-		for (auto node : Slice(inCurrentNode->children, inCurrentNode->children_count))
+		skeleton.boneHierarchy.name = root_bone->name;
+		skeleton.boneHierarchy.index = GetJointIndex(&inNode, root_bone);
+
+		// recursive lambda to loop over the node hierarchy, dear lord help us all
+		auto copyHierarchy = [&](auto&& copyHierarchy, cgltf_node* inCurrentNode, Bone& boneNode) -> void
 		{
-			const auto index = GetJointIndex(&inNode, node);
-
-			if (index != -1)
+			for (auto node : Slice(inCurrentNode->children, inCurrentNode->children_count))
 			{
-				auto& child = boneNode.children.emplace_back();
-				child.name = node->name;
-				child.index = index;
+				const auto index = GetJointIndex(&inNode, node);
 
-				copyHierarchy(copyHierarchy, node, child);
+				if (index != -1)
+				{
+					auto& child = boneNode.children.emplace_back();
+					child.name = node->name;
+					child.index = index;
+
+					copyHierarchy(copyHierarchy, node, child);
+				}
 			}
-		}
-	};
+		};
 
-	copyHierarchy(copyHierarchy, root_bone, skeleton.boneHierarchy);
+		copyHierarchy(copyHierarchy, root_bone, skeleton.boneHierarchy);
+	}
 
 	for (const auto& gltf_animation : Slice(m_GltfData->animations, m_GltfData->animations_count))
 	{
@@ -413,97 +441,37 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 		{
 			const auto joint_index = GetJointIndex(&inNode, channel.target_node);
 
-			if (animation.m_BoneAnimations.find(joint_index) == animation.m_BoneAnimations.end())
-				animation.m_BoneAnimations[joint_index] = KeyFrames(joint_index);
-
-			auto& keyframes = animation.m_BoneAnimations[joint_index];
-
-			animation.m_TotalDuration = glm::max(animation.m_TotalDuration, Timer::sToMilliseconds(channel.sampler->input->max[0]));
-
-			assert(channel.sampler->interpolation == cgltf_interpolation_type_linear);
-			float buffer[4]; // covers time (scalar float values), pos and scale (vec3) and rotation (quat)
-
-			switch (channel.target_path)
-			{
-				case cgltf_animation_path_type_translation:
-				{
-					for (uint32_t index = 0; index < channel.sampler->input->count; index++)
-					{
-						auto& key = keyframes.m_PositionKeys.emplace_back();
-
-						const auto num_components = cgltf_num_components(channel.sampler->input->type);
-						assert(num_components == 1);
-
-						cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
-						key.mTime = Timer::sToMilliseconds(buffer[0]);
-					}
-
-					for (uint32_t index = 0; index < channel.sampler->output->count; index++)
-					{
-						assert(index < keyframes.m_PositionKeys.size());
-						auto& key = keyframes.m_PositionKeys[index];
-
-						const auto num_components = cgltf_num_components(channel.sampler->output->type);
-						assert(num_components == 3);
-
-						cgltf_accessor_read_float(channel.sampler->output, index, buffer, num_components);
-						key.mValue = Vec3(buffer[0], buffer[1], buffer[2]);
-					}
-
-				} break;
-				case cgltf_animation_path_type_rotation:
-				{
-					for (uint32_t index = 0; index < channel.sampler->input->count; index++)
-					{
-						auto& key = keyframes.m_RotationKeys.emplace_back();
-
-						const auto num_components = cgltf_num_components(channel.sampler->input->type);
-						assert(num_components == 1);
-
-						cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
-						key.mTime = Timer::sToMilliseconds(buffer[0]);
-					}
-
-					for (uint32_t index = 0; index < channel.sampler->output->count; index++)
-					{
-						assert(index < keyframes.m_RotationKeys.size());
-						auto& key = keyframes.m_RotationKeys[index];
-
-						const auto num_components = cgltf_num_components(channel.sampler->output->type);
-						assert(num_components == 4);
-
-						cgltf_accessor_read_float(channel.sampler->output, index, buffer, num_components);
-						key.mValue = Quat(buffer[3], buffer[0], buffer[1], buffer[2]);
-					}
-				} break;
-				case cgltf_animation_path_type_scale:
-				{
-					for (uint32_t index = 0; index < channel.sampler->input->count; index++)
-					{
-						auto& key = keyframes.m_ScaleKeys.emplace_back();
-
-						const auto num_components = cgltf_num_components(channel.sampler->input->type);
-						assert(num_components == 1);
-
-						cgltf_accessor_read_float(channel.sampler->input, index, buffer, num_components);
-						key.mTime = Timer::sToMilliseconds(buffer[0]);
-					}
-
-					for (uint32_t index = 0; index < channel.sampler->output->count; index++)
-					{
-						assert(index < keyframes.m_ScaleKeys.size());
-						auto& key = keyframes.m_ScaleKeys[index];
-
-						const auto num_components = cgltf_num_components(channel.sampler->output->type);
-						assert(num_components == 3);
-
-						cgltf_accessor_read_float(channel.sampler->output, index, buffer, num_components);
-						key.mValue = Vec3(buffer[0], buffer[1], buffer[2]);
-					}
-				} break;
-			}
+			animation.LoadKeyframes(joint_index, &channel);
 		}
 	}
+
+	//// recursive lambda to loop over the node hierarchy, dear lord help us all
+	auto FixEmptyChannels = [&](auto&& FixEmptyChannels, Bone& inBone) -> void
+	{
+		cgltf_node* gltf_node = inNode.skin->joints[inBone.index];
+		
+		for (Animation& animation : skeleton.animations)
+		{
+			if (!animation.m_BoneAnimations.contains(inBone.index))
+			{
+				KeyFrames& keyframes = animation.m_BoneAnimations[inBone.index];
+
+				if (gltf_node->has_translation)
+					keyframes.AddPositionKey(Vec3Key(0.0f, Vec3(gltf_node->translation[0], gltf_node->translation[1], gltf_node->translation[2])));
+
+				if (gltf_node->has_rotation)
+					keyframes.AddRotationKey(QuatKey(0.0f, Quat(gltf_node->rotation[3], gltf_node->rotation[0], gltf_node->rotation[1], gltf_node->rotation[2])));
+
+				if (gltf_node->has_scale)
+					keyframes.AddScaleKey(Vec3Key(0.0f, Vec3(gltf_node->scale[0], gltf_node->scale[1], gltf_node->scale[2])));
+			}
+		}
+
+		for (Bone& child_bone : inBone.children)
+			FixEmptyChannels(FixEmptyChannels, child_bone);
+	};
+
+	FixEmptyChannels(FixEmptyChannels, skeleton.boneHierarchy);
 
 	for (auto& animation : skeleton.animations)
 	{
@@ -515,16 +483,18 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 			if (max > 0)
 			{
 				if (keyframes.m_PositionKeys.empty())
-					keyframes.m_PositionKeys.emplace_back();
+					keyframes.m_PositionKeys.emplace_back(Vec3Key(0.0f, Vec3(0.0f, 0.0f, 0.0f)));
 
 				if (keyframes.m_RotationKeys.empty())
-					keyframes.m_RotationKeys.emplace_back();
+					keyframes.m_RotationKeys.emplace_back(QuatKey(0.0f, Quat(1.0f, 0.0f, 0.0f, 0.0f)));
 
 				if (keyframes.m_ScaleKeys.empty())
-					keyframes.m_ScaleKeys.emplace_back();
+					keyframes.m_ScaleKeys.emplace_back(Vec3Key(0.0f, Vec3(1.0f, 1.0f, 1.0f)));
 			}
 		}
 	}
+
+
 }
 
 

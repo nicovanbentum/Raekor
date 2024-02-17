@@ -15,7 +15,7 @@ enum SequenceState
 class SequenceWidget : public IWidget
 {
 public:
-    RTTI_DECLARE_TYPE(SequenceWidget);
+    RTTI_DECLARE_VIRTUAL_TYPE(SequenceWidget);
     
     static constexpr auto cIncrSequence = 1.0f;
     static constexpr auto cMinSequenceLength = 1.0f;

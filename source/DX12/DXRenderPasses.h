@@ -335,6 +335,7 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice,
 struct BloomDownscaleData
 {
     RTTI_DECLARE_TYPE(BloomDownscaleData);
+
     uint32_t mToTextureMip = 0;
     uint32_t mFromTextureMip = 0;
     RenderGraphResourceViewID mToTextureUAV;

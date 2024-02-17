@@ -2,6 +2,7 @@
 #include "menubarWidget.h"
 
 #include "OS.h"
+#include "fbx.h"
 #include "gltf.h"
 #include "scene.h"
 #include "input.h"
@@ -73,19 +74,6 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				}
 			}
 
-			if (ImGui::MenuItem("Open GLTF.."))
-			{
-				std::string filepath = OS::sOpenFileDialog("GLTF Files (*.gltf)\0*.gltf\0");
-
-				if (!filepath.empty())
-				{
-					GltfImporter importer(scene, &GetRenderInterface());
-					importer.LoadFromFile(filepath, &GetAssets());
-
-					m_Editor->SetActiveEntity(NULL_ENTITY);
-				}
-			}
-
 			if (ImGui::MenuItem("Save scene..", "CTRL + S"))
 			{
 				std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
@@ -105,7 +93,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::MenuItem("Import scene.."))
 			{
-				std::string filepath = OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0");
+				std::string filepath = OS::sOpenFileDialog("Scene Files(*.scene, *.gltf, *.fbx)\0*.scene;*.gltf;*.fbx\0");
 
 				if (!filepath.empty())
 				{
@@ -113,16 +101,23 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 					m_Editor->SetActiveEntity(NULL_ENTITY);
 
-					auto importer = SceneImporter(GetScene(), m_Editor->GetRenderInterface());
-					importer.LoadFromFile(filepath, m_Editor->GetAssets());
+					const auto extension = fs::path(filepath).extension();
 
-					/*ImGui::PushOverrideID(import_settings_popup_id);
+					Importer* importer = nullptr;
 
-					ImGui::OpenPopup("Import Settings");
+					if (extension == ".gltf")
+						importer = new GltfImporter(GetScene(), &GetRenderInterface());
+					else if (extension == ".fbx")
+						importer = new FBXImporter(GetScene(), &GetRenderInterface());
+					else if (extension == ".scene")
+						importer = new SceneImporter(GetScene(), &GetRenderInterface());
 
-					ImGui::PopID();*/
+					if (importer)
+					{
+						importer->LoadFromFile(filepath, &GetAssets());
 
-					m_Editor->LogMessage("[Scene] Import from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
+						m_Editor->LogMessage("[Scene] Import from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
+					}
 				}
 			}
 
@@ -258,7 +253,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			if (ImGui::MenuItem("Material"))
 			{
 				auto entity = scene.Create();
-				scene.Add<Name>(entity).name = "New Material";
+				scene.Add<Name>(entity).name = "Material";
 				scene.Add<Material>(entity, Material::Default);
 				m_Editor->SetActiveEntity(entity);
 			}

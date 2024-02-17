@@ -42,7 +42,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	ImGui::GetStyle().ScaleAllSizes(1.33333333f);
 	ImNodes::StyleColorsDark();
 
-	if (!m_Settings.mFontFile.empty())
+	if (!m_Settings.mFontFile.empty() && fs::exists(m_Settings.mFontFile))
 		GUI::SetFont(m_Settings.mFontFile.string());
 
     m_Widgets.Register<SequenceWidget>(this);
@@ -261,6 +261,26 @@ void IEditor::OnEvent(const SDL_Event& event)
 					{
 						SetActiveEntity(m_Scene.Clone(m_ActiveEntity));
 					}
+				}
+			} break;
+
+			case SDLK_s:
+			{
+				if (SDL_GetModState() & KMOD_LCTRL)
+				{
+					std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
+
+					if (!filepath.empty())
+					{
+						g_ThreadPool.QueueJob([this, filepath]()
+						{
+							LogMessage("[Editor] Saving scene...");
+							m_Scene.SaveToFile(filepath, m_Assets);
+							LogMessage("[Editor] Saved scene to " + fs::relative(filepath).string() + "");
+						});
+					}
+
+					AddRecentScene(filepath);
 				}
 			} break;
 

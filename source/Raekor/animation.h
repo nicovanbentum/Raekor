@@ -23,11 +23,13 @@ struct Key
 struct Vec3Key : public Key<Vec3>
 {
 	RTTI_DECLARE_TYPE(Vec3Key);
+	using Key::Key;
 };
 
 struct QuatKey : public Key<Quat>
 {
 	RTTI_DECLARE_TYPE(QuatKey);
+	using Key::Key;
 };
 
 class KeyFrames
@@ -37,31 +39,18 @@ class KeyFrames
 	friend class GltfImporter;
 	friend class AssimpImporter;
 
-	template<typename T>
-	struct Key
-	{
-		double mTime = 0.0f;
-		T mValue = {};
-
-		Key() = default;
-		Key(double inTime, const T& inValue) : mTime(inTime), mValue(inValue) {}
-
-		inline bool operator==(const T& inOther) const { return inOther.mValue == mValue; }
-		inline bool operator!=(const T& inOther) const { return inOther.mValue != mValue; }
-
-		inline bool operator<(const T& inOther) const { return mTime < inOther.mTime; }
-		inline bool operator>(const T& inOther) const { return mTime > inOther.mTime; }
-	};
-
-
 public:
 	KeyFrames() = default;
-	KeyFrames(uint32_t inBoneIndex) : m_BoneIndex(inBoneIndex) {}
+	KeyFrames(uint32_t inBoneIndex) : m_BoneIndex(inBoneIndex) { assert(m_BoneIndex >= 0); }
 
 #ifndef DEPRECATE_ASSIMP
 	void LoadFromAssimp(const aiNodeAnim* inNodeAnim);
 #endif
-	void LoadFromGltf(const cgltf_animation* inNodeAnim);
+	void LoadFromGltf(const cgltf_animation_channel* inNodeAnim);
+
+	void AddScaleKey(const Vec3Key& inKey) { m_ScaleKeys.push_back(inKey); }
+	void AddPositionKey(const Vec3Key& inKey) { m_PositionKeys.push_back(inKey); }
+	void AddRotationKey(const QuatKey& inKey) { m_RotationKeys.push_back(inKey); }
 
 	Vec3 GetInterpolatedScale(float animationTime) const;
 	Quat GetInterpolatedRotation(float animationTime) const;
@@ -73,7 +62,6 @@ private:
 	std::vector<Vec3Key> m_PositionKeys;
 	std::vector<QuatKey> m_RotationKeys;
 };
-
 
 class Animation
 {
@@ -91,13 +79,17 @@ public:
 	Animation(const cgltf_animation* inAnimation);
 
 	const std::string& GetName() const { return m_Name; }
-	inline float GetRunningTime() const { return m_RunningTime; }
-	inline float GetTotalDuration() const { return m_TotalDuration; }
+
+	uint32_t GetBoneCount() const { return m_BoneAnimations.size(); }
+	
+	float GetTotalDuration() const { return m_TotalDuration; }
+	
+	float GetRunningTime() const { return m_RunningTime; }
 
 #ifndef DEPRECATE_ASSIMP
 	void LoadKeyframes(uint32_t inBoneIndex, const aiNodeAnim* inAnimation);
 #endif
-	void LoadKeyframes(uint32_t inBoneIndex, const cgltf_animation* inAnimation);
+	void LoadKeyframes(uint32_t inBoneIndex, const cgltf_animation_channel* inAnimation);
 
 private:
 	/* Elapsed time in milliseconds. */

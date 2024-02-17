@@ -21,7 +21,7 @@ Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer)
 		using ComponentType = decltype( component )::type;
 
 		if (!m_Components.contains(gGetTypeHash<ComponentType>()))
-			m_Components[gGetRTTI<ComponentType>().mHash] = new ecs::ComponentStorage<ComponentType>();
+			m_Components[gGetRTTI<ComponentType>().mHash] = new ComponentStorage<ComponentType>();
 	});
 }
 
@@ -193,7 +193,15 @@ void Scene::UpdateAnimations(float inDeltaTime)
 	{
 		auto job_ptr = g_ThreadPool.QueueJob([&]()
 		{
-			skeleton.UpdateFromAnimation(skeleton.animations[0], inDeltaTime);
+			if (skeleton.animationIndex >= 0 && skeleton.animationIndex < skeleton.animations.size())
+			{
+				skeleton.UpdateFromAnimation(skeleton.animations[skeleton.animationIndex], inDeltaTime);
+			}
+			else
+			{
+				Animation animation;
+				skeleton.UpdateFromAnimation(animation, inDeltaTime);
+			}
 		});
 
 		skeleton_job_ptrs.push_back(job_ptr);
@@ -265,45 +273,60 @@ void Scene::RenderDebugShapes(Entity inEntity) const
 
 Entity Scene::Clone(Entity inEntity)
 {
-	auto copy = Create();
-	Visit(inEntity, [&](uint32_t inTypeHash)
-	{
-		gForEachTupleElement(Components, [&](auto component)
-		{
-			using ComponentType = decltype( component )::type;
+	Entity copy = Create();
 
-			if (gGetTypeHash<ComponentType>()== inTypeHash)
-				CopyComponent<ComponentType>(*this, inEntity, copy);
-		});
-	});
+	for (const auto& [type_hash, components] : m_Components)
+	{
+		if (components->Contains(inEntity))
+			components->Copy(inEntity, copy);
+	}
+
+	if (Has<Name>(copy))
+	{
+		Name& name = Get<Name>(copy);
+		name.name = name.name + " (Copy)";
+	}
 
 	if (Has<Mesh>(copy))
+	{
+		Mesh& mesh = Get<Mesh>(copy);
 		m_Renderer->UploadMeshBuffers(copy, Get<Mesh>(copy));
 
+		if (Has<Skeleton>(copy))
+			m_Renderer->UploadSkeletonBuffers(Get<Skeleton>(copy), mesh);
+	}
+	
 	if (Has<Node>(copy))
 	{
-		auto& node = Get<Node>(copy);
+		Node& to_node = Get<Node>(copy);
+		Node& from_node = Get<Node>(inEntity);
 
-		for (auto it = node.firstChild; it != NULL_ENTITY; it = Get<Node>(it).nextSibling)
-		{
-			const auto child_clone = Clone(it);
-			NodeSystem::sAppend(*this, copy, node, child_clone, Get<Node>(child_clone));
-		}
+		if (from_node.parent != NULL_ENTITY)
+			NodeSystem::sAppend(*this, from_node.parent, Get<Node>(from_node.parent), copy, to_node);
+
+		for (Entity it = from_node.firstChild; it != NULL_ENTITY; it = Get<Node>(it).nextSibling)
+			Clone(it);
+	}
+
+	if (Has<BoxCollider>(copy))
+	{
+		BoxCollider& collider = Get<BoxCollider>(copy);
+		collider.bodyID = JPH::BodyID();
 	}
 
 	return copy;
 }
 
 
-void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials)
+void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& inMaterialEntities)
 {
 	Timer timer;
 
-	for (const auto& entity : materials)
+	for (Entity entity : inMaterialEntities)
 	{
 		g_ThreadPool.QueueJob([&]()
 		{
-			auto& material = Get<Material>(entity);
+			Material& material = Get<Material>(entity);
 			assets.GetAsset<TextureAsset>(material.albedoFile);
 			assets.GetAsset<TextureAsset>(material.normalFile);
 			assets.GetAsset<TextureAsset>(material.emissiveFile);
@@ -316,9 +339,9 @@ void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials)
 
 	std::cout << std::format("[Scene] Load textures to RAM took {:.3f} seconds.\n", timer.Restart());
 
-	for (auto entity : materials)
+	for (Entity entity : inMaterialEntities)
 	{
-		auto& material = Get<Material>(entity);
+		Material& material = Get<Material>(entity);
 
 		if (m_Renderer)
 			m_Renderer->UploadMaterialTextures(entity, material, assets);
@@ -330,30 +353,29 @@ void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& materials)
 
 void Scene::SaveToFile(const std::string& inFile, Assets& ioAssets)
 {
-	auto archive = BinaryWriteArchive(inFile);
+	BinaryWriteArchive archive(inFile);
 	WriteFileBinary(archive.GetFile(), m_Entities);
 
-	gForEachTupleElement(Components, [&](auto component)
+	gForEachTupleElement(Components, [&](auto inVar)
 	{
-		using ComponentType = decltype( component )::type;
-		GetComponentStorage<ComponentType>()->Write(archive);
+		using Component = decltype( inVar )::type;
+		GetComponentStorage<Component>()->Write(archive);
 	});
 }
 
 
 void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets)
 {
-	if (!fs::is_regular_file(inFilePath))
-	{
-		std::cout << "Scene::openFromFile : filepath " << inFilePath << " does not exist.";
-		return;
-	}
+	// set file path properties
+	m_ActiveSceneFilePath = inFilePath;
+	assert(fs::is_regular_file(inFilePath));
 
+	// clear the current scene
 	Clear();
 
+	// read in the component data
 	Timer timer;
-
-	auto archive = BinaryReadArchive(inFilePath);
+	BinaryReadArchive archive(inFilePath);
 	ReadFileBinary(archive.GetFile(), m_Entities);
 
 	gForEachTupleElement(Components, [&](auto inVar)
@@ -362,25 +384,25 @@ void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets)
 		GetComponentStorage<Component>()->Read(archive);
 	});
 
-	std::cout << std::format("[Scene] Load ECS data took {:.3f} seconds.\n", timer.GetElapsedTime());
+	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
 
-	// init material render data
+	// load material texture data to vram
 	LoadMaterialTextures(ioAssets, GetEntities<Material>());
-
 	timer.Restart();
 
-	// init mesh render data
+	// load mesh data from vram to gpu memory
 	for (const auto& [entity, mesh] : Each<Mesh>())
 	{
 		mesh.CalculateAABB();
 
 		if (m_Renderer)
 			m_Renderer->UploadMeshBuffers(entity, mesh);
+
+		if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
+			m_Renderer->UploadSkeletonBuffers(*skeleton, mesh);
 	}
 
 	std::cout << std::format("[Scene] Upload mesh data to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
-
-	m_ActiveSceneFilePath = inFilePath;
 }
 
 
@@ -404,7 +426,7 @@ void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript, Applicat
 		inScript.script->OnBind();
 	}
 	else
-		std::clog << "Failed to bind script" << inScript.file << " to entity " << uint32_t(inEntity) << '\n';
+		std::clog << std::format("Failed to bind script {} to entity {} \n", inScript.file, uint32_t(inEntity)) << '\n';
 }
 
 
@@ -420,9 +442,8 @@ void Scene::Optimize()
 			if (mesh.material != material_entity)
 				continue;
 
-
+			/* TODO */
 		}
-
 	}
 }
 

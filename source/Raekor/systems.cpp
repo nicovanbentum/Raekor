@@ -5,7 +5,7 @@
 
 namespace Raekor {
 
-void NodeSystem::sAppend(ecs::ECS& inECS, Entity parentEntity, Node& parent, Entity childEntity, Node& child)
+void NodeSystem::sAppend(ECStorage& inECS, Entity parentEntity, Node& parent, Entity childEntity, Node& child)
 {
 	child.parent = parentEntity;
 
@@ -33,7 +33,7 @@ void NodeSystem::sAppend(ecs::ECS& inECS, Entity parentEntity, Node& parent, Ent
 }
 
 
-void NodeSystem::sRemove(ecs::ECS& inECS, Node& node)
+void NodeSystem::sRemove(ECStorage& inECS, Node& node)
 {
 	for (auto it = node.firstChild; it != NULL_ENTITY; it = inECS.Get<Node>(it).nextSibling)
 	{
@@ -79,7 +79,7 @@ void NodeSystem::sRemove(ecs::ECS& inECS, Node& node)
 }
 
 
-void NodeSystem::sCollapseTransforms(ecs::ECS& inECS, Node& node, Entity inEntity)
+void NodeSystem::sCollapseTransforms(ECStorage& inECS, Node& node, Entity inEntity)
 {
 	// Remove will destroy the node but we still need to recurse to all its children,
 	// so store it beforehand!
@@ -107,7 +107,7 @@ void NodeSystem::sCollapseTransforms(ecs::ECS& inECS, Node& node, Entity inEntit
 }
 
 
-std::vector<Entity> NodeSystem::sGetFlatHierarchy(ecs::ECS& inECS, Entity inEntity)
+std::vector<Entity> NodeSystem::sGetFlatHierarchy(ECStorage& inECS, Entity inEntity)
 {
 	if (!inECS.Has<Node>(inEntity))
 		return {};

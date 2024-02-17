@@ -3,6 +3,7 @@
 #include "timer.h"
 #include "assets.h"
 #include "scene.h"
+#include "debug.h"
 #include "member.h"
 #include "systems.h"
 #include "primitives.h"
@@ -87,7 +88,6 @@ RTTI_DEFINE_TYPE(Skeleton)
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Weights", boneWeights);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Indices", boneIndices);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Offset Matrices", boneOffsetMatrices);
-	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Transform Matrices", boneTransformMatrices);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Hierarchy", boneHierarchy);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Animations", animations);
 }
@@ -387,12 +387,27 @@ uint32_t Mesh::GetInterleavedStride() const
 }
 
 
+void Skeleton::DebugDraw(const Bone& inBone)
+{
+	const Vec3& parent_pos = boneWSTransformMatrices[inBone.index][3];
+
+	for (const Bone& bone : inBone.children)
+	{
+		const Vec3& child_pos = boneWSTransformMatrices[bone.index][3];
+
+		g_DebugRenderer.AddLine(parent_pos, child_pos);
+
+		DebugDraw(bone);
+	}
+}
+
+
 
 void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform)
 {
 	auto global_transform = glm::mat4(1.0f);
 
-	bool has_animation = animation.m_BoneAnimations.find(pNode.index) != animation.m_BoneAnimations.end();
+	bool has_animation = animation.m_BoneAnimations.contains(pNode.index);
 
 	if (pNode.index != boneHierarchy.index && has_animation)
 	{
@@ -411,11 +426,13 @@ void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationT
 
 		global_transform = parentTransform * nodeTransform;
 
+		boneWSTransformMatrices[pNode.index] = global_transform;
 		boneTransformMatrices[pNode.index] = global_transform * boneOffsetMatrices[pNode.index];
 	}
 
 	for (auto& child : pNode.children)
 		UpdateBoneTransforms(animation, animationTime, child, global_transform);
+
 }
 
 
@@ -454,69 +471,6 @@ void Skeleton::UpdateFromAnimation(Animation& animation, float dt)
 
 	auto identity = glm::mat4(1.0f);
 	UpdateBoneTransforms(animation, animation.m_RunningTime, boneHierarchy, identity);
-}
-
-
-
-template<>
-void CopyComponent<Transform>(Scene& inScene, Entity inFrom, Entity inTo)
-{
-	auto& component = inScene.Get<Transform>(inFrom);
-	inScene.Add<Transform>(inTo, component);
-}
-
-
-template<>
-void CopyComponent<Node>(Scene& inScene, Entity inFrom, Entity inTo)
-{
-	auto& from_node = inScene.Get<Node>(inFrom);
-	auto& to_node = inScene.Add<Node>(inTo);
-
-	if (from_node.parent != NULL_ENTITY)
-		NodeSystem::sAppend(inScene, from_node.parent, inScene.Get<Node>(from_node.parent), inTo, to_node);
-}
-
-
-template<>
-void CopyComponent<Name>(Scene& inScene, Entity inFrom, Entity inTo)
-{
-	auto& component = inScene.Get<Name>(inFrom);
-	inScene.Add<Name>(inTo, component);
-}
-
-
-template<>
-void CopyComponent<Light>(Scene& inScene, Entity inFrom, Entity inTo)
-{
-	auto& component = inScene.Get<Light>(inFrom);
-	inScene.Add<Light>(inTo, component);
-}
-
-
-template<>
-void CopyComponent<Mesh>(Scene& inScene, Entity inFrom, Entity inTo)
-{
-	auto& from_component = inScene.Get<Mesh>(inFrom);
-	auto& to_component = inScene.Add<Mesh>(inTo, from_component);
-}
-
-
-template<>
-void CopyComponent<Material>(Scene& inScene, Entity inFrom, Entity inTo)
-{
-	auto& from_component = inScene.Get<Material>(inFrom);
-	auto& to_component = inScene.Add<Material>(inTo, from_component);
-}
-
-
-template<>
-void CopyComponent<BoxCollider>(Scene& inScene, Entity inFrom, Entity inTo)
-{
-	auto& from_component = inScene.Get<BoxCollider>(inFrom);
-	auto& to_component = inScene.Add<BoxCollider>(inTo, from_component);
-
-	// Invalidate the copied bodyID so it gets registered next update
-	to_component.bodyID = JPH::BodyID();
 }
 
 } // raekor

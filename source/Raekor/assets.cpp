@@ -8,6 +8,13 @@
 
 namespace Raekor {
 
+RTTI_DEFINE_TYPE_NO_FACTORY(Asset) {}
+
+RTTI_DEFINE_TYPE(ScriptAsset) { RTTI_DEFINE_TYPE_INHERITANCE(ScriptAsset, Asset); }
+
+RTTI_DEFINE_TYPE(TextureAsset) { RTTI_DEFINE_TYPE_INHERITANCE(TextureAsset, Asset); }
+
+
 std::string TextureAsset::sConvert(const std::string& filepath)
 {
 	auto width = 0, height = 0, ch = 0;
@@ -200,7 +207,7 @@ void Assets::Release(const std::string& filepath)
 ScriptAsset::~ScriptAsset()
 {
 	if (m_HModule)
-		if (!FreeLibrary(m_HModule))
+		if (!FreeLibrary((HMODULE)m_HModule))
 			std::cout << std::format("FreeLibrary(\"{}\") call failed! \n", m_Path.stem().string());
 
 	/*for (const auto& type : m_RegisteredTypes)
@@ -233,7 +240,7 @@ bool ScriptAsset::Load(const std::string& inPath)
 	if (!m_HModule)
 		return false;
 
-	if (auto address = GetProcAddress(m_HModule, SCRIPT_EXPORTED_FUNCTION_STR))
+	if (auto address = GetProcAddress((HMODULE)m_HModule, SCRIPT_EXPORTED_FUNCTION_STR))
 	{
 		auto get_types_fn = reinterpret_cast<INativeScript::RegisterFn>( address );
 
@@ -249,7 +256,7 @@ bool ScriptAsset::Load(const std::string& inPath)
 	}
 	else
 	{
-		FreeLibrary(m_HModule);
+		FreeLibrary((HMODULE)m_HModule);
 		return false;
 	}
 
@@ -262,7 +269,7 @@ void ScriptAsset::EnumerateSymbols()
 	auto current_process = GetCurrentProcess();
 
 	MODULEINFO info;
-	GetModuleInformation(current_process, m_HModule, &info, sizeof(MODULEINFO));
+	GetModuleInformation(current_process, (HMODULE)m_HModule, &info, sizeof(MODULEINFO));
 
 	std::string pdbFile = m_Path.replace_extension(".pdb").string();
 

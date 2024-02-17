@@ -6,10 +6,12 @@
 #include "rmath.h"
 #include "input.h"
 #include "debug.h"
+#include "assets.h"
 #include "member.h"
 #include "camera.h"
 #include "script.h"
 #include "systems.h"
+#include "physics.h"
 #include "components.h"
 
 #ifndef RAEKOR_SCRIPT

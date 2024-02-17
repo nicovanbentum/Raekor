@@ -4,7 +4,7 @@
 
 namespace Raekor {
 
-class FBXImporter : Importer
+class FBXImporter : public Importer
 {
 public:
 	FBXImporter(Scene& inScene, IRenderInterface* inRenderer) : Importer(inScene, inRenderer) {}

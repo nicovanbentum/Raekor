@@ -15,7 +15,7 @@ using Entity = uint32_t;
 
 class IWidget
 {
-	RTTI_DECLARE_TYPE(IWidget);
+	RTTI_DECLARE_VIRTUAL_TYPE(IWidget);
 
 public:
 	IWidget(Application* inApp, const std::string& inTitle);

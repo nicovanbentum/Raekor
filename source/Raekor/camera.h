@@ -125,11 +125,11 @@ private:
 class CameraSequence
 {
 public:
-    RTTI_DECLARE_TYPE(CameraSequence);
+	RTTI_DECLARE_TYPE(CameraSequence);
 
     struct KeyFrame
     {
-        RTTI_DECLARE_TYPE(CameraSequence::KeyFrame);
+		RTTI_DECLARE_TYPE(CameraSequence::KeyFrame);
 
         KeyFrame() = default;
         KeyFrame(float inTime, Vec2 inAngle, Vec3 inPos) : mTime(inTime), mAngle(inAngle), mPosition(inPos) {}

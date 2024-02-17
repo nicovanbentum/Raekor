@@ -89,9 +89,49 @@ inline void WriteFileBinary(File& ioFile, const std::string& inData)
 template<typename T>
 inline void WriteFileBinary(File& ioFile, const std::vector<T>& inData)
 {
-	WriteFileData(ioFile, inData.size());
-	WriteFileSlice(ioFile, Slice(inData));
+	auto size = inData.size();
+	WriteFileData(ioFile, size);
+
+	if constexpr (std::is_trivially_copyable_v<T>)
+	{
+		WriteFileSlice(ioFile, Slice(inData));
+	}
+	else
+	{
+		for (size_t i = 0; i < size; i++)
+			WriteFileBinary(ioFile, inData[i]);
+	}
 }
+
+
+template<typename K, typename V>
+inline void WriteFileBinary(File& ioFile, const std::unordered_map<K, V>& inData)
+{
+	auto size = inData.size();
+	WriteFileBinary(ioFile, size);
+
+	for (const auto& [key, value] : inData)
+	{
+		WriteFileBinary(ioFile, key);
+		WriteFileBinary(ioFile, value);
+	}
+}
+
+
+template<typename K, typename V>
+inline void ReadFileBinary(File& ioFile, std::unordered_map<K, V>& inData)
+{
+	size_t size = 0;
+	ReadFileBinary(ioFile, size);
+
+	for (size_t i = 0; i < size; i++)
+	{
+		K key;
+		ReadFileBinary(ioFile, key);
+		ReadFileBinary(ioFile, inData[key]);
+	}
+}
+
 template<typename T>
 inline void ReadFileBinary(File& ioFile, std::vector<T>& ioData)
 {
@@ -99,7 +139,7 @@ inline void ReadFileBinary(File& ioFile, std::vector<T>& ioData)
 	ReadFileData(ioFile, size);
 	ioData.resize(size);
 
-	if constexpr (std::is_trivial_v<T>)
+	if constexpr (std::is_trivially_copyable_v<T>)
 	{
 		ReadFileSlice(ioFile, Slice(ioData));
 	}
@@ -133,6 +173,8 @@ inline void WriteFileBinary(File& ioFile, const T& inData)
 			member->ToBinary(ioFile, &inData);
 	}
 }
+
+void RunTestsSerialCpp();
 
 } // Raekor
 

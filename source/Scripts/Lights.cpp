@@ -5,7 +5,7 @@ using namespace Raekor;
 class LightsScript : public INativeScript
 {
 public:
-    RTTI_DECLARE_TYPE(LightsScript);
+    RTTI_DECLARE_VIRTUAL_TYPE(LightsScript);
 
     void OnBind() override
     {

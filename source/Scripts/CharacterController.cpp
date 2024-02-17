@@ -6,7 +6,7 @@ using namespace Raekor;
 class CharacterControllerScript : public INativeScript 
 {
 public:
-    RTTI_DECLARE_TYPE(CharacterControllerScript);
+    RTTI_DECLARE_VIRTUAL_TYPE(CharacterControllerScript);
 
     void OnStart() override
     {
@@ -23,19 +23,42 @@ public:
         
         Vec3 right_vector = glm::normalize(glm::cross(m_Direction, Vec3(0.0f, 1.0f, 0.0f)));
 
-        if (m_Input->IsKeyPressed(SDL_SCANCODE_W))
+        if (m_Input->IsKeyPressed(SDL_SCANCODE_W)) 
+        {
             m_Velocity += m_Direction * ( m_Speed / m_Mass ) * inDeltaTime;
 
+        }
+
         if (m_Input->IsKeyPressed(SDL_SCANCODE_S))
+        {
             m_Velocity -= m_Direction * ( m_Speed / m_Mass ) * inDeltaTime;
 
+        }
+
         if (m_Input->IsKeyPressed(SDL_SCANCODE_A))
+        {
+
+
             m_Velocity -= right_vector * ( m_Speed / m_Mass ) * inDeltaTime;
+        }
 
         if (m_Input->IsKeyPressed(SDL_SCANCODE_D))
+        {
+
             m_Velocity += right_vector * ( m_Speed / m_Mass ) * inDeltaTime;
+        }
 
         player_transform.position += m_Velocity;
+
+
+
+        if (Skeleton* player_skeleton = TryGetComponent<Skeleton>())
+        {
+            if (glm::all(glm::lessThan(m_Velocity, Vec3(FLT_EPSILON * 2.0f))))
+                player_skeleton->animationIndex = -1;
+            else
+                player_skeleton->animationIndex = 0;
+        }
 
         m_Velocity = m_Velocity * m_Mass * inDeltaTime;
         player_transform.position.y = glm::max(player_transform.position.y - m_Gravity * inDeltaTime, 0.0f);

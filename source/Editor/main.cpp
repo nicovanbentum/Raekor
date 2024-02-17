@@ -6,7 +6,6 @@
 #include "Raekor/compiler.h"
 
 using namespace Raekor;
-using namespace Raekor::ecs;
 
 int main(int argc, char** argv)
 {

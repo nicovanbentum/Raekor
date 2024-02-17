@@ -18,7 +18,7 @@ struct Skeleton;
 struct DirectionalLight;
 
 
-class Scene : public ecs::ECS
+class Scene : public ECStorage
 {
 public:
 	NO_COPY_NO_MOVE(Scene);

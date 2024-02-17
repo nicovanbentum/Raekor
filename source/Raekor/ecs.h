@@ -11,7 +11,7 @@ constexpr auto NULL_ENTITY = Entity(UINT32_MAX);
 
 }
 
-namespace Raekor::ecs {
+namespace Raekor {
 
 template<typename T>
 class ComponentStorage;
@@ -25,13 +25,14 @@ public:
 	virtual size_t  Length() const = 0;
 	virtual void    Remove(Entity inEntity) = 0;
 	virtual bool    Contains(Entity inEntity) const = 0;
+	virtual void	Copy(Entity inFrom, Entity inTo) = 0;
 
 	virtual void    Read(BinaryReadArchive& inArchive) = 0;
 	virtual void    Read(JSON::ReadArchive& inArchive) = 0;
 	virtual void    Write(BinaryWriteArchive& ioArchive) = 0;
 	virtual void    Write(JSON::WriteArchive& ioArchive) = 0;
 
-	bool IsEmpty() const { return Length() != 0; }
+	bool IsEmpty() const { return Length() == 0; }
 
 	template<typename T> ComponentStorage<T>* GetDerived() { return static_cast<ComponentStorage<T>*>( this ); }
 	template<typename T> ComponentStorage<T>* GetDerived() const { return static_cast<ComponentStorage<T>*>( this ); }
@@ -189,6 +190,12 @@ public:
 		return m_Sparse[entity];
 	}
 
+	void Copy(Entity inFrom, Entity inTo) override final
+	{
+		auto component = Get(inFrom);
+		Insert(inTo, component);
+	}
+
 	void Remove(Entity entity) override final
 	{
 		if (!Contains(entity))
@@ -268,7 +275,7 @@ public:
 
 
 
-class ECS
+class ECStorage
 {
 public:
 	template<typename Component>
@@ -313,7 +320,7 @@ public:
 	void Register()
 	{
 		if (!m_Components.contains(gGetTypeHash<Component>()))
-			m_Components[gGetRTTI<Component>().mHash] = new ecs::ComponentStorage<Component>();
+			m_Components[gGetRTTI<Component>().mHash] = new ComponentStorage<Component>();
 	}
 
 	template<typename Component>
@@ -448,7 +455,7 @@ public:
 	{
 	public:
 		EachIterator() = delete;
-		EachIterator(ECS& ecs, std::vector<Entity>::iterator inIter) : ecs(ecs), it(inIter)
+		EachIterator(ECStorage& ecs, std::vector<Entity>::iterator inIter) : ecs(ecs), it(inIter)
 		{
 			while (it != ecs.m_Entities.end() && !ecs.Has<Components...>(*it))
 				it++;
@@ -486,7 +493,7 @@ public:
 		}
 
 	private:
-		ECS& ecs;
+		ECStorage& ecs;
 		std::vector<Entity>::iterator it;
 	};
 
@@ -495,7 +502,7 @@ public:
 	{
 	public:
 		ConstEachIterator() = delete;
-		ConstEachIterator(const ECS& ecs, std::vector<Entity>::const_iterator inIter) : ecs(ecs), it(inIter)
+		ConstEachIterator(const ECStorage& ecs, std::vector<Entity>::const_iterator inIter) : ecs(ecs), it(inIter)
 		{
 			while (it != ecs.m_Entities.end() && !ecs.Has<Components...>(*it))
 				it++;
@@ -533,7 +540,7 @@ public:
 		}
 
 	private:
-		const ECS& ecs;
+		const ECStorage& ecs;
 		std::vector<Entity>::const_iterator it;
 	};
 
@@ -541,7 +548,7 @@ public:
 	class ComponentView
 	{
 	public:
-		ComponentView(ECS& ecs) : ecs(ecs) {}
+		ComponentView(ECStorage& ecs) : ecs(ecs) {}
 		ComponentView(ComponentView& rhs) { ecs = rhs.ecs; }
 
 		Entity Front() const { return NULL_ENTITY; } // TODO: pls fix
@@ -551,14 +558,14 @@ public:
 		auto end() { return EachIterator<Components...>(ecs, ecs.m_Entities.end()); }
 
 	private:
-		ECS& ecs;
+		ECStorage& ecs;
 	};
 
 	template <typename ...Components>
 	class ConstComponentView
 	{
 	public:
-		ConstComponentView(const ECS& ecs) : ecs(ecs) {}
+		ConstComponentView(const ECStorage& ecs) : ecs(ecs) {}
 		ConstComponentView(ConstComponentView& rhs) { ecs = rhs.ecs; }
 
 		Entity Front() const { return NULL_ENTITY; } // TODO: pls fix
@@ -568,7 +575,7 @@ public:
 		auto end() const { return ConstEachIterator<Components...>(ecs, ecs.m_Entities.end()); }
 
 	private:
-		const ECS& ecs;
+		const ECStorage& ecs;
 	};
 
 	template<typename ...Components>
@@ -606,6 +613,13 @@ public:
 	}
 
 	template<typename Component>
+	void Ensure()
+	{
+		if (!m_Components.contains(gGetTypeHash<Component>()))
+			m_Components[gGetRTTI<Component>().mHash] = new ComponentStorage<Component>();
+	}
+
+	template<typename Component>
 	bool Contains(Entity inEntity) const
 	{
 		return GetComponentStorage<Component>()->Contains(inEntity);
@@ -618,6 +632,6 @@ protected:
 	mutable std::unordered_map<size_t, IComponentStorage*> m_Components;
 };
 
-void RunTests();
+void RunECStorageTests();
 
 } // raekor

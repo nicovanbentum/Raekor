@@ -462,6 +462,9 @@ void Renderer::DestroyMeshBuffers(Entity inEntity, Mesh& mesh)
 
 void Renderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh)
 {
+    skeleton.boneTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
+    skeleton.boneWSTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
+
     glCreateBuffers(1, &skeleton.boneIndexBuffer);
     glNamedBufferData(skeleton.boneIndexBuffer, skeleton.boneIndices.size() * sizeof(glm::ivec4), skeleton.boneIndices.data(), GL_STATIC_COPY);
 

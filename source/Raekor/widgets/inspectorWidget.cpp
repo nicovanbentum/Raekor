@@ -6,6 +6,7 @@
 #include "json.h"
 #include "iter.h"
 #include "scene.h"
+#include "debug.h"
 #include "script.h"
 #include "archive.h"
 #include "systems.h"
@@ -398,23 +399,13 @@ void InspectorWidget::DrawComponent(BoxCollider& inBoxCollider)
 
 void InspectorWidget::DrawComponent(Skeleton& inSkeleton)
 {
-	const  auto current_time = inSkeleton.animations[0].GetRunningTime();
-	const  auto total_duration = inSkeleton.animations[0].GetTotalDuration();
+	static bool show_bones = false;
+	ImGui::Checkbox("Show Bones", &show_bones);
+	
+	ImGui::Text("%i Bones", inSkeleton.boneHierarchy.children.size());
 
-	if (inSkeleton.autoPlay)
-		ImGui::ProgressBar(current_time / total_duration);
-	else
-	{
-		float time = inSkeleton.currentTime / 1000.0f;
-		if (ImGui::DragFloat("Time", &time, 0.001f, 0.0f, inSkeleton.animations[0].GetTotalDuration() / 1000.0f))
-			inSkeleton.currentTime = time * 1000.0f;
-	}
-
-
-	if (ImGui::Button(inSkeleton.autoPlay ? "pause" : "play"))
-		inSkeleton.autoPlay = !inSkeleton.autoPlay;
-
-	ImGui::SameLine();
+	if (show_bones)
+		inSkeleton.DebugDraw(inSkeleton.boneHierarchy);
 
 	if (ImGui::BeginCombo("Animation##InspectorWidget::drawComponent", inSkeleton.animations[0].GetName().c_str()))
 	{
@@ -422,6 +413,31 @@ void InspectorWidget::DrawComponent(Skeleton& inSkeleton)
 			ImGui::Selectable(animation.GetName().c_str());
 
 		ImGui::EndCombo();
+	}
+
+	if (ImGui::Button(inSkeleton.autoPlay ? (const char*)ICON_FA_STOP : (const char*)ICON_FA_PLAY))
+		inSkeleton.autoPlay = !inSkeleton.autoPlay;
+
+	ImGui::SameLine();
+
+	const  auto current_time = inSkeleton.animations[0].GetRunningTime();
+	const  auto total_duration = inSkeleton.animations[0].GetTotalDuration();
+
+	if (inSkeleton.autoPlay)
+	{
+		char overlay_buf[32];
+		ImFormatString(overlay_buf, IM_ARRAYSIZE(overlay_buf), "%.2f seconds", current_time / 1000.0f);
+
+		ImGui::ProgressBar(current_time / total_duration, ImVec2(-FLT_MIN, 0), overlay_buf);
+
+		ImGui::SameLine();
+		ImGui::Text("Time");
+	}
+	else
+	{
+		float time = inSkeleton.currentTime / 1000.0f;
+		if (ImGui::SliderFloat("Time", &time, 0.0f, inSkeleton.animations[0].GetTotalDuration() / 1000.0f))
+			inSkeleton.currentTime = time * 1000.0f;
 	}
 
 	if (ImGui::Button("Save as graph.."))

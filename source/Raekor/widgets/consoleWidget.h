@@ -7,7 +7,7 @@ namespace Raekor {
 class ConsoleWidget : public IWidget
 {
 public:
-	RTTI_DECLARE_TYPE(ConsoleWidget);
+	RTTI_DECLARE_VIRTUAL_TYPE(ConsoleWidget);
 
 	ConsoleWidget(Application* inApp);
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;

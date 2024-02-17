@@ -18,6 +18,103 @@ class IWidget;
 class Skeleton;
 class Material;
 class Application;
+class IRenderInterface;
+
+struct ConfigSettings
+{
+	RTTI_DECLARE_TYPE(ConfigSettings);
+
+	bool mShowUI = true;
+	int mDisplayIndex = 0;
+	bool mVsyncEnabled = true;
+	std::string mAppName = "Raekor Renderer";
+	Path mFontFile = "assets/system/Inter-Medium.ttf";
+	Path mSceneFile = "";
+	std::vector<Path> mRecentScenes;
+};
+
+
+enum WindowFlag
+{
+	NONE = 0,
+	HIDDEN = SDL_WINDOW_HIDDEN,
+	RESIZE = SDL_WINDOW_RESIZABLE,
+	OPENGL = SDL_WINDOW_OPENGL,
+	VULKAN = SDL_WINDOW_VULKAN,
+	BORDERLESS = SDL_WINDOW_BORDERLESS,
+};
+using WindowFlags = uint32_t;
+
+
+enum GameState
+{
+	GAME_STOPPED = 0,
+	GAME_PAUSED,
+	GAME_RUNNING
+};
+
+
+enum IPC
+{
+	LOG_MESSAGE_SENT = 1,
+	LOG_MESSAGE_RECEIVED = 2,
+};
+
+
+class Application
+{
+protected:
+	Application(WindowFlags inFlags);
+
+public:
+	virtual ~Application();
+
+	void Run();
+	void Terminate() { m_Running = false; }
+
+	virtual void OnUpdate(float dt) = 0;
+	virtual void OnEvent(const SDL_Event& event) = 0;
+
+	static int OnNativeEvent(void* inUserData, SDL_Event* inEvent);
+
+	bool IsWindowBorderless() const;
+	bool IsWindowExclusiveFullscreen() const;
+
+	virtual Scene* GetScene() { return nullptr; }
+	virtual Assets* GetAssets() { return nullptr; }
+	virtual Physics* GetPhysics() { return nullptr; }
+	virtual IRenderInterface* GetRenderInterface() { return nullptr; }
+
+	virtual void SetActiveEntity(Entity inEntity) {}
+	virtual Entity GetActiveEntity() { return NULL_ENTITY; }
+
+	virtual void LogMessage(const std::string& inMessage) { std::cout << inMessage << '\n'; }
+
+	void SetGameState(GameState inState) { m_GameState = inState; }
+	GameState GetGameState() const { return m_GameState; }
+
+	uint64_t GetFrameCounter() const { return m_FrameCounter; }
+	const ConfigSettings& GetSettings() const { return m_Settings; }
+
+	void AddRecentScene(const Path& inPath);
+
+	SDL_Window* GetWindow() { return m_Window; }
+	const SDL_Window* GetWindow() const { return m_Window; }
+
+	Viewport& GetViewport() { return m_Viewport; }
+	const Viewport& GetViewport() const { return m_Viewport; }
+
+protected:
+	bool m_Running = true;
+	GameState m_GameState = GAME_STOPPED;
+	uint64_t m_FrameCounter = 0;
+	SDL_Window* m_Window = nullptr;
+
+	Viewport m_Viewport;
+	ConfigSettings m_Settings;
+};
+
+
 
 struct GPUInfo
 {
@@ -120,100 +217,6 @@ protected:
 	GPUInfo		m_GPUInfo;
 	GPUStats	m_GPUStats;
 	GraphicsAPI m_GraphicsAPI;
-};
-
-
-struct ConfigSettings
-{
-	RTTI_DECLARE_TYPE(ConfigSettings);
-
-	bool mShowUI = true;
-	int mDisplayIndex = 0;
-	bool mVsyncEnabled = true;
-	std::string mAppName = "Raekor Renderer";
-	Path mFontFile = "assets/system/Inter-Medium.ttf";
-	Path mSceneFile = "";
-	std::vector<Path> mRecentScenes;
-};
-
-enum WindowFlag
-{
-	NONE = 0,
-	HIDDEN = SDL_WINDOW_HIDDEN,
-	RESIZE = SDL_WINDOW_RESIZABLE,
-	OPENGL = SDL_WINDOW_OPENGL,
-	VULKAN = SDL_WINDOW_VULKAN,
-	BORDERLESS = SDL_WINDOW_BORDERLESS,
-};
-using WindowFlags = uint32_t;
-
-enum GameState
-{
-	GAME_STOPPED = 0,
-	GAME_PAUSED,
-	GAME_RUNNING
-};
-
-class Application
-{
-public:
-	enum IPC
-	{
-		LOG_MESSAGE_SENT = 1,
-		LOG_MESSAGE_RECEIVED = 2,
-	};
-
-
-protected:
-	Application(WindowFlags inFlags);
-
-public:
-	virtual ~Application();
-
-
-	void Run();
-	void Terminate() { m_Running = false; }
-
-	virtual void OnUpdate(float dt) = 0;
-	virtual void OnEvent(const SDL_Event& event) = 0;
-
-	static int OnNativeEvent(void* inUserData, SDL_Event* inEvent);
-
-	bool IsWindowBorderless() const;
-	bool IsWindowExclusiveFullscreen() const;
-
-	virtual Scene* GetScene() { return nullptr; }
-	virtual Assets* GetAssets() { return nullptr; }
-	virtual Physics* GetPhysics() { return nullptr; }
-	virtual IRenderInterface* GetRenderInterface() { return nullptr; }
-
-	virtual void SetActiveEntity(Entity inEntity) {}
-	virtual Entity GetActiveEntity() { return NULL_ENTITY; }
-
-	virtual void LogMessage(const std::string& inMessage) { std::cout << inMessage << '\n'; }
-
-	void SetGameState(GameState inState) { m_GameState = inState; }
-	GameState GetGameState() const { return m_GameState; }
-
-	uint64_t GetFrameCounter() const { return m_FrameCounter; }
-	const ConfigSettings& GetSettings() const { return m_Settings; }
-
-	void AddRecentScene(const Path& inPath);
-
-	SDL_Window* GetWindow() { return m_Window; }
-	const SDL_Window* GetWindow() const { return m_Window; }
-
-	Viewport& GetViewport() { return m_Viewport; }
-	const Viewport& GetViewport() const { return m_Viewport; }
-
-protected:
-	bool m_Running = true;
-	GameState m_GameState = GAME_STOPPED;
-	uint64_t m_FrameCounter = 0;
-	SDL_Window* m_Window = nullptr;
-
-	Viewport m_Viewport;
-	ConfigSettings m_Settings;
 };
 
 } // Namespace Raekor

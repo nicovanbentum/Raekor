@@ -148,6 +148,8 @@ public:
 
     virtual bool IsCompute() = 0;
     virtual bool IsGraphics() = 0;
+    
+    virtual const RTTI& GetRTTI() = 0;
 
     virtual void Setup(RenderGraphBuilder& inBuilder) = 0;
     virtual void Execute(const RenderGraphResources& inResources, CommandList& inCmdList) = 0;
@@ -201,6 +203,8 @@ public:
         IRenderPass(inName), m_Execute(inExecute)
     {
     }
+
+    const RTTI& GetRTTI() { return RTTI_OF(T); }
 
     virtual void Setup(RenderGraphBuilder& inBuilder) override { m_Setup(inBuilder, this, m_Data); }
     virtual void Execute(const RenderGraphResources& inResources, CommandList& inCmdList) override { m_Execute(m_Data, inResources, inCmdList); }
@@ -334,9 +338,8 @@ RenderPass<T>* RenderGraph::GetPass()
 {
     for (auto& renderpass : m_RenderPasses)
     {
-        if (auto base = static_cast<RenderPass<T>*>( renderpass.get() ))
-            if (base->GetData().GetRTTI() == gGetRTTI<T>())
-                return base;
+        if (renderpass->GetRTTI() == RTTI_OF(T))
+            return static_cast<RenderPass<T>*>(renderpass.get());
     }
 
     return nullptr;
@@ -349,9 +352,8 @@ RenderPass<T>* RenderGraph::GetPass() const
 {
     for (auto& renderpass : m_RenderPasses)
     {
-        if (auto base = static_cast<RenderPass<T>*>( renderpass.get() ))
-            if (base->GetData().GetRTTI() == gGetRTTI<T>())
-                return base;
+        if (renderpass->GetRTTI() == RTTI_OF(T))
+            return static_cast<RenderPass<T>*>( renderpass.get());
     }
 
     return nullptr;

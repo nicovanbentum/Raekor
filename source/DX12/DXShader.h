@@ -29,7 +29,7 @@ enum EShaderType
 
 class IResource
 {
-    RTTI_DECLARE_TYPE(IResource);
+    RTTI_DECLARE_VIRTUAL_TYPE(IResource);
 
 public:
     virtual bool OnCompile() { return true; }
@@ -39,7 +39,7 @@ public:
 
 class ShaderProgram : public IResource
 {
-    RTTI_DECLARE_TYPE(ShaderProgram);
+    RTTI_DECLARE_VIRTUAL_TYPE(ShaderProgram);
     friend class SystemShadersDX12;
 
 public:
@@ -103,7 +103,7 @@ struct SystemShadersDX12 : public IResource
     ~SystemShadersDX12() = default;
 
     NO_COPY_NO_MOVE(SystemShadersDX12);
-    RTTI_DECLARE_TYPE(SystemShadersDX12);
+    RTTI_DECLARE_VIRTUAL_TYPE(SystemShadersDX12);
 
     ShaderProgram mClearBufferShader;
     ShaderProgram mClearTextureShader;

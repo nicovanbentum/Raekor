@@ -90,6 +90,36 @@ bool OS::sCheckCommandLineOption(const char* inOption)
 }
 
 
+std::string OS::sGetCommandLineValue(const char* inOption)
+{
+	static const auto cmd_line = GetCommandLineA();
+	static const auto cmd_line_len = strlen(cmd_line);
+
+	const auto substr = strstr(cmd_line, inOption);
+	if (substr == nullptr)
+		return {};
+
+	const auto option_len = strlen(inOption);
+	const auto equals = substr + option_len;
+	if (*equals  != '=')
+		return {};
+
+	auto delim = ' ';
+	auto start = equals + 1;
+	auto end = start;
+
+	if (*end == '"')
+	{
+		delim = '"';
+		++start; ++end;
+	}
+
+	while (*end != delim && end != cmd_line + cmd_line_len)
+		end++;
+
+	return std::string(start, end);
+}
+
 
 std::string OS::sOpenFileDialog(const char* filters)
 {
@@ -137,6 +167,14 @@ std::string OS::sSaveFileDialog(const char* filters, const char* defaultExt)
 		return ofn.lpstrFile;
 	}
 	return std::string();
+}
+
+
+fs::path OS::sGetTempPath()
+{
+	char filepath[MAX_PATH];
+	GetTempPathA(MAX_PATH, filepath);
+	return fs::path(filepath);
 }
 
 

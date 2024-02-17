@@ -7,7 +7,7 @@ namespace Raekor {
 class HierarchyWidget : public IWidget
 {
 public:
-	RTTI_DECLARE_TYPE(HierarchyWidget);
+	RTTI_DECLARE_VIRTUAL_TYPE(HierarchyWidget);
 
 	HierarchyWidget(Application* inApp);
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;

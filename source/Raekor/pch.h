@@ -109,6 +109,7 @@
 #include <queue>
 #include <chrono>
 #include <random>
+#include <ranges>
 #include <limits>
 #include <numeric>
 #include <variant>

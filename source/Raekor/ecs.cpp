@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "ecs.h"
 
-namespace Raekor::ecs {
+namespace Raekor {
 
 struct TestName
 {
@@ -32,9 +32,13 @@ struct TestMaterial
 RTTI_DEFINE_TYPE(TestMaterial) {}
 
 
-void RunTests()
+void RunECStorageTests()
 {
-	ECS ecs;
+	ECStorage ecs;
+	ecs.Ensure<TestName>();
+	ecs.Ensure<TestMaterial>();
+	ecs.Ensure<TestTransform>();
+
 	Entity entity = ecs.Create();
 	{
 		TestName& name = ecs.Add<TestName>(entity);

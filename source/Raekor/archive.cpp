@@ -1,6 +1,9 @@
 #include "pch.h"
 #include "archive.h"
+
+#include "OS.h"
 #include "rtti.h"
+#include "member.h"
 
 namespace Raekor {
 
@@ -61,6 +64,83 @@ void BinaryWriteArchive::WriteObject(const RTTI& inRTTI, void* inObject)
     {
         if (member->GetSerializeType() & SERIALIZE_BINARY)
         member->ToBinary(m_File, inObject);
+    }
+}
+
+
+struct TestStrings
+{
+    RTTI_DECLARE_TYPE(TestStrings);
+
+    std::vector<std::string> Strings0;
+    std::vector<std::string> Strings1;
+};
+
+struct Test
+{
+    RTTI_DECLARE_TYPE(Test);
+
+    int Integer = 0;
+    std::string String;
+    std::unordered_map<std::string, std::string> Map;
+    std::unordered_map<uint32_t, TestStrings> VectorMap;
+};
+
+RTTI_DEFINE_TYPE(TestStrings)
+{
+    RTTI_DEFINE_MEMBER(TestStrings, SERIALIZE_ALL, "Strings 0", Strings0);
+    RTTI_DEFINE_MEMBER(TestStrings, SERIALIZE_ALL, "Strings 1", Strings1);
+}
+
+RTTI_DEFINE_TYPE(Test)
+{
+    RTTI_DEFINE_MEMBER(Test, SERIALIZE_ALL, "Integer", Integer);
+    RTTI_DEFINE_MEMBER(Test, SERIALIZE_ALL, "String", String);
+    RTTI_DEFINE_MEMBER(Test, SERIALIZE_ALL, "Map", Map);
+    RTTI_DEFINE_MEMBER(Test, SERIALIZE_ALL, "VectorMap", VectorMap);
+}
+
+void RunArchiveTests()
+{
+    g_RTTIFactory.Register(RTTI_OF(Test));
+    g_RTTIFactory.Register(RTTI_OF(TestStrings));
+
+    const auto TEMP_FILE = OS::sGetTempPath() / "test.bin";
+
+    {
+        BinaryWriteArchive archive(TEMP_FILE);
+
+        Test test;
+        test.Integer = -1;
+        test.String = "Hello World";
+        test.Map["key0"] = "value0";
+        test.Map["key1"] = "value1";
+        test.Map["key2"] = "value2";
+
+        test.VectorMap[5].Strings0.push_back("str0");
+        test.VectorMap[5].Strings0.push_back("str1");
+        test.VectorMap[12].Strings1.push_back("str2");
+        test.VectorMap[12].Strings1.push_back("str3");
+
+        archive << test;
+    }
+
+    {
+        BinaryReadArchive archive(TEMP_FILE);
+        
+        Test test;
+        archive >> test;
+
+        assert(test.Integer == -1);
+        assert(test.String == "Hello World");
+        assert(test.Map["key0"] == "value0");
+        assert(test.Map["key1"] == "value1");
+        assert(test.Map["key2"] == "value2");
+
+        assert(test.VectorMap[5].Strings0[0] == "str0");
+        assert(test.VectorMap[5].Strings0[1] == "str1");
+        assert(test.VectorMap[12].Strings1[0] == "str2");
+        assert(test.VectorMap[12].Strings1[1] == "str3");
     }
 }
 

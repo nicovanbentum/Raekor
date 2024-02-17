@@ -1,12 +1,15 @@
 #pragma once
 
 #include "dds.h"
+#include "rtti.h"
 #include "slice.h"
 
 namespace Raekor {
 
 class Asset
 {
+	RTTI_DECLARE_VIRTUAL_TYPE(Asset);
+
 	friend class Assets;
 
 public:
@@ -65,6 +68,8 @@ private:
 class TextureAsset : public Asset
 {
 public:
+	RTTI_DECLARE_VIRTUAL_TYPE(TextureAsset);
+
 	using Ptr = std::shared_ptr<TextureAsset>;
 
 	TextureAsset() = default;
@@ -101,6 +106,8 @@ private:
 class ScriptAsset : public Asset
 {
 public:
+	RTTI_DECLARE_VIRTUAL_TYPE(TextureAsset);
+
 	using Ptr = std::shared_ptr<ScriptAsset>;
 
 	ScriptAsset() = default;
@@ -111,12 +118,11 @@ public:
 	virtual bool Load(const std::string& inPath) override;
 
 	void EnumerateSymbols();
-	HMODULE GetModule() { return m_HModule; }
 
 	Slice<std::string> GetRegisteredTypes() const { return Slice(m_RegisteredTypes); }
 
 private:
-	HMODULE m_HModule;
+	void* m_HModule;
     std::vector<std::string> m_RegisteredTypes;
 };
 

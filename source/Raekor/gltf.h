@@ -27,6 +27,7 @@ private:
 	void ConvertBones(Entity inEntity, const cgltf_node& inSkeleton);
 	void ConvertMaterial(Entity inEntity, const cgltf_material& inMaterial);
 
+	Mat4x4 GetLocalTransform(const cgltf_node& inNode);
 	int GetJointIndex(const cgltf_node* inSkinNode, const cgltf_node* inJointNode);
 
 private:
