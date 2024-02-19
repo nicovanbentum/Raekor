@@ -81,7 +81,7 @@ bool AssimpImporter::LoadFromFile(const std::string& file, Assets* inAssets)
 
 	// parse the node tree recursively
 	auto root = m_Scene.CreateSpatialEntity(m_AiScene->mRootNode->mName.C_Str());
-	ParseNode(m_AiScene->mRootNode, NULL_ENTITY, root);
+	ParseNode(m_AiScene->mRootNode, Entity::Null, root);
 
 	return true;
 }
@@ -106,7 +106,7 @@ void AssimpImporter::ParseNode(const aiNode* assimpNode, Entity parent, Entity n
 	m_Scene.Get<Name>(new_entity).name = assimpNode->mName.C_Str();
 
 	// set the new entity's parent
-	if (parent != NULL_ENTITY)
+	if (parent != Entity::Null)
 	{
 		NodeSystem::sAppend(m_Scene,
 			parent,
@@ -151,7 +151,7 @@ void AssimpImporter::ParseMeshes(const aiNode* assimpNode, Entity new_entity, En
 			transform.localTransform = Assimp::toMat4(localTransform);
 			transform.Decompose();
 
-			auto p = parent != NULL_ENTITY ? parent : new_entity;
+			auto p = parent != Entity::Null ? parent : new_entity;
 			NodeSystem::sAppend(m_Scene, p, m_Scene.Get<Node>(p), entity, m_Scene.Get<Node>(entity));
 		}
 
@@ -299,8 +299,8 @@ void AssimpImporter::LoadBones(Entity entity, const aiMesh* assimpMesh)
 	}
 
 	assert(root_bone);
-	skeleton.boneHierarchy.name = root_bone->mName.C_Str();
-	skeleton.boneHierarchy.index = bone_map[skeleton.boneHierarchy.name];
+	skeleton.rootBone.name = root_bone->mName.C_Str();
+	skeleton.rootBone.index = bone_map[skeleton.rootBone.name];
 
 	// recursive lambda to loop over the node hierarchy, dear lord help us all
 	auto copyHierarchy = [&](auto&& copyHierarchy, aiNode* inNode, Bone& boneNode) -> void
@@ -319,7 +319,7 @@ void AssimpImporter::LoadBones(Entity entity, const aiMesh* assimpMesh)
 		}
 	};
 
-	copyHierarchy(copyHierarchy, root_bone, skeleton.boneHierarchy);
+	copyHierarchy(copyHierarchy, root_bone, skeleton.rootBone);
 
 	for (const auto& ai_animation : Slice(m_AiScene->mAnimations, m_AiScene->mNumAnimations))
 	{

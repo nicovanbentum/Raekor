@@ -3,6 +3,8 @@
 
 namespace Raekor {
 
+RTTI_DEFINE_TYPE_PRIMITIVE(Entity);
+
 struct TestName
 {
 	RTTI_DECLARE_TYPE(TestName);

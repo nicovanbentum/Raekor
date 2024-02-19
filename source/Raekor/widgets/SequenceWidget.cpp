@@ -300,7 +300,7 @@ bool SequenceWidget::DrawTimeline(const char* inLabel, float& inTime, const floa
     {
         if (ImGui::MenuItem("Edit"))
         // not very future proof but will do for now..
-            m_Editor->SetActiveEntity(NULL_ENTITY);
+            m_Editor->SetActiveEntity(Entity::Null);
 
         if (ImGui::MenuItem("Delete"))
         {
@@ -482,7 +482,7 @@ void SequenceWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
         {
             case SDLK_DELETE:
             {
-                if (m_Editor->GetActiveEntity() == NULL_ENTITY)
+                if (m_Editor->GetActiveEntity() == Entity::Null)
                 {
                     if (m_SelectedKeyframe != -1)
                         m_Sequence.RemoveKeyFrame(m_SelectedKeyframe);

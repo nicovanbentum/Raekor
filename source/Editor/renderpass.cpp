@@ -362,7 +362,7 @@ void GBuffer::Render(const Scene& scene, const Viewport& inViewport, uint32_t m_
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    constexpr auto clear_color = std::array { float(NULL_ENTITY), 0.0f, 0.0f, 1.0f };
+    constexpr auto clear_color = std::array { float(Entity::Null), 0.0f, 0.0f, 1.0f };
     glClearBufferfv(GL_COLOR, 3, clear_color.data());
 
     if (m_FrameNr == 0)
@@ -1217,7 +1217,9 @@ void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (const void*)( (intptr_t)0 ));
 
+    glDisable(GL_DEPTH_TEST);
     glDrawArrays(GL_LINES, 0, lines.Length());
+    glEnable(GL_DEPTH_TEST);
 
     glDisable(GL_LINE_SMOOTH);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

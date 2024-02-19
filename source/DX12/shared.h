@@ -210,6 +210,18 @@ struct SkyCubeRootConstants
 STATIC_ASSERT(sizeof(SkyCubeRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 
 
+struct SkinningRootConstants
+{
+    uint mBoneIndicesBuffer;
+    uint mBoneWeightsBuffer;
+    uint mMeshVertexBuffer;
+    uint mSkinnedVertexBuffer;
+    uint mBoneTransformsBuffer;
+    uint mDispatchSize;
+};
+STATIC_ASSERT(sizeof(SkinningRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
+
+
 struct GbufferRootConstants
 {
     uint     mInstancesBuffer;

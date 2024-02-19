@@ -115,6 +115,22 @@ const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& 
 );
 
 
+
+////////////////////////////////////////
+/// Skinning Compute Pass
+////////////////////////////////////////
+struct SkinningData
+{
+    RTTI_DECLARE_TYPE(SkinningData);
+};
+
+const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice,
+    const Scene& inScene,
+    StagingHeap& inStagingHeap
+);
+
+
+
 ////////////////////////////////////////
 /// GBuffer Render Pass
 ////////////////////////////////////////
@@ -122,7 +138,7 @@ struct GBufferData
 {
     RTTI_DECLARE_TYPE(GBufferData);
 
-    Entity mActiveEntity = NULL_ENTITY;
+    Entity mActiveEntity = Entity::Null;
     RenderGraphResourceID mDepthTexture;
     RenderGraphResourceID mRenderTexture;
     RenderGraphResourceID mVelocityTexture;

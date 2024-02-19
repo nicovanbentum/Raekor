@@ -278,3 +278,42 @@ void ImGui::SetNextItemRightAlign(const char* label)
     ImGui::SameLine();
     ImGui::SetNextItemWidth(-FLT_MIN);
 }
+
+
+bool ImGui::DragDropTargetButton(const char* label, const char* text, const ImVec4& textcolor)
+{
+	ImGuiWindow* window = GetCurrentWindow();
+	if (window->SkipItems)
+		return false;
+
+	ImGuiContext& g = *GImGui;
+	const ImGuiStyle& style = g.Style;
+	const ImGuiID id = window->GetID(label);
+	const float w = CalcItemWidth();
+
+	const ImVec2 label_size = CalcTextSize(label, NULL, true);
+	const ImRect frame_bb(window->DC.CursorPos, window->DC.CursorPos + ImVec2(w, label_size.y + style.FramePadding.y * 2.0f));
+	const ImRect total_bb(frame_bb.Min, frame_bb.Max + ImVec2(label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f, 0.0f));
+
+	ItemSize(total_bb, style.FramePadding.y);
+	if (!ItemAdd(total_bb, id, &frame_bb, 0))
+		return false;
+
+	const bool hovered = ItemHoverable(frame_bb, id);
+
+	// Draw frame
+	const ImU32 frame_col = GetColorU32(g.ActiveId == id ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
+	RenderNavHighlight(frame_bb, id);
+	RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, true, style.FrameRounding);
+
+	ImGui::PushStyleColor(ImGuiCol_Text, textcolor);
+
+	RenderTextClipped(frame_bb.Min, frame_bb.Max, text, text + strlen(text), NULL, ImVec2(0.5f, 0.5f));
+
+	ImGui::PopStyleColor();
+
+	if (label_size.x > 0.0f)
+		RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label);
+
+	return ImGui::IsMouseClicked(ImGuiMouseButton_Left) && hovered;
+}

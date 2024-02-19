@@ -13,6 +13,7 @@ RTTI_DEFINE_TYPE(DebugPrimitivesData)       {}
 RTTI_DEFINE_TYPE(SkyCubeData)               {}
 RTTI_DEFINE_TYPE(ConvolveCubeData)          {}
 RTTI_DEFINE_TYPE(GBufferData)               {}
+RTTI_DEFINE_TYPE(SkinningData)              {}
 RTTI_DEFINE_TYPE(GBufferDebugData)          {}
 RTTI_DEFINE_TYPE(GrassData)                 {}
 RTTI_DEFINE_TYPE(DownsampleData)            {}
@@ -165,6 +166,59 @@ const ConvolveCubeData& AddConvolveCubePass(RenderGraph& inRenderGraph, Device& 
 
 
 
+const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice, const Scene& inScene, StagingHeap& inStagingHeap)
+{
+    return inRenderGraph.AddComputePass<SkinningData>("SKINNING PASS",
+    [&](RenderGraphBuilder& ioRGBuilder, IRenderPass* inRenderPass, SkinningData& inData) 
+    {
+    },
+    [&inDevice, &inScene, &inStagingHeap](SkinningData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
+    {
+        inCmdList->SetPipelineState(g_SystemShaders.mSkinningShader.GetComputePSO());
+
+        std::vector<D3D12_RESOURCE_BARRIER> uav_barriers;
+        uav_barriers.reserve(inScene.Count<Skeleton>());
+        
+        for (const auto& [entity, mesh, skeleton] : inScene.Each<Mesh, Skeleton>())
+        {
+            if (const Name* name = inScene.GetPtr<Name>(entity))
+                PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>(inCmdList), PIX_COLOR(0, 255, 0), name->name.c_str());
+
+            const Buffer& bone_matrix_buffer = inDevice.GetBuffer(TextureID(skeleton.boneTransformsBuffer));
+        
+            auto uav_to_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource().Get(), gGetResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST);
+            inCmdList->ResourceBarrier(1, &uav_to_copy_barrier);
+
+            const Mat4x4* bone_matrix_data = skeleton.boneTransformMatrices.data();
+            const size_t bone_matrix_size = skeleton.boneTransformMatrices.size() * sizeof(Mat4x4);
+
+            inStagingHeap.StageBuffer(inCmdList, bone_matrix_buffer, 0, bone_matrix_data, bone_matrix_size);
+
+            auto copy_to_uav_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, gGetResourceStates(Texture::SHADER_READ_ONLY));
+            inCmdList->ResourceBarrier(1, &copy_to_uav_barrier);
+
+            inCmdList.PushComputeConstants(SkinningRootConstants 
+            {
+                .mBoneIndicesBuffer     = inDevice.GetBindlessHeapIndex(BufferID(skeleton.boneIndexBuffer)),
+                .mBoneWeightsBuffer     = inDevice.GetBindlessHeapIndex(BufferID(skeleton.boneWeightBuffer)),
+                .mMeshVertexBuffer      = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
+                .mSkinnedVertexBuffer   = inDevice.GetBindlessHeapIndex(BufferID(skeleton.skinnedVertexBuffer)),
+                .mBoneTransformsBuffer  = inDevice.GetBindlessHeapIndex(BufferID(skeleton.boneTransformsBuffer)),
+                .mDispatchSize          = uint32_t(mesh.positions.size())
+            });
+
+            inCmdList->Dispatch((mesh.positions.size() + 63) / 64, 1, 1);
+
+            const Buffer& skinned_vertex_buffer = inDevice.GetBuffer(TextureID(skeleton.skinnedVertexBuffer));
+            uav_barriers.push_back(CD3DX12_RESOURCE_BARRIER::UAV(skinned_vertex_buffer.GetD3D12Resource().Get()));
+        }
+
+        if (uav_barriers.size())
+            inCmdList->ResourceBarrier(uav_barriers.size(), uav_barriers.data());
+    });
+}
+
+
 const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene)
 {
     return inRenderGraph.AddGraphicsPass<GBufferData>("MESHLETS RASTER PASS",
@@ -246,7 +300,7 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
                 .Format = DXGI_FORMAT_R32_UINT,
             };
 
-            if (mesh.material == NULL_ENTITY)
+            if (mesh.material == Entity::Null)
                 continue;
 
             if (material == nullptr)
@@ -364,7 +418,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 .Format = DXGI_FORMAT_R32_UINT,
             };
 
-            if (mesh.material == NULL_ENTITY)
+            if (mesh.material == Entity::Null)
                 continue;
 
             if (material == nullptr)
@@ -1002,13 +1056,13 @@ const ComposeData& AddComposePass(RenderGraph& inRenderGraph, Device& inDevice, 
     {
         inCmdList->SetPipelineState(inData.mPipeline.Get());
 
-        const auto vp = inRenderGraph.GetViewport();
+        const Viewport& viewport = inRenderGraph.GetViewport();
 
-        const auto scissor = CD3DX12_RECT(0, 0, vp.GetDisplaySize().x, vp.GetDisplaySize().y);
-        const auto viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(vp.GetDisplaySize().x), float(vp.GetDisplaySize().y));
+        const auto dx_scissor = CD3DX12_RECT(0, 0, viewport.GetDisplaySize().x, viewport.GetDisplaySize().y);
+        const auto dx_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, float(viewport.GetDisplaySize().x), float(viewport.GetDisplaySize().y));
 
-        inCmdList->RSSetViewports(1, &viewport);
-        inCmdList->RSSetScissorRects(1, &scissor);
+        inCmdList->RSSetViewports(1, &dx_viewport);
+        inCmdList->RSSetScissorRects(1, &dx_scissor);
 
         inCmdList.PushGraphicsConstants(ComposeRootConstants {
             .mBloomTexture = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mBloomTextureSRV)),

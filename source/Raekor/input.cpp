@@ -29,10 +29,8 @@ bool Input::IsRelativeMouseMode()
 
 void Input::SetRelativeMouseMode(bool inEnabled)
 {
-	if (SDL_SetRelativeMouseMode(SDL_bool(inEnabled)) != 0) {
-		// Handle error
+	if (SDL_SetRelativeMouseMode(SDL_bool(inEnabled)) != 0) 
 		printf("SDL_SetRelativeMouseMode failed: %s\n", SDL_GetError());
-	}
 }
 
 

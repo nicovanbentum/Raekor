@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pch.h"
+#include "ecs.h"
 #include "scene.h"
 #include "rtti.h"
 #include "rmath.h"

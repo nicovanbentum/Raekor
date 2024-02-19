@@ -50,8 +50,8 @@ public:
 	void LoadMaterialTextures(Assets& ioAssets, const Slice<Entity>& inMaterials);
 
 	// save Scene to disk
-	void SaveToFile(const std::string& inFile, Assets& ioAssets);
-	void OpenFromFile(const std::string& inFile, Assets& ioAssets);
+	void SaveToFile(const std::string& inFile, Assets& ioAssets, Application* inApp = nullptr);
+	void OpenFromFile(const std::string& inFile, Assets& ioAssets, Application* inApp = nullptr);
 
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);
 

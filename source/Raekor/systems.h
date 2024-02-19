@@ -1,11 +1,11 @@
 #pragma once
 
+#include "ecs.h"
+
 namespace Raekor {
 
 class ECStorage;
 struct Node;
-typedef uint32_t Entity;
-
 
 class NodeSystem
 {

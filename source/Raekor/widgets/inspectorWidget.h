@@ -6,6 +6,7 @@ namespace Raekor {
 
 class RTTI;
 class Scene;
+class Animation;
 
 struct Name;
 struct Node;
@@ -37,21 +38,21 @@ private:
 	void DrawScriptMember(const char* inLabel, int& ioValue);
 	void DrawScriptMember(const char* inLabel, bool& ioValue);
 	void DrawScriptMember(const char* inLabel, float& ioValue);
-	void DrawScriptMember(const char* inLabel, uint32_t& ioValue);
-	// void DrawScriptMember(const char* inLabel, Asset::Ptr ioValue);
+	void DrawScriptMember(const char* inLabel, Entity& ioValue);
 
-	void DrawComponent(Name& ioName);
-	void DrawComponent(Node& ioNode);
-	void DrawComponent(Mesh& ioMesh);
-	void DrawComponent(Light& ioLight);
-	void DrawComponent(SoftBody& ioSoftBody);
-	void DrawComponent(Skeleton& ioSkeleton);
-	void DrawComponent(Material& ioMaterial);
-	void DrawComponent(Transform& ioTransform);
-	void DrawComponent(BoxCollider& ioBoxCollider);
-	void DrawComponent(NativeScript& ioNativeScript);
-	void DrawComponent(DirectionalLight& ioDirectionalLight);
-	void DrawComponent(DDGISceneSettings& ioDDGISceneSettings);
+	void DrawComponent(Entity inEntity, Name& ioName);
+	void DrawComponent(Entity inEntity, Node& ioNode);
+	void DrawComponent(Entity inEntity, Mesh& ioMesh);
+	void DrawComponent(Entity inEntity, Light& ioLight);
+	void DrawComponent(Entity inEntity, SoftBody& ioSoftBody);
+	void DrawComponent(Entity inEntity, Skeleton& ioSkeleton);
+	void DrawComponent(Entity inEntity, Material& ioMaterial);
+	void DrawComponent(Entity inEntity, Transform& ioTransform);
+	void DrawComponent(Entity inEntity, Animation& ioAnimation);
+	void DrawComponent(Entity inEntity, BoxCollider& ioBoxCollider);
+	void DrawComponent(Entity inEntity, NativeScript& ioNativeScript);
+	void DrawComponent(Entity inEntity, DirectionalLight& ioDirectionalLight);
+	void DrawComponent(Entity inEntity, DDGISceneSettings& ioDDGISceneSettings);
 };
 
 }

@@ -6,12 +6,8 @@
 
 namespace Raekor {
 
-using Entity = uint32_t;;
-constexpr auto NULL_ENTITY = Entity(UINT32_MAX);
-
-}
-
-namespace Raekor {
+enum Entity : uint32_t { Null = UINT32_MAX };
+RTTI_DECLARE_TYPE_PRIMITIVE(Entity);
 
 template<typename T>
 class ComponentStorage;
@@ -261,7 +257,9 @@ public:
 	View Each() { return View(*this); }
 	ConstView Each() const { return ConstView(*this); }
 
+	Slice<T> GetComponents() { return Slice(m_Components.data(), m_Components.size()); }
 	Slice<T> GetComponents() const { return Slice(m_Components.data(), m_Components.size()); }
+
 	Slice<Entity> GetEntities() const { return Slice(m_Entities.data(), m_Entities.size()); }
 	Slice<Entity> GetSparseEntities() const { return Slice(m_Sparse.data(), m_Sparse.size()); }
 
@@ -292,7 +290,7 @@ public:
 
 	Entity Create()
 	{
-		return m_Entities.emplace_back(uint32_t(m_Entities.size()));
+		return m_Entities.emplace_back(Entity(m_Entities.size()));
 	}
 
 	void Destroy(Entity inEntity)
@@ -431,7 +429,7 @@ public:
 
 	bool Exists(Entity inEntity) const
 	{
-		if (inEntity == NULL_ENTITY)
+		if (inEntity == Entity::Null)
 			return false;
 
 		for (auto entity : m_Entities)
@@ -551,7 +549,7 @@ public:
 		ComponentView(ECStorage& ecs) : ecs(ecs) {}
 		ComponentView(ComponentView& rhs) { ecs = rhs.ecs; }
 
-		Entity Front() const { return NULL_ENTITY; } // TODO: pls fix
+		Entity Front() const { return Entity::Null; } // TODO: pls fix
 		bool IsEmpty() const { return begin() == end(); }
 
 		auto begin() { return EachIterator<Components...>(ecs, ecs.m_Entities.begin()); }
@@ -568,7 +566,7 @@ public:
 		ConstComponentView(const ECStorage& ecs) : ecs(ecs) {}
 		ConstComponentView(ConstComponentView& rhs) { ecs = rhs.ecs; }
 
-		Entity Front() const { return NULL_ENTITY; } // TODO: pls fix
+		Entity Front() const { return Entity::INVALID; } // TODO: pls fix
 		bool IsEmpty() const { return begin() == end(); }
 
 		auto begin() const { return ConstEachIterator<Components...>(ecs, ecs.m_Entities.begin()); }

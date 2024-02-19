@@ -32,27 +32,6 @@ void Camera::OnUpdate(float inDeltaTime)
 	m_PrevView = m_View;
 	m_PrevProjection = m_Projection;
 
-	if (SDL_GetRelativeMouseMode())
-	{
-		if (g_Input->IsKeyPressed(SDL_SCANCODE_W))
-		{
-			Zoom(float(mZoomConstant * inDeltaTime));
-		}
-		else if (g_Input->IsKeyPressed(SDL_SCANCODE_S))
-		{
-			Zoom(float(-mZoomConstant * inDeltaTime));
-		}
-
-		if (g_Input->IsKeyPressed(SDL_SCANCODE_A))
-		{
-			Move({ mMoveConstant * inDeltaTime, 0.0f });
-		}
-		else if (g_Input->IsKeyPressed(SDL_SCANCODE_D))
-		{
-			Move({ -mMoveConstant * inDeltaTime, 0.0f });
-		}
-	}
-
 	auto dir = GetForwardVector();
 	m_View = glm::lookAtRH(m_Position, m_Position + dir, { 0, 1, 0 });
 }
@@ -151,7 +130,32 @@ Frustum Camera::GetFrustum() const
 }
 
 
-bool CameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
+void EditorCameraController::OnUpdate(Camera& inCamera, float inDeltaTime)
+{
+	if (SDL_GetRelativeMouseMode())
+	{
+		if (g_Input->IsKeyPressed(SDL_SCANCODE_W))
+		{
+			inCamera.Zoom(float(inCamera.mZoomConstant * inDeltaTime));
+		}
+		else if (g_Input->IsKeyPressed(SDL_SCANCODE_S))
+		{
+			inCamera.Zoom(float(-inCamera.mZoomConstant * inDeltaTime));
+		}
+
+		if (g_Input->IsKeyPressed(SDL_SCANCODE_A))
+		{
+			inCamera.Move({ inCamera.mMoveConstant * inDeltaTime, 0.0f });
+		}
+		else if (g_Input->IsKeyPressed(SDL_SCANCODE_D))
+		{
+			inCamera.Move({ -inCamera.mMoveConstant * inDeltaTime, 0.0f });
+		}
+	}
+}
+
+
+bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 {
 	bool camera_changed = false;
 

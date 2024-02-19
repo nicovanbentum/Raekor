@@ -145,7 +145,7 @@ DXApp::DXApp() :
 
     LogMessage(std::format("[CPU] DirectStorage init took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
-    m_Renderer.Recompile(m_Device, m_RayTracedScene, GetRenderInterface());
+    m_Renderer.Recompile(m_Device, m_RayTracedScene, m_StagingHeap, GetRenderInterface());
 
     LogMessage(std::format("[CPU] RenderGraph compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
@@ -166,6 +166,9 @@ DXApp::~DXApp()
 void DXApp::OnUpdate(float inDeltaTime)
 {
     IEditor::OnUpdate(inDeltaTime);
+
+    for (const auto& [entity, mesh, skeleton] : m_Scene.Each<Mesh, Skeleton>())
+        m_Renderer.QueueBlasUpdate(entity);
 
     if (m_ViewportChanged || m_Viewport.GetCamera().Changed() || m_Physics.GetState() == Physics::EState::Stepping)
         PathTraceData::mReset = true;

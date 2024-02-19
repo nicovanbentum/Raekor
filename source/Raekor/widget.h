@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ecs.h"
 #include "rtti.h"
 
 namespace Raekor {
@@ -11,7 +12,6 @@ class Physics;
 class Widgets;
 class IRenderInterface;
 class Application;
-using Entity = uint32_t;
 
 class IWidget
 {

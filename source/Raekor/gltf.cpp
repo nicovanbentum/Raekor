@@ -86,13 +86,58 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 		m_MaterialRefs.push_back(0);
 	}
 
+	/**/
+	for (const auto& gltf_animation : Slice(m_GltfData->animations, m_GltfData->animations_count))
+	{
+		Entity animation_entity = m_Scene.Create();
+
+		auto& name = m_Scene.Add<Name>(animation_entity);
+		auto& animation = m_Scene.Add<Animation>(animation_entity, Animation(&gltf_animation));
+
+		for (const auto& channel : Slice(gltf_animation.channels, gltf_animation.channels_count))
+		{
+			const auto node_name = std::string(channel.target_node->name);
+
+			animation.LoadKeyframes(node_name, &channel);
+
+		}
+
+		name.name = gltf_animation.name ? gltf_animation.name : "Animation";
+		m_Animations.push_back(animation_entity);
+	}
+
+	for (auto entity : m_Animations)
+	{
+		auto& animation = m_Scene.Get<Animation>(entity);
+
+		for (const auto& bone_name : animation.GetBoneNames())
+		{
+			auto& keyframes = animation.GetKeyFrames(bone_name);
+
+			const auto max = glm::max(glm::max(keyframes.m_PositionKeys.size(), keyframes.m_RotationKeys.size()), keyframes.m_ScaleKeys.size());
+
+			// if at least 1 of the 3 key channels has key data, the other 2 channels need at least 1 key
+			if (max > 0)
+			{
+				if (keyframes.m_PositionKeys.empty())
+					keyframes.m_PositionKeys.emplace_back(Vec3Key(0.0f, Vec3(0.0f, 0.0f, 0.0f)));
+
+				if (keyframes.m_RotationKeys.empty())
+					keyframes.m_RotationKeys.emplace_back(QuatKey(0.0f, Quat(1.0f, 0.0f, 0.0f, 0.0f)));
+
+				if (keyframes.m_ScaleKeys.empty())
+					keyframes.m_ScaleKeys.emplace_back(Vec3Key(0.0f, Vec3(1.0f, 1.0f, 1.0f)));
+			}
+		}
+	}
+
 	/*
 	* PARSE NODES & MESHES
 	*/
 	for (const auto& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
 		for (const auto& node : Slice(scene.nodes, scene.nodes_count))
 			if (!node->parent)
-				ParseNode(*node, NULL_ENTITY, glm::mat4(1.0f));
+				ParseNode(*node, Entity::Null, glm::mat4(1.0f));
 
 	const auto root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
 	auto& root_node = m_Scene.Get<Node>(root_entity);
@@ -106,11 +151,6 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	}
 
 	std::cout << "[GLTF Import] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
-
-	/*for (const auto& [index, entity] : m_Materials) {
-		if (m_MaterialRefs[index] < 1)
-			m_Scene.Destroy(entity);
-	}*/
 
 	// Load the converted textures from disk and upload them to the GPU
 	if (inAssets != nullptr)
@@ -161,7 +201,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 		mesh_transform.Decompose();
 
 		// set the new entity's parent
-		if (inParent != NULL_ENTITY)
+		if (inParent != Entity::Null)
 			NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), entity, m_Scene.Get<Node>(entity));
 
 		if (inNode.mesh->primitives_count == 1)
@@ -405,15 +445,15 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 	skeleton.boneWSTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), glm::mat4(1.0f));
 
 	if (m_Renderer)
-		m_Renderer->UploadSkeletonBuffers(skeleton, mesh);
+		m_Renderer->UploadSkeletonBuffers(inEntity, skeleton, mesh);
 
 	if (auto root_bone = inNode.skin->skeleton)
 	{
-		skeleton.boneHierarchy.name = root_bone->name;
-		skeleton.boneHierarchy.index = GetJointIndex(&inNode, root_bone);
+		skeleton.rootBone.name = root_bone->name;
+		skeleton.rootBone.index = GetJointIndex(&inNode, root_bone);
 
 		// recursive lambda to loop over the node hierarchy, dear lord help us all
-		auto copyHierarchy = [&](auto&& copyHierarchy, cgltf_node* inCurrentNode, Bone& boneNode) -> void
+		auto copyHierarchy = [&](auto&& copyHierarchy, cgltf_node* inCurrentNode, Skeleton::Bone& boneNode) -> void
 		{
 			for (auto node : Slice(inCurrentNode->children, inCurrentNode->children_count))
 			{
@@ -430,71 +470,8 @@ void GltfImporter::ConvertBones(Entity inEntity, const cgltf_node& inNode)
 			}
 		};
 
-		copyHierarchy(copyHierarchy, root_bone, skeleton.boneHierarchy);
+		copyHierarchy(copyHierarchy, root_bone, skeleton.rootBone);
 	}
-
-	for (const auto& gltf_animation : Slice(m_GltfData->animations, m_GltfData->animations_count))
-	{
-		auto& animation = skeleton.animations.emplace_back(&gltf_animation);
-
-		for (const auto& channel : Slice(gltf_animation.channels, gltf_animation.channels_count))
-		{
-			const auto joint_index = GetJointIndex(&inNode, channel.target_node);
-
-			animation.LoadKeyframes(joint_index, &channel);
-		}
-	}
-
-	//// recursive lambda to loop over the node hierarchy, dear lord help us all
-	auto FixEmptyChannels = [&](auto&& FixEmptyChannels, Bone& inBone) -> void
-	{
-		cgltf_node* gltf_node = inNode.skin->joints[inBone.index];
-		
-		for (Animation& animation : skeleton.animations)
-		{
-			if (!animation.m_BoneAnimations.contains(inBone.index))
-			{
-				KeyFrames& keyframes = animation.m_BoneAnimations[inBone.index];
-
-				if (gltf_node->has_translation)
-					keyframes.AddPositionKey(Vec3Key(0.0f, Vec3(gltf_node->translation[0], gltf_node->translation[1], gltf_node->translation[2])));
-
-				if (gltf_node->has_rotation)
-					keyframes.AddRotationKey(QuatKey(0.0f, Quat(gltf_node->rotation[3], gltf_node->rotation[0], gltf_node->rotation[1], gltf_node->rotation[2])));
-
-				if (gltf_node->has_scale)
-					keyframes.AddScaleKey(Vec3Key(0.0f, Vec3(gltf_node->scale[0], gltf_node->scale[1], gltf_node->scale[2])));
-			}
-		}
-
-		for (Bone& child_bone : inBone.children)
-			FixEmptyChannels(FixEmptyChannels, child_bone);
-	};
-
-	FixEmptyChannels(FixEmptyChannels, skeleton.boneHierarchy);
-
-	for (auto& animation : skeleton.animations)
-	{
-		for (auto& [joint_index, keyframes] : animation.m_BoneAnimations)
-		{
-			const auto max = glm::max(glm::max(keyframes.m_PositionKeys.size(), keyframes.m_RotationKeys.size()), keyframes.m_ScaleKeys.size());
-
-			// if at least 1 of the 3 key channels has key data, the other 2 channels need at least 1 key
-			if (max > 0)
-			{
-				if (keyframes.m_PositionKeys.empty())
-					keyframes.m_PositionKeys.emplace_back(Vec3Key(0.0f, Vec3(0.0f, 0.0f, 0.0f)));
-
-				if (keyframes.m_RotationKeys.empty())
-					keyframes.m_RotationKeys.emplace_back(QuatKey(0.0f, Quat(1.0f, 0.0f, 0.0f, 0.0f)));
-
-				if (keyframes.m_ScaleKeys.empty())
-					keyframes.m_ScaleKeys.emplace_back(Vec3Key(0.0f, Vec3(1.0f, 1.0f, 1.0f)));
-			}
-		}
-	}
-
-
 }
 
 
@@ -540,5 +517,6 @@ void GltfImporter::ConvertMaterial(Entity inEntity, const cgltf_material& gltfMa
 
 	memcpy(glm::value_ptr(material.emissive), gltfMaterial.emissive_factor, sizeof(material.emissive));
 }
+
 
 } // raekor

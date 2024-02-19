@@ -3,6 +3,7 @@
 
 #include "OS.h"
 #include "rmath.h"
+#include "input.h"
 #include "timer.h"
 #include "debug.h"
 #include "script.h"
@@ -133,6 +134,10 @@ void IEditor::OnUpdate(float inDeltaTime)
             sequence_widget->ApplyToCamera(m_Viewport.GetCamera(), inDeltaTime);
     }
 
+	// if the game has not taken over the camera, use the editor controls
+	if (m_GameState != GAME_RUNNING)
+		EditorCameraController::OnUpdate(m_Viewport.GetCamera(), inDeltaTime);
+
 	// update camera matrices
 	m_Viewport.OnUpdate(inDeltaTime);
 
@@ -148,7 +153,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 	}
 
 	// render any scene dependent debug shapes
-	if (GetActiveEntity() != NULL_ENTITY)
+	if (GetActiveEntity() != Entity::Null)
 		m_Scene.RenderDebugShapes(GetActiveEntity());
 
 	// update Skeleton and Animation components
@@ -199,8 +204,11 @@ void IEditor::OnEvent(const SDL_Event& event)
 {
 	ImGui_ImplSDL2_ProcessEvent(&event);
 
-	if ((m_Widgets.GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode()) || !m_Settings.mShowUI)
-		CameraController::OnEvent(m_Viewport.GetCamera(), event);
+	if (m_GameState != GAME_RUNNING)
+	{
+		if ((m_Widgets.GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode()) || !m_Settings.mShowUI)
+			EditorCameraController::OnEvent(m_Viewport.GetCamera(), event);
+	}
 
 	if (event.type == SDL_WINDOWEVENT)
 	{
@@ -233,7 +241,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 		{
 			case SDLK_DELETE:
 			{
-				if (m_ActiveEntity != NULL_ENTITY)
+				if (m_ActiveEntity != Entity::Null)
 				{
 					if (m_Scene.Has<Node>(m_ActiveEntity))
 					{
@@ -249,7 +257,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 					}
 
 					m_Scene.Destroy(m_ActiveEntity);
-					m_ActiveEntity = NULL_ENTITY;
+					m_ActiveEntity = Entity::Null;
 				}
 			} break;
 
@@ -257,7 +265,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 			{
 				if (SDL_GetModState() & KMOD_LCTRL)
 				{
-					if (m_ActiveEntity != NULL_ENTITY)
+					if (m_ActiveEntity != Entity::Null)
 					{
 						SetActiveEntity(m_Scene.Clone(m_ActiveEntity));
 					}
@@ -298,6 +306,35 @@ void IEditor::OnEvent(const SDL_Event& event)
 			case SDLK_RALT:
 			{
 				SDL_SetRelativeMouseMode(SDL_bool(!SDL_GetRelativeMouseMode()));
+			} break;
+
+			case SDLK_ESCAPE:
+			{
+				GameState state = GetGameState();
+				SetGameState(GAME_STOPPED);
+
+				m_Physics.SetState(Physics::Idle);
+
+				if (state != GAME_STOPPED)
+				{
+					for (auto [entity, script] : m_Scene.Each<NativeScript>())
+					{
+						if (script.script)
+						{
+							try
+							{
+								script.script->OnStop();
+							}
+							catch (std::exception& e)
+							{
+								std::cout << e.what() << '\n';
+							}
+						}
+					}
+				}
+
+				g_Input->SetRelativeMouseMode(false);
+
 			} break;
 		}
 	}

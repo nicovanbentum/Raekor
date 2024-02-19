@@ -460,7 +460,7 @@ void Renderer::DestroyMeshBuffers(Entity inEntity, Mesh& mesh)
 
 
 
-void Renderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh)
+void Renderer::UploadSkeletonBuffers(Entity inEntity, Skeleton& skeleton, Mesh& mesh)
 {
     skeleton.boneTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
     skeleton.boneWSTransformMatrices.resize(skeleton.boneOffsetMatrices.size(), Mat4x4(1.0f));
@@ -483,7 +483,7 @@ void Renderer::UploadSkeletonBuffers(Skeleton& skeleton, Mesh& mesh)
 
 
 
-void Renderer::DestroySkeletonBuffers(Skeleton& skeleton)
+void Renderer::DestroySkeletonBuffers(Entity inEntity, Skeleton& skeleton)
 {
     glDeleteBuffers(1, &skeleton.boneIndexBuffer);
     glDeleteBuffers(1, &skeleton.boneWeightBuffer);

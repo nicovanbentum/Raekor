@@ -39,10 +39,6 @@ class KeyFrames
 	friend class GltfImporter;
 	friend class AssimpImporter;
 
-public:
-	KeyFrames() = default;
-	KeyFrames(uint32_t inBoneIndex) : m_BoneIndex(inBoneIndex) { assert(m_BoneIndex >= 0); }
-
 #ifndef DEPRECATE_ASSIMP
 	void LoadFromAssimp(const aiNodeAnim* inNodeAnim);
 #endif
@@ -57,7 +53,6 @@ public:
 	Vec3 GetInterpolatedPosition(float animationTime) const;
 
 private:
-	uint32_t			 m_BoneIndex;
 	std::vector<Vec3Key> m_ScaleKeys;
 	std::vector<Vec3Key> m_PositionKeys;
 	std::vector<QuatKey> m_RotationKeys;
@@ -72,34 +67,47 @@ class Animation
 	friend class AssimpImporter;
 
 public:
-	Animation() = default;
+	explicit Animation() = default;
 #ifndef DEPRECATE_ASSIMP
 	Animation(const aiAnimation* inAnimation);
 #endif
 	Animation(const cgltf_animation* inAnimation);
 
+	void OnUpdate(float inDeltaTime);
+
 	const std::string& GetName() const { return m_Name; }
 
-	uint32_t GetBoneCount() const { return m_BoneAnimations.size(); }
+	uint32_t GetBoneCount() const { return m_KeyFrames.size(); }
 	
 	float GetTotalDuration() const { return m_TotalDuration; }
 	
+	auto GetBoneNames() { return std::views::keys(m_KeyFrames); }
+	auto GetKeyFrames() { return std::views::values(m_KeyFrames); }
+
+	bool IsPlaying() const { return m_IsPlaying; }
+	void SetIsPlaying(bool inPlaying) { m_IsPlaying = inPlaying; }
+
 	float GetRunningTime() const { return m_RunningTime; }
+	void  SetRunningTime(float inTime) { m_RunningTime = inTime; }
 
 #ifndef DEPRECATE_ASSIMP
 	void LoadKeyframes(uint32_t inBoneIndex, const aiNodeAnim* inAnimation);
 #endif
-	void LoadKeyframes(uint32_t inBoneIndex, const cgltf_animation_channel* inAnimation);
+	void LoadKeyframes(const std::string& inBoneName, const cgltf_animation_channel* inAnimation);
+
+	KeyFrames& GetKeyFrames(const std::string& inBoneName) { return m_KeyFrames[inBoneName]; }
 
 private:
-	/* Elapsed time in milliseconds. */
-	float m_RunningTime = 0.0f;
 	/* Name of the animation. */
 	std::string m_Name;
+	/* Runtime state of the animation. */
+	bool m_IsPlaying = true;
+	/* Elapsed time in milliseconds. */
+	float m_RunningTime = 0.0f;
 	/* Total duration of the animation.*/
 	float m_TotalDuration = 0.0f;
 	/* Arrays of keyframes mapped to bone/joint indices. */
-	std::unordered_map<uint32_t, KeyFrames> m_BoneAnimations;
+	std::unordered_map<std::string, KeyFrames> m_KeyFrames;
 };
 
 } // raekor

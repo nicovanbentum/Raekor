@@ -39,6 +39,11 @@
             "Pixel Shader File": "assets/system/shaders/DirectX/GBufferPS.hlsl"
         },
 
+        "Skinning Shader":
+        {
+            "Compute Shader File": "assets/system/shaders/DirectX/SkinningCS.hlsl"
+        },
+
         "Lighting Shader":
         {
             "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",

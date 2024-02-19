@@ -11,6 +11,7 @@
 #include "archive.h"
 #include "systems.h"
 #include "physics.h"
+#include "animation.h"
 #include "components.h"
 #include "application.h"
 
@@ -35,7 +36,7 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     auto sequence_widget = inWidgets->GetWidget<SequenceWidget>();
 	auto nodegraph_widget = inWidgets->GetWidget<NodeGraphWidget>();
 
-	if (viewport_widget && viewport_widget->IsVisible() && GetActiveEntity() != NULL_ENTITY)
+	if (viewport_widget && viewport_widget->IsVisible() && GetActiveEntity() != Entity::Null)
 	{
 		DrawEntityInspector(inWidgets);
 	}
@@ -55,7 +56,7 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 {
 	auto active_entity = m_Editor->GetActiveEntity();
-	if (active_entity == NULL_ENTITY)
+	if (active_entity == Entity::Null)
 		return;
 
 	ImGui::Text("Entity ID: %i", active_entity);
@@ -80,7 +81,7 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 					ImGui::PopStyleVar();
 
 					if (is_open)
-						DrawComponent(scene.Get<ComponentType>(entity));
+						DrawComponent(entity, scene.Get<ComponentType>(entity));
 					else
 						scene.Remove<ComponentType>(entity);
 				}
@@ -261,22 +262,58 @@ void InspectorWidget::DrawScriptMember(const char* inLabel, float& ioValue)
 }
 
 
-void InspectorWidget::DrawScriptMember(const char* inLabel, uint32_t& ioValue)
+void InspectorWidget::DrawScriptMember(const char* inLabel, Entity& ioValue)
 {
-	int temp_value = ioValue;
-	if (ImGui::InputInt(inLabel, &temp_value))
-		ioValue = temp_value;
+	
+	if (ioValue == Entity::Null)
+	{
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+
+		ImGui::DragDropTargetButton(inLabel, "None", ImVec4(0.7, 0, 0, 1));
+
+		ImGui::PopStyleColor();
+	}
+	else
+	{
+		ImGui::PushStyleColor(ImGuiCol_BorderShadow, ImGui::GetStyleColorVec4(ImGuiCol_CheckMark));
+
+		bool clicked = false;
+
+		if (Name* name = GetScene().GetPtr<Name>(ioValue))
+		{
+			clicked |= ImGui::DragDropTargetButton(inLabel, name->name.c_str(), ImGui::GetStyleColorVec4(ImGuiCol_Text));
+		}
+		else 
+		{
+			std::string uint_value = std::to_string(ioValue);
+			clicked |= ImGui::DragDropTargetButton(inLabel, uint_value.c_str(), ImGui::GetStyleColorVec4(ImGuiCol_Text));
+		}
+
+		if (clicked)
+			SetActiveEntity(ioValue);
+
+		if (ImGui::BeginPopupContextItem())
+		{
+			if (ImGui::MenuItem("Clear"))
+				ioValue = Entity::Null;
+
+			ImGui::EndPopup();
+		}
+
+		ImGui::PopStyleColor();
+	}
 
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const auto payload = ImGui::AcceptDragDropPayload("drag_drop_hierarchy_entity"))
-			ioValue = *reinterpret_cast<const uint32_t*>( payload->Data );
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
+			ioValue = *reinterpret_cast<const Entity*>( payload->Data );
+
+		ImGui::EndDragDropTarget();
 	}
 }
 
 
-
-void InspectorWidget::DrawComponent(Name& inName)
+void InspectorWidget::DrawComponent(Entity inEntity, Name& inName)
 {
 	if (ImGui::BeginTable("##NameTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV))
 	{
@@ -295,9 +332,9 @@ void InspectorWidget::DrawComponent(Name& inName)
 }
 
 
-void InspectorWidget::DrawComponent(Node& ioNode)
+void InspectorWidget::DrawComponent(Entity inEntity, Node& ioNode)
 {
-	if (ioNode.parent != NULL_ENTITY)
+	if (ioNode.parent != Entity::Null)
 	{
 		ImGui::Text("Parent entity:");
 		ImGui::SameLine();
@@ -319,7 +356,7 @@ void InspectorWidget::DrawComponent(Node& ioNode)
 }
 
 
-void InspectorWidget::DrawComponent(Mesh& ioMesh)
+void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 {
 	const auto byte_size = sizeof(Mesh) + ioMesh.GetInterleavedStride() * ioMesh.positions.size();
 	ImGui::Text("%.1f Kb", float(byte_size) / 1024);
@@ -335,24 +372,56 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh)
 		const auto& [material, name] = scene.Get<Material, Name>(ioMesh.material);
 
 		const auto albedo_imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap);
-		const auto preview_size = ImVec2(10 * ImGui::GetWindowDpiScale(), 10 * ImGui::GetWindowDpiScale());
 		const auto tint_color = ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a);
 
-		if (ImGui::ImageButton((void*)(intptr_t)albedo_imgui_id, preview_size))
+		if (ImGui::DragDropTargetButton("Material", name.name.c_str(), ImGui::GetStyleColorVec4(ImGuiCol_Text)))
 			SetActiveEntity(ioMesh.material);
 
-		ImGui::SameLine();
-		ImGui::Text(name.name.c_str());
+		if (ImGui::BeginPopupContextItem())
+		{
+			if (ImGui::MenuItem("Clear"))
+				ioMesh.material = Entity::Null;
+
+			ImGui::EndPopup();
+		}
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
+				ioMesh.material = *reinterpret_cast<const Entity*>( payload->Data );
+
+			ImGui::EndDragDropTarget();
+		}
+
+		//ImGui::SameLine();
+
+		////if (ImGui::ImageButton((void*)(intptr_t)albedo_imgui_id, preview_size))
+		////	SetActiveEntity(ioMesh.material);
+
+		////ImGui::SameLine();
+		//
+		//const auto label_size = ImGui::CalcTextSize("Material");
+		//const auto button_size = ImVec2(ImGui::GetFontSize() * ImGui::GetWindowDpiScale(), ImGui::GetFontSize() * ImGui::GetWindowDpiScale());
+
+		//ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x - (button_size.x*2) - label_size.x - ImGui::GetStyle().FramePadding.x, ImGui::GetCursorPos().y));
+
+		//ImGui::Button((const char*)ICON_FA_DOT_CIRCLE);
 	}
 	else
-		ImGui::Text("No material");
-
-	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material"))
-			ioMesh.material = *reinterpret_cast<const Entity*>( payload->Data );
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
 
-		ImGui::EndDragDropTarget();
+		ImGui::DragDropTargetButton("Material", "None", ImVec4(0.7, 0, 0, 1));
+
+		ImGui::PopStyleColor();
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
+				ioMesh.material = *reinterpret_cast<const Entity*>( payload->Data );
+
+			ImGui::EndDragDropTarget();
+		}
 	}
 
 	ImGui::DragFloat("LOD Fade", &ioMesh.mLODFade, 0.001f, -1.0f, 1.0f, "%.3f");
@@ -367,7 +436,7 @@ void InspectorWidget::DrawComponent(Mesh& ioMesh)
 }
 
 
-void InspectorWidget::DrawComponent(SoftBody& ioSoftBody)
+void InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 {
 	auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 
@@ -380,7 +449,7 @@ void InspectorWidget::DrawComponent(SoftBody& ioSoftBody)
 }
 
 
-void InspectorWidget::DrawComponent(BoxCollider& inBoxCollider)
+void InspectorWidget::DrawComponent(Entity inEntity, BoxCollider& inBoxCollider)
 {
 	auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 
@@ -397,47 +466,59 @@ void InspectorWidget::DrawComponent(BoxCollider& inBoxCollider)
 }
 
 
-void InspectorWidget::DrawComponent(Skeleton& inSkeleton)
+void InspectorWidget::DrawComponent(Entity inEntity, Skeleton& inSkeleton)
 {
+	uint32_t bone_count = 0;
+
+	auto CountBone = [&](auto&& CountBone, Skeleton::Bone& inBone) -> void
+	{ 
+		bone_count++; 
+
+		for (Skeleton::Bone& child_bone : inBone.children)
+			CountBone(CountBone, child_bone);
+	};
+
+	CountBone(CountBone, inSkeleton.rootBone);
+
 	static bool show_bones = false;
-	ImGui::Checkbox("Show Bones", &show_bones);
-	
-	ImGui::Text("%i Bones", inSkeleton.boneHierarchy.children.size());
-
-	if (show_bones)
-		inSkeleton.DebugDraw(inSkeleton.boneHierarchy);
-
-	if (ImGui::BeginCombo("Animation##InspectorWidget::drawComponent", inSkeleton.animations[0].GetName().c_str()))
-	{
-		for (auto& animation : inSkeleton.animations)
-			ImGui::Selectable(animation.GetName().c_str());
-
-		ImGui::EndCombo();
-	}
-
-	if (ImGui::Button(inSkeleton.autoPlay ? (const char*)ICON_FA_STOP : (const char*)ICON_FA_PLAY))
-		inSkeleton.autoPlay = !inSkeleton.autoPlay;
+	ImGui::Checkbox("##ShowBones", &show_bones);
 
 	ImGui::SameLine();
 
-	const  auto current_time = inSkeleton.animations[0].GetRunningTime();
-	const  auto total_duration = inSkeleton.animations[0].GetTotalDuration();
+	ImGui::Text("Show %i Bones", bone_count);
 
-	if (inSkeleton.autoPlay)
+	if (show_bones) 
 	{
-		char overlay_buf[32];
-		ImFormatString(overlay_buf, IM_ARRAYSIZE(overlay_buf), "%.2f seconds", current_time / 1000.0f);
+		Mat4x4 world_transform(1.0f);
 
-		ImGui::ProgressBar(current_time / total_duration, ImVec2(-FLT_MIN, 0), overlay_buf);
+		if (Transform* transform = m_Editor->GetScene()->GetPtr<Transform>(inEntity))
+			world_transform = transform->worldTransform;
 
-		ImGui::SameLine();
-		ImGui::Text("Time");
+		inSkeleton.DebugDraw(inSkeleton.rootBone, world_transform);
+	}
+
+	auto& scene = GetScene();
+	if (scene.Has<Animation>(inSkeleton.animation) && scene.Has<Animation, Name>(inSkeleton.animation))
+	{
+		const auto& [animation, name] = scene.Get<Animation, Name>(inSkeleton.animation);
+
+		if (ImGui::DragDropTargetButton("Animation", name.name.c_str(), ImGui::GetStyleColorVec4(ImGuiCol_Text)))
+			SetActiveEntity(inSkeleton.animation);
 	}
 	else
+		ImGui::DragDropTargetButton("Animation", "None", ImGui::GetStyleColorVec4(ImGuiCol_Text));
+
+	if (ImGui::BeginDragDropTarget())
 	{
-		float time = inSkeleton.currentTime / 1000.0f;
-		if (ImGui::SliderFloat("Time", &time, 0.0f, inSkeleton.animations[0].GetTotalDuration() / 1000.0f))
-			inSkeleton.currentTime = time * 1000.0f;
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
+		{
+			Entity entity = *reinterpret_cast<const Entity*>( payload->Data );
+
+			if (scene.Has<Animation>(entity))
+				inSkeleton.animation = entity;
+		}
+
+		ImGui::EndDragDropTarget();
 	}
 
 	if (ImGui::Button("Save as graph.."))
@@ -450,7 +531,7 @@ void InspectorWidget::DrawComponent(Skeleton& inSkeleton)
 
 			ofs << "digraph G {\n";
 
-			auto traverse = [&](auto&& traverse, const Bone& boneNode) -> void
+			auto traverse = [&](auto&& traverse, const Skeleton::Bone& boneNode) -> void
 			{
 				for (const auto& child : boneNode.children)
 				{
@@ -459,7 +540,7 @@ void InspectorWidget::DrawComponent(Skeleton& inSkeleton)
 				}
 			};
 
-			traverse(traverse, inSkeleton.boneHierarchy);
+			traverse(traverse, inSkeleton.rootBone);
 			ofs << "}";
 		}
 	}
@@ -467,7 +548,7 @@ void InspectorWidget::DrawComponent(Skeleton& inSkeleton)
 }
 
 
-void InspectorWidget::DrawComponent(Material& inMaterial)
+void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 {
 	auto& io = ImGui::GetIO();
 	auto& style = ImGui::GetStyle();
@@ -587,11 +668,16 @@ void InspectorWidget::DrawComponent(Material& inMaterial)
 	ImGui::AlignTextToFramePadding(); ImGui::Text("Roughness Map"); ImGui::SameLine();
 	DrawTextureInteraction(inMaterial.gpuRoughnessMap, inMaterial.gpuRoughnessMapSwizzle, Material::Default.gpuRoughnessMap, inMaterial.roughnessFile, imgui_id);
 
+	/* for (const auto& [index, texture] : gEnumerate(inMaterial.textures))
+	{
+		DrawTextureInteraction(texture.gpuMap, texture.swizzle, Material::Default.textures[index].gpuMap, texture.filepath, imgui_id);
+	} */
+
 	ImGui::Checkbox("Is Transparent", &inMaterial.isTransparent);
 }
 
 
-void InspectorWidget::DrawComponent(Transform& inTransform)
+void InspectorWidget::DrawComponent(Entity inEntity, Transform& inTransform)
 {
     ImGui::SetNextItemRightAlign("Scale     ");
 	if (ImGui::DragVec3("##ScaleDragFloat3", inTransform.scale, 0.001f, 0.0f, FLT_MAX))
@@ -611,7 +697,44 @@ void InspectorWidget::DrawComponent(Transform& inTransform)
 }
 
 
-void InspectorWidget::DrawComponent(Light& inLight)
+void InspectorWidget::DrawComponent(Entity inEntity, Animation& inAnimation)
+{
+	const  auto current_time = inAnimation.GetRunningTime();
+	const  auto total_duration = inAnimation.GetTotalDuration();
+
+	ImGui::Text("Bone Count: %i", inAnimation.GetBoneCount());
+	ImGui::Text("Total Duration: %.2f seconds", total_duration / 1000.0f);
+
+	if (inAnimation.IsPlaying())
+	{
+		if (ImGui::Button(reinterpret_cast<const char*>( ICON_FA_STOP )))
+			inAnimation.SetIsPlaying(false);
+
+		ImGui::SameLine();
+
+		char overlay_buf[32];
+		ImFormatString(overlay_buf, IM_ARRAYSIZE(overlay_buf), "%.2f seconds", current_time / 1000.0f);
+
+		ImGui::ProgressBar(current_time / total_duration, ImVec2(-FLT_MIN, 0), overlay_buf);
+
+		ImGui::SameLine();
+		ImGui::Text("Time");
+	}
+	else
+	{
+		if (ImGui::Button(reinterpret_cast<const char*>( ICON_FA_PLAY )))
+			inAnimation.SetIsPlaying(true);
+
+		ImGui::SameLine();
+
+		float time = inAnimation.GetRunningTime() / 1000.0f;
+		if (ImGui::SliderFloat("Time", &time, 0.0f, inAnimation.GetTotalDuration() / 1000.0f))
+			inAnimation.SetRunningTime(time * 1000.0f);
+	}
+}
+
+
+void InspectorWidget::DrawComponent(Entity inEntity, Light& inLight)
 {
 	constexpr auto type_names = std::array { "None", "Spot", "Point" };
 	ImGui::Combo("Type", (int*)&inLight.type, type_names.data(), type_names.size());
@@ -637,7 +760,7 @@ void InspectorWidget::DrawComponent(Light& inLight)
 }
 
 
-void InspectorWidget::DrawComponent(NativeScript& inScript)
+void InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 {
 	auto& scene = GetScene();
 	auto& assets = GetAssets();
@@ -682,22 +805,17 @@ void InspectorWidget::DrawComponent(NativeScript& inScript)
 
     if (!inScript.types.empty())
     {
-        static auto index = -1;
+		auto type_iter = std::find(inScript.types.begin(), inScript.types.end(), inScript.type);
 
-        const auto preview_text = index == -1 ? "None" : inScript.types[index].c_str();
+        const char* preview_text = type_iter == inScript.types.end() ? "None" : inScript.type.c_str();
 
         if (ImGui::BeginCombo("Type", preview_text, ImGuiComboFlags_None))
         {
-            for (uint32_t i = 0; i < inScript.types.size(); i++)
+			for (auto iter = inScript.types.begin(); iter != inScript.types.end(); iter++)
             {
-                const auto type_name = inScript.types[i].c_str();
-
-                if (ImGui::Selectable(type_name, i == index))
+                if (ImGui::Selectable(iter->c_str(), iter == type_iter))
                 {
-                    index = i;
-
-					inScript.type = type_name;
-
+					inScript.type = *iter;
                     scene.BindScriptToEntity(GetActiveEntity(), inScript, m_Editor);
                 }
             }
@@ -721,11 +839,11 @@ void InspectorWidget::DrawComponent(NativeScript& inScript)
 		{
 			if (const RTTI* member_rtti = member->GetRTTI())
 			{
-				gForEachTupleElement(std::tuple<int, float, bool, uint32_t>(), [&](auto i)
+				gForEachType<int, float, bool, Entity>([&](auto type)
 				{
-					if (*member_rtti == RTTI_OF(decltype( i )))
+					if (*member_rtti == RTTI_OF(decltype( type )))
 					{
-						DrawScriptMember(member->GetCustomName(), member->GetRef< decltype( i )>(inScript.script));
+						DrawScriptMember(member->GetCustomName(), member->GetRef<decltype( type )>(inScript.script));
 						return;
 					}
 				});
@@ -738,7 +856,8 @@ void InspectorWidget::DrawComponent(NativeScript& inScript)
 	}
 }
 
-void InspectorWidget::DrawComponent(DDGISceneSettings& ioSettings)
+
+void InspectorWidget::DrawComponent(Entity inEntity, DDGISceneSettings& ioSettings)
 {
 	auto& scene = GetScene();
 
@@ -752,7 +871,7 @@ void InspectorWidget::DrawComponent(DDGISceneSettings& ioSettings)
 }
 
 
-void InspectorWidget::DrawComponent(DirectionalLight& inDirectionalLight)
+void InspectorWidget::DrawComponent(Entity inEntity, DirectionalLight& inDirectionalLight)
 {
 	ImGui::AlignTextToFramePadding();
 	ImGui::Text("Colour     ");

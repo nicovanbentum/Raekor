@@ -19,6 +19,9 @@ public:
 
 	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
 
+	Slice<Entity> GetCreatedMaterials() const { return Slice(m_Materials); }
+	Slice<Entity> GetCreatedAnimations() const { return Slice(m_Animations); }
+
 private:
 	void ParseNode(const cgltf_node& gltfNode, Entity parent, glm::mat4 transform);
 
@@ -26,6 +29,7 @@ private:
 	void ConvertLight(Entity inEntity, const cgltf_light& inLight);
 	void ConvertBones(Entity inEntity, const cgltf_node& inSkeleton);
 	void ConvertMaterial(Entity inEntity, const cgltf_material& inMaterial);
+	void ConvertAnimation(Entity inEntity, const cgltf_animation& inAnimation);
 
 	Mat4x4 GetLocalTransform(const cgltf_node& inNode);
 	int GetJointIndex(const cgltf_node* inSkinNode, const cgltf_node* inJointNode);
@@ -34,6 +38,7 @@ private:
 	Path m_Directory;
 	cgltf_data* m_GltfData = nullptr;
 	std::vector<Entity> m_Materials;
+	std::vector<Entity> m_Animations;
 	std::vector<int> m_MaterialRefs;
 	std::vector<Entity> m_CreatedNodeEntities;
 };

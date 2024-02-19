@@ -29,7 +29,7 @@ Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer)
 
 Entity Scene::PickSpatialEntity(const Ray& inRay) const
 {
-	auto picked_entity = NULL_ENTITY;
+	auto picked_entity = Entity::Null;
 	auto boxes_hit = std::map<float, Entity> {};
 
 	for (auto [entity, transform, mesh] : Each<Transform, Mesh>())
@@ -144,10 +144,10 @@ void Scene::UpdateTransforms()
 {
 	for (const auto& [entity, node, transform] : Each<Node, Transform>())
 	{
-		if (node.parent != NULL_ENTITY)
+		if (node.parent != Entity::Null)
 			continue;
 
-		if (node.parent == NULL_ENTITY)
+		if (node.parent == Entity::Null)
 		{
 			m_Nodes.push(entity);
 
@@ -156,7 +156,7 @@ void Scene::UpdateTransforms()
 				const auto& [current_node, current_transform] = Get<Node, Transform>(m_Nodes.top());
 				m_Nodes.pop();
 
-				if (current_node.parent == NULL_ENTITY)
+				if (current_node.parent == Entity::Null)
 				{
 					current_transform.worldTransform = current_transform.localTransform;
 				}
@@ -167,7 +167,7 @@ void Scene::UpdateTransforms()
 				}
 
 				auto child = current_node.firstChild;
-				while (child != NULL_ENTITY)
+				while (child != Entity::Null)
 				{
 					m_Nodes.push(child);
 					child = Get<Node>(child).nextSibling;
@@ -182,6 +182,9 @@ void Scene::UpdateTransforms()
 
 void Scene::UpdateAnimations(float inDeltaTime)
 {
+	for (auto [entity, animation] : Each<Animation>())
+		animation.OnUpdate(inDeltaTime);
+
 	auto skeleton_count = Count<Skeleton>();
 	if (!skeleton_count)
 		return;
@@ -193,14 +196,14 @@ void Scene::UpdateAnimations(float inDeltaTime)
 	{
 		auto job_ptr = g_ThreadPool.QueueJob([&]()
 		{
-			if (skeleton.animationIndex >= 0 && skeleton.animationIndex < skeleton.animations.size())
+			if (Exists(skeleton.animation) && Has<Animation>(skeleton.animation))
 			{
-				skeleton.UpdateFromAnimation(skeleton.animations[skeleton.animationIndex], inDeltaTime);
+				skeleton.UpdateFromAnimation(Get<Animation>(skeleton.animation));
 			}
 			else
 			{
 				Animation animation;
-				skeleton.UpdateFromAnimation(animation, inDeltaTime);
+				skeleton.UpdateFromAnimation(animation);
 			}
 		});
 
@@ -293,7 +296,7 @@ Entity Scene::Clone(Entity inEntity)
 		m_Renderer->UploadMeshBuffers(copy, Get<Mesh>(copy));
 
 		if (Has<Skeleton>(copy))
-			m_Renderer->UploadSkeletonBuffers(Get<Skeleton>(copy), mesh);
+			m_Renderer->UploadSkeletonBuffers(copy, Get<Skeleton>(copy), mesh);
 	}
 	
 	if (Has<Node>(copy))
@@ -301,10 +304,10 @@ Entity Scene::Clone(Entity inEntity)
 		Node& to_node = Get<Node>(copy);
 		Node& from_node = Get<Node>(inEntity);
 
-		if (from_node.parent != NULL_ENTITY)
+		if (from_node.parent != Entity::Null)
 			NodeSystem::sAppend(*this, from_node.parent, Get<Node>(from_node.parent), copy, to_node);
 
-		for (Entity it = from_node.firstChild; it != NULL_ENTITY; it = Get<Node>(it).nextSibling)
+		for (Entity it = from_node.firstChild; it != Entity::Null; it = Get<Node>(it).nextSibling)
 			Clone(it);
 	}
 
@@ -351,7 +354,7 @@ void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& inMaterial
 }
 
 
-void Scene::SaveToFile(const std::string& inFile, Assets& ioAssets)
+void Scene::SaveToFile(const std::string& inFile, Assets& ioAssets, Application* inApp)
 {
 	BinaryWriteArchive archive(inFile);
 	WriteFileBinary(archive.GetFile(), m_Entities);
@@ -364,7 +367,7 @@ void Scene::SaveToFile(const std::string& inFile, Assets& ioAssets)
 }
 
 
-void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets)
+void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets, Application* inApp)
 {
 	// set file path properties
 	m_ActiveSceneFilePath = inFilePath;
@@ -399,7 +402,21 @@ void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets)
 			m_Renderer->UploadMeshBuffers(entity, mesh);
 
 		if (Skeleton* skeleton = GetPtr<Skeleton>(entity))
-			m_Renderer->UploadSkeletonBuffers(*skeleton, mesh);
+			m_Renderer->UploadSkeletonBuffers(entity, *skeleton, mesh);
+	}
+
+	for (const auto& [entity, script] : Each<NativeScript>())
+	{
+		if (auto asset = ioAssets.GetAsset<ScriptAsset>(script.file))
+		{
+			for (const auto& type : asset->GetRegisteredTypes())
+			{
+				script.types.push_back(type);
+			}
+
+			if (inApp)
+				BindScriptToEntity(entity, script, inApp);
+		}
 	}
 
 	std::cout << std::format("[Scene] Upload mesh data to GPU took {:.3f} seconds.\n", timer.GetElapsedTime());
@@ -488,7 +505,7 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	for (const auto& [entity, node] : m_ImportedScene.Each<Node>())
 	{
 		if (node.IsRoot())
-			ParseNode(entity, NULL_ENTITY);
+			ParseNode(entity, Entity::Null);
 	}
 
 	const auto root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
@@ -538,7 +555,7 @@ void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 		m_Scene.Add<Name>(new_entity);
 
 	// set the new inEntity's parent
-	if (inParent != NULL_ENTITY)
+	if (inParent != Entity::Null)
 		NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), new_entity, m_Scene.Get<Node>(new_entity));
 
 	// Copy over mesh
@@ -551,7 +568,7 @@ void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 
 	// recurse into children
 	auto child = m_ImportedScene.Get<Node>(inEntity).firstChild;
-	while (child != NULL_ENTITY)
+	while (child != Entity::Null)
 	{
 		ParseNode(child, new_entity);
 		child = m_ImportedScene.Get<Node>(child).nextSibling;
@@ -576,7 +593,7 @@ void SceneImporter::ConvertBones(Entity inEntity, const Skeleton& inSkeleton)
 	auto& skeleton = m_Scene.Add<Skeleton>(inEntity, inSkeleton);
 
 	if (m_Renderer)
-		m_Renderer->UploadSkeletonBuffers(skeleton, mesh);
+		m_Renderer->UploadSkeletonBuffers(inEntity, skeleton, mesh);
 }
 
 

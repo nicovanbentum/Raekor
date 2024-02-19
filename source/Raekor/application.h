@@ -86,7 +86,7 @@ public:
 	virtual IRenderInterface* GetRenderInterface() { return nullptr; }
 
 	virtual void SetActiveEntity(Entity inEntity) {}
-	virtual Entity GetActiveEntity() { return NULL_ENTITY; }
+	virtual Entity GetActiveEntity() { return Entity::Null; }
 
 	virtual void LogMessage(const std::string& inMessage) { std::cout << inMessage << '\n'; }
 
@@ -195,8 +195,8 @@ public:
 	virtual void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
 	virtual void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
 
-	virtual void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) = 0;
-	virtual void DestroySkeletonBuffers(Skeleton& inSkeleton) = 0;
+	virtual void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) = 0;
+	virtual void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) = 0;
 
 	/* Implementation resides in Systems.cpp to avoid conflicts. */
 	virtual void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets);
@@ -206,10 +206,6 @@ public:
 
 	virtual void OnResize(const Viewport& inViewport) = 0;
 	virtual void DrawDebugSettings(Application* inApp, Scene& inScene, const Viewport& inViewport) = 0;
-
-	virtual void AddDebugLine(Vec3 inP1, Vec3 inP2) {}
-	virtual void AddDebugLineColored(Vec3 inP1, Vec3 inP2, Vec4 inColor) {}
-	virtual void AddDebugBox(Vec3 inMin, Vec3 inMax, const Mat4x4& inTransform = Mat4x4(1.0f)) {}
 
 protected:
 	uint32_t	m_WhiteTexture;

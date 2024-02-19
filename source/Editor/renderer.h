@@ -29,7 +29,7 @@ public:
     const char* GetDebugTextureName(uint32_t inIndex) const override;
 
     uint32_t GetScreenshotBuffer(uint8_t* ioBuffer);
-    uint32_t GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY) { return m_GBuffer ? m_GBuffer->readEntity(inScreenPosX, inScreenPosY) : NULL_ENTITY; }
+    uint32_t GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY) { return m_GBuffer ? m_GBuffer->readEntity(inScreenPosX, inScreenPosY) : Entity::Null; }
 
     void OnResize(const Viewport& inViewport) { CreateRenderTargets(inViewport); }
 
@@ -38,8 +38,8 @@ public:
     void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
     void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh);
 
-    void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) override;
-    void DestroySkeletonBuffers(Skeleton& inSkeleton);
+    void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) override;
+    void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton);
 
     void DestroyMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets);
 

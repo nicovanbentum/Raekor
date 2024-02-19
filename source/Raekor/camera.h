@@ -65,9 +65,11 @@ public:
 
 
 
-class CameraController
+class EditorCameraController
 {
 public:
+	/* Returns true if the camera moved. */
+	static void OnUpdate(Camera& inCamera, float inDeltaTime);
 	/* Returns true if the camera moved. */
 	static bool OnEvent(Camera& inCamera, const SDL_Event& inEvent);
 };

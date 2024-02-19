@@ -39,3 +39,9 @@ void gForEachTupleElement(Tpl&& Tuple, Fx Func)
     _for_each_tuple_element_impl(
         std::forward<Tpl>(Tuple), Func, std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<Tpl>>>{});
 }
+
+template<typename ...T, typename Fx>
+void gForEachType(Fx Func)
+{
+    gForEachTupleElement(std::tuple<T...>(), Func);
+}

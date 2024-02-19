@@ -10,7 +10,7 @@ void NodeSystem::sAppend(ECStorage& inECS, Entity parentEntity, Node& parent, En
 	child.parent = parentEntity;
 
 	// if its the parent's first child we simply assign it
-	if (parent.firstChild == NULL_ENTITY)
+	if (parent.firstChild == Entity::Null)
 	{
 		parent.firstChild = childEntity;
 		return;
@@ -19,10 +19,10 @@ void NodeSystem::sAppend(ECStorage& inECS, Entity parentEntity, Node& parent, En
 	{
 		// ensure we can get the first child's node
 		auto last_child = parent.firstChild;
-		assert(inECS.Get<Node>(last_child).prevSibling == NULL_ENTITY);
+		assert(inECS.Get<Node>(last_child).prevSibling == Entity::Null);
 
 		// traverse to the end of the sibling chain
-		while (inECS.Get<Node>(last_child).nextSibling != NULL_ENTITY)
+		while (inECS.Get<Node>(last_child).nextSibling != Entity::Null)
 			last_child = inECS.Get<Node>(last_child).nextSibling;
 
 		// update siblings
@@ -35,7 +35,7 @@ void NodeSystem::sAppend(ECStorage& inECS, Entity parentEntity, Node& parent, En
 
 void NodeSystem::sRemove(ECStorage& inECS, Node& node)
 {
-	for (auto it = node.firstChild; it != NULL_ENTITY; it = inECS.Get<Node>(it).nextSibling)
+	for (auto it = node.firstChild; it != Entity::Null; it = inECS.Get<Node>(it).nextSibling)
 	{
 		auto& child = inECS.Get<Node>(it);
 		// this will either hook it up to the node's parent or set it to null, 
@@ -44,13 +44,13 @@ void NodeSystem::sRemove(ECStorage& inECS, Node& node)
 	}
 
 	// handle first child case, example: node | sibling1 | sibling2 | etc.
-	if (node.prevSibling == NULL_ENTITY)
+	if (node.prevSibling == Entity::Null)
 	{
 		// set sibling1's previous sibling to null (since it is now the first child)
-		if (node.nextSibling != NULL_ENTITY)
+		if (node.nextSibling != Entity::Null)
 		{
 			auto& next_sibling = inECS.Get<Node>(node.nextSibling);
-			next_sibling.prevSibling = NULL_ENTITY;
+			next_sibling.prevSibling = Entity::Null;
 		}
 
 		// set the parent's first child to sibling1 (node's next sibling)
@@ -65,7 +65,7 @@ void NodeSystem::sRemove(ECStorage& inECS, Node& node)
 		auto& prev_sibling = inECS.Get<Node>(node.prevSibling);
 		prev_sibling.nextSibling = node.nextSibling;
 
-		if (node.nextSibling != NULL_ENTITY)
+		if (node.nextSibling != Entity::Null)
 		{
 			auto& next_sibling = inECS.Get<Node>(node.nextSibling);
 			next_sibling.prevSibling = node.prevSibling;
@@ -74,8 +74,8 @@ void NodeSystem::sRemove(ECStorage& inECS, Node& node)
 
 	// nullifying parent and first child detaches it from the node hierarchy.
 	// also, nextSibling is used by CollapseTransforms to loop to the next child
-	node.parent = NULL_ENTITY;
-	node.firstChild = NULL_ENTITY;
+	node.parent = Entity::Null;
+	node.firstChild = Entity::Null;
 }
 
 
@@ -89,7 +89,7 @@ void NodeSystem::sCollapseTransforms(ECStorage& inECS, Node& node, Entity inEnti
 	{
 		auto& transform = inECS.Get<Transform>(inEntity);
 
-		for (auto it = node.firstChild; it != NULL_ENTITY; it = inECS.Get<Node>(it).nextSibling)
+		for (auto it = node.firstChild; it != Entity::Null; it = inECS.Get<Node>(it).nextSibling)
 		{
 			auto& child_transform = inECS.Get<Transform>(it);
 			child_transform.localTransform *= transform.worldTransform;
@@ -99,7 +99,7 @@ void NodeSystem::sCollapseTransforms(ECStorage& inECS, Node& node, Entity inEnti
 		NodeSystem::sRemove(inECS, node);
 	}
 
-	for (auto it = first_child; it != NULL_ENTITY; it = inECS.Get<Node>(it).nextSibling)
+	for (auto it = first_child; it != Entity::Null; it = inECS.Get<Node>(it).nextSibling)
 	{
 		auto& child = inECS.Get<Node>(it);
 		sCollapseTransforms(inECS, child, it);
@@ -124,7 +124,7 @@ std::vector<Entity> NodeSystem::sGetFlatHierarchy(ECStorage& inECS, Entity inEnt
 		entities.pop();
 
 		if (current.HasChildren())
-			for (auto it = current.firstChild; it != NULL_ENTITY; it = inECS.Get<Node>(it).nextSibling)
+			for (auto it = current.firstChild; it != Entity::Null; it = inECS.Get<Node>(it).nextSibling)
 				entities.push(it);
 	}
 

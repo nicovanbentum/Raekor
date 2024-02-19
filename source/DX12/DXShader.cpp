@@ -48,6 +48,7 @@ RTTI_DEFINE_TYPE(SystemShadersDX12)
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "ImGui Shader", mImGuiShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Grass Shader", mGrassShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "GBuffer Shader", mGBufferShader);
+    RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Skinning Shader", mSkinningShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Lighting Shader", mLightingShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Light Cull Shader", mLightCullShader);
     RTTI_DEFINE_MEMBER(SystemShadersDX12, SERIALIZE_ALL, "Downsample Shader", mDownsampleShader);

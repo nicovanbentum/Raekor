@@ -48,7 +48,7 @@ bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 		if (node->is_root)
 		{
 			auto root = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity(node->name.data));
-			ParseNode(node, NULL_ENTITY, root);
+			ParseNode(node, Entity::Null, root);
 		}
 	}
 
@@ -86,7 +86,7 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 		m_Scene.Get<Name>(inEntity).name = inNode->mesh ? "Mesh " : "Entity " + std::to_string(uint32_t(inEntity));
 
 	// set the new entity's parent
-	if (inParent != NULL_ENTITY)
+	if (inParent != Entity::Null)
 		NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), inEntity, m_Scene.Get<Node>(inEntity));
 
 	auto local_transform = glm::mat4(1.0f);

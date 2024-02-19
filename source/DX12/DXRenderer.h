@@ -69,7 +69,7 @@ public:
     void OnResize(Device& inDevice, Viewport& inViewport, bool inExclusiveFullscreen = false);
     void OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterfacee, float inDeltaTime);
 
-    void Recompile(Device& inDevice, const RayTracedScene& inScene, IRenderInterface* inRenderInterface);
+    void Recompile(Device& inDevice, const RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterface);
 
     CommandList& StartSingleSubmit();
     void FlushSingleSubmit(Device& inDevice, CommandList& inCommandList);
@@ -79,7 +79,9 @@ public:
     void SetShouldResize(bool inValue) { m_ShouldResize = inValue; }
     void SetShouldCaptureNextFrame(bool inValue) { m_ShouldCaptureNextFrame = inValue; }
 
+    void QueueBlasUpdate(Entity inEntity) { m_PendingBlasUpdates.push_back(inEntity); }
     void QueueMeshUpload(Entity inEntity) { m_PendingMeshUploads.push_back(inEntity); }
+    void QueueSkeletonUpload(Entity inEntity) { m_PendingSkeletonUploads.push_back(inEntity); }
     void QueueMaterialUpload(Entity inEntity) { m_PendingMaterialUploads.push_back(inEntity); }
 
     void QueueTextureUpload(TextureID inTexture, uint32_t inMip, const Slice<char>& inData) { m_PendingTextureUploads.emplace_back(TextureUpload{ inMip, inTexture, inData }); }
@@ -99,7 +101,9 @@ public:
 
 private:
     SDL_Window* m_Window;
+    std::vector<Entity>         m_PendingBlasUpdates;
     std::vector<Entity>         m_PendingMeshUploads;
+    std::vector<Entity>         m_PendingSkeletonUploads;
     std::vector<Entity>         m_PendingMaterialUploads;
     std::vector<TextureUpload>  m_PendingTextureUploads;
     Job::Ptr                    m_PresentJobPtr;
@@ -140,8 +144,8 @@ public:
     void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) override;
     void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) override { /* TODO: FIXME */ }
 
-    void UploadSkeletonBuffers(Skeleton& inSkeleton, Mesh& inMesh) override;
-    void DestroySkeletonBuffers(Skeleton& inSkeleton) override { /* TODO: FIXME */ }
+    void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) override;
+    void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) override { /* TODO: FIXME */ }
 
     void UploadMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) override;
     void DestroyMaterialTextures(Entity inEntity, Material& inMaterial, Assets& inAssets) override {}

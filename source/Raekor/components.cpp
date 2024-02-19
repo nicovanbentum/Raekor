@@ -74,22 +74,22 @@ RTTI_DEFINE_TYPE(BoxCollider) {}
 RTTI_DEFINE_TYPE(SoftBody) {}
 
 
-RTTI_DEFINE_TYPE(Bone)
+RTTI_DEFINE_TYPE(Skeleton::Bone)
 {
-	RTTI_DEFINE_MEMBER(Bone, SERIALIZE_ALL, "Index", index);
-	RTTI_DEFINE_MEMBER(Bone, SERIALIZE_ALL, "Name", name);
-	RTTI_DEFINE_MEMBER(Bone, SERIALIZE_ALL, "Children", children);
+	RTTI_DEFINE_MEMBER(Skeleton::Bone, SERIALIZE_ALL, "Index", index);
+	RTTI_DEFINE_MEMBER(Skeleton::Bone, SERIALIZE_ALL, "Name", name);
+	RTTI_DEFINE_MEMBER(Skeleton::Bone, SERIALIZE_ALL, "Children", children);
 }
 
 
 RTTI_DEFINE_TYPE(Skeleton)
 {
+	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Animation", animation);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Inv Global Transform", inverseGlobalTransform);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Weights", boneWeights);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Indices", boneIndices);
 	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Offset Matrices", boneOffsetMatrices);
-	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Hierarchy", boneHierarchy);
-	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Animations", animations);
+	RTTI_DEFINE_MEMBER(Skeleton, SERIALIZE_ALL, "Bone Hierarchy", rootBone);
 }
 
 
@@ -130,17 +130,19 @@ RTTI_DEFINE_TYPE(DDGISceneSettings)
 
 void gRegisterComponentTypes()
 {
+	g_RTTIFactory.Register(RTTI_OF(Entity));
 	g_RTTIFactory.Register(RTTI_OF(Name));
 	g_RTTIFactory.Register(RTTI_OF(Transform));
 	g_RTTIFactory.Register(RTTI_OF(Mesh));
 	g_RTTIFactory.Register(RTTI_OF(Node));
 	g_RTTIFactory.Register(RTTI_OF(Material));
+	g_RTTIFactory.Register(RTTI_OF(Animation));
 	g_RTTIFactory.Register(RTTI_OF(BoxCollider));
 	g_RTTIFactory.Register(RTTI_OF(DirectionalLight));
 	g_RTTIFactory.Register(RTTI_OF(Light));
 	g_RTTIFactory.Register(RTTI_OF(SoftBody));
-	g_RTTIFactory.Register(RTTI_OF(Bone));
 	g_RTTIFactory.Register(RTTI_OF(Skeleton));
+	g_RTTIFactory.Register(RTTI_OF(Skeleton::Bone));
 	g_RTTIFactory.Register(RTTI_OF(NativeScript));
 	g_RTTIFactory.Register(RTTI_OF(DDGISceneSettings));
 }
@@ -387,51 +389,51 @@ uint32_t Mesh::GetInterleavedStride() const
 }
 
 
-void Skeleton::DebugDraw(const Bone& inBone)
+void Skeleton::DebugDraw(const Bone& inBone, const Mat4x4& inTransform)
 {
-	const Vec3& parent_pos = boneWSTransformMatrices[inBone.index][3];
+	const Vec3& parent_pos = (inTransform * boneWSTransformMatrices[inBone.index])[3];
 
 	for (const Bone& bone : inBone.children)
 	{
-		const Vec3& child_pos = boneWSTransformMatrices[bone.index][3];
+		const Vec3& child_pos = (inTransform * boneWSTransformMatrices[bone.index])[3];
 
 		g_DebugRenderer.AddLine(parent_pos, child_pos);
 
-		DebugDraw(bone);
+		DebugDraw(bone, inTransform);
 	}
 }
 
 
 
-void Skeleton::UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform)
+void Skeleton::UpdateBoneTransform(const Animation& animation, Bone& inBone, const Mat4x4& parentTransform)
 {
-	auto global_transform = glm::mat4(1.0f);
+	Mat4x4 global_transform = Mat4x4(1.0f);
 
-	bool has_animation = animation.m_BoneAnimations.contains(pNode.index);
+	bool has_animation = animation.m_KeyFrames.contains(inBone.name);
 
-	if (pNode.index != boneHierarchy.index && has_animation)
+	if (inBone.index != rootBone.index && has_animation)
 	{
-		const auto& node_anim = animation.m_BoneAnimations.at(pNode.index);
+		const KeyFrames& keyframes = animation.m_KeyFrames.at(inBone.name);
 
-		auto translation = node_anim.GetInterpolatedPosition(animationTime);
-		auto translation_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(translation.x, translation.y, translation.z));
+		Vec3 translation = keyframes.GetInterpolatedPosition(animation.GetRunningTime());
+		Mat4x4 translation_matrix = glm::translate(Mat4x4(1.0f), Vec3(translation.x, translation.y, translation.z));
 
-		auto rotation = node_anim.GetInterpolatedRotation(animationTime);
-		auto rotation_matrix = glm::toMat4(rotation);
+		Quat rotation = keyframes.GetInterpolatedRotation(animation.GetRunningTime());
+		Mat4x4 rotation_matrix = glm::toMat4(rotation);
 
-		auto scale = node_anim.GetInterpolatedScale(animationTime);
-		auto scale_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(scale.x, scale.y, scale.z));
+		Vec3 scale = keyframes.GetInterpolatedScale(animation.GetRunningTime());
+		Mat4x4 scale_matrix = glm::scale(Mat4x4(1.0f), Vec3(scale.x, scale.y, scale.z));
 
-		auto nodeTransform = translation_matrix * rotation_matrix * scale_matrix;
+		Mat4x4 nodeTransform = translation_matrix * rotation_matrix * scale_matrix;
 
 		global_transform = parentTransform * nodeTransform;
 
-		boneWSTransformMatrices[pNode.index] = global_transform;
-		boneTransformMatrices[pNode.index] = global_transform * boneOffsetMatrices[pNode.index];
+		boneWSTransformMatrices[inBone.index] = global_transform;
+		boneTransformMatrices[inBone.index] = global_transform * boneOffsetMatrices[inBone.index];
 	}
 
-	for (auto& child : pNode.children)
-		UpdateBoneTransforms(animation, animationTime, child, global_transform);
+	for (Bone& child_bone : inBone.children)
+		UpdateBoneTransform(animation, child_bone, global_transform);
 
 }
 
@@ -455,22 +457,10 @@ void DDGISceneSettings::FitToScene(const Scene& inScene, Transform& ioTransform)
 
 
 
-void Skeleton::UpdateFromAnimation(Animation& animation, float dt)
+void Skeleton::UpdateFromAnimation(Animation& animation)
 {
-	/*
-		This is bugged, Assimp docs say totalDuration is in ticks, but the actual value is real world time in milliseconds
-		see https://github.com/assimp/assimp/issues/2662
-	*/
-	animation.m_RunningTime += Timer::sToMilliseconds(dt);
-
-	if (animation.m_RunningTime > animation.m_TotalDuration)
-		animation.m_RunningTime = 0;
-
-	if (!autoPlay)
-		animation.m_RunningTime = currentTime;
-
 	auto identity = glm::mat4(1.0f);
-	UpdateBoneTransforms(animation, animation.m_RunningTime, boneHierarchy, identity);
+	UpdateBoneTransform(animation, rootBone, identity);
 }
 
 } // raekor

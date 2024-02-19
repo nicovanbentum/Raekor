@@ -21,7 +21,6 @@ RTTI_DEFINE_TYPE(QuatKey)
 
 RTTI_DEFINE_TYPE(KeyFrames)
 {
-	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Bone Index", m_BoneIndex);
 	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Scale Keys", m_ScaleKeys);
 	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Position Keys", m_PositionKeys);
 	RTTI_DEFINE_MEMBER(KeyFrames, SERIALIZE_ALL, "Rotation Keys", m_RotationKeys);
@@ -32,7 +31,7 @@ RTTI_DEFINE_TYPE(Animation)
 {
 	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Name", m_Name);
 	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Duration", m_TotalDuration);
-	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Bone Keyframe Map", m_BoneAnimations);
+	RTTI_DEFINE_MEMBER(Animation, SERIALIZE_ALL, "Bone Keyframe Map", m_KeyFrames);
 }
 
 
@@ -248,7 +247,7 @@ Animation::Animation(const aiAnimation* inAnimation)
 
 Animation::Animation(const cgltf_animation* inAnimation)
 {
-	m_Name = inAnimation->name;
+	m_Name = inAnimation->name ? inAnimation->name : "Animation";
 	m_RunningTime = 0;
 	m_TotalDuration = 0;
 	for (const auto& channel : Slice(inAnimation->channels, inAnimation->channels_count))
@@ -259,17 +258,34 @@ Animation::Animation(const cgltf_animation* inAnimation)
 
 void Animation::LoadKeyframes(uint32_t inBoneIndex, const aiNodeAnim* inAnimation)
 {
-	m_BoneAnimations.insert({ inBoneIndex, KeyFrames(inBoneIndex) });
-	m_BoneAnimations[inBoneIndex].LoadFromAssimp(inAnimation);
+	m_KeyFrames.insert({ inBoneIndex, KeyFrames(inBoneIndex) });
+	m_KeyFrames[inBoneIndex].LoadFromAssimp(inAnimation);
 }
 
 #endif
 
-void Animation::LoadKeyframes(uint32_t inBoneIndex, const cgltf_animation_channel* inAnimation)
+
+void Animation::OnUpdate(float inDeltaTime)
+{
+	if (m_IsPlaying)
+	{
+		/*
+			This is bugged, Assimp docs say totalDuration is in ticks, but the actual value is real world time in milliseconds
+			see https://github.com/assimp/assimp/issues/2662
+		*/
+		m_RunningTime += Timer::sToMilliseconds(inDeltaTime);
+
+		if (m_RunningTime > m_TotalDuration)
+			m_RunningTime = 0;
+	}
+}
+
+
+void Animation::LoadKeyframes(const std::string& inBoneName, const cgltf_animation_channel* inAnimation)
 {
 	// use insert here to protect against overwriting the same bone index for different channels
-	m_BoneAnimations.insert({ inBoneIndex, KeyFrames(inBoneIndex) });
-	m_BoneAnimations[inBoneIndex].LoadFromGltf(inAnimation);
+	m_KeyFrames.insert({ inBoneName, KeyFrames() });
+	m_KeyFrames[inBoneName].LoadFromGltf(inAnimation);
 }
 
 

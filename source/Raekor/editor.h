@@ -27,7 +27,7 @@ public:
 
 	void LogMessage(const std::string& inMessage) final;
 
-	void SetActiveEntity(Entity inEntity) final { m_ActiveEntity.store(inEntity);; }
+	void SetActiveEntity(Entity inEntity) final { m_ActiveEntity.store(inEntity); }
 	Entity GetActiveEntity() final { return m_ActiveEntity.load(); }
 
 protected:
@@ -42,7 +42,7 @@ protected:
 	void* m_CompilerProcess = nullptr;
 	ImGuiID m_DockSpaceID;
 
-	std::atomic<Entity> m_ActiveEntity = NULL_ENTITY;
+	std::atomic<Entity> m_ActiveEntity = Entity::Null;
 
 	std::vector<std::string> m_Messages;
 };

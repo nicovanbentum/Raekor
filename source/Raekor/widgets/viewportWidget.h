@@ -4,8 +4,6 @@
 
 namespace Raekor {
 
-using Entity = uint32_t;
-
 struct ClickableQuad
 {
 	Entity mEntity;

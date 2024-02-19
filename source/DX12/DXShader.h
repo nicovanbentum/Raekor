@@ -111,6 +111,7 @@ struct SystemShadersDX12 : public IResource
     ShaderProgram mImGuiShader;
     ShaderProgram mGrassShader;
     ShaderProgram mGBufferShader;
+    ShaderProgram mSkinningShader;
     ShaderProgram mLightingShader;
     ShaderProgram mLightCullShader;
     ShaderProgram mDownsampleShader;

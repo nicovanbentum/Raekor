@@ -20,7 +20,6 @@ class IRenderer;
 class Mesh;
 class Material;
 class Skeleton;
-typedef uint32_t Entity;
 
 class AssimpImporter : public Importer
 {

@@ -34,8 +34,10 @@ public:
     DescriptorID GetInstancesDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_InstancesBuffer).GetDescriptor(); }
     DescriptorID GetMaterialsDescriptor(Device& inDevice) const { return inDevice.GetBuffer(m_MaterialsBuffer).GetDescriptor(); }
 
-    void UploadMesh(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, CommandList& inCmdList);
+    void UploadMesh(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
+    void UpdateBLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList);
     void UploadTexture(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, TextureUpload& inUpload, CommandList& inCmdList);
+    void UploadSkeleton(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Skeleton& inSkeleton, CommandList& inCmdList);
     void UploadMaterial(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Material& inMaterial, CommandList& inCmdList);
 
     void UploadTLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList);

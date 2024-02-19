@@ -187,7 +187,7 @@ void Renderer::UpdateBVH(Scene& scene)
 
 	for (const auto& [entity, mesh, transform, geometry] : scene.Each<Mesh, Transform, RTGeometry>())
 	{
-		if (mesh.material == NULL_ENTITY)
+		if (mesh.material == Entity::Null)
 			continue;
 
 		Instance instance = {};

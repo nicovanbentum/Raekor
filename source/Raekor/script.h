@@ -53,6 +53,9 @@ public:
 	template<typename T>
 	T* TryGetComponent();
 
+	template<typename T>
+	T* FindComponent(Entity inEntity);
+
 	template<typename T> requires std::derived_from<T, Asset>
 	T* GetAsset(const Path& inPath);
 
@@ -76,6 +79,12 @@ template<typename T>
 T* INativeScript::TryGetComponent()
 {
 	return m_Scene->GetPtr<T>(m_Entity);
+}
+
+template<typename T>
+T* INativeScript::FindComponent(Entity inEntity)
+{
+	return m_Scene->GetPtr<T>(inEntity);
 }
 
 template<typename T> requires std::derived_from<T, Asset>

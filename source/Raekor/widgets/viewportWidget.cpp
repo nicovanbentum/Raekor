@@ -6,6 +6,7 @@
 #include "iter.h"
 #include "scene.h"
 #include "timer.h"
+#include "input.h"
 #include "script.h"
 #include "physics.h"
 #include "components.h"
@@ -75,8 +76,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	static const auto border_state_colors = std::array 
 	{
 		ImGui::GetStyleColorVec4(ImGuiCol_CheckMark),
-		ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
 		ImVec4(0.35f, 0.78f, 1.0f, 1.0f),
+		ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
 	};
 
 	const auto image_size = ImVec2(size.x, size.y);
@@ -95,12 +96,14 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		const auto picked = Entity(pixel);
 
 		Mesh* mesh = nullptr;
+		Skeleton* skeleton = nullptr;
 
 		if (scene.Exists(picked))
 		{
 			ImGui::BeginTooltip();
 
 			mesh = scene.GetPtr<Mesh>(picked);
+			skeleton = scene.GetPtr<Skeleton>(picked);
 
 			if (scene.Has<Mesh>(picked))
 			{
@@ -117,11 +120,19 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			ImGui::EndTooltip();
 		}
 
-		const auto payload = ImGui::AcceptDragDropPayload("drag_drop_mesh_material");
+		const auto payload = ImGui::AcceptDragDropPayload("drag_drop_entity");
 
 		if (payload && mesh)
 		{
-			mesh->material = *reinterpret_cast<const Entity*>( payload->Data );
+			Entity entity = *reinterpret_cast<const Entity*>( payload->Data );
+
+			if (scene.Has<Material>(entity))
+				mesh->material = entity;
+
+			if (scene.Has<Animation>(entity) && skeleton)
+				skeleton->animation = entity;
+				
+
 			SetActiveEntity(picked);
 		}
 
@@ -144,14 +155,14 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	auto pos = ImGui::GetWindowPos();
 	viewport.offset = { pos.x, pos.y };
 
-	if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !( GetActiveEntity() != NULL_ENTITY && ImGuizmo::IsOver(operation) ) && !ImGui::IsAnyItemHovered())
+	if (ImGui::GetIO().MouseClicked[0] && mouseInViewport && !( GetActiveEntity() != Entity::Null && ImGuizmo::IsOver(operation) ) && !ImGui::IsAnyItemHovered())
 	{
 		const auto mouse_pos = GUI::GetMousePosWindow(viewport, ImGui::GetWindowPos() + ( ImGui::GetWindowSize() - size ));
 
 		const auto pixel = m_Editor->GetRenderInterface()->GetSelectedEntity(GetScene(), mouse_pos.x, mouse_pos.y);
 
 		float hit_dist = FLT_MAX;
-		Entity hit_entity = NULL_ENTITY;
+		Entity hit_entity = Entity::Null;
 
 		Ray ray(viewport, Vec2(mouse_pos.x, mouse_pos.y));
 
@@ -170,7 +181,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			}
 		}
 
-		auto picked = hit_entity == NULL_ENTITY ? Entity(pixel) : hit_entity;
+		auto picked = hit_entity == Entity::Null ? Entity(pixel) : hit_entity;
 
 		if (GetActiveEntity() == picked)
 		{
@@ -213,7 +224,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				}
 			}
 			else
-				SetActiveEntity(NULL_ENTITY);
+				SetActiveEntity(Entity::Null);
 		}
 		else
 			SetActiveEntity(picked);
@@ -221,7 +232,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	m_EntityQuads.clear();
 
-	if (GetActiveEntity() != NULL_ENTITY && scene.Has<Transform>(GetActiveEntity()) && gizmoEnabled)
+	if (GetActiveEntity() != Entity::Null && scene.Has<Transform>(GetActiveEntity()) && gizmoEnabled)
 	{
 		ImGuizmo::SetDrawlist();
 		ImGuizmo::SetRect(viewportMin.x, viewportMin.y, viewportMax.x - viewportMin.x, viewportMax.y - viewportMin.y);
@@ -465,6 +476,8 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			{
 				GetPhysics().SaveState();
 				GetPhysics().SetState(Physics::Stepping);
+
+				g_Input->SetRelativeMouseMode(true);
 				m_Editor->SetGameState(GAME_RUNNING);
 
 				for (auto [entity, script] : scene.Each<NativeScript>())
@@ -512,6 +525,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			GetPhysics().SetState(Physics::Idle);
 
 			m_Editor->SetGameState(GAME_STOPPED);
+			g_Input->SetRelativeMouseMode(false);
 
 			for (auto [entity, script] : scene.Each<NativeScript>())
 			{

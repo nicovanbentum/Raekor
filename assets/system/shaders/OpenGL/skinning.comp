@@ -2,7 +2,7 @@
 
 // Compute shader that takes an input vertex buffer, skins it using input bone index and weight buffers, and writes the result to an output buffer
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 struct Vertex {
     float pos[3];

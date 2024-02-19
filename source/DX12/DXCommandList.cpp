@@ -16,13 +16,11 @@ CommandList::CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType, uint3
 }
 
 
-
 void CommandList::Begin()
 {
     auto& cmd_list = m_CommandLists.back();
     gThrowIfFailed(cmd_list->Reset(m_CommandAllocators.back().Get(), nullptr));
 }
-
 
 
 void CommandList::Reset()
@@ -38,30 +36,6 @@ void CommandList::Close()
 {
     auto& cmd_list = m_CommandLists.back();
     gThrowIfFailed(cmd_list->Close());
-}
-
-
-
-void CommandList::Push()
-{
-}
-
-
-
-void CommandList::Pop()
-{
-}
-
-
-
-void CommandList::UpdateBuffer(Buffer& inDstBuffer, uint32_t inDstOffset, uint32_t inDstSize, void* inDataPtr)
-{
-}
-
-
-
-void CommandList::UpdateTexture(Texture& inDstTexture, uint32_t inDstMip, void* inDataPtr)
-{
 }
 
 
@@ -100,24 +74,6 @@ void CommandList::ClearTexture(Device& inDevice, TextureID inTexture, Vec4 inVal
 }
 
 
-void CommandList::Draw()
-{
-}
-
-
-
-void CommandList::Dispatch(uint32_t inSizeX, uint32_t inSizeY, uint32_t inSizeZ)
-{
-}
-
-
-
-void CommandList::DispatchRays(uint32_t inSizeX, uint32_t inSizeY)
-{
-}
-
-
-
 void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffset)
 {
     auto& command_list = m_CommandLists[m_CurrentCmdListIndex];
@@ -136,7 +92,6 @@ void CommandList::BindToSlot(Buffer& inBuffer, EBindSlot inSlot, uint32_t inOffs
 
     TrackResource(inBuffer);
 }
-
 
 
 void CommandList::BindVertexAndIndexBuffers(Device& inDevice, const Mesh& inMesh)

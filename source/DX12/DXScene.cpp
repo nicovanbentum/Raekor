@@ -10,7 +10,61 @@
 
 namespace Raekor::DX12 {
 
-void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, CommandList& inCmdList)
+void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList)
+{
+    D3D12_RAYTRACING_GEOMETRY_DESC geom = {};
+    geom.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+    geom.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+
+    geom.Triangles.IndexBuffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer))->GetGPUVirtualAddress();
+    geom.Triangles.IndexCount = inMesh.indices.size();
+    geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
+
+    geom.Triangles.VertexBuffer.StartAddress = inDevice.GetBuffer(BufferID(inSkeleton->skinnedVertexBuffer))->GetGPUVirtualAddress();
+    geom.Triangles.VertexBuffer.StrideInBytes = sizeof(Vertex);
+    geom.Triangles.VertexCount = inMesh.positions.size();
+    geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
+    inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE | 
+                   D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE | 
+                   D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
+
+    inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+    inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+    inputs.pGeometryDescs = &geom;
+    inputs.NumDescs = 1;
+
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
+    inDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
+
+    BufferID blas_buffer_id = BufferID(inMesh.BottomLevelAS);
+
+    const BufferID scratch_buffer_id = inDevice.CreateBuffer(Buffer::Desc
+    {
+        .size = prebuild_info.ScratchDataSizeInBytes,
+        .debugName = "SCRATCH_BUFFER_BLAS_RT"
+    });
+
+    Buffer& blas_buffer = inDevice.GetBuffer(blas_buffer_id);
+    Buffer& scratch_buffer = inDevice.GetBuffer(scratch_buffer_id);
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
+    desc.Inputs = inputs;
+    desc.DestAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
+    desc.SourceAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
+    desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();
+
+    inCmdList.TrackResource(blas_buffer);
+    inCmdList.TrackResource(scratch_buffer);
+
+    inCmdList->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
+
+    inDevice.ReleaseBuffer(scratch_buffer_id);
+}
+
+
+void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Mesh& inMesh, Skeleton* inSkeleton, CommandList& inCmdList)
 {
     const auto& vertices = inMesh.GetInterleavedVertices();
     const auto  vertices_size = vertices.size() * sizeof(vertices[0]);
@@ -39,10 +93,13 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
     inputs.pGeometryDescs = &geom;
     inputs.NumDescs = 1;
 
+    if (inSkeleton != nullptr)
+        inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE;
+
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
     inDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
 
-    const auto blas_buffer_id = inDevice.CreateBuffer(Buffer::Desc
+    const BufferID blas_buffer_id = inDevice.CreateBuffer(Buffer::Desc
     {
         .size  = prebuild_info.ResultDataMaxSizeInBytes,
         .usage = Buffer::Usage::ACCELERATION_STRUCTURE,
@@ -51,14 +108,14 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
 
     inMesh.BottomLevelAS = blas_buffer_id.ToIndex();
 
-    const auto scratch_buffer_id = inDevice.CreateBuffer(Buffer::Desc
+    const BufferID scratch_buffer_id = inDevice.CreateBuffer(Buffer::Desc
     {
         .size = prebuild_info.ScratchDataSizeInBytes,
         .debugName = "SCRATCH_BUFFER_BLAS_RT"
     });
 
-    auto& blas_buffer = inDevice.GetBuffer(blas_buffer_id);
-    auto& scratch_buffer = inDevice.GetBuffer(scratch_buffer_id);
+    Buffer& blas_buffer = inDevice.GetBuffer(blas_buffer_id);
+    Buffer& scratch_buffer = inDevice.GetBuffer(scratch_buffer_id);
     
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
     desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();
@@ -68,13 +125,14 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
     inCmdList.TrackResource(blas_buffer);
     inCmdList.TrackResource(scratch_buffer);
         
-    const auto& gpu_index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
-    const auto& gpu_vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
+    const Buffer& gpu_index_buffer = inDevice.GetBuffer(BufferID(inMesh.indexBuffer));
+    const Buffer& gpu_vertex_buffer = inDevice.GetBuffer(BufferID(inMesh.vertexBuffer));
 
     inStagingHeap.StageBuffer(inCmdList, gpu_index_buffer, 0, inMesh.indices.data(), indices_size);
     inStagingHeap.StageBuffer(inCmdList, gpu_vertex_buffer, 0, vertices.data(), vertices_size);
 
-    const auto barriers = std::array {
+    const StaticArray barriers = 
+    {
         CD3DX12_RESOURCE_BARRIER::Transition(gpu_index_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
         CD3DX12_RESOURCE_BARRIER::Transition(gpu_vertex_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
     };
@@ -88,6 +146,23 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
 }
 
 
+void RayTracedScene::UploadSkeleton(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Skeleton& inSkeleton, CommandList& inCmdList)
+{
+    const Buffer& bone_index_buffer = inDevice.GetBuffer(BufferID(inSkeleton.boneIndexBuffer));
+    const Buffer& bone_weights_buffer = inDevice.GetBuffer(BufferID(inSkeleton.boneWeightBuffer));
+
+    inStagingHeap.StageBuffer(inCmdList, bone_index_buffer, 0, inSkeleton.boneIndices.data(), inSkeleton.boneIndices.size() * sizeof(IVec4));
+    inStagingHeap.StageBuffer(inCmdList, bone_weights_buffer, 0, inSkeleton.boneWeights.data(), inSkeleton.boneWeights.size() * sizeof(Vec4));
+
+    const StaticArray barriers =
+    {
+        CD3DX12_RESOURCE_BARRIER::Transition(bone_index_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ),
+        CD3DX12_RESOURCE_BARRIER::Transition(bone_weights_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ)
+    };
+
+    inCmdList->ResourceBarrier(barriers.size(), barriers.data());
+}
+
 
 void RayTracedScene::UploadTexture(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, TextureUpload& inUpload, CommandList& inCmdList)
 {
@@ -97,7 +172,6 @@ void RayTracedScene::UploadTexture(Application* inApp, Device& inDevice, Staging
         inStagingHeap.StageTexture(inCmdList, texture, inUpload.mMip, inUpload.mData.GetPtr());
     }
 }
-
 
 
 void RayTracedScene::UploadMaterial(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, Material& inMaterial, CommandList& inCmdList)
@@ -128,7 +202,6 @@ void RayTracedScene::UploadMaterial(Application* inApp, Device& inDevice, Stagin
     UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.metallicFile), inDevice.GetTexture(TextureID(inMaterial.gpuMetallicMap)));
     UploadMaterialTexture(inApp->GetAssets()->GetAsset<TextureAsset>(inMaterial.roughnessFile), inDevice.GetTexture(TextureID(inMaterial.gpuRoughnessMap)));
 }
-
 
 
 void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
@@ -214,7 +287,6 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
 }
 
 
-
 void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
 {
     static_assert( sizeof(RTLight) == sizeof(Light) );
@@ -236,7 +308,6 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, StagingH
     
     inStagingHeap.StageBuffer(inCmdList, lights_buffer, 0, lights.GetPtr(), lights_buffer.GetSize());
 }
-
 
 
 void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList)
@@ -264,10 +335,14 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
         auto material_index = m_Scene.GetSparseIndex<Material>(mesh.material);
         material_index = material_index == UINT32_MAX ? 0 : material_index;
 
+        auto vertex_buffer = mesh.vertexBuffer;
+        if (Skeleton* skeleton = m_Scene.GetPtr<Skeleton>(entity))
+            vertex_buffer = skeleton->skinnedVertexBuffer;
+
         rt_geometries.emplace_back(RTGeometry
         {
             .mIndexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.indexBuffer)),
-            .mVertexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.vertexBuffer)),
+            .mVertexBuffer = inDevice.GetBindlessHeapIndex(BufferID(vertex_buffer)),
             .mMaterialIndex = material_index,
             .mLocalToWorldTransform = transform->worldTransform,
             .mInvLocalToWorldTransform = glm::inverse(transform->worldTransform)
@@ -287,7 +362,6 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
 }
 
 
-
 void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, StagingHeap& inStagingHeap, CommandList& inCmdList, bool inDisableAlbedo)
 {
     PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
@@ -297,7 +371,8 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
     if (materials.IsEmpty())
         materials = Slice(&Material::Default);
 
-    auto rt_materials = std::vector<RTMaterial>(materials.Length());
+    Array<RTMaterial> rt_materials;
+    rt_materials.resize(materials.Length());
 
     for (const auto& [index, material] : gEnumerate(materials))
     {
@@ -337,20 +412,20 @@ void RayTracedScene::UploadMaterials(Application* inApp, Device& inDevice, Stagi
         .debugName = "RT_MATERIAL_BUFFER"
     });
 
-    const auto& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
+    const Buffer& materials_buffer = inDevice.GetBuffer(m_MaterialsBuffer);
     inStagingHeap.StageBuffer(inCmdList, materials_buffer, 0, rt_materials.data(), materials_buffer.GetSize());
 }
 
 
 BufferID RayTracedScene::GrowBuffer(Device& inDevice, BufferID inBuffer, const Buffer::Desc& inDesc)
 {
-    auto current_buffer = inBuffer;
+    BufferID current_buffer = inBuffer;
 
     if (current_buffer.IsValid())
     {
         if (inDesc.size > inDevice.GetBuffer(current_buffer).GetSize())
         {
-            const auto old_buffer = current_buffer;
+            const BufferID old_buffer = current_buffer;
             current_buffer = inDevice.CreateBuffer(inDesc);
             inDevice.ReleaseBuffer(old_buffer);
         }

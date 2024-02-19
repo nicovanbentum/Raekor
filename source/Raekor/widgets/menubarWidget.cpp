@@ -29,7 +29,7 @@ MenubarWidget::MenubarWidget(Application* inApp) :
 
 void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 {
-	auto& scene = IWidget::GetScene();
+	Scene& scene = IWidget::GetScene();
 
 	// workaround for not being able to create a modal popup from the main menu bar scope
 	// see also https://github.com/ocornut/imgui/issues/331
@@ -52,23 +52,23 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			if (ImGui::MenuItem("New scene"))
 			{
 				scene.Clear();
-				m_Editor->SetActiveEntity(NULL_ENTITY);
+				m_Editor->SetActiveEntity(Entity::Null);
 			}
 
 			if (ImGui::MenuItem("Open scene.."))
 			{
-				std::string filepath = OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0");
+				String filepath = OS::sOpenFileDialog("Scene Files (*.scene)\0*.scene\0");
 
 				if (!filepath.empty())
 				{
 					Timer timer;
 					SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("Raekor Editor - " + filepath).c_str());
 
-					scene.OpenFromFile(filepath, IWidget::GetAssets());
+					scene.OpenFromFile(filepath, IWidget::GetAssets(), m_Editor);
 
 					m_Editor->AddRecentScene(filepath);
 
-					m_Editor->SetActiveEntity(NULL_ENTITY);
+					m_Editor->SetActiveEntity(Entity::Null);
 
 					m_Editor->LogMessage("[Scene] Open from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
 				}
@@ -76,7 +76,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::MenuItem("Save scene..", "CTRL + S"))
 			{
-				std::string filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
+				String filepath = OS::sSaveFileDialog("Scene File (*.scene)\0", "scene");
 
 				if (!filepath.empty())
 				{
@@ -99,9 +99,9 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				{
 					Timer timer;
 
-					m_Editor->SetActiveEntity(NULL_ENTITY);
+					m_Editor->SetActiveEntity(Entity::Null);
 
-					const auto extension = fs::path(filepath).extension();
+					const Path extension = fs::path(filepath).extension();
 
 					Importer* importer = nullptr;
 
@@ -125,19 +125,19 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			{
 				if (ImGui::BeginMenu("Recent scenes"))
 				{
-					for (const auto& scene : m_Editor->GetSettings().mRecentScenes)
+					for (const Path& scene_path : m_Editor->GetSettings().mRecentScenes)
 					{
-						const auto& scene_str = scene.string();
+						const String& scene_str = scene_path.string();
 					
 						if (ImGui::MenuItem(scene_str.c_str()))
 						{
 							if (fs::exists(scene_str))
 							{
-								m_Editor->GetScene()->OpenFromFile(scene_str, IWidget::GetAssets());
+								m_Editor->GetScene()->OpenFromFile(scene_str, IWidget::GetAssets(), m_Editor);
 
 								m_Editor->AddRecentScene(scene_str);
 
-								SDL_SetWindowTitle(m_Editor->GetWindow(), std::string("Raekor Editor - " + scene_str).c_str());
+								SDL_SetWindowTitle(m_Editor->GetWindow(), String("Raekor Editor - " + scene_str).c_str());
 							}
 						}
 					}
@@ -149,22 +149,22 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::MenuItem("Save screenshot.."))
 			{
-				const auto save_path = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
+				const String save_path = OS::sSaveFileDialog("Uncompressed PNG (*.png)\0", "png");
 
 				if (!save_path.empty())
 				{
-					auto& viewport = m_Editor->GetViewport();
+					Viewport& viewport = m_Editor->GetViewport();
 
-					const auto buffer_size = m_Editor->GetRenderInterface()->GetScreenshotBuffer(nullptr);
+					const uint32_t buffer_size = m_Editor->GetRenderInterface()->GetScreenshotBuffer(nullptr);
 
 					if (buffer_size > 0)
 					{
-						auto pixels = std::vector<unsigned char>(buffer_size);
+						Array<unsigned char> pixel_data(buffer_size);
 
-						m_Editor->GetRenderInterface()->GetScreenshotBuffer(pixels.data());
+						m_Editor->GetRenderInterface()->GetScreenshotBuffer(pixel_data.data());
 
 						stbi_flip_vertically_on_write(true);
-						stbi_write_png(save_path.c_str(), viewport.size.x, viewport.size.y, 4, pixels.data(), viewport.size.x * 4);
+						stbi_write_png(save_path.c_str(), viewport.size.x, viewport.size.y, 4, pixel_data.data(), viewport.size.x * 4);
 
 						m_Editor->LogMessage("[System] Screenshot saved to " + save_path);
 					}
@@ -184,10 +184,10 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::MenuItem("Delete", "DELETE"))
 			{
-				if (m_Editor->GetActiveEntity() != NULL_ENTITY)
+				if (m_Editor->GetActiveEntity() != Entity::Null)
 				{
 					IWidget::GetScene().DestroySpatialEntity(m_Editor->GetActiveEntity());
-					m_Editor->SetActiveEntity(NULL_ENTITY);
+					m_Editor->SetActiveEntity(Entity::Null);
 				}
 			}
 
@@ -203,7 +203,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		{
 			ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
 
-			constexpr auto subtext = "CTRL+Click";
+			constexpr const char* subtext = "CTRL+Click";
 
 			if (ImGui::MenuItem(GetTitle().c_str(), subtext, &m_Open));
 
@@ -213,7 +213,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				if (widget.get() == this)
 					continue;
 
-				auto is_visible = widget->IsOpen();
+				bool is_visible = widget->IsOpen();
 
 				if (ImGui::MenuItem(std::string(widget->GetTitle() + "Window").c_str(), subtext, &is_visible))
 				{
@@ -244,7 +244,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		{
 			if (ImGui::MenuItem("Empty", "CTRL+E"))
 			{
-				auto entity = scene.CreateSpatialEntity("Empty");
+				Entity entity = scene.CreateSpatialEntity("Empty");
 				m_Editor->SetActiveEntity(entity);
 			}
 
@@ -252,7 +252,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::MenuItem("Material"))
 			{
-				auto entity = scene.Create();
+				Entity entity = scene.Create();
 				scene.Add<Name>(entity).name = "Material";
 				scene.Add<Material>(entity, Material::Default);
 				m_Editor->SetActiveEntity(entity);
@@ -260,8 +260,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::MenuItem("DDGI Settings"))
 			{
-				auto entity = scene.CreateSpatialEntity("DDGI Settings");
-				auto& ddgi_settings = scene.Add<DDGISceneSettings>(entity);
+				Entity entity = scene.CreateSpatialEntity("DDGI Settings");
+				DDGISceneSettings& ddgi_settings = scene.Add<DDGISceneSettings>(entity);
 				
 				ddgi_settings.FitToScene(scene, scene.Get<Transform>(entity));
 				
@@ -272,12 +272,12 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			{
 				if (ImGui::MenuItem("Sphere"))
 				{
-					auto entity = scene.CreateSpatialEntity("Sphere");
-					auto& mesh = scene.Add<Mesh>(entity);
+					Entity entity = scene.CreateSpatialEntity("Sphere");
+					Mesh& mesh = scene.Add<Mesh>(entity);
 
-					if (m_Editor->GetActiveEntity() != NULL_ENTITY && scene.Has<Node>(m_Editor->GetActiveEntity()))
+					if (m_Editor->GetActiveEntity() != Entity::Null && scene.Has<Node>(m_Editor->GetActiveEntity()))
 					{
-						auto& node = scene.Get<Node>(entity);
+						Node& node = scene.Get<Node>(entity);
 						NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.Get<Node>(m_Editor->GetActiveEntity()), entity, node);
 					}
 
@@ -288,23 +288,23 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 				if (ImGui::MenuItem("Plane"))
 				{
-					auto entity = scene.CreateSpatialEntity("Plane");
-					auto& mesh = scene.Add<Mesh>(entity);
+					Entity entity = scene.CreateSpatialEntity("Plane");
+					Mesh& mesh = scene.Add<Mesh>(entity);
 
-					if (m_Editor->GetActiveEntity() != NULL_ENTITY && scene.Has<Node>(m_Editor->GetActiveEntity()))
+					if (m_Editor->GetActiveEntity() != Entity::Null && scene.Has<Node>(m_Editor->GetActiveEntity()))
 					{
-						auto& node = scene.Get<Node>(entity);
+						Node& node = scene.Get<Node>(entity);
 						NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.Get<Node>(m_Editor->GetActiveEntity()), entity, node);
 					}
 
-					for (const auto& v : UnitPlane::vertices)
+					for (const Vertex& v : UnitPlane::vertices)
 					{
 						mesh.positions.push_back(v.pos);
 						mesh.uvs.push_back(v.uv);
 						mesh.normals.push_back(v.normal);
 					}
 
-					for (const auto& triangle : UnitPlane::indices)
+					for (const Triangle& triangle : UnitPlane::indices)
 					{
 						mesh.indices.push_back(triangle.p1);
 						mesh.indices.push_back(triangle.p2);
@@ -320,23 +320,23 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 				if (ImGui::MenuItem("Cube"))
 				{
-					auto entity = scene.CreateSpatialEntity("Cube");
-					auto& mesh = scene.Add<Mesh>(entity);
+					Entity entity = scene.CreateSpatialEntity("Cube");
+					Mesh& mesh = scene.Add<Mesh>(entity);
 
-					if (m_Editor->GetActiveEntity() != NULL_ENTITY && scene.Has<Node>(m_Editor->GetActiveEntity()))
+					if (m_Editor->GetActiveEntity() != Entity::Null && scene.Has<Node>(m_Editor->GetActiveEntity()))
 					{
-						auto& node = scene.Get<Node>(entity);
+						Node& node = scene.Get<Node>(entity);
 						NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.Get<Node>(m_Editor->GetActiveEntity()), entity, node);
 					}
 
-					for (const auto& v : UnitCube::vertices)
+					for (const Vertex& v : UnitCube::vertices)
 					{
 						mesh.positions.push_back(v.pos);
 						mesh.uvs.push_back(v.uv);
 						mesh.normals.push_back(v.normal);
 					}
 
-					for (const auto& index : UnitCube::indices)
+					for (const Triangle& index : UnitCube::indices)
 					{
 						mesh.indices.push_back(index.p1);
 						mesh.indices.push_back(index.p2);
@@ -358,21 +358,21 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			{
 				if (ImGui::MenuItem("Spot Light"))
 				{
-					auto entity = scene.CreateSpatialEntity("Spot Light");
+					Entity entity = scene.CreateSpatialEntity("Spot Light");
 					scene.Add<Light>(entity).type = LIGHT_TYPE_SPOT;
 					m_Editor->SetActiveEntity(entity);
 				}
 
 				if (ImGui::MenuItem("Point Light"))
 				{
-					auto entity = scene.CreateSpatialEntity("Point Light");
+					Entity entity = scene.CreateSpatialEntity("Point Light");
 					scene.Add<Light>(entity).type = LIGHT_TYPE_POINT;
 					m_Editor->SetActiveEntity(entity);
 				}
 
 				if (ImGui::MenuItem("Directional Light"))
 				{
-					auto entity = scene.CreateSpatialEntity("Directional Light");
+					Entity entity = scene.CreateSpatialEntity("Directional Light");
 					scene.Add<DirectionalLight>(entity);
 					scene.Get<Transform>(entity).rotation.x = 0.1;
 					m_Editor->SetActiveEntity(entity);
@@ -388,7 +388,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 		{
 			if (ImGui::MenuItem("Launch Asset Compiler"))
 			{
-				const auto exe = OS::sGetExecutablePath().string();
+				const String exe = OS::sGetExecutablePath().string();
 				ShellExecute(0, 0, exe.c_str(), "-asset_compiler", 0, SW_SHOW);
 			}
 
@@ -402,8 +402,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		if (ImGui::BeginPopupModal("Import Settings", 0, ImGuiWindowFlags_AlwaysAutoResize))
 		{
-			static auto import_meshes = true;
-			static auto import_lights = false;
+			static bool import_meshes = true;
+			static bool import_lights = false;
 			ImGui::Checkbox("Import Lights", &import_lights);
 			ImGui::Checkbox("Import Meshes", &import_meshes);
 

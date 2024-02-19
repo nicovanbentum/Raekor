@@ -50,7 +50,7 @@ PathTracer::PathTracer() :
 
 	for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
 	{
-		if (mesh.material != NULL_ENTITY && ( mesh.positions.size() > 0 && mesh.indices.size() > 0 ))
+		if (mesh.material != Entity::Null && ( mesh.positions.size() > 0 && mesh.indices.size() > 0 ))
 		{
 			auto component = m_Renderer.CreateBLAS(mesh, m_Scene.Get<Material>(mesh.material));
 			m_Scene.Add<VK::RTGeometry>(entity, component);
@@ -183,7 +183,7 @@ void PathTracer::OnEvent(const SDL_Event& inEvent)
 
 	if (!ImGui::GetIO().WantCaptureMouse)
 	{
-		if (CameraController::OnEvent(m_Viewport.GetCamera(), inEvent))
+		if (EditorCameraController::OnEvent(m_Viewport.GetCamera(), inEvent))
 			m_Renderer.ResetAccumulation();
 	}
 

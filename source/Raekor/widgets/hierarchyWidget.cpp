@@ -69,7 +69,7 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity, Entity& in
 	bool opened = ImGui::TreeNodeEx(name.name.c_str(), tree_flags);
 
 	if (ImGui::IsItemClicked())
-		m_Editor->SetActiveEntity(inActive == inEntity ? NULL_ENTITY : inEntity);
+		m_Editor->SetActiveEntity(inActive == inEntity ? Entity::Null : inEntity);
 
 	DropTargetNode(inScene, inEntity);
 
@@ -88,7 +88,7 @@ void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity, Entity&
 	ImGui::SameLine();
 
 	if (ImGui::Selectable(name.name.c_str(), inEntity == inActive))
-		m_Editor->SetActiveEntity(inActive == inEntity ? NULL_ENTITY : inEntity);
+		m_Editor->SetActiveEntity(inActive == inEntity ? Entity::Null : inEntity);
 
 	ImGui::PopID();
 
@@ -116,7 +116,7 @@ void HierarchyWidget::DropTargetNode(Scene& inScene, Entity inEntity)
 			{
 				bool child_is_parent = false;
 
-				for (auto parent = node.parent; parent != NULL_ENTITY; parent = inScene.Get<Node>(parent).parent)
+				for (auto parent = node.parent; parent != Entity::Null; parent = inScene.Get<Node>(parent).parent)
 				{
 					if (child == parent)
 					{
@@ -152,7 +152,7 @@ void HierarchyWidget::DropTargetWindow(Scene& inScene)
 			transform.Decompose();
 
 			NodeSystem::sRemove(inScene, node);
-			node.parent = NULL_ENTITY;
+			node.parent = Entity::Null;
 		}
 
 		ImGui::EndDragDropTarget();
@@ -166,7 +166,7 @@ void HierarchyWidget::DrawFamily(Scene& inScene, Entity inEntity, Entity& inActi
 
 	if (node.HasChildren())
 	{
-		for (auto it = node.firstChild; it != NULL_ENTITY; it = inScene.Get<Node>(it).nextSibling)
+		for (auto it = node.firstChild; it != Entity::Null; it = inScene.Get<Node>(it).nextSibling)
 		{
 			const auto& child = inScene.Get<Node>(it);
 

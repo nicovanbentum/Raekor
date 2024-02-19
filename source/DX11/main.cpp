@@ -591,7 +591,7 @@ public:
         ImGui_ImplSDL2_ProcessEvent(&inEvent);
 
         if (!ImGui::GetIO().WantCaptureMouse)
-            CameraController::OnEvent(m_Viewport.GetCamera(), inEvent);
+            EditorCameraController::OnEvent(m_Viewport.GetCamera(), inEvent);
 
         if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
         {

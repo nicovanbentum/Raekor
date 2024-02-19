@@ -86,14 +86,14 @@ struct SCRIPT_INTERFACE Node
 {
 	RTTI_DECLARE_TYPE(Node);
 
-	Entity parent = NULL_ENTITY;
-	Entity firstChild = NULL_ENTITY;
-	Entity prevSibling = NULL_ENTITY;
-	Entity nextSibling = NULL_ENTITY;
+	Entity parent = Entity::Null;
+	Entity firstChild = Entity::Null;
+	Entity prevSibling = Entity::Null;
+	Entity nextSibling = Entity::Null;
 
-	bool IsRoot() const { return parent == NULL_ENTITY; }
-	bool HasChildren() const { return firstChild != NULL_ENTITY; }
-	bool IsConnected() const { return firstChild != NULL_ENTITY && parent != NULL_ENTITY; }
+	bool IsRoot() const { return parent == Entity::Null; }
+	bool HasChildren() const { return firstChild != Entity::Null; }
+	bool IsConnected() const { return firstChild != Entity::Null && parent != Entity::Null; }
 };
 
 
@@ -140,7 +140,7 @@ struct SCRIPT_INTERFACE Mesh
 
 	std::array<glm::vec3, 2> aabb;
 
-	Entity material = NULL_ENTITY;
+	Entity material = Entity::Null;
 
 	float mLODFade = 0.0f;
 
@@ -188,33 +188,30 @@ struct SoftBody
 	void CreateFromMesh(const Mesh& inMesh) { /* todo impl */ }
 };
 
-struct Bone
-{
-	RTTI_DECLARE_TYPE(Bone);
-
-	uint32_t index;
-	std::string name;
-	std::vector<Bone> children;
-};
 
 
 struct Skeleton
 {
 	RTTI_DECLARE_TYPE(Skeleton);
 
-	glm::mat4 inverseGlobalTransform;
-	std::vector<glm::vec4> boneWeights; // ptr
-	std::vector<glm::ivec4> boneIndices; // ptr
-	std::vector<glm::mat4> boneOffsetMatrices; // ptr
-	std::vector<glm::mat4> boneTransformMatrices; // ptr
-	std::vector<glm::mat4> boneWSTransformMatrices; // ptr
+	struct Bone
+	{
+		RTTI_DECLARE_TYPE(Skeleton::Bone);
 
-	Bone boneHierarchy;
-	std::vector<Animation> animations; // ptr
+		uint32_t index;
+		std::string name;
+		std::vector<Bone> children;
+	};
+	
+	Bone rootBone;
+	Entity animation;
 
-	void DebugDraw(const Bone& inBone);
-	void UpdateFromAnimation(Animation& animation, float TimeInSeconds);
-	void UpdateBoneTransforms(const Animation& animation, float animationTime, Bone& pNode, const glm::mat4& parentTransform);
+	Mat4x4 inverseGlobalTransform;
+	std::vector<Vec4> boneWeights; // ptr
+	std::vector<IVec4> boneIndices; // ptr
+	std::vector<Mat4x4> boneOffsetMatrices; // ptr
+	std::vector<Mat4x4> boneTransformMatrices; // ptr
+	std::vector<Mat4x4> boneWSTransformMatrices; // ptr
 
 	// Skinning GPU buffers
 	uint32_t boneIndexBuffer;
@@ -222,10 +219,9 @@ struct Skeleton
 	uint32_t boneTransformsBuffer;
 	uint32_t skinnedVertexBuffer;
 
-	// debug settings
-	bool autoPlay = true;
-	float currentTime = 0.0f;
-	uint32_t animationIndex = 0;
+	void DebugDraw(const Bone& inBone, const Mat4x4& inTransform);
+	void UpdateFromAnimation(Animation& animation);
+	void UpdateBoneTransform(const Animation& inAnimation, Bone& inBone, const Mat4x4& inTransform);
 };
 
 
@@ -233,12 +229,48 @@ struct SCRIPT_INTERFACE Material
 {
 	RTTI_DECLARE_TYPE(Material);
 
+	struct Texture 
+	{
+		RTTI_DECLARE_TYPE(Material::Texture);
+
+		uint8_t swizzle;
+		uint32_t gpuMap;
+		String filepath;
+	};
+
+	enum TextureIndex
+	{
+		ALBEDO_INDEX, 
+		NORMALS_INDEX, 
+		EMISSIVE_INDEX, 
+		METALLIC_INDEX, 
+		ROUGHNESS_INDEX,
+		TEXTURE_INDEX_COUNT
+	};
+
 	// properties
-	glm::vec4 albedo = glm::vec4(1.0f);
-	glm::vec3 emissive = glm::vec3(0.0f);
+	Vec4 albedo = Vec4(1.0f);
+	Vec3 emissive = Vec3(0.0f);
 	float metallic = 0.0f;
 	float roughness = 1.0f;
 	bool isTransparent = false;
+
+	StaticArray<Texture, TEXTURE_INDEX_COUNT> textures;
+
+	Texture& GetAlbedoTexture() { return textures[ALBEDO_INDEX]; }
+	const Texture& GetAlbedoTexture() const { return textures[ALBEDO_INDEX]; }
+
+	Texture& GetNormalsTexture() { return textures[NORMALS_INDEX]; }
+	const Texture& GetNormalsTexture() const { return textures[NORMALS_INDEX]; }
+
+	Texture& GetEmissiveTexture() { return textures[EMISSIVE_INDEX]; }
+	const Texture& GetEmissiveTexture() const { return textures[EMISSIVE_INDEX]; }
+
+	Texture& GetMetallicTexture() { return textures[METALLIC_INDEX]; }
+	const Texture& GetMetallicTexture() const { return textures[METALLIC_INDEX]; }
+
+	Texture& GetRoughnessTexture() { return textures[ROUGHNESS_INDEX]; }
+	const Texture& GetRoughnessTexture() const { return textures[ROUGHNESS_INDEX]; }
 
 	// texture file paths
 	std::string albedoFile; // ptr
@@ -258,6 +290,8 @@ struct SCRIPT_INTERFACE Material
 	uint8_t gpuEmissiveMapSwizzle = TEXTURE_SWIZZLE_RGBA;
 	uint8_t gpuMetallicMapSwizzle = TEXTURE_SWIZZLE_BBBB; // assume GLTF by default, TODO: make changes in FbxImporter?
 	uint8_t gpuRoughnessMapSwizzle = TEXTURE_SWIZZLE_GGGG; // assume GLTF by default, TODO: make changes in FbxImporter?
+
+	bool IsLoadedNew() const { for (const Texture& texture : textures) if (texture.gpuMap == 0) return false; return true; }
 
 	bool IsLoaded() const { return gpuAlbedoMap != 0 && gpuNormalMap != 0 && gpuMetallicMap != 0 && gpuRoughnessMap != 0; }
 
@@ -309,7 +343,8 @@ static constexpr auto Components = std::make_tuple(
 	ComponentDescription<BoxCollider>       {"Box Collider"},
 	ComponentDescription<Skeleton>          {"Skeleton"},
 	ComponentDescription<NativeScript>      {"Native Script"},
-	ComponentDescription<DDGISceneSettings> {"DDGI Scene Settings"}
+	ComponentDescription<DDGISceneSettings> {"DDGI Scene Settings"},
+	ComponentDescription<Animation>			{"Animation"}
 );
 
 void gRegisterComponentTypes();
