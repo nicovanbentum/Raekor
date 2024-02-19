@@ -32,10 +32,23 @@ static constexpr uint32_t sMaxRootSignatureSize = 64 * sizeof(DWORD);
 static constexpr uint32_t sMaxRootConstantsSize = sMaxRootSignatureSize - ( EBindSlot::Count * 2 * sizeof(DWORD) );
 
 
-inline void gThrowIfFailed(HRESULT inResult)
+inline void gThrowIfFailed(HRESULT inResult, ID3D12Device* inDevice = nullptr)
 {
     if (FAILED(inResult))
+    {
+        if (inResult == 0x887a0005 && inDevice) // device removed
+        {
+            switch (inDevice->GetDeviceRemovedReason())
+            {
+                case DXGI_ERROR_DEVICE_HUNG:            std::cout << std::format("DXGI_ERROR_DEVICE_HUNG");           break;
+                case DXGI_ERROR_DEVICE_REMOVED:         std::cout << std::format("DXGI_ERROR_DEVICE_REMOVED");        break;
+                case DXGI_ERROR_DEVICE_RESET:           std::cout << std::format("DXGI_ERROR_DEVICE_RESET");          break;
+                case DXGI_ERROR_DRIVER_INTERNAL_ERROR:  std::cout << std::format("DXGI_ERROR_DRIVER_INTERNAL_ERROR"); break;
+                case DXGI_ERROR_INVALID_CALL:           std::cout << std::format("DXGI_ERROR_INVALID_CALL");          break;
+            }
+        }
         __debugbreak();
+    }
 }
 
 

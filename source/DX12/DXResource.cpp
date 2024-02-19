@@ -140,6 +140,9 @@ D3D12_UNORDERED_ACCESS_VIEW_DESC Buffer::Desc::ToUAVDesc() const
     // defined both a stride and format, bad time!
     assert((stride > 0 && format != DXGI_FORMAT_UNKNOWN) == false);
 
+    // defined neither a stride or a format, bad time!
+    assert(stride > 0 || format != DXGI_FORMAT_UNKNOWN);
+
     return uav_desc;
 }
 

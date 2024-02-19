@@ -118,9 +118,9 @@ private:
     float m_Mass = 0.5f;
     float m_Speed = 1.0f;
     float m_JumpHeight = 2.0f;
-    float m_PlayerHeight = 1.5f;
-    float m_CameraHeight = 1.0f;
-    float m_CameraDistance = 2.0f;
+    float m_PlayerHeight = 1.75f;
+    float m_CameraHeight = 0.275f;
+    float m_CameraDistance = 1.0f;
 
 private:
     float m_Gravity = 9.81f;

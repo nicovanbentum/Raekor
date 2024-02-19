@@ -175,6 +175,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     static bool do_stress_test = OS::sCheckCommandLineOption("-stress_test");
 
+    bool recompiled = false;
+
     if (m_ShouldResize || need_recompile || (do_stress_test && m_FrameCounter > 0))
     {
         // Make sure nothing is using render targets anymore
@@ -186,10 +188,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         // Recompile the renderer, super overkill. TODO: pls fix
         Recompile(inDevice, inScene, inStagingHeap, inRenderInterface);
 
-        // Unflag
+        // Flag / Unflag
+        recompiled = true;
         m_ShouldResize = false;
-
-        return;
     }
 
     // At this point in the frame we really need the previous frame's present job to have finished
@@ -286,15 +287,17 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
 
     static const auto& upload_tlas = g_CVars.Create("upload_scene", 1, true);
     static const auto& update_skinning = g_CVars.Create("update_skinning", 1, true);
-
-
     // Start recording pending scene changes to the copy cmd list
     CommandList& copy_cmd_list = GetBackBufferData().mCopyCmdList;
     copy_cmd_list.Reset();
 
     // upload vertex buffers, index buffers, and BLAS for meshes
-    for (Entity entity : m_PendingMeshUploads)
-        inScene.UploadMesh(inApp, inDevice, inStagingHeap, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+    {
+        PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MESHES");
+
+        for (Entity entity : m_PendingMeshUploads)
+            inScene.UploadMesh(inApp, inDevice, inStagingHeap, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
+    }
     
     // upload skeleton bone attributes and bone transform buffers
     for (Entity entity : m_PendingSkeletonUploads)
@@ -303,17 +306,27 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // update bottom level AS for entities that have both a mesh and skeleton
     if (update_skinning)
     {
+        PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "BUILD BLASes");
+        
         for (Entity entity : m_PendingBlasUpdates)
             inScene.UpdateBLAS(inApp, inDevice, inStagingHeap, inScene->Get<Mesh>(entity), inScene->GetPtr<Skeleton>(entity), copy_cmd_list);
     }
 
     // upload pixel data for texture assets 
-    for (TextureUpload& texture_upload : m_PendingTextureUploads)
-        inScene.UploadTexture(inApp, inDevice, inStagingHeap, texture_upload, copy_cmd_list);
+    {
+        PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD TEXTURES");
+
+        for (TextureUpload& texture_upload : m_PendingTextureUploads)
+            inScene.UploadTexture(inApp, inDevice, inStagingHeap, texture_upload, copy_cmd_list);
+    }
 
     // upload pixel data for textures that are associated with materials
-    for (Entity entity : m_PendingMaterialUploads)
-        inScene.UploadMaterial(inApp, inDevice, inStagingHeap, inScene->Get<Material>(entity), copy_cmd_list);
+    {
+        PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( copy_cmd_list ), PIX_COLOR(0, 255, 0), "UPLOAD MATERIALS");
+
+        for (Entity entity : m_PendingMaterialUploads)
+            inScene.UploadMaterial(inApp, inDevice, inStagingHeap, inScene->Get<Material>(entity), copy_cmd_list);
+    }
 
     // clear all pending uploads for this frame, memory will be re-used
     m_PendingBlasUpdates.clear();
@@ -342,8 +355,9 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     // Record the entire frame into the direct cmd list
     m_RenderGraph.Execute(inDevice, direct_cmd_list, m_FrameCounter);
 
-    //Record commands to render ImGui to the backbuffer
-    if (inApp->GetSettings().mShowUI)
+    // Record commands to render ImGui to the backbuffer
+    // skip if we recompiled, ImGui's descriptor tables will be invalid for 1 frame
+    if (inApp->GetSettings().mShowUI && !recompiled)
         RenderImGui(m_RenderGraph, inDevice, direct_cmd_list, GetBackBufferData().mBackBuffer);
 
     direct_cmd_list.Close();
