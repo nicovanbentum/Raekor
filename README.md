@@ -31,17 +31,17 @@ This project requires C++ 20.
 * Simple CVar system
 * JoltPhysics Integration
 * Hotloadable C++ scripts (WIP)
+* Compute based Skinning & Animation (OpenGL & DX12 Only)
 * Custom Scene Format
     - GLTF / FBX / OBJ import (cgltf, ufbx, assimp)
     - RTTI-based Serialisation
     - Entity Component System
-    - S3TC DXT5 Texture conversion
+    - Multi-threaded Asset Loading
 
 
 ### Editor
 This project requires OpenGL 4.6 for direct state access functions and shader include directives. 
 
-* Compute based Skinning & Animation (temporarily broken)
 * Deferred PBR Renderer
     - Bloom
     - ACES Tonemapping
@@ -77,6 +77,7 @@ Older versions of this project contained rasterized experiments with parallel co
 
 Basic RenderGraph architecture (automatically creates resource views and handles resource barriers) on top of DirectX 12. Heavily relies on shader model 6_6 bindless. Lots of ray tracing. Implements IEditor, so can edit the scene in real-time. The rendergraph currently features:
 
+- Skinning Pass
 - GBuffer Pass
 - Path Trace Pass (For comparisons)
 - Ray Traced Shadows (denoiser WIP)
