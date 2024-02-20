@@ -101,7 +101,7 @@ private:
 	/* Name of the animation. */
 	std::string m_Name;
 	/* Runtime state of the animation. */
-	bool m_IsPlaying = true;
+	bool m_IsPlaying = false;
 	/* Elapsed time in milliseconds. */
 	float m_RunningTime = 0.0f;
 	/* Total duration of the animation.*/

@@ -441,6 +441,8 @@ void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript, Applicat
 		inScript.script->m_DebugRenderer = &g_DebugRenderer;
 
 		inScript.script->OnBind();
+
+		std::clog << std::format("Attached {} to entity {} \n", inScript.script->GetRTTI().GetTypeName(), uint32_t(inEntity));
 	}
 	else
 		std::clog << std::format("Failed to bind script {} to entity {} \n", inScript.file, uint32_t(inEntity)) << '\n';
