@@ -23,6 +23,7 @@ public:
 	void SetRelativeMouseMode(bool inEnabled);
 
 private:
+	bool relMouseMode = false;
 	const uint8_t* keyboardState;
 };
 

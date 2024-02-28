@@ -63,7 +63,7 @@ bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 			NodeSystem::sAppend(m_Scene, root_entity, root_node, entity, node);
 	}
 
-	std::cout << "[GLTF Import] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+	std::cout << "[GLTF] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
 
 	// Load the converted textures from disk and upload them to the GPU
 	if (inAssets != nullptr)
@@ -130,8 +130,8 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 		}
 
 		// TODO: ANIMATION
-		/*if (inNode->bone)
-			ConvertBones(entity, inNode->bone);*/
+		//if (inNode->bone)
+		//	ConvertBones(inEntity, inNode->bone);
 	}
 
 	for (const auto& child : inNode->children)

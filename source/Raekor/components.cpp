@@ -431,6 +431,10 @@ void Skeleton::UpdateBoneTransform(const Animation& animation, Bone& inBone, con
 		boneWSTransformMatrices[inBone.index] = global_transform;
 		boneTransformMatrices[inBone.index] = global_transform * boneOffsetMatrices[inBone.index];
 	}
+	else if (inBone.index != rootBone.index && !has_animation)
+	{
+
+	}
 
 	for (Bone& child_bone : inBone.children)
 		UpdateBoneTransform(animation, child_bone, global_transform);

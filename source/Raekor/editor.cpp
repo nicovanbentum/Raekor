@@ -305,7 +305,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 			case SDLK_LALT:
 			case SDLK_RALT:
 			{
-				SDL_SetRelativeMouseMode(SDL_bool(!SDL_GetRelativeMouseMode()));
+				g_Input->SetRelativeMouseMode(!g_Input->IsRelativeMouseMode());
 			} break;
 
 			case SDLK_ESCAPE:
@@ -334,6 +334,35 @@ void IEditor::OnEvent(const SDL_Event& event)
 				}
 
 				g_Input->SetRelativeMouseMode(false);
+
+			} break;
+
+			case SDLK_F5:
+			{
+				GameState state = GetGameState();
+				SetGameState(GAME_RUNNING);
+
+				m_Physics.SetState(Physics::Stepping);
+
+				if (state != GAME_RUNNING)
+				{
+					for (auto [entity, script] : m_Scene.Each<NativeScript>())
+					{
+						if (script.script)
+						{
+							try
+							{
+								script.script->OnStart();
+							}
+							catch (std::exception& e)
+							{
+								std::cout << e.what() << '\n';
+							}
+						}
+					}
+				}
+
+				g_Input->SetRelativeMouseMode(true);
 
 			} break;
 		}

@@ -30,17 +30,8 @@ public:
         m_CurrentAnimationEntity = inEntity;
     }
 
-    void OnStart() override
+    void OnStart() override 
     {
-        m_CameraOffset = Vec3(-m_CameraDistance, m_CameraHeight, 0.0f);
-
-        Transform& transform = GetComponent<Transform>();
-        Vec3 camera_position = transform.position;
-        
-        camera_position += m_CameraOffset;
-        camera_position += Vec3(0, m_PlayerHeight, 0);
-
-        m_Camera->SetPosition(camera_position);
     }
 
     void OnUpdate(float inDeltaTime) override
@@ -50,7 +41,8 @@ public:
         /// HANDLE INPUT
         
         // update player rotation incase any mouse input events changed it
-        Vec3 right_vector = glm::normalize(glm::cross(m_CameraDirection, Vec3(0.0f, 1.0f, 0.0f)));
+        Vec3 cam_dir = Vec3(m_CameraDirection.x, 0.0f, m_CameraDirection.z);
+        Vec3 right_vector = glm::normalize(glm::cross(cam_dir, Vec3(0.0f, 1.0f, 0.0f)));
 
         bool moved = false;
         Vec3 move_dir = Vec3(0, 0, 0);
@@ -58,12 +50,12 @@ public:
         if (m_Input->IsKeyPressed(SDL_SCANCODE_W))
         {
             moved = true;
-            move_dir += m_CameraDirection;
+            move_dir += cam_dir;
         }
         if (m_Input->IsKeyPressed(SDL_SCANCODE_S))
         {
             moved = true;
-            move_dir -= m_CameraDirection;
+            move_dir -= cam_dir;
         }
         if (m_Input->IsKeyPressed(SDL_SCANCODE_A))
         {
@@ -76,10 +68,10 @@ public:
             move_dir += right_vector;
         }
 
-        if (moved) 
+        if (moved && glm::any(glm::epsilonNotEqual(move_dir, Vec3(0,0,0), FLT_EPSILON)))
         {
             m_PlayerDirection = glm::normalize(move_dir);
-            m_Velocity += m_PlayerDirection * ( m_Speed / m_Mass ) * inDeltaTime;
+            m_Velocity += m_PlayerDirection * ( glm::max(m_Speed, 0.0001f) / m_Mass ) * inDeltaTime;
         }
         
         player_transform.rotation = glm::quatLookAt(-m_PlayerDirection, Vec3(0.0f, 1.0f, 0.0f));
@@ -131,6 +123,9 @@ public:
 
     void OnEvent(const SDL_Event& inEvent) 
     {
+        if (!m_Input->IsRelativeMouseMode())
+            return;
+
         if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat)
         {
             switch (inEvent.key.keysym.sym)
@@ -142,12 +137,12 @@ public:
             }
         }
 
-
-
         if (inEvent.type == SDL_MOUSEMOTION)
         {
             Vec2 motion = Vec2(inEvent.motion.xrel, inEvent.motion.yrel);
             m_CameraDirection = glm::toMat3(glm::angleAxis(-2.0f * (motion.x / 1920.0f ), Vec3(0.0f, 1.0f, 0.0f))) * m_CameraDirection;
+            // m_CameraDirection = glm::toMat3(glm::angleAxis(2.0f * (motion.y / 1080.0f), Vec3(0.0f, 0.0f, 1.0f))) * m_CameraDirection;
+            m_CameraDirection = glm::normalize(m_CameraDirection);
         }
     }
 
@@ -161,7 +156,8 @@ private:
     Entity m_JumpAnimationEntity = Entity::Null;
     Entity m_CurrentAnimationEntity = Entity::Null;
 
-    float m_Mass = 0.5f;
+    float m_Test = 0.2f;
+    float m_Mass = 0.3f;
     float m_Speed = 1.5f;
     float m_JumpHeight = 2.0f;
     float m_PlayerHeight = 2.775f;
@@ -187,6 +183,7 @@ RTTI_DEFINE_TYPE(CharacterControllerScript)
     RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(Entity), "Idle Animation", m_IdleAnimationEntity);
     RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(Entity), "Jump Animation", m_JumpAnimationEntity);
 
+    RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Test", m_Test);
     RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Mass", m_Mass);
     RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Run Speed", m_Speed);
     RTTI_DEFINE_SCRIPT_MEMBER(CharacterControllerScript, SERIALIZE_ALL, &RTTI_OF(float), "Jump Height", m_JumpHeight);

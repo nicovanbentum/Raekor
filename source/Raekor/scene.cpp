@@ -293,10 +293,14 @@ Entity Scene::Clone(Entity inEntity)
 	if (Has<Mesh>(copy))
 	{
 		Mesh& mesh = Get<Mesh>(copy);
-		m_Renderer->UploadMeshBuffers(copy, Get<Mesh>(copy));
 
-		if (Has<Skeleton>(copy))
-			m_Renderer->UploadSkeletonBuffers(copy, Get<Skeleton>(copy), mesh);
+		if (m_Renderer)
+		{
+			m_Renderer->UploadMeshBuffers(copy, Get<Mesh>(copy));
+
+			if (Has<Skeleton>(copy))
+				m_Renderer->UploadSkeletonBuffers(copy, Get<Skeleton>(copy), mesh);
+		}
 	}
 	
 	if (Has<Node>(copy))
@@ -442,7 +446,7 @@ void Scene::BindScriptToEntity(Entity inEntity, NativeScript& inScript, Applicat
 
 		inScript.script->OnBind();
 
-		std::clog << std::format("Attached {} to entity {} \n", inScript.script->GetRTTI().GetTypeName(), uint32_t(inEntity));
+		std::clog << std::format("[Scene] Attached {} to entity {} \n", inScript.script->GetRTTI().GetTypeName(), uint32_t(inEntity));
 	}
 	else
 		std::clog << std::format("Failed to bind script {} to entity {} \n", inScript.file, uint32_t(inEntity)) << '\n';
@@ -567,6 +571,10 @@ void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 	// Copy over skeleton
 	if (m_ImportedScene.Has<Skeleton>(inEntity))
 		ConvertBones(new_entity, m_ImportedScene.Get<Skeleton>(inEntity));
+
+	// Copy over animations
+	if (m_ImportedScene.Has<Animation>(inEntity))
+		m_Scene.Add<Animation>(new_entity, m_Scene.Get<Animation>(inEntity));
 
 	// recurse into children
 	auto child = m_ImportedScene.Get<Node>(inEntity).firstChild;

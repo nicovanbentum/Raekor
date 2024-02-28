@@ -464,6 +464,7 @@ struct BloomRootConstants
     uint mDstTexture;
     uint mDstMipLevel;
     uint2 mDispatchSize;
+    float2 mSrcSizeRcp;
 };
 
 

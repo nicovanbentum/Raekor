@@ -425,8 +425,11 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 
 			g_ThreadPool.QueueJob([this, index, &file]()
 			{
+				fs::create_directories(Path(file.mCachePath).parent_path());
+
 				const auto clang_exe = "dependencies\\clang\\clang.exe";
-				const auto command = std::format("{} -gcodeview -I source\\Raekor\\ {} -shared -o {}", clang_exe, file.mAssetPath, file.mCachePath);
+				const auto includes = "-I source\\Raekor\\ -I dependencies\\cgltf -I dependencies\\glm\\glm -I dependencies\\JoltPhysics -I build\\vcpkg_installed\\x64-windows-static\\include";
+				const auto command = std::format("{} -gcodeview {} {} -shared -std=c++20 -o {}", clang_exe, includes, file.mAssetPath, file.mCachePath);
 
 				OS::sCreateProcess(command.c_str());
 

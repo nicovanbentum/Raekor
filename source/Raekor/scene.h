@@ -41,18 +41,20 @@ public:
 	void UpdateAnimations(float inDeltaTime);
 	void UpdateNativeScripts(float inDeltaTime);
 
+	// debug stuff
 	void RenderDebugShapes(Entity inEntity) const;
 
-	// Entity operations
+	// entity operations
 	Entity Clone(Entity inEntity);
 
-	/* Loads materials from disk in parallel, is used for both importing and scene loading. */
+	// load materials from disk in parallel, is used for both importing and scene loading.
 	void LoadMaterialTextures(Assets& ioAssets, const Slice<Entity>& inMaterials);
 
 	// save Scene to disk
 	void SaveToFile(const std::string& inFile, Assets& ioAssets, Application* inApp = nullptr);
 	void OpenFromFile(const std::string& inFile, Assets& ioAssets, Application* inApp = nullptr);
 
+	// script utilities
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);
 
 	void Optimize();

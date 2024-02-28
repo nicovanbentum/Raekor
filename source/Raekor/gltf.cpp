@@ -32,7 +32,7 @@ bool handle_cgltf_error(cgltf_result result, const char* operation)
 	if (result == cgltf_result_success)
 		return true;
 
-	std::cout << std::format("[GLTF Import] {} failed with value: {}", operation, cgltf_result_strings[result]);
+	std::cout << std::format("[GLTF] {} failed with value: {}", operation, cgltf_result_strings[result]);
 	return false;
 }
 
@@ -63,7 +63,7 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	if (!handle_cgltf_error(cgltf_validate(m_GltfData), "Validate"))
 		return false;
 
-	std::cout << "[GLTF Import] File load took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+	std::cout << "[GLTF] File load took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
 
 	/*
 	* PARSE MATERIALS
@@ -150,7 +150,7 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 			NodeSystem::sAppend(m_Scene, root_entity, root_node, entity, node);
 	}
 
-	std::cout << "[GLTF Import] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
+	std::cout << "[GLTF] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
 
 	// Load the converted textures from disk and upload them to the GPU
 	if (inAssets != nullptr)

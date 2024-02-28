@@ -910,6 +910,16 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
         },
         [&inRenderGraph, &inDevice, inPipeline](BloomDownscaleData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
         {
+            uint32_t nr_of_rows = 0u;
+            uint64_t row_size = 0ull, total_size = 0ull;
+            D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+
+            auto desc = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mFromTextureSRV))->GetDesc();
+            inDevice->GetCopyableFootprints(&desc, inData.mFromTextureMip, 1, 0, &footprint, &nr_of_rows, &row_size, &total_size);
+
+            const auto& src_texture = inDevice.GetTexture(inResources.GetTextureView(inData.mFromTextureSRV));
+            const auto src_mip_size = UVec2(src_texture.GetWidth(), src_texture.GetHeight());
+
             const auto dest_viewport = CD3DX12_VIEWPORT(inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mToTextureUAV)), inData.mToTextureMip);
             
             inCmdList.PushComputeConstants(BloomRootConstants
@@ -918,7 +928,8 @@ const BloomData& AddBloomPass(RenderGraph& inRenderGraph, Device& inDevice, Rend
                 .mSrcMipLevel  = inData.mFromTextureMip,
                 .mDstTexture   = inDevice.GetBindlessHeapIndex(inResources.GetTextureView(inData.mToTextureUAV)),
                 .mDstMipLevel  = inData.mToTextureMip,
-                .mDispatchSize = UVec2(dest_viewport.Width, dest_viewport.Height)
+                .mDispatchSize = UVec2(dest_viewport.Width, dest_viewport.Height),
+                .mSrcSizeRcp   = Vec2(1.0f / (src_mip_size.x >> inData.mFromTextureMip), 1.0f / (src_mip_size.y >> inData.mFromTextureMip))
             });
 
             inCmdList->SetPipelineState(inPipeline);

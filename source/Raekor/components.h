@@ -13,7 +13,7 @@ class ScriptAsset;
 class TextureAsset;
 class INativeScript;
 
-struct SCRIPT_INTERFACE Name
+struct Name
 {
 	RTTI_DECLARE_TYPE(Name);
 
@@ -25,7 +25,7 @@ struct SCRIPT_INTERFACE Name
 };
 
 
-struct SCRIPT_INTERFACE Transform
+struct Transform
 {
 	RTTI_DECLARE_TYPE(Transform);
 
@@ -47,7 +47,7 @@ struct SCRIPT_INTERFACE Transform
 };
 
 
-struct SCRIPT_INTERFACE DirectionalLight
+struct DirectionalLight
 {
 	RTTI_DECLARE_TYPE(DirectionalLight);
 
@@ -70,7 +70,7 @@ enum ELightType
 RTTI_DECLARE_ENUM(ELightType);
 
 
-struct SCRIPT_INTERFACE Light
+struct Light
 {
 	RTTI_DECLARE_TYPE(Light);
 
@@ -82,7 +82,7 @@ struct SCRIPT_INTERFACE Light
 };
 
 
-struct SCRIPT_INTERFACE Node
+struct Node
 {
 	RTTI_DECLARE_TYPE(Node);
 
@@ -118,7 +118,7 @@ struct Meshlet
 };
 
 
-struct SCRIPT_INTERFACE Mesh
+struct Mesh
 {
 	RTTI_DECLARE_TYPE(Mesh);
 
@@ -225,7 +225,7 @@ struct Skeleton
 };
 
 
-struct SCRIPT_INTERFACE Material
+struct Material
 {
 	RTTI_DECLARE_TYPE(Material);
 

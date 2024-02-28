@@ -130,18 +130,15 @@ std::string TextureAsset::sConvert(const std::string& filepath)
 }
 
 
-bool TextureAsset::Load(const std::string& filepath)
+bool TextureAsset::Load()
 {
-	if (filepath.empty() || !fs::exists(filepath) || !fs::is_regular_file(filepath))
-		return false;
-
-	auto file = std::ifstream(filepath, std::ios::binary);
+	auto file = std::ifstream(m_Path, std::ios::binary);
 
 	//constexpr size_t twoMegabytes = 2097152;
 	//std::vector<char> scratch(twoMegabytes);
 	//file.rdbuf()->pubsetbuf(scratch.data(), scratch.size());
 
-	m_Data.resize(fs::file_size(filepath));
+	m_Data.resize(fs::file_size(m_Path));
 	file.read(m_Data.data(), m_Data.size());
 
 	DWORD magic_number;
@@ -149,7 +146,7 @@ bool TextureAsset::Load(const std::string& filepath)
 
 	if (magic_number != DDS_MAGIC)
 	{
-		std::cerr << "File " << filepath << " not a DDS file!\n";;
+		std::cerr << "File " << m_Path << " not a DDS file!\n";;
 		return false;
 	}
 
@@ -210,6 +207,11 @@ ScriptAsset::~ScriptAsset()
 		if (!FreeLibrary((HMODULE)m_HModule))
 			std::cout << std::format("FreeLibrary(\"{}\") call failed! \n", m_Path.stem().string());
 
+	std::cout << std::format("[Assets] Unloaded {}\n", m_TempPath.string());
+
+	std::error_code error_code;
+	fs::remove(m_TempPath, error_code);
+
 	/*for (const auto& type : m_RegisteredTypes)
 		g_RTTIFactory.Remove(type.c_str());*/
 }
@@ -230,15 +232,27 @@ Path ScriptAsset::sConvert(const Path& inPath)
 }
 
 
-bool ScriptAsset::Load(const std::string& inPath)
+bool ScriptAsset::Load()
 {
-	if (inPath.empty() || !fs::exists(inPath))
-		return false;
+	std::error_code remove_error_code;
+	fs::remove(m_TempPath, remove_error_code);
 
-	m_HModule = LoadLibraryA(inPath.c_str());
+	if (remove_error_code)
+		std::cout << std::format("[Assets] Failed to remove {}\n", m_TempPath.string());
+
+	std::error_code copy_error_code;
+	fs::copy(m_Path, m_TempPath, copy_error_code);
+
+	if (copy_error_code)
+		std::cout << std::format("[Assets] Failed to copy {} to {}\n", m_Path.string(), m_TempPath.string());
+
+	String temp_path_str = m_TempPath.string();
+	m_HModule = LoadLibraryA(temp_path_str.c_str());
 
 	if (!m_HModule)
 		return false;
+
+	std::cout << std::format("[Assets] Loaded {}\n", temp_path_str);
 
 	if (auto address = GetProcAddress((HMODULE)m_HModule, SCRIPT_EXPORTED_FUNCTION_STR))
 	{

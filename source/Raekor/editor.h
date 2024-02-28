@@ -30,6 +30,8 @@ public:
 	void SetActiveEntity(Entity inEntity) final { m_ActiveEntity.store(inEntity); }
 	Entity GetActiveEntity() final { return m_ActiveEntity.load(); }
 
+
+
 protected:
 	Scene m_Scene;
 	Assets m_Assets;
@@ -43,6 +45,7 @@ protected:
 	ImGuiID m_DockSpaceID;
 
 	std::atomic<Entity> m_ActiveEntity = Entity::Null;
+	std::vector<std::atomic<Entity>> m_MultiSelectEntities;
 
 	std::vector<std::string> m_Messages;
 };

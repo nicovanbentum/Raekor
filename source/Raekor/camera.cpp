@@ -96,7 +96,7 @@ Vec3 Camera::GetForwardVector()
 void Camera::LookAt(Vec3 inPosition)
 {
 	m_Angle.x = glm::atan(inPosition.x, inPosition.z);
-	m_Angle.y = glm::asin(inPosition.y);
+	m_Angle.y = std::clamp(glm::asin(inPosition.y), -1.57078f, 1.57078f);
 }
 
 
@@ -162,9 +162,9 @@ bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 	if (inEvent.button.button == 2 || inEvent.button.button == 3)
 	{
 		if (inEvent.type == SDL_MOUSEBUTTONDOWN)
-			SDL_SetRelativeMouseMode(SDL_TRUE);
+			g_Input->SetRelativeMouseMode(true);
 		else if (inEvent.type == SDL_MOUSEBUTTONUP)
-			SDL_SetRelativeMouseMode(SDL_FALSE);
+			g_Input->SetRelativeMouseMode(false);
 	}
 
 	if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat && inEvent.key.keysym.sym == SDLK_LSHIFT)

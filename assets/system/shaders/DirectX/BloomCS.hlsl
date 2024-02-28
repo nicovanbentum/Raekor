@@ -6,6 +6,7 @@ ROOT_CONSTANTS(BloomRootConstants, rc)
 float3 Upscale(Texture2D inSrcTexture, uint inMip, float2 inUV, float2 inSrcResolutionRcp);
 float3 Downscale(Texture2D inSrcTexture, uint inMip, float2 inUV, float2 inSrcResolutionRcp);
 
+
 [numthreads(8, 8, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
 {
@@ -15,11 +16,6 @@ void main(uint3 threadID : SV_DispatchThreadID)
     Texture2D src_texture = ResourceDescriptorHeap[rc.mSrcTexture];
     RWTexture2D<float4> dst_texture = ResourceDescriptorHeap[rc.mDstTexture];
     
-    uint width, height, levels;
-    src_texture.GetDimensions(rc.mSrcMipLevel, width, height, levels);
-    
-    float2 src_res_rcp = float2(1.0f, 1.0f) / float2(width, height);
-    
     const float2 pixel_center = float2(threadID.xy) + float2(0.5, 0.5);
     float2 screen_uv = pixel_center / rc.mDispatchSize;
     
@@ -27,11 +23,11 @@ void main(uint3 threadID : SV_DispatchThreadID)
     
 #if defined(DO_UPSCALE)
     
-    result.rgb = Upscale(src_texture, rc.mSrcMipLevel, screen_uv, src_res_rcp);
+    result.rgb = Upscale(src_texture, rc.mSrcMipLevel, screen_uv, rc.mSrcSizeRcp);
 
 #elif defined(DO_DOWNSCALE)
     
-    result.rgb = Downscale(src_texture, rc.mSrcMipLevel, screen_uv, src_res_rcp);
+    result.rgb = Downscale(src_texture, rc.mSrcMipLevel, screen_uv, rc.mSrcSizeRcp);
 
 #endif
     

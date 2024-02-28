@@ -23,7 +23,7 @@ bool Input::IsButtonPressed(uint32_t button)
 
 bool Input::IsRelativeMouseMode()
 {
-	return SDL_GetRelativeMouseMode();
+	return relMouseMode;
 }
 
 
@@ -31,6 +31,8 @@ void Input::SetRelativeMouseMode(bool inEnabled)
 {
 	if (SDL_SetRelativeMouseMode(SDL_bool(inEnabled)) != 0) 
 		printf("SDL_SetRelativeMouseMode failed: %s\n", SDL_GetError());
+
+	relMouseMode = inEnabled;
 }
 
 

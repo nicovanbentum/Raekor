@@ -116,7 +116,7 @@ bool ShaderProgram::CompilePSO(Device& inDevice, const char* inDebugName)
         const auto pso_desc = inDevice.CreatePipelineStateDesc(nullptr, CD3DX12_SHADER_BYTECODE(mComputeShader.data(), mComputeShader.size()));
         gThrowIfFailed(inDevice->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&m_ComputePipeline)));
 
-        std::cout << std::format("Compute PSO {} compilation took {:.2f} ms \n", inDebugName, Timer::sToMilliseconds(timer.GetElapsedTime()));
+        std::cout << std::format("[DX12] Compute PSO {} compilation took {:.2f} ms \n", inDebugName, Timer::sToMilliseconds(timer.GetElapsedTime()));
 
         if (m_ComputePipeline && inDebugName)
             m_ComputePipeline->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(inDebugName), inDebugName);
@@ -331,7 +331,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
 
     if (!SUCCEEDED(hr_status))
     {
-        std::cout << std::format("Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
+        std::cout << std::format("[DX12] Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
         return nullptr;
     }
 
@@ -342,7 +342,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
 
     if (!SUCCEEDED(hr_status))
     {
-        std::cout << std::format("Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
+        std::cout << std::format("[DX12] Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
         return nullptr;
     }
 
@@ -355,7 +355,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
         m_ShaderCache.insert({ outHash, shader });
     }
 
-    std::cout << std::format("Compilation {} for shader: {} \n", COUT_GREEN("finished"), inPath.string());
+    std::cout << std::format("[DX12] Compilation {} for shader: {} \n", COUT_GREEN("finished"), inPath.string());
 
     return shader;
 }

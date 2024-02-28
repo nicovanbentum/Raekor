@@ -25,7 +25,7 @@ public:
 	// ONLY USE FOR FIXING UP OLD SCENES WHERE m_Path WASN'T SERIALIZED!!
 	[[deprecated]] void SetPath(const std::string& inPath) { m_Path = inPath; }
 
-	virtual bool Load(const std::string& inPath) = 0;
+	virtual bool Load() = 0;
 
 	static std::string sAssetsToCachedPath(const std::string& inAssetPath, const char* inExtension)
 	{
@@ -77,7 +77,7 @@ public:
 	virtual ~TextureAsset() = default;
 
 	static std::string sConvert(const std::string& inPath);
-	virtual bool Load(const std::string& inPath) override;
+	virtual bool Load() override;
 
 	// ONLY USE FOR FIXING UP BAD ASSETS!!
 	[[deprecated]] bool Save();
@@ -111,17 +111,19 @@ public:
 	using Ptr = std::shared_ptr<ScriptAsset>;
 
 	ScriptAsset() = default;
-	ScriptAsset(const std::string& inPath) : Asset(inPath) {}
+	ScriptAsset(const std::string& inPath) : Asset(inPath), m_TempPath(inPath) { m_TempPath.replace_extension(".temp.dll"); }
 	virtual ~ScriptAsset();
 
 	static Path sConvert(const Path& inPath);
-	virtual bool Load(const std::string& inPath) override;
+	virtual bool Load() override;
 
 	void EnumerateSymbols();
+
 
 	Slice<std::string> GetRegisteredTypes() const { return Slice(m_RegisteredTypes); }
 
 private:
+	Path m_TempPath;
 	void* m_HModule;
     std::vector<std::string> m_RegisteredTypes;
 };
@@ -143,7 +145,7 @@ std::shared_ptr<T> Assets::GetAsset(const std::string& inPath)
 		if (auto asset = find(inPath); asset != end())
 			return std::static_pointer_cast<T>( asset->second );
 		// if there is no asset pointer already and the file path exists on disk, insert it
-		else if (fs::exists(inPath))
+		else if (fs::exists(inPath) && fs::is_regular_file(inPath))
 			insert(std::make_pair(inPath, std::shared_ptr<Asset>(new T(inPath))));
 		else
 			// can't load anything if it doesn't exist on disk
@@ -152,7 +154,7 @@ std::shared_ptr<T> Assets::GetAsset(const std::string& inPath)
 	// only get here if this thread created the asset pointer, try to load it.
 	// if load succeeds we return the asset pointer
 	const auto& asset = at(inPath);
-	if (asset->Load(inPath))
+	if (asset->Load())
 		return std::static_pointer_cast<T>( asset );
 	else
 	{
