@@ -11,6 +11,7 @@ class CommandList
 {
 public:
     CommandList() = default;
+    CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType);
     CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType, uint32_t inFrameIndex);
 
     operator ID3D12GraphicsCommandList* ()                { return m_CommandLists[m_CurrentCmdListIndex].Get(); }

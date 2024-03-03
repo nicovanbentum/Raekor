@@ -610,7 +610,7 @@ void Renderer::WaitForIdle(Device& inDevice)
 
 
 RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer& inRenderer, const RenderGraphResources& inResources, StagingHeap& inStagingHeap) :
-    IRenderInterface(GraphicsAPI::DirectX12), m_Device(inDevice), m_Renderer(inRenderer), m_Resources(inResources), m_StagingHeap(inStagingHeap)
+    IRenderInterface(GraphicsAPI::DirectX12), m_Device(inDevice), m_Viewport(inApp->GetViewport()), m_Renderer(inRenderer), m_Resources(inResources), m_StagingHeap(inStagingHeap)
 {
     DXGI_ADAPTER_DESC adapter_desc = {};
     m_Device.GetAdapter()->GetDesc(&adapter_desc);
@@ -1316,49 +1316,56 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
 
 uint32_t RenderInterface::GetSelectedEntity(const Scene& inScene, uint32_t inScreenPosX, uint32_t inScreenPosY)
 {
-    float hit_dist = FLT_MAX;
-    Entity hit_entity = Entity::Null;
+    // ViewportWidget pre-flips the Y coordinate for OpenGL, undo that
+    inScreenPosY = m_Viewport.GetRenderSize().y - inScreenPosY;
+
+    CommandList cmd_list = CommandList(m_Device, D3D12_COMMAND_LIST_TYPE_DIRECT, 0);
+    cmd_list.Reset();
+
+    TextureID entity_texture_id;
+
+    if (RenderPass<GBufferData>* gbuffer_pass = m_Renderer.GetRenderGraph().GetPass<GBufferData>())
+        entity_texture_id = m_Renderer.GetRenderGraph().GetResources().GetTexture(gbuffer_pass->GetData().mSelectionTexture);
+
+    if (!entity_texture_id.IsValid())
+        return Entity::Null;
+
+    BufferID readback_buffer_id = m_Device.CreateBuffer(Buffer::Describe(sizeof(Entity), Buffer::READBACK, true));
+
+    auto entity_texture_barrier = D3D12_RESOURCE_BARRIER(CD3DX12_RESOURCE_BARRIER::Transition(m_Device.GetD3D12Resource(entity_texture_id), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE));
+    cmd_list->ResourceBarrier(1, &entity_texture_barrier);
     
-    Ray ray(m_Renderer.GetRenderGraph().GetViewport(), Vec2(inScreenPosX, inScreenPosY));
-    
-    for (const auto& [entity, transform, mesh] : inScene.Each<Transform, Mesh>())
-    {
-        /*const auto bounds = BBox3D(mesh.aabb[0], mesh.aabb[1]);
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+    footprint.Footprint = CD3DX12_SUBRESOURCE_FOOTPRINT(m_Device.GetTexture(entity_texture_id).GetDesc().format, 1, 1, 1, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
-        if (!ray.HitsOBB(bounds, transform.worldTransform))
-            continue;*/
+    const auto box = CD3DX12_BOX(inScreenPosX, inScreenPosY, inScreenPosX + 1, inScreenPosY + 1);
+    const auto src = CD3DX12_TEXTURE_COPY_LOCATION(m_Device.GetD3D12Resource(entity_texture_id), 0);
+    const auto dest = CD3DX12_TEXTURE_COPY_LOCATION(m_Device.GetD3D12Resource(readback_buffer_id), footprint);
 
-        for (auto i = 0u; i < mesh.indices.size(); i += 3)
-        {
-            const auto v0 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i]], 1.0));
-            const auto v1 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 1]], 1.0));
-            const auto v2 = Vec3(transform.worldTransform * Vec4(mesh.positions[mesh.indices[i + 2]], 1.0));
+    cmd_list->CopyTextureRegion(&dest, 0, 0, 0, &src, &box);
 
-            Vec2 barycentrics;
-            const auto hit_result = ray.HitsTriangle(v0, v1, v2, barycentrics);
+    std::swap(entity_texture_barrier.Transition.StateBefore, entity_texture_barrier.Transition.StateAfter);
+    cmd_list->ResourceBarrier(1, &entity_texture_barrier);
 
-            if (hit_result.has_value() && hit_result.value() < hit_dist)
-            {
-                if (hit_result.value() < 0.0f)
-                    continue;
+    cmd_list.Close();
 
-                const auto v0_normal = Vec3(transform.worldTransform * Vec4(mesh.normals[mesh.indices[i]], 1.0));
-                const auto v1_normal = Vec3(transform.worldTransform * Vec4(mesh.normals[mesh.indices[i + 1]], 1.0));
-                const auto v2_normal = Vec3(transform.worldTransform * Vec4(mesh.normals[mesh.indices[i + 2]], 1.0));
+    cmd_list.Submit(m_Device, m_Device.GetGraphicsQueue());
 
-                float bary_z = 1.0f - barycentrics.x - barycentrics.y;
-                Vec3 normal = v0_normal * barycentrics.x + v1_normal * barycentrics.y + v2_normal * bary_z;
+    ComPtr<ID3D12Fence> fence = nullptr;
+    m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
 
-                if (glm::dot(ray.m_Direction, normal) > 0.0f)
-                    continue;
+    HANDLE fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-                hit_dist = hit_result.value();
-                hit_entity = entity;
-            }
-        }
-    }
+    m_Device.GetGraphicsQueue()->Signal(fence.Get(), 1);
 
-    return hit_entity;
+    gThrowIfFailed(fence->SetEventOnCompletion(1, fence_event));
+    WaitForSingleObjectEx(fence_event, INFINITE, FALSE);
+
+    uint32_t* mapped_ptr = nullptr;
+    const CD3DX12_RANGE range = CD3DX12_RANGE(0, 0);
+    gThrowIfFailed(m_Device.GetBuffer(readback_buffer_id)->Map(0, &range, reinterpret_cast<void**>( &mapped_ptr )));
+
+    return Entity(*mapped_ptr);
 }
 
 

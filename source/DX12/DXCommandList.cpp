@@ -7,6 +7,8 @@
 
 namespace Raekor::DX12 {
 
+CommandList::CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType) : CommandList(inDevice, inType, 0) {}
+
 CommandList::CommandList(Device& inDevice, D3D12_COMMAND_LIST_TYPE inType, uint32_t inFrameIndex) : m_FrameIndex(inFrameIndex)
 {
     auto& command_list = m_CommandLists.emplace_back();

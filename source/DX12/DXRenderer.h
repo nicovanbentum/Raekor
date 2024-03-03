@@ -162,6 +162,7 @@ private:
 
 private:
     Device& m_Device;
+    Viewport& m_Viewport;
     Renderer& m_Renderer;
     StagingHeap& m_StagingHeap;
     const RenderGraphResources& m_Resources;

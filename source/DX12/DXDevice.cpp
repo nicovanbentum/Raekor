@@ -434,6 +434,7 @@ void Device::CreateDescriptor(BufferID inID, const Buffer::Desc& inDesc)
 
     switch (inDesc.usage)
     {
+        case Buffer::READBACK: break;
         case Buffer::SHADER_READ_WRITE:
         {
             const auto uav_desc = inDesc.ToUAVDesc();

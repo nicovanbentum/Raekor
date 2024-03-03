@@ -24,6 +24,8 @@ D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage)
             return D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
         case Buffer::Usage::INDIRECT_ARGUMENTS:
             return D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+        case Buffer::Usage::READBACK:
+            return D3D12_RESOURCE_STATE_COPY_DEST;
         default:
             assert(false);
     }
