@@ -116,7 +116,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					{
 						importer->LoadFromFile(filepath, &GetAssets());
 
-						m_Editor->LogMessage("[Scene] Import from file took " + std::to_string(Timer::sToMilliseconds(timer.GetElapsedTime())) + " ms.");
+						m_Editor->LogMessage(std::format("[Scene] Import from file took {:.0f} ms.", Timer::sToMilliseconds(timer.GetElapsedTime())));
 					}
 				}
 			}

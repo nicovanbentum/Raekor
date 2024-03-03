@@ -7,6 +7,7 @@
 namespace Raekor {
 
 enum Entity : uint32_t { Null = UINT32_MAX };
+using AtomicEntity = std::atomic<Entity>;
 RTTI_DECLARE_TYPE_PRIMITIVE(Entity);
 
 template<typename T>

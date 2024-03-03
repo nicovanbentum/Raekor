@@ -1,10 +1,11 @@
 #include "pch.h"
 #include "renderer.h"
+#include "renderpass.h"
 #include "Raekor/rmath.h"
 #include "Raekor/scene.h"
 #include "Raekor/async.h"
 #include "Raekor/camera.h"
-#include "renderpass.h"
+#include "Raekor/profile.h"
 
 namespace Raekor::GL {
 
@@ -229,6 +230,8 @@ Renderer::~Renderer()
 
 void Renderer::Render(const Application* inApp, const Scene& scene, const Viewport& viewport)
 {
+    PROFILE_FUNCTION_CPU();
+
     // skin all meshes in the scene
     {
         const auto timer = RenderPass::ScopedTimer("Skinning", m_Skinning.get(), !mSettings.disableTiming);

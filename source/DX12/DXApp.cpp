@@ -11,6 +11,7 @@
 #include "Raekor/timer.h"
 #include "Raekor/input.h"
 #include "Raekor/archive.h"
+#include "Raekor/profile.h"
 
 #include "shared.h"
 #include "DXUtil.h"
@@ -23,6 +24,8 @@ extern float samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1sp
 
 namespace Raekor::DX12 {
 
+class DXProfiler : public Profiler {};
+
 DXApp::DXApp() :
     IEditor(WindowFlag::RESIZE, &m_RenderInterface),
     m_Device(m_Window, sFrameCount),
@@ -31,6 +34,9 @@ DXApp::DXApp() :
     m_RayTracedScene(m_Scene),
     m_RenderInterface(this, m_Device, m_Renderer, m_Renderer.GetRenderGraph().GetResources(), m_StagingHeap)
 {
+    delete g_Profiler;
+    g_Profiler = new DXProfiler();
+
     g_RTTIFactory.Register(RTTI_OF(ShaderProgram));
     g_RTTIFactory.Register(RTTI_OF(SystemShadersDX12));
     g_RTTIFactory.Register(RTTI_OF(EShaderProgramType));
@@ -147,8 +153,6 @@ DXApp::DXApp() :
 
     m_Renderer.Recompile(m_Device, m_RayTracedScene, m_StagingHeap, GetRenderInterface());
 
-    LogMessage(std::format("[CPU] RenderGraph compilation took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
-
     if (!m_Settings.mSceneFile.empty() && fs::exists(m_Settings.mSceneFile))
     {
         m_Scene.OpenFromFile(m_Settings.mSceneFile.string(), m_Assets);
@@ -210,8 +214,6 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
 
     if (inEvent.window.event == SDL_WINDOWEVENT_RESIZED)
         m_Renderer.SetShouldResize(true);
-
-    m_Widgets.OnEvent(inEvent);
 }
 
 

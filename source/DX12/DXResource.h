@@ -196,6 +196,9 @@ public:
         D3D12_RENDER_TARGET_VIEW_DESC    ToRTVDesc() const;
         D3D12_SHADER_RESOURCE_VIEW_DESC  ToSRVDesc() const;
         D3D12_UNORDERED_ACCESS_VIEW_DESC ToUAVDesc() const;
+
+        D3D12_RESOURCE_DESC ToResourceDesc() const;
+        D3D12MA::ALLOCATION_DESC ToAllocationDesc() const;
     };
 
     static Desc Desc2D(DXGI_FORMAT inFormat, uint32_t inWidth, uint32_t inHeight, Usage inUsage, uint32_t inBaseMip = 0, uint32_t inMipLevels = 1)
@@ -270,6 +273,9 @@ public:
 
         D3D12_SHADER_RESOURCE_VIEW_DESC  ToSRVDesc() const;
         D3D12_UNORDERED_ACCESS_VIEW_DESC ToUAVDesc() const;
+
+        D3D12_RESOURCE_DESC ToResourceDesc() const;
+        D3D12MA::ALLOCATION_DESC ToAllocationDesc() const;
     };
 
     static Desc Describe(uint64_t inSize, Usage inUsage, bool inMappable = false, const char* inDebugName = nullptr)
@@ -360,6 +366,8 @@ enum EResourceType
 D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage);
 D3D12_RESOURCE_STATES gGetResourceStates(Texture::Usage inUsage);
 
+D3D12_RESOURCE_STATES gGetInitialResourceState(Buffer::Usage inUsage);
+D3D12_RESOURCE_STATES gGetInitialResourceState(Texture::Usage inUsage);
 
 D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Buffer::Usage inUsage);
 D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage);
@@ -405,6 +413,7 @@ enum ECommandSignature
     COMMAND_SIGNATURE_DISPATCH   = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH,
     COMMAND_SIGNATURE_COUNT
 };
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -8,6 +8,8 @@ D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage)
 {
     switch (inUsage)
     {
+        case Buffer::Usage::GENERAL:
+            return D3D12_RESOURCE_STATE_COMMON;
         case Buffer::Usage::VERTEX_BUFFER:
             return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
         case Buffer::Usage::INDEX_BUFFER:
@@ -18,8 +20,12 @@ D3D12_RESOURCE_STATES gGetResourceStates(Buffer::Usage inUsage)
             return D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
         case Buffer::Usage::SHADER_READ_WRITE:
             return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        case Buffer::Usage::ACCELERATION_STRUCTURE:
+            return D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
         case Buffer::Usage::INDIRECT_ARGUMENTS:
             return D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+        default:
+            assert(false);
     }
 
     return D3D12_RESOURCE_STATES();
@@ -30,12 +36,12 @@ D3D12_RESOURCE_STATES gGetResourceStates(Texture::Usage inUsage)
 {
     switch (inUsage)
     {
+        case Texture::Usage::GENERAL:
+            return D3D12_RESOURCE_STATE_COMMON;
         case Texture::Usage::RENDER_TARGET:
             return D3D12_RESOURCE_STATE_RENDER_TARGET;
         case Texture::Usage::DEPTH_STENCIL_TARGET:
             return D3D12_RESOURCE_STATE_DEPTH_WRITE;
-        case Texture::Usage::GENERAL:
-            return D3D12_RESOURCE_STATE_COMMON;
         case Texture::Usage::SHADER_READ_ONLY:
             return D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
         case Texture::Usage::SHADER_READ_WRITE:
@@ -45,6 +51,42 @@ D3D12_RESOURCE_STATES gGetResourceStates(Texture::Usage inUsage)
     }
 
     return D3D12_RESOURCE_STATES();
+}
+
+
+D3D12_RESOURCE_STATES gGetInitialResourceState(Buffer::Usage inUsage)
+{
+    D3D12_RESOURCE_STATES initial_state = gGetResourceStates(inUsage);
+    if (inUsage == Buffer::SHADER_READ_ONLY)
+        initial_state = D3D12_RESOURCE_STATE_COMMON;
+
+    return initial_state;
+}
+
+
+D3D12_RESOURCE_STATES gGetInitialResourceState(Texture::Usage inUsage)
+{
+    D3D12_RESOURCE_STATES initial_state = D3D12_RESOURCE_STATE_COMMON;
+
+    switch (inUsage)
+    {
+        case Texture::DEPTH_STENCIL_TARGET:
+            initial_state = D3D12_RESOURCE_STATE_DEPTH_WRITE; 
+            break;
+        case Texture::RENDER_TARGET:
+            initial_state = D3D12_RESOURCE_STATE_RENDER_TARGET; 
+            break;
+        case Texture::SHADER_READ_ONLY:
+            // According to D3D12 implicit state transitions, COMMON can be promoted to COPY_DEST or GENERIC_READ implicitly,
+            // which is typically what you need for a texture that will only be read in a shader.
+            initial_state = D3D12_RESOURCE_STATE_COMMON; 
+            break;
+        case Texture::SHADER_READ_WRITE:
+            initial_state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS; 
+            break;
+    }
+
+    return initial_state;
 }
 
 
@@ -71,6 +113,44 @@ D3D12_DESCRIPTOR_HEAP_TYPE gGetHeapType(Texture::Usage inUsage)
 
     assert(false);
     return D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES;
+}
+
+
+D3D12_RESOURCE_DESC Buffer::Desc::ToResourceDesc() const
+{
+    D3D12_RESOURCE_DESC resource_desc = CD3DX12_RESOURCE_DESC::Buffer(size);
+
+    switch (usage)
+    {
+        case Buffer::VERTEX_BUFFER:
+        case Buffer::INDEX_BUFFER:
+        {
+            if (!mappable)
+                resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+        } break;
+
+        case Buffer::SHADER_READ_WRITE:
+        case Buffer::ACCELERATION_STRUCTURE:
+        {
+            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+        } break;
+    }
+
+    return resource_desc;
+}
+
+
+D3D12MA::ALLOCATION_DESC Buffer::Desc::ToAllocationDesc() const
+{
+    D3D12MA::ALLOCATION_DESC alloc_desc = {};
+    alloc_desc.HeapType = mappable ? D3D12_HEAP_TYPE_UPLOAD : D3D12_HEAP_TYPE_DEFAULT;
+
+    if (usage == Buffer::Usage::READBACK)
+        alloc_desc.HeapType = D3D12_HEAP_TYPE_READBACK;
+    else if (usage == Buffer::UPLOAD)
+        alloc_desc.HeapType = D3D12_HEAP_TYPE_UPLOAD;
+
+    return alloc_desc;
 }
 
 
@@ -144,6 +224,55 @@ D3D12_UNORDERED_ACCESS_VIEW_DESC Buffer::Desc::ToUAVDesc() const
     assert(stride > 0 || format != DXGI_FORMAT_UNKNOWN);
 
     return uav_desc;
+}
+
+
+D3D12_RESOURCE_DESC Texture::Desc::ToResourceDesc() const
+{
+    D3D12_RESOURCE_DESC resource_desc = {};
+
+    switch (dimension)
+    {
+        case Texture::TEX_DIM_2D:
+            resource_desc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, depthOrArrayLayers, mipLevels, 1u, 0);
+            break;
+        case Texture::TEX_DIM_3D:
+            resource_desc = CD3DX12_RESOURCE_DESC::Tex3D(format, width, height, depthOrArrayLayers, mipLevels);
+            break;
+        case Texture::TEX_DIM_CUBE:
+            resource_desc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, depthOrArrayLayers * 6, mipLevels, 1u, 0);
+            break;
+        default:
+            assert(false);
+    }
+
+    switch (usage)
+    {
+        case Texture::RENDER_TARGET: 
+            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET; break;
+        case Texture::DEPTH_STENCIL_TARGET: 
+            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; break;
+        case Texture::SHADER_READ_WRITE: 
+            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET; break;
+    }
+
+    return resource_desc;
+}
+
+
+D3D12MA::ALLOCATION_DESC Texture::Desc::ToAllocationDesc() const
+{
+    D3D12MA::ALLOCATION_DESC alloc_desc = {};
+    alloc_desc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
+
+    switch (usage)
+    {
+        case Texture::RENDER_TARGET:
+        case Texture::DEPTH_STENCIL_TARGET:
+            alloc_desc.Flags = D3D12MA::ALLOCATION_FLAG_CAN_ALIAS;
+    }
+
+    return alloc_desc;
 }
 
 
@@ -234,6 +363,5 @@ void DescriptorHeap::Allocate(Device& inDevice, D3D12_DESCRIPTOR_HEAP_TYPE inTyp
     m_HeapPtr = m_Heap->GetCPUDescriptorHandleForHeapStart();
     m_HeapIncrement = inDevice->GetDescriptorHandleIncrementSize(inType);
 }
-
 
 } // namespace Raekor::DX12

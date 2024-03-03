@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "widget.h"
+#include "profile.h"
 #include "application.h"
 
 namespace Raekor {
@@ -53,6 +54,8 @@ IRenderInterface& IWidget::GetRenderInterface()
 
 void Widgets::Draw(float inDeltaTime)
 {
+	PROFILE_FUNCTION_CPU();
+
 	for (const auto& widget : m_Widgets)
 	{
 		if (widget->IsOpen())

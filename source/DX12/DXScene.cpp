@@ -50,7 +50,7 @@ void RayTracedScene::UpdateBLAS(Application* inApp, Device& inDevice, StagingHea
     Buffer& scratch_buffer = inDevice.GetBuffer(scratch_buffer_id);
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
-    desc.Inputs = inputs;
+    desc.Inputs = inputs; 
     desc.DestAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
     desc.SourceAccelerationStructureData = blas_buffer->GetGPUVirtualAddress();
     desc.ScratchAccelerationStructureData = scratch_buffer->GetGPUVirtualAddress();

@@ -2,6 +2,7 @@
 
 #include "DXDevice.h"
 #include "DXCommandList.h"
+#include "Raekor/profile.h"
 
 namespace Raekor {
 class Scene;
@@ -105,6 +106,35 @@ enum EGlobalResource
 };
 
 
+class RenderGraphResourceAllocator
+{
+public:
+    ~RenderGraphResourceAllocator() { Clear(); }
+
+    void Reserve(Device& inDevice, uint64_t inSize, uint64_t inAlignment);
+    void Release();
+
+    void Clear() { m_VirtualBlock->Clear(); }
+
+    BufferID CreateBuffer(Device& inDevice, const Buffer::Desc& inDesc);
+    TextureID CreateTexture(Device& inDevice, const Texture::Desc& inDesc);
+
+    uint64_t GetSize() const { return m_Size; }
+    uint64_t GetOffset() const { return m_Offset; }
+
+private:
+    uint64_t Allocate(Device& inDevice, const D3D12_RESOURCE_DESC& inDesc);
+
+private:
+    uint64_t m_Size = 0;
+    uint64_t m_Offset = 0;
+
+    ComPtr<D3D12MA::Allocation> m_Allocation = nullptr;
+    ComPtr<D3D12MA::VirtualBlock> m_VirtualBlock = nullptr;
+
+};
+
+
 class RenderGraphResources
 {
 public:
@@ -125,6 +155,7 @@ public:
     inline bool IsTexture(RenderGraphResourceViewID inResource) const { return m_ResourceViews[inResource].mResourceType == RESOURCE_TYPE_TEXTURE; }
 
 private:
+    RenderGraphResourceAllocator m_Allocator;
     std::vector<RenderGraphResource> m_Resources;
     std::vector<RenderGraphResource> m_ResourceViews;
 };
@@ -206,8 +237,17 @@ public:
 
     const RTTI& GetRTTI() { return RTTI_OF(T); }
 
-    virtual void Setup(RenderGraphBuilder& inBuilder) override { m_Setup(inBuilder, this, m_Data); }
-    virtual void Execute(const RenderGraphResources& inResources, CommandList& inCmdList) override { m_Execute(m_Data, inResources, inCmdList); }
+    virtual void Setup(RenderGraphBuilder& inBuilder) override 
+    { 
+        PROFILE_SCOPE_CPU(m_Name.c_str()); 
+        m_Setup(inBuilder, this, m_Data); 
+    }
+
+    virtual void Execute(const RenderGraphResources& inResources, CommandList& inCmdList) override 
+    { 
+        PROFILE_SCOPE_CPU(m_Name.c_str());
+        m_Execute(m_Data, inResources, inCmdList); 
+    }
 
     T& GetData() { return m_Data; }
 

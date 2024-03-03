@@ -350,6 +350,15 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             .debugName = "GBUFFER RENDER"
         });
 
+        inData.mSelectionTexture = ioRGBuilder.Create(Texture::Desc
+        {
+            .format = DXGI_FORMAT_R32_UINT,
+            .width  = inRenderGraph.GetViewport().size.x,
+            .height = inRenderGraph.GetViewport().size.y,
+            .usage  = Texture::RENDER_TARGET,
+            .debugName = "GBUFFER SELECTION"
+        });
+
         inData.mVelocityTexture = ioRGBuilder.Create(Texture::Desc
         {
             .format = DXGI_FORMAT_R32G32_FLOAT,
@@ -370,6 +379,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         ioRGBuilder.RenderTarget(inData.mRenderTexture); // SV_Target0
         ioRGBuilder.RenderTarget(inData.mVelocityTexture); // SV_Target1
+        ioRGBuilder.RenderTarget(inData.mSelectionTexture); // SV_Target2
         ioRGBuilder.DepthStencilTarget(inData.mDepthTexture);
 
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
@@ -390,6 +400,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         inCmdList->ClearDepthStencilView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mDepthTexture)), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mRenderTexture)), glm::value_ptr(clear_color), 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mVelocityTexture)), glm::value_ptr(clear_color), 0, nullptr);
+        inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mSelectionTexture)), glm::value_ptr(clear_color), 0, nullptr);
 
         Timer timer;
 
@@ -431,6 +442,7 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
                 .mInstancesBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
                 .mMaterialsBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
                 .mInstanceIndex      = instance_index,
+                .mEntity             = uint32_t(entity)
             };
 
             inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);

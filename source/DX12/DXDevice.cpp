@@ -193,7 +193,6 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
 }
 
 
-
 void Device::BindDrawDefaults(CommandList& inCmdList)
 {
     inCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -209,77 +208,12 @@ void Device::BindDrawDefaults(CommandList& inCmdList)
 }
 
 
-
-TextureID Device::CreateTexture(const Texture::Desc& inDesc)
+TextureID Device::CreateTexture(const Texture::Desc& inDesc, const Texture& inTexture)
 {
-    Texture texture = Texture(inDesc);
-    D3D12_RESOURCE_DESC resource_desc = {};
-
-    switch (inDesc.dimension)
-    {
-        case Texture::TEX_DIM_2D:
-            resource_desc = CD3DX12_RESOURCE_DESC::Tex2D(inDesc.format, inDesc.width, inDesc.height, inDesc.depthOrArrayLayers, inDesc.mipLevels, 1u, 0);
-            break;
-        case Texture::TEX_DIM_3D:
-            resource_desc = CD3DX12_RESOURCE_DESC::Tex3D(inDesc.format, inDesc.width, inDesc.height, inDesc.depthOrArrayLayers, inDesc.mipLevels);
-            break;
-        case Texture::TEX_DIM_CUBE:
-            resource_desc = CD3DX12_RESOURCE_DESC::Tex2D(inDesc.format, inDesc.width, inDesc.height, inDesc.depthOrArrayLayers * 6, inDesc.mipLevels, 1u, 0);
-            break;
-        default:
-            assert(false);
-    }
-
-    D3D12MA::ALLOCATION_DESC alloc_desc = {};
-    alloc_desc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
-
-    D3D12_CLEAR_VALUE clear_value = {};
-    D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
-    D3D12_RESOURCE_STATES initial_state = D3D12_RESOURCE_STATE_COMMON;
-
-    switch (inDesc.usage)
-    {
-        case Texture::DEPTH_STENCIL_TARGET:
-        {
-            initial_state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-            alloc_desc.Flags = D3D12MA::ALLOCATION_FLAG_COMMITTED;
-            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-
-            clear_value = CD3DX12_CLEAR_VALUE(inDesc.format, 1.0f, 0.0f);
-            clear_value_ptr = &clear_value;
-        } break;
-
-        case Texture::RENDER_TARGET:
-        {
-            initial_state = D3D12_RESOURCE_STATE_RENDER_TARGET;
-            alloc_desc.Flags = D3D12MA::ALLOCATION_FLAG_COMMITTED;
-            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-
-            float color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-            clear_value = CD3DX12_CLEAR_VALUE(inDesc.format, color);
-            clear_value_ptr = &clear_value;
-        } break;
-
-        case Texture::SHADER_READ_ONLY:
-        {
-            // According to D3D12 implicit state transitions, COMMON can be promoted to COPY_DEST or GENERIC_READ implicitly,
-            // which is typically what you need for a texture that will only be read in a shader.
-            initial_state = D3D12_RESOURCE_STATE_COMMON;
-        } break;
-
-        case Texture::SHADER_READ_WRITE:
-        {
-            initial_state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-            resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-        } break;
-    }
-
-    gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &resource_desc, initial_state, clear_value_ptr, texture.m_Allocation.GetAddressOf(), IID_PPV_ARGS(&texture.m_Resource)));
-
     if (inDesc.debugName != nullptr)
-        gSetDebugName(texture.m_Resource.Get(), inDesc.debugName);
+        gSetDebugName(inTexture.m_Resource.Get(), inDesc.debugName);
 
-    const TextureID texture_id = m_Textures.Add(texture);
+    const TextureID texture_id = m_Textures.Add(inTexture);
 
     CreateDescriptor(texture_id, inDesc);
 
@@ -287,65 +221,61 @@ TextureID Device::CreateTexture(const Texture::Desc& inDesc)
 }
 
 
+TextureID Device::CreateTexture(const Texture::Desc& inDesc)
+{
+    Texture texture = Texture(inDesc);
+    D3D12_RESOURCE_DESC resource_desc = inDesc.ToResourceDesc();
+    D3D12MA::ALLOCATION_DESC alloc_desc = inDesc.ToAllocationDesc();
+
+    D3D12_CLEAR_VALUE clear_value = {};
+    D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
+    D3D12_RESOURCE_STATES initial_state = gGetInitialResourceState(inDesc.usage);
+
+    if (inDesc.usage == Texture::DEPTH_STENCIL_TARGET)
+    {
+        clear_value = CD3DX12_CLEAR_VALUE(inDesc.format, 1.0f, 0.0f);
+        clear_value_ptr = &clear_value;
+    }
+    else if (inDesc.usage == Texture::RENDER_TARGET)
+    {
+        float color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        clear_value = CD3DX12_CLEAR_VALUE(inDesc.format, color);
+        clear_value_ptr = &clear_value;
+    }
+
+    gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &resource_desc, initial_state, clear_value_ptr, texture.m_Allocation.GetAddressOf(), IID_PPV_ARGS(&texture.m_Resource)));
+
+    return CreateTexture(inDesc, texture);
+}
+
 
 BufferID Device::CreateBuffer(const Buffer::Desc& inDesc)
 {
-    D3D12MA::ALLOCATION_DESC alloc_desc = {};
-    alloc_desc.HeapType = inDesc.mappable ? D3D12_HEAP_TYPE_UPLOAD : D3D12_HEAP_TYPE_DEFAULT;
-
-    if (inDesc.usage & Buffer::Usage::READBACK)
-        alloc_desc.HeapType = D3D12_HEAP_TYPE_READBACK;
-
     Buffer buffer = Buffer(inDesc);
-    D3D12_RESOURCE_STATES initial_state = D3D12_RESOURCE_STATE_COMMON;
-    D3D12_RESOURCE_DESC buffer_desc = CD3DX12_RESOURCE_DESC::Buffer(inDesc.size);
+    D3D12_RESOURCE_DESC buffer_desc = inDesc.ToResourceDesc();
+    D3D12MA::ALLOCATION_DESC alloc_desc = inDesc.ToAllocationDesc();
 
-    switch (inDesc.usage)
-    {
-        case Buffer::VERTEX_BUFFER:
-        {
-            initial_state = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-            if (!inDesc.mappable)
-                buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-        } break;
+    D3D12_CLEAR_VALUE clear_value = {};
+    D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
+    D3D12_RESOURCE_STATES initial_state = gGetInitialResourceState(inDesc.usage);
 
-        case Buffer::INDEX_BUFFER:
-        {
-            initial_state = D3D12_RESOURCE_STATE_INDEX_BUFFER;
-            if (!inDesc.mappable)
-                buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-        } break;
+    gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &buffer_desc, initial_state, clear_value_ptr, buffer.m_Allocation.GetAddressOf(), IID_PPV_ARGS(&buffer.m_Resource)));
 
-        case Buffer::UPLOAD:
-        {
-            alloc_desc.HeapType = D3D12_HEAP_TYPE_UPLOAD;
-        } break;
+    return CreateBuffer(inDesc, buffer);
+}
 
-        case Buffer::SHADER_READ_WRITE:
-        {
-            initial_state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-            buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-        } break;
 
-        case Buffer::ACCELERATION_STRUCTURE:
-        {
-            initial_state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
-            buffer_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-        } break;
-    }
-
-    gThrowIfFailed(m_Allocator->CreateResource(&alloc_desc, &buffer_desc, initial_state, nullptr, buffer.m_Allocation.GetAddressOf(), IID_PPV_ARGS(&buffer.m_Resource)));
-
+BufferID Device::CreateBuffer(const Buffer::Desc& inDesc, const Buffer& inBuffer)
+{
     if (inDesc.debugName != nullptr)
-        gSetDebugName(buffer.m_Resource.Get(), inDesc.debugName);
+        gSetDebugName(inBuffer.m_Resource.Get(), inDesc.debugName);
 
-    const BufferID buffer_id = m_Buffers.Add(buffer);
+    const BufferID buffer_id = m_Buffers.Add(inBuffer);
 
     CreateDescriptor(buffer_id, inDesc);
 
     return buffer_id;
 }
-
 
 
 BufferID Device::CreateBufferView(BufferID inBufferID, const Buffer::Desc& inDesc)

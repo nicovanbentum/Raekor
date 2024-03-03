@@ -227,6 +227,7 @@ struct GbufferRootConstants
     uint     mInstancesBuffer;
     uint     mMaterialsBuffer;
     uint     mInstanceIndex;
+    uint     mEntity;
 };
 STATIC_ASSERT(sizeof(GbufferRootConstants) < MAX_ROOT_CONSTANTS_SIZE);
 

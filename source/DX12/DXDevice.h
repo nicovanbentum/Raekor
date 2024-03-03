@@ -41,6 +41,9 @@ public:
     [[nodiscard]] BufferID  CreateBuffer(const Buffer::Desc& inDesc);
     [[nodiscard]] TextureID CreateTexture(const Texture::Desc& inDesc);
 
+    [[nodiscard]] BufferID  CreateBuffer(const Buffer::Desc& inDesc, const Buffer& inBuffer);
+    [[nodiscard]] TextureID CreateTexture(const Texture::Desc& inDesc, const Texture& inTexture);
+
     [[nodiscard]] BufferID  CreateBufferView(BufferID inTextureID, const Buffer::Desc& inDesc);
     [[nodiscard]] TextureID CreateTextureView(TextureID inTextureID, const Texture::Desc& inDesc);
     [[nodiscard]] TextureID CreateTextureView(D3D12ResourceRef inResource, const Texture::Desc& inDesc);
@@ -91,6 +94,7 @@ public:
     [[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inID) const { return GetBindlessHeapIndex(GetTexture(inID).GetView()); }
 
     IDXGIAdapter1* GetAdapter() { return m_Adapter.Get(); }
+    D3D12MA::Allocator* GetAllocator() { return m_Allocator.Get(); }
 
     const Buffer::Pool& GetBufferPool() const { return m_Buffers; }
     const Texture::Pool& GetTexturePool() const { return m_Textures; }

@@ -8,6 +8,7 @@
 #include "debug.h"
 #include "rmath.h"
 #include "script.h"
+#include "profile.h"
 #include "systems.h"
 #include "components.h"
 #include "application.h"
@@ -142,6 +143,8 @@ void Scene::UpdateLights()
 
 void Scene::UpdateTransforms()
 {
+	PROFILE_FUNCTION_CPU();
+
 	for (const auto& [entity, node, transform] : Each<Node, Transform>())
 	{
 		if (node.parent != Entity::Null)
@@ -182,6 +185,8 @@ void Scene::UpdateTransforms()
 
 void Scene::UpdateAnimations(float inDeltaTime)
 {
+	PROFILE_FUNCTION_CPU();
+
 	for (auto [entity, animation] : Each<Animation>())
 		animation.OnUpdate(inDeltaTime);
 
@@ -217,6 +222,8 @@ void Scene::UpdateAnimations(float inDeltaTime)
 
 void Scene::UpdateNativeScripts(float inDeltaTime)
 {
+	PROFILE_FUNCTION_CPU();
+
 	for (auto [entity, script] : Each<NativeScript>())
 	{
 		if (script.script)

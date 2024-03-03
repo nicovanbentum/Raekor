@@ -3,6 +3,7 @@
 
 #include "debug.h"
 #include "scene.h"
+#include "profile.h"
 #include "components.h"
 #include "application.h"
 
@@ -70,6 +71,8 @@ Physics::~Physics()
 
 void Physics::Step(Scene& scene, float dt)
 {
+	PROFILE_FUNCTION_CPU();
+
 	m_Physics->Update(dt, 1, m_TempAllocator, m_JobSystem);
 
 	auto& body_interface = m_Physics->GetBodyInterface();
@@ -93,6 +96,8 @@ void Physics::Step(Scene& scene, float dt)
 
 void Physics::OnUpdate(Scene& scene)
 {
+	PROFILE_FUNCTION_CPU();
+
 	if (scene.Any<BoxCollider>() && scene.Count<BoxCollider>())
 	{
 		for (const auto& [entity, transform, collider] : scene.Each<Transform, BoxCollider>())

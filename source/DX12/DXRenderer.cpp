@@ -14,6 +14,7 @@
 #include "Raekor/iter.h"
 #include "Raekor/timer.h"
 #include "Raekor/rmath.h"
+#include "Raekor/profile.h"
 #include "Raekor/systems.h"
 #include "Raekor/primitives.h"
 #include "Raekor/application.h"
@@ -99,6 +100,8 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
 void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScreen)
 {
+    PROFILE_FUNCTION_CPU();
+
     for (auto& bb_data : m_BackBufferData)
         inDevice.ReleaseTextureImmediate(bb_data.mBackBuffer);
 
@@ -166,6 +169,8 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
 
 void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewport, RayTracedScene& inScene, StagingHeap& inStagingHeap, IRenderInterface* inRenderInterface, float inDeltaTime)
 {
+    PROFILE_FUNCTION_CPU();
+
     // Check if any of the shader sources were updated and recompile them if necessary.
     // the OS file stamp checks are expensive so we only turn this on in debug builds.
     static bool force_hotload = OS::sCheckCommandLineOption("-force_enable_hotload");
@@ -363,7 +368,10 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
     direct_cmd_list.Close();
 
     // Run command list execution and present in a job so it can overlap a bit with the start of the next frame
-    //m_PresentJobPtr = Async::sQueueJob([&inDevice, this]() {
+    //m_PresentJobPtr = Async::sQueueJob([&inDevice, this]() 
+    {
+        PROFILE_SCOPE_CPU("IDXGISwapChain::Present");
+
         // submit all graphics commands 
         direct_cmd_list.Submit(inDevice, inDevice.GetGraphicsQueue());
 
@@ -378,7 +386,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         GetBackBufferData().mFenceValue++;
         m_FrameIndex = m_Swapchain->GetCurrentBackBufferIndex();
         gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), GetBackBufferData().mFenceValue));
-    //});
+    }
+    // );
 
     m_FrameCounter++;
 

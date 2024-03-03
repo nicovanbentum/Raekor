@@ -3,6 +3,8 @@
 
 #include "shared.h"
 #include "Raekor/iter.h"
+#include "Raekor/timer.h"
+#include "Raekor/profile.h"
 
 namespace Raekor::DX12 {
 
@@ -218,6 +220,106 @@ void RenderGraphBuilder::Clear()
 
 
 
+void RenderGraphResourceAllocator::Reserve(Device& inDevice, uint64_t inSize, uint64_t inAlignment)
+{
+    m_Size = inSize;
+    m_Offset = 0;
+
+    D3D12_RESOURCE_ALLOCATION_INFO allocation_info = {};
+    allocation_info.SizeInBytes = inSize;
+    allocation_info.Alignment = inAlignment;
+
+    D3D12MA::ALLOCATION_DESC allocation_desc = {};
+    allocation_desc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
+
+    inDevice.GetAllocator()->AllocateMemory(&allocation_desc, &allocation_info, m_Allocation.GetAddressOf());
+
+    D3D12MA::VIRTUAL_BLOCK_DESC virtual_block_desc = {};
+    virtual_block_desc.Size = m_Size;
+    virtual_block_desc.Flags = D3D12MA::VIRTUAL_BLOCK_FLAG_ALGORITHM_LINEAR;
+
+    D3D12MA::CreateVirtualBlock(&virtual_block_desc, m_VirtualBlock.GetAddressOf());
+}
+
+
+
+void RenderGraphResourceAllocator::Release()
+{
+    m_Size = 0;
+    m_Allocation = nullptr;
+    m_VirtualBlock = nullptr;
+
+}
+
+
+
+BufferID RenderGraphResourceAllocator::CreateBuffer(Device& inDevice, const Buffer::Desc& inDesc)
+{
+    Buffer buffer = Buffer(inDesc);
+    D3D12_RESOURCE_DESC resource_description = inDesc.ToResourceDesc();
+    D3D12MA::ALLOCATION_DESC allocation_description = inDesc.ToAllocationDesc();
+
+    D3D12_CLEAR_VALUE clear_value = {};
+    D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
+
+    D3D12_RESOURCE_STATES initial_state = gGetInitialResourceState(inDesc.usage);
+    uint64_t resource_allocation_offset = Allocate(inDevice, resource_description);
+
+    gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), resource_allocation_offset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(buffer.GetD3D12Resource().GetAddressOf())));
+
+    return inDevice.CreateBuffer(inDesc, buffer);
+}
+
+
+
+TextureID RenderGraphResourceAllocator::CreateTexture(Device& inDevice, const Texture::Desc& inDesc)
+{
+    Texture texture = Texture(inDesc);
+    D3D12_RESOURCE_DESC resource_description = inDesc.ToResourceDesc();
+    D3D12MA::ALLOCATION_DESC allocation_description = inDesc.ToAllocationDesc();
+
+    D3D12_CLEAR_VALUE clear_value = {};
+    D3D12_CLEAR_VALUE* clear_value_ptr = nullptr;
+
+    D3D12_RESOURCE_STATES initial_state = gGetInitialResourceState(inDesc.usage);
+    uint64_t resource_allocation_offset = Allocate(inDevice, resource_description);
+
+    if (inDesc.usage == Texture::DEPTH_STENCIL_TARGET)
+    {
+        clear_value = CD3DX12_CLEAR_VALUE(inDesc.format, 1.0f, 0.0f);
+        clear_value_ptr = &clear_value;
+    }
+    else if (inDesc.usage == Texture::RENDER_TARGET)
+    {
+        float color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        clear_value = CD3DX12_CLEAR_VALUE(inDesc.format, color);
+        clear_value_ptr = &clear_value;
+    }
+
+    gThrowIfFailed(inDevice.GetAllocator()->CreateAliasingResource(m_Allocation.Get(), resource_allocation_offset, &resource_description, initial_state, clear_value_ptr, IID_PPV_ARGS(texture.GetD3D12Resource().GetAddressOf())));
+
+    return inDevice.CreateTexture(inDesc, texture);
+}
+
+
+
+uint64_t RenderGraphResourceAllocator::Allocate(Device& inDevice, const D3D12_RESOURCE_DESC& inDesc)
+{
+    D3D12_RESOURCE_ALLOCATION_INFO resource_allocation_info = inDevice->GetResourceAllocationInfo(0, 1, &inDesc);
+
+    D3D12MA::VIRTUAL_ALLOCATION_DESC virtual_allocation_desc = {};
+    virtual_allocation_desc.Size = resource_allocation_info.SizeInBytes;
+    virtual_allocation_desc.Alignment = resource_allocation_info.Alignment;
+
+    uint64_t virtual_allocation_offset = 0u;
+    D3D12MA::VirtualAllocation virtual_allocation;
+    m_VirtualBlock->Allocate(&virtual_allocation_desc, &virtual_allocation, &virtual_allocation_offset);
+
+    return virtual_allocation_offset;
+}
+
+
+
 void RenderGraphResources::Clear(Device& inDevice)
 {
     for (const RenderGraphResource& resource : m_Resources)
@@ -252,6 +354,40 @@ void RenderGraphResources::Clear(Device& inDevice)
 
 void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& inBuilder)
 {
+    PROFILE_FUNCTION_CPU();
+
+    std::vector<D3D12_RESOURCE_DESC> resource_descriptions;
+    resource_descriptions.reserve(inBuilder.m_ResourceDescriptions.size());
+
+    for (const RenderGraphResourceDesc& desc : inBuilder.m_ResourceDescriptions)
+    {
+        if (desc.mResourceID.IsValid())
+            continue;
+
+        D3D12_RESOURCE_DESC& resource_desc = resource_descriptions.emplace_back();
+
+        if (desc.mResourceType == RESOURCE_TYPE_BUFFER)
+        {
+            resource_desc = desc.mBufferDesc.ToResourceDesc();
+        }
+        else if (desc.mResourceType == RESOURCE_TYPE_TEXTURE)
+        {
+            resource_desc = desc.mTextureDesc.ToResourceDesc();
+        }
+    }
+
+    D3D12_RESOURCE_ALLOCATION_INFO allocation_info = inDevice->GetResourceAllocationInfo(0, resource_descriptions.size(), resource_descriptions.data());
+
+    if (allocation_info.SizeInBytes > m_Allocator.GetSize())
+    {
+        std::cout << std::format("Allocating {} MB\n", allocation_info.SizeInBytes / 1024 / 1024);
+        
+        m_Allocator.Release();
+        m_Allocator.Reserve(inDevice, allocation_info.SizeInBytes, allocation_info.Alignment);
+    }
+
+    m_Allocator.Clear();
+
     // Allocate actual device buffers/textures
     // TODO: aliasing
     for (const RenderGraphResourceDesc& desc : inBuilder.m_ResourceDescriptions)
@@ -266,16 +402,18 @@ void RenderGraphResources::Compile(Device& inDevice, const RenderGraphBuilder& i
         }
         else if (desc.mResourceType == RESOURCE_TYPE_BUFFER)
         {
-            resource.mResourceID = inDevice.CreateBuffer(desc.mBufferDesc);
+            resource.mResourceID = m_Allocator.CreateBuffer(inDevice, desc.mBufferDesc);
         }
         else if (desc.mResourceType == RESOURCE_TYPE_TEXTURE)
         {
-            resource.mResourceID = inDevice.CreateTexture(desc.mTextureDesc);
+            resource.mResourceID = m_Allocator.CreateTexture(inDevice, desc.mTextureDesc);
         }
 
         m_Resources.push_back(resource);
-    }
 
+        assert(resource.mResourceID.IsValid());
+    }
+    
     // Create buffer/texture resource views
     for (const RenderGraphResourceViewDesc& descriptor_desc : inBuilder.m_ResourceViewDescriptions)
     {
@@ -459,7 +597,13 @@ void RenderGraph::Clear(Device& inDevice)
 
 bool RenderGraph::Compile(Device& inDevice)
 {
+    PROFILE_FUNCTION_CPU();
+    
+    Timer timer;
+
     m_RenderGraphResources.Compile(inDevice, m_RenderGraphBuilder);
+
+    std::cout << std::format("RenderGraph resource creation took {:.2f} ms\n", Timer::sToMilliseconds(timer.GetElapsedTime()));
 
     /*
         PASS VALIDATION
@@ -726,6 +870,8 @@ bool RenderGraph::Compile(Device& inDevice)
 
 void RenderGraph::Execute(Device& inDevice, CommandList& inCmdList, uint64_t inFrameCounter)
 {
+    PROFILE_FUNCTION_CPU();
+
     inDevice.BindDrawDefaults(inCmdList);
     
     inCmdList.BindToSlot(inDevice.GetBuffer(m_GlobalConstantsAllocator.GetBuffer()), EBindSlot::CBV0);
@@ -911,7 +1057,6 @@ node [margin=.5 fontcolor="#E8E6E3" fontsize=32 width=0 shape=rectangle style=fi
 
     return ofs.str();
 }
-
 
 } // raekor
 

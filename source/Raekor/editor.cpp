@@ -8,11 +8,13 @@
 #include "debug.h"
 #include "script.h"
 #include "systems.h"
+#include "profile.h"
 #include "components.h"
 
 #include "widgets/assetsWidget.h"
 #include "widgets/menubarWidget.h"
 #include "widgets/consoleWidget.h"
+#include "widgets/ProfileWidget.h"
 #include "widgets/viewportWidget.h"
 #include "widgets/SequenceWidget.h"
 #include "widgets/inspectorWidget.h"
@@ -52,6 +54,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	m_Widgets.Register<ConsoleWidget>(this);
 	m_Widgets.Register<NodeGraphWidget>(this);
 	m_Widgets.Register<ViewportWidget>(this);
+	m_Widgets.Register<ProfileWidget>(this);
 	m_Widgets.Register<InspectorWidget>(this);
 	m_Widgets.Register<HierarchyWidget>(this);
 
@@ -117,6 +120,11 @@ IEditor::~IEditor()
 
 void IEditor::OnUpdate(float inDeltaTime)
 {
+	// clear all profile sections
+	g_Profiler->Reset();
+
+	PROFILE_FUNCTION_CPU();
+
 	// clear the debug renderer vertex buffers
 	g_DebugRenderer.Reset();
 
