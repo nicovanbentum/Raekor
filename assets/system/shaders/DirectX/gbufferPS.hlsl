@@ -14,6 +14,7 @@ struct VS_OUTPUT {
 struct PS_OUTPUT {
     float4 gbuffer: SV_Target0;
     float2 motionvectors : SV_Target1;
+    uint selection : SV_Target2;
 };
 
 ROOT_CONSTANTS(GbufferRootConstants, rc)
@@ -81,6 +82,8 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     
     output.motionvectors = (curr_pos - prev_pos);
     output.motionvectors.xy *= float2(0.5, -0.5);
+    
+    output.selection = rc.mEntity;
     
     return output;
 }
