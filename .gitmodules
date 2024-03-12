@@ -37,3 +37,6 @@
 [submodule "dependencies/xess"]
 	path = dependencies/xess
 	url = https://github.com/intel/xess
+[submodule "dependencies/BinaryRelations"]
+	path = dependencies/BinaryRelations
+	url = https://github.com/RonPieket/BinaryRelations/

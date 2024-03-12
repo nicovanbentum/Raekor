@@ -9,7 +9,6 @@
 #include "debug.h"
 #include "script.h"
 #include "archive.h"
-#include "systems.h"
 #include "physics.h"
 #include "animation.h"
 #include "components.h"
@@ -60,6 +59,7 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 		return;
 
 	ImGui::Text("Entity ID: %i", active_entity);
+	ImGui::Text("Parent ID: %i", GetScene().GetParent(active_entity));
 
 	auto& scene = GetScene();
 	auto& assets = GetAssets();
@@ -107,13 +107,9 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 		{
 			const auto& [transform, mesh] = scene.Get<Transform, Mesh>(active_entity);
 
-			if (ImGui::Selectable("Box Collider", false))
+			if (ImGui::Selectable("Collider", false))
 			{
 				auto& collider = scene.Add<BoxCollider>(active_entity);
-
-				const auto half_extent = glm::abs(mesh.aabb[1] - mesh.aabb[0]) / 2.0f * transform.scale;
-				collider.settings.mHalfExtent = JPH::Vec3(half_extent.x, half_extent.y, half_extent.z);
-				//collider.settings.SetEmbedded();
 			}
 
 			if (ImGui::Selectable("Soft Body", false))
@@ -332,30 +328,6 @@ void InspectorWidget::DrawComponent(Entity inEntity, Name& inName)
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, Node& ioNode)
-{
-	if (ioNode.parent != Entity::Null)
-	{
-		ImGui::Text("Parent entity:");
-		ImGui::SameLine();
-
-		auto parent = std::to_string(ioNode.parent);
-
-		if (ImGui::SmallButton(parent.c_str()))
-			SetActiveEntity(ioNode.parent);
-
-		ImGui::SameLine();
-		if (ImGui::SmallButton("X"))
-			NodeSystem::sRemove(GetScene(), ioNode);
-	}
-	else
-		ImGui::Text("Parent entity: NULL");
-
-	ImGui::Text("First Child: %i", ioNode.firstChild);
-	ImGui::Text("Siblings: %i, %i", ioNode.prevSibling, ioNode.nextSibling);
-}
-
-
 void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 {
 	const auto byte_size = sizeof(Mesh) + ioMesh.GetInterleavedStride() * ioMesh.positions.size();
@@ -462,6 +434,38 @@ void InspectorWidget::DrawComponent(Entity inEntity, BoxCollider& inBoxCollider)
 	{
 		inBoxCollider.motionType = JPH::EMotionType(index);
 		body_interface.SetMotionType(inBoxCollider.bodyID, inBoxCollider.motionType, JPH::EActivation::Activate);
+	}
+
+	if (inBoxCollider.motionType == JPH::EMotionType::Static)
+	{
+		if (ImGui::Button("Create Mesh Shape"))
+		{
+			Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
+			Transform* transform = GetScene().GetPtr<Transform>(inEntity);
+
+			if (mesh && transform)
+				inBoxCollider.CreateMeshCollider(*mesh, *transform);
+		}
+	}
+
+	if (ImGui::Button("Create Cube Shape"))
+	{
+		Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
+		Transform* transform = GetScene().GetPtr<Transform>(inEntity);
+
+		if (mesh && transform)
+			inBoxCollider.CreateCubeCollider(BBox3D(mesh->aabb[0], mesh->aabb[1]).Scale(transform->scale));
+		else
+			inBoxCollider.CreateCubeCollider(BBox3D(Vec3(0.0f), Vec3(1.0f)));
+	}
+
+	if (ImGui::Button("Create Cylinder Shape"))
+	{
+		Mesh* mesh = GetScene().GetPtr<Mesh>(inEntity);
+		Transform* transform = GetScene().GetPtr<Transform>(inEntity);
+
+		if (mesh && transform)
+			inBoxCollider.CreateCylinderCollider(*mesh, *transform);
 	}
 }
 
@@ -859,12 +863,15 @@ void InspectorWidget::DrawComponent(Entity inEntity, NativeScript& inScript)
 
 void InspectorWidget::DrawComponent(Entity inEntity, DDGISceneSettings& ioSettings)
 {
-	auto& scene = GetScene();
+	const Transform& transform = GetScene().Get<Transform>(GetActiveEntity());
+
+	const Vec3 min_bounds = transform.GetPositionWorldSpace();
+	const Vec3 max_bounds = min_bounds + ioSettings.mDDGIProbeSpacing * Vec3(ioSettings.mDDGIProbeCount);
+
+	g_DebugRenderer.AddLineCube(min_bounds, max_bounds);
 
 	if (ImGui::Button("Fit to Scene", ImVec2(ImGui::GetWindowWidth(), 0)))
-	{
-		ioSettings.FitToScene(scene, scene.Get<Transform>(GetActiveEntity()));
-	}
+		ioSettings.FitToScene(GetScene(), GetScene().Get<Transform>(GetActiveEntity()));
 
 	ImGui::DragInt3("Probe Count", glm::value_ptr(ioSettings.mDDGIProbeCount), 1, 1, 40);
 	ImGui::DragFloat3("Probe Spacing", glm::value_ptr(ioSettings.mDDGIProbeSpacing), 0.01f, -1000.0f, 1000.0f, "%.3f");

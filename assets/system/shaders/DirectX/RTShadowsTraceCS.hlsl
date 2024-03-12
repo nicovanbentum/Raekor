@@ -40,14 +40,16 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupID : SV_Group
         const float4 blue_noise = SampleBlueNoise(dispatchThreadID.xy, fc.mFrameCounter);
         const float3 ray_dir = SampleDirectionalLight(fc.mSunDirection.xyz, fc.mSunConeAngle, pcg_float2(rng));
         
-        const float3 normal     = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
-        const float3 position   = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
-    
+        const float3 normal = UnpackNormal(asuint(gbuffer_texture[dispatchThreadID.xy]));
+        const float3 ws_pos = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
+        const float3 vs_pos = mul(fc.mViewMatrix, float4(ws_pos, 1.0)).xyz;
+
+        const float bias = (-vs_pos.z + length(ws_pos.xyz)) * 1e-3;
+
         RayDesc ray;
-        ray.TMin = 0.01;
-        ray.TMax = 1000.0;
-        ray.Origin = position + normal * 0.01; // TODO: find a more robust method? offsetRay from ray tracing gems 
-                                                // expects a geometric normal, which most deferred renderers dont write out
+        ray.TMin = 0.0;
+        ray.TMax = 10000.0;
+        ray.Origin = ws_pos + normal * bias;
         ray.Direction = ray_dir;
 
         if (dot(normal, ray.Direction) > 0.0)

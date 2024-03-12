@@ -34,12 +34,14 @@ void main(uint3 threadID : SV_DispatchThreadID)
     const float3 random_offset = SampleCosineWeightedHemisphere(blue_noise.xy);
     const float3 normal = UnpackNormal(asuint(gbuffer_texture[threadID.xy]));
     const float3 ws_position = ReconstructWorldPosition(screen_uv, depth, fc.mInvViewProjectionMatrix);
+    const float3 vs_position = mul(fc.mViewMatrix, float4(ws_position, 1.0)).xyz;
+    
+    const float bias = (-vs_position.z + length(ws_position.xyz)) * 1e-3;
     
     RayDesc ray;
-    ray.TMin = rc.mParams.mNormalBias;
+    ray.TMin = 0.0;
     ray.TMax = rc.mParams.mRadius;
-    ray.Origin = ws_position + normal * rc.mParams.mNormalBias; // TODO: find a more robust method? offsetRay from ray tracing gems 
-                                            // expects a geometric normal, which most deferred renderers dont write out
+    ray.Origin = ws_position + normal * bias;
     ray.Direction = normalize(normal + random_offset);
 
     uint ray_flags =  RAY_FLAG_FORCE_OPAQUE;

@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include "pch.h"
 #include "ecs.h"
 #include "scene.h"
@@ -11,7 +15,6 @@
 #include "member.h"
 #include "camera.h"
 #include "script.h"
-#include "systems.h"
 #include "physics.h"
 #include "components.h"
 

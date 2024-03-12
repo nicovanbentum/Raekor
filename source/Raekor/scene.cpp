@@ -9,13 +9,12 @@
 #include "rmath.h"
 #include "script.h"
 #include "profile.h"
-#include "systems.h"
 #include "components.h"
 #include "application.h"
 
 namespace Raekor {
 
-Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer) 
+Scene::Scene(IRenderInterface* inRenderer) : m_Renderer(inRenderer), m_RootEntity(Create())
 {
 	gForEachTupleElement(Components, [&](auto component)
 	{
@@ -68,34 +67,27 @@ Entity Scene::PickSpatialEntity(const Ray& inRay) const
 }
 
 
-Entity Scene::CreateSpatialEntity(const std::string& inName)
+Entity Scene::CreateSpatialEntity(std::string_view inName)
 {
-	auto entity = Create();
-	auto& name = Add<Name>(entity);
-	name.name = inName;
-
-	Add<Node>(entity);
+	Entity entity = Create();
+	ParentTo(entity, m_RootEntity);
+	
+	Add<Name>(entity).name = inName;
 	Add<Transform>(entity);
+	
 	return entity;
 }
 
 
 void Scene::DestroySpatialEntity(Entity inEntity)
 {
-	if (Has<Node>(inEntity))
+	TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
 	{
-		auto tree = NodeSystem::sGetFlatHierarchy(*this, inEntity);
+		inScene.Destroy(inEntity);
+		inScene.Unparent(inEntity);
+	};
 
-		for (auto member : tree)
-		{
-			NodeSystem::sRemove(*this, Get<Node>(member));
-			Destroy(member);
-		}
-
-		NodeSystem::sRemove(*this, Get<Node>(inEntity));
-	}
-
-	Destroy(inEntity);
+	TraverseBreadthFirst(inEntity, Traverse, nullptr);
 }
 
 
@@ -141,45 +133,73 @@ void Scene::UpdateLights()
 }
 
 
+void Scene::TraverseBreadthFirst(Entity inEntity, TraverseFunction inFunction, void* inContext)
+{
+	m_BFS.push(inEntity);
+
+	while (!m_BFS.empty())
+	{
+		Entity entity = m_BFS.front();
+		m_BFS.pop();
+
+		if (entity != m_RootEntity)
+			inFunction(inContext, *this, entity);
+
+		if (auto children = m_Hierarchy.findRight(entity))
+		{
+			for (Entity child : *children)
+				m_BFS.push(child);
+		}
+	}
+
+	assert(m_BFS.empty());
+}
+
+
+void Scene::TraverseDepthFirst(Entity inEntity, TraverseFunction inFunction, void* inContext)
+{
+	m_DFS.push(inEntity);
+
+	while (!m_DFS.empty())
+	{
+		Entity entity = m_DFS.top();
+		m_DFS.pop();
+
+		if (entity != m_RootEntity)
+			inFunction(inContext, *this, entity);
+
+		if (auto children = m_Hierarchy.findRight(entity))
+		{
+			for (Entity child : *children)
+				m_DFS.push(child);
+		}
+	}
+
+	assert(m_DFS.empty());
+}
+
+
 void Scene::UpdateTransforms()
 {
 	PROFILE_FUNCTION_CPU();
 
-	for (const auto& [entity, node, transform] : Each<Node, Transform>())
+	TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
 	{
-		if (node.parent != Entity::Null)
-			continue;
+		Entity parent = inScene.GetParent(inEntity);
+		Transform& transform = inScene.Get<Transform>(inEntity);
 
-		if (node.parent == Entity::Null)
+		if (parent == Entity::Null || parent == inScene.GetRootEntity())
 		{
-			m_Nodes.push(entity);
-
-			while (!m_Nodes.empty())
-			{
-				const auto& [current_node, current_transform] = Get<Node, Transform>(m_Nodes.top());
-				m_Nodes.pop();
-
-				if (current_node.parent == Entity::Null)
-				{
-					current_transform.worldTransform = current_transform.localTransform;
-				}
-				else
-				{
-					const auto& parent_transform = Get<Transform>(current_node.parent);
-					current_transform.worldTransform = parent_transform.worldTransform * current_transform.localTransform;
-				}
-
-				auto child = current_node.firstChild;
-				while (child != Entity::Null)
-				{
-					m_Nodes.push(child);
-					child = Get<Node>(child).nextSibling;
-				}
-			}
+			transform.worldTransform = transform.localTransform;
 		}
-	}
+		else
+		{
+			const Transform& parent_transform = inScene.Get<Transform>(parent);
+			transform.worldTransform = parent_transform.worldTransform * transform.localTransform;
+		}
+	};
 
-	assert(m_Nodes.empty());
+	TraverseDepthFirst(m_RootEntity, Traverse, nullptr);
 }
 
 
@@ -310,22 +330,18 @@ Entity Scene::Clone(Entity inEntity)
 		}
 	}
 	
-	if (Has<Node>(copy))
-	{
-		Node& to_node = Get<Node>(copy);
-		Node& from_node = Get<Node>(inEntity);
-
-		if (from_node.parent != Entity::Null)
-			NodeSystem::sAppend(*this, from_node.parent, Get<Node>(from_node.parent), copy, to_node);
-
-		for (Entity it = from_node.firstChild; it != Entity::Null; it = Get<Node>(it).nextSibling)
-			Clone(it);
-	}
-
 	if (Has<BoxCollider>(copy))
 	{
 		BoxCollider& collider = Get<BoxCollider>(copy);
 		collider.bodyID = JPH::BodyID();
+	}
+
+	if (HasParent(inEntity))
+	{
+		ParentTo(copy, GetParent(inEntity));
+
+		for (Entity child : GetChildren(inEntity))
+			Clone(child);
 	}
 
 	return copy;
@@ -375,6 +391,14 @@ void Scene::SaveToFile(const std::string& inFile, Assets& ioAssets, Application*
 		using Component = decltype( inVar )::type;
 		GetComponentStorage<Component>()->Write(archive);
 	});
+
+	std::vector<EntityHierarchy::Pair> pairs;
+	pairs.reserve(m_Hierarchy.count());
+
+	for (const EntityHierarchy::Pair& pair : m_Hierarchy)
+		pairs.push_back(pair);
+
+	WriteFileBinary(archive.GetFile(), pairs);
 }
 
 
@@ -399,6 +423,14 @@ void Scene::OpenFromFile(const std::string& inFilePath, Assets& ioAssets, Applic
 	});
 
 	std::cout << std::format("[Scene] Load ECStorage data took {:.3f} seconds.\n", timer.GetElapsedTime());
+
+	std::vector<EntityHierarchy::Pair> pairs;
+	ReadFileBinary(archive.GetFile(), pairs);
+
+	m_Hierarchy.insert(pairs);
+
+	std::cout << std::format("[Scene] Load Hierarchy data took {:.3f} seconds.\n", timer.GetElapsedTime());
+
 
 	// load material texture data to vram
 	LoadMaterialTextures(ioAssets, GetEntities<Material>());
@@ -515,21 +547,22 @@ bool SceneImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	/*
 	* PARSE NODES & MESHES
 	*/
-	for (const auto& [entity, node] : m_ImportedScene.Each<Node>())
+	Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
 	{
-		if (node.IsRoot())
-			ParseNode(entity, Entity::Null);
-	}
+		SceneImporter* importer = (SceneImporter*)inContext;
+
+		if (inScene.GetParent(inEntity) == inScene.GetRootEntity())
+			importer->ParseNode(inEntity, Entity::Null);
+	};
+	
+	m_ImportedScene.TraverseDepthFirst(m_ImportedScene.GetRootEntity(), Traverse, this);
 
 	const auto root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
-	auto& root_node = m_Scene.Get<Node>(root_entity);
 
-	for (const auto& entity : m_CreatedNodeEntities)
+	for (Entity entity : m_CreatedNodeEntities)
 	{
-		auto& node = m_Scene.Get<Node>(entity);
-
-		if (node.IsRoot())
-			NodeSystem::sAppend(m_Scene, root_entity, root_node, entity, node);
+		if (!m_Scene.HasParent(entity) || m_Scene.GetParent(entity) == m_Scene.GetRootEntity())
+			 m_Scene.ParentTo(entity, root_entity);
 	}
 
 	std::cout << "[Scene Import] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
@@ -569,7 +602,7 @@ void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 
 	// set the new inEntity's parent
 	if (inParent != Entity::Null)
-		NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), new_entity, m_Scene.Get<Node>(new_entity));
+		m_Scene.ParentTo(new_entity, inParent);
 
 	// Copy over mesh
 	if (m_ImportedScene.Has<Mesh>(inEntity))
@@ -584,12 +617,8 @@ void SceneImporter::ParseNode(Entity inEntity, Entity inParent)
 		m_Scene.Add<Animation>(new_entity, m_Scene.Get<Animation>(inEntity));
 
 	// recurse into children
-	auto child = m_ImportedScene.Get<Node>(inEntity).firstChild;
-	while (child != Entity::Null)
-	{
+	for (Entity child : m_ImportedScene.GetChildren(inEntity))
 		ParseNode(child, new_entity);
-		child = m_ImportedScene.Get<Node>(child).nextSibling;
-	}
 }
 
 

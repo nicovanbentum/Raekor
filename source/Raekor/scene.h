@@ -28,7 +28,7 @@ public:
 
 	// Spatial entity management
 	Entity PickSpatialEntity(const Ray& inRay) const;
-	Entity CreateSpatialEntity(const std::string& inName = "");
+	Entity CreateSpatialEntity(std::string_view inName = "");
 	void DestroySpatialEntity(Entity inEntity);
 
 	// TODO: kinda hacky, pls fix
@@ -44,6 +44,22 @@ public:
 	// debug stuff
 	void RenderDebugShapes(Entity inEntity) const;
 
+	// entity hierarchy stuff
+	using TraverseFunction = void(*)(void*, Scene&, Entity);
+	void TraverseDepthFirst(Entity inEntity, TraverseFunction inFunction, void* inContext);
+	void TraverseBreadthFirst(Entity inEntity, TraverseFunction inFunction, void* inContext);
+
+	Entity GetRootEntity() const { return m_RootEntity; }
+
+	bool HasChildren(Entity inEntity) const { return !m_Hierarchy.findRight(inEntity)->empty(); }
+	Slice<Entity> GetChildren(Entity inEntity) { return *m_Hierarchy.findRight(inEntity); }
+	
+	bool HasParent(Entity inEntity) const { return GetParent(inEntity) != Entity::Null; }
+	Entity GetParent(Entity inEntity) const { return m_Hierarchy.findLeft(inEntity, Entity::Null); }
+
+	void Unparent(Entity inEntity) { assert(inEntity != Entity::Null); m_Hierarchy.eraseRight(inEntity); }
+	void ParentTo(Entity inEntity, Entity inParent) { assert(inEntity != Entity::Null && inParent != Entity::Null); m_Hierarchy.insert(inParent, inEntity); }
+
 	// entity operations
 	Entity Clone(Entity inEntity);
 
@@ -57,12 +73,18 @@ public:
 	// script utilities
 	void BindScriptToEntity(Entity inEntity, NativeScript& inScript, Application* inApp);
 
+
 	void Optimize();
 
 protected:
 	Path m_ActiveSceneFilePath;
 	IRenderInterface* m_Renderer;
-	std::stack<Entity> m_Nodes;
+	
+private:
+	Entity m_RootEntity;
+	std::stack<Entity> m_DFS;
+	std::queue<Entity> m_BFS;
+	EntityHierarchy m_Hierarchy;
 };
 
 

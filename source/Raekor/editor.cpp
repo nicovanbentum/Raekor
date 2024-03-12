@@ -7,7 +7,6 @@
 #include "timer.h"
 #include "debug.h"
 #include "script.h"
-#include "systems.h"
 #include "profile.h"
 #include "components.h"
 
@@ -161,7 +160,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 	}
 
 	// render any scene dependent debug shapes
-	if (GetActiveEntity() != Entity::Null)
+	if (GetActiveEntity() != Entity::Null && m_ActiveEntity != m_Scene.GetRootEntity())
 		m_Scene.RenderDebugShapes(GetActiveEntity());
 
 	// update Skeleton and Animation components
@@ -249,22 +248,16 @@ void IEditor::OnEvent(const SDL_Event& event)
 		{
 			case SDLK_DELETE:
 			{
-				if (m_ActiveEntity != Entity::Null)
+				if (m_ActiveEntity != Entity::Null && m_ActiveEntity != m_Scene.GetRootEntity())
 				{
-					if (m_Scene.Has<Node>(m_ActiveEntity))
+					Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
 					{
-						auto tree = NodeSystem::sGetFlatHierarchy(m_Scene, m_ActiveEntity);
+						IEditor* editor = (IEditor*)inContext;
+						editor->GetScene()->Destroy(inEntity);
+						editor->GetScene()->Unparent(inEntity);
+					};
 
-						for (auto entity : tree)
-						{
-							NodeSystem::sRemove(m_Scene, m_Scene.Get<Node>(entity));
-							m_Scene.Destroy(entity);
-						}
-
-						NodeSystem::sRemove(m_Scene, m_Scene.Get<Node>(m_ActiveEntity));
-					}
-
-					m_Scene.Destroy(m_ActiveEntity);
+					m_Scene.TraverseBreadthFirst(m_ActiveEntity, Traverse, this);
 					m_ActiveEntity = Entity::Null;
 				}
 			} break;
@@ -273,10 +266,8 @@ void IEditor::OnEvent(const SDL_Event& event)
 			{
 				if (SDL_GetModState() & KMOD_LCTRL)
 				{
-					if (m_ActiveEntity != Entity::Null)
-					{
+					if (m_ActiveEntity != Entity::Null && m_ActiveEntity != m_Scene.GetRootEntity())
 						SetActiveEntity(m_Scene.Clone(m_ActiveEntity));
-					}
 				}
 			} break;
 

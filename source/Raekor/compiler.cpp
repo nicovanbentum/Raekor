@@ -428,7 +428,7 @@ void CompilerApp::OnUpdate(float inDeltaTime)
 				fs::create_directories(Path(file.mCachePath).parent_path());
 
 				const auto clang_exe = "dependencies\\clang\\clang.exe";
-				const auto includes = "-I source\\Raekor\\ -I dependencies\\cgltf -I dependencies\\glm\\glm -I dependencies\\JoltPhysics -I build\\vcpkg_installed\\x64-windows-static\\include";
+				const auto includes = "-I source\\Raekor\\ -I dependencies\\BinaryRelations -I dependencies\\cgltf -I dependencies\\glm\\glm -I dependencies\\JoltPhysics -I build\\vcpkg_installed\\x64-windows-static\\include";
 				const auto command = std::format("{} -gcodeview {} {} -shared -std=c++20 -o {}", clang_exe, includes, file.mAssetPath, file.mCachePath);
 
 				OS::sCreateProcess(command.c_str());

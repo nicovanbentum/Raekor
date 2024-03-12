@@ -5,7 +5,7 @@
 #include "scene.h"
 #include "debug.h"
 #include "member.h"
-#include "systems.h"
+#include "physics.h"
 #include "primitives.h"
 
 namespace Raekor {
@@ -48,15 +48,6 @@ RTTI_DEFINE_TYPE(Light)
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Position", position);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Color", colour);
 	RTTI_DEFINE_MEMBER(Light, SERIALIZE_ALL, "Attributes", attributes);
-}
-
-
-RTTI_DEFINE_TYPE(Node)
-{
-	RTTI_DEFINE_MEMBER(Node, SERIALIZE_ALL, "Parent", parent);
-	RTTI_DEFINE_MEMBER(Node, SERIALIZE_ALL, "First Child", firstChild);
-	RTTI_DEFINE_MEMBER(Node, SERIALIZE_ALL, "Prev Sibling", prevSibling);
-	RTTI_DEFINE_MEMBER(Node, SERIALIZE_ALL, "Next Sibling", nextSibling);
 }
 
 
@@ -134,7 +125,6 @@ void gRegisterComponentTypes()
 	g_RTTIFactory.Register(RTTI_OF(Name));
 	g_RTTIFactory.Register(RTTI_OF(Transform));
 	g_RTTIFactory.Register(RTTI_OF(Mesh));
-	g_RTTIFactory.Register(RTTI_OF(Node));
 	g_RTTIFactory.Register(RTTI_OF(Material));
 	g_RTTIFactory.Register(RTTI_OF(Animation));
 	g_RTTIFactory.Register(RTTI_OF(BoxCollider));
@@ -465,6 +455,43 @@ void Skeleton::UpdateFromAnimation(Animation& animation)
 {
 	auto identity = glm::mat4(1.0f);
 	UpdateBoneTransform(animation, rootBone, identity);
+}
+
+
+void BoxCollider::CreateCubeCollider(const BBox3D& inBBox)
+{
+	const Vec3 half_extent = inBBox.GetExtents() / 2.0f;
+	shapeSettings = new JPH::BoxShapeSettings(JPH::Vec3Arg(half_extent.x, half_extent.y, half_extent.z));
+}
+
+
+void BoxCollider::CreateMeshCollider(const Mesh& inMesh, const Transform& inTransform)
+{
+	JPH::TriangleList triangles;
+
+	for (int i = 0; i < inMesh.indices.size(); i += 3)
+	{
+		auto v0 = inMesh.positions[inMesh.indices[i]];
+		auto v1 = inMesh.positions[inMesh.indices[i + 1]];
+		auto v2 = inMesh.positions[inMesh.indices[i + 2]];
+
+		v0 *= inTransform.GetScaleWorldSpace();
+		v1 *= inTransform.GetScaleWorldSpace();
+		v2 *= inTransform.GetScaleWorldSpace();
+
+		triangles.push_back(JPH::Triangle(JPH::Float3(v0.x, v0.y, v0.z), JPH::Float3(v1.x, v1.y, v1.z), JPH::Float3(v2.x, v2.y, v2.z)));
+	}
+
+	motionType = JPH::EMotionType::Static;
+	shapeSettings = new JPH::MeshShapeSettings(triangles);
+}
+
+
+void BoxCollider::CreateCylinderCollider(const Mesh& inMesh, const Transform& inTransform)
+{
+	const BBox3D aabb = BBox3D(inMesh.aabb[0], inMesh.aabb[1]).Scale(inTransform.scale);
+	const Vec3 half_extent = aabb.GetExtents() / 2.0f;
+	shapeSettings = new JPH::CylinderShapeSettings(half_extent.y, half_extent.x);
 }
 
 } // raekor

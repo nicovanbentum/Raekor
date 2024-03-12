@@ -1217,9 +1217,7 @@ void DebugLines::Render(const Viewport& viewport, GLuint colorAttachment, GLuint
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (const void*)( (intptr_t)0 ));
 
-    glDisable(GL_DEPTH_TEST);
     glDrawArrays(GL_LINES, 0, lines.Length());
-    glEnable(GL_DEPTH_TEST);
 
     glDisable(GL_LINE_SMOOTH);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

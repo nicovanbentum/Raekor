@@ -34,7 +34,7 @@ static bool AssertFailedImpl(const char* inExpression, const char* inMessage, co
 
 
 
-Physics::Physics(IRenderInterface* inRenderer)
+void Physics::sInit()
 {
 	JPH::RegisterDefaultAllocator();
 
@@ -42,10 +42,20 @@ Physics::Physics(IRenderInterface* inRenderer)
 #ifndef NDEBUG
 	JPH::AssertFailed = AssertFailedImpl;
 #endif
+}
+
+
+
+Physics::Physics(IRenderInterface* inRenderer)
+{
+	sInit();
+	
 	JPH::Factory::sInstance = new JPH::Factory();
 
 	if (inRenderer)
+	{
 		JPH::DebugRenderer::sInstance = new PhysicsDebugRenderer();
+	}
 	JPH::RegisterTypes();
 
 	m_Physics = new JPH::PhysicsSystem();
@@ -102,20 +112,24 @@ void Physics::OnUpdate(Scene& scene)
 	{
 		for (const auto& [entity, transform, collider] : scene.Each<Transform, BoxCollider>())
 		{
-			if (collider.bodyID.IsInvalid() && collider.settings.GetRefCount())
+			if (collider.bodyID.IsInvalid() && collider.shapeSettings != nullptr)
 			{
 				auto settings = JPH::BodyCreationSettings(
-					&collider.settings,
+					collider.shapeSettings,
 					JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
 					JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
 					collider.motionType,
 					EPhysicsObjectLayers::MOVING
 				);
 
-				collider.settings.SetEmbedded();
+				if (collider.shapeSettings->GetRTTI() != JPH_RTTI(JPH::MeshShapeSettings))
+					settings.mAllowDynamicOrKinematic = true;
 
-				settings.mAllowDynamicOrKinematic = true;
 				collider.bodyID = m_Physics->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
+
+				const auto position = JPH::Vec3(transform.position.x, transform.position.y, transform.position.z);
+				const auto rotation = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+				m_Physics->GetBodyInterface().SetPositionAndRotationWhenChanged(collider.bodyID, position, rotation, JPH::EActivation::DontActivate);
 			}
 			else
 			{
@@ -175,8 +189,8 @@ void Physics::OnUpdate(Scene& scene)
 	if (m_Debug && JPH::DebugRenderer::sInstance)
 	{
 		JPH::BodyManager::DrawSettings draw_settings;
-		draw_settings.mDrawShape = false;
-		draw_settings.mDrawSoftBodyEdgeConstraints = true;
+		draw_settings.mDrawShape = true;
+		//draw_settings.mDrawSoftBodyEdgeConstraints = true;
 		m_Physics->DrawBodies(draw_settings, JPH::DebugRenderer::sInstance);
 	}
 }
@@ -186,33 +200,16 @@ void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
 {
 	for (const auto& [sb_entity, sb_transform, sb_mesh, sb_collider] : inScene.Each<Transform, Mesh, BoxCollider>())
 	{
-		auto entity = sb_entity;
-		auto& transform = sb_transform;
-		auto& mesh = sb_mesh;
-		auto& collider = sb_collider;
+		Mesh& mesh = sb_mesh;
+		Transform& transform = sb_transform;
+		BoxCollider& collider = sb_collider;
 
 		g_ThreadPool.QueueJob([&]()
 		{
-			JPH::TriangleList triangles;
-
-			for (int i = 0; i < mesh.indices.size(); i += 3)
-			{
-				auto v0 = mesh.positions[mesh.indices[i]];
-				auto v1 = mesh.positions[mesh.indices[i + 1]];
-				auto v2 = mesh.positions[mesh.indices[i + 2]];
-
-				v0 *= transform.GetScaleWorldSpace();
-				v1 *= transform.GetScaleWorldSpace();
-				v2 *= transform.GetScaleWorldSpace();
-
-				triangles.push_back(JPH::Triangle(JPH::Float3(v0.x, v0.y, v0.z), JPH::Float3(v1.x, v1.y, v1.z), JPH::Float3(v2.x, v2.y, v2.z)));
-			}
-
-			collider.motionType = JPH::EMotionType::Static;
-			JPH::Ref<JPH::ShapeSettings> settings = new JPH::MeshShapeSettings(triangles);
+			collider.CreateMeshCollider(mesh, transform);
 
 			auto body_settings = JPH::BodyCreationSettings(
-				settings,
+				&collider.meshSettings,
 				JPH::Vec3(transform.position.x, transform.position.y, transform.position.z),
 				JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w),
 				collider.motionType,
@@ -258,27 +255,26 @@ bool ObjectLayerPairFilter::ShouldCollide(JPH::ObjectLayer inLayer1, JPH::Object
 }
 
 
+
 void PhysicsDebugRenderer::DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor)
 {
-	g_DebugRenderer.AddLine(Vec3(inFrom.GetX(), inFrom.GetY(), inFrom.GetZ()), Vec3(inTo.GetX(), inTo.GetY(), inTo.GetZ()));
+	g_DebugRenderer.AddLine(Vec3(inFrom.GetX(), inFrom.GetY(), inFrom.GetZ()), Vec3(inTo.GetX(), inTo.GetY(), inTo.GetZ()), Vec4(inColor.r, inColor.g, inColor.b, inColor.a));
 }
-
 
 
 void PhysicsDebugRenderer::DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow inCastShadow)
 {
-	g_DebugRenderer.AddLine(Vec3(inV1.GetX(), inV1.GetY(), inV1.GetZ()), Vec3(inV2.GetX(), inV2.GetY(), inV2.GetZ()));
-	g_DebugRenderer.AddLine(Vec3(inV1.GetX(), inV1.GetY(), inV1.GetZ()), Vec3(inV3.GetX(), inV3.GetY(), inV3.GetZ()));
-	g_DebugRenderer.AddLine(Vec3(inV2.GetX(), inV2.GetY(), inV2.GetZ()), Vec3(inV3.GetX(), inV3.GetY(), inV3.GetZ()));
+	g_DebugRenderer.AddLine(Vec3(inV1.GetX(), inV1.GetY(), inV1.GetZ()), Vec3(inV2.GetX(), inV2.GetY(), inV2.GetZ()), Vec4(inColor.r, inColor.g, inColor.b, inColor.a));
+	g_DebugRenderer.AddLine(Vec3(inV1.GetX(), inV1.GetY(), inV1.GetZ()), Vec3(inV3.GetX(), inV3.GetY(), inV3.GetZ()), Vec4(inColor.r, inColor.g, inColor.b, inColor.a));
+	g_DebugRenderer.AddLine(Vec3(inV2.GetX(), inV2.GetY(), inV2.GetZ()), Vec3(inV3.GetX(), inV3.GetY(), inV3.GetZ()), Vec4(inColor.r, inColor.g, inColor.b, inColor.a));
 }
 
 
 void PhysicsDebugRenderer::DrawGeometry(JPH::RMat44Arg inModelMatrix, const JPH::AABox& inWorldSpaceBounds, float inLODScaleSq, JPH::ColorArg inModelColor, const GeometryRef& inGeometry, ECullMode inCullMode, ECastShadow inCastShadow, EDrawMode inDrawMode)
 {
-	const auto bb_min = inWorldSpaceBounds.GetCenter() - inWorldSpaceBounds.GetExtent() / 2;
-	const auto bb_max = inWorldSpaceBounds.GetCenter() + inWorldSpaceBounds.GetExtent() / 2;
-
-	g_DebugRenderer.AddLineCube(Vec3(bb_min.GetX(), bb_min.GetY(), bb_min.GetZ()), Vec3(bb_max.GetX(), bb_max.GetY(), bb_max.GetZ()));
+	const auto bb_min = inWorldSpaceBounds.mMin;
+	const auto bb_max = inWorldSpaceBounds.mMax;
+	g_DebugRenderer.AddLineCube(Vec3(bb_min.GetX(), bb_min.GetY(), bb_min.GetZ()), Vec3(bb_max.GetX(), bb_max.GetY(), bb_max.GetZ()), Mat4x4(1.0f), Vec4(inModelColor.r, inModelColor.g, inModelColor.b, inModelColor.a));
 }
 
 } // namespace Raekor

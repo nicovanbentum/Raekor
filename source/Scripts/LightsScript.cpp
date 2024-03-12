@@ -30,7 +30,7 @@ public:
                 {
                     const auto entity = m_Scene->CreateSpatialEntity(std::format("PointLight {}", point_light_count));
 
-                    NodeSystem::sAppend(*m_Scene, m_Entity, m_Scene->Get<Node>(m_Entity), entity, m_Scene->Get<Node>(entity));
+                    GetScene()->ParentTo(entity, m_Entity);
 
                     auto& transform = m_Scene->Get<Transform>(entity);
                     transform.position = Vec3(x, y, z) + Vec3(cPointLightRadius) * 0.5f;

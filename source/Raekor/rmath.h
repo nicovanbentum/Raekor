@@ -49,6 +49,10 @@ struct BBox3D
 	Vec3 GetCenter() const { return mMin + ( ( mMax - mMin ) * 0.5f ); }
 	Vec3 GetExtents() const { return glm::abs(mMax - mMin); }
 
+	float GetDepth() const { return GetExtents().z; }
+	float GetWidth() const { return GetExtents().x; }
+	float GetHeight() const { return GetExtents().y; }
+
 	bool IsValid() const { return glm::all(glm::greaterThan(mMax, mMin)); }
 
 	Vec3 mMin = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);

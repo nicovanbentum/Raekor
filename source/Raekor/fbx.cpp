@@ -2,7 +2,6 @@
 #include "fbx.h"
 #include "iter.h"
 #include "timer.h"
-#include "systems.h"
 #include "components.h"
 #include "application.h"
 
@@ -48,19 +47,16 @@ bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 		if (node->is_root)
 		{
 			auto root = m_CreatedNodeEntities.emplace_back(m_Scene.CreateSpatialEntity(node->name.data));
-			ParseNode(node, Entity::Null, root);
+			ParseNode(node, m_Scene.GetRootEntity(), root);
 		}
 	}
 
 	const auto root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
-	auto& root_node = m_Scene.Get<Node>(root_entity);
 
 	for (const auto& entity : m_CreatedNodeEntities)
 	{
-		auto& node = m_Scene.Get<Node>(entity);
-
-		if (node.IsRoot())
-			NodeSystem::sAppend(m_Scene, root_entity, root_node, entity, node);
+		if (!m_Scene.HasParent(entity) || m_Scene.GetParent(entity) == m_Scene.GetRootEntity())
+			m_Scene.ParentTo(entity, root_entity);
 	}
 
 	std::cout << "[GLTF] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
@@ -77,7 +73,6 @@ bool FBXImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 
 void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inEntity)
 {
-	// set the name
 	if (inNode->name.length)
 		m_Scene.Get<Name>(inEntity).name = inNode->name.data;
 	else if (inNode->mesh && inNode->mesh->name.length)
@@ -85,9 +80,8 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 	else
 		m_Scene.Get<Name>(inEntity).name = inNode->mesh ? "Mesh " : "Entity " + std::to_string(uint32_t(inEntity));
 
-	// set the new entity's parent
 	if (inParent != Entity::Null)
-		NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), inEntity, m_Scene.Get<Node>(inEntity));
+		m_Scene.ParentTo(inEntity, inParent);
 
 	auto local_transform = glm::mat4(1.0f);
 
@@ -125,7 +119,7 @@ void FBXImporter::ParseNode(const ufbx_node* inNode, Entity inParent, Entity inE
 				transform.localTransform = glm::mat4(1.0f);
 				transform.Decompose();
 
-				NodeSystem::sAppend(m_Scene, inEntity, m_Scene.Get<Node>(inEntity), clone, m_Scene.Get<Node>(clone));
+				m_Scene.ParentTo(clone, inEntity);
 			}
 		}
 

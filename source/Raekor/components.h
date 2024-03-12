@@ -82,21 +82,6 @@ struct Light
 };
 
 
-struct Node
-{
-	RTTI_DECLARE_TYPE(Node);
-
-	Entity parent = Entity::Null;
-	Entity firstChild = Entity::Null;
-	Entity prevSibling = Entity::Null;
-	Entity nextSibling = Entity::Null;
-
-	bool IsRoot() const { return parent == Entity::Null; }
-	bool HasChildren() const { return firstChild != Entity::Null; }
-	bool IsConnected() const { return firstChild != Entity::Null && parent != Entity::Null; }
-};
-
-
 struct MeshletTriangle
 {
 	uint32_t mX : 10;
@@ -172,8 +157,11 @@ struct BoxCollider
 	JPH::EMotionType motionType;
 	JPH::BoxShapeSettings settings;
 	JPH::MeshShapeSettings meshSettings;
+	JPH::Ref<JPH::ShapeSettings> shapeSettings;
 
-	void CreateFromMesh(const Mesh& inMesh);
+	void CreateCubeCollider(const BBox3D& inBBox);
+	void CreateMeshCollider(const Mesh& inMesh, const Transform& inTransform);
+	void CreateCylinderCollider(const Mesh& inMesh, const Transform& inTransform);
 };
 
 
@@ -333,7 +321,6 @@ struct ComponentDescription
 
 static constexpr auto Components = std::make_tuple(
 	ComponentDescription<Name>              {"Name"},
-	ComponentDescription<Node>              {"Node"},
 	ComponentDescription<Transform>         {"Transform"},
 	ComponentDescription<Mesh>              {"Mesh"},
 	ComponentDescription<SoftBody>          {"Soft Body"},

@@ -15,7 +15,6 @@
 #include "Raekor/timer.h"
 #include "Raekor/rmath.h"
 #include "Raekor/profile.h"
-#include "Raekor/systems.h"
 #include "Raekor/primitives.h"
 #include "Raekor/application.h"
 

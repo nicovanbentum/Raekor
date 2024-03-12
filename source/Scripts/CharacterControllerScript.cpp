@@ -19,11 +19,9 @@ public:
         }
         else return;
 
-        Node& node = GetComponent<Node>();
-
-        for (Entity it = node.firstChild; it != Entity::Null; it = GetScene()->Get<Node>(it).nextSibling)
+        for (Entity child : GetScene()->GetChildren(m_Entity))
         {
-            if (Skeleton* skeleton = GetScene()->GetPtr<Skeleton>(it))
+            if (Skeleton* skeleton = GetScene()->GetPtr<Skeleton>(child))
                 skeleton->animation = inEntity;
         }
 

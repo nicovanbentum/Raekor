@@ -59,6 +59,8 @@ public:
 	template<typename T> requires std::derived_from<T, Asset>
 	T* GetAsset(const Path& inPath);
 
+	void Log(const std::string& inText);
+
 protected:
 	Raekor::Entity m_Entity;
 	Raekor::Input* m_Input = nullptr;

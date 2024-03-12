@@ -10,6 +10,8 @@ enum Entity : uint32_t { Null = UINT32_MAX };
 using AtomicEntity = std::atomic<Entity>;
 RTTI_DECLARE_TYPE_PRIMITIVE(Entity);
 
+using EntityHierarchy = BinaryRelations::OneToMany<Entity, Entity>;
+
 template<typename T>
 class ComponentStorage;
 
@@ -623,6 +625,8 @@ public:
 	{
 		return GetComponentStorage<Component>()->Contains(inEntity);
 	}
+
+	Slice<Entity> GetEntities() const { return Slice(m_Entities); }
 
 	bool IsEmpty() const { return m_Entities.empty(); }
 

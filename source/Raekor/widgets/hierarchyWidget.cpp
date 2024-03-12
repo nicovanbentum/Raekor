@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "hierarchyWidget.h"
 #include "application.h"
-#include "systems.h"
 #include "components.h"
 #include "scene.h"
 #include "input.h"
@@ -28,45 +27,49 @@ void HierarchyWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 	ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetColorU32(ImGuiCol_TabHovered));
 	ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetColorU32(ImGuiCol_TabHovered));
 
-	auto& scene = GetScene();
-	auto active_entity = m_Editor->GetActiveEntity();
-
-	for (auto [entity, node] : scene.Each<Node>())
+	Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
 	{
-		if (!node.IsRoot())
-			continue;
+		HierarchyWidget* widget = (HierarchyWidget*)inContext;
 
-		if (node.HasChildren())
+		if (inScene.GetParent(inEntity) == inScene.GetRootEntity())
 		{
-			if (DrawFamilyNode(scene, entity, active_entity))
+			if (inScene.HasChildren(inEntity))
 			{
-				DrawFamily(scene, entity, active_entity);
-				ImGui::TreePop();
+				if (widget->DrawFamilyNode(inScene, inEntity))
+				{
+
+					widget->DrawFamily(inScene, inEntity);
+					ImGui::TreePop();
+				}
 			}
+			else
+				widget->DrawChildlessNode(inScene, inEntity);
 		}
-		else
-			DrawChildlessNode(scene, entity, active_entity);
-	}
+	};
+
+	GetScene().TraverseDepthFirst(GetScene().GetRootEntity(), Traverse, this);
 
 	ImGui::PopStyleColor(2);
 
-	DropTargetWindow(scene);
+	DropTargetWindow(GetScene());
 
 	ImGui::End();
 }
 
 
-bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity, Entity& inActive)
+bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity)
 {
-	const auto& name = inScene.Get<Name>(inEntity);
-	const auto  selected = inActive == inEntity ? ImGuiTreeNodeFlags_Selected : 0;
+	const Name& name = inScene.Get<Name>(inEntity);
+	const Entity active = m_Editor->GetActiveEntity();
+
+	const auto  selected = active == inEntity ? ImGuiTreeNodeFlags_Selected : 0;
 	const auto  tree_flags = selected | ImGuiTreeNodeFlags_OpenOnArrow;
 
-	const auto font_size = ImGui::GetFontSize();
-	if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", inActive == inEntity, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
+	const float font_size = ImGui::GetFontSize();
+	if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", active == inEntity, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
 
 	ImGui::SameLine();
-	bool opened = ImGui::TreeNodeEx(name.name.c_str(), tree_flags);
+	const bool opened = ImGui::TreeNodeEx(name.name.c_str(), tree_flags);
 
 	if (ImGui::BeginPopupContextItem())
 	{
@@ -87,7 +90,7 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity, Entity& in
 	}
 
 	if (ImGui::IsItemClicked())
-		m_Editor->SetActiveEntity(inActive == inEntity ? Entity::Null : inEntity);
+		m_Editor->SetActiveEntity(active == inEntity ? Entity::Null : inEntity);
 
 	DropTargetNode(inScene, inEntity);
 
@@ -95,18 +98,20 @@ bool HierarchyWidget::DrawFamilyNode(Scene& inScene, Entity inEntity, Entity& in
 }
 
 
-void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity, Entity& inActive)
+void HierarchyWidget::DrawChildlessNode(Scene& inScene, Entity inEntity)
 {
 	auto& name = inScene.Get<Name>(inEntity);
 	ImGui::PushID(uint32_t(inEntity));
 
+	Entity active_entity = m_Editor->GetActiveEntity();
+
 	const auto font_size = ImGui::GetFontSize();
-	if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", inActive == inEntity, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
+	if (ImGui::Selectable((const char*)ICON_FA_CUBE "   ", active_entity == inEntity, ImGuiSelectableFlags_None, ImVec2(font_size, font_size))) {}
 
 	ImGui::SameLine();
 
-	if (ImGui::Selectable(name.name.c_str(), inEntity == inActive))
-		m_Editor->SetActiveEntity(inActive == inEntity ? Entity::Null : inEntity);
+	if (ImGui::Selectable(name.name.c_str(), inEntity == active_entity))
+		m_Editor->SetActiveEntity(active_entity == inEntity ? Entity::Null : inEntity);
 
 	if (ImGui::BeginPopupContextItem())
 	{
@@ -131,37 +136,17 @@ void HierarchyWidget::DropTargetNode(Scene& inScene, Entity inEntity)
 {
 	if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoDisableHover | ImGuiDragDropFlags_SourceNoHoldToOpenOthers))
 	{
-		ImGui::SetDragDropPayload("drag_drop_hierarchy_entity", &inEntity, sizeof(Entity));
+		ImGui::SetDragDropPayload("drag_drop_entity", &inEntity, sizeof(Entity));
 		ImGui::EndDragDropSource();
 	}
 
-	Node& node = inScene.Get<Node>(inEntity);
-
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_hierarchy_entity"))
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
 		{
 			Entity child = *reinterpret_cast<const Entity*>( payload->Data );
 
-			if (child != inEntity)
-			{
-				bool child_is_parent = false;
-
-				for (Entity parent = node.parent; parent != Entity::Null; parent = inScene.Get<Node>(parent).parent)
-				{
-					if (child == parent)
-					{
-						child_is_parent = true;
-						break;
-					}
-				}
-
-				if (!child_is_parent)
-				{
-					NodeSystem::sRemove(inScene, inScene.Get<Node>(child));
-					NodeSystem::sAppend(inScene, inEntity, node, child, inScene.Get<Node>(child));
-				}
-			}
+			inScene.ParentTo(child, inEntity);
 		}
 
 		ImGui::EndDragDropTarget();
@@ -173,17 +158,15 @@ void HierarchyWidget::DropTargetWindow(Scene& inScene)
 {
 	if (ImGui::BeginDragDropTargetCustom(ImGui::GetCurrentWindow()->InnerRect, ImGui::GetCurrentWindow()->ID))
 	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_hierarchy_entity"))
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("drag_drop_entity"))
 		{
 			Entity entity = *reinterpret_cast<const Entity*>( payload->Data );
-			Node& node = inScene.Get<Node>(entity);
 			Transform& transform = inScene.Get<Transform>(entity);
 
 			transform.localTransform = transform.worldTransform;
 			transform.Decompose();
 
-			NodeSystem::sRemove(inScene, node);
-			node.parent = Entity::Null;
+			inScene.ParentTo(entity, inScene.GetRootEntity());
 		}
 
 		ImGui::EndDragDropTarget();
@@ -191,26 +174,22 @@ void HierarchyWidget::DropTargetWindow(Scene& inScene)
 }
 
 
-void HierarchyWidget::DrawFamily(Scene& inScene, Entity inEntity, Entity& inActive)
+void HierarchyWidget::DrawFamily(Scene& inScene, Entity inEntity)
 {
-	const auto& node = inScene.Get<Node>(inEntity);
-
-	if (node.HasChildren())
+	if (inScene.HasChildren(inEntity))
 	{
-		for (auto it = node.firstChild; it != Entity::Null; it = inScene.Get<Node>(it).nextSibling)
+		for (Entity child : inScene.GetChildren(inEntity))
 		{
-			const auto& child = inScene.Get<Node>(it);
-
-			if (child.HasChildren())
+			if (inScene.HasChildren(child))
 			{
-				if (DrawFamilyNode(inScene, it, inActive))
+				if (DrawFamilyNode(inScene, child))
 				{
-					DrawFamily(inScene, it, inActive);
+					DrawFamily(inScene, child);
 					ImGui::TreePop();
 				}
 			}
 			else
-				DrawChildlessNode(inScene, it, inActive);
+				DrawChildlessNode(inScene, child);
 		}
 	}
 }

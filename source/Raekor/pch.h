@@ -190,6 +190,11 @@ namespace Raekor
 #undef main //stupid sdl_main
 
 
+/////////////////////////////
+// BinaryRelations containers
+#include "BinaryRelations/BinaryRelations.h"
+
+
 //////////////////////////
 // GLTF import library
 // Part of API headers as we re-use the JSON parser
@@ -214,9 +219,11 @@ namespace Raekor
 #include "Jolt/Physics/PhysicsSystem.h"
 #include "Jolt/Physics/StateRecorderImpl.h"
 #include "Jolt/Physics/Collision/Shape/BoxShape.h"
+#include "Jolt/Physics/Collision/Shape/CylinderShape.h"
 #include "Jolt/Physics/Collision/Shape/SphereShape.h"
 #include "Jolt/Physics/Collision/Shape/MeshShape.h"
 #include "Jolt/Physics/Body/BodyCreationSettings.h"
+#include "Jolt/Physics/Constraints/SixDOFConstraint.h"
 #include "Jolt/Physics/Body/BodyActivationListener.h"
 #include "Jolt/Physics/SoftBody/SoftBodyShape.h"
 #include "Jolt/Physics/SoftBody/SoftBodyCreationSettings.h"

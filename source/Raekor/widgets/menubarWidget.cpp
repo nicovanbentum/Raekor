@@ -9,7 +9,6 @@
 #include "timer.h"
 #include "assimp.h"
 #include "physics.h"
-#include "systems.h"
 #include "compiler.h"
 #include "primitives.h"
 #include "components.h"
@@ -93,7 +92,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::MenuItem("Import scene.."))
 			{
-				std::string filepath = OS::sOpenFileDialog("Scene Files(*.scene, *.gltf, *.fbx)\0*.scene;*.gltf;*.fbx\0");
+				std::string filepath = OS::sOpenFileDialog("Scene Files(*.scene, *.gltf, *.glb, *.fbx)\0*.scene;*.gltf;*.glb;*.fbx\0");
 
 				if (!filepath.empty())
 				{
@@ -105,7 +104,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 					Importer* importer = nullptr;
 
-					if (extension == ".gltf")
+					if (extension == ".gltf" || extension == ".glb")
 						importer = new GltfImporter(GetScene(), &GetRenderInterface());
 					else if (extension == ".fbx")
 						importer = new FBXImporter(GetScene(), &GetRenderInterface());
@@ -193,7 +192,8 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 			if (ImGui::MenuItem("Duplicate", "CTRL+D"))
 			{
-
+				if (GetActiveEntity() != Entity::Null && GetActiveEntity() != GetScene().GetRootEntity())
+					SetActiveEntity(GetScene().Clone(GetActiveEntity()));
 			}
 
 			ImGui::EndMenu();
@@ -275,12 +275,6 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					Entity entity = scene.CreateSpatialEntity("Sphere");
 					Mesh& mesh = scene.Add<Mesh>(entity);
 
-					if (m_Editor->GetActiveEntity() != Entity::Null && scene.Has<Node>(m_Editor->GetActiveEntity()))
-					{
-						Node& node = scene.Get<Node>(entity);
-						NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.Get<Node>(m_Editor->GetActiveEntity()), entity, node);
-					}
-
 					gGenerateSphere(mesh, 2.5f, 16, 16);
 					m_Editor->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
 					m_Editor->SetActiveEntity(entity);
@@ -290,12 +284,6 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				{
 					Entity entity = scene.CreateSpatialEntity("Plane");
 					Mesh& mesh = scene.Add<Mesh>(entity);
-
-					if (m_Editor->GetActiveEntity() != Entity::Null && scene.Has<Node>(m_Editor->GetActiveEntity()))
-					{
-						Node& node = scene.Get<Node>(entity);
-						NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.Get<Node>(m_Editor->GetActiveEntity()), entity, node);
-					}
 
 					for (const Vertex& v : UnitPlane::vertices)
 					{
@@ -322,12 +310,6 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				{
 					Entity entity = scene.CreateSpatialEntity("Cube");
 					Mesh& mesh = scene.Add<Mesh>(entity);
-
-					if (m_Editor->GetActiveEntity() != Entity::Null && scene.Has<Node>(m_Editor->GetActiveEntity()))
-					{
-						Node& node = scene.Get<Node>(entity);
-						NodeSystem::sAppend(scene, m_Editor->GetActiveEntity(), scene.Get<Node>(m_Editor->GetActiveEntity()), entity, node);
-					}
 
 					for (const Vertex& v : UnitCube::vertices)
 					{

@@ -19,4 +19,6 @@ Physics* INativeScript::GetPhysics() { return m_App->GetPhysics(); }
 
 IRenderInterface* INativeScript::GetRenderInterface() { return m_App->GetRenderInterface(); }
 
+void INativeScript::Log(const std::string& inText) { m_App->LogMessage(inText.data()); }
+
 } // raekor

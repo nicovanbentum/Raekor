@@ -17,9 +17,9 @@ private:
 	void DropTargetWindow(Scene& inScene);
 	void DropTargetNode(Scene& inScene, Entity inEntity);
 
-	void DrawFamily(Scene& inScene, Entity inParent, Entity& inActive);
-	bool DrawFamilyNode(Scene& inScene, Entity inEntity, Entity& inActive);
-	void DrawChildlessNode(Scene& inScene, Entity inEntity, Entity& inActive);
+	void DrawFamily(Scene& inScene, Entity inParent);
+	bool DrawFamilyNode(Scene& inScene, Entity inEntity);
+	void DrawChildlessNode(Scene& inScene, Entity inEntity);
 
 	std::string m_Filter;
 };

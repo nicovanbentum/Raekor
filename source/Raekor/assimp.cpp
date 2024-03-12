@@ -4,7 +4,6 @@
 #include "async.h"
 #include "timer.h"
 #include "scene.h"
-#include "systems.h"
 #include "components.h"
 #include "application.h"
 
@@ -81,7 +80,7 @@ bool AssimpImporter::LoadFromFile(const std::string& file, Assets* inAssets)
 
 	// parse the node tree recursively
 	auto root = m_Scene.CreateSpatialEntity(m_AiScene->mRootNode->mName.C_Str());
-	ParseNode(m_AiScene->mRootNode, Entity::Null, root);
+	ParseNode(m_AiScene->mRootNode, m_Scene.GetRootEntity(), root);
 
 	return true;
 }

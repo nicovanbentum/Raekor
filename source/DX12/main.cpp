@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "DXApp.h"
 #include "Raekor/OS.h"
+#include "Raekor/ecs.h"
 #include "Raekor/timer.h"
 #include "Raekor/launcher.h"
 #include "Raekor/compiler.h"

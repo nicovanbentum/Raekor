@@ -55,6 +55,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2-static)
 target_include_directories(${PROJECT_NAME} PUBLIC
     ${PROJECT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/dependencies
+	${CMAKE_SOURCE_DIR}/dependencies/BinaryRelations
     ${CMAKE_SOURCE_DIR}/dependencies/stb
     ${CMAKE_SOURCE_DIR}/dependencies/ufbx
     ${CMAKE_SOURCE_DIR}/dependencies/cgltf

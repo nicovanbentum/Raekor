@@ -64,6 +64,7 @@ class Member
 public:
 	Member() = delete;
 	Member(const char* inName, const char* inCustomName, ESerializeType inSerializeType = SERIALIZE_JSON);
+	virtual ~Member() = default;
 
 	const char*		GetName() const { return m_Name; }
 	uint32_t        GetNameHash() const { return m_NameHash; }

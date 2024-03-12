@@ -84,6 +84,8 @@ class ObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
 class PhysicsDebugRenderer final : public JPH::DebugRenderer
 {
 public:
+	PhysicsDebugRenderer() { JPH::DebugRenderer::Initialize(); }
+
 	void DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor);
 	void DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow inCastShadow = ECastShadow::Off);
 
@@ -109,6 +111,8 @@ public:
 
 	Physics(IRenderInterface* inRenderer = nullptr);
 	~Physics();
+
+	static void sInit();
 
 	void Step(Scene& scene, float dt);
 	void OnUpdate(Scene& scene);

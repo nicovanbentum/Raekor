@@ -6,7 +6,6 @@
 #include "async.h"
 #include "timer.h"
 #include "rmath.h"
-#include "systems.h"
 #include "components.h"
 #include "application.h"
 
@@ -137,17 +136,14 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 	for (const auto& scene : Slice(m_GltfData->scenes, m_GltfData->scenes_count))
 		for (const auto& node : Slice(scene.nodes, scene.nodes_count))
 			if (!node->parent)
-				ParseNode(*node, Entity::Null, glm::mat4(1.0f));
+				ParseNode(*node, m_Scene.GetRootEntity(), glm::mat4(1.0f));
 
-	const auto root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
-	auto& root_node = m_Scene.Get<Node>(root_entity);
+	Entity root_entity = m_Scene.CreateSpatialEntity(Path(inFile).filename().string());
 
-	for (const auto& entity : m_CreatedNodeEntities)
+	for (Entity entity : m_CreatedNodeEntities)
 	{
-		auto& node = m_Scene.Get<Node>(entity);
-
-		if (node.IsRoot())
-			NodeSystem::sAppend(m_Scene, root_entity, root_node, entity, node);
+		if (!m_Scene.HasParent(entity) || m_Scene.GetParent(entity) == m_Scene.GetRootEntity())
+			 m_Scene.ParentTo(entity, root_entity);
 	}
 
 	std::cout << "[GLTF] Meshes & nodes took " << Timer::sToMilliseconds(timer.Restart()) << " ms.\n";
@@ -202,7 +198,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 
 		// set the new entity's parent
 		if (inParent != Entity::Null)
-			NodeSystem::sAppend(m_Scene, inParent, m_Scene.Get<Node>(inParent), entity, m_Scene.Get<Node>(entity));
+			m_Scene.ParentTo(entity, inParent);
 
 		if (inNode.mesh->primitives_count == 1)
 		{
@@ -223,7 +219,7 @@ void GltfImporter::ParseNode(const cgltf_node& inNode, Entity inParent, glm::mat
 				transform.localTransform = glm::mat4(1.0f);
 				transform.Decompose();
 
-				NodeSystem::sAppend(m_Scene, entity, m_Scene.Get<Node>(entity), clone, m_Scene.Get<Node>(clone));
+				m_Scene.ParentTo(clone, entity);
 			}
 		}
 
@@ -327,7 +323,10 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 
 void GltfImporter::ConvertLight(Entity inEntity, const cgltf_light& inLight)
 {
-	m_Scene.Get<Name>(inEntity).name = inLight.name;
+	if (inLight.name)
+		m_Scene.Get<Name>(inEntity).name = inLight.name;
+	else
+		m_Scene.Get<Name>(inEntity).name = "Light " + std::to_string(inEntity);
 
 	if (inLight.type == cgltf_light_type_point)
 	{
