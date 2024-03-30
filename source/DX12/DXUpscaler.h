@@ -36,7 +36,8 @@ private:
 
 public:
     static UVec2 sGetRenderResolution(UVec2 inDisplayResolution, EUpscalerQuality inQuality);
-    static NVSDK_NGX_PerfQuality_Value sGetQuality(EUpscalerQuality inQuality);
+    static xess_quality_settings_t sGetQualityXeSS(EUpscalerQuality inQuality);
+    static NVSDK_NGX_PerfQuality_Value sGetQualityDLSS(EUpscalerQuality inQuality);
 
     EUpscaler GetActiveUpscaler() const { return EUpscaler(m_Settings.mUpscaler); }
     void SetActiveUpscaler(EUpscaler inUpscaler) { m_Settings.mUpscaler = inUpscaler; }

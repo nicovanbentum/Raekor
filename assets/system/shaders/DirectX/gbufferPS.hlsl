@@ -34,11 +34,6 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     StructuredBuffer<RTGeometry> geometries = ResourceDescriptorHeap[rc.mInstancesBuffer];
     StructuredBuffer<RTMaterial> materials = ResourceDescriptorHeap[rc.mMaterialsBuffer];
     
-    RTVertex vertex;
-    vertex.mTexCoord = input.texcoord;
-    vertex.mNormal = input.normal;
-    vertex.mTangent = input.tangent;
-    
     RTGeometry geometry = geometries[rc.mInstanceIndex];
     RTMaterial material = materials[geometry.mMaterialIndex];
     

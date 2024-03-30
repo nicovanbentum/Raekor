@@ -29,7 +29,7 @@ UVec2 Upscaler::sGetRenderResolution(UVec2 inDisplayResolution, EUpscalerQuality
 
 
 
-NVSDK_NGX_PerfQuality_Value Upscaler::sGetQuality(EUpscalerQuality inQuality)
+NVSDK_NGX_PerfQuality_Value Upscaler::sGetQualityDLSS(EUpscalerQuality inQuality)
 {
     switch (inQuality)
     {
@@ -42,6 +42,23 @@ NVSDK_NGX_PerfQuality_Value Upscaler::sGetQuality(EUpscalerQuality inQuality)
 
     assert(false);
     return NVSDK_NGX_PerfQuality_Value_DLAA;
+}
+
+
+
+xess_quality_settings_t Upscaler::sGetQualityXeSS(EUpscalerQuality inQuality)
+{
+    switch (inQuality)
+    {
+        case UPSCALER_QUALITY_NATIVE: return XESS_QUALITY_SETTING_ULTRA_QUALITY;
+        case UPSCALER_QUALITY_QUALITY: return XESS_QUALITY_SETTING_QUALITY;
+        case UPSCALER_QUALITY_BALANCED: return XESS_QUALITY_SETTING_BALANCED;
+        case UPSCALER_QUALITY_PERFORMANCE: return XESS_QUALITY_SETTING_PERFORMANCE;
+        default: assert(false);
+    }
+
+    assert(false);
+    return XESS_QUALITY_SETTING_ULTRA_QUALITY;
 }
 
 
@@ -93,7 +110,7 @@ bool Upscaler::InitDLSS(Device& inDevice, const Viewport& inViewport, CommandLis
     uint32_t pOutRenderMinHeight;
     float pOutSharpnes;
 
-    const auto upscaler_quality = Upscaler::sGetQuality(EUpscalerQuality(m_Settings.mUpscaleQuality));
+    const auto upscaler_quality = Upscaler::sGetQualityDLSS(EUpscalerQuality(m_Settings.mUpscaleQuality));
 
     auto result = NGX_DLSS_GET_OPTIMAL_SETTINGS(m_DLSSParams, inViewport.GetDisplaySize().x, inViewport.GetDisplaySize().y,
         upscaler_quality, &pOutRenderOptimalWidth, &pOutRenderOptimalHeight, &pOutRenderMaxWidth, &pOutRenderMaxHeight, &pOutRenderMinWidth, &pOutRenderMinHeight, &pOutSharpnes);
@@ -171,6 +188,8 @@ bool Upscaler::InitXeSS(Device& inDevice, const Viewport& inViewport)
         /* Initialization flags. */
         XESS_INIT_FLAG_ENABLE_AUTOEXPOSURE
     };
+
+    params.qualitySetting = Upscaler::sGetQualityXeSS(EUpscalerQuality(m_Settings.mUpscaleQuality));
 
     status = xessD3D12Init(m_XeSSContext, &params);
     if (status != XESS_RESULT_SUCCESS)

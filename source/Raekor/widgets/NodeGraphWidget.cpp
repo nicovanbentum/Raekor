@@ -3,8 +3,13 @@
 #include "OS.h"
 #include "application.h"
 #include "archive.h"
+#include "member.h"
 
 namespace Raekor {
+
+RTTI_DEFINE_TYPE(ShaderNode) {}
+RTTI_DEFINE_TYPE(VectorOpShaderNode) { RTTI_DEFINE_TYPE_INHERITANCE(VectorOpShaderNode, ShaderNode); }
+RTTI_DEFINE_TYPE(PixelShaderOutputShaderNode) { RTTI_DEFINE_TYPE_INHERITANCE(PixelShaderOutputShaderNode, ShaderNode); }
 
 RTTI_DEFINE_TYPE_NO_FACTORY(NodeGraphWidget) {}
 
@@ -22,7 +27,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 		if (!opened_file_path.empty())
 		{
-			m_JSON = JSON::JSONData(opened_file_path);
+			
 			m_OpenFilePath = fs::relative(opened_file_path);
 		}
 	}
@@ -88,22 +93,26 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 	ImGui::PopStyleVar();
 
 	ImNodes::BeginNodeEditor();
-	ImNodes::PushColorStyle(ImNodesCol_TitleBar, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
-	ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
-	ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_CheckMark)));
-	ImNodes::PushColorStyle(ImNodesCol_NodeBackground, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
-	ImNodes::PushColorStyle(ImNodesCol_GridBackground, ImGui::ColorConvertFloat4ToU32(ImVec4(0.22f, 0.22f, 0.22f, 1.0f)));
-	//ImNodes::PushColorStyle(ImNodesCol_GridLine, ImGui::ColorConvertFloat4ToU32(ImVec4(0.16f, 0.16f, 0.16f, 0.35f)));
-	ImNodes::PushColorStyle(ImNodesCol_GridLinePrimary, ImGui::ColorConvertFloat4ToU32(ImVec4(0.56f, 0.16f, 0.16f, 0.35f)));
-	ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundHovered, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
-	ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundSelected, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyleColorVec4(ImGuiCol_WindowBg)));
+	ImNodes::PushColorStyle(ImNodesCol_TitleBar, ImGui::ColorConvertFloat4ToU32(ImVec4(0, 0, 0, 1)));
+	ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0, 0, 0, 1)));
+	ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, ImGui::ColorConvertFloat4ToU32(ImVec4(0, 0, 0, 1)));
+	ImNodes::PushColorStyle(ImNodesCol_GridBackground, ImGui::ColorConvertFloat4ToU32(ImVec4(35.0f / 255.0f, 35.0f / 255.0f, 35.0f / 255.0f, 1.0f)));
+	ImNodes::PushColorStyle(ImNodesCol_GridLine, ImGui::ColorConvertFloat4ToU32(ImVec4(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 0.35f)));
+	ImNodes::PushColorStyle(ImNodesCol_GridLinePrimary, ImGui::ColorConvertFloat4ToU32(ImVec4(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 0.35f)));
+	ImNodes::PushColorStyle(ImNodesCol_NodeOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 1.0f)));
+	ImNodes::PushColorStyle(ImNodesCol_NodeBackground, ImGui::ColorConvertFloat4ToU32(ImVec4(52.0f / 255.0f, 52.0f / 255.0f, 52.0f / 255.0f, 1.0f)));
+	ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(52.0f / 255.0f, 52.0f / 255.0f, 52.0f / 255.0f, 1.0f)));
+	ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundSelected, ImGui::ColorConvertFloat4ToU32(ImVec4(52.0f / 255.0f, 52.0f / 255.0f, 52.0f / 255.0f, 1.0f)));
 	ImNodes::PushColorStyle(ImNodesCol_Link, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
 	ImNodes::PushColorStyle(ImNodesCol_MiniMapLink, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_PinHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
+	ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(ImVec4(0.5f, 0.5f, 0.5f, 1.0f)));
+	ImNodes::PushColorStyle(ImNodesCol_PinHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
 	ImNodes::PushColorStyle(ImNodesCol_LinkHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
 	ImNodes::PushColorStyle(ImNodesCol_LinkSelected, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
 	ImNodes::PushColorStyle(ImNodesCol_BoxSelectorOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
+
+	ImNodes::PushStyleVar(ImNodesStyleVar_NodeCornerRounding, 0);
+	//ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 0);
 
 	// Reset to center of the canvas if we started at 0,0
 	const auto panning = ImNodes::EditorContextGetPanning();
@@ -111,42 +120,66 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 	if (panning.x == 0.0f && panning.y == 0.0f)
 		ImNodes::EditorContextResetPanning(ImNodes::GetCurrentContext()->CanvasRectScreenSpace.GetCenter());
 
-
-
-	if (ImGui::BeginPopup("New Type"))
+	if (ImGui::BeginPopup("Create Node"))
 	{
-		for (const auto& registered_type : g_RTTIFactory)
-		{
-			if (ImGui::Selectable(registered_type.second->GetTypeName(), false))
-			{
-				auto rtti = g_RTTIFactory.GetRTTI(registered_type.second->GetTypeName());
-				auto instance = g_RTTIFactory.Construct(registered_type.second->GetTypeName());
-
-				for (uint32_t member_index = 0; member_index < rtti->GetMemberCount(); member_index++)
-				{
-					auto member = rtti->GetMember(member_index);
-					// member->ToJSON(object[member->GetCustomName()], instance);
-				}
-
-				ImGui::CloseCurrentPopup();
-			}
-		}
+		if (ImGui::MenuItem("VectorOp")) m_ShaderGraphBuilder.CreateShaderNode<VectorOpShaderNode>();
+		if (ImGui::MenuItem("PixelShaderOutput")) m_ShaderGraphBuilder.CreateShaderNode<PixelShaderOutputShaderNode>();
 
 		ImGui::EndPopup();
 	}
 
 	if (m_WasRightClicked && ImNodes::IsEditorHovered())
 	{
-		ImGui::OpenPopup("New Type");
+		ImGui::OpenPopup("Create Node");
 		m_WasRightClicked = false;
 	}
 
-	uint32_t pin_index = 0;
+	int node_index = 0;
+	int pin_index = 0;
+	uint32_t link_index = 0;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(38.0f / 255.0f, 38.0f / 255.0f, 38.0f / 255.0f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(38.0f / 255.0f, 38.0f / 255.0f, 38.0f / 255.0f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(38.0f / 255.0f, 38.0f / 255.0f, 38.0f / 255.0f, 1.0f));
+
+	for (ShaderNode* shader_node : m_ShaderGraphBuilder.GetShaderNodes())
+	{
+		shader_node->DrawImNode(node_index, pin_index);
+	}
+
+	ImGui::PopStyleVar(2);
+	ImGui::PopStyleColor(3);
+
+	/*ImNodes::BeginNode(node_index);
+	ImNodes::BeginNodeTitleBar();
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 1));
+
+	ImGui::Text(m_ShaderGraph.GetRootNode().GetName().data());
+
+	ImGui::PopStyleColor();
+	ImNodes::EndNodeTitleBar();
+
+	for (const ShaderNodeInputPin& pin : m_ShaderGraph.GetRootNode().GetInputPins())
+	{
+		ImNodes::BeginInputAttribute(pin_index++);
+		ImGui::Text(pin.GetName().data());
+		ImNodes::EndInputAttribute();
+	}
+
+	for (const ShaderNodeOutputPin& pin : m_ShaderGraph.GetRootNode().GetOutputPins())
+	{
+		ImNodes::BeginOutputAttribute(pin_index++);
+		ImGui::Text(pin.GetName().data());
+		ImNodes::EndOutputAttribute();
+	}
+	
+	ImNodes::EndNode();*/
+
+	/*uint32_t pin_index = 0;
 	uint32_t link_index = 0;
 	std::queue<int> tokens;
-
-	if (!m_JSON.IsEmpty() && m_JSON.GetToken(0).type == JSMN_OBJECT && m_JSON.IsKeyObjectPair(1))
-		tokens.push(1);
 
 	while (!tokens.empty())
 	{
@@ -186,104 +219,104 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 		ImGui::PopStyleColor();
 		ImNodes::EndNodeTitleBar();
 		ImNodes::EndNode();
-	}
+	}*/
 
-	std::queue<uint32_t> child_pins;
+	//std::queue<uint32_t> child_pins;
 
-	for (uint32_t index = 0; index < 0; index++)
-	{
+	//for (uint32_t index = 0; index < 0; index++)
+	//{
 
 
-		if (index == m_SelectedObject)
-		{
-			ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 1.5f);
-			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-		}
+	//	if (index == m_SelectedObject)
+	//	{
+	//		ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 1.5f);
+	//		ImNodes::PushColorStyle(ImNodesCol_NodeOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
+	//	}
 
-		ImNodes::BeginNode(index);
+	//	ImNodes::BeginNode(index);
 
-		ImNodes::BeginNodeTitleBar();
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 1));
+	//	ImNodes::BeginNodeTitleBar();
+	//	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 1));
 
-		int input_pin_index = -1;
+	//	int input_pin_index = -1;
 
-		if (index > 0)
-		{
-			input_pin_index = pin_index;
-			ImNodes::BeginInputAttribute(pin_index++);
+	//	if (index > 0)
+	//	{
+	//		input_pin_index = pin_index;
+	//		ImNodes::BeginInputAttribute(pin_index++);
 
-			//ImGui::Text(type_string.c_str());
-			ImNodes::EndInputAttribute();
-		}
-		else
-		{
-			//ImGui::Text(type_string.c_str());
-		}
+	//		//ImGui::Text(type_string.c_str());
+	//		ImNodes::EndInputAttribute();
+	//	}
+	//	else
+	//	{
+	//		//ImGui::Text(type_string.c_str());
+	//	}
 
-		ImGui::PopStyleColor();
+	//	ImGui::PopStyleColor();
 
-		ImNodes::EndNodeTitleBar();
+	//	ImNodes::EndNodeTitleBar();
 
-		// const auto rtti = RTTIFactory::GetRTTI(type_string.c_str());
+	//	// const auto rtti = RTTIFactory::GetRTTI(type_string.c_str());
 
-		for (auto member_index = 0u; member_index < 0; member_index++)
-		{
-			// auto member = rtti->GetMember(member_index);
+	//	for (auto member_index = 0u; member_index < 0; member_index++)
+	//	{
+	//		// auto member = rtti->GetMember(member_index);
 
-			if (false)
-			{
-				// const auto& value = object.at(member->GetCustomName());
+	//		if (false)
+	//		{
+	//			// const auto& value = object.at(member->GetCustomName());
 
-				if (pin_index == m_LinkPinDropped)
-				{
-					// auto& new_object = m_JSON.AddObject();
-				}
+	//			if (pin_index == m_LinkPinDropped)
+	//			{
+	//				// auto& new_object = m_JSON.AddObject();
+	//			}
 
-				if (false)
-				{
-					//if (value.mType == JSON::ValueType::Object) {
-					child_pins.push(pin_index);
-					ImNodes::BeginOutputAttribute(pin_index++);
-					//ImGui::Text(member->GetCustomName());
-					ImNodes::EndOutputAttribute();
+	//			if (false)
+	//			{
+	//				//if (value.mType == JSON::ValueType::Object) {
+	//				child_pins.push(pin_index);
+	//				ImNodes::BeginOutputAttribute(pin_index++);
+	//				//ImGui::Text(member->GetCustomName());
+	//				ImNodes::EndOutputAttribute();
 
-				}
-				else
-				{
-					ImNodes::BeginStaticAttribute(pin_index++);
-					//ImGui::Text(member->GetCustomName());
-					ImNodes::EndStaticAttribute();
-				}
-			}
-			else
-			{
-				if (m_WasLinkConnected && ( pin_index == m_StartPinID || pin_index == m_EndPinID ))
-				{
-					//auto& new_value = object[member->GetCustomName()];
-					//new_value.mType = JSON::ValueType::Object;
-				}
+	//			}
+	//			else
+	//			{
+	//				ImNodes::BeginStaticAttribute(pin_index++);
+	//				//ImGui::Text(member->GetCustomName());
+	//				ImNodes::EndStaticAttribute();
+	//			}
+	//		}
+	//		else
+	//		{
+	//			if (m_WasLinkConnected && ( pin_index == m_StartPinID || pin_index == m_EndPinID ))
+	//			{
+	//				//auto& new_value = object[member->GetCustomName()];
+	//				//new_value.mType = JSON::ValueType::Object;
+	//			}
 
-				ImNodes::BeginOutputAttribute(pin_index++);
-				//ImGui::Text(member->GetCustomName());
-				ImNodes::EndOutputAttribute();
-			}
-		}
+	//			ImNodes::BeginOutputAttribute(pin_index++);
+	//			//ImGui::Text(member->GetCustomName());
+	//			ImNodes::EndOutputAttribute();
+	//		}
+	//	}
 
-		ImNodes::EndNode();
+	//	ImNodes::EndNode();
 
-		if (!child_pins.empty() && input_pin_index != -1)
-		{
-			ImNodes::Link(link_index++, child_pins.front(), input_pin_index);
-			child_pins.pop();
-		};
+	//	if (!child_pins.empty() && input_pin_index != -1)
+	//	{
+	//		ImNodes::Link(link_index++, child_pins.front(), input_pin_index);
+	//		child_pins.pop();
+	//	};
 
-		if (index == m_SelectedObject)
-		{
-			ImNodes::PopStyleVar();
-			ImNodes::PopColorStyle();
-		}
+	//	if (index == m_SelectedObject)
+	//	{
+	//		ImNodes::PopStyleVar();
+	//		ImNodes::PopColorStyle();
+	//	}
 
-	}
+	//}
 
 	ImNodes::MiniMap();
 	//ImNodes::PopColorStyle();
@@ -301,9 +334,17 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 		m_SelectedObject = -1;
 	}
 
-	m_WasLinkConnected = ImNodes::IsLinkCreated(&m_StartNodeID, &m_StartPinID, &m_EndNodeID, &m_StartNodeID);
+	m_WasLinkConnected = ImNodes::IsLinkCreated(&m_StartNodeID, &m_StartPinID, &m_EndNodeID, &m_EndPinID);
+
+	if (m_WasLinkConnected)
+	{
+		
+	}
+
+
 
 	ImNodes::IsLinkDropped(&m_LinkPinDropped, false);
+
 
 	ImGui::End();
 }

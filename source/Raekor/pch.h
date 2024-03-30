@@ -135,6 +135,8 @@ using Path = fs::path;
 using File = std::fstream;
 
 using String = std::string;
+using StringView = std::string_view;
+using StringBuilder = std::stringstream;
 
 template<typename Type>
 using Array = std::vector<Type>;

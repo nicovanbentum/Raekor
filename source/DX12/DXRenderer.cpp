@@ -25,8 +25,8 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     m_RenderGraph(inDevice, inViewport, sFrameCount)
 {
     auto swapchain_desc = DXGI_SWAP_CHAIN_DESC1 {
-        .Width       = inViewport.size.x,
-        .Height      = inViewport.size.y,
+        .Width       = inViewport.GetDisplaySize().x,
+        .Height      = inViewport.GetDisplaySize().y,
         .Format      = sSwapchainFormat,
         .SampleDesc  = DXGI_SAMPLE_DESC {.Count = 1 },
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
@@ -126,7 +126,7 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
     {
         inViewport.SetRenderSize(Upscaler::sGetRenderResolution(inViewport.GetDisplaySize(), m_Upscaler.GetActiveUpscalerQuality()));
 
-        auto upscale_init_success = true;
+        bool upscale_init_success = true;
 
         switch (m_Upscaler.GetActiveUpscaler())
         {
@@ -137,7 +137,7 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
 
             case UPSCALER_DLSS: 
             {
-                auto& cmd_list = StartSingleSubmit();
+                CommandList& cmd_list = StartSingleSubmit();
 
                 upscale_init_success = m_Upscaler.InitDLSS(inDevice, inViewport, cmd_list);
 

@@ -39,6 +39,7 @@ public:
 	RTTI*     GetBaseClass(uint32_t inIndex) const;
 	uint32_t  GetBaseClassCount() const { return uint32_t(m_BaseClasses.size()); }
 
+	bool	  IsTypeOf(RTTI* InRTTI) const { return this == InRTTI; }
 	bool      IsDerivedFrom(RTTI* inRTTI) const;
 
 	bool operator==(const RTTI& rhs) const { return mHash == rhs.mHash; }
