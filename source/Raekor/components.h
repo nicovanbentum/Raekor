@@ -267,6 +267,12 @@ struct Material
 	std::string metallicFile; // ptr
 	std::string roughnessFile;  // ptr
 
+	std::string vertexShaderFile; // ptr
+	std::string pixelShaderFile; // ptr
+
+	uint64_t vertexShader = 0;
+	uint64_t pixelShader = 0;
+
 	// GPU resources
 	uint32_t gpuAlbedoMap = 0;
 	uint32_t gpuNormalMap = 0;

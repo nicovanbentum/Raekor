@@ -143,6 +143,7 @@ struct GBufferData
     RenderGraphResourceID mRenderTexture;
     RenderGraphResourceID mVelocityTexture;
     RenderGraphResourceID mSelectionTexture;
+    IRenderPass* mRenderPass = nullptr;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 

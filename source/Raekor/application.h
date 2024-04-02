@@ -195,6 +195,9 @@ public:
 	virtual void UploadMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
 	virtual void DestroyMeshBuffers(Entity inEntity, Mesh& inMesh) = 0;
 
+	virtual void CompileMaterialShaders(Entity inEntity, Material& inMaterial) {};
+	virtual void ReleaseMaterialShaders(Entity inEntity, Material& inMaterial) {};
+
 	virtual void UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleton, Mesh& inMesh) = 0;
 	virtual void DestroySkeletonBuffers(Entity inEntity, Skeleton& inSkeleton) = 0;
 

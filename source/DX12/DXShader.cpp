@@ -208,6 +208,17 @@ bool ShaderProgram::IsCompiled() const
 
 ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines, uint64_t& outHash)
 {
+    auto ifs = std::ifstream(inPath);
+    auto buffer = std::stringstream();
+    buffer << inDefines << '\n';
+    buffer << ifs.rdbuf();
+    
+    return CompileShader(inPath, buffer.str(), inShaderType, inDefines, outHash);
+}
+
+
+ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, const String& inSource, EShaderType inShaderType, const std::string& inDefines, uint64_t& outHash)
+{
     auto utils = ComPtr<IDxcUtils> {};
     auto library = ComPtr<IDxcLibrary> {};
     auto compiler = ComPtr<IDxcCompiler3> {};
@@ -218,14 +229,8 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
     auto include_handler = ComPtr<IDxcIncludeHandler> {};
     utils->CreateDefaultIncludeHandler(include_handler.GetAddressOf());
 
-    auto ifs = std::ifstream(inPath);
-    auto buffer = std::stringstream();
-    buffer << inDefines << '\n';
-    buffer << ifs.rdbuf();
-    const auto source_str = buffer.str();
-
     auto blob = ComPtr<IDxcBlobEncoding>();
-    gThrowIfFailed(library->CreateBlobWithEncodingFromPinned(source_str.c_str(), source_str.size(), CP_UTF8, blob.GetAddressOf()));
+    gThrowIfFailed(library->CreateBlobWithEncodingFromPinned(inSource.c_str(), inSource.size(), CP_UTF8, blob.GetAddressOf()));
 
     auto arguments = std::vector<LPCWSTR> {};
     arguments.push_back(L"-E");
@@ -249,6 +254,8 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
 
     arguments.push_back(L"-I");
     arguments.push_back(L"assets/system/shaders/DirectX");
+
+
 
     arguments.push_back(L"-HV");
     arguments.push_back(L"2021");
@@ -277,7 +284,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
 
     outHash = gHashFNV1a((const char*)preprocessed_hlsl->GetBufferPointer(), preprocessed_hlsl->GetBufferSize());
 
-    if (m_EnableCache)
+    if (m_EnableShaderCache)
     {
         {
             auto lock = std::scoped_lock(m_ShaderCompilationMutex);
@@ -331,6 +338,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
 
     if (!SUCCEEDED(hr_status))
     {
+        outHash = 0;
         std::cout << std::format("[DX12] Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
         return nullptr;
     }
@@ -342,6 +350,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
 
     if (!SUCCEEDED(hr_status))
     {
+        outHash = 0;
         std::cout << std::format("[DX12] Compilation {} for shader: {} \n", COUT_RED("failed"), inPath.string());
         return nullptr;
     }
@@ -349,7 +358,7 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
     auto pdb_file = std::ofstream(inPath.parent_path() / inPath.filename().replace_extension(".pdb"));
     pdb_file.write((char*)pdb->GetBufferPointer(), pdb->GetBufferSize());
 
-    if (m_EnableCache)
+    if (m_EnableShaderCache)
     {
         auto lock = std::scoped_lock(m_ShaderCompilationMutex);
         m_ShaderCache.insert({ outHash, shader });
@@ -358,6 +367,43 @@ ComPtr<IDxcBlob> ShaderCompiler::CompileShader(const Path& inPath, EShaderType i
     std::cout << std::format("[DX12] Compilation {} for shader: {} \n", COUT_GREEN("finished"), inPath.string());
 
     return shader;
+}
+
+
+void ShaderCompiler::ReleaseShader(uint64_t inHash)
+{ 
+    std::scoped_lock lock(m_ShaderCompilationMutex);  
+    m_ShaderCache.erase(inHash); 
+}
+
+
+ID3D12PipelineState* ShaderCompiler::GetGraphicsPipeline(Device& inDevice, IRenderPass* inRenderPass, uint64_t inVertexShaderHash, uint64_t inPixelShaderHash)
+{
+    if (inVertexShaderHash == 0 || inPixelShaderHash == 0)
+        return nullptr; 
+
+    const std::array hash_data = { inVertexShaderHash, inPixelShaderHash };
+    const uint32_t shader_hash = gHashFNV1a((const char*)hash_data.data(), sizeof(hash_data[0]) * hash_data.size());
+
+    std::scoped_lock lock(m_ShaderCompilationMutex);
+
+    if (m_EnablePipelineCache && m_PipelineCache.contains(shader_hash))
+    {
+        return m_PipelineCache[shader_hash].Get();
+    }
+    else
+    {
+        CD3DX12_SHADER_BYTECODE pixel_shader(m_ShaderCache[inPixelShaderHash]->GetBufferPointer(), m_ShaderCache[inPixelShaderHash]->GetBufferSize());
+        CD3DX12_SHADER_BYTECODE vertex_shader(m_ShaderCache[inVertexShaderHash]->GetBufferPointer(), m_ShaderCache[inVertexShaderHash]->GetBufferSize());
+
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        inDevice->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(m_PipelineCache[shader_hash].GetAddressOf()));
+
+        return m_PipelineCache[shader_hash].Get();
+    }
+
+    assert(false);
+    return nullptr;
 }
 
 

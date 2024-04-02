@@ -388,6 +388,9 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
         auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
         inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(inData.mPipeline.GetAddressOf()));
         inData.mPipeline->SetName(L"PSO_GBUFFER");
+
+        // store the render pass ptr so we can access it during execution
+        inData.mRenderPass = inRenderPass;
     },
 
     [&inRenderGraph, &inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
@@ -434,6 +437,14 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             if (material == nullptr)
                 material = &Material::Default;
+
+            uint64_t pixel_shader = material->pixelShader ? material->pixelShader : g_SystemShaders.mGBufferShader.GetPixelShaderHash();
+            uint64_t vertex_shader = material->vertexShader ? material->vertexShader : g_SystemShaders.mGBufferShader.GetVertexShaderHash();
+
+            if (ID3D12PipelineState* pipeline_state = g_ShaderCompiler.GetGraphicsPipeline(inDevice, inData.mRenderPass, vertex_shader, pixel_shader))
+                inCmdList->SetPipelineState(pipeline_state);
+            else
+                continue;
 
             const auto instance_index = inScene->GetSparseIndex<Mesh>(entity);
 

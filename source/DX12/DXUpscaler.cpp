@@ -267,7 +267,7 @@ const FSR2Data& AddFsrPass(RenderGraph& inRenderGraph, Device& inDevice, Upscale
         fsr2_dispatch_desc.cameraFar                = viewport.GetCamera().GetFar();
         fsr2_dispatch_desc.cameraFovAngleVertical   = glm::radians(viewport.GetFieldOfView());
 
-        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);
+        const int32_t jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);
         ffxFsr2GetJitterOffset(&fsr2_dispatch_desc.jitterOffset.x, &fsr2_dispatch_desc.jitterOffset.y, inData.mFrameCounter, jitter_phase_count);
         inData.mFrameCounter = ( inData.mFrameCounter + 1 ) % jitter_phase_count;
 
@@ -302,12 +302,12 @@ const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscal
 
     [&inRenderGraph, &inDevice, &inUpscaler](DLSSData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        auto& viewport = inRenderGraph.GetViewport();
+        const Viewport& viewport = inRenderGraph.GetViewport();
 
-        const auto color_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
-        const auto depth_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
-        const auto movec_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
-        const auto output_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
+        ID3D12Resource* color_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
+        ID3D12Resource* depth_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
+        ID3D12Resource* movec_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
+        ID3D12Resource* output_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
 
         NVSDK_NGX_D3D12_DLSS_Eval_Params eval_params = {};
         eval_params.Feature.pInColor                 = color_texture_ptr;
@@ -319,7 +319,7 @@ const DLSSData& AddDLSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscal
         eval_params.InRenderSubrectDimensions.Width  = viewport.GetRenderSize().x;
         eval_params.InRenderSubrectDimensions.Height = viewport.GetRenderSize().y;
 
-        const auto jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);
+        const int32_t jitter_phase_count = ffxFsr2GetJitterPhaseCount(viewport.GetRenderSize().x, viewport.GetDisplaySize().x);
         ffxFsr2GetJitterOffset(&eval_params.InJitterOffsetX, &eval_params.InJitterOffsetY, inData.mFrameCounter, jitter_phase_count);
         inData.mFrameCounter = ( inData.mFrameCounter + 1 ) % jitter_phase_count;
 
@@ -354,12 +354,12 @@ const XeSSData& AddXeSSPass(RenderGraph& inRenderGraph, Device& inDevice, Upscal
 
     [&inRenderGraph, &inDevice, &inUpscaler](XeSSData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        auto& viewport = inRenderGraph.GetViewport();
+        const Viewport& viewport = inRenderGraph.GetViewport();
 
-        const auto color_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
-        const auto depth_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
-        const auto movec_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
-        const auto output_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
+        ID3D12Resource* color_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mColorTextureSRV));
+        ID3D12Resource* depth_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mDepthTextureSRV));
+        ID3D12Resource* movec_texture_ptr  = inDevice.GetD3D12Resource(inResources.GetTextureView(inData.mMotionVectorTextureSRV));
+        ID3D12Resource* output_texture_ptr = inDevice.GetD3D12Resource(inResources.GetTexture(inData.mOutputTexture));
 
         xess_d3d12_execute_params_t exec_params = {};
         exec_params.pColorTexture    = color_texture_ptr;

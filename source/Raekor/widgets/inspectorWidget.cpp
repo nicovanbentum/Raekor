@@ -35,7 +35,7 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     auto sequence_widget = inWidgets->GetWidget<SequenceWidget>();
 	auto nodegraph_widget = inWidgets->GetWidget<NodeGraphWidget>();
 
-	if (viewport_widget && viewport_widget->IsVisible() && GetActiveEntity() != Entity::Null)
+	if (viewport_widget && GetActiveEntity() != Entity::Null)
 	{
 		DrawEntityInspector(inWidgets);
 	}
@@ -43,11 +43,7 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
     {
         DrawKeyFrameInspector(inWidgets);
     }
-	else if (nodegraph_widget && nodegraph_widget->IsVisible())
-	{
-		DrawJSONInspector(inWidgets);
-	}
-
+	
 	ImGui::End();
 };
 
@@ -563,6 +559,74 @@ void InspectorWidget::DrawComponent(Entity inEntity, Material& inMaterial)
 
 	ImGui::DragFloat("Metallic", &inMaterial.metallic, 0.001f, 0.0f, 1.0f);
 	ImGui::DragFloat("Roughness", &inMaterial.roughness, 0.001f, 0.0f, 1.0f);
+
+	//ImGui::Text(inMaterial.vertexShaderFile.c_str());
+	//ImGui::SameLine();
+
+	//if (ImGui::Button((const char*)ICON_FA_FOLDER))
+	//{
+	//	String filepath = fs::relative(OS::sOpenFileDialog("HLSL Files (*.hlsl)\0*.hlsl\0")).string();
+
+	//	if (!filepath.empty())
+	//	{
+	//		inMaterial.vertexShaderFile = filepath;
+	//		m_Editor->GetRenderInterface()->CompileMaterialShaders(inEntity, inMaterial);
+	//	}
+	//}
+
+	ImGui::AlignTextToFramePadding(); ImGui::Text("Vertex Shader   "); ImGui::SameLine();
+
+	ImGui::PushID("selectfilevertexshader");
+	if (ImGui::Button((const char*)ICON_FA_FOLDER))
+	{
+		String filepath = fs::relative(OS::sOpenFileDialog("HLSL Files (*.hlsl)\0*.hlsl\0")).string();
+
+		if (!filepath.empty())
+		{
+			inMaterial.vertexShaderFile = filepath;
+			m_Editor->GetRenderInterface()->CompileMaterialShaders(inEntity, inMaterial);
+		}
+	}
+
+	ImGui::PopID();
+	ImGui::SameLine();
+	ImGui::AlignTextToFramePadding();
+
+	{
+		const auto file_text = inMaterial.vertexShaderFile.empty() ? "N/A" : inMaterial.vertexShaderFile.c_str();
+		const auto tooltip_text = inMaterial.vertexShaderFile.empty() ? "No file loaded." : inMaterial.vertexShaderFile.c_str();
+
+		ImGui::Text(file_text);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip(tooltip_text);
+	}
+
+	ImGui::AlignTextToFramePadding(); ImGui::Text("Pixel Shader      "); ImGui::SameLine();
+
+	ImGui::PushID("selectfilepixelshader");
+	if (ImGui::Button((const char*)ICON_FA_FOLDER))
+	{
+		String filepath = fs::relative(OS::sOpenFileDialog("HLSL Files (*.hlsl)\0*.hlsl\0")).string();
+
+		if (!filepath.empty())
+		{
+			inMaterial.pixelShaderFile = filepath;
+			m_Editor->GetRenderInterface()->CompileMaterialShaders(inEntity, inMaterial);
+		}
+	}
+	
+	ImGui::PopID();
+	ImGui::SameLine();
+	ImGui::AlignTextToFramePadding();
+
+	{
+		const auto file_text = inMaterial.pixelShaderFile.empty() ? "N/A" : inMaterial.pixelShaderFile.c_str();
+		const auto tooltip_text = inMaterial.pixelShaderFile.empty() ? "No file loaded." : inMaterial.pixelShaderFile.c_str();
+
+		ImGui::Text(file_text);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip(tooltip_text);
+	}
 
 	if (ImGui::BeginPopupModal("Error", NULL, ImGuiWindowFlags_AlwaysAutoResize))
 	{

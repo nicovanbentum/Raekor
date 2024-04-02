@@ -52,10 +52,13 @@ public:
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::vector<T>& inValue);
 	template<typename T, uint32_t N>
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::array<T, N>& inValue);
+	template<typename T1, typename T2>
+	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::pair<T1, T2>& inValue);
 	template<typename K, typename V>
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::unordered_map<K, V>& inValue);
 
 	// Other
+
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, Path& inValue);
 	template<typename ...Types>
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::variant<Types...>& inValue);
@@ -137,6 +140,9 @@ public:
 
 	template<typename T> requires std::is_integral_v<T> // integer arrays print 6 values on the same line
 	void GetValueToJSON(const std::vector<T>& inValue);
+
+	template<typename T1, typename T2>
+	void GetValueToJSON(const std::pair<T1, T2>& inValue);
 
 	template<typename T, uint32_t N>
 	void GetValueToJSON(const std::array<T, N>& inValue);
@@ -255,6 +261,22 @@ inline uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::array<T, N
 
 	return inTokenIndex;
 }
+
+template<typename T1, typename T2>
+uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::pair<T1, T2>& inPair)
+{
+	const auto& object_token = m_Tokens[inTokenIndex]; // index to object
+	// T& can only deal with JSMN_ARRAY
+	if (object_token.type != JSMN_ARRAY || object_token.size != 2)
+		return SkipToken(inTokenIndex);
+
+	inTokenIndex++; // increment index to array[0]
+	inTokenIndex = GetTokenToValue(inTokenIndex, inPair.first);
+	inTokenIndex = GetTokenToValue(inTokenIndex, inPair.second);
+
+	return inTokenIndex;
+}
+
 
 template<typename K, typename V>
 uint32_t JSONData::GetTokenToValue(uint32_t inTokenIndex, std::unordered_map<K, V>& inValue)
@@ -411,16 +433,29 @@ inline void JSONWriter::GetValueToJSON(const std::vector<T>& inVector)
 	Write("\n").PopIndent().IndentAndWrite("]");
 }
 
+template<typename T1, typename T2>
+void JSONWriter::GetValueToJSON(const std::pair<T1, T2>& inValue)
+{
+	Write("\n").IndentAndWrite("[");
+
+	GetValueToJSON(inValue.first);
+	Write(", ");
+	GetValueToJSON(inValue.second);
+
+	Write("]");
+}
+
 template<typename T, uint32_t N>
 inline void JSONWriter::GetValueToJSON(const std::array<T, N>& inArray)
 {
 	Write("\n").IndentAndWrite("[\n").PushIndent();
-	for (const auto& [index, value] : gEnumerate(inArray))
+
+	for (uint32_t i = 0; i < N; i++)
 	{
 		WriteIndent();
-		GetValueToJSON(value);
+		GetValueToJSON(inArray[i]);
 
-		if (index != N - 1)
+		if (i != N - 1)
 			Write(",\n");
 	}
 

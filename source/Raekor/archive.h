@@ -28,6 +28,8 @@ public:
 		return *this;
 	}
 
+	void ReadObject(void** inObject);
+
 	bool IsEOF() { return m_File.peek() != EOF; }
 
 	File& GetFile() { return m_File; }
@@ -66,7 +68,7 @@ public:
 		return *this;
     }
 
-    void WriteObject(const RTTI& inRTTI, void* inObject);
+	void WriteObject(const RTTI& inRTTI, void* inObject);
 
 	File& GetFile() { return m_File; }
 
@@ -87,7 +89,7 @@ public:
 	template<typename T>
 	ReadArchive& operator>> (T& ioRHS);
 
-     void* ReadNextObject(RTTI** rtti);
+    void* ReadNextObject(RTTI** rtti);
 
     bool IsEmpty() const { return m_JSON.IsEmpty(); }
 
@@ -110,14 +112,15 @@ public:
 		m_Ofs << "\n}";
 	}
 
-	template<typename T>
+	template<typename T> requires HasRTTI<T>
 	WriteArchive& operator<< (T& inRHS);
 
-    void WriteObject(const RTTI& inRTTI, void* inObject);
+    void WriteNextObject(const RTTI& inRTTI, void* inObject);
 
 	JSONWriter& GetRaw() { return m_Writer; }
 
 private:
+	int m_Objects = 0;;
 	std::ofstream m_Ofs;
 	std::vector<const char*> m_Types;
 
@@ -134,41 +137,34 @@ ReadArchive& ReadArchive::operator>> (T& ioRHS)
         return *this;
 
 	// Any JSON document should start with a root object
-	auto token_index = 0;
-	if (m_JSON.GetToken(token_index).type != JSMN_OBJECT)
+	if (m_JSON.GetToken(0).type != JSMN_OBJECT)
 		return *this;
 
-	token_index++;
-	if (!m_JSON.IsKeyObjectPair(token_index)) // wrong format up ahead
+	if (m_TokenIndex >= m_JSON.GetTokenCount() - 1)
 		return *this;
+
+	if (!m_JSON.IsKeyObjectPair(m_TokenIndex)) // wrong format up ahead
+		return *this;
+
+	// token index is on the type key
+	assert(m_JSON.GetToken(m_TokenIndex).type == JSMN_STRING);
+	const std::string& type_name = m_JSON.GetString(m_TokenIndex);
 
 	const auto& rtti = gGetRTTI<T>();
 
-	// Keep skipping objects until we find a type match or hit EOF
-	while (m_JSON.GetString(token_index) != rtti.GetTypeName())
-	{
-		token_index = m_JSON.SkipToken(token_index);
-
-		if (token_index == -1) // hit end-of-file
-			return *this;
-
-		if (!m_JSON.IsKeyObjectPair(token_index)) // wrong format up ahead
-			return *this;
-	}
-
 	// We only get here if we found a matching type
-	assert(m_JSON.GetToken(token_index).type == JSMN_STRING);  // token index is on the type key
-	token_index++; // increment index to type object
+	assert(m_JSON.GetToken(m_TokenIndex).type == JSMN_STRING);  // token index is on the type key
+	m_TokenIndex++; // increment index to type object
 
 	// This nees to be calling the T& version of GetTokenToValue, 
 	// which it should because we're calling gGetRTTI<T> so it has to be a registered complex type.. right?
-	m_JSON.GetTokenToValue(token_index, ioRHS);
+	m_TokenIndex = m_JSON.GetTokenToValue(m_TokenIndex, ioRHS);
 
 	return *this;
 }
 
 
-template<typename T>
+template<typename T> requires HasRTTI<T>
 WriteArchive& WriteArchive::operator<< (T& inRHS)
 {
 	const auto& rtti = gGetRTTI<T>();
@@ -189,6 +185,8 @@ WriteArchive& WriteArchive::operator<< (T& inRHS)
 	m_Writer.GetValueToJSON(inRHS);
 
 	m_Ofs << m_Writer.GetString();
+
+	m_Objects++;
 
 	m_Writer.Clear();
 

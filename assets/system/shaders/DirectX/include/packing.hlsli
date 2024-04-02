@@ -75,6 +75,13 @@ void PackMetallicRoughness(float metalness, float roughness, inout uint4 ioPacke
     ioPacked.z = Float16x2ToUint(float2(metalness, roughness));
 }
 
+void PackGBuffer(float4 inAlbedo, float3 inNormal, float3 inEmissive, float inMetallic, float inRoughness, inout uint4 ioPacked)
+{
+    PackAlbedo(inAlbedo, ioPacked);
+    PackNormal(inNormal, ioPacked);
+    PackMetallicRoughness(inMetallic, inRoughness, ioPacked);
+}
+
 float4 UnpackAlbedo(uint4 inPacked) {
     return RGBA8ToFloat4(inPacked.x);
 }

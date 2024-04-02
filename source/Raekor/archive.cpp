@@ -55,6 +55,58 @@ void* JSON::ReadArchive::ReadNextObject(RTTI** rtti)
     return object;
 }
 
+void JSON::WriteArchive::WriteNextObject(const RTTI& inRTTI, void* inObject)
+{
+    if (m_Objects > 0)
+        m_Writer.Write(",\n");
+
+    // write the type
+    m_Writer.IndentAndWrite("\"").Write(inRTTI.GetTypeName()).Write("\":");
+
+    m_Writer.Write("\n").IndentAndWrite("{\n").PushIndent();
+
+    for (uint32_t i = 0; i < inRTTI.GetMemberCount(); i++)
+    {
+        // potentially skip
+        if ((inRTTI.GetMember(i)->GetSerializeType() & SERIALIZE_JSON) == 0)
+            continue;
+        // write key
+        m_Writer.IndentAndWrite("\"").Write(inRTTI.GetMember(i)->GetCustomName()).Write("\": ");
+        // write value
+        inRTTI.GetMember(i)->ToJSON(m_Writer, inObject);
+        // write delimiter
+        if (i != inRTTI.GetMemberCount() - 1)
+            m_Writer.Write(",\n");
+    }
+    
+    m_Writer.Write("\n").PopIndent().IndentAndWrite("}");
+
+    m_Ofs << m_Writer.GetString();
+
+    m_Objects++;
+
+    m_Writer.Clear();
+}
+
+
+void BinaryReadArchive::ReadObject(void** inObject)
+{
+    std::string type_name;
+    ReadFileBinary(m_File, type_name);
+
+    *inObject = g_RTTIFactory.Construct(type_name.c_str());
+
+    if (RTTI* rtti = g_RTTIFactory.GetRTTI(type_name.c_str()))
+    {
+        for (const auto& member : *rtti)
+        {
+            if (member->GetSerializeType() & SERIALIZE_BINARY)
+                member->FromBinary(m_File, inObject);
+        }
+    }
+
+}
+
 
 void BinaryWriteArchive::WriteObject(const RTTI& inRTTI, void* inObject)
 {

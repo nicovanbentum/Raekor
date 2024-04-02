@@ -1,5 +1,7 @@
-#include "include/bindless.hlsli"
+#include "include/shared.h"
+#include "include/brdf.hlsli"
 #include "include/packing.hlsli"
+#include "include/bindless.hlsli"
 
 struct VS_OUTPUT {
     float4 sv_position : SV_Position;
@@ -19,14 +21,6 @@ struct PS_OUTPUT {
 
 ROOT_CONSTANTS(GbufferRootConstants, rc)
 
-
-float3 ReconstructNormalBC5(float2 normal)
-{
-    float2 xy = 2.0f * normal - 1.0f;
-    float z = sqrt(1 - dot(xy, xy));
-    return float3(xy.x, xy.y, z);
-}
-
 PS_OUTPUT main(in VS_OUTPUT input) {
     PS_OUTPUT output;
 
@@ -43,9 +37,6 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     Texture2D roughness_texture = ResourceDescriptorHeap[NonUniformResourceIndex(material.mRoughnessTexture)];
     
     float4 sampled_albedo = albedo_texture.Sample(SamplerAnisoWrap, input.texcoord);
-    if (sampled_albedo.a < 0.3)
-        discard;
-    
     float3 sampled_normal = normals_texture.Sample(SamplerAnisoWrap, input.texcoord).rgb; // alpha channel unused
     float3 sampled_emissive = emissive_texture.Sample(SamplerAnisoWrap, input.texcoord).rgb; // alpha channel unused
     float sampled_metallic = metallic_texture.Sample(SamplerAnisoWrap, input.texcoord).r; // value swizzled across all channels, just get Red
@@ -63,14 +54,11 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     float4 albedo = material.mAlbedo * sampled_albedo;
     float metalness = material.mMetallic * sampled_metallic;
     float roughness = material.mRoughness * sampled_roughness;
-    
     uint4 packed = uint4(0, 0, 0, 0);
-    PackAlbedo(albedo, packed);
-    PackNormal(normal, packed);
-    PackMetallicRoughness(metalness, roughness, packed);
 
-    output.gbuffer = asfloat(packed);
+    @Code
     
+    output.gbuffer = asfloat(packed);
     float2 curr_pos = (input.curr_position.xyz / input.prev_position.w).xy - fc.mJitter;
     float2 prev_pos = (input.prev_position.xyz / input.prev_position.w).xy - fc.mPrevJitter;
     

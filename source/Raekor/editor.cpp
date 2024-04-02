@@ -9,6 +9,7 @@
 #include "script.h"
 #include "profile.h"
 #include "components.h"
+#include "shadernodes.h"
 
 #include "widgets/assetsWidget.h"
 #include "widgets/menubarWidget.h"
@@ -28,6 +29,8 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	m_Physics(inRenderInterface),
 	m_RenderInterface(inRenderInterface)
 {
+	gRegisterShaderNodeTypes();
+
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImNodes::CreateContext();
@@ -51,8 +54,8 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	m_Widgets.Register<AssetsWidget>(this);
 	m_Widgets.Register<MenubarWidget>(this);
 	m_Widgets.Register<ConsoleWidget>(this);
-	m_Widgets.Register<NodeGraphWidget>(this);
 	m_Widgets.Register<ViewportWidget>(this);
+	m_Widgets.Register<NodeGraphWidget>(this);
 	m_Widgets.Register<ProfileWidget>(this);
 	m_Widgets.Register<InspectorWidget>(this);
 	m_Widgets.Register<HierarchyWidget>(this);
@@ -189,7 +192,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 
 	// detect any changes to the viewport (mainly used to reset path tracers)
 	m_ViewportChanged = false;
-	if (auto widget = m_Widgets.GetWidget<ViewportWidget>())
+	if (ViewportWidget* widget = m_Widgets.GetWidget<ViewportWidget>())
 		if (widget->Changed())
 			m_ViewportChanged = true;
 
@@ -198,7 +201,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 		m_ViewportChanged = m_Viewport.GetCamera().Changed();
 
 	// ImGui::ShowDemoWindow();
-	// ImGui::ShowStyleEditor();
+	//ImGui::ShowStyleEditor();
 	
 	GUI::EndFrame();
 

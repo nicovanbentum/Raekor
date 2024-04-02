@@ -783,6 +783,22 @@ void RenderInterface::UploadMaterialTextures(Entity inEntity, Material& inMateri
 }
 
 
+void RenderInterface::CompileMaterialShaders(Entity inEntity, Material& inMaterial)
+{
+    if (fs::exists(inMaterial.pixelShaderFile) && fs::is_regular_file(inMaterial.pixelShaderFile))
+        g_ShaderCompiler.CompileShader(inMaterial.pixelShaderFile, SHADER_TYPE_PIXEL, "", inMaterial.pixelShader);
+
+    if (fs::exists(inMaterial.vertexShaderFile) && fs::is_regular_file(inMaterial.vertexShaderFile))
+        g_ShaderCompiler.CompileShader(inMaterial.vertexShaderFile, SHADER_TYPE_VERTEX, "", inMaterial.vertexShader);
+}
+
+
+void RenderInterface::ReleaseMaterialShaders(Entity inEntity, Material& inMaterial)
+{
+    g_ShaderCompiler.ReleaseShader(inMaterial.pixelShader);
+    g_ShaderCompiler.ReleaseShader(inMaterial.vertexShader);
+}
+
 
 uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB, uint8_t inSwizzle)
 {

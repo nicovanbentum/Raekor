@@ -3,6 +3,7 @@
 namespace Raekor::DX12 {
 
 class Device;
+class IRenderPass;
 class ShaderCompiler;
 class SystemShadersDX12;
 
@@ -49,6 +50,10 @@ public:
     inline bool IsCompute() const { return mProgramType == SHADER_PROGRAM_COMPUTE; }
     inline bool IsGraphics() const { return mProgramType == SHADER_PROGRAM_GRAPHICS; }
 
+    uint64_t GetPixelShaderHash() const { return mPixelShaderHash; }
+    uint64_t GetVertexShaderHash() const { return mVertexShaderHash; }
+    uint64_t GetComputeShaderHash() const { return mComputeShaderHash; }
+
     EShaderProgramType GetProgramType() const { return mProgramType; }
 
     bool CompilePSO(Device& inDevice, const char* inDebugName = nullptr);
@@ -78,6 +83,7 @@ private:
     fs::file_time_type mVertexShaderFileTime;
     fs::file_time_type mPixelShaderFileTime;
     fs::file_time_type mComputeShaderFileTime;
+
     ComPtr<ID3D12PipelineState> m_ComputePipeline = nullptr;
 };
 
@@ -86,14 +92,20 @@ class ShaderCompiler
 {
 public:
     ComPtr<IDxcBlob> CompileShader(const Path& inPath, EShaderType inShaderType, const std::string& inDefines, uint64_t& outHash);
+    ComPtr<IDxcBlob> CompileShader(const Path& inPath, const String& inSource, EShaderType inShaderType, const std::string& inDefines, uint64_t& outHash);
+    void ReleaseShader(uint64_t inHash);
 
-    void EnableShaderCache() { m_EnableCache.store(true); }
-    void DisableShaderCache() { m_EnableCache.store(false); }
+    ID3D12PipelineState* GetGraphicsPipeline(Device& inDevice, IRenderPass* inRenderPass, uint64_t inVertexShaderHash, uint64_t inPixelShaderHash);
+
+    void SetShaderCacheEnabled(bool inEnabled) { m_EnableShaderCache = inEnabled; }
+    void SetPipelineCacheEnabled(bool inEnabled) { m_EnablePipelineCache = inEnabled; }
 
 private:
     std::mutex m_ShaderCompilationMutex;
-    std::atomic_bool m_EnableCache = true;
+    std::atomic_bool m_EnableShaderCache = true;
+    std::atomic_bool m_EnablePipelineCache = true;
     std::unordered_map<uint64_t, ComPtr<IDxcBlob>> m_ShaderCache;
+    std::unordered_map<uint64_t, ComPtr<ID3D12PipelineState>> m_PipelineCache;
 };
 
 
@@ -157,7 +169,5 @@ struct SystemShadersDX12 : public IResource
     bool OnCompile() override;
     bool IsCompiled() const override;
 };
-
-
 
 } // Raekor::DX12

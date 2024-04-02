@@ -138,10 +138,13 @@ using String = std::string;
 using StringView = std::string_view;
 using StringBuilder = std::stringstream;
 
+template<typename T1, typename T2>
+using Pair = std::pair<T1, T2>;
+
 template<typename Type>
 using Array = std::vector<Type>;
 
-template<typename Type, unsigned int Count>
+template<typename Type, size_t Count>
 using StaticArray = std::array<Type, Count>;
 
 template<typename Key, typename Value>
