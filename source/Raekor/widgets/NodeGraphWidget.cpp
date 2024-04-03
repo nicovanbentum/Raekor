@@ -14,6 +14,36 @@ RTTI_DEFINE_TYPE_NO_FACTORY(NodeGraphWidget) {}
 
 NodeGraphWidget::NodeGraphWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_SITEMAP "  Node Graph " )) 
 { 
+	auto& ImNodesColors = ImNodes::GetStyle().Colors;
+
+	ImNodesColors[ImNodesCol_TitleBar]			= IM_COL32(0, 0, 0, 255);
+	ImNodesColors[ImNodesCol_TitleBarHovered]	= IM_COL32(0, 0, 0, 255);
+	ImNodesColors[ImNodesCol_TitleBarSelected]	= IM_COL32(0, 0, 0, 255);
+
+	ImNodesColors[ImNodesCol_GridLine]			= IM_COL32(24, 24, 24, 235);
+	ImNodesColors[ImNodesCol_GridBackground]	= IM_COL32(34, 34, 34, 255);
+	ImNodesColors[ImNodesCol_GridLinePrimary]	= IM_COL32(2, 2, 2, 85);
+
+	ImNodesColors[ImNodesCol_NodeOutline]			  = IM_COL32(12, 12, 12, 200);
+	ImNodesColors[ImNodesCol_NodeBackground]		  = IM_COL32(57, 57, 57, 255);
+	ImNodesColors[ImNodesCol_NodeBackgroundHovered]	  = IM_COL32(57, 57, 57, 255);
+	ImNodesColors[ImNodesCol_NodeBackgroundSelected]  = IM_COL32(57, 57, 57, 255);
+
+	ImNodesColors[ImNodesCol_Pin]				 = IM_COL32(127, 127, 127, 255);
+	ImNodesColors[ImNodesCol_PinHovered]		 = IM_COL32(255, 255, 255, 255);
+
+	ImNodesColors[ImNodesCol_Link]				 = IM_COL32(215, 215, 215, 255);
+	ImNodesColors[ImNodesCol_LinkHovered]		 = IM_COL32(235, 235, 235, 255);
+	ImNodesColors[ImNodesCol_LinkSelected]		 = IM_COL32(255, 255, 255, 255);
+
+	ImNodesColors[ImNodesCol_MiniMapLink]		 = IM_COL32(255, 255, 255, 255);
+	ImNodesColors[ImNodesCol_BoxSelectorOutline] = IM_COL32(235, 235, 235, 235);
+
+	ImNodes::GetStyle().NodeCornerRounding = 0.0f;
+	ImNodes::GetStyle().NodeBorderThickness = 1.5f;
+	ImNodes::GetStyle().PinCircleRadius = 4.5f;
+	ImNodes::GetStyle().PinQuadSideLength = 9.0f;
+
 	if (!OS::sCheckCommandLineOption("-shader_editor"))
 		Hide(); 
 }
@@ -189,26 +219,6 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 	ImGui::PopStyleVar();
 
 	ImNodes::BeginNodeEditor();
-	ImNodes::PushColorStyle(ImNodesCol_TitleBar, ImGui::ColorConvertFloat4ToU32(ImVec4(0, 0, 0, 1)));
-	ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0, 0, 0, 1)));
-	ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, ImGui::ColorConvertFloat4ToU32(ImVec4(0, 0, 0, 1)));
-	ImNodes::PushColorStyle(ImNodesCol_GridBackground, ImGui::ColorConvertFloat4ToU32(ImVec4(35.0f / 255.0f, 35.0f / 255.0f, 35.0f / 255.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_GridLine, ImGui::ColorConvertFloat4ToU32(ImVec4(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 0.35f)));
-	ImNodes::PushColorStyle(ImNodesCol_GridLinePrimary, ImGui::ColorConvertFloat4ToU32(ImVec4(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 0.35f)));
-	ImNodes::PushColorStyle(ImNodesCol_NodeOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_NodeBackground, ImGui::ColorConvertFloat4ToU32(ImVec4(52.0f / 255.0f, 52.0f / 255.0f, 52.0f / 255.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(52.0f / 255.0f, 52.0f / 255.0f, 52.0f / 255.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundSelected, ImGui::ColorConvertFloat4ToU32(ImVec4(52.0f / 255.0f, 52.0f / 255.0f, 52.0f / 255.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_Link, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_MiniMapLink, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(ImVec4(0.5f, 0.5f, 0.5f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_PinHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_LinkHovered, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_LinkSelected, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
-	ImNodes::PushColorStyle(ImNodesCol_BoxSelectorOutline, ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 1.0f, 0.0f, 1.0f)));
-
-	ImNodes::PushStyleVar(ImNodesStyleVar_NodeCornerRounding, 0);
-	//ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 0);
 
 	// Reset to center of the canvas if we started at 0,0
 	const auto panning = ImNodes::EditorContextGetPanning();
@@ -232,7 +242,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 			ShaderNodeMenuItem.template operator() < ProcedureShaderNode > ( "Procedure" );
 		}
 
-		ImGui::PushStyleColor(ImGuiCol_Text, ShaderNodePin::sBlue);
+		ImGui::PushStyleColor(ImGuiCol_Text, ShaderNode::sScalarColor);
 
 		if (ImGui::CollapsingHeader("Float", ImGuiTreeNodeFlags_DefaultOpen))
 		{
@@ -245,7 +255,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 		else
 			ImGui::PopStyleColor();
 
-		ImGui::PushStyleColor(ImGuiCol_Text, ShaderNodePin::sOrange);
+		ImGui::PushStyleColor(ImGuiCol_Text, ShaderNode::sVectorColor);
 
 		if (ImGui::CollapsingHeader("Vector", ImGuiTreeNodeFlags_DefaultOpen))
 		{
@@ -286,38 +296,25 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(38.0f / 255.0f, 38.0f / 255.0f, 38.0f / 255.0f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(38.0f / 255.0f, 38.0f / 255.0f, 38.0f / 255.0f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(38.0f / 255.0f, 38.0f / 255.0f, 38.0f / 255.0f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(38, 38, 38, 255));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(38, 38, 38, 255));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(38, 38, 38, 255));
 
 	m_Builder.BeginDraw();
 
 	for (const auto& [index, shader_node] : gEnumerate(m_Builder.GetShaderNodes()))
 	{
-		bool selected = false;
-
-		for (int selected_node_index : m_SelectedNodes)
-		{
-			if (selected_node_index == index)
-			{
-				selected = true;
-				break;
-			}
-		}
-
-		if (selected)
-		{
-			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, ImGui::GetColorU32(ImVec4(0.7f, 0.7f, 0.9f, 0.5f)));
-			ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 2.0f);
-		}
+		if (ImNodes::IsNodeSelected(index))
+			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, IM_COL32(178, 178, 178, 128));
+		else if (m_HoveredNode.first&& m_HoveredNode.second == index)
+			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, IM_COL32(178, 178, 178, 90));
 
 		shader_node->DrawImNode(m_Builder);
 
-		if (selected)
-		{
+		if (ImNodes::IsNodeSelected(index))
 			ImNodes::PopColorStyle();
-			ImNodes::PopStyleVar();
-		}
+		else if (m_HoveredNode.first && m_HoveredNode.second == index)
+			ImNodes::PopColorStyle();
 	}
 
 	m_Builder.EndDraw();
@@ -326,10 +323,38 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 	ImGui::PopStyleColor(3);
 
 	for (const auto& [index, link] : gEnumerate(m_Builder.GetLinks()))
+	{
+		const ShaderNodePin* input_pin = m_Builder.GetInputPin(link.second);
+		const ShaderNodePin* output_pin = m_Builder.GetOutputPin(link.first);
+
+		ImU32 link_color = ImNodes::GetStyle().Colors[ImNodesCol_Link];
+
+		if (input_pin->GetKind() == output_pin->GetKind())
+			link_color = ImGui::GetColorU32(input_pin->GetColor());
+
+		ImVec4 color = ImGui::ColorConvertU32ToFloat4(link_color);
+		ImVec4 hovered_color = ImVec4(color.x * 1.5, color.y * 1.5, color.z * 1.5, color.y * 1.5);
+		ImVec4 selected_color = ImVec4(color.x * 2.0, color.y * 2.0, color.z * 2.0, color.y * 2.0);
+
+		ImU32 link_hovered_color = ImGui::ColorConvertFloat4ToU32(hovered_color);
+		ImU32 link_selected_color = ImGui::ColorConvertFloat4ToU32(selected_color);
+		
+		ImNodes::PushColorStyle(ImNodesCol_Link, link_color);
+		ImNodes::PushColorStyle(ImNodesCol_LinkHovered, link_hovered_color);
+		ImNodes::PushColorStyle(ImNodesCol_LinkSelected, link_selected_color);
+
 		ImNodes::Link(index, link.first, link.second);
+
+		ImNodes::PopColorStyle();
+		ImNodes::PopColorStyle();
+		ImNodes::PopColorStyle();
+	}
 	
 	ImNodes::MiniMap();
 	ImNodes::EndNodeEditor();
+
+	m_hoveredLink.first = ImNodes::IsLinkHovered(&m_hoveredLink.second);
+	m_HoveredNode.first = ImNodes::IsNodeHovered(&m_HoveredNode.second);
 
 	if (ImNodes::IsLinkCreated(&m_StartNodeID, &m_StartPinID, &m_EndNodeID, &m_EndPinID))
 		m_Builder.ConnectPins(m_StartPinID, m_EndPinID);

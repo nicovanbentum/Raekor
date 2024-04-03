@@ -91,17 +91,37 @@ void ShaderGraphBuilder::BeginNode(StringView inTitle)
 
 	ImNodes::BeginNode(++m_NodeIndex);
 	ImNodes::BeginNodeTitleBar();
-	ImGui::Text(inTitle.data());
+	ImGui::Text("%i - %s", m_NodeIndex, inTitle.data());
 	ImNodes::EndNodeTitleBar();
+}
+
+
+void ShaderGraphBuilder::BeginNode(StringView inTitle, ImU32 inColor)
+{
+	m_InputPinIndex = -1;
+	m_OutputPinIndex = -1;
+
+	ImNodes::PushColorStyle(ImNodesCol_TitleBar, inColor);
+	ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, inColor);
+	ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, inColor);
+
+	ImNodes::BeginNode(++m_NodeIndex);
+	ImNodes::BeginNodeTitleBar();
+	ImGui::Text("%i - %s", m_NodeIndex, inTitle.data());
+	ImNodes::EndNodeTitleBar();
+
+	ImNodes::PopColorStyle();
+	ImNodes::PopColorStyle();
+	ImNodes::PopColorStyle();
 }
 
 
 bool ShaderGraphBuilder::BeginInputPin()
 {
 	ShaderNodePin* input_pin = m_ShaderNodes[m_NodeIndex]->GetInputPin(++m_InputPinIndex);
-	ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(input_pin->GetColor()));
+	ImNodes::PushColorStyle(ImNodesCol_Pin,input_pin->GetColor());
 	M_ShaderNodePins.emplace_back(std::make_pair(m_NodeIndex, m_InputPinIndex));
-	ImNodes::BeginInputAttribute(M_ShaderNodePins.size() - 1);
+	ImNodes::BeginInputAttribute(M_ShaderNodePins.size() - 1, ImNodesPinShape_CircleFilled);
 	return  input_pin->IsConnected();
 }
 
@@ -109,9 +129,9 @@ bool ShaderGraphBuilder::BeginInputPin()
 bool ShaderGraphBuilder::BeginOutputPin()
 {
 	ShaderNodePin* output_pin = m_ShaderNodes[m_NodeIndex]->GetOutputPin(++m_OutputPinIndex);
-	ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(output_pin->GetColor()));
+	ImNodes::PushColorStyle(ImNodesCol_Pin, output_pin->GetColor());
 	M_ShaderNodePins.emplace_back(std::make_pair(m_NodeIndex, m_OutputPinIndex));
-	ImNodes::BeginOutputAttribute(M_ShaderNodePins.size() - 1);
+	ImNodes::BeginOutputAttribute(M_ShaderNodePins.size() - 1, ImNodesPinShape_QuadFilled);
 	return output_pin->IsConnected();
 }
 

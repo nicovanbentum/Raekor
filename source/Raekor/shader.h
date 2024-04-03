@@ -16,6 +16,13 @@ class ShaderNode
 	RTTI_DECLARE_VIRTUAL_TYPE(ShaderNode);
 
 public:
+	static constexpr ImU32 sScalarColor = IM_COL32(215, 166, 32, 255);
+	static constexpr ImU32 sVectorColor = IM_COL32(83, 131, 132, 255);
+	static constexpr ImU32 sTextureColor = IM_COL32(179, 24, 55, 255);
+	static constexpr ImU32 sPixelShaderColor = IM_COL32(86, 131, 176, 255);
+	static constexpr ImU32 sVertexShaderColor = IM_COL32(197, 109, 10, 255);
+
+public:
 	ShaderNodePin* GetInputPin(int inIndex) { return inIndex >= GetInputPins().Length() ? nullptr : &GetInputPins()[inIndex]; }
 	ShaderNodePin* GetOutputPin(int inIndex) { return inIndex >= GetOutputPins().Length() ? nullptr : &GetOutputPins()[inIndex]; }
 
@@ -54,16 +61,11 @@ public:
 	};
 
 public:
-	static constexpr ImVec4 sBlue  = ImVec4(0.3f, 0.3f, 8.0f, 1.0f);
-	static constexpr ImVec4 sWhite = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-	static constexpr ImVec4 sOrange = ImVec4(1.0f, 0.3f, 0.3, 1.0f);
-
-public:
 	ShaderNodePin() = default;
 	ShaderNodePin(EKind inKind) : m_Kind(inKind) {}
 
 	EKind GetKind() const { return m_Kind; }
-	ImVec4 GetColor() const { return m_KindColors[m_Kind]; }
+	ImU32 GetColor() const { return m_KindColors[m_Kind]; }
 	StringView GetKindName() const { return sKindNames[m_Kind]; }
 
 	int GetConnectedPin() const { return m_ConnectedPin; }
@@ -80,12 +82,12 @@ public:
 private:
 	static constexpr std::array m_KindColors =
 	{
-		sWhite,  // AUTO
-		sWhite,  // BOOL
-		sBlue,   // SCALAR
-		sOrange, // VECTOR
-		sOrange, // VECTOR
-		sOrange  // VECTOR
+		IM_COL32_WHITE,			  // AUTO
+		IM_COL32_WHITE,			  // BOOL
+		ShaderNode::sScalarColor, // SCALAR
+		ShaderNode::sVectorColor, // VECTOR
+		ShaderNode::sVectorColor, // VECTOR
+		ShaderNode::sVectorColor  // VECTOR
 	};
 
 private:
@@ -111,6 +113,9 @@ public:
 	ShaderNode* GetShaderNode(int inIndex) { return m_ShaderNodes[inIndex].get(); }
 	const ShaderNode* GetShaderNode(int inIndex) const { return m_ShaderNodes[inIndex].get(); }
 
+	const ShaderNodePin* GetInputPin(int inIndex) { return GetShaderNode(M_ShaderNodePins[inIndex].first)->GetInputPin(M_ShaderNodePins[inIndex].second); }
+	const ShaderNodePin* GetOutputPin(int inIndex) { return GetShaderNode(M_ShaderNodePins[inIndex].first)->GetOutputPin(M_ShaderNodePins[inIndex].second); }
+
 	ShaderNodePin* GetConnectedInputPin(const ShaderNodePin& inPin) { return GetShaderNode(inPin.GetConnectedNode())->GetInputPin(inPin.GetConnectedPin()); }
 	ShaderNodePin* GetConnectedOutputPin(const ShaderNodePin& inPin) { return GetShaderNode(inPin.GetConnectedNode())->GetOutputPin(inPin.GetConnectedPin()); }
 
@@ -127,6 +132,7 @@ public:
 	// IMGUI/IMNODES FUNCTIONS
 	void BeginNode();
 	void BeginNode(StringView inTitle);
+	void BeginNode(StringView inTitle, ImU32 inColor);
 	void EndNode() { ImNodes::EndNode(); }
 
 	bool BeginInputPin();

@@ -32,6 +32,8 @@ private:
 	Path m_OpenGeneratedFilePath;
 	ShaderGraphBuilder m_Builder;
 
+	Pair<bool, int> m_HoveredNode = std::make_pair(false, -1);
+	Pair<bool, int> m_hoveredLink = std::make_pair(false, -1);
 	std::vector<int> m_SelectedNodes;
 	std::vector<int> m_SelectedLinks;
 };

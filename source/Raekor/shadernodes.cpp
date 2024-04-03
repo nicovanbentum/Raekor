@@ -131,9 +131,15 @@ void gRegisterShaderNodeTypes()
 
 void FloatOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
-	inBuilder.BeginNode("FloatOp");
+	inBuilder.BeginNode("FloatOp", ShaderNode::sScalarColor);
 
 	const float node_width = ImGui::CalcTextSize("Multiply").x * 1.5f;
+
+	inBuilder.BeginOutputPin();
+	ImGui::Indent(node_width);
+	ImGui::Text("Out");
+	inBuilder.EndOutputPin();
+
 	ImGui::PushItemWidth(node_width);
 
 	constexpr static std::array operation_names = { "Add", "Minus", "Multiply", "Divide" };
@@ -165,10 +171,6 @@ void FloatOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 	ImGui::PopItemWidth();
 
-	inBuilder.BeginOutputPin();
-	ImGui::Indent(node_width);
-	ImGui::Text("Out");
-	inBuilder.EndOutputPin();
 
 	inBuilder.EndNode();
 }
@@ -191,9 +193,21 @@ String FloatOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 void FloatFunctionShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 {
-	ioBuilder.BeginNode("FloatFunc");
+	ioBuilder.BeginNode("FloatFunc", ShaderNode::sScalarColor);
 
 	const float node_width = ImGui::CalcTextSize(m_OpNames[m_Op]).x * 4.0f;
+
+	ioBuilder.BeginInputPin();
+	ImGui::Text("In");
+	ioBuilder.EndInputPin();
+
+	ImGui::SameLine();
+
+	ioBuilder.BeginOutputPin();
+	ImGui::Indent(node_width / 2.0f);
+	ImGui::Text("Out");
+	ioBuilder.EndOutputPin();
+
 	ImGui::PushItemWidth(node_width);
 
 	if (ImGui::BeginCombo("##mathopshadernodevarianttype", m_OpNames[m_Op]))
@@ -206,17 +220,6 @@ void FloatFunctionShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 
 		ImGui::EndCombo();
 	}
-
-	ioBuilder.BeginInputPin();
-	ImGui::Text("In");
-	ioBuilder.EndInputPin();
-
-	ImGui::SameLine();
-
-	ioBuilder.BeginOutputPin();
-	ImGui::Indent(node_width / 2.0f);
-	ImGui::Text("Out");
-	ioBuilder.EndOutputPin();
 
 	ImNodes::EndNode();
 }
@@ -238,9 +241,15 @@ String FloatFunctionShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 void VectorValueShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
-	inBuilder.BeginNode("Vector");
+	inBuilder.BeginNode("Vector", ShaderNode::sVectorColor);
 
 	const float node_width = ImGui::CalcTextSize("0.0000, ").x;
+
+	inBuilder.BeginOutputPin();
+	ImGui::Indent(node_width);
+	ImGui::Text("Out");
+	inBuilder.EndOutputPin();
+
 	ImGui::PushItemWidth(node_width * 1.5f);
 
 	if (ImGui::BeginCombo("##vectorshadernodevarianttype", GetVectorName()))
@@ -273,10 +282,6 @@ void VectorValueShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 	ImGui::PopItemWidth();
 
-	inBuilder.BeginOutputPin();
-	ImGui::Indent(node_width);
-	ImGui::Text("Out");
-	inBuilder.EndOutputPin();
 	inBuilder.EndNode();
 }
 
@@ -330,9 +335,15 @@ String VectorValueShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 void VectorOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
-	inBuilder.BeginNode("VectorOp");
+	inBuilder.BeginNode("VectorOp", ShaderNode::sVectorColor);
 
 	const float node_width = ImGui::CalcTextSize("0.0000, ").x * GetVectorComponents();
+
+	inBuilder.BeginOutputPin();
+	ImGui::Indent(node_width);
+	ImGui::Text("Out");
+	inBuilder.EndOutputPin();
+
 	ImGui::PushItemWidth(node_width);
 
 	constexpr static std::array operation_names = { "Add", "Minus", "Multiply", "Divide" };
@@ -378,11 +389,6 @@ void VectorOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 	ImGui::PopItemWidth();
 
-	inBuilder.BeginOutputPin();
-	ImGui::Indent(node_width);
-	ImGui::Text("Out");
-	inBuilder.EndOutputPin();
-
 	inBuilder.EndNode();
 }
 
@@ -426,7 +432,7 @@ String VectorOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 void SingleOutputShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
-	inBuilder.BeginNode(m_Title);
+	inBuilder.BeginNode(m_Title, m_OutputPin.GetColor());
 	inBuilder.BeginOutputPin();
 	ImGui::Indent(ImGui::CalcTextSize(m_Title.c_str()).x);
 	ImGui::Text(m_OutputPin.GetKindName().data());
@@ -444,7 +450,7 @@ String SingleOutputShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 void PixelShaderOutputShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
-	inBuilder.BeginNode("Pixel Shader Output");
+	inBuilder.BeginNode("Pixel Shader Output", ShaderNode::sPixelShaderColor);
 
 	const float node_width = ImGui::CalcTextSize("0.0000,  0.0000,  0.0000,  0.0000").x;
 	ImGui::PushItemWidth(node_width);
@@ -469,7 +475,7 @@ String PixelShaderOutputShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 	{
 		if (input_pin.IsConnected())
 		{
-			if (m_InputNames[index] == "Discard")
+			if (strcmp(m_InputNames[index], "Discard") == 0)
 			{
 				ShaderNode* shader_node = inBuilder.GetShaderNode(input_pin.GetConnectedNode());
 				code += std::format("Discard({});\n", shader_node->GetOutputPin(input_pin.GetConnectedPin())->GetOutVariableName());
@@ -492,7 +498,7 @@ String PixelShaderOutputShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 void ProcedureShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
-	inBuilder.BeginNode(m_Title);
+	inBuilder.BeginNode(m_Title, ShaderNode::sTextureColor);
 
 	const float text_box_width = ImGui::GetWindowContentRegionWidth() / 6.0f;
 
@@ -577,7 +583,7 @@ String ProcedureShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 	}
 
 	// fix trailing comma's
-	function_params = function_params.substr(0, function_params.size() - 2);
+	function_params = function_params.substr(0, std::max(function_params.size() - 2, 0ull));
 
 	String function;
 	function += std::format("void Procedure{}({})\n", inBuilder.GetLineNumber(), function_params);
@@ -615,7 +621,7 @@ String ProcedureShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 			function_call_args += std::format("{}, ", node_pin.GetOutVariableName());
 	}
 
-	function_call_args = function_call_args.substr(0, function_call_args.size() - 2);
+	function_call_args = function_call_args.substr(0, std::max(function_call_args.size() - 2, 0ull));
 	
 	return code += std::format("Procedure{}({});\n", inBuilder.GetLineNumber(), function_call_args);
 }
@@ -623,6 +629,10 @@ String ProcedureShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 void CompareShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
+	ImNodes::PushColorStyle(ImNodesCol_TitleBar, IM_COL32_BLACK);
+	ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, IM_COL32_BLACK);
+	ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, IM_COL32_BLACK);
+
 	inBuilder.BeginNode();
 	ImNodes::BeginNodeTitleBar();
 
@@ -641,6 +651,10 @@ void CompareShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 	}
 
 	ImNodes::EndNodeTitleBar();
+
+	ImNodes::PopColorStyle();
+	ImNodes::PopColorStyle();
+	ImNodes::PopColorStyle();
 
 	inBuilder.BeginInputPin();
 	ImGui::Text("LHS");
