@@ -50,15 +50,22 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 	if (!m_Settings.mFontFile.empty() && fs::exists(m_Settings.mFontFile))
 		GUI::SetFont(m_Settings.mFontFile.string());
 
-    m_Widgets.Register<SequenceWidget>(this);
-	m_Widgets.Register<AssetsWidget>(this);
-	m_Widgets.Register<MenubarWidget>(this);
-	m_Widgets.Register<ConsoleWidget>(this);
-	m_Widgets.Register<ViewportWidget>(this);
-	m_Widgets.Register<NodeGraphWidget>(this);
-	m_Widgets.Register<ProfileWidget>(this);
-	m_Widgets.Register<InspectorWidget>(this);
-	m_Widgets.Register<HierarchyWidget>(this);
+	if (OS::sCheckCommandLineOption("-shader_editor"))
+	{
+		m_Widgets.Register<NodeGraphWidget>(this);
+	}
+	else
+	{
+		m_Widgets.Register<SequenceWidget>(this);
+		m_Widgets.Register<AssetsWidget>(this);
+		m_Widgets.Register<MenubarWidget>(this);
+		m_Widgets.Register<ConsoleWidget>(this);
+		m_Widgets.Register<NodeGraphWidget>(this);
+		m_Widgets.Register<ViewportWidget>(this);
+		m_Widgets.Register<ProfileWidget>(this);
+		m_Widgets.Register<InspectorWidget>(this);
+		m_Widgets.Register<HierarchyWidget>(this);
+	}
 
 	LogMessage("[Editor] initialization done.");
 
@@ -216,8 +223,11 @@ void IEditor::OnEvent(const SDL_Event& event)
 
 	if (m_GameState != GAME_RUNNING)
 	{
-		if ((m_Widgets.GetWidget<ViewportWidget>()->IsHovered() || SDL_GetRelativeMouseMode()) || !m_Settings.mShowUI)
-			EditorCameraController::OnEvent(m_Viewport.GetCamera(), event);
+		if (const ViewportWidget* viewport_widget = m_Widgets.GetWidget<ViewportWidget>())
+		{
+			if (viewport_widget->IsHovered() || SDL_GetRelativeMouseMode() || !m_Settings.mShowUI)
+				EditorCameraController::OnEvent(m_Viewport.GetCamera(), event);
+		}
 	}
 
 	if (event.type == SDL_WINDOWEVENT)

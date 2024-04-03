@@ -29,8 +29,11 @@ private:
 	
 	Path m_OpenFilePath;
 	Path m_OpenTemplateFilePath;
+	Path m_OpenGeneratedFilePath;
 	ShaderGraphBuilder m_Builder;
 
+	std::vector<int> m_SelectedNodes;
+	std::vector<int> m_SelectedLinks;
 };
 
 }

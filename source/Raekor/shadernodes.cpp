@@ -1,34 +1,44 @@
 #include "pch.h"
 #include "shadernodes.h"
+#include "gui.h"
+#include "iter.h"
 #include "shader.h"
 #include "member.h"
-#include "iter.h"
 
 namespace Raekor {
 
-RTTI_DEFINE_TYPE(MathOpShaderNode) 
-{ 
-	RTTI_DEFINE_TYPE_INHERITANCE(MathOpShaderNode, ShaderNode); 
+RTTI_DEFINE_TYPE(FloatValueShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(FloatValueShaderNode, ShaderNode);
 
-	RTTI_DEFINE_MEMBER(MathOpShaderNode, SERIALIZE_ALL, "Op", m_Op);
-	RTTI_DEFINE_MEMBER(MathOpShaderNode, SERIALIZE_ALL, "FloatA", m_FloatA);
-	RTTI_DEFINE_MEMBER(MathOpShaderNode, SERIALIZE_ALL, "FloatB", m_FloatB);
-	RTTI_DEFINE_MEMBER(MathOpShaderNode, SERIALIZE_ALL, "Input Pins", m_InputPins);
-	RTTI_DEFINE_MEMBER(MathOpShaderNode, SERIALIZE_ALL, "Output Pins", m_OutputPins);
+	RTTI_DEFINE_MEMBER(FloatValueShaderNode, SERIALIZE_ALL, "Float", m_Float);
+	RTTI_DEFINE_MEMBER(FloatValueShaderNode, SERIALIZE_ALL, "Output Pin", m_OutputPin);
 }
 
-RTTI_DEFINE_TYPE(MathFuncShaderNode) 
+RTTI_DEFINE_TYPE(FloatOpShaderNode) 
 { 
-	RTTI_DEFINE_TYPE_INHERITANCE(MathFuncShaderNode, ShaderNode); 
+	RTTI_DEFINE_TYPE_INHERITANCE(FloatOpShaderNode, ShaderNode); 
 
-	RTTI_DEFINE_MEMBER(MathFuncShaderNode, SERIALIZE_ALL, "Op", m_Op);
-	RTTI_DEFINE_MEMBER(MathFuncShaderNode, SERIALIZE_ALL, "Input Pin", m_InputPin);
-	RTTI_DEFINE_MEMBER(MathFuncShaderNode, SERIALIZE_ALL, "Output Pin", m_OutputPin);
+	RTTI_DEFINE_MEMBER(FloatOpShaderNode, SERIALIZE_ALL, "Op", m_Op);
+	RTTI_DEFINE_MEMBER(FloatOpShaderNode, SERIALIZE_ALL, "FloatA", m_FloatA);
+	RTTI_DEFINE_MEMBER(FloatOpShaderNode, SERIALIZE_ALL, "FloatB", m_FloatB);
+	RTTI_DEFINE_MEMBER(FloatOpShaderNode, SERIALIZE_ALL, "Input Pins", m_InputPins);
+	RTTI_DEFINE_MEMBER(FloatOpShaderNode, SERIALIZE_ALL, "Output Pins", m_OutputPins);
+}
+
+RTTI_DEFINE_TYPE(FloatFunctionShaderNode) 
+{ 
+	RTTI_DEFINE_TYPE_INHERITANCE(FloatFunctionShaderNode, ShaderNode); 
+
+	RTTI_DEFINE_MEMBER(FloatFunctionShaderNode, SERIALIZE_ALL, "Op", m_Op);
+	RTTI_DEFINE_MEMBER(FloatFunctionShaderNode, SERIALIZE_ALL, "Input Pin", m_InputPin);
+	RTTI_DEFINE_MEMBER(FloatFunctionShaderNode, SERIALIZE_ALL, "Output Pin", m_OutputPin);
 }
 
 RTTI_DEFINE_TYPE(SingleOutputShaderNode)
 {
 	RTTI_DEFINE_TYPE_INHERITANCE(SingleOutputShaderNode, ShaderNode);
+
 	RTTI_DEFINE_MEMBER(GetTimeShaderNode, SERIALIZE_ALL, "Output Pin", m_OutputPin);
 }
 
@@ -42,11 +52,27 @@ RTTI_DEFINE_TYPE(GetDeltaTimeShaderNode)
 	RTTI_DEFINE_TYPE_INHERITANCE(GetDeltaTimeShaderNode, SingleOutputShaderNode);
 }
 
-RTTI_DEFINE_ENUM(EVectorVariant)
+RTTI_DEFINE_TYPE(GetPixelCoordShaderNode)
 {
-	RTTI_DEFINE_ENUM_MEMBER(EVectorVariant, SERIALIZE_ALL, "VEC2", EVectorVariant::VEC2);
-	RTTI_DEFINE_ENUM_MEMBER(EVectorVariant, SERIALIZE_ALL, "VEC3", EVectorVariant::VEC3);
-	RTTI_DEFINE_ENUM_MEMBER(EVectorVariant, SERIALIZE_ALL, "VEC4", EVectorVariant::VEC4);
+	RTTI_DEFINE_TYPE_INHERITANCE(GetPixelCoordShaderNode, SingleOutputShaderNode);
+}
+
+RTTI_DEFINE_TYPE(CompareShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(CompareShaderNode, ShaderNode);
+
+	RTTI_DEFINE_MEMBER(CompareShaderNode, SERIALIZE_ALL, "Op", m_Op);
+	RTTI_DEFINE_MEMBER(CompareShaderNode, SERIALIZE_ALL, "Input Pins", m_InputPins);
+	RTTI_DEFINE_MEMBER(CompareShaderNode, SERIALIZE_ALL, "Output Pin", m_OutputPin);
+}
+
+RTTI_DEFINE_TYPE(ProcedureShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(ProcedureShaderNode, ShaderNode);
+
+	RTTI_DEFINE_MEMBER(ProcedureShaderNode, SERIALIZE_ALL, "Procedure", m_Procedure);
+	RTTI_DEFINE_MEMBER(ProcedureShaderNode, SERIALIZE_ALL, "Input Pins", m_InputPins);
+	RTTI_DEFINE_MEMBER(ProcedureShaderNode, SERIALIZE_ALL, "Output Pins", m_OutputPins);
 }
 
 RTTI_DEFINE_TYPE(VectorOpShaderNode) 
@@ -54,21 +80,21 @@ RTTI_DEFINE_TYPE(VectorOpShaderNode)
 	RTTI_DEFINE_TYPE_INHERITANCE(VectorOpShaderNode, ShaderNode); 
 
 	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "Op", m_Op);
-	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "VectorVariant", m_VectorVariant);
+	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "Kind", m_Kind);
 	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "VectorA", m_VectorA);
 	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "VectorB", m_VectorB);
 	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "Input Pins", m_InputPins);
 	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "Output Pins", m_OutputPins);
 }
 
-RTTI_DEFINE_TYPE(VectorComposeShaderNode) 
+RTTI_DEFINE_TYPE(VectorValueShaderNode) 
 { 
-	RTTI_DEFINE_TYPE_INHERITANCE(VectorComposeShaderNode, ShaderNode); 
+	RTTI_DEFINE_TYPE_INHERITANCE(VectorValueShaderNode, ShaderNode); 
 
-	RTTI_DEFINE_MEMBER(VectorComposeShaderNode, SERIALIZE_ALL, "Vector", m_Vector);
-	RTTI_DEFINE_MEMBER(VectorComposeShaderNode, SERIALIZE_ALL, "VectorVariant", m_VectorVariant);
-	RTTI_DEFINE_MEMBER(VectorComposeShaderNode, SERIALIZE_ALL, "Input Pins", m_InputPins);
-	RTTI_DEFINE_MEMBER(VectorComposeShaderNode, SERIALIZE_ALL, "Output Pins", m_OutputPins);
+	RTTI_DEFINE_MEMBER(VectorValueShaderNode, SERIALIZE_ALL, "Kind", m_Kind);
+	RTTI_DEFINE_MEMBER(VectorValueShaderNode, SERIALIZE_ALL, "Vector", m_Vector);
+	RTTI_DEFINE_MEMBER(VectorValueShaderNode, SERIALIZE_ALL, "Input Pins", m_InputPins);
+	RTTI_DEFINE_MEMBER(VectorValueShaderNode, SERIALIZE_ALL, "Output Pins", m_OutputPins);
 }
 
 RTTI_DEFINE_TYPE(PixelShaderOutputShaderNode) 
@@ -89,18 +115,23 @@ void gRegisterShaderNodeTypes()
 	g_RTTIFactory.Register(RTTI_OF(ShaderNodePin));
 	g_RTTIFactory.Register(RTTI_OF(ShaderGraphBuilder));
 
-	g_RTTIFactory.Register(RTTI_OF(MathOpShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(MathFuncShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(FloatValueShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(FloatOpShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(FloatFunctionShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(GetTimeShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(GetDeltaTimeShaderNode));
-	g_RTTIFactory.Register(RTTI_OF(VectorComposeShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(GetPixelCoordShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(VectorValueShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(VectorOpShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(ProcedureShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(CompareShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(PixelShaderOutputShaderNode));
 }
 
 
-void MathOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
+void FloatOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
-	inBuilder.BeginNode("MathOp");
+	inBuilder.BeginNode("FloatOp");
 
 	const float node_width = ImGui::CalcTextSize("Multiply").x * 1.5f;
 	ImGui::PushItemWidth(node_width);
@@ -143,7 +174,7 @@ void MathOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 }
 
 
-String MathOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
+String FloatOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
 	String code = ShaderNode::GenerateCode(inBuilder);
 
@@ -158,9 +189,9 @@ String MathOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 }
 
 
-void MathFuncShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
+void FloatFunctionShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 {
-	ioBuilder.BeginNode("MathFunc");
+	ioBuilder.BeginNode("FloatFunc");
 
 	const float node_width = ImGui::CalcTextSize(m_OpNames[m_Op]).x * 4.0f;
 	ImGui::PushItemWidth(node_width);
@@ -191,7 +222,7 @@ void MathFuncShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 }
 
 
-String MathFuncShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
+String FloatFunctionShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
 	String code = ShaderNode::GenerateCode(inBuilder);
 
@@ -205,19 +236,20 @@ String MathFuncShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 }
 
 
-void VectorComposeShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
+void VectorValueShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
-	inBuilder.BeginNode("VectorCompose");
+	inBuilder.BeginNode("Vector");
 
 	const float node_width = ImGui::CalcTextSize("0.0000, ").x;
 	ImGui::PushItemWidth(node_width * 1.5f);
 
-	if (ImGui::BeginCombo("##vectorshadernodevarianttype", m_VectorNames[m_VectorVariant]))
+	if (ImGui::BeginCombo("##vectorshadernodevarianttype", GetVectorName()))
 	{
 		for (const auto& [index, name] : gEnumerate(m_VectorNames))
 		{
-			if (ImGui::Selectable(name, int(m_VectorVariant) == index))
-				m_VectorVariant = EVectorVariant(index);
+			const auto name = ShaderNodePin::sKindNames[ShaderNodePin::EKind(index)];
+			if (ImGui::Selectable(name, name == GetVectorName()))
+				m_Kind = m_VectorKinds[index];
 		}
 
 		ImGui::EndCombo();
@@ -226,10 +258,10 @@ void VectorComposeShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 	ImGui::PopItemWidth();
 	ImGui::PushItemWidth(node_width * 1.25f);
 
-	auto InputFloatFunction = m_VectorInputFunctions[int(m_VectorVariant)];
+	auto InputFloatFunction = m_VectorInputFunctions[int(m_Kind) - ShaderNodePin::FLOAT2];
 	constexpr std::array xyzw_chars = { "X", "Y", "Z", "W" };
 
-	for (int i = 0; i < m_VectorComponents[int(m_VectorVariant)]; i++)
+	for (int i = 0; i < m_VectorComponents[int(m_Kind) - ShaderNodePin::FLOAT2]; i++)
 	{
 		if (inBuilder.BeginInputPin())
 			ImGui::Text(xyzw_chars[i]);
@@ -249,25 +281,27 @@ void VectorComposeShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 }
 
 
-String VectorComposeShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
+String VectorValueShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
 	String code = ShaderNode::GenerateCode(inBuilder);
 
-	const int nr_of_floats = m_VectorComponents[m_VectorVariant];
+	const int nr_of_floats = GetVectorComponents();
 
 	m_OutputPins[0].SetOutVariableName(std::format("VectorCompose_Out{}", inBuilder.IncrLineNumber()));
 
-	switch (m_VectorVariant)
+	switch (m_Kind)
 	{
-		case EVectorVariant::VEC2:
+		case ShaderNodePin::FLOAT2:
 			code += std::format("float{} {} = float{}(", nr_of_floats, m_OutputPins[0].GetOutVariableName(), nr_of_floats);
 			break;
-		case EVectorVariant::VEC3:
+		case ShaderNodePin::FLOAT3:
 			code += std::format("float{} {} = float{}(", nr_of_floats, m_OutputPins[0].GetOutVariableName(), nr_of_floats);
 			break;
-		case EVectorVariant::VEC4:
+		case ShaderNodePin::FLOAT4:
 			code += std::format("float{} {} = float{}(", nr_of_floats, m_OutputPins[0].GetOutVariableName(), nr_of_floats);
 			break;
+		default:
+			assert(false);
 	}
 
 	for (int i = 0; i < nr_of_floats; i++)
@@ -298,17 +332,18 @@ void VectorOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
 	inBuilder.BeginNode("VectorOp");
 
-	const float node_width = ImGui::CalcTextSize("0.0000, ").x * m_VectorComponents[int(m_VectorVariant)];
+	const float node_width = ImGui::CalcTextSize("0.0000, ").x * GetVectorComponents();
 	ImGui::PushItemWidth(node_width);
 
 	constexpr static std::array operation_names = { "Add", "Minus", "Multiply", "Divide" };
 
-	if (ImGui::BeginCombo("##vectorshadernodevarianttype", m_VectorNames[m_VectorVariant]))
+	if (ImGui::BeginCombo("##vectorshadernodevarianttype", GetVectorName()))
 	{
 		for (const auto& [index, name] : gEnumerate(m_VectorNames))
 		{
-			if (ImGui::Selectable(name, int(m_VectorVariant) == index))
-				m_VectorVariant = EVectorVariant(index);
+			const auto name = ShaderNodePin::sKindNames[ShaderNodePin::EKind(index)];
+			if (ImGui::Selectable(name, name == GetVectorName()))
+				m_Kind = m_VectorKinds[index];
 		}
 
 		ImGui::EndCombo();
@@ -325,7 +360,7 @@ void VectorOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 		ImGui::EndCombo();
 	}
 
-	auto InputFloatFunction = m_VectorInputFunctions[int(m_VectorVariant)];
+	auto InputFloatFunction = GetVectorInputFunction();
 
 	if (inBuilder.BeginInputPin())
 		ImGui::Text("A");
@@ -356,11 +391,34 @@ String VectorOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
 	String code = ShaderNode::GenerateCode(inBuilder);
 
-	const int nr_of_floats = m_VectorComponents[m_VectorVariant];
+	const int nr_of_floats = GetVectorComponents();
 
 	m_OutputPins[0].SetOutVariableName(std::format("VectorOp_Out{}", inBuilder.IncrLineNumber()));
 
-	code += std::format("float{} {} = float{}({:.3f});", nr_of_floats, m_OutputPins[0].GetOutVariableName(), nr_of_floats, 1.0f);
+	String lhs = m_InputPins[0].IsConnected() ? String(inBuilder.GetConnectedOutputPin(m_InputPins[0])->GetOutVariableName()) : "";
+	String rhs = m_InputPins[1].IsConnected() ? String(inBuilder.GetConnectedOutputPin(m_InputPins[1])->GetOutVariableName()) : "";
+
+	if (!m_InputPins[0].IsConnected())
+	{
+		switch (m_Kind)
+		{
+			case ShaderNodePin::FLOAT2: lhs = std::format("{}({:.3f}, {:.3f})", m_InputPins[0].GetKindName(), m_VectorA[0], m_VectorA[1]); break;
+			case ShaderNodePin::FLOAT3: lhs = std::format("{}({:.3f}, {:.3f}, {:.3f})", m_InputPins[0].GetKindName(), m_VectorA[0], m_VectorA[1], m_VectorA[2]); break;
+			case ShaderNodePin::FLOAT4: lhs = std::format("{}({:.3f}, {:.3f}, {:.3f}, {:.3f})", m_InputPins[0].GetKindName(), m_VectorA[0], m_VectorA[1], m_VectorA[2], m_VectorA[3]); break;
+		}
+	}
+
+	if (!m_InputPins[1].IsConnected())
+	{
+		switch (m_Kind)
+		{
+			case ShaderNodePin::FLOAT2: rhs = std::format("{}({:.3f}, {:.3f})", m_InputPins[1].GetKindName(), m_VectorB[0], m_VectorB[1]); break;
+			case ShaderNodePin::FLOAT3: rhs = std::format("{}({:.3f}, {:.3f}, {:.3f})", m_InputPins[1].GetKindName(), m_VectorB[0], m_VectorB[1], m_VectorB[2]); break;
+			case ShaderNodePin::FLOAT4: rhs = std::format("{}({:.3f}, {:.3f}, {:.3f}, {:.3f})", m_InputPins[1].GetKindName(), m_VectorB[0], m_VectorB[1], m_VectorB[2], m_VectorB[3]); break;
+		}
+	}
+
+	code += std::format("float{} {} = {} {} {};\n", nr_of_floats, m_OutputPins[0].GetOutVariableName(), lhs, m_OpSymbols[m_Op], rhs);
 
 	return code;
 }
@@ -368,10 +426,10 @@ String VectorOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 void SingleOutputShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 {
-	inBuilder.BeginNode(GetTitle());
+	inBuilder.BeginNode(m_Title);
 	inBuilder.BeginOutputPin();
-	ImGui::Indent(ImGui::CalcTextSize(GetTitle()).x);
-	ImGui::Text("Out");
+	ImGui::Indent(ImGui::CalcTextSize(m_Title.c_str()).x);
+	ImGui::Text(m_OutputPin.GetKindName().data());
 	inBuilder.EndOutputPin();
 	inBuilder.EndNode();
 }
@@ -379,7 +437,7 @@ void SingleOutputShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 String SingleOutputShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
-	m_OutputPin.SetOutVariableName(GetOutVariableName());
+	m_OutputPin.SetOutVariableName(m_OutVariableName);
 	return "";
 }
 
@@ -407,19 +465,242 @@ String PixelShaderOutputShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
 	String code = ShaderNode::GenerateCode(inBuilder);
 
-	for (const auto& [index, pin] : gEnumerate(m_InputPins))
+	for (const auto& [index, input_pin] : gEnumerate(m_InputPins))
 	{
-		if (pin.IsConnected())
+		if (input_pin.IsConnected())
 		{
-			ShaderNode* shader_node = inBuilder.GetShaderNode(pin.GetConnectedNode());
-
-			code += std::format("Pack{}({}, packed);\n", m_InputNames[index], shader_node->GetOutputPin(0)->GetOutVariableName());
+			if (m_InputNames[index] == "Discard")
+			{
+				ShaderNode* shader_node = inBuilder.GetShaderNode(input_pin.GetConnectedNode());
+				code += std::format("Discard({});\n", shader_node->GetOutputPin(input_pin.GetConnectedPin())->GetOutVariableName());
+			}
+			else
+			{
+				ShaderNode* shader_node = inBuilder.GetShaderNode(input_pin.GetConnectedNode());
+				code += std::format("Pack{}({}, packed);\n", m_InputNames[index], shader_node->GetOutputPin(0)->GetOutVariableName());
+			}
 		}
 		else
 		{
 			// TODO
 		}
 	}
+
+	return code;
+}
+
+
+void ProcedureShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
+{
+	inBuilder.BeginNode(m_Title);
+
+	const float text_box_width = ImGui::GetWindowContentRegionWidth() / 6.0f;
+
+	if (ImGui::Button("Add Input +"))
+		m_InputPins.emplace_back();
+
+	ImGui::SameLine(text_box_width - ImGui::CalcTextSize(" Add Input + ").x);
+
+	if (ImGui::Button("Add Output +"))
+		m_OutputPins.emplace_back();
+
+	int nr_of_pins = std::max(m_InputPins.size(), m_OutputPins.size());
+
+	for (int i = 0; i < nr_of_pins; i++)
+	{
+		if (i < m_InputPins.size())
+		{
+			inBuilder.BeginInputPin();
+			ImGui::SetNextItemWidth(text_box_width / 4.0f);
+			ImGui::InputText("##expressioninputpin", &m_InputPins[i].m_VariableName);
+			inBuilder.EndInputPin();
+
+			if (i < m_OutputPins.size())
+				ImGui::SameLine(text_box_width - (text_box_width / 4.0f ));
+		}
+
+		if (i < m_OutputPins.size())
+		{
+			if (i >= m_InputPins.size())
+				ImGui::Indent(text_box_width - ( text_box_width / 4.0f ));
+
+			inBuilder.BeginOutputPin();
+			//ImGui::Indent(text_box_width - (text_box_width / 4.0f));
+			ImGui::SetNextItemWidth(text_box_width / 4.0f);
+			ImGui::InputText("##expressionoutputpin", &m_OutputPins[i].m_VariableName);
+			inBuilder.EndOutputPin();
+		}
+	}
+
+	if (m_ShowInputBox)
+	{
+		ImGui::SetNextItemWidth(text_box_width);
+		ImGui::InputTextMultiline("##expression", &m_Procedure);
+	}
+
+	ImGui::SetNextItemWidth(text_box_width);
+
+	if (ImGui::Button(m_ShowInputBox ? "hide" : "show", ImVec2(text_box_width, ImGui::GetTextLineHeight())))
+		m_ShowInputBox = !m_ShowInputBox;
+
+
+	inBuilder.EndNode();
+}
+
+
+String ProcedureShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
+{
+	String code = ShaderNode::GenerateCode(inBuilder);
+
+	// build templated function definition
+	int param_count = 0;
+	String function_params;
+
+	// add 'in' parameters
+	for (const ShaderNodePin& node_pin : m_InputPins)
+	{
+		if (node_pin.IsConnected())
+		{
+			ShaderNodePin* output_pin = inBuilder.GetConnectedOutputPin(node_pin);
+			function_params += std::format("{} {}, ", output_pin->GetKindName(), node_pin.GetOutVariableName());
+		}
+	}
+
+	// add 'out' parameters
+	for (const ShaderNodePin& node_pin : m_OutputPins)
+	{
+		if (node_pin.IsConnected())
+		{
+			ShaderNodePin* input_pin = inBuilder.GetConnectedInputPin(node_pin);
+			function_params += std::format("out {} {}, ", input_pin->GetKindName(), node_pin.GetOutVariableName());
+		}
+	}
+
+	// fix trailing comma's
+	function_params = function_params.substr(0, function_params.size() - 2);
+
+	String function;
+	function += std::format("void Procedure{}({})\n", inBuilder.GetLineNumber(), function_params);
+	function += std::format("{{\n {} \n}}", m_Procedure);
+
+	inBuilder.AddFunction(function);
+
+	// declare output variables
+	for (const ShaderNodePin& node_pin : m_OutputPins)
+	{
+		if (node_pin.IsConnected())
+		{
+			ShaderNodePin* input_pin = inBuilder.GetConnectedInputPin(node_pin);
+			code += std::format("{} {};\n", input_pin->GetKindName(), node_pin.GetOutVariableName());
+		}
+	}
+
+	// build function call arguments
+	String function_call_args;
+
+	// add 'in' call args
+	for (const ShaderNodePin& node_pin : m_InputPins)
+	{
+		if (node_pin.IsConnected())
+		{
+			ShaderNodePin* output_pin = inBuilder.GetConnectedOutputPin(node_pin);
+			function_call_args += std::format("{}, ", output_pin->GetOutVariableName());
+		}
+	}
+
+	// add 'out' call args
+	for (const ShaderNodePin& node_pin : m_OutputPins)
+	{
+		if (node_pin.IsConnected())
+			function_call_args += std::format("{}, ", node_pin.GetOutVariableName());
+	}
+
+	function_call_args = function_call_args.substr(0, function_call_args.size() - 2);
+	
+	return code += std::format("Procedure{}({});\n", inBuilder.GetLineNumber(), function_call_args);
+}
+
+
+void CompareShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
+{
+	inBuilder.BeginNode();
+	ImNodes::BeginNodeTitleBar();
+
+	const float node_width = ImGui::CalcTextSize("======").x;
+	ImGui::PushItemWidth(node_width);
+
+	if (ImGui::BeginCombo("##compareshadernodeop", m_OpSymbols[m_Op]))
+	{
+		for (const auto& [index, name] : gEnumerate(m_OpSymbols))
+		{
+			if (ImGui::Selectable(name, int(m_Op) == index))
+				m_Op = Op(index);
+		}
+
+		ImGui::EndCombo();
+	}
+
+	ImNodes::EndNodeTitleBar();
+
+	inBuilder.BeginInputPin();
+	ImGui::Text("LHS");
+	inBuilder.EndInputPin();
+
+	inBuilder.BeginInputPin();
+	ImGui::Text("RHS");
+	inBuilder.EndInputPin();
+
+	ImGui::SameLine();
+
+	ImGui::SetCursorPosY(ImGui::GetCursorPosY() - ImGui::GetTextLineHeightWithSpacing() * 0.5f);
+	inBuilder.BeginOutputPin();
+	ImGui::Indent(node_width * 0.25f);
+	ImGui::Text(m_OutputPin.GetKindName().data());
+	inBuilder.EndOutputPin();
+
+	inBuilder.EndNode();
+}
+
+
+String CompareShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
+{
+	String code = ShaderNode::GenerateCode(inBuilder);
+
+	m_OutputPin.SetOutVariableName(std::format("Compare_Out{}", inBuilder.IncrLineNumber()));
+
+	StringView name_a = inBuilder.GetConnectedOutputPin(m_InputPins[0])->GetOutVariableName();
+	StringView name_b = inBuilder.GetConnectedOutputPin(m_InputPins[1])->GetOutVariableName();
+
+	code += std::format("bool {} = {} {} {};\n", m_OutputPin.GetOutVariableName(), name_a, m_OpSymbols[m_Op], name_b);
+
+	return code;
+}
+
+
+void FloatValueShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
+{
+	inBuilder.BeginNode();
+
+	const float node_width = ImGui::CalcTextSize("0.0000, ").x;
+	ImGui::PushItemWidth(node_width * 1.25f);
+
+	inBuilder.BeginOutputPin();
+	ImGui::InputFloat("##X", &m_Float);
+	ImGui::SameLine();
+	ImGui::Text("Out");
+	inBuilder.EndOutputPin();
+
+	inBuilder.EndNode();
+}
+
+
+
+String FloatValueShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
+{
+	String code = ShaderNode::GenerateCode(inBuilder);
+
+	m_OutputPin.SetOutVariableName(std::format("FloatValue_Out{}", inBuilder.IncrLineNumber()));
+	code += std::format("float {} = {:.3f};\n", m_OutputPin.GetOutVariableName(), m_Float);
 
 	return code;
 }

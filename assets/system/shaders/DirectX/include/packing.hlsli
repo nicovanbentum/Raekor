@@ -96,4 +96,16 @@ void UnpackMetallicRoughness(uint4 inPacked, out float metalness, out float roug
     roughness = mr.g;
 }
 
+void PackMetallic(float metalness, inout uint4 ioPacked) {
+    float temp_metallic, temp_roughness;
+    UnpackMetallicRoughness(ioPacked, temp_metallic, temp_roughness);
+    ioPacked.z = Float16x2ToUint(float2(metalness, temp_roughness));
+}
+
+void PackRoughness(float roughness, inout uint4 ioPacked) {
+    float temp_metallic, temp_roughness;
+    UnpackMetallicRoughness(ioPacked, temp_metallic, temp_roughness);
+    ioPacked.z = Float16x2ToUint(float2(temp_metallic, roughness));
+}
+
 #endif

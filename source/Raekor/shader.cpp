@@ -8,6 +8,7 @@ RTTI_DEFINE_TYPE(ShaderNode) {}
 
 RTTI_DEFINE_TYPE(ShaderNodePin)
 {
+	RTTI_DEFINE_MEMBER(ShaderNodePin, SERIALIZE_ALL, "Variable Name", m_VariableName);
 	RTTI_DEFINE_MEMBER(ShaderNodePin, SERIALIZE_ALL, "Connected Pin", m_ConnectedPin);
 	RTTI_DEFINE_MEMBER(ShaderNodePin, SERIALIZE_ALL, "Connected Node", m_ConnectedNode);
 }
@@ -33,8 +34,8 @@ String ShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 void ShaderGraphBuilder::ConnectPins(int inStartPin, int inEndPin)
 {
-	Pair<int, int> end_pair = M_ShaderNodePins[inEndPin];
-	Pair<int, int> start_pair = M_ShaderNodePins[inStartPin];
+	Pair<int, int> end_pair = M_ShaderNodePins.at(inEndPin);
+	Pair<int, int> start_pair = M_ShaderNodePins.at(inStartPin);
 
 	ShaderNodePin* input_pin = GetShaderNode(end_pair.first)->GetInputPin(end_pair.second);
 	ShaderNodePin* output_pin = GetShaderNode(start_pair.first)->GetOutputPin(start_pair.second);
@@ -42,8 +43,8 @@ void ShaderGraphBuilder::ConnectPins(int inStartPin, int inEndPin)
 	input_pin->SetConnectedPin(start_pair.second);
 	input_pin->SetConnectedNode(start_pair.first);
 
-	output_pin->SetConnectedPin(end_pair.first);
-	output_pin->SetConnectedNode(end_pair.second);
+	output_pin->SetConnectedPin(end_pair.second);
+	output_pin->SetConnectedNode(end_pair.first);
 
 	m_Links.push_back(std::make_pair(inStartPin, inEndPin));
 }
@@ -51,8 +52,8 @@ void ShaderGraphBuilder::ConnectPins(int inStartPin, int inEndPin)
 
 void ShaderGraphBuilder::DisconnectPins(int inStartPin, int inEndPin)
 {
-	Pair<int, int> end_pair = M_ShaderNodePins[inEndPin];
-	Pair<int, int> start_pair = M_ShaderNodePins[inStartPin];
+	Pair<int, int> end_pair = M_ShaderNodePins.at(inEndPin);
+	Pair<int, int> start_pair = M_ShaderNodePins.at(inStartPin);
 
 	ShaderNodePin* input_pin = GetShaderNode(end_pair.first)->GetInputPin(end_pair.second);
 	ShaderNodePin* output_pin = GetShaderNode(start_pair.first)->GetOutputPin(start_pair.second);
@@ -75,6 +76,14 @@ void ShaderGraphBuilder::DisconnectPins(int inStartPin, int inEndPin)
 }
 
 
+void ShaderGraphBuilder::BeginNode()
+{
+	m_InputPinIndex = -1;
+	m_OutputPinIndex = -1;
+	ImNodes::BeginNode(++m_NodeIndex);
+}
+
+
 void ShaderGraphBuilder::BeginNode(StringView inTitle)
 {
 	m_InputPinIndex = -1;
@@ -89,29 +98,60 @@ void ShaderGraphBuilder::BeginNode(StringView inTitle)
 
 bool ShaderGraphBuilder::BeginInputPin()
 {
-	M_ShaderNodePins.emplace_back(std::make_pair(m_NodeIndex, ++m_InputPinIndex));
+	ShaderNodePin* input_pin = m_ShaderNodes[m_NodeIndex]->GetInputPin(++m_InputPinIndex);
+	ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(input_pin->GetColor()));
+	M_ShaderNodePins.emplace_back(std::make_pair(m_NodeIndex, m_InputPinIndex));
 	ImNodes::BeginInputAttribute(M_ShaderNodePins.size() - 1);
-	return m_ShaderNodes[m_NodeIndex]->GetInputPin(m_InputPinIndex)->IsConnected();
+	return  input_pin->IsConnected();
 }
 
 
 bool ShaderGraphBuilder::BeginOutputPin()
 {
-	M_ShaderNodePins.emplace_back(std::make_pair(m_NodeIndex, ++m_OutputPinIndex));
+	ShaderNodePin* output_pin = m_ShaderNodes[m_NodeIndex]->GetOutputPin(++m_OutputPinIndex);
+	ImNodes::PushColorStyle(ImNodesCol_Pin, ImGui::ColorConvertFloat4ToU32(output_pin->GetColor()));
+	M_ShaderNodePins.emplace_back(std::make_pair(m_NodeIndex, m_OutputPinIndex));
 	ImNodes::BeginOutputAttribute(M_ShaderNodePins.size() - 1);
-	return m_ShaderNodes[m_NodeIndex]->GetOutputPin(m_OutputPinIndex)->IsConnected();
+	return output_pin->IsConnected();
 }
 
 
-void ShaderGraphBuilder::DrawImNodes()
+void ShaderGraphBuilder::BeginDraw()
 {
 	m_NodeIndex = -1;
 	m_InputPinIndex = -1;
 	m_OutputPinIndex = -1;
 	M_ShaderNodePins.clear();
+}
 
-	for (const auto& shader_node : GetShaderNodes())
-		shader_node->DrawImNode(*this);
+
+void ShaderGraphBuilder::EndDraw()
+{
+
+}
+
+
+void ShaderGraphBuilder::SaveToFileJSON(JSON::WriteArchive& ioArchive)
+{
+	ioArchive << *this;
+
+	for (const auto& shader_node : m_ShaderNodes)
+		ioArchive.WriteNextObject(shader_node->GetRTTI(), shader_node.get());
+}
+
+
+void ShaderGraphBuilder::OpenFromFileJSON(JSON::ReadArchive& ioArchive)
+{
+	ioArchive >> *this;
+
+	RTTI* rtti = nullptr;
+	void* object = ioArchive.ReadNextObject(&rtti);
+
+	while (object)
+	{
+		m_ShaderNodes.emplace_back((ShaderNode*)object);
+		object = ioArchive.ReadNextObject(&rtti);
+	}
 }
 
 } // raekor

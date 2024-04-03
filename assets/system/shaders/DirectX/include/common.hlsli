@@ -43,6 +43,10 @@ float LuminanceLinear(float3 inLinearRGB)
     return dot(inLinearRGB, float3(0.2127, 0.7152, 0.0722));
 }
 
+void Discard(bool inDiscard)
+{
+    if (inDiscard) discard;
+}
 
 void ResetDebugLineCount() {
     FrameConstants fc = gGetFrameConstants();

@@ -12,7 +12,11 @@ namespace Raekor {
 RTTI_DEFINE_TYPE_NO_FACTORY(NodeGraphWidget) {}
 
 
-NodeGraphWidget::NodeGraphWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_SITEMAP "  Node Graph " )) {}
+NodeGraphWidget::NodeGraphWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_SITEMAP "  Node Graph " )) 
+{ 
+	if (!OS::sCheckCommandLineOption("-shader_editor"))
+		Hide(); 
+}
 
 
 void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
@@ -37,7 +41,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 	if (ImGui::BeginPopupModal("Error", NULL, ImGuiWindowFlags_AlwaysAutoResize))
 	{
-		ImGui::Text("No HLSL template selected. See console output log.\n");
+		ImGui::Text("No ShaderNode backend selected.\n");
 
 		if (ImGui::Button("OK"))
 			ImGui::CloseCurrentPopup();
@@ -81,14 +85,23 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 				{
 					if (shader_node->GetRTTI() == RTTI_OF(PixelShaderOutputShaderNode))
 					{
-						String generated_code = shader_node->GenerateCode(m_Builder);
+						String main_code = shader_node->GenerateCode(m_Builder);
 
-						auto gen_code_start = code.find("@Code");
-						auto gen_code_end = gen_code_start + std::strlen("@Code");
-						code = code.substr(0, gen_code_start) + generated_code + code.substr(gen_code_end);
+						String global_code;
+						for (const String& function : m_Builder.GetFunctions())
+							global_code += function;
+
+						auto global_code_start = code.find("@Global");
+						auto global_code_end = global_code_start + std::strlen("@Global");
+						code = code.substr(0, global_code_start) + global_code + code.substr(global_code_end);
+
+						auto main_code_start = code.find("@Main");
+						auto main_code_end = main_code_start + std::strlen("@Main");
+						code = code.substr(0, main_code_start) + main_code + code.substr(main_code_end);
 
 						std::cout << "Generated Pixel Shader Code:\n";
-						std::cout << generated_code << '\n';
+						std::cout << global_code << '\n';
+						std::cout << main_code << '\n';
 					}
 				}
 
@@ -96,6 +109,8 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 				auto ofs = std::ofstream(file_path);
 				ofs << code;
+
+				m_OpenGeneratedFilePath = file_path;
 			}
 		}
 	}
@@ -108,7 +123,14 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 		auto link_index = 0u;
 
 		std::queue<uint32_t> queue;
-		queue.push(0);
+
+		for (const auto& [index, shader_node] : gEnumerate(m_Builder.GetShaderNodes()))
+		{
+			if (shader_node->GetRTTI() == RTTI_OF(PixelShaderOutputShaderNode))
+			{
+				queue.push(index);
+			}
+		}
 
 		auto cursor = ImVec2(0, 0);
 		auto depth_size = queue.size();
@@ -122,22 +144,33 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 			ImNodes::SetNodeGridSpacePos(object_index, cursor);
 
 			const auto dimensions = ImNodes::GetNodeDimensions(object_index);
+
+			ShaderNode* shader_node = m_Builder.GetShaderNode(object_index);
+
 			if (depth_size == 0)
 			{
-				depth_size = queue.size();
-				cursor.x += dimensions.x + 50.0f;
+				cursor.x -= dimensions.x + 50.0f;
 				cursor.y = 0.0f - ( ( depth_size * 0.5f ) * ( dimensions.y + 50.0f ) );
 			}
 			else
-				cursor.y += dimensions.y + 50.0f;
+				cursor.y += dimensions.x + 50.0f;
+
+			for (const ShaderNodePin& input_pin : m_Builder.GetShaderNode(object_index)->GetInputPins())
+			{
+				if (input_pin.IsConnected())
+					queue.push(input_pin.GetConnectedNode());
+			}
+
+			if (depth_size == 0)
+				depth_size = queue.size();
 		}
 	}
 
 	ImGui::SameLine();
 
-	ImGui::SetNextItemWidth(ImGui::CalcTextSize("DeferredPS").x * 2.0f);
+	ImGui::SetNextItemWidth(ImGui::CalcTextSize("DeferredPS  ").x * 2.0f);
 
-	if (ImGui::BeginCombo(" Template", m_OpenTemplateFilePath.stem().string().c_str()))
+	if (ImGui::BeginCombo("##template", m_OpenTemplateFilePath.stem().string().c_str()))
 	{
 		for (fs::directory_entry entry : fs::directory_iterator("assets\\system\\shaders\\DirectX\\ShaderNodes"))
 		{
@@ -194,22 +227,46 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 	if (ImGui::BeginPopup("Create Node"))
 	{
+		if (ImGui::CollapsingHeader("Other", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ShaderNodeMenuItem.template operator() < ProcedureShaderNode > ( "Procedure" );
+		}
+
+		ImGui::PushStyleColor(ImGuiCol_Text, ShaderNodePin::sBlue);
+
 		if (ImGui::CollapsingHeader("Float", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			ShaderNodeMenuItem.template operator() < MathOpShaderNode > ( "Operator" );
-			ShaderNodeMenuItem.template operator() < MathFuncShaderNode > ( "Function" );
+			ImGui::PopStyleColor();
+
+			ShaderNodeMenuItem.template operator() < FloatValueShaderNode > ( "Value" );
+			ShaderNodeMenuItem.template operator() < FloatOpShaderNode > ( "Operator" );
+			ShaderNodeMenuItem.template operator() < FloatFunctionShaderNode > ( "Function" );
 		}
+		else
+			ImGui::PopStyleColor();
+
+		ImGui::PushStyleColor(ImGuiCol_Text, ShaderNodePin::sOrange);
 
 		if (ImGui::CollapsingHeader("Vector", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			ShaderNodeMenuItem.template operator() < VectorComposeShaderNode > ( "Value" );
+			ImGui::PopStyleColor();
+
+			ShaderNodeMenuItem.template operator() < VectorValueShaderNode > ( "Value" );
 			ShaderNodeMenuItem.template operator() < VectorOpShaderNode > ( "Operator" );
+		}
+		else
+			ImGui::PopStyleColor();
+
+		if (ImGui::CollapsingHeader("Control Flow", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ShaderNodeMenuItem.template operator() < CompareShaderNode > ( "Compare" );
 		}
 
 		if (ImGui::CollapsingHeader("Shader Inputs", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ShaderNodeMenuItem.template operator() < GetTimeShaderNode > ( "Time" );
 			ShaderNodeMenuItem.template operator() < GetDeltaTimeShaderNode > ( "Delta Time" );
+			ShaderNodeMenuItem.template operator() < GetPixelCoordShaderNode > ( "Pixel Coord" );
 		}
 
 		if (ImGui::CollapsingHeader("Shader Outputs", ImGuiTreeNodeFlags_DefaultOpen))
@@ -221,11 +278,8 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 		ImGui::EndPopup();
 	}
 
-	if (m_WasRightClicked && ImNodes::IsEditorHovered())
-	{
+	if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImNodes::IsEditorHovered())
 		ImGui::OpenPopup("Create Node");
-		m_WasRightClicked = false;
-	}
 
 	int node_index = 0;
 	uint32_t link_index = 0;
@@ -236,7 +290,37 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(38.0f / 255.0f, 38.0f / 255.0f, 38.0f / 255.0f, 1.0f));
 	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(38.0f / 255.0f, 38.0f / 255.0f, 38.0f / 255.0f, 1.0f));
 
-	m_Builder.DrawImNodes();
+	m_Builder.BeginDraw();
+
+	for (const auto& [index, shader_node] : gEnumerate(m_Builder.GetShaderNodes()))
+	{
+		bool selected = false;
+
+		for (int selected_node_index : m_SelectedNodes)
+		{
+			if (selected_node_index == index)
+			{
+				selected = true;
+				break;
+			}
+		}
+
+		if (selected)
+		{
+			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, ImGui::GetColorU32(ImVec4(0.7f, 0.7f, 0.9f, 0.5f)));
+			ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 2.0f);
+		}
+
+		shader_node->DrawImNode(m_Builder);
+
+		if (selected)
+		{
+			ImNodes::PopColorStyle();
+			ImNodes::PopStyleVar();
+		}
+	}
+
+	m_Builder.EndDraw();
 
 	ImGui::PopStyleVar(2);
 	ImGui::PopStyleColor(3);
@@ -258,33 +342,30 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 		m_Builder.DisconnectPins(link.first, link.second);
 	}
 
+	m_SelectedNodes.resize(ImNodes::NumSelectedNodes());
+	m_SelectedLinks.resize(ImNodes::NumSelectedLinks());
+
+	if (!m_SelectedNodes.empty())
+		ImNodes::GetSelectedNodes(m_SelectedNodes.data());
+
+	if (!m_SelectedLinks.empty())
+		ImNodes::GetSelectedLinks(m_SelectedLinks.data());
+
 	ImGui::End();
 }
 
 
 void NodeGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 {
-	if (ev.type == SDL_MOUSEBUTTONUP && ev.button.button == SDL_BUTTON_RIGHT)
-		m_WasRightClicked = true;
-
 	if (ev.type == SDL_KEYDOWN && !ev.key.repeat)
 	{
 		switch (ev.key.keysym.scancode)
 		{
 			case SDL_SCANCODE_DELETE:
 			{
-				auto selected_nodes = std::vector<int>(ImNodes::NumSelectedNodes());
-				auto selected_links = std::vector<int>(ImNodes::NumSelectedLinks());
-
-				if (!selected_nodes.empty())
-					ImNodes::GetSelectedNodes(selected_nodes.data());
-
-				if (!selected_links.empty())
-					ImNodes::GetSelectedLinks(selected_links.data());
-
 				std::vector<std::pair<int, int>> new_links;
 
-				for (int selected_link : selected_links)
+				for (int selected_link : m_SelectedLinks)
 				{
 					Slice<Pair<int,int>> links = m_Builder.GetLinks();
 					const Pair<int, int> link = links[selected_link];

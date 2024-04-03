@@ -368,6 +368,15 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 		if (ImGui::BeginMenu("Help"))
 		{
+			if (ImGui::MenuItem("Launch Shader Editor"))
+			{
+				const String exe = OS::sGetExecutablePath().string();
+				ShellExecute(0, 0, exe.c_str(), "-shader_editor", 0, SW_SHOW);
+			}
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Launch a Shader Editor process to the system tray.");
+
 			if (ImGui::MenuItem("Launch Asset Compiler"))
 			{
 				const String exe = OS::sGetExecutablePath().string();

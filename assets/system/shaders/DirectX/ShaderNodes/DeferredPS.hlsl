@@ -1,5 +1,6 @@
 #include "include/shared.h"
 #include "include/brdf.hlsli"
+#include "include/common.hlsli"
 #include "include/packing.hlsli"
 #include "include/bindless.hlsli"
 
@@ -20,6 +21,8 @@ struct PS_OUTPUT {
 };
 
 ROOT_CONSTANTS(GbufferRootConstants, rc)
+
+@Global
 
 PS_OUTPUT main(in VS_OUTPUT input) {
     PS_OUTPUT output;
@@ -54,9 +57,13 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     float4 albedo = material.mAlbedo * sampled_albedo;
     float metalness = material.mMetallic * sampled_metallic;
     float roughness = material.mRoughness * sampled_roughness;
+    
     uint4 packed = uint4(0, 0, 0, 0);
+    PackAlbedo(albedo, packed);
+    PackNormal(normal, packed);
+    PackMetallicRoughness(metalness, roughness, packed);
 
-    @Code
+    @Main
     
     output.gbuffer = asfloat(packed);
     float2 curr_pos = (input.curr_position.xyz / input.prev_position.w).xy - fc.mJitter;
