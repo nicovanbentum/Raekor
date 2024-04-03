@@ -16,6 +16,7 @@ class ShaderNode
 	RTTI_DECLARE_VIRTUAL_TYPE(ShaderNode);
 
 public:
+	static constexpr ImU32 sOtherColor = IM_COL32(200, 200, 200, 255);
 	static constexpr ImU32 sScalarColor = IM_COL32(215, 166, 32, 255);
 	static constexpr ImU32 sVectorColor = IM_COL32(83, 131, 132, 255);
 	static constexpr ImU32 sTextureColor = IM_COL32(179, 24, 55, 255);
@@ -34,7 +35,7 @@ public:
 };
 
 
-struct ShaderNodePin
+class ShaderNodePin
 {
 	RTTI_DECLARE_TYPE(ShaderNodePin);
 	friend class ProcedureShaderNode; 
@@ -47,7 +48,8 @@ public:
 		FLOAT,
 		FLOAT2,
 		FLOAT3,
-		FLOAT4
+		FLOAT4,
+		COUNT
 	};
 
 	static constexpr std::array sKindNames =
@@ -82,8 +84,8 @@ public:
 private:
 	static constexpr std::array m_KindColors =
 	{
-		IM_COL32_WHITE,			  // AUTO
-		IM_COL32_WHITE,			  // BOOL
+		ShaderNode::sOtherColor,  // AUTO
+		ShaderNode::sOtherColor,  // BOOL
 		ShaderNode::sScalarColor, // SCALAR
 		ShaderNode::sVectorColor, // VECTOR
 		ShaderNode::sVectorColor, // VECTOR
@@ -177,6 +179,8 @@ private:
 	uint32_t m_NodeIndex = -1;
 	uint32_t m_InputPinIndex = -1;
 	uint32_t m_OutputPinIndex = -1;
+
+	String m_Layout;
 	Array<String> m_Functions;
 	Array<Pair<int, int>> m_Links; // <global pin index, global pin index>
 	Array<Pair<int, int>> M_ShaderNodePins; // global pin index -> <node index, local pin index>

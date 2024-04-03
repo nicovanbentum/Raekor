@@ -185,8 +185,7 @@ private:
 
 private:
 	Op m_Op = VECTOR_OP_ADD;
-	Vec4 m_VectorA = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	Vec4 m_VectorB = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	StaticArray<Vec4, 2> m_Vectors;
 };
 
 

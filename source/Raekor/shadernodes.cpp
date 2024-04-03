@@ -81,8 +81,7 @@ RTTI_DEFINE_TYPE(VectorOpShaderNode)
 
 	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "Op", m_Op);
 	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "Kind", m_Kind);
-	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "VectorA", m_VectorA);
-	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "VectorB", m_VectorB);
+	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "Vectors", m_Vectors);
 	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "Input Pins", m_InputPins);
 	RTTI_DEFINE_MEMBER(VectorOpShaderNode, SERIALIZE_ALL, "Output Pins", m_OutputPins);
 }
@@ -144,6 +143,10 @@ void FloatOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 	constexpr static std::array operation_names = { "Add", "Minus", "Multiply", "Divide" };
 
+	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+
 	if (ImGui::BeginCombo("##mathopshadernodevariantop", operation_names[m_Op]))
 	{
 		for (const auto& [index, name] : gEnumerate(operation_names))
@@ -154,6 +157,8 @@ void FloatOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 		ImGui::EndCombo();
 	}
+
+	ImGui::PopStyleColor(3);
 
 	if (inBuilder.BeginInputPin())
 		ImGui::Text("A");
@@ -210,6 +215,10 @@ void FloatFunctionShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 
 	ImGui::PushItemWidth(node_width);
 
+	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+
 	if (ImGui::BeginCombo("##mathopshadernodevarianttype", m_OpNames[m_Op]))
 	{
 		for (const auto& [index, name] : gEnumerate(m_OpNames))
@@ -220,6 +229,8 @@ void FloatFunctionShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 
 		ImGui::EndCombo();
 	}
+
+	ImGui::PopStyleColor(3);
 
 	ImNodes::EndNode();
 }
@@ -252,6 +263,10 @@ void VectorValueShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 	ImGui::PushItemWidth(node_width * 1.5f);
 
+	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+
 	if (ImGui::BeginCombo("##vectorshadernodevarianttype", GetVectorName()))
 	{
 		for (const auto& [index, name] : gEnumerate(m_VectorNames))
@@ -263,6 +278,8 @@ void VectorValueShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 		ImGui::EndCombo();
 	}
+
+	ImGui::PopStyleColor(3);
 
 	ImGui::PopItemWidth();
 	ImGui::PushItemWidth(node_width * 1.25f);
@@ -348,11 +365,14 @@ void VectorOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 	constexpr static std::array operation_names = { "Add", "Minus", "Multiply", "Divide" };
 
+	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+
 	if (ImGui::BeginCombo("##vectorshadernodevarianttype", GetVectorName()))
 	{
 		for (const auto& [index, name] : gEnumerate(m_VectorNames))
 		{
-			const auto name = ShaderNodePin::sKindNames[ShaderNodePin::EKind(index)];
 			if (ImGui::Selectable(name, name == GetVectorName()))
 				m_Kind = m_VectorKinds[index];
 		}
@@ -371,19 +391,21 @@ void VectorOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 		ImGui::EndCombo();
 	}
 
+	ImGui::PopStyleColor(3);
+
 	auto InputFloatFunction = GetVectorInputFunction();
 
 	if (inBuilder.BeginInputPin())
 		ImGui::Text("A");
 	else
-		InputFloatFunction("A", &m_VectorA[0], "%.3f", ImGuiInputTextFlags_None);
+		InputFloatFunction("A", glm::value_ptr(m_Vectors[0]), "%.3f", ImGuiInputTextFlags_None);
 
 	inBuilder.EndInputPin();
 
 	if (inBuilder.BeginInputPin())
 		ImGui::Text("B");
 	else
-		InputFloatFunction("B", &m_VectorB[0], "%.3f", ImGuiInputTextFlags_None);
+		InputFloatFunction("B", glm::value_ptr(m_Vectors[1]), "%.3f", ImGuiInputTextFlags_None);
 
 	inBuilder.EndInputPin();
 
@@ -401,30 +423,34 @@ String VectorOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 
 	m_OutputPins[0].SetOutVariableName(std::format("VectorOp_Out{}", inBuilder.IncrLineNumber()));
 
-	String lhs = m_InputPins[0].IsConnected() ? String(inBuilder.GetConnectedOutputPin(m_InputPins[0])->GetOutVariableName()) : "";
-	String rhs = m_InputPins[1].IsConnected() ? String(inBuilder.GetConnectedOutputPin(m_InputPins[1])->GetOutVariableName()) : "";
+	StaticArray<String, 2> variables_code;
 
-	if (!m_InputPins[0].IsConnected())
+	for (int index = 0; index < variables_code.size(); index++)
 	{
-		switch (m_Kind)
+		Vec4& var_vec = m_Vectors[index];
+		String& var_code = variables_code[index];
+		ShaderNodePin& var_pin = m_InputPins[index];
+
+		var_code = var_pin.IsConnected() ? String(inBuilder.GetConnectedOutputPin(var_pin)->GetOutVariableName()) : "";
+
+		if (!var_pin.IsConnected())
 		{
-			case ShaderNodePin::FLOAT2: lhs = std::format("{}({:.3f}, {:.3f})", m_InputPins[0].GetKindName(), m_VectorA[0], m_VectorA[1]); break;
-			case ShaderNodePin::FLOAT3: lhs = std::format("{}({:.3f}, {:.3f}, {:.3f})", m_InputPins[0].GetKindName(), m_VectorA[0], m_VectorA[1], m_VectorA[2]); break;
-			case ShaderNodePin::FLOAT4: lhs = std::format("{}({:.3f}, {:.3f}, {:.3f}, {:.3f})", m_InputPins[0].GetKindName(), m_VectorA[0], m_VectorA[1], m_VectorA[2], m_VectorA[3]); break;
+			switch (m_Kind)
+			{
+				case ShaderNodePin::FLOAT2: 
+					var_code = std::format("{}({:.3f}, {:.3f})", m_InputPins[0].GetKindName(), var_vec[0], var_vec[1]); 
+					break;
+				case ShaderNodePin::FLOAT3: 
+					var_code = std::format("{}({:.3f}, {:.3f}, {:.3f})", m_InputPins[0].GetKindName(), var_vec[0], var_vec[1], var_vec[2]); 
+					break;
+				case ShaderNodePin::FLOAT4: 
+					var_code = std::format("{}({:.3f}, {:.3f}, {:.3f}, {:.3f})", m_InputPins[0].GetKindName(), var_vec[0], var_vec[1], var_vec[2], var_vec[3]); 
+					break;
+			}
 		}
 	}
 
-	if (!m_InputPins[1].IsConnected())
-	{
-		switch (m_Kind)
-		{
-			case ShaderNodePin::FLOAT2: rhs = std::format("{}({:.3f}, {:.3f})", m_InputPins[1].GetKindName(), m_VectorB[0], m_VectorB[1]); break;
-			case ShaderNodePin::FLOAT3: rhs = std::format("{}({:.3f}, {:.3f}, {:.3f})", m_InputPins[1].GetKindName(), m_VectorB[0], m_VectorB[1], m_VectorB[2]); break;
-			case ShaderNodePin::FLOAT4: rhs = std::format("{}({:.3f}, {:.3f}, {:.3f}, {:.3f})", m_InputPins[1].GetKindName(), m_VectorB[0], m_VectorB[1], m_VectorB[2], m_VectorB[3]); break;
-		}
-	}
-
-	code += std::format("float{} {} = {} {} {};\n", nr_of_floats, m_OutputPins[0].GetOutVariableName(), lhs, m_OpSymbols[m_Op], rhs);
+	code += std::format("float{} {} = {} {} {};\n", nr_of_floats, m_OutputPins[0].GetOutVariableName(), variables_code[0], m_OpSymbols[m_Op], variables_code[1]);
 
 	return code;
 }
@@ -501,14 +527,20 @@ void ProcedureShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 	inBuilder.BeginNode(m_Title, ShaderNode::sTextureColor);
 
 	const float text_box_width = ImGui::GetWindowContentRegionWidth() / 6.0f;
+	const float combo_box_width = ImGui::CalcTextSize("float4").x * 1.75f;
+	const float input_text_width = text_box_width / 4.0f;
 
 	if (ImGui::Button("Add Input +"))
 		m_InputPins.emplace_back();
 
-	ImGui::SameLine(text_box_width - ImGui::CalcTextSize(" Add Input + ").x);
+	ImGui::SameLine(text_box_width - ImGui::CalcTextSize(" Add Input + ").x - ImNodes::GetStyle().NodePadding.x);
 
 	if (ImGui::Button("Add Output +"))
 		m_OutputPins.emplace_back();
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
 
 	int nr_of_pins = std::max(m_InputPins.size(), m_OutputPins.size());
 
@@ -516,27 +548,74 @@ void ProcedureShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 	{
 		if (i < m_InputPins.size())
 		{
+			ShaderNodePin& input_pin = m_InputPins[i];
+
 			inBuilder.BeginInputPin();
-			ImGui::SetNextItemWidth(text_box_width / 4.0f);
-			ImGui::InputText("##expressioninputpin", &m_InputPins[i].m_VariableName);
+			
+			ImGui::SetNextItemWidth(combo_box_width);
+
+			if (ImGui::BeginCombo("##procinputpinkindcombo", input_pin.GetKindName().data()))
+			{
+				for (int i = 0; i < ShaderNodePin::EKind::COUNT; i++)
+				{
+					const char* kind_name = ShaderNodePin::sKindNames[i];
+					ShaderNodePin::EKind kind = ShaderNodePin::EKind(i);
+
+					if (ImGui::Selectable(kind_name, kind == input_pin.GetKind()))
+						input_pin.m_Kind = kind;
+				}
+
+				ImGui::EndCombo();
+			}
+
+			ImGui::SameLine();
+
+			ImGui::SetNextItemWidth(input_text_width);
+			ImGui::InputText("##procinputtextinputpin", &input_pin.m_VariableName);
+			
 			inBuilder.EndInputPin();
 
 			if (i < m_OutputPins.size())
-				ImGui::SameLine(text_box_width - (text_box_width / 4.0f ));
+				ImGui::SameLine();
 		}
 
 		if (i < m_OutputPins.size())
 		{
-			if (i >= m_InputPins.size())
-				ImGui::Indent(text_box_width - ( text_box_width / 4.0f ));
+			ShaderNodePin& output_pin = m_OutputPins[i];
 
 			inBuilder.BeginOutputPin();
-			//ImGui::Indent(text_box_width - (text_box_width / 4.0f));
-			ImGui::SetNextItemWidth(text_box_width / 4.0f);
-			ImGui::InputText("##expressionoutputpin", &m_OutputPins[i].m_VariableName);
+
+			if (i < m_InputPins.size())
+				ImGui::Indent(text_box_width - combo_box_width - input_text_width - combo_box_width - input_text_width - ImNodes::GetStyle().NodePadding.x * 4.0f);
+			else
+				ImGui::Indent(text_box_width - combo_box_width - input_text_width - ImNodes::GetStyle().NodePadding.x * 2.0f);
+
+			ImGui::SetNextItemWidth(input_text_width);
+			ImGui::InputText("##procinputtextoutputpin", &m_OutputPins[i].m_VariableName);
+
+			ImGui::SameLine();
+			
+			ImGui::SetNextItemWidth(combo_box_width);
+
+			if (ImGui::BeginCombo("##procinputpinkindcombo", output_pin.GetKindName().data()))
+			{
+				for (int i = 0; i < ShaderNodePin::EKind::COUNT; i++)
+				{
+					const char* kind_name = ShaderNodePin::sKindNames[i];
+					ShaderNodePin::EKind kind = ShaderNodePin::EKind(i);
+
+					if (ImGui::Selectable(kind_name, kind == output_pin.GetKind()))
+						output_pin.m_Kind = kind;
+				}
+
+				ImGui::EndCombo();
+			}
+
 			inBuilder.EndOutputPin();
 		}
 	}
+
+	ImGui::PopStyleColor(3);
 
 	if (m_ShowInputBox)
 	{
@@ -566,20 +645,14 @@ String ProcedureShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 	for (const ShaderNodePin& node_pin : m_InputPins)
 	{
 		if (node_pin.IsConnected())
-		{
-			ShaderNodePin* output_pin = inBuilder.GetConnectedOutputPin(node_pin);
-			function_params += std::format("{} {}, ", output_pin->GetKindName(), node_pin.GetOutVariableName());
-		}
+			function_params += std::format("{} {}, ", node_pin.GetKindName(), node_pin.GetOutVariableName());
 	}
 
 	// add 'out' parameters
 	for (const ShaderNodePin& node_pin : m_OutputPins)
 	{
 		if (node_pin.IsConnected())
-		{
-			ShaderNodePin* input_pin = inBuilder.GetConnectedInputPin(node_pin);
-			function_params += std::format("out {} {}, ", input_pin->GetKindName(), node_pin.GetOutVariableName());
-		}
+			function_params += std::format("out {} {}, ", node_pin.GetKindName(), node_pin.GetOutVariableName());
 	}
 
 	// fix trailing comma's
@@ -595,10 +668,7 @@ String ProcedureShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 	for (const ShaderNodePin& node_pin : m_OutputPins)
 	{
 		if (node_pin.IsConnected())
-		{
-			ShaderNodePin* input_pin = inBuilder.GetConnectedInputPin(node_pin);
-			code += std::format("{} {};\n", input_pin->GetKindName(), node_pin.GetOutVariableName());
-		}
+			code += std::format("{} {};\n", node_pin.GetKindName(), node_pin.GetOutVariableName());
 	}
 
 	// build function call arguments
@@ -639,6 +709,10 @@ void CompareShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 	const float node_width = ImGui::CalcTextSize("======").x;
 	ImGui::PushItemWidth(node_width);
 
+	ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
+
 	if (ImGui::BeginCombo("##compareshadernodeop", m_OpSymbols[m_Op]))
 	{
 		for (const auto& [index, name] : gEnumerate(m_OpSymbols))
@@ -649,6 +723,8 @@ void CompareShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 		ImGui::EndCombo();
 	}
+
+	ImGui::PopStyleColor(3);
 
 	ImNodes::EndNodeTitleBar();
 

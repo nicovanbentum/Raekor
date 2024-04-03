@@ -8,6 +8,7 @@ RTTI_DEFINE_TYPE(ShaderNode) {}
 
 RTTI_DEFINE_TYPE(ShaderNodePin)
 {
+	RTTI_DEFINE_MEMBER(ShaderNodePin, SERIALIZE_ALL, "Kind", m_Kind);
 	RTTI_DEFINE_MEMBER(ShaderNodePin, SERIALIZE_ALL, "Variable Name", m_VariableName);
 	RTTI_DEFINE_MEMBER(ShaderNodePin, SERIALIZE_ALL, "Connected Pin", m_ConnectedPin);
 	RTTI_DEFINE_MEMBER(ShaderNodePin, SERIALIZE_ALL, "Connected Node", m_ConnectedNode);
@@ -16,6 +17,7 @@ RTTI_DEFINE_TYPE(ShaderNodePin)
 RTTI_DEFINE_TYPE(ShaderGraphBuilder)
 {
 	RTTI_DEFINE_MEMBER(ShaderGraphBuilder, SERIALIZE_ALL, "Links", m_Links);
+	RTTI_DEFINE_MEMBER(ShaderGraphBuilder, SERIALIZE_ALL, "Layout", m_Layout);
 }
 
 String ShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
@@ -153,6 +155,11 @@ void ShaderGraphBuilder::EndDraw()
 
 void ShaderGraphBuilder::SaveToFileJSON(JSON::WriteArchive& ioArchive)
 {
+	size_t editor_state_size = 0;
+	const char* editor_state_str = ImNodes::SaveCurrentEditorStateToIniString(&editor_state_size);
+
+	m_Layout = String(editor_state_str, editor_state_size);
+
 	ioArchive << *this;
 
 	for (const auto& shader_node : m_ShaderNodes)
@@ -163,6 +170,8 @@ void ShaderGraphBuilder::SaveToFileJSON(JSON::WriteArchive& ioArchive)
 void ShaderGraphBuilder::OpenFromFileJSON(JSON::ReadArchive& ioArchive)
 {
 	ioArchive >> *this;
+	
+	ImNodes::LoadCurrentEditorStateFromIniString(m_Layout.data(), m_Layout.size());
 
 	RTTI* rtti = nullptr;
 	void* object = ioArchive.ReadNextObject(&rtti);

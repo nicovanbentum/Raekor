@@ -43,9 +43,6 @@ NodeGraphWidget::NodeGraphWidget(Application* inApp) : IWidget(inApp, reinterpre
 	ImNodes::GetStyle().NodeBorderThickness = 1.5f;
 	ImNodes::GetStyle().PinCircleRadius = 4.5f;
 	ImNodes::GetStyle().PinQuadSideLength = 9.0f;
-
-	if (!OS::sCheckCommandLineOption("-shader_editor"))
-		Hide(); 
 }
 
 
@@ -237,8 +234,12 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 	if (ImGui::BeginPopup("Create Node"))
 	{
+		ImGui::PushStyleColor(ImGuiCol_Text, ShaderNode::sTextureColor);
+
 		if (ImGui::CollapsingHeader("Other", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			ImGui::PopStyleColor();
+			
 			ShaderNodeMenuItem.template operator() < ProcedureShaderNode > ( "Procedure" );
 		}
 
@@ -297,8 +298,8 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
 	ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(38, 38, 38, 255));
-	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(38, 38, 38, 255));
 	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(38, 38, 38, 255));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(50, 50, 50, 255));
 
 	m_Builder.BeginDraw();
 
