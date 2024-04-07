@@ -275,7 +275,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 					Entity entity = scene.CreateSpatialEntity("Sphere");
 					Mesh& mesh = scene.Add<Mesh>(entity);
 
-					gGenerateSphere(mesh, 2.5f, 16, 16);
+					gGenerateSphere(mesh, 2.5f, 32, 32);
 					m_Editor->GetRenderInterface()->UploadMeshBuffers(entity, mesh);
 					m_Editor->SetActiveEntity(entity);
 				}

@@ -21,9 +21,7 @@ public:
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& ev) override;
 
 private:
-	bool m_WasRightClicked = false;
-	bool m_WasLinkConnected = false;
-
+	ImVec2 m_ClickedMousePos;
 	int m_StartNodeID, m_StartPinID;
 	int m_EndNodeID = -1, m_EndPinID = -1;
 	

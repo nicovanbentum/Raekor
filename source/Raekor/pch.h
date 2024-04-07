@@ -147,8 +147,12 @@ using Array = std::vector<Type>;
 template<typename Type, size_t Count>
 using StaticArray = std::array<Type, Count>;
 
+template<typename Key>
+using HashSet = std::set<Key>;
+
 template<typename Key, typename Value>
 using HashMap = std::unordered_map<Key, Value>;
+
 
 }
 

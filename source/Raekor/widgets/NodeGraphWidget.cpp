@@ -32,9 +32,9 @@ NodeGraphWidget::NodeGraphWidget(Application* inApp) : IWidget(inApp, reinterpre
 	ImNodesColors[ImNodesCol_Pin]				 = IM_COL32(127, 127, 127, 255);
 	ImNodesColors[ImNodesCol_PinHovered]		 = IM_COL32(255, 255, 255, 255);
 
-	ImNodesColors[ImNodesCol_Link]				 = IM_COL32(215, 215, 215, 255);
-	ImNodesColors[ImNodesCol_LinkHovered]		 = IM_COL32(235, 235, 235, 255);
-	ImNodesColors[ImNodesCol_LinkSelected]		 = IM_COL32(255, 255, 255, 255);
+	ImNodesColors[ImNodesCol_Link]				 = IM_COL32(215, 215, 215, 200);
+	ImNodesColors[ImNodesCol_LinkHovered]		 = IM_COL32(235, 235, 235, 200);
+	ImNodesColors[ImNodesCol_LinkSelected]		 = IM_COL32(255, 255, 255, 200);
 
 	ImNodesColors[ImNodesCol_MiniMapLink]		 = IM_COL32(255, 255, 255, 255);
 	ImNodesColors[ImNodesCol_BoxSelectorOutline] = IM_COL32(235, 235, 235, 235);
@@ -60,6 +60,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 		{
 			m_OpenFilePath = fs::relative(file_path);
 			JSON::ReadArchive archive(file_path);
+
 			m_Builder.OpenFromFileJSON(archive);
 		}
 	}
@@ -103,36 +104,10 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 			{
 				auto ifs = std::ifstream(m_OpenTemplateFilePath);
 				auto buffer = std::stringstream();
+				
 				buffer << ifs.rdbuf();
 				String code = buffer.str();
-
-				m_Builder.BeginCodeGen();
-
-				for (const auto& shader_node : m_Builder.GetShaderNodes())
-				{
-					if (shader_node->GetRTTI() == RTTI_OF(PixelShaderOutputShaderNode))
-					{
-						String main_code = shader_node->GenerateCode(m_Builder);
-
-						String global_code;
-						for (const String& function : m_Builder.GetFunctions())
-							global_code += function;
-
-						auto global_code_start = code.find("@Global");
-						auto global_code_end = global_code_start + std::strlen("@Global");
-						code = code.substr(0, global_code_start) + global_code + code.substr(global_code_end);
-
-						auto main_code_start = code.find("@Main");
-						auto main_code_end = main_code_start + std::strlen("@Main");
-						code = code.substr(0, main_code_start) + main_code + code.substr(main_code_end);
-
-						std::cout << "Generated Pixel Shader Code:\n";
-						std::cout << global_code << '\n';
-						std::cout << main_code << '\n';
-					}
-				}
-
-				m_Builder.EndCodeGen();
+				m_Builder.GenerateCodeFromTemplate(code);
 
 				auto ofs = std::ofstream(file_path);
 				ofs << code;
@@ -184,14 +159,36 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 			for (const ShaderNodePin& input_pin : m_Builder.GetShaderNode(object_index)->GetInputPins())
 			{
-				if (input_pin.IsConnected())
-					queue.push(input_pin.GetConnectedNode());
+				/*if (m_Builder.HasIncomingPin(input_pin.GetIndex()))
+					queue.push(input_pin.GetConnectedNode());*/
 			}
 
 			if (depth_size == 0)
 				depth_size = queue.size();
 		}
 	}
+
+	ImGui::SameLine();
+
+	ImGui::Button((const char*)ICON_FA_COG);
+
+	ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 5.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
+
+	if (ImGui::BeginPopupContextItem(NULL, ImGuiPopupFlags_MouseButtonLeft))
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_SeparatorTextAlign, ImVec2(0.5f, 0.5f));
+
+		bool show_node_indices = m_Builder.GetShowNodeIndices();
+		ImGui::Checkbox("Show Node Indices", &show_node_indices);
+		m_Builder.SetShowNodeIndices(show_node_indices);
+
+		ImGui::PopStyleVar();
+		ImGui::EndPopup();
+	}
+
+	ImGui::PopStyleVar();
+	ImGui::PopStyleVar();
 
 	ImGui::SameLine();
 
@@ -221,15 +218,19 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 	const auto panning = ImNodes::EditorContextGetPanning();
 
 	if (panning.x == 0.0f && panning.y == 0.0f)
-		ImNodes::EditorContextResetPanning(ImNodes::GetCurrentContext()->CanvasRectScreenSpace.GetCenter());																							   \
-
+		ImNodes::EditorContextResetPanning(ImNodes::GetCurrentContext()->CanvasRectScreenSpace.GetCenter());	
+	
 	auto ShaderNodeMenuItem = [&]<typename T>(const char* inName)
 	{
 		if (ImGui::MenuItem(inName))
 		{
 			m_Builder.CreateShaderNode<T>();
-			ImNodes::SetNodeScreenSpacePos(m_Builder.GetShaderNodes().Length() - 1, ImGui::GetMousePos());
+			ImNodes::SetNodeScreenSpacePos(m_Builder.GetShaderNodes().Length() - 1, m_ClickedMousePos);
+
+			return true;
 		}
+
+		return false;
 	};
 
 	if (ImGui::BeginPopup("Create Node"))
@@ -264,6 +265,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 			ShaderNodeMenuItem.template operator() < VectorValueShaderNode > ( "Value" );
 			ShaderNodeMenuItem.template operator() < VectorOpShaderNode > ( "Operator" );
+			ShaderNodeMenuItem.template operator() < VectorFunctionShaderNode > ( "Function" );
 		}
 		else
 			ImGui::PopStyleColor();
@@ -282,15 +284,27 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 		if (ImGui::CollapsingHeader("Shader Outputs", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ShaderNode::sVertexShaderColor);
+
 			ShaderNodeMenuItem.template operator() < PixelShaderOutputShaderNode > ( "Vertex Shader" );
+
+			ImGui::PopStyleColor();
+
+			ImGui::PushStyleColor(ImGuiCol_Text, ShaderNode::sPixelShaderColor);
+
 			ShaderNodeMenuItem.template operator() < PixelShaderOutputShaderNode > ( "Pixel Shader" );
+
+			ImGui::PopStyleColor();
 		}
 
 		ImGui::EndPopup();
 	}
 
 	if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImNodes::IsEditorHovered())
+	{
 		ImGui::OpenPopup("Create Node");
+		m_ClickedMousePos = ImGui::GetMousePos();
+	}
 
 	int node_index = 0;
 	uint32_t link_index = 0;
@@ -306,7 +320,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 	for (const auto& [index, shader_node] : gEnumerate(m_Builder.GetShaderNodes()))
 	{
 		if (ImNodes::IsNodeSelected(index))
-			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, IM_COL32(178, 178, 178, 128));
+			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, IM_COL32(190, 190, 190, 200));
 		else if (m_HoveredNode.first&& m_HoveredNode.second == index)
 			ImNodes::PushColorStyle(ImNodesCol_NodeOutline, IM_COL32(178, 178, 178, 90));
 
@@ -330,7 +344,7 @@ void NodeGraphWidget::Draw(Widgets* inWidgets, float dt)
 
 		ImU32 link_color = ImNodes::GetStyle().Colors[ImNodesCol_Link];
 
-		if (input_pin->GetKind() == output_pin->GetKind())
+		if (ShaderNodePin::sIsCompatible(output_pin->GetKind(), input_pin->GetKind()))
 			link_color = ImGui::GetColorU32(input_pin->GetColor());
 
 		ImVec4 color = ImGui::ColorConvertU32ToFloat4(link_color);
@@ -389,13 +403,31 @@ void NodeGraphWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 		{
 			case SDL_SCANCODE_DELETE:
 			{
-				std::vector<std::pair<int, int>> new_links;
+				std::sort(m_SelectedNodes.begin(), m_SelectedNodes.end(), [](int lhs, int rhs) { return lhs > rhs; });
+				std::sort(m_SelectedLinks.begin(), m_SelectedLinks.end(), [](int lhs, int rhs) { return lhs > rhs; });
 
 				for (int selected_link : m_SelectedLinks)
 				{
 					Slice<Pair<int,int>> links = m_Builder.GetLinks();
 					const Pair<int, int> link = links[selected_link];
 					m_Builder.DisconnectPins(link.first, link.second);
+				}
+
+				for (int selected_node : m_SelectedNodes)
+				{
+					for (auto link : m_Builder.GetLinks())
+					{
+						const ShaderNodePin* input_pin = m_Builder.GetInputPin(link.second);
+						const ShaderNodePin* output_pin = m_Builder.GetOutputPin(link.first);
+
+						int input_node_index = m_Builder.GetShaderNodeIndex(*input_pin);
+						int output_node_index = m_Builder.GetShaderNodeIndex(*output_pin);
+
+						if (input_node_index == selected_node || output_node_index == selected_node)
+							m_Builder.DisconnectPins(link.first, link.second);
+					}
+
+					m_Builder.DestroyShaderNode(selected_node);
 				}
 
 				//m_ShaderNodes = new_nodes;

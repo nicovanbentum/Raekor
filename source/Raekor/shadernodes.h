@@ -32,18 +32,26 @@ public:
 	enum Op
 	{
 		MATH_OP_ADD,
-		MATH_OP_MINUS,
-		MATH_OP_MULTIPLY,
+		MATH_OP_SUB,
 		MATH_OP_DIVIDE,
+		MATH_OP_MULTIPLY,
 		MATH_OP_COUNT,
+	};
+
+	constexpr static std::array m_OpNames = 
+	{ 
+		"Add", 
+		"Subtract", 
+		"Divide",
+		"Multiply" 
 	};
 
 	static constexpr std::array m_OpSymbols =
 	{
 		"+",
 		"-",
-		"*",
-		"/"
+		"/",
+		"*"
 	};
 
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
@@ -68,20 +76,31 @@ class FloatFunctionShaderNode : public ShaderNode
 	RTTI_DECLARE_VIRTUAL_TYPE(FloatFunctionShaderNode);
 
 public:
-	enum Op
+	enum EFunction
 	{
-		MATH_OP_SIN,
-		MATH_OP_COS,
-		MATH_OP_TAN,
-		MATH_OP_SATURATE,
-		MATH_OP_COUNT
+		FLOAT_FUNCTION_SIN,
+		FLOAT_FUNCTION_COS,
+		FLOAT_FUNCTION_TAN,
+		FLOAT_FUNCTION_ROUND,
+		FLOAT_FUNCTION_SATURATE,
+		FLOAT_FUNCTION_COUNT
 	};
 
-	constexpr static std::array m_OpNames =
+	constexpr static std::array m_FunctionNames =
+	{
+		"Sin",
+		"Cos",
+		"Tan",
+		"Round",
+		"Saturate"
+	};
+
+	constexpr static std::array m_FunctionCode =
 	{
 		"sin",
 		"cos",
 		"tan",
+		"round",
 		"saturate"
 	};
 
@@ -92,48 +111,13 @@ public:
 	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(&m_OutputPin, 1); }
 
 private:
-	Op m_Op = MATH_OP_SIN;
+	EFunction m_Function = FLOAT_FUNCTION_SIN;
 	ShaderNodePin m_InputPin = ShaderNodePin::FLOAT;
 	ShaderNodePin m_OutputPin = ShaderNodePin::FLOAT;
 };
 
 
-class VectorShaderNode : public ShaderNode
-{
-protected:
-
-	constexpr static std::array m_VectorKinds =
-	{
-		ShaderNodePin::FLOAT2, ShaderNodePin::FLOAT3, ShaderNodePin::FLOAT4,
-	};
-
-	constexpr static std::array m_VectorNames =
-	{
-		"Vec2", "Vec3", "Vec4"
-	};
-
-	constexpr static std::array m_VectorComponents =
-	{
-		2, 3, 4
-	};
-
-	constexpr static std::array m_VectorInputFunctions =
-	{
-		&ImGui::InputFloat2, &ImGui::InputFloat3, &ImGui::InputFloat4
-	};
-
-	int GetKindIndex() const { return int(m_Kind) - ShaderNodePin::FLOAT2; }
-
-	auto GetVectorName() const { return m_VectorNames[GetKindIndex()]; }
-	auto GetVectorComponents() const { return m_VectorComponents[GetKindIndex()]; }
-	auto GetVectorInputFunction() const { return m_VectorInputFunctions[GetKindIndex()]; }
-
-protected:
-	ShaderNodePin::EKind m_Kind = ShaderNodePin::FLOAT4;
-};
-
-
-class VectorValueShaderNode : public VectorShaderNode
+class VectorValueShaderNode : public ShaderNode
 {
 	RTTI_DECLARE_VIRTUAL_TYPE(VectorValueShaderNode);
 
@@ -145,13 +129,13 @@ public:
 	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(m_OutputPins); }
 
 private:
-	Vec4 m_Vector = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	StaticArray<ShaderNodePin, 4> m_InputPins = { ShaderNodePin::FLOAT, ShaderNodePin::FLOAT, ShaderNodePin::FLOAT, ShaderNodePin::FLOAT };
-	StaticArray<ShaderNodePin, 1> m_OutputPins = { ShaderNodePin::FLOAT4 };
+	Vec3 m_Vector = Vec3(0.0f, 0.0f, 0.0f);
+	StaticArray<ShaderNodePin, 3> m_InputPins = { ShaderNodePin::FLOAT, ShaderNodePin::FLOAT, ShaderNodePin::FLOAT };
+	StaticArray<ShaderNodePin, 1> m_OutputPins = { ShaderNodePin::VECTOR };
 };
 
 
-class VectorOpShaderNode : public VectorShaderNode
+class VectorOpShaderNode : public ShaderNode
 {
 	RTTI_DECLARE_VIRTUAL_TYPE(VectorOpShaderNode);
 
@@ -173,6 +157,15 @@ public:
 		"/"
 	};
 
+	constexpr static std::array m_FunctionNames = 
+	{ 
+		"Add", 
+		"Minus", 
+		"Multiply", 
+		"Divide" 
+	};
+
+
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
@@ -180,12 +173,46 @@ public:
 	MutSlice<ShaderNodePin> GetOutputPins() { return MutSlice(m_OutputPins); }
 
 private:
-	StaticArray<ShaderNodePin, 2> m_InputPins = { ShaderNodePin::FLOAT4, ShaderNodePin::FLOAT4 };
-	StaticArray<ShaderNodePin, 1> m_OutputPins = { ShaderNodePin::FLOAT4 };
+	StaticArray<ShaderNodePin, 2> m_InputPins = { ShaderNodePin::VECTOR, ShaderNodePin::VECTOR };
+	StaticArray<ShaderNodePin, 1> m_OutputPins = { ShaderNodePin::VECTOR };
 
 private:
 	Op m_Op = VECTOR_OP_ADD;
 	StaticArray<Vec4, 2> m_Vectors;
+};
+
+
+class VectorFunctionShaderNode : public ShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(VectorFunctionShaderNode);
+
+public:
+	enum EFunction
+	{
+		VECTOR_FUNCTION_SATURATE,
+		VECTOR_FUNCTION_COUNT
+	};
+
+	constexpr static std::array m_FunctionNames =
+	{
+		"Saturate"
+	};
+
+	constexpr static std::array m_FunctionCode =
+	{
+		"saturate"
+	};
+
+	void DrawImNode(ShaderGraphBuilder& ioBuilder) override;
+	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
+
+	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(&m_InputPin, 1); }
+	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(&m_OutputPin, 1); }
+
+private:
+	EFunction m_Function = VECTOR_FUNCTION_SATURATE;
+	ShaderNodePin m_InputPin = ShaderNodePin::VECTOR;
+	ShaderNodePin m_OutputPin = ShaderNodePin::VECTOR;
 };
 
 
@@ -225,6 +252,8 @@ private:
 	String m_Title = "Procedure";
 	bool m_ShowInputBox = true;
 	String m_Procedure = "";
+	std::vector<String> m_InputNames;
+	std::vector<String> m_OutputNames;
 	std::vector<ShaderNodePin> m_InputPins;
 	std::vector<ShaderNodePin> m_OutputPins;
 };
@@ -253,7 +282,7 @@ class GetPixelCoordShaderNode : public SingleOutputShaderNode
 	RTTI_DECLARE_VIRTUAL_TYPE(GetPixelCoordShaderNode);
 
 public:
-	GetPixelCoordShaderNode() : SingleOutputShaderNode("Get Pixel Coord", "input.sv_position.xy", ShaderNodePin::FLOAT2) {}
+	GetPixelCoordShaderNode() : SingleOutputShaderNode("Get Pixel Coord", "float3(input.sv_position.xy, 0)", ShaderNodePin::VECTOR) {}
 };
 
 
@@ -277,6 +306,15 @@ class CompareShaderNode : public ShaderNode
 		">",
 		"<=",
 		">="
+	};
+
+	static constexpr std::array m_OpNames =
+	{
+		"Equal",
+		"Less",
+		"Greater",
+		"Less Equal",
+		"Greater Equal"
 	};
 
 public:
@@ -316,9 +354,9 @@ public:
 private:
 	StaticArray<ShaderNodePin, 6> m_InputPins
 	{
-		ShaderNodePin::FLOAT4,
-		ShaderNodePin::FLOAT3,
-		ShaderNodePin::FLOAT3,
+		ShaderNodePin::VECTOR,
+		ShaderNodePin::VECTOR,
+		ShaderNodePin::VECTOR,
 		ShaderNodePin::FLOAT,
 		ShaderNodePin::FLOAT,
 		ShaderNodePin::BOOL
