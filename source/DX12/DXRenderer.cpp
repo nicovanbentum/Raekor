@@ -549,6 +549,7 @@ void Renderer::Recompile(Device& inDevice, const RayTracedScene& inScene, Stagin
         case DEBUG_TEXTURE_GBUFFER_DEPTH:
         case DEBUG_TEXTURE_GBUFFER_ALBEDO:
         case DEBUG_TEXTURE_GBUFFER_NORMALS:
+        case DEBUG_TEXTURE_GBUFFER_EMISSIVE:
         case DEBUG_TEXTURE_GBUFFER_VELOCITY:
         case DEBUG_TEXTURE_GBUFFER_METALLIC:
         case DEBUG_TEXTURE_GBUFFER_ROUGHNESS:
@@ -688,6 +689,7 @@ const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
         "Depth",
         "Albedo",
         "Normals",
+        "Emissive",
         "Velocity",
         "Metallic",
         "Roughness",

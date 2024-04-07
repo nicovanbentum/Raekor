@@ -89,6 +89,7 @@ struct BRDF {
     void Unpack(uint4 inPacked) {
         mAlbedo = UnpackAlbedo(inPacked);
         mNormal = UnpackNormal(inPacked);
+        mEmissive = UnpackEmissive(inPacked);
         UnpackMetallicRoughness(inPacked, mMetallic, mRoughness);
     }
     

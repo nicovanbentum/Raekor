@@ -35,7 +35,7 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
 
     const float3 Wo = normalize(fc.mCameraPosition.xyz - ws_pos.xyz);
 
-    float3 total_radiance = float3(0.0f, 0.0f, 0.0f);
+    float3 total_radiance = brdf.mEmissive;
 
     // evaluate DirectionalLight 
     {

@@ -169,6 +169,13 @@
             "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl"
         },
 
+        "GBuffer Debug Emissive Shader": 
+        { 
+            "Defines": "#define DEBUG_TEXTURE_GBUFFER_EMISSIVE",
+            "Vertex Shader File": "assets/system/shaders/DirectX/FullScreenTriangleVS.hlsl",
+            "Pixel Shader File": "assets/system/shaders/DirectX/GBufferDebugPS.hlsl"
+        },
+
         "GBuffer Debug Metallic Shader": 
         { 
             "Defines": "#define DEBUG_TEXTURE_GBUFFER_METALLIC",

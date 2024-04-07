@@ -63,10 +63,12 @@ PS_OUTPUT main(in VS_OUTPUT input) {
     float4 albedo = material.mAlbedo * sampled_albedo;
     float metalness = material.mMetallic * sampled_metallic;
     float roughness = material.mRoughness * sampled_roughness;
+    float3 emissive = material.mEmissive.rgb * sampled_emissive;
     
     uint4 packed = uint4(0, 0, 0, 0);
     PackAlbedo(albedo, packed);
     PackNormal(normal, packed);
+    PackEmissive(emissive, packed);
     PackMetallicRoughness(metalness, roughness, packed);
 
     output.gbuffer = asfloat(packed);

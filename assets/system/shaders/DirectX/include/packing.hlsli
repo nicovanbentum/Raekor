@@ -63,17 +63,98 @@ float3 UintToFloat3(uint val) {
     return unpacked / uint3(bitmask11, bitmask11, bitmask10);
 }
 
-void PackAlbedo(float4 inAlbedo, inout uint4 ioPacked) {
+#define RGB9E5_EXPONENT_BITS          5
+#define RGB9E5_MANTISSA_BITS          9
+#define RGB9E5_EXP_BIAS               15
+#define RGB9E5_MAX_VALID_BIASED_EXP   31
+
+#define MAX_RGB9E5_EXP               (RGB9E5_MAX_VALID_BIASED_EXP - RGB9E5_EXP_BIAS)
+#define RGB9E5_MANTISSA_VALUES       (1<<RGB9E5_MANTISSA_BITS)
+#define MAX_RGB9E5_MANTISSA          (RGB9E5_MANTISSA_VALUES-1)
+#define MAX_RGB9E5                   ((float(MAX_RGB9E5_MANTISSA))/RGB9E5_MANTISSA_VALUES * (1<<MAX_RGB9E5_EXP))
+#define EPSILON_RGB9E5               ((1.0/RGB9E5_MANTISSA_VALUES) / (1<<RGB9E5_EXP_BIAS))
+
+float ClampRangeForRGB9E5(float x)
+{
+    return clamp(x, 0.0, MAX_RGB9E5);
+}
+
+int FloorLog2(float x)
+{
+    uint f = asuint(x);
+    uint biasedexponent = (f & 0x7F800000u) >> 23;
+    return int(biasedexponent) - 127;
+}
+
+
+// https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_shared_exponent.txt
+uint Float3ToRGB9E5(float3 rgb)
+{
+    float rc = ClampRangeForRGB9E5(rgb.x);
+    float gc = ClampRangeForRGB9E5(rgb.y);
+    float bc = ClampRangeForRGB9E5(rgb.z);
+
+    float maxrgb = max(rc, max(gc, bc));
+    int exp_shared = max(-RGB9E5_EXP_BIAS - 1, FloorLog2(maxrgb)) + 1 + RGB9E5_EXP_BIAS;
+    float denom = exp2(float(exp_shared - RGB9E5_EXP_BIAS - RGB9E5_MANTISSA_BITS));
+
+    int maxm = int(floor(maxrgb / denom + 0.5));
+    if (maxm == MAX_RGB9E5_MANTISSA + 1)
+    {
+        denom *= 2;
+        exp_shared += 1;
+    }
+
+    int rm = int(floor(rc / denom + 0.5));
+    int gm = int(floor(gc / denom + 0.5));
+    int bm = int(floor(bc / denom + 0.5));
+
+    return (uint(rm) << (32 - 9))
+        | (uint(gm) << (32 - 9 * 2))
+        | (uint(bm) << (32 - 9 * 3))
+        | uint(exp_shared);
+}
+
+uint BitfieldExtract(uint value, uint offset, uint bits)
+{
+    uint mask = (1u << bits) - 1u;
+    return (value >> offset) & mask;
+}
+
+float3 RGB9E5ToFloat3(uint v)
+{
+    int exponent =
+        int(BitfieldExtract(v, 0, RGB9E5_EXPONENT_BITS)) - RGB9E5_EXP_BIAS - RGB9E5_MANTISSA_BITS;
+    float scale = exp2(float(exponent));
+
+    return float3(
+        float(BitfieldExtract(v, 32 - RGB9E5_MANTISSA_BITS, RGB9E5_MANTISSA_BITS)) * scale,
+        float(BitfieldExtract(v, 32 - RGB9E5_MANTISSA_BITS * 2, RGB9E5_MANTISSA_BITS)) * scale,
+        float(BitfieldExtract(v, 32 - RGB9E5_MANTISSA_BITS * 3, RGB9E5_MANTISSA_BITS)) * scale
+    );
+}
+
+void PackAlbedo(float4 inAlbedo, inout uint4 ioPacked) 
+{
     ioPacked.x = Float4ToRGBA8(inAlbedo);
 }
 
-void PackNormal(float3 inNormal, inout uint4 ioPacked) {
+void PackNormal(float3 inNormal, inout uint4 ioPacked) 
+{
     ioPacked.y = Float3ToUint(normalize(inNormal) * 0.5 + 0.5);
 }
 
-void PackMetallicRoughness(float metalness, float roughness, inout uint4 ioPacked) {
+void PackMetallicRoughness(float metalness, float roughness, inout uint4 ioPacked) 
+{
     ioPacked.z = Float16x2ToUint(float2(metalness, roughness));
 }
+
+
+void PackEmissive(float3 inEmissive, inout uint4 ioPacked)
+{
+    ioPacked.w = Float3ToRGB9E5(inEmissive);
+}
+
 
 void PackGBuffer(float4 inAlbedo, float3 inNormal, float3 inEmissive, float inMetallic, float inRoughness, inout uint4 ioPacked)
 {
@@ -82,7 +163,9 @@ void PackGBuffer(float4 inAlbedo, float3 inNormal, float3 inEmissive, float inMe
     PackMetallicRoughness(inMetallic, inRoughness, ioPacked);
 }
 
-float4 UnpackAlbedo(uint4 inPacked) {
+
+float4 UnpackAlbedo(uint4 inPacked) 
+{
     return RGBA8ToFloat4(inPacked.x);
 }
 
@@ -90,19 +173,27 @@ float3 UnpackNormal(uint4 inPacked) {
     return UintToFloat3(inPacked.y) * 2.0 - 1.0;
 }
 
-void UnpackMetallicRoughness(uint4 inPacked, out float metalness, out float roughness) {
+void UnpackMetallicRoughness(uint4 inPacked, out float metalness, out float roughness) 
+{
     float2 mr = UintToFloat16x2(inPacked.z);
     metalness = mr.r;
     roughness = mr.g;
 }
 
-void PackMetallic(float metalness, inout uint4 ioPacked) {
+float3 UnpackEmissive(uint4 inPacked)
+{
+    return RGB9E5ToFloat3(inPacked.a);
+}
+
+void PackMetallic(float metalness, inout uint4 ioPacked) 
+{
     float temp_metallic, temp_roughness;
     UnpackMetallicRoughness(ioPacked, temp_metallic, temp_roughness);
     ioPacked.z = Float16x2ToUint(float2(metalness, temp_roughness));
 }
 
-void PackRoughness(float roughness, inout uint4 ioPacked) {
+void PackRoughness(float roughness, inout uint4 ioPacked) 
+{
     float temp_metallic, temp_roughness;
     UnpackMetallicRoughness(ioPacked, temp_metallic, temp_roughness);
     ioPacked.z = Float16x2ToUint(float2(temp_metallic, roughness));
