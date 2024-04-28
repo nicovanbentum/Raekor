@@ -68,9 +68,10 @@ struct FileEntry
 	void UpdateFileHash()
 	{
 		std::ifstream file(mAssetPath, std::ios::ate | std::ios::binary);
-		std::vector<char> data;
+
 		const size_t filesize = size_t(file.tellg());
-		data.resize(filesize);
+		Array<char> data = Array<char>(filesize);
+		
 		file.seekg(0);
 		file.read((char*)&data[0], filesize);
 
@@ -90,10 +91,11 @@ struct FileEntry
 	}
 
 	bool mIsCached = false;
+	AssetType mAssetType = ASSET_TYPE_NONE;
 	uint64_t mFileHash = 0;
-	AssetType mAssetType;
-	std::string mAssetPath;
-	std::string mCachePath;
+
+	String mAssetPath;
+	String mCachePath;
 	std::time_t mWriteTime;
 };
 

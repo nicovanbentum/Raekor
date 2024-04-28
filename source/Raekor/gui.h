@@ -40,6 +40,6 @@ bool DragVec3(const char* label, glm::vec3& v, float step, float min, float max,
 
 void SetNextItemRightAlign(const char* label);
 
-bool DragDropTargetButton(const char* label, const char* text, const ImVec4& textcolor);
+bool DragDropTargetButton(const char* label, const char* text, bool hasvalue);
 
 }

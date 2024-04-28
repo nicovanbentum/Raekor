@@ -24,7 +24,8 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     m_Window(inWindow),
     m_RenderGraph(inDevice, inViewport, sFrameCount)
 {
-    auto swapchain_desc = DXGI_SWAP_CHAIN_DESC1 {
+    DXGI_SWAP_CHAIN_DESC1 swapchain_desc = 
+    {
         .Width       = inViewport.GetDisplaySize().x,
         .Height      = inViewport.GetDisplaySize().y,
         .Format      = sSwapchainFormat,
@@ -37,15 +38,15 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
     if (inDevice.IsTearingSupported())
         swapchain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
-    auto factory = ComPtr<IDXGIFactory4> {};
+    ComPtr<IDXGIFactory4> factory = nullptr;
     gThrowIfFailed(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&factory)));
 
-    auto wmInfo = SDL_SysWMinfo {};
+    SDL_SysWMinfo wmInfo = {};
     SDL_VERSION(&wmInfo.version);
     SDL_GetWindowWMInfo(inWindow, &wmInfo);
-    auto hwnd = wmInfo.info.win.window;
+    HWND hwnd = wmInfo.info.win.window;
 
-    auto swapchain = ComPtr<IDXGISwapChain1> {};
+    ComPtr<IDXGISwapChain1> swapchain = nullptr;
     gThrowIfFailed(factory->CreateSwapChainForHwnd(inDevice.GetGraphicsQueue(), hwnd, &swapchain_desc, nullptr, nullptr, &swapchain));
     gThrowIfFailed(swapchain.As(&m_Swapchain));
 
@@ -60,7 +61,7 @@ Renderer::Renderer(Device& inDevice, const Viewport& inViewport, SDL_Window* inW
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData))
     {
-        auto rtv_resource = D3D12ResourceRef(nullptr);
+        D3D12ResourceRef rtv_resource = nullptr;
         gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
         backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{.usage = Texture::Usage::RENDER_TARGET });
 
@@ -101,19 +102,19 @@ void Renderer::OnResize(Device& inDevice, Viewport& inViewport, bool inFullScree
 {
     PROFILE_FUNCTION_CPU();
 
-    for (auto& bb_data : m_BackBufferData)
+    for (BackBufferData& bb_data : m_BackBufferData)
         inDevice.ReleaseTextureImmediate(bb_data.mBackBuffer);
 
-    auto desc = DXGI_SWAP_CHAIN_DESC {};
+    DXGI_SWAP_CHAIN_DESC desc = {};
     gThrowIfFailed(m_Swapchain->GetDesc(&desc));
 
-    auto window_width = 0, window_height = 0;
+    int window_width = 0, window_height = 0;
     SDL_GetWindowSize(m_Window, &window_width, &window_height);
     gThrowIfFailed(m_Swapchain->ResizeBuffers(desc.BufferCount, window_width, window_height, desc.BufferDesc.Format, desc.Flags));
 
     for (const auto& [index, backbuffer_data] : gEnumerate(m_BackBufferData))
     {
-        auto rtv_resource = D3D12ResourceRef(nullptr);
+        D3D12ResourceRef rtv_resource = nullptr;
         gThrowIfFailed(m_Swapchain->GetBuffer(index, IID_PPV_ARGS(rtv_resource.GetAddressOf())));
 
         backbuffer_data.mBackBuffer = inDevice.CreateTextureView(rtv_resource, Texture::Desc{.usage = Texture::Usage::RENDER_TARGET });
@@ -289,8 +290,8 @@ void Renderer::OnRender(Application* inApp, Device& inDevice, Viewport& inViewpo
         gThrowIfFailed(PIXBeginCapture(PIX_CAPTURE_GPU, &capture_params));
     }
 
-    static const auto& upload_tlas = g_CVars.Create("upload_scene", 1, true);
-    static const auto& update_skinning = g_CVars.Create("update_skinning", 1, true);
+    static const int& upload_tlas = g_CVars.Create("upload_scene", 1, true);
+    static const int& update_skinning = g_CVars.Create("update_skinning", 1, true);
     // Start recording pending scene changes to the copy cmd list
     CommandList& copy_cmd_list = GetBackBufferData().mCopyCmdList;
     copy_cmd_list.Reset();
@@ -587,7 +588,7 @@ void Renderer::WaitForIdle(Device& inDevice)
     if (m_PresentJobPtr)
         m_PresentJobPtr->WaitCPU();
 
-    for (auto& backbuffer_data : m_BackBufferData)
+    for (BackBufferData& backbuffer_data : m_BackBufferData)
     {
         gThrowIfFailed(inDevice.GetGraphicsQueue()->Signal(m_Fence.Get(), backbuffer_data.mFenceValue));
 
@@ -634,7 +635,7 @@ RenderInterface::RenderInterface(Application* inApp, Device& inDevice, Renderer&
     SetGPUInfo(gpu_info);
 
     // Create default textures / assets
-    const auto light_texture_file = TextureAsset::sConvert("assets/system/light.png");
+    const String light_texture_file = TextureAsset::sConvert("assets/system/light.png");
     m_LightTexture = TextureID(UploadTextureFromAsset(inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file)));
     m_Renderer.QueueTextureUpload(m_LightTexture, 0, inApp->GetAssets()->GetAsset<TextureAsset>(light_texture_file));
 }
@@ -659,7 +660,7 @@ uint64_t RenderInterface::GetDisplayTexture()
     if (auto pre_imgui_pass = m_Renderer.GetRenderGraph().GetPass<PreImGuiData>())
         return m_Device.GetGPUDescriptorHandle(m_Resources.GetTextureView(pre_imgui_pass->GetData().mDisplayTextureSRV)).ptr;
     else
-        return uint64_t(TextureID::INVALID);
+        return uint64_t(TextureID().GetValue());
 }
 
 
@@ -673,9 +674,12 @@ uint64_t RenderInterface::GetLightTexture()
 
 uint64_t RenderInterface::GetImGuiTextureID(uint32_t inHandle)
 {
-    const auto& heap_index = m_Device.GetBindlessHeapIndex(TextureID(inHandle));
-    const auto& resource_heap = *m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    const auto heap_ptr = resource_heap->GetGPUDescriptorHandleForHeapStart().ptr + heap_index * m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    uint32_t heap_index = m_Device.GetBindlessHeapIndex(TextureID(inHandle));
+    uint32_t handle_size = m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    DescriptorHeap& resource_heap = m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    uint64_t heap_ptr = resource_heap->GetGPUDescriptorHandleForHeapStart().ptr + heap_index * handle_size;
+    
     return heap_ptr;
 }
 
@@ -683,7 +687,7 @@ uint64_t RenderInterface::GetImGuiTextureID(uint32_t inHandle)
 
 const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
 {
-    constexpr auto names = std::array 
+    constexpr std::array names =
     {
         "None",
         "Depth",
@@ -710,9 +714,9 @@ const char* RenderInterface::GetDebugTextureName(uint32_t inIndex) const
 
 void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
 {
-    const auto& vertices = inMesh.GetInterleavedVertices();
-    const auto  vertices_size = vertices.size() * sizeof(vertices[0]);
-    const auto  indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
+    const Array<float>& vertices = inMesh.GetInterleavedVertices();
+    const int vertices_size = vertices.size() * sizeof(vertices[0]);
+    const int indices_size = inMesh.indices.size() * sizeof(inMesh.indices[0]);
 
     if (!vertices_size || !indices_size)
         return;
@@ -722,14 +726,14 @@ void RenderInterface::UploadMeshBuffers(Entity inEntity, Mesh& inMesh)
         .stride = sizeof(uint32_t) * 3,
         .usage  = Buffer::Usage::INDEX_BUFFER,
         .debugName = "INDEX_BUFFER"
-    }).ToIndex();
+    }).GetIndex();
 
     inMesh.vertexBuffer = m_Device.CreateBuffer(Buffer::Desc{
         .size   = uint32_t(vertices_size),
         .stride = sizeof(Vertex),
         .usage  = Buffer::Usage::VERTEX_BUFFER,
         .debugName = "VERTEX_BUFFER"
-    }).ToIndex();
+    }).GetIndex();
 
     // actual data upload happens in RayTracedScene::UploadMesh at the start of the frame
     m_Renderer.QueueMeshUpload(inEntity);
@@ -747,21 +751,21 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
         .stride = sizeof(IVec4),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BONE_INDICES_BUFFER"
-    }).ToIndex();
+    }).GetIndex();
 
     inSkeleton.boneWeightBuffer = m_Device.CreateBuffer(Buffer::Desc {
         .size   = uint32_t(inSkeleton.boneWeights.size() * sizeof(Vec4)),
         .stride = sizeof(Vec4),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BONE_WEIGHTS_BUFFER"
-    }).ToIndex();
+    }).GetIndex();
 
     inSkeleton.boneTransformsBuffer = m_Device.CreateBuffer(Buffer::Desc {
         .size   = uint32_t(inSkeleton.boneTransformMatrices.size() * sizeof(Mat4x4)),
         .stride = sizeof(Mat4x4),
         .usage  = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "BONE_TRANSFORMS_BUFFER"
-    }).ToIndex();
+    }).GetIndex();
 
     const auto& mesh_vertices = inMesh.GetInterleavedVertices();
 
@@ -770,7 +774,7 @@ void RenderInterface::UploadSkeletonBuffers(Entity inEntity, Skeleton& inSkeleto
         .stride = sizeof(RTVertex),
         .usage  = Buffer::Usage::SHADER_READ_WRITE,
         .debugName = "SKINNED_VERTEX_BUFFER"
-    }).ToIndex();
+    }).GetIndex();
 
     m_Renderer.QueueSkeletonUpload(inEntity);
 }
@@ -804,14 +808,14 @@ void RenderInterface::ReleaseMaterialShaders(Entity inEntity, Material& inMateri
 
 uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB, uint8_t inSwizzle)
 {
-    auto data_ptr = inAsset->GetData();
-    const auto header_ptr = inAsset->GetHeader();
+    const char* data_ptr = inAsset->GetData();
+    const DDS_HEADER* header_ptr = inAsset->GetHeader();
 
-    const auto mipmap_levels = header_ptr->dwMipMapCount;
-    const auto debug_name = inAsset->GetPath().string();
+    const uint32_t mipmap_levels = header_ptr->dwMipMapCount;
+    const String debug_name = inAsset->GetPath().string();
 
-    auto format = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM;
-    auto dds_format = (EDDSFormat)header_ptr->ddspf.dwFourCC;
+    DXGI_FORMAT format = inIsSRGB ? DXGI_FORMAT_BC3_UNORM_SRGB : DXGI_FORMAT_BC3_UNORM;
+    EDDSFormat dds_format = (EDDSFormat)header_ptr->ddspf.dwFourCC;
 
     switch (dds_format)
     {
@@ -825,7 +829,7 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
    /* if (format == DXGI_FORMAT_BC7_UNORM && inIsSRGB)
         format = DXGI_FORMAT_BC7_UNORM_SRGB;*/
 
-    const auto texture_id = m_Device.CreateTexture(Texture::Desc
+    const TextureID texture = m_Device.CreateTexture(Texture::Desc
     {
         .swizzle    = inSwizzle,
         .format     = format,
@@ -836,7 +840,7 @@ uint32_t RenderInterface::UploadTextureFromAsset(const TextureAsset::Ptr& inAsse
         .debugName  = debug_name.c_str()
     });
 
-    return uint32_t(texture_id);
+    return texture.GetValue();
 }
 
 
@@ -1030,9 +1034,9 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
                 const float cone_weight = 0.0f;
 
                 size_t max_meshlets = meshopt_buildMeshletsBound(mesh.indices.size(), max_vertices, max_triangles);
-                std::vector<meshopt_Meshlet> meshlets(max_meshlets);
-                std::vector<unsigned int> meshlet_vertices(max_meshlets * max_vertices);
-                std::vector<unsigned char> meshlet_triangles(max_meshlets * max_triangles * 3);
+                Array<meshopt_Meshlet> meshlets(max_meshlets);
+                Array<unsigned int> meshlet_vertices(max_meshlets * max_vertices);
+                Array<unsigned char> meshlet_triangles(max_meshlets * max_triangles * 3);
 
                 size_t meshlet_count = meshopt_buildMeshlets(meshlets.data(), meshlet_vertices.data(), meshlet_triangles.data(), mesh.indices.data(),
                     mesh.indices.size(), &mesh.positions[0].x, mesh.positions.size(), sizeof(mesh.positions[0]), max_vertices, max_triangles, cone_weight);
@@ -1089,18 +1093,22 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
     {
         ImGui::SeparatorText("Window");
 
-        static constexpr auto modes = std::array { 0u /* Windowed */, (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP, (uint32_t)SDL_WINDOW_FULLSCREEN };
-        static constexpr auto mode_strings = std::array { "Windowed", "Borderless", "Fullscreen" };
-
-        auto mode = 0u; // Windowed
-        auto window = inApp->GetWindow();
-        const auto window_flags = SDL_GetWindowFlags(window);
-
-        auto SDL_IsWindowBorderless = [](SDL_Window* inWindow) -> bool
-        {
-            const auto window_flags = SDL_GetWindowFlags(inWindow);
-            return ( ( window_flags & SDL_WINDOW_FULLSCREEN_DESKTOP ) == SDL_WINDOW_FULLSCREEN_DESKTOP );
+        static constexpr std::array modes =  
+        { 
+            0u /* Windowed */, 
+            (uint32_t)SDL_WINDOW_FULLSCREEN_DESKTOP, 
+            (uint32_t)SDL_WINDOW_FULLSCREEN 
         };
+
+        static constexpr std::array mode_strings =
+        {
+            "Windowed", 
+            "Borderless", 
+            "Fullscreen" 
+        };
+
+        int mode = 0u; // Windowed
+        SDL_Window* window = inApp->GetWindow();
 
         if (inApp->IsWindowBorderless())
             mode = 1u;
@@ -1111,12 +1119,11 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
         {
             for (const auto& [index, string] : gEnumerate(mode_strings))
             {
-                const auto is_selected = index == mode;
-                if (ImGui::Selectable(string, &is_selected))
+                if (ImGui::Selectable(string, index == mode))
                 {
-                    bool to_fullscreen = modes[index] == 2u;
                     SDL_SetWindowFullscreen(window, modes[index]);
-                    if (to_fullscreen)
+
+                    if (modes[index] == SDL_WINDOW_FULLSCREEN)
                     {
                         while (!inApp->IsWindowExclusiveFullscreen())
                             SDL_Delay(10);
@@ -1129,17 +1136,16 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::EndCombo();
         }
 
-        auto display_names = std::vector<std::string>(SDL_GetNumVideoDisplays());
+        Array<String> display_names(SDL_GetNumVideoDisplays());
         for (const auto& [index, name] : gEnumerate(display_names))
             name = SDL_GetDisplayName(index);
 
-        const auto display_index = SDL_GetWindowDisplayIndex(window);
+        const int display_index = SDL_GetWindowDisplayIndex(window);
         if (ImGui::BeginCombo("Monitor", display_names[display_index].c_str()))
         {
             for (const auto& [index, name] : gEnumerate(display_names))
             {
-                const auto is_selected = index == display_index;
-                if (ImGui::Selectable(name.c_str(), &is_selected))
+                if (ImGui::Selectable(name.c_str(), index == display_index))
                 {
                     if (m_Renderer.GetSettings().mFullscreen)
                     {
@@ -1159,11 +1165,11 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             ImGui::EndCombo();
         }
 
-        const auto current_display_index = SDL_GetWindowDisplayIndex(window);
-        const auto num_display_modes = SDL_GetNumDisplayModes(current_display_index);
+        const int current_display_index = SDL_GetWindowDisplayIndex(window);
+        const int num_display_modes = SDL_GetNumDisplayModes(current_display_index);
 
-        auto display_modes = std::vector<SDL_DisplayMode>(num_display_modes);
-        auto display_mode_strings = std::vector<std::string>(num_display_modes);
+        Array<String> display_mode_strings(num_display_modes);
+        Array<SDL_DisplayMode> display_modes(num_display_modes);
 
         SDL_DisplayMode* new_display_mode = nullptr;
 
@@ -1182,8 +1188,7 @@ void RenderInterface::DrawDebugSettings(Application* inApp, Scene& inScene, cons
             {
                 for (int index = 0; index < display_mode_strings.size(); index++)
                 {
-                    const auto is_selected = index == m_Renderer.GetSettings().mDisplayRes;
-                    if (ImGui::Selectable(display_mode_strings[index].c_str(), is_selected))
+                    if (ImGui::Selectable(display_mode_strings[index].c_str(), index == m_Renderer.GetSettings().mDisplayRes))
                     {
                         m_Renderer.GetSettings().mDisplayRes = index;
                         new_display_mode = &display_modes[index];

@@ -134,9 +134,39 @@ float3 RGB9E5ToFloat3(uint v)
     );
 }
 
-void PackAlbedo(float4 inAlbedo, inout uint4 ioPacked) 
+float4 UnpackAlbedo(uint4 inPacked) 
 {
-    ioPacked.x = Float4ToRGBA8(inAlbedo);
+    return RGBA8ToFloat4(inPacked.x);
+}
+
+float3 UnpackNormal(uint4 inPacked) {
+    return UintToFloat3(inPacked.y) * 2.0 - 1.0;
+}
+
+void UnpackMetallicRoughness(uint4 inPacked, out float metalness, out float roughness) 
+{
+    float2 mr = UintToFloat16x2(inPacked.z);
+    metalness = mr.r;
+    roughness = mr.g;
+}
+
+float3 UnpackEmissive(uint4 inPacked)
+{
+    return RGB9E5ToFloat3(inPacked.a);
+}
+
+void PackAlbedo(float3 inAlbedo, inout uint4 ioPacked) 
+{
+    float4 albedo = UnpackAlbedo(ioPacked);
+    albedo.rgb = inAlbedo;
+    ioPacked.x = Float4ToRGBA8(albedo);
+}
+
+void PackAlpha(float inAlpha, inout uint4 ioPacked) 
+{
+    float4 albedo = UnpackAlbedo(ioPacked);
+    albedo.a = inAlpha;
+    ioPacked.x = Float4ToRGBA8(albedo);
 }
 
 void PackNormal(float3 inNormal, inout uint4 ioPacked) 
@@ -158,31 +188,10 @@ void PackEmissive(float3 inEmissive, inout uint4 ioPacked)
 
 void PackGBuffer(float4 inAlbedo, float3 inNormal, float3 inEmissive, float inMetallic, float inRoughness, inout uint4 ioPacked)
 {
-    PackAlbedo(inAlbedo, ioPacked);
+    PackAlbedo(inAlbedo.rgb, ioPacked);
+    PackAlpha(inAlbedo.a, ioPacked);
     PackNormal(inNormal, ioPacked);
     PackMetallicRoughness(inMetallic, inRoughness, ioPacked);
-}
-
-
-float4 UnpackAlbedo(uint4 inPacked) 
-{
-    return RGBA8ToFloat4(inPacked.x);
-}
-
-float3 UnpackNormal(uint4 inPacked) {
-    return UintToFloat3(inPacked.y) * 2.0 - 1.0;
-}
-
-void UnpackMetallicRoughness(uint4 inPacked, out float metalness, out float roughness) 
-{
-    float2 mr = UintToFloat16x2(inPacked.z);
-    metalness = mr.r;
-    roughness = mr.g;
-}
-
-float3 UnpackEmissive(uint4 inPacked)
-{
-    return RGB9E5ToFloat3(inPacked.a);
 }
 
 void PackMetallic(float metalness, inout uint4 ioPacked) 

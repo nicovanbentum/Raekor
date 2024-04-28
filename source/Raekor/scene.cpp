@@ -179,6 +179,19 @@ void Scene::TraverseDepthFirst(Entity inEntity, TraverseFunction inFunction, voi
 }
 
 
+void Scene::UpdateCameras()
+{
+	for (const auto& [entity, transform, camera] : Each<Transform, Camera>())
+	{
+		camera.SetPosition(transform.GetPositionWorldSpace());
+	  //camera.SetAngle(transform.GetRotationWorldSpace());
+		camera.OnUpdate();
+	}
+
+	
+}
+
+
 void Scene::UpdateTransforms()
 {
 	PROFILE_FUNCTION_CPU();
@@ -330,9 +343,9 @@ Entity Scene::Clone(Entity inEntity)
 		}
 	}
 	
-	if (Has<BoxCollider>(copy))
+	if (Has<RigidBody>(copy))
 	{
-		BoxCollider& collider = Get<BoxCollider>(copy);
+		RigidBody& collider = Get<RigidBody>(copy);
 		collider.bodyID = JPH::BodyID();
 	}
 
@@ -346,6 +359,23 @@ Entity Scene::Clone(Entity inEntity)
 
 	return copy;
 }
+
+
+
+void Scene::Destroy(Entity inEntity)
+{
+	if (Exists(inEntity) && inEntity != m_RootEntity)
+	{
+		Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity)
+		{
+			inScene.Destroy(inEntity);
+			inScene.Unparent(inEntity);
+		};
+
+		TraverseBreadthFirst(inEntity, Traverse, this);
+	}
+}
+
 
 
 void Scene::LoadMaterialTextures(Assets& assets, const Slice<Entity>& inMaterialEntities)

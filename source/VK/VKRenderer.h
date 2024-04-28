@@ -51,12 +51,12 @@ private:
 	ImGuiPass m_ImGuiPass;
 	PathTracePass m_PathTracePass;
 
-	std::vector<VkFence> m_CommandsFinishedFences;
-	std::vector<VkSemaphore> m_ImageAcquiredSemaphores;
-	std::vector<VkSemaphore> m_RenderFinishedSemaphores;
+	Array<VkFence> m_CommandsFinishedFences;
+	Array<VkSemaphore> m_ImageAcquiredSemaphores;
+	Array<VkSemaphore> m_RenderFinishedSemaphores;
 
-	std::vector<Texture> m_Textures;
-	std::vector<Sampler> m_Samplers;
+	Array<Texture> m_Textures;
+	Array<Sampler> m_Samplers;
 	BindlessDescriptorSet m_BindlessTextureSet;
 
 	uint32_t m_ImageIndex = 0;

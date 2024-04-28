@@ -211,9 +211,6 @@ ScriptAsset::~ScriptAsset()
 
 	std::error_code error_code;
 	fs::remove(m_TempPath, error_code);
-
-	/*for (const auto& type : m_RegisteredTypes)
-		g_RTTIFactory.Remove(type.c_str());*/
 }
 
 

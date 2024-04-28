@@ -33,7 +33,7 @@ void InspectorWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 
 	auto viewport_widget = inWidgets->GetWidget<ViewportWidget>();
     auto sequence_widget = inWidgets->GetWidget<SequenceWidget>();
-	auto nodegraph_widget = inWidgets->GetWidget<NodeGraphWidget>();
+	auto nodegraph_widget = inWidgets->GetWidget<ShaderGraphWidget>();
 
 	if (viewport_widget && GetActiveEntity() != Entity::Null)
 	{
@@ -99,14 +99,14 @@ void InspectorWidget::DrawEntityInspector(Widgets* inWidgets)
 			ImGui::CloseCurrentPopup();
 		}
 
+		if (ImGui::Selectable("Rigid Body", false))
+		{
+			auto& collider = scene.Add<RigidBody>(active_entity);
+		}
+
 		if (scene.Has<Transform, Mesh>(active_entity))
 		{
 			const auto& [transform, mesh] = scene.Get<Transform, Mesh>(active_entity);
-
-			if (ImGui::Selectable("Collider", false))
-			{
-				auto& collider = scene.Add<BoxCollider>(active_entity);
-			}
 
 			if (ImGui::Selectable("Soft Body", false))
 			{
@@ -261,7 +261,7 @@ void InspectorWidget::DrawScriptMember(const char* inLabel, Entity& ioValue)
 	{
 		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
 
-		ImGui::DragDropTargetButton(inLabel, "None", ImVec4(0.7, 0, 0, 1));
+		ImGui::DragDropTargetButton(inLabel, "None", false);
 
 		ImGui::PopStyleColor();
 	}
@@ -273,12 +273,12 @@ void InspectorWidget::DrawScriptMember(const char* inLabel, Entity& ioValue)
 
 		if (Name* name = GetScene().GetPtr<Name>(ioValue))
 		{
-			clicked |= ImGui::DragDropTargetButton(inLabel, name->name.c_str(), ImGui::GetStyleColorVec4(ImGuiCol_Text));
+			clicked |= ImGui::DragDropTargetButton(inLabel, name->name.c_str(), true);
 		}
 		else 
 		{
 			std::string uint_value = std::to_string(ioValue);
-			clicked |= ImGui::DragDropTargetButton(inLabel, uint_value.c_str(), ImGui::GetStyleColorVec4(ImGuiCol_Text));
+			clicked |= ImGui::DragDropTargetButton(inLabel, uint_value.c_str(), true);
 		}
 
 		if (clicked)
@@ -342,10 +342,10 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 		const auto albedo_imgui_id = m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap);
 		const auto tint_color = ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a);
 
-		if (ImGui::DragDropTargetButton("Material", name.name.c_str(), ImGui::GetStyleColorVec4(ImGuiCol_Text)))
+		if (ImGui::DragDropTargetButton("Material", name.name.c_str(), true))
 			SetActiveEntity(ioMesh.material);
 
-		if (ImGui::BeginPopupContextItem())
+		if (ImGui::BeginPopupContextItem(NULL, ImGuiPopupFlags_MouseButtonRight))
 		{
 			if (ImGui::MenuItem("Clear"))
 				ioMesh.material = Entity::Null;
@@ -379,9 +379,25 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 	{
 		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered));
 
-		ImGui::DragDropTargetButton("Material", "None", ImVec4(0.7, 0, 0, 1));
+		ImGui::DragDropTargetButton("Material", "None", false);
 
 		ImGui::PopStyleColor();
+		
+		if (ImGui::BeginPopupContextItem(NULL, ImGuiPopupFlags_MouseButtonLeft))
+		{
+			if (ImGui::MenuItem("Create"))
+			{
+				ioMesh.material = GetScene().Create();
+
+				Name& name = GetScene().Add<Name>(ioMesh.material);
+				Material& material = GetScene().Add<Material>(ioMesh.material);
+
+				name.name = "NewMaterial";
+				material = Material::Default;
+			}
+
+			ImGui::EndPopup();
+		}
 
 		if (ImGui::BeginDragDropTarget())
 		{
@@ -404,6 +420,10 @@ void InspectorWidget::DrawComponent(Entity inEntity, Mesh& ioMesh)
 }
 
 
+void InspectorWidget::DrawComponent(Entity inEntity, Camera& ioCamera)
+{
+}
+
 void InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 {
 	auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
@@ -417,7 +437,7 @@ void InspectorWidget::DrawComponent(Entity inEntity, SoftBody& ioSoftBody)
 }
 
 
-void InspectorWidget::DrawComponent(Entity inEntity, BoxCollider& inBoxCollider)
+void InspectorWidget::DrawComponent(Entity inEntity, RigidBody& inBoxCollider)
 {
 	auto& body_interface = GetPhysics().GetSystem()->GetBodyInterface();
 
@@ -502,11 +522,11 @@ void InspectorWidget::DrawComponent(Entity inEntity, Skeleton& inSkeleton)
 	{
 		const auto& [animation, name] = scene.Get<Animation, Name>(inSkeleton.animation);
 
-		if (ImGui::DragDropTargetButton("Animation", name.name.c_str(), ImGui::GetStyleColorVec4(ImGuiCol_Text)))
+		if (ImGui::DragDropTargetButton("Animation", name.name.c_str(), true))
 			SetActiveEntity(inSkeleton.animation);
 	}
 	else
-		ImGui::DragDropTargetButton("Animation", "None", ImGui::GetStyleColorVec4(ImGuiCol_Text));
+		ImGui::DragDropTargetButton("Animation", "None", false);
 
 	if (ImGui::BeginDragDropTarget())
 	{

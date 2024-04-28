@@ -146,7 +146,10 @@ void HierarchyWidget::DropTargetNode(Scene& inScene, Entity inEntity)
 		{
 			Entity child = *reinterpret_cast<const Entity*>( payload->Data );
 
-			inScene.ParentTo(child, inEntity);
+			if (inScene.Has<Transform>(child))
+			{
+				inScene.ParentTo(child, inEntity);
+			}
 		}
 
 		ImGui::EndDragDropTarget();
@@ -193,5 +196,22 @@ void HierarchyWidget::DrawFamily(Scene& inScene, Entity inEntity)
 		}
 	}
 }
+
+
+void HierarchyWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) 
+{
+	if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat && !SDL_GetRelativeMouseMode())
+	{
+		switch (inEvent.key.keysym.sym)
+		{
+			case SDLK_DELETE:
+			{
+				GetScene().Destroy(GetActiveEntity());
+				SetActiveEntity(Entity::Null);
+			} break;
+		}
+	}
+}
+
 
 } // raekor

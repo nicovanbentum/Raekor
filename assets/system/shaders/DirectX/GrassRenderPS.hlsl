@@ -17,7 +17,8 @@ RenderTargets main(VS_OUTPUT input)
     float4 albedo = float4(0.0, lerp(0, 1, input.height), 0.0, 1.0);
     
     uint4 packed = uint4(0, 0, 0, 0);
-    PackAlbedo(albedo, packed);
+    PackAlbedo(albedo.rgb, packed);
+    PackAlpha(albedo.a, packed);
     PackNormal(input.mNormal, packed);
     PackMetallicRoughness(0, 1.0, packed);
     

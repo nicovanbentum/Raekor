@@ -36,8 +36,14 @@ bool ShaderNodePin::sIsCompatible(EKind inFrom, EKind inTo)
 
 void ShaderGraphBuilder::DestroyShaderNode(int inIndex)
 {
+	const int node_count = m_ShaderNodes.size();
+	const int back_index = m_ShaderNodes.size() - 1;
+
 	m_ShaderNodes[inIndex] = m_ShaderNodes.back();
 	m_ShaderNodes.pop_back();
+
+	if (node_count > 1)
+		ImNodes::SetNodeScreenSpacePos(inIndex, ImNodes::GetNodeScreenSpacePos(back_index));
 }
 
 
@@ -103,22 +109,11 @@ void ShaderGraphBuilder::BeginNode(StringView inTitle)
 
 void ShaderGraphBuilder::BeginNode(StringView inTitle, ImU32 inColor)
 {
-	m_InputPinIndex = -1;
-	m_OutputPinIndex = -1;
-
 	ImNodes::PushColorStyle(ImNodesCol_TitleBar, inColor);
 	ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered, inColor);
 	ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected, inColor);
 
-	ImNodes::BeginNode(++m_NodeIndex);
-	ImNodes::BeginNodeTitleBar();
-	
-	if (m_ShowNodeIndices)
-		ImGui::Text("%i - %s", m_NodeIndex, inTitle.data());
-	else
-		ImGui::Text(inTitle.data());
-
-	ImNodes::EndNodeTitleBar();
+	BeginNode(inTitle);
 
 	ImNodes::PopColorStyle();
 	ImNodes::PopColorStyle();
@@ -171,7 +166,9 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 	local_builder.m_Functions.clear();
 
 	Array<int> pin_indegree;
+	Array<int> pin_outdegree;
 	pin_indegree.resize(local_builder.GetShaderNodes().Length());
+	pin_outdegree.resize(local_builder.GetShaderNodes().Length());
 
 	for (const auto& [index, shader_node] : gEnumerate(local_builder.GetShaderNodes()))
 	{
@@ -180,11 +177,17 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 			if (local_builder.HasOutgoingPins(output_pin.GetIndex()))
 				pin_indegree[index] += local_builder.GetOutgoingPins(output_pin.GetIndex()).Length();
 		}
+
+		for (const ShaderNodePin& input_pin : shader_node->GetInputPins())
+		{
+			if (local_builder.HasIncomingPin(input_pin.GetIndex()))
+				pin_outdegree[index] += 1;
+		}
 	}
 
 	for (int i = 0; i < pin_indegree.size(); i++)
 	{
-		std::cout << "Node " << i << " has " << pin_indegree[i] << " out links\n";
+		std::cout << "Node " << i << " has " << pin_outdegree[i] << "incoming links and " << pin_indegree[i] << " out links\n";
 
 		if (pin_indegree[i] == 0)
 		{
@@ -233,7 +236,19 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 
 		String main_code;
 		for (int node_index : sorted_nodes)
-			main_code += local_builder.GetShaderNode(node_index)->GenerateCode(*this);
+		{
+			ShaderNode* shader_node = local_builder.GetShaderNode(node_index);
+
+			String generated_code = shader_node->GenerateCode(*this);
+
+			if (!generated_code.empty())
+				main_code += std::format("    // Node {} -> {}\n", node_index, shader_node->GetRTTI().GetTypeName());
+			
+			std::istringstream iss(generated_code);
+
+			for (std::string line; std::getline(iss, line); )
+				main_code += std::format("    {}\n", line);
+		}
 
 		String global_code;
 		for (const String& function : GetFunctions())
@@ -247,7 +262,7 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 		auto main_code_end = main_code_start + std::strlen("@Main");
 		ioCode = ioCode.substr(0, main_code_start) + main_code + ioCode.substr(main_code_end);
 
-		std::cout << "Generated Pixel Shader Code:\n";
+		std::cout << "Generated Shader Code:\n";
 		std::cout << global_code << '\n';
 		std::cout << main_code << '\n';
 
@@ -255,6 +270,54 @@ bool ShaderGraphBuilder::GenerateCodeFromTemplate(String& ioCode)
 	}
 
 	return false;
+}
+
+
+void ShaderGraphBuilder::StoreSnapshot()
+{
+	m_Undo.push_back(*this);
+	m_Redo.clear();
+}
+
+
+void ShaderGraphBuilder::ResetSnapshots()
+{
+	m_SnapshotIndex = -1;
+}
+
+
+ShaderGraphBuilder ShaderGraphBuilder::Undo()
+{
+	if (m_Undo.empty())
+		return *this;
+
+	if (m_Redo.empty())
+		m_Redo.push_back(*this);
+	else
+		m_Redo.push_back(m_Undo.back());
+	
+	ShaderGraphBuilder back = m_Undo.back();
+	
+	if (m_Undo.size() > 0)
+		m_Undo.pop_back();
+
+	return back;
+}
+
+
+ShaderGraphBuilder ShaderGraphBuilder::Redo()
+{
+	if (m_Redo.empty())
+		return *this;
+	
+	m_Undo.push_back(m_Redo.back());
+
+	ShaderGraphBuilder back = m_Redo.back();
+
+	if (!m_Redo.empty())
+		m_Redo.pop_back();
+
+	return back;
 }
 
 

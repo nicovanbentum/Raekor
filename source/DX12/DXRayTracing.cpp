@@ -41,9 +41,9 @@ void ClearTextureUAV(Device& inDevice, TextureID inTexture, Vec4 inValue, Comman
 
 const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData)
 {
-    constexpr auto cTileSize = RT_SHADOWS_GROUP_DIM;
-    constexpr auto cPackedRaysWidth = RT_SHADOWS_PACKED_DIM_X;
-    constexpr auto cPackedRaysHeight = RT_SHADOWS_PACKED_DIM_Y;
+    static constexpr int cTileSize = RT_SHADOWS_GROUP_DIM;
+    static constexpr int cPackedRaysWidth = RT_SHADOWS_PACKED_DIM_X;
+    static constexpr int cPackedRaysHeight = RT_SHADOWS_PACKED_DIM_Y;
 
     auto TraceShadowRaysPass = [](RenderGraph& inRenderGraph, Device& inDevice, const RayTracedScene& inScene, const GBufferData& inGBufferData)
     {
@@ -69,8 +69,8 @@ const RenderGraphResourceID AddRayTracedShadowsPass(RenderGraph& inRenderGraph, 
             if (inScene->Count<Mesh>() == 0)
                 return;
 
-            auto& viewport = inRenderGraph.GetViewport();
-            auto& texture  = inDevice.GetTexture(inResources.GetTexture(inData.mOutputTexture));
+            const Viewport& viewport = inRenderGraph.GetViewport();
+            const Texture& texture  = inDevice.GetTexture(inResources.GetTexture(inData.mOutputTexture));
 
             inCmdList.PushComputeConstants(ShadowMaskRootConstants
             {
@@ -640,7 +640,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
             .stride = sizeof(uint32_t) * 3,
             .usage  = Buffer::Usage::INDEX_BUFFER,
             .mappable = true
-        }).ToIndex();
+        }).GetIndex();
 
         inData.mProbeMesh.vertexBuffer = inDevice.CreateBuffer(Buffer::Desc
         {
@@ -648,7 +648,7 @@ const ProbeDebugData& AddProbeDebugPass(RenderGraph& inRenderGraph, Device& inDe
             .stride = sizeof(Vertex),
             .usage  = Buffer::Usage::VERTEX_BUFFER,
             .mappable = true
-        }).ToIndex();
+        }).GetIndex();
 
         {
             auto& index_buffer = inDevice.GetBuffer(BufferID(inData.mProbeMesh.indexBuffer));

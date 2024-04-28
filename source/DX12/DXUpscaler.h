@@ -61,7 +61,7 @@ public:
 
 private:
     FfxFsr2Context          m_Fsr2Context;
-    std::vector<uint8_t>    m_FsrScratchMemory;
+    Array<uint8_t>          m_FsrScratchMemory;
     NVSDK_NGX_Handle*       m_DLSSHandle = nullptr;
     NVSDK_NGX_Parameter*    m_DLSSParams = nullptr;
     xess_context_handle_t   m_XeSSContext = nullptr;

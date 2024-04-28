@@ -82,7 +82,6 @@ bool GltfImporter::LoadFromFile(const std::string& inFile, Assets* inAssets)
 		ConvertMaterial(entity, gltf_material);
 
 		m_Materials.push_back(entity);
-		m_MaterialRefs.push_back(0);
 	}
 
 	/**/
@@ -255,7 +254,6 @@ bool GltfImporter::ConvertMesh(Entity inEntity, const cgltf_primitive& inMesh)
 		if (inMesh.material == &m_GltfData->materials[i])
 		{
 			mesh.material = m_Materials[i];
-			m_MaterialRefs[i]++;
 		}
 	}
 	bool seen_uv0 = false;

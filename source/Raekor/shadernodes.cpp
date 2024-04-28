@@ -47,6 +47,26 @@ RTTI_DEFINE_TYPE(GetTimeShaderNode)
 	RTTI_DEFINE_TYPE_INHERITANCE(GetTimeShaderNode, SingleOutputShaderNode); 
 }
 
+RTTI_DEFINE_TYPE(GetPositionShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(GetPositionShaderNode, SingleOutputShaderNode);
+}
+
+RTTI_DEFINE_TYPE(GetNormalShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(GetNormalShaderNode, SingleOutputShaderNode);
+}
+
+RTTI_DEFINE_TYPE(GetTexCoordShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(GetTexCoordShaderNode, SingleOutputShaderNode);
+}
+
+RTTI_DEFINE_TYPE(GetTangentShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(GetTangentShaderNode, SingleOutputShaderNode);
+}
+
 RTTI_DEFINE_TYPE(GetDeltaTimeShaderNode) 
 { 
 	RTTI_DEFINE_TYPE_INHERITANCE(GetDeltaTimeShaderNode, SingleOutputShaderNode);
@@ -55,6 +75,11 @@ RTTI_DEFINE_TYPE(GetDeltaTimeShaderNode)
 RTTI_DEFINE_TYPE(GetPixelCoordShaderNode)
 {
 	RTTI_DEFINE_TYPE_INHERITANCE(GetPixelCoordShaderNode, SingleOutputShaderNode);
+}
+
+RTTI_DEFINE_TYPE(GetTexCoordinateShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(GetTexCoordinateShaderNode, SingleOutputShaderNode);
 }
 
 RTTI_DEFINE_TYPE(CompareShaderNode)
@@ -76,6 +101,11 @@ RTTI_DEFINE_TYPE(ProcedureShaderNode)
 	RTTI_DEFINE_MEMBER(ProcedureShaderNode, SERIALIZE_ALL, "Output Names", m_OutputNames);
 	RTTI_DEFINE_MEMBER(ProcedureShaderNode, SERIALIZE_ALL, "Input Pins", m_InputPins);
 	RTTI_DEFINE_MEMBER(ProcedureShaderNode, SERIALIZE_ALL, "Output Pins", m_OutputPins);
+}
+
+RTTI_DEFINE_TYPE(GradientNoiseShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(GradientNoiseShaderNode, ProcedureShaderNode);
 }
 
 RTTI_DEFINE_TYPE(VectorOpShaderNode) 
@@ -106,6 +136,14 @@ RTTI_DEFINE_TYPE(VectorFunctionShaderNode)
 	RTTI_DEFINE_MEMBER(VectorFunctionShaderNode, SERIALIZE_ALL, "Output Pin", m_OutputPin);
 }
 
+RTTI_DEFINE_TYPE(VectorSplitShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(VectorSplitShaderNode, ShaderNode);
+
+	RTTI_DEFINE_MEMBER(VectorSplitShaderNode, SERIALIZE_ALL, "Input Pin", m_InputPin);
+	RTTI_DEFINE_MEMBER(VectorSplitShaderNode, SERIALIZE_ALL, "Output Pins", m_OutputPins);
+}
+
 RTTI_DEFINE_TYPE(PixelShaderOutputShaderNode) 
 { 
 	RTTI_DEFINE_TYPE_INHERITANCE(PixelShaderOutputShaderNode, ShaderNode); 
@@ -118,6 +156,16 @@ RTTI_DEFINE_TYPE(PixelShaderOutputShaderNode)
 	RTTI_DEFINE_MEMBER(PixelShaderOutputShaderNode, SERIALIZE_ALL, "Input Pins", m_InputPins);
 }
 
+RTTI_DEFINE_TYPE(VertexShaderOutputShaderNode)
+{
+	RTTI_DEFINE_TYPE_INHERITANCE(VertexShaderOutputShaderNode, ShaderNode);
+
+	RTTI_DEFINE_MEMBER(VertexShaderOutputShaderNode, SERIALIZE_ALL, "Position", m_Position);
+	RTTI_DEFINE_MEMBER(VertexShaderOutputShaderNode, SERIALIZE_ALL, "Texcoord", m_Texcoord);
+	RTTI_DEFINE_MEMBER(VertexShaderOutputShaderNode, SERIALIZE_ALL, "Normal", m_Normal);
+	RTTI_DEFINE_MEMBER(VertexShaderOutputShaderNode, SERIALIZE_ALL, "Tangent", m_Tangent);
+}
+
 void gRegisterShaderNodeTypes()
 {
 	g_RTTIFactory.Register(RTTI_OF(ShaderNode));
@@ -128,14 +176,22 @@ void gRegisterShaderNodeTypes()
 	g_RTTIFactory.Register(RTTI_OF(FloatOpShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(FloatFunctionShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(GetTimeShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(GetPositionShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(GetTexCoordShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(GetNormalShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(GetTangentShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(GetDeltaTimeShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(GetPixelCoordShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(GetTexCoordinateShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(VectorValueShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(VectorFunctionShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(VectorSplitShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(VectorOpShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(ProcedureShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(GradientNoiseShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(CompareShaderNode));
 	g_RTTIFactory.Register(RTTI_OF(PixelShaderOutputShaderNode));
+	g_RTTIFactory.Register(RTTI_OF(VertexShaderOutputShaderNode));
 }
 
 
@@ -191,7 +247,7 @@ void FloatOpShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
 
 String FloatOpShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
-	m_OutputPins[0].SetOutVariableName(std::format("MathOp_Out{}", inBuilder.IncrLineNumber()));
+	m_OutputPins[0].SetOutVariableName(std::format("FloatOp_Out{}", inBuilder.IncrLineNumber()));
 
 	String lhs = std::format("{:.3f}", m_FloatA);
 	String rhs = std::format("{:.3f}", m_FloatB);
@@ -210,7 +266,7 @@ void FloatFunctionShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 {
 	ioBuilder.BeginNode(m_FunctionNames[m_Function], ShaderNode::sScalarColor);
 
-	const float node_width = ImGui::CalcTextSize(m_FunctionNames[m_Function]).x * 4.0f;
+	const float node_width = ImGui::CalcTextSize("Saturate").x * 1.35f;
 
 	ioBuilder.BeginInputPin();
 	ImGui::Text("In");
@@ -292,7 +348,7 @@ String VectorValueShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 {
 	String code = ShaderNode::GenerateCode(inBuilder);
 
-	m_OutputPins[0].SetOutVariableName(std::format("VectorCompose_Out{}", inBuilder.IncrLineNumber()));
+	m_OutputPins[0].SetOutVariableName(std::format("VectorValue_Out{}", inBuilder.IncrLineNumber()));
 
 	code += std::format("float3 {} = float3(", m_OutputPins[0].GetOutVariableName());
 
@@ -401,7 +457,7 @@ void VectorFunctionShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
 {
 	ioBuilder.BeginNode(m_FunctionNames[m_Function], ShaderNode::sVectorColor);
 
-	const float node_width = ImGui::CalcTextSize(m_FunctionNames[m_Function]).x * 4.0f;
+	const float node_width = ImGui::CalcTextSize("Normalize").x * 1.35f;
 
 	ioBuilder.BeginInputPin();
 	ImGui::Text("In");
@@ -447,6 +503,45 @@ String VectorFunctionShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 	code += std::format("{} {} = {}({});\n", prev_out_pin->GetKindTypeName(), m_OutputPin.GetOutVariableName(), m_FunctionCode[m_Function], prev_out_pin->GetOutVariableName());
 
 	return code;
+}
+
+
+void VectorSplitShaderNode::DrawImNode(ShaderGraphBuilder& ioBuilder)
+{
+	ioBuilder.BeginNode("Split", ShaderNode::sVectorColor);
+
+	const float node_width = ImGui::CalcTextSize("Split").x * 1.35f;
+
+	for (int i = 0; i < 3; i++)
+	{
+		if (i == 1)
+		{
+			ioBuilder.BeginInputPin();
+			ImGui::Text("In");
+			ioBuilder.EndInputPin();
+
+			ImGui::SameLine();
+		}
+
+		ioBuilder.BeginOutputPin();
+		ImGui::Text(m_VariableNames[i]);
+		ioBuilder.EndOutputPin();
+	}
+
+	ioBuilder.EndNode();
+}
+
+
+String VectorSplitShaderNode::GenerateCode(ShaderGraphBuilder& ioBuilder)
+{
+	if (const ShaderNodePin* incoming_pin = ioBuilder.GetIncomingPin(m_InputPin))
+	{
+		m_OutputPins[0].SetOutVariableName(std::format("{}.x", incoming_pin->GetOutVariableName()));
+		m_OutputPins[1].SetOutVariableName(std::format("{}.y", incoming_pin->GetOutVariableName()));
+		m_OutputPins[2].SetOutVariableName(std::format("{}.z", incoming_pin->GetOutVariableName()));
+	}
+
+	return ""; // does not emit any new code directly
 }
 
 void SingleOutputShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
@@ -502,6 +597,45 @@ String PixelShaderOutputShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 			{
 				code += std::format("Pack{}({}, packed);\n", m_InputNames[index], incoming_pin->GetOutVariableName());
 			}
+		}
+		else
+		{
+			// TODO
+		}
+	}
+
+	return code;
+}
+
+
+void VertexShaderOutputShaderNode::DrawImNode(ShaderGraphBuilder& inBuilder)
+{
+	inBuilder.BeginNode("Vertex Shader Output", ShaderNode::sVertexShaderColor);
+
+	const float node_width = ImGui::CalcTextSize("0.0000,  0.0000,  0.0000,  0.0000").x;
+	ImGui::PushItemWidth(node_width);
+
+	for (const auto& [index, name] : gEnumerate(m_InputNames))
+	{
+		inBuilder.BeginInputPin();
+		ImGui::Text(name);
+		inBuilder.EndInputPin();
+	}
+
+	ImGui::PopItemWidth();
+	inBuilder.EndNode();
+}
+
+
+String VertexShaderOutputShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
+{
+	String code = ShaderNode::GenerateCode(inBuilder);
+
+	for (const auto& [index, input_pin] : gEnumerate(m_InputPins))
+	{
+		if (const ShaderNodePin* incoming_pin = inBuilder.GetIncomingPin(input_pin))
+		{
+			code += std::format("vertex.{} = {};\n", m_MemberNames[index], incoming_pin->GetOutVariableName());
 		}
 		else
 		{
@@ -688,6 +822,16 @@ String ProcedureShaderNode::GenerateCode(ShaderGraphBuilder& inBuilder)
 	function_call_args = function_call_args.substr(0, std::max(function_call_args.size() - 2, 0ull));
 	
 	return code += std::format("Procedure{}({});\n", function_line_nr, function_call_args);
+}
+
+
+GradientNoiseShaderNode::GradientNoiseShaderNode()
+{
+	m_Title = "Gradient Noise";
+	AddInputVariable("inUV", ShaderNodePin::VECTOR);
+	AddOutputVariable("outNoise", ShaderNodePin::FLOAT);
+	m_Procedure = std::format("{} = GradientNoise({}.xy);", m_OutputNames[0], m_InputNames[0]);
+	m_ShowInputBox = false;
 }
 
 

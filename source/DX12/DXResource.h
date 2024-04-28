@@ -9,17 +9,19 @@ class Device;
 class ResourceID
 {
 public:
-    static inline uint32_t INVALID = 0xFFFFF;
+    static inline uint32_t cInvalidIndex = 0xFFFFF;
 
-    ResourceID() : m_Index(INVALID) {}
-    explicit ResourceID(uint32_t inValue) : m_Index(inValue) {}
-    explicit operator uint32_t() const { return m_Value; }
+    ResourceID() : m_Index(cInvalidIndex), m_Generation(0) {}
+    explicit ResourceID(uint32_t inValue) : m_Value(inValue) {}
 
-    bool operator==(const ResourceID& inOther) const { return ToIndex() == inOther.ToIndex(); }
-    bool operator!=(const ResourceID& inOther) const { return ToIndex() != inOther.ToIndex(); }
+    bool operator==(const ResourceID& inOther) const { return m_Index == inOther.m_Index; }
+    bool operator!=(const ResourceID& inOther) const { return m_Index != inOther.m_Index; }
 
-    inline uint32_t ToIndex() const { return m_Index; }
-    [[nodiscard]] bool IsValid() const { return m_Index != INVALID; }
+    inline uint32_t GetIndex() const { return m_Index; }
+    inline uint32_t GetValue() const { return m_Value; }
+    inline uint32_t GetGeneration() const { return m_Generation; }
+
+    [[nodiscard]] bool IsValid() const { return m_Index != cInvalidIndex; }
 
 protected:
     union
@@ -50,61 +52,62 @@ class ResourcePool
 {
 public:
     using TypedID = TypedResourceID<T>;
-    virtual ~ResourcePool() = default;
 
-    void Reserve(size_t inSizeInBytes)
-    {
-        m_Storage.reserve(inSizeInBytes);
+    void Reserve(size_t inSize) 
+    { 
+        m_Storage.reserve(inSize);
+        m_Generations.reserve(inSize);
+        m_FreeIndices.reserve(inSize);
     }
 
-    [[nodiscard]] virtual TypedID Add(const T& inT)
+    [[nodiscard]] TypedID Add(const T& inT)
     {
-        size_t t_index;
+        TypedID id;
 
         if (m_FreeIndices.empty())
         {
             m_Storage.emplace_back(inT);
-            t_index = m_Storage.size() - 1;
+            m_Generations.emplace_back(0);
+
+            id.m_Index = m_Storage.size() - 1;
+            id.m_Generation = 0;
         }
         else
         {
-            t_index = m_FreeIndices.back();
-            m_Storage[t_index] = inT;
+            id.m_Index = m_FreeIndices.back();
+            id.m_Generation = m_Generations[id.m_Index];
+
+            m_Storage[id.m_Index] = inT;
             m_FreeIndices.pop_back();
         }
 
-        return TypedID(t_index);
+        return id;
     }
 
-    bool Remove(TypedID inID)
+    void Remove(TypedID inID)
     {
-        if (inID.ToIndex() > m_Storage.size() - 1)
-            return false;
+        assert(inID.IsValid());
+        assert(inID.m_Index < m_Storage.size());
 
-        for (auto free_index : m_FreeIndices)
-            if (free_index == inID.ToIndex())
-                return false;
-
-        m_FreeIndices.push_back(inID.ToIndex());
-        return true;
+        m_Generations[inID.GetIndex()]++;
+        m_FreeIndices.push_back(inID.GetIndex());
     }
 
-    T& Get(TypedID inRTID)
+    T& Get(TypedID inID)
     {
-        assert(!m_Storage.empty() && inRTID.ToIndex() < m_Storage.size());
-        return m_Storage[inRTID.ToIndex()];
+        assert(!m_Storage.empty() && inID.GetIndex() < m_Storage.size());
+        assert(inID.m_Generation == m_Generations[inID.GetIndex()]);
+        return m_Storage[inID.GetIndex()];
     }
 
-    const T& Get(TypedID inRTID) const
+    const T& Get(TypedID inID) const
     {
-        assert(!m_Storage.empty() && inRTID.ToIndex() < m_Storage.size());
-        return m_Storage[inRTID.ToIndex()];
+        assert(!m_Storage.empty() && inID.GetIndex() < m_Storage.size());
+        assert(inID.m_Generation == m_Generations[inID.GetIndex()]);
+        return m_Storage[inID.GetIndex()];
     }
 
-    size_t GetSize() const 
-    { 
-        return m_Storage.size(); 
-    }
+    inline size_t GetSize() const { return m_Storage.size(); }
 
     void Clear() 
     {
@@ -114,9 +117,9 @@ public:
     }
 
 protected:
-    std::vector<uint16_t> m_Generations;
-    std::vector<uint32_t> m_FreeIndices;
-    std::vector<T> m_Storage;
+    Array<uint16_t> m_Generations;
+    Array<uint32_t> m_FreeIndices;
+    Array<T> m_Storage;
 };
 
 
@@ -218,11 +221,15 @@ public:
     const Desc& GetDesc() const { return m_Desc; }
     DescriptorID GetView() const { return m_Descriptor; }
 
+    Usage GetUsage() const { return m_Desc.usage; }
     uint32_t GetWidth() const { return m_Desc.width; }
     uint32_t GetHeight() const { return m_Desc.height; }
     DXGI_FORMAT GetFormat() const { return m_Desc.format; }
-
-    uint32_t GetHeapIndex() const { return m_Descriptor.ToIndex(); }
+    
+    bool HasDescriptor() const { return m_Descriptor.IsValid(); }
+    DescriptorID GetDescriptor() const { return m_Descriptor; }
+    
+    uint32_t GetHeapIndex() const { return m_Descriptor.GetIndex(); }
 
     uint32_t GetBaseSubresource() const { return m_Desc.baseMip; }
     uint32_t GetSubresourceCount() const { return m_Desc.mipLevels * m_Desc.depthOrArrayLayers; }
@@ -322,11 +329,14 @@ public:
     Buffer(const Desc& inDesc) : m_Desc(inDesc) {}
     ~Buffer() { if (m_MappedPtr) m_Resource->Unmap(0, nullptr); }
 
+    Usage GetUsage() const { return m_Desc.usage; }
+    uint32_t GetSize() const { return m_Desc.size; }
     const Desc& GetDesc() const { return m_Desc; }
-    const uint32_t GetSize() const { return m_Desc.size; }
 
+    bool HasDescriptor() const { return m_Descriptor.IsValid(); }
     DescriptorID GetDescriptor() const { return m_Descriptor; }
-    uint32_t GetHeapIndex() const { return m_Descriptor.ToIndex(); }
+
+    uint32_t GetHeapIndex() const { return m_Descriptor.GetIndex(); }
 
     uint32_t GetBaseSubresource() const { return 0; }
     uint32_t GetSubresourceCount() const { return 1; }
@@ -391,12 +401,12 @@ public:
 
     inline D3D12_CPU_DESCRIPTOR_HANDLE  GetCPUDescriptorHandle(TypedID inResourceID) const
     {
-        return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_HeapPtr, inResourceID.ToIndex(), m_HeapIncrement);
+        return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_HeapPtr, inResourceID.GetIndex(), m_HeapIncrement);
     }
 
     inline D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(TypedID inResourceID) const
     {
-        return CD3DX12_GPU_DESCRIPTOR_HANDLE(m_Heap->GetGPUDescriptorHandleForHeapStart(), inResourceID.ToIndex(), m_HeapIncrement);
+        return CD3DX12_GPU_DESCRIPTOR_HANDLE(m_Heap->GetGPUDescriptorHandleForHeapStart(), inResourceID.GetIndex(), m_HeapIncrement);
     }
 
 private:
@@ -419,10 +429,19 @@ enum ECommandSignature
 
 } // namespace::Raekor
 
+template<>
+struct std::hash<Raekor::DX12::ResourceID>
+{
+    std::size_t operator()(const Raekor::DX12::ResourceID& inID) const noexcept
+    {
+        return size_t(inID.GetValue());
+    }
+};
+
 template<typename T> struct std::hash<Raekor::DX12::TypedResourceID<T>>
 {
     std::size_t operator()(const Raekor::DX12::TypedResourceID<T>& inID) const noexcept
     {
-        return size_t(inID.ToIndex());
+        return size_t(inID.GetValue());
     }
 };

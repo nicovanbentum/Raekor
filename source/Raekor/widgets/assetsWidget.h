@@ -1,19 +1,27 @@
 #pragma once
 
 #include "widget.h"
+#include "cvars.h"
 
 namespace Raekor {
 
-class AssetsWidget : public IWidget
+class Material;
+class Animation;
+
+class ComponentsWidget : public IWidget
 {
-	RTTI_DECLARE_VIRTUAL_TYPE(AssetsWidget);
+	RTTI_DECLARE_VIRTUAL_TYPE(ComponentsWidget);
+
+	int& m_ComponentIndex = g_CVars.Create("ui_component_index", 0);
+
 public:
-	AssetsWidget(Application* inApp);
+	ComponentsWidget(Application* inApp);
+	
 	virtual void Draw(Widgets* inWidgets, float dt) override;
 	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& ev) override {}
 
-	void DrawMaterials();
-	void DrawAnimations();
+	bool DrawClickableComponent(Entity inEntity, const Material& inMaterial);
+	bool DrawClickableComponent(Entity inEntity, const Animation& inAnimation);
 };
 
 }

@@ -89,7 +89,7 @@ public:
     [[nodiscard]] D3D12_COMPUTE_PIPELINE_STATE_DESC  CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inComputeShader);
     [[nodiscard]] D3D12_GRAPHICS_PIPELINE_STATE_DESC CreatePipelineStateDesc(IRenderPass* inRenderPass, const CD3DX12_SHADER_BYTECODE& inVertexShader, const CD3DX12_SHADER_BYTECODE& inPixelShader);
 
-    [[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inID) const { return inID.ToIndex(); }
+    [[nodiscard]] uint32_t GetBindlessHeapIndex(DescriptorID inID) const { return inID.GetIndex(); }
     [[nodiscard]] uint32_t GetBindlessHeapIndex(BufferID inID) const { return GetBindlessHeapIndex(GetBuffer(inID).GetDescriptor()); }
     [[nodiscard]] uint32_t GetBindlessHeapIndex(TextureID inID) const { return GetBindlessHeapIndex(GetTexture(inID).GetView()); }
 
@@ -102,13 +102,13 @@ public:
 private:
     void CreateDescriptor(BufferID inBufferID, const Buffer::Desc& inDesc);
     void CreateDescriptor(TextureID inTextureID, const Texture::Desc& inDesc);
-    void ReleaseDescriptor(BufferID inBufferID);
-    void ReleaseDescriptor(TextureID inTextureID);
+    void ReleaseDescriptor(Buffer::Usage inUsage, DescriptorID inDescriptorID);
+    void ReleaseDescriptor(Texture::Usage inUsage, DescriptorID inDescriptorID);
 
     /* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
-    void ReleaseDescriptorImmediate(BufferID inBufferID);
+    void ReleaseDescriptorImmediate(Buffer::Usage inUsage, DescriptorID inDescriptorID);
     /* USE WITH CAUTION. ONLY USE WHEN YOU KNOW THE GPU IS NO LONGER USING THE RESOURCE!! */
-    void ReleaseDescriptorImmediate(TextureID inTextureID);
+    void ReleaseDescriptorImmediate(Texture::Usage inUsage, DescriptorID inDescriptorID);
 
 private:
     BOOL mIsDLSSSupported = false;
@@ -157,7 +157,7 @@ public:
 
 private:
     Device& m_Device;
-    std::vector<StagingBuffer> m_Buffers;
+    Array<StagingBuffer> m_Buffers;
 };
 
 

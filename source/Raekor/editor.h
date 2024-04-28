@@ -25,7 +25,7 @@ public:
 	Assets* GetAssets() final { return &m_Assets; }
 	Physics* GetPhysics() final { return &m_Physics; }
 
-	void LogMessage(const std::string& inMessage) final;
+	void LogMessage(const String& inMessage) final;
 
 	void SetActiveEntity(Entity inEntity) final { m_ActiveEntity.store(inEntity); }
 	Entity GetActiveEntity() final { return m_ActiveEntity.load(); }
@@ -44,10 +44,10 @@ protected:
 	void* m_CompilerProcess = nullptr;
 	ImGuiID m_DockSpaceID;
 
-	std::atomic<Entity> m_ActiveEntity = Entity::Null;
-	std::vector<std::atomic<Entity>> m_MultiSelectEntities;
+	Array<String> m_Messages;
+	Atomic<Entity> m_ActiveEntity = Entity::Null;
+	Array<Atomic<Entity>> m_MultiSelectEntities;
 
-	std::vector<std::string> m_Messages;
 };
 
 

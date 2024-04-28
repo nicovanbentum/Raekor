@@ -280,7 +280,7 @@ void ImGui::SetNextItemRightAlign(const char* label)
 }
 
 
-bool ImGui::DragDropTargetButton(const char* label, const char* text, const ImVec4& textcolor)
+bool ImGui::DragDropTargetButton(const char* label, const char* text, bool hasvalue)
 {
 	ImGuiWindow* window = GetCurrentWindow();
 	if (window->SkipItems)
@@ -303,10 +303,17 @@ bool ImGui::DragDropTargetButton(const char* label, const char* text, const ImVe
 
 	// Draw frame
 	const ImU32 frame_col = GetColorU32(g.ActiveId == id ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
-	RenderNavHighlight(frame_bb, id);
+	RenderNavHighlight(frame_bb, id, ImGuiNavHighlightFlags_AlwaysDraw);
+
+	if (hasvalue)
+		ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyleColorVec4(ImGuiCol_CheckMark));
+
 	RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, true, style.FrameRounding);
 
-	ImGui::PushStyleColor(ImGuiCol_Text, textcolor);
+	if (hasvalue)
+		ImGui::PopStyleColor();
+
+	ImGui::PushStyleColor(ImGuiCol_Text, hasvalue ? ImGui::GetStyleColorVec4(ImGuiCol_Text) : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 
 	RenderTextClipped(frame_bb.Min, frame_bb.Max, text, text + strlen(text), NULL, ImVec2(0.5f, 0.5f));
 

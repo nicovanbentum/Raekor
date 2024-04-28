@@ -78,6 +78,7 @@ class FloatFunctionShaderNode : public ShaderNode
 public:
 	enum EFunction
 	{
+		FLOAT_FUNCTION_ABS,
 		FLOAT_FUNCTION_SIN,
 		FLOAT_FUNCTION_COS,
 		FLOAT_FUNCTION_TAN,
@@ -88,6 +89,7 @@ public:
 
 	constexpr static std::array m_FunctionNames =
 	{
+		"Abs",
 		"Sin",
 		"Cos",
 		"Tan",
@@ -97,6 +99,7 @@ public:
 
 	constexpr static std::array m_FunctionCode =
 	{
+		"abs",
 		"sin",
 		"cos",
 		"tan",
@@ -189,18 +192,24 @@ class VectorFunctionShaderNode : public ShaderNode
 public:
 	enum EFunction
 	{
+		VECTOR_FUNCTION_LENGTH,
 		VECTOR_FUNCTION_SATURATE,
+		VECTOR_FUNCTION_NORMALIZE,
 		VECTOR_FUNCTION_COUNT
 	};
 
 	constexpr static std::array m_FunctionNames =
 	{
-		"Saturate"
+		"Length",
+		"Saturate",
+		"Normalize"
 	};
 
 	constexpr static std::array m_FunctionCode =
 	{
-		"saturate"
+		"length",
+		"saturate",
+		"normalize"
 	};
 
 	void DrawImNode(ShaderGraphBuilder& ioBuilder) override;
@@ -215,6 +224,30 @@ private:
 	ShaderNodePin m_OutputPin = ShaderNodePin::VECTOR;
 };
 
+
+class VectorSplitShaderNode : public ShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(VectorSplitShaderNode);
+
+public:
+	constexpr static std::array m_VariableNames =
+	{
+		"       X", 
+		" Y", 
+		"       Z"
+	};
+
+	void DrawImNode(ShaderGraphBuilder& ioBuilder) override;
+	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
+
+	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(&m_InputPin, 1); }
+	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(m_OutputPins); }
+
+private:
+
+	ShaderNodePin m_InputPin = ShaderNodePin::VECTOR;
+	StaticArray<ShaderNodePin, 3> m_OutputPins = { ShaderNodePin::FLOAT, ShaderNodePin::FLOAT, ShaderNodePin::FLOAT };
+};
 
 class SingleOutputShaderNode : public ShaderNode
 {
@@ -245,17 +278,29 @@ public:
 	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
 	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
 
+	void AddInputVariable(const String& inName, ShaderNodePin::EKind inKind) { m_InputNames.push_back(inName); m_InputPins.push_back(inKind); }
+	void AddOutputVariable(const String& inName, ShaderNodePin::EKind inKind) { m_OutputNames.push_back(inName); m_OutputPins.push_back(inKind); }
+
 	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(m_InputPins); }
 	MutSlice<ShaderNodePin> GetOutputPins() override { return MutSlice(m_OutputPins); }
 
-private:
+protected:
 	String m_Title = "Procedure";
 	bool m_ShowInputBox = true;
 	String m_Procedure = "";
-	std::vector<String> m_InputNames;
-	std::vector<String> m_OutputNames;
-	std::vector<ShaderNodePin> m_InputPins;
-	std::vector<ShaderNodePin> m_OutputPins;
+	Array<String> m_InputNames;
+	Array<String> m_OutputNames;
+	Array<ShaderNodePin> m_InputPins;
+	Array<ShaderNodePin> m_OutputPins;
+};
+
+
+class GradientNoiseShaderNode : public ProcedureShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(GradientNoiseShaderNode);
+
+public:
+	GradientNoiseShaderNode();
 };
 
 
@@ -265,6 +310,42 @@ class GetTimeShaderNode : public SingleOutputShaderNode
 
 public:
 	GetTimeShaderNode() : SingleOutputShaderNode("Get Time", "fc.mTime", ShaderNodePin::FLOAT) {}
+};
+
+
+class GetPositionShaderNode : public SingleOutputShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(GetPositionShaderNode);
+
+public:
+	GetPositionShaderNode() : SingleOutputShaderNode("Get Position", "vertex.mPos", ShaderNodePin::VECTOR) {}
+};
+
+
+class GetTexCoordShaderNode : public SingleOutputShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(GetTexCoordShaderNode);
+
+public:
+	GetTexCoordShaderNode() : SingleOutputShaderNode("Get TexCoord", "float3(vertex.mTexCoord, 0.0)", ShaderNodePin::VECTOR) {}
+};
+
+
+class GetNormalShaderNode : public SingleOutputShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(GetNormalShaderNode);
+
+public:
+	GetNormalShaderNode() : SingleOutputShaderNode("Get Normal", "vertex.mNormal", ShaderNodePin::VECTOR) {}
+};
+
+
+class GetTangentShaderNode : public SingleOutputShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(GetTangentShaderNode);
+
+public:
+	GetTangentShaderNode() : SingleOutputShaderNode("Get Tangent", "vertex.mTangent", ShaderNodePin::VECTOR) {}
 };
 
 
@@ -282,7 +363,16 @@ class GetPixelCoordShaderNode : public SingleOutputShaderNode
 	RTTI_DECLARE_VIRTUAL_TYPE(GetPixelCoordShaderNode);
 
 public:
-	GetPixelCoordShaderNode() : SingleOutputShaderNode("Get Pixel Coord", "float3(input.sv_position.xy, 0)", ShaderNodePin::VECTOR) {}
+	GetPixelCoordShaderNode() : SingleOutputShaderNode("Get Pixel Coord", "input.sv_position.xyz", ShaderNodePin::VECTOR) {}
+};
+
+
+class GetTexCoordinateShaderNode : public SingleOutputShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(GetPixelCoordShaderNode);
+
+public:
+	GetTexCoordinateShaderNode() : SingleOutputShaderNode("Get Texture Coord", "float3(input.texcoord.xy, 0.0)", ShaderNodePin::VECTOR) {}
 };
 
 
@@ -339,6 +429,7 @@ public:
 	static constexpr std::array m_InputNames =
 	{
 		"Albedo",
+		"Alpha",
 		"Normal",
 		"Emissive",
 		"Metallic",
@@ -352,9 +443,10 @@ public:
 	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(m_InputPins); }
 
 private:
-	StaticArray<ShaderNodePin, 6> m_InputPins
+	StaticArray<ShaderNodePin, 7> m_InputPins
 	{
 		ShaderNodePin::VECTOR,
+		ShaderNodePin::FLOAT,
 		ShaderNodePin::VECTOR,
 		ShaderNodePin::VECTOR,
 		ShaderNodePin::FLOAT,
@@ -369,6 +461,49 @@ private:
 	float m_Metallic;
 	float m_Roughness;
 	bool m_Discard = false;
+};
+
+
+class VertexShaderOutputShaderNode : public ShaderNode
+{
+	RTTI_DECLARE_VIRTUAL_TYPE(VertexShaderOutputShaderNode);
+
+public:
+	static constexpr std::array m_InputNames =
+	{
+		"Position",
+		"Texcoord",
+		"Normal",
+		"Tangent",
+	};
+
+	static constexpr std::array m_MemberNames =
+	{
+		"mPos",
+		"mTexCoord",
+		"mNormal",
+		"mTangent",
+	};
+
+	void DrawImNode(ShaderGraphBuilder& inBuilder) override;
+	String GenerateCode(ShaderGraphBuilder& inBuilder) override;
+
+	MutSlice<ShaderNodePin> GetInputPins() override { return MutSlice(m_InputPins); }
+
+private:
+	StaticArray<ShaderNodePin, 7> m_InputPins
+	{
+		ShaderNodePin::VECTOR,
+		ShaderNodePin::VECTOR,
+		ShaderNodePin::VECTOR,
+		ShaderNodePin::VECTOR,
+	};
+
+private:
+	Vec3 m_Position;
+	Vec2 m_Texcoord;
+	Vec3 m_Normal;
+	Vec3 m_Tangent;
 };
 
 } // raekor

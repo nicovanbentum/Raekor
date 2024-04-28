@@ -37,6 +37,7 @@ public:
 
 	// Per frame systems
 	void UpdateLights();
+	void UpdateCameras();
 	void UpdateTransforms();
 	void UpdateAnimations(float inDeltaTime);
 	void UpdateNativeScripts(float inDeltaTime);
@@ -62,6 +63,7 @@ public:
 
 	// entity operations
 	Entity Clone(Entity inEntity);
+	void Destroy(Entity inEntity);
 
 	// load materials from disk in parallel, is used for both importing and scene loading.
 	void LoadMaterialTextures(Assets& ioAssets, const Slice<Entity>& inMaterials);

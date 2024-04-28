@@ -19,9 +19,6 @@ public:
 
 	bool LoadFromFile(const std::string& inFile, Assets* inAssets) override;
 
-	Slice<Entity> GetCreatedMaterials() const { return Slice(m_Materials); }
-	Slice<Entity> GetCreatedAnimations() const { return Slice(m_Animations); }
-
 private:
 	void ParseNode(const cgltf_node& gltfNode, Entity parent, glm::mat4 transform);
 
@@ -37,10 +34,9 @@ private:
 private:
 	Path m_Directory;
 	cgltf_data* m_GltfData = nullptr;
-	std::vector<Entity> m_Materials;
-	std::vector<Entity> m_Animations;
-	std::vector<int> m_MaterialRefs;
-	std::vector<Entity> m_CreatedNodeEntities;
+	Array<Entity> m_Materials;
+	Array<Entity> m_Animations;
+	Array<Entity> m_CreatedNodeEntities;
 };
 
 } // raekor

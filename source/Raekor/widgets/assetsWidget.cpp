@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "assetsWidget.h"
 
+#include "iter.h"
 #include "scene.h"
 #include "components.h"
 #include "application.h"
@@ -8,134 +9,135 @@
 
 namespace Raekor {
 
-RTTI_DEFINE_TYPE_NO_FACTORY(AssetsWidget) {}
+RTTI_DEFINE_TYPE_NO_FACTORY(ComponentsWidget) {}
 
-AssetsWidget::AssetsWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_PALETTE "  Components Browser " )) {}
+ComponentsWidget::ComponentsWidget(Application* inApp) : IWidget(inApp, reinterpret_cast<const char*>( ICON_FA_PALETTE "  Components " )) {}
 
-void AssetsWidget::Draw(Widgets* inWidgets, float dt)
+void ComponentsWidget::Draw(Widgets* inWidgets, float dt)
 {
-	ImGui::Begin(m_Title.c_str(), &m_Open);
+	ImGui::Begin(m_Title.c_str(), &m_Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 	m_Visible = ImGui::IsWindowAppearing();
 
 	auto& scene = GetScene();
 
-	if (ImGui::BeginPopupContextWindow())
+	constexpr std::array component_type_names = { "Material", "Animation" };
+
+	ImGui::SetNextItemWidth(ImGui::CalcTextSize(component_type_names[m_ComponentIndex]).x * 2.f);
+
+	if (ImGui::BeginCombo("##ComponentsWidgetComponentType", component_type_names[m_ComponentIndex]))
 	{
-		if (ImGui::MenuItem("Create Material"))
+		for (int i = 0; i < component_type_names.size(); i++)
 		{
-			auto entity = scene.Create();
-			scene.Add<Name>(entity).name = "Material";
-			scene.Add<Material>(entity, Material::Default);
-			m_Editor->SetActiveEntity(entity);
+			if (ImGui::Selectable(component_type_names[i], i == m_ComponentIndex))
+				m_ComponentIndex = i;
 		}
 
-		ImGui::EndPopup();
+		ImGui::EndCombo();
 	}
 
-	auto& style = ImGui::GetStyle();
-
-	if (ImGui::BeginTable("Assets", 24))
+	if (ImGui::BeginTable("Assets", 24, ImGuiTableFlags_ScrollY))
 	{
-		DrawMaterials();
+		int component_index = 0;
 
-		DrawAnimations();
+		gForEachType<Material, Animation>([&](auto c)
+		{
+			using T = decltype( c );
+
+			if (component_index == m_ComponentIndex)
+			{
+				for (const auto& [entity, component, name] : GetScene().Each<T, Name>())
+				{
+					ImGui::TableNextColumn();
+
+					if (m_Editor->GetActiveEntity() == entity)
+						ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
+
+					ImGui::PushID(uint32_t(entity));
+
+					const bool clicked = DrawClickableComponent(entity, component);
+
+					if (m_Editor->GetActiveEntity() == entity)
+						ImGui::PopStyleColor();
+
+					if (clicked)
+						m_Editor->SetActiveEntity(entity);
+
+					if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoDisableHover | ImGuiDragDropFlags_SourceNoHoldToOpenOthers))
+					{
+						ImGui::SetDragDropPayload("drag_drop_entity", &entity, sizeof(Entity));
+						ImGui::EndDragDropSource();
+					}
+
+					ImGui::PopID();
+
+					ImGui::Text(name.name.c_str());
+				}
+
+				if (ImGui::BeginPopupContextWindow())
+				{
+					if (ImGui::MenuItem("Create.."))
+					{
+						Entity entity = scene.Create();
+						scene.Add<Name>(entity).name = "New";
+
+						if constexpr (std::is_same_v<T, Material>)
+						{
+							scene.Add<T>(entity, Material::Default);
+						}
+						else
+							scene.Add<T>(entity);
+
+						m_Editor->SetActiveEntity(entity);
+					}
+
+					ImGui::EndPopup();
+				}
+			}
+
+			component_index++;
+		});
 
 		ImGui::EndTable();
 	}
-
 
 	ImGui::End();
 }
 
 
-void AssetsWidget::DrawMaterials()
+bool ComponentsWidget::DrawClickableComponent(Entity inEntity, const Material& inMaterial)
 {
-	for (const auto& [entity, material, name] : GetScene().Each<Material, Name>())
+	auto clicked = false;
+
+	if (inMaterial.gpuAlbedoMap && !inMaterial.albedoFile.empty())
 	{
-		ImGui::TableNextColumn();
-
-		if (m_Editor->GetActiveEntity() == entity)
-			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
-
-		auto clicked = false;
-		ImGui::PushID(uint32_t(entity));
-
-		if (material.gpuAlbedoMap && !material.albedoFile.empty())
-		{
-			clicked = ImGui::ImageButton("##AssetsWidget::Draw",
-				(void*)( (intptr_t)m_Editor->GetRenderInterface()->GetImGuiTextureID(material.gpuAlbedoMap) ),
-				ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()),
-				ImVec2(0, 0), ImVec2(1, 1),
-				ImVec4(0, 1, 0, 1)
-			);
-		}
-		else
-		{
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(material.albedo.r, material.albedo.g, material.albedo.b, material.albedo.a));
-
-			clicked = ImGui::Button(
-				std::string("##" + name.name).c_str(),
-				ImVec2(64 * ImGui::GetWindowDpiScale() + ImGui::GetStyle().FramePadding.x * 2, 64 * ImGui::GetWindowDpiScale() + ImGui::GetStyle().FramePadding.y * 2)
-			);
-			ImGui::PopStyleColor();
-		}
-
-		if (m_Editor->GetActiveEntity() == entity)
-			ImGui::PopStyleColor();
-
-		if (clicked)
-			m_Editor->SetActiveEntity(entity);
-
-		//if (ImGui::Button(ICON_FA_ARCHIVE, ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()))) {
-		//    editor->active = entity;
-		//}
-
-		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoDisableHover | ImGuiDragDropFlags_SourceNoHoldToOpenOthers))
-		{
-			ImGui::SetDragDropPayload("drag_drop_entity", &entity, sizeof(Entity));
-			ImGui::EndDragDropSource();
-		}
-
-		ImGui::PopID();
-
-		ImGui::Text(name.name.c_str());
+		clicked = ImGui::ImageButton("##ComponentsWidget::Draw",
+			(void*)( (intptr_t)m_Editor->GetRenderInterface()->GetImGuiTextureID(inMaterial.gpuAlbedoMap) ),
+			ImVec2(64 * ImGui::GetWindowDpiScale(), 64 * ImGui::GetWindowDpiScale()),
+			ImVec2(0, 0), ImVec2(1, 1),
+			ImVec4(0, 1, 0, 1)
+		);
 	}
-}
-
-
-void AssetsWidget::DrawAnimations()
-{
-	for (const auto& [entity, animation, name] : GetScene().Each<Animation, Name>())
+	else
 	{
-		ImGui::TableNextColumn();
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(inMaterial.albedo.r, inMaterial.albedo.g, inMaterial.albedo.b, inMaterial.albedo.a));
 
-		if (m_Editor->GetActiveEntity() == entity)
-			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
-
-		ImGui::PushID(uint32_t(entity));
-
-		const bool clicked = ImGui::Button
-		(
-			reinterpret_cast<const char*>( ICON_FA_WALKING "##AssetsWidget::Draw Graph" ), 
+		clicked = ImGui::Button(
+			std::string("##" + GetScene().Get<Name>(inEntity).name).c_str(),
 			ImVec2(64 * ImGui::GetWindowDpiScale() + ImGui::GetStyle().FramePadding.x * 2, 64 * ImGui::GetWindowDpiScale() + ImGui::GetStyle().FramePadding.y * 2)
 		);
-
-		if (m_Editor->GetActiveEntity() == entity)
-			ImGui::PopStyleColor();
-
-		if (clicked)
-			m_Editor->SetActiveEntity(entity);
-
-		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoDisableHover | ImGuiDragDropFlags_SourceNoHoldToOpenOthers))
-		{
-			ImGui::SetDragDropPayload("drag_drop_entity", &entity, sizeof(Entity));
-			ImGui::EndDragDropSource();
-		}
-
-		ImGui::PopID();
-
-		ImGui::Text(name.name.c_str());
+		ImGui::PopStyleColor();
 	}
+
+	return clicked;
+}
+
+bool ComponentsWidget::DrawClickableComponent(Entity inEntity, const Animation& inAnimation)
+{
+	return ImGui::Button
+	(
+		reinterpret_cast<const char*>( ICON_FA_WALKING "##ComponentsWidget::Draw Graph" ), 
+		ImVec2(64 * ImGui::GetWindowDpiScale() + ImGui::GetStyle().FramePadding.x * 2, 64 * ImGui::GetWindowDpiScale() + ImGui::GetStyle().FramePadding.y * 2)
+	);
 }
 
 } // raekor

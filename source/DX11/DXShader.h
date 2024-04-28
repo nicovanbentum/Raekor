@@ -31,7 +31,7 @@ public:
     bool CompileStage(const Stage& inStage);
 
 private:
-    std::vector<Stage> m_Stages;
+    Array<Stage> m_Stages;
     ComPtr<ID3D11VertexShader> m_VertexShader;
     ComPtr<ID3D11PixelShader> m_PixelShader;
     ComPtr<ID3D11ComputeShader> m_ComputeShader;

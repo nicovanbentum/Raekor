@@ -3,6 +3,7 @@
 #include "ecs.h"
 #include "rtti.h"
 #include "rmath.h"
+#include "camera.h"
 #include "defines.h"
 #include "animation.h"
 
@@ -17,7 +18,10 @@ struct Name
 {
 	RTTI_DECLARE_TYPE(Name);
 
-	std::string name;
+	Name() = default;
+	Name(const char* inName) : name(inName) {}
+
+	String name;
 
 	operator const std::string& ( ) { return name; }
 	bool operator==(const std::string& rhs) { return name == rhs; }
@@ -75,10 +79,10 @@ struct Light
 	RTTI_DECLARE_TYPE(Light);
 
 	ELightType type = LIGHT_TYPE_NONE;
-	glm::vec3 direction = { 0.0f, -1.0f, 0.0f }; // used for Directional and Spot light
-	glm::vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f }; // Used for Spot and Point light
-	glm::vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f }; // rgb = color, a = intensity
-	glm::vec4 attributes = { 1.0f, 0.0f, 0.0f, 0.0f }; // radius/range, spot inner cone angle, spot outer cone angle
+	Vec3 direction = { 0.0f, -1.0f, 0.0f }; // used for Directional and Spot light
+	Vec4 position = { 0.0f, 0.0f, 0.0f, 0.0f }; // Used for Spot and Point light
+	Vec4 colour = { 1.0f, 1.0f, 1.0f, 1.0f }; // rgb = color, a = intensity
+	Vec4 attributes = { 1.0f, 0.0f, 0.0f, 0.0f }; // radius/range, spot inner cone angle, spot outer cone angle
 };
 
 
@@ -107,29 +111,29 @@ struct Mesh
 {
 	RTTI_DECLARE_TYPE(Mesh);
 
-	std::vector<glm::vec3> positions; // ptr
-	std::vector<glm::vec2> uvs; // ptr
-	std::vector<glm::vec3> normals; // ptr
-	std::vector<glm::vec3> tangents; // ptr
+	Array<Vec3> positions; // ptr
+	Array<Vec2> uvs; // ptr
+	Array<Vec3> normals; // ptr
+	Array<Vec3> tangents; // ptr
 
-	std::vector<uint32_t> indices; // ptr
+	Array<uint32_t> indices; // ptr
 
-	std::vector<Meshlet> meshlets;
-	std::vector<uint32_t> meshletIndices;
-	std::vector<MeshletTriangle> meshletTriangles;
+	Array<Meshlet> meshlets;
+	Array<uint32_t> meshletIndices;
+	Array<MeshletTriangle> meshletTriangles;
 
 	// GPU resources
 	uint32_t vertexBuffer = 0;
 	uint32_t indexBuffer = 0;
 	uint32_t BottomLevelAS = 0;
 
-	std::array<glm::vec3, 2> aabb;
+	StaticArray<glm::vec3, 2> aabb;
 
 	Entity material = Entity::Null;
 
 	float mLODFade = 0.0f;
 
-	std::vector<float> mInterleavedVertices;
+	Array<float> mInterleavedVertices;
 
 	void CalculateAABB();
 	void CalculateNormals();
@@ -149,9 +153,10 @@ struct Mesh
 	}
 };
 
-struct BoxCollider
+
+struct RigidBody
 {
-	RTTI_DECLARE_TYPE(BoxCollider);
+	RTTI_DECLARE_TYPE(RigidBody);
 
 	JPH::BodyID bodyID;
 	JPH::EMotionType motionType;
@@ -195,11 +200,11 @@ struct Skeleton
 	Entity animation;
 
 	Mat4x4 inverseGlobalTransform;
-	std::vector<Vec4> boneWeights; // ptr
-	std::vector<IVec4> boneIndices; // ptr
-	std::vector<Mat4x4> boneOffsetMatrices; // ptr
-	std::vector<Mat4x4> boneTransformMatrices; // ptr
-	std::vector<Mat4x4> boneWSTransformMatrices; // ptr
+	Array<Vec4> boneWeights; // ptr
+	Array<IVec4> boneIndices; // ptr
+	Array<Mat4x4> boneOffsetMatrices; // ptr
+	Array<Mat4x4> boneTransformMatrices; // ptr
+	Array<Mat4x4> boneWSTransformMatrices; // ptr
 
 	// Skinning GPU buffers
 	uint32_t boneIndexBuffer;
@@ -208,7 +213,8 @@ struct Skeleton
 	uint32_t skinnedVertexBuffer;
 
 	void DebugDraw(const Bone& inBone, const Mat4x4& inTransform);
-	void UpdateFromAnimation(Animation& animation);
+
+	void UpdateFromAnimation(const Animation& animation);
 	void UpdateBoneTransform(const Animation& inAnimation, Bone& inBone, const Mat4x4& inTransform);
 };
 
@@ -261,14 +267,14 @@ struct Material
 	const Texture& GetRoughnessTexture() const { return textures[ROUGHNESS_INDEX]; }
 
 	// texture file paths
-	std::string albedoFile; // ptr
-	std::string normalFile;  // ptr
-	std::string emissiveFile; // ptr
-	std::string metallicFile; // ptr
-	std::string roughnessFile;  // ptr
+	String albedoFile; // ptr
+	String normalFile;  // ptr
+	String emissiveFile; // ptr
+	String metallicFile; // ptr
+	String roughnessFile;  // ptr
 
-	std::string vertexShaderFile; // ptr
-	std::string pixelShaderFile; // ptr
+	String vertexShaderFile; // ptr
+	String pixelShaderFile; // ptr
 
 	uint64_t vertexShader = 0;
 	uint64_t pixelShader = 0;
@@ -298,9 +304,9 @@ struct NativeScript
 {
 	RTTI_DECLARE_TYPE(NativeScript);
 
-	std::string file; // ptr
-	std::string type;
-	std::vector<std::string> types;
+	String file; // ptr
+	String type;
+	Array<String> types;
 	INativeScript* script = nullptr;
 };
 
@@ -333,7 +339,7 @@ static constexpr auto Components = std::make_tuple(
 	ComponentDescription<Material>          {"Material"},
 	ComponentDescription<Light>				{"Light"},
 	ComponentDescription<DirectionalLight>  {"Directional Light"},
-	ComponentDescription<BoxCollider>       {"Box Collider"},
+	ComponentDescription<RigidBody>			{"Rigid Body"},
 	ComponentDescription<Skeleton>          {"Skeleton"},
 	ComponentDescription<NativeScript>      {"Native Script"},
 	ComponentDescription<DDGISceneSettings> {"DDGI Scene Settings"},

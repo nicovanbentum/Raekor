@@ -38,13 +38,13 @@ public:
 
 	int AllocateCPU() { m_CPUSections.emplace_back(); return m_CPUSections.size() - 1; }
 	CPUProfileSection& GetSectionCPU(int inIndex) { return m_CPUSections[inIndex]; }
-	Slice<CPUProfileSection> GetCPUProfileSections() const { return Slice(m_HistoryCPUSections); }
+	const Array<CPUProfileSection>& GetCPUProfileSections() const { return m_HistoryCPUSections; }
 
 private:
 	int m_Depth = 0;
 	bool m_IsEnabled = true;
-	std::vector<CPUProfileSection> m_CPUSections;
-	std::vector<CPUProfileSection> m_HistoryCPUSections;
+	Array<CPUProfileSection> m_CPUSections;
+	Array<CPUProfileSection> m_HistoryCPUSections;
 };
 
 

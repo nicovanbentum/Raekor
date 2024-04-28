@@ -6,6 +6,13 @@
 
 namespace Raekor {
 
+RTTI_DEFINE_TYPE(Camera)
+{
+	RTTI_DEFINE_MEMBER(Camera, SERIALIZE_ALL, "Angle", m_Angle);
+	RTTI_DEFINE_MEMBER(Camera, SERIALIZE_ALL, "Position", m_Position);
+	RTTI_DEFINE_MEMBER(Camera, SERIALIZE_ALL, "Projection", m_Projection);
+}
+
 RTTI_DEFINE_TYPE(CameraSequence::KeyFrame)
 {
     RTTI_DEFINE_MEMBER(CameraSequence::KeyFrame, SERIALIZE_ALL, "Time", mTime);
@@ -27,7 +34,7 @@ Camera::Camera(const Vec3& inPos, const Mat4x4& inProj) :
 }
 
 
-void Camera::OnUpdate(float inDeltaTime)
+void Camera::OnUpdate()
 {
 	m_PrevView = m_View;
 	m_PrevProjection = m_Projection;
@@ -183,7 +190,7 @@ bool EditorCameraController::OnEvent(Camera& inCamera, const SDL_Event& inEvent)
 	{
 		if (SDL_GetRelativeMouseMode() && g_Input->IsButtonPressed(3))
 		{
-			auto formula = glm::radians(0.022f * inCamera.mSensitivity * 2.0f);
+			const float formula = glm::radians(0.022f * inCamera.mSensitivity * 2.0f);
 			inCamera.Look(glm::vec2(inEvent.motion.xrel * formula, inEvent.motion.yrel * formula));
 			camera_changed = true;
 		}
@@ -240,11 +247,12 @@ static float GetHaltonSequence(uint32_t i, uint32_t b)
 
 void Viewport::OnUpdate(float dt)
 {
-	m_Camera.OnUpdate(dt);
+	m_Camera.OnUpdate();
 
 	m_JitterIndex = m_JitterIndex + 1;
 
-	const auto halton = Vec2(
+	const Vec2 halton = Vec2
+	(
 		2.0f * GetHaltonSequence(m_JitterIndex + 1, 2) - 1.0f,
 		2.0f * GetHaltonSequence(m_JitterIndex + 1, 3) - 1.0f
 	);
@@ -255,10 +263,10 @@ void Viewport::OnUpdate(float dt)
 
 glm::mat4 Viewport::GetJitteredProjMatrix(const Vec2& inJitter) const
 {
-	auto mat = m_Camera.GetProjection();
-	mat[2][0] = m_Jitter[0];
-	mat[2][1] = m_Jitter[1];
-	return mat;
+	Mat4x4 proj = m_Camera.GetProjection();
+	proj[2][0] = m_Jitter[0];
+	proj[2][1] = m_Jitter[1];
+	return proj;
 }
 
 
@@ -346,18 +354,18 @@ Vec3 CameraSequence::GetPosition(const Camera& inCamera, float inTime) const
     }
 
     assert(start_index < nr_of_key_frames);
-    auto final_index = start_index + 1;
+    const int final_index = start_index + 1;
 
     if (final_index == nr_of_key_frames)
         return m_KeyFrames[start_index].mPosition;
 
-    auto start_time = m_KeyFrames[start_index].mTime;
-    auto final_time = m_KeyFrames[final_index].mTime;
+    const float start_time = m_KeyFrames[start_index].mTime;
+	const float final_time = m_KeyFrames[final_index].mTime;
 
-    const auto& start_position = m_KeyFrames[start_index].mPosition;
-    const auto& final_position = m_KeyFrames[final_index].mPosition;
+    const Vec3& start_position = m_KeyFrames[start_index].mPosition;
+    const Vec3& final_position = m_KeyFrames[final_index].mPosition;
 
-    const auto a = (inTime - start_time) / (final_time - start_time);
+    const float a = (inTime - start_time) / (final_time - start_time);
 
     //return glm::catmullRom(
     //    m_KeyFrames[glm::clamp(start_index - 1, 0, nr_of_key_frames - 1)].mPosition, 

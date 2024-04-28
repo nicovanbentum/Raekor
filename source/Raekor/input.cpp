@@ -16,7 +16,7 @@ bool Input::IsKeyPressed(SDL_Keycode code)
 
 bool Input::IsButtonPressed(uint32_t button)
 {
-	auto state = SDL_GetMouseState(NULL, NULL);
+	uint32_t state = SDL_GetMouseState(NULL, NULL);
 	return state & SDL_BUTTON(button);
 }
 

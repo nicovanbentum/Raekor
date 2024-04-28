@@ -45,7 +45,7 @@ class ComponentStorage : public IComponentStorage
 	{
 	public:
 		EachIterator() = delete;
-		EachIterator(typename std::vector<T>::iterator t_iter, typename std::vector<Entity>::iterator e_iter)
+		EachIterator(typename Array<T>::iterator t_iter, typename Array<Entity>::iterator e_iter)
 			: t_iter(t_iter), e_iter(e_iter)
 		{
 		}
@@ -76,15 +76,15 @@ class ComponentStorage : public IComponentStorage
 		}
 
 	private:
-		typename std::vector<T>::iterator t_iter;
-		typename std::vector<Entity>::iterator e_iter;
+		typename Array<T>::iterator t_iter;
+		typename Array<Entity>::iterator e_iter;
 	};
 
 	class ConstEachIterator
 	{
 	public:
 		ConstEachIterator() = delete;
-		ConstEachIterator(typename std::vector<T>::const_iterator t_iter, typename std::vector<Entity>::const_iterator e_iter)
+		ConstEachIterator(typename Array<T>::const_iterator t_iter, typename Array<Entity>::const_iterator e_iter)
 			: t_iter(t_iter), e_iter(e_iter)
 		{
 		}
@@ -181,12 +181,12 @@ public:
 		return m_Components[m_Sparse[entity]];
 	}
 
-	uint32_t GetSparseIndex(Entity entity) const
+	int GetPackedIndex(Entity entity) const
 	{
 		if (!Contains(entity))
-			return UINT32_MAX;
+			return -1;
 
-		return m_Sparse[entity];
+		return int(m_Sparse[entity]);
 	}
 
 	void Copy(Entity inFrom, Entity inTo) override final
@@ -260,18 +260,15 @@ public:
 	View Each() { return View(*this); }
 	ConstView Each() const { return ConstView(*this); }
 
-	Slice<T> GetComponents() { return Slice(m_Components.data(), m_Components.size()); }
-	Slice<T> GetComponents() const { return Slice(m_Components.data(), m_Components.size()); }
-
-	Slice<Entity> GetEntities() const { return Slice(m_Entities.data(), m_Entities.size()); }
-	Slice<Entity> GetSparseEntities() const { return Slice(m_Sparse.data(), m_Sparse.size()); }
+	const Array<T>& GetComponents() const { return m_Components; }
+	const Array<Entity>& GetEntities() const { return m_Entities; }
 
 	auto begin() { return EachIterator(m_Components.begin(), m_Entities.begin()); }
 	auto end() { return EachIterator(m_Components.end(), m_Entities.end()); }
 
-	std::vector<T> m_Components;
-	std::vector<Entity> m_Entities;
-	std::vector<uint32_t> m_Sparse;
+	Array<T> m_Components;
+	Array<Entity> m_Entities;
+	Array<uint32_t> m_Sparse;
 };
 
 
@@ -385,27 +382,21 @@ public:
 	}
 
 	template<typename Component>
-	Slice<Component> GetStorage() const
+	const Array<Component>& GetStorage() const
 	{
 		return GetComponentStorage<Component>()->GetComponents();
 	}
 
 	template<typename Component>
-	Slice<Entity> GetEntities() const
+	const Array<Entity>& GetEntities() const
 	{
 		return GetComponentStorage<Component>()->GetEntities();
 	}
 
 	template<typename Component>
-	Slice<Entity> GetSparseEntities() const
+	uint32_t GetPackedIndex(Entity inEntity) const
 	{
-		return GetComponentStorage<Component>()->GetSparseEntities();
-	}
-
-	template<typename Component>
-	uint32_t GetSparseIndex(Entity inEntity) const
-	{
-		return GetComponentStorage<Component>()->GetSparseIndex(inEntity);
+		return GetComponentStorage<Component>()->GetPackedIndex(inEntity);
 	}
 
 	void Clear()
@@ -456,7 +447,7 @@ public:
 	{
 	public:
 		EachIterator() = delete;
-		EachIterator(ECStorage& ecs, std::vector<Entity>::iterator inIter) : ecs(ecs), it(inIter)
+		EachIterator(ECStorage& ecs, Array<Entity>::iterator inIter) : ecs(ecs), it(inIter)
 		{
 			while (it != ecs.m_Entities.end() && !ecs.Has<Components...>(*it))
 				it++;
@@ -495,7 +486,7 @@ public:
 
 	private:
 		ECStorage& ecs;
-		std::vector<Entity>::iterator it;
+		Array<Entity>::iterator it;
 	};
 
 	template <typename ...Components>
@@ -503,7 +494,7 @@ public:
 	{
 	public:
 		ConstEachIterator() = delete;
-		ConstEachIterator(const ECStorage& ecs, std::vector<Entity>::const_iterator inIter) : ecs(ecs), it(inIter)
+		ConstEachIterator(const ECStorage& ecs, Array<Entity>::const_iterator inIter) : ecs(ecs), it(inIter)
 		{
 			while (it != ecs.m_Entities.end() && !ecs.Has<Components...>(*it))
 				it++;
@@ -542,7 +533,7 @@ public:
 
 	private:
 		const ECStorage& ecs;
-		std::vector<Entity>::const_iterator it;
+		Array<Entity>::const_iterator it;
 	};
 
 	template <typename ...Components>
@@ -631,8 +622,8 @@ public:
 	bool IsEmpty() const { return m_Entities.empty(); }
 
 protected:
-	std::vector<Entity> m_Entities;
-	mutable std::unordered_map<size_t, IComponentStorage*> m_Components;
+	Array<Entity> m_Entities;
+	mutable HashMap<size_t, IComponentStorage*> m_Components;
 };
 
 void RunECStorageTests();

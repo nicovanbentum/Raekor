@@ -97,7 +97,7 @@ public:
 
 private:
 	uint32_t m_Texture = 0;
-	std::vector<char> m_Data;
+	Array<char> m_Data;
 	bool m_IsExtendedDX10 = false;
 };
 
@@ -125,7 +125,7 @@ public:
 private:
 	Path m_TempPath;
 	void* m_HModule;
-    std::vector<std::string> m_RegisteredTypes;
+	Array<std::string> m_RegisteredTypes;
 };
 
 

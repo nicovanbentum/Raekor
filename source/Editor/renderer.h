@@ -46,20 +46,20 @@ public:
     uint32_t UploadTextureFromAsset(const TextureAsset::Ptr& inAsset, bool inIsSRGB = false, uint8_t inSwizzle = TEXTURE_SWIZZLE_RGBA) override;
 
 public:
-    std::shared_ptr<Bloom>                      m_Bloom;
-    std::shared_ptr<Icons>                      m_Icons;
-    std::shared_ptr<Tonemap>                    m_Tonemap;
-    std::shared_ptr<GBuffer>                    m_GBuffer;
-    std::shared_ptr<Voxelize>                   m_Voxelize;
-    std::shared_ptr<Skinning>                   m_Skinning;
-    std::shared_ptr<ImGuiPass>                  m_ImGuiPass;
-    std::shared_ptr<ShadowMap>                  m_ShadowMaps;
-    std::shared_ptr<Atmosphere>                 m_Atmosphere;
-    std::shared_ptr<TAAResolve>                 m_ResolveTAA;
-    std::shared_ptr<DebugLines>                 m_DebugLines;
-    std::shared_ptr<VoxelizeDebug>              m_DebugVoxels;
-    std::shared_ptr<DeferredShading>            m_DeferredShading;
-    std::vector<std::shared_ptr<RenderPass>>    m_RenderPasses;
+    SharedPtr<Bloom>              m_Bloom;
+    SharedPtr<Icons>              m_Icons;
+    SharedPtr<Tonemap>            m_Tonemap;
+    SharedPtr<GBuffer>            m_GBuffer;
+    SharedPtr<Voxelize>           m_Voxelize;
+    SharedPtr<Skinning>           m_Skinning;
+    SharedPtr<ImGuiPass>          m_ImGuiPass;
+    SharedPtr<ShadowMap>          m_ShadowMaps;
+    SharedPtr<Atmosphere>         m_Atmosphere;
+    SharedPtr<TAAResolve>         m_ResolveTAA;
+    SharedPtr<DebugLines>         m_DebugLines;
+    SharedPtr<VoxelizeDebug>      m_DebugVoxels;
+    SharedPtr<DeferredShading>    m_DeferredShading;
+    Array<SharedPtr<RenderPass>>  m_RenderPasses;
 
 private:
     uint32_t      m_FrameNr = 0;

@@ -53,10 +53,10 @@ public:
 	uint32_t mHash;
 
 private:
-	std::string m_Name;
+	String m_Name;
 	Constructor m_Constructor;
-	std::vector<RTTI*> m_BaseClasses;
-	std::vector<std::unique_ptr<Member>> m_Members;
+	Array<RTTI*> m_BaseClasses;
+	Array<std::unique_ptr<Member>> m_Members;
 };
 
 
@@ -107,9 +107,6 @@ public:
 	RTTI* GetRTTI(const char* inType);
 
 	void* Construct(const char* inType);
-
-	void Remove(uint32_t inHash) { m_RegisteredTypes.erase(inHash); }
-	void Remove(const char* inType) { m_RegisteredTypes.erase(gHash32Bit(inType)); }
 
 	inline auto begin() const { return m_RegisteredTypes.begin(); }
 	inline auto end() const { return m_RegisteredTypes.end(); }

@@ -33,7 +33,7 @@ public:
         m_WheelEntities[(int)EWheel::LeftRear]   = m_WheelEntityBL;
         m_WheelEntities[(int)EWheel::RightRear]  = m_WheelEntityBR;
 
-        BoxCollider* body_collider = FindComponent<BoxCollider>(m_BodyEntity);
+        RigidBody* body_collider = FindComponent<RigidBody>(m_BodyEntity);
 
         for (Entity wheel_entity : m_WheelEntities)
         {
@@ -49,7 +49,7 @@ public:
         // Create wheels
         for (int i = 0; i < (int)EWheel::Num; ++i)
         {
-            BoxCollider* wheel_collider = FindComponent<BoxCollider>(m_WheelEntities[i]);
+            RigidBody* wheel_collider = FindComponent<RigidBody>(m_WheelEntities[i]);
             assert(wheel_collider);
 
             bool is_front = sIsFrontWheel((EWheel)i);
@@ -122,7 +122,7 @@ public:
 
     void OnUpdate(float inDeltaTime) override
     {
-        BoxCollider* body_collider = FindComponent<BoxCollider>(m_BodyEntity);
+        RigidBody* body_collider = FindComponent<RigidBody>(m_BodyEntity);
         JPH::BodyInterface& body_interface = GetPhysics()->GetSystem()->GetBodyInterface();
 
         // Determine steering and speed

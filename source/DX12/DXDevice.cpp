@@ -116,7 +116,7 @@ Device::Device(SDL_Window* window, uint32_t inFrameCount) : m_NumFrames(inFrameC
         m_Device->CreateSampler(&SAMPLER_DESC[sampler_index], m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].GetCPUDescriptorHandle(DescriptorID(sampler_index)));
 
     uint32_t b_registers = 0u, t_registers = 0u;
-    std::vector<D3D12_ROOT_PARAMETER1> root_params;
+    Array<D3D12_ROOT_PARAMETER1> root_params;
 
     root_params.emplace_back(D3D12_ROOT_PARAMETER1
     {
@@ -326,18 +326,26 @@ TextureID Device::CreateTextureView(TextureID inTextureID, const Texture::Desc& 
 
 void Device::ReleaseBuffer(BufferID inBufferID)
 {
+    const Buffer& buffer = GetBuffer(inBufferID);
+
     assert(inBufferID.IsValid());
     m_Buffers.Remove(inBufferID);
-    ReleaseDescriptor(inBufferID);
+
+    if (buffer.HasDescriptor())
+        ReleaseDescriptor(buffer.GetUsage(), buffer.GetDescriptor());
 }
 
 
 
 void Device::ReleaseTexture(TextureID inTextureID)
 {
+    const Texture& texture = GetTexture(inTextureID);
+
     assert(inTextureID.IsValid());
     m_Textures.Remove(inTextureID);
-    ReleaseDescriptor(inTextureID);
+
+    if (texture.HasDescriptor())
+        ReleaseDescriptor(texture.GetUsage(), texture.GetDescriptor());
 }
 
 
@@ -351,7 +359,9 @@ void Device::ReleaseBufferImmediate(BufferID inBufferID)
     buffer.m_Allocation = nullptr;
 
     m_Buffers.Remove(inBufferID);
-    ReleaseDescriptorImmediate(inBufferID);
+
+    if (buffer.HasDescriptor())
+        ReleaseDescriptorImmediate(buffer.GetUsage(), buffer.GetDescriptor());
 }
 
 
@@ -365,7 +375,9 @@ void Device::ReleaseTextureImmediate(TextureID inTextureID)
     texture.m_Allocation = nullptr;
 
     m_Textures.Remove(inTextureID);
-    ReleaseDescriptorImmediate(inTextureID);
+
+    if (texture.HasDescriptor())
+        ReleaseDescriptorImmediate(texture.GetUsage(), texture.GetDescriptor());
 }
 
 
@@ -509,33 +521,60 @@ void Device::CreateDescriptor(TextureID inID, const Texture::Desc& inDesc)
 }
 
 
-void Device::ReleaseDescriptor(BufferID inBufferID)
+void Device::ReleaseDescriptor(Buffer::Usage inUsage, DescriptorID inDescriptorID)
 {
-    Buffer& buffer = GetBuffer(inBufferID);
-    m_Heaps[gGetHeapType(buffer.m_Desc.usage)].Remove(buffer.m_Descriptor);
+    UNREFERENCED_PARAMETER(inUsage); // I just like API consistency
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inDescriptorID);
 }
 
 
-void Device::ReleaseDescriptor(TextureID inTextureID)
+void Device::ReleaseDescriptor(Texture::Usage inUsage, DescriptorID inDescriptorID)
 {
-    Texture& texture = GetTexture(inTextureID);
-    m_Heaps[gGetHeapType(texture.m_Desc.usage)].Remove(texture.m_Descriptor);
+    D3D12_DESCRIPTOR_HEAP_TYPE heap_type;
+
+    switch (inUsage)
+    {
+        case Texture::DEPTH_STENCIL_TARGET:
+            heap_type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV; break;
+        case Texture::RENDER_TARGET:
+            heap_type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV; break;
+        case Texture::SHADER_READ_ONLY:
+        case Texture::SHADER_READ_WRITE:
+            heap_type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; break;
+        default:
+            assert(false);
+    }
+
+    m_Heaps[heap_type].Remove(inDescriptorID);
 }
 
 
-void Device::ReleaseDescriptorImmediate(BufferID inBufferID)
+void Device::ReleaseDescriptorImmediate(Buffer::Usage inUsage, DescriptorID inDescriptorID)
 {
-    Buffer& buffer = GetBuffer(inBufferID);
-    m_Heaps[gGetHeapType(buffer.m_Desc.usage)].Get(buffer.m_Descriptor) = nullptr;
-    ReleaseDescriptor(inBufferID);
+    UNREFERENCED_PARAMETER(inUsage); // I just like API consistency
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Get(inDescriptorID) = nullptr;
+    m_Heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Remove(inDescriptorID);
 }
 
-
-void Device::ReleaseDescriptorImmediate(TextureID inTextureID)
+void Device::ReleaseDescriptorImmediate(Texture::Usage inUsage, DescriptorID inDescriptorID)
 {
-    Texture& texture = GetTexture(inTextureID);
-    m_Heaps[gGetHeapType(texture.m_Desc.usage)].Get(texture.m_Descriptor) = nullptr;
-    ReleaseDescriptor(inTextureID);
+    D3D12_DESCRIPTOR_HEAP_TYPE heap_type;
+
+    switch (inUsage)
+    {
+        case Texture::DEPTH_STENCIL_TARGET: 
+            heap_type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV; break;
+        case Texture::RENDER_TARGET:
+            heap_type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV; break;
+        case Texture::SHADER_READ_ONLY:
+        case Texture::SHADER_READ_WRITE:
+            heap_type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; break;
+        default:
+            assert(false);
+    }
+
+    m_Heaps[heap_type].Get(inDescriptorID) = nullptr;
+    m_Heaps[heap_type].Remove(inDescriptorID);
 }
 
 
@@ -787,7 +826,7 @@ void RingAllocator::CreateBuffer(Device& inDevice, uint32_t inCapacity)
 {
     m_TotalCapacity = inCapacity;
 
-    m_Buffer = inDevice.CreateBuffer(Buffer::Desc {.size = inCapacity, .usage = Buffer::Usage::UPLOAD });
+    m_Buffer = inDevice.CreateBuffer(Buffer::Desc {.size = inCapacity, .usage = Buffer::Usage::UPLOAD, .debugName = "RingAllocatorBuffer" });
 
     auto buffer_range = CD3DX12_RANGE(0, 0);
     gThrowIfFailed(inDevice.GetBuffer(m_Buffer)->Map(0, &buffer_range, reinterpret_cast<void**>( &m_DataPtr )));
@@ -803,7 +842,7 @@ void RingAllocator::DestroyBuffer(Device& inDevice)
     inDevice.GetBuffer(m_Buffer)->Unmap(0, nullptr);
     inDevice.ReleaseBuffer(m_Buffer);
 
-    m_Buffer = BufferID::INVALID;
+    m_Buffer = BufferID();
     m_Size = 0;
     m_DataPtr = nullptr;
     m_TotalCapacity = 0;
@@ -829,7 +868,7 @@ void GlobalConstantsAllocator::DestroyBuffer(Device& inDevice)
     inDevice.GetBuffer(m_Buffer)->Unmap(0, nullptr);
     inDevice.ReleaseBuffer(m_Buffer);
 
-    m_Buffer = BufferID::INVALID;
+    m_Buffer = BufferID();
     m_DataPtr = nullptr;
 }
 

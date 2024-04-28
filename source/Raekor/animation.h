@@ -53,9 +53,9 @@ class KeyFrames
 	Vec3 GetInterpolatedPosition(float animationTime) const;
 
 private:
-	std::vector<Vec3Key> m_ScaleKeys;
-	std::vector<Vec3Key> m_PositionKeys;
-	std::vector<QuatKey> m_RotationKeys;
+	Array<Vec3Key> m_ScaleKeys;
+	Array<Vec3Key> m_PositionKeys;
+	Array<QuatKey> m_RotationKeys;
 };
 
 class Animation

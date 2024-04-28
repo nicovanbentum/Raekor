@@ -176,7 +176,7 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
     {
         inCmdList->SetPipelineState(g_SystemShaders.mSkinningShader.GetComputePSO());
 
-        std::vector<D3D12_RESOURCE_BARRIER> uav_barriers;
+        Array<D3D12_RESOURCE_BARRIER> uav_barriers;
         uav_barriers.reserve(inScene.Count<Skeleton>());
         
         for (const auto& [entity, mesh, skeleton] : inScene.Each<Mesh, Skeleton>())
@@ -189,10 +189,10 @@ const SkinningData& AddSkinningPass(RenderGraph& inRenderGraph, Device& inDevice
             auto uav_to_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource().Get(), gGetResourceStates(Texture::SHADER_READ_ONLY), D3D12_RESOURCE_STATE_COPY_DEST);
             inCmdList->ResourceBarrier(1, &uav_to_copy_barrier);
 
-            const Mat4x4* bone_matrix_data = skeleton.boneTransformMatrices.data();
-            const size_t bone_matrix_size = skeleton.boneTransformMatrices.size() * sizeof(Mat4x4);
+            const Mat4x4* bone_matrices_data = skeleton.boneTransformMatrices.data();
+            const size_t bone_matrices_size = skeleton.boneTransformMatrices.size() * sizeof(Mat4x4);
 
-            inStagingHeap.StageBuffer(inCmdList, bone_matrix_buffer, 0, bone_matrix_data, bone_matrix_size);
+            inStagingHeap.StageBuffer(inCmdList, bone_matrix_buffer, 0, bone_matrices_data, bone_matrices_size);
 
             auto copy_to_uav_barrier = CD3DX12_RESOURCE_BARRIER::Transition(bone_matrix_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, gGetResourceStates(Texture::SHADER_READ_ONLY));
             inCmdList->ResourceBarrier(1, &copy_to_uav_barrier);
@@ -276,7 +276,7 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
 
         for (const auto& [entity, mesh] : inScene->Each<Mesh>())
         {
-            const auto transform = inScene->GetPtr<Transform>(entity);
+            const Transform* transform = inScene->GetPtr<Transform>(entity);
             if (!transform)
                 continue;
 
@@ -286,12 +286,12 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
             if (mesh.meshlets.empty())
                 continue;
 
-            auto material = inScene->GetPtr<Material>(mesh.material);
+            const Material* material = inScene->GetPtr<Material>(mesh.material);
             //if (material && material->isTransparent)
                 //continue;
 
-            const auto& index_buffer  = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
-            const auto& vertex_buffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
+            const Buffer& index_buffer  = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
+            const Buffer& vertex_buffer = inDevice.GetBuffer(BufferID(mesh.vertexBuffer));
 
             const D3D12_INDEX_BUFFER_VIEW index_view =
             {
@@ -306,16 +306,17 @@ const GBufferData& AddMeshletsRasterPass(RenderGraph& inRenderGraph, Device& inD
             if (material == nullptr)
                 material = &Material::Default;
 
-            auto material_index = inScene->GetSparseIndex<Material>(mesh.material);
-            material_index = material_index == UINT32_MAX ? 0 : material_index;
+            int material_index = inScene->GetPackedIndex<Material>(mesh.material);
+            material_index = material_index == -1 ? 0 : material_index;
 
-            const auto instance_index = inScene->GetSparseIndex<Mesh>(entity);
+            const int instance_index = inScene->GetPackedIndex<Mesh>(entity);
+            assert(instance_index != -1);
 
             const GbufferRootConstants root_constants = 
             {
                 .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
                 .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
-                .mInstanceIndex   = instance_index
+                .mInstanceIndex   = uint32_t(instance_index)
             };
 
             inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
@@ -395,11 +396,11 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
     [&inRenderGraph, &inDevice, &inScene](GBufferData& inData, const RenderGraphResources& inResources, CommandList& inCmdList)
     {
-        const auto& viewport = inRenderGraph.GetViewport();
+        const Viewport& viewport = inRenderGraph.GetViewport();
         inCmdList.SetViewportAndScissor(viewport);
         inCmdList->SetPipelineState(inData.mPipeline.Get());
 
-        const auto clear_color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        constexpr Vec4 clear_color = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         inCmdList->ClearDepthStencilView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mDepthTexture)), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mRenderTexture)), glm::value_ptr(clear_color), 0, nullptr);
         inCmdList->ClearRenderTargetView(inDevice.GetCPUDescriptorHandle(inResources.GetTexture(inData.mVelocityTexture)), glm::value_ptr(clear_color), 0, nullptr);
@@ -409,7 +410,8 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
         for (const auto& [entity, mesh] : inScene->Each<Mesh>())
         {
-            auto transform = inScene->GetPtr<Transform>(entity);
+            const Transform* transform = inScene->GetPtr<Transform>(entity);
+
             if (!transform)
                 continue;
 
@@ -419,21 +421,19 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             if (!mesh.meshlets.empty())
                 continue;
 
-            auto material = inScene->GetPtr<Material>(mesh.material);
             //if (material && material->isTransparent)
                 //continue;
 
-            const auto& index_buffer = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
+            const Buffer& index_buffer = inDevice.GetBuffer(BufferID(mesh.indexBuffer));
 
-            const auto index_view = D3D12_INDEX_BUFFER_VIEW
+            const D3D12_INDEX_BUFFER_VIEW index_view =
             {
                 .BufferLocation = index_buffer->GetGPUVirtualAddress(),
                 .SizeInBytes = uint32_t(mesh.indices.size() * sizeof(mesh.indices[0])),
                 .Format = DXGI_FORMAT_R32_UINT,
             };
 
-            if (mesh.material == Entity::Null)
-                continue;
+            const Material* material = inScene->GetPtr<Material>(mesh.material);
 
             if (material == nullptr)
                 material = &Material::Default;
@@ -446,17 +446,16 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
             else
                 continue;
 
-            const auto instance_index = inScene->GetSparseIndex<Mesh>(entity);
+            const int instance_index = inScene->GetPackedIndex<Mesh>(entity);
+            assert(instance_index != -1);
 
-            auto root_constants = GbufferRootConstants 
+            inCmdList.PushGraphicsConstants(GbufferRootConstants
             {
-                .mInstancesBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
-                .mMaterialsBuffer    = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
-                .mInstanceIndex      = instance_index,
-                .mEntity             = uint32_t(entity)
-            };
-
-            inCmdList->SetGraphicsRoot32BitConstants(0, sizeof(root_constants) / sizeof(DWORD), &root_constants, 0);
+                .mInstancesBuffer = inDevice.GetBindlessHeapIndex(inScene.GetInstancesDescriptor(inDevice)),
+                .mMaterialsBuffer = inDevice.GetBindlessHeapIndex(inScene.GetMaterialsDescriptor(inDevice)),
+                .mInstanceIndex = uint32_t(instance_index),
+                .mEntity = uint32_t(entity)
+            });
 
             inCmdList->IASetIndexBuffer(&index_view);
 
@@ -467,8 +466,6 @@ const GBufferData& AddGBufferPass(RenderGraph& inRenderGraph, Device& inDevice, 
 
             inCmdList->DrawIndexedInstanced(mesh.indices.size(), 1, 0, 0, 0);
         }
-
-        // std::cout << std::format("gbuffer pass took {:.2f} ms.\n", Timer::sToMilliseconds(timer.Restart()));
     });
 }
 
@@ -550,12 +547,12 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
 
         CD3DX12_SHADER_BYTECODE vertex_shader, pixel_shader;
         g_SystemShaders.mGrassShader.GetGraphicsProgram(vertex_shader, pixel_shader);
-        auto pso_state = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = inDevice.CreatePipelineStateDesc(inRenderPass, vertex_shader, pixel_shader);
 
-        pso_state.InputLayout = {};
-        pso_state.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        pso_desc.InputLayout = {};
+        pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
-        inDevice->CreateGraphicsPipelineState(&pso_state, IID_PPV_ARGS(&inData.mPipeline));
+        inDevice->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&inData.mPipeline));
         inData.mPipeline->SetName(L"PSO_GRASS_DRAW");
 
         inData.mRenderConstants = GrassRenderRootConstants
@@ -568,7 +565,7 @@ const GrassData& AddGrassRenderPass(RenderGraph& inGraph, Device& inDevice, cons
 
     [](GrassData& inData, const RenderGraphResources& inRGResources, CommandList& inCmdList)
     {
-        const auto blade_vertex_count = 15;
+        const int blade_vertex_count = 15;
 
         inCmdList.PushGraphicsConstants(inData.mRenderConstants);
 
@@ -591,13 +588,13 @@ const DownsampleData& AddDownsamplePass(RenderGraph& inRenderGraph, Device& inDe
         inData.mSourceTextureUAV = inRGBuilder.Write(inSourceTexture);
         /* inData.mGlobalAtomicBuffer */ inRGBuilder.Write(inData.mGlobalAtomicBuffer);
 
-        auto texture_desc = inRGBuilder.GetResourceDesc(inSourceTexture);
+        const RenderGraphResourceDesc& texture_desc = inRGBuilder.GetResourceDesc(inSourceTexture);
         assert(texture_desc.mResourceType == RESOURCE_TYPE_TEXTURE);
 
-        const auto nr_of_mips = gSpdCaculateMipCount(texture_desc.mTextureDesc.width, texture_desc.mTextureDesc.height);
+        const uint32_t nr_of_mips = gSpdCaculateMipCount(texture_desc.mTextureDesc.width, texture_desc.mTextureDesc.height);
 
         assert(false); // TODO: RenderGraphBuilder::Write with subresource specifier
-        for (auto mip = 0u; mip < nr_of_mips; mip++)
+        for (int mip = 0u; mip < nr_of_mips; mip++)
         {
             // inRGBuilder.Write(inSourceTexture, mip);
         }

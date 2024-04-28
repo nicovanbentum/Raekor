@@ -67,9 +67,9 @@ private:
     uint64_t m_SubmitFenceValue = 0;
     uint32_t m_CurrentCmdListIndex = 0;
     ComPtr<ID3D12Fence> m_Fence = nullptr;
-    std::vector<DeviceResource> m_ResourceRefs;
-    std::vector<ComPtr<ID3D12GraphicsCommandList4>> m_CommandLists;
-    std::vector<ComPtr<ID3D12CommandAllocator>> m_CommandAllocators;
+    Array<DeviceResource> m_ResourceRefs;
+    Array<ComPtr<ID3D12GraphicsCommandList4>> m_CommandLists;
+    Array<ComPtr<ID3D12CommandAllocator>> m_CommandAllocators;
 };
 
 }

@@ -1,4 +1,8 @@
-#include "../include/common.hlsli"
+#include "include/shared.h"
+#include "include/brdf.hlsli"
+#include "include/common.hlsli"
+#include "include/packing.hlsli"
+#include "include/bindless.hlsli"
 
 struct VS_OUTPUT 
 {
@@ -25,6 +29,8 @@ VS_OUTPUT main(in uint inVertexID : SV_VertexID)
     StructuredBuffer<RTVertex> vertex_buffer = ResourceDescriptorHeap[geometry.mVertexBuffer];
     RTVertex vertex = vertex_buffer[inVertexID];
     
+@Main
+
     TransformToWorldSpace(vertex, geometry.mLocalToWorldTransform, geometry.mInvLocalToWorldTransform);
 
     VS_OUTPUT output;
@@ -33,13 +39,12 @@ VS_OUTPUT main(in uint inVertexID : SV_VertexID)
     output.tangent = normalize(output.tangent - dot(output.tangent, output.normal) * output.normal);
     output.bitangent = normalize(cross(output.normal, output.tangent));
     output.texcoord = vertex.mTexCoord;
-    
+
     // TODO: prev world transform
     output.curr_position = mul(fc.mViewProjectionMatrix, float4(vertex.mPos, 1.0));
     output.prev_position = mul(fc.mPrevViewProjectionMatrix, float4(vertex.mPos, 1.0));
-    output.sv_position = output.curr_position;
 
-    @Main
+    output.sv_position = output.curr_position;
 
     return output;
 }

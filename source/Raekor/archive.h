@@ -122,7 +122,7 @@ public:
 private:
 	int m_Objects = 0;;
 	std::ofstream m_Ofs;
-	std::vector<const char*> m_Types;
+	Array<const char*> m_Types;
 
 	JSONData m_JSON;
 	JSONWriter m_Writer;

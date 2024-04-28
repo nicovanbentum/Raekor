@@ -199,7 +199,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("View"))
+		if (ImGui::BeginMenu("Window"))
 		{
 			ImGui::PushItemFlag(ImGuiItemFlags_SelectableDontClosePopup, true);
 
@@ -366,7 +366,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Help"))
+		if (ImGui::BeginMenu("Tools"))
 		{
 			if (ImGui::MenuItem("Launch Shader Editor"))
 			{
@@ -375,7 +375,7 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			}
 
 			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip("Launch a Shader Editor process to the system tray.");
+				ImGui::SetTooltip("Launch Shader Editor process to the system tray.");
 
 			if (ImGui::MenuItem("Launch Asset Compiler"))
 			{
@@ -384,8 +384,13 @@ void MenubarWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			}
 
 			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip("Launch an Asset Compiler process to the system tray.");
+				ImGui::SetTooltip("Launch Asset Compiler process to the system tray.");
 
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Help"))
+		{
 			ImGui::EndMenu();
 		}
 

@@ -131,15 +131,24 @@ namespace Raekor {
 namespace fs = std::filesystem;
 
 using Path = fs::path;
-
 using File = std::fstream;
 
 using String = std::string;
+using WString = std::wstring;
 using StringView = std::string_view;
 using StringBuilder = std::stringstream;
 
+template<typename T>
+using SharedPtr = std::shared_ptr<T>;
+
+template<typename T>
+using UniquePtr = std::unique_ptr<T>;
+
 template<typename T1, typename T2>
 using Pair = std::pair<T1, T2>;
+
+template<typename Type>
+using Atomic = std::atomic<Type>;
 
 template<typename Type>
 using Array = std::vector<Type>;
@@ -152,7 +161,6 @@ using HashSet = std::set<Key>;
 
 template<typename Key, typename Value>
 using HashMap = std::unordered_map<Key, Value>;
-
 
 }
 
@@ -182,6 +190,7 @@ namespace Raekor
     using Vec4   = glm::vec4;
     using UVec2  = glm::uvec2;
     using UVec3  = glm::uvec3;
+    using IVec2  = glm::ivec2;
     using IVec3  = glm::ivec3;
     using IVec4  = glm::ivec4;
     using Mat3x3 = glm::mat3x3;

@@ -61,7 +61,7 @@ RTTI_DEFINE_TYPE(Mesh)
 	RTTI_DEFINE_MEMBER(Mesh, SERIALIZE_ALL, "Material", material);
 }
 
-RTTI_DEFINE_TYPE(BoxCollider) {}
+RTTI_DEFINE_TYPE(RigidBody) {}
 RTTI_DEFINE_TYPE(SoftBody) {}
 
 
@@ -127,7 +127,7 @@ void gRegisterComponentTypes()
 	g_RTTIFactory.Register(RTTI_OF(Mesh));
 	g_RTTIFactory.Register(RTTI_OF(Material));
 	g_RTTIFactory.Register(RTTI_OF(Animation));
-	g_RTTIFactory.Register(RTTI_OF(BoxCollider));
+	g_RTTIFactory.Register(RTTI_OF(RigidBody));
 	g_RTTIFactory.Register(RTTI_OF(DirectionalLight));
 	g_RTTIFactory.Register(RTTI_OF(Light));
 	g_RTTIFactory.Register(RTTI_OF(SoftBody));
@@ -143,7 +143,7 @@ Material Material::Default;
 
 void Transform::Compose()
 {
-	localTransform = glm::translate(glm::mat4(1.0f), position);
+	localTransform = glm::translate(Mat4x4(1.0f), position);
 	localTransform = localTransform * glm::toMat4(rotation);
 	localTransform = glm::scale(localTransform, scale);
 }
@@ -154,13 +154,13 @@ void Transform::Decompose()
 	position = localTransform[3];
 
 	for (int i = 0; i < 3; i++)
-		scale[i] = glm::length(glm::vec3(localTransform[i]));
+		scale[i] = glm::length(Vec3(localTransform[i]));
 
-	const auto rotation_matrix = glm::mat3
+	const Mat3x3 rotation_matrix = Mat3x3
 	(
-		glm::vec3(localTransform[0]) / scale[0],
-		glm::vec3(localTransform[1]) / scale[1],
-		glm::vec3(localTransform[2]) / scale[2]
+		Vec3(localTransform[0]) / scale[0],
+		Vec3(localTransform[1]) / scale[1],
+		Vec3(localTransform[2]) / scale[2]
 	);
 
 	rotation = glm::quat_cast(rotation_matrix);
@@ -169,10 +169,10 @@ void Transform::Decompose()
 
 Vec3 Transform::GetScaleWorldSpace() const
 {
-	auto result = Vec3(1.0f);
+	Vec3 result = Vec3(1.0f);
 
 	for (int i = 0; i < 3; i++)
-		result[i] = glm::length(glm::vec3(worldTransform[i]));
+		result[i] = glm::length(Vec3(worldTransform[i]));
 
 	return result;
 }
@@ -186,11 +186,11 @@ Vec3 Transform::GetPositionWorldSpace() const
 
 Quat Transform::GetRotationWorldSpace() const
 {
-	const auto rotation_matrix = glm::mat3
+	const Mat3x3 rotation_matrix = Mat3x3
 	(
-		glm::vec3(worldTransform[0]) / scale[0],
-		glm::vec3(worldTransform[1]) / scale[1],
-		glm::vec3(worldTransform[2]) / scale[2]
+		Vec3(worldTransform[0]) / scale[0],
+		Vec3(worldTransform[1]) / scale[1],
+		Vec3(worldTransform[2]) / scale[2]
 	);
 
 	return glm::quat_cast(rotation_matrix);
@@ -210,9 +210,9 @@ void Mesh::CalculateTangents(float inTangentSign)
 	//// calculate the tangent and bitangent for every face
 	for (size_t i = 0; i < indices.size(); i += 3)
 	{
-		auto p0 = indices[i];
-		auto p1 = indices[i + 1];
-		auto p2 = indices[i + 2];
+		uint32_t p0 = indices[i];
+		uint32_t p1 = indices[i + 1];
+		uint32_t p2 = indices[i + 2];
 
 		// position differences p1->p2 and p1->p3
 		Vec3 v = positions[p1] - positions[p0], w = positions[p2] - positions[p0];
@@ -243,11 +243,11 @@ void Mesh::CalculateTangents(float inTangentSign)
 		// store for every vertex of that face
 		for (unsigned int b = 0; b < 3; ++b)
 		{
-			auto p = indices[i + b];
+			uint32_t p = indices[i + b];
 
 			// project tangent and bitangent into the plane formed by the vertex' normal
-			glm::vec3 localTangent = tangent - normals[p] * ( tangent * normals[p] );
-			glm::vec3 localBitangent = bitangent - normals[p] * ( bitangent * normals[p] ) - localTangent * ( bitangent * localTangent );
+			Vec3 localTangent = tangent - normals[p] * ( tangent * normals[p] );
+			Vec3 localBitangent = bitangent - normals[p] * ( bitangent * normals[p] ) - localTangent * ( bitangent * localTangent );
 			localTangent = glm::normalize(localTangent);
 			localBitangent = glm::normalize(localBitangent);
 
@@ -259,13 +259,9 @@ void Mesh::CalculateTangents(float inTangentSign)
 			if (invalid_tangent != invalid_bitangent)
 			{
 				if (invalid_tangent)
-				{
 					localTangent = glm::normalize(localTangent);
-				}
 				else
-				{
 					localBitangent = glm::normalize(localBitangent);
-				}
 			}
 
 			// and write it into the mesh.
@@ -284,19 +280,20 @@ void Mesh::CalculateNormals()
 {
 	normals.resize(positions.size(), glm::vec3(0.0f));
 
-	for (auto i = 0; i < indices.size(); i += 3)
+	for (int i = 0; i < indices.size(); i += 3)
 	{
-		auto normal = glm::normalize(glm::cross(
-			positions[indices[i]] - positions[indices[i + 1]],
-			positions[indices[i + 1]] - positions[indices[i + 2]]
-		));
+		const Vec3 p0 = positions[indices[i]];
+		const Vec3 p1 = positions[indices[i + 1]];
+		const Vec3 p2 = positions[indices[i + 2]];
+
+		const Vec3 normal = glm::normalize(glm::cross(p0 - p1, p1 - p2));
 
 		normals[indices[i]] += normal;
 		normals[indices[i + 1]] += normal;
 		normals[indices[i + 2]] += normal;
 	}
 
-	for (auto& normal : normals)
+	for (Vec3& normal : normals)
 		normal = glm::normalize(normal / 3.0f);
 }
 
@@ -309,10 +306,10 @@ void Mesh::CalculateAABB()
 	aabb[0] = positions[0];
 	aabb[1] = positions[1];
 
-	for (const auto& v : positions)
+	for (const Vec3& pos : positions)
 	{
-		aabb[0] = glm::min(aabb[0], v);
-		aabb[1] = glm::max(aabb[1], v);
+		aabb[0] = glm::min(aabb[0], pos);
+		aabb[1] = glm::max(aabb[1], pos);
 	}
 }
 
@@ -332,23 +329,23 @@ const std::vector<float>& Mesh::GetInterleavedVertices()
 	const bool has_normals = !normals.empty();
 	const bool has_tangents = !tangents.empty();
 
-	for (auto i = 0; i < positions.size(); i++)
+	for (int i = 0; i < positions.size(); i++)
 	{
-		auto position = positions[i];
+		Vec3 position = positions[i];
 		mInterleavedVertices.push_back(position.x);
 		mInterleavedVertices.push_back(position.y);
 		mInterleavedVertices.push_back(position.z);
 
 		if (has_uvs)
 		{
-			auto uv = uvs[i];
+			Vec2 uv = uvs[i];
 			mInterleavedVertices.push_back(uv.x);
 			mInterleavedVertices.push_back(uv.y);
 		}
 
 		if (has_normals)
 		{
-			auto normal = normals[i];
+			Vec3 normal = normals[i];
 			mInterleavedVertices.push_back(normal.x);
 			mInterleavedVertices.push_back(normal.y);
 			mInterleavedVertices.push_back(normal.z);
@@ -356,7 +353,7 @@ const std::vector<float>& Mesh::GetInterleavedVertices()
 
 		if (has_tangents && i < tangents.size())
 		{
-			auto tangent = tangents[i];
+			Vec3 tangent = tangents[i];
 			mInterleavedVertices.push_back(tangent.x);
 			mInterleavedVertices.push_back(tangent.y);
 			mInterleavedVertices.push_back(tangent.z);
@@ -370,11 +367,11 @@ const std::vector<float>& Mesh::GetInterleavedVertices()
 
 uint32_t Mesh::GetInterleavedStride() const
 {
-	auto stride = 0u;
-	stride += sizeof(glm::vec3) * !positions.empty();
-	stride += sizeof(glm::vec2) * !uvs.empty();
-	stride += sizeof(glm::vec3) * !normals.empty();
-	stride += sizeof(glm::vec3) * !tangents.empty();
+	uint32_t stride = 0u;
+	stride += sizeof(Vec3) * !positions.empty();
+	stride += sizeof(Vec2) * !uvs.empty();
+	stride += sizeof(Vec3) * !normals.empty();
+	stride += sizeof(Vec3) * !tangents.empty();
 	return stride;
 }
 
@@ -451,29 +448,29 @@ void DDGISceneSettings::FitToScene(const Scene& inScene, Transform& ioTransform)
 
 
 
-void Skeleton::UpdateFromAnimation(Animation& animation)
+void Skeleton::UpdateFromAnimation(const Animation& animation)
 {
-	auto identity = glm::mat4(1.0f);
-	UpdateBoneTransform(animation, rootBone, identity);
+	Mat4x4 matrix = Mat4x4(1.0f);
+	UpdateBoneTransform(animation, rootBone, matrix);
 }
 
 
-void BoxCollider::CreateCubeCollider(const BBox3D& inBBox)
+void RigidBody::CreateCubeCollider(const BBox3D& inBBox)
 {
 	const Vec3 half_extent = inBBox.GetExtents() / 2.0f;
 	shapeSettings = new JPH::BoxShapeSettings(JPH::Vec3Arg(half_extent.x, half_extent.y, half_extent.z));
 }
 
 
-void BoxCollider::CreateMeshCollider(const Mesh& inMesh, const Transform& inTransform)
+void RigidBody::CreateMeshCollider(const Mesh& inMesh, const Transform& inTransform)
 {
 	JPH::TriangleList triangles;
 
 	for (int i = 0; i < inMesh.indices.size(); i += 3)
 	{
-		auto v0 = inMesh.positions[inMesh.indices[i]];
-		auto v1 = inMesh.positions[inMesh.indices[i + 1]];
-		auto v2 = inMesh.positions[inMesh.indices[i + 2]];
+		Vec3 v0 = inMesh.positions[inMesh.indices[i]];
+		Vec3 v1 = inMesh.positions[inMesh.indices[i + 1]];
+		Vec3 v2 = inMesh.positions[inMesh.indices[i + 2]];
 
 		v0 *= inTransform.GetScaleWorldSpace();
 		v1 *= inTransform.GetScaleWorldSpace();
@@ -487,7 +484,7 @@ void BoxCollider::CreateMeshCollider(const Mesh& inMesh, const Transform& inTran
 }
 
 
-void BoxCollider::CreateCylinderCollider(const Mesh& inMesh, const Transform& inTransform)
+void RigidBody::CreateCylinderCollider(const Mesh& inMesh, const Transform& inTransform)
 {
 	const BBox3D aabb = BBox3D(inMesh.aabb[0], inMesh.aabb[1]).Scale(inTransform.scale);
 	const Vec3 half_extent = aabb.GetExtents() / 2.0f;

@@ -127,7 +127,7 @@ public:
         desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
         auto data_ptr = inTexture->GetData();
-        auto subresources = std::vector<D3D11_SUBRESOURCE_DATA>(desc.MipLevels);
+        auto subresources = Array<D3D11_SUBRESOURCE_DATA>(desc.MipLevels);
 
         for (uint32_t mip = 0; mip < desc.MipLevels; mip++)
         {
@@ -328,11 +328,11 @@ public:
         {
             for (const auto& [sb_entity, sb_transform, sb_mesh] : m_Scene.Each<Transform, Mesh>())
             {
-                m_Scene.Add<BoxCollider>(sb_entity);
+                m_Scene.Add<RigidBody>(sb_entity);
                 m_StreamingJobsPending++;
             }
 
-            for (const auto& [entity, sb_transform, sb_mesh, sb_collider] : m_Scene.Each<Transform, Mesh, BoxCollider>())
+            for (const auto& [entity, sb_transform, sb_mesh, sb_collider] : m_Scene.Each<Transform, Mesh, RigidBody>())
             {
                 auto& mesh = sb_mesh;
                 auto& transform = sb_transform;
@@ -400,7 +400,7 @@ public:
                 transform.position = Vec3(-65.0f, 85.0f + i * ( radius * 2.0f ), 0.0f);
                 transform.Compose();
 
-                auto& collider = m_Scene.Add<BoxCollider>(entity);
+                auto& collider = m_Scene.Add<RigidBody>(entity);
                 collider.motionType = JPH::EMotionType::Dynamic;
                 JPH::Ref<JPH::ShapeSettings> settings = new JPH::SphereShapeSettings(radius);
 

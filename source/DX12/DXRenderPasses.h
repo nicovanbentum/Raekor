@@ -425,8 +425,8 @@ struct ImGuiData
     RenderGraphResourceID mVertexBuffer;
     RenderGraphResourceViewID mBackBufferRTV;
     RenderGraphResourceViewID mInputTextureSRV;
-    std::vector<uint8_t> mIndexScratchBuffer;
-    std::vector<uint8_t> mVertexScratchBuffer;
+    Array<uint8_t> mIndexScratchBuffer;
+    Array<uint8_t> mVertexScratchBuffer;
     ComPtr<ID3D12PipelineState> mPipeline;
 };
 

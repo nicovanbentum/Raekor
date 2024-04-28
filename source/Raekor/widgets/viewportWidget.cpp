@@ -376,7 +376,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 			for (const auto& [sb_entity, sb_transform, sb_mesh] : scene.Each<Transform, Mesh>())
 			{
 				if (!scene.Has<SoftBody>(sb_entity))
-					scene.Add<BoxCollider>(sb_entity);
+					scene.Add<RigidBody>(sb_entity);
 			}
 
 			GetPhysics().GenerateRigidBodiesEntireScene(GetScene());
@@ -414,7 +414,7 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 				transform.position = Vec3(-65.0f, 85.0f + i * ( radius * 2.0f ), 0.0f);
 				transform.Compose();
 
-				auto& collider = scene.Add<BoxCollider>(entity);
+				auto& collider = scene.Add<RigidBody>(entity);
 				collider.motionType = JPH::EMotionType::Dynamic;
 				JPH::ShapeSettings* settings = new JPH::SphereShapeSettings(radius);
 
@@ -613,12 +613,12 @@ void ViewportWidget::Draw(Widgets* inWidgets, float inDeltaTime)
 }
 
 
-void ViewportWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
+void ViewportWidget::OnEvent(Widgets* inWidgets, const SDL_Event& inEvent)
 {
 
-	if (ev.type == SDL_KEYDOWN && !ev.key.repeat && !SDL_GetRelativeMouseMode())
+	if (inEvent.type == SDL_KEYDOWN && !inEvent.key.repeat && !SDL_GetRelativeMouseMode())
 	{
-		switch (ev.key.keysym.sym)
+		switch (inEvent.key.keysym.sym)
 		{
 			case SDLK_r:
 			{
@@ -635,6 +635,11 @@ void ViewportWidget::OnEvent(Widgets* inWidgets, const SDL_Event& ev)
 				operation = ImGuizmo::OPERATION::SCALE;
 				break;
 			}
+			case SDLK_DELETE:
+			{
+				GetScene().Destroy(GetActiveEntity());
+				SetActiveEntity(Entity::Null);
+			} break;
 		}
 	}
 }

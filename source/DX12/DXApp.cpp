@@ -66,21 +66,21 @@ DXApp::DXApp() :
     // this is a hacky workaround. at least we get the added benefit of 0 being an 'invalid' index :D
     (void)m_Device.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Add(nullptr);
 
-    static auto blue_noise_samples = std::vector<Vec4>();
+    static Array<Vec4> blue_noise_samples;
     blue_noise_samples.reserve(128 * 128);
 
-    for (auto y = 0u; y < 128; y++)
+    for (int y = 0; y < 128; y++)
     {
-        for (auto x = 0u; x < 128; x++)
+        for (int x = 0; x < 128; x++)
         {
-            auto& sample = blue_noise_samples.emplace_back();
+            Vec4& sample = blue_noise_samples.emplace_back();
 
-            for (auto i = 0u; i < sample.length(); i++)
+            for (int i = 0; i < sample.length(); i++)
                 sample[i] = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp(x, y, 0, i);
         }
     }
 
-    auto bluenoise_texture = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 128, 128, Texture::Usage::SHADER_READ_ONLY));
+    TextureID bluenoise_texture = m_Device.CreateTexture(Texture::Desc2D(DXGI_FORMAT_R32G32B32A32_FLOAT, 128, 128, Texture::Usage::SHADER_READ_ONLY));
     gSetDebugName(m_Device.GetD3D12Resource(bluenoise_texture), "BLUENOISE128x1spp");
     
     assert(m_Device.GetBindlessHeapIndex(bluenoise_texture) == BINDLESS_BLUE_NOISE_TEXTURE_INDEX);
@@ -90,9 +90,9 @@ DXApp::DXApp() :
     LogMessage(std::format("[CPU] Blue noise texture took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
     // Create default textures / assets
-    const auto black_texture_file  = TextureAsset::sConvert("assets/system/black4x4.png");
-    const auto white_texture_file  = TextureAsset::sConvert("assets/system/white4x4.png");
-    const auto normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
+    const String black_texture_file  = TextureAsset::sConvert("assets/system/black4x4.png");
+    const String white_texture_file  = TextureAsset::sConvert("assets/system/white4x4.png");
+    const String normal_texture_file = TextureAsset::sConvert("assets/system/normal4x4.png");
     m_DefaultBlackTexture  = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(black_texture_file)));
     m_DefaultWhiteTexture  = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(white_texture_file)));
     m_DefaultNormalTexture = TextureID(m_RenderInterface.UploadTextureFromAsset(m_Assets.GetAsset<TextureAsset>(normal_texture_file)));
@@ -101,18 +101,18 @@ DXApp::DXApp() :
     m_Renderer.QueueTextureUpload(m_DefaultWhiteTexture, 0, m_Assets.GetAsset<TextureAsset>(white_texture_file));
     m_Renderer.QueueTextureUpload(m_DefaultNormalTexture, 0, m_Assets.GetAsset<TextureAsset>(normal_texture_file));
 
-    assert(m_DefaultBlackTexture.IsValid() && m_DefaultBlackTexture.ToIndex() != 0);
-    assert(m_DefaultWhiteTexture.IsValid() && m_DefaultWhiteTexture.ToIndex() != 0);
-    assert(m_DefaultNormalTexture.IsValid() && m_DefaultNormalTexture.ToIndex() != 0);
+    assert(m_DefaultBlackTexture.IsValid() && m_DefaultBlackTexture.GetIndex() != 0);
+    assert(m_DefaultWhiteTexture.IsValid() && m_DefaultWhiteTexture.GetIndex() != 0);
+    assert(m_DefaultNormalTexture.IsValid() && m_DefaultNormalTexture.GetIndex() != 0);
 
-    Material::Default.gpuAlbedoMap    = uint32_t(m_DefaultWhiteTexture);
-    Material::Default.gpuNormalMap    = uint32_t(m_DefaultNormalTexture);
-    Material::Default.gpuEmissiveMap  = uint32_t(m_DefaultWhiteTexture);
-    Material::Default.gpuMetallicMap  = uint32_t(m_DefaultWhiteTexture);
-    Material::Default.gpuRoughnessMap = uint32_t(m_DefaultWhiteTexture);
+    Material::Default.gpuAlbedoMap    = m_DefaultWhiteTexture.GetIndex();
+    Material::Default.gpuNormalMap    = m_DefaultNormalTexture.GetIndex();
+    Material::Default.gpuEmissiveMap  = m_DefaultWhiteTexture.GetIndex();
+    Material::Default.gpuMetallicMap  = m_DefaultWhiteTexture.GetIndex();
+    Material::Default.gpuRoughnessMap = m_DefaultWhiteTexture.GetIndex();
 
-    m_RenderInterface.SetBlackTexture(uint32_t(m_DefaultBlackTexture));
-    m_RenderInterface.SetWhiteTexture(uint32_t(m_DefaultWhiteTexture));
+    m_RenderInterface.SetBlackTexture(m_DefaultBlackTexture.GetValue());
+    m_RenderInterface.SetWhiteTexture(m_DefaultWhiteTexture.GetValue());
 
     LogMessage(std::format("[CPU] Default material upload took {:.2f} ms", Timer::sToMilliseconds(timer.Restart())));
 
@@ -133,7 +133,7 @@ DXApp::DXApp() :
     }
 
     // initialize DirectStorage 1.0
-    auto queue_desc = DSTORAGE_QUEUE_DESC
+    DSTORAGE_QUEUE_DESC queue_desc =
     {
         .SourceType = DSTORAGE_REQUEST_SOURCE_FILE,
         .Capacity = DSTORAGE_MAX_QUEUE_CAPACITY,
@@ -141,7 +141,7 @@ DXApp::DXApp() :
         .Device = *m_Device,
     };
 
-    auto storage_factory = ComPtr<IDStorageFactory> {};
+    ComPtr<IDStorageFactory> storage_factory = nullptr;
     gThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&storage_factory)));
 
     gThrowIfFailed(storage_factory->CreateQueue(&queue_desc, IID_PPV_ARGS(&m_FileStorageQueue)));
@@ -199,7 +199,7 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
                 SDL_SetWindowFullscreen(m_Window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 
             // SDL2 should have updated the window by now, so get the new size
-            auto width = 0, height = 0;
+            int width = 0, height = 0;
             SDL_GetWindowSize(m_Window, &width, &height);
 
             // Updat the viewport and tell the renderer to resize to the viewport
@@ -219,18 +219,19 @@ void DXApp::OnEvent(const SDL_Event& inEvent)
 
 DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset, DXGI_FORMAT inFormat)
 {
-    auto factory = ComPtr<IDStorageFactory>();
+    ComPtr<IDStorageFactory> factory = nullptr;
     gThrowIfFailed(DStorageGetFactory(IID_PPV_ARGS(&factory)));
 
-    auto data_ptr = inAsset->GetData();
-    const auto header_ptr = inAsset->GetHeader();
+    const char* data_ptr = inAsset->GetData();
+    const DDS_HEADER* header_ptr = inAsset->GetHeader();
+
     // I think DirectStorage doesnt do proper texture data alignment for its upload buffers as we get garbage past the 4th mip
-    const auto mipmap_levels = std::min(header_ptr->dwMipMapCount, 4ul);
     // const auto mipmap_levels = header->dwMipMapCount;
+    const uint32_t mipmap_levels = std::min(header_ptr->dwMipMapCount, 4ul);
 
-    const auto debug_name = inAsset->GetPath().string();
+    const String debug_name = inAsset->GetPath().string();
 
-    auto& texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc {
+    Texture& texture = m_Device.GetTexture(m_Device.CreateTexture(Texture::Desc {
         .format     = inFormat,
         .width      = header_ptr->dwWidth,
         .height     = header_ptr->dwHeight,
@@ -239,31 +240,39 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
         .debugName  = debug_name.c_str()
     }));
 
-    auto requests = std::vector<DSTORAGE_REQUEST>(mipmap_levels);
-
+    Array<DSTORAGE_REQUEST> requests(mipmap_levels);
     for (auto [mip, request] : gEnumerate(requests))
     {
-        const auto dimensions = glm::ivec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
-        const auto data_size = std::max(1u, ( ( dimensions.x + 3u ) / 4u )) * std::max(1u, ( ( dimensions.y + 3u ) / 4u )) * 16u;
+        const UVec2 dimensions = UVec2(std::max(header_ptr->dwWidth >> mip, 1ul), std::max(header_ptr->dwHeight >> mip, 1ul));
+        const uint32_t data_size = std::max(1u, ( ( dimensions.x + 3u ) / 4u )) * std::max(1u, ( ( dimensions.y + 3u ) / 4u )) * 16u;
 
-        request = DSTORAGE_REQUEST {
-            .Options = DSTORAGE_REQUEST_OPTIONS {
+        request = DSTORAGE_REQUEST 
+        {
+            .Options = DSTORAGE_REQUEST_OPTIONS 
+            {
                 .SourceType = DSTORAGE_REQUEST_SOURCE_MEMORY,
                 .DestinationType = DSTORAGE_REQUEST_DESTINATION_TEXTURE_REGION,
             },
-            .Source = DSTORAGE_SOURCE {
-                DSTORAGE_SOURCE_MEMORY {
+
+            .Source = DSTORAGE_SOURCE 
+            {
+                DSTORAGE_SOURCE_MEMORY 
+                {
                     .Source = data_ptr,
                     .Size = data_size
-            }},
+                }
+            },
 
-            .Destination = DSTORAGE_DESTINATION {
-                .Texture = DSTORAGE_DESTINATION_TEXTURE_REGION {
+            .Destination = DSTORAGE_DESTINATION 
+            {
+                .Texture = DSTORAGE_DESTINATION_TEXTURE_REGION 
+                {
                     .Resource = texture.GetD3D12Resource().Get(),
                     .SubresourceIndex = uint32_t(mip),
                     .Region = CD3DX12_BOX(0, 0, dimensions.x, dimensions.y),
                 }
             },
+
             .Name = inAsset->GetPath().string().c_str()
         };
 
@@ -272,11 +281,11 @@ DescriptorID DXApp::UploadTextureDirectStorage(const TextureAsset::Ptr& inAsset,
         m_MemoryStorageQueue->EnqueueRequest(&request);
     }
 
-    auto fence = ComPtr<ID3D12Fence> {};
+     ComPtr<ID3D12Fence> fence = nullptr;
     gThrowIfFailed(m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())));
 
-    auto fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    constexpr auto fence_value = 1ul;
+    HANDLE fence_event = CreateEventA(nullptr, FALSE, FALSE, nullptr);
+    constexpr int fence_value = 1ul;
     gThrowIfFailed(fence->SetEventOnCompletion(fence_value, fence_event));
     m_MemoryStorageQueue->EnqueueSignal(fence.Get(), fence_value);
 

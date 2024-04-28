@@ -100,26 +100,27 @@ public:
     static constexpr DXGI_FORMAT sSwapchainFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
 
 private:
-    SDL_Window* m_Window;
-    std::vector<Entity>         m_PendingBlasUpdates;
-    std::vector<Entity>         m_PendingMeshUploads;
-    std::vector<Entity>         m_PendingSkeletonUploads;
-    std::vector<Entity>         m_PendingMaterialUploads;
-    std::vector<TextureUpload>  m_PendingTextureUploads;
-    Job::Ptr                    m_PresentJobPtr;
-    uint32_t                    m_FrameIndex;
-    float                       m_ElapsedTime = 0;
-    ComPtr<IDXGISwapChain3>     m_Swapchain;
-    ComPtr<ID3D12Fence>         m_Fence;
-    HANDLE                      m_FenceEvent;
-    uint64_t                    m_FrameCounter = 0;
-    bool                        m_ShouldResize = false;
-    bool                        m_ShouldCaptureNextFrame = false;
-    BackBufferData              m_BackBufferData[sFrameCount];
-    FrameConstants              m_FrameConstants = {};
-    GlobalConstants             m_GlobalConstants = {};
-    Upscaler                    m_Upscaler;
-    RenderGraph                 m_RenderGraph;
+    SDL_Window*             m_Window;
+    Array<Entity>           m_PendingBlasUpdates;
+    Array<Entity>           m_PendingMeshUploads;
+    Array<Entity>           m_PendingSkeletonUploads;
+    Array<Entity>           m_PendingMaterialUploads;
+    Array<TextureUpload>    m_PendingTextureUploads;
+
+    uint32_t                m_FrameIndex = 0;
+    uint64_t                m_FrameCounter = 0;
+    Job::Ptr                m_PresentJobPtr = nullptr;
+    float                   m_ElapsedTime = 0;
+    ComPtr<ID3D12Fence>     m_Fence;
+    HANDLE                  m_FenceEvent;
+    ComPtr<IDXGISwapChain3> m_Swapchain;
+    bool                    m_ShouldResize = false;
+    bool                    m_ShouldCaptureNextFrame = false;
+    BackBufferData          m_BackBufferData[sFrameCount];
+    FrameConstants          m_FrameConstants = {};
+    GlobalConstants         m_GlobalConstants = {};
+    Upscaler                m_Upscaler;
+    RenderGraph             m_RenderGraph;
 };
 
 

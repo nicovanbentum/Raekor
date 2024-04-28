@@ -20,8 +20,8 @@ public:
 	static constexpr ImU32 sScalarColor = IM_COL32(36, 98, 131, 255);
 	static constexpr ImU32 sVectorColor = IM_COL32(99, 99, 199, 255);
 	static constexpr ImU32 sTextureColor = IM_COL32(131, 49, 74, 255);
-	static constexpr ImU32 sPixelShaderColor = IM_COL32(43, 101, 43, 255);
-	static constexpr ImU32 sVertexShaderColor = IM_COL32(43, 101, 43, 255);
+	static constexpr ImU32 sPixelShaderColor = IM_COL32(73, 131, 73, 255);
+	static constexpr ImU32 sVertexShaderColor = IM_COL32(201, 181, 15, 255);
 
 public:
 	ShaderNodePin* GetInputPin(int inIndex) { return inIndex >= GetInputPins().Length() ? nullptr : &GetInputPins()[inIndex]; }
@@ -113,6 +113,13 @@ private:
 };
 
 
+enum EShaderGraph
+{
+	SHADER_GRAPH_VERTEX,
+	SHADER_GRAPH_PIXEL,
+	SHADER_GRAPH_COUNT
+};
+
 class ShaderGraphBuilder
 {
 	RTTI_DECLARE_TYPE(ShaderGraphBuilder);
@@ -191,9 +198,10 @@ public:
 	Slice<String> GetFunctions() const { return m_Functions; }
 	void AddFunction(const String& inFunction) { m_Functions.push_back(inFunction); }
 
-	//Slice<int> GetOutConnections(const ShaderNodePin& inPin) { return *m_OutputPins.findRight(inPin.GetIndex()); }
-	//bool HasOutConnections(const ShaderNodePin& inPin) { return m_OutputPins.findRight(inPin.GetIndex())->empty(); }
-
+	void StoreSnapshot();
+	void ResetSnapshots();
+	ShaderGraphBuilder Undo();
+	ShaderGraphBuilder Redo();
 
 	//////////////////////
 	// SAVE/RESTORE FUNCTIONS
@@ -201,17 +209,20 @@ public:
 	void OpenFromFileJSON(JSON::ReadArchive& ioArchive);
 
 private:
+	static inline int m_SnapshotIndex = -1;
+	static inline Array<ShaderGraphBuilder> m_Undo;
+	static inline Array<ShaderGraphBuilder> m_Redo;
+
+private:
 	bool m_ShowNodeIndices = false;
 	bool m_RequiresPassConstants = false;
 	bool m_RequiresFrameConstants = false;
 
-	uint32_t m_LineNr = 0;
-	uint32_t m_NodeIndex = -1;
-	uint32_t m_InputPinIndex = -1;
-	uint32_t m_OutputPinIndex = -1;
+	int m_LineNr = 0;
+	int m_NodeIndex = -1;
+	int m_InputPinIndex = -1;
+	int m_OutputPinIndex = -1;
 
-	//BinaryRelations::OneToOne<int, int> m_InputPins;
-	//BinaryRelations::OneToMany<int, int> m_OutputPins;
 
 	String m_Layout;
 	String m_ErrorMessage;
@@ -221,7 +232,7 @@ private:
 
 	HashMap<int, int> m_IncomingLinks; // global pin index -> global pin index
 	HashMap<int, Array<int>> m_OutgoingLinks; // global pin index -> global pin indices
-	Array<std::shared_ptr<ShaderNode>> m_ShaderNodes;
+	Array<SharedPtr<ShaderNode>> m_ShaderNodes;
 };
 
 } // namespace Raekor

@@ -52,15 +52,15 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 
 	if (OS::sCheckCommandLineOption("-shader_editor"))
 	{
-		m_Widgets.Register<NodeGraphWidget>(this);
+		m_Widgets.Register<ShaderGraphWidget>(this);
 	}
 	else
 	{
 		m_Widgets.Register<SequenceWidget>(this);
-		m_Widgets.Register<AssetsWidget>(this);
+		m_Widgets.Register<ComponentsWidget>(this);
 		m_Widgets.Register<MenubarWidget>(this);
 		m_Widgets.Register<ConsoleWidget>(this);
-		m_Widgets.Register<NodeGraphWidget>(this);
+		m_Widgets.Register<ShaderGraphWidget>(this);
 		m_Widgets.Register<ViewportWidget>(this);
 		m_Widgets.Register<ProfileWidget>(this);
 		m_Widgets.Register<InspectorWidget>(this);
@@ -85,7 +85,7 @@ IEditor::IEditor(WindowFlags inWindowFlags, IRenderInterface* inRenderInterface)
 
 	if (g_CVars.Create("launch_asset_compiler_on_startup", 0))
 	{
-		auto compiler_app_cmd_line = OS::sGetExecutablePath().string() + " -asset_compiler";
+		String compiler_app_cmd_line = OS::sGetExecutablePath().string() + " -asset_compiler";
 
 		PROCESS_INFORMATION pi = {};
 		STARTUPINFO si = { sizeof(si) };
@@ -145,7 +145,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 		m_Physics.Step(m_Scene, inDeltaTime);
 
     // Apply sequence to camera
-    if (auto sequence_widget = m_Widgets.GetWidget<SequenceWidget>())
+    if (SequenceWidget* sequence_widget = m_Widgets.GetWidget<SequenceWidget>())
     {
         if (sequence_widget->IsLockedToCamera())
             sequence_widget->ApplyToCamera(m_Viewport.GetCamera(), inDeltaTime);
@@ -158,7 +158,7 @@ void IEditor::OnUpdate(float inDeltaTime)
 	// update camera matrices
 	m_Viewport.OnUpdate(inDeltaTime);
 
-	static auto& update_transforms = g_CVars.Create("update_transforms", 1, true);
+	static int& update_transforms = g_CVars.Create("update_transforms", 1, true);
 
 	if (update_transforms)
 	{
@@ -259,22 +259,6 @@ void IEditor::OnEvent(const SDL_Event& event)
 	{
 		switch (event.key.keysym.sym)
 		{
-			case SDLK_DELETE:
-			{
-				if (m_ActiveEntity != Entity::Null && m_ActiveEntity != m_Scene.GetRootEntity())
-				{
-					Scene::TraverseFunction Traverse = [](void* inContext, Scene& inScene, Entity inEntity) 
-					{
-						IEditor* editor = (IEditor*)inContext;
-						editor->GetScene()->Destroy(inEntity);
-						editor->GetScene()->Unparent(inEntity);
-					};
-
-					m_Scene.TraverseBreadthFirst(m_ActiveEntity, Traverse, this);
-					m_ActiveEntity = Entity::Null;
-				}
-			} break;
-
 			case SDLK_d:
 			{
 				if (SDL_GetModState() & KMOD_LCTRL)
@@ -322,7 +306,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 
 			case SDLK_ESCAPE:
 			{
-				GameState state = GetGameState();
+				EGameState state = GetGameState();
 				SetGameState(GAME_STOPPED);
 
 				m_Physics.SetState(Physics::Idle);
@@ -351,7 +335,7 @@ void IEditor::OnEvent(const SDL_Event& event)
 
 			case SDLK_F5:
 			{
-				GameState state = GetGameState();
+				EGameState state = GetGameState();
 				SetGameState(GAME_RUNNING);
 
 				m_Physics.SetState(Physics::Stepping);
@@ -403,16 +387,15 @@ void IEditor::OnEvent(const SDL_Event& event)
 }
 
 
-void IEditor::LogMessage(const std::string& inMessage)
+void IEditor::LogMessage(const String& inMessage)
 {
 	Application::LogMessage(inMessage);
 
-	auto console_widget = m_Widgets.GetWidget<ConsoleWidget>();
-	if (console_widget)
+	if (ConsoleWidget* console_widget = m_Widgets.GetWidget<ConsoleWidget>())
 	{
 		// Flush any pending messages
 		if (!m_Messages.empty())
-			for (const auto& message : m_Messages)
+			for (const String& message : m_Messages)
 				console_widget->LogMessage(message);
 
 		m_Messages.clear();

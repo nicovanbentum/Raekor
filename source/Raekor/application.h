@@ -27,10 +27,10 @@ struct ConfigSettings
 	bool mShowUI = true;
 	int mDisplayIndex = 0;
 	bool mVsyncEnabled = true;
-	std::string mAppName = "Raekor Renderer";
+	String mAppName = "Raekor Renderer";
 	Path mFontFile = "assets/system/Inter-Medium.ttf";
 	Path mSceneFile = "";
-	std::vector<Path> mRecentScenes;
+	Array<Path> mRecentScenes;
 };
 
 
@@ -46,7 +46,7 @@ enum WindowFlag
 using WindowFlags = uint32_t;
 
 
-enum GameState
+enum EGameState
 {
 	GAME_STOPPED = 0,
 	GAME_PAUSED,
@@ -88,10 +88,10 @@ public:
 	virtual void SetActiveEntity(Entity inEntity) {}
 	virtual Entity GetActiveEntity() { return Entity::Null; }
 
-	virtual void LogMessage(const std::string& inMessage) { std::cout << inMessage << '\n'; }
+	virtual void LogMessage(const String& inMessage) { std::cout << inMessage << '\n'; }
 
-	void SetGameState(GameState inState) { m_GameState = inState; }
-	GameState GetGameState() const { return m_GameState; }
+	void SetGameState(EGameState inState) { m_GameState = inState; }
+	EGameState GetGameState() const { return m_GameState; }
 
 	uint64_t GetFrameCounter() const { return m_FrameCounter; }
 	const ConfigSettings& GetSettings() const { return m_Settings; }
@@ -106,7 +106,7 @@ public:
 
 protected:
 	bool m_Running = true;
-	GameState m_GameState = GAME_STOPPED;
+	EGameState m_GameState = GAME_STOPPED;
 	uint64_t m_FrameCounter = 0;
 	SDL_Window* m_Window = nullptr;
 

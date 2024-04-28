@@ -64,10 +64,10 @@ public:
 	uint32_t GetTokenToValue(uint32_t inTokenIdx, std::variant<Types...>& inValue);
 
 private:
-	std::string m_StrBuffer;
-	std::vector<jsmntok_t> m_Tokens;
-	std::vector<double> m_Primitives;
-	std::vector<std::string> m_Strings;
+	String m_StrBuffer;
+	Array<jsmntok_t> m_Tokens;
+	Array<double> m_Primitives;
+	Array<String> m_Strings;
 };
 
 

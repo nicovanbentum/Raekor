@@ -92,9 +92,9 @@ private:
     void PopRenderPass()                            { m_CurrentRenderPasses.pop_back(); }
     IRenderPass* GetRenderPass()                    { return m_CurrentRenderPasses.empty() ? nullptr : m_CurrentRenderPasses.back(); }
 
-    std::vector<IRenderPass*> m_CurrentRenderPasses;
-    std::vector<RenderGraphResourceDesc> m_ResourceDescriptions;
-    std::vector<RenderGraphResourceViewDesc> m_ResourceViewDescriptions;
+    Array<IRenderPass*> m_CurrentRenderPasses;
+    Array<RenderGraphResourceDesc> m_ResourceDescriptions;
+    Array<RenderGraphResourceViewDesc> m_ResourceViewDescriptions;
 };
 
 
@@ -156,8 +156,8 @@ public:
 
 private:
     RenderGraphResourceAllocator m_Allocator;
-    std::vector<RenderGraphResource> m_Resources;
-    std::vector<RenderGraphResource> m_ResourceViews;
+    Array<RenderGraphResource> m_Resources;
+    Array<RenderGraphResource> m_ResourceViews;
 };
 
 
@@ -211,15 +211,15 @@ protected:
     uint32_t	m_ConstantsSize = 0;
     bool		m_IsExternal = false;
 
-    std::vector<RenderGraphResourceID>     m_CreatedResources;
-    std::vector<RenderGraphResourceViewID> m_ReadResources;
-    std::vector<RenderGraphResourceViewID> m_WrittenResources;
+    Array<RenderGraphResourceID>     m_CreatedResources;
+    Array<RenderGraphResourceViewID> m_ReadResources;
+    Array<RenderGraphResourceViewID> m_WrittenResources;
 
-    std::vector<DXGI_FORMAT> m_RenderTargetFormats;
+    Array<DXGI_FORMAT> m_RenderTargetFormats;
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_UNKNOWN;
 
-    std::vector<D3D12_RESOURCE_BARRIER> m_ExitBarriers;
-    std::vector<D3D12_RESOURCE_BARRIER> m_EntryBarriers;
+    Array<D3D12_RESOURCE_BARRIER> m_ExitBarriers;
+    Array<D3D12_RESOURCE_BARRIER> m_EntryBarriers;
 };
 
 
@@ -334,7 +334,7 @@ private:
 
     RenderGraphBuilder m_RenderGraphBuilder;
     RenderGraphResources m_RenderGraphResources;
-    std::vector<std::unique_ptr<IRenderPass>> m_RenderPasses;
+    Array<UniquePtr<IRenderPass>> m_RenderPasses;
 };
 
 
@@ -343,7 +343,7 @@ template<typename T, typename PassType>
 const T& RenderGraph::AddPass(const std::string& inName, const IRenderPass::SetupFn<T>& inSetup, const IRenderPass::ExecFn<T>& inExecute)
 {
     // have to use index here, taking the emplace_back ref would invalidate it if we add aditional passes inside of the setup function
-    const auto pass_index = m_RenderPasses.size();
+    const int pass_index = m_RenderPasses.size();
     m_RenderPasses.emplace_back(std::make_unique<PassType>(inName, inExecute));
 
     m_RenderGraphBuilder.PushRenderPass(m_RenderPasses[pass_index].get());

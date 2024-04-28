@@ -30,16 +30,16 @@ public:
 		VertexInput& Binding(uint32_t binding, uint32_t stride);
 		VertexInput& Attribute(uint32_t location, VkFormat format, uint32_t offset);
 
-		std::vector<VkVertexInputBindingDescription> bindings;
-		std::vector<VkVertexInputAttributeDescription> attributes;
+		Array<VkVertexInputBindingDescription> bindings;
+		Array<VkVertexInputAttributeDescription> attributes;
 	};
 
 	struct Desc
 	{
 		State* state;
 		Shader* vertexShader;
-		VertexInput* vertexInput;
 		Shader* pixelShader;
+		VertexInput* vertexInput;
 	};
 
 	VkPipeline pipeline;

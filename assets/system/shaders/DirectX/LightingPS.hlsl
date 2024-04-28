@@ -40,11 +40,9 @@ float4 main(in FULLSCREEN_TRIANGLE_VS_OUT inParams) : SV_Target0 {
     // evaluate DirectionalLight 
     {
         float3 Wi = normalize(-fc.mSunDirection.xyz);
-        total_radiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo);
+        float sun_shadow = shadow_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).r;
+        total_radiance += EvaluateDirectionalLight(brdf, fc.mSunColor, Wi, Wo) * sun_shadow;
     }
-
-    // apply ray traced shadows to DirectionalLight
-    total_radiance *= shadow_texture.SampleLevel(SamplerLinearClamp, inParams.mScreenUV, 0).r;
 
     uint2 group_index = uint2(inParams.mPixelCoords.xy) / LIGHT_CULL_TILE_SIZE;
     RWByteAddressBuffer light_count_buffer = ResourceDescriptorHeap[rc.mLights.mLightGridBuffer];

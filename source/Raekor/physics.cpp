@@ -87,7 +87,7 @@ void Physics::Step(Scene& scene, float dt)
 
 	auto& body_interface = m_Physics->GetBodyInterface();
 
-	for (const auto& [entity, transform, mesh, collider] : scene.Each<Transform, Mesh, BoxCollider>())
+	for (const auto& [entity, transform, mesh, collider] : scene.Each<Transform, Mesh, RigidBody>())
 	{
 		if (collider.bodyID.IsInvalid())
 			continue;
@@ -108,9 +108,9 @@ void Physics::OnUpdate(Scene& scene)
 {
 	PROFILE_FUNCTION_CPU();
 
-	if (scene.Any<BoxCollider>() && scene.Count<BoxCollider>())
+	if (scene.Any<RigidBody>() && scene.Count<RigidBody>())
 	{
-		for (const auto& [entity, transform, collider] : scene.Each<Transform, BoxCollider>())
+		for (const auto& [entity, transform, collider] : scene.Each<Transform, RigidBody>())
 		{
 			if (collider.bodyID.IsInvalid() && collider.shapeSettings != nullptr)
 			{
@@ -198,11 +198,11 @@ void Physics::OnUpdate(Scene& scene)
 
 void Physics::GenerateRigidBodiesEntireScene(Scene& inScene)
 {
-	for (const auto& [sb_entity, sb_transform, sb_mesh, sb_collider] : inScene.Each<Transform, Mesh, BoxCollider>())
+	for (const auto& [sb_entity, sb_transform, sb_mesh, sb_collider] : inScene.Each<Transform, Mesh, RigidBody>())
 	{
 		Mesh& mesh = sb_mesh;
 		Transform& transform = sb_transform;
-		BoxCollider& collider = sb_collider;
+		RigidBody& collider = sb_collider;
 
 		g_ThreadPool.QueueJob([&]()
 		{

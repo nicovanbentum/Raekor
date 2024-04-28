@@ -106,7 +106,7 @@ void RayTracedScene::UploadMesh(Application* inApp, Device& inDevice, StagingHea
         .debugName = "BLAS_BUFFER"
     });
 
-    inMesh.BottomLevelAS = blas_buffer_id.ToIndex();
+    inMesh.BottomLevelAS = blas_buffer_id.GetIndex();
 
     const BufferID scratch_buffer_id = inDevice.CreateBuffer(Buffer::Desc
     {
@@ -211,29 +211,39 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
 
     PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD TLAS");
 
-    auto rt_instances = std::vector<D3D12_RAYTRACING_INSTANCE_DESC> {};
+    Array<D3D12_RAYTRACING_INSTANCE_DESC> rt_instances;
     rt_instances.reserve(m_Scene.Count<Mesh>());
 
     for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
     {
-        auto transform = m_Scene.GetPtr<Transform>(entity);
+        const Transform* transform = m_Scene.GetPtr<Transform>(entity);
         if (!transform)
             continue;
 
         if (!BufferID(mesh.BottomLevelAS).IsValid())
             continue;
 
-        const auto& blas_buffer = inDevice.GetBuffer(BufferID(mesh.BottomLevelAS));
-
-        auto instance = D3D12_RAYTRACING_INSTANCE_DESC
+        // vertex animation and custom pixel shaders are unsupported for now
+        if (const Material* material = m_Scene.GetPtr<Material>(mesh.material))
         {
-            .InstanceID = m_Scene.GetSparseIndex<Mesh>(entity),
+            if (material->vertexShader || material->pixelShader)
+                continue;
+        }
+
+        const Buffer& blas_buffer = inDevice.GetBuffer(BufferID(mesh.BottomLevelAS));
+
+        int instance_index = m_Scene.GetPackedIndex<Mesh>(entity);
+        assert(instance_index != -1);
+
+        D3D12_RAYTRACING_INSTANCE_DESC instance =
+        {
+            .InstanceID = uint32_t(instance_index),
             .InstanceMask = 0xFF,
             .Flags = D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE,
             .AccelerationStructure = blas_buffer->GetGPUVirtualAddress(),
         };
 
-        const auto transpose = glm::transpose(transform->worldTransform); // TODO: transform buffer
+        const Mat4x4 transpose = glm::transpose(transform->worldTransform); // TODO: transform buffer
         memcpy(instance.Transform, glm::value_ptr(transpose), sizeof(instance.Transform));
 
         rt_instances.push_back(instance);
@@ -245,13 +255,13 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
         .debugName = "D3D12_RAYTRACING_INSTANCE Buffer"
     });
 
-    auto& instance_buffer = inDevice.GetBuffer(m_D3D12InstancesBuffer);
+    Buffer& instance_buffer = inDevice.GetBuffer(m_D3D12InstancesBuffer);
     inStagingHeap.StageBuffer(inCmdList, instance_buffer, 0, rt_instances.data(), instance_buffer.GetSize());
     
     const auto after_copy_barrier = CD3DX12_RESOURCE_BARRIER::Transition(instance_buffer.GetD3D12Resource().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     inCmdList->ResourceBarrier(1, &after_copy_barrier);
 
-    const auto inputs = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS
+    const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs =
     {
         .Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL,
         .Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE,
@@ -260,7 +270,7 @@ void RayTracedScene::UploadTLAS(Application* inApp, Device& inDevice, StagingHea
         .InstanceDescs = instance_buffer->GetGPUVirtualAddress(),
     };
 
-    auto prebuild_info = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO {};
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
     inDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
 
     m_TLASBuffer = GrowBuffer(inDevice, m_TLASBuffer, Buffer::Desc
@@ -294,7 +304,7 @@ void RayTracedScene::UploadLights(Application* inApp, Device& inDevice, StagingH
     if (!m_Scene.Count<Light>())
         return;
 
-    const auto lights = m_Scene.GetComponentStorage<Light>()->GetComponents();
+    const Slice<Light> lights = m_Scene.GetComponentStorage<Light>()->GetComponents();
 
     m_LightsBuffer = GrowBuffer(inDevice, m_LightsBuffer, Buffer::Desc
     {
@@ -317,14 +327,13 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
 
     PIXScopedEvent(static_cast<ID3D12GraphicsCommandList*>( inCmdList ), PIX_COLOR(0, 255, 0), "UPLOAD INSTANCES");
 
-    const auto nr_of_meshes = m_Scene.Count<Mesh>();
-    std::vector<RTGeometry> rt_geometries;
+    const uint32_t nr_of_meshes = m_Scene.Count<Mesh>();
+    Array<RTGeometry> rt_geometries;
     rt_geometries.reserve(nr_of_meshes);
 
     for (const auto& [entity, mesh] : m_Scene.Each<Mesh>())
     {
-        auto transform = m_Scene.GetPtr<Transform>(entity);
-        assert(transform);
+        const Transform* transform = m_Scene.GetPtr<Transform>(entity);
 
         if (!transform)
             continue;
@@ -332,10 +341,10 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
         if (!BufferID(mesh.BottomLevelAS).IsValid())
             continue;
 
-        auto material_index = m_Scene.GetSparseIndex<Material>(mesh.material);
-        material_index = material_index == UINT32_MAX ? 0 : material_index;
+        int material_index = m_Scene.GetPackedIndex<Material>(mesh.material);
+        material_index = material_index == -1 ? 0 : material_index;
 
-        auto vertex_buffer = mesh.vertexBuffer;
+        uint32_t vertex_buffer = mesh.vertexBuffer;
         if (Skeleton* skeleton = m_Scene.GetPtr<Skeleton>(entity))
             vertex_buffer = skeleton->skinnedVertexBuffer;
 
@@ -343,7 +352,7 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
         {
             .mIndexBuffer = inDevice.GetBindlessHeapIndex(BufferID(mesh.indexBuffer)),
             .mVertexBuffer = inDevice.GetBindlessHeapIndex(BufferID(vertex_buffer)),
-            .mMaterialIndex = material_index,
+            .mMaterialIndex = uint32_t(material_index),
             .mLocalToWorldTransform = transform->worldTransform,
             .mInvLocalToWorldTransform = glm::inverse(transform->worldTransform)
         });
@@ -351,13 +360,13 @@ void RayTracedScene::UploadInstances(Application* inApp, Device& inDevice, Stagi
 
     m_InstancesBuffer = GrowBuffer(inDevice, m_InstancesBuffer, Buffer::Desc
     {
-        .size = sizeof(RTGeometry) * nr_of_meshes,
-        .stride = sizeof(RTGeometry),
-        .usage = Buffer::Usage::SHADER_READ_ONLY,
+        .size      = sizeof(RTGeometry) * nr_of_meshes,
+        .stride    = sizeof(RTGeometry),
+        .usage     = Buffer::Usage::SHADER_READ_ONLY,
         .debugName = "RT_INSTANCE_BUFFER"
     });
 
-    const auto& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
+    const Buffer& instance_buffer = inDevice.GetBuffer(m_InstancesBuffer);
     inStagingHeap.StageBuffer(inCmdList, instance_buffer, 0, rt_geometries.data(), instance_buffer.GetSize());
 }
 

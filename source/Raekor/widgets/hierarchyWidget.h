@@ -11,7 +11,7 @@ public:
 
 	HierarchyWidget(Application* inApp);
 	virtual void Draw(Widgets* inWidgets, float inDeltaTime) override;
-	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) override {}
+	virtual void OnEvent(Widgets* inWidgets, const SDL_Event& inEvent) override;
 
 private:
 	void DropTargetWindow(Scene& inScene);

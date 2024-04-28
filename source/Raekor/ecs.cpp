@@ -52,8 +52,8 @@ void RunECStorageTests()
 	assert(ecs.Get<TestName>(entity).name == "FirstEntity");
 	assert(ecs.Count<TestName>() == 1);
 	assert(ecs.GetPtr<TestName>(entity) != nullptr);
-	assert(ecs.GetStorage<TestName>().Length() == 1);
-	assert(ecs.GetEntities<TestName>().Length() == 1);
+	assert(ecs.GetStorage<TestName>().size() == 1);
+	assert(ecs.GetEntities<TestName>().size() == 1);
 
 	ecs.Add<TestTransform>(entity);
 	{

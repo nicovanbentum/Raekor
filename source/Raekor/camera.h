@@ -8,13 +8,15 @@ struct Frustum;
 
 class Camera
 {
+	RTTI_DECLARE_TYPE(Camera);
 
 public:
+	Camera() = default;
 	Camera(const Vec3& inPosition, const Mat4x4& inProjMatrix);
 	Camera(const Camera&) : Camera(m_Position, m_Projection) {}
 	Camera& operator=(const Camera& rhs) { return *this; }
 
-	void OnUpdate(float inDeltaTime);
+	void OnUpdate();
 
 	void Zoom(float inAmount);
 	void Look(Vec2 inAmount);
@@ -157,7 +159,7 @@ public:
 
 private:
     float m_Duration = 15.0f; // defaul to 15 seconds
-    std::vector<KeyFrame> m_KeyFrames;
+    Array<KeyFrame> m_KeyFrames;
 };
 
 } // Namespace Raekor
